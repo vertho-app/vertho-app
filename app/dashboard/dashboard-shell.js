@@ -42,9 +42,7 @@ export default function DashboardShell({ children }) {
       {/* Header */}
       <header className="flex items-center justify-between px-4 shrink-0"
         style={{ height: 'var(--header-height)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="flex items-center gap-1">
-          <span className="text-cyan-400 text-xl font-bold">V</span>
-        </div>
+        <img src="/logo-vertho.png" alt="Vertho" style={{ height: '22px' }} />
         <button className="text-gray-500 hover:text-white transition-colors">
           <Bell size={20} />
         </button>
