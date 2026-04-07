@@ -65,13 +65,49 @@ export async function excluirEmpresa(empresaId) {
   return { success: true };
 }
 
-export async function limparRegistros(empresaId, tabelas) {
+export async function limparRegistros(empresaId, tabelas, colaboradorId = null) {
   const sb = createSupabaseAdmin();
   for (const t of tabelas) {
-    const { error } = await sb.from(t).delete().eq('empresa_id', empresaId);
+    let query = sb.from(t).delete().eq('empresa_id', empresaId);
+    if (colaboradorId && t !== 'cargos' && t !== 'competencias' && t !== 'ppp_escolas') {
+      query = query.eq('colaborador_id', colaboradorId);
+    }
+    const { error } = await query;
     if (error) return { success: false, error: `Erro em ${t}: ${error.message}` };
   }
-  return { success: true, message: `${tabelas.length} tabela(s) limpas` };
+  const scope = colaboradorId ? '(colaborador)' : '(empresa)';
+  return { success: true, message: `${tabelas.length} tabela(s) limpas ${scope}` };
+}
+
+export async function limparMapeamento(empresaId, colaboradorId = null) {
+  const sb = createSupabaseAdmin();
+  const campos = {
+    perfil_dominante: null,
+    d_natural: null, i_natural: null, s_natural: null, c_natural: null,
+    d_adaptado: null, i_adaptado: null, s_adaptado: null, c_adaptado: null,
+    lid_executivo: null, lid_motivador: null, lid_metodico: null, lid_sistematico: null,
+    comp_ousadia: null, comp_comando: null, comp_objetividade: null, comp_assertividade: null,
+    comp_persuasao: null, comp_extroversao: null, comp_entusiasmo: null, comp_sociabilidade: null,
+    comp_empatia: null, comp_paciencia: null, comp_persistencia: null, comp_planejamento: null,
+    comp_organizacao: null, comp_detalhismo: null, comp_prudencia: null, comp_concentracao: null,
+    pref_video_curto: null, pref_video_longo: null, pref_texto: null, pref_audio: null,
+    pref_infografico: null, pref_exercicio: null, pref_mentor: null, pref_estudo_caso: null,
+    mapeamento_em: null, disc_resultados: null,
+  };
+  let query = sb.from('colaboradores').update(campos).eq('empresa_id', empresaId);
+  if (colaboradorId) query = query.eq('id', colaboradorId);
+  const { error, count } = await query;
+  if (error) return { success: false, error: error.message };
+  return { success: true, message: `Mapeamento limpo${colaboradorId ? ' (colaborador)' : ' (todos)'}` };
+}
+
+export async function loadColaboradoresLista(empresaId) {
+  const sb = createSupabaseAdmin();
+  const { data } = await sb.from('colaboradores')
+    .select('id, nome_completo, email')
+    .eq('empresa_id', empresaId)
+    .order('nome_completo');
+  return data || [];
 }
 
 // ── Wrappers das actions reais ──

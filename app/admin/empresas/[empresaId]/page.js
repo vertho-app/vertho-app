@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 import {
-  loadEmpresaPipeline, excluirEmpresa, limparRegistros,
+  loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, loadColaboradoresLista,
   rodarIA1, rodarIA2, rodarIA3, popularCenarios,
   gerarForms, dispararEmails, coletarRespostas, verStatusEnvios,
   rodarIA4, verFilaIA4, checkAvaliacoes, gerarRelatoriosIndividuais, gerarRelatorioGestor, gerarRelatorioRH, enviarRelIndividuais, enviarRelGestor, enviarRelRH,
@@ -141,6 +141,8 @@ export default function EmpresaPipelinePage({ params }) {
   const [modelPicker, setModelPicker] = useState(null);
   const [showDanger, setShowDanger] = useState(false);
   const [dangerLoading, setDangerLoading] = useState(false);
+  const [dangerColabId, setDangerColabId] = useState(''); // '' = todos
+  const [dangerColabs, setDangerColabs] = useState([]);
 
   const addLog = useCallback((msg, type = 'info') => {
     setLogs(prev => [{ msg, type, ts: Date.now() }, ...prev].slice(0, 30));
@@ -346,8 +348,25 @@ export default function EmpresaPipelinePage({ params }) {
           <div className="mt-3 p-4 rounded-xl border border-red-400/15" style={{ background: 'rgba(239,68,68,0.03)' }}>
             <p className="text-[10px] font-bold text-red-400/70 uppercase tracking-widest mb-3">Zona de Perigo</p>
 
+            {/* Seletor de escopo */}
+            <div className="mb-4 p-3 rounded-lg border border-white/[0.06]" style={{ background: '#091D35' }}>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Escopo da limpeza</p>
+              <select
+                value={dangerColabId}
+                onChange={e => setDangerColabId(e.target.value)}
+                onFocus={async () => { if (dangerColabs.length === 0) { const c = await loadColaboradoresLista(empresaId); setDangerColabs(c); } }}
+                className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none"
+                style={{ background: '#0F2A4A' }}>
+                <option value="">Todos os colaboradores</option>
+                {dangerColabs.map(c => (
+                  <option key={c.id} value={c.id}>{c.nome_completo || c.email}</option>
+                ))}
+              </select>
+            </div>
+
             <div className="space-y-2 mb-4">
               {[
+                { label: 'Limpar Mapeamento Comportamental', action: 'mapeamento' },
                 { label: 'Limpar Fase 1 (cenários, cargos)', tabelas: ['banco_cenarios', 'cargos'] },
                 { label: 'Limpar Fase 2 (envios)', tabelas: ['envios_diagnostico'] },
                 { label: 'Limpar Fase 3 (respostas, avaliações)', tabelas: ['respostas', 'sessoes_avaliacao', 'mensagens_chat'] },
@@ -356,26 +375,35 @@ export default function EmpresaPipelinePage({ params }) {
                 { label: 'Limpar colaboradores', tabelas: ['colaboradores'] },
                 { label: 'Limpar competências', tabelas: ['competencias'] },
                 { label: 'Limpar PPPs', tabelas: ['ppp_escolas'] },
-                { label: 'LIMPAR TUDO', tabelas: ['evolucao', 'evolucao_descritores', 'capacitacao', 'trilhas', 'fase4_envios', 'sessoes_avaliacao', 'mensagens_chat', 'respostas', 'envios_diagnostico', 'banco_cenarios', 'cargos', 'competencias', 'ppp_escolas', 'colaboradores'], danger: true },
-              ].map(item => (
-                <button key={item.label} disabled={dangerLoading}
-                  onClick={async () => {
-                    if (!confirm(`${item.label}?\n\nEsta ação não pode ser desfeita.`)) return;
-                    setDangerLoading(true);
-                    const r = await limparRegistros(empresaId, item.tabelas);
-                    if (r.success) { addLog(`🗑️ ${item.label} — concluído`, 'success'); loadData(); }
-                    else addLog(`❌ ${item.label}: ${r.error}`, 'error');
-                    setDangerLoading(false);
-                  }}
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border transition-all disabled:opacity-30 ${
-                    item.danger
-                      ? 'text-red-400 border-red-400/20 hover:bg-red-400/10 font-bold'
-                      : 'text-gray-400 border-white/[0.04] hover:border-red-400/30 hover:text-red-400'
-                  }`}
-                  style={{ background: '#091D35' }}>
-                  <Trash2 size={12} /> {item.label}
-                </button>
-              ))}
+                { label: 'LIMPAR TUDO', tabelas: ['evolucao', 'evolucao_descritores', 'capacitacao', 'trilhas', 'fase4_envios', 'sessoes_avaliacao', 'mensagens_chat', 'respostas', 'envios_diagnostico', 'banco_cenarios', 'cargos', 'competencias', 'ppp_escolas'], danger: true },
+              ].map(item => {
+                const scope = dangerColabId ? dangerColabs.find(c => c.id === dangerColabId)?.nome_completo || 'colaborador' : 'todos';
+                return (
+                  <button key={item.label} disabled={dangerLoading}
+                    onClick={async () => {
+                      if (!confirm(`${item.label} (${scope})?\n\nEsta ação não pode ser desfeita.`)) return;
+                      setDangerLoading(true);
+                      let r;
+                      if (item.action === 'mapeamento') {
+                        r = await limparMapeamento(empresaId, dangerColabId || null);
+                      } else {
+                        r = await limparRegistros(empresaId, item.tabelas, dangerColabId || null);
+                      }
+                      if (r.success) { addLog(`🗑️ ${item.label} (${scope}) — concluído`, 'success'); loadData(); }
+                      else addLog(`❌ ${item.label}: ${r.error}`, 'error');
+                      setDangerLoading(false);
+                    }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border transition-all disabled:opacity-30 ${
+                      item.danger
+                        ? 'text-red-400 border-red-400/20 hover:bg-red-400/10 font-bold'
+                        : 'text-gray-400 border-white/[0.04] hover:border-red-400/30 hover:text-red-400'
+                    }`}
+                    style={{ background: '#091D35' }}>
+                    <Trash2 size={12} /> {item.label}
+                    {dangerColabId && <span className="text-[9px] text-gray-600 ml-auto">(individual)</span>}
+                  </button>
+                );
+              })}
             </div>
 
             <button disabled={dangerLoading}
