@@ -11,43 +11,51 @@ export async function loadEmpresaPipeline(empresaId) {
     .eq('id', empresaId).single();
   if (error) return { success: false, error: error.message };
 
-  const { count: totalColab } = await sb.from('colaboradores')
-    .select('id', { count: 'exact', head: true })
-    .eq('empresa_id', empresaId);
+  const [colabRes, compRes, cargosRes, cenariosRes, enviosRes, respostasRes, avalRes, pppRes] = await Promise.all([
+    sb.from('colaboradores').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId),
+    sb.from('competencias').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId),
+    sb.from('cargos').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId).then(r => r).catch(() => ({ count: 0 })),
+    sb.from('banco_cenarios').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId),
+    sb.from('envios_diagnostico').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId),
+    sb.from('respostas').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId),
+    sb.from('respostas').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId).not('nivel_ia4', 'is', null),
+    sb.from('ppp_escolas').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId).then(r => r).catch(() => ({ count: 0 })),
+  ]);
 
-  const { count: totalComp } = await sb.from('competencias')
-    .select('id', { count: 'exact', head: true })
-    .eq('empresa_id', empresaId);
+  const totalColab = colabRes.count || 0;
+  const totalComp = compRes.count || 0;
+  const totalCargos = cargosRes.count || 0;
+  const totalCenarios = cenariosRes.count || 0;
+  const totalEnvios = enviosRes.count || 0;
+  const totalRespostas = respostasRes.count || 0;
+  const avaliadas = avalRes.count || 0;
+  const totalPPPs = pppRes.count || 0;
 
-  const { count: totalCenarios } = await sb.from('banco_cenarios')
-    .select('id', { count: 'exact', head: true })
-    .eq('empresa_id', empresaId);
+  // Contagem de top10 por cargo (competencias agrupadas)
+  const { data: compsPorCargo } = await sb.from('competencias').select('cargo').eq('empresa_id', empresaId);
+  const cargosComTop10 = new Set((compsPorCargo || []).map(c => c.cargo).filter(Boolean)).size;
 
-  const { count: totalEnvios } = await sb.from('envios_diagnostico')
-    .select('id', { count: 'exact', head: true })
-    .eq('empresa_id', empresaId);
-
-  const { count: totalRespostas } = await sb.from('respostas')
-    .select('id', { count: 'exact', head: true })
-    .eq('empresa_id', empresaId);
-
-  const { count: avaliadas } = await sb.from('respostas')
+  // Envios respondidos
+  const { count: respondidos } = await sb.from('envios_diagnostico')
     .select('id', { count: 'exact', head: true })
     .eq('empresa_id', empresaId)
-    .not('nivel_ia4', 'is', null);
+    .not('respondido_em', 'is', null);
 
   const fases = [
-    { num: 0, titulo: 'Setup', status: totalColab > 0 ? 'concluido' : 'andamento', metricas: [{ label: 'Colaboradores', valor: totalColab || 0 }, { label: 'Competências', valor: totalComp || 0 }] },
-    { num: 1, titulo: 'Engenharia IA', status: totalCenarios > 0 ? 'concluido' : totalColab > 0 ? 'andamento' : 'pendente', metricas: [{ label: 'Cenários', valor: totalCenarios || 0 }] },
-    { num: 2, titulo: 'Coleta', status: totalEnvios > 0 ? 'concluido' : totalCenarios > 0 ? 'andamento' : 'pendente', metricas: [{ label: 'Envios', valor: totalEnvios || 0 }] },
-    { num: 3, titulo: 'Diagnóstico', status: avaliadas > 0 ? (avaliadas >= totalRespostas ? 'concluido' : 'andamento') : totalRespostas > 0 ? 'andamento' : 'pendente',
-      metricas: [{ label: 'Respostas', valor: totalRespostas || 0 }, { label: 'Avaliadas', valor: avaliadas || 0 }],
+    { num: 0, titulo: 'Onboarding & PPP', status: totalColab > 0 ? 'concluido' : 'andamento',
+      metricas: [{ label: 'Colaboradores', valor: totalColab }, { label: 'Cargos', valor: totalCargos }, { label: 'PPPs', valor: totalPPPs }] },
+    { num: 1, titulo: 'Análise de Cargos & Cenários', status: totalCenarios > 0 ? 'concluido' : totalColab > 0 ? 'andamento' : 'pendente',
+      metricas: [{ label: 'Top 10', valor: cargosComTop10, total: totalCargos || cargosComTop10 }, { label: 'Cenários', valor: totalCenarios }] },
+    { num: 2, titulo: 'Formulários & Envios', status: totalEnvios > 0 ? 'concluido' : totalCenarios > 0 ? 'andamento' : 'pendente',
+      metricas: [{ label: 'Enviados', valor: totalEnvios }, { label: 'Respondidos', valor: respondidos || 0, total: totalEnvios }] },
+    { num: 3, titulo: 'Diagnóstico IA & Relatórios', status: avaliadas > 0 ? (avaliadas >= totalRespostas ? 'concluido' : 'andamento') : totalRespostas > 0 ? 'andamento' : 'pendente',
+      metricas: [{ label: 'Respostas', valor: totalRespostas }, { label: 'Avaliadas', valor: avaliadas, total: totalRespostas }],
       progresso: totalRespostas ? Math.round((avaliadas / totalRespostas) * 100) : 0 },
-    { num: 4, titulo: 'Capacitação', status: 'pendente', metricas: [] },
-    { num: 5, titulo: 'Evolução', status: 'pendente', metricas: [] },
+    { num: 4, titulo: 'PDI, Trilhas & Capacitação', status: 'pendente', metricas: [] },
+    { num: 5, titulo: 'Evolução & Reavaliação', status: 'pendente', metricas: [] },
   ];
 
-  return { success: true, empresa, totalColab: totalColab || 0, fases };
+  return { success: true, empresa, totalColab, fases };
 }
 
 export async function excluirEmpresa(empresaId) {
