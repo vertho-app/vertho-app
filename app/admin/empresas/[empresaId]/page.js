@@ -213,7 +213,7 @@ export default function EmpresaPipelinePage({ params }) {
   const activeFase = fases.find(f => f.status === 'andamento');
 
   return (
-    <div className="max-w-[900px] mx-auto px-4 py-6 sm:px-6">
+    <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6">
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">

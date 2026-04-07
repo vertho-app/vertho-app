@@ -112,7 +112,7 @@ export default function ConfigPage({ params }) {
   if (loading) return <div className="flex items-center justify-center h-dvh"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
 
   return (
-    <div className="max-w-[700px] mx-auto px-4 py-6 sm:px-6">
+    <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <img src="/logo-vertho.png" alt="Vertho" style={{ height: '26px' }} className="shrink-0" />
