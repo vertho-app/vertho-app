@@ -72,9 +72,14 @@ export default function PerfilComportamentalPage() {
           <ArrowLeft size={16} /> Voltar
         </button>
         <div className="rounded-xl p-6 border border-white/[0.06] text-center" style={{ background: '#0F2A4A' }}>
-          <AlertCircle size={40} className="text-gray-500 mx-auto mb-3" />
-          <p className="text-lg font-bold text-white mb-1">Perfil nao disponivel</p>
-          <p className="text-sm text-gray-400">Seu mapeamento comportamental ainda nao foi realizado.</p>
+          <AlertCircle size={40} className="text-cyan-400 mx-auto mb-3" />
+          <p className="text-lg font-bold text-white mb-1">Mapeamento Comportamental</p>
+          <p className="text-sm text-gray-400 mb-4">Seu perfil comportamental ainda não foi mapeado. Leva cerca de 8 minutos.</p>
+          <button onClick={() => router.push('/dashboard/perfil-comportamental/mapeamento')}
+            className="px-6 py-3 rounded-xl text-sm font-bold text-white"
+            style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+            Iniciar Mapeamento
+          </button>
         </div>
       </div>
     );
