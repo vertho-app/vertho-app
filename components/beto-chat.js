@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { MessageSquare, X, Send, Loader2 } from 'lucide-react';
 import { chatWithBeto } from '@/app/actions/beto';
+import { getSupabase } from '@/lib/supabase-browser';
 
 export default function BetoChat() {
   const [open, setOpen] = useState(false);
@@ -11,7 +12,15 @@ export default function BetoChat() {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [userEmail, setUserEmail] = useState(null);
   const scrollRef = useRef(null);
+
+  // Carregar email do usuário para contexto
+  useEffect(() => {
+    getSupabase().auth.getUser().then(({ data: { user } }) => {
+      if (user) setUserEmail(user.email);
+    });
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -27,7 +36,7 @@ export default function BetoChat() {
     setLoading(true);
 
     try {
-      const reply = await chatWithBeto(userMsg, messages.slice(-10));
+      const reply = await chatWithBeto(userMsg, messages.slice(-10), userEmail);
       setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Desculpe, tive um problema. Tente novamente.' }]);

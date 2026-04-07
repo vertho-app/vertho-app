@@ -12,7 +12,7 @@ const DEFAULT_MODEL = 'claude-sonnet-4-6';
  * @param {number} maxTokens - max tokens (default 4096)
  * @returns {string} AI response text
  */
-export async function callAI(system, user, aiConfig = {}, maxTokens = 4096) {
+export async function callAI(system, user, aiConfig = {}, maxTokens = 4096, options = {}) {
   const model = aiConfig?.model || DEFAULT_MODEL;
 
   try {
@@ -23,7 +23,7 @@ export async function callAI(system, user, aiConfig = {}, maxTokens = 4096) {
       return await callOpenAI(system, user, model, maxTokens);
     }
     // Default: Claude (Anthropic)
-    return await callClaude(system, user, model, maxTokens);
+    return await callClaude(system, user, model, maxTokens, options);
   } catch (err) {
     console.error(`[callAI] Error with model ${model}:`, err);
     throw new Error(`AI call failed (${model}): ${err.message}`);
@@ -38,7 +38,7 @@ export async function callAI(system, user, aiConfig = {}, maxTokens = 4096) {
  * @param {number} maxTokens
  * @returns {string} AI response text
  */
-export async function callAIChat(system, messages, aiConfig = {}, maxTokens = 4096) {
+export async function callAIChat(system, messages, aiConfig = {}, maxTokens = 4096, options = {}) {
   const model = aiConfig?.model || DEFAULT_MODEL;
 
   try {
@@ -48,7 +48,7 @@ export async function callAIChat(system, messages, aiConfig = {}, maxTokens = 40
     if (model.startsWith('gpt') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4')) {
       return await callOpenAIChat(system, messages, model, maxTokens);
     }
-    return await callClaudeChat(system, messages, model, maxTokens);
+    return await callClaudeChat(system, messages, model, maxTokens, options);
   } catch (err) {
     console.error(`[callAIChat] Error with model ${model}:`, err);
     throw new Error(`AI chat call failed (${model}): ${err.message}`);
@@ -57,30 +57,65 @@ export async function callAIChat(system, messages, aiConfig = {}, maxTokens = 40
 
 // ── Claude (Anthropic SDK) ──────────────────────────────────────────────────
 
-async function callClaude(system, user, model, maxTokens) {
+/**
+ * Extracts text from Claude response content blocks.
+ * When extended thinking is enabled, response contains both 'thinking' and 'text' blocks.
+ * We filter for type === 'text' to get the actual answer.
+ */
+function extractClaudeText(content) {
+  const textBlock = content.find(block => block.type === 'text');
+  return textBlock?.text || '';
+}
+
+async function callClaude(system, user, model, maxTokens, options = {}) {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  const response = await client.messages.create({
+  const params = {
     model,
     max_tokens: maxTokens,
     system,
     messages: [{ role: 'user', content: user }],
-  });
+  };
 
-  return response.content[0].text;
+  if (options.thinking) {
+    const budgetTokens = Math.min(options.thinkingBudget || 32768, 65536);
+    params.thinking = { type: 'enabled', budget_tokens: budgetTokens };
+    // Ensure max_tokens is large enough when thinking is enabled
+    if (params.max_tokens < budgetTokens + 4096) {
+      params.max_tokens = budgetTokens + 4096;
+    }
+  }
+
+  const response = await client.messages.create(params);
+
+  return options.thinking
+    ? extractClaudeText(response.content)
+    : response.content[0].text;
 }
 
-async function callClaudeChat(system, messages, model, maxTokens) {
+async function callClaudeChat(system, messages, model, maxTokens, options = {}) {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  const response = await client.messages.create({
+  const params = {
     model,
     max_tokens: maxTokens,
     system,
     messages,
-  });
+  };
 
-  return response.content[0].text;
+  if (options.thinking) {
+    const budgetTokens = Math.min(options.thinkingBudget || 32768, 65536);
+    params.thinking = { type: 'enabled', budget_tokens: budgetTokens };
+    if (params.max_tokens < budgetTokens + 4096) {
+      params.max_tokens = budgetTokens + 4096;
+    }
+  }
+
+  const response = await client.messages.create(params);
+
+  return options.thinking
+    ? extractClaudeText(response.content)
+    : response.content[0].text;
 }
 
 // ── Gemini (Google AI REST) ─────────────────────────────────────────────────
