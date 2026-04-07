@@ -1,11 +1,44 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { enviarLink } from './whatsapp';
+import { templateWhatsAppCIS } from '@/lib/notifications';
 
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const DELAY_BETWEEN_MS = 2000; // 2s entre cada mensagem
 
-// ── Disparar links CIS (avaliação) em lote ──────────────────────────────────
+/**
+ * Publica uma mensagem no QStash para entrega via webhook.
+ */
+async function publishToQStash(payload, delaySec = 0) {
+  const qstashToken = process.env.QSTASH_TOKEN;
+  if (!qstashToken) throw new Error('QSTASH_TOKEN não configurado');
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : 'https://vertho-app-xi.vercel.app';
+
+  const webhookUrl = `${appUrl}/api/webhooks/qstash/whatsapp-cis`;
+
+  const headers = {
+    'Authorization': `Bearer ${qstashToken}`,
+    'Content-Type': 'application/json',
+    'Upstash-Delay': `${delaySec}s`,
+  };
+
+  const res = await fetch('https://qstash.upstash.io/v2/publish/' + encodeURIComponent(webhookUrl), {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`QStash ${res.status}: ${detail}`);
+  }
+
+  return res.json();
+}
+
+// ── Disparar links CIS em lote via QStash ──────────────────────────────────
 
 export async function dispararLinksCIS(empresaId) {
   const sb = createSupabaseAdmin();
@@ -22,39 +55,45 @@ export async function dispararLinksCIS(empresaId) {
 
     if (!envios?.length) return { success: false, error: 'Nenhum envio pendente com telefone cadastrado' };
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vertho.app';
-    let enviados = 0;
-    let erros = 0;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vertho-app-xi.vercel.app';
 
-    for (const envio of envios) {
+    // Publicar todas no QStash em paralelo com delay incremental
+    const results = await Promise.all(envios.map(async (envio, i) => {
+      const nome = envio.colaboradores.nome_completo || 'Colaborador';
       const telefone = envio.colaboradores.telefone;
-      if (!telefone) continue;
-
       const link = `${baseUrl}/${empresa.slug}/avaliacao/${envio.token}`;
-      const titulo = `${empresa.nome} — Avaliação de Competências`;
+      const mensagem = templateWhatsAppCIS(nome, link);
+      const delaySec = Math.floor((i * DELAY_BETWEEN_MS) / 1000);
 
-      const result = await enviarLink(telefone, link, titulo);
+      try {
+        await publishToQStash({ telefone, mensagem }, delaySec);
 
-      if (result.success) {
+        // Marcar como enviado
         await sb.from('envios_diagnostico')
           .update({ status: 'enviado', enviado_em: new Date().toISOString(), canal: 'whatsapp' })
           .eq('id', envio.id);
-        enviados++;
-      } else {
-        erros++;
+
+        return { ok: true };
+      } catch (err) {
+        console.error(`[dispararLinksCIS] Erro ${nome}:`, err.message);
+        return { ok: false, error: err.message };
       }
+    }));
 
-      // Rate limit: 1.5s between messages
-      await delay(1500);
-    }
+    const agendados = results.filter(r => r.ok).length;
+    const erros = results.filter(r => !r.ok).length;
+    const semWhatsapp = envios.length - results.length;
 
-    return { success: true, message: `WhatsApp lote: ${enviados} enviados, ${erros} erros de ${envios.length} total` };
+    return {
+      success: true,
+      message: `${agendados} agendados no QStash, ${erros} erros${semWhatsapp > 0 ? `, ${semWhatsapp} sem telefone` : ''}`,
+    };
   } catch (err) {
     return { success: false, error: err.message };
   }
 }
 
-// ── Disparar relatórios em lote via WhatsApp ────────────────────────────────
+// ── Disparar relatórios em lote via QStash ────────────────────────────────
 
 export async function dispararRelatoriosLote(empresaId) {
   const sb = createSupabaseAdmin();
@@ -64,37 +103,34 @@ export async function dispararRelatoriosLote(empresaId) {
       .eq('id', empresaId).single();
 
     const { data: relatorios } = await sb.from('relatorios')
-      .select('id, tipo, colaborador_id, colaboradores!inner(nome_completo, telefone)')
+      .select('id, colaborador_id, colaboradores!inner(nome_completo, telefone)')
       .eq('empresa_id', empresaId)
       .eq('tipo', 'individual')
       .not('colaboradores.telefone', 'is', null);
 
-    if (!relatorios?.length) return { success: false, error: 'Nenhum relatório individual com telefone' };
+    if (!relatorios?.length) return { success: false, error: 'Nenhum relatório com telefone' };
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vertho.app';
-    let enviados = 0;
-    let erros = 0;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vertho-app-xi.vercel.app';
 
-    for (const rel of relatorios) {
+    const results = await Promise.all(relatorios.map(async (rel, i) => {
+      const nome = rel.colaboradores.nome_completo || 'Colaborador';
       const telefone = rel.colaboradores.telefone;
-      if (!telefone) continue;
-
       const link = `${baseUrl}/${empresa.slug}/relatorio/${rel.id}`;
-      const titulo = `${empresa.nome} — Seu Relatório de Competências`;
+      const mensagem = `Olá, ${nome}! Seu relatório de competências da ${empresa.nome} está disponível:\n\n${link}`;
+      const delaySec = Math.floor((i * DELAY_BETWEEN_MS) / 1000);
 
-      const result = await enviarLink(telefone, link, titulo);
-
-      if (result.success) {
-        enviados++;
-      } else {
-        erros++;
+      try {
+        await publishToQStash({ telefone, mensagem }, delaySec);
+        return { ok: true };
+      } catch {
+        return { ok: false };
       }
+    }));
 
-      // Rate limit: 1.5s between messages
-      await delay(1500);
-    }
+    const agendados = results.filter(r => r.ok).length;
+    const erros = results.filter(r => !r.ok).length;
 
-    return { success: true, message: `Relatórios WhatsApp: ${enviados} enviados, ${erros} erros` };
+    return { success: true, message: `Relatórios: ${agendados} agendados, ${erros} erros` };
   } catch (err) {
     return { success: false, error: err.message };
   }
