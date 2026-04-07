@@ -23,6 +23,8 @@ export async function importarColaboradoresLote(empresaId, colabs) {
     .select('email').eq('empresa_id', empresaId);
   const emailsExistentes = new Set((existentes || []).map(c => c.email.toLowerCase()));
 
+  const VALID_ROLES = ['colaborador', 'gestor', 'rh'];
+
   const novos = colabs
     .filter(c => c.email && !emailsExistentes.has(c.email.toLowerCase()))
     .map(c => ({
@@ -30,6 +32,7 @@ export async function importarColaboradoresLote(empresaId, colabs) {
       nome_completo: c.nome?.trim() || null,
       email: c.email.trim().toLowerCase(),
       cargo: c.cargo?.trim() || null,
+      role: VALID_ROLES.includes(c.role?.trim()?.toLowerCase()) ? c.role.trim().toLowerCase() : 'colaborador',
     }));
 
   if (novos.length === 0) return { success: true, message: '0 novos (todos já existiam)' };

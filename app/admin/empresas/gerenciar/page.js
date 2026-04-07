@@ -32,7 +32,7 @@ export default function GerenciarPage() {
       const cols = line.split(',');
       const obj = {};
       header.forEach((h, i) => { obj[h] = cols[i]?.trim(); });
-      return { nome: obj.nome || obj.nome_completo, email: obj.email, cargo: obj.cargo };
+      return { nome: obj.nome || obj.nome_completo, email: obj.email, cargo: obj.cargo, role: obj.role || obj.papel };
     }).filter(c => c.email);
 
     const r = await importarColaboradoresLote(tenantId, colabs);
