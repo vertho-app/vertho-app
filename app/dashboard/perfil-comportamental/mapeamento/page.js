@@ -442,65 +442,88 @@ export default function MapeamentoPage() {
     const phaseKey = isNatural ? 'rank1' : 'rank2';
     const currentRank = isNatural ? rank1 : rank2;
     const group = currentRank[groupIdx];
-    const title = isNatural ? 'Como eu realmente sou' : 'Como os outros esperam que eu seja';
-    const subtitle = isNatural
-      ? 'Ordene as palavras de "mais parecido comigo" (topo) a "menos parecido" (base).'
-      : 'Agora pense em como os outros esperam que você se comporte.';
+    const label = isNatural ? 'Natural' : 'Adaptado';
+
+    // Drag state
+    const handleDragStart = (e, idx) => { e.dataTransfer.setData('text/plain', idx); };
+    const handleDragOver = (e) => { e.preventDefault(); };
+    const handleDrop = (e, toIdx) => {
+      e.preventDefault();
+      const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
+      if (!isNaN(fromIdx) && fromIdx !== toIdx) moveItem(phaseKey, groupIdx, fromIdx, toIdx - fromIdx);
+    };
 
     return (
-      <div className="max-w-[440px] mx-auto px-4 py-6">
-        <ProgressBar />
-        <PhaseDots count={8} current={groupIdx} />
-
-        <div className="text-center mb-5">
-          <span className="inline-block text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-2"
-            style={{ background: isNatural ? 'rgba(0,180,216,0.12)' : 'rgba(13,148,136,0.12)', color: isNatural ? '#00B4D8' : '#0D9488' }}>
-            {isNatural ? 'Natural' : 'Adaptado'} &middot; Grupo {groupIdx + 1}/8
-          </span>
-          <h2 className="text-lg font-bold text-white">{title}</h2>
-          <p className="text-xs text-gray-400 mt-1">{subtitle}</p>
+      <div className="max-w-[480px] mx-auto px-4 py-6">
+        {/* Progress header */}
+        <div className="flex justify-between text-[11px] text-gray-500 font-medium mb-4">
+          <span>{label} — Rankings</span>
+          <span>{progressPct}%</span>
         </div>
 
-        <div className="space-y-0">
-          {/* Top label */}
-          <div className="text-[10px] text-cyan-400 font-medium mb-1 text-center">Mais parecido comigo</div>
-          <div className="space-y-2 mb-1">
-            {group.map((item, idx) => (
-              <div
-                key={item.l}
-                className="flex items-center gap-2 px-4 py-3 rounded-xl border border-white/[0.08] transition-all"
-                style={{ background: '#0F2A4A' }}
-              >
-                <span className="text-xs font-bold text-gray-500 w-5 text-center">{idx + 1}</span>
-                <span className="flex-1 text-sm text-white font-medium">{item.l}</span>
-                <div className="flex flex-col gap-0.5">
-                  <button
-                    disabled={idx === 0}
-                    onClick={() => moveItem(phaseKey, groupIdx, idx, -1)}
-                    className="p-1 rounded hover:bg-white/10 disabled:opacity-20 transition-colors"
-                  >
-                    <ChevronUp size={16} className="text-gray-300" />
-                  </button>
-                  <button
-                    disabled={idx === 3}
-                    onClick={() => moveItem(phaseKey, groupIdx, idx, 1)}
-                    className="p-1 rounded hover:bg-white/10 disabled:opacity-20 transition-colors"
-                  >
-                    <ChevronDown size={16} className="text-gray-300" />
-                  </button>
-                </div>
+        {/* Phase tag + title */}
+        <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-cyan-400 mb-1">{label}</p>
+        <h1 className="text-[26px] font-black text-white leading-tight mb-2">Grupo {String(groupIdx + 1).padStart(2, '0')}</h1>
+
+        {/* Dots */}
+        <div className="flex gap-1 mb-6">
+          {Array.from({ length: 8 }, (_, i) => (
+            <div key={i} className={`w-[7px] h-[7px] rounded-full transition-all ${i < groupIdx ? 'bg-teal-500' : i === groupIdx ? 'bg-cyan-400 shadow-[0_0_8px_rgba(0,180,216,0.5)]' : 'bg-white/[0.08]'}`} />
+          ))}
+        </div>
+
+        {/* Top label */}
+        <p className="text-center text-sm font-semibold text-green-400 mb-3">👍 MAIS PARECIDO</p>
+
+        {/* Ranking cards */}
+        <div className="space-y-2 mb-3">
+          {group.map((item, idx) => (
+            <div
+              key={item.l + idx}
+              draggable
+              onDragStart={(e) => handleDragStart(e, idx)}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, idx)}
+              className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-white/[0.04] cursor-grab active:cursor-grabbing active:border-cyan-400/40 active:scale-[1.02] transition-all"
+              style={{ background: '#182B48' }}
+            >
+              <span className="w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-extrabold flex-shrink-0"
+                style={{ background: 'rgba(45,212,191,0.12)', color: '#2DD4BF' }}>
+                {idx + 1}
+              </span>
+              <span className="flex-1 text-[13px] text-white font-semibold">{item.l}</span>
+              <div className="flex gap-1">
+                <button
+                  disabled={idx === 0}
+                  onClick={() => moveItem(phaseKey, groupIdx, idx, -1)}
+                  className="w-[38px] h-[38px] rounded-lg flex items-center justify-center text-gray-400 hover:bg-cyan-400 hover:text-[#0C1829] disabled:opacity-[0.15] transition-all active:scale-90"
+                  style={{ background: 'rgba(255,255,255,0.04)' }}
+                >
+                  <ChevronUp size={16} strokeWidth={3} />
+                </button>
+                <button
+                  disabled={idx === 3}
+                  onClick={() => moveItem(phaseKey, groupIdx, idx, 1)}
+                  className="w-[38px] h-[38px] rounded-lg flex items-center justify-center text-gray-400 hover:bg-cyan-400 hover:text-[#0C1829] disabled:opacity-[0.15] transition-all active:scale-90"
+                  style={{ background: 'rgba(255,255,255,0.04)' }}
+                >
+                  <ChevronDown size={16} strokeWidth={3} />
+                </button>
               </div>
-            ))}
-          </div>
-          <div className="text-[10px] text-gray-500 font-medium text-center">Menos parecido comigo</div>
+            </div>
+          ))}
         </div>
 
+        {/* Bottom label */}
+        <p className="text-center text-sm font-semibold text-rose-400 mb-6">👎 MENOS PARECIDO</p>
+
+        {/* Advance button */}
         <button
           onClick={() => nextRankGroup(phaseKey)}
-          className="mt-6 w-full py-3 rounded-xl font-bold text-white text-sm tracking-wide"
-          style={{ background: 'linear-gradient(135deg, #00B4D8, #0D9488)' }}
+          className="w-full py-4 rounded-xl font-bold text-[#0C1829] text-sm tracking-wider uppercase"
+          style={{ background: 'linear-gradient(135deg, #2DD4BF, #14B8A6)' }}
         >
-          {groupIdx < 7 ? 'PRÓXIMO GRUPO' : 'AVANÇAR'}
+          AVANÇAR
         </button>
       </div>
     );
