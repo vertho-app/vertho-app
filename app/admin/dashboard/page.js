@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Building2, Users, ClipboardCheck, Target, Database, BookOpen, GraduationCap,
-  Plus, Loader2, ChevronRight, RefreshCw, Zap, BookMarked
+  Plus, Loader2, ChevronRight, RefreshCw, Zap, BookMarked, ShieldCheck
 } from 'lucide-react';
 import { loadAdminDashboard } from './actions';
 
@@ -53,6 +53,10 @@ export default function AdminDashboard() {
           <button onClick={() => router.push('/admin/simulador')}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-amber-400/30 hover:text-amber-400 transition-all">
             <Zap size={14} /> Simulador
+          </button>
+          <button onClick={() => router.push('/admin/platform-admins')}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-purple-400/30 hover:text-purple-400 transition-all">
+            <ShieldCheck size={14} /> Admins
           </button>
           <button onClick={() => router.push('/admin/empresas/nova')}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-white border border-green-400/30 hover:bg-green-400/10 transition-all">

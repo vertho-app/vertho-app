@@ -39,6 +39,31 @@ export async function salvarBranding(empresaId, branding) {
   return { success: true, message: 'Branding salvo' };
 }
 
+// ── Gerenciar Roles da Equipe ──────────────────────────────────────────────
+
+export async function loadEquipe(empresaId) {
+  if (!empresaId) return [];
+  const sb = createSupabaseAdmin();
+  const { data } = await sb.from('colaboradores')
+    .select('id, nome_completo, email, cargo, role')
+    .eq('empresa_id', empresaId)
+    .order('nome_completo');
+  return data || [];
+}
+
+export async function atualizarRole(colaboradorId, novoRole) {
+  if (!colaboradorId || !novoRole) return { success: false, error: 'Dados obrigatorios' };
+  const validRoles = ['colaborador', 'gestor', 'rh'];
+  if (!validRoles.includes(novoRole)) return { success: false, error: `Role invalido. Use: ${validRoles.join(', ')}` };
+
+  const sb = createSupabaseAdmin();
+  const { error } = await sb.from('colaboradores')
+    .update({ role: novoRole })
+    .eq('id', colaboradorId);
+  if (error) return { success: false, error: error.message };
+  return { success: true, message: `Role atualizado para ${novoRole}` };
+}
+
 export async function salvarSlug(empresaId, slug) {
   if (!empresaId || !slug) return { success: false, error: 'empresaId e slug obrigatórios' };
 

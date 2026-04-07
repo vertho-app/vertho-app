@@ -4,9 +4,9 @@ import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Save, Loader2, CheckCircle, AlertTriangle, X,
-  Brain, Clock, Mail, Eye, EyeOff, Palette, Upload, Trash2, Globe
+  Brain, Clock, Mail, Eye, EyeOff, Palette, Upload, Trash2, Globe, Users
 } from 'lucide-react';
-import { loadConfig, salvarConfig, salvarBranding, salvarSlug } from './actions';
+import { loadConfig, salvarConfig, salvarBranding, salvarSlug, loadEquipe, atualizarRole } from './actions';
 import { limparSessoesAntigas, limparSessoesTeste } from '@/app/actions/manutencao';
 
 const DIAS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
@@ -30,7 +30,7 @@ export default function ConfigPage({ params }) {
   const router = useRouter();
   const [empresa, setEmpresa] = useState(null);
   const [config, setConfig] = useState(DEFAULT_CONFIG);
-  const [tab, setTab] = useState('branding');
+  const [tab, setTab] = useState('equipe');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -52,6 +52,8 @@ export default function ConfigPage({ params }) {
   const [branding, setBranding] = useState(DEFAULT_BRANDING);
   const [slug, setSlug] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [equipe, setEquipe] = useState([]);
+  const [roleUpdating, setRoleUpdating] = useState(null);
 
   useEffect(() => {
     loadConfig(empresaId).then(r => {
@@ -64,7 +66,18 @@ export default function ConfigPage({ params }) {
       }
       setLoading(false);
     });
+    loadEquipe(empresaId).then(setEquipe);
   }, [empresaId]);
+
+  async function handleRoleChange(colaboradorId, novoRole) {
+    setRoleUpdating(colaboradorId);
+    const r = await atualizarRole(colaboradorId, novoRole);
+    if (r.success) {
+      setEquipe(prev => prev.map(c => c.id === colaboradorId ? { ...c, role: novoRole } : c));
+      setSuccess(r.message); setTimeout(() => setSuccess(''), 3000);
+    } else { setError(r.error); }
+    setRoleUpdating(null);
+  }
 
   function updateAI(field, value) { setConfig(prev => ({ ...prev, ai: { ...prev.ai, [field]: value } })); }
   function updateCadencia(field, value) { setConfig(prev => ({ ...prev, cadencia: { ...prev.cadencia, [field]: value } })); }
@@ -144,6 +157,7 @@ export default function ConfigPage({ params }) {
       {/* Tabs */}
       <div className="flex gap-1 mb-6 p-1 rounded-lg border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
         {[
+          { id: 'equipe', label: 'Equipe', icon: Users },
           { id: 'branding', label: 'Branding', icon: Palette },
           { id: 'ai', label: 'Inteligência Artificial', icon: Brain },
           { id: 'cadencia', label: 'Automações', icon: Clock },
@@ -157,6 +171,44 @@ export default function ConfigPage({ params }) {
           </button>
         ))}
       </div>
+
+      {/* ═══ Tab: Equipe ═══ */}
+      {tab === 'equipe' && (
+        <div className="space-y-4">
+          <Panel title={`Colaboradores (${equipe.length})`}>
+            <p className="text-[10px] text-gray-500 mb-3">Altere o papel de cada colaborador. O papel define o que ele ve no dashboard.</p>
+            {equipe.length === 0 ? (
+              <p className="text-xs text-gray-500 text-center py-4">Nenhum colaborador cadastrado</p>
+            ) : (
+              <div className="space-y-2">
+                {equipe.map(c => (
+                  <div key={c.id} className="flex items-center gap-3 p-3 rounded-lg border border-white/[0.04]" style={{ background: '#091D35' }}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-white truncate">{c.nome_completo || c.email}</p>
+                      <p className="text-[10px] text-gray-500 truncate">{c.email}{c.cargo ? ` — ${c.cargo}` : ''}</p>
+                    </div>
+                    <select
+                      value={c.role}
+                      onChange={e => handleRoleChange(c.id, e.target.value)}
+                      disabled={roleUpdating === c.id}
+                      className={`px-2 py-1.5 rounded-lg text-xs font-semibold border outline-none transition-colors ${
+                        c.role === 'rh' ? 'border-purple-400/30 text-purple-400 bg-purple-400/10' :
+                        c.role === 'gestor' ? 'border-amber-400/30 text-amber-400 bg-amber-400/10' :
+                        'border-white/10 text-gray-400 bg-white/[0.03]'
+                      }`}
+                      style={{ minWidth: '120px' }}>
+                      <option value="colaborador">Colaborador</option>
+                      <option value="gestor">Gestor</option>
+                      <option value="rh">RH / Diretor</option>
+                    </select>
+                    {roleUpdating === c.id && <Loader2 size={14} className="animate-spin text-cyan-400 shrink-0" />}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Panel>
+        </div>
+      )}
 
       {/* ═══ Tab: Branding ═══ */}
       {tab === 'branding' && (
