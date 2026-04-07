@@ -22,6 +22,7 @@ export default function PPPPage() {
   const [result, setResult] = useState(null);
   const [toast, setToast] = useState(null);
   const [model, setModel] = useState('claude-sonnet-4-6');
+  const [viewPPP, setViewPPP] = useState(null);
 
   useEffect(() => {
     async function init() {
@@ -250,13 +251,84 @@ export default function PPPPage() {
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
                   p.status === 'extraido' ? 'bg-green-400/10 text-green-400' : p.status === 'erro' ? 'bg-red-400/10 text-red-400' : 'bg-gray-400/10 text-gray-400'
                 }`}>{p.status === 'extraido' ? 'Extraído' : p.status === 'erro' ? 'Erro' : 'Pendente'}</span>
-                <button className="text-gray-600 hover:text-white transition-colors shrink-0"><Eye size={14} /></button>
+                <button onClick={() => setViewPPP(p)} className="text-gray-600 hover:text-white transition-colors shrink-0"><Eye size={14} /></button>
                 <button onClick={() => handleExcluir(p.id, p.escola)} className="text-gray-600 hover:text-red-400 transition-colors shrink-0"><Trash2 size={14} /></button>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Modal visualização */}
+      {viewPPP && (() => {
+        let ext = null;
+        try { ext = typeof viewPPP.extracao === 'string' ? JSON.parse(viewPPP.extracao) : viewPPP.extracao; } catch {}
+        return (
+          <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-16 overflow-y-auto" style={{ background: 'rgba(0,0,0,0.7)' }}>
+            <div className="w-full max-w-[700px] rounded-2xl border border-white/[0.08] p-6" style={{ background: '#0A1D35' }}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-white">{viewPPP.escola || 'PPP'}</h3>
+                <button onClick={() => setViewPPP(null)} className="text-gray-500 hover:text-white text-lg">✕</button>
+              </div>
+
+              {/* Valores institucionais */}
+              {Array.isArray(viewPPP.valores) && viewPPP.valores.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-2">Valores Institucionais</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {viewPPP.valores.map((v, i) => (
+                      <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-cyan-400/10 text-cyan-400">{v}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Competências extraídas */}
+              {ext?.competencias?.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-[10px] font-bold text-green-400 uppercase tracking-widest mb-2">Competências ({ext.competencias.length})</p>
+                  <div className="space-y-2">
+                    {ext.competencias.map((c, i) => (
+                      <div key={i} className="p-3 rounded-lg border border-white/[0.04]" style={{ background: '#0F2A4A' }}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-bold text-white">{c.nome}</span>
+                          {c.relevancia && (
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                              c.relevancia === 'alta' ? 'bg-green-400/20 text-green-400' : c.relevancia === 'media' ? 'bg-amber-400/20 text-amber-400' : 'bg-gray-400/20 text-gray-400'
+                            }`}>{c.relevancia}</span>
+                          )}
+                        </div>
+                        {c.descricao && <p className="text-xs text-gray-400">{c.descricao}</p>}
+                        {c.evidencia && <p className="text-[10px] text-gray-600 mt-1 italic border-l-2 border-white/10 pl-2">"{c.evidencia}"</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Perfil desejado */}
+              {ext?.perfil_desejado && (
+                <div className="mb-4">
+                  <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-2">Perfil Desejado</p>
+                  <p className="text-xs text-gray-300 leading-relaxed">{ext.perfil_desejado}</p>
+                </div>
+              )}
+
+              {/* Metadata */}
+              <div className="flex items-center gap-4 text-[10px] text-gray-600 pt-3 border-t border-white/[0.04]">
+                <span>Fonte: {viewPPP.fonte}</span>
+                {viewPPP.url_site && <span>URL: {viewPPP.url_site}</span>}
+                <span>Data: {viewPPP.created_at ? new Date(viewPPP.created_at).toLocaleDateString('pt-BR') : '—'}</span>
+              </div>
+
+              <button onClick={() => setViewPPP(null)}
+                className="mt-4 w-full py-2.5 rounded-lg text-sm font-semibold text-gray-400 border border-white/10 hover:text-white transition-colors">
+                Fechar
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
