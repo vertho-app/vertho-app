@@ -257,15 +257,48 @@ export default function EmpresaPipelinePage({ params }) {
               style={{ borderColor: isActive ? config.color + '40' : 'rgba(255,255,255,0.04)', background: '#0F2A4A' }}>
               <button onClick={() => setExpandedPhase(isExpanded ? null : fase.num)}
                 className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-white/[0.02] transition-colors">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: config.color + '15' }}>
-                  <Icon size={18} style={{ color: config.color }} />
+                {/* Icon + status dot */}
+                <div className="relative">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: config.color + '15' }}>
+                    <Icon size={18} style={{ color: config.color }} />
+                  </div>
+                  <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 ${isActive ? 'animate-pulse' : ''}`}
+                    style={{ background: st.dot, borderColor: '#0F2A4A' }} />
                 </div>
+
+                {/* Title + metrics */}
                 <div className="flex-1 min-w-0">
-                  <span className="text-sm font-bold text-white">Fase {fase.num}</span>
-                  <span className="text-xs text-gray-500 ml-2">{getCustomLabel(`fase${fase.num}-titulo`, fase.titulo, uiConfig)}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-white">Fase {fase.num}</span>
+                    <span className="text-xs text-gray-500">—</span>
+                    <span className="text-xs text-gray-400 truncate">{getCustomLabel(`fase${fase.num}-titulo`, fase.titulo, uiConfig)}</span>
+                  </div>
+                  {fase.metricas?.length > 0 && (
+                    <div className="flex items-center gap-3 mt-1">
+                      {fase.metricas.map((m, i) => (
+                        <span key={i} className="text-[10px] text-gray-500">
+                          {m.label}: <span className="font-bold text-gray-300">{fmt(m.valor)}</span>
+                          {m.total !== undefined && <span className="text-gray-600">/{fmt(m.total)}</span>}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {/* Progress bar */}
+                  {fase.progresso !== undefined && fase.progresso > 0 && (
+                    <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: '#1F2937' }}>
+                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${fase.progresso}%`, background: config.color }} />
+                    </div>
+                  )}
                 </div>
-                <span className="text-[10px] font-bold px-2 py-1 rounded-full" style={{ background: st.bg, color: st.text }}>{st.label}</span>
-                {isExpanded ? <ChevronUp size={14} className="text-gray-600" /> : <ChevronDown size={14} className="text-gray-600" />}
+
+                {/* Status badge + progress % */}
+                <div className="flex items-center gap-2 shrink-0">
+                  {fase.progresso !== undefined && fase.progresso > 0 && (
+                    <span className="text-[10px] font-bold" style={{ color: config.color }}>{fase.progresso}%</span>
+                  )}
+                  <span className="text-[10px] font-bold px-2 py-1 rounded-full" style={{ background: st.bg, color: st.text }}>{st.label}</span>
+                  {isExpanded ? <ChevronUp size={14} className="text-gray-600" /> : <ChevronDown size={14} className="text-gray-600" />}
+                </div>
               </button>
 
               {isExpanded && (
