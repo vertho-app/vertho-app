@@ -97,12 +97,19 @@ function normalize(scores, target = 200) {
   const total = scores.D + scores.I + scores.S + scores.C;
   if (total === 0) return { D: 50, I: 50, S: 50, C: 50 };
   const factor = target / total;
-  return {
-    D: Math.round(scores.D * factor * 10) / 10,
-    I: Math.round(scores.I * factor * 10) / 10,
-    S: Math.round(scores.S * factor * 10) / 10,
-    C: Math.round(scores.C * factor * 10) / 10,
+  const result = {
+    D: Math.round(scores.D * factor),
+    I: Math.round(scores.I * factor),
+    S: Math.round(scores.S * factor),
+    C: Math.round(scores.C * factor),
   };
+  // Fix rounding to exactly target (match GAS behavior)
+  const sum = result.D + result.I + result.S + result.C;
+  if (sum !== target) {
+    const dominant = Object.keys(result).sort((a, b) => result[b] - result[a])[0];
+    result[dominant] += target - sum;
+  }
+  return result;
 }
 
 function computeLeadership(disc) {
@@ -115,11 +122,8 @@ function computeLeadership(disc) {
 }
 
 function computeCompetencies(disc, dA) {
-  const deltaD = dA.D - disc.D;
-  const deltaI = dA.I - disc.I;
-  const deltaS = dA.S - disc.S;
-  const deltaC = dA.C - disc.C;
-  const vec = [1, disc.D, disc.I, disc.S, disc.C, deltaD, deltaI, deltaS, deltaC];
+  // Vetor usa valores ABSOLUTOS do adaptado (não deltas) — compatível com regressão GAS
+  const vec = [1, disc.D, disc.I, disc.S, disc.C, dA.D, dA.I, dA.S, dA.C];
   const result = {};
   for (const [name, coefs] of Object.entries(COMPETENCY_COEFFICIENTS)) {
     let val = 0;
