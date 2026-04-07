@@ -66,7 +66,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* ═══ KPIs Row 1 ═══ */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+      <div className="grid grid-cols-4 gap-3 mb-3">
         {[
           { label: 'Empresas', value: empresas.length, icon: Building2, color: '#06B6D4' },
           { label: 'Colaboradores', value: totalColabs, icon: Users, color: '#22C55E' },
@@ -75,10 +75,12 @@ export default function AdminDashboard() {
         ].map(kpi => {
           const Icon = kpi.icon;
           return (
-            <div key={kpi.label} className="rounded-xl p-4 border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
-              <Icon size={20} style={{ color: kpi.color }} className="mb-2" />
-              <p className="text-2xl font-bold text-white">{fmt(kpi.value)}</p>
-              <p className="text-xs text-gray-500">{kpi.label}</p>
+            <div key={kpi.label} className="rounded-xl px-4 py-3 border border-white/[0.06] flex items-center gap-3" style={{ background: '#0F2A4A' }}>
+              <Icon size={20} style={{ color: kpi.color }} className="shrink-0" />
+              <div>
+                <p className="text-2xl font-bold text-white leading-tight">{fmt(kpi.value)}</p>
+                <p className="text-xs text-gray-500">{kpi.label}</p>
+              </div>
             </div>
           );
         })}
