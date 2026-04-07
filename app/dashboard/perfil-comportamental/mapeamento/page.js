@@ -536,67 +536,70 @@ export default function MapeamentoPage() {
     const currentPairs = isNatural ? pairs1 : pairs2;
     const pair = FORCED_PAIRS[pairIdx];
     const selected = currentPairs[pairIdx];
-    const title = isNatural ? 'O que combina mais comigo' : 'O que os outros esperam de mim';
+    const label = isNatural ? 'Natural' : 'Adaptado';
 
     return (
-      <div className="max-w-[440px] mx-auto px-4 py-6">
-        <ProgressBar />
-        <PhaseDots count={6} current={pairIdx} />
-
-        <div className="text-center mb-5">
-          <span className="inline-block text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-2"
-            style={{ background: isNatural ? 'rgba(0,180,216,0.12)' : 'rgba(13,148,136,0.12)', color: isNatural ? '#00B4D8' : '#0D9488' }}>
-            {isNatural ? 'Natural' : 'Adaptado'} &middot; Par {pairIdx + 1}/6
-          </span>
-          <h2 className="text-lg font-bold text-white">{title}</h2>
-          <p className="text-xs text-gray-400 mt-1">Escolha a opção que mais se aplica.</p>
+      <div className="max-w-[480px] mx-auto px-4 py-6">
+        {/* Progress header */}
+        <div className="flex justify-between items-center text-[11px] text-gray-500 font-medium mb-1">
+          <span>{label} — Pares</span>
+          <span>{progressPct}%</span>
+        </div>
+        <div className="h-[3px] rounded-full overflow-hidden mb-6" style={{ background: 'rgba(255,255,255,0.05)' }}>
+          <div className="h-full rounded-full transition-all" style={{ width: `${progressPct}%`, background: 'linear-gradient(90deg, #2DD4BF, #FCD34D)' }} />
         </div>
 
-        <div className="space-y-3">
-          <button
-            onClick={() => selectPair(phaseKey, pairIdx, pair.fa)}
-            className="w-full text-left px-4 py-4 rounded-xl border transition-all"
-            style={{
-              background: selected === pair.fa ? 'rgba(0,180,216,0.12)' : '#0F2A4A',
-              borderColor: selected === pair.fa ? '#00B4D8' : 'rgba(255,255,255,0.06)',
-            }}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
-                style={{ borderColor: selected === pair.fa ? '#00B4D8' : 'rgba(255,255,255,0.2)' }}>
-                {selected === pair.fa && <div className="w-2.5 h-2.5 rounded-full bg-cyan-400" />}
-              </div>
-              <span className="text-sm text-white">{pair.a}</span>
-            </div>
-          </button>
+        {/* Phase tag + title */}
+        <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-cyan-400 mb-1">{label} — ESCOLHA RÁPIDA</p>
+        <h1 className="text-[26px] font-black text-white leading-tight mb-2">Par {pairIdx + 1}/6</h1>
 
-          <div className="text-center text-[10px] text-gray-600 font-bold tracking-widest">OU</div>
-
-          <button
-            onClick={() => selectPair(phaseKey, pairIdx, pair.fb)}
-            className="w-full text-left px-4 py-4 rounded-xl border transition-all"
-            style={{
-              background: selected === pair.fb ? 'rgba(13,148,136,0.12)' : '#0F2A4A',
-              borderColor: selected === pair.fb ? '#0D9488' : 'rgba(255,255,255,0.06)',
-            }}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
-                style={{ borderColor: selected === pair.fb ? '#0D9488' : 'rgba(255,255,255,0.2)' }}>
-                {selected === pair.fb && <div className="w-2.5 h-2.5 rounded-full bg-teal-500" />}
-              </div>
-              <span className="text-sm text-white">{pair.b}</span>
-            </div>
-          </button>
+        {/* Dots */}
+        <div className="flex gap-1 mb-6">
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i} className={`w-[7px] h-[7px] rounded-full transition-all ${i < pairIdx ? 'bg-teal-500' : i === pairIdx ? 'bg-cyan-400 shadow-[0_0_8px_rgba(0,180,216,0.5)]' : 'bg-white/[0.08]'}`} />
+          ))}
         </div>
 
+        {/* Question */}
+        <p className="text-center text-sm font-semibold text-gray-300 mb-4">Qual te descreve melhor?</p>
+
+        {/* Option A */}
+        <button
+          onClick={() => selectPair(phaseKey, pairIdx, pair.fa)}
+          className="w-full text-center px-5 py-5 rounded-2xl border-2 transition-all mb-2"
+          style={{
+            background: selected === pair.fa ? 'rgba(45,212,191,0.08)' : '#182B48',
+            borderColor: selected === pair.fa ? '#2DD4BF' : 'transparent',
+            boxShadow: selected === pair.fa ? '0 0 16px rgba(45,212,191,0.15)' : 'none',
+          }}
+        >
+          <span className="text-[14px] font-semibold text-white leading-relaxed">{pair.a}</span>
+        </button>
+
+        {/* OU */}
+        <p className="text-center text-[12px] font-extrabold text-gray-500 tracking-[2px] py-1.5">OU</p>
+
+        {/* Option B */}
+        <button
+          onClick={() => selectPair(phaseKey, pairIdx, pair.fb)}
+          className="w-full text-center px-5 py-5 rounded-2xl border-2 transition-all"
+          style={{
+            background: selected === pair.fb ? 'rgba(45,212,191,0.08)' : '#182B48',
+            borderColor: selected === pair.fb ? '#2DD4BF' : 'transparent',
+            boxShadow: selected === pair.fb ? '0 0 16px rgba(45,212,191,0.15)' : 'none',
+          }}
+        >
+          <span className="text-[14px] font-semibold text-white leading-relaxed">{pair.b}</span>
+        </button>
+
+        {/* Advance */}
         <button
           disabled={!selected}
           onClick={() => nextPair(phaseKey)}
-          className="mt-6 w-full py-3 rounded-xl font-bold text-white text-sm tracking-wide disabled:opacity-40 transition-all"
-          style={{ background: selected ? 'linear-gradient(135deg, #00B4D8, #0D9488)' : '#374151' }}
+          className="mt-5 w-full py-4 rounded-xl font-bold text-[#0C1829] text-sm tracking-wider uppercase disabled:opacity-30 transition-all"
+          style={{ background: 'linear-gradient(135deg, #2DD4BF, #14B8A6)' }}
         >
-          {pairIdx < 5 ? 'PRÓXIMO PAR' : 'AVANÇAR'}
+          AVANÇAR
         </button>
       </div>
     );
