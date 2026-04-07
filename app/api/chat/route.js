@@ -7,7 +7,7 @@ import { getOrCreatePromptVersion } from '@/lib/versioning';
 // ── Defaults ────────────────────────────────────────────────────────────────
 
 const DEFAULT_AVALIADOR = 'claude-sonnet-4-6';
-const DEFAULT_VALIDADOR = 'gemini-2.5-flash-preview-05-20';
+const DEFAULT_VALIDADOR = 'gemini-3-flash-preview';
 const MAX_TURNOS = 10;
 const CONFIANCA_ENCERRAR = 80;
 

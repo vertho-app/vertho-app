@@ -182,8 +182,7 @@ export default function PPPPage() {
               style={{ background: '#091D35' }}>
               <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
               <option value="claude-opus-4-6">Claude Opus 4.6</option>
-              <option value="gemini-2.5-flash-preview-05-20">Gemini 2.5 Flash</option>
-              <option value="gpt-5.4">GPT-5.4</option>
+              <option value="gemini-3-flash-preview">Gemini 3 Flash</option>
             </select>
           </div>
 

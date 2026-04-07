@@ -28,8 +28,6 @@ const AI_MODELS = [
   { id: 'claude-opus-4-6', label: 'Claude Opus 4.6', provider: 'claude' },
   { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash', provider: 'gemini' },
   { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro', provider: 'gemini' },
-  { id: 'gpt-5.4', label: 'GPT-5.4', provider: 'openai' },
-  { id: 'gpt-5.4-mini', label: 'GPT-5.4 Mini', provider: 'openai' },
 ];
 
 const AI_ACTIONS = new Set([

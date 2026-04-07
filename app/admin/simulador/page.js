@@ -9,8 +9,6 @@ const MODELS = [
   { id: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
   { id: 'claude-haiku-4-20250414', label: 'Claude Haiku 4' },
   { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-  { id: 'gpt-4o', label: 'GPT-4o' },
-  { id: 'gpt-4o-mini', label: 'GPT-4o Mini' },
 ];
 
 const DEFAULT_SYSTEM = 'Voce e um assistente util e responde em portugues brasileiro.';
