@@ -221,7 +221,7 @@ Dashboard detecta cargo via regex:
 | coordenador, gestor, gerente | `gestor` | Equipe por area_depto |
 | (outros) | `colaborador` | Visao individual (PDI, trilha) |
 
-Admin guard: `app/admin/admin-guard.js` valida email contra `NEXT_PUBLIC_ADMIN_EMAILS`.
+Admin guard: `app/admin/admin-guard.js` valida via server action contra tabela `platform_admins`.
 
 ---
 
@@ -530,7 +530,9 @@ MOODLE_TOKEN=
 
 # App
 NEXT_PUBLIC_APP_URL=https://vertho.com.br
-NEXT_PUBLIC_ADMIN_EMAILS=rodrigo@vertho.ai
+# ADMIN_EMAILS é fallback server-side temporário (não usar NEXT_PUBLIC_*)
+# A fonte principal de admins é a tabela platform_admins no Supabase
+ADMIN_EMAILS=rodrigo@vertho.ai
 CRON_SECRET=
 ```
 
