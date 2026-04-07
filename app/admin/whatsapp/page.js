@@ -70,7 +70,7 @@ export default function WhatsappPage() {
         </button>
         <div>
           <h1 className="text-xl font-bold text-white flex items-center gap-2"><MessageCircle size={20} className="text-green-400" /> WhatsApp</h1>
-          <p className="text-xs text-gray-500">Disparo de links CIS e relatorios via WhatsApp</p>
+          <p className="text-xs text-gray-500">Disparo de links de avaliação e relatorios via WhatsApp</p>
         </div>
       </div>
 
@@ -97,11 +97,11 @@ export default function WhatsappPage() {
 
       {status && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* CIS Links */}
+          {/* Avaliacao Links */}
           <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
             <div className="px-5 py-3 border-b border-white/[0.06] flex items-center gap-2">
               <Link2 size={16} className="text-cyan-400" />
-              <span className="text-sm font-bold text-white">Enviar Links CIS</span>
+              <span className="text-sm font-bold text-white">Enviar Links Avaliação</span>
             </div>
             <div className="p-5">
               <div className="flex items-center gap-3 mb-4">
@@ -110,13 +110,13 @@ export default function WhatsappPage() {
                 </div>
                 <div>
                   <p className="text-sm font-bold text-white">Envios Pendentes</p>
-                  <p className="text-xs text-gray-500">Colaboradores aguardando link CIS</p>
+                  <p className="text-xs text-gray-500">Colaboradores aguardando link de avaliação</p>
                 </div>
               </div>
               <button onClick={handleDispararCIS} disabled={sendingCIS || status.pendingCIS === 0}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold text-white bg-teal-600 hover:bg-teal-500 transition-colors disabled:opacity-40">
                 {sendingCIS ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                {sendingCIS ? 'Enviando...' : 'Disparar Links CIS'}
+                {sendingCIS ? 'Enviando...' : 'Disparar Links Avaliação'}
               </button>
               {resultCIS && (
                 <div className={`mt-3 flex items-start gap-2 px-3 py-2 rounded-lg text-xs ${

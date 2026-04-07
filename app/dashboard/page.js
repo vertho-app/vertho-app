@@ -34,7 +34,7 @@ export default function DashboardPage() {
   const proximoPasso = getProximoPasso(colaborador);
 
   const quickAccess = [
-    { label: 'Perfil Comportamental', icon: Brain, href: '/dashboard/perfil-cis', color: '#00B4D8' },
+    { label: 'Perfil Comportamental', icon: Brain, href: '/dashboard/perfil-comportamental', color: '#00B4D8' },
     { label: 'Competências', icon: Target, href: '/dashboard/assessment', color: '#00B4D8' },
     { label: 'Mentor IA', icon: MessageSquare, href: '#beto', color: '#00B4D8', action: 'beto' },
     { label: 'Meu PDI', icon: FileText, href: '/dashboard/pdi', color: '#00B4D8' },
@@ -95,7 +95,7 @@ export default function DashboardPage() {
 function getProximoPasso(colab) {
   // Lógica para determinar o próximo passo do colaborador
   if (!colab.perfil_dominante) {
-    return { label: 'Preencher perfil comportamental', href: '/dashboard/perfil-cis' };
+    return { label: 'Preencher perfil comportamental', href: '/dashboard/perfil-comportamental' };
   }
   if (colab.respondidas === 0) {
     return { label: 'Iniciar avaliação de competências', href: '/dashboard/assessment' };

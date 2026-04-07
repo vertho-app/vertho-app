@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, ArrowLeft, AlertCircle } from 'lucide-react';
-import { loadPerfilCIS } from './perfil-cis-actions';
+import { loadPerfilCIS } from './perfil-comportamental-actions';
 
 const DISC_DIMENSIONS = [
   {
@@ -37,7 +37,7 @@ const DISC_DIMENSIONS = [
   },
 ];
 
-export default function PerfilCISPage() {
+export default function PerfilComportamentalPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

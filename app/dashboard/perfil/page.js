@@ -100,7 +100,7 @@ export default function PerfilPage() {
 
       {/* DISC profile preview */}
       {hasDISC && (
-        <button onClick={() => router.push('/dashboard/perfil-cis')}
+        <button onClick={() => router.push('/dashboard/perfil-comportamental')}
           className="w-full rounded-xl p-4 border border-white/[0.06] text-left hover:border-white/[0.15] transition-all"
           style={{ background: '#0F2A4A' }}>
           <p className="text-sm font-bold text-white mb-2">Perfil Comportamental</p>

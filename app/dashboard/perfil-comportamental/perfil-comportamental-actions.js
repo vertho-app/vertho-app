@@ -3,7 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 
 /**
- * Carrega dados DISC/CIS do colaborador.
+ * Carrega dados do perfil comportamental do colaborador.
  */
 export async function loadPerfilCIS(email) {
   if (!email) return { error: 'Nao autenticado' };
