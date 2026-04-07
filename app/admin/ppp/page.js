@@ -241,15 +241,17 @@ export default function PPPPage() {
                   <FileText size={14} className="text-cyan-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-white truncate">{p.nome || p.escola || 'PPP'}</p>
+                  <p className="text-sm font-bold text-white truncate">{p.escola || 'PPP'}</p>
                   <p className="text-[10px] text-gray-500">
-                    {p.tipo || 'Extração'} — {p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : '—'}
-                    {p.valores_institucionais?.length ? ` — ${p.valores_institucionais.length} valores` : ''}
+                    {p.fonte || 'Extração'} — {p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : '—'}
+                    {Array.isArray(p.valores) && p.valores.length ? ` — ${p.valores.length} valores` : ''}
                   </p>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-400/10 text-green-400 shrink-0">Extraído</span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                  p.status === 'extraido' ? 'bg-green-400/10 text-green-400' : p.status === 'erro' ? 'bg-red-400/10 text-red-400' : 'bg-gray-400/10 text-gray-400'
+                }`}>{p.status === 'extraido' ? 'Extraído' : p.status === 'erro' ? 'Erro' : 'Pendente'}</span>
                 <button className="text-gray-600 hover:text-white transition-colors shrink-0"><Eye size={14} /></button>
-                <button onClick={() => handleExcluir(p.id, p.nome)} className="text-gray-600 hover:text-red-400 transition-colors shrink-0"><Trash2 size={14} /></button>
+                <button onClick={() => handleExcluir(p.id, p.escola)} className="text-gray-600 hover:text-red-400 transition-colors shrink-0"><Trash2 size={14} /></button>
               </div>
             ))}
           </div>

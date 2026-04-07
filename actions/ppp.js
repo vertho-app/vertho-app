@@ -76,27 +76,30 @@ Extraia as competências comportamentais que a instituição valoriza:
       return { success: false, error: 'Não foi possível extrair competências dos documentos' };
     }
 
-    // Step 3: Save to ppp_escolas table
-    const registros = dados.competencias.map(c => ({
-      empresa_id: empresaId,
-      nome: c.nome,
-      descricao: c.descricao,
-      evidencia: c.evidencia,
-      relevancia: c.relevancia,
-    }));
+    // Step 3: Save to ppp_escolas (schema: escola, fonte, extracao, valores, status)
+    const fonteLabel = urls.length ? urls[0] : 'texto_manual';
+    const escolaNome = empresa.nome;
 
-    const { error } = await sb.from('ppp_escolas').insert(registros);
+    const { error } = await sb.from('ppp_escolas')
+      .upsert({
+        empresa_id: empresaId,
+        escola: escolaNome,
+        fonte: urls.length ? 'site' : 'json',
+        url_site: urls[0] || null,
+        status: 'extraido',
+        extracao: JSON.stringify(dados),
+        valores: dados.valores_institucionais || [],
+        extracted_at: new Date().toISOString(),
+      }, { onConflict: 'empresa_id,escola' });
+
     if (error) return { success: false, error: error.message };
 
-    // Also save the full PPP text to the empresa
-    const pppTexto = conteudosExtraidos.map(c => c.texto).join('\n\n');
+    // Also save the full PPP text to the empresa (columns may not exist yet — ignore errors)
+    const pppTexto = conteudosExtraidos.filter(c => !c.erro).map(c => c.texto).join('\n\n');
     await sb.from('empresas')
-      .update({
-        ppp_texto: pppTexto.slice(0, 50000),
-        ppp_valores: dados.valores_institucionais,
-        ppp_perfil: dados.perfil_desejado,
-      })
-      .eq('id', empresaId);
+      .update({ ppp_texto: pppTexto.slice(0, 50000) })
+      .eq('id', empresaId)
+      .then(() => {}).catch(() => {});
 
     return {
       success: true,
