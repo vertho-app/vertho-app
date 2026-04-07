@@ -117,7 +117,7 @@ export async function POST(req) {
     if (totalTurnos === 1) {
       const promptVersionId = await getOrCreatePromptVersion(
         'conversa_fase3', modeloAvaliador, systemPrompt,
-        { max_turnos: MAX_TURNOS, confianca_encerrar: CONFIANCA_ENCERRAR }
+        { max_tokens: 1024, max_turnos: MAX_TURNOS, confianca_encerrar: CONFIANCA_ENCERRAR }
       );
       const versaoRegua = comp?.versao_regua || 1;
       if (promptVersionId) {
@@ -134,7 +134,7 @@ export async function POST(req) {
 
     let rawResponse;
     try {
-      rawResponse = await callAIChat(systemPrompt, messages, { model: modeloAvaliador }, 2048);
+      rawResponse = await callAIChat(systemPrompt, messages, { model: modeloAvaliador }, 1024);
     } catch (llmError) {
       // Fallback: salvar erro mas não derrubar sessão
       await sb.from('mensagens_chat').insert({
@@ -337,12 +337,12 @@ Avalie o colaborador e retorne APENAS um bloco [EVAL]:
 
   // Registrar versão do prompt de avaliação
   const evalPromptVersionId = await getOrCreatePromptVersion(
-    'avaliacao_ia4', modeloAvaliador, evalPrompt, { max_tokens: 2048 }
+    'avaliacao_ia4', modeloAvaliador, evalPrompt, { max_tokens: 32768 }
   );
 
   let rascunho = null;
   try {
-    const evalResponse = await callAI(evalPrompt, '', { model: modeloAvaliador }, 2048);
+    const evalResponse = await callAI(evalPrompt, '', { model: modeloAvaliador }, 32768);
     rascunho = await extractBlock(evalResponse, 'EVAL');
   } catch (err) {
     console.error('[encerrarSessao] Avaliação falhou:', err.message);
@@ -393,12 +393,12 @@ Se status="aprovado", avaliacao_corrigida deve ser null.`;
 
   // Registrar versão do prompt de auditoria
   const auditPromptVersionId = await getOrCreatePromptVersion(
-    'auditoria_gemini', modeloValidador, auditPrompt, { max_tokens: 2048 }
+    'auditoria_gemini', modeloValidador, auditPrompt, { max_tokens: 65536 }
   );
 
   let audit = null;
   try {
-    const auditResponse = await callAI(auditPrompt, '', { model: modeloValidador }, 2048);
+    const auditResponse = await callAI(auditPrompt, '', { model: modeloValidador }, 65536);
     audit = await extractBlock(auditResponse, 'AUDIT');
   } catch (err) {
     console.error('[encerrarSessao] Auditoria falhou:', err.message);

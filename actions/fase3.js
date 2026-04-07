@@ -28,7 +28,7 @@ Responda APENAS com JSON válido.`;
 
     // Registrar versão do prompt de avaliação IA4
     const promptVersionId = await getOrCreatePromptVersion(
-      'avaliacao_ia4', model, system, { max_tokens: 2048 }
+      'avaliacao_ia4', model, system, { max_tokens: 32768 }
     );
 
     let avaliadas = 0;
@@ -50,7 +50,7 @@ Gabarito: ${JSON.stringify(cenario.competencias.gabarito)}
 Avalie e retorne:
 {"nivel_identificado": 1-5, "justificativa": "...", "pontos_fortes": ["..."], "pontos_desenvolvimento": ["..."]}`;
 
-      const resultado = await callAI(system, user, aiConfig, 2048);
+      const resultado = await callAI(system, user, aiConfig, 32768);
       const avaliacao = await extractJSON(resultado);
 
       if (avaliacao) {
@@ -174,7 +174,7 @@ Gere o relatório individual:
   "recomendacoes": ["..."]
 }`;
 
-      const resultado = await callAI(system, user, aiConfig, 6000);
+      const resultado = await callAI(system, user, aiConfig, 64000);
       const relatorio = await extractJSON(resultado);
 
       if (relatorio) {
@@ -236,7 +236,7 @@ Gere relatório do gestor:
   "acoes_prioritarias": ["..."]
 }`;
 
-    const resultado = await callAI(system, user, aiConfig, 6000);
+    const resultado = await callAI(system, user, aiConfig, 64000);
     const relatorio = await extractJSON(resultado);
 
     if (relatorio) {

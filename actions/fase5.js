@@ -110,7 +110,7 @@ Gere relatório de evolução:
   "recomendacoes_proximos_passos": ["..."]
 }`;
 
-      const resultado = await callAI(system, user, aiConfig, 6000);
+      const resultado = await callAI(system, user, aiConfig, 64000);
       const relatorio = await extractJSON(resultado);
 
       if (relatorio) {
@@ -174,7 +174,7 @@ Gere material para plenária:
   "proximos_passos": ["..."]
 }`;
 
-    const resultado = await callAI(system, user, aiConfig, 6000);
+    const resultado = await callAI(system, user, aiConfig, 64000);
     const plenaria = await extractJSON(resultado);
 
     if (plenaria) {
@@ -440,7 +440,7 @@ Retorne:
   "detalhes": [{"cenario_id": "...", "status": "aprovado|ressalva|reprovado", "observacao": "..."}]
 }`;
 
-    const resultado = await callAI(system, user, aiConfig, 6000);
+    const resultado = await callAI(system, user, aiConfig, 64000);
     const verificacao = await extractJSON(resultado);
 
     return {
