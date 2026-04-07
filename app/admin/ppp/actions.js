@@ -2,24 +2,24 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 
-export async function loadEmpresas() {
+export async function loadEmpresa(empresaId) {
   const sb = createSupabaseAdmin();
-  const { data, error } = await sb.from('empresas').select('id, nome, segmento').order('nome');
-  if (error) return { success: false, error: error.message };
-  return { success: true, data };
+  const { data } = await sb.from('empresas').select('id, nome, segmento').eq('id', empresaId).single();
+  return data;
 }
 
 export async function loadPPPs(empresaId) {
   const sb = createSupabaseAdmin();
-  try {
-    const { data, error } = await sb.from('ppp_escolas')
-      .select('*')
-      .eq('empresa_id', empresaId)
-      .order('created_at', { ascending: false });
+  const { data } = await sb.from('ppp_escolas')
+    .select('*')
+    .eq('empresa_id', empresaId)
+    .order('created_at', { ascending: false });
+  return data || [];
+}
 
-    if (error) return { success: false, error: error.message };
-    return { success: true, data };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
+export async function excluirPPP(id) {
+  const sb = createSupabaseAdmin();
+  const { error } = await sb.from('ppp_escolas').delete().eq('id', id);
+  if (error) return { success: false, error: error.message };
+  return { success: true };
 }
