@@ -15,32 +15,24 @@ export async function extrairPPP(empresaId, { urls = [], textos = [], model } = 
 
     if (!empresa) return { success: false, error: 'Empresa não encontrada' };
 
-    // Step 1: Scrape URLs via Jina AI Reader
+    // Step 1: Scrape URLs — Jina AI Reader (primário) + Firecrawl (fallback)
     const conteudosExtraidos = [];
 
     for (const url of urls) {
-      try {
-        const res = await fetch(`https://r.jina.ai/${url}`, {
-          headers: {
-            Accept: 'text/plain',
-            'X-Return-Format': 'text',
-            ...(process.env.JINA_API_KEY && { Authorization: `Bearer ${process.env.JINA_API_KEY}` }),
-          },
-        });
+      // Tentativa 1: Jina AI Reader
+      let extraido = await scrapeJina(url);
 
-        if (res.ok) {
-          const texto = await res.text();
-          if (texto && texto.length > 50) {
-            conteudosExtraidos.push({ fonte: url, texto: texto.slice(0, 15000) });
-          } else {
-            conteudosExtraidos.push({ fonte: url, texto: `[Conteúdo não extraído — site pode bloquear scraping: ${url}]`, erro: true });
-          }
-        } else {
-          conteudosExtraidos.push({ fonte: url, texto: `[Erro HTTP ${res.status} ao acessar ${url}]`, erro: true });
-        }
-      } catch (err) {
-        conteudosExtraidos.push({ fonte: url, texto: `[Erro ao acessar ${url}: ${err.message}]`, erro: true });
+      // Tentativa 2: Firecrawl (fallback se Jina falhou)
+      if (!extraido.ok && process.env.FIRECRAWL_API_KEY) {
+        extraido = await scrapeFirecrawl(url);
       }
+
+      conteudosExtraidos.push({
+        fonte: url,
+        texto: extraido.texto.slice(0, 15000),
+        erro: !extraido.ok,
+        via: extraido.via,
+      });
     }
 
     // Add manual texts
@@ -51,6 +43,10 @@ export async function extrairPPP(empresaId, { urls = [], textos = [], model } = 
     if (!conteudosExtraidos.length) {
       return { success: false, error: 'Nenhum conteúdo extraído das URLs ou textos fornecidos' };
     }
+
+    const urlsOk = conteudosExtraidos.filter(c => !c.erro && c.fonte !== 'texto_manual');
+    const urlsFail = conteudosExtraidos.filter(c => c.erro);
+    const scraperLog = urlsOk.map(c => `${c.fonte} (${c.via})`).join(', ');
 
     // Step 2: Use AI to extract PPP competencies
     const system = `Você é um especialista em análise de Projetos Político-Pedagógicos (PPP) e documentos institucionais.
@@ -104,10 +100,68 @@ Extraia as competências comportamentais que a instituição valoriza:
 
     return {
       success: true,
-      message: `${dados.competencias.length} competências extraídas do PPP (${conteudosExtraidos.length} fontes)`,
+      message: `${dados.competencias.length} competências extraídas (${urlsOk.length} URLs ok${urlsFail.length ? `, ${urlsFail.length} falharam` : ''})${scraperLog ? ` via ${urlsOk[0]?.via}` : ''}`,
       data: dados,
     };
   } catch (err) {
     return { success: false, error: err.message };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SCRAPERS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function scrapeJina(url) {
+  try {
+    const res = await fetch(`https://r.jina.ai/${url}`, {
+      headers: {
+        Accept: 'text/plain',
+        'X-Return-Format': 'text',
+        ...(process.env.JINA_API_KEY && { Authorization: `Bearer ${process.env.JINA_API_KEY}` }),
+      },
+    });
+
+    if (res.ok) {
+      const texto = await res.text();
+      if (texto && texto.length > 100) {
+        return { ok: true, texto, via: 'jina' };
+      }
+    }
+    return { ok: false, texto: `[Jina: conteúdo insuficiente para ${url}]`, via: 'jina' };
+  } catch (err) {
+    return { ok: false, texto: `[Jina falhou: ${err.message}]`, via: 'jina' };
+  }
+}
+
+async function scrapeFirecrawl(url) {
+  try {
+    const res = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.FIRECRAWL_API_KEY}`,
+      },
+      body: JSON.stringify({
+        url,
+        formats: ['markdown'],
+        onlyMainContent: true,
+      }),
+    });
+
+    if (!res.ok) {
+      const detail = await res.text();
+      return { ok: false, texto: `[Firecrawl HTTP ${res.status}: ${detail.slice(0, 200)}]`, via: 'firecrawl' };
+    }
+
+    const data = await res.json();
+    const markdown = data.data?.markdown || '';
+
+    if (markdown.length > 100) {
+      return { ok: true, texto: markdown, via: 'firecrawl' };
+    }
+    return { ok: false, texto: `[Firecrawl: conteúdo insuficiente para ${url}]`, via: 'firecrawl' };
+  } catch (err) {
+    return { ok: false, texto: `[Firecrawl falhou: ${err.message}]`, via: 'firecrawl' };
   }
 }
