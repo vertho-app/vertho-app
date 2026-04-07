@@ -555,7 +555,7 @@ Subdominos: https://{slug}.vertho.com.br (por empresa)
 
 ---
 
-## 10. Migrations SQL (14 arquivos)
+## 10. Migrations SQL (15 arquivos)
 
 ```
 001_codigo_js_tables.sql        → empresas, colaboradores, competencias, banco_cenarios, respostas, envios, regua
@@ -567,14 +567,15 @@ Subdominos: https://{slug}.vertho.com.br (por empresa)
 007_competencias_base_cargo.sql → ADD COLUMN cargo em competencias_base
 008_empresas_ui_config.sql      → ADD COLUMN ui_config JSONB
 009_empresas_slug.sql           → ADD COLUMN slug UNIQUE + indice
-009_sessoes_avaliacao.sql       → CREATE TABLE sessoes_avaliacao + mensagens_chat + RLS
-010_empresas_sys_config.sql     → ADD COLUMN sys_config JSONB
-010_storage_logos.sql           → Bucket "logos" no Supabase Storage
-011_sessoes_validacao.sql       → ADD COLUMNS rascunho_avaliacao, validacao_audit, modelo_*
-012_sessoes_lacuna_numeric.sql  → ALTER lacuna TEXT → NUMERIC + indices
+010_sessoes_avaliacao.sql       → CREATE TABLE sessoes_avaliacao + mensagens_chat + RLS
+011_empresas_sys_config.sql     → ADD COLUMN sys_config JSONB
+012_storage_logos.sql           → Bucket "logos" no Supabase Storage
+013_sessoes_validacao.sql       → ADD COLUMNS rascunho_avaliacao, validacao_audit, modelo_*
+014_sessoes_lacuna_numeric.sql  → ALTER lacuna TEXT → NUMERIC + indices
+015_rbac_explicito.sql          → ADD COLUMN role + CREATE TABLE platform_admins + migracao legado
 ```
 
 ---
 
 *Documento gerado a partir do codigo-fonte atual do projeto Vertho Mentor IA.*
-*81 arquivos JS | 14 migrations SQL | 13 env vars | vertho.com.br*
+*83 arquivos JS | 15 migrations SQL | 14 env vars | vertho.com.br*
