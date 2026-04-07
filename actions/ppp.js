@@ -6,7 +6,7 @@ import { extractJSON } from './utils';
 
 // ── Extrair competências do PPP (Projeto Político Pedagógico) ───────────────
 
-export async function extrairPPP(empresaId, { urls = [], textos = [] } = {}) {
+export async function extrairPPP(empresaId, { urls = [], textos = [], model } = {}) {
   const sb = createSupabaseAdmin();
   try {
     const { data: empresa } = await sb.from('empresas')
@@ -23,16 +23,23 @@ export async function extrairPPP(empresaId, { urls = [], textos = [] } = {}) {
         const res = await fetch(`https://r.jina.ai/${url}`, {
           headers: {
             Accept: 'text/plain',
+            'X-Return-Format': 'text',
             ...(process.env.JINA_API_KEY && { Authorization: `Bearer ${process.env.JINA_API_KEY}` }),
           },
         });
 
         if (res.ok) {
           const texto = await res.text();
-          conteudosExtraidos.push({ fonte: url, texto: texto.slice(0, 15000) });
+          if (texto && texto.length > 50) {
+            conteudosExtraidos.push({ fonte: url, texto: texto.slice(0, 15000) });
+          } else {
+            conteudosExtraidos.push({ fonte: url, texto: `[Conteúdo não extraído — site pode bloquear scraping: ${url}]`, erro: true });
+          }
+        } else {
+          conteudosExtraidos.push({ fonte: url, texto: `[Erro HTTP ${res.status} ao acessar ${url}]`, erro: true });
         }
-      } catch (_) {
-        // Skip failed URLs
+      } catch (err) {
+        conteudosExtraidos.push({ fonte: url, texto: `[Erro ao acessar ${url}: ${err.message}]`, erro: true });
       }
     }
 
@@ -66,7 +73,7 @@ Extraia as competências comportamentais que a instituição valoriza:
   "perfil_desejado": "..."
 }`;
 
-    const resultado = await callAI(system, user, {}, 8000);
+    const resultado = await callAI(system, user, { model: model || 'claude-sonnet-4-6' }, 8000);
     const dados = await extractJSON(resultado);
 
     if (!dados?.competencias?.length) {

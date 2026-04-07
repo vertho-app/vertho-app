@@ -21,6 +21,7 @@ export default function PPPPage() {
   const [extracting, setExtracting] = useState(false);
   const [result, setResult] = useState(null);
   const [toast, setToast] = useState(null);
+  const [model, setModel] = useState('claude-sonnet-4-6');
 
   useEffect(() => {
     async function init() {
@@ -52,7 +53,7 @@ export default function PPPPage() {
 
     setExtracting(true);
     setResult(null);
-    const r = await extrairPPP(empresaIdParam, { urls: urlList, textos: textoList });
+    const r = await extrairPPP(empresaIdParam, { urls: urlList, textos: textoList, model });
     setExtracting(false);
     if (r.success) {
       setResult(r.data || r);
@@ -172,6 +173,19 @@ export default function PPPPage() {
                 style={{ background: '#091D35' }} />
             </div>
           )}
+
+          {/* Model selector */}
+          <div className="mt-4 mb-3">
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Modelo de IA</p>
+            <select value={model} onChange={e => setModel(e.target.value)}
+              className="w-full max-w-xs px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none"
+              style={{ background: '#091D35' }}>
+              <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
+              <option value="claude-opus-4-6">Claude Opus 4.6</option>
+              <option value="gemini-2.5-flash-preview-05-20">Gemini 2.5 Flash</option>
+              <option value="gpt-5.4">GPT-5.4</option>
+            </select>
+          </div>
 
           {/* Extrair button */}
           <button onClick={handleExtrair} disabled={extracting}
