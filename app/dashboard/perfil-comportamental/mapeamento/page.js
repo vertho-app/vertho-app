@@ -609,36 +609,39 @@ export default function MapeamentoPage() {
   if (phase === PHASE.LEARNING) {
     const allRated = Object.values(learnPrefs).every(v => v > 0);
     return (
-      <div className="max-w-[440px] mx-auto px-4 py-6">
-        <ProgressBar />
-
-        <div className="text-center mb-5">
-          <span className="inline-block text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-2"
-            style={{ background: 'rgba(0,180,216,0.12)', color: '#00B4D8' }}>
-            Preferências de Aprendizagem
-          </span>
-          <h2 className="text-lg font-bold text-white">Como você prefere aprender?</h2>
-          <p className="text-xs text-gray-400 mt-1">Avalie cada formato de 1 a 5 estrelas.</p>
+      <div className="max-w-[480px] mx-auto px-4 py-6">
+        {/* Progress header */}
+        <div className="flex justify-between items-center text-[11px] text-gray-500 font-medium mb-1">
+          <span>Preferências de Aprendizagem</span>
+          <span>{progressPct}%</span>
+        </div>
+        <div className="h-[3px] rounded-full overflow-hidden mb-6" style={{ background: 'rgba(255,255,255,0.05)' }}>
+          <div className="h-full rounded-full transition-all" style={{ width: `${progressPct}%`, background: 'linear-gradient(90deg, #2DD4BF, #FCD34D)' }} />
         </div>
 
-        <div className="space-y-3">
+        {/* Tag + title */}
+        <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-cyan-400 mb-1">Última Etapa</p>
+        <h1 className="text-[26px] font-black text-white leading-tight mb-1" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>Como você aprende melhor?</h1>
+        <p className="text-[13px] text-gray-400 mb-5">Dê de 1 a 5 estrelas para cada formato:</p>
+
+        {/* Format rows */}
+        <div className="space-y-2">
           {FORMATS.map(fmt => (
-            <div key={fmt.id} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
-              <span className="text-lg">{fmt.icon}</span>
-              <div className="flex-1 min-w-0">
-                <span className="text-sm text-white">{fmt.label}</span>
-              </div>
+            <div key={fmt.id} className="flex items-center gap-3 px-3 py-3 rounded-xl" style={{ background: '#182B48' }}>
+              <span className="text-[12px] shrink-0">{fmt.icon}</span>
+              <span className="flex-1 text-[12px] font-semibold text-white leading-snug">{fmt.label}</span>
               <div className="flex gap-0.5">
                 {[1, 2, 3, 4, 5].map(star => (
                   <button
                     key={star}
                     onClick={() => setLearnPrefs(prev => ({ ...prev, [fmt.id]: star }))}
-                    className="p-0.5 transition-colors"
+                    className="w-8 h-8 rounded-md flex items-center justify-center text-base transition-all"
+                    style={{
+                      background: learnPrefs[fmt.id] >= star ? 'rgba(252,211,77,0.15)' : 'rgba(255,255,255,0.04)',
+                      color: learnPrefs[fmt.id] >= star ? '#FCD34D' : '#64748B',
+                    }}
                   >
-                    <Star
-                      size={18}
-                      className={learnPrefs[fmt.id] >= star ? 'text-amber-400 fill-amber-400' : 'text-gray-600'}
-                    />
+                    ★
                   </button>
                 ))}
               </div>
@@ -649,10 +652,10 @@ export default function MapeamentoPage() {
         <button
           disabled={!allRated}
           onClick={calculate}
-          className="mt-6 w-full py-3 rounded-xl font-bold text-white text-sm tracking-wide disabled:opacity-40 transition-all"
-          style={{ background: allRated ? 'linear-gradient(135deg, #00B4D8, #0D9488)' : '#374151' }}
+          className="mt-5 w-full py-4 rounded-xl font-bold text-[#0C1829] text-sm tracking-wider uppercase disabled:opacity-30 transition-all"
+          style={{ background: 'linear-gradient(135deg, #2DD4BF, #14B8A6)' }}
         >
-          CALCULAR RESULTADOS
+          VER MEU PERFIL →
         </button>
       </div>
     );
