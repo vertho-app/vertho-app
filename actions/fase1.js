@@ -3,6 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI } from './ai-client';
 import { extractJSON } from './utils';
+import { incrementarVersaoRegua } from '@/lib/versioning';
 
 // ── IA1: Gerar top 10 competências por cargo ────────────────────────────────
 
@@ -100,6 +101,7 @@ Formato JSON:
         await sb.from('competencias')
           .update({ gabarito: gabarito.niveis })
           .eq('id', comp.id);
+        await incrementarVersaoRegua(comp.id);
         totalGabaritos++;
       }
     }

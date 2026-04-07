@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAIChat, callAI } from '@/actions/ai-client';
 import { extractBlock, stripBlocks } from '@/actions/utils';
+import { getOrCreatePromptVersion } from '@/lib/versioning';
 
 // ── Defaults ────────────────────────────────────────────────────────────────
 
@@ -111,6 +112,20 @@ export async function POST(req) {
     // ── 5. Montar prompt e chamar IA ────────────────────────────────────────
 
     const systemPrompt = buildSystemPrompt(sessao, comp, cenario, totalTurnos);
+
+    // Registrar versão do prompt (dedup por hash — só cria se mudou)
+    if (totalTurnos === 1) {
+      const promptVersionId = await getOrCreatePromptVersion(
+        'conversa_fase3', modeloAvaliador, systemPrompt,
+        { max_turnos: MAX_TURNOS, confianca_encerrar: CONFIANCA_ENCERRAR }
+      );
+      const versaoRegua = comp?.versao_regua || 1;
+      if (promptVersionId) {
+        await sb.from('sessoes_avaliacao')
+          .update({ prompt_version_id: promptVersionId, versao_regua: versaoRegua })
+          .eq('id', sessao.id);
+      }
+    }
 
     const messages = [
       ...historico.map(m => ({ role: m.role, content: m.content })),
@@ -320,6 +335,11 @@ Avalie o colaborador e retorne APENAS um bloco [EVAL]:
 }
 [/EVAL]`;
 
+  // Registrar versão do prompt de avaliação
+  const evalPromptVersionId = await getOrCreatePromptVersion(
+    'avaliacao_ia4', modeloAvaliador, evalPrompt, { max_tokens: 2048 }
+  );
+
   let rascunho = null;
   try {
     const evalResponse = await callAI(evalPrompt, '', { model: modeloAvaliador }, 2048);
@@ -371,6 +391,11 @@ Audite esta avaliação em 6 critérios e retorne APENAS um bloco [AUDIT]:
 Se status="corrigido", preencha avaliacao_corrigida com a mesma estrutura do rascunho, mas com os valores ajustados.
 Se status="aprovado", avaliacao_corrigida deve ser null.`;
 
+  // Registrar versão do prompt de auditoria
+  const auditPromptVersionId = await getOrCreatePromptVersion(
+    'auditoria_gemini', modeloValidador, auditPrompt, { max_tokens: 2048 }
+  );
+
   let audit = null;
   try {
     const auditResponse = await callAI(auditPrompt, '', { model: modeloValidador }, 2048);
@@ -401,6 +426,8 @@ Se status="aprovado", avaliacao_corrigida deve ser null.`;
     nivel: avaliacaoFinal.nivel,
     nota_decimal: avaliacaoFinal.nota_decimal,
     lacuna: avaliacaoFinal.lacuna,
+    eval_prompt_version_id: evalPromptVersionId,
+    audit_prompt_version_id: auditPromptVersionId,
   }).eq('id', sessaoId);
 
   return avaliacaoFinal;

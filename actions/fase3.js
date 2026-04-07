@@ -3,6 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI } from './ai-client';
 import { extractJSON } from './utils';
+import { getOrCreatePromptVersion } from '@/lib/versioning';
 
 // ── IA4: Avaliar respostas com IA ───────────────────────────────────────────
 
@@ -20,9 +21,15 @@ export async function rodarIA4(empresaId, aiConfig = {}) {
       .select('nome, segmento')
       .eq('id', empresaId).single();
 
+    const model = aiConfig?.model || 'claude-sonnet-4-6';
     const system = `Você é um avaliador especialista em competências comportamentais.
 Avalie a resposta do colaborador comparando com o gabarito.
 Responda APENAS com JSON válido.`;
+
+    // Registrar versão do prompt de avaliação IA4
+    const promptVersionId = await getOrCreatePromptVersion(
+      'avaliacao_ia4', model, system, { max_tokens: 2048 }
+    );
 
     let avaliadas = 0;
 
@@ -48,7 +55,7 @@ Avalie e retorne:
 
       if (avaliacao) {
         await sb.from('respostas')
-          .update({ avaliacao_ia: avaliacao, avaliado_em: new Date().toISOString() })
+          .update({ avaliacao_ia: avaliacao, avaliado_em: new Date().toISOString(), prompt_version_id: promptVersionId })
           .eq('id', resp.id);
         avaliadas++;
       }
