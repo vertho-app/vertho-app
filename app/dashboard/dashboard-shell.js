@@ -3,14 +3,14 @@
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Home, ClipboardCheck, Target, TrendingUp, User, LogOut } from 'lucide-react';
+import { Home, Clock, Play, TrendingUp, User, LogOut, Bell } from 'lucide-react';
 import BetoChat from '@/components/beto-chat';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Início', icon: Home },
-  { href: '/dashboard/assessment', label: 'Assessment', icon: ClipboardCheck },
-  { href: '/dashboard/pdi', label: 'PDI', icon: Target },
-  { href: '/dashboard/praticar', label: 'Praticar', icon: TrendingUp },
+  { href: '/dashboard/jornada', label: 'Jornada', icon: Clock },
+  { href: '/dashboard/praticar', label: 'Praticar', icon: Play },
+  { href: '/dashboard/evolucao', label: 'Evolução', icon: TrendingUp },
   { href: '/dashboard/perfil', label: 'Perfil', icon: User },
 ];
 
@@ -35,11 +35,6 @@ export default function DashboardShell({ children }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    router.replace('/login');
-  }
-
   if (!user) return null;
 
   return (
@@ -47,9 +42,11 @@ export default function DashboardShell({ children }) {
       {/* Header */}
       <header className="flex items-center justify-between px-4 shrink-0"
         style={{ height: 'var(--header-height)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <img src="/logo-vertho.png" alt="Vertho" style={{ height: '22px' }} />
-        <button onClick={handleLogout} className="text-gray-500 hover:text-white transition-colors">
-          <LogOut size={18} />
+        <div className="flex items-center gap-1">
+          <span className="text-cyan-400 text-xl font-bold">V</span>
+        </div>
+        <button className="text-gray-500 hover:text-white transition-colors">
+          <Bell size={20} />
         </button>
       </header>
 

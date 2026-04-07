@@ -44,12 +44,20 @@ export default function BetoChat() {
     setLoading(false);
   }
 
+  // Escutar evento open-beto (disparado pelo card "Mentor IA")
+  useEffect(() => {
+    const handler = () => setOpen(true);
+    window.addEventListener('open-beto', handler);
+    return () => window.removeEventListener('open-beto', handler);
+  }, []);
+
   if (!open) {
     return (
       <button onClick={() => setOpen(true)}
-        className="fixed bottom-[calc(var(--nav-height)+16px)] right-4 w-12 h-12 rounded-full flex items-center justify-center shadow-lg z-40"
+        className="fixed bottom-[calc(var(--nav-height)+16px)] right-4 flex items-center gap-2 px-4 h-12 rounded-full shadow-lg z-40"
         style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
-        <MessageSquare size={20} className="text-white" />
+        <MessageSquare size={18} className="text-white" />
+        <span className="text-white text-sm font-bold">BETO</span>
       </button>
     );
   }
