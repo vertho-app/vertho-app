@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron?action=cleanup_sessoes",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron?action=trigger_segunda",
+      "schedule": "0 11 * * 1"
+    },
+    {
+      "path": "/api/cron?action=trigger_quinta",
+      "schedule": "0 11 * * 4"
+    }
+  ]
+}
