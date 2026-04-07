@@ -160,7 +160,7 @@ export default function MapeamentoPage() {
   const [authReady, setAuthReady] = useState(false);
 
   // Flow
-  const [phase, setPhase] = useState(PHASE.ONBOARDING);
+  const [phase, setPhase] = useState(PHASE.RANK1);
   const [groupIdx, setGroupIdx] = useState(0);
   const [pairIdx, setPairIdx] = useState(0);
 
@@ -185,15 +185,19 @@ export default function MapeamentoPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
 
-  // Load auth
+  // Load auth + nome do colaborador
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/login'); return; }
       setUserEmail(user.email || '');
       setFormEmail(user.email || '');
-      const meta = user.user_metadata || {};
-      const name = meta.full_name || meta.name || '';
+      // Buscar nome do colaborador no Supabase
+      const { data: colab } = await supabase.from('colaboradores')
+        .select('nome_completo')
+        .eq('email', user.email)
+        .single();
+      const name = colab?.nome_completo || user.user_metadata?.name || '';
       setUserName(name);
       setFormName(name);
       setAuthReady(true);
