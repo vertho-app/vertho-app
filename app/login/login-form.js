@@ -6,6 +6,8 @@ import { getSupabase } from '@/lib/supabase-browser';
 
 export default function LoginForm({ branding }) {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [mode, setMode] = useState('otp'); // otp | password
   const [status, setStatus] = useState('idle'); // idle | loading | sent | error
   const [errorMsg, setErrorMsg] = useState('');
   const router = useRouter();
@@ -62,6 +64,19 @@ export default function LoginForm({ branding }) {
 
     setStatus('loading');
     setErrorMsg('');
+
+    if (mode === 'password' && password) {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: trimmed,
+        password,
+      });
+      if (error) {
+        setErrorMsg(error.message);
+        setStatus('error');
+      }
+      // Se sucesso, o onAuthStateChange redireciona
+      return;
+    }
 
     const { error } = await supabase.auth.signInWithOtp({
       email: trimmed,
@@ -139,13 +154,30 @@ export default function LoginForm({ branding }) {
               onFocus={e => (e.target.style.borderColor = accentColor)}
               onBlur={e => (e.target.style.borderColor = '')}
             />
+            {mode === 'password' && (
+              <input
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="Senha"
+                autoComplete="current-password"
+                className="w-full mt-3 py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-white text-base text-center outline-none placeholder:text-white/40 transition-colors"
+                onFocus={e => (e.target.style.borderColor = accentColor)}
+                onBlur={e => (e.target.style.borderColor = '')}
+              />
+            )}
             <button
               type="submit"
               disabled={status === 'loading'}
               className="w-full mt-4 py-3.5 rounded-xl border-none text-white text-base font-bold tracking-wide cursor-pointer transition-opacity disabled:opacity-60"
               style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColorEnd})` }}
             >
-              {status === 'loading' ? 'Verificando...' : 'Entrar'}
+              {status === 'loading' ? 'Verificando...' : mode === 'password' ? 'Entrar com senha' : 'Entrar'}
+            </button>
+
+            <button type="button" onClick={() => setMode(mode === 'otp' ? 'password' : 'otp')}
+              className="mt-3 text-xs hover:underline" style={{ color: accentColor }}>
+              {mode === 'otp' ? 'Entrar com senha' : 'Entrar com Magic Link'}
             </button>
 
             {status === 'error' && errorMsg && (
