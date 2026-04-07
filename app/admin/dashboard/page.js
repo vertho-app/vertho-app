@@ -2,36 +2,21 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSupabase } from '@/lib/supabase-browser';
 import { Building2, Users, Plus, Loader2, ArrowLeft } from 'lucide-react';
+import { loadAdminDashboard } from './actions';
 
 export default function AdminDashboard() {
   const [empresas, setEmpresas] = useState([]);
+  const [totalColabs, setTotalColabs] = useState(0);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const supabase = getSupabase();
 
   useEffect(() => {
-    async function load() {
-      const { data } = await supabase
-        .from('empresas')
-        .select('id, nome, segmento, slug, created_at')
-        .order('nome');
-
-      if (data) {
-        // Buscar contagem de colaboradores por empresa
-        const enriched = await Promise.all(data.map(async emp => {
-          const { count } = await supabase
-            .from('colaboradores')
-            .select('id', { count: 'exact', head: true })
-            .eq('empresa_id', emp.id);
-          return { ...emp, totalColab: count || 0 };
-        }));
-        setEmpresas(enriched);
-      }
+    loadAdminDashboard().then(r => {
+      setEmpresas(r.empresas);
+      setTotalColabs(r.totalColabs);
       setLoading(false);
-    }
-    load();
+    });
   }, []);
 
   if (loading) return <div className="flex items-center justify-center h-dvh"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
@@ -57,7 +42,7 @@ export default function AdminDashboard() {
         </div>
         <div className="rounded-xl p-4 border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
           <Users size={20} className="text-cyan-400 mb-2" />
-          <p className="text-2xl font-bold text-white">{empresas.reduce((s, e) => s + e.totalColab, 0)}</p>
+          <p className="text-2xl font-bold text-white">{totalColabs}</p>
           <p className="text-xs text-gray-500">Colaboradores</p>
         </div>
       </div>
