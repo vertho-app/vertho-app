@@ -75,6 +75,15 @@ const LEAD_LABELS = { Executivo: 'D', Motivador: 'I', Metódico: 'S', Sistemáti
 // Total steps for progress: 8 rank groups * 2 + 6 pairs * 2 + 1 learning = 29
 const TOTAL_STEPS = 29;
 
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 /* ───────────────── SCORING ───────────────── */
 
 function scoreRankings(rankings) {
@@ -174,8 +183,8 @@ export default function MapeamentoPage() {
   const [formGender, setFormGender] = useState('');
 
   // Rankings: arrays of [group][position] = item
-  const [rank1, setRank1] = useState(() => RANKING_GROUPS.map(g => [...g]));
-  const [rank2, setRank2] = useState(() => RANKING_GROUPS.map(g => [...g]));
+  const [rank1, setRank1] = useState(() => RANKING_GROUPS.map(g => shuffle([...g])));
+  const [rank2, setRank2] = useState(() => RANKING_GROUPS.map(g => shuffle([...g])));
 
   // Pairs answers: array of chosen factor per pair
   const [pairs1, setPairs1] = useState(() => Array(6).fill(null));
