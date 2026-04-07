@@ -344,17 +344,51 @@ export default function EmpresaPipelinePage({ params }) {
         </button>
         {showDanger && (
           <div className="mt-3 p-4 rounded-xl border border-red-400/15" style={{ background: 'rgba(239,68,68,0.03)' }}>
+            <p className="text-[10px] font-bold text-red-400/70 uppercase tracking-widest mb-3">Zona de Perigo</p>
+
+            <div className="space-y-2 mb-4">
+              {[
+                { label: 'Limpar Fase 1 (cenários, cargos)', tabelas: ['banco_cenarios', 'cargos'] },
+                { label: 'Limpar Fase 2 (envios)', tabelas: ['envios_diagnostico'] },
+                { label: 'Limpar Fase 3 (respostas, avaliações)', tabelas: ['respostas', 'sessoes_avaliacao', 'mensagens_chat'] },
+                { label: 'Limpar Fase 4 (trilhas, capacitação)', tabelas: ['trilhas', 'capacitacao', 'fase4_envios'] },
+                { label: 'Limpar Fase 5 (evolução)', tabelas: ['evolucao', 'evolucao_descritores'] },
+                { label: 'Limpar colaboradores', tabelas: ['colaboradores'] },
+                { label: 'Limpar competências', tabelas: ['competencias'] },
+                { label: 'Limpar PPPs', tabelas: ['ppp_escolas'] },
+                { label: 'LIMPAR TUDO', tabelas: ['evolucao', 'evolucao_descritores', 'capacitacao', 'trilhas', 'fase4_envios', 'sessoes_avaliacao', 'mensagens_chat', 'respostas', 'envios_diagnostico', 'banco_cenarios', 'cargos', 'competencias', 'ppp_escolas', 'colaboradores'], danger: true },
+              ].map(item => (
+                <button key={item.label} disabled={dangerLoading}
+                  onClick={async () => {
+                    if (!confirm(`${item.label}?\n\nEsta ação não pode ser desfeita.`)) return;
+                    setDangerLoading(true);
+                    const r = await limparRegistros(empresaId, item.tabelas);
+                    if (r.success) { addLog(`🗑️ ${item.label} — concluído`, 'success'); loadData(); }
+                    else addLog(`❌ ${item.label}: ${r.error}`, 'error');
+                    setDangerLoading(false);
+                  }}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border transition-all disabled:opacity-30 ${
+                    item.danger
+                      ? 'text-red-400 border-red-400/20 hover:bg-red-400/10 font-bold'
+                      : 'text-gray-400 border-white/[0.04] hover:border-red-400/30 hover:text-red-400'
+                  }`}
+                  style={{ background: '#091D35' }}>
+                  <Trash2 size={12} /> {item.label}
+                </button>
+              ))}
+            </div>
+
             <button disabled={dangerLoading}
               onClick={async () => {
-                if (!confirm(`EXCLUIR a empresa "${empresa.nome}" e TODOS os dados?`)) return;
+                if (!confirm(`EXCLUIR a empresa "${empresa.nome}" e TODOS os dados?\n\nEsta ação é IRREVERSÍVEL.`)) return;
                 setDangerLoading(true);
                 const r = await excluirEmpresa(empresaId);
                 if (r.success) router.push('/admin/dashboard');
                 else { addLog(`❌ ${r.error}`, 'error'); setDangerLoading(false); }
               }}
-              className="w-full flex items-center justify-center gap-2 px-3 py-3 rounded-lg text-sm font-bold text-red-400 border border-red-400/30 hover:bg-red-400/10">
+              className="w-full flex items-center justify-center gap-2 px-3 py-3 rounded-lg text-sm font-bold text-red-400 border border-red-400/30 hover:bg-red-400/10 disabled:opacity-30">
               {dangerLoading ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-              Excluir Empresa
+              Excluir Empresa Permanentemente
             </button>
           </div>
         )}
