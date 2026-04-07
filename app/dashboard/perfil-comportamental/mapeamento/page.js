@@ -826,9 +826,8 @@ export default function MapeamentoPage() {
           className="w-full py-4 rounded-xl font-bold text-[#0C1829] text-sm tracking-wider uppercase flex items-center justify-center gap-2"
           style={{ background: 'linear-gradient(135deg, #2DD4BF, #14B8A6)' }}
         >
-          <span className="text-lg">📄</span> BAIXAR RELATÓRIO PDF
+          Ver Meu Perfil
         </button>
-        <p className="text-[11px] text-gray-500 text-center">Relatório completo personalizado</p>
 
         <button
           onClick={() => router.push('/dashboard')}
