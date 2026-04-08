@@ -330,13 +330,17 @@ export default function EmpresaPipelinePage({ params }) {
                     if (!top10Loaded) { refreshTop10(); }
                     const cargosTop10 = [...new Set(top10.map(t => t.cargo))].sort();
                     const cargosShow = top10Cargo ? cargosTop10.filter(c => c === top10Cargo) : cargosTop10;
-                    const selectedIds = showAddComp ? new Set(top10.filter(t => t.cargo === showAddComp).map(t => t.competencia_id)) : new Set();
+                    // IDs e cod_comps já selecionados neste cargo
+                    const selItems = showAddComp ? top10.filter(t => t.cargo === showAddComp) : [];
+                    const selectedIds = new Set(selItems.map(t => t.competencia_id));
+                    const selectedCods = new Set(selItems.map(t => t.competencia?.cod_comp).filter(Boolean));
                     const availComps = showAddComp ? (() => {
                       const seen = new Set();
                       return top10Comps.filter(c => {
                         const key = c.cod_comp || c.nome;
                         if (seen.has(key)) return false; seen.add(key);
                         if (selectedIds.has(c.id)) return false;
+                        if (c.cod_comp && selectedCods.has(c.cod_comp)) return false;
                         if (addSearch) { const s = addSearch.toLowerCase(); return c.nome.toLowerCase().includes(s) || (c.pilar || '').toLowerCase().includes(s); }
                         return true;
                       });
