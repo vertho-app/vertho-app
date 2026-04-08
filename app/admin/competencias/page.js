@@ -171,7 +171,9 @@ export default function CompetenciasPage() {
       {showImport && empresaId && (
         <div className="rounded-xl p-4 border border-white/[0.06] mb-4" style={{ background: '#0F2A4A' }}>
           <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-2">Importar Competências via CSV</p>
-          <p className="text-xs text-gray-400 mb-2">Colunas: <span className="text-cyan-400">nome</span> (obrigatória), cod_comp, pilar, cargo, descricao. Separador: vírgula ou ponto-e-vírgula.</p>
+          <p className="text-xs text-gray-400 mb-1">Colunas aceitas (separador: vírgula ou ponto-e-vírgula):</p>
+          <p className="text-[10px] text-cyan-400 font-mono mb-1">cod_comp, <strong>nome</strong>*, pilar, cargo, descricao, cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia</p>
+          <p className="text-[10px] text-gray-600">* <strong>nome</strong> é obrigatória. Demais são opcionais. Dedup por nome+cargo.</p>
           <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white cursor-pointer"
             style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
             {importing ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}

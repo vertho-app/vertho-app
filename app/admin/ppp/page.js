@@ -243,6 +243,19 @@ export default function PPPPage() {
             </select>
           </div>
 
+          {/* Model selector */}
+          <div className="mt-4 mb-3">
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Modelo de IA</p>
+            <select value={model} onChange={e => setModel(e.target.value)}
+              className="w-full max-w-xs px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none"
+              style={{ background: '#091D35' }}>
+              <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
+              <option value="claude-opus-4-6">Claude Opus 4.6</option>
+              <option value="gemini-3-flash-preview">Gemini 3 Flash</option>
+              <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro</option>
+            </select>
+          </div>
+
           {/* Extrair button */}
           <button onClick={handleExtrair} disabled={extracting}
             className="mt-4 w-full py-3.5 rounded-xl font-bold text-[#0C1829] text-sm tracking-wider flex items-center justify-center gap-2 disabled:opacity-40"
@@ -250,28 +263,6 @@ export default function PPPPage() {
             {extracting ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
             {extracting ? 'Extraindo...' : 'Extrair via IA'}
           </button>
-        </div>
-      )}
-
-      {/* Extraction results */}
-      {result && result.competencias && (
-        <div className="rounded-xl border border-white/[0.06] overflow-hidden mb-6" style={{ background: '#0F2A4A' }}>
-          <div className="px-5 py-3 border-b border-white/[0.06]">
-            <span className="text-sm font-bold text-white">Resultado ({result.competencias.length} competências extraídas)</span>
-          </div>
-          <div className="divide-y divide-white/[0.03]">
-            {result.competencias.map((c, i) => (
-              <div key={i} className="px-5 py-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-bold text-white">{c.nome}</span>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                    c.relevancia === 'alta' ? 'bg-green-400/20 text-green-400' : c.relevancia === 'media' ? 'bg-amber-400/20 text-amber-400' : 'bg-gray-400/20 text-gray-400'
-                  }`}>{c.relevancia}</span>
-                </div>
-                <p className="text-xs text-gray-400">{c.descricao}</p>
-              </div>
-            ))}
-          </div>
         </div>
       )}
 
@@ -325,7 +316,7 @@ export default function PPPPage() {
             <div className="text-xs text-gray-300 leading-relaxed">{children}</div>
           </div>
         );
-        const List = ({ items }) => items?.length ? <ul className="space-y-0.5">{items.map((it, i) => <li key={i} className="text-xs text-gray-400">• {typeof it === 'string' ? it : it.nome || it.termo || JSON.stringify(it)}</li>)}</ul> : <p className="text-xs text-gray-500 italic">Não declarado</p>;
+        const List = ({ items }) => items?.length ? <ul className="space-y-0.5">{items.map((it, i) => <li key={i} className="text-xs text-gray-400">• {typeof it === 'string' ? it : (it?.nome || it?.termo || (typeof it === 'object' ? JSON.stringify(it) : String(it)))}</li>)}</ul> : <p className="text-xs text-gray-500 italic">Não declarado</p>;
 
         return (
           <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-10 overflow-y-auto" style={{ background: 'rgba(0,0,0,0.7)' }}>
@@ -340,7 +331,7 @@ export default function PPPPage() {
                   <Section num="1" title="Perfil da Instituição" color="#00B4D8">
                     {ext.perfil_instituicao ? (
                       <div className="space-y-0.5">
-                        {Object.entries(ext.perfil_instituicao).map(([k, v]) => <p key={k}><span className="text-gray-500 font-semibold">{k}:</span> {v}</p>)}
+                        {Object.entries(ext.perfil_instituicao).map(([k, v]) => <p key={k}><span className="text-gray-500 font-semibold">{k}:</span> {typeof v === 'object' ? JSON.stringify(v) : String(v)}</p>)}
                       </div>
                     ) : <p className="text-gray-500 italic">Não declarado</p>}
                   </Section>

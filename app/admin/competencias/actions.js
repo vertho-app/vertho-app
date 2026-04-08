@@ -98,6 +98,13 @@ export async function importarCompetenciasCSV(empresaId, comps) {
       pilar: c.pilar?.trim() || null,
       cargo: c.cargo?.trim() || null,
       descricao: c.descricao?.trim() || null,
+      cod_desc: c.cod_desc?.trim() || null,
+      nome_curto: c.nome_curto?.trim() || null,
+      descritor_completo: c.descritor_completo?.trim() || null,
+      n1_gap: c.n1_gap?.trim() || null,
+      n2_desenvolvimento: c.n2_desenvolvimento?.trim() || null,
+      n3_meta: c.n3_meta?.trim() || null,
+      n4_referencia: c.n4_referencia?.trim() || null,
       origem: 'csv',
     }));
 
