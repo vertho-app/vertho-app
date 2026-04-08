@@ -216,13 +216,20 @@ export default function EmpresaPipelinePage({ params }) {
 
           // 2. Validar (se modelo de check foi selecionado)
           if (checkModel) {
-            addLog(`🔍 [${i + 1}/${items.length}] Validando: ${item.nome}`, 'info');
-            // Buscar o cenário recém-criado para pegar o ID
-            const checkResult = await checkCenarioUm(null, empresaId, item.cargo, item.competencia_id, checkModel);
-            if (checkResult.success) {
-              if (checkResult.nota >= 90) { aprovados++; addLog(`✅ ${item.nome}: ${checkResult.nota}pts`, 'success'); }
-              else { revisar++; addLog(`⚠ ${item.nome}: ${checkResult.nota}pts — revisar`, 'info'); }
+            addLog(`🔍 [${i + 1}/${items.length}] Validando: ${item.nome} [${checkModel}]`, 'info');
+            try {
+              const checkResult = await checkCenarioUm(null, empresaId, item.cargo, item.competencia_id, checkModel);
+              if (checkResult.success) {
+                if (checkResult.nota >= 90) { aprovados++; addLog(`✅ ${item.nome}: ${checkResult.nota}pts`, 'success'); }
+                else { revisar++; addLog(`⚠ ${item.nome}: ${checkResult.nota}pts — revisar`, 'info'); }
+              } else {
+                addLog(`⚠ Check ${item.nome}: ${checkResult.error}`, 'error');
+              }
+            } catch (ce) {
+              addLog(`⚠ Check erro: ${ce.message}`, 'error');
             }
+          } else {
+            addLog(`ℹ Sem modelo de validação selecionado`, 'info');
           }
         }
         let msg = `IA3 concluída: ${gerados} cenários gerados`;
