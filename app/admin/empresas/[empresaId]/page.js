@@ -21,7 +21,7 @@ import {
   dispararEmails, coletarRespostas, verStatusEnvios,
   rodarIA4, verFilaIA4, checkAvaliacoes, gerarRelatoriosIndividuais, gerarRelatorioGestor, gerarRelatorioRH, enviarRelIndividuais, enviarRelGestor, enviarRelRH,
   gerarPDIs, gerarPDIsDescritores, montarTrilhasLote, criarEstruturaFase4, iniciarFase4ParaTodos, triggerSegundaFase4, triggerQuintaFase4, getStatusFase4, moodleImportarCatalogo, catalogarConteudosMoodle, gerarCoberturaConteudo,
-  iniciarReavaliacaoLote, gerarRelatoriosEvolucaoLote, gerarPlenariaEvolucao, gerarRelatorioRHManual, gerarRelatorioPlenaria, enviarLinksPerfil, gerarDossieGestor, checkCenarios, dispararRelatoriosLote, dispararLinksCIS,
+  iniciarReavaliacaoLote, gerarRelatoriosEvolucaoLote, gerarPlenariaEvolucao, gerarRelatorioRHManual, gerarRelatorioPlenaria, enviarLinksPerfil, gerarDossieGestor, checkCenarios, dispararRelatoriosLote,
 } from './actions';
 
 // ── AI Models ──
@@ -66,9 +66,7 @@ const PHASE_CONFIG = [
     { key: 'ia3', label: 'IA3 — Cenários', icon: Zap, ai: true },
   ]},
   { num: 2, icon: Mail, color: '#F59E0B', actions: [
-    { key: 'disparo', label: 'Disparar E-mails', icon: Send },
-    { key: 'whatsapp', label: 'WhatsApp', icon: MessageSquare, href: '/admin/whatsapp' },
-    { key: 'cis-lote', label: 'Enviar Links CIS', icon: Send },
+    { key: 'disparo', label: 'Disparar Convites', icon: Send },
     { key: 'coletar', label: 'Coletar Respostas', icon: ClipboardCheck },
     { key: 'status', label: 'Status Envios', icon: BarChart3 },
   ]},
@@ -116,7 +114,7 @@ const ACTION_MAP = {
   disparo: dispararEmails, coletar: coletarRespostas, status: verStatusEnvios,
   ia4: rodarIA4, fila: verFilaIA4, check: checkAvaliacoes,
   'rel-ind': gerarRelatoriosIndividuais, 'rel-gestor': gerarRelatorioGestor, 'rel-rh': gerarRelatorioRH,
-  'env-ind': enviarRelIndividuais, 'env-gestor': enviarRelGestor, 'env-rh': enviarRelRH, 'enviar-lote': dispararRelatoriosLote, 'cis-lote': dispararLinksCIS,
+  'env-ind': enviarRelIndividuais, 'env-gestor': enviarRelGestor, 'env-rh': enviarRelRH, 'enviar-lote': dispararRelatoriosLote,
   pdis: gerarPDIs, 'pdis-desc': gerarPDIsDescritores, trilhas: montarTrilhasLote,
   estrutura: criarEstruturaFase4, iniciar: iniciarFase4ParaTodos,
   'trig-seg': triggerSegundaFase4, 'trig-qui': triggerQuintaFase4, 'status-f4': getStatusFase4,
