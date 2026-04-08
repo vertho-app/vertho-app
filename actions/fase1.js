@@ -4,8 +4,9 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI } from './ai-client';
 import { extractJSON } from './utils';
 
-// ── IA1: Gerar top 10 competências por cargo ────────────────────────────────
-// Fiel ao GAS antigo: busca PPP, valores, competências base, dados do cargo
+// ── IA1: Selecionar top 10 competências por cargo ───────────────────────────
+// Seleciona das competências JÁ CADASTRADAS na empresa (tabela competencias).
+// Resultado salvo em top10_cargos para validação humana.
 
 export async function rodarIA1(empresaId, aiConfig = {}) {
   const sb = createSupabaseAdmin();
@@ -25,13 +26,27 @@ export async function rodarIA1(empresaId, aiConfig = {}) {
     }
     if (!empresa) return { success: false, error: `Empresa não encontrada (id: ${empresaId})` };
 
-    // 2. Buscar PPP extraído (contexto da empresa/escola)
-    const contextoPPP = await buscarContextoPPP(sb, empresaId, empresa.nome);
+    // 2. Buscar competências da empresa (catálogo completo)
+    const { data: competencias } = await sb.from('competencias')
+      .select('id, nome, descricao, cod_comp, pilar, cargo')
+      .eq('empresa_id', empresaId);
 
-    // 3. Buscar valores organizacionais do PPP
+    if (!competencias?.length) return { success: false, error: 'Nenhuma competência cadastrada. Importe competências primeiro.' };
+
+    // Agrupar competências únicas por cod_comp (descritores viram uma só)
+    const compMap = {};
+    competencias.forEach(c => {
+      const key = c.cod_comp || c.nome;
+      if (!compMap[key]) compMap[key] = { ...c, count: 1 };
+      else compMap[key].count++;
+    });
+    const compsUnicas = Object.values(compMap);
+
+    // 3. Buscar PPP e valores
+    const contextoPPP = await buscarContextoPPP(sb, empresaId, empresa.nome);
     const valores = await buscarValores(sb, empresaId, empresa.nome);
 
-    // 4. Buscar cargos — prioriza cargos_empresa (com descrição), fallback colaboradores
+    // 4. Buscar cargos (prioriza cargos_empresa com descrição)
     const { data: cargosDetalhados } = await sb.from('cargos_empresa')
       .select('*')
       .eq('empresa_id', empresaId);
@@ -41,18 +56,13 @@ export async function rodarIA1(empresaId, aiConfig = {}) {
       .eq('empresa_id', empresaId)
       .not('cargo', 'is', null);
 
-    // Merge: cargos_empresa tem prioridade, depois colaboradores sem detalhe
     const cargosMap = {};
     (cargosDetalhados || []).forEach(c => {
       cargosMap[c.nome] = {
-        cargo: c.nome,
-        area: c.area_depto || '',
-        descricao: c.descricao || '',
-        entregas: c.principais_entregas || '',
-        stakeholders: c.stakeholders || '',
-        decisoes: c.decisoes_recorrentes || '',
-        tensoes: c.tensoes_comuns || '',
-        contexto_extra: c.contexto_cultural || '',
+        cargo: c.nome, area: c.area_depto || '',
+        descricao: c.descricao || '', entregas: c.principais_entregas || '',
+        stakeholders: c.stakeholders || '', decisoes: c.decisoes_recorrentes || '',
+        tensoes: c.tensoes_comuns || '', contexto_extra: c.contexto_cultural || '',
       };
     });
     (colaboradores || []).forEach(c => {
@@ -61,49 +71,105 @@ export async function rodarIA1(empresaId, aiConfig = {}) {
       }
     });
     const cargosUnicos = Object.values(cargosMap);
-    if (!cargosUnicos.length) return { success: false, error: 'Nenhum cargo encontrado nos colaboradores' };
+    if (!cargosUnicos.length) return { success: false, error: 'Nenhum cargo encontrado' };
 
-    // 5. Buscar competências base (filtradas por segmento)
-    const baseComp = await buscarBaseCompetencias(sb, empresa.segmento);
-
-    // 6. Para cada cargo, gerar top 10
-    const system = buildSystemPrompt(baseComp);
-    let totalGeradas = 0;
+    // 5. Para cada cargo, pedir à IA que selecione as 10 melhores
+    let totalSelecionadas = 0;
 
     for (const cargoInfo of cargosUnicos) {
+      // Filtrar competências relevantes (mesmo cargo ou sem cargo)
+      const compsCargo = compsUnicas.filter(c => !c.cargo || c.cargo === cargoInfo.cargo);
+      const compsParaIA = compsCargo.length >= 10 ? compsCargo : compsUnicas;
+
+      const system = buildSystemPromptSelecao(compsParaIA);
       const user = buildUserPrompt(empresa, cargoInfo, valores, contextoPPP);
 
       const resposta = await callAI(system, user, aiConfig, 4096);
       const resultado = await extractJSON(resposta);
 
       if (resultado?.top10 && Array.isArray(resultado.top10)) {
-        for (const comp of resultado.top10) {
-          // Dedup: não inserir se já existe
-          const { data: existe } = await sb.from('competencias')
-            .select('id')
-            .eq('empresa_id', empresaId)
-            .eq('cargo', cargoInfo.cargo)
-            .eq('nome', comp.nome)
-            .maybeSingle();
-          if (existe) continue;
+        // Limpar seleção anterior deste cargo
+        await sb.from('top10_cargos')
+          .delete()
+          .eq('empresa_id', empresaId)
+          .eq('cargo', cargoInfo.cargo);
 
-          await sb.from('competencias').insert({
+        for (let i = 0; i < resultado.top10.length; i++) {
+          const sel = resultado.top10[i];
+          // Encontrar a competência pelo cod_comp ou nome
+          const match = competencias.find(c =>
+            (sel.id && c.cod_comp === sel.id) ||
+            (sel.cod_comp && c.cod_comp === sel.cod_comp) ||
+            c.nome.toLowerCase() === (sel.nome || '').toLowerCase()
+          );
+          if (!match) continue;
+
+          await sb.from('top10_cargos').insert({
             empresa_id: empresaId,
             cargo: cargoInfo.cargo,
-            nome: comp.nome,
-            descricao: comp.justificativa || comp.descricao || null,
-            cod_comp: comp.id || comp.nome.substring(0, 10).toUpperCase(),
-            pilar: comp.categoria || comp.pilar || null,
+            competencia_id: match.id,
+            posicao: i + 1,
+            justificativa: sel.justificativa || null,
           });
-          totalGeradas++;
+          totalSelecionadas++;
         }
       }
     }
 
-    return { success: true, message: `IA1 concluída: ${totalGeradas} competências geradas para ${cargosUnicos.length} cargos` };
+    return { success: true, message: `IA1 concluída: ${totalSelecionadas} competências selecionadas para ${cargosUnicos.length} cargos` };
   } catch (err) {
     return { success: false, error: err.message };
   }
+}
+
+// ── CRUD top10 (para validação manual) ──────────────────────────────────────
+
+export async function loadTop10(empresaId, cargo) {
+  const sb = createSupabaseAdmin();
+  const { data } = await sb.from('top10_cargos')
+    .select('*, competencia:competencias(id, nome, cod_comp, pilar, descricao)')
+    .eq('empresa_id', empresaId)
+    .eq('cargo', cargo)
+    .order('posicao');
+  return data || [];
+}
+
+export async function loadTop10TodosCargos(empresaId) {
+  const sb = createSupabaseAdmin();
+  const { data } = await sb.from('top10_cargos')
+    .select('*, competencia:competencias(id, nome, cod_comp, pilar, descricao)')
+    .eq('empresa_id', empresaId)
+    .order('cargo')
+    .order('posicao');
+  return data || [];
+}
+
+export async function adicionarTop10(empresaId, cargo, competenciaId) {
+  const sb = createSupabaseAdmin();
+  // Pegar próxima posição
+  const { data: existentes } = await sb.from('top10_cargos')
+    .select('posicao')
+    .eq('empresa_id', empresaId)
+    .eq('cargo', cargo)
+    .order('posicao', { ascending: false })
+    .limit(1);
+  const proxPosicao = (existentes?.[0]?.posicao || 0) + 1;
+
+  const { error } = await sb.from('top10_cargos').insert({
+    empresa_id: empresaId,
+    cargo,
+    competencia_id: competenciaId,
+    posicao: proxPosicao,
+  });
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
+export async function removerTop10(id) {
+  const sb = createSupabaseAdmin();
+  const { error } = await sb.from('top10_cargos').delete().eq('id', id);
+  if (error) return { success: false, error: error.message };
+  return { success: true };
 }
 
 // ── Helpers IA1 ─────────────────────────────────────────────────────────────
@@ -195,45 +261,32 @@ async function buscarBaseCompetencias(sb, segmento) {
   }
 }
 
-function buildSystemPrompt(baseComp) {
-  const temBase = baseComp.length > 0;
+function buildSystemPromptSelecao(competencias) {
+  const baseTexto = competencias.map(comp => {
+    return `${comp.cod_comp || comp.id} | ${comp.nome} | ${comp.pilar || 'Comportamental'} | ${comp.descricao || ''}`;
+  }).join('\n');
 
-  if (temBase) {
-    // Montar texto da base (fiel ao GAS: id | nome | categoria | descrição)
-    const baseTexto = baseComp.map(comp => {
-      return `${comp.cod_comp || comp.id} | ${comp.nome} | ${comp.pilar || 'Comportamental'} | ${comp.descricao || ''}`;
-    }).join('\n');
+  return `Você é a IA de parametrização da Vertho.
+Sua tarefa: SELECIONAR as 10 competências MAIS RELEVANTES da lista abaixo para o cargo descrito.
 
-    return `Você é a IA de parametrização da Vertho.
-Selecione as 10 competências MAIS RELEVANTES da base para o cargo descrito.
+IMPORTANTE: Você NÃO pode inventar competências. Selecione APENAS da lista fornecida.
+
 Retorne APENAS JSON válido, sem markdown:
-{"top10":[{"id":"C001","nome":"Nome","categoria":"Comportamental","justificativa":"Frase específica."},...], "justificativa_geral":"Parágrafo."}
+{"top10":[{"id":"COD","nome":"Nome","justificativa":"Frase específica citando elemento do cargo."},...], "justificativa_geral":"Parágrafo."}
 
 REGRAS — siga na ordem de prioridade:
-1. Exatamente 10 competências — nem mais, nem menos.
-2. TODAS as 10 devem ser da base fornecida — proibido inventar IDs.
-3. Selecione APENAS competências diretamente aplicáveis ao cargo descrito:
-   — Analise cargo, área, descrição e entregas.
+1. Exatamente 10 competências — nem mais, nem menos (se houver menos de 10 disponíveis, selecione todas).
+2. TODAS devem vir da lista abaixo — use o campo "id" exatamente como aparece.
+3. Selecione APENAS competências diretamente aplicáveis ao cargo:
+   — Analise cargo, área, descrição, entregas e tensões.
    — Elimine competências que não fazem sentido para esse cargo específico.
-4. Use descrição do cargo e entregas como critério principal de seleção.
-5. Use valores organizacionais como critério de desempate.
-6. A justificativa de cada competência DEVE citar elemento específico do cargo.
+4. Use descrição do cargo e entregas como critério principal.
+5. Use stakeholders e tensões como critério de reforço.
+6. Use valores organizacionais como critério de desempate.
+7. A justificativa de cada competência DEVE citar elemento específico do cargo.
 
-BASE DE COMPETÊNCIAS (id | nome | categoria | descrição):
+LISTA DE COMPETÊNCIAS DISPONÍVEIS (id | nome | pilar | descrição):
 ${baseTexto}`;
-  }
-
-  // Sem base: gerar do zero
-  return `Você é um especialista em gestão por competências comportamentais.
-Gere as 10 competências comportamentais mais relevantes para o cargo descrito.
-Retorne APENAS JSON válido:
-{"top10":[{"id":"COMP-01","nome":"Nome","categoria":"Comportamental","justificativa":"Frase específica."},...], "justificativa_geral":"Parágrafo."}
-
-REGRAS:
-1. Exatamente 10 competências — nem mais, nem menos.
-2. Foco em competências comportamentais aplicáveis ao cargo.
-3. Use o contexto da empresa e valores organizacionais.
-4. A justificativa de cada competência DEVE ser específica para o cargo.`;
 }
 
 function buildUserPrompt(empresa, cargoInfo, valores, contextoPPP) {
