@@ -239,6 +239,21 @@ export async function loadCenarios(empresaId) {
   }));
 }
 
+// ── Helper Top 5 ────────────────────────────────────────────────────────────
+
+async function getTop5PorCargo(sb, empresaId) {
+  const { data } = await sb.from('cargos_empresa')
+    .select('nome, top5_workshop')
+    .eq('empresa_id', empresaId);
+  const result = {};
+  (data || []).forEach(c => {
+    if (c.top5_workshop && Array.isArray(c.top5_workshop) && c.top5_workshop.length > 0) {
+      result[c.nome] = c.top5_workshop;
+    }
+  });
+  return result;
+}
+
 // ── Helpers IA1 ─────────────────────────────────────────────────────────────
 
 async function buscarContextoPPP(sb, empresaId, empresaNome) {
@@ -546,10 +561,17 @@ INSTRUÇÃO:
 // 1 cenário + 4 perguntas abertas por competência × cargo
 // Processamento unitário (1 competência por chamada) para caber no timeout do Vercel Hobby
 
-// Lista competências pendentes para gerar cenário
+// Lista competências do Top 5 pendentes para gerar cenário
 export async function listarFilaIA3(empresaId) {
   const sb = createSupabaseAdmin();
   try {
+    // Buscar Top 5 por cargo
+    const top5PorCargo = await getTop5PorCargo(sb, empresaId);
+    if (!Object.keys(top5PorCargo).length) {
+      return { success: false, error: 'Nenhum Top 5 selecionado. Selecione na tela de Cargos & Top 5.' };
+    }
+
+    // Buscar top10 e filtrar apenas as que estão no Top 5
     const { data: top10All } = await sb.from('top10_cargos')
       .select('cargo, competencia_id, competencia:competencias(id, nome, cod_comp)')
       .eq('empresa_id', empresaId)
@@ -558,13 +580,22 @@ export async function listarFilaIA3(empresaId) {
 
     if (!top10All?.length) return { success: false, error: 'Nenhuma Top 10 selecionada. Rode IA1 primeiro.' };
 
+    // Filtrar apenas competências do Top 5
+    const filtradas = top10All.filter(t => {
+      const top5 = top5PorCargo[t.cargo];
+      if (!top5?.length) return false;
+      return top5.includes(t.competencia?.nome);
+    });
+
+    if (!filtradas.length) return { success: false, error: 'Nenhuma competência no Top 5. Selecione na tela de Cargos & Top 5.' };
+
     // Verificar quais já têm cenário
     const { data: existentes } = await sb.from('banco_cenarios')
       .select('competencia_id, cargo')
       .eq('empresa_id', empresaId);
     const existSet = new Set((existentes || []).map(e => `${e.competencia_id}::${e.cargo}`));
 
-    const fila = top10All.map(t => ({
+    const fila = filtradas.map(t => ({
       cargo: t.cargo,
       competencia_id: t.competencia_id,
       nome: t.competencia?.nome || '—',
