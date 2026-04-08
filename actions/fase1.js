@@ -209,20 +209,13 @@ export async function loadGabaritosCargos(empresaId) {
 
 export async function loadCenarios(empresaId) {
   const sb = createSupabaseAdmin();
-  // Query simples sem join (mais confiável)
   const { data, error } = await sb.from('banco_cenarios')
     .select('*')
     .eq('empresa_id', empresaId)
     .order('cargo');
 
-  if (error) {
-    console.error('[loadCenarios] erro:', error.message);
-    return [];
-  }
+  if (error || !data?.length) return [];
 
-  if (!data?.length) return [];
-
-  // Buscar nomes das competências separadamente
   const compIds = [...new Set(data.map(c => c.competencia_id).filter(Boolean))];
   const compMap = {};
   if (compIds.length > 0) {
@@ -233,7 +226,19 @@ export async function loadCenarios(empresaId) {
   }
 
   return data.map(c => ({
-    ...c,
+    id: c.id,
+    empresa_id: c.empresa_id,
+    competencia_id: c.competencia_id,
+    cargo: c.cargo,
+    titulo: c.titulo,
+    descricao: c.descricao,
+    alternativas: c.alternativas,
+    nota_check: c.nota_check,
+    status_check: c.status_check,
+    dimensoes_check: c.dimensoes_check,
+    justificativa_check: c.justificativa_check,
+    sugestao_check: c.sugestao_check,
+    alertas_check: c.alertas_check,
     competencia_nome: compMap[c.competencia_id]?.nome || null,
     competencia_cod: compMap[c.competencia_id]?.cod_comp || null,
   }));
@@ -682,6 +687,74 @@ export async function rodarIA3Uma(empresaId, cargoNome, competenciaId, aiConfig 
 // Wrapper que o pipeline chama — retorna a fila para o frontend processar
 export async function rodarIA3(empresaId, aiConfig = {}) {
   return listarFilaIA3(empresaId);
+}
+
+// Regenerar cenário com base no feedback do check
+export async function regenerarCenario(cenarioId, aiConfig = {}) {
+  const sb = createSupabaseAdmin();
+  try {
+    const { data: cen } = await sb.from('banco_cenarios')
+      .select('empresa_id, competencia_id, cargo, sugestao_check, justificativa_check')
+      .eq('id', cenarioId).single();
+    if (!cen) return { success: false, error: 'Cenário não encontrado' };
+
+    // Regenerar passando feedback como contexto extra
+    const feedbackExtra = [cen.justificativa_check, cen.sugestao_check].filter(Boolean).join('\n');
+
+    // Buscar dados necessários (como rodarIA3Uma)
+    let empresa;
+    const { data: emp1 } = await sb.from('empresas')
+      .select('nome, segmento, ppp_texto').eq('id', cen.empresa_id).single();
+    empresa = emp1 || (await sb.from('empresas').select('nome, segmento').eq('id', cen.empresa_id).single()).data;
+
+    const { data: comp } = await sb.from('competencias')
+      .select('id, nome, cod_comp, pilar, descricao, cargo')
+      .eq('id', cen.competencia_id).single();
+    if (!comp) return { success: false, error: 'Competência não encontrada' };
+
+    const { data: descritores } = await sb.from('competencias')
+      .select('cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
+      .eq('empresa_id', cen.empresa_id).eq('cod_comp', comp.cod_comp).not('cod_desc', 'is', null);
+
+    const contextoPPP = await buscarContextoPPP(sb, cen.empresa_id, empresa.nome);
+    const valores = await buscarValores(sb, cen.empresa_id, empresa.nome);
+
+    const { data: cargoEmp } = await sb.from('cargos_empresa')
+      .select('gabarito, descricao, principais_entregas, stakeholders, decisoes_recorrentes, tensoes_comuns')
+      .eq('empresa_id', cen.empresa_id).eq('nome', cen.cargo).maybeSingle();
+    const cargoDetalhe = cargoEmp || {};
+    const gabCIS = cargoDetalhe.gabarito ? (typeof cargoDetalhe.gabarito === 'string' ? JSON.parse(cargoDetalhe.gabarito) : cargoDetalhe.gabarito) : null;
+
+    // Gerar com instrução extra do feedback
+    const system = buildIA3SystemPrompt();
+    let user = buildIA3UserPrompt(empresa, cen.cargo, cargoDetalhe, comp, descritores || [], valores, contextoPPP, gabCIS);
+    if (feedbackExtra) {
+      user += `\n\nFEEDBACK DA REVISÃO ANTERIOR (CORRIJA ESTES PONTOS):\n${feedbackExtra}`;
+    }
+
+    const resposta = await callAI(system, user, aiConfig, 8000);
+    const resultado = await extractJSON(resposta);
+    if (!resultado?.cenario) return { success: false, error: 'IA não retornou cenário válido' };
+
+    // Atualizar cenário existente (limpa check anterior)
+    const { error: updErr } = await sb.from('banco_cenarios').update({
+      titulo: resultado.cenario.titulo,
+      descricao: resultado.cenario.contexto,
+      alternativas: resultado.perguntas || [],
+      nota_check: null,
+      status_check: null,
+      dimensoes_check: null,
+      justificativa_check: null,
+      sugestao_check: null,
+      alertas_check: null,
+      checked_at: null,
+    }).eq('id', cenarioId);
+
+    if (updErr) return { success: false, error: updErr.message };
+    return { success: true, message: `Cenário regenerado: ${comp.nome}` };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 }
 
 // ── Check Cenários (validação via Gemini) ───────────────────────────────────

@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Loader2, Trophy, Trash2, Plus, X, Search, ChevronDown,
-  Briefcase, FileText, Target, Brain
+  Briefcase, FileText, Target, Brain, RefreshCw, CheckCircle, AlertTriangle
 } from 'lucide-react';
 import {
-  loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, loadCenarios
+  loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, loadCenarios,
+  regenerarCenario, checkCenarioUm
 } from '@/actions/fase1';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 
@@ -32,6 +33,7 @@ export default function Fase1Page({ params }) {
   // Cenários
   const [cenarios, setCenarios] = useState([]);
   const [cenOpen, setCenOpen] = useState(null);
+  const [cenAction, setCenAction] = useState(null); // { id, type: 'regen' | 'check' }
 
   function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 2500); }
 
@@ -295,53 +297,141 @@ export default function Fase1Page({ params }) {
         <div>
           {cenarios.length === 0 ? (
             <Empty icon={FileText} text="Nenhum cenário. Rode IA3 no pipeline." />
-          ) : Object.entries(cenariosPorCargo).map(([cargo, cens]) => (
-            <div key={cargo} className="mb-6">
-              <h2 className="text-sm font-bold text-white mb-2">{cargo} <span className="text-[10px] text-gray-500 font-normal">({cens.length} cenários)</span></h2>
-              <div className="space-y-2">
-                {cens.map(c => {
-                  const isOpen = cenOpen === c.id;
-                  const perguntas = Array.isArray(c.alternativas) ? c.alternativas : [];
-                  return (
-                    <div key={c.id} className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
-                      <button onClick={() => setCenOpen(isOpen ? null : c.id)}
-                        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/[0.02] transition-colors">
-                        <div className="flex-1 min-w-0">
-                          <span className="text-xs font-bold text-white">{c.titulo || 'Cenário'}</span>
-                          {c.competencia_nome && <span className="text-[10px] text-cyan-400 ml-2">{c.competencia_nome}</span>}
-                        </div>
-                        <ChevronDown size={14} className={`text-gray-500 transition-transform shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
-                      </button>
-                      {isOpen && (
-                        <div className="px-4 pb-4 border-t border-white/[0.04]">
-                          {/* Contexto */}
-                          <p className="text-xs text-gray-300 leading-relaxed mt-3 mb-4">{c.descricao}</p>
-                          {/* Perguntas */}
-                          {perguntas.length > 0 && (
-                            <div className="space-y-3">
-                              {perguntas.map((p, i) => (
-                                <div key={i} className="p-3 rounded-lg" style={{ background: '#091D35' }}>
-                                  <p className="text-xs font-bold text-white mb-1">
-                                    P{p.numero || i + 1}: {p.texto || p.letra && `${p.letra}) ${p.texto}` || JSON.stringify(p)}
-                                  </p>
-                                  {p.descritores_primarios && (
-                                    <p className="text-[9px] text-cyan-400/60">Descritores: {Array.isArray(p.descritores_primarios) ? p.descritores_primarios.map(d => `D${d}`).join(', ') : p.descritores_primarios}</p>
-                                  )}
-                                  {p.o_que_diferencia_niveis && (
-                                    <p className="text-[10px] text-gray-500 mt-1">{p.o_que_diferencia_niveis}</p>
-                                  )}
+          ) : Object.entries(cenariosPorCargo).map(([cargo, cens]) => {
+            const aprovados = cens.filter(c => c.status_check === 'aprovado').length;
+            const revisar = cens.filter(c => c.status_check === 'revisar').length;
+            const pendentes = cens.filter(c => !c.status_check).length;
+            return (
+              <div key={cargo} className="mb-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <h2 className="text-sm font-bold text-white">{cargo}</h2>
+                  <span className="text-[10px] text-gray-500">{cens.length} cenários</span>
+                  {aprovados > 0 && <span className="text-[9px] bg-green-400/15 text-green-400 px-1.5 py-0.5 rounded">{aprovados} aprovados</span>}
+                  {revisar > 0 && <span className="text-[9px] bg-amber-400/15 text-amber-400 px-1.5 py-0.5 rounded">{revisar} revisar</span>}
+                  {pendentes > 0 && <span className="text-[9px] bg-gray-400/15 text-gray-400 px-1.5 py-0.5 rounded">{pendentes} pendentes</span>}
+                </div>
+                <div className="space-y-2">
+                  {cens.map(c => {
+                    const isOpen = cenOpen === c.id;
+                    const perguntas = Array.isArray(c.alternativas) ? c.alternativas : [];
+                    const isActing = cenAction?.id === c.id;
+                    const dims = typeof c.dimensoes_check === 'string' ? JSON.parse(c.dimensoes_check) : c.dimensoes_check;
+
+                    return (
+                      <div key={c.id} className={`rounded-xl border overflow-hidden ${
+                        c.status_check === 'aprovado' ? 'border-green-400/20' :
+                        c.status_check === 'revisar' ? 'border-amber-400/20' : 'border-white/[0.06]'
+                      }`} style={{ background: '#0F2A4A' }}>
+                        {/* Header */}
+                        <button onClick={() => setCenOpen(isOpen ? null : c.id)}
+                          className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/[0.02] transition-colors">
+                          <div className="flex-1 min-w-0 flex items-center gap-2">
+                            {c.status_check === 'aprovado' && <CheckCircle size={14} className="text-green-400 shrink-0" />}
+                            {c.status_check === 'revisar' && <AlertTriangle size={14} className="text-amber-400 shrink-0" />}
+                            <span className="text-xs font-bold text-white">{c.titulo || 'Cenário'}</span>
+                            {c.competencia_nome && <span className="text-[10px] text-cyan-400">{c.competencia_nome}</span>}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {c.nota_check != null && (
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                                c.nota_check >= 90 ? 'bg-green-400/15 text-green-400' : 'bg-amber-400/15 text-amber-400'
+                              }`}>{c.nota_check}pts</span>
+                            )}
+                            <ChevronDown size={14} className={`text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                          </div>
+                        </button>
+
+                        {isOpen && (
+                          <div className="px-4 pb-4 border-t border-white/[0.04]">
+                            {/* Contexto */}
+                            <p className="text-xs text-gray-300 leading-relaxed mt-3 mb-4">{c.descricao}</p>
+
+                            {/* Perguntas */}
+                            {perguntas.length > 0 && (
+                              <div className="space-y-2 mb-4">
+                                {perguntas.map((p, i) => (
+                                  <div key={i} className="p-3 rounded-lg" style={{ background: '#091D35' }}>
+                                    <p className="text-xs font-bold text-white mb-1">
+                                      P{p.numero || i + 1}: {p.texto || (typeof p === 'string' ? p : JSON.stringify(p))}
+                                    </p>
+                                    {p.descritores_primarios && (
+                                      <p className="text-[9px] text-cyan-400/60">Descritores: {Array.isArray(p.descritores_primarios) ? p.descritores_primarios.map(d => `D${d}`).join(', ') : p.descritores_primarios}</p>
+                                    )}
+                                    {p.o_que_diferencia_niveis && (
+                                      <p className="text-[10px] text-gray-500 mt-1">{p.o_que_diferencia_niveis}</p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Resultado do Check */}
+                            {c.nota_check != null && (
+                              <div className={`p-3 rounded-lg border mb-3 ${
+                                c.status_check === 'aprovado' ? 'border-green-400/20 bg-green-400/5' : 'border-amber-400/20 bg-amber-400/5'
+                              }`}>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className={`text-xs font-bold ${c.status_check === 'aprovado' ? 'text-green-400' : 'text-amber-400'}`}>
+                                    Check: {c.nota_check}pts — {c.status_check === 'aprovado' ? 'Aprovado' : 'Revisar'}
+                                  </span>
                                 </div>
-                              ))}
+                                {/* Dimensões */}
+                                {dims && (
+                                  <div className="flex flex-wrap gap-2 mb-2">
+                                    {Object.entries(dims).map(([k, v]) => (
+                                      <span key={k} className={`text-[9px] px-1.5 py-0.5 rounded ${v >= 18 ? 'bg-green-400/10 text-green-400' : v >= 14 ? 'bg-amber-400/10 text-amber-400' : 'bg-red-400/10 text-red-400'}`}>
+                                        {k}: {v}/20
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                                {c.justificativa_check && (
+                                  <p className="text-[10px] text-gray-400 mb-1"><span className="font-semibold text-gray-500">Justificativa:</span> {c.justificativa_check}</p>
+                                )}
+                                {c.sugestao_check && (
+                                  <p className="text-[10px] text-gray-400"><span className="font-semibold text-amber-400/80">Sugestão:</span> {c.sugestao_check}</p>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Ações */}
+                            <div className="flex items-center gap-2">
+                              {c.status_check === 'revisar' && (
+                                <button disabled={isActing} onClick={async () => {
+                                  setCenAction({ id: c.id, type: 'regen' });
+                                  const r = await regenerarCenario(c.id);
+                                  setCenAction(null);
+                                  if (r.success) { flash(r.message); refresh(); }
+                                  else flash('Erro: ' + r.error);
+                                }}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 transition-all disabled:opacity-50">
+                                  {isActing && cenAction.type === 'regen' ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+                                  Regenerar com feedback
+                                </button>
+                              )}
+                              {!c.nota_check && (
+                                <button disabled={isActing} onClick={async () => {
+                                  setCenAction({ id: c.id, type: 'check' });
+                                  const r = await checkCenarioUm(c.id);
+                                  setCenAction(null);
+                                  if (r.success) { flash(`${c.titulo}: ${r.nota}pts`); refresh(); }
+                                  else flash('Erro: ' + r.error);
+                                }}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all disabled:opacity-50">
+                                  {isActing && cenAction.type === 'check' ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle size={11} />}
+                                  Validar
+                                </button>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
