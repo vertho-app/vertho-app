@@ -122,50 +122,34 @@ export async function dispararEmails(empresaId) {
   }
 }
 
-// ── Coletar respostas ───────────────────────────────────────────────────────
-
-export async function coletarRespostas(empresaId) {
-  const sb = createSupabaseAdmin();
-  try {
-    const { data: envios } = await sb.from('envios_diagnostico')
-      .select('id, colaborador_id, status')
-      .eq('empresa_id', empresaId)
-      .eq('status', 'enviado');
-
-    if (!envios?.length) return { success: true, message: 'Nenhum envio aguardando resposta' };
-
-    let respondidos = 0;
-
-    for (const envio of envios) {
-      // Verificar se há sessão de avaliação concluída
-      const { count } = await sb.from('sessoes_avaliacao')
-        .select('*', { count: 'exact', head: true })
-        .eq('colaborador_id', envio.colaborador_id)
-        .eq('empresa_id', empresaId)
-        .eq('status', 'concluida');
-
-      if (count && count > 0) {
-        await sb.from('envios_diagnostico')
-          .update({ status: 'respondido', respondido_em: new Date().toISOString() })
-          .eq('id', envio.id);
-        respondidos++;
-      }
-    }
-
-    return {
-      success: true,
-      message: `${respondidos} novos respondidos de ${envios.length} pendentes`,
-    };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-}
-
-// ── Ver status dos envios ───────────────────────────────────────────────────
+// ── Ver status dos envios (com sync automático de respostas) ────────────────
 
 export async function verStatusEnvios(empresaId) {
   const sb = createSupabaseAdmin();
   try {
+    // Auto-sync: marcar como respondido se sessão concluída
+    const { data: enviados } = await sb.from('envios_diagnostico')
+      .select('id, colaborador_id')
+      .eq('empresa_id', empresaId)
+      .eq('status', 'enviado');
+
+    if (enviados?.length) {
+      for (const envio of enviados) {
+        const { count } = await sb.from('sessoes_avaliacao')
+          .select('*', { count: 'exact', head: true })
+          .eq('colaborador_id', envio.colaborador_id)
+          .eq('empresa_id', empresaId)
+          .eq('status', 'concluida');
+
+        if (count && count > 0) {
+          await sb.from('envios_diagnostico')
+            .update({ status: 'respondido', respondido_em: new Date().toISOString() })
+            .eq('id', envio.id);
+        }
+      }
+    }
+
+    // Buscar status atualizado
     const { data: envios } = await sb.from('envios_diagnostico')
       .select('id, email, status, enviado_em, respondido_em, tipo')
       .eq('empresa_id', empresaId)

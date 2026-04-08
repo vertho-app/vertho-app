@@ -18,7 +18,7 @@ import { loadCompetencias } from '@/app/admin/competencias/actions';
 import {
   loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, loadColaboradoresLista,
   rodarIA1, rodarIA2, rodarIA3,
-  dispararEmails, coletarRespostas, verStatusEnvios,
+  dispararEmails, verStatusEnvios,
   rodarIA4, verFilaIA4, checkAvaliacoes, gerarRelatoriosIndividuais, gerarRelatorioGestor, gerarRelatorioRH, enviarRelIndividuais, enviarRelGestor, enviarRelRH,
   gerarPDIs, gerarPDIsDescritores, montarTrilhasLote, criarEstruturaFase4, iniciarFase4ParaTodos, triggerSegundaFase4, triggerQuintaFase4, getStatusFase4, moodleImportarCatalogo, catalogarConteudosMoodle, gerarCoberturaConteudo,
   iniciarReavaliacaoLote, gerarRelatoriosEvolucaoLote, gerarPlenariaEvolucao, gerarRelatorioRHManual, gerarRelatorioPlenaria, enviarLinksPerfil, gerarDossieGestor, checkCenarios, dispararRelatoriosLote,
@@ -67,7 +67,6 @@ const PHASE_CONFIG = [
   ]},
   { num: 2, icon: Mail, color: '#F59E0B', actions: [
     { key: 'disparo', label: 'Disparar Convites', icon: Send },
-    { key: 'coletar', label: 'Coletar Respostas', icon: ClipboardCheck },
     { key: 'status', label: 'Status Envios', icon: BarChart3 },
   ]},
   { num: 3, icon: Bot, color: '#EF4444', groups: [
@@ -111,7 +110,7 @@ const PHASE_CONFIG = [
 // Action dispatcher map
 const ACTION_MAP = {
   ia1: rodarIA1, ia2: rodarIA2, ia3: rodarIA3,
-  disparo: dispararEmails, coletar: coletarRespostas, status: verStatusEnvios,
+  disparo: dispararEmails, status: verStatusEnvios,
   ia4: rodarIA4, fila: verFilaIA4, check: checkAvaliacoes,
   'rel-ind': gerarRelatoriosIndividuais, 'rel-gestor': gerarRelatorioGestor, 'rel-rh': gerarRelatorioRH,
   'env-ind': enviarRelIndividuais, 'env-gestor': enviarRelGestor, 'env-rh': enviarRelRH, 'enviar-lote': dispararRelatoriosLote,
