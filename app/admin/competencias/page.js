@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import {
   loadEmpresas, loadCompetencias, loadCompetenciasBase,
-  salvarCompetencia, excluirCompetencia, copiarBaseParaEmpresa, importarCompetenciasCSV
+  salvarCompetencia, excluirCompetencia, copiarBaseParaEmpresa, importarCompetenciasCSV, loadCargosEmpresa
 } from './actions';
 
 const EMPTY_COMP = { nome: '', descricao: '', cargo: '', cod_comp: '', pilar: '' };
@@ -30,7 +30,8 @@ export default function CompetenciasPage() {
   const [showBase, setShowBase] = useState(false);
   const [toast, setToast] = useState(null);
   const [filtroCargo, setFiltroCargo] = useState('');
-  const [filtroCargoBase, setFiltroCargoBase] = useState('');
+  const [cargoParaCopiar, setCargoParaCopiar] = useState('');
+  const [cargosEmpresa, setCargosEmpresa] = useState([]);
   const [showImport, setShowImport] = useState(false);
   const [importing, setImporting] = useState(false);
 
@@ -56,11 +57,18 @@ export default function CompetenciasPage() {
     setLoadingComps(true);
     const emp = empresas.find(e => e.id === id);
     setSegmento(emp?.segmento || '');
-    const [r1, r2] = await Promise.all([
+    const [r1, r2, cargos] = await Promise.all([
       loadCompetencias(id),
       loadCompetenciasBase(emp?.segmento || null),
+      loadCargosEmpresa(id),
     ]);
-    if (r1.success) setComps(r1.data || []);
+    setCargosEmpresa(cargos || []);
+    if (r1.success) {
+      setComps(r1.data || []);
+      // Extrair cargos únicos dos colaboradores + competências existentes
+      const cargosFromComps = [...new Set((r1.data || []).map(c => c.cargo).filter(Boolean))];
+      setCargosEmpresa(cargosFromComps.sort());
+    }
     if (r2.success) setBaselist(r2.data || []);
     setLoadingComps(false);
   }
@@ -94,7 +102,7 @@ export default function CompetenciasPage() {
   }
 
   async function handleCopy(baseId) {
-    const r = await copiarBaseParaEmpresa(empresaId, baseId);
+    const r = await copiarBaseParaEmpresa(empresaId, baseId, cargoParaCopiar || null);
     if (r.success) {
       flash(r.message);
       handleSelectEmpresa(empresaId);
@@ -266,29 +274,31 @@ export default function CompetenciasPage() {
             <Copy size={16} className="text-cyan-400" />
             <span className="text-sm font-bold text-white">Competencias Base {segmento ? `(${segmento})` : '(Global)'}</span>
           </div>
-          {(() => {
-            const cargosBase = [...new Set(baselist.map(b => b.cargo).filter(Boolean))].sort();
-            return cargosBase.length > 1 ? (
-              <div className="flex items-center gap-2 px-5 py-2 border-b border-white/[0.06]">
-                <Filter size={12} className="text-gray-500" />
-                <select value={filtroCargoBase} onChange={e => setFiltroCargoBase(e.target.value)}
-                  className="px-2 py-1 rounded text-[10px] text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
-                  <option value="">Todos</option>
-                  {cargosBase.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-            ) : null;
-          })()}
+
+          {/* Seletor de cargo destino */}
+          <div className="px-5 py-3 border-b border-white/[0.06]" style={{ background: '#091D35' }}>
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Copiar competência para qual cargo/função?</p>
+            <select value={cargoParaCopiar} onChange={e => setCargoParaCopiar(e.target.value)}
+              className="w-full max-w-xs px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#0F2A4A' }}>
+              <option value="">Sem cargo (genérica)</option>
+              {cargosEmpresa.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            {cargosEmpresa.length === 0 && (
+              <p className="text-[10px] text-amber-400 mt-1">Nenhum cargo encontrado. Importe colaboradores com cargo primeiro.</p>
+            )}
+          </div>
+
           <div className="divide-y divide-white/[0.03]">
-            {baselist.filter(b => !filtroCargoBase || b.cargo === filtroCargoBase).map(b => (
+            {baselist.map(b => (
               <div key={b.id} className="flex items-center justify-between px-5 py-3 hover:bg-white/[0.02] transition-colors">
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-white">{b.nome}</p>
                   <p className="text-xs text-gray-500 truncate max-w-md">{b.descricao || ''}</p>
+                  {b.pilar && <span className="text-[9px] text-gray-600">{b.pilar}</span>}
                 </div>
                 <button onClick={() => handleCopy(b.id)}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all">
-                  <Copy size={12} /> Copiar
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all shrink-0">
+                  <Copy size={12} /> {cargoParaCopiar ? `→ ${cargoParaCopiar}` : 'Copiar'}
                 </button>
               </div>
             ))}

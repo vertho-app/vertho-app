@@ -107,7 +107,7 @@ export async function importarCompetenciasCSV(empresaId, comps) {
   return { success: true, message: `${novos.length} competências importadas` };
 }
 
-export async function copiarBaseParaEmpresa(empresaId, baseId) {
+export async function copiarBaseParaEmpresa(empresaId, baseId, cargo = null) {
   const sb = createSupabaseAdmin();
   try {
     const { data: base, error: errBase } = await sb.from('competencias_base')
@@ -119,13 +119,25 @@ export async function copiarBaseParaEmpresa(empresaId, baseId) {
       empresa_id: empresaId,
       nome: base.nome,
       descricao: base.descricao,
+      pilar: base.pilar || null,
+      cod_comp: base.cod_comp || null,
+      cargo: cargo || base.cargo || null,
       peso: base.peso_padrao || 3,
       origem: 'base',
     });
 
     if (error) return { success: false, error: error.message };
-    return { success: true, message: `"${base.nome}" copiada para a empresa` };
+    return { success: true, message: `"${base.nome}" copiada${cargo ? ` para ${cargo}` : ''}` };
   } catch (err) {
     return { success: false, error: err.message };
   }
+}
+
+export async function loadCargosEmpresa(empresaId) {
+  const sb = createSupabaseAdmin();
+  const { data } = await sb.from('colaboradores')
+    .select('cargo')
+    .eq('empresa_id', empresaId)
+    .not('cargo', 'is', null);
+  return [...new Set((data || []).map(c => c.cargo).filter(Boolean))].sort();
 }
