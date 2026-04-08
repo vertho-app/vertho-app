@@ -929,18 +929,20 @@ ${pppResumo ? `\nCONTEXTO PPP:\n${pppResumo}` : ''}`;
 
     if (!resultado?.nota) return { success: false, error: 'Validação não retornou resultado' };
 
-    // Salvar resultado
-    const { error: updErr, count } = await sb.from('banco_cenarios').update({
+    // Salvar resultado — .select() garante que o update é confirmado
+    const statusCheck = resultado.nota >= 90 ? 'aprovado' : 'revisar';
+    const { data: updated, error: updErr } = await sb.from('banco_cenarios').update({
       nota_check: resultado.nota,
-      status_check: resultado.nota >= 90 ? 'aprovado' : 'revisar',
+      status_check: statusCheck,
       dimensoes_check: resultado.dimensoes || null,
       justificativa_check: resultado.justificativa || null,
       sugestao_check: resultado.sugestao || null,
       alertas_check: resultado.alertas || [],
       checked_at: new Date().toISOString(),
-    }).eq('id', cen.id);
+    }).eq('id', cen.id).select('id, nota_check');
 
     if (updErr) return { success: false, error: `Check UPDATE falhou: ${updErr.message} (cen.id: ${cen.id})` };
+    if (!updated?.length) return { success: false, error: `Check UPDATE: 0 linhas afetadas (cen.id: ${cen.id})` };
 
     return {
       success: true,
