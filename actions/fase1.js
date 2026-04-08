@@ -1,5 +1,8 @@
 'use server';
 
+// Aumentar timeout para 300s (Vercel Pro) — IA3 faz N chamadas sequenciais
+export const maxDuration = 300;
+
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI } from './ai-client';
 import { extractJSON } from './utils';
@@ -577,31 +580,35 @@ export async function rodarIA3(empresaId, aiConfig = {}) {
         const comp = item.competencia;
         if (!comp) continue;
 
-        const descritores = descPorComp[comp.cod_comp] || [];
+        try {
+          const descritores = descPorComp[comp.cod_comp] || [];
 
-        const system = buildIA3SystemPrompt();
-        const user = buildIA3UserPrompt(empresa, cargoNome, cargoDetalhe, comp, descritores, valores, contextoPPP, gabCIS);
+          const system = buildIA3SystemPrompt();
+          const user = buildIA3UserPrompt(empresa, cargoNome, cargoDetalhe, comp, descritores, valores, contextoPPP, gabCIS);
 
-        const resposta = await callAI(system, user, aiConfig, 8000);
-        const resultado = await extractJSON(resposta);
+          const resposta = await callAI(system, user, aiConfig, 8000);
+          const resultado = await extractJSON(resposta);
 
-        if (resultado?.cenario) {
-          // Limpar cenário anterior desta competência+cargo
-          await sb.from('banco_cenarios')
-            .delete()
-            .eq('empresa_id', empresaId)
-            .eq('competencia_id', comp.id)
-            .eq('cargo', cargoNome);
+          if (resultado?.cenario) {
+            await sb.from('banco_cenarios')
+              .delete()
+              .eq('empresa_id', empresaId)
+              .eq('competencia_id', comp.id)
+              .eq('cargo', cargoNome);
 
-          await sb.from('banco_cenarios').insert({
-            empresa_id: empresaId,
-            competencia_id: comp.id,
-            cargo: cargoNome,
-            titulo: resultado.cenario.titulo,
-            descricao: resultado.cenario.contexto,
-            alternativas: resultado.perguntas || [],
-          });
-          totalCenarios++;
+            await sb.from('banco_cenarios').insert({
+              empresa_id: empresaId,
+              competencia_id: comp.id,
+              cargo: cargoNome,
+              titulo: resultado.cenario.titulo,
+              descricao: resultado.cenario.contexto,
+              alternativas: resultado.perguntas || [],
+            });
+            totalCenarios++;
+          }
+        } catch (e) {
+          console.error(`[IA3] Erro em ${comp.nome}:`, e.message);
+          // Continua para a próxima competência
         }
       }
     }
