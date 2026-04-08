@@ -209,10 +209,21 @@ export async function loadGabaritosCargos(empresaId) {
 
 export async function loadCenarios(empresaId) {
   const sb = createSupabaseAdmin();
-  const { data } = await sb.from('banco_cenarios')
+  // Tentar com join, fallback sem
+  let data;
+  const { data: d1, error: e1 } = await sb.from('banco_cenarios')
     .select('id, empresa_id, competencia_id, cargo, titulo, descricao, alternativas, competencia:competencias(nome, cod_comp)')
     .eq('empresa_id', empresaId)
     .order('cargo');
+  if (!e1) {
+    data = d1;
+  } else {
+    const { data: d2 } = await sb.from('banco_cenarios')
+      .select('id, empresa_id, competencia_id, cargo, titulo, descricao, alternativas')
+      .eq('empresa_id', empresaId)
+      .order('cargo');
+    data = d2;
+  }
   return (data || []).map(c => ({
     ...c,
     competencia_nome: c.competencia?.nome || null,
