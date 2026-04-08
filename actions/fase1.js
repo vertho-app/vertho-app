@@ -700,7 +700,15 @@ export async function rodarIA3Uma(empresaId, cargoNome, competenciaId, aiConfig 
     const resposta = await callAI(system, user, aiConfig, 8000);
     const resultado = await extractJSON(resposta);
 
-    if (!resultado?.cenario) return { success: false, error: 'IA não retornou cenário válido' };
+    if (!resultado) return { success: false, error: 'IA não retornou JSON válido' };
+
+    // Normalizar formato: a IA pode retornar em vários formatos
+    const cen = resultado.cenario || resultado.scenario || resultado;
+    const titulo = cen.titulo || cen.title || resultado.titulo || 'Cenário';
+    const contexto = cen.contexto || cen.context || cen.descricao || resultado.contexto || '';
+    const perguntas = resultado.perguntas || resultado.questions || cen.perguntas || [];
+
+    if (!contexto && !titulo) return { success: false, error: 'IA não retornou cenário válido' };
 
     // Salvar (limpa anterior)
     await sb.from('banco_cenarios')
@@ -713,9 +721,9 @@ export async function rodarIA3Uma(empresaId, cargoNome, competenciaId, aiConfig 
       empresa_id: empresaId,
       competencia_id: comp.id,
       cargo: cargoNome,
-      titulo: resultado.cenario.titulo,
-      descricao: resultado.cenario.contexto,
-      alternativas: resultado.perguntas || [],
+      titulo,
+      descricao: contexto,
+      alternativas: perguntas,
     });
 
     if (insertErr) return { success: false, error: `Erro ao salvar: ${insertErr.message}` };
@@ -775,13 +783,18 @@ export async function regenerarCenario(cenarioId, aiConfig = {}) {
 
     const resposta = await callAI(system, user, aiConfig, 8000);
     const resultado = await extractJSON(resposta);
-    if (!resultado?.cenario) return { success: false, error: 'IA não retornou cenário válido' };
+    if (!resultado) return { success: false, error: 'IA não retornou JSON válido' };
+
+    const cen2 = resultado.cenario || resultado.scenario || resultado;
+    const titulo = cen2.titulo || cen2.title || resultado.titulo || 'Cenário';
+    const contexto = cen2.contexto || cen2.context || cen2.descricao || resultado.contexto || '';
+    const perguntas = resultado.perguntas || resultado.questions || cen2.perguntas || [];
 
     // Atualizar cenário existente (limpa check anterior)
     const { error: updErr } = await sb.from('banco_cenarios').update({
-      titulo: resultado.cenario.titulo,
-      descricao: resultado.cenario.contexto,
-      alternativas: resultado.perguntas || [],
+      titulo,
+      descricao: contexto,
+      alternativas: perguntas,
       nota_check: null,
       status_check: null,
       dimensoes_check: null,
