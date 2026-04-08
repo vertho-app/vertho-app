@@ -12,49 +12,55 @@ export async function loadEmpresas() {
 export async function loadCargos(empresaId) {
   const sb = createSupabaseAdmin();
   try {
-    // Buscar cargos da tabela cargos_empresa
-    const { data: cargosEmpresa } = await sb.from('cargos_empresa')
+    // 1. Tentar cargos_empresa
+    const { data: cargosEmpresa, error: err1 } = await sb.from('cargos_empresa')
       .select('*')
       .eq('empresa_id', empresaId)
       .order('nome');
 
-    if (cargosEmpresa?.length) {
-      // Para cada cargo, buscar top10 selecionadas
-      const result = [];
-      for (const c of cargosEmpresa) {
-        const { data: top10 } = await sb.from('top10_cargos')
-          .select('*, competencia:competencias(id, nome, cod_comp)')
-          .eq('empresa_id', empresaId)
-          .eq('cargo', c.nome)
-          .order('posicao');
-        result.push({
-          ...c,
-          competencias_top10: (top10 || []).map(t => t.competencia?.nome).filter(Boolean),
-        });
-      }
-      return { success: true, data: result };
-    }
-
-    // Fallback: cargos dos colaboradores
+    // 2. Buscar cargos dos colaboradores (sempre, como fallback)
     const { data: colabs } = await sb.from('colaboradores')
       .select('cargo')
       .eq('empresa_id', empresaId)
       .not('cargo', 'is', null);
 
-    const cargosUnicos = [...new Set((colabs || []).map(c => c.cargo).filter(Boolean))].sort();
+    const cargosColab = [...new Set((colabs || []).map(c => c.cargo).filter(Boolean))].sort();
+
+    // 3. Merge: usar cargos_empresa se existir, senão criar do colaborador
+    const cargosNomes = cargosEmpresa?.length
+      ? [...new Set([...cargosEmpresa.map(c => c.nome), ...cargosColab])].sort()
+      : cargosColab;
+
+    if (!cargosNomes.length) return { success: true, data: [] };
+
+    // 4. Para cada cargo, buscar top10
+    const cargosEmpMap = Object.fromEntries((cargosEmpresa || []).map(c => [c.nome, c]));
     const result = [];
-    for (const nome of cargosUnicos) {
-      const { data: top10 } = await sb.from('top10_cargos')
-        .select('*, competencia:competencias(id, nome, cod_comp)')
-        .eq('empresa_id', empresaId)
-        .eq('cargo', nome)
-        .order('posicao');
+
+    for (const nome of cargosNomes) {
+      const ce = cargosEmpMap[nome];
+      let top10Names = [];
+
+      try {
+        const { data: top10 } = await sb.from('top10_cargos')
+          .select('*, competencia:competencias(id, nome, cod_comp)')
+          .eq('empresa_id', empresaId)
+          .eq('cargo', nome)
+          .order('posicao');
+        top10Names = (top10 || []).map(t => t.competencia?.nome).filter(Boolean);
+      } catch {
+        // tabela pode não existir ainda
+      }
+
       result.push({
-        id: nome, // usar nome como ID temporário
+        id: ce?.id || nome,
         nome,
-        competencias_top10: (top10 || []).map(t => t.competencia?.nome).filter(Boolean),
+        area_depto: ce?.area_depto || null,
+        top5_workshop: ce?.top5_workshop || [],
+        competencias_top10: top10Names,
       });
     }
+
     return { success: true, data: result };
   } catch (err) {
     return { success: false, error: err.message };
@@ -64,11 +70,14 @@ export async function loadCargos(empresaId) {
 export async function salvarTop5(cargoId, top5) {
   const sb = createSupabaseAdmin();
   try {
-    const { error } = await sb.from('cargos_empresa')
-      .update({ top5_workshop: top5 })
-      .eq('id', cargoId);
-
-    if (error) return { success: false, error: error.message };
+    // Se cargoId é UUID, atualiza cargos_empresa; senão ignora
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;
+    if (uuidRegex.test(cargoId)) {
+      const { error } = await sb.from('cargos_empresa')
+        .update({ top5_workshop: top5 })
+        .eq('id', cargoId);
+      if (error) return { success: false, error: error.message };
+    }
     return { success: true, message: 'Top 5 salvo com sucesso' };
   } catch (err) {
     return { success: false, error: err.message };
