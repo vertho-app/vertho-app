@@ -41,3 +41,34 @@ export async function importarColaboradoresLote(empresaId, colabs) {
   if (error) return { success: false, error: error.message };
   return { success: true, message: `${novos.length} colaboradores importados` };
 }
+
+export async function loadColaboradores(empresaId) {
+  const sb = createSupabaseAdmin();
+  const { data } = await sb.from('colaboradores')
+    .select('id, nome_completo, email, cargo, role, area_depto, perfil_dominante, mapeamento_em')
+    .eq('empresa_id', empresaId)
+    .order('nome_completo');
+  return data || [];
+}
+
+export async function atualizarColaborador(id, campos) {
+  const sb = createSupabaseAdmin();
+  const VALID_ROLES = ['colaborador', 'gestor', 'rh'];
+  const update = {};
+  if (campos.nome_completo !== undefined) update.nome_completo = campos.nome_completo?.trim() || null;
+  if (campos.email !== undefined) update.email = campos.email?.trim().toLowerCase() || null;
+  if (campos.cargo !== undefined) update.cargo = campos.cargo?.trim() || null;
+  if (campos.area_depto !== undefined) update.area_depto = campos.area_depto?.trim() || null;
+  if (campos.role !== undefined && VALID_ROLES.includes(campos.role)) update.role = campos.role;
+
+  const { error } = await sb.from('colaboradores').update(update).eq('id', id);
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
+export async function excluirColaborador(id) {
+  const sb = createSupabaseAdmin();
+  const { error } = await sb.from('colaboradores').delete().eq('id', id);
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}

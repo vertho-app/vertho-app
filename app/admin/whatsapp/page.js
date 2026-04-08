@@ -1,15 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2, MessageCircle, Send, ChevronDown, CheckCircle, AlertCircle, Link2, FileBarChart } from 'lucide-react';
 import { loadEmpresas, loadWhatsappStatus } from './actions';
 import { dispararLinksCIS, dispararRelatoriosLote } from '@/actions/whatsapp-lote';
 
 export default function WhatsappPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const empresaParam = searchParams.get('empresa');
   const [empresas, setEmpresas] = useState([]);
-  const [empresaId, setEmpresaId] = useState('');
+  const [empresaId, setEmpresaId] = useState(empresaParam || '');
+  const [empresaNome, setEmpresaNome] = useState('');
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingStatus, setLoadingStatus] = useState(false);
@@ -20,7 +23,14 @@ export default function WhatsappPage() {
 
   useEffect(() => {
     loadEmpresas().then(r => {
-      if (r.success) setEmpresas(r.data || []);
+      if (r.success) {
+        setEmpresas(r.data || []);
+        if (empresaParam) {
+          const emp = (r.data || []).find(e => e.id === empresaParam);
+          if (emp) setEmpresaNome(emp.nome);
+          handleSelectEmpresa(empresaParam);
+        }
+      }
       setLoading(false);
     });
   }, []);
@@ -65,26 +75,32 @@ export default function WhatsappPage() {
     <div className="max-w-[900px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.push('/admin/dashboard')} className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors">
+        <button onClick={() => router.push(empresaParam ? `/admin/empresas/${empresaParam}` : '/admin/dashboard')} className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors">
           <ArrowLeft size={16} />
         </button>
         <div>
           <h1 className="text-xl font-bold text-white flex items-center gap-2"><MessageCircle size={20} className="text-green-400" /> WhatsApp</h1>
-          <p className="text-xs text-gray-500">Disparo de links de avaliação e relatorios via WhatsApp</p>
+          {empresaParam && empresaNome ? (
+            <p className="text-xs text-gray-500">{empresaNome}</p>
+          ) : (
+            <p className="text-xs text-gray-500">Disparo de links de avaliação e relatorios via WhatsApp</p>
+          )}
         </div>
       </div>
 
       {/* Empresa selector */}
-      <div className="mb-6">
-        <div className="relative w-full max-w-sm">
-          <select value={empresaId} onChange={e => handleSelectEmpresa(e.target.value)}
-            className="w-full appearance-none rounded-lg border border-white/10 bg-[#0F2A4A] text-white text-sm px-4 py-2.5 pr-10 focus:outline-none focus:border-cyan-400/50">
-            <option value="">Selecione uma empresa...</option>
-            {empresas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
-          </select>
-          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+      {!empresaParam && (
+        <div className="mb-6">
+          <div className="relative w-full max-w-sm">
+            <select value={empresaId} onChange={e => handleSelectEmpresa(e.target.value)}
+              className="w-full appearance-none rounded-lg border border-white/10 bg-[#0F2A4A] text-white text-sm px-4 py-2.5 pr-10 focus:outline-none focus:border-cyan-400/50">
+              <option value="">Selecione uma empresa...</option>
+              {empresas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+            </select>
+            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+          </div>
         </div>
-      </div>
+      )}
 
       {loadingStatus && <div className="flex items-center justify-center py-12"><Loader2 size={24} className="animate-spin text-cyan-400" /></div>}
 

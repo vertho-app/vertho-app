@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Upload, Loader2, Users } from 'lucide-react';
-import { loadEmpresas, loadResumoEmpresa, importarColaboradoresLote } from './actions';
+import { ArrowLeft, Upload, Loader2, Users, Pencil, Trash2, X, Check } from 'lucide-react';
+import { loadEmpresas, loadResumoEmpresa, importarColaboradoresLote, loadColaboradores, atualizarColaborador, excluirColaborador } from './actions';
 
 export default function GerenciarPage() {
   const router = useRouter();
@@ -13,9 +13,14 @@ export default function GerenciarPage() {
   const [tenantId, setTenantId] = useState(empresaParam || null);
   const [empresaNome, setEmpresaNome] = useState('');
   const [resumo, setResumo] = useState(null);
+  const [colabs, setColabs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [msg, setMsg] = useState('');
+  const [tab, setTab] = useState('lista'); // lista | importar
+  const [editId, setEditId] = useState(null);
+  const [editData, setEditData] = useState({});
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadEmpresas().then(data => {
@@ -26,10 +31,20 @@ export default function GerenciarPage() {
       }
     }).finally(() => setLoading(false));
   }, [empresaParam]);
+
   useEffect(() => {
-    if (tenantId) loadResumoEmpresa(tenantId).then(setResumo);
-    else setResumo(null);
+    if (tenantId) {
+      loadResumoEmpresa(tenantId).then(setResumo);
+      loadColaboradores(tenantId).then(setColabs);
+    } else { setResumo(null); setColabs([]); }
   }, [tenantId]);
+
+  async function refresh() {
+    if (!tenantId) return;
+    const [r, c] = await Promise.all([loadResumoEmpresa(tenantId), loadColaboradores(tenantId)]);
+    setResumo(r);
+    setColabs(c);
+  }
 
   async function handleCSV(e) {
     const file = e.target.files?.[0];
@@ -37,95 +52,214 @@ export default function GerenciarPage() {
     setImporting(true); setMsg('');
     const text = await file.text();
     const lines = text.split('\n').filter(l => l.trim());
-    // Detectar separador: se a primeira linha tem mais ';' que ',', usa ';'
     const sep = (lines[0].split(';').length > lines[0].split(',').length) ? ';' : ',';
     const header = lines[0].split(sep).map(h => h.trim().toLowerCase().replace(/^["']|["']$/g, ''));
-    const colabs = lines.slice(1).map(line => {
+    const parsed = lines.slice(1).map(line => {
       const cols = line.split(sep).map(c => c.trim().replace(/^["']|["']$/g, ''));
       const obj = {};
       header.forEach((h, i) => { obj[h] = cols[i]; });
       return { nome: obj.nome || obj.nome_completo, email: obj.email, cargo: obj.cargo, role: obj.role || obj.papel };
     }).filter(c => c.email);
 
-    if (colabs.length === 0) {
-      setMsg(`Nenhum colaborador encontrado no CSV. Verifique se tem coluna "email" no cabeçalho. Separador detectado: "${sep}"`);
-      setImporting(false);
-      return;
+    if (parsed.length === 0) {
+      setMsg(`Nenhum colaborador no CSV. Separador detectado: "${sep}". Verifique coluna "email".`);
+      setImporting(false); return;
     }
 
-    const r = await importarColaboradoresLote(tenantId, colabs);
+    const r = await importarColaboradoresLote(tenantId, parsed);
     setMsg(r.success ? r.message : r.error);
     setImporting(false);
-    if (r.success) loadResumoEmpresa(tenantId).then(setResumo);
+    if (r.success) refresh();
+  }
+
+  function startEdit(c) {
+    setEditId(c.id);
+    setEditData({ nome_completo: c.nome_completo || '', email: c.email || '', cargo: c.cargo || '', area_depto: c.area_depto || '', role: c.role || 'colaborador' });
+  }
+
+  async function saveEdit() {
+    if (!editId) return;
+    setSaving(true);
+    const r = await atualizarColaborador(editId, editData);
+    setSaving(false);
+    if (r.success) { setEditId(null); refresh(); setMsg('Colaborador atualizado'); }
+    else setMsg('Erro: ' + r.error);
+  }
+
+  async function handleDelete(id, nome) {
+    if (!confirm(`Excluir "${nome || 'colaborador'}"? Esta ação não pode ser desfeita.`)) return;
+    const r = await excluirColaborador(id);
+    if (r.success) { refresh(); setMsg('Colaborador excluído'); }
+    else setMsg('Erro: ' + r.error);
   }
 
   if (loading) return <div className="flex items-center justify-center h-dvh"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
 
   return (
-    <div className="max-w-[600px] mx-auto px-4 py-6" style={{ minHeight: '100dvh', background: 'linear-gradient(180deg, #091D35 0%, #0F2A4A 100%)' }}>
+    <div className="max-w-[1100px] mx-auto px-4 py-6" style={{ minHeight: '100dvh' }}>
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-lg font-bold text-white">Gerenciar Colaboradores</h1>
           {empresaParam && empresaNome && <p className="text-xs text-gray-500">{empresaNome}</p>}
         </div>
-        <button onClick={() => router.push(empresaParam ? `/admin/empresas/${empresaParam}` : '/admin/dashboard')} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-white">
+        <button onClick={() => router.push(empresaParam ? `/admin/empresas/${empresaParam}` : '/admin/dashboard')}
+          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-white">
           <ArrowLeft size={16} /> Voltar
         </button>
       </div>
 
       {!empresaParam && (
         <select value={tenantId || ''} onChange={e => setTenantId(e.target.value || null)}
-          className="w-full px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none mb-4"
-          style={{ background: '#091D35' }}>
+          className="w-full px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none mb-4" style={{ background: '#091D35' }}>
           <option value="">Selecione uma empresa</option>
           {empresas.map(emp => <option key={emp.id} value={emp.id}>{emp.nome}</option>)}
         </select>
       )}
 
-      {resumo && (
-        <div className="rounded-xl p-4 border border-white/[0.06] mb-4" style={{ background: '#0F2A4A' }}>
-          <div className="flex items-center gap-2 mb-2">
-            <Users size={16} className="text-cyan-400" />
-            <span className="text-sm font-bold text-white">{resumo.colabs} colaboradores</span>
-          </div>
-          <p className="text-xs text-gray-500">{resumo.competencias} competências</p>
-        </div>
-      )}
-
       {tenantId && (
         <>
-          {/* Instrução CSV */}
-          <div className="rounded-xl p-4 border border-white/[0.06] mb-4" style={{ background: '#0F2A4A' }}>
-            <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-2">Formato do CSV</p>
-            <p className="text-xs text-gray-400 mb-2">O arquivo deve ter cabeçalho na primeira linha. Colunas aceitas:</p>
-            <div className="overflow-x-auto">
-              <table className="text-[10px] text-gray-300">
-                <thead><tr className="border-b border-white/[0.06]">
-                  <th className="pr-4 py-1 text-left font-bold text-white">Coluna</th>
-                  <th className="pr-4 py-1 text-left font-bold text-white">Obrigatória</th>
-                  <th className="py-1 text-left font-bold text-white">Exemplo</th>
-                </tr></thead>
-                <tbody>
-                  <tr><td className="pr-4 py-0.5 text-cyan-400 font-semibold">email</td><td className="pr-4">Sim</td><td>maria@empresa.com</td></tr>
-                  <tr><td className="pr-4 py-0.5">nome / nome_completo</td><td className="pr-4">Não</td><td>Maria Silva</td></tr>
-                  <tr><td className="pr-4 py-0.5">cargo</td><td className="pr-4">Não</td><td>Coordenadora</td></tr>
-                  <tr><td className="pr-4 py-0.5">role / papel</td><td className="pr-4">Não</td><td>colaborador / gestor / rh</td></tr>
-                </tbody>
-              </table>
+          {/* Resumo */}
+          <div className="flex items-center gap-3 mb-4">
+            <div className="rounded-xl px-4 py-3 border border-white/[0.06] flex items-center gap-2" style={{ background: '#0F2A4A' }}>
+              <Users size={16} className="text-cyan-400" />
+              <span className="text-sm font-bold text-white">{resumo?.colabs || 0} colaboradores</span>
+              <span className="text-xs text-gray-500">· {resumo?.competencias || 0} competências</span>
             </div>
-            <p className="text-[10px] text-gray-600 mt-2">Se <span className="text-gray-400">role</span> vier vazio, o padrão é <span className="text-cyan-400">colaborador</span>. Duplicatas por email são ignoradas.</p>
           </div>
 
-          <label className="flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold text-white cursor-pointer"
-            style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
-            {importing ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-            {importing ? 'Importando...' : 'Importar CSV'}
-            <input type="file" accept=".csv" onChange={handleCSV} className="hidden" disabled={importing} />
-          </label>
+          {/* Tabs */}
+          <div className="flex gap-2 mb-4">
+            <button onClick={() => setTab('lista')}
+              className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${tab === 'lista' ? 'bg-cyan-400/15 text-cyan-400' : 'text-gray-500 hover:text-gray-300'}`}>
+              Colaboradores ({colabs.length})
+            </button>
+            <button onClick={() => setTab('importar')}
+              className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${tab === 'importar' ? 'bg-cyan-400/15 text-cyan-400' : 'text-gray-500 hover:text-gray-300'}`}>
+              Importar CSV
+            </button>
+          </div>
+
+          {/* Tab: Lista */}
+          {tab === 'lista' && (
+            <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
+              {colabs.length === 0 ? (
+                <div className="px-5 py-8 text-center">
+                  <p className="text-sm text-gray-500">Nenhum colaborador cadastrado</p>
+                  <button onClick={() => setTab('importar')} className="mt-2 text-xs text-cyan-400 hover:underline">Importar CSV</button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/[0.06] text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                        <th className="px-4 py-2 text-left">Nome</th>
+                        <th className="px-4 py-2 text-left">Email</th>
+                        <th className="px-4 py-2 text-left">Cargo</th>
+                        <th className="px-4 py-2 text-left">Área</th>
+                        <th className="px-4 py-2 text-left">Role</th>
+                        <th className="px-4 py-2 text-left">DISC</th>
+                        <th className="px-4 py-2 text-center">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.03]">
+                      {colabs.map(c => (
+                        <tr key={c.id} className="hover:bg-white/[0.02]">
+                          {editId === c.id ? (
+                            <>
+                              <td className="px-4 py-2"><input value={editData.nome_completo} onChange={e => setEditData(p => ({ ...p, nome_completo: e.target.value }))}
+                                className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
+                              <td className="px-4 py-2"><input value={editData.email} onChange={e => setEditData(p => ({ ...p, email: e.target.value }))}
+                                className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
+                              <td className="px-4 py-2"><input value={editData.cargo} onChange={e => setEditData(p => ({ ...p, cargo: e.target.value }))}
+                                className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
+                              <td className="px-4 py-2"><input value={editData.area_depto} onChange={e => setEditData(p => ({ ...p, area_depto: e.target.value }))}
+                                className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
+                              <td className="px-4 py-2">
+                                <select value={editData.role} onChange={e => setEditData(p => ({ ...p, role: e.target.value }))}
+                                  className="px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none">
+                                  <option value="colaborador">Colaborador</option>
+                                  <option value="gestor">Gestor</option>
+                                  <option value="rh">RH</option>
+                                </select>
+                              </td>
+                              <td className="px-4 py-2"></td>
+                              <td className="px-4 py-2 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <button onClick={saveEdit} disabled={saving} className="text-green-400 hover:text-green-300">
+                                    {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                                  </button>
+                                  <button onClick={() => setEditId(null)} className="text-gray-500 hover:text-white"><X size={14} /></button>
+                                </div>
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="px-4 py-2 text-white font-semibold">{c.nome_completo || '—'}</td>
+                              <td className="px-4 py-2 text-gray-400 text-xs">{c.email}</td>
+                              <td className="px-4 py-2 text-gray-400 text-xs">{c.cargo || '—'}</td>
+                              <td className="px-4 py-2 text-gray-400 text-xs">{c.area_depto || '—'}</td>
+                              <td className="px-4 py-2">
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                                  c.role === 'rh' ? 'bg-purple-400/10 text-purple-400' :
+                                  c.role === 'gestor' ? 'bg-amber-400/10 text-amber-400' :
+                                  'bg-gray-400/10 text-gray-400'
+                                }`}>{c.role}</span>
+                              </td>
+                              <td className="px-4 py-2 text-xs text-gray-500">{c.perfil_dominante || '—'}</td>
+                              <td className="px-4 py-2 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <button onClick={() => startEdit(c)} className="text-gray-600 hover:text-cyan-400"><Pencil size={13} /></button>
+                                  <button onClick={() => handleDelete(c.id, c.nome_completo)} className="text-gray-600 hover:text-red-400"><Trash2 size={13} /></button>
+                                </div>
+                              </td>
+                            </>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tab: Importar */}
+          {tab === 'importar' && (
+            <>
+              <div className="rounded-xl p-4 border border-white/[0.06] mb-4" style={{ background: '#0F2A4A' }}>
+                <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-2">Formato do CSV</p>
+                <p className="text-xs text-gray-400 mb-2">O arquivo deve ter cabeçalho na primeira linha. Separador: vírgula ou ponto-e-vírgula (detectado automaticamente).</p>
+                <div className="overflow-x-auto">
+                  <table className="text-[10px] text-gray-300">
+                    <thead><tr className="border-b border-white/[0.06]">
+                      <th className="pr-4 py-1 text-left font-bold text-white">Coluna</th>
+                      <th className="pr-4 py-1 text-left font-bold text-white">Obrigatória</th>
+                      <th className="py-1 text-left font-bold text-white">Exemplo</th>
+                    </tr></thead>
+                    <tbody>
+                      <tr><td className="pr-4 py-0.5 text-cyan-400 font-semibold">email</td><td className="pr-4">Sim</td><td>maria@empresa.com</td></tr>
+                      <tr><td className="pr-4 py-0.5">nome / nome_completo</td><td className="pr-4">Não</td><td>Maria Silva</td></tr>
+                      <tr><td className="pr-4 py-0.5">cargo</td><td className="pr-4">Não</td><td>Coordenadora</td></tr>
+                      <tr><td className="pr-4 py-0.5">role / papel</td><td className="pr-4">Não</td><td>colaborador / gestor / rh</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-[10px] text-gray-600 mt-2">Se <span className="text-gray-400">role</span> vier vazio, o padrão é <span className="text-cyan-400">colaborador</span>. Duplicatas por email são ignoradas.</p>
+              </div>
+
+              <label className="flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold text-white cursor-pointer"
+                style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+                {importing ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                {importing ? 'Importando...' : 'Importar CSV'}
+                <input type="file" accept=".csv" onChange={handleCSV} className="hidden" disabled={importing} />
+              </label>
+            </>
+          )}
+
+          {msg && <p className="text-xs text-cyan-400 mt-3 text-center">{msg}</p>}
         </>
       )}
-
-      {msg && <p className="text-xs text-cyan-400 mt-3 text-center">{msg}</p>}
     </div>
   );
 }
