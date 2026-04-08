@@ -2,8 +2,9 @@ const { defineConfig } = require('@playwright/test');
 
 module.exports = defineConfig({
   testDir: './tests',
-  timeout: 30000,
+  timeout: 60000,
   retries: 1,
+  workers: 1, // Serial execution — avoids Supabase Auth rate limiting
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL || 'https://vertho.com.br',
     screenshot: 'only-on-failure',

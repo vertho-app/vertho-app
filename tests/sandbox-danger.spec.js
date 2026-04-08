@@ -9,7 +9,7 @@ const { login } = require('./helpers/auth');
  * the empresa entirely. NEVER touches real production data.
  */
 
-test.describe('Sandbox Danger Zone', () => {
+test.describe.serial('Sandbox Danger Zone', () => {
   test.setTimeout(120000); // generous timeout for multi-step flow
 
   const testSuffix = Date.now().toString(36);
