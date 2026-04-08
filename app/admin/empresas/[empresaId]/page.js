@@ -328,227 +328,27 @@ export default function EmpresaPipelinePage({ params }) {
 
               {isExpanded && (
                 <div className="px-5 pb-4 pt-1 border-t border-white/[0.04]">
-                  {/* Top 10 Panel — inline na Fase 1 */}
+                  {/* Fase 1: resumo compacto + link para detalhes */}
                   {fase.num === 1 && (() => {
-                    // Carregar top10 sob demanda
-                    if (!top10Loaded) { refreshTop10(); }
+                    if (!top10Loaded) refreshTop10();
                     const cargosTop10 = [...new Set(top10.map(t => t.cargo))].sort();
-                    const cargosShow = top10Cargo ? cargosTop10.filter(c => c === top10Cargo) : cargosTop10;
-                    // IDs e cod_comps já selecionados neste cargo
-                    const selItems = showAddComp ? top10.filter(t => t.cargo === showAddComp) : [];
-                    const selectedIds = new Set(selItems.map(t => t.competencia_id));
-                    const selectedCods = new Set(selItems.map(t => t.competencia?.cod_comp).filter(Boolean));
-                    const availComps = showAddComp ? (() => {
-                      const seen = new Set();
-                      return top10Comps.filter(c => {
-                        // Filtrar por cargo (mesmo cargo ou sem cargo)
-                        if (c.cargo && c.cargo !== showAddComp) return false;
-                        const key = c.cod_comp || c.nome;
-                        if (seen.has(key)) return false; seen.add(key);
-                        if (selectedIds.has(c.id)) return false;
-                        if (c.cod_comp && selectedCods.has(c.cod_comp)) return false;
-                        if (addSearch) { const s = addSearch.toLowerCase(); return c.nome.toLowerCase().includes(s) || (c.pilar || '').toLowerCase().includes(s); }
-                        return true;
-                      });
-                    })() : [];
-
-                    return top10.length > 0 ? (
-                      <div className="mb-4 mt-2">
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest flex items-center gap-1.5">
-                            <Trophy size={12} /> Top 10 Selecionadas
-                          </p>
-                          {cargosTop10.length > 1 && (
-                            <select value={top10Cargo} onChange={e => setTop10Cargo(e.target.value)}
-                              className="px-2 py-1 rounded text-[10px] text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
-                              <option value="">Todos os cargos</option>
-                              {cargosTop10.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                          )}
-                        </div>
-                        {cargosShow.map(cargo => {
-                          const items = top10.filter(t => t.cargo === cargo);
-                          return (
-                            <div key={cargo} className="mb-3">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-xs font-semibold text-white">{cargo}</span>
-                                <div className="flex items-center gap-2">
-                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${items.length >= 10 ? 'bg-green-400/15 text-green-400' : 'bg-amber-400/15 text-amber-400'}`}>{items.length}/10</span>
-                                  <button onClick={() => { setShowAddComp(cargo); setAddSearch(''); }}
-                                    className="text-[10px] font-semibold text-green-400 hover:text-green-300 flex items-center gap-0.5">
-                                    <Plus size={10} /> Adicionar
-                                  </button>
-                                </div>
-                              </div>
-                              <div className="rounded-lg border border-white/[0.04] overflow-hidden" style={{ background: '#091D35' }}>
-                                {items.map((t, i) => (
-                                  <div key={t.id} className={`flex items-center gap-2 px-3 py-2 ${i > 0 ? 'border-t border-white/[0.03]' : ''}`}>
-                                    <span className="text-[9px] font-mono text-amber-400 font-bold w-4 text-center shrink-0">{t.posicao}</span>
-                                    <div className="flex-1 min-w-0">
-                                      <span className="text-xs font-semibold text-white">{t.competencia?.nome || '—'}</span>
-                                      {t.competencia?.cod_comp && <span className="text-[8px] text-cyan-400/60 font-mono ml-1.5">{t.competencia.cod_comp}</span>}
-                                      {t.justificativa && <p className="text-[10px] text-gray-500 mt-0.5 leading-snug">{t.justificativa}</p>}
-                                    </div>
-                                    <button onClick={async () => {
-                                      const r = await removerTop10(t.id);
-                                      if (r.success) refreshTop10();
-                                    }} className="text-gray-600 hover:text-red-400 shrink-0"><Trash2 size={11} /></button>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          );
+                    const hasData = top10.length > 0 || gabaritos.length > 0;
+                    return hasData ? (
+                      <div className="mb-3 mt-2 flex items-center gap-3 flex-wrap">
+                        {cargosTop10.map(cargo => {
+                          const count = top10.filter(t => t.cargo === cargo).length;
+                          return <span key={cargo} className="text-[10px] text-gray-400">
+                            <span className="text-white font-semibold">{cargo}</span>: {count} comp
+                          </span>;
                         })}
-
-                        {/* Modal adicionar */}
-                        {showAddComp && (
-                          <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-10 overflow-y-auto" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={() => setShowAddComp(null)}>
-                            <div className="w-full max-w-[500px] rounded-xl border border-white/[0.08] p-4" style={{ background: '#0A1D35' }} onClick={e => e.stopPropagation()}>
-                              <div className="flex items-center justify-between mb-3">
-                                <p className="text-xs font-bold text-white">Adicionar — {showAddComp}</p>
-                                <button onClick={() => setShowAddComp(null)} className="text-gray-500 hover:text-white"><X size={16} /></button>
-                              </div>
-                              <div className="relative mb-2">
-                                <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                                <input value={addSearch} onChange={e => setAddSearch(e.target.value)} placeholder="Buscar..."
-                                  className="w-full pl-8 pr-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none focus:border-cyan-400/50" style={{ background: '#091D35' }} />
-                              </div>
-                              <div className="max-h-[350px] overflow-y-auto space-y-0.5">
-                                {availComps.length === 0 ? (
-                                  <p className="text-[10px] text-gray-500 text-center py-4">Nenhuma disponível</p>
-                                ) : availComps.map(c => (
-                                  <button key={c.id} onClick={async () => {
-                                    const r = await adicionarTop10(empresaId, showAddComp, c.id);
-                                    if (r.success) refreshTop10();
-                                  }} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left hover:bg-white/[0.04] transition-colors">
-                                    <Plus size={10} className="text-green-400 shrink-0" />
-                                    <span className="text-[11px] text-white font-medium">{c.nome}</span>
-                                    {c.pilar && <span className="text-[9px] text-gray-500">{c.pilar}</span>}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        )}
+                        {gabaritos.length > 0 && <span className="text-[10px] text-purple-400">{gabaritos.length} gabaritos</span>}
+                        <button onClick={() => router.push(`/admin/empresas/${empresaId}/fase1`)}
+                          className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 ml-auto">
+                          Ver detalhes →
+                        </button>
                       </div>
                     ) : null;
                   })()}
-
-                  {/* Gabarito CIS — resultado da IA2 */}
-                  {fase.num === 1 && gabaritos.length > 0 && (
-                    <div className="mb-4 mt-1">
-                      <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-2">Gabarito CIS por Cargo</p>
-                      <div className="space-y-2">
-                        {gabaritos.map(g => {
-                          const gab = typeof g.gabarito === 'string' ? JSON.parse(g.gabarito) : g.gabarito;
-                          const rac = typeof g.raciocinio_ia2 === 'string' ? JSON.parse(g.raciocinio_ia2) : g.raciocinio_ia2;
-                          const isOpen = gabExpanded === g.nome;
-                          if (!gab) return null;
-                          return (
-                            <div key={g.id} className="rounded-lg border border-white/[0.04] overflow-hidden" style={{ background: '#091D35' }}>
-                              <button onClick={() => setGabExpanded(isOpen ? null : g.nome)}
-                                className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-white/[0.02] transition-colors">
-                                <span className="text-xs font-bold text-white">{g.nome}</span>
-                                <div className="flex items-center gap-2">
-                                  {gab.tela3 && <span className="text-[9px] text-gray-500">
-                                    E:{gab.tela3.executor}% M:{gab.tela3.motivador}% Me:{gab.tela3.metodico}% S:{gab.tela3.sistematico}%
-                                  </span>}
-                                  <ChevronDown size={12} className={`text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                                </div>
-                              </button>
-                              {isOpen && (
-                                <div className="px-3 pb-3 space-y-3 border-t border-white/[0.04]">
-                                  {/* Tela 1: Características */}
-                                  {gab.tela1?.length > 0 && (
-                                    <div className="pt-2">
-                                      <p className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest mb-1">Características do Perfil</p>
-                                      <div className="flex flex-wrap gap-1">
-                                        {gab.tela1.map((c, i) => (
-                                          <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-400/10 text-cyan-300">{c}</span>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {/* Tela 2: Sub-competências */}
-                                  {gab.tela2?.length > 0 && (
-                                    <div>
-                                      <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest mb-1">Sub-competências CIS</p>
-                                      <div className="grid grid-cols-2 gap-1">
-                                        {gab.tela2.map((s, i) => (
-                                          <div key={i} className="flex items-center gap-1.5 text-[10px]">
-                                            <span className={`w-4 text-center font-bold ${s.dimensao === 'D' ? 'text-red-400' : s.dimensao === 'I' ? 'text-yellow-400' : s.dimensao === 'S' ? 'text-green-400' : 'text-blue-400'}`}>{s.dimensao}</span>
-                                            <span className="text-white font-medium">{s.nome}</span>
-                                            <span className="text-gray-500">{s.faixa_min} → {s.faixa_max}</span>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {/* Tela 3: Estilos de Liderança */}
-                                  {gab.tela3 && (
-                                    <div>
-                                      <p className="text-[9px] font-bold text-green-400 uppercase tracking-widest mb-1">Estilos de Liderança</p>
-                                      <div className="flex gap-3">
-                                        {[
-                                          { key: 'executor', label: 'Executor', color: '#EF4444' },
-                                          { key: 'motivador', label: 'Motivador', color: '#F59E0B' },
-                                          { key: 'metodico', label: 'Metódico', color: '#22C55E' },
-                                          { key: 'sistematico', label: 'Sistemático', color: '#3B82F6' },
-                                        ].map(e => (
-                                          <div key={e.key} className="flex-1 text-center">
-                                            <div className="text-lg font-bold" style={{ color: e.color }}>{gab.tela3[e.key]}%</div>
-                                            <div className="text-[9px] text-gray-500">{e.label}</div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {/* Tela 4: Faixas DISC */}
-                                  {gab.tela4 && (
-                                    <div>
-                                      <p className="text-[9px] font-bold text-red-400 uppercase tracking-widest mb-1">Faixas DISC Ideais</p>
-                                      <div className="grid grid-cols-4 gap-2">
-                                        {['D', 'I', 'S', 'C'].map(dim => {
-                                          const f = gab.tela4[dim];
-                                          const colors = { D: 'text-red-400', I: 'text-yellow-400', S: 'text-green-400', C: 'text-blue-400' };
-                                          return f ? (
-                                            <div key={dim} className="text-center">
-                                              <span className={`text-sm font-bold ${colors[dim]}`}>{dim}</span>
-                                              <p className="text-[9px] text-gray-400">{f.min}</p>
-                                              <p className="text-[9px] text-gray-500">→ {f.max}</p>
-                                            </div>
-                                          ) : null;
-                                        })}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {/* Raciocínio */}
-                                  {rac && (
-                                    <div className="pt-1 border-t border-white/[0.03]">
-                                      <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Raciocínio da IA</p>
-                                      {rac.sinais_do_caso?.length > 0 && (
-                                        <p className="text-[10px] text-gray-400"><span className="text-gray-500 font-semibold">Sinais:</span> {rac.sinais_do_caso.join('; ')}</p>
-                                      )}
-                                      {rac.leitura_principal && (
-                                        <p className="text-[10px] text-gray-400"><span className="text-gray-500 font-semibold">Leitura:</span> {rac.leitura_principal}</p>
-                                      )}
-                                      {rac.diferenciais_vs_outros_cargos && (
-                                        <p className="text-[10px] text-gray-400"><span className="text-gray-500 font-semibold">Diferenciais:</span> {rac.diferenciais_vs_outros_cargos}</p>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
 
                   {config.groups ? (
                     config.groups.map((group, gi) => {
