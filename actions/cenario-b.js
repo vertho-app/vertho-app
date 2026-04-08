@@ -20,7 +20,7 @@ export async function gerarCenarioB(sessaoId, aiConfig = {}) {
     // 1. Load sessao_avaliacao
     const { data: sessao, error: sessaoErr } = await sb
       .from('sessoes_avaliacao')
-      .select('id, colaborador_id, competencia_id, avaliacao_final, cenario_id')
+      .select('id, empresa_id, colaborador_id, competencia_id, avaliacao_final, cenario_id')
       .eq('id', sessaoId)
       .single();
 
@@ -61,62 +61,83 @@ export async function gerarCenarioB(sessaoId, aiConfig = {}) {
       return { success: false, error: `Cenario original nao encontrado: ${cenErr?.message}` };
     }
 
-    // 5. Build prompt and call Claude
-    const system = `Voce e um especialista em avaliacao de competencias comportamentais usando metodologia DISC.
-Sua tarefa e gerar um cenario alternativo (Cenario B) para reavaliacao de um colaborador.
-O cenario deve ser diferente do original, mas avaliar a mesma competencia.
-Responda APENAS com JSON valido, sem texto adicional.`;
+    // 5. Build prompt — based on GAS CenarioBGenerator.js
+    const system = `<PAPEL>
+Especialista em avaliacao de competencias com 20 anos de experiencia.
+Cria cenarios situacionais que funcionam como instrumentos diagnosticos.
+</PAPEL>
 
-    const discProfile = {
-      perfil_dominante: colaborador.perfil_dominante,
-      D: colaborador.d_natural,
-      I: colaborador.i_natural,
-      S: colaborador.s_natural,
-      C: colaborador.c_natural,
-    };
+<TAREFA>
+Crie um CENARIO B complementar ao cenario A ja existente.
+O cenario B usa a MESMA competencia mas com situacao-gatilho DIFERENTE.
+</TAREFA>
+
+<REGRAS_DE_CONSTRUCAO>
+1. REALISMO CONTEXTUAL
+   - Use elementos reais do contexto profissional
+   - Nomeie personagens com nomes brasileiros
+   - Inclua contexto temporal e situacional especifico
+
+2. ESTRUTURA DO DILEMA
+   - SITUACAO-PROBLEMA concreta, nao teorica
+   - Tensao real: interesses conflitantes, urgencia, recursos limitados
+   - NAO extrema — foco em dilemas cotidianos
+
+3. PODER DISCRIMINANTE
+   - Permite respostas em 4 niveis (N1-N4)
+   - Diferenca nos niveis esta na complexidade, nao no tamanho
+
+4. DIVERSIDADE EM RELACAO AO CENARIO A
+   - Situacao-gatilho OBRIGATORIAMENTE diferente
+   - Varie: momento do dia, atores, tipo de dilema
+</REGRAS_DE_CONSTRUCAO>
+
+Responda APENAS com JSON valido.`;
 
     const user = `## Competencia avaliada
 Nome: ${competencia.nome}
 Descricao: ${competencia.descricao}
-Gabarito (rubrica por descritor): ${JSON.stringify(competencia.gabarito)}
+Gabarito (regua por descritor): ${JSON.stringify(competencia.gabarito)}
 
 ## Perfil DISC do colaborador
-${JSON.stringify(discProfile)}
+Dominante: ${colaborador.perfil_dominante}
+D=${colaborador.d_natural || 0}, I=${colaborador.i_natural || 0}, S=${colaborador.s_natural || 0}, C=${colaborador.c_natural || 0}
 
-## Cenario original (NAO repetir este cenario)
+## Cenario A original (NAO repetir — crie algo DIFERENTE)
 Titulo: ${cenarioOriginal.titulo}
 Descricao: ${cenarioOriginal.descricao}
-P1: ${cenarioOriginal.p1}
-P2: ${cenarioOriginal.p2}
-P3: ${cenarioOriginal.p3}
-P4: ${cenarioOriginal.p4}
 
 ## Avaliacao da sessao anterior (lacunas a focar)
 ${JSON.stringify(sessao.avaliacao_final)}
 
-## Instrucoes
-Gere um Cenario B alternativo que:
-1. Avalia a MESMA competencia "${competencia.nome}" mas com situacao diferente
-2. E adaptado ao perfil DISC do colaborador (perfil dominante: ${colaborador.perfil_dominante})
-3. Foca especificamente nas lacunas identificadas na avaliacao anterior
-4. As 4 alternativas (p1-p4) devem ter niveis progressivos de maturidade na competencia
-5. A situacao deve ser realista e profissional
-
-Retorne JSON no formato:
+## Formato de saida (JSON obrigatorio):
 {
-  "titulo": "Titulo do cenario",
-  "descricao": "Descricao detalhada da situacao (2-3 paragrafos)",
-  "p1": "Alternativa nivel 1 (menos madura)",
-  "p2": "Alternativa nivel 2",
-  "p3": "Alternativa nivel 3",
-  "p4": "Alternativa nivel 4 (mais madura)",
-  "justificativa_adaptacao": "Breve explicacao de como o cenario foi adaptado ao perfil DISC e lacunas"
+  "descricao": "contexto do cenario B (80-150 palavras com personagens e situacao concreta)",
+  "personagens": "quem esta envolvido (nomes brasileiros fictícios)",
+  "situacao_gatilho": "o que aconteceu (DIFERENTE do cenario A)",
+  "pergunta_aprofund_1": "Dimensao SITUACAO — pergunta aberta",
+  "pergunta_aprofund_2": "Dimensao ACAO — pergunta aberta",
+  "pergunta_raciocinio": "Dimensao RACIOCINIO — pergunta aberta",
+  "pergunta_cis": "Dimensao AUTOSSENSIBILIDADE — pergunta aberta",
+  "objetivo_conversacional": "O que esta conversa deve evidenciar",
+  "referencia_avaliacao": {
+    "nivel_1": "que tipo de resposta indica N1",
+    "nivel_2": "que tipo de resposta indica N2",
+    "nivel_3": "que tipo de resposta indica N3",
+    "nivel_4": "que tipo de resposta indica N4"
+  },
+  "faceta_avaliada": "qual aspecto especifico da competencia este cenario testa",
+  "dilema_etico_embutido": {
+    "valor_testado": "nome do valor etico em jogo",
+    "caminho_facil": "o que a pessoa faria se cedesse",
+    "caminho_etico": "o que a pessoa faria mantendo o valor"
+  }
 }`;
 
     const resultado = await callAI(system, user, aiConfig, 32768);
     const cenarioData = await extractJSON(resultado);
 
-    if (!cenarioData || !cenarioData.titulo) {
+    if (!cenarioData || !cenarioData.descricao) {
       return { success: false, error: 'IA nao retornou JSON valido para o cenario' };
     }
 
@@ -124,16 +145,11 @@ Retorne JSON no formato:
     const { data: novoCenario, error: insertErr } = await sb
       .from('banco_cenarios')
       .insert({
+        empresa_id: sessao.empresa_id || colaborador.empresa_id,
         competencia_id: competencia.id,
-        titulo: cenarioData.titulo,
+        titulo: cenarioData.faceta_avaliada || `Cenário B — ${competencia.nome}`,
         descricao: cenarioData.descricao,
-        p1: cenarioData.p1,
-        p2: cenarioData.p2,
-        p3: cenarioData.p3,
-        p4: cenarioData.p4,
-        origin: 'cenario_b',
-        sessao_origem_id: sessaoId,
-        justificativa_adaptacao: cenarioData.justificativa_adaptacao || null,
+        alternativas: cenarioData,
       })
       .select()
       .single();
