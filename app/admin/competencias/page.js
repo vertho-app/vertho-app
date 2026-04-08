@@ -301,7 +301,7 @@ export default function CompetenciasPage() {
             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Copiar competência para qual cargo/função?</p>
             <select value={cargoParaCopiar} onChange={e => setCargoParaCopiar(e.target.value)}
               className="w-full max-w-xs px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#0F2A4A' }}>
-              <option value="">Sem cargo (genérica)</option>
+              <option value="">Selecione um cargo...</option>
               {cargosEmpresa.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
             {cargosEmpresa.length === 0 && (
@@ -317,8 +317,8 @@ export default function CompetenciasPage() {
                   <p className="text-xs text-gray-500 truncate max-w-md">{b.descricao || ''}</p>
                   {b.pilar && <span className="text-[9px] text-gray-600">{b.pilar}</span>}
                 </div>
-                <button onClick={() => handleCopy(b.id)}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all shrink-0">
+                <button onClick={() => handleCopy(b.id)} disabled={!cargoParaCopiar}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all shrink-0 ${cargoParaCopiar ? 'text-cyan-400 border-cyan-400/30 hover:bg-cyan-400/10' : 'text-gray-600 border-white/5 cursor-not-allowed'}`}>
                   <Copy size={12} /> {cargoParaCopiar ? `→ ${cargoParaCopiar}` : 'Copiar'}
                 </button>
               </div>
