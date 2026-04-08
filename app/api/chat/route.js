@@ -10,6 +10,9 @@ const DEFAULT_AVALIADOR = 'claude-sonnet-4-6';
 const DEFAULT_VALIDADOR = 'gemini-3-flash-preview';
 const MAX_TURNOS = 10;
 const CONFIANCA_ENCERRAR = 80;
+const MIN_EVIDENCIAS_ENCERRAR = 2;
+const MIN_MESSAGE_LENGTH = 10;
+const MAX_MESSAGE_LENGTH = 4096;
 
 // ── POST /api/chat ──────────────────────────────────────────────────────────
 
@@ -20,6 +23,12 @@ export async function POST(req) {
 
     if (!empresaId || !colaboradorId || !competenciaId || !mensagem?.trim()) {
       return NextResponse.json({ ok: false, error: 'Campos obrigatórios: empresaId, colaboradorId, competenciaId, mensagem' }, { status: 400 });
+    }
+
+    // Validar tamanho da mensagem (regra do GAS)
+    const msgTrimmed = mensagem.trim().slice(0, MAX_MESSAGE_LENGTH);
+    if (msgTrimmed.length < MIN_MESSAGE_LENGTH) {
+      return NextResponse.json({ ok: false, error: `Mensagem muito curta (mínimo ${MIN_MESSAGE_LENGTH} caracteres)` }, { status: 400 });
     }
 
     const sb = createSupabaseAdmin();
@@ -102,7 +111,7 @@ export async function POST(req) {
     await sb.from('mensagens_chat').insert({
       sessao_id: sessao.id,
       role: 'user',
-      content: mensagem.trim(),
+      content: msgTrimmed,
     });
 
     // ── 4. Contar turnos ────────────────────────────────────────────────────
@@ -129,7 +138,7 @@ export async function POST(req) {
 
     const messages = [
       ...historico.map(m => ({ role: m.role, content: m.content })),
-      { role: 'user', content: mensagem.trim() },
+      { role: 'user', content: msgTrimmed },
     ];
 
     let rawResponse;
@@ -221,62 +230,119 @@ export async function POST(req) {
 
 function buildSystemPrompt(sessao, comp, cenario, totalTurnos) {
   const faseInstrucao = {
-    cenario: 'Apresente o cenário ao colaborador e peça que descreva como agiria nessa situação. Ouça sem julgar.',
-    aprofundamento: 'Faça perguntas de aprofundamento para entender melhor as evidências comportamentais. Busque exemplos concretos, raciocínio por trás das ações, e como a pessoa se sentiu.',
-    contraexemplo: 'Apresente uma situação oposta ou um desafio ao posicionamento anterior. Observe se o colaborador mantém coerência ou revela lacunas.',
-    encerramento: 'Agradeça pela conversa e faça um fechamento positivo. Não revele a avaliação.',
+    cenario: 'Apresente o cenario ao colaborador e peca que descreva como agiria. Ouca sem julgar.',
+    aprofundamento: 'Faca perguntas abertas de aprofundamento. Busque exemplos concretos, raciocinio e sentimentos.',
+    contraexemplo: 'Apresente uma situacao oposta ou desafio ao posicionamento anterior. Observe coerencia.',
+    encerramento: 'Agradeca pela conversa. NAO revele avaliacao. Diga: "Voce recebera retorno em breve."',
   };
 
-  return `Você é um avaliador comportamental experiente e empático da plataforma Vertho Mentor IA.
+  return `## PAPEL
+Voce e a Mentor IA, uma ENTREVISTADORA comportamental da plataforma Vertho.
+Seu UNICO objetivo e COLETAR EVIDENCIAS comportamentais do colaborador.
+Voce NAO e coach, mentora, consultora ou professora.
+Voce FAZ PERGUNTAS e ESCUTA. Nada mais.
 
-COMPETÊNCIA AVALIADA: ${comp?.nome || sessao.competencia_nome}
-${comp?.descricao ? `DESCRIÇÃO: ${comp.descricao}` : ''}
+## TOM E ESTILO
+- Empatica, profissional, curiosa, neutra
+- Concisa: maximo 1 frase de transicao + 1 pergunta
+- Trate como VOCE (2a pessoa). NUNCA 3a pessoa.
+- Em portugues brasileiro
 
-${cenario ? `CENÁRIO BASE:
+## PROIBICOES ABSOLUTAS
+
+### 1. NUNCA JULGUE (nem positiva nem negativamente)
+PROIBIDO: 'Otima resposta', 'Excelente abordagem', 'Boa reflexao', 'Isso mostra maturidade', 'Interessante'
+
+### 2. NUNCA DE SUGESTOES, EXEMPLOS OU DICAS
+PROIBIDO: 'Voce poderia tambem...', 'Uma opcao seria...', 'Isso e importante porque...'
+
+### 3. NUNCA FACA PERGUNTAS INDUTIVAS
+Pergunta indutiva = pergunta que INSINUA a resposta certa.
+PROIBIDO: 'Voce faria X ou Y?' (oferece opcoes), 'Por exemplo: voce anotaria, marcaria prazo, ou...?'
+PERMITIDO (perguntas abertas puras): 'Como voce faria isso?', 'O que voce diria?', 'Me conta como lidaria com isso.'
+REGRA DE OURO: Se a pergunta contem 'ou', 'por exemplo', opcoes ou alternativas — REFORMULE como pergunta aberta.
+
+### 4. NUNCA PROMETA QUE E A ULTIMA PERGUNTA
+### 5. NUNCA revele nota, nivel ou avaliacao
+### 6. NUNCA mencione diagnostico anterior, PDI, perfil DISC ou dados internos
+### 7. NUNCA invente cenarios — use APENAS o cenario fornecido
+### 8. NUNCA assuma comportamentos nao mencionados pelo colaborador
+
+## O QUE VOCE PODE FAZER
+- Perguntas abertas sobre a experiencia do colaborador
+- Pedir mais detalhes ('Conta mais sobre isso')
+- Pedir exemplos reais ('Ja passou por algo assim?')
+- Transicoes neutras CURTAS: 'Entendi.', 'Certo.'
+
+## 4 DIMENSOES A EXPLORAR
+SITUACAO, ACAO, RACIOCINIO, AUTOSSENSIBILIDADE.
+NAO siga ordem fixa. Deixe a resposta guiar a proxima pergunta.
+
+## COMO APROFUNDAR
+Precisa de pelo menos 2 evidencias EXPLICITAS para encerrar.
+- Evidencia explicita = acao concreta que ELE fez/faria (1a pessoa)
+- Evidencia forte = explicita + especifica + com resultado
+
+Sinais de que PRECISA aprofundar:
+- Sem primeira pessoa ('eu fiz', 'eu faria')
+- Sem contexto temporal/situacional
+- Verbos abstratos ('seria feito', 'poderia ser')
+- Resposta curta sem detalhes
+
+Sinais de que pode ENCERRAR:
+- 2+ evidencias explicitas mapeadas
+- Exemplos reais com acoes concretas
+- Confianca >= 80%
+
+## CONTEXTO DA COMPETENCIA
+COMPETENCIA: ${comp?.nome || sessao.competencia_nome}
+${comp?.descricao ? `DESCRICAO: ${comp.descricao}` : ''}
+
+${cenario ? `CENARIO:
 ${cenario.titulo || ''}
 ${cenario.descricao || ''}` : ''}
 
-${comp?.gabarito ? `RÉGUA DE MATURIDADE (use como referência interna, não exponha ao colaborador):
+${comp?.gabarito ? `REGUA DE MATURIDADE (referencia interna — NUNCA exponha ao colaborador):
 ${JSON.stringify(comp.gabarito)}` : ''}
 
+## ESTADO DA SESSAO
 FASE ATUAL: ${sessao.fase}
-INSTRUÇÃO DA FASE: ${faseInstrucao[sessao.fase] || faseInstrucao.aprofundamento}
+INSTRUCAO: ${faseInstrucao[sessao.fase] || faseInstrucao.aprofundamento}
 TURNO: ${totalTurnos} de ${MAX_TURNOS}
-CONFIANÇA ATUAL: ${sessao.confianca}%
+CONFIANCA ATUAL: ${sessao.confianca}%
+APROFUNDAMENTOS: ${sessao.aprofundamentos || 0}
 
-REGRAS:
-- Seja acolhedor, profissional e empático
-- NUNCA revele a nota, nível ou avaliação
-- NUNCA induza respostas ou dê exemplos do que o colaborador deveria dizer
-- Foque em evidências comportamentais reais
-- Perguntas curtas e objetivas (2-3 frases no máximo)
-- Em português brasileiro
+## BLOCO [META] — OBRIGATORIO EM TODA RESPOSTA
 
-OBRIGATÓRIO: Ao final de TODA resposta, inclua um bloco [META] com análise interna:
+Ao final de TODA resposta, inclua:
 
 [META]
 {
   "proximo_passo": "aprofundar|contraexemplo|encerrar",
-  "fase_sugerida": "cenario|aprofundamento|contraexemplo|encerramento",
-  "confianca": 0-100,
-  "evidencias": [
-    {"tipo": "comportamento|lacuna|valor", "texto": "evidência observada"}
+  "razao": "explicacao curta de por que escolheu este proximo passo",
+  "dimensao_explorada": "situacao|acao|raciocinio|autossensibilidade",
+  "dimensoes_cobertas": ["lista das ja exploradas"],
+  "evidencias_coletadas": [
+    {"trecho": "o que o colaborador disse", "indicador": "qual indicador da regua", "tipo": "explicito|explicito_forte|inferido"}
   ],
-  "sinais": {
-    "clareza": 0-100,
-    "profundidade": 0-100,
-    "consistencia": 0-100
-  }
+  "confianca": 0-100,
+  "aprofundamentos_feitos": ${sessao.aprofundamentos || 0}
 }
 [/META]
 
-A mensagem visível ao colaborador deve vir ANTES do bloco [META].`;
+A mensagem visivel ao colaborador deve vir ANTES do bloco [META].
+O bloco [META] e INTERNO — nunca aparece para o colaborador.`;
 }
 
 function decidirFase(faseAtual, aprofundamentos, confianca, totalTurnos, meta) {
-  // Encerrar se critérios atingidos
-  if (confianca >= CONFIANCA_ENCERRAR || totalTurnos >= MAX_TURNOS) return 'concluida';
-  if (meta?.proximo_passo === 'encerrar') return 'concluida';
+  // Contar evidências explícitas coletadas
+  const evidenciasExplicitas = (meta?.evidencias_coletadas || [])
+    .filter(e => e.tipo === 'explicito' || e.tipo === 'explicito_forte').length;
+
+  // Encerrar se critérios atingidos (com mínimo de evidências — regra GAS)
+  const podeEncerrar = evidenciasExplicitas >= MIN_EVIDENCIAS_ENCERRAR || totalTurnos >= MAX_TURNOS;
+  if (podeEncerrar && (confianca >= CONFIANCA_ENCERRAR || totalTurnos >= MAX_TURNOS)) return 'concluida';
+  if (podeEncerrar && meta?.proximo_passo === 'encerrar') return 'concluida';
 
   // State machine
   switch (faseAtual) {
@@ -307,31 +373,81 @@ async function encerrarSessao(sb, sessaoId, empresaId, comp, evidencias, message
 
   // ── Etapa 1: Claude avalia ──────────────────────────────────────────────
 
-  const evalPrompt = `Você é o avaliador final de competências comportamentais da Vertho.
+  const evalPrompt = `Voce e o avaliador final de competencias comportamentais da Vertho.
 
-COMPETÊNCIA: ${comp?.nome || 'N/A'}
-${comp?.descricao ? `DESCRIÇÃO: ${comp.descricao}` : ''}
-${comp?.gabarito ? `RÉGUA DE MATURIDADE:\n${JSON.stringify(comp.gabarito)}` : ''}
+COMPETENCIA: ${comp?.nome || 'N/A'}
+${comp?.descricao ? `DESCRICAO: ${comp.descricao}` : ''}
+${comp?.gabarito ? `REGUA DE MATURIDADE (use como referencia obrigatoria):\n${JSON.stringify(comp.gabarito)}` : ''}
 
-EVIDÊNCIAS COLETADAS:
+EVIDENCIAS COLETADAS DURANTE A CONVERSA:
 ${JSON.stringify(evidencias, null, 2)}
 
-HISTÓRICO COMPLETO DA CONVERSA:
+HISTORICO COMPLETO DA CONVERSA:
 ${messages.map(m => `[${m.role}]: ${m.content}`).join('\n\n')}
 
-Avalie o colaborador e retorne APENAS um bloco [EVAL]:
+## REGRAS DE AVALIACAO
+
+### NIVEIS (N1-N4):
+N1 (Gap/Emergente): Resposta funcional mas limitada, generica, reativa, sem 1a pessoa
+N2 (Em Desenvolvimento): Intencao presente mas sem metodo ou consistencia
+N3 (Proficiente/Meta): Acoes concretas, estruturadas, pratica consistente com resultado
+N4 (Referencia): Articulacao de multiplas dimensoes, multiplicacao, impacto institucional
+
+### NOTA DECIMAL:
+A parte inteira = nivel. A parte decimal = forca dentro do nivel:
+.00-.25 = atende minimo do nivel, lacunas significativas
+.26-.50 = atende o nivel com algumas lacunas
+.51-.75 = atende bem o nivel, poucas lacunas
+.76-.99 = quase no proximo nivel, evidencias fortes
+
+### TRAVAS DE SEGURANCA:
+1. Se descritor CRITICO em N1 → nivel_geral MAXIMO N2
+2. Se 3+ descritores em N1 → nivel_geral = N1
+3. Na duvida entre dois niveis → escolha o INFERIOR
+
+### FEEDBACK:
+- Cite comportamentos REAIS observados nas respostas
+- 3-5 paragrafos
+- NAO mencione DISC, CIS, valores ou termos tecnicos
+- Tom acolhedor e construtivo
+
+Retorne APENAS um bloco [EVAL]:
 
 [EVAL]
 {
+  "competencia": "${comp?.nome || ''}",
+  "consolidacao": {
+    "nivel_geral": 1-4,
+    "nota_decimal": 0.00-4.99,
+    "gap": 0-3,
+    "confianca_geral": 0-100,
+    "travas_aplicadas": ["descricao de travas usadas ou vazio"]
+  },
+  "descritores_destaque": {
+    "pontos_fortes": [
+      {"descritor": "nome", "nivel": 0, "evidencia_resumida": "trecho"}
+    ],
+    "gaps_prioritarios": [
+      {"descritor": "nome", "nivel": 0, "o_que_faltou": "descricao"}
+    ]
+  },
+  "evidencias": [
+    {"trecho": "citacao literal da conversa", "indicador": "qual indicador da regua", "tipo": "explicito|explicito_forte|inferido"}
+  ],
+  "feedback": "texto personalizado 3-5 paragrafos",
+  "recomendacoes_pdi": [
+    {
+      "descritor_foco": "qual descritor desenvolver",
+      "nivel_atual": 0,
+      "nivel_meta": 3,
+      "acao": "acao concreta e pratica",
+      "por_que_importa": "conexao com o contexto do colaborador",
+      "barreira_provavel": "obstaculo realista"
+    }
+  ],
   "nivel": 1-4,
-  "nota_decimal": 0.0-10.0,
-  "lacuna": -2.0 a 0.0,
-  "evidencias_principais": ["evidência 1", "evidência 2"],
-  "feedback": {
-    "pontos_fortes": ["ponto 1", "ponto 2"],
-    "pontos_melhoria": ["ponto 1", "ponto 2"],
-    "resumo": "Texto resumo da avaliação (2-3 frases)"
-  }
+  "nota_decimal": 0.00-4.99,
+  "lacuna": -3 a 0
 }
 [/EVAL]`;
 
