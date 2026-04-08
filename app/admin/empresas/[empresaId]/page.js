@@ -523,8 +523,11 @@ function ActionBtn({ action, phase, config, pending, isActive, onAction, empresa
   if (action.href || action.hrefFn) {
     const href = action.hrefFn ? action.hrefFn(empresaId) : `${action.href}?empresa=${empresaId}`;
     return (
-      <a href={href} className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-medium border border-white/[0.06] text-gray-300 hover:border-white/[0.15] hover:bg-white/[0.03] transition-all" style={{ background: '#091D35' }}>
-        <AIcon size={14} style={{ color: config.color }} className="shrink-0" />
+      <a href={isDisabled ? undefined : href}
+        className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-medium border transition-all ${
+          isDisabled ? 'border-white/[0.04] text-gray-600 cursor-not-allowed pointer-events-none' : 'border-white/[0.06] text-gray-300 hover:border-white/[0.15] hover:bg-white/[0.03]'
+        }`} style={{ background: '#091D35' }}>
+        <AIcon size={14} style={{ color: isDisabled ? '#374151' : config.color }} className="shrink-0" />
         <span className="leading-tight">{label}</span>
       </a>
     );
