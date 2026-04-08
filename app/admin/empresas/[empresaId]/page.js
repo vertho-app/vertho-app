@@ -13,7 +13,7 @@ import {
   Loader2, AlertTriangle, X, ChevronDown, ChevronUp, Trash2, Settings, Trophy, Plus, Filter, Search
 } from 'lucide-react';
 
-import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma } from '@/actions/fase1';
+import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, listarFilaCheck, checkCenarioUm } from '@/actions/fase1';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import {
   loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, loadColaboradoresLista,
@@ -64,6 +64,7 @@ const PHASE_CONFIG = [
     { key: 'cargos-top5', label: 'Top 5', icon: Target, href: '/admin/cargos' },
     { key: 'ia2', label: 'IA2 — Gabarito', icon: Zap, ai: true },
     { key: 'ia3', label: 'IA3 — Cenários', icon: Zap, ai: true },
+    { key: 'check-cenarios', label: 'Check Cenários', icon: CheckCircle },
   ]},
   { num: 2, icon: Mail, color: '#F59E0B', actions: [
     { key: 'disparo', label: 'Disparar Convites', icon: Send },
@@ -190,6 +191,34 @@ export default function EmpresaPipelinePage({ params }) {
     addLog(`▶ ${label}${modelLabel}`, 'info');
 
     try {
+      // Check Cenários: processa um por vez via Gemini
+      if (actionKey === 'check-cenarios') {
+        const fila = await listarFilaCheck(empresaId);
+        if (!fila?.success || !fila.data?.length) {
+          addLog(`❌ ${fila?.error || 'Nenhum cenário para validar'}`, 'error');
+          setPendingAction(null);
+          return;
+        }
+        const pendentes = fila.data.filter(f => !f.jaChecado);
+        const items = pendentes.length > 0 ? pendentes : fila.data;
+        addLog(`📋 ${items.length} cenários para validar`, 'info');
+
+        let aprovados = 0, revisar = 0, erros = 0;
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          addLog(`⏳ [${i + 1}/${items.length}] ${item.titulo || item.cargo}`, 'info');
+          const r = await checkCenarioUm(item.id);
+          if (r.success) {
+            if (r.nota >= 90) aprovados++; else revisar++;
+            addLog(`${r.nota >= 90 ? '✅' : '⚠'} ${r.message}`, r.nota >= 90 ? 'success' : 'info');
+          } else { erros++; addLog(`❌ ${r.error}`, 'error'); }
+        }
+        addLog(`✅ Check concluído: ${aprovados} aprovados, ${revisar} para revisar${erros ? `, ${erros} erros` : ''}`, 'success');
+        refreshTop10();
+        setPendingAction(null);
+        return;
+      }
+
       // IA3 especial: processa uma competência por vez (timeout Hobby 60s)
       if (actionKey === 'ia3') {
         const fila = await listarFilaIA3(empresaId);

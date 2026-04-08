@@ -653,6 +653,138 @@ export async function rodarIA3(empresaId, aiConfig = {}) {
   return listarFilaIA3(empresaId);
 }
 
+// ── Check Cenários (validação via Gemini) ───────────────────────────────────
+// Usa IA diferente da que gerou (Gemini audita Claude)
+
+export async function listarFilaCheck(empresaId) {
+  const sb = createSupabaseAdmin();
+  const { data } = await sb.from('banco_cenarios')
+    .select('id, cargo, titulo, nota_check, status_check, competencia_id')
+    .eq('empresa_id', empresaId)
+    .order('cargo');
+
+  return {
+    success: true,
+    data: (data || []).map(c => ({
+      id: c.id,
+      cargo: c.cargo,
+      titulo: c.titulo,
+      jaChecado: !!c.nota_check,
+      nota: c.nota_check,
+      status: c.status_check,
+    })),
+  };
+}
+
+export async function checkCenarioUm(cenarioId) {
+  const sb = createSupabaseAdmin();
+  try {
+    // Buscar cenário completo
+    const { data: cen } = await sb.from('banco_cenarios')
+      .select('*')
+      .eq('id', cenarioId)
+      .single();
+    if (!cen) return { success: false, error: 'Cenário não encontrado' };
+
+    // Buscar competência e descritores
+    let compNome = '';
+    let descritoresTexto = '';
+    if (cen.competencia_id) {
+      const { data: comp } = await sb.from('competencias')
+        .select('nome, cod_comp, descricao')
+        .eq('id', cen.competencia_id)
+        .single();
+      if (comp) compNome = comp.nome;
+
+      const { data: descs } = await sb.from('competencias')
+        .select('cod_desc, nome_curto, descritor_completo')
+        .eq('empresa_id', cen.empresa_id)
+        .eq('cod_comp', comp?.cod_comp)
+        .not('cod_desc', 'is', null);
+      if (descs?.length) {
+        descritoresTexto = descs.map((d, i) => `D${i + 1}: ${d.cod_desc} — ${d.nome_curto || d.descritor_completo}`).join('\n');
+      }
+    }
+
+    // Buscar PPP resumido
+    const { data: ppp } = await sb.from('ppp_escolas')
+      .select('extracao')
+      .eq('empresa_id', cen.empresa_id)
+      .eq('status', 'extraido')
+      .limit(1)
+      .maybeSingle();
+    let pppResumo = '';
+    if (ppp?.extracao) {
+      const ext = typeof ppp.extracao === 'string' ? JSON.parse(ppp.extracao) : ppp.extracao;
+      pppResumo = JSON.stringify(ext).slice(0, 500);
+    }
+
+    // Montar perguntas
+    const perguntas = Array.isArray(cen.alternativas)
+      ? cen.alternativas.map(p => `P${p.numero || ''}: ${p.texto || JSON.stringify(p)}`).join('\n')
+      : '';
+
+    const system = `Voce e um avaliador especialista em Assessment Comportamental.
+Avalie o cenario e as perguntas com base em 5 dimensoes (20pts cada, total 100):
+
+1. ADERENCIA A COMPETENCIA (20pts): O cenario avalia a competencia indicada? Descritores cobertos?
+2. REALISMO CONTEXTUAL (20pts): Contexto e personagens criveis para o cargo/empresa? Usa vocabulario do PPP?
+3. CONTENCAO (20pts): Contexto max ~900 chars? Max 2 tensoes? Max 2 stakeholders nomeados? Perguntas max ~200 chars?
+4. FORCA DE DECISAO (20pts): P1 forca ESCOLHA? P2 pede COMO com obstaculo? P3 aborda tensao humana? P4 pede acompanhamento?
+5. PODER DISCRIMINANTE (20pts): Resposta N2 seria diferente de N3? Nao permite resposta vaga?
+
+ERROS GRAVES (forca nota max 60):
+- Pergunta fechada (sim/nao)
+- Cenario com 4+ tensoes simultaneas
+- Contexto com 5+ stakeholders nomeados
+- Pergunta que permite resposta generica sem escolha
+- Competencia avaliada nao e a indicada
+
+Nota >= 90 = aprovado. Nota < 90 = revisar com sugestao concreta.
+
+Retorne APENAS JSON valido:
+{"nota":85,"erro_grave":false,"dimensoes":{"aderencia":18,"realismo":19,"contencao":16,"decisao":17,"discriminante":15},"justificativa":"...","sugestao":"...","alertas":[]}`;
+
+    const user = `CARGO: ${cen.cargo}
+COMPETENCIA: ${compNome}
+
+CENARIO:
+Titulo: ${cen.titulo}
+Contexto: ${cen.descricao}
+
+PERGUNTAS:
+${perguntas}
+
+${descritoresTexto ? `DESCRITORES:\n${descritoresTexto}` : ''}
+${pppResumo ? `\nCONTEXTO PPP:\n${pppResumo}` : ''}`;
+
+    // Usar Gemini para validar (IA diferente da que gerou)
+    const resposta = await callAI(system, user, { model: 'gemini-3-flash-preview' }, 4096);
+    const resultado = await extractJSON(resposta);
+
+    if (!resultado?.nota) return { success: false, error: 'Validação não retornou resultado' };
+
+    // Salvar resultado
+    await sb.from('banco_cenarios').update({
+      nota_check: resultado.nota,
+      status_check: resultado.nota >= 90 ? 'aprovado' : 'revisar',
+      dimensoes_check: resultado.dimensoes || null,
+      justificativa_check: resultado.justificativa || null,
+      sugestao_check: resultado.sugestao || null,
+      alertas_check: resultado.alertas || [],
+      checked_at: new Date().toISOString(),
+    }).eq('id', cenarioId);
+
+    return {
+      success: true,
+      message: `${cen.titulo}: ${resultado.nota}pts (${resultado.nota >= 90 ? 'aprovado' : 'revisar'})`,
+      nota: resultado.nota,
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 function buildIA3SystemPrompt() {
   return `Você é um especialista com 20 anos em avaliação de competências em organizações brasileiras.
 Especialidade: criar cenários situacionais como instrumentos diagnósticos.
