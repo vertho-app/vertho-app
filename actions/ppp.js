@@ -48,33 +48,81 @@ export async function extrairPPP(empresaId, { urls = [], textos = [], model } = 
     const urlsFail = conteudosExtraidos.filter(c => c.erro);
     const scraperLog = urlsOk.map(c => `${c.fonte} (${c.via})`).join(', ');
 
-    // Step 2: Use AI to extract PPP competencies
-    const system = `Você é um especialista em análise de Projetos Político-Pedagógicos (PPP) e documentos institucionais.
-Extraia competências comportamentais mencionadas ou implícitas nos documentos.
-Responda APENAS com JSON válido.`;
+    // Step 2: Use AI to extract structured PPP data (10 sections — matches GAS template)
+    const system = `Voce e um especialista em analise de documentos educacionais e institucionais brasileiros.
+Sua tarefa e extrair de um PPP ou documento institucional as informacoes necessarias para contextualizar cenarios de avaliacao de competencias.
+
+IMPORTANTE: Extraia APENAS o que esta explicito ou claramente implicito no documento.
+Nao invente, nao complemente com conhecimento geral.
+Se uma secao nao existir no documento, escreva "Nao declarado no documento".
+
+REGRA DE CONCISAO: Seja direto e objetivo em cada secao.
+- Secoes descritivas: maximo 5 frases curtas cada.
+- Listas: maximo 8 itens.
+Priorize COMPLETAR TODAS AS 10 SECOES ao inves de detalhar demais cada uma.
+E OBRIGATORIO entregar da secao 1 ate a secao 10 completas.
+
+Responda APENAS com JSON valido.`;
 
     const todosTextos = conteudosExtraidos.map(c => `[Fonte: ${c.fonte}]\n${c.texto}`).join('\n\n---\n\n');
 
-    const user = `Empresa: ${empresa.nome} (${empresa.segmento})
+    const user = `Instituicao: ${empresa.nome} (${empresa.segmento})
 
-Documentos PPP / Institucionais:
-${todosTextos.slice(0, 30000)}
+Documento:
+${todosTextos.slice(0, 60000)}
 
-Extraia as competências comportamentais que a instituição valoriza:
+---
+Extraia no formato JSON abaixo. Todas as 10 secoes sao OBRIGATORIAS:
+
 {
-  "competencias": [
-    {"nome": "...", "descricao": "...", "evidencia": "trecho do texto que suporta", "relevancia": "alta|media|baixa"}
+  "perfil_instituicao": {
+    "nome": "nome completo",
+    "tipo": "escola municipal / empresa corporativa / etc",
+    "segmento": "${empresa.segmento}",
+    "porte": "n aprox de colaboradores/alunos",
+    "localizacao": "cidade, UF"
+  },
+  "comunidade_contexto": "3-5 frases sobre o perfil da comunidade/mercado atendido",
+  "identidade": {
+    "missao": "transcrever ou sintetizar",
+    "visao": "transcrever ou sintetizar",
+    "principios": ["principio 1", "principio 2"],
+    "concepcao": "como a instituicao entende seu papel (2-3 frases)"
+  },
+  "praticas_descritas": [
+    {"nome": "pratica/projeto/programa", "descricao": "1 frase", "frequencia": "permanente/anual/etc"}
   ],
-  "valores_institucionais": ["..."],
-  "perfil_desejado": "..."
+  "inclusao_diversidade": "3-5 frases sobre como trata diversidade e inclusao",
+  "gestao_participacao": "3-5 frases sobre modelo de gestao e participacao",
+  "infraestrutura_recursos": {
+    "espacos": ["lab", "biblioteca", "etc"],
+    "tecnologia": ["plataformas", "equipamentos"],
+    "limitacoes": ["problemas mencionados"]
+  },
+  "desafios_metas": {
+    "desafios": ["desafio 1", "desafio 2"],
+    "metas": ["meta 1", "meta 2"]
+  },
+  "vocabulario": [
+    {"termo": "sigla ou termo", "significado": "o que significa naquele contexto"}
+  ],
+  "competencias_priorizadas": [
+    {"nome": "competencia", "justificativa": "por que o documento indica isso", "relevancia": "alta|media|baixa"}
+  ],
+  "valores_institucionais": ["valor 1", "valor 2"]
 }`;
 
-    const resultado = await callAI(system, user, { model: model || 'claude-sonnet-4-6' }, 8000);
+    const resultado = await callAI(system, user, { model: model || 'claude-sonnet-4-6' }, 16000);
     const dados = await extractJSON(resultado);
 
-    if (!dados?.competencias?.length) {
-      return { success: false, error: 'Não foi possível extrair competências dos documentos' };
+    if (!dados) {
+      return { success: false, error: 'Não foi possível extrair dados do documento' };
     }
+
+    // Normalizar: garantir que competencias existe
+    if (!dados.competencias_priorizadas) dados.competencias_priorizadas = [];
+    // Compat: manter campo 'competencias' para a UI
+    dados.competencias = dados.competencias_priorizadas;
 
     // Step 3: Save to ppp_escolas (schema: escola, fonte, extracao, valores, status)
     const fonteLabel = urls.length ? urls[0] : 'texto_manual';
