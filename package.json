@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "migrate:legacy": "node scripts/migracao_legado.js"
+    "migrate:legacy": "node scripts/migracao_legado.js",
+    "test": "npx playwright test",
+    "test:ui": "npx playwright test --ui",
+    "smoke": "node scripts/smoke-test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.81.0",
@@ -22,6 +25,7 @@
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4.0.0",
     "tailwindcss": "^4.0.0"
   }
