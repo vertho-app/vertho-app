@@ -207,6 +207,19 @@ export async function loadGabaritosCargos(empresaId) {
   return data || [];
 }
 
+export async function loadCenarios(empresaId) {
+  const sb = createSupabaseAdmin();
+  const { data } = await sb.from('banco_cenarios')
+    .select('id, empresa_id, competencia_id, cargo, titulo, descricao, alternativas, competencia:competencias(nome, cod_comp)')
+    .eq('empresa_id', empresaId)
+    .order('cargo');
+  return (data || []).map(c => ({
+    ...c,
+    competencia_nome: c.competencia?.nome || null,
+    competencia_cod: c.competencia?.cod_comp || null,
+  }));
+}
+
 // ── Helpers IA1 ─────────────────────────────────────────────────────────────
 
 async function buscarContextoPPP(sb, empresaId, empresaNome) {

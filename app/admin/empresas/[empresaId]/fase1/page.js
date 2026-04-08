@@ -7,7 +7,7 @@ import {
   Briefcase, FileText, Target, Brain
 } from 'lucide-react';
 import {
-  loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos
+  loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, loadCenarios
 } from '@/actions/fase1';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 
@@ -45,11 +45,9 @@ export default function Fase1Page({ params }) {
     if (c.success) setAllComps(c.data || []);
     setGabaritos(g);
 
-    // Cenários: buscar do banco_cenarios via server action
-    try {
-      const res = await fetch(`/api/cenarios?empresa=${empresaId}`);
-      if (res.ok) setCenarios(await res.json());
-    } catch { /* cenários podem não ter API ainda */ }
+    // Cenários
+    const cens = await loadCenarios(empresaId);
+    setCenarios(cens);
 
     setLoading(false);
   }, [empresaId]);
