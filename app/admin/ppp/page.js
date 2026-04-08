@@ -5,11 +5,18 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2, FileText, Link2, Plus, Sparkles, Upload, Eye, Trash2, RefreshCw } from 'lucide-react';
 import { loadEmpresa, loadPPPs, excluirPPP } from './actions';
 import { extrairPPP } from '@/actions/ppp';
-import * as pdfjsLib from 'pdfjs-dist';
-
-// Configurar worker do pdf.js (CDN para evitar problemas de bundling)
-if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+async function extractPdfText(file) {
+  const pdfjsLib = await import('pdfjs-dist');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
+  const pages = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    pages.push(content.items.map(item => item.str).join(' '));
+  }
+  return { text: pages.join('\n\n'), numPages: pdf.numPages };
 }
 
 export default function PPPPage() {
@@ -149,33 +156,24 @@ export default function PPPPage() {
                       const selected = Array.from(e.target.files || []);
                       for (const file of selected) {
                         try {
-                          let text;
+                          let text, info;
                           if (file.name.toLowerCase().endsWith('.pdf')) {
-                            // Extrair texto de PDF via pdf.js
-                            const arrayBuffer = await file.arrayBuffer();
-                            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                            const pages = [];
-                            for (let i = 1; i <= pdf.numPages; i++) {
-                              const page = await pdf.getPage(i);
-                              const content = await page.getTextContent();
-                              pages.push(content.items.map(item => item.str).join(' '));
-                            }
-                            text = pages.join('\n\n');
+                            const result = await extractPdfText(file);
+                            text = result.text;
+                            info = `✓ ${result.numPages} pág.`;
                           } else {
                             text = await file.text();
+                            info = '✓ lido';
                           }
+                          if (!text || text.trim().length < 10) throw new Error('Conteúdo vazio');
                           setFiles(prev => [...prev, {
-                            name: file.name,
-                            size: file.size,
-                            content: text.slice(0, 30000),
-                            pages: file.name.toLowerCase().endsWith('.pdf') ? '✓ PDF lido' : null,
+                            name: file.name, size: file.size,
+                            content: text.slice(0, 30000), pages: info,
                           }]);
                         } catch (err) {
                           setFiles(prev => [...prev, {
-                            name: file.name,
-                            size: file.size,
-                            content: `[Erro ao ler ${file.name}: ${err.message}]`,
-                            error: true,
+                            name: file.name, size: file.size,
+                            content: `[Erro ao ler ${file.name}: ${err.message}]`, error: true,
                           }]);
                         }
                       }
