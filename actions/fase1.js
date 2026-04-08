@@ -510,54 +510,96 @@ INSTRUÇÃO:
   }
 }
 
-// ── IA3: Gerar cenários contextuais ─────────────────────────────────────────
+// ── IA3: Gerar cenários contextuais (fiel ao GAS) ───────────────────────────
+// 1 cenário + 4 perguntas abertas por competência × cargo
+// Usa PPP, valores, descritores N1-N4, gabarito CIS
 
 export async function rodarIA3(empresaId, aiConfig = {}) {
   const sb = createSupabaseAdmin();
   try {
-    const { data: empresa } = await sb.from('empresas')
-      .select('nome, segmento')
-      .eq('id', empresaId).single();
+    // 1. Empresa
+    let empresa;
+    const { data: emp1 } = await sb.from('empresas')
+      .select('nome, segmento, ppp_texto').eq('id', empresaId).single();
+    empresa = emp1 || (await sb.from('empresas').select('nome, segmento').eq('id', empresaId).single()).data;
+    if (!empresa) return { success: false, error: 'Empresa não encontrada' };
 
-    const { data: competencias } = await sb.from('competencias')
-      .select('*')
+    // 2. PPP e valores
+    const contextoPPP = await buscarContextoPPP(sb, empresaId, empresa.nome);
+    const valores = await buscarValores(sb, empresaId, empresa.nome);
+
+    // 3. Top10 por cargo (com competências e descritores)
+    const { data: top10All } = await sb.from('top10_cargos')
+      .select('cargo, competencia_id, competencia:competencias(id, nome, cod_comp, pilar, descricao, cargo)')
+      .eq('empresa_id', empresaId)
+      .order('cargo')
+      .order('posicao');
+
+    if (!top10All?.length) return { success: false, error: 'Nenhuma Top 10 selecionada. Rode IA1 primeiro.' };
+
+    // 4. Buscar TODOS os descritores das competências selecionadas
+    const compIds = [...new Set(top10All.map(t => t.competencia_id))];
+    const { data: todosDescritores } = await sb.from('competencias')
+      .select('id, cod_comp, nome, cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
+      .eq('empresa_id', empresaId)
+      .in('cod_comp', [...new Set(top10All.map(t => t.competencia?.cod_comp).filter(Boolean))]);
+
+    // Agrupar descritores por cod_comp
+    const descPorComp = {};
+    (todosDescritores || []).forEach(d => {
+      if (!d.cod_desc) return;
+      if (!descPorComp[d.cod_comp]) descPorComp[d.cod_comp] = [];
+      descPorComp[d.cod_comp].push(d);
+    });
+
+    // 5. Gabaritos CIS por cargo
+    const { data: cargosEmp } = await sb.from('cargos_empresa')
+      .select('nome, gabarito, descricao, principais_entregas, stakeholders, decisoes_recorrentes, tensoes_comuns')
       .eq('empresa_id', empresaId);
+    const cargosMap = {};
+    (cargosEmp || []).forEach(c => { cargosMap[c.nome.toLowerCase()] = c; });
 
-    if (!competencias?.length) return { success: false, error: 'Nenhuma competência encontrada.' };
+    // 6. Agrupar top10 por cargo
+    const top10PorCargo = {};
+    top10All.forEach(t => {
+      if (!top10PorCargo[t.cargo]) top10PorCargo[t.cargo] = [];
+      top10PorCargo[t.cargo].push(t);
+    });
 
-    const system = `Você é um especialista em avaliação comportamental por cenários situacionais.
-Responda APENAS com JSON válido.`;
-
+    // 7. Gerar cenários por cargo × competência
     let totalCenarios = 0;
 
-    for (const comp of competencias) {
-      const user = `Para a competência "${comp.nome}" na empresa "${empresa.nome}" (${empresa.segmento}), cargo "${comp.cargo}":
+    for (const [cargoNome, items] of Object.entries(top10PorCargo)) {
+      const cargoDetalhe = cargosMap[cargoNome.toLowerCase()] || {};
+      const gabCIS = cargoDetalhe.gabarito ? (typeof cargoDetalhe.gabarito === 'string' ? JSON.parse(cargoDetalhe.gabarito) : cargoDetalhe.gabarito) : null;
 
-Crie 3 cenários situacionais com 4 alternativas cada (A, B, C, D), onde cada alternativa mapeia para um nível de proficiência diferente.
-Formato JSON:
-[{
-  "titulo": "...",
-  "descricao": "Situação contextual...",
-  "alternativas": [
-    {"letra": "A", "texto": "...", "nivel": 1},
-    {"letra": "B", "texto": "...", "nivel": 2},
-    {"letra": "C", "texto": "...", "nivel": 3},
-    {"letra": "D", "texto": "...", "nivel": 5}
-  ]
-}]`;
+      for (const item of items) {
+        const comp = item.competencia;
+        if (!comp) continue;
 
-      const resposta = await callAI(system, user, aiConfig, 6000);
-      const cenarios = await extractJSON(resposta);
+        const descritores = descPorComp[comp.cod_comp] || [];
 
-      if (Array.isArray(cenarios)) {
-        for (const cenario of cenarios) {
+        const system = buildIA3SystemPrompt();
+        const user = buildIA3UserPrompt(empresa, cargoNome, cargoDetalhe, comp, descritores, valores, contextoPPP, gabCIS);
+
+        const resposta = await callAI(system, user, aiConfig, 8000);
+        const resultado = await extractJSON(resposta);
+
+        if (resultado?.cenario) {
+          // Limpar cenário anterior desta competência+cargo
+          await sb.from('banco_cenarios')
+            .delete()
+            .eq('empresa_id', empresaId)
+            .eq('competencia_id', comp.id)
+            .eq('cargo', cargoNome);
+
           await sb.from('banco_cenarios').insert({
             empresa_id: empresaId,
             competencia_id: comp.id,
-            cargo: comp.cargo,
-            titulo: cenario.titulo,
-            descricao: cenario.descricao,
-            alternativas: cenario.alternativas,
+            cargo: cargoNome,
+            titulo: resultado.cenario.titulo,
+            descricao: resultado.cenario.contexto,
+            alternativas: resultado.perguntas || [],
           });
           totalCenarios++;
         }
@@ -568,6 +610,105 @@ Formato JSON:
   } catch (err) {
     return { success: false, error: err.message };
   }
+}
+
+function buildIA3SystemPrompt() {
+  return `Você é um especialista com 20 anos em avaliação de competências em organizações brasileiras.
+Especialidade: criar cenários situacionais como instrumentos diagnósticos.
+Os cenários funcionam como "radiografia" — a resposta revela naturalmente o nível de maturidade.
+
+TAREFA: Crie UM cenário situacional + 4 perguntas temáticas para a competência descrita.
+
+REGRAS DE CONSTRUÇÃO:
+1. ESTRUTURA DO CENÁRIO
+   - Contexto: 250-400 palavras, personagens nomeados, situação-gatilho
+   - 1 tensão central + 1 complicador (máx 2 tensões)
+   - Máx 2 stakeholders nomeados
+   - 1 dado concreto (número, prazo, %)
+   - Teste: 10 segundos para entender o problema
+
+2. REALISMO CONTEXTUAL
+   - Use APENAS elementos do contexto da empresa/escola fornecido
+   - Vocabulário e siglas da organização
+   - Nomes brasileiros para personagens
+
+3. DECISÃO FORÇADA (REGRA DE OURO)
+   - Se pode responder SEM ABRIR MÃO DE NADA → cenário NÃO funciona
+   - P1: ESCOLHA — cenário de decisão com trade-off real
+   - P2: COMO — execução sabendo que haverá resistência
+   - P3: TENSÃO HUMANA — lidar com pessoa que resiste/sofre
+   - P4: SUSTENTABILIDADE — como saber que funcionou
+
+4. COBERTURA DE DESCRITORES
+   - Cada pergunta deve cobrir 2-3 descritores como foco primário
+   - As 4 perguntas JUNTAS devem cobrir TODOS os descritores fornecidos
+   - Para cada pergunta, indique o que diferencia N1/N2/N3/N4
+
+5. DILEMA ÉTICO EMBUTIDO
+   - O cenário DEVE conter pelo menos 1 situação onde o caminho mais fácil entra em conflito com um valor organizacional
+   - NÃO explicitar o dilema — ele deve emergir NATURALMENTE
+
+6. LIMITES
+   - Contexto: máx 900 caracteres
+   - Cada pergunta: máx 200 caracteres
+   - Perguntas ABERTAS (não múltipla escolha)
+
+Retorne APENAS JSON válido:
+{
+  "cenario": {"titulo":"...","contexto":"... (250-400 palavras)"},
+  "perguntas": [
+    {"numero":1,"texto":"...","descritores_primarios":[1,2],"o_que_diferencia_niveis":"N1:... | N2:... | N3:... | N4:..."},
+    {"numero":2,"texto":"...","descritores_primarios":[3,4],"o_que_diferencia_niveis":"N1:... | N2:... | N3:... | N4:..."},
+    {"numero":3,"texto":"...","descritores_primarios":[5,6],"o_que_diferencia_niveis":"N1:... | N2:... | N3:... | N4:..."},
+    {"numero":4,"texto":"...","descritores_primarios":[1,3,5],"o_que_diferencia_niveis":"N1:... | N2:... | N3:... | N4:..."}
+  ],
+  "dilema_etico": {"valor_testado":"...","caminho_facil":"...","caminho_etico":"..."}
+}`;
+}
+
+function buildIA3UserPrompt(empresa, cargoNome, cargoDetalhe, comp, descritores, valores, contextoPPP, gabCIS) {
+  let prompt = `EMPRESA: ${empresa.nome} (${empresa.segmento})
+CARGO: ${cargoNome}`;
+
+  if (cargoDetalhe.descricao) prompt += `\nDESCRIÇÃO DO CARGO: ${cargoDetalhe.descricao}`;
+  if (cargoDetalhe.principais_entregas) prompt += `\nENTREGAS: ${cargoDetalhe.principais_entregas}`;
+  if (cargoDetalhe.stakeholders) prompt += `\nSTAKEHOLDERS: ${cargoDetalhe.stakeholders}`;
+  if (cargoDetalhe.tensoes_comuns) prompt += `\nTENSÕES: ${cargoDetalhe.tensoes_comuns}`;
+
+  prompt += `\n\nCOMPETÊNCIA: ${comp.cod_comp} — ${comp.nome}`;
+  if (comp.descricao) prompt += `\nDescrição: ${comp.descricao}`;
+
+  // Descritores com níveis N1-N4
+  if (descritores.length > 0) {
+    prompt += `\n\nDESCRITORES (${descritores.length}):`;
+    descritores.forEach((d, i) => {
+      prompt += `\nD${i + 1}: ${d.cod_desc} — ${d.nome_curto || d.descritor_completo || ''}`;
+      if (d.n1_gap) prompt += `\n  N1 (Gap): ${d.n1_gap}`;
+      if (d.n3_meta) prompt += `\n  N3 (Meta): ${d.n3_meta}`;
+    });
+    prompt += `\nREGRA: Cada pergunta cobre >=2 descritores. As 4 perguntas cobrem TODOS os ${descritores.length}.`;
+  }
+
+  prompt += `\n\nVALORES ORGANIZACIONAIS: ${valores.join(', ')}`;
+  prompt += `\nREGRA DE VALORES: O cenário DEVE conter pelo menos 1 dilema onde o caminho mais fácil conflita com um valor acima.`;
+
+  if (gabCIS) {
+    prompt += `\n\nPERFIL CIS IDEAL DO CARGO:`;
+    if (gabCIS.tela4) {
+      prompt += `\n  D: ${gabCIS.tela4.D?.min} → ${gabCIS.tela4.D?.max}`;
+      prompt += `\n  I: ${gabCIS.tela4.I?.min} → ${gabCIS.tela4.I?.max}`;
+      prompt += `\n  S: ${gabCIS.tela4.S?.min} → ${gabCIS.tela4.S?.max}`;
+      prompt += `\n  C: ${gabCIS.tela4.C?.min} → ${gabCIS.tela4.C?.max}`;
+    }
+    if (gabCIS.tela3) {
+      prompt += `\n  Estilos: Executor ${gabCIS.tela3.executor}% | Motivador ${gabCIS.tela3.motivador}% | Metódico ${gabCIS.tela3.metodico}% | Sistemático ${gabCIS.tela3.sistematico}%`;
+    }
+    prompt += `\nUse o perfil para escolher o TIPO de gatilho que revela pontos cegos deste perfil.`;
+  }
+
+  if (contextoPPP) prompt += `\n\nCONTEXTO DA EMPRESA:\n${contextoPPP.slice(0, 3000)}`;
+
+  return prompt;
 }
 
 // ── Popular Cenários (template do banco_cenarios) ───────────────────────────
