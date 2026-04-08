@@ -49,7 +49,7 @@ export async function salvarCompetencia(empresaId, comp) {
       cod_comp: comp.cod_comp || null,
       pilar: comp.pilar || null,
       peso: comp.peso || 3,
-      origem: comp.origem || 'manual',
+      // origem: comp.origem || 'manual', — coluna não existe no schema atual
     };
 
     let result;
@@ -105,7 +105,7 @@ export async function importarCompetenciasCSV(empresaId, comps) {
       n2_desenvolvimento: c.n2_desenvolvimento?.trim() || null,
       n3_meta: c.n3_meta?.trim() || null,
       n4_referencia: c.n4_referencia?.trim() || null,
-      origem: 'csv',
+      // origem: 'csv', — coluna não existe no schema atual
     }));
 
   if (novos.length === 0) return { success: true, message: '0 novas (todas já existiam)' };
@@ -130,7 +130,7 @@ export async function copiarBaseParaEmpresa(empresaId, baseId, cargo = null) {
       cod_comp: base.cod_comp || null,
       cargo: cargo || base.cargo || null,
       peso: base.peso_padrao || 3,
-      origem: 'base',
+      // origem: 'base', — coluna não existe no schema atual
     });
 
     if (error) return { success: false, error: error.message };
@@ -142,9 +142,13 @@ export async function copiarBaseParaEmpresa(empresaId, baseId, cargo = null) {
 
 export async function loadCargosEmpresa(empresaId) {
   const sb = createSupabaseAdmin();
-  const { data } = await sb.from('colaboradores')
-    .select('cargo')
-    .eq('empresa_id', empresaId)
-    .not('cargo', 'is', null);
-  return [...new Set((data || []).map(c => c.cargo).filter(Boolean))].sort();
+  const [colabs, comps] = await Promise.all([
+    sb.from('colaboradores').select('cargo').eq('empresa_id', empresaId).not('cargo', 'is', null),
+    sb.from('competencias').select('cargo').eq('empresa_id', empresaId).not('cargo', 'is', null),
+  ]);
+  const todos = [
+    ...(colabs.data || []).map(c => c.cargo),
+    ...(comps.data || []).map(c => c.cargo),
+  ].filter(Boolean);
+  return [...new Set(todos)].sort();
 }
