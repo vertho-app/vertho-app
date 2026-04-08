@@ -18,7 +18,7 @@ import { loadCompetencias } from '@/app/admin/competencias/actions';
 import {
   loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, loadColaboradoresLista,
   rodarIA1, rodarIA2, rodarIA3,
-  gerarForms, dispararEmails, coletarRespostas, verStatusEnvios,
+  dispararEmails, coletarRespostas, verStatusEnvios,
   rodarIA4, verFilaIA4, checkAvaliacoes, gerarRelatoriosIndividuais, gerarRelatorioGestor, gerarRelatorioRH, enviarRelIndividuais, enviarRelGestor, enviarRelRH,
   gerarPDIs, gerarPDIsDescritores, montarTrilhasLote, criarEstruturaFase4, iniciarFase4ParaTodos, triggerSegundaFase4, triggerQuintaFase4, getStatusFase4, moodleImportarCatalogo, catalogarConteudosMoodle, gerarCoberturaConteudo,
   iniciarReavaliacaoLote, gerarRelatoriosEvolucaoLote, gerarPlenariaEvolucao, gerarRelatorioRHManual, gerarRelatorioPlenaria, enviarLinksPerfil, gerarDossieGestor, checkCenarios, dispararRelatoriosLote, dispararLinksCIS,
@@ -66,7 +66,6 @@ const PHASE_CONFIG = [
     { key: 'ia3', label: 'IA3 — Cenários', icon: Zap, ai: true },
   ]},
   { num: 2, icon: Mail, color: '#F59E0B', actions: [
-    { key: 'forms', label: 'Gerar Forms', icon: FileText },
     { key: 'disparo', label: 'Disparar E-mails', icon: Send },
     { key: 'whatsapp', label: 'WhatsApp', icon: MessageSquare, href: '/admin/whatsapp' },
     { key: 'cis-lote', label: 'Enviar Links CIS', icon: Send },
@@ -114,7 +113,7 @@ const PHASE_CONFIG = [
 // Action dispatcher map
 const ACTION_MAP = {
   ia1: rodarIA1, ia2: rodarIA2, ia3: rodarIA3,
-  forms: gerarForms, disparo: dispararEmails, coletar: coletarRespostas, status: verStatusEnvios,
+  disparo: dispararEmails, coletar: coletarRespostas, status: verStatusEnvios,
   ia4: rodarIA4, fila: verFilaIA4, check: checkAvaliacoes,
   'rel-ind': gerarRelatoriosIndividuais, 'rel-gestor': gerarRelatorioGestor, 'rel-rh': gerarRelatorioRH,
   'env-ind': enviarRelIndividuais, 'env-gestor': enviarRelGestor, 'env-rh': enviarRelRH, 'enviar-lote': dispararRelatoriosLote, 'cis-lote': dispararLinksCIS,
