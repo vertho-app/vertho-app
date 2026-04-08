@@ -37,6 +37,7 @@ export default function PPPPage() {
   const [toast, setToast] = useState(null);
   const [model, setModel] = useState('claude-sonnet-4-6');
   const [viewPPP, setViewPPP] = useState(null);
+  const [enriquecerWeb, setEnriquecerWeb] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -70,7 +71,7 @@ export default function PPPPage() {
 
     setExtracting(true);
     setResult(null);
-    const r = await extrairPPP(empresaIdParam, { urls: urlList, textos: textoList, model });
+    const r = await extrairPPP(empresaIdParam, { urls: urlList, textos: textoList, model, enriquecerWeb });
     setExtracting(false);
     if (r.success) {
       setResult(r.data || r);
@@ -244,6 +245,14 @@ export default function PPPPage() {
             </select>
           </div>
 
+          {/* Enriquecimento web (corporativo) */}
+          <label className="flex items-center gap-2 mt-3 cursor-pointer select-none">
+            <input type="checkbox" checked={enriquecerWeb} onChange={e => setEnriquecerWeb(e.target.checked)}
+              className="w-4 h-4 rounded border border-white/20 bg-[#091D35] accent-cyan-400" />
+            <span className="text-xs text-gray-300">Enriquecer via web</span>
+            <span className="text-[9px] text-gray-600">(busca dados públicos para preencher lacunas — apenas corporativo)</span>
+          </label>
+
           {/* Extrair button */}
           <button onClick={handleExtrair} disabled={extracting}
             className="mt-4 w-full py-3.5 rounded-xl font-bold text-[#0C1829] text-sm tracking-wider flex items-center justify-center gap-2 disabled:opacity-40"
@@ -298,13 +307,31 @@ export default function PPPPage() {
       {viewPPP && (() => {
         let ext = null;
         try { ext = typeof viewPPP.extracao === 'string' ? JSON.parse(viewPPP.extracao) : viewPPP.extracao; } catch {}
-        const Section = ({ num, title, color, children }) => (
+        const confiancaColors = { alta: 'bg-green-400/15 text-green-400', media: 'bg-amber-400/15 text-amber-400', baixa: 'bg-red-400/15 text-red-400' };
+        const origemLabels = { documento_interno: 'Doc. interno', site_institucional: 'Site', release_noticia: 'Notícia', nao_identificado: 'N/A' };
+        const ConfBadge = ({ confianca, origem }) => (confianca || origem) ? (
+          <div className="flex items-center gap-1.5 mt-1">
+            {confianca && <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${confiancaColors[confianca] || 'bg-gray-400/15 text-gray-400'}`}>{confianca}</span>}
+            {origem && <span className="text-[8px] text-gray-600">{origemLabels[origem] || origem}</span>}
+          </div>
+        ) : null;
+        const Section = ({ num, title, color, confianca, origem, children }) => (
           <div className="mb-4">
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color }}>{num}. {title}</p>
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color }}>{num}. {title}</p>
+              {confianca && <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${confiancaColors[confianca] || ''}`}>{confianca}</span>}
+              {origem && origem !== 'nao_identificado' && <span className="text-[8px] text-gray-600">{origemLabels[origem] || origem}</span>}
+            </div>
             <div className="text-xs text-gray-300 leading-relaxed">{children}</div>
           </div>
         );
         const List = ({ items }) => items?.length ? <ul className="space-y-0.5">{items.map((it, i) => <li key={i} className="text-xs text-gray-400">• {typeof it === 'string' ? it : (it?.nome || it?.termo || (typeof it === 'object' ? JSON.stringify(it) : String(it)))}</li>)}</ul> : <p className="text-xs text-gray-500 italic">Não declarado</p>;
+        // Helper: extrair conteúdo de seção (compatível com formato novo {conteudo,origem,confianca} e antigo)
+        const getSecao = (sec) => {
+          if (!sec) return { c: null, origem: null, confianca: null };
+          if (sec.conteudo !== undefined) return { c: sec.conteudo, origem: sec.origem, confianca: sec.confianca };
+          return { c: sec, origem: null, confianca: null };
+        };
 
         return (
           <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-10 overflow-y-auto" style={{ background: 'rgba(0,0,0,0.7)' }}>
@@ -320,99 +347,146 @@ export default function PPPPage() {
                   {ext.perfil_organizacional ? (
                     <>
                       {/* ── CORPORATIVO: Dossiê de Contexto Operacional ── */}
-                      <Section num="1" title="Perfil Organizacional" color="#00B4D8">
-                        {ext.perfil_organizacional ? (
-                          <div className="space-y-0.5">
-                            {Object.entries(ext.perfil_organizacional).map(([k, v]) => <p key={k}><span className="text-gray-500 font-semibold">{k.replace(/_/g, ' ')}:</span> {typeof v === 'object' ? JSON.stringify(v) : String(v)}</p>)}
-                          </div>
-                        ) : <p className="text-gray-500 italic">Não identificado</p>}
-                      </Section>
-
-                      <Section num="2" title="Mercado e Stakeholders" color="#22C55E">
-                        {ext.mercado_stakeholders ? (
-                          <>
-                            {ext.mercado_stakeholders.clientes && <p><span className="text-gray-500 font-semibold">Clientes:</span> {ext.mercado_stakeholders.clientes}</p>}
-                            {ext.mercado_stakeholders.concorrencia && <p><span className="text-gray-500 font-semibold">Concorrência:</span> {ext.mercado_stakeholders.concorrencia}</p>}
-                            <List items={ext.mercado_stakeholders.stakeholders_chave} />
-                          </>
-                        ) : <p className="text-gray-500 italic">Não identificado</p>}
-                      </Section>
-
-                      <Section num="3" title="Identidade e Cultura" color="#A78BFA">
-                        {ext.identidade_cultura ? (
-                          <>
-                            {ext.identidade_cultura.missao && <p><span className="text-gray-500 font-semibold">Missão:</span> {ext.identidade_cultura.missao}</p>}
-                            {ext.identidade_cultura.visao && <p><span className="text-gray-500 font-semibold">Visão:</span> {ext.identidade_cultura.visao}</p>}
-                            <List items={ext.identidade_cultura.valores} />
-                            {ext.identidade_cultura.modelo_gestao && <p className="mt-1"><span className="text-gray-500 font-semibold">Modelo de gestão:</span> {ext.identidade_cultura.modelo_gestao}</p>}
-                            {ext.identidade_cultura.cultura_declarada && <p><span className="text-gray-500 font-semibold">Cultura:</span> {ext.identidade_cultura.cultura_declarada}</p>}
-                          </>
-                        ) : <p className="text-gray-500 italic">Não identificado</p>}
-                      </Section>
-
-                      <Section num="4" title="Operação e Processos" color="#F59E0B">
-                        {ext.operacao_processos?.length ? (
-                          <div className="space-y-1">
-                            {ext.operacao_processos.map((p, i) => (
-                              <div key={i} className="flex items-start gap-2">
-                                <span className="text-cyan-400 font-bold shrink-0">•</span>
-                                <span><strong>{p.area}</strong> — {p.funcao} {p.processos_chave && <span className="text-gray-500">({p.processos_chave})</span>}</span>
+                      {(() => {
+                        const s1 = getSecao(ext.perfil_organizacional);
+                        return (
+                          <Section num="1" title="Perfil Organizacional" color="#00B4D8" confianca={s1.confianca} origem={s1.origem}>
+                            {s1.c ? (
+                              <div className="space-y-0.5">
+                                {Object.entries(s1.c).map(([k, v]) => <p key={k}><span className="text-gray-500 font-semibold">{k.replace(/_/g, ' ')}:</span> {typeof v === 'object' ? JSON.stringify(v) : String(v)}</p>)}
                               </div>
-                            ))}
-                          </div>
-                        ) : <p className="text-gray-500 italic">Não identificado</p>}
-                      </Section>
+                            ) : <p className="text-gray-500 italic">Não identificado</p>}
+                          </Section>
+                        );
+                      })()}
 
-                      <Section num="5" title="Modelo de Pessoas" color="#EC4899">
-                        {ext.modelo_pessoas ? (
-                          <>
-                            {ext.modelo_pessoas.desenvolvimento && <p><span className="text-gray-500 font-semibold">Desenvolvimento:</span> {ext.modelo_pessoas.desenvolvimento}</p>}
-                            {ext.modelo_pessoas.avaliacao && <p><span className="text-gray-500 font-semibold">Avaliação:</span> {ext.modelo_pessoas.avaliacao}</p>}
-                            {ext.modelo_pessoas.carreira && <p><span className="text-gray-500 font-semibold">Carreira:</span> {ext.modelo_pessoas.carreira}</p>}
-                            {ext.modelo_pessoas.diversidade_inclusao && <p><span className="text-gray-500 font-semibold">D&I:</span> {ext.modelo_pessoas.diversidade_inclusao}</p>}
-                          </>
-                        ) : <p className="text-gray-500 italic">Não identificado</p>}
-                      </Section>
+                      {(() => {
+                        const s2 = getSecao(ext.mercado_stakeholders);
+                        return (
+                          <Section num="2" title="Mercado e Stakeholders" color="#22C55E" confianca={s2.confianca} origem={s2.origem}>
+                            {s2.c ? (
+                              <>
+                                {s2.c.clientes && <p><span className="text-gray-500 font-semibold">Clientes:</span> {s2.c.clientes}</p>}
+                                {s2.c.concorrencia && <p><span className="text-gray-500 font-semibold">Concorrência:</span> {s2.c.concorrencia}</p>}
+                                <List items={s2.c.stakeholders_chave} />
+                              </>
+                            ) : <p className="text-gray-500 italic">Não identificado</p>}
+                          </Section>
+                        );
+                      })()}
 
-                      <Section num="6" title="Governança e Decisão" color="#06B6D4">
-                        {ext.governanca_decisao ? (
-                          <>
-                            {ext.governanca_decisao.estrutura && <p><span className="text-gray-500 font-semibold">Estrutura:</span> {ext.governanca_decisao.estrutura}</p>}
-                            {ext.governanca_decisao.tomada_decisao && <p><span className="text-gray-500 font-semibold">Tomada de decisão:</span> {ext.governanca_decisao.tomada_decisao}</p>}
-                            {ext.governanca_decisao.compliance && <p><span className="text-gray-500 font-semibold">Compliance:</span> {ext.governanca_decisao.compliance}</p>}
-                          </>
-                        ) : <p className="text-gray-500 italic">Não identificado</p>}
-                      </Section>
+                      {(() => {
+                        const s3 = getSecao(ext.identidade_cultura);
+                        return (
+                          <Section num="3" title="Identidade e Cultura" color="#A78BFA" confianca={s3.confianca} origem={s3.origem}>
+                            {s3.c ? (
+                              <>
+                                {s3.c.missao && <p><span className="text-gray-500 font-semibold">Missão:</span> {s3.c.missao}</p>}
+                                {s3.c.visao && <p><span className="text-gray-500 font-semibold">Visão:</span> {s3.c.visao}</p>}
+                                <List items={s3.c.valores} />
+                                {s3.c.modelo_gestao && <p className="mt-1"><span className="text-gray-500 font-semibold">Modelo de gestão:</span> {s3.c.modelo_gestao}</p>}
+                                {s3.c.cultura_declarada && <p><span className="text-gray-500 font-semibold">Cultura:</span> {s3.c.cultura_declarada}</p>}
+                              </>
+                            ) : <p className="text-gray-500 italic">Não identificado</p>}
+                          </Section>
+                        );
+                      })()}
 
-                      <Section num="7" title="Tecnologia e Recursos" color="#8B5CF6">
-                        {ext.tecnologia_recursos ? (
-                          <>
-                            <p className="text-gray-500 font-semibold">Ferramentas:</p><List items={ext.tecnologia_recursos.ferramentas} />
-                            <p className="text-gray-500 font-semibold mt-1">Capacidades:</p><List items={ext.tecnologia_recursos.capacidades} />
-                            <p className="text-gray-500 font-semibold mt-1">Limitações:</p><List items={ext.tecnologia_recursos.limitacoes} />
-                          </>
-                        ) : <p className="text-gray-500 italic">Não identificado</p>}
-                      </Section>
+                      {(() => {
+                        const s4 = getSecao(ext.operacao_processos);
+                        const items = Array.isArray(s4.c) ? s4.c : [];
+                        return (
+                          <Section num="4" title="Operação e Processos" color="#F59E0B" confianca={s4.confianca} origem={s4.origem}>
+                            {items.length ? (
+                              <div className="space-y-1">
+                                {items.map((p, i) => (
+                                  <div key={i} className="flex items-start gap-2">
+                                    <span className="text-cyan-400 font-bold shrink-0">•</span>
+                                    <span><strong>{p.area}</strong> — {p.funcao} {p.processos_chave && <span className="text-gray-500">({p.processos_chave})</span>}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : <p className="text-gray-500 italic">Não identificado</p>}
+                          </Section>
+                        );
+                      })()}
 
-                      <Section num="8" title="Desafios e Estratégia" color="#EF4444">
-                        {ext.desafios_estrategia ? (
-                          <>
-                            <p className="text-gray-500 font-semibold">Desafios:</p><List items={ext.desafios_estrategia.desafios} />
-                            <p className="text-gray-500 font-semibold mt-1">Metas:</p><List items={ext.desafios_estrategia.metas} />
-                            {ext.desafios_estrategia.transformacoes && <p className="mt-1"><span className="text-gray-500 font-semibold">Transformações:</span> {ext.desafios_estrategia.transformacoes}</p>}
-                          </>
-                        ) : <p className="text-gray-500 italic">Não identificado</p>}
-                      </Section>
+                      {(() => {
+                        const s5 = getSecao(ext.modelo_pessoas);
+                        return (
+                          <Section num="5" title="Modelo de Pessoas" color="#EC4899" confianca={s5.confianca} origem={s5.origem}>
+                            {s5.c ? (
+                              <>
+                                {s5.c.desenvolvimento && <p><span className="text-gray-500 font-semibold">Desenvolvimento:</span> {s5.c.desenvolvimento}</p>}
+                                {s5.c.avaliacao && <p><span className="text-gray-500 font-semibold">Avaliação:</span> {s5.c.avaliacao}</p>}
+                                {s5.c.carreira && <p><span className="text-gray-500 font-semibold">Carreira:</span> {s5.c.carreira}</p>}
+                                {s5.c.diversidade_inclusao && <p><span className="text-gray-500 font-semibold">D&I:</span> {s5.c.diversidade_inclusao}</p>}
+                              </>
+                            ) : <p className="text-gray-500 italic">Não identificado</p>}
+                          </Section>
+                        );
+                      })()}
 
-                      <Section num="9" title="Vocabulário Corporativo" color="#F97316">
-                        {(ext.vocabulario_corporativo || ext.vocabulario)?.length ? (
-                          <div className="space-y-1">
-                            {(ext.vocabulario_corporativo || ext.vocabulario).map((v, i) => (
-                              <p key={i}><strong className="text-white">{v.termo}</strong> — {v.significado}</p>
-                            ))}
-                          </div>
-                        ) : <p className="text-gray-500 italic">Não identificado</p>}
-                      </Section>
+                      {(() => {
+                        const s6 = getSecao(ext.governanca_decisao);
+                        return (
+                          <Section num="6" title="Governança e Decisão" color="#06B6D4" confianca={s6.confianca} origem={s6.origem}>
+                            {s6.c ? (
+                              <>
+                                {s6.c.estrutura && <p><span className="text-gray-500 font-semibold">Estrutura:</span> {s6.c.estrutura}</p>}
+                                {s6.c.tomada_decisao && <p><span className="text-gray-500 font-semibold">Tomada de decisão:</span> {s6.c.tomada_decisao}</p>}
+                                {s6.c.compliance && <p><span className="text-gray-500 font-semibold">Compliance:</span> {s6.c.compliance}</p>}
+                              </>
+                            ) : <p className="text-gray-500 italic">Não identificado</p>}
+                          </Section>
+                        );
+                      })()}
+
+                      {(() => {
+                        const s7 = getSecao(ext.tecnologia_recursos);
+                        return (
+                          <Section num="7" title="Tecnologia e Recursos" color="#8B5CF6" confianca={s7.confianca} origem={s7.origem}>
+                            {s7.c ? (
+                              <>
+                                <p className="text-gray-500 font-semibold">Ferramentas:</p><List items={s7.c.ferramentas} />
+                                <p className="text-gray-500 font-semibold mt-1">Capacidades:</p><List items={s7.c.capacidades} />
+                                <p className="text-gray-500 font-semibold mt-1">Limitações:</p><List items={s7.c.limitacoes} />
+                              </>
+                            ) : <p className="text-gray-500 italic">Não identificado</p>}
+                          </Section>
+                        );
+                      })()}
+
+                      {(() => {
+                        const s8 = getSecao(ext.desafios_estrategia);
+                        return (
+                          <Section num="8" title="Desafios e Estratégia" color="#EF4444" confianca={s8.confianca} origem={s8.origem}>
+                            {s8.c ? (
+                              <>
+                                <p className="text-gray-500 font-semibold">Desafios:</p><List items={s8.c.desafios} />
+                                <p className="text-gray-500 font-semibold mt-1">Metas:</p><List items={s8.c.metas} />
+                                {s8.c.transformacoes && <p className="mt-1"><span className="text-gray-500 font-semibold">Transformações:</span> {s8.c.transformacoes}</p>}
+                              </>
+                            ) : <p className="text-gray-500 italic">Não identificado</p>}
+                          </Section>
+                        );
+                      })()}
+
+                      {(() => {
+                        const s9 = getSecao(ext.vocabulario_corporativo || ext.vocabulario);
+                        const items = Array.isArray(s9.c) ? s9.c : (Array.isArray(ext.vocabulario_corporativo) ? ext.vocabulario_corporativo : ext.vocabulario || []);
+                        return (
+                          <Section num="9" title="Vocabulário Corporativo" color="#F97316" confianca={s9.confianca} origem={s9.origem}>
+                            {items?.length ? (
+                              <div className="space-y-1">
+                                {items.map((v, i) => (
+                                  <p key={i}><strong className="text-white">{v.termo}</strong> — {v.significado}</p>
+                                ))}
+                              </div>
+                            ) : <p className="text-gray-500 italic">Não identificado</p>}
+                          </Section>
+                        );
+                      })()}
                     </>
                   ) : (
                     <>
@@ -511,14 +585,44 @@ export default function PPPPage() {
                   </Section>
 
                   {/* Valores */}
-                  {(ext.valores_institucionais || viewPPP.valores)?.length > 0 && (
+                  {(ext.valores_institucionais || ext.identidade_cultura?.conteudo?.valores || ext.identidade_cultura?.valores || viewPPP.valores)?.length > 0 && (
                     <div className="pt-3 border-t border-white/[0.06]">
                       <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-2">Valores</p>
                       <div className="flex flex-wrap gap-1.5">
-                        {(ext.valores_institucionais || viewPPP.valores).map((v, i) => (
+                        {(ext.valores_institucionais || ext.identidade_cultura?.conteudo?.valores || ext.identidade_cultura?.valores || viewPPP.valores).map((v, i) => (
                           <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-cyan-400/10 text-cyan-400">{v}</span>
                         ))}
                       </div>
+                    </div>
+                  )}
+
+                  {/* Metadata — lacunas, hipóteses, recomendações */}
+                  {ext._metadata && (
+                    <div className="pt-3 mt-2 border-t border-white/[0.06] space-y-3">
+                      {ext._metadata.lacunas?.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-1">Lacunas</p>
+                          <ul className="space-y-0.5">{ext._metadata.lacunas.map((l, i) => <li key={i} className="text-[10px] text-gray-400">• {l}</li>)}</ul>
+                        </div>
+                      )}
+                      {ext._metadata.hipoteses_controladas?.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-1">Hipóteses Controladas</p>
+                          <ul className="space-y-0.5">{ext._metadata.hipoteses_controladas.map((h, i) => <li key={i} className="text-[10px] text-gray-400">⚠ {h}</li>)}</ul>
+                        </div>
+                      )}
+                      {ext._metadata.recomendacao_validacao?.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-1">Validar com RH/Gestor</p>
+                          <ul className="space-y-0.5">{ext._metadata.recomendacao_validacao.map((r, i) => <li key={i} className="text-[10px] text-gray-400">→ {r}</li>)}</ul>
+                        </div>
+                      )}
+                      {ext._metadata.secoes_enriquecidas_web?.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">Enriquecidas via Web</p>
+                          <p className="text-[10px] text-gray-500">{ext._metadata.secoes_enriquecidas_web.join(', ')}</p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
