@@ -80,42 +80,56 @@ export async function rodarIA1(empresaId, aiConfig = {}) {
         tensoes: detalhe.tensoes_comuns || '', contexto_extra: detalhe.contexto_cultural || '',
       };
 
-      const system = buildSystemPromptSelecao(compsDoCargo, cargoNome);
-      const user = buildUserPrompt(empresa, cargoInfo, valores, contextoPPP);
+      // Limpar seleção anterior deste cargo
+      await sb.from('top10_cargos')
+        .delete()
+        .eq('empresa_id', empresaId)
+        .eq('cargo', cargoNome);
 
-      const resposta = await callAI(system, user, aiConfig, 4096);
-      const resultado = await extractJSON(resposta);
-
-      if (resultado?.top10 && Array.isArray(resultado.top10)) {
-        // Limpar seleção anterior deste cargo
-        await sb.from('top10_cargos')
-          .delete()
-          .eq('empresa_id', empresaId)
-          .eq('cargo', cargoInfo.cargo);
-
-        const usedIds = new Set();
-        for (let i = 0; i < resultado.top10.length; i++) {
-          const sel = resultado.top10[i];
-          const selId = (sel.id || sel.cod_comp || '').trim().toLowerCase();
-          const selNome = (sel.nome || '').trim().toLowerCase();
-
-          // Match progressivo: cod_comp exato → cod_comp case-insensitive → nome exato → nome parcial
-          const match = competencias.find(c => !usedIds.has(c.id) && c.cod_comp && selId && c.cod_comp.toLowerCase() === selId)
-            || competencias.find(c => !usedIds.has(c.id) && selNome && c.nome.toLowerCase() === selNome)
-            || competencias.find(c => !usedIds.has(c.id) && selNome && c.nome.toLowerCase().includes(selNome))
-            || competencias.find(c => !usedIds.has(c.id) && selNome && selNome.includes(c.nome.toLowerCase()));
-
-          if (!match) { console.log('[IA1] Sem match para:', sel.id, sel.nome); continue; }
-          usedIds.add(match.id);
-
+      if (compsDoCargo.length <= 10) {
+        // <= 10: selecionar TODAS direto, sem chamar IA
+        for (let i = 0; i < compsDoCargo.length; i++) {
           await sb.from('top10_cargos').insert({
             empresa_id: empresaId,
-            cargo: cargoInfo.cargo,
-            competencia_id: match.id,
+            cargo: cargoNome,
+            competencia_id: compsDoCargo[i].id,
             posicao: i + 1,
-            justificativa: sel.justificativa || null,
+            justificativa: null,
           });
           totalSelecionadas++;
+        }
+      } else {
+        // > 10: chamar IA para selecionar as 10 melhores
+        const system = buildSystemPromptSelecao(compsDoCargo, cargoNome);
+        const user = buildUserPrompt(empresa, cargoInfo, valores, contextoPPP);
+
+        const resposta = await callAI(system, user, aiConfig, 4096);
+        const resultado = await extractJSON(resposta);
+
+        if (resultado?.top10 && Array.isArray(resultado.top10)) {
+          const usedIds = new Set();
+          for (let i = 0; i < resultado.top10.length; i++) {
+            const sel = resultado.top10[i];
+            const selId = (sel.id || sel.cod_comp || '').trim().toLowerCase();
+            const selNome = (sel.nome || '').trim().toLowerCase();
+
+            const match = competencias.find(c => !usedIds.has(c.id) && c.cod_comp && selId && c.cod_comp.toLowerCase() === selId)
+              || competencias.find(c => !usedIds.has(c.id) && selNome && c.nome.toLowerCase() === selNome)
+              || competencias.find(c => !usedIds.has(c.id) && selNome && c.nome.toLowerCase().includes(selNome))
+              || competencias.find(c => !usedIds.has(c.id) && selNome && selNome.includes(c.nome.toLowerCase()));
+
+            if (!match) continue;
+            usedIds.add(match.id);
+
+            await sb.from('top10_cargos').insert({
+              empresa_id: empresaId,
+              cargo: cargoNome,
+              competencia_id: match.id,
+              posicao: i + 1,
+              justificativa: sel.justificativa || null,
+            });
+            totalSelecionadas++;
+          }
         }
       }
     }
