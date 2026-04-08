@@ -33,10 +33,14 @@ export async function rodarIA1(empresaId, aiConfig = {}) {
 
     if (!competencias?.length) return { success: false, error: 'Nenhuma competência cadastrada. Importe competências primeiro.' };
 
-    // Agrupar competências únicas por cod_comp (descritores viram uma só)
+    // Agrupar competências únicas por cod_comp+cargo (descritores viram uma só)
+    // IMPORTANTE: mesmo cod_comp pode existir em cargos diferentes, então a chave
+    // precisa incluir o cargo para não perder competências na separação por cargo.
     const compMap = {};
     competencias.forEach(c => {
-      const key = c.cod_comp || c.nome;
+      const codKey = c.cod_comp || c.nome;
+      const cargoKey = c.cargo || '_sem_cargo';
+      const key = `${codKey}::${cargoKey}`;
       if (!compMap[key]) compMap[key] = { ...c, count: 1 };
       else compMap[key].count++;
     });
