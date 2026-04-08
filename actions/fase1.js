@@ -134,7 +134,7 @@ export async function rodarIA1(empresaId, aiConfig = {}) {
       }
     }
 
-    return { success: true, message: `IA1 concluída: ${totalSelecionadas} competências selecionadas para ${cargosUnicos.length} cargos` };
+    return { success: true, message: `IA1 concluída: ${totalSelecionadas} competências selecionadas para ${cargosParaProcessar.length} cargos` };
   } catch (err) {
     return { success: false, error: err.message };
   }
