@@ -13,7 +13,7 @@ import {
   Loader2, AlertTriangle, X, ChevronDown, ChevronUp, Trash2, Settings, Trophy, Plus, Filter, Search
 } from 'lucide-react';
 
-import { loadTop10TodosCargos, adicionarTop10, removerTop10 } from '@/actions/fase1';
+import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos } from '@/actions/fase1';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import {
   loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, loadColaboradoresLista,
@@ -151,14 +151,18 @@ export default function EmpresaPipelinePage({ params }) {
   const [top10Cargo, setTop10Cargo] = useState('');
   const [showAddComp, setShowAddComp] = useState(null);
   const [addSearch, setAddSearch] = useState('');
+  const [gabaritos, setGabaritos] = useState([]);
+  const [gabExpanded, setGabExpanded] = useState(null); // cargo expandido
 
   const refreshTop10 = useCallback(async () => {
-    const [t, c] = await Promise.all([
+    const [t, c, g] = await Promise.all([
       loadTop10TodosCargos(empresaId),
       loadCompetencias(empresaId),
+      loadGabaritosCargos(empresaId),
     ]);
     setTop10(t);
     if (c.success) setTop10Comps(c.data || []);
+    setGabaritos(g);
     setTop10Loaded(true);
   }, [empresaId]);
 
@@ -194,7 +198,7 @@ export default function EmpresaPipelinePage({ params }) {
       if (result?.success) {
         addLog(`✅ ${result.message || label + ' concluído'}`, 'success');
         loadData();
-        if (actionKey === 'ia1') refreshTop10(); // Atualizar top10 após IA1
+        if (actionKey === 'ia1' || actionKey === 'ia2') refreshTop10();
       } else {
         addLog(`❌ ${result?.error || 'Erro desconhecido'}`, 'error');
       }
@@ -429,6 +433,122 @@ export default function EmpresaPipelinePage({ params }) {
                       </div>
                     ) : null;
                   })()}
+
+                  {/* Gabarito CIS — resultado da IA2 */}
+                  {fase.num === 1 && gabaritos.length > 0 && (
+                    <div className="mb-4 mt-1">
+                      <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-2">Gabarito CIS por Cargo</p>
+                      <div className="space-y-2">
+                        {gabaritos.map(g => {
+                          const gab = typeof g.gabarito === 'string' ? JSON.parse(g.gabarito) : g.gabarito;
+                          const rac = typeof g.raciocinio_ia2 === 'string' ? JSON.parse(g.raciocinio_ia2) : g.raciocinio_ia2;
+                          const isOpen = gabExpanded === g.nome;
+                          if (!gab) return null;
+                          return (
+                            <div key={g.id} className="rounded-lg border border-white/[0.04] overflow-hidden" style={{ background: '#091D35' }}>
+                              <button onClick={() => setGabExpanded(isOpen ? null : g.nome)}
+                                className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-white/[0.02] transition-colors">
+                                <span className="text-xs font-bold text-white">{g.nome}</span>
+                                <div className="flex items-center gap-2">
+                                  {gab.tela3 && <span className="text-[9px] text-gray-500">
+                                    E:{gab.tela3.executor}% M:{gab.tela3.motivador}% Me:{gab.tela3.metodico}% S:{gab.tela3.sistematico}%
+                                  </span>}
+                                  <ChevronDown size={12} className={`text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                                </div>
+                              </button>
+                              {isOpen && (
+                                <div className="px-3 pb-3 space-y-3 border-t border-white/[0.04]">
+                                  {/* Tela 1: Características */}
+                                  {gab.tela1?.length > 0 && (
+                                    <div className="pt-2">
+                                      <p className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest mb-1">Características do Perfil</p>
+                                      <div className="flex flex-wrap gap-1">
+                                        {gab.tela1.map((c, i) => (
+                                          <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-400/10 text-cyan-300">{c}</span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Tela 2: Sub-competências */}
+                                  {gab.tela2?.length > 0 && (
+                                    <div>
+                                      <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest mb-1">Sub-competências CIS</p>
+                                      <div className="grid grid-cols-2 gap-1">
+                                        {gab.tela2.map((s, i) => (
+                                          <div key={i} className="flex items-center gap-1.5 text-[10px]">
+                                            <span className={`w-4 text-center font-bold ${s.dimensao === 'D' ? 'text-red-400' : s.dimensao === 'I' ? 'text-yellow-400' : s.dimensao === 'S' ? 'text-green-400' : 'text-blue-400'}`}>{s.dimensao}</span>
+                                            <span className="text-white font-medium">{s.nome}</span>
+                                            <span className="text-gray-500">{s.faixa_min} → {s.faixa_max}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Tela 3: Estilos de Liderança */}
+                                  {gab.tela3 && (
+                                    <div>
+                                      <p className="text-[9px] font-bold text-green-400 uppercase tracking-widest mb-1">Estilos de Liderança</p>
+                                      <div className="flex gap-3">
+                                        {[
+                                          { key: 'executor', label: 'Executor', color: '#EF4444' },
+                                          { key: 'motivador', label: 'Motivador', color: '#F59E0B' },
+                                          { key: 'metodico', label: 'Metódico', color: '#22C55E' },
+                                          { key: 'sistematico', label: 'Sistemático', color: '#3B82F6' },
+                                        ].map(e => (
+                                          <div key={e.key} className="flex-1 text-center">
+                                            <div className="text-lg font-bold" style={{ color: e.color }}>{gab.tela3[e.key]}%</div>
+                                            <div className="text-[9px] text-gray-500">{e.label}</div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Tela 4: Faixas DISC */}
+                                  {gab.tela4 && (
+                                    <div>
+                                      <p className="text-[9px] font-bold text-red-400 uppercase tracking-widest mb-1">Faixas DISC Ideais</p>
+                                      <div className="grid grid-cols-4 gap-2">
+                                        {['D', 'I', 'S', 'C'].map(dim => {
+                                          const f = gab.tela4[dim];
+                                          const colors = { D: 'text-red-400', I: 'text-yellow-400', S: 'text-green-400', C: 'text-blue-400' };
+                                          return f ? (
+                                            <div key={dim} className="text-center">
+                                              <span className={`text-sm font-bold ${colors[dim]}`}>{dim}</span>
+                                              <p className="text-[9px] text-gray-400">{f.min}</p>
+                                              <p className="text-[9px] text-gray-500">→ {f.max}</p>
+                                            </div>
+                                          ) : null;
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Raciocínio */}
+                                  {rac && (
+                                    <div className="pt-1 border-t border-white/[0.03]">
+                                      <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Raciocínio da IA</p>
+                                      {rac.sinais_do_caso?.length > 0 && (
+                                        <p className="text-[10px] text-gray-400"><span className="text-gray-500 font-semibold">Sinais:</span> {rac.sinais_do_caso.join('; ')}</p>
+                                      )}
+                                      {rac.leitura_principal && (
+                                        <p className="text-[10px] text-gray-400"><span className="text-gray-500 font-semibold">Leitura:</span> {rac.leitura_principal}</p>
+                                      )}
+                                      {rac.diferenciais_vs_outros_cargos && (
+                                        <p className="text-[10px] text-gray-400"><span className="text-gray-500 font-semibold">Diferenciais:</span> {rac.diferenciais_vs_outros_cargos}</p>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {config.groups ? (
                     config.groups.map((group, gi) => {

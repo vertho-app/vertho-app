@@ -194,6 +194,19 @@ export async function removerTop10(id) {
   return { success: true };
 }
 
+// ── Gabarito CIS (leitura) ───────────────────────────────────────────────────
+
+export async function loadGabaritosCargos(empresaId) {
+  const sb = createSupabaseAdmin();
+  const { data, error } = await sb.from('cargos_empresa')
+    .select('id, nome, gabarito, raciocinio_ia2')
+    .eq('empresa_id', empresaId)
+    .not('gabarito', 'is', null)
+    .order('nome');
+  if (error) return [];
+  return data || [];
+}
+
 // ── Helpers IA1 ─────────────────────────────────────────────────────────────
 
 async function buscarContextoPPP(sb, empresaId, empresaNome) {
