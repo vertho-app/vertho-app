@@ -37,13 +37,21 @@ export default function GerenciarPage() {
     setImporting(true); setMsg('');
     const text = await file.text();
     const lines = text.split('\n').filter(l => l.trim());
-    const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+    // Detectar separador: se a primeira linha tem mais ';' que ',', usa ';'
+    const sep = (lines[0].split(';').length > lines[0].split(',').length) ? ';' : ',';
+    const header = lines[0].split(sep).map(h => h.trim().toLowerCase().replace(/^["']|["']$/g, ''));
     const colabs = lines.slice(1).map(line => {
-      const cols = line.split(',');
+      const cols = line.split(sep).map(c => c.trim().replace(/^["']|["']$/g, ''));
       const obj = {};
-      header.forEach((h, i) => { obj[h] = cols[i]?.trim(); });
+      header.forEach((h, i) => { obj[h] = cols[i]; });
       return { nome: obj.nome || obj.nome_completo, email: obj.email, cargo: obj.cargo, role: obj.role || obj.papel };
     }).filter(c => c.email);
+
+    if (colabs.length === 0) {
+      setMsg(`Nenhum colaborador encontrado no CSV. Verifique se tem coluna "email" no cabeçalho. Separador detectado: "${sep}"`);
+      setImporting(false);
+      return;
+    }
 
     const r = await importarColaboradoresLote(tenantId, colabs);
     setMsg(r.success ? r.message : r.error);
