@@ -17,7 +17,7 @@ import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import {
   loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, loadColaboradoresLista,
-  rodarIA1, rodarIA2, rodarIA3, popularCenarios,
+  rodarIA1, rodarIA2, rodarIA3,
   gerarForms, dispararEmails, coletarRespostas, verStatusEnvios,
   rodarIA4, verFilaIA4, checkAvaliacoes, gerarRelatoriosIndividuais, gerarRelatorioGestor, gerarRelatorioRH, enviarRelIndividuais, enviarRelGestor, enviarRelRH,
   gerarPDIs, gerarPDIsDescritores, montarTrilhasLote, criarEstruturaFase4, iniciarFase4ParaTodos, triggerSegundaFase4, triggerQuintaFase4, getStatusFase4, moodleImportarCatalogo, catalogarConteudosMoodle, gerarCoberturaConteudo,
@@ -63,8 +63,7 @@ const PHASE_CONFIG = [
     { key: 'ia1', label: 'IA1 — Top 10', icon: Zap, ai: true },
     { key: 'cargos-top5', label: 'Cargos & Top 5', icon: Target, href: '/admin/cargos' },
     { key: 'ia2', label: 'IA2 — Gabarito', icon: Zap, ai: true },
-    { key: 'ia3', label: 'IA3 — Contexto', icon: Zap, ai: true },
-    { key: 'cenarios', label: 'Popular Cenários', icon: Database },
+    { key: 'ia3', label: 'IA3 — Cenários', icon: Zap, ai: true },
   ]},
   { num: 2, icon: Mail, color: '#F59E0B', actions: [
     { key: 'forms', label: 'Gerar Forms', icon: FileText },
@@ -114,7 +113,7 @@ const PHASE_CONFIG = [
 
 // Action dispatcher map
 const ACTION_MAP = {
-  ia1: rodarIA1, ia2: rodarIA2, ia3: rodarIA3, cenarios: popularCenarios,
+  ia1: rodarIA1, ia2: rodarIA2, ia3: rodarIA3,
   forms: gerarForms, disparo: dispararEmails, coletar: coletarRespostas, status: verStatusEnvios,
   ia4: rodarIA4, fila: verFilaIA4, check: checkAvaliacoes,
   'rel-ind': gerarRelatoriosIndividuais, 'rel-gestor': gerarRelatorioGestor, 'rel-rh': gerarRelatorioRH,

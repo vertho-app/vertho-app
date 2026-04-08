@@ -711,38 +711,3 @@ CARGO: ${cargoNome}`;
   return prompt;
 }
 
-// ── Popular Cenários (template do banco_cenarios) ───────────────────────────
-
-export async function popularCenarios(empresaId) {
-  const sb = createSupabaseAdmin();
-  try {
-    const { data: empresa } = await sb.from('empresas')
-      .select('segmento')
-      .eq('id', empresaId).single();
-
-    const { data: templates } = await sb.from('banco_cenarios')
-      .select('*')
-      .is('empresa_id', null)
-      .eq('segmento', empresa.segmento);
-
-    if (!templates?.length) {
-      return { success: false, error: 'Nenhum cenário template encontrado para este segmento' };
-    }
-
-    const novos = templates.map(t => ({
-      empresa_id: empresaId,
-      competencia_id: t.competencia_id,
-      cargo: t.cargo,
-      titulo: t.titulo,
-      descricao: t.descricao,
-      alternativas: t.alternativas,
-    }));
-
-    const { error } = await sb.from('banco_cenarios').insert(novos);
-    if (error) return { success: false, error: error.message };
-
-    return { success: true, message: `${novos.length} cenários populados do template` };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-}

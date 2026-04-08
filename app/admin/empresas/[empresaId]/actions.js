@@ -111,7 +111,7 @@ export async function loadColaboradoresLista(empresaId) {
 }
 
 // ── Wrappers das actions reais ──
-import { rodarIA1 as _ia1, rodarIA2 as _ia2, rodarIA3 as _ia3, popularCenarios as _cen } from '@/actions/fase1';
+import { rodarIA1 as _ia1, rodarIA2 as _ia2, rodarIA3 as _ia3 } from '@/actions/fase1';
 import { gerarForms as _forms, dispararEmails as _emails, coletarRespostas as _coletar, verStatusEnvios as _status } from '@/actions/fase2';
 import { rodarIA4 as _ia4, verFilaIA4 as _fila, gerarRelatoriosIndividuais as _relInd, gerarRelatorioGestor as _relGestor, gerarRelatorioRH as _relRH, enviarRelIndividuais as _envInd, enviarRelGestor as _envGestor, enviarRelRH as _envRH } from '@/actions/fase3';
 import { checkAvaliacoes as _check } from '@/actions/check-ia4';
@@ -122,7 +122,6 @@ import { dispararLinksCIS as _dispCIS, dispararRelatoriosLote as _dispLote } fro
 export async function rodarIA1(e, c) { return _ia1(e, c); }
 export async function rodarIA2(e, c) { return _ia2(e, c); }
 export async function rodarIA3(e, c) { return _ia3(e, c); }
-export async function popularCenarios(e) { return _cen(e); }
 export async function gerarForms(e) { return _forms(e); }
 export async function dispararEmails(e) { return _emails(e); }
 export async function coletarRespostas(e) { return _coletar(e); }
