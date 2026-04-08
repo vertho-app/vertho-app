@@ -5,6 +5,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2, FileText, Link2, Plus, Sparkles, Upload, Eye, Trash2, RefreshCw } from 'lucide-react';
 import { loadEmpresa, loadPPPs, excluirPPP } from './actions';
 import { extrairPPP } from '@/actions/ppp';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configurar worker do pdf.js (CDN para evitar problemas de bundling)
+if (typeof window !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+}
 
 export default function PPPPage() {
   const router = useRouter();
@@ -143,10 +149,34 @@ export default function PPPPage() {
                       const selected = Array.from(e.target.files || []);
                       for (const file of selected) {
                         try {
-                          const text = await file.text();
-                          setFiles(prev => [...prev, { name: file.name, size: file.size, content: text.slice(0, 30000) }]);
-                        } catch {
-                          setFiles(prev => [...prev, { name: file.name, size: file.size, content: `[Não foi possível ler ${file.name} no browser — use texto colado]` }]);
+                          let text;
+                          if (file.name.toLowerCase().endsWith('.pdf')) {
+                            // Extrair texto de PDF via pdf.js
+                            const arrayBuffer = await file.arrayBuffer();
+                            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                            const pages = [];
+                            for (let i = 1; i <= pdf.numPages; i++) {
+                              const page = await pdf.getPage(i);
+                              const content = await page.getTextContent();
+                              pages.push(content.items.map(item => item.str).join(' '));
+                            }
+                            text = pages.join('\n\n');
+                          } else {
+                            text = await file.text();
+                          }
+                          setFiles(prev => [...prev, {
+                            name: file.name,
+                            size: file.size,
+                            content: text.slice(0, 30000),
+                            pages: file.name.toLowerCase().endsWith('.pdf') ? '✓ PDF lido' : null,
+                          }]);
+                        } catch (err) {
+                          setFiles(prev => [...prev, {
+                            name: file.name,
+                            size: file.size,
+                            content: `[Erro ao ler ${file.name}: ${err.message}]`,
+                            error: true,
+                          }]);
                         }
                       }
                       e.target.value = '';
@@ -158,8 +188,10 @@ export default function PPPPage() {
                   <div className="mt-2 space-y-1">
                     {files.map((f, i) => (
                       <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#091D35' }}>
-                        <FileText size={12} className="text-cyan-400 shrink-0" />
+                        <FileText size={12} className={f.error ? 'text-red-400 shrink-0' : 'text-cyan-400 shrink-0'} />
                         <span className="text-xs text-white flex-1 truncate">{f.name}</span>
+                        {f.pages && <span className="text-[9px] text-green-400 font-semibold">{f.pages}</span>}
+                        {f.error && <span className="text-[9px] text-red-400 font-semibold">Erro</span>}
                         <span className="text-[10px] text-gray-600">{(f.size / 1024).toFixed(0)} KB</span>
                         <button onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))}
                           className="text-gray-600 hover:text-red-400 transition-colors">
