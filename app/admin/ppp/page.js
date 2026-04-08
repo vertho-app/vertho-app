@@ -18,6 +18,7 @@ export default function PPPPage() {
   const [tab, setTab] = useState('arquivos'); // arquivos | json
   const [urls, setUrls] = useState(['']);
   const [textos, setTextos] = useState('');
+  const [files, setFiles] = useState([]); // { name, size, content }
   const [extracting, setExtracting] = useState(false);
   const [result, setResult] = useState(null);
   const [toast, setToast] = useState(null);
@@ -50,7 +51,9 @@ export default function PPPPage() {
     if (!empresaIdParam) return;
     const urlList = urls.filter(u => u.trim());
     const textoList = textos.trim() ? [textos.trim()] : [];
-    if (!urlList.length && !textoList.length) { flash('Informe pelo menos uma URL ou texto.'); return; }
+    // Adicionar conteúdo dos arquivos carregados
+    files.forEach(f => { if (f.content) textoList.push(`[Arquivo: ${f.name}]\n${f.content}`); });
+    if (!urlList.length && !textoList.length) { flash('Informe pelo menos uma URL, texto ou arquivo.'); return; }
 
     setExtracting(true);
     setResult(null);
@@ -130,19 +133,42 @@ export default function PPPPage() {
               {/* File upload area */}
               <div className="mb-4">
                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Arquivos</p>
-                <label className="flex flex-col items-center justify-center py-8 rounded-xl border-2 border-dashed border-white/10 hover:border-cyan-400/30 transition-colors cursor-pointer"
+                <label className="flex flex-col items-center justify-center py-6 rounded-xl border-2 border-dashed border-white/10 hover:border-cyan-400/30 transition-colors cursor-pointer"
                   style={{ background: 'rgba(0,0,0,0.1)' }}>
                   <Upload size={24} className="text-gray-500 mb-2" />
                   <p className="text-sm font-semibold text-gray-400">Clique para enviar arquivos</p>
                   <p className="text-[10px] text-gray-600 mt-1">PDF, TXT, DOC, DOCX, PPT, PPTX — múltiplos arquivos</p>
                   <input type="file" multiple accept=".pdf,.txt,.doc,.docx,.ppt,.pptx" className="hidden"
-                    onChange={e => {
-                      // Arquivos seriam lidos e o texto extraído no servidor
-                      // Por enquanto, feedback visual
-                      const files = Array.from(e.target.files || []);
-                      if (files.length) flash(`${files.length} arquivo(s) selecionado(s) — use URLs para extração via IA`);
+                    onChange={async e => {
+                      const selected = Array.from(e.target.files || []);
+                      for (const file of selected) {
+                        try {
+                          const text = await file.text();
+                          setFiles(prev => [...prev, { name: file.name, size: file.size, content: text.slice(0, 30000) }]);
+                        } catch {
+                          setFiles(prev => [...prev, { name: file.name, size: file.size, content: `[Não foi possível ler ${file.name} no browser — use texto colado]` }]);
+                        }
+                      }
+                      e.target.value = '';
                     }} />
                 </label>
+
+                {/* Lista de arquivos carregados */}
+                {files.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {files.map((f, i) => (
+                      <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#091D35' }}>
+                        <FileText size={12} className="text-cyan-400 shrink-0" />
+                        <span className="text-xs text-white flex-1 truncate">{f.name}</span>
+                        <span className="text-[10px] text-gray-600">{(f.size / 1024).toFixed(0)} KB</span>
+                        <button onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))}
+                          className="text-gray-600 hover:text-red-400 transition-colors">
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* URLs */}
