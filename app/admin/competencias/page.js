@@ -63,15 +63,7 @@ export default function CompetenciasPage() {
       loadCargosEmpresa(id),
     ]);
     setCargosEmpresa(cargos || []);
-    if (r1.success) {
-      setComps(r1.data || []);
-    }
-    // Merge cargos de colaboradores (loadCargosEmpresa) + competências
-    if (r1.success) {
-      const cargosFromComps = (r1.data || []).map(c => c.cargo).filter(Boolean);
-      const merged = [...new Set([...(cargos || []), ...cargosFromComps])].sort();
-      setCargosEmpresa(merged);
-    }
+    if (r1.success) setComps(r1.data || []);
     if (r2.success) setBaselist(r2.data || []);
     setLoadingComps(false);
   }
@@ -280,22 +272,13 @@ export default function CompetenciasPage() {
                 {/* Descritores */}
                 {descritores.length > 0 && descritores[0].cod_desc && (
                   <div className="border-t border-white/[0.04]">
-                    <table className="w-full text-[11px]">
-                      <thead>
-                        <tr className="border-b border-white/[0.04] text-[9px] font-bold text-gray-600 uppercase">
-                          <th className="px-4 py-1.5 text-left w-24">Cod</th>
-                          <th className="px-4 py-1.5 text-left">Descritor</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/[0.02]">
-                        {descritores.map(d => (
-                          <tr key={d.id} className="hover:bg-white/[0.02]">
-                            <td className="px-4 py-1.5 text-gray-500 font-mono">{d.cod_desc || '—'}</td>
-                            <td className="px-4 py-1.5 text-gray-300 font-medium">{d.nome_curto || d.descritor_completo || '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <div className="divide-y divide-white/[0.02]">
+                      {descritores.map(d => (
+                        <div key={d.id} className="px-4 py-2 text-[11px] text-gray-300 hover:bg-white/[0.02]">
+                          {d.nome_curto || d.descritor_completo || '—'}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
