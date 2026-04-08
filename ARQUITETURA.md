@@ -1,35 +1,51 @@
 # Vertho Mentor IA — Arquitetura do Sistema
 
-> Documento oficial de arquitetura do SaaS B2B de desenvolvimento de competencias por IA.
-> Atualizado em: Abril/2026
+> Documento oficial de arquitetura — SaaS B2B de desenvolvimento de competencias por IA.
+> Ultima atualizacao: 08/04/2026
+> Commit de referencia: d4bbb44
+> Revisado contra o codigo-fonte em producao (vertho.com.br)
+> Metodo: auditoria automatizada + revisao manual + comparacao com legado GAS
+
+---
+
+## Legenda de Status
+
+| Icone | Significado |
+|---|---|
+| ✅ | Operacional em producao |
+| ⚡ | Implementado parcialmente |
+| 📋 | Planejado / estrutura pronta |
+| 🔑 | Depende de credenciais / config externa |
 
 ---
 
 ## 1. Visao Geral da Stack
 
-| Camada | Tecnologia | Versao |
-|--------|-----------|--------|
-| **Framework** | Next.js (App Router) | 16.2.2 |
-| **UI** | React | 19.2.4 |
-| **Estilizacao** | Tailwind CSS | 4.0 |
-| **Icones** | Lucide React | 1.7.0 |
-| **Banco de Dados** | Supabase (PostgreSQL) | — |
-| **Auth** | Supabase Auth (Magic Link + Senha) | — |
-| **IA Principal** | Anthropic SDK (Claude) | 0.81.0 |
-| **IA Secundaria** | Google Gemini | via fetch nativo |
-| **IA Validacao** | Gemini (auditor multi-LLM) | via fetch nativo |
-| **PDF** | @react-pdf/renderer + pdfjs-dist | 4.4.0 / 5.6 |
-| **Filas** | Upstash QStash | 2.10.1 |
-| **WhatsApp** | Z-API (REST) | — |
-| **Email** | Resend API | — |
-| **Scraping** | Jina AI Reader + Firecrawl (fallback) | — |
-| **LMS** | Moodle (REST API) | — |
-| **Error Tracking** | Sentry | — |
-| **Testes** | Playwright + smoke-test.js | — |
-| **Hospedagem** | Vercel (Serverless) | — |
-| **DNS/CDN** | Cloudflare (Full Strict SSL) | — |
-| **Dominio** | vertho.com.br (wildcard *.vertho.com.br) | — |
-| **CI/CD** | GitHub Actions (smoke test no push) | — |
+| Camada | Tecnologia | Versao | Status |
+|--------|-----------|--------|--------|
+| **Framework** | Next.js (App Router) | 16.2.2 | ✅ |
+| **UI** | React | 19.2.4 | ✅ |
+| **Estilizacao** | Tailwind CSS | 4.0 | ✅ |
+| **Icones** | Lucide React | 1.7.0 | ✅ |
+| **Banco de Dados** | Supabase (PostgreSQL) | — | ✅ |
+| **Auth** | Supabase Auth (Magic Link + Senha) | — | ✅ |
+| **IA Principal** | Anthropic SDK (Claude) | 0.81.0 | ✅ |
+| **IA Secundaria** | Google Gemini | via fetch nativo | ✅ |
+| **IA Validacao** | Gemini (auditor multi-LLM) | via fetch nativo | ✅ |
+| **PDF** | @react-pdf/renderer (geracao) | 4.4.0 | ✅ |
+| **PDF Reader** | pdfjs-dist (leitura) | 5.6 | ✅ |
+| **Filas** | Upstash QStash | 2.10.1 | ✅ |
+| **WhatsApp** | Z-API (REST) | — | 🔑 |
+| **Email** | Resend API | — | 🔑 |
+| **Scraping Primario** | Jina AI Reader | — | ✅ |
+| **Scraping Fallback** | Firecrawl | — | 🔑 |
+| **LMS** | Moodle (REST API) | — | 📋 |
+| **Error Tracking** | Sentry | — | 🔑 |
+| **Testes** | Playwright + smoke-test.js | — | ✅ |
+| **Hospedagem** | Vercel (Serverless) | — | ✅ |
+| **DNS/CDN** | Cloudflare (Full Strict SSL) | — | ✅ |
+| **Dominio** | vertho.com.br (wildcard *.vertho.com.br) | — | ✅ |
+| **CI/CD** | GitHub Actions (smoke test no push) | — | ✅ |
 
 ---
 
@@ -192,7 +208,7 @@ nextjs-app/
 
 ---
 
-## 3. Arquitetura Multi-Tenant
+## 3. Arquitetura Multi-Tenant e Fronteira de Tenant
 
 ### 3.1 Roteamento por Subdominio
 ```
@@ -202,21 +218,92 @@ nextjs-app/
   → Server Components resolvem tenant via lib/tenant-resolver.js (cache 5min)
 ```
 
-### 3.2 Branding por Tenant
+### 3.2 Resolucao do Tenant
+```
+lib/tenant-resolver.js:
+  resolveTenant(slug)
+    → SELECT * FROM empresas WHERE slug = $1
+    → Cache em memoria por 5 minutos
+    → Retorna: id, nome, slug, segmento, ui_config, sys_config
+    → Se nao encontrar: retorna null (login mostra erro)
+```
+
+### 3.3 Isolamento de Dados
+
+O isolamento multi-tenant opera em 3 camadas:
+
+**Camada 1 — Schema (FK)**
+- Todas as tabelas transacionais possuem coluna `empresa_id` (FK para `empresas.id`)
+- Constraint NOT NULL garante que nenhum registro exista sem tenant
+
+**Camada 2 — RLS (Row Level Security)**
+- RLS habilitado em todas as tabelas
+- Policy padrao usa `get_empresa_id()` para filtrar por tenant
+- Aplica-se automaticamente a queries feitas com `createSupabaseClient()` (anon key)
+
+**Camada 3 — Codigo (Server Actions + API Routes)**
+- Server actions usam `createSupabaseAdmin()` com filtro EXPLICITO de `empresa_id`
+- API routes: `/api/colaboradores` exige `empresa_id` no request (retorna 400 sem ele)
+- `mensagens_chat` isoladas via `sessao_id` (sessao ja scoped por empresa)
+
+**Riscos Conhecidos:**
+- `service_role` bypassa RLS — filtro no codigo e a defesa primaria
+- Se uma query omitir filtro `empresa_id` com `service_role`, vazamento cross-tenant e possivel
+- Mitigacao: todas as queries auditadas, `empresa_id` obrigatorio em endpoints criticos
+
+### 3.4 Branding por Tenant
 Coluna `ui_config JSONB`: logo_url, 7 cores, font_color, login_subtitle, hidden_elements, labels.
 Configurado em `/admin/empresas/{id}/configuracoes` → aba Branding com preview ao vivo.
 
-### 3.3 RBAC Explicito
-- `colaboradores.role` = colaborador | gestor | rh (por tenant)
-- `platform_admins` = admin global (tabela separada)
-- `lib/authz.js` = getUserContext, isPlatformAdmin, getDashboardView
-- Admin guard 100% server-side (nunca NEXT_PUBLIC)
+### 3.5 Config por Tenant
+Coluna `sys_config JSONB` em `empresas`:
+- `ai_model`: modelo padrao de IA para o tenant
+- `cadencia`: frequencia de envio (semanal, quinzenal)
+- `envios`: configuracao de automacoes (WhatsApp, email)
+- Configurado em `/admin/empresas/{id}/configuracoes` → abas IA, Automacoes, Envios
 
 ---
 
-## 4. Motor de IA
+## 4. RBAC (Controle de Acesso Baseado em Papeis)
 
-### 4.1 Roteador Universal
+### 4.1 Papeis por Tenant
+Coluna `role` em `colaboradores`: `colaborador` | `gestor` | `rh`
+Cada colaborador pertence a exatamente um tenant (`empresa_id`) com exatamente um papel.
+
+### 4.2 Admin da Plataforma
+Tabela `platform_admins` — admins globais com acesso a todas as empresas.
+Verificacao 100% server-side via `checkAdminAccess()`.
+
+### 4.3 Dashboard por Papel
+`getDashboardView()` em `lib/authz.js` retorna `rh` | `gestor` | `colaborador`.
+- **colaborador**: ve apenas seu progresso pessoal
+- **gestor**: ve KPIs da equipe (por area) + seu progresso
+- **rh**: ve KPIs da empresa inteira + seu progresso
+
+### 4.4 Admin Guard
+```
+checkAdminAccess():
+  1. Busca email do usuario autenticado
+  2. Consulta platform_admins por email
+  3. Fallback: verifica ADMIN_EMAILS env var (lista separada por virgula)
+  4. Se nenhum match: redireciona para /login
+```
+
+### 4.5 Gestao de Papeis
+`/admin/empresas/{id}/configuracoes` → aba Equipe
+Permite alterar o `role` de cada colaborador dentro do tenant.
+
+### 4.6 Gestao de Admins
+`/admin/platform-admins` — CRUD de admins globais da plataforma.
+
+### Nota
+RBAC NAO usa regex no campo `cargo` (abordagem antiga foi substituida por coluna `role` explicita).
+
+---
+
+## 5. Motor de IA
+
+### 5.1 Roteador Universal
 ```
 callAI(system, user, aiConfig, maxTokens, options)     → single-turn
 callAIChat(system, messages, aiConfig, maxTokens, options) → multi-turn
@@ -225,29 +312,29 @@ options.thinking = true → Extended Thinking (budget 32k/65k)
 
 Modelos: Claude Sonnet 4.6, Claude Opus 4.6, Gemini 3 Flash, Gemini 3.1 Pro
 
-### 4.2 Motor Conversacional (api/chat/route.js)
+### 5.2 Motor Conversacional (api/chat/route.js)
 - System prompt: ~120 linhas (proibicoes, 4 dimensoes, evidencias tipadas)
 - [META]: proximo_passo, razao, dimensao_explorada, dimensoes_cobertas, evidencias_coletadas, confianca
 - State machine: cenario → aprofundamento → contraexemplo → encerramento → concluida
 - Business rules: MIN_EVIDENCIAS=2, MIN_MSG=10, MAX_MSG=4096, CONFIANCA_ENCERRAR=80
 
-### 4.3 Avaliacao [EVAL]
+### 5.3 Avaliacao [EVAL]
 - consolidacao: nivel_geral, nota_decimal, gap, confianca, travas_aplicadas
 - descritores_destaque: pontos_fortes + gaps_prioritarios
 - evidencias tipadas (explicito, explicito_forte, inferido)
 - recomendacoes_pdi: 3 prioridades com barreira_provavel
 - Travas: N1 critico → max N2; 3+ N1 → N1; duvida → inferior
 
-### 4.4 Auditoria [AUDIT] (Gemini)
+### 5.4 Auditoria [AUDIT] (Gemini)
 6 criterios: evidencias, nivel, nota, lacuna, alucinacoes, vies
 
-### 4.5 Check IA4 (actions/check-ia4.js)
+### 5.5 Check IA4 (actions/check-ia4.js)
 4 dimensoes × 25pts = 100. Threshold >= 90 aprovado.
 
-### 4.6 Versionamento de Prompts
+### 5.6 Versionamento de Prompts
 Tabela `prompt_versions` (SHA-256 dedup). Cada sessao registra qual prompt gerou o resultado.
 
-### 4.7 Tokens (alinhados com GAS)
+### 5.7 Tokens (alinhados com GAS)
 | Fase | Tokens |
 |---|---|
 | Conversa | 1.024 |
@@ -260,48 +347,159 @@ Tabela `prompt_versions` (SHA-256 dedup). Cada sessao registra qual prompt gerou
 
 ---
 
-## 5. Integracoes
+## 6. Integracoes
 
-### 5.1 WhatsApp — Z-API + QStash
+### 6.1 WhatsApp — Z-API + QStash
 Dispatch async com delay incremental 2s. Webhook com verificacao de assinatura.
+Status: ✅ operacional, 🔑 depende de Z-API credentials
 
-### 5.2 Email — Resend API
+### 6.2 Email — Resend API
 Dispatch de formularios (Fase 2) e relatorios.
+Status: 🔑 depende de RESEND_API_KEY
 
-### 5.3 Moodle — REST API
+### 6.3 Moodle — REST API
 Criar usuario, matricular, verificar conclusao.
+Status: 📋 lib implementada (`lib/moodle.js`), sem integracao ativa testada
 
-### 5.4 PDF — @react-pdf/renderer + pdfjs-dist
+### 6.4 PDF — @react-pdf/renderer + pdfjs-dist
 Geracao server-side em memoria. Leitura de PDF no browser (PPP).
+Status: ✅ geracao + ✅ leitura
 
-### 5.5 Scraping — Jina AI + Firecrawl
+### 6.5 Scraping — Jina AI + Firecrawl
 Jina (primario, gratis) → Firecrawl (fallback, pago). PPP 10 secoes estruturadas.
+Status: ✅ Jina (gratis), 🔑 Firecrawl (fallback pago)
 
-### 5.6 Supabase Storage — Bucket logos
+### 6.6 Supabase Storage — Bucket logos
 Upload de logo por empresa via /api/upload-logo.
+Status: ✅ bucket logos
 
 ---
 
-## 6. Modelagem de Dados (20 migrations)
+## 7. Fluxos Ponta a Ponta
 
-### Tabelas Core
-empresas, colaboradores (29+ colunas DISC), cargos, competencias (+ versao_regua), competencias_base
+### Fluxo A: Login + Tenant + Dashboard
+```
+1. Usuario acessa {slug}.vertho.com.br/login
+2. middleware.js extrai slug → header x-tenant-slug
+3. app/login/page.js (Server Component):
+   → lib/tenant-resolver.js busca empresa por slug (cache 5min)
+   → Extrai ui_config: logo, cores, subtitulo
+   → Passa branding como props para LoginForm
+4. LoginForm: email + senha/Magic Link → Supabase Auth
+5. Redirect para /dashboard
+6. dashboard-actions.js → lib/authz.js:
+   → getUserContext(email) busca colaborador + role + empresa_id
+   → getDashboardView() retorna rh|gestor|colaborador
+7. Dashboard renderiza:
+   → Hero card "Vamos continuar sua evolucao"
+   → Proximo Passo (perfil → assessment → PDI)
+   → Acesso Rapido (4 cards)
+   → KPIs equipe (se gestor/rh)
 
-### Tabelas de Avaliacao
-banco_cenarios, respostas, sessoes_avaliacao (+ check_nota/status/resultado), mensagens_chat
+Tabelas: empresas, colaboradores, platform_admins
+Integracoes: Supabase Auth
+Critico: tenant-resolver cache, RBAC por role explicito
+```
 
-### Tabelas de Capacitacao
-trilhas, fase4_envios, capacitacao (+ evidencia_texto/avaliacao), evolucao, evolucao_descritores
+### Fluxo B: Assessment Conversacional ate Avaliacao Final
+```
+1. Colaborador clica em competencia em /dashboard/assessment
+2. Navega para /dashboard/assessment/chat?competencia=UUID
+3. Envia mensagem → POST /api/chat:
+   a. Cria ou continua sessao em sessoes_avaliacao
+   b. Carrega contexto: competencia + cenario + gabarito + historico
+   c. Monta system prompt (~120 linhas: proibicoes, dimensoes, regua)
+   d. callAIChat() com historico completo (Claude, 1024 tokens)
+   e. Parseia [META]: confianca, evidencias, proximo_passo
+   f. Salva em mensagens_chat (user + assistant)
+   g. State machine decide proxima fase
+4. Quando encerrar (confianca >= 80 OU turnos >= 10 OU min 2 evidencias):
+   a. Claude gera [EVAL] (32768 tokens): nivel, nota, travas, descritores, PDI
+   b. Gemini audita [AUDIT] (65536 tokens): 6 criterios
+   c. Resultado final persistido em sessoes_avaliacao
+   d. Versao do prompt registrada em prompt_versions
+5. UI mostra card final: nivel, nota, lacuna, pontos fortes/melhoria
 
-### Tabelas de Suporte
-ppp_escolas, envios_diagnostico, relatorios, pdis, trilhas_catalogo, platform_admins, prompt_versions
+Tabelas: sessoes_avaliacao, mensagens_chat, competencias, banco_cenarios, prompt_versions
+Integracoes: Claude (avaliador), Gemini (auditor)
+Critico: business rules (min evidencias, travas de nivel), prompt versioning
+```
 
-### Tabelas de Referencia
-regua_maturidade, catalogo_enriquecido, moodle_catalogo, cis_referencia, cis_ia_referencia
+### Fluxo C: Extracao PPP (10 secoes)
+```
+1. Admin acessa /admin/ppp?empresa=UUID (vem do pipeline)
+2. Clica "Nova Extracao" → expande formulario
+3. Upload de PDF (pdfjs-dist extrai texto no browser) e/ou URLs
+4. Seleciona modelo de IA
+5. Clica "Extrair via IA":
+   a. Para URLs: Jina AI Reader → se falhar → Firecrawl (fallback)
+   b. Texto dos PDFs + URLs combinados
+   c. Claude extrai 10 secoes estruturadas:
+      1. Perfil, 2. Comunidade, 3. Identidade, 4. Praticas,
+      5. Inclusao, 6. Gestao, 7. Infraestrutura, 8. Desafios,
+      9. Vocabulario, 10. Competencias priorizadas
+   d. Resultado salvo em ppp_escolas (extracao JSONB + valores JSONB)
+6. Lista de PPPs mostra cards com status + botao visualizar (modal 10 secoes)
+
+Tabelas: ppp_escolas, empresas
+Integracoes: Jina AI, Firecrawl, Claude
+Critico: PDF com imagem (scan) nao e legivel; sites com anti-bot podem falhar
+```
 
 ---
 
-## 7. Cron Jobs (Vercel)
+## 8. Modelagem de Dados (20 migrations)
+
+### Dados Transacionais (progressao do colaborador)
+```
+sessoes_avaliacao ← mensagens_chat (1:N por sessao_id)
+respostas (R1-R4 por competencia)
+capacitacao (evidencias semanais)
+evolucao + evolucao_descritores (comparativo A vs B)
+```
+
+### Dados de Configuracao (por empresa/tenant)
+```
+empresas → colaboradores (1:N)
+empresas → competencias (1:N)
+empresas → cargos (1:N)
+empresas → banco_cenarios (1:N)
+empresas.ui_config (branding)
+empresas.sys_config (IA, cadencia, envios)
+```
+
+### Artefatos Gerados por IA
+```
+relatorios (individual, gestor, rh — conteudo JSONB)
+pdis (plano de desenvolvimento — conteudo JSONB)
+prompt_versions (audit trail de prompts — hash SHA-256)
+sessoes_avaliacao.rascunho_avaliacao / validacao_audit / avaliacao_final
+```
+
+### Dados de Operacao
+```
+envios_diagnostico (tracking de formularios enviados)
+fase4_envios (trilha semanal por colaborador)
+trilhas + trilhas_catalogo (conteudo mapeado)
+platform_admins (admin global)
+```
+
+### Dados de Referencia (read-only)
+```
+competencias_base (template global por segmento)
+regua_maturidade
+catalogo_enriquecido, moodle_catalogo
+cis_referencia, cis_ia_referencia
+```
+
+### Regras de Isolamento
+- Toda tabela possui `empresa_id` (exceto `platform_admins`, `prompt_versions`, `competencias_base`)
+- Chave de progressao: `colaborador_id` → `sessoes` → `respostas` → `evolucao`
+- Chave de tenant: `empresa_id` em tudo
+
+---
+
+## 9. Cron Jobs (Vercel)
 
 | Cron | Horario (BRT) | Acao |
 |---|---|---|
@@ -311,7 +509,7 @@ regua_maturidade, catalogo_enriquecido, moodle_catalogo, cis_referencia, cis_ia_
 
 ---
 
-## 8. Testes
+## 10. Testes
 
 ### Smoke Test (HTTP)
 `node scripts/smoke-test.js https://vertho.com.br` — 29 rotas, CI-ready.
@@ -328,7 +526,7 @@ npm run test:ui             # modo visual interativo
 
 ---
 
-## 9. Seguranca
+## 11. Seguranca
 
 - RBAC explicito: coluna `role` + tabela `platform_admins`
 - Admin guard server-side (nunca client)
@@ -337,9 +535,18 @@ npm run test:ui             # modo visual interativo
 - Nenhuma NEXT_PUBLIC sensivel
 - Sentry para error tracking (prod only)
 
+### Nota sobre repositorio publico
+O repositorio GitHub e PUBLICO. Isso implica:
+- NUNCA commitar .env, credenciais ou tokens
+- NUNCA commitar dados de clientes em seeds ou fixtures
+- Revisar PRs para vazamento de segredos antes de merge
+- `.gitignore` ja exclui `.env*.local` e artefatos sensiveis
+- Variaveis de ambiente vivem APENAS na Vercel (server-side)
+- `.env.example` contem apenas placeholders
+
 ---
 
-## 10. Observabilidade
+## 12. Observabilidade
 
 - `lib/logger.js` — logger estruturado por dominio
 - Sentry — captura erros client + server + edge
@@ -350,7 +557,7 @@ npm run test:ui             # modo visual interativo
 
 ---
 
-## 11. Operacao
+## 13. Operacao
 
 ### Deploy
 ```
@@ -360,7 +567,7 @@ git push origin master → Vercel build automatico → producao
 ### Backup automatico
 ```
 Task Scheduler Windows → scripts/auto-backup-diario.ps1 (todo dia 20h)
-  → ZIP em C:\Backups\Vertho\ + git push + limpa antigos (mantém 7)
+  → ZIP em C:\Backups\Vertho\ + git push + limpa antigos (mantem 7)
 ```
 
 ### Scripts utilitarios
@@ -377,7 +584,56 @@ Ver `docs/envs-importantes.md` e `.env.example`
 
 ---
 
-## 12. Infraestrutura
+## 14. Disaster Recovery
+
+### Restauracao do Codigo
+1. Clone do GitHub: `git clone https://github.com/vertho-app/vertho-app.git`
+2. Instalar deps: `cd nextjs-app && npm install`
+3. Copiar .env.local do backup ou reconstruir de .env.example + Vercel Dashboard
+
+### Restauracao de Envs
+- Vercel Dashboard → Environment Variables (fonte primaria)
+- `.env.example` como template (sem valores reais)
+- `docs/envs-importantes.md` como mapa de referencia
+
+### Restauracao do Schema
+- Rodar migrations em ordem: `supabase/migrations/001*.sql` ate `020*.sql`
+- Supabase SQL Editor → copiar e executar cada arquivo
+- Ordem importa: FKs dependem de tabelas anteriores
+
+### Restauracao do Vinculo GitHub → Vercel
+1. Vercel Dashboard → Import Project → vertho-app/vertho-app
+2. Configurar Environment Variables
+3. Deploy automatico no proximo push
+
+### Restauracao do DNS (Cloudflare)
+- CNAME @ → cname.vercel-dns.com (DNS only)
+- CNAME * → cname.vercel-dns.com (wildcard)
+- SSL/TLS → Full (Strict)
+
+### O que depende de backup local
+- `.env.local` (se nao estiver na Vercel)
+- Snapshots ZIP em `C:\Backups\Vertho\`
+
+### O que depende de servicos externos
+- Supabase: dados do banco (nao ha backup automatico local)
+- Vercel: configuracao de envs
+- Cloudflare: DNS
+- GitHub: codigo-fonte
+
+### Ordem de recuperacao apos incidente
+1. Verificar GitHub (codigo intacto?)
+2. Verificar Vercel (deploy ativo? envs presentes?)
+3. Verificar Supabase (banco acessivel? dados integros?)
+4. Se codigo perdido: restaurar do ZIP local ou re-clonar
+5. Se envs perdidas: reconstruir de .env.example + docs/envs-importantes.md
+6. Se schema perdido: re-rodar migrations 001-020
+7. Se DNS perdido: reconfigurar CNAME no Cloudflare
+8. Smoke test: `node scripts/smoke-test.js https://vertho.com.br`
+
+---
+
+## 15. Infraestrutura
 
 ```
 GitHub: vertho-app/vertho-app (publico)
@@ -390,5 +646,6 @@ Sentry: Error tracking
 
 ---
 
-*Documento gerado a partir do codigo-fonte do projeto Vertho Mentor IA.*
+*Documento validado contra o codigo-fonte em producao.*
 *123 arquivos JS | 20 migrations SQL | 86 e2e tests | 20+ env vars | vertho.com.br*
+*Commit de referencia: d4bbb44 | Revisao: 08/04/2026*
