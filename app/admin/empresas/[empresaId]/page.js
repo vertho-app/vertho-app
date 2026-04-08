@@ -61,14 +61,11 @@ const PHASE_CONFIG = [
   ]},
   { num: 1, icon: Brain, color: '#3B82F6', actions: [
     { key: 'ia1', label: 'IA1 — Top 10', icon: Zap, ai: true },
-    { key: 'cargos-top5', label: 'Top 5', icon: Target, href: '/admin/cargos' },
     { key: 'ia2', label: 'IA2 — Gabarito', icon: Zap, ai: true },
     { key: 'ia3', label: 'IA3 — Cenários + Check', icon: Zap, ai: 'dual' },
-  ]},
-  { num: 2, icon: Mail, color: '#F59E0B', actions: [
     { key: 'disparo', label: 'Disparar Convites', icon: Send },
   ]},
-  { num: 3, icon: Bot, color: '#EF4444', groups: [
+  { num: 2, icon: Bot, color: '#EF4444', groups: [
     { label: 'Diagnóstico', actions: [
       { key: 'ia4', label: 'Rodar IA4', icon: Zap, ai: true },
       { key: 'fila', label: 'Fila IA4', icon: Clock },
@@ -87,7 +84,7 @@ const PHASE_CONFIG = [
       { key: 'enviar-lote', label: 'PDF + WhatsApp (Lote)', icon: Send },
     ]},
   ]},
-  { num: 4, icon: GraduationCap, color: '#22C55E', groups: [
+  { num: 3, icon: GraduationCap, color: '#22C55E', groups: [
     { label: 'PDI', actions: [
       { key: 'pdis', label: 'Gerar PDIs', icon: Target, ai: true },
       { key: 'pdis-desc', label: 'PDIs Descritores', icon: FileText },
@@ -99,7 +96,7 @@ const PHASE_CONFIG = [
       { key: 'status-f4', label: 'Status', icon: BarChart3 },
     ]},
   ]},
-  { num: 5, icon: TrendingUp, color: '#A78BFA', actions: [
+  { num: 4, icon: TrendingUp, color: '#A78BFA', actions: [
     { key: 'reav', label: 'Reavaliação', icon: MessageSquare, ai: true },
     { key: 'evolucao', label: 'Evolução', icon: TrendingUp, ai: true },
     { key: 'plenaria', label: 'Plenária', icon: FileBarChart, ai: true },
@@ -398,13 +395,14 @@ export default function EmpresaPipelinePage({ params }) {
                     ) : null;
                   })()}
 
-                  {/* Fase 2: status visual dos envios */}
-                  {fase.num === 2 && (() => {
+                  {/* Fase 1: status visual dos envios */}
+                  {fase.num === 1 && (() => {
                     if (!envioStatus) {
                       verStatusEnvios(empresaId).then(r => { if (r.success) setEnvioStatus(r.resumo); });
                     }
-                    return envioStatus ? (
-                      <div className="mb-3 mt-2 flex items-center gap-4 text-[10px]">
+                    return envioStatus && envioStatus.total > 0 ? (
+                      <div className="mb-3 flex items-center gap-4 text-[10px]">
+                        <span className="text-gray-500">Convites:</span>
                         <span className="text-gray-400">Total: <span className="text-white font-bold">{envioStatus.total}</span></span>
                         {envioStatus.pendente > 0 && <span className="text-gray-400">Pendente: <span className="text-amber-400 font-bold">{envioStatus.pendente}</span></span>}
                         {envioStatus.enviado > 0 && <span className="text-gray-400">Enviado: <span className="text-cyan-400 font-bold">{envioStatus.enviado}</span></span>}
