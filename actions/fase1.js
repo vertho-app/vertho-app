@@ -333,54 +333,165 @@ CARGO: ${cargoInfo.cargo}
   return prompt;
 }
 
-// ── IA2: Gerar gabarito (rubrica de respostas) ──────────────────────────────
+// ── IA2: Gerar gabarito CIS (4 telas comportamentais por cargo) ─────────────
+// Fiel ao GAS: gera perfil ideal com pares de opostos, sub-competências DISC,
+// estilos de liderança e faixas DISC — tudo contextualizado por cargo + PPP.
+
+const PARES_DISC = [
+  'Otimista × Realista (I)', 'Comunicativo × Analista (I)', 'Generalista × Detalhista (D)',
+  'Estilo Agressivo × Estilo Consultivo (D)', 'Melhor em Falar × Melhor em Ouvir (I)',
+  'Avesso a Rotina × Rotineiro (D)', 'Delega × Centraliza (D)', 'Compreensivo × Imparcial (S)',
+  'Casual × Formal (C)', 'Foco em Relacionamentos × Foco nas Tarefas (S)',
+  'Orientação a Resultados × Orientação a Processos (D)', 'Emocional × Racional (S)',
+  'Dinâmico × Estável (D)', 'Age com Firmeza × Age com Consentimento (D)',
+  'Comandante × Conciliador (D)', 'Assume Riscos × Prudente (D)',
+  'Objetivo × Sistemático (D)', 'Cria do Zero × Aprimora o que já Existe (I)',
+  'Multitarefas × Especialista (I)', 'Inspirador × Técnico (I)',
+  'Extrovertido × Introvertido (I)', 'Ousado × Conservador (D)',
+  'Age com Velocidade × Age com Planejamento (D)',
+];
+
+const SUB_COMPETENCIAS_CIS = [
+  { nome: 'Ousadia', dim: 'D' }, { nome: 'Comando', dim: 'D' },
+  { nome: 'Objetividade', dim: 'D' }, { nome: 'Assertividade', dim: 'D' },
+  { nome: 'Persuasão', dim: 'I' }, { nome: 'Extroversão', dim: 'I' },
+  { nome: 'Entusiasmo', dim: 'I' }, { nome: 'Sociabilidade', dim: 'I' },
+  { nome: 'Empatia', dim: 'S' }, { nome: 'Paciência', dim: 'S' },
+  { nome: 'Persistência', dim: 'S' }, { nome: 'Planejamento', dim: 'S' },
+  { nome: 'Organização', dim: 'C' }, { nome: 'Detalhismo', dim: 'C' },
+  { nome: 'Prudência', dim: 'C' }, { nome: 'Concentração', dim: 'C' },
+];
 
 export async function rodarIA2(empresaId, aiConfig = {}) {
   const sb = createSupabaseAdmin();
   try {
-    const { data: competencias } = await sb.from('competencias')
-      .select('*')
+    // 1. Buscar empresa
+    let empresa;
+    const { data: emp1 } = await sb.from('empresas')
+      .select('nome, segmento, ppp_texto').eq('id', empresaId).single();
+    empresa = emp1 || (await sb.from('empresas').select('nome, segmento').eq('id', empresaId).single()).data;
+    if (!empresa) return { success: false, error: 'Empresa não encontrada' };
+
+    // 2. PPP e valores
+    const contextoPPP = await buscarContextoPPP(sb, empresaId, empresa.nome);
+    const valores = await buscarValores(sb, empresaId, empresa.nome);
+
+    // 3. Buscar top10 selecionadas por cargo
+    const { data: top10All } = await sb.from('top10_cargos')
+      .select('cargo, competencia:competencias(nome)')
       .eq('empresa_id', empresaId);
 
-    if (!competencias?.length) return { success: false, error: 'Nenhuma competência encontrada. Rode IA1 primeiro.' };
+    const top10PorCargo = {};
+    (top10All || []).forEach(t => {
+      if (!top10PorCargo[t.cargo]) top10PorCargo[t.cargo] = [];
+      if (t.competencia?.nome) top10PorCargo[t.cargo].push(t.competencia.nome);
+    });
 
-    const { data: empresa } = await sb.from('empresas')
-      .select('nome, segmento')
-      .eq('id', empresaId).single();
+    if (!Object.keys(top10PorCargo).length) {
+      return { success: false, error: 'Nenhuma Top 10 selecionada. Rode IA1 primeiro.' };
+    }
 
-    const system = `Você é um especialista em avaliação por competências.
-Responda APENAS com JSON válido.`;
+    // 4. Buscar dados ricos dos cargos
+    const { data: cargosDetalhados } = await sb.from('cargos_empresa')
+      .select('*').eq('empresa_id', empresaId);
+    const cargosDetalheMap = {};
+    (cargosDetalhados || []).forEach(c => { cargosDetalheMap[c.nome.toLowerCase()] = c; });
 
-    let totalGabaritos = 0;
+    // 5. Para cada cargo com top10, gerar gabarito CIS
+    let totalGerados = 0;
 
-    for (const comp of competencias) {
-      const user = `Para a competência "${comp.nome}" (${comp.descricao}) na empresa "${empresa.nome}" (${empresa.segmento}), cargo "${comp.cargo}":
+    for (const [cargoNome, compNomes] of Object.entries(top10PorCargo)) {
+      const detalhe = cargosDetalheMap[cargoNome.toLowerCase()] || {};
 
-Gere o gabarito de avaliação com 5 níveis de proficiência (1 a 5).
-Formato JSON:
+      const system = `Você é um especialista em avaliação comportamental CIS/DISC.
+Sua tarefa: gerar o GABARITO COMPORTAMENTAL IDEAL para o cargo descrito.
+O gabarito tem 4 telas. Retorne APENAS JSON válido.
+
+HIERARQUIA DE FONTES (ordem de prioridade):
+1. DESCRIÇÃO DO CARGO E CONTEXTO DA EMPRESA — fonte primária
+2. SINAIS EXPLÍCITOS DO TEXTO — palavras, ênfases no cargo/empresa
+3. CONHECIMENTO COMPORTAMENTAL — apenas para refinar, nunca sobrescrever
+4. REGRA DE OURO: Nunca use conhecimento genérico para sobrescrever sinais claros do caso.
+
+REGRAS DE DIFERENCIAÇÃO:
+- Cargos diferentes DEVEM ter perfis diferentes
+- Pelo menos 2 dos 4 fatores DISC devem diferir entre cargos na mesma empresa
+
+TELA 1: Características do perfil ideal (pares de opostos)
+- Selecione até 20 características da lista. Cada item = lado esquerdo OU direito do par.
+- Pares disponíveis: ${PARES_DISC.join(' | ')}
+
+TELA 2: Sub-competências CIS com faixas ideais
+- Selecione 6-10 das 16 disponíveis (NÃO todas):
+  ${SUB_COMPETENCIAS_CIS.map(s => `${s.nome} (${s.dim})`).join(', ')}
+- Faixas: "Muito baixo (0-20)" | "Baixo (21-40)" | "Alto (41-60)" | "Muito alto (61-80)" | "Extremamente alto (81-100)"
+
+TELA 3: Estilo de Liderança (4 estilos, soma = 100)
+- Executor, Motivador, Metódico, Sistemático
+
+TELA 4: Faixas DISC ideais (min e max para D, I, S, C)
+- Mesmas faixas da Tela 2
+
+FORMATO JSON:
 {
-  "competencia_id": "${comp.id}",
-  "niveis": [
-    {"nivel": 1, "descricao": "...", "indicadores": ["..."]},
-    {"nivel": 2, "descricao": "...", "indicadores": ["..."]},
-    {"nivel": 3, "descricao": "...", "indicadores": ["..."]},
-    {"nivel": 4, "descricao": "...", "indicadores": ["..."]},
-    {"nivel": 5, "descricao": "...", "indicadores": ["..."]}
-  ]
+  "gabarito": {
+    "tela1": ["Comunicativo", "Orientação a Resultados", ...],
+    "tela2": [{"nome":"Empatia","dimensao":"S","faixa_min":"Alto (41-60)","faixa_max":"Muito alto (61-80)"}, ...],
+    "tela3": {"executor":10,"motivador":40,"metodico":35,"sistematico":15},
+    "tela4": {
+      "D":{"min":"Baixo (21-40)","max":"Muito alto (61-80)"},
+      "I":{"min":"Alto (41-60)","max":"Extremamente alto (81-100)"},
+      "S":{"min":"Alto (41-60)","max":"Muito alto (61-80)"},
+      "C":{"min":"Muito baixo (0-20)","max":"Alto (41-60)"}
+    }
+  },
+  "raciocinio_estruturado": {
+    "sinais_do_caso": ["sinal 1", "sinal 2"],
+    "leitura_principal": "interpretação direta dos sinais",
+    "diferenciais_vs_outros_cargos": "como este perfil se diferencia"
+  }
 }`;
 
-      const resposta = await callAI(system, user, aiConfig, 4096);
-      const gabarito = await extractJSON(resposta);
+      const user = `EMPRESA: ${empresa.nome} (${empresa.segmento})
+CARGO: ${cargoNome}
+${detalhe.descricao ? `DESCRIÇÃO DO CARGO: ${detalhe.descricao}` : ''}
+${detalhe.principais_entregas ? `ENTREGAS ESPERADAS: ${detalhe.principais_entregas}` : ''}
+${detalhe.stakeholders ? `STAKEHOLDERS: ${detalhe.stakeholders}` : ''}
+${detalhe.decisoes_recorrentes ? `DECISÕES RECORRENTES: ${detalhe.decisoes_recorrentes}` : ''}
+${detalhe.tensoes_comuns ? `TENSÕES: ${detalhe.tensoes_comuns}` : ''}
+VALORES: ${valores.join(', ')}
+TOP COMPETÊNCIAS SELECIONADAS: ${compNomes.join(', ')}
+${contextoPPP ? `\nCONTEXTO DA EMPRESA:\n${contextoPPP.slice(0, 2000)}` : ''}
 
-      if (gabarito?.niveis) {
-        await sb.from('competencias')
-          .update({ gabarito: gabarito.niveis })
-          .eq('id', comp.id);
-        totalGabaritos++;
+INSTRUÇÃO:
+1. Leia descrição e entregas. Identifique 3-5 SINAIS EXPLÍCITOS.
+2. Forme HIPÓTESE-BASE do perfil ANTES de aplicar referência comportamental.
+3. Use conhecimento CIS APENAS para refinar.
+4. Garanta que este perfil é DIFERENTE dos outros cargos desta empresa.
+5. Tela 3: soma DEVE ser exatamente 100.`;
+
+      const resposta = await callAI(system, user, aiConfig, 6000);
+      const resultado = await extractJSON(resposta);
+
+      if (resultado?.gabarito) {
+        // Salvar no cargos_empresa se existir, senão criar
+        if (detalhe.id) {
+          await sb.from('cargos_empresa')
+            .update({ gabarito: resultado.gabarito, raciocinio_ia2: resultado.raciocinio_estruturado || null })
+            .eq('id', detalhe.id);
+        } else {
+          await sb.from('cargos_empresa').upsert({
+            empresa_id: empresaId,
+            nome: cargoNome,
+            gabarito: resultado.gabarito,
+            raciocinio_ia2: resultado.raciocinio_estruturado || null,
+          }, { onConflict: 'empresa_id,nome' });
+        }
+        totalGerados++;
       }
     }
 
-    return { success: true, message: `IA2 concluída: ${totalGabaritos} gabaritos gerados` };
+    return { success: true, message: `IA2 concluída: ${totalGerados} gabaritos CIS gerados` };
   } catch (err) {
     return { success: false, error: err.message };
   }
