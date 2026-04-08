@@ -145,10 +145,6 @@ export default function CompetenciasPage() {
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-cyan-400/30 hover:text-cyan-400 transition-all">
               <Upload size={14} /> CSV
             </button>
-            <button onClick={openAdd}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-white border border-green-400/30 hover:bg-green-400/10 transition-all">
-              <Plus size={14} /> Nova
-            </button>
           </div>
         )}
       </div>
