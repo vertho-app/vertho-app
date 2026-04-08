@@ -11,6 +11,7 @@ import {
   regenerarCenario, checkCenarioUm, limparCenariosAntigos
 } from '@/actions/fase1';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
+import { loadCargos, salvarTop5 } from '@/app/admin/cargos/actions';
 
 export default function Fase1Page({ params }) {
   const { empresaId } = use(params);
@@ -30,10 +31,15 @@ export default function Fase1Page({ params }) {
   const [gabaritos, setGabaritos] = useState([]);
   const [gabOpen, setGabOpen] = useState(null);
 
+  // Top 5
+  const [cargosData, setCargosData] = useState([]);
+  const [top5Edits, setTop5Edits] = useState({});
+  const [savingTop5, setSavingTop5] = useState({});
+
   // Cenários
   const [cenarios, setCenarios] = useState([]);
   const [cenOpen, setCenOpen] = useState(null);
-  const [cenAction, setCenAction] = useState(null); // { id, type: 'regen' | 'check' }
+  const [cenAction, setCenAction] = useState(null);
 
   function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 2500); }
 
@@ -46,6 +52,15 @@ export default function Fase1Page({ params }) {
     setTop10(t);
     if (c.success) setAllComps(c.data || []);
     setGabaritos(g);
+
+    // Top 5 (cargos com competências top10)
+    const cargosR = await loadCargos(empresaId);
+    if (cargosR.success) {
+      setCargosData(cargosR.data || []);
+      const edits = {};
+      (cargosR.data || []).forEach(c => { edits[c.id] = c.top5_workshop || []; });
+      setTop5Edits(edits);
+    }
 
     // Cenários
     const cens = await loadCenarios(empresaId);
@@ -101,7 +116,7 @@ export default function Fase1Page({ params }) {
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
             <Brain size={20} className="text-blue-400" /> Fase 1 — Parametrização
           </h1>
-          <p className="text-xs text-gray-500">Top 10, Gabarito CIS e Cenários</p>
+          <p className="text-xs text-gray-500">Top 10, Top 5, Gabarito CIS e Cenários</p>
         </div>
       </div>
 
@@ -109,6 +124,7 @@ export default function Fase1Page({ params }) {
       <div className="flex gap-1 mb-5 p-1 rounded-xl border border-white/[0.06]" style={{ background: '#091D35' }}>
         {[
           { key: 'top10', label: 'Top 10', icon: Trophy, color: 'text-amber-400', count: top10.length },
+          { key: 'top5', label: 'Top 5', icon: Target, color: 'text-orange-400', count: cargosData.filter(c => c.top5_workshop?.length).length },
           { key: 'gabarito', label: 'Gabarito CIS', icon: Target, color: 'text-purple-400', count: gabaritos.length },
           { key: 'cenarios', label: 'Cenários', icon: FileText, color: 'text-green-400', count: cenarios.length },
         ].map(t => (
@@ -186,6 +202,74 @@ export default function Fase1Page({ params }) {
               </div>
             </Modal>
           )}
+        </div>
+      )}
+
+      {/* ══════════════ TAB: TOP 5 ══════════════ */}
+      {tab === 'top5' && (
+        <div>
+          {cargosData.length === 0 ? (
+            <Empty icon={Target} text="Nenhum cargo encontrado. Rode IA1 primeiro." />
+          ) : cargosData.map(cargo => {
+            const top10List = cargo.competencias_top10 || [];
+            const selected = top5Edits[cargo.id] || [];
+            return (
+              <div key={cargo.id} className="mb-4 rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
+                <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-white">{cargo.nome}</h3>
+                    <p className="text-[10px] text-gray-500">Top 10 da IA · {selected.length}/5 selecionadas</p>
+                  </div>
+                  <button onClick={async () => {
+                    setSavingTop5(p => ({ ...p, [cargo.id]: true }));
+                    const r = await salvarTop5(cargo.id, top5Edits[cargo.id] || []);
+                    setSavingTop5(p => ({ ...p, [cargo.id]: false }));
+                    flash(r.success ? 'Top 5 salvo!' : 'Erro: ' + r.error);
+                  }} disabled={savingTop5[cargo.id]}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white transition-colors disabled:opacity-50">
+                    {savingTop5[cargo.id] ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
+                    Salvar Top 5
+                  </button>
+                </div>
+                <div className="p-4">
+                  {top10List.length === 0 ? (
+                    <p className="text-xs text-gray-500">Nenhuma competência Top 10 gerada pela IA.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {top10List.map((comp, i) => {
+                        const isSelected = selected.includes(comp);
+                        const isFull = selected.length >= 5 && !isSelected;
+                        return (
+                          <button key={i} onClick={() => {
+                            setTop5Edits(prev => {
+                              const current = prev[cargo.id] || [];
+                              if (isSelected) return { ...prev, [cargo.id]: current.filter(c => c !== comp) };
+                              if (isFull) return prev;
+                              return { ...prev, [cargo.id]: [...current, comp] };
+                            });
+                          }} disabled={isFull}
+                            className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-left text-xs transition-all ${
+                              isSelected
+                                ? 'border-cyan-400/50 bg-cyan-400/10 text-white'
+                                : isFull
+                                  ? 'border-white/[0.04] text-gray-600 cursor-not-allowed'
+                                  : 'border-white/[0.06] text-gray-300 hover:border-white/20'
+                            }`}>
+                            <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${
+                              isSelected ? 'bg-cyan-400 text-[#091D35]' : 'border border-white/20'
+                            }`}>
+                              {isSelected && <CheckCircle size={12} strokeWidth={3} />}
+                            </div>
+                            <span className="truncate">{comp}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
