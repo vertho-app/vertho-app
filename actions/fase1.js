@@ -209,25 +209,33 @@ export async function loadGabaritosCargos(empresaId) {
 
 export async function loadCenarios(empresaId) {
   const sb = createSupabaseAdmin();
-  // Tentar com join, fallback sem
-  let data;
-  const { data: d1, error: e1 } = await sb.from('banco_cenarios')
-    .select('id, empresa_id, competencia_id, cargo, titulo, descricao, alternativas, competencia:competencias(nome, cod_comp)')
+  // Query simples sem join (mais confiável)
+  const { data, error } = await sb.from('banco_cenarios')
+    .select('*')
     .eq('empresa_id', empresaId)
     .order('cargo');
-  if (!e1) {
-    data = d1;
-  } else {
-    const { data: d2 } = await sb.from('banco_cenarios')
-      .select('id, empresa_id, competencia_id, cargo, titulo, descricao, alternativas')
-      .eq('empresa_id', empresaId)
-      .order('cargo');
-    data = d2;
+
+  if (error) {
+    console.error('[loadCenarios] erro:', error.message);
+    return [];
   }
-  return (data || []).map(c => ({
+
+  if (!data?.length) return [];
+
+  // Buscar nomes das competências separadamente
+  const compIds = [...new Set(data.map(c => c.competencia_id).filter(Boolean))];
+  const compMap = {};
+  if (compIds.length > 0) {
+    const { data: comps } = await sb.from('competencias')
+      .select('id, nome, cod_comp')
+      .in('id', compIds);
+    (comps || []).forEach(c => { compMap[c.id] = c; });
+  }
+
+  return data.map(c => ({
     ...c,
-    competencia_nome: c.competencia?.nome || null,
-    competencia_cod: c.competencia?.cod_comp || null,
+    competencia_nome: compMap[c.competencia_id]?.nome || null,
+    competencia_cod: compMap[c.competencia_id]?.cod_comp || null,
   }));
 }
 
@@ -624,7 +632,7 @@ export async function rodarIA3Uma(empresaId, cargoNome, competenciaId, aiConfig 
       .eq('competencia_id', comp.id)
       .eq('cargo', cargoNome);
 
-    await sb.from('banco_cenarios').insert({
+    const { error: insertErr } = await sb.from('banco_cenarios').insert({
       empresa_id: empresaId,
       competencia_id: comp.id,
       cargo: cargoNome,
@@ -633,6 +641,7 @@ export async function rodarIA3Uma(empresaId, cargoNome, competenciaId, aiConfig 
       alternativas: resultado.perguntas || [],
     });
 
+    if (insertErr) return { success: false, error: `Erro ao salvar: ${insertErr.message}` };
     return { success: true, message: `Cenário gerado: ${comp.nome}` };
   } catch (err) {
     return { success: false, error: err.message };
