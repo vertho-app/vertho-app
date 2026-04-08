@@ -135,7 +135,7 @@ test.describe('Mapeamento DISC', () => {
       await page.waitForTimeout(300);
     }
     // Should transition to rank phase 2 (Adaptado)
-    await expect(page.locator('text=Adaptado')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=Adaptado').first()).toBeVisible({ timeout: 5000 });
   });
 
   // ── Rank Phase 2 ──
@@ -151,7 +151,7 @@ test.describe('Mapeamento DISC', () => {
       await avancar.click();
       await page.waitForTimeout(200);
     }
-    await expect(page.locator('text=Adaptado')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=Adaptado').first()).toBeVisible({ timeout: 5000 });
     await expect(page.locator('text=Grupo 01')).toBeVisible();
   });
 
@@ -162,7 +162,7 @@ test.describe('Mapeamento DISC', () => {
     for (let i = 0; i < 8; i++) { await avancar.click(); await page.waitForTimeout(150); }
     for (let i = 0; i < 6; i++) { await page.locator('button.rounded-2xl').first().click(); await avancar.click(); await page.waitForTimeout(150); }
     // Phase 2 ranks
-    await expect(page.locator('text=Adaptado')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=Adaptado').first()).toBeVisible({ timeout: 5000 });
     for (let i = 0; i < 8; i++) { await avancar.click(); await page.waitForTimeout(150); }
     // Should be in pairs phase 2
     await expect(page.locator('text=OU')).toBeVisible({ timeout: 5000 });
