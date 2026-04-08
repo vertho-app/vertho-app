@@ -462,10 +462,15 @@ export default function Fase1Page({ params }) {
                               {c.status_check === 'revisar' && (
                                 <button disabled={isActing} onClick={async () => {
                                   setCenAction({ id: c.id, type: 'regen' });
+                                  // 1. Regenerar
                                   const r = await regenerarCenario(c.id);
+                                  if (!r.success) { setCenAction(null); flash('Erro: ' + r.error); return; }
+                                  flash(r.message);
+                                  // 2. Re-checar automaticamente
+                                  const r2 = await checkCenarioUm(c.id);
                                   setCenAction(null);
-                                  if (r.success) { flash(r.message); refresh(); }
-                                  else flash('Erro: ' + r.error);
+                                  if (r2.success) flash(`Re-check: ${r2.nota}pts (${r2.nota >= 90 ? 'aprovado' : 'revisar'})`);
+                                  refresh();
                                 }}
                                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 transition-all disabled:opacity-50">
                                   {isActing && cenAction.type === 'regen' ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
