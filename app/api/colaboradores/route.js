@@ -4,12 +4,17 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const empresaId = searchParams.get('empresa_id');
+
+  if (!empresaId) {
+    return NextResponse.json({ error: 'empresa_id obrigatório' }, { status: 400 });
+  }
+
   const sb = createSupabaseAdmin();
+  const { data, error } = await sb.from('colaboradores')
+    .select('*')
+    .eq('empresa_id', empresaId)
+    .order('nome_completo');
 
-  let query = sb.from('colaboradores').select('*').order('nome_completo');
-  if (empresaId) query = query.eq('empresa_id', empresaId);
-
-  const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
 }
