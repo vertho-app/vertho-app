@@ -2,27 +2,67 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Loader2, MessageCircle, Send, ChevronDown, CheckCircle, AlertCircle, Link2, FileBarChart } from 'lucide-react';
-import { loadEmpresas, loadWhatsappStatus } from './actions';
+import {
+  ArrowLeft, Loader2, Send, ChevronDown, CheckCircle, AlertCircle,
+  Mail, MessageCircle, FileBarChart, Filter, Eye, Tag, Users
+} from 'lucide-react';
+import { loadEmpresas, loadWhatsappStatus, loadColaboradoresEnvio } from './actions';
 import { dispararLinksCIS, dispararRelatoriosLote } from '@/actions/whatsapp-lote';
 import { dispararEmails } from '@/actions/fase2';
 
-export default function WhatsappPage() {
+const TABS = [
+  { key: 'email', label: 'Email Convites', icon: Mail, color: 'text-blue-400' },
+  { key: 'whatsapp', label: 'WhatsApp Avaliação', icon: MessageCircle, color: 'text-green-400' },
+  { key: 'relatorios', label: 'WhatsApp Relatórios', icon: FileBarChart, color: 'text-purple-400' },
+];
+
+const VARIAVEIS = [
+  { tag: '{{nome}}', label: 'Nome', exemplo: 'Maria' },
+  { tag: '{{cargo}}', label: 'Cargo', exemplo: 'Consultor de Vendas' },
+  { tag: '{{empresa}}', label: 'Empresa', exemplo: 'Boehringer Ingelheim' },
+  { tag: '{{link}}', label: 'Link', exemplo: 'https://vertho.app/avaliacao/...' },
+];
+
+const DEFAULT_MSGS = {
+  email: `Olá {{nome}}!
+
+Você foi convidado(a) para participar da avaliação de competências da *{{empresa}}*.
+
+Acesse pelo link abaixo:
+{{link}}`,
+  whatsapp: `Olá {{nome}}! 👋
+
+Você foi convidado(a) para a avaliação de competências da *{{empresa}}*.
+
+Acesse: {{link}}`,
+  relatorios: `Olá {{nome}}!
+
+Seu relatório individual de competências da *{{empresa}}* está disponível.
+
+Acesse: {{link}}`,
+};
+
+export default function EnviosPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const empresaParam = searchParams.get('empresa');
+
   const [empresas, setEmpresas] = useState([]);
   const [empresaId, setEmpresaId] = useState(empresaParam || '');
   const [empresaNome, setEmpresaNome] = useState('');
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingStatus, setLoadingStatus] = useState(false);
-  const [sendingCIS, setSendingCIS] = useState(false);
-  const [sendingRel, setSendingRel] = useState(false);
-  const [sendingEmail, setSendingEmail] = useState(false);
-  const [resultCIS, setResultCIS] = useState(null);
-  const [resultRel, setResultRel] = useState(null);
-  const [resultEmail, setResultEmail] = useState(null);
+
+  const [tab, setTab] = useState('email');
+  const [mensagem, setMensagem] = useState(DEFAULT_MSGS.email);
+  const [filtroCargo, setFiltroCargo] = useState('');
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState(null);
+
+  // Colaboradores para contagem
+  const [colabs, setColabs] = useState([]);
+  const [cargos, setCargos] = useState([]);
 
   useEffect(() => {
     loadEmpresas().then(r => {
@@ -38,36 +78,60 @@ export default function WhatsappPage() {
     });
   }, []);
 
+  useEffect(() => {
+    setMensagem(DEFAULT_MSGS[tab] || '');
+    setResult(null);
+  }, [tab]);
+
   async function handleSelectEmpresa(id) {
     setEmpresaId(id);
-    setResultCIS(null);
-    setResultRel(null);
-    if (!id) { setStatus(null); return; }
+    setResult(null);
+    if (!id) { setStatus(null); setColabs([]); return; }
     setLoadingStatus(true);
-    const r = await loadWhatsappStatus(id);
-    if (r.success) setStatus(r.data);
+    const [s, c] = await Promise.all([
+      loadWhatsappStatus(id),
+      loadColaboradoresEnvio(id),
+    ]);
+    if (s.success) setStatus(s.data);
+    setColabs(c || []);
+    setCargos([...new Set((c || []).map(x => x.cargo).filter(Boolean))].sort());
     setLoadingStatus(false);
   }
 
-  async function handleDispararCIS() {
-    if (!empresaId) return;
-    setSendingCIS(true);
-    setResultCIS(null);
-    const r = await dispararLinksCIS(empresaId);
-    setResultCIS(r);
-    setSendingCIS(false);
-    // Refresh counts
-    const s = await loadWhatsappStatus(empresaId);
-    if (s.success) setStatus(s.data);
+  // Destinatários filtrados
+  const destinatarios = colabs.filter(c => {
+    if (filtroCargo && c.cargo !== filtroCargo) return false;
+    if (tab === 'whatsapp' || tab === 'relatorios') return !!c.telefone;
+    return !!c.email;
+  });
+
+  // Preview da mensagem
+  const previewMsg = mensagem
+    .replace(/\{\{nome\}\}/g, 'Maria')
+    .replace(/\{\{cargo\}\}/g, 'Consultor de Vendas')
+    .replace(/\{\{empresa\}\}/g, empresaNome || 'Empresa')
+    .replace(/\{\{link\}\}/g, 'https://vertho.app/avaliacao/abc123');
+
+  function inserirVariavel(tag) {
+    setMensagem(prev => prev + tag);
   }
 
-  async function handleDispararRelatorios() {
+  async function handleDisparar() {
     if (!empresaId) return;
-    setSendingRel(true);
-    setResultRel(null);
-    const r = await dispararRelatoriosLote(empresaId);
-    setResultRel(r);
-    setSendingRel(false);
+    setSending(true);
+    setResult(null);
+
+    let r;
+    if (tab === 'email') {
+      r = await dispararEmails(empresaId);
+    } else if (tab === 'whatsapp') {
+      r = await dispararLinksCIS(empresaId);
+    } else {
+      r = await dispararRelatoriosLote(empresaId);
+    }
+
+    setResult(r);
+    setSending(false);
     const s = await loadWhatsappStatus(empresaId);
     if (s.success) setStatus(s.data);
   }
@@ -75,141 +139,152 @@ export default function WhatsappPage() {
   if (loading) return <div className="flex items-center justify-center h-dvh"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
 
   return (
-    <div className="max-w-[900px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
+    <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.push(empresaParam ? `/admin/empresas/${empresaParam}` : '/admin/dashboard')} className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors">
-          <ArrowLeft size={16} />
-        </button>
-        <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2"><Send size={20} className="text-cyan-400" /> Envios</h1>
-          {empresaParam && empresaNome ? (
-            <p className="text-xs text-gray-500">{empresaNome}</p>
-          ) : (
-            <p className="text-xs text-gray-500">Disparo de convites e relatórios por email e WhatsApp</p>
-          )}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <button onClick={() => router.push(empresaParam ? `/admin/empresas/${empresaParam}` : '/admin/dashboard')}
+            className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors">
+            <ArrowLeft size={16} />
+          </button>
+          <div>
+            <h1 className="text-xl font-bold text-white flex items-center gap-2"><Send size={20} className="text-cyan-400" /> Envios</h1>
+            {empresaNome && <p className="text-xs text-gray-500">{empresaNome}</p>}
+          </div>
         </div>
       </div>
 
       {/* Empresa selector */}
       {!empresaParam && (
         <div className="mb-6">
-          <div className="relative w-full max-w-sm">
-            <select value={empresaId} onChange={e => handleSelectEmpresa(e.target.value)}
-              className="w-full appearance-none rounded-lg border border-white/10 bg-[#0F2A4A] text-white text-sm px-4 py-2.5 pr-10 focus:outline-none focus:border-cyan-400/50">
-              <option value="">Selecione uma empresa...</option>
-              {empresas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
-            </select>
-            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-          </div>
+          <select value={empresaId} onChange={e => handleSelectEmpresa(e.target.value)}
+            className="w-full max-w-sm appearance-none rounded-lg border border-white/10 bg-[#0F2A4A] text-white text-sm px-4 py-2.5 focus:outline-none focus:border-cyan-400/50">
+            <option value="">Selecione uma empresa...</option>
+            {empresas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+          </select>
         </div>
       )}
 
-      {loadingStatus && <div className="flex items-center justify-center py-12"><Loader2 size={24} className="animate-spin text-cyan-400" /></div>}
+      {loadingStatus && <div className="flex justify-center py-12"><Loader2 size={24} className="animate-spin text-cyan-400" /></div>}
 
-      {!loadingStatus && empresaId && !status && (
-        <div className="text-center py-12">
-          <MessageCircle size={32} className="text-gray-600 mx-auto mb-3" />
-          <p className="text-sm text-gray-500">Erro ao carregar status</p>
-        </div>
-      )}
-
-      {status && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Email Convites */}
-          <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
-            <div className="px-5 py-3 border-b border-white/[0.06] flex items-center gap-2">
-              <Send size={16} className="text-blue-400" />
-              <span className="text-sm font-bold text-white">Email — Convites</span>
-            </div>
-            <div className="p-5">
-              <p className="text-xs text-gray-400 mb-4">Envia email + WhatsApp com link de avaliação para todos os colaboradores pendentes.</p>
-              <button onClick={async () => {
-                setSendingEmail(true); setResultEmail(null);
-                const r = await dispararEmails(empresaId);
-                setResultEmail(r); setSendingEmail(false);
-                const s = await loadWhatsappStatus(empresaId);
-                if (s.success) setStatus(s.data);
-              }} disabled={sendingEmail}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold text-white bg-blue-600 hover:bg-blue-500 transition-colors disabled:opacity-40">
-                {sendingEmail ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                {sendingEmail ? 'Enviando...' : 'Disparar Convites'}
-              </button>
-              {resultEmail && (
-                <div className={`mt-3 flex items-start gap-2 px-3 py-2 rounded-lg text-xs ${
-                  resultEmail.success ? 'bg-green-400/10 text-green-400' : 'bg-red-400/10 text-red-400'
+      {empresaId && !loadingStatus && (
+        <>
+          {/* Tabs */}
+          <div className="flex gap-1 mb-5 p-1 rounded-xl border border-white/[0.06]" style={{ background: '#091D35' }}>
+            {TABS.map(t => (
+              <button key={t.key} onClick={() => setTab(t.key)}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all ${
+                  tab === t.key ? 'bg-white/[0.06] text-white' : 'text-gray-500 hover:text-gray-300'
                 }`}>
-                  {resultEmail.success ? <CheckCircle size={14} className="shrink-0 mt-0.5" /> : <AlertCircle size={14} className="shrink-0 mt-0.5" />}
-                  <span>{resultEmail.message || resultEmail.error}</span>
-                </div>
-              )}
-            </div>
+                <t.icon size={14} className={tab === t.key ? t.color : ''} />
+                {t.label}
+              </button>
+            ))}
           </div>
 
-          {/* Avaliacao Links */}
-          <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
-            <div className="px-5 py-3 border-b border-white/[0.06] flex items-center gap-2">
-              <Link2 size={16} className="text-cyan-400" />
-              <span className="text-sm font-bold text-white">Enviar Links Avaliação</span>
-            </div>
-            <div className="p-5">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-xl bg-cyan-400/10 flex items-center justify-center">
-                  <span className="text-lg font-bold text-cyan-400">{status.pendingCIS}</span>
+          {/* Layout 2 colunas */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Coluna esquerda: Filtros + Editor */}
+            <div className="space-y-4">
+              {/* Filtros */}
+              <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
+                <p className="text-xs font-bold text-white flex items-center gap-1.5 mb-3"><Filter size={12} /> Filtros de Destinatários</p>
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div>
+                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Cargo</p>
+                    <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
+                      <option value="">Todos os cargos</option>
+                      {cargos.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-white">Envios Pendentes</p>
-                  <p className="text-xs text-gray-500">Colaboradores aguardando link de avaliação</p>
+                <div className="flex items-center gap-1.5 text-[10px] text-cyan-400 font-semibold">
+                  <Users size={12} />
+                  {destinatarios.length} destinatário(s) {tab !== 'email' ? 'com WhatsApp' : 'com email'}
                 </div>
               </div>
-              <button onClick={handleDispararCIS} disabled={sendingCIS || status.pendingCIS === 0}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold text-white bg-teal-600 hover:bg-teal-500 transition-colors disabled:opacity-40">
-                {sendingCIS ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                {sendingCIS ? 'Enviando...' : 'Disparar Links Avaliação'}
-              </button>
-              {resultCIS && (
-                <div className={`mt-3 flex items-start gap-2 px-3 py-2 rounded-lg text-xs ${
-                  resultCIS.success ? 'bg-green-400/10 text-green-400' : 'bg-red-400/10 text-red-400'
-                }`}>
-                  {resultCIS.success ? <CheckCircle size={14} className="shrink-0 mt-0.5" /> : <AlertCircle size={14} className="shrink-0 mt-0.5" />}
-                  <span>{resultCIS.message || resultCIS.error}</span>
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* Relatorios */}
-          <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
-            <div className="px-5 py-3 border-b border-white/[0.06] flex items-center gap-2">
-              <FileBarChart size={16} className="text-cyan-400" />
-              <span className="text-sm font-bold text-white">Enviar Relatorios</span>
-            </div>
-            <div className="p-5">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-xl bg-cyan-400/10 flex items-center justify-center">
-                  <span className="text-lg font-bold text-cyan-400">{status.totalRelatorios}</span>
+              {/* Editor de mensagem */}
+              <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
+                <p className="text-xs font-bold text-white flex items-center gap-1.5 mb-3"><MessageCircle size={12} /> Mensagem</p>
+
+                {/* Variáveis */}
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {VARIAVEIS.map(v => (
+                    <button key={v.tag} onClick={() => inserirVariavel(v.tag)}
+                      className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all">
+                      <Tag size={9} /> {v.label}
+                    </button>
+                  ))}
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-white">Relatorios Disponiveis</p>
-                  <p className="text-xs text-gray-500">Relatorios individuais para envio</p>
+
+                {/* Textarea */}
+                <textarea value={mensagem} onChange={e => setMensagem(e.target.value)} rows={8}
+                  className="w-full rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 focus:outline-none focus:border-cyan-400/50 resize-none font-mono"
+                  placeholder="Olá {{nome}}! ..." />
+
+                <div className="flex items-center justify-between mt-2 text-[9px] text-gray-600">
+                  <span>*negrito* → <strong className="text-gray-400">negrito</strong> · _itálico_ → <em className="text-gray-400">itálico</em></span>
+                  <span>{mensagem.length} caracteres</span>
                 </div>
               </div>
-              <button onClick={handleDispararRelatorios} disabled={sendingRel || status.totalRelatorios === 0}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold text-white bg-teal-600 hover:bg-teal-500 transition-colors disabled:opacity-40">
-                {sendingRel ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                {sendingRel ? 'Enviando...' : 'Disparar Relatorios'}
+
+              {/* Botão disparar */}
+              <button onClick={handleDisparar} disabled={sending || destinatarios.length === 0}
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-colors"
+                style={{ background: sending ? '#374151' : 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+                {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                {sending ? 'Enviando...' : `Disparar para ${destinatarios.length} destinatário(s)`}
               </button>
-              {resultRel && (
-                <div className={`mt-3 flex items-start gap-2 px-3 py-2 rounded-lg text-xs ${
-                  resultRel.success ? 'bg-green-400/10 text-green-400' : 'bg-red-400/10 text-red-400'
+
+              {result && (
+                <div className={`flex items-start gap-2 px-4 py-3 rounded-xl text-xs ${
+                  result.success ? 'bg-green-400/10 text-green-400' : 'bg-red-400/10 text-red-400'
                 }`}>
-                  {resultRel.success ? <CheckCircle size={14} className="shrink-0 mt-0.5" /> : <AlertCircle size={14} className="shrink-0 mt-0.5" />}
-                  <span>{resultRel.message || resultRel.error}</span>
+                  {result.success ? <CheckCircle size={14} className="shrink-0 mt-0.5" /> : <AlertCircle size={14} className="shrink-0 mt-0.5" />}
+                  <span>{result.message || result.error}</span>
                 </div>
               )}
             </div>
+
+            {/* Coluna direita: Preview */}
+            <div className="space-y-4">
+              {/* Preview */}
+              <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
+                <p className="text-xs font-bold text-white flex items-center gap-1.5 mb-3"><Eye size={12} /> Preview da Mensagem</p>
+                <div className="rounded-lg p-4 text-sm text-gray-300 leading-relaxed whitespace-pre-wrap" style={{ background: '#091D35' }}>
+                  {previewMsg || <span className="text-gray-600 italic">A mensagem aparecerá aqui...</span>}
+                </div>
+              </div>
+
+              {/* Variáveis disponíveis */}
+              <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
+                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2">Variáveis Disponíveis</p>
+                <div className="space-y-1.5">
+                  {VARIAVEIS.map(v => (
+                    <div key={v.tag} className="flex items-center justify-between text-[11px]">
+                      <span className="font-mono px-1.5 py-0.5 rounded bg-cyan-400/10 text-cyan-400">{v.tag}</span>
+                      <span className="text-gray-500">→ {v.exemplo}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Dicas */}
+              <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
+                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2">Dicas</p>
+                <ul className="space-y-1 text-[10px] text-gray-400">
+                  <li>• Use <span className="text-white font-mono">*texto*</span> para <strong className="text-white">negrito</strong></li>
+                  <li>• Use <span className="text-white font-mono">_texto_</span> para <em className="text-white">itálico</em></li>
+                  <li>• Intervalo de 1s entre envios para evitar bloqueio</li>
+                  <li>• {tab === 'email' ? 'Todos os colaboradores com email serão incluídos' : 'Apenas colaboradores com WhatsApp cadastrado serão incluídos'}</li>
+                  <li>• O primeiro nome é usado automaticamente no {'{{nome}}'}</li>
+                </ul>
+              </div>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

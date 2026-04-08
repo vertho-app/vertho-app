@@ -34,3 +34,23 @@ export async function loadWhatsappStatus(empresaId) {
     return { success: false, error: err.message };
   }
 }
+
+export async function loadColaboradoresEnvio(empresaId) {
+  const sb = createSupabaseAdmin();
+  // Tentar com telefone, fallback sem
+  let data;
+  const { data: d1, error: e1 } = await sb.from('colaboradores')
+    .select('id, nome_completo, email, cargo, telefone')
+    .eq('empresa_id', empresaId)
+    .order('nome_completo');
+  if (!e1) {
+    data = d1;
+  } else {
+    const { data: d2 } = await sb.from('colaboradores')
+      .select('id, nome_completo, email, cargo')
+      .eq('empresa_id', empresaId)
+      .order('nome_completo');
+    data = (d2 || []).map(c => ({ ...c, telefone: null }));
+  }
+  return data || [];
+}
