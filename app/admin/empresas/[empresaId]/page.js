@@ -13,7 +13,7 @@ import {
   Loader2, AlertTriangle, X, ChevronDown, ChevronUp, Trash2, Settings, Trophy, Plus, Filter, Search
 } from 'lucide-react';
 
-import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos } from '@/actions/fase1';
+import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma } from '@/actions/fase1';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import {
   loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, loadColaboradoresLista,
@@ -193,6 +193,33 @@ export default function EmpresaPipelinePage({ params }) {
     addLog(`▶ ${label}${modelLabel}`, 'info');
 
     try {
+      // IA3 especial: processa uma competência por vez (timeout Hobby 60s)
+      if (actionKey === 'ia3') {
+        const fila = await listarFilaIA3(empresaId);
+        if (!fila?.success || !fila.data?.length) {
+          addLog(`❌ ${fila?.error || 'Nenhuma competência na fila'}`, 'error');
+          setPendingAction(null);
+          return;
+        }
+        const pendentes = fila.data.filter(f => !f.jaGerado);
+        const total = pendentes.length || fila.data.length;
+        const items = pendentes.length > 0 ? pendentes : fila.data; // reprocessar todos se todos já gerados
+        addLog(`📋 ${items.length} cenários para gerar`, 'info');
+
+        let ok = 0, erros = 0;
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          addLog(`⏳ [${i + 1}/${items.length}] ${item.nome} (${item.cargo})`, 'info');
+          const r = await rodarIA3Uma(empresaId, item.cargo, item.competencia_id, aiConfig || undefined);
+          if (r.success) { ok++; } else { erros++; addLog(`⚠ ${item.nome}: ${r.error}`, 'error'); }
+        }
+        addLog(`✅ IA3 concluída: ${ok} cenários gerados${erros ? `, ${erros} erros` : ''}`, 'success');
+        loadData();
+        refreshTop10();
+        setPendingAction(null);
+        return;
+      }
+
       const result = await fn(empresaId, aiConfig || undefined);
       if (result?.success) {
         addLog(`✅ ${result.message || label + ' concluído'}`, 'success');

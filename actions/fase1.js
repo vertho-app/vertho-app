@@ -1,8 +1,5 @@
 'use server';
 
-// Aumentar timeout para 300s (Vercel Pro) — IA3 faz N chamadas sequenciais
-export const maxDuration = 300;
-
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI } from './ai-client';
 import { extractJSON } from './utils';
@@ -515,108 +512,112 @@ INSTRUÇÃO:
 
 // ── IA3: Gerar cenários contextuais (fiel ao GAS) ───────────────────────────
 // 1 cenário + 4 perguntas abertas por competência × cargo
-// Usa PPP, valores, descritores N1-N4, gabarito CIS
+// Processamento unitário (1 competência por chamada) para caber no timeout do Vercel Hobby
 
-export async function rodarIA3(empresaId, aiConfig = {}) {
+// Lista competências pendentes para gerar cenário
+export async function listarFilaIA3(empresaId) {
   const sb = createSupabaseAdmin();
   try {
-    // 1. Empresa
-    let empresa;
-    const { data: emp1 } = await sb.from('empresas')
-      .select('nome, segmento, ppp_texto').eq('id', empresaId).single();
-    empresa = emp1 || (await sb.from('empresas').select('nome, segmento').eq('id', empresaId).single()).data;
-    if (!empresa) return { success: false, error: 'Empresa não encontrada' };
-
-    // 2. PPP e valores
-    const contextoPPP = await buscarContextoPPP(sb, empresaId, empresa.nome);
-    const valores = await buscarValores(sb, empresaId, empresa.nome);
-
-    // 3. Top10 por cargo (com competências e descritores)
     const { data: top10All } = await sb.from('top10_cargos')
-      .select('cargo, competencia_id, competencia:competencias(id, nome, cod_comp, pilar, descricao, cargo)')
+      .select('cargo, competencia_id, competencia:competencias(id, nome, cod_comp)')
       .eq('empresa_id', empresaId)
       .order('cargo')
       .order('posicao');
 
     if (!top10All?.length) return { success: false, error: 'Nenhuma Top 10 selecionada. Rode IA1 primeiro.' };
 
-    // 4. Buscar TODOS os descritores das competências selecionadas
-    const compIds = [...new Set(top10All.map(t => t.competencia_id))];
-    const { data: todosDescritores } = await sb.from('competencias')
-      .select('id, cod_comp, nome, cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
-      .eq('empresa_id', empresaId)
-      .in('cod_comp', [...new Set(top10All.map(t => t.competencia?.cod_comp).filter(Boolean))]);
-
-    // Agrupar descritores por cod_comp
-    const descPorComp = {};
-    (todosDescritores || []).forEach(d => {
-      if (!d.cod_desc) return;
-      if (!descPorComp[d.cod_comp]) descPorComp[d.cod_comp] = [];
-      descPorComp[d.cod_comp].push(d);
-    });
-
-    // 5. Gabaritos CIS por cargo
-    const { data: cargosEmp } = await sb.from('cargos_empresa')
-      .select('nome, gabarito, descricao, principais_entregas, stakeholders, decisoes_recorrentes, tensoes_comuns')
+    // Verificar quais já têm cenário
+    const { data: existentes } = await sb.from('banco_cenarios')
+      .select('competencia_id, cargo')
       .eq('empresa_id', empresaId);
-    const cargosMap = {};
-    (cargosEmp || []).forEach(c => { cargosMap[c.nome.toLowerCase()] = c; });
+    const existSet = new Set((existentes || []).map(e => `${e.competencia_id}::${e.cargo}`));
 
-    // 6. Agrupar top10 por cargo
-    const top10PorCargo = {};
-    top10All.forEach(t => {
-      if (!top10PorCargo[t.cargo]) top10PorCargo[t.cargo] = [];
-      top10PorCargo[t.cargo].push(t);
-    });
+    const fila = top10All.map(t => ({
+      cargo: t.cargo,
+      competencia_id: t.competencia_id,
+      nome: t.competencia?.nome || '—',
+      cod_comp: t.competencia?.cod_comp || '',
+      jaGerado: existSet.has(`${t.competencia_id}::${t.cargo}`),
+    }));
 
-    // 7. Gerar cenários por cargo × competência
-    let totalCenarios = 0;
-
-    for (const [cargoNome, items] of Object.entries(top10PorCargo)) {
-      const cargoDetalhe = cargosMap[cargoNome.toLowerCase()] || {};
-      const gabCIS = cargoDetalhe.gabarito ? (typeof cargoDetalhe.gabarito === 'string' ? JSON.parse(cargoDetalhe.gabarito) : cargoDetalhe.gabarito) : null;
-
-      for (const item of items) {
-        const comp = item.competencia;
-        if (!comp) continue;
-
-        try {
-          const descritores = descPorComp[comp.cod_comp] || [];
-
-          const system = buildIA3SystemPrompt();
-          const user = buildIA3UserPrompt(empresa, cargoNome, cargoDetalhe, comp, descritores, valores, contextoPPP, gabCIS);
-
-          const resposta = await callAI(system, user, aiConfig, 8000);
-          const resultado = await extractJSON(resposta);
-
-          if (resultado?.cenario) {
-            await sb.from('banco_cenarios')
-              .delete()
-              .eq('empresa_id', empresaId)
-              .eq('competencia_id', comp.id)
-              .eq('cargo', cargoNome);
-
-            await sb.from('banco_cenarios').insert({
-              empresa_id: empresaId,
-              competencia_id: comp.id,
-              cargo: cargoNome,
-              titulo: resultado.cenario.titulo,
-              descricao: resultado.cenario.contexto,
-              alternativas: resultado.perguntas || [],
-            });
-            totalCenarios++;
-          }
-        } catch (e) {
-          console.error(`[IA3] Erro em ${comp.nome}:`, e.message);
-          // Continua para a próxima competência
-        }
-      }
-    }
-
-    return { success: true, message: `IA3 concluída: ${totalCenarios} cenários gerados` };
+    return { success: true, data: fila };
   } catch (err) {
     return { success: false, error: err.message };
   }
+}
+
+// Gera cenário para UMA competência (cabe em 60s)
+export async function rodarIA3Uma(empresaId, cargoNome, competenciaId, aiConfig = {}) {
+  const sb = createSupabaseAdmin();
+  try {
+    // Empresa
+    let empresa;
+    const { data: emp1 } = await sb.from('empresas')
+      .select('nome, segmento, ppp_texto').eq('id', empresaId).single();
+    empresa = emp1 || (await sb.from('empresas').select('nome, segmento').eq('id', empresaId).single()).data;
+    if (!empresa) return { success: false, error: 'Empresa não encontrada' };
+
+    // Competência
+    const { data: comp } = await sb.from('competencias')
+      .select('id, nome, cod_comp, pilar, descricao, cargo')
+      .eq('id', competenciaId).single();
+    if (!comp) return { success: false, error: 'Competência não encontrada' };
+
+    // Descritores
+    const { data: descritores } = await sb.from('competencias')
+      .select('cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
+      .eq('empresa_id', empresaId)
+      .eq('cod_comp', comp.cod_comp)
+      .not('cod_desc', 'is', null);
+
+    // PPP, valores
+    const contextoPPP = await buscarContextoPPP(sb, empresaId, empresa.nome);
+    const valores = await buscarValores(sb, empresaId, empresa.nome);
+
+    // Dados do cargo + gabarito CIS
+    const { data: cargoEmp } = await sb.from('cargos_empresa')
+      .select('gabarito, descricao, principais_entregas, stakeholders, decisoes_recorrentes, tensoes_comuns')
+      .eq('empresa_id', empresaId)
+      .eq('nome', cargoNome)
+      .maybeSingle();
+
+    const cargoDetalhe = cargoEmp || {};
+    const gabCIS = cargoDetalhe.gabarito ? (typeof cargoDetalhe.gabarito === 'string' ? JSON.parse(cargoDetalhe.gabarito) : cargoDetalhe.gabarito) : null;
+
+    // Gerar
+    const system = buildIA3SystemPrompt();
+    const user = buildIA3UserPrompt(empresa, cargoNome, cargoDetalhe, comp, descritores || [], valores, contextoPPP, gabCIS);
+
+    const resposta = await callAI(system, user, aiConfig, 8000);
+    const resultado = await extractJSON(resposta);
+
+    if (!resultado?.cenario) return { success: false, error: 'IA não retornou cenário válido' };
+
+    // Salvar (limpa anterior)
+    await sb.from('banco_cenarios')
+      .delete()
+      .eq('empresa_id', empresaId)
+      .eq('competencia_id', comp.id)
+      .eq('cargo', cargoNome);
+
+    await sb.from('banco_cenarios').insert({
+      empresa_id: empresaId,
+      competencia_id: comp.id,
+      cargo: cargoNome,
+      titulo: resultado.cenario.titulo,
+      descricao: resultado.cenario.contexto,
+      alternativas: resultado.perguntas || [],
+    });
+
+    return { success: true, message: `Cenário gerado: ${comp.nome}` };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// Wrapper que o pipeline chama — retorna a fila para o frontend processar
+export async function rodarIA3(empresaId, aiConfig = {}) {
+  return listarFilaIA3(empresaId);
 }
 
 function buildIA3SystemPrompt() {
