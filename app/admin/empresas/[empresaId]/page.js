@@ -64,6 +64,7 @@ const PHASE_CONFIG = [
     { key: 'ia2', label: 'IA2 — Gabarito', icon: Zap, ai: true },
     { key: 'ia3', label: 'IA3 — Cenários + Check', icon: Zap, ai: 'dual' },
     { key: 'disparo', label: 'Disparar Convites', icon: Send },
+    { key: 'fit', label: 'Fit v2', icon: BarChart3, href: '/admin/fit' },
   ]},
   { num: 2, icon: Bot, color: '#EF4444', groups: [
     { label: 'Diagnóstico', actions: [
