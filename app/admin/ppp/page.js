@@ -329,8 +329,13 @@ export default function PPPPage() {
         // Helper: extrair conteúdo de seção (compatível com formato novo {conteudo,origem,confianca} e antigo)
         const getSecao = (sec) => {
           if (!sec) return { c: null, origem: null, confianca: null };
+          if (typeof sec === 'string') return { c: sec, origem: null, confianca: null };
           if (sec.conteudo !== undefined) return { c: sec.conteudo, origem: sec.origem, confianca: sec.confianca };
           return { c: sec, origem: null, confianca: null };
+        };
+        const safeEntries = (obj) => {
+          if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return [];
+          return Object.entries(obj);
         };
 
         return (
@@ -351,11 +356,11 @@ export default function PPPPage() {
                         const s1 = getSecao(ext.perfil_organizacional);
                         return (
                           <Section num="1" title="Perfil Organizacional" color="#00B4D8" confianca={s1.confianca} origem={s1.origem}>
-                            {s1.c ? (
+                            {s1.c && typeof s1.c === 'object' ? (
                               <div className="space-y-0.5">
-                                {Object.entries(s1.c).map(([k, v]) => <p key={k}><span className="text-gray-500 font-semibold">{k.replace(/_/g, ' ')}:</span> {typeof v === 'object' ? JSON.stringify(v) : String(v)}</p>)}
+                                {safeEntries(s1.c).map(([k, v]) => <p key={k}><span className="text-gray-500 font-semibold">{k.replace(/_/g, ' ')}:</span> {typeof v === 'object' ? JSON.stringify(v) : String(v || '')}</p>)}
                               </div>
-                            ) : <p className="text-gray-500 italic">Não identificado</p>}
+                            ) : s1.c ? <p>{String(s1.c)}</p> : <p className="text-gray-500 italic">Não identificado</p>}
                           </Section>
                         );
                       })()}
@@ -364,13 +369,13 @@ export default function PPPPage() {
                         const s2 = getSecao(ext.mercado_stakeholders);
                         return (
                           <Section num="2" title="Mercado e Stakeholders" color="#22C55E" confianca={s2.confianca} origem={s2.origem}>
-                            {s2.c ? (
+                            {s2.c && typeof s2.c === 'object' ? (
                               <>
-                                {s2.c.clientes && <p><span className="text-gray-500 font-semibold">Clientes:</span> {s2.c.clientes}</p>}
-                                {s2.c.concorrencia && <p><span className="text-gray-500 font-semibold">Concorrência:</span> {s2.c.concorrencia}</p>}
+                                {s2.c.clientes && <p><span className="text-gray-500 font-semibold">Clientes:</span> {String(s2.c.clientes)}</p>}
+                                {s2.c.concorrencia && <p><span className="text-gray-500 font-semibold">Concorrência:</span> {String(s2.c.concorrencia)}</p>}
                                 <List items={s2.c.stakeholders_chave} />
                               </>
-                            ) : <p className="text-gray-500 italic">Não identificado</p>}
+                            ) : s2.c ? <p>{String(s2.c)}</p> : <p className="text-gray-500 italic">Não identificado</p>}
                           </Section>
                         );
                       })()}
@@ -379,15 +384,15 @@ export default function PPPPage() {
                         const s3 = getSecao(ext.identidade_cultura);
                         return (
                           <Section num="3" title="Identidade e Cultura" color="#A78BFA" confianca={s3.confianca} origem={s3.origem}>
-                            {s3.c ? (
+                            {s3.c && typeof s3.c === 'object' ? (
                               <>
-                                {s3.c.missao && <p><span className="text-gray-500 font-semibold">Missão:</span> {s3.c.missao}</p>}
-                                {s3.c.visao && <p><span className="text-gray-500 font-semibold">Visão:</span> {s3.c.visao}</p>}
-                                <List items={s3.c.valores} />
-                                {s3.c.modelo_gestao && <p className="mt-1"><span className="text-gray-500 font-semibold">Modelo de gestão:</span> {s3.c.modelo_gestao}</p>}
-                                {s3.c.cultura_declarada && <p><span className="text-gray-500 font-semibold">Cultura:</span> {s3.c.cultura_declarada}</p>}
+                                {s3.c.missao && <p><span className="text-gray-500 font-semibold">Missão:</span> {String(s3.c.missao)}</p>}
+                                {s3.c.visao && <p><span className="text-gray-500 font-semibold">Visão:</span> {String(s3.c.visao)}</p>}
+                                <List items={Array.isArray(s3.c.valores) ? s3.c.valores : []} />
+                                {s3.c.modelo_gestao && <p className="mt-1"><span className="text-gray-500 font-semibold">Modelo de gestão:</span> {String(s3.c.modelo_gestao)}</p>}
+                                {s3.c.cultura_declarada && <p><span className="text-gray-500 font-semibold">Cultura:</span> {String(s3.c.cultura_declarada)}</p>}
                               </>
-                            ) : <p className="text-gray-500 italic">Não identificado</p>}
+                            ) : s3.c ? <p>{String(s3.c)}</p> : <p className="text-gray-500 italic">Não identificado</p>}
                           </Section>
                         );
                       })()}
@@ -415,14 +420,14 @@ export default function PPPPage() {
                         const s5 = getSecao(ext.modelo_pessoas);
                         return (
                           <Section num="5" title="Modelo de Pessoas" color="#EC4899" confianca={s5.confianca} origem={s5.origem}>
-                            {s5.c ? (
+                            {s5.c && typeof s5.c === 'object' ? (
                               <>
-                                {s5.c.desenvolvimento && <p><span className="text-gray-500 font-semibold">Desenvolvimento:</span> {s5.c.desenvolvimento}</p>}
-                                {s5.c.avaliacao && <p><span className="text-gray-500 font-semibold">Avaliação:</span> {s5.c.avaliacao}</p>}
-                                {s5.c.carreira && <p><span className="text-gray-500 font-semibold">Carreira:</span> {s5.c.carreira}</p>}
-                                {s5.c.diversidade_inclusao && <p><span className="text-gray-500 font-semibold">D&I:</span> {s5.c.diversidade_inclusao}</p>}
+                                {s5.c.desenvolvimento && <p><span className="text-gray-500 font-semibold">Desenvolvimento:</span> {String(s5.c.desenvolvimento)}</p>}
+                                {s5.c.avaliacao && <p><span className="text-gray-500 font-semibold">Avaliação:</span> {String(s5.c.avaliacao)}</p>}
+                                {s5.c.carreira && <p><span className="text-gray-500 font-semibold">Carreira:</span> {String(s5.c.carreira)}</p>}
+                                {s5.c.diversidade_inclusao && <p><span className="text-gray-500 font-semibold">D&I:</span> {String(s5.c.diversidade_inclusao)}</p>}
                               </>
-                            ) : <p className="text-gray-500 italic">Não identificado</p>}
+                            ) : s5.c ? <p>{String(s5.c)}</p> : <p className="text-gray-500 italic">Não identificado</p>}
                           </Section>
                         );
                       })()}
@@ -431,13 +436,13 @@ export default function PPPPage() {
                         const s6 = getSecao(ext.governanca_decisao);
                         return (
                           <Section num="6" title="Governança e Decisão" color="#06B6D4" confianca={s6.confianca} origem={s6.origem}>
-                            {s6.c ? (
+                            {s6.c && typeof s6.c === 'object' ? (
                               <>
-                                {s6.c.estrutura && <p><span className="text-gray-500 font-semibold">Estrutura:</span> {s6.c.estrutura}</p>}
-                                {s6.c.tomada_decisao && <p><span className="text-gray-500 font-semibold">Tomada de decisão:</span> {s6.c.tomada_decisao}</p>}
-                                {s6.c.compliance && <p><span className="text-gray-500 font-semibold">Compliance:</span> {s6.c.compliance}</p>}
+                                {s6.c.estrutura && <p><span className="text-gray-500 font-semibold">Estrutura:</span> {String(s6.c.estrutura)}</p>}
+                                {s6.c.tomada_decisao && <p><span className="text-gray-500 font-semibold">Tomada de decisão:</span> {String(s6.c.tomada_decisao)}</p>}
+                                {s6.c.compliance && <p><span className="text-gray-500 font-semibold">Compliance:</span> {String(s6.c.compliance)}</p>}
                               </>
-                            ) : <p className="text-gray-500 italic">Não identificado</p>}
+                            ) : s6.c ? <p>{String(s6.c)}</p> : <p className="text-gray-500 italic">Não identificado</p>}
                           </Section>
                         );
                       })()}
@@ -446,13 +451,13 @@ export default function PPPPage() {
                         const s7 = getSecao(ext.tecnologia_recursos);
                         return (
                           <Section num="7" title="Tecnologia e Recursos" color="#8B5CF6" confianca={s7.confianca} origem={s7.origem}>
-                            {s7.c ? (
+                            {s7.c && typeof s7.c === 'object' ? (
                               <>
-                                <p className="text-gray-500 font-semibold">Ferramentas:</p><List items={s7.c.ferramentas} />
-                                <p className="text-gray-500 font-semibold mt-1">Capacidades:</p><List items={s7.c.capacidades} />
-                                <p className="text-gray-500 font-semibold mt-1">Limitações:</p><List items={s7.c.limitacoes} />
+                                <p className="text-gray-500 font-semibold">Ferramentas:</p><List items={Array.isArray(s7.c.ferramentas) ? s7.c.ferramentas : []} />
+                                <p className="text-gray-500 font-semibold mt-1">Capacidades:</p><List items={Array.isArray(s7.c.capacidades) ? s7.c.capacidades : []} />
+                                <p className="text-gray-500 font-semibold mt-1">Limitações:</p><List items={Array.isArray(s7.c.limitacoes) ? s7.c.limitacoes : []} />
                               </>
-                            ) : <p className="text-gray-500 italic">Não identificado</p>}
+                            ) : s7.c ? <p>{String(s7.c)}</p> : <p className="text-gray-500 italic">Não identificado</p>}
                           </Section>
                         );
                       })()}
@@ -461,13 +466,13 @@ export default function PPPPage() {
                         const s8 = getSecao(ext.desafios_estrategia);
                         return (
                           <Section num="8" title="Desafios e Estratégia" color="#EF4444" confianca={s8.confianca} origem={s8.origem}>
-                            {s8.c ? (
+                            {s8.c && typeof s8.c === 'object' ? (
                               <>
-                                <p className="text-gray-500 font-semibold">Desafios:</p><List items={s8.c.desafios} />
-                                <p className="text-gray-500 font-semibold mt-1">Metas:</p><List items={s8.c.metas} />
-                                {s8.c.transformacoes && <p className="mt-1"><span className="text-gray-500 font-semibold">Transformações:</span> {s8.c.transformacoes}</p>}
+                                <p className="text-gray-500 font-semibold">Desafios:</p><List items={Array.isArray(s8.c.desafios) ? s8.c.desafios : []} />
+                                <p className="text-gray-500 font-semibold mt-1">Metas:</p><List items={Array.isArray(s8.c.metas) ? s8.c.metas : []} />
+                                {s8.c.transformacoes && <p className="mt-1"><span className="text-gray-500 font-semibold">Transformações:</span> {String(s8.c.transformacoes)}</p>}
                               </>
-                            ) : <p className="text-gray-500 italic">Não identificado</p>}
+                            ) : s8.c ? <p>{String(s8.c)}</p> : <p className="text-gray-500 italic">Não identificado</p>}
                           </Section>
                         );
                       })()}
@@ -585,16 +590,19 @@ export default function PPPPage() {
                   </Section>
 
                   {/* Valores */}
-                  {(ext.valores_institucionais || ext.identidade_cultura?.conteudo?.valores || ext.identidade_cultura?.valores || viewPPP.valores)?.length > 0 && (
-                    <div className="pt-3 border-t border-white/[0.06]">
-                      <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-2">Valores</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {(ext.valores_institucionais || ext.identidade_cultura?.conteudo?.valores || ext.identidade_cultura?.valores || viewPPP.valores).map((v, i) => (
-                          <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-cyan-400/10 text-cyan-400">{v}</span>
-                        ))}
+                  {(() => {
+                    const vals = ext.valores_institucionais || ext.identidade_cultura?.conteudo?.valores || ext.identidade_cultura?.valores || viewPPP.valores;
+                    return Array.isArray(vals) && vals.length > 0 ? (
+                      <div className="pt-3 border-t border-white/[0.06]">
+                        <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-2">Valores</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {vals.map((v, i) => (
+                            <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-cyan-400/10 text-cyan-400">{typeof v === 'string' ? v : JSON.stringify(v)}</span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    ) : null;
+                  })()}
 
                   {/* Metadata — lacunas, hipóteses, recomendações */}
                   {ext._metadata && (
