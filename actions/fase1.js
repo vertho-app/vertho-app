@@ -46,41 +46,41 @@ export async function rodarIA1(empresaId, aiConfig = {}) {
     const contextoPPP = await buscarContextoPPP(sb, empresaId, empresa.nome);
     const valores = await buscarValores(sb, empresaId, empresa.nome);
 
-    // 4. Buscar cargos (prioriza cargos_empresa com descrição)
+    // 4. Agrupar competências por cargo (usar o cargo DA COMPETÊNCIA, não do colaborador)
+    const cargoCompsMap = {};
+    compsUnicas.forEach(c => {
+      const cargo = c.cargo || '_sem_cargo';
+      if (!cargoCompsMap[cargo]) cargoCompsMap[cargo] = [];
+      cargoCompsMap[cargo].push(c);
+    });
+
+    // Buscar dados ricos do cargo (cargos_empresa) — match flexível
     const { data: cargosDetalhados } = await sb.from('cargos_empresa')
       .select('*')
       .eq('empresa_id', empresaId);
-
-    const { data: colaboradores } = await sb.from('colaboradores')
-      .select('cargo, area_depto')
-      .eq('empresa_id', empresaId)
-      .not('cargo', 'is', null);
-
-    const cargosMap = {};
+    const cargosDetalheMap = {};
     (cargosDetalhados || []).forEach(c => {
-      cargosMap[c.nome] = {
-        cargo: c.nome, area: c.area_depto || '',
-        descricao: c.descricao || '', entregas: c.principais_entregas || '',
-        stakeholders: c.stakeholders || '', decisoes: c.decisoes_recorrentes || '',
-        tensoes: c.tensoes_comuns || '', contexto_extra: c.contexto_cultural || '',
-      };
+      cargosDetalheMap[c.nome.toLowerCase()] = c;
     });
-    (colaboradores || []).forEach(c => {
-      if (c.cargo && !cargosMap[c.cargo]) {
-        cargosMap[c.cargo] = { cargo: c.cargo, area: c.area_depto || '' };
-      }
-    });
-    const cargosUnicos = Object.values(cargosMap);
-    if (!cargosUnicos.length) return { success: false, error: 'Nenhum cargo encontrado' };
 
-    // 5. Para cada cargo, pedir à IA que selecione as 10 melhores
+    const cargosParaProcessar = Object.keys(cargoCompsMap).filter(c => c !== '_sem_cargo');
+    if (!cargosParaProcessar.length) return { success: false, error: 'Nenhum cargo encontrado nas competências' };
+
+    // 5. Para cada cargo (das competências), pedir à IA que selecione as melhores
     let totalSelecionadas = 0;
 
-    for (const cargoInfo of cargosUnicos) {
-      // Enviar apenas competências do cargo (ou sem cargo)
-      const compsDoCargo = compsUnicas.filter(c => !c.cargo || c.cargo.toLowerCase() === cargoInfo.cargo.toLowerCase());
-      if (!compsDoCargo.length) continue;
-      const system = buildSystemPromptSelecao(compsDoCargo, cargoInfo.cargo);
+    for (const cargoNome of cargosParaProcessar) {
+      const compsDoCargo = cargoCompsMap[cargoNome];
+      // Buscar dados ricos (match case-insensitive)
+      const detalhe = cargosDetalheMap[cargoNome.toLowerCase()] || {};
+      const cargoInfo = {
+        cargo: cargoNome, area: detalhe.area_depto || '',
+        descricao: detalhe.descricao || '', entregas: detalhe.principais_entregas || '',
+        stakeholders: detalhe.stakeholders || '', decisoes: detalhe.decisoes_recorrentes || '',
+        tensoes: detalhe.tensoes_comuns || '', contexto_extra: detalhe.contexto_cultural || '',
+      };
+
+      const system = buildSystemPromptSelecao(compsDoCargo, cargoNome);
       const user = buildUserPrompt(empresa, cargoInfo, valores, contextoPPP);
 
       const resposta = await callAI(system, user, aiConfig, 4096);
