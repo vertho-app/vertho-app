@@ -199,13 +199,13 @@ export default function CompetenciasPage() {
       {/* Filtro por cargo */}
       {!loadingComps && comps.length > 0 && (() => {
         const cargos = [...new Set(comps.map(c => c.cargo).filter(Boolean))].sort();
-        return cargos.length > 1 ? (
+        return cargos.length > 0 ? (
           <div className="flex items-center gap-2 mb-3">
-            <Filter size={14} className="text-gray-500" />
+            <Filter size={14} className="text-gray-400" />
             <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
               className="px-3 py-1.5 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
-              <option value="">Todos os cargos ({comps.length})</option>
-              {cargos.map(c => <option key={c} value={c}>{c} ({comps.filter(x => x.cargo === c).length})</option>)}
+              <option value="">Todos os cargos</option>
+              {cargos.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
         ) : null;
@@ -245,22 +245,22 @@ export default function CompetenciasPage() {
             {uniqueComps.map(({ comp: c, descritores }) => (
               <div key={c.cod_comp || c.id} className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
                 {/* Competência header */}
-                <div className="flex items-center gap-3 px-4 py-3">
-                  <span className="text-[10px] font-mono text-cyan-400 font-bold shrink-0 w-12">{c.cod_comp || '—'}</span>
+                <div className="flex items-center gap-4 px-4 py-3">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-white">{c.nome}</p>
-                    <div className="flex items-center gap-3 mt-0.5">
-                      {c.pilar && <span className="text-[10px] text-gray-500">{c.pilar}</span>}
-                      {c.cargo && <span className="text-[10px] text-gray-400">· {c.cargo}</span>}
-                      <span className="text-[10px] text-gray-600">{descritores.length} descritores</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-white">{c.nome}</span>
+                      <span className="text-[9px] font-mono text-cyan-400/70 bg-cyan-400/10 px-1.5 py-0.5 rounded">{c.cod_comp}</span>
                     </div>
-                    {c.descricao && <p className="text-[10px] text-gray-500 mt-1 truncate max-w-lg">{c.descricao}</p>}
+                    <div className="flex items-center gap-2 mt-1">
+                      {c.pilar && <span className="text-[10px] text-gray-300">{c.pilar}</span>}
+                      {descritores.length > 0 && <span className="text-[10px] text-gray-500">· {descritores.length} descritores</span>}
+                    </div>
+                    {c.descricao && <p className="text-[10px] text-gray-400 mt-1 truncate max-w-lg">{c.descricao}</p>}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => openEdit(c)} className="w-7 h-7 flex items-center justify-center rounded text-gray-500 hover:text-cyan-400"><Pencil size={13} /></button>
                     <button onClick={() => {
                       if (!confirm(`Excluir "${c.nome}" e todos os seus descritores?`)) return;
-                      // Excluir todos os descritores desta competência
                       Promise.all(descritores.map(d => excluirCompetencia(d.id))).then(() => {
                         flash('Competência excluída');
                         handleSelectEmpresa(empresaId);
@@ -274,7 +274,7 @@ export default function CompetenciasPage() {
                   <div className="border-t border-white/[0.04]">
                     <div className="divide-y divide-white/[0.02]">
                       {descritores.map(d => (
-                        <div key={d.id} className="px-4 py-2 text-[11px] text-gray-300 hover:bg-white/[0.02]">
+                        <div key={d.id} className="px-4 py-2 text-[11px] text-gray-200 hover:bg-white/[0.02]">
                           {d.nome_curto || d.descritor_completo || '—'}
                         </div>
                       ))}
