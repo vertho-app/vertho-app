@@ -13,7 +13,7 @@ import {
   Loader2, AlertTriangle, X, ChevronDown, ChevronUp, Trash2, Settings, Trophy, Plus, Filter, Search
 } from 'lucide-react';
 
-import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, listarFilaCheck, checkCenarioUm } from '@/actions/fase1';
+import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, checkCenarioUm } from '@/actions/fase1';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import {
   loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, loadColaboradoresLista,
@@ -63,8 +63,7 @@ const PHASE_CONFIG = [
     { key: 'ia1', label: 'IA1 — Top 10', icon: Zap, ai: true },
     { key: 'cargos-top5', label: 'Top 5', icon: Target, href: '/admin/cargos' },
     { key: 'ia2', label: 'IA2 — Gabarito', icon: Zap, ai: true },
-    { key: 'ia3', label: 'IA3 — Cenários', icon: Zap, ai: true },
-    { key: 'check-cenarios', label: 'Check Cenários', icon: CheckCircle },
+    { key: 'ia3', label: 'IA3 — Cenários + Check', icon: Zap, ai: 'dual' },
   ]},
   { num: 2, icon: Mail, color: '#F59E0B', actions: [
     { key: 'disparo', label: 'Disparar Convites', icon: Send },
@@ -135,7 +134,9 @@ export default function EmpresaPipelinePage({ params }) {
   const [pendingAction, setPendingAction] = useState(null);
   const [logs, setLogs] = useState([]);
   const [expandedPhase, setExpandedPhase] = useState(null);
-  const [modelPicker, setModelPicker] = useState(null);
+  const [modelPicker, setModelPicker] = useState(null); // { actionKey, label, dual? }
+  const [dualModel1, setDualModel1] = useState('claude-sonnet-4-6');
+  const [dualModel2, setDualModel2] = useState('gemini-3-flash-preview');
   const [showDanger, setShowDanger] = useState(false);
   const [dangerLoading, setDangerLoading] = useState(false);
   const [dangerColabId, setDangerColabId] = useState(''); // '' = todos
@@ -191,35 +192,7 @@ export default function EmpresaPipelinePage({ params }) {
     addLog(`▶ ${label}${modelLabel}`, 'info');
 
     try {
-      // Check Cenários: processa um por vez via Gemini
-      if (actionKey === 'check-cenarios') {
-        const fila = await listarFilaCheck(empresaId);
-        if (!fila?.success || !fila.data?.length) {
-          addLog(`❌ ${fila?.error || 'Nenhum cenário para validar'}`, 'error');
-          setPendingAction(null);
-          return;
-        }
-        const pendentes = fila.data.filter(f => !f.jaChecado);
-        const items = pendentes.length > 0 ? pendentes : fila.data;
-        addLog(`📋 ${items.length} cenários para validar`, 'info');
-
-        let aprovados = 0, revisar = 0, erros = 0;
-        for (let i = 0; i < items.length; i++) {
-          const item = items[i];
-          addLog(`⏳ [${i + 1}/${items.length}] ${item.titulo || item.cargo}`, 'info');
-          const r = await checkCenarioUm(item.id);
-          if (r.success) {
-            if (r.nota >= 90) aprovados++; else revisar++;
-            addLog(`${r.nota >= 90 ? '✅' : '⚠'} ${r.message}`, r.nota >= 90 ? 'success' : 'info');
-          } else { erros++; addLog(`❌ ${r.error}`, 'error'); }
-        }
-        addLog(`✅ Check concluído: ${aprovados} aprovados, ${revisar} para revisar${erros ? `, ${erros} erros` : ''}`, 'success');
-        refreshTop10();
-        setPendingAction(null);
-        return;
-      }
-
-      // IA3 especial: processa uma competência por vez (timeout Hobby 60s)
+      // IA3: gera cenário + valida, uma competência por vez
       if (actionKey === 'ia3') {
         const fila = await listarFilaIA3(empresaId);
         if (!fila?.success || !fila.data?.length) {
@@ -228,18 +201,34 @@ export default function EmpresaPipelinePage({ params }) {
           return;
         }
         const pendentes = fila.data.filter(f => !f.jaGerado);
-        const total = pendentes.length || fila.data.length;
-        const items = pendentes.length > 0 ? pendentes : fila.data; // reprocessar todos se todos já gerados
-        addLog(`📋 ${items.length} cenários para gerar`, 'info');
+        const items = pendentes.length > 0 ? pendentes : fila.data;
+        const checkModel = aiConfig?.checkModel;
+        addLog(`📋 ${items.length} cenários para gerar${checkModel ? ' + validar' : ''}`, 'info');
 
-        let ok = 0, erros = 0;
+        let gerados = 0, aprovados = 0, revisar = 0, erros = 0;
         for (let i = 0; i < items.length; i++) {
           const item = items[i];
-          addLog(`⏳ [${i + 1}/${items.length}] ${item.nome} (${item.cargo})`, 'info');
+          // 1. Gerar cenário
+          addLog(`⏳ [${i + 1}/${items.length}] Gerando: ${item.nome} (${item.cargo})`, 'info');
           const r = await rodarIA3Uma(empresaId, item.cargo, item.competencia_id, aiConfig || undefined);
-          if (r.success) { ok++; } else { erros++; addLog(`⚠ ${item.nome}: ${r.error}`, 'error'); }
+          if (!r.success) { erros++; addLog(`⚠ ${item.nome}: ${r.error}`, 'error'); continue; }
+          gerados++;
+
+          // 2. Validar (se modelo de check foi selecionado)
+          if (checkModel) {
+            addLog(`🔍 [${i + 1}/${items.length}] Validando: ${item.nome}`, 'info');
+            // Buscar o cenário recém-criado para pegar o ID
+            const checkResult = await checkCenarioUm(null, empresaId, item.cargo, item.competencia_id, checkModel);
+            if (checkResult.success) {
+              if (checkResult.nota >= 90) { aprovados++; addLog(`✅ ${item.nome}: ${checkResult.nota}pts`, 'success'); }
+              else { revisar++; addLog(`⚠ ${item.nome}: ${checkResult.nota}pts — revisar`, 'info'); }
+            }
+          }
         }
-        addLog(`✅ IA3 concluída: ${ok} cenários gerados${erros ? `, ${erros} erros` : ''}`, 'success');
+        let msg = `IA3 concluída: ${gerados} cenários gerados`;
+        if (checkModel) msg += ` | ${aprovados} aprovados, ${revisar} para revisar`;
+        if (erros) msg += ` | ${erros} erros`;
+        addLog(`✅ ${msg}`, 'success');
         loadData();
         refreshTop10();
         setPendingAction(null);
@@ -263,7 +252,7 @@ export default function EmpresaPipelinePage({ params }) {
   function onActionClick(actionKey, label, isAI) {
     if (pendingAction) return;
     if (isAI) {
-      setModelPicker({ actionKey, label });
+      setModelPicker({ actionKey, label, dual: isAI === 'dual' });
     } else {
       handleAction(actionKey, label);
     }
@@ -544,20 +533,51 @@ export default function EmpresaPipelinePage({ params }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
           <div className="w-full max-w-xs rounded-2xl border border-white/[0.08] p-5" style={{ background: '#0A1D35' }}>
             <h3 className="text-sm font-bold text-white mb-1">{modelPicker.label}</h3>
-            <p className="text-[10px] text-gray-500 mb-4">Selecione o modelo de IA</p>
-            <div className="space-y-2 mb-4">
-              {AI_MODELS.map(m => (
-                <button key={m.id} onClick={() => {
+
+            {modelPicker.dual ? (
+              <>
+                <p className="text-[10px] text-gray-500 mb-3">Selecione um modelo para cada etapa</p>
+                <div className="mb-3">
+                  <p className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest mb-1">Geração</p>
+                  <select value={dualModel1} onChange={e => setDualModel1(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
+                    {AI_MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                  </select>
+                </div>
+                <div className="mb-4">
+                  <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest mb-1">Validação</p>
+                  <select value={dualModel2} onChange={e => setDualModel2(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
+                    {AI_MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                  </select>
+                </div>
+                <button onClick={() => {
                   const { actionKey, label } = modelPicker;
                   setModelPicker(null);
-                  handleAction(actionKey, label, { model: m.id, thinking: false });
+                  handleAction(actionKey, label, { model: dualModel1, checkModel: dualModel2 });
                 }}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-medium text-gray-300 border border-white/[0.06] hover:border-cyan-400/30 hover:bg-cyan-400/5 transition-all"
-                  style={{ background: '#091D35' }}>
-                  <Zap size={12} className="text-cyan-400" /> {m.label}
+                  className="w-full py-2.5 rounded-lg text-xs font-bold text-white bg-teal-600 hover:bg-teal-500 transition-colors mb-2">
+                  Executar
                 </button>
-              ))}
-            </div>
+              </>
+            ) : (
+              <>
+                <p className="text-[10px] text-gray-500 mb-4">Selecione o modelo de IA</p>
+                <div className="space-y-2 mb-4">
+                  {AI_MODELS.map(m => (
+                    <button key={m.id} onClick={() => {
+                      const { actionKey, label } = modelPicker;
+                      setModelPicker(null);
+                      handleAction(actionKey, label, { model: m.id, thinking: false });
+                    }}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-medium text-gray-300 border border-white/[0.06] hover:border-cyan-400/30 hover:bg-cyan-400/5 transition-all"
+                      style={{ background: '#091D35' }}>
+                      <Zap size={12} className="text-cyan-400" /> {m.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             <button onClick={() => setModelPicker(null)} className="w-full py-2 text-xs font-semibold text-gray-500 hover:text-white">Cancelar</button>
           </div>
         </div>

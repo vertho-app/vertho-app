@@ -707,14 +707,20 @@ export async function listarFilaCheck(empresaId) {
   };
 }
 
-export async function checkCenarioUm(cenarioId) {
+export async function checkCenarioUm(cenarioId, empresaId = null, cargo = null, competenciaId = null, modelo = null) {
   const sb = createSupabaseAdmin();
   try {
-    // Buscar cenário completo
-    const { data: cen } = await sb.from('banco_cenarios')
-      .select('*')
-      .eq('id', cenarioId)
-      .single();
+    // Buscar cenário por ID ou por empresa+cargo+competencia
+    let cen;
+    if (cenarioId) {
+      const { data } = await sb.from('banco_cenarios').select('*').eq('id', cenarioId).single();
+      cen = data;
+    } else if (empresaId && cargo && competenciaId) {
+      const { data } = await sb.from('banco_cenarios').select('*')
+        .eq('empresa_id', empresaId).eq('cargo', cargo).eq('competencia_id', competenciaId)
+        .order('created_at', { ascending: false }).limit(1).maybeSingle();
+      cen = data;
+    }
     if (!cen) return { success: false, error: 'Cenário não encontrado' };
 
     // Buscar competência e descritores
@@ -790,7 +796,7 @@ ${descritoresTexto ? `DESCRITORES:\n${descritoresTexto}` : ''}
 ${pppResumo ? `\nCONTEXTO PPP:\n${pppResumo}` : ''}`;
 
     // Usar Gemini para validar (IA diferente da que gerou)
-    const resposta = await callAI(system, user, { model: 'gemini-3-flash-preview' }, 4096);
+    const resposta = await callAI(system, user, { model: modelo || 'gemini-3-flash-preview' }, 4096);
     const resultado = await extractJSON(resposta);
 
     if (!resultado?.nota) return { success: false, error: 'Validação não retornou resultado' };
