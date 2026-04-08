@@ -18,7 +18,7 @@ import { loadCompetencias } from '@/app/admin/competencias/actions';
 import {
   loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, loadColaboradoresLista,
   rodarIA1, rodarIA2, rodarIA3,
-  dispararEmails, verStatusEnvios,
+  verStatusEnvios,
   rodarIA4, verFilaIA4, checkAvaliacoes, gerarRelatoriosIndividuais, gerarRelatorioGestor, gerarRelatorioRH, enviarRelIndividuais, enviarRelGestor, enviarRelRH,
   gerarPDIs, gerarPDIsDescritores, montarTrilhasLote, criarEstruturaFase4, iniciarFase4ParaTodos, triggerSegundaFase4, triggerQuintaFase4, getStatusFase4, moodleImportarCatalogo, catalogarConteudosMoodle, gerarCoberturaConteudo,
   iniciarReavaliacaoLote, gerarRelatoriosEvolucaoLote, gerarPlenariaEvolucao, gerarRelatorioRHManual, gerarRelatorioPlenaria, enviarLinksPerfil, gerarDossieGestor, checkCenarios, dispararRelatoriosLote,
@@ -65,7 +65,7 @@ const PHASE_CONFIG = [
     { key: 'ia2', label: 'IA2 — Gabarito', icon: Zap, ai: true },
     { key: 'ia3', label: 'IA3 — Cenários + Check', icon: Zap, ai: 'dual' },
     { key: 'fit', label: 'Fit v2', icon: BarChart3, href: '/admin/fit' },
-    { key: 'disparo', label: 'Disparar Convites', icon: Send },
+    { key: 'envios', label: 'Envios', icon: Send, href: '/admin/whatsapp' },
   ]},
   { num: 2, icon: Bot, color: '#EF4444', groups: [
     { label: 'Diagnóstico', actions: [
@@ -108,7 +108,6 @@ const PHASE_CONFIG = [
 // Action dispatcher map
 const ACTION_MAP = {
   ia1: rodarIA1, ia2: rodarIA2, ia3: rodarIA3,
-  disparo: dispararEmails,
   ia4: rodarIA4, fila: verFilaIA4, check: checkAvaliacoes,
   'rel-ind': gerarRelatoriosIndividuais, 'rel-gestor': gerarRelatorioGestor, 'rel-rh': gerarRelatorioRH,
   'env-ind': enviarRelIndividuais, 'env-gestor': enviarRelGestor, 'env-rh': enviarRelRH, 'enviar-lote': dispararRelatoriosLote,

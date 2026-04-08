@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2, MessageCircle, Send, ChevronDown, CheckCircle, AlertCircle, Link2, FileBarChart } from 'lucide-react';
 import { loadEmpresas, loadWhatsappStatus } from './actions';
 import { dispararLinksCIS, dispararRelatoriosLote } from '@/actions/whatsapp-lote';
+import { dispararEmails } from '@/actions/fase2';
 
 export default function WhatsappPage() {
   const router = useRouter();
@@ -18,8 +19,10 @@ export default function WhatsappPage() {
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [sendingCIS, setSendingCIS] = useState(false);
   const [sendingRel, setSendingRel] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
   const [resultCIS, setResultCIS] = useState(null);
   const [resultRel, setResultRel] = useState(null);
+  const [resultEmail, setResultEmail] = useState(null);
 
   useEffect(() => {
     loadEmpresas().then(r => {
@@ -79,11 +82,11 @@ export default function WhatsappPage() {
           <ArrowLeft size={16} />
         </button>
         <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2"><MessageCircle size={20} className="text-green-400" /> WhatsApp</h1>
+          <h1 className="text-xl font-bold text-white flex items-center gap-2"><Send size={20} className="text-cyan-400" /> Envios</h1>
           {empresaParam && empresaNome ? (
             <p className="text-xs text-gray-500">{empresaNome}</p>
           ) : (
-            <p className="text-xs text-gray-500">Disparo de links de avaliação e relatorios via WhatsApp</p>
+            <p className="text-xs text-gray-500">Disparo de convites e relatórios por email e WhatsApp</p>
           )}
         </div>
       </div>
@@ -112,7 +115,37 @@ export default function WhatsappPage() {
       )}
 
       {status && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Email Convites */}
+          <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
+            <div className="px-5 py-3 border-b border-white/[0.06] flex items-center gap-2">
+              <Send size={16} className="text-blue-400" />
+              <span className="text-sm font-bold text-white">Email — Convites</span>
+            </div>
+            <div className="p-5">
+              <p className="text-xs text-gray-400 mb-4">Envia email + WhatsApp com link de avaliação para todos os colaboradores pendentes.</p>
+              <button onClick={async () => {
+                setSendingEmail(true); setResultEmail(null);
+                const r = await dispararEmails(empresaId);
+                setResultEmail(r); setSendingEmail(false);
+                const s = await loadWhatsappStatus(empresaId);
+                if (s.success) setStatus(s.data);
+              }} disabled={sendingEmail}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold text-white bg-blue-600 hover:bg-blue-500 transition-colors disabled:opacity-40">
+                {sendingEmail ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                {sendingEmail ? 'Enviando...' : 'Disparar Convites'}
+              </button>
+              {resultEmail && (
+                <div className={`mt-3 flex items-start gap-2 px-3 py-2 rounded-lg text-xs ${
+                  resultEmail.success ? 'bg-green-400/10 text-green-400' : 'bg-red-400/10 text-red-400'
+                }`}>
+                  {resultEmail.success ? <CheckCircle size={14} className="shrink-0 mt-0.5" /> : <AlertCircle size={14} className="shrink-0 mt-0.5" />}
+                  <span>{resultEmail.message || resultEmail.error}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Avaliacao Links */}
           <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
             <div className="px-5 py-3 border-b border-white/[0.06] flex items-center gap-2">
