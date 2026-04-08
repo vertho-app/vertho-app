@@ -2,8 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Upload, Loader2, Users, Pencil, Trash2, X, Check } from 'lucide-react';
-import { loadEmpresas, loadResumoEmpresa, importarColaboradoresLote, loadColaboradores, atualizarColaborador, excluirColaborador } from './actions';
+import { ArrowLeft, Upload, Loader2, Users, Pencil, Trash2, X, Check, Briefcase, RefreshCw, Plus, Save } from 'lucide-react';
+import {
+  loadEmpresas, loadResumoEmpresa, importarColaboradoresLote, loadColaboradores, atualizarColaborador, excluirColaborador,
+  loadCargos, salvarCargo, excluirCargo, sincronizarCargosDeColaboradores
+} from './actions';
+
+const CARGO_FIELDS = [
+  { key: 'descricao', label: 'Descrição do Cargo', placeholder: 'Responsabilidades principais...', rows: 3 },
+  { key: 'principais_entregas', label: 'Principais Entregas Esperadas', placeholder: 'Resultados que se espera do cargo...', rows: 2 },
+  { key: 'stakeholders', label: 'Stakeholders', placeholder: 'Com quem interage: pares, superiores, clientes...', rows: 2 },
+  { key: 'decisoes_recorrentes', label: 'Decisões Recorrentes', placeholder: 'Decisões típicas que o cargo precisa tomar...', rows: 2 },
+  { key: 'tensoes_comuns', label: 'Tensões e Situações Difíceis', placeholder: 'Conflitos recorrentes, dilemas, pressões...', rows: 2 },
+  { key: 'contexto_cultural', label: 'Contexto Cultural (opcional)', placeholder: 'Aspectos culturais específicos do cargo na empresa...', rows: 2 },
+];
 
 export default function GerenciarPage() {
   const router = useRouter();
@@ -17,10 +29,17 @@ export default function GerenciarPage() {
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [msg, setMsg] = useState('');
-  const [tab, setTab] = useState('lista'); // lista | importar
+  const [tab, setTab] = useState('lista'); // lista | importar | cargos
   const [editId, setEditId] = useState(null);
   const [editData, setEditData] = useState({});
   const [saving, setSaving] = useState(false);
+
+  // Cargos state
+  const [cargos, setCargos] = useState([]);
+  const [loadingCargos, setLoadingCargos] = useState(false);
+  const [editCargo, setEditCargo] = useState(null); // cargo sendo editado
+  const [savingCargo, setSavingCargo] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     loadEmpresas().then(data => {
@@ -45,6 +64,19 @@ export default function GerenciarPage() {
     setResumo(r);
     setColabs(c);
   }
+
+  async function refreshCargos() {
+    if (!tenantId) return;
+    setLoadingCargos(true);
+    const data = await loadCargos(tenantId);
+    setCargos(data);
+    setLoadingCargos(false);
+  }
+
+  // Carregar cargos quando tab muda
+  useEffect(() => {
+    if (tab === 'cargos' && tenantId) refreshCargos();
+  }, [tab, tenantId]);
 
   async function handleCSV(e) {
     const file = e.target.files?.[0];
@@ -93,6 +125,36 @@ export default function GerenciarPage() {
     else setMsg('Erro: ' + r.error);
   }
 
+  async function handleSyncCargos() {
+    if (!tenantId) return;
+    setSyncing(true);
+    const r = await sincronizarCargosDeColaboradores(tenantId);
+    setSyncing(false);
+    setMsg(r.success ? r.message : 'Erro: ' + r.error);
+    if (r.success) refreshCargos();
+  }
+
+  async function handleSaveCargo() {
+    if (!editCargo || !tenantId) return;
+    setSavingCargo(true);
+    const r = await salvarCargo(tenantId, editCargo);
+    setSavingCargo(false);
+    if (r.success) {
+      setEditCargo(null);
+      refreshCargos();
+      setMsg('Cargo salvo');
+    } else {
+      setMsg('Erro: ' + r.error);
+    }
+  }
+
+  async function handleDeleteCargo(id, nome) {
+    if (!confirm(`Excluir cargo "${nome}"?`)) return;
+    const r = await excluirCargo(id);
+    if (r.success) { refreshCargos(); setMsg('Cargo excluído'); }
+    else setMsg('Erro: ' + r.error);
+  }
+
   if (loading) return <div className="flex items-center justify-center h-dvh"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
 
   return (
@@ -133,6 +195,10 @@ export default function GerenciarPage() {
             <button onClick={() => setTab('lista')}
               className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${tab === 'lista' ? 'bg-cyan-400/15 text-cyan-400' : 'text-gray-500 hover:text-gray-300'}`}>
               Colaboradores ({colabs.length})
+            </button>
+            <button onClick={() => setTab('cargos')}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${tab === 'cargos' ? 'bg-cyan-400/15 text-cyan-400' : 'text-gray-500 hover:text-gray-300'}`}>
+              <Briefcase size={12} /> Cargos ({cargos.length || '...'})
             </button>
             <button onClick={() => setTab('importar')}
               className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${tab === 'importar' ? 'bg-cyan-400/15 text-cyan-400' : 'text-gray-500 hover:text-gray-300'}`}>
@@ -219,6 +285,115 @@ export default function GerenciarPage() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tab: Cargos */}
+          {tab === 'cargos' && (
+            <div>
+              {/* Ações */}
+              <div className="flex items-center gap-2 mb-4">
+                <button onClick={handleSyncCargos} disabled={syncing}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-cyan-400/30 hover:text-cyan-400 transition-all disabled:opacity-50">
+                  {syncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                  Sincronizar dos Colaboradores
+                </button>
+                <button onClick={() => setEditCargo({ nome: '', area_depto: '', descricao: '', principais_entregas: '', stakeholders: '', decisoes_recorrentes: '', tensoes_comuns: '', contexto_cultural: '' })}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-green-400/30 hover:text-green-400 transition-all">
+                  <Plus size={12} /> Novo Cargo
+                </button>
+              </div>
+
+              {loadingCargos ? (
+                <div className="flex justify-center py-8"><Loader2 size={24} className="animate-spin text-cyan-400" /></div>
+              ) : cargos.length === 0 ? (
+                <div className="text-center py-8">
+                  <Briefcase size={32} className="text-gray-600 mx-auto mb-3" />
+                  <p className="text-sm text-gray-500">Nenhum cargo cadastrado</p>
+                  <p className="text-xs text-gray-600 mt-1">Clique em "Sincronizar dos Colaboradores" para importar os cargos existentes</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {cargos.map(c => (
+                    <div key={c.id} className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        <Briefcase size={14} className="text-cyan-400 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-white">{c.nome}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {c.area_depto && <span className="text-[10px] text-gray-400">{c.area_depto}</span>}
+                            <span className={`text-[10px] ${c.descricao ? 'text-green-400' : 'text-amber-400'}`}>
+                              {c.descricao ? '● Preenchido' : '○ Pendente'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button onClick={() => setEditCargo({ ...c })} className="text-gray-500 hover:text-cyan-400"><Pencil size={13} /></button>
+                          <button onClick={() => handleDeleteCargo(c.id, c.nome)} className="text-gray-500 hover:text-red-400"><Trash2 size={13} /></button>
+                        </div>
+                      </div>
+                      {/* Preview dos campos preenchidos */}
+                      {c.descricao && (
+                        <div className="px-4 pb-3 text-[11px] text-gray-400 truncate max-w-2xl">
+                          {c.descricao}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Modal edição de cargo */}
+              {editCargo && (
+                <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-10 overflow-y-auto" style={{ background: 'rgba(0,0,0,0.7)' }}>
+                  <div className="w-full max-w-[650px] rounded-2xl border border-white/[0.08] p-6 mb-10" style={{ background: '#0A1D35' }}
+                    onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-between mb-5">
+                      <h2 className="text-lg font-bold text-white">{editCargo.id ? 'Editar' : 'Novo'} Cargo</h2>
+                      <button onClick={() => setEditCargo(null)} className="text-gray-500 hover:text-white"><X size={18} /></button>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Nome + Área */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Nome do Cargo *</label>
+                          <input value={editCargo.nome || ''} onChange={e => setEditCargo(p => ({ ...p, nome: e.target.value }))}
+                            placeholder="Ex: Consultor de Vendas"
+                            className="w-full rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 focus:outline-none focus:border-cyan-400/50" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Área / Depto</label>
+                          <input value={editCargo.area_depto || ''} onChange={e => setEditCargo(p => ({ ...p, area_depto: e.target.value }))}
+                            placeholder="Ex: Comercial"
+                            className="w-full rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 focus:outline-none focus:border-cyan-400/50" />
+                        </div>
+                      </div>
+
+                      {/* Campos descritivos */}
+                      {CARGO_FIELDS.map(f => (
+                        <div key={f.key}>
+                          <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">{f.label}</label>
+                          <textarea value={editCargo[f.key] || ''} onChange={e => setEditCargo(p => ({ ...p, [f.key]: e.target.value }))}
+                            rows={f.rows} placeholder={f.placeholder}
+                            className="w-full rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 focus:outline-none focus:border-cyan-400/50 resize-none" />
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex justify-end gap-2 mt-5">
+                      <button onClick={() => setEditCargo(null)} className="px-4 py-2 rounded-lg text-sm text-gray-400 border border-white/10 hover:text-white transition-colors">
+                        Cancelar
+                      </button>
+                      <button onClick={handleSaveCargo} disabled={savingCargo || !editCargo.nome?.trim()}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold text-white bg-teal-600 hover:bg-teal-500 transition-colors disabled:opacity-50">
+                        {savingCargo ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                        Salvar
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

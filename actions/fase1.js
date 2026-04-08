@@ -31,13 +31,30 @@ export async function rodarIA1(empresaId, aiConfig = {}) {
     // 3. Buscar valores organizacionais do PPP
     const valores = await buscarValores(sb, empresaId, empresa.nome);
 
-    // 4. Buscar cargos com dados completos (colaboradores)
+    // 4. Buscar cargos — prioriza cargos_empresa (com descrição), fallback colaboradores
+    const { data: cargosDetalhados } = await sb.from('cargos_empresa')
+      .select('*')
+      .eq('empresa_id', empresaId);
+
     const { data: colaboradores } = await sb.from('colaboradores')
       .select('cargo, area_depto')
       .eq('empresa_id', empresaId)
       .not('cargo', 'is', null);
 
+    // Merge: cargos_empresa tem prioridade, depois colaboradores sem detalhe
     const cargosMap = {};
+    (cargosDetalhados || []).forEach(c => {
+      cargosMap[c.nome] = {
+        cargo: c.nome,
+        area: c.area_depto || '',
+        descricao: c.descricao || '',
+        entregas: c.principais_entregas || '',
+        stakeholders: c.stakeholders || '',
+        decisoes: c.decisoes_recorrentes || '',
+        tensoes: c.tensoes_comuns || '',
+        contexto_extra: c.contexto_cultural || '',
+      };
+    });
     (colaboradores || []).forEach(c => {
       if (c.cargo && !cargosMap[c.cargo]) {
         cargosMap[c.cargo] = { cargo: c.cargo, area: c.area_depto || '' };
@@ -220,12 +237,23 @@ REGRAS:
 }
 
 function buildUserPrompt(empresa, cargoInfo, valores, contextoPPP) {
-  return `EMPRESA: ${empresa.nome}
+  let prompt = `EMPRESA: ${empresa.nome}
 SEGMENTO: ${empresa.segmento || 'Não informado'}
 CARGO: ${cargoInfo.cargo}
-ÁREA: ${cargoInfo.area || 'Não informado'}
-VALORES ORGANIZACIONAIS: ${valores.join(', ')}
-${contextoPPP ? `\nCONTEXTO DA EMPRESA:\n${contextoPPP}` : ''}`;
+ÁREA: ${cargoInfo.area || 'Não informado'}`;
+
+  if (cargoInfo.descricao) prompt += `\nDESCRIÇÃO DO CARGO: ${cargoInfo.descricao}`;
+  if (cargoInfo.entregas) prompt += `\nPRINCIPAIS ENTREGAS: ${cargoInfo.entregas}`;
+  if (cargoInfo.stakeholders) prompt += `\nSTAKEHOLDERS: ${cargoInfo.stakeholders}`;
+  if (cargoInfo.decisoes) prompt += `\nDECISÕES RECORRENTES: ${cargoInfo.decisoes}`;
+  if (cargoInfo.tensoes) prompt += `\nTENSÕES E SITUAÇÕES DIFÍCEIS: ${cargoInfo.tensoes}`;
+
+  prompt += `\nVALORES ORGANIZACIONAIS: ${valores.join(', ')}`;
+
+  if (cargoInfo.contexto_extra) prompt += `\nCONTEXTO CULTURAL DO CARGO: ${cargoInfo.contexto_extra}`;
+  if (contextoPPP) prompt += `\n\nCONTEXTO DA EMPRESA:\n${contextoPPP}`;
+
+  return prompt;
 }
 
 // ── IA2: Gerar gabarito (rubrica de respostas) ──────────────────────────────

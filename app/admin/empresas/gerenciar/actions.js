@@ -72,3 +72,84 @@ export async function excluirColaborador(id) {
   if (error) return { success: false, error: error.message };
   return { success: true };
 }
+
+// ── Cargos ──────────────────────────────────────────────────────────────────
+
+export async function loadCargos(empresaId) {
+  const sb = createSupabaseAdmin();
+  const { data, error } = await sb.from('cargos_empresa')
+    .select('*')
+    .eq('empresa_id', empresaId)
+    .order('nome');
+  if (error) return [];
+  return data || [];
+}
+
+export async function salvarCargo(empresaId, cargo) {
+  const sb = createSupabaseAdmin();
+  const registro = {
+    empresa_id: empresaId,
+    nome: cargo.nome?.trim(),
+    area_depto: cargo.area_depto?.trim() || null,
+    descricao: cargo.descricao?.trim() || null,
+    principais_entregas: cargo.principais_entregas?.trim() || null,
+    contexto_cultural: cargo.contexto_cultural?.trim() || null,
+    stakeholders: cargo.stakeholders?.trim() || null,
+    decisoes_recorrentes: cargo.decisoes_recorrentes?.trim() || null,
+    tensoes_comuns: cargo.tensoes_comuns?.trim() || null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (!registro.nome) return { success: false, error: 'Nome do cargo é obrigatório' };
+
+  let result;
+  if (cargo.id) {
+    result = await sb.from('cargos_empresa').update(registro).eq('id', cargo.id).select().single();
+  } else {
+    result = await sb.from('cargos_empresa').insert(registro).select().single();
+  }
+  if (result.error) return { success: false, error: result.error.message };
+  return { success: true, data: result.data };
+}
+
+export async function excluirCargo(id) {
+  const sb = createSupabaseAdmin();
+  const { error } = await sb.from('cargos_empresa').delete().eq('id', id);
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
+export async function sincronizarCargosDeColaboradores(empresaId) {
+  const sb = createSupabaseAdmin();
+  // Buscar cargos únicos dos colaboradores
+  const { data: colabs } = await sb.from('colaboradores')
+    .select('cargo, area_depto')
+    .eq('empresa_id', empresaId)
+    .not('cargo', 'is', null);
+
+  const cargosMap = {};
+  (colabs || []).forEach(c => {
+    if (c.cargo && !cargosMap[c.cargo]) {
+      cargosMap[c.cargo] = c.area_depto || null;
+    }
+  });
+
+  // Buscar cargos já existentes
+  const { data: existentes } = await sb.from('cargos_empresa')
+    .select('nome').eq('empresa_id', empresaId);
+  const existSet = new Set((existentes || []).map(c => c.nome.toLowerCase()));
+
+  const novos = Object.entries(cargosMap)
+    .filter(([nome]) => !existSet.has(nome.toLowerCase()))
+    .map(([nome, area]) => ({
+      empresa_id: empresaId,
+      nome,
+      area_depto: area,
+    }));
+
+  if (novos.length === 0) return { success: true, message: 'Todos os cargos já estavam cadastrados' };
+
+  const { error } = await sb.from('cargos_empresa').insert(novos);
+  if (error) return { success: false, error: error.message };
+  return { success: true, message: `${novos.length} cargos sincronizados dos colaboradores` };
+}
