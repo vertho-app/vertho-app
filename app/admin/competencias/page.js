@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  ArrowLeft, Loader2, BookMarked, Plus, Pencil, Trash2, Copy, ChevronDown, X, Save
+  ArrowLeft, Loader2, BookMarked, Plus, Pencil, Trash2, Copy, ChevronDown, X, Save, Upload, Filter
 } from 'lucide-react';
 import {
   loadEmpresas, loadCompetencias, loadCompetenciasBase,
-  salvarCompetencia, excluirCompetencia, copiarBaseParaEmpresa
+  salvarCompetencia, excluirCompetencia, copiarBaseParaEmpresa, importarCompetenciasCSV
 } from './actions';
 
 const EMPTY_COMP = { nome: '', descricao: '', cargo: '', cod_comp: '', pilar: '' };
@@ -29,6 +29,10 @@ export default function CompetenciasPage() {
   const [saving, setSaving] = useState(false);
   const [showBase, setShowBase] = useState(false);
   const [toast, setToast] = useState(null);
+  const [filtroCargo, setFiltroCargo] = useState('');
+  const [filtroCargoBase, setFiltroCargoBase] = useState('');
+  const [showImport, setShowImport] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     loadEmpresas().then(r => {
@@ -129,6 +133,10 @@ export default function CompetenciasPage() {
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-cyan-400/30 hover:text-cyan-400 transition-all">
               <Copy size={14} /> {showBase ? 'Ocultar Base' : 'Ver Base'}
             </button>
+            <button onClick={() => setShowImport(!showImport)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-cyan-400/30 hover:text-cyan-400 transition-all">
+              <Upload size={14} /> CSV
+            </button>
             <button onClick={openAdd}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-white border border-green-400/30 hover:bg-green-400/10 transition-all">
               <Plus size={14} /> Nova
@@ -151,7 +159,56 @@ export default function CompetenciasPage() {
         </div>
       )}
 
+      {/* Import CSV */}
+      {showImport && empresaId && (
+        <div className="rounded-xl p-4 border border-white/[0.06] mb-4" style={{ background: '#0F2A4A' }}>
+          <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-2">Importar Competências via CSV</p>
+          <p className="text-xs text-gray-400 mb-2">Colunas: <span className="text-cyan-400">nome</span> (obrigatória), cod_comp, pilar, cargo, descricao. Separador: vírgula ou ponto-e-vírgula.</p>
+          <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white cursor-pointer"
+            style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+            {importing ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+            {importing ? 'Importando...' : 'Selecionar CSV'}
+            <input type="file" accept=".csv" className="hidden" disabled={importing} onChange={async e => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              setImporting(true);
+              const text = await file.text();
+              const lines = text.split('\n').filter(l => l.trim());
+              const sep = (lines[0].split(';').length > lines[0].split(',').length) ? ';' : ',';
+              const header = lines[0].split(sep).map(h => h.trim().toLowerCase().replace(/^["']|["']$/g, ''));
+              const parsed = lines.slice(1).map(line => {
+                const cols = line.split(sep).map(c => c.trim().replace(/^["']|["']$/g, ''));
+                const obj = {};
+                header.forEach((h, i) => { obj[h] = cols[i]; });
+                return obj;
+              }).filter(c => c.nome);
+              if (!parsed.length) { flash('Nenhuma competência válida. Verifique coluna "nome".'); setImporting(false); e.target.value = ''; return; }
+              const r = await importarCompetenciasCSV(empresaId, parsed);
+              flash(r.success ? r.message : 'Erro: ' + r.error);
+              setImporting(false);
+              e.target.value = '';
+              if (r.success) handleSelectEmpresa(empresaId);
+            }} />
+          </label>
+        </div>
+      )}
+
       {loadingComps && <div className="flex items-center justify-center py-12"><Loader2 size={24} className="animate-spin text-cyan-400" /></div>}
+
+      {/* Filtro por cargo */}
+      {!loadingComps && comps.length > 0 && (() => {
+        const cargos = [...new Set(comps.map(c => c.cargo).filter(Boolean))].sort();
+        return cargos.length > 1 ? (
+          <div className="flex items-center gap-2 mb-3">
+            <Filter size={14} className="text-gray-500" />
+            <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
+              className="px-3 py-1.5 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
+              <option value="">Todos os cargos ({comps.length})</option>
+              {cargos.map(c => <option key={c} value={c}>{c} ({comps.filter(x => x.cargo === c).length})</option>)}
+            </select>
+          </div>
+        ) : null;
+      })()}
 
       {/* Empty */}
       {!loadingComps && empresaId && comps.length === 0 && (
@@ -177,7 +234,7 @@ export default function CompetenciasPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.03]">
-                {comps.map(c => (
+                {comps.filter(c => !filtroCargo || c.cargo === filtroCargo).map(c => (
                   <tr key={c.id} className="hover:bg-white/[0.02] transition-colors">
                     <td className="px-4 py-3 text-gray-400 font-mono text-xs">{c.cod_comp || '-'}</td>
                     <td className="px-4 py-3 text-white font-semibold">{c.nome}</td>
@@ -209,8 +266,21 @@ export default function CompetenciasPage() {
             <Copy size={16} className="text-cyan-400" />
             <span className="text-sm font-bold text-white">Competencias Base {segmento ? `(${segmento})` : '(Global)'}</span>
           </div>
+          {(() => {
+            const cargosBase = [...new Set(baselist.map(b => b.cargo).filter(Boolean))].sort();
+            return cargosBase.length > 1 ? (
+              <div className="flex items-center gap-2 px-5 py-2 border-b border-white/[0.06]">
+                <Filter size={12} className="text-gray-500" />
+                <select value={filtroCargoBase} onChange={e => setFiltroCargoBase(e.target.value)}
+                  className="px-2 py-1 rounded text-[10px] text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
+                  <option value="">Todos</option>
+                  {cargosBase.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            ) : null;
+          })()}
           <div className="divide-y divide-white/[0.03]">
-            {baselist.map(b => (
+            {baselist.filter(b => !filtroCargoBase || b.cargo === filtroCargoBase).map(b => (
               <div key={b.id} className="flex items-center justify-between px-5 py-3 hover:bg-white/[0.02] transition-colors">
                 <div>
                   <p className="text-sm font-semibold text-white">{b.nome}</p>

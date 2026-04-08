@@ -83,6 +83,30 @@ export async function excluirCompetencia(id) {
   }
 }
 
+export async function importarCompetenciasCSV(empresaId, comps) {
+  const sb = createSupabaseAdmin();
+  const { data: existentes } = await sb.from('competencias')
+    .select('nome, cargo').eq('empresa_id', empresaId);
+  const existSet = new Set((existentes || []).map(c => `${c.nome}||${c.cargo}`.toLowerCase()));
+
+  const novos = comps
+    .filter(c => c.nome && !existSet.has(`${c.nome}||${c.cargo || ''}`.toLowerCase()))
+    .map(c => ({
+      empresa_id: empresaId,
+      nome: c.nome.trim(),
+      cod_comp: c.cod_comp?.trim() || null,
+      pilar: c.pilar?.trim() || null,
+      cargo: c.cargo?.trim() || null,
+      descricao: c.descricao?.trim() || null,
+      origem: 'csv',
+    }));
+
+  if (novos.length === 0) return { success: true, message: '0 novas (todas já existiam)' };
+  const { error } = await sb.from('competencias').insert(novos);
+  if (error) return { success: false, error: error.message };
+  return { success: true, message: `${novos.length} competências importadas` };
+}
+
 export async function copiarBaseParaEmpresa(empresaId, baseId) {
   const sb = createSupabaseAdmin();
   try {
