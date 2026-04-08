@@ -316,80 +316,184 @@ export default function PPPPage() {
 
               {ext ? (
                 <div className="space-y-1">
-                  <Section num="1" title="Perfil da Instituição" color="#00B4D8">
-                    {ext.perfil_instituicao ? (
-                      <div className="space-y-0.5">
-                        {Object.entries(ext.perfil_instituicao).map(([k, v]) => <p key={k}><span className="text-gray-500 font-semibold">{k}:</span> {typeof v === 'object' ? JSON.stringify(v) : String(v)}</p>)}
-                      </div>
-                    ) : <p className="text-gray-500 italic">Não declarado</p>}
-                  </Section>
-
-                  <Section num="2" title="Comunidade e Contexto" color="#22C55E">
-                    <p>{ext.comunidade_contexto || 'Não declarado'}</p>
-                  </Section>
-
-                  <Section num="3" title="Identidade" color="#A78BFA">
-                    {ext.identidade ? (
-                      <>
-                        <p><span className="text-gray-500 font-semibold">Missão:</span> {ext.identidade.missao}</p>
-                        <p><span className="text-gray-500 font-semibold">Visão:</span> {ext.identidade.visao}</p>
-                        <p className="mt-1"><span className="text-gray-500 font-semibold">Princípios:</span></p>
-                        <List items={ext.identidade.principios} />
-                        {ext.identidade.concepcao && <p className="mt-1">{ext.identidade.concepcao}</p>}
-                      </>
-                    ) : <p className="text-gray-500 italic">Não declarado</p>}
-                  </Section>
-
-                  <Section num="4" title="Práticas Descritas" color="#F59E0B">
-                    {ext.praticas_descritas?.length ? (
-                      <div className="space-y-1">
-                        {ext.praticas_descritas.map((p, i) => (
-                          <div key={i} className="flex items-start gap-2">
-                            <span className="text-cyan-400 font-bold shrink-0">•</span>
-                            <span><strong>{p.nome}</strong> — {p.descricao} <span className="text-gray-500">({p.frequencia})</span></span>
+                  {/* Detecta formato: corporativo (perfil_organizacional) vs educacional (perfil_instituicao) */}
+                  {ext.perfil_organizacional ? (
+                    <>
+                      {/* ── CORPORATIVO: Dossiê de Contexto Operacional ── */}
+                      <Section num="1" title="Perfil Organizacional" color="#00B4D8">
+                        {ext.perfil_organizacional ? (
+                          <div className="space-y-0.5">
+                            {Object.entries(ext.perfil_organizacional).map(([k, v]) => <p key={k}><span className="text-gray-500 font-semibold">{k.replace(/_/g, ' ')}:</span> {typeof v === 'object' ? JSON.stringify(v) : String(v)}</p>)}
                           </div>
-                        ))}
-                      </div>
-                    ) : <p className="text-gray-500 italic">Não declarado</p>}
-                  </Section>
+                        ) : <p className="text-gray-500 italic">Não identificado</p>}
+                      </Section>
 
-                  <Section num="5" title="Inclusão e Diversidade" color="#EC4899">
-                    <p>{ext.inclusao_diversidade || 'Não declarado'}</p>
-                  </Section>
+                      <Section num="2" title="Mercado e Stakeholders" color="#22C55E">
+                        {ext.mercado_stakeholders ? (
+                          <>
+                            {ext.mercado_stakeholders.clientes && <p><span className="text-gray-500 font-semibold">Clientes:</span> {ext.mercado_stakeholders.clientes}</p>}
+                            {ext.mercado_stakeholders.concorrencia && <p><span className="text-gray-500 font-semibold">Concorrência:</span> {ext.mercado_stakeholders.concorrencia}</p>}
+                            <List items={ext.mercado_stakeholders.stakeholders_chave} />
+                          </>
+                        ) : <p className="text-gray-500 italic">Não identificado</p>}
+                      </Section>
 
-                  <Section num="6" title="Gestão e Participação" color="#06B6D4">
-                    <p>{ext.gestao_participacao || 'Não declarado'}</p>
-                  </Section>
+                      <Section num="3" title="Identidade e Cultura" color="#A78BFA">
+                        {ext.identidade_cultura ? (
+                          <>
+                            {ext.identidade_cultura.missao && <p><span className="text-gray-500 font-semibold">Missão:</span> {ext.identidade_cultura.missao}</p>}
+                            {ext.identidade_cultura.visao && <p><span className="text-gray-500 font-semibold">Visão:</span> {ext.identidade_cultura.visao}</p>}
+                            <List items={ext.identidade_cultura.valores} />
+                            {ext.identidade_cultura.modelo_gestao && <p className="mt-1"><span className="text-gray-500 font-semibold">Modelo de gestão:</span> {ext.identidade_cultura.modelo_gestao}</p>}
+                            {ext.identidade_cultura.cultura_declarada && <p><span className="text-gray-500 font-semibold">Cultura:</span> {ext.identidade_cultura.cultura_declarada}</p>}
+                          </>
+                        ) : <p className="text-gray-500 italic">Não identificado</p>}
+                      </Section>
 
-                  <Section num="7" title="Infraestrutura e Recursos" color="#8B5CF6">
-                    {ext.infraestrutura_recursos ? (
-                      <>
-                        <p className="text-gray-500 font-semibold">Espaços:</p><List items={ext.infraestrutura_recursos.espacos} />
-                        <p className="text-gray-500 font-semibold mt-1">Tecnologia:</p><List items={ext.infraestrutura_recursos.tecnologia} />
-                        <p className="text-gray-500 font-semibold mt-1">Limitações:</p><List items={ext.infraestrutura_recursos.limitacoes} />
-                      </>
-                    ) : <p className="text-gray-500 italic">Não declarado</p>}
-                  </Section>
+                      <Section num="4" title="Operação e Processos" color="#F59E0B">
+                        {ext.operacao_processos?.length ? (
+                          <div className="space-y-1">
+                            {ext.operacao_processos.map((p, i) => (
+                              <div key={i} className="flex items-start gap-2">
+                                <span className="text-cyan-400 font-bold shrink-0">•</span>
+                                <span><strong>{p.area}</strong> — {p.funcao} {p.processos_chave && <span className="text-gray-500">({p.processos_chave})</span>}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : <p className="text-gray-500 italic">Não identificado</p>}
+                      </Section>
 
-                  <Section num="8" title="Desafios e Metas" color="#EF4444">
-                    {ext.desafios_metas ? (
-                      <>
-                        <p className="text-gray-500 font-semibold">Desafios:</p><List items={ext.desafios_metas.desafios} />
-                        <p className="text-gray-500 font-semibold mt-1">Metas:</p><List items={ext.desafios_metas.metas} />
-                      </>
-                    ) : <p className="text-gray-500 italic">Não declarado</p>}
-                  </Section>
+                      <Section num="5" title="Modelo de Pessoas" color="#EC4899">
+                        {ext.modelo_pessoas ? (
+                          <>
+                            {ext.modelo_pessoas.desenvolvimento && <p><span className="text-gray-500 font-semibold">Desenvolvimento:</span> {ext.modelo_pessoas.desenvolvimento}</p>}
+                            {ext.modelo_pessoas.avaliacao && <p><span className="text-gray-500 font-semibold">Avaliação:</span> {ext.modelo_pessoas.avaliacao}</p>}
+                            {ext.modelo_pessoas.carreira && <p><span className="text-gray-500 font-semibold">Carreira:</span> {ext.modelo_pessoas.carreira}</p>}
+                            {ext.modelo_pessoas.diversidade_inclusao && <p><span className="text-gray-500 font-semibold">D&I:</span> {ext.modelo_pessoas.diversidade_inclusao}</p>}
+                          </>
+                        ) : <p className="text-gray-500 italic">Não identificado</p>}
+                      </Section>
 
-                  <Section num="9" title="Vocabulário" color="#F97316">
-                    {ext.vocabulario?.length ? (
-                      <div className="space-y-1">
-                        {ext.vocabulario.map((v, i) => (
-                          <p key={i}><strong className="text-white">{v.termo}</strong> — {v.significado}</p>
-                        ))}
-                      </div>
-                    ) : <p className="text-gray-500 italic">Não declarado</p>}
-                  </Section>
+                      <Section num="6" title="Governança e Decisão" color="#06B6D4">
+                        {ext.governanca_decisao ? (
+                          <>
+                            {ext.governanca_decisao.estrutura && <p><span className="text-gray-500 font-semibold">Estrutura:</span> {ext.governanca_decisao.estrutura}</p>}
+                            {ext.governanca_decisao.tomada_decisao && <p><span className="text-gray-500 font-semibold">Tomada de decisão:</span> {ext.governanca_decisao.tomada_decisao}</p>}
+                            {ext.governanca_decisao.compliance && <p><span className="text-gray-500 font-semibold">Compliance:</span> {ext.governanca_decisao.compliance}</p>}
+                          </>
+                        ) : <p className="text-gray-500 italic">Não identificado</p>}
+                      </Section>
 
+                      <Section num="7" title="Tecnologia e Recursos" color="#8B5CF6">
+                        {ext.tecnologia_recursos ? (
+                          <>
+                            <p className="text-gray-500 font-semibold">Ferramentas:</p><List items={ext.tecnologia_recursos.ferramentas} />
+                            <p className="text-gray-500 font-semibold mt-1">Capacidades:</p><List items={ext.tecnologia_recursos.capacidades} />
+                            <p className="text-gray-500 font-semibold mt-1">Limitações:</p><List items={ext.tecnologia_recursos.limitacoes} />
+                          </>
+                        ) : <p className="text-gray-500 italic">Não identificado</p>}
+                      </Section>
+
+                      <Section num="8" title="Desafios e Estratégia" color="#EF4444">
+                        {ext.desafios_estrategia ? (
+                          <>
+                            <p className="text-gray-500 font-semibold">Desafios:</p><List items={ext.desafios_estrategia.desafios} />
+                            <p className="text-gray-500 font-semibold mt-1">Metas:</p><List items={ext.desafios_estrategia.metas} />
+                            {ext.desafios_estrategia.transformacoes && <p className="mt-1"><span className="text-gray-500 font-semibold">Transformações:</span> {ext.desafios_estrategia.transformacoes}</p>}
+                          </>
+                        ) : <p className="text-gray-500 italic">Não identificado</p>}
+                      </Section>
+
+                      <Section num="9" title="Vocabulário Corporativo" color="#F97316">
+                        {(ext.vocabulario_corporativo || ext.vocabulario)?.length ? (
+                          <div className="space-y-1">
+                            {(ext.vocabulario_corporativo || ext.vocabulario).map((v, i) => (
+                              <p key={i}><strong className="text-white">{v.termo}</strong> — {v.significado}</p>
+                            ))}
+                          </div>
+                        ) : <p className="text-gray-500 italic">Não identificado</p>}
+                      </Section>
+                    </>
+                  ) : (
+                    <>
+                      {/* ── EDUCACIONAL: PPP clássico ── */}
+                      <Section num="1" title="Perfil da Instituição" color="#00B4D8">
+                        {ext.perfil_instituicao ? (
+                          <div className="space-y-0.5">
+                            {Object.entries(ext.perfil_instituicao).map(([k, v]) => <p key={k}><span className="text-gray-500 font-semibold">{k}:</span> {typeof v === 'object' ? JSON.stringify(v) : String(v)}</p>)}
+                          </div>
+                        ) : <p className="text-gray-500 italic">Não declarado</p>}
+                      </Section>
+
+                      <Section num="2" title="Comunidade e Contexto" color="#22C55E">
+                        <p>{ext.comunidade_contexto || 'Não declarado'}</p>
+                      </Section>
+
+                      <Section num="3" title="Identidade" color="#A78BFA">
+                        {ext.identidade ? (
+                          <>
+                            <p><span className="text-gray-500 font-semibold">Missão:</span> {ext.identidade.missao}</p>
+                            <p><span className="text-gray-500 font-semibold">Visão:</span> {ext.identidade.visao}</p>
+                            <p className="mt-1"><span className="text-gray-500 font-semibold">Princípios:</span></p>
+                            <List items={ext.identidade.principios} />
+                            {ext.identidade.concepcao && <p className="mt-1">{ext.identidade.concepcao}</p>}
+                          </>
+                        ) : <p className="text-gray-500 italic">Não declarado</p>}
+                      </Section>
+
+                      <Section num="4" title="Práticas Descritas" color="#F59E0B">
+                        {ext.praticas_descritas?.length ? (
+                          <div className="space-y-1">
+                            {ext.praticas_descritas.map((p, i) => (
+                              <div key={i} className="flex items-start gap-2">
+                                <span className="text-cyan-400 font-bold shrink-0">•</span>
+                                <span><strong>{p.nome}</strong> — {p.descricao} <span className="text-gray-500">({p.frequencia})</span></span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : <p className="text-gray-500 italic">Não declarado</p>}
+                      </Section>
+
+                      <Section num="5" title="Inclusão e Diversidade" color="#EC4899">
+                        <p>{ext.inclusao_diversidade || 'Não declarado'}</p>
+                      </Section>
+
+                      <Section num="6" title="Gestão e Participação" color="#06B6D4">
+                        <p>{ext.gestao_participacao || 'Não declarado'}</p>
+                      </Section>
+
+                      <Section num="7" title="Infraestrutura e Recursos" color="#8B5CF6">
+                        {ext.infraestrutura_recursos ? (
+                          <>
+                            <p className="text-gray-500 font-semibold">Espaços:</p><List items={ext.infraestrutura_recursos.espacos} />
+                            <p className="text-gray-500 font-semibold mt-1">Tecnologia:</p><List items={ext.infraestrutura_recursos.tecnologia} />
+                            <p className="text-gray-500 font-semibold mt-1">Limitações:</p><List items={ext.infraestrutura_recursos.limitacoes} />
+                          </>
+                        ) : <p className="text-gray-500 italic">Não declarado</p>}
+                      </Section>
+
+                      <Section num="8" title="Desafios e Metas" color="#EF4444">
+                        {ext.desafios_metas ? (
+                          <>
+                            <p className="text-gray-500 font-semibold">Desafios:</p><List items={ext.desafios_metas.desafios} />
+                            <p className="text-gray-500 font-semibold mt-1">Metas:</p><List items={ext.desafios_metas.metas} />
+                          </>
+                        ) : <p className="text-gray-500 italic">Não declarado</p>}
+                      </Section>
+
+                      <Section num="9" title="Vocabulário" color="#F97316">
+                        {ext.vocabulario?.length ? (
+                          <div className="space-y-1">
+                            {ext.vocabulario.map((v, i) => (
+                              <p key={i}><strong className="text-white">{v.termo}</strong> — {v.significado}</p>
+                            ))}
+                          </div>
+                        ) : <p className="text-gray-500 italic">Não declarado</p>}
+                      </Section>
+                    </>
+                  )}
+
+                  {/* Seção 10 compartilhada: Competências Priorizadas */}
                   <Section num="10" title="Competências Priorizadas" color="#10B981">
                     {(ext.competencias_priorizadas || ext.competencias)?.length ? (
                       <div className="space-y-2">
@@ -409,7 +513,7 @@ export default function PPPPage() {
                   {/* Valores */}
                   {(ext.valores_institucionais || viewPPP.valores)?.length > 0 && (
                     <div className="pt-3 border-t border-white/[0.06]">
-                      <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-2">Valores Institucionais</p>
+                      <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-2">Valores</p>
                       <div className="flex flex-wrap gap-1.5">
                         {(ext.valores_institucionais || viewPPP.valores).map((v, i) => (
                           <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-cyan-400/10 text-cyan-400">{v}</span>
