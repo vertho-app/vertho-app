@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import {
   loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, loadCenarios,
-  regenerarCenario, checkCenarioUm
+  regenerarCenario, checkCenarioUm, limparCenariosAntigos
 } from '@/actions/fase1';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 
@@ -297,7 +297,19 @@ export default function Fase1Page({ params }) {
         <div>
           {cenarios.length === 0 ? (
             <Empty icon={FileText} text="Nenhum cenário. Rode IA3 no pipeline." />
-          ) : Object.entries(cenariosPorCargo).map(([cargo, cens]) => {
+          ) : (<>
+            <div className="flex items-center gap-2 mb-4">
+              <button onClick={async () => {
+                if (!confirm('Remover cenários de competências que não estão no Top 5?')) return;
+                const r = await limparCenariosAntigos(empresaId);
+                flash(r.success ? r.message : 'Erro: ' + r.error);
+                if (r.success) refresh();
+              }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold text-gray-400 border border-white/10 hover:text-red-400 hover:border-red-400/30 transition-all">
+                <Trash2 size={11} /> Limpar fora do Top 5
+              </button>
+            </div>
+          {Object.entries(cenariosPorCargo).map(([cargo, cens]) => {
             const aprovados = cens.filter(c => c.status_check === 'aprovado').length;
             const revisar = cens.filter(c => c.status_check === 'revisar').length;
             const pendentes = cens.filter(c => !c.status_check).length;
@@ -432,6 +444,7 @@ export default function Fase1Page({ params }) {
               </div>
             );
           })}
+          </>)}
         </div>
       )}
     </div>

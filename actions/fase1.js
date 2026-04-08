@@ -244,6 +244,47 @@ export async function loadCenarios(empresaId) {
   }));
 }
 
+// Limpar cenários que não estão no Top 5
+export async function limparCenariosAntigos(empresaId) {
+  const sb = createSupabaseAdmin();
+  try {
+    const top5 = await getTop5PorCargo(sb, empresaId);
+    if (!Object.keys(top5).length) return { success: false, error: 'Nenhum Top 5 definido' };
+
+    // Buscar todos cenários
+    const { data: todos } = await sb.from('banco_cenarios')
+      .select('id, cargo, competencia_id')
+      .eq('empresa_id', empresaId);
+
+    // Buscar nomes das competências
+    const compIds = [...new Set((todos || []).map(c => c.competencia_id).filter(Boolean))];
+    const compMap = {};
+    if (compIds.length) {
+      const { data: comps } = await sb.from('competencias').select('id, nome').in('id', compIds);
+      (comps || []).forEach(c => { compMap[c.id] = c.nome; });
+    }
+
+    // Identificar os que NÃO estão no Top 5
+    const paraRemover = (todos || []).filter(c => {
+      const t5 = top5[c.cargo];
+      if (!t5) return true; // cargo sem top5 → remover
+      const nome = compMap[c.competencia_id];
+      return !nome || !t5.includes(nome);
+    });
+
+    if (!paraRemover.length) return { success: true, message: 'Nenhum cenário antigo para limpar' };
+
+    const { error } = await sb.from('banco_cenarios')
+      .delete()
+      .in('id', paraRemover.map(c => c.id));
+    if (error) return { success: false, error: error.message };
+
+    return { success: true, message: `${paraRemover.length} cenários antigos removidos` };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 // ── Helper Top 5 ────────────────────────────────────────────────────────────
 
 async function getTop5PorCargo(sb, empresaId) {
