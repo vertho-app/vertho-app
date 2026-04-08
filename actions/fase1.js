@@ -77,13 +77,8 @@ export async function rodarIA1(empresaId, aiConfig = {}) {
     let totalSelecionadas = 0;
 
     for (const cargoInfo of cargosUnicos) {
-      // Filtrar competências relevantes (mesmo cargo ou sem cargo)
-      // Filtrar competências do cargo (ou sem cargo atribuído)
-      const compsCargo = compsUnicas.filter(c => !c.cargo || c.cargo === cargoInfo.cargo);
-      // Usar competências do cargo; só cai para todas se não houver NENHUMA do cargo
-      const compsParaIA = compsCargo.length > 0 ? compsCargo : compsUnicas;
-
-      const system = buildSystemPromptSelecao(compsParaIA);
+      // Enviar TODAS as competências da empresa — a IA seleciona as mais relevantes para o cargo
+      const system = buildSystemPromptSelecao(compsUnicas, cargoInfo.cargo);
       const user = buildUserPrompt(empresa, cargoInfo, valores, contextoPPP);
 
       const resposta = await callAI(system, user, aiConfig, 4096);
@@ -268,29 +263,45 @@ async function buscarBaseCompetencias(sb, segmento) {
   }
 }
 
-function buildSystemPromptSelecao(competencias) {
-  const baseTexto = competencias.map(comp => {
-    return `${comp.cod_comp || comp.id} | ${comp.nome} | ${comp.pilar || 'Comportamental'} | ${comp.descricao || ''}`;
-  }).join('\n');
+function buildSystemPromptSelecao(competencias, cargoAlvo) {
+  // Separar competências do cargo-alvo vs outras
+  const doCargo = competencias.filter(c => c.cargo && c.cargo.toLowerCase() === cargoAlvo.toLowerCase());
+  const outras = competencias.filter(c => !c.cargo || c.cargo.toLowerCase() !== cargoAlvo.toLowerCase());
+
+  const formatComp = comp => `${comp.cod_comp || comp.id} | ${comp.nome} | ${comp.cargo || 'geral'} | ${comp.pilar || ''} | ${comp.descricao || ''}`;
+
+  let baseTexto = '';
+  if (doCargo.length > 0) {
+    baseTexto += `--- COMPETÊNCIAS DO CARGO "${cargoAlvo}" (${doCargo.length}) ---\n`;
+    baseTexto += doCargo.map(formatComp).join('\n');
+  }
+  if (outras.length > 0) {
+    baseTexto += `\n\n--- OUTRAS COMPETÊNCIAS DISPONÍVEIS (${outras.length}) ---\n`;
+    baseTexto += outras.map(formatComp).join('\n');
+  }
+
+  const total = competencias.length;
+  const maxSel = Math.min(10, total);
 
   return `Você é a IA de parametrização da Vertho.
-Sua tarefa: SELECIONAR as 10 competências MAIS RELEVANTES da lista abaixo para o cargo descrito.
+Sua tarefa: SELECIONAR as ${maxSel} competências MAIS RELEVANTES para o cargo "${cargoAlvo}" da lista abaixo.
 
 IMPORTANTE: Você NÃO pode inventar competências. Selecione APENAS da lista fornecida.
+A lista tem ${total} competências. ${total <= 10 ? `Como há ${total} (menos de 10), selecione TODAS.` : `Selecione exatamente 10.`}
+
+PRIORIDADE: Competências que já estão associadas ao cargo "${cargoAlvo}" devem ser priorizadas.
 
 Retorne APENAS JSON válido, sem markdown:
-{"top10":[{"id":"COD","nome":"Nome","justificativa":"Frase específica citando elemento do cargo."},...], "justificativa_geral":"Parágrafo."}
+{"top10":[{"id":"COD","nome":"Nome exato da lista","justificativa":"Frase específica citando elemento do cargo."},...], "justificativa_geral":"Parágrafo."}
 
-REGRAS — siga na ordem de prioridade:
-1. Exatamente 10 competências — nem mais, nem menos (se houver menos de 10 disponíveis, selecione todas).
-2. TODAS devem vir da lista abaixo — use o campo "id" exatamente como aparece.
-3. Selecione APENAS competências diretamente aplicáveis ao cargo:
-   — Analise cargo, área, descrição, entregas e tensões.
-   — Elimine competências que não fazem sentido para esse cargo específico.
+REGRAS:
+1. Selecione ${maxSel} competências — ${total <= 10 ? 'TODAS da lista (são menos de 10).' : 'as 10 mais relevantes.'}
+2. Use o campo "id" e "nome" EXATAMENTE como aparecem na lista.
+3. Priorize competências do cargo "${cargoAlvo}".
 4. Use descrição do cargo e entregas como critério principal.
 5. Use stakeholders e tensões como critério de reforço.
 6. Use valores organizacionais como critério de desempate.
-7. A justificativa de cada competência DEVE citar elemento específico do cargo.
+7. A justificativa DEVE citar elemento específico do cargo.
 
 LISTA DE COMPETÊNCIAS DISPONÍVEIS (id | nome | pilar | descrição):
 ${baseTexto}`;
