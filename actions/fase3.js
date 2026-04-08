@@ -136,21 +136,44 @@ export async function gerarRelatoriosIndividuais(empresaId, aiConfig = {}) {
       .select('nome, segmento')
       .eq('id', empresaId).single();
 
-    const system = `Você é um consultor sênior de desenvolvimento humano.
-Gere um relatório individual de competências comportamentais.
-Responda APENAS com JSON válido.`;
+    const system = `Voce e um consultor senior de desenvolvimento humano da Vertho.
+Gere um relatorio individual de competencias comportamentais completo e personalizado.
+Use os dados das avaliacoes para produzir insights especificos — NUNCA genere conteudo generico.
+Responda APENAS com JSON valido.`;
 
     let gerados = 0;
 
     for (const colab of colaboradores) {
+      // Buscar avaliações (sessões conversacionais + respostas escritas)
+      const { data: sessoes } = await sb.from('sessoes_avaliacao')
+        .select('competencia_nome, nivel, nota_decimal, lacuna, avaliacao_final')
+        .eq('colaborador_id', colab.id)
+        .eq('status', 'concluido');
+
       const { data: respostas } = await sb.from('respostas')
         .select('*, banco_cenarios!inner(titulo, competencia_id, competencias!inner(nome))')
         .eq('colaborador_id', colab.id)
         .not('avaliacao_ia', 'is', null);
 
-      if (!respostas?.length) continue;
+      if (!sessoes?.length && !respostas?.length) continue;
 
-      const resumoAvaliacoes = respostas.map(r => ({
+      // Buscar perfil DISC
+      const { data: perfil } = await sb.from('colaboradores')
+        .select('perfil_dominante, d_natural, i_natural, s_natural, c_natural')
+        .eq('id', colab.id).single();
+
+      const dadosSessoes = (sessoes || []).map(s => ({
+        competencia: s.competencia_nome,
+        nivel: s.nivel,
+        nota: s.nota_decimal,
+        lacuna: s.lacuna,
+        pontos_fortes: s.avaliacao_final?.descritores_destaque?.pontos_fortes,
+        gaps: s.avaliacao_final?.descritores_destaque?.gaps_prioritarios,
+        feedback: s.avaliacao_final?.feedback,
+        pdi: s.avaliacao_final?.recomendacoes_pdi,
+      }));
+
+      const dadosRespostas = (respostas || []).map(r => ({
         competencia: r.banco_cenarios?.competencias?.nome,
         nivel: r.avaliacao_ia?.nivel_identificado,
         pontos_fortes: r.avaliacao_ia?.pontos_fortes,
@@ -159,19 +182,45 @@ Responda APENAS com JSON válido.`;
 
       const user = `Empresa: ${empresa.nome} (${empresa.segmento})
 Colaborador: ${colab.nome_completo} | Cargo: ${colab.cargo}
+Perfil DISC: ${perfil?.perfil_dominante || 'N/A'} (D=${perfil?.d_natural || 0} I=${perfil?.i_natural || 0} S=${perfil?.s_natural || 0} C=${perfil?.c_natural || 0})
 
-Avaliações:
-${JSON.stringify(resumoAvaliacoes, null, 2)}
+Avaliacoes conversacionais (Fase 3):
+${JSON.stringify(dadosSessoes, null, 2)}
 
-Gere o relatório individual:
+Avaliacoes escritas:
+${JSON.stringify(dadosRespostas, null, 2)}
+
+Gere o relatorio individual com TODAS estas secoes:
 {
   "colaborador": "${colab.nome_completo}",
   "cargo": "${colab.cargo}",
-  "resumo_executivo": "...",
-  "competencias": [{"nome": "...", "nivel": 1-5, "classificacao": "...", "feedback": "..."}],
-  "pontos_fortes_gerais": ["..."],
-  "areas_desenvolvimento": ["..."],
-  "recomendacoes": ["..."]
+  "perfil_disc": "${perfil?.perfil_dominante || 'N/A'}",
+  "resumo_executivo": "1 paragrafo sintetizando o perfil geral do colaborador",
+  "competencias": [
+    {
+      "nome": "nome da competencia",
+      "nivel": 1-4,
+      "nota_decimal": 0.00-4.99,
+      "classificacao": "Gap|Em Desenvolvimento|Proficiente|Referencia",
+      "pontos_fortes": ["comportamento observado 1", "comportamento observado 2"],
+      "gaps_identificados": ["lacuna 1", "lacuna 2"],
+      "feedback_personalizado": "2-3 frases especificas para esta competencia",
+      "recomendacao_pdi": "1 acao concreta de desenvolvimento"
+    }
+  ],
+  "pontos_fortes_gerais": ["forca 1 transversal", "forca 2"],
+  "areas_desenvolvimento": ["area 1", "area 2"],
+  "plano_desenvolvimento": [
+    {
+      "prioridade": 1,
+      "competencia_foco": "nome",
+      "acao": "acao concreta e pratica",
+      "prazo": "30|60|90 dias",
+      "indicador_sucesso": "como medir o progresso"
+    }
+  ],
+  "recomendacoes_disc": "2-3 frases conectando o perfil DISC ao desenvolvimento (sem usar jargao tecnico)",
+  "proximos_passos": ["passo 1", "passo 2", "passo 3"]
 }`;
 
       const resultado = await callAI(system, user, aiConfig, 64000);
@@ -211,29 +260,40 @@ export async function gerarRelatorioGestor(empresaId, aiConfig = {}) {
 
     if (!relatorios?.length) return { success: false, error: 'Nenhum relatório individual encontrado. Gere-os primeiro.' };
 
-    const system = `Você é um consultor estratégico de gestão de pessoas.
-Gere um relatório consolidado para o gestor da equipe.
-Responda APENAS com JSON válido.`;
+    const system = `Voce e um consultor estrategico de gestao de pessoas da Vertho.
+Gere um relatorio consolidado para o gestor da equipe com insights acionaveis.
+Use dados reais — NUNCA gere conteudo generico. Responda APENAS com JSON valido.`;
 
     const resumos = relatorios.map(r => ({
       colaborador: r.colaboradores?.nome_completo,
       cargo: r.colaboradores?.cargo,
       resumo: r.conteudo?.resumo_executivo,
+      competencias: r.conteudo?.competencias?.map(c => ({ nome: c.nome, nivel: c.nivel, nota: c.nota_decimal })),
       areas_dev: r.conteudo?.areas_desenvolvimento,
+      perfil_disc: r.conteudo?.perfil_disc,
     }));
 
     const user = `Empresa: ${empresa.nome} (${empresa.segmento})
 Equipe (${relatorios.length} colaboradores):
 ${JSON.stringify(resumos, null, 2)}
 
-Gere relatório do gestor:
+Gere relatorio do gestor com TODAS estas secoes:
 {
-  "resumo_executivo": "...",
-  "visao_geral_equipe": "...",
-  "competencias_fortes_equipe": ["..."],
-  "gaps_criticos": ["..."],
-  "recomendacoes_gestao": ["..."],
-  "acoes_prioritarias": ["..."]
+  "resumo_executivo": "1 paragrafo sintetico sobre o estado da equipe",
+  "tabela_equipe": [
+    {"colaborador": "nome", "cargo": "cargo", "nivel_medio": 0, "competencia_mais_forte": "nome", "competencia_gap": "nome"}
+  ],
+  "ranking_atencao": [
+    {"colaborador": "nome", "motivo": "por que precisa de atencao", "urgencia": "alta|media|baixa"}
+  ],
+  "competencias_fortes_equipe": ["competencia que a equipe domina"],
+  "gaps_criticos": ["competencia que a equipe mais precisa desenvolver"],
+  "padroes_identificados": "2-3 frases sobre padroes transversais na equipe",
+  "perfil_disc_equipe": "distribuicao e implicacoes do mix DISC na equipe",
+  "recomendacoes_gestao": [
+    {"acao": "acao concreta para o gestor", "impacto": "resultado esperado", "prazo": "curto|medio|longo"}
+  ],
+  "acoes_prioritarias": ["top 3 acoes imediatas"]
 }`;
 
     const resultado = await callAI(system, user, aiConfig, 64000);
@@ -271,32 +331,64 @@ export async function gerarRelatorioRH(empresaId, aiConfig = {}) {
 
     if (!relatorios?.length) return { success: false, error: 'Nenhum relatório individual encontrado.' };
 
-    const system = `Você é um consultor estratégico de RH.
-Gere um relatório analítico para o departamento de RH com visão organizacional.
-Responda APENAS com JSON válido.`;
+    const system = `Voce e um consultor estrategico de RH da Vertho.
+Gere um relatorio analitico organizacional com indicadores quantitativos e recomendacoes estrategicas.
+Use TODOS os dados fornecidos — NUNCA gere conteudo generico. Responda APENAS com JSON valido.`;
 
     const dadosEquipe = relatorios.map(r => ({
       nome: r.colaboradores?.nome_completo,
       cargo: r.colaboradores?.cargo,
-      competencias: r.conteudo?.competencias,
+      competencias: r.conteudo?.competencias?.map(c => ({ nome: c.nome, nivel: c.nivel, nota: c.nota_decimal })),
+      pontos_fortes: r.conteudo?.pontos_fortes_gerais,
+      areas_dev: r.conteudo?.areas_desenvolvimento,
+      perfil_disc: r.conteudo?.perfil_disc,
     }));
 
+    // Calcular indicadores
+    const totalColabs = dadosEquipe.length;
+    const todasNotas = dadosEquipe.flatMap(d => (d.competencias || []).map(c => c.nota || c.nivel || 0));
+    const mediaGeral = todasNotas.length ? (todasNotas.reduce((a, b) => a + b, 0) / todasNotas.length).toFixed(2) : 0;
+
     const user = `Empresa: ${empresa.nome} (${empresa.segmento})
-Dados completos da equipe:
+Total colaboradores avaliados: ${totalColabs}
+Media geral: ${mediaGeral}
+
+Dados completos:
 ${JSON.stringify(dadosEquipe, null, 2)}
 
-Gere relatório RH:
+Gere relatorio RH com TODAS estas secoes (baseado no GAS RelatorioRHFase3):
 {
-  "resumo_executivo": "...",
-  "mapa_competencias_organizacional": {"competencia": {"media": 0, "desvio": 0}},
-  "talentos_destaque": ["..."],
-  "riscos_retencao": ["..."],
-  "gaps_organizacionais": ["..."],
-  "plano_acao_rh": ["..."],
-  "investimentos_sugeridos": ["..."]
+  "resumo_executivo": "1 paragrafo: a organizacao evoluiu? Quais foram os principais achados?",
+  "indicadores_quantitativos": {
+    "total_avaliados": ${totalColabs},
+    "media_geral": ${mediaGeral},
+    "competencias_acima_meta": 0,
+    "competencias_abaixo_meta": 0,
+    "desvio_padrao": 0
+  },
+  "mapa_competencias": [
+    {"competencia": "nome", "media": 0, "min": 0, "max": 0, "desvio": 0, "classificacao": "forte|adequado|critico"}
+  ],
+  "visao_por_cargo": [
+    {"cargo": "nome", "n_colaboradores": 0, "media": 0, "competencia_forte": "nome", "gap_principal": "nome"}
+  ],
+  "competencias_criticas": ["competencias que precisam de investimento urgente"],
+  "talentos_destaque": [
+    {"colaborador": "nome", "motivo": "por que se destaca"}
+  ],
+  "riscos": [
+    {"tipo": "retencao|desempenho|engajamento", "descricao": "descricao do risco", "colaboradores_afetados": 0}
+  ],
+  "sugestao_formacoes": [
+    {"tema": "nome do treinamento", "publico": "quem deve participar", "impacto_esperado": "resultado", "prioridade": "alta|media|baixa"}
+  ],
+  "perfil_disc_organizacional": "distribuicao e implicacoes do mix DISC na organizacao",
+  "plano_acao_rh": [
+    {"acao": "acao estrategica", "responsavel": "RH|gestor|diretoria", "prazo": "30|60|90 dias", "kpi": "como medir"}
+  ]
 }`;
 
-    const resultado = await callAI(system, user, aiConfig, 8000);
+    const resultado = await callAI(system, user, aiConfig, 64000);
     const relatorio = await extractJSON(resultado);
 
     if (relatorio) {

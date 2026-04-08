@@ -94,16 +94,27 @@ export async function registrarEvidencia(colaboradorId, empresaId, semana, texto
 
   const sb = createSupabaseAdmin();
 
+  // Salvar evidência
   const { data, error } = await sb.from('capacitacao').insert({
     empresa_id: empresaId,
     colaborador_id: colaboradorId,
     semana,
     tipo: 'evidencia',
     evidencia_texto: texto.trim(),
-    pilula_ok: true,
-    pontos: 5,
+    pilula_ok: false, // será atualizado após avaliação
+    pontos: 0,
   }).select('id').single();
 
   if (error) return { error: error.message };
-  return { ok: true, id: data.id };
+
+  // Avaliar evidência via tutor IA (assíncrono — não bloqueia a UI)
+  try {
+    const { avaliarEvidencia } = await import('@/actions/tutor-evidencia');
+    const avaliacao = await avaliarEvidencia(colaboradorId, empresaId, semana, texto.trim());
+    return { ok: true, id: data.id, feedback: avaliacao.feedback, pontos: avaliacao.pontos, avaliacao: avaliacao.avaliacao };
+  } catch {
+    // Fallback: pontuação padrão se IA falhar
+    await sb.from('capacitacao').update({ pontos: 5, pilula_ok: true }).eq('id', data.id);
+    return { ok: true, id: data.id, feedback: 'Obrigado pela sua evidência! Continue praticando.', pontos: 5 };
+  }
 }
