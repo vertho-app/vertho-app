@@ -46,7 +46,7 @@ export async function salvarCompetencia(empresaId, comp) {
       nome: comp.nome,
       descricao: comp.descricao || null,
       cargo: comp.cargo || null,
-      cod_comp: comp.cod_comp || null,
+      cod_comp: comp.cod_comp || comp.nome.substring(0, 10).toUpperCase(),
       pilar: comp.pilar || null,
     };
 
@@ -93,7 +93,7 @@ export async function importarCompetenciasCSV(empresaId, comps) {
     .map(c => ({
       empresa_id: empresaId,
       nome: c.nome.trim(),
-      cod_comp: c.cod_comp?.trim() || null,
+      cod_comp: c.cod_comp?.trim() || c.nome.trim().substring(0, 10).toUpperCase(),
       pilar: c.pilar?.trim() || null,
       cargo: c.cargo?.trim() || null,
       descricao: c.descricao?.trim() || null,
@@ -126,7 +126,7 @@ export async function copiarBaseParaEmpresa(empresaId, baseId, cargo = null) {
       nome: base.nome,
       descricao: base.descricao,
       pilar: base.pilar || null,
-      cod_comp: base.cod_comp || null,
+      cod_comp: base.cod_comp || base.nome.substring(0, 10).toUpperCase(),
       cargo: cargo || base.cargo || null,
     });
 
