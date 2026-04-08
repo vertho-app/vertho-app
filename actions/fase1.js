@@ -10,10 +10,21 @@ import { incrementarVersaoRegua } from '@/lib/versioning';
 export async function rodarIA1(empresaId, aiConfig = {}) {
   const sb = createSupabaseAdmin();
   try {
-    const { data: empresa } = await sb.from('empresas')
+    // Buscar empresa — ppp_texto pode não existir no schema
+    let empresa;
+    const { data: emp1, error: empErr } = await sb.from('empresas')
       .select('nome, segmento, ppp_texto')
       .eq('id', empresaId).single();
-    if (!empresa) return { success: false, error: 'Empresa não encontrada' };
+    if (emp1) {
+      empresa = emp1;
+    } else {
+      // Fallback sem ppp_texto
+      const { data: emp2 } = await sb.from('empresas')
+        .select('nome, segmento')
+        .eq('id', empresaId).single();
+      empresa = emp2;
+    }
+    if (!empresa) return { success: false, error: `Empresa não encontrada (id: ${empresaId})` };
 
     const { data: cargos } = await sb.from('colaboradores')
       .select('cargo')
@@ -32,21 +43,29 @@ Responda APENAS com JSON válido, sem texto adicional.`;
 ${empresa.ppp_texto ? `Contexto PPP: ${empresa.ppp_texto}\n` : ''}
 Gere as 10 competências comportamentais mais relevantes.
 Formato JSON:
-[{"nome": "...", "descricao": "...", "peso": 1-5}]`;
+[{"nome": "...", "descricao": "...", "cod_comp": "COMP-01"}]`;
 
       const resposta = await callAI(system, user, aiConfig, 4096);
       const competencias = await extractJSON(resposta);
 
       if (Array.isArray(competencias)) {
         for (const comp of competencias) {
-          await sb.from('competencias').upsert({
+          // Verificar se já existe
+          const { data: existe } = await sb.from('competencias')
+            .select('id')
+            .eq('empresa_id', empresaId)
+            .eq('cargo', cargo)
+            .eq('nome', comp.nome)
+            .maybeSingle();
+          if (existe) continue;
+
+          await sb.from('competencias').insert({
             empresa_id: empresaId,
             cargo,
             nome: comp.nome,
             descricao: comp.descricao,
-            peso: comp.peso || 3,
-            origem: 'ia1',
-          }, { onConflict: 'empresa_id,cargo,nome' });
+            cod_comp: comp.cod_comp || comp.nome.substring(0, 10).toUpperCase(),
+          });
           totalGeradas++;
         }
       }
@@ -160,7 +179,6 @@ Formato JSON:
             titulo: cenario.titulo,
             descricao: cenario.descricao,
             alternativas: cenario.alternativas,
-            origem: 'ia3',
           });
           totalCenarios++;
         }
@@ -199,7 +217,6 @@ export async function popularCenarios(empresaId) {
       titulo: t.titulo,
       descricao: t.descricao,
       alternativas: t.alternativas,
-      origem: 'template',
     }));
 
     const { error } = await sb.from('banco_cenarios').insert(novos);
