@@ -240,18 +240,6 @@ export default function PPPPage() {
               <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
               <option value="claude-opus-4-6">Claude Opus 4.6</option>
               <option value="gemini-3-flash-preview">Gemini 3 Flash</option>
-            </select>
-          </div>
-
-          {/* Model selector */}
-          <div className="mt-4 mb-3">
-            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Modelo de IA</p>
-            <select value={model} onChange={e => setModel(e.target.value)}
-              className="w-full max-w-xs px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none"
-              style={{ background: '#091D35' }}>
-              <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
-              <option value="claude-opus-4-6">Claude Opus 4.6</option>
-              <option value="gemini-3-flash-preview">Gemini 3 Flash</option>
               <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro</option>
             </select>
           </div>
