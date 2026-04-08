@@ -383,6 +383,7 @@ export default function EmpresaPipelinePage({ params }) {
                                     <div className="flex-1 min-w-0">
                                       <span className="text-xs font-semibold text-white">{t.competencia?.nome || '—'}</span>
                                       {t.competencia?.cod_comp && <span className="text-[8px] text-cyan-400/60 font-mono ml-1.5">{t.competencia.cod_comp}</span>}
+                                      {t.justificativa && <p className="text-[10px] text-gray-500 mt-0.5 leading-snug">{t.justificativa}</p>}
                                     </div>
                                     <button onClick={async () => {
                                       const r = await removerTop10(t.id);
