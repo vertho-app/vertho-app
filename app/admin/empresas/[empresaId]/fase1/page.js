@@ -209,63 +209,30 @@ export default function Fase1Page({ params }) {
       {tab === 'top5' && (
         <div>
           {cargosData.length === 0 ? (
-            <Empty icon={Target} text="Nenhum cargo encontrado. Rode IA1 primeiro." />
+            <Empty icon={Target} text="Nenhum cargo encontrado. Selecione Top 5 na tela de Cargos & Top 5." />
           ) : cargosData.map(cargo => {
-            const top10List = cargo.competencias_top10 || [];
-            const selected = top5Edits[cargo.id] || [];
+            const selected = cargo.top5_workshop || [];
+            if (!selected.length) return (
+              <div key={cargo.id} className="mb-4 rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
+                <h3 className="text-sm font-bold text-white">{cargo.nome}</h3>
+                <p className="text-[10px] text-gray-500 mt-1">Nenhuma Top 5 selecionada</p>
+              </div>
+            );
             return (
               <div key={cargo.id} className="mb-4 rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
-                <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-bold text-white">{cargo.nome}</h3>
-                    <p className="text-[10px] text-gray-500">Top 10 da IA · {selected.length}/5 selecionadas</p>
-                  </div>
-                  <button onClick={async () => {
-                    setSavingTop5(p => ({ ...p, [cargo.id]: true }));
-                    const r = await salvarTop5(cargo.id, top5Edits[cargo.id] || []);
-                    setSavingTop5(p => ({ ...p, [cargo.id]: false }));
-                    flash(r.success ? 'Top 5 salvo!' : 'Erro: ' + r.error);
-                  }} disabled={savingTop5[cargo.id]}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white transition-colors disabled:opacity-50">
-                    {savingTop5[cargo.id] ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
-                    Salvar Top 5
-                  </button>
+                <div className="px-4 py-3 border-b border-white/[0.06]">
+                  <h3 className="text-sm font-bold text-white">{cargo.nome}</h3>
+                  <p className="text-[10px] text-gray-500">{selected.length} competências selecionadas</p>
                 </div>
                 <div className="p-4">
-                  {top10List.length === 0 ? (
-                    <p className="text-xs text-gray-500">Nenhuma competência Top 10 gerada pela IA.</p>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {top10List.map((comp, i) => {
-                        const isSelected = selected.includes(comp);
-                        const isFull = selected.length >= 5 && !isSelected;
-                        return (
-                          <button key={i} onClick={() => {
-                            setTop5Edits(prev => {
-                              const current = prev[cargo.id] || [];
-                              if (isSelected) return { ...prev, [cargo.id]: current.filter(c => c !== comp) };
-                              if (isFull) return prev;
-                              return { ...prev, [cargo.id]: [...current, comp] };
-                            });
-                          }} disabled={isFull}
-                            className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-left text-xs transition-all ${
-                              isSelected
-                                ? 'border-cyan-400/50 bg-cyan-400/10 text-white'
-                                : isFull
-                                  ? 'border-white/[0.04] text-gray-600 cursor-not-allowed'
-                                  : 'border-white/[0.06] text-gray-300 hover:border-white/20'
-                            }`}>
-                            <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${
-                              isSelected ? 'bg-cyan-400 text-[#091D35]' : 'border border-white/20'
-                            }`}>
-                              {isSelected && <CheckCircle size={12} strokeWidth={3} />}
-                            </div>
-                            <span className="truncate">{comp}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                  <div className="space-y-1.5">
+                    {selected.map((comp, i) => (
+                      <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-cyan-400/20 bg-cyan-400/5">
+                        <span className="text-[10px] font-mono text-cyan-400 font-bold w-4 text-center">{i + 1}</span>
+                        <span className="text-xs text-white font-medium">{comp}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             );

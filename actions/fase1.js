@@ -849,7 +849,7 @@ export async function checkCenarioUm(cenarioId, empresaId = null, cargo = null, 
         .order('created_at', { ascending: false }).limit(1).maybeSingle();
       cen = data;
     }
-    if (!cen) return { success: false, error: 'Cenário não encontrado' };
+    if (!cen) return { success: false, error: `Check: cenário não encontrado (cargo:${cargo}, comp:${competenciaId})` };
 
     // Buscar competência e descritores
     let compNome = '';
@@ -930,7 +930,7 @@ ${pppResumo ? `\nCONTEXTO PPP:\n${pppResumo}` : ''}`;
     if (!resultado?.nota) return { success: false, error: 'Validação não retornou resultado' };
 
     // Salvar resultado
-    await sb.from('banco_cenarios').update({
+    const { error: updErr, count } = await sb.from('banco_cenarios').update({
       nota_check: resultado.nota,
       status_check: resultado.nota >= 90 ? 'aprovado' : 'revisar',
       dimensoes_check: resultado.dimensoes || null,
@@ -939,6 +939,8 @@ ${pppResumo ? `\nCONTEXTO PPP:\n${pppResumo}` : ''}`;
       alertas_check: resultado.alertas || [],
       checked_at: new Date().toISOString(),
     }).eq('id', cen.id);
+
+    if (updErr) return { success: false, error: `Check UPDATE falhou: ${updErr.message} (cen.id: ${cen.id})` };
 
     return {
       success: true,
