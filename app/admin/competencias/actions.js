@@ -48,8 +48,6 @@ export async function salvarCompetencia(empresaId, comp) {
       cargo: comp.cargo || null,
       cod_comp: comp.cod_comp || null,
       pilar: comp.pilar || null,
-      peso: comp.peso || 3,
-      // origem: comp.origem || 'manual', — coluna não existe no schema atual
     };
 
     let result;
@@ -130,8 +128,6 @@ export async function copiarBaseParaEmpresa(empresaId, baseId, cargo = null) {
       pilar: base.pilar || null,
       cod_comp: base.cod_comp || null,
       cargo: cargo || base.cargo || null,
-      peso: base.peso_padrao || 3,
-      // origem: 'base', — coluna não existe no schema atual
     });
 
     if (error) return { success: false, error: error.message };

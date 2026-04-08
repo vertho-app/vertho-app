@@ -65,9 +65,12 @@ export default function CompetenciasPage() {
     setCargosEmpresa(cargos || []);
     if (r1.success) {
       setComps(r1.data || []);
-      // Extrair cargos únicos dos colaboradores + competências existentes
-      const cargosFromComps = [...new Set((r1.data || []).map(c => c.cargo).filter(Boolean))];
-      setCargosEmpresa(cargosFromComps.sort());
+    }
+    // Merge cargos de colaboradores (loadCargosEmpresa) + competências
+    if (r1.success) {
+      const cargosFromComps = (r1.data || []).map(c => c.cargo).filter(Boolean);
+      const merged = [...new Set([...(cargos || []), ...cargosFromComps])].sort();
+      setCargosEmpresa(merged);
     }
     if (r2.success) setBaselist(r2.data || []);
     setLoadingComps(false);
@@ -280,12 +283,8 @@ export default function CompetenciasPage() {
                     <table className="w-full text-[11px]">
                       <thead>
                         <tr className="border-b border-white/[0.04] text-[9px] font-bold text-gray-600 uppercase">
-                          <th className="px-4 py-1.5 text-left">Cod</th>
+                          <th className="px-4 py-1.5 text-left w-24">Cod</th>
                           <th className="px-4 py-1.5 text-left">Descritor</th>
-                          <th className="px-4 py-1.5 text-left text-red-400/60">N1</th>
-                          <th className="px-4 py-1.5 text-left text-amber-400/60">N2</th>
-                          <th className="px-4 py-1.5 text-left text-cyan-400/60">N3</th>
-                          <th className="px-4 py-1.5 text-left text-green-400/60">N4</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/[0.02]">
@@ -293,10 +292,6 @@ export default function CompetenciasPage() {
                           <tr key={d.id} className="hover:bg-white/[0.02]">
                             <td className="px-4 py-1.5 text-gray-500 font-mono">{d.cod_desc || '—'}</td>
                             <td className="px-4 py-1.5 text-gray-300 font-medium">{d.nome_curto || d.descritor_completo || '—'}</td>
-                            <td className="px-4 py-1.5 text-gray-500 max-w-[150px] truncate" title={d.n1_gap}>{d.n1_gap || '—'}</td>
-                            <td className="px-4 py-1.5 text-gray-500 max-w-[150px] truncate" title={d.n2_desenvolvimento}>{d.n2_desenvolvimento || '—'}</td>
-                            <td className="px-4 py-1.5 text-gray-500 max-w-[150px] truncate" title={d.n3_meta}>{d.n3_meta || '—'}</td>
-                            <td className="px-4 py-1.5 text-gray-500 max-w-[150px] truncate" title={d.n4_referencia}>{d.n4_referencia || '—'}</td>
                           </tr>
                         ))}
                       </tbody>
