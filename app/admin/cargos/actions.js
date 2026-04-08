@@ -13,10 +13,22 @@ export async function loadCargos(empresaId) {
   const sb = createSupabaseAdmin();
   try {
     // 1. Tentar cargos_empresa
-    const { data: cargosEmpresa, error: err1 } = await sb.from('cargos_empresa')
-      .select('*')
+    // Buscar cargos — tentar com top5_workshop, fallback sem
+    let cargosEmpresa = null;
+    const { data: ce1, error: err1 } = await sb.from('cargos_empresa')
+      .select('id, nome, area_depto, descricao, top5_workshop')
       .eq('empresa_id', empresaId)
       .order('nome');
+    if (!err1) {
+      cargosEmpresa = ce1;
+    } else {
+      // Coluna top5_workshop pode não existir
+      const { data: ce2 } = await sb.from('cargos_empresa')
+        .select('id, nome, area_depto, descricao')
+        .eq('empresa_id', empresaId)
+        .order('nome');
+      cargosEmpresa = ce2;
+    }
 
     // 2. Buscar cargos dos colaboradores (sempre, como fallback)
     const { data: colabs } = await sb.from('colaboradores')
@@ -52,11 +64,14 @@ export async function loadCargos(empresaId) {
         // tabela pode não existir ainda
       }
 
+      let top5 = [];
+      try { top5 = ce?.top5_workshop || []; } catch { /* coluna pode não existir */ }
+
       result.push({
         id: ce?.id || nome,
         nome,
         area_depto: ce?.area_depto || null,
-        top5_workshop: ce?.top5_workshop || [],
+        top5_workshop: top5,
         competencias_top10: top10Names,
       });
     }
