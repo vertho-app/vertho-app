@@ -3,22 +3,21 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI } from './ai-client';
 import { extractJSON } from './utils';
-import { incrementarVersaoRegua } from '@/lib/versioning';
 
 // ── IA1: Gerar top 10 competências por cargo ────────────────────────────────
+// Fiel ao GAS antigo: busca PPP, valores, competências base, dados do cargo
 
 export async function rodarIA1(empresaId, aiConfig = {}) {
   const sb = createSupabaseAdmin();
   try {
-    // Buscar empresa — ppp_texto pode não existir no schema
+    // 1. Buscar empresa
     let empresa;
-    const { data: emp1, error: empErr } = await sb.from('empresas')
+    const { data: emp1 } = await sb.from('empresas')
       .select('nome, segmento, ppp_texto')
       .eq('id', empresaId).single();
     if (emp1) {
       empresa = emp1;
     } else {
-      // Fallback sem ppp_texto
       const { data: emp2 } = await sb.from('empresas')
         .select('nome, segmento')
         .eq('id', empresaId).single();
@@ -26,45 +25,58 @@ export async function rodarIA1(empresaId, aiConfig = {}) {
     }
     if (!empresa) return { success: false, error: `Empresa não encontrada (id: ${empresaId})` };
 
-    const { data: cargos } = await sb.from('colaboradores')
-      .select('cargo')
-      .eq('empresa_id', empresaId);
+    // 2. Buscar PPP extraído (contexto da empresa/escola)
+    const contextoPPP = await buscarContextoPPP(sb, empresaId, empresa.nome);
 
-    const cargosUnicos = [...new Set((cargos || []).map(c => c.cargo).filter(Boolean))];
-    if (!cargosUnicos.length) return { success: false, error: 'Nenhum cargo encontrado' };
+    // 3. Buscar valores organizacionais do PPP
+    const valores = await buscarValores(sb, empresaId, empresa.nome);
 
-    const system = `Você é um especialista em gestão por competências comportamentais.
-Responda APENAS com JSON válido, sem texto adicional.`;
+    // 4. Buscar cargos com dados completos (colaboradores)
+    const { data: colaboradores } = await sb.from('colaboradores')
+      .select('cargo, area_depto')
+      .eq('empresa_id', empresaId)
+      .not('cargo', 'is', null);
 
+    const cargosMap = {};
+    (colaboradores || []).forEach(c => {
+      if (c.cargo && !cargosMap[c.cargo]) {
+        cargosMap[c.cargo] = { cargo: c.cargo, area: c.area_depto || '' };
+      }
+    });
+    const cargosUnicos = Object.values(cargosMap);
+    if (!cargosUnicos.length) return { success: false, error: 'Nenhum cargo encontrado nos colaboradores' };
+
+    // 5. Buscar competências base (filtradas por segmento)
+    const baseComp = await buscarBaseCompetencias(sb, empresa.segmento);
+
+    // 6. Para cada cargo, gerar top 10
+    const system = buildSystemPrompt(baseComp);
     let totalGeradas = 0;
 
-    for (const cargo of cargosUnicos) {
-      const user = `Para a empresa "${empresa.nome}" do segmento "${empresa.segmento}", cargo "${cargo}":
-${empresa.ppp_texto ? `Contexto PPP: ${empresa.ppp_texto}\n` : ''}
-Gere as 10 competências comportamentais mais relevantes.
-Formato JSON:
-[{"nome": "...", "descricao": "...", "cod_comp": "COMP-01"}]`;
+    for (const cargoInfo of cargosUnicos) {
+      const user = buildUserPrompt(empresa, cargoInfo, valores, contextoPPP);
 
       const resposta = await callAI(system, user, aiConfig, 4096);
-      const competencias = await extractJSON(resposta);
+      const resultado = await extractJSON(resposta);
 
-      if (Array.isArray(competencias)) {
-        for (const comp of competencias) {
-          // Verificar se já existe
+      if (resultado?.top10 && Array.isArray(resultado.top10)) {
+        for (const comp of resultado.top10) {
+          // Dedup: não inserir se já existe
           const { data: existe } = await sb.from('competencias')
             .select('id')
             .eq('empresa_id', empresaId)
-            .eq('cargo', cargo)
+            .eq('cargo', cargoInfo.cargo)
             .eq('nome', comp.nome)
             .maybeSingle();
           if (existe) continue;
 
           await sb.from('competencias').insert({
             empresa_id: empresaId,
-            cargo,
+            cargo: cargoInfo.cargo,
             nome: comp.nome,
-            descricao: comp.descricao,
-            cod_comp: comp.cod_comp || comp.nome.substring(0, 10).toUpperCase(),
+            descricao: comp.justificativa || comp.descricao || null,
+            cod_comp: comp.id || comp.nome.substring(0, 10).toUpperCase(),
+            pilar: comp.categoria || comp.pilar || null,
           });
           totalGeradas++;
         }
@@ -75,6 +87,145 @@ Formato JSON:
   } catch (err) {
     return { success: false, error: err.message };
   }
+}
+
+// ── Helpers IA1 ─────────────────────────────────────────────────────────────
+
+async function buscarContextoPPP(sb, empresaId, empresaNome) {
+  try {
+    // Buscar extração do PPP salva
+    const { data: ppp } = await sb.from('ppp_escolas')
+      .select('extracao')
+      .eq('empresa_id', empresaId)
+      .eq('status', 'extraido')
+      .order('extracted_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!ppp?.extracao) return '';
+
+    const ext = typeof ppp.extracao === 'string' ? JSON.parse(ppp.extracao) : ppp.extracao;
+
+    // Formatar as seções mais relevantes (máx 4000 chars, como no GAS)
+    const parts = [];
+    let totalChars = 0;
+    const MAX = 4000;
+
+    const secoes = [
+      { key: 'perfil_organizacional', label: 'PERFIL DA EMPRESA' },
+      { key: 'perfil_instituicao', label: 'PERFIL DA INSTITUIÇÃO' },
+      { key: 'comunidade_contexto', label: 'COMUNIDADE E CONTEXTO' },
+      { key: 'mercado_stakeholders', label: 'MERCADO E STAKEHOLDERS' },
+      { key: 'identidade_cultura', label: 'IDENTIDADE E CULTURA' },
+      { key: 'identidade', label: 'IDENTIDADE' },
+      { key: 'operacao_processos', label: 'OPERAÇÃO E PROCESSOS' },
+      { key: 'praticas_descritas', label: 'PRÁTICAS DESCRITAS' },
+      { key: 'desafios_estrategia', label: 'DESAFIOS E ESTRATÉGIA' },
+      { key: 'desafios_metas', label: 'DESAFIOS E METAS' },
+      { key: 'vocabulario_corporativo', label: 'VOCABULÁRIO' },
+      { key: 'vocabulario', label: 'VOCABULÁRIO' },
+      { key: 'modelo_pessoas', label: 'MODELO DE PESSOAS' },
+    ];
+
+    for (const sec of secoes) {
+      if (totalChars >= MAX) break;
+      let val = ext[sec.key];
+      if (!val) continue;
+      // Extrair conteudo se formato novo {conteudo, origem, confianca}
+      if (val.conteudo !== undefined) val = val.conteudo;
+      const texto = typeof val === 'string' ? val : JSON.stringify(val, null, 1);
+      if (!texto || texto.length < 10) continue;
+      const truncated = texto.length > 800 ? texto.substring(0, 800) + '...' : texto;
+      const bloco = `## ${sec.label}\n${truncated}`;
+      parts.push(bloco);
+      totalChars += bloco.length;
+    }
+
+    return parts.join('\n\n');
+  } catch {
+    return '';
+  }
+}
+
+async function buscarValores(sb, empresaId, empresaNome) {
+  try {
+    const { data: ppp } = await sb.from('ppp_escolas')
+      .select('valores')
+      .eq('empresa_id', empresaId)
+      .eq('status', 'extraido')
+      .order('extracted_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (ppp?.valores && Array.isArray(ppp.valores) && ppp.valores.length > 0) {
+      return ppp.valores;
+    }
+    return ['Ética e integridade', 'Respeito', 'Compromisso com resultados', 'Responsabilidade'];
+  } catch {
+    return ['Ética e integridade', 'Respeito', 'Compromisso com resultados', 'Responsabilidade'];
+  }
+}
+
+async function buscarBaseCompetencias(sb, segmento) {
+  try {
+    // Buscar competências da tabela competencias_base
+    let query = sb.from('competencias_base').select('*').order('nome');
+    if (segmento) query = query.eq('segmento', segmento);
+    const { data } = await query;
+    return data || [];
+  } catch {
+    return [];
+  }
+}
+
+function buildSystemPrompt(baseComp) {
+  const temBase = baseComp.length > 0;
+
+  if (temBase) {
+    // Montar texto da base (fiel ao GAS: id | nome | categoria | descrição)
+    const baseTexto = baseComp.map(comp => {
+      return `${comp.cod_comp || comp.id} | ${comp.nome} | ${comp.pilar || 'Comportamental'} | ${comp.descricao || ''}`;
+    }).join('\n');
+
+    return `Você é a IA de parametrização da Vertho.
+Selecione as 10 competências MAIS RELEVANTES da base para o cargo descrito.
+Retorne APENAS JSON válido, sem markdown:
+{"top10":[{"id":"C001","nome":"Nome","categoria":"Comportamental","justificativa":"Frase específica."},...], "justificativa_geral":"Parágrafo."}
+
+REGRAS — siga na ordem de prioridade:
+1. Exatamente 10 competências — nem mais, nem menos.
+2. TODAS as 10 devem ser da base fornecida — proibido inventar IDs.
+3. Selecione APENAS competências diretamente aplicáveis ao cargo descrito:
+   — Analise cargo, área, descrição e entregas.
+   — Elimine competências que não fazem sentido para esse cargo específico.
+4. Use descrição do cargo e entregas como critério principal de seleção.
+5. Use valores organizacionais como critério de desempate.
+6. A justificativa de cada competência DEVE citar elemento específico do cargo.
+
+BASE DE COMPETÊNCIAS (id | nome | categoria | descrição):
+${baseTexto}`;
+  }
+
+  // Sem base: gerar do zero
+  return `Você é um especialista em gestão por competências comportamentais.
+Gere as 10 competências comportamentais mais relevantes para o cargo descrito.
+Retorne APENAS JSON válido:
+{"top10":[{"id":"COMP-01","nome":"Nome","categoria":"Comportamental","justificativa":"Frase específica."},...], "justificativa_geral":"Parágrafo."}
+
+REGRAS:
+1. Exatamente 10 competências — nem mais, nem menos.
+2. Foco em competências comportamentais aplicáveis ao cargo.
+3. Use o contexto da empresa e valores organizacionais.
+4. A justificativa de cada competência DEVE ser específica para o cargo.`;
+}
+
+function buildUserPrompt(empresa, cargoInfo, valores, contextoPPP) {
+  return `EMPRESA: ${empresa.nome}
+SEGMENTO: ${empresa.segmento || 'Não informado'}
+CARGO: ${cargoInfo.cargo}
+ÁREA: ${cargoInfo.area || 'Não informado'}
+VALORES ORGANIZACIONAIS: ${valores.join(', ')}
+${contextoPPP ? `\nCONTEXTO DA EMPRESA:\n${contextoPPP}` : ''}`;
 }
 
 // ── IA2: Gerar gabarito (rubrica de respostas) ──────────────────────────────
@@ -120,7 +271,6 @@ Formato JSON:
         await sb.from('competencias')
           .update({ gabarito: gabarito.niveis })
           .eq('id', comp.id);
-        await incrementarVersaoRegua(comp.id);
         totalGabaritos++;
       }
     }
@@ -200,7 +350,6 @@ export async function popularCenarios(empresaId) {
       .select('segmento')
       .eq('id', empresaId).single();
 
-    // Buscar cenários-template (sem empresa_id) do mesmo segmento
     const { data: templates } = await sb.from('banco_cenarios')
       .select('*')
       .is('empresa_id', null)
