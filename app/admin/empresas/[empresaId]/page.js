@@ -67,7 +67,6 @@ const PHASE_CONFIG = [
   ]},
   { num: 2, icon: Mail, color: '#F59E0B', actions: [
     { key: 'disparo', label: 'Disparar Convites', icon: Send },
-    { key: 'status', label: 'Status Envios', icon: BarChart3 },
   ]},
   { num: 3, icon: Bot, color: '#EF4444', groups: [
     { label: 'Diagnóstico', actions: [
@@ -110,7 +109,7 @@ const PHASE_CONFIG = [
 // Action dispatcher map
 const ACTION_MAP = {
   ia1: rodarIA1, ia2: rodarIA2, ia3: rodarIA3,
-  disparo: dispararEmails, status: verStatusEnvios,
+  disparo: dispararEmails,
   ia4: rodarIA4, fila: verFilaIA4, check: checkAvaliacoes,
   'rel-ind': gerarRelatoriosIndividuais, 'rel-gestor': gerarRelatorioGestor, 'rel-rh': gerarRelatorioRH,
   'env-ind': enviarRelIndividuais, 'env-gestor': enviarRelGestor, 'env-rh': enviarRelRH, 'enviar-lote': dispararRelatoriosLote,
@@ -149,7 +148,8 @@ export default function EmpresaPipelinePage({ params }) {
   const [showAddComp, setShowAddComp] = useState(null);
   const [addSearch, setAddSearch] = useState('');
   const [gabaritos, setGabaritos] = useState([]);
-  const [gabExpanded, setGabExpanded] = useState(null); // cargo expandido
+  const [gabExpanded, setGabExpanded] = useState(null);
+  const [envioStatus, setEnvioStatus] = useState(null);
 
   const refreshTop10 = useCallback(async () => {
     const [t, c, g] = await Promise.all([
@@ -246,6 +246,7 @@ export default function EmpresaPipelinePage({ params }) {
         addLog(`✅ ${result.message || label + ' concluído'}`, 'success');
         loadData();
         if (actionKey === 'ia1' || actionKey === 'ia2') refreshTop10();
+        if (actionKey === 'disparo') setEnvioStatus(null); // força refresh
       } else {
         addLog(`❌ ${result?.error || 'Erro desconhecido'}`, 'error');
       }
@@ -393,6 +394,21 @@ export default function EmpresaPipelinePage({ params }) {
                           className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 ml-auto">
                           Ver detalhes →
                         </button>
+                      </div>
+                    ) : null;
+                  })()}
+
+                  {/* Fase 2: status visual dos envios */}
+                  {fase.num === 2 && (() => {
+                    if (!envioStatus) {
+                      verStatusEnvios(empresaId).then(r => { if (r.success) setEnvioStatus(r.resumo); });
+                    }
+                    return envioStatus ? (
+                      <div className="mb-3 mt-2 flex items-center gap-4 text-[10px]">
+                        <span className="text-gray-400">Total: <span className="text-white font-bold">{envioStatus.total}</span></span>
+                        {envioStatus.pendente > 0 && <span className="text-gray-400">Pendente: <span className="text-amber-400 font-bold">{envioStatus.pendente}</span></span>}
+                        {envioStatus.enviado > 0 && <span className="text-gray-400">Enviado: <span className="text-cyan-400 font-bold">{envioStatus.enviado}</span></span>}
+                        {envioStatus.respondido > 0 && <span className="text-gray-400">Respondido: <span className="text-green-400 font-bold">{envioStatus.respondido}</span></span>}
                       </div>
                     ) : null;
                   })()}
