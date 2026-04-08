@@ -78,8 +78,10 @@ export async function rodarIA1(empresaId, aiConfig = {}) {
 
     for (const cargoInfo of cargosUnicos) {
       // Filtrar competências relevantes (mesmo cargo ou sem cargo)
+      // Filtrar competências do cargo (ou sem cargo atribuído)
       const compsCargo = compsUnicas.filter(c => !c.cargo || c.cargo === cargoInfo.cargo);
-      const compsParaIA = compsCargo.length >= 10 ? compsCargo : compsUnicas;
+      // Usar competências do cargo; só cai para todas se não houver NENHUMA do cargo
+      const compsParaIA = compsCargo.length > 0 ? compsCargo : compsUnicas;
 
       const system = buildSystemPromptSelecao(compsParaIA);
       const user = buildUserPrompt(empresa, cargoInfo, valores, contextoPPP);

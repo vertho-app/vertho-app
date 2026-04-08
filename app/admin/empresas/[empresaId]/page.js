@@ -337,6 +337,8 @@ export default function EmpresaPipelinePage({ params }) {
                     const availComps = showAddComp ? (() => {
                       const seen = new Set();
                       return top10Comps.filter(c => {
+                        // Filtrar por cargo (mesmo cargo ou sem cargo)
+                        if (c.cargo && c.cargo !== showAddComp) return false;
                         const key = c.cod_comp || c.nome;
                         if (seen.has(key)) return false; seen.add(key);
                         if (selectedIds.has(c.id)) return false;
