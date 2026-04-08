@@ -224,46 +224,91 @@ export default function CompetenciasPage() {
         </div>
       )}
 
-      {/* Table */}
-      {!loadingComps && comps.length > 0 && (
-        <div className="rounded-xl border border-white/[0.06] overflow-hidden mb-6" style={{ background: '#0F2A4A' }}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/[0.06]">
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase">Cod</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase">Nome</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase">Pilar</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase">Cargo</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase">Descricao</th>
-                  <th className="px-4 py-3 text-right text-xs font-bold text-gray-400 uppercase">Acoes</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/[0.03]">
-                {comps.filter(c => !filtroCargo || c.cargo === filtroCargo).map(c => (
-                  <tr key={c.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="px-4 py-3 text-gray-400 font-mono text-xs">{c.cod_comp || '-'}</td>
-                    <td className="px-4 py-3 text-white font-semibold">{c.nome}</td>
-                    <td className="px-4 py-3 text-gray-400">{c.pilar || '-'}</td>
-                    <td className="px-4 py-3 text-gray-400">{c.cargo || '-'}</td>
-                    <td className="px-4 py-3 text-gray-500 max-w-[200px] truncate">{c.descricao || '-'}</td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => openEdit(c)} className="w-7 h-7 flex items-center justify-center rounded text-gray-500 hover:text-cyan-400 transition-colors">
-                          <Pencil size={14} />
-                        </button>
-                        <button onClick={() => handleDelete(c.id)} className="w-7 h-7 flex items-center justify-center rounded text-gray-500 hover:text-red-400 transition-colors">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Table — agrupada por competência */}
+      {!loadingComps && comps.length > 0 && (() => {
+        // Agrupar por cod_comp (ou nome se não tiver cod)
+        const filtered = comps.filter(c => !filtroCargo || c.cargo === filtroCargo);
+        const grupos = {};
+        filtered.forEach(c => {
+          const key = c.cod_comp || c.nome;
+          if (!grupos[key]) grupos[key] = { comp: c, descritores: [] };
+          if (c.cod_desc || c.nome_curto || c.descritor_completo) {
+            grupos[key].descritores.push(c);
+          } else if (!grupos[key].descritores.length) {
+            // Competência sem descritores — é a própria linha
+            grupos[key].descritores.push(c);
+          }
+        });
+        const uniqueComps = Object.values(grupos);
+        const compCount = uniqueComps.length;
+        const descCount = filtered.length;
+
+        return (
+        <div className="mb-6">
+          <p className="text-[10px] text-gray-500 mb-2">{compCount} competências · {descCount} descritores</p>
+          <div className="space-y-2">
+            {uniqueComps.map(({ comp: c, descritores }) => (
+              <div key={c.cod_comp || c.id} className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
+                {/* Competência header */}
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <span className="text-[10px] font-mono text-cyan-400 font-bold shrink-0 w-12">{c.cod_comp || '—'}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-white">{c.nome}</p>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      {c.pilar && <span className="text-[10px] text-gray-500">{c.pilar}</span>}
+                      {c.cargo && <span className="text-[10px] text-gray-400">· {c.cargo}</span>}
+                      <span className="text-[10px] text-gray-600">{descritores.length} descritores</span>
+                    </div>
+                    {c.descricao && <p className="text-[10px] text-gray-500 mt-1 truncate max-w-lg">{c.descricao}</p>}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button onClick={() => openEdit(c)} className="w-7 h-7 flex items-center justify-center rounded text-gray-500 hover:text-cyan-400"><Pencil size={13} /></button>
+                    <button onClick={() => {
+                      if (!confirm(`Excluir "${c.nome}" e todos os seus descritores?`)) return;
+                      // Excluir todos os descritores desta competência
+                      Promise.all(descritores.map(d => excluirCompetencia(d.id))).then(() => {
+                        flash('Competência excluída');
+                        handleSelectEmpresa(empresaId);
+                      });
+                    }} className="w-7 h-7 flex items-center justify-center rounded text-gray-500 hover:text-red-400"><Trash2 size={13} /></button>
+                  </div>
+                </div>
+
+                {/* Descritores */}
+                {descritores.length > 0 && descritores[0].cod_desc && (
+                  <div className="border-t border-white/[0.04]">
+                    <table className="w-full text-[11px]">
+                      <thead>
+                        <tr className="border-b border-white/[0.04] text-[9px] font-bold text-gray-600 uppercase">
+                          <th className="px-4 py-1.5 text-left">Cod</th>
+                          <th className="px-4 py-1.5 text-left">Descritor</th>
+                          <th className="px-4 py-1.5 text-left text-red-400/60">N1</th>
+                          <th className="px-4 py-1.5 text-left text-amber-400/60">N2</th>
+                          <th className="px-4 py-1.5 text-left text-cyan-400/60">N3</th>
+                          <th className="px-4 py-1.5 text-left text-green-400/60">N4</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/[0.02]">
+                        {descritores.map(d => (
+                          <tr key={d.id} className="hover:bg-white/[0.02]">
+                            <td className="px-4 py-1.5 text-gray-500 font-mono">{d.cod_desc || '—'}</td>
+                            <td className="px-4 py-1.5 text-gray-300 font-medium">{d.nome_curto || d.descritor_completo || '—'}</td>
+                            <td className="px-4 py-1.5 text-gray-500 max-w-[150px] truncate" title={d.n1_gap}>{d.n1_gap || '—'}</td>
+                            <td className="px-4 py-1.5 text-gray-500 max-w-[150px] truncate" title={d.n2_desenvolvimento}>{d.n2_desenvolvimento || '—'}</td>
+                            <td className="px-4 py-1.5 text-gray-500 max-w-[150px] truncate" title={d.n3_meta}>{d.n3_meta || '—'}</td>
+                            <td className="px-4 py-1.5 text-gray-500 max-w-[150px] truncate" title={d.n4_referencia}>{d.n4_referencia || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Base competencies */}
       {showBase && baselist.length > 0 && (

@@ -86,11 +86,12 @@ export async function excluirCompetencia(id) {
 export async function importarCompetenciasCSV(empresaId, comps) {
   const sb = createSupabaseAdmin();
   const { data: existentes } = await sb.from('competencias')
-    .select('nome, cargo').eq('empresa_id', empresaId);
-  const existSet = new Set((existentes || []).map(c => `${c.nome}||${c.cargo}`.toLowerCase()));
+    .select('cod_comp, cod_desc, nome, cargo').eq('empresa_id', empresaId);
+  // Dedup por cod_comp+cod_desc (cada descritor é uma linha)
+  const existSet = new Set((existentes || []).map(c => `${c.cod_comp || c.nome}||${c.cod_desc || ''}`.toLowerCase()));
 
   const novos = comps
-    .filter(c => c.nome && !existSet.has(`${c.nome}||${c.cargo || ''}`.toLowerCase()))
+    .filter(c => c.nome && !existSet.has(`${c.cod_comp || c.nome}||${c.cod_desc || ''}`.toLowerCase()))
     .map(c => ({
       empresa_id: empresaId,
       nome: c.nome.trim(),
