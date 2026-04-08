@@ -40,8 +40,13 @@ export default function PDIPage() {
       <div className="max-w-[600px] mx-auto px-4 py-6">
         <div className="rounded-xl p-6 border border-white/[0.06] text-center" style={{ background: '#0F2A4A' }}>
           <AlertCircle size={40} className="text-gray-500 mx-auto mb-3" />
-          <p className="text-lg font-bold text-white mb-1">PDI ainda nao foi gerado</p>
-          <p className="text-sm text-gray-400">Seu Plano de Desenvolvimento Individual sera criado apos a conclusao da avaliacao de competencias.</p>
+          <p className="text-lg font-bold text-white mb-1">PDI ainda não foi gerado</p>
+          <p className="text-sm text-gray-400 mb-4">Seu Plano de Desenvolvimento Individual será criado após a conclusão da avaliação de competências.</p>
+          <button onClick={() => router.push('/dashboard/assessment')}
+            className="px-5 py-2.5 rounded-xl text-sm font-bold text-white"
+            style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+            Ir para Avaliação
+          </button>
         </div>
       </div>
     );
