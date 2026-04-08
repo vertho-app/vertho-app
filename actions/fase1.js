@@ -96,15 +96,20 @@ export async function rodarIA1(empresaId, aiConfig = {}) {
           .eq('empresa_id', empresaId)
           .eq('cargo', cargoInfo.cargo);
 
+        const usedIds = new Set();
         for (let i = 0; i < resultado.top10.length; i++) {
           const sel = resultado.top10[i];
-          // Encontrar a competência pelo cod_comp ou nome
-          const match = competencias.find(c =>
-            (sel.id && c.cod_comp === sel.id) ||
-            (sel.cod_comp && c.cod_comp === sel.cod_comp) ||
-            c.nome.toLowerCase() === (sel.nome || '').toLowerCase()
-          );
-          if (!match) continue;
+          const selId = (sel.id || sel.cod_comp || '').trim().toLowerCase();
+          const selNome = (sel.nome || '').trim().toLowerCase();
+
+          // Match progressivo: cod_comp exato → cod_comp case-insensitive → nome exato → nome parcial
+          const match = competencias.find(c => !usedIds.has(c.id) && c.cod_comp && selId && c.cod_comp.toLowerCase() === selId)
+            || competencias.find(c => !usedIds.has(c.id) && selNome && c.nome.toLowerCase() === selNome)
+            || competencias.find(c => !usedIds.has(c.id) && selNome && c.nome.toLowerCase().includes(selNome))
+            || competencias.find(c => !usedIds.has(c.id) && selNome && selNome.includes(c.nome.toLowerCase()));
+
+          if (!match) { console.log('[IA1] Sem match para:', sel.id, sel.nome); continue; }
+          usedIds.add(match.id);
 
           await sb.from('top10_cargos').insert({
             empresa_id: empresaId,
