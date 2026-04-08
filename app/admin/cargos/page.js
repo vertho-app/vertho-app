@@ -1,14 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2, Briefcase, Check, Save, ChevronDown } from 'lucide-react';
 import { loadEmpresas, loadCargos, salvarTop5 } from './actions';
 
 export default function CargosPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const empresaParam = searchParams.get('empresa');
   const [empresas, setEmpresas] = useState([]);
-  const [empresaId, setEmpresaId] = useState('');
+  const [empresaId, setEmpresaId] = useState(empresaParam || '');
+  const [empresaNome, setEmpresaNome] = useState('');
   const [cargos, setCargos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingCargos, setLoadingCargos] = useState(false);
