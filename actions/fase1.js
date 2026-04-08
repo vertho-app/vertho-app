@@ -209,8 +209,9 @@ export async function loadGabaritosCargos(empresaId) {
 
 export async function loadCenarios(empresaId) {
   const sb = createSupabaseAdmin();
+  // Listar colunas explicitamente para garantir que check fields vêm
   const { data, error } = await sb.from('banco_cenarios')
-    .select('*')
+    .select('id, empresa_id, competencia_id, cargo, titulo, descricao, alternativas, created_at, nota_check, status_check, dimensoes_check, justificativa_check, sugestao_check, alertas_check, checked_at')
     .eq('empresa_id', empresaId)
     .order('cargo');
 
