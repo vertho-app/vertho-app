@@ -13,10 +13,19 @@ export async function dispararEmails(empresaId) {
       .eq('id', empresaId).single();
     if (!empresa) return { success: false, error: 'Empresa não encontrada' };
 
-    // Buscar colaboradores
-    const { data: colaboradores } = await sb.from('colaboradores')
+    // Buscar colaboradores (telefone pode não existir no schema)
+    let colaboradores;
+    const { data: c1, error: e1 } = await sb.from('colaboradores')
       .select('id, nome_completo, email, cargo, telefone')
       .eq('empresa_id', empresaId);
+    if (!e1) {
+      colaboradores = c1;
+    } else {
+      const { data: c2 } = await sb.from('colaboradores')
+        .select('id, nome_completo, email, cargo')
+        .eq('empresa_id', empresaId);
+      colaboradores = c2;
+    }
     if (!colaboradores?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
 
     // Buscar envios já existentes
