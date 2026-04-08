@@ -938,7 +938,7 @@ ${pppResumo ? `\nCONTEXTO PPP:\n${pppResumo}` : ''}`;
       sugestao_check: resultado.sugestao || null,
       alertas_check: resultado.alertas || [],
       checked_at: new Date().toISOString(),
-    }).eq('id', cenarioId);
+    }).eq('id', cen.id);
 
     return {
       success: true,
