@@ -79,7 +79,6 @@ const PHASE_CONFIG = [
     ]},
     { label: 'Relatórios', actions: [
       { key: 'rel-ind', label: 'Individuais', icon: FileText, ai: true },
-      { key: 'pdf-ind', label: 'PDF Individuais', icon: FileBarChart, href: '/admin/relatorios' },
       { key: 'rel-gestor', label: 'Gestor', icon: FileBarChart, ai: true },
       { key: 'rel-rh', label: 'RH', icon: FileBarChart, ai: true },
     ]},
