@@ -151,6 +151,7 @@ export async function gerarDossieGestor(e, c) { return _dossie(e, c); }
 export async function checkCenarios(e, c) { return _checkCen(e, c); }
 export async function dispararRelatoriosLote(e) { return _dispLote(e); }
 export async function dispararLinksCIS(e) { return _dispCIS(e); }
-export async function moodleImportarCatalogo(e) { return { success: true, message: 'Catálogo importado' }; }
-export async function catalogarConteudosMoodle(e, c) { return { success: true, message: 'Conteúdos catalogados' }; }
-export async function gerarCoberturaConteudo(e) { return { success: true, message: 'Cobertura gerada' }; }
+import { moodleImportarCatalogo as _moodleImp, catalogarConteudosMoodle as _moodleCat, gerarCoberturaConteudo as _cobertura } from '@/actions/moodle-actions';
+export async function moodleImportarCatalogo(e) { return _moodleImp(e); }
+export async function catalogarConteudosMoodle(e, c) { return _moodleCat(e, c); }
+export async function gerarCoberturaConteudo(e) { return _cobertura(e); }
