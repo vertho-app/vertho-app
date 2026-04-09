@@ -21,9 +21,28 @@ export default function Fase2Page({ params }) {
   const [openId, setOpenId] = useState(null);
   const [filtroColab, setFiltroColab] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
-  const [actionId, setActionId] = useState(null); // id em andamento
+  const [actionId, setActionId] = useState(null);
+  const [batchRunning, setBatchRunning] = useState(false);
   const [toast, setToast] = useState(null);
   function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 3000); }
+
+  async function handleRevisarTodos() {
+    const paraRevisar = respostas.filter(r => r.status_ia4 === 'revisar');
+    if (!paraRevisar.length) { flash('Nenhuma avaliação para revisar'); return; }
+    setBatchRunning(true);
+    flash(`Re-avaliando ${paraRevisar.length} respostas...`);
+    let ok = 0, erros = 0;
+    for (const r of paraRevisar) {
+      const r1 = await reavaliarResposta(r.id);
+      if (r1.success) {
+        await rechecarResposta(r.id);
+        ok++;
+      } else { erros++; }
+    }
+    setBatchRunning(false);
+    flash(`${ok} re-avaliadas${erros ? `, ${erros} erros` : ''}`);
+    refresh();
+  }
 
   async function refresh() {
     const d = await loadRespostasAvaliadas(empresaId);
@@ -85,6 +104,13 @@ export default function Fase2Page({ params }) {
         {stats.aprovadas > 0 && <span className="bg-green-400/15 text-green-400 px-1.5 py-0.5 rounded font-bold">{stats.aprovadas} aprovadas</span>}
         {stats.revisar > 0 && <span className="bg-amber-400/15 text-amber-400 px-1.5 py-0.5 rounded font-bold">{stats.revisar} revisar</span>}
         {stats.pendentes > 0 && <span className="bg-gray-400/15 text-gray-400 px-1.5 py-0.5 rounded font-bold">{stats.pendentes} pendentes</span>}
+        {stats.revisar > 0 && (
+          <button onClick={handleRevisarTodos} disabled={batchRunning}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 transition-all disabled:opacity-50">
+            {batchRunning ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+            Re-avaliar todos ({stats.revisar})
+          </button>
+        )}
       </div>
 
       {/* Filtros */}
