@@ -6,7 +6,7 @@ import {
   ArrowLeft, Loader2, Send, ChevronDown, CheckCircle, AlertCircle,
   Mail, MessageCircle, FileBarChart, Filter, Eye, Tag, Users
 } from 'lucide-react';
-import { loadEmpresas, loadWhatsappStatus, loadColaboradoresEnvio } from './actions';
+import { loadEmpresas, loadWhatsappStatus, loadColaboradoresEnvio, dispararMensagemCustomizada } from './actions';
 import { dispararLinksCIS, dispararRelatoriosLote } from '@/actions/whatsapp-lote';
 import { dispararEmails } from '@/actions/fase2';
 
@@ -117,18 +117,13 @@ export default function EnviosPage() {
   }
 
   async function handleDisparar() {
-    if (!empresaId) return;
+    if (!empresaId || !mensagem.trim()) return;
     setSending(true);
     setResult(null);
 
-    let r;
-    if (tab === 'email') {
-      r = await dispararEmails(empresaId);
-    } else if (tab === 'whatsapp') {
-      r = await dispararLinksCIS(empresaId);
-    } else {
-      r = await dispararRelatoriosLote(empresaId);
-    }
+    const canal = tab === 'email' ? 'email' : 'whatsapp';
+    const filtros = filtroCargo ? { cargo: filtroCargo } : {};
+    const r = await dispararMensagemCustomizada(empresaId, mensagem, canal, filtros);
 
     setResult(r);
     setSending(false);
