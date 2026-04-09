@@ -9,7 +9,7 @@ const s = StyleSheet.create({
   },
   topBar: { width: '100%', height: 3, backgroundColor: colors.coverAccent, marginBottom: 80 },
   // Logo: 3148x744 original → ratio ~4.23:1
-  logo: { width: 150, height: 35, marginBottom: 40 },
+  logo: { width: 150, height: 38, marginBottom: 40 },
   accent: { width: 40, height: 2, backgroundColor: colors.coverAccent, marginBottom: 28 },
   reportType: {
     fontSize: 11, color: colors.textMuted, letterSpacing: 1.5,
