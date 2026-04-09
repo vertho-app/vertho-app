@@ -1,8 +1,8 @@
 # Vertho Mentor IA — Arquitetura do Sistema
 
 > Documento oficial de arquitetura — SaaS B2B de desenvolvimento de competencias por IA.
-> Ultima atualizacao: 08/04/2026
-> Commit de referencia: d4bbb44
+> Ultima atualizacao: 09/04/2026
+> Commit de referencia: cc70241
 > Revisado contra o codigo-fonte em producao (vertho.com.br)
 > Metodo: auditoria automatizada + revisao manual + comparacao com legado GAS
 
@@ -39,7 +39,7 @@
 | **Email** | Resend API | — | 🔑 |
 | **Scraping Primario** | Jina AI Reader | — | ✅ |
 | **Scraping Fallback** | Firecrawl | — | 🔑 |
-| **LMS** | Moodle (REST API) | — | 📋 |
+| **LMS** | Moodle (REST API) | — | ✅ |
 | **Error Tracking** | Sentry | — | 🔑 |
 | **Testes** | Playwright + smoke-test.js | — | ✅ |
 | **Hospedagem** | Vercel (Serverless) | — | ✅ |
@@ -49,7 +49,7 @@
 
 ---
 
-## 2. Estrutura de Pastas (123 arquivos JS)
+## 2. Estrutura de Pastas (~130 arquivos JS)
 
 ```
 nextjs-app/
@@ -115,6 +115,10 @@ nextjs-app/
 │   │   │   └── [empresaId]/
 │   │   │       ├── page.js       # Pipeline Fases 0-5 + danger zone
 │   │   │       ├── actions.js    # Pipeline + cleanup por colaborador
+│   │   │       ├── fase0/page.js # Moodle detalhes (Catalogo, Catalogado IA, Cobertura)
+│   │   │       ├── fase1/page.js # Fase 1 detalhes (Top 10, Top 5, Gabarito, Cenarios)
+│   │   │       ├── fase2/page.js # Fase 2 detalhes (Diagnostico + Trilhas)
+│   │   │       ├── fase3/page.js # Fase 3 Capacitacao (dashboard progresso Moodle)
 │   │   │       └── configuracoes/
 │   │   │           ├── page.js   # 5 tabs: Equipe, Branding, IA, Automacoes, Envios
 │   │   │           └── actions.js
@@ -143,8 +147,10 @@ nextjs-app/
 │   ├── fase1.js                  # IA1, IA2 (+ versao_regua), IA3, Cenarios
 │   ├── fase2.js                  # Forms, emails (Resend), coleta, status
 │   ├── fase3.js                  # IA4 (32768 tok), relatorios (64000 tok)
-│   ├── fase4.js                  # PDI, trilhas, Moodle, triggers
+│   ├── fase4.js                  # PDI, trilhas (comp foco), triggers
 │   ├── fase5.js                  # Reavaliacao, evolucao, plenaria
+│   ├── capacitacao.js            # Fase 3: provisionar Moodle, sync, nudges, tutor IA
+│   ├── trilhas-load.js           # Carregar trilhas com dados de colaborador
 │   ├── cenario-b.js              # Cenario B (DISC-adapted, dilema etico)
 │   ├── check-ia4.js              # Validacao 4D × 25pts = 100
 │   ├── evolucao-granular.js      # Delta por descritor + convergencia CIS
@@ -164,9 +170,16 @@ nextjs-app/
 │   │   ├── RHView.js             # KPIs empresa (sessoes_avaliacao)
 │   │   └── ManagerView.js        # Equipe por area (sessoes_avaliacao)
 │   └── pdf/
-│       ├── styles.js
-│       ├── RelatorioTemplate.js
-│       └── RelatorioIndividual.js
+│       ├── styles.js             # Paleta premium, tipografia, helpers (nivelColor, nivelLabel, LevelDots)
+│       ├── RelatorioTemplate.js  # Template base A4
+│       ├── RelatorioIndividual.js # PDI premium (capa + resumo + competencias + mensagem)
+│       ├── RelatorioGestor.js    # Relatorio gestor
+│       ├── RelatorioRH.js        # Relatorio RH
+│       ├── PdfCover.js           # Capa premium (logo base64, nome, cargo, selo confidencial)
+│       ├── SectionTitle.js       # Titulos hierarquicos com accent bar
+│       ├── StatusBadge.js        # Badge nivel + dots solidos + FlagBadge
+│       ├── CompetencyBlock.js    # Bloco completo por competencia (8 secoes, compacto para N3+)
+│       └── ChecklistBox.js       # Checklist tatico com header navy
 ├── lib/
 │   ├── supabase.js               # createSupabaseClient + createSupabaseAdmin
 │   ├── supabase-browser.js       # Singleton browser client
@@ -344,6 +357,7 @@ Tabela `prompt_versions` (SHA-256 dedup). Cada sessao registra qual prompt gerou
 | PDI | 6.000 |
 | PPP | 16.000 |
 | BETO tutor | 500 |
+| Tutor Capacitacao | 600 (Haiku) |
 
 ---
 
@@ -358,11 +372,17 @@ Dispatch de formularios (Fase 2) e relatorios.
 Status: 🔑 depende de RESEND_API_KEY
 
 ### 6.3 Moodle — REST API
-Criar usuario, matricular, verificar conclusao.
-Status: 📋 lib implementada (`lib/moodle.js`), sem integracao ativa testada
+Criar usuario, matricular, verificar conclusao, importar catalogo, catalogar com IA.
+- `lib/moodle.js`: moodleCreateUser, moodleGetUser, moodleEnrollBatch, moodleGetCompletion, moodleGetCourses, moodleGetCourseContents
+- `actions/capacitacao.js`: provisionarMoodleLote, syncProgressoMoodle (completion tracking)
+- `actions/moodle-actions.js`: moodleImportarCatalogo, catalogarConteudosMoodle, gerarCoberturaConteudo
+Status: ✅ operacional (academia.vertho.ai)
 
 ### 6.4 PDF — @react-pdf/renderer + pdfjs-dist
-Geracao server-side em memoria. Leitura de PDF no browser (PPP).
+Geracao server-side em memoria. Logo carregada como base64 (server-side compatible).
+Componentes: PdfCover, SectionTitle, StatusBadge (dots), CompetencyBlock, ChecklistBox.
+PDI: capa premium + resumo executivo + blocos por competencia (compacto N3+) + mensagem final.
+Leitura de PDF no browser (PPP) via pdfjs-dist.
 Status: ✅ geracao + ✅ leitura
 
 ### 6.5 Scraping — Jina AI + Firecrawl
@@ -446,9 +466,39 @@ Integracoes: Jina AI, Firecrawl, Claude
 Critico: PDF com imagem (scan) nao e legivel; sites com anti-bot podem falhar
 ```
 
+### Fluxo D: Trilhas + Capacitacao (Fase 3)
+```
+1. RH define competencia foco por cargo (pipeline Fase 2, dropdown Top 5)
+   → salva em cargos_empresa.competencia_foco
+2. "Montar Trilhas": para cada colaborador:
+   a. Se tem gap na competencia foco do cargo → usa foco
+   b. Se nao tem gap no foco → usa competencia de maior gap
+   c. Sempre 1 competencia por colaborador
+   d. Match cursos do catalogo_enriquecido por competencia + cargo
+   e. So inclui cursos reais do moodle_catalogo (nao inventa)
+   f. Salva em trilhas (competencia_foco, cursos[])
+3. "Provisionar Moodle":
+   a. Cria usuario no Moodle (moodleCreateUser, idempotente)
+   b. Matricula nos cursos da trilha (moodleEnrollBatch)
+   c. Salva moodle_user_id em fase4_progresso
+4. "Iniciar Capacitacao": status → em_andamento, gera contrato pedagogico
+5. "Sync Progresso": busca completion via Moodle API, atualiza pct por curso
+6. "Avancar Semana": avanca semana_atual +1 (14 semanas total)
+7. "Nudges Inatividade": detecta 2+ semanas sem acesso → email colaborador + gestor
+8. Dashboard /admin/empresas/{id}/fase3:
+   - Resumo: total, provisionados, em andamento, concluidos, pct medio
+   - Meta coletiva por gestor (% do time com >=75%)
+   - Cards por colaborador: progresso, cursos, status Moodle
+9. Tutor IA: chatTutor() — Claude Haiku, 9 regras de governanca, log em tutor_log
+
+Tabelas: trilhas, fase4_progresso, tutor_log, cargos_empresa, catalogo_enriquecido, moodle_catalogo
+Integracoes: Moodle REST API, Resend (nudges), Claude Haiku (tutor)
+Critico: competencia foco por cargo, Moodle completion tracking
+```
+
 ---
 
-## 8. Modelagem de Dados (20 migrations)
+## 8. Modelagem de Dados (31 migrations)
 
 ### Dados Transacionais (progressao do colaborador)
 ```
@@ -479,8 +529,10 @@ sessoes_avaliacao.rascunho_avaliacao / validacao_audit / avaliacao_final
 ### Dados de Operacao
 ```
 envios_diagnostico (tracking de formularios enviados)
-fase4_envios (trilha semanal por colaborador)
-trilhas + trilhas_catalogo (conteudo mapeado)
+fase4_progresso (progresso capacitacao: moodle_user_id, cursos_progresso, pct, nudge, contrato)
+trilhas (1 competencia foco por colaborador, cursos do catalogo Moodle)
+tutor_log (historico de interacoes com tutor IA)
+cargos_empresa (top5_workshop, competencia_foco por cargo)
 platform_admins (admin global)
 ```
 
@@ -647,5 +699,5 @@ Sentry: Error tracking
 ---
 
 *Documento validado contra o codigo-fonte em producao.*
-*123 arquivos JS | 20 migrations SQL | 86 e2e tests | 20+ env vars | vertho.com.br*
-*Commit de referencia: d4bbb44 | Revisao: 08/04/2026*
+*~130 arquivos JS | 31 migrations SQL | 86 e2e tests | 20+ env vars | vertho.com.br*
+*Commit de referencia: cc70241 | Revisao: 09/04/2026*
