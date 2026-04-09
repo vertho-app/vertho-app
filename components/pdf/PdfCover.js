@@ -1,46 +1,45 @@
 import React from 'react';
 import { Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
-import { colors, fonts } from './styles';
+import { colors } from './styles';
 
 const s = StyleSheet.create({
   page: {
     flexDirection: 'column', backgroundColor: colors.white,
-    paddingHorizontal: 40, paddingVertical: 40, fontFamily: 'Helvetica',
+    paddingHorizontal: 50, paddingVertical: 50, fontFamily: 'Helvetica',
   },
   topBar: {
-    width: '100%', height: 4, backgroundColor: colors.coverAccent,
-    borderRadius: 2, marginBottom: 40,
+    width: '100%', height: 3, backgroundColor: colors.coverAccent, marginBottom: 60,
   },
-  logo: { width: 64, height: 64, marginBottom: 16 },
+  logo: { width: 56, height: 56, marginBottom: 12 },
   brandName: {
-    fontSize: fonts.coverTitle, fontWeight: 'bold', color: colors.navy,
-    letterSpacing: 6, marginBottom: 4,
+    fontSize: 24, fontWeight: 'bold', color: colors.navy, letterSpacing: 3, marginBottom: 2,
   },
   accent: {
-    width: 60, height: 2, backgroundColor: colors.coverAccent,
-    marginTop: 8, marginBottom: 32,
+    width: 40, height: 2, backgroundColor: colors.coverAccent, marginTop: 10, marginBottom: 28,
   },
   reportType: {
-    fontSize: 14, color: colors.textMuted, letterSpacing: 2,
-    textTransform: 'uppercase', marginBottom: 48,
+    fontSize: 11, color: colors.textMuted, letterSpacing: 1.5,
+    textTransform: 'uppercase', marginBottom: 60,
   },
   name: {
-    fontSize: 22, fontWeight: 'bold', color: colors.navy, marginBottom: 6,
+    fontSize: 26, fontWeight: 'bold', color: colors.navy, marginBottom: 4,
   },
   cargo: {
-    fontSize: 12, color: colors.textSecondary, marginBottom: 4,
+    fontSize: 11, color: colors.textSecondary, marginBottom: 2,
   },
   empresa: {
-    fontSize: 11, color: colors.textMuted, marginTop: 8,
+    fontSize: 10, color: colors.textMuted, marginTop: 6,
   },
-  bottomArea: { marginTop: 'auto' },
+  bottomArea: {
+    marginTop: 'auto', paddingTop: 20,
+    borderTopWidth: 0.5, borderTopColor: colors.gray200,
+  },
   date: {
-    fontSize: 9, color: colors.textMuted, marginBottom: 12,
+    fontSize: 8, color: colors.textMuted, marginBottom: 6,
   },
   confidential: {
-    fontSize: 7, color: colors.gray400, letterSpacing: 1,
-    textTransform: 'uppercase', paddingTop: 8,
-    borderTopWidth: 0.5, borderTopColor: colors.gray300,
+    fontSize: 6.5, color: colors.gray400, letterSpacing: 0.8,
+    textTransform: 'uppercase',
   },
 });
 
@@ -64,9 +63,7 @@ export default function PdfCover({ logoBase64, nome, cargo, empresa, data, tipo 
 
       <View style={s.bottomArea}>
         <Text style={s.date}>{dataFormatada}</Text>
-        <Text style={s.confidential}>
-          Documento confidencial — Uso restrito a colaborador, gestor direto e RH
-        </Text>
+        <Text style={s.confidential}>Confidencial  |  Uso restrito a colaborador, gestor direto e RH</Text>
       </View>
     </Page>
   );
