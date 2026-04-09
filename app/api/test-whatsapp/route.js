@@ -10,6 +10,12 @@ export async function GET() {
   }
 
   try {
+    // Testar primeiro se a instância existe
+    const statusRes = await fetch(`https://api.z-api.io/instances/${instanceId}/token/${token}/status`, {
+      headers: { 'Client-Token': clientToken },
+    });
+    const statusBody = await statusRes.text();
+
     const res = await fetch(`https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Client-Token': clientToken },
@@ -17,7 +23,11 @@ export async function GET() {
     });
 
     const body = await res.text();
-    return NextResponse.json({ status: res.status, ok: res.ok, body });
+    return NextResponse.json({
+      instanceId, tokenLen: token.length, clientTokenLen: clientToken.length,
+      statusCheck: { status: statusRes.status, body: statusBody },
+      sendResult: { status: res.status, ok: res.ok, body },
+    });
   } catch (err) {
     return NextResponse.json({ error: err.message });
   }
