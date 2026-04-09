@@ -22,7 +22,7 @@ import {
   rodarIA1, rodarIA2, rodarIA3,
   verStatusEnvios,
   rodarIA4, checkAvaliacoes,
-  gerarPDIs, gerarPDIsDescritores, montarTrilhasLote, criarEstruturaFase4, iniciarFase4ParaTodos, triggerSegundaFase4, triggerQuintaFase4, getStatusFase4, moodleImportarCatalogo, catalogarConteudosMoodle, gerarCoberturaConteudo,
+  montarTrilhasLote, criarEstruturaFase4, iniciarFase4ParaTodos, triggerSegundaFase4, triggerQuintaFase4, getStatusFase4, moodleImportarCatalogo, catalogarConteudosMoodle, gerarCoberturaConteudo,
   iniciarReavaliacaoLote, gerarRelatoriosEvolucaoLote, gerarPlenariaEvolucao, gerarRelatorioRHManual, gerarRelatorioPlenaria, enviarLinksPerfil, gerarDossieGestor, checkCenarios,
 } from './actions';
 
@@ -87,10 +87,6 @@ const PHASE_CONFIG = [
     ]},
   ]},
   { num: 3, icon: GraduationCap, color: '#22C55E', groups: [
-    { label: 'PDI', actions: [
-      { key: 'pdis', label: 'Gerar PDIs', icon: Target, ai: true },
-      { key: 'pdis-desc', label: 'PDIs Descritores', icon: FileText },
-    ]},
     { label: 'Trilhas', actions: [
       { key: 'trilhas', label: 'Montar Trilhas', icon: Layers },
       { key: 'estrutura', label: 'Criar Estrutura', icon: Database },
@@ -109,7 +105,7 @@ const PHASE_CONFIG = [
 const ACTION_MAP = {
   ia1: rodarIA1, ia2: rodarIA2, ia3: rodarIA3,
   ia4: rodarIA4, check: checkAvaliacoes,
-  pdis: gerarPDIs, 'pdis-desc': gerarPDIsDescritores, trilhas: montarTrilhasLote,
+  trilhas: montarTrilhasLote,
   estrutura: criarEstruturaFase4, iniciar: iniciarFase4ParaTodos,
   'trig-seg': triggerSegundaFase4, 'trig-qui': triggerQuintaFase4, 'status-f4': getStatusFase4,
   'moodle-imp': moodleImportarCatalogo, 'moodle-cat': catalogarConteudosMoodle, cobertura: gerarCoberturaConteudo,
