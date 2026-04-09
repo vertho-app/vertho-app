@@ -44,11 +44,17 @@ export async function importarColaboradoresLote(empresaId, colabs) {
 
 export async function loadColaboradores(empresaId) {
   const sb = createSupabaseAdmin();
-  const { data } = await sb.from('colaboradores')
-    .select('id, nome_completo, email, cargo, role, area_depto, perfil_dominante, mapeamento_em')
+  // Tentar com telefone, fallback sem
+  const { data: d1, error: e1 } = await sb.from('colaboradores')
+    .select('id, nome_completo, email, cargo, role, area_depto, telefone, mapeamento_em')
     .eq('empresa_id', empresaId)
     .order('nome_completo');
-  return data || [];
+  if (!e1) return d1 || [];
+  const { data: d2 } = await sb.from('colaboradores')
+    .select('id, nome_completo, email, cargo, role, area_depto, mapeamento_em')
+    .eq('empresa_id', empresaId)
+    .order('nome_completo');
+  return (d2 || []).map(c => ({ ...c, telefone: null }));
 }
 
 export async function atualizarColaborador(id, campos) {

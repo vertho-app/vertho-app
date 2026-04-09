@@ -224,7 +224,7 @@ export default function GerenciarPage() {
                         <th className="px-4 py-2 text-left">Cargo</th>
                         <th className="px-4 py-2 text-left">Área</th>
                         <th className="px-4 py-2 text-left">Role</th>
-                        <th className="px-4 py-2 text-left">DISC</th>
+                        <th className="px-4 py-2 text-left">WhatsApp</th>
                         <th className="px-4 py-2 text-center">Ações</th>
                       </tr>
                     </thead>
@@ -272,7 +272,7 @@ export default function GerenciarPage() {
                                   'bg-gray-400/10 text-gray-400'
                                 }`}>{c.role}</span>
                               </td>
-                              <td className="px-4 py-2 text-xs text-gray-500">{c.perfil_dominante || '—'}</td>
+                              <td className="px-4 py-2 text-xs text-gray-500">{c.telefone || '—'}</td>
                               <td className="px-4 py-2 text-center">
                                 <div className="flex items-center justify-center gap-1">
                                   <button onClick={() => startEdit(c)} className="text-gray-600 hover:text-cyan-400"><Pencil size={13} /></button>
