@@ -153,13 +153,15 @@ Retorne APENAS JSON (array):
 export async function gerarCoberturaConteudo(empresaId) {
   const sb = createSupabaseAdmin();
   try {
-    // Buscar competências com descritores
+    // Buscar competências (com ou sem descritores)
     const { data: comps } = await sb.from('competencias')
       .select('nome, cod_comp, cargo, cod_desc, nome_curto')
-      .eq('empresa_id', empresaId)
-      .not('cod_desc', 'is', null);
+      .eq('empresa_id', empresaId);
 
-    if (!comps?.length) return { success: false, error: 'Nenhuma competência com descritores encontrada' };
+    if (!comps?.length) return { success: false, error: 'Nenhuma competência encontrada' };
+
+    // Agrupar: se tem descritores usa descritor, senão usa competência como unidade
+    const temDescritores = comps.some(c => c.cod_desc);
 
     // Buscar catálogo enriquecido
     const { data: catalogo } = await sb.from('catalogo_enriquecido')
@@ -177,12 +179,21 @@ export async function gerarCoberturaConteudo(empresaId) {
     // Limpar cobertura anterior
     await sb.from('cobertura_conteudo').delete().eq('empresa_id', empresaId);
 
-    // Agrupar competências por cargo + nome + descritor
+    // Agrupar competências: por descritor se existir, senão por competência
     const expectativa = {};
+    const seen = new Set();
     comps.forEach(c => {
-      const key = `${c.cargo}::${c.nome}::${c.cod_desc}`;
-      if (!expectativa[key]) {
-        expectativa[key] = { cargo: c.cargo, competencia: c.nome, descritor: c.nome_curto || c.cod_desc };
+      if (temDescritores && c.cod_desc) {
+        const key = `${c.cargo}::${c.nome}::${c.cod_desc}`;
+        if (!expectativa[key]) {
+          expectativa[key] = { cargo: c.cargo, competencia: c.nome, descritor: c.nome_curto || c.cod_desc };
+        }
+      } else {
+        const key = `${c.cargo}::${c.nome}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          expectativa[key] = { cargo: c.cargo, competencia: c.nome, descritor: '(geral)' };
+        }
       }
     });
 
