@@ -80,14 +80,24 @@ async function callClaude(system, user, model, maxTokens, options = {}) {
   if (options.thinking) {
     const budgetTokens = Math.min(options.thinkingBudget || 32768, 65536);
     params.thinking = { type: 'enabled', budget_tokens: budgetTokens };
-    // Ensure max_tokens is large enough when thinking is enabled
     if (params.max_tokens < budgetTokens + 4096) {
       params.max_tokens = budgetTokens + 4096;
     }
   }
 
-  const response = await client.messages.create(params);
+  // Usar streaming para requests com muitos tokens (Claude exige para >8192)
+  if (maxTokens > 8192) {
+    let text = '';
+    const stream = await client.messages.stream(params);
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta' && event.delta?.text) {
+        text += event.delta.text;
+      }
+    }
+    return text;
+  }
 
+  const response = await client.messages.create(params);
   return options.thinking
     ? extractClaudeText(response.content)
     : response.content[0].text;
@@ -111,8 +121,19 @@ async function callClaudeChat(system, messages, model, maxTokens, options = {}) 
     }
   }
 
-  const response = await client.messages.create(params);
+  // Streaming para requests longos
+  if (maxTokens > 8192) {
+    let text = '';
+    const stream = await client.messages.stream(params);
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta' && event.delta?.text) {
+        text += event.delta.text;
+      }
+    }
+    return text;
+  }
 
+  const response = await client.messages.create(params);
   return options.thinking
     ? extractClaudeText(response.content)
     : response.content[0].text;
