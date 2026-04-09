@@ -441,6 +441,16 @@ export default function EmpresaPipelinePage({ params }) {
                     ) : null;
                   })()}
 
+                  {/* Fase 2: link para detalhes */}
+                  {fase.num === 2 && (
+                    <div className="mb-3 mt-2 flex justify-end">
+                      <button onClick={() => router.push(`/admin/empresas/${empresaId}/fase2`)}
+                        className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300">
+                        Ver detalhes →
+                      </button>
+                    </div>
+                  )}
+
                   {config.groups ? (
                     config.groups.map((group, gi) => {
                       const visibleActions = group.actions.filter(a => !isHidden(`btn-fase${fase.num}-${a.key}`, uiConfig));

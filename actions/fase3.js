@@ -152,6 +152,53 @@ export async function verFilaIA4(empresaId) {
   }
 }
 
+// ── Carregar respostas com avaliação ─────────────────────────────────────────
+
+export async function loadRespostasAvaliadas(empresaId) {
+  const sb = createSupabaseAdmin();
+  const { data, error } = await sb.from('respostas')
+    .select('id, colaborador_id, competencia_id, cenario_id, r1, r2, r3, r4, nivel_simulado, avaliacao_ia, nivel_ia4, status_ia4, payload_ia4, created_at')
+    .eq('empresa_id', empresaId)
+    .not('r1', 'is', null)
+    .order('created_at', { ascending: false });
+
+  if (error || !data?.length) return [];
+
+  // Buscar colaboradores
+  const colabIds = [...new Set(data.map(r => r.colaborador_id).filter(Boolean))];
+  const colabMap = {};
+  if (colabIds.length) {
+    const { data: colabs } = await sb.from('colaboradores').select('id, nome_completo, cargo').in('id', colabIds);
+    (colabs || []).forEach(c => { colabMap[c.id] = c; });
+  }
+
+  // Buscar competências
+  const compIds = [...new Set(data.map(r => r.competencia_id).filter(Boolean))];
+  const compMap = {};
+  if (compIds.length) {
+    const { data: comps } = await sb.from('competencias').select('id, nome, cod_comp').in('id', compIds);
+    (comps || []).forEach(c => { compMap[c.id] = c; });
+  }
+
+  // Buscar cenários (titulo)
+  const cenIds = [...new Set(data.map(r => r.cenario_id).filter(Boolean))];
+  const cenMap = {};
+  if (cenIds.length) {
+    const { data: cens } = await sb.from('banco_cenarios').select('id, titulo, alternativas').in('id', cenIds);
+    (cens || []).forEach(c => { cenMap[c.id] = c; });
+  }
+
+  return data.map(r => ({
+    ...r,
+    colaborador_nome: colabMap[r.colaborador_id]?.nome_completo || '—',
+    colaborador_cargo: colabMap[r.colaborador_id]?.cargo || '—',
+    competencia_nome: compMap[r.competencia_id]?.nome || '—',
+    competencia_cod: compMap[r.competencia_id]?.cod_comp || '',
+    cenario_titulo: cenMap[r.cenario_id]?.titulo || '—',
+    cenario_perguntas: cenMap[r.cenario_id]?.alternativas || [],
+  }));
+}
+
 // ── Check avaliações ────────────────────────────────────────────────────────
 
 export async function checkAvaliacoes(empresaId, aiConfig = {}) {
