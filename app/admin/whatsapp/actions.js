@@ -94,7 +94,8 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
 
       if (canal === 'whatsapp' && colab.telefone && process.env.QSTASH_TOKEN) {
         try {
-          const webhookUrl = `https://${empresa.slug}.${domain}/api/webhooks/qstash/whatsapp-cis`;
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${empresa.slug}.${domain}`;
+          const webhookUrl = `${appUrl}/api/webhooks/qstash/whatsapp-cis`;
           await fetch('https://qstash.upstash.io/v2/publish/' + encodeURIComponent(webhookUrl), {
             method: 'POST',
             headers: {
