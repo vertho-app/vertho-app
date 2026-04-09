@@ -68,7 +68,9 @@ export async function dispararEmails(empresaId) {
         }, { onConflict: 'empresa_id,colaborador_id' });
       }
 
-      const link = `${baseUrl}/${empresa.slug}/avaliacao/${token}`;
+      // Usar subdomínio da empresa: {slug}.vertho.com.br
+      const domain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'vertho.com.br';
+      const link = `https://${empresa.slug}.${domain}/avaliacao/${token}`;
 
       // 1. Enviar email (se tem email e Resend configurado)
       if (colab.email && process.env.RESEND_API_KEY) {
