@@ -109,7 +109,6 @@ const PHASE_CONFIG = [
 const ACTION_MAP = {
   ia1: rodarIA1, ia2: rodarIA2, ia3: rodarIA3,
   ia4: rodarIA4, check: checkAvaliacoes,
-  'rel-ind': gerarRelatoriosIndividuais, 'rel-gestor': gerarRelatorioGestor, 'rel-rh': gerarRelatorioRH,
   pdis: gerarPDIs, 'pdis-desc': gerarPDIsDescritores, trilhas: montarTrilhasLote,
   estrutura: criarEstruturaFase4, iniciar: iniciarFase4ParaTodos,
   'trig-seg': triggerSegundaFase4, 'trig-qui': triggerQuintaFase4, 'status-f4': getStatusFase4,
