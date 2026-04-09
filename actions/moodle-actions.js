@@ -12,9 +12,13 @@ import { extractJSON } from './utils';
 export async function moodleImportarCatalogo(empresaId) {
   const sb = createSupabaseAdmin();
   try {
+    // Verificar configuração
+    if (!process.env.MOODLE_TOKEN) return { success: false, error: 'MOODLE_TOKEN não configurado nas env vars' };
+    if (!process.env.MOODLE_URL) return { success: false, error: 'MOODLE_URL não configurado nas env vars' };
+
     // Buscar todos os cursos do Moodle
     const cursos = await moodleGetCourses();
-    if (!cursos?.length) return { success: false, error: 'Nenhum curso encontrado no Moodle' };
+    if (!cursos?.length) return { success: false, error: 'Nenhum curso encontrado no Moodle (API retornou vazio)' };
 
     const moodleUrl = process.env.MOODLE_URL || 'https://academia.vertho.ai';
     let importados = 0;
