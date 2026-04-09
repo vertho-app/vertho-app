@@ -248,6 +248,117 @@ PERGUNTA 4: ${resp.r4 || '(sem resposta)'}`;
   }
 }
 
+// ── Re-avaliar resposta (com feedback do check) ─────────────────────────────
+
+export async function reavaliarResposta(respostaId, aiConfig = {}) {
+  const sb = createSupabaseAdmin();
+  try {
+    // Buscar resposta com check anterior
+    const { data: resp } = await sb.from('respostas')
+      .select('id, empresa_id, colaborador_id, competencia_id, cenario_id, r1, r2, r3, r4, payload_ia4')
+      .eq('id', respostaId).single();
+    if (!resp) return { success: false, error: 'Resposta não encontrada' };
+
+    // Extrair feedback do check
+    const check = typeof resp.payload_ia4 === 'string' ? JSON.parse(resp.payload_ia4) : resp.payload_ia4;
+    const feedbackCheck = [check?.justificativa, check?.revisao].filter(Boolean).join('\n');
+
+    // Limpar avaliação anterior
+    await sb.from('respostas').update({
+      avaliacao_ia: null, nivel_ia4: null, nota_ia4: null,
+      status_ia4: null, payload_ia4: null,
+      pontos_fortes: null, pontos_atencao: null, feedback_ia4: null, avaliado_em: null,
+    }).eq('id', respostaId).select('id');
+
+    // Buscar dados necessários (mesmo fluxo do rodarIA4)
+    const { data: empresa } = await sb.from('empresas')
+      .select('nome, segmento').eq('id', resp.empresa_id).single();
+
+    const { data: colab } = await sb.from('colaboradores')
+      .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, perfil_dominante, lid_executivo, lid_motivador, lid_metodico, lid_sistematico')
+      .eq('id', resp.colaborador_id).single();
+
+    let cenarioTexto = '', perguntasTexto = '';
+    if (resp.cenario_id) {
+      const { data: cen } = await sb.from('banco_cenarios')
+        .select('titulo, descricao, alternativas').eq('id', resp.cenario_id).maybeSingle();
+      if (cen) {
+        cenarioTexto = `${cen.titulo}\n${cen.descricao}`;
+        const pergs = Array.isArray(cen.alternativas) ? cen.alternativas : [];
+        perguntasTexto = pergs.map((p, i) => `P${p.numero || i + 1}: ${p.texto || ''}\nDescritores: ${Array.isArray(p.descritores_primarios) ? p.descritores_primarios.map(d => `D${d}`).join(', ') : ''}\nDiferenciacao: ${p.o_que_diferencia_niveis || ''}`).join('\n\n');
+      }
+    }
+
+    let compNome = '', compCod = '', descritoresTexto = '';
+    if (resp.competencia_id) {
+      const { data: comp } = await sb.from('competencias')
+        .select('nome, cod_comp').eq('id', resp.competencia_id).maybeSingle();
+      compNome = comp?.nome || ''; compCod = comp?.cod_comp || '';
+      const { data: descs } = await sb.from('competencias')
+        .select('cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
+        .eq('empresa_id', resp.empresa_id).eq('cod_comp', comp?.cod_comp).not('cod_desc', 'is', null);
+      if (descs?.length) {
+        descritoresTexto = descs.map((d, i) => `DESCRITOR ${i + 1}: ${d.cod_desc} — ${d.nome_curto || ''}\nN1: ${d.n1_gap || ''}\nN2: ${d.n2_desenvolvimento || ''}\nN3: ${d.n3_meta || ''}\nN4: ${d.n4_referencia || ''}`).join('\n\n');
+      }
+    }
+
+    let perfilCIS = '';
+    if (colab?.d_natural != null) {
+      perfilCIS = `DISC: D=${colab.d_natural} | I=${colab.i_natural} | S=${colab.s_natural} | C=${colab.c_natural}\nDominante: ${colab.perfil_dominante || '—'}`;
+    }
+
+    // Montar prompt com feedback do check
+    let user = `=== DADOS DO PROFISSIONAL ===\nNOME: ${colab?.nome_completo || '—'}\nCARGO: ${colab?.cargo || '—'}\nEMPRESA: ${empresa?.nome || '—'}\n\n${perfilCIS}\n\n=== COMPETENCIA ===\n${compCod} — ${compNome}\n\n=== DESCRITORES ===\n${descritoresTexto || '(não disponíveis)'}\n\n=== CENARIO ===\n${cenarioTexto}\n\n=== PERGUNTAS ===\n${perguntasTexto}\n\n=== RESPOSTAS ===\nR1: ${resp.r1 || '—'}\nR2: ${resp.r2 || '—'}\nR3: ${resp.r3 || '—'}\nR4: ${resp.r4 || '—'}`;
+
+    if (feedbackCheck) {
+      user += `\n\n=== FEEDBACK DA AUDITORIA ANTERIOR (CORRIJA ESTES PONTOS) ===\n${feedbackCheck}`;
+    }
+
+    const resultado = await callAI(IA4_SYSTEM, user, aiConfig, 8000);
+    const avaliacao = await extractJSON(resultado);
+
+    if (!avaliacao) return { success: false, error: 'IA não retornou avaliação válida' };
+
+    const nivelGeral = avaliacao.consolidacao?.nivel_geral || avaliacao.nivel_geral || null;
+    const notaDecimal = avaliacao.consolidacao?.media_descritores || avaliacao.nota_decimal || null;
+
+    await sb.from('respostas').update({
+      avaliacao_ia: avaliacao,
+      nivel_ia4: nivelGeral,
+      nota_ia4: notaDecimal,
+      pontos_fortes: avaliacao.descritores_destaque?.pontos_fortes?.map(p => p.descritor || p).join('; ') || null,
+      pontos_atencao: avaliacao.descritores_destaque?.gaps_prioritarios?.map(g => g.descritor || g).join('; ') || null,
+      feedback_ia4: avaliacao.feedback || null,
+      avaliado_em: new Date().toISOString(),
+    }).eq('id', respostaId).select('id');
+
+    return { success: true, message: `Re-avaliado: ${compNome} — N${nivelGeral}` };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// ── Re-checar resposta ──────────────────────────────────────────────────────
+
+export async function rechecarResposta(respostaId, aiConfig = {}) {
+  // Importar check dinâmicamente para evitar circular
+  const { checkAvaliacoes } = await import('./check-ia4');
+  const sb = createSupabaseAdmin();
+
+  // Limpar check anterior
+  await sb.from('respostas').update({
+    status_ia4: null, payload_ia4: null,
+  }).eq('id', respostaId).select('id');
+
+  // Buscar a resposta para saber empresa_id
+  const { data: resp } = await sb.from('respostas')
+    .select('empresa_id').eq('id', respostaId).single();
+  if (!resp) return { success: false, error: 'Resposta não encontrada' };
+
+  // Rodar check (vai pegar essa resposta como pendente)
+  return checkAvaliacoes(resp.empresa_id, aiConfig);
+}
+
 // ── Ver fila de IA4 ─────────────────────────────────────────────────────────
 
 export async function verFilaIA4(empresaId) {

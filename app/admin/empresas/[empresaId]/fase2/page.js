@@ -4,9 +4,9 @@ import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Loader2, Bot, ChevronDown, CheckCircle, AlertTriangle,
-  User, FileText, Filter
+  User, FileText, Filter, RefreshCw
 } from 'lucide-react';
-import { loadRespostasAvaliadas } from '@/actions/fase3';
+import { loadRespostasAvaliadas, reavaliarResposta, rechecarResposta } from '@/actions/fase3';
 
 const NIVEL_COLORS = {
   1: 'text-red-400', 2: 'text-amber-400', 3: 'text-cyan-400', 4: 'text-green-400',
@@ -21,10 +21,17 @@ export default function Fase2Page({ params }) {
   const [openId, setOpenId] = useState(null);
   const [filtroColab, setFiltroColab] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
+  const [actionId, setActionId] = useState(null); // id em andamento
+  const [toast, setToast] = useState(null);
+  function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 3000); }
 
-  useEffect(() => {
-    loadRespostasAvaliadas(empresaId).then(d => { setRespostas(d); setLoading(false); });
-  }, [empresaId]);
+  async function refresh() {
+    const d = await loadRespostasAvaliadas(empresaId);
+    setRespostas(d);
+    setLoading(false);
+  }
+
+  useEffect(() => { refresh(); }, [empresaId]);
 
   const colaboradores = [...new Set(respostas.map(r => r.colaborador_nome))].sort();
   const filtered = respostas.filter(r => {
@@ -55,6 +62,8 @@ export default function Fase2Page({ params }) {
 
   return (
     <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
+      {toast && <div className="fixed top-4 right-4 z-50 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold shadow-lg">{toast}</div>}
+
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => router.push(`/admin/empresas/${empresaId}`)}
@@ -175,21 +184,57 @@ export default function Fase2Page({ params }) {
                       </div>
 
                       {/* Avaliação IA4 */}
-                      {avaliacao && (
+                      {avaliacao && (() => {
+                        const nGeral = avaliacao.consolidacao?.nivel_geral || avaliacao.nivel_geral || r.nivel_ia4;
+                        const nDecimal = avaliacao.consolidacao?.media_descritores || avaliacao.nota_decimal || r.nota_ia4;
+                        const confianca = avaliacao.consolidacao?.confianca_geral;
+                        const gap = avaliacao.consolidacao?.gap;
+                        const travas = avaliacao.consolidacao?.travas_aplicadas;
+                        const porResp = avaliacao.avaliacao_por_resposta;
+                        const pontos = avaliacao.descritores_destaque || {};
+                        const feedback = avaliacao.feedback;
+                        const porPergunta = avaliacao.por_pergunta;
+
+                        return (
                         <div>
                           <p className="text-[9px] font-bold text-purple-400 uppercase tracking-widest mb-2">Avaliação IA4</p>
                           <div className="p-3 rounded-lg space-y-2" style={{ background: '#091D35' }}>
                             <div className="flex items-center gap-3">
-                              <span className={`text-lg font-bold ${NIVEL_COLORS[avaliacao.nivel_geral] || 'text-gray-400'}`}>
-                                N{avaliacao.nivel_geral}
+                              <span className={`text-lg font-bold ${NIVEL_COLORS[nGeral] || 'text-gray-400'}`}>
+                                N{nGeral || '?'}
                               </span>
-                              {avaliacao.nota_decimal && (
-                                <span className="text-xs text-gray-500">({avaliacao.nota_decimal})</span>
+                              {nDecimal && (
+                                <span className="text-xs text-gray-500">({Number(nDecimal).toFixed(2)})</span>
                               )}
+                              {gap != null && gap > 0 && <span className="text-[9px] bg-red-400/15 text-red-400 px-1.5 py-0.5 rounded">GAP: {gap}</span>}
+                              {confianca != null && <span className="text-[9px] text-gray-600">Confiança: {confianca}%</span>}
                             </div>
 
-                            {/* Por pergunta */}
-                            {avaliacao.por_pergunta?.length > 0 && (
+                            {/* Travas */}
+                            {travas?.length > 0 && travas[0] !== 'Nenhuma' && travas[0] !== 'Nenhuma trava aplicada' && (
+                              <div className="text-[9px] text-amber-400">Travas: {travas.join('; ')}</div>
+                            )}
+
+                            {/* Avaliação por resposta (formato GAS detalhado) */}
+                            {porResp && Object.entries(porResp).map(([key, val]) => (
+                              val?.descritores_avaliados?.length > 0 && (
+                                <div key={key}>
+                                  <p className="text-[9px] font-bold text-gray-500">{key}:</p>
+                                  {val.descritores_avaliados.map((d, i) => (
+                                    <div key={i} className="flex items-start gap-2 text-[10px] ml-2">
+                                      <span className={`font-bold shrink-0 ${NIVEL_COLORS[Math.floor(d.nota_decimal || d.nivel)] || 'text-gray-400'}`}>
+                                        D{d.numero}: {d.nota_decimal?.toFixed(2) || `N${d.nivel}`}
+                                      </span>
+                                      <span className="text-gray-500 truncate">{d.evidencia || d.nome || ''}</span>
+                                      {d.confianca && <span className="text-gray-600 shrink-0">{d.confianca}%</span>}
+                                    </div>
+                                  ))}
+                                </div>
+                              )
+                            ))}
+
+                            {/* Por pergunta (formato simplificado) */}
+                            {!porResp && porPergunta?.length > 0 && (
                               <div className="space-y-1">
                                 {avaliacao.por_pergunta.map((p, i) => (
                                   <div key={i} className="flex items-start gap-2 text-[10px]">
@@ -200,26 +245,31 @@ export default function Fase2Page({ params }) {
                               </div>
                             )}
 
-                            {avaliacao.pontos_fortes?.length > 0 && (
+                            {(pontos.pontos_fortes || avaliacao.pontos_fortes)?.length > 0 && (
                               <div>
                                 <p className="text-[9px] text-green-400 font-bold">Pontos fortes:</p>
-                                {avaliacao.pontos_fortes.map((p, i) => <p key={i} className="text-[10px] text-gray-400">• {p}</p>)}
+                                {(pontos.pontos_fortes || avaliacao.pontos_fortes).map((p, i) => (
+                                  <p key={i} className="text-[10px] text-gray-400">• {typeof p === 'string' ? p : `${p.descritor || p.nome}: ${p.evidencia_resumida || ''}`}</p>
+                                ))}
                               </div>
                             )}
 
-                            {avaliacao.pontos_desenvolvimento?.length > 0 && (
+                            {(pontos.gaps_prioritarios || avaliacao.pontos_desenvolvimento)?.length > 0 && (
                               <div>
-                                <p className="text-[9px] text-amber-400 font-bold">Desenvolvimento:</p>
-                                {avaliacao.pontos_desenvolvimento.map((p, i) => <p key={i} className="text-[10px] text-gray-400">• {p}</p>)}
+                                <p className="text-[9px] text-amber-400 font-bold">Gaps / Desenvolvimento:</p>
+                                {(pontos.gaps_prioritarios || avaliacao.pontos_desenvolvimento).map((p, i) => (
+                                  <p key={i} className="text-[10px] text-gray-400">• {typeof p === 'string' ? p : `${p.descritor || p.nome}: ${p.o_que_faltou || ''}`}</p>
+                                ))}
                               </div>
                             )}
 
-                            {avaliacao.feedback && (
-                              <p className="text-[10px] text-gray-400 pt-1 border-t border-white/[0.04]">{avaliacao.feedback}</p>
+                            {feedback && (
+                              <p className="text-[10px] text-gray-400 pt-1 border-t border-white/[0.04]">{feedback}</p>
                             )}
                           </div>
                         </div>
-                      )}
+                        );
+                      })()}
 
                       {/* Check */}
                       {check && (
@@ -247,6 +297,42 @@ export default function Fase2Page({ params }) {
                           </div>
                         </div>
                       )}
+
+                      {/* Ações */}
+                      <div className="flex items-center gap-2 pt-2">
+                        {r.status_ia4 === 'revisar' && (
+                          <button disabled={actionId === r.id} onClick={async () => {
+                            setActionId(r.id);
+                            flash('Re-avaliando...');
+                            const r1 = await reavaliarResposta(r.id);
+                            if (r1.success) {
+                              flash('Re-checando...');
+                              await rechecarResposta(r.id);
+                            }
+                            setActionId(null);
+                            flash(r1.success ? r1.message : 'Erro: ' + r1.error);
+                            refresh();
+                          }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 transition-all disabled:opacity-50">
+                            {actionId === r.id ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+                            Re-avaliar + Re-checar
+                          </button>
+                        )}
+                        {r.avaliacao_ia && !r.status_ia4 && (
+                          <button disabled={actionId === r.id} onClick={async () => {
+                            setActionId(r.id);
+                            flash('Checando...');
+                            const r1 = await rechecarResposta(r.id);
+                            setActionId(null);
+                            flash(r1.success ? r1.message : 'Erro: ' + r1.error);
+                            refresh();
+                          }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all disabled:opacity-50">
+                            {actionId === r.id ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle size={11} />}
+                            Validar
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
