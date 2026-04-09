@@ -132,14 +132,14 @@ export default function RelatorioRHPDF({ data, empresaNome }) {
 
         {c.competencias_criticas?.length > 0 && (
           <View style={s.section}>
-            <Text style={s.h2}>> Competências Críticas — Onde Investir</Text>
+            <Text style={s.h2}> Competências Críticas — Onde Investir</Text>
             {c.competencias_criticas.map((comp, i) => {
               const cc = critColors[comp.criticidade] || critColors.ESTAVEL;
               return (
                 <View key={i} wrap={false}>
                   <View style={{ ...s.critHeader, backgroundColor: cc.bg }}><Text style={{ fontSize: 10, fontWeight: 'bold', color: '#FFFFFF' }}>{comp.competencia} — {comp.criticidade}</Text></View>
                   <View style={{ ...s.critContent, backgroundColor: cc.contentBg }}><Text style={s.text}>{comp.motivo}</Text></View>
-                  {(comp.impacto || comp.impacto_alunos) && (<View style={s.critImpacto}><Text style={{ fontSize: 10, color: C.navy }}>> {comp.impacto || comp.impacto_alunos}</Text></View>)}
+                  {(comp.impacto || comp.impacto_alunos) && (<View style={s.critImpacto}><Text style={{ fontSize: 10, color: C.navy }}> {comp.impacto || comp.impacto_alunos}</Text></View>)}
                 </View>
               );
             })}
@@ -170,7 +170,7 @@ export default function RelatorioRHPDF({ data, empresaNome }) {
             <Text style={s.text}>{c.perfil_disc_organizacional.descricao}</Text>
             {(c.perfil_disc_organizacional.implicacao || c.perfil_disc_organizacional.implicacao_pedagogica) && (
               <View>
-                <View style={{ backgroundColor: '#E3EEF9', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 2 }}><Text style={{ fontSize: 10, fontWeight: 'bold', color: C.navy }}>> Implicação</Text></View>
+                <View style={{ backgroundColor: '#E3EEF9', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 2 }}><Text style={{ fontSize: 10, fontWeight: 'bold', color: C.navy }}> Implicação</Text></View>
                 <View style={{ backgroundColor: '#F7FBFF', paddingVertical: 4, paddingHorizontal: 16 }}><Text style={s.text}>{c.perfil_disc_organizacional.implicacao || c.perfil_disc_organizacional.implicacao_pedagogica}</Text></View>
               </View>
             )}
@@ -186,11 +186,11 @@ export default function RelatorioRHPDF({ data, empresaNome }) {
 
         {c.decisoes_chave?.length > 0 && (
           <View style={s.section}>
-            <Text style={s.h2}>> Decisões-Chave</Text>
+            <Text style={s.h2}> Decisões-Chave</Text>
             <Text style={s.textIt}>Estas decisões exigem ação imediata e critérios claros de reavaliação.</Text>
             {c.decisoes_chave.map((d, i) => (
               <View key={i} wrap={false} style={{ marginBottom: 4 }}>
-                <View style={s.decHeader}><Text style={{ fontSize: 10, fontWeight: 'bold', color: '#FFFFFF' }}>> {d.colaborador}</Text></View>
+                <View style={s.decHeader}><Text style={{ fontSize: 10, fontWeight: 'bold', color: '#FFFFFF' }}> {d.colaborador}</Text></View>
                 <View style={s.decSituacao}><Text style={s.text}>Situação: {d.situacao}</Text></View>
                 <View style={s.decAcao}><Text style={{ fontSize: 10, fontWeight: 'bold', color: C.vermelho }}>* Ação: {d.acao || d.acao_imediata}</Text></View>
                 {d.criterio_reavaliacao && <View style={s.decReav}><Text style={s.text}> Reavaliação: {d.criterio_reavaliacao}</Text></View>}
@@ -202,7 +202,7 @@ export default function RelatorioRHPDF({ data, empresaNome }) {
 
         {c.plano_acao && (
           <View style={s.section}>
-            <Text style={s.h2}>> Plano de Ação — RH / T&D</Text>
+            <Text style={s.h2}> Plano de Ação — RH / T&D</Text>
             {acaoHorizontes.map(({ key, label, bg, contentBg }) => {
               const a = c.plano_acao[key];
               if (!a) return null;

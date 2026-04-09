@@ -137,7 +137,7 @@ export default function RelatorioGestorPDF({ data, empresaNome }) {
                 {a.acao_gestor && (
                   <View>
                     <View style={{ backgroundColor: '#E3EEF9', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 2 }}>
-                      <Text style={{ fontSize: 10, fontWeight: 'bold', color: C.navy }}>> Ação do Gestor</Text>
+                      <Text style={{ fontSize: 10, fontWeight: 'bold', color: C.navy }}> Ação do Gestor</Text>
                     </View>
                     <View style={{ backgroundColor: '#F7FBFF', paddingVertical: 4, paddingHorizontal: 16 }}>
                       <Text style={s.text}>{a.acao_gestor}</Text>
@@ -164,7 +164,7 @@ export default function RelatorioGestorPDF({ data, empresaNome }) {
 
         {c.acoes && (
           <View style={s.section}>
-            <Text style={s.h2}>> Plano de Ação</Text>
+            <Text style={s.h2}> Plano de Ação</Text>
             {c.acoes.acao_principal && (
               <View style={{ marginBottom: 6 }}>
                 <View style={s.acaoPrincipal}><Text style={s.acaoPrincipalText}>* COMECE POR AQUI: {typeof c.acoes.acao_principal === 'string' ? c.acoes.acao_principal : c.acoes.acao_principal.titulo}</Text></View>
@@ -182,7 +182,7 @@ export default function RelatorioGestorPDF({ data, empresaNome }) {
                   <View style={{ ...contentBg, paddingVertical: 6, paddingHorizontal: 16 }}>
                     <Text style={{ fontSize: 10, fontWeight: 'bold', color: C.navy }}>{a.titulo}</Text>
                     <Text style={s.text}>{a.descricao}</Text>
-                    {a.impacto && <Text style={{ fontSize: 10, color: C.navy, backgroundColor: '#FFFDE7', paddingVertical: 2, paddingHorizontal: 4, borderRadius: 2 }}>> {a.impacto}</Text>}
+                    {a.impacto && <Text style={{ fontSize: 10, color: C.navy, backgroundColor: '#FFFDE7', paddingVertical: 2, paddingHorizontal: 4, borderRadius: 2 }}> {a.impacto}</Text>}
                   </View>
                 </View>
               );
