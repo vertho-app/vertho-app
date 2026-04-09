@@ -1,145 +1,190 @@
 import React from 'react';
-import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
-import { colors, fonts, pageStyles } from './styles';
-
-const C = { ...colors, subtitulo: '#2471A3', verde: '#27AE60', vermelho: '#C0392B', amarelo: '#F39C12', roxo: '#1a1548' };
+import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { colors, pageStyles } from './styles';
+import PdfCover from './PdfCover';
+import { SectionTitle } from './SectionTitle';
 
 const s = StyleSheet.create({
   section: { marginBottom: 14 },
-  h2: { fontSize: 14, fontWeight: 'bold', color: C.navy, marginBottom: 6, borderBottomWidth: 1, borderBottomColor: colors.gray200, paddingBottom: 4 },
-  h3: { fontSize: 12, fontWeight: 'bold', color: C.subtitulo, marginBottom: 4, marginTop: 8 },
-  text: { fontSize: 10, color: C.navy, lineHeight: 1.6, marginBottom: 4 },
-  textIt: { fontSize: 10, color: C.navy, fontStyle: 'italic', marginBottom: 4 },
-  textSm: { fontSize: 9, color: C.navy, lineHeight: 1.4 },
+  text: { fontFamily: 'NotoSans', fontSize: 10, color: colors.textPrimary, lineHeight: 1.6, marginBottom: 4 },
+  textIt: { fontFamily: 'NotoSans', fontSize: 10, color: colors.textSecondary, fontStyle: 'italic', marginBottom: 4, lineHeight: 1.5 },
+  h3: { fontFamily: 'NotoSans', fontSize: 11, fontWeight: 600, color: colors.navyLight, marginBottom: 4, marginTop: 8 },
+  box: { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: colors.gray200, borderRadius: 8, padding: 14, marginBottom: 10 },
   divider: { borderBottomWidth: 1, borderBottomColor: colors.gray200, marginVertical: 12 },
-  coverTitle: { fontSize: 32, fontWeight: 'bold', color: C.navy, textAlign: 'center', letterSpacing: 4 },
-  coverLine: { borderBottomWidth: 2, borderBottomColor: colors.cyan, width: 80, alignSelf: 'center', marginTop: 12 },
-  // Indicadores
-  kpiRow: { flexDirection: 'row', marginBottom: 4 },
-  kpiPar: { flexDirection: 'row', paddingVertical: 6, paddingHorizontal: 10, backgroundColor: '#F7F9FC' },
-  kpiImpar: { flexDirection: 'row', paddingVertical: 6, paddingHorizontal: 10 },
-  kpiLabel: { fontSize: 10, color: C.navy, flex: 1 },
-  kpiValue: { fontSize: 10, color: C.navy, fontWeight: 'bold', width: 150 },
-  // Evolução badges
-  evolUp: { backgroundColor: '#E8F5E9', paddingVertical: 6, paddingHorizontal: 12, marginBottom: 2, borderRadius: 2 },
-  evolKeep: { backgroundColor: '#FFFDE7', paddingVertical: 6, paddingHorizontal: 12, marginBottom: 2, borderRadius: 2 },
-  evolDown: { backgroundColor: '#FEF5F5', paddingVertical: 6, paddingHorizontal: 12, marginBottom: 2, borderRadius: 2 },
-  // Tabela cargos
-  tblHeader: { flexDirection: 'row', backgroundColor: C.navy, paddingVertical: 6, paddingHorizontal: 6 },
-  tblCell: { fontSize: 9, color: C.navy },
-  tblCellBold: { fontSize: 9, color: C.navy, fontWeight: 'bold' },
-  tblRow: { flexDirection: 'row', paddingVertical: 4, paddingHorizontal: 6, borderBottomWidth: 0.5, borderBottomColor: colors.gray200 },
+  // KPIs
+  kpiRow: { flexDirection: 'row', paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  kpiRowAlt: { flexDirection: 'row', paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', backgroundColor: '#FAFAFA' },
+  kpiLabel: { fontFamily: 'NotoSans', fontSize: 10, color: colors.textPrimary, flex: 1 },
+  kpiValue: { fontFamily: 'NotoSans', fontSize: 10, color: colors.textPrimary, fontWeight: 700, width: 150 },
+  // Level bars
+  levelBar: { borderRadius: 4, paddingVertical: 6, paddingHorizontal: 12, marginBottom: 4 },
+  levelText: { fontFamily: 'NotoSans', fontSize: 10, fontWeight: 600 },
+  // Badge
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, marginLeft: 6 },
+  badgeText: { fontFamily: 'NotoSans', fontSize: 8, fontWeight: 600 },
   // Competências críticas
-  critHeader: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 2, marginBottom: 1 },
-  critContent: { paddingVertical: 4, paddingHorizontal: 16, marginBottom: 1 },
-  critImpacto: { backgroundColor: '#FFFDE7', paddingVertical: 2, paddingHorizontal: 16, marginBottom: 4 },
+  critCard: { borderRadius: 6, overflow: 'hidden', marginBottom: 8 },
+  critHeader: { paddingVertical: 8, paddingHorizontal: 12 },
+  critHeaderText: { fontFamily: 'NotoSans', fontSize: 10, fontWeight: 700, color: '#FFFFFF' },
+  critContent: { paddingVertical: 8, paddingHorizontal: 14 },
+  critImpacto: { fontFamily: 'NotoSans', fontSize: 9, color: colors.textSecondary, fontStyle: 'italic', marginTop: 4 },
   // Treinamentos
-  trainHeader: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 2, marginBottom: 1 },
-  trainContent: { paddingVertical: 4, paddingHorizontal: 16, marginBottom: 1 },
+  trainCard: { borderRadius: 6, overflow: 'hidden', marginBottom: 8 },
+  trainHeader: { paddingVertical: 8, paddingHorizontal: 12 },
+  trainHeaderText: { fontFamily: 'NotoSans', fontSize: 10, fontWeight: 700, color: '#FFFFFF' },
+  trainContent: { paddingVertical: 8, paddingHorizontal: 14 },
+  trainMeta: { fontFamily: 'NotoSans', fontSize: 9, color: colors.textMuted, fontStyle: 'italic', marginBottom: 3 },
   // Decisões
-  decHeader: { backgroundColor: C.roxo, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 2, marginBottom: 1 },
-  decSituacao: { backgroundColor: '#F5F3FF', paddingVertical: 6, paddingHorizontal: 16, marginBottom: 1 },
-  decAcao: { backgroundColor: '#FEF5F5', paddingVertical: 4, paddingHorizontal: 16, marginBottom: 1 },
-  decReav: { backgroundColor: '#F0F7FF', paddingVertical: 4, paddingHorizontal: 16, marginBottom: 1 },
-  decConseq: { backgroundColor: '#FFF3E0', paddingVertical: 4, paddingHorizontal: 16, marginBottom: 4 },
+  decCard: { borderRadius: 6, overflow: 'hidden', marginBottom: 8 },
+  decHeader: { backgroundColor: '#1E1B4B', paddingVertical: 8, paddingHorizontal: 12 },
+  decHeaderText: { fontFamily: 'NotoSans', fontSize: 10, fontWeight: 700, color: '#FFFFFF' },
+  decRow: { paddingVertical: 6, paddingHorizontal: 14 },
+  decLabel: { fontFamily: 'NotoSans', fontSize: 9, fontWeight: 600, color: colors.textMuted, marginBottom: 1 },
+  // Ações horizonte
+  acaoCard: { borderRadius: 6, marginBottom: 6, overflow: 'hidden' },
+  acaoHeader: { paddingVertical: 8, paddingHorizontal: 12 },
+  acaoHeaderText: { fontFamily: 'NotoSans', fontSize: 10, fontWeight: 700, color: '#FFFFFF' },
+  acaoContent: { paddingVertical: 8, paddingHorizontal: 14 },
+  acaoTitulo: { fontFamily: 'NotoSans', fontSize: 10, fontWeight: 600, color: colors.textPrimary, marginBottom: 3 },
+  // Visão por cargo
+  cargoCard: { borderWidth: 1, borderColor: colors.gray200, borderRadius: 6, padding: 10, marginBottom: 8 },
+  cargoTitle: { fontFamily: 'NotoSans', fontSize: 11, fontWeight: 600, color: colors.navyLight, marginBottom: 4 },
+  // Highlights
+  hlPositive: { backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#D1FAE5', borderRadius: 6, padding: 8, marginBottom: 4 },
+  hlAttention: { backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FDE68A', borderRadius: 6, padding: 8, marginBottom: 4 },
+  hlText: { fontFamily: 'NotoSans', fontSize: 10 },
 });
 
+function PageHeader({ sub }) {
+  return (
+    <View style={pageStyles.header} fixed>
+      <Text style={pageStyles.headerTitle}>Vertho</Text>
+      <Text style={pageStyles.headerSub}>{sub}</Text>
+    </View>
+  );
+}
+
+function PageFooter() {
+  return (
+    <View style={pageStyles.footer} fixed>
+      <Text style={pageStyles.footerText}>{'Vertho Mentor IA \u2014 Confidencial'}</Text>
+      <Text style={pageStyles.footerText} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
+    </View>
+  );
+}
+
 const critColors = {
-  CRITICA: { bg: C.vermelho, contentBg: '#FEF5F5' },
-  ATENCAO: { bg: C.amarelo, contentBg: '#FFFBF0' },
-  ESTAVEL: { bg: C.verde, contentBg: '#F0FFF5' },
+  CRITICA: { bg: '#B91C1C', contentBg: '#FEF2F2' },
+  ATENCAO: { bg: '#D97706', contentBg: '#FFFBEB' },
+  ESTAVEL: { bg: '#16A34A', contentBg: '#F0FDF4' },
 };
 const prioColors = {
-  URGENTE: { bg: C.vermelho, contentBg: '#FEF5F5' },
-  IMPORTANTE: { bg: C.subtitulo, contentBg: '#F0F7FF' },
-  DESEJAVEL: { bg: '#1A7A4A', contentBg: '#F0FFF5' },
+  URGENTE: { bg: '#B91C1C', contentBg: '#FEF2F2' },
+  IMPORTANTE: { bg: '#2563EB', contentBg: '#EFF6FF' },
+  DESEJAVEL: { bg: '#16A34A', contentBg: '#F0FDF4' },
 };
 const acaoHorizontes = [
-  { key: 'curto_prazo', label: ' Curto Prazo (2 semanas)', bg: C.vermelho, contentBg: '#FEF5F5' },
-  { key: 'medio_prazo', label: ' Médio Prazo (1-2 meses)', bg: C.subtitulo, contentBg: '#F0F7FF' },
-  { key: 'longo_prazo', label: ' Longo Prazo (próximo semestre)', bg: '#1A7A4A', contentBg: '#F0FFF5' },
+  { key: 'curto_prazo', label: 'Curto Prazo (2 semanas)', bg: '#B91C1C', contentBg: '#FEF2F2' },
+  { key: 'medio_prazo', label: 'M\u00e9dio Prazo (1\u20132 meses)', bg: '#2563EB', contentBg: '#EFF6FF' },
+  { key: 'longo_prazo', label: 'Longo Prazo (pr\u00f3ximo semestre)', bg: '#16A34A', contentBg: '#F0FDF4' },
 ];
 
-export default function RelatorioRHPDF({ data, empresaNome }) {
+export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }) {
   const c = data.conteudo;
   if (!c) return null;
 
   return (
     <Document>
       {/* Capa */}
-      <Page size="A4" style={pageStyles.page}>
-        <View style={{ flex: 1, justifyContent: 'center' }}>
-          <Text style={s.coverTitle}>VERTHO</Text>
-          <View style={s.coverLine} />
-          <Text style={{ fontSize: 14, color: colors.gray500, textAlign: 'center', marginTop: 8 }}>Relatório Consolidado — RH / T&D</Text>
-          <Text style={{ fontSize: 16, color: colors.cyan, textAlign: 'center', marginTop: 30, fontWeight: 'bold' }}>{empresaNome}</Text>
-          <Text style={{ fontSize: 10, color: colors.gray400, textAlign: 'center', marginTop: 30 }}>{new Date(data.gerado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</Text>
-        </View>
-        <View style={pageStyles.footer}><Text style={pageStyles.footerText}>Vertho Mentor IA — Confidencial</Text></View>
-      </Page>
+      <PdfCover logoBase64={logoBase64} nome={empresaNome} cargo={'Relat\u00f3rio Consolidado \u2014 RH / T&D'} empresa={''} data={data.gerado_em} tipo={'Relat\u00f3rio RH / T&D'} />
 
       {/* Resumo + Indicadores */}
-      <Page size="A4" style={pageStyles.page}>
-        <View style={pageStyles.header}><Text style={pageStyles.headerTitle}>VERTHO</Text><Text style={pageStyles.headerDate}>Relatório RH</Text></View>
+      <Page size="A4" style={pageStyles.page} wrap>
+        <PageHeader sub={'Relat\u00f3rio RH'} />
 
-        {c.resumo_executivo && (<View style={s.section}><Text style={s.h2}>Resumo Executivo</Text><Text style={s.text}>{c.resumo_executivo}</Text></View>)}
+        {c.resumo_executivo && (
+          <View style={s.section} wrap={false}>
+            <SectionTitle>Resumo Executivo</SectionTitle>
+            <View style={s.box}><Text style={s.text}>{c.resumo_executivo}</Text></View>
+          </View>
+        )}
 
         {c.indicadores && (
-          <View style={s.section}>
-            <Text style={s.h2}> Indicadores Quantitativos</Text>
-            {[['Colaboradores avaliados', c.indicadores.total_avaliados], ['Avaliações realizadas', c.indicadores.total_avaliacoes], ['Média geral', c.indicadores.media_geral]].map(([label, val], i) => (
-              <View key={i} style={i % 2 === 0 ? s.kpiPar : s.kpiImpar}>
-                <Text style={s.kpiLabel}>{label}</Text><Text style={s.kpiValue}>{val || 0}</Text>
+          <View style={s.section} wrap={false}>
+            <SectionTitle>Indicadores Quantitativos</SectionTitle>
+            <View style={{ borderWidth: 1, borderColor: colors.gray200, borderRadius: 8, overflow: 'hidden', marginBottom: 8 }}>
+              {[['Colaboradores avaliados', c.indicadores.total_avaliados],
+                ['Avalia\u00e7\u00f5es realizadas', c.indicadores.total_avaliacoes],
+                ['M\u00e9dia geral', c.indicadores.media_geral],
+              ].map(([label, val], i) => (
+                <View key={i} style={i % 2 === 0 ? s.kpiRow : s.kpiRowAlt}>
+                  <Text style={s.kpiLabel}>{label}</Text>
+                  <Text style={s.kpiValue}>{val || 0}</Text>
+                </View>
+              ))}
+            </View>
+            <View>
+              <View style={{ ...s.levelBar, backgroundColor: '#F0FDF4' }}>
+                <Text style={{ ...s.levelText, color: '#166534' }}>N3-N4: {(c.indicadores.pct_nivel_3 || 0) + (c.indicadores.pct_nivel_4 || 0)}%</Text>
               </View>
-            ))}
-            <View style={{ marginTop: 4 }}>
-              <View style={s.evolUp}><Text style={{ fontSize: 10, fontWeight: 'bold', color: C.verde }}>N3-N4: {(c.indicadores.pct_nivel_3 || 0) + (c.indicadores.pct_nivel_4 || 0)}%</Text></View>
-              <View style={s.evolKeep}><Text style={{ fontSize: 10, fontWeight: 'bold', color: C.amarelo }}>N2: {c.indicadores.pct_nivel_2 || 0}%</Text></View>
-              <View style={s.evolDown}><Text style={{ fontSize: 10, fontWeight: 'bold', color: C.vermelho }}>N1: {c.indicadores.pct_nivel_1 || 0}%</Text></View>
+              <View style={{ ...s.levelBar, backgroundColor: '#FFFBEB' }}>
+                <Text style={{ ...s.levelText, color: '#92400E' }}>N2: {c.indicadores.pct_nivel_2 || 0}%</Text>
+              </View>
+              <View style={{ ...s.levelBar, backgroundColor: '#FEF2F2' }}>
+                <Text style={{ ...s.levelText, color: '#991B1B' }}>N1: {c.indicadores.pct_nivel_1 || 0}%</Text>
+              </View>
             </View>
           </View>
         )}
 
         {c.comparativo_f1_f3 && (
-          <View style={s.section}>
-            <Text style={s.h2}> Comparativo</Text>
-            <Text style={s.text}>{c.comparativo_f1_f3.analise}</Text>
-            {c.comparativo_f1_f3.destaque_positivo && (<View style={{ backgroundColor: '#E8F5E9', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 2, marginBottom: 2 }}><Text style={{ fontSize: 10, color: C.verde }}>+ {c.comparativo_f1_f3.destaque_positivo}</Text></View>)}
-            {c.comparativo_f1_f3.destaque_atencao && (<View style={{ backgroundColor: '#FFF3E0', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 2 }}><Text style={{ fontSize: 10, color: C.amarelo }}>! {c.comparativo_f1_f3.destaque_atencao}</Text></View>)}
+          <View style={s.section} wrap={false}>
+            <SectionTitle>Comparativo</SectionTitle>
+            <View style={s.box}><Text style={s.text}>{c.comparativo_f1_f3.analise}</Text></View>
+            {c.comparativo_f1_f3.destaque_positivo && (
+              <View style={s.hlPositive}><Text style={{ ...s.hlText, color: '#166534' }}>+ {c.comparativo_f1_f3.destaque_positivo}</Text></View>
+            )}
+            {c.comparativo_f1_f3.destaque_atencao && (
+              <View style={s.hlAttention}><Text style={{ ...s.hlText, color: '#92400E' }}>! {c.comparativo_f1_f3.destaque_atencao}</Text></View>
+            )}
           </View>
         )}
 
         {c.visao_por_cargo?.length > 0 && (
           <View style={s.section}>
-            <Text style={s.h2}> Visão por Cargo</Text>
+            <SectionTitle>{'Vis\u00e3o por Cargo'}</SectionTitle>
             {c.visao_por_cargo.map((v, i) => (
-              <View key={i} wrap={false} style={{ marginBottom: 6 }}>
-                <Text style={s.h3}>{v.cargo} — Média: {v.media || '—'}</Text>
+              <View key={i} style={s.cargoCard} wrap={false}>
+                <Text style={s.cargoTitle}>{v.cargo} {'\u2014'} {'M\u00e9dia'}: {v.media || '\u2014'}</Text>
                 <Text style={s.text}>{v.analise}</Text>
-                {v.ponto_forte && (<View style={{ backgroundColor: '#F1F8F0', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 2, marginBottom: 1 }}><Text style={{ fontSize: 10, color: C.verde }}>+ {v.ponto_forte}</Text></View>)}
-                {v.ponto_critico && (<View style={{ backgroundColor: '#FFFBF5', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 2 }}><Text style={{ fontSize: 10, color: C.amarelo }}>! {v.ponto_critico}</Text></View>)}
+                {v.ponto_forte && <View style={s.hlPositive}><Text style={{ ...s.hlText, color: '#166534' }}>+ {v.ponto_forte}</Text></View>}
+                {v.ponto_critico && <View style={s.hlAttention}><Text style={{ ...s.hlText, color: '#92400E' }}>! {v.ponto_critico}</Text></View>}
               </View>
             ))}
           </View>
         )}
 
-        <View style={pageStyles.footer}><Text style={pageStyles.footerText}>Vertho Mentor IA — Confidencial</Text></View>
+        <PageFooter />
       </Page>
 
       {/* Competências Críticas + Treinamentos */}
-      <Page size="A4" style={pageStyles.page}>
-        <View style={pageStyles.header}><Text style={pageStyles.headerTitle}>VERTHO</Text><Text style={pageStyles.headerDate}>Investimentos</Text></View>
+      <Page size="A4" style={pageStyles.page} wrap>
+        <PageHeader sub="Investimentos" />
 
         {c.competencias_criticas?.length > 0 && (
           <View style={s.section}>
-            <Text style={s.h2}> Competências Críticas — Onde Investir</Text>
+            <SectionTitle>{'Compet\u00eancias Cr\u00edticas \u2014 Onde Investir'}</SectionTitle>
             {c.competencias_criticas.map((comp, i) => {
               const cc = critColors[comp.criticidade] || critColors.ESTAVEL;
               return (
-                <View key={i} wrap={false}>
-                  <View style={{ ...s.critHeader, backgroundColor: cc.bg }}><Text style={{ fontSize: 10, fontWeight: 'bold', color: '#FFFFFF' }}>{comp.competencia} — {comp.criticidade}</Text></View>
-                  <View style={{ ...s.critContent, backgroundColor: cc.contentBg }}><Text style={s.text}>{comp.motivo}</Text></View>
-                  {(comp.impacto || comp.impacto_alunos) && (<View style={s.critImpacto}><Text style={{ fontSize: 10, color: C.navy }}> {comp.impacto || comp.impacto_alunos}</Text></View>)}
+                <View key={i} style={s.critCard} wrap={false}>
+                  <View style={{ ...s.critHeader, backgroundColor: cc.bg }}>
+                    <Text style={s.critHeaderText}>{comp.competencia} {'\u2014'} {comp.criticidade}</Text>
+                  </View>
+                  <View style={{ ...s.critContent, backgroundColor: cc.contentBg }}>
+                    <Text style={s.text}>{comp.motivo}</Text>
+                    {(comp.impacto || comp.impacto_alunos) && <Text style={s.critImpacto}>{comp.impacto || comp.impacto_alunos}</Text>}
+                  </View>
                 </View>
               );
             })}
@@ -148,15 +193,17 @@ export default function RelatorioRHPDF({ data, empresaNome }) {
 
         {c.treinamentos_sugeridos?.length > 0 && (
           <View style={s.section}>
-            <Text style={s.h2}> Formações e Treinamentos</Text>
+            <SectionTitle>{'Forma\u00e7\u00f5es e Treinamentos'}</SectionTitle>
             {c.treinamentos_sugeridos.map((t, i) => {
               const pc = prioColors[t.prioridade] || prioColors.DESEJAVEL;
               return (
-                <View key={i} wrap={false} style={{ marginBottom: 4 }}>
-                  <View style={{ ...s.trainHeader, backgroundColor: pc.bg }}><Text style={{ fontSize: 10, fontWeight: 'bold', color: '#FFFFFF' }}>{i + 1}. {t.titulo} [{t.prioridade}]</Text></View>
+                <View key={i} style={s.trainCard} wrap={false}>
+                  <View style={{ ...s.trainHeader, backgroundColor: pc.bg }}>
+                    <Text style={s.trainHeaderText}>{i + 1}. {t.titulo} [{t.prioridade}]</Text>
+                  </View>
                   <View style={{ ...s.trainContent, backgroundColor: pc.contentBg }}>
-                    <Text style={{ fontSize: 9, fontStyle: 'italic', color: C.navy }}>Público: {t.publico} | Formato: {t.formato} | Carga: {t.carga_horaria} | Custo: {t.custo || t.custo_relativo}</Text>
-                    {t.justificativa && <Text style={{ fontSize: 10, color: C.navy, marginTop: 2 }}>{t.justificativa}</Text>}
+                    <Text style={s.trainMeta}>{'P\u00fablico'}: {t.publico} | Formato: {t.formato} | Carga: {t.carga_horaria} | Custo: {t.custo || t.custo_relativo}</Text>
+                    {t.justificativa && <Text style={s.text}>{t.justificativa}</Text>}
                   </View>
                 </View>
               );
@@ -165,36 +212,52 @@ export default function RelatorioRHPDF({ data, empresaNome }) {
         )}
 
         {c.perfil_disc_organizacional && (
-          <View style={s.section}>
-            <Text style={s.h2}> Perfil DISC Organizacional</Text>
-            <Text style={s.text}>{c.perfil_disc_organizacional.descricao}</Text>
+          <View style={s.section} wrap={false}>
+            <SectionTitle>Perfil DISC Organizacional</SectionTitle>
+            <View style={s.box}><Text style={s.text}>{c.perfil_disc_organizacional.descricao}</Text></View>
             {(c.perfil_disc_organizacional.implicacao || c.perfil_disc_organizacional.implicacao_pedagogica) && (
-              <View>
-                <View style={{ backgroundColor: '#E3EEF9', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 2 }}><Text style={{ fontSize: 10, fontWeight: 'bold', color: C.navy }}> Implicação</Text></View>
-                <View style={{ backgroundColor: '#F7FBFF', paddingVertical: 4, paddingHorizontal: 16 }}><Text style={s.text}>{c.perfil_disc_organizacional.implicacao || c.perfil_disc_organizacional.implicacao_pedagogica}</Text></View>
+              <View style={{ backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', borderRadius: 6, padding: 10 }}>
+                <Text style={{ fontFamily: 'NotoSans', fontSize: 9, fontWeight: 600, color: '#1E40AF', marginBottom: 3 }}>{'Implica\u00e7\u00e3o'}</Text>
+                <Text style={s.text}>{c.perfil_disc_organizacional.implicacao || c.perfil_disc_organizacional.implicacao_pedagogica}</Text>
               </View>
             )}
           </View>
         )}
 
-        <View style={pageStyles.footer}><Text style={pageStyles.footerText}>Vertho Mentor IA — Confidencial</Text></View>
+        <PageFooter />
       </Page>
 
       {/* Decisões + Plano */}
-      <Page size="A4" style={pageStyles.page}>
-        <View style={pageStyles.header}><Text style={pageStyles.headerTitle}>VERTHO</Text><Text style={pageStyles.headerDate}>Decisões e Plano</Text></View>
+      <Page size="A4" style={pageStyles.page} wrap>
+        <PageHeader sub={'Decis\u00f5es e Plano'} />
 
         {c.decisoes_chave?.length > 0 && (
           <View style={s.section}>
-            <Text style={s.h2}> Decisões-Chave</Text>
-            <Text style={s.textIt}>Estas decisões exigem ação imediata e critérios claros de reavaliação.</Text>
+            <SectionTitle>{'Decis\u00f5es-Chave'}</SectionTitle>
+            <Text style={{ ...s.textIt, marginBottom: 8 }}>{'Estas decis\u00f5es exigem a\u00e7\u00e3o imediata e crit\u00e9rios claros de reavalia\u00e7\u00e3o.'}</Text>
             {c.decisoes_chave.map((d, i) => (
-              <View key={i} wrap={false} style={{ marginBottom: 4 }}>
-                <View style={s.decHeader}><Text style={{ fontSize: 10, fontWeight: 'bold', color: '#FFFFFF' }}> {d.colaborador}</Text></View>
-                <View style={s.decSituacao}><Text style={s.text}>Situação: {d.situacao}</Text></View>
-                <View style={s.decAcao}><Text style={{ fontSize: 10, fontWeight: 'bold', color: C.vermelho }}>* Ação: {d.acao || d.acao_imediata}</Text></View>
-                {d.criterio_reavaliacao && <View style={s.decReav}><Text style={s.text}> Reavaliação: {d.criterio_reavaliacao}</Text></View>}
-                {d.consequencia && <View style={s.decConseq}><Text style={{ fontSize: 10, color: C.amarelo }}>! Se não evoluir: {d.consequencia}</Text></View>}
+              <View key={i} style={s.decCard} wrap={false}>
+                <View style={s.decHeader}><Text style={s.decHeaderText}>{d.colaborador}</Text></View>
+                <View style={{ ...s.decRow, backgroundColor: '#F5F3FF' }}>
+                  <Text style={s.decLabel}>{'Situa\u00e7\u00e3o'}</Text>
+                  <Text style={s.text}>{d.situacao}</Text>
+                </View>
+                <View style={{ ...s.decRow, backgroundColor: '#FEF2F2' }}>
+                  <Text style={{ ...s.decLabel, color: '#B91C1C' }}>{'A\u00e7\u00e3o'}</Text>
+                  <Text style={{ fontFamily: 'NotoSans', fontSize: 10, fontWeight: 600, color: '#B91C1C' }}>{d.acao || d.acao_imediata}</Text>
+                </View>
+                {d.criterio_reavaliacao && (
+                  <View style={{ ...s.decRow, backgroundColor: '#EFF6FF' }}>
+                    <Text style={s.decLabel}>{'Reavalia\u00e7\u00e3o'}</Text>
+                    <Text style={s.text}>{d.criterio_reavaliacao}</Text>
+                  </View>
+                )}
+                {d.consequencia && (
+                  <View style={{ ...s.decRow, backgroundColor: '#FFFBEB' }}>
+                    <Text style={{ ...s.decLabel, color: '#92400E' }}>{'Se n\u00e3o evoluir'}</Text>
+                    <Text style={{ fontFamily: 'NotoSans', fontSize: 10, color: '#92400E' }}>{d.consequencia}</Text>
+                  </View>
+                )}
               </View>
             ))}
           </View>
@@ -202,18 +265,18 @@ export default function RelatorioRHPDF({ data, empresaNome }) {
 
         {c.plano_acao && (
           <View style={s.section}>
-            <Text style={s.h2}> Plano de Ação — RH / T&D</Text>
+            <SectionTitle>{'Plano de A\u00e7\u00e3o \u2014 RH / T&D'}</SectionTitle>
             {acaoHorizontes.map(({ key, label, bg, contentBg }) => {
               const a = c.plano_acao[key];
               if (!a) return null;
               return (
-                <View key={key} wrap={false} style={{ marginBottom: 4 }}>
-                  <View style={{ backgroundColor: bg, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 2 }}>
-                    <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#FFFFFF' }}>{label}: {a.titulo}</Text>
+                <View key={key} style={s.acaoCard} wrap={false}>
+                  <View style={{ ...s.acaoHeader, backgroundColor: bg }}>
+                    <Text style={s.acaoHeaderText}>{label}: {a.titulo}</Text>
                   </View>
-                  <View style={{ backgroundColor: contentBg, paddingVertical: 6, paddingHorizontal: 16 }}>
+                  <View style={{ ...s.acaoContent, backgroundColor: contentBg }}>
                     <Text style={s.text}>{a.descricao}</Text>
-                    {a.impacto && <Text style={{ fontSize: 10, fontStyle: 'italic', color: C.navy }}> {a.impacto}</Text>}
+                    {a.impacto && <Text style={{ fontFamily: 'NotoSans', fontSize: 9, color: colors.textSecondary, fontStyle: 'italic', marginTop: 2 }}>{a.impacto}</Text>}
                   </View>
                 </View>
               );
@@ -221,9 +284,11 @@ export default function RelatorioRHPDF({ data, empresaNome }) {
           </View>
         )}
 
-        {c.mensagem_final && (<View><View style={s.divider} /><Text style={s.textIt}>{c.mensagem_final}</Text></View>)}
+        {c.mensagem_final && (
+          <View wrap={false}><View style={s.divider} /><Text style={s.textIt}>{c.mensagem_final}</Text></View>
+        )}
 
-        <View style={pageStyles.footer}><Text style={pageStyles.footerText}>Vertho Mentor IA — Confidencial</Text></View>
+        <PageFooter />
       </Page>
     </Document>
   );

@@ -66,10 +66,12 @@ export async function GET(request) {
       case 'gestor':
         Component = RelatorioGestorPDF;
         filename = `vertho-gestor-${empresaNome.replace(/\s+/g, '-').toLowerCase()}.pdf`;
+        extraProps = { logoBase64 };
         break;
       case 'rh':
         Component = RelatorioRHPDF;
         filename = `vertho-rh-${empresaNome.replace(/\s+/g, '-').toLowerCase()}.pdf`;
+        extraProps = { logoBase64 };
         break;
       default:
         return NextResponse.json({ error: `Tipo "${rel.tipo}" não suportado para PDF` }, { status: 400 });
