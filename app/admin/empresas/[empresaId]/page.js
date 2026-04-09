@@ -479,12 +479,16 @@ export default function EmpresaPipelinePage({ params }) {
                     ) : null;
                   })()}
 
-                  {/* Fase 2: link para detalhes */}
+                  {/* Fase 2: links para detalhes */}
                   {fase.num === 2 && (
-                    <div className="mb-3 mt-2 flex justify-end">
+                    <div className="mb-3 mt-2 flex items-center gap-4 justify-end">
                       <button onClick={() => router.push(`/admin/empresas/${empresaId}/fase2`)}
                         className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300">
-                        Ver detalhes →
+                        Diagnóstico →
+                      </button>
+                      <button onClick={() => router.push(`/admin/empresas/${empresaId}/relatorios`)}
+                        className="text-[10px] font-bold text-purple-400 hover:text-purple-300">
+                        Relatórios →
                       </button>
                     </div>
                   )}
