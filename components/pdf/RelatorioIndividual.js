@@ -1,6 +1,6 @@
 import React from 'react';
 import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer';
-import { colors, fonts, tableStyles, pageStyles, nivelColor, nivelBgColor } from './styles';
+import { colors, fonts, tableStyles, pageStyles, nivelColor, nivelBgColor, nivelLabel } from './styles';
 import PdfCover from './PdfCover';
 import { SectionTitle } from './SectionTitle';
 import { LevelDots } from './StatusBadge';
@@ -143,26 +143,31 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
             <SectionTitle>Resumo de Desempenho</SectionTitle>
             <View style={tableStyles.table}>
               <View style={tableStyles.headerRow}>
-                <Text style={{ ...tableStyles.headerCell, flex: 3.5 }}>Competencia</Text>
-                <Text style={{ ...tableStyles.headerCell, flex: 0.8, textAlign: 'center' }}>Nivel</Text>
-                <Text style={{ ...tableStyles.headerCell, flex: 1.5, textAlign: 'center' }}>Desempenho</Text>
+                <Text style={{ ...tableStyles.headerCell, flex: 3 }}>Competencia</Text>
+                <Text style={{ ...tableStyles.headerCell, flex: 0.6, textAlign: 'center' }}>Nivel</Text>
+                <Text style={{ ...tableStyles.headerCell, flex: 1.2, textAlign: 'center' }}>Status</Text>
+                <Text style={{ ...tableStyles.headerCell, flex: 1, textAlign: 'center' }}>Desempenho</Text>
               </View>
               {(c.resumo_desempenho || competencias).map((comp, i) => {
                 const nivel = comp.nivel || comp.nivel_atual || 0;
                 const nColor = nivelColor(nivel);
+                const isFlag = comp.flag || nivel <= 1;
                 return (
                   <View key={i} style={i % 2 === 0 ? tableStyles.row : tableStyles.rowAlt}>
-                    <Text style={{ ...tableStyles.cellBold, flex: 3.5 }}>
-                      {(comp.flag || nivel <= 1) ? '[!] ' : ''}{comp.competencia || comp.nome}
+                    <Text style={{ ...tableStyles.cellBold, flex: 3 }}>
+                      {isFlag ? '[!] ' : ''}{comp.competencia || comp.nome}
                     </Text>
-                    <View style={{ flex: 0.8, alignItems: 'center' }}>
+                    <View style={{ flex: 0.6, alignItems: 'center' }}>
                       <Text style={{
                         fontSize: 8, fontWeight: 'bold', color: nColor,
                         backgroundColor: nivelBgColor(nivel),
                         paddingHorizontal: 5, paddingVertical: 1, borderRadius: 2,
                       }}>N{nivel}</Text>
                     </View>
-                    <View style={{ flex: 1.5, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
+                    <View style={{ flex: 1.2, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 7.5, color: nColor, fontWeight: 'bold' }}>{nivelLabel(nivel)}</Text>
+                    </View>
+                    <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
                       <LevelDots nivel={nivel} color={nColor} />
                     </View>
                   </View>

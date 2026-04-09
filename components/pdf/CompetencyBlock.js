@@ -1,23 +1,33 @@
 import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
-import { colors, fonts } from './styles';
-import StatusBadge, { FlagBadge } from './StatusBadge';
+import { colors, fonts, nivelColor, nivelBgColor, nivelLabel } from './styles';
+import { LevelDots } from './StatusBadge';
 import ChecklistBox from './ChecklistBox';
 
 const s = StyleSheet.create({
-  // Header
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-    marginBottom: 10, paddingBottom: 8,
-    borderBottomWidth: 1.5, borderBottomColor: colors.coverAccent,
+  // ── Header ──
+  headerBox: {
+    backgroundColor: colors.navy, borderRadius: 4, padding: 12,
+    marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
-  compName: { fontSize: 14, fontWeight: 'bold', color: colors.navy, maxWidth: '60%' },
-  compNameFlag: { fontSize: 14, fontWeight: 'bold', color: colors.flagRed, maxWidth: '60%' },
-  counter: { fontSize: 7, color: colors.textMuted, marginTop: 2 },
-  // Seção genérica
-  sectionBox: { marginBottom: 10 },
+  headerLeft: { flex: 1 },
+  compName: { fontSize: 13, fontWeight: 'bold', color: colors.white, marginBottom: 2 },
+  counter: { fontSize: 7, color: '#94A3B8' },
+  headerRight: { alignItems: 'flex-end' },
+  levelBadge: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 3, marginBottom: 4,
+  },
+  levelText: { fontSize: 11, fontWeight: 'bold', marginRight: 4 },
+  statusText: { fontSize: 7.5, fontWeight: 'bold', letterSpacing: 0.3 },
+  flagBadge: {
+    backgroundColor: '#FEE2E2', paddingHorizontal: 8, paddingVertical: 2,
+    borderRadius: 2, marginBottom: 8, alignSelf: 'flex-start',
+  },
+  flagText: { fontSize: 7, fontWeight: 'bold', color: '#991B1B', textTransform: 'uppercase', letterSpacing: 0.5 },
+  // ── Sections ──
   sectionLabel: {
-    fontSize: 8, fontWeight: 'bold', color: colors.textMuted,
+    fontSize: 7.5, fontWeight: 'bold', color: colors.textMuted,
     textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4,
   },
   // Descritores
@@ -25,7 +35,7 @@ const s = StyleSheet.create({
     backgroundColor: colors.descritorBg, borderRadius: 4, padding: 10,
     marginBottom: 10, borderLeftWidth: 3, borderLeftColor: '#E65100',
   },
-  descritorItem: { fontSize: 9, color: colors.textPrimary, marginLeft: 6, marginBottom: 2, lineHeight: 1.5 },
+  descritorItem: { fontSize: 9, color: colors.textPrimary, marginLeft: 6, marginBottom: 2.5, lineHeight: 1.5 },
   // Two columns
   twoCol: { flexDirection: 'row', marginBottom: 10 },
   fezBemCol: {
@@ -46,16 +56,24 @@ const s = StyleSheet.create({
     backgroundColor: '#F0F4FA', borderRadius: 4, padding: 10,
     marginBottom: 10, borderLeftWidth: 3, borderLeftColor: colors.cyan,
   },
+  feedbackLabel: { fontSize: 7.5, fontWeight: 'bold', color: colors.cyan, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
   feedbackText: { fontSize: 9, color: colors.textSecondary, lineHeight: 1.65, fontStyle: 'italic' },
   // Plano 30 dias
-  planoBox: {
-    backgroundColor: colors.planoBg, borderRadius: 4, padding: 10,
-    marginBottom: 10, borderLeftWidth: 3, borderLeftColor: colors.navy,
+  planoContainer: { marginBottom: 10 },
+  planoTitle: { fontSize: 10, fontWeight: 'bold', color: colors.navy, marginBottom: 8 },
+  weekCard: {
+    backgroundColor: colors.planoBg, borderRadius: 4, padding: 10, marginBottom: 5,
+    flexDirection: 'row',
   },
-  planoTitle: { fontSize: 10, fontWeight: 'bold', color: colors.navy, marginBottom: 6 },
-  semanaRow: { marginBottom: 5 },
-  semanaTitle: { fontSize: 9, fontWeight: 'bold', color: colors.navyLight, marginBottom: 1 },
-  semanaAcao: { fontSize: 8.5, color: colors.textSecondary, marginLeft: 10, marginBottom: 1, lineHeight: 1.4 },
+  weekNum: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: colors.navy, alignItems: 'center', justifyContent: 'center',
+    marginRight: 10,
+  },
+  weekNumText: { fontSize: 10, fontWeight: 'bold', color: colors.white },
+  weekContent: { flex: 1 },
+  weekFoco: { fontSize: 9, fontWeight: 'bold', color: colors.navyLight, marginBottom: 2 },
+  weekAcao: { fontSize: 8.5, color: colors.textSecondary, marginLeft: 4, marginBottom: 1, lineHeight: 1.4 },
   // Dicas
   dicasBox: {
     marginBottom: 10, padding: 10, backgroundColor: '#F0FAF4', borderRadius: 4,
@@ -75,21 +93,32 @@ const s = StyleSheet.create({
 export default function CompetencyBlock({ comp, index, total }) {
   const nivel = comp.nivel || comp.nivel_atual || 0;
   const isFlag = comp.flag || nivel <= 1;
+  const nColor = nivelColor(nivel);
+  const nBg = nivelBgColor(nivel);
+  const nLabel = nivelLabel(nivel);
 
   return (
     <View>
-      {/* ── Header: nome + badge (não quebrar) ── */}
-      <View style={s.header} wrap={false}>
-        <View>
-          <Text style={isFlag ? s.compNameFlag : s.compName}>
-            {comp.nome}
-          </Text>
+      {/* ── Header navy com badge ── */}
+      <View style={s.headerBox} wrap={false}>
+        <View style={s.headerLeft}>
+          <Text style={s.compName}>{comp.nome}</Text>
           <Text style={s.counter}>Competencia {index + 1} de {total}</Text>
         </View>
-        <StatusBadge nivel={nivel} />
+        <View style={s.headerRight}>
+          <View style={{ ...s.levelBadge, backgroundColor: nBg }}>
+            <Text style={{ ...s.levelText, color: nColor }}>N{nivel}</Text>
+            <LevelDots nivel={nivel} color={nColor} />
+          </View>
+          <Text style={{ ...s.statusText, color: '#CBD5E1' }}>{nLabel}</Text>
+        </View>
       </View>
 
-      {isFlag && <FlagBadge />}
+      {isFlag && (
+        <View style={s.flagBadge}>
+          <Text style={s.flagText}>Atencao Prioritaria</Text>
+        </View>
+      )}
 
       {/* ── Descritores em desenvolvimento ── */}
       {comp.descritores_desenvolvimento?.length > 0 && (
@@ -101,7 +130,7 @@ export default function CompetencyBlock({ comp, index, total }) {
         </View>
       )}
 
-      {/* ── Fez Bem / Melhorar (não quebrar) ── */}
+      {/* ── Fez Bem / Melhorar ── */}
       <View style={s.twoCol} wrap={false}>
         <View style={s.fezBemCol}>
           <Text style={{ ...s.colLabel, color: '#2E7D32' }}>Fez Bem</Text>
@@ -119,34 +148,39 @@ export default function CompetencyBlock({ comp, index, total }) {
         </View>
       </View>
 
-      {/* ── Feedback interpretativo ── */}
+      {/* ── Feedback ── */}
       {comp.feedback && (
         <View style={s.feedbackBox} wrap={false}>
-          <Text style={s.sectionLabel}>Analise</Text>
+          <Text style={s.feedbackLabel}>Analise</Text>
           <Text style={s.feedbackText}>{comp.feedback}</Text>
         </View>
       )}
 
-      {/* ── Plano 30 dias ── */}
+      {/* ── Plano 30 dias (mini-cards por semana) ── */}
       {comp.plano_30_dias && (
-        <View style={s.planoBox}>
+        <View style={s.planoContainer}>
           <Text style={s.planoTitle}>Plano de Desenvolvimento — 30 Dias</Text>
           {['semana_1', 'semana_2', 'semana_3', 'semana_4'].map((sem, si) => {
             const semana = comp.plano_30_dias[sem];
             if (!semana) return null;
             return (
-              <View key={si} style={s.semanaRow}>
-                <Text style={s.semanaTitle}>Semana {si + 1}: {semana.foco}</Text>
-                {semana.acoes?.map((a, ai) => (
-                  <Text key={ai} style={s.semanaAcao}>- {a}</Text>
-                ))}
+              <View key={si} style={s.weekCard} wrap={false}>
+                <View style={s.weekNum}>
+                  <Text style={s.weekNumText}>{si + 1}</Text>
+                </View>
+                <View style={s.weekContent}>
+                  <Text style={s.weekFoco}>{semana.foco}</Text>
+                  {semana.acoes?.map((a, ai) => (
+                    <Text key={ai} style={s.weekAcao}>- {a}</Text>
+                  ))}
+                </View>
               </View>
             );
           })}
         </View>
       )}
 
-      {/* ── Dicas de desenvolvimento ── */}
+      {/* ── Dicas ── */}
       {comp.dicas_desenvolvimento?.length > 0 && (
         <View style={s.dicasBox} wrap={false}>
           <Text style={s.dicaLabel}>Dicas de Desenvolvimento</Text>
@@ -156,7 +190,7 @@ export default function CompetencyBlock({ comp, index, total }) {
         </View>
       )}
 
-      {/* ── Estudo recomendado ── */}
+      {/* ── Estudo ── */}
       {comp.estudo_recomendado?.length > 0 && (
         <View style={s.estudoBox} wrap={false}>
           <Text style={s.estudoLabel}>Estudo Recomendado</Text>
@@ -166,7 +200,7 @@ export default function CompetencyBlock({ comp, index, total }) {
         </View>
       )}
 
-      {/* ── Checklist tático ── */}
+      {/* ── Checklist ── */}
       {comp.checklist_tatico?.length > 0 && (
         <ChecklistBox items={comp.checklist_tatico} />
       )}

@@ -7,39 +7,24 @@ const s = StyleSheet.create({
     flexDirection: 'column', backgroundColor: colors.white,
     paddingHorizontal: 50, paddingVertical: 50, fontFamily: 'Helvetica',
   },
-  topBar: {
-    width: '100%', height: 3, backgroundColor: colors.coverAccent, marginBottom: 60,
-  },
-  logo: { width: 56, height: 56, marginBottom: 12 },
-  brandName: {
-    fontSize: 24, fontWeight: 'bold', color: colors.navy, letterSpacing: 3, marginBottom: 2,
-  },
-  accent: {
-    width: 40, height: 2, backgroundColor: colors.coverAccent, marginTop: 10, marginBottom: 28,
-  },
+  topBar: { width: '100%', height: 3, backgroundColor: colors.coverAccent, marginBottom: 80 },
+  // Logo: 3148x744 original → ratio ~4.23:1
+  logo: { width: 150, height: 35, marginBottom: 40 },
+  accent: { width: 40, height: 2, backgroundColor: colors.coverAccent, marginBottom: 28 },
   reportType: {
     fontSize: 11, color: colors.textMuted, letterSpacing: 1.5,
     textTransform: 'uppercase', marginBottom: 60,
   },
-  name: {
-    fontSize: 26, fontWeight: 'bold', color: colors.navy, marginBottom: 4,
-  },
-  cargo: {
-    fontSize: 11, color: colors.textSecondary, marginBottom: 2,
-  },
-  empresa: {
-    fontSize: 10, color: colors.textMuted, marginTop: 6,
-  },
+  name: { fontSize: 26, fontWeight: 'bold', color: colors.navy, marginBottom: 4 },
+  cargo: { fontSize: 11, color: colors.textSecondary, marginBottom: 2 },
+  empresa: { fontSize: 10, color: colors.textMuted, marginTop: 6 },
   bottomArea: {
     marginTop: 'auto', paddingTop: 20,
     borderTopWidth: 0.5, borderTopColor: colors.gray200,
   },
-  date: {
-    fontSize: 8, color: colors.textMuted, marginBottom: 6,
-  },
+  date: { fontSize: 8, color: colors.textMuted, marginBottom: 6 },
   confidential: {
-    fontSize: 6.5, color: colors.gray400, letterSpacing: 0.8,
-    textTransform: 'uppercase',
+    fontSize: 6.5, color: colors.gray400, letterSpacing: 0.8, textTransform: 'uppercase',
   },
 });
 
@@ -53,7 +38,6 @@ export default function PdfCover({ logoBase64, nome, cargo, empresa, data, tipo 
       <View style={s.topBar} />
 
       {logoBase64 && <Image src={logoBase64} style={s.logo} />}
-      <Text style={s.brandName}>VERTHO</Text>
       <View style={s.accent} />
       <Text style={s.reportType}>{tipo}</Text>
 
