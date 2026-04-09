@@ -75,6 +75,7 @@ export async function dispararEmails(empresaId) {
       // 1. Enviar email (se tem email e Resend configurado)
       if (colab.email && process.env.RESEND_API_KEY) {
         try {
+          const fromEmail = process.env.EMAIL_FROM || 'Vertho <noreply@vertho.com.br>';
           const emailRes = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
@@ -82,7 +83,7 @@ export async function dispararEmails(empresaId) {
               Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
             },
             body: JSON.stringify({
-              from: 'Vertho Mentor IA <noreply@vertho.app>',
+              from: fromEmail,
               to: colab.email,
               subject: `[${empresa.nome}] Avaliação de Competências`,
               html: `<p>Olá${colab.nome_completo ? ` ${colab.nome_completo.split(' ')[0]}` : ''}!</p>
@@ -91,9 +92,14 @@ export async function dispararEmails(empresaId) {
 <p style="color:#666;font-size:12px;">Ou acesse: ${link}</p>`,
             }),
           });
-          if (emailRes.ok) emailsEnviados++;
-          else erros++;
-        } catch { erros++; }
+          if (emailRes.ok) {
+            emailsEnviados++;
+          } else {
+            const detail = await emailRes.text();
+            console.error('[Email] Resend erro:', emailRes.status, detail);
+            erros++;
+          }
+        } catch (e) { console.error('[Email] erro:', e.message); erros++; }
       }
 
       // 2. Enviar WhatsApp (se tem telefone e QStash configurado)
