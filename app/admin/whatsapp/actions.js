@@ -35,6 +35,24 @@ export async function loadWhatsappStatus(empresaId) {
   }
 }
 
+// Buscar PDF do relatório individual de um colaborador
+async function buscarPDFColaborador(sb, empresaId, colaboradorId) {
+  const { data: rel } = await sb.from('relatorios')
+    .select('pdf_path')
+    .eq('empresa_id', empresaId)
+    .eq('colaborador_id', colaboradorId)
+    .eq('tipo', 'individual')
+    .not('pdf_path', 'is', null)
+    .maybeSingle();
+  if (!rel?.pdf_path) return null;
+
+  const { data: fileData } = await sb.storage.from('relatorios-pdf').download(rel.pdf_path);
+  if (!fileData) return null;
+
+  const buffer = Buffer.from(await fileData.arrayBuffer());
+  return { buffer, filename: rel.pdf_path.split('/').pop() };
+}
+
 export async function dispararMensagemCustomizada(empresaId, template, canal, filtros = {}, assuntoTemplate = '') {
   const sb = createSupabaseAdmin();
   try {
@@ -63,6 +81,7 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
     const fromEmail = process.env.EMAIL_FROM || 'Vertho <noreply@vertho.com.br>';
     const hasResend = !!process.env.RESEND_API_KEY;
     const hasQStash = !!process.env.QSTASH_TOKEN;
+    const isRelatorio = assuntoTemplate.includes('Relatório') || template.includes('relatório');
     let enviados = 0, erros = 0, erroDetalhe = '';
 
     for (const colab of colabs) {
@@ -80,18 +99,31 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
         if (!hasResend) { erroDetalhe = 'RESEND_API_KEY não configurada'; erros++; continue; }
         try {
           const htmlMsg = msg.replace(/\n/g, '<br>').replace(/\*([^*]+)\*/g, '<strong>$1</strong>').replace(/_([^_]+)_/g, '<em>$1</em>');
+
+          // Buscar PDF se envio de relatório
+          let attachments;
+          if (isRelatorio && colab.id) {
+            const pdf = await buscarPDFColaborador(sb, empresaId, colab.id);
+            if (pdf) {
+              attachments = [{ filename: pdf.filename, content: pdf.buffer.toString('base64') }];
+            }
+          }
+
+          const emailBody = {
+            from: fromEmail,
+            to: colab.email,
+            subject: (assuntoTemplate || `[${empresa.nome}] Avaliação`)
+              .replace(/\{\{nome\}\}/g, nome)
+              .replace(/\{\{cargo\}\}/g, colab.cargo || '')
+              .replace(/\{\{empresa\}\}/g, empresa.nome),
+            html: htmlMsg,
+          };
+          if (attachments) emailBody.attachments = attachments;
+
           const res = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-            body: JSON.stringify({
-              from: fromEmail,
-              to: colab.email,
-              subject: (assuntoTemplate || `[${empresa.nome}] Avaliação`)
-                .replace(/\{\{nome\}\}/g, nome)
-                .replace(/\{\{cargo\}\}/g, colab.cargo || '')
-                .replace(/\{\{empresa\}\}/g, empresa.nome),
-              html: htmlMsg,
-            }),
+            body: JSON.stringify(emailBody),
           });
           if (res.ok) { enviados++; }
           else { erroDetalhe = await res.text(); erros++; }
@@ -111,11 +143,33 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
         if (colabs.length <= 50) {
           try {
             if (enviados > 0) await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // Enviar texto
             const res = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-text`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Client-Token': zapiClient },
               body: JSON.stringify({ phone, message: msg }),
             });
+
+            // Se relatório, enviar PDF como documento
+            if (res.ok && isRelatorio && colab.id) {
+              const pdf = await buscarPDFColaborador(sb, empresaId, colab.id);
+              if (pdf) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                const pdfUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://vertho.com.br'}/api/relatorios/pdf?id=${colab.id}`;
+                // Z-API send-document com base64
+                await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-document/base64`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Client-Token': zapiClient },
+                  body: JSON.stringify({
+                    phone,
+                    document: `data:application/pdf;base64,${pdf.buffer.toString('base64')}`,
+                    fileName: pdf.filename,
+                  }),
+                });
+              }
+            }
+
             if (res.ok) { enviados++; }
             else { erroDetalhe = await res.text(); erros++; }
           } catch (e) { erroDetalhe = e.message; erros++; }

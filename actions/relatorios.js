@@ -3,6 +3,36 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI } from './ai-client';
 import { extractJSON } from './utils';
+import { renderToBuffer } from '@react-pdf/renderer';
+import React from 'react';
+
+// PDF generators (lazy import to avoid client-side issues)
+async function gerarPDFBuffer(tipo, data, empresaNome) {
+  let Component;
+  if (tipo === 'individual') {
+    const mod = await import('@/components/pdf/RelatorioIndividual');
+    Component = mod.default;
+  } else if (tipo === 'gestor') {
+    const mod = await import('@/components/pdf/RelatorioGestor');
+    Component = mod.default;
+  } else if (tipo === 'rh') {
+    const mod = await import('@/components/pdf/RelatorioRH');
+    Component = mod.default;
+  }
+  if (!Component) return null;
+  return renderToBuffer(React.createElement(Component, { data, empresaNome }));
+}
+
+async function salvarPDFStorage(sb, empresaId, tipo, colaboradorNome, buffer) {
+  const slug = (colaboradorNome || tipo).replace(/\s+/g, '-').toLowerCase();
+  const path = `${empresaId}/${tipo}-${slug}-${Date.now()}.pdf`;
+  const { error } = await sb.storage.from('relatorios-pdf').upload(path, buffer, {
+    contentType: 'application/pdf',
+    upsert: true,
+  });
+  if (error) { console.error('[PDF Storage]', error.message); return null; }
+  return path;
+}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // RELATÓRIO INDIVIDUAL (fiel ao GAS)
@@ -109,17 +139,26 @@ export async function gerarRelatorioIndividual(empresaId, colaboradorId, aiConfi
 
     if (!relatorio) return { success: false, error: 'IA não retornou relatório válido' };
 
+    // Gerar PDF
+    let pdfPath = null;
+    try {
+      const pdfData = { conteudo: relatorio, colaborador_nome: colab.nome_completo, colaborador_cargo: colab.cargo, gerado_em: new Date().toISOString() };
+      const buffer = await gerarPDFBuffer('individual', pdfData, empresa.nome);
+      if (buffer) pdfPath = await salvarPDFStorage(sb, empresaId, 'individual', colab.nome_completo, buffer);
+    } catch (e) { console.error('[PDF Gen]', e.message); }
+
     // Salvar
     const { error: saveErr } = await sb.from('relatorios').upsert({
       empresa_id: empresaId,
       colaborador_id: colaboradorId,
       tipo: 'individual',
       conteudo: relatorio,
+      pdf_path: pdfPath,
       gerado_em: new Date().toISOString(),
     }, { onConflict: 'empresa_id,colaborador_id,tipo' }).select('id');
 
     if (saveErr) return { success: false, error: saveErr.message };
-    return { success: true, message: `Relatório gerado: ${colab.nome_completo}` };
+    return { success: true, message: `Relatório gerado: ${colab.nome_completo}${pdfPath ? ' (PDF salvo)' : ''}` };
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -223,12 +262,19 @@ export async function gerarRelatorioGestor(empresaId, aiConfig = {}) {
 
     if (!relatorio) return { success: false, error: 'IA não retornou relatório válido' };
 
+    let pdfPath = null;
+    try {
+      const pdfData = { conteudo: relatorio, gerado_em: new Date().toISOString() };
+      const buffer = await gerarPDFBuffer('gestor', pdfData, empresa.nome);
+      if (buffer) pdfPath = await salvarPDFStorage(sb, empresaId, 'gestor', empresa.nome, buffer);
+    } catch (e) { console.error('[PDF Gen Gestor]', e.message); }
+
     await sb.from('relatorios').upsert({
       empresa_id: empresaId, colaborador_id: null, tipo: 'gestor',
-      conteudo: relatorio, gerado_em: new Date().toISOString(),
+      conteudo: relatorio, pdf_path: pdfPath, gerado_em: new Date().toISOString(),
     }, { onConflict: 'empresa_id,colaborador_id,tipo' }).select('id');
 
-    return { success: true, message: `Relatório gestor gerado (${membros.length} colaboradores)` };
+    return { success: true, message: `Relatório gestor gerado${pdfPath ? ' (PDF salvo)' : ''}` };
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -373,12 +419,19 @@ ${JSON.stringify(registros, null, 2)}`;
 
     if (!relatorio) return { success: false, error: 'IA não retornou relatório válido' };
 
+    let pdfPath = null;
+    try {
+      const pdfData = { conteudo: relatorio, gerado_em: new Date().toISOString() };
+      const buffer = await gerarPDFBuffer('rh', pdfData, empresa.nome);
+      if (buffer) pdfPath = await salvarPDFStorage(sb, empresaId, 'rh', empresa.nome, buffer);
+    } catch (e) { console.error('[PDF Gen RH]', e.message); }
+
     await sb.from('relatorios').upsert({
       empresa_id: empresaId, colaborador_id: null, tipo: 'rh',
-      conteudo: relatorio, gerado_em: new Date().toISOString(),
+      conteudo: relatorio, pdf_path: pdfPath, gerado_em: new Date().toISOString(),
     }, { onConflict: 'empresa_id,colaborador_id,tipo' }).select('id');
 
-    return { success: true, message: `Relatório RH gerado (${colabIds.length} colaboradores, ${respostas.length} avaliações)` };
+    return { success: true, message: `Relatório RH gerado${pdfPath ? ' (PDF salvo)' : ''}` };
   } catch (err) {
     return { success: false, error: err.message };
   }
