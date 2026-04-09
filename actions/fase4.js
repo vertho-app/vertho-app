@@ -149,13 +149,9 @@ export async function montarTrilhasLote(empresaId) {
       const colab = colabMap[rel.colaborador_id] || {};
       const conteudo = typeof rel.conteudo === 'string' ? JSON.parse(rel.conteudo) : rel.conteudo;
 
-      // Extrair competências com gap do PDI
-      const compsGap = (conteudo?.competencias || [])
-        .filter(c => (c.nivel || c.nivel_atual || 0) < 3)
-        .map(c => c.nome);
-
-      // Se não tem gaps, pegar todas as competências
-      const compsAlvo = compsGap.length > 0 ? compsGap : (conteudo?.competencias || []).map(c => c.nome);
+      // Todas as competências do PDI (trilha para todas, não só gaps)
+      const compsAlvo = (conteudo?.competencias || []).map(c => c.nome).filter(Boolean);
+      if (!compsAlvo.length) continue;
 
       // Match cursos do catálogo enriquecido por competência (flexível) + cargo
       const cursosMatch = (catalogo || []).filter(c => {
