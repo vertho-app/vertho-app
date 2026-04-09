@@ -306,7 +306,7 @@ export default function Fase2Page({ params }) {
                           }`}>
                             <div className="flex items-center gap-2 mb-2">
                               <span className={`text-sm font-bold ${check.nota >= 90 ? 'text-green-400' : 'text-amber-400'}`}>
-                                {check.nota}pts — {check.status || (check.nota >= 90 ? 'Aprovado' : 'Revisar')}
+                                {check.nota}pts — {check.nota >= 90 ? 'Aprovado' : 'Revisar'}
                               </span>
                             </div>
                             {check.dimensoes && (
