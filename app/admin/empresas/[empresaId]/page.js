@@ -20,7 +20,7 @@ import {
   loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, loadColaboradoresLista,
   rodarIA1, rodarIA2, rodarIA3,
   verStatusEnvios,
-  rodarIA4, verFilaIA4, checkAvaliacoes, gerarRelatoriosIndividuais, gerarRelatorioGestor, gerarRelatorioRH, enviarRelIndividuais, enviarRelGestor, enviarRelRH,
+  rodarIA4, checkAvaliacoes, gerarRelatoriosIndividuais, gerarRelatorioGestor, gerarRelatorioRH, enviarRelIndividuais, enviarRelGestor, enviarRelRH,
   gerarPDIs, gerarPDIsDescritores, montarTrilhasLote, criarEstruturaFase4, iniciarFase4ParaTodos, triggerSegundaFase4, triggerQuintaFase4, getStatusFase4, moodleImportarCatalogo, catalogarConteudosMoodle, gerarCoberturaConteudo,
   iniciarReavaliacaoLote, gerarRelatoriosEvolucaoLote, gerarPlenariaEvolucao, gerarRelatorioRHManual, gerarRelatorioPlenaria, enviarLinksPerfil, gerarDossieGestor, checkCenarios, dispararRelatoriosLote,
 } from './actions';
@@ -72,9 +72,8 @@ const PHASE_CONFIG = [
   ]},
   { num: 2, icon: Bot, color: '#EF4444', groups: [
     { label: 'Diagnóstico', actions: [
-      { key: 'simular', label: 'Simular Conversas', icon: MessageSquare, ai: true },
+      { key: 'simular', label: 'Simular Respostas', icon: MessageSquare, ai: true },
       { key: 'ia4', label: 'Rodar IA4', icon: Zap, ai: true },
-      { key: 'fila', label: 'Fila IA4', icon: Clock },
       { key: 'check', label: 'Check Avaliações', icon: CheckCircle, ai: true },
     ]},
     { label: 'Relatórios', actions: [
@@ -112,7 +111,7 @@ const PHASE_CONFIG = [
 // Action dispatcher map
 const ACTION_MAP = {
   ia1: rodarIA1, ia2: rodarIA2, ia3: rodarIA3,
-  ia4: rodarIA4, fila: verFilaIA4, check: checkAvaliacoes,
+  ia4: rodarIA4, check: checkAvaliacoes,
   'rel-ind': gerarRelatoriosIndividuais, 'rel-gestor': gerarRelatorioGestor, 'rel-rh': gerarRelatorioRH,
   'env-ind': enviarRelIndividuais, 'env-gestor': enviarRelGestor, 'env-rh': enviarRelRH, 'enviar-lote': dispararRelatoriosLote,
   pdis: gerarPDIs, 'pdis-desc': gerarPDIsDescritores, trilhas: montarTrilhasLote,
