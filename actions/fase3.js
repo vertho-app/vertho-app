@@ -213,7 +213,7 @@ PERGUNTA 2: ${resp.r2 || '(sem resposta)'}
 PERGUNTA 3: ${resp.r3 || '(sem resposta)'}
 PERGUNTA 4: ${resp.r4 || '(sem resposta)'}`;
 
-        const resultado = await callAI(IA4_SYSTEM, user, aiConfig, 32000);
+        const resultado = await callAI(IA4_SYSTEM, user, aiConfig, 64000);
         const avaliacao = await extractJSON(resultado);
 
         if (avaliacao) {
@@ -314,7 +314,7 @@ export async function reavaliarResposta(respostaId, aiConfig = {}) {
       user += `\n\n=== FEEDBACK DA AUDITORIA ANTERIOR (CORRIJA ESTES PONTOS) ===\n${feedbackCheck}`;
     }
 
-    const resultado = await callAI(IA4_SYSTEM, user, aiConfig, 32000);
+    const resultado = await callAI(IA4_SYSTEM, user, aiConfig, 64000);
     const avaliacao = await extractJSON(resultado);
 
     if (!avaliacao) return { success: false, error: 'IA não retornou avaliação válida' };
