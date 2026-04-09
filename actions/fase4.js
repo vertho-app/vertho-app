@@ -117,19 +117,27 @@ export async function gerarPDIsDescritores(empresaId) {
 export async function montarTrilhasLote(empresaId) {
   const sb = createSupabaseAdmin();
   try {
-    // Buscar PDIs (relatórios individuais)
-    const { data: relatorios } = await sb.from('relatorios')
-      .select('id, colaborador_id, conteudo')
+    // Buscar respostas avaliadas (gaps identificados pela IA4)
+    const { data: respostas } = await sb.from('respostas')
+      .select('colaborador_id, competencia_id, nivel_ia4')
       .eq('empresa_id', empresaId)
-      .eq('tipo', 'individual');
+      .not('avaliacao_ia', 'is', null);
 
-    if (!relatorios?.length) return { success: false, error: 'Nenhum PDI/relatório individual encontrado. Gere PDIs primeiro.' };
+    if (!respostas?.length) return { success: false, error: 'Nenhuma avaliação encontrada. Rode IA4 primeiro.' };
 
     // Buscar colaboradores
-    const colabIds = [...new Set(relatorios.map(r => r.colaborador_id).filter(Boolean))];
+    const colabIds = [...new Set(respostas.map(r => r.colaborador_id).filter(Boolean))];
     const { data: colabs } = await sb.from('colaboradores').select('id, nome_completo, cargo').in('id', colabIds);
     const colabMap = {};
     (colabs || []).forEach(c => { colabMap[c.id] = c; });
+
+    // Buscar competências (nomes)
+    const compIds = [...new Set(respostas.map(r => r.competencia_id).filter(Boolean))];
+    const compMap = {};
+    if (compIds.length) {
+      const { data: comps } = await sb.from('competencias').select('id, nome').in('id', compIds);
+      (comps || []).forEach(c => { compMap[c.id] = c.nome; });
+    }
 
     // Buscar catálogo enriquecido do Moodle
     const { data: catalogo } = await sb.from('catalogo_enriquecido')
@@ -140,45 +148,45 @@ export async function montarTrilhasLote(empresaId) {
     const { data: cursosCat } = await sb.from('moodle_catalogo')
       .select('course_id, curso_nome, curso_url')
       .eq('empresa_id', empresaId);
-    const cursoMap = {};
-    (cursosCat || []).forEach(c => { cursoMap[c.course_id] = c; });
+    const cursoNomeMap = {};
+    (cursosCat || []).forEach(c => { cursoNomeMap[c.course_id] = c; });
+
+    // Agrupar respostas por colaborador
+    const porColab = {};
+    respostas.forEach(r => {
+      if (!porColab[r.colaborador_id]) porColab[r.colaborador_id] = [];
+      const compNome = compMap[r.competencia_id];
+      if (compNome) porColab[r.colaborador_id].push({ competencia: compNome, nivel: r.nivel_ia4 || 0 });
+    });
 
     let trilhasCriadas = 0;
 
-    for (const rel of relatorios) {
-      const colab = colabMap[rel.colaborador_id] || {};
-      const conteudo = typeof rel.conteudo === 'string' ? JSON.parse(rel.conteudo) : rel.conteudo;
+    for (const [colabId, comps] of Object.entries(porColab)) {
+      const colab = colabMap[colabId] || {};
+      const compsAlvo = comps.map(c => c.competencia);
 
-      // Todas as competências do PDI (trilha para todas, não só gaps)
-      const compsAlvo = (conteudo?.competencias || []).map(c => c.nome).filter(Boolean);
-      if (!compsAlvo.length) continue;
-
-      // Match cursos do catálogo enriquecido por competência (flexível) + cargo
+      // Match cursos do catálogo por competência + cargo
       const cursosMatch = (catalogo || []).filter(c => {
         if (c.cargo && c.cargo !== colab.cargo) return false;
         if (!c.competencia) return false;
         const compLower = c.competencia.toLowerCase();
-        return compsAlvo.some(comp => {
-          const alvoLower = comp.toLowerCase();
-          return compLower === alvoLower ||
-            compLower.includes(alvoLower) ||
-            alvoLower.includes(compLower);
+        return compsAlvo.some(alvo => {
+          const alvoLower = alvo.toLowerCase();
+          return compLower === alvoLower || compLower.includes(alvoLower) || alvoLower.includes(compLower);
         });
       });
 
       const cursosRecomendados = cursosMatch.map(c => ({
         course_id: c.course_id,
-        nome: cursoMap[c.course_id]?.curso_nome || `Curso ${c.course_id}`,
-        url: cursoMap[c.course_id]?.curso_url || '',
+        nome: cursoNomeMap[c.course_id]?.curso_nome || `Curso ${c.course_id}`,
+        url: cursoNomeMap[c.course_id]?.curso_url || '',
         competencia: c.competencia,
         nivel: c.nivel_ideal,
       }));
 
-      // Salvar trilha
       const { error } = await sb.from('trilhas').upsert({
         empresa_id: empresaId,
-        colaborador_id: rel.colaborador_id,
-        pdi_id: rel.id,
+        colaborador_id: colabId,
         cursos: cursosRecomendados,
         status: 'pendente',
         criado_em: new Date().toISOString(),
@@ -187,7 +195,7 @@ export async function montarTrilhasLote(empresaId) {
       if (!error) trilhasCriadas++;
     }
 
-    return { success: true, message: `${trilhasCriadas} trilhas montadas (${relatorios.length} PDIs)` };
+    return { success: true, message: `${trilhasCriadas} trilhas montadas para ${Object.keys(porColab).length} colaboradores` };
   } catch (err) {
     return { success: false, error: err.message };
   }
