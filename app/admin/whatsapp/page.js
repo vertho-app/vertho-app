@@ -55,6 +55,7 @@ export default function EnviosPage() {
   const [loadingStatus, setLoadingStatus] = useState(false);
 
   const [tab, setTab] = useState('email');
+  const [assunto, setAssunto] = useState('[{{empresa}}] Avaliação de Competências');
   const [mensagem, setMensagem] = useState(DEFAULT_MSGS.email);
   const [filtroCargo, setFiltroCargo] = useState('');
   const [sending, setSending] = useState(false);
@@ -80,6 +81,7 @@ export default function EnviosPage() {
 
   useEffect(() => {
     setMensagem(DEFAULT_MSGS[tab] || '');
+    setAssunto(tab === 'email' ? '[{{empresa}}] Avaliação de Competências' : tab === 'relatorios' ? '[{{empresa}}] Seu Relatório' : '');
     setResult(null);
   }, [tab]);
 
@@ -123,7 +125,7 @@ export default function EnviosPage() {
 
     const canal = tab === 'email' ? 'email' : 'whatsapp';
     const filtros = filtroCargo ? { cargo: filtroCargo } : {};
-    const r = await dispararMensagemCustomizada(empresaId, mensagem, canal, filtros);
+    const r = await dispararMensagemCustomizada(empresaId, mensagem, canal, filtros, assunto);
 
     setResult(r);
     setSending(false);
@@ -202,6 +204,16 @@ export default function EnviosPage() {
 
               {/* Editor de mensagem */}
               <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
+                {/* Assunto (só email) */}
+                {tab === 'email' && (
+                  <div className="mb-3">
+                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Assunto do Email</p>
+                    <input value={assunto} onChange={e => setAssunto(e.target.value)}
+                      placeholder="[{{empresa}}] Avaliação de Competências"
+                      className="w-full rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 focus:outline-none focus:border-cyan-400/50" />
+                  </div>
+                )}
+
                 <p className="text-xs font-bold text-white flex items-center gap-1.5 mb-3"><MessageCircle size={12} /> Mensagem</p>
 
                 {/* Variáveis */}

@@ -35,7 +35,7 @@ export async function loadWhatsappStatus(empresaId) {
   }
 }
 
-export async function dispararMensagemCustomizada(empresaId, template, canal, filtros = {}) {
+export async function dispararMensagemCustomizada(empresaId, template, canal, filtros = {}, assuntoTemplate = '') {
   const sb = createSupabaseAdmin();
   try {
     const { data: empresa } = await sb.from('empresas')
@@ -86,7 +86,10 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
             body: JSON.stringify({
               from: fromEmail,
               to: colab.email,
-              subject: `[${empresa.nome}] Avaliação de Competências`,
+              subject: (assuntoTemplate || `[${empresa.nome}] Avaliação`)
+                .replace(/\{\{nome\}\}/g, nome)
+                .replace(/\{\{cargo\}\}/g, colab.cargo || '')
+                .replace(/\{\{empresa\}\}/g, empresa.nome),
               html: htmlMsg,
             }),
           });
