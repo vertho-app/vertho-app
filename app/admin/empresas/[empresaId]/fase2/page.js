@@ -4,9 +4,10 @@ import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Loader2, Bot, ChevronDown, CheckCircle, AlertTriangle,
-  User, FileText, Filter, RefreshCw
+  User, FileText, Filter, RefreshCw, BookOpen, ExternalLink
 } from 'lucide-react';
 import { loadRespostasAvaliadas, reavaliarResposta, rechecarResposta } from '@/actions/fase3';
+import { loadTrilhas } from '@/actions/trilhas-load';
 
 const NIVEL_COLORS = {
   1: 'text-red-400', 2: 'text-amber-400', 3: 'text-cyan-400', 4: 'text-green-400',
@@ -16,7 +17,9 @@ export default function Fase2Page({ params }) {
   const { empresaId } = use(params);
   const router = useRouter();
 
+  const [tab, setTab] = useState('diagnostico');
   const [respostas, setRespostas] = useState([]);
+  const [trilhas, setTrilhas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState(null);
   const [filtroColab, setFiltroColab] = useState('');
@@ -45,8 +48,12 @@ export default function Fase2Page({ params }) {
   }
 
   async function refresh() {
-    const d = await loadRespostasAvaliadas(empresaId);
+    const [d, t] = await Promise.all([
+      loadRespostasAvaliadas(empresaId),
+      loadTrilhas(empresaId),
+    ]);
     setRespostas(d);
+    setTrilhas(t);
     setLoading(false);
   }
 
@@ -97,6 +104,22 @@ export default function Fase2Page({ params }) {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex items-center gap-1 mb-5 border-b border-white/[0.06]">
+        {[
+          { id: 'diagnostico', label: 'Diagnóstico', icon: <Bot size={14} /> },
+          { id: 'trilhas', label: `Trilhas (${trilhas.length})`, icon: <BookOpen size={14} /> },
+        ].map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold transition-all border-b-2 -mb-px ${
+              tab === t.id ? 'text-cyan-400 border-cyan-400' : 'text-gray-500 border-transparent hover:text-gray-300'
+            }`}>
+            {t.icon} {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'diagnostico' && <>
       {/* Stats */}
       <div className="flex items-center gap-3 mb-4 flex-wrap text-[10px]">
         <span className="text-gray-400">Total: <span className="text-white font-bold">{stats.total}</span></span>
@@ -367,6 +390,86 @@ export default function Fase2Page({ params }) {
           </div>
         </div>
       ))}
+      </>}
+
+      {/* ── Trilhas Tab ─────────────────────────────────────────── */}
+      {tab === 'trilhas' && (
+        trilhas.length === 0 ? (
+          <div className="text-center py-12">
+            <BookOpen size={32} className="text-gray-600 mx-auto mb-3" />
+            <p className="text-sm text-gray-500">Nenhuma trilha encontrada. Rode "Montar Trilhas" na pipeline primeiro.</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {trilhas.map(t => {
+              const cursos = Array.isArray(t.cursos) ? t.cursos : [];
+              // Agrupar cursos por competência
+              const porComp = {};
+              cursos.forEach(c => {
+                const key = c.competencia || 'Geral';
+                if (!porComp[key]) porComp[key] = [];
+                porComp[key].push(c);
+              });
+
+              return (
+                <div key={t.id} className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
+                  {/* Colaborador header */}
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.04]">
+                    <div className="flex items-center gap-2">
+                      <User size={14} className="text-cyan-400" />
+                      <span className="text-sm font-bold text-white">{t.colaborador_nome}</span>
+                      <span className="text-[10px] text-gray-500">{t.colaborador_cargo}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-gray-500">{cursos.length} cursos</span>
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded ${
+                        t.status === 'pendente' ? 'bg-amber-400/15 text-amber-400' :
+                        t.status === 'em_andamento' ? 'bg-cyan-400/15 text-cyan-400' :
+                        t.status === 'concluida' ? 'bg-green-400/15 text-green-400' :
+                        'bg-gray-400/15 text-gray-400'
+                      }`}>{t.status}</span>
+                    </div>
+                  </div>
+
+                  {/* Cursos agrupados por competência */}
+                  <div className="px-4 py-3 space-y-3">
+                    {Object.entries(porComp).map(([comp, cursosComp]) => (
+                      <div key={comp}>
+                        <p className="text-[9px] font-bold text-purple-400 uppercase tracking-widest mb-1.5">{comp}</p>
+                        <div className="space-y-1">
+                          {cursosComp.map((c, i) => (
+                            <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{ background: '#091D35' }}>
+                              <BookOpen size={12} className="text-cyan-400 shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                {c.url ? (
+                                  <a href={c.url} target="_blank" rel="noopener noreferrer"
+                                    className="text-xs text-cyan-300 hover:text-cyan-200 font-medium flex items-center gap-1">
+                                    {c.nome} <ExternalLink size={10} />
+                                  </a>
+                                ) : (
+                                  <span className="text-xs text-gray-300 font-medium">{c.nome}</span>
+                                )}
+                              </div>
+                              {c.nivel && (
+                                <span className={`text-[10px] font-bold shrink-0 ${NIVEL_COLORS[c.nivel] || 'text-gray-400'}`}>
+                                  N{c.nivel}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    {cursos.length === 0 && (
+                      <p className="text-xs text-gray-500 italic">Nenhum curso recomendado</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
+      )}
     </div>
   );
 }
