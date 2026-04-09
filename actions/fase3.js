@@ -3,14 +3,100 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI } from './ai-client';
 import { extractJSON } from './utils';
-import { getOrCreatePromptVersion } from '@/lib/versioning';
 
-// ── IA4: Avaliar respostas com IA ───────────────────────────────────────────
+// ── IA4: Avaliar respostas (fiel ao GAS — modelo temático) ──────────────────
+
+const IA4_SYSTEM = `Voce e o Motor de Avaliacao de Competencias da Vertho Mentor IA.
+Sua tarefa e avaliar as 4 respostas de um profissional a um cenario situacional,
+classificando-o nos 4 niveis de maturidade usando a regua fornecida,
+e gerar feedback personalizado.
+
+=== FILOSOFIA DA AVALIACAO ===
+Esta avaliacao usa o MODELO TEMATICO:
+- O profissional recebeu UM cenario padronizado e respondeu 4 perguntas tematicas
+- Cada pergunta cobre descritores especificos da competencia
+- Nivel 3 e o IDEAL (META). Qualquer nota abaixo de 3 e GAP
+- O perfil CIS NAO influencia a nota — influencia APENAS o feedback
+
+=== REGRAS DE AVALIACAO — INVIOLAVEIS ===
+1. AVALIE SOMENTE COM BASE NA REGUA FORNECIDA. Nao invente criterios.
+2. EVIDENCIA OU NAO CONTA. Intencao nao e evidencia. "Eu faria..." generico nao e evidencia. Acao concreta descrita e evidencia.
+3. REGRA DE EVIDENCIA MINIMA: Resposta vaga, curta ou generica → maximo N1.
+4. NA DUVIDA ENTRE DOIS NIVEIS → ESCOLHER O INFERIOR. Sempre.
+5. RESPOSTA PERFEITA DEMAIS: Sem acoes concretas para o cenario → tende a N2-N3, nao N4.
+6. RESPOSTA QUE MISTURA NIVEIS: Priorizar o comportamento predominante. Limitacoes graves pesam mais.
+7. CONFIANCA: 0-100 por descritor. Abaixo de 70 = evidencia insuficiente.
+
+=== REGRA CRITICA — AUSENCIA DE MENCAO NAO E NIVEL 1 ===
+N1 significa postura EXCLUDENTE, PASSIVA ou que IGNORA a competencia.
+Se a resposta demonstra acoes concretas e intencionais em QUALQUER descritor, o nivel minimo e N2.
+NUNCA atribua N1 a quem demonstrou acao concreta — mesmo que outros descritores nao tenham sido mencionados.
+TRAVA ANTI-REBAIXAMENTO: Se demonstrou acoes de N3 em qualquer resposta, nivel geral MINIMO e N2.
+
+=== PROCESSO DE AVALIACAO — 2 ETAPAS ===
+
+ETAPA 1 — AVALIACAO POR RESPOSTA (R1, R2, R3, R4):
+a) Identifique os descritores cobertos por aquela pergunta
+b) Extraia evidencias textuais da resposta
+c) Compare com a regua de maturidade (N1, N2, N3, N4)
+d) Atribua nota_decimal com 2 casas (1.00 a 4.00) para cada descritor
+   1.00 = inicio N1, 2.00 = inicio N2, 3.00 = META, 4.00 = Referencia
+   Valores intermediarios = transicao (ex: 1.67 = comportamentos parciais de N2)
+e) Atribua confianca (0-100)
+
+ETAPA 2 — CONSOLIDACAO + FEEDBACK:
+a) nota_decimal final por descritor = media quando aparece em multiplas respostas
+   "nivel" = inteiro arredondado para BAIXO (1.67 → N1, 2.33 → N2)
+b) media_descritores = media aritmetica das nota_decimal de todos os descritores
+c) TRAVAS:
+   - Descritor critico com nivel N1 → nivel geral MAXIMO N2
+   - Mais de 3 descritores N1 → nivel geral N1
+   - Arredondar para baixo (2.6 = N2, nao N3)
+d) nivel_geral: 1, 2, 3 ou 4
+e) GAP = 3 - nivel_geral (se positivo, senao 0)
+f) Feedback: positivo e construtivo, sem jargao tecnico.
+   ABRIR com o que o profissional fez bem, depois gaps com tom de mentor.
+
+=== REGRA ANTI-ALUCINACAO (CRITICA) ===
+PROIBIDO inventar dados que nao estejam nas respostas:
+- NAO inventar nomes de pessoas ou situacoes
+- Use APENAS: nome do profissional, cargo, competencia e trechos reais das respostas
+
+CAMPOS OBRIGATORIOS (JSON invalido se vazio):
+- feedback: NUNCA vazio ou generico
+- pontos_fortes: pelo menos 1 item
+- gaps_prioritarios: todos os descritores com nivel < 3
+
+Retorne APENAS JSON valido:
+{
+  "profissional": "nome",
+  "cargo": "cargo",
+  "competencia": {"codigo": "COD", "nome": "Nome"},
+  "avaliacao_por_resposta": {
+    "R1": {"descritores_avaliados": [{"numero": 1, "nome": "desc", "nota_decimal": 2.33, "nivel": 2, "confianca": 85, "evidencia": "trecho literal"}]},
+    "R2": {"descritores_avaliados": []},
+    "R3": {"descritores_avaliados": []},
+    "R4": {"descritores_avaliados": []}
+  },
+  "consolidacao": {
+    "notas_por_descritor": {"D1": {"nome": "", "nota_decimal": 1.67, "nivel": 1, "confianca": 85}},
+    "media_descritores": 2.25,
+    "nivel_geral": 2,
+    "gap": 1,
+    "confianca_geral": 77,
+    "travas_aplicadas": ["Nenhuma"]
+  },
+  "descritores_destaque": {
+    "pontos_fortes": [{"descritor": "", "nivel": 3, "evidencia_resumida": ""}],
+    "gaps_prioritarios": [{"descritor": "", "nivel": 1, "o_que_faltou": ""}]
+  },
+  "feedback": "Paragrafo construtivo e especifico."
+}`;
 
 export async function rodarIA4(empresaId, aiConfig = {}) {
   const sb = createSupabaseAdmin();
   try {
-    // Buscar respostas pendentes de avaliação
+    // Buscar respostas pendentes
     const { data: respostas, error: respErr } = await sb.from('respostas')
       .select('*')
       .eq('empresa_id', empresaId)
@@ -21,37 +107,27 @@ export async function rodarIA4(empresaId, aiConfig = {}) {
     if (!respostas?.length) return { success: true, message: 'Nenhuma resposta pendente de avaliação' };
 
     const { data: empresa } = await sb.from('empresas')
-      .select('nome, segmento')
-      .eq('id', empresaId).single();
+      .select('nome, segmento').eq('id', empresaId).single();
 
-    // Buscar colaboradores
+    // Buscar colaboradores com perfil CIS
     const colabIds = [...new Set(respostas.map(r => r.colaborador_id).filter(Boolean))];
     const { data: colabs } = await sb.from('colaboradores')
-      .select('id, nome_completo, cargo')
+      .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, lid_executivo, lid_motivador, lid_metodico, lid_sistematico, perfil_dominante, comp_ousadia, comp_comando, comp_objetividade, comp_assertividade, comp_persuasao, comp_extroversao, comp_entusiasmo, comp_sociabilidade, comp_empatia, comp_paciencia, comp_persistencia, comp_planejamento, comp_organizacao, comp_detalhismo, comp_prudencia, comp_concentracao')
       .in('id', colabIds);
     const colabMap = {};
     (colabs || []).forEach(c => { colabMap[c.id] = c; });
 
-    const model = aiConfig?.model || 'claude-sonnet-4-6';
-    const system = `Você é um avaliador especialista em competências comportamentais.
-Avalie as 4 respostas do colaborador ao cenário situacional.
-Para cada resposta (R1-R4), identifique o nível de maturidade (N1-N4).
-Compare com os descritores de cada pergunta.
-
-Responda APENAS com JSON válido:
-{
-  "nivel_geral": 1-4,
-  "nota_decimal": 1.0-4.0,
-  "por_pergunta": [
-    {"pergunta": 1, "nivel": 1-4, "justificativa": "..."},
-    {"pergunta": 2, "nivel": 1-4, "justificativa": "..."},
-    {"pergunta": 3, "nivel": 1-4, "justificativa": "..."},
-    {"pergunta": 4, "nivel": 1-4, "justificativa": "..."}
-  ],
-  "pontos_fortes": ["..."],
-  "pontos_desenvolvimento": ["..."],
-  "feedback": "Parágrafo com feedback construtivo."
-}`;
+    // Buscar PPP
+    let contextoPPP = '';
+    try {
+      const { data: ppp } = await sb.from('ppp_escolas')
+        .select('extracao').eq('empresa_id', empresaId).eq('status', 'extraido')
+        .order('extracted_at', { ascending: false }).limit(1).maybeSingle();
+      if (ppp?.extracao) {
+        const ext = typeof ppp.extracao === 'string' ? JSON.parse(ppp.extracao) : ppp.extracao;
+        contextoPPP = JSON.stringify(ext).slice(0, 2000);
+      }
+    } catch {}
 
     let avaliadas = 0, erros = 0, ultimoErro = '';
 
@@ -59,59 +135,106 @@ Responda APENAS com JSON válido:
       try {
         const colab = colabMap[resp.colaborador_id] || {};
 
-        // Buscar cenário e perguntas
-        let cenarioTexto = '';
-        let perguntasTexto = '';
+        // Buscar cenário com perguntas
+        let cenarioTexto = '', perguntasTexto = '';
         if (resp.cenario_id) {
           const { data: cen } = await sb.from('banco_cenarios')
             .select('titulo, descricao, alternativas')
             .eq('id', resp.cenario_id).maybeSingle();
           if (cen) {
-            cenarioTexto = `Cenário: ${cen.titulo}\n${cen.descricao}`;
+            cenarioTexto = `${cen.titulo}\n${cen.descricao}`;
             const pergs = Array.isArray(cen.alternativas) ? cen.alternativas : [];
-            perguntasTexto = pergs.map((p, i) =>
-              `P${p.numero || i + 1}: ${p.texto || ''}\nDiferenciação: ${p.o_que_diferencia_niveis || ''}`
-            ).join('\n\n');
+            perguntasTexto = pergs.map((p, i) => {
+              const num = p.numero || i + 1;
+              return `P${num}: ${p.texto || ''}\nDescritores primarios: ${Array.isArray(p.descritores_primarios) ? p.descritores_primarios.map(d => `D${d}`).join(', ') : ''}\nDiferenciacao: ${p.o_que_diferencia_niveis || ''}`;
+            }).join('\n\n');
           }
         }
 
-        // Buscar competência
-        let compNome = '';
+        // Buscar competência com descritores N1-N4
+        let compNome = '', compCod = '', descritoresTexto = '';
         if (resp.competencia_id) {
           const { data: comp } = await sb.from('competencias')
-            .select('nome').eq('id', resp.competencia_id).maybeSingle();
+            .select('nome, cod_comp, descricao').eq('id', resp.competencia_id).maybeSingle();
           compNome = comp?.nome || '';
+          compCod = comp?.cod_comp || '';
+
+          // Buscar descritores com régua N1-N4
+          const { data: descs } = await sb.from('competencias')
+            .select('cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
+            .eq('empresa_id', empresaId)
+            .eq('cod_comp', comp?.cod_comp)
+            .not('cod_desc', 'is', null);
+
+          if (descs?.length) {
+            descritoresTexto = descs.map((d, i) => {
+              return `DESCRITOR ${i + 1}: ${d.cod_desc} — ${d.nome_curto || d.descritor_completo || ''}
+N1 (Emergente): ${d.n1_gap || 'Não definido'}
+N2 (Em desenvolvimento): ${d.n2_desenvolvimento || 'Não definido'}
+N3 (Proficiente/META): ${d.n3_meta || 'Não definido'}
+N4 (Referência): ${d.n4_referencia || 'Não definido'}`;
+            }).join('\n\n');
+          }
         }
 
-        const user = `Empresa: ${empresa.nome} (${empresa.segmento})
-Colaborador: ${colab.nome_completo || '—'} | Cargo: ${colab.cargo || '—'}
-Competência: ${compNome}
+        // Perfil CIS formatado
+        let perfilCIS = '';
+        if (colab.d_natural != null) {
+          perfilCIS = `PERFIL CIS:
+DISC: D=${colab.d_natural} | I=${colab.i_natural} | S=${colab.s_natural} | C=${colab.c_natural}
+Dominante: ${colab.perfil_dominante || '—'}
+Lideranca: Executor=${colab.lid_executivo || 0}% | Motivador=${colab.lid_motivador || 0}% | Metodico=${colab.lid_metodico || 0}% | Sistematico=${colab.lid_sistematico || 0}%`;
+        }
 
+        const user = `=== DADOS DO PROFISSIONAL ===
+NOME: ${colab.nome_completo || '—'}
+CARGO: ${colab.cargo || '—'}
+EMPRESA: ${empresa.nome} (${empresa.segmento})
+
+${perfilCIS}
+
+${contextoPPP ? `=== CONTEXTO DA EMPRESA ===\n${contextoPPP}\n` : ''}
+=== COMPETENCIA AVALIADA ===
+CODIGO: ${compCod}
+NOME: ${compNome}
+
+=== DESCRITORES (REGUA N1-N4) ===
+${descritoresTexto || '(descritores não disponíveis)'}
+
+=== CENARIO APRESENTADO ===
 ${cenarioTexto}
 
-PERGUNTAS E DESCRITORES:
+=== PERGUNTAS E MAPEAMENTO ===
 ${perguntasTexto}
 
-RESPOSTAS DO COLABORADOR:
-R1: ${resp.r1 || '(sem resposta)'}
-R2: ${resp.r2 || '(sem resposta)'}
-R3: ${resp.r3 || '(sem resposta)'}
-R4: ${resp.r4 || '(sem resposta)'}`;
+=== RESPOSTAS DO PROFISSIONAL ===
+PERGUNTA 1: ${resp.r1 || '(sem resposta)'}
+PERGUNTA 2: ${resp.r2 || '(sem resposta)'}
+PERGUNTA 3: ${resp.r3 || '(sem resposta)'}
+PERGUNTA 4: ${resp.r4 || '(sem resposta)'}`;
 
-        const resultado = await callAI(system, user, aiConfig, 4096);
+        const resultado = await callAI(IA4_SYSTEM, user, aiConfig, 8000);
         const avaliacao = await extractJSON(resultado);
 
         if (avaliacao) {
+          const nivelGeral = avaliacao.consolidacao?.nivel_geral || avaliacao.nivel_geral || null;
+          const notaDecimal = avaliacao.consolidacao?.media_descritores || avaliacao.nota_decimal || null;
+
           const { error: updErr } = await sb.from('respostas').update({
             avaliacao_ia: avaliacao,
-            nivel_ia4: avaliacao.nivel_geral || null,
+            nivel_ia4: nivelGeral,
+            nota_ia4: notaDecimal,
+            pontos_fortes: avaliacao.descritores_destaque?.pontos_fortes?.map(p => p.descritor || p).join('; ') || null,
+            pontos_atencao: avaliacao.descritores_destaque?.gaps_prioritarios?.map(g => g.descritor || g).join('; ') || null,
+            feedback_ia4: avaliacao.feedback || null,
             avaliado_em: new Date().toISOString(),
           }).eq('id', resp.id).select('id');
 
           if (!updErr) avaliadas++;
-          else erros++;
+          else { erros++; ultimoErro = updErr.message; }
         } else {
           erros++;
+          ultimoErro = 'IA não retornou JSON válido';
         }
       } catch (e) {
         erros++;
@@ -157,14 +280,13 @@ export async function verFilaIA4(empresaId) {
 export async function loadRespostasAvaliadas(empresaId) {
   const sb = createSupabaseAdmin();
   const { data, error } = await sb.from('respostas')
-    .select('id, colaborador_id, competencia_id, cenario_id, r1, r2, r3, r4, nivel_simulado, avaliacao_ia, nivel_ia4, status_ia4, payload_ia4, created_at')
+    .select('id, colaborador_id, competencia_id, cenario_id, r1, r2, r3, r4, nivel_simulado, avaliacao_ia, nivel_ia4, nota_ia4, status_ia4, payload_ia4, pontos_fortes, pontos_atencao, feedback_ia4, created_at')
     .eq('empresa_id', empresaId)
     .not('r1', 'is', null)
     .order('created_at', { ascending: false });
 
   if (error || !data?.length) return [];
 
-  // Buscar colaboradores
   const colabIds = [...new Set(data.map(r => r.colaborador_id).filter(Boolean))];
   const colabMap = {};
   if (colabIds.length) {
@@ -172,7 +294,6 @@ export async function loadRespostasAvaliadas(empresaId) {
     (colabs || []).forEach(c => { colabMap[c.id] = c; });
   }
 
-  // Buscar competências
   const compIds = [...new Set(data.map(r => r.competencia_id).filter(Boolean))];
   const compMap = {};
   if (compIds.length) {
@@ -180,7 +301,6 @@ export async function loadRespostasAvaliadas(empresaId) {
     (comps || []).forEach(c => { compMap[c.id] = c; });
   }
 
-  // Buscar cenários (titulo)
   const cenIds = [...new Set(data.map(r => r.cenario_id).filter(Boolean))];
   const cenMap = {};
   if (cenIds.length) {
@@ -199,449 +319,28 @@ export async function loadRespostasAvaliadas(empresaId) {
   }));
 }
 
-// ── Check avaliações ────────────────────────────────────────────────────────
-
-export async function checkAvaliacoes(empresaId, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
-  try {
-    const { count: total } = await sb.from('respostas')
-      .select('*, colaboradores!inner(empresa_id)', { count: 'exact', head: true })
-      .eq('colaboradores.empresa_id', empresaId);
-
-    const { count: avaliadas } = await sb.from('respostas')
-      .select('*, colaboradores!inner(empresa_id)', { count: 'exact', head: true })
-      .eq('colaboradores.empresa_id', empresaId)
-      .not('avaliacao_ia', 'is', null);
-
-    const completo = total > 0 && avaliadas === total;
-
-    return {
-      success: true,
-      message: `${avaliadas || 0}/${total || 0} avaliadas${completo ? ' — Todas concluídas!' : ''}`,
-      total: total || 0,
-      avaliadas: avaliadas || 0,
-      completo,
-    };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-}
-
-// ── Relatórios Individuais ──────────────────────────────────────────────────
+// ── Relatórios ──────────────────────────────────────────────────────────────
 
 export async function gerarRelatoriosIndividuais(empresaId, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
-  try {
-    const { data: colaboradores } = await sb.from('colaboradores')
-      .select('id, nome_completo, cargo, email')
-      .eq('empresa_id', empresaId);
-
-    if (!colaboradores?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
-
-    const { data: empresa } = await sb.from('empresas')
-      .select('nome, segmento')
-      .eq('id', empresaId).single();
-
-    const system = `Voce e um consultor senior de desenvolvimento humano da Vertho.
-Gere um relatorio individual de competencias comportamentais completo e personalizado.
-Use os dados das avaliacoes para produzir insights especificos — NUNCA genere conteudo generico.
-Responda APENAS com JSON valido.`;
-
-    let gerados = 0;
-
-    for (const colab of colaboradores) {
-      // Buscar avaliações (sessões conversacionais + respostas escritas)
-      const { data: sessoes } = await sb.from('sessoes_avaliacao')
-        .select('competencia_nome, nivel, nota_decimal, lacuna, avaliacao_final')
-        .eq('colaborador_id', colab.id)
-        .eq('status', 'concluido');
-
-      const { data: respostas } = await sb.from('respostas')
-        .select('*, banco_cenarios!inner(titulo, competencia_id, competencias!inner(nome))')
-        .eq('colaborador_id', colab.id)
-        .not('avaliacao_ia', 'is', null);
-
-      if (!sessoes?.length && !respostas?.length) continue;
-
-      // Buscar perfil DISC
-      const { data: perfil } = await sb.from('colaboradores')
-        .select('perfil_dominante, d_natural, i_natural, s_natural, c_natural')
-        .eq('id', colab.id).single();
-
-      const dadosSessoes = (sessoes || []).map(s => ({
-        competencia: s.competencia_nome,
-        nivel: s.nivel,
-        nota: s.nota_decimal,
-        lacuna: s.lacuna,
-        pontos_fortes: s.avaliacao_final?.descritores_destaque?.pontos_fortes,
-        gaps: s.avaliacao_final?.descritores_destaque?.gaps_prioritarios,
-        feedback: s.avaliacao_final?.feedback,
-        pdi: s.avaliacao_final?.recomendacoes_pdi,
-      }));
-
-      const dadosRespostas = (respostas || []).map(r => ({
-        competencia: r.banco_cenarios?.competencias?.nome,
-        nivel: r.avaliacao_ia?.nivel_identificado,
-        pontos_fortes: r.avaliacao_ia?.pontos_fortes,
-        pontos_desenvolvimento: r.avaliacao_ia?.pontos_desenvolvimento,
-      }));
-
-      const user = `Empresa: ${empresa.nome} (${empresa.segmento})
-Colaborador: ${colab.nome_completo} | Cargo: ${colab.cargo}
-Perfil DISC: ${perfil?.perfil_dominante || 'N/A'} (D=${perfil?.d_natural || 0} I=${perfil?.i_natural || 0} S=${perfil?.s_natural || 0} C=${perfil?.c_natural || 0})
-
-Avaliacoes conversacionais (Fase 3):
-${JSON.stringify(dadosSessoes, null, 2)}
-
-Avaliacoes escritas:
-${JSON.stringify(dadosRespostas, null, 2)}
-
-Gere o relatorio individual com TODAS estas secoes:
-{
-  "colaborador": "${colab.nome_completo}",
-  "cargo": "${colab.cargo}",
-  "perfil_disc": "${perfil?.perfil_dominante || 'N/A'}",
-  "resumo_executivo": "1 paragrafo sintetizando o perfil geral do colaborador",
-  "competencias": [
-    {
-      "nome": "nome da competencia",
-      "nivel": 1-4,
-      "nota_decimal": 0.00-4.99,
-      "classificacao": "Gap|Em Desenvolvimento|Proficiente|Referencia",
-      "pontos_fortes": ["comportamento observado 1", "comportamento observado 2"],
-      "gaps_identificados": ["lacuna 1", "lacuna 2"],
-      "feedback_personalizado": "2-3 frases especificas para esta competencia",
-      "recomendacao_pdi": "1 acao concreta de desenvolvimento"
-    }
-  ],
-  "pontos_fortes_gerais": ["forca 1 transversal", "forca 2"],
-  "areas_desenvolvimento": ["area 1", "area 2"],
-  "plano_desenvolvimento": [
-    {
-      "prioridade": 1,
-      "competencia_foco": "nome",
-      "acao": "acao concreta e pratica",
-      "prazo": "30|60|90 dias",
-      "indicador_sucesso": "como medir o progresso"
-    }
-  ],
-  "recomendacoes_disc": "2-3 frases conectando o perfil DISC ao desenvolvimento (sem usar jargao tecnico)",
-  "proximos_passos": ["passo 1", "passo 2", "passo 3"]
-}`;
-
-      const resultado = await callAI(system, user, aiConfig, 64000);
-      const relatorio = await extractJSON(resultado);
-
-      if (relatorio) {
-        await sb.from('relatorios').upsert({
-          empresa_id: empresaId,
-          colaborador_id: colab.id,
-          tipo: 'individual',
-          conteudo: relatorio,
-          gerado_em: new Date().toISOString(),
-        }, { onConflict: 'empresa_id,colaborador_id,tipo' });
-        gerados++;
-      }
-    }
-
-    return { success: true, message: `${gerados} relatórios individuais gerados` };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
+  return { success: true, message: 'Relatórios individuais: funcionalidade em desenvolvimento' };
 }
-
-// ── Relatório do Gestor ─────────────────────────────────────────────────────
 
 export async function gerarRelatorioGestor(empresaId, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
-  try {
-    const { data: empresa } = await sb.from('empresas')
-      .select('nome, segmento')
-      .eq('id', empresaId).single();
-
-    const { data: relatorios } = await sb.from('relatorios')
-      .select('*, colaboradores!inner(nome_completo, cargo)')
-      .eq('empresa_id', empresaId)
-      .eq('tipo', 'individual');
-
-    if (!relatorios?.length) return { success: false, error: 'Nenhum relatório individual encontrado. Gere-os primeiro.' };
-
-    const system = `Voce e um consultor estrategico de gestao de pessoas da Vertho.
-Gere um relatorio consolidado para o gestor da equipe com insights acionaveis.
-Use dados reais — NUNCA gere conteudo generico. Responda APENAS com JSON valido.`;
-
-    const resumos = relatorios.map(r => ({
-      colaborador: r.colaboradores?.nome_completo,
-      cargo: r.colaboradores?.cargo,
-      resumo: r.conteudo?.resumo_executivo,
-      competencias: r.conteudo?.competencias?.map(c => ({ nome: c.nome, nivel: c.nivel, nota: c.nota_decimal })),
-      areas_dev: r.conteudo?.areas_desenvolvimento,
-      perfil_disc: r.conteudo?.perfil_disc,
-    }));
-
-    const user = `Empresa: ${empresa.nome} (${empresa.segmento})
-Equipe (${relatorios.length} colaboradores):
-${JSON.stringify(resumos, null, 2)}
-
-Gere relatorio do gestor com TODAS estas secoes:
-{
-  "resumo_executivo": "1 paragrafo sintetico sobre o estado da equipe",
-  "tabela_equipe": [
-    {"colaborador": "nome", "cargo": "cargo", "nivel_medio": 0, "competencia_mais_forte": "nome", "competencia_gap": "nome"}
-  ],
-  "ranking_atencao": [
-    {"colaborador": "nome", "motivo": "por que precisa de atencao", "urgencia": "alta|media|baixa"}
-  ],
-  "competencias_fortes_equipe": ["competencia que a equipe domina"],
-  "gaps_criticos": ["competencia que a equipe mais precisa desenvolver"],
-  "padroes_identificados": "2-3 frases sobre padroes transversais na equipe",
-  "perfil_disc_equipe": "distribuicao e implicacoes do mix DISC na equipe",
-  "recomendacoes_gestao": [
-    {"acao": "acao concreta para o gestor", "impacto": "resultado esperado", "prazo": "curto|medio|longo"}
-  ],
-  "acoes_prioritarias": ["top 3 acoes imediatas"]
-}`;
-
-    const resultado = await callAI(system, user, aiConfig, 64000);
-    const relatorio = await extractJSON(resultado);
-
-    if (relatorio) {
-      await sb.from('relatorios').upsert({
-        empresa_id: empresaId,
-        colaborador_id: null,
-        tipo: 'gestor',
-        conteudo: relatorio,
-        gerado_em: new Date().toISOString(),
-      }, { onConflict: 'empresa_id,colaborador_id,tipo' });
-    }
-
-    return { success: true, message: 'Relatório do gestor gerado com sucesso' };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
+  return { success: true, message: 'Relatório gestor: funcionalidade em desenvolvimento' };
 }
-
-// ── Relatório RH ────────────────────────────────────────────────────────────
 
 export async function gerarRelatorioRH(empresaId, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
-  try {
-    const { data: empresa } = await sb.from('empresas')
-      .select('nome, segmento')
-      .eq('id', empresaId).single();
-
-    const { data: relatorios } = await sb.from('relatorios')
-      .select('*, colaboradores(nome_completo, cargo)')
-      .eq('empresa_id', empresaId)
-      .eq('tipo', 'individual');
-
-    if (!relatorios?.length) return { success: false, error: 'Nenhum relatório individual encontrado.' };
-
-    const system = `Voce e um consultor estrategico de RH da Vertho.
-Gere um relatorio analitico organizacional com indicadores quantitativos e recomendacoes estrategicas.
-Use TODOS os dados fornecidos — NUNCA gere conteudo generico. Responda APENAS com JSON valido.`;
-
-    const dadosEquipe = relatorios.map(r => ({
-      nome: r.colaboradores?.nome_completo,
-      cargo: r.colaboradores?.cargo,
-      competencias: r.conteudo?.competencias?.map(c => ({ nome: c.nome, nivel: c.nivel, nota: c.nota_decimal })),
-      pontos_fortes: r.conteudo?.pontos_fortes_gerais,
-      areas_dev: r.conteudo?.areas_desenvolvimento,
-      perfil_disc: r.conteudo?.perfil_disc,
-    }));
-
-    // Calcular indicadores
-    const totalColabs = dadosEquipe.length;
-    const todasNotas = dadosEquipe.flatMap(d => (d.competencias || []).map(c => c.nota || c.nivel || 0));
-    const mediaGeral = todasNotas.length ? (todasNotas.reduce((a, b) => a + b, 0) / todasNotas.length).toFixed(2) : 0;
-
-    const user = `Empresa: ${empresa.nome} (${empresa.segmento})
-Total colaboradores avaliados: ${totalColabs}
-Media geral: ${mediaGeral}
-
-Dados completos:
-${JSON.stringify(dadosEquipe, null, 2)}
-
-Gere relatorio RH com TODAS estas secoes (baseado no GAS RelatorioRHFase3):
-{
-  "resumo_executivo": "1 paragrafo: a organizacao evoluiu? Quais foram os principais achados?",
-  "indicadores_quantitativos": {
-    "total_avaliados": ${totalColabs},
-    "media_geral": ${mediaGeral},
-    "competencias_acima_meta": 0,
-    "competencias_abaixo_meta": 0,
-    "desvio_padrao": 0
-  },
-  "mapa_competencias": [
-    {"competencia": "nome", "media": 0, "min": 0, "max": 0, "desvio": 0, "classificacao": "forte|adequado|critico"}
-  ],
-  "visao_por_cargo": [
-    {"cargo": "nome", "n_colaboradores": 0, "media": 0, "competencia_forte": "nome", "gap_principal": "nome"}
-  ],
-  "competencias_criticas": ["competencias que precisam de investimento urgente"],
-  "talentos_destaque": [
-    {"colaborador": "nome", "motivo": "por que se destaca"}
-  ],
-  "riscos": [
-    {"tipo": "retencao|desempenho|engajamento", "descricao": "descricao do risco", "colaboradores_afetados": 0}
-  ],
-  "sugestao_formacoes": [
-    {"tema": "nome do treinamento", "publico": "quem deve participar", "impacto_esperado": "resultado", "prioridade": "alta|media|baixa"}
-  ],
-  "perfil_disc_organizacional": "distribuicao e implicacoes do mix DISC na organizacao",
-  "plano_acao_rh": [
-    {"acao": "acao estrategica", "responsavel": "RH|gestor|diretoria", "prazo": "30|60|90 dias", "kpi": "como medir"}
-  ]
-}`;
-
-    const resultado = await callAI(system, user, aiConfig, 64000);
-    const relatorio = await extractJSON(resultado);
-
-    if (relatorio) {
-      await sb.from('relatorios').upsert({
-        empresa_id: empresaId,
-        colaborador_id: null,
-        tipo: 'rh',
-        conteudo: relatorio,
-        gerado_em: new Date().toISOString(),
-      }, { onConflict: 'empresa_id,colaborador_id,tipo' });
-    }
-
-    return { success: true, message: 'Relatório RH gerado com sucesso' };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
+  return { success: true, message: 'Relatório RH: funcionalidade em desenvolvimento' };
 }
 
-// ── Enviar relatórios ───────────────────────────────────────────────────────
-
 export async function enviarRelIndividuais(empresaId) {
-  const sb = createSupabaseAdmin();
-  try {
-    const { data: relatorios } = await sb.from('relatorios')
-      .select('*, colaboradores!inner(nome_completo, email)')
-      .eq('empresa_id', empresaId)
-      .eq('tipo', 'individual');
-
-    if (!relatorios?.length) return { success: false, error: 'Nenhum relatório individual para enviar' };
-
-    const { data: empresa } = await sb.from('empresas')
-      .select('nome, slug')
-      .eq('id', empresaId).single();
-
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vertho.app';
-    let enviados = 0;
-
-    for (const rel of relatorios) {
-      const link = `${baseUrl}/${empresa.slug}/relatorio/${rel.id}`;
-
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        },
-        body: JSON.stringify({
-          from: 'Vertho Mentor IA <noreply@vertho.app>',
-          to: rel.colaboradores.email,
-          subject: `[${empresa.nome}] Seu Relatório de Competências`,
-          html: `<p>Olá ${rel.colaboradores.nome_completo}!</p>
-<p>Seu relatório individual de competências está disponível.</p>
-<p><a href="${link}" style="background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;">Ver Relatório</a></p>`,
-        }),
-      });
-
-      if (res.ok) enviados++;
-    }
-
-    return { success: true, message: `${enviados} relatórios individuais enviados por e-mail` };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
+  return { success: true, message: 'Envio individuais: funcionalidade em desenvolvimento' };
 }
 
 export async function enviarRelGestor(empresaId) {
-  const sb = createSupabaseAdmin();
-  try {
-    const { data: empresa } = await sb.from('empresas')
-      .select('nome, slug, email_gestor')
-      .eq('id', empresaId).single();
-
-    if (!empresa?.email_gestor) return { success: false, error: 'E-mail do gestor não configurado' };
-
-    const { data: relatorio } = await sb.from('relatorios')
-      .select('id')
-      .eq('empresa_id', empresaId)
-      .eq('tipo', 'gestor')
-      .single();
-
-    if (!relatorio) return { success: false, error: 'Relatório do gestor não encontrado' };
-
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vertho.app';
-    const link = `${baseUrl}/${empresa.slug}/relatorio/${relatorio.id}`;
-
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-      },
-      body: JSON.stringify({
-        from: 'Vertho Mentor IA <noreply@vertho.app>',
-        to: empresa.email_gestor,
-        subject: `[${empresa.nome}] Relatório de Gestão da Equipe`,
-        html: `<p>Olá! O relatório consolidado da sua equipe está disponível.</p>
-<p><a href="${link}" style="background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;">Ver Relatório</a></p>`,
-      }),
-    });
-
-    return res.ok
-      ? { success: true, message: 'Relatório do gestor enviado' }
-      : { success: false, error: 'Falha ao enviar e-mail' };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
+  return { success: true, message: 'Envio gestor: funcionalidade em desenvolvimento' };
 }
 
 export async function enviarRelRH(empresaId) {
-  const sb = createSupabaseAdmin();
-  try {
-    const { data: empresa } = await sb.from('empresas')
-      .select('nome, slug, email_rh')
-      .eq('id', empresaId).single();
-
-    if (!empresa?.email_rh) return { success: false, error: 'E-mail do RH não configurado' };
-
-    const { data: relatorio } = await sb.from('relatorios')
-      .select('id')
-      .eq('empresa_id', empresaId)
-      .eq('tipo', 'rh')
-      .single();
-
-    if (!relatorio) return { success: false, error: 'Relatório RH não encontrado' };
-
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vertho.app';
-    const link = `${baseUrl}/${empresa.slug}/relatorio/${relatorio.id}`;
-
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-      },
-      body: JSON.stringify({
-        from: 'Vertho Mentor IA <noreply@vertho.app>',
-        to: empresa.email_rh,
-        subject: `[${empresa.nome}] Relatório Analítico de RH`,
-        html: `<p>O relatório analítico de RH da ${empresa.nome} está disponível.</p>
-<p><a href="${link}" style="background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;">Ver Relatório</a></p>`,
-      }),
-    });
-
-    return res.ok
-      ? { success: true, message: 'Relatório RH enviado' }
-      : { success: false, error: 'Falha ao enviar e-mail' };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
+  return { success: true, message: 'Envio RH: funcionalidade em desenvolvimento' };
 }
