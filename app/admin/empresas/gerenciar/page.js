@@ -106,7 +106,7 @@ export default function GerenciarPage() {
 
   function startEdit(c) {
     setEditId(c.id);
-    setEditData({ nome_completo: c.nome_completo || '', email: c.email || '', cargo: c.cargo || '', area_depto: c.area_depto || '', role: c.role || 'colaborador', telefone: c.telefone || '' });
+    setEditData({ nome_completo: c.nome_completo || '', email: c.email || '', cargo: c.cargo || '', area_depto: c.area_depto || '', role: c.role || 'colaborador', telefone: c.telefone || '', gestor_nome: c.gestor_nome || '', gestor_email: c.gestor_email || '', gestor_whatsapp: c.gestor_whatsapp || '' });
   }
 
   async function saveEdit() {
@@ -225,6 +225,7 @@ export default function GerenciarPage() {
                         <th className="px-4 py-2 text-left">Área</th>
                         <th className="px-4 py-2 text-left">Role</th>
                         <th className="px-4 py-2 text-left">WhatsApp</th>
+                        <th className="px-4 py-2 text-left">Gestor</th>
                         <th className="px-4 py-2 text-center">Ações</th>
                       </tr>
                     </thead>
@@ -252,6 +253,17 @@ export default function GerenciarPage() {
                               <td className="px-4 py-2"><input value={editData.telefone} onChange={e => setEditData(p => ({ ...p, telefone: e.target.value }))}
                                 placeholder="5511999999999"
                                 className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
+                              <td className="px-4 py-2">
+                                <input value={editData.gestor_nome} onChange={e => setEditData(p => ({ ...p, gestor_nome: e.target.value }))}
+                                  placeholder="Nome do gestor"
+                                  className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none mb-1" />
+                                <input value={editData.gestor_email} onChange={e => setEditData(p => ({ ...p, gestor_email: e.target.value }))}
+                                  placeholder="email@gestor.com"
+                                  className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none mb-1" />
+                                <input value={editData.gestor_whatsapp} onChange={e => setEditData(p => ({ ...p, gestor_whatsapp: e.target.value }))}
+                                  placeholder="5511999999999"
+                                  className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" />
+                              </td>
                               <td className="px-4 py-2 text-center">
                                 <div className="flex items-center justify-center gap-1">
                                   <button onClick={saveEdit} disabled={saving} className="text-green-400 hover:text-green-300">
@@ -275,6 +287,7 @@ export default function GerenciarPage() {
                                 }`}>{c.role}</span>
                               </td>
                               <td className="px-4 py-2 text-xs text-gray-500">{c.telefone || '—'}</td>
+                              <td className="px-4 py-2 text-xs text-gray-500">{c.gestor_nome || '—'}</td>
                               <td className="px-4 py-2 text-center">
                                 <div className="flex items-center justify-center gap-1">
                                   <button onClick={() => startEdit(c)} className="text-gray-600 hover:text-cyan-400"><Pencil size={13} /></button>
