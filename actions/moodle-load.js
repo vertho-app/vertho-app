@@ -35,9 +35,35 @@ export async function salvarCatalogoItem(id, campos) {
   if (campos.descritor_1 !== undefined) update.descritor_1 = campos.descritor_1 || null;
   if (campos.descritor_2 !== undefined) update.descritor_2 = campos.descritor_2 || null;
   if (campos.descritor_3 !== undefined) update.descritor_3 = campos.descritor_3 || null;
+  if (campos.nivel_desc_1 !== undefined) update.nivel_desc_1 = campos.nivel_desc_1 || null;
+  if (campos.nivel_desc_2 !== undefined) update.nivel_desc_2 = campos.nivel_desc_2 || null;
+  if (campos.nivel_desc_3 !== undefined) update.nivel_desc_3 = campos.nivel_desc_3 || null;
   const { error } = await sb.from('catalogo_enriquecido').update(update).eq('id', id).select('id');
   if (error) return { success: false, error: error.message };
   return { success: true };
+}
+
+export async function loadDescritoresPorCompetencia(empresaId, competenciaNome, cargo) {
+  const sb = createSupabaseAdmin();
+  // Buscar cod_comp da competência
+  const { data: comp } = await sb.from('competencias')
+    .select('cod_comp')
+    .eq('empresa_id', empresaId)
+    .eq('nome', competenciaNome)
+    .eq('cargo', cargo)
+    .limit(1)
+    .maybeSingle();
+
+  if (!comp?.cod_comp) return [];
+
+  const { data: descs } = await sb.from('competencias')
+    .select('cod_desc, nome_curto, descritor_completo')
+    .eq('empresa_id', empresaId)
+    .eq('cod_comp', comp.cod_comp)
+    .not('cod_desc', 'is', null)
+    .order('cod_desc');
+
+  return (descs || []).map(d => d.nome_curto || d.descritor_completo || d.cod_desc);
 }
 
 export async function loadCobertura(empresaId) {

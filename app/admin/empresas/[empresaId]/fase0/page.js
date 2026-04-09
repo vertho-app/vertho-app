@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Loader2, BookOpen, ChevronDown, ExternalLink, Filter, Pencil, Check, X
 } from 'lucide-react';
-import { loadMoodleCatalogo, loadCatalogoEnriquecido, loadCobertura, salvarCatalogoItem } from '@/actions/moodle-load';
+import { loadMoodleCatalogo, loadCatalogoEnriquecido, loadCobertura, salvarCatalogoItem, loadDescritoresPorCompetencia } from '@/actions/moodle-load';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 
 const STATUS_COLORS = {
@@ -182,7 +182,11 @@ export default function Fase0Page({ params }) {
                               <button onClick={() => setEditId(null)} className="text-gray-500 hover:text-white"><X size={14} /></button>
                             </>
                           ) : (
-                            <button onClick={() => { setEditId(e.id); setEditData({ competencia: e.competencia || '', nivel_ideal: e.nivel_ideal || 2 }); }}
+                            <button onClick={() => { setEditId(e.id); setEditData({
+                              competencia: e.competencia || '', nivel_ideal: e.nivel_ideal || 2,
+                              descritor_1: e.descritor_1 || '', descritor_2: e.descritor_2 || '', descritor_3: e.descritor_3 || '',
+                              nivel_desc_1: e.nivel_desc_1 || e.nivel_ideal || 2, nivel_desc_2: e.nivel_desc_2 || e.nivel_ideal || 2, nivel_desc_3: e.nivel_desc_3 || e.nivel_ideal || 2,
+                            }); }}
                               className="text-gray-600 hover:text-cyan-400"><Pencil size={14} /></button>
                           )}
                         </div>
@@ -192,7 +196,19 @@ export default function Fase0Page({ params }) {
                       <div className="px-4 py-2 flex items-center gap-3 border-b border-white/[0.03]">
                         <span className="text-[9px] text-gray-500 uppercase w-20 shrink-0">Competência</span>
                         {isEditing ? (
-                          <select value={editData.competencia} onChange={ev => setEditData(p => ({ ...p, competencia: ev.target.value }))}
+                          <select value={editData.competencia} onChange={async ev => {
+                            const novaComp = ev.target.value;
+                            setEditData(p => ({ ...p, competencia: novaComp }));
+                            // Atualizar descritores ao mudar competência
+                            if (novaComp) {
+                              const descs = await loadDescritoresPorCompetencia(empresaId, novaComp, e.cargo || filtroCargo);
+                              setEditData(p => ({
+                                ...p, competencia: novaComp,
+                                descritor_1: descs[0] || null, descritor_2: descs[1] || null, descritor_3: descs[2] || null,
+                                nivel_desc_1: p.nivel_desc_1 || e.nivel_ideal, nivel_desc_2: p.nivel_desc_2 || e.nivel_ideal, nivel_desc_3: p.nivel_desc_3 || e.nivel_ideal,
+                              }));
+                            }
+                          }}
                             className="flex-1 px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none">
                             <option value="">Selecione...</option>
                             {compsOptions.map(c => <option key={c} value={c}>{c}</option>)}
@@ -200,29 +216,33 @@ export default function Fase0Page({ params }) {
                         ) : (
                           <span className="text-xs text-cyan-400 font-medium">{e.competencia || '—'}</span>
                         )}
-                        <span className="text-[9px] text-gray-500 uppercase w-10 shrink-0">Nível</span>
-                        {isEditing ? (
-                          <select value={editData.nivel_ideal} onChange={ev => setEditData(p => ({ ...p, nivel_ideal: Number(ev.target.value) }))}
-                            className="w-16 px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none">
-                            <option value="1">N1</option><option value="2">N2</option><option value="3">N3</option><option value="4">N4</option>
-                          </select>
-                        ) : (
-                          <span className="text-xs text-gray-300">N{e.nivel_ideal || '?'}</span>
-                        )}
                         <span className="text-[9px] text-gray-600 ml-auto">{e.tempo_estimado_min ? `${e.tempo_estimado_min}min` : ''}</span>
                       </div>
 
-                      {/* Descritores */}
-                      {descritores.length > 0 && (
-                        <div className="divide-y divide-white/[0.02]">
-                          {descritores.map((desc, di) => (
-                            <div key={di} className="px-4 py-1.5 flex items-center gap-2">
-                              <span className="text-[9px] text-gray-600 w-20 shrink-0">Descritor {di + 1}</span>
-                              <span className="text-[10px] text-gray-400 flex-1">{desc}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      {/* Descritores com nível individual */}
+                      <div className="divide-y divide-white/[0.02]">
+                        {[
+                          { key: 'descritor_1', nivelKey: 'nivel_desc_1', val: isEditing ? editData.descritor_1 : e.descritor_1, nivel: isEditing ? editData.nivel_desc_1 : e.nivel_desc_1 },
+                          { key: 'descritor_2', nivelKey: 'nivel_desc_2', val: isEditing ? editData.descritor_2 : e.descritor_2, nivel: isEditing ? editData.nivel_desc_2 : e.nivel_desc_2 },
+                          { key: 'descritor_3', nivelKey: 'nivel_desc_3', val: isEditing ? editData.descritor_3 : e.descritor_3, nivel: isEditing ? editData.nivel_desc_3 : e.nivel_desc_3 },
+                        ].filter(d => d.val).map((d, di) => (
+                          <div key={di} className="px-4 py-1.5 flex items-center gap-2">
+                            <span className="text-[9px] text-gray-600 w-20 shrink-0">Descritor {di + 1}</span>
+                            <span className="text-[10px] text-gray-400 flex-1">{d.val}</span>
+                            {isEditing ? (
+                              <select value={d.nivel || e.nivel_ideal || 2} onChange={ev => setEditData(p => ({ ...p, [d.nivelKey]: Number(ev.target.value) }))}
+                                className="w-14 px-1 py-0.5 rounded text-[10px] text-white border border-white/10 bg-[#091D35] outline-none">
+                                <option value="1">N1</option><option value="2">N2</option><option value="3">N3</option><option value="4">N4</option>
+                              </select>
+                            ) : (
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                (d.nivel || e.nivel_ideal) >= 3 ? 'bg-green-400/15 text-green-400' :
+                                (d.nivel || e.nivel_ideal) >= 2 ? 'bg-amber-400/15 text-amber-400' : 'bg-red-400/15 text-red-400'
+                              }`}>N{d.nivel || e.nivel_ideal || '?'}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   );
                 })}
