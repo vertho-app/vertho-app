@@ -115,7 +115,7 @@ import { rodarIA1 as _ia1, rodarIA2 as _ia2, rodarIA3 as _ia3 } from '@/actions/
 import { dispararEmails as _emails, verStatusEnvios as _status } from '@/actions/fase2';
 import { rodarIA4 as _ia4, verFilaIA4 as _fila, gerarRelatoriosIndividuais as _relInd, gerarRelatorioGestor as _relGestor, gerarRelatorioRH as _relRH, enviarRelIndividuais as _envInd, enviarRelGestor as _envGestor, enviarRelRH as _envRH } from '@/actions/fase3';
 import { checkAvaliacoes as _check } from '@/actions/check-ia4';
-import { gerarPDIs as _pdis, gerarPDIsDescritores as _pdisDesc, montarTrilhasLote as _trilhas, criarEstruturaFase4 as _estrutura, iniciarFase4ParaTodos as _iniciar, triggerSegundaFase4 as _trigSeg, triggerQuintaFase4 as _trigQui, getStatusFase4 as _statusF4 } from '@/actions/fase4';
+import { gerarPDIs as _pdis, gerarPDIsDescritores as _pdisDesc, montarTrilhasLote as _trilhas, criarEstruturaFase4 as _estrutura, iniciarFase4ParaTodos as _iniciar, triggerSegundaFase4 as _trigSeg, triggerQuintaFase4 as _trigQui, getStatusFase4 as _statusF4, salvarCompetenciaFoco as _salvarFoco, loadCompetenciasFoco as _loadFoco } from '@/actions/fase4';
 import { iniciarReavaliacaoLote as _reav, gerarRelatoriosEvolucaoLote as _evolucao, gerarPlenariaEvolucao as _plenaria, gerarRelatorioRHManual as _rhManual, gerarRelatorioPlenaria as _rhPlen, enviarLinksPerfil as _links, gerarDossieGestor as _dossie, checkCenarios as _checkCen } from '@/actions/fase5';
 import { dispararLinksCIS as _dispCIS, dispararRelatoriosLote as _dispLote } from '@/actions/whatsapp-lote';
 
@@ -136,6 +136,8 @@ export async function enviarRelRH(e) { return _envRH(e); }
 export async function gerarPDIs(e, c) { return _pdis(e, c); }
 export async function gerarPDIsDescritores(e) { return _pdisDesc(e); }
 export async function montarTrilhasLote(e) { return _trilhas(e); }
+export async function salvarCompetenciaFoco(e, cargo, comp) { return _salvarFoco(e, cargo, comp); }
+export async function loadCompetenciasFoco(e) { return _loadFoco(e); }
 export async function criarEstruturaFase4(e) { return _estrutura(e); }
 export async function iniciarFase4ParaTodos(e) { return _iniciar(e); }
 export async function triggerSegundaFase4(e) { return _trigSeg(e); }

@@ -416,13 +416,18 @@ export default function Fase2Page({ params }) {
                 <div key={t.id} className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
                   {/* Colaborador header */}
                   <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.04]">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <User size={14} className="text-cyan-400" />
                       <span className="text-sm font-bold text-white">{t.colaborador_nome}</span>
                       <span className="text-[10px] text-gray-500">{t.colaborador_cargo}</span>
+                      {t.competencia_foco && (
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-amber-400/15 text-amber-400">
+                          Foco: {t.competencia_foco}
+                        </span>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-gray-500">{cursos.length} cursos</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[10px] text-gray-500">{cursos.length} {cursos.length === 1 ? 'curso' : 'cursos'}</span>
                       <span className={`text-[9px] font-bold px-2 py-0.5 rounded ${
                         t.status === 'pendente' ? 'bg-amber-400/15 text-amber-400' :
                         t.status === 'em_andamento' ? 'bg-cyan-400/15 text-cyan-400' :
@@ -462,7 +467,11 @@ export default function Fase2Page({ params }) {
                       </div>
                     ))}
                     {cursos.length === 0 && (
-                      <p className="text-xs text-gray-500 italic">Nenhum curso recomendado</p>
+                      <p className="text-xs text-gray-500 italic">
+                        {t.competencia_foco
+                          ? `Nenhum curso disponível no catálogo para "${t.competencia_foco}"`
+                          : 'Nenhum curso recomendado'}
+                      </p>
                     )}
                   </div>
                 </div>

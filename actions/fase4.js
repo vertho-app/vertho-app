@@ -111,8 +111,46 @@ export async function gerarPDIsDescritores(empresaId) {
   }
 }
 
+// ── Salvar competência foco por cargo ───────────────────────────────────────
+
+export async function salvarCompetenciaFoco(empresaId, cargo, competenciaFoco) {
+  const sb = createSupabaseAdmin();
+  try {
+    const { error } = await sb.from('cargos_empresa')
+      .update({ competencia_foco: competenciaFoco })
+      .eq('empresa_id', empresaId)
+      .eq('nome', cargo);
+    if (error) return { success: false, error: error.message };
+    return { success: true, message: `Competência foco "${competenciaFoco}" salva para ${cargo}` };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// ── Carregar competências foco por cargo ────────────────────────────────────
+
+export async function loadCompetenciasFoco(empresaId) {
+  const sb = createSupabaseAdmin();
+  try {
+    const { data: cargos } = await sb.from('cargos_empresa')
+      .select('nome, competencia_foco, top5_workshop')
+      .eq('empresa_id', empresaId);
+
+    // Top 5 por cargo (competências disponíveis para seleção)
+    const result = (cargos || []).map(c => ({
+      cargo: c.nome,
+      competencia_foco: c.competencia_foco || null,
+      top5: c.top5_workshop || [],
+    }));
+
+    return { success: true, data: result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 // ── Montar trilhas em lote ──────────────────────────────────────────────────
-// Usa PDI (relatórios individuais) + catálogo enriquecido do Moodle
+// 1 competência por colaborador: competência foco (se tiver gap) > maior gap
 
 export async function montarTrilhasLote(empresaId) {
   const sb = createSupabaseAdmin();
@@ -131,13 +169,20 @@ export async function montarTrilhasLote(empresaId) {
     const colabMap = {};
     (colabs || []).forEach(c => { colabMap[c.id] = c; });
 
-    // Buscar competências (nomes)
+    // Buscar competências (nomes + gabarito para saber nível esperado)
     const compIds = [...new Set(respostas.map(r => r.competencia_id).filter(Boolean))];
     const compMap = {};
     if (compIds.length) {
       const { data: comps } = await sb.from('competencias').select('id, nome').in('id', compIds);
       (comps || []).forEach(c => { compMap[c.id] = c.nome; });
     }
+
+    // Buscar competência foco por cargo
+    const { data: cargosEmpresa } = await sb.from('cargos_empresa')
+      .select('nome, competencia_foco')
+      .eq('empresa_id', empresaId);
+    const focoMap = {};
+    (cargosEmpresa || []).forEach(c => { if (c.competencia_foco) focoMap[c.nome] = c.competencia_foco; });
 
     // Buscar catálogo enriquecido do Moodle
     const { data: catalogo } = await sb.from('catalogo_enriquecido')
@@ -151,29 +196,55 @@ export async function montarTrilhasLote(empresaId) {
     const cursoNomeMap = {};
     (cursosCat || []).forEach(c => { cursoNomeMap[c.course_id] = c; });
 
-    // Agrupar respostas por colaborador
+    // Agrupar respostas por colaborador com gap (nível esperado 4 - nível avaliado)
     const porColab = {};
     respostas.forEach(r => {
       if (!porColab[r.colaborador_id]) porColab[r.colaborador_id] = [];
       const compNome = compMap[r.competencia_id];
-      if (compNome) porColab[r.colaborador_id].push({ competencia: compNome, nivel: r.nivel_ia4 || 0 });
+      if (compNome) {
+        const nivel = r.nivel_ia4 || 0;
+        const gap = 4 - nivel; // gap = nível esperado (4) - nível avaliado
+        porColab[r.colaborador_id].push({ competencia: compNome, nivel, gap });
+      }
     });
 
-    let trilhasCriadas = 0, totalCursos = 0, ultimoErro = '';
+    let trilhasCriadas = 0, totalCursos = 0, semFoco = 0, ultimoErro = '';
 
     for (const [colabId, comps] of Object.entries(porColab)) {
       const colab = colabMap[colabId] || {};
-      const compsAlvo = comps.map(c => c.competencia);
+      const foco = focoMap[colab.cargo];
 
-      // Match cursos do catálogo por competência + cargo
+      // Determinar a competência da trilha (1 única)
+      let compAlvo = null;
+
+      if (foco) {
+        // Verificar se colaborador tem gap na competência foco
+        const compFoco = comps.find(c => {
+          const fL = foco.toLowerCase();
+          const cL = c.competencia.toLowerCase();
+          return cL === fL || cL.includes(fL) || fL.includes(cL);
+        });
+        if (compFoco && compFoco.gap > 0) {
+          compAlvo = compFoco.competencia;
+        }
+      }
+
+      // Se não tem foco ou não tem gap no foco: usar maior gap
+      if (!compAlvo) {
+        const comGap = comps.filter(c => c.gap > 0).sort((a, b) => b.gap - a.gap);
+        if (comGap.length > 0) compAlvo = comGap[0].competencia;
+        if (foco && !compAlvo) semFoco++;
+      }
+
+      if (!compAlvo) continue; // sem gap em nenhuma competência
+
+      // Match cursos do catálogo apenas para a competência alvo
       const cursosMatch = (catalogo || []).filter(c => {
         if (c.cargo && c.cargo !== colab.cargo) return false;
         if (!c.competencia) return false;
         const compLower = c.competencia.toLowerCase();
-        return compsAlvo.some(alvo => {
-          const alvoLower = alvo.toLowerCase();
-          return compLower === alvoLower || compLower.includes(alvoLower) || alvoLower.includes(compLower);
-        });
+        const alvoLower = compAlvo.toLowerCase();
+        return compLower === alvoLower || compLower.includes(alvoLower) || alvoLower.includes(compLower);
       });
 
       // Só incluir cursos que existem de fato no catálogo Moodle
@@ -189,15 +260,13 @@ export async function montarTrilhasLote(empresaId) {
 
       totalCursos += cursosRecomendados.length;
 
-      // Só criar trilha se tiver pelo menos 1 curso real
-      if (!cursosRecomendados.length) continue;
-
-      // Deletar trilha anterior e inserir nova
+      // Deletar trilha anterior e inserir nova (mesmo sem cursos, registra a competência alvo)
       await sb.from('trilhas').delete().eq('empresa_id', empresaId).eq('colaborador_id', colabId);
 
       const { error } = await sb.from('trilhas').insert({
         empresa_id: empresaId,
         colaborador_id: colabId,
+        competencia_foco: compAlvo,
         cursos: cursosRecomendados,
         status: 'pendente',
         criado_em: new Date().toISOString(),
@@ -207,7 +276,8 @@ export async function montarTrilhasLote(empresaId) {
       else ultimoErro = error.message;
     }
 
-    return { success: true, message: `${trilhasCriadas} trilhas montadas para ${Object.keys(porColab).length} colaboradores (${totalCursos} cursos)${ultimoErro ? ' — ' + ultimoErro : ''}` };
+    const msg = `${trilhasCriadas} trilhas (1 competência cada) para ${Object.keys(porColab).length} colaboradores (${totalCursos} cursos)`;
+    return { success: true, message: msg + (ultimoErro ? ' — ' + ultimoErro : '') };
   } catch (err) {
     return { success: false, error: err.message };
   }
