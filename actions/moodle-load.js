@@ -27,6 +27,19 @@ export async function loadCatalogoEnriquecido(empresaId) {
   }));
 }
 
+export async function salvarCatalogoItem(id, campos) {
+  const sb = createSupabaseAdmin();
+  const update = {};
+  if (campos.competencia !== undefined) update.competencia = campos.competencia || null;
+  if (campos.nivel_ideal !== undefined) update.nivel_ideal = campos.nivel_ideal || null;
+  if (campos.descritor_1 !== undefined) update.descritor_1 = campos.descritor_1 || null;
+  if (campos.descritor_2 !== undefined) update.descritor_2 = campos.descritor_2 || null;
+  if (campos.descritor_3 !== undefined) update.descritor_3 = campos.descritor_3 || null;
+  const { error } = await sb.from('catalogo_enriquecido').update(update).eq('id', id).select('id');
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
 export async function loadCobertura(empresaId) {
   const sb = createSupabaseAdmin();
   const { data } = await sb.from('cobertura_conteudo')

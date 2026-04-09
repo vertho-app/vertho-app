@@ -3,9 +3,9 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft, Loader2, BookOpen, ChevronDown, ExternalLink, Filter
+  ArrowLeft, Loader2, BookOpen, ChevronDown, ExternalLink, Filter, Pencil, Check, X
 } from 'lucide-react';
-import { loadMoodleCatalogo, loadCatalogoEnriquecido, loadCobertura } from '@/actions/moodle-load';
+import { loadMoodleCatalogo, loadCatalogoEnriquecido, loadCobertura, salvarCatalogoItem } from '@/actions/moodle-load';
 
 const STATUS_COLORS = {
   verde: { bg: 'bg-green-400/15', text: 'text-green-400', label: 'Coberto' },
@@ -23,6 +23,10 @@ export default function Fase0Page({ params }) {
   const [enriquecido, setEnriquecido] = useState([]);
   const [cobertura, setCobertura] = useState([]);
   const [filtroCargo, setFiltroCargo] = useState('');
+  const [editId, setEditId] = useState(null);
+  const [editData, setEditData] = useState({});
+  const [toast, setToast] = useState(null);
+  function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 2500); }
 
   useEffect(() => {
     Promise.all([
@@ -51,6 +55,8 @@ export default function Fase0Page({ params }) {
 
   return (
     <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
+      {toast && <div className="fixed top-4 right-4 z-50 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold shadow-lg">{toast}</div>}
+
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => router.push(`/admin/empresas/${empresaId}`)}
@@ -137,30 +143,74 @@ export default function Fase0Page({ params }) {
                   <thead>
                     <tr className="border-b border-white/[0.06] text-[9px] font-bold text-gray-500 uppercase tracking-widest">
                       <th className="px-4 py-2 text-left">Curso</th>
-                      <th className="px-4 py-2 text-left">Cargo</th>
                       <th className="px-4 py-2 text-left">Competência</th>
+                      <th className="px-4 py-2 text-left">Descritor</th>
                       <th className="px-4 py-2 text-center w-12">Nível</th>
                       <th className="px-4 py-2 text-center w-16">Tempo</th>
-                      <th className="px-4 py-2 text-center w-16">Conf.</th>
+                      <th className="px-4 py-2 text-center w-12">Conf.</th>
+                      <th className="px-4 py-2 text-center w-12"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.03]">
-                    {enriquecido.filter(e => !filtroCargo || e.cargo === filtroCargo).map(e => (
-                      <tr key={e.id} className="hover:bg-white/[0.02]">
-                        <td className="px-4 py-2 text-xs text-white font-medium">{e.curso_nome}</td>
-                        <td className="px-4 py-2 text-xs text-gray-400">{e.cargo || '—'}</td>
-                        <td className="px-4 py-2 text-xs text-cyan-400">{e.competencia || '—'}</td>
-                        <td className="px-4 py-2 text-xs text-center text-gray-400">N{e.nivel_ideal || '?'}</td>
-                        <td className="px-4 py-2 text-xs text-center text-gray-500">{e.tempo_estimado_min ? `${e.tempo_estimado_min}min` : '—'}</td>
-                        <td className="px-4 py-2 text-center">
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                            e.confianca === 'alta' ? 'bg-green-400/15 text-green-400' :
-                            e.confianca === 'media' ? 'bg-amber-400/15 text-amber-400' :
-                            'bg-gray-400/15 text-gray-400'
-                          }`}>{e.confianca || '—'}</span>
-                        </td>
-                      </tr>
-                    ))}
+                    {enriquecido.filter(e => !filtroCargo || e.cargo === filtroCargo).flatMap(e => {
+                      const descritores = [e.descritor_1, e.descritor_2, e.descritor_3].filter(Boolean);
+                      const rows = descritores.length > 0 ? descritores : [null];
+                      return rows.map((desc, di) => {
+                        const isEditing = editId === `${e.id}-${di}`;
+                        return (
+                          <tr key={`${e.id}-${di}`} className="hover:bg-white/[0.02]">
+                            {di === 0 ? (
+                              <td className="px-4 py-2 text-xs text-white font-medium" rowSpan={rows.length}>{e.curso_nome}</td>
+                            ) : null}
+                            <td className="px-4 py-2 text-xs">
+                              {isEditing ? (
+                                <input value={editData.competencia || ''} onChange={ev => setEditData(p => ({ ...p, competencia: ev.target.value }))}
+                                  className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" />
+                              ) : (
+                                <span className="text-cyan-400">{di === 0 ? (e.competencia || '—') : ''}</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2 text-xs text-gray-400">{desc || '—'}</td>
+                            <td className="px-4 py-2 text-xs text-center">
+                              {isEditing ? (
+                                <select value={editData.nivel_ideal || ''} onChange={ev => setEditData(p => ({ ...p, nivel_ideal: Number(ev.target.value) }))}
+                                  className="px-1 py-0.5 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none">
+                                  <option value="1">N1</option><option value="2">N2</option><option value="3">N3</option><option value="4">N4</option>
+                                </select>
+                              ) : (
+                                <span className="text-gray-400">{di === 0 ? `N${e.nivel_ideal || '?'}` : ''}</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2 text-xs text-center text-gray-500">{di === 0 ? (e.tempo_estimado_min ? `${e.tempo_estimado_min}min` : '—') : ''}</td>
+                            <td className="px-4 py-2 text-center">
+                              {di === 0 && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                e.confianca === 'alta' ? 'bg-green-400/15 text-green-400' :
+                                e.confianca === 'media' ? 'bg-amber-400/15 text-amber-400' :
+                                'bg-gray-400/15 text-gray-400'
+                              }`}>{e.confianca || '—'}</span>}
+                            </td>
+                            <td className="px-4 py-2 text-center">
+                              {di === 0 && (
+                                isEditing ? (
+                                  <div className="flex items-center gap-1 justify-center">
+                                    <button onClick={async () => {
+                                      const r = await salvarCatalogoItem(e.id, editData);
+                                      setEditId(null);
+                                      if (r.success) { flash('Salvo'); const d = await loadCatalogoEnriquecido(empresaId); setEnriquecido(d); }
+                                      else flash('Erro: ' + r.error);
+                                    }} className="text-green-400 hover:text-green-300"><Check size={12} /></button>
+                                    <button onClick={() => setEditId(null)} className="text-gray-500 hover:text-white"><X size={12} /></button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => { setEditId(`${e.id}-0`); setEditData({ competencia: e.competencia || '', nivel_ideal: e.nivel_ideal || 2 }); }}
+                                    className="text-gray-600 hover:text-cyan-400"><Pencil size={12} /></button>
+                                )
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })}
                   </tbody>
                 </table>
               </div>
