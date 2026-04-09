@@ -135,13 +135,22 @@ export default function Fase2Page({ params }) {
                       {r.nivel_simulado && <span className="text-[9px] text-gray-500">Simulado N{r.nivel_simulado}</span>}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      {avaliacao?.nivel_geral && (
-                        <span className={`text-sm font-bold ${NIVEL_COLORS[avaliacao.nivel_geral] || 'text-gray-400'}`}>N{avaliacao.nivel_geral}</span>
+                      {avaliacao && (
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-sm font-bold ${NIVEL_COLORS[avaliacao.consolidacao?.nivel_geral || avaliacao.nivel_geral] || 'text-gray-400'}`}>
+                            N{avaliacao.consolidacao?.nivel_geral || avaliacao.nivel_geral || '?'}
+                          </span>
+                          {(avaliacao.consolidacao?.media_descritores || avaliacao.nota_decimal) && (
+                            <span className="text-[10px] text-gray-500">
+                              ({(avaliacao.consolidacao?.media_descritores || avaliacao.nota_decimal || 0).toFixed(2)})
+                            </span>
+                          )}
+                        </div>
                       )}
                       {check?.nota !== undefined && (
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
                           check.nota >= 90 ? 'bg-green-400/15 text-green-400' : 'bg-amber-400/15 text-amber-400'
-                        }`}>{check.nota}pts</span>
+                        }`}>Check {check.nota}pts</span>
                       )}
                       {!avaliacao && <span className="text-[9px] text-gray-600">Pendente</span>}
                       <ChevronDown size={14} className={`text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
