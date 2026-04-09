@@ -338,25 +338,11 @@ export async function reavaliarResposta(respostaId, aiConfig = {}) {
   }
 }
 
-// ── Re-checar resposta ──────────────────────────────────────────────────────
+// ── Re-checar UMA resposta ───────────────────────────────────────────────────
 
 export async function rechecarResposta(respostaId, aiConfig = {}) {
-  // Importar check dinâmicamente para evitar circular
-  const { checkAvaliacoes } = await import('./check-ia4');
-  const sb = createSupabaseAdmin();
-
-  // Limpar check anterior
-  await sb.from('respostas').update({
-    status_ia4: null, payload_ia4: null,
-  }).eq('id', respostaId).select('id');
-
-  // Buscar a resposta para saber empresa_id
-  const { data: resp } = await sb.from('respostas')
-    .select('empresa_id').eq('id', respostaId).single();
-  if (!resp) return { success: false, error: 'Resposta não encontrada' };
-
-  // Rodar check (vai pegar essa resposta como pendente)
-  return checkAvaliacoes(resp.empresa_id, aiConfig);
+  const { checarUmaResposta } = await import('./check-ia4');
+  return checarUmaResposta(respostaId, aiConfig);
 }
 
 // ── Ver fila de IA4 ─────────────────────────────────────────────────────────

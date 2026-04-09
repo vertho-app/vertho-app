@@ -172,3 +172,91 @@ ${JSON.stringify(resp.avaliacao_ia, null, 2)}`;
     return { success: false, error: err.message };
   }
 }
+
+// ── Checar UMA resposta individual ──────────────────────────────────────────
+
+export async function checarUmaResposta(respostaId, aiConfig = {}) {
+  const sb = createSupabaseAdmin();
+  try {
+    const { data: resp } = await sb.from('respostas')
+      .select('id, empresa_id, colaborador_id, competencia_id, cenario_id, r1, r2, r3, r4, avaliacao_ia, nivel_ia4')
+      .eq('id', respostaId).single();
+    if (!resp) return { success: false, error: 'Resposta não encontrada' };
+    if (!resp.avaliacao_ia) return { success: false, error: 'Resposta não foi avaliada ainda' };
+
+    // Limpar check anterior
+    await sb.from('respostas').update({ status_ia4: null, payload_ia4: null }).eq('id', respostaId).select('id');
+
+    // Buscar colaborador
+    const { data: colab } = await sb.from('colaboradores')
+      .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, perfil_dominante')
+      .eq('id', resp.colaborador_id).maybeSingle();
+
+    const model = aiConfig?.model || 'gemini-3-flash-preview';
+
+    // Cenário + perguntas
+    let cenarioTexto = '', perguntasTexto = '';
+    if (resp.cenario_id) {
+      const { data: cen } = await sb.from('banco_cenarios')
+        .select('titulo, descricao, alternativas').eq('id', resp.cenario_id).maybeSingle();
+      if (cen) {
+        cenarioTexto = `${cen.titulo}\n${cen.descricao}`;
+        const pergs = Array.isArray(cen.alternativas) ? cen.alternativas : [];
+        perguntasTexto = pergs.map((p, i) => `P${p.numero || i + 1}: ${p.texto || ''}`).join('\n');
+      }
+    }
+
+    // Competência + régua
+    let compNome = '', reguaTexto = '';
+    if (resp.competencia_id) {
+      const { data: comp } = await sb.from('competencias')
+        .select('nome, cod_comp').eq('id', resp.competencia_id).maybeSingle();
+      compNome = comp?.nome || '';
+      const { data: descs } = await sb.from('competencias')
+        .select('cod_desc, nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
+        .eq('empresa_id', resp.empresa_id).eq('cod_comp', comp?.cod_comp).not('cod_desc', 'is', null);
+      if (descs?.length) {
+        reguaTexto = descs.map((d, i) =>
+          `D${i + 1} ${d.cod_desc}: ${d.nome_curto}\n  N1: ${d.n1_gap || '—'}\n  N2: ${d.n2_desenvolvimento || '—'}\n  N3: ${d.n3_meta || '—'}\n  N4: ${d.n4_referencia || '—'}`
+        ).join('\n\n');
+      }
+    }
+
+    let perfilCIS = '';
+    if (colab?.d_natural != null) {
+      perfilCIS = `DISC: D=${colab.d_natural} I=${colab.i_natural} S=${colab.s_natural} C=${colab.c_natural} → ${colab.perfil_dominante || '—'}`;
+    }
+
+    const user = `COLABORADOR: ${colab?.nome_completo || '—'} | CARGO: ${colab?.cargo || '—'}
+COMPETENCIA: ${compNome}
+${perfilCIS ? `\n${perfilCIS}\n` : ''}
+RESPOSTAS:
+R1: ${resp.r1 || '—'}
+R2: ${resp.r2 || '—'}
+R3: ${resp.r3 || '—'}
+R4: ${resp.r4 || '—'}
+
+${reguaTexto ? `REGUA DE MATURIDADE:\n${reguaTexto}\n` : ''}
+CENARIO:\n${cenarioTexto}
+PERGUNTAS:\n${perguntasTexto}
+
+AVALIACAO A AUDITAR:
+${JSON.stringify(resp.avaliacao_ia, null, 2)}`;
+
+    const resultado = await callAI(CHECK_SYSTEM, user, { model }, 8192);
+    const check = await extractJSON(resultado);
+
+    if (check?.nota !== undefined) {
+      const { error: updErr } = await sb.from('respostas').update({
+        status_ia4: check.nota >= 90 ? 'aprovado' : 'revisar',
+        payload_ia4: check,
+      }).eq('id', respostaId).select('id');
+
+      if (updErr) return { success: false, error: updErr.message };
+      return { success: true, message: `Check: ${compNome} — ${check.nota}pts (${check.nota >= 90 ? 'aprovado' : 'revisar'})`, nota: check.nota };
+    }
+    return { success: false, error: 'Check não retornou nota' };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
