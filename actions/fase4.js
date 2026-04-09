@@ -176,15 +176,21 @@ export async function montarTrilhasLote(empresaId) {
         });
       });
 
-      const cursosRecomendados = cursosMatch.map(c => ({
-        course_id: c.course_id,
-        nome: cursoNomeMap[c.course_id]?.curso_nome || `Curso ${c.course_id}`,
-        url: cursoNomeMap[c.course_id]?.curso_url || '',
-        competencia: c.competencia,
-        nivel: c.nivel_ideal,
-      }));
+      // Só incluir cursos que existem de fato no catálogo Moodle
+      const cursosRecomendados = cursosMatch
+        .filter(c => cursoNomeMap[c.course_id]?.curso_nome)
+        .map(c => ({
+          course_id: c.course_id,
+          nome: cursoNomeMap[c.course_id].curso_nome,
+          url: cursoNomeMap[c.course_id].curso_url || '',
+          competencia: c.competencia,
+          nivel: c.nivel_ideal,
+        }));
 
       totalCursos += cursosRecomendados.length;
+
+      // Só criar trilha se tiver pelo menos 1 curso real
+      if (!cursosRecomendados.length) continue;
 
       // Deletar trilha anterior e inserir nova
       await sb.from('trilhas').delete().eq('empresa_id', empresaId).eq('colaborador_id', colabId);
