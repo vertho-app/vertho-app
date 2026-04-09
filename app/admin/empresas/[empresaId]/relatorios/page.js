@@ -4,7 +4,7 @@ import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Loader2, FileText, User, Users, Building2, ChevronDown,
-  Target, AlertTriangle, CheckCircle, TrendingUp
+  Target, AlertTriangle, CheckCircle, TrendingUp, Download
 } from 'lucide-react';
 import { loadRelatoriosEmpresa } from '@/actions/relatorios-load';
 
@@ -79,6 +79,11 @@ export default function RelatoriosPage({ params }) {
                     <span className="text-[10px] text-gray-500">{rel.colaborador_cargo}</span>
                   </div>
                   <div className="flex items-center gap-2">
+                    <a href={`/api/relatorios/pdf?id=${rel.id}`} target="_blank"
+                      onClick={e => e.stopPropagation()}
+                      className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
+                      <Download size={10} /> PDF
+                    </a>
                     <span className="text-[9px] text-gray-600">{new Date(rel.gerado_em).toLocaleDateString('pt-BR')}</span>
                     <ChevronDown size={14} className={`text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                   </div>
