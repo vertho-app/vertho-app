@@ -61,7 +61,9 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
 
     const domain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'vertho.com.br';
     const fromEmail = process.env.EMAIL_FROM || 'Vertho <noreply@vertho.com.br>';
-    let enviados = 0, erros = 0;
+    const hasResend = !!process.env.RESEND_API_KEY;
+    const hasQStash = !!process.env.QSTASH_TOKEN;
+    let enviados = 0, erros = 0, erroDetalhe = '';
 
     for (const colab of colabs) {
       const nome = colab.nome_completo?.split(' ')[0] || '';
@@ -74,7 +76,8 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
         .replace(/\{\{empresa\}\}/g, empresa.nome)
         .replace(/\{\{link\}\}/g, link);
 
-      if (canal === 'email' && colab.email && process.env.RESEND_API_KEY) {
+      if (canal === 'email' && colab.email) {
+        if (!hasResend) { erroDetalhe = 'RESEND_API_KEY não configurada'; erros++; continue; }
         try {
           const htmlMsg = msg.replace(/\n/g, '<br>').replace(/\*([^*]+)\*/g, '<strong>$1</strong>').replace(/_([^_]+)_/g, '<em>$1</em>');
           const res = await fetch('https://api.resend.com/emails', {
@@ -87,30 +90,33 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
               html: htmlMsg,
             }),
           });
-          if (res.ok) enviados++;
-          else { console.error('[Email]', await res.text()); erros++; }
-        } catch { erros++; }
+          if (res.ok) { enviados++; }
+          else { erroDetalhe = await res.text(); erros++; }
+        } catch (e) { erroDetalhe = e.message; erros++; }
       }
 
-      if (canal === 'whatsapp' && colab.telefone && process.env.QSTASH_TOKEN) {
+      if (canal === 'whatsapp' && colab.telefone) {
+        const zapiInstance = process.env.ZAPI_INSTANCE_ID;
+        const zapiToken = process.env.ZAPI_TOKEN;
+        const zapiClient = process.env.ZAPI_CLIENT_TOKEN || '';
+        if (!zapiInstance || !zapiToken) { erroDetalhe = 'Z-API não configurado'; erros++; continue; }
         try {
-          const appUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${empresa.slug}.${domain}`;
-          const webhookUrl = `${appUrl}/api/webhooks/qstash/whatsapp-cis`;
-          await fetch('https://qstash.upstash.io/v2/publish/' + encodeURIComponent(webhookUrl), {
+          let phone = colab.telefone.replace(/\D/g, '');
+          if (phone.length <= 11) phone = `55${phone}`;
+          if (enviados > 0) await new Promise(resolve => setTimeout(resolve, 1000));
+          const res = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-text`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${process.env.QSTASH_TOKEN}`,
-              'Upstash-Delay': `${enviados * 2}s`,
-            },
-            body: JSON.stringify({ telefone: colab.telefone, mensagem: msg }),
+            headers: { 'Content-Type': 'application/json', 'Client-Token': zapiClient },
+            body: JSON.stringify({ phone, message: msg }),
           });
-          enviados++;
-        } catch { erros++; }
+          if (res.ok) { enviados++; }
+          else { erroDetalhe = await res.text(); erros++; }
+        } catch (e) { erroDetalhe = e.message; erros++; }
       }
     }
 
-    return { success: true, message: `${enviados} ${canal === 'email' ? 'emails' : 'WhatsApp'} enviados${erros ? `, ${erros} erros` : ''}` };
+    const msg2 = `${enviados} ${canal === 'email' ? 'emails' : 'WhatsApp'} enviados${erros ? `, ${erros} erros` : ''}${erroDetalhe ? ` — ${erroDetalhe}` : ''}`;
+    return { success: enviados > 0, message: msg2, error: enviados === 0 ? msg2 : undefined };
   } catch (err) {
     return { success: false, error: err.message };
   }
