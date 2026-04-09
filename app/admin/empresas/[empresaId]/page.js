@@ -501,6 +501,10 @@ export default function EmpresaPipelinePage({ params }) {
                         className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300">
                         Diagnóstico →
                       </button>
+                      <button onClick={() => router.push(`/admin/empresas/${empresaId}/fase2?tab=trilhas`)}
+                        className="text-[10px] font-bold text-amber-400 hover:text-amber-300">
+                        Trilhas →
+                      </button>
                       <button onClick={() => router.push(`/admin/empresas/${empresaId}/relatorios`)}
                         className="text-[10px] font-bold text-purple-400 hover:text-purple-300">
                         Relatórios →

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft, Loader2, Bot, ChevronDown, CheckCircle, AlertTriangle,
   User, FileText, Filter, RefreshCw, BookOpen, ExternalLink
@@ -16,8 +16,9 @@ const NIVEL_COLORS = {
 export default function Fase2Page({ params }) {
   const { empresaId } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const [tab, setTab] = useState('diagnostico');
+  const [tab, setTab] = useState(searchParams.get('tab') || 'diagnostico');
   const [respostas, setRespostas] = useState([]);
   const [trilhas, setTrilhas] = useState([]);
   const [loading, setLoading] = useState(true);
