@@ -15,6 +15,7 @@ import {
 
 import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, checkCenarioUm } from '@/actions/fase1';
 import { listarPendentesSimulacao, simularUmaResposta } from '@/actions/simulador-conversas';
+import { gerarRelatorioIndividual, gerarRelatoriosIndividuaisLote, gerarRelatorioGestor as gerarRelGestor, gerarRelatorioRH as gerarRelRH } from '@/actions/relatorios';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import {
   loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, loadColaboradoresLista,
@@ -191,6 +192,43 @@ export default function EmpresaPipelinePage({ params }) {
     addLog(`▶ ${label}${modelLabel}`, 'info');
 
     try {
+      // Relatórios individuais: um por vez (Hobby 60s)
+      if (actionKey === 'rel-ind') {
+        const fila = await gerarRelatoriosIndividuaisLote(empresaId);
+        if (!fila?.success || !fila.data?.length) {
+          addLog(`${fila?.message || fila?.error || 'Nenhum relatório pendente'}`, fila?.success ? 'success' : 'error');
+          setPendingAction(null);
+          return;
+        }
+        addLog(`📋 ${fila.data.length} relatórios para gerar`, 'info');
+        let ok = 0, erros = 0;
+        for (let i = 0; i < fila.data.length; i++) {
+          addLog(`⏳ [${i + 1}/${fila.data.length}] Gerando relatório...`, 'info');
+          const r = await gerarRelatorioIndividual(empresaId, fila.data[i], aiConfig || undefined);
+          if (r.success) { ok++; addLog(`✅ ${r.message}`, 'success'); }
+          else { erros++; addLog(`⚠ ${r.error}`, 'error'); }
+        }
+        addLog(`✅ Relatórios: ${ok} gerados${erros ? `, ${erros} erros` : ''}`, 'success');
+        setPendingAction(null);
+        return;
+      }
+
+      // Relatório gestor
+      if (actionKey === 'rel-gestor') {
+        const r = await gerarRelGestor(empresaId, aiConfig || undefined);
+        addLog(r.success ? `✅ ${r.message}` : `❌ ${r.error}`, r.success ? 'success' : 'error');
+        setPendingAction(null);
+        return;
+      }
+
+      // Relatório RH
+      if (actionKey === 'rel-rh') {
+        const r = await gerarRelRH(empresaId, aiConfig || undefined);
+        addLog(r.success ? `✅ ${r.message}` : `❌ ${r.error}`, r.success ? 'success' : 'error');
+        setPendingAction(null);
+        return;
+      }
+
       // Simular respostas: uma por vez (Hobby 60s)
       if (actionKey === 'simular') {
         const fila = await listarPendentesSimulacao(empresaId);
