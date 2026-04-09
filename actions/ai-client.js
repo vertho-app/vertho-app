@@ -155,9 +155,11 @@ async function callOpenAI(system, user, model, maxTokens) {
 
   const url = 'https://api.openai.com/v1/chat/completions';
 
+  // GPT 5.x usa max_completion_tokens; modelos antigos usam max_tokens
+  const isNew = model.startsWith('gpt-5') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4');
   const body = {
     model,
-    max_tokens: maxTokens,
+    ...(isNew ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
     messages: [
       { role: 'system', content: system },
       { role: 'user', content: user },
@@ -220,9 +222,10 @@ async function callOpenAIChat(system, messages, model, maxTokens) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error('OPENAI_API_KEY not set');
 
+  const isNew = model.startsWith('gpt-5') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4');
   const body = {
     model,
-    max_tokens: maxTokens,
+    ...(isNew ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
     messages: [{ role: 'system', content: system }, ...messages],
   };
 
