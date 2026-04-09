@@ -1,6 +1,12 @@
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
-import { colors, fonts, tableStyles, pageStyles, estrelas, nivelColor, nivelBgColor } from './styles';
+import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
+import { colors, fonts, tableStyles, pageStyles, nivelColor, nivelBgColor } from './styles';
+
+// Estrelas sem emoji (usa caracteres ASCII)
+function estrelas(nivel) {
+  const n = Math.min(4, Math.max(0, Math.round(nivel || 0)));
+  return '*'.repeat(n) + '-'.repeat(4 - n);
+}
 
 const s = StyleSheet.create({
   section: { marginBottom: 12 },
@@ -66,6 +72,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome }) {
       {/* ═══ CAPA ═══ */}
       <Page size="A4" style={pageStyles.page}>
         <View style={{ flex: 1, justifyContent: 'center' }}>
+          <Image src="/logo-vertho.png" style={{ width: 80, height: 80, alignSelf: 'center', marginBottom: 12 }} />
           <Text style={s.coverTitle}>VERTHO</Text>
           <View style={s.coverLine} />
           <Text style={s.coverSubtitle}>Relatório Individual de Competências</Text>
@@ -166,7 +173,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome }) {
 
             {/* Título competência */}
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-              {isFlag && <Text style={{ fontSize: 14, marginRight: 4 }}>🚩</Text>}
+              {isFlag && <Text style={{ fontSize: 14, marginRight: 4 }}>[!]</Text>}
               <Text style={isFlag ? s.compTitleFlag : s.compTitle}>{comp.nome}</Text>
               <Text style={{ ...s.starsText, color: nivelColor(nivel) }}>{estrelas(nivel)}</Text>
             </View>
@@ -177,20 +184,20 @@ export default function RelatorioIndividualPDF({ data, empresaNome }) {
             {/* Fez Bem / Melhorar */}
             <View style={s.twoCol}>
               <View style={s.fezBemCol}>
-                <Text style={s.colTitle}>✅ Fez Bem</Text>
-                {fortes.map((e, j) => <Text key={j} style={s.colItem}>▸ {e}</Text>)}
+                <Text style={s.colTitle}>FEZ BEM</Text>
+                {fortes.map((e, j) => <Text key={j} style={s.colItem}>- {e}</Text>)}
                 {!fortes.length && <Text style={s.colItem}>—</Text>}
               </View>
               <View style={s.melhorarCol}>
-                <Text style={s.colTitle}>⚠️ Melhorar</Text>
-                {gap ? <Text style={s.colItem}>▸ {gap}</Text> : <Text style={s.colItem}>—</Text>}
+                <Text style={s.colTitle}>MELHORAR</Text>
+                {gap ? <Text style={s.colItem}>- {gap}</Text> : <Text style={s.colItem}>—</Text>}
               </View>
             </View>
 
             {/* Feedback */}
             {(comp.acao_pratica || comp.script_pratico || comp.recomendacao) && (
               <View style={s.section}>
-                <Text style={{ ...s.descritorTitle, color: colors.teal }}>🚀 Recomendações</Text>
+                <Text style={{ ...s.descritorTitle, color: colors.teal }}>RECOMENDACOES</Text>
                 {comp.acao_pratica && <Text style={s.text}>→ {comp.acao_pratica}</Text>}
                 {comp.script_pratico && <Text style={s.text}>→ {comp.script_pratico}</Text>}
                 {comp.recomendacao && <Text style={s.textSmall}>{comp.recomendacao}</Text>}
@@ -215,7 +222,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome }) {
 
         {c.proximos_passos && (
           <View style={s.section}>
-            <Text style={s.sectionTitle}>📅 Próximos Passos</Text>
+            <Text style={s.sectionTitle}>PROXIMOS PASSOS</Text>
             {(Array.isArray(c.proximos_passos) ? c.proximos_passos : Object.values(c.proximos_passos).filter(p => p?.competencia)).map((p, i) => (
               <View key={i} style={s.stepCard}>
                 <Text style={s.stepComp}>Prioridade {i + 1}: {p.competencia} — {p.prazo}</Text>
@@ -229,11 +236,11 @@ export default function RelatorioIndividualPDF({ data, empresaNome }) {
         {c.competencias?.length > 0 && (
           <View style={s.section}>
             <View style={s.checklistHeader}>
-              <Text style={s.checklistHeaderText}>⚡ Checklist Tático</Text>
+              <Text style={s.checklistHeaderText}>CHECKLIST TATICO</Text>
             </View>
             {c.competencias.filter(comp => comp.acao_pratica || comp.script_pratico).map((comp, i) => (
               <Text key={i} style={i % 2 === 0 ? s.checkItem : s.checkItemAlt}>
-                ☐ {comp.nome}: {comp.acao_pratica || comp.script_pratico}
+                [ ] {comp.nome}: {comp.acao_pratica || comp.script_pratico}
               </Text>
             ))}
           </View>

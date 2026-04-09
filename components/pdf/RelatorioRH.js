@@ -1,35 +1,64 @@
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
-import { colors, fonts, tableStyles, pageStyles } from './styles';
+import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
+import { colors, fonts, pageStyles } from './styles';
+
+const C = { ...colors, subtitulo: '#2471A3', verde: '#27AE60', vermelho: '#C0392B', amarelo: '#F39C12', roxo: '#1a1548' };
 
 const s = StyleSheet.create({
   section: { marginBottom: 14 },
-  sectionTitle: { fontSize: 12, fontWeight: 'bold', color: colors.cyan, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 },
-  text: { fontSize: fonts.body, color: colors.gray700, lineHeight: 1.5, marginBottom: 4 },
-  textSmall: { fontSize: fonts.small, color: colors.gray500, lineHeight: 1.4 },
-  italic: { fontSize: fonts.body, color: colors.gray600, fontStyle: 'italic', marginBottom: 4 },
-  card: { backgroundColor: colors.gray100, borderRadius: 4, padding: 10, marginBottom: 6 },
-  coverTitle: { fontSize: 28, fontWeight: 'bold', color: colors.navy, textAlign: 'center', marginBottom: 8 },
-  coverSubtitle: { fontSize: 14, color: colors.gray500, textAlign: 'center', marginBottom: 4 },
-  coverDate: { fontSize: 10, color: colors.gray400, textAlign: 'center', marginTop: 30 },
-  divider: { borderBottomWidth: 0.5, borderBottomColor: colors.gray200, marginVertical: 10 },
-  kpiRow: { flexDirection: 'row', marginBottom: 8 },
-  kpiBox: { flex: 1, alignItems: 'center', padding: 8, backgroundColor: colors.gray100, borderRadius: 4, marginHorizontal: 2 },
-  kpiValue: { fontSize: 18, fontWeight: 'bold', color: colors.navy },
-  kpiLabel: { fontSize: 7, color: colors.gray500, textTransform: 'uppercase', marginTop: 2 },
-  criticaBadge: { fontSize: 8, fontWeight: 'bold', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 2 },
-  critica: { backgroundColor: '#FEE2E2', color: '#991B1B' },
-  atencao: { backgroundColor: '#FEF3C7', color: '#92400E' },
-  estavel: { backgroundColor: '#D1FAE5', color: '#065F46' },
-  trainCard: { backgroundColor: '#F0FDFA', borderRadius: 4, padding: 8, marginBottom: 4, borderLeftWidth: 3, borderLeftColor: colors.teal },
-  trainTitle: { fontSize: 10, fontWeight: 'bold', color: colors.navy, marginBottom: 2 },
-  trainMeta: { fontSize: 8, color: colors.gray500, marginBottom: 2 },
-  trainJust: { fontSize: fonts.small, color: colors.gray600 },
-  decisionCard: { backgroundColor: '#FFF7ED', borderRadius: 4, padding: 8, marginBottom: 4, borderLeftWidth: 3, borderLeftColor: '#F59E0B' },
-  actionCard: { backgroundColor: colors.gray100, borderRadius: 4, padding: 8, marginBottom: 4 },
-  actionLabel: { fontSize: 8, fontWeight: 'bold', color: colors.gray400, textTransform: 'uppercase', marginBottom: 2 },
-  actionTitle: { fontSize: 10, fontWeight: 'bold', color: colors.navy, marginBottom: 2 },
+  h2: { fontSize: 14, fontWeight: 'bold', color: C.navy, marginBottom: 6, borderBottomWidth: 1, borderBottomColor: colors.gray200, paddingBottom: 4 },
+  h3: { fontSize: 12, fontWeight: 'bold', color: C.subtitulo, marginBottom: 4, marginTop: 8 },
+  text: { fontSize: 10, color: C.navy, lineHeight: 1.6, marginBottom: 4 },
+  textIt: { fontSize: 10, color: C.navy, fontStyle: 'italic', marginBottom: 4 },
+  textSm: { fontSize: 9, color: C.navy, lineHeight: 1.4 },
+  divider: { borderBottomWidth: 1, borderBottomColor: colors.gray200, marginVertical: 12 },
+  coverTitle: { fontSize: 32, fontWeight: 'bold', color: C.navy, textAlign: 'center', letterSpacing: 4 },
+  coverLine: { borderBottomWidth: 2, borderBottomColor: colors.cyan, width: 80, alignSelf: 'center', marginTop: 12 },
+  // Indicadores
+  kpiRow: { flexDirection: 'row', marginBottom: 4 },
+  kpiPar: { flexDirection: 'row', paddingVertical: 6, paddingHorizontal: 10, backgroundColor: '#F7F9FC' },
+  kpiImpar: { flexDirection: 'row', paddingVertical: 6, paddingHorizontal: 10 },
+  kpiLabel: { fontSize: 10, color: C.navy, flex: 1 },
+  kpiValue: { fontSize: 10, color: C.navy, fontWeight: 'bold', width: 150 },
+  // Evolução badges
+  evolUp: { backgroundColor: '#E8F5E9', paddingVertical: 6, paddingHorizontal: 12, marginBottom: 2, borderRadius: 2 },
+  evolKeep: { backgroundColor: '#FFFDE7', paddingVertical: 6, paddingHorizontal: 12, marginBottom: 2, borderRadius: 2 },
+  evolDown: { backgroundColor: '#FEF5F5', paddingVertical: 6, paddingHorizontal: 12, marginBottom: 2, borderRadius: 2 },
+  // Tabela cargos
+  tblHeader: { flexDirection: 'row', backgroundColor: C.navy, paddingVertical: 6, paddingHorizontal: 6 },
+  tblCell: { fontSize: 9, color: C.navy },
+  tblCellBold: { fontSize: 9, color: C.navy, fontWeight: 'bold' },
+  tblRow: { flexDirection: 'row', paddingVertical: 4, paddingHorizontal: 6, borderBottomWidth: 0.5, borderBottomColor: colors.gray200 },
+  // Competências críticas
+  critHeader: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 2, marginBottom: 1 },
+  critContent: { paddingVertical: 4, paddingHorizontal: 16, marginBottom: 1 },
+  critImpacto: { backgroundColor: '#FFFDE7', paddingVertical: 2, paddingHorizontal: 16, marginBottom: 4 },
+  // Treinamentos
+  trainHeader: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 2, marginBottom: 1 },
+  trainContent: { paddingVertical: 4, paddingHorizontal: 16, marginBottom: 1 },
+  // Decisões
+  decHeader: { backgroundColor: C.roxo, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 2, marginBottom: 1 },
+  decSituacao: { backgroundColor: '#F5F3FF', paddingVertical: 6, paddingHorizontal: 16, marginBottom: 1 },
+  decAcao: { backgroundColor: '#FEF5F5', paddingVertical: 4, paddingHorizontal: 16, marginBottom: 1 },
+  decReav: { backgroundColor: '#F0F7FF', paddingVertical: 4, paddingHorizontal: 16, marginBottom: 1 },
+  decConseq: { backgroundColor: '#FFF3E0', paddingVertical: 4, paddingHorizontal: 16, marginBottom: 4 },
 });
+
+const critColors = {
+  CRITICA: { bg: C.vermelho, contentBg: '#FEF5F5' },
+  ATENCAO: { bg: C.amarelo, contentBg: '#FFFBF0' },
+  ESTAVEL: { bg: C.verde, contentBg: '#F0FFF5' },
+};
+const prioColors = {
+  URGENTE: { bg: C.vermelho, contentBg: '#FEF5F5' },
+  IMPORTANTE: { bg: C.subtitulo, contentBg: '#F0F7FF' },
+  DESEJAVEL: { bg: '#1A7A4A', contentBg: '#F0FFF5' },
+};
+const acaoHorizontes = [
+  { key: 'curto_prazo', label: ' Curto Prazo (2 semanas)', bg: C.vermelho, contentBg: '#FEF5F5' },
+  { key: 'medio_prazo', label: ' Médio Prazo (1-2 meses)', bg: C.subtitulo, contentBg: '#F0F7FF' },
+  { key: 'longo_prazo', label: ' Longo Prazo (próximo semestre)', bg: '#1A7A4A', contentBg: '#F0FFF5' },
+];
 
 export default function RelatorioRHPDF({ data, empresaNome }) {
   const c = data.conteudo;
@@ -41,144 +70,131 @@ export default function RelatorioRHPDF({ data, empresaNome }) {
       <Page size="A4" style={pageStyles.page}>
         <View style={{ flex: 1, justifyContent: 'center' }}>
           <Text style={s.coverTitle}>VERTHO</Text>
-          <Text style={s.coverSubtitle}>Relatório Consolidado — RH</Text>
-          <View style={s.divider} />
-          <Text style={{ fontSize: 16, color: colors.cyan, textAlign: 'center', marginTop: 20, fontWeight: 'bold' }}>{empresaNome}</Text>
-          <Text style={s.coverDate}>{new Date(data.gerado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</Text>
+          <View style={s.coverLine} />
+          <Text style={{ fontSize: 14, color: colors.gray500, textAlign: 'center', marginTop: 8 }}>Relatório Consolidado — RH / T&D</Text>
+          <Text style={{ fontSize: 16, color: colors.cyan, textAlign: 'center', marginTop: 30, fontWeight: 'bold' }}>{empresaNome}</Text>
+          <Text style={{ fontSize: 10, color: colors.gray400, textAlign: 'center', marginTop: 30 }}>{new Date(data.gerado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</Text>
         </View>
-        <View style={pageStyles.footer}>
-          <Text style={pageStyles.footerText}>Vertho Mentor IA — Confidencial</Text>
-        </View>
+        <View style={pageStyles.footer}><Text style={pageStyles.footerText}>Vertho Mentor IA — Confidencial</Text></View>
       </Page>
 
       {/* Resumo + Indicadores */}
       <Page size="A4" style={pageStyles.page}>
-        <View style={pageStyles.header}>
-          <Text style={pageStyles.headerTitle}>VERTHO</Text>
-          <Text style={pageStyles.headerDate}>Relatório RH</Text>
-        </View>
+        <View style={pageStyles.header}><Text style={pageStyles.headerTitle}>VERTHO</Text><Text style={pageStyles.headerDate}>Relatório RH</Text></View>
 
-        {c.resumo_executivo && (
-          <View style={s.section}>
-            <Text style={s.sectionTitle}>Resumo Executivo</Text>
-            <Text style={s.text}>{c.resumo_executivo}</Text>
-          </View>
-        )}
+        {c.resumo_executivo && (<View style={s.section}><Text style={s.h2}>Resumo Executivo</Text><Text style={s.text}>{c.resumo_executivo}</Text></View>)}
 
         {c.indicadores && (
           <View style={s.section}>
-            <Text style={s.sectionTitle}>Indicadores</Text>
-            <View style={s.kpiRow}>
-              <View style={s.kpiBox}><Text style={s.kpiValue}>{c.indicadores.total_avaliados || 0}</Text><Text style={s.kpiLabel}>Avaliados</Text></View>
-              <View style={s.kpiBox}><Text style={s.kpiValue}>{c.indicadores.total_avaliacoes || 0}</Text><Text style={s.kpiLabel}>Avaliações</Text></View>
-              <View style={s.kpiBox}><Text style={{ ...s.kpiValue, color: colors.cyan }}>{c.indicadores.media_geral || 0}</Text><Text style={s.kpiLabel}>Média</Text></View>
-            </View>
-            <View style={s.kpiRow}>
-              <View style={s.kpiBox}><Text style={{ ...s.kpiValue, color: '#991B1B' }}>{c.indicadores.pct_nivel_1 || 0}%</Text><Text style={s.kpiLabel}>N1</Text></View>
-              <View style={s.kpiBox}><Text style={{ ...s.kpiValue, color: '#92400E' }}>{c.indicadores.pct_nivel_2 || 0}%</Text><Text style={s.kpiLabel}>N2</Text></View>
-              <View style={s.kpiBox}><Text style={{ ...s.kpiValue, color: '#155E75' }}>{c.indicadores.pct_nivel_3 || 0}%</Text><Text style={s.kpiLabel}>N3</Text></View>
-              <View style={s.kpiBox}><Text style={{ ...s.kpiValue, color: '#065F46' }}>{c.indicadores.pct_nivel_4 || 0}%</Text><Text style={s.kpiLabel}>N4</Text></View>
+            <Text style={s.h2}> Indicadores Quantitativos</Text>
+            {[['Colaboradores avaliados', c.indicadores.total_avaliados], ['Avaliações realizadas', c.indicadores.total_avaliacoes], ['Média geral', c.indicadores.media_geral]].map(([label, val], i) => (
+              <View key={i} style={i % 2 === 0 ? s.kpiPar : s.kpiImpar}>
+                <Text style={s.kpiLabel}>{label}</Text><Text style={s.kpiValue}>{val || 0}</Text>
+              </View>
+            ))}
+            <View style={{ marginTop: 4 }}>
+              <View style={s.evolUp}><Text style={{ fontSize: 10, fontWeight: 'bold', color: C.verde }}>N3-N4: {(c.indicadores.pct_nivel_3 || 0) + (c.indicadores.pct_nivel_4 || 0)}%</Text></View>
+              <View style={s.evolKeep}><Text style={{ fontSize: 10, fontWeight: 'bold', color: C.amarelo }}>N2: {c.indicadores.pct_nivel_2 || 0}%</Text></View>
+              <View style={s.evolDown}><Text style={{ fontSize: 10, fontWeight: 'bold', color: C.vermelho }}>N1: {c.indicadores.pct_nivel_1 || 0}%</Text></View>
             </View>
           </View>
         )}
 
         {c.comparativo_f1_f3 && (
           <View style={s.section}>
-            <Text style={s.sectionTitle}>Comparativo</Text>
+            <Text style={s.h2}> Comparativo</Text>
             <Text style={s.text}>{c.comparativo_f1_f3.analise}</Text>
-            {c.comparativo_f1_f3.destaque_positivo && <Text style={{ ...s.textSmall, color: '#065F46' }}>+ {c.comparativo_f1_f3.destaque_positivo}</Text>}
-            {c.comparativo_f1_f3.destaque_atencao && <Text style={{ ...s.textSmall, color: '#92400E' }}>! {c.comparativo_f1_f3.destaque_atencao}</Text>}
+            {c.comparativo_f1_f3.destaque_positivo && (<View style={{ backgroundColor: '#E8F5E9', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 2, marginBottom: 2 }}><Text style={{ fontSize: 10, color: C.verde }}>+ {c.comparativo_f1_f3.destaque_positivo}</Text></View>)}
+            {c.comparativo_f1_f3.destaque_atencao && (<View style={{ backgroundColor: '#FFF3E0', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 2 }}><Text style={{ fontSize: 10, color: C.amarelo }}>! {c.comparativo_f1_f3.destaque_atencao}</Text></View>)}
           </View>
         )}
 
         {c.visao_por_cargo?.length > 0 && (
           <View style={s.section}>
-            <Text style={s.sectionTitle}>Visão por Cargo</Text>
+            <Text style={s.h2}> Visão por Cargo</Text>
             {c.visao_por_cargo.map((v, i) => (
-              <View key={i} style={s.card} wrap={false}>
-                <Text style={{ fontSize: 11, fontWeight: 'bold', color: colors.navy, marginBottom: 2 }}>{v.cargo} — Média: {v.media || '—'}</Text>
+              <View key={i} wrap={false} style={{ marginBottom: 6 }}>
+                <Text style={s.h3}>{v.cargo} — Média: {v.media || '—'}</Text>
                 <Text style={s.text}>{v.analise}</Text>
-                {v.ponto_forte && <Text style={{ ...s.textSmall, color: '#065F46' }}>+ {v.ponto_forte}</Text>}
-                {v.ponto_critico && <Text style={{ ...s.textSmall, color: '#92400E' }}>! {v.ponto_critico}</Text>}
+                {v.ponto_forte && (<View style={{ backgroundColor: '#F1F8F0', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 2, marginBottom: 1 }}><Text style={{ fontSize: 10, color: C.verde }}>+ {v.ponto_forte}</Text></View>)}
+                {v.ponto_critico && (<View style={{ backgroundColor: '#FFFBF5', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 2 }}><Text style={{ fontSize: 10, color: C.amarelo }}>! {v.ponto_critico}</Text></View>)}
               </View>
             ))}
           </View>
         )}
 
-        <View style={pageStyles.footer}>
-          <Text style={pageStyles.footerText}>Vertho Mentor IA — Confidencial</Text>
-        </View>
+        <View style={pageStyles.footer}><Text style={pageStyles.footerText}>Vertho Mentor IA — Confidencial</Text></View>
       </Page>
 
       {/* Competências Críticas + Treinamentos */}
       <Page size="A4" style={pageStyles.page}>
-        <View style={pageStyles.header}>
-          <Text style={pageStyles.headerTitle}>VERTHO</Text>
-          <Text style={pageStyles.headerDate}>Investimentos e Decisões</Text>
-        </View>
+        <View style={pageStyles.header}><Text style={pageStyles.headerTitle}>VERTHO</Text><Text style={pageStyles.headerDate}>Investimentos</Text></View>
 
         {c.competencias_criticas?.length > 0 && (
           <View style={s.section}>
-            <Text style={s.sectionTitle}>Competências Críticas</Text>
-            {c.competencias_criticas.map((comp, i) => (
-              <View key={i} style={s.card} wrap={false}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
-                  <Text style={{ ...s.criticaBadge, ...(comp.criticidade === 'CRITICA' ? s.critica : comp.criticidade === 'ATENCAO' ? s.atencao : s.estavel) }}>{comp.criticidade}</Text>
-                  <Text style={{ fontSize: 10, fontWeight: 'bold', color: colors.navy, marginLeft: 6 }}>{comp.competencia}</Text>
+            <Text style={s.h2}>> Competências Críticas — Onde Investir</Text>
+            {c.competencias_criticas.map((comp, i) => {
+              const cc = critColors[comp.criticidade] || critColors.ESTAVEL;
+              return (
+                <View key={i} wrap={false}>
+                  <View style={{ ...s.critHeader, backgroundColor: cc.bg }}><Text style={{ fontSize: 10, fontWeight: 'bold', color: '#FFFFFF' }}>{comp.competencia} — {comp.criticidade}</Text></View>
+                  <View style={{ ...s.critContent, backgroundColor: cc.contentBg }}><Text style={s.text}>{comp.motivo}</Text></View>
+                  {(comp.impacto || comp.impacto_alunos) && (<View style={s.critImpacto}><Text style={{ fontSize: 10, color: C.navy }}>> {comp.impacto || comp.impacto_alunos}</Text></View>)}
                 </View>
-                <Text style={s.text}>{comp.motivo}</Text>
-                {comp.impacto && <Text style={{ ...s.textSmall, color: colors.teal }}>{comp.impacto || comp.impacto_alunos}</Text>}
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
 
         {c.treinamentos_sugeridos?.length > 0 && (
           <View style={s.section}>
-            <Text style={s.sectionTitle}>Treinamentos Sugeridos</Text>
-            {c.treinamentos_sugeridos.map((t, i) => (
-              <View key={i} style={s.trainCard} wrap={false}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
-                  <Text style={s.trainTitle}>{t.titulo}</Text>
-                  <Text style={{ ...s.criticaBadge, marginLeft: 6, ...(t.prioridade === 'URGENTE' ? s.critica : t.prioridade === 'IMPORTANTE' ? s.atencao : s.estavel) }}>{t.prioridade}</Text>
+            <Text style={s.h2}> Formações e Treinamentos</Text>
+            {c.treinamentos_sugeridos.map((t, i) => {
+              const pc = prioColors[t.prioridade] || prioColors.DESEJAVEL;
+              return (
+                <View key={i} wrap={false} style={{ marginBottom: 4 }}>
+                  <View style={{ ...s.trainHeader, backgroundColor: pc.bg }}><Text style={{ fontSize: 10, fontWeight: 'bold', color: '#FFFFFF' }}>{i + 1}. {t.titulo} [{t.prioridade}]</Text></View>
+                  <View style={{ ...s.trainContent, backgroundColor: pc.contentBg }}>
+                    <Text style={{ fontSize: 9, fontStyle: 'italic', color: C.navy }}>Público: {t.publico} | Formato: {t.formato} | Carga: {t.carga_horaria} | Custo: {t.custo || t.custo_relativo}</Text>
+                    {t.justificativa && <Text style={{ fontSize: 10, color: C.navy, marginTop: 2 }}>{t.justificativa}</Text>}
+                  </View>
                 </View>
-                <Text style={s.trainMeta}>{t.publico} · {t.formato} · {t.carga_horaria} · Custo: {t.custo || t.custo_relativo}</Text>
-                {t.justificativa && <Text style={s.trainJust}>{t.justificativa}</Text>}
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
 
         {c.perfil_disc_organizacional && (
           <View style={s.section}>
-            <Text style={s.sectionTitle}>Perfil DISC Organizacional</Text>
+            <Text style={s.h2}> Perfil DISC Organizacional</Text>
             <Text style={s.text}>{c.perfil_disc_organizacional.descricao}</Text>
-            {c.perfil_disc_organizacional.implicacao && <Text style={s.textSmall}>{c.perfil_disc_organizacional.implicacao || c.perfil_disc_organizacional.implicacao_pedagogica}</Text>}
+            {(c.perfil_disc_organizacional.implicacao || c.perfil_disc_organizacional.implicacao_pedagogica) && (
+              <View>
+                <View style={{ backgroundColor: '#E3EEF9', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 2 }}><Text style={{ fontSize: 10, fontWeight: 'bold', color: C.navy }}>> Implicação</Text></View>
+                <View style={{ backgroundColor: '#F7FBFF', paddingVertical: 4, paddingHorizontal: 16 }}><Text style={s.text}>{c.perfil_disc_organizacional.implicacao || c.perfil_disc_organizacional.implicacao_pedagogica}</Text></View>
+              </View>
+            )}
           </View>
         )}
 
-        <View style={pageStyles.footer}>
-          <Text style={pageStyles.footerText}>Vertho Mentor IA — Confidencial</Text>
-        </View>
+        <View style={pageStyles.footer}><Text style={pageStyles.footerText}>Vertho Mentor IA — Confidencial</Text></View>
       </Page>
 
-      {/* Decisões-Chave + Plano de Ação */}
+      {/* Decisões + Plano */}
       <Page size="A4" style={pageStyles.page}>
-        <View style={pageStyles.header}>
-          <Text style={pageStyles.headerTitle}>VERTHO</Text>
-          <Text style={pageStyles.headerDate}>Plano de Ação RH</Text>
-        </View>
+        <View style={pageStyles.header}><Text style={pageStyles.headerTitle}>VERTHO</Text><Text style={pageStyles.headerDate}>Decisões e Plano</Text></View>
 
         {c.decisoes_chave?.length > 0 && (
           <View style={s.section}>
-            <Text style={s.sectionTitle}>Decisões-Chave</Text>
+            <Text style={s.h2}>> Decisões-Chave</Text>
+            <Text style={s.textIt}>Estas decisões exigem ação imediata e critérios claros de reavaliação.</Text>
             {c.decisoes_chave.map((d, i) => (
-              <View key={i} style={s.decisionCard} wrap={false}>
-                <Text style={{ fontSize: 10, fontWeight: 'bold', color: colors.navy, marginBottom: 2 }}>{d.colaborador}</Text>
-                <Text style={s.text}>{d.situacao}</Text>
-                <Text style={{ ...s.textSmall, color: colors.teal }}>→ {d.acao || d.acao_imediata}</Text>
-                {d.criterio_reavaliacao && <Text style={s.textSmall}>Reavaliação: {d.criterio_reavaliacao}</Text>}
-                {d.consequencia && <Text style={{ ...s.textSmall, color: '#92400E' }}>Se não evoluir: {d.consequencia}</Text>}
+              <View key={i} wrap={false} style={{ marginBottom: 4 }}>
+                <View style={s.decHeader}><Text style={{ fontSize: 10, fontWeight: 'bold', color: '#FFFFFF' }}>> {d.colaborador}</Text></View>
+                <View style={s.decSituacao}><Text style={s.text}>Situação: {d.situacao}</Text></View>
+                <View style={s.decAcao}><Text style={{ fontSize: 10, fontWeight: 'bold', color: C.vermelho }}>* Ação: {d.acao || d.acao_imediata}</Text></View>
+                {d.criterio_reavaliacao && <View style={s.decReav}><Text style={s.text}> Reavaliação: {d.criterio_reavaliacao}</Text></View>}
+                {d.consequencia && <View style={s.decConseq}><Text style={{ fontSize: 10, color: C.amarelo }}>! Se não evoluir: {d.consequencia}</Text></View>}
               </View>
             ))}
           </View>
@@ -186,33 +202,28 @@ export default function RelatorioRHPDF({ data, empresaNome }) {
 
         {c.plano_acao && (
           <View style={s.section}>
-            <Text style={s.sectionTitle}>Plano de Ação</Text>
-            {['curto_prazo', 'medio_prazo', 'longo_prazo'].map(k => {
-              const a = c.plano_acao[k];
+            <Text style={s.h2}>> Plano de Ação — RH / T&D</Text>
+            {acaoHorizontes.map(({ key, label, bg, contentBg }) => {
+              const a = c.plano_acao[key];
               if (!a) return null;
-              const labels = { curto_prazo: 'Curto Prazo (2 semanas)', medio_prazo: 'Médio Prazo (1-2 meses)', longo_prazo: 'Longo Prazo (próximo semestre)' };
               return (
-                <View key={k} style={s.actionCard}>
-                  <Text style={s.actionLabel}>{labels[k]}</Text>
-                  <Text style={s.actionTitle}>{a.titulo}</Text>
-                  <Text style={{ fontSize: fonts.small, color: colors.gray600 }}>{a.descricao}</Text>
-                  {a.impacto && <Text style={{ fontSize: fonts.small, color: colors.teal, marginTop: 2 }}>{a.impacto}</Text>}
+                <View key={key} wrap={false} style={{ marginBottom: 4 }}>
+                  <View style={{ backgroundColor: bg, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 2 }}>
+                    <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#FFFFFF' }}>{label}: {a.titulo}</Text>
+                  </View>
+                  <View style={{ backgroundColor: contentBg, paddingVertical: 6, paddingHorizontal: 16 }}>
+                    <Text style={s.text}>{a.descricao}</Text>
+                    {a.impacto && <Text style={{ fontSize: 10, fontStyle: 'italic', color: C.navy }}> {a.impacto}</Text>}
+                  </View>
                 </View>
               );
             })}
           </View>
         )}
 
-        {c.mensagem_final && (
-          <View style={{ ...s.section, marginTop: 10 }}>
-            <View style={s.divider} />
-            <Text style={s.italic}>{c.mensagem_final}</Text>
-          </View>
-        )}
+        {c.mensagem_final && (<View><View style={s.divider} /><Text style={s.textIt}>{c.mensagem_final}</Text></View>)}
 
-        <View style={pageStyles.footer}>
-          <Text style={pageStyles.footerText}>Vertho Mentor IA — Confidencial</Text>
-        </View>
+        <View style={pageStyles.footer}><Text style={pageStyles.footerText}>Vertho Mentor IA — Confidencial</Text></View>
       </Page>
     </Document>
   );
