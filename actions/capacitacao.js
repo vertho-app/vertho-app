@@ -40,10 +40,11 @@ export async function provisionarMoodleLote(empresaId) {
     (progressos || []).forEach(p => { if (p.moodle_user_id) jaProvisionados[p.colaborador_id] = p.moodle_user_id; });
 
     let criados = 0, matriculados = 0, erros = 0, jaExistentes = 0;
+    const detalhes = [];
 
     for (const trilha of trilhas) {
       const colab = colabMap[trilha.colaborador_id];
-      if (!colab?.email) continue;
+      if (!colab?.email) { detalhes.push(`Skip: colaborador sem email`); continue; }
 
       // Pular se já provisionado
       if (jaProvisionados[trilha.colaborador_id]) {
@@ -60,19 +61,29 @@ export async function provisionarMoodleLote(empresaId) {
           criados++;
         }
 
-        if (!moodleUser?.id) { erros++; continue; }
+        if (!moodleUser?.id) {
+          erros++;
+          detalhes.push(`${colab.nome_completo}: Moodle user sem ID`);
+          continue;
+        }
 
         // Matricular nos cursos da trilha
         const cursos = Array.isArray(trilha.cursos) ? trilha.cursos : [];
-        const courseIds = [...new Set(cursos.map(c => c.course_id).filter(Boolean))];
+        const courseIds = [...new Set(cursos.map(c => Number(c.course_id)).filter(id => id > 0))];
 
         if (courseIds.length) {
-          const enrollments = courseIds.map(cid => ({
-            userId: moodleUser.id,
-            courseId: cid,
-          }));
-          await moodleEnrollBatch(enrollments);
-          matriculados += courseIds.length;
+          try {
+            const enrollments = courseIds.map(cid => ({
+              userId: moodleUser.id,
+              courseId: cid,
+            }));
+            await moodleEnrollBatch(enrollments);
+            matriculados += courseIds.length;
+          } catch (enrollErr) {
+            detalhes.push(`${colab.nome_completo}: matrícula falhou — ${enrollErr.message}`);
+          }
+        } else {
+          detalhes.push(`${colab.nome_completo}: trilha sem course_ids válidos`);
         }
 
         // Salvar moodle_user_id no progresso
@@ -93,11 +104,12 @@ export async function provisionarMoodleLote(empresaId) {
 
       } catch (err) {
         erros++;
+        detalhes.push(`${colab?.nome_completo || '?'}: ${err.message}`);
       }
     }
 
     const msg = `Moodle: ${criados} users criados, ${matriculados} matrículas, ${jaExistentes} já existentes${erros ? `, ${erros} erros` : ''}`;
-    return { success: true, message: msg };
+    return { success: true, message: msg + (detalhes.length ? ' — ' + detalhes.join('; ') : '') };
   } catch (err) {
     return { success: false, error: err.message };
   }
