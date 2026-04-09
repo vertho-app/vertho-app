@@ -5,6 +5,18 @@ import RelatorioIndividualPDF from '@/components/pdf/RelatorioIndividual';
 import RelatorioGestorPDF from '@/components/pdf/RelatorioGestor';
 import RelatorioRHPDF from '@/components/pdf/RelatorioRH';
 import React from 'react';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+// Logo como base64 (carregado uma vez no cold start)
+let logoBase64 = null;
+try {
+  const logoPath = join(process.cwd(), 'public', 'logo-vertho.png');
+  const logoBuffer = readFileSync(logoPath);
+  logoBase64 = `data:image/png;base64,${logoBuffer.toString('base64')}`;
+} catch {
+  // Logo não encontrada — PDF renderiza sem logo
+}
 
 export async function GET(request) {
   try {
@@ -43,10 +55,13 @@ export async function GET(request) {
     // Selecionar componente PDF pelo tipo
     let Component;
     let filename;
+    let extraProps = {};
+
     switch (rel.tipo) {
       case 'individual':
         Component = RelatorioIndividualPDF;
-        filename = `vertho-individual-${colaboradorNome.replace(/\s+/g, '-').toLowerCase()}.pdf`;
+        filename = `vertho-pdi-${colaboradorNome.replace(/\s+/g, '-').toLowerCase()}.pdf`;
+        extraProps = { logoBase64 };
         break;
       case 'gestor':
         Component = RelatorioGestorPDF;
@@ -61,7 +76,7 @@ export async function GET(request) {
     }
 
     const buffer = await renderToBuffer(
-      React.createElement(Component, { data, empresaNome })
+      React.createElement(Component, { data, empresaNome, ...extraProps })
     );
 
     return new NextResponse(buffer, {
