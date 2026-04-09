@@ -10,58 +10,115 @@ import { getOrCreatePromptVersion } from '@/lib/versioning';
 export async function rodarIA4(empresaId, aiConfig = {}) {
   const sb = createSupabaseAdmin();
   try {
-    const { data: respostas } = await sb.from('respostas')
-      .select('*, colaboradores!inner(nome_completo, cargo, empresa_id)')
-      .eq('colaboradores.empresa_id', empresaId)
-      .is('avaliacao_ia', null);
+    // Buscar respostas pendentes de avaliação
+    const { data: respostas, error: respErr } = await sb.from('respostas')
+      .select('*')
+      .eq('empresa_id', empresaId)
+      .is('avaliacao_ia', null)
+      .not('r1', 'is', null);
 
+    if (respErr) return { success: false, error: respErr.message };
     if (!respostas?.length) return { success: true, message: 'Nenhuma resposta pendente de avaliação' };
 
     const { data: empresa } = await sb.from('empresas')
       .select('nome, segmento')
       .eq('id', empresaId).single();
 
+    // Buscar colaboradores
+    const colabIds = [...new Set(respostas.map(r => r.colaborador_id).filter(Boolean))];
+    const { data: colabs } = await sb.from('colaboradores')
+      .select('id, nome_completo, cargo')
+      .in('id', colabIds);
+    const colabMap = {};
+    (colabs || []).forEach(c => { colabMap[c.id] = c; });
+
     const model = aiConfig?.model || 'claude-sonnet-4-6';
     const system = `Você é um avaliador especialista em competências comportamentais.
-Avalie a resposta do colaborador comparando com o gabarito.
-Responda APENAS com JSON válido.`;
+Avalie as 4 respostas do colaborador ao cenário situacional.
+Para cada resposta (R1-R4), identifique o nível de maturidade (N1-N4).
+Compare com os descritores de cada pergunta.
 
-    // Registrar versão do prompt de avaliação IA4
-    const promptVersionId = await getOrCreatePromptVersion(
-      'avaliacao_ia4', model, system, { max_tokens: 32768 }
-    );
+Responda APENAS com JSON válido:
+{
+  "nivel_geral": 1-4,
+  "nota_decimal": 1.0-4.0,
+  "por_pergunta": [
+    {"pergunta": 1, "nivel": 1-4, "justificativa": "..."},
+    {"pergunta": 2, "nivel": 1-4, "justificativa": "..."},
+    {"pergunta": 3, "nivel": 1-4, "justificativa": "..."},
+    {"pergunta": 4, "nivel": 1-4, "justificativa": "..."}
+  ],
+  "pontos_fortes": ["..."],
+  "pontos_desenvolvimento": ["..."],
+  "feedback": "Parágrafo com feedback construtivo."
+}`;
 
-    let avaliadas = 0;
+    let avaliadas = 0, erros = 0;
 
     for (const resp of respostas) {
-      const { data: cenario } = await sb.from('banco_cenarios')
-        .select('*, competencias!inner(nome, descricao, gabarito)')
-        .eq('id', resp.cenario_id).single();
+      try {
+        const colab = colabMap[resp.colaborador_id] || {};
 
-      if (!cenario) continue;
+        // Buscar cenário e perguntas
+        let cenarioTexto = '';
+        let perguntasTexto = '';
+        if (resp.cenario_id) {
+          const { data: cen } = await sb.from('banco_cenarios')
+            .select('titulo, descricao, alternativas')
+            .eq('id', resp.cenario_id).maybeSingle();
+          if (cen) {
+            cenarioTexto = `Cenário: ${cen.titulo}\n${cen.descricao}`;
+            const pergs = Array.isArray(cen.alternativas) ? cen.alternativas : [];
+            perguntasTexto = pergs.map((p, i) =>
+              `P${p.numero || i + 1}: ${p.texto || ''}\nDiferenciação: ${p.o_que_diferencia_niveis || ''}`
+            ).join('\n\n');
+          }
+        }
 
-      const user = `Empresa: ${empresa.nome} (${empresa.segmento})
-Colaborador: ${resp.colaboradores.nome_completo} | Cargo: ${resp.colaboradores.cargo}
-Competência: ${cenario.competencias.nome} — ${cenario.competencias.descricao}
-Cenário: ${cenario.descricao}
-Resposta escolhida: ${resp.resposta}
-Gabarito: ${JSON.stringify(cenario.competencias.gabarito)}
+        // Buscar competência
+        let compNome = '';
+        if (resp.competencia_id) {
+          const { data: comp } = await sb.from('competencias')
+            .select('nome').eq('id', resp.competencia_id).maybeSingle();
+          compNome = comp?.nome || '';
+        }
 
-Avalie e retorne:
-{"nivel_identificado": 1-5, "justificativa": "...", "pontos_fortes": ["..."], "pontos_desenvolvimento": ["..."]}`;
+        const user = `Empresa: ${empresa.nome} (${empresa.segmento})
+Colaborador: ${colab.nome_completo || '—'} | Cargo: ${colab.cargo || '—'}
+Competência: ${compNome}
 
-      const resultado = await callAI(system, user, aiConfig, 32768);
-      const avaliacao = await extractJSON(resultado);
+${cenarioTexto}
 
-      if (avaliacao) {
-        await sb.from('respostas')
-          .update({ avaliacao_ia: avaliacao, avaliado_em: new Date().toISOString(), prompt_version_id: promptVersionId })
-          .eq('id', resp.id);
-        avaliadas++;
+PERGUNTAS E DESCRITORES:
+${perguntasTexto}
+
+RESPOSTAS DO COLABORADOR:
+R1: ${resp.r1 || '(sem resposta)'}
+R2: ${resp.r2 || '(sem resposta)'}
+R3: ${resp.r3 || '(sem resposta)'}
+R4: ${resp.r4 || '(sem resposta)'}`;
+
+        const resultado = await callAI(system, user, aiConfig, 4096);
+        const avaliacao = await extractJSON(resultado);
+
+        if (avaliacao) {
+          const { error: updErr } = await sb.from('respostas').update({
+            avaliacao_ia: avaliacao,
+            nivel_ia4: avaliacao.nivel_geral || null,
+            avaliado_em: new Date().toISOString(),
+          }).eq('id', resp.id).select('id');
+
+          if (!updErr) avaliadas++;
+          else erros++;
+        } else {
+          erros++;
+        }
+      } catch (e) {
+        erros++;
       }
     }
 
-    return { success: true, message: `IA4 concluída: ${avaliadas} respostas avaliadas` };
+    return { success: true, message: `IA4 concluída: ${avaliadas} avaliadas${erros ? `, ${erros} erros` : ''}` };
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -73,13 +130,14 @@ export async function verFilaIA4(empresaId) {
   const sb = createSupabaseAdmin();
   try {
     const { count: pendentes } = await sb.from('respostas')
-      .select('*, colaboradores!inner(empresa_id)', { count: 'exact', head: true })
-      .eq('colaboradores.empresa_id', empresaId)
-      .is('avaliacao_ia', null);
+      .select('id', { count: 'exact', head: true })
+      .eq('empresa_id', empresaId)
+      .is('avaliacao_ia', null)
+      .not('r1', 'is', null);
 
     const { count: avaliadas } = await sb.from('respostas')
-      .select('*, colaboradores!inner(empresa_id)', { count: 'exact', head: true })
-      .eq('colaboradores.empresa_id', empresaId)
+      .select('id', { count: 'exact', head: true })
+      .eq('empresa_id', empresaId)
       .not('avaliacao_ia', 'is', null);
 
     return {
