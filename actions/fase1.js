@@ -698,7 +698,7 @@ export async function rodarIA3Uma(empresaId, cargoNome, competenciaId, aiConfig 
     const system = buildIA3SystemPrompt();
     const user = buildIA3UserPrompt(empresa, cargoNome, cargoDetalhe, comp, descritores || [], valores, contextoPPP, gabCIS);
 
-    const resposta = await callAI(system, user, aiConfig, 64000);
+    const resposta = await callAI(system, user, aiConfig, 16000);
     const resultado = await extractJSON(resposta);
 
     if (!resultado) return { success: false, error: 'IA não retornou JSON válido' };
@@ -782,7 +782,7 @@ export async function regenerarCenario(cenarioId, aiConfig = {}) {
       user += `\n\nFEEDBACK DA REVISÃO ANTERIOR (CORRIJA ESTES PONTOS):\n${feedbackExtra}`;
     }
 
-    const resposta = await callAI(system, user, aiConfig, 64000);
+    const resposta = await callAI(system, user, aiConfig, 16000);
     const resultado = await extractJSON(resposta);
     if (!resultado) return { success: false, error: 'IA não retornou JSON válido' };
 
