@@ -112,47 +112,79 @@ export async function gerarPDIsDescritores(empresaId) {
 }
 
 // ── Montar trilhas em lote ──────────────────────────────────────────────────
+// Usa PDI (relatórios individuais) + catálogo enriquecido do Moodle
 
 export async function montarTrilhasLote(empresaId) {
   const sb = createSupabaseAdmin();
   try {
-    const { data: pdis } = await sb.from('pdis')
-      .select('*, colaboradores!inner(id, nome_completo)')
+    // Buscar PDIs (relatórios individuais)
+    const { data: relatorios } = await sb.from('relatorios')
+      .select('id, colaborador_id, conteudo')
       .eq('empresa_id', empresaId)
-      .eq('status', 'ativo');
+      .eq('tipo', 'individual');
 
-    if (!pdis?.length) return { success: false, error: 'Nenhum PDI ativo encontrado' };
+    if (!relatorios?.length) return { success: false, error: 'Nenhum PDI/relatório individual encontrado. Gere PDIs primeiro.' };
 
-    // Fetch catalog of available courses
-    const { data: catalogo } = await sb.from('trilhas_catalogo')
-      .select('*')
-      .eq('ativo', true);
+    // Buscar colaboradores
+    const colabIds = [...new Set(relatorios.map(r => r.colaborador_id).filter(Boolean))];
+    const { data: colabs } = await sb.from('colaboradores').select('id, nome_completo, cargo').in('id', colabIds);
+    const colabMap = {};
+    (colabs || []).forEach(c => { colabMap[c.id] = c; });
+
+    // Buscar catálogo enriquecido do Moodle
+    const { data: catalogo } = await sb.from('catalogo_enriquecido')
+      .select('course_id, cargo, competencia, nivel_ideal')
+      .eq('empresa_id', empresaId);
+
+    // Buscar nomes dos cursos
+    const { data: cursosCat } = await sb.from('moodle_catalogo')
+      .select('course_id, curso_nome, curso_url')
+      .eq('empresa_id', empresaId);
+    const cursoMap = {};
+    (cursosCat || []).forEach(c => { cursoMap[c.course_id] = c; });
 
     let trilhasCriadas = 0;
 
-    for (const pdi of pdis) {
-      const competenciasAlvo = (pdi.conteudo?.objetivos || []).map(o => o.competencia);
+    for (const rel of relatorios) {
+      const colab = colabMap[rel.colaborador_id] || {};
+      const conteudo = typeof rel.conteudo === 'string' ? JSON.parse(rel.conteudo) : rel.conteudo;
 
-      // Match courses to competencies
-      const cursosRecomendados = (catalogo || []).filter(c =>
-        competenciasAlvo.some(comp =>
-          c.competencias_relacionadas?.includes(comp) ||
-          c.tags?.some(t => comp.toLowerCase().includes(t.toLowerCase()))
-        )
+      // Extrair competências com gap do PDI
+      const compsGap = (conteudo?.competencias || [])
+        .filter(c => (c.nivel || c.nivel_atual || 0) < 3)
+        .map(c => c.nome);
+
+      // Se não tem gaps, pegar todas as competências
+      const compsAlvo = compsGap.length > 0 ? compsGap : (conteudo?.competencias || []).map(c => c.nome);
+
+      // Match cursos do catálogo enriquecido por competência + cargo
+      const cursosMatch = (catalogo || []).filter(c =>
+        compsAlvo.some(comp => c.competencia === comp) &&
+        (!c.cargo || c.cargo === colab.cargo)
       );
 
-      await sb.from('trilhas').upsert({
+      const cursosRecomendados = cursosMatch.map(c => ({
+        course_id: c.course_id,
+        nome: cursoMap[c.course_id]?.curso_nome || `Curso ${c.course_id}`,
+        url: cursoMap[c.course_id]?.curso_url || '',
+        competencia: c.competencia,
+        nivel: c.nivel_ideal,
+      }));
+
+      // Salvar trilha
+      const { error } = await sb.from('trilhas').upsert({
         empresa_id: empresaId,
-        colaborador_id: pdi.colaborador_id,
-        pdi_id: pdi.id,
-        cursos: cursosRecomendados.map(c => ({ id: c.id, nome: c.nome, url: c.url, tipo: c.tipo })),
+        colaborador_id: rel.colaborador_id,
+        pdi_id: rel.id,
+        cursos: cursosRecomendados,
         status: 'pendente',
         criado_em: new Date().toISOString(),
       }, { onConflict: 'empresa_id,colaborador_id' });
-      trilhasCriadas++;
+
+      if (!error) trilhasCriadas++;
     }
 
-    return { success: true, message: `${trilhasCriadas} trilhas montadas` };
+    return { success: true, message: `${trilhasCriadas} trilhas montadas (${relatorios.length} PDIs)` };
   } catch (err) {
     return { success: false, error: err.message };
   }
