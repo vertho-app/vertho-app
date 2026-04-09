@@ -548,16 +548,21 @@ export default function EmpresaPipelinePage({ params }) {
 
             <div className="space-y-2 mb-4">
               {[
-                { label: 'Limpar Mapeamento Comportamental', action: 'mapeamento' },
-                { label: 'Limpar Fase 1 (cenários, cargos)', tabelas: ['banco_cenarios', 'cargos'] },
-                { label: 'Limpar Fase 2 (envios)', tabelas: ['envios_diagnostico'] },
-                { label: 'Limpar Fase 3 (respostas, avaliações)', tabelas: ['respostas', 'sessoes_avaliacao', 'mensagens_chat'] },
-                { label: 'Limpar Fase 4 (trilhas, capacitação)', tabelas: ['trilhas', 'capacitacao', 'fase4_envios'] },
-                { label: 'Limpar Fase 5 (evolução)', tabelas: ['evolucao', 'evolucao_descritores'] },
-                { label: 'Limpar colaboradores', tabelas: ['colaboradores'] },
-                { label: 'Limpar competências', tabelas: ['competencias'] },
-                { label: 'Limpar PPPs', tabelas: ['ppp_escolas'] },
-                { label: 'LIMPAR TUDO', tabelas: ['evolucao', 'evolucao_descritores', 'capacitacao', 'trilhas', 'fase4_envios', 'sessoes_avaliacao', 'mensagens_chat', 'respostas', 'envios_diagnostico', 'banco_cenarios', 'cargos', 'competencias', 'ppp_escolas'], danger: true },
+                { label: 'Mapeamento Comportamental', action: 'mapeamento' },
+                { label: 'Top 10 selecionadas', tabelas: ['top10_cargos'] },
+                { label: 'Gabaritos CIS', tabelas: ['cargos_empresa'], fields: { gabarito: null, raciocinio_ia2: null } },
+                { label: 'Cenários', tabelas: ['banco_cenarios'] },
+                { label: 'Respostas simuladas', tabelas: ['respostas'] },
+                { label: 'Avaliações IA4', tabelas: ['respostas'], fields: { avaliacao_ia: null, nivel_ia4: null, nota_ia4: null, status_ia4: null, payload_ia4: null, pontos_fortes: null, pontos_atencao: null, feedback_ia4: null, avaliado_em: null } },
+                { label: 'Relatórios', tabelas: ['relatorios'] },
+                { label: 'Fit v2', tabelas: ['fit_resultados'] },
+                { label: 'Envios (email/WhatsApp)', tabelas: ['envios_diagnostico'] },
+                { label: 'Sessões de avaliação', tabelas: ['sessoes_avaliacao', 'mensagens_chat'] },
+                { label: 'Competências', tabelas: ['competencias'] },
+                { label: 'Cargos', tabelas: ['cargos_empresa'] },
+                { label: 'Colaboradores', tabelas: ['colaboradores'] },
+                { label: 'PPPs', tabelas: ['ppp_escolas'] },
+                { label: 'LIMPAR TUDO', tabelas: ['fit_resultados', 'relatorios', 'evolucao', 'evolucao_descritores', 'sessoes_avaliacao', 'mensagens_chat', 'respostas', 'envios_diagnostico', 'banco_cenarios', 'top10_cargos', 'competencias', 'cargos_empresa', 'ppp_escolas'], danger: true },
               ].map(item => {
                 const scope = dangerColabId ? dangerColabs.find(c => c.id === dangerColabId)?.nome_completo || 'colaborador' : 'todos';
                 return (
