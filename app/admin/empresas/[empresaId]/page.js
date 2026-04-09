@@ -184,7 +184,6 @@ export default function EmpresaPipelinePage({ params }) {
 
   async function handleAction(actionKey, label, aiConfig) {
     const fn = ACTION_MAP[actionKey];
-    if (!fn) { addLog(`Ação "${actionKey}" não encontrada`, 'error'); return; }
 
     setPendingAction(actionKey);
     const modelLabel = aiConfig ? ` [${AI_MODELS.find(m => m.id === aiConfig.model)?.label || aiConfig.model}]` : '';
@@ -267,6 +266,7 @@ export default function EmpresaPipelinePage({ params }) {
         return;
       }
 
+      if (!fn) { addLog(`Ação "${actionKey}" não encontrada`, 'error'); setPendingAction(null); return; }
       const result = await fn(empresaId, aiConfig || undefined);
       if (result?.success) {
         addLog(`✅ ${result.message || label + ' concluído'}`, 'success');
