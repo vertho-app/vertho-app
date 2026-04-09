@@ -55,8 +55,7 @@ const PHASE_CONFIG = [
       { key: 'ppp', label: 'Extrair PPPs', icon: FileText, href: '/admin/ppp' },
     ]},
     { label: 'Moodle', actions: [
-      { key: 'moodle-imp', label: 'Importar Catálogo', icon: BookOpen },
-      { key: 'moodle-cat', label: 'Catalogar Conteúdos', icon: BookOpen, ai: true },
+      { key: 'moodle-sync', label: 'Importar + Catalogar', icon: BookOpen, ai: true },
       { key: 'cobertura', label: 'Cobertura', icon: BarChart3 },
     ]},
     { label: 'Sistema', actions: [
@@ -182,6 +181,20 @@ export default function EmpresaPipelinePage({ params }) {
     addLog(`▶ ${label}${modelLabel}`, 'info');
 
     try {
+      // Moodle: importar + catalogar em sequência
+      if (actionKey === 'moodle-sync') {
+        addLog('1/2 Importando catálogo do Moodle...', 'info');
+        const r1 = await ACTION_MAP['moodle-imp'](empresaId);
+        if (!r1?.success) { addLog(`❌ ${r1?.error || 'Erro na importação'}`, 'error'); setPendingAction(null); return; }
+        addLog(`✅ ${r1.message}`, 'success');
+
+        addLog('2/2 Catalogando conteúdos com IA...', 'info');
+        const r2 = await ACTION_MAP['moodle-cat'](empresaId, aiConfig || undefined);
+        addLog(r2?.success ? `✅ ${r2.message}` : `❌ ${r2?.error || 'Erro'}`, r2?.success ? 'success' : 'error');
+        setPendingAction(null);
+        return;
+      }
+
       // Relatórios individuais: um por vez (Hobby 60s)
       if (actionKey === 'rel-ind') {
         const fila = await gerarRelatoriosIndividuaisLote(empresaId);
