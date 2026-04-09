@@ -157,11 +157,18 @@ export async function montarTrilhasLote(empresaId) {
       // Se não tem gaps, pegar todas as competências
       const compsAlvo = compsGap.length > 0 ? compsGap : (conteudo?.competencias || []).map(c => c.nome);
 
-      // Match cursos do catálogo enriquecido por competência + cargo
-      const cursosMatch = (catalogo || []).filter(c =>
-        compsAlvo.some(comp => c.competencia === comp) &&
-        (!c.cargo || c.cargo === colab.cargo)
-      );
+      // Match cursos do catálogo enriquecido por competência (flexível) + cargo
+      const cursosMatch = (catalogo || []).filter(c => {
+        if (c.cargo && c.cargo !== colab.cargo) return false;
+        if (!c.competencia) return false;
+        const compLower = c.competencia.toLowerCase();
+        return compsAlvo.some(comp => {
+          const alvoLower = comp.toLowerCase();
+          return compLower === alvoLower ||
+            compLower.includes(alvoLower) ||
+            alvoLower.includes(compLower);
+        });
+      });
 
       const cursosRecomendados = cursosMatch.map(c => ({
         course_id: c.course_id,
