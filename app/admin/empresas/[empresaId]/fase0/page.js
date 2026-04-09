@@ -53,7 +53,8 @@ export default function Fase0Page({ params }) {
     if (!compsPorCargo[cargo]) compsPorCargo[cargo] = new Set();
     compsPorCargo[cargo].add(c.nome);
   });
-  const getCompsDropdown = (cargo) => [...(compsPorCargo[cargo] || compsPorCargo._geral || new Set())].sort();
+  // Todas as competências únicas (sem filtrar por cargo) para dropdown
+  const todasCompsUnicas = [...new Set(competencias.map(c => c.nome))].sort();
 
   const cargosEnr = [...new Set(enriquecido.map(e => e.cargo).filter(Boolean))].sort();
   const cargosCob = [...new Set(cobertura.map(c => c.cargo).filter(Boolean))].sort();
@@ -157,7 +158,7 @@ export default function Fase0Page({ params }) {
                   const descritores = [e.descritor_1, e.descritor_2, e.descritor_3].filter(Boolean);
                   const isEditing = editId === e.id;
                   const bgColor = idx % 2 === 0 ? '#0F2A4A' : '#0A2240';
-                  const compsOptions = getCompsDropdown(e.cargo || filtroCargo);
+                  const todasCompsUnicas = getCompsDropdown(e.cargo || filtroCargo);
 
                   return (
                     <div key={e.id} className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: bgColor }}>
@@ -211,7 +212,7 @@ export default function Fase0Page({ params }) {
                           }}
                             className="flex-1 px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none">
                             <option value="">Selecione...</option>
-                            {compsOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                            {todasCompsUnicas.map(c => <option key={c} value={c}>{c}</option>)}
                           </select>
                         ) : (
                           <span className="text-xs text-cyan-400 font-medium">{e.competencia || '—'}</span>
@@ -304,24 +305,24 @@ export default function Fase0Page({ params }) {
                       const s2 = STATUS_COLORS[c.n2_n3_status] || STATUS_COLORS.vermelho;
                       return (
                         <tr key={c.id} className="hover:bg-white/[0.02]">
-                          <td className="px-4 py-2 text-xs text-white font-medium">{c.competencia}</td>
-                          {temDescritores && <td className="px-4 py-2 text-xs text-gray-400">{c.descritor && c.descritor !== '(geral)' ? c.descritor : '—'}</td>}
-                          <td className="px-4 py-2 text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${s1.bg} ${s1.text}`}>{s1.label}</span>
-                              <span className="text-[8px] text-gray-600">({c.n1_n2_qtd || 0})</span>
+                          <td className="px-4 py-3 text-sm text-white font-semibold">{c.competencia}</td>
+                          {temDescritores && <td className="px-4 py-3 text-xs text-gray-300">{c.descritor && c.descritor !== '(geral)' ? c.descritor : '—'}</td>}
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <span className={`text-[10px] font-bold px-2 py-1 rounded ${s1.bg} ${s1.text}`}>{s1.label}</span>
+                              <span className="text-xs text-gray-400">({c.n1_n2_qtd || 0})</span>
                             </div>
-                            {c.n1_n2_cursos && <p className="text-[8px] text-gray-600 mt-0.5 truncate max-w-[150px]">{c.n1_n2_cursos}</p>}
+                            {c.n1_n2_cursos && <p className="text-[10px] text-gray-400 mt-1 truncate max-w-[200px]">{c.n1_n2_cursos}</p>}
                           </td>
-                          <td className="px-4 py-2 text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${s2.bg} ${s2.text}`}>{s2.label}</span>
-                              <span className="text-[8px] text-gray-600">({c.n2_n3_qtd || 0})</span>
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <span className={`text-[10px] font-bold px-2 py-1 rounded ${s2.bg} ${s2.text}`}>{s2.label}</span>
+                              <span className="text-xs text-gray-400">({c.n2_n3_qtd || 0})</span>
                             </div>
-                            {c.n2_n3_cursos && <p className="text-[8px] text-gray-600 mt-0.5 truncate max-w-[150px]">{c.n2_n3_cursos}</p>}
+                            {c.n2_n3_cursos && <p className="text-[10px] text-gray-400 mt-1 truncate max-w-[200px]">{c.n2_n3_cursos}</p>}
                           </td>
-                          <td className="px-4 py-2 text-center">
-                            <span className={`text-sm font-bold ${c.cobertura_pct >= 100 ? 'text-green-400' : c.cobertura_pct >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{c.cobertura_pct || 0}%</span>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`text-lg font-bold ${c.cobertura_pct >= 100 ? 'text-green-400' : c.cobertura_pct >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{c.cobertura_pct || 0}%</span>
                           </td>
                         </tr>
                       );
