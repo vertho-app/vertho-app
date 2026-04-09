@@ -159,7 +159,7 @@ export async function montarTrilhasLote(empresaId) {
       if (compNome) porColab[r.colaborador_id].push({ competencia: compNome, nivel: r.nivel_ia4 || 0 });
     });
 
-    let trilhasCriadas = 0;
+    let trilhasCriadas = 0, totalCursos = 0, ultimoErro = '';
 
     for (const [colabId, comps] of Object.entries(porColab)) {
       const colab = colabMap[colabId] || {};
@@ -184,18 +184,24 @@ export async function montarTrilhasLote(empresaId) {
         nivel: c.nivel_ideal,
       }));
 
-      const { error } = await sb.from('trilhas').upsert({
+      totalCursos += cursosRecomendados.length;
+
+      // Deletar trilha anterior e inserir nova
+      await sb.from('trilhas').delete().eq('empresa_id', empresaId).eq('colaborador_id', colabId);
+
+      const { error } = await sb.from('trilhas').insert({
         empresa_id: empresaId,
         colaborador_id: colabId,
         cursos: cursosRecomendados,
         status: 'pendente',
         criado_em: new Date().toISOString(),
-      }, { onConflict: 'empresa_id,colaborador_id' });
+      });
 
       if (!error) trilhasCriadas++;
+      else ultimoErro = error.message;
     }
 
-    return { success: true, message: `${trilhasCriadas} trilhas montadas para ${Object.keys(porColab).length} colaboradores` };
+    return { success: true, message: `${trilhasCriadas} trilhas montadas para ${Object.keys(porColab).length} colaboradores (${totalCursos} cursos)${ultimoErro ? ' — ' + ultimoErro : ''}` };
   } catch (err) {
     return { success: false, error: err.message };
   }
