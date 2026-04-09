@@ -35,54 +35,59 @@ async function salvarPDFStorage(sb, empresaId, tipo, colaboradorNome, buffer) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// RELATÓRIO INDIVIDUAL (fiel ao GAS)
+// PDI INDIVIDUAL (Plano de Desenvolvimento Individual — fiel ao GAS)
 // ══════════════════════════════════════════════════════════════════════════════
 
 const RELATORIO_IND_SYSTEM = `Voce e um especialista em desenvolvimento de profissionais da plataforma Vertho.
-Gere um RELATORIO INDIVIDUAL de avaliacao de competencias.
-O relatorio sera entregue ao COLABORADOR como devolutiva pessoal.
+Gere um PDI (Plano de Desenvolvimento Individual) completo.
+O PDI sera entregue ao COLABORADOR como devolutiva pessoal + plano de acao.
 
 DIRETRIZES DE TOM:
 1. SANDWICH: Acolher antes de diagnosticar. Valide o que funciona ANTES de apontar gaps.
-2. LINGUAGEM ACESSIVEL: Nao use jargao corporativo excessivo. Tom profissional mas humano.
+2. LINGUAGEM ACESSIVEL: Tom profissional mas humano. Sem jargao excessivo.
 3. TOM COACH: Firme mas nunca punitivo. Use "tende a...", "ha sinais de...", "um risco e...".
 4. RECONHECER CONTEXTO: Antes de apontar gaps, reconheca POR QUE age assim.
-5. SCRIPTS PRONTOS: Cada recomendacao deve ter pelo menos 1 acao concreta aplicavel imediatamente.
-6. METAS EM PRIMEIRA PESSOA: "Nas proximas X semanas, eu vou: (1)... (2)... (3)..."
-7. IMPACTO NO NEGOCIO: Conecte a mudanca ao impacto no trabalho e resultados.
-8. NAO mencione scores DISC numericos. Descreva em linguagem acessivel.
-9. Niveis SEMPRE NUMERICOS: 1, 2, 3 ou 4.
-10. Use APENAS competencias que foram avaliadas. NAO invente outras.
+5. SCRIPTS PRONTOS: Cada recomendacao deve ter pelo menos 1 frase/acao concreta aplicavel imediatamente.
+6. METAS EM PRIMEIRA PESSOA com horizonte claro.
+7. NAO mencione scores DISC numericos. Descreva em linguagem acessivel.
+8. Niveis SEMPRE NUMERICOS: 1, 2, 3 ou 4. Nivel 3 = META.
+9. Use APENAS competencias que foram avaliadas. NAO invente outras.
+10. Para cada competencia com gap (nivel < 3), gere plano de 30 dias detalhado.
 
 FORMATO: APENAS JSON valido. Portugues com acentuacao correta.
 {
-  "acolhimento": "2-3 frases de abertura",
-  "resumo_geral": "3-5 linhas de visao geral",
+  "acolhimento": "2-3 frases de abertura reconhecendo esforco e explicando o objetivo do PDI",
+  "resumo_geral": "3-5 linhas de visao geral: forcas + diagnostico com tom empatico",
   "perfil_comportamental": {
     "descricao": "Como o perfil influencia o desempenho (2-3 paragrafos). SEM scores numericos.",
-    "pontos_forca": ["2-3 forcas"],
-    "pontos_atencao": ["2-3 areas de atencao"]
+    "pontos_forca": ["2-3 forcas do perfil"],
+    "pontos_atencao": ["2-3 areas de atencao do perfil"]
   },
+  "resumo_desempenho": [
+    {"competencia": "nome", "nivel": 0, "nota_decimal": 0.0, "flag": false}
+  ],
   "competencias": [
     {
       "nome": "nome EXATO da competencia",
       "nivel": 0,
       "nota_decimal": 0.0,
-      "analise": "3-5 linhas. Tom coach.",
-      "evidencias_destaque": ["2-3 comportamentos observados"],
-      "lacuna_principal": "O que ainda precisa desenvolver",
-      "acao_pratica": "1-2 acoes concretas aplicaveis imediatamente",
-      "recomendacao": "1-2 micro-passos com horizonte claro"
+      "flag": false,
+      "descritores_desenvolvimento": ["descritores com nivel < 3 que precisam de atencao"],
+      "fez_bem": ["2-3 comportamentos positivos observados"],
+      "melhorar": ["2-3 pontos concretos para melhorar"],
+      "feedback": "Paragrafo com analise construtiva (tom coach)",
+      "plano_30_dias": {
+        "semana_1": {"foco": "tema da semana", "acoes": ["acao concreta 1", "acao concreta 2"]},
+        "semana_2": {"foco": "tema", "acoes": ["acao 1", "acao 2"]},
+        "semana_3": {"foco": "tema", "acoes": ["acao 1", "acao 2"]},
+        "semana_4": {"foco": "tema", "acoes": ["acao 1", "acao 2"]}
+      },
+      "dicas_desenvolvimento": ["Quando [gatilho], [acao]. Ex: Quando sentir resistencia, diga: Me ajuda a entender..."],
+      "estudo_recomendado": ["recurso 1 com descricao curta", "recurso 2"],
+      "checklist_tatico": ["acao verificavel 1", "acao verificavel 2", "acao verificavel 3"]
     }
   ],
-  "proximos_passos": [
-    {
-      "competencia": "nome",
-      "meta_primeira_pessoa": "Nas proximas X semanas, eu vou: (1)... (2)... (3)...",
-      "prazo": "curto|medio|longo"
-    }
-  ],
-  "mensagem_final": "2-3 linhas motivacionais"
+  "mensagem_final": "2-3 linhas motivacionais. Reforcar que e treinavel e que pequenas mudancas geram grande impacto."
 }`;
 
 export async function gerarRelatorioIndividual(empresaId, colaboradorId, aiConfig = {}) {

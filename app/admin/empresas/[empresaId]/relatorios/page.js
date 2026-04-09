@@ -26,7 +26,7 @@ export default function RelatoriosPage({ params }) {
   if (loading) return <div className="flex items-center justify-center h-dvh"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
 
   const TABS = [
-    { key: 'individual', label: `Individuais (${data.individuais.length})`, icon: User },
+    { key: 'individual', label: `PDI (${data.individuais.length})`, icon: User },
     { key: 'gestor', label: 'Gestor', icon: Users, has: !!data.gestor },
     { key: 'rh', label: 'RH', icon: Building2, has: !!data.rh },
   ];
@@ -65,7 +65,7 @@ export default function RelatoriosPage({ params }) {
       {tab === 'individual' && (
         <div>
           {data.individuais.length === 0 ? (
-            <Empty text="Nenhum relatório individual. Rode 'Individuais' no pipeline." />
+            <Empty text="Nenhum relatório individual. Rode 'PDI' no pipeline." />
           ) : data.individuais.map(rel => {
             const c = rel.conteudo;
             const isOpen = openId === rel.id;

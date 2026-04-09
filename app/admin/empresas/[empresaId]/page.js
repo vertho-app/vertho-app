@@ -78,7 +78,7 @@ const PHASE_CONFIG = [
       { key: 'check', label: 'Check Avaliações', icon: CheckCircle, ai: true },
     ]},
     { label: 'Relatórios', actions: [
-      { key: 'rel-ind', label: 'Individuais', icon: FileText, ai: true },
+      { key: 'rel-ind', label: 'PDI Individual', icon: FileText, ai: true },
       { key: 'rel-gestor', label: 'Gestor', icon: FileBarChart, ai: true },
       { key: 'rel-rh', label: 'RH', icon: FileBarChart, ai: true },
     ]},
