@@ -21,9 +21,9 @@ import {
   loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, loadColaboradoresLista,
   rodarIA1, rodarIA2, rodarIA3,
   verStatusEnvios,
-  rodarIA4, checkAvaliacoes, gerarRelatoriosIndividuais, gerarRelatorioGestor, gerarRelatorioRH, enviarRelIndividuais, enviarRelGestor, enviarRelRH,
+  rodarIA4, checkAvaliacoes,
   gerarPDIs, gerarPDIsDescritores, montarTrilhasLote, criarEstruturaFase4, iniciarFase4ParaTodos, triggerSegundaFase4, triggerQuintaFase4, getStatusFase4, moodleImportarCatalogo, catalogarConteudosMoodle, gerarCoberturaConteudo,
-  iniciarReavaliacaoLote, gerarRelatoriosEvolucaoLote, gerarPlenariaEvolucao, gerarRelatorioRHManual, gerarRelatorioPlenaria, enviarLinksPerfil, gerarDossieGestor, checkCenarios, dispararRelatoriosLote,
+  iniciarReavaliacaoLote, gerarRelatoriosEvolucaoLote, gerarPlenariaEvolucao, gerarRelatorioRHManual, gerarRelatorioPlenaria, enviarLinksPerfil, gerarDossieGestor, checkCenarios,
 } from './actions';
 
 // ── AI Models ──
@@ -83,10 +83,7 @@ const PHASE_CONFIG = [
       { key: 'rel-rh', label: 'RH', icon: FileBarChart, ai: true },
     ]},
     { label: 'Enviar', actions: [
-      { key: 'env-ind', label: 'Individuais', icon: Send },
-      { key: 'env-gestor', label: 'Gestor', icon: Send },
-      { key: 'env-rh', label: 'RH', icon: Send },
-      { key: 'enviar-lote', label: 'PDF + WhatsApp (Lote)', icon: Send },
+      { key: 'envios-rel', label: 'Enviar Relatórios', icon: Send, href: '/admin/whatsapp' },
     ]},
   ]},
   { num: 3, icon: GraduationCap, color: '#22C55E', groups: [
@@ -113,7 +110,6 @@ const ACTION_MAP = {
   ia1: rodarIA1, ia2: rodarIA2, ia3: rodarIA3,
   ia4: rodarIA4, check: checkAvaliacoes,
   'rel-ind': gerarRelatoriosIndividuais, 'rel-gestor': gerarRelatorioGestor, 'rel-rh': gerarRelatorioRH,
-  'env-ind': enviarRelIndividuais, 'env-gestor': enviarRelGestor, 'env-rh': enviarRelRH, 'enviar-lote': dispararRelatoriosLote,
   pdis: gerarPDIs, 'pdis-desc': gerarPDIsDescritores, trilhas: montarTrilhasLote,
   estrutura: criarEstruturaFase4, iniciar: iniciarFase4ParaTodos,
   'trig-seg': triggerSegundaFase4, 'trig-qui': triggerQuintaFase4, 'status-f4': getStatusFase4,

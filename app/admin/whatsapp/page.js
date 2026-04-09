@@ -12,8 +12,9 @@ import { dispararEmails } from '@/actions/fase2';
 
 const TABS = [
   { key: 'email', label: 'Email Convites', icon: Mail, color: 'text-blue-400' },
-  { key: 'whatsapp', label: 'WhatsApp Avaliação', icon: MessageCircle, color: 'text-green-400' },
-  { key: 'relatorios', label: 'WhatsApp Relatórios', icon: FileBarChart, color: 'text-purple-400' },
+  { key: 'whatsapp', label: 'WhatsApp Convites', icon: MessageCircle, color: 'text-green-400' },
+  { key: 'relatorios-email', label: 'Email Relatórios', icon: Mail, color: 'text-purple-400' },
+  { key: 'relatorios-whatsapp', label: 'WhatsApp Relatórios', icon: MessageCircle, color: 'text-purple-400' },
 ];
 
 const VARIAVEIS = [
@@ -30,14 +31,20 @@ Você foi convidado(a) para participar da avaliação de competências da *{{emp
 
 Acesse pelo link abaixo:
 {{link}}`,
-  whatsapp: `Olá {{nome}}! 👋
+  whatsapp: `Olá {{nome}}!
 
 Você foi convidado(a) para a avaliação de competências da *{{empresa}}*.
 
 Acesse: {{link}}`,
-  relatorios: `Olá {{nome}}!
+  'relatorios-email': `Olá {{nome}}!
 
 Seu relatório individual de competências da *{{empresa}}* está disponível.
+
+Acesse pelo link abaixo para visualizar:
+{{link}}`,
+  'relatorios-whatsapp': `Olá {{nome}}!
+
+Seu relatório de competências da *{{empresa}}* está pronto.
 
 Acesse: {{link}}`,
 };
@@ -81,7 +88,7 @@ export default function EnviosPage() {
 
   useEffect(() => {
     setMensagem(DEFAULT_MSGS[tab] || '');
-    setAssunto(tab === 'email' ? '[{{empresa}}] Avaliação de Competências' : tab === 'relatorios' ? '[{{empresa}}] Seu Relatório' : '');
+    setAssunto(tab === 'email' ? '[{{empresa}}] Avaliação de Competências' : tab === 'relatorios-email' ? '[{{empresa}}] Seu Relatório de Competências' : '');
     setResult(null);
   }, [tab]);
 
@@ -103,7 +110,7 @@ export default function EnviosPage() {
   // Destinatários filtrados
   const destinatarios = colabs.filter(c => {
     if (filtroCargo && c.cargo !== filtroCargo) return false;
-    if (tab === 'whatsapp' || tab === 'relatorios') return !!c.telefone;
+    if (tab === 'whatsapp' || tab === 'relatorios-whatsapp') return !!c.telefone;
     return !!c.email;
   });
 
@@ -123,7 +130,7 @@ export default function EnviosPage() {
     setSending(true);
     setResult(null);
 
-    const canal = tab === 'email' ? 'email' : 'whatsapp';
+    const canal = (tab === 'email' || tab === 'relatorios-email') ? 'email' : 'whatsapp';
     const filtros = filtroCargo ? { cargo: filtroCargo } : {};
     const r = await dispararMensagemCustomizada(empresaId, mensagem, canal, filtros, assunto);
 
@@ -198,14 +205,14 @@ export default function EnviosPage() {
                 </div>
                 <div className="flex items-center gap-1.5 text-[10px] text-cyan-400 font-semibold">
                   <Users size={12} />
-                  {destinatarios.length} destinatário(s) {tab !== 'email' ? 'com WhatsApp' : 'com email'}
+                  {destinatarios.length} destinatário(s) {(tab === 'email' || tab === 'relatorios-email') ? 'com email' : 'com WhatsApp'}
                 </div>
               </div>
 
               {/* Editor de mensagem */}
               <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
                 {/* Assunto (só email) */}
-                {tab === 'email' && (
+                {(tab === 'email' || tab === 'relatorios-email') && (
                   <div className="mb-3">
                     <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Assunto do Email</p>
                     <input value={assunto} onChange={e => setAssunto(e.target.value)}
