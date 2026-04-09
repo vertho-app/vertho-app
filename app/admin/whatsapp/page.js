@@ -207,6 +207,9 @@ export default function EnviosPage() {
                   <Users size={12} />
                   {destinatarios.length} destinatário(s) {(tab === 'email' || tab === 'relatorios-email') ? 'com email' : 'com WhatsApp'}
                 </div>
+                {(tab === 'relatorios-email' || tab === 'relatorios-whatsapp') && (
+                  <p className="text-[9px] text-purple-400 mt-2">O PDF do relatório individual será anexado automaticamente (se disponível)</p>
+                )}
               </div>
 
               {/* Editor de mensagem */}
