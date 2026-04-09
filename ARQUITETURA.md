@@ -2,7 +2,7 @@
 
 > Documento oficial de arquitetura — SaaS B2B de desenvolvimento de competencias por IA.
 > Ultima atualizacao: 09/04/2026
-> Commit de referencia: cc70241
+> Commit de referencia: 1038523
 > Revisado contra o codigo-fonte em producao (vertho.com.br)
 > Metodo: auditoria automatizada + revisao manual + comparacao com legado GAS
 
@@ -170,16 +170,16 @@ nextjs-app/
 │   │   ├── RHView.js             # KPIs empresa (sessoes_avaliacao)
 │   │   └── ManagerView.js        # Equipe por area (sessoes_avaliacao)
 │   └── pdf/
-│       ├── styles.js             # Paleta premium, tipografia, helpers (nivelColor, nivelLabel, LevelDots)
+│       ├── styles.js             # NotoSans (4 pesos + italic), paleta, helpers (nivelColor, nivelLabel)
 │       ├── RelatorioTemplate.js  # Template base A4
-│       ├── RelatorioIndividual.js # PDI premium (capa + resumo + competencias + mensagem)
-│       ├── RelatorioGestor.js    # Relatorio gestor
-│       ├── RelatorioRH.js        # Relatorio RH
-│       ├── PdfCover.js           # Capa premium (logo base64, nome, cargo, selo confidencial)
-│       ├── SectionTitle.js       # Titulos hierarquicos com accent bar
-│       ├── StatusBadge.js        # Badge nivel + dots solidos + FlagBadge
-│       ├── CompetencyBlock.js    # Bloco completo por competencia (8 secoes, compacto para N3+)
-│       └── ChecklistBox.js       # Checklist tatico com header navy
+│       ├── RelatorioIndividual.js # PDI (capa + resumo + competencias N1-2 detalhadas + N3+ compactas + mensagem)
+│       ├── RelatorioGestor.js    # Gestor (mesmo design system: NotoSans, PdfCover, SectionTitle, badges)
+│       ├── RelatorioRH.js        # RH (mesmo design system: NotoSans, PdfCover, SectionTitle, badges)
+│       ├── PdfCover.js           # Capa reutilizavel (logo base64 proporcional, nome, cargo, selo confidencial)
+│       ├── SectionTitle.js       # SectionTitle (14pt) + BlockTitle (11pt) com accent bar
+│       ├── StatusBadge.js        # LevelBadge, StatusBadge, PriorityBadge, Table variants (pills)
+│       ├── CompetencyBlock.js    # Bloco por competencia (8 secoes, header navy, plano com cards numerados)
+│       └── ChecklistBox.js       # Checklist tatico com header navy + zebra
 ├── lib/
 │   ├── supabase.js               # createSupabaseClient + createSupabaseAdmin
 │   ├── supabase-browser.js       # Singleton browser client
@@ -379,9 +379,18 @@ Criar usuario, matricular, verificar conclusao, importar catalogo, catalogar com
 Status: ✅ operacional (academia.vertho.ai)
 
 ### 6.4 PDF — @react-pdf/renderer + pdfjs-dist
-Geracao server-side em memoria. Logo carregada como base64 (server-side compatible).
-Componentes: PdfCover, SectionTitle, StatusBadge (dots), CompetencyBlock, ChecklistBox.
-PDI: capa premium + resumo executivo + blocos por competencia (compacto N3+) + mensagem final.
+Geracao server-side em memoria. Fonte NotoSans (4 pesos + italic, suporte portugues completo).
+Logo: `public/logo-vertho.png` (Vertho H escuro fundo transparente, 3148x800, carregada como base64).
+Design system unificado nos 3 relatorios (PDI, Gestor, RH):
+- PdfCover reutilizavel (logo + nome + cargo + selo confidencial)
+- SectionTitle com accent bar cyan
+- StatusBadge/LevelBadge como pills coloridos
+- Boxes com borderRadius 8, border #E5E7EB, fundo #F8FAFC
+- Cards com header colorido + conteudo com fundo semantico
+- PageHeader/PageFooter com paginacao X/Y
+PDI: capa + resumo executivo + competencias N1-2 detalhadas + N3+ compactas + mensagem final.
+Gestor: capa + resumo + evolucao + ranking + analise + DISC + acoes por horizonte.
+RH: capa + resumo + indicadores + comparativo + cargos + criticas + treinamentos + decisoes.
 Leitura de PDF no browser (PPP) via pdfjs-dist.
 Status: ✅ geracao + ✅ leitura
 
@@ -700,4 +709,4 @@ Sentry: Error tracking
 
 *Documento validado contra o codigo-fonte em producao.*
 *~130 arquivos JS | 31 migrations SQL | 86 e2e tests | 20+ env vars | vertho.com.br*
-*Commit de referencia: cc70241 | Revisao: 09/04/2026*
+*Commit de referencia: 1038523 | Revisao: 09/04/2026*
