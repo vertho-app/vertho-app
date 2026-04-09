@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 
 import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, checkCenarioUm } from '@/actions/fase1';
+import { listarSessoesPendentes, simularUmaConversa } from '@/actions/simulador-conversas';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import {
   loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, loadColaboradoresLista,
@@ -69,6 +70,7 @@ const PHASE_CONFIG = [
   ]},
   { num: 2, icon: Bot, color: '#EF4444', groups: [
     { label: 'Diagnóstico', actions: [
+      { key: 'simular', label: 'Simular Conversas', icon: MessageSquare, ai: true },
       { key: 'ia4', label: 'Rodar IA4', icon: Zap, ai: true },
       { key: 'fila', label: 'Fila IA4', icon: Clock },
       { key: 'check', label: 'Check Avaliações', icon: CheckCircle, ai: true },
@@ -189,6 +191,32 @@ export default function EmpresaPipelinePage({ params }) {
     addLog(`▶ ${label}${modelLabel}`, 'info');
 
     try {
+      // Simular conversas: uma por vez (Hobby 60s)
+      if (actionKey === 'simular') {
+        const fila = await listarSessoesPendentes(empresaId);
+        if (!fila?.success || !fila.data?.length) {
+          addLog(`❌ ${fila?.error || 'Nenhuma sessão para simular'}`, 'error');
+          setPendingAction(null);
+          return;
+        }
+        const pendentes = fila.data.filter(f => !f.jaConcluida);
+        const items = pendentes.length > 0 ? pendentes : fila.data;
+        addLog(`📋 ${items.length} conversas para simular`, 'info');
+
+        let ok = 0, erros = 0;
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          addLog(`⏳ [${i + 1}/${items.length}] ${item.nome} — ${item.competencia_nome}`, 'info');
+          const r = await simularUmaConversa(empresaId, item.colaborador_id, item.competencia_id, aiConfig || undefined);
+          if (r.success) { ok++; addLog(`✅ ${r.message}`, 'success'); }
+          else { erros++; addLog(`⚠ ${item.nome}: ${r.error}`, 'error'); }
+        }
+        addLog(`✅ Simulação concluída: ${ok} conversas${erros ? `, ${erros} erros` : ''}`, 'success');
+        loadData();
+        setPendingAction(null);
+        return;
+      }
+
       // IA3: gera cenário + valida, uma competência por vez
       if (actionKey === 'ia3') {
         const fila = await listarFilaIA3(empresaId);
