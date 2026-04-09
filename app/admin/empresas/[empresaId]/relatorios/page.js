@@ -79,6 +79,10 @@ export default function RelatoriosPage({ params }) {
                     <span className="text-[10px] text-gray-500">{rel.colaborador_cargo}</span>
                   </div>
                   <div className="flex items-center gap-2">
+                    <a href={`/api/relatorios/pdf?id=${rel.id}`} target="_blank" onClick={e => e.stopPropagation()}
+                      className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all">
+                      <Download size={10} /> PDF
+                    </a>
                     <span className="text-[9px] text-gray-600">{new Date(rel.gerado_em).toLocaleDateString('pt-BR')}</span>
                     <ChevronDown size={14} className={`text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                   </div>
