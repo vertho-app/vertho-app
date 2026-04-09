@@ -431,6 +431,16 @@ export default function EmpresaPipelinePage({ params }) {
 
               {isExpanded && (
                 <div className="px-5 pb-4 pt-1 border-t border-white/[0.04]">
+                  {/* Fase 0: link para Moodle */}
+                  {fase.num === 0 && (
+                    <div className="mb-3 mt-2 flex justify-end">
+                      <button onClick={() => router.push(`/admin/empresas/${empresaId}/fase0`)}
+                        className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300">
+                        Moodle detalhes →
+                      </button>
+                    </div>
+                  )}
+
                   {/* Fase 1: resumo compacto + link para detalhes */}
                   {fase.num === 1 && (() => {
                     if (!top10Loaded) refreshTop10();
