@@ -104,7 +104,7 @@ export async function gerarRelatorioIndividual(empresaId, colaboradorId, aiConfi
 
     const user = `COLABORADOR: ${colab.nome_completo}\nCARGO: ${colab.cargo}\nEMPRESA: ${empresa.nome} (${empresa.segmento})\n\nPERFIL COMPORTAMENTAL:\n${perfilCIS}\n\nDADOS POR COMPETENCIA:\n${JSON.stringify(dadosComps, null, 2)}`;
 
-    const resultado = await callAI(RELATORIO_IND_SYSTEM, user, aiConfig, 8000);
+    const resultado = await callAI(RELATORIO_IND_SYSTEM, user, aiConfig, 32000);
     const relatorio = await extractJSON(resultado);
 
     if (!relatorio) return { success: false, error: 'IA não retornou relatório válido' };
@@ -218,7 +218,7 @@ export async function gerarRelatorioGestor(empresaId, aiConfig = {}) {
 
     const user = `EMPRESA: ${empresa.nome} (${empresa.segmento})\nTOTAL EQUIPE: ${membros.length}\nDISC: D=${discDist.D} I=${discDist.I} S=${discDist.S} C=${discDist.C}\n\nDADOS DA EQUIPE:\n${JSON.stringify(membros, null, 2)}`;
 
-    const resultado = await callAI(RELATORIO_GESTOR_SYSTEM, user, aiConfig, 8000);
+    const resultado = await callAI(RELATORIO_GESTOR_SYSTEM, user, aiConfig, 32000);
     const relatorio = await extractJSON(resultado);
 
     if (!relatorio) return { success: false, error: 'IA não retornou relatório válido' };
@@ -368,7 +368,7 @@ ${JSON.stringify(cargosData, null, 2)}
 REGISTROS INDIVIDUAIS:
 ${JSON.stringify(registros, null, 2)}`;
 
-    const resultado = await callAI(RELATORIO_RH_SYSTEM, user, aiConfig, 8000);
+    const resultado = await callAI(RELATORIO_RH_SYSTEM, user, aiConfig, 32000);
     const relatorio = await extractJSON(resultado);
 
     if (!relatorio) return { success: false, error: 'IA não retornou relatório válido' };

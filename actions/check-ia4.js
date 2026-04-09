@@ -143,7 +143,7 @@ ${perguntasTexto}
 AVALIACAO A AUDITAR:
 ${JSON.stringify(resp.avaliacao_ia, null, 2)}`;
 
-        const resultado = await callAI(CHECK_SYSTEM, user, { model }, 4096);
+        const resultado = await callAI(CHECK_SYSTEM, user, { model }, 8192);
         const check = await extractJSON(resultado);
 
         if (check?.nota !== undefined) {
