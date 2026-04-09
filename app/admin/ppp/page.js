@@ -242,6 +242,8 @@ export default function PPPPage() {
               <option value="claude-opus-4-6">Claude Opus 4.6</option>
               <option value="gemini-3-flash-preview">Gemini 3 Flash</option>
               <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro</option>
+              <option value="gpt-5.4">GPT 5.4</option>
+              <option value="gpt-5.4-mini">GPT 5.4 Mini</option>
             </select>
           </div>
 
