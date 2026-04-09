@@ -1,55 +1,54 @@
 import React from 'react';
 import { Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
-import { colors, fonts, lh } from './styles';
+import { colors } from './styles';
 
 const s = StyleSheet.create({
   page: {
     flexDirection: 'column', backgroundColor: colors.white,
-    paddingHorizontal: 34, paddingTop: 34, paddingBottom: 30,
-    fontFamily: 'Inter', alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 50, paddingVertical: 50, fontFamily: 'NotoSans',
   },
-  logo: { width: 90, marginBottom: 18 },
-  title: {
-    fontWeight: 700, fontSize: fonts.coverTitle, color: colors.titleStrong,
-    textAlign: 'center', lineHeight: lh.sectionTitle, marginBottom: 18,
+  topBar: { width: '100%', height: 3, backgroundColor: colors.coverAccent, marginBottom: 80 },
+  // Logo: 3148x744 original → ratio ~4.23:1
+  logo: { width: 150, height: 35, marginBottom: 40 },
+  accent: { width: 40, height: 2, backgroundColor: colors.coverAccent, marginBottom: 28 },
+  reportType: {
+    fontSize: 11, color: colors.textMuted, letterSpacing: 1.5,
+    textTransform: 'uppercase', marginBottom: 60,
   },
-  name: {
-    fontWeight: 600, fontSize: fonts.coverName, color: '#111827',
-    textAlign: 'center', lineHeight: lh.coverName, marginBottom: 6,
+  name: { fontSize: 26, fontWeight: 'bold', color: colors.navy, marginBottom: 4 },
+  cargo: { fontSize: 11, color: colors.textSecondary, marginBottom: 2 },
+  empresa: { fontSize: 10, color: colors.textMuted, marginTop: 6 },
+  bottomArea: {
+    marginTop: 'auto', paddingTop: 20,
+    borderTopWidth: 0.5, borderTopColor: colors.gray200,
   },
-  cargo: {
-    fontWeight: 500, fontSize: fonts.coverCargo, color: colors.textSecondary,
-    textAlign: 'center', marginBottom: 2,
-  },
-  empresa: {
-    fontSize: fonts.coverEmpresa, color: colors.textSecondary,
-    textAlign: 'center', marginBottom: 2,
-  },
-  date: {
-    fontSize: fonts.coverDate, color: colors.textMuted,
-    textAlign: 'center', marginBottom: 24,
-  },
-  seal: {
-    fontWeight: 500, fontSize: fonts.coverSeal, color: colors.textMuted,
-    textAlign: 'center', paddingVertical: 6, paddingHorizontal: 10,
-    borderWidth: 1, borderColor: colors.borderLight, borderRadius: 6,
+  date: { fontSize: 8, color: colors.textMuted, marginBottom: 6 },
+  confidential: {
+    fontSize: 6.5, color: colors.gray400, letterSpacing: 0.8, textTransform: 'uppercase',
   },
 });
 
-export default function PdfCover({ logoBase64, nome, cargo, empresa, data }) {
+export default function PdfCover({ logoBase64, nome, cargo, empresa, data, tipo = 'Plano de Desenvolvimento Individual' }) {
   const dataFormatada = data
     ? new Date(data).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
     : new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 
   return (
     <Page size="A4" style={s.page}>
+      <View style={s.topBar} />
+
       {logoBase64 && <Image src={logoBase64} style={s.logo} />}
-      <Text style={s.title}>PLANO DE DESENVOLVIMENTO INDIVIDUAL</Text>
+      <View style={s.accent} />
+      <Text style={s.reportType}>{tipo}</Text>
+
       <Text style={s.name}>{nome}</Text>
       <Text style={s.cargo}>{cargo}</Text>
       {empresa && <Text style={s.empresa}>{empresa}</Text>}
-      <Text style={s.date}>{dataFormatada}</Text>
-      <Text style={s.seal}>{'CONFIDENCIAL | USO RESTRITO A COLABORADOR, GESTOR DIRETO E RH'}</Text>
+
+      <View style={s.bottomArea}>
+        <Text style={s.date}>{dataFormatada}</Text>
+        <Text style={s.confidential}>Confidencial  |  Uso restrito a colaborador, gestor direto e RH</Text>
+      </View>
     </Page>
   );
 }

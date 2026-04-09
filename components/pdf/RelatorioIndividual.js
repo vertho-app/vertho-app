@@ -1,63 +1,66 @@
 import React from 'react';
 import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer';
-import { colors, fonts, lh, tableStyles, pageStyles, nivelLabel } from './styles';
+import { colors, fonts, tableStyles, pageStyles, nivelColor, nivelBgColor, nivelLabel } from './styles';
 import PdfCover from './PdfCover';
-import { SectionTitle, BlockTitle } from './SectionTitle';
-import { TableLevelBadge, TableStatusBadge, LevelBadge, StatusBadge } from './StatusBadge';
+import { SectionTitle } from './SectionTitle';
+import { LevelDots } from './StatusBadge';
 import CompetencyBlock from './CompetencyBlock';
 
 const s = StyleSheet.create({
-  text: { fontFamily: 'Inter', fontSize: fonts.body, color: colors.textPrimary, lineHeight: lh.body },
-  textSmall: { fontFamily: 'Inter', fontSize: fonts.small, color: colors.textMuted, lineHeight: lh.small },
-  // Page 2 boxes
-  box: {
-    backgroundColor: colors.bgNeutral, borderWidth: 1, borderColor: colors.borderLight,
-    borderRadius: 8, padding: 14, marginBottom: 12,
+  text: { fontSize: fonts.body, color: colors.textSecondary, lineHeight: 1.65, marginBottom: 4 },
+  italic: { fontSize: fonts.body, color: colors.textMuted, fontStyle: 'italic', lineHeight: 1.6, marginBottom: 10 },
+  section: { marginBottom: 14 },
+  // Resumo Geral — bloco principal
+  resumoCard: {
+    backgroundColor: '#F8FAFC', borderRadius: 5, padding: 14,
+    marginBottom: 12, borderLeftWidth: 4, borderLeftColor: colors.navy,
   },
-  // Pontos — two columns
+  // Perfil box
+  perfilBox: {
+    backgroundColor: colors.perfilBg, borderRadius: 5, padding: 14,
+    marginBottom: 12, borderLeftWidth: 4, borderLeftColor: colors.cyan,
+  },
+  // Pontos fortes / atenção
   pontosRow: { flexDirection: 'row', marginBottom: 12 },
-  pontosCol: { flex: 1, borderRadius: 8, padding: 12, borderWidth: 1 },
-  pontosItem: { fontFamily: 'Inter', fontSize: fonts.body, color: colors.textPrimary, lineHeight: lh.small, marginBottom: 4 },
-  // Table
-  tableBox: {
-    borderWidth: 1, borderColor: colors.borderLight, borderRadius: 8,
-    padding: 12, marginTop: 12,
+  pontosCol: { flex: 1, padding: 12, borderRadius: 5 },
+  pontosHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  pontosDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
+  pontosLabel: { fontSize: 9, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 0.5 },
+  pontosItem: { fontSize: 9, color: colors.textPrimary, marginLeft: 12, marginBottom: 3, lineHeight: 1.5 },
+  // Tabela desempenho
+  tableRow: {
+    flexDirection: 'row', paddingVertical: 6, paddingHorizontal: 10,
+    borderBottomWidth: 0.5, borderBottomColor: colors.gray200, alignItems: 'center',
   },
-  tableRowFlag: { borderLeftWidth: 3, borderLeftColor: colors.flagRed },
-  // Divider
-  compDivider: { borderBottomWidth: 1, borderBottomColor: colors.borderLight, marginTop: 20, marginBottom: 20 },
-  // Consolidated section
-  consolidatedCard: {
-    backgroundColor: colors.bgNeutral, borderWidth: 1, borderColor: colors.borderLight,
-    borderRadius: 8, padding: 10, marginBottom: 8,
+  tableRowFlag: {
+    flexDirection: 'row', paddingVertical: 6, paddingHorizontal: 10,
+    borderBottomWidth: 0.5, borderBottomColor: colors.gray200, alignItems: 'center',
+    backgroundColor: '#FEF2F2',
   },
-  consolidatedName: {
-    fontFamily: 'Inter', fontWeight: 600, fontSize: fonts.blockTitle,
-    color: colors.titleStrong, marginBottom: 4,
-  },
-  consolidatedItem: { fontFamily: 'Inter', fontSize: fonts.body, color: colors.textPrimary, lineHeight: lh.small, marginBottom: 2 },
-  // Final message
-  finalBox: {
-    marginTop: 24, padding: 16,
-  },
-  finalTitle: {
-    fontFamily: 'Inter', fontWeight: 600, fontSize: fonts.sectionTitle,
-    color: colors.titleStrong, marginBottom: 8,
-  },
-  finalText: { fontFamily: 'Inter', fontSize: fonts.body, color: colors.textPrimary, lineHeight: lh.body },
   // Trilha
   trilhaBox: {
-    backgroundColor: colors.bgNeutral, borderWidth: 1, borderColor: colors.borderLight,
-    borderRadius: 8, padding: 12, marginBottom: 12,
+    backgroundColor: '#F0FAF4', borderRadius: 5, padding: 12,
+    marginBottom: 12, borderLeftWidth: 4, borderLeftColor: colors.teal,
   },
-  trilhaItem: { fontFamily: 'Inter', fontSize: fonts.body, color: colors.textSecondary, lineHeight: lh.small, marginBottom: 3 },
+  trilhaLabel: { fontSize: 8, fontWeight: 'bold', color: colors.teal, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5 },
+  trilhaItem: { fontSize: 8.5, color: colors.textSecondary, marginLeft: 6, marginBottom: 2.5, lineHeight: 1.45 },
+  // Competency divider
+  compDivider: { borderBottomWidth: 0.5, borderBottomColor: colors.gray200, marginTop: 18, marginBottom: 18 },
+  // Mensagem final
+  finalBox: {
+    backgroundColor: colors.perfilBg, borderRadius: 6, padding: 24,
+    marginTop: 24, borderLeftWidth: 4, borderLeftColor: colors.coverAccent,
+  },
+  finalTitle: { fontSize: 14, fontWeight: 'bold', color: colors.navy, marginBottom: 12 },
+  finalText: { fontSize: 10, color: colors.textSecondary, lineHeight: 1.75, fontStyle: 'italic' },
 });
 
 // ── Fixed Header & Footer ───────────────────────────────────────────────────
 function PageHeader({ sub }) {
   return (
     <View style={pageStyles.header} fixed>
-      <Text style={pageStyles.headerTitle}>Vertho{sub ? ` \u2014 ${sub}` : ''}</Text>
+      <Text style={pageStyles.headerTitle}>VERTHO</Text>
+      <Text style={pageStyles.headerSub}>{sub}</Text>
     </View>
   );
 }
@@ -65,14 +68,14 @@ function PageHeader({ sub }) {
 function PageFooter() {
   return (
     <View style={pageStyles.footer} fixed>
-      <Text style={pageStyles.footerText}>{'Vertho Mentor IA \u2014 Confidencial'}</Text>
+      <Text style={pageStyles.footerText}>Vertho Mentor IA — Confidencial</Text>
       <Text style={pageStyles.footerText}
         render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
     </View>
   );
 }
 
-// ── Main ────────────────────────────────────────────────────────────────────
+// ── Main Component ──────────────────────────────────────────────────────────
 
 export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }) {
   const c = data.conteudo;
@@ -81,46 +84,63 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
   const competencias = c.competencias || [];
   const nome = data.colaborador_nome || '';
 
-  // Separar prioritárias (N1-2) e fortes (N3+)
-  const prioritarias = competencias.filter(comp => (comp.nivel || comp.nivel_atual || 0) <= 2);
-  const fortes = competencias.filter(comp => (comp.nivel || comp.nivel_atual || 0) >= 3);
-
   return (
     <Document title={`PDI - ${nome}`}>
-      {/* ═══ CAPA ═══ */}
-      <PdfCover logoBase64={logoBase64} nome={nome} cargo={data.colaborador_cargo} empresa={empresaNome} data={data.gerado_em} />
+      {/* ═══════════════════ CAPA ═══════════════════ */}
+      <PdfCover
+        logoBase64={logoBase64}
+        nome={nome}
+        cargo={data.colaborador_cargo}
+        empresa={empresaNome}
+        data={data.gerado_em}
+      />
 
-      {/* ═══ PÁGINA 2 — RESUMO EXECUTIVO ═══ */}
+      {/* ═══════════════════ RESUMO EXECUTIVO ═══════════════════ */}
       <Page size="A4" style={pageStyles.page} wrap>
         <PageHeader sub={nome} />
 
-        {/* Bloco 1: Resumo Geral */}
+        {/* Acolhimento */}
+        {c.acolhimento && <Text style={s.italic}>{c.acolhimento}</Text>}
+
+        {/* Resumo Geral — bloco principal com border navy */}
         {c.resumo_geral && (
-          <View style={s.box} wrap={false}>
+          <View style={s.section} wrap={false}>
             <SectionTitle>Resumo Geral</SectionTitle>
-            <Text style={s.text}>{c.resumo_geral}</Text>
+            <View style={s.resumoCard}>
+              <Text style={s.text}>{c.resumo_geral}</Text>
+            </View>
           </View>
         )}
 
-        {/* Bloco 2: Perfil Comportamental */}
+        {/* Perfil Comportamental */}
         {(c.perfil_comportamental || c.perfil_disc) && (
-          <View style={s.box} wrap={false}>
+          <View style={s.section} wrap={false}>
             <SectionTitle>Perfil Comportamental</SectionTitle>
-            <Text style={s.text}>{c.perfil_comportamental?.descricao || c.perfil_disc?.descricao}</Text>
+            <View style={s.perfilBox}>
+              <Text style={s.text}>
+                {c.perfil_comportamental?.descricao || c.perfil_disc?.descricao}
+              </Text>
+            </View>
           </View>
         )}
 
-        {/* Bloco 3: Pontos Fortes / Pontos de Atenção — 2 colunas */}
+        {/* Pontos Fortes / Pontos de Atenção — cards contrastantes */}
         {(c.perfil_comportamental || c.perfil_disc) && (
           <View style={s.pontosRow} wrap={false}>
-            <View style={{ ...s.pontosCol, backgroundColor: colors.bgPositive, borderColor: colors.borderPositive, marginRight: 8 }}>
-              <SectionTitle>Pontos Fortes</SectionTitle>
+            <View style={{ ...s.pontosCol, backgroundColor: '#E8F5E9', marginRight: 5, borderLeftWidth: 4, borderLeftColor: '#2E7D32' }}>
+              <View style={s.pontosHeader}>
+                <View style={{ ...s.pontosDot, backgroundColor: '#2E7D32' }} />
+                <Text style={{ ...s.pontosLabel, color: '#2E7D32' }}>Pontos Fortes</Text>
+              </View>
               {(c.perfil_comportamental?.pontos_forca || c.perfil_disc?.pontos_forca)?.map((p, i) => (
                 <Text key={i} style={s.pontosItem}>+ {p}</Text>
               ))}
             </View>
-            <View style={{ ...s.pontosCol, backgroundColor: colors.bgAttention, borderColor: colors.borderAttention, marginLeft: 8 }}>
-              <SectionTitle>{'Pontos de Aten\u00e7\u00e3o'}</SectionTitle>
+            <View style={{ ...s.pontosCol, backgroundColor: '#FFF3E0', marginLeft: 5, borderLeftWidth: 4, borderLeftColor: '#E65100' }}>
+              <View style={s.pontosHeader}>
+                <View style={{ ...s.pontosDot, backgroundColor: '#E65100' }} />
+                <Text style={{ ...s.pontosLabel, color: '#E65100' }}>Pontos de Aten\u00e7\u00e3o</Text>
+              </View>
               {(c.perfil_comportamental?.pontos_atencao || c.perfil_disc?.pontos_atencao)?.map((p, i) => (
                 <Text key={i} style={s.pontosItem}>! {p}</Text>
               ))}
@@ -128,28 +148,43 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
           </View>
         )}
 
-        {/* Bloco 4: Resumo de Desempenho — 3 colunas */}
-        {competencias.length > 0 && (
-          <View style={s.tableBox} wrap={false}>
+        {/* Resumo de Desempenho — tabela premium */}
+        {(c.resumo_desempenho || competencias)?.length > 0 && (
+          <View style={s.section} wrap={false}>
             <SectionTitle>Resumo de Desempenho</SectionTitle>
             <View style={tableStyles.table}>
               <View style={tableStyles.headerRow}>
-                <Text style={{ ...tableStyles.headerCell, width: '58%' }}>{'Compet\u00eancia'}</Text>
-                <Text style={{ ...tableStyles.headerCell, width: '14%', textAlign: 'center' }}>{'N\u00edvel'}</Text>
-                <Text style={{ ...tableStyles.headerCell, width: '28%', textAlign: 'center' }}>Status</Text>
+                <Text style={{ ...tableStyles.headerCell, flex: 3 }}>Compet\u00eancia</Text>
+                <Text style={{ ...tableStyles.headerCell, flex: 0.7, textAlign: 'center' }}>N\u00edvel</Text>
+                <Text style={{ ...tableStyles.headerCell, flex: 1.3, textAlign: 'center' }}>Status</Text>
+                <Text style={{ ...tableStyles.headerCell, flex: 1, textAlign: 'center' }}>Desempenho</Text>
               </View>
-              {competencias.map((comp, i) => {
+              {(c.resumo_desempenho || competencias).map((comp, i) => {
                 const nivel = comp.nivel || comp.nivel_atual || 0;
+                const nColor = nivelColor(nivel);
                 const isFlag = comp.flag || nivel <= 1;
-                const rowBase = i % 2 === 0 ? tableStyles.row : tableStyles.rowAlt;
+                const rowStyle = isFlag ? s.tableRowFlag : (i % 2 === 0 ? s.tableRow : { ...s.tableRow, backgroundColor: colors.gray100 });
                 return (
-                  <View key={i} style={{ ...rowBase, ...(isFlag ? s.tableRowFlag : {}) }} wrap={false}>
-                    <Text style={{ ...tableStyles.cellBold, width: '58%' }}>{comp.nome || comp.competencia}</Text>
-                    <View style={{ width: '14%', alignItems: 'center' }}>
-                      <TableLevelBadge nivel={nivel} />
+                  <View key={i} style={rowStyle}>
+                    <Text style={{ fontSize: 9, color: isFlag ? colors.flagRed : colors.navy, fontWeight: 'bold', flex: 3 }}>
+                      {isFlag ? '[!] ' : ''}{comp.competencia || comp.nome}
+                    </Text>
+                    <View style={{ flex: 0.7, alignItems: 'center' }}>
+                      <Text style={{
+                        fontSize: 8, fontWeight: 'bold', color: nColor,
+                        backgroundColor: nivelBgColor(nivel),
+                        paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3,
+                      }}>N{nivel}</Text>
                     </View>
-                    <View style={{ width: '28%', alignItems: 'center' }}>
-                      <TableStatusBadge nivel={nivel} />
+                    <View style={{ flex: 1.3, alignItems: 'center' }}>
+                      <Text style={{
+                        fontSize: 7, fontWeight: 'bold', color: nColor,
+                        backgroundColor: nivelBgColor(nivel),
+                        paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3,
+                      }}>{nivelLabel(nivel)}</Text>
+                    </View>
+                    <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
+                      <LevelDots nivel={nivel} color={nColor} />
                     </View>
                   </View>
                 );
@@ -160,77 +195,37 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
 
         {/* Trilha de Cursos */}
         {c.trilha_cursos?.length > 0 && (
-          <View style={s.trilhaBox} wrap={false}>
+          <View style={s.section} wrap={false}>
             <SectionTitle>Trilha de Desenvolvimento</SectionTitle>
-            {c.trilha_cursos.map((curso, i) => (
-              <Text key={i} style={s.trilhaItem}>
-                {i + 1}. {curso.nome}{curso.competencia ? ` (${curso.competencia})` : ''}
-              </Text>
-            ))}
+            <View style={s.trilhaBox}>
+              <Text style={s.trilhaLabel}>Cursos Recomendados</Text>
+              {c.trilha_cursos.map((curso, i) => (
+                <Text key={i} style={s.trilhaItem}>
+                  {i + 1}. {curso.nome}{curso.competencia ? ` (${curso.competencia})` : ''}
+                </Text>
+              ))}
+            </View>
           </View>
         )}
 
         <PageFooter />
       </Page>
 
-      {/* ═══ COMPETÊNCIAS PRIORITÁRIAS (detalhadas) ═══ */}
-      {prioritarias.length > 0 && (
-        <Page size="A4" style={pageStyles.page} wrap>
-          <PageHeader sub="Plano de Desenvolvimento Individual" />
-          {prioritarias.map((comp, idx) => {
-            const globalIdx = competencias.indexOf(comp);
-            return (
-              <View key={idx}>
-                {idx > 0 && <View style={s.compDivider} />}
-                <CompetencyBlock comp={comp} index={globalIdx} total={competencias.length} />
-              </View>
-            );
-          })}
-          <PageFooter />
-        </Page>
-      )}
+      {/* ═══════════════════ COMPET\u00caNCIAS ═══════════════════ */}
+      <Page size="A4" style={pageStyles.page} wrap>
+        <PageHeader sub="Plano de Desenvolvimento Individual" />
 
-      {/* ═══ COMPETÊNCIAS CONSOLIDADAS (enxutas) ═══ */}
-      {fortes.length > 0 && (
-        <Page size="A4" style={pageStyles.page} wrap>
-          <PageHeader sub="PDI" />
-          <SectionTitle>{'Compet\u00eancias Consolidadas'}</SectionTitle>
-          <Text style={{ ...s.textSmall, marginBottom: 12 }}>
-            {'Compet\u00eancias com bom desempenho. Foco: manter e fortalecer.'}
-          </Text>
-          {fortes.map((comp, idx) => {
-            const nivel = comp.nivel || comp.nivel_atual || 0;
-            const pontosFortes = (comp.fez_bem || []).slice(0, 2);
-            const orientacao = comp.dicas_desenvolvimento?.[0] || comp.feedback?.slice(0, 120) || '';
-            return (
-              <View key={idx} style={s.consolidatedCard} wrap={false}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                  <Text style={s.consolidatedName}>{comp.nome}</Text>
-                  <View style={{ marginLeft: 8, flexDirection: 'row' }}>
-                    <LevelBadge nivel={nivel} />
-                    <StatusBadge nivel={nivel} />
-                  </View>
-                </View>
-                {pontosFortes.length > 0 && (
-                  <View style={{ marginBottom: 4 }}>
-                    <Text style={{ fontFamily: 'Inter', fontWeight: 600, fontSize: fonts.small, color: colors.fezBemTitle, marginBottom: 2 }}>Pontos Fortes</Text>
-                    {pontosFortes.map((p, i) => <Text key={i} style={s.consolidatedItem}>+ {p}</Text>)}
-                  </View>
-                )}
-                {orientacao && (
-                  <View>
-                    <Text style={{ fontFamily: 'Inter', fontWeight: 600, fontSize: fonts.small, color: colors.textMuted, marginBottom: 2 }}>{'Orienta\u00e7\u00e3o'}</Text>
-                    <Text style={s.consolidatedItem}>{orientacao}</Text>
-                  </View>
-                )}
-              </View>
-            );
-          })}
-          <PageFooter />
-        </Page>
-      )}
+        {competencias.map((comp, idx) => (
+          <View key={idx}>
+            {idx > 0 && <View style={s.compDivider} />}
+            <CompetencyBlock comp={comp} index={idx} total={competencias.length} />
+          </View>
+        ))}
 
-      {/* ═══ MENSAGEM FINAL ═══ */}
+        <PageFooter />
+      </Page>
+
+      {/* ═══════════════════ MENSAGEM FINAL ═══════════════════ */}
       {c.mensagem_final && (
         <Page size="A4" style={pageStyles.page}>
           <PageHeader sub="PDI" />

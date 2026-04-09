@@ -1,163 +1,218 @@
 import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
-import { colors, fonts, lh } from './styles';
-import { LevelBadge, StatusBadge, PriorityBadge } from './StatusBadge';
-import { BlockTitle } from './SectionTitle';
+import { colors, fonts, nivelColor, nivelBgColor, nivelLabel } from './styles';
+import { LevelDots } from './StatusBadge';
 import ChecklistBox from './ChecklistBox';
 
 const s = StyleSheet.create({
-  // Header
-  headerBox: { marginBottom: 12 },
-  compName: {
-    fontFamily: 'Inter', fontWeight: 600, fontSize: fonts.compName,
-    color: colors.titleStrong, lineHeight: lh.compName, marginBottom: 6,
+  // ── Header navy ──
+  headerBox: {
+    backgroundColor: colors.navy, borderRadius: 5, padding: 12,
+    marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
-  badgeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  badgeLeft: { flexDirection: 'row', alignItems: 'center' },
-  counter: { fontFamily: 'Inter', fontSize: fonts.small, color: colors.textMuted },
+  headerLeft: { flex: 1, marginRight: 10 },
+  compName: { fontSize: 13, fontWeight: 'bold', color: colors.white, marginBottom: 2 },
+  counter: { fontSize: 6.5, color: '#7B91AB', letterSpacing: 0.3 },
+  headerRight: { alignItems: 'flex-end' },
+  levelRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
+  levelBadge: {
+    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 3, marginRight: 6,
+  },
+  levelText: { fontSize: 11, fontWeight: 'bold' },
+  statusText: { fontSize: 7.5, color: '#94A3B8', fontWeight: 'bold', letterSpacing: 0.3 },
+  // Flag
+  flagBadge: {
+    backgroundColor: '#FEE2E2', paddingHorizontal: 10, paddingVertical: 3,
+    borderRadius: 3, marginBottom: 10, alignSelf: 'flex-start',
+  },
+  flagText: { fontSize: 7.5, fontWeight: 'bold', color: '#991B1B', letterSpacing: 0.5 },
+  // ── Section labels ──
+  sectionLabel: {
+    fontSize: 7.5, fontWeight: 'bold', color: colors.textMuted,
+    textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4,
+  },
   // Descritores
-  descritorBox: { marginBottom: 12 },
-  descritorItem: { fontFamily: 'Inter', fontSize: fonts.body, color: colors.textPrimary, lineHeight: lh.small, marginBottom: 3 },
-  // Two columns
-  twoCol: { flexDirection: 'row', marginBottom: 12 },
-  colBox: { flex: 1, borderRadius: 8, padding: 12, borderWidth: 1 },
-  colItem: { fontFamily: 'Inter', fontSize: fonts.body, color: colors.textPrimary, lineHeight: lh.small, marginBottom: 4 },
-  // Analysis
-  analysisBox: {
-    backgroundColor: colors.bgAnalysis, borderWidth: 1, borderColor: colors.borderLight,
-    borderRadius: 8, padding: 14, marginBottom: 12,
+  descritorBox: {
+    backgroundColor: '#FFF8E1', borderRadius: 4, padding: 10,
+    marginBottom: 10, borderLeftWidth: 3, borderLeftColor: '#E65100',
   },
-  analysisText: { fontFamily: 'Inter', fontSize: fonts.body, color: colors.textPrimary, lineHeight: lh.body },
-  // Plan week card
+  descritorItem: { fontSize: 9, color: colors.textPrimary, marginLeft: 6, marginBottom: 2.5, lineHeight: 1.5 },
+  // Two columns — fez bem / melhorar
+  twoCol: { flexDirection: 'row', marginBottom: 10 },
+  fezBemCol: {
+    flex: 1, backgroundColor: '#E8F5E9', padding: 10, marginRight: 4, borderRadius: 4,
+    borderLeftWidth: 3, borderLeftColor: '#2E7D32',
+  },
+  melhorarCol: {
+    flex: 1, backgroundColor: '#FFF3E0', padding: 10, marginLeft: 4, borderRadius: 4,
+    borderLeftWidth: 3, borderLeftColor: '#E65100',
+  },
+  colHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
+  colDot: { width: 5, height: 5, borderRadius: 3, marginRight: 5 },
+  colLabel: { fontSize: 8, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 0.5 },
+  colItem: { fontSize: 9, color: colors.textPrimary, marginLeft: 10, marginBottom: 2.5, lineHeight: 1.45 },
+  // Feedback / An\u00e1lise
+  feedbackBox: {
+    backgroundColor: '#F0F4FA', borderRadius: 4, padding: 12,
+    marginBottom: 10, borderLeftWidth: 3, borderLeftColor: colors.cyan,
+  },
+  feedbackLabel: {
+    fontSize: 8, fontWeight: 'bold', color: colors.cyan,
+    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5,
+  },
+  feedbackText: { fontSize: 9, color: colors.textSecondary, lineHeight: 1.65, fontStyle: 'italic' },
+  // Plano 30 dias
+  planoContainer: { marginBottom: 12 },
+  planoTitle: { fontSize: 10, fontWeight: 'bold', color: colors.navy, marginBottom: 8 },
   weekCard: {
-    borderWidth: 1, borderColor: colors.borderLight, borderRadius: 8,
-    padding: 10, marginBottom: 8, backgroundColor: colors.white,
+    backgroundColor: '#E8EDF5', borderRadius: 4, padding: 10, marginBottom: 5,
     flexDirection: 'row', alignItems: 'flex-start',
   },
-  weekSeal: {
-    width: 18, height: 18, borderRadius: 4, backgroundColor: '#E5E7EB',
-    alignItems: 'center', justifyContent: 'center', marginRight: 10, marginTop: 1,
+  weekNum: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: colors.navy, alignItems: 'center', justifyContent: 'center',
+    marginRight: 10, marginTop: 1,
   },
-  weekSealText: { fontFamily: 'Inter', fontWeight: 600, fontSize: fonts.small, color: '#111827' },
+  weekNumText: { fontSize: 10, fontWeight: 'bold', color: colors.white },
   weekContent: { flex: 1 },
-  weekFoco: { fontFamily: 'Inter', fontWeight: 600, fontSize: fonts.blockTitle, color: colors.titleStrong, marginBottom: 3 },
-  weekAcao: { fontFamily: 'Inter', fontSize: fonts.body, color: colors.textPrimary, lineHeight: lh.small, marginBottom: 2 },
-  // Tips
-  tipsBox: {
-    backgroundColor: colors.bgNeutral, borderWidth: 1, borderColor: colors.borderLight,
-    borderRadius: 8, padding: 12, marginBottom: 10,
+  weekFoco: { fontSize: 9, fontWeight: 'bold', color: colors.navyLight, marginBottom: 3 },
+  weekAcao: { fontSize: 8.5, color: colors.textSecondary, marginLeft: 4, marginBottom: 1.5, lineHeight: 1.45 },
+  // Dicas
+  dicasBox: {
+    marginBottom: 10, padding: 10, backgroundColor: '#F0FAF4', borderRadius: 4,
+    borderLeftWidth: 3, borderLeftColor: colors.teal,
   },
-  tipItem: { fontFamily: 'Inter', fontSize: fonts.body, color: colors.textPrimary, lineHeight: lh.small, marginBottom: 3 },
-  // Study
-  studyBox: {
-    backgroundColor: colors.white, borderWidth: 1, borderColor: colors.borderLight,
-    borderRadius: 8, padding: 12, marginBottom: 10,
+  dicaLabel: { fontSize: 8, fontWeight: 'bold', color: colors.teal, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5 },
+  dicaItem: { fontSize: 8.5, color: colors.textSecondary, marginLeft: 6, marginBottom: 2.5, lineHeight: 1.5 },
+  // Estudo
+  estudoBox: {
+    marginBottom: 10, padding: 10, backgroundColor: '#F5F0FF', borderRadius: 4,
+    borderLeftWidth: 3, borderLeftColor: '#6B46C1',
   },
-  studyItem: { fontFamily: 'Inter', fontSize: fonts.body, color: colors.linkBlue, lineHeight: lh.small, marginBottom: 3 },
+  estudoLabel: { fontSize: 8, fontWeight: 'bold', color: '#6B46C1', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5 },
+  estudoItem: { fontSize: 8.5, color: colors.linkBlue, marginLeft: 6, marginBottom: 2.5, lineHeight: 1.45 },
 });
 
 export default function CompetencyBlock({ comp, index, total }) {
   const nivel = comp.nivel || comp.nivel_atual || 0;
   const isFlag = comp.flag || nivel <= 1;
+  const isStrong = nivel >= 3; // Compet\u00eancia consolidada — bloco mais compacto
+  const nColor = nivelColor(nivel);
+  const nBg = nivelBgColor(nivel);
 
   return (
     <View>
-      {/* Header */}
+      {/* ── Header navy ── */}
       <View style={s.headerBox} wrap={false}>
-        <Text style={s.compName}>{comp.nome}</Text>
-        <View style={s.badgeRow}>
-          <View style={s.badgeLeft}>
-            <LevelBadge nivel={nivel} />
-            <StatusBadge nivel={nivel} />
-            {isFlag && <PriorityBadge />}
+        <View style={s.headerLeft}>
+          <Text style={s.compName}>{comp.nome}</Text>
+          <Text style={s.counter}>Compet\u00eancia {index + 1} de {total}</Text>
+        </View>
+        <View style={s.headerRight}>
+          <View style={s.levelRow}>
+            <View style={{ ...s.levelBadge, backgroundColor: nBg }}>
+              <Text style={{ ...s.levelText, color: nColor }}>N{nivel}</Text>
+            </View>
+            <LevelDots nivel={nivel} color={nColor} />
           </View>
-          <Text style={s.counter}>{'Compet\u00eancia'} {index + 1} de {total}</Text>
+          <Text style={s.statusText}>{nivelLabel(nivel)}</Text>
         </View>
       </View>
 
-      {/* Descritores em Desenvolvimento */}
-      {comp.descritores_desenvolvimento?.length > 0 && (
-        <View style={s.descritorBox}>
-          <BlockTitle>Descritores em Desenvolvimento</BlockTitle>
+      {/* Flag de prioridade */}
+      {isFlag && (
+        <View style={s.flagBadge}>
+          <Text style={s.flagText}>ATEN\u00c7\u00c3O PRIORIT\u00c1RIA</Text>
+        </View>
+      )}
+
+      {/* ── Descritores em desenvolvimento (apenas para N1-2) ── */}
+      {!isStrong && comp.descritores_desenvolvimento?.length > 0 && (
+        <View style={s.descritorBox} wrap={false}>
+          <Text style={s.sectionLabel}>Descritores em Desenvolvimento</Text>
           {comp.descritores_desenvolvimento.map((d, i) => (
-            <Text key={i} style={s.descritorItem}>{'  \u2013 '}{d}</Text>
+            <Text key={i} style={s.descritorItem}>- {d}</Text>
           ))}
         </View>
       )}
 
-      {/* Fez Bem / Melhorar */}
+      {/* ── Fez Bem / Melhorar ── */}
       <View style={s.twoCol} wrap={false}>
-        <View style={{ ...s.colBox, backgroundColor: colors.bgPositive, borderColor: colors.borderPositive, marginRight: 8 }}>
-          <BlockTitle color={colors.fezBemTitle}>FEZ BEM</BlockTitle>
+        <View style={s.fezBemCol}>
+          <View style={s.colHeader}>
+            <View style={{ ...s.colDot, backgroundColor: '#2E7D32' }} />
+            <Text style={{ ...s.colLabel, color: '#2E7D32' }}>Fez Bem</Text>
+          </View>
           {comp.fez_bem?.length > 0
             ? comp.fez_bem.map((e, j) => <Text key={j} style={s.colItem}>+ {e}</Text>)
-            : <Text style={s.colItem}>{'\u2014'}</Text>
+            : <Text style={s.colItem}>-</Text>
           }
         </View>
-        <View style={{ ...s.colBox, backgroundColor: colors.bgAttention, borderColor: colors.borderAttention, marginLeft: 8 }}>
-          <BlockTitle color={colors.melhorarTitle}>MELHORAR</BlockTitle>
+        <View style={s.melhorarCol}>
+          <View style={s.colHeader}>
+            <View style={{ ...s.colDot, backgroundColor: '#E65100' }} />
+            <Text style={{ ...s.colLabel, color: '#E65100' }}>Melhorar</Text>
+          </View>
           {comp.melhorar?.length > 0
-            ? comp.melhorar.map((e, j) => <Text key={j} style={s.colItem}>{'\u2013 '}{e}</Text>)
-            : <Text style={s.colItem}>{'\u2014'}</Text>
+            ? comp.melhorar.map((e, j) => <Text key={j} style={s.colItem}>- {e}</Text>)
+            : <Text style={s.colItem}>-</Text>
           }
         </View>
       </View>
 
-      {/* Análise */}
+      {/* ── An\u00e1lise (feedback) ── */}
       {comp.feedback && (
-        <View style={s.analysisBox} wrap={false}>
-          <BlockTitle>{'AN\u00c1LISE'}</BlockTitle>
-          <Text style={s.analysisText}>{comp.feedback}</Text>
+        <View style={s.feedbackBox} wrap={false}>
+          <Text style={s.feedbackLabel}>An\u00e1lise</Text>
+          <Text style={s.feedbackText}>{comp.feedback}</Text>
         </View>
       )}
 
-      {/* Plano de Desenvolvimento — 30 Dias */}
-      {comp.plano_30_dias && (
-        <View style={{ marginBottom: 12 }}>
-          <BlockTitle>{'Plano de Desenvolvimento \u2014 30 Dias'}</BlockTitle>
-          <View style={{ marginTop: 4 }}>
-            {['semana_1', 'semana_2', 'semana_3', 'semana_4'].map((sem, si) => {
-              const semana = comp.plano_30_dias[sem];
-              if (!semana) return null;
-              return (
-                <View key={si} style={s.weekCard} wrap={false}>
-                  <View style={s.weekSeal}>
-                    <Text style={s.weekSealText}>{si + 1}</Text>
-                  </View>
-                  <View style={s.weekContent}>
-                    <Text style={s.weekFoco}>{semana.foco}</Text>
-                    {semana.acoes?.map((a, ai) => (
-                      <Text key={ai} style={s.weekAcao}>{'\u2013 '}{a}</Text>
-                    ))}
-                  </View>
+      {/* ── Plano 30 dias (apenas para N1-2, priorit\u00e1rias) ── */}
+      {!isStrong && comp.plano_30_dias && (
+        <View style={s.planoContainer}>
+          <Text style={s.planoTitle}>Plano de Desenvolvimento — 30 Dias</Text>
+          {['semana_1', 'semana_2', 'semana_3', 'semana_4'].map((sem, si) => {
+            const semana = comp.plano_30_dias[sem];
+            if (!semana) return null;
+            return (
+              <View key={si} style={s.weekCard} wrap={false}>
+                <View style={s.weekNum}>
+                  <Text style={s.weekNumText}>{si + 1}</Text>
                 </View>
-              );
-            })}
-          </View>
+                <View style={s.weekContent}>
+                  <Text style={s.weekFoco}>{semana.foco}</Text>
+                  {semana.acoes?.map((a, ai) => (
+                    <Text key={ai} style={s.weekAcao}>- {a}</Text>
+                  ))}
+                </View>
+              </View>
+            );
+          })}
         </View>
       )}
 
-      {/* Dicas de Desenvolvimento */}
+      {/* ── Dicas de Desenvolvimento ── */}
       {comp.dicas_desenvolvimento?.length > 0 && (
-        <View style={s.tipsBox} wrap={false}>
-          <BlockTitle>DICAS DE DESENVOLVIMENTO</BlockTitle>
+        <View style={s.dicasBox} wrap={false}>
+          <Text style={s.dicaLabel}>Dicas de Desenvolvimento</Text>
           {comp.dicas_desenvolvimento.map((d, i) => (
-            <Text key={i} style={s.tipItem}>{'\u2013 '}{d}</Text>
+            <Text key={i} style={s.dicaItem}>- {d}</Text>
           ))}
         </View>
       )}
 
-      {/* Estudo Recomendado */}
+      {/* ── Estudo Recomendado ── */}
       {comp.estudo_recomendado?.length > 0 && (
-        <View style={s.studyBox} wrap={false}>
-          <BlockTitle>ESTUDO RECOMENDADO</BlockTitle>
+        <View style={s.estudoBox} wrap={false}>
+          <Text style={s.estudoLabel}>Estudo Recomendado</Text>
           {comp.estudo_recomendado.map((e, i) => (
-            <Text key={i} style={s.studyItem}>{'\u2013 '}{e}</Text>
+            <Text key={i} style={s.estudoItem}>- {e}</Text>
           ))}
         </View>
       )}
 
-      {/* Checklist Tático */}
+      {/* ── Checklist T\u00e1tico ── */}
       {comp.checklist_tatico?.length > 0 && (
         <ChecklistBox items={comp.checklist_tatico} />
       )}
