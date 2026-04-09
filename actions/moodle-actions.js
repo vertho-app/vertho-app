@@ -21,7 +21,7 @@ export async function moodleImportarCatalogo(empresaId) {
     if (!cursos?.length) return { success: false, error: 'Nenhum curso encontrado no Moodle (API retornou vazio)' };
 
     const moodleUrl = process.env.MOODLE_URL || 'https://academia.vertho.ai';
-    let importados = 0;
+    let importados = 0, ultimoErro = '';
 
     for (const curso of cursos) {
       // Buscar conteúdo de cada curso (seções + módulos)
@@ -44,9 +44,10 @@ export async function moodleImportarCatalogo(empresaId) {
       }, { onConflict: 'empresa_id,course_id' });
 
       if (!error) importados++;
+      else ultimoErro = error.message;
     }
 
-    return { success: true, message: `${importados} cursos importados do Moodle. Rode "Catalogar Conteúdos" para classificar com IA.` };
+    return { success: true, message: `${importados}/${cursos.length} cursos importados do Moodle${ultimoErro ? ` — ${ultimoErro}` : ''}. Rode "Catalogar Conteúdos" para classificar com IA.` };
   } catch (err) {
     return { success: false, error: err.message };
   }
