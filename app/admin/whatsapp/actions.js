@@ -105,7 +105,8 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
         if (phone.length <= 11) phone = `55${phone}`;
 
         // <= 50 destinatários: Z-API direto | > 50: QStash (async com retry)
-        if (colabs.length <= 50) {
+        // TESTE: forçar QStash para todos (remover depois)
+        if (false && colabs.length <= 50) {
           try {
             if (enviados > 0) await new Promise(resolve => setTimeout(resolve, 1000));
             const res = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-text`, {
