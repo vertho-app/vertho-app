@@ -53,6 +53,8 @@ DIRETRIZES DE TOM:
 8. Niveis SEMPRE NUMERICOS: 1, 2, 3 ou 4. Nivel 3 = META.
 9. Use APENAS competencias que foram avaliadas. NAO invente outras.
 10. Para cada competencia com gap (nivel < 3), gere plano de 30 dias detalhado.
+11. Se CURSOS RECOMENDADOS forem fornecidos, INCLUA-OS no plano de 30 dias e no estudo recomendado.
+    Use o nome e URL exatos dos cursos. Distribua ao longo das 4 semanas conforme o nivel.
 
 FORMATO: APENAS JSON valido. Portugues com acentuacao correta.
 {
@@ -137,7 +139,20 @@ export async function gerarRelatorioIndividual(empresaId, colaboradorId, aiConfi
       };
     });
 
-    const user = `COLABORADOR: ${colab.nome_completo}\nCARGO: ${colab.cargo}\nEMPRESA: ${empresa.nome} (${empresa.segmento})\n\nPERFIL COMPORTAMENTAL:\n${perfilCIS}\n\nDADOS POR COMPETENCIA:\n${JSON.stringify(dadosComps, null, 2)}`;
+    // Buscar trilha montada (cursos recomendados do Moodle)
+    let trilhaTexto = '';
+    try {
+      const { data: trilha } = await sb.from('trilhas')
+        .select('cursos')
+        .eq('empresa_id', empresaId)
+        .eq('colaborador_id', colaboradorId)
+        .maybeSingle();
+      if (trilha?.cursos?.length) {
+        trilhaTexto = `\n\nCURSOS RECOMENDADOS (Moodle — usar no plano de 30 dias e estudo recomendado):\n${trilha.cursos.map(c => `- ${c.nome} (${c.competencia || ''}, N${c.nivel || '?'}) — ${c.url || ''}`).join('\n')}`;
+      }
+    } catch {}
+
+    const user = `COLABORADOR: ${colab.nome_completo}\nCARGO: ${colab.cargo}\nEMPRESA: ${empresa.nome} (${empresa.segmento})\n\nPERFIL COMPORTAMENTAL:\n${perfilCIS}\n\nDADOS POR COMPETENCIA:\n${JSON.stringify(dadosComps, null, 2)}${trilhaTexto}`;
 
     const resultado = await callAI(RELATORIO_IND_SYSTEM, user, aiConfig, 64000);
     const relatorio = await extractJSON(resultado);

@@ -76,8 +76,11 @@ const PHASE_CONFIG = [
       { key: 'ia4', label: 'Rodar IA4', icon: Zap, ai: true },
       { key: 'check', label: 'Check Avaliações', icon: CheckCircle, ai: true },
     ]},
+    { label: 'Trilhas + PDI', actions: [
+      { key: 'trilhas', label: 'Montar Trilhas', icon: Layers },
+      { key: 'rel-ind', label: 'Gerar PDI', icon: FileText, ai: true },
+    ]},
     { label: 'Relatórios', actions: [
-      { key: 'rel-ind', label: 'PDI Individual', icon: FileText, ai: true },
       { key: 'rel-gestor', label: 'Gestor', icon: FileBarChart, ai: true },
       { key: 'rel-rh', label: 'RH', icon: FileBarChart, ai: true },
     ]},
@@ -86,8 +89,7 @@ const PHASE_CONFIG = [
     ]},
   ]},
   { num: 3, icon: GraduationCap, color: '#22C55E', groups: [
-    { label: 'Trilhas', actions: [
-      { key: 'trilhas', label: 'Montar Trilhas', icon: Layers },
+    { label: 'Capacitação', actions: [
       { key: 'estrutura', label: 'Criar Estrutura', icon: Database },
       { key: 'iniciar', label: 'Iniciar Todos', icon: Play },
       { key: 'status-f4', label: 'Status', icon: BarChart3 },
