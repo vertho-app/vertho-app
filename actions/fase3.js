@@ -263,12 +263,13 @@ export async function reavaliarResposta(respostaId, aiConfig = {}) {
     const check = typeof resp.payload_ia4 === 'string' ? JSON.parse(resp.payload_ia4) : resp.payload_ia4;
     const feedbackCheck = [check?.justificativa, check?.revisao].filter(Boolean).join('\n');
 
-    // Limpar avaliação anterior
-    await sb.from('respostas').update({
+    // Limpar avaliação anterior (manter status_ia4 null para re-check)
+    const { error: clearErr } = await sb.from('respostas').update({
       avaliacao_ia: null, nivel_ia4: null, nota_ia4: null,
       status_ia4: null, payload_ia4: null,
       pontos_fortes: null, pontos_atencao: null, feedback_ia4: null, avaliado_em: null,
     }).eq('id', respostaId).select('id');
+    if (clearErr) return { success: false, error: `Limpar avaliação falhou: ${clearErr.message}` };
 
     // Buscar dados necessários (mesmo fluxo do rodarIA4)
     const { data: empresa } = await sb.from('empresas')
@@ -322,7 +323,7 @@ export async function reavaliarResposta(respostaId, aiConfig = {}) {
     const nivelGeral = avaliacao.consolidacao?.nivel_geral || avaliacao.nivel_geral || null;
     const notaDecimal = avaliacao.consolidacao?.media_descritores || avaliacao.nota_decimal || null;
 
-    await sb.from('respostas').update({
+    const { data: updated, error: updErr } = await sb.from('respostas').update({
       avaliacao_ia: avaliacao,
       nivel_ia4: nivelGeral,
       nota_ia4: notaDecimal,
@@ -331,6 +332,9 @@ export async function reavaliarResposta(respostaId, aiConfig = {}) {
       feedback_ia4: avaliacao.feedback || null,
       avaliado_em: new Date().toISOString(),
     }).eq('id', respostaId).select('id');
+
+    if (updErr) return { success: false, error: `Re-avaliação UPDATE falhou: ${updErr.message}` };
+    if (!updated?.length) return { success: false, error: 'Re-avaliação: 0 linhas atualizadas' };
 
     return { success: true, message: `Re-avaliado: ${compNome} — N${nivelGeral}` };
   } catch (err) {
