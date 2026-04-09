@@ -281,22 +281,31 @@ export default function Fase0Page({ params }) {
               <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
                 <table className="w-full text-sm">
                   <thead>
+                    {(() => {
+                      const cobFiltered = cobertura.filter(c => !filtroCargo || c.cargo === filtroCargo);
+                      const temDescritores = cobFiltered.some(c => c.descritor && c.descritor !== '(geral)');
+                      return (
                     <tr className="border-b border-white/[0.06] text-[9px] font-bold text-gray-500 uppercase tracking-widest">
                       <th className="px-4 py-2 text-left">Competência</th>
-                      <th className="px-4 py-2 text-left">Descritor</th>
+                      {temDescritores && <th className="px-4 py-2 text-left">Descritor</th>}
                       <th className="px-4 py-2 text-center">N1-N2</th>
                       <th className="px-4 py-2 text-center">N2-N3</th>
                       <th className="px-4 py-2 text-center w-16">Cobertura</th>
                     </tr>
+                      );
+                    })()}
                   </thead>
                   <tbody className="divide-y divide-white/[0.03]">
-                    {cobertura.filter(c => !filtroCargo || c.cargo === filtroCargo).map(c => {
+                    {(() => {
+                      const cobFiltered = cobertura.filter(c => !filtroCargo || c.cargo === filtroCargo);
+                      const temDescritores = cobFiltered.some(c => c.descritor && c.descritor !== '(geral)');
+                      return cobFiltered.map(c => {
                       const s1 = STATUS_COLORS[c.n1_n2_status] || STATUS_COLORS.vermelho;
                       const s2 = STATUS_COLORS[c.n2_n3_status] || STATUS_COLORS.vermelho;
                       return (
                         <tr key={c.id} className="hover:bg-white/[0.02]">
                           <td className="px-4 py-2 text-xs text-white font-medium">{c.competencia}</td>
-                          <td className="px-4 py-2 text-xs text-gray-400">{c.descritor || '(geral)'}</td>
+                          {temDescritores && <td className="px-4 py-2 text-xs text-gray-400">{c.descritor && c.descritor !== '(geral)' ? c.descritor : '—'}</td>}
                           <td className="px-4 py-2 text-center">
                             <div className="flex items-center justify-center gap-1">
                               <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${s1.bg} ${s1.text}`}>{s1.label}</span>
@@ -316,7 +325,8 @@ export default function Fase0Page({ params }) {
                           </td>
                         </tr>
                       );
-                    })}
+                    });
+                    })()}
                   </tbody>
                 </table>
               </div>

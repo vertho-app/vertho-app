@@ -45,15 +45,18 @@ export async function salvarCatalogoItem(id, campos) {
 
 export async function loadDescritoresPorCompetencia(empresaId, competenciaNome, cargo) {
   const sb = createSupabaseAdmin();
-  // Buscar cod_comp da competência
-  const { data: comp } = await sb.from('competencias')
-    .select('cod_comp')
-    .eq('empresa_id', empresaId)
-    .eq('nome', competenciaNome)
-    .eq('cargo', cargo)
-    .limit(1)
-    .maybeSingle();
-
+  // Buscar cod_comp — tentar com cargo, fallback sem
+  let comp;
+  if (cargo) {
+    const { data: c1 } = await sb.from('competencias')
+      .select('cod_comp').eq('empresa_id', empresaId).eq('nome', competenciaNome).eq('cargo', cargo).limit(1).maybeSingle();
+    comp = c1;
+  }
+  if (!comp) {
+    const { data: c2 } = await sb.from('competencias')
+      .select('cod_comp').eq('empresa_id', empresaId).eq('nome', competenciaNome).limit(1).maybeSingle();
+    comp = c2;
+  }
   if (!comp?.cod_comp) return [];
 
   const { data: descs } = await sb.from('competencias')
