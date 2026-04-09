@@ -53,7 +53,7 @@ async function buscarPDFColaborador(sb, empresaId, colaboradorId) {
   return { buffer, filename: rel.pdf_path.split('/').pop() };
 }
 
-export async function dispararMensagemCustomizada(empresaId, template, canal, filtros = {}, assuntoTemplate = '') {
+export async function dispararMensagemCustomizada(empresaId, template, canal, filtros = {}, assuntoTemplate = '', comPDF = false) {
   const sb = createSupabaseAdmin();
   try {
     const { data: empresa } = await sb.from('empresas')
@@ -81,7 +81,7 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
     const fromEmail = process.env.EMAIL_FROM || 'Vertho <noreply@vertho.com.br>';
     const hasResend = !!process.env.RESEND_API_KEY;
     const hasQStash = !!process.env.QSTASH_TOKEN;
-    const isRelatorio = assuntoTemplate.includes('Relatório') || template.includes('relatório');
+    const isRelatorio = comPDF;
     let enviados = 0, erros = 0, erroDetalhe = '';
 
     for (const colab of colabs) {

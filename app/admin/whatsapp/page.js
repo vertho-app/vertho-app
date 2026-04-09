@@ -62,6 +62,7 @@ export default function EnviosPage() {
   const [loadingStatus, setLoadingStatus] = useState(false);
 
   const [tab, setTab] = useState('email');
+  const [anexarPDF, setAnexarPDF] = useState(true);
   const [assunto, setAssunto] = useState('[{{empresa}}] Avaliação de Competências');
   const [mensagem, setMensagem] = useState(DEFAULT_MSGS.email);
   const [filtroCargo, setFiltroCargo] = useState('');
@@ -132,7 +133,8 @@ export default function EnviosPage() {
 
     const canal = (tab === 'email' || tab === 'relatorios-email') ? 'email' : 'whatsapp';
     const filtros = filtroCargo ? { cargo: filtroCargo } : {};
-    const r = await dispararMensagemCustomizada(empresaId, mensagem, canal, filtros, assunto);
+    const isRel = tab === 'relatorios-email' || tab === 'relatorios-whatsapp';
+    const r = await dispararMensagemCustomizada(empresaId, mensagem, canal, filtros, assunto, isRel && anexarPDF);
 
     setResult(r);
     setSending(false);
@@ -208,7 +210,11 @@ export default function EnviosPage() {
                   {destinatarios.length} destinatário(s) {(tab === 'email' || tab === 'relatorios-email') ? 'com email' : 'com WhatsApp'}
                 </div>
                 {(tab === 'relatorios-email' || tab === 'relatorios-whatsapp') && (
-                  <p className="text-[9px] text-purple-400 mt-2">O PDF do relatório individual será anexado automaticamente (se disponível)</p>
+                  <label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
+                    <input type="checkbox" checked={anexarPDF} onChange={e => setAnexarPDF(e.target.checked)}
+                      className="w-4 h-4 rounded border border-white/20 bg-[#091D35] accent-purple-400" />
+                    <span className="text-[10px] text-purple-400">Anexar PDF do relatório individual</span>
+                  </label>
                 )}
               </div>
 
