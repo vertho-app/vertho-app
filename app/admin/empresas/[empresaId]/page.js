@@ -10,7 +10,7 @@ import {
   ArrowLeft, Building2, Users, Brain, Mail, Bot, GraduationCap, TrendingUp,
   Zap, Database, FileText, Send, ClipboardCheck, BarChart3, Target, Clock,
   Play, BookOpen, Layers, MessageSquare, FileBarChart, CheckCircle,
-  Loader2, AlertTriangle, X, ChevronDown, ChevronUp, Trash2, Settings, Trophy, Plus, Filter, Search
+  Loader2, AlertTriangle, X, ChevronDown, ChevronUp, Trash2, Settings, Trophy, Plus, Filter, Search, RefreshCw
 } from 'lucide-react';
 
 import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, checkCenarioUm } from '@/actions/fase1';
@@ -23,7 +23,8 @@ import {
   verStatusEnvios,
   rodarIA4, checkAvaliacoes,
   montarTrilhasLote, salvarCompetenciaFoco, loadCompetenciasFoco,
-  criarEstruturaFase4, iniciarFase4ParaTodos, triggerSegundaFase4, triggerQuintaFase4, getStatusFase4, moodleImportarCatalogo, catalogarConteudosMoodle, gerarCoberturaConteudo,
+  provisionarMoodleLote, syncProgressoMoodle, iniciarCapacitacao, avancarSemana, enviarNudgesInatividade,
+  moodleImportarCatalogo, catalogarConteudosMoodle, gerarCoberturaConteudo,
   iniciarReavaliacaoLote, gerarRelatoriosEvolucaoLote, gerarPlenariaEvolucao, gerarRelatorioRHManual, gerarRelatorioPlenaria, enviarLinksPerfil, gerarDossieGestor, checkCenarios,
 } from './actions';
 
@@ -90,10 +91,14 @@ const PHASE_CONFIG = [
     ]},
   ]},
   { num: 3, icon: GraduationCap, color: '#22C55E', groups: [
+    { label: 'Moodle', actions: [
+      { key: 'prov-moodle', label: 'Provisionar Moodle', icon: BookOpen },
+      { key: 'sync-moodle', label: 'Sync Progresso', icon: RefreshCw },
+    ]},
     { label: 'Capacitação', actions: [
-      { key: 'estrutura', label: 'Criar Estrutura', icon: Database },
-      { key: 'iniciar', label: 'Iniciar Todos', icon: Play },
-      { key: 'status-f4', label: 'Status', icon: BarChart3 },
+      { key: 'iniciar-cap', label: 'Iniciar Capacitação', icon: Play },
+      { key: 'avancar-sem', label: 'Avançar Semana', icon: Clock },
+      { key: 'nudges', label: 'Nudges Inatividade', icon: AlertTriangle },
     ]},
   ]},
   { num: 4, icon: TrendingUp, color: '#A78BFA', actions: [
@@ -108,8 +113,8 @@ const ACTION_MAP = {
   ia1: rodarIA1, ia2: rodarIA2, ia3: rodarIA3,
   ia4: rodarIA4, check: checkAvaliacoes,
   trilhas: montarTrilhasLote,
-  estrutura: criarEstruturaFase4, iniciar: iniciarFase4ParaTodos,
-  'trig-seg': triggerSegundaFase4, 'trig-qui': triggerQuintaFase4, 'status-f4': getStatusFase4,
+  'prov-moodle': provisionarMoodleLote, 'sync-moodle': syncProgressoMoodle,
+  'iniciar-cap': iniciarCapacitacao, 'avancar-sem': avancarSemana, nudges: enviarNudgesInatividade,
   'moodle-imp': moodleImportarCatalogo, 'moodle-cat': catalogarConteudosMoodle, cobertura: gerarCoberturaConteudo,
   reav: iniciarReavaliacaoLote, evolucao: gerarRelatoriosEvolucaoLote, plenaria: gerarPlenariaEvolucao,
   'rh-rel': gerarRelatorioRHManual, 'rh-plen': gerarRelatorioPlenaria,
@@ -510,6 +515,16 @@ export default function EmpresaPipelinePage({ params }) {
                       <button onClick={() => router.push(`/admin/empresas/${empresaId}/relatorios`)}
                         className="text-[10px] font-bold text-purple-400 hover:text-purple-300">
                         Relatórios →
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Fase 3: link para dashboard */}
+                  {fase.num === 3 && (
+                    <div className="mb-3 mt-2 flex items-center gap-4 justify-end">
+                      <button onClick={() => router.push(`/admin/empresas/${empresaId}/fase3`)}
+                        className="text-[10px] font-bold text-green-400 hover:text-green-300">
+                        Dashboard Capacitação →
                       </button>
                     </div>
                   )}
