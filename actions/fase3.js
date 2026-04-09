@@ -53,7 +53,7 @@ Responda APENAS com JSON válido:
   "feedback": "Parágrafo com feedback construtivo."
 }`;
 
-    let avaliadas = 0, erros = 0;
+    let avaliadas = 0, erros = 0, ultimoErro = '';
 
     for (const resp of respostas) {
       try {
@@ -115,10 +115,11 @@ R4: ${resp.r4 || '(sem resposta)'}`;
         }
       } catch (e) {
         erros++;
+        ultimoErro = e.message;
       }
     }
 
-    return { success: true, message: `IA4 concluída: ${avaliadas} avaliadas${erros ? `, ${erros} erros` : ''}` };
+    return { success: true, message: `IA4 concluída: ${avaliadas} avaliadas${erros ? `, ${erros} erros` : ''}${ultimoErro ? ` — ${ultimoErro}` : ''}` };
   } catch (err) {
     return { success: false, error: err.message };
   }
