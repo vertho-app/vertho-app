@@ -106,7 +106,7 @@ export default function GerenciarPage() {
 
   function startEdit(c) {
     setEditId(c.id);
-    setEditData({ nome_completo: c.nome_completo || '', email: c.email || '', cargo: c.cargo || '', area_depto: c.area_depto || '', role: c.role || 'colaborador' });
+    setEditData({ nome_completo: c.nome_completo || '', email: c.email || '', cargo: c.cargo || '', area_depto: c.area_depto || '', role: c.role || 'colaborador', telefone: c.telefone || '' });
   }
 
   async function saveEdit() {
@@ -249,7 +249,9 @@ export default function GerenciarPage() {
                                   <option value="rh">RH</option>
                                 </select>
                               </td>
-                              <td className="px-4 py-2"></td>
+                              <td className="px-4 py-2"><input value={editData.telefone} onChange={e => setEditData(p => ({ ...p, telefone: e.target.value }))}
+                                placeholder="5511999999999"
+                                className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
                               <td className="px-4 py-2 text-center">
                                 <div className="flex items-center justify-center gap-1">
                                   <button onClick={saveEdit} disabled={saving} className="text-green-400 hover:text-green-300">

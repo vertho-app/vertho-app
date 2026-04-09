@@ -65,6 +65,7 @@ export async function atualizarColaborador(id, campos) {
   if (campos.email !== undefined) update.email = campos.email?.trim().toLowerCase() || null;
   if (campos.cargo !== undefined) update.cargo = campos.cargo?.trim() || null;
   if (campos.area_depto !== undefined) update.area_depto = campos.area_depto?.trim() || null;
+  if (campos.telefone !== undefined) update.telefone = campos.telefone?.trim() || null;
   if (campos.role !== undefined && VALID_ROLES.includes(campos.role)) update.role = campos.role;
 
   const { error } = await sb.from('colaboradores').update(update).eq('id', id);
