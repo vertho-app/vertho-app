@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, checkCenarioUm } from '@/actions/fase1';
-import { listarSessoesPendentes, simularUmaConversa } from '@/actions/simulador-conversas';
+import { listarPendentesSimulacao, simularUmaResposta } from '@/actions/simulador-conversas';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import {
   loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, loadColaboradoresLista,
@@ -191,27 +191,27 @@ export default function EmpresaPipelinePage({ params }) {
     addLog(`▶ ${label}${modelLabel}`, 'info');
 
     try {
-      // Simular conversas: uma por vez (Hobby 60s)
+      // Simular respostas: uma por vez (Hobby 60s)
       if (actionKey === 'simular') {
-        const fila = await listarSessoesPendentes(empresaId);
+        const fila = await listarPendentesSimulacao(empresaId);
         if (!fila?.success || !fila.data?.length) {
-          addLog(`❌ ${fila?.error || 'Nenhuma sessão para simular'}`, 'error');
+          addLog(`❌ ${fila?.error || 'Nenhuma simulação pendente'}`, 'error');
           setPendingAction(null);
           return;
         }
-        const pendentes = fila.data.filter(f => !f.jaConcluida);
+        const pendentes = fila.data.filter(f => !f.jaRespondido);
         const items = pendentes.length > 0 ? pendentes : fila.data;
-        addLog(`📋 ${items.length} conversas para simular`, 'info');
+        addLog(`📋 ${items.length} respostas para simular`, 'info');
 
         let ok = 0, erros = 0;
         for (let i = 0; i < items.length; i++) {
           const item = items[i];
-          addLog(`⏳ [${i + 1}/${items.length}] ${item.nome} — ${item.competencia_nome}`, 'info');
-          const r = await simularUmaConversa(empresaId, item.colaborador_id, item.competencia_id, aiConfig || undefined);
+          addLog(`⏳ [${i + 1}/${items.length}] ${item.nome} — ${item.cenario_titulo}`, 'info');
+          const r = await simularUmaResposta(empresaId, item.colaborador_id, item.cenario_id, aiConfig || undefined);
           if (r.success) { ok++; addLog(`✅ ${r.message}`, 'success'); }
           else { erros++; addLog(`⚠ ${item.nome}: ${r.error}`, 'error'); }
         }
-        addLog(`✅ Simulação concluída: ${ok} conversas${erros ? `, ${erros} erros` : ''}`, 'success');
+        addLog(`✅ Simulação concluída: ${ok} respostas${erros ? `, ${erros} erros` : ''}`, 'success');
         loadData();
         setPendingAction(null);
         return;

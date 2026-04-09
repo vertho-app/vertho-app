@@ -4,21 +4,19 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI } from './ai-client';
 import { extractJSON } from './utils';
 
-// ── Simulador de Conversas (para testes) ────────────────────────────────────
-// Gera conversas fictícias com distribuição realista de níveis:
-// 30% fraco (N1-2), 50% médio (N2-3), 20% forte (N3-4)
-// Cada conversa: 8-12 turnos alternados (mentor + colaborador)
+// ── Simulador de Respostas (para testes) ────────────────────────────────────
+// Gera respostas fictícias às 4 perguntas de cada cenário.
+// Distribuição realista: 30% fraco (N1-2), 50% médio (N2-3), 20% forte (N3-4)
 
-export async function listarSessoesPendentes(empresaId) {
+export async function listarPendentesSimulacao(empresaId) {
   const sb = createSupabaseAdmin();
 
-  // Buscar colaboradores com top5 selecionadas
-  const { data: top10 } = await sb.from('top10_cargos')
-    .select('cargo, competencia_id, competencia:competencias(id, nome, cod_comp)')
-    .eq('empresa_id', empresaId)
-    .order('cargo');
+  // Buscar cenários existentes
+  const { data: cenarios } = await sb.from('banco_cenarios')
+    .select('id, cargo, competencia_id, titulo')
+    .eq('empresa_id', empresaId);
 
-  if (!top10?.length) return { success: false, error: 'Nenhuma Top 10 encontrada' };
+  if (!cenarios?.length) return { success: false, error: 'Nenhum cenário encontrado. Rode IA3 primeiro.' };
 
   // Buscar colaboradores
   const { data: colabs } = await sb.from('colaboradores')
@@ -27,29 +25,27 @@ export async function listarSessoesPendentes(empresaId) {
 
   if (!colabs?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
 
-  // Buscar sessões existentes
-  const { data: sessoes } = await sb.from('sessoes_avaliacao')
-    .select('colaborador_id, competencia_id, status')
+  // Buscar respostas existentes
+  const { data: respostas } = await sb.from('respostas')
+    .select('colaborador_id, competencia_id')
     .eq('empresa_id', empresaId);
 
-  const sessaoMap = {};
-  (sessoes || []).forEach(s => { sessaoMap[`${s.colaborador_id}::${s.competencia_id}`] = s.status; });
+  const respSet = new Set((respostas || []).map(r => `${r.colaborador_id}::${r.competencia_id}`));
 
-  // Montar lista: colaborador × competência (do cargo do colaborador)
+  // Montar lista: colaborador × cenário (do cargo do colaborador)
   const pendentes = [];
   for (const colab of colabs) {
-    const compsDoCargoColab = top10.filter(t => t.cargo === colab.cargo);
-    for (const t of compsDoCargoColab) {
-      const key = `${colab.id}::${t.competencia_id}`;
-      const status = sessaoMap[key];
+    const cenariosDoCargoColab = cenarios.filter(c => c.cargo === colab.cargo);
+    for (const cen of cenariosDoCargoColab) {
+      const key = `${colab.id}::${cen.competencia_id}`;
       pendentes.push({
         colaborador_id: colab.id,
         nome: colab.nome_completo || colab.email,
         cargo: colab.cargo,
-        competencia_id: t.competencia_id,
-        competencia_nome: t.competencia?.nome || '—',
-        status: status || 'nao_iniciada',
-        jaConcluida: status === 'concluida',
+        competencia_id: cen.competencia_id,
+        cenario_id: cen.id,
+        cenario_titulo: cen.titulo,
+        jaRespondido: respSet.has(key),
       });
     }
   }
@@ -57,129 +53,92 @@ export async function listarSessoesPendentes(empresaId) {
   return { success: true, data: pendentes };
 }
 
-export async function simularUmaConversa(empresaId, colaboradorId, competenciaId, aiConfig = {}) {
+export async function simularUmaResposta(empresaId, colaboradorId, cenarioId, aiConfig = {}) {
   const sb = createSupabaseAdmin();
   try {
-    // Buscar dados
+    // Buscar colaborador
     const { data: colab } = await sb.from('colaboradores')
       .select('id, nome_completo, email, cargo').eq('id', colaboradorId).single();
     if (!colab) return { success: false, error: 'Colaborador não encontrado' };
 
-    const { data: comp } = await sb.from('competencias')
-      .select('id, nome, cod_comp, descricao').eq('id', competenciaId).single();
-    if (!comp) return { success: false, error: 'Competência não encontrada' };
-
-    // Buscar cenário
+    // Buscar cenário com perguntas
     const { data: cenario } = await sb.from('banco_cenarios')
-      .select('id, titulo, descricao, alternativas')
-      .eq('empresa_id', empresaId)
-      .eq('competencia_id', competenciaId)
-      .eq('cargo', colab.cargo)
-      .limit(1).maybeSingle();
+      .select('id, titulo, descricao, alternativas, competencia_id, cargo')
+      .eq('id', cenarioId).single();
+    if (!cenario) return { success: false, error: 'Cenário não encontrado' };
 
-    // Sortear nível alvo (distribuição realista)
+    const perguntas = Array.isArray(cenario.alternativas) ? cenario.alternativas : [];
+    if (perguntas.length < 4) return { success: false, error: `Cenário com ${perguntas.length} perguntas (precisa 4)` };
+
+    // Buscar competência
+    const { data: comp } = await sb.from('competencias')
+      .select('nome, descricao').eq('id', cenario.competencia_id).maybeSingle();
+
+    // Sortear nível alvo
     const rand = Math.random();
     let nivelAlvo, perfilResp;
     if (rand < 0.30) {
       nivelAlvo = Math.random() < 0.5 ? 1 : 2;
-      perfilResp = 'FRACO: respostas vagas, genéricas, defensivas. Evita exemplos concretos. Usa "acho que sim", "depende". Não demonstra reflexão.';
+      perfilResp = `FRACO (N${nivelAlvo}): Respostas vagas, genéricas, sem exemplos concretos. Usa "acho que sim", "depende", "faria o básico". Não demonstra reflexão. Respostas curtas (2-3 frases).`;
     } else if (rand < 0.80) {
       nivelAlvo = Math.random() < 0.5 ? 2 : 3;
-      perfilResp = 'MÉDIO: respostas com alguma substância mas inconsistentes. Exemplos genéricos. Reconhece dificuldades mas sem plano claro.';
+      perfilResp = `MÉDIO (N${nivelAlvo}): Respostas com alguma substância mas inconsistentes. Dá exemplos genéricos. Reconhece dificuldades sem plano claro. Mostra intenção mas falta método. Respostas médias (3-5 frases).`;
     } else {
       nivelAlvo = Math.random() < 0.5 ? 3 : 4;
-      perfilResp = 'FORTE: respostas detalhadas, exemplos concretos e reflexão. Demonstra intencionalidade e autocrítica. Propõe ações específicas.';
+      perfilResp = `FORTE (N${nivelAlvo}): Respostas detalhadas com exemplos concretos e reflexão. Demonstra intencionalidade e autocrítica. Propõe ações específicas, conecta ao impacto. Respostas completas (4-7 frases).`;
     }
 
-    // Gerar conversa via IA
-    const system = `Você vai SIMULAR uma entrevista completa entre um Mentor IA e um colaborador.
-Gere EXATAMENTE 8-12 turnos alternados (assistant/user).
+    // Gerar respostas via IA
+    const system = `Você vai simular as respostas de um colaborador a 4 perguntas de um cenário de avaliação de competências.
 
 COLABORADOR: ${colab.nome_completo || colab.email}
-CARGO: ${colab.cargo || 'Colaborador'}
-COMPETÊNCIA AVALIADA: ${comp.nome}
-${comp.descricao ? `DESCRIÇÃO: ${comp.descricao}` : ''}
+CARGO: ${colab.cargo}
+COMPETÊNCIA: ${comp?.nome || 'Competência'}
 
-${cenario ? `CENÁRIO:\nTítulo: ${cenario.titulo}\nContexto: ${cenario.descricao}` : ''}
+CENÁRIO:
+${cenario.descricao}
 
-PERFIL DE RESPOSTA (nível alvo ${nivelAlvo}):
+PERFIL DE RESPOSTA:
 ${perfilResp}
 
 REGRAS:
-1. Mentor (assistant): apresenta cenário, faz perguntas abertas, aprofunda. NUNCA julga ou sugere.
-2. Colaborador (user): responde conforme o PERFIL. Linguagem coloquial, realista.
-3. Explore pelo menos 3 dimensões: Situação, Ação, Raciocínio, Autossensibilidade.
-4. Último turno = assistant (encerramento agradecendo).
+- Respostas REALISTAS — linguagem coloquial, natural
+- Coerentes com o perfil de nível indicado
+- Cada resposta é independente mas coerente com o cenário
+- NÃO use linguagem acadêmica ou perfeita
+- Se nível fraco: hesitações, respostas incompletas, genéricas
+- Se nível forte: exemplos concretos, reflexão, plano de ação
 
-FORMATO: Responda SOMENTE JSON. Array de objetos:
-[{"role":"assistant","content":"..."},{"role":"user","content":"..."},...]
-Primeiro turno = assistant. Último turno = assistant.`;
+Retorne APENAS JSON:
+{"r1": "resposta à P1", "r2": "resposta à P2", "r3": "resposta à P3", "r4": "resposta à P4"}`;
 
-    const resposta = await callAI(system, 'Gere a conversa simulada agora.', aiConfig, 8000);
+    const perguntasTexto = perguntas.map((p, i) =>
+      `P${p.numero || i + 1}: ${p.texto || (typeof p === 'string' ? p : JSON.stringify(p))}`
+    ).join('\n\n');
 
-    // Parsear conversa
-    let conversa;
-    try {
-      const cleaned = resposta.replace(/```json|```/g, '').trim();
-      const match = cleaned.match(/\[[\s\S]*\]/);
-      if (match) conversa = JSON.parse(match[0]);
-    } catch {}
-    if (!conversa) {
-      conversa = await extractJSON(resposta);
-      if (conversa && !Array.isArray(conversa)) conversa = conversa.conversa || conversa.messages;
-    }
-    if (!Array.isArray(conversa) || conversa.length < 6) {
-      return { success: false, error: `Conversa simulada inválida (${conversa?.length || 0} turnos)` };
-    }
+    const user = `Responda estas 4 perguntas como o colaborador descrito:\n\n${perguntasTexto}`;
 
-    // Criar/atualizar sessão
-    const { data: sessaoExistente } = await sb.from('sessoes_avaliacao')
-      .select('id')
-      .eq('empresa_id', empresaId)
-      .eq('colaborador_id', colaboradorId)
-      .eq('competencia_id', competenciaId)
-      .maybeSingle();
+    const resposta = await callAI(system, user, aiConfig, 4096);
+    const resultado = await extractJSON(resposta);
 
-    let sessaoId;
-    if (sessaoExistente) {
-      sessaoId = sessaoExistente.id;
-      await sb.from('sessoes_avaliacao').update({
-        status: 'concluida',
-        fase: 'concluida',
-        cenario_id: cenario?.id || null,
-        mensagens_count: conversa.length,
-        updated_at: new Date().toISOString(),
-      }).eq('id', sessaoId);
-      // Limpar mensagens anteriores
-      await sb.from('mensagens_chat').delete().eq('sessao_id', sessaoId);
-    } else {
-      const { data: nova } = await sb.from('sessoes_avaliacao').insert({
-        empresa_id: empresaId,
-        colaborador_id: colaboradorId,
-        competencia_id: competenciaId,
-        competencia_nome: comp.nome,
-        cenario_id: cenario?.id || null,
-        status: 'concluida',
-        fase: 'concluida',
-        mensagens_count: conversa.length,
-      }).select('id').single();
-      sessaoId = nova?.id;
-    }
+    if (!resultado?.r1) return { success: false, error: 'IA não retornou respostas válidas' };
 
-    if (!sessaoId) return { success: false, error: 'Erro ao criar sessão' };
+    // Salvar
+    const { error: saveErr } = await sb.from('respostas').upsert({
+      empresa_id: empresaId,
+      colaborador_id: colaboradorId,
+      competencia_id: cenario.competencia_id,
+      cenario_id: cenarioId,
+      r1: resultado.r1,
+      r2: resultado.r2,
+      r3: resultado.r3,
+      r4: resultado.r4,
+      nivel_simulado: nivelAlvo,
+    }, { onConflict: 'empresa_id,colaborador_id,competencia_id' }).select('id');
 
-    // Salvar mensagens
-    const mensagens = conversa.map((m, i) => ({
-      sessao_id: sessaoId,
-      role: m.role,
-      content: m.content,
-      ordem: i,
-    }));
+    if (saveErr) return { success: false, error: `Erro ao salvar: ${saveErr.message}` };
 
-    const { error: msgErr } = await sb.from('mensagens_chat').insert(mensagens);
-    if (msgErr) return { success: false, error: `Erro ao salvar mensagens: ${msgErr.message}` };
-
-    return { success: true, message: `${colab.nome_completo}: ${conversa.length} turnos (N${nivelAlvo})`, nivelAlvo };
+    return { success: true, message: `${colab.nome_completo?.split(' ')[0]}: N${nivelAlvo} — ${comp?.nome || 'competência'}` };
   } catch (err) {
     return { success: false, error: err.message };
   }
