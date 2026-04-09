@@ -6,6 +6,7 @@ import {
   ArrowLeft, Loader2, BookOpen, ChevronDown, ExternalLink, Filter, Pencil, Check, X
 } from 'lucide-react';
 import { loadMoodleCatalogo, loadCatalogoEnriquecido, loadCobertura, salvarCatalogoItem } from '@/actions/moodle-load';
+import { loadCompetencias } from '@/app/admin/competencias/actions';
 
 const STATUS_COLORS = {
   verde: { bg: 'bg-green-400/15', text: 'text-green-400', label: 'Coberto' },
@@ -22,24 +23,37 @@ export default function Fase0Page({ params }) {
   const [catalogo, setCatalogo] = useState([]);
   const [enriquecido, setEnriquecido] = useState([]);
   const [cobertura, setCobertura] = useState([]);
+  const [competencias, setCompetencias] = useState([]);
   const [filtroCargo, setFiltroCargo] = useState('');
   const [editId, setEditId] = useState(null);
   const [editData, setEditData] = useState({});
   const [toast, setToast] = useState(null);
   function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 2500); }
 
-  useEffect(() => {
-    Promise.all([
+  async function refresh() {
+    const [cat, enr, cob, compsR] = await Promise.all([
       loadMoodleCatalogo(empresaId),
       loadCatalogoEnriquecido(empresaId),
       loadCobertura(empresaId),
-    ]).then(([cat, enr, cob]) => {
-      setCatalogo(cat);
-      setEnriquecido(enr);
-      setCobertura(cob);
-      setLoading(false);
-    });
-  }, [empresaId]);
+      loadCompetencias(empresaId),
+    ]);
+    setCatalogo(cat);
+    setEnriquecido(enr);
+    setCobertura(cob);
+    if (compsR.success) setCompetencias(compsR.data || []);
+    setLoading(false);
+  }
+
+  useEffect(() => { refresh(); }, [empresaId]);
+
+  // Competências únicas por cargo para dropdown
+  const compsPorCargo = {};
+  competencias.forEach(c => {
+    const cargo = c.cargo || '_geral';
+    if (!compsPorCargo[cargo]) compsPorCargo[cargo] = new Set();
+    compsPorCargo[cargo].add(c.nome);
+  });
+  const getCompsDropdown = (cargo) => [...(compsPorCargo[cargo] || compsPorCargo._geral || new Set())].sort();
 
   const cargosEnr = [...new Set(enriquecido.map(e => e.cargo).filter(Boolean))].sort();
   const cargosCob = [...new Set(cobertura.map(c => c.cargo).filter(Boolean))].sort();
@@ -138,81 +152,80 @@ export default function Fase0Page({ params }) {
                   </select>
                 </div>
               )}
-              <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-white/[0.06] text-[9px] font-bold text-gray-500 uppercase tracking-widest">
-                      <th className="px-4 py-2 text-left">Curso</th>
-                      <th className="px-4 py-2 text-left">Competência</th>
-                      <th className="px-4 py-2 text-left">Descritor</th>
-                      <th className="px-4 py-2 text-center w-12">Nível</th>
-                      <th className="px-4 py-2 text-center w-16">Tempo</th>
-                      <th className="px-4 py-2 text-center w-12">Conf.</th>
-                      <th className="px-4 py-2 text-center w-12"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/[0.03]">
-                    {enriquecido.filter(e => !filtroCargo || e.cargo === filtroCargo).flatMap(e => {
-                      const descritores = [e.descritor_1, e.descritor_2, e.descritor_3].filter(Boolean);
-                      const rows = descritores.length > 0 ? descritores : [null];
-                      return rows.map((desc, di) => {
-                        const isEditing = editId === `${e.id}-${di}`;
-                        return (
-                          <tr key={`${e.id}-${di}`} className="hover:bg-white/[0.02]">
-                            {di === 0 ? (
-                              <td className="px-4 py-2 text-xs text-white font-medium" rowSpan={rows.length}>{e.curso_nome}</td>
-                            ) : null}
-                            <td className="px-4 py-2 text-xs">
-                              {isEditing ? (
-                                <input value={editData.competencia || ''} onChange={ev => setEditData(p => ({ ...p, competencia: ev.target.value }))}
-                                  className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" />
-                              ) : (
-                                <span className="text-cyan-400">{di === 0 ? (e.competencia || '—') : ''}</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-2 text-xs text-gray-400">{desc || '—'}</td>
-                            <td className="px-4 py-2 text-xs text-center">
-                              {isEditing ? (
-                                <select value={editData.nivel_ideal || ''} onChange={ev => setEditData(p => ({ ...p, nivel_ideal: Number(ev.target.value) }))}
-                                  className="px-1 py-0.5 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none">
-                                  <option value="1">N1</option><option value="2">N2</option><option value="3">N3</option><option value="4">N4</option>
-                                </select>
-                              ) : (
-                                <span className="text-gray-400">{di === 0 ? `N${e.nivel_ideal || '?'}` : ''}</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-2 text-xs text-center text-gray-500">{di === 0 ? (e.tempo_estimado_min ? `${e.tempo_estimado_min}min` : '—') : ''}</td>
-                            <td className="px-4 py-2 text-center">
-                              {di === 0 && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                                e.confianca === 'alta' ? 'bg-green-400/15 text-green-400' :
-                                e.confianca === 'media' ? 'bg-amber-400/15 text-amber-400' :
-                                'bg-gray-400/15 text-gray-400'
-                              }`}>{e.confianca || '—'}</span>}
-                            </td>
-                            <td className="px-4 py-2 text-center">
-                              {di === 0 && (
-                                isEditing ? (
-                                  <div className="flex items-center gap-1 justify-center">
-                                    <button onClick={async () => {
-                                      const r = await salvarCatalogoItem(e.id, editData);
-                                      setEditId(null);
-                                      if (r.success) { flash('Salvo'); const d = await loadCatalogoEnriquecido(empresaId); setEnriquecido(d); }
-                                      else flash('Erro: ' + r.error);
-                                    }} className="text-green-400 hover:text-green-300"><Check size={12} /></button>
-                                    <button onClick={() => setEditId(null)} className="text-gray-500 hover:text-white"><X size={12} /></button>
-                                  </div>
-                                ) : (
-                                  <button onClick={() => { setEditId(`${e.id}-0`); setEditData({ competencia: e.competencia || '', nivel_ideal: e.nivel_ideal || 2 }); }}
-                                    className="text-gray-600 hover:text-cyan-400"><Pencil size={12} /></button>
-                                )
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      });
-                    })}
-                  </tbody>
-                </table>
+              <div className="space-y-2">
+                {enriquecido.filter(e => !filtroCargo || e.cargo === filtroCargo).map((e, idx) => {
+                  const descritores = [e.descritor_1, e.descritor_2, e.descritor_3].filter(Boolean);
+                  const isEditing = editId === e.id;
+                  const bgColor = idx % 2 === 0 ? '#0F2A4A' : '#0A2240';
+                  const compsOptions = getCompsDropdown(e.cargo || filtroCargo);
+
+                  return (
+                    <div key={e.id} className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: bgColor }}>
+                      {/* Header do curso */}
+                      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.04]">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-bold text-white">{e.curso_nome}</span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                            e.confianca === 'alta' ? 'bg-green-400/15 text-green-400' :
+                            e.confianca === 'media' ? 'bg-amber-400/15 text-amber-400' : 'bg-gray-400/15 text-gray-400'
+                          }`}>{e.confianca || '—'}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {isEditing ? (
+                            <>
+                              <button onClick={async () => {
+                                const r = await salvarCatalogoItem(e.id, editData);
+                                setEditId(null);
+                                if (r.success) { flash('Salvo'); refresh(); }
+                                else flash('Erro: ' + r.error);
+                              }} className="text-green-400 hover:text-green-300"><Check size={14} /></button>
+                              <button onClick={() => setEditId(null)} className="text-gray-500 hover:text-white"><X size={14} /></button>
+                            </>
+                          ) : (
+                            <button onClick={() => { setEditId(e.id); setEditData({ competencia: e.competencia || '', nivel_ideal: e.nivel_ideal || 2 }); }}
+                              className="text-gray-600 hover:text-cyan-400"><Pencil size={14} /></button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Competência editável */}
+                      <div className="px-4 py-2 flex items-center gap-3 border-b border-white/[0.03]">
+                        <span className="text-[9px] text-gray-500 uppercase w-20 shrink-0">Competência</span>
+                        {isEditing ? (
+                          <select value={editData.competencia} onChange={ev => setEditData(p => ({ ...p, competencia: ev.target.value }))}
+                            className="flex-1 px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none">
+                            <option value="">Selecione...</option>
+                            {compsOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        ) : (
+                          <span className="text-xs text-cyan-400 font-medium">{e.competencia || '—'}</span>
+                        )}
+                        <span className="text-[9px] text-gray-500 uppercase w-10 shrink-0">Nível</span>
+                        {isEditing ? (
+                          <select value={editData.nivel_ideal} onChange={ev => setEditData(p => ({ ...p, nivel_ideal: Number(ev.target.value) }))}
+                            className="w-16 px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none">
+                            <option value="1">N1</option><option value="2">N2</option><option value="3">N3</option><option value="4">N4</option>
+                          </select>
+                        ) : (
+                          <span className="text-xs text-gray-300">N{e.nivel_ideal || '?'}</span>
+                        )}
+                        <span className="text-[9px] text-gray-600 ml-auto">{e.tempo_estimado_min ? `${e.tempo_estimado_min}min` : ''}</span>
+                      </div>
+
+                      {/* Descritores */}
+                      {descritores.length > 0 && (
+                        <div className="divide-y divide-white/[0.02]">
+                          {descritores.map((desc, di) => (
+                            <div key={di} className="px-4 py-1.5 flex items-center gap-2">
+                              <span className="text-[9px] text-gray-600 w-20 shrink-0">Descritor {di + 1}</span>
+                              <span className="text-[10px] text-gray-400 flex-1">{desc}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </>
           )}
@@ -249,12 +262,11 @@ export default function Fase0Page({ params }) {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-white/[0.06] text-[9px] font-bold text-gray-500 uppercase tracking-widest">
-                      <th className="px-4 py-2 text-left">Cargo</th>
                       <th className="px-4 py-2 text-left">Competência</th>
                       <th className="px-4 py-2 text-left">Descritor</th>
                       <th className="px-4 py-2 text-center">N1-N2</th>
                       <th className="px-4 py-2 text-center">N2-N3</th>
-                      <th className="px-4 py-2 text-center w-16">%</th>
+                      <th className="px-4 py-2 text-center w-16">Cobertura</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.03]">
@@ -263,17 +275,24 @@ export default function Fase0Page({ params }) {
                       const s2 = STATUS_COLORS[c.n2_n3_status] || STATUS_COLORS.vermelho;
                       return (
                         <tr key={c.id} className="hover:bg-white/[0.02]">
-                          <td className="px-4 py-2 text-xs text-gray-400">{c.cargo}</td>
                           <td className="px-4 py-2 text-xs text-white font-medium">{c.competencia}</td>
-                          <td className="px-4 py-2 text-xs text-gray-500">{c.descritor}</td>
+                          <td className="px-4 py-2 text-xs text-gray-400">{c.descritor || '(geral)'}</td>
                           <td className="px-4 py-2 text-center">
-                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${s1.bg} ${s1.text}`}>{c.n1_n2_qtd || 0}</span>
+                            <div className="flex items-center justify-center gap-1">
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${s1.bg} ${s1.text}`}>{s1.label}</span>
+                              <span className="text-[8px] text-gray-600">({c.n1_n2_qtd || 0})</span>
+                            </div>
+                            {c.n1_n2_cursos && <p className="text-[8px] text-gray-600 mt-0.5 truncate max-w-[150px]">{c.n1_n2_cursos}</p>}
                           </td>
                           <td className="px-4 py-2 text-center">
-                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${s2.bg} ${s2.text}`}>{c.n2_n3_qtd || 0}</span>
+                            <div className="flex items-center justify-center gap-1">
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${s2.bg} ${s2.text}`}>{s2.label}</span>
+                              <span className="text-[8px] text-gray-600">({c.n2_n3_qtd || 0})</span>
+                            </div>
+                            {c.n2_n3_cursos && <p className="text-[8px] text-gray-600 mt-0.5 truncate max-w-[150px]">{c.n2_n3_cursos}</p>}
                           </td>
                           <td className="px-4 py-2 text-center">
-                            <span className={`text-[9px] font-bold ${c.cobertura_pct >= 100 ? 'text-green-400' : c.cobertura_pct >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{c.cobertura_pct || 0}%</span>
+                            <span className={`text-sm font-bold ${c.cobertura_pct >= 100 ? 'text-green-400' : c.cobertura_pct >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{c.cobertura_pct || 0}%</span>
                           </td>
                         </tr>
                       );
