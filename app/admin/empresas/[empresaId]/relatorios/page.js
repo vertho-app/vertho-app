@@ -173,8 +173,15 @@ export default function RelatoriosPage({ params }) {
             <Empty text="Relatório gestor não gerado. Rode 'Gestor' no pipeline." />
           ) : (() => {
             const c = data.gestor.conteudo;
+            const gestorPdfLink = `/api/relatorios/pdf?id=${data.gestor.id}`;
             return (
               <div className="space-y-4">
+                <div className="flex justify-end mb-3">
+                  <a href={gestorPdfLink} target="_blank" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all">
+                    <Download size={11} /> Download PDF
+                  </a>
+                </div>
+
                 {c.resumo_executivo && (
                   <div className="p-4 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
                     <SectionTitle>Resumo Executivo</SectionTitle>
@@ -252,8 +259,15 @@ export default function RelatoriosPage({ params }) {
             <Empty text="Relatório RH não gerado. Rode 'RH' no pipeline." />
           ) : (() => {
             const c = data.rh.conteudo;
+            const rhPdfLink = `/api/relatorios/pdf?id=${data.rh.id}`;
             return (
               <div className="space-y-4">
+                <div className="flex justify-end mb-3">
+                  <a href={rhPdfLink} target="_blank" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all">
+                    <Download size={11} /> Download PDF
+                  </a>
+                </div>
+
                 {c.resumo_executivo && (
                   <div className="p-4 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
                     <SectionTitle>Resumo Executivo</SectionTitle>
