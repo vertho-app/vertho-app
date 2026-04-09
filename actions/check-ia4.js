@@ -6,110 +6,116 @@ import { extractJSON } from './utils';
 
 /**
  * Check IA4 — Validação de qualidade das avaliações.
- * Baseado em GAS Checkia4.js: 4 dimensões × 25 pontos = 100 pontos.
+ * 4 dimensões × 25 pontos = 100 pontos.
  * Threshold: >= 90 = Aprovado, < 90 = Revisar.
+ * Busca avaliações da tabela respostas (campo avaliacao_ia).
  */
 export async function checkAvaliacoes(empresaId, aiConfig = {}) {
   const sb = createSupabaseAdmin();
 
   try {
-    // Buscar sessões concluídas sem check
-    const { data: sessoes } = await sb.from('sessoes_avaliacao')
-      .select('id, colaborador_id, competencia_id, competencia_nome, avaliacao_final, rascunho_avaliacao, validacao_audit')
+    // Buscar respostas avaliadas sem check
+    const { data: respostas, error: qErr } = await sb.from('respostas')
+      .select('id, colaborador_id, competencia_id, cenario_id, r1, r2, r3, r4, avaliacao_ia, nivel_ia4')
       .eq('empresa_id', empresaId)
-      .eq('status', 'concluido')
-      .is('check_nota', null);
+      .not('avaliacao_ia', 'is', null)
+      .is('status_ia4', null);
 
-    if (!sessoes?.length) return { success: true, message: 'Nenhuma avaliação pendente de check' };
+    if (qErr) return { success: false, error: qErr.message };
+    if (!respostas?.length) return { success: true, message: 'Nenhuma avaliação pendente de check' };
+
+    // Buscar colaboradores
+    const colabIds = [...new Set(respostas.map(r => r.colaborador_id).filter(Boolean))];
+    const { data: colabs } = await sb.from('colaboradores').select('id, nome_completo, cargo').in('id', colabIds);
+    const colabMap = {};
+    (colabs || []).forEach(c => { colabMap[c.id] = c; });
 
     const model = aiConfig?.model || 'gemini-3-flash-preview';
-    let checados = 0;
+    let checados = 0, erros = 0, ultimoErro = '';
 
-    for (const sessao of sessoes) {
-      if (!sessao.avaliacao_final) continue;
+    for (const resp of respostas) {
+      try {
+        const colab = colabMap[resp.colaborador_id] || {};
 
-      // Carregar competência com gabarito
-      const { data: comp } = await sb.from('competencias')
-        .select('nome, descricao, gabarito')
-        .eq('id', sessao.competencia_id).single();
+        // Buscar cenário
+        let cenarioTexto = '', perguntasTexto = '';
+        if (resp.cenario_id) {
+          const { data: cen } = await sb.from('banco_cenarios')
+            .select('titulo, descricao, alternativas')
+            .eq('id', resp.cenario_id).maybeSingle();
+          if (cen) {
+            cenarioTexto = `${cen.titulo}\n${cen.descricao}`;
+            const pergs = Array.isArray(cen.alternativas) ? cen.alternativas : [];
+            perguntasTexto = pergs.map((p, i) =>
+              `P${p.numero || i + 1}: ${p.texto || ''}`
+            ).join('\n');
+          }
+        }
 
-      // Carregar histórico da conversa
-      const { data: msgs } = await sb.from('mensagens_chat')
-        .select('role, content')
-        .eq('sessao_id', sessao.id)
-        .order('created_at');
+        // Buscar competência
+        let compNome = '';
+        if (resp.competencia_id) {
+          const { data: comp } = await sb.from('competencias')
+            .select('nome').eq('id', resp.competencia_id).maybeSingle();
+          compNome = comp?.nome || '';
+        }
 
-      const conversa = (msgs || []).map(m => `[${m.role}]: ${m.content}`).join('\n\n');
+        const system = `Voce e um auditor de qualidade de avaliacoes comportamentais.
+Avalie a qualidade da avaliacao IA em 4 dimensoes (25pts cada = 100pts).
 
-      const system = `Voce e um auditor de qualidade de avaliacoes comportamentais.
-Avalie a qualidade da avaliacao IA em 4 dimensoes, cada uma valendo 25 pontos (total 100).
+1. EVIDENCIAS E NIVEIS (25pts): nivel coerente com respostas? Evidencias citadas?
+2. COERENCIA (25pts): niveis por pergunta sao consistentes com nivel geral?
+3. FEEDBACK (25pts): feedback especifico (nao generico)? Cita elementos das respostas?
+4. DESENVOLVIMENTO (25pts): pontos de desenvolvimento sao acionaveis e relevantes?
 
-DIMENSOES:
-1. EVIDENCIAS E NIVEIS (25pts)
-   - Descritores tem evidencia textual (pode ser parafraseada)?
-   - nivel_geral dentro de +-1 do que a regua indica?
-   - Penalize APENAS: N3+ sem evidencia, ou resposta N1 avaliada como N3+
+>= 90 = aprovado | < 90 = revisar
 
-2. COERENCIA DA CONSOLIDACAO (25pts)
-   - media_descritores → nivel_geral: arredonda para BAIXO?
-   - Travas: descritor critico N1 → max N2; 3+ N1 → N1?
-   - GAP = 3 - nivel_geral correto?
-   - Matematica correta → 23-25pts
+Responda APENAS JSON:
+{"nota":85,"status":"revisar","dimensoes":{"evidencias":22,"coerencia":20,"feedback":23,"desenvolvimento":20},"justificativa":"...","revisao":"..."}`;
 
-3. FEEDBACK + USO DO PERFIL (25pts)
-   - Feedback especifico para esta pessoa (nao generico)?
-   - Tom alinhado ao contexto?
-   - ERRO GRAVE: 100% generico → max 60 total
+        const user = `COLABORADOR: ${colab.nome_completo || '—'} (${colab.cargo || '—'})
+COMPETÊNCIA: ${compNome}
 
-4. PLANO PDI (25pts)
-   - Tem acoes concretas?
-   - Prioridades alinhadas aos gaps identificados?
-   - Acoes praticas (nao teoricas)?
+CENÁRIO:
+${cenarioTexto}
 
-THRESHOLD: >= 90 = Aprovado | < 90 = Revisar
+PERGUNTAS:
+${perguntasTexto}
 
-Responda APENAS com JSON valido.`;
+RESPOSTAS:
+R1: ${resp.r1 || '—'}
+R2: ${resp.r2 || '—'}
+R3: ${resp.r3 || '—'}
+R4: ${resp.r4 || '—'}
 
-      const user = `## Competencia: ${comp?.nome || sessao.competencia_nome}
-${comp?.gabarito ? `## Regua de maturidade:\n${JSON.stringify(comp.gabarito)}` : ''}
+AVALIAÇÃO A AUDITAR:
+${JSON.stringify(resp.avaliacao_ia, null, 2)}`;
 
-## Avaliacao a auditar:
-${JSON.stringify(sessao.avaliacao_final, null, 2)}
+        const resultado = await callAI(system, user, { model }, 4096);
+        const check = await extractJSON(resultado);
 
-## Conversa original:
-${conversa.slice(0, 30000)}
+        if (check?.nota !== undefined) {
+          const { error: updErr } = await sb.from('respostas').update({
+            status_ia4: check.nota >= 90 ? 'aprovado' : 'revisar',
+            payload_ia4: check,
+          }).eq('id', resp.id).select('id');
 
-## Formato de resposta:
-{
-  "nota": 0-100,
-  "status": "aprovado|revisar",
-  "erro_grave": false,
-  "dimensoes": {
-    "evidencias_niveis": 0-25,
-    "consolidacao": 0-25,
-    "feedback_perfil": 0-25,
-    "pdi": 0-25
-  },
-  "justificativa": "explicacao breve da nota",
-  "revisao": "o que precisa ser corrigido (se < 90)"
-}`;
-
-      const resultado = await callAI(system, user, { model }, 8192);
-      const check = await extractJSON(resultado);
-
-      if (check) {
-        await sb.from('sessoes_avaliacao')
-          .update({
-            check_nota: check.nota,
-            check_status: check.status || (check.nota >= 90 ? 'aprovado' : 'revisar'),
-            check_resultado: check,
-          })
-          .eq('id', sessao.id);
-        checados++;
+          if (!updErr) checados++;
+          else { erros++; ultimoErro = updErr.message; }
+        } else {
+          erros++;
+          ultimoErro = 'Check não retornou nota';
+        }
+      } catch (e) {
+        erros++;
+        ultimoErro = e.message;
       }
     }
 
-    return { success: true, message: `Check IA4 concluído: ${checados} avaliações verificadas de ${sessoes.length}` };
+    return {
+      success: true,
+      message: `Check IA4: ${checados} verificadas${erros ? `, ${erros} erros` : ''}${ultimoErro ? ` — ${ultimoErro}` : ''}`,
+    };
   } catch (err) {
     return { success: false, error: err.message };
   }
