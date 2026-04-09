@@ -100,18 +100,38 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
         const zapiToken = process.env.ZAPI_TOKEN;
         const zapiClient = process.env.ZAPI_CLIENT_TOKEN || '';
         if (!zapiInstance || !zapiToken) { erroDetalhe = 'Z-API não configurado'; erros++; continue; }
-        try {
-          let phone = colab.telefone.replace(/\D/g, '');
-          if (phone.length <= 11) phone = `55${phone}`;
-          if (enviados > 0) await new Promise(resolve => setTimeout(resolve, 1000));
-          const res = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-text`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Client-Token': zapiClient },
-            body: JSON.stringify({ phone, message: msg }),
-          });
-          if (res.ok) { enviados++; }
-          else { erroDetalhe = await res.text(); erros++; }
-        } catch (e) { erroDetalhe = e.message; erros++; }
+
+        let phone = colab.telefone.replace(/\D/g, '');
+        if (phone.length <= 11) phone = `55${phone}`;
+
+        // <= 50 destinatários: Z-API direto | > 50: QStash (async com retry)
+        if (colabs.length <= 50) {
+          try {
+            if (enviados > 0) await new Promise(resolve => setTimeout(resolve, 1000));
+            const res = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-text`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Client-Token': zapiClient },
+              body: JSON.stringify({ phone, message: msg }),
+            });
+            if (res.ok) { enviados++; }
+            else { erroDetalhe = await res.text(); erros++; }
+          } catch (e) { erroDetalhe = e.message; erros++; }
+        } else if (process.env.QSTASH_TOKEN) {
+          try {
+            const appUrl = process.env.NEXT_PUBLIC_APP_URL || `https://vertho.com.br`;
+            const webhookUrl = `${appUrl}/api/webhooks/qstash/whatsapp-cis`;
+            await fetch('https://qstash.upstash.io/v2/publish/' + encodeURIComponent(webhookUrl), {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${process.env.QSTASH_TOKEN}`,
+                'Upstash-Delay': `${enviados * 2}s`,
+              },
+              body: JSON.stringify({ telefone: phone, mensagem: msg }),
+            });
+            enviados++;
+          } catch (e) { erroDetalhe = e.message; erros++; }
+        }
       }
     }
 
