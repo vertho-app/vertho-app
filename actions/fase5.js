@@ -85,13 +85,13 @@ O cenário B usa a MESMA competência mas com situação-gatilho DIFERENTE.
 
 Responda APENAS com JSON válido.`;
 
-    let gerados = 0, validados = 0;
+    let gerados = 0, validados = 0, skipJaTemB = 0, skipSemComp = 0;
     for (const cenA of cenariosA) {
       const key = `${cenA.competencia_id}::${cenA.cargo}`;
-      if (jaTemB.has(key)) continue;
+      if (jaTemB.has(key)) { skipJaTemB++; continue; }
 
       const comp = compMap[cenA.competencia_id];
-      if (!comp) continue;
+      if (!comp) { skipSemComp++; continue; }
 
       const gabarito = comp.gabarito;
       const descritores = Array.isArray(gabarito) ? gabarito.map((d, i) => `D${i+1}: ${d.nome || d.descritor || JSON.stringify(d)}`).join('\n') : JSON.stringify(gabarito);
@@ -171,7 +171,8 @@ Descrição: ${cenA.descricao}
       gerados++;
     }
 
-    return { success: true, message: `${gerados} cenários B gerados${validados ? ` (${validados} validados Gemini)` : ''}` };
+    const detalhes = [`${cenariosA.length} cenários A`, `${compIds.length} competências`, `${jaTemB.size} já têm B`, `${skipJaTemB} skip (já B)`, `${skipSemComp} skip (sem comp)`];
+    return { success: true, message: `${gerados} cenários B gerados${validados ? ` (${validados} validados)` : ''} — ${detalhes.join(', ')}` };
   } catch (err) {
     return { success: false, error: err.message };
   }
