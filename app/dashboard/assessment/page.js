@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, CheckCircle, ArrowLeft, ArrowRight, Target, Calendar, FileText, Trophy } from 'lucide-react';
 import { getDiagnosticoDoDia, salvarRespostaDiagnostico } from './assessment-actions';
+import MicInput from '@/components/mic-input';
 
 const PHASE = {
   LOADING: 'loading',
@@ -200,10 +201,13 @@ export default function AssessmentPage() {
             <div className="rounded-xl p-3 mb-3 border-l-4 border-cyan-400" style={{ background: 'rgba(45,212,191,0.05)' }}>
               <p className="text-sm font-semibold text-white leading-snug">{enunciados[pergIdx]}</p>
             </div>
+            <div className="flex items-center justify-end mb-2">
+              <MicInput value={currentR} onChange={setCurrentR} />
+            </div>
             <textarea
               value={currentR}
               onChange={e => setCurrentR(e.target.value)}
-              placeholder="Descreva com detalhes sua resposta…"
+              placeholder="Descreva com detalhes sua resposta… (ou use o microfone)"
               rows={6}
               className="w-full p-3 rounded-xl border-2 border-white/10 bg-[#091D35] text-white text-sm outline-none focus:border-cyan-400 transition-colors placeholder:text-gray-500"
             />
