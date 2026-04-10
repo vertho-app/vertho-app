@@ -40,7 +40,11 @@ export default function PraticarPage() {
         <div className="rounded-xl p-6 border border-white/[0.06] text-center" style={{ background: '#0F2A4A' }}>
           <AlertCircle size={40} className="text-gray-500 mx-auto mb-3" />
           <p className="text-lg font-bold text-white mb-1">Nenhuma trilha ativa</p>
-          <p className="text-sm text-gray-400">Sua trilha de capacitação ainda não foi iniciada. Aguarde a atribuição pelo RH.</p>
+          <p className="text-sm text-gray-400 mb-5">Sua trilha de capacitação ainda não foi iniciada. Aguarde a atribuição pelo RH.</p>
+          <button onClick={() => router.push('/dashboard')}
+            className="px-5 py-2.5 rounded-xl text-sm font-bold text-gray-300 border border-white/10 hover:bg-white/5 transition">
+            Voltar ao dashboard
+          </button>
         </div>
       </div>
     );

@@ -22,7 +22,7 @@ export async function loadTrilhaAtual(email) {
     .eq('status', 'ativo')
     .order('created_at', { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (!envio) {
     return { colaborador: colab, semAtiva: false };
@@ -36,14 +36,14 @@ export async function loadTrilhaAtual(email) {
   const { data: trilhaItem } = await sb.from('trilhas')
     .select('id, semana, titulo, resumo, url')
     .eq('id', envio.trilha_id)
-    .single();
+    .maybeSingle();
 
   // Buscar pílula da semana (trilhas pode ter múltiplas semanas)
   const { data: pilula } = await sb.from('trilhas')
     .select('semana, titulo, resumo, url')
     .eq('id', envio.trilha_id)
     .eq('semana', semanaAtual)
-    .single();
+    .maybeSingle();
 
   // Buscar semanas já completadas (evidências registradas)
   const { data: evidencias } = await sb.from('capacitacao')
