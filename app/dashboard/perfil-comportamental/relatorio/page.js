@@ -3,10 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, ArrowLeft, AlertCircle, Download, RefreshCw, Sparkles } from 'lucide-react';
+import { Loader2, ArrowLeft, AlertCircle, Download, Sparkles } from 'lucide-react';
 import {
   loadBehavioralReport,
-  regenerarRelatorioComportamental,
   baixarRelatorioComportamentalPdf,
 } from './relatorio-actions';
 
@@ -66,7 +65,6 @@ export default function RelatorioComportamentalPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [regenerating, setRegenerating] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [userEmail, setUserEmail] = useState(null);
   const router = useRouter();
@@ -84,16 +82,6 @@ export default function RelatorioComportamentalPage() {
     }
     init();
   }, []);
-
-  async function handleRegenerar() {
-    if (!userEmail) return;
-    setRegenerating(true);
-    setError('');
-    const result = await regenerarRelatorioComportamental(userEmail);
-    setRegenerating(false);
-    if (result.error) setError(result.error);
-    else setData(result);
-  }
 
   async function handleDownload() {
     if (!userEmail) return;
@@ -150,19 +138,12 @@ export default function RelatorioComportamentalPage() {
           className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors">
           <ArrowLeft size={16} /> Voltar
         </button>
-        <div className="flex items-center gap-2">
-          <button onClick={handleRegenerar} disabled={regenerating}
-            className="flex items-center gap-1.5 text-xs font-bold text-gray-300 px-3 py-2 rounded-lg border border-white/10 hover:bg-white/5 disabled:opacity-50">
-            {regenerating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-            Regerar textos
-          </button>
-          <button onClick={handleDownload} disabled={downloading}
-            className="flex items-center gap-1.5 text-xs font-extrabold text-white px-4 py-2 rounded-lg disabled:opacity-50"
-            style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
-            {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-            Baixar PDF
-          </button>
-        </div>
+        <button onClick={handleDownload} disabled={downloading}
+          className="flex items-center gap-1.5 text-xs font-extrabold text-white px-4 py-2 rounded-lg disabled:opacity-50"
+          style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+          {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+          Baixar PDF
+        </button>
       </div>
 
       {error && (

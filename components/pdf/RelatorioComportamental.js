@@ -1,7 +1,6 @@
 import React from 'react';
-import { Document, Page, View, Text, StyleSheet, Svg, Polygon, Polyline, Line, Path, Circle, G } from '@react-pdf/renderer';
+import { Document, Page, View, Text, StyleSheet, Svg, Path } from '@react-pdf/renderer';
 import PageBackground from './PageBackground';
-import { colors as palette, pageStyles } from './styles';
 
 // ── Paleta do relatório (alinhada à tela do app: sem vermelho) ──────────────
 const NAVY = '#0F2B54';
@@ -124,63 +123,6 @@ function DISCBar({ label, value, barColor = '#94A3B8' }) {
   );
 }
 
-// ── Sub: Radar de competências (SVG do react-pdf) ───────────────────────────
-function RadarCompetencias({ competencias }) {
-  const size = 260;
-  const cx = size / 2;
-  const cy = size / 2;
-  const levels = 5;
-  const maxVal = 100;
-  const n = competencias.length;
-  const r0 = size / 2 - 30;
-
-  const point = (i, value) => {
-    const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
-    const r = (value / maxVal) * r0;
-    return [cx + r * Math.cos(angle), cy + r * Math.sin(angle)];
-  };
-
-  const grid = [];
-  for (let l = 1; l <= levels; l++) {
-    const r = (l / levels) * r0;
-    const pts = [];
-    for (let i = 0; i < n; i++) {
-      const a = (Math.PI * 2 * i) / n - Math.PI / 2;
-      pts.push(`${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`);
-    }
-    grid.push(pts.join(' '));
-  }
-
-  const naturalPts = competencias.map((c, i) => point(i, c.natural).join(',')).join(' ');
-  const adaptadoPts = competencias.map((c, i) => point(i, c.adaptado).join(',')).join(' ');
-
-  return (
-    <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      {grid.map((pts, i) => (
-        <Polygon key={`g${i}`} points={pts} fill="none" stroke={BORDER} strokeWidth={0.5} />
-      ))}
-      {competencias.map((_, i) => {
-        const [x, y] = point(i, maxVal);
-        return <Line key={`a${i}`} x1={cx} y1={cy} x2={x} y2={y} stroke={BORDER} strokeWidth={0.5} />;
-      })}
-      <Polygon points={naturalPts} fill="rgba(45,212,191,0.18)" stroke={TEAL} strokeWidth={1.5} />
-      <Polygon points={adaptadoPts} fill="rgba(252,211,77,0.10)" stroke="#FCD34D" strokeWidth={1} strokeDasharray="3,2" />
-      {competencias.map((c, i) => {
-        const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
-        const lr = size / 2 - 8;
-        const x = cx + lr * Math.cos(angle);
-        const y = cy + lr * Math.sin(angle);
-        const abbr = c.nome.slice(0, 3).toUpperCase();
-        return (
-          <Text key={`l${i}`} x={x} y={y + 2} style={{ fontSize: 6, fill: TXT_MUTED, textAnchor: 'middle' }}>
-            {abbr}
-          </Text>
-        );
-      })}
-    </Svg>
-  );
-}
-
 // ── Sub: pizza de liderança ─────────────────────────────────────────────────
 function LeadershipPie({ data }) {
   const segments = [
@@ -224,24 +166,6 @@ function LeadershipPie({ data }) {
           </View>
         ))}
       </View>
-    </View>
-  );
-}
-
-// ── Sub: barra Tipo Psicológico (centro-pivot) ──────────────────────────────
-function PsychBar({ left, right, value }) {
-  const v = Math.max(0, Math.min(100, value));
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-      <Text style={{ width: 70, fontSize: 8, color: TXT_MUTED, textAlign: 'right', fontWeight: 700 }}>
-        {left} {Math.round(v)}%
-      </Text>
-      <View style={{ flex: 1, height: 8, backgroundColor: '#F1F5F9', borderRadius: 4, marginHorizontal: 6, overflow: 'hidden' }}>
-        <View style={{ width: `${v}%`, height: '100%', backgroundColor: '#A5B4FC', borderRadius: 4 }} />
-      </View>
-      <Text style={{ width: 70, fontSize: 8, color: TXT_LIGHT }}>
-        {right} {Math.round(100 - v)}%
-      </Text>
     </View>
   );
 }
@@ -426,24 +350,9 @@ function Page3({ raw, texts }) {
   return (
     <PageFrame pageNum={3}>
       <Text style={s.h1}>Mapa de Competências</Text>
-      <Text style={{ ...s.small, marginBottom: 8 }}>
-        16 competências comportamentais — natural (verde-azulado) e adaptado (amarelo tracejado)
+      <Text style={{ ...s.small, marginBottom: 14 }}>
+        Suas maiores forças e oportunidades de desenvolvimento entre as 16 competências mapeadas
       </Text>
-
-      <View style={{ alignItems: 'center', marginBottom: 6 }}>
-        <RadarCompetencias competencias={raw.competencias} />
-      </View>
-
-      <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 10 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 14 }}>
-          <View style={{ width: 10, height: 2, backgroundColor: TEAL, marginRight: 4 }} />
-          <Text style={{ fontSize: 7, color: TXT_MUTED }}>Natural</Text>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <View style={{ width: 10, height: 2, backgroundColor: '#FCD34D', marginRight: 4 }} />
-          <Text style={{ fontSize: 7, color: TXT_MUTED }}>Adaptado</Text>
-        </View>
-      </View>
 
       <View style={{ flexDirection: 'row' }}>
         <View style={{ flex: 1, marginRight: 6 }}>
@@ -522,69 +431,6 @@ function Page4({ raw, texts }) {
         </View>
       </View>
 
-      <View style={{ borderTopWidth: 0.5, borderTopColor: BORDER, marginVertical: 10 }} />
-
-      <Text style={s.h1}>Tipo Psicológico</Text>
-      <Text style={{ ...s.small, marginBottom: 10 }}>
-        Baseado nos conceitos de Carl G. Jung — como você foca atenção, capta informações e tira conclusões
-      </Text>
-
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-        <View style={{
-          backgroundColor: NAVY,
-          paddingHorizontal: 14,
-          paddingVertical: 8,
-          borderRadius: 6,
-          marginRight: 12,
-        }}>
-          <Text style={{ color: '#FFFFFF', fontSize: 22, fontWeight: 700, letterSpacing: 4 }}>
-            {raw.tipo_psicologico.tipo}
-          </Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <PsychBar left="Extroversão" right="Introversão" value={raw.tipo_psicologico.extroversao} />
-          <PsychBar left="Intuição" right="Sensação" value={raw.tipo_psicologico.intuicao} />
-          <PsychBar left="Pensamento" right="Sentimento" value={raw.tipo_psicologico.pensamento} />
-        </View>
-      </View>
-
-      <View style={{ flexDirection: 'row' }}>
-        {[
-          {
-            label: 'Onde foca atenção',
-            val: raw.tipo_psicologico.extroversao,
-            high: 'Extroversão — foco no mundo exterior, pessoas e experiências',
-            low: 'Introversão — foco no mundo interior, reflexões e emoções',
-          },
-          {
-            label: 'Como capta informações',
-            val: raw.tipo_psicologico.intuicao,
-            high: 'Intuição — visão global, possibilidades e futuro',
-            low: 'Sensação — fatos concretos, detalhes e experiência',
-          },
-          {
-            label: 'Como tira conclusões',
-            val: raw.tipo_psicologico.pensamento,
-            high: 'Pensamento — lógica, análise e causa-efeito',
-            low: 'Sentimento — valores pessoais, impacto nas pessoas',
-          },
-        ].map(item => (
-          <View key={item.label} style={{
-            flex: 1,
-            backgroundColor: BG_GRAY,
-            borderRadius: 5,
-            padding: 8,
-            marginHorizontal: 3,
-          }}>
-            <Text style={{ fontSize: 7, fontWeight: 700, color: TXT_MUTED, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>
-              {item.label}
-            </Text>
-            <Text style={{ fontSize: 8, color: TXT_MUTED, lineHeight: 1.45 }}>
-              {item.val > 50 ? item.high : item.val < 50 ? item.low : 'Equilíbrio entre as duas orientações'}
-            </Text>
-          </View>
-        ))}
-      </View>
     </PageFrame>
   );
 }
