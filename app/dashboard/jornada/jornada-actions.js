@@ -50,20 +50,22 @@ export async function loadJornada(email) {
     data: null,
   });
 
-  // Fase 3 — PDI
-  const { data: pdi } = await sb.from('pdis')
-    .select('id, status, created_at')
+  // Fase 3 — PDI (relatórios tipo='individual')
+  const { data: pdi } = await sb.from('relatorios')
+    .select('id, gerado_em')
     .eq('colaborador_id', colab.id)
-    .order('created_at', { ascending: false })
+    .eq('empresa_id', colab.empresa_id)
+    .eq('tipo', 'individual')
+    .order('gerado_em', { ascending: false })
     .limit(1)
     .maybeSingle();
 
   fases.push({
     fase: 3,
     titulo: 'PDI',
-    descricao: 'Plano de Desenvolvimento Individual',
+    descricao: pdi ? 'Plano de Desenvolvimento Individual' : 'Aguardando geração',
     status: pdi ? 'completed' : 'pending',
-    data: pdi?.created_at || null,
+    data: pdi?.gerado_em || null,
   });
 
   // Fase 4 — Capacitação (trilha ativa)
