@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, Target, AlertCircle, ChevronDown, ChevronUp, CheckCircle, AlertTriangle, BookOpen, Calendar, Lightbulb, Star } from 'lucide-react';
-import { loadPDI } from './pdi-actions';
+import { Loader2, Target, AlertCircle, ChevronDown, ChevronUp, CheckCircle, AlertTriangle, BookOpen, Calendar, Lightbulb, Star, Download, ArrowLeft } from 'lucide-react';
+import { loadPDI, baixarMeuPdiPdf } from './pdi-actions';
 
 const nivelColor = n => n >= 4 ? '#10B981' : n >= 3 ? '#06B6D4' : n >= 2 ? '#F59E0B' : '#EAB308';
 const nivelBg    = n => n >= 4 ? 'rgba(16,185,129,0.15)' : n >= 3 ? 'rgba(6,182,212,0.15)' : n >= 2 ? 'rgba(245,158,11,0.15)' : 'rgba(234,179,8,0.15)';
@@ -168,6 +168,8 @@ export default function PDIPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [downloading, setDownloading] = useState(false);
+  const [downloadErr, setDownloadErr] = useState('');
   const router = useRouter();
   const supabase = getSupabase();
 
@@ -182,6 +184,34 @@ export default function PDIPage() {
     })();
   }, []);
 
+  async function handleDownloadPdf() {
+    setDownloading(true);
+    setDownloadErr('');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.replace('/login'); return; }
+      const r = await baixarMeuPdiPdf(user.email);
+      if (r.error) { setDownloadErr(r.error); return; }
+      // Converte base64 → Blob → download
+      const byteChars = atob(r.base64);
+      const bytes = new Uint8Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) bytes[i] = byteChars.charCodeAt(i);
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = r.filename || 'vertho-pdi.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setDownloadErr(e?.message || 'Erro ao baixar');
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   if (loading) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
   if (error) return <div className="p-6 text-center text-gray-400">{error}</div>;
   if (!data) return null;
@@ -190,6 +220,10 @@ export default function PDIPage() {
   if (!data.pdiAtivo) {
     return (
       <div className="max-w-[600px] mx-auto px-4 py-6">
+        <button onClick={() => router.back()}
+          className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors mb-4">
+          <ArrowLeft size={16} /> Voltar
+        </button>
         <div className="rounded-xl p-6 border border-white/[0.06] text-center" style={{ background: '#0F2A4A' }}>
           <AlertCircle size={40} className="text-gray-500 mx-auto mb-3" />
           {data.concluiuAvaliacao ? (
@@ -229,13 +263,31 @@ export default function PDIPage() {
 
   return (
     <div className="max-w-[720px] mx-auto px-4 py-6 space-y-4">
+      {/* Voltar */}
+      <button onClick={() => router.back()}
+        className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors">
+        <ArrowLeft size={16} /> Voltar
+      </button>
+
       {/* Header */}
-      <div>
-        <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-cyan-400 mb-1">Plano de Desenvolvimento Individual</p>
-        <h1 className="text-2xl font-black text-white">{data.colaborador.nome_completo}</h1>
-        {data.colaborador.cargo && <p className="text-sm text-gray-400 mt-0.5">{data.colaborador.cargo}</p>}
-        {data.criadoEm && <p className="text-[10px] text-gray-500 mt-1">Gerado em {new Date(data.criadoEm).toLocaleDateString('pt-BR')}</p>}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-cyan-400 mb-1">Plano de Desenvolvimento Individual</p>
+          <h1 className="text-2xl font-black text-white truncate">{data.colaborador.nome_completo}</h1>
+          {data.colaborador.cargo && <p className="text-sm text-gray-400 mt-0.5">{data.colaborador.cargo}</p>}
+          {data.criadoEm && <p className="text-[10px] text-gray-500 mt-1">Gerado em {new Date(data.criadoEm).toLocaleDateString('pt-BR')}</p>}
+        </div>
+        <button onClick={handleDownloadPdf} disabled={downloading}
+          className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-[#0C1829] bg-gradient-to-br from-cyan-400 to-cyan-600 hover:brightness-110 transition disabled:opacity-60">
+          {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+          {downloading ? 'Gerando...' : 'Baixar PDF'}
+        </button>
       </div>
+      {downloadErr && (
+        <div className="rounded-lg p-2 border border-red-400/30 text-[11px] text-red-400 text-center" style={{ background: 'rgba(239,68,68,0.05)' }}>
+          {downloadErr}
+        </div>
+      )}
 
       {/* Acolhimento */}
       {c.acolhimento && (

@@ -2,6 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
+import { getLogoCoverBase64 } from '@/lib/pdf-assets';
 
 /**
  * Carrega o PDI ativo do colaborador.
@@ -56,4 +57,79 @@ export async function loadPDI(email) {
     criadoEm: rel.gerado_em,
     pdfPath: rel.pdf_path || null,
   };
+}
+
+/**
+ * Baixa o PDF do PDI do colaborador autenticado.
+ * Retorna o buffer como base64 para o client montar um Blob e fazer download.
+ * Baixa do storage se já existir; caso contrário, gera on-the-fly e salva.
+ */
+export async function baixarMeuPdiPdf(email) {
+  try {
+    if (!email) return { error: 'Não autenticado' };
+    const colab = await findColabByEmail(email, 'id, nome_completo, cargo, empresa_id');
+    if (!colab) return { error: 'Colaborador não encontrado' };
+
+    const sb = createSupabaseAdmin();
+
+    // Busca o PDI (mais recente) do colab
+    const { data: rel } = await sb.from('relatorios')
+      .select('id, conteudo, pdf_path, gerado_em, colaborador_id, empresa_id')
+      .eq('colaborador_id', colab.id)
+      .eq('empresa_id', colab.empresa_id)
+      .eq('tipo', 'individual')
+      .order('gerado_em', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!rel) return { error: 'PDI não encontrado' };
+
+    const slug = (colab.nome_completo || 'pdi').replace(/\s+/g, '-').toLowerCase();
+    const filename = `vertho-pdi-${slug}.pdf`;
+
+    // 1) Tenta baixar do storage
+    if (rel.pdf_path) {
+      const { data: stored, error: dlErr } = await sb.storage.from('relatorios-pdf').download(rel.pdf_path);
+      if (!dlErr && stored) {
+        const buffer = Buffer.from(await stored.arrayBuffer());
+        return { success: true, base64: buffer.toString('base64'), filename };
+      }
+      console.warn('[baixarMeuPdiPdf] storage download falhou:', dlErr?.message);
+    }
+
+    // 2) Fallback: gera on-the-fly
+    const { renderToBuffer } = await import('@react-pdf/renderer');
+    const React = (await import('react')).default;
+    const { default: RelatorioIndividualPDF } = await import('@/components/pdf/RelatorioIndividual');
+
+    // Resolve empresa
+    const { data: emp } = await sb.from('empresas').select('nome').eq('id', colab.empresa_id).maybeSingle();
+    const empresaNome = emp?.nome || '';
+
+    const conteudo = typeof rel.conteudo === 'string' ? JSON.parse(rel.conteudo) : rel.conteudo;
+    const data = {
+      ...rel,
+      conteudo,
+      colaborador_nome: colab.nome_completo,
+      colaborador_cargo: colab.cargo,
+    };
+    const logoBase64 = getLogoCoverBase64();
+    const buffer = await renderToBuffer(
+      React.createElement(RelatorioIndividualPDF, { data, empresaNome, logoBase64 })
+    );
+
+    // Salva pra próximas vezes
+    try {
+      const path = `${rel.empresa_id}/individual-${slug}-${Date.now()}.pdf`;
+      const { error: upErr } = await sb.storage.from('relatorios-pdf').upload(path, buffer, {
+        contentType: 'application/pdf',
+        upsert: true,
+      });
+      if (!upErr) await sb.from('relatorios').update({ pdf_path: path }).eq('id', rel.id);
+    } catch (e) { console.error('[baixarMeuPdiPdf upload]', e.message); }
+
+    return { success: true, base64: Buffer.from(buffer).toString('base64'), filename };
+  } catch (err) {
+    console.error('[baixarMeuPdiPdf]', err);
+    return { error: err?.message || 'Erro ao gerar PDF' };
+  }
 }
