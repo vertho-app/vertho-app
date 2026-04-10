@@ -4,11 +4,14 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft, Loader2, BarChart3, Trophy, Target, Users, Zap, ChevronDown,
-  AlertTriangle, CheckCircle, TrendingUp, TrendingDown, RefreshCw
+  AlertTriangle, CheckCircle, TrendingUp, TrendingDown, RefreshCw,
+  Sparkles, Download, FileText,
 } from 'lucide-react';
 import {
-  loadCargosComFit, calcularFitLote, loadRankingCargo, loadFitIndividual
+  loadCargosComFit, calcularFitLote, loadRankingCargo, loadFitIndividual,
+  gerarLeituraExecutivaFit,
 } from '@/actions/fit-v2';
+import { baixarRelatorioComportamentalPdfPorId } from '@/app/dashboard/perfil-comportamental/relatorio/relatorio-actions';
 
 const FAIXA_COLORS = {
   excelente: { bg: 'bg-green-400/15', text: 'text-green-400', label: 'Excelente' },
@@ -26,6 +29,89 @@ function getFaixa(fit) {
   return 'critica';
 }
 
+function parseFaixa(faixa) {
+  // "60-100" → { min: 60, max: 100 }
+  if (!faixa || typeof faixa !== 'string') return null;
+  const m = faixa.match(/(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)/);
+  if (!m) return null;
+  return { min: Number(m[1]), max: Number(m[2]) };
+}
+
+/**
+ * Barra visual 0-100 mostrando a faixa ideal destacada + marker no score atual.
+ * Serve para gaps (mostra o quanto a pessoa está fora) e para forças.
+ */
+function GapBar({ valorReal, faixa, markerColor = '#22D3EE' }) {
+  const range = parseFaixa(faixa);
+  const val = Number.isFinite(valorReal) ? Math.max(0, Math.min(100, valorReal)) : null;
+  if (!range || val == null) return null;
+
+  const idealLeft = Math.max(0, Math.min(100, range.min));
+  const idealWidth = Math.max(0, Math.min(100, range.max) - idealLeft);
+
+  return (
+    <div className="relative h-3 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+      {/* Faixa ideal (teal semi-transparente) */}
+      <div
+        className="absolute top-0 h-full"
+        style={{ left: `${idealLeft}%`, width: `${idealWidth}%`, background: 'rgba(45,212,191,0.22)' }}
+      />
+      {/* Linhas do limite da faixa */}
+      <div className="absolute top-0 h-full w-px" style={{ left: `${range.min}%`, background: 'rgba(45,212,191,0.6)' }} />
+      <div className="absolute top-0 h-full w-px" style={{ left: `${range.max}%`, background: 'rgba(45,212,191,0.6)' }} />
+      {/* Marker do valor atual */}
+      <div
+        className="absolute -top-0.5 w-1 h-4 rounded-sm shadow-sm"
+        style={{ left: `calc(${val}% - 2px)`, background: markerColor, boxShadow: '0 0 4px rgba(34,211,238,0.8)' }}
+      />
+    </div>
+  );
+}
+
+function GapItem({ g }) {
+  const sev = g.distancia > 20 ? 'bg-red-400/15 text-red-400 border-red-400/30'
+    : g.distancia > 10 ? 'bg-amber-400/15 text-amber-400 border-amber-400/30'
+    : 'bg-emerald-400/15 text-emerald-400 border-emerald-400/30';
+  return (
+    <div className="rounded-lg px-3 py-2.5 border border-white/[0.06]" style={{ background: '#091D35' }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[11px] font-semibold text-white truncate">{g.nome}</span>
+          {g.peso && <span className="text-[8px] font-bold px-1 py-px rounded bg-white/5 text-gray-400 uppercase tracking-wider">{g.peso}</span>}
+        </div>
+        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${sev}`}>
+          {g.tratabilidade || '—'}
+        </span>
+      </div>
+      {Number.isFinite(g.valorReal) && g.faixa && (
+        <div className="mb-1.5">
+          <GapBar valorReal={g.valorReal} faixa={g.faixa} markerColor="#F87171" />
+        </div>
+      )}
+      <div className="flex items-center justify-between text-[9px] text-gray-500">
+        <span>Atual: <strong className="text-gray-300">{g.valorReal ?? '—'}</strong> · Ideal: <strong className="text-cyan-400">{g.faixa || '—'}</strong></span>
+        {g.impacto != null && (
+          <span>Impacto no fit: <strong className="text-amber-400">+{Number(g.impacto).toFixed(1)}</strong></span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ForcaItem({ f }) {
+  return (
+    <div className="rounded-lg px-3 py-2 border border-white/[0.06]" style={{ background: '#091D35' }}>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[11px] font-semibold text-white">{f.nome}</span>
+        <span className="text-[11px] font-bold text-emerald-400">{f.valorReal ?? f.score}</span>
+      </div>
+      {Number.isFinite(f.valorReal) && f.faixa && (
+        <GapBar valorReal={f.valorReal} faixa={f.faixa} markerColor="#34D399" />
+      )}
+    </div>
+  );
+}
+
 export default function FitPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -40,8 +126,39 @@ export default function FitPage() {
   const [calculating, setCalculating] = useState(false);
   const [toast, setToast] = useState(null);
   const [detailColab, setDetailColab] = useState(null);
+  const [leituraAi, setLeituraAi] = useState(null);
+  const [leituraLoading, setLeituraLoading] = useState(false);
+  const [baixandoRel, setBaixandoRel] = useState(false);
 
   function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 3000); }
+
+  function openDetail(r) {
+    setDetailColab(r);
+    setLeituraAi(null); // reset lazy text a cada abertura
+  }
+
+  async function handleGerarLeitura(force = false) {
+    if (!detailColab || !cargoSel || !empresaId) return;
+    setLeituraLoading(true);
+    const r = await gerarLeituraExecutivaFit(empresaId, detailColab.colaborador.id, cargoSel, { force });
+    setLeituraLoading(false);
+    if (r.success) setLeituraAi(r.texto);
+    else flash('Erro: ' + (r.error || 'falha ao gerar leitura'));
+  }
+
+  async function handleBaixarRelatorio() {
+    if (!detailColab) return;
+    setBaixandoRel(true);
+    const r = await baixarRelatorioComportamentalPdfPorId(detailColab.colaborador.id);
+    setBaixandoRel(false);
+    if (r.error) { flash('Erro: ' + r.error); return; }
+    const a = document.createElement('a');
+    a.href = r.url;
+    a.download = r.filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 
   useEffect(() => {
     if (!empresaId) { setLoading(false); return; }
@@ -145,7 +262,7 @@ export default function FitPage() {
                   {ranking.map(r => {
                     const faixa = getFaixa(r.fit_final);
                     return (
-                      <tr key={r.colaborador.id} className="hover:bg-white/[0.02] cursor-pointer" onClick={() => setDetailColab(r)}>
+                      <tr key={r.colaborador.id} className="hover:bg-white/[0.02] cursor-pointer" onClick={() => openDetail(r)}>
                         <td className="px-4 py-2.5 text-center text-amber-400 font-mono font-bold text-xs">{r.ranking.posicao}</td>
                         <td className="px-4 py-2.5 text-white font-semibold text-xs">{r.colaborador.nome || '—'}</td>
                         <td className="px-4 py-2.5 text-center">
@@ -175,9 +292,10 @@ export default function FitPage() {
       {detailColab && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-10 overflow-y-auto" style={{ background: 'rgba(0,0,0,0.7)' }}
           onClick={() => setDetailColab(null)}>
-          <div className="w-full max-w-[700px] rounded-2xl border border-white/[0.08] p-6 mb-10" style={{ background: '#0A1D35' }}
+          <div className="w-full max-w-[860px] rounded-2xl border border-white/[0.08] p-6 mb-10" style={{ background: '#0A1D35' }}
             onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-5">
               <div>
                 <h3 className="text-lg font-bold text-white">{detailColab.colaborador.nome}</h3>
                 <p className="text-xs text-gray-500">{cargoSel}</p>
@@ -190,11 +308,6 @@ export default function FitPage() {
               </div>
             </div>
 
-            {/* Leitura executiva */}
-            {detailColab.leitura_executiva && (
-              <p className="text-xs text-gray-300 leading-relaxed mb-4 p-3 rounded-lg" style={{ background: '#091D35' }}>{detailColab.leitura_executiva}</p>
-            )}
-
             {/* 4 Blocos */}
             <div className="grid grid-cols-4 gap-2 mb-4">
               {[
@@ -204,61 +317,122 @@ export default function FitPage() {
                 { key: 'disc', label: 'DISC', color: '#8B5CF6' },
               ].map(b => {
                 const score = detailColab.blocos[b.key]?.score ?? 0;
+                const peso = detailColab.blocos[b.key]?.peso;
                 return (
                   <div key={b.key} className="text-center p-3 rounded-lg" style={{ background: '#091D35' }}>
                     <div className="text-2xl font-bold" style={{ color: b.color }}>{score.toFixed(0)}</div>
                     <div className="text-[9px] text-gray-500 mt-1">{b.label}</div>
+                    {peso != null && <div className="text-[8px] text-gray-600 mt-0.5">peso {Math.round(peso * 100)}%</div>}
                   </div>
                 );
               })}
             </div>
 
             {/* Recomendação */}
-            <div className="flex items-center gap-2 mb-4 p-3 rounded-lg" style={{ background: '#091D35' }}>
-              <span className="text-[10px] text-gray-500">Recomendação:</span>
+            <div className="flex items-center gap-2 mb-5 p-3 rounded-lg" style={{ background: '#091D35' }}>
+              <span className="text-[10px] text-gray-500">Recomendação do modelo:</span>
               <span className="text-xs font-bold text-white">{detailColab.recomendacao}</span>
             </div>
 
-            {/* Gap Analysis */}
+            {/* Gap Analysis em 2 colunas */}
             {detailColab.gap_analysis && (
-              <div className="space-y-3">
-                {detailColab.gap_analysis.top_gaps?.length > 0 && (
-                  <div>
-                    <p className="text-[9px] font-bold text-red-400 uppercase tracking-widest mb-1">Top Gaps</p>
-                    {detailColab.gap_analysis.top_gaps.map((g, i) => (
-                      <div key={i} className="flex items-center justify-between text-[10px] py-1">
-                        <span className="text-gray-300">{g.nome}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-500">{g.tratabilidade}</span>
-                          <TrendingDown size={10} className="text-red-400" />
-                        </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+                {/* Gaps */}
+                <div>
+                  <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                    <TrendingDown size={12} /> Top Gaps — prioridade PDI
+                  </p>
+                  {detailColab.gap_analysis.top_gaps?.length > 0 ? (
+                    <div className="space-y-2">
+                      {detailColab.gap_analysis.top_gaps.slice(0, 5).map((g, i) => (
+                        <GapItem key={i} g={g} />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-gray-500 italic">Nenhum gap relevante — colaborador dentro das faixas ideais.</p>
+                  )}
+                </div>
+
+                {/* Forças */}
+                <div>
+                  <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                    <TrendingUp size={12} /> Principais forças
+                  </p>
+                  {detailColab.gap_analysis.top_forcas?.length > 0 ? (
+                    <div className="space-y-2">
+                      {detailColab.gap_analysis.top_forcas.slice(0, 5).map((f, i) => (
+                        <ForcaItem key={i} f={f} />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-gray-500 italic">Sem forças destacadas no momento.</p>
+                  )}
+
+                  {/* Alertas de excesso */}
+                  {detailColab.gap_analysis.alertas_excesso?.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                        <AlertTriangle size={12} /> Alertas de excesso
+                      </p>
+                      <div className="space-y-1">
+                        {detailColab.gap_analysis.alertas_excesso.map((a, i) => (
+                          <p key={i} className="text-[10px] text-amber-300/90 px-2 py-1 rounded" style={{ background: 'rgba(245,158,11,0.08)' }}>
+                            ⚠ {a.alerta}
+                          </p>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                )}
-                {detailColab.gap_analysis.top_forcas?.length > 0 && (
-                  <div>
-                    <p className="text-[9px] font-bold text-green-400 uppercase tracking-widest mb-1">Forças</p>
-                    {detailColab.gap_analysis.top_forcas.map((f, i) => (
-                      <div key={i} className="flex items-center justify-between text-[10px] py-1">
-                        <span className="text-gray-300">{f.nome}</span>
-                        <TrendingUp size={10} className="text-green-400" />
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {detailColab.gap_analysis.alertas_excesso?.length > 0 && (
-                  <div>
-                    <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest mb-1">Alertas de Excesso</p>
-                    {detailColab.gap_analysis.alertas_excesso.map((a, i) => (
-                      <div key={i} className="text-[10px] text-amber-300 py-0.5">⚠ {a.alerta}</div>
-                    ))}
-                  </div>
-                )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
-            <button onClick={() => setDetailColab(null)} className="mt-4 w-full py-2.5 rounded-lg text-sm font-semibold text-gray-400 border border-white/10 hover:text-white transition-colors">Fechar</button>
+            {/* Leitura executiva IA */}
+            <div className="rounded-lg p-4 border border-cyan-400/20 mb-5" style={{ background: 'rgba(6,182,212,0.04)' }}>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-400 flex items-center gap-1.5">
+                  <Sparkles size={12} /> Leitura executiva (IA)
+                </p>
+                {leituraAi && (
+                  <button onClick={() => handleGerarLeitura(true)} disabled={leituraLoading}
+                    className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 hover:text-white disabled:opacity-50">
+                    {leituraLoading ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />} Regerar
+                  </button>
+                )}
+              </div>
+              {leituraAi ? (
+                <p className="text-xs text-gray-200 leading-relaxed">{leituraAi}</p>
+              ) : detailColab.leitura_executiva ? (
+                <>
+                  <p className="text-xs text-gray-400 leading-relaxed italic mb-2">{detailColab.leitura_executiva}</p>
+                  <button onClick={() => handleGerarLeitura(false)} disabled={leituraLoading}
+                    className="flex items-center gap-1.5 text-[11px] font-bold text-cyan-400 hover:text-cyan-300 disabled:opacity-50">
+                    {leituraLoading ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+                    Gerar versão enriquecida via IA
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => handleGerarLeitura(false)} disabled={leituraLoading}
+                  className="flex items-center gap-1.5 text-[11px] font-bold text-cyan-400 hover:text-cyan-300 disabled:opacity-50">
+                  {leituraLoading ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+                  Gerar leitura executiva via IA
+                </button>
+              )}
+            </div>
+
+            {/* Ações */}
+            <div className="flex gap-2">
+              <button onClick={handleBaixarRelatorio} disabled={baixandoRel}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-bold text-white disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+                {baixandoRel ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                Baixar relatório comportamental
+              </button>
+              <button onClick={() => setDetailColab(null)}
+                className="px-4 py-2.5 rounded-lg text-xs font-semibold text-gray-400 border border-white/10 hover:text-white transition-colors">
+                Fechar
+              </button>
+            </div>
           </div>
         </div>
       )}

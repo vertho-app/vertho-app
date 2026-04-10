@@ -95,18 +95,31 @@ export async function loadBehavioralReport(email, opts = {}) {
   }
 }
 
+async function fetchColabPorId(colabId) {
+  if (!colabId) return null;
+  const sb = createSupabaseAdmin();
+  const { data } = await sb.from('colaboradores')
+    .select(CIS_COLUMNS)
+    .eq('id', colabId)
+    .maybeSingle();
+  return data || null;
+}
+
 /**
  * Gera textos LLM (se faltar) + renderiza PDF + upa pro bucket + salva path
  * em `colaboradores.comportamental_pdf_path`. Usado tanto pelo fire-and-forget
  * do fim do mapeamento quanto pelo fluxo de download.
  *
- * Aceita o colab inteiro (caller já consultou) OU um email para lookup.
+ * Aceita o colab inteiro (caller já consultou), um email, OU um colabId.
  */
-export async function gerarEsalvarRelatorioComportamental({ email, colab: inputColab } = {}) {
+export async function gerarEsalvarRelatorioComportamental({ email, colab: inputColab, colabId } = {}) {
   try {
     let colab = inputColab;
     if (!colab && email) {
       colab = await findColabByEmail(email, CIS_COLUMNS);
+    }
+    if (!colab && colabId) {
+      colab = await fetchColabPorId(colabId);
     }
     if (!colab) return { error: 'Colaborador não encontrado' };
 
@@ -162,42 +175,61 @@ export async function regenerarRelatorioComportamental(email) {
   return result;
 }
 
+// Shared helper usado pelo fluxo /dashboard (email) e pelo /admin (colabId)
+async function _baixarPdfParaColab(colab) {
+  const hasDISC = colab.perfil_dominante && (colab.d_natural || colab.i_natural || colab.s_natural || colab.c_natural);
+  if (!hasDISC) return { error: 'Mapeamento comportamental ainda não realizado' };
+
+  const sb = createSupabaseAdmin();
+  const slug = (colab.nome_completo || 'relatorio').replace(/\s+/g, '-').toLowerCase();
+  const filename = `vertho-comportamental-${slug}.pdf`;
+
+  // Caminho já salvo? Reusa.
+  let path = colab.comportamental_pdf_path;
+
+  // Se não tem, gera na hora
+  if (!path) {
+    const result = await gerarEsalvarRelatorioComportamental({ colab });
+    if (result.error) return { error: result.error };
+    path = result.path;
+  }
+
+  const { data: signed, error: signErr } = await sb.storage
+    .from(BUCKET)
+    .createSignedUrl(path, 300, { download: filename });
+  if (signErr) return { error: `Erro ao gerar link: ${signErr.message}` };
+
+  return { success: true, url: signed.signedUrl, filename };
+}
+
 /**
- * Gera signed URL para baixar o PDF. Prioriza o path salvo em
- * `comportamental_pdf_path`. Se não existir, gera+upa on-the-fly.
+ * Gera signed URL para baixar o PDF do colaborador autenticado.
+ * Usado pela página `/dashboard/perfil-comportamental/relatorio`.
  */
 export async function baixarRelatorioComportamentalPdf(email) {
   try {
     if (!email) return { error: 'Não autenticado' };
-
     const colab = await findColabByEmail(email, CIS_COLUMNS);
     if (!colab) return { error: 'Colaborador não encontrado' };
-
-    const hasDISC = colab.perfil_dominante && (colab.d_natural || colab.i_natural || colab.s_natural || colab.c_natural);
-    if (!hasDISC) return { error: 'Mapeamento comportamental ainda não realizado' };
-
-    const sb = createSupabaseAdmin();
-    const slug = (colab.nome_completo || 'relatorio').replace(/\s+/g, '-').toLowerCase();
-    const filename = `vertho-comportamental-${slug}.pdf`;
-
-    // Caminho já salvo? Reusa.
-    let path = colab.comportamental_pdf_path;
-
-    // Se não tem, gera na hora
-    if (!path) {
-      const result = await gerarEsalvarRelatorioComportamental({ colab });
-      if (result.error) return { error: result.error };
-      path = result.path;
-    }
-
-    const { data: signed, error: signErr } = await sb.storage
-      .from(BUCKET)
-      .createSignedUrl(path, 300, { download: filename });
-    if (signErr) return { error: `Erro ao gerar link: ${signErr.message}` };
-
-    return { success: true, url: signed.signedUrl, filename };
+    return await _baixarPdfParaColab(colab);
   } catch (err) {
     console.error('[baixarRelatorioComportamentalPdf]', err);
+    return { error: err?.message || 'Erro ao gerar PDF' };
+  }
+}
+
+/**
+ * Variante usada pelo admin (tela /admin/fit) para baixar o PDF de qualquer
+ * colaborador pelo id. Não exige autenticação do próprio colab.
+ */
+export async function baixarRelatorioComportamentalPdfPorId(colabId) {
+  try {
+    if (!colabId) return { error: 'colabId obrigatório' };
+    const colab = await fetchColabPorId(colabId);
+    if (!colab) return { error: 'Colaborador não encontrado' };
+    return await _baixarPdfParaColab(colab);
+  } catch (err) {
+    console.error('[baixarRelatorioComportamentalPdfPorId]', err);
     return { error: err?.message || 'Erro ao gerar PDF' };
   }
 }

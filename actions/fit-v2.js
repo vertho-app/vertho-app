@@ -3,6 +3,10 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { calcularFit, converterGabaritoParaPerfil, extrairPerfilReal } from '@/lib/fit-v2/engine';
 import { gerarRanking, gerarDistribuicao } from '@/lib/fit-v2/ranking';
+import { buildFitExecutivePrompt } from '@/lib/prompts/fit-executive-prompt';
+import { callAI } from '@/actions/ai-client';
+
+const LEITURA_AI_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
 
 // ── Salvar/carregar perfil ideal ────────────────────────────────────────────
 
@@ -199,6 +203,70 @@ export async function loadFitIndividual(colaboradorId) {
     ...data,
     resultado_json: typeof data.resultado_json === 'string' ? JSON.parse(data.resultado_json) : data.resultado_json,
   };
+}
+
+// ── Leitura executiva via LLM (lazy, cache em fit_resultados) ───────────────
+
+/**
+ * Gera (ou retorna do cache) a leitura executiva via LLM do Fit de um
+ * colaborador específico num cargo. Usado pelo drill-down do /admin/fit.
+ *
+ * opts.force = true força regeneração mesmo se houver cache válido.
+ */
+export async function gerarLeituraExecutivaFit(empresaId, colaboradorId, cargoNome, opts = {}) {
+  try {
+    if (!empresaId || !colaboradorId || !cargoNome) {
+      return { success: false, error: 'Parâmetros obrigatórios ausentes' };
+    }
+
+    const sb = createSupabaseAdmin();
+
+    // 1) Carrega o registro do fit
+    const { data: row } = await sb.from('fit_resultados')
+      .select('*')
+      .eq('empresa_id', empresaId)
+      .eq('colaborador_id', colaboradorId)
+      .eq('cargo_nome', cargoNome)
+      .maybeSingle();
+
+    if (!row) return { success: false, error: 'Fit não encontrado — calcule primeiro.' };
+
+    // 2) Cache válido?
+    if (!opts.force && row.leitura_executiva_ai && row.leitura_executiva_ai_at) {
+      const age = Date.now() - new Date(row.leitura_executiva_ai_at).getTime();
+      if (age < LEITURA_AI_MAX_AGE_MS) {
+        return { success: true, texto: row.leitura_executiva_ai, cached: true };
+      }
+    }
+
+    // 3) Monta o prompt com o resultado completo
+    const resultado = typeof row.resultado_json === 'string'
+      ? JSON.parse(row.resultado_json)
+      : row.resultado_json;
+    if (!resultado) return { success: false, error: 'Resultado do fit indisponível' };
+
+    const prompt = buildFitExecutivePrompt({ resultado, cargoNome });
+    const system = 'Você é um consultor sênior de desenvolvimento humano. Responda apenas com o texto final, sem markdown nem aspas.';
+
+    // 4) Chama LLM
+    const raw = await callAI(system, prompt, {}, 800);
+    const texto = String(raw || '').trim().replace(/^["']|["']$/g, '');
+
+    if (!texto) return { success: false, error: 'LLM retornou vazio' };
+
+    // 5) Salva cache
+    await sb.from('fit_resultados')
+      .update({
+        leitura_executiva_ai: texto,
+        leitura_executiva_ai_at: new Date().toISOString(),
+      })
+      .eq('id', row.id);
+
+    return { success: true, texto, cached: false };
+  } catch (err) {
+    console.error('[gerarLeituraExecutivaFit]', err);
+    return { success: false, error: err?.message || 'Erro ao gerar leitura executiva' };
+  }
 }
 
 // ── Listar cargos com contagem de fits ──────────────────────────────────────
