@@ -54,13 +54,17 @@ export async function gerarCenariosBLote(empresaId, aiConfig = {}) {
       };
     }
 
-    // Buscar todas
+    // Buscar todas (usar mesma query que o teste)
     for (const cid of compIdsNeeded) {
-      const { data: comp } = await sb.from('competencias')
+      const { data: comp, error: compErr } = await sb.from('competencias')
         .select('id, nome, descricao, gabarito')
         .eq('id', cid)
         .maybeSingle();
       if (comp) compMap[comp.id] = comp;
+    }
+    // Se o teste encontrou mas o loop não, reportar
+    if (testComp && Object.keys(compMap).length === 0) {
+      return { success: false, error: `BUG: teste OK (${testComp.nome}) mas loop vazio. IDs: ${compIdsNeeded.join(', ')}` };
     }
     const compIds = Object.keys(compMap);
 
@@ -200,7 +204,7 @@ Descrição: ${cenA.descricao}
 
     const dbUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').slice(-15);
     const keyPfx = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').slice(-10);
-    const detalhes = [`${cenariosA.length} cenários A`, `${compIdsNeeded.length} IDs`, `${compIds.length} found`, `${skipJaTemB} jaB`, `${skipSemComp} noComp`, `db=..${dbUrl}`, `key=..${keyPfx}`];
+    const detalhes = [`v7`, `${cenariosA.length} cenA`, `${compIdsNeeded.length} IDs`, `${compIds.length} found`, `test=${testComp?.nome || 'NULL'}`, `${skipJaTemB} jaB`, `${skipSemComp} noComp`, `db=..${dbUrl}`, `key=..${keyPfx}`];
     return { success: true, message: `${gerados} cenários B gerados${validados ? ` (${validados} validados)` : ''} — ${detalhes.join(', ')}` };
   } catch (err) {
     return { success: false, error: err.message };
