@@ -21,12 +21,21 @@ export async function gerarCenariosBLote(empresaId, aiConfig = {}) {
       .select('nome, segmento').eq('id', empresaId).single();
 
     // Cenários A existentes
+    // Cenários A (sem join — competencias pode não ter FK)
     const { data: cenariosA } = await sb.from('banco_cenarios')
-      .select('id, titulo, descricao, cargo, competencia_id, competencias!inner(nome, descricao, gabarito)')
+      .select('id, titulo, descricao, cargo, competencia_id')
       .eq('empresa_id', empresaId)
-      .is('tipo_cenario', null);
+      .not('tipo_cenario', 'eq', 'cenario_b');
 
     if (!cenariosA?.length) return { success: false, error: 'Nenhum cenário A encontrado. Rode IA3 primeiro.' };
+
+    // Buscar competências separadamente
+    const compIds = [...new Set(cenariosA.map(c => c.competencia_id).filter(Boolean))];
+    const { data: comps } = await sb.from('competencias')
+      .select('id, nome, descricao, gabarito')
+      .in('id', compIds);
+    const compMap = {};
+    (comps || []).forEach(c => { compMap[c.id] = c; });
 
     // Já tem B?
     const { data: cenariosB } = await sb.from('banco_cenarios')
@@ -81,12 +90,15 @@ Responda APENAS com JSON válido.`;
       const key = `${cenA.competencia_id}::${cenA.cargo}`;
       if (jaTemB.has(key)) continue;
 
-      const gabarito = cenA.competencias.gabarito;
+      const comp = compMap[cenA.competencia_id];
+      if (!comp) continue;
+
+      const gabarito = comp.gabarito;
       const descritores = Array.isArray(gabarito) ? gabarito.map((d, i) => `D${i+1}: ${d.nome || d.descritor || JSON.stringify(d)}`).join('\n') : JSON.stringify(gabarito);
 
       const user = `## Competência avaliada
-Nome: ${cenA.competencias.nome}
-Descrição: ${cenA.competencias.descricao}
+Nome: ${comp.nome}
+Descrição: ${comp.descricao}
 Cargo: ${cenA.cargo}
 
 ## Descritores (régua por nível)
