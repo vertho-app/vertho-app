@@ -900,6 +900,8 @@ export async function checkCenarios(empresaId, aiConfig = {}) {
 
 export async function loadCenariosB(empresaId) {
   const sb = createSupabaseAdmin();
+
+  // Buscar cenários B
   const { data } = await sb.from('banco_cenarios')
     .select('*')
     .eq('empresa_id', empresaId)
@@ -908,18 +910,25 @@ export async function loadCenariosB(empresaId) {
 
   if (!data?.length) return [];
 
-  // Buscar nomes das competências
+  // Buscar cenários A correspondentes para pegar o nome da competência via título
+  // (workaround: a query de competencias falha no Vercel)
+  const { data: cenariosA } = await sb.from('banco_cenarios')
+    .select('competencia_id, titulo')
+    .eq('empresa_id', empresaId)
+    .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b');
+
+  // Tentar buscar competências (pode falhar no Vercel)
   const compIds = [...new Set(data.map(c => c.competencia_id).filter(Boolean))];
   const compMap = {};
   for (const cid of compIds) {
-    const { data: comp } = await sb.from('competencias')
-      .select('nome').eq('id', cid).maybeSingle();
+    const { data: comp } = await sb.from('competencias').select('nome').eq('id', cid).maybeSingle();
     if (comp) compMap[cid] = comp.nome;
   }
 
+  // Fallback: extrair faceta_avaliada do alternativas
   return data.map(c => ({
     ...c,
-    competencia_nome: compMap[c.competencia_id] || '',
+    competencia_nome: compMap[c.competencia_id] || c.alternativas?.faceta_avaliada || '',
     alternativas: typeof c.alternativas === 'string' ? JSON.parse(c.alternativas) : (c.alternativas || {}),
   }));
 }

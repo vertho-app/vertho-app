@@ -525,6 +525,16 @@ export default function EmpresaPipelinePage({ params }) {
                     </div>
                   )}
 
+                  {/* Fase 4: link para cenários B */}
+                  {fase.num === 4 && (
+                    <div className="mb-3 mt-2 flex items-center gap-4 justify-end">
+                      <button onClick={() => router.push(`/admin/empresas/${empresaId}/fase4`)}
+                        className="text-[10px] font-bold text-purple-400 hover:text-purple-300">
+                        {`Cen\u00e1rios B \u2192`}
+                      </button>
+                    </div>
+                  )}
+
                   {/* Fase 3: link para dashboard */}
                   {fase.num === 3 && (
                     <div className="mb-3 mt-2 flex items-center gap-4 justify-end">
