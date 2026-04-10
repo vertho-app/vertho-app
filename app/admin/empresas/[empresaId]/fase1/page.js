@@ -12,6 +12,7 @@ import {
 } from '@/actions/fase1';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import { loadCargos, salvarTop5 } from '@/app/admin/cargos/actions';
+import { loadCenariosB } from '@/actions/fase5';
 
 export default function Fase1Page({ params }) {
   const { empresaId } = use(params);
@@ -38,6 +39,7 @@ export default function Fase1Page({ params }) {
 
   // Cenários
   const [cenarios, setCenarios] = useState([]);
+  const [cenariosB, setCenariosB] = useState([]);
   const [cenOpen, setCenOpen] = useState(null);
   const [cenAction, setCenAction] = useState(null);
 
@@ -62,9 +64,13 @@ export default function Fase1Page({ params }) {
       setTop5Edits(edits);
     }
 
-    // Cenários
-    const cens = await loadCenarios(empresaId);
+    // Cenários A e B
+    const [cens, censB] = await Promise.all([
+      loadCenarios(empresaId),
+      loadCenariosB(empresaId),
+    ]);
     setCenarios(cens);
+    setCenariosB(censB);
 
     setLoading(false);
   }, [empresaId]);
@@ -126,7 +132,8 @@ export default function Fase1Page({ params }) {
           { key: 'top10', label: 'Top 10', icon: Trophy, color: 'text-amber-400', count: top10.length },
           { key: 'top5', label: 'Top 5', icon: Target, color: 'text-orange-400', count: cargosData.filter(c => c.top5_workshop?.length).length },
           { key: 'gabarito', label: 'Gabarito CIS', icon: Target, color: 'text-purple-400', count: gabaritos.length },
-          { key: 'cenarios', label: 'Cenários', icon: FileText, color: 'text-green-400', count: cenarios.length },
+          { key: 'cenarios', label: 'Cenários A', icon: FileText, color: 'text-green-400', count: cenarios.length },
+          { key: 'cenarios-b', label: 'Cenários B', icon: FileText, color: 'text-purple-400', count: cenariosB.length },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all ${
@@ -501,6 +508,137 @@ export default function Fase1Page({ params }) {
             );
           })}
           </>)}
+        </div>
+      )}
+
+      {/* ═══ ABA CENÁRIOS B ═══ */}
+      {tab === 'cenarios-b' && (
+        <div>
+          {cenariosB.length === 0 ? (
+            <Empty icon={FileText} text={'Nenhum cen\u00e1rio B. Rode "Gerar Cen\u00e1rios B" na Fase 4.'} />
+          ) : (() => {
+            const porCargo = {};
+            cenariosB.forEach(c => {
+              if (!porCargo[c.cargo]) porCargo[c.cargo] = [];
+              porCargo[c.cargo].push(c);
+            });
+            return Object.entries(porCargo).map(([cargo, cens]) => {
+              const aprovados = cens.filter(c => c.status_check === 'aprovado').length;
+              const revisar = cens.filter(c => c.status_check === 'revisar').length;
+              const pendentes = cens.filter(c => !c.status_check).length;
+              return (
+                <div key={cargo} className="mb-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h2 className="text-sm font-bold text-white">{cargo}</h2>
+                    <span className="text-[10px] text-gray-500">{cens.length} {'cen\u00e1rios B'}</span>
+                    {aprovados > 0 && <span className="text-[9px] bg-green-400/15 text-green-400 px-1.5 py-0.5 rounded">{aprovados} aprovados</span>}
+                    {revisar > 0 && <span className="text-[9px] bg-amber-400/15 text-amber-400 px-1.5 py-0.5 rounded">{revisar} revisar</span>}
+                    {pendentes > 0 && <span className="text-[9px] bg-gray-400/15 text-gray-400 px-1.5 py-0.5 rounded">{pendentes} pendentes</span>}
+                  </div>
+                  <div className="space-y-2">
+                    {cens.map(c => {
+                      const isOpen = cenOpen === c.id;
+                      const dims = typeof c.dimensoes_check === 'string' ? JSON.parse(c.dimensoes_check) : c.dimensoes_check;
+                      const alt = c.alternativas || {};
+                      const dilema = alt.dilema_etico || alt.dilema_etico_embutido;
+                      const faceta = alt.faceta_avaliada;
+                      const refAval = alt.referencia_avaliacao;
+
+                      return (
+                        <div key={c.id} className={`rounded-xl border overflow-hidden ${
+                          c.status_check === 'aprovado' ? 'border-green-400/20' :
+                          c.status_check === 'revisar' ? 'border-amber-400/20' : 'border-white/[0.06]'
+                        }`} style={{ background: '#0F2A4A' }}>
+                          <button onClick={() => setCenOpen(isOpen ? null : c.id)}
+                            className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/[0.02] transition-colors">
+                            <div className="flex-1 min-w-0 flex items-center gap-2">
+                              {c.status_check === 'aprovado' && <CheckCircle size={14} className="text-green-400 shrink-0" />}
+                              {c.status_check === 'revisar' && <AlertTriangle size={14} className="text-amber-400 shrink-0" />}
+                              <span className="text-xs font-bold text-white">{c.titulo || 'Cen\u00e1rio B'}</span>
+                              {c.competencia_nome && <span className="text-[10px] text-purple-400">{c.competencia_nome}</span>}
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {c.nota_check != null && (
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                                  c.nota_check >= 90 ? 'bg-green-400/15 text-green-400' : 'bg-amber-400/15 text-amber-400'
+                                }`}>{c.nota_check}pts</span>
+                              )}
+                              <ChevronDown size={14} className={`text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                            </div>
+                          </button>
+
+                          {isOpen && (
+                            <div className="px-4 pb-4 border-t border-white/[0.04]">
+                              <p className="text-xs text-gray-300 leading-relaxed mt-3 mb-4">{c.descricao}</p>
+
+                              {/* Perguntas P1-P4 */}
+                              <div className="space-y-2 mb-4">
+                                {[c.p1, c.p2, c.p3, c.p4].map((p, i) => p && (
+                                  <div key={i} className="p-3 rounded-lg" style={{ background: '#091D35' }}>
+                                    <p className="text-xs font-bold text-white">P{i + 1}: {p}</p>
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Faceta avaliada */}
+                              {faceta && (
+                                <div className="mb-3">
+                                  <p className="text-[9px] font-bold text-purple-400 uppercase tracking-widest mb-1">Faceta Avaliada</p>
+                                  <p className="text-xs text-gray-300">{faceta}</p>
+                                </div>
+                              )}
+
+                              {/* Dilema ético */}
+                              {dilema && (
+                                <div className="mb-3 p-3 rounded-lg border border-amber-400/20 bg-amber-400/5">
+                                  <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest mb-1">Dilema {'\u00c9tico'}</p>
+                                  <p className="text-xs text-gray-300">Valor: {dilema.valor_testado}</p>
+                                  {dilema.caminho_facil && <p className="text-[10px] text-gray-500 mt-1">Caminho {'f\u00e1cil'}: {dilema.caminho_facil}</p>}
+                                  {dilema.caminho_etico && <p className="text-[10px] text-gray-500">Caminho {'\u00e9tico'}: {dilema.caminho_etico}</p>}
+                                </div>
+                              )}
+
+                              {/* Referência de avaliação */}
+                              {refAval && (
+                                <div className="mb-3">
+                                  <p className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest mb-1">{'Refer\u00eancia de Avalia\u00e7\u00e3o'}</p>
+                                  {Object.entries(refAval).map(([k, v]) => (
+                                    <p key={k} className="text-[10px] text-gray-400"><span className="text-white font-bold">{k}:</span> {v}</p>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Check result */}
+                              {c.nota_check != null && (
+                                <div className={`p-3 rounded-lg border mb-3 ${
+                                  c.status_check === 'aprovado' ? 'border-green-400/20 bg-green-400/5' : 'border-amber-400/20 bg-amber-400/5'
+                                }`}>
+                                  <span className={`text-xs font-bold ${c.status_check === 'aprovado' ? 'text-green-400' : 'text-amber-400'}`}>
+                                    Check: {c.nota_check}pts — {c.status_check === 'aprovado' ? 'Aprovado' : 'Revisar'}
+                                  </span>
+                                  {dims && (
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                      {Object.entries(dims).map(([k, v]) => (
+                                        <span key={k} className={`text-[9px] px-1.5 py-0.5 rounded ${v >= 18 ? 'bg-green-400/10 text-green-400' : v >= 14 ? 'bg-amber-400/10 text-amber-400' : 'bg-red-400/10 text-red-400'}`}>
+                                          {k}: {v}/20
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {c.justificativa_check && <p className="text-[10px] text-gray-400 mt-2">{c.justificativa_check}</p>}
+                                  {c.sugestao_check && <p className="text-[10px] text-amber-300 mt-1">{'Sugest\u00e3o'}: {c.sugestao_check}</p>}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            });
+          })()}
         </div>
       )}
     </div>
