@@ -39,7 +39,7 @@ const AI_MODELS = [
 ];
 
 const AI_ACTIONS = new Set([
-  'ia1', 'ia2', 'ia3', 'ia4', 'check', 'rel-ind', 'rel-gestor', 'rel-rh',
+  'ia1', 'ia2', 'ia3', 'ia4', 'rel-ind', 'rel-gestor', 'rel-rh',
   'pdis', 'moodle-cat', 'evolucao', 'plenaria', 'rh-rel', 'rh-plen', 'rh-dossie', 'rh-check',
 ]);
 
@@ -75,8 +75,7 @@ const PHASE_CONFIG = [
   { num: 2, icon: Bot, color: '#EF4444', groups: [
     { label: 'Diagnóstico', actions: [
       { key: 'simular', label: 'Simular Respostas', icon: MessageSquare, ai: true },
-      { key: 'ia4', label: 'Rodar IA4', icon: Zap, ai: true },
-      { key: 'check', label: 'Check Avaliações', icon: CheckCircle, ai: true },
+      { key: 'ia4', label: 'IA4 — Avaliar + Check', icon: Zap, ai: 'dual' },
     ]},
     { label: 'Trilhas', actions: [
       { key: 'foco', label: 'Competências Foco', icon: Target },
@@ -117,7 +116,7 @@ const PHASE_CONFIG = [
 // Action dispatcher map
 const ACTION_MAP = {
   ia1: rodarIA1, ia2: rodarIA2, ia3: rodarIA3,
-  ia4: rodarIA4, check: checkAvaliacoes,
+  ia4: rodarIA4,
   trilhas: montarTrilhasLote,
   'prov-moodle': provisionarMoodleLote, 'sync-moodle': syncProgressoMoodle,
   'iniciar-cap': iniciarCapacitacao, 'avancar-sem': avancarSemana, nudges: enviarNudgesInatividade,
@@ -240,6 +239,22 @@ export default function EmpresaPipelinePage({ params }) {
           else { erros++; addLog(`⚠ ${r.error}`, 'error'); }
         }
         addLog(`✅ Relatórios: ${ok} gerados${erros ? `, ${erros} erros` : ''}`, 'success');
+        setPendingAction(null);
+        return;
+      }
+
+      // IA4 — Avaliar + Check (dual picker)
+      if (actionKey === 'ia4') {
+        const checkModel = aiConfig?.checkModel;
+        addLog(`⏳ Avaliando respostas com ${aiConfig?.model || 'modelo padrão'}...`, 'info');
+        const r1 = await rodarIA4(empresaId, aiConfig || undefined);
+        addLog(r1.success ? `✅ ${r1.message}` : `❌ ${r1.error}`, r1.success ? 'success' : 'error');
+        if (r1.success && checkModel) {
+          addLog(`🔍 Validando avaliações com ${checkModel}...`, 'info');
+          const r2 = await checkAvaliacoes(empresaId, { model: checkModel });
+          addLog(r2.success ? `✅ ${r2.message}` : `⚠ Check falhou: ${r2.error}`, r2.success ? 'success' : 'error');
+        }
+        loadData();
         setPendingAction(null);
         return;
       }
