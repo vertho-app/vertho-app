@@ -662,12 +662,12 @@ export default function EmpresaPipelinePage({ params }) {
                 { label: 'Relatórios', tabelas: ['relatorios'] },
                 { label: 'Fit v2', tabelas: ['fit_resultados'] },
                 { label: 'Envios (email/WhatsApp)', tabelas: ['envios_diagnostico'] },
-                { label: 'Sessões de avaliação', tabelas: ['sessoes_avaliacao', 'mensagens_chat'] },
+                { label: 'Sessões de avaliação', tabelas: ['sessoes_avaliacao'] },
                 { label: 'Competências', tabelas: ['competencias'] },
                 { label: 'Cargos', tabelas: ['cargos_empresa'] },
                 { label: 'Colaboradores', tabelas: ['colaboradores'] },
                 { label: 'PPPs', tabelas: ['ppp_escolas'] },
-                { label: 'LIMPAR TUDO', tabelas: ['fit_resultados', 'relatorios', 'evolucao', 'evolucao_descritores', 'sessoes_avaliacao', 'mensagens_chat', 'respostas', 'envios_diagnostico', 'banco_cenarios', 'top10_cargos', 'competencias', 'cargos_empresa', 'ppp_escolas'], danger: true },
+                { label: 'LIMPAR TUDO', tabelas: ['fit_resultados', 'relatorios', 'evolucao', 'evolucao_descritores', 'sessoes_avaliacao', 'respostas', 'envios_diagnostico', 'banco_cenarios', 'top10_cargos', 'competencias', 'cargos_empresa', 'ppp_escolas'], danger: true },
               ].map(item => {
                 const scope = dangerColabId ? dangerColabs.find(c => c.id === dangerColabId)?.nome_completo || 'colaborador' : 'todos';
                 return (
