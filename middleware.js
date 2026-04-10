@@ -76,17 +76,26 @@ export function middleware(request) {
   // Sem tenant — fluxo normal, não faz nada
   if (!slug) return NextResponse.next();
 
-  // Com tenant — injeta header x-tenant-slug via rewrite na mesma URL
-  // O rewrite preserva a URL no browser mas adiciona o header
-  const url = request.nextUrl.clone();
+  // Injeta o slug em DOIS lugares:
+  //   1. Header x-tenant-slug — para Server Components (page.js) que rodam
+  //      no mesmo ciclo da request original.
+  //   2. Cookie vertho-tenant-slug — para Server Actions, que são POSTs
+  //      separados onde o header injetado pelo middleware nem sempre chega.
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-tenant-slug', slug);
 
-  return NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
+  const response = NextResponse.next({
+    request: { headers: requestHeaders },
   });
+
+  // Cookie host-only, válido para o subdomínio
+  response.cookies.set('vertho-tenant-slug', slug, {
+    httpOnly: true,
+    sameSite: 'lax',
+    path: '/',
+  });
+
+  return response;
 }
 
 export const config = {
