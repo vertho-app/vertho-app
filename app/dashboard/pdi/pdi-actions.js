@@ -22,10 +22,20 @@ export async function loadPDI(email) {
     .eq('status', 'ativo')
     .order('created_at', { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (!pdi) {
-    return { colaborador: colab, pdiAtivo: false };
+    // Verificar se o colab já respondeu ao menos uma competência
+    // para diferenciar "ainda não avaliou" de "aguardando geração pelo admin"
+    const { count } = await sb.from('respostas')
+      .select('id', { count: 'exact', head: true })
+      .eq('colaborador_id', colab.id)
+      .eq('empresa_id', colab.empresa_id);
+    return {
+      colaborador: colab,
+      pdiAtivo: false,
+      temRespostas: (count || 0) > 0,
+    };
   }
 
   return {
