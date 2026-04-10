@@ -56,16 +56,7 @@ const s = StyleSheet.create({
   finalText: { fontSize: 10, color: colors.textSecondary, lineHeight: 1.75, fontStyle: 'italic' },
 });
 
-// ── Fixed Header & Footer ───────────────────────────────────────────────────
-function PageHeader({ sub }) {
-  return (
-    <View style={pageStyles.header} fixed>
-      <Text style={pageStyles.headerTitle}>VERTHO</Text>
-      <Text style={pageStyles.headerSub}>{sub}</Text>
-    </View>
-  );
-}
-
+// ── Fixed Footer ────────────────────────────────────────────────────────────
 function PageFooter() {
   return (
     <View style={pageStyles.footer} fixed>
@@ -99,7 +90,6 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
       {/* ═══════════════════ RESUMO EXECUTIVO ═══════════════════ */}
       <Page size="A4" style={pageStyles.page} wrap>
         <PageBackground />
-        <PageHeader sub={nome} />
 
         {/* Acolhimento */}
         {c.acolhimento && <Text style={s.italic}>{c.acolhimento}</Text>}
@@ -216,7 +206,6 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
       {/* ═══════════════════ COMPET\u00caNCIAS ═══════════════════ */}
       <Page size="A4" style={pageStyles.page} wrap>
         <PageBackground />
-        <PageHeader sub="Plano de Desenvolvimento Individual" />
 
         {competencias.map((comp, idx) => (
           <View key={idx}>
@@ -232,7 +221,6 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
       {c.mensagem_final && (
         <Page size="A4" style={pageStyles.page}>
           <PageBackground />
-          <PageHeader sub="PDI" />
           <View style={{ flex: 1, justifyContent: 'center' }}>
             <View style={s.finalBox}>
               <Text style={s.finalTitle}>Mensagem Final</Text>

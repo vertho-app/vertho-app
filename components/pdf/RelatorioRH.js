@@ -56,15 +56,6 @@ const s = StyleSheet.create({
   hlText: { fontFamily: 'NotoSans', fontSize: 10 },
 });
 
-function PageHeader({ sub }) {
-  return (
-    <View style={pageStyles.header} fixed>
-      <Text style={pageStyles.headerTitle}>Vertho</Text>
-      <Text style={pageStyles.headerSub}>{sub}</Text>
-    </View>
-  );
-}
-
 function PageFooter() {
   return (
     <View style={pageStyles.footer} fixed>
@@ -102,7 +93,6 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }) {
       {/* Resumo + Indicadores */}
       <Page size="A4" style={pageStyles.page} wrap>
         <PageBackground />
-        <PageHeader sub={'Relat\u00f3rio RH'} />
 
         {c.resumo_executivo && (
           <View style={s.section} wrap={false}>
@@ -172,7 +162,6 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }) {
       {/* Competências Críticas + Treinamentos */}
       <Page size="A4" style={pageStyles.page} wrap>
         <PageBackground />
-        <PageHeader sub="Investimentos" />
 
         {c.competencias_criticas?.length > 0 && (
           <View style={s.section}>
@@ -233,7 +222,6 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }) {
       {/* Decisões + Plano */}
       <Page size="A4" style={pageStyles.page} wrap>
         <PageBackground />
-        <PageHeader sub={'Decis\u00f5es e Plano'} />
 
         {c.decisoes_chave?.length > 0 && (
           <View style={s.section}>

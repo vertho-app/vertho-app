@@ -44,15 +44,6 @@ const s = StyleSheet.create({
   acaoPrincipalSub: { fontFamily: 'NotoSans', fontSize: 10, color: colors.textSecondary, fontStyle: 'italic', marginTop: 6 },
 });
 
-function PageHeader({ sub }) {
-  return (
-    <View style={pageStyles.header} fixed>
-      <Text style={pageStyles.headerTitle}>Vertho</Text>
-      <Text style={pageStyles.headerSub}>{sub}</Text>
-    </View>
-  );
-}
-
 function PageFooter() {
   return (
     <View style={pageStyles.footer} fixed>
@@ -80,7 +71,6 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }) {
       {/* Resumo + Evolução + Ranking */}
       <Page size="A4" style={pageStyles.page} wrap>
         <PageBackground />
-        <PageHeader sub={'Relat\u00f3rio Gestor'} />
 
         {c.resumo_executivo && (
           <View style={s.section} wrap={false}>
@@ -126,7 +116,6 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }) {
       {/* Análise + DISC + Ações */}
       <Page size="A4" style={pageStyles.page} wrap>
         <PageBackground />
-        <PageHeader sub={'An\u00e1lise e A\u00e7\u00f5es'} />
 
         {c.analise_por_competencia?.length > 0 && (
           <View style={s.section}>
