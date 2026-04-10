@@ -44,14 +44,21 @@ export default function AssessmentPage() {
 
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.replace('/login'); return; }
-      const r = await getDiagnosticoDoDia(user.email);
-      if (r.error) { setError(r.error); setPhase(PHASE.ERROR); return; }
-      setData(r);
-      if (r.concluiuTudo) setPhase(PHASE.CONCLUIDO);
-      else if (r.respondeuHoje) setPhase(PHASE.HOJE);
-      else setPhase(PHASE.EXPLICACAO);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { router.replace('/login'); return; }
+        const r = await getDiagnosticoDoDia(user.email);
+        if (!r) { setError('Resposta vazia do servidor'); setPhase(PHASE.ERROR); return; }
+        if (r.error) { setError(r.error); setPhase(PHASE.ERROR); return; }
+        setData(r);
+        if (r.concluiuTudo) setPhase(PHASE.CONCLUIDO);
+        else if (r.respondeuHoje) setPhase(PHASE.HOJE);
+        else setPhase(PHASE.EXPLICACAO);
+      } catch (e) {
+        console.error('[assessment init]', e);
+        setError(e?.message || 'Erro ao carregar');
+        setPhase(PHASE.ERROR);
+      }
     })();
   }, []);
 

@@ -9,6 +9,15 @@ import { findColabByEmail } from '@/lib/authz';
  * Dedupe diário: se já respondeu hoje, bloqueia até amanhã.
  */
 export async function getDiagnosticoDoDia(email) {
+  try {
+    return await _getDiagnosticoDoDia(email);
+  } catch (err) {
+    console.error('[getDiagnosticoDoDia]', err);
+    return { error: err?.message || 'Erro ao carregar diagnóstico' };
+  }
+}
+
+async function _getDiagnosticoDoDia(email) {
   if (!email) return { error: 'Não autenticado' };
 
   const colab = await findColabByEmail(email, 'id, nome_completo, cargo, empresa_id');
@@ -126,6 +135,15 @@ export async function getDiagnosticoDoDia(email) {
  * Calcula a próxima competência pendente e retorna.
  */
 export async function salvarRespostaDiagnostico(email, cenarioId, compId, compNome, payload) {
+  try {
+    return await _salvarRespostaDiagnostico(email, cenarioId, compId, compNome, payload);
+  } catch (err) {
+    console.error('[salvarRespostaDiagnostico]', err);
+    return { error: err?.message || 'Erro ao salvar resposta' };
+  }
+}
+
+async function _salvarRespostaDiagnostico(email, cenarioId, compId, compNome, payload) {
   if (!email) return { error: 'Não autenticado' };
   if (!compId || !compNome) return { error: 'Competência inválida' };
   const { r1, r2, r3, r4, repr } = payload || {};
