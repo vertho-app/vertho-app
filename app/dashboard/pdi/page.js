@@ -192,19 +192,8 @@ export default function PDIPage() {
       if (!user) { router.replace('/login'); return; }
       const r = await baixarMeuPdiPdf(user.email);
       if (r.error) { setDownloadErr(r.error); return; }
-      // Converte base64 → Blob → download
-      const byteChars = atob(r.base64);
-      const bytes = new Uint8Array(byteChars.length);
-      for (let i = 0; i < byteChars.length; i++) bytes[i] = byteChars.charCodeAt(i);
-      const blob = new Blob([bytes], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = r.filename || 'vertho-pdi.pdf';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      // Download direto via signed URL (sem passar pelo server action)
+      window.location.href = r.url;
     } catch (e) {
       setDownloadErr(e?.message || 'Erro ao baixar');
     } finally {
@@ -280,7 +269,7 @@ export default function PDIPage() {
         <button onClick={handleDownloadPdf} disabled={downloading}
           className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-[#0C1829] bg-gradient-to-br from-cyan-400 to-cyan-600 hover:brightness-110 transition disabled:opacity-60">
           {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-          {downloading ? 'Gerando...' : 'Baixar PDF'}
+          {downloading ? 'Preparando...' : 'Baixar PDF'}
         </button>
       </div>
       {downloadErr && (

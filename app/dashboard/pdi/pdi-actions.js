@@ -60,9 +60,9 @@ export async function loadPDI(email) {
 }
 
 /**
- * Baixa o PDF do PDI do colaborador autenticado.
- * Retorna o buffer como base64 para o client montar um Blob e fazer download.
- * Baixa do storage se já existir; caso contrário, gera on-the-fly e salva.
+ * Retorna uma signed URL do Supabase Storage para o PDI do colab autenticado.
+ * Se o PDF ainda não existe no bucket, gera on-the-fly e sobe primeiro.
+ * Client usa a URL direto pra baixar (sem passar payload pelo server action).
  */
 export async function baixarMeuPdiPdf(email) {
   try {
@@ -72,7 +72,6 @@ export async function baixarMeuPdiPdf(email) {
 
     const sb = createSupabaseAdmin();
 
-    // Busca o PDI (mais recente) do colab
     const { data: rel } = await sb.from('relatorios')
       .select('id, conteudo, pdf_path, gerado_em, colaborador_id, empresa_id')
       .eq('colaborador_id', colab.id)
@@ -86,48 +85,42 @@ export async function baixarMeuPdiPdf(email) {
     const slug = (colab.nome_completo || 'pdi').replace(/\s+/g, '-').toLowerCase();
     const filename = `vertho-pdi-${slug}.pdf`;
 
-    // 1) Tenta baixar do storage
-    if (rel.pdf_path) {
-      const { data: stored, error: dlErr } = await sb.storage.from('relatorios-pdf').download(rel.pdf_path);
-      if (!dlErr && stored) {
-        const buffer = Buffer.from(await stored.arrayBuffer());
-        return { success: true, base64: buffer.toString('base64'), filename };
-      }
-      console.warn('[baixarMeuPdiPdf] storage download falhou:', dlErr?.message);
-    }
+    // Se ainda não tem PDF salvo, gera e sobe antes de criar a signed URL
+    let path = rel.pdf_path;
+    if (!path) {
+      const { renderToBuffer } = await import('@react-pdf/renderer');
+      const React = (await import('react')).default;
+      const { default: RelatorioIndividualPDF } = await import('@/components/pdf/RelatorioIndividual');
 
-    // 2) Fallback: gera on-the-fly
-    const { renderToBuffer } = await import('@react-pdf/renderer');
-    const React = (await import('react')).default;
-    const { default: RelatorioIndividualPDF } = await import('@/components/pdf/RelatorioIndividual');
-
-    // Resolve empresa
-    const { data: emp } = await sb.from('empresas').select('nome').eq('id', colab.empresa_id).maybeSingle();
-    const empresaNome = emp?.nome || '';
-
-    const conteudo = typeof rel.conteudo === 'string' ? JSON.parse(rel.conteudo) : rel.conteudo;
-    const data = {
-      ...rel,
-      conteudo,
-      colaborador_nome: colab.nome_completo,
-      colaborador_cargo: colab.cargo,
-    };
-    const logoBase64 = getLogoCoverBase64();
-    const buffer = await renderToBuffer(
-      React.createElement(RelatorioIndividualPDF, { data, empresaNome, logoBase64 })
-    );
-
-    // Salva pra próximas vezes
-    try {
-      const path = `${rel.empresa_id}/individual-${slug}-${Date.now()}.pdf`;
+      const { data: emp } = await sb.from('empresas').select('nome').eq('id', colab.empresa_id).maybeSingle();
+      const conteudo = typeof rel.conteudo === 'string' ? JSON.parse(rel.conteudo) : rel.conteudo;
+      const data = {
+        ...rel,
+        conteudo,
+        colaborador_nome: colab.nome_completo,
+        colaborador_cargo: colab.cargo,
+      };
+      const buffer = await renderToBuffer(
+        React.createElement(RelatorioIndividualPDF, {
+          data, empresaNome: emp?.nome || '', logoBase64: getLogoCoverBase64(),
+        })
+      );
+      path = `${rel.empresa_id}/individual-${slug}-${Date.now()}.pdf`;
       const { error: upErr } = await sb.storage.from('relatorios-pdf').upload(path, buffer, {
         contentType: 'application/pdf',
         upsert: true,
       });
-      if (!upErr) await sb.from('relatorios').update({ pdf_path: path }).eq('id', rel.id);
-    } catch (e) { console.error('[baixarMeuPdiPdf upload]', e.message); }
+      if (upErr) return { error: `Falha ao salvar PDF: ${upErr.message}` };
+      await sb.from('relatorios').update({ pdf_path: path }).eq('id', rel.id);
+    }
 
-    return { success: true, base64: Buffer.from(buffer).toString('base64'), filename };
+    // Gera signed URL válida por 5 minutos, forçando download com o nome bonito
+    const { data: signed, error: signErr } = await sb.storage
+      .from('relatorios-pdf')
+      .createSignedUrl(path, 300, { download: filename });
+    if (signErr) return { error: `Erro ao gerar link: ${signErr.message}` };
+
+    return { success: true, url: signed.signedUrl, filename };
   } catch (err) {
     console.error('[baixarMeuPdiPdf]', err);
     return { error: err?.message || 'Erro ao gerar PDF' };
