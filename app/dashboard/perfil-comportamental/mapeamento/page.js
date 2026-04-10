@@ -708,13 +708,13 @@ export default function MapeamentoPage() {
       <div className="max-w-[480px] mx-auto px-4 py-6 space-y-3">
         {/* ── Header ── */}
         <div className="text-center py-4">
-          <img src="/logo-vertho.png" alt="Vertho" className="h-7 mx-auto mb-3" />
-          <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-cyan-400 mb-2">Seu Perfil Comportamental</p>
-          <div className="text-[52px] font-black tracking-[5px] leading-none mb-1"
+          <img src="/logo-vertho.png" alt="Vertho" className="h-9 mx-auto mb-4" />
+          <p className="text-sm font-extrabold uppercase tracking-[2.5px] text-cyan-400 mb-3">Seu Perfil Comportamental</p>
+          <div className="text-[88px] font-black tracking-[5px] leading-none mb-2"
             style={{ fontFamily: "'Fraunces', Georgia, serif", background: 'linear-gradient(135deg, #2DD4BF, #FCD34D)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             {profile}
           </div>
-          <p className="text-[11px] text-gray-500">{formName || userName}</p>
+          <p className="text-base text-gray-400">{formName || userName}</p>
         </div>
 
         {saveError && <div className="px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs text-center">Erro ao salvar: {saveError}</div>}
