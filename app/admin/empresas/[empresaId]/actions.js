@@ -130,7 +130,7 @@ export async function definirSenhaTesteEmpresa(empresaId) {
     try {
       if (existing) {
         const { error } = await sb.auth.admin.updateUserById(existing.id, {
-          password: 'teste',
+          password: 'teste123',
           email_confirm: true,
         });
         if (error) { erros++; console.error('[setSenha update]', email, error.message); }
@@ -138,7 +138,7 @@ export async function definirSenhaTesteEmpresa(empresaId) {
       } else {
         const { error } = await sb.auth.admin.createUser({
           email,
-          password: 'teste',
+          password: 'teste123',
           email_confirm: true,
         });
         if (error) { erros++; console.error('[setSenha create]', email, error.message); }

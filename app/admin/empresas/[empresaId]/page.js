@@ -635,7 +635,7 @@ export default function EmpresaPipelinePage({ params }) {
             <p className="text-[10px] font-bold text-cyan-400/80 uppercase tracking-widest mb-2">Ferramentas de Teste</p>
             <button disabled={dangerLoading}
               onClick={async () => {
-                if (!confirm(`Definir senha "teste" para todos os colaboradores desta empresa?\n\nIsso cria/atualiza usuários no Supabase Auth e bypassa o magic link.`)) return;
+                if (!confirm(`Definir senha "teste123" para todos os colaboradores desta empresa?\n\nIsso cria/atualiza usuários no Supabase Auth e bypassa o magic link.`)) return;
                 setDangerLoading(true);
                 const r = await definirSenhaTesteEmpresa(empresaId);
                 if (r.success) addLog(`🔑 ${r.message}`, 'success');
@@ -644,7 +644,7 @@ export default function EmpresaPipelinePage({ params }) {
               }}
               className="w-full mb-4 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-xs font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all disabled:opacity-30">
               {dangerLoading ? <Loader2 size={14} className="animate-spin" /> : <Settings size={14} />}
-              Definir senha "teste" para todos
+              Definir senha "teste123" para todos
             </button>
 
             <p className="text-[10px] font-bold text-red-400/70 uppercase tracking-widest mb-3">Zona de Perigo</p>
