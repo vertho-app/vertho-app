@@ -1,6 +1,8 @@
 import React from 'react';
 import { Document, Page, View, Text, StyleSheet, Svg, Path } from '@react-pdf/renderer';
 import PageBackground from './PageBackground';
+// IMPORTANTE: import do styles.js (mesmo sem uso direto) registra a fonte NotoSans
+import './styles';
 
 // ── Paleta do relatório (alinhada à tela do app: sem vermelho) ──────────────
 const NAVY = '#0F2B54';
