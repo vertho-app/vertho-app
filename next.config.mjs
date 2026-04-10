@@ -5,8 +5,8 @@ const nextConfig = {
   // Garante que os PNGs usados via fs.readFileSync em server components/API
   // routes sejam incluídos no bundle serverless na Vercel.
   outputFileTracingIncludes: {
-    '/api/relatorios/**': ['./public/logo-vertho.png', './public/template-fundo-relatorios.png'],
-    '/**': ['./public/logo-vertho.png', './public/template-fundo-relatorios.png'],
+    '/api/relatorios/**': ['./public/logo-vertho.png', './public/logo-vertho-cover.png', './public/template-fundo-relatorios.png'],
+    '/**': ['./public/logo-vertho.png', './public/logo-vertho-cover.png', './public/template-fundo-relatorios.png'],
   },
 };
 

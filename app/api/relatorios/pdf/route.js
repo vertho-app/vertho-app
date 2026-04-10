@@ -8,10 +8,11 @@ import React from 'react';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-// Logo como base64 (carregado uma vez no cold start)
+// Logo da CAPA dos relatórios — versão escura (fundo branco)
+// (as páginas internas não renderizam logo; o template de fundo já cobre)
 let logoBase64 = null;
 try {
-  const logoPath = join(process.cwd(), 'public', 'logo-vertho.png');
+  const logoPath = join(process.cwd(), 'public', 'logo-vertho-cover.png');
   const logoBuffer = readFileSync(logoPath);
   logoBase64 = `data:image/png;base64,${logoBuffer.toString('base64')}`;
 } catch {
