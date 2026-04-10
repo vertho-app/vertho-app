@@ -28,13 +28,20 @@ Nota >= 90 = aprovado. Nota < 90 = revisar.
 Retorne APENAS JSON válido:
 {"nota":85,"dimensoes":{"aderencia":18,"realismo":19,"contencao":16,"decisao":17,"discriminante":15},"justificativa":"...","sugestao":"..."}`;
 
-// Helper: monta prompts de geração de cenário B
-function buildCenBPrompts(empresa, cenA, comp, pppContexto, feedbackExtra = '') {
-  const gabarito = comp.gabarito;
-  const descritores = Array.isArray(gabarito)
-    ? gabarito.map((d, i) => `D${i+1}: ${d.nome || d.descritor || JSON.stringify(d)}`).join('\n')
-    : JSON.stringify(gabarito);
+// Helper: busca descritores (linhas filhas em competencias com mesmo cod_comp)
+async function fetchDescritoresTexto(sb, empresaId, codComp) {
+  if (!codComp) return '';
+  const { data: descs } = await sb.from('competencias')
+    .select('cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
+    .eq('empresa_id', empresaId)
+    .eq('cod_comp', codComp)
+    .not('cod_desc', 'is', null);
+  if (!descs?.length) return '';
+  return descs.map((d, i) => `D${i + 1}: ${d.cod_desc} — ${d.nome_curto || ''}\nN1: ${d.n1_gap || ''}\nN2: ${d.n2_desenvolvimento || ''}\nN3: ${d.n3_meta || ''}\nN4: ${d.n4_referencia || ''}`).join('\n\n');
+}
 
+// Helper: monta prompts de geração de cenário B
+function buildCenBPrompts(empresa, cenA, comp, descritoresTexto, pppContexto, feedbackExtra = '') {
   const system = `<PAPEL>
 Você é um especialista em avaliação de competências comportamentais com 20 anos de experiência.
 Cria cenários situacionais que funcionam como instrumentos diagnósticos.
@@ -58,11 +65,11 @@ Responda APENAS com JSON válido.`;
 
   const user = `## Competência avaliada
 Nome: ${comp.nome}
-Descrição: ${comp.descricao}
+Descrição: ${comp.descricao || ''}
 Cargo: ${cenA.cargo}
 
 ## Descritores (régua por nível)
-${descritores}
+${descritoresTexto || '(sem descritores cadastrados)'}
 
 ${pppContexto ? `## Contexto institucional (PPP/Valores)\n${pppContexto}\n` : ''}
 ## Cenário A original (NÃO repetir — crie algo DIFERENTE)
@@ -95,7 +102,7 @@ ${feedbackExtra ? `\n## FEEDBACK DA REVISÃO ANTERIOR (CORRIJA ESTES PONTOS):\n$
 }
 
 // Helper: roda check em 1 cenário B e persiste resultado
-async function runCheckOnCenB(sb, cen, comp, modelo) {
+async function runCheckOnCenB(sb, cen, comp, descritoresTexto, modelo) {
   const alt = typeof cen.alternativas === 'string' ? JSON.parse(cen.alternativas) : (cen.alternativas || {});
   const perguntas = [alt.p1, alt.p2, alt.p3, alt.p4].filter(Boolean).map((p, i) => `P${i+1}: ${p}`).join('\n');
 
@@ -109,7 +116,7 @@ Contexto: ${cen.descricao}
 PERGUNTAS:
 ${perguntas}
 
-${comp?.gabarito ? `GABARITO:\n${JSON.stringify(comp.gabarito).slice(0, 500)}` : ''}`;
+${descritoresTexto ? `DESCRITORES:\n${descritoresTexto.slice(0, 1500)}` : ''}`;
 
   const resposta = await callAI(CHECK_CEN_B_SYSTEM, user, { model: modelo || 'gemini-3-flash-preview' }, 4096, { temperature: TEMP });
   const resultado = await extractJSON(resposta);
@@ -151,22 +158,17 @@ export async function gerarCenariosBLote(empresaId, aiConfig = {}) {
 
     const compIdsNeeded = [...new Set(cenariosA.map(c => c.competencia_id).filter(Boolean))];
     const compMap = {};
+    const descritoresMap = {};
 
-    // Buscar competências (sem gabarito primeiro — campo JSONB grande causa timeout no Vercel)
     for (const cid of compIdsNeeded) {
       const { data: comp } = await sb.from('competencias')
-        .select('id, nome, descricao')
+        .select('id, nome, descricao, cod_comp')
         .eq('id', cid)
         .maybeSingle();
-      if (comp) compMap[comp.id] = comp;
-    }
-    // Buscar gabarito separadamente para cada comp encontrada
-    for (const cid of Object.keys(compMap)) {
-      const { data: gab } = await sb.from('competencias')
-        .select('gabarito')
-        .eq('id', cid)
-        .maybeSingle();
-      if (gab) compMap[cid].gabarito = gab.gabarito;
+      if (comp) {
+        compMap[comp.id] = comp;
+        descritoresMap[comp.id] = await fetchDescritoresTexto(sb, empresaId, comp.cod_comp);
+      }
     }
     const compIds = Object.keys(compMap);
 
@@ -190,7 +192,8 @@ export async function gerarCenariosBLote(empresaId, aiConfig = {}) {
       const comp = compMap[cenA.competencia_id];
       if (!comp) { skipSemComp++; continue; }
 
-      const { system, user } = buildCenBPrompts(empresa, cenA, comp, pppContexto);
+      const descritoresTexto = descritoresMap[cenA.competencia_id] || '';
+      const { system, user } = buildCenBPrompts(empresa, cenA, comp, descritoresTexto, pppContexto);
       const resultado = await callAI(system, user, aiConfig, 4096, { temperature: TEMP });
       const cenarioData = await extractJSON(resultado);
       if (!cenarioData?.titulo) continue;
@@ -218,7 +221,7 @@ export async function gerarCenariosBLote(empresaId, aiConfig = {}) {
       // Check inline se modelo foi informado
       if (checkModel && inserted) {
         try {
-          const chk = await runCheckOnCenB(sb, inserted, comp, checkModel);
+          const chk = await runCheckOnCenB(sb, inserted, comp, descritoresTexto, checkModel);
           if (chk.success) {
             if (chk.status === 'aprovado') aprovados++; else revisar++;
           }
@@ -243,14 +246,15 @@ export async function checkCenarioBUm(cenarioId, modelo = null) {
   const sb = createSupabaseAdmin();
   try {
     const { data: cen } = await sb.from('banco_cenarios')
-      .select('id, titulo, descricao, cargo, competencia_id, alternativas')
+      .select('id, empresa_id, titulo, descricao, cargo, competencia_id, alternativas')
       .eq('id', cenarioId).single();
     if (!cen) return { success: false, error: 'Cenário não encontrado' };
 
     const { data: comp } = await sb.from('competencias')
-      .select('nome, gabarito').eq('id', cen.competencia_id).maybeSingle();
+      .select('id, nome, cod_comp').eq('id', cen.competencia_id).maybeSingle();
 
-    const r = await runCheckOnCenB(sb, cen, comp, modelo);
+    const descritoresTexto = comp ? await fetchDescritoresTexto(sb, cen.empresa_id, comp.cod_comp) : '';
+    const r = await runCheckOnCenB(sb, cen, comp, descritoresTexto, modelo);
     if (!r.success) return r;
     return { success: true, message: `Check: ${r.nota}pts — ${r.status}`, nota: r.nota, status: r.status };
   } catch (err) {
@@ -274,8 +278,10 @@ export async function regenerarCenarioB(cenarioId, aiConfig = {}) {
       .select('nome, segmento').eq('id', cen.empresa_id).single();
 
     const { data: comp } = await sb.from('competencias')
-      .select('id, nome, descricao, gabarito').eq('id', cen.competencia_id).maybeSingle();
+      .select('id, nome, descricao, cod_comp').eq('id', cen.competencia_id).maybeSingle();
     if (!comp) return { success: false, error: 'Competência não encontrada' };
+
+    const descritoresTexto = await fetchDescritoresTexto(sb, cen.empresa_id, comp.cod_comp);
 
     // Buscar cenário A original para referência (qualquer tipo != cenario_b para mesma comp+cargo)
     const { data: cenA } = await sb.from('banco_cenarios')
@@ -294,7 +300,7 @@ export async function regenerarCenarioB(cenarioId, aiConfig = {}) {
     const refCenA = cenA || { cargo: cen.cargo, titulo: cen.titulo, descricao: cen.descricao };
     refCenA.cargo = cen.cargo;
 
-    const { system, user } = buildCenBPrompts(empresa, refCenA, comp, pppContexto, feedbackExtra);
+    const { system, user } = buildCenBPrompts(empresa, refCenA, comp, descritoresTexto, pppContexto, feedbackExtra);
     const resposta = await callAI(system, user, aiConfig, 4096, { temperature: TEMP });
     const cenarioData = await extractJSON(resposta);
     if (!cenarioData?.titulo) return { success: false, error: 'IA não retornou cenário válido' };
@@ -1076,82 +1082,73 @@ export async function checkCenariosBLote(empresaId, aiConfig = {}) {
   const sb = createSupabaseAdmin();
   try {
     const { data: cenarios } = await sb.from('banco_cenarios')
-      .select('id, titulo, descricao, cargo, competencia_id, alternativas, nota_check')
+      .select('id, empresa_id, titulo, descricao, cargo, competencia_id, alternativas, nota_check')
       .eq('empresa_id', empresaId)
       .eq('tipo_cenario', 'cenario_b');
 
     if (!cenarios?.length) return { success: false, error: 'Nenhum cenário B encontrado. Gere cenários B primeiro.' };
 
-    // Pegar apenas os que ainda não foram checados
     const pendentes = cenarios.filter(c => c.nota_check == null);
     if (!pendentes.length) return { success: true, message: `Todos os ${cenarios.length} cenários B já foram checados` };
 
-    // Buscar competências
-    const compIds = [...new Set(pendentes.map(c => c.competencia_id).filter(Boolean))];
-    const compMap = {};
-    for (const cid of compIds) {
-      const { data: comp } = await sb.from('competencias')
-        .select('nome, gabarito').eq('id', cid).maybeSingle();
-      if (comp) compMap[cid] = comp;
-    }
-
-    const system = `Você é um avaliador especialista em Assessment Comportamental.
-Avalie o cenário B e as perguntas com base em 5 dimensões (20pts cada, total 100):
-
-1. ADERÊNCIA À COMPETÊNCIA (20pts): O cenário avalia a competência indicada?
-2. REALISMO CONTEXTUAL (20pts): Contexto e personagens críveis para o cargo?
-3. CONTENÇÃO (20pts): Contexto até ~900 chars? Max 2 tensões? Perguntas até ~200 chars?
-4. FORÇA DE DECISÃO (20pts): P1 força ESCOLHA? P2 pede COMO? P3 aborda raciocínio? P4 pede reflexão?
-5. PODER DISCRIMINANTE (20pts): Permite discriminar 4 níveis (N1-N4)?
-
-ERROS GRAVES (força nota max 60):
-- Pergunta fechada (sim/não)
-- Cenário com 4+ tensões
-- Pergunta genérica sem escolha
-- Competência avaliada não é a indicada
-
-Nota >= 90 = aprovado. Nota < 90 = revisar.
-Retorne APENAS JSON válido:
-{"nota":85,"dimensoes":{"aderencia":18,"realismo":19,"contencao":16,"decisao":17,"discriminante":15},"justificativa":"...","sugestao":"..."}`;
-
+    const modelo = aiConfig?.checkModel || aiConfig?.model || 'gemini-3-flash-preview';
+    const compCache = {}, descCache = {};
     let ok = 0, erros = 0;
+
     for (const cen of pendentes) {
-      const comp = compMap[cen.competencia_id];
-      const alt = typeof cen.alternativas === 'string' ? JSON.parse(cen.alternativas) : (cen.alternativas || {});
-      const perguntas = [alt.p1, alt.p2, alt.p3, alt.p4].filter(Boolean).map((p, i) => `P${i+1}: ${p}`).join('\n');
-
-      const user = `CARGO: ${cen.cargo}
-COMPETÊNCIA: ${comp?.nome || 'N/D'}
-
-CENÁRIO B:
-Título: ${cen.titulo}
-Contexto: ${cen.descricao}
-
-PERGUNTAS:
-${perguntas}
-
-${comp?.gabarito ? `GABARITO:\n${JSON.stringify(comp.gabarito).slice(0, 500)}` : ''}`;
-
       try {
-        const resposta = await callAI(system, user, { model: aiConfig?.checkModel || aiConfig?.model || 'gemini-3-flash-preview' }, 4096, { temperature: TEMP });
-        const resultado = await extractJSON(resposta);
-
-        if (resultado?.nota) {
-          const statusCheck = resultado.nota >= 90 ? 'aprovado' : 'revisar';
-          await sb.from('banco_cenarios').update({
-            nota_check: resultado.nota,
-            status_check: statusCheck,
-            dimensoes_check: resultado.dimensoes || null,
-            justificativa_check: resultado.justificativa || null,
-            sugestao_check: resultado.sugestao || null,
-            checked_at: new Date().toISOString(),
-          }).eq('id', cen.id).select('id');
-          ok++;
-        } else { erros++; }
+        let comp = compCache[cen.competencia_id];
+        if (!comp) {
+          const { data } = await sb.from('competencias')
+            .select('id, nome, cod_comp').eq('id', cen.competencia_id).maybeSingle();
+          comp = compCache[cen.competencia_id] = data || null;
+        }
+        let descritoresTexto = descCache[cen.competencia_id];
+        if (descritoresTexto === undefined) {
+          descritoresTexto = descCache[cen.competencia_id] = comp ? await fetchDescritoresTexto(sb, empresaId, comp.cod_comp) : '';
+        }
+        const r = await runCheckOnCenB(sb, cen, comp, descritoresTexto, modelo);
+        if (r.success) ok++; else erros++;
       } catch { erros++; }
     }
 
     return { success: true, message: `Check cenários B: ${ok} checados${erros ? `, ${erros} erros` : ''} (${cenarios.length - pendentes.length} já checados antes)` };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 11. REGENERAR + RECHECAR EM LOTE (todos os cenários B com nota < 90)
+// ══════════════════════════════════════════════════════════════════════════════
+
+export async function regenerarERecheckarCenariosBLote(empresaId, aiConfig = {}) {
+  const sb = createSupabaseAdmin();
+  try {
+    const { data: cenarios } = await sb.from('banco_cenarios')
+      .select('id, nota_check, titulo')
+      .eq('empresa_id', empresaId)
+      .eq('tipo_cenario', 'cenario_b')
+      .lt('nota_check', 90);
+
+    if (!cenarios?.length) return { success: true, message: 'Nenhum cenário B abaixo de 90 para regenerar' };
+
+    const checkModel = aiConfig?.checkModel || 'gemini-3-flash-preview';
+    let regenerados = 0, aprovados = 0, revisar = 0, erros = 0;
+
+    for (const c of cenarios) {
+      try {
+        const r1 = await regenerarCenarioB(c.id, { model: aiConfig?.model });
+        if (!r1.success) { erros++; continue; }
+        regenerados++;
+        const r2 = await checkCenarioBUm(c.id, checkModel);
+        if (r2.success) {
+          if (r2.status === 'aprovado') aprovados++; else revisar++;
+        }
+      } catch { erros++; }
+    }
+
+    return { success: true, message: `${regenerados} regenerados | ${aprovados} aprovados, ${revisar} ainda para revisar${erros ? `, ${erros} erros` : ''}` };
   } catch (err) {
     return { success: false, error: err.message };
   }

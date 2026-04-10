@@ -7,7 +7,7 @@ import {
   CheckCircle, AlertTriangle, RefreshCw, Zap,
 } from 'lucide-react';
 import { loadCenariosB } from '@/actions/fase5';
-import { checkCenarioBUm, regenerarCenarioB } from '../actions';
+import { checkCenarioBUm, regenerarCenarioB, regenerarERecheckarCenariosBLote } from '../actions';
 
 const AI_MODELS = [
   { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
@@ -63,6 +63,18 @@ export default function Fase4Page({ params }) {
     refresh();
   }
 
+  async function handleRegenerarLote() {
+    const abaixoDe90 = cenariosB.filter(c => c.nota_check != null && c.nota_check < 90).length;
+    if (!abaixoDe90) { flash('Nenhum cenário abaixo de 90'); return; }
+    if (!confirm(`Regenerar + rechecar ${abaixoDe90} cenários abaixo de 90?`)) return;
+    setActionId('lote');
+    flash(`Processando ${abaixoDe90} cenários...`);
+    const r = await regenerarERecheckarCenariosBLote(empresaId, { model: genModel, checkModel });
+    setActionId(null);
+    flash(r.success ? r.message : 'Erro: ' + r.error);
+    refresh();
+  }
+
   // Agrupar por cargo
   const porCargo = {};
   cenariosB.forEach(c => {
@@ -108,8 +120,8 @@ export default function Fase4Page({ params }) {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="flex items-center gap-3 mb-5 text-[10px]">
+      {/* Stats + Ação em lote */}
+      <div className="flex items-center gap-3 mb-5 text-[10px] flex-wrap">
         <span className="text-gray-400">Cen{'\u00e1'}rios B: <span className="text-white font-bold">{cenariosB.length}</span></span>
         {cenariosB.filter(c => c.status_check === 'aprovado').length > 0 && (
           <span className="bg-green-400/15 text-green-400 px-1.5 py-0.5 rounded font-bold">
@@ -125,6 +137,13 @@ export default function Fase4Page({ params }) {
           <span className="bg-gray-400/15 text-gray-400 px-1.5 py-0.5 rounded font-bold">
             {cenariosB.filter(c => !c.status_check).length} pendentes
           </span>
+        )}
+        {cenariosB.filter(c => c.nota_check != null && c.nota_check < 90).length > 0 && (
+          <button disabled={actionId === 'lote'} onClick={handleRegenerarLote}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 transition-all disabled:opacity-50">
+            {actionId === 'lote' ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+            Regenerar + Rechecar {'<'}90 ({cenariosB.filter(c => c.nota_check != null && c.nota_check < 90).length})
+          </button>
         )}
       </div>
 
