@@ -3,8 +3,16 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, CheckCircle2, Circle, Clock } from 'lucide-react';
+import { Loader2, CheckCircle2, Circle, Clock, ChevronRight } from 'lucide-react';
 import { loadJornada } from './jornada-actions';
+
+const FASE_HREF = {
+  1: '/dashboard/perfil-comportamental',
+  2: '/dashboard/assessment',
+  3: '/dashboard/pdi',
+  4: '/dashboard/praticar',
+  5: '/dashboard/evolucao',
+};
 
 const STATUS_CONFIG = {
   completed: {
@@ -86,22 +94,33 @@ export default function JornadaPage() {
               </div>
 
               {/* Content */}
-              <div className={`flex-1 pb-6 ${isLast ? '' : ''}`}>
-                <div className="rounded-xl p-4 border" style={{ background: '#0F2A4A', borderColor: config.borderColor }}>
-                  <div className="flex items-center justify-between mb-1">
+              <div className="flex-1 pb-6">
+                <button
+                  onClick={() => {
+                    const href = FASE_HREF[fase.fase];
+                    if (href) router.push(href);
+                  }}
+                  className="w-full rounded-xl p-4 border text-left transition-all hover:brightness-110 hover:border-white/20 active:scale-[0.98]"
+                  style={{ background: '#0F2A4A', borderColor: config.borderColor }}>
+                  <div className="flex items-center justify-between mb-1 gap-2">
                     <p className="text-sm font-bold text-white">Fase {fase.fase} — {fase.titulo}</p>
-                    <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
+                    <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full shrink-0"
                       style={{ color: config.color, background: config.bgColor }}>
                       {config.label}
                     </span>
                   </div>
-                  <p className="text-[11px] text-gray-400">{fase.descricao}</p>
-                  {fase.data && (
-                    <p className="text-[10px] text-gray-500 mt-1">
-                      {new Date(fase.data).toLocaleDateString('pt-BR')}
-                    </p>
-                  )}
-                </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] text-gray-400">{fase.descricao}</p>
+                      {fase.data && (
+                        <p className="text-[10px] text-gray-500 mt-1">
+                          {new Date(fase.data).toLocaleDateString('pt-BR')}
+                        </p>
+                      )}
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 shrink-0" />
+                  </div>
+                </button>
               </div>
             </div>
           );
