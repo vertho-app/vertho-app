@@ -69,7 +69,8 @@ const COMP_GROUPS = {
   C: ['Organização', 'Detalhismo', 'Prudência', 'Concentração'],
 };
 
-const DISC_COLORS = { D: '#EF4444', I: '#F59E0B', S: '#10B981', C: '#3B82F6' };
+// Paleta sem vermelho: D=laranja, I=amarelo, S=verde, C=azul
+const DISC_COLORS = { D: '#F97316', I: '#F59E0B', S: '#10B981', C: '#3B82F6' };
 const DISC_LABELS = { D: 'Dominância', I: 'Influência', S: 'Estabilidade', C: 'Conformidade' };
 const LEAD_LABELS = { Executivo: 'D', Motivador: 'I', Metódico: 'S', Sistemático: 'C' };
 
@@ -527,7 +528,7 @@ export default function MapeamentoPage() {
         </div>
 
         {/* Bottom label */}
-        <p className="text-center text-sm font-semibold text-rose-400 mb-6">👎 MENOS PARECIDO</p>
+        <p className="text-center text-sm font-semibold text-amber-400 mb-6">👎 MENOS PARECIDO</p>
 
         {/* Advance button */}
         <button
@@ -731,13 +732,13 @@ export default function MapeamentoPage() {
               <line key={i} x1="100" y1="100" x2={x} y2={y} stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" />
             ))}
             <polygon points={discRadarPoints(disc)} fill="rgba(45,212,191,0.1)" stroke="#2DD4BF" strokeWidth="2" />
-            <polygon points={discRadarPoints(dA)} fill="rgba(251,113,133,0.05)" stroke="#FB7185" strokeWidth="1.5" />
+            <polygon points={discRadarPoints(dA)} fill="rgba(252,211,77,0.08)" stroke="#FCD34D" strokeWidth="1.5" />
             {/* Dots */}
             {[{ f: 'D', x: 100, y: v => 100 - v }, { f: 'I', x: v => 100 + v, y: 100 }, { f: 'S', x: 100, y: v => 100 + v }, { f: 'C', x: v => 100 - v, y: 100 }].map(p => {
               const nv = disc[p.f], av = dA[p.f];
               const nx = typeof p.x === 'function' ? p.x(nv) : p.x, ny = typeof p.y === 'function' ? p.y(nv) : p.y;
               const ax = typeof p.x === 'function' ? p.x(av) : p.x, ay = typeof p.y === 'function' ? p.y(av) : p.y;
-              return <g key={p.f}><circle cx={nx} cy={ny} r="3" fill="#2DD4BF" /><circle cx={ax} cy={ay} r="3" fill="#FB7185" /></g>;
+              return <g key={p.f}><circle cx={nx} cy={ny} r="3" fill="#2DD4BF" /><circle cx={ax} cy={ay} r="3" fill="#FCD34D" /></g>;
             })}
             <text x="100" y="10" textAnchor="middle" fill="#94A3B8" fontSize="10" fontWeight="600">D</text>
             <text x="195" y="104" textAnchor="start" fill="#94A3B8" fontSize="10" fontWeight="600">I</text>
@@ -746,7 +747,7 @@ export default function MapeamentoPage() {
           </svg>
           <div className="flex justify-center gap-4 mt-2">
             <span className="text-[10px] font-bold"><span className="inline-block w-2 h-2 rounded-full bg-[#2DD4BF] mr-1" />Natural</span>
-            <span className="text-[10px] font-bold"><span className="inline-block w-2 h-2 rounded-full bg-[#FB7185] mr-1" />Adaptado</span>
+            <span className="text-[10px] font-bold"><span className="inline-block w-2 h-2 rounded-full bg-[#FCD34D] mr-1" />Adaptado</span>
           </div>
         </div>
 
@@ -759,9 +760,9 @@ export default function MapeamentoPage() {
             ))}
           </div>
           <div className="rounded-2xl p-4 border border-white/[0.04] text-center" style={{ background: 'rgba(17,31,54,0.85)' }}>
-            <p className="text-[9px] font-extrabold uppercase tracking-[1px] text-rose-400 mb-2">Desenvolvimento</p>
+            <p className="text-[9px] font-extrabold uppercase tracking-[1px] text-amber-400 mb-2">Desenvolvimento</p>
             {gaps.map(([name, val]) => (
-              <p key={name} className="text-[11px] font-bold text-white mt-1">{name} <span className="text-rose-400">{Math.round(val)}</span></p>
+              <p key={name} className="text-[11px] font-bold text-white mt-1">{name} <span className="text-amber-400">{Math.round(val)}</span></p>
             ))}
           </div>
         </div>
@@ -769,16 +770,16 @@ export default function MapeamentoPage() {
         {/* ── DISC Natural ── */}
         <div className="rounded-2xl p-4 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
           <p className="text-[10px] font-extrabold uppercase tracking-[2px] text-gray-500 mb-3">DISC Natural</p>
-          {[['Dominância', disc.D, '#EF4444'], ['Influência', disc.I, '#FBBF24'], ['Estabilidade', disc.S, '#22C55E'], ['Conformidade', disc.C, '#3B82F6']].map(([l, v, c]) => (
+          {[['Dominância', disc.D, DISC_COLORS.D], ['Influência', disc.I, DISC_COLORS.I], ['Estabilidade', disc.S, DISC_COLORS.S], ['Conformidade', disc.C, DISC_COLORS.C]].map(([l, v, c]) => (
             <Bar key={l} label={l} value={v} max={100} color={c} />
           ))}
         </div>
 
         {/* ── DISC Adaptado ── */}
         <div className="rounded-2xl p-4 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
-          <p className="text-[10px] font-extrabold uppercase tracking-[2px] text-rose-400 mb-1">DISC Adaptado</p>
+          <p className="text-[10px] font-extrabold uppercase tracking-[2px] text-amber-400 mb-1">DISC Adaptado</p>
           <p className="text-[10px] text-gray-500 mb-3">Como as pessoas esperam que você seja</p>
-          {[['Dominância', dA.D, '#EF4444'], ['Influência', dA.I, '#FBBF24'], ['Estabilidade', dA.S, '#22C55E'], ['Conformidade', dA.C, '#3B82F6']].map(([l, v, c]) => (
+          {[['Dominância', dA.D, DISC_COLORS.D], ['Influência', dA.I, DISC_COLORS.I], ['Estabilidade', dA.S, DISC_COLORS.S], ['Conformidade', dA.C, DISC_COLORS.C]].map(([l, v, c]) => (
             <Bar key={l} label={l} value={v} max={100} color={c} />
           ))}
         </div>
