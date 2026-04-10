@@ -18,7 +18,7 @@ import { listarPendentesSimulacao, simularUmaResposta } from '@/actions/simulado
 import { gerarRelatorioIndividual, gerarRelatoriosIndividuaisLote, gerarRelatorioGestor as gerarRelGestor, gerarRelatorioRH as gerarRelRH } from '@/actions/relatorios';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import {
-  loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, limparCenariosB, limparReavaliacaoSessoes, definirSenhaTesteEmpresa, loadColaboradoresLista,
+  loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, limparMapeamentoCompetencias, limparCenariosB, limparReavaliacaoSessoes, definirSenhaTesteEmpresa, loadColaboradoresLista,
   rodarIA1, rodarIA2, rodarIA3,
   verStatusEnvios,
   rodarIA4, checkAvaliacoes,
@@ -668,6 +668,7 @@ export default function EmpresaPipelinePage({ params }) {
             <div className="space-y-2 mb-4">
               {[
                 { label: 'Mapeamento Comportamental', action: 'mapeamento' },
+                { label: 'Mapeamento de Competências', action: 'mapeamentoComp' },
                 { label: 'Top 10 selecionadas', tabelas: ['top10_cargos'] },
                 { label: 'Gabaritos CIS', tabelas: ['cargos_empresa'], fields: { gabarito: null, raciocinio_ia2: null } },
                 { label: 'Cenários', tabelas: ['banco_cenarios'] },
@@ -694,6 +695,8 @@ export default function EmpresaPipelinePage({ params }) {
                       let r;
                       if (item.action === 'mapeamento') {
                         r = await limparMapeamento(empresaId, dangerColabId || null);
+                      } else if (item.action === 'mapeamentoComp') {
+                        r = await limparMapeamentoCompetencias(empresaId, dangerColabId || null);
                       } else if (item.action === 'cenariosB') {
                         r = await limparCenariosB(empresaId);
                       } else if (item.action === 'reavSessoes') {

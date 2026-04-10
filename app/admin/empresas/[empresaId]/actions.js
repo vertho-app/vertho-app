@@ -117,6 +117,22 @@ export async function limparReavaliacaoSessoes(empresaId) {
   return { success: true, message: `${count || 0} sessão(ões) de reavaliação removida(s)` };
 }
 
+// Limpa apenas as respostas do fluxo de Mapeamento de Competências do dashboard
+// (Diagnóstico: cenário do dia + P1-P4 + representatividade, canal='dashboard').
+// Mantém respostas simuladas pelo admin e respostas vindas por outros canais.
+export async function limparMapeamentoCompetencias(empresaId, colaboradorId = null) {
+  const sb = createSupabaseAdmin();
+  let q = sb.from('respostas')
+    .delete({ count: 'exact' })
+    .eq('empresa_id', empresaId)
+    .eq('canal', 'dashboard');
+  if (colaboradorId) q = q.eq('colaborador_id', colaboradorId);
+  const { error, count } = await q;
+  if (error) return { success: false, error: error.message };
+  const scope = colaboradorId ? '(colaborador)' : '(empresa)';
+  return { success: true, message: `${count || 0} resposta(s) de mapeamento removida(s) ${scope}` };
+}
+
 // ── Setar senha "teste" para todos os colaboradores da empresa ─────────────
 // Útil para bypass do rate limit de magic links durante testes.
 // Cria o auth.user se não existir; senão atualiza a senha.
