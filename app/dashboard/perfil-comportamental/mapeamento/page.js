@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
 import { salvarPerfilComportamental } from './mapeamento-actions';
+import { getColabByEmail } from '@/app/dashboard/colab-action';
 import { ArrowLeft, ChevronUp, ChevronDown, Loader2, Check, Star } from 'lucide-react';
 import Image from 'next/image';
 
@@ -205,11 +206,8 @@ export default function MapeamentoPage() {
       if (!user) { router.replace('/login'); return; }
       setUserEmail(user.email || '');
       setFormEmail(user.email || '');
-      // Buscar nome do colaborador no Supabase
-      const { data: colab } = await supabase.from('colaboradores')
-        .select('nome_completo')
-        .eq('email', user.email)
-        .single();
+      // Buscar nome do colaborador via server action (tenant-aware)
+      const colab = await getColabByEmail(user.email, 'nome_completo');
       const name = colab?.nome_completo || user.user_metadata?.name || '';
       setUserName(name);
       setFormName(name);

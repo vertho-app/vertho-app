@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Send, Loader2, CheckCircle, AlertTriangle, ArrowLeft, Shield } from 'lucide-react';
+import { getColabByEmail } from '@/app/dashboard/colab-action';
 
 export default function ChatPage() {
   const searchParams = useSearchParams();
@@ -37,10 +38,7 @@ export default function ChatPage() {
       if (!u) { setError('Não autenticado'); setInitLoading(false); return; }
       setUser(u);
 
-      const { data: c } = await supabase.from('colaboradores')
-        .select('id, nome_completo, empresa_id')
-        .eq('email', u.email)
-        .single();
+      const c = await getColabByEmail(u.email, 'id, nome_completo, empresa_id');
       if (!c) { setError('Colaborador não encontrado'); setInitLoading(false); return; }
       setColab(c);
 
