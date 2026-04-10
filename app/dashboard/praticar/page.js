@@ -39,13 +39,56 @@ export default function PraticarPage() {
         </button>
         <div className="rounded-xl p-6 border border-white/[0.06] text-center" style={{ background: '#0F2A4A' }}>
           <AlertCircle size={40} className="text-gray-500 mx-auto mb-3" />
-          <p className="text-lg font-bold text-white mb-1">Nenhuma trilha ativa</p>
-          <p className="text-sm text-gray-400 mb-5">Sua trilha de capacitação ainda não foi iniciada. Aguarde a atribuição pelo RH.</p>
+          <p className="text-lg font-bold text-white mb-1">Trilha ainda não preparada</p>
+          <p className="text-sm text-gray-400 mb-5">Assim que seu PDI for concluído, o RH vai montar sua trilha personalizada de capacitação.</p>
           <button onClick={() => router.push('/dashboard')}
             className="px-5 py-2.5 rounded-xl text-sm font-bold text-gray-300 border border-white/10 hover:bg-white/5 transition">
             Voltar ao dashboard
           </button>
         </div>
+      </div>
+    );
+  }
+
+  // Trilha preparada mas capacitação ainda não foi iniciada
+  if (data.status === 'preparada') {
+    return (
+      <div className="max-w-[600px] mx-auto px-4 py-6 space-y-4">
+        <button onClick={() => router.back()}
+          className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors">
+          <ArrowLeft size={16} /> Voltar
+        </button>
+        <div>
+          <h1 className="text-xl font-bold text-white">Trilha de Capacitação</h1>
+          <p className="text-sm text-gray-400 mt-1">Preparada — aguardando início</p>
+        </div>
+
+        <div className="rounded-2xl p-5 border border-cyan-400/20" style={{ background: 'rgba(6,182,212,0.05)' }}>
+          <p className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-400 mb-1">Competência foco</p>
+          <p className="text-lg font-bold text-white mb-3">{data.competenciaFoco || 'Em definição'}</p>
+          <p className="text-xs text-gray-400">Sua trilha está pronta. O RH vai iniciar sua capacitação em breve — você receberá uma notificação quando começar.</p>
+        </div>
+
+        {data.cursos?.length > 0 ? (
+          <div className="rounded-2xl p-5 border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
+            <p className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-400 mb-3">{data.cursos.length} cursos mapeados</p>
+            <div className="space-y-2">
+              {data.cursos.map((c, i) => (
+                <div key={i} className="flex items-start gap-3 p-3 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                  <BookOpen size={16} className="text-cyan-400 shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white truncate">{c.nome || `Curso ${i + 1}`}</p>
+                    {c.competencia && <p className="text-[10px] text-gray-500 mt-0.5">{c.competencia}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-2xl p-4 border border-amber-400/20 text-center" style={{ background: 'rgba(245,158,11,0.05)' }}>
+            <p className="text-xs text-amber-400">Nenhum curso foi mapeado ainda para sua trilha. O RH vai completar essa configuração.</p>
+          </div>
+        )}
       </div>
     );
   }
