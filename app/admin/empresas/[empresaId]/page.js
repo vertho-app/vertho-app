@@ -25,7 +25,7 @@ import {
   montarTrilhasLote, salvarCompetenciaFoco, loadCompetenciasFoco,
   provisionarMoodleLote, syncProgressoMoodle, iniciarCapacitacao, avancarSemana, enviarNudgesInatividade,
   moodleImportarCatalogo, catalogarConteudosMoodle, gerarCoberturaConteudo,
-  gerarCenariosBLote, checkCenariosBLote, iniciarReavaliacaoLote, gerarRelatoriosEvolucaoLote, gerarPlenariaEvolucao, gerarRelatorioRHManual, gerarRelatorioPlenaria, enviarLinksPerfil, gerarDossieGestor, checkCenarios,
+  gerarCenariosBLote, iniciarReavaliacaoLote, gerarRelatoriosEvolucaoLote, gerarPlenariaEvolucao, gerarRelatorioRHManual, gerarRelatorioPlenaria, enviarLinksPerfil, gerarDossieGestor, checkCenarios,
 } from './actions';
 
 // ── AI Models ──
@@ -104,7 +104,6 @@ const PHASE_CONFIG = [
   { num: 4, icon: TrendingUp, color: '#A78BFA', groups: [
     { label: 'Reavaliação', actions: [
       { key: 'cenarios-b', label: 'Cenários B + Check', icon: Zap, ai: 'dual' },
-      { key: 'check-b', label: 'Check Cenários B', icon: CheckCircle, ai: true },
       { key: 'reav', label: 'Iniciar Reavaliação', icon: MessageSquare, ai: true },
     ]},
     { label: 'Evolução', actions: [
@@ -122,7 +121,7 @@ const ACTION_MAP = {
   'prov-moodle': provisionarMoodleLote, 'sync-moodle': syncProgressoMoodle,
   'iniciar-cap': iniciarCapacitacao, 'avancar-sem': avancarSemana, nudges: enviarNudgesInatividade,
   'moodle-imp': moodleImportarCatalogo, 'moodle-cat': catalogarConteudosMoodle, cobertura: gerarCoberturaConteudo,
-  'cenarios-b': gerarCenariosBLote, 'check-b': checkCenariosBLote, reav: iniciarReavaliacaoLote, evolucao: gerarRelatoriosEvolucaoLote, plenaria: gerarPlenariaEvolucao,
+  'cenarios-b': gerarCenariosBLote, reav: iniciarReavaliacaoLote, evolucao: gerarRelatoriosEvolucaoLote, plenaria: gerarPlenariaEvolucao,
   'rh-rel': gerarRelatorioRHManual, 'rh-plen': gerarRelatorioPlenaria,
   'rh-links': enviarLinksPerfil, 'rh-dossie': gerarDossieGestor, 'rh-check': checkCenarios,
 };
