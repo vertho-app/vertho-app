@@ -2,6 +2,7 @@ import React from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { colors, pageStyles } from './styles';
 import PdfCover from './PdfCover';
+import PageBackground from './PageBackground';
 import { SectionTitle } from './SectionTitle';
 
 const s = StyleSheet.create({
@@ -100,6 +101,7 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }) {
 
       {/* Resumo + Indicadores */}
       <Page size="A4" style={pageStyles.page} wrap>
+        <PageBackground />
         <PageHeader sub={'Relat\u00f3rio RH'} />
 
         {c.resumo_executivo && (
@@ -169,6 +171,7 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }) {
 
       {/* Competências Críticas + Treinamentos */}
       <Page size="A4" style={pageStyles.page} wrap>
+        <PageBackground />
         <PageHeader sub="Investimentos" />
 
         {c.competencias_criticas?.length > 0 && (
@@ -229,6 +232,7 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }) {
 
       {/* Decisões + Plano */}
       <Page size="A4" style={pageStyles.page} wrap>
+        <PageBackground />
         <PageHeader sub={'Decis\u00f5es e Plano'} />
 
         {c.decisoes_chave?.length > 0 && (

@@ -2,6 +2,7 @@ import React from 'react';
 import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer';
 import { colors, fonts, tableStyles, pageStyles, nivelColor, nivelBgColor, nivelLabel } from './styles';
 import PdfCover from './PdfCover';
+import PageBackground from './PageBackground';
 import { SectionTitle } from './SectionTitle';
 import { LevelDots } from './StatusBadge';
 import CompetencyBlock from './CompetencyBlock';
@@ -97,6 +98,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
 
       {/* ═══════════════════ RESUMO EXECUTIVO ═══════════════════ */}
       <Page size="A4" style={pageStyles.page} wrap>
+        <PageBackground />
         <PageHeader sub={nome} />
 
         {/* Acolhimento */}
@@ -213,6 +215,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
 
       {/* ═══════════════════ COMPET\u00caNCIAS ═══════════════════ */}
       <Page size="A4" style={pageStyles.page} wrap>
+        <PageBackground />
         <PageHeader sub="Plano de Desenvolvimento Individual" />
 
         {competencias.map((comp, idx) => (
@@ -228,6 +231,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
       {/* ═══════════════════ MENSAGEM FINAL ═══════════════════ */}
       {c.mensagem_final && (
         <Page size="A4" style={pageStyles.page}>
+          <PageBackground />
           <PageHeader sub="PDI" />
           <View style={{ flex: 1, justifyContent: 'center' }}>
             <View style={s.finalBox}>

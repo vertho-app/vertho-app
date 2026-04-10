@@ -2,6 +2,7 @@ import React from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import { colors, pageStyles } from './styles';
 import PdfCover from './PdfCover';
+import PageBackground from './PageBackground';
 import { SectionTitle } from './SectionTitle';
 
 const s = StyleSheet.create({
@@ -78,6 +79,7 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }) {
 
       {/* Resumo + Evolução + Ranking */}
       <Page size="A4" style={pageStyles.page} wrap>
+        <PageBackground />
         <PageHeader sub={'Relat\u00f3rio Gestor'} />
 
         {c.resumo_executivo && (
@@ -123,6 +125,7 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }) {
 
       {/* Análise + DISC + Ações */}
       <Page size="A4" style={pageStyles.page} wrap>
+        <PageBackground />
         <PageHeader sub={'An\u00e1lise e A\u00e7\u00f5es'} />
 
         {c.analise_por_competencia?.length > 0 && (
