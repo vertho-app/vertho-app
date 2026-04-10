@@ -29,16 +29,15 @@ export async function gerarCenariosBLote(empresaId, aiConfig = {}) {
 
     if (!cenariosA?.length) return { success: false, error: 'Nenhum cenário A encontrado. Rode IA3 primeiro.' };
 
-    // Buscar competências pelos IDs referenciados nos cenários (podem estar em outra empresa)
+    // Buscar competências uma a uma (workaround para RLS/env inconsistente no Vercel)
     const compIdsNeeded = [...new Set(cenariosA.map(c => c.competencia_id).filter(Boolean))];
     const compMap = {};
-    // Buscar em lotes de 20 para evitar problemas com .in()
-    for (let i = 0; i < compIdsNeeded.length; i += 20) {
-      const batch = compIdsNeeded.slice(i, i + 20);
-      const { data: comps } = await sb.from('competencias')
+    for (const cid of compIdsNeeded) {
+      const { data: comp } = await sb.from('competencias')
         .select('id, nome, descricao, gabarito')
-        .in('id', batch);
-      (comps || []).forEach(c => { compMap[c.id] = c; });
+        .eq('id', cid)
+        .maybeSingle();
+      if (comp) compMap[comp.id] = comp;
     }
     const compIds = Object.keys(compMap);
 
@@ -176,7 +175,7 @@ Descrição: ${cenA.descricao}
       gerados++;
     }
 
-    const detalhes = [`${cenariosA.length} cenários A`, `${compIds.length} competências`, `${jaTemB.size} já têm B`, `${skipJaTemB} skip (já B)`, `${skipSemComp} skip (sem comp)`];
+    const detalhes = [`${cenariosA.length} cenários A`, `${compIdsNeeded.length} comp IDs únicos`, `${compIds.length} encontradas no DB`, `${jaTemB.size} já têm B`, `${skipJaTemB} skip (já B)`, `${skipSemComp} skip (sem comp)`];
     return { success: true, message: `${gerados} cenários B gerados${validados ? ` (${validados} validados)` : ''} — ${detalhes.join(', ')}` };
   } catch (err) {
     return { success: false, error: err.message };
