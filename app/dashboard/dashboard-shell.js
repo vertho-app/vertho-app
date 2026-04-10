@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Home, Clock, Play, TrendingUp, User, LogOut } from 'lucide-react';
-import BetoChat from '@/components/beto-chat';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Início', icon: Home },
@@ -57,9 +56,6 @@ export default function DashboardShell({ children }) {
       <main className="flex-1 overflow-y-auto pb-[calc(var(--nav-height)+16px)]">
         {children}
       </main>
-
-      {/* BETO Chat */}
-      <BetoChat />
 
       {/* Bottom Nav */}
       <nav className="fixed bottom-0 left-0 right-0 flex items-center justify-around border-t border-white/[0.06]"
