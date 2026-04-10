@@ -141,7 +141,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
             <View style={{ ...s.pontosCol, backgroundColor: '#FFF3E0', marginLeft: 5, borderLeftWidth: 4, borderLeftColor: '#E65100' }}>
               <View style={s.pontosHeader}>
                 <View style={{ ...s.pontosDot, backgroundColor: '#E65100' }} />
-                <Text style={{ ...s.pontosLabel, color: '#E65100' }}>Pontos de Aten\u00e7\u00e3o</Text>
+                <Text style={{ ...s.pontosLabel, color: '#E65100' }}>Pontos de Atenção</Text>
               </View>
               {(c.perfil_comportamental?.pontos_atencao || c.perfil_disc?.pontos_atencao)?.map((p, i) => (
                 <Text key={i} style={s.pontosItem}>! {p}</Text>
@@ -156,8 +156,8 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
             <SectionTitle>Resumo de Desempenho</SectionTitle>
             <View style={tableStyles.table}>
               <View style={tableStyles.headerRow}>
-                <Text style={{ ...tableStyles.headerCell, flex: 3 }}>Compet\u00eancia</Text>
-                <Text style={{ ...tableStyles.headerCell, flex: 0.7, textAlign: 'center' }}>N\u00edvel</Text>
+                <Text style={{ ...tableStyles.headerCell, flex: 3 }}>Competência</Text>
+                <Text style={{ ...tableStyles.headerCell, flex: 0.7, textAlign: 'center' }}>Nível</Text>
                 <Text style={{ ...tableStyles.headerCell, flex: 1.3, textAlign: 'center' }}>Status</Text>
                 <Text style={{ ...tableStyles.headerCell, flex: 1, textAlign: 'center' }}>Desempenho</Text>
               </View>

@@ -121,7 +121,7 @@ export const tableStyles = StyleSheet.create({
 export const pageStyles = StyleSheet.create({
   page: {
     flexDirection: 'column', backgroundColor: colors.white,
-    paddingTop: 72, paddingBottom: 52, paddingHorizontal: 40,
+    paddingTop: 120, paddingBottom: 52, paddingHorizontal: 40,
     fontFamily: 'NotoSans',
   },
   header: {

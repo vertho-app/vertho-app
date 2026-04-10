@@ -106,7 +106,7 @@ export default function CompetencyBlock({ comp, index, total }) {
       <View style={s.headerBox} wrap={false}>
         <View style={s.headerLeft}>
           <Text style={s.compName}>{comp.nome}</Text>
-          <Text style={s.counter}>Compet\u00eancia {index + 1} de {total}</Text>
+          <Text style={s.counter}>Competência {index + 1} de {total}</Text>
         </View>
         <View style={s.headerRight}>
           <View style={s.levelRow}>
@@ -122,7 +122,7 @@ export default function CompetencyBlock({ comp, index, total }) {
       {/* Flag de prioridade */}
       {isFlag && (
         <View style={s.flagBadge}>
-          <Text style={s.flagText}>ATEN\u00c7\u00c3O PRIORIT\u00c1RIA</Text>
+          <Text style={s.flagText}>ATENÇÃO PRIORITÁRIA</Text>
         </View>
       )}
 
@@ -163,7 +163,7 @@ export default function CompetencyBlock({ comp, index, total }) {
       {/* ── An\u00e1lise (feedback) ── */}
       {comp.feedback && (
         <View style={s.feedbackBox} wrap={false}>
-          <Text style={s.feedbackLabel}>An\u00e1lise</Text>
+          <Text style={s.feedbackLabel}>Análise</Text>
           <Text style={s.feedbackText}>{comp.feedback}</Text>
         </View>
       )}
