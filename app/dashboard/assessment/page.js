@@ -265,11 +265,32 @@ export default function AssessmentPage() {
         <div className="rounded-2xl p-6 border border-green-400/30 text-center" style={{ background: 'rgba(16,185,129,0.08)' }}>
           <CheckCircle size={48} className="text-green-400 mx-auto mb-3" />
           <p className="text-lg font-extrabold text-green-400 mb-1">Resposta salva!</p>
-          <p className="text-sm text-gray-300 mb-5">Sua avaliação de hoje foi registrada com sucesso. Volte amanhã para continuar.</p>
-          <button onClick={() => router.push('/dashboard')}
-            className="w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-cyan-400 to-cyan-600 hover:brightness-110 transition">
-            Voltar ao dashboard
-          </button>
+          <p className="text-sm text-gray-300 mb-5">Sua avaliação foi registrada com sucesso.</p>
+          <div className="flex flex-col gap-2">
+            {saveResult?.proximaCompetencia && (
+              <button onClick={async () => {
+                // recarrega pra pegar próxima
+                setPhase(PHASE.LOADING);
+                setRespostas({ r1: '', r2: '', r3: '', r4: '' });
+                setRepr(null);
+                setPergIdx(0);
+                setSaveResult(null);
+                const { data: { user } } = await supabase.auth.getUser();
+                const r = await getDiagnosticoDoDia(user.email);
+                if (r.error) { setError(r.error); setPhase(PHASE.ERROR); return; }
+                setData(r);
+                if (r.concluiuTudo) setPhase(PHASE.CONCLUIDO);
+                else setPhase(PHASE.INTRO);
+              }}
+                className="w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-cyan-400 to-cyan-600 hover:brightness-110 transition">
+                Próxima competência →
+              </button>
+            )}
+            <button onClick={() => router.push('/dashboard')}
+              className="w-full py-3 rounded-xl font-bold text-gray-300 border border-white/10 hover:bg-white/5 transition">
+              Voltar ao dashboard
+            </button>
+          </div>
         </div>
       )}
 

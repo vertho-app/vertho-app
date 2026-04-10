@@ -47,20 +47,13 @@ async function _getDiagnosticoDoDia(email) {
 
   // Respostas já dadas pelo colaborador (filtra por competencia_id — mais confiável)
   const { data: respostas } = await sb.from('respostas')
-    .select('competencia_id, created_at')
+    .select('competencia_id')
     .eq('colaborador_id', colab.id)
     .eq('empresa_id', colab.empresa_id);
   const jaRespondidasIds = new Set((respostas || []).map(r => r.competencia_id).filter(Boolean));
 
-  // Respondeu hoje? (regra: 1 por dia)
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  const respondeuHoje = (respostas || []).some(r => {
-    const ts = r.created_at ? new Date(r.created_at) : null;
-    return ts && ts >= hoje;
-  });
-
   // Pega o primeiro do top5 que ainda não foi respondido (por id)
+  // Sem limite diário — o colaborador pode responder quantas competências quiser no mesmo dia
   const pendentes = top5ComId.filter(c => c.id && !jaRespondidasIds.has(c.id));
   const respondidas = top5.length - pendentes.length;
   const pct = top5.length > 0 ? Math.round((respondidas / top5.length) * 100) : 0;
@@ -80,18 +73,6 @@ async function _getDiagnosticoDoDia(email) {
   }
 
   const proxima = pendentes[0];
-
-  // Já respondeu hoje → bloqueia até amanhã
-  if (respondeuHoje) {
-    return {
-      colaborador: colaboradorPayload,
-      progresso,
-      concluiuTudo: false,
-      respondeuHoje: true,
-      proximaCompetencia: proxima.nome,
-      cenarioDoDia: null,
-    };
-  }
 
   // Busca cenário A da comp+cargo
   const { data: cen } = await sb.from('banco_cenarios')
@@ -159,17 +140,7 @@ async function _salvarRespostaDiagnostico(email, cenarioId, compId, compNome, pa
 
   const sb = createSupabaseAdmin();
 
-  // Validação extra: bloqueia se já respondeu hoje (mas só conta como hoje se for uma comp diferente)
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  const { data: jaHoje } = await sb.from('respostas')
-    .select('id, competencia_id')
-    .eq('colaborador_id', colab.id)
-    .eq('empresa_id', colab.empresa_id)
-    .gte('created_at', hoje.toISOString());
-  // Se já respondeu outra competência hoje, bloqueia
-  const outraCompHoje = (jaHoje || []).some(r => r.competencia_id && r.competencia_id !== compId);
-  if (outraCompHoje) return { error: 'Você já respondeu a avaliação de hoje. Volte amanhã.' };
+  // Sem limite diário — o colaborador pode responder quantas competências quiser no mesmo dia
 
   // Upsert (conflito no índice único empresa_id + colaborador_id + competencia_id)
   const { error: upErr } = await sb.from('respostas').upsert({
