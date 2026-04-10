@@ -163,17 +163,17 @@ Descrição: ${cenA.descricao}
         } catch { /* Gemini opcional */ }
       }
 
-      await sb.from('banco_cenarios').insert({
+      const { error: insErr } = await sb.from('banco_cenarios').insert({
         empresa_id: empresaId,
         competencia_id: cenA.competencia_id,
         cargo: cenA.cargo,
         titulo: cenarioData.titulo,
         descricao: cenarioData.descricao,
-        p1: cenarioData.p1,
-        p2: cenarioData.p2,
-        p3: cenarioData.p3,
-        p4: cenarioData.p4,
         alternativas: {
+          p1: cenarioData.p1,
+          p2: cenarioData.p2,
+          p3: cenarioData.p3,
+          p4: cenarioData.p4,
           referencia_avaliacao: cenarioData.referencia_avaliacao,
           dilema_etico: cenarioData.dilema_etico_embutido,
           faceta_avaliada: cenarioData.faceta_avaliada,
@@ -181,6 +181,7 @@ Descrição: ${cenA.descricao}
         },
         tipo_cenario: 'cenario_b',
       });
+      if (insErr) { console.error('[cenarioB insert]', insErr.message); continue; }
       gerados++;
     }
 
@@ -941,7 +942,7 @@ export async function checkCenariosBLote(empresaId, aiConfig = {}) {
   const sb = createSupabaseAdmin();
   try {
     const { data: cenarios } = await sb.from('banco_cenarios')
-      .select('id, titulo, descricao, cargo, competencia_id, p1, p2, p3, p4, alternativas, nota_check')
+      .select('id, titulo, descricao, cargo, competencia_id, alternativas, nota_check')
       .eq('empresa_id', empresaId)
       .eq('tipo_cenario', 'cenario_b');
 
@@ -982,7 +983,8 @@ Retorne APENAS JSON válido:
     let ok = 0, erros = 0;
     for (const cen of pendentes) {
       const comp = compMap[cen.competencia_id];
-      const perguntas = [cen.p1, cen.p2, cen.p3, cen.p4].filter(Boolean).map((p, i) => `P${i+1}: ${p}`).join('\n');
+      const alt = typeof cen.alternativas === 'string' ? JSON.parse(cen.alternativas) : (cen.alternativas || {});
+      const perguntas = [alt.p1, alt.p2, alt.p3, alt.p4].filter(Boolean).map((p, i) => `P${i+1}: ${p}`).join('\n');
 
       const user = `CARGO: ${cen.cargo}
 COMPETÊNCIA: ${comp?.nome || 'N/D'}

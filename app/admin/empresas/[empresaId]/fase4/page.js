@@ -133,7 +133,7 @@ export default function Fase4Page({ params }) {
 
                           {/* Perguntas P1-P4 */}
                           <div className="space-y-2 mb-4">
-                            {[c.p1, c.p2, c.p3, c.p4].map((p, i) => p && (
+                            {[alt.p1, alt.p2, alt.p3, alt.p4].map((p, i) => p && (
                               <div key={i} className="p-3 rounded-lg" style={{ background: '#091D35' }}>
                                 <p className="text-xs font-bold text-white">P{i + 1}: {p}</p>
                               </div>
