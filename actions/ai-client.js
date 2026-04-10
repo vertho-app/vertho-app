@@ -75,6 +75,7 @@ async function callClaude(system, user, model, maxTokens, options = {}) {
     max_tokens: maxTokens,
     system,
     messages: [{ role: 'user', content: user }],
+    ...(options.temperature != null ? { temperature: options.temperature } : {}),
   };
 
   if (options.thinking) {
@@ -111,6 +112,7 @@ async function callClaudeChat(system, messages, model, maxTokens, options = {}) 
     max_tokens: maxTokens,
     system,
     messages,
+    ...(options.temperature != null ? { temperature: options.temperature } : {}),
   };
 
   if (options.thinking) {

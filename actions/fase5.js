@@ -1,71 +1,142 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { callAI } from './ai-client';
+import { callAI, callAIChat } from './ai-client';
 import { extractJSON } from './utils';
 
-// ── Constantes ──────────────────────────────────────────────────────────────
+// ── Constantes (alinhadas com GAS) ──────────────────────────────────────────
 const MAX_TURNOS = 8;
+const TEMP = 0.4; // temperatura GAS para consistência
 
-// ── 1. Gerar Cenários B em Lote ────────────────────────────────────────────
-// Cria cenários B customizados para cada cargo/competência (diferente do A)
+// ══════════════════════════════════════════════════════════════════════════════
+// 1. GERAR CENÁRIOS B EM LOTE
+// Cria cenários B customizados por cargo/competência (diferente do A)
+// Inclui: dilema ético, faceta avaliada, validação Gemini
+// ══════════════════════════════════════════════════════════════════════════════
 
 export async function gerarCenariosBLote(empresaId, aiConfig = {}) {
   const sb = createSupabaseAdmin();
   try {
-    // Buscar cenários A existentes (agrupados por cargo+competência)
+    const { data: empresa } = await sb.from('empresas')
+      .select('nome, segmento').eq('id', empresaId).single();
+
+    // Cenários A existentes
     const { data: cenariosA } = await sb.from('banco_cenarios')
       .select('id, titulo, descricao, cargo, competencia_id, competencias!inner(nome, descricao, gabarito)')
       .eq('empresa_id', empresaId)
-      .is('tipo_cenario', null); // cenários originais (não B)
+      .is('tipo_cenario', null);
 
     if (!cenariosA?.length) return { success: false, error: 'Nenhum cenário A encontrado. Rode IA3 primeiro.' };
 
-    // Verificar quais já têm cenário B
+    // Já tem B?
     const { data: cenariosB } = await sb.from('banco_cenarios')
       .select('competencia_id, cargo')
-      .eq('empresa_id', empresaId)
-      .eq('tipo_cenario', 'cenario_b');
+      .eq('empresa_id', empresaId).eq('tipo_cenario', 'cenario_b');
     const jaTemB = new Set((cenariosB || []).map(c => `${c.competencia_id}::${c.cargo}`));
 
-    const system = `Você é um especialista em avaliação de competências comportamentais.
-Crie um CENÁRIO B complementar ao cenário A existente.
+    // PPP da empresa (contexto institucional)
+    const { data: ppps } = await sb.from('ppp_escolas')
+      .select('valores').eq('empresa_id', empresaId).limit(1);
+    const pppContexto = ppps?.[0]?.valores ? JSON.stringify(ppps[0].valores) : '';
+
+    const system = `<PAPEL>
+Você é um especialista em avaliação de competências comportamentais com 20 anos de experiência.
+Cria cenários situacionais que funcionam como instrumentos diagnósticos.
+Empresa: ${empresa.nome} (${empresa.segmento})
+</PAPEL>
+
+<TAREFA>
+Crie um CENÁRIO B complementar ao cenário A já existente.
 O cenário B usa a MESMA competência mas com situação-gatilho DIFERENTE.
-Foco em dilemas cotidianos realistas, não extremos.
-O cenário deve permitir respostas em 4 níveis (N1 a N4).
+</TAREFA>
+
+<REGRAS_DE_CONSTRUCAO>
+1. REALISMO CONTEXTUAL
+   - Use elementos reais do contexto profissional do cargo
+   - Nomeie personagens com nomes brasileiros
+   - Inclua contexto temporal e situacional específico
+
+2. ESTRUTURA DO DILEMA
+   - SITUAÇÃO-PROBLEMA concreta, não teórica
+   - Tensão real: interesses conflitantes, urgência, recursos limitados
+   - NÃO extrema — foco em dilemas cotidianos
+
+3. PODER DISCRIMINANTE
+   - Permite respostas em 4 níveis (N1-N4)
+   - Diferença nos níveis está na complexidade, não no tamanho
+
+4. DIVERSIDADE EM RELAÇÃO AO CENÁRIO A
+   - Situação-gatilho OBRIGATORIAMENTE diferente
+   - Varie: momento, atores envolvidos, tipo de dilema
+
+5. DILEMA ÉTICO EMBUTIDO
+   - Todo cenário deve conter uma tensão ética sutil
+   - Não óbvia, mas que revele valores na resposta
+</REGRAS_DE_CONSTRUCAO>
+
 Responda APENAS com JSON válido.`;
 
-    let gerados = 0;
+    let gerados = 0, validados = 0;
     for (const cenA of cenariosA) {
       const key = `${cenA.competencia_id}::${cenA.cargo}`;
       if (jaTemB.has(key)) continue;
 
-      const user = `Competência: ${cenA.competencias.nome}
+      const gabarito = cenA.competencias.gabarito;
+      const descritores = Array.isArray(gabarito) ? gabarito.map((d, i) => `D${i+1}: ${d.nome || d.descritor || JSON.stringify(d)}`).join('\n') : JSON.stringify(gabarito);
+
+      const user = `## Competência avaliada
+Nome: ${cenA.competencias.nome}
 Descrição: ${cenA.competencias.descricao}
-Gabarito: ${JSON.stringify(cenA.competencias.gabarito)}
 Cargo: ${cenA.cargo}
 
-Cenário A (NÃO repetir): ${cenA.titulo} — ${cenA.descricao}
+## Descritores (régua por nível)
+${descritores}
 
-Gere cenário B:
+${pppContexto ? `## Contexto institucional (PPP/Valores)\n${pppContexto}\n` : ''}
+## Cenário A original (NÃO repetir — crie algo DIFERENTE)
+Título: ${cenA.titulo}
+Descrição: ${cenA.descricao}
+
+## Formato de saída (JSON obrigatório):
 {
   "titulo": "título do cenário B",
   "descricao": "contexto (80-150 palavras, personagens brasileiros, situação concreta)",
-  "p1": "pergunta sobre a SITUAÇÃO (o que você faria?)",
-  "p2": "pergunta sobre a AÇÃO (como implementaria?)",
-  "p3": "pergunta sobre o RACIOCÍNIO (por que essa abordagem?)",
-  "p4": "pergunta sobre AUTOSSENSIBILIDADE (como se sentiu/percebeu?)",
+  "p1": "Dimensão SITUAÇÃO — pergunta aberta",
+  "p2": "Dimensão AÇÃO — pergunta aberta",
+  "p3": "Dimensão RACIOCÍNIO — pergunta aberta",
+  "p4": "Dimensão AUTOSSENSIBILIDADE — pergunta aberta",
+  "faceta_avaliada": "qual aspecto específico da competência este cenário testa",
   "referencia_avaliacao": {
-    "nivel_1": "resposta típica N1",
-    "nivel_2": "resposta típica N2",
-    "nivel_3": "resposta típica N3",
-    "nivel_4": "resposta típica N4"
+    "nivel_1": "que tipo de resposta indica N1",
+    "nivel_2": "que tipo de resposta indica N2",
+    "nivel_3": "que tipo de resposta indica N3",
+    "nivel_4": "que tipo de resposta indica N4"
+  },
+  "dilema_etico_embutido": {
+    "valor_testado": "nome do valor ético em jogo",
+    "caminho_facil": "o que a pessoa faria se cedesse",
+    "caminho_etico": "o que a pessoa faria mantendo o valor"
   }
 }`;
 
-      const resultado = await callAI(system, user, aiConfig, 4000);
+      const resultado = await callAI(system, user, aiConfig, 4096, { temperature: TEMP });
       const cenarioData = await extractJSON(resultado);
       if (!cenarioData?.titulo) continue;
+
+      // Validação Gemini (se disponível)
+      let validacao = null;
+      if (process.env.GEMINI_API_KEY) {
+        try {
+          const valResult = await callAI(
+            'Você é um auditor de qualidade de cenários avaliativos. Verifique se o cenário é realista, não tendencioso, e permite discriminar 4 níveis de resposta. Responda APENAS JSON: {"aprovado": true/false, "motivo": "..."}',
+            `Cenário para validar:\n${JSON.stringify(cenarioData, null, 2)}`,
+            { model: 'gemini-3-flash-preview' },
+            1024
+          );
+          validacao = await extractJSON(valResult);
+          if (validacao?.aprovado) validados++;
+        } catch { /* Gemini opcional */ }
+      }
 
       await sb.from('banco_cenarios').insert({
         empresa_id: empresaId,
@@ -77,69 +148,77 @@ Gere cenário B:
         p2: cenarioData.p2,
         p3: cenarioData.p3,
         p4: cenarioData.p4,
-        alternativas: cenarioData.referencia_avaliacao,
+        alternativas: {
+          referencia_avaliacao: cenarioData.referencia_avaliacao,
+          dilema_etico: cenarioData.dilema_etico_embutido,
+          faceta_avaliada: cenarioData.faceta_avaliada,
+          validacao_gemini: validacao,
+        },
         tipo_cenario: 'cenario_b',
       });
       gerados++;
     }
 
-    return { success: true, message: `${gerados} cenários B gerados` };
+    return { success: true, message: `${gerados} cenários B gerados${validados ? ` (${validados} validados Gemini)` : ''}` };
   } catch (err) {
     return { success: false, error: err.message };
   }
 }
 
-// ── 2. Iniciar Reavaliação Conversacional ──────────────────────────────────
-// Cria sessões de reavaliação para cada colaborador (conversa guiada de 8 turnos)
+// ══════════════════════════════════════════════════════════════════════════════
+// 2. INICIAR REAVALIAÇÃO EM LOTE
+// Cria sessões conversacionais para cada colaborador (8 turnos, mentoria)
+// ══════════════════════════════════════════════════════════════════════════════
 
 export async function iniciarReavaliacaoLote(empresaId, aiConfig = {}) {
   const sb = createSupabaseAdmin();
   try {
     const { data: colaboradores } = await sb.from('colaboradores')
-      .select('id, nome_completo, cargo, email')
+      .select('id, nome_completo, cargo, email, perfil_dominante, d_natural, i_natural, s_natural, c_natural')
       .eq('empresa_id', empresaId);
-
     if (!colaboradores?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
 
-    // Buscar cenários B
+    // Cenários B
     const { data: cenariosB } = await sb.from('banco_cenarios')
-      .select('id, competencia_id, cargo')
-      .eq('empresa_id', empresaId)
-      .eq('tipo_cenario', 'cenario_b');
-
+      .select('id, competencia_id, cargo').eq('empresa_id', empresaId).eq('tipo_cenario', 'cenario_b');
     if (!cenariosB?.length) return { success: false, error: 'Nenhum cenário B. Gere cenários B primeiro.' };
-
     const cenarioMap = {};
-    cenariosB.forEach(c => {
-      const key = `${c.competencia_id}::${c.cargo}`;
-      cenarioMap[key] = c.id;
-    });
+    cenariosB.forEach(c => { cenarioMap[`${c.competencia_id}::${c.cargo}`] = c.id; });
 
-    // Buscar respostas iniciais (para incluir baseline na reavaliação)
+    // Respostas iniciais (baseline com pontos fortes/gaps)
     const { data: respostas } = await sb.from('respostas')
       .select('colaborador_id, competencia_id, nivel_ia4, avaliacao_ia')
-      .eq('empresa_id', empresaId)
-      .not('avaliacao_ia', 'is', null);
-
+      .eq('empresa_id', empresaId).not('avaliacao_ia', 'is', null);
     const baselineMap = {};
     (respostas || []).forEach(r => {
-      const key = `${r.colaborador_id}::${r.competencia_id}`;
-      baselineMap[key] = { nivel: r.nivel_ia4, avaliacao: r.avaliacao_ia };
+      baselineMap[`${r.colaborador_id}::${r.competencia_id}`] = {
+        nivel: r.nivel_ia4,
+        avaliacao: r.avaliacao_ia,
+      };
     });
 
-    // Buscar competências usadas (top5 de cada cargo)
+    // Top 5 por cargo
     const { data: cargosEmpresa } = await sb.from('cargos_empresa')
-      .select('nome, top5_workshop')
-      .eq('empresa_id', empresaId);
+      .select('nome, top5_workshop').eq('empresa_id', empresaId);
     const top5Map = {};
     (cargosEmpresa || []).forEach(c => { if (c.top5_workshop?.length) top5Map[c.nome] = c.top5_workshop; });
 
-    // Buscar competências por nome → id
+    // Competências nome→id
     const { data: competencias } = await sb.from('competencias')
-      .select('id, nome, cargo')
-      .eq('empresa_id', empresaId);
-    const compPorNomeCargo = {};
-    (competencias || []).forEach(c => { compPorNomeCargo[`${c.nome}::${c.cargo}`] = c.id; });
+      .select('id, nome, cargo, gabarito').eq('empresa_id', empresaId);
+    const compMap = {};
+    (competencias || []).forEach(c => { compMap[`${c.nome}::${c.cargo}`] = c; });
+
+    // Trilha progresso
+    const { data: progressos } = await sb.from('fase4_progresso')
+      .select('colaborador_id, pct_conclusao, semana_atual').eq('empresa_id', empresaId);
+    const progMap = {};
+    (progressos || []).forEach(p => { progMap[p.colaborador_id] = p; });
+
+    // Sessões já criadas
+    const { data: sessoes } = await sb.from('reavaliacao_sessoes')
+      .select('colaborador_id, competencia_id').eq('empresa_id', empresaId);
+    const jaCriado = new Set((sessoes || []).map(s => `${s.colaborador_id}::${s.competencia_id}`));
 
     let criados = 0;
     for (const colab of colaboradores) {
@@ -147,27 +226,45 @@ export async function iniciarReavaliacaoLote(empresaId, aiConfig = {}) {
       if (!top5?.length) continue;
 
       for (const compNome of top5) {
-        const compId = compPorNomeCargo[`${compNome}::${colab.cargo}`];
-        if (!compId) continue;
-
-        const cenarioKey = `${compId}::${colab.cargo}`;
-        const cenarioBId = cenarioMap[cenarioKey];
+        const comp = compMap[`${compNome}::${colab.cargo}`];
+        if (!comp) continue;
+        const cenarioBId = cenarioMap[`${comp.id}::${colab.cargo}`];
         if (!cenarioBId) continue;
+        if (jaCriado.has(`${colab.id}::${comp.id}`)) continue;
 
-        const baselineKey = `${colab.id}::${compId}`;
-        const baseline = baselineMap[baselineKey] || null;
+        const baseline = baselineMap[`${colab.id}::${comp.id}`] || null;
+        const trilha = progMap[colab.id] || null;
 
-        // Criar sessão de reavaliação
+        // Extrair pontos fortes e gaps da avaliação inicial
+        const avIni = typeof baseline?.avaliacao === 'string' ? JSON.parse(baseline.avaliacao) : baseline?.avaliacao;
+        const pontosFortes = avIni?.descritores_destaque?.pontos_fortes || avIni?.pontos_fortes || [];
+        const pontosAtencao = avIni?.descritores_destaque?.gaps_prioritarios || avIni?.pontos_desenvolvimento || [];
+
+        // Descritores com código
+        const descritores = Array.isArray(comp.gabarito)
+          ? comp.gabarito.map((d, i) => ({ codigo: `D${i+1}`, nome: d.nome || d.descritor || `Descritor ${i+1}` }))
+          : [];
+
         const { error } = await sb.from('reavaliacao_sessoes').insert({
           empresa_id: empresaId,
           colaborador_id: colab.id,
-          competencia_id: compId,
+          competencia_id: comp.id,
           cenario_b_id: cenarioBId,
           baseline_nivel: baseline?.nivel || null,
           baseline_avaliacao: baseline?.avaliacao || null,
           status: 'pendente',
           historico: [],
           turno: 0,
+          // Contexto enriquecido para a conversa
+          extracao_qualitativa: {
+            _contexto_sessao: {
+              pontos_fortes: pontosFortes,
+              pontos_atencao: pontosAtencao,
+              descritores: descritores,
+              disc: { perfil: colab.perfil_dominante, D: colab.d_natural, I: colab.i_natural, S: colab.s_natural, C: colab.c_natural },
+              trilha: trilha ? { pct: trilha.pct_conclusao, semana: trilha.semana_atual } : null,
+            },
+          },
         });
 
         if (!error) criados++;
@@ -180,36 +277,64 @@ export async function iniciarReavaliacaoLote(empresaId, aiConfig = {}) {
   }
 }
 
-// ── 3. Processar Reavaliação Conversacional (1 sessão) ─────────────────────
-// Chamada pelo colaborador no dashboard — 8 turnos guiados
+// ══════════════════════════════════════════════════════════════════════════════
+// 3. PROCESSAR REAVALIAÇÃO CONVERSACIONAL (1 sessão, 8 turnos)
+// Prompt completo com: baseline, descritores D1-D6, trilha, DISC, exemplos
+// ══════════════════════════════════════════════════════════════════════════════
 
-const REAV_SYSTEM = `Você é um mentor de desenvolvimento profissional da Vertho.
-Está conduzindo uma conversa de reavaliação após 14 semanas de capacitação.
+function buildReavSystemPrompt(sessao, comp) {
+  const ctx = sessao.extracao_qualitativa?._contexto_sessao || {};
+  const descritores = ctx.descritores || [];
+  const pontosFortes = ctx.pontos_fortes || [];
+  const pontosAtencao = ctx.pontos_atencao || [];
+  const disc = ctx.disc || {};
+  const trilha = ctx.trilha || {};
 
-ROTEIRO DE CONVERSA (6 etapas):
-1. ACOLHIMENTO: Reconheça a jornada, crie conexão
-2. MUDANÇA GERAL: Pergunte o que mudou na prática (aberto)
-3. EVIDÊNCIA CONCRETA: Peça um exemplo específico de situação real
-4. DESCRITOR ESPECÍFICO: Aborde o gap principal da avaliação inicial
-5. DIFICULDADE PERSISTENTE: Pergunte o que ainda é desafiador
-6. ENCERRAMENTO: Agradeça e avise sobre o cenário B
+  return `Você é o Mentor IA do programa Vertho. Está conduzindo uma conversa de reavaliação com ${sessao.colaboradores?.nome_completo || 'o colaborador'} após ${trilha.semana || 14} semanas de capacitação.
 
-REGRAS:
-- Tom de mentor: curioso, acolhedor, não julgador
-- NUNCA revele o nível ou nota da avaliação inicial
-- NUNCA cite descritores por código (D1, D2)
-- Busque FATOS, não opiniões ("o que você FEZ" > "o que você ACHA")
-- Se resposta teórica, redirecione para prática
-- Máximo 8 turnos
-- Use [META]{"turno":N,"encerrar":false}[/META] ao final de cada resposta`;
+## SEU OBJETIVO
+Investigar o que MUDOU NA PRÁTICA — não teoria aprendida.
+Buscar evidências concretas de mudança comportamental.
+
+## O QUE VOCÊ SABE SOBRE ESTE COLABORADOR
+- Competência: ${comp?.nome || sessao.competencias?.nome}
+- Nível baseline: N${sessao.baseline_nivel || '?'}
+- Cargo: ${sessao.colaboradores?.cargo || 'N/D'}
+- Perfil DISC: ${disc.perfil || 'N/D'} (D=${disc.D||0} I=${disc.I||0} S=${disc.S||0} C=${disc.C||0})
+- Trilha: ${trilha.pct || 0}% concluída, semana ${trilha.semana || '?'}/14
+${pontosFortes.length ? `- Pontos fortes identificados: ${pontosFortes.map(p => typeof p === 'string' ? p : p.descritor || p.nome).join('; ')}` : ''}
+${pontosAtencao.length ? `- Gaps prioritários: ${pontosAtencao.map(p => typeof p === 'string' ? p : p.descritor || p.nome).join('; ')}` : ''}
+${descritores.length ? `- Descritores da competência: ${descritores.map(d => `${d.codigo}: ${d.nome}`).join('; ')}` : ''}
+
+## ROTEIRO DA CONVERSA (6 etapas)
+1. ACOLHIMENTO: "Que bom que você chegou até aqui! Foram ${trilha.semana || 14} semanas de jornada..."
+2. MUDANÇA GERAL: Pergunte o que mudou na prática (aberto, sem direcionar)
+3. EVIDÊNCIA CONCRETA: "Pode me contar uma situação específica em que agiu diferente?"
+4. DESCRITOR ESPECÍFICO: Aborde o gap principal${pontosAtencao[0] ? ` (${typeof pontosAtencao[0] === 'string' ? pontosAtencao[0] : pontosAtencao[0].descritor || pontosAtencao[0].nome})` : ''}
+5. DIFICULDADE PERSISTENTE: "O que ainda é mais desafiador para você nessa competência?"
+6. ENCERRAMENTO: "Muito obrigado! Na próxima etapa você vai responder ao cenário B."
+
+## REGRAS INVIOLÁVEIS
+1. Tom de MENTOR: curioso, acolhedor, não julgador
+2. NUNCA revele o nível ou nota da avaliação inicial
+3. NUNCA cite descritores por código (D1, D2...) — use linguagem natural
+4. Busque FATOS, não opiniões ("o que você FEZ" > "o que você ACHA")
+5. Se resposta for teórica, redirecione: "E na prática, como ficou?"
+6. Se resposta for vaga, peça exemplo: "Pode me dar um exemplo concreto?"
+7. Máximo ${MAX_TURNOS} turnos
+8. Use [META]{"turno":N,"encerrar":false}[/META] ao final de CADA resposta
+
+## IMPORTANTE
+Você NÃO está avaliando. Está coletando evidências de mudança.
+A análise será feita depois, por outro sistema.`;
+}
 
 export async function processarReavaliacao(sessaoId, mensagem, aiConfig = {}) {
   const sb = createSupabaseAdmin();
   try {
     const { data: sessao } = await sb.from('reavaliacao_sessoes')
-      .select('*, competencias!inner(nome, descricao), colaboradores!inner(nome_completo, cargo)')
-      .eq('id', sessaoId)
-      .single();
+      .select('*, competencias!inner(nome, descricao, gabarito), colaboradores!inner(nome_completo, cargo)')
+      .eq('id', sessaoId).single();
 
     if (!sessao) return { success: false, error: 'Sessão não encontrada' };
     if (sessao.status === 'concluida') return { success: false, error: 'Sessão já concluída' };
@@ -217,30 +342,23 @@ export async function processarReavaliacao(sessaoId, mensagem, aiConfig = {}) {
     const historico = sessao.historico || [];
     historico.push({ role: 'user', content: mensagem });
 
-    const contexto = `
-Colaborador: ${sessao.colaboradores.nome_completo} | Cargo: ${sessao.colaboradores.cargo}
-Competência: ${sessao.competencias.nome}
-Turno atual: ${sessao.turno + 1}/${MAX_TURNOS}
-Nível baseline: N${sessao.baseline_nivel || '?'}`;
-
-    const systemPrompt = REAV_SYSTEM + '\n\nCONTEXTO:\n' + contexto;
-    const resposta = await callAI(systemPrompt, historico, aiConfig, 1024);
+    const systemPrompt = buildReavSystemPrompt(sessao, sessao.competencias);
+    const resposta = await callAIChat(systemPrompt, historico, aiConfig, 4096, { temperature: TEMP });
 
     historico.push({ role: 'assistant', content: resposta });
     const novoTurno = sessao.turno + 1;
 
-    // Verificar se deve encerrar
+    // Verificar [META]
     const metaMatch = resposta.match(/\[META\](.*?)\[\/META\]/s);
-    const meta = metaMatch ? JSON.parse(metaMatch[1]) : {};
+    let meta = {};
+    try { meta = metaMatch ? JSON.parse(metaMatch[1]) : {}; } catch {}
     const encerrar = meta.encerrar || novoTurno >= MAX_TURNOS;
 
-    const updateData = {
+    await sb.from('reavaliacao_sessoes').update({
       historico,
       turno: novoTurno,
       ...(encerrar ? { status: 'concluida' } : {}),
-    };
-
-    await sb.from('reavaliacao_sessoes').update(updateData).eq('id', sessaoId);
+    }).eq('id', sessaoId);
 
     // Se encerrou, extrair dados qualitativos
     if (encerrar) {
@@ -253,56 +371,74 @@ Nível baseline: N${sessao.baseline_nivel || '?'}`;
   }
 }
 
-// ── 4. Extração qualitativa da reavaliação ─────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// 4. EXTRAÇÃO QUALITATIVA DA REAVALIAÇÃO
+// Extrai evidências por descritor D1-D6, citações literais, consciência gap
+// ══════════════════════════════════════════════════════════════════════════════
 
 async function extrairDadosReavaliacao(sessaoId, aiConfig = {}) {
   const sb = createSupabaseAdmin();
   const { data: sessao } = await sb.from('reavaliacao_sessoes')
-    .select('*, competencias!inner(nome, gabarito)')
+    .select('*, competencias!inner(nome, gabarito), colaboradores!inner(nome_completo, cargo)')
     .eq('id', sessaoId).single();
-
   if (!sessao) return;
 
-  const system = `Analise a conversa de reavaliação e extraia dados qualitativos.
+  const ctx = sessao.extracao_qualitativa?._contexto_sessao || {};
+  const descritores = Array.isArray(sessao.competencias.gabarito)
+    ? sessao.competencias.gabarito.map((d, i) => `D${i+1}: ${d.nome || d.descritor || JSON.stringify(d)}`)
+    : [];
+
+  const system = `Analise a conversa de reavaliação e extraia dados qualitativos por descritor.
+Use os códigos de descritores fornecidos (D1, D2...).
 Responda APENAS com JSON válido.`;
 
   const user = `Competência: ${sessao.competencias.nome}
-Gabarito (descritores): ${JSON.stringify(sessao.competencias.gabarito)}
+Colaborador: ${sessao.colaboradores.nome_completo} (${sessao.colaboradores.cargo})
 Nível baseline: N${sessao.baseline_nivel || '?'}
+Perfil DISC: ${ctx.disc?.perfil || 'N/D'}
+
+Descritores da competência:
+${descritores.join('\n')}
 
 Conversa completa:
-${sessao.historico.map(h => `${h.role === 'user' ? 'COLABORADOR' : 'MENTOR'}: ${h.content}`).join('\n\n')}
+${sessao.historico.map(h => `${h.role === 'user' ? 'COLABORADOR' : 'MENTOR'}: ${h.content.replace(/\[META\].*?\[\/META\]/s, '')}`).join('\n\n')}
 
 Extraia:
 {
   "resumo_qualitativo": "3-4 linhas resumindo as mudanças relatadas",
   "evidencias_por_descritor": [
     {
-      "descritor": "nome do descritor",
+      "descritor": "D1",
+      "nome_descritor": "nome do descritor",
       "evidencia_relatada": "evidência concreta mencionada",
       "nivel_percebido": 1-4,
       "confianca": "alta|media|baixa",
-      "citacao_literal": "frase exata do colaborador"
+      "citacao_literal": "frase exata do colaborador entre aspas"
     }
   ],
-  "gaps_persistentes": ["descritores sem evolução"],
+  "gaps_persistentes": ["D4", "D6"],
   "consciencia_do_gap": "alta|media|baixa",
-  "conexao_cis": "como o perfil comportamental apareceu na conversa",
+  "conexao_cis": "como o perfil DISC (${ctx.disc?.perfil || 'N/D'}) apareceu na conversa",
   "recomendacao_ciclo2": "foco para próximo ciclo"
 }`;
 
-  const resultado = await callAI(system, user, aiConfig, 4000);
+  const resultado = await callAI(system, user, aiConfig, 4096, { temperature: TEMP });
   const extracao = await extractJSON(resultado);
 
   if (extracao) {
+    // Preservar _contexto_sessao e adicionar extração
     await sb.from('reavaliacao_sessoes')
-      .update({ extracao_qualitativa: extracao })
+      .update({ extracao_qualitativa: { ...extracao, _contexto_sessao: ctx } })
       .eq('id', sessaoId);
   }
 }
 
-// ── 5. Evolução com Fusão de 3 Fontes ──────────────────────────────────────
-// Cenário A (respostas iniciais) + Cenário B (respostas reavaliação) + Conversa Sem15
+// ══════════════════════════════════════════════════════════════════════════════
+// 5. EVOLUÇÃO COM FUSÃO DE 3 FONTES
+// Cenário A + Cenário B + Conversa Sem15
+// Convergência: CONFIRMADA, PARCIAL, SEM_EVOLUCAO, INVISIVEL
+// Inclui: ganhos_qualitativos, trilha detalhada, conexao_cis em recomendação
+// ══════════════════════════════════════════════════════════════════════════════
 
 export async function gerarEvolucaoFusao(empresaId, aiConfig = {}) {
   const sb = createSupabaseAdmin();
@@ -313,41 +449,37 @@ export async function gerarEvolucaoFusao(empresaId, aiConfig = {}) {
     const { data: colaboradores } = await sb.from('colaboradores')
       .select('id, nome_completo, cargo, perfil_dominante, d_natural, i_natural, s_natural, c_natural')
       .eq('empresa_id', empresaId);
-
     if (!colaboradores?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
 
-    // Buscar respostas iniciais (Cenário A)
+    // Fonte 1: Respostas iniciais (Cenário A)
     const { data: respostasA } = await sb.from('respostas')
       .select('colaborador_id, competencia_id, nivel_ia4, avaliacao_ia, r1, r2, r3, r4')
-      .eq('empresa_id', empresaId)
-      .not('avaliacao_ia', 'is', null);
+      .eq('empresa_id', empresaId).not('avaliacao_ia', 'is', null).is('tipo_resposta', null);
 
-    // Buscar sessões de reavaliação concluídas (Conversa Sem15)
-    const { data: sessoes } = await sb.from('reavaliacao_sessoes')
-      .select('colaborador_id, competencia_id, extracao_qualitativa, historico, baseline_nivel')
-      .eq('empresa_id', empresaId)
-      .eq('status', 'concluida');
-
-    // Buscar respostas do cenário B (se existirem)
+    // Fonte 2: Respostas reavaliação (Cenário B)
     const { data: respostasB } = await sb.from('respostas')
       .select('colaborador_id, competencia_id, nivel_ia4, avaliacao_ia, r1, r2, r3, r4')
-      .eq('empresa_id', empresaId)
-      .eq('tipo_resposta', 'cenario_b')
-      .not('avaliacao_ia', 'is', null);
+      .eq('empresa_id', empresaId).eq('tipo_resposta', 'cenario_b').not('avaliacao_ia', 'is', null);
 
-    // Buscar competências
+    // Fonte 3: Conversa Semana 15
+    const { data: sessoes } = await sb.from('reavaliacao_sessoes')
+      .select('colaborador_id, competencia_id, extracao_qualitativa, baseline_nivel')
+      .eq('empresa_id', empresaId).eq('status', 'concluida');
+
+    // Competências
     const { data: competencias } = await sb.from('competencias')
       .select('id, nome, gabarito').eq('empresa_id', empresaId);
     const compMap = {};
     (competencias || []).forEach(c => { compMap[c.id] = c; });
 
-    // Buscar dados de trilha/capacitação
+    // Trilha progresso
     const { data: progressos } = await sb.from('fase4_progresso')
-      .select('colaborador_id, pct_conclusao, semana_atual').eq('empresa_id', empresaId);
+      .select('colaborador_id, pct_conclusao, semana_atual, cursos_progresso')
+      .eq('empresa_id', empresaId);
     const progMap = {};
     (progressos || []).forEach(p => { progMap[p.colaborador_id] = p; });
 
-    // Mapear dados por colaborador+competência
+    // Mapas
     const resAMap = {};
     (respostasA || []).forEach(r => { resAMap[`${r.colaborador_id}::${r.competencia_id}`] = r; });
     const resBMap = {};
@@ -355,19 +487,45 @@ export async function gerarEvolucaoFusao(empresaId, aiConfig = {}) {
     const sessaoMap = {};
     (sessoes || []).forEach(s => { sessaoMap[`${s.colaborador_id}::${s.competencia_id}`] = s; });
 
-    const system = `Você é um especialista em desenvolvimento humano e avaliação comportamental.
-Compare a avaliação inicial com a reavaliação usando 3 fontes de dados.
-Classifique a evolução por descritor usando estas categorias:
-- EVOLUCAO_CONFIRMADA: delta positivo + evidência no cenário B + relato convergente na conversa
-- EVOLUCAO_PARCIAL: delta positivo em apenas 1-2 fontes ou evidência fraca
-- SEM_EVOLUCAO: sem delta significativo + sem evidência + sem relato
-- EVOLUCAO_INVISIVEL: sem delta numérico mas evidência qualitativa forte
+    const system = `Você é o Mentor IA do programa Vertho. Sua tarefa é analisar a EVOLUÇÃO de um colaborador comparando avaliação inicial com reavaliação, usando até 3 fontes de dados.
+
+## FONTES DE DADOS
+1. Cenário A — diagnóstico inicial (nível, nota, descritores, feedback IA)
+2. Cenário B — reavaliação situacional (nível, evidências observadas)
+3. Conversa Semana 15 — reavaliação qualitativa (o que o colaborador RELATA ter mudado)
+
+## ANÁLISE POR DESCRITOR
+Para CADA descritor da competência:
+1. Calcule delta numérico (nível B - nível A)
+2. Identifique evidência DEMONSTRADA no cenário B
+3. Identifique evidência RELATADA na conversa
+4. Cruze as 3 fontes e classifique CONVERGÊNCIA
+
+## CLASSIFICAÇÃO DE CONVERGÊNCIA
+| Classificação | Critério |
+|---|---|
+| EVOLUCAO_CONFIRMADA | Delta positivo + evidência no cenário B + relato convergente |
+| EVOLUCAO_PARCIAL | Delta positivo em apenas 1-2 fontes OU evidência fraca |
+| SEM_EVOLUCAO | Sem delta + sem evidência + sem relato |
+| EVOLUCAO_INVISIVEL | Sem delta numérico MAS evidência qualitativa forte |
+
+## CONSCIÊNCIA DO GAP
+Avalie se o colaborador PERCEBE seus próprios gaps:
+- alta: reconhece explicitamente, cita ações de melhoria
+- media: reconhece parcialmente ou de forma genérica
+- baixa: não reconhece ou atribui a fatores externos
+
+## CONEXÃO CIS (DISC)
+Conecte gaps persistentes ao perfil comportamental DISC.
+Ex: "Perfil D alto pode dificultar a escuta ativa (descritor D3)"
+
+## TRILHA — EFETIVIDADE
+Analise correlação entre engajamento na trilha e evolução.
 
 Responda APENAS com JSON válido.`;
 
     let gerados = 0;
     for (const colab of colaboradores) {
-      // Para cada competência que tem dados das 3 fontes (ou ao menos 2)
       const compIds = [...new Set([
         ...(respostasA || []).filter(r => r.colaborador_id === colab.id).map(r => r.competencia_id),
         ...(sessoes || []).filter(s => s.colaborador_id === colab.id).map(s => s.competencia_id),
@@ -380,31 +538,49 @@ Responda APENAS com JSON válido.`;
         const fonteSem15 = sessaoMap[key];
         const comp = compMap[compId];
         if (!comp || !fonteA) continue;
-        if (!fonteB && !fonteSem15) continue; // precisa de pelo menos 1 fonte de reavaliação
+        if (!fonteB && !fonteSem15) continue;
 
         const trilha = progMap[colab.id];
+        const cursosInfo = Array.isArray(trilha?.cursos_progresso)
+          ? trilha.cursos_progresso
+          : [];
+        const cursosConcluidos = cursosInfo.filter(c => c.concluido).length;
 
-        const user = `Empresa: ${empresa.nome} (${empresa.segmento})
+        // Descritores com código
+        const descritores = Array.isArray(comp.gabarito)
+          ? comp.gabarito.map((d, i) => `D${i+1}: ${d.nome || d.descritor || JSON.stringify(d)}`)
+          : [];
+
+        // Extração da conversa (sem _contexto_sessao)
+        const extSem15 = fonteSem15?.extracao_qualitativa || {};
+        const extLimpo = { ...extSem15 };
+        delete extLimpo._contexto_sessao;
+
+        const user = `## Contexto
+Empresa: ${empresa.nome} (${empresa.segmento})
 Colaborador: ${colab.nome_completo} | Cargo: ${colab.cargo}
 Perfil DISC: ${colab.perfil_dominante || 'N/D'} (D=${colab.d_natural||0} I=${colab.i_natural||0} S=${colab.s_natural||0} C=${colab.c_natural||0})
 
-Competência: ${comp.nome}
-Gabarito (descritores): ${JSON.stringify(comp.gabarito)}
+## Competência: ${comp.nome}
+Descritores:
+${descritores.join('\n')}
 
-FONTE 1 — Cenário A (avaliação inicial):
+## FONTE 1 — Cenário A (avaliação inicial)
 Nível: N${fonteA.nivel_ia4}
 Avaliação: ${JSON.stringify(fonteA.avaliacao_ia)}
 
-FONTE 2 — Cenário B (reavaliação):
+## FONTE 2 — Cenário B (reavaliação)
 ${fonteB ? `Nível: N${fonteB.nivel_ia4}\nAvaliação: ${JSON.stringify(fonteB.avaliacao_ia)}` : 'Não disponível'}
 
-FONTE 3 — Conversa Semana 15 (reavaliação qualitativa):
-${fonteSem15?.extracao_qualitativa ? JSON.stringify(fonteSem15.extracao_qualitativa) : 'Não disponível'}
+## FONTE 3 — Conversa Semana 15 (reavaliação qualitativa)
+${Object.keys(extLimpo).length ? JSON.stringify(extLimpo) : 'Não disponível'}
 
-Trilha de capacitação:
-${trilha ? `Progresso: ${trilha.pct_conclusao}%, Semana: ${trilha.semana_atual}/14` : 'Dados não disponíveis'}
+## Trilha de capacitação
+Progresso: ${trilha?.pct_conclusao || 0}%
+Semana: ${trilha?.semana_atual || '?'}/14
+Cursos concluídos: ${cursosConcluidos} de ${cursosInfo.length}
 
-Gere a fusão de evolução:
+## Formato de saída (JSON):
 {
   "resumo_executivo": {
     "nota_cenario_a": N,
@@ -418,31 +594,34 @@ Gere a fusão de evolução:
   },
   "evolucao_por_descritor": [
     {
-      "descritor": "nome",
-      "nivel_a": N,
-      "nivel_b": N,
-      "delta": N,
+      "descritor": "D1",
+      "nome": "nome do descritor",
+      "nivel_a": N, "nivel_b": N, "delta": N,
       "evidencia_cenario_b": "evidência observada",
       "evidencia_conversa": "evidência relatada",
-      "citacao_colaborador": "frase literal",
+      "citacao_colaborador": "frase literal se existir",
       "convergencia": "EVOLUCAO_CONFIRMADA|EVOLUCAO_PARCIAL|SEM_EVOLUCAO|EVOLUCAO_INVISIVEL",
       "conexao_cis": "relação com perfil DISC",
       "confianca": "alta|media|baixa"
     }
   ],
+  "ganhos_qualitativos": "evolução que NÃO aparece nos números (mudança de postura, consciência, etc)",
   "consciencia_do_gap": "alta|media|baixa",
   "trilha_efetividade": {
-    "correlacao": "descrição da relação entre capacitação e evolução"
+    "semanas_concluidas": ${trilha?.semana_atual || 0},
+    "cursos_concluidos": ${cursosConcluidos},
+    "correlacao": "análise da relação entre engajamento e evolução"
   },
   "recomendacao_ciclo2": {
-    "descritores_foco": ["descritores para próximo ciclo"],
+    "descritores_foco": ["D1", "D4"],
+    "justificativa": "por que estes descritores",
     "formato_sugerido": "1:1|grupo|autodirigido|misto",
-    "justificativa": "..."
+    "conexao_cis": "como adaptar ao perfil DISC ${colab.perfil_dominante || 'do colaborador'}"
   },
-  "feedback_colaborador": "8-10 linhas, tom mentor, construtivo"
+  "feedback_colaborador": "8-10 linhas, tom mentor, construtivo, celebre avanços antes de apontar gaps"
 }`;
 
-        const resultado = await callAI(system, user, aiConfig, 64000);
+        const resultado = await callAI(system, user, aiConfig, 64000, { temperature: TEMP });
         const fusao = await extractJSON(resultado);
         if (!fusao) continue;
 
@@ -463,8 +642,11 @@ Gere a fusão de evolução:
   }
 }
 
-// ── 6. Plenária de Evolução Institucional ──────────────────────────────────
-// Relatório agregado anônimo: evolução por cargo, competência, gaps persistentes
+// ══════════════════════════════════════════════════════════════════════════════
+// 6. PLENÁRIA DE EVOLUÇÃO INSTITUCIONAL
+// Relatório agregado anônimo: por cargo, competência, convergência, gaps, Ciclo 2
+// Tom: celebre avanços ANTES de apontar gaps
+// ══════════════════════════════════════════════════════════════════════════════
 
 export async function gerarPlenariaEvolucao(empresaId, aiConfig = {}) {
   const sb = createSupabaseAdmin();
@@ -474,15 +656,13 @@ export async function gerarPlenariaEvolucao(empresaId, aiConfig = {}) {
 
     const { data: relatorios } = await sb.from('relatorios')
       .select('conteudo, colaboradores!inner(nome_completo, cargo)')
-      .eq('empresa_id', empresaId)
-      .eq('tipo', 'evolucao');
+      .eq('empresa_id', empresaId).eq('tipo', 'evolucao');
 
     if (!relatorios?.length) return { success: false, error: 'Nenhum relatório de evolução. Gere a evolução primeiro.' };
 
-    // Agregar dados (ANÔNIMO — sem nomes na plenária)
-    const porCargo = {};
-    const porComp = {};
-    let totalDelta = 0, totalDescritoresUp = 0, totalDescritores = 0;
+    // Agregar (ANÔNIMO)
+    const porCargo = {}, porComp = {};
+    let totalDelta = 0, totalDescUp = 0, totalDesc = 0;
     const convergencias = { EVOLUCAO_CONFIRMADA: 0, EVOLUCAO_PARCIAL: 0, SEM_EVOLUCAO: 0, EVOLUCAO_INVISIVEL: 0 };
     const gapsPersistentes = {};
 
@@ -490,94 +670,93 @@ export async function gerarPlenariaEvolucao(empresaId, aiConfig = {}) {
       const c = rel.conteudo;
       const cargo = rel.colaboradores.cargo;
       const compNome = c.competencia || 'N/D';
-
       if (!porCargo[cargo]) porCargo[cargo] = { deltas: [], descUp: 0, descTotal: 0, count: 0 };
       if (!porComp[compNome]) porComp[compNome] = { deltas: [], descUp: 0, descTotal: 0, count: 0 };
 
       const re = c.resumo_executivo || {};
       const delta = re.delta || 0;
       totalDelta += delta;
-      totalDescritoresUp += re.descritores_que_subiram || 0;
-      totalDescritores += re.descritores_total || 0;
+      totalDescUp += re.descritores_que_subiram || 0;
+      totalDesc += re.descritores_total || 0;
+      porCargo[cargo].deltas.push(delta); porCargo[cargo].descUp += re.descritores_que_subiram || 0; porCargo[cargo].descTotal += re.descritores_total || 0; porCargo[cargo].count++;
+      porComp[compNome].deltas.push(delta); porComp[compNome].descUp += re.descritores_que_subiram || 0; porComp[compNome].descTotal += re.descritores_total || 0; porComp[compNome].count++;
 
-      porCargo[cargo].deltas.push(delta);
-      porCargo[cargo].descUp += re.descritores_que_subiram || 0;
-      porCargo[cargo].descTotal += re.descritores_total || 0;
-      porCargo[cargo].count++;
-
-      porComp[compNome].deltas.push(delta);
-      porComp[compNome].descUp += re.descritores_que_subiram || 0;
-      porComp[compNome].descTotal += re.descritores_total || 0;
-      porComp[compNome].count++;
-
-      // Convergências
       (c.evolucao_por_descritor || []).forEach(d => {
         if (convergencias[d.convergencia] !== undefined) convergencias[d.convergencia]++;
-        if (d.convergencia === 'SEM_EVOLUCAO') {
-          gapsPersistentes[d.descritor] = (gapsPersistentes[d.descritor] || 0) + 1;
-        }
+        if (d.convergencia === 'SEM_EVOLUCAO') gapsPersistentes[d.descritor] = (gapsPersistentes[d.descritor] || 0) + 1;
       });
     }
 
     const avg = arr => arr.length ? (arr.reduce((s, v) => s + v, 0) / arr.length).toFixed(2) : '0';
+    const totalConv = Object.values(convergencias).reduce((s, v) => s + v, 0) || 1;
 
-    const system = `Você é um facilitador de plenárias de desenvolvimento organizacional.
-Gere um relatório AGREGADO e ANÔNIMO de evolução institucional.
-NÃO cite nomes de colaboradores.
-Foque em padrões, tendências e recomendações institucionais.
+    const system = `Você é o Motor de Plenária de Evolução do programa Vertho Mentor IA.
+Sua tarefa é analisar dados AGREGADOS de evolução de um grupo de profissionais após 14 semanas de capacitação.
+
+ESTE RELATÓRIO É DIFERENTE DA PLENÁRIA INICIAL.
+A plenária inicial mostra o DIAGNÓSTICO. Esta mostra a EVOLUÇÃO.
+
+## ESTRUTURA DO RELATÓRIO (6 seções):
+1. VISÃO GERAL DA EVOLUÇÃO — delta médio, % que avançou, descritores com mais evolução
+2. ANÁLISE POR CARGO — para cada cargo: delta, gaps comuns, destaques
+3. ANÁLISE POR COMPETÊNCIA — para cada competência: evolução média, descritores que evoluíram, gaps persistentes
+4. CONVERGÊNCIA DE EVIDÊNCIAS — % confirmada/parcial/sem/invisível + interpretação dos padrões
+5. GAPS PERSISTENTES — ALERTA INSTITUCIONAL — descritores com mais gaps, padrões coletivos
+6. RECOMENDAÇÕES PARA CICLO 2 — descritores foco, formato sugerido, ações institucionais
+
+## REGRAS:
+- Dados são ANÔNIMOS — NUNCA cite nomes de colaboradores
+- Use estatísticas e percentuais, não casos individuais
+- Tom institucional, construtivo, orientado a ação
+- CELEBRE AVANÇOS ANTES de apontar gaps
+- Português brasileiro
+
 Responda APENAS com JSON válido.`;
 
     const user = `Empresa: ${empresa.nome} (${empresa.segmento})
-Total de colaboradores analisados: ${relatorios.length}
+Total: ${relatorios.length} colaboradores analisados
 
-DADOS AGREGADOS:
-Delta médio geral: ${avg(relatorios.map(r => r.conteudo?.resumo_executivo?.delta || 0))}
-Descritores que subiram: ${totalDescritoresUp} de ${totalDescritores} (${totalDescritores ? Math.round(totalDescritoresUp/totalDescritores*100) : 0}%)
+Delta médio: ${avg(relatorios.map(r => r.conteudo?.resumo_executivo?.delta || 0))}
+Descritores que subiram: ${totalDescUp} de ${totalDesc} (${totalDesc ? Math.round(totalDescUp/totalDesc*100) : 0}%)
 
 Convergências:
-- EVOLUÇÃO CONFIRMADA: ${convergencias.EVOLUCAO_CONFIRMADA}
-- EVOLUÇÃO PARCIAL: ${convergencias.EVOLUCAO_PARCIAL}
-- SEM EVOLUÇÃO: ${convergencias.SEM_EVOLUCAO}
-- EVOLUÇÃO INVISÍVEL: ${convergencias.EVOLUCAO_INVISIVEL}
+- CONFIRMADA: ${convergencias.EVOLUCAO_CONFIRMADA} (${Math.round(convergencias.EVOLUCAO_CONFIRMADA/totalConv*100)}%)
+- PARCIAL: ${convergencias.EVOLUCAO_PARCIAL} (${Math.round(convergencias.EVOLUCAO_PARCIAL/totalConv*100)}%)
+- SEM EVOLUÇÃO: ${convergencias.SEM_EVOLUCAO} (${Math.round(convergencias.SEM_EVOLUCAO/totalConv*100)}%)
+- INVISÍVEL: ${convergencias.EVOLUCAO_INVISIVEL} (${Math.round(convergencias.EVOLUCAO_INVISIVEL/totalConv*100)}%)
 
 Por cargo:
-${Object.entries(porCargo).map(([cargo, d]) => `  ${cargo}: delta médio ${avg(d.deltas)}, ${d.descUp}/${d.descTotal} descritores, ${d.count} colaboradores`).join('\n')}
+${Object.entries(porCargo).map(([cargo, d]) => `  ${cargo}: delta ${avg(d.deltas)}, ${d.descUp}/${d.descTotal} descritores, ${d.count} colaboradores`).join('\n')}
 
 Por competência:
-${Object.entries(porComp).map(([comp, d]) => `  ${comp}: delta médio ${avg(d.deltas)}, ${d.descUp}/${d.descTotal} descritores`).join('\n')}
+${Object.entries(porComp).map(([comp, d]) => `  ${comp}: delta ${avg(d.deltas)}, ${d.descUp}/${d.descTotal} descritores`).join('\n')}
 
-Gaps persistentes (descritores sem evolução, freq):
+Gaps persistentes (top 10):
 ${Object.entries(gapsPersistentes).sort((a,b) => b[1]-a[1]).slice(0,10).map(([d, n]) => `  ${d}: ${n} ocorrências`).join('\n')}
 
 Gere:
 {
   "titulo": "Plenária de Evolução — ${empresa.nome}",
-  "resumo_evolucao": "análise geral da evolução",
+  "resumo_evolucao": "análise geral celebrando avanços + indicando desafios",
   "percentual_medio_evolucao": N,
-  "analise_por_cargo": [{"cargo": "...", "delta_medio": N, "destaque": "...", "gap_principal": "..."}],
-  "analise_por_competencia": [{"competencia": "...", "delta_medio": N, "evolucao": "...", "gap_persistente": "..."}],
+  "analise_por_cargo": [{"cargo": "...", "delta_medio": N, "destaque_positivo": "...", "gap_principal": "...", "recomendacao": "..."}],
+  "analise_por_competencia": [{"competencia": "...", "delta_medio": N, "descritores_que_evoluiram": "...", "gap_persistente": "..."}],
   "convergencia_institucional": {
-    "confirmada_pct": N,
-    "parcial_pct": N,
-    "sem_evolucao_pct": N,
-    "invisivel_pct": N,
-    "interpretacao": "..."
+    "confirmada_pct": N, "parcial_pct": N, "sem_evolucao_pct": N, "invisivel_pct": N,
+    "interpretacao": "o que esses números dizem sobre a efetividade do programa"
   },
-  "gaps_persistentes_institucionais": ["top 5 descritores com mais SEM_EVOLUCAO"],
-  "recomendacoes_ciclo2": ["5-7 recomendações concretas"],
-  "formato_plenaria_sugerido": "como apresentar esses dados na plenária"
+  "gaps_persistentes_institucionais": ["top 5 descritores + padrão coletivo"],
+  "recomendacoes_ciclo2": ["5-7 recomendações concretas incluindo formato e ações institucionais"],
+  "formato_plenaria_sugerido": "como apresentar na plenária"
 }`;
 
-    const resultado = await callAI(system, user, aiConfig, 64000);
+    const resultado = await callAI(system, user, aiConfig, 64000, { temperature: TEMP });
     const plenaria = await extractJSON(resultado);
 
     if (plenaria) {
       await sb.from('relatorios').upsert({
-        empresa_id: empresaId,
-        colaborador_id: null,
-        tipo: 'plenaria_evolucao',
-        conteudo: plenaria,
-        gerado_em: new Date().toISOString(),
+        empresa_id: empresaId, colaborador_id: null, tipo: 'plenaria_evolucao',
+        conteudo: plenaria, gerado_em: new Date().toISOString(),
       }, { onConflict: 'empresa_id,colaborador_id,tipo' });
     }
 
@@ -587,7 +766,9 @@ Gere:
   }
 }
 
-// ── 7. Funções auxiliares re-exportadas (mantidas para compatibilidade) ────
+// ══════════════════════════════════════════════════════════════════════════════
+// 7. FUNÇÕES AUXILIARES (compatibilidade)
+// ══════════════════════════════════════════════════════════════════════════════
 
 export async function gerarRelatoriosEvolucaoLote(empresaId, aiConfig = {}) {
   return gerarEvolucaoFusao(empresaId, aiConfig);
@@ -596,46 +777,22 @@ export async function gerarRelatoriosEvolucaoLote(empresaId, aiConfig = {}) {
 export async function gerarRelatorioRHManual(empresaId, aiConfig = {}) {
   const sb = createSupabaseAdmin();
   try {
-    const { data: empresa } = await sb.from('empresas')
-      .select('nome, segmento').eq('id', empresaId).single();
+    const { data: empresa } = await sb.from('empresas').select('nome, segmento').eq('id', empresaId).single();
+    const { data: relEvolucao } = await sb.from('relatorios').select('*, colaboradores(nome_completo, cargo)').eq('empresa_id', empresaId).eq('tipo', 'evolucao');
+    const { data: relRHAnterior } = await sb.from('relatorios').select('conteudo').eq('empresa_id', empresaId).eq('tipo', 'rh').single();
 
-    const { data: relEvolucao } = await sb.from('relatorios')
-      .select('*, colaboradores(nome_completo, cargo)')
-      .eq('empresa_id', empresaId).eq('tipo', 'evolucao');
-
-    const { data: relRHAnterior } = await sb.from('relatorios')
-      .select('conteudo')
-      .eq('empresa_id', empresaId).eq('tipo', 'rh').single();
-
-    const system = `Você é um consultor estratégico de RH.
-Gere um relatório analítico de RH pós-desenvolvimento, comparando com o diagnóstico inicial.
-Responda APENAS com JSON válido.`;
-
+    const system = `Você é um consultor estratégico de RH. Gere relatório analítico pós-desenvolvimento. Responda APENAS com JSON válido.`;
     const user = `Empresa: ${empresa.nome} (${empresa.segmento})
-Relatório RH anterior: ${JSON.stringify(relRHAnterior?.conteudo || {}, null, 2)}
-Evolução da equipe: ${JSON.stringify((relEvolucao || []).map(r => ({ nome: r.colaboradores?.nome_completo, ...r.conteudo })), null, 2)}
+RH anterior: ${JSON.stringify(relRHAnterior?.conteudo || {}, null, 2)}
+Evolução: ${JSON.stringify((relEvolucao || []).map(r => ({ nome: r.colaboradores?.nome_completo, ...r.conteudo })), null, 2)}
 
-Gere relatório RH pós-desenvolvimento:
-{
-  "resumo_executivo": "...",
-  "roi_desenvolvimento": "...",
-  "evolucao_organizacional": "...",
-  "gaps_resolvidos": ["..."],
-  "gaps_persistentes": ["..."],
-  "recomendacoes_estrategicas": ["..."],
-  "proximos_ciclos": ["..."]
-}`;
+Gere: { "resumo_executivo": "...", "roi_desenvolvimento": "...", "evolucao_organizacional": "...", "gaps_resolvidos": ["..."], "gaps_persistentes": ["..."], "recomendacoes_estrategicas": ["..."], "proximos_ciclos": ["..."] }`;
 
-    const resultado = await callAI(system, user, aiConfig, 8000);
+    const resultado = await callAI(system, user, aiConfig, 8000, { temperature: TEMP });
     const relatorio = await extractJSON(resultado);
-
     if (relatorio) {
-      await sb.from('relatorios').upsert({
-        empresa_id: empresaId, colaborador_id: null, tipo: 'rh_manual',
-        conteudo: relatorio, gerado_em: new Date().toISOString(),
-      }, { onConflict: 'empresa_id,colaborador_id,tipo' });
+      await sb.from('relatorios').upsert({ empresa_id: empresaId, colaborador_id: null, tipo: 'rh_manual', conteudo: relatorio, gerado_em: new Date().toISOString() }, { onConflict: 'empresa_id,colaborador_id,tipo' });
     }
-
     return { success: true, message: 'Relatório RH manual gerado' };
   } catch (err) { return { success: false, error: err.message }; }
 }
@@ -643,27 +800,19 @@ Gere relatório RH pós-desenvolvimento:
 export async function gerarRelatorioPlenaria(empresaId, aiConfig = {}) {
   const sb = createSupabaseAdmin();
   try {
-    const { data: plenaria } = await sb.from('relatorios')
-      .select('conteudo').eq('empresa_id', empresaId).eq('tipo', 'plenaria_evolucao').single();
+    const { data: plenaria } = await sb.from('relatorios').select('conteudo').eq('empresa_id', empresaId).eq('tipo', 'plenaria_evolucao').single();
     if (!plenaria) return { success: false, error: 'Plenária de evolução não encontrada.' };
-
     const { data: empresa } = await sb.from('empresas').select('nome').eq('id', empresaId).single();
 
-    const system = `Transforme os dados da plenária em relatório formal. Responda APENAS com JSON válido.`;
+    const system = `Transforme dados da plenária em relatório formal. Responda APENAS com JSON válido.`;
     const user = `Empresa: ${empresa.nome}\nDados: ${JSON.stringify(plenaria.conteudo, null, 2)}
-
 Gere: { "titulo": "...", "data": "${new Date().toISOString().split('T')[0]}", "pauta": ["..."], "resultados": "...", "deliberacoes": ["..."], "encaminhamentos": [{"acao": "...", "responsavel": "...", "prazo": "..."}] }`;
 
-    const resultado = await callAI(system, user, aiConfig, 4096);
+    const resultado = await callAI(system, user, aiConfig, 4096, { temperature: TEMP });
     const relatorio = await extractJSON(resultado);
-
     if (relatorio) {
-      await sb.from('relatorios').upsert({
-        empresa_id: empresaId, colaborador_id: null, tipo: 'plenaria_relatorio',
-        conteudo: relatorio, gerado_em: new Date().toISOString(),
-      }, { onConflict: 'empresa_id,colaborador_id,tipo' });
+      await sb.from('relatorios').upsert({ empresa_id: empresaId, colaborador_id: null, tipo: 'plenaria_relatorio', conteudo: relatorio, gerado_em: new Date().toISOString() }, { onConflict: 'empresa_id,colaborador_id,tipo' });
     }
-
     return { success: true, message: 'Relatório da plenária gerado' };
   } catch (err) { return { success: false, error: err.message }; }
 }
@@ -674,25 +823,21 @@ export async function enviarLinksPerfil(empresaId) {
     const { data: empresa } = await sb.from('empresas').select('nome, slug').eq('id', empresaId).single();
     const { data: colaboradores } = await sb.from('colaboradores').select('id, nome_completo, email').eq('empresa_id', empresaId);
     if (!colaboradores?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
-
     const { Resend } = await import('resend');
     const resend = new Resend(process.env.RESEND_API_KEY);
     let enviados = 0;
-
     for (const colab of colaboradores) {
-      const link = `https://${empresa.slug}.vertho.com.br/dashboard/evolucao`;
       try {
         await resend.emails.send({
           from: `Vertho Mentor <noreply@${empresa.slug}.vertho.com.br>`,
           to: colab.email,
           subject: `[${empresa.nome}] Seu Perfil de Evolução`,
-          html: `<p>Olá ${colab.nome_completo}!</p><p>Seu perfil com relatórios e trilha de desenvolvimento está disponível.</p><p><a href="${link}" style="background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;">Acessar Perfil</a></p>`,
+          html: `<p>Olá ${colab.nome_completo}!</p><p>Seu perfil está disponível.</p><p><a href="https://${empresa.slug}.vertho.com.br/dashboard/evolucao" style="background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;">Acessar Perfil</a></p>`,
         });
         enviados++;
-      } catch { /* silenciar erros individuais */ }
+      } catch {}
     }
-
-    return { success: true, message: `${enviados} links de perfil enviados` };
+    return { success: true, message: `${enviados} links enviados` };
   } catch (err) { return { success: false, error: err.message }; }
 }
 
@@ -700,29 +845,13 @@ export async function gerarDossieGestor(empresaId, aiConfig = {}) {
   const sb = createSupabaseAdmin();
   try {
     const { data: empresa } = await sb.from('empresas').select('nome, segmento').eq('id', empresaId).single();
-    const { data: todosRelatorios } = await sb.from('relatorios').select('tipo, conteudo, colaboradores(nome_completo, cargo)').eq('empresa_id', empresaId);
-
-    const system = `Compile todos os dados em um dossiê executivo. Responda APENAS com JSON válido.`;
+    const { data: todos } = await sb.from('relatorios').select('tipo, conteudo, colaboradores(nome_completo, cargo)').eq('empresa_id', empresaId);
     const porTipo = {};
-    for (const r of todosRelatorios || []) {
-      if (!porTipo[r.tipo]) porTipo[r.tipo] = [];
-      porTipo[r.tipo].push({ colaborador: r.colaboradores?.nome_completo, resumo: r.conteudo?.resumo_executivo || r.conteudo?.evolucao_geral });
-    }
+    for (const r of todos || []) { if (!porTipo[r.tipo]) porTipo[r.tipo] = []; porTipo[r.tipo].push({ colaborador: r.colaboradores?.nome_completo, resumo: r.conteudo?.resumo_executivo || r.conteudo?.evolucao_geral }); }
 
-    const user = `Empresa: ${empresa.nome} (${empresa.segmento})\nRelatórios: ${JSON.stringify(porTipo, null, 2)}
-
-Gere: { "titulo": "Dossiê Gestão — ${empresa.nome}", "sumario_executivo": "...", "diagnostico_inicial": "...", "evolucao": "...", "roi": "...", "recomendacoes": ["..."], "conclusao": "..." }`;
-
-    const resultado = await callAI(system, user, aiConfig, 8000);
+    const resultado = await callAI('Compile em dossiê executivo. JSON válido.', `Empresa: ${empresa.nome} (${empresa.segmento})\nRelatórios: ${JSON.stringify(porTipo, null, 2)}\nGere: { "titulo": "...", "sumario_executivo": "...", "diagnostico_inicial": "...", "evolucao": "...", "roi": "...", "recomendacoes": ["..."], "conclusao": "..." }`, aiConfig, 8000, { temperature: TEMP });
     const dossie = await extractJSON(resultado);
-
-    if (dossie) {
-      await sb.from('relatorios').upsert({
-        empresa_id: empresaId, colaborador_id: null, tipo: 'dossie_gestor',
-        conteudo: dossie, gerado_em: new Date().toISOString(),
-      }, { onConflict: 'empresa_id,colaborador_id,tipo' });
-    }
-
+    if (dossie) { await sb.from('relatorios').upsert({ empresa_id: empresaId, colaborador_id: null, tipo: 'dossie_gestor', conteudo: dossie, gerado_em: new Date().toISOString() }, { onConflict: 'empresa_id,colaborador_id,tipo' }); }
     return { success: true, message: 'Dossiê do gestor gerado' };
   } catch (err) { return { success: false, error: err.message }; }
 }
@@ -730,19 +859,11 @@ Gere: { "titulo": "Dossiê Gestão — ${empresa.nome}", "sumario_executivo": ".
 export async function checkCenarios(empresaId, aiConfig = {}) {
   const sb = createSupabaseAdmin();
   try {
-    const { data: cenarios } = await sb.from('banco_cenarios')
-      .select('id, titulo, descricao, alternativas, competencias!inner(nome)')
-      .eq('empresa_id', empresaId);
+    const { data: cenarios } = await sb.from('banco_cenarios').select('id, titulo, descricao, alternativas, competencias!inner(nome)').eq('empresa_id', empresaId);
     if (!cenarios?.length) return { success: false, error: 'Nenhum cenário encontrado' };
 
-    const system = `Verifique a qualidade dos cenários. Responda APENAS com JSON válido.`;
-    const user = `Verifique ${cenarios.length} cenários: ${JSON.stringify(cenarios.slice(0, 20), null, 2)}
-
-Retorne: { "total": ${Math.min(cenarios.length, 20)}, "aprovados": N, "com_ressalvas": N, "reprovados": N, "detalhes": [{"cenario_id": "...", "status": "...", "observacao": "..."}] }`;
-
-    const resultado = await callAI(system, user, aiConfig, 64000);
+    const resultado = await callAI('Verifique qualidade dos cenários. JSON válido.', `Verifique ${cenarios.length} cenários: ${JSON.stringify(cenarios.slice(0, 20), null, 2)}\nRetorne: { "total": ${Math.min(cenarios.length, 20)}, "aprovados": N, "com_ressalvas": N, "reprovados": N, "detalhes": [{"cenario_id": "...", "status": "...", "observacao": "..."}] }`, aiConfig, 64000, { temperature: TEMP });
     const verificacao = await extractJSON(resultado);
-
     return { success: true, message: `Verificação: ${verificacao?.aprovados || 0} aprovados, ${verificacao?.com_ressalvas || 0} com ressalvas`, verificacao };
   } catch (err) { return { success: false, error: err.message }; }
 }
