@@ -174,12 +174,6 @@ export default function AssessmentPage() {
       {/* ─── INTRO DO CENÁRIO ─── */}
       {phase === PHASE.INTRO && data?.cenarioDoDia && (
         <div className="rounded-2xl p-5 border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-400/15 text-cyan-400 text-[10px] font-extrabold uppercase tracking-widest mb-3">
-            <Target size={11} /> {data.cenarioDoDia.compNome}
-          </div>
-          {data.cenarioDoDia.titulo && (
-            <p className="text-base font-extrabold text-white mb-3">{data.cenarioDoDia.titulo}</p>
-          )}
           <p className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-400 mb-2">Contexto</p>
           <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap mb-5">{data.cenarioDoDia.contexto}</p>
           <button onClick={() => { setPergIdx(0); setPhase(PHASE.PERGUNTAS); }}
@@ -196,10 +190,6 @@ export default function AssessmentPage() {
         const len = currentR.trim().length;
         return (
           <div className="rounded-2xl p-5 border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-400/15 text-cyan-400 text-[10px] font-extrabold uppercase tracking-widest mb-3">
-              <Target size={11} /> {cen.compNome}
-            </div>
-            <p className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-400 mb-2">{PROMPT_P[pergIdx]}</p>
             <div className="rounded-xl p-3 mb-3 border-l-4 border-cyan-400" style={{ background: 'rgba(45,212,191,0.05)' }}>
               <p className="text-sm font-semibold text-white leading-snug">{enunciados[pergIdx]}</p>
             </div>
@@ -228,9 +218,6 @@ export default function AssessmentPage() {
       {/* ─── REPRESENTATIVIDADE ─── */}
       {phase === PHASE.REPR && (
         <div className="rounded-2xl p-5 border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-400/15 text-cyan-400 text-[10px] font-extrabold uppercase tracking-widest mb-3">
-            <Target size={11} /> {data.cenarioDoDia.compNome}
-          </div>
           <p className="text-sm font-semibold text-white leading-snug mb-5">
             Em uma escala de 1 a 10, qual o grau de representatividade desta situação no seu cotidiano?
           </p>
