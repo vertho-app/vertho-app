@@ -198,7 +198,9 @@ Descrição: ${cenA.descricao}
       gerados++;
     }
 
-    const detalhes = [`${cenariosA.length} cenários A`, `${compIdsNeeded.length} comp IDs únicos`, `${compIds.length} encontradas no DB`, `${jaTemB.size} já têm B`, `${skipJaTemB} skip (já B)`, `${skipSemComp} skip (sem comp)`];
+    const dbUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').slice(-15);
+    const keyPfx = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').slice(-10);
+    const detalhes = [`${cenariosA.length} cenários A`, `${compIdsNeeded.length} IDs`, `${compIds.length} found`, `${skipJaTemB} jaB`, `${skipSemComp} noComp`, `db=..${dbUrl}`, `key=..${keyPfx}`];
     return { success: true, message: `${gerados} cenários B gerados${validados ? ` (${validados} validados)` : ''} — ${detalhes.join(', ')}` };
   } catch (err) {
     return { success: false, error: err.message };
