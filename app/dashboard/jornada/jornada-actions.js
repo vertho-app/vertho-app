@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { findColabByEmail } from '@/lib/authz';
 
 /**
  * Carrega a jornada do colaborador — status de cada fase.
@@ -9,16 +10,10 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 export async function loadJornada(email) {
   if (!email) return { error: 'Nao autenticado' };
 
-  const sb = createSupabaseAdmin();
-  const normalizedEmail = email.trim().toLowerCase();
-
-  // Buscar colaborador
-  const { data: colab } = await sb.from('colaboradores')
-    .select('id, nome_completo, email, cargo, area_depto, empresa_id, perfil_dominante, created_at')
-    .eq('email', normalizedEmail)
-    .single();
-
+  const colab = await findColabByEmail(email, 'id, nome_completo, email, cargo, area_depto, empresa_id, perfil_dominante, created_at');
   if (!colab) return { error: 'Colaborador nao encontrado' };
+
+  const sb = createSupabaseAdmin();
 
   const fases = [];
 

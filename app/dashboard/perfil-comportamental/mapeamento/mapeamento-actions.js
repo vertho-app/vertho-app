@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { findColabByEmail } from '@/lib/authz';
 
 /**
  * Salva os resultados do mapeamento comportamental DISC no Supabase.
@@ -11,8 +12,12 @@ export async function salvarPerfilComportamental(email, resultados) {
     return { success: false, error: 'Dados incompletos' };
   }
 
+  // Resolver o colaborador via tenant. Update por ID, não por email
+  // (mesmo email pode existir em múltiplas empresas).
+  const colab = await findColabByEmail(email, 'id');
+  if (!colab) return { success: false, error: 'Colaborador não encontrado' };
+
   const sb = createSupabaseAdmin();
-  const normalizedEmail = email.trim().toLowerCase();
   const { disc, dA, lead, comp, profile, learnPrefs } = resultados;
 
   const { error } = await sb.from('colaboradores')
@@ -73,7 +78,7 @@ export async function salvarPerfilComportamental(email, resultados) {
         rawData: resultados.rawData,
       }),
     })
-    .eq('email', normalizedEmail);
+    .eq('id', colab.id);
 
   if (error) return { success: false, error: error.message };
   return { success: true };

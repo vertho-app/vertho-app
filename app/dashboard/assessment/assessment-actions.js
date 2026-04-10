@@ -1,18 +1,15 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { findColabByEmail } from '@/lib/authz';
 
 export async function loadAssessmentData(email) {
   if (!email) return { error: 'Email obrigatório' };
 
-  const sb = createSupabaseAdmin();
-
-  const { data: colab } = await sb.from('colaboradores')
-    .select('id, nome_completo, empresa_id')
-    .eq('email', email.toLowerCase())
-    .single();
-
+  const colab = await findColabByEmail(email, 'id, nome_completo, empresa_id');
   if (!colab) return { error: 'Colaborador não encontrado' };
+
+  const sb = createSupabaseAdmin();
 
   // Buscar competências da empresa
   const { data: competencias } = await sb.from('competencias')

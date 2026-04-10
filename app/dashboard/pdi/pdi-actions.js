@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { findColabByEmail } from '@/lib/authz';
 
 /**
  * Carrega o PDI ativo do colaborador.
@@ -9,16 +10,10 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 export async function loadPDI(email) {
   if (!email) return { error: 'Nao autenticado' };
 
-  const sb = createSupabaseAdmin();
-  const normalizedEmail = email.trim().toLowerCase();
-
-  // Buscar colaborador
-  const { data: colab } = await sb.from('colaboradores')
-    .select('id, nome_completo, email, cargo, area_depto, empresa_id')
-    .eq('email', normalizedEmail)
-    .single();
-
+  const colab = await findColabByEmail(email, 'id, nome_completo, email, cargo, area_depto, empresa_id');
   if (!colab) return { error: 'Colaborador nao encontrado' };
+
+  const sb = createSupabaseAdmin();
 
   // Buscar PDI ativo
   const { data: pdi } = await sb.from('pdis')
