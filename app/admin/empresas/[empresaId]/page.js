@@ -40,7 +40,7 @@ const AI_MODELS = [
 
 const AI_ACTIONS = new Set([
   'ia1', 'ia2', 'ia3', 'ia4', 'check', 'rel-ind', 'rel-gestor', 'rel-rh',
-  'pdis', 'moodle-cat', 'reav', 'evolucao', 'plenaria', 'rh-rel', 'rh-plen', 'rh-dossie', 'rh-check',
+  'pdis', 'moodle-cat', 'evolucao', 'plenaria', 'rh-rel', 'rh-plen', 'rh-dossie', 'rh-check',
 ]);
 
 const STATUS_COLORS = {
@@ -105,7 +105,7 @@ const PHASE_CONFIG = [
   { num: 4, icon: TrendingUp, color: '#A78BFA', groups: [
     { label: 'Reavaliação', actions: [
       { key: 'cenarios-b', label: 'Cenários B + Check', icon: Zap, ai: 'dual' },
-      { key: 'reav', label: 'Iniciar Reavaliação', icon: MessageSquare, ai: true },
+      { key: 'reav', label: 'Iniciar Reavaliação', icon: MessageSquare },
     ]},
     { label: 'Evolução', actions: [
       { key: 'evolucao', label: 'Evolução (Fusão 3 Fontes)', icon: TrendingUp, ai: true },
