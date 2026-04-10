@@ -144,8 +144,9 @@ function computeCompetencies(disc, dA) {
 }
 
 function deriveProfile(disc) {
-  const entries = Object.entries(disc).filter(([, v]) => v >= 50).sort((a, b) => b[1] - a[1]);
-  return entries.map(([k]) => k).join('') || 'S';
+  const sorted = Object.entries(disc).sort((a, b) => b[1] - a[1]);
+  const acima = sorted.filter(([, v]) => v >= 50).map(([k]) => k).join('');
+  return acima || sorted[0][0];
 }
 
 /* ───────────────── PHASES ───────────────── */
