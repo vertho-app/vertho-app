@@ -103,7 +103,7 @@ const PHASE_CONFIG = [
   ]},
   { num: 4, icon: TrendingUp, color: '#A78BFA', groups: [
     { label: 'Reavaliação', actions: [
-      { key: 'cenarios-b', label: 'Gerar Cenários B', icon: Zap, ai: true },
+      { key: 'cenarios-b', label: 'Cenários B + Check', icon: Zap, ai: 'dual' },
       { key: 'check-b', label: 'Check Cenários B', icon: CheckCircle, ai: true },
       { key: 'reav', label: 'Iniciar Reavaliação', icon: MessageSquare, ai: true },
     ]},

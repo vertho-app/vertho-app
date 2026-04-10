@@ -4,9 +4,19 @@ import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Loader2, TrendingUp, FileText, ChevronDown,
-  CheckCircle, AlertTriangle,
+  CheckCircle, AlertTriangle, RefreshCw, Zap,
 } from 'lucide-react';
 import { loadCenariosB } from '@/actions/fase5';
+import { checkCenarioBUm, regenerarCenarioB } from '../actions';
+
+const AI_MODELS = [
+  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+  { id: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
+  { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash' },
+  { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro' },
+  { id: 'gpt-5.4', label: 'GPT 5.4' },
+  { id: 'gpt-5.4-mini', label: 'GPT 5.4 Mini' },
+];
 
 export default function Fase4Page({ params }) {
   const { empresaId } = use(params);
@@ -16,6 +26,9 @@ export default function Fase4Page({ params }) {
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState(null);
   const [toast, setToast] = useState(null);
+  const [actionId, setActionId] = useState(null);
+  const [genModel, setGenModel] = useState('claude-sonnet-4-6');
+  const [checkModel, setCheckModel] = useState('gemini-3-flash-preview');
   function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 3000); }
 
   async function refresh() {
@@ -25,6 +38,30 @@ export default function Fase4Page({ params }) {
   }
 
   useEffect(() => { refresh(); }, [empresaId]);
+
+  async function handleRechecar(id) {
+    setActionId(id);
+    flash('Rechecando...');
+    const r = await checkCenarioBUm(id, checkModel);
+    setActionId(null);
+    flash(r.success ? r.message : 'Erro: ' + r.error);
+    refresh();
+  }
+
+  async function handleRegenerar(id) {
+    setActionId(id);
+    flash('Regenerando...');
+    const r1 = await regenerarCenarioB(id, { model: genModel });
+    if (r1.success) {
+      flash('Rechecando...');
+      const r2 = await checkCenarioBUm(id, checkModel);
+      flash(r2.success ? `Regenerado. ${r2.message}` : 'Regenerado. Erro check: ' + r2.error);
+    } else {
+      flash('Erro: ' + r1.error);
+    }
+    setActionId(null);
+    refresh();
+  }
 
   // Agrupar por cargo
   const porCargo = {};
@@ -50,6 +87,24 @@ export default function Fase4Page({ params }) {
             <TrendingUp size={20} className="text-purple-400" /> Fase 4 — Reavalia{'\u00e7\u00e3o'}
           </h1>
           <p className="text-xs text-gray-500">Cen{'\u00e1'}rios B, Reavalia{'\u00e7\u00e3o'} e Evolu{'\u00e7\u00e3o'}</p>
+        </div>
+      </div>
+
+      {/* Seletor de modelos */}
+      <div className="flex items-center gap-3 mb-4 p-3 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
+        <div className="flex-1">
+          <p className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest mb-1">Gera{'\u00e7\u00e3o'}</p>
+          <select value={genModel} onChange={e => setGenModel(e.target.value)}
+            className="w-full px-2 py-1.5 rounded-lg text-[11px] text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
+            {AI_MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+          </select>
+        </div>
+        <div className="flex-1">
+          <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest mb-1">Valida{'\u00e7\u00e3o'}</p>
+          <select value={checkModel} onChange={e => setCheckModel(e.target.value)}
+            className="w-full px-2 py-1.5 rounded-lg text-[11px] text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
+            {AI_MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+          </select>
         </div>
       </div>
 
@@ -197,6 +252,38 @@ export default function Fase4Page({ params }) {
                               {c.sugestao_check && <p className="text-[10px] text-amber-300 mt-1">{`Sugest\u00e3o`}: {c.sugestao_check}</p>}
                             </div>
                           )}
+
+                          {/* Ações */}
+                          <div className="flex items-center gap-2 pt-3 mt-3 border-t border-white/[0.04]">
+                            {c.nota_check == null && (
+                              <button disabled={actionId === c.id} onClick={() => handleRechecar(c.id)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all disabled:opacity-50">
+                                {actionId === c.id ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle size={11} />}
+                                Validar
+                              </button>
+                            )}
+                            {c.nota_check != null && c.nota_check < 90 && (
+                              <>
+                                <button disabled={actionId === c.id} onClick={() => handleRegenerar(c.id)}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 transition-all disabled:opacity-50">
+                                  {actionId === c.id ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+                                  Regenerar + Rechecar
+                                </button>
+                                <button disabled={actionId === c.id} onClick={() => handleRechecar(c.id)}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all disabled:opacity-50">
+                                  {actionId === c.id ? <Loader2 size={11} className="animate-spin" /> : <Zap size={11} />}
+                                  S{'\u00f3'} Rechecar
+                                </button>
+                              </>
+                            )}
+                            {c.nota_check != null && c.nota_check >= 90 && (
+                              <button disabled={actionId === c.id} onClick={() => handleRegenerar(c.id)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-gray-400 border border-white/10 hover:bg-white/5 transition-all disabled:opacity-50">
+                                {actionId === c.id ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+                                Regenerar
+                              </button>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>

@@ -8,6 +8,126 @@ import { extractJSON } from './utils';
 const MAX_TURNOS = 8;
 const TEMP = 0.4; // temperatura GAS para consistência
 
+// System prompt compartilhado do check de cenário B
+const CHECK_CEN_B_SYSTEM = `Você é um avaliador especialista em Assessment Comportamental.
+Avalie o cenário B e as perguntas com base em 5 dimensões (20pts cada, total 100):
+
+1. ADERÊNCIA À COMPETÊNCIA (20pts): O cenário avalia a competência indicada?
+2. REALISMO CONTEXTUAL (20pts): Contexto e personagens críveis para o cargo?
+3. CONTENÇÃO (20pts): Contexto até ~900 chars? Max 2 tensões? Perguntas até ~200 chars?
+4. FORÇA DE DECISÃO (20pts): P1 força ESCOLHA? P2 pede COMO? P3 aborda raciocínio? P4 pede reflexão?
+5. PODER DISCRIMINANTE (20pts): Permite discriminar 4 níveis (N1-N4)?
+
+ERROS GRAVES (força nota max 60):
+- Pergunta fechada (sim/não)
+- Cenário com 4+ tensões
+- Pergunta genérica sem escolha
+- Competência avaliada não é a indicada
+
+Nota >= 90 = aprovado. Nota < 90 = revisar.
+Retorne APENAS JSON válido:
+{"nota":85,"dimensoes":{"aderencia":18,"realismo":19,"contencao":16,"decisao":17,"discriminante":15},"justificativa":"...","sugestao":"..."}`;
+
+// Helper: monta prompts de geração de cenário B
+function buildCenBPrompts(empresa, cenA, comp, pppContexto, feedbackExtra = '') {
+  const gabarito = comp.gabarito;
+  const descritores = Array.isArray(gabarito)
+    ? gabarito.map((d, i) => `D${i+1}: ${d.nome || d.descritor || JSON.stringify(d)}`).join('\n')
+    : JSON.stringify(gabarito);
+
+  const system = `<PAPEL>
+Você é um especialista em avaliação de competências comportamentais com 20 anos de experiência.
+Cria cenários situacionais que funcionam como instrumentos diagnósticos.
+Empresa: ${empresa.nome} (${empresa.segmento})
+</PAPEL>
+
+<TAREFA>
+Crie um CENÁRIO B complementar ao cenário A já existente.
+O cenário B usa a MESMA competência mas com situação-gatilho DIFERENTE.
+</TAREFA>
+
+<REGRAS_DE_CONSTRUCAO>
+1. REALISMO CONTEXTUAL — use elementos reais, nomes brasileiros, contexto específico
+2. ESTRUTURA DO DILEMA — situação concreta, tensão real, não extrema
+3. PODER DISCRIMINANTE — permite respostas em 4 níveis (N1-N4)
+4. DIVERSIDADE EM RELAÇÃO AO CENÁRIO A — situação-gatilho OBRIGATORIAMENTE diferente
+5. DILEMA ÉTICO EMBUTIDO — tensão ética sutil que revele valores na resposta
+</REGRAS_DE_CONSTRUCAO>
+
+Responda APENAS com JSON válido.`;
+
+  const user = `## Competência avaliada
+Nome: ${comp.nome}
+Descrição: ${comp.descricao}
+Cargo: ${cenA.cargo}
+
+## Descritores (régua por nível)
+${descritores}
+
+${pppContexto ? `## Contexto institucional (PPP/Valores)\n${pppContexto}\n` : ''}
+## Cenário A original (NÃO repetir — crie algo DIFERENTE)
+Título: ${cenA.titulo}
+Descrição: ${cenA.descricao}
+${feedbackExtra ? `\n## FEEDBACK DA REVISÃO ANTERIOR (CORRIJA ESTES PONTOS):\n${feedbackExtra}\n` : ''}
+## Formato de saída (JSON obrigatório):
+{
+  "titulo": "título do cenário B",
+  "descricao": "contexto (80-150 palavras, personagens brasileiros, situação concreta)",
+  "p1": "Dimensão SITUAÇÃO — pergunta aberta",
+  "p2": "Dimensão AÇÃO — pergunta aberta",
+  "p3": "Dimensão RACIOCÍNIO — pergunta aberta",
+  "p4": "Dimensão AUTOSSENSIBILIDADE — pergunta aberta",
+  "faceta_avaliada": "qual aspecto específico da competência este cenário testa",
+  "referencia_avaliacao": {
+    "nivel_1": "que tipo de resposta indica N1",
+    "nivel_2": "que tipo de resposta indica N2",
+    "nivel_3": "que tipo de resposta indica N3",
+    "nivel_4": "que tipo de resposta indica N4"
+  },
+  "dilema_etico_embutido": {
+    "valor_testado": "nome do valor ético em jogo",
+    "caminho_facil": "o que a pessoa faria se cedesse",
+    "caminho_etico": "o que a pessoa faria mantendo o valor"
+  }
+}`;
+
+  return { system, user };
+}
+
+// Helper: roda check em 1 cenário B e persiste resultado
+async function runCheckOnCenB(sb, cen, comp, modelo) {
+  const alt = typeof cen.alternativas === 'string' ? JSON.parse(cen.alternativas) : (cen.alternativas || {});
+  const perguntas = [alt.p1, alt.p2, alt.p3, alt.p4].filter(Boolean).map((p, i) => `P${i+1}: ${p}`).join('\n');
+
+  const user = `CARGO: ${cen.cargo}
+COMPETÊNCIA: ${comp?.nome || 'N/D'}
+
+CENÁRIO B:
+Título: ${cen.titulo}
+Contexto: ${cen.descricao}
+
+PERGUNTAS:
+${perguntas}
+
+${comp?.gabarito ? `GABARITO:\n${JSON.stringify(comp.gabarito).slice(0, 500)}` : ''}`;
+
+  const resposta = await callAI(CHECK_CEN_B_SYSTEM, user, { model: modelo || 'gemini-3-flash-preview' }, 4096, { temperature: TEMP });
+  const resultado = await extractJSON(resposta);
+  if (!resultado?.nota) return { success: false, error: 'Check não retornou nota' };
+
+  const statusCheck = resultado.nota >= 90 ? 'aprovado' : 'revisar';
+  await sb.from('banco_cenarios').update({
+    nota_check: resultado.nota,
+    status_check: statusCheck,
+    dimensoes_check: resultado.dimensoes || null,
+    justificativa_check: resultado.justificativa || null,
+    sugestao_check: resultado.sugestao || null,
+    checked_at: new Date().toISOString(),
+  }).eq('id', cen.id);
+
+  return { success: true, nota: resultado.nota, status: statusCheck };
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // 1. GERAR CENÁRIOS B EM LOTE
 // Cria cenários B customizados por cargo/competência (diferente do A)
@@ -61,44 +181,8 @@ export async function gerarCenariosBLote(empresaId, aiConfig = {}) {
       .select('valores').eq('empresa_id', empresaId).limit(1);
     const pppContexto = ppps?.[0]?.valores ? JSON.stringify(ppps[0].valores) : '';
 
-    const system = `<PAPEL>
-Você é um especialista em avaliação de competências comportamentais com 20 anos de experiência.
-Cria cenários situacionais que funcionam como instrumentos diagnósticos.
-Empresa: ${empresa.nome} (${empresa.segmento})
-</PAPEL>
-
-<TAREFA>
-Crie um CENÁRIO B complementar ao cenário A já existente.
-O cenário B usa a MESMA competência mas com situação-gatilho DIFERENTE.
-</TAREFA>
-
-<REGRAS_DE_CONSTRUCAO>
-1. REALISMO CONTEXTUAL
-   - Use elementos reais do contexto profissional do cargo
-   - Nomeie personagens com nomes brasileiros
-   - Inclua contexto temporal e situacional específico
-
-2. ESTRUTURA DO DILEMA
-   - SITUAÇÃO-PROBLEMA concreta, não teórica
-   - Tensão real: interesses conflitantes, urgência, recursos limitados
-   - NÃO extrema — foco em dilemas cotidianos
-
-3. PODER DISCRIMINANTE
-   - Permite respostas em 4 níveis (N1-N4)
-   - Diferença nos níveis está na complexidade, não no tamanho
-
-4. DIVERSIDADE EM RELAÇÃO AO CENÁRIO A
-   - Situação-gatilho OBRIGATORIAMENTE diferente
-   - Varie: momento, atores envolvidos, tipo de dilema
-
-5. DILEMA ÉTICO EMBUTIDO
-   - Todo cenário deve conter uma tensão ética sutil
-   - Não óbvia, mas que revele valores na resposta
-</REGRAS_DE_CONSTRUCAO>
-
-Responda APENAS com JSON válido.`;
-
-    let gerados = 0, validados = 0, skipJaTemB = 0, skipSemComp = 0;
+    const checkModel = aiConfig?.checkModel;
+    let gerados = 0, aprovados = 0, revisar = 0, skipJaTemB = 0, skipSemComp = 0;
     for (const cenA of cenariosA) {
       const key = `${cenA.competencia_id}::${cenA.cargo}`;
       if (jaTemB.has(key)) { skipJaTemB++; continue; }
@@ -106,64 +190,12 @@ Responda APENAS com JSON válido.`;
       const comp = compMap[cenA.competencia_id];
       if (!comp) { skipSemComp++; continue; }
 
-      const gabarito = comp.gabarito;
-      const descritores = Array.isArray(gabarito) ? gabarito.map((d, i) => `D${i+1}: ${d.nome || d.descritor || JSON.stringify(d)}`).join('\n') : JSON.stringify(gabarito);
-
-      const user = `## Competência avaliada
-Nome: ${comp.nome}
-Descrição: ${comp.descricao}
-Cargo: ${cenA.cargo}
-
-## Descritores (régua por nível)
-${descritores}
-
-${pppContexto ? `## Contexto institucional (PPP/Valores)\n${pppContexto}\n` : ''}
-## Cenário A original (NÃO repetir — crie algo DIFERENTE)
-Título: ${cenA.titulo}
-Descrição: ${cenA.descricao}
-
-## Formato de saída (JSON obrigatório):
-{
-  "titulo": "título do cenário B",
-  "descricao": "contexto (80-150 palavras, personagens brasileiros, situação concreta)",
-  "p1": "Dimensão SITUAÇÃO — pergunta aberta",
-  "p2": "Dimensão AÇÃO — pergunta aberta",
-  "p3": "Dimensão RACIOCÍNIO — pergunta aberta",
-  "p4": "Dimensão AUTOSSENSIBILIDADE — pergunta aberta",
-  "faceta_avaliada": "qual aspecto específico da competência este cenário testa",
-  "referencia_avaliacao": {
-    "nivel_1": "que tipo de resposta indica N1",
-    "nivel_2": "que tipo de resposta indica N2",
-    "nivel_3": "que tipo de resposta indica N3",
-    "nivel_4": "que tipo de resposta indica N4"
-  },
-  "dilema_etico_embutido": {
-    "valor_testado": "nome do valor ético em jogo",
-    "caminho_facil": "o que a pessoa faria se cedesse",
-    "caminho_etico": "o que a pessoa faria mantendo o valor"
-  }
-}`;
-
+      const { system, user } = buildCenBPrompts(empresa, cenA, comp, pppContexto);
       const resultado = await callAI(system, user, aiConfig, 4096, { temperature: TEMP });
       const cenarioData = await extractJSON(resultado);
       if (!cenarioData?.titulo) continue;
 
-      // Validação Gemini (se disponível)
-      let validacao = null;
-      if (process.env.GEMINI_API_KEY) {
-        try {
-          const valResult = await callAI(
-            'Você é um auditor de qualidade de cenários avaliativos. Verifique se o cenário é realista, não tendencioso, e permite discriminar 4 níveis de resposta. Responda APENAS JSON: {"aprovado": true/false, "motivo": "..."}',
-            `Cenário para validar:\n${JSON.stringify(cenarioData, null, 2)}`,
-            { model: 'gemini-3-flash-preview' },
-            1024
-          );
-          validacao = await extractJSON(valResult);
-          if (validacao?.aprovado) validados++;
-        } catch { /* Gemini opcional */ }
-      }
-
-      const { error: insErr } = await sb.from('banco_cenarios').insert({
+      const { data: inserted, error: insErr } = await sb.from('banco_cenarios').insert({
         empresa_id: empresaId,
         competencia_id: cenA.competencia_id,
         cargo: cenA.cargo,
@@ -177,16 +209,118 @@ Descrição: ${cenA.descricao}
           referencia_avaliacao: cenarioData.referencia_avaliacao,
           dilema_etico: cenarioData.dilema_etico_embutido,
           faceta_avaliada: cenarioData.faceta_avaliada,
-          validacao_gemini: validacao,
         },
         tipo_cenario: 'cenario_b',
-      });
+      }).select('id, titulo, descricao, cargo, alternativas').single();
       if (insErr) { console.error('[cenarioB insert]', insErr.message); continue; }
       gerados++;
+
+      // Check inline se modelo foi informado
+      if (checkModel && inserted) {
+        try {
+          const chk = await runCheckOnCenB(sb, inserted, comp, checkModel);
+          if (chk.success) {
+            if (chk.status === 'aprovado') aprovados++; else revisar++;
+          }
+        } catch (e) { console.error('[cenarioB check]', e.message); }
+      }
     }
 
-    const detalhes = [`${gerados} gerados`, `${cenariosA.length} cenários A`, `${compIds.length} competências`, `${skipSemComp} sem comp`];
-    return { success: true, message: `${gerados} cenários B gerados${validados ? ` (${validados} validados)` : ''} — ${detalhes.join(', ')}` };
+    let msg = `${gerados} cenários B gerados`;
+    if (checkModel) msg += ` | ${aprovados} aprovados, ${revisar} para revisar`;
+    msg += ` — ${cenariosA.length} cenários A, ${compIds.length} competências`;
+    return { success: true, message: msg };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 1b. CHECK DE 1 CENÁRIO B
+// ══════════════════════════════════════════════════════════════════════════════
+
+export async function checkCenarioBUm(cenarioId, modelo = null) {
+  const sb = createSupabaseAdmin();
+  try {
+    const { data: cen } = await sb.from('banco_cenarios')
+      .select('id, titulo, descricao, cargo, competencia_id, alternativas')
+      .eq('id', cenarioId).single();
+    if (!cen) return { success: false, error: 'Cenário não encontrado' };
+
+    const { data: comp } = await sb.from('competencias')
+      .select('nome, gabarito').eq('id', cen.competencia_id).maybeSingle();
+
+    const r = await runCheckOnCenB(sb, cen, comp, modelo);
+    if (!r.success) return r;
+    return { success: true, message: `Check: ${r.nota}pts — ${r.status}`, nota: r.nota, status: r.status };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 1c. REGENERAR 1 CENÁRIO B (usa feedback do check anterior)
+// ══════════════════════════════════════════════════════════════════════════════
+
+export async function regenerarCenarioB(cenarioId, aiConfig = {}) {
+  const sb = createSupabaseAdmin();
+  try {
+    const { data: cen } = await sb.from('banco_cenarios')
+      .select('id, empresa_id, competencia_id, cargo, titulo, descricao, justificativa_check, sugestao_check')
+      .eq('id', cenarioId).single();
+    if (!cen) return { success: false, error: 'Cenário não encontrado' };
+
+    const { data: empresa } = await sb.from('empresas')
+      .select('nome, segmento').eq('id', cen.empresa_id).single();
+
+    const { data: comp } = await sb.from('competencias')
+      .select('id, nome, descricao, gabarito').eq('id', cen.competencia_id).maybeSingle();
+    if (!comp) return { success: false, error: 'Competência não encontrada' };
+
+    // Buscar cenário A original para referência (qualquer tipo != cenario_b para mesma comp+cargo)
+    const { data: cenA } = await sb.from('banco_cenarios')
+      .select('titulo, descricao')
+      .eq('empresa_id', cen.empresa_id)
+      .eq('competencia_id', cen.competencia_id)
+      .eq('cargo', cen.cargo)
+      .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b')
+      .limit(1).maybeSingle();
+
+    const { data: ppps } = await sb.from('ppp_escolas')
+      .select('valores').eq('empresa_id', cen.empresa_id).limit(1);
+    const pppContexto = ppps?.[0]?.valores ? JSON.stringify(ppps[0].valores) : '';
+
+    const feedbackExtra = [cen.justificativa_check, cen.sugestao_check].filter(Boolean).join('\n');
+    const refCenA = cenA || { cargo: cen.cargo, titulo: cen.titulo, descricao: cen.descricao };
+    refCenA.cargo = cen.cargo;
+
+    const { system, user } = buildCenBPrompts(empresa, refCenA, comp, pppContexto, feedbackExtra);
+    const resposta = await callAI(system, user, aiConfig, 4096, { temperature: TEMP });
+    const cenarioData = await extractJSON(resposta);
+    if (!cenarioData?.titulo) return { success: false, error: 'IA não retornou cenário válido' };
+
+    const { error: updErr } = await sb.from('banco_cenarios').update({
+      titulo: cenarioData.titulo,
+      descricao: cenarioData.descricao,
+      alternativas: {
+        p1: cenarioData.p1,
+        p2: cenarioData.p2,
+        p3: cenarioData.p3,
+        p4: cenarioData.p4,
+        referencia_avaliacao: cenarioData.referencia_avaliacao,
+        dilema_etico: cenarioData.dilema_etico_embutido,
+        faceta_avaliada: cenarioData.faceta_avaliada,
+      },
+      nota_check: null,
+      status_check: null,
+      dimensoes_check: null,
+      justificativa_check: null,
+      sugestao_check: null,
+      checked_at: null,
+    }).eq('id', cenarioId);
+
+    if (updErr) return { success: false, error: updErr.message };
+    return { success: true, message: `Cenário B regenerado: ${comp.nome}` };
   } catch (err) {
     return { success: false, error: err.message };
   }
