@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, ArrowLeft, AlertCircle } from 'lucide-react';
+import { Loader2, ArrowLeft, AlertCircle, FileText, ArrowRight } from 'lucide-react';
 import { loadPerfilCIS } from './perfil-comportamental-actions';
 
 const COMP_GROUPS = {
@@ -157,6 +157,25 @@ export default function PerfilComportamentalPage() {
         </div>
         <p className="text-lg text-gray-300">{c.nome_completo}</p>
       </div>
+
+      {/* ── CTA Relatório Completo ── */}
+      <button onClick={() => router.push('/dashboard/perfil-comportamental/relatorio')}
+        className="w-full rounded-2xl p-4 border border-cyan-400/30 text-left hover:border-cyan-400/60 transition-all"
+        style={{ background: 'rgba(6,182,212,0.08)' }}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+              style={{ background: 'rgba(13,148,136,0.18)' }}>
+              <FileText size={18} className="text-cyan-300" />
+            </div>
+            <div>
+              <p className="text-sm font-extrabold text-white">Relatório Completo (5 páginas)</p>
+              <p className="text-[11px] text-gray-400">Análise interpretativa do seu perfil + plano de ação. Disponível para baixar em PDF.</p>
+            </div>
+          </div>
+          <ArrowRight size={18} className="text-cyan-300 shrink-0" />
+        </div>
+      </button>
 
       {/* ── Radar DISC ── */}
       <div className="rounded-2xl p-5 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
