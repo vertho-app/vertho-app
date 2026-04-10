@@ -7,12 +7,48 @@ import { buildBehavioralReportPrompt } from '@/lib/prompts/behavioral-report-pro
 import { callAI } from '@/actions/ai-client';
 
 const CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
+const BUCKET = 'relatorios-pdf';
+
+// ── Helpers internos ────────────────────────────────────────────────────────
+
+async function gerarTextosLLM(raw) {
+  const prompt = buildBehavioralReportPrompt(raw);
+  const system = 'Você é um analista comportamental sênior. Responda APENAS com JSON válido, sem markdown nem comentários.';
+  const rawAnswer = await callAI(system, prompt, {}, 4096);
+
+  const cleaned = String(rawAnswer || '')
+    .replace(/```json\s*/gi, '')
+    .replace(/```/g, '')
+    .trim();
+
+  return JSON.parse(cleaned);
+}
+
+async function renderPdfBuffer(data) {
+  const { renderToBuffer } = await import('@react-pdf/renderer');
+  const React = (await import('react')).default;
+  const { default: RelatorioComportamentalPDF } = await import('@/components/pdf/RelatorioComportamental');
+
+  return renderToBuffer(
+    React.createElement(RelatorioComportamentalPDF, { data })
+  );
+}
+
+function pdfPathFor(colab) {
+  const slug = (colab.nome_completo || 'relatorio').replace(/\s+/g, '-').toLowerCase();
+  return {
+    path: `${colab.empresa_id}/comportamental-${slug}-${Date.now()}.pdf`,
+    filename: `vertho-comportamental-${slug}.pdf`,
+    slug,
+  };
+}
+
+// ── Public actions ──────────────────────────────────────────────────────────
 
 /**
  * Carrega o Relatório Comportamental do colaborador.
  * - Usa cache (`report_texts` + `report_generated_at`) se < 30 dias e `force` for false.
- * - Caso contrário, monta o prompt e chama o LLM via callAI.
- * - Salva os textos gerados de volta no Supabase.
+ * - Caso contrário, monta o prompt e chama o LLM via callAI, salvando o resultado.
  */
 export async function loadBehavioralReport(email, opts = {}) {
   try {
@@ -38,25 +74,15 @@ export async function loadBehavioralReport(email, opts = {}) {
     }
 
     // 2) Gera via LLM
-    const prompt = buildBehavioralReportPrompt(raw);
-    const system = 'Você é um analista comportamental sênior. Responda APENAS com JSON válido, sem markdown nem comentários.';
-    const rawAnswer = await callAI(system, prompt, {}, 4096);
-
-    // 3) Parseia (limpa code fences se vierem)
-    const cleaned = String(rawAnswer || '')
-      .replace(/```json\s*/gi, '')
-      .replace(/```/g, '')
-      .trim();
-
     let texts;
     try {
-      texts = JSON.parse(cleaned);
+      texts = await gerarTextosLLM(raw);
     } catch (e) {
-      console.error('[loadBehavioralReport] Falha ao parsear JSON do LLM:', cleaned.slice(0, 500));
+      console.error('[loadBehavioralReport] Falha ao parsear JSON do LLM:', e);
       return { error: 'Erro ao interpretar resposta do modelo. Tente novamente.' };
     }
 
-    // 4) Salva cache
+    // 3) Salva cache
     const sb = createSupabaseAdmin();
     await sb.from('colaboradores')
       .update({ report_texts: texts, report_generated_at: new Date().toISOString() })
@@ -70,15 +96,75 @@ export async function loadBehavioralReport(email, opts = {}) {
 }
 
 /**
- * Força regeneração dos textos do LLM.
+ * Gera textos LLM (se faltar) + renderiza PDF + upa pro bucket + salva path
+ * em `colaboradores.comportamental_pdf_path`. Usado tanto pelo fire-and-forget
+ * do fim do mapeamento quanto pelo fluxo de download.
+ *
+ * Aceita o colab inteiro (caller já consultou) OU um email para lookup.
  */
-export async function regenerarRelatorioComportamental(email) {
-  return loadBehavioralReport(email, { force: true });
+export async function gerarEsalvarRelatorioComportamental({ email, colab: inputColab } = {}) {
+  try {
+    let colab = inputColab;
+    if (!colab && email) {
+      colab = await findColabByEmail(email, CIS_COLUMNS);
+    }
+    if (!colab) return { error: 'Colaborador não encontrado' };
+
+    const hasDISC = colab.perfil_dominante && (colab.d_natural || colab.i_natural || colab.s_natural || colab.c_natural);
+    if (!hasDISC) return { error: 'Mapeamento comportamental ainda não realizado' };
+
+    const sb = createSupabaseAdmin();
+    const raw = mapSupabaseToCISRawData(colab);
+
+    // 1) Textos LLM — reusa cache se válido
+    let texts = null;
+    if (colab.report_texts && colab.report_generated_at) {
+      const age = Date.now() - new Date(colab.report_generated_at).getTime();
+      if (age < CACHE_MAX_AGE_MS) texts = colab.report_texts;
+    }
+    if (!texts) {
+      texts = await gerarTextosLLM(raw);
+      await sb.from('colaboradores')
+        .update({ report_texts: texts, report_generated_at: new Date().toISOString() })
+        .eq('id', colab.id);
+    }
+
+    // 2) Renderiza PDF
+    const buffer = await renderPdfBuffer({ raw, texts });
+
+    // 3) Upload no bucket
+    const { path, filename } = pdfPathFor(colab);
+    const { error: upErr } = await sb.storage
+      .from(BUCKET)
+      .upload(path, buffer, { contentType: 'application/pdf', upsert: true });
+    if (upErr) return { error: `Falha ao salvar PDF: ${upErr.message}` };
+
+    // 4) Salva path
+    await sb.from('colaboradores')
+      .update({ comportamental_pdf_path: path })
+      .eq('id', colab.id);
+
+    return { success: true, path, filename };
+  } catch (err) {
+    console.error('[gerarEsalvarRelatorioComportamental]', err);
+    return { error: err?.message || 'Erro ao gerar relatório' };
+  }
 }
 
 /**
- * Gera o PDF do relatório comportamental, sobe para o storage e devolve uma
- * signed URL com download forçado (mesmo padrão do PDI individual).
+ * Força regeneração dos textos do LLM (e re-gera o PDF).
+ */
+export async function regenerarRelatorioComportamental(email) {
+  const result = await loadBehavioralReport(email, { force: true });
+  if (result.error) return result;
+  // re-gera o PDF com os novos textos
+  await gerarEsalvarRelatorioComportamental({ email });
+  return result;
+}
+
+/**
+ * Gera signed URL para baixar o PDF. Prioriza o path salvo em
+ * `comportamental_pdf_path`. Se não existir, gera+upa on-the-fly.
  */
 export async function baixarRelatorioComportamentalPdf(email) {
   try {
@@ -90,37 +176,22 @@ export async function baixarRelatorioComportamentalPdf(email) {
     const hasDISC = colab.perfil_dominante && (colab.d_natural || colab.i_natural || colab.s_natural || colab.c_natural);
     if (!hasDISC) return { error: 'Mapeamento comportamental ainda não realizado' };
 
-    // Garante que temos textos LLM
-    let texts = colab.report_texts;
-    if (!texts) {
-      const result = await loadBehavioralReport(email);
-      if (result.error) return { error: result.error };
-      texts = result.texts;
-    }
-
-    const raw = mapSupabaseToCISRawData(colab);
-    const data = { raw, texts };
-
-    const { renderToBuffer } = await import('@react-pdf/renderer');
-    const React = (await import('react')).default;
-    const { default: RelatorioComportamentalPDF } = await import('@/components/pdf/RelatorioComportamental');
-
-    const buffer = await renderToBuffer(
-      React.createElement(RelatorioComportamentalPDF, { data })
-    );
-
     const sb = createSupabaseAdmin();
     const slug = (colab.nome_completo || 'relatorio').replace(/\s+/g, '-').toLowerCase();
     const filename = `vertho-comportamental-${slug}.pdf`;
-    const path = `${colab.empresa_id}/comportamental-${slug}-${Date.now()}.pdf`;
 
-    const { error: upErr } = await sb.storage
-      .from('relatorios-pdf')
-      .upload(path, buffer, { contentType: 'application/pdf', upsert: true });
-    if (upErr) return { error: `Falha ao salvar PDF: ${upErr.message}` };
+    // Caminho já salvo? Reusa.
+    let path = colab.comportamental_pdf_path;
+
+    // Se não tem, gera na hora
+    if (!path) {
+      const result = await gerarEsalvarRelatorioComportamental({ colab });
+      if (result.error) return { error: result.error };
+      path = result.path;
+    }
 
     const { data: signed, error: signErr } = await sb.storage
-      .from('relatorios-pdf')
+      .from(BUCKET)
       .createSignedUrl(path, 300, { download: filename });
     if (signErr) return { error: `Erro ao gerar link: ${signErr.message}` };
 

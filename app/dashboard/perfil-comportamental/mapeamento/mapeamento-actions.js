@@ -1,5 +1,6 @@
 'use server';
 
+import { after } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
 
@@ -81,5 +82,23 @@ export async function salvarPerfilComportamental(email, resultados) {
     .eq('id', colab.id);
 
   if (error) return { success: false, error: error.message };
+
+  // Pós-resposta: gera textos LLM + PDF em background para que, quando o
+  // colab clicar em "Relatório Completo", já esteja pronto. `after()` do
+  // Next 16 garante que o trabalho seja concluído mesmo em serverless.
+  after(async () => {
+    try {
+      const { gerarEsalvarRelatorioComportamental } = await import(
+        '@/app/dashboard/perfil-comportamental/relatorio/relatorio-actions'
+      );
+      const result = await gerarEsalvarRelatorioComportamental({ email });
+      if (result?.error) {
+        console.warn('[salvarPerfilComportamental] pré-geração falhou:', result.error);
+      }
+    } catch (e) {
+      console.warn('[salvarPerfilComportamental] pré-geração threw:', e?.message || e);
+    }
+  });
+
   return { success: true };
 }
