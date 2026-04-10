@@ -25,7 +25,7 @@ import {
   montarTrilhasLote, salvarCompetenciaFoco, loadCompetenciasFoco,
   provisionarMoodleLote, syncProgressoMoodle, iniciarCapacitacao, avancarSemana, enviarNudgesInatividade,
   moodleImportarCatalogo, catalogarConteudosMoodle, gerarCoberturaConteudo,
-  iniciarReavaliacaoLote, gerarRelatoriosEvolucaoLote, gerarPlenariaEvolucao, gerarRelatorioRHManual, gerarRelatorioPlenaria, enviarLinksPerfil, gerarDossieGestor, checkCenarios,
+  gerarCenariosBLote, iniciarReavaliacaoLote, gerarRelatoriosEvolucaoLote, gerarPlenariaEvolucao, gerarRelatorioRHManual, gerarRelatorioPlenaria, enviarLinksPerfil, gerarDossieGestor, checkCenarios,
 } from './actions';
 
 // ── AI Models ──
@@ -101,10 +101,15 @@ const PHASE_CONFIG = [
       { key: 'nudges', label: 'Nudges Inatividade', icon: AlertTriangle },
     ]},
   ]},
-  { num: 4, icon: TrendingUp, color: '#A78BFA', actions: [
-    { key: 'reav', label: 'Reavaliação', icon: MessageSquare, ai: true },
-    { key: 'evolucao', label: 'Evolução', icon: TrendingUp, ai: true },
-    { key: 'plenaria', label: 'Plenária', icon: FileBarChart, ai: true },
+  { num: 4, icon: TrendingUp, color: '#A78BFA', groups: [
+    { label: 'Reavaliação', actions: [
+      { key: 'cenarios-b', label: 'Gerar Cenários B', icon: Zap, ai: true },
+      { key: 'reav', label: 'Iniciar Reavaliação', icon: MessageSquare, ai: true },
+    ]},
+    { label: 'Evolução', actions: [
+      { key: 'evolucao', label: 'Evolução (Fusão 3 Fontes)', icon: TrendingUp, ai: true },
+      { key: 'plenaria', label: 'Plenária Evolução', icon: FileBarChart, ai: true },
+    ]},
   ]},
 ];
 
@@ -116,7 +121,7 @@ const ACTION_MAP = {
   'prov-moodle': provisionarMoodleLote, 'sync-moodle': syncProgressoMoodle,
   'iniciar-cap': iniciarCapacitacao, 'avancar-sem': avancarSemana, nudges: enviarNudgesInatividade,
   'moodle-imp': moodleImportarCatalogo, 'moodle-cat': catalogarConteudosMoodle, cobertura: gerarCoberturaConteudo,
-  reav: iniciarReavaliacaoLote, evolucao: gerarRelatoriosEvolucaoLote, plenaria: gerarPlenariaEvolucao,
+  'cenarios-b': gerarCenariosBLote, reav: iniciarReavaliacaoLote, evolucao: gerarRelatoriosEvolucaoLote, plenaria: gerarPlenariaEvolucao,
   'rh-rel': gerarRelatorioRHManual, 'rh-plen': gerarRelatorioPlenaria,
   'rh-links': enviarLinksPerfil, 'rh-dossie': gerarDossieGestor, 'rh-check': checkCenarios,
 };

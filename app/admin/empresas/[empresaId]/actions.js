@@ -116,7 +116,7 @@ import { dispararEmails as _emails, verStatusEnvios as _status } from '@/actions
 import { rodarIA4 as _ia4, verFilaIA4 as _fila, gerarRelatoriosIndividuais as _relInd, gerarRelatorioGestor as _relGestor, gerarRelatorioRH as _relRH, enviarRelIndividuais as _envInd, enviarRelGestor as _envGestor, enviarRelRH as _envRH } from '@/actions/fase3';
 import { checkAvaliacoes as _check } from '@/actions/check-ia4';
 import { gerarPDIs as _pdis, gerarPDIsDescritores as _pdisDesc, montarTrilhasLote as _trilhas, criarEstruturaFase4 as _estrutura, iniciarFase4ParaTodos as _iniciar, triggerSegundaFase4 as _trigSeg, triggerQuintaFase4 as _trigQui, getStatusFase4 as _statusF4, salvarCompetenciaFoco as _salvarFoco, loadCompetenciasFoco as _loadFoco } from '@/actions/fase4';
-import { iniciarReavaliacaoLote as _reav, gerarRelatoriosEvolucaoLote as _evolucao, gerarPlenariaEvolucao as _plenaria, gerarRelatorioRHManual as _rhManual, gerarRelatorioPlenaria as _rhPlen, enviarLinksPerfil as _links, gerarDossieGestor as _dossie, checkCenarios as _checkCen } from '@/actions/fase5';
+import { gerarCenariosBLote as _cenB, iniciarReavaliacaoLote as _reav, gerarRelatoriosEvolucaoLote as _evolucao, gerarPlenariaEvolucao as _plenaria, gerarRelatorioRHManual as _rhManual, gerarRelatorioPlenaria as _rhPlen, enviarLinksPerfil as _links, gerarDossieGestor as _dossie, checkCenarios as _checkCen } from '@/actions/fase5';
 import { dispararLinksCIS as _dispCIS, dispararRelatoriosLote as _dispLote } from '@/actions/whatsapp-lote';
 import { provisionarMoodleLote as _provMoodle, syncProgressoMoodle as _syncMoodle, iniciarCapacitacao as _iniciarCap, avancarSemana as _avancarSem, enviarNudgesInatividade as _nudges } from '@/actions/capacitacao';
 
@@ -144,6 +144,7 @@ export async function iniciarFase4ParaTodos(e) { return _iniciar(e); }
 export async function triggerSegundaFase4(e) { return _trigSeg(e); }
 export async function triggerQuintaFase4(e) { return _trigQui(e); }
 export async function getStatusFase4(e) { return _statusF4(e); }
+export async function gerarCenariosBLote(e, c) { return _cenB(e, c); }
 export async function iniciarReavaliacaoLote(e, c) { return _reav(e, c); }
 export async function gerarRelatoriosEvolucaoLote(e, c) { return _evolucao(e, c); }
 export async function gerarPlenariaEvolucao(e, c) { return _plenaria(e, c); }
