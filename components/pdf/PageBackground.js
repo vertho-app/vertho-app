@@ -6,11 +6,12 @@ import { join } from 'path';
 // Carrega a imagem de fundo uma única vez no cold start do servidor.
 let bgBase64 = null;
 try {
-  const bgPath = join(process.cwd(), 'public', 'template fundo relatorios.png');
+  const bgPath = join(process.cwd(), 'public', 'template-fundo-relatorios.png');
   const bgBuffer = readFileSync(bgPath);
   bgBase64 = `data:image/png;base64,${bgBuffer.toString('base64')}`;
-} catch {
-  // Sem imagem — PDF renderiza sem fundo
+  console.log('[PageBackground] loaded:', bgBuffer.length, 'bytes');
+} catch (e) {
+  console.error('[PageBackground] failed to load:', e.message);
 }
 
 // A4 em pontos: 595.28 x 841.89

@@ -1,7 +1,6 @@
 import React from 'react';
 import { Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
 import { colors } from './styles';
-import PageBackground from './PageBackground';
 
 const s = StyleSheet.create({
   page: {
@@ -36,7 +35,6 @@ export default function PdfCover({ logoBase64, nome, cargo, empresa, data, tipo 
 
   return (
     <Page size="A4" style={s.page}>
-      <PageBackground />
       <View style={s.topBar} />
 
       {logoBase64 && <Image src={logoBase64} style={s.logo} />}

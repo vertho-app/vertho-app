@@ -2,7 +2,12 @@ import { withSentryConfig } from '@sentry/nextjs';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
+  // Garante que os PNGs usados via fs.readFileSync em server components/API
+  // routes sejam incluídos no bundle serverless na Vercel.
+  outputFileTracingIncludes: {
+    '/api/relatorios/**': ['./public/logo-vertho.png', './public/template-fundo-relatorios.png'],
+    '/**': ['./public/logo-vertho.png', './public/template-fundo-relatorios.png'],
+  },
 };
 
 export default withSentryConfig(nextConfig, {
