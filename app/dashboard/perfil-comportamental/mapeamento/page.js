@@ -69,8 +69,8 @@ const COMP_GROUPS = {
   C: ['Organização', 'Detalhismo', 'Prudência', 'Concentração'],
 };
 
-// Paleta sem vermelho: D=laranja, I=amarelo, S=verde, C=azul
-const DISC_COLORS = { D: '#F97316', I: '#F59E0B', S: '#10B981', C: '#3B82F6' };
+// Paleta sem vermelho: D=amarelo, I=âmbar, S=verde, C=azul
+const DISC_COLORS = { D: '#EAB308', I: '#F59E0B', S: '#10B981', C: '#3B82F6' };
 const DISC_LABELS = { D: 'Dominância', I: 'Influência', S: 'Estabilidade', C: 'Conformidade' };
 const LEAD_LABELS = { Executivo: 'D', Motivador: 'I', Metódico: 'S', Sistemático: 'C' };
 
