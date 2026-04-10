@@ -355,7 +355,9 @@ export async function regenerarCenarioB(cenarioId, aiConfig = {}) {
 
 // ══════════════════════════════════════════════════════════════════════════════
 // 2. INICIAR REAVALIAÇÃO EM LOTE
-// Cria sessões conversacionais para cada colaborador (8 turnos, mentoria)
+// 1 sessão por colaborador. Mesma lógica do PDI (montarTrilhasLote):
+//   - Usa competência foco do cargo SE o colab tem gap nela
+//   - Senão usa a competência com maior gap (gap = 4 - nivel_ia4)
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function iniciarReavaliacaoLote(empresaId, aiConfig = {}) {
@@ -366,17 +368,18 @@ export async function iniciarReavaliacaoLote(empresaId, aiConfig = {}) {
       .eq('empresa_id', empresaId);
     if (!colaboradores?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
 
-    // Cenários B
+    // Cenários B (chave: competencia_id::cargo)
     const { data: cenariosB } = await sb.from('banco_cenarios')
       .select('id, competencia_id, cargo').eq('empresa_id', empresaId).eq('tipo_cenario', 'cenario_b');
     if (!cenariosB?.length) return { success: false, error: 'Nenhum cenário B. Gere cenários B primeiro.' };
     const cenarioMap = {};
     cenariosB.forEach(c => { cenarioMap[`${c.competencia_id}::${c.cargo}`] = c.id; });
 
-    // Respostas iniciais (baseline com pontos fortes/gaps)
+    // Respostas iniciais (baseline + cálculo de gap)
     const { data: respostas } = await sb.from('respostas')
       .select('colaborador_id, competencia_id, nivel_ia4, avaliacao_ia')
       .eq('empresa_id', empresaId).not('avaliacao_ia', 'is', null);
+    if (!respostas?.length) return { success: false, error: 'Nenhuma avaliação IA4 encontrada. Rode IA4 primeiro.' };
     const baselineMap = {};
     (respostas || []).forEach(r => {
       baselineMap[`${r.colaborador_id}::${r.competencia_id}`] = {
@@ -385,21 +388,24 @@ export async function iniciarReavaliacaoLote(empresaId, aiConfig = {}) {
       };
     });
 
-    // Top 5 por cargo
+    // Competência foco por cargo (definida pelo RH)
     const { data: cargosEmpresa } = await sb.from('cargos_empresa')
-      .select('nome, top5_workshop').eq('empresa_id', empresaId);
-    const top5Map = {};
-    (cargosEmpresa || []).forEach(c => { if (c.top5_workshop?.length) top5Map[c.nome] = c.top5_workshop; });
+      .select('nome, competencia_foco').eq('empresa_id', empresaId);
+    const focoMap = {};
+    (cargosEmpresa || []).forEach(c => { if (c.competencia_foco) focoMap[c.nome] = c.competencia_foco; });
 
-    // Competências nome→id (parent rows, cod_desc IS NULL). Sem coluna gabarito
-    // (não existe). Descritores vêm depois via cod_comp.
+    // Competências (parent rows, cod_desc IS NULL)
     const { data: competencias, error: compErr } = await sb.from('competencias')
       .select('id, nome, cargo, cod_comp')
       .eq('empresa_id', empresaId)
       .is('cod_desc', null);
     if (compErr) return { success: false, error: `competencias: ${compErr.message}` };
-    const compMap = {};
-    (competencias || []).forEach(c => { compMap[`${c.nome}::${c.cargo}`] = c; });
+    const compByIdMap = {};
+    const compByNomeCargoMap = {};
+    (competencias || []).forEach(c => {
+      compByIdMap[c.id] = c;
+      compByNomeCargoMap[`${c.nome}::${c.cargo}`] = c;
+    });
 
     // Descritores por cod_comp (linhas filhas em competencias)
     const descritoresCache = {};
@@ -415,68 +421,111 @@ export async function iniciarReavaliacaoLote(empresaId, aiConfig = {}) {
       }));
     }
 
+    // Agrupar gaps por colaborador (gap = 4 - nivel)
+    const gapsPorColab = {};
+    respostas.forEach(r => {
+      const comp = compByIdMap[r.competencia_id];
+      if (!comp) return;
+      if (!gapsPorColab[r.colaborador_id]) gapsPorColab[r.colaborador_id] = [];
+      const nivel = r.nivel_ia4 || 0;
+      gapsPorColab[r.colaborador_id].push({
+        comp,
+        nivel,
+        gap: 4 - nivel,
+      });
+    });
+
     // Trilha progresso
     const { data: progressos } = await sb.from('fase4_progresso')
       .select('colaborador_id, pct_conclusao, semana_atual').eq('empresa_id', empresaId);
     const progMap = {};
     (progressos || []).forEach(p => { progMap[p.colaborador_id] = p; });
 
-    // Sessões já criadas
+    // Sessões já criadas (dedupe por colab+comp)
     const { data: sessoes } = await sb.from('reavaliacao_sessoes')
       .select('colaborador_id, competencia_id').eq('empresa_id', empresaId);
     const jaCriado = new Set((sessoes || []).map(s => `${s.colaborador_id}::${s.competencia_id}`));
 
-    let criados = 0;
+    let criados = 0, pulados = 0;
+    const motivosPulo = [];
+
     for (const colab of colaboradores) {
-      const top5 = top5Map[colab.cargo];
-      if (!top5?.length) continue;
+      const gaps = gapsPorColab[colab.id];
+      if (!gaps?.length) { pulados++; motivosPulo.push(`${colab.nome_completo}: sem avaliações`); continue; }
 
-      for (const compNome of top5) {
-        const comp = compMap[`${compNome}::${colab.cargo}`];
-        if (!comp) continue;
-        const cenarioBId = cenarioMap[`${comp.id}::${colab.cargo}`];
-        if (!cenarioBId) continue;
-        if (jaCriado.has(`${colab.id}::${comp.id}`)) continue;
-
-        const baseline = baselineMap[`${colab.id}::${comp.id}`] || null;
-        const trilha = progMap[colab.id] || null;
-
-        // Extrair pontos fortes e gaps da avaliação inicial
-        const avIni = typeof baseline?.avaliacao === 'string' ? JSON.parse(baseline.avaliacao) : baseline?.avaliacao;
-        const pontosFortes = avIni?.descritores_destaque?.pontos_fortes || avIni?.pontos_fortes || [];
-        const pontosAtencao = avIni?.descritores_destaque?.gaps_prioritarios || avIni?.pontos_desenvolvimento || [];
-
-        // Descritores (buscados antes por cod_comp)
-        const descritores = descritoresCache[comp.id] || [];
-
-        const { error } = await sb.from('reavaliacao_sessoes').insert({
-          empresa_id: empresaId,
-          colaborador_id: colab.id,
-          competencia_id: comp.id,
-          cenario_b_id: cenarioBId,
-          baseline_nivel: baseline?.nivel || null,
-          baseline_avaliacao: baseline?.avaliacao || null,
-          status: 'pendente',
-          historico: [],
-          turno: 0,
-          // Contexto enriquecido para a conversa
-          extracao_qualitativa: {
-            _contexto_sessao: {
-              pontos_fortes: pontosFortes,
-              pontos_atencao: pontosAtencao,
-              descritores: descritores,
-              disc: { perfil: colab.perfil_dominante, D: colab.d_natural, I: colab.i_natural, S: colab.s_natural, C: colab.c_natural },
-              trilha: trilha ? { pct: trilha.pct_conclusao, semana: trilha.semana_atual } : null,
-            },
-          },
+      // 1) Tentar competência foco do cargo
+      let compAlvo = null;
+      const foco = focoMap[colab.cargo];
+      if (foco) {
+        const compFoco = gaps.find(g => {
+          const fL = foco.toLowerCase();
+          const cL = g.comp.nome.toLowerCase();
+          return cL === fL || cL.includes(fL) || fL.includes(cL);
         });
+        if (compFoco && compFoco.gap > 0) compAlvo = compFoco.comp;
+      }
 
-        if (error) console.error('[reavaliacao_sessoes insert]', error.message);
-        else criados++;
+      // 2) Senão, maior gap
+      if (!compAlvo) {
+        const comGap = gaps.filter(g => g.gap > 0).sort((a, b) => b.gap - a.gap);
+        if (comGap.length > 0) compAlvo = comGap[0].comp;
+      }
+
+      if (!compAlvo) { pulados++; motivosPulo.push(`${colab.nome_completo}: sem gap em nenhuma competência`); continue; }
+
+      // 3) Precisa ter cenário B para essa comp+cargo
+      const cenarioBId = cenarioMap[`${compAlvo.id}::${colab.cargo}`];
+      if (!cenarioBId) {
+        pulados++;
+        motivosPulo.push(`${colab.nome_completo}: sem cenário B para "${compAlvo.nome}"`);
+        continue;
+      }
+
+      // 4) Dedupe
+      if (jaCriado.has(`${colab.id}::${compAlvo.id}`)) { pulados++; continue; }
+
+      const baseline = baselineMap[`${colab.id}::${compAlvo.id}`] || null;
+      const trilha = progMap[colab.id] || null;
+
+      const avIni = typeof baseline?.avaliacao === 'string' ? JSON.parse(baseline.avaliacao) : baseline?.avaliacao;
+      const pontosFortes = avIni?.descritores_destaque?.pontos_fortes || avIni?.pontos_fortes || [];
+      const pontosAtencao = avIni?.descritores_destaque?.gaps_prioritarios || avIni?.pontos_desenvolvimento || [];
+
+      const descritores = descritoresCache[compAlvo.id] || [];
+
+      const { error } = await sb.from('reavaliacao_sessoes').insert({
+        empresa_id: empresaId,
+        colaborador_id: colab.id,
+        competencia_id: compAlvo.id,
+        cenario_b_id: cenarioBId,
+        baseline_nivel: baseline?.nivel || null,
+        baseline_avaliacao: baseline?.avaliacao || null,
+        status: 'pendente',
+        historico: [],
+        turno: 0,
+        extracao_qualitativa: {
+          _contexto_sessao: {
+            pontos_fortes: pontosFortes,
+            pontos_atencao: pontosAtencao,
+            descritores: descritores,
+            disc: { perfil: colab.perfil_dominante, D: colab.d_natural, I: colab.i_natural, S: colab.s_natural, C: colab.c_natural },
+            trilha: trilha ? { pct: trilha.pct_conclusao, semana: trilha.semana_atual } : null,
+          },
+        },
+      });
+
+      if (error) {
+        console.error('[reavaliacao_sessoes insert]', error.message);
+        pulados++;
+      } else {
+        criados++;
       }
     }
 
-    return { success: true, message: `${criados} sessões de reavaliação criadas` };
+    let msg = `${criados} sessões criadas (1 por colaborador)`;
+    if (pulados > 0) msg += ` | ${pulados} pulados`;
+    if (motivosPulo.length) console.log('[iniciarReavaliacao] motivos:', motivosPulo);
+    return { success: true, message: msg };
   } catch (err) {
     return { success: false, error: err.message };
   }

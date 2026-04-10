@@ -136,5 +136,5 @@ export const pageStyles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     borderTopWidth: 0.5, borderTopColor: colors.gray300, paddingTop: 5,
   },
-  footerText: { fontSize: fonts.tiny, color: colors.gray400 },
+  footerText: { fontSize: fonts.tiny, color: colors.navy, fontWeight: 'bold' },
 });
