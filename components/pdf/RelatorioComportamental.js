@@ -77,7 +77,7 @@ function PageFrame({ children, pageNum, total }) {
       <PageBackground />
 
       <View style={s.topMeta} fixed>
-        <Text>Relatório Vertho.AI</Text>
+        <Text> </Text>
         <Text>Relatório Comportamental</Text>
       </View>
 
