@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Home, Clock, Play, TrendingUp, User, LogOut } from 'lucide-react';
+import BetoChat from '@/components/beto-chat';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Início', icon: Home },
@@ -72,6 +73,9 @@ export default function DashboardShell({ children }) {
           );
         })}
       </nav>
+
+      {/* BETO — chat flutuante, escuta o evento open-beto disparado pelo card "Mentor IA" */}
+      <BetoChat />
     </div>
   );
 }
