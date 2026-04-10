@@ -181,14 +181,18 @@ export default function FitPage() {
     if (!r.success) { flash('Erro: ' + r.error); return; }
     flash(r.message);
     if (r.erros_detalhados?.length) {
-      // Mostra os primeiros 5 erros no console pra diagnóstico rápido
       const resumo = r.erros_detalhados.slice(0, 5).map(e => `• ${e.nome}: ${e.erro}`).join('\n');
       console.group('[Fit lote] Erros:');
       r.erros_detalhados.forEach(e => console.error(e.nome, '→', e.erro));
       console.groupEnd();
       alert(`${r.erros_detalhados.length} colaborador(es) com erro:\n\n${resumo}${r.erros_detalhados.length > 5 ? `\n\n... e mais ${r.erros_detalhados.length - 5}` : ''}`);
     }
-    handleSelectCargo(cargoNome);
+    // Recarrega a lista de cargos para refletir a nova média/total no card e
+    // em paralelo atualiza o ranking do cargo selecionado.
+    await Promise.all([
+      loadCargosComFit(empresaId).then(setCargos),
+      handleSelectCargo(cargoNome),
+    ]);
   }
 
   if (!empresaId) return <div className="max-w-[1100px] mx-auto px-4 py-6 text-center"><p className="text-gray-400">Acesse via pipeline da empresa.</p></div>;
