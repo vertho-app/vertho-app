@@ -79,6 +79,16 @@ export async function limparRegistros(empresaId, tabelas, colaboradorId = null) 
   return { success: true, message: `${tabelas.length} tabela(s) limpas ${scope}` };
 }
 
+export async function limparCenariosB(empresaId) {
+  const sb = createSupabaseAdmin();
+  const { error, count } = await sb.from('banco_cenarios')
+    .delete({ count: 'exact' })
+    .eq('empresa_id', empresaId)
+    .eq('tipo_cenario', 'cenario_b');
+  if (error) return { success: false, error: error.message };
+  return { success: true, message: `${count || 0} cenário(s) B removido(s)` };
+}
+
 export async function limparMapeamento(empresaId, colaboradorId = null) {
   const sb = createSupabaseAdmin();
   const campos = {
