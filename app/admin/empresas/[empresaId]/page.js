@@ -78,11 +78,12 @@ const PHASE_CONFIG = [
       { key: 'ia4', label: 'Rodar IA4', icon: Zap, ai: true },
       { key: 'check', label: 'Check Avaliações', icon: CheckCircle, ai: true },
     ]},
-    { label: 'Trilhas + PDI', actions: [
+    { label: 'Trilhas', actions: [
+      { key: 'foco', label: 'Competências Foco', icon: Target },
       { key: 'trilhas', label: 'Montar Trilhas', icon: Layers },
-      { key: 'rel-ind', label: 'Gerar PDI', icon: FileText, ai: true },
     ]},
     { label: 'Relatórios', actions: [
+      { key: 'rel-ind', label: 'Gerar PDI', icon: FileText, ai: true },
       { key: 'rel-gestor', label: 'Gestor', icon: FileBarChart, ai: true },
       { key: 'rel-rh', label: 'RH', icon: FileBarChart, ai: true },
     ]},
@@ -195,6 +196,19 @@ export default function EmpresaPipelinePage({ params }) {
     addLog(`▶ ${label}${modelLabel}`, 'info');
 
     try {
+      // Competências Foco: abre o painel de edição inline
+      if (actionKey === 'foco') {
+        const r = await loadCompetenciasFoco(empresaId);
+        if (r.success) {
+          setFocoData(r.data || []);
+          addLog(`Competências foco carregadas (${(r.data || []).length} cargos)`, 'info');
+        } else {
+          addLog(`❌ ${r.error || 'Erro ao carregar'}`, 'error');
+        }
+        setPendingAction(null);
+        return;
+      }
+
       // Moodle: importar + catalogar em sequência
       if (actionKey === 'moodle-sync') {
         addLog('1/2 Importando catálogo do Moodle...', 'info');
@@ -544,48 +558,37 @@ export default function EmpresaPipelinePage({ params }) {
                     </div>
                   )}
 
-                  {/* Competência Foco por Cargo (antes de Montar Trilhas) */}
-                  {fase.num === 2 && (() => {
-                    if (!focoData) return (
-                      <button onClick={async () => {
-                        const r = await loadCompetenciasFoco(empresaId);
-                        if (r.success) setFocoData(r.data || []);
-                      }}
-                        className="mb-3 flex items-center gap-1.5 text-[10px] font-bold text-amber-400 hover:text-amber-300 transition-colors">
-                        <Target size={12} /> Definir competência foco por cargo
-                      </button>
-                    );
-                    return (
-                      <div className="mb-4 p-3 rounded-xl border border-amber-400/15" style={{ background: 'rgba(245,158,11,0.03)' }}>
-                        <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-2">Competência Foco por Cargo</p>
-                        <p className="text-[9px] text-gray-500 mb-3">Definida pelo RH com base no Relatório RH. A trilha priorizará esta competência se o colaborador tiver gap.</p>
-                        <div className="space-y-2">
-                          {focoData.map(c => (
-                            <div key={c.cargo} className="flex items-center gap-2">
-                              <span className="text-xs text-white font-medium w-32 shrink-0">{c.cargo}</span>
-                              <select
-                                value={c.competencia_foco || ''}
-                                onChange={async (e) => {
-                                  const val = e.target.value || null;
-                                  await salvarCompetenciaFoco(empresaId, c.cargo, val);
-                                  setFocoData(prev => prev.map(p => p.cargo === c.cargo ? { ...p, competencia_foco: val } : p));
-                                }}
-                                className="flex-1 px-2 py-1.5 rounded-lg text-[11px] text-white border border-white/10 outline-none"
-                                style={{ background: '#091D35' }}>
-                                <option value="">— Sem foco (usar maior gap) —</option>
-                                {c.top5.map(comp => (
-                                  <option key={comp} value={comp}>{comp}</option>
-                                ))}
-                              </select>
-                              {c.competencia_foco && (
-                                <span className="text-[9px] text-amber-400 font-bold shrink-0">FOCO</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
+                  {/* Painel Competência Foco por Cargo — aparece após clicar no botão "Competências Foco" */}
+                  {fase.num === 2 && focoData && (
+                    <div className="mb-4 p-3 rounded-xl border border-amber-400/15" style={{ background: 'rgba(245,158,11,0.03)' }}>
+                      <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-2">Competência Foco por Cargo</p>
+                      <p className="text-[9px] text-gray-500 mb-3">Definida pelo RH com base no Relatório RH. A trilha priorizará esta competência se o colaborador tiver gap.</p>
+                      <div className="space-y-2">
+                        {focoData.map(c => (
+                          <div key={c.cargo} className="flex items-center gap-2">
+                            <span className="text-xs text-white font-medium w-32 shrink-0">{c.cargo}</span>
+                            <select
+                              value={c.competencia_foco || ''}
+                              onChange={async (e) => {
+                                const val = e.target.value || null;
+                                await salvarCompetenciaFoco(empresaId, c.cargo, val);
+                                setFocoData(prev => prev.map(p => p.cargo === c.cargo ? { ...p, competencia_foco: val } : p));
+                              }}
+                              className="flex-1 px-2 py-1.5 rounded-lg text-[11px] text-white border border-white/10 outline-none"
+                              style={{ background: '#091D35' }}>
+                              <option value="">— Sem foco (usar maior gap) —</option>
+                              {c.top5.map(comp => (
+                                <option key={comp} value={comp}>{comp}</option>
+                              ))}
+                            </select>
+                            {c.competencia_foco && (
+                              <span className="text-[9px] text-amber-400 font-bold shrink-0">FOCO</span>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    );
-                  })()}
+                    </div>
+                  )}
 
                   {config.groups ? (
                     config.groups.map((group, gi) => {
