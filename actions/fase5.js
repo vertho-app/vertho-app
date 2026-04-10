@@ -29,9 +29,32 @@ export async function gerarCenariosBLote(empresaId, aiConfig = {}) {
 
     if (!cenariosA?.length) return { success: false, error: 'Nenhum cenário A encontrado. Rode IA3 primeiro.' };
 
-    // Buscar competências uma a uma (workaround para RLS/env inconsistente no Vercel)
+    // Diagnóstico: testar se consegue ler competencias
     const compIdsNeeded = [...new Set(cenariosA.map(c => c.competencia_id).filter(Boolean))];
     const compMap = {};
+
+    // Teste 1: contar total de competencias acessíveis
+    const { count: totalComps, error: countErr } = await sb.from('competencias')
+      .select('id', { count: 'exact', head: true });
+
+    // Teste 2: buscar por ID específico (com error handling)
+    const testId = compIdsNeeded[0];
+    const { data: testComp, error: testErr } = await sb.from('competencias')
+      .select('id, nome')
+      .eq('id', testId)
+      .maybeSingle();
+
+    // Se não consegue ler, retornar diagnóstico completo
+    if (!testComp) {
+      const dbUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').slice(-20);
+      const keyPrefix = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').slice(0, 20);
+      return {
+        success: false,
+        error: `DB debug: total_comps=${totalComps}, countErr=${countErr?.message || 'none'}, testId=${testId}, testComp=${JSON.stringify(testComp)}, testErr=${testErr?.message || 'none'}, dbUrl=...${dbUrl}, keyStart=${keyPrefix}...`,
+      };
+    }
+
+    // Buscar todas
     for (const cid of compIdsNeeded) {
       const { data: comp } = await sb.from('competencias')
         .select('id, nome, descricao, gabarito')
