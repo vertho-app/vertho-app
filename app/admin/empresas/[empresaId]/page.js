@@ -18,7 +18,7 @@ import { listarPendentesSimulacao, simularUmaResposta } from '@/actions/simulado
 import { gerarRelatorioIndividual, gerarRelatoriosIndividuaisLote, gerarRelatorioGestor as gerarRelGestor, gerarRelatorioRH as gerarRelRH } from '@/actions/relatorios';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import {
-  loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, limparCenariosB, loadColaboradoresLista,
+  loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, limparCenariosB, limparReavaliacaoSessoes, loadColaboradoresLista,
   rodarIA1, rodarIA2, rodarIA3,
   verStatusEnvios,
   rodarIA4, checkAvaliacoes,
@@ -656,6 +656,7 @@ export default function EmpresaPipelinePage({ params }) {
                 { label: 'Gabaritos CIS', tabelas: ['cargos_empresa'], fields: { gabarito: null, raciocinio_ia2: null } },
                 { label: 'Cenários', tabelas: ['banco_cenarios'] },
                 { label: 'Cenários B', action: 'cenariosB' },
+                { label: 'Sessões Reavaliação', action: 'reavSessoes' },
                 { label: 'Respostas simuladas', tabelas: ['respostas'] },
                 { label: 'Avaliações IA4', tabelas: ['respostas'], fields: { avaliacao_ia: null, nivel_ia4: null, nota_ia4: null, status_ia4: null, payload_ia4: null, pontos_fortes: null, pontos_atencao: null, feedback_ia4: null, avaliado_em: null } },
                 { label: 'Relatórios', tabelas: ['relatorios'] },
@@ -679,6 +680,8 @@ export default function EmpresaPipelinePage({ params }) {
                         r = await limparMapeamento(empresaId, dangerColabId || null);
                       } else if (item.action === 'cenariosB') {
                         r = await limparCenariosB(empresaId);
+                      } else if (item.action === 'reavSessoes') {
+                        r = await limparReavaliacaoSessoes(empresaId);
                       } else {
                         r = await limparRegistros(empresaId, item.tabelas, dangerColabId || null);
                       }

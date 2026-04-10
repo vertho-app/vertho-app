@@ -89,6 +89,15 @@ export async function limparCenariosB(empresaId) {
   return { success: true, message: `${count || 0} cenário(s) B removido(s)` };
 }
 
+export async function limparReavaliacaoSessoes(empresaId) {
+  const sb = createSupabaseAdmin();
+  const { error, count } = await sb.from('reavaliacao_sessoes')
+    .delete({ count: 'exact' })
+    .eq('empresa_id', empresaId);
+  if (error) return { success: false, error: error.message };
+  return { success: true, message: `${count || 0} sessão(ões) de reavaliação removida(s)` };
+}
+
 export async function limparMapeamento(empresaId, colaboradorId = null) {
   const sb = createSupabaseAdmin();
   const campos = {
