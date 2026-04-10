@@ -27,22 +27,25 @@ export async function loadJornada(email) {
     data: temDISC ? null : null, // DISC date not stored separately
   });
 
-  // Fase 2 — Avaliação (respostas de competências)
-  const { count: totalComp } = await sb.from('competencias')
-    .select('id', { count: 'exact', head: true })
-    .eq('empresa_id', colab.empresa_id);
+  // Fase 2 — Avaliação (respostas de competências do fluxo do dashboard)
+  // Total = quantas competências o cargo tem no top5_workshop
+  const { data: cargoEmp } = await sb.from('cargos_empresa')
+    .select('top5_workshop').eq('empresa_id', colab.empresa_id).eq('nome', colab.cargo).maybeSingle();
+  const totalComp = (cargoEmp?.top5_workshop || []).length;
 
+  // Respondidas = contagem de respostas do colab (qualquer canal, sem filtro de IA4)
   const { count: respondidas } = await sb.from('respostas')
     .select('id', { count: 'exact', head: true })
     .eq('colaborador_id', colab.id)
-    .not('nivel_ia4', 'is', null);
+    .eq('empresa_id', colab.empresa_id);
 
-  const avaliacaoCompleta = totalComp > 0 && respondidas >= totalComp;
-  const avaliacaoIniciada = respondidas > 0;
+  const respondidasCount = respondidas || 0;
+  const avaliacaoCompleta = totalComp > 0 && respondidasCount >= totalComp;
+  const avaliacaoIniciada = respondidasCount > 0;
   fases.push({
     fase: 2,
     titulo: 'Avaliacao',
-    descricao: `Competencias avaliadas: ${respondidas || 0}/${totalComp || 0}`,
+    descricao: `Competencias avaliadas: ${respondidasCount}/${totalComp}`,
     status: avaliacaoCompleta ? 'completed' : avaliacaoIniciada ? 'in-progress' : 'pending',
     data: null,
   });
@@ -53,7 +56,7 @@ export async function loadJornada(email) {
     .eq('colaborador_id', colab.id)
     .order('created_at', { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   fases.push({
     fase: 3,
@@ -69,7 +72,7 @@ export async function loadJornada(email) {
     .eq('colaborador_id', colab.id)
     .order('created_at', { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   const capacitacaoStatus = envio
     ? (envio.status === 'concluido' ? 'completed' : 'in-progress')
