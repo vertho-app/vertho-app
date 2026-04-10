@@ -29,42 +29,24 @@ export async function gerarCenariosBLote(empresaId, aiConfig = {}) {
 
     if (!cenariosA?.length) return { success: false, error: 'Nenhum cenário A encontrado. Rode IA3 primeiro.' };
 
-    // Diagnóstico: testar se consegue ler competencias
     const compIdsNeeded = [...new Set(cenariosA.map(c => c.competencia_id).filter(Boolean))];
     const compMap = {};
 
-    // Teste 1: contar total de competencias acessíveis
-    const { count: totalComps, error: countErr } = await sb.from('competencias')
-      .select('id', { count: 'exact', head: true });
-
-    // Teste 2: buscar por ID específico (com error handling)
-    const testId = compIdsNeeded[0];
-    const { data: testComp, error: testErr } = await sb.from('competencias')
-      .select('id, nome')
-      .eq('id', testId)
-      .maybeSingle();
-
-    // Se não consegue ler, retornar diagnóstico completo
-    if (!testComp) {
-      const dbUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').slice(-20);
-      const keyPrefix = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').slice(0, 20);
-      return {
-        success: false,
-        error: `DB debug: total_comps=${totalComps}, countErr=${countErr?.message || 'none'}, testId=${testId}, testComp=${JSON.stringify(testComp)}, testErr=${testErr?.message || 'none'}, dbUrl=...${dbUrl}, keyStart=${keyPrefix}...`,
-      };
-    }
-
-    // Buscar todas (usar mesma query que o teste)
+    // Buscar competências (sem gabarito primeiro — campo JSONB grande causa timeout no Vercel)
     for (const cid of compIdsNeeded) {
-      const { data: comp, error: compErr } = await sb.from('competencias')
-        .select('id, nome, descricao, gabarito')
+      const { data: comp } = await sb.from('competencias')
+        .select('id, nome, descricao')
         .eq('id', cid)
         .maybeSingle();
       if (comp) compMap[comp.id] = comp;
     }
-    // Se o teste encontrou mas o loop não, reportar
-    if (testComp && Object.keys(compMap).length === 0) {
-      return { success: false, error: `BUG: teste OK (${testComp.nome}) mas loop vazio. IDs: ${compIdsNeeded.join(', ')}` };
+    // Buscar gabarito separadamente para cada comp encontrada
+    for (const cid of Object.keys(compMap)) {
+      const { data: gab } = await sb.from('competencias')
+        .select('gabarito')
+        .eq('id', cid)
+        .maybeSingle();
+      if (gab) compMap[cid].gabarito = gab.gabarito;
     }
     const compIds = Object.keys(compMap);
 
@@ -202,9 +184,7 @@ Descrição: ${cenA.descricao}
       gerados++;
     }
 
-    const dbUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').slice(-15);
-    const keyPfx = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').slice(-10);
-    const detalhes = [`v7`, `${cenariosA.length} cenA`, `${compIdsNeeded.length} IDs`, `${compIds.length} found`, `test=${testComp?.nome || 'NULL'}`, `${skipJaTemB} jaB`, `${skipSemComp} noComp`, `db=..${dbUrl}`, `key=..${keyPfx}`];
+    const detalhes = [`${gerados} gerados`, `${cenariosA.length} cenários A`, `${compIds.length} competências`, `${skipSemComp} sem comp`];
     return { success: true, message: `${gerados} cenários B gerados${validados ? ` (${validados} validados)` : ''} — ${detalhes.join(', ')}` };
   } catch (err) {
     return { success: false, error: err.message };
