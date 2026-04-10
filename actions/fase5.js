@@ -1147,13 +1147,14 @@ export async function checkCenariosBLote(empresaId, aiConfig = {}) {
 export async function regenerarERecheckarCenariosBLote(empresaId, aiConfig = {}) {
   const sb = createSupabaseAdmin();
   try {
-    const { data: cenarios } = await sb.from('banco_cenarios')
+    let query = sb.from('banco_cenarios')
       .select('id, nota_check, titulo')
       .eq('empresa_id', empresaId)
-      .eq('tipo_cenario', 'cenario_b')
-      .lt('nota_check', 90);
+      .eq('tipo_cenario', 'cenario_b');
+    if (!aiConfig?.incluirAprovados) query = query.lt('nota_check', 90);
+    const { data: cenarios } = await query;
 
-    if (!cenarios?.length) return { success: true, message: 'Nenhum cenário B abaixo de 90 para regenerar' };
+    if (!cenarios?.length) return { success: true, message: 'Nenhum cenário B para regenerar' };
 
     const checkModel = aiConfig?.checkModel || 'gemini-3-flash-preview';
     let regenerados = 0, aprovados = 0, revisar = 0, erros = 0;
