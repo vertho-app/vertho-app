@@ -121,7 +121,7 @@ export const tableStyles = StyleSheet.create({
 export const pageStyles = StyleSheet.create({
   page: {
     flexDirection: 'column', backgroundColor: colors.white,
-    paddingTop: 56, paddingBottom: 52, paddingHorizontal: 40,
+    paddingTop: 72, paddingBottom: 52, paddingHorizontal: 40,
     fontFamily: 'NotoSans',
   },
   header: {
@@ -132,7 +132,7 @@ export const pageStyles = StyleSheet.create({
   headerTitle: { fontSize: 11, color: colors.navy, fontWeight: 'bold', letterSpacing: 3 },
   headerSub: { fontSize: fonts.small, color: colors.textMuted },
   footer: {
-    position: 'absolute', bottom: 16, left: 40, right: 40,
+    position: 'absolute', bottom: 20, left: 40, right: 40,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     borderTopWidth: 0.5, borderTopColor: colors.gray300, paddingTop: 5,
   },
