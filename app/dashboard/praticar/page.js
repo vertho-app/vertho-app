@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, BookOpen, CheckCircle2, Circle, Hammer, ArrowRight, AlertCircle } from 'lucide-react';
+import { Loader2, BookOpen, CheckCircle2, Circle, Hammer, ArrowRight, AlertCircle, ArrowLeft } from 'lucide-react';
 import { loadTrilhaAtual } from './praticar-actions';
 
 export default function PraticarPage() {
@@ -33,10 +33,14 @@ export default function PraticarPage() {
   if (!data.semAtiva) {
     return (
       <div className="max-w-[600px] mx-auto px-4 py-6">
+        <button onClick={() => router.back()}
+          className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors mb-4">
+          <ArrowLeft size={16} /> Voltar
+        </button>
         <div className="rounded-xl p-6 border border-white/[0.06] text-center" style={{ background: '#0F2A4A' }}>
           <AlertCircle size={40} className="text-gray-500 mx-auto mb-3" />
           <p className="text-lg font-bold text-white mb-1">Nenhuma trilha ativa</p>
-          <p className="text-sm text-gray-400">Sua trilha de capacitacao ainda nao foi iniciada. Aguarde a atribuicao pelo RH.</p>
+          <p className="text-sm text-gray-400">Sua trilha de capacitação ainda não foi iniciada. Aguarde a atribuição pelo RH.</p>
         </div>
       </div>
     );
@@ -47,10 +51,16 @@ export default function PraticarPage() {
 
   return (
     <div className="max-w-[600px] mx-auto px-4 py-6 space-y-4">
+      {/* Voltar */}
+      <button onClick={() => router.back()}
+        className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors">
+        <ArrowLeft size={16} /> Voltar
+      </button>
+
       {/* Header */}
       <div>
         <h1 className="text-xl font-bold text-white">Praticar</h1>
-        <p className="text-sm text-gray-400 mt-1">Trilha de Capacitacao — Fase 4</p>
+        <p className="text-sm text-gray-400 mt-1">Trilha de Capacitação — Fase 4</p>
       </div>
 
       {/* Progress */}
@@ -69,10 +79,10 @@ export default function PraticarPage() {
         <div className="rounded-xl p-4 border border-amber-500/30" style={{ background: 'rgba(245, 158, 11, 0.08)' }}>
           <div className="flex items-center gap-2 mb-2">
             <Hammer size={18} className="text-amber-400" />
-            <span className="text-sm font-bold text-amber-400">Semana de Implementacao</span>
+            <span className="text-sm font-bold text-amber-400">Semana de Implementação</span>
           </div>
           <p className="text-sm text-gray-300">
-            Esta semana e dedicada a colocar em pratica o que voce aprendeu nas ultimas semanas. Registre sua evidencia abaixo!
+            Esta semana é dedicada a colocar em prática o que você aprendeu nas últimas semanas. Registre sua evidência abaixo!
           </p>
         </div>
       )}
@@ -82,13 +92,13 @@ export default function PraticarPage() {
         <div className="rounded-xl p-4 border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
           <div className="flex items-center gap-2 mb-2">
             <BookOpen size={18} className="text-cyan-400" />
-            <span className="text-sm font-bold text-white">{pilula.titulo || `Pilula Semana ${semanaAtual}`}</span>
+            <span className="text-sm font-bold text-white">{pilula.titulo || `Pílula Semana ${semanaAtual}`}</span>
           </div>
           {pilula.resumo && <p className="text-sm text-gray-400 mb-3">{pilula.resumo}</p>}
           {pilula.url && (
             <a href={pilula.url} target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs font-semibold text-cyan-400 hover:text-cyan-300 transition-colors">
-              Acessar conteudo <ArrowRight size={14} />
+              Acessar conteúdo <ArrowRight size={14} />
             </a>
           )}
         </div>
@@ -100,8 +110,8 @@ export default function PraticarPage() {
         style={{ background: 'rgba(13, 148, 136, 0.1)' }}>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-bold text-teal-400">Registrar Evidencia</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">O que voce praticou esta semana?</p>
+            <p className="text-sm font-bold text-teal-400">Registrar Evidência</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">O que você praticou esta semana?</p>
           </div>
           <ArrowRight size={18} className="text-teal-400" />
         </div>
@@ -109,7 +119,7 @@ export default function PraticarPage() {
 
       {/* Past weeks */}
       <div>
-        <h2 className="text-sm font-bold text-gray-300 mb-3">Historico de Semanas</h2>
+        <h2 className="text-sm font-bold text-gray-300 mb-3">Histórico de Semanas</h2>
         <div className="space-y-2">
           {trilha.map((s) => (
             <div key={s.semana}
@@ -123,11 +133,11 @@ export default function PraticarPage() {
               <div className="flex-1 min-w-0">
                 <p className={`text-sm font-semibold ${s.atual ? 'text-cyan-400' : s.completada ? 'text-white' : 'text-gray-500'}`}>
                   Semana {s.semana}
-                  {s.ehImplementacao && <span className="ml-2 text-[10px] text-amber-400 font-bold uppercase">Implementacao</span>}
+                  {s.ehImplementacao && <span className="ml-2 text-[10px] text-amber-400 font-bold uppercase">Implementação</span>}
                 </p>
               </div>
               {s.atual && <span className="text-[10px] font-bold uppercase tracking-widest text-cyan-400">Atual</span>}
-              {s.completada && !s.atual && <span className="text-[10px] text-emerald-400">Concluida</span>}
+              {s.completada && !s.atual && <span className="text-[10px] text-emerald-400">Concluída</span>}
             </div>
           ))}
         </div>
