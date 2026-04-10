@@ -537,10 +537,11 @@ A análise será feita depois, por outro sistema.`;
 export async function processarReavaliacao(sessaoId, mensagem, aiConfig = {}) {
   const sb = createSupabaseAdmin();
   try {
-    const { data: sessao } = await sb.from('reavaliacao_sessoes')
-      .select('*, competencias!inner(nome, descricao, gabarito), colaboradores!inner(nome_completo, cargo)')
+    const { data: sessao, error: sessaoErr } = await sb.from('reavaliacao_sessoes')
+      .select('*, competencias!inner(nome), colaboradores!inner(nome_completo, cargo)')
       .eq('id', sessaoId).single();
 
+    if (sessaoErr) return { success: false, error: sessaoErr.message };
     if (!sessao) return { success: false, error: 'Sessão não encontrada' };
     if (sessao.status === 'concluida') return { success: false, error: 'Sessão já concluída' };
 
@@ -584,14 +585,15 @@ export async function processarReavaliacao(sessaoId, mensagem, aiConfig = {}) {
 async function extrairDadosReavaliacao(sessaoId, aiConfig = {}) {
   const sb = createSupabaseAdmin();
   const { data: sessao } = await sb.from('reavaliacao_sessoes')
-    .select('*, competencias!inner(nome, gabarito), colaboradores!inner(nome_completo, cargo)')
+    .select('*, competencias!inner(nome), colaboradores!inner(nome_completo, cargo)')
     .eq('id', sessaoId).single();
   if (!sessao) return;
 
   const ctx = sessao.extracao_qualitativa?._contexto_sessao || {};
-  const descritores = Array.isArray(sessao.competencias.gabarito)
-    ? sessao.competencias.gabarito.map((d, i) => `D${i+1}: ${d.nome || d.descritor || JSON.stringify(d)}`)
-    : [];
+  // Descritores vêm do contexto (populado em iniciarReavaliacaoLote via cod_comp)
+  const descritores = (ctx.descritores || []).map((d, i) =>
+    `${d.codigo || `D${i + 1}`}: ${d.nome || ''}`
+  );
 
   const system = `Analise a conversa de reavaliação e extraia dados qualitativos por descritor.
 Use os códigos de descritores fornecidos (D1, D2...).
@@ -671,11 +673,25 @@ export async function gerarEvolucaoFusao(empresaId, aiConfig = {}) {
       .select('colaborador_id, competencia_id, extracao_qualitativa, baseline_nivel')
       .eq('empresa_id', empresaId).eq('status', 'concluida');
 
-    // Competências
-    const { data: competencias } = await sb.from('competencias')
-      .select('id, nome, gabarito').eq('empresa_id', empresaId);
+    // Competências (parent rows, cod_desc IS NULL). Sem coluna gabarito.
+    const { data: competencias, error: compErr } = await sb.from('competencias')
+      .select('id, nome, cod_comp').eq('empresa_id', empresaId).is('cod_desc', null);
+    if (compErr) return { success: false, error: `competencias: ${compErr.message}` };
     const compMap = {};
     (competencias || []).forEach(c => { compMap[c.id] = c; });
+
+    // Descritores por competencia via cod_comp (mesmo padrão de iniciarReavaliacaoLote)
+    const descritoresMap = {};
+    for (const comp of competencias || []) {
+      const { data: descs } = await sb.from('competencias')
+        .select('cod_desc, nome_curto, descritor_completo')
+        .eq('empresa_id', empresaId)
+        .eq('cod_comp', comp.cod_comp)
+        .not('cod_desc', 'is', null);
+      descritoresMap[comp.id] = (descs || []).map((d, i) =>
+        `${d.cod_desc || `D${i + 1}`}: ${d.nome_curto || d.descritor_completo || ''}`
+      );
+    }
 
     // Trilha progresso
     const { data: progressos } = await sb.from('fase4_progresso')
@@ -751,10 +767,8 @@ Responda APENAS com JSON válido.`;
           : [];
         const cursosConcluidos = cursosInfo.filter(c => c.concluido).length;
 
-        // Descritores com código
-        const descritores = Array.isArray(comp.gabarito)
-          ? comp.gabarito.map((d, i) => `D${i+1}: ${d.nome || d.descritor || JSON.stringify(d)}`)
-          : [];
+        // Descritores (buscados antes por cod_comp)
+        const descritores = descritoresMap[compId] || [];
 
         // Extração da conversa (sem _contexto_sessao)
         const extSem15 = fonteSem15?.extracao_qualitativa || {};
