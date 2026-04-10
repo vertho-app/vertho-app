@@ -8,25 +8,27 @@ import { extractJSON } from './utils';
 const MAX_TURNOS = 8;
 const TEMP = 0.4; // temperatura GAS para consistência
 
-// System prompt compartilhado do check de cenário B
-const CHECK_CEN_B_SYSTEM = `Você é um avaliador especialista em Assessment Comportamental.
-Avalie o cenário B e as perguntas com base em 5 dimensões (20pts cada, total 100):
+// System prompt do check de cenário B — harmonizado com o check do cenário A
+const CHECK_CEN_B_SYSTEM = `Voce e um avaliador especialista em Assessment Comportamental.
+Avalie o cenario B e as perguntas com base em 5 dimensoes (20pts cada, total 100):
 
-1. ADERÊNCIA À COMPETÊNCIA (20pts): O cenário avalia a competência indicada?
-2. REALISMO CONTEXTUAL (20pts): Contexto e personagens críveis para o cargo?
-3. CONTENÇÃO (20pts): Contexto até ~900 chars? Max 2 tensões? Perguntas até ~200 chars?
-4. FORÇA DE DECISÃO (20pts): P1 força ESCOLHA? P2 pede COMO? P3 aborda raciocínio? P4 pede reflexão?
-5. PODER DISCRIMINANTE (20pts): Permite discriminar 4 níveis (N1-N4)?
+1. ADERENCIA A COMPETENCIA (20pts): O cenario avalia a competencia indicada? Descritores cobertos?
+2. REALISMO CONTEXTUAL (20pts): Contexto e personagens criveis para o cargo/empresa? Usa vocabulario do PPP?
+3. CONTENCAO (20pts): Contexto max ~900 chars? Max 2 tensoes? Max 2 stakeholders nomeados? Perguntas max ~200 chars?
+4. FORCA DE DECISAO (20pts): P1 forca ESCOLHA? P2 pede COMO com obstaculo? P3 aborda tensao humana? P4 pede acompanhamento?
+5. PODER DISCRIMINANTE (20pts): Resposta N2 seria diferente de N3? Nao permite resposta vaga?
 
-ERROS GRAVES (força nota max 60):
-- Pergunta fechada (sim/não)
-- Cenário com 4+ tensões
-- Pergunta genérica sem escolha
-- Competência avaliada não é a indicada
+ERROS GRAVES (forca nota max 60):
+- Pergunta fechada (sim/nao)
+- Cenario com 4+ tensoes simultaneas
+- Contexto com 5+ stakeholders nomeados
+- Pergunta que permite resposta generica sem escolha
+- Competencia avaliada nao e a indicada
 
-Nota >= 90 = aprovado. Nota < 90 = revisar.
-Retorne APENAS JSON válido:
-{"nota":85,"dimensoes":{"aderencia":18,"realismo":19,"contencao":16,"decisao":17,"discriminante":15},"justificativa":"...","sugestao":"..."}`;
+Nota >= 90 = aprovado. Nota < 90 = revisar com sugestao concreta.
+
+Retorne APENAS JSON valido:
+{"nota":85,"erro_grave":false,"dimensoes":{"aderencia":18,"realismo":19,"contencao":16,"decisao":17,"discriminante":15},"justificativa":"...","sugestao":"...","alertas":[]}`;
 
 // Helper: busca descritores (linhas filhas em competencias com mesmo cod_comp)
 async function fetchDescritoresTexto(sb, empresaId, codComp) {
@@ -101,22 +103,36 @@ ${feedbackExtra ? `\n## FEEDBACK DA REVISÃO ANTERIOR (CORRIJA ESTES PONTOS):\n$
   return { system, user };
 }
 
+// Helper: busca PPP resumido (mesmo padrão do check cenário A)
+async function fetchPppResumo(sb, empresaId) {
+  const { data: ppp } = await sb.from('ppp_escolas')
+    .select('extracao')
+    .eq('empresa_id', empresaId)
+    .eq('status', 'extraido')
+    .limit(1)
+    .maybeSingle();
+  if (!ppp?.extracao) return '';
+  const ext = typeof ppp.extracao === 'string' ? JSON.parse(ppp.extracao) : ppp.extracao;
+  return JSON.stringify(ext).slice(0, 500);
+}
+
 // Helper: roda check em 1 cenário B e persiste resultado
-async function runCheckOnCenB(sb, cen, comp, descritoresTexto, modelo) {
+async function runCheckOnCenB(sb, cen, comp, descritoresTexto, pppResumo, modelo) {
   const alt = typeof cen.alternativas === 'string' ? JSON.parse(cen.alternativas) : (cen.alternativas || {});
   const perguntas = [alt.p1, alt.p2, alt.p3, alt.p4].filter(Boolean).map((p, i) => `P${i+1}: ${p}`).join('\n');
 
   const user = `CARGO: ${cen.cargo}
-COMPETÊNCIA: ${comp?.nome || 'N/D'}
+COMPETENCIA: ${comp?.nome || 'N/D'}
 
-CENÁRIO B:
-Título: ${cen.titulo}
+CENARIO B:
+Titulo: ${cen.titulo}
 Contexto: ${cen.descricao}
 
 PERGUNTAS:
 ${perguntas}
 
-${descritoresTexto ? `DESCRITORES:\n${descritoresTexto.slice(0, 1500)}` : ''}`;
+${descritoresTexto ? `DESCRITORES:\n${descritoresTexto}` : ''}
+${pppResumo ? `\nCONTEXTO PPP:\n${pppResumo}` : ''}`;
 
   const resposta = await callAI(CHECK_CEN_B_SYSTEM, user, { model: modelo || 'gemini-3-flash-preview' }, 4096, { temperature: TEMP });
   const resultado = await extractJSON(resposta);
@@ -129,6 +145,7 @@ ${descritoresTexto ? `DESCRITORES:\n${descritoresTexto.slice(0, 1500)}` : ''}`;
     dimensoes_check: resultado.dimensoes || null,
     justificativa_check: resultado.justificativa || null,
     sugestao_check: resultado.sugestao || null,
+    alertas_check: resultado.alertas || [],
     checked_at: new Date().toISOString(),
   }).eq('id', cen.id);
 
@@ -178,10 +195,13 @@ export async function gerarCenariosBLote(empresaId, aiConfig = {}) {
       .eq('empresa_id', empresaId).eq('tipo_cenario', 'cenario_b');
     const jaTemB = new Set((cenariosB || []).map(c => `${c.competencia_id}::${c.cargo}`));
 
-    // PPP da empresa (contexto institucional)
+    // PPP da empresa (contexto institucional para geração)
     const { data: ppps } = await sb.from('ppp_escolas')
       .select('valores').eq('empresa_id', empresaId).limit(1);
     const pppContexto = ppps?.[0]?.valores ? JSON.stringify(ppps[0].valores) : '';
+
+    // PPP resumo para o check (formato diferente — extração)
+    const pppResumoCheck = await fetchPppResumo(sb, empresaId);
 
     const checkModel = aiConfig?.checkModel;
     let gerados = 0, aprovados = 0, revisar = 0, skipJaTemB = 0, skipSemComp = 0;
@@ -221,7 +241,7 @@ export async function gerarCenariosBLote(empresaId, aiConfig = {}) {
       // Check inline se modelo foi informado
       if (checkModel && inserted) {
         try {
-          const chk = await runCheckOnCenB(sb, inserted, comp, descritoresTexto, checkModel);
+          const chk = await runCheckOnCenB(sb, inserted, comp, descritoresTexto, pppResumoCheck, checkModel);
           if (chk.success) {
             if (chk.status === 'aprovado') aprovados++; else revisar++;
           }
@@ -254,7 +274,8 @@ export async function checkCenarioBUm(cenarioId, modelo = null) {
       .select('id, nome, cod_comp').eq('id', cen.competencia_id).maybeSingle();
 
     const descritoresTexto = comp ? await fetchDescritoresTexto(sb, cen.empresa_id, comp.cod_comp) : '';
-    const r = await runCheckOnCenB(sb, cen, comp, descritoresTexto, modelo);
+    const pppResumo = await fetchPppResumo(sb, cen.empresa_id);
+    const r = await runCheckOnCenB(sb, cen, comp, descritoresTexto, pppResumo, modelo);
     if (!r.success) return r;
     return { success: true, message: `Check: ${r.nota}pts — ${r.status}`, nota: r.nota, status: r.status };
   } catch (err) {
@@ -1092,6 +1113,7 @@ export async function checkCenariosBLote(empresaId, aiConfig = {}) {
     if (!pendentes.length) return { success: true, message: `Todos os ${cenarios.length} cenários B já foram checados` };
 
     const modelo = aiConfig?.checkModel || aiConfig?.model || 'gemini-3-flash-preview';
+    const pppResumo = await fetchPppResumo(sb, empresaId);
     const compCache = {}, descCache = {};
     let ok = 0, erros = 0;
 
@@ -1107,7 +1129,7 @@ export async function checkCenariosBLote(empresaId, aiConfig = {}) {
         if (descritoresTexto === undefined) {
           descritoresTexto = descCache[cen.competencia_id] = comp ? await fetchDescritoresTexto(sb, empresaId, comp.cod_comp) : '';
         }
-        const r = await runCheckOnCenB(sb, cen, comp, descritoresTexto, modelo);
+        const r = await runCheckOnCenB(sb, cen, comp, descritoresTexto, pppResumo, modelo);
         if (r.success) ok++; else erros++;
       } catch { erros++; }
     }
