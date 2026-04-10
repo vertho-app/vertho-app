@@ -25,7 +25,7 @@ export async function gerarCenariosBLote(empresaId, aiConfig = {}) {
     const { data: cenariosA } = await sb.from('banco_cenarios')
       .select('id, titulo, descricao, cargo, competencia_id')
       .eq('empresa_id', empresaId)
-      .not('tipo_cenario', 'eq', 'cenario_b');
+      .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b');
 
     if (!cenariosA?.length) return { success: false, error: 'Nenhum cenário A encontrado. Rode IA3 primeiro.' };
 
