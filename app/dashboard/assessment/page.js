@@ -265,14 +265,7 @@ export default function AssessmentPage() {
         <div className="rounded-2xl p-6 border border-green-400/30 text-center" style={{ background: 'rgba(16,185,129,0.08)' }}>
           <CheckCircle size={48} className="text-green-400 mx-auto mb-3" />
           <p className="text-lg font-extrabold text-green-400 mb-1">Resposta salva!</p>
-          <p className="text-sm text-gray-300 mb-4">Sua avaliação de hoje foi registrada com sucesso.</p>
-          {saveResult?.proximaCompetencia && (
-            <div className="rounded-xl p-3 mb-4 border border-cyan-400/20" style={{ background: 'rgba(45,212,191,0.05)' }}>
-              <p className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-400 mb-1">Próxima competência</p>
-              <p className="text-sm font-bold text-white">{saveResult.proximaCompetencia}</p>
-              <p className="text-[10px] text-gray-500 mt-1">Volte amanhã para continuar</p>
-            </div>
-          )}
+          <p className="text-sm text-gray-300 mb-5">Sua avaliação de hoje foi registrada com sucesso. Volte amanhã para continuar.</p>
           <button onClick={() => router.push('/dashboard')}
             className="w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-cyan-400 to-cyan-600 hover:brightness-110 transition">
             Voltar ao dashboard
@@ -285,13 +278,7 @@ export default function AssessmentPage() {
         <div className="rounded-2xl p-6 border border-white/[0.06] text-center" style={{ background: '#0F2A4A' }}>
           <div className="text-5xl mb-3">✅</div>
           <p className="text-lg font-extrabold text-white mb-1">Avaliação do dia concluída!</p>
-          <p className="text-sm text-gray-400 mb-4">Volte amanhã para continuar sua jornada.</p>
-          {data?.proximaCompetencia && (
-            <div className="rounded-xl p-3 mb-4 border border-cyan-400/20" style={{ background: 'rgba(45,212,191,0.05)' }}>
-              <p className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-400 mb-1">Próxima</p>
-              <p className="text-sm font-bold text-white">{data.proximaCompetencia}</p>
-            </div>
-          )}
+          <p className="text-sm text-gray-400 mb-5">Volte amanhã para continuar sua jornada.</p>
           <button onClick={() => router.push('/dashboard')}
             className="w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-cyan-400 to-cyan-600 hover:brightness-110 transition">
             Voltar ao dashboard
