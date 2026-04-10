@@ -98,6 +98,64 @@ export async function limparReavaliacaoSessoes(empresaId) {
   return { success: true, message: `${count || 0} sessão(ões) de reavaliação removida(s)` };
 }
 
+// ── Setar senha "teste" para todos os colaboradores da empresa ─────────────
+// Útil para bypass do rate limit de magic links durante testes.
+// Cria o auth.user se não existir; senão atualiza a senha.
+export async function definirSenhaTesteEmpresa(empresaId) {
+  const sb = createSupabaseAdmin();
+
+  const { data: colabs, error: colabErr } = await sb.from('colaboradores')
+    .select('email').eq('empresa_id', empresaId);
+  if (colabErr) return { success: false, error: colabErr.message };
+  if (!colabs?.length) return { success: false, error: 'Nenhum colaborador na empresa' };
+
+  // Listar TODOS os auth.users (paginar de 1000 em 1000)
+  const authUsersByEmail = new Map();
+  let page = 1;
+  while (true) {
+    const { data, error } = await sb.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) return { success: false, error: `listUsers: ${error.message}` };
+    (data?.users || []).forEach(u => {
+      if (u.email) authUsersByEmail.set(u.email.toLowerCase(), u);
+    });
+    if (!data?.users?.length || data.users.length < 1000) break;
+    page++;
+  }
+
+  let atualizados = 0, criados = 0, erros = 0;
+  const emailsUnicos = [...new Set(colabs.map(c => c.email?.toLowerCase()).filter(Boolean))];
+
+  for (const email of emailsUnicos) {
+    const existing = authUsersByEmail.get(email);
+    try {
+      if (existing) {
+        const { error } = await sb.auth.admin.updateUserById(existing.id, {
+          password: 'teste',
+          email_confirm: true,
+        });
+        if (error) { erros++; console.error('[setSenha update]', email, error.message); }
+        else atualizados++;
+      } else {
+        const { error } = await sb.auth.admin.createUser({
+          email,
+          password: 'teste',
+          email_confirm: true,
+        });
+        if (error) { erros++; console.error('[setSenha create]', email, error.message); }
+        else criados++;
+      }
+    } catch (e) {
+      erros++;
+      console.error('[setSenha exception]', email, e.message);
+    }
+  }
+
+  return {
+    success: true,
+    message: `Senha "teste" definida — ${atualizados} atualizados, ${criados} criados${erros ? `, ${erros} erros` : ''}`,
+  };
+}
+
 export async function limparMapeamento(empresaId, colaboradorId = null) {
   const sb = createSupabaseAdmin();
   const campos = {

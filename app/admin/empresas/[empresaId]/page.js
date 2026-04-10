@@ -18,7 +18,7 @@ import { listarPendentesSimulacao, simularUmaResposta } from '@/actions/simulado
 import { gerarRelatorioIndividual, gerarRelatoriosIndividuaisLote, gerarRelatorioGestor as gerarRelGestor, gerarRelatorioRH as gerarRelRH } from '@/actions/relatorios';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import {
-  loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, limparCenariosB, limparReavaliacaoSessoes, loadColaboradoresLista,
+  loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, limparCenariosB, limparReavaliacaoSessoes, definirSenhaTesteEmpresa, loadColaboradoresLista,
   rodarIA1, rodarIA2, rodarIA3,
   verStatusEnvios,
   rodarIA4, checkAvaliacoes,
@@ -631,6 +631,22 @@ export default function EmpresaPipelinePage({ params }) {
         </button>
         {showDanger && (
           <div className="mt-3 p-4 rounded-xl border border-red-400/15" style={{ background: 'rgba(239,68,68,0.03)' }}>
+            {/* Ferramenta de teste — não destrutivo */}
+            <p className="text-[10px] font-bold text-cyan-400/80 uppercase tracking-widest mb-2">Ferramentas de Teste</p>
+            <button disabled={dangerLoading}
+              onClick={async () => {
+                if (!confirm(`Definir senha "teste" para todos os colaboradores desta empresa?\n\nIsso cria/atualiza usuários no Supabase Auth e bypassa o magic link.`)) return;
+                setDangerLoading(true);
+                const r = await definirSenhaTesteEmpresa(empresaId);
+                if (r.success) addLog(`🔑 ${r.message}`, 'success');
+                else addLog(`❌ ${r.error}`, 'error');
+                setDangerLoading(false);
+              }}
+              className="w-full mb-4 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-xs font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all disabled:opacity-30">
+              {dangerLoading ? <Loader2 size={14} className="animate-spin" /> : <Settings size={14} />}
+              Definir senha "teste" para todos
+            </button>
+
             <p className="text-[10px] font-bold text-red-400/70 uppercase tracking-widest mb-3">Zona de Perigo</p>
 
             {/* Seletor de escopo */}
