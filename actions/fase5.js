@@ -29,13 +29,13 @@ export async function gerarCenariosBLote(empresaId, aiConfig = {}) {
 
     if (!cenariosA?.length) return { success: false, error: 'Nenhum cenário A encontrado. Rode IA3 primeiro.' };
 
-    // Buscar competências separadamente
-    const compIds = [...new Set(cenariosA.map(c => c.competencia_id).filter(Boolean))];
+    // Buscar TODAS as competências da empresa (evita problemas com .in() e RLS)
     const { data: comps } = await sb.from('competencias')
       .select('id, nome, descricao, gabarito')
-      .in('id', compIds);
+      .eq('empresa_id', empresaId);
     const compMap = {};
     (comps || []).forEach(c => { compMap[c.id] = c; });
+    const compIds = Object.keys(compMap);
 
     // Já tem B?
     const { data: cenariosB } = await sb.from('banco_cenarios')
