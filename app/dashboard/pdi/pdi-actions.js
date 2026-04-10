@@ -15,16 +15,18 @@ export async function loadPDI(email) {
 
   const sb = createSupabaseAdmin();
 
-  // Buscar PDI ativo
-  const { data: pdi } = await sb.from('pdis')
-    .select('id, conteudo, status, created_at')
+  // O PDI individual é gerado pelo admin (gerarRelatorioIndividual) e salvo
+  // na tabela 'relatorios' com tipo='individual'.
+  const { data: rel } = await sb.from('relatorios')
+    .select('id, conteudo, gerado_em, pdf_path')
     .eq('colaborador_id', colab.id)
-    .eq('status', 'ativo')
-    .order('created_at', { ascending: false })
+    .eq('empresa_id', colab.empresa_id)
+    .eq('tipo', 'individual')
+    .order('gerado_em', { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (!pdi) {
+  if (!rel) {
     // Verificar se o colab já completou TODAS as competências do top5 do cargo
     // (não só "tem pelo menos uma resposta" — diferencia "em progresso" de "tudo concluído, aguardando admin gerar PDI")
     const { data: cargoEmp } = await sb.from('cargos_empresa')
@@ -44,11 +46,14 @@ export async function loadPDI(email) {
     };
   }
 
+  const conteudo = typeof rel.conteudo === 'string' ? JSON.parse(rel.conteudo) : rel.conteudo;
+
   return {
     colaborador: colab,
     pdiAtivo: true,
-    conteudo: pdi.conteudo,
-    pdiId: pdi.id,
-    criadoEm: pdi.created_at,
+    conteudo,
+    pdiId: rel.id,
+    criadoEm: rel.gerado_em,
+    pdfPath: rel.pdf_path || null,
   };
 }
