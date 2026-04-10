@@ -115,7 +115,7 @@ async function _getDiagnosticoDoDia(email) {
     progresso,
     concluiuTudo: false,
     respondeuHoje: false,
-    proximaCompetencia: proximaCompNome,
+    proximaCompetencia: proxima.nome,
     cenarioDoDia: {
       cenarioId: cen.id,
       compId: proxima.id,
