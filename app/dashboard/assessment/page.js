@@ -156,7 +156,7 @@ export default function AssessmentPage() {
           <div className="space-y-3 text-left mb-6">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-cyan-400/15 flex items-center justify-center shrink-0"><Calendar size={16} className="text-cyan-400" /></div>
-              <div className="text-sm text-gray-300"><span className="font-bold text-white">1 competência por dia</span> · ~10 min cada</div>
+              <div className="text-sm text-gray-300"><span className="font-bold text-white">No seu ritmo</span> · ~10 min por competência</div>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-purple-400/15 flex items-center justify-center shrink-0"><FileText size={16} className="text-purple-400" /></div>
