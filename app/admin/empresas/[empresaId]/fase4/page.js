@@ -75,16 +75,6 @@ export default function Fase4Page({ params }) {
     refresh();
   }
 
-  async function handleRegenerarTodos() {
-    if (!cenariosB.length) return;
-    if (!confirm(`Regenerar + rechecar TODOS os ${cenariosB.length} cenários B (inclui aprovados)?`)) return;
-    setActionId('lote-all');
-    flash(`Processando ${cenariosB.length} cenários...`);
-    const r = await regenerarERecheckarCenariosBLote(empresaId, { model: genModel, checkModel, incluirAprovados: true });
-    setActionId(null);
-    flash(r.success ? r.message : 'Erro: ' + r.error);
-    refresh();
-  }
 
   // Agrupar por cargo
   const porCargo = {};
@@ -152,19 +142,12 @@ export default function Fase4Page({ params }) {
       </div>
 
       {/* Ações em lote */}
-      {cenariosB.length > 0 && (
+      {cenariosB.filter(c => c.nota_check != null && c.nota_check < 90).length > 0 && (
         <div className="flex items-center gap-2 mb-5 flex-wrap">
-          {cenariosB.filter(c => c.nota_check != null && c.nota_check < 90).length > 0 && (
-            <button disabled={actionId === 'lote'} onClick={handleRegenerarLote}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 transition-all disabled:opacity-50">
-              {actionId === 'lote' ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-              Regenerar + Rechecar {'<'}90 ({cenariosB.filter(c => c.nota_check != null && c.nota_check < 90).length})
-            </button>
-          )}
-          <button disabled={actionId === 'lote-all'} onClick={handleRegenerarTodos}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all disabled:opacity-50">
-            {actionId === 'lote-all' ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-            Regenerar + Rechecar TODOS ({cenariosB.length})
+          <button disabled={actionId === 'lote'} onClick={handleRegenerarLote}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 transition-all disabled:opacity-50">
+            {actionId === 'lote' ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+            Regenerar + Rechecar {'<'}90 ({cenariosB.filter(c => c.nota_check != null && c.nota_check < 90).length})
           </button>
         </div>
       )}
