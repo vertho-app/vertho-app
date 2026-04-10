@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI } from './ai-client';
 import { extractJSON } from './utils';
 import { renderToBuffer } from '@react-pdf/renderer';
+import { getLogoCoverBase64 } from '@/lib/pdf-assets';
 import React from 'react';
 
 // PDF generators (lazy import to avoid client-side issues)
@@ -20,7 +21,8 @@ async function gerarPDFBuffer(tipo, data, empresaNome) {
     Component = mod.default;
   }
   if (!Component) return null;
-  return renderToBuffer(React.createElement(Component, { data, empresaNome }));
+  const logoBase64 = getLogoCoverBase64();
+  return renderToBuffer(React.createElement(Component, { data, empresaNome, logoBase64 }));
 }
 
 async function salvarPDFStorage(sb, empresaId, tipo, colaboradorNome, buffer) {
