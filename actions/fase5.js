@@ -391,11 +391,29 @@ export async function iniciarReavaliacaoLote(empresaId, aiConfig = {}) {
     const top5Map = {};
     (cargosEmpresa || []).forEach(c => { if (c.top5_workshop?.length) top5Map[c.nome] = c.top5_workshop; });
 
-    // Competências nome→id
-    const { data: competencias } = await sb.from('competencias')
-      .select('id, nome, cargo, gabarito').eq('empresa_id', empresaId);
+    // Competências nome→id (parent rows, cod_desc IS NULL). Sem coluna gabarito
+    // (não existe). Descritores vêm depois via cod_comp.
+    const { data: competencias, error: compErr } = await sb.from('competencias')
+      .select('id, nome, cargo, cod_comp')
+      .eq('empresa_id', empresaId)
+      .is('cod_desc', null);
+    if (compErr) return { success: false, error: `competencias: ${compErr.message}` };
     const compMap = {};
     (competencias || []).forEach(c => { compMap[`${c.nome}::${c.cargo}`] = c; });
+
+    // Descritores por cod_comp (linhas filhas em competencias)
+    const descritoresCache = {};
+    for (const comp of competencias || []) {
+      const { data: descs } = await sb.from('competencias')
+        .select('cod_desc, nome_curto, descritor_completo')
+        .eq('empresa_id', empresaId)
+        .eq('cod_comp', comp.cod_comp)
+        .not('cod_desc', 'is', null);
+      descritoresCache[comp.id] = (descs || []).map((d, i) => ({
+        codigo: d.cod_desc || `D${i + 1}`,
+        nome: d.nome_curto || d.descritor_completo || `Descritor ${i + 1}`,
+      }));
+    }
 
     // Trilha progresso
     const { data: progressos } = await sb.from('fase4_progresso')
@@ -428,10 +446,8 @@ export async function iniciarReavaliacaoLote(empresaId, aiConfig = {}) {
         const pontosFortes = avIni?.descritores_destaque?.pontos_fortes || avIni?.pontos_fortes || [];
         const pontosAtencao = avIni?.descritores_destaque?.gaps_prioritarios || avIni?.pontos_desenvolvimento || [];
 
-        // Descritores com código
-        const descritores = Array.isArray(comp.gabarito)
-          ? comp.gabarito.map((d, i) => ({ codigo: `D${i+1}`, nome: d.nome || d.descritor || `Descritor ${i+1}` }))
-          : [];
+        // Descritores (buscados antes por cod_comp)
+        const descritores = descritoresCache[comp.id] || [];
 
         const { error } = await sb.from('reavaliacao_sessoes').insert({
           empresa_id: empresaId,
@@ -455,7 +471,8 @@ export async function iniciarReavaliacaoLote(empresaId, aiConfig = {}) {
           },
         });
 
-        if (!error) criados++;
+        if (error) console.error('[reavaliacao_sessoes insert]', error.message);
+        else criados++;
       }
     }
 
