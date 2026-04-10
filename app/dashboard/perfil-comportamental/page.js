@@ -33,17 +33,18 @@ const COMP_GROUPS = {
   ],
 };
 
-const DISC_COLORS = { D: '#EF4444', I: '#F59E0B', S: '#10B981', C: '#3B82F6' };
+// Paleta sem vermelho: D=laranja, I=amarelo, S=verde, C=azul
+const DISC_COLORS = { D: '#F97316', I: '#F59E0B', S: '#10B981', C: '#3B82F6' };
 const DISC_LABELS = { D: 'Dominância', I: 'Influência', S: 'Estabilidade', C: 'Conformidade' };
 
 function Bar({ label, value, max, color }) {
   return (
-    <div className="mb-2">
-      <div className="flex justify-between mb-0.5">
-        <span className="text-[11px] font-semibold text-gray-200">{label}</span>
-        <span className="text-[11px] font-extrabold" style={{ color }}>{Math.round(value || 0)}</span>
+    <div className="mb-3">
+      <div className="flex justify-between mb-1">
+        <span className="text-sm font-semibold text-gray-200">{label}</span>
+        <span className="text-sm font-extrabold" style={{ color }}>{Math.round(value || 0)}</span>
       </div>
-      <div className="h-[6px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+      <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
         <div className="h-full rounded-full transition-all duration-1000"
           style={{ width: `${Math.min(100, (value || 0) / (max || 100) * 100)}%`, background: color }} />
       </div>
@@ -139,27 +140,27 @@ export default function PerfilComportamentalPage() {
   const gaps = sortedComps.slice(-3).reverse();
 
   return (
-    <div className="max-w-[480px] mx-auto px-4 py-6 space-y-3">
+    <div className="max-w-[640px] mx-auto px-5 py-8 space-y-4">
       {/* ── Back ── */}
       <button onClick={() => router.back()}
-        className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors">
-        <ArrowLeft size={16} /> Voltar
+        className="flex items-center gap-1.5 text-base text-gray-400 hover:text-white transition-colors">
+        <ArrowLeft size={18} /> Voltar
       </button>
 
       {/* ── Header ── */}
-      <div className="text-center py-4">
-        <img src="/logo-vertho.png" alt="Vertho" className="h-9 mx-auto mb-4" />
-        <p className="text-sm font-extrabold uppercase tracking-[2.5px] text-cyan-400 mb-3">Seu Perfil Comportamental</p>
-        <div className="text-[88px] font-black tracking-[5px] leading-none mb-2"
-          style={{ fontFamily: "'Fraunces', Georgia, serif", background: 'linear-gradient(135deg, #2DD4BF, #FCD34D)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+      <div className="text-center py-6">
+        <img src="/logo-vertho.png" alt="Vertho" className="h-11 mx-auto mb-5" />
+        <p className="text-base font-extrabold uppercase tracking-[3px] text-cyan-400 mb-4">Seu Perfil Comportamental</p>
+        <div className="text-[140px] font-black tracking-[4px] leading-none mb-3"
+          style={{ background: 'linear-gradient(135deg, #2DD4BF, #FCD34D)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
           {c.perfil_dominante}
         </div>
-        <p className="text-base text-gray-400">{c.nome_completo}</p>
+        <p className="text-lg text-gray-300">{c.nome_completo}</p>
       </div>
 
       {/* ── Radar DISC ── */}
-      <div className="rounded-2xl p-4 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
-        <p className="text-[10px] font-extrabold uppercase tracking-[2px] text-gray-500 mb-3">DISC</p>
+      <div className="rounded-2xl p-5 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
+        <p className="text-xs font-extrabold uppercase tracking-[2px] text-gray-400 mb-4">DISC</p>
         <svg viewBox="0 0 200 200" className="w-full max-w-[200px] mx-auto">
           {[25, 50, 75, 100].map(r => (
             <polygon key={r} points={radarPoints(r)} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />
@@ -167,61 +168,61 @@ export default function PerfilComportamentalPage() {
           {[[100, 0], [200, 100], [100, 200], [0, 100]].map(([x, y], i) => (
             <line key={i} x1="100" y1="100" x2={x} y2={y} stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" />
           ))}
-          <polygon points={discRadarPoints(disc)} fill="rgba(45,212,191,0.1)" stroke="#2DD4BF" strokeWidth="2" />
-          <polygon points={discRadarPoints(dA)} fill="rgba(251,113,133,0.05)" stroke="#FB7185" strokeWidth="1.5" />
+          <polygon points={discRadarPoints(disc)} fill="rgba(45,212,191,0.12)" stroke="#2DD4BF" strokeWidth="2" />
+          <polygon points={discRadarPoints(dA)} fill="rgba(252,211,77,0.08)" stroke="#FCD34D" strokeWidth="1.5" />
           {[{ f: 'D', x: 100, y: v => 100 - v }, { f: 'I', x: v => 100 + v, y: 100 }, { f: 'S', x: 100, y: v => 100 + v }, { f: 'C', x: v => 100 - v, y: 100 }].map(p => {
             const nv = disc[p.f], av = dA[p.f];
             const nx = typeof p.x === 'function' ? p.x(nv) : p.x, ny = typeof p.y === 'function' ? p.y(nv) : p.y;
             const ax = typeof p.x === 'function' ? p.x(av) : p.x, ay = typeof p.y === 'function' ? p.y(av) : p.y;
-            return <g key={p.f}><circle cx={nx} cy={ny} r="3" fill="#2DD4BF" /><circle cx={ax} cy={ay} r="3" fill="#FB7185" /></g>;
+            return <g key={p.f}><circle cx={nx} cy={ny} r="3.5" fill="#2DD4BF" /><circle cx={ax} cy={ay} r="3.5" fill="#FCD34D" /></g>;
           })}
-          <text x="100" y="10" textAnchor="middle" fill="#94A3B8" fontSize="10" fontWeight="600">D</text>
-          <text x="195" y="104" textAnchor="start" fill="#94A3B8" fontSize="10" fontWeight="600">I</text>
-          <text x="100" y="198" textAnchor="middle" fill="#94A3B8" fontSize="10" fontWeight="600">S</text>
-          <text x="5" y="104" textAnchor="end" fill="#94A3B8" fontSize="10" fontWeight="600">C</text>
+          <text x="100" y="10" textAnchor="middle" fill="#CBD5E1" fontSize="13" fontWeight="700">D</text>
+          <text x="195" y="105" textAnchor="start" fill="#CBD5E1" fontSize="13" fontWeight="700">I</text>
+          <text x="100" y="199" textAnchor="middle" fill="#CBD5E1" fontSize="13" fontWeight="700">S</text>
+          <text x="5" y="105" textAnchor="end" fill="#CBD5E1" fontSize="13" fontWeight="700">C</text>
         </svg>
-        <div className="flex justify-center gap-4 mt-2">
-          <span className="text-[10px] font-bold text-gray-300"><span className="inline-block w-2 h-2 rounded-full bg-[#2DD4BF] mr-1" />Natural</span>
-          <span className="text-[10px] font-bold text-gray-300"><span className="inline-block w-2 h-2 rounded-full bg-[#FB7185] mr-1" />Adaptado</span>
+        <div className="flex justify-center gap-5 mt-3">
+          <span className="text-xs font-bold text-gray-300"><span className="inline-block w-2.5 h-2.5 rounded-full bg-[#2DD4BF] mr-1.5" />Natural</span>
+          <span className="text-xs font-bold text-gray-300"><span className="inline-block w-2.5 h-2.5 rounded-full bg-[#FCD34D] mr-1.5" />Adaptado</span>
         </div>
       </div>
 
       {/* ── Forças / Desenvolvimento ── */}
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-2xl p-4 border border-white/[0.04] text-center" style={{ background: 'rgba(17,31,54,0.85)' }}>
-          <p className="text-[9px] font-extrabold uppercase tracking-[1px] text-green-400 mb-2">Forças</p>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-2xl p-5 border border-white/[0.04] text-center" style={{ background: 'rgba(17,31,54,0.85)' }}>
+          <p className="text-xs font-extrabold uppercase tracking-[1.5px] text-green-400 mb-3">Forças</p>
           {strengths.map(s => (
-            <p key={s.name} className="text-[11px] font-bold text-white mt-1">{s.name} <span className="text-green-400">{Math.round(s.value)}</span></p>
+            <p key={s.name} className="text-sm font-bold text-white mt-1.5">{s.name} <span className="text-green-400">{Math.round(s.value)}</span></p>
           ))}
         </div>
-        <div className="rounded-2xl p-4 border border-white/[0.04] text-center" style={{ background: 'rgba(17,31,54,0.85)' }}>
-          <p className="text-[9px] font-extrabold uppercase tracking-[1px] text-rose-400 mb-2">Desenvolvimento</p>
+        <div className="rounded-2xl p-5 border border-white/[0.04] text-center" style={{ background: 'rgba(17,31,54,0.85)' }}>
+          <p className="text-xs font-extrabold uppercase tracking-[1.5px] text-amber-400 mb-3">Desenvolvimento</p>
           {gaps.map(g => (
-            <p key={g.name} className="text-[11px] font-bold text-white mt-1">{g.name} <span className="text-rose-400">{Math.round(g.value)}</span></p>
+            <p key={g.name} className="text-sm font-bold text-white mt-1.5">{g.name} <span className="text-amber-400">{Math.round(g.value)}</span></p>
           ))}
         </div>
       </div>
 
       {/* ── DISC Natural ── */}
-      <div className="rounded-2xl p-4 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
-        <p className="text-[10px] font-extrabold uppercase tracking-[2px] text-gray-500 mb-3">DISC Natural</p>
+      <div className="rounded-2xl p-5 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
+        <p className="text-xs font-extrabold uppercase tracking-[2px] text-gray-400 mb-4">DISC Natural</p>
         {[['Dominância', disc.D, DISC_COLORS.D], ['Influência', disc.I, DISC_COLORS.I], ['Estabilidade', disc.S, DISC_COLORS.S], ['Conformidade', disc.C, DISC_COLORS.C]].map(([l, v, col]) => (
           <Bar key={l} label={l} value={v} max={100} color={col} />
         ))}
       </div>
 
       {/* ── DISC Adaptado ── */}
-      <div className="rounded-2xl p-4 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
-        <p className="text-[10px] font-extrabold uppercase tracking-[2px] text-rose-400 mb-1">DISC Adaptado</p>
-        <p className="text-[10px] text-gray-500 mb-3">Como as pessoas esperam que você seja</p>
+      <div className="rounded-2xl p-5 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
+        <p className="text-xs font-extrabold uppercase tracking-[2px] text-amber-400 mb-1">DISC Adaptado</p>
+        <p className="text-xs text-gray-400 mb-4">Como as pessoas esperam que você seja</p>
         {[['Dominância', dA.D, DISC_COLORS.D], ['Influência', dA.I, DISC_COLORS.I], ['Estabilidade', dA.S, DISC_COLORS.S], ['Conformidade', dA.C, DISC_COLORS.C]].map(([l, v, col]) => (
           <Bar key={l} label={l} value={v} max={100} color={col} />
         ))}
       </div>
 
       {/* ── Liderança ── */}
-      <div className="rounded-2xl p-4 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
-        <p className="text-[10px] font-extrabold uppercase tracking-[2px] text-cyan-400 mb-3">Liderança</p>
+      <div className="rounded-2xl p-5 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
+        <p className="text-xs font-extrabold uppercase tracking-[2px] text-cyan-400 mb-4">Liderança</p>
         {lead.map(l => (
           <Bar key={l.label} label={l.label} value={l.value} max={50} color={l.color} />
         ))}
@@ -229,8 +230,8 @@ export default function PerfilComportamentalPage() {
 
       {/* ── Competências por dimensão ── */}
       {Object.entries(COMP_GROUPS).map(([dim, comps]) => (
-        <div key={dim} className="rounded-2xl p-4 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
-          <p className="text-[10px] font-extrabold uppercase tracking-[2px] mb-3" style={{ color: DISC_COLORS[dim] }}>
+        <div key={dim} className="rounded-2xl p-5 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
+          <p className="text-xs font-extrabold uppercase tracking-[2px] mb-4" style={{ color: DISC_COLORS[dim] }}>
             Competências — {DISC_LABELS[dim]}
           </p>
           {comps.map(({ label, key }) => (
