@@ -112,8 +112,9 @@ export async function calcularFitLote(empresaId, cargoNome) {
 
   if (!colabs?.length) return { success: false, error: 'Nenhum colaborador com mapeamento encontrado para este cargo' };
 
-  let ok = 0, erros = 0;
+  let ok = 0;
   const resultados = [];
+  const errosDetalhados = [];
 
   for (const colab of colabs) {
     const r = await calcularFitIndividual(empresaId, cargoNome, colab.id);
@@ -121,15 +122,23 @@ export async function calcularFitLote(empresaId, cargoNome) {
       ok++;
       resultados.push(r.data);
     } else {
-      erros++;
+      const msg = r.error || 'erro desconhecido';
+      const erroExtra = Array.isArray(r.erros) ? r.erros.join('; ') : null;
+      errosDetalhados.push({
+        colab_id: colab.id,
+        nome: colab.nome_completo || colab.email,
+        erro: erroExtra ? `${msg} (${erroExtra})` : msg,
+      });
+      console.warn('[calcularFitLote]', colab.nome_completo || colab.email, '→', msg, erroExtra || '');
     }
   }
 
   return {
     success: true,
-    message: `Fit calculado: ${ok} colaboradores${erros ? `, ${erros} erros` : ''}`,
+    message: `Fit calculado: ${ok} colaboradores${errosDetalhados.length ? `, ${errosDetalhados.length} erros` : ''}`,
     total: ok,
-    erros,
+    erros: errosDetalhados.length,
+    erros_detalhados: errosDetalhados,
   };
 }
 
