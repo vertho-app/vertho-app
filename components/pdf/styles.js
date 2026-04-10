@@ -12,6 +12,11 @@ Font.register({
   ],
 });
 
+// ── Desativar hifenização automática ────────────────────────────────────────
+// Por padrão o @react-pdf/renderer quebra palavras com hífen ao final de linha.
+// Retornar a palavra como array de 1 item força a quebra por palavra inteira.
+Font.registerHyphenationCallback(word => [word]);
+
 // ── Paleta Vertho Premium ───────────────────────────────────────────────────
 export const colors = {
   // Primárias
