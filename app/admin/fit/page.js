@@ -408,19 +408,11 @@ export default function FitPage() {
               </div>
             )}
 
-            {/* Leitura executiva IA — sempre dispara ao abrir */}
+            {/* Leitura executiva — gerada automaticamente ao abrir */}
             <div className="rounded-lg p-4 border border-cyan-400/20 mb-5" style={{ background: 'rgba(6,182,212,0.04)' }}>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-400 flex items-center gap-1.5">
-                  <Sparkles size={12} /> Leitura executiva (IA)
-                </p>
-                {leituraAi && (
-                  <button onClick={() => handleGerarLeitura(true)} disabled={leituraLoading}
-                    className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 hover:text-white disabled:opacity-50">
-                    {leituraLoading ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />} Regerar
-                  </button>
-                )}
-              </div>
+              <p className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-400 flex items-center gap-1.5 mb-2">
+                <Sparkles size={12} /> Leitura executiva
+              </p>
               {leituraLoading && !leituraAi ? (
                 <div className="flex items-center gap-2 text-xs text-gray-400 py-2">
                   <Loader2 size={12} className="animate-spin text-cyan-400" />
