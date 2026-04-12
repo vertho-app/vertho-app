@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft, Loader2, Send, ChevronDown, CheckCircle, AlertCircle,
-  Mail, MessageCircle, FileBarChart, Filter, Eye, Tag, Users
+  Mail, MessageCircle, FileBarChart, Filter, Eye, Tag, Users,
+  Paperclip, FileText, X,
 } from 'lucide-react';
 import { loadEmpresas, loadWhatsappStatus, loadColaboradoresEnvio, dispararMensagemCustomizada } from './actions';
 import { dispararLinksCIS, dispararRelatoriosLote } from '@/actions/whatsapp-lote';
@@ -63,6 +64,10 @@ export default function EnviosPage() {
 
   const [tab, setTab] = useState('email');
   const [anexarPDF, setAnexarPDF] = useState(true);
+  // Anexo adicional (arbitrário) - 1 por disparo, pontual (não persiste)
+  const [anexoExtra, setAnexoExtra] = useState(null); // { name, size, mime, base64 }
+  const ANEXO_MAX_MB = 10;
+  const ANEXO_EXTS = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.zip';
   const [assunto, setAssunto] = useState('[{{empresa}}] Avaliação de Competências');
   const [mensagem, setMensagem] = useState(DEFAULT_MSGS.email);
   const [filtroCargo, setFiltroCargo] = useState('');
@@ -126,6 +131,28 @@ export default function EnviosPage() {
     setMensagem(prev => prev + tag);
   }
 
+  async function handleAnexoChange(e) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // permite re-selecionar o mesmo arquivo
+    if (!file) return;
+    if (file.size > ANEXO_MAX_MB * 1024 * 1024) {
+      alert(`Arquivo muito grande. Máximo ${ANEXO_MAX_MB} MB.`);
+      return;
+    }
+    const base64 = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result).split(',')[1]);
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+    setAnexoExtra({
+      name: file.name,
+      size: file.size,
+      mime: file.type || 'application/octet-stream',
+      base64,
+    });
+  }
+
   async function handleDisparar() {
     if (!empresaId || !mensagem.trim()) return;
     setSending(true);
@@ -134,7 +161,7 @@ export default function EnviosPage() {
     const canal = (tab === 'email' || tab === 'relatorios-email') ? 'email' : 'whatsapp';
     const filtros = filtroCargo ? { cargo: filtroCargo } : {};
     const isRel = tab === 'relatorios-email' || tab === 'relatorios-whatsapp';
-    const r = await dispararMensagemCustomizada(empresaId, mensagem, canal, filtros, assunto, isRel && anexarPDF);
+    const r = await dispararMensagemCustomizada(empresaId, mensagem, canal, filtros, assunto, isRel && anexarPDF, anexoExtra);
 
     setResult(r);
     setSending(false);
@@ -216,6 +243,38 @@ export default function EnviosPage() {
                     <span className="text-[10px] text-purple-400">Anexar PDF do relatório individual</span>
                   </label>
                 )}
+
+                {/* Anexo adicional — disponível em todas as abas */}
+                <div className="mt-3 pt-3 border-t border-white/[0.04]">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Paperclip size={11} className="text-gray-400" />
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Anexo adicional</span>
+                  </div>
+                  {anexoExtra ? (
+                    <div className="flex items-center gap-2 p-2 rounded-lg border border-cyan-400/20" style={{ background: 'rgba(6,182,212,0.06)' }}>
+                      <FileText size={14} className="text-cyan-400 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-white truncate">{anexoExtra.name}</p>
+                        <p className="text-[9px] text-gray-500">{(anexoExtra.size / 1024 / 1024).toFixed(2)} MB</p>
+                      </div>
+                      <button onClick={() => setAnexoExtra(null)} title="Remover anexo" className="text-gray-500 hover:text-red-400 shrink-0">
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 text-[11px] font-semibold text-gray-300 hover:border-cyan-400/30 hover:text-cyan-400 transition-all cursor-pointer" style={{ background: '#091D35' }}>
+                        <Paperclip size={11} />
+                        Selecionar arquivo...
+                        <input type="file" className="hidden" accept={ANEXO_EXTS} onChange={handleAnexoChange} />
+                      </label>
+                      <p className="text-[9px] text-gray-500 mt-1.5 leading-relaxed">
+                        Máx {ANEXO_MAX_MB} MB. Tipos aceitos: PDF, DOC(X), XLS(X), PPT(X), JPG, PNG, ZIP.
+                        {' '}Vídeos não são suportados nesta versão.
+                      </p>
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* Editor de mensagem */}

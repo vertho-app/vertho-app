@@ -53,7 +53,13 @@ async function buscarPDFColaborador(sb, empresaId, colaboradorId) {
   return { buffer, filename: rel.pdf_path.split('/').pop() };
 }
 
-export async function dispararMensagemCustomizada(empresaId, template, canal, filtros = {}, assuntoTemplate = '', comPDF = false) {
+/**
+ * @param {object} [anexoExtra] - anexo arbitrário enviado pelo gestor na UI
+ *   { name: 'arquivo.pdf', mime: 'application/pdf', base64: '...' }
+ *   É enviado adicionalmente ao PDF do relatório (se comPDF=true) para todos
+ *   os destinatários, em email (Resend attachments) e WhatsApp (send-document).
+ */
+export async function dispararMensagemCustomizada(empresaId, template, canal, filtros = {}, assuntoTemplate = '', comPDF = false, anexoExtra = null) {
   const sb = createSupabaseAdmin();
   try {
     const { data: empresa } = await sb.from('empresas')
@@ -101,12 +107,19 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
           const htmlMsg = msg.replace(/\n/g, '<br>').replace(/\*([^*]+)\*/g, '<strong>$1</strong>').replace(/_([^_]+)_/g, '<em>$1</em>');
 
           // Buscar PDF se envio de relatório
-          let attachments;
+          const attachments = [];
           if (isRelatorio && colab.id) {
             const pdf = await buscarPDFColaborador(sb, empresaId, colab.id);
             if (pdf) {
-              attachments = [{ filename: pdf.filename, content: pdf.buffer.toString('base64') }];
+              attachments.push({ filename: pdf.filename, content: pdf.buffer.toString('base64') });
             }
+          }
+          // Anexo adicional enviado pelo gestor na UI
+          if (anexoExtra?.base64) {
+            attachments.push({
+              filename: anexoExtra.name || 'anexo',
+              content: anexoExtra.base64,
+            });
           }
 
           const emailBody = {
@@ -118,7 +131,7 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
               .replace(/\{\{empresa\}\}/g, empresa.nome),
             html: htmlMsg,
           };
-          if (attachments) emailBody.attachments = attachments;
+          if (attachments.length > 0) emailBody.attachments = attachments;
 
           const res = await fetch('https://api.resend.com/emails', {
             method: 'POST',
@@ -156,7 +169,6 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
               const pdf = await buscarPDFColaborador(sb, empresaId, colab.id);
               if (pdf) {
                 await new Promise(resolve => setTimeout(resolve, 500));
-                const pdfUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://vertho.com.br'}/api/relatorios/pdf?id=${colab.id}`;
                 // Z-API send-document com base64
                 await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-document/base64`, {
                   method: 'POST',
@@ -168,6 +180,21 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
                   }),
                 });
               }
+            }
+
+            // Anexo extra do gestor (independente de ser relatório)
+            if (res.ok && anexoExtra?.base64) {
+              await new Promise(resolve => setTimeout(resolve, 500));
+              const mime = anexoExtra.mime || 'application/octet-stream';
+              await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-document/base64`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Client-Token': zapiClient },
+                body: JSON.stringify({
+                  phone,
+                  document: `data:${mime};base64,${anexoExtra.base64}`,
+                  fileName: anexoExtra.name || 'anexo',
+                }),
+              });
             }
 
             if (res.ok) { enviados++; }
