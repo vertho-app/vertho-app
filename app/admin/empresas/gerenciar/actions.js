@@ -57,6 +57,37 @@ export async function loadColaboradores(empresaId) {
   return (d2 || []).map(c => ({ ...c, telefone: null, gestor_nome: null, gestor_email: null, gestor_whatsapp: null }));
 }
 
+export async function criarColaborador(empresaId, campos) {
+  if (!empresaId) return { success: false, error: 'empresa obrigatória' };
+  if (!campos?.email?.trim()) return { success: false, error: 'email obrigatório' };
+
+  const sb = createSupabaseAdmin();
+  const VALID_ROLES = ['colaborador', 'gestor', 'rh'];
+  const email = campos.email.trim().toLowerCase();
+
+  // Bloqueia duplicata por (empresa_id, email)
+  const { data: existente } = await sb.from('colaboradores')
+    .select('id').eq('empresa_id', empresaId).eq('email', email).maybeSingle();
+  if (existente) return { success: false, error: 'já existe colaborador com este email nesta empresa' };
+
+  const payload = {
+    empresa_id: empresaId,
+    email,
+    nome_completo: campos.nome_completo?.trim() || null,
+    cargo: campos.cargo?.trim() || null,
+    area_depto: campos.area_depto?.trim() || null,
+    telefone: campos.telefone?.trim() || null,
+    gestor_nome: campos.gestor_nome?.trim() || null,
+    gestor_email: campos.gestor_email?.trim().toLowerCase() || null,
+    gestor_whatsapp: campos.gestor_whatsapp?.trim() || null,
+    role: VALID_ROLES.includes(campos.role) ? campos.role : 'colaborador',
+  };
+
+  const { data, error } = await sb.from('colaboradores').insert(payload).select('id').single();
+  if (error) return { success: false, error: error.message };
+  return { success: true, id: data.id };
+}
+
 export async function atualizarColaborador(id, campos) {
   const sb = createSupabaseAdmin();
   const VALID_ROLES = ['colaborador', 'gestor', 'rh'];

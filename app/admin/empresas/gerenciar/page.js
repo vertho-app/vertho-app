@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Upload, Loader2, Users, Pencil, Trash2, X, Check, Briefcase, RefreshCw, Plus, Save } from 'lucide-react';
 import {
   loadEmpresas, loadResumoEmpresa, importarColaboradoresLote, loadColaboradores, atualizarColaborador, excluirColaborador,
+  criarColaborador,
   loadCargos, salvarCargo, excluirCargo, sincronizarCargosDeColaboradores
 } from './actions';
 
@@ -109,13 +110,28 @@ export default function GerenciarPage() {
     setEditData({ nome_completo: c.nome_completo || '', email: c.email || '', cargo: c.cargo || '', area_depto: c.area_depto || '', role: c.role || 'colaborador', telefone: c.telefone || '', gestor_nome: c.gestor_nome || '', gestor_email: c.gestor_email || '', gestor_whatsapp: c.gestor_whatsapp || '' });
   }
 
+  function startCreate() {
+    setEditId('new');
+    setEditData({
+      nome_completo: '', email: '', cargo: '', area_depto: '',
+      role: 'colaborador', telefone: '', gestor_nome: '', gestor_email: '', gestor_whatsapp: '',
+    });
+  }
+
   async function saveEdit() {
     if (!editId) return;
     setSaving(true);
-    const r = await atualizarColaborador(editId, editData);
+    const r = editId === 'new'
+      ? await criarColaborador(tenantId, editData)
+      : await atualizarColaborador(editId, editData);
     setSaving(false);
-    if (r.success) { setEditId(null); refresh(); setMsg('Colaborador atualizado'); }
-    else setMsg('Erro: ' + r.error);
+    if (r.success) {
+      setEditId(null);
+      refresh();
+      setMsg(editId === 'new' ? 'Colaborador adicionado' : 'Colaborador atualizado');
+    } else {
+      setMsg('Erro: ' + r.error);
+    }
   }
 
   async function handleDelete(id, nome) {
@@ -204,15 +220,25 @@ export default function GerenciarPage() {
               className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${tab === 'importar' ? 'bg-cyan-400/15 text-cyan-400' : 'text-gray-500 hover:text-gray-300'}`}>
               Importar CSV
             </button>
+            {tab === 'lista' && editId !== 'new' && (
+              <button onClick={startCreate}
+                className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-green-400/30 hover:text-green-400 transition-all">
+                <Plus size={12} /> Adicionar colaborador
+              </button>
+            )}
           </div>
 
           {/* Tab: Lista */}
           {tab === 'lista' && (
             <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
-              {colabs.length === 0 ? (
+              {colabs.length === 0 && editId !== 'new' ? (
                 <div className="px-5 py-8 text-center">
                   <p className="text-sm text-gray-500">Nenhum colaborador cadastrado</p>
-                  <button onClick={() => setTab('importar')} className="mt-2 text-xs text-cyan-400 hover:underline">Importar CSV</button>
+                  <div className="flex items-center justify-center gap-3 mt-2">
+                    <button onClick={startCreate} className="text-xs text-cyan-400 hover:underline">Adicionar manualmente</button>
+                    <span className="text-gray-600">·</span>
+                    <button onClick={() => setTab('importar')} className="text-xs text-cyan-400 hover:underline">Importar CSV</button>
+                  </div>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -230,6 +256,54 @@ export default function GerenciarPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/[0.03]">
+                      {editId === 'new' && (
+                        <tr className="bg-cyan-400/5">
+                          <td className="px-4 py-2"><input autoFocus value={editData.nome_completo} onChange={e => setEditData(p => ({ ...p, nome_completo: e.target.value }))}
+                            placeholder="Nome completo"
+                            className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
+                          <td className="px-4 py-2"><input value={editData.email} onChange={e => setEditData(p => ({ ...p, email: e.target.value }))}
+                            placeholder="email@empresa.com"
+                            className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
+                          <td className="px-4 py-2"><input value={editData.cargo} onChange={e => setEditData(p => ({ ...p, cargo: e.target.value }))}
+                            placeholder="Cargo"
+                            className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
+                          <td className="px-4 py-2"><input value={editData.area_depto} onChange={e => setEditData(p => ({ ...p, area_depto: e.target.value }))}
+                            placeholder="Área"
+                            className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
+                          <td className="px-4 py-2">
+                            <select value={editData.role} onChange={e => setEditData(p => ({ ...p, role: e.target.value }))}
+                              className="px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none">
+                              <option value="colaborador">Colaborador</option>
+                              <option value="gestor">Gestor</option>
+                              <option value="rh">RH</option>
+                            </select>
+                          </td>
+                          <td className="px-4 py-2"><input value={editData.telefone} onChange={e => setEditData(p => ({ ...p, telefone: e.target.value }))}
+                            placeholder="5511999999999"
+                            className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
+                          <td className="px-4 py-2">
+                            <input value={editData.gestor_nome} onChange={e => setEditData(p => ({ ...p, gestor_nome: e.target.value }))}
+                              placeholder="Nome do gestor"
+                              className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none mb-1" />
+                            <input value={editData.gestor_email} onChange={e => setEditData(p => ({ ...p, gestor_email: e.target.value }))}
+                              placeholder="email@gestor.com"
+                              className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none mb-1" />
+                            <input value={editData.gestor_whatsapp} onChange={e => setEditData(p => ({ ...p, gestor_whatsapp: e.target.value }))}
+                              placeholder="5511999999999"
+                              className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" />
+                          </td>
+                          <td className="px-4 py-2 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button onClick={saveEdit} disabled={saving || !editData.email?.trim()}
+                                title="Adicionar"
+                                className="text-green-400 hover:text-green-300 disabled:opacity-40">
+                                {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                              </button>
+                              <button onClick={() => setEditId(null)} className="text-gray-500 hover:text-white" title="Cancelar"><X size={14} /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
                       {colabs.map(c => (
                         <tr key={c.id} className="hover:bg-white/[0.02]">
                           {editId === c.id ? (
