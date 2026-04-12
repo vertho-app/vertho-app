@@ -146,6 +146,14 @@ export default function FitPage() {
     else flash('Erro: ' + (r.error || 'falha ao gerar leitura'));
   }
 
+  // Dispara a leitura IA automaticamente ao abrir o drill-down
+  useEffect(() => {
+    if (!detailColab || !cargoSel || !empresaId) return;
+    if (leituraAi || leituraLoading) return;
+    handleGerarLeitura(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detailColab?.colaborador?.id, cargoSel, empresaId]);
+
   async function handleBaixarRelatorio() {
     if (!detailColab) return;
     setBaixandoRel(true);
@@ -400,7 +408,7 @@ export default function FitPage() {
               </div>
             )}
 
-            {/* Leitura executiva IA */}
+            {/* Leitura executiva IA — sempre dispara ao abrir */}
             <div className="rounded-lg p-4 border border-cyan-400/20 mb-5" style={{ background: 'rgba(6,182,212,0.04)' }}>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-400 flex items-center gap-1.5">
@@ -413,24 +421,16 @@ export default function FitPage() {
                   </button>
                 )}
               </div>
-              {leituraAi ? (
+              {leituraLoading && !leituraAi ? (
+                <div className="flex items-center gap-2 text-xs text-gray-400 py-2">
+                  <Loader2 size={12} className="animate-spin text-cyan-400" />
+                  Gerando análise personalizada...
+                </div>
+              ) : leituraAi ? (
                 <p className="text-xs text-gray-200 leading-relaxed">{leituraAi}</p>
               ) : detailColab.leitura_executiva ? (
-                <>
-                  <p className="text-xs text-gray-400 leading-relaxed italic mb-2">{detailColab.leitura_executiva}</p>
-                  <button onClick={() => handleGerarLeitura(false)} disabled={leituraLoading}
-                    className="flex items-center gap-1.5 text-[11px] font-bold text-cyan-400 hover:text-cyan-300 disabled:opacity-50">
-                    {leituraLoading ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
-                    Gerar versão enriquecida via IA
-                  </button>
-                </>
-              ) : (
-                <button onClick={() => handleGerarLeitura(false)} disabled={leituraLoading}
-                  className="flex items-center gap-1.5 text-[11px] font-bold text-cyan-400 hover:text-cyan-300 disabled:opacity-50">
-                  {leituraLoading ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
-                  Gerar leitura executiva via IA
-                </button>
-              )}
+                <p className="text-xs text-gray-400 leading-relaxed italic">{detailColab.leitura_executiva}</p>
+              ) : null}
             </div>
 
             {/* Ações */}
