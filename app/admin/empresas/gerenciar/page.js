@@ -56,7 +56,8 @@ export default function GerenciarPage() {
     if (tenantId) {
       loadResumoEmpresa(tenantId).then(setResumo);
       loadColaboradores(tenantId).then(setColabs);
-    } else { setResumo(null); setColabs([]); }
+      loadCargos(tenantId).then(setCargos); // carrega cedo pra alimentar o dropdown de cargo
+    } else { setResumo(null); setColabs([]); setCargos([]); }
   }, [tenantId]);
 
   async function refresh() {
@@ -264,9 +265,18 @@ export default function GerenciarPage() {
                           <td className="px-4 py-2"><input value={editData.email} onChange={e => setEditData(p => ({ ...p, email: e.target.value }))}
                             placeholder="email@empresa.com"
                             className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
-                          <td className="px-4 py-2"><input value={editData.cargo} onChange={e => setEditData(p => ({ ...p, cargo: e.target.value }))}
-                            placeholder="Cargo"
-                            className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
+                          <td className="px-4 py-2">
+                            <select value={editData.cargo} onChange={e => setEditData(p => ({ ...p, cargo: e.target.value }))}
+                              className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none">
+                              <option value="">Selecione...</option>
+                              {cargos.map(k => <option key={k.id || k.nome} value={k.nome}>{k.nome}</option>)}
+                            </select>
+                            {cargos.length === 0 && (
+                              <button type="button" onClick={() => setTab('cargos')} className="block mt-1 text-[9px] text-cyan-400 hover:underline">
+                                Cadastrar cargo →
+                              </button>
+                            )}
+                          </td>
                           <td className="px-4 py-2"><input value={editData.area_depto} onChange={e => setEditData(p => ({ ...p, area_depto: e.target.value }))}
                             placeholder="Área"
                             className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
@@ -312,8 +322,17 @@ export default function GerenciarPage() {
                                 className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
                               <td className="px-4 py-2"><input value={editData.email} onChange={e => setEditData(p => ({ ...p, email: e.target.value }))}
                                 className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
-                              <td className="px-4 py-2"><input value={editData.cargo} onChange={e => setEditData(p => ({ ...p, cargo: e.target.value }))}
-                                className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
+                              <td className="px-4 py-2">
+                                <select value={editData.cargo} onChange={e => setEditData(p => ({ ...p, cargo: e.target.value }))}
+                                  className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none">
+                                  <option value="">Selecione...</option>
+                                  {/* Se o cargo atual do colab não estiver na lista (ex: dado antigo), mantemos como opção adicional */}
+                                  {editData.cargo && !cargos.some(k => k.nome === editData.cargo) && (
+                                    <option value={editData.cargo}>{editData.cargo} (fora do catálogo)</option>
+                                  )}
+                                  {cargos.map(k => <option key={k.id || k.nome} value={k.nome}>{k.nome}</option>)}
+                                </select>
+                              </td>
                               <td className="px-4 py-2"><input value={editData.area_depto} onChange={e => setEditData(p => ({ ...p, area_depto: e.target.value }))}
                                 className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
                               <td className="px-4 py-2">
