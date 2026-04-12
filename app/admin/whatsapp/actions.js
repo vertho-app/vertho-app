@@ -35,7 +35,28 @@ export async function loadWhatsappStatus(empresaId) {
   }
 }
 
-// Buscar PDF do relatório individual de um colaborador
+// ── Helpers de anexo ────────────────────────────────────────────────────────
+
+// Mapa mime → extensão simples pro Z-API (endpoint /send-document/{ext})
+function extFromNameOrMime(name = '', mime = '') {
+  const m = /\.([a-z0-9]+)$/i.exec(name);
+  if (m) return m[1].toLowerCase();
+  const map = {
+    'application/pdf': 'pdf',
+    'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png',
+    'application/msword': 'doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+    'application/vnd.ms-excel': 'xls',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+    'application/vnd.ms-powerpoint': 'ppt',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+    'application/zip': 'zip', 'application/x-zip-compressed': 'zip',
+  };
+  return map[mime] || 'bin';
+}
+
+// Busca o PDF do relatório individual + devolve tanto buffer (email) quanto
+// signed URL pública temporária (WhatsApp via /send-document/pdf).
 async function buscarPDFColaborador(sb, empresaId, colaboradorId) {
   const { data: rel } = await sb.from('relatorios')
     .select('pdf_path')
@@ -46,11 +67,36 @@ async function buscarPDFColaborador(sb, empresaId, colaboradorId) {
     .maybeSingle();
   if (!rel?.pdf_path) return null;
 
+  const filename = rel.pdf_path.split('/').pop();
   const { data: fileData } = await sb.storage.from('relatorios-pdf').download(rel.pdf_path);
   if (!fileData) return null;
 
   const buffer = Buffer.from(await fileData.arrayBuffer());
-  return { buffer, filename: rel.pdf_path.split('/').pop() };
+  const { data: signed } = await sb.storage.from('relatorios-pdf')
+    .createSignedUrl(rel.pdf_path, 60 * 60); // 1h — tempo suficiente pro envio em lote
+  return { buffer, filename, url: signed?.signedUrl || null };
+}
+
+// Sobe o anexo extra (que veio em base64 da UI) como arquivo temporário
+// pra obter uma signed URL. O arquivo fica no bucket; limpamos no fim.
+async function subirAnexoTemporario(sb, empresaId, anexoExtra) {
+  if (!anexoExtra?.base64) return null;
+  const ext = extFromNameOrMime(anexoExtra.name, anexoExtra.mime);
+  const path = `temp-envios/${empresaId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const buffer = Buffer.from(anexoExtra.base64, 'base64');
+  const { error } = await sb.storage.from('relatorios-pdf').upload(path, buffer, {
+    contentType: anexoExtra.mime || 'application/octet-stream',
+    upsert: false,
+  });
+  if (error) return null;
+  const { data: signed } = await sb.storage.from('relatorios-pdf')
+    .createSignedUrl(path, 60 * 60);
+  return { path, url: signed?.signedUrl || null, ext, filename: anexoExtra.name };
+}
+
+async function deletarAnexoTemporario(sb, path) {
+  if (!path) return;
+  try { await sb.storage.from('relatorios-pdf').remove([path]); } catch {}
 }
 
 /**
@@ -89,6 +135,13 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
     const hasQStash = !!process.env.QSTASH_TOKEN;
     const isRelatorio = comPDF;
     let enviados = 0, erros = 0, erroDetalhe = '';
+
+    // Sobe o anexo extra 1 vez pra reusar a mesma signed URL em todos os
+    // destinatários (evita upload repetido). Limpa no fim do disparo.
+    let anexoUpload = null;
+    if (anexoExtra?.base64 && canal === 'whatsapp') {
+      anexoUpload = await subirAnexoTemporario(sb, empresaId, anexoExtra);
+    }
 
     for (const colab of colabs) {
       const nome = colab.nome_completo?.split(' ')[0] || '';
@@ -164,35 +217,35 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
               body: JSON.stringify({ phone, message: msg }),
             });
 
-            // Se relatório, enviar PDF como documento
+            // Se relatório, enviar PDF como documento — via URL (formato
+            // original) pra o WhatsApp reconhecer mime/extensão e abrir
+            // corretamente no app.
             if (res.ok && isRelatorio && colab.id) {
               const pdf = await buscarPDFColaborador(sb, empresaId, colab.id);
-              if (pdf) {
+              if (pdf?.url) {
                 await new Promise(resolve => setTimeout(resolve, 500));
-                // Z-API send-document com base64
-                await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-document/base64`, {
+                await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-document/pdf`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'Client-Token': zapiClient },
                   body: JSON.stringify({
                     phone,
-                    document: `data:application/pdf;base64,${pdf.buffer.toString('base64')}`,
+                    document: pdf.url,
                     fileName: pdf.filename,
                   }),
                 });
               }
             }
 
-            // Anexo extra do gestor (independente de ser relatório)
-            if (res.ok && anexoExtra?.base64) {
+            // Anexo extra — envia via signed URL usando endpoint por extensão.
+            if (res.ok && anexoUpload?.url) {
               await new Promise(resolve => setTimeout(resolve, 500));
-              const mime = anexoExtra.mime || 'application/octet-stream';
-              await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-document/base64`, {
+              await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-document/${anexoUpload.ext}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Client-Token': zapiClient },
                 body: JSON.stringify({
                   phone,
-                  document: `data:${mime};base64,${anexoExtra.base64}`,
-                  fileName: anexoExtra.name || 'anexo',
+                  document: anexoUpload.url,
+                  fileName: anexoUpload.filename || `anexo.${anexoUpload.ext}`,
                 }),
               });
             }
@@ -218,6 +271,9 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
         }
       }
     }
+
+    // Limpa o anexo temporário subido pro WhatsApp (fire-and-forget)
+    if (anexoUpload?.path) deletarAnexoTemporario(sb, anexoUpload.path);
 
     const msg2 = `${enviados} ${canal === 'email' ? 'emails' : 'WhatsApp'} enviados${erros ? `, ${erros} erros` : ''}${erroDetalhe ? ` — ${erroDetalhe}` : ''}`;
     return { success: enviados > 0, message: msg2, error: enviados === 0 ? msg2 : undefined };
