@@ -201,15 +201,18 @@ export default function AssessmentPage() {
             <div className="rounded-xl p-3 mb-3 border-l-4 border-cyan-400" style={{ background: 'rgba(45,212,191,0.05)' }}>
               <p className="text-sm font-semibold text-white leading-snug">{enunciados[pergIdx]}</p>
             </div>
-            {/* Gravador por voz — visível só em desktop (Web Speech API funciona melhor no Chrome desktop) */}
-            <div className="hidden md:flex items-start justify-between gap-3 mb-2">
-              <p className="text-[10px] text-gray-500 leading-relaxed flex-1 max-w-md">
+            {/* Gravador por voz — dica + botão. O MicInput já mostra "Indisponível"
+                quando o browser não suporta Web Speech API (alguns Safari). */}
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2 md:gap-3 mb-2">
+              <p className="text-[10px] text-gray-500 leading-relaxed flex-1 md:max-w-md">
                 <span className="font-semibold text-gray-400">Dica:</span>{' '}
                 Clique em <span className="text-cyan-400 font-semibold">Gravar por voz</span> e
                 fale naturalmente em português — o texto aparece no campo enquanto você fala.
                 Clique de novo para parar e edite se precisar. Permita o acesso ao microfone na primeira vez.
               </p>
-              <MicInput value={currentR} onChange={setCurrentR} />
+              <div className="self-start md:self-auto">
+                <MicInput value={currentR} onChange={setCurrentR} />
+              </div>
             </div>
             <textarea
               value={currentR}

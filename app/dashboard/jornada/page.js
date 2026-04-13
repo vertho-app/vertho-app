@@ -113,8 +113,11 @@ export default function JornadaPage() {
         subtitle={`${concluidas} de ${total} fases concluídas · ${colaborador.nome_completo}`}
       />
 
+      {/* Layout reordena no mobile: card focal ANTES da timeline, e lista oculta */}
+      <div className="flex flex-col">
+
       {/* ── Timeline horizontal (desktop) ──────────────────────────────────── */}
-      <div className="hidden md:block relative mb-10">
+      <div className="hidden md:block relative mb-10 order-1">
         {/* Linha de fundo */}
         <div className="absolute top-[22px] h-[2px] bg-white/[0.08] z-0"
           style={{ left: '10%', right: '10%' }} />
@@ -155,8 +158,8 @@ export default function JornadaPage() {
         </div>
       </div>
 
-      {/* ── Timeline vertical (mobile) ─────────────────────────────────────── */}
-      <div className="md:hidden mb-8 relative">
+      {/* ── Timeline vertical (mobile) ─── vem DEPOIS do card focal ─────── */}
+      <div className="md:hidden mb-8 relative order-2">
         <div className="absolute left-[22px] top-6 bottom-6 w-[2px] bg-white/[0.08]" />
         {/* Linha cyan até a fase atual */}
         {concluidas > 0 && (
@@ -194,9 +197,9 @@ export default function JornadaPage() {
         </div>
       </div>
 
-      {/* ── Card focal da fase atual ───────────────────────────────────────── */}
+      {/* ── Card focal da fase atual ─── mobile: antes da timeline (order-1) ── */}
       {faseAtual && (
-        <div className="flex justify-center mb-10 md:mb-12">
+        <div className="flex justify-center mb-6 md:mb-12 order-1 md:order-2">
           <div className="rounded-2xl border-2 p-6 md:p-8 max-w-[640px] w-full"
             style={{
               background: 'rgba(255,255,255,0.03)',
@@ -226,7 +229,7 @@ export default function JornadaPage() {
       )}
 
       {!faseAtual && (
-        <div className="flex justify-center mb-10 md:mb-12">
+        <div className="flex justify-center mb-6 md:mb-12 order-1 md:order-2">
           <GlassCard className="max-w-[640px] w-full text-center" padding="p-6 md:p-8">
             <p className="text-xl md:text-2xl font-extrabold text-white mb-1">🎉 Jornada concluída</p>
             <p className="text-sm text-gray-400 mb-4">
@@ -244,8 +247,8 @@ export default function JornadaPage() {
         </div>
       )}
 
-      {/* ── Lista expandida com detalhes de todas as fases ─────────────────── */}
-      <div>
+      {/* ── Lista expandida — só desktop (mobile não mostra duplicado) ────── */}
+      <div className="hidden md:block order-3">
         <p className="text-[10px] font-bold tracking-[0.2em] text-gray-500 uppercase mb-3">
           Todas as fases
         </p>
@@ -284,6 +287,8 @@ export default function JornadaPage() {
           })}
         </div>
       </div>
+
+      </div>{/* /flex-col reorder */}
     </PageContainer>
   );
 }
