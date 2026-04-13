@@ -79,7 +79,6 @@ export default function VideoModal({ libraryId, videoId, title, onClose, colabor
 
     function setupPlayer(pj) {
       if (cancelled || !iframeRef.current) return;
-      console.log('[VideoModal] player.js carregado, instanciando Player...');
       try {
         player = new pj.Player(iframeRef.current);
       } catch (e) {
@@ -88,20 +87,10 @@ export default function VideoModal({ libraryId, videoId, title, onClose, colabor
       }
       playerRef.current = player;
 
-      const timeoutReady = setTimeout(() => {
-        console.warn('[VideoModal] player.js: evento "ready" não chegou em 10s — iframe não responde ao protocolo player.js');
-      }, 10_000);
-
       player.on('ready', () => {
-        clearTimeout(timeoutReady);
-        console.log('[VideoModal] player.js: ready ✓');
-        player.getDuration(d => {
-          durationRef.current = Number(d) || 0;
-          console.log('[VideoModal] player.js: duration =', d);
-        });
+        player.getDuration(d => { durationRef.current = Number(d) || 0; });
 
         player.on('play', () => {
-          console.log('[VideoModal] player.js: play');
           if (startedRef.current) return;
           startedRef.current = true;
           registrarVideoWatched({
@@ -119,7 +108,6 @@ export default function VideoModal({ libraryId, videoId, title, onClose, colabor
         });
 
         player.on('ended', () => {
-          console.log('[VideoModal] player.js: ended');
           if (finishedRef.current) return;
           finishedRef.current = true;
           const dur = Math.round(durationRef.current || timeRef.current);
