@@ -62,16 +62,21 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig } = 
       .eq('colaborador_id', colaboradorId)
       .eq('competencia', competenciaAlvo);
 
-    // Fallback: se sem assessment, gera default a partir de competencias_base
+    // Fallback: descritores cadastrados em competencias_base ou competencias da empresa
     if (!assessment || assessment.length === 0) {
       const { data: base } = await sb.from('competencias_base')
         .select('nome_curto').eq('nome', competenciaAlvo).limit(20);
-      const descritoresUnicos = [...new Set((base || []).map(b => b.nome_curto).filter(Boolean))];
-      assessment = descritoresUnicos.map(d => ({ descritor: d, nota: 1.5 })); // default = gap moderado
+      let descritoresUnicos = [...new Set((base || []).map(b => b.nome_curto).filter(Boolean))];
+      if (descritoresUnicos.length === 0) {
+        const { data: emp } = await sb.from('competencias')
+          .select('nome_curto').eq('nome', competenciaAlvo).limit(20);
+        descritoresUnicos = [...new Set((emp || []).map(b => b.nome_curto).filter(Boolean))];
+      }
+      assessment = descritoresUnicos.map(d => ({ descritor: d, nota: 1.5 }));
     }
 
     if (assessment.length === 0) {
-      return { error: `Sem descritores cadastrados para a competência "${competenciaAlvo}"` };
+      return { error: `Competência "${competenciaAlvo}" sem descritores cadastrados — pule esta competência ou cadastre os descritores antes` };
     }
 
     // 5) Seleciona descritores e aloca semanas
