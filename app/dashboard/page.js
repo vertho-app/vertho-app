@@ -337,6 +337,7 @@ export default function DashboardHomePage() {
           libraryId={BUNNY_LIBRARY}
           videoId={activeVideo.videoId}
           title={activeVideo.titulo}
+          colaboradorId={data?.colaborador?.id}
           onClose={() => setActiveVideo(null)}
         />
       )}

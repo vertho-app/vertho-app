@@ -12,8 +12,11 @@ import { X } from 'lucide-react';
  * - videoId (string): GUID do vídeo
  * - title (string, opcional): título exibido no topo
  * - onClose (fn): chamado para fechar o modal
+ * - colaboradorId (string, opcional): UUID do colab. Se passado, vai pro
+ *   Bunny como metaData e é capturado pelo webhook /api/webhooks/bunny
+ *   para atribuição user-level.
  */
-export default function VideoModal({ libraryId, videoId, title, onClose }) {
+export default function VideoModal({ libraryId, videoId, title, onClose, colaboradorId }) {
   // Fecha com ESC e trava scroll do body enquanto aberto
   useEffect(() => {
     function onKey(e) { if (e.key === 'Escape') onClose?.(); }
@@ -26,7 +29,11 @@ export default function VideoModal({ libraryId, videoId, title, onClose }) {
     };
   }, [onClose]);
 
-  const src = `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}?autoplay=true&loop=false&muted=false&preload=true&responsive=true`;
+  // metaData é passado pro Bunny e retorna em todo webhook — usamos prefixo
+  // "colab-<uuid>" pra facilitar parse no webhook e evitar colisão com outros
+  // metadados.
+  const metaParam = colaboradorId ? `&metaData=colab-${encodeURIComponent(colaboradorId)}` : '';
+  const src = `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}?autoplay=true&loop=false&muted=false&preload=true&responsive=true${metaParam}`;
 
   return (
     <div
