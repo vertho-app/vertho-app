@@ -4,40 +4,78 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
 import {
-  Search, Bell, ArrowRight, Play, ChevronRight, Star, Loader2,
+  Search, Bell, ArrowRight, Play, ChevronRight, Loader2,
+  Target, AlertTriangle, BookOpen, Trophy,
 } from 'lucide-react';
 import { loadDashboardData } from './dashboard-actions';
+import { loadHomeKpis } from '@/actions/dashboard-kpis';
 import VideoModal from '@/components/video-modal';
 
-// Mocks estáticos — features ainda não existem no projeto
-const MOCK_CERTIFICACOES = 12;
-const MOCK_FEEDBACK = 4.8;
 const MOCK_FOCO = 'Liderança';
-const MOCK_GAPS_CRITICOS = 1;
 
 // Library do Bunny Stream — passada pro VideoModal. A lista de vídeos
 // é carregada dinamicamente via /api/bunny-videos (cache 5 min).
 const BUNNY_LIBRARY = 636615;
 
-function BentoCard({ label, value, unit, accent = 'cyan', icon: Icon }) {
-  const valueColor = accent === 'cyan' ? 'text-cyan-400' : 'text-white';
-  const unitColor = accent === 'cyan' ? 'text-white' : 'text-gray-400';
+/**
+ * Card do bento grid. Suporta:
+ * - Estado normal: label + value (grande) + sublabel/badge
+ * - Estado vazio: label + traço cinza + tooltip explicativo
+ * - Clique opcional pra navegar pra rota
+ */
+function BentoCard({ label, icon: Icon, value, sublabel, badge, badgeAccent, empty, emptyHint, onClick, accent = 'cyan' }) {
+  const valueColor = empty
+    ? 'text-gray-600'
+    : accent === 'cyan' ? 'text-cyan-400' : 'text-white';
+
+  const Wrapper = onClick ? 'button' : 'div';
+
   return (
-    <div
-      className="rounded-2xl border border-white/[0.06] p-5 md:p-7 h-36 md:h-44 flex flex-col justify-between transition-colors duration-300 hover:bg-white/[0.04]"
+    <Wrapper
+      onClick={onClick}
+      className={`text-left rounded-2xl border border-white/[0.06] p-5 md:p-7 h-36 md:h-44 flex flex-col justify-between transition-all duration-300 ${
+        onClick ? 'hover:bg-white/[0.05] hover:border-white/15 cursor-pointer active:scale-[0.99]' : ''
+      }`}
       style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}
     >
-      <span className="text-[10px] font-bold tracking-[0.2em] text-gray-400 uppercase">{label}</span>
-      <div className="flex items-baseline gap-2">
-        <span className={`text-3xl md:text-5xl font-black ${valueColor}`}>{value}</span>
-        {Icon ? (
-          <Icon size={22} className="text-cyan-400 mb-1" fill="currentColor" />
+      <div className="flex items-center gap-1.5">
+        {Icon && <Icon size={11} className="text-gray-500" />}
+        <span className="text-[10px] font-bold tracking-[0.2em] text-gray-400 uppercase truncate">{label}</span>
+      </div>
+
+      <div>
+        {empty ? (
+          <>
+            <span className="text-3xl md:text-5xl font-black text-gray-600">—</span>
+            {emptyHint && <p className="text-[10px] text-gray-500 mt-1.5 leading-snug">{emptyHint}</p>}
+          </>
         ) : (
-          <span className={`text-sm md:text-lg font-semibold ${unitColor}`}>{unit}</span>
+          <>
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <span className={`text-3xl md:text-5xl font-black ${valueColor}`}>{value}</span>
+              {sublabel && <span className="text-xs md:text-sm font-semibold text-gray-400">{sublabel}</span>}
+            </div>
+            {badge && (
+              <span className={`inline-block mt-1.5 text-[9px] md:text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${badgeAccent || 'text-cyan-400 bg-cyan-400/10'}`}>
+                {badge}
+              </span>
+            )}
+          </>
         )}
       </div>
-    </div>
+    </Wrapper>
   );
+}
+
+// Helpers de classificação visual do Fit
+function fitBadge(fit) {
+  if (!fit) return null;
+  const score = Number(fit.score) || 0;
+  if (score >= 85) return { text: 'Excelente', cls: 'text-emerald-400 bg-emerald-400/10' };
+  if (score >= 70) return { text: 'Alta', cls: 'text-cyan-400 bg-cyan-400/10' };
+  if (score >= 50) return { text: 'Razoável', cls: 'text-amber-400 bg-amber-400/10' };
+  if (score >= 30) return { text: 'Baixa', cls: 'text-orange-400 bg-orange-400/10' };
+  return { text: 'Crítica', cls: 'text-red-400 bg-red-400/10' };
 }
 
 function CapacitacaoCard({ item, onClick }) {
@@ -92,6 +130,7 @@ export default function DashboardHomePage() {
   const [loading, setLoading] = useState(true);
   const [activeVideo, setActiveVideo] = useState(null); // { videoId, titulo }
   const [capacitacoes, setCapacitacoes] = useState([]);
+  const [kpis, setKpis] = useState(null);
   const router = useRouter();
   const supabase = getSupabase();
 
@@ -99,8 +138,12 @@ export default function DashboardHomePage() {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/login'); return; }
-      const result = await loadDashboardData(user.email);
+      const [result, kpisR] = await Promise.all([
+        loadDashboardData(user.email),
+        loadHomeKpis(user.email),
+      ]);
       if (!result.error) setData(result);
+      if (!kpisR?.error) setKpis(kpisR);
       setLoading(false);
     }
     init();
@@ -171,12 +214,75 @@ export default function DashboardHomePage() {
           </button>
         </section>
 
-        {/* Bento grid */}
+        {/* Bento grid — 4 KPIs do colaborador */}
         <section className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5 mb-14 md:mb-16">
-          <BentoCard label="Meu PDI" value={MOCK_GAPS_CRITICOS} unit="GAP CRÍTICO" accent="cyan" />
-          <BentoCard label="Progresso Geral" value={progresso} unit="%" accent="white" />
-          <BentoCard label="Certificações" value={MOCK_CERTIFICACOES} unit="ATIVAS" accent="white" />
-          <BentoCard label="Time Feedback" value={MOCK_FEEDBACK} icon={Star} accent="white" />
+          {/* 1. Fit ao cargo */}
+          {(() => {
+            const fit = kpis?.fit;
+            const badge = fitBadge(fit);
+            return (
+              <BentoCard
+                label="Fit ao cargo"
+                icon={Target}
+                value={fit ? Math.round(Number(fit.score)) : null}
+                sublabel={fit ? '/100' : undefined}
+                badge={badge?.text}
+                badgeAccent={badge?.cls}
+                accent="cyan"
+                empty={!fit}
+                emptyHint="Aguardando análise do RH"
+                onClick={() => router.push('/dashboard/perfil-comportamental')}
+              />
+            );
+          })()}
+
+          {/* 2. Gaps prioritários */}
+          {(() => {
+            const gaps = kpis?.gaps;
+            const empty = gaps == null;
+            return (
+              <BentoCard
+                label="Gaps no PDI"
+                icon={AlertTriangle}
+                value={empty ? null : gaps}
+                sublabel={empty ? undefined : (gaps === 1 ? 'a desenvolver' : 'a desenvolver')}
+                accent={gaps > 0 ? 'cyan' : 'white'}
+                empty={empty}
+                emptyHint="PDI ainda não gerado"
+                onClick={() => router.push('/dashboard/pdi')}
+              />
+            );
+          })()}
+
+          {/* 3. Trilha — semana atual */}
+          {(() => {
+            const t = kpis?.trilha;
+            return (
+              <BentoCard
+                label="Capacitação"
+                icon={BookOpen}
+                value={t ? `S${t.semana}` : null}
+                sublabel={t ? `de ${t.total}` : undefined}
+                badge={t ? `Semana ${t.semana}/${t.total}` : null}
+                accent="white"
+                empty={!t}
+                emptyHint="Trilha em montagem"
+                onClick={() => router.push('/dashboard/praticar')}
+              />
+            );
+          })()}
+
+          {/* 4. Pontos de evidência */}
+          <BentoCard
+            label="Pontos de prática"
+            icon={Trophy}
+            value={kpis?.pontos ?? 0}
+            sublabel={(kpis?.pontos ?? 0) === 1 ? 'ponto' : 'pontos'}
+            accent={(kpis?.pontos ?? 0) > 0 ? 'cyan' : 'white'}
+            empty={kpis == null}
+            emptyHint="Comece sua primeira evidência"
+            onClick={() => router.push('/dashboard/praticar')}
+          />
         </section>
 
         {/* Carousel */}
