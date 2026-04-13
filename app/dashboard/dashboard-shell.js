@@ -9,7 +9,7 @@ import BetoChat from '@/components/beto-chat';
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Início', icon: Home },
   { href: '/dashboard/jornada', label: 'Jornada', icon: Clock },
-  { href: '/dashboard/praticar', label: 'Praticar', icon: Play },
+  { href: '/dashboard/temporada', label: 'Temporada', icon: Play },
   { href: '/dashboard/evolucao', label: 'Evolução', icon: TrendingUp },
   { href: '/dashboard/perfil', label: 'Perfil', icon: User },
 ];
