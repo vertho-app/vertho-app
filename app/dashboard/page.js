@@ -16,6 +16,7 @@ const MOCK_FOCO = 'Liderança';
 const MOCK_GAPS_CRITICOS = 1;
 
 // Vídeos reais — Bunny Stream (library 636615)
+// Thumbnails servidas via /api/bunny-thumb/[videoId] (proxy server-side).
 const BUNNY_LIBRARY = 636615;
 const CAPACITACOES = [
   {
@@ -24,31 +25,26 @@ const CAPACITACOES = [
     legenda: 'Módulo 4 de 8 · Continue de onde parou',
     badge: 'CONTINUAR ASSISTINDO',
     progresso: 45,
-    cover: 'linear-gradient(135deg, #0F2B54 0%, #0D9488 100%)',
   },
   {
     videoId: '8a4d4af4-d449-4201-9413-32ce7412b6f0',
     titulo: 'Inteligência Emocional',
     legenda: 'Nova Masterclass',
-    cover: 'linear-gradient(135deg, #001f47 0%, #0F2B54 60%, #00B4D8 140%)',
   },
   {
     videoId: 'f92a5b5b-f598-4c4c-8599-17da6b5779e4',
     titulo: 'Gestão Ágil',
     legenda: 'Certificação',
-    cover: 'linear-gradient(135deg, #0F2A4A 0%, #0D9488 200%)',
   },
   {
     videoId: '9eab8aa3-3d29-4293-968c-8ee05a866908',
     titulo: 'Comunicação Assertiva',
     legenda: 'Pílula de aprendizagem',
-    cover: 'linear-gradient(135deg, #0F2B54 0%, #00B4D8 120%)',
   },
   {
     videoId: '36c677eb-38d6-4bb9-894a-05d92128a7ef',
     titulo: 'Foco no Cliente',
     legenda: 'Pílula de aprendizagem',
-    cover: 'linear-gradient(135deg, #0D9488 0%, #001f47 100%)',
   },
 ];
 
@@ -78,8 +74,16 @@ function CapacitacaoCard({ item, onClick }) {
     <div className="flex-shrink-0 w-[300px] md:w-[420px] snap-start group cursor-pointer" onClick={onClick}>
       <div
         className="relative aspect-video rounded-xl overflow-hidden mb-3 border border-white/[0.05] transition-transform duration-300 group-hover:scale-[1.02]"
-        style={{ background: item.cover }}
+        style={{ background: 'linear-gradient(135deg, #0F2B54 0%, #0D9488 100%)' }}
       >
+        {/* Thumbnail real do Bunny via proxy. Fica sobreposta ao gradient
+            (que serve de fallback se a imagem não carregar). */}
+        <img src={`/api/bunny-thumb/${item.videoId}`}
+          alt={item.titulo}
+          loading="lazy"
+          className="absolute inset-0 w-full h-full object-cover"
+          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
 
         {/* Play overlay central — aparece cheio no hover */}
