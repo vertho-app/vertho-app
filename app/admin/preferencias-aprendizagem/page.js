@@ -12,10 +12,10 @@ export default function PreferenciasGlobaisPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadPreferenciasGlobais().then(r => {
-      setData(r);
-      setLoading(false);
-    });
+    loadPreferenciasGlobais()
+      .then(r => setData(r))
+      .catch(err => setData({ error: err?.message || 'Erro ao carregar' }))
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) {

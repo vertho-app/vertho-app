@@ -55,6 +55,7 @@ const PHASE_CONFIG = [
       { key: 'gerenciar', label: 'Colaboradores & Cargos', icon: Users, href: '/admin/empresas/gerenciar' },
       { key: 'competencias', label: 'Competências', icon: BookOpen, href: '/admin/competencias' },
       { key: 'ppp', label: 'Extrair PPPs', icon: FileText, href: '/admin/ppp' },
+      { key: 'preferencias', label: 'Preferências de Aprendizagem', icon: GraduationCap, hrefFn: (id) => `/admin/empresas/${id}/fase0?tab=preferencias` },
     ]},
     { label: 'Moodle', actions: [
       { key: 'moodle-sync', label: 'Importar + Catalogar', icon: BookOpen, ai: true },

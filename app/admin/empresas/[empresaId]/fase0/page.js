@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft, Loader2, BookOpen, ChevronDown, ExternalLink, Filter, Pencil, Check, X, Users
 } from 'lucide-react';
@@ -19,8 +19,10 @@ const STATUS_COLORS = {
 export default function Fase0Page({ params }) {
   const { empresaId } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'catalogo';
 
-  const [tab, setTab] = useState('catalogo');
+  const [tab, setTab] = useState(initialTab);
   const [loading, setLoading] = useState(true);
   const [catalogo, setCatalogo] = useState([]);
   const [enriquecido, setEnriquecido] = useState([]);
@@ -38,10 +40,10 @@ export default function Fase0Page({ params }) {
   useEffect(() => {
     if (tab === 'preferencias' && !prefs && !loadingPrefs) {
       setLoadingPrefs(true);
-      loadPreferenciasEmpresa(empresaId).then(r => {
-        setPrefs(r);
-        setLoadingPrefs(false);
-      });
+      loadPreferenciasEmpresa(empresaId)
+        .then(r => setPrefs(r))
+        .catch(err => setPrefs({ error: err?.message || 'Erro ao carregar' }))
+        .finally(() => setLoadingPrefs(false));
     }
   }, [tab, empresaId, prefs, loadingPrefs]);
 
