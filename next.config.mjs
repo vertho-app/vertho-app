@@ -8,6 +8,15 @@ const nextConfig = {
     '/api/relatorios/**': ['./public/logo-vertho.png', './public/logo-vertho-cover.png', './public/template-fundo-relatorios.png'],
     '/**': ['./public/logo-vertho.png', './public/logo-vertho-cover.png', './public/template-fundo-relatorios.png'],
   },
+
+  // Anexos em base64 (PDF/Office/imagens até 10 MB) precisam caber no payload
+  // da server action. Default do Next é 1 MB — insuficiente para o fluxo de
+  // envios com anexo adicional. 15 MB dá folga (10 MB binário ≈ 14 MB base64).
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '15mb',
+    },
+  },
 };
 
 export default withSentryConfig(nextConfig, {
