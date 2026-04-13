@@ -272,7 +272,7 @@ function InsightText({ text }) {
   );
 }
 
-function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCached }) {
+function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCached, userEmail }) {
   const router = useRouter();
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [insightsLocal, setInsightsLocal] = useState(insights);
@@ -280,13 +280,20 @@ function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCa
 
   // Dispara geração via IA na primeira visita após o mapeamento
   useEffect(() => {
-    if (insightsCached || insightsLoading || generated) return;
+    if (insightsCached || generated || !userEmail) return;
+    let cancelled = false;
     setInsightsLoading(true);
-    gerarInsightsExecutivos(undefined).catch(() => {}); // best-effort, sem await
-    // Não bloqueamos a UI — o fallback hardcoded já está visível.
-    // Próximas visitas vão pegar o cache.
+    gerarInsightsExecutivos(userEmail)
+      .then(r => {
+        if (cancelled) return;
+        if (r?.insights?.length) setInsightsLocal(r.insights);
+        setGenerated(true);
+      })
+      .catch(() => { if (!cancelled) setGenerated(true); })
+      .finally(() => { if (!cancelled) setInsightsLoading(false); });
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [userEmail]);
 
   const letraDominante = inferLetraDominante(c.perfil_dominante);
   const discScores = [
@@ -514,6 +521,7 @@ export default function PerfilComportamentalPage() {
         tags={tags}
         insights={insights}
         insightsCached={data.insightsCached}
+        userEmail={userEmail}
       />
 
       {/* Análise narrativa (quadrantes DISC, top5 forças/gaps, liderança, pressão) */}

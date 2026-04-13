@@ -71,15 +71,21 @@ export default function DashboardShell({ children }) {
             const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
             const Icon = item.icon;
             return (
-              <button key={item.href} onClick={() => router.push(item.href)}
-                title={item.label}
-                className={`transition-all duration-300 ${
-                  isActive
-                    ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(0,180,216,0.45)] scale-110'
-                    : 'text-gray-500 hover:text-white hover:scale-110 active:scale-95'
-                }`}>
-                <Icon size={22} />
-              </button>
+              <div key={item.href} className="relative group">
+                <button onClick={() => router.push(item.href)}
+                  title={item.label}
+                  className={`transition-all duration-300 block ${
+                    isActive
+                      ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(0,180,216,0.45)] scale-110'
+                      : 'text-gray-500 hover:text-white hover:scale-110 active:scale-95'
+                  }`}>
+                  <Icon size={22} />
+                </button>
+                {/* Tooltip flutuante (desktop) */}
+                <span className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1 rounded-md bg-slate-800/95 text-white text-xs font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-white/10 shadow-lg z-50">
+                  {item.label}
+                </span>
+              </div>
             );
           })}
         </nav>

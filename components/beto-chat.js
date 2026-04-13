@@ -5,6 +5,66 @@ import { MessageSquare, X, Send, Loader2 } from 'lucide-react';
 import { chatWithBeto } from '@/app/actions/beto';
 import { getSupabase } from '@/lib/supabase-browser';
 
+/**
+ * Renderização leve de markdown inline (sem dependência externa):
+ * - **negrito** → <strong>
+ * - *itálico* / _itálico_ → <em>
+ * - `code` → <code>
+ * - linhas que começam com "- " ou "* " viram bullets
+ * - quebras de linha duplas viram parágrafos
+ */
+function MarkdownText({ children }) {
+  const text = String(children || '');
+  // Quebra em parágrafos (linhas em branco)
+  const blocks = text.split(/\n{2,}/);
+  return (
+    <>
+      {blocks.map((block, bi) => {
+        const lines = block.split('\n');
+        const isList = lines.every(l => /^\s*[-*]\s+/.test(l));
+        if (isList) {
+          return (
+            <ul key={bi} className="list-disc list-inside space-y-0.5 my-1">
+              {lines.map((l, li) => (
+                <li key={li}>{renderInline(l.replace(/^\s*[-*]\s+/, ''))}</li>
+              ))}
+            </ul>
+          );
+        }
+        return (
+          <p key={bi} className={bi > 0 ? 'mt-2' : ''}>
+            {lines.map((l, li) => (
+              <span key={li}>
+                {renderInline(l)}
+                {li < lines.length - 1 && <br />}
+              </span>
+            ))}
+          </p>
+        );
+      })}
+    </>
+  );
+}
+
+function renderInline(text) {
+  // Tokeniza por **bold**, *italic*, `code`
+  const parts = [];
+  const re = /(\*\*[^*\n]+\*\*|\*[^*\n]+\*|_[^_\n]+_|`[^`\n]+`)/g;
+  let last = 0;
+  let m;
+  let key = 0;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    const tok = m[0];
+    if (tok.startsWith('**')) parts.push(<strong key={`s${key++}`} className="font-bold text-white">{tok.slice(2, -2)}</strong>);
+    else if (tok.startsWith('`')) parts.push(<code key={`c${key++}`} className="px-1 py-0.5 rounded bg-white/10 text-cyan-300 text-[12px]">{tok.slice(1, -1)}</code>);
+    else parts.push(<em key={`e${key++}`} className="italic">{tok.slice(1, -1)}</em>);
+    last = m.index + tok.length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts;
+}
+
 export default function BetoChat() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([
@@ -92,7 +152,7 @@ export default function BetoChat() {
                 ? 'bg-cyan-500/15 text-cyan-100'
                 : 'bg-white/[0.06] text-gray-300'
             }`}>
-              {m.content}
+              {m.role === 'assistant' ? <MarkdownText>{m.content}</MarkdownText> : m.content}
             </div>
           </div>
         ))}

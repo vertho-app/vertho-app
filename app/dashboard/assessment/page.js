@@ -198,6 +198,20 @@ export default function AssessmentPage() {
         const len = currentR.trim().length;
         return (
           <div className="rounded-2xl p-5 border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold tracking-widest text-cyan-400 uppercase">
+                Pergunta {pergIdx + 1} de {enunciados.length}
+              </span>
+              <div className="flex gap-1">
+                {enunciados.map((_, i) => (
+                  <span key={i} className={`h-1.5 w-6 rounded-full transition-colors ${
+                    i < pergIdx ? 'bg-cyan-400'
+                    : i === pergIdx ? 'bg-cyan-400/60'
+                    : 'bg-white/10'
+                  }`} />
+                ))}
+              </div>
+            </div>
             <div className="rounded-xl p-3 mb-3 border-l-4 border-cyan-400" style={{ background: 'rgba(45,212,191,0.05)' }}>
               <p className="text-sm font-semibold text-white leading-snug">{enunciados[pergIdx]}</p>
             </div>
