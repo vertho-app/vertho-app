@@ -13,7 +13,9 @@ import { registrarVideoWatched } from '@/actions/video-tracking';
  * pra conversar com o iframe e escutar os eventos. Quando `colaboradorId`
  * é passado, cada play_started/play_finished gera 1 row em videos_watched.
  */
-const PLAYERJS_CDN = 'https://cdn.jsdelivr.net/npm/player.js@0.1.0/dist/player.min.js';
+// CDN oficial da Embedly (criadores do protocolo player.js).
+// O pacote no npm/jsDelivr não tem dist buildado.
+const PLAYERJS_CDN = 'https://cdn.embed.ly/player-0.1.0.min.js';
 
 function loadPlayerJs() {
   if (typeof window === 'undefined') return Promise.reject(new Error('no window'));
