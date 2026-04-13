@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, ArrowLeft, AlertCircle, FileText, ArrowRight } from 'lucide-react';
+import { Loader2, AlertCircle, FileText, ArrowRight } from 'lucide-react';
 import { loadPerfilCIS } from './perfil-comportamental-actions';
+import { PageContainer, PageHero } from '@/components/page-shell';
 
 const COMP_GROUPS = {
   D: [
@@ -102,22 +103,27 @@ export default function PerfilComportamentalPage() {
 
   if (!hasDISC) {
     return (
-      <div className="max-w-[600px] mx-auto px-4 py-6">
-        <button onClick={() => router.back()}
-          className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors mb-4">
-          <ArrowLeft size={16} /> Voltar
-        </button>
-        <div className="rounded-xl p-6 border border-white/[0.06] text-center" style={{ background: '#0F2A4A' }}>
-          <AlertCircle size={40} className="text-cyan-400 mx-auto mb-3" />
-          <p className="text-lg font-bold text-white mb-1">Mapeamento Comportamental</p>
-          <p className="text-sm text-gray-400 mb-4">Seu perfil comportamental ainda não foi mapeado. Leva cerca de 8 minutos.</p>
-          <button onClick={() => router.push('/dashboard/perfil-comportamental/mapeamento')}
-            className="px-6 py-3 rounded-xl text-sm font-bold text-white"
-            style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
-            Iniciar Mapeamento
-          </button>
+      <PageContainer>
+        <PageHero
+          eyebrow="PERFIL COMPORTAMENTAL"
+          title="Mapeamento ainda não realizado"
+          subtitle="Seu perfil comportamental ainda não foi mapeado. Leva cerca de 8 minutos."
+        />
+        <div className="flex justify-center">
+          <div className="rounded-2xl border border-white/[0.06] p-8 text-center max-w-[520px] w-full"
+            style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
+            <AlertCircle size={40} className="text-cyan-400 mx-auto mb-3" />
+            <p className="text-sm text-gray-400 mb-5">
+              O mapeamento identifica seu perfil DISC, estilo de liderança e preferências de aprendizagem.
+            </p>
+            <button onClick={() => router.push('/dashboard/perfil-comportamental/mapeamento')}
+              className="px-6 py-3 rounded-full text-sm font-bold text-white"
+              style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+              Iniciar Mapeamento
+            </button>
+          </div>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
@@ -140,22 +146,20 @@ export default function PerfilComportamentalPage() {
   const gaps = sortedComps.slice(-3).reverse();
 
   return (
-    <div className="max-w-[640px] mx-auto px-5 py-8 space-y-4">
-      {/* ── Back ── */}
-      <button onClick={() => router.back()}
-        className="flex items-center gap-1.5 text-base text-gray-400 hover:text-white transition-colors">
-        <ArrowLeft size={18} /> Voltar
-      </button>
+    <PageContainer className="space-y-4">
+      <PageHero
+        eyebrow="SEU PERFIL COMPORTAMENTAL"
+        title="Perfil dominante"
+        titleAccent={c.perfil_dominante}
+        subtitle={c.nome_completo}
+      />
 
-      {/* ── Header ── */}
-      <div className="text-center py-6">
-        <img src="/logo-vertho.png" alt="Vertho" className="h-11 mx-auto mb-5" />
-        <p className="text-base font-extrabold uppercase tracking-[3px] text-cyan-400 mb-4">Seu Perfil Comportamental</p>
-        <div className="text-[140px] font-black tracking-[4px] leading-none mb-3"
-          style={{ background: 'linear-gradient(135deg, #2DD4BF, #FCD34D)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+      {/* ── Big letter display ── */}
+      <div className="text-center py-2 mb-4">
+        <div className="text-[120px] md:text-[160px] font-black tracking-[4px] leading-none"
+          style={{ background: 'linear-gradient(135deg, #00B4D8, #0D9488)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
           {c.perfil_dominante}
         </div>
-        <p className="text-lg text-gray-300">{c.nome_completo}</p>
       </div>
 
       {/* ── CTA Relatório Completo ── */}
@@ -258,6 +262,6 @@ export default function PerfilComportamentalPage() {
           ))}
         </div>
       ))}
-    </div>
+    </PageContainer>
   );
 }

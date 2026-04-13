@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, Target, AlertCircle, ChevronDown, ChevronUp, CheckCircle, AlertTriangle, BookOpen, Calendar, Lightbulb, Star, Download, ArrowLeft } from 'lucide-react';
+import { Loader2, Target, AlertCircle, ChevronDown, ChevronUp, CheckCircle, AlertTriangle, BookOpen, Calendar, Lightbulb, Star, Download } from 'lucide-react';
 import { loadPDI, baixarMeuPdiPdf } from './pdi-actions';
+import { PageContainer, PageHero } from '@/components/page-shell';
 
 const nivelColor = n => n >= 4 ? '#10B981' : n >= 3 ? '#06B6D4' : n >= 2 ? '#F59E0B' : '#EAB308';
 const nivelBg    = n => n >= 4 ? 'rgba(16,185,129,0.15)' : n >= 3 ? 'rgba(6,182,212,0.15)' : n >= 2 ? 'rgba(245,158,11,0.15)' : 'rgba(234,179,8,0.15)';
@@ -208,39 +209,36 @@ export default function PDIPage() {
   // Estados sem PDI ativo
   if (!data.pdiAtivo) {
     return (
-      <div className="max-w-[600px] mx-auto px-4 py-6">
-        <button onClick={() => router.back()}
-          className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors mb-4">
-          <ArrowLeft size={16} /> Voltar
-        </button>
-        <div className="rounded-xl p-6 border border-white/[0.06] text-center" style={{ background: '#0F2A4A' }}>
-          <AlertCircle size={40} className="text-gray-500 mx-auto mb-3" />
-          {data.concluiuAvaliacao ? (
-            <>
-              <p className="text-lg font-bold text-white mb-1">PDI em preparação</p>
-              <p className="text-sm text-gray-400 mb-4">Você já completou todas as avaliações. Seu Plano de Desenvolvimento Individual será gerado em breve pela equipe.</p>
+      <PageContainer>
+        <PageHero
+          eyebrow="MEU PDI"
+          title={data.concluiuAvaliacao ? 'PDI em preparação' : 'Avaliação em andamento'}
+          subtitle={data.concluiuAvaliacao
+            ? 'Você já completou todas as avaliações. Seu Plano de Desenvolvimento Individual será gerado em breve pela equipe.'
+            : data.totalAvaliacao > 0
+              ? `Você já respondeu ${data.respondidas}/${data.totalAvaliacao} competências. Complete todas para que seu PDI seja gerado.`
+              : 'Seu Plano de Desenvolvimento Individual será criado após você completar a avaliação de competências.'}
+        />
+        <div className="flex justify-center">
+          <div className="rounded-2xl border border-white/[0.06] p-8 text-center max-w-[520px] w-full"
+            style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
+            <AlertCircle size={40} className="text-gray-500 mx-auto mb-4" />
+            {data.concluiuAvaliacao ? (
               <button onClick={() => router.push('/dashboard')}
-                className="px-5 py-2.5 rounded-xl text-sm font-bold text-gray-300 border border-white/10 hover:bg-white/5 transition">
+                className="px-6 py-3 rounded-full text-sm font-bold text-white"
+                style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
                 Voltar ao dashboard
               </button>
-            </>
-          ) : (
-            <>
-              <p className="text-lg font-bold text-white mb-1">Avaliação em andamento</p>
-              <p className="text-sm text-gray-400 mb-4">
-                {data.totalAvaliacao > 0
-                  ? `Você já respondeu ${data.respondidas}/${data.totalAvaliacao} competências. Complete todas para que seu PDI seja gerado.`
-                  : 'Seu Plano de Desenvolvimento Individual será criado após você completar a avaliação de competências.'}
-              </p>
+            ) : (
               <button onClick={() => router.push('/dashboard/assessment')}
-                className="px-5 py-2.5 rounded-xl text-sm font-bold text-white"
+                className="px-6 py-3 rounded-full text-sm font-bold text-white"
                 style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
                 {data.respondidas > 0 ? 'Continuar avaliação →' : 'Ir para Avaliação'}
               </button>
-            </>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
@@ -251,27 +249,23 @@ export default function PDIPage() {
   const pontosAtencao = perfil?.pontos_atencao || [];
 
   return (
-    <div className="max-w-[720px] mx-auto px-4 py-6 space-y-4">
-      {/* Voltar */}
-      <button onClick={() => router.back()}
-        className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors">
-        <ArrowLeft size={16} /> Voltar
-      </button>
-
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-cyan-400 mb-1">Plano de Desenvolvimento Individual</p>
-          <h1 className="text-2xl font-black text-white truncate">{data.colaborador.nome_completo}</h1>
-          {data.colaborador.cargo && <p className="text-sm text-gray-400 mt-0.5">{data.colaborador.cargo}</p>}
-          {data.criadoEm && <p className="text-[10px] text-gray-500 mt-1">Gerado em {new Date(data.criadoEm).toLocaleDateString('pt-BR')}</p>}
-        </div>
-        <button onClick={handleDownloadPdf} disabled={downloading}
-          className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-[#0C1829] bg-gradient-to-br from-cyan-400 to-cyan-600 hover:brightness-110 transition disabled:opacity-60">
-          {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-          {downloading ? 'Preparando...' : 'Baixar PDF'}
-        </button>
-      </div>
+    <PageContainer className="space-y-4">
+      <PageHero
+        eyebrow="PLANO DE DESENVOLVIMENTO INDIVIDUAL"
+        title={data.colaborador.nome_completo}
+        subtitle={[
+          data.colaborador.cargo,
+          data.criadoEm && `Gerado em ${new Date(data.criadoEm).toLocaleDateString('pt-BR')}`,
+        ].filter(Boolean).join(' · ')}
+        actions={(
+          <button onClick={handleDownloadPdf} disabled={downloading}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-extrabold text-white transition disabled:opacity-60"
+            style={{ background: 'linear-gradient(135deg, #00B4D8, #0D9488)', boxShadow: '0 0 20px rgba(0,180,216,0.25)' }}>
+            {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+            {downloading ? 'Preparando...' : 'Baixar PDF'}
+          </button>
+        )}
+      />
       {downloadErr && (
         <div className="rounded-lg p-2 border border-red-400/30 text-[11px] text-red-400 text-center" style={{ background: 'rgba(239,68,68,0.05)' }}>
           {downloadErr}
@@ -359,6 +353,6 @@ export default function PDIPage() {
           <p className="text-sm text-gray-200 leading-relaxed italic">{c.mensagem_final}</p>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

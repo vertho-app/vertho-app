@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
 import { TrendingUp, ArrowUp, ArrowDown, Minus, Loader2, BarChart3, Target } from 'lucide-react';
 import { loadEvolucao } from './evolucao-actions';
+import { PageContainer, PageHero, GlassCard } from '@/components/page-shell';
 
 export default function EvolucaoPage() {
   const [data, setData] = useState(null);
@@ -26,56 +27,71 @@ export default function EvolucaoPage() {
   }, []);
 
   if (loading) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
-  if (error) return <div className="p-6 text-center text-gray-400">{error}</div>;
+  if (error) return <PageContainer><p className="text-center text-gray-400">{error}</p></PageContainer>;
   if (!data) return null;
 
   const { competencias, metricas, descritores } = data;
 
   if (competencias.length === 0) {
     return (
-      <div className="max-w-[600px] mx-auto px-4 py-6">
-        <div className="rounded-xl p-6 border border-white/[0.06] text-center" style={{ background: '#0F2A4A' }}>
-          <TrendingUp size={40} className="text-gray-500 mx-auto mb-3" />
-          <p className="text-lg font-bold text-white mb-1">Evolução</p>
-          <p className="text-sm text-gray-400">Seus dados de evolução aparecerão aqui após completar avaliações.</p>
+      <PageContainer>
+        <PageHero
+          eyebrow="SUA EVOLUÇÃO"
+          title="Ainda sem dados de evolução"
+          subtitle="Seus dados de evolução aparecerão aqui após você completar as avaliações."
+        />
+        <div className="flex justify-center">
+          <GlassCard className="text-center max-w-[520px] w-full" padding="p-8">
+            <TrendingUp size={40} className="text-gray-500 mx-auto mb-3" />
+            <p className="text-sm text-gray-400">
+              Complete as avaliações de competências pra começar a acompanhar sua evolução ao longo do tempo.
+            </p>
+          </GlassCard>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
+  const trendBg = metricas.deltaMedia > 0 ? 'rgba(16,185,129,0.12)'
+    : metricas.deltaMedia < 0 ? 'rgba(239,68,68,0.12)'
+    : 'rgba(148,163,184,0.12)';
+
   return (
-    <div className="max-w-[600px] mx-auto px-4 py-6 space-y-4">
-      <div>
-        <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-cyan-400">Sua Evolução</p>
-        <h1 className="text-xl font-bold text-white mt-1">Progresso por Competência</h1>
-      </div>
+    <PageContainer className="space-y-5">
+      <PageHero
+        eyebrow="SUA EVOLUÇÃO"
+        title="Progresso por competência"
+        subtitle="Compare suas avaliações ao longo do tempo e veja onde cresceu mais."
+      />
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl p-4 border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
-          <BarChart3 size={18} className="text-cyan-400 mb-1" />
-          <p className="text-xl font-bold text-white">{metricas.totalAvaliadas}</p>
-          <p className="text-[10px] text-gray-500">Competências avaliadas</p>
-        </div>
-        <div className="rounded-xl p-4 border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
-          <Target size={18} className="text-cyan-400 mb-1" />
-          <p className="text-xl font-bold text-white">{metricas.notaMedia}</p>
-          <p className="text-[10px] text-gray-500">Nota média</p>
-        </div>
+      {/* Métricas principais */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+        <GlassCard padding="p-5">
+          <BarChart3 size={18} className="text-cyan-400 mb-2" />
+          <p className="text-2xl md:text-3xl font-black text-white">{metricas.totalAvaliadas}</p>
+          <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mt-1">Competências avaliadas</p>
+        </GlassCard>
+        <GlassCard padding="p-5">
+          <Target size={18} className="text-cyan-400 mb-2" />
+          <p className="text-2xl md:text-3xl font-black text-white">{metricas.notaMedia}</p>
+          <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mt-1">Nota média</p>
+        </GlassCard>
+        {metricas.comReavaliacao > 0 && (
+          <GlassCard padding="p-5">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-2" style={{ background: trendBg }}>
+              {metricas.deltaMedia > 0 ? <ArrowUp size={18} className="text-emerald-400" /> :
+               metricas.deltaMedia < 0 ? <ArrowDown size={18} className="text-red-400" /> :
+               <Minus size={18} className="text-gray-400" />}
+            </div>
+            <p className={`text-2xl md:text-3xl font-black ${metricas.deltaMedia > 0 ? 'text-emerald-400' : metricas.deltaMedia < 0 ? 'text-red-400' : 'text-white'}`}>
+              {metricas.deltaMedia > 0 ? '+' : ''}{metricas.deltaMedia}
+            </p>
+            <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mt-1">
+              Evolução média · {metricas.comReavaliacao} reavaliadas
+            </p>
+          </GlassCard>
+        )}
       </div>
-
-      {metricas.comReavaliacao > 0 && (
-        <div className="rounded-xl p-4 border border-white/[0.06] flex items-center gap-3" style={{ background: '#0F2A4A' }}>
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${metricas.deltaMedia >= 0 ? 'bg-green-400/10' : 'bg-red-400/10'}`}>
-            {metricas.deltaMedia > 0 ? <ArrowUp size={20} className="text-green-400" /> :
-             metricas.deltaMedia < 0 ? <ArrowDown size={20} className="text-red-400" /> :
-             <Minus size={20} className="text-gray-400" />}
-          </div>
-          <div>
-            <p className="text-sm font-bold text-white">{metricas.deltaMedia > 0 ? '+' : ''}{metricas.deltaMedia} pontos</p>
-            <p className="text-[10px] text-gray-500">Evolução média ({metricas.comReavaliacao} reavaliadas)</p>
-          </div>
-        </div>
-      )}
 
       <div className="space-y-2">
         {competencias.map((comp, i) => {
@@ -143,6 +159,6 @@ export default function EvolucaoPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }
