@@ -7,6 +7,7 @@ import {
   Search, Bell, ArrowRight, Play, ChevronRight, Star, Loader2,
 } from 'lucide-react';
 import { loadDashboardData } from './dashboard-actions';
+import VideoModal from '@/components/video-modal';
 
 // Mocks estáticos — features ainda não existem no projeto
 const MOCK_CERTIFICACOES = 12;
@@ -14,23 +15,40 @@ const MOCK_FEEDBACK = 4.8;
 const MOCK_FOCO = 'Liderança';
 const MOCK_GAPS_CRITICOS = 1;
 
-const MOCK_CAPACITACOES = [
+// Vídeos reais — Bunny Stream (library 636615)
+const BUNNY_LIBRARY = 636615;
+const CAPACITACOES = [
   {
+    videoId: 'f18ce74e-7691-46bc-ba33-8981d7d8ec3a',
     titulo: 'Temporada 1: Liderança de Times',
-    legenda: 'Módulo 4 de 8 • 12 min restantes',
+    legenda: 'Módulo 4 de 8 · Continue de onde parou',
     badge: 'CONTINUAR ASSISTINDO',
     progresso: 45,
     cover: 'linear-gradient(135deg, #0F2B54 0%, #0D9488 100%)',
   },
   {
+    videoId: '8a4d4af4-d449-4201-9413-32ce7412b6f0',
     titulo: 'Inteligência Emocional',
-    legenda: 'Nova Masterclass • 45 min',
+    legenda: 'Nova Masterclass',
     cover: 'linear-gradient(135deg, #001f47 0%, #0F2B54 60%, #00B4D8 140%)',
   },
   {
+    videoId: 'f92a5b5b-f598-4c4c-8599-17da6b5779e4',
     titulo: 'Gestão Ágil',
-    legenda: 'Certificação • 2.5 horas',
+    legenda: 'Certificação',
     cover: 'linear-gradient(135deg, #0F2A4A 0%, #0D9488 200%)',
+  },
+  {
+    videoId: '9eab8aa3-3d29-4293-968c-8ee05a866908',
+    titulo: 'Comunicação Assertiva',
+    legenda: 'Pílula de aprendizagem',
+    cover: 'linear-gradient(135deg, #0F2B54 0%, #00B4D8 120%)',
+  },
+  {
+    videoId: '36c677eb-38d6-4bb9-894a-05d92128a7ef',
+    titulo: 'Foco no Cliente',
+    legenda: 'Pílula de aprendizagem',
+    cover: 'linear-gradient(135deg, #0D9488 0%, #001f47 100%)',
   },
 ];
 
@@ -64,6 +82,17 @@ function CapacitacaoCard({ item, onClick }) {
       >
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
 
+        {/* Play overlay central — aparece cheio no hover */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110"
+            style={{
+              background: 'rgba(0,180,216,0.85)',
+              boxShadow: '0 0 24px rgba(0,180,216,0.5)',
+            }}>
+            <Play size={26} className="text-white ml-1" fill="currentColor" />
+          </div>
+        </div>
+
         {item.badge && (
           <div className="absolute top-4 left-4 bg-cyan-400 text-slate-900 text-[10px] font-extrabold px-3 py-1 rounded-full flex items-center gap-1">
             <Play size={10} fill="currentColor" />
@@ -86,6 +115,7 @@ function CapacitacaoCard({ item, onClick }) {
 export default function DashboardHomePage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeVideo, setActiveVideo] = useState(null); // { videoId, titulo }
   const router = useRouter();
   const supabase = getSupabase();
 
@@ -178,12 +208,23 @@ export default function DashboardHomePage() {
           </div>
 
           <div className="flex gap-4 md:gap-6 overflow-x-auto pb-6 snap-x -mx-5 md:-mx-10 px-5 md:px-10">
-            {MOCK_CAPACITACOES.map((item, i) => (
-              <CapacitacaoCard key={i} item={item} onClick={() => router.push('/dashboard/praticar')} />
+            {CAPACITACOES.map(item => (
+              <CapacitacaoCard key={item.videoId} item={item}
+                onClick={() => setActiveVideo({ videoId: item.videoId, titulo: item.titulo })} />
             ))}
           </div>
         </section>
       </main>
+
+      {/* Modal do vídeo (Bunny Stream) */}
+      {activeVideo && (
+        <VideoModal
+          libraryId={BUNNY_LIBRARY}
+          videoId={activeVideo.videoId}
+          title={activeVideo.titulo}
+          onClose={() => setActiveVideo(null)}
+        />
+      )}
     </div>
   );
 }
