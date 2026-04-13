@@ -54,10 +54,11 @@ export default function BetoChat() {
   if (!open) {
     return (
       <button onClick={() => setOpen(true)}
-        className="fixed bottom-[calc(var(--nav-height)+16px)] right-4 flex items-center gap-2 px-4 h-12 rounded-full shadow-lg z-40"
+        title="Falar com BETO"
+        className="fixed bottom-[calc(var(--nav-height)+12px)] right-3 sm:right-4 flex items-center gap-2 w-11 h-11 sm:w-auto sm:h-12 sm:px-4 justify-center rounded-full shadow-lg z-40"
         style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
         <MessageSquare size={18} className="text-white" />
-        <span className="text-white text-sm font-bold">BETO</span>
+        <span className="hidden sm:inline text-white text-sm font-bold">BETO</span>
       </button>
     );
   }

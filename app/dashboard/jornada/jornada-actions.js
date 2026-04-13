@@ -21,7 +21,7 @@ export async function loadJornada(email) {
   const temDISC = !!colab.perfil_dominante;
   fases.push({
     fase: 1,
-    titulo: 'Diagnostico',
+    titulo: 'Diagnóstico',
     descricao: 'Mapeamento do perfil comportamental (DISC)',
     status: temDISC ? 'completed' : 'pending',
     data: temDISC ? null : null, // DISC date not stored separately
@@ -44,8 +44,8 @@ export async function loadJornada(email) {
   const avaliacaoIniciada = respondidasCount > 0;
   fases.push({
     fase: 2,
-    titulo: 'Avaliacao',
-    descricao: `Competencias avaliadas: ${respondidasCount}/${totalComp}`,
+    titulo: 'Avaliação',
+    descricao: `Competências avaliadas: ${respondidasCount}/${totalComp}`,
     status: avaliacaoCompleta ? 'completed' : avaliacaoIniciada ? 'in-progress' : 'pending',
     data: null,
   });
@@ -82,7 +82,7 @@ export async function loadJornada(email) {
 
   fases.push({
     fase: 4,
-    titulo: 'Capacitacao',
+    titulo: 'Capacitação',
     descricao: envio ? `Semana ${envio.semana_atual || 1} de 14` : 'Trilha de aprendizado semanal',
     status: capacitacaoStatus,
     data: envio?.created_at || null,
@@ -97,8 +97,8 @@ export async function loadJornada(email) {
 
   fases.push({
     fase: 5,
-    titulo: 'Reavaliacao',
-    descricao: 'Medicao de evolucao pos-capacitacao',
+    titulo: 'Reavaliação',
+    descricao: 'Medição de evolução pós-capacitação',
     status: reavaliacoes > 0 ? 'completed' : 'pending',
     data: null,
   });

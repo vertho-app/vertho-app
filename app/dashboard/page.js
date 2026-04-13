@@ -31,9 +31,9 @@ function BentoCard({ label, icon: Icon, onClick, empty, emptyHint, children }) {
       }`}
       style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}
     >
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1.5 min-w-0">
         {Icon && <Icon size={11} className="text-gray-500 shrink-0" />}
-        <span className="text-[10px] font-bold tracking-[0.2em] text-gray-400 uppercase truncate">{label}</span>
+        <span className="text-[10px] font-bold tracking-wider md:tracking-[0.2em] text-gray-400 uppercase truncate">{label}</span>
       </div>
       {empty ? (
         <div>
@@ -60,7 +60,7 @@ function CardPilula({ pilula, onClick }) {
       ? { text: 'Implementação', cls: 'text-amber-400 bg-amber-400/10' }
       : { text: 'Em curso', cls: 'text-cyan-400 bg-cyan-400/10' };
   return (
-    <BentoCard label={`Pílula · semana ${pilula.semana}`} icon={BookOpen} onClick={onClick}>
+    <BentoCard label={`Pílula · S${pilula.semana}`} icon={BookOpen} onClick={onClick}>
       <p className="text-base md:text-lg font-extrabold text-white leading-tight line-clamp-2">
         {pilula.titulo}
       </p>
@@ -73,13 +73,13 @@ function CardPilula({ pilula, onClick }) {
 
 function CardEvidencia({ ev, onClick }) {
   if (!ev) {
-    return <BentoCard label="Evidência da semana" icon={FileEdit} onClick={onClick}
+    return <BentoCard label="Evidência" icon={FileEdit} onClick={onClick}
       empty emptyHint="Aguardando início da trilha" />;
   }
 
   if (ev.status === 'registrada') {
     return (
-      <BentoCard label="Evidência da semana" icon={CheckCircle2} onClick={onClick}>
+      <BentoCard label="Evidência" icon={CheckCircle2} onClick={onClick}>
         <div className="flex items-baseline gap-2">
           <span className="text-3xl md:text-4xl font-black text-emerald-400">✓</span>
           <span className="text-sm md:text-base font-bold text-white">Registrada</span>
@@ -93,7 +93,7 @@ function CardEvidencia({ ev, onClick }) {
 
   if (ev.status === 'atrasada') {
     return (
-      <BentoCard label="Evidência da semana" icon={AlertCircle} onClick={onClick}>
+      <BentoCard label="Evidência" icon={AlertCircle} onClick={onClick}>
         <div className="flex items-baseline gap-2">
           <span className="text-3xl md:text-5xl font-black text-red-400">{ev.diasAtraso}d</span>
           <span className="text-xs md:text-sm font-bold text-red-400">de atraso</span>
@@ -105,7 +105,7 @@ function CardEvidencia({ ev, onClick }) {
 
   // pendente
   return (
-    <BentoCard label="Evidência da semana" icon={Hourglass} onClick={onClick}>
+    <BentoCard label="Evidência" icon={Hourglass} onClick={onClick}>
       <div className="flex items-baseline gap-2">
         <span className="text-3xl md:text-5xl font-black text-cyan-400">{ev.diasRestantes}</span>
         <span className="text-xs md:text-sm font-bold text-white">{ev.diasRestantes === 1 ? 'dia' : 'dias'} restantes</span>
