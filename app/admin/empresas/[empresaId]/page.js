@@ -40,7 +40,7 @@ const AI_MODELS = [
 
 const AI_ACTIONS = new Set([
   'ia1', 'ia2', 'ia3', 'ia4', 'rel-ind', 'rel-gestor', 'rel-rh',
-  'pdis', 'moodle-cat', 'evolucao', 'plenaria', 'rh-rel', 'rh-plen', 'rh-dossie', 'rh-check',
+  'pdis', 'evolucao', 'plenaria', 'rh-rel', 'rh-plen', 'rh-dossie', 'rh-check',
 ]);
 
 const STATUS_COLORS = {
@@ -57,9 +57,7 @@ const PHASE_CONFIG = [
       { key: 'ppp', label: 'Extrair PPPs', icon: FileText, href: '/admin/ppp' },
       { key: 'preferencias', label: 'Preferências de Aprendizagem', icon: GraduationCap, hrefFn: (id) => `/admin/empresas/${id}/fase0?tab=preferencias` },
     ]},
-    { label: 'Moodle', actions: [
-      { key: 'moodle-sync', label: 'Importar + Catalogar', icon: BookOpen, ai: true },
-      { key: 'cobertura', label: 'Cobertura', icon: BarChart3 },
+    { label: 'Conteúdo', actions: [
       { key: 'videos', label: 'Vídeos (Bunny)', icon: Film, hrefFn: (id) => `/admin/videos?empresa=${id}` },
     ]},
     { label: 'Sistema', actions: [
@@ -93,10 +91,6 @@ const PHASE_CONFIG = [
     ]},
   ]},
   { num: 3, icon: GraduationCap, color: '#22C55E', groups: [
-    { label: 'Moodle', actions: [
-      { key: 'prov-moodle', label: 'Provisionar Moodle', icon: BookOpen },
-      { key: 'sync-moodle', label: 'Sync Progresso', icon: RefreshCw },
-    ]},
     { label: 'Capacitação', actions: [
       { key: 'iniciar-cap', label: 'Iniciar Capacitação', icon: Play },
       { key: 'avancar-sem', label: 'Avançar Semana', icon: Clock },
@@ -120,9 +114,7 @@ const ACTION_MAP = {
   ia1: rodarIA1, ia2: rodarIA2, ia3: rodarIA3,
   ia4: rodarIA4,
   trilhas: montarTrilhasLote,
-  'prov-moodle': provisionarMoodleLote, 'sync-moodle': syncProgressoMoodle,
   'iniciar-cap': iniciarCapacitacao, 'avancar-sem': avancarSemana, nudges: enviarNudgesInatividade,
-  'moodle-imp': moodleImportarCatalogo, 'moodle-cat': catalogarConteudosMoodle, cobertura: gerarCoberturaConteudo,
   'cenarios-b': gerarCenariosBLote, reav: iniciarReavaliacaoLote, evolucao: gerarRelatoriosEvolucaoLote, plenaria: gerarPlenariaEvolucao,
   'rh-rel': gerarRelatorioRHManual, 'rh-plen': gerarRelatorioPlenaria,
   'rh-links': enviarLinksPerfil, 'rh-dossie': gerarDossieGestor, 'rh-check': checkCenarios,
@@ -206,20 +198,6 @@ export default function EmpresaPipelinePage({ params }) {
         } else {
           addLog(`❌ ${r.error || 'Erro ao carregar'}`, 'error');
         }
-        setPendingAction(null);
-        return;
-      }
-
-      // Moodle: importar + catalogar em sequência
-      if (actionKey === 'moodle-sync') {
-        addLog('1/2 Importando catálogo do Moodle...', 'info');
-        const r1 = await ACTION_MAP['moodle-imp'](empresaId);
-        if (!r1?.success) { addLog(`❌ ${r1?.error || 'Erro na importação'}`, 'error'); setPendingAction(null); return; }
-        addLog(`✅ ${r1.message}`, 'success');
-
-        addLog('2/2 Catalogando conteúdos com IA...', 'info');
-        const r2 = await ACTION_MAP['moodle-cat'](empresaId, aiConfig || undefined);
-        addLog(r2?.success ? `✅ ${r2.message}` : `❌ ${r2?.error || 'Erro'}`, r2?.success ? 'success' : 'error');
         setPendingAction(null);
         return;
       }
@@ -489,16 +467,6 @@ export default function EmpresaPipelinePage({ params }) {
 
               {isExpanded && (
                 <div className="px-5 pb-4 pt-1 border-t border-white/[0.04]">
-                  {/* Fase 0: link para Moodle */}
-                  {fase.num === 0 && (
-                    <div className="mb-3 mt-2 flex justify-end">
-                      <button onClick={() => router.push(`/admin/empresas/${empresaId}/fase0`)}
-                        className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300">
-                        Moodle detalhes →
-                      </button>
-                    </div>
-                  )}
-
                   {/* Fase 1: resumo compacto + link para detalhes */}
                   {fase.num === 1 && (() => {
                     if (!top10Loaded) refreshTop10();
