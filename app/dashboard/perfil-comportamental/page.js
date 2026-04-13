@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, AlertCircle, FileText, ArrowRight } from 'lucide-react';
-import { loadPerfilCIS } from './perfil-comportamental-actions';
+import { Loader2, AlertCircle, FileText, ArrowRight, Zap, Users, Anchor, ListChecks, Sparkles } from 'lucide-react';
+import { loadPerfilCIS, gerarInsightsExecutivos } from './perfil-comportamental-actions';
 import { PageContainer, PageHero } from '@/components/page-shell';
+import { intensidadeQualitativa } from '@/lib/disc-arquetipos';
 
 const COMP_GROUPS = {
   D: [
@@ -72,6 +73,156 @@ function discRadarPoints(disc) {
     `${cx},${cy + scale(disc.S)}`,
     `${cx - scale(disc.C)},${cy}`,
   ].join(' ');
+}
+
+// ── Resumo Executivo ─────────────────────────────────────────────────────
+const DISC_ICONS = { D: Zap, I: Users, S: Anchor, C: ListChecks };
+const DISC_LABELS_FULL = { D: 'Dominância', I: 'Influência', S: 'Estabilidade', C: 'Conformidade' };
+
+function inferLetraDominante(perfil) {
+  return String(perfil || '').trim().toUpperCase()[0] || 'D';
+}
+
+// Render dos insights com **negrito** transformado em <strong>
+function InsightText({ text }) {
+  const parts = String(text || '').split(/(\*\*[^*]+\*\*)/g);
+  return (
+    <>
+      {parts.map((p, i) =>
+        p.startsWith('**') && p.endsWith('**')
+          ? <strong key={i} className="text-cyan-400 font-bold">{p.slice(2, -2)}</strong>
+          : <span key={i}>{p}</span>
+      )}
+    </>
+  );
+}
+
+function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCached }) {
+  const router = useRouter();
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insightsLocal, setInsightsLocal] = useState(insights);
+  const [generated, setGenerated] = useState(insightsCached);
+
+  // Dispara geração via IA na primeira visita após o mapeamento
+  useEffect(() => {
+    if (insightsCached || insightsLoading || generated) return;
+    setInsightsLoading(true);
+    gerarInsightsExecutivos(undefined).catch(() => {}); // best-effort, sem await
+    // Não bloqueamos a UI — o fallback hardcoded já está visível.
+    // Próximas visitas vão pegar o cache.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const letraDominante = inferLetraDominante(c.perfil_dominante);
+  const discScores = [
+    { letra: 'D', valor: c.d_natural || 0 },
+    { letra: 'I', valor: c.i_natural || 0 },
+    { letra: 'S', valor: c.s_natural || 0 },
+    { letra: 'C', valor: c.c_natural || 0 },
+  ];
+
+  return (
+    <div className="space-y-5">
+      {/* Card 1: Identificação executiva */}
+      <div className="rounded-2xl p-5 md:p-6 border border-cyan-400/15 relative overflow-hidden"
+        style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
+        {/* glow decorativo */}
+        <div className="absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl -mr-12 -mt-12"
+          style={{ background: 'rgba(0,180,216,0.08)' }} />
+
+        <div className="relative">
+          <h2 className="font-extrabold text-xl md:text-2xl text-white">{c.nome_completo}</h2>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <span className="text-cyan-400 font-bold text-base">{arquetipo?.nome || 'Profissional'}</span>
+            <span className="h-1 w-1 rounded-full bg-gray-600" />
+            <span className="text-gray-400 font-bold text-xs tracking-widest uppercase">
+              {DISC_LABELS_FULL[letraDominante] || 'Perfil'} dominante
+            </span>
+          </div>
+          {arquetipo?.desc && (
+            <p className="text-sm text-gray-400 mt-2">{arquetipo.desc}</p>
+          )}
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {tags.map(t => (
+              <span key={t} className="border border-white/10 px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider text-gray-300"
+                style={{ background: 'rgba(255,255,255,0.04)' }}>
+                {t}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Card 2: DISC sintético */}
+      <div className="rounded-2xl p-5 border border-white/[0.06]"
+        style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
+        <div className="flex items-center gap-5 md:gap-6">
+          {/* Letra dominante grande */}
+          <div className="relative w-20 h-20 md:w-24 md:h-24 shrink-0 flex items-center justify-center rounded-full border border-cyan-400/30"
+            style={{ background: 'rgba(0,180,216,0.08)' }}>
+            <div className="flex flex-col items-center">
+              <span className="text-4xl md:text-5xl font-black text-cyan-400" style={{ textShadow: '0 0 20px rgba(0,180,216,0.4)' }}>
+                {letraDominante}
+              </span>
+              <span className="text-[8px] uppercase font-bold text-gray-400 tracking-[0.18em] -mt-1">
+                Dominante
+              </span>
+            </div>
+          </div>
+
+          {/* 4 mini-itens DISC */}
+          <div className="grid grid-cols-2 gap-y-3 gap-x-3 md:gap-x-4 flex-1 min-w-0">
+            {discScores.map(({ letra, valor }) => {
+              const Icon = DISC_ICONS[letra];
+              return (
+                <div key={letra} className="flex items-center gap-2 min-w-0">
+                  <Icon size={18} className="text-cyan-400 shrink-0" />
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter truncate">
+                      {DISC_LABELS_FULL[letra]}
+                    </span>
+                    <span className="text-xs font-bold text-white">
+                      {intensidadeQualitativa(valor)} {letra}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Card 3: Insights acionáveis */}
+      <div className="rounded-2xl p-5 md:p-6 border border-white/[0.06] space-y-4"
+        style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
+        <div className="flex items-center justify-between">
+          <h3 className="font-extrabold text-lg text-white">Insights acionáveis</h3>
+          {!insightsCached && insightsLoading && (
+            <Loader2 size={14} className="animate-spin text-cyan-400" />
+          )}
+        </div>
+
+        <ul className="space-y-3">
+          {insightsLocal.slice(0, 3).map((insight, i) => (
+            <li key={i} className="flex items-start gap-3">
+              <div className="mt-1.5 h-2 w-2 rounded-full bg-cyan-400 shrink-0"
+                style={{ boxShadow: '0 0 8px rgba(0,180,216,0.6)' }} />
+              <p className="text-gray-300 text-sm leading-relaxed">
+                <InsightText text={insight} />
+              </p>
+            </li>
+          ))}
+        </ul>
+
+        <button onClick={() => router.push('/dashboard/perfil-comportamental/relatorio')}
+          className="w-full text-white font-bold py-3 rounded-full text-sm uppercase tracking-wider transition-all hover:opacity-90 active:scale-[0.98] mt-2 inline-flex items-center justify-center gap-2"
+          style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)', boxShadow: '0 0 24px rgba(0,180,216,0.2)' }}>
+          <Sparkles size={14} /> Ver Análise Completa
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default function PerfilComportamentalPage() {
@@ -145,22 +296,26 @@ export default function PerfilComportamentalPage() {
   const strengths = sortedComps.slice(0, 3);
   const gaps = sortedComps.slice(-3).reverse();
 
+  // Resumo executivo (arquétipo + tags + insights) vem da action
+  const arquetipo = data.arquetipo;
+  const tags = data.tags || [];
+  const insights = data.insights || [];
+
   return (
-    <PageContainer className="space-y-4">
-      <PageHero
-        eyebrow="SEU PERFIL COMPORTAMENTAL"
-        title="Perfil dominante"
-        titleAccent={c.perfil_dominante}
-        subtitle={c.nome_completo}
+    <PageContainer className="space-y-5">
+      <PageHero eyebrow="SEU PERFIL COMPORTAMENTAL" title="Resumo Executivo" />
+
+      <ResumoExecutivo
+        colaborador={c}
+        arquetipo={arquetipo}
+        tags={tags}
+        insights={insights}
+        insightsCached={data.insightsCached}
       />
 
-      {/* ── Big letter display ── */}
-      <div className="text-center py-2 mb-4">
-        <div className="text-[120px] md:text-[160px] font-black tracking-[4px] leading-none"
-          style={{ background: 'linear-gradient(135deg, #00B4D8, #0D9488)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          {c.perfil_dominante}
-        </div>
-      </div>
+      <p className="text-[10px] font-bold tracking-[0.2em] text-gray-500 uppercase mt-8">
+        Análise detalhada
+      </p>
 
       {/* ── CTA Relatório Completo ── */}
       <button onClick={() => router.push('/dashboard/perfil-comportamental/relatorio')}

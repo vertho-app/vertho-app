@@ -63,8 +63,11 @@ export default function BetoChat() {
   }
 
   return (
-    <div className="fixed bottom-[calc(var(--nav-height)+8px)] right-3 left-3 sm:left-auto sm:w-[360px] z-50 rounded-2xl border border-white/10 overflow-hidden shadow-2xl flex flex-col"
-      style={{ background: '#0A1D35', maxHeight: '60dvh' }}>
+    <div
+      className="fixed z-50 rounded-2xl border border-white/10 overflow-hidden shadow-2xl flex flex-col
+                 inset-x-3 top-[calc(var(--header-height)+8px)] bottom-[calc(var(--nav-height)+8px)]
+                 sm:inset-auto sm:right-4 sm:bottom-[calc(var(--nav-height)+16px)] sm:top-auto sm:w-[380px] sm:max-h-[70dvh]"
+      style={{ background: '#0A1D35' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]"
         style={{ background: '#0F2A4A' }}>
@@ -80,7 +83,7 @@ export default function BetoChat() {
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[200px]">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3 sm:min-h-[200px]">
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[85%] px-3 py-2 rounded-xl text-sm leading-relaxed ${
