@@ -3,8 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, AlertCircle, FileText, ArrowRight, Zap, Users, Anchor, ListChecks, Sparkles } from 'lucide-react';
+import { Loader2, AlertCircle, Download, Zap, Users, Anchor, ListChecks, Sparkles } from 'lucide-react';
 import { loadPerfilCIS, gerarInsightsExecutivos } from './perfil-comportamental-actions';
+import {
+  loadBehavioralReport,
+  baixarRelatorioComportamentalPdf,
+} from './relatorio/relatorio-actions';
 import { PageContainer, PageHero } from '@/components/page-shell';
 import { intensidadeQualitativa } from '@/lib/disc-arquetipos';
 
@@ -73,6 +77,177 @@ function discRadarPoints(disc) {
     `${cx},${cy + scale(disc.S)}`,
     `${cx - scale(disc.C)},${cy}`,
   ].join(' ');
+}
+
+// ── Análise Narrativa (ex-relatório) ─────────────────────────────────────
+const DISC_QUAD = {
+  D: { bar: '#EAB308', bg: 'rgba(234,179,8,0.10)', text: '#FDE68A' },
+  I: { bar: '#94A3B8', bg: 'rgba(148,163,184,0.10)', text: '#CBD5E1' },
+  S: { bar: '#10B981', bg: 'rgba(16,185,129,0.10)', text: '#6EE7B7' },
+  C: { bar: '#3B82F6', bg: 'rgba(59,130,246,0.10)', text: '#93C5FD' },
+};
+
+function DiscBars({ scores, mutedColor }) {
+  return (
+    <div className="space-y-2">
+      {['D', 'I', 'S', 'C'].map(d => {
+        const v = Math.max(0, Math.min(100, scores[d] || 0));
+        return (
+          <div key={d} className="flex items-center gap-2">
+            <span className="w-4 text-xs font-extrabold text-gray-400">{d}</span>
+            <div className="flex-1 h-3 rounded-full overflow-hidden relative" style={{ background: 'rgba(255,255,255,0.06)' }}>
+              <div className="h-full rounded-full" style={{ width: `${v}%`, background: mutedColor || DISC_QUAD[d].bar }} />
+            </div>
+            <span className="w-7 text-right text-[11px] font-bold text-gray-300">{Math.round(v)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function QuadrantCard({ letter, title, n, a, traco, descricao, adaptacao }) {
+  const q = DISC_QUAD[letter];
+  return (
+    <div className="rounded-xl p-4 border" style={{ background: q.bg, borderColor: 'rgba(255,255,255,0.08)', borderLeft: `4px solid ${q.bar}` }}>
+      <div className="flex items-start justify-between mb-2">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{title}</p>
+          <p className="text-base font-extrabold text-white mt-0.5">{traco || '—'}</p>
+        </div>
+        <div className="text-right shrink-0 ml-3">
+          <p className="text-[9px] text-gray-500">Natural</p>
+          <p className="text-xl font-black" style={{ color: q.text }}>{Math.round(n)}</p>
+        </div>
+      </div>
+      <p className="text-xs text-gray-300 leading-relaxed">{descricao}</p>
+      {adaptacao && (
+        <p className="text-[10px] text-gray-400 italic mt-2 pt-2 border-t border-white/10">
+          Adaptado {Math.round(a)} — {adaptacao}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function AnaliseNarrativa({ data }) {
+  if (!data) return null;
+  const { raw, texts } = data;
+  if (!raw || !texts) return null;
+
+  return (
+    <div className="space-y-5">
+      {/* Síntese */}
+      <div className="rounded-2xl p-5 border border-cyan-400/20" style={{ background: 'rgba(13,148,136,0.08)' }}>
+        <p className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-400 mb-2">Síntese do perfil</p>
+        <p className="text-sm text-gray-200 leading-relaxed">{texts.sintese_perfil}</p>
+      </div>
+
+      {/* Snapshot DISC natural vs adaptado */}
+      <div className="rounded-2xl p-5 border border-white/[0.06] grid grid-cols-1 md:grid-cols-2 gap-5"
+        style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
+        <div>
+          <p className="text-[10px] font-extrabold uppercase tracking-widest text-gray-400 mb-3 text-center">
+            Natural — quem você é
+          </p>
+          <DiscBars scores={raw.disc_natural} />
+        </div>
+        <div>
+          <p className="text-[10px] font-extrabold uppercase tracking-widest text-gray-400 mb-3 text-center">
+            Adaptado — exigência do ambiente
+          </p>
+          <DiscBars scores={raw.disc_adaptado} mutedColor="#94A3B8" />
+        </div>
+      </div>
+
+      {/* 4 quadrantes DISC */}
+      <div>
+        <h2 className="text-base font-extrabold text-white mb-3">Como Você Funciona</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <QuadrantCard letter="D" title="Como lida com desafios"
+            n={raw.disc_natural.D} a={raw.disc_adaptado.D}
+            traco={texts.quadrante_D?.titulo_traco} descricao={texts.quadrante_D?.descricao} adaptacao={texts.quadrante_D?.adaptacao} />
+          <QuadrantCard letter="I" title="Como lida com pessoas"
+            n={raw.disc_natural.I} a={raw.disc_adaptado.I}
+            traco={texts.quadrante_I?.titulo_traco} descricao={texts.quadrante_I?.descricao} adaptacao={texts.quadrante_I?.adaptacao} />
+          <QuadrantCard letter="S" title="Como dita o ritmo"
+            n={raw.disc_natural.S} a={raw.disc_adaptado.S}
+            traco={texts.quadrante_S?.titulo_traco} descricao={texts.quadrante_S?.descricao} adaptacao={texts.quadrante_S?.adaptacao} />
+          <QuadrantCard letter="C" title="Como lida com regras"
+            n={raw.disc_natural.C} a={raw.disc_adaptado.C}
+            traco={texts.quadrante_C?.titulo_traco} descricao={texts.quadrante_C?.descricao} adaptacao={texts.quadrante_C?.adaptacao} />
+        </div>
+      </div>
+
+      {/* Top 5 forças/desenvolver */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="rounded-2xl p-4 border border-white/[0.06]" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
+          <p className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-400 mb-3">5 maiores forças</p>
+          <div className="space-y-2">
+            {(texts.top5_forcas || []).map((f, i) => {
+              const comp = raw.competencias.find(c => c.nome === f.competencia);
+              return (
+                <div key={i} className="flex gap-2 items-start">
+                  <span className="text-base font-black text-emerald-400 w-7 text-right">
+                    {comp ? Math.round(comp.natural) : '—'}
+                  </span>
+                  <div>
+                    <p className="text-xs font-bold text-white">{f.competencia}</p>
+                    <p className="text-[10px] text-gray-400 leading-relaxed">{f.frase}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div className="rounded-2xl p-4 border border-white/[0.06]" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
+          <p className="text-[10px] font-extrabold uppercase tracking-widest text-amber-400 mb-3">5 oportunidades</p>
+          <div className="space-y-2">
+            {(texts.top5_desenvolver || []).map((d, i) => {
+              const comp = raw.competencias.find(c => c.nome === d.competencia);
+              return (
+                <div key={i} className="flex gap-2 items-start">
+                  <span className="text-base font-black text-amber-400 w-7 text-right">
+                    {comp ? Math.round(comp.natural) : '—'}
+                  </span>
+                  <div>
+                    <p className="text-xs font-bold text-white">{d.competencia}</p>
+                    <p className="text-[10px] text-gray-400 leading-relaxed">{d.frase}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Liderança narrativa */}
+      <div className="rounded-2xl p-5 border border-white/[0.06]" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
+        <h2 className="text-sm font-extrabold text-white mb-3">Estilo de Liderança</h2>
+        <p className="text-sm text-gray-300 leading-relaxed mb-3">{texts.lideranca_sintese}</p>
+        <div className="rounded-lg p-3 border-l-2 border-amber-400" style={{ background: 'rgba(245,158,11,0.08)' }}>
+          <p className="text-[10px] font-extrabold uppercase tracking-widest text-amber-400 mb-1">Oportunidades</p>
+          <p className="text-xs text-gray-300">{texts.lideranca_trabalhar}</p>
+        </div>
+      </div>
+
+      {/* Pontos sob pressão */}
+      <div className="rounded-2xl p-5 border border-white/[0.06]" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
+        <h2 className="text-sm font-extrabold text-white mb-1">Pontos a desenvolver sob pressão</h2>
+        <p className="text-[10px] text-gray-500 mb-3">
+          Comportamentos que perfis {raw.perfil_dominante} podem apresentar em momentos de estresse
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          {(texts.pontos_desenvolver_pressao || []).map((p, i) => (
+            <div key={i} className="flex items-start gap-2 px-3 py-2 rounded-md" style={{ background: 'rgba(15,42,74,0.6)' }}>
+              <div className="w-3 h-3 rounded-sm border-2 border-amber-400 mt-0.5 shrink-0" />
+              <span className="text-[11px] text-gray-200 leading-relaxed">{p}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Resumo Executivo ─────────────────────────────────────────────────────
@@ -214,12 +389,6 @@ function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCa
             </li>
           ))}
         </ul>
-
-        <button onClick={() => router.push('/dashboard/perfil-comportamental/relatorio')}
-          className="w-full text-white font-bold py-3 rounded-full text-sm uppercase tracking-wider transition-all hover:opacity-90 active:scale-[0.98] mt-2 inline-flex items-center justify-center gap-2"
-          style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)', boxShadow: '0 0 24px rgba(0,180,216,0.2)' }}>
-          <Sparkles size={14} /> Ver Análise Completa
-        </button>
       </div>
     </div>
   );
@@ -227,8 +396,11 @@ function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCa
 
 export default function PerfilComportamentalPage() {
   const [data, setData] = useState(null);
+  const [narrativa, setNarrativa] = useState(null); // { raw, texts } do loadBehavioralReport
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [userEmail, setUserEmail] = useState(null);
+  const [downloading, setDownloading] = useState(false);
   const router = useRouter();
   const supabase = getSupabase();
 
@@ -236,14 +408,34 @@ export default function PerfilComportamentalPage() {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/login'); return; }
+      setUserEmail(user.email);
 
-      const result = await loadPerfilCIS(user.email);
+      // Carrega perfil (barras, 16 competências etc) e análise narrativa em paralelo
+      const [result, narr] = await Promise.all([
+        loadPerfilCIS(user.email),
+        loadBehavioralReport(user.email).catch(() => null),
+      ]);
       if (result.error) setError(result.error);
       else setData(result);
+      if (narr && !narr.error) setNarrativa(narr);
       setLoading(false);
     }
     init();
   }, []);
+
+  async function handleDownloadPdf() {
+    if (!userEmail) return;
+    setDownloading(true);
+    const r = await baixarRelatorioComportamentalPdf(userEmail);
+    setDownloading(false);
+    if (r.error) { setError(r.error); return; }
+    const a = document.createElement('a');
+    a.href = r.url;
+    a.download = r.filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 
   if (loading) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
   if (error) return <div className="p-6 text-center text-gray-400">{error}</div>;
@@ -303,7 +495,18 @@ export default function PerfilComportamentalPage() {
 
   return (
     <PageContainer className="space-y-5">
-      <PageHero eyebrow="SEU PERFIL COMPORTAMENTAL" title="Resumo Executivo" />
+      <PageHero
+        eyebrow="SEU PERFIL COMPORTAMENTAL"
+        title="Resumo Executivo"
+        actions={narrativa ? (
+          <button onClick={handleDownloadPdf} disabled={downloading}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-extrabold text-white transition disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg, #00B4D8, #0D9488)', boxShadow: '0 0 20px rgba(0,180,216,0.25)' }}>
+            {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+            {downloading ? 'Preparando...' : 'Baixar PDF'}
+          </button>
+        ) : null}
+      />
 
       <ResumoExecutivo
         colaborador={c}
@@ -313,28 +516,19 @@ export default function PerfilComportamentalPage() {
         insightsCached={data.insightsCached}
       />
 
+      {/* Análise narrativa (quadrantes DISC, top5 forças/gaps, liderança, pressão) */}
+      {narrativa && (
+        <>
+          <p className="text-[10px] font-bold tracking-[0.2em] text-gray-500 uppercase mt-8 mb-1">
+            Análise narrativa
+          </p>
+          <AnaliseNarrativa data={narrativa} />
+        </>
+      )}
+
       <p className="text-[10px] font-bold tracking-[0.2em] text-gray-500 uppercase mt-8">
         Análise detalhada
       </p>
-
-      {/* ── CTA Relatório Completo ── */}
-      <button onClick={() => router.push('/dashboard/perfil-comportamental/relatorio')}
-        className="w-full rounded-2xl p-4 border border-cyan-400/30 text-left hover:border-cyan-400/60 transition-all"
-        style={{ background: 'rgba(6,182,212,0.08)' }}>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-              style={{ background: 'rgba(13,148,136,0.18)' }}>
-              <FileText size={18} className="text-cyan-300" />
-            </div>
-            <div>
-              <p className="text-sm font-extrabold text-white">Relatório Completo (5 páginas)</p>
-              <p className="text-[11px] text-gray-400">Análise interpretativa do seu perfil + plano de ação. Disponível para baixar em PDF.</p>
-            </div>
-          </div>
-          <ArrowRight size={18} className="text-cyan-300 shrink-0" />
-        </div>
-      </button>
 
       {/* ── Radar DISC ── */}
       <div className="rounded-2xl p-5 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
