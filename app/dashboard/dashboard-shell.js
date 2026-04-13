@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Home, Clock, Play, TrendingUp, User, LogOut } from 'lucide-react';
+import { Home, Clock, Play, TrendingUp, User, LogOut, Settings } from 'lucide-react';
 import BetoChat from '@/components/beto-chat';
 
 const NAV_ITEMS = [
@@ -13,6 +13,15 @@ const NAV_ITEMS = [
   { href: '/dashboard/evolucao', label: 'Evolução', icon: TrendingUp },
   { href: '/dashboard/perfil', label: 'Perfil', icon: User },
 ];
+
+function initialsFromEmail(email) {
+  if (!email) return 'U';
+  const base = email.split('@')[0] || '';
+  const parts = base.replace(/[._-]+/g, ' ').split(' ').filter(Boolean);
+  const first = parts[0]?.[0] || base[0] || 'U';
+  const second = parts[1]?.[0] || '';
+  return (first + second).toUpperCase();
+}
 
 export default function DashboardShell({ children }) {
   const router = useRouter();
@@ -42,10 +51,47 @@ export default function DashboardShell({ children }) {
 
   if (!user) return null;
 
+  const initials = initialsFromEmail(user.email);
+
   return (
     <div className="min-h-dvh flex flex-col" style={{ background: 'linear-gradient(180deg, #091D35 0%, #0F2A4A 100%)' }}>
-      {/* Header */}
-      <header className="flex items-center justify-between px-4 shrink-0"
+      {/* Sidebar (desktop) */}
+      <aside
+        className="hidden md:flex fixed left-0 top-0 h-full w-20 border-r border-white/[0.08] flex-col items-center py-6 gap-8 z-40"
+        style={{ background: 'rgba(9,29,53,0.95)', backdropFilter: 'blur(12px)' }}
+      >
+        <button onClick={() => router.push('/dashboard/perfil')}
+          className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-md"
+          style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}
+          title="Meu perfil">
+          {initials}
+        </button>
+        <nav className="flex flex-col gap-6 flex-1">
+          {NAV_ITEMS.map(item => {
+            const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+            const Icon = item.icon;
+            return (
+              <button key={item.href} onClick={() => router.push(item.href)}
+                title={item.label}
+                className={`transition-all duration-300 ${
+                  isActive
+                    ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(0,180,216,0.45)] scale-110'
+                    : 'text-gray-500 hover:text-white hover:scale-110 active:scale-95'
+                }`}>
+                <Icon size={22} />
+              </button>
+            );
+          })}
+        </nav>
+        <button onClick={handleLogout}
+          title="Sair"
+          className="text-gray-500 hover:text-red-400 transition-colors">
+          <LogOut size={20} />
+        </button>
+      </aside>
+
+      {/* Header mobile (some em md+) */}
+      <header className="md:hidden flex items-center justify-between px-4 shrink-0"
         style={{ height: 'var(--header-height)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <img src="/logo-vertho.png" alt="Vertho" style={{ height: '22px' }} />
         <button onClick={handleLogout} className="text-gray-500 hover:text-white transition-colors" title="Sair">
@@ -53,13 +99,13 @@ export default function DashboardShell({ children }) {
         </button>
       </header>
 
-      {/* Content */}
-      <main className="flex-1 overflow-y-auto pb-[calc(var(--nav-height)+16px)]">
+      {/* Content — ml-20 em desktop pra respeitar a sidebar fixa */}
+      <main className="flex-1 overflow-y-auto pb-[calc(var(--nav-height)+16px)] md:pb-0 md:ml-20">
         {children}
       </main>
 
-      {/* Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 flex items-center justify-around border-t border-white/[0.06]"
+      {/* Bottom Nav (mobile apenas) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 flex items-center justify-around border-t border-white/[0.06] z-40"
         style={{ height: 'var(--nav-height)', background: '#091D35' }}>
         {NAV_ITEMS.map(item => {
           const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
@@ -74,7 +120,7 @@ export default function DashboardShell({ children }) {
         })}
       </nav>
 
-      {/* BETO — chat flutuante, escuta o evento open-beto disparado pelo card "Mentor IA" */}
+      {/* BETO — chat flutuante */}
       <BetoChat />
     </div>
   );

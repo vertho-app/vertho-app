@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, CheckCircle2, Circle, Clock, ChevronRight } from 'lucide-react';
 import { loadJornada } from './jornada-actions';
+import { PageContainer, PageHero } from '@/components/page-shell';
 
 const FASE_HREF = {
   1: '/dashboard/perfil-comportamental',
@@ -20,7 +21,7 @@ const STATUS_CONFIG = {
     bgColor: 'rgba(16, 185, 129, 0.12)',
     borderColor: 'rgba(16, 185, 129, 0.3)',
     icon: CheckCircle2,
-    label: 'Concluida',
+    label: 'Concluída',
   },
   'in-progress': {
     color: '#00B4D8',
@@ -59,21 +60,25 @@ export default function JornadaPage() {
   }, []);
 
   if (loading) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
-  if (error) return <div className="p-6 text-center text-gray-400">{error}</div>;
+  if (error) return <PageContainer><p className="text-center text-gray-400">{error}</p></PageContainer>;
   if (!data) return null;
 
   const { colaborador, fases } = data;
+  const totalFases = fases.length;
+  const concluidas = fases.filter(f => f.status === 'completed').length;
+  const proxima = fases.find(f => f.status !== 'completed');
 
   return (
-    <div className="max-w-[600px] mx-auto px-4 py-6 space-y-4">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold text-white">Sua Jornada</h1>
-        <p className="text-sm text-gray-400 mt-1">{colaborador.nome_completo}</p>
-      </div>
+    <PageContainer>
+      <PageHero
+        eyebrow="SUA JORNADA"
+        title={proxima ? `Você está na Fase ${proxima.fase}` : 'Jornada concluída'}
+        titleAccent={proxima ? `— ${proxima.titulo}` : ''}
+        subtitle={`${concluidas} de ${totalFases} fases concluídas · ${colaborador.nome_completo}`}
+      />
 
       {/* Timeline */}
-      <div className="relative">
+      <div className="relative max-w-[720px]">
         {fases.map((fase, idx) => {
           const config = STATUS_CONFIG[fase.status];
           const Icon = config.icon;
@@ -83,12 +88,12 @@ export default function JornadaPage() {
             <div key={fase.fase} className="flex gap-4">
               {/* Timeline line + dot */}
               <div className="flex flex-col items-center">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 border"
+                <div className="w-11 h-11 md:w-12 md:h-12 rounded-full flex items-center justify-center shrink-0 border-2"
                   style={{ background: config.bgColor, borderColor: config.borderColor }}>
-                  <Icon size={20} style={{ color: config.color }} />
+                  <Icon size={22} style={{ color: config.color }} />
                 </div>
                 {!isLast && (
-                  <div className="w-0.5 flex-1 min-h-[24px]"
+                  <div className="w-0.5 flex-1 min-h-[32px]"
                     style={{ background: fase.status === 'completed' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255, 255, 255, 0.06)' }} />
                 )}
               </div>
@@ -100,18 +105,24 @@ export default function JornadaPage() {
                     const href = FASE_HREF[fase.fase];
                     if (href) router.push(href);
                   }}
-                  className="w-full rounded-xl p-4 border text-left transition-all hover:brightness-110 hover:border-white/20 active:scale-[0.98]"
-                  style={{ background: '#0F2A4A', borderColor: config.borderColor }}>
+                  className="w-full rounded-2xl p-4 md:p-5 border text-left transition-all hover:bg-white/[0.05] hover:border-white/15 active:scale-[0.99]"
+                  style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    backdropFilter: 'blur(12px)',
+                    borderColor: config.borderColor,
+                  }}>
                   <div className="flex items-center justify-between mb-1 gap-2">
-                    <p className="text-sm font-bold text-white">Fase {fase.fase} — {fase.titulo}</p>
-                    <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full shrink-0"
+                    <p className="text-sm md:text-base font-bold text-white">
+                      Fase {fase.fase} — {fase.titulo}
+                    </p>
+                    <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full shrink-0"
                       style={{ color: config.color, background: config.bgColor }}>
                       {config.label}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-[11px] text-gray-400">{fase.descricao}</p>
+                      <p className="text-xs text-gray-400">{fase.descricao}</p>
                       {fase.data && (
                         <p className="text-[10px] text-gray-500 mt-1">
                           {new Date(fase.data).toLocaleDateString('pt-BR')}
@@ -126,6 +137,6 @@ export default function JornadaPage() {
           );
         })}
       </div>
-    </div>
+    </PageContainer>
   );
 }
