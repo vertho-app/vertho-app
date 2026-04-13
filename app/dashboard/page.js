@@ -15,38 +15,9 @@ const MOCK_FEEDBACK = 4.8;
 const MOCK_FOCO = 'Liderança';
 const MOCK_GAPS_CRITICOS = 1;
 
-// Vídeos reais — Bunny Stream (library 636615)
-// Thumbnails servidas via /api/bunny-thumb/[videoId] (proxy server-side).
+// Library do Bunny Stream — passada pro VideoModal. A lista de vídeos
+// é carregada dinamicamente via /api/bunny-videos (cache 5 min).
 const BUNNY_LIBRARY = 636615;
-const CAPACITACOES = [
-  {
-    videoId: 'f18ce74e-7691-46bc-ba33-8981d7d8ec3a',
-    titulo: 'Temporada 1: Liderança de Times',
-    legenda: 'Módulo 4 de 8 · Continue de onde parou',
-    badge: 'CONTINUAR ASSISTINDO',
-    progresso: 45,
-  },
-  {
-    videoId: '8a4d4af4-d449-4201-9413-32ce7412b6f0',
-    titulo: 'Inteligência Emocional',
-    legenda: 'Nova Masterclass',
-  },
-  {
-    videoId: 'f92a5b5b-f598-4c4c-8599-17da6b5779e4',
-    titulo: 'Gestão Ágil',
-    legenda: 'Certificação',
-  },
-  {
-    videoId: '9eab8aa3-3d29-4293-968c-8ee05a866908',
-    titulo: 'Comunicação Assertiva',
-    legenda: 'Pílula de aprendizagem',
-  },
-  {
-    videoId: '36c677eb-38d6-4bb9-894a-05d92128a7ef',
-    titulo: 'Foco no Cliente',
-    legenda: 'Pílula de aprendizagem',
-  },
-];
 
 function BentoCard({ label, value, unit, accent = 'cyan', icon: Icon }) {
   const valueColor = accent === 'cyan' ? 'text-cyan-400' : 'text-white';
@@ -120,6 +91,7 @@ export default function DashboardHomePage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeVideo, setActiveVideo] = useState(null); // { videoId, titulo }
+  const [capacitacoes, setCapacitacoes] = useState([]);
   const router = useRouter();
   const supabase = getSupabase();
 
@@ -132,6 +104,14 @@ export default function DashboardHomePage() {
       setLoading(false);
     }
     init();
+  }, []);
+
+  // Lista de vídeos do Bunny — atualiza a cada montagem; o server cacheia 5 min
+  useEffect(() => {
+    fetch('/api/bunny-videos')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setCapacitacoes(Array.isArray(d?.items) ? d.items : []))
+      .catch(() => setCapacitacoes([]));
   }, []);
 
   if (loading) {
@@ -211,12 +191,16 @@ export default function DashboardHomePage() {
             </button>
           </div>
 
-          <div className="flex gap-4 md:gap-6 overflow-x-auto pb-6 snap-x -mx-5 md:-mx-10 px-5 md:px-10">
-            {CAPACITACOES.map(item => (
-              <CapacitacaoCard key={item.videoId} item={item}
-                onClick={() => setActiveVideo({ videoId: item.videoId, titulo: item.titulo })} />
-            ))}
-          </div>
+          {capacitacoes.length === 0 ? (
+            <p className="text-xs text-gray-500">Nenhum vídeo disponível no momento.</p>
+          ) : (
+            <div className="flex gap-4 md:gap-6 overflow-x-auto pb-6 snap-x -mx-5 md:-mx-10 px-5 md:px-10">
+              {capacitacoes.map(item => (
+                <CapacitacaoCard key={item.videoId} item={item}
+                  onClick={() => setActiveVideo({ videoId: item.videoId, titulo: item.titulo })} />
+              ))}
+            </div>
+          )}
         </section>
       </main>
 

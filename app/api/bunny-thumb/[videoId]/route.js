@@ -4,7 +4,6 @@
 // Server-side passamos esse Referer e a CDN libera. Cacheamos a imagem 24h
 // no edge da Vercel (s-maxage) e no browser (max-age) para evitar re-fetch.
 
-const PULL_ZONE = 'vz-3d55d19e-b06.b-cdn.net';
 const REFERER = 'https://www.vertho.com.br/';
 const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -15,7 +14,12 @@ export async function GET(_req, { params }) {
     return new Response('Invalid videoId', { status: 400 });
   }
 
-  const url = `https://${PULL_ZONE}/${videoId}/thumbnail.jpg`;
+  const pullZone = process.env.BUNNY_PULL_ZONE;
+  if (!pullZone) {
+    return new Response('BUNNY_PULL_ZONE not configured', { status: 500 });
+  }
+
+  const url = `https://${pullZone}/${videoId}/thumbnail.jpg`;
 
   try {
     const res = await fetch(url, {
