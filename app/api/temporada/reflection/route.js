@@ -4,8 +4,8 @@ import { callAIChat } from '@/actions/ai-client';
 import { promptSocratic } from '@/lib/season-engine/prompts/socratic';
 import { promptAnalytic } from '@/lib/season-engine/prompts/analytic';
 
-const MAX_TURNS_SOCRATIC = 6;
-const MAX_TURNS_ANALYTIC = 8;
+const MAX_TURNS_SOCRATIC = 10; // 5 IA + 5 colab
+const MAX_TURNS_ANALYTIC = 8;  // 4 IA + 4 colab
 
 /**
  * POST /api/temporada/reflection
