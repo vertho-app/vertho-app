@@ -55,28 +55,10 @@ export default function VideoModal({ libraryId, videoId, title, onClose, colabor
     };
   }, [onClose]);
 
-  // ─── Fallback: registra "session_end" com tempo de modal aberto ────────
-  // Garante que temos pelo menos 1 evento por sessão mesmo se player.js
-  // não funcionar. Evento "play_started" só dispara se player.js captar;
-  // "session_end" SEMPRE dispara ao desmontar, com a duração real do modal.
-  useEffect(() => {
-    if (!colaboradorId || !videoId) return;
-    openedAtRef.current = Date.now();
-    return () => {
-      const seconds = Math.round((Date.now() - openedAtRef.current) / 1000);
-      // Só registra se ficou aberto mais que 3s (evita clique errado)
-      if (seconds < 3) return;
-      registrarVideoWatched({
-        colaboradorId,
-        videoId,
-        eventType: startedRef.current || finishedRef.current
-          ? 'session_end'
-          : 'session_end_no_player_events',
-        secondsWatched: seconds,
-        videoLength: Math.round(durationRef.current) || null,
-      }).catch(() => {});
-    };
-  }, [colaboradorId, videoId]);
+  // Removemos o fallback "session_end por tempo de modal" porque ele conta
+  // pausa/abas em segundo plano como assistido. Só gravamos eventos reais
+  // vindos do player (via player.js). Se o player não emitir, a tabela
+  // fica vazia — preferível a dado mentiroso.
 
   // metaData é passado pro Bunny e retorna nos eventos de status (não de play).
   // Usamos pra manter atribuição futura se a API mudar.
@@ -93,48 +75,75 @@ export default function VideoModal({ libraryId, videoId, title, onClose, colabor
     let cancelled = false;
     let player = null;
 
+    function setupPlayer(pj) {
+      if (cancelled || !iframeRef.current) return;
+      console.log('[VideoModal] player.js carregado, instanciando Player...');
+      try {
+        player = new pj.Player(iframeRef.current);
+      } catch (e) {
+        console.error('[VideoModal] erro ao instanciar Player:', e);
+        return;
+      }
+      playerRef.current = player;
+
+      const timeoutReady = setTimeout(() => {
+        console.warn('[VideoModal] player.js: evento "ready" não chegou em 10s — iframe não responde ao protocolo player.js');
+      }, 10_000);
+
+      player.on('ready', () => {
+        clearTimeout(timeoutReady);
+        console.log('[VideoModal] player.js: ready ✓');
+        player.getDuration(d => {
+          durationRef.current = Number(d) || 0;
+          console.log('[VideoModal] player.js: duration =', d);
+        });
+
+        player.on('play', () => {
+          console.log('[VideoModal] player.js: play');
+          if (startedRef.current) return;
+          startedRef.current = true;
+          registrarVideoWatched({
+            colaboradorId,
+            videoId,
+            eventType: 'play_started',
+            secondsWatched: Math.round(timeRef.current),
+            videoLength: Math.round(durationRef.current),
+          }).catch(() => {});
+        });
+
+        player.on('timeupdate', ({ seconds, duration } = {}) => {
+          if (Number.isFinite(seconds)) timeRef.current = seconds;
+          if (Number.isFinite(duration)) durationRef.current = duration;
+        });
+
+        player.on('ended', () => {
+          console.log('[VideoModal] player.js: ended');
+          if (finishedRef.current) return;
+          finishedRef.current = true;
+          const dur = Math.round(durationRef.current || timeRef.current);
+          registrarVideoWatched({
+            colaboradorId,
+            videoId,
+            eventType: 'play_finished',
+            secondsWatched: dur,
+            videoLength: dur,
+          }).catch(() => {});
+        });
+      });
+    }
+
     loadPlayerJs()
       .then(pj => {
-        if (cancelled || !iframeRef.current) return;
-        player = new pj.Player(iframeRef.current);
-        playerRef.current = player;
-
-        player.on('ready', () => {
-          // Pega duração pra ter disponível no finished
-          player.getDuration(d => { durationRef.current = Number(d) || 0; });
-
-          player.on('play', () => {
-            if (startedRef.current) return;
-            startedRef.current = true;
-            registrarVideoWatched({
-              colaboradorId,
-              videoId,
-              eventType: 'play_started',
-              secondsWatched: Math.round(timeRef.current),
-              videoLength: Math.round(durationRef.current),
-            }).catch(() => {});
-          });
-
-          player.on('timeupdate', ({ seconds, duration } = {}) => {
-            if (Number.isFinite(seconds)) timeRef.current = seconds;
-            if (Number.isFinite(duration)) durationRef.current = duration;
-          });
-
-          player.on('ended', () => {
-            if (finishedRef.current) return;
-            finishedRef.current = true;
-            const dur = Math.round(durationRef.current || timeRef.current);
-            registrarVideoWatched({
-              colaboradorId,
-              videoId,
-              eventType: 'play_finished',
-              secondsWatched: dur,
-              videoLength: dur,
-            }).catch(() => {});
-          });
-        });
+        // Espera iframe carregar pra garantir que o Player consegue conversar
+        const iframe = iframeRef.current;
+        if (!iframe) return;
+        if (iframe.contentWindow) {
+          setupPlayer(pj);
+        } else {
+          iframe.addEventListener('load', () => setupPlayer(pj), { once: true });
+        }
       })
-      .catch(err => console.warn('[VideoModal] player.js:', err));
+      .catch(err => console.warn('[VideoModal] player.js load falhou:', err));
 
     return () => {
       cancelled = true;
