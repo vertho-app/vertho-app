@@ -50,6 +50,10 @@ export default function AdminDashboard() {
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-cyan-400/30 hover:text-cyan-400 transition-all">
             <BookMarked size={14} /> Competencias
           </button>
+          <button onClick={() => router.push('/admin/preferencias-aprendizagem')}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-cyan-400/30 hover:text-cyan-400 transition-all">
+            <GraduationCap size={14} /> Preferências
+          </button>
           <button onClick={() => router.push('/admin/simulador')}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-amber-400/30 hover:text-amber-400 transition-all">
             <Zap size={14} /> Simulador

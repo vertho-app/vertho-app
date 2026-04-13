@@ -3,10 +3,12 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft, Loader2, BookOpen, ChevronDown, ExternalLink, Filter, Pencil, Check, X
+  ArrowLeft, Loader2, BookOpen, ChevronDown, ExternalLink, Filter, Pencil, Check, X, Users
 } from 'lucide-react';
 import { loadMoodleCatalogo, loadCatalogoEnriquecido, loadCobertura, salvarCatalogoItem, loadDescritoresPorCompetencia } from '@/actions/moodle-load';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
+import { loadPreferenciasEmpresa } from '@/actions/preferencias-aprendizagem';
+import PreferenciasRanking from '@/components/preferencias-ranking';
 
 const STATUS_COLORS = {
   verde: { bg: 'bg-green-400/15', text: 'text-green-400', label: 'Coberto' },
@@ -28,7 +30,20 @@ export default function Fase0Page({ params }) {
   const [editId, setEditId] = useState(null);
   const [editData, setEditData] = useState({});
   const [toast, setToast] = useState(null);
+  const [prefs, setPrefs] = useState(null);
+  const [loadingPrefs, setLoadingPrefs] = useState(false);
   function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 2500); }
+
+  // Carrega preferências sob demanda quando a tab é ativada
+  useEffect(() => {
+    if (tab === 'preferencias' && !prefs && !loadingPrefs) {
+      setLoadingPrefs(true);
+      loadPreferenciasEmpresa(empresaId).then(r => {
+        setPrefs(r);
+        setLoadingPrefs(false);
+      });
+    }
+  }, [tab, empresaId, prefs, loadingPrefs]);
 
   async function refresh() {
     const [cat, enr, cob, compsR] = await Promise.all([
@@ -92,6 +107,7 @@ export default function Fase0Page({ params }) {
           { key: 'catalogo', label: `Catálogo (${catalogo.length})` },
           { key: 'enriquecido', label: `Catalogado IA (${enriquecido.length})` },
           { key: 'cobertura', label: `Cobertura (${cobertura.length})` },
+          { key: 'preferencias', label: 'Preferências de Aprendizagem' },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all ${
@@ -330,6 +346,45 @@ export default function Fase0Page({ params }) {
                     })()}
                   </tbody>
                 </table>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ═══ PREFERÊNCIAS DE APRENDIZAGEM ═══ */}
+      {tab === 'preferencias' && (
+        <div>
+          {loadingPrefs ? (
+            <div className="flex justify-center py-12"><Loader2 size={24} className="animate-spin text-cyan-400" /></div>
+          ) : prefs?.error ? (
+            <div className="text-center py-10 text-sm text-red-400">{prefs.error}</div>
+          ) : (
+            <>
+              {/* Resumo */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+                <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
+                  <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mb-1">Total na empresa</p>
+                  <p className="text-2xl font-extrabold text-white">{prefs?.totalColabs || 0}</p>
+                </div>
+                <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
+                  <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mb-1">Responderam</p>
+                  <p className="text-2xl font-extrabold text-cyan-400">{prefs?.respondentes || 0}</p>
+                </div>
+                <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
+                  <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mb-1">% de adesão</p>
+                  <p className="text-2xl font-extrabold text-white">
+                    {prefs?.totalColabs ? Math.round((prefs.respondentes / prefs.totalColabs) * 100) : 0}%
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-white/[0.06] p-5" style={{ background: '#0F2A4A' }}>
+                <PreferenciasRanking
+                  data={prefs}
+                  title="Ranking das preferências"
+                  subtitle={`Média (escala 1-5) das respostas dos ${prefs?.respondentes || 0} colaboradores que concluíram o mapeamento. Use isso para priorizar formatos de conteúdo das trilhas.`}
+                />
               </div>
             </>
           )}
