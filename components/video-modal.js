@@ -6,20 +6,41 @@ import { registrarVideoWatched } from '@/actions/video-tracking';
 
 /**
  * Modal que abre um vídeo hospedado no Bunny Stream dentro de um iframe.
- * Fecha com ESC, clique no overlay ou no botão X.
  *
- * Props:
- * - libraryId (string|number): ID da library do Bunny Stream
- * - videoId (string): GUID do vídeo
- * - title (string, opcional): título exibido no topo
- * - onClose (fn): chamado para fechar o modal
- * - colaboradorId (string, opcional): UUID do colab. Se passado, vai pro
- *   Bunny como metaData e é capturado pelo webhook /api/webhooks/bunny
- *   para atribuição user-level.
+ * Tracking de play/ended:
+ * O iframe do Bunny (Plyr) não emite postMessage por padrão. Usamos a
+ * biblioteca player.js (protocolo oficial de embeds) carregada via CDN
+ * pra conversar com o iframe e escutar os eventos. Quando `colaboradorId`
+ * é passado, cada play_started/play_finished gera 1 row em videos_watched.
  */
+const PLAYERJS_CDN = 'https://cdn.jsdelivr.net/npm/player.js@0.1.0/dist/player.min.js';
+
+function loadPlayerJs() {
+  if (typeof window === 'undefined') return Promise.reject(new Error('no window'));
+  if (window.playerjs) return Promise.resolve(window.playerjs);
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[src="${PLAYERJS_CDN}"]`);
+    if (existing) {
+      existing.addEventListener('load', () => resolve(window.playerjs));
+      existing.addEventListener('error', reject);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = PLAYERJS_CDN;
+    script.async = true;
+    script.onload = () => resolve(window.playerjs);
+    script.onerror = () => reject(new Error('falha ao carregar player.js'));
+    document.body.appendChild(script);
+  });
+}
+
 export default function VideoModal({ libraryId, videoId, title, onClose, colaboradorId }) {
+  const iframeRef = useRef(null);
+  const playerRef = useRef(null);
   const startedRef = useRef(false);
   const finishedRef = useRef(false);
+  const durationRef = useRef(0);
+  const timeRef = useRef(0);
 
   // Fecha com ESC e trava scroll do body enquanto aberto
   useEffect(() => {
@@ -33,76 +54,74 @@ export default function VideoModal({ libraryId, videoId, title, onClose, colabor
     };
   }, [onClose]);
 
-  // ─── Tracking via postMessage do iframe Bunny ─────────────────────────
-  // O Bunny player (baseado em Plyr) emite eventos via window.postMessage.
-  // Este listener é permissivo: loga TUDO que chega pra gente descobrir
-  // o formato exato e registra play_started/play_finished quando detecta.
+  // metaData é passado pro Bunny e retorna nos eventos de status (não de play).
+  // Usamos pra manter atribuição futura se a API mudar.
+  const metaParam = colaboradorId ? `&metaData=colab-${encodeURIComponent(colaboradorId)}` : '';
+  const src = `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}?autoplay=true&loop=false&muted=false&preload=true&responsive=true${metaParam}`;
+
+  // ─── Tracking via player.js (comunicação iframe ↔ pai) ────────────────
   useEffect(() => {
     if (!colaboradorId || !videoId) return;
     startedRef.current = false;
     finishedRef.current = false;
+    durationRef.current = 0;
+    timeRef.current = 0;
+    let cancelled = false;
+    let player = null;
 
-    function handleMessage(e) {
-      // Log temporário pra diagnosticar o formato real de eventos do Bunny
-      // Pode ser removido depois que confirmarmos que chega.
-      if (e.origin?.includes('mediadelivery') || e.origin?.includes('bunnycdn') || e.origin?.includes('b-cdn')) {
-        console.debug('[VideoModal] msg do Bunny:', e.origin, e.data);
+    loadPlayerJs()
+      .then(pj => {
+        if (cancelled || !iframeRef.current) return;
+        player = new pj.Player(iframeRef.current);
+        playerRef.current = player;
+
+        player.on('ready', () => {
+          // Pega duração pra ter disponível no finished
+          player.getDuration(d => { durationRef.current = Number(d) || 0; });
+
+          player.on('play', () => {
+            if (startedRef.current) return;
+            startedRef.current = true;
+            registrarVideoWatched({
+              colaboradorId,
+              videoId,
+              eventType: 'play_started',
+              secondsWatched: Math.round(timeRef.current),
+              videoLength: Math.round(durationRef.current),
+            }).catch(() => {});
+          });
+
+          player.on('timeupdate', ({ seconds, duration } = {}) => {
+            if (Number.isFinite(seconds)) timeRef.current = seconds;
+            if (Number.isFinite(duration)) durationRef.current = duration;
+          });
+
+          player.on('ended', () => {
+            if (finishedRef.current) return;
+            finishedRef.current = true;
+            const dur = Math.round(durationRef.current || timeRef.current);
+            registrarVideoWatched({
+              colaboradorId,
+              videoId,
+              eventType: 'play_finished',
+              secondsWatched: dur,
+              videoLength: dur,
+            }).catch(() => {});
+          });
+        });
+      })
+      .catch(err => console.warn('[VideoModal] player.js:', err));
+
+    return () => {
+      cancelled = true;
+      if (player) {
+        try { player.off('play'); } catch {}
+        try { player.off('ended'); } catch {}
+        try { player.off('timeupdate'); } catch {}
+        try { player.off('ready'); } catch {}
       }
-
-      const d = e.data;
-      if (!d) return;
-
-      // Pode chegar como string (ex: "play") ou objeto { event, type, ... }
-      let evt = '';
-      let currentTime = 0;
-      let duration = 0;
-
-      if (typeof d === 'string') {
-        evt = d.toLowerCase();
-      } else if (typeof d === 'object') {
-        evt = String(d.eventName || d.event || d.type || d.name || '').toLowerCase();
-        currentTime = Number(d.currentTime || d.time || d.position || 0);
-        duration = Number(d.duration || d.length || 0);
-      }
-
-      if (!evt) return;
-
-      // Primeiro play
-      if ((evt === 'play' || evt === 'playing' || evt === 'loaded' || evt === 'started')
-          && !startedRef.current) {
-        startedRef.current = true;
-        registrarVideoWatched({
-          colaboradorId,
-          videoId,
-          eventType: 'play_started',
-          secondsWatched: Math.round(currentTime),
-          videoLength: Math.round(duration),
-        }).catch(() => {});
-        return;
-      }
-
-      // Final do vídeo
-      if ((evt === 'ended' || evt === 'finished' || evt === 'complete') && !finishedRef.current) {
-        finishedRef.current = true;
-        registrarVideoWatched({
-          colaboradorId,
-          videoId,
-          eventType: 'play_finished',
-          secondsWatched: Math.round(duration || currentTime),
-          videoLength: Math.round(duration || currentTime),
-        }).catch(() => {});
-      }
-    }
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
+    };
   }, [colaboradorId, videoId]);
-
-  // metaData é passado pro Bunny e retorna em todo webhook — usamos prefixo
-  // "colab-<uuid>" pra facilitar parse no webhook e evitar colisão com outros
-  // metadados.
-  const metaParam = colaboradorId ? `&metaData=colab-${encodeURIComponent(colaboradorId)}` : '';
-  const src = `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}?autoplay=true&loop=false&muted=false&preload=true&responsive=true${metaParam}`;
 
   return (
     <div
@@ -115,18 +134,17 @@ export default function VideoModal({ libraryId, videoId, title, onClose, colabor
         className="relative w-full max-w-[1100px] rounded-2xl overflow-hidden border border-white/10"
         style={{ background: '#0A1D35', boxShadow: '0 0 60px rgba(0,180,216,0.15)' }}
       >
-        {(title || true) && (
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
-            <p className="text-sm font-semibold text-white truncate">{title || 'Vídeo'}</p>
-            <button onClick={onClose}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-              title="Fechar (Esc)">
-              <X size={18} />
-            </button>
-          </div>
-        )}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+          <p className="text-sm font-semibold text-white truncate">{title || 'Vídeo'}</p>
+          <button onClick={onClose}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            title="Fechar (Esc)">
+            <X size={18} />
+          </button>
+        </div>
         <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
           <iframe
+            ref={iframeRef}
             src={src}
             loading="lazy"
             allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
