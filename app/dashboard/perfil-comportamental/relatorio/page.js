@@ -13,7 +13,7 @@ const NAVY = '#0F2B54';
 const TEAL = '#0D9488';
 const DISC = {
   D: { bar: '#EAB308', bg: 'rgba(234,179,8,0.10)', text: '#FDE68A' },
-  I: { bar: '#F59E0B', bg: 'rgba(245,158,11,0.10)', text: '#FCD34D' },
+  I: { bar: '#94A3B8', bg: 'rgba(148,163,184,0.10)', text: '#CBD5E1' },
   S: { bar: '#10B981', bg: 'rgba(16,185,129,0.10)', text: '#6EE7B7' },
   C: { bar: '#3B82F6', bg: 'rgba(59,130,246,0.10)', text: '#93C5FD' },
 };

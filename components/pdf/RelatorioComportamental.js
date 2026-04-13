@@ -15,7 +15,7 @@ const BORDER = '#E2E8F0';
 
 const DISC = {
   D: { bg: '#FEF9C3', border: '#FACC15', text: '#854D0E', bar: '#EAB308' },
-  I: { bg: '#FEF3C7', border: '#FCD34D', text: '#92400E', bar: '#F59E0B' },
+  I: { bg: '#F1F5F9', border: '#CBD5E1', text: '#475569', bar: '#94A3B8' },
   S: { bg: '#D1FAE5', border: '#34D399', text: '#065F46', bar: '#10B981' },
   C: { bg: '#DBEAFE', border: '#60A5FA', text: '#1E40AF', bar: '#3B82F6' },
 };
