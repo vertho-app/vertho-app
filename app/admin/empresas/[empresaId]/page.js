@@ -10,13 +10,14 @@ import {
   ArrowLeft, Building2, Users, Brain, Mail, Bot, GraduationCap, TrendingUp,
   Zap, Database, FileText, Send, ClipboardCheck, BarChart3, Target, Clock,
   Play, BookOpen, Layers, MessageSquare, FileBarChart, CheckCircle,
-  Loader2, AlertTriangle, X, ChevronDown, ChevronUp, Trash2, Settings, Trophy, Plus, Filter, Search, RefreshCw, Film
+  Loader2, AlertTriangle, X, ChevronDown, ChevronUp, Trash2, Settings, Trophy, Plus, Filter, Search, RefreshCw, Film, Sparkles
 } from 'lucide-react';
 
 import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, checkCenarioUm } from '@/actions/fase1';
 import { listarPendentesSimulacao, simularUmaResposta } from '@/actions/simulador-conversas';
 import { gerarRelatorioIndividual, gerarRelatoriosIndividuaisLote, gerarRelatorioGestor as gerarRelGestor, gerarRelatorioRH as gerarRelRH } from '@/actions/relatorios';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
+import { gerarTemporadasLote } from '@/actions/temporadas';
 import {
   loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, limparMapeamentoCompetencias, limparCenariosB, limparReavaliacaoSessoes, definirSenhaTesteEmpresa, loadColaboradoresLista,
   rodarIA1, rodarIA2, rodarIA3,
@@ -40,7 +41,7 @@ const AI_MODELS = [
 
 const AI_ACTIONS = new Set([
   'ia1', 'ia2', 'ia3', 'ia4', 'rel-ind', 'rel-gestor', 'rel-rh',
-  'pdis', 'evolucao', 'plenaria', 'rh-rel', 'rh-plen', 'rh-dossie', 'rh-check',
+  'pdis', 'evolucao', 'plenaria', 'rh-rel', 'rh-plen', 'rh-dossie', 'rh-check', 'temporadas',
 ]);
 
 const STATUS_COLORS = {
@@ -91,7 +92,11 @@ const PHASE_CONFIG = [
     ]},
   ]},
   { num: 3, icon: GraduationCap, color: '#22C55E', groups: [
-    { label: 'Capacitação', actions: [
+    { label: 'Temporadas', actions: [
+      { key: 'temporadas', label: 'Gerar Temporadas', icon: Sparkles, ai: true },
+      { key: 'temporadas-ver', label: 'Ver Temporadas', icon: Layers, hrefFn: (id) => `/admin/temporadas?empresa=${id}` },
+    ]},
+    { label: 'Capacitação (legado)', actions: [
       { key: 'iniciar-cap', label: 'Iniciar Capacitação', icon: Play },
       { key: 'avancar-sem', label: 'Avançar Semana', icon: Clock },
       { key: 'nudges', label: 'Nudges Inatividade', icon: AlertTriangle },
@@ -115,6 +120,7 @@ const ACTION_MAP = {
   ia4: rodarIA4,
   trilhas: montarTrilhasLote,
   'iniciar-cap': iniciarCapacitacao, 'avancar-sem': avancarSemana, nudges: enviarNudgesInatividade,
+  temporadas: gerarTemporadasLote,
   'cenarios-b': gerarCenariosBLote, reav: iniciarReavaliacaoLote, evolucao: gerarRelatoriosEvolucaoLote, plenaria: gerarPlenariaEvolucao,
   'rh-rel': gerarRelatorioRHManual, 'rh-plen': gerarRelatorioPlenaria,
   'rh-links': enviarLinksPerfil, 'rh-dossie': gerarDossieGestor, 'rh-check': checkCenarios,

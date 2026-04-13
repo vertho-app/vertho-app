@@ -154,6 +154,55 @@ function inferirContexto(segmento) {
 }
 
 /**
+ * Gera temporadas para todos os colaboradores de uma empresa que têm
+ * competência foco definida (em trilhas existentes ou no parametro).
+ */
+export async function gerarTemporadasLote(empresaId, aiConfig) {
+  try {
+    if (!empresaId) return { error: 'empresaId obrigatório' };
+    const sb = createSupabaseAdmin();
+    const { data: colabs } = await sb.from('colaboradores')
+      .select('id, nome_completo').eq('empresa_id', empresaId);
+    if (!colabs?.length) return { error: 'Sem colaboradores' };
+
+    const resultados = [];
+    for (const c of colabs) {
+      const r = await gerarTemporada({ colaboradorId: c.id, aiConfig });
+      resultados.push({ colab: c.nome_completo, ...r });
+    }
+    const ok = resultados.filter(r => r.ok).length;
+    return { ok: true, total: colabs.length, gerados: ok, resultados, message: `${ok}/${colabs.length} temporadas geradas` };
+  } catch (err) {
+    console.error('[gerarTemporadasLote]', err);
+    return { error: err?.message || 'Erro' };
+  }
+}
+
+/**
+ * Lista temporadas de uma empresa (admin viewer).
+ */
+export async function listarTemporadasEmpresa(empresaId) {
+  try {
+    const sb = createSupabaseAdmin();
+    let q = sb.from('trilhas')
+      .select('id, colaborador_id, competencia_foco, numero_temporada, status, criado_em, descritores_selecionados, temporada_plano')
+      .not('temporada_plano', 'is', null);
+    if (empresaId) q = q.eq('empresa_id', empresaId);
+    const { data, error } = await q.order('criado_em', { ascending: false });
+    if (error) return { error: error.message };
+
+    const ids = (data || []).map(t => t.colaborador_id);
+    const { data: colabs } = await sb.from('colaboradores')
+      .select('id, nome_completo, cargo').in('id', ids);
+    const colabMap = Object.fromEntries((colabs || []).map(c => [c.id, c]));
+
+    return { items: (data || []).map(t => ({ ...t, colab: colabMap[t.colaborador_id] || null })) };
+  } catch (err) {
+    return { error: err?.message || 'Erro' };
+  }
+}
+
+/**
  * Carrega a temporada ativa de um colaborador (com plano + progresso).
  */
 export async function loadTemporada(colaboradorId) {
