@@ -11,7 +11,7 @@ const FASE_HREF = {
   1: '/dashboard/perfil-comportamental',
   2: '/dashboard/assessment',
   3: '/dashboard/pdi',
-  4: '/dashboard/praticar',
+  4: '/dashboard/temporada',
   5: '/dashboard/evolucao',
 };
 
@@ -19,7 +19,7 @@ const CTA_LABEL = {
   1: 'Ver perfil comportamental',
   2: 'Iniciar avaliação',
   3: 'Ver meu PDI',
-  4: 'Começar trilha',
+  4: 'Ver minha temporada',
   5: 'Ver minha evolução',
 };
 

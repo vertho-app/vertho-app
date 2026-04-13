@@ -1,8 +1,22 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { findColabByEmail } from '@/lib/authz';
 import { selectDescriptors } from '@/lib/season-engine/select-descriptors';
 import { buildSeason } from '@/lib/season-engine/build-season';
+
+/**
+ * Wrapper: carrega temporada do colab logado via email.
+ */
+export async function loadTemporadaPorEmail(email) {
+  try {
+    const colab = await findColabByEmail(email, 'id');
+    if (!colab) return { error: 'Colab não encontrado' };
+    return loadTemporada(colab.id);
+  } catch (err) {
+    return { error: err?.message || 'Erro' };
+  }
+}
 
 /**
  * Gera uma temporada de 14 semanas pra um colaborador, focada em 1 competência.
@@ -197,6 +211,35 @@ export async function listarTemporadasEmpresa(empresaId) {
     const colabMap = Object.fromEntries((colabs || []).map(c => [c.id, c]));
 
     return { items: (data || []).map(t => ({ ...t, colab: colabMap[t.colaborador_id] || null })) };
+  } catch (err) {
+    return { error: err?.message || 'Erro' };
+  }
+}
+
+/**
+ * Marca o conteúdo core de uma semana como consumido.
+ */
+export async function marcarConteudoConsumido(trilhaId, semana) {
+  try {
+    const sb = createSupabaseAdmin();
+    const { data: existente } = await sb.from('temporada_semana_progresso')
+      .select('id, iniciado_em').eq('trilha_id', trilhaId).eq('semana', semana).maybeSingle();
+    const payload = {
+      conteudo_consumido: true,
+      status: 'em_andamento',
+      iniciado_em: existente?.iniciado_em || new Date().toISOString(),
+    };
+    if (existente) {
+      await sb.from('temporada_semana_progresso').update(payload).eq('id', existente.id);
+    } else {
+      const { data: t } = await sb.from('trilhas').select('empresa_id, colaborador_id, temporada_plano').eq('id', trilhaId).maybeSingle();
+      const tipo = (t?.temporada_plano || []).find(s => s.semana === semana)?.tipo || 'conteudo';
+      await sb.from('temporada_semana_progresso').insert({
+        trilha_id: trilhaId, empresa_id: t.empresa_id, colaborador_id: t.colaborador_id,
+        semana, tipo, ...payload,
+      });
+    }
+    return { ok: true };
   } catch (err) {
     return { error: err?.message || 'Erro' };
   }
