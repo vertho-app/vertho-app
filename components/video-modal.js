@@ -41,6 +41,7 @@ export default function VideoModal({ libraryId, videoId, title, onClose, colabor
   const finishedRef = useRef(false);
   const durationRef = useRef(0);
   const timeRef = useRef(0);
+  const openedAtRef = useRef(Date.now());
 
   // Fecha com ESC e trava scroll do body enquanto aberto
   useEffect(() => {
@@ -53,6 +54,29 @@ export default function VideoModal({ libraryId, videoId, title, onClose, colabor
       document.body.style.overflow = overflow;
     };
   }, [onClose]);
+
+  // ─── Fallback: registra "session_end" com tempo de modal aberto ────────
+  // Garante que temos pelo menos 1 evento por sessão mesmo se player.js
+  // não funcionar. Evento "play_started" só dispara se player.js captar;
+  // "session_end" SEMPRE dispara ao desmontar, com a duração real do modal.
+  useEffect(() => {
+    if (!colaboradorId || !videoId) return;
+    openedAtRef.current = Date.now();
+    return () => {
+      const seconds = Math.round((Date.now() - openedAtRef.current) / 1000);
+      // Só registra se ficou aberto mais que 3s (evita clique errado)
+      if (seconds < 3) return;
+      registrarVideoWatched({
+        colaboradorId,
+        videoId,
+        eventType: startedRef.current || finishedRef.current
+          ? 'session_end'
+          : 'session_end_no_player_events',
+        secondsWatched: seconds,
+        videoLength: Math.round(durationRef.current) || null,
+      }).catch(() => {});
+    };
+  }, [colaboradorId, videoId]);
 
   // metaData é passado pro Bunny e retorna nos eventos de status (não de play).
   // Usamos pra manter atribuição futura se a API mudar.
