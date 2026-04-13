@@ -123,6 +123,7 @@ export async function loadEngajamentoEmpresa(empresaId) {
         videosDistintos: stats.videosDistintos.size,
         videosConcluidos: stats.videosConcluidos.size,
         minutosAssistidos: Math.round(stats.totalSegundos / 60),
+        totalSegundos: stats.totalSegundos,
         totalViews: stats.totalViews,
         ultimoAcesso: stats.ultimoAcesso,
       };

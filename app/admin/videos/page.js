@@ -435,7 +435,7 @@ export default function AdminVideosPage() {
                         <td className="px-4 py-2.5 text-xs text-gray-400">{r.cargo || '—'}</td>
                         <td className="px-4 py-2.5 text-center text-xs text-gray-300">{r.videosDistintos}</td>
                         <td className="px-4 py-2.5 text-center text-xs text-emerald-400 font-bold">{r.videosConcluidos}</td>
-                        <td className="px-4 py-2.5 text-center text-sm text-cyan-400 font-bold">{r.minutosAssistidos}</td>
+                        <td className="px-4 py-2.5 text-center text-sm text-cyan-400 font-bold">{(() => { const s = Number(r.totalSegundos) || 0; const m = Math.floor(s / 60); const ss = s % 60; return `${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`; })()}</td>
                         <td className="px-4 py-2.5 text-center text-[10px] text-gray-500">
                           {r.ultimoAcesso ? new Date(r.ultimoAcesso).toLocaleDateString('pt-BR') : '—'}
                         </td>
