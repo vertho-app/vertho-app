@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, use } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Loader2, BookOpen, ChevronDown, ExternalLink, Filter, Pencil, Check, X, Users
 } from 'lucide-react';
@@ -19,10 +19,15 @@ const STATUS_COLORS = {
 export default function Fase0Page({ params }) {
   const { empresaId } = use(params);
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const initialTab = searchParams.get('tab') || 'catalogo';
 
-  const [tab, setTab] = useState(initialTab);
+  const [tab, setTab] = useState('catalogo');
+
+  // Lê ?tab= da URL após mount pra não precisar de Suspense do useSearchParams
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const t = new URLSearchParams(window.location.search).get('tab');
+    if (t) setTab(t);
+  }, []);
   const [loading, setLoading] = useState(true);
   const [catalogo, setCatalogo] = useState([]);
   const [enriquecido, setEnriquecido] = useState([]);
