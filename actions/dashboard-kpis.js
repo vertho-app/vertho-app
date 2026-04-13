@@ -2,73 +2,142 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
+import { loadJornada } from '@/app/dashboard/jornada/jornada-actions';
 
-const TOTAL_SEMANAS_TRILHA = 14;
+const SEMANA_DIAS = 7;
+const TOTAL_SEMANAS = 14;
+const SEMANAS_IMPLEMENTACAO = [4, 8, 12];
+const MS_DIA = 24 * 60 * 60 * 1000;
 
 /**
- * Carrega os 4 KPIs da home do colaborador:
- * 1. Fit ao cargo  (fit_resultados.fit_final)
- * 2. Gaps prioritários (top_gaps.length do mesmo registro)
- * 3. Trilha — semana atual (fase4_progresso.semana_atual)
- * 4. Pontos de evidência (SUM(capacitacao.pontos))
+ * KPIs da home alinhados ao ciclo SEMANAL da capacitação. São 4 dados que
+ * mudam toda semana (alguns todo dia):
  *
- * Cada KPI retorna `null` quando ainda não há dados — a UI mostra estado vazio.
+ * 1. Pílula da semana    — título + status
+ * 2. Evidência da semana — registrada / pendente / atrasada
+ * 3. Fase atual           — Fase 1-5 da jornada
+ * 4. Próximo marco        — countdown em dias
  */
 export async function loadHomeKpis(email) {
   try {
     if (!email) return { error: 'Não autenticado' };
 
-    const colab = await findColabByEmail(email, 'id, empresa_id, cargo');
+    const colab = await findColabByEmail(email, 'id, empresa_id');
     if (!colab) return { error: 'Colaborador não encontrado' };
 
     const sb = createSupabaseAdmin();
+    const agora = new Date();
 
-    // ── 1. Fit ao cargo + 2. Gaps (vêm do mesmo registro) ─────────────────
-    const { data: fit } = await sb.from('fit_resultados')
-      .select('fit_final, classificacao, resultado_json')
-      .eq('empresa_id', colab.empresa_id)
+    // ── Trilha + progresso (base de quase tudo) ──────────────────────────
+    const { data: trilha } = await sb.from('trilhas')
+      .select('id, cursos, competencia_foco')
       .eq('colaborador_id', colab.id)
-      .order('updated_at', { ascending: false })
+      .eq('empresa_id', colab.empresa_id)
+      .order('criado_em', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    let gapsTop = null;
-    if (fit?.resultado_json) {
-      const json = typeof fit.resultado_json === 'string'
-        ? (() => { try { return JSON.parse(fit.resultado_json); } catch { return null; } })()
-        : fit.resultado_json;
-      gapsTop = json?.gap_analysis?.top_gaps?.length ?? 0;
-    }
-
-    // ── 3. Trilha — semana atual ──────────────────────────────────────────
     const { data: progresso } = await sb.from('fase4_progresso')
-      .select('semana_atual, status')
+      .select('semana_atual, cursos_progresso, iniciado_em, status')
       .eq('colaborador_id', colab.id)
       .eq('empresa_id', colab.empresa_id)
       .maybeSingle();
 
-    // ── 4. Pontos de evidência ────────────────────────────────────────────
-    const { data: pontosRows } = await sb.from('capacitacao')
-      .select('pontos')
-      .eq('colaborador_id', colab.id)
-      .eq('empresa_id', colab.empresa_id);
-    const pontos = (pontosRows || []).reduce(
-      (acc, r) => acc + (Number(r.pontos) || 0),
-      0
-    );
+    const semanaAtual = progresso?.semana_atual || 0;
+    const cursos = Array.isArray(trilha?.cursos) ? trilha.cursos : [];
+    const cursosProg = Array.isArray(progresso?.cursos_progresso) ? progresso.cursos_progresso : [];
+
+    // ── 1. Pílula da semana ──────────────────────────────────────────────
+    let pilula = null;
+    if (semanaAtual > 0) {
+      // Tenta achar curso específico da semana; se não houver, usa o índice
+      const cursoSemana = cursos[semanaAtual - 1] || null;
+      const concluida = cursosProg.some(p => p?.semana === semanaAtual && p?.concluido);
+      pilula = {
+        titulo: cursoSemana?.nome || `Pílula da semana ${semanaAtual}`,
+        semana: semanaAtual,
+        status: concluida ? 'concluida' : 'em-curso',
+        ehImplementacao: SEMANAS_IMPLEMENTACAO.includes(semanaAtual),
+      };
+    }
+
+    // ── 2. Evidência da semana ──────────────────────────────────────────
+    let evidencia = null;
+    if (semanaAtual > 0 && progresso?.iniciado_em) {
+      const { data: evid } = await sb.from('capacitacao')
+        .select('id, created_at')
+        .eq('colaborador_id', colab.id)
+        .eq('empresa_id', colab.empresa_id)
+        .eq('semana', semanaAtual)
+        .eq('tipo', 'evidencia')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const inicioCapacitacao = new Date(progresso.iniciado_em);
+      const inicioSemana = new Date(inicioCapacitacao.getTime() + (semanaAtual - 1) * SEMANA_DIAS * MS_DIA);
+      const fimSemana = new Date(inicioSemana.getTime() + SEMANA_DIAS * MS_DIA);
+
+      if (evid) {
+        evidencia = { status: 'registrada', dataRegistro: evid.created_at };
+      } else if (agora >= fimSemana) {
+        const diasAtraso = Math.floor((agora - fimSemana) / MS_DIA);
+        evidencia = { status: 'atrasada', diasAtraso };
+      } else {
+        const diasRestantes = Math.max(0, Math.ceil((fimSemana - agora) / MS_DIA));
+        evidencia = { status: 'pendente', diasRestantes };
+      }
+    }
+
+    // ── 3. Fase atual da jornada ─────────────────────────────────────────
+    let faseAtual = null;
+    try {
+      const jornadaR = await loadJornada(email);
+      if (!jornadaR?.error && jornadaR?.fases?.length) {
+        const fases = jornadaR.fases;
+        const proxima = fases.find(f => f.status !== 'completed');
+        if (proxima) {
+          faseAtual = { numero: proxima.fase, titulo: proxima.titulo, status: proxima.status };
+        } else {
+          // Tudo concluído
+          const ultima = fases[fases.length - 1];
+          faseAtual = { numero: ultima.fase, titulo: ultima.titulo, status: 'completed', concluida: true };
+        }
+      }
+    } catch (e) {
+      console.warn('[loadHomeKpis] loadJornada falhou:', e?.message);
+    }
+
+    // ── 4. Próximo marco (countdown em dias) ─────────────────────────────
+    let proximoMarco = null;
+    if (semanaAtual > 0 && progresso?.iniciado_em) {
+      const inicio = new Date(progresso.iniciado_em);
+      const marcos = [];
+      for (let s = semanaAtual + 1; s <= TOTAL_SEMANAS; s++) {
+        const dataSemana = new Date(inicio.getTime() + (s - 1) * SEMANA_DIAS * MS_DIA);
+        const diasAte = Math.ceil((dataSemana - agora) / MS_DIA);
+        if (diasAte <= 0) continue;
+        const ehImpl = SEMANAS_IMPLEMENTACAO.includes(s);
+        const ehFim = s === TOTAL_SEMANAS;
+        marcos.push({
+          tipo: ehFim ? 'fim' : ehImpl ? 'implementacao' : 'pilula',
+          semana: s,
+          diasAte,
+          label: ehFim ? 'Trilha conclui'
+            : ehImpl ? 'Semana de Implementação'
+            : 'Próxima pílula',
+        });
+      }
+      // Pega o evento mais próximo no futuro
+      marcos.sort((a, b) => a.diasAte - b.diasAte);
+      proximoMarco = marcos[0] || null;
+    }
 
     return {
-      fit: fit ? {
-        score: Number(fit.fit_final),
-        classificacao: fit.classificacao || null,
-      } : null,
-      gaps: fit ? (gapsTop ?? 0) : null,
-      trilha: progresso ? {
-        semana: progresso.semana_atual || 0,
-        total: TOTAL_SEMANAS_TRILHA,
-      } : null,
-      pontos,
-      cargoNome: colab.cargo || null,
+      pilula,
+      evidencia,
+      fase: faseAtual,
+      proximoMarco,
     };
   } catch (err) {
     console.error('[loadHomeKpis]', err);

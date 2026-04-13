@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
 import {
   Search, Bell, ArrowRight, Play, ChevronRight, Loader2,
-  Target, AlertTriangle, BookOpen, Trophy,
+  BookOpen, FileEdit, Compass, Hourglass, CheckCircle2, AlertCircle, Hammer,
 } from 'lucide-react';
 import { loadDashboardData } from './dashboard-actions';
 import { loadHomeKpis } from '@/actions/dashboard-kpis';
@@ -18,64 +18,144 @@ const MOCK_FOCO = 'Liderança';
 const BUNNY_LIBRARY = 636615;
 
 /**
- * Card do bento grid. Suporta:
- * - Estado normal: label + value (grande) + sublabel/badge
- * - Estado vazio: label + traço cinza + tooltip explicativo
- * - Clique opcional pra navegar pra rota
+ * Wrapper visual dos cards do bento. Recebe label, ícone e children livre
+ * (cada KPI tem layout próprio dentro). Suporta empty state.
  */
-function BentoCard({ label, icon: Icon, value, sublabel, badge, badgeAccent, empty, emptyHint, onClick, accent = 'cyan' }) {
-  const valueColor = empty
-    ? 'text-gray-600'
-    : accent === 'cyan' ? 'text-cyan-400' : 'text-white';
-
+function BentoCard({ label, icon: Icon, onClick, empty, emptyHint, children }) {
   const Wrapper = onClick ? 'button' : 'div';
-
   return (
     <Wrapper
       onClick={onClick}
-      className={`text-left rounded-2xl border border-white/[0.06] p-5 md:p-7 h-36 md:h-44 flex flex-col justify-between transition-all duration-300 ${
+      className={`text-left rounded-2xl border border-white/[0.06] p-5 md:p-6 h-36 md:h-44 flex flex-col justify-between transition-all duration-300 overflow-hidden ${
         onClick ? 'hover:bg-white/[0.05] hover:border-white/15 cursor-pointer active:scale-[0.99]' : ''
       }`}
       style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}
     >
       <div className="flex items-center gap-1.5">
-        {Icon && <Icon size={11} className="text-gray-500" />}
+        {Icon && <Icon size={11} className="text-gray-500 shrink-0" />}
         <span className="text-[10px] font-bold tracking-[0.2em] text-gray-400 uppercase truncate">{label}</span>
       </div>
-
-      <div>
-        {empty ? (
-          <>
-            <span className="text-3xl md:text-5xl font-black text-gray-600">—</span>
-            {emptyHint && <p className="text-[10px] text-gray-500 mt-1.5 leading-snug">{emptyHint}</p>}
-          </>
-        ) : (
-          <>
-            <div className="flex items-baseline gap-2 flex-wrap">
-              <span className={`text-3xl md:text-5xl font-black ${valueColor}`}>{value}</span>
-              {sublabel && <span className="text-xs md:text-sm font-semibold text-gray-400">{sublabel}</span>}
-            </div>
-            {badge && (
-              <span className={`inline-block mt-1.5 text-[9px] md:text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${badgeAccent || 'text-cyan-400 bg-cyan-400/10'}`}>
-                {badge}
-              </span>
-            )}
-          </>
-        )}
-      </div>
+      {empty ? (
+        <div>
+          <span className="text-4xl md:text-5xl font-black text-gray-600">—</span>
+          {emptyHint && <p className="text-[10px] text-gray-500 mt-1.5 leading-snug">{emptyHint}</p>}
+        </div>
+      ) : (
+        <div className="min-w-0">{children}</div>
+      )}
     </Wrapper>
   );
 }
 
-// Helpers de classificação visual do Fit
-function fitBadge(fit) {
-  if (!fit) return null;
-  const score = Number(fit.score) || 0;
-  if (score >= 85) return { text: 'Excelente', cls: 'text-emerald-400 bg-emerald-400/10' };
-  if (score >= 70) return { text: 'Alta', cls: 'text-cyan-400 bg-cyan-400/10' };
-  if (score >= 50) return { text: 'Razoável', cls: 'text-amber-400 bg-amber-400/10' };
-  if (score >= 30) return { text: 'Baixa', cls: 'text-orange-400 bg-orange-400/10' };
-  return { text: 'Crítica', cls: 'text-red-400 bg-red-400/10' };
+// ── KPIs específicos ────────────────────────────────────────────────────────
+
+function CardPilula({ pilula, onClick }) {
+  if (!pilula) {
+    return <BentoCard label="Pílula da semana" icon={BookOpen} onClick={onClick}
+      empty emptyHint="Trilha em montagem" />;
+  }
+  const status = pilula.status === 'concluida'
+    ? { text: 'Concluída ✓', cls: 'text-emerald-400 bg-emerald-400/10' }
+    : pilula.ehImplementacao
+      ? { text: 'Implementação', cls: 'text-amber-400 bg-amber-400/10' }
+      : { text: 'Em curso', cls: 'text-cyan-400 bg-cyan-400/10' };
+  return (
+    <BentoCard label={`Pílula · semana ${pilula.semana}`} icon={BookOpen} onClick={onClick}>
+      <p className="text-base md:text-lg font-extrabold text-white leading-tight line-clamp-2">
+        {pilula.titulo}
+      </p>
+      <span className={`inline-block mt-2 text-[9px] md:text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${status.cls}`}>
+        {status.text}
+      </span>
+    </BentoCard>
+  );
+}
+
+function CardEvidencia({ ev, onClick }) {
+  if (!ev) {
+    return <BentoCard label="Evidência da semana" icon={FileEdit} onClick={onClick}
+      empty emptyHint="Aguardando início da trilha" />;
+  }
+
+  if (ev.status === 'registrada') {
+    return (
+      <BentoCard label="Evidência da semana" icon={CheckCircle2} onClick={onClick}>
+        <div className="flex items-baseline gap-2">
+          <span className="text-3xl md:text-4xl font-black text-emerald-400">✓</span>
+          <span className="text-sm md:text-base font-bold text-white">Registrada</span>
+        </div>
+        <p className="text-[10px] text-gray-500 mt-1">
+          {ev.dataRegistro && new Date(ev.dataRegistro).toLocaleDateString('pt-BR')}
+        </p>
+      </BentoCard>
+    );
+  }
+
+  if (ev.status === 'atrasada') {
+    return (
+      <BentoCard label="Evidência da semana" icon={AlertCircle} onClick={onClick}>
+        <div className="flex items-baseline gap-2">
+          <span className="text-3xl md:text-5xl font-black text-red-400">{ev.diasAtraso}d</span>
+          <span className="text-xs md:text-sm font-bold text-red-400">de atraso</span>
+        </div>
+        <p className="text-[10px] text-gray-500 mt-1.5">Registre agora para não acumular</p>
+      </BentoCard>
+    );
+  }
+
+  // pendente
+  return (
+    <BentoCard label="Evidência da semana" icon={Hourglass} onClick={onClick}>
+      <div className="flex items-baseline gap-2">
+        <span className="text-3xl md:text-5xl font-black text-cyan-400">{ev.diasRestantes}</span>
+        <span className="text-xs md:text-sm font-bold text-white">{ev.diasRestantes === 1 ? 'dia' : 'dias'} restantes</span>
+      </div>
+      <p className="text-[10px] text-gray-500 mt-1.5">Pra registrar essa semana</p>
+    </BentoCard>
+  );
+}
+
+function CardFase({ fase, onClick }) {
+  if (!fase) {
+    return <BentoCard label="Sua jornada" icon={Compass} onClick={onClick}
+      empty emptyHint="Sem dados ainda" />;
+  }
+  if (fase.concluida) {
+    return (
+      <BentoCard label="Sua jornada" icon={Compass} onClick={onClick}>
+        <p className="text-base md:text-lg font-extrabold text-white">Jornada concluída</p>
+        <span className="inline-block mt-2 text-[9px] md:text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full text-emerald-400 bg-emerald-400/10">
+          🎉 Completa
+        </span>
+      </BentoCard>
+    );
+  }
+  return (
+    <BentoCard label="Sua jornada" icon={Compass} onClick={onClick}>
+      <div className="flex items-baseline gap-2">
+        <span className="text-3xl md:text-5xl font-black text-white">F{fase.numero}</span>
+        <span className="text-xs md:text-sm font-bold text-gray-400">de 5</span>
+      </div>
+      <p className="text-[11px] md:text-xs font-semibold text-cyan-400 mt-1.5 truncate">{fase.titulo}</p>
+    </BentoCard>
+  );
+}
+
+function CardProximoMarco({ marco, onClick }) {
+  if (!marco) {
+    return <BentoCard label="Próximo marco" icon={Hourglass} onClick={onClick}
+      empty emptyHint="Sem marcos agendados" />;
+  }
+  const tipoIcon = marco.tipo === 'implementacao' ? Hammer : marco.tipo === 'fim' ? CheckCircle2 : BookOpen;
+  return (
+    <BentoCard label="Próximo marco" icon={tipoIcon} onClick={onClick}>
+      <div className="flex items-baseline gap-2">
+        <span className="text-3xl md:text-5xl font-black text-cyan-400">{marco.diasAte}d</span>
+        <span className="text-xs md:text-sm font-bold text-white">{marco.diasAte === 1 ? 'dia' : 'dias'}</span>
+      </div>
+      <p className="text-[11px] text-gray-400 mt-1.5 truncate">{marco.label}</p>
+    </BentoCard>
+  );
 }
 
 function CapacitacaoCard({ item, onClick }) {
@@ -214,75 +294,16 @@ export default function DashboardHomePage() {
           </button>
         </section>
 
-        {/* Bento grid — 4 KPIs do colaborador */}
+        {/* Bento grid — 4 KPIs do ciclo semanal */}
         <section className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5 mb-14 md:mb-16">
-          {/* 1. Fit ao cargo */}
-          {(() => {
-            const fit = kpis?.fit;
-            const badge = fitBadge(fit);
-            return (
-              <BentoCard
-                label="Fit ao cargo"
-                icon={Target}
-                value={fit ? Math.round(Number(fit.score)) : null}
-                sublabel={fit ? '/100' : undefined}
-                badge={badge?.text}
-                badgeAccent={badge?.cls}
-                accent="cyan"
-                empty={!fit}
-                emptyHint="Aguardando análise do RH"
-                onClick={() => router.push('/dashboard/perfil-comportamental')}
-              />
-            );
-          })()}
-
-          {/* 2. Gaps prioritários */}
-          {(() => {
-            const gaps = kpis?.gaps;
-            const empty = gaps == null;
-            return (
-              <BentoCard
-                label="Gaps no PDI"
-                icon={AlertTriangle}
-                value={empty ? null : gaps}
-                sublabel={empty ? undefined : (gaps === 1 ? 'a desenvolver' : 'a desenvolver')}
-                accent={gaps > 0 ? 'cyan' : 'white'}
-                empty={empty}
-                emptyHint="PDI ainda não gerado"
-                onClick={() => router.push('/dashboard/pdi')}
-              />
-            );
-          })()}
-
-          {/* 3. Trilha — semana atual */}
-          {(() => {
-            const t = kpis?.trilha;
-            return (
-              <BentoCard
-                label="Capacitação"
-                icon={BookOpen}
-                value={t ? `S${t.semana}` : null}
-                sublabel={t ? `de ${t.total}` : undefined}
-                badge={t ? `Semana ${t.semana}/${t.total}` : null}
-                accent="white"
-                empty={!t}
-                emptyHint="Trilha em montagem"
-                onClick={() => router.push('/dashboard/praticar')}
-              />
-            );
-          })()}
-
-          {/* 4. Pontos de evidência */}
-          <BentoCard
-            label="Pontos de prática"
-            icon={Trophy}
-            value={kpis?.pontos ?? 0}
-            sublabel={(kpis?.pontos ?? 0) === 1 ? 'ponto' : 'pontos'}
-            accent={(kpis?.pontos ?? 0) > 0 ? 'cyan' : 'white'}
-            empty={kpis == null}
-            emptyHint="Comece sua primeira evidência"
-            onClick={() => router.push('/dashboard/praticar')}
-          />
+          <CardPilula pilula={kpis?.pilula}
+            onClick={() => router.push('/dashboard/praticar')} />
+          <CardEvidencia ev={kpis?.evidencia}
+            onClick={() => router.push('/dashboard/praticar/evidencia')} />
+          <CardFase fase={kpis?.fase}
+            onClick={() => router.push('/dashboard/jornada')} />
+          <CardProximoMarco marco={kpis?.proximoMarco}
+            onClick={() => router.push('/dashboard/praticar')} />
         </section>
 
         {/* Carousel */}
