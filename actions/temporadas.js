@@ -62,15 +62,17 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig } = 
       .eq('colaborador_id', colaboradorId)
       .eq('competencia', competenciaAlvo);
 
-    // Fallback: descritores cadastrados em competencias_base ou competencias da empresa
+    // Fallback: descritores cadastrados em competencias (por empresa) ou competencias_base
     if (!assessment || assessment.length === 0) {
-      const { data: base } = await sb.from('competencias_base')
-        .select('nome_curto').eq('nome', competenciaAlvo).limit(20);
-      let descritoresUnicos = [...new Set((base || []).map(b => b.nome_curto).filter(Boolean))];
+      const { data: emp } = await sb.from('competencias')
+        .select('nome_curto')
+        .eq('empresa_id', colab.empresa_id)
+        .eq('nome', competenciaAlvo).limit(20);
+      let descritoresUnicos = [...new Set((emp || []).map(b => b.nome_curto).filter(Boolean))];
       if (descritoresUnicos.length === 0) {
-        const { data: emp } = await sb.from('competencias')
+        const { data: base } = await sb.from('competencias_base')
           .select('nome_curto').eq('nome', competenciaAlvo).limit(20);
-        descritoresUnicos = [...new Set((emp || []).map(b => b.nome_curto).filter(Boolean))];
+        descritoresUnicos = [...new Set((base || []).map(b => b.nome_curto).filter(Boolean))];
       }
       assessment = descritoresUnicos.map(d => ({ descritor: d, nota: 1.5 }));
     }
