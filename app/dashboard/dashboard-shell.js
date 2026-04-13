@@ -100,7 +100,8 @@ export default function DashboardShell({ children }) {
       </header>
 
       {/* Content — ml-20 em desktop pra respeitar a sidebar fixa */}
-      <main className="flex-1 overflow-y-auto pb-[calc(var(--nav-height)+16px)] md:pb-0 md:ml-20">
+      {/* pb generoso em mobile pra não esconder conteúdo embaixo do BETO FAB */}
+      <main className="flex-1 overflow-y-auto pb-[calc(var(--nav-height)+72px)] md:pb-0 md:ml-20">
         {children}
       </main>
 
