@@ -44,3 +44,6 @@ playwright-report/
 
 # backups locais
 *.zip
+
+# MCP server config (contém API keys)
+.mcp.json

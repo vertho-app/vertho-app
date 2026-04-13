@@ -10,7 +10,7 @@ import {
   ArrowLeft, Building2, Users, Brain, Mail, Bot, GraduationCap, TrendingUp,
   Zap, Database, FileText, Send, ClipboardCheck, BarChart3, Target, Clock,
   Play, BookOpen, Layers, MessageSquare, FileBarChart, CheckCircle,
-  Loader2, AlertTriangle, X, ChevronDown, ChevronUp, Trash2, Settings, Trophy, Plus, Filter, Search, RefreshCw
+  Loader2, AlertTriangle, X, ChevronDown, ChevronUp, Trash2, Settings, Trophy, Plus, Filter, Search, RefreshCw, Film
 } from 'lucide-react';
 
 import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, checkCenarioUm } from '@/actions/fase1';
@@ -60,6 +60,7 @@ const PHASE_CONFIG = [
     { label: 'Moodle', actions: [
       { key: 'moodle-sync', label: 'Importar + Catalogar', icon: BookOpen, ai: true },
       { key: 'cobertura', label: 'Cobertura', icon: BarChart3 },
+      { key: 'videos', label: 'Vídeos (Bunny)', icon: Film, hrefFn: (id) => `/admin/videos?empresa=${id}` },
     ]},
     { label: 'Sistema', actions: [
       { key: 'config', label: 'Configurações', icon: Settings, hrefFn: (id) => `/admin/empresas/${id}/configuracoes` },

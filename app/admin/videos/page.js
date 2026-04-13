@@ -4,10 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Loader2, Video, Eye, Clock, TrendingUp, Film, BarChart3,
-  Users, AlertTriangle, Trophy,
+  Users, AlertTriangle, Trophy, ArrowUpDown, ArrowUp, ArrowDown,
 } from 'lucide-react';
 import { loadBunnyVideosStats, loadBunnyHeatmap, loadBunnyLibraryStats } from '@/actions/bunny-stats';
-import { loadEngajamentoEmpresa, loadAlertasInatividade } from '@/actions/video-analytics';
+import { loadEngajamentoEmpresa, loadAlertasInatividade, loadEmpresaInfo } from '@/actions/video-analytics';
 import VideoModal from '@/components/video-modal';
 
 const BUNNY_LIBRARY = 636615; // Coincide com /app/dashboard/page.js
@@ -78,6 +78,8 @@ function Heatmap({ points, length }) {
 
 export default function AdminVideosPage() {
   const router = useRouter();
+  const [empresaId, setEmpresaId] = useState(null);
+  const [empresa, setEmpresa] = useState(null);
   const [stats, setStats] = useState(null);
   const [library, setLibrary] = useState(null);
   const [engajamento, setEngajamento] = useState(null);
@@ -94,23 +96,43 @@ export default function AdminVideosPage() {
   // Modal de play
   const [activeVideo, setActiveVideo] = useState(null);
 
+  // Ordenação do ranking de engajamento
+  const [sortBy, setSortBy] = useState('minutos'); // nome|cargo|videos|concluidos|minutos|ultimo
+  const [sortDir, setSortDir] = useState('desc');
+
+  function toggleSort(col) {
+    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(col); setSortDir(col === 'nome' || col === 'cargo' ? 'asc' : 'desc'); }
+  }
+
+  // Lê ?empresa= da URL (sem useSearchParams pra evitar Suspense boundary)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const eid = params.get('empresa');
+    setEmpresaId(eid || null);
+  }, []);
+
   useEffect(() => {
     async function init() {
-      const [a, b, c, d] = await Promise.all([
+      const [a, b, c, d, e] = await Promise.all([
         loadBunnyVideosStats(),
         loadBunnyLibraryStats(),
-        loadEngajamentoEmpresa(null), // global (todas empresas)
-        loadAlertasInatividade(null),
+        loadEngajamentoEmpresa(empresaId || null),
+        loadAlertasInatividade(empresaId || null),
+        empresaId ? loadEmpresaInfo(empresaId) : Promise.resolve(null),
       ]);
       if (a?.error) setError(a.error);
       else setStats(a);
       if (!b?.error) setLibrary(b);
       if (!c?.error) setEngajamento(c);
       if (!d?.error) setAlertas(d);
+      setEmpresa(e);
       setLoading(false);
     }
     init();
-  }, []);
+    // Re-carrega quando empresaId muda (ex: query param)
+  }, [empresaId]);
 
   async function handleSelectVideo(videoId, length) {
     setSelectedId(videoId);
@@ -139,16 +161,26 @@ export default function AdminVideosPage() {
     <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.push('/admin/dashboard')}
+        <button onClick={() => router.push(empresaId ? `/admin/empresas/${empresaId}` : '/admin/dashboard')}
           className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors">
           <ArrowLeft size={16} />
         </button>
-        <div>
+        <div className="flex-1 min-w-0">
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
             <Film size={20} className="text-cyan-400" /> Métricas de Vídeos
           </h1>
-          <p className="text-xs text-gray-500">Dados agregados do Bunny Stream</p>
+          <p className="text-xs text-gray-500">
+            {empresa
+              ? <>Empresa: <span className="text-cyan-400 font-semibold">{empresa.nome}</span></>
+              : 'Visão global — todas as empresas'}
+          </p>
         </div>
+        {empresaId && (
+          <button onClick={() => router.push('/admin/videos')}
+            className="text-[10px] font-bold text-gray-400 hover:text-cyan-400 uppercase tracking-widest px-3 py-2 rounded-lg border border-white/10">
+            Ver global
+          </button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -326,30 +358,72 @@ export default function AdminVideosPage() {
             </div>
           </div>
 
-          {/* Ranking por colab */}
+          {/* Ranking por colab — clique no header ordena */}
+          {(() => {
+            const sortedRanking = (() => {
+              if (!engajamento?.ranking) return [];
+              const arr = [...engajamento.ranking];
+              const dir = sortDir === 'asc' ? 1 : -1;
+              const key = sortBy;
+              arr.sort((a, b) => {
+                let va, vb;
+                switch (key) {
+                  case 'nome': va = (a.nome || '').toLowerCase(); vb = (b.nome || '').toLowerCase(); break;
+                  case 'cargo': va = (a.cargo || '').toLowerCase(); vb = (b.cargo || '').toLowerCase(); break;
+                  case 'videos': va = a.videosDistintos; vb = b.videosDistintos; break;
+                  case 'concluidos': va = a.videosConcluidos; vb = b.videosConcluidos; break;
+                  case 'minutos': va = a.minutosAssistidos; vb = b.minutosAssistidos; break;
+                  case 'ultimo': va = a.ultimoAcesso ? new Date(a.ultimoAcesso).getTime() : 0;
+                                 vb = b.ultimoAcesso ? new Date(b.ultimoAcesso).getTime() : 0; break;
+                  default: va = 0; vb = 0;
+                }
+                if (va < vb) return -1 * dir;
+                if (va > vb) return 1 * dir;
+                return 0;
+              });
+              return arr;
+            })();
+
+            const SortHeader = ({ col, label, align = 'left' }) => {
+              const active = sortBy === col;
+              const Icon = active ? (sortDir === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown;
+              return (
+                <th className={`px-4 py-2 text-${align} select-none`}>
+                  <button onClick={() => toggleSort(col)}
+                    className={`inline-flex items-center gap-1 hover:text-white transition-colors ${
+                      active ? 'text-cyan-400' : 'text-gray-500'
+                    }`}>
+                    {label}
+                    <Icon size={11} className={active ? '' : 'opacity-40'} />
+                  </button>
+                </th>
+              );
+            };
+
+            return (
           <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
             <div className="px-4 py-3 border-b border-white/[0.06]">
               <p className="text-sm font-bold text-white">Ranking de engajamento</p>
-              <p className="text-[10px] text-gray-500">Ordenado por minutos assistidos</p>
+              <p className="text-[10px] text-gray-500">Clique nos cabeçalhos para ordenar</p>
             </div>
-            {!engajamento?.ranking?.length ? (
+            {!sortedRanking.length ? (
               <div className="px-5 py-8 text-center text-sm text-gray-500">Sem dados de engajamento ainda.</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-white/[0.06] text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                      <th className="px-4 py-2 text-center w-10">#</th>
-                      <th className="px-4 py-2 text-left">Colaborador</th>
-                      <th className="px-4 py-2 text-left">Cargo</th>
-                      <th className="px-4 py-2 text-center">Vídeos</th>
-                      <th className="px-4 py-2 text-center">Concluídos</th>
-                      <th className="px-4 py-2 text-center">Minutos</th>
-                      <th className="px-4 py-2 text-center">Último acesso</th>
+                    <tr className="border-b border-white/[0.06] text-[10px] font-bold uppercase tracking-widest">
+                      <th className="px-4 py-2 text-center w-10 text-gray-500">#</th>
+                      <SortHeader col="nome" label="Colaborador" />
+                      <SortHeader col="cargo" label="Cargo" />
+                      <SortHeader col="videos" label="Vídeos" align="center" />
+                      <SortHeader col="concluidos" label="Concluídos" align="center" />
+                      <SortHeader col="minutos" label="Minutos" align="center" />
+                      <SortHeader col="ultimo" label="Último acesso" align="center" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.03]">
-                    {engajamento.ranking.map((r, i) => (
+                    {sortedRanking.map((r, i) => (
                       <tr key={r.colabId} className="hover:bg-white/[0.02]">
                         <td className="px-4 py-2.5 text-center text-xs text-amber-400 font-mono font-bold">{i + 1}</td>
                         <td className="px-4 py-2.5">
@@ -372,6 +446,8 @@ export default function AdminVideosPage() {
               </div>
             )}
           </div>
+            );
+          })()}
         </div>
       )}
 

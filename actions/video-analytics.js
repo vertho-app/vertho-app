@@ -6,6 +6,20 @@ import { findColabByEmail } from '@/lib/authz';
 const DIAS_INATIVO = 14;
 
 /**
+ * Retorna { id, nome } da empresa (pra mostrar no header da tela de vídeos).
+ */
+export async function loadEmpresaInfo(empresaId) {
+  try {
+    if (!empresaId) return null;
+    const sb = createSupabaseAdmin();
+    const { data } = await sb.from('empresas').select('id, nome').eq('id', empresaId).maybeSingle();
+    return data || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Últimos N vídeos únicos assistidos pelo colab (dedup por video_id,
  * pega o evento mais recente de cada). Retorna com pct assistido e
  * flag de concluído.
