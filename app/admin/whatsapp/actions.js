@@ -136,17 +136,10 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
     const isRelatorio = comPDF;
     let enviados = 0, erros = 0, erroDetalhe = '';
 
-    // Sobe o anexo extra 1 vez pra reusar a mesma signed URL em todos os
-    // destinatários (evita upload repetido). Limpa no fim do disparo.
-    // Se o upload falhar (ex: bucket sem permissão), o envio cai pro
-    // fallback base64 no loop do WhatsApp.
-    let anexoUpload = null;
-    if (anexoExtra?.base64 && canal === 'whatsapp') {
-      anexoUpload = await subirAnexoTemporario(sb, empresaId, anexoExtra);
-      if (!anexoUpload) {
-        console.warn('[dispararMensagemCustomizada] upload do anexo falhou, usando fallback base64');
-      }
-    }
+    // Anexo extra: usamos sempre base64 no endpoint /send-document/{ext}.
+    // Essa abordagem resolve o problema de abertura (o WhatsApp usa a
+    // extensão do path pra setar o mime e abrir com o app nativo) sem
+    // depender de upload + signed URL (que já teve problemas).
 
     for (const colab of colabs) {
       const nome = colab.nome_completo?.split(' ')[0] || '';
@@ -222,19 +215,18 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
               body: JSON.stringify({ phone, message: msg }),
             });
 
-            // Se relatório, enviar PDF como documento — via URL (formato
-            // original) pra o WhatsApp reconhecer mime/extensão e abrir
-            // corretamente no app.
+            // Se relatório, enviar PDF do relatório individual via base64
+            // no endpoint /send-document/pdf (mime correto).
             if (res.ok && isRelatorio && colab.id) {
               const pdf = await buscarPDFColaborador(sb, empresaId, colab.id);
-              if (pdf?.url) {
+              if (pdf?.buffer) {
                 await new Promise(resolve => setTimeout(resolve, 500));
                 const rPdf = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-document/pdf`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'Client-Token': zapiClient },
                   body: JSON.stringify({
                     phone,
-                    document: pdf.url,
+                    document: `data:application/pdf;base64,${pdf.buffer.toString('base64')}`,
                     fileName: pdf.filename,
                   }),
                 });
@@ -246,45 +238,24 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
               }
             }
 
-            // Anexo extra — tenta via URL; se Z-API rejeitar a URL, faz
-            // fallback pra base64 no mesmo formato original do arquivo.
-            if (res.ok && (anexoUpload?.url || anexoExtra?.base64)) {
+            // Anexo extra — base64 no endpoint por extensão.
+            if (res.ok && anexoExtra?.base64) {
               await new Promise(resolve => setTimeout(resolve, 500));
-              const ext = anexoUpload?.ext || extFromNameOrMime(anexoExtra?.name, anexoExtra?.mime);
-              const fileName = anexoUpload?.filename || anexoExtra?.name || `anexo.${ext}`;
-
-              let rAnx = null;
-              if (anexoUpload?.url) {
-                rAnx = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-document/${ext}`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'Client-Token': zapiClient },
-                  body: JSON.stringify({ phone, document: anexoUpload.url, fileName }),
-                });
-                if (!rAnx.ok) {
-                  const txt = await rAnx.text();
-                  console.warn('[ZAPI send-document URL]', rAnx.status, txt.slice(0, 300));
-                }
-              }
-
-              // Fallback base64 caso a URL tenha falhado OU não exista
-              // (canal whatsapp sem upload, ou Z-API rejeitou a URL)
-              if ((!rAnx || !rAnx.ok) && anexoExtra?.base64) {
-                await new Promise(resolve => setTimeout(resolve, 500));
-                const mime = anexoExtra.mime || 'application/octet-stream';
-                const rFallback = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-document/${ext}`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'Client-Token': zapiClient },
-                  body: JSON.stringify({
-                    phone,
-                    document: `data:${mime};base64,${anexoExtra.base64}`,
-                    fileName,
-                  }),
-                });
-                if (!rFallback.ok) {
-                  const txt = await rFallback.text();
-                  console.warn('[ZAPI send-document fallback]', rFallback.status, txt.slice(0, 300));
-                  erroDetalhe = `Anexo não enviado: ${rFallback.status} ${txt.slice(0, 120)}`;
-                }
+              const ext = extFromNameOrMime(anexoExtra.name, anexoExtra.mime);
+              const mime = anexoExtra.mime || 'application/octet-stream';
+              const rAnx = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-document/${ext}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Client-Token': zapiClient },
+                body: JSON.stringify({
+                  phone,
+                  document: `data:${mime};base64,${anexoExtra.base64}`,
+                  fileName: anexoExtra.name || `anexo.${ext}`,
+                }),
+              });
+              if (!rAnx.ok) {
+                const txt = await rAnx.text();
+                console.warn('[ZAPI send-document anexo]', rAnx.status, txt.slice(0, 300));
+                erroDetalhe = `Anexo não enviado: ${rAnx.status} ${txt.slice(0, 120)}`;
               }
             }
 
@@ -309,9 +280,6 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
         }
       }
     }
-
-    // Limpa o anexo temporário subido pro WhatsApp (fire-and-forget)
-    if (anexoUpload?.path) deletarAnexoTemporario(sb, anexoUpload.path);
 
     const msg2 = `${enviados} ${canal === 'email' ? 'emails' : 'WhatsApp'} enviados${erros ? `, ${erros} erros` : ''}${erroDetalhe ? ` — ${erroDetalhe}` : ''}`;
     return { success: enviados > 0, message: msg2, error: enviados === 0 ? msg2 : undefined };
