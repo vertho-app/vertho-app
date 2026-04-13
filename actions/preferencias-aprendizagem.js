@@ -1,47 +1,10 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-
-// As 8 preferências mapeadas no fim do mapeamento comportamental.
-// Cada coluna é INT 1-5 (escala de Likert).
-export const PREFS = [
-  { key: 'pref_video_curto', label: 'Vídeos curtos', icon: 'Video' },
-  { key: 'pref_video_longo', label: 'Vídeos longos / aulas', icon: 'Film' },
-  { key: 'pref_texto', label: 'Texto / artigos', icon: 'FileText' },
-  { key: 'pref_audio', label: 'Áudios / podcasts', icon: 'Headphones' },
-  { key: 'pref_infografico', label: 'Infográficos', icon: 'BarChart3' },
-  { key: 'pref_exercicio', label: 'Exercícios práticos', icon: 'Dumbbell' },
-  { key: 'pref_mentor', label: 'Mentoria 1:1', icon: 'Users' },
-  { key: 'pref_estudo_caso', label: 'Estudo de caso', icon: 'BookOpen' },
-];
-
-const COLS = PREFS.map(p => p.key).join(', ');
-
-function calcularRanking(rows) {
-  const totais = Object.fromEntries(PREFS.map(p => [p.key, { soma: 0, n: 0 }]));
-  for (const r of rows) {
-    for (const p of PREFS) {
-      const v = Number(r[p.key]);
-      if (Number.isFinite(v) && v > 0) {
-        totais[p.key].soma += v;
-        totais[p.key].n += 1;
-      }
-    }
-  }
-  const ranking = PREFS.map(p => {
-    const t = totais[p.key];
-    const media = t.n > 0 ? Math.round((t.soma / t.n) * 100) / 100 : 0;
-    return { ...p, media, respondentes: t.n };
-  });
-  ranking.sort((a, b) => b.media - a.media);
-  return ranking;
-}
+import { COLS, calcularRanking } from '@/lib/preferencias-config';
 
 /**
- * Retorna o consolidado das preferências de aprendizagem da empresa:
- * - total de colaboradores na empresa
- * - quantos preencheram (têm pelo menos uma preferência)
- * - ranking decrescente por média (1-5)
+ * Consolidado das preferências de aprendizagem da empresa.
  */
 export async function loadPreferenciasEmpresa(empresaId) {
   try {

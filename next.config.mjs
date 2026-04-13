@@ -12,10 +12,9 @@ const nextConfig = {
   // Anexos em base64 (PDF/Office/imagens até 10 MB) precisam caber no payload
   // da server action. Default do Next é 1 MB — insuficiente para o fluxo de
   // envios com anexo adicional. 15 MB dá folga (10 MB binário ≈ 14 MB base64).
-  experimental: {
-    serverActions: {
-      bodySizeLimit: '15mb',
-    },
+  // Em Next 16, serverActions é top-level (saiu de experimental).
+  serverActions: {
+    bodySizeLimit: '15mb',
   },
 };
 
