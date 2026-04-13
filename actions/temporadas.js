@@ -62,18 +62,32 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig } = 
       .eq('colaborador_id', colaboradorId)
       .eq('competencia', competenciaAlvo);
 
-    // Fallback: descritores cadastrados em competencias (por empresa) ou competencias_base
+    // Fallback em cascata:
+    //   1. competencias da empresa do colab (com nome_curto preenchido)
+    //   2. competencias de qualquer empresa (algum admin já cadastrou)
+    //   3. competencias_base (global)
     if (!assessment || assessment.length === 0) {
       const { data: emp } = await sb.from('competencias')
         .select('nome_curto')
         .eq('empresa_id', colab.empresa_id)
-        .eq('nome', competenciaAlvo).limit(20);
-      let descritoresUnicos = [...new Set((emp || []).map(b => b.nome_curto).filter(Boolean))];
+        .eq('nome', competenciaAlvo)
+        .not('nome_curto', 'is', null);
+      let descritoresUnicos = [...new Set((emp || []).map(b => b.nome_curto))];
+
+      if (descritoresUnicos.length === 0) {
+        const { data: qualquerEmp } = await sb.from('competencias')
+          .select('nome_curto')
+          .eq('nome', competenciaAlvo)
+          .not('nome_curto', 'is', null);
+        descritoresUnicos = [...new Set((qualquerEmp || []).map(b => b.nome_curto))];
+      }
+
       if (descritoresUnicos.length === 0) {
         const { data: base } = await sb.from('competencias_base')
-          .select('nome_curto').eq('nome', competenciaAlvo).limit(20);
-        descritoresUnicos = [...new Set((base || []).map(b => b.nome_curto).filter(Boolean))];
+          .select('nome_curto').eq('nome', competenciaAlvo).not('nome_curto', 'is', null);
+        descritoresUnicos = [...new Set((base || []).map(b => b.nome_curto))];
       }
+
       assessment = descritoresUnicos.map(d => ({ descritor: d, nota: 1.5 }));
     }
 
