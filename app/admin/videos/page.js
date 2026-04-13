@@ -4,11 +4,27 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Loader2, Video, Eye, Clock, TrendingUp, Film, BarChart3,
+  Users, AlertTriangle, Trophy,
 } from 'lucide-react';
 import { loadBunnyVideosStats, loadBunnyHeatmap, loadBunnyLibraryStats } from '@/actions/bunny-stats';
+import { loadEngajamentoEmpresa, loadAlertasInatividade } from '@/actions/video-analytics';
 import VideoModal from '@/components/video-modal';
 
 const BUNNY_LIBRARY = 636615; // Coincide com /app/dashboard/page.js
+
+function Avatar({ nome, fotoUrl, size = 32 }) {
+  const initials = (nome || '').split(' ').filter(Boolean).slice(0, 2).map(n => n[0]).join('').toUpperCase() || '?';
+  if (fotoUrl) {
+    return <img src={fotoUrl} alt={nome} style={{ width: size, height: size }} className="rounded-full object-cover border border-white/10 shrink-0" />;
+  }
+  return (
+    <div style={{ width: size, height: size, fontSize: size * 0.35 }}
+      className="rounded-full flex items-center justify-center text-white font-extrabold border border-white/10 shrink-0"
+      style={{ width: size, height: size, fontSize: size * 0.35, background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+      {initials}
+    </div>
+  );
+}
 
 function formatSec(s) {
   if (!s || s <= 0) return '0s';
@@ -64,8 +80,11 @@ export default function AdminVideosPage() {
   const router = useRouter();
   const [stats, setStats] = useState(null);
   const [library, setLibrary] = useState(null);
+  const [engajamento, setEngajamento] = useState(null);
+  const [alertas, setAlertas] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [tab, setTab] = useState('conteudo'); // conteudo | engajamento | alertas
 
   // Vídeo selecionado pro heatmap
   const [selectedId, setSelectedId] = useState(null);
@@ -77,13 +96,17 @@ export default function AdminVideosPage() {
 
   useEffect(() => {
     async function init() {
-      const [a, b] = await Promise.all([
+      const [a, b, c, d] = await Promise.all([
         loadBunnyVideosStats(),
         loadBunnyLibraryStats(),
+        loadEngajamentoEmpresa(null), // global (todas empresas)
+        loadAlertasInatividade(null),
       ]);
       if (a?.error) setError(a.error);
       else setStats(a);
       if (!b?.error) setLibrary(b);
+      if (!c?.error) setEngajamento(c);
+      if (!d?.error) setAlertas(d);
       setLoading(false);
     }
     init();
@@ -127,6 +150,26 @@ export default function AdminVideosPage() {
           <p className="text-xs text-gray-500">Dados agregados do Bunny Stream</p>
         </div>
       </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 mb-5 p-1 rounded-xl border border-white/[0.06]" style={{ background: '#091D35' }}>
+        {[
+          { key: 'conteudo', label: `Conteúdo (${stats?.totalVideos || 0})`, icon: Film },
+          { key: 'engajamento', label: `Engajamento (${engajamento?.colabsAtivos || 0})`, icon: Users },
+          { key: 'alertas', label: `Alertas (${alertas?.alertas?.length || 0})`, icon: AlertTriangle, danger: (alertas?.alertas?.length || 0) > 0 },
+        ].map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all ${
+              tab === t.key
+                ? (t.danger ? 'bg-amber-400/15 text-amber-400' : 'bg-white/[0.06] text-white')
+                : 'text-gray-500 hover:text-gray-300'
+            }`}>
+            <t.icon size={13} /> {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'conteudo' && (<>
 
       {/* Cards de resumo */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
@@ -251,6 +294,145 @@ export default function AdminVideosPage() {
             <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-cyan-400" /></div>
           ) : (
             <Heatmap points={heatmap?.points || []} length={selected.length} />
+          )}
+        </div>
+      )}
+
+      </>)}
+
+      {tab === 'engajamento' && (
+        <div>
+          {/* Cards de resumo */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
+              <Users size={18} className="text-cyan-400 mb-2" />
+              <p className="text-2xl font-extrabold text-white">{engajamento?.colabsAtivos || 0}</p>
+              <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Colabs ativos</p>
+            </div>
+            <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
+              <Users size={18} className="text-gray-500 mb-2" />
+              <p className="text-2xl font-extrabold text-white">{engajamento?.totalColabs || 0}</p>
+              <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Total cadastrados</p>
+            </div>
+            <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
+              <Clock size={18} className="text-cyan-400 mb-2" />
+              <p className="text-2xl font-extrabold text-white">{engajamento?.totalHoras || 0}h</p>
+              <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Total consumido</p>
+            </div>
+            <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
+              <Trophy size={18} className="text-emerald-400 mb-2" />
+              <p className="text-2xl font-extrabold text-white">{engajamento?.totalConcluidos || 0}</p>
+              <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Vídeos concluídos</p>
+            </div>
+          </div>
+
+          {/* Ranking por colab */}
+          <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
+            <div className="px-4 py-3 border-b border-white/[0.06]">
+              <p className="text-sm font-bold text-white">Ranking de engajamento</p>
+              <p className="text-[10px] text-gray-500">Ordenado por minutos assistidos</p>
+            </div>
+            {!engajamento?.ranking?.length ? (
+              <div className="px-5 py-8 text-center text-sm text-gray-500">Sem dados de engajamento ainda.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/[0.06] text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                      <th className="px-4 py-2 text-center w-10">#</th>
+                      <th className="px-4 py-2 text-left">Colaborador</th>
+                      <th className="px-4 py-2 text-left">Cargo</th>
+                      <th className="px-4 py-2 text-center">Vídeos</th>
+                      <th className="px-4 py-2 text-center">Concluídos</th>
+                      <th className="px-4 py-2 text-center">Minutos</th>
+                      <th className="px-4 py-2 text-center">Último acesso</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.03]">
+                    {engajamento.ranking.map((r, i) => (
+                      <tr key={r.colabId} className="hover:bg-white/[0.02]">
+                        <td className="px-4 py-2.5 text-center text-xs text-amber-400 font-mono font-bold">{i + 1}</td>
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <Avatar nome={r.nome} fotoUrl={r.fotoUrl} size={28} />
+                            <span className="text-white text-xs font-semibold truncate">{r.nome || '—'}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5 text-xs text-gray-400">{r.cargo || '—'}</td>
+                        <td className="px-4 py-2.5 text-center text-xs text-gray-300">{r.videosDistintos}</td>
+                        <td className="px-4 py-2.5 text-center text-xs text-emerald-400 font-bold">{r.videosConcluidos}</td>
+                        <td className="px-4 py-2.5 text-center text-sm text-cyan-400 font-bold">{r.minutosAssistidos}</td>
+                        <td className="px-4 py-2.5 text-center text-[10px] text-gray-500">
+                          {r.ultimoAcesso ? new Date(r.ultimoAcesso).toLocaleDateString('pt-BR') : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {tab === 'alertas' && (
+        <div>
+          <div className="rounded-xl border border-amber-400/30 p-4 mb-5"
+            style={{ background: 'rgba(245,158,11,0.08)' }}>
+            <p className="text-sm font-bold text-amber-400 flex items-center gap-2">
+              <AlertTriangle size={14} /> Colaboradores inativos há {alertas?.dias || 14}+ dias
+            </p>
+            <p className="text-[11px] text-gray-400 mt-1">
+              Lista de quem concluiu o mapeamento mas não assistiu nenhuma pílula recentemente
+              (ou nunca). Considere um nudge via WhatsApp ou email.
+            </p>
+          </div>
+
+          {!alertas?.alertas?.length ? (
+            <div className="rounded-xl border border-white/[0.06] p-8 text-center" style={{ background: '#0F2A4A' }}>
+              <Trophy size={32} className="text-emerald-400 mx-auto mb-2" />
+              <p className="text-sm font-bold text-white">Ninguém inativo 🎉</p>
+              <p className="text-[11px] text-gray-500 mt-1">Todos os colabs com mapeamento estão engajados nos últimos {alertas?.dias || 14} dias.</p>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/[0.06] text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                      <th className="px-4 py-2 text-left">Colaborador</th>
+                      <th className="px-4 py-2 text-left">Cargo / Área</th>
+                      <th className="px-4 py-2 text-center">Status</th>
+                      <th className="px-4 py-2 text-center">Última view</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.03]">
+                    {alertas.alertas.map(a => (
+                      <tr key={a.colabId} className="hover:bg-white/[0.02]">
+                        <td className="px-4 py-2.5 text-white text-xs font-semibold">{a.nome || '—'}</td>
+                        <td className="px-4 py-2.5 text-xs text-gray-400">
+                          {a.cargo || '—'}{a.area ? ` · ${a.area}` : ''}
+                        </td>
+                        <td className="px-4 py-2.5 text-center">
+                          {a.nuncaAssistiu ? (
+                            <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-red-400/10 text-red-400">
+                              Nunca assistiu
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-400">
+                              {a.diasSemAssistir}d sem assistir
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-center text-[10px] text-gray-500">
+                          {a.ultimaView ? new Date(a.ultimaView).toLocaleDateString('pt-BR') : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
         </div>
       )}

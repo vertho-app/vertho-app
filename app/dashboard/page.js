@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { loadDashboardData } from './dashboard-actions';
 import { loadHomeKpis } from '@/actions/dashboard-kpis';
+import { loadUltimosVideosColab } from '@/actions/video-analytics';
 import VideoModal from '@/components/video-modal';
 
 const MOCK_FOCO = 'Liderança';
@@ -211,6 +212,7 @@ export default function DashboardHomePage() {
   const [activeVideo, setActiveVideo] = useState(null); // { videoId, titulo }
   const [capacitacoes, setCapacitacoes] = useState([]);
   const [kpis, setKpis] = useState(null);
+  const [ultimosVideos, setUltimosVideos] = useState([]);
   const router = useRouter();
   const supabase = getSupabase();
 
@@ -218,12 +220,14 @@ export default function DashboardHomePage() {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/login'); return; }
-      const [result, kpisR] = await Promise.all([
+      const [result, kpisR, histR] = await Promise.all([
         loadDashboardData(user.email),
         loadHomeKpis(user.email),
+        loadUltimosVideosColab(user.email, 3),
       ]);
       if (!result.error) setData(result);
       if (!kpisR?.error) setKpis(kpisR);
+      if (!histR?.error) setUltimosVideos(histR?.items || []);
       setLoading(false);
     }
     init();
@@ -305,6 +309,57 @@ export default function DashboardHomePage() {
           <CardProximoMarco marco={kpis?.proximoMarco}
             onClick={() => router.push('/dashboard/praticar')} />
         </section>
+
+        {/* Meu histórico — últimos vídeos assistidos */}
+        {ultimosVideos.length > 0 && (
+          <section className="mb-12 md:mb-14">
+            <h2 className="text-xs md:text-sm font-bold tracking-[0.2em] text-gray-400 mb-4">
+              CONTINUAR DE ONDE PAROU
+            </h2>
+            <div className="space-y-2">
+              {ultimosVideos.map(v => {
+                const meta = capacitacoes.find(c => c.videoId === v.videoId);
+                const titulo = meta?.titulo || 'Vídeo';
+                return (
+                  <button key={v.videoId}
+                    onClick={() => setActiveVideo({ videoId: v.videoId, titulo })}
+                    className="w-full flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-2xl border border-white/[0.06] text-left transition-all hover:border-white/15 hover:bg-white/[0.03] active:scale-[0.99]"
+                    style={{ background: 'rgba(255,255,255,0.02)' }}>
+                    {/* Thumb do bunny */}
+                    <div className="relative w-24 h-14 md:w-28 md:h-16 shrink-0 rounded-lg overflow-hidden border border-white/[0.05]"
+                      style={{ background: 'linear-gradient(135deg, #0F2B54 0%, #0D9488 100%)' }}>
+                      <img src={`/api/bunny-thumb/${v.videoId}`} alt={titulo}
+                        className="w-full h-full object-cover"
+                        onError={e => { e.currentTarget.style.display = 'none'; }} />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Play size={20} className="text-white drop-shadow" fill="currentColor" />
+                      </div>
+                      {v.concluido && (
+                        <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-emerald-400 flex items-center justify-center">
+                          <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M3 8l3 3 7-7" stroke="#0A1D35" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm md:text-base font-bold text-white truncate">{titulo}</p>
+                      <p className="text-[10px] md:text-xs text-gray-500 mt-0.5">
+                        {v.concluido ? 'Concluído' : `${v.pct}% assistido`}
+                        {' · '}
+                        {new Date(v.watchedAt).toLocaleDateString('pt-BR')}
+                      </p>
+                      {/* Progress bar fina */}
+                      <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                        <div className="h-full rounded-full"
+                          style={{ width: `${v.pct}%`, background: v.concluido ? '#10B981' : '#00B4D8' }} />
+                      </div>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-500 shrink-0" />
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {/* Carousel */}
         <section>

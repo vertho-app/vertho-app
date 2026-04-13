@@ -7,10 +7,9 @@ import { createSupabaseAdmin } from '@/lib/supabase';
  * postMessage do iframe (no VideoModal). Grava em videos_watched
  * com atribuição ao colaborador.
  *
- * Tipos de evento registrados:
- * - 'play_started' — primeira vez que o vídeo começa a tocar
- * - 'play_finished' — chegou ao fim (evento `ended` do player)
- * - 'progress' — atualizações periódicas de tempo (opcional)
+ * Se o evento for 'play_finished' e o vídeo estiver associado a algum
+ * curso da trilha do colab (via `cursos[].bunny_video_id`), marca esse
+ * curso como concluído em fase4_progresso.cursos_progresso.
  */
 export async function registrarVideoWatched({
   colaboradorId,
@@ -26,7 +25,6 @@ export async function registrarVideoWatched({
 
     const sb = createSupabaseAdmin();
 
-    // Denormaliza empresa_id pra facilitar queries por empresa
     const { data: c } = await sb.from('colaboradores')
       .select('empresa_id')
       .eq('id', colaboradorId)
@@ -46,9 +44,68 @@ export async function registrarVideoWatched({
       return { error: error.message };
     }
 
+    // Se vídeo concluído, tentar marcar pílula correspondente como feita
+    if (eventType === 'play_finished' && c?.empresa_id) {
+      // Fire-and-forget (não bloqueia a resposta pro client)
+      concluirPilulaSeMapeada(colaboradorId, c.empresa_id, videoId).catch(err => {
+        console.warn('[registrarVideoWatched] concluir pílula falhou:', err?.message);
+      });
+    }
+
     return { ok: true };
   } catch (err) {
     console.error('[registrarVideoWatched]', err);
     return { error: err?.message || 'Erro' };
   }
+}
+
+/**
+ * Se `videoId` corresponder a um curso da trilha do colab (coluna
+ * `cursos[].bunny_video_id`), marca esse curso como concluído em
+ * `fase4_progresso.cursos_progresso`. Operação idempotente.
+ *
+ * Pra habilitar a integração, o admin precisa editar a trilha e adicionar
+ * `bunny_video_id: "<guid>"` em cada item de `cursos`. Sem essa chave
+ * presente, essa função não faz nada (opt-in).
+ */
+async function concluirPilulaSeMapeada(colaboradorId, empresaId, videoId) {
+  const sb = createSupabaseAdmin();
+
+  const { data: trilha } = await sb.from('trilhas')
+    .select('id, cursos')
+    .eq('colaborador_id', colaboradorId)
+    .eq('empresa_id', empresaId)
+    .order('criado_em', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!trilha?.cursos) return;
+  const cursos = Array.isArray(trilha.cursos) ? trilha.cursos : [];
+
+  // Procura o curso cujo bunny_video_id bate com o videoId assistido
+  const idxMatch = cursos.findIndex(c => c?.bunny_video_id === videoId);
+  if (idxMatch < 0) return;
+
+  const semanaMatch = cursos[idxMatch]?.semana || (idxMatch + 1);
+
+  // Atualiza cursos_progresso em fase4_progresso
+  const { data: progresso } = await sb.from('fase4_progresso')
+    .select('id, cursos_progresso')
+    .eq('colaborador_id', colaboradorId)
+    .eq('empresa_id', empresaId)
+    .maybeSingle();
+  if (!progresso) return;
+
+  const arr = Array.isArray(progresso.cursos_progresso) ? [...progresso.cursos_progresso] : [];
+  const j = arr.findIndex(p => p?.semana === semanaMatch);
+  if (j >= 0) {
+    if (arr[j].concluido) return; // já concluído
+    arr[j] = { ...arr[j], concluido: true, concluido_em: new Date().toISOString() };
+  } else {
+    arr.push({ semana: semanaMatch, concluido: true, concluido_em: new Date().toISOString() });
+  }
+
+  await sb.from('fase4_progresso')
+    .update({ cursos_progresso: arr })
+    .eq('id', progresso.id);
 }
