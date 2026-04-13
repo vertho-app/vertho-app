@@ -185,10 +185,17 @@ export async function gerarTemporadasLote(empresaId, aiConfig) {
       resultados.push({ colab: c.nome_completo, ...r });
     }
     const ok = resultados.filter(r => r.ok).length;
-    return { ok: true, total: colabs.length, gerados: ok, resultados, message: `${ok}/${colabs.length} temporadas geradas` };
+    const errosUnicos = [...new Set(resultados.filter(r => !r.ok).map(r => r.error))].slice(0, 3);
+    return {
+      success: true,
+      total: colabs.length,
+      gerados: ok,
+      resultados,
+      message: `${ok}/${colabs.length} temporadas geradas${errosUnicos.length ? ` · erros: ${errosUnicos.join('; ')}` : ''}`,
+    };
   } catch (err) {
     console.error('[gerarTemporadasLote]', err);
-    return { error: err?.message || 'Erro' };
+    return { success: false, error: err?.message || 'Erro' };
   }
 }
 
