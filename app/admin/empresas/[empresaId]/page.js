@@ -58,7 +58,6 @@ const PHASE_CONFIG = [
       { key: 'preferencias', label: 'Preferências de Aprendizagem', icon: GraduationCap, hrefFn: (id) => `/admin/empresas/${id}/fase0?tab=preferencias` },
     ]},
     { label: 'Conteúdo', actions: [
-      { key: 'conteudos', label: 'Banco de Conteúdos', icon: BookOpen, href: '/admin/conteudos' },
       { key: 'videos', label: 'Vídeos (Bunny)', icon: Film, hrefFn: (id) => `/admin/videos?empresa=${id}` },
     ]},
     { label: 'Sistema', actions: [

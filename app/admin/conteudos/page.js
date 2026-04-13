@@ -150,12 +150,12 @@ export default function ConteudosAdminPage() {
             onChange={e => setFilterFormato(e.target.value)}
             className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white"
           >
-            <option value="">Todos os formatos</option>
-            <option value="video">Vídeo</option>
-            <option value="audio">Áudio</option>
-            <option value="texto">Texto</option>
-            <option value="case">Case</option>
-            <option value="pdf">PDF</option>
+            <option value="" className="bg-[#0d1426] text-white">Todos os formatos</option>
+            <option value="video" className="bg-[#0d1426] text-white">Vídeo</option>
+            <option value="audio" className="bg-[#0d1426] text-white">Áudio</option>
+            <option value="texto" className="bg-[#0d1426] text-white">Texto</option>
+            <option value="case" className="bg-[#0d1426] text-white">Case</option>
+            <option value="pdf" className="bg-[#0d1426] text-white">PDF</option>
           </select>
           <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
             <input type="checkbox" checked={filterSemClass} onChange={e => setFilterSemClass(e.target.checked)} />
@@ -373,7 +373,7 @@ function SelectField({ label, value, onChange, options }) {
         onChange={e => onChange(e.target.value)}
         className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none"
       >
-        {options.map(o => <option key={o} value={o}>{o}</option>)}
+        {options.map(o => <option key={o} value={o} className="bg-[#0d1426] text-white">{o}</option>)}
       </select>
     </div>
   );
