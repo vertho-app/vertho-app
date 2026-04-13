@@ -119,9 +119,9 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig } = 
       cursos: [], // legado moodle, vazio na nova era
     };
 
+    // Constraint única: 1 trilha por (empresa, colab). Sempre UPDATE se existe.
     let trilhaId;
-    if (existente && numeroTemporada === 1) {
-      // Sobrescreve a primeira temporada se ainda não rodou
+    if (existente) {
       const { error } = await sb.from('trilhas').update(payload).eq('id', existente.id);
       if (error) return { error: error.message };
       trilhaId = existente.id;
