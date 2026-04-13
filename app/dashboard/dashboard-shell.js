@@ -58,8 +58,8 @@ export default function DashboardShell({ children }) {
         {children}
       </main>
 
-      {/* Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 flex items-center justify-around border-t border-white/[0.06]"
+      {/* Bottom Nav — oculta em desktop (md+) para quem usa sidebar lateral */}
+      <nav className="fixed bottom-0 left-0 right-0 md:hidden flex items-center justify-around border-t border-white/[0.06]"
         style={{ height: 'var(--nav-height)', background: '#091D35' }}>
         {NAV_ITEMS.map(item => {
           const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
