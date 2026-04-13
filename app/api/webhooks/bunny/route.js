@@ -1,14 +1,17 @@
-// Webhook do Bunny Stream — recebe eventos de reprodução e grava em
-// videos_watched com atribuição por colaborador.
+// Webhook do Bunny Stream — recebe eventos de STATUS DE VÍDEO
+// (encoding pronto, erro, etc). NÃO recebe eventos de reprodução:
+// o Bunny não tem webhook nativo de play/ended. Pra atribuir views
+// a colaboradores usamos postMessage do iframe (ver components/video-modal.js).
+//
+// Uso prático hoje: logar mudanças de status. Quando um vídeo termina
+// de encodar (Status=4), poderíamos invalidar o cache de /api/bunny-videos
+// ou notificar o admin, mas por ora só gravamos pra referência.
 //
 // Configuração no painel Bunny:
-//   Stream → Library → Webhooks → Add Webhook
-//     URL:    https://<seu-host>/api/webhooks/bunny
-//     Events: Video Played, Video Finished
+//   Stream → Library → Webhooks → URL:
+//   https://www.vertho.com.br/api/webhooks/bunny
 //
-// Pra autorizar, configure BUNNY_WEBHOOK_SECRET no env (opcional). O Bunny
-// pode enviar via header `Authorization` ou query param `token`. Se o secret
-// estiver configurado, rejeita requests sem match.
+// BUNNY_WEBHOOK_SECRET (opcional): valida via header Authorization ou ?token=
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 

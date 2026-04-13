@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
+import { registrarVideoWatched } from '@/actions/video-tracking';
 
 /**
  * Modal que abre um vídeo hospedado no Bunny Stream dentro de um iframe.
@@ -17,6 +18,9 @@ import { X } from 'lucide-react';
  *   para atribuição user-level.
  */
 export default function VideoModal({ libraryId, videoId, title, onClose, colaboradorId }) {
+  const startedRef = useRef(false);
+  const finishedRef = useRef(false);
+
   // Fecha com ESC e trava scroll do body enquanto aberto
   useEffect(() => {
     function onKey(e) { if (e.key === 'Escape') onClose?.(); }
@@ -28,6 +32,57 @@ export default function VideoModal({ libraryId, videoId, title, onClose, colabor
       document.body.style.overflow = overflow;
     };
   }, [onClose]);
+
+  // ─── Tracking via postMessage do iframe Bunny ─────────────────────────
+  // O iframe emite eventos (play, ended, timeupdate) via window.postMessage.
+  // Capturamos o primeiro "play" como play_started e o "ended" como
+  // play_finished — registramos no backend via server action.
+  useEffect(() => {
+    if (!colaboradorId || !videoId) return;
+    startedRef.current = false;
+    finishedRef.current = false;
+
+    function handleMessage(e) {
+      if (!e.origin || !e.origin.includes('mediadelivery.net')) return;
+      const d = e.data;
+      if (!d || typeof d !== 'object') return;
+
+      // O Bunny emite eventos com nomes variáveis — normalizamos
+      const evt = String(d.eventName || d.event || d.type || '').toLowerCase();
+      if (!evt) return;
+
+      const currentTime = Number(d.currentTime || d.time || 0);
+      const duration = Number(d.duration || 0);
+
+      // Primeiro play (não envia a cada play/pause, só uma vez)
+      if ((evt === 'play' || evt === 'playing' || evt === 'loaded') && !startedRef.current) {
+        startedRef.current = true;
+        registrarVideoWatched({
+          colaboradorId,
+          videoId,
+          eventType: 'play_started',
+          secondsWatched: Math.round(currentTime),
+          videoLength: Math.round(duration),
+        }).catch(() => {});
+        return;
+      }
+
+      // Ended / finished — só uma vez por sessão
+      if ((evt === 'ended' || evt === 'finished') && !finishedRef.current) {
+        finishedRef.current = true;
+        registrarVideoWatched({
+          colaboradorId,
+          videoId,
+          eventType: 'play_finished',
+          secondsWatched: Math.round(duration || currentTime),
+          videoLength: Math.round(duration || currentTime),
+        }).catch(() => {});
+      }
+    }
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [colaboradorId, videoId]);
 
   // metaData é passado pro Bunny e retorna em todo webhook — usamos prefixo
   // "colab-<uuid>" pra facilitar parse no webhook e evitar colisão com outros
