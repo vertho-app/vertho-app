@@ -121,7 +121,7 @@ export default function DashboardHomePage() {
       {/* Top bar editorial (desktop) */}
       <div className="hidden md:flex items-center justify-between h-20 px-10 sticky top-0 z-30 backdrop-blur"
         style={{ background: 'rgba(9,29,53,0.75)' }}>
-        <div className="text-xl font-extrabold text-white tracking-tight">Vertho Mentor IA</div>
+        <img src="/logo-vertho.png" alt="Vertho" style={{ height: '26px' }} />
         <div className="flex items-center gap-5">
           <button className="text-gray-400 hover:text-white transition-colors" title="Buscar">
             <Search size={18} />
