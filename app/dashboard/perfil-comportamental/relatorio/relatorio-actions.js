@@ -11,10 +11,12 @@ const BUCKET = 'relatorios-pdf';
 
 // ── Helpers internos ────────────────────────────────────────────────────────
 
-async function gerarTextosLLM(raw) {
+async function gerarTextosLLM(raw, empresaId) {
   const prompt = buildBehavioralReportPrompt(raw);
   const system = 'Você é um analista comportamental sênior. Responda APENAS com JSON válido, sem markdown nem comentários.';
-  const rawAnswer = await callAI(system, prompt, {}, 4096);
+  const { getModelForTask } = await import('@/lib/ai-tasks');
+  const model = await getModelForTask(empresaId, 'relatorio_comportamental');
+  const rawAnswer = await callAI(system, prompt, { model }, 4096);
 
   const cleaned = String(rawAnswer || '')
     .replace(/```json\s*/gi, '')
@@ -76,7 +78,7 @@ export async function loadBehavioralReport(email, opts = {}) {
     // 2) Gera via LLM
     let texts;
     try {
-      texts = await gerarTextosLLM(raw);
+      texts = await gerarTextosLLM(raw, colab.empresa_id);
     } catch (e) {
       console.error('[loadBehavioralReport] Falha ao parsear JSON do LLM:', e);
       return { error: 'Erro ao interpretar resposta do modelo. Tente novamente.' };
@@ -136,7 +138,7 @@ export async function gerarEsalvarRelatorioComportamental({ email, colab: inputC
       if (age < CACHE_MAX_AGE_MS) texts = colab.report_texts;
     }
     if (!texts) {
-      texts = await gerarTextosLLM(raw);
+      texts = await gerarTextosLLM(raw, colab.empresa_id);
       await sb.from('colaboradores')
         .update({ report_texts: texts, report_generated_at: new Date().toISOString() })
         .eq('id', colab.id);

@@ -81,7 +81,9 @@ export async function gerarInsightsExecutivos(email, opts = {}) {
     const prompt = buildInsightsExecutivosPrompt({ colab, arquetipo, tags });
     const system = 'Você é um consultor sênior de desenvolvimento humano. Responda APENAS com JSON válido no formato { "insights": ["...", "...", "..."] }, sem markdown nem comentários.';
 
-    const raw = await callAI(system, prompt, {}, 800);
+    const { getModelForTask } = await import('@/lib/ai-tasks');
+    const model = await getModelForTask(colab.empresa_id, 'insights_executivos');
+    const raw = await callAI(system, prompt, { model }, 800);
     const cleaned = String(raw || '').replace(/```json\s*/gi, '').replace(/```/g, '').trim();
 
     let parsed;

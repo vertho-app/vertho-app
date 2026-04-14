@@ -10,15 +10,11 @@ import { loadConfig, salvarConfig, salvarBranding, salvarSlug, loadEquipe, atual
 import { limparSessoesAntigas, limparSessoesTeste } from '@/app/actions/manutencao';
 
 const DIAS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-const MODELOS = [
-  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
-  { id: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
-  { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash' },
-  { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro' },
-];
+import { AI_TASKS, MODELOS_DISPONIVEIS } from '@/lib/ai-tasks';
+const MODELOS = MODELOS_DISPONIVEIS;
 
 const DEFAULT_CONFIG = {
-  ai: { modelo_padrao: 'claude-sonnet-4-6', anthropic_key: null, gemini_key: null, openai_key: null, thinking: false },
+  ai: { modelo_padrao: 'claude-sonnet-4-6', modelos: {}, anthropic_key: null, gemini_key: null, openai_key: null, thinking: false },
   cadencia: { fase4_dia_pilula: 1, fase4_dia_evidencia: 4, fase4_hora: 8, email_ativo: true, whatsapp_ativo: true },
   envios: { email_remetente: null, email_alias: null },
 };
@@ -293,10 +289,48 @@ export default function ConfigPage({ params }) {
       {tab === 'ai' && (
         <div className="space-y-4">
           <Panel title="Modelo Padrão">
+            <p className="text-[11px] text-gray-500 mb-3">Usado em todas as tarefas que não têm um modelo específico configurado abaixo</p>
             <select value={config.ai.modelo_padrao} onChange={e => updateAI('modelo_padrao', e.target.value)}
               className="w-full px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40" style={{ background: '#091D35' }}>
               {MODELOS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
             </select>
+          </Panel>
+
+          <Panel title="Modelos por Tarefa">
+            <p className="text-[11px] text-gray-500 mb-3">Sobrescreva o modelo padrão em tarefas específicas. Deixe "Usar padrão" para herdar.</p>
+            {(() => {
+              const porFase = AI_TASKS.reduce((acc, t) => {
+                (acc[t.fase] = acc[t.fase] || []).push(t);
+                return acc;
+              }, {});
+              return Object.entries(porFase).map(([fase, tasks]) => (
+                <div key={fase} className="mb-4 last:mb-0">
+                  <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-2">{fase}</p>
+                  <div className="space-y-1.5">
+                    {tasks.map(t => {
+                      const atual = config.ai.modelos?.[t.key] || '';
+                      return (
+                        <div key={t.key} className="flex items-center gap-2">
+                          <span className="flex-1 text-xs text-gray-300">{t.label}</span>
+                          <select value={atual}
+                            onChange={e => {
+                              const novo = { ...(config.ai.modelos || {}) };
+                              if (e.target.value) novo[t.key] = e.target.value;
+                              else delete novo[t.key];
+                              updateAI('modelos', novo);
+                            }}
+                            className="px-2 py-1 rounded text-[11px] text-white border border-white/10 outline-none focus:border-cyan-400/40"
+                            style={{ background: '#091D35', minWidth: 180 }}>
+                            <option value="">Usar padrão ({MODELOS.find(m => m.id === config.ai.modelo_padrao)?.label || 'default'})</option>
+                            {MODELOS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ));
+            })()}
           </Panel>
           <Panel title="API Keys do Cliente (opcional)">
             <p className="text-[10px] text-gray-500 mb-3">Se preenchido, usa as chaves do cliente em vez das globais</p>
