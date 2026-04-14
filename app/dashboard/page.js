@@ -289,9 +289,7 @@ export default function DashboardHomePage() {
           </h1>
           <button onClick={() => {
               if (data?.competenciaFoco) return router.push('/dashboard/temporada');
-              // Fase 1: se ainda não fez o mapeamento DISC, vai direto pro mapeamento
               if (!data?.colaborador?.perfil_dominante) return router.push('/dashboard/perfil-comportamental/mapeamento');
-              // Já tem DISC, próximo passo é Fase 2 (avaliação)
               router.push('/dashboard/assessment');
             }}
             className="flex items-center gap-3 px-6 py-3 md:px-8 md:py-4 rounded-full font-semibold text-white transition-all hover:scale-[1.02] active:scale-95"
@@ -299,9 +297,12 @@ export default function DashboardHomePage() {
               background: 'linear-gradient(135deg, #0D9488, #0F766E)',
               boxShadow: '0 0 28px rgba(0,180,216,0.25)',
             }}>
-            {data?.competenciaFoco
-              ? `Ver Temporada de ${data.competenciaFoco}`
-              : (!data?.colaborador?.perfil_dominante ? 'Fazer diagnóstico (DISC)' : 'Iniciar avaliação')}
+            {(() => {
+              if (data?.competenciaFoco) return `Ver Temporada de ${data.competenciaFoco}`;
+              if (!data?.colaborador?.perfil_dominante) return 'Fazer diagnóstico comportamental';
+              const respondidas = data?.colaborador?.respondidas || 0;
+              return respondidas > 0 ? 'Continuar avaliação de competências' : 'Iniciar avaliação de competências';
+            })()}
             <ArrowRight size={18} />
           </button>
         </section>
