@@ -213,8 +213,16 @@ PERGUNTA 2: ${resp.r2 || '(sem resposta)'}
 PERGUNTA 3: ${resp.r3 || '(sem resposta)'}
 PERGUNTA 4: ${resp.r4 || '(sem resposta)'}`;
 
-        const resultado = await callAI(IA4_SYSTEM, user, aiConfig, 64000);
-        const avaliacao = await extractJSON(resultado);
+        let resultado = await callAI(IA4_SYSTEM, user, aiConfig, 64000);
+        let avaliacao = await extractJSON(resultado);
+
+        // Retry 1x se IA não retornou JSON válido na primeira tentativa
+        if (!avaliacao) {
+          console.warn(`[IA4] retry para ${resp.nome_colaborador}: primeira resposta sem JSON (${(resultado || '').slice(0, 200)}...)`);
+          const userRetry = `${user}\n\n=== ATENÇÃO ===\nSua resposta anterior não foi um JSON válido. Retorne APENAS o JSON, sem texto antes ou depois, sem markdown.`;
+          resultado = await callAI(IA4_SYSTEM, userRetry, aiConfig, 64000);
+          avaliacao = await extractJSON(resultado);
+        }
 
         if (avaliacao) {
           const nivelGeral = avaliacao.consolidacao?.nivel_geral || avaliacao.nivel_geral || null;
@@ -234,7 +242,8 @@ PERGUNTA 4: ${resp.r4 || '(sem resposta)'}`;
           else { erros++; ultimoErro = updErr.message; }
         } else {
           erros++;
-          ultimoErro = 'IA não retornou JSON válido';
+          ultimoErro = `IA não retornou JSON válido (${resp.nome_colaborador} / ${resp.competencia_nome})`;
+          console.error(`[IA4] FALHA mesmo após retry: ${resp.nome_colaborador}`, resultado?.slice(0, 500));
         }
       } catch (e) {
         erros++;
