@@ -377,19 +377,47 @@ export default function Fase1Page({ params }) {
                       disabled={!!cenAction}
                       onClick={async () => {
                         const paraRevisar = cens.filter(c => c.status_check === 'revisar');
+                        let ok = 0, semCheck = 0;
                         for (const c of paraRevisar) {
                           setCenAction({ id: c.id, type: 'regen' });
                           try {
                             const r = await regenerarCenario(c.id);
-                            if (r.success) await checkCenarioUm(c.id);
-                          } catch (e) { console.warn('regen lote:', e.message); }
+                            if (r.success) {
+                              const r2 = await checkCenarioUm(c.id);
+                              if (r2.success) ok++; else semCheck++;
+                            }
+                          } catch (e) {
+                            console.warn('regen lote:', e.message);
+                            semCheck++;
+                          }
                         }
                         setCenAction(null);
-                        flash(`${paraRevisar.length} cenários regerados e revalidados`);
+                        flash(`${ok} revisados${semCheck ? ` · ${semCheck} sem validação (clique 'Validar todos')` : ''}`);
                         refresh();
                       }}
                       className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold text-amber-300 border border-amber-400/40 hover:bg-amber-400/10 transition-all disabled:opacity-50 ml-auto">
                       <RefreshCw size={10} /> Revisar todos ({revisar})
+                    </button>
+                  )}
+                  {pendentes > 0 && (
+                    <button
+                      disabled={!!cenAction}
+                      onClick={async () => {
+                        const semNota = cens.filter(c => !c.nota_check);
+                        let ok = 0, erro = 0;
+                        for (const c of semNota) {
+                          setCenAction({ id: c.id, type: 'check' });
+                          try {
+                            const r = await checkCenarioUm(c.id);
+                            if (r.success) ok++; else erro++;
+                          } catch (e) { console.warn('check lote:', e.message); erro++; }
+                        }
+                        setCenAction(null);
+                        flash(`${ok} validados${erro ? ` · ${erro} com erro` : ''}`);
+                        refresh();
+                      }}
+                      className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold text-cyan-300 border border-cyan-400/40 hover:bg-cyan-400/10 transition-all disabled:opacity-50">
+                      <CheckCircle size={10} /> Validar todos ({pendentes})
                     </button>
                   )}
                 </div>
