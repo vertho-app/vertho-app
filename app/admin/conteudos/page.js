@@ -330,18 +330,22 @@ export default function ConteudosAdminPage() {
         />
       )}
 
-      {/* Modal gerar com IA */}
+      {/* Modal gerar com IA — single ou lote (quando descritor vazio) */}
       {showGerar && (
         <GerarModal
           onClose={() => setShowGerar(false)}
           onGenerate={async (params) => {
             setBusy(true);
-            addLog(`Gerando ${params.formato} para "${params.descritor}"...`, 'info');
-            const r = await gerarConteudoIA(params);
+            const eLote = !params.descritor;
+            const escopo = eLote ? 'TODOS os descritores' : `"${params.descritor}"`;
+            addLog(`Gerando ${params.formato} para ${escopo} de "${params.competencia}"...`, 'info');
+            const r = eLote
+              ? await gerarConteudoLote({ ...params, descritor: null })
+              : await gerarConteudoIA(params);
             setBusy(false);
             if (r.success) {
               addLog(`✅ ${r.message}`, 'success');
-              setRoteiroGerado({ ...r, formato: params.formato });
+              if (!eLote && r.roteiro) setRoteiroGerado({ ...r, formato: params.formato });
               setShowGerar(false);
               await carregar();
             } else {
@@ -723,7 +727,8 @@ function GerarModal({ onClose, onGenerate, busy }) {
   const precisaDuracao = form.formato === 'video' || form.formato === 'audio';
   const competenciaSel = opcoes.competencias.find(c => c.nome === form.competencia);
   const descritoresDisp = competenciaSel?.descritores || [];
-  const podeGerar = form.competencia && form.descritor && !busy;
+  const podeGerar = form.competencia && !busy;
+  const totalGerar = form.descritor ? 1 : descritoresDisp.length;
 
   function handleSubmit() {
     const duracaoSegundos = precisaDuracao ? (Number(form.duracaoMin) * 60 + Number(form.duracaoSeg)) : null;
@@ -768,10 +773,18 @@ function GerarModal({ onClose, onGenerate, busy }) {
           <SelectField label="Competência" value={form.competencia}
             onChange={v => setForm({ ...form, competencia: v, descritor: '' })}
             options={['', ...opcoes.competencias.map(c => c.nome)]} />
-          <SelectField label="Descritor (o que será desenvolvido)" value={form.descritor}
-            onChange={v => setForm({ ...form, descritor: v })}
-            options={['', ...descritoresDisp]}
-            disabled={!form.competencia} />
+          <div>
+            <label className="block text-[10px] uppercase text-gray-500 mb-1">
+              Descritor (opcional · vazio = todos os {descritoresDisp.length})
+            </label>
+            <select value={form.descritor}
+              onChange={e => setForm({ ...form, descritor: e.target.value })}
+              disabled={!form.competencia}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none disabled:opacity-50">
+              <option value="" className="bg-[#0d1426] text-white">— Todos os descritores ({descritoresDisp.length}) —</option>
+              {descritoresDisp.map(d => <option key={d} value={d} className="bg-[#0d1426] text-white">{d}</option>)}
+            </select>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Nível mín" type="number" step="0.1" value={form.nivelMin} onChange={v => setForm({ ...form, nivelMin: Number(v) })} />
             <Field label="Nível máx" type="number" step="0.1" value={form.nivelMax} onChange={v => setForm({ ...form, nivelMax: Number(v) })} />
@@ -803,7 +816,7 @@ function GerarModal({ onClose, onGenerate, busy }) {
         <div className="flex gap-2 mt-5">
           <button onClick={handleSubmit} disabled={!podeGerar}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-sm font-bold">
-            {busy ? 'Gerando...' : <><Wand2 size={14} /> Gerar</>}
+            {busy ? `Gerando ${totalGerar}...` : <><Wand2 size={14} /> Gerar {totalGerar > 1 ? `${totalGerar} conteúdos` : '1 conteúdo'}</>}
           </button>
           <button onClick={onClose} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm">Cancelar</button>
         </div>
