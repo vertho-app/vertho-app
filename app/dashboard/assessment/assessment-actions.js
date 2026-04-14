@@ -34,14 +34,20 @@ async function _getDiagnosticoDoDia(email) {
   const top5 = cargoEmp?.top5_workshop || [];
   if (!top5.length) return { error: 'Nenhuma competência configurada para seu cargo' };
 
-  // Mapeia nomes do top5 → ids via tabela competencias (respeita o cargo)
+  // Mapeia nomes do top5 → id da competência. Quando há múltiplas linhas
+  // por nome (descritores importados via CSV), pega a linha 'principal'
+  // (cod_desc IS NULL) quando existe, senão o primeiro id disponível.
   const { data: compsDoCargo } = await sb.from('competencias')
-    .select('id, nome')
+    .select('id, nome, cod_desc')
     .eq('empresa_id', colab.empresa_id)
-    .eq('cargo', colab.cargo)
-    .is('cod_desc', null);
+    .eq('cargo', colab.cargo);
   const nomeToId = {};
-  (compsDoCargo || []).forEach(c => { nomeToId[(c.nome || '').toLowerCase()] = c.id; });
+  (compsDoCargo || []).forEach(c => {
+    const key = (c.nome || '').toLowerCase();
+    if (!key) return;
+    // Prioriza linha sem cod_desc (mais estável); senão mantém o primeiro
+    if (!nomeToId[key] || !c.cod_desc) nomeToId[key] = c.id;
+  });
 
   const top5ComId = top5.map(n => ({ nome: n, id: nomeToId[(n || '').toLowerCase()] || null }));
 
