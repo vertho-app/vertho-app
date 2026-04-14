@@ -348,6 +348,33 @@ export default function EmpresaPipelinePage({ params }) {
         return;
       }
 
+      // Trilhas/Temporadas em lote: processa 1 colab por vez no client (evita timeout)
+      if (actionKey === 'trilhas' || actionKey === 'temporadas') {
+        const { listarColabsParaTrilha } = await import('@/actions/fase4');
+        const { gerarTemporada } = await import('@/actions/temporadas');
+        const r = await listarColabsParaTrilha(empresaId);
+        const colabs = r?.colabs || [];
+        if (colabs.length === 0) { addLog('Nenhum colaborador encontrado', 'error'); setPendingAction(null); return; }
+        addLog(`📋 Vai gerar temporada para ${colabs.length} colab(s)`, 'info');
+        let ok = 0, erros = 0;
+        for (let i = 0; i < colabs.length; i++) {
+          const c = colabs[i];
+          addLog(`[${i + 1}/${colabs.length}] ${c.nome_completo}...`, 'info');
+          try {
+            const r2 = await gerarTemporada({ colaboradorId: c.id, aiConfig });
+            if (r2.ok) { ok++; addLog(`  ✅ ${c.nome_completo} (${r2.descritores} descritores)`, 'success'); }
+            else { erros++; addLog(`  ❌ ${c.nome_completo}: ${r2.error}`, 'error'); }
+          } catch (e) {
+            erros++;
+            addLog(`  ❌ ${c.nome_completo}: ${e.message}`, 'error');
+          }
+        }
+        addLog(`🎉 Lote concluído: ${ok}/${colabs.length}${erros ? ` (${erros} erros)` : ''}`, ok === colabs.length ? 'success' : 'info');
+        loadData();
+        setPendingAction(null);
+        return;
+      }
+
       if (!fn) { addLog(`Ação "${actionKey}" não encontrada`, 'error'); setPendingAction(null); return; }
       const result = await fn(empresaId, aiConfig || undefined);
       if (result?.success) {

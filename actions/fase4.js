@@ -152,12 +152,24 @@ export async function loadCompetenciasFoco(empresaId) {
 // ── Montar trilhas em lote ──────────────────────────────────────────────────
 // 1 competência por colaborador: competência foco (se tiver gap) > maior gap
 
+/**
+ * Lista colabs elegíveis para gerar temporada (têm cargo + competência foco).
+ * Usado pelo client pra orquestrar geração 1 por 1 (evita timeout serverless).
+ */
+export async function listarColabsParaTrilha(empresaId) {
+  const sb = createSupabaseAdmin();
+  const { data: colabs } = await sb.from('colaboradores')
+    .select('id, nome_completo, cargo')
+    .eq('empresa_id', empresaId)
+    .order('nome_completo');
+  return { success: true, colabs: colabs || [] };
+}
+
+/**
+ * @deprecated Use listarColabsParaTrilha + gerarTemporada (1 por colab) no client.
+ * Mantido pra compatibilidade.
+ */
 export async function montarTrilhasLote(empresaId) {
-  // Encaminha pro Motor de Temporadas (substitui a lógica legacy de
-  // dump-tudo-do-catálogo). Cada colab ganha plano de 14 semanas com
-  // 9 conteúdos obrigatórios alocados por gap dos descritores +
-  // formato preferido. Demais conteúdos do catálogo viram "saiba mais"
-  // (extraídos via /admin/temporadas).
   const { gerarTemporadasLote } = await import('@/actions/temporadas');
   return gerarTemporadasLote(empresaId);
 }
