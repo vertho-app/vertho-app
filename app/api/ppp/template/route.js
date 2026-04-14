@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 const BLOCOS = [
   { title: 'Perfil Organizacional', questions: [
     { label: 'Nome da empresa', key: 'nome' },
