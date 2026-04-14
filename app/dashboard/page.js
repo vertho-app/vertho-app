@@ -361,29 +361,27 @@ export default function DashboardHomePage() {
           </section>
         )}
 
-        {/* Carousel */}
-        <section>
-          <div className="flex justify-between items-center mb-5 md:mb-6">
-            <h2 className="text-xs md:text-sm font-bold tracking-[0.2em] text-gray-400">
-              CAPACITAÇÃO RECOMENDADA
-            </h2>
-            <button onClick={() => router.push('/dashboard/praticar')}
-              className="text-cyan-400 text-xs md:text-sm font-semibold flex items-center gap-1 hover:opacity-80">
-              VER TUDO <ChevronRight size={16} />
-            </button>
-          </div>
+        {/* Carousel — só aparece se o colab já tem temporada gerada */}
+        {data?.temporadaPronta && capacitacoes.length > 0 && (
+          <section>
+            <div className="flex justify-between items-center mb-5 md:mb-6">
+              <h2 className="text-xs md:text-sm font-bold tracking-[0.2em] text-gray-400">
+                CAPACITAÇÃO RECOMENDADA
+              </h2>
+              <button onClick={() => router.push('/dashboard/temporada')}
+                className="text-cyan-400 text-xs md:text-sm font-semibold flex items-center gap-1 hover:opacity-80">
+                VER TUDO <ChevronRight size={16} />
+              </button>
+            </div>
 
-          {capacitacoes.length === 0 ? (
-            <p className="text-xs text-gray-500">Nenhum vídeo disponível no momento.</p>
-          ) : (
             <div className="flex gap-4 md:gap-6 overflow-x-auto pb-6 snap-x -mx-5 md:-mx-10 px-5 md:px-10">
               {capacitacoes.map(item => (
                 <CapacitacaoCard key={item.videoId} item={item}
                   onClick={() => setActiveVideo({ videoId: item.videoId, titulo: item.titulo })} />
               ))}
             </div>
-          )}
-        </section>
+          </section>
+        )}
       </main>
 
       {/* Modal do vídeo (Bunny Stream) */}

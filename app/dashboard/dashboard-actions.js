@@ -55,11 +55,12 @@ export async function loadDashboardData(email) {
 
   // Competência foco da trilha ativa (Motor de Temporadas)
   const { data: trilhaAtiva } = await sb.from('trilhas')
-    .select('competencia_foco, numero_temporada, status')
+    .select('competencia_foco, numero_temporada, status, temporada_plano')
     .eq('colaborador_id', colab.id)
     .order('criado_em', { ascending: false })
     .limit(1).maybeSingle();
   const competenciaFoco = trilhaAtiva?.competencia_foco || null;
+  const temporadaPronta = !!(trilhaAtiva?.temporada_plano && Array.isArray(trilhaAtiva.temporada_plano) && trilhaAtiva.temporada_plano.length > 0 && trilhaAtiva.status !== 'arquivada');
 
   return {
     colaborador: colab,
@@ -68,6 +69,7 @@ export async function loadDashboardData(email) {
     isPlatformAdmin: ctx.isPlatformAdmin,
     competenciaFoco,
     temporada: trilhaAtiva,
+    temporadaPronta,
     teamData,
   };
 }
