@@ -15,6 +15,7 @@ import {
 
 import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, checkCenarioUm } from '@/actions/fase1';
 import { listarPendentesSimulacao, simularUmaResposta } from '@/actions/simulador-conversas';
+import { simularMapeamentoDISCLote } from '@/actions/simulador-disc';
 import { gerarRelatorioIndividual, gerarRelatoriosIndividuaisLote, gerarRelatorioGestor as gerarRelGestor, gerarRelatorioRH as gerarRelRH } from '@/actions/relatorios';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import { gerarTemporadasLote } from '@/actions/temporadas';
@@ -71,6 +72,7 @@ const PHASE_CONFIG = [
     { key: 'ia2', label: 'IA2 — Perfil Ideal', icon: Zap, ai: true },
     { key: 'ia3', label: 'IA3 — Cenários + Check', icon: Zap, ai: 'dual' },
     { key: 'fit', label: 'Fit v2', icon: BarChart3, href: '/admin/fit' },
+    { key: 'simular-disc', label: 'Simular Mapeamento DISC', icon: MessageSquare, ai: false },
     { key: 'envios', label: 'Envios', icon: Send, href: '/admin/whatsapp' },
   ]},
   { num: 2, icon: Bot, color: '#EF4444', groups: [
@@ -120,6 +122,7 @@ const PHASE_CONFIG = [
 const ACTION_MAP = {
   ia1: rodarIA1, ia2: rodarIA2, ia3: rodarIA3,
   ia4: rodarIA4,
+  'simular-disc': simularMapeamentoDISCLote,
   trilhas: montarTrilhasLote,
   'iniciar-cap': iniciarCapacitacao, 'avancar-sem': avancarSemana, nudges: enviarNudgesInatividade,
   temporadas: gerarTemporadasLote,
