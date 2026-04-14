@@ -114,7 +114,9 @@ export default function SemanaPage({ params }) {
       {!isAplicacao && !isAvaliacao && conteudo && (
         <>
           <GlassCard className="mb-4">
-            <ConteudoViewer conteudo={conteudo} formatoAtivo={formatoAtivo} setFormatoAtivo={setFormatoAtivo} />
+            <ConteudoViewer conteudo={conteudo} formatoAtivo={formatoAtivo} setFormatoAtivo={setFormatoAtivo}
+              trilhaId={data.trilha.id} semana={semanaNum}
+              onAutoConsumido={() => !conteudoConsumido && handleConsumido()} />
             {!conteudoConsumido && (
               <button onClick={handleConsumido} className="mt-4 flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm font-bold">
                 <Check size={14} /> Marcar como assistido
@@ -226,10 +228,43 @@ export default function SemanaPage({ params }) {
   );
 }
 
-function ConteudoViewer({ conteudo, formatoAtivo, setFormatoAtivo }) {
+function ConteudoViewer({ conteudo, formatoAtivo, setFormatoAtivo, onAutoConsumido, trilhaId, semana }) {
   const formatos = Object.keys(conteudo.formatos_disponiveis || {});
   const ativo = formatoAtivo || conteudo.formato_core;
   const item = conteudo.formatos_disponiveis?.[ativo] || (ativo === conteudo.formato_core ? { url: conteudo.core_url, titulo: conteudo.core_titulo } : null);
+
+  // Listener postMessage Bunny → auto-marca conteudo_consumido ao atingir 80%
+  useEffect(() => {
+    if (ativo !== 'video') return;
+    let markedRef = false;
+    const handler = (event) => {
+      if (!event.origin?.includes('mediadelivery.net')) return;
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        // Bunny player.js envia 'timeupdate' com seconds/duration, ou 'play_finished'
+        const pct = data?.progress != null ? Number(data.progress) :
+                    (data?.seconds && data?.duration ? data.seconds / data.duration : null);
+        if ((pct && pct >= 0.8) || data?.event === 'play_finished' || data?.event === 'ended') {
+          if (!markedRef && onAutoConsumido) {
+            markedRef = true;
+            onAutoConsumido();
+          }
+        }
+      } catch {}
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, [ativo, onAutoConsumido]);
+
+  // Adiciona metaData na URL do Bunny embed (atribuição de view)
+  const embedUrl = (() => {
+    if (ativo !== 'video' || !item?.url) return item?.url;
+    try {
+      const u = new URL(item.url);
+      u.searchParams.set('metaData', `trilha-${trilhaId}_semana-${semana}`);
+      return u.toString();
+    } catch { return item.url; }
+  })();
 
   return (
     <div>
@@ -259,7 +294,7 @@ function ConteudoViewer({ conteudo, formatoAtivo, setFormatoAtivo }) {
       )}
       {item?.url && ativo === 'video' && (
         <div className="aspect-video rounded-lg overflow-hidden bg-black">
-          <iframe src={item.url} className="w-full h-full" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture" allowFullScreen />
+          <iframe src={embedUrl} className="w-full h-full" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture" allowFullScreen />
         </div>
       )}
       {item?.url && ativo === 'audio' && (

@@ -32,7 +32,21 @@ export async function GET(req) {
     switch (action) {
       case 'cleanup_sessoes':
         result = await cleanupSessoes();
+        // Aproveita o cron diário pra recalcular taxa_conclusao dos micro-conteúdos
+        try {
+          const { recalcularTaxaConclusao } = await import('@/actions/conteudos-metrics');
+          const taxa = await recalcularTaxaConclusao();
+          result.message = `${result.message || 'cleanup ok'} · taxa: ${taxa.message}`;
+        } catch (e) {
+          console.warn('[cron] taxa_conclusao falhou:', e.message);
+        }
         break;
+
+      case 'recalcular_taxa': {
+        const { recalcularTaxaConclusao } = await import('@/actions/conteudos-metrics');
+        result = await recalcularTaxaConclusao();
+        break;
+      }
 
       case 'trigger_segunda':
         result = await triggerSegunda();
