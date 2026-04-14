@@ -9,6 +9,7 @@ import {
   loadEmpresas, loadCompetencias, loadCompetenciasBase,
   salvarCompetencia, excluirCompetencia, copiarBaseParaEmpresa, importarCompetenciasCSV, loadCargosEmpresa
 } from './actions';
+import { parseSpreadsheet } from '@/lib/parse-spreadsheet';
 
 const EMPTY_COMP = { nome: '', descricao: '', cargo: '', cod_comp: '', pilar: '' };
 
@@ -177,37 +178,8 @@ export default function CompetenciasPage() {
               const file = e.target.files?.[0];
               if (!file) return;
               setImporting(true);
-
-              let parsed = [];
-              const isExcel = /\.xlsx?$/i.test(file.name);
-
-              if (isExcel) {
-                // Parse Excel via SheetJS — primeira sheet, primeira linha = cabeçalho
-                const XLSX = await import('xlsx');
-                const buffer = await file.arrayBuffer();
-                const wb = XLSX.read(buffer, { type: 'array' });
-                const ws = wb.Sheets[wb.SheetNames[0]];
-                const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
-                parsed = rows.map(r => {
-                  const obj = {};
-                  for (const [k, v] of Object.entries(r)) {
-                    obj[String(k).trim().toLowerCase()] = String(v ?? '').trim();
-                  }
-                  return obj;
-                }).filter(c => c.nome);
-              } else {
-                // CSV
-                const text = await file.text();
-                const lines = text.split('\n').filter(l => l.trim());
-                const sep = (lines[0].split(';').length > lines[0].split(',').length) ? ';' : ',';
-                const header = lines[0].split(sep).map(h => h.trim().toLowerCase().replace(/^["']|["']$/g, ''));
-                parsed = lines.slice(1).map(line => {
-                  const cols = line.split(sep).map(c => c.trim().replace(/^["']|["']$/g, ''));
-                  const obj = {};
-                  header.forEach((h, i) => { obj[h] = cols[i]; });
-                  return obj;
-                }).filter(c => c.nome);
-              }
+              const rows = await parseSpreadsheet(file);
+              const parsed = rows.filter(c => c.nome);
               if (!parsed.length) { flash('Nenhuma competência válida. Verifique coluna "nome".'); setImporting(false); e.target.value = ''; return; }
               // Validação de obrigatórios
               const OBRIG = ['nome', 'descricao', 'n1_gap', 'n2_desenvolvimento', 'n4_referencia'];

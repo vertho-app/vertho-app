@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Upload, Loader2, Users, Pencil, Trash2, X, Check, Briefcase, RefreshCw, Plus, Save } from 'lucide-react';
+import { parseSpreadsheet } from '@/lib/parse-spreadsheet';
 import {
   loadEmpresas, loadResumoEmpresa, importarColaboradoresLote, loadColaboradores, atualizarColaborador, excluirColaborador,
   criarColaborador,
@@ -84,25 +85,24 @@ export default function GerenciarPage() {
     const file = e.target.files?.[0];
     if (!file || !tenantId) return;
     setImporting(true); setMsg('');
-    const text = await file.text();
-    const lines = text.split('\n').filter(l => l.trim());
-    const sep = (lines[0].split(';').length > lines[0].split(',').length) ? ';' : ',';
-    const header = lines[0].split(sep).map(h => h.trim().toLowerCase().replace(/^["']|["']$/g, ''));
-    const parsed = lines.slice(1).map(line => {
-      const cols = line.split(sep).map(c => c.trim().replace(/^["']|["']$/g, ''));
-      const obj = {};
-      header.forEach((h, i) => { obj[h] = cols[i]; });
-      return { nome: obj.nome || obj.nome_completo, email: obj.email, cargo: obj.cargo, role: obj.role || obj.papel };
-    }).filter(c => c.email);
+
+    const rows = await parseSpreadsheet(file);
+    const parsed = rows.map(obj => ({
+      nome: obj.nome || obj.nome_completo,
+      email: obj.email,
+      cargo: obj.cargo,
+      role: obj.role || obj.papel,
+    })).filter(c => c.email);
 
     if (parsed.length === 0) {
-      setMsg(`Nenhum colaborador no CSV. Separador detectado: "${sep}". Verifique coluna "email".`);
+      setMsg('Nenhum colaborador válido. Verifique coluna "email".');
       setImporting(false); return;
     }
 
     const r = await importarColaboradoresLote(tenantId, parsed);
     setMsg(r.success ? r.message : r.error);
     setImporting(false);
+    e.target.value = '';
     if (r.success) refresh();
   }
 
@@ -542,7 +542,7 @@ export default function GerenciarPage() {
                 style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
                 {importing ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
                 {importing ? 'Importando...' : 'Importar CSV'}
-                <input type="file" accept=".csv" onChange={handleCSV} className="hidden" disabled={importing} />
+                <input type="file" accept=".csv,.xlsx,.xls" onChange={handleCSV} className="hidden" disabled={importing} />
               </label>
             </>
           )}
