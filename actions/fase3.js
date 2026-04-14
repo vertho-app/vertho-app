@@ -238,7 +238,33 @@ PERGUNTA 4: ${resp.r4 || '(sem resposta)'}`;
             avaliado_em: new Date().toISOString(),
           }).eq('id', resp.id).select('id');
 
-          if (!updErr) avaliadas++;
+          if (!updErr) {
+            avaliadas++;
+            // Popula descriptor_assessments com as notas IA4 por descritor
+            // (alimenta o motor de temporadas — select-descriptors usa essas notas)
+            try {
+              const notasPorDesc = avaliacao.consolidacao?.notas_por_descritor || {};
+              const rows = Object.values(notasPorDesc)
+                .filter(d => d?.nome && typeof d.nota_decimal === 'number')
+                .map(d => ({
+                  empresa_id: empresaId,
+                  colaborador_id: resp.colaborador_id,
+                  cargo: resp.cargo,
+                  competencia: resp.competencia_nome,
+                  descritor: d.nome,
+                  nota: Math.max(1.0, Math.min(4.0, d.nota_decimal)),
+                  origem: 'ia4',
+                  assessment_date: new Date().toISOString(),
+                }));
+              if (rows.length > 0) {
+                await sb.from('descriptor_assessments').upsert(rows, {
+                  onConflict: 'colaborador_id,competencia,descritor',
+                });
+              }
+            } catch (e) {
+              console.warn('[IA4] descriptor_assessments upsert falhou:', e.message);
+            }
+          }
           else { erros++; ultimoErro = updErr.message; }
         } else {
           erros++;
