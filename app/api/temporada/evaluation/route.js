@@ -124,8 +124,13 @@ export async function POST(request) {
 
       historico.push({ role: 'user', content: message, timestamp: new Date().toISOString() });
 
+      // Enriquece descritores com a régua de maturidade (n1-n4) pra pontuação ancorada
+      const descritoresComRegua = await enriquecerComRegua(sb, trilha.empresa_id, trilha.competencia_foco, descritores);
+
       const { system, user } = promptEvolutionScenarioScore({
-        competencia: trilha.competencia_foco, descritores, cenario, resposta: message, nomeColab: nome,
+        competencia: trilha.competencia_foco,
+        descritores: descritoresComRegua,
+        cenario, resposta: message, nomeColab: nome,
       });
       const r = await callAI(system, user, {}, 1500);
       let parsed = {};
@@ -151,6 +156,23 @@ export async function POST(request) {
     console.error('[VERTHO] /evaluation:', err);
     return NextResponse.json({ error: err?.message }, { status: 500 });
   }
+}
+
+async function enriquecerComRegua(sb, empresaId, competencia, descritores) {
+  // Tenta competencias (empresa), fallback competencias_base
+  const nomesCurtos = descritores.map(d => d.descritor);
+  let { data: rows } = await sb.from('competencias')
+    .select('nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
+    .eq('empresa_id', empresaId).eq('nome', competencia)
+    .in('nome_curto', nomesCurtos);
+  if (!rows || rows.length === 0) {
+    const { data: base } = await sb.from('competencias_base')
+      .select('nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
+      .eq('nome', competencia).in('nome_curto', nomesCurtos);
+    rows = base || [];
+  }
+  const mapa = Object.fromEntries((rows || []).map(r => [r.nome_curto, r]));
+  return descritores.map(d => ({ ...d, ...(mapa[d.descritor] || {}) }));
 }
 
 async function upsertProg(sb, { prog, trilhaId, semana, tipo, empresaId, colaboradorId, slotKey, novoSlot, finished }) {

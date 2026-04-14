@@ -79,3 +79,66 @@ export async function gerarEvolutionReport(trilhaId) {
     return { success: false, error: err?.message };
   }
 }
+
+/**
+ * Agrega Evolution Reports de todos os colabs de uma empresa.
+ * Usado pelo gestor pra ver distribuição de convergências por descritor
+ * e decidir próximo ciclo de treinamento.
+ */
+export async function loadEvolutionReportsEmpresa(empresaId) {
+  try {
+    if (!empresaId) return { error: 'empresaId obrigatório' };
+    const sb = createSupabaseAdmin();
+    const { data: trilhas } = await sb.from('trilhas')
+      .select('id, colaborador_id, competencia_foco, evolution_report, evolution_generated_at')
+      .eq('empresa_id', empresaId)
+      .eq('status', 'concluida')
+      .not('evolution_report', 'is', null);
+
+    const ids = (trilhas || []).map(t => t.colaborador_id);
+    const { data: colabs } = await sb.from('colaboradores')
+      .select('id, nome_completo, cargo, area_depto').in('id', ids);
+    const colabMap = Object.fromEntries((colabs || []).map(c => [c.id, c]));
+
+    const trilhasComColab = (trilhas || []).map(t => ({ ...t, colab: colabMap[t.colaborador_id] || null }));
+
+    // Agrega por competência → descritor → { confirmadas, parciais, estagnacoes, regressoes }
+    const porCompetencia = {};
+    for (const t of trilhasComColab) {
+      const comp = t.competencia_foco || 'Sem foco';
+      if (!porCompetencia[comp]) porCompetencia[comp] = {};
+      const descs = t.evolution_report?.descritores || [];
+      for (const d of descs) {
+        if (!porCompetencia[comp][d.descritor]) {
+          porCompetencia[comp][d.descritor] = {
+            evolucao_confirmada: 0, evolucao_parcial: 0, estagnacao: 0, regressao: 0,
+            notas_pre: [], notas_pos: [],
+          };
+        }
+        const bucket = porCompetencia[comp][d.descritor];
+        bucket[d.convergencia] = (bucket[d.convergencia] || 0) + 1;
+        if (d.nota_pre != null) bucket.notas_pre.push(d.nota_pre);
+        if (d.nota_pos != null) bucket.notas_pos.push(d.nota_pos);
+      }
+    }
+
+    // Converte notas em médias
+    for (const comp of Object.values(porCompetencia)) {
+      for (const d of Object.values(comp)) {
+        d.media_pre = d.notas_pre.length ? d.notas_pre.reduce((a, b) => a + b, 0) / d.notas_pre.length : null;
+        d.media_pos = d.notas_pos.length ? d.notas_pos.reduce((a, b) => a + b, 0) / d.notas_pos.length : null;
+        delete d.notas_pre; delete d.notas_pos;
+      }
+    }
+
+    return {
+      success: true,
+      total: trilhasComColab.length,
+      por_competencia: porCompetencia,
+      trilhas: trilhasComColab,
+    };
+  } catch (err) {
+    console.error('[VERTHO] loadEvolutionReportsEmpresa:', err);
+    return { error: err?.message };
+  }
+}

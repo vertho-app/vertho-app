@@ -47,7 +47,7 @@ export async function POST(request) {
     if (!trilha) return NextResponse.json({ error: 'trilha não encontrada' }, { status: 404 });
 
     const { data: colab } = await sb.from('colaboradores')
-      .select('nome_completo, cargo').eq('id', trilha.colaborador_id).maybeSingle();
+      .select('nome_completo, cargo, perfil_dominante').eq('id', trilha.colaborador_id).maybeSingle();
     if (!colab) return NextResponse.json({ error: 'colab não encontrado' }, { status: 404 });
 
     const semanaPlan = (trilha.temporada_plano || []).find(s => s.semana === Number(semana));
@@ -84,6 +84,7 @@ export async function POST(request) {
       promptData = promptSocratic({
         nomeColab: (colab.nome_completo || '').split(' ')[0],
         cargo: colab.cargo,
+        perfilDominante: colab.perfil_dominante,
         competencia: trilha.competencia_foco,
         descritor: semanaPlan.descritor,
         desafio: semanaPlan.conteudo?.desafio_texto || '',

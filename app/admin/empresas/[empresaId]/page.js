@@ -108,6 +108,7 @@ const PHASE_CONFIG = [
       { key: 'reav', label: 'Iniciar Reavaliação', icon: MessageSquare },
     ]},
     { label: 'Evolução', actions: [
+      { key: 'evolucao-temp', label: 'Evolution Report (Temporadas)', icon: TrendingUp, hrefFn: (id) => `/admin/evolucao?empresa=${id}` },
       { key: 'evolucao', label: 'Evolução (Fusão 3 Fontes)', icon: TrendingUp, ai: true },
       { key: 'plenaria', label: 'Plenária Evolução', icon: FileBarChart, ai: true },
     ]},
