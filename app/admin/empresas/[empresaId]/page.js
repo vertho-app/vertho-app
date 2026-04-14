@@ -748,7 +748,7 @@ export default function EmpresaPipelinePage({ params }) {
             <button onClick={() => setLogs([])} className="text-gray-600 hover:text-gray-400"><X size={12} /></button>
           </div>
           <div className="max-h-[200px] overflow-y-auto divide-y divide-white/[0.02]">
-            {[...logs].reverse().map(l => (
+            {logs.map(l => (
               <div key={l.id || l.ts} className="px-4 py-2 flex items-start gap-2">
                 <span className={`text-[10px] font-mono shrink-0 ${l.type === 'success' ? 'text-green-400' : l.type === 'error' ? 'text-red-400' : 'text-gray-500'}`}>
                   {new Date(l.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
