@@ -184,17 +184,12 @@ export async function montarTrilhasLote(empresaId) {
     const focoMap = {};
     (cargosEmpresa || []).forEach(c => { if (c.competencia_foco) focoMap[c.nome] = c.competencia_foco; });
 
-    // Buscar catálogo enriquecido do Moodle
-    const { data: catalogo } = await sb.from('catalogo_enriquecido')
-      .select('course_id, cargo, competencia, nivel_ideal')
-      .eq('empresa_id', empresaId);
-
-    // Buscar nomes dos cursos
-    const { data: cursosCat } = await sb.from('moodle_catalogo')
-      .select('course_id, curso_nome, curso_url')
-      .eq('empresa_id', empresaId);
-    const cursoNomeMap = {};
-    (cursosCat || []).forEach(c => { cursoNomeMap[c.course_id] = c; });
+    // Buscar catálogo unificado de micro_conteudos (vídeos, textos, áudios, cases)
+    // Inclui da empresa específica + globais
+    const { data: catalogo } = await sb.from('micro_conteudos')
+      .select('id, titulo, formato, url, competencia, descritor, nivel_min, nivel_max, cargo, contexto, taxa_conclusao')
+      .eq('ativo', true)
+      .or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
 
     // Agrupar respostas por colaborador com gap (nível esperado 4 - nível avaliado)
     const porColab = {};
@@ -238,25 +233,28 @@ export async function montarTrilhasLote(empresaId) {
 
       if (!compAlvo) continue; // sem gap em nenhuma competência
 
-      // Match cursos do catálogo apenas para a competência alvo
+      // Match conteúdos do catálogo unificado para a competência alvo
+      // Aceita conteúdo do cargo do colab OU genérico ('todos')
       const cursosMatch = (catalogo || []).filter(c => {
-        if (c.cargo && c.cargo !== colab.cargo) return false;
         if (!c.competencia) return false;
+        if (c.cargo && c.cargo !== 'todos' && c.cargo !== colab.cargo) return false;
         const compLower = c.competencia.toLowerCase();
         const alvoLower = compAlvo.toLowerCase();
         return compLower === alvoLower || compLower.includes(alvoLower) || alvoLower.includes(compLower);
       });
 
-      // Só incluir cursos que existem de fato no catálogo Moodle
-      const cursosRecomendados = cursosMatch
-        .filter(c => cursoNomeMap[c.course_id]?.curso_nome)
-        .map(c => ({
-          course_id: c.course_id,
-          nome: cursoNomeMap[c.course_id].curso_nome,
-          url: cursoNomeMap[c.course_id].curso_url || '',
-          competencia: c.competencia,
-          nivel: c.nivel_ideal,
-        }));
+      // Ordena por taxa_conclusao DESC (melhor conteúdo primeiro)
+      cursosMatch.sort((a, b) => (b.taxa_conclusao ?? 0) - (a.taxa_conclusao ?? 0));
+
+      const cursosRecomendados = cursosMatch.map(c => ({
+        course_id: c.id,
+        nome: c.titulo,
+        url: c.url || '',
+        competencia: c.competencia,
+        descritor: c.descritor,
+        formato: c.formato, // video|audio|texto|case|pdf
+        nivel: Math.round(((c.nivel_min || 1) + (c.nivel_max || 4)) / 2),
+      }));
 
       totalCursos += cursosRecomendados.length;
 
