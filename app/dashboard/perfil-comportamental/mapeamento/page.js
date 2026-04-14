@@ -86,6 +86,21 @@ function shuffle(arr) {
   return a;
 }
 
+function InstructionCard({ numero, titulo, descricao }) {
+  return (
+    <div className="flex gap-3 p-4 rounded-xl bg-white/[0.03] border border-white/10">
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm flex-shrink-0"
+        style={{ background: 'rgba(0,180,216,0.15)', color: '#00B4D8' }}>
+        {numero}
+      </div>
+      <div>
+        <h3 className="text-sm font-bold text-white mb-1">{titulo}</h3>
+        <p className="text-xs text-gray-400 leading-relaxed">{descricao}</p>
+      </div>
+    </div>
+  );
+}
+
 /* ───────────────── SCORING ───────────────── */
 
 function scoreRankings(rankings) {
@@ -175,8 +190,8 @@ export default function MapeamentoPage() {
   const [userEmail, setUserEmail] = useState('');
   const [authReady, setAuthReady] = useState(false);
 
-  // Flow
-  const [phase, setPhase] = useState(PHASE.RANK1);
+  // Flow — começa na tela de instruções (ONBOARDING)
+  const [phase, setPhase] = useState(PHASE.ONBOARDING);
   const [groupIdx, setGroupIdx] = useState(0);
   const [pairIdx, setPairIdx] = useState(0);
 
@@ -334,26 +349,67 @@ export default function MapeamentoPage() {
     );
   }
 
-  /* ═══════════════════ ONBOARDING ═══════════════════ */
+  /* ═══════════════════ ONBOARDING (Instruções) ═══════════════════ */
   if (phase === PHASE.ONBOARDING) {
+    // Se colab já está logado (tem email), pula WELCOME (já temos os dados)
+    const pularWelcome = !!userEmail;
+    const irPra = pularWelcome ? PHASE.RANK1 : PHASE.WELCOME;
     return (
-      <div className="max-w-[440px] mx-auto px-4 py-10 flex flex-col items-center text-center min-h-[80dvh] justify-center">
-        <Image src="/logo-vertho.png" alt="Vertho" width={140} height={48} className="mb-6" />
-        <h1 className="text-2xl font-bold text-white mb-2">Mapeamento de Perfil Comportamental</h1>
-        <p className="text-sm text-gray-400 mb-8">Descubra seu perfil DISC, estilo de liderança e competências-chave.</p>
-        <div className="flex flex-wrap justify-center gap-2 mb-10">
-          {['Perfil DISC', 'Pares rápidos', '16 Competências'].map(chip => (
+      <div className="max-w-[560px] mx-auto px-4 py-8">
+        <button onClick={() => router.push('/dashboard/perfil-comportamental')}
+          className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors mb-6">
+          <ArrowLeft size={16} /> Voltar
+        </button>
+
+        <Image src="/logo-vertho.png" alt="Vertho" width={120} height={40} className="mb-5" />
+
+        <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Mapeamento Comportamental</h1>
+        <p className="text-sm text-gray-400 mb-6">Leva ~8 minutos. 3 tipos de pergunta em sequência.</p>
+
+        <div className="flex flex-wrap gap-2 mb-8">
+          {['Perfil DISC', 'Estilo de liderança', 'Preferências de aprendizagem'].map(chip => (
             <span key={chip} className="text-xs font-medium px-3 py-1.5 rounded-full bg-cyan-400/10 text-cyan-400 border border-cyan-400/20">
               {chip}
             </span>
           ))}
         </div>
+
+        <div className="space-y-4 mb-8">
+          <InstructionCard
+            numero={1}
+            titulo="Rankings (16 grupos)"
+            descricao={<>
+              Em cada grupo você verá <b>4 adjetivos</b>. <b>Arraste e solte</b> pra colocá-los em ordem, do <span className="text-emerald-400 font-bold">mais parecido</span> com você (topo) ao <span className="text-red-400 font-bold">menos parecido</span> (base). Responda <b>pensando em como você age no trabalho</b>.
+            </>}
+          />
+          <InstructionCard
+            numero={2}
+            titulo="Pares rápidos (12 duplas)"
+            descricao={<>
+              Duas frases por vez. <b>Clique na que descreve melhor você</b>. Não existe resposta certa — responda <b>instintivamente</b>, sem racionalizar demais.
+            </>}
+          />
+          <InstructionCard
+            numero={3}
+            titulo="Preferências de aprendizagem"
+            descricao={<>
+              Marque os formatos de conteúdo que <b>funcionam melhor pra você</b> aprender (vídeo, texto, áudio, case, etc.). Isso ajuda a personalizar seu plano de desenvolvimento.
+            </>}
+          />
+        </div>
+
+        <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-3 mb-6">
+          <p className="text-xs text-amber-200 leading-relaxed">
+            💡 <b>Dica:</b> seja sincero. Esse mapeamento não é teste — é um retrato do seu estilo pra montar uma jornada de desenvolvimento que faça sentido pra você.
+          </p>
+        </div>
+
         <button
-          onClick={() => setPhase(PHASE.WELCOME)}
-          className="w-full max-w-[280px] py-3 rounded-xl font-bold text-white text-sm tracking-wide transition-all"
+          onClick={() => setPhase(irPra)}
+          className="w-full py-3 rounded-xl font-bold text-white text-sm tracking-wide transition-all hover:opacity-90 active:scale-[0.99]"
           style={{ background: 'linear-gradient(135deg, #00B4D8, #0D9488)' }}
         >
-          COMEÇAR
+          COMEÇAR MAPEAMENTO
         </button>
       </div>
     );
