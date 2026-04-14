@@ -5,11 +5,6 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const BLOCOS = [
-  { title: 'Identificação (o resto a IA puxa do site)', questions: [
-    { label: 'Nome da empresa', key: 'nome' },
-    { label: 'URL do site institucional (pra IA enriquecer missão, valores, perfil público)', key: 'url_site' },
-    { label: 'Em 1 frase: o que a empresa faz e pra quem', key: 'oneliner', lines: 2 },
-  ]},
   { title: 'Desafios estratégicos atuais', questions: [
     { label: 'Top 3 desafios atuais (1 por linha)', key: 'desafios', lines: 4 },
     { label: 'Transformações em curso: digital, cultural, expansão (opcional)', key: 'transformacoes', lines: 3 },
@@ -31,9 +26,6 @@ const BLOCOS = [
   { title: 'Maturidade cultural', questions: [
     { label: 'Como erros são tratados? (blameless post-mortem, culpabilização, aprendizado)', key: 'erros', lines: 2 },
     { label: 'Psychological safety percebida (alta/média/baixa) - exemplos', key: 'safety', lines: 2 },
-  ]},
-  { title: 'Casos recentes (últimos 12 meses)', questions: [
-    { label: 'Eventos marcantes: aquisições, crises, lançamentos, reestruturações (tipo + quando + 1 frase)', key: 'casos', lines: 5 },
   ]},
 ];
 
