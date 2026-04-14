@@ -50,7 +50,17 @@ export async function loadJornada(email) {
     data: null,
   });
 
-  // Fase 3 — PDI (relatórios tipo='individual')
+  // Trilha (necessária pra liberar Fase 3) — Motor de Temporadas
+  const { data: trilha } = await sb.from('trilhas')
+    .select('id, status, temporada_plano, competencia_foco, criado_em')
+    .eq('colaborador_id', colab.id)
+    .order('criado_em', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const temPlano = trilha?.temporada_plano && Array.isArray(trilha.temporada_plano) && trilha.temporada_plano.length > 0;
+
+  // Fase 3 — PDI (só disponível depois que a trilha estiver criada pelo gestor)
   const { data: pdi } = await sb.from('relatorios')
     .select('id, gerado_em')
     .eq('colaborador_id', colab.id)
@@ -60,23 +70,28 @@ export async function loadJornada(email) {
     .limit(1)
     .maybeSingle();
 
+  let pdiStatus, pdiDesc;
+  if (!temPlano) {
+    pdiStatus = 'pending';
+    pdiDesc = 'Aguardando o gestor criar sua trilha de desenvolvimento';
+  } else if (pdi) {
+    pdiStatus = 'completed';
+    pdiDesc = 'Plano de Desenvolvimento Individual';
+  } else {
+    pdiStatus = 'pending';
+    pdiDesc = 'Aguardando geração do PDI';
+  }
+
   fases.push({
     fase: 3,
     titulo: 'PDI',
-    descricao: pdi ? 'Plano de Desenvolvimento Individual' : 'Aguardando geração',
-    status: pdi ? 'completed' : 'pending',
+    descricao: pdiDesc,
+    status: pdiStatus,
     data: pdi?.gerado_em || null,
+    bloqueado: !temPlano,
   });
 
-  // Fase 4 — Temporada (Motor de Temporadas — 14 semanas)
-  const { data: trilha } = await sb.from('trilhas')
-    .select('id, status, temporada_plano, competencia_foco, criado_em')
-    .eq('colaborador_id', colab.id)
-    .order('criado_em', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const temPlano = trilha?.temporada_plano && Array.isArray(trilha.temporada_plano) && trilha.temporada_plano.length > 0;
+  // Fase 4 — Temporada (já carregada acima)
   let semanaAtual = 1;
   if (temPlano) {
     const { data: progresso } = await sb.from('temporada_semana_progresso')
