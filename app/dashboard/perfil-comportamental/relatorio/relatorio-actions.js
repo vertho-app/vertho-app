@@ -165,6 +165,38 @@ export async function gerarEsalvarRelatorioComportamental({ email, colab: inputC
 }
 
 /**
+ * Pré-gera PDFs comportamentais para todos os colabs de uma empresa que
+ * ainda não têm `comportamental_pdf_path`. Serial pra evitar timeout.
+ */
+export async function pregerarPdfsEmpresa(empresaId) {
+  try {
+    if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+    const { createSupabaseAdmin } = await import('@/lib/supabase');
+    const sb = createSupabaseAdmin();
+    const { data: colabs } = await sb.from('colaboradores')
+      .select('id, nome_completo, comportamental_pdf_path')
+      .eq('empresa_id', empresaId);
+
+    const pendentes = (colabs || []).filter(c => !c.comportamental_pdf_path);
+    if (pendentes.length === 0) return { success: true, message: 'Todos já têm PDF', gerados: 0, total: colabs?.length || 0 };
+
+    let gerados = 0, erros = 0;
+    for (const c of pendentes) {
+      try {
+        const r = await gerarEsalvarRelatorioComportamental({ colabId: c.id });
+        if (r.success) gerados++; else erros++;
+      } catch (e) {
+        console.error('[VERTHO] pregerarPdfsEmpresa', c.id, e.message);
+        erros++;
+      }
+    }
+    return { success: true, message: `${gerados} gerados, ${erros} erros (${colabs?.length} total)`, gerados, erros };
+  } catch (err) {
+    return { success: false, error: err?.message };
+  }
+}
+
+/**
  * Força regeneração dos textos do LLM (e re-gera o PDF).
  */
 export async function regenerarRelatorioComportamental(email) {

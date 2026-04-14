@@ -88,6 +88,62 @@ export async function gerarConteudoIA({
 }
 
 /**
+ * Upload manual de conteúdo (áudio/pdf via Storage; texto/case inline no banco).
+ * FormData fields: file (audio/pdf), formato, titulo, competencia, descritor,
+ *   nivel_min, nivel_max, contexto, cargo, setor, empresa_id, conteudo_inline (texto/case).
+ */
+export async function uploadConteudo(formData) {
+  try {
+    const sb = createSupabaseAdmin();
+    const formato = formData.get('formato');
+    const titulo = formData.get('titulo');
+    const competencia = formData.get('competencia');
+    const descritor = formData.get('descritor') || null;
+    if (!formato || !titulo || !competencia) return { success: false, error: 'formato, titulo e competencia obrigatórios' };
+
+    let url = null, storage_path = null, conteudo_inline = null, duracao_min = null;
+
+    if (formato === 'texto' || formato === 'case') {
+      conteudo_inline = formData.get('conteudo_inline') || '';
+      if (!conteudo_inline.trim()) return { success: false, error: 'Conteúdo obrigatório' };
+    } else {
+      const file = formData.get('file');
+      if (!file || typeof file === 'string') return { success: false, error: 'Arquivo obrigatório' };
+      const ext = (file.name || '').split('.').pop() || 'bin';
+      const path = `${formato}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const { error: upErr } = await sb.storage.from('conteudos').upload(path, buffer, {
+        contentType: file.type || undefined, upsert: false,
+      });
+      if (upErr) return { success: false, error: `Upload falhou: ${upErr.message}` };
+      const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(path);
+      url = publicUrl;
+      storage_path = path;
+    }
+
+    const { data, error } = await sb.from('micro_conteudos').insert({
+      empresa_id: formData.get('empresa_id') || null,
+      titulo, descricao: formData.get('descricao') || null,
+      formato, duracao_min, url, storage_path, conteudo_inline,
+      competencia, descritor,
+      nivel_min: parseFloat(formData.get('nivel_min') || '1.0'),
+      nivel_max: parseFloat(formData.get('nivel_max') || '2.0'),
+      tipo_conteudo: formData.get('tipo_conteudo') || 'core',
+      contexto: formData.get('contexto') || 'generico',
+      cargo: formData.get('cargo') || 'todos',
+      setor: formData.get('setor') || 'todos',
+      origem: 'pre_produzido', ativo: true,
+    }).select('id, titulo').maybeSingle();
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, conteudoId: data.id, message: `"${data.titulo}" adicionado` };
+  } catch (err) {
+    console.error('[VERTHO] uploadConteudo:', err);
+    return { success: false, error: err?.message };
+  }
+}
+
+/**
  * Lista competências disponíveis (com descritores cadastrados) e cargos distintos
  * — usado para popular dropdowns no modal de geração.
  */

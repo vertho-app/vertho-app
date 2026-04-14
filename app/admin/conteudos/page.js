@@ -2,10 +2,10 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Download, Sparkles, Edit2, Trash2, Check, X, Filter, Video, FileText, Headphones, BookOpen, FileType, Wand2, Copy } from 'lucide-react';
+import { ArrowLeft, Download, Sparkles, Edit2, Trash2, Check, X, Filter, Video, FileText, Headphones, BookOpen, FileType, Wand2, Copy, Plus, Upload } from 'lucide-react';
 import {
   importarVideosBunny, listarConteudos, atualizarConteudo,
-  deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA, loadOpcoesGerar,
+  deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA, loadOpcoesGerar, uploadConteudo,
 } from '@/actions/conteudos';
 
 const FORMAT_ICONS = {
@@ -26,6 +26,7 @@ export default function ConteudosAdminPage() {
   const [editing, setEditing] = useState(null); // conteudo em edição
   const [iaSugestao, setIaSugestao] = useState(null); // {conteudoId, tags}
   const [showGerar, setShowGerar] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
   const [roteiroGerado, setRoteiroGerado] = useState(null);
 
   const addLog = (msg, type = 'info') => {
@@ -118,6 +119,14 @@ export default function ConteudosAdminPage() {
             <h1 className="text-2xl font-bold">Banco de Micro-Conteúdos</h1>
             <p className="text-xs text-gray-400">Vídeos (Bunny), áudios, textos e cases tagueados para o Motor de Temporadas</p>
           </div>
+          <button
+            onClick={() => setShowUpload(true)}
+            disabled={busy}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/20 hover:bg-white/10 disabled:opacity-50 text-sm font-bold"
+          >
+            <Plus size={16} />
+            Adicionar manual
+          </button>
           <button
             onClick={() => setShowGerar(true)}
             disabled={busy}
@@ -259,6 +268,27 @@ export default function ConteudosAdminPage() {
       {/* Modal de edição */}
       {editing && <EditModal conteudo={editing} onClose={() => setEditing(null)} onSave={handleSalvarEdicao} />}
 
+      {/* Modal upload manual */}
+      {showUpload && (
+        <UploadModal
+          onClose={() => setShowUpload(false)}
+          onSave={async (fd) => {
+            setBusy(true);
+            addLog('Enviando conteúdo...', 'info');
+            const r = await uploadConteudo(fd);
+            setBusy(false);
+            if (r.success) {
+              addLog(`✅ ${r.message}`, 'success');
+              setShowUpload(false);
+              await carregar();
+            } else {
+              addLog(`❌ ${r.error}`, 'error');
+            }
+          }}
+          busy={busy}
+        />
+      )}
+
       {/* Modal gerar com IA */}
       {showGerar && (
         <GerarModal
@@ -384,33 +414,110 @@ function SugestaoModal({ conteudo, tags, onApply, onCancel, onEdit }) {
   );
 }
 
-function Field({ label, value, onChange, type = 'text', step }) {
+function Field({ label, value, onChange, type = 'text', step, name, required, defaultValue }) {
+  // Se tem onChange, é controlado; senão é uncontrolled (para uso em <form>)
+  const props = onChange != null
+    ? { value: value ?? '', onChange: e => onChange(e.target.value) }
+    : { defaultValue: defaultValue ?? value ?? '' };
   return (
     <div>
       <label className="block text-[10px] uppercase text-gray-500 mb-1">{label}</label>
       <input
-        type={type}
-        step={step}
-        value={value}
-        onChange={e => onChange(e.target.value)}
+        type={type} step={step} name={name} required={required}
+        {...props}
         className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:border-cyan-500 outline-none"
       />
     </div>
   );
 }
 
-function SelectField({ label, value, onChange, options, disabled }) {
+function SelectField({ label, value, onChange, options, disabled, name, defaultValue }) {
+  const props = onChange != null
+    ? { value: value ?? '', onChange: e => onChange(e.target.value) }
+    : { defaultValue: defaultValue ?? value ?? options[0] };
   return (
     <div>
       <label className="block text-[10px] uppercase text-gray-500 mb-1">{label}</label>
       <select
-        value={value}
-        onChange={e => onChange(e.target.value)}
+        {...props}
+        name={name}
         disabled={disabled}
         className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {options.map(o => <option key={o} value={o} className="bg-[#0d1426] text-white">{o || '— selecione —'}</option>)}
       </select>
+    </div>
+  );
+}
+
+function UploadModal({ onClose, onSave, busy }) {
+  const [formato, setFormato] = useState('audio');
+  const [opcoes, setOpcoes] = useState({ competencias: [], cargos: [] });
+  const [competencia, setCompetencia] = useState('');
+
+  useEffect(() => { loadOpcoesGerar().then(setOpcoes); }, []);
+
+  const precisaArquivo = formato === 'audio' || formato === 'pdf';
+  const descritoresDisp = opcoes.competencias.find(c => c.nome === competencia)?.descritores || [];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <form action={onSave} className="bg-[#0d1426] rounded-2xl border border-cyan-500/30 max-w-2xl w-full max-h-[90vh] overflow-auto p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Upload size={20} className="text-cyan-400" />
+            <h2 className="text-lg font-bold">Adicionar conteúdo manual</h2>
+          </div>
+          <button type="button" onClick={onClose} className="p-1 rounded hover:bg-white/10"><X size={18} /></button>
+        </div>
+
+        <div className="space-y-4">
+          <SelectField label="Formato" value={formato} onChange={setFormato}
+            options={['audio', 'texto', 'case', 'pdf']} />
+          <input type="hidden" name="formato" value={formato} />
+
+          <Field label="Título" name="titulo" required />
+
+          <SelectField label="Competência" value={competencia}
+            onChange={v => setCompetencia(v)}
+            options={['', ...opcoes.competencias.map(c => c.nome)]} />
+          <input type="hidden" name="competencia" value={competencia} />
+
+          <SelectField label="Descritor" name="descritor" options={['', ...descritoresDisp]} disabled={!competencia} />
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Nível mín" name="nivel_min" type="number" step="0.1" defaultValue="1.0" />
+            <Field label="Nível máx" name="nivel_max" type="number" step="0.1" defaultValue="2.0" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <SelectField label="Cargo" name="cargo" options={['todos', ...opcoes.cargos]} />
+            <SelectField label="Contexto" name="contexto" options={['educacional', 'corporativo', 'generico']} />
+          </div>
+
+          {precisaArquivo ? (
+            <div>
+              <label className="block text-[10px] uppercase text-gray-500 mb-1">Arquivo ({formato === 'audio' ? 'mp3/m4a/wav' : 'pdf'})</label>
+              <input type="file" name="file" accept={formato === 'audio' ? 'audio/*' : 'application/pdf'}
+                className="w-full text-xs text-gray-300 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-cyan-600 file:text-white file:font-bold file:cursor-pointer" required />
+            </div>
+          ) : (
+            <div>
+              <label className="block text-[10px] uppercase text-gray-500 mb-1">Conteúdo (markdown)</label>
+              <textarea name="conteudo_inline" rows={10} required
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white font-mono outline-none focus:border-cyan-500"
+                placeholder={formato === 'case' ? '# Maria e o Projeto...\n\n**Contexto:**...' : '# Título...\n\nParágrafo...'} />
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-2 mt-5">
+          <button type="submit" disabled={busy}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-sm font-bold">
+            {busy ? 'Enviando...' : <><Upload size={14} /> Salvar</>}
+          </button>
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm">Cancelar</button>
+        </div>
+      </form>
     </div>
   );
 }
