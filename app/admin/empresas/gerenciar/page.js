@@ -266,7 +266,11 @@ export default function GerenciarPage() {
                             placeholder="email@empresa.com"
                             className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
                           <td className="px-4 py-2">
-                            <select value={editData.cargo} onChange={e => setEditData(p => ({ ...p, cargo: e.target.value }))}
+                            <select value={editData.cargo} onChange={e => {
+                                const novoCargo = e.target.value;
+                                const c = cargos.find(k => k.nome === novoCargo);
+                                setEditData(p => ({ ...p, cargo: novoCargo, area_depto: c?.area_depto || p.area_depto }));
+                              }}
                               className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none">
                               <option value="">Selecione...</option>
                               {cargos.map(k => <option key={k.id || k.nome} value={k.nome}>{k.nome}</option>)}
@@ -278,7 +282,7 @@ export default function GerenciarPage() {
                             )}
                           </td>
                           <td className="px-4 py-2"><input value={editData.area_depto} onChange={e => setEditData(p => ({ ...p, area_depto: e.target.value }))}
-                            placeholder="Área"
+                            placeholder="Área (auto do cargo)"
                             className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
                           <td className="px-4 py-2">
                             <select value={editData.role} onChange={e => setEditData(p => ({ ...p, role: e.target.value }))}
@@ -323,10 +327,13 @@ export default function GerenciarPage() {
                               <td className="px-4 py-2"><input value={editData.email} onChange={e => setEditData(p => ({ ...p, email: e.target.value }))}
                                 className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
                               <td className="px-4 py-2">
-                                <select value={editData.cargo} onChange={e => setEditData(p => ({ ...p, cargo: e.target.value }))}
+                                <select value={editData.cargo} onChange={e => {
+                                    const novoCargo = e.target.value;
+                                    const c = cargos.find(k => k.nome === novoCargo);
+                                    setEditData(p => ({ ...p, cargo: novoCargo, area_depto: c?.area_depto || p.area_depto }));
+                                  }}
                                   className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none">
                                   <option value="">Selecione...</option>
-                                  {/* Se o cargo atual do colab não estiver na lista (ex: dado antigo), mantemos como opção adicional */}
                                   {editData.cargo && !cargos.some(k => k.nome === editData.cargo) && (
                                     <option value={editData.cargo}>{editData.cargo} (fora do catálogo)</option>
                                   )}
