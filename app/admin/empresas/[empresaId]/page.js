@@ -68,7 +68,7 @@ const PHASE_CONFIG = [
   { num: 1, icon: Brain, color: '#3B82F6', actions: [
     { key: 'ia1', label: 'IA1 — Top 10', icon: Zap, ai: true },
     { key: 'cargos-top5', label: 'Top 5', icon: Target, href: '/admin/cargos' },
-    { key: 'ia2', label: 'IA2 — Gabarito', icon: Zap, ai: true },
+    { key: 'ia2', label: 'IA2 — Perfil Ideal', icon: Zap, ai: true },
     { key: 'ia3', label: 'IA3 — Cenários + Check', icon: Zap, ai: 'dual' },
     { key: 'fit', label: 'Fit v2', icon: BarChart3, href: '/admin/fit' },
     { key: 'envios', label: 'Envios', icon: Send, href: '/admin/whatsapp' },
