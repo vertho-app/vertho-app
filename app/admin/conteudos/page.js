@@ -565,11 +565,18 @@ function LoteModal({ onClose, onGenerate, busy }) {
             onChange={v => setForm({ ...form, competencia: v, descritor: '' })}
             options={['', ...opcoes.competencias.map(c => c.nome)]} />
 
-          <SelectField label={`Descritor (vazio = todos · ${descritoresDisp.length} disponíveis)`}
-            value={form.descritor}
-            onChange={v => setForm({ ...form, descritor: v })}
-            options={['', ...descritoresDisp]}
-            disabled={!form.competencia} />
+          <div>
+            <label className="block text-[10px] uppercase text-gray-500 mb-1">
+              Descritor (opcional · {descritoresDisp.length} disponíveis)
+            </label>
+            <select value={form.descritor}
+              onChange={e => setForm({ ...form, descritor: e.target.value })}
+              disabled={!form.competencia}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none disabled:opacity-50">
+              <option value="" className="bg-[#0d1426] text-white">— Todos os descritores ({descritoresDisp.length}) —</option>
+              {descritoresDisp.map(d => <option key={d} value={d} className="bg-[#0d1426] text-white">{d}</option>)}
+            </select>
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Nível mín" type="number" step="0.1" value={form.nivelMin} onChange={v => setForm({ ...form, nivelMin: Number(v) })} />
