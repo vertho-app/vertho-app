@@ -42,7 +42,14 @@ export async function gerarConteudoIA({
     if (!build) return { success: false, error: `formato ${formato} não suportado` };
 
     const { system, user } = build(args);
-    const conteudoGerado = (await callAI(system, user, aiConfig, 4096)).trim();
+    // Usa modelo configurado por tarefa (fallback: modelo padrão da empresa → default)
+    const { getModelForTask } = await import('@/lib/ai-tasks');
+    const taskKey = formato === 'video' ? 'conteudo_video'
+      : formato === 'audio' ? 'conteudo_podcast'
+      : formato === 'texto' ? 'conteudo_texto'
+      : formato === 'case' ? 'conteudo_case' : null;
+    const model = taskKey && empresaId ? await getModelForTask(empresaId, taskKey) : aiConfig?.model;
+    const conteudoGerado = (await callAI(system, user, { ...aiConfig, model: model || aiConfig?.model }, 4096)).trim();
 
     const titulo = extrairTitulo(conteudoGerado, descritor, formato);
     const duracaoEstimada = duracaoSegundos
@@ -450,7 +457,10 @@ Retorne JSON no formato:
   "raciocinio": "<1 frase explicando a escolha>"
 }`;
 
-    const resposta = await callAI(system, user, aiConfig || {}, 1000);
+    // Modelo configurado da tarefa conteudo_tags (usa empresa_id do conteúdo)
+    const { getModelForTask } = await import('@/lib/ai-tasks');
+    const model = c.empresa_id ? await getModelForTask(c.empresa_id, 'conteudo_tags') : undefined;
+    const resposta = await callAI(system, user, { ...(aiConfig || {}), model: model || aiConfig?.model }, 1000);
     const jsonMatch = resposta.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return { error: 'IA não retornou JSON válido' };
 
