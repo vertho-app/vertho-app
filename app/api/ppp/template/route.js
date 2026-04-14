@@ -51,19 +51,50 @@ export async function GET() {
     let page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
     let y = MAX_Y;
 
+    // Logo Vertho no canto superior direito
+    try {
+      const fs = await import('node:fs/promises');
+      const path = await import('node:path');
+      const logoPath = path.join(process.cwd(), 'public', 'logo-vertho.png');
+      const logoBytes = await fs.readFile(logoPath);
+      const logoImg = await pdfDoc.embedPng(logoBytes);
+      const logoW = 90;
+      const ratio = logoImg.width / logoImg.height;
+      const logoH = logoW / ratio;
+      page.drawImage(logoImg, {
+        x: PAGE_WIDTH - MARGIN - logoW,
+        y: MAX_Y - logoH + 6,
+        width: logoW, height: logoH,
+      });
+    } catch (e) {
+      console.warn('[ppp/template] logo skip:', e.message);
+    }
+
     // Capa
-    page.drawText(sanitize('Perfil Institucional - Formulário'), {
-      x: MARGIN, y, size: 18, font: fontBold, color: rgb(0.05, 0.12, 0.25),
+    page.drawText(sanitize('Perfil Institucional'), {
+      x: MARGIN, y, size: 20, font: fontBold, color: rgb(0.05, 0.12, 0.25),
     });
-    y -= 24;
-    page.drawText(sanitize('Preencha cada campo. Seções vazias são ignoradas.'), {
-      x: MARGIN, y, size: 10, font, color: rgb(0.4, 0.45, 0.55),
+    y -= 26;
+    page.drawText(sanitize('Este formulário ajuda a personalizar a jornada de desenvolvimento dos colaboradores'), {
+      x: MARGIN, y, size: 10, font, color: rgb(0.3, 0.35, 0.45),
     });
     y -= 14;
-    page.drawText(sanitize('Depois suba em /admin/ppp - a extração IA consolida automaticamente.'), {
-      x: MARGIN, y, size: 10, font, color: rgb(0.4, 0.45, 0.55),
+    page.drawText(sanitize('da sua equipe. Preencha com honestidade - não há resposta certa.'), {
+      x: MARGIN, y, size: 10, font, color: rgb(0.3, 0.35, 0.45),
     });
-    y -= 24;
+    y -= 22;
+    page.drawText(sanitize('> Preencha o que conseguir. Campos vazios são ignorados.'), {
+      x: MARGIN, y, size: 9, font, color: rgb(0.4, 0.45, 0.55),
+    });
+    y -= 12;
+    page.drawText(sanitize('> Devolva o arquivo preenchido à equipe que solicitou o envio.'), {
+      x: MARGIN, y, size: 9, font, color: rgb(0.4, 0.45, 0.55),
+    });
+    y -= 12;
+    page.drawText(sanitize('> Tempo estimado: 8-10 minutos.'), {
+      x: MARGIN, y, size: 9, font, color: rgb(0.4, 0.45, 0.55),
+    });
+    y -= 22;
 
     let fieldIdx = 0;
 
