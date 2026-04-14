@@ -116,7 +116,7 @@ export default function AdminVideosPage() {
   useEffect(() => {
     async function init() {
       const [a, b, c, d, e] = await Promise.all([
-        loadBunnyVideosStats(),
+        loadBunnyVideosStats(empresaId || null),
         loadBunnyLibraryStats(),
         loadEngajamentoEmpresa(empresaId || null),
         loadAlertasInatividade(empresaId || null),

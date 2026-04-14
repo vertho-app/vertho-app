@@ -443,6 +443,11 @@ export default function Fase2Page({ params }) {
                           Foco: {t.competencia_foco}
                         </span>
                       )}
+                      {(t.foco_nivel || t.foco_nota) && (
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-cyan-400/15 text-cyan-400" title="Avaliação IA4 do colab">
+                          {t.foco_nivel ? `N${t.foco_nivel}` : ''}{t.foco_nota ? ` · ${Number(t.foco_nota).toFixed(1)}` : ''}
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-[10px] text-gray-500">{cursos.length} {cursos.length === 1 ? 'curso' : 'cursos'}</span>

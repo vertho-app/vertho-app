@@ -35,10 +35,10 @@ function limparTitulo(raw) {
 /**
  * Métricas por vídeo: views, watch time, taxa de conclusão.
  */
-export async function loadBunnyVideosStats() {
+export async function loadBunnyVideosStats(empresaId = null) {
   try {
     const data = await bunnyFetch('/videos?page=1&itemsPerPage=100&orderBy=date');
-    const items = (data?.items || [])
+    let items = (data?.items || [])
       .filter(v => v?.status === 4 && v?.guid)
       .map(v => {
         const length = Number(v.length) || 0;
@@ -59,14 +59,39 @@ export async function loadBunnyVideosStats() {
         };
       });
 
-    // Agregados
+    // Se empresaId, sobrescreve views/totalWatchTime/taxa pelos dados de
+    // videos_watched filtrados pela empresa (atribuição via metaData)
+    if (empresaId) {
+      const { createSupabaseAdmin } = await import('@/lib/supabase');
+      const sb = createSupabaseAdmin();
+      const { data: events } = await sb.from('videos_watched')
+        .select('video_id, seconds_watched, video_length, event_type')
+        .eq('empresa_id', empresaId);
+
+      const porVideo = {};
+      for (const e of (events || [])) {
+        if (!porVideo[e.video_id]) porVideo[e.video_id] = { views: 0, totalSec: 0, totalLen: 0 };
+        const s = porVideo[e.video_id];
+        s.views += 1;
+        s.totalSec += Number(e.seconds_watched) || 0;
+        s.totalLen += Number(e.video_length) || 0;
+      }
+      items = items.map(v => {
+        const s = porVideo[v.videoId];
+        if (!s) return { ...v, views: 0, totalWatchTime: 0, averageWatchTime: 0, taxaConclusao: 0 };
+        const avg = s.views > 0 ? s.totalSec / s.views : 0;
+        const taxa = v.length > 0 ? Math.min(100, Math.round((avg / v.length) * 100)) : 0;
+        return { ...v, views: s.views, totalWatchTime: s.totalSec, averageWatchTime: Math.round(avg), taxaConclusao: taxa };
+      });
+    }
+
+    // Agregados (recalculados sobre o array potencialmente filtrado)
     const totalViews = items.reduce((a, b) => a + b.views, 0);
     const totalWatchTimeSec = items.reduce((a, b) => a + b.totalWatchTime, 0);
     const mediaTaxaConclusao = items.length > 0
       ? Math.round(items.reduce((a, b) => a + b.taxaConclusao, 0) / items.length)
       : 0;
 
-    // Ordena do mais assistido pro menos
     items.sort((a, b) => b.views - a.views);
 
     return {
