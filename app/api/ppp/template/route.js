@@ -140,7 +140,6 @@ export async function GET() {
 
         const textField = form.createTextField(fieldName);
         textField.setText('');
-        textField.setFontSize(9);
         if (linhas > 1) textField.enableMultiline();
         textField.addToPage(page, {
           x: MARGIN, y: y - inputHeight + 2,
@@ -150,6 +149,8 @@ export async function GET() {
           borderWidth: 0.5,
           font,
         });
+        textField.setFontSize(9);
+        textField.updateAppearances(font);
         y -= inputHeight + 10;
       }
       y -= 6;
