@@ -24,6 +24,7 @@ export default function Fase2Page({ params }) {
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState(null);
   const [filtroColab, setFiltroColab] = useState('');
+  const [filtroCargo, setFiltroCargo] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
   const [actionId, setActionId] = useState(null);
   const [batchRunning, setBatchRunning] = useState(false);
@@ -61,8 +62,10 @@ export default function Fase2Page({ params }) {
   useEffect(() => { refresh(); }, [empresaId]);
 
   const colaboradores = [...new Set(respostas.map(r => r.colaborador_nome))].sort();
+  const cargos = [...new Set(respostas.map(r => r.cargo).filter(Boolean))].sort();
   const filtered = respostas.filter(r => {
     if (filtroColab && r.colaborador_nome !== filtroColab) return false;
+    if (filtroCargo && r.cargo !== filtroCargo) return false;
     if (filtroStatus === 'avaliado' && !r.avaliacao_ia) return false;
     if (filtroStatus === 'pendente' && r.avaliacao_ia) return false;
     if (filtroStatus === 'aprovado' && r.status_ia4 !== 'aprovado') return false;
@@ -140,6 +143,11 @@ export default function Fase2Page({ params }) {
       {/* Filtros */}
       <div className="flex items-center gap-3 mb-5">
         <Filter size={14} className="text-gray-500" />
+        <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
+          className="px-3 py-1.5 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
+          <option value="">Todos os cargos</option>
+          {cargos.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
         <select value={filtroColab} onChange={e => setFiltroColab(e.target.value)}
           className="px-3 py-1.5 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
           <option value="">Todos os colaboradores</option>

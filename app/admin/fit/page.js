@@ -182,9 +182,9 @@ export default function FitPage() {
     setLoadingRanking(false);
   }
 
-  async function handleCalcular(cargoNome) {
+  async function handleCalcular(cargoNome, forcar = false) {
     setCalculating(true);
-    const r = await calcularFitLote(empresaId, cargoNome);
+    const r = await calcularFitLote(empresaId, cargoNome, { forcar });
     setCalculating(false);
     if (!r.success) { flash('Erro: ' + r.error); return; }
     flash(r.message);
@@ -236,11 +236,19 @@ export default function FitPage() {
               <span className="text-gray-500">{c.totalFits} fits calculados</span>
               {c.mediaFit != null && <span className={`font-bold ${getFaixa(c.mediaFit) === 'excelente' || getFaixa(c.mediaFit) === 'alta' ? 'text-green-400' : getFaixa(c.mediaFit) === 'razoavel' ? 'text-amber-400' : 'text-red-400'}`}>Média: {c.mediaFit}</span>}
             </div>
-            <button onClick={(e) => { e.stopPropagation(); handleCalcular(c.nome); }} disabled={calculating || !c.temPerfilIdeal}
-              className="mt-2 flex items-center gap-1 text-[10px] font-semibold text-cyan-400 hover:text-cyan-300 disabled:text-gray-600 disabled:cursor-not-allowed">
-              {calculating ? <Loader2 size={10} className="animate-spin" /> : <Zap size={10} />}
-              {c.temPerfilIdeal ? 'Calcular Fit' : 'Sem perfil ideal'}
-            </button>
+            <div className="mt-2 flex items-center gap-3">
+              <button onClick={(e) => { e.stopPropagation(); handleCalcular(c.nome); }} disabled={calculating || !c.temPerfilIdeal}
+                className="flex items-center gap-1 text-[10px] font-semibold text-cyan-400 hover:text-cyan-300 disabled:text-gray-600 disabled:cursor-not-allowed">
+                {calculating ? <Loader2 size={10} className="animate-spin" /> : <Zap size={10} />}
+                {c.temPerfilIdeal ? 'Calcular Fit' : 'Sem perfil ideal'}
+              </button>
+              {c.totalFits > 0 && c.temPerfilIdeal && (
+                <button onClick={(e) => { e.stopPropagation(); handleCalcular(c.nome, true); }} disabled={calculating}
+                  className="flex items-center gap-1 text-[10px] font-semibold text-amber-400 hover:text-amber-300 disabled:text-gray-600">
+                  <Loader2 size={10} className={calculating ? 'animate-spin' : 'hidden'} /> Recalcular todos
+                </button>
+              )}
+            </div>
           </div>
         ))}
       </div>

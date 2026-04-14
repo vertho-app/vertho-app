@@ -100,8 +100,9 @@ export async function calcularFitIndividual(empresaId, cargoNome, colaboradorId)
 
 // ── Calcular Fit em lote (todos do cargo) ───────────────────────────────────
 
-export async function calcularFitLote(empresaId, cargoNome) {
+export async function calcularFitLote(empresaId, cargoNome, opts = {}) {
   const sb = createSupabaseAdmin();
+  const { forcar = false } = opts;
 
   // Buscar colaboradores do cargo com mapeamento
   const { data: colabs } = await sb.from('colaboradores')
@@ -112,11 +113,26 @@ export async function calcularFitLote(empresaId, cargoNome) {
 
   if (!colabs?.length) return { success: false, error: 'Nenhum colaborador com mapeamento encontrado para este cargo' };
 
+  // Se não é forçado, pula colabs que já têm fit_resultado
+  let colabsPraCalcular = colabs;
+  let pulados = 0;
+  if (!forcar) {
+    const { data: jaCalculados } = await sb.from('fit_resultados')
+      .select('colaborador_id').eq('empresa_id', empresaId).eq('cargo', cargoNome);
+    const jaSet = new Set((jaCalculados || []).map(r => r.colaborador_id));
+    colabsPraCalcular = colabs.filter(c => !jaSet.has(c.id));
+    pulados = colabs.length - colabsPraCalcular.length;
+  }
+
+  if (colabsPraCalcular.length === 0) {
+    return { success: true, message: `Todos os ${colabs.length} colaboradores já têm Fit calculado. Use "Recalcular" pra forçar.`, ok: 0, pulados };
+  }
+
   let ok = 0;
   const resultados = [];
   const errosDetalhados = [];
 
-  for (const colab of colabs) {
+  for (const colab of colabsPraCalcular) {
     const r = await calcularFitIndividual(empresaId, cargoNome, colab.id);
     if (r.success) {
       ok++;
@@ -135,8 +151,9 @@ export async function calcularFitLote(empresaId, cargoNome) {
 
   return {
     success: true,
-    message: `Fit calculado: ${ok} colaboradores${errosDetalhados.length ? `, ${errosDetalhados.length} erros` : ''}`,
+    message: `Fit calculado: ${ok} colab${ok !== 1 ? 's' : ''}${pulados > 0 ? ` · ${pulados} já existiam` : ''}${errosDetalhados.length ? ` · ${errosDetalhados.length} erros` : ''}`,
     total: ok,
+    pulados,
     erros: errosDetalhados.length,
     erros_detalhados: errosDetalhados,
   };
