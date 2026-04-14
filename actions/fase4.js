@@ -153,6 +153,18 @@ export async function loadCompetenciasFoco(empresaId) {
 // 1 competência por colaborador: competência foco (se tiver gap) > maior gap
 
 export async function montarTrilhasLote(empresaId) {
+  // Encaminha pro Motor de Temporadas (substitui a lógica legacy de
+  // dump-tudo-do-catálogo). Cada colab ganha plano de 14 semanas com
+  // 9 conteúdos obrigatórios alocados por gap dos descritores +
+  // formato preferido. Demais conteúdos do catálogo viram "saiba mais"
+  // (extraídos via /admin/temporadas).
+  const { gerarTemporadasLote } = await import('@/actions/temporadas');
+  return gerarTemporadasLote(empresaId);
+}
+
+// Função antiga preservada como fallback caso queira a lógica simples
+// de dump-tudo (sem alocação por slot/descritor).
+export async function _montarTrilhasLote_legacy(empresaId) {
   const sb = createSupabaseAdmin();
   try {
     // Buscar respostas avaliadas (gaps identificados pela IA4)

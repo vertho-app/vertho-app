@@ -496,6 +496,40 @@ export default function Fase2Page({ params }) {
                           : 'Nenhum curso recomendado'}
                       </p>
                     )}
+
+                    {/* Saiba Mais (opcional) */}
+                    {Array.isArray(t.saiba_mais) && t.saiba_mais.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-white/[0.05]">
+                        <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest mb-1.5">
+                          Saiba mais ({t.saiba_mais.length} opcional{t.saiba_mais.length > 1 ? 'es' : ''})
+                        </p>
+                        <div className="space-y-1">
+                          {t.saiba_mais.slice(0, 8).map((c, i) => (
+                            <div key={i} className="flex items-center gap-3 px-3 py-1.5 rounded" style={{ background: '#0a1428' }}>
+                              <BookOpen size={11} className="text-amber-400/60 shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                {c.url ? (
+                                  <a href={c.url} target="_blank" rel="noopener noreferrer"
+                                    className="text-[11px] text-gray-300 hover:text-amber-300 flex items-center gap-1">
+                                    {c.nome} <ExternalLink size={9} />
+                                  </a>
+                                ) : (
+                                  <span className="text-[11px] text-gray-400">{c.nome}</span>
+                                )}
+                                {c.descritor && <span className="text-[9px] text-gray-600 ml-2">· {c.descritor}</span>}
+                              </div>
+                              <span className="text-[9px] text-gray-600 uppercase">{c.formato}</span>
+                              {c.nivel && (
+                                <span className={`text-[9px] font-bold shrink-0 ${NIVEL_COLORS[c.nivel] || 'text-gray-400'}`}>N{c.nivel}</span>
+                              )}
+                            </div>
+                          ))}
+                          {t.saiba_mais.length > 8 && (
+                            <p className="text-[10px] text-gray-500 italic px-3">... e mais {t.saiba_mais.length - 8}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
