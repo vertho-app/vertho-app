@@ -284,7 +284,6 @@ export default function FitPage() {
                     <th className="px-4 py-2 text-center">Liderança</th>
                     <th className="px-4 py-2 text-center">DISC</th>
                     <th className="px-4 py-2 text-left">Classificação</th>
-                    <th className="px-4 py-2 text-center">%il</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.03]">
@@ -306,7 +305,6 @@ export default function FitPage() {
                             {r.classificacao}
                           </span>
                         </td>
-                        <td className="px-4 py-2.5 text-center text-xs text-gray-500">{r.ranking.percentil}%</td>
                       </tr>
                     );
                   })}
@@ -325,7 +323,6 @@ export default function FitPage() {
               <p><span className="text-white font-bold">Liderança</span> — aderência do estilo de liderança (Executivo/Motivador/Metódico/Sistemático) ao modelo esperado do cargo.</p>
               <p><span className="text-white font-bold">DISC</span> — aderência DISC Adaptado (como se comporta no trabalho) vs perfil esperado. Diferença entre Mapeamento e DISC revela nível de ajuste/desgaste.</p>
               <p><span className="text-white font-bold">Classificação</span> — faixa qualitativa do Fit: Excelente (≥85) · Alta (70-84) · Razoável (50-69) · Baixa (30-49) · Crítica (&lt;30).</p>
-              <p><span className="text-white font-bold">%il</span> — percentil no ranking do cargo. 100% = mais aderente; 0% = menos aderente.</p>
             </div>
           )}
         </div>

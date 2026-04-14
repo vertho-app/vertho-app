@@ -62,10 +62,10 @@ export default function Fase2Page({ params }) {
   useEffect(() => { refresh(); }, [empresaId]);
 
   const colaboradores = [...new Set(respostas.map(r => r.colaborador_nome))].sort();
-  const cargos = [...new Set(respostas.map(r => r.cargo).filter(Boolean))].sort();
+  const cargos = [...new Set(respostas.map(r => r.colaborador_cargo).filter(c => c && c !== '—'))].sort();
   const filtered = respostas.filter(r => {
     if (filtroColab && r.colaborador_nome !== filtroColab) return false;
-    if (filtroCargo && r.cargo !== filtroCargo) return false;
+    if (filtroCargo && r.colaborador_cargo !== filtroCargo) return false;
     if (filtroStatus === 'avaliado' && !r.avaliacao_ia) return false;
     if (filtroStatus === 'pendente' && r.avaliacao_ia) return false;
     if (filtroStatus === 'aprovado' && r.status_ia4 !== 'aprovado') return false;
