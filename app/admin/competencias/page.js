@@ -165,28 +165,49 @@ export default function CompetenciasPage() {
       {/* Import CSV */}
       {showImport && empresaId && (
         <div className="rounded-xl p-4 border border-white/[0.06] mb-4" style={{ background: '#0F2A4A' }}>
-          <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-2">Importar Competências via CSV</p>
-          <p className="text-xs text-gray-400 mb-1">Colunas aceitas (separador: vírgula ou ponto-e-vírgula):</p>
+          <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-2">Importar Competências (CSV ou Excel)</p>
+          <p className="text-xs text-gray-400 mb-1">Colunas aceitas (1ª linha = cabeçalho):</p>
           <p className="text-[10px] text-cyan-400 font-mono mb-1">cod_comp, <strong>nome</strong>*, pilar, cargo, <strong>descricao</strong>*, cod_desc, nome_curto, descritor_completo, <strong>n1_gap</strong>*, <strong>n2_desenvolvimento</strong>*, n3_meta, <strong>n4_referencia</strong>*, evidencias_esperadas, perguntas_alvo</p>
           <p className="text-[10px] text-gray-600">* obrigatórios: <strong>nome, descricao, n1_gap, n2_desenvolvimento, n4_referencia</strong>. Demais são opcionais. Dedup por cod_comp+cod_desc.</p>
           <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white cursor-pointer"
             style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
             {importing ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-            {importing ? 'Importando...' : 'Selecionar CSV'}
-            <input type="file" accept=".csv" className="hidden" disabled={importing} onChange={async e => {
+            {importing ? 'Importando...' : 'Selecionar arquivo (CSV ou XLSX)'}
+            <input type="file" accept=".csv,.xlsx,.xls" className="hidden" disabled={importing} onChange={async e => {
               const file = e.target.files?.[0];
               if (!file) return;
               setImporting(true);
-              const text = await file.text();
-              const lines = text.split('\n').filter(l => l.trim());
-              const sep = (lines[0].split(';').length > lines[0].split(',').length) ? ';' : ',';
-              const header = lines[0].split(sep).map(h => h.trim().toLowerCase().replace(/^["']|["']$/g, ''));
-              const parsed = lines.slice(1).map(line => {
-                const cols = line.split(sep).map(c => c.trim().replace(/^["']|["']$/g, ''));
-                const obj = {};
-                header.forEach((h, i) => { obj[h] = cols[i]; });
-                return obj;
-              }).filter(c => c.nome);
+
+              let parsed = [];
+              const isExcel = /\.xlsx?$/i.test(file.name);
+
+              if (isExcel) {
+                // Parse Excel via SheetJS — primeira sheet, primeira linha = cabeçalho
+                const XLSX = await import('xlsx');
+                const buffer = await file.arrayBuffer();
+                const wb = XLSX.read(buffer, { type: 'array' });
+                const ws = wb.Sheets[wb.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+                parsed = rows.map(r => {
+                  const obj = {};
+                  for (const [k, v] of Object.entries(r)) {
+                    obj[String(k).trim().toLowerCase()] = String(v ?? '').trim();
+                  }
+                  return obj;
+                }).filter(c => c.nome);
+              } else {
+                // CSV
+                const text = await file.text();
+                const lines = text.split('\n').filter(l => l.trim());
+                const sep = (lines[0].split(';').length > lines[0].split(',').length) ? ';' : ',';
+                const header = lines[0].split(sep).map(h => h.trim().toLowerCase().replace(/^["']|["']$/g, ''));
+                parsed = lines.slice(1).map(line => {
+                  const cols = line.split(sep).map(c => c.trim().replace(/^["']|["']$/g, ''));
+                  const obj = {};
+                  header.forEach((h, i) => { obj[h] = cols[i]; });
+                  return obj;
+                }).filter(c => c.nome);
+              }
               if (!parsed.length) { flash('Nenhuma competência válida. Verifique coluna "nome".'); setImporting(false); e.target.value = ''; return; }
               // Validação de obrigatórios
               const OBRIG = ['nome', 'descricao', 'n1_gap', 'n2_desenvolvimento', 'n4_referencia'];
