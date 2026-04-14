@@ -61,7 +61,12 @@ async function _getDiagnosticoDoDia(email) {
   const progresso = { pct, total: top5.length, respondidas };
   const colaboradorPayload = { nome: colab.nome_completo, cargo: colab.cargo };
 
-  // Concluiu todas
+  // Se não há Top 5 configurado, mostra aviso (não falso 'concluiu tudo')
+  if (top5.length === 0) {
+    return { error: 'Seu cargo ainda não tem competências Top 5 configuradas. Fale com o RH/gestor.' };
+  }
+
+  // Concluiu todas (só se havia competências pra responder e todas foram respondidas)
   if (!pendentes.length) {
     return {
       colaborador: colaboradorPayload,
@@ -182,7 +187,8 @@ async function _salvarRespostaDiagnostico(email, cenarioId, compId, compNome, pa
 
   return {
     success: true,
-    concluiuTudo: pendentes.length === 0,
+    // Só é "concluído tudo" se havia competências pra responder
+    concluiuTudo: top5.length > 0 && pendentes.length === 0,
     proximaCompetencia: pendentes[0] || null,
   };
 }
