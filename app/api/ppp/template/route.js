@@ -55,7 +55,7 @@ export async function GET() {
     try {
       const fs = await import('node:fs/promises');
       const path = await import('node:path');
-      const logoPath = path.join(process.cwd(), 'public', 'Logo Vertho AC escuro fundo transparente (1).png');
+      const logoPath = path.join(process.cwd(), 'public', 'logo-vertho-ac-escuro.png');
       const logoBytes = await fs.readFile(logoPath);
       const logoImg = await pdfDoc.embedPng(logoBytes);
       const logoW = 70;
@@ -149,8 +149,12 @@ export async function GET() {
           borderWidth: 0.5,
           font,
         });
-        textField.setFontSize(9);
-        textField.updateAppearances(font);
+        try {
+          textField.setFontSize(9);
+          textField.updateAppearances(font);
+        } catch (e) {
+          console.warn('[ppp/template] field appearance:', e.message);
+        }
         y -= inputHeight + 10;
       }
       y -= 6;
