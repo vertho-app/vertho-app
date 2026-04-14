@@ -380,6 +380,20 @@ function EditModal({ conteudo, onClose, onSave }) {
     tipo_conteudo: conteudo.tipo_conteudo || 'core',
     ativo: conteudo.ativo,
   });
+  const [opcoes, setOpcoes] = useState({ competencias: [], cargos: [] });
+
+  useEffect(() => { loadOpcoesGerar().then(setOpcoes); }, []);
+
+  const compSel = opcoes.competencias.find(c => c.nome === form.competencia);
+  const descritoresDisp = compSel?.descritores || [];
+  // Inclui o descritor atual se ele não estiver na lista (caso o nome tenha mudado)
+  const descritorOptions = form.descritor && !descritoresDisp.includes(form.descritor)
+    ? [form.descritor, ...descritoresDisp]
+    : descritoresDisp;
+  const compOptions = form.competencia && !opcoes.competencias.some(c => c.nome === form.competencia)
+    ? [form.competencia, ...opcoes.competencias.map(c => c.nome)]
+    : opcoes.competencias.map(c => c.nome);
+  const cargoOptions = ['todos', ...(opcoes.cargos || [])];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
@@ -390,15 +404,22 @@ function EditModal({ conteudo, onClose, onSave }) {
         </div>
         <div className="space-y-3 text-sm">
           <Field label="Título" value={form.titulo} onChange={v => setForm({ ...form, titulo: v })} />
-          <Field label="Competência" value={form.competencia} onChange={v => setForm({ ...form, competencia: v })} />
-          <Field label="Descritor" value={form.descritor} onChange={v => setForm({ ...form, descritor: v })} />
+          <SelectField label="Competência" value={form.competencia}
+            onChange={v => setForm({ ...form, competencia: v, descritor: '' })}
+            options={['', ...compOptions]} />
+          <SelectField label="Descritor" value={form.descritor}
+            onChange={v => setForm({ ...form, descritor: v })}
+            options={['', ...descritorOptions]}
+            disabled={!form.competencia} />
           <div className="grid grid-cols-2 gap-3">
             <Field label="Nível mín" type="number" step="0.1" value={form.nivel_min} onChange={v => setForm({ ...form, nivel_min: Number(v) })} />
             <Field label="Nível máx" type="number" step="0.1" value={form.nivel_max} onChange={v => setForm({ ...form, nivel_max: Number(v) })} />
           </div>
           <SelectField label="Contexto" value={form.contexto} onChange={v => setForm({ ...form, contexto: v })}
             options={['educacional', 'corporativo', 'generico']} />
-          <Field label="Cargo" value={form.cargo} onChange={v => setForm({ ...form, cargo: v })} />
+          <SelectField label="Cargo" value={form.cargo}
+            onChange={v => setForm({ ...form, cargo: v })}
+            options={cargoOptions} />
           <SelectField label="Setor" value={form.setor} onChange={v => setForm({ ...form, setor: v })}
             options={['educacao_publica', 'saude', 'agro', 'todos']} />
           <SelectField label="Tipo" value={form.tipo_conteudo} onChange={v => setForm({ ...form, tipo_conteudo: v })}
