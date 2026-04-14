@@ -23,7 +23,7 @@ async function extrairDadosEstruturados(historico, tipoConversa, semanaPlan) {
 }
 
 const MAX_TURNS_SOCRATIC = 10; // 5 IA + 5 colab
-const MAX_TURNS_ANALYTIC = 8;  // 4 IA + 4 colab
+const MAX_TURNS_ANALYTIC = 12; // 6 IA + 6 colab
 
 /**
  * POST /api/temporada/reflection

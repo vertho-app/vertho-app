@@ -87,18 +87,34 @@ export async function POST(request) {
     // Semana 14: cenário + resposta + pontuação
     if (Number(semana) === 14) {
       if (action === 'init') {
-        // Gera cenário se não existe
         let cenario = dados.cenario;
+        let cenario_b_id = dados.cenario_b_id || null;
+
         if (!cenario) {
-          const { system, user } = promptEvolutionScenarioGen({
-            competencia: trilha.competencia_foco, descritores,
-            cargo: colab?.cargo, contexto: 'corporativo',
-          });
-          cenario = (await callAI(system, user, {}, 1200)).trim();
+          // 1. Tenta reusar cenário B existente (banco_cenarios) da competência + cargo
+          const { data: cenB } = await sb.from('banco_cenarios')
+            .select('id, titulo, descricao, alternativas')
+            .eq('empresa_id', trilha.empresa_id)
+            .eq('cargo', colab?.cargo || 'todos')
+            .eq('tipo_cenario', 'cenario_b')
+            .limit(1).maybeSingle();
+
+          if (cenB?.descricao) {
+            cenario = `## ${cenB.titulo || 'Cenário final'}\n\n${cenB.descricao}`;
+            cenario_b_id = cenB.id;
+          } else {
+            // 2. Fallback: gera novo via prompt evolution
+            const { system, user } = promptEvolutionScenarioGen({
+              competencia: trilha.competencia_foco, descritores,
+              cargo: colab?.cargo, contexto: 'corporativo',
+            });
+            cenario = (await callAI(system, user, {}, 1200)).trim();
+          }
         }
-        const novoSlot = { ...dados, cenario, transcript_completo: historico };
+
+        const novoSlot = { ...dados, cenario, cenario_b_id, transcript_completo: historico };
         await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot, finished: false });
-        return NextResponse.json({ cenario, finished: false });
+        return NextResponse.json({ cenario, cenario_b_id, finished: false });
       }
 
       // action === 'send': colab enviou a resposta → pontua
