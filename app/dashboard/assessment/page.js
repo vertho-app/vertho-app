@@ -144,7 +144,7 @@ export default function AssessmentPage() {
           <div className="h-2 rounded-full overflow-hidden mt-3" style={{ background: 'rgba(255,255,255,0.05)' }}>
             <div className="h-full rounded-full bg-cyan-400 transition-all" style={{ width: `${data.progresso.pct}%` }} />
           </div>
-          <p className="text-[10px] text-gray-500 mt-1.5">{data.progresso.respondidas} de {data.progresso.total} competências</p>
+          <p className="text-[10px] text-gray-500 mt-1.5">{data.progresso.respondidas} de {data.progresso.total} competências completadas</p>
         </div>
       )}
 
