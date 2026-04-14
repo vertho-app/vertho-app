@@ -117,11 +117,20 @@ export default function PPPPage() {
         </button>
       </div>
 
-      {/* Nova Extração toggle */}
-      <button onClick={() => setShowForm(!showForm)}
-        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-green-400 border border-green-400/30 hover:bg-green-400/10 transition-colors mb-4">
-        <Plus size={14} /> Nova Extração
-      </button>
+      {/* Nova Extração + Template */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <button onClick={() => setShowForm(!showForm)}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-green-400 border border-green-400/30 hover:bg-green-400/10 transition-colors">
+          <Plus size={14} /> Nova Extração
+        </button>
+        <a href="/api/ppp/template" download
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-colors">
+          <FileText size={14} /> Baixar formulário PDF
+        </a>
+        <p className="text-[10px] text-gray-500 flex-1 min-w-[200px]">
+          Peça pra empresa preencher o PDF (campos editáveis em qualquer leitor) e subir aqui.
+        </p>
+      </div>
 
       {/* Form */}
       {showForm && (
