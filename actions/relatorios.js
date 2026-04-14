@@ -105,21 +105,39 @@ export async function gerarRelatorioIndividual(empresaId, colaboradorId, aiConfi
     const { data: empresa } = await sb.from('empresas')
       .select('nome, segmento').eq('id', empresaId).single();
 
-    // Buscar respostas avaliadas
+    // Buscar TODAS respostas do colab (avaliadas ou não)
     const { data: respostas } = await sb.from('respostas')
-      .select('competencia_id, avaliacao_ia, nivel_ia4, nota_ia4, pontos_fortes, pontos_atencao, feedback_ia4')
+      .select('competencia_id, competencia_nome, avaliacao_ia, nivel_ia4, nota_ia4, pontos_fortes, pontos_atencao, feedback_ia4')
       .eq('empresa_id', empresaId)
-      .eq('colaborador_id', colaboradorId)
-      .not('avaliacao_ia', 'is', null);
+      .eq('colaborador_id', colaboradorId);
 
-    if (!respostas?.length) return { success: false, error: 'Nenhuma avaliação encontrada para este colaborador' };
+    // Top 5 esperado do cargo (fonte de verdade)
+    const { data: cargoEmp } = await sb.from('cargos_empresa')
+      .select('top5_workshop').eq('empresa_id', empresaId).eq('nome', colab.cargo).maybeSingle();
+    const top5Esperado = cargoEmp?.top5_workshop || [];
 
-    // Buscar competências
-    const compIds = [...new Set(respostas.map(r => r.competencia_id).filter(Boolean))];
+    if (!respostas?.length && !top5Esperado.length) {
+      return { success: false, error: 'Nenhuma resposta nem top5 configurado para este colaborador' };
+    }
+
+    // Mapeia respostas por nome de competência (mais estável que id quando há
+    // múltiplos rows por descritor)
+    const respPorNome = {};
+    for (const r of (respostas || [])) {
+      if (r.competencia_nome) respPorNome[r.competencia_nome] = r;
+    }
+
+    // Lista alvo: top5 do cargo se existe, senão usa as competências respondidas
+    const competenciasAlvo = top5Esperado.length > 0
+      ? top5Esperado
+      : [...new Set((respostas || []).map(r => r.competencia_nome).filter(Boolean))];
+
+    // Mapa competencia → meta (id, cod_comp)
+    const compIds = [...new Set((respostas || []).map(r => r.competencia_id).filter(Boolean))];
     const compMap = {};
     if (compIds.length) {
       const { data: comps } = await sb.from('competencias').select('id, nome, cod_comp').in('id', compIds);
-      (comps || []).forEach(c => { compMap[c.id] = c; });
+      (comps || []).forEach(c => { compMap[c.nome] = c; });
     }
 
     // Perfil CIS
@@ -128,16 +146,27 @@ export async function gerarRelatorioIndividual(empresaId, colaboradorId, aiConfi
       perfilCIS = `DISC: D=${colab.d_natural} | I=${colab.i_natural} | S=${colab.s_natural} | C=${colab.c_natural}\nDominante: ${colab.perfil_dominante || '—'}\nLideranca: Executor=${colab.lid_executivo || 0}% | Motivador=${colab.lid_motivador || 0}% | Metodico=${colab.lid_metodico || 0}% | Sistematico=${colab.lid_sistematico || 0}%`;
     }
 
-    const dadosComps = respostas.map(r => {
-      const comp = compMap[r.competencia_id] || {};
+    const dadosComps = competenciasAlvo.map(nomeComp => {
+      const r = respPorNome[nomeComp];
+      if (!r) {
+        // Top5 mas o colab não respondeu (ou IA4 falhou totalmente)
+        return {
+          competencia: nomeComp,
+          nivel: 'pendente',
+          nota_decimal: 'pendente',
+          pontos_fortes: [],
+          gaps: [],
+          feedback: 'Sem dados — colaborador não respondeu ou avaliação IA4 não foi processada.',
+        };
+      }
       const av = typeof r.avaliacao_ia === 'string' ? JSON.parse(r.avaliacao_ia) : r.avaliacao_ia;
       return {
-        competencia: comp.nome || '—',
-        nivel: av?.consolidacao?.nivel_geral || r.nivel_ia4 || '?',
-        nota_decimal: av?.consolidacao?.media_descritores || r.nota_ia4 || '?',
+        competencia: nomeComp,
+        nivel: av?.consolidacao?.nivel_geral || r.nivel_ia4 || 'pendente',
+        nota_decimal: av?.consolidacao?.media_descritores || r.nota_ia4 || 'pendente',
         pontos_fortes: av?.descritores_destaque?.pontos_fortes || [],
         gaps: av?.descritores_destaque?.gaps_prioritarios || [],
-        feedback: av?.feedback || r.feedback_ia4 || '',
+        feedback: av?.feedback || r.feedback_ia4 || (r.avaliacao_ia ? '' : 'Resposta sem avaliação IA4 (rode IA4 novamente).'),
       };
     });
 
