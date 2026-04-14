@@ -260,72 +260,106 @@ export async function gerarRelatorioGestor(empresaId, aiConfig = {}) {
     const { data: empresa } = await sb.from('empresas')
       .select('nome, segmento').eq('id', empresaId).single();
 
-    // Buscar todos os colaboradores com avaliação
-    const { data: respostas } = await sb.from('respostas')
-      .select('colaborador_id, competencia_id, avaliacao_ia, nivel_ia4')
-      .eq('empresa_id', empresaId)
-      .not('avaliacao_ia', 'is', null);
+    // Busca TODOS os colabs e agrupa por gestor_email
+    const { data: todosColabs } = await sb.from('colaboradores')
+      .select('id, nome_completo, email, cargo, gestor_email, gestor_nome, perfil_dominante, d_natural, i_natural, s_natural, c_natural, role')
+      .eq('empresa_id', empresaId);
 
-    if (!respostas?.length) return { success: false, error: 'Nenhuma avaliação encontrada' };
-
-    // Buscar colaboradores
-    const colabIds = [...new Set(respostas.map(r => r.colaborador_id).filter(Boolean))];
-    const { data: colabs } = await sb.from('colaboradores')
-      .select('id, nome_completo, cargo, perfil_dominante, d_natural, i_natural, s_natural, c_natural')
-      .in('id', colabIds);
-    const colabMap = {};
-    (colabs || []).forEach(c => { colabMap[c.id] = c; });
-
-    // Buscar competências
-    const compIds = [...new Set(respostas.map(r => r.competencia_id).filter(Boolean))];
-    const compMap = {};
-    if (compIds.length) {
-      const { data: comps } = await sb.from('competencias').select('id, nome').in('id', compIds);
-      (comps || []).forEach(c => { compMap[c.id] = c; });
+    const equipesPorGestor = {};
+    for (const c of (todosColabs || [])) {
+      const ge = (c.gestor_email || '').toLowerCase().trim();
+      if (!ge) continue; // colab sem gestor cadastrado é ignorado
+      if (!equipesPorGestor[ge]) equipesPorGestor[ge] = [];
+      equipesPorGestor[ge].push(c);
     }
 
-    // Montar dados da equipe
-    const membros = colabIds.map(id => {
-      const c = colabMap[id] || {};
-      const respsColab = respostas.filter(r => r.colaborador_id === id);
-      return {
-        nome: c.nome_completo || '—',
-        cargo: c.cargo || '—',
-        disc_dominante: c.perfil_dominante || '—',
-        competencias: respsColab.map(r => {
-          const av = typeof r.avaliacao_ia === 'string' ? JSON.parse(r.avaliacao_ia) : r.avaliacao_ia;
+    if (Object.keys(equipesPorGestor).length === 0) {
+      return { success: false, error: 'Nenhum colaborador tem gestor_email preenchido. Configure em /admin/empresas/gerenciar.' };
+    }
+
+    // Avaliações IA4 (uma vez só, indexa por colab)
+    const { data: respostas } = await sb.from('respostas')
+      .select('colaborador_id, competencia_id, competencia_nome, avaliacao_ia, nivel_ia4')
+      .eq('empresa_id', empresaId)
+      .not('avaliacao_ia', 'is', null);
+    const respPorColab = {};
+    for (const r of (respostas || [])) {
+      if (!respPorColab[r.colaborador_id]) respPorColab[r.colaborador_id] = [];
+      respPorColab[r.colaborador_id].push(r);
+    }
+
+    let gerados = 0, erros = 0;
+    const detalhes = [];
+
+    for (const [gestorEmail, equipe] of Object.entries(equipesPorGestor)) {
+      try {
+        // Identifica o gestor (pode estar em colaboradores ou só ser um email externo)
+        const gestorColab = (todosColabs || []).find(c => (c.email || '').toLowerCase() === gestorEmail);
+        const gestorNome = gestorColab?.nome_completo || equipe[0].gestor_nome || gestorEmail;
+
+        // Membros: cada colab da equipe + suas competências avaliadas
+        const membros = equipe.map(c => {
+          const respsColab = respPorColab[c.id] || [];
           return {
-            competencia: compMap[r.competencia_id]?.nome || '—',
-            nivel: av?.consolidacao?.nivel_geral || r.nivel_ia4 || 0,
+            nome: c.nome_completo || '—',
+            cargo: c.cargo || '—',
+            disc_dominante: c.perfil_dominante || '—',
+            competencias: respsColab.map(r => {
+              const av = typeof r.avaliacao_ia === 'string' ? JSON.parse(r.avaliacao_ia) : r.avaliacao_ia;
+              return {
+                competencia: r.competencia_nome || '—',
+                nivel: av?.consolidacao?.nivel_geral || r.nivel_ia4 || 0,
+              };
+            }),
           };
-        }),
-      };
-    });
+        });
 
-    // DISC distribuição
-    const discDist = { D: 0, I: 0, S: 0, C: 0 };
-    (colabs || []).forEach(c => { if (c.perfil_dominante) { const d = c.perfil_dominante.replace('Alto ', ''); if (discDist[d] !== undefined) discDist[d]++; } });
+        // DISC dist da equipe
+        const discDist = { D: 0, I: 0, S: 0, C: 0 };
+        equipe.forEach(c => {
+          if (c.perfil_dominante) {
+            const d = c.perfil_dominante.replace('Alto ', '');
+            if (discDist[d] !== undefined) discDist[d]++;
+          }
+        });
 
-    const user = `EMPRESA: ${empresa.nome} (${empresa.segmento})\nTOTAL EQUIPE: ${membros.length}\nDISC: D=${discDist.D} I=${discDist.I} S=${discDist.S} C=${discDist.C}\n\nDADOS DA EQUIPE:\n${JSON.stringify(membros, null, 2)}`;
+        const user = `EMPRESA: ${empresa.nome} (${empresa.segmento})\nGESTOR: ${gestorNome} (${gestorEmail})\nTOTAL EQUIPE: ${membros.length}\nDISC: D=${discDist.D} I=${discDist.I} S=${discDist.S} C=${discDist.C}\n\nDADOS DA EQUIPE:\n${JSON.stringify(membros, null, 2)}`;
 
-    const resultado = await callAI(RELATORIO_GESTOR_SYSTEM, user, aiConfig, 64000);
-    const relatorio = await extractJSON(resultado);
+        const resultado = await callAI(RELATORIO_GESTOR_SYSTEM, user, aiConfig, 64000);
+        const relatorio = await extractJSON(resultado);
 
-    if (!relatorio) return { success: false, error: 'IA não retornou relatório válido' };
+        if (!relatorio) { erros++; detalhes.push({ gestor: gestorNome, erro: 'IA não retornou JSON' }); continue; }
 
-    let pdfPath = null;
-    try {
-      const pdfData = { conteudo: relatorio, gerado_em: new Date().toISOString() };
-      const buffer = await gerarPDFBuffer('gestor', pdfData, empresa.nome);
-      if (buffer) pdfPath = await salvarPDFStorage(sb, empresaId, 'gestor', empresa.nome, buffer);
-    } catch (e) { console.error('[PDF Gen Gestor]', e.message); }
+        // PDF
+        let pdfPath = null;
+        try {
+          const pdfData = { conteudo: relatorio, gestor_nome: gestorNome, gerado_em: new Date().toISOString() };
+          const buffer = await gerarPDFBuffer('gestor', pdfData, empresa.nome);
+          if (buffer) pdfPath = await salvarPDFStorage(sb, empresaId, 'gestor', `${empresa.nome}-${gestorNome}`, buffer);
+        } catch (e) { console.error('[PDF Gestor]', e.message); }
 
-    await sb.from('relatorios').upsert({
-      empresa_id: empresaId, colaborador_id: null, tipo: 'gestor',
-      conteudo: relatorio, pdf_path: pdfPath, gerado_em: new Date().toISOString(),
-    }, { onConflict: 'empresa_id,colaborador_id,tipo' }).select('id');
+        await sb.from('relatorios').upsert({
+          empresa_id: empresaId,
+          colaborador_id: gestorColab?.id || null,
+          tipo: 'gestor',
+          conteudo: { ...relatorio, gestor_email: gestorEmail, gestor_nome: gestorNome },
+          pdf_path: pdfPath,
+          gerado_em: new Date().toISOString(),
+        }, { onConflict: 'empresa_id,colaborador_id,tipo' }).select('id');
 
-    return { success: true, message: `Relatório gestor gerado${pdfPath ? ' (PDF salvo)' : ''}` };
+        gerados++;
+        detalhes.push({ gestor: gestorNome, equipe: equipe.length, ok: true });
+      } catch (e) {
+        erros++;
+        detalhes.push({ gestor: gestorEmail, erro: e.message });
+      }
+    }
+
+    return {
+      success: true,
+      message: `${gerados} relatório${gerados !== 1 ? 's' : ''} de gestor gerado${gerados !== 1 ? 's' : ''}${erros ? ` · ${erros} erros` : ''}`,
+      detalhes,
+    };
   } catch (err) {
     return { success: false, error: err.message };
   }
