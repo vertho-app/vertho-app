@@ -366,12 +366,32 @@ export default function Fase1Page({ params }) {
             const pendentes = cens.filter(c => !c.status_check).length;
             return (
               <div key={cargo} className="mb-6">
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex items-center gap-3 mb-2 flex-wrap">
                   <h2 className="text-sm font-bold text-white">{cargo}</h2>
                   <span className="text-[10px] text-gray-500">{cens.length} cenários</span>
                   {aprovados > 0 && <span className="text-[9px] bg-green-400/15 text-green-400 px-1.5 py-0.5 rounded">{aprovados} aprovados</span>}
                   {revisar > 0 && <span className="text-[9px] bg-amber-400/15 text-amber-400 px-1.5 py-0.5 rounded">{revisar} revisar</span>}
                   {pendentes > 0 && <span className="text-[9px] bg-gray-400/15 text-gray-400 px-1.5 py-0.5 rounded">{pendentes} pendentes</span>}
+                  {revisar > 0 && (
+                    <button
+                      disabled={!!cenAction}
+                      onClick={async () => {
+                        const paraRevisar = cens.filter(c => c.status_check === 'revisar');
+                        for (const c of paraRevisar) {
+                          setCenAction({ id: c.id, type: 'regen' });
+                          try {
+                            const r = await regenerarCenario(c.id);
+                            if (r.success) await checkCenarioUm(c.id);
+                          } catch (e) { console.warn('regen lote:', e.message); }
+                        }
+                        setCenAction(null);
+                        flash(`${paraRevisar.length} cenários regerados e revalidados`);
+                        refresh();
+                      }}
+                      className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold text-amber-300 border border-amber-400/40 hover:bg-amber-400/10 transition-all disabled:opacity-50 ml-auto">
+                      <RefreshCw size={10} /> Revisar todos ({revisar})
+                    </button>
+                  )}
                 </div>
                 <div className="space-y-2">
                   {cens.map(c => {
