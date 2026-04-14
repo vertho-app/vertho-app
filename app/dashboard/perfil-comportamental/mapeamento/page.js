@@ -364,7 +364,7 @@ export default function MapeamentoPage() {
         <Image src="/logo-vertho.png" alt="Vertho" width={120} height={40} className="mb-5" />
 
         <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Mapeamento Comportamental</h1>
-        <p className="text-sm text-gray-400 mb-6">Leva ~8 minutos. 3 tipos de pergunta em sequência.</p>
+        <p className="text-sm text-gray-400 mb-6">Leva ~8 minutos. Você vai responder em <b>2 blocos</b>: Natural e Adaptado.</p>
 
         <div className="flex flex-wrap gap-2 mb-8">
           {['Perfil DISC', 'Estilo de liderança', 'Preferências de aprendizagem'].map(chip => (
@@ -377,30 +377,39 @@ export default function MapeamentoPage() {
         <div className="space-y-4 mb-8">
           <InstructionCard
             numero={1}
-            titulo="Rankings (16 grupos)"
+            titulo={<>Bloco 1 — <span className="text-teal-400">Perfil Natural</span></>}
             descricao={<>
-              Em cada grupo você verá <b>4 adjetivos</b>. <b>Arraste e solte</b> pra colocá-los em ordem, do <span className="text-emerald-400 font-bold">mais parecido</span> com você (topo) ao <span className="text-red-400 font-bold">menos parecido</span> (base). Responda <b>pensando em como você age no trabalho</b>.
+              8 rankings + 6 pares rápidos respondidos pensando em <b>como você é quando está à vontade, fora do trabalho</b>.
+              É o seu jeito natural, sem ajustes.
             </>}
           />
           <InstructionCard
             numero={2}
-            titulo="Pares rápidos (12 duplas)"
+            titulo={<>Bloco 2 — <span className="text-amber-400">Perfil Adaptado</span></>}
             descricao={<>
-              Duas frases por vez. <b>Clique na que descreve melhor você</b>. Não existe resposta certa — responda <b>instintivamente</b>, sem racionalizar demais.
+              As mesmas perguntas do bloco 1, mas pensando em <b>como você age no trabalho</b>. Revela o quanto você se ajusta pro contexto profissional.
             </>}
           />
           <InstructionCard
             numero={3}
             titulo="Preferências de aprendizagem"
             descricao={<>
-              Marque os formatos de conteúdo que <b>funcionam melhor pra você</b> aprender (vídeo, texto, áudio, case, etc.). Isso ajuda a personalizar seu plano de desenvolvimento.
+              Marque os formatos de conteúdo que <b>funcionam melhor pra você</b> aprender (vídeo, texto, áudio, case, etc.). Ajuda a personalizar sua jornada.
             </>}
           />
         </div>
 
+        <div className="rounded-xl bg-white/[0.03] border border-white/10 p-4 mb-4">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-cyan-400 mb-2">Como funcionam as perguntas</p>
+          <div className="space-y-2 text-xs text-gray-300 leading-relaxed">
+            <p>• <b>Rankings:</b> arraste os 4 adjetivos do <span className="text-emerald-400 font-bold">mais parecido</span> (topo) ao <span className="text-red-400 font-bold">menos parecido</span> (base).</p>
+            <p>• <b>Pares rápidos:</b> clique na frase que descreve melhor você. Responda instintivamente.</p>
+          </div>
+        </div>
+
         <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-3 mb-6">
           <p className="text-xs text-amber-200 leading-relaxed">
-            💡 <b>Dica:</b> seja sincero. Esse mapeamento não é teste — é um retrato do seu estilo pra montar uma jornada de desenvolvimento que faça sentido pra você.
+            💡 <b>Dica:</b> seja sincero. Esse mapeamento não é teste — é um retrato do seu estilo pra montar uma jornada que faça sentido pra você.
           </p>
         </div>
 
