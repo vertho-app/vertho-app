@@ -53,7 +53,9 @@ DIRETRIZES DE TOM:
 6. METAS EM PRIMEIRA PESSOA com horizonte claro.
 7. NAO mencione scores DISC numericos. Descreva em linguagem acessivel.
 8. Niveis SEMPRE NUMERICOS: 1, 2, 3 ou 4. Nivel 3 = META.
-9. Use APENAS competencias que foram avaliadas. NAO invente outras.
+9. SEMPRE inclua TODAS as competencias fornecidas no input (mesmo as marcadas como 'pendente').
+   - Para competencias avaliadas (nivel 1-4): gere analise completa.
+   - Para competencias com nivel='pendente': inclua entrada com flag=true, resumo curto explicando que aguarda avaliacao, plano_30_dias com semanas placeholder ("Aguardando avaliacao - acoes a definir"). NAO invente notas.
 10. Para cada competencia com gap (nivel < 3), gere plano de 30 dias detalhado.
 11. Se CURSOS RECOMENDADOS forem fornecidos, INCLUA-OS no plano de 30 dias e no estudo recomendado.
     Use o nome e URL exatos dos cursos. Distribua ao longo das 4 semanas conforme o nivel.
@@ -183,7 +185,9 @@ export async function gerarRelatorioIndividual(empresaId, colaboradorId, aiConfi
       }
     } catch {}
 
-    const user = `COLABORADOR: ${colab.nome_completo}\nCARGO: ${colab.cargo}\nEMPRESA: ${empresa.nome} (${empresa.segmento})\n\nPERFIL COMPORTAMENTAL:\n${perfilCIS}\n\nDADOS POR COMPETENCIA:\n${JSON.stringify(dadosComps, null, 2)}${trilhaTexto}`;
+    const totalComps = dadosComps.length;
+    const pendentes = dadosComps.filter(c => c.nivel === 'pendente').length;
+    const user = `COLABORADOR: ${colab.nome_completo}\nCARGO: ${colab.cargo}\nEMPRESA: ${empresa.nome} (${empresa.segmento})\n\nPERFIL COMPORTAMENTAL:\n${perfilCIS}\n\n=== ATENCAO ===\nO array DADOS POR COMPETENCIA contem ${totalComps} competencia(s) do TOP 5 do cargo. ${pendentes > 0 ? `${pendentes} esta(o) marcadas como 'pendente' (sem avaliacao IA4) — voce DEVE incluir essas tambem no output, com flag=true e plano placeholder.` : ''} O array 'competencias' do output DEVE ter EXATAMENTE ${totalComps} itens, na MESMA ordem.\n\nDADOS POR COMPETENCIA:\n${JSON.stringify(dadosComps, null, 2)}${trilhaTexto}`;
 
     const resultado = await callAI(RELATORIO_IND_SYSTEM, user, aiConfig, 64000);
     const relatorio = await extractJSON(resultado);
