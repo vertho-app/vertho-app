@@ -5,90 +5,35 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const BLOCOS = [
-  { title: 'Perfil Organizacional', questions: [
+  { title: 'Identificação (o resto a IA puxa do site)', questions: [
     { label: 'Nome da empresa', key: 'nome' },
-    { label: 'Setor (ex: saúde, educação, varejo, tecnologia)', key: 'setor' },
-    { label: 'Segmento específico', key: 'segmento' },
-    { label: 'Porte (nº aproximado de colaboradores, faturamento se quiser)', key: 'porte' },
-    { label: 'Localização (sede e unidades)', key: 'localizacao' },
-    { label: 'Modelo de atuação (presencial/híbrido/remoto/multi-site)', key: 'modelo_atuacao' },
+    { label: 'URL do site institucional (pra IA enriquecer missão, valores, perfil público)', key: 'url_site' },
+    { label: 'Em 1 frase: o que a empresa faz e pra quem', key: 'oneliner', lines: 2 },
   ]},
-  { title: 'Mercado e Stakeholders', questions: [
-    { label: 'Perfil dos clientes e mercado atendido (2-3 frases)', key: 'clientes', lines: 3 },
-    { label: 'Posicionamento competitivo e diferenciais', key: 'concorrencia', lines: 3 },
-    { label: 'Stakeholders-chave (acionistas, reguladores, parceiros, comunidade)', key: 'stakeholders' },
+  { title: 'Desafios estratégicos atuais', questions: [
+    { label: 'Top 3 desafios atuais (1 por linha)', key: 'desafios', lines: 4 },
+    { label: 'Transformações em curso: digital, cultural, expansão (opcional)', key: 'transformacoes', lines: 3 },
   ]},
-  { title: 'Identidade e Cultura', questions: [
-    { label: 'Missão', key: 'missao', lines: 2 },
-    { label: 'Visão', key: 'visao', lines: 2 },
-    { label: 'Valores (separar por vírgulas)', key: 'valores', lines: 2 },
-    { label: 'Modelo de gestão / estilo de liderança', key: 'modelo_gestao', lines: 3 },
-    { label: 'Cultura declarada (elementos culturais explícitos)', key: 'cultura', lines: 3 },
+  { title: 'Tensões e dilemas recorrentes', questions: [
+    { label: 'Conflitos típicos do dia a dia. Ex: velocidade vs qualidade, autonomia vs controle, áreas que se chocam', key: 'tensoes', lines: 5 },
   ]},
-  { title: 'Operação e Processos', questions: [
-    { label: 'Principais áreas e funções (uma por linha)', key: 'areas', lines: 6 },
-    { label: 'Processos-chave ou rotinas mencionadas', key: 'processos', lines: 3 },
+  { title: 'Cultura real: reconhecimento e não-tolerância', questions: [
+    { label: 'O que é celebrado aqui? (comportamentos/resultados visivelmente reconhecidos)', key: 'celebrado', lines: 3 },
+    { label: 'O que NÃO é tolerado? (comportamentos que levam a consequências)', key: 'nao_tolerado', lines: 3 },
   ]},
-  { title: 'Modelo de Pessoas', questions: [
-    { label: 'Programas de desenvolvimento, trilhas, mentorias', key: 'desenvolvimento', lines: 3 },
-    { label: 'Modelo de avaliação de desempenho', key: 'avaliacao', lines: 2 },
-    { label: 'Progressão e carreira', key: 'carreira', lines: 2 },
-    { label: 'Políticas de diversidade e inclusão', key: 'di', lines: 2 },
+  { title: 'Cadência de rituais', questions: [
+    { label: 'Rituais regulares e frequência: 1:1, dailies, retros, OKRs trimestrais, all-hands, etc', key: 'rituais', lines: 5 },
   ]},
-  { title: 'Governança e Decisão', questions: [
-    { label: 'Estrutura (hierarquia, comitês, autonomia)', key: 'estrutura', lines: 3 },
-    { label: 'Tomada de decisão (centralizada, colegiada, por nível)', key: 'decisao', lines: 2 },
-    { label: 'Compliance (regulações, certificações, normas)', key: 'compliance', lines: 2 },
+  { title: 'Comunicação e decisão', questions: [
+    { label: 'Canais principais de comunicação (Slack, email, Teams, WhatsApp, face-a-face)', key: 'canais' },
+    { label: 'Tomada de decisão: centralizada, colegiada, por nível? Rápida ou lenta?', key: 'decisao', lines: 3 },
   ]},
-  { title: 'Tecnologia e Recursos', questions: [
-    { label: 'Ferramentas e sistemas (ERPs, plataformas)', key: 'ferramentas', lines: 2 },
-    { label: 'Capacidades (labs, centros de inovação)', key: 'capacidades', lines: 2 },
-    { label: 'Limitações ou gaps tecnológicos', key: 'limitacoes', lines: 2 },
+  { title: 'Maturidade cultural', questions: [
+    { label: 'Como erros são tratados? (blameless post-mortem, culpabilização, aprendizado)', key: 'erros', lines: 2 },
+    { label: 'Psychological safety percebida (alta/média/baixa) - exemplos', key: 'safety', lines: 2 },
   ]},
-  { title: 'Desafios Estratégicos', questions: [
-    { label: 'Top 3 desafios estratégicos atuais', key: 'desafios', lines: 4 },
-    { label: 'Metas declaradas (curto e médio prazo)', key: 'metas', lines: 3 },
-    { label: 'Transformações em curso (digital, cultural, expansão)', key: 'transformacoes', lines: 3 },
-  ]},
-  { title: 'Vocabulário Corporativo', questions: [
-    { label: 'Siglas, jargões e termos internos (formato: SIGLA = significado, uma por linha)', key: 'vocabulario', lines: 6 },
-  ]},
-  { title: 'Tensões e Dilemas', questions: [
-    { label: 'Conflitos ou dilemas recorrentes (ex: velocidade vs qualidade, autonomia vs controle)', key: 'tensoes', lines: 5 },
-  ]},
-  { title: 'Cadência de Rituais', questions: [
-    { label: 'Rituais individuais (1:1, check-ins, freq)', key: 'rituais_ind', lines: 2 },
-    { label: 'Rituais de time (dailies, retros, plannings, all-hands)', key: 'rituais_time', lines: 3 },
-    { label: 'Ciclos estratégicos (OKRs trimestrais, budget, pulse)', key: 'ciclos', lines: 2 },
-  ]},
-  { title: 'Stakeholders por Área', questions: [
-    { label: 'Para cada área principal: quem são seus clientes internos? (formato: Área -> depende de X, Y)', key: 'stakeholders_area', lines: 6 },
-  ]},
-  { title: 'Casos Recentes (últimos 12 meses)', questions: [
-    { label: 'Aquisições, incidentes, lançamentos, crises ou transformações (tipo + descrição + quando)', key: 'casos', lines: 5 },
-  ]},
-  { title: 'Perfil da Força de Trabalho', questions: [
-    { label: 'Geração dominante (ex: millennials 30-40, gen X 40+, mix)', key: 'geracao' },
-    { label: 'Seniority médio (junior, pleno, senior predominante)', key: 'seniority' },
-    { label: 'Turnover (alto/médio/baixo, se souber)', key: 'turnover' },
-    { label: 'Formação típica (graduação, pós, diversos)', key: 'formacao' },
-  ]},
-  { title: 'Reconhecimento e Não-Tolerância', questions: [
-    { label: 'O que é celebrado aqui (comportamentos/resultados visivelmente reconhecidos)', key: 'celebrado', lines: 3 },
-    { label: 'O que não é tolerado (comportamentos que levam a consequências)', key: 'nao_tolerado', lines: 3 },
-    { label: 'Mecanismos (prêmio, reconhecimento público, feedback, promoção)', key: 'mecanismos', lines: 2 },
-  ]},
-  { title: 'Comunicação Interna', questions: [
-    { label: 'Canais principais (Slack, email, Teams, WhatsApp, face-a-face)', key: 'canais' },
-    { label: 'Padrão (síncrono, assíncrono, misto)', key: 'padrao' },
-    { label: 'Formalidade (alta, média, informal)', key: 'formalidade' },
-    { label: 'Transparência (all-hands, dados abertos, etc)', key: 'transparencia', lines: 2 },
-  ]},
-  { title: 'Maturidade Cultural', questions: [
-    { label: 'Psychological safety (alta/média/baixa -evidências)', key: 'safety', lines: 2 },
-    { label: 'Tratamento de erros (blameless post-mortem, culpabilização, aprendizado)', key: 'erros', lines: 2 },
-    { label: 'Velocidade de decisão (rápida/média/lenta -por quê)', key: 'velocidade', lines: 2 },
-    { label: 'Abertura à mudança (alta/média/baixa)', key: 'mudanca' },
+  { title: 'Casos recentes (últimos 12 meses)', questions: [
+    { label: 'Eventos marcantes: aquisições, crises, lançamentos, reestruturações (tipo + quando + 1 frase)', key: 'casos', lines: 5 },
   ]},
 ];
 
