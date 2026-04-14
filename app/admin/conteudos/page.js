@@ -2,10 +2,10 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Download, Sparkles, Edit2, Trash2, Check, X, Filter, Video, FileText, Headphones, BookOpen, FileType, Wand2, Copy, Plus, Upload, Layers } from 'lucide-react';
+import { ArrowLeft, Download, Sparkles, Edit2, Trash2, Check, X, Filter, Video, FileText, Headphones, BookOpen, FileType, Wand2, Copy, Plus, Upload } from 'lucide-react';
 import {
   importarVideosBunny, listarConteudos, atualizarConteudo,
-  deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA, gerarConteudoLote, loadOpcoesGerar, uploadConteudo,
+  deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA, loadOpcoesGerar, uploadConteudo,
 } from '@/actions/conteudos';
 
 const FORMAT_ICONS = {
@@ -26,7 +26,6 @@ export default function ConteudosAdminPage() {
   const [editing, setEditing] = useState(null); // conteudo em edição
   const [iaSugestao, setIaSugestao] = useState(null); // {conteudoId, tags}
   const [showGerar, setShowGerar] = useState(false);
-  const [showLote, setShowLote] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [roteiroGerado, setRoteiroGerado] = useState(null);
 
@@ -135,14 +134,6 @@ export default function ConteudosAdminPage() {
           >
             <Wand2 size={16} />
             Gerar com IA
-          </button>
-          <button
-            onClick={() => setShowLote(true)}
-            disabled={busy}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-sm font-bold"
-          >
-            <Layers size={16} />
-            Gerar em lote
           </button>
           <button
             onClick={handleImportar}
@@ -308,48 +299,51 @@ export default function ConteudosAdminPage() {
         />
       )}
 
-      {/* Modal gerar em LOTE */}
-      {showLote && (
-        <LoteModal
-          onClose={() => setShowLote(false)}
-          onGenerate={async (params) => {
-            setBusy(true);
-            const escopo = params.descritor ? `"${params.descritor}"` : `TODOS os descritores`;
-            addLog(`Gerando ${params.formato} para ${escopo} de "${params.competencia}"...`, 'info');
-            const r = await gerarConteudoLote(params);
-            setBusy(false);
-            if (r.success) {
-              addLog(`✅ ${r.message}`, 'success');
-              setShowLote(false);
-              await carregar();
-            } else {
-              addLog(`❌ ${r.error}`, 'error');
-            }
-          }}
-          busy={busy}
-        />
-      )}
-
-      {/* Modal gerar com IA — single ou lote (quando descritor vazio) */}
+      {/* Modal gerar com IA — single OU lote (1 descritor por vez no client) */}
       {showGerar && (
         <GerarModal
-          onClose={() => setShowGerar(false)}
+          onClose={() => !busy && setShowGerar(false)}
           onGenerate={async (params) => {
             setBusy(true);
-            const eLote = !params.descritor;
-            const escopo = eLote ? 'TODOS os descritores' : `"${params.descritor}"`;
-            addLog(`Gerando ${params.formato} para ${escopo} de "${params.competencia}"...`, 'info');
-            const r = eLote
-              ? await gerarConteudoLote({ ...params, descritor: null })
-              : await gerarConteudoIA(params);
-            setBusy(false);
-            if (r.success) {
-              addLog(`✅ ${r.message}`, 'success');
-              if (!eLote && r.roteiro) setRoteiroGerado({ ...r, formato: params.formato });
-              setShowGerar(false);
-              await carregar();
-            } else {
-              addLog(`❌ ${r.error}`, 'error');
+            try {
+              if (params.descritor) {
+                // single
+                addLog(`Gerando ${params.formato} para "${params.descritor}"...`, 'info');
+                const r = await gerarConteudoIA(params);
+                if (r.success) {
+                  addLog(`✅ ${r.message}`, 'success');
+                  if (r.roteiro) setRoteiroGerado({ ...r, formato: params.formato });
+                  setShowGerar(false);
+                  await carregar();
+                } else {
+                  addLog(`❌ ${r.error}`, 'error');
+                }
+              } else {
+                // lote no client: descobre descritores e itera 1 por 1
+                const opcoes = await loadOpcoesGerar();
+                const comp = opcoes.competencias.find(c => c.nome === params.competencia);
+                const descritores = comp?.descritores || [];
+                if (descritores.length === 0) {
+                  addLog(`❌ Nenhum descritor pra "${params.competencia}"`, 'error');
+                  return;
+                }
+                addLog(`📋 Vai gerar ${descritores.length} ${params.formato}(s) pra "${params.competencia}"`, 'info');
+                let ok = 0, erros = 0;
+                for (let i = 0; i < descritores.length; i++) {
+                  const desc = descritores[i];
+                  addLog(`[${i + 1}/${descritores.length}] ${desc}...`, 'info');
+                  const r = await gerarConteudoIA({ ...params, descritor: desc });
+                  if (r.success) { ok++; addLog(`  ✅ ${desc}`, 'success'); }
+                  else { erros++; addLog(`  ❌ ${desc}: ${r.error}`, 'error'); }
+                  await carregar(); // atualiza lista a cada um
+                }
+                addLog(`🎉 Lote concluído: ${ok}/${descritores.length}${erros ? ` (${erros} erros)` : ''}`, ok === descritores.length ? 'success' : 'info');
+                setShowGerar(false);
+              }
+            } catch (e) {
+              addLog(`❌ Erro inesperado: ${e.message}`, 'error');
+            } finally {
+              setBusy(false);
             }
           }}
           busy={busy}
@@ -491,138 +485,6 @@ function SelectField({ label, value, onChange, options, disabled, name, defaultV
       >
         {options.map(o => <option key={o} value={o} className="bg-[#0d1426] text-white">{o || '— selecione —'}</option>)}
       </select>
-    </div>
-  );
-}
-
-function LoteModal({ onClose, onGenerate, busy }) {
-  const [form, setForm] = useState({
-    formato: 'texto',
-    competencia: '',
-    descritor: '', // vazio = todos
-    nivelMin: 1.0,
-    nivelMax: 2.0,
-    cargo: 'todos',
-    contexto: 'generico',
-    duracaoMin: 3,
-    duracaoSeg: 0,
-  });
-  const [opcoes, setOpcoes] = useState({ competencias: [], cargos: [] });
-
-  useEffect(() => { loadOpcoesGerar().then(setOpcoes); }, []);
-
-  const formatos = [
-    { v: 'texto', label: 'Artigo (texto + PDF auto)', icon: FileText, cor: '#10B981' },
-    { v: 'case', label: 'Estudo de caso (+ PDF auto)', icon: BookOpen, cor: '#F59E0B' },
-    { v: 'video', label: 'Roteiro de vídeo', icon: Video, cor: '#06B6D4' },
-    { v: 'audio', label: 'Roteiro de podcast', icon: Headphones, cor: '#A78BFA' },
-  ];
-  const precisaDuracao = form.formato === 'video' || form.formato === 'audio';
-  const compSel = opcoes.competencias.find(c => c.nome === form.competencia);
-  const descritoresDisp = compSel?.descritores || [];
-  const podeGerar = form.competencia && !busy;
-  const totalGerar = form.descritor ? 1 : descritoresDisp.length;
-
-  function handleSubmit() {
-    const duracaoSegundos = precisaDuracao ? (Number(form.duracaoMin) * 60 + Number(form.duracaoSeg)) : null;
-    const { duracaoMin, duracaoSeg, ...rest } = form;
-    onGenerate({ ...rest, descritor: form.descritor || null, duracaoSegundos });
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="bg-[#0d1426] rounded-2xl border border-indigo-500/30 max-w-2xl w-full max-h-[90vh] overflow-auto p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Layers size={20} className="text-indigo-400" />
-            <h2 className="text-lg font-bold">Gerar em lote</h2>
-          </div>
-          <button onClick={onClose} className="p-1 rounded hover:bg-white/10"><X size={18} /></button>
-        </div>
-
-        <p className="text-[11px] text-gray-400 mb-4">
-          Cria 1 conteúdo por descritor. Se não escolher descritor, gera pra <b>todos</b> da competência.
-          Textos/cases saem com PDF automático no Storage.
-        </p>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-[10px] uppercase text-gray-500 mb-2">Formato</label>
-            <div className="grid grid-cols-2 gap-2">
-              {formatos.map(f => {
-                const Icon = f.icon;
-                const ativo = form.formato === f.v;
-                return (
-                  <button key={f.v} onClick={() => setForm({ ...form, formato: f.v })}
-                    className={`flex items-center gap-2 p-3 rounded-lg border text-left ${
-                      ativo ? 'border-indigo-400 bg-indigo-500/10' : 'border-white/10 bg-white/5 hover:border-white/20'
-                    }`}>
-                    <Icon size={16} style={{ color: f.cor }} />
-                    <span className="text-xs font-bold text-white">{f.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <SelectField label="Competência (obrigatória)" value={form.competencia}
-            onChange={v => setForm({ ...form, competencia: v, descritor: '' })}
-            options={['', ...opcoes.competencias.map(c => c.nome)]} />
-
-          <div>
-            <label className="block text-[10px] uppercase text-gray-500 mb-1">
-              Descritor (opcional · {descritoresDisp.length} disponíveis)
-            </label>
-            <select value={form.descritor}
-              onChange={e => setForm({ ...form, descritor: e.target.value })}
-              disabled={!form.competencia}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none disabled:opacity-50">
-              <option value="" className="bg-[#0d1426] text-white">— Todos os descritores ({descritoresDisp.length}) —</option>
-              {descritoresDisp.map(d => <option key={d} value={d} className="bg-[#0d1426] text-white">{d}</option>)}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Nível mín" type="number" step="0.1" value={form.nivelMin} onChange={v => setForm({ ...form, nivelMin: Number(v) })} />
-            <Field label="Nível máx" type="number" step="0.1" value={form.nivelMax} onChange={v => setForm({ ...form, nivelMax: Number(v) })} />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <SelectField label="Cargo alvo" value={form.cargo}
-              onChange={v => setForm({ ...form, cargo: v })}
-              options={['todos', ...opcoes.cargos]} />
-            <SelectField label="Contexto" value={form.contexto} onChange={v => setForm({ ...form, contexto: v })}
-              options={['educacional', 'corporativo', 'generico']} />
-          </div>
-
-          {precisaDuracao && (
-            <div>
-              <label className="block text-[10px] uppercase text-gray-500 mb-1">Duração (min:seg)</label>
-              <div className="flex items-center gap-2">
-                <input type="number" min="0" max="30" value={form.duracaoMin}
-                  onChange={e => setForm({ ...form, duracaoMin: Number(e.target.value) })}
-                  className="w-20 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none text-center" />
-                <span className="text-gray-500 font-bold">:</span>
-                <input type="number" min="0" max="59" value={form.duracaoSeg}
-                  onChange={e => setForm({ ...form, duracaoSeg: Number(e.target.value) })}
-                  className="w-20 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none text-center" />
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="flex gap-2 mt-5">
-          <button onClick={handleSubmit} disabled={!podeGerar}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-sm font-bold">
-            {busy ? `Gerando ${totalGerar}...` : <><Layers size={14} /> Gerar {totalGerar > 1 ? `${totalGerar} conteúdos` : '1 conteúdo'}</>}
-          </button>
-          <button onClick={onClose} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm">Cancelar</button>
-        </div>
-
-        <p className="text-[10px] text-gray-500 mt-4">
-          💡 Cada chamada à IA leva ~5-15s. Gerar 6 descritores = ~1 min.
-        </p>
-      </div>
     </div>
   );
 }
