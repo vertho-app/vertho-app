@@ -65,42 +65,141 @@ export async function excluirEmpresa(empresaId) {
   return { success: true };
 }
 
-export async function limparRegistros(empresaId, tabelas, colaboradorId = null, fields = null) {
+export async function limparRegistros(empresaId, tabelas, colaboradorId = null, fields = null, opts = {}) {
   const sb = createSupabaseAdmin();
+  const { hardDelete = false } = opts;
   let pdfsRemovidos = 0;
-  const operacao = fields ? 'UPDATE (nullify)' : 'DELETE';
+  let movidosLixeira = 0;
+  const operacao = fields ? 'UPDATE (nullify)' : (hardDelete ? 'DELETE permanente' : 'soft DELETE (lixeira)');
 
   for (const t of tabelas) {
-    // Antes de apagar linhas de 'relatorios', limpar os PDFs do storage
-    // para não deixar arquivos órfãos. Só aplica quando é DELETE.
-    if (!fields && t === 'relatorios') {
+    // UPDATE nullify: zera campos sem deletar linhas (ex: zerar IA4 mantendo respostas)
+    if (fields) {
+      let q = sb.from(t).update(fields).eq('empresa_id', empresaId);
+      if (colaboradorId && t !== 'cargos' && t !== 'competencias' && t !== 'ppp_escolas') {
+        q = q.eq('colaborador_id', colaboradorId);
+      }
+      const { error } = await q;
+      if (error) return { success: false, error: `Erro em ${t} (${operacao}): ${error.message}` };
+      continue;
+    }
+
+    // Antes de DELETE em 'relatorios' (hard), limpa PDFs órfãos
+    if (hardDelete && t === 'relatorios') {
       let selectQ = sb.from('relatorios').select('pdf_path').eq('empresa_id', empresaId).not('pdf_path', 'is', null);
       if (colaboradorId) selectQ = selectQ.eq('colaborador_id', colaboradorId);
       const { data: rows } = await selectQ;
       const paths = (rows || []).map(r => r.pdf_path).filter(Boolean);
       if (paths.length) {
-        const { error: delErr } = await sb.storage.from('relatorios-pdf').remove(paths);
-        if (delErr) console.error('[limparRegistros storage]', delErr.message);
-        else pdfsRemovidos = paths.length;
+        try { await sb.storage.from('relatorios-pdf').remove(paths); pdfsRemovidos = paths.length; }
+        catch (e) { console.error('[limparRegistros storage]', e.message); }
       }
     }
 
-    // Se fields foi informado, faz UPDATE setando esses campos pra null.
-    // Senão, DELETE total.
-    let query = fields
-      ? sb.from(t).update(fields).eq('empresa_id', empresaId)
-      : sb.from(t).delete().eq('empresa_id', empresaId);
-    if (colaboradorId && t !== 'cargos' && t !== 'competencias' && t !== 'ppp_escolas') {
-      query = query.eq('colaborador_id', colaboradorId);
+    // SOFT DELETE: copia rows pra trash, depois deleta da origem
+    if (!hardDelete) {
+      let selQ = sb.from(t).select('*').eq('empresa_id', empresaId);
+      if (colaboradorId && t !== 'cargos' && t !== 'competencias' && t !== 'ppp_escolas') {
+        selQ = selQ.eq('colaborador_id', colaboradorId);
+      }
+      const { data: rows } = await selQ;
+      if (rows && rows.length > 0) {
+        const trashRows = rows.map(r => ({
+          empresa_id: empresaId,
+          tabela_origem: t,
+          registro_id: r.id || null,
+          payload: r,
+          contexto: `Limpar ${t}${colaboradorId ? ' (colab)' : ' (empresa)'}`,
+        }));
+        const { error: trashErr } = await sb.from('trash').insert(trashRows);
+        if (trashErr) return { success: false, error: `Erro ao copiar pra lixeira (${t}): ${trashErr.message}` };
+        movidosLixeira += rows.length;
+      }
     }
-    const { error } = await query;
-    if (error) return { success: false, error: `Erro em ${t} (${operacao}): ${error.message}` };
+
+    // DELETE da origem (após backup pra lixeira, se soft)
+    let q = sb.from(t).delete().eq('empresa_id', empresaId);
+    if (colaboradorId && t !== 'cargos' && t !== 'competencias' && t !== 'ppp_escolas') {
+      q = q.eq('colaborador_id', colaboradorId);
+    }
+    const { error } = await q;
+    if (error) return { success: false, error: `Erro em ${t} (DELETE): ${error.message}` };
   }
 
   const scope = colaboradorId ? '(colaborador)' : '(empresa)';
-  let msg = `${tabelas.length} tabela(s) ${fields ? 'zeradas' : 'limpas'} ${scope}`;
-  if (pdfsRemovidos > 0) msg += ` | ${pdfsRemovidos} PDF(s) removidos do storage`;
+  let msg;
+  if (fields) {
+    msg = `${tabelas.length} tabela(s) zeradas ${scope}`;
+  } else if (hardDelete) {
+    msg = `${tabelas.length} tabela(s) APAGADAS PERMANENTEMENTE ${scope}`;
+  } else {
+    msg = `${movidosLixeira} registro(s) movidos pra lixeira ${scope} — restauráveis em /admin/lixeira`;
+  }
+  if (pdfsRemovidos > 0) msg += ` | ${pdfsRemovidos} PDF(s) removidos`;
   return { success: true, message: msg };
+}
+
+/**
+ * Lista itens da lixeira (agrupados por tabela + data).
+ */
+export async function listarLixeira(empresaId, opts = {}) {
+  const sb = createSupabaseAdmin();
+  let q = sb.from('trash').select('*').order('deletado_em', { ascending: false });
+  if (empresaId) q = q.eq('empresa_id', empresaId);
+  if (opts.tabela) q = q.eq('tabela_origem', opts.tabela);
+  const { data, error } = await q.limit(500);
+  if (error) return { success: false, error: error.message };
+  return { success: true, items: data || [] };
+}
+
+/**
+ * Restaura registros da lixeira (re-INSERT na tabela origem).
+ * Pode passar IDs específicos ou critérios (tabela + intervalo de tempo).
+ */
+export async function restaurarDaLixeira(trashIds = []) {
+  const sb = createSupabaseAdmin();
+  if (!trashIds.length) return { success: false, error: 'Nenhum ID informado' };
+
+  const { data: items } = await sb.from('trash').select('*').in('id', trashIds);
+  if (!items?.length) return { success: false, error: 'Itens não encontrados na lixeira' };
+
+  // Agrupa por tabela_origem e re-insere o payload
+  const porTabela = {};
+  for (const it of items) {
+    if (!porTabela[it.tabela_origem]) porTabela[it.tabela_origem] = [];
+    porTabela[it.tabela_origem].push(it.payload);
+  }
+
+  let restaurados = 0, erros = 0;
+  for (const [tabela, payloads] of Object.entries(porTabela)) {
+    const { error } = await sb.from(tabela).upsert(payloads);
+    if (error) { erros++; console.error(`[restaurar ${tabela}]`, error.message); }
+    else restaurados += payloads.length;
+  }
+
+  // Remove da lixeira os que foram restaurados com sucesso
+  if (restaurados > 0) {
+    await sb.from('trash').delete().in('id', trashIds);
+  }
+
+  return {
+    success: erros === 0,
+    message: `${restaurados} registro(s) restaurado(s)${erros ? ` · ${erros} tabela(s) com erro` : ''}`,
+    restaurados, erros,
+  };
+}
+
+/**
+ * Esvazia lixeira permanentemente (hard delete dos itens em trash).
+ */
+export async function esvaziarLixeira(empresaId, dias = 30) {
+  const sb = createSupabaseAdmin();
+  const corte = new Date(Date.now() - dias * 86400 * 1000).toISOString();
+  let q = sb.from('trash').delete().lt('deletado_em', corte);
+  if (empresaId) q = q.eq('empresa_id', empresaId);
+  const { error, count } = await q.select('id', { count: 'exact' });
+  if (error) return { success: false, error: error.message };
+  return { success: true, message: `${count || 0} item(s) >${dias}d removidos da lixeira` };
 }
 
 export async function limparCenariosB(empresaId) {

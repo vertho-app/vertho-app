@@ -73,6 +73,7 @@ export default function AdminDashboard() {
           <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white/[0.02] border border-white/5">
             <NavBtn onClick={() => router.push('/admin/simulador')} icon={Zap} label="Simulador" hover="amber" />
             <NavBtn onClick={() => router.push('/admin/platform-admins')} icon={ShieldCheck} label="Admins" hover="purple" />
+            <NavBtn onClick={() => router.push('/admin/lixeira')} icon={ShieldCheck} label="Lixeira" hover="amber" />
           </div>
 
           {/* Ações */}
