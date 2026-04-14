@@ -23,14 +23,15 @@ import { promptCaseStudy } from '@/lib/season-engine/prompts/case-study';
  */
 export async function gerarConteudoIA({
   formato, competencia, descritor, nivelMin = 1.0, nivelMax = 2.0,
-  cargo = 'todos', contexto = 'generico', empresaId = null, aiConfig = {},
+  cargo = 'todos', contexto = 'generico', duracaoSegundos = null,
+  empresaId = null, aiConfig = {},
 }) {
   try {
     if (!formato || !competencia || !descritor) {
       return { success: false, error: 'formato, competencia e descritor obrigatórios' };
     }
 
-    const args = { competencia, descritor, nivelMin, nivelMax, cargo, contexto };
+    const args = { competencia, descritor, nivelMin, nivelMax, cargo, contexto, duracaoSegundos };
     const builders = {
       video: promptVideoScript,
       audio: promptPodcastScript,
@@ -44,9 +45,11 @@ export async function gerarConteudoIA({
     const conteudoGerado = (await callAI(system, user, aiConfig, 4096)).trim();
 
     const titulo = extrairTitulo(conteudoGerado, descritor, formato);
-    const duracaoEstimada = formato === 'video' || formato === 'audio'
-      ? Math.min(5, Math.max(3, Math.round(conteudoGerado.split(/\s+/).length / 150)))
-      : null;
+    const duracaoEstimada = duracaoSegundos
+      ? Math.round(duracaoSegundos / 60 * 10) / 10
+      : (formato === 'video' || formato === 'audio'
+         ? Math.min(5, Math.max(3, Math.round(conteudoGerado.split(/\s+/).length / 150)))
+         : null);
 
     const sb = createSupabaseAdmin();
     const { data: novo, error } = await sb.from('micro_conteudos').insert({
@@ -81,6 +84,41 @@ export async function gerarConteudoIA({
   } catch (err) {
     console.error('[gerarConteudoIA]', err);
     return { success: false, error: err?.message || 'Erro' };
+  }
+}
+
+/**
+ * Lista competências disponíveis (com descritores cadastrados) e cargos distintos
+ * — usado para popular dropdowns no modal de geração.
+ */
+export async function loadOpcoesGerar() {
+  try {
+    const sb = createSupabaseAdmin();
+    const { data: comps } = await sb.from('competencias')
+      .select('nome, nome_curto, cargo')
+      .not('nome_curto', 'is', null);
+    const { data: baseComps } = await sb.from('competencias_base')
+      .select('nome, nome_curto')
+      .not('nome_curto', 'is', null);
+
+    // Agrupa: competencia -> Set(descritores)
+    const mapa = {};
+    [...(comps || []), ...(baseComps || [])].forEach(c => {
+      if (!c.nome) return;
+      if (!mapa[c.nome]) mapa[c.nome] = new Set();
+      if (c.nome_curto) mapa[c.nome].add(c.nome_curto);
+    });
+
+    const competencias = Object.keys(mapa).sort().map(nome => ({
+      nome,
+      descritores: [...mapa[nome]].sort(),
+    }));
+
+    const cargos = [...new Set((comps || []).map(c => c.cargo).filter(Boolean))].sort();
+
+    return { competencias, cargos };
+  } catch (err) {
+    return { competencias: [], cargos: [], error: err?.message };
   }
 }
 

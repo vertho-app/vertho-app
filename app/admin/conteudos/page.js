@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, Sparkles, Edit2, Trash2, Check, X, Filter, Video, FileText, Headphones, BookOpen, FileType, Wand2, Copy } from 'lucide-react';
 import {
   importarVideosBunny, listarConteudos, atualizarConteudo,
-  deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA,
+  deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA, loadOpcoesGerar,
 } from '@/actions/conteudos';
 
 const FORMAT_ICONS = {
@@ -399,16 +399,17 @@ function Field({ label, value, onChange, type = 'text', step }) {
   );
 }
 
-function SelectField({ label, value, onChange, options }) {
+function SelectField({ label, value, onChange, options, disabled }) {
   return (
     <div>
       <label className="block text-[10px] uppercase text-gray-500 mb-1">{label}</label>
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none"
+        disabled={disabled}
+        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {options.map(o => <option key={o} value={o} className="bg-[#0d1426] text-white">{o}</option>)}
+        {options.map(o => <option key={o} value={o} className="bg-[#0d1426] text-white">{o || '— selecione —'}</option>)}
       </select>
     </div>
   );
@@ -423,7 +424,14 @@ function GerarModal({ onClose, onGenerate, busy }) {
     nivelMax: 2.0,
     cargo: 'todos',
     contexto: 'generico',
+    duracaoMin: 3,
+    duracaoSeg: 0,
   });
+  const [opcoes, setOpcoes] = useState({ competencias: [], cargos: [] });
+
+  useEffect(() => {
+    loadOpcoesGerar().then(setOpcoes);
+  }, []);
 
   const formatos = [
     { v: 'texto', label: 'Artigo (texto)', icon: FileText, cor: '#10B981', nota: 'Pronto pra consumir' },
@@ -432,7 +440,16 @@ function GerarModal({ onClose, onGenerate, busy }) {
     { v: 'audio', label: 'Roteiro de podcast', icon: Headphones, cor: '#A78BFA', nota: 'Precisa gravar depois' },
   ];
 
+  const precisaDuracao = form.formato === 'video' || form.formato === 'audio';
+  const competenciaSel = opcoes.competencias.find(c => c.nome === form.competencia);
+  const descritoresDisp = competenciaSel?.descritores || [];
   const podeGerar = form.competencia && form.descritor && !busy;
+
+  function handleSubmit() {
+    const duracaoSegundos = precisaDuracao ? (Number(form.duracaoMin) * 60 + Number(form.duracaoSeg)) : null;
+    const { duracaoMin, duracaoSeg, ...rest } = form;
+    onGenerate({ ...rest, duracaoSegundos });
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
@@ -468,21 +485,43 @@ function GerarModal({ onClose, onGenerate, busy }) {
             </div>
           </div>
 
-          <Field label="Competência" value={form.competencia} onChange={v => setForm({ ...form, competencia: v })} />
-          <Field label="Descritor (o que será desenvolvido)" value={form.descritor} onChange={v => setForm({ ...form, descritor: v })} />
+          <SelectField label="Competência" value={form.competencia}
+            onChange={v => setForm({ ...form, competencia: v, descritor: '' })}
+            options={['', ...opcoes.competencias.map(c => c.nome)]} />
+          <SelectField label="Descritor (o que será desenvolvido)" value={form.descritor}
+            onChange={v => setForm({ ...form, descritor: v })}
+            options={['', ...descritoresDisp]}
+            disabled={!form.competencia} />
           <div className="grid grid-cols-2 gap-3">
             <Field label="Nível mín" type="number" step="0.1" value={form.nivelMin} onChange={v => setForm({ ...form, nivelMin: Number(v) })} />
             <Field label="Nível máx" type="number" step="0.1" value={form.nivelMax} onChange={v => setForm({ ...form, nivelMax: Number(v) })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Cargo alvo" value={form.cargo} onChange={v => setForm({ ...form, cargo: v })} />
+            <SelectField label="Cargo alvo" value={form.cargo}
+              onChange={v => setForm({ ...form, cargo: v })}
+              options={['todos', ...opcoes.cargos]} />
             <SelectField label="Contexto" value={form.contexto} onChange={v => setForm({ ...form, contexto: v })}
               options={['educacional', 'corporativo', 'generico']} />
           </div>
+          {precisaDuracao && (
+            <div>
+              <label className="block text-[10px] uppercase text-gray-500 mb-1">Duração (min:seg)</label>
+              <div className="flex items-center gap-2">
+                <input type="number" min="0" max="30" value={form.duracaoMin}
+                  onChange={e => setForm({ ...form, duracaoMin: Number(e.target.value) })}
+                  className="w-20 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none text-center" />
+                <span className="text-gray-500 font-bold">:</span>
+                <input type="number" min="0" max="59" value={form.duracaoSeg}
+                  onChange={e => setForm({ ...form, duracaoSeg: Number(e.target.value) })}
+                  className="w-20 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none text-center" />
+                <span className="text-[10px] text-gray-500">(~{Math.round((form.duracaoMin * 60 + Number(form.duracaoSeg)) * 2.5)} palavras)</span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2 mt-5">
-          <button onClick={() => onGenerate(form)} disabled={!podeGerar}
+          <button onClick={handleSubmit} disabled={!podeGerar}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-sm font-bold">
             {busy ? 'Gerando...' : <><Wand2 size={14} /> Gerar</>}
           </button>
