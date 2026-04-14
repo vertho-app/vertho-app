@@ -50,6 +50,10 @@ export async function loadTrilhas(empresaId) {
     let saibaMais = [];
 
     if (plano && plano.length > 0) {
+      // Mapa rápido: descritor → notaAtual (vem de descritores_selecionados na trilha)
+      const descSel = Array.isArray(t.descritores_selecionados) ? t.descritores_selecionados : [];
+      const notaPorDescritor = Object.fromEntries(descSel.map(d => [d.descritor, d.nota_atual]));
+
       // Extrai os 9 obrigatórios do temporada_plano (semanas de tipo='conteudo')
       const idsUsados = new Set();
       for (const sem of plano) {
@@ -59,6 +63,7 @@ export async function loadTrilhas(empresaId) {
         obrigatorios.push({
           semana: sem.semana,
           descritor: sem.descritor,
+          nota_descritor: notaPorDescritor[sem.descritor] ?? sem.nivel_atual ?? null,
           formato: sem.conteudo.formato_core,
           nome: sem.conteudo.core_titulo || sem.descritor,
           url: sem.conteudo.core_url,

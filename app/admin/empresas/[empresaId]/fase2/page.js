@@ -457,6 +457,10 @@ export default function Fase2Page({ params }) {
                         t.status === 'concluida' ? 'bg-green-400/15 text-green-400' :
                         'bg-gray-400/15 text-gray-400'
                       }`}>{t.status}</span>
+                      <button onClick={() => router.push(`/admin/temporadas?empresa=${empresaId}`)}
+                        className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 underline">
+                        Editar/Aprovar
+                      </button>
                     </div>
                   </div>
 
@@ -467,8 +471,11 @@ export default function Fase2Page({ params }) {
                         <p className="text-[9px] font-bold text-purple-400 uppercase tracking-widest mb-1.5">{comp}</p>
                         <div className="space-y-1">
                           {cursosComp.map((c, i) => (
-                            <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{ background: '#091D35' }}>
-                              <BookOpen size={12} className="text-cyan-400 shrink-0" />
+                            <div key={i} className="flex items-start gap-3 px-3 py-2 rounded-lg" style={{ background: '#091D35' }}>
+                              {c.semana && (
+                                <span className="text-[10px] font-bold text-amber-400 shrink-0 mt-0.5 w-12">SEM {String(c.semana).padStart(2, '0')}</span>
+                              )}
+                              <BookOpen size={12} className="text-cyan-400 shrink-0 mt-1" />
                               <div className="flex-1 min-w-0">
                                 {c.url ? (
                                   <a href={c.url} target="_blank" rel="noopener noreferrer"
@@ -477,6 +484,18 @@ export default function Fase2Page({ params }) {
                                   </a>
                                 ) : (
                                   <span className="text-xs text-gray-300 font-medium">{c.nome}</span>
+                                )}
+                                {c.descritor && (
+                                  <p className="text-[10px] text-gray-500 mt-0.5">
+                                    {c.descritor}
+                                    {c.nota_descritor != null && (
+                                      <span className="ml-2 text-amber-400">nota: {Number(c.nota_descritor).toFixed(1)}</span>
+                                    )}
+                                    {c.formato && <span className="ml-2 text-gray-600 uppercase">· {c.formato}</span>}
+                                  </p>
+                                )}
+                                {c.desafio && (
+                                  <p className="text-[10px] text-cyan-500/70 italic mt-0.5">🎯 {c.desafio}</p>
                                 )}
                               </div>
                               {c.nivel && (
@@ -501,7 +520,7 @@ export default function Fase2Page({ params }) {
                     {Array.isArray(t.saiba_mais) && t.saiba_mais.length > 0 && (
                       <div className="mt-3 pt-3 border-t border-white/[0.05]">
                         <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest mb-1.5">
-                          Saiba mais ({t.saiba_mais.length} opcional{t.saiba_mais.length > 1 ? 'es' : ''})
+                          Saiba mais ({t.saiba_mais.length} opciona{t.saiba_mais.length > 1 ? 'is' : 'l'})
                         </p>
                         <div className="space-y-1">
                           {t.saiba_mais.slice(0, 8).map((c, i) => (
