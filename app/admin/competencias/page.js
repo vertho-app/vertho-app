@@ -178,10 +178,31 @@ export default function CompetenciasPage() {
               const file = e.target.files?.[0];
               if (!file) return;
               setImporting(true);
-              const rows = await parseSpreadsheet(file);
-              const parsed = rows.filter(c => c.nome);
-              if (!parsed.length) { flash('Nenhuma competência válida. Verifique coluna "nome".'); setImporting(false); e.target.value = ''; return; }
-              // Validação de obrigatórios
+              const rowsRaw = await parseSpreadsheet(file);
+
+              // Forward-fill: quando planilha tem células mescladas para a competência,
+              // as linhas dos descritores subsequentes vêm com nome/descricao/etc vazios.
+              // Copia do registro anterior para manter o agrupamento por competência.
+              const CAMPOS_COMP = ['nome', 'cod_comp', 'pilar', 'cargo', 'descricao', 'evidencias_esperadas', 'perguntas_alvo'];
+              const rows = [];
+              let anterior = {};
+              for (const r of rowsRaw) {
+                const filled = { ...r };
+                for (const k of CAMPOS_COMP) {
+                  if (!filled[k]?.trim() && anterior[k]?.trim()) filled[k] = anterior[k];
+                }
+                // Só inclui se tem pelo menos nome_curto OU descritor_completo (é uma linha de descritor)
+                // OU se tem nome (linha-cabeçalho com apenas a competência)
+                if (filled.nome?.trim()) {
+                  rows.push(filled);
+                  anterior = filled;
+                }
+              }
+
+              const parsed = rows;
+              if (!parsed.length) { flash('Nenhuma linha válida. Verifique coluna "nome".'); setImporting(false); e.target.value = ''; return; }
+
+              // Validação de obrigatórios (após forward-fill)
               const OBRIG = ['nome', 'descricao', 'n1_gap', 'n2_desenvolvimento', 'n4_referencia'];
               const invalidos = parsed.filter(c => OBRIG.some(k => !c[k]?.trim()));
               if (invalidos.length > 0) {
@@ -335,8 +356,9 @@ export default function CompetenciasPage() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowModal(false)}>
-          <div className="rounded-xl border border-white/10 w-full max-w-lg mx-4 p-6" style={{ background: '#0F2A4A' }} onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          onMouseDown={e => { if (e.target === e.currentTarget) setShowModal(false); }}>
+          <div className="rounded-xl border border-white/10 w-full max-w-lg mx-4 p-6" style={{ background: '#0F2A4A' }}>
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-bold text-white">{editComp.id ? 'Editar' : 'Nova'} Competencia</h2>
               <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-white"><X size={18} /></button>

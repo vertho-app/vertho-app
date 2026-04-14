@@ -84,12 +84,25 @@ export async function excluirCompetencia(id) {
 export async function importarCompetenciasCSV(empresaId, comps) {
   const sb = createSupabaseAdmin();
   const { data: existentes } = await sb.from('competencias')
-    .select('cod_comp, cod_desc, nome, cargo').eq('empresa_id', empresaId);
-  // Dedup por cod_comp+cod_desc (cada descritor é uma linha)
-  const existSet = new Set((existentes || []).map(c => `${c.cod_comp || c.nome}||${c.cod_desc || ''}`.toLowerCase()));
+    .select('cod_comp, cod_desc, nome_curto, nome, cargo').eq('empresa_id', empresaId);
+  // Dedup por cod_comp+cod_desc (ou cod_comp+nome_curto se cod_desc vazio)
+  const keyOf = c => {
+    const comp = (c.cod_comp || c.nome || '').trim();
+    const desc = (c.cod_desc || c.nome_curto || '').trim();
+    return `${comp}||${desc}`.toLowerCase();
+  };
+  const existSet = new Set((existentes || []).map(keyOf));
 
+  // Dedup interno do lote também (evita linhas repetidas no mesmo arquivo)
+  const vistasLote = new Set();
   const novos = comps
-    .filter(c => c.nome && !existSet.has(`${c.cod_comp || c.nome}||${c.cod_desc || ''}`.toLowerCase()))
+    .filter(c => {
+      if (!c.nome?.trim()) return false;
+      const k = keyOf(c);
+      if (existSet.has(k) || vistasLote.has(k)) return false;
+      vistasLote.add(k);
+      return true;
+    })
     .map(c => ({
       empresa_id: empresaId,
       nome: c.nome.trim(),
