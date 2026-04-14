@@ -193,6 +193,19 @@ export async function definirSenhaTesteEmpresa(empresaId) {
 
 export async function limparMapeamento(empresaId, colaboradorId = null) {
   const sb = createSupabaseAdmin();
+
+  // Antes de limpar: remove PDFs órfãos do Storage
+  let pathQuery = sb.from('colaboradores')
+    .select('comportamental_pdf_path').eq('empresa_id', empresaId)
+    .not('comportamental_pdf_path', 'is', null);
+  if (colaboradorId) pathQuery = pathQuery.eq('id', colaboradorId);
+  const { data: paths } = await pathQuery;
+  const pdfsParaRemover = (paths || []).map(r => r.comportamental_pdf_path).filter(Boolean);
+  if (pdfsParaRemover.length > 0) {
+    try { await sb.storage.from('relatorios-pdf').remove(pdfsParaRemover); }
+    catch (e) { console.warn('[VERTHO] remover PDFs:', e.message); }
+  }
+
   const campos = {
     perfil_dominante: null,
     d_natural: null, i_natural: null, s_natural: null, c_natural: null,
@@ -205,12 +218,16 @@ export async function limparMapeamento(empresaId, colaboradorId = null) {
     pref_video_curto: null, pref_video_longo: null, pref_texto: null, pref_audio: null,
     pref_infografico: null, pref_exercicio: null, pref_mentor: null, pref_estudo_caso: null,
     mapeamento_em: null, disc_resultados: null,
+    // Limpa artefatos derivados do mapeamento
+    comportamental_pdf_path: null,
+    report_texts: null, report_generated_at: null,
+    insights_executivos: null, insights_executivos_at: null,
   };
   let query = sb.from('colaboradores').update(campos).eq('empresa_id', empresaId);
   if (colaboradorId) query = query.eq('id', colaboradorId);
   const { error, count } = await query;
   if (error) return { success: false, error: error.message };
-  return { success: true, message: `Mapeamento limpo${colaboradorId ? ' (colaborador)' : ' (todos)'}` };
+  return { success: true, message: `Mapeamento limpo${colaboradorId ? ' (colaborador)' : ' (todos)'} · ${pdfsParaRemover.length} PDF(s) removidos` };
 }
 
 export async function loadColaboradoresLista(empresaId) {

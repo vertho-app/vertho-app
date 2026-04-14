@@ -21,6 +21,17 @@ export async function salvarPerfilComportamental(email, resultados) {
   const sb = createSupabaseAdmin();
   const { disc, dA, lead, comp, profile, learnPrefs } = resultados;
 
+  // Antes de sobrescrever, deleta PDF antigo no Storage (se existir)
+  const { data: colabAtual } = await sb.from('colaboradores')
+    .select('comportamental_pdf_path').eq('id', colab.id).maybeSingle();
+  if (colabAtual?.comportamental_pdf_path) {
+    try {
+      await sb.storage.from('relatorios-pdf').remove([colabAtual.comportamental_pdf_path]);
+    } catch (e) {
+      console.warn('[VERTHO] falha ao remover PDF antigo do storage:', e.message);
+    }
+  }
+
   const { error } = await sb.from('colaboradores')
     .update({
       // Perfil
