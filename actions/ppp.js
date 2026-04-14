@@ -302,6 +302,75 @@ TODAS as 10 secoes sao OBRIGATORIAS, cada uma com conteudo + origem + confianca:
     "origem": "...",
     "confianca": "..."
   },
+  "tensoes_dilemas": {
+    "conteudo": [
+      {"tensao": "ex: velocidade vs qualidade / autonomia vs controle / marketing vs vendas", "contexto": "como aparece no dia a dia"}
+    ],
+    "origem": "...",
+    "confianca": "..."
+  },
+  "cadencia_rituais": {
+    "conteudo": {
+      "rituais_individuais": "ex: 1:1 semanais, check-ins quinzenais (o que acontece e freq)",
+      "rituais_time": "ex: dailies, retros, plannings, all-hands, town halls",
+      "ciclos_estrategicos": "ex: OKRs trimestrais, budget anual, pulse surveys"
+    },
+    "origem": "...",
+    "confianca": "..."
+  },
+  "stakeholders_por_area": {
+    "conteudo": [
+      {"area": "nome", "clientes_internos": ["areas que dependem dela"], "fornecedores_internos": ["areas que a abastecem"]}
+    ],
+    "origem": "...",
+    "confianca": "..."
+  },
+  "casos_recentes": {
+    "conteudo": [
+      {"tipo": "aquisicao | incidente | lancamento | crise | transformacao", "descricao": "2-3 frases", "quando": "ex: Q3 2025"}
+    ],
+    "origem": "...",
+    "confianca": "..."
+  },
+  "perfil_forca_trabalho": {
+    "conteudo": {
+      "geracao_dominante": "ex: millennials 30-40, gen X 40+, mix",
+      "seniority_medio": "ex: senior, pleno, junior predominante",
+      "turnover": "se mencionado: alto / medio / baixo",
+      "formacao_tipica": "graduacao, pos, diversos"
+    },
+    "origem": "...",
+    "confianca": "..."
+  },
+  "reconhecimento_punicao": {
+    "conteudo": {
+      "o_que_e_celebrado": "comportamentos/resultados visivelmente reconhecidos (2-3 frases)",
+      "o_que_nao_e_tolerado": "comportamentos que levam a consequencias (2-3 frases)",
+      "mecanismos": "ex: premio, reconhecimento publico, feedback, promocao"
+    },
+    "origem": "...",
+    "confianca": "..."
+  },
+  "comunicacao_interna": {
+    "conteudo": {
+      "canais_principais": ["ex: Slack, email, Teams, whatsapp, face-a-face"],
+      "padrao": "sincrono / assincrono / misto",
+      "formalidade": "alta / media / informal",
+      "transparencia": "ex: all-hands regulares, dados abertos, tudo publico"
+    },
+    "origem": "...",
+    "confianca": "..."
+  },
+  "maturidade_cultural": {
+    "conteudo": {
+      "psychological_safety": "alta / media / baixa — evidencias",
+      "tratamento_de_erros": "ex: blameless post-mortem, culpabilizacao, aprendizado",
+      "velocidade_decisao": "rapida / media / lenta — por que",
+      "abertura_mudanca": "alta / media / baixa"
+    },
+    "origem": "...",
+    "confianca": "..."
+  },
   "competencias_priorizadas": [
     {"nome": "competencia", "justificativa": "por que o documento indica isso", "relevancia": "alta|media|baixa"}
   ],
