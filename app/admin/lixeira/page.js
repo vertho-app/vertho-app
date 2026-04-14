@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Trash2, RotateCcw, Loader2, AlertTriangle } from 'lucide-react';
 import { listarLixeira, restaurarDaLixeira, esvaziarLixeira } from '@/app/admin/empresas/[empresaId]/actions';
+import { listarBackups, executarBackupDiario } from '@/actions/backup';
 
 export default function LixeiraPage() {
   const router = useRouter();
@@ -13,6 +14,8 @@ export default function LixeiraPage() {
   const [selecionados, setSelecionados] = useState(new Set());
   const [busy, setBusy] = useState(false);
   const [filtroTabela, setFiltroTabela] = useState('');
+  const [backups, setBackups] = useState([]);
+  const [showBackups, setShowBackups] = useState(false);
 
   useEffect(() => {
     setEmpresaId(new URLSearchParams(window.location.search).get('empresa'));
@@ -20,12 +23,24 @@ export default function LixeiraPage() {
 
   const carregar = async () => {
     setLoading(true);
-    const r = await listarLixeira(empresaId);
+    const [r, b] = await Promise.all([
+      listarLixeira(empresaId),
+      listarBackups(),
+    ]);
     setItems(r.items || []);
+    setBackups(b.backups || []);
     setLoading(false);
   };
 
   useEffect(() => { carregar(); }, [empresaId]);
+
+  async function handleBackupAgora() {
+    setBusy(true);
+    const r = await executarBackupDiario();
+    setBusy(false);
+    alert(r.message || r.error);
+    await carregar();
+  }
 
   const tabelas = [...new Set(items.map(i => i.tabela_origem))].sort();
   const filtrados = filtroTabela ? items.filter(i => i.tabela_origem === filtroTabela) : items;
@@ -68,11 +83,45 @@ export default function LixeiraPage() {
             </h1>
             <p className="text-xs text-gray-400">{empresaId ? 'Empresa específica' : 'Todas as empresas'} · {items.length} registros</p>
           </div>
+          <button onClick={() => setShowBackups(!showBackups)}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10">
+            Backups ({backups.length})
+          </button>
           <button onClick={handleEsvaziar} disabled={busy}
             className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-red-400 border border-red-400/30 hover:bg-red-400/10 disabled:opacity-50">
             <Trash2 size={14} /> Esvaziar &gt;30d
           </button>
         </div>
+
+        {/* Painel de backups */}
+        {showBackups && (
+          <div className="mb-6 rounded-xl bg-cyan-500/5 border border-cyan-500/20 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-bold text-cyan-400">Backups diários (gzip, 7 dias)</h2>
+              <button onClick={handleBackupAgora} disabled={busy}
+                className="text-xs font-bold text-cyan-400 hover:text-cyan-300 disabled:opacity-50">
+                {busy ? 'Gerando...' : '▶ Backup agora'}
+              </button>
+            </div>
+            {backups.length === 0 ? (
+              <p className="text-xs text-gray-500">Nenhum backup ainda. Cron diário roda às 4h UTC.</p>
+            ) : (
+              <div className="space-y-1">
+                {backups.map(b => (
+                  <div key={b.nome} className="flex items-center gap-3 px-3 py-2 rounded bg-white/5 text-xs">
+                    <span className="text-white font-bold">{b.data}</span>
+                    <span className="text-gray-400">{b.tamanho_kb} KB</span>
+                    <span className="text-[10px] text-gray-500 ml-auto">{new Date(b.criado_em).toLocaleString('pt-BR')}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="text-[10px] text-gray-500 mt-3">
+              💡 Pra restaurar de um backup específico em desastre: baixe o .json.gz do bucket Supabase
+              (Settings → Storage → backups), descomprima e re-aplique manualmente.
+            </p>
+          </div>
+        )}
 
         {/* Filtros + ações */}
         <div className="flex items-center gap-3 mb-4 flex-wrap">

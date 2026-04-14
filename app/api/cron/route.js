@@ -48,6 +48,12 @@ export async function GET(req) {
         break;
       }
 
+      case 'backup_diario': {
+        const { executarBackupDiario } = await import('@/actions/backup');
+        result = await executarBackupDiario();
+        break;
+      }
+
       case 'trigger_segunda':
         result = await triggerSegunda();
         break;
