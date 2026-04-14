@@ -10,6 +10,21 @@ import { loadAdminDashboard } from './actions';
 
 function fmt(n) { return (n ?? 0).toLocaleString('pt-BR'); }
 
+const HOVER_STYLES = {
+  cyan: 'hover:border-cyan-400/30 hover:text-cyan-400',
+  amber: 'hover:border-amber-400/30 hover:text-amber-400',
+  purple: 'hover:border-purple-400/30 hover:text-purple-400',
+};
+
+function NavBtn({ onClick, icon: Icon, label, hover = 'cyan' }) {
+  return (
+    <button onClick={onClick}
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-transparent text-gray-300 transition-all ${HOVER_STYLES[hover]}`}>
+      <Icon size={14} /> {label}
+    </button>
+  );
+}
+
 export default function AdminDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -45,75 +60,53 @@ export default function AdminDashboard() {
             <p className="text-xs text-gray-500">Visao global de todas as empresas</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => router.push('/admin/competencias')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-cyan-400/30 hover:text-cyan-400 transition-all">
-            <BookMarked size={14} /> Competencias
-          </button>
-          <button onClick={() => router.push('/admin/preferencias-aprendizagem')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-cyan-400/30 hover:text-cyan-400 transition-all">
-            <GraduationCap size={14} /> Preferências
-          </button>
-          <button onClick={() => router.push('/admin/videos')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-cyan-400/30 hover:text-cyan-400 transition-all">
-            <BookMarked size={14} /> Vídeos
-          </button>
-          <button onClick={() => router.push('/admin/conteudos')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-cyan-400/30 hover:text-cyan-400 transition-all">
-            <BookMarked size={14} /> Conteúdos
-          </button>
-          <button onClick={() => router.push('/admin/simulador')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-amber-400/30 hover:text-amber-400 transition-all">
-            <Zap size={14} /> Simulador
-          </button>
-          <button onClick={() => router.push('/admin/platform-admins')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-purple-400/30 hover:text-purple-400 transition-all">
-            <ShieldCheck size={14} /> Admins
-          </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Grupo: Gestão de conteúdo */}
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white/[0.02] border border-white/5">
+            <NavBtn onClick={() => router.push('/admin/competencias')} icon={BookMarked} label="Competências" hover="cyan" />
+            <NavBtn onClick={() => router.push('/admin/conteudos')} icon={BookMarked} label="Conteúdos" hover="cyan" />
+            <NavBtn onClick={() => router.push('/admin/videos')} icon={BookMarked} label="Vídeos" hover="cyan" />
+            <NavBtn onClick={() => router.push('/admin/preferencias-aprendizagem')} icon={GraduationCap} label="Preferências" hover="cyan" />
+          </div>
+
+          {/* Grupo: Sistema */}
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white/[0.02] border border-white/5">
+            <NavBtn onClick={() => router.push('/admin/simulador')} icon={Zap} label="Simulador" hover="amber" />
+            <NavBtn onClick={() => router.push('/admin/platform-admins')} icon={ShieldCheck} label="Admins" hover="purple" />
+          </div>
+
+          {/* Ações */}
           <button onClick={() => router.push('/admin/empresas/nova')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-white border border-green-400/30 hover:bg-green-400/10 transition-all">
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-emerald-400 border border-emerald-400/30 hover:bg-emerald-400/10 transition-all">
             <Plus size={14} /> Nova Empresa
           </button>
-          <button onClick={handleRefresh} disabled={refreshing}
+          <button onClick={handleRefresh} disabled={refreshing} title="Atualizar"
             className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-500 hover:text-white transition-colors">
             <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
 
-      {/* ═══ KPIs Row 1 ═══ */}
-      <div className="grid grid-cols-4 gap-3 mb-3">
+      {/* ═══ KPIs Unificados (7 em uma grade) ═══ */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
         {[
           { label: 'Empresas', value: empresas.length, icon: Building2, color: '#06B6D4' },
           { label: 'Colaboradores', value: totalColabs, icon: Users, color: '#22C55E' },
-          { label: 'Avaliacoes', value: totalAvaliacoes, icon: ClipboardCheck, color: '#F59E0B' },
+          { label: 'Avaliações', value: totalAvaliacoes, icon: ClipboardCheck, color: '#F59E0B' },
           { label: 'PDIs Ativos', value: totalPDIs, icon: Target, color: '#A78BFA' },
+          { label: 'Cenários', value: totalCenarios, icon: Zap, color: '#EC4899' },
+          { label: 'Trilhas', value: totalTrilhas, icon: BookMarked, color: '#14B8A6' },
+          { label: 'Capacitação', value: totalCapacitacao, icon: GraduationCap, color: '#8B5CF6' },
         ].map(kpi => {
           const Icon = kpi.icon;
           return (
-            <div key={kpi.label} className="rounded-xl px-4 py-3 border border-white/[0.06] flex items-center gap-3" style={{ background: '#0F2A4A' }}>
-              <Icon size={20} style={{ color: kpi.color }} className="shrink-0" />
-              <div>
-                <p className="text-2xl font-bold text-white leading-tight">{fmt(kpi.value)}</p>
-                <p className="text-xs text-gray-500">{kpi.label}</p>
-              </div>
+            <div key={kpi.label} className="rounded-xl px-4 py-3 border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
+              <Icon size={18} style={{ color: kpi.color }} />
+              <p className="text-2xl font-bold text-white mt-2 leading-none">{fmt(kpi.value)}</p>
+              <p className="text-[11px] text-gray-400 mt-1">{kpi.label}</p>
             </div>
           );
         })}
-      </div>
-
-      {/* ═══ KPIs Row 2 ═══ */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        {[
-          { label: 'CENARIOS', value: totalCenarios },
-          { label: 'TRILHAS', value: totalTrilhas },
-          { label: 'CAPACITACAO', value: totalCapacitacao },
-        ].map(kpi => (
-          <div key={kpi.label} className="rounded-xl p-4 border border-white/[0.06] text-center" style={{ background: '#0F2A4A' }}>
-            <p className="text-2xl font-bold text-white">{fmt(kpi.value)}</p>
-            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{kpi.label}</p>
-          </div>
-        ))}
       </div>
 
       {/* ═══ Content: Empresas + System Health ═══ */}
