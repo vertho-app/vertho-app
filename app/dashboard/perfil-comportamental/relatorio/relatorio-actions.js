@@ -142,8 +142,16 @@ export async function gerarEsalvarRelatorioComportamental({ email, colab: inputC
         .eq('id', colab.id);
     }
 
+    // 1.5) Resumo executivo (arquétipo + tags + insights) — vindos do mesmo lib da tela
+    const { derivarArquetipo, derivarTagsExecutivas, insightsHardcoded } = await import('@/lib/disc-arquetipos');
+    const arquetipo = derivarArquetipo(colab.perfil_dominante);
+    const tags = derivarTagsExecutivas(colab);
+    const insights = Array.isArray(colab.insights_executivos) && colab.insights_executivos.length
+      ? colab.insights_executivos
+      : insightsHardcoded(colab.perfil_dominante);
+
     // 2) Renderiza PDF
-    const buffer = await renderPdfBuffer({ raw, texts });
+    const buffer = await renderPdfBuffer({ raw, texts, arquetipo, tags, insights });
 
     // 3) Upload no bucket
     const { path, filename } = pdfPathFor(colab);

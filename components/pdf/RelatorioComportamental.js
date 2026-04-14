@@ -518,14 +518,176 @@ function Page5({ raw, texts }) {
 // ============================================================
 export default function RelatorioComportamentalPDF({ data }) {
   if (!data?.raw || !data?.texts) return null;
-  const { raw, texts } = data;
+  const { raw, texts, arquetipo, tags, insights } = data;
   return (
     <Document title={`Relatório Comportamental — ${raw.nome}`}>
+      <PageResumoExecutivo raw={raw} arquetipo={arquetipo} tags={tags} insights={insights} />
       <Page1 raw={raw} texts={texts} />
       <Page2 raw={raw} texts={texts} />
+      <PageCompetenciasCompletas raw={raw} />
       <Page3 raw={raw} texts={texts} />
       <Page4 raw={raw} texts={texts} />
       <Page5 raw={raw} texts={texts} />
     </Document>
+  );
+}
+
+// ============================================================
+// NOVA PAGE 0 — Resumo Executivo (arquétipo + tags + insights LLM)
+// ============================================================
+function PageResumoExecutivo({ raw, arquetipo, tags, insights }) {
+  return (
+    <PageFrame>
+      {/* Header */}
+      <View style={{ marginBottom: 16 }}>
+        <Text style={{ fontSize: 8, color: TXT_LIGHT, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 4 }}>
+          Resumo Executivo
+        </Text>
+        <Text style={{ fontSize: 22, fontWeight: 700, color: NAVY, marginBottom: 2 }}>{raw.nome}</Text>
+        <Text style={{ fontSize: 9, color: TXT_LIGHT }}>
+          Realizado em {new Date(raw.data_realizacao).toLocaleDateString('pt-BR')}
+        </Text>
+      </View>
+
+      {/* Arquétipo em destaque */}
+      {arquetipo?.nome && (
+        <View style={{
+          backgroundColor: NAVY,
+          borderRadius: 10,
+          padding: 16,
+          marginBottom: 14,
+        }}>
+          <Text style={{ fontSize: 8, color: TEAL, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 4 }}>
+            Seu arquétipo
+          </Text>
+          <Text style={{ fontSize: 20, fontWeight: 700, color: '#FFFFFF', marginBottom: 6 }}>
+            {arquetipo.nome}
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <Text style={{ fontSize: 9, color: TEAL, fontWeight: 700, letterSpacing: 1 }}>
+              PERFIL {raw.perfil_dominante} DOMINANTE
+            </Text>
+          </View>
+          {arquetipo.desc && (
+            <Text style={{ fontSize: 9.5, color: '#FFFFFF', lineHeight: 1.55, opacity: 0.85 }}>
+              {arquetipo.desc}
+            </Text>
+          )}
+        </View>
+      )}
+
+      {/* Tags comportamentais */}
+      {Array.isArray(tags) && tags.length > 0 && (
+        <View style={{ marginBottom: 14 }}>
+          <Text style={{ fontSize: 8, fontWeight: 700, color: TXT_MUTED, textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 6 }}>
+            Marcadores comportamentais
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+            {tags.map((t, i) => (
+              <View key={i} style={{
+                backgroundColor: BG_GRAY,
+                borderWidth: 1,
+                borderColor: BORDER,
+                borderRadius: 4,
+                paddingVertical: 3,
+                paddingHorizontal: 8,
+                marginRight: 5,
+                marginBottom: 5,
+              }}>
+                <Text style={{ fontSize: 7.5, fontWeight: 700, color: TXT, letterSpacing: 0.5 }}>{String(t).toUpperCase()}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Insights LLM */}
+      {Array.isArray(insights) && insights.length > 0 && (
+        <View>
+          <Text style={{ fontSize: 8, fontWeight: 700, color: TXT_MUTED, textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 6 }}>
+            Insights executivos
+          </Text>
+          {insights.map((ins, i) => (
+            <View key={i} style={{
+              flexDirection: 'row',
+              backgroundColor: BG_GRAY,
+              borderLeftWidth: 3,
+              borderLeftColor: TEAL,
+              borderRadius: 4,
+              padding: 9,
+              marginBottom: 6,
+            }}>
+              <Text style={{ fontSize: 11, fontWeight: 700, color: TEAL, marginRight: 8, width: 14 }}>{i + 1}</Text>
+              <Text style={{ flex: 1, fontSize: 9, color: TXT_MUTED, lineHeight: 1.55 }}>{ins}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </PageFrame>
+  );
+}
+
+// ============================================================
+// NOVA PAGE — 16 Competências completas agrupadas por dimensão DISC
+// ============================================================
+function PageCompetenciasCompletas({ raw }) {
+  // Agrupa as 16 competências pelas 4 dimensões DISC (baseado na tela /perfil-comportamental)
+  const GRUPOS = {
+    D: { label: 'Dominância (D)', keys: ['Ousadia', 'Comando', 'Objetividade', 'Assertividade'] },
+    I: { label: 'Influência (I)', keys: ['Persuasão', 'Extroversão', 'Entusiasmo', 'Sociabilidade'] },
+    S: { label: 'Estabilidade (S)', keys: ['Empatia', 'Paciência', 'Persistência', 'Planejamento'] },
+    C: { label: 'Conformidade (C)', keys: ['Organização', 'Detalhismo', 'Cautela', 'Reflexão'] },
+  };
+  const compMap = Object.fromEntries((raw.competencias || []).map(c => [c.nome, c.natural]));
+
+  return (
+    <PageFrame>
+      <Text style={s.h1}>16 Competências</Text>
+      <Text style={{ ...s.small, marginBottom: 14 }}>
+        Panorama completo das suas competências agrupadas pelas 4 dimensões do DISC
+      </Text>
+
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+        {['D', 'I', 'S', 'C'].map((dim, idx) => {
+          const grupo = GRUPOS[dim];
+          const c = DISC[dim];
+          return (
+            <View key={dim} style={{
+              width: '48%',
+              marginRight: idx % 2 === 0 ? '4%' : 0,
+              marginBottom: 10,
+              backgroundColor: c.bg,
+              borderLeftWidth: 3,
+              borderLeftColor: c.bar,
+              borderRadius: 6,
+              padding: 10,
+            }}>
+              <Text style={{ fontSize: 8.5, fontWeight: 700, color: c.text, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
+                {grupo.label}
+              </Text>
+              {grupo.keys.map(nome => {
+                const val = compMap[nome];
+                if (val == null) return null;
+                return (
+                  <View key={nome} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                    <Text style={{ flex: 1, fontSize: 8, color: TXT, fontWeight: 600 }}>{nome}</Text>
+                    <View style={{
+                      width: 50, height: 5, backgroundColor: '#F1F5F9', borderRadius: 3, marginHorizontal: 6, overflow: 'hidden',
+                    }}>
+                      <View style={{
+                        width: `${Math.min(100, val)}%`, height: '100%', backgroundColor: c.bar, borderRadius: 3,
+                      }} />
+                    </View>
+                    <Text style={{ fontSize: 8, fontWeight: 700, color: c.text, width: 16, textAlign: 'right' }}>
+                      {Math.round(val)}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          );
+        })}
+      </View>
+    </PageFrame>
   );
 }
