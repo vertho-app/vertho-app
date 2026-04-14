@@ -306,6 +306,20 @@ export default function FitPage() {
               </table>
             </div>
           )}
+
+          {/* Legenda das colunas */}
+          {ranking.length > 0 && (
+            <div className="mt-4 rounded-xl border border-white/[0.06] p-4 text-[11px] text-gray-400 leading-relaxed space-y-1.5" style={{ background: 'rgba(15,42,74,0.5)' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-400 mb-2">O que cada coluna significa</p>
+              <p><span className="text-white font-bold">Fit</span> — índice final 0-100 combinando os 4 blocos. Quanto maior, mais aderente ao cargo.</p>
+              <p><span className="text-white font-bold">Mapeamento</span> — aderência DISC Natural vs perfil ideal do cargo (quanto o colab é "naturalmente" assim).</p>
+              <p><span className="text-white font-bold">Competências</span> — média das 16 competências comportamentais comparadas ao perfil ideal (score ponderado por relevância do cargo).</p>
+              <p><span className="text-white font-bold">Liderança</span> — aderência do estilo de liderança (Executivo/Motivador/Metódico/Sistemático) ao modelo esperado do cargo.</p>
+              <p><span className="text-white font-bold">DISC</span> — aderência DISC Adaptado (como se comporta no trabalho) vs perfil esperado. Diferença entre Mapeamento e DISC revela nível de ajuste/desgaste.</p>
+              <p><span className="text-white font-bold">Classificação</span> — faixa qualitativa do Fit: Excelente (≥85) · Alta (70-84) · Razoável (50-69) · Baixa (30-49) · Crítica (&lt;30).</p>
+              <p><span className="text-white font-bold">%il</span> — percentil no ranking do cargo. 100% = mais aderente; 0% = menos aderente.</p>
+            </div>
+          )}
         </div>
       )}
 
