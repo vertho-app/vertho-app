@@ -52,12 +52,39 @@ export async function gerarConteudoIA({
          : null);
 
     const sb = createSupabaseAdmin();
+
+    // Para texto/case: renderiza PDF + uploa pro Storage e linka no url
+    let pdfUrl = null, pdfPath = null;
+    if (formato === 'texto' || formato === 'case') {
+      try {
+        const { renderMarkdownPDF } = await import('@/lib/markdown-to-pdf');
+        const buffer = await renderMarkdownPDF({
+          titulo,
+          conteudoMd: conteudoGerado,
+          meta: `${competencia} › ${descritor} · gerado por IA`,
+        });
+        const path = `texto/${competencia.replace(/[^a-zA-Z0-9]/g, '_')}/${Date.now()}.pdf`;
+        const { error: upErr } = await sb.storage.from('conteudos').upload(path, Buffer.from(buffer), {
+          contentType: 'application/pdf', upsert: false,
+        });
+        if (!upErr) {
+          const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(path);
+          pdfUrl = publicUrl;
+          pdfPath = path;
+        }
+      } catch (e) {
+        console.warn('[gerarConteudoIA] PDF render falhou:', e.message);
+      }
+    }
+
     const { data: novo, error } = await sb.from('micro_conteudos').insert({
       empresa_id: empresaId,
       titulo,
       descricao: `Gerado por IA · ${competencia} › ${descritor}`,
       formato,
       duracao_min: duracaoEstimada,
+      url: pdfUrl, // texto/case ganham URL pro PDF
+      storage_path: pdfPath,
       conteudo_inline: conteudoGerado,
       competencia,
       descritor,
@@ -68,17 +95,18 @@ export async function gerarConteudoIA({
       cargo,
       origem: 'ia_gerado',
       versao: 1,
-      ativo: formato === 'texto' || formato === 'case', // áudio/vídeo fica inativo até gravar
+      ativo: formato === 'texto' || formato === 'case',
     }).select('id, titulo').maybeSingle();
 
     if (error) return { success: false, error: error.message };
 
     return {
       success: true,
-      message: `${formato} gerado: "${novo.titulo}"`,
+      message: `${formato} gerado: "${novo.titulo}"${pdfUrl ? ' (PDF criado)' : ''}`,
       conteudoId: novo.id,
       titulo: novo.titulo,
       roteiro: conteudoGerado,
+      pdfUrl,
       precisaGravar: formato === 'video' || formato === 'audio',
     };
   } catch (err) {
@@ -139,6 +167,80 @@ export async function uploadConteudo(formData) {
     return { success: true, conteudoId: data.id, message: `"${data.titulo}" adicionado` };
   } catch (err) {
     console.error('[VERTHO] uploadConteudo:', err);
+    return { success: false, error: err?.message };
+  }
+}
+
+/**
+ * Geração em lote: cria conteúdos para múltiplos descritores de uma competência.
+ *
+ * @param {Object} params
+ * @param {string} formato - video|audio|texto|case
+ * @param {string} competencia
+ * @param {string|null} descritor - se null, gera pra todos os descritores da competência
+ * @param {number} nivelMin
+ * @param {number} nivelMax
+ * @param {string} cargo
+ * @param {string} contexto
+ * @param {number|null} duracaoSegundos - só pra video/audio
+ * @param {string|null} empresaId - se null, conteúdo global
+ * @param {Object} aiConfig
+ */
+export async function gerarConteudoLote({
+  formato, competencia, descritor = null, nivelMin = 1.0, nivelMax = 2.0,
+  cargo = 'todos', contexto = 'generico', duracaoSegundos = null,
+  empresaId = null, aiConfig = {},
+}) {
+  try {
+    if (!formato || !competencia) {
+      return { success: false, error: 'formato e competencia obrigatórios' };
+    }
+
+    // Resolve lista de descritores
+    let descritores = [];
+    if (descritor) {
+      descritores = [descritor];
+    } else {
+      const sb = createSupabaseAdmin();
+      // Tenta competencias da empresa, fallback competencias_base
+      const { data: emp } = await sb.from('competencias')
+        .select('nome_curto').eq('nome', competencia).not('nome_curto', 'is', null);
+      let lista = [...new Set((emp || []).map(c => c.nome_curto))];
+      if (lista.length === 0) {
+        const { data: base } = await sb.from('competencias_base')
+          .select('nome_curto').eq('nome', competencia).not('nome_curto', 'is', null);
+        lista = [...new Set((base || []).map(c => c.nome_curto))];
+      }
+      descritores = lista;
+    }
+
+    if (descritores.length === 0) {
+      return { success: false, error: `Sem descritores cadastrados para "${competencia}"` };
+    }
+
+    let ok = 0, erros = 0;
+    const resultados = [];
+    for (const desc of descritores) {
+      const r = await gerarConteudoIA({
+        formato, competencia, descritor: desc, nivelMin, nivelMax,
+        cargo, contexto, duracaoSegundos, empresaId, aiConfig,
+      });
+      if (r.success) {
+        ok++;
+        resultados.push({ descritor: desc, conteudoId: r.conteudoId, titulo: r.titulo });
+      } else {
+        erros++;
+        resultados.push({ descritor: desc, error: r.error });
+      }
+    }
+
+    return {
+      success: true,
+      message: `${ok} gerado${ok !== 1 ? 's' : ''}${erros ? ` · ${erros} erros` : ''} (${formato} para "${competencia}")`,
+      ok, erros, resultados,
+    };
+  } catch (err) {
+    console.error('[VERTHO] gerarConteudoLote:', err);
     return { success: false, error: err?.message };
   }
 }
