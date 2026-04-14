@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import { Loader2, ArrowLeft, Video, FileText, Headphones, BookOpen, Send, Sparkles, Target, Check } from 'lucide-react';
 import { loadTemporadaPorEmail, marcarConteudoConsumido } from '@/actions/temporadas';
 import { PageContainer, GlassCard } from '@/components/page-shell';
+import MicInput from '@/components/mic-input';
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen };
 
@@ -195,19 +196,22 @@ export default function SemanaPage({ params }) {
               </div>
 
               {!chatFinished ? (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={chatInput}
-                    onChange={e => setChatInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && sendMessage()}
-                    placeholder={isAplicacao ? 'Descreva como você conduziria...' : 'Sua resposta...'}
-                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
-                    disabled={chatBusy}
-                  />
-                  <button onClick={sendMessage} disabled={chatBusy || !chatInput.trim()} className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50">
-                    <Send size={16} />
-                  </button>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={chatInput}
+                      onChange={e => setChatInput(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && sendMessage()}
+                      placeholder={isAplicacao ? 'Descreva como você conduziria...' : 'Sua resposta...'}
+                      className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
+                      disabled={chatBusy}
+                    />
+                    <button onClick={sendMessage} disabled={chatBusy || !chatInput.trim()} className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50">
+                      <Send size={16} />
+                    </button>
+                  </div>
+                  <MicInput value={chatInput} onChange={setChatInput} disabled={chatBusy} />
                 </div>
               ) : (
                 <div className="text-center text-emerald-400 text-xs py-2">
