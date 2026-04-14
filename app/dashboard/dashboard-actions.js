@@ -22,13 +22,20 @@ export async function loadDashboardData(email) {
     .select('id', { count: 'exact', head: true })
     .eq('empresa_id', colab.empresa_id);
 
+  // Qualquer resposta conta como "iniciou avaliação" (independente de IA4 ter rodado)
   const { count: respondidas } = await sb.from('respostas')
+    .select('id', { count: 'exact', head: true })
+    .eq('colaborador_id', colab.id);
+
+  // Avaliadas = com nivel_ia4 (usado por fluxos a jusante)
+  const { count: avaliadas } = await sb.from('respostas')
     .select('id', { count: 'exact', head: true })
     .eq('colaborador_id', colab.id)
     .not('nivel_ia4', 'is', null);
 
   colab.totalComp = totalComp || 0;
   colab.respondidas = respondidas || 0;
+  colab.avaliadas = avaliadas || 0;
   colab.progresso = totalComp ? Math.round((respondidas / totalComp) * 100) : 0;
 
   // Dados de equipe (gestor/rh)
