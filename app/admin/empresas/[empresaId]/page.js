@@ -663,7 +663,7 @@ export default function EmpresaPipelinePage({ params }) {
                 { label: 'Mapeamento Comportamental', action: 'mapeamento' },
                 { label: 'Mapeamento de Competências', action: 'mapeamentoComp' },
                 { label: 'Top 10 selecionadas', tabelas: ['top10_cargos'] },
-                { label: 'Gabaritos CIS', tabelas: ['cargos_empresa'], fields: { gabarito: null, raciocinio_ia2: null } },
+                { label: 'Perfil de Cargo Ideal', tabelas: ['cargos_empresa'], fields: { gabarito: null, raciocinio_ia2: null } },
                 { label: 'Cenários', tabelas: ['banco_cenarios'] },
                 { label: 'Cenários B', action: 'cenariosB' },
                 { label: 'Sessões Reavaliação', action: 'reavSessoes' },

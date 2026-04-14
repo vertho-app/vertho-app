@@ -116,7 +116,7 @@ export default function Fase1Page({ params }) {
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
             <Brain size={20} className="text-blue-400" /> Fase 1 — Parametrização
           </h1>
-          <p className="text-xs text-gray-500">Top 10, Top 5, Gabarito CIS e Cenários</p>
+          <p className="text-xs text-gray-500">Top 10, Top 5, Perfil de Cargo Ideal e Cenários</p>
         </div>
       </div>
 
@@ -125,7 +125,7 @@ export default function Fase1Page({ params }) {
         {[
           { key: 'top10', label: 'Top 10', icon: Trophy, color: 'text-amber-400', count: top10.length },
           { key: 'top5', label: 'Top 5', icon: Target, color: 'text-orange-400', count: cargosData.filter(c => c.top5_workshop?.length).length },
-          { key: 'gabarito', label: 'Gabarito CIS', icon: Target, color: 'text-purple-400', count: gabaritos.length },
+          { key: 'gabarito', label: 'Perfil de Cargo Ideal', icon: Target, color: 'text-purple-400', count: gabaritos.length },
           { key: 'cenarios', label: 'Cenários', icon: FileText, color: 'text-green-400', count: cenarios.length },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
@@ -277,7 +277,7 @@ export default function Fase1Page({ params }) {
                     {/* Tela 2 */}
                     {gab.tela2?.length > 0 && (
                       <div>
-                        <SectionTitle color="amber">Sub-competências CIS</SectionTitle>
+                        <SectionTitle color="amber">Perfis DISC</SectionTitle>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                           {gab.tela2.map((s, i) => (
                             <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#091D35' }}>
