@@ -104,7 +104,8 @@ export async function importarCompetenciasCSV(empresaId, comps) {
       n2_desenvolvimento: c.n2_desenvolvimento?.trim() || null,
       n3_meta: c.n3_meta?.trim() || null,
       n4_referencia: c.n4_referencia?.trim() || null,
-      // origem: 'csv', — coluna não existe no schema atual
+      evidencias_esperadas: c.evidencias_esperadas?.trim() || null,
+      perguntas_alvo: c.perguntas_alvo?.trim() || null,
     }));
 
   if (novos.length === 0) return { success: true, message: '0 novas (todas já existiam)' };
