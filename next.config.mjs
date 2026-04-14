@@ -4,18 +4,12 @@ import { readFileSync } from 'node:fs';
 
 const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
 
-// Conta total de commits no repo (auto-bump do PATCH em cada deploy)
-let buildNum = '0';
+// Build number = short SHA do commit deployado (muda a cada deploy)
+let sha = '0000000';
 try {
-  if (process.env.VERCEL_GIT_COMMIT_SHA) {
-    // Na Vercel: depth limitado, usa env var
-    buildNum = process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 7);
-  } else {
-    buildNum = execSync('git rev-list --count HEAD').toString().trim();
-  }
+  sha = (process.env.VERCEL_GIT_COMMIT_SHA || execSync('git rev-parse HEAD').toString().trim()).slice(0, 7);
 } catch {}
-
-const sha = (process.env.VERCEL_GIT_COMMIT_SHA || execSync('git rev-parse HEAD').toString().trim()).slice(0, 7);
+const buildNum = sha;
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
