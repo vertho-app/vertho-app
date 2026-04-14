@@ -62,7 +62,7 @@ const BLOCOS = [
     { label: 'Ciclos estratégicos (OKRs trimestrais, budget, pulse)', key: 'ciclos', lines: 2 },
   ]},
   { title: 'Stakeholders por Área', questions: [
-    { label: 'Para cada área principal: quem são seus clientes internos? (formato: Área → depende de X, Y)', key: 'stakeholders_area', lines: 6 },
+    { label: 'Para cada área principal: quem são seus clientes internos? (formato: Área -> depende de X, Y)', key: 'stakeholders_area', lines: 6 },
   ]},
   { title: 'Casos Recentes (últimos 12 meses)', questions: [
     { label: 'Aquisições, incidentes, lançamentos, crises ou transformações (tipo + descrição + quando)', key: 'casos', lines: 5 },
@@ -85,9 +85,9 @@ const BLOCOS = [
     { label: 'Transparência (all-hands, dados abertos, etc)', key: 'transparencia', lines: 2 },
   ]},
   { title: 'Maturidade Cultural', questions: [
-    { label: 'Psychological safety (alta/média/baixa — evidências)', key: 'safety', lines: 2 },
+    { label: 'Psychological safety (alta/média/baixa -evidências)', key: 'safety', lines: 2 },
     { label: 'Tratamento de erros (blameless post-mortem, culpabilização, aprendizado)', key: 'erros', lines: 2 },
-    { label: 'Velocidade de decisão (rápida/média/lenta — por quê)', key: 'velocidade', lines: 2 },
+    { label: 'Velocidade de decisão (rápida/média/lenta -por quê)', key: 'velocidade', lines: 2 },
     { label: 'Abertura à mudança (alta/média/baixa)', key: 'mudanca' },
   ]},
 ];
@@ -95,7 +95,7 @@ const BLOCOS = [
 /**
  * GET /api/ppp/template
  * Baixa PDF com AcroForm (campos editáveis em qualquer leitor PDF).
- * Empresa preenche e sobe em /admin/ppp — extração LLM lê os valores.
+ * Empresa preenche e sobe em /admin/ppp -extração LLM lê os valores.
  */
 export async function GET() {
   try {
@@ -115,15 +115,15 @@ export async function GET() {
     let y = MAX_Y;
 
     // Capa
-    page.drawText('Perfil Institucional — Formulário', {
+    page.drawText(sanitize('Perfil Institucional - Formulário'), {
       x: MARGIN, y, size: 18, font: fontBold, color: rgb(0.05, 0.12, 0.25),
     });
     y -= 24;
-    page.drawText('Preencha cada campo. Seções vazias são ignoradas.', {
+    page.drawText(sanitize('Preencha cada campo. Seções vazias são ignoradas.'), {
       x: MARGIN, y, size: 10, font, color: rgb(0.4, 0.45, 0.55),
     });
     y -= 14;
-    page.drawText('Depois suba em /admin/ppp → a extração IA consolida automaticamente.', {
+    page.drawText(sanitize('Depois suba em /admin/ppp - a extração IA consolida automaticamente.'), {
       x: MARGIN, y, size: 10, font, color: rgb(0.4, 0.45, 0.55),
     });
     y -= 24;
@@ -148,7 +148,7 @@ export async function GET() {
         x: MARGIN - 4, y: y - 4, width: PAGE_WIDTH - 2 * MARGIN + 8, height: 20,
         color: rgb(0.05, 0.12, 0.25),
       });
-      page.drawText(bloco.title.toUpperCase(), {
+      page.drawText(sanitize(bloco.title.toUpperCase()), {
         x: MARGIN, y: y + 2, size: 10, font: fontBold, color: rgb(1, 1, 1),
       });
       y -= 24;
@@ -198,7 +198,14 @@ export async function GET() {
   }
 }
 
+// Remove chars fora do range WinAnsi (fontes standard do pdf-lib).
+// Trocar por helper ASCII quando aparecer Unicode problemático (→, emoji, etc).
+function sanitize(s) {
+  return String(s || '').replace(/[^\x20-\x7E\u00A0-\u00FF]/g, '');
+}
+
 function quebrarTexto(texto, font, size, maxWidth) {
+  texto = sanitize(texto);
   const words = texto.split(/\s+/);
   const lines = [];
   let atual = '';
