@@ -2,10 +2,10 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Download, Sparkles, Edit2, Trash2, Check, X, Filter, Video, FileText, Headphones, BookOpen, FileType } from 'lucide-react';
+import { ArrowLeft, Download, Sparkles, Edit2, Trash2, Check, X, Filter, Video, FileText, Headphones, BookOpen, FileType, Wand2, Copy } from 'lucide-react';
 import {
   importarVideosBunny, listarConteudos, atualizarConteudo,
-  deletarConteudo, sugerirTagsIA, aplicarTagsIA,
+  deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA,
 } from '@/actions/conteudos';
 
 const FORMAT_ICONS = {
@@ -25,6 +25,8 @@ export default function ConteudosAdminPage() {
   const [logs, setLogs] = useState([]);
   const [editing, setEditing] = useState(null); // conteudo em edição
   const [iaSugestao, setIaSugestao] = useState(null); // {conteudoId, tags}
+  const [showGerar, setShowGerar] = useState(false);
+  const [roteiroGerado, setRoteiroGerado] = useState(null);
 
   const addLog = (msg, type = 'info') => {
     setLogs(prev => [{ msg, type, ts: Date.now() }, ...prev].slice(0, 10));
@@ -116,6 +118,14 @@ export default function ConteudosAdminPage() {
             <h1 className="text-2xl font-bold">Banco de Micro-Conteúdos</h1>
             <p className="text-xs text-gray-400">Vídeos (Bunny), áudios, textos e cases tagueados para o Motor de Temporadas</p>
           </div>
+          <button
+            onClick={() => setShowGerar(true)}
+            disabled={busy}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-sm font-bold"
+          >
+            <Wand2 size={16} />
+            Gerar com IA
+          </button>
           <button
             onClick={handleImportar}
             disabled={busy}
@@ -249,6 +259,31 @@ export default function ConteudosAdminPage() {
       {/* Modal de edição */}
       {editing && <EditModal conteudo={editing} onClose={() => setEditing(null)} onSave={handleSalvarEdicao} />}
 
+      {/* Modal gerar com IA */}
+      {showGerar && (
+        <GerarModal
+          onClose={() => setShowGerar(false)}
+          onGenerate={async (params) => {
+            setBusy(true);
+            addLog(`Gerando ${params.formato} para "${params.descritor}"...`, 'info');
+            const r = await gerarConteudoIA(params);
+            setBusy(false);
+            if (r.success) {
+              addLog(`✅ ${r.message}`, 'success');
+              setRoteiroGerado({ ...r, formato: params.formato });
+              setShowGerar(false);
+              await carregar();
+            } else {
+              addLog(`❌ ${r.error}`, 'error');
+            }
+          }}
+          busy={busy}
+        />
+      )}
+
+      {/* Modal roteiro gerado (copiar) */}
+      {roteiroGerado && <RoteiroModal item={roteiroGerado} onClose={() => setRoteiroGerado(null)} />}
+
       {/* Modal de sugestão IA */}
       {iaSugestao && (
         <SugestaoModal
@@ -375,6 +410,125 @@ function SelectField({ label, value, onChange, options }) {
       >
         {options.map(o => <option key={o} value={o} className="bg-[#0d1426] text-white">{o}</option>)}
       </select>
+    </div>
+  );
+}
+
+function GerarModal({ onClose, onGenerate, busy }) {
+  const [form, setForm] = useState({
+    formato: 'texto',
+    competencia: '',
+    descritor: '',
+    nivelMin: 1.0,
+    nivelMax: 2.0,
+    cargo: 'todos',
+    contexto: 'generico',
+  });
+
+  const formatos = [
+    { v: 'texto', label: 'Artigo (texto)', icon: FileText, cor: '#10B981', nota: 'Pronto pra consumir' },
+    { v: 'case', label: 'Estudo de caso', icon: BookOpen, cor: '#F59E0B', nota: 'Pronto pra consumir' },
+    { v: 'video', label: 'Roteiro de vídeo', icon: Video, cor: '#06B6D4', nota: 'Precisa gravar depois' },
+    { v: 'audio', label: 'Roteiro de podcast', icon: Headphones, cor: '#A78BFA', nota: 'Precisa gravar depois' },
+  ];
+
+  const podeGerar = form.competencia && form.descritor && !busy;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <div className="bg-[#0d1426] rounded-2xl border border-purple-500/30 max-w-2xl w-full max-h-[90vh] overflow-auto p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Wand2 size={20} className="text-purple-400" />
+            <h2 className="text-lg font-bold">Gerar conteúdo com IA</h2>
+          </div>
+          <button onClick={onClose} className="p-1 rounded hover:bg-white/10"><X size={18} /></button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-[10px] uppercase text-gray-500 mb-2">Formato</label>
+            <div className="grid grid-cols-2 gap-2">
+              {formatos.map(f => {
+                const Icon = f.icon;
+                const ativo = form.formato === f.v;
+                return (
+                  <button key={f.v} onClick={() => setForm({ ...form, formato: f.v })}
+                    className={`flex items-start gap-2 p-3 rounded-lg border text-left ${
+                      ativo ? 'border-purple-400 bg-purple-500/10' : 'border-white/10 bg-white/5 hover:border-white/20'
+                    }`}>
+                    <Icon size={16} style={{ color: f.cor }} className="mt-0.5" />
+                    <div>
+                      <div className="text-xs font-bold text-white">{f.label}</div>
+                      <div className="text-[10px] text-gray-500">{f.nota}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <Field label="Competência" value={form.competencia} onChange={v => setForm({ ...form, competencia: v })} />
+          <Field label="Descritor (o que será desenvolvido)" value={form.descritor} onChange={v => setForm({ ...form, descritor: v })} />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Nível mín" type="number" step="0.1" value={form.nivelMin} onChange={v => setForm({ ...form, nivelMin: Number(v) })} />
+            <Field label="Nível máx" type="number" step="0.1" value={form.nivelMax} onChange={v => setForm({ ...form, nivelMax: Number(v) })} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Cargo alvo" value={form.cargo} onChange={v => setForm({ ...form, cargo: v })} />
+            <SelectField label="Contexto" value={form.contexto} onChange={v => setForm({ ...form, contexto: v })}
+              options={['educacional', 'corporativo', 'generico']} />
+          </div>
+        </div>
+
+        <div className="flex gap-2 mt-5">
+          <button onClick={() => onGenerate(form)} disabled={!podeGerar}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-sm font-bold">
+            {busy ? 'Gerando...' : <><Wand2 size={14} /> Gerar</>}
+          </button>
+          <button onClick={onClose} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm">Cancelar</button>
+        </div>
+
+        <p className="text-[10px] text-gray-500 mt-4">
+          💡 Textos e cases ficam prontos pra consumo imediato.
+          Roteiros de vídeo/áudio precisam ser gravados depois — o conteúdo fica inativo até você atualizar o URL na edição.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function RoteiroModal({ item, onClose }) {
+  const [copiado, setCopiado] = useState(false);
+  async function copiar() {
+    try { await navigator.clipboard.writeText(item.roteiro); setCopiado(true); setTimeout(() => setCopiado(false), 2000); } catch {}
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <div className="bg-[#0d1426] rounded-2xl border border-emerald-500/30 max-w-3xl w-full max-h-[90vh] flex flex-col p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Check size={20} className="text-emerald-400" />
+            <h2 className="text-lg font-bold">Conteúdo gerado · {item.formato}</h2>
+          </div>
+          <button onClick={onClose} className="p-1 rounded hover:bg-white/10"><X size={18} /></button>
+        </div>
+        <div className="text-xs text-gray-400 mb-3">{item.titulo}</div>
+        {item.precisaGravar && (
+          <div className="mb-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300">
+            ⚠️ Roteiro pronto pra gravação. Conteúdo foi salvo como <strong>inativo</strong> — edite e cole a URL final do Bunny/Storage depois de gravar pra ativar.
+          </div>
+        )}
+        <pre className="flex-1 overflow-auto p-4 rounded-lg bg-black/40 border border-white/10 text-xs text-gray-200 whitespace-pre-wrap font-mono leading-relaxed">
+          {item.roteiro}
+        </pre>
+        <div className="flex gap-2 mt-4">
+          <button onClick={copiar} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm font-bold">
+            <Copy size={14} /> {copiado ? 'Copiado!' : 'Copiar texto'}
+          </button>
+          <button onClick={onClose} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm">Fechar</button>
+        </div>
+      </div>
     </div>
   );
 }

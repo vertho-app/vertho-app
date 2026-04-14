@@ -2,6 +2,100 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI } from '@/actions/ai-client';
+import { promptVideoScript } from '@/lib/season-engine/prompts/video-script';
+import { promptPodcastScript } from '@/lib/season-engine/prompts/podcast-script';
+import { promptTextContent } from '@/lib/season-engine/prompts/text-content';
+import { promptCaseStudy } from '@/lib/season-engine/prompts/case-study';
+
+/**
+ * Gera conteúdo (roteiro ou texto) via IA e salva em micro_conteudos.
+ *
+ * @param {Object} params
+ * @param {string} params.formato - video | audio | texto | case
+ * @param {string} params.competencia
+ * @param {string} params.descritor
+ * @param {number} params.nivelMin
+ * @param {number} params.nivelMax
+ * @param {string} params.cargo
+ * @param {string} params.contexto - educacional | corporativo | generico
+ * @param {string} [params.empresaId] - se NULL, conteúdo global
+ * @param {Object} [params.aiConfig]
+ */
+export async function gerarConteudoIA({
+  formato, competencia, descritor, nivelMin = 1.0, nivelMax = 2.0,
+  cargo = 'todos', contexto = 'generico', empresaId = null, aiConfig = {},
+}) {
+  try {
+    if (!formato || !competencia || !descritor) {
+      return { success: false, error: 'formato, competencia e descritor obrigatórios' };
+    }
+
+    const args = { competencia, descritor, nivelMin, nivelMax, cargo, contexto };
+    const builders = {
+      video: promptVideoScript,
+      audio: promptPodcastScript,
+      texto: promptTextContent,
+      case: promptCaseStudy,
+    };
+    const build = builders[formato];
+    if (!build) return { success: false, error: `formato ${formato} não suportado` };
+
+    const { system, user } = build(args);
+    const conteudoGerado = (await callAI(system, user, aiConfig, 4096)).trim();
+
+    const titulo = extrairTitulo(conteudoGerado, descritor, formato);
+    const duracaoEstimada = formato === 'video' || formato === 'audio'
+      ? Math.min(5, Math.max(3, Math.round(conteudoGerado.split(/\s+/).length / 150)))
+      : null;
+
+    const sb = createSupabaseAdmin();
+    const { data: novo, error } = await sb.from('micro_conteudos').insert({
+      empresa_id: empresaId,
+      titulo,
+      descricao: `Gerado por IA · ${competencia} › ${descritor}`,
+      formato,
+      duracao_min: duracaoEstimada,
+      conteudo_inline: conteudoGerado,
+      competencia,
+      descritor,
+      nivel_min: nivelMin,
+      nivel_max: nivelMax,
+      tipo_conteudo: 'core',
+      contexto,
+      cargo,
+      origem: 'ia_gerado',
+      versao: 1,
+      ativo: formato === 'texto' || formato === 'case', // áudio/vídeo fica inativo até gravar
+    }).select('id, titulo').maybeSingle();
+
+    if (error) return { success: false, error: error.message };
+
+    return {
+      success: true,
+      message: `${formato} gerado: "${novo.titulo}"`,
+      conteudoId: novo.id,
+      titulo: novo.titulo,
+      roteiro: conteudoGerado,
+      precisaGravar: formato === 'video' || formato === 'audio',
+    };
+  } catch (err) {
+    console.error('[gerarConteudoIA]', err);
+    return { success: false, error: err?.message || 'Erro' };
+  }
+}
+
+function extrairTitulo(texto, fallback, formato) {
+  // Texto/case: primeira linha # Título
+  const match = texto.match(/^#\s+(.+)$/m);
+  if (match) return match[1].trim().substring(0, 200);
+  // Vídeo/podcast: primeira frase significativa (até 80 chars)
+  const primeiraLinha = texto.split('\n').find(l => l.trim().length > 10);
+  if (primeiraLinha) {
+    const frase = primeiraLinha.trim().split(/[.!?]/)[0].substring(0, 80);
+    return frase.length > 10 ? `${formato === 'video' ? '🎥' : '🎧'} ${frase}` : fallback;
+  }
+  return fallback;
+}
 
 /**
  * Importa todos os vídeos da library do Bunny pra micro_conteudos.
