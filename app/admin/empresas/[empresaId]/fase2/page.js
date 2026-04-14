@@ -422,13 +422,7 @@ export default function Fase2Page({ params }) {
           <div className="space-y-6">
             {trilhas.map(t => {
               const cursos = Array.isArray(t.cursos) ? t.cursos : [];
-              // Agrupar cursos por competência
-              const porComp = {};
-              cursos.forEach(c => {
-                const key = c.competencia || 'Geral';
-                if (!porComp[key]) porComp[key] = [];
-                porComp[key].push(c);
-              });
+              const cursosOrdenados = [...cursos].sort((a, b) => (a.semana || 99) - (b.semana || 99));
 
               return (
                 <div key={t.id} className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
@@ -464,50 +458,94 @@ export default function Fase2Page({ params }) {
                     </div>
                   </div>
 
-                  {/* Cursos agrupados por competência */}
-                  <div className="px-4 py-3 space-y-3">
-                    {Object.entries(porComp).map(([comp, cursosComp]) => (
-                      <div key={comp}>
-                        <p className="text-[9px] font-bold text-purple-400 uppercase tracking-widest mb-1.5">{comp}</p>
-                        <div className="space-y-1">
-                          {cursosComp.map((c, i) => (
-                            <div key={i} className="flex items-start gap-3 px-3 py-2 rounded-lg" style={{ background: '#091D35' }}>
-                              {c.semana && (
-                                <span className="text-[10px] font-bold text-amber-400 shrink-0 mt-0.5 w-12">SEM {String(c.semana).padStart(2, '0')}</span>
+                  {/* Semanas em ordem cronológica */}
+                  <div className="px-4 py-3 space-y-2">
+                    {cursosOrdenados.map((c, i) => {
+                      const tipo = c.tipo || 'conteudo';
+                      if (tipo === 'aplicacao') {
+                        return (
+                          <div key={i} className="flex items-start gap-3 px-3 py-2 rounded-lg border border-purple-400/20" style={{ background: '#1a1240' }}>
+                            <span className="text-[10px] font-bold text-purple-300 shrink-0 mt-0.5 w-12">SEM {String(c.semana).padStart(2, '0')}</span>
+                            <span className="text-purple-300 shrink-0 mt-0.5">⚙</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-purple-200 font-bold">{c.nome}</p>
+                              {c.cenario && (
+                                <p className="text-[11px] text-gray-300 mt-1 whitespace-pre-wrap">{c.cenario}</p>
                               )}
-                              <BookOpen size={12} className="text-cyan-400 shrink-0 mt-1" />
-                              <div className="flex-1 min-w-0">
-                                {c.url ? (
-                                  <a href={c.url} target="_blank" rel="noopener noreferrer"
-                                    className="text-xs text-cyan-300 hover:text-cyan-200 font-medium flex items-center gap-1">
-                                    {c.nome} <ExternalLink size={10} />
-                                  </a>
-                                ) : (
-                                  <span className="text-xs text-gray-300 font-medium">{c.nome}</span>
-                                )}
-                                {c.descritor && (
-                                  <p className="text-[10px] text-gray-500 mt-0.5">
-                                    {c.descritor}
-                                    {c.nota_descritor != null && (
-                                      <span className="ml-2 text-amber-400">nota: {Number(c.nota_descritor).toFixed(1)}</span>
-                                    )}
-                                    {c.formato && <span className="ml-2 text-gray-600 uppercase">· {c.formato}</span>}
-                                  </p>
-                                )}
-                                {c.desafio && (
-                                  <p className="text-[10px] text-cyan-500/70 italic mt-0.5">🎯 {c.desafio}</p>
-                                )}
-                              </div>
-                              {c.nivel && (
-                                <span className={`text-[10px] font-bold shrink-0 ${NIVEL_COLORS[c.nivel] || 'text-gray-400'}`}>
-                                  N{c.nivel}
-                                </span>
+                              {Array.isArray(c.descritores_cobertos) && c.descritores_cobertos.length > 0 && (
+                                <p className="text-[9px] text-gray-500 mt-1">Cobre: {c.descritores_cobertos.join(' · ')}</p>
                               )}
                             </div>
-                          ))}
+                          </div>
+                        );
+                      }
+                      if (tipo === 'avaliacao') {
+                        return (
+                          <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-amber-400/20" style={{ background: '#2a1f08' }}>
+                            <span className="text-[10px] font-bold text-amber-300 shrink-0 w-12">SEM {String(c.semana).padStart(2, '0')}</span>
+                            <span className="text-amber-300">★</span>
+                            <span className="text-xs text-amber-200 font-bold">{c.nome}</span>
+                          </div>
+                        );
+                      }
+                      // conteudo
+                      return (
+                        <div key={i} className="rounded-lg" style={{ background: '#091D35' }}>
+                          <div className="flex items-start gap-3 px-3 py-2">
+                            {c.semana && (
+                              <span className="text-[10px] font-bold text-amber-400 shrink-0 mt-0.5 w-12">SEM {String(c.semana).padStart(2, '0')}</span>
+                            )}
+                            <BookOpen size={12} className="text-cyan-400 shrink-0 mt-1" />
+                            <div className="flex-1 min-w-0">
+                              {c.url ? (
+                                <a href={c.url} target="_blank" rel="noopener noreferrer"
+                                  className="text-xs text-cyan-300 hover:text-cyan-200 font-medium flex items-center gap-1">
+                                  {c.nome} <ExternalLink size={10} />
+                                </a>
+                              ) : (
+                                <span className="text-xs text-gray-300 font-medium">{c.nome}</span>
+                              )}
+                              {c.descritor && (
+                                <p className="text-[10px] text-gray-500 mt-0.5">
+                                  {c.descritor}
+                                  {c.nota_descritor != null && (
+                                    <span className="ml-2 text-amber-400">nota: {Number(c.nota_descritor).toFixed(1)}</span>
+                                  )}
+                                  {c.formato && <span className="ml-2 text-gray-600 uppercase">· {c.formato}</span>}
+                                </p>
+                              )}
+                              {c.desafio && (
+                                <p className="text-[10px] text-cyan-500/70 italic mt-0.5">🎯 {c.desafio}</p>
+                              )}
+                            </div>
+                            {c.nivel && (
+                              <span className={`text-[10px] font-bold shrink-0 ${NIVEL_COLORS[c.nivel] || 'text-gray-400'}`}>
+                                N{c.nivel}
+                              </span>
+                            )}
+                          </div>
+                          {Array.isArray(c.saiba_mais) && c.saiba_mais.length > 0 && (
+                            <div className="px-3 pb-2 pt-1 border-t border-white/[0.04] mt-1 ml-12 space-y-0.5">
+                              <p className="text-[8px] font-bold text-amber-400/70 uppercase tracking-wider mb-0.5">Saiba mais</p>
+                              {c.saiba_mais.map((s, j) => (
+                                <div key={j} className="flex items-center gap-2 text-[10px]">
+                                  <span className="text-amber-400/40">›</span>
+                                  {s.url ? (
+                                    <a href={s.url} target="_blank" rel="noopener noreferrer"
+                                      className="text-gray-400 hover:text-amber-300 flex items-center gap-1">
+                                      {s.nome} <ExternalLink size={8} />
+                                    </a>
+                                  ) : (
+                                    <span className="text-gray-500">{s.nome}</span>
+                                  )}
+                                  <span className="text-[8px] text-gray-600 uppercase ml-auto">{s.formato}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     {cursos.length === 0 && (
                       <p className="text-xs text-gray-500 italic">
                         {t.competencia_foco

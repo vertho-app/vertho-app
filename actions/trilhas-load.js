@@ -54,26 +54,42 @@ export async function loadTrilhas(empresaId) {
       const descSel = Array.isArray(t.descritores_selecionados) ? t.descritores_selecionados : [];
       const notaPorDescritor = Object.fromEntries(descSel.map(d => [d.descritor, d.nota_atual]));
 
-      // Extrai os 9 obrigatórios do temporada_plano (semanas de tipo='conteudo')
+      // Extrai semanas (conteúdo + aplicação) do temporada_plano
       const idsUsados = new Set();
       for (const sem of plano) {
-        if (sem.tipo !== 'conteudo' || !sem.conteudo) continue;
-        const cid = sem.conteudo.core_id;
-        if (cid) idsUsados.add(cid);
-        obrigatorios.push({
-          semana: sem.semana,
-          descritor: sem.descritor,
-          nota_descritor: notaPorDescritor[sem.descritor] ?? sem.nivel_atual ?? null,
-          formato: sem.conteudo.formato_core,
-          nome: sem.conteudo.core_titulo || sem.descritor,
-          url: sem.conteudo.core_url,
-          desafio: sem.conteudo.desafio_texto,
-          nivel: sem.nivel_atual,
-        });
+        if (sem.tipo === 'conteudo' && sem.conteudo) {
+          const cid = sem.conteudo.core_id;
+          if (cid) idsUsados.add(cid);
+          obrigatorios.push({
+            tipo: 'conteudo',
+            semana: sem.semana,
+            descritor: sem.descritor,
+            nota_descritor: notaPorDescritor[sem.descritor] ?? sem.nivel_atual ?? null,
+            formato: sem.conteudo.formato_core,
+            nome: sem.conteudo.core_titulo || sem.descritor,
+            url: sem.conteudo.core_url,
+            desafio: sem.conteudo.desafio_texto,
+            nivel: sem.nivel_atual,
+          });
+        } else if (sem.tipo === 'aplicacao') {
+          obrigatorios.push({
+            tipo: 'aplicacao',
+            semana: sem.semana,
+            nome: `Aplicação prática (${sem.cenario?.complexidade || 'cenário'})`,
+            descritores_cobertos: sem.descritores_cobertos || [],
+            cenario: sem.cenario?.texto || '',
+          });
+        } else if (sem.tipo === 'avaliacao') {
+          obrigatorios.push({
+            tipo: 'avaliacao',
+            semana: sem.semana,
+            nome: 'Avaliação de fim de temporada',
+          });
+        }
       }
       // Saiba mais = conteúdos da mesma competência não usados como core
       const cargo = colabMap[t.colaborador_id]?.cargo;
-      saibaMais = (catalogo || [])
+      const poolSaiba = (catalogo || [])
         .filter(c => c.competencia === t.competencia_foco)
         .filter(c => !idsUsados.has(c.id))
         .filter(c => !c.cargo || c.cargo === 'todos' || c.cargo === cargo)
@@ -86,6 +102,18 @@ export async function loadTrilhas(empresaId) {
           descritor: c.descritor,
           nivel: Math.round(((c.nivel_min || 1) + (c.nivel_max || 4)) / 2),
         }));
+      // Atrela até 2 "Saiba mais" por semana de conteúdo (match descritor)
+      const usadosSaiba = new Set();
+      for (const item of obrigatorios) {
+        if (item.tipo !== 'conteudo') continue;
+        const sugest = poolSaiba
+          .filter(c => c.descritor === item.descritor && !usadosSaiba.has(c.course_id))
+          .slice(0, 2);
+        sugest.forEach(s => usadosSaiba.add(s.course_id));
+        item.saiba_mais = sugest;
+      }
+      // Sobra do saiba mais (sem match de descritor) vai pro bloco geral
+      saibaMais = poolSaiba.filter(c => !usadosSaiba.has(c.course_id));
     } else {
       // Fallback (trilha legacy sem temporada_plano)
       obrigatorios = cursosLegacy;
