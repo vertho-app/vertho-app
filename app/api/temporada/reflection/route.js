@@ -1,8 +1,26 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { callAIChat } from '@/actions/ai-client';
+import { callAI, callAIChat } from '@/actions/ai-client';
 import { promptSocratic } from '@/lib/season-engine/prompts/socratic';
 import { promptAnalytic } from '@/lib/season-engine/prompts/analytic';
+
+async function extrairDadosEstruturados(historico, tipoConversa, semanaPlan) {
+  const transcript = historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content}`).join('\n\n');
+
+  if (tipoConversa === 'socratic') {
+    const system = 'Você é um extrator de dados estruturados. Analise a conversa e retorne APENAS um JSON válido, sem markdown, sem backticks.';
+    const user = `CONVERSA:\n${transcript}\n\nExtraia:\n{\n  "desafio_realizado": "sim" | "parcial" | "nao",\n  "relato_resumo": "1 frase resumindo o que aconteceu",\n  "insight_principal": "1 frase com o principal aprendizado",\n  "compromisso_proxima": "1 frase com o compromisso para a próxima semana",\n  "qualidade_reflexao": "alta" | "media" | "baixa"\n}\n\nRegras:\n- desafio_realizado: "sim" se executou, "parcial" se tentou, "nao" se não tentou\n- qualidade_reflexao: alta=reflexão profunda, media=superficial, baixa=respostas genéricas/curtas\n- Baseie-se APENAS na conversa`;
+    const resp = await callAI(system, user, {}, 400);
+    return JSON.parse(resp.replace(/```json\n?|```\n?/g, '').trim());
+  }
+
+  // analytic: extrai avaliação por descritor
+  const system = 'Você é um extrator de dados estruturados. Retorne APENAS JSON válido, sem markdown.';
+  const descritores = semanaPlan.descritores_cobertos || [];
+  const user = `CONVERSA DE FEEDBACK:\n${transcript}\n\nExtraia:\n{\n  "avaliacao_por_descritor": [\n${descritores.map(d => `    { "descritor": "${d}", "nota": 1.0-4.0, "observacao": "1 frase" }`).join(',\n')}\n  ],\n  "sintese_bloco": "1 frase sobre o progresso geral do bloco"\n}`;
+  const resp = await callAI(system, user, {}, 500);
+  return JSON.parse(resp.replace(/```json\n?|```\n?/g, '').trim());
+}
 
 const MAX_TURNS_SOCRATIC = 10; // 5 IA + 5 colab
 const MAX_TURNS_ANALYTIC = 8;  // 4 IA + 4 colab
@@ -100,13 +118,14 @@ export async function POST(request) {
 
     // Persiste
     const novoSlotData = { ...dados, transcript_completo: historico };
-    if (finished && tipoConversa === 'socratic') {
-      // Tenta extrair desafio_realizado / insight / compromisso da última msg
-      const ultima = respostaIA;
-      novoSlotData.desafio_realizado = /n[ãa]o\s*real|n[ãa]o feito/i.test(ultima) ? 'nao' :
-                                       /parcial/i.test(ultima) ? 'parcial' : 'sim';
-      novoSlotData.insight_principal = (ultima.match(/📝[^\n]*Insight[^:]*:\s*([^\n]+)/i)?.[1] || '').trim();
-      novoSlotData.compromisso_proxima = (ultima.match(/🎯[^\n]*Compromisso[^:]*:\s*([^\n]+)/i)?.[1] || '').trim();
+    if (finished) {
+      // Extração estruturada via IA (substitui regex)
+      try {
+        const extracao = await extrairDadosEstruturados(historico, tipoConversa, semanaPlan);
+        Object.assign(novoSlotData, extracao);
+      } catch (err) {
+        console.error('[VERTHO] extração JSON falhou:', err.message);
+      }
     }
 
     const upsertPayload = {

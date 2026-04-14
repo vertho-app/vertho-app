@@ -53,11 +53,21 @@ export async function loadDashboardData(email) {
     teamData = { totalColabs: totalColabs || 0, totalRespostas: totalRespostas || 0 };
   }
 
+  // Competência foco da trilha ativa (Motor de Temporadas)
+  const { data: trilhaAtiva } = await sb.from('trilhas')
+    .select('competencia_foco, numero_temporada, status')
+    .eq('colaborador_id', colab.id)
+    .order('criado_em', { ascending: false })
+    .limit(1).maybeSingle();
+  const competenciaFoco = trilhaAtiva?.competencia_foco || null;
+
   return {
     colaborador: colab,
     role: ctx.role,
     view,
     isPlatformAdmin: ctx.isPlatformAdmin,
+    competenciaFoco,
+    temporada: trilhaAtiva,
     teamData,
   };
 }

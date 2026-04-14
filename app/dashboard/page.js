@@ -12,8 +12,6 @@ import { loadHomeKpis } from '@/actions/dashboard-kpis';
 import { loadUltimosVideosColab } from '@/actions/video-analytics';
 import VideoModal from '@/components/video-modal';
 
-const MOCK_FOCO = 'Liderança';
-
 // Library do Bunny Stream — passada pro VideoModal. A lista de vídeos
 // é carregada dinamicamente via /api/bunny-videos (cache 5 min).
 const BUNNY_LIBRARY = 636615;
@@ -284,16 +282,18 @@ export default function DashboardHomePage() {
           <p className="text-sm md:text-lg text-gray-400 mb-1">Olá, {firstName || 'você'}</p>
           <h1 className="font-extrabold text-2xl md:text-5xl text-white leading-tight max-w-3xl mb-6"
             style={{ textShadow: '0 0 40px rgba(0, 180, 216, 0.18)' }}>
-            Seu foco de evolução hoje é{' '}
-            <span className="text-cyan-400">{MOCK_FOCO}</span>
+            {data?.competenciaFoco
+              ? <>Seu foco de evolução hoje é <span className="text-cyan-400">{data.competenciaFoco}</span></>
+              : <>Prepare-se para sua jornada de desenvolvimento</>
+            }
           </h1>
-          <button onClick={() => router.push('/dashboard/assessment')}
+          <button onClick={() => router.push(data?.competenciaFoco ? '/dashboard/temporada' : '/dashboard/assessment')}
             className="flex items-center gap-3 px-6 py-3 md:px-8 md:py-4 rounded-full font-semibold text-white transition-all hover:scale-[1.02] active:scale-95"
             style={{
               background: 'linear-gradient(135deg, #0D9488, #0F766E)',
               boxShadow: '0 0 28px rgba(0,180,216,0.25)',
             }}>
-            Iniciar Avaliação de {MOCK_FOCO}
+            {data?.competenciaFoco ? `Ver Temporada de ${data.competenciaFoco}` : 'Iniciar Avaliação'}
             <ArrowRight size={18} />
           </button>
         </section>
