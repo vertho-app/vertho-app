@@ -174,7 +174,14 @@ export default function EmpresaPipelinePage({ params }) {
   }, [empresaId]);
 
   const addLog = useCallback((msg, type = 'info') => {
-    setLogs(prev => [{ msg, type, ts: Date.now() }, ...prev].slice(0, 30));
+    setLogs(prev => {
+      // Evita duplicar a mesma msg consecutiva (proteção contra Strict Mode + double-call)
+      if (prev[0]?.msg === msg && prev[0]?.type === type) return prev;
+      return [{
+        id: typeof crypto !== 'undefined' ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+        msg, type, ts: Date.now(),
+      }, ...prev].slice(0, 30);
+    });
   }, []);
 
   const loadData = useCallback(async () => {
@@ -741,8 +748,8 @@ export default function EmpresaPipelinePage({ params }) {
             <button onClick={() => setLogs([])} className="text-gray-600 hover:text-gray-400"><X size={12} /></button>
           </div>
           <div className="max-h-[200px] overflow-y-auto divide-y divide-white/[0.02]">
-            {logs.map(l => (
-              <div key={l.ts} className="px-4 py-2 flex items-start gap-2">
+            {[...logs].reverse().map(l => (
+              <div key={l.id || l.ts} className="px-4 py-2 flex items-start gap-2">
                 <span className={`text-[10px] font-mono shrink-0 ${l.type === 'success' ? 'text-green-400' : l.type === 'error' ? 'text-red-400' : 'text-gray-500'}`}>
                   {new Date(l.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </span>
