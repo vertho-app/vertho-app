@@ -35,7 +35,7 @@ export async function calcularFitIndividual(empresaId, cargoNome, colaboradorId)
 
   // Buscar cargo e perfil ideal
   const { data: cargo } = await sb.from('cargos_empresa')
-    .select('id, nome, gabarito, fit_perfil_ideal')
+    .select('id, nome, gabarito, fit_perfil_ideal, eh_lideranca')
     .eq('empresa_id', empresaId)
     .eq('nome', cargoNome)
     .maybeSingle();
@@ -49,6 +49,12 @@ export async function calcularFitIndividual(empresaId, cargoNome, colaboradorId)
     perfilIdeal = converterGabaritoParaPerfil(gab, cargoNome);
   }
   if (!perfilIdeal) return { success: false, error: 'Perfil ideal não definido. Rode IA2 ou configure manualmente.' };
+
+  // Cargo não-líder: zera dados de liderança ideal pra excluir o bloco do Fit
+  // (engine reweighta automaticamente quando o score do bloco é undefined)
+  if (cargo.eh_lideranca === false) {
+    perfilIdeal = { ...perfilIdeal, lideranca_ideal: null };
+  }
 
   // Buscar colaborador
   const { data: colab } = await sb.from('colaboradores')

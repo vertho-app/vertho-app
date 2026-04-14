@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2, Briefcase, Check, Save, ChevronDown } from 'lucide-react';
-import { loadEmpresas, loadCargos, salvarTop5 } from './actions';
+import { loadEmpresas, loadCargos, salvarTop5, salvarEhLideranca } from './actions';
 
 export default function CargosPage() {
   const router = useRouter();
@@ -139,16 +139,27 @@ export default function CargosPage() {
             const selected = top5Edits[cargo.id] || [];
             return (
               <div key={cargo.id} className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
-                <div className="px-5 py-3 border-b border-white/[0.06] flex items-center justify-between">
+                <div className="px-5 py-3 border-b border-white/[0.06] flex items-center justify-between gap-3 flex-wrap">
                   <div>
                     <h3 className="text-sm font-bold text-white">{cargo.nome}</h3>
                     <p className="text-xs text-gray-500">Top 10 da IA  |  {selected.length}/5 selecionadas</p>
                   </div>
-                  <button onClick={() => handleSave(cargo.id)} disabled={saving[cargo.id]}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white transition-colors disabled:opacity-50">
-                    {saving[cargo.id] ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-                    Salvar Top 5
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 text-[11px] text-gray-300 cursor-pointer select-none">
+                      <input type="checkbox" checked={cargo.eh_lideranca !== false}
+                        onChange={async (e) => {
+                          const novo = e.target.checked;
+                          setCargos(prev => prev.map(c => c.id === cargo.id ? { ...c, eh_lideranca: novo } : c));
+                          await salvarEhLideranca(cargo.id, novo);
+                        }} />
+                      Cargo de liderança
+                    </label>
+                    <button onClick={() => handleSave(cargo.id)} disabled={saving[cargo.id]}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white transition-colors disabled:opacity-50">
+                      {saving[cargo.id] ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                      Salvar Top 5
+                    </button>
+                  </div>
                 </div>
                 <div className="p-5">
                   {top10.length === 0 ? (

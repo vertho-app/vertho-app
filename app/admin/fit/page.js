@@ -298,7 +298,7 @@ export default function FitPage() {
                         </td>
                         <td className="px-4 py-2.5 text-center text-xs text-gray-400">{r.blocos.mapeamento?.score?.toFixed(0) ?? '—'}</td>
                         <td className="px-4 py-2.5 text-center text-xs text-gray-400">{r.blocos.competencias?.score?.toFixed(0) ?? '—'}</td>
-                        <td className="px-4 py-2.5 text-center text-xs text-gray-400">{r.blocos.lideranca?.score?.toFixed(0) ?? '—'}</td>
+                        <td className="px-4 py-2.5 text-center text-xs text-gray-400">{r.blocos.lideranca?.excluido ? 'n/a' : (r.blocos.lideranca?.score?.toFixed(0) ?? '—')}</td>
                         <td className="px-4 py-2.5 text-center text-xs text-gray-400">{r.blocos.disc?.score?.toFixed(0) ?? '—'}</td>
                         <td className="px-4 py-2.5">
                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${FAIXA_COLORS[faixa]?.bg} ${FAIXA_COLORS[faixa]?.text}`}>

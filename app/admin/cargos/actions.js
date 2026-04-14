@@ -16,7 +16,7 @@ export async function loadCargos(empresaId) {
     // Buscar cargos — tentar com top5_workshop, fallback sem
     let cargosEmpresa = null;
     const { data: ce1, error: err1 } = await sb.from('cargos_empresa')
-      .select('id, nome, area_depto, descricao, top5_workshop')
+      .select('id, nome, area_depto, descricao, top5_workshop, eh_lideranca')
       .eq('empresa_id', empresaId)
       .order('nome');
     if (!err1) {
@@ -71,6 +71,7 @@ export async function loadCargos(empresaId) {
         id: ce?.id || nome,
         nome,
         area_depto: ce?.area_depto || null,
+        eh_lideranca: ce?.eh_lideranca !== false, // default true
         top5_workshop: top5,
         competencias_top10: top10Names,
       });
@@ -94,6 +95,21 @@ export async function salvarTop5(cargoId, top5) {
       if (error) return { success: false, error: error.message };
     }
     return { success: true, message: 'Top 5 salvo com sucesso' };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function salvarEhLideranca(cargoId, ehLideranca) {
+  const sb = createSupabaseAdmin();
+  try {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;
+    if (!uuidRegex.test(cargoId)) return { success: false, error: 'Cargo precisa estar em cargos_empresa' };
+    const { error } = await sb.from('cargos_empresa')
+      .update({ eh_lideranca: !!ehLideranca })
+      .eq('id', cargoId);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
   } catch (err) {
     return { success: false, error: err.message };
   }
