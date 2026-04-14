@@ -67,10 +67,14 @@ export default function SemanaPage({ params }) {
     setData(r);
   }
 
+  // Escolhe endpoint conforme tipo da semana
+  const isEvalSemana = semanaNum === 13 || semanaNum === 14;
+  const endpoint = isEvalSemana ? '/api/temporada/evaluation' : '/api/temporada/reflection';
+
   async function startChat() {
     setChatStarted(true);
     setChatBusy(true);
-    const r = await fetch('/api/temporada/reflection', {
+    const r = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ trilhaId: data.trilha.id, semana: semanaNum, action: 'init' }),
@@ -86,7 +90,7 @@ export default function SemanaPage({ params }) {
     setChatInput('');
     setChatHistory(h => [...h, { role: 'user', content: msg, timestamp: new Date().toISOString() }]);
     setChatBusy(true);
-    const r = await fetch('/api/temporada/reflection', {
+    const r = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ trilhaId: data.trilha.id, semana: semanaNum, message: msg, action: 'send' }),
@@ -152,29 +156,53 @@ export default function SemanaPage({ params }) {
         </GlassCard>
       )}
 
-      {isAvaliacao && (
-        <GlassCard className="mb-4">
-          <p className="text-sm text-gray-300">Avaliação será liberada após você concluir todos os episódios anteriores.</p>
+      {isAvaliacao && semanaNum === 13 && (
+        <GlassCard className="mb-4 border-purple-500/30 bg-purple-500/5">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles size={16} className="text-purple-400" />
+            <span className="text-xs uppercase text-purple-400 font-bold">Fechamento qualitativo</span>
+          </div>
+          <p className="text-sm text-gray-300">
+            Chegou a hora de olhar pra trás. Vamos conversar sobre o que mudou em você nessas 12 semanas, percorrendo cada descritor.
+          </p>
         </GlassCard>
       )}
 
-      {/* Chat com Mentor IA */}
-      {!isAvaliacao && (
+      {isAvaliacao && semanaNum === 14 && (
+        <GlassCard className="mb-4 border-amber-500/30 bg-amber-500/5">
+          <div className="flex items-center gap-2 mb-2">
+            <Target size={16} className="text-amber-400" />
+            <span className="text-xs uppercase text-amber-400 font-bold">Cenário final</span>
+          </div>
+          <p className="text-sm text-gray-300">
+            Um cenário completo para você aplicar tudo o que desenvolveu. Sua resposta será avaliada em cada descritor da competência.
+          </p>
+        </GlassCard>
+      )}
+
+      {/* Chat com Mentor IA (inclui semanas de avaliação) */}
+      {true && (
         <GlassCard className="mb-4">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles size={16} className="text-purple-400" />
             <span className="text-xs uppercase text-purple-400 font-bold">
-              {isAplicacao ? 'Feedback do Mentor IA' : 'Reflexão com o Mentor IA'}
+              {semanaNum === 13 ? 'Conversa de fechamento'
+               : semanaNum === 14 ? 'Cenário + avaliação final'
+               : isAplicacao ? 'Feedback do Mentor IA'
+               : 'Reflexão com o Mentor IA'}
             </span>
           </div>
 
           {!chatStarted ? (
             <button
               onClick={startChat}
-              disabled={!conteudoConsumido && !isAplicacao}
+              disabled={!conteudoConsumido && !isAplicacao && !isAvaliacao}
               className="w-full px-4 py-3 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-sm font-bold"
             >
-              {isAplicacao ? 'Enviar minha resposta' : 'Conversar com o Mentor'}
+              {semanaNum === 13 ? 'Iniciar conversa de fechamento'
+               : semanaNum === 14 ? 'Ver cenário final'
+               : isAplicacao ? 'Enviar minha resposta'
+               : 'Conversar com o Mentor'}
             </button>
           ) : (
             <>
