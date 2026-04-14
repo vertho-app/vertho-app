@@ -92,7 +92,7 @@ export async function calcularFitIndividual(empresaId, cargoNome, colaboradorId)
     fator_excesso: resultado.fatores.fator_excesso,
     score_mapeamento: resultado.blocos.mapeamento.score,
     score_competencias: resultado.blocos.competencias.score,
-    score_lideranca: resultado.blocos.lideranca.score,
+    score_lideranca: resultado.blocos.lideranca?.score ?? null,
     score_disc: resultado.blocos.disc.score,
     resultado_json: resultado,
     leitura_executiva: resultado.leitura_executiva,
