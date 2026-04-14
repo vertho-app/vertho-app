@@ -653,8 +653,29 @@ export default function EmpresaPipelinePage({ params }) {
         })}
       </div>
 
+      {/* Coluna lateral: Log + Configurações avançadas */}
+      <div className="space-y-4 lg:sticky lg:top-4 self-start">
+      {logs.length > 0 && (
+        <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A', maxHeight: 'calc(60vh)' }}>
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.04]">
+            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Log ({logs.length})</span>
+            <button onClick={() => setLogs([])} className="text-gray-600 hover:text-gray-400" title="Limpar log"><X size={12} /></button>
+          </div>
+          <div className="overflow-y-auto divide-y divide-white/[0.02]" style={{ maxHeight: 'calc(60vh - 2.5rem)' }}>
+            {logs.map(l => (
+              <div key={l.id || l.ts} className="px-3 py-1.5 flex items-start gap-2">
+                <span className={`text-[10px] font-mono shrink-0 ${l.type === 'success' ? 'text-green-400' : l.type === 'error' ? 'text-red-400' : 'text-gray-500'}`}>
+                  {new Date(l.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </span>
+                <span className={`text-[11px] ${l.type === 'success' ? 'text-green-400' : l.type === 'error' ? 'text-red-400' : 'text-gray-400'}`}>{l.msg}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Danger zone */}
-      <div className="mb-6">
+      <div>
         <button onClick={() => setShowDanger(!showDanger)}
           className="flex items-center gap-2 text-[11px] font-semibold text-gray-600 hover:text-gray-400 transition-colors">
           <Settings size={12} /> Configurações avançadas
@@ -765,27 +786,7 @@ export default function EmpresaPipelinePage({ params }) {
             </button>
           </div>
         )}
-        </div>
-
-        {/* Log lateral (sticky no scroll, esconde se vazio) */}
-        {logs.length > 0 && (
-          <div className="rounded-xl border border-white/[0.06] overflow-hidden lg:sticky lg:top-4 self-start" style={{ background: '#0F2A4A', maxHeight: 'calc(100vh - 2rem)' }}>
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.04]">
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Log ({logs.length})</span>
-              <button onClick={() => setLogs([])} className="text-gray-600 hover:text-gray-400" title="Limpar log"><X size={12} /></button>
-            </div>
-            <div className="overflow-y-auto divide-y divide-white/[0.02]" style={{ maxHeight: 'calc(100vh - 7rem)' }}>
-              {logs.map(l => (
-                <div key={l.id || l.ts} className="px-3 py-1.5 flex items-start gap-2">
-                  <span className={`text-[10px] font-mono shrink-0 ${l.type === 'success' ? 'text-green-400' : l.type === 'error' ? 'text-red-400' : 'text-gray-500'}`}>
-                    {new Date(l.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                  </span>
-                  <span className={`text-[11px] ${l.type === 'success' ? 'text-green-400' : l.type === 'error' ? 'text-red-400' : 'text-gray-400'}`}>{l.msg}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+      </div>
       </div>
 
       {/* Model Picker */}
