@@ -451,7 +451,7 @@ export default function EmpresaPipelinePage({ params }) {
       </div>
 
       {/* Pipeline + Log lado a lado em telas grandes */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px] gap-4 mb-6">
         <div className="space-y-3">
         {fases.map((fase, idx) => {
           const config = PHASE_CONFIG.find(p => p.num === fase.num);
@@ -654,7 +654,7 @@ export default function EmpresaPipelinePage({ params }) {
       </div>
 
       {/* Coluna lateral: Log + Configurações avançadas */}
-      <div className="space-y-4 lg:sticky lg:top-4 self-start">
+      <div className="space-y-4 md:sticky md:top-4 self-start">
       {logs.length > 0 && (
         <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A', maxHeight: 'calc(60vh)' }}>
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.04]">

@@ -123,10 +123,13 @@ export async function gerarRelatorioIndividual(empresaId, colaboradorId, aiConfi
     }
 
     // Mapeia respostas por nome de competência (mais estável que id quando há
-    // múltiplos rows por descritor)
+    // múltiplos rows por descritor). Normaliza chave (trim+lower) para
+    // tolerar divergência de capitalização/espaços entre top5_workshop e
+    // competencia_nome em respostas.
+    const normKey = s => (s || '').toString().trim().toLowerCase();
     const respPorNome = {};
     for (const r of (respostas || [])) {
-      if (r.competencia_nome) respPorNome[r.competencia_nome] = r;
+      if (r.competencia_nome) respPorNome[normKey(r.competencia_nome)] = r;
     }
 
     // Lista alvo: top5 do cargo se existe, senão usa as competências respondidas
@@ -149,7 +152,7 @@ export async function gerarRelatorioIndividual(empresaId, colaboradorId, aiConfi
     }
 
     const dadosComps = competenciasAlvo.map(nomeComp => {
-      const r = respPorNome[nomeComp];
+      const r = respPorNome[normKey(nomeComp)];
       if (!r) {
         // Top5 mas o colab não respondeu (ou IA4 falhou totalmente)
         return {
