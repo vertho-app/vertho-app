@@ -178,9 +178,13 @@ async function _salvarRespostaDiagnostico(email, cenarioId, compId, compNome, pa
   const top5 = cargoEmp?.top5_workshop || [];
 
   const { data: compsDoCargo } = await sb.from('competencias')
-    .select('id, nome').eq('empresa_id', colab.empresa_id).eq('cargo', colab.cargo).is('cod_desc', null);
+    .select('id, nome, cod_desc').eq('empresa_id', colab.empresa_id).eq('cargo', colab.cargo);
   const nomeToId = {};
-  (compsDoCargo || []).forEach(c => { nomeToId[(c.nome || '').toLowerCase()] = c.id; });
+  (compsDoCargo || []).forEach(c => {
+    const key = (c.nome || '').toLowerCase();
+    if (!key) return;
+    if (!nomeToId[key] || !c.cod_desc) nomeToId[key] = c.id;
+  });
 
   const { data: respostas } = await sb.from('respostas')
     .select('competencia_id').eq('colaborador_id', colab.id).eq('empresa_id', colab.empresa_id);
