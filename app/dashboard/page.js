@@ -289,7 +289,7 @@ export default function DashboardHomePage() {
           </h1>
           <button onClick={() => {
               if (data?.competenciaFoco) return router.push('/dashboard/temporada');
-              if (!data?.colaborador?.perfil_dominante) return router.push('/dashboard/perfil-comportamental/mapeamento');
+              if (!data?.colaborador?.perfil_dominante) return router.push('/dashboard/perfil-comportamental');
               router.push('/dashboard/assessment');
             }}
             className="flex items-center gap-3 px-6 py-3 md:px-8 md:py-4 rounded-full font-semibold text-white transition-all hover:scale-[1.02] active:scale-95"
