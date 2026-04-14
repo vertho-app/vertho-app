@@ -71,7 +71,7 @@ const PHASE_CONFIG = [
     { key: 'cargos-top5', label: 'Top 5', icon: Target, href: '/admin/cargos' },
     { key: 'ia2', label: 'IA2 — Perfil Ideal', icon: Zap, ai: true },
     { key: 'ia3', label: 'IA3 — Cenários + Check', icon: Zap, ai: 'dual' },
-    { key: 'fit', label: 'Fit v2', icon: BarChart3, href: '/admin/fit' },
+    { key: 'fit', label: 'Fit Cargo Ideal', icon: BarChart3, href: '/admin/fit' },
     { key: 'simular-disc', label: 'Simular Mapeamento DISC', icon: MessageSquare, ai: false },
     { key: 'envios', label: 'Envios', icon: Send, href: '/admin/whatsapp' },
   ]},

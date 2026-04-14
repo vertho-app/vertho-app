@@ -61,8 +61,18 @@ export default function Fase2Page({ params }) {
 
   useEffect(() => { refresh(); }, [empresaId]);
 
-  const colaboradores = [...new Set(respostas.map(r => r.colaborador_nome))].sort();
   const cargos = [...new Set(respostas.map(r => r.colaborador_cargo).filter(c => c && c !== '—'))].sort();
+  // Colaboradores filtrados pelo cargo selecionado (cascading)
+  const colaboradores = [...new Set(
+    respostas
+      .filter(r => !filtroCargo || r.colaborador_cargo === filtroCargo)
+      .map(r => r.colaborador_nome)
+  )].sort();
+  // Se mudar o cargo e o colab selecionado não pertence mais ao novo cargo, limpa
+  useEffect(() => {
+    if (filtroColab && !colaboradores.includes(filtroColab)) setFiltroColab('');
+  }, [filtroCargo]);
+
   const filtered = respostas.filter(r => {
     if (filtroColab && r.colaborador_nome !== filtroColab) return false;
     if (filtroCargo && r.colaborador_cargo !== filtroCargo) return false;
