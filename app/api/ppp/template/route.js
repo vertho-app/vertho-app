@@ -55,10 +55,10 @@ export async function GET() {
     try {
       const fs = await import('node:fs/promises');
       const path = await import('node:path');
-      const logoPath = path.join(process.cwd(), 'public', 'Logo Vertho H escuro fundo transparente (1).png');
+      const logoPath = path.join(process.cwd(), 'public', 'Logo Vertho AC escuro fundo transparente (1).png');
       const logoBytes = await fs.readFile(logoPath);
       const logoImg = await pdfDoc.embedPng(logoBytes);
-      const logoW = 110;
+      const logoW = 70;
       const ratio = logoImg.width / logoImg.height;
       const logoH = logoW / ratio;
       page.drawImage(logoImg, {
