@@ -16,7 +16,7 @@ const FASE_HREF = {
 };
 
 const CTA_LABEL = {
-  1: 'Ver perfil comportamental',
+  1: 'Fazer diagnóstico (DISC)',
   2: 'Iniciar avaliação',
   3: 'Ver meu PDI',
   4: 'Ver minha temporada',

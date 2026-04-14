@@ -287,13 +287,13 @@ export default function DashboardHomePage() {
               : <>Prepare-se para sua jornada de desenvolvimento</>
             }
           </h1>
-          <button onClick={() => router.push(data?.competenciaFoco ? '/dashboard/temporada' : '/dashboard/assessment')}
+          <button onClick={() => router.push(data?.competenciaFoco ? '/dashboard/temporada' : '/dashboard/jornada')}
             className="flex items-center gap-3 px-6 py-3 md:px-8 md:py-4 rounded-full font-semibold text-white transition-all hover:scale-[1.02] active:scale-95"
             style={{
               background: 'linear-gradient(135deg, #0D9488, #0F766E)',
               boxShadow: '0 0 28px rgba(0,180,216,0.25)',
             }}>
-            {data?.competenciaFoco ? `Ver Temporada de ${data.competenciaFoco}` : 'Iniciar Avaliação'}
+            {data?.competenciaFoco ? `Ver Temporada de ${data.competenciaFoco}` : 'Ver minha jornada'}
             <ArrowRight size={18} />
           </button>
         </section>

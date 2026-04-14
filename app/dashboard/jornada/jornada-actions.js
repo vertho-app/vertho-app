@@ -46,7 +46,7 @@ export async function loadJornada(email) {
     fase: 2,
     titulo: 'Avaliação',
     descricao: `Competências avaliadas: ${respondidasCount}/${totalComp}`,
-    status: avaliacaoCompleta ? 'completed' : avaliacaoIniciada ? 'in-progress' : 'pending',
+    status: avaliacaoCompleta ? 'completed' : avaliacaoIniciada ? 'current' : 'pending',
     data: null,
   });
 
@@ -68,24 +68,35 @@ export async function loadJornada(email) {
     data: pdi?.gerado_em || null,
   });
 
-  // Fase 4 — Capacitação (trilha ativa)
-  const { data: envio } = await sb.from('fase4_envios')
-    .select('id, semana_atual, status, created_at')
+  // Fase 4 — Temporada (Motor de Temporadas — 14 semanas)
+  const { data: trilha } = await sb.from('trilhas')
+    .select('id, status, temporada_plano, competencia_foco, criado_em')
     .eq('colaborador_id', colab.id)
-    .order('created_at', { ascending: false })
+    .order('criado_em', { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  const capacitacaoStatus = envio
-    ? (envio.status === 'concluido' ? 'completed' : 'in-progress')
+  const temPlano = trilha?.temporada_plano && Array.isArray(trilha.temporada_plano) && trilha.temporada_plano.length > 0;
+  let semanaAtual = 1;
+  if (temPlano) {
+    const { data: progresso } = await sb.from('temporada_semana_progresso')
+      .select('semana, status').eq('trilha_id', trilha.id).order('semana');
+    const concluidas = (progresso || []).filter(p => p.status === 'concluido').length;
+    semanaAtual = Math.min(14, concluidas + 1);
+  }
+
+  const temporadaStatus = trilha?.status === 'concluida' ? 'completed'
+    : (temPlano && trilha.status === 'ativa') ? 'current'
     : 'pending';
 
   fases.push({
     fase: 4,
-    titulo: 'Capacitação',
-    descricao: envio ? `Semana ${envio.semana_atual || 1} de 14` : 'Trilha de aprendizado semanal',
-    status: capacitacaoStatus,
-    data: envio?.created_at || null,
+    titulo: 'Temporada',
+    descricao: temPlano
+      ? `Semana ${semanaAtual} de 14 · ${trilha.competencia_foco || ''}`
+      : 'Aguardando geração da trilha personalizada',
+    status: temporadaStatus,
+    data: trilha?.criado_em || null,
   });
 
   // Fase 5 — Reavaliação
