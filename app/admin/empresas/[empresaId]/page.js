@@ -93,6 +93,7 @@ const PHASE_CONFIG = [
   ]},
   { num: 3, icon: GraduationCap, color: '#22C55E', groups: [
     { label: 'Temporadas', actions: [
+      { key: 'assessment', label: 'Assessment Descritores', icon: ClipboardCheck, hrefFn: (id) => `/admin/assessment-descritores?empresa=${id}` },
       { key: 'temporadas', label: 'Gerar Temporadas', icon: Sparkles, ai: true },
       { key: 'temporadas-ver', label: 'Ver Temporadas', icon: Layers, hrefFn: (id) => `/admin/temporadas?empresa=${id}` },
     ]},

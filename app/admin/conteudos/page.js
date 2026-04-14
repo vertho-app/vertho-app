@@ -211,6 +211,7 @@ export default function ConteudosAdminPage() {
                   <th className="px-3 py-2">Descritor</th>
                   <th className="px-3 py-2 text-center">Nível</th>
                   <th className="px-3 py-2">Cargo</th>
+                  <th className="px-3 py-2 text-center">Taxa</th>
                   <th className="px-3 py-2 text-center">Ações</th>
                 </tr>
               </thead>
@@ -230,6 +231,15 @@ export default function ConteudosAdminPage() {
                       <td className="px-3 py-2 text-[11px] text-gray-400">{c.descritor || '—'}</td>
                       <td className="px-3 py-2 text-[11px] text-center text-gray-400">{c.nivel_min}–{c.nivel_max}</td>
                       <td className="px-3 py-2 text-[11px] text-gray-400">{c.cargo}</td>
+                      <td className="px-3 py-2 text-center">
+                        {c.taxa_conclusao != null ? (
+                          <span className={`text-[11px] font-bold ${c.taxa_conclusao >= 70 ? 'text-emerald-400' : c.taxa_conclusao >= 40 ? 'text-amber-400' : 'text-red-400'}`}>
+                            {c.taxa_conclusao}%
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-gray-600">—</span>
+                        )}
+                      </td>
                       <td className="px-3 py-2">
                         <div className="flex items-center justify-center gap-1">
                           <button

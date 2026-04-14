@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ChevronRight, ChevronDown, BookOpen, Target, Sparkles, Video, FileText, Headphones, FileType, Pause, Play, Archive, RefreshCw } from 'lucide-react';
-import { listarTemporadasEmpresa, pausarRetomarTemporada, arquivarTemporada, regerarSemana } from '@/actions/temporadas';
+import { ArrowLeft, ChevronRight, ChevronDown, BookOpen, Target, Sparkles, Video, FileText, Headphones, FileType, Pause, Play, Archive, RefreshCw, Eye, X } from 'lucide-react';
+import { listarTemporadasEmpresa, pausarRetomarTemporada, arquivarTemporada, regerarSemana, loadProgressoDetalhado } from '@/actions/temporadas';
 
 const STATUS_COLORS = {
   ativa: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
@@ -26,6 +26,14 @@ export default function TemporadasAdminPage() {
   const [expanded, setExpanded] = useState(null);
   const [statusFiltro, setStatusFiltro] = useState('ativa');
   const [busy, setBusy] = useState(false);
+  const [detalhe, setDetalhe] = useState(null);
+
+  async function handleVerDetalhe(trilhaId) {
+    setBusy(true);
+    const r = await loadProgressoDetalhado(trilhaId);
+    setBusy(false);
+    if (r.success) setDetalhe(r);
+  }
 
   async function recarregar() {
     setLoading(true);
@@ -105,16 +113,19 @@ export default function TemporadasAdminPage() {
                 onPausar={() => handlePausar(t.id)}
                 onArquivar={() => handleArquivar(t.id, t.colab?.nome_completo)}
                 onRegerar={(semana) => handleRegerar(t.id, semana)}
+                onVerDetalhe={() => handleVerDetalhe(t.id)}
                 busy={busy} />
             ))}
           </div>
         )}
       </div>
+
+      {detalhe && <DetalheModal detalhe={detalhe} onClose={() => setDetalhe(null)} />}
     </div>
   );
 }
 
-function TemporadaCard({ t, expanded, onToggle, onPausar, onArquivar, onRegerar, busy }) {
+function TemporadaCard({ t, expanded, onToggle, onPausar, onArquivar, onRegerar, onVerDetalhe, busy }) {
   const colab = t.colab || {};
   const semanas = Array.isArray(t.temporada_plano) ? t.temporada_plano : [];
   const descritores = Array.isArray(t.descritores_selecionados) ? t.descritores_selecionados : [];
@@ -131,6 +142,10 @@ function TemporadaCard({ t, expanded, onToggle, onPausar, onArquivar, onRegerar,
             <div className="text-[11px] text-gray-400">{colab.cargo || '—'} · Temporada {t.numero_temporada} · Foco: <span className="text-cyan-400">{t.competencia_foco}</span></div>
           </div>
           <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded border ${statusCls}`}>{statusKey}</span>
+        </button>
+        <button onClick={onVerDetalhe} disabled={busy} title="Ver progresso detalhado"
+          className="p-1.5 rounded hover:bg-white/10 text-cyan-400 disabled:opacity-50">
+          <Eye size={14} />
         </button>
         {statusKey !== 'arquivada' && (
           <>
@@ -204,6 +219,145 @@ function TemporadaCard({ t, expanded, onToggle, onPausar, onArquivar, onRegerar,
               <div className="text-xs text-gray-300 italic">"{semanas[0].conteudo.desafio_texto}"</div>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DetalheModal({ detalhe, onClose }) {
+  const { trilha, colab, progresso } = detalhe;
+  const semanasPlano = Array.isArray(trilha.temporada_plano) ? trilha.temporada_plano : [];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+      <div className="bg-[#0d1426] rounded-2xl border border-cyan-500/30 max-w-4xl w-full max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-5 border-b border-white/10">
+          <div>
+            <h2 className="text-lg font-bold text-white">{colab?.nome_completo || '—'}</h2>
+            <p className="text-xs text-gray-400">{colab?.cargo} · {trilha.competencia_foco}</p>
+          </div>
+          <button onClick={onClose} className="p-1 rounded hover:bg-white/10"><X size={18} /></button>
+        </div>
+
+        <div className="flex-1 overflow-auto p-5 space-y-3">
+          {semanasPlano.map(s => {
+            const prog = progresso.find(p => p.semana === s.semana);
+            return <SemanaDetalhe key={s.semana} semana={s} progresso={prog} />;
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const STATUS_LABEL = { pendente: 'Pendente', em_andamento: 'Em andamento', concluido: 'Concluído' };
+const STATUS_COR = { pendente: 'gray', em_andamento: 'amber', concluido: 'emerald' };
+
+function SemanaDetalhe({ semana, progresso }) {
+  const [open, setOpen] = useState(false);
+  const p = progresso || {};
+  const statusKey = p.status || 'pendente';
+  const cor = STATUS_COR[statusKey];
+
+  const temConteudo = semana.tipo === 'conteudo';
+  const temAplicacao = semana.tipo === 'aplicacao';
+  const temAvaliacao = semana.tipo === 'avaliacao';
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/[0.02] overflow-hidden">
+      <button onClick={() => setOpen(!open)} className="w-full px-3 py-2 flex items-center gap-3 hover:bg-white/[0.03]">
+        {open ? <ChevronDown size={14} className="text-gray-500" /> : <ChevronRight size={14} className="text-gray-500" />}
+        <span className="text-[10px] text-gray-500 w-12">Sem {semana.semana}</span>
+        <span className="text-[10px] uppercase text-gray-400 w-20">{semana.tipo}</span>
+        <span className="flex-1 text-xs text-white text-left truncate">{semana.descritor || (temAvaliacao ? 'Avaliação final' : '—')}</span>
+        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-${cor}-500/20 text-${cor}-400`}>{STATUS_LABEL[statusKey]}</span>
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 pt-1 border-t border-white/5 space-y-3 text-xs">
+          {temConteudo && semana.conteudo && (
+            <Block titulo="🎯 Desafio" content={semana.conteudo.desafio_texto} />
+          )}
+          {temAplicacao && semana.cenario && (
+            <Block titulo="🎭 Cenário" markdown={semana.cenario.texto} />
+          )}
+          {temAvaliacao && p.reflexao?.cenario && (
+            <Block titulo="🎭 Cenário (sem 14)" markdown={p.reflexao.cenario} />
+          )}
+
+          {p.reflexao && (
+            <>
+              {p.reflexao.desafio_realizado && (
+                <div className="flex gap-2 text-[11px]">
+                  <span className="text-gray-500">Desafio:</span>
+                  <span className="text-white font-bold">{p.reflexao.desafio_realizado}</span>
+                  {p.reflexao.qualidade_reflexao && <span className="text-gray-500">· qualidade: <span className="text-cyan-400">{p.reflexao.qualidade_reflexao}</span></span>}
+                </div>
+              )}
+              {p.reflexao.insight_principal && <Block titulo="💡 Insight" content={p.reflexao.insight_principal} />}
+              {p.reflexao.compromisso_proxima && <Block titulo="📝 Compromisso" content={p.reflexao.compromisso_proxima} />}
+              {p.reflexao.transcript_completo?.length > 0 && <Transcript title="Conversa de reflexão" items={p.reflexao.transcript_completo} />}
+            </>
+          )}
+
+          {p.feedback && (
+            <>
+              {p.feedback.cenario_resposta && <Block titulo="✏️ Resposta ao cenário" content={p.feedback.cenario_resposta} />}
+              {Array.isArray(p.feedback.avaliacao_por_descritor) && (
+                <div>
+                  <div className="text-[10px] uppercase text-gray-500 mb-1">Avaliação por descritor</div>
+                  <div className="space-y-1">
+                    {p.feedback.avaliacao_por_descritor.map((a, i) => (
+                      <div key={i} className="flex items-center gap-2 text-[11px] p-1.5 rounded bg-white/5">
+                        <span className="text-white font-bold flex-1">{a.descritor}</span>
+                        <span className="text-cyan-400">{a.nota || a.nota_pos}</span>
+                        <span className="text-gray-400 flex-[2]">{a.observacao || a.justificativa}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {p.feedback.sintese_bloco && <Block titulo="📊 Síntese do bloco" content={p.feedback.sintese_bloco} />}
+              {p.feedback.transcript_completo?.length > 0 && <Transcript title="Conversa de feedback" items={p.feedback.transcript_completo} />}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Block({ titulo, content, markdown }) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase text-gray-500 mb-1">{titulo}</div>
+      <div className="text-[11px] text-gray-300 italic whitespace-pre-wrap p-2 rounded bg-white/5">
+        {markdown || content || '—'}
+      </div>
+    </div>
+  );
+}
+
+function Transcript({ title, items }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button onClick={() => setOpen(!open)} className="text-[10px] uppercase text-gray-500 hover:text-cyan-400 flex items-center gap-1">
+        {open ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+        {title} ({items.length} mensagens)
+      </button>
+      {open && (
+        <div className="mt-2 space-y-2 max-h-96 overflow-auto">
+          {items.map((m, i) => (
+            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[80%] rounded-lg px-3 py-1.5 text-[11px] ${
+                m.role === 'user' ? 'bg-cyan-600 text-white' : 'bg-white/5 text-gray-200 border border-white/10'
+              }`}>
+                {m.content}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

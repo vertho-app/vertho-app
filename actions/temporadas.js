@@ -355,6 +355,30 @@ export async function marcarConteudoConsumido(trilhaId, semana) {
 }
 
 /**
+ * Carrega progresso detalhado de todas as semanas de uma trilha (admin view).
+ * Inclui transcripts completos de reflexão/feedback/avaliação.
+ */
+export async function loadProgressoDetalhado(trilhaId) {
+  try {
+    const sb = createSupabaseAdmin();
+    const { data: trilha } = await sb.from('trilhas')
+      .select('id, colaborador_id, competencia_foco, temporada_plano, evolution_report')
+      .eq('id', trilhaId).maybeSingle();
+    if (!trilha) return { error: 'Trilha não encontrada' };
+
+    const { data: progresso } = await sb.from('temporada_semana_progresso')
+      .select('*').eq('trilha_id', trilhaId).order('semana');
+
+    const { data: colab } = await sb.from('colaboradores')
+      .select('nome_completo, cargo').eq('id', trilha.colaborador_id).maybeSingle();
+
+    return { success: true, trilha, colab, progresso: progresso || [] };
+  } catch (err) {
+    return { error: err?.message };
+  }
+}
+
+/**
  * Carrega a temporada ativa de um colaborador (com plano + progresso).
  */
 export async function loadTemporada(colaboradorId) {
