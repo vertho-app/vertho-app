@@ -382,6 +382,7 @@ REGRAS:
 - Para CADA treinamento: prioridade se orcamento for curto.
 - Se identificar risco: acao concreta (entrevista retencao, plano B).
 - Decisoes-chave num quadro separado.
+- Para CADA cargo distinto, sugerir UMA competencia foco priorizada (a mais alavancadora) com justificativa quantitativa+qualitativa.
 
 FORMATO: APENAS JSON valido. Portugues com acentuacao correta.
 {
@@ -397,6 +398,15 @@ FORMATO: APENAS JSON valido. Portugues com acentuacao correta.
   ],
   "competencias_criticas": [
     {"competencia": "", "criticidade": "CRITICA|ATENCAO|ESTAVEL", "motivo": "2-3 linhas", "impacto": "1 linha"}
+  ],
+  "competencia_foco_por_cargo": [
+    {
+      "cargo": "",
+      "competencia_recomendada": "",
+      "justificativa": "3-4 linhas: por que essa competência é a mais alavancadora para esse cargo agora — combine gap médio observado, criticidade da competência pro cargo, alinhamento com desafios estratégicos da empresa",
+      "expectativa_impacto": "1-2 linhas: o que muda na prática se o cargo evoluir nessa competência",
+      "horizonte_sugerido": "30d|60d|90d"
+    }
   ],
   "treinamentos_sugeridos": [
     {"titulo": "", "competencias_alvo": [""], "publico": "", "formato": "", "carga_horaria": "", "custo": "baixo|medio|alto", "prioridade": "URGENTE|IMPORTANTE|DESEJAVEL", "justificativa": ""}

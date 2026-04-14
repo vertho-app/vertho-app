@@ -163,6 +163,23 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }) {
       <Page size="A4" style={pageStyles.page} wrap>
         <PageBackground />
 
+        {c.competencia_foco_por_cargo?.length > 0 && (
+          <View style={s.section}>
+            <SectionTitle>{'Compet\u00eancia Foco Sugerida por Cargo'}</SectionTitle>
+            {c.competencia_foco_por_cargo.map((f, i) => (
+              <View key={i} style={{ ...s.critCard, marginBottom: 8 }} wrap={false}>
+                <View style={{ ...s.critHeader, backgroundColor: '#0D9488' }}>
+                  <Text style={s.critHeaderText}>{f.cargo} {'\u2192'} {f.competencia_recomendada} {f.horizonte_sugerido ? `[${f.horizonte_sugerido}]` : ''}</Text>
+                </View>
+                <View style={{ ...s.critContent, backgroundColor: '#ECFDF5' }}>
+                  <Text style={s.text}>{f.justificativa}</Text>
+                  {f.expectativa_impacto && <Text style={s.critImpacto}>{'Impacto esperado: '}{f.expectativa_impacto}</Text>}
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
         {c.competencias_criticas?.length > 0 && (
           <View style={s.section}>
             <SectionTitle>{'Compet\u00eancias Cr\u00edticas \u2014 Onde Investir'}</SectionTitle>
