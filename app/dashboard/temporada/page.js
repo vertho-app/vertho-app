@@ -39,6 +39,8 @@ export default function TemporadaPage() {
   );
 
   const { trilha, progresso } = data;
+  const pausada = trilha.status === 'pausada';
+  const arquivada = trilha.status === 'arquivada';
   const semanas = Array.isArray(trilha.temporada_plano) ? trilha.temporada_plano : [];
   const progressoMap = Object.fromEntries((progresso || []).map(p => [p.semana, p]));
   const concluidas = (progresso || []).filter(p => p.status === 'concluido').length;
@@ -51,6 +53,12 @@ export default function TemporadaPage() {
         title={trilha.competencia_foco}
         subtitle="14 semanas para evoluir 1 competência ao próximo nível"
       />
+
+      {pausada && (
+        <GlassCard className="mb-4 border-amber-500/30 bg-amber-500/5">
+          <div className="text-xs text-amber-300">⏸ Sua temporada está pausada pelo gestor. Você poderá continuar quando for retomada.</div>
+        </GlassCard>
+      )}
 
       {/* Progresso */}
       <GlassCard className="mb-6">

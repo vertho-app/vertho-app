@@ -212,6 +212,96 @@ export async function gerarTemporadasLote(empresaId, aiConfig) {
 }
 
 /**
+ * Pausa/retoma uma temporada (toggle baseado no status atual).
+ */
+export async function pausarRetomarTemporada(trilhaId) {
+  try {
+    const sb = createSupabaseAdmin();
+    const { data: t } = await sb.from('trilhas').select('status').eq('id', trilhaId).maybeSingle();
+    if (!t) return { success: false, error: 'Trilha não encontrada' };
+    const novo = t.status === 'pausada' ? 'ativa' : 'pausada';
+    const { error } = await sb.from('trilhas').update({ status: novo }).eq('id', trilhaId);
+    if (error) return { success: false, error: error.message };
+    return { success: true, status: novo, message: `Temporada ${novo}` };
+  } catch (err) {
+    return { success: false, error: err?.message };
+  }
+}
+
+export async function arquivarTemporada(trilhaId) {
+  try {
+    const sb = createSupabaseAdmin();
+    const { error } = await sb.from('trilhas').update({ status: 'arquivada' }).eq('id', trilhaId);
+    if (error) return { success: false, error: error.message };
+    return { success: true, message: 'Arquivada' };
+  } catch (err) {
+    return { success: false, error: err?.message };
+  }
+}
+
+/**
+ * Regera desafio (semana de conteúdo) OU cenário (semana de aplicação)
+ * para uma semana específica. Reseta o progresso.
+ */
+export async function regerarSemana(trilhaId, semana, aiConfig = {}) {
+  try {
+    const sb = createSupabaseAdmin();
+    const { data: trilha } = await sb.from('trilhas')
+      .select('id, colaborador_id, empresa_id, competencia_foco, temporada_plano, descritores_selecionados')
+      .eq('id', trilhaId).maybeSingle();
+    if (!trilha) return { success: false, error: 'Trilha não encontrada' };
+
+    const plano = Array.isArray(trilha.temporada_plano) ? [...trilha.temporada_plano] : [];
+    const idx = plano.findIndex(s => s.semana === Number(semana));
+    if (idx < 0) return { success: false, error: 'Semana não encontrada no plano' };
+
+    const { data: colab } = await sb.from('colaboradores')
+      .select('cargo, empresa_id').eq('id', trilha.colaborador_id).maybeSingle();
+    const { data: empresa } = await sb.from('empresas').select('segmento').eq('id', trilha.empresa_id).maybeSingle();
+    const contexto = empresa?.segmento?.toLowerCase().includes('educa') ? 'educacional' : 'corporativo';
+
+    const slot = plano[idx];
+    const { callAI } = await import('@/actions/ai-client');
+
+    if (slot.tipo === 'conteudo' && slot.descritor) {
+      const { promptDesafio } = await import('@/lib/season-engine/prompts/challenge');
+      const { system, user } = promptDesafio({
+        competencia: trilha.competencia_foco,
+        descritor: slot.descritor,
+        nivel: slot.nivel_atual || 1.5,
+        cargo: colab?.cargo, contexto, semana,
+      });
+      const novoDesafio = (await callAI(system, user, aiConfig, 300)).trim();
+      plano[idx] = { ...slot, conteudo: { ...(slot.conteudo || {}), desafio_texto: novoDesafio } };
+    } else if (slot.tipo === 'aplicacao') {
+      const { promptCenario } = await import('@/lib/season-engine/prompts/scenario');
+      const complexidade = { 4: 'simples', 8: 'intermediario', 12: 'completo' }[semana] || 'intermediario';
+      const { system, user } = promptCenario({
+        competencia: trilha.competencia_foco,
+        descritores: slot.descritores_cobertos || [],
+        cargo: colab?.cargo, contexto, complexidade,
+      });
+      const novoCenario = (await callAI(system, user, aiConfig, 800)).trim();
+      plano[idx] = { ...slot, cenario: { texto: novoCenario, complexidade } };
+    } else {
+      return { success: false, error: 'Semana de avaliação não pode ser regerada' };
+    }
+
+    await sb.from('trilhas').update({ temporada_plano: plano }).eq('id', trilhaId);
+
+    // Reseta progresso da semana
+    await sb.from('temporada_semana_progresso')
+      .update({ status: 'pendente', conteudo_consumido: false, reflexao: null, feedback: null, iniciado_em: null, concluido_em: null })
+      .eq('trilha_id', trilhaId).eq('semana', Number(semana));
+
+    return { success: true, message: `Semana ${semana} regerada` };
+  } catch (err) {
+    console.error('[VERTHO] regerarSemana:', err);
+    return { success: false, error: err?.message };
+  }
+}
+
+/**
  * Lista temporadas de uma empresa (admin viewer).
  */
 export async function listarTemporadasEmpresa(empresaId) {
