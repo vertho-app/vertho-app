@@ -116,7 +116,7 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig } = 
       temporada_plano: semanas,
       descritores_selecionados: descritoresSelecionados,
       status: 'ativa',
-      cursos: [], // legado moodle, vazio na nova era
+      cursos: [], // campo legado, conteúdo agora vive em temporada_plano
     };
 
     // Constraint única: 1 trilha por (empresa, colab). Sempre UPDATE se existe.

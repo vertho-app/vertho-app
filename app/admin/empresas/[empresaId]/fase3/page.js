@@ -3,11 +3,11 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft, Loader2, GraduationCap, User, BookOpen, RefreshCw,
+  ArrowLeft, Loader2, GraduationCap, User, BookOpen,
   ChevronDown, CheckCircle, Clock, AlertTriangle, Users, BarChart3,
   ExternalLink, MessageSquare,
 } from 'lucide-react';
-import { loadProgressoCapacitacao, syncProgressoMoodle } from '@/actions/capacitacao';
+import { loadProgressoCapacitacao } from '@/actions/capacitacao';
 
 const STATUS_MAP = {
   aguardando_inicio: { label: 'Aguardando', color: 'text-gray-400', bg: 'bg-gray-400/15' },
@@ -33,7 +33,6 @@ export default function Fase3Page({ params }) {
   const [resumo, setResumo] = useState(null);
   const [metaColetiva, setMetaColetiva] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
   const [openId, setOpenId] = useState(null);
   const [filtroGestor, setFiltroGestor] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
@@ -48,15 +47,6 @@ export default function Fase3Page({ params }) {
       setMetaColetiva(r.metaColetiva || []);
     }
     setLoading(false);
-  }
-
-  async function handleSync() {
-    setSyncing(true);
-    flash('Sincronizando com Moodle...');
-    const r = await syncProgressoMoodle(empresaId);
-    flash(r.success ? r.message : 'Erro: ' + r.error);
-    setSyncing(false);
-    refresh();
   }
 
   useEffect(() => { refresh(); }, [empresaId]);
@@ -85,14 +75,9 @@ export default function Fase3Page({ params }) {
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
               <GraduationCap size={20} className="text-green-400" /> Fase 3 — Capacitação
             </h1>
-            <p className="text-xs text-gray-500">Acompanhamento de trilhas e progresso no Moodle</p>
+            <p className="text-xs text-gray-500">Acompanhamento de trilhas e progresso (catálogo Vertho)</p>
           </div>
         </div>
-        <button onClick={handleSync} disabled={syncing}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 disabled:opacity-50 transition-all">
-          {syncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-          Sync Moodle
-        </button>
       </div>
 
       {/* Resumo */}
@@ -158,7 +143,7 @@ export default function Fase3Page({ params }) {
       {data.length === 0 ? (
         <div className="text-center py-12">
           <GraduationCap size={32} className="text-gray-600 mx-auto mb-3" />
-          <p className="text-sm text-gray-500">Nenhum progresso encontrado. Rode "Criar Estrutura" e "Provisionar Moodle" na pipeline.</p>
+          <p className="text-sm text-gray-500">Nenhum progresso encontrado. Gere as Temporadas dos colaboradores na Fase 3 do pipeline.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -193,8 +178,6 @@ export default function Fase3Page({ params }) {
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-[10px] text-gray-500">S{p.semana_atual}/14</span>
                     <span className={`text-[9px] font-bold px-2 py-0.5 rounded ${st.bg} ${st.color}`}>{st.label}</span>
-                    {p.moodle_ok && <BookOpen size={12} className="text-green-400" title="Moodle OK" />}
-                    {!p.moodle_ok && <AlertTriangle size={12} className="text-amber-400" title="Sem Moodle" />}
                     <ChevronDown size={14} className={`text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                   </div>
                 </button>

@@ -25,8 +25,7 @@ import {
   verStatusEnvios,
   rodarIA4, checkAvaliacoes,
   montarTrilhasLote, salvarCompetenciaFoco, loadCompetenciasFoco,
-  provisionarMoodleLote, syncProgressoMoodle, iniciarCapacitacao, avancarSemana, enviarNudgesInatividade,
-  moodleImportarCatalogo, catalogarConteudosMoodle, gerarCoberturaConteudo,
+  iniciarCapacitacao, avancarSemana, enviarNudgesInatividade,
   gerarCenariosBLote, iniciarReavaliacaoLote, gerarRelatoriosEvolucaoLote, gerarPlenariaEvolucao, gerarRelatorioRHManual, gerarRelatorioPlenaria, enviarLinksPerfil, gerarDossieGestor, checkCenarios,
 } from './actions';
 

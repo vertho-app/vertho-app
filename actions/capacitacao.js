@@ -1,9 +1,6 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import {
-  moodleCreateUser, moodleGetUser, moodleEnrollBatch, moodleGetCompletion,
-} from '@/lib/moodle';
 import { callAI } from './ai-client';
 
 // ── Constantes ──────────────────────────────────────────────────────────────
@@ -11,181 +8,7 @@ const TOTAL_SEMANAS = 14;
 const SEMANAS_IMPL = [4, 8, 12]; // semanas de prática (sem conteúdo novo)
 const NUDGE_THRESHOLD_DAYS = 14; // 2 semanas sem atividade
 
-// ── Provisionar Moodle em Lote ──────────────────────────────────────────────
-// Cria usuário no Moodle + matricula nos cursos da trilha
-
-export async function provisionarMoodleLote(empresaId) {
-  const sb = createSupabaseAdmin();
-  try {
-    // Buscar trilhas com cursos
-    const { data: trilhas } = await sb.from('trilhas')
-      .select('colaborador_id, cursos')
-      .eq('empresa_id', empresaId);
-
-    if (!trilhas?.length) return { success: false, error: 'Nenhuma trilha encontrada. Monte as trilhas primeiro.' };
-
-    // Buscar colaboradores
-    const colabIds = trilhas.map(t => t.colaborador_id).filter(Boolean);
-    const { data: colabs } = await sb.from('colaboradores')
-      .select('id, nome_completo, email')
-      .in('id', colabIds);
-    const colabMap = {};
-    (colabs || []).forEach(c => { colabMap[c.id] = c; });
-
-    // Buscar progresso existente (para não reprovisionar)
-    const { data: progressos } = await sb.from('fase4_progresso')
-      .select('colaborador_id, moodle_user_id')
-      .eq('empresa_id', empresaId);
-    const jaProvisionados = {};
-    (progressos || []).forEach(p => { if (p.moodle_user_id) jaProvisionados[p.colaborador_id] = p.moodle_user_id; });
-
-    let criados = 0, matriculados = 0, erros = 0, jaExistentes = 0;
-    const detalhes = [];
-
-    for (const trilha of trilhas) {
-      const colab = colabMap[trilha.colaborador_id];
-      if (!colab?.email) { detalhes.push(`Skip: colaborador sem email`); continue; }
-
-      // Pular se já provisionado
-      if (jaProvisionados[trilha.colaborador_id]) {
-        jaExistentes++;
-        continue;
-      }
-
-      try {
-        // Criar ou encontrar usuário no Moodle
-        let moodleUser = await moodleGetUser(colab.email);
-        if (!moodleUser) {
-          const created = await moodleCreateUser(colab.email, colab.nome_completo);
-          moodleUser = Array.isArray(created) ? created[0] : created;
-          criados++;
-        }
-
-        if (!moodleUser?.id) {
-          erros++;
-          detalhes.push(`${colab.nome_completo}: Moodle user sem ID`);
-          continue;
-        }
-
-        // Matricular nos cursos da trilha
-        const cursos = Array.isArray(trilha.cursos) ? trilha.cursos : [];
-        const courseIds = [...new Set(cursos.map(c => Number(c.course_id)).filter(id => id > 0))];
-
-        if (courseIds.length) {
-          try {
-            const enrollments = courseIds.map(cid => ({
-              userId: moodleUser.id,
-              courseId: cid,
-            }));
-            await moodleEnrollBatch(enrollments);
-            matriculados += courseIds.length;
-          } catch (enrollErr) {
-            detalhes.push(`${colab.nome_completo}: matrícula falhou — ${enrollErr.message}`);
-          }
-        } else {
-          detalhes.push(`${colab.nome_completo}: trilha sem course_ids válidos`);
-        }
-
-        // Salvar moodle_user_id no progresso
-        await sb.from('fase4_progresso').upsert({
-          empresa_id: empresaId,
-          colaborador_id: trilha.colaborador_id,
-          moodle_user_id: moodleUser.id,
-          semana_atual: 1,
-          status: 'aguardando_inicio',
-          cursos_progresso: cursos.map(c => ({
-            course_id: c.course_id,
-            nome: c.nome,
-            pct: 0,
-            concluido: false,
-          })),
-          criado_em: new Date().toISOString(),
-        }, { onConflict: 'empresa_id,colaborador_id' });
-
-      } catch (err) {
-        erros++;
-        detalhes.push(`${colab?.nome_completo || '?'}: ${err.message}`);
-      }
-    }
-
-    const msg = `Moodle: ${criados} users criados, ${matriculados} matrículas, ${jaExistentes} já existentes${erros ? `, ${erros} erros` : ''}`;
-    return { success: true, message: msg + (detalhes.length ? ' — ' + detalhes.join('; ') : '') };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-}
-
-// ── Sync Progresso Moodle ───────────────────────────────────────────────────
-// Busca completion status de cada curso via API Moodle
-
-export async function syncProgressoMoodle(empresaId) {
-  const sb = createSupabaseAdmin();
-  try {
-    const { data: progressos } = await sb.from('fase4_progresso')
-      .select('id, colaborador_id, moodle_user_id, cursos_progresso')
-      .eq('empresa_id', empresaId)
-      .not('moodle_user_id', 'is', null);
-
-    if (!progressos?.length) return { success: false, error: 'Nenhum colaborador provisionado no Moodle. Rode "Provisionar Moodle" primeiro.' };
-
-    let atualizados = 0, erros = 0;
-
-    for (const prog of progressos) {
-      const cursos = Array.isArray(prog.cursos_progresso) ? prog.cursos_progresso : [];
-      if (!cursos.length) continue;
-
-      let totalPct = 0;
-      const cursosAtualizados = [];
-
-      for (const curso of cursos) {
-        try {
-          const completion = await moodleGetCompletion(prog.moodle_user_id, curso.course_id);
-          // completion.completionstatus.completions[] → each has {type, status, complete, timecompleted}
-          const completions = completion?.completionstatus?.completions || [];
-          const total = completions.length;
-          const done = completions.filter(c => c.complete === true).length;
-          const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-
-          cursosAtualizados.push({
-            ...curso,
-            pct,
-            concluido: pct >= 80,
-            atividades_total: total,
-            atividades_concluidas: done,
-          });
-          totalPct += pct;
-        } catch {
-          // Moodle API pode falhar para cursos sem completion tracking
-          cursosAtualizados.push({ ...curso });
-          totalPct += (curso.pct || 0);
-        }
-      }
-
-      const pctGeral = cursos.length > 0 ? Math.round(totalPct / cursos.length) : 0;
-      const todosConcluidos = cursosAtualizados.every(c => c.concluido);
-
-      const { error } = await sb.from('fase4_progresso')
-        .update({
-          cursos_progresso: cursosAtualizados,
-          pct_conclusao: pctGeral,
-          ultimo_sync: new Date().toISOString(),
-          ultimo_acesso: new Date().toISOString(),
-          ...(todosConcluidos ? { status: 'concluido' } : {}),
-        })
-        .eq('id', prog.id);
-
-      if (!error) atualizados++;
-      else erros++;
-    }
-
-    return { success: true, message: `Progresso sync: ${atualizados} colaboradores atualizados${erros ? `, ${erros} erros` : ''}` };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-}
-
-// ── Iniciar Capacitação ─────────────────────────────────────────────────────
-// Atualiza status para em_andamento + gera contrato pedagógico
+// ── Capacitação (legacy fase 3 — Motor de Temporadas é o caminho atual) ───
 
 export async function iniciarCapacitacao(empresaId) {
   const sb = createSupabaseAdmin();
@@ -386,7 +209,6 @@ export async function loadProgressoCapacitacao(empresaId) {
       concluido: progressos.filter(p => p.status === 'concluido').length,
       pct_medio: Math.round(progressos.reduce((s, p) => s + (p.pct_conclusao || 0), 0) / progressos.length),
       semana_media: Math.round(progressos.reduce((s, p) => s + (p.semana_atual || 0), 0) / progressos.length),
-      provisionados: progressos.filter(p => p.moodle_user_id).length,
       total_semanas: TOTAL_SEMANAS,
     };
 
@@ -418,7 +240,6 @@ export async function loadProgressoCapacitacao(empresaId) {
         status: p.status,
         semana_atual: p.semana_atual,
         pct_conclusao: p.pct_conclusao || 0,
-        moodle_ok: !!p.moodle_user_id,
         cursos_progresso: p.cursos_progresso || [],
         competencia_foco: p.competencia_foco,
         ultimo_sync: p.ultimo_sync,

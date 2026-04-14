@@ -170,7 +170,7 @@ export async function gerarRelatorioIndividual(empresaId, colaboradorId, aiConfi
       };
     });
 
-    // Buscar trilha montada (cursos recomendados do Moodle)
+    // Buscar trilha montada (conteúdos recomendados do catálogo Vertho)
     let trilhaTexto = '';
     try {
       const { data: trilha } = await sb.from('trilhas')
@@ -179,7 +179,7 @@ export async function gerarRelatorioIndividual(empresaId, colaboradorId, aiConfi
         .eq('colaborador_id', colaboradorId)
         .maybeSingle();
       if (trilha?.cursos?.length) {
-        trilhaTexto = `\n\nCURSOS RECOMENDADOS (Moodle — usar no plano de 30 dias e estudo recomendado):\n${trilha.cursos.map(c => `- ${c.nome} (${c.competencia || ''}, N${c.nivel || '?'}) — ${c.url || ''}`).join('\n')}`;
+        trilhaTexto = `\n\nCONTEÚDOS RECOMENDADOS (catálogo Vertho — usar no plano de 30 dias e estudo recomendado):\n${trilha.cursos.map(c => `- ${c.nome} (${c.competencia || ''}, ${c.formato || 'texto'}, N${c.nivel || '?'}) — ${c.url || ''}`).join('\n')}`;
       }
     } catch {}
 
