@@ -1,7 +1,30 @@
 import { withSentryConfig } from '@sentry/nextjs';
+import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+
+const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
+
+// Conta total de commits no repo (auto-bump do PATCH em cada deploy)
+let buildNum = '0';
+try {
+  if (process.env.VERCEL_GIT_COMMIT_SHA) {
+    // Na Vercel: depth limitado, usa env var
+    buildNum = process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 7);
+  } else {
+    buildNum = execSync('git rev-list --count HEAD').toString().trim();
+  }
+} catch {}
+
+const sha = (process.env.VERCEL_GIT_COMMIT_SHA || execSync('git rev-parse HEAD').toString().trim()).slice(0, 7);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  env: {
+    NEXT_PUBLIC_APP_VERSION: pkg.version,
+    NEXT_PUBLIC_BUILD_NUM: buildNum,
+    NEXT_PUBLIC_GIT_SHA: sha,
+    NEXT_PUBLIC_BUILD_DATE: new Date().toISOString().slice(0, 10),
+  },
   // Garante que os PNGs usados via fs.readFileSync em server components/API
   // routes sejam incluídos no bundle serverless na Vercel.
   outputFileTracingIncludes: {
