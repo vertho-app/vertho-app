@@ -705,7 +705,7 @@ export default function EmpresaPipelinePage({ params }) {
                       } else if (item.action === 'reavSessoes') {
                         r = await limparReavaliacaoSessoes(empresaId);
                       } else {
-                        r = await limparRegistros(empresaId, item.tabelas, dangerColabId || null);
+                        r = await limparRegistros(empresaId, item.tabelas, dangerColabId || null, item.fields || null);
                       }
                       if (r.success) { addLog(`🗑️ ${item.label} (${scope}) — concluído`, 'success'); loadData(); }
                       else addLog(`❌ ${item.label}: ${r.error}`, 'error');

@@ -65,14 +65,15 @@ export async function excluirEmpresa(empresaId) {
   return { success: true };
 }
 
-export async function limparRegistros(empresaId, tabelas, colaboradorId = null) {
+export async function limparRegistros(empresaId, tabelas, colaboradorId = null, fields = null) {
   const sb = createSupabaseAdmin();
   let pdfsRemovidos = 0;
+  const operacao = fields ? 'UPDATE (nullify)' : 'DELETE';
 
   for (const t of tabelas) {
     // Antes de apagar linhas de 'relatorios', limpar os PDFs do storage
-    // para não deixar arquivos órfãos.
-    if (t === 'relatorios') {
+    // para não deixar arquivos órfãos. Só aplica quando é DELETE.
+    if (!fields && t === 'relatorios') {
       let selectQ = sb.from('relatorios').select('pdf_path').eq('empresa_id', empresaId).not('pdf_path', 'is', null);
       if (colaboradorId) selectQ = selectQ.eq('colaborador_id', colaboradorId);
       const { data: rows } = await selectQ;
@@ -84,16 +85,20 @@ export async function limparRegistros(empresaId, tabelas, colaboradorId = null) 
       }
     }
 
-    let query = sb.from(t).delete().eq('empresa_id', empresaId);
+    // Se fields foi informado, faz UPDATE setando esses campos pra null.
+    // Senão, DELETE total.
+    let query = fields
+      ? sb.from(t).update(fields).eq('empresa_id', empresaId)
+      : sb.from(t).delete().eq('empresa_id', empresaId);
     if (colaboradorId && t !== 'cargos' && t !== 'competencias' && t !== 'ppp_escolas') {
       query = query.eq('colaborador_id', colaboradorId);
     }
     const { error } = await query;
-    if (error) return { success: false, error: `Erro em ${t}: ${error.message}` };
+    if (error) return { success: false, error: `Erro em ${t} (${operacao}): ${error.message}` };
   }
 
   const scope = colaboradorId ? '(colaborador)' : '(empresa)';
-  let msg = `${tabelas.length} tabela(s) limpas ${scope}`;
+  let msg = `${tabelas.length} tabela(s) ${fields ? 'zeradas' : 'limpas'} ${scope}`;
   if (pdfsRemovidos > 0) msg += ` | ${pdfsRemovidos} PDF(s) removidos do storage`;
   return { success: true, message: msg };
 }
