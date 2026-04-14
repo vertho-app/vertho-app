@@ -78,6 +78,13 @@ export async function salvarPerfilComportamental(email, resultados) {
         lead, comp, learnPrefs,
         rawData: resultados.rawData,
       }),
+
+      // Invalida caches de PDF/LLM (serão regerados no próximo acesso)
+      comportamental_pdf_path: null,
+      report_texts: null,
+      report_generated_at: null,
+      insights_executivos: null,
+      insights_executivos_at: null,
     })
     .eq('id', colab.id);
 
