@@ -287,13 +287,21 @@ export default function DashboardHomePage() {
               : <>Prepare-se para sua jornada de desenvolvimento</>
             }
           </h1>
-          <button onClick={() => router.push(data?.competenciaFoco ? '/dashboard/temporada' : '/dashboard/jornada')}
+          <button onClick={() => {
+              if (data?.competenciaFoco) return router.push('/dashboard/temporada');
+              // Fase 1: se ainda não fez o mapeamento DISC, vai direto pro mapeamento
+              if (!data?.colaborador?.perfil_dominante) return router.push('/dashboard/perfil-comportamental/mapeamento');
+              // Já tem DISC, próximo passo é Fase 2 (avaliação)
+              router.push('/dashboard/assessment');
+            }}
             className="flex items-center gap-3 px-6 py-3 md:px-8 md:py-4 rounded-full font-semibold text-white transition-all hover:scale-[1.02] active:scale-95"
             style={{
               background: 'linear-gradient(135deg, #0D9488, #0F766E)',
               boxShadow: '0 0 28px rgba(0,180,216,0.25)',
             }}>
-            {data?.competenciaFoco ? `Ver Temporada de ${data.competenciaFoco}` : 'Ver minha jornada'}
+            {data?.competenciaFoco
+              ? `Ver Temporada de ${data.competenciaFoco}`
+              : (!data?.colaborador?.perfil_dominante ? 'Fazer diagnóstico (DISC)' : 'Iniciar avaliação')}
             <ArrowRight size={18} />
           </button>
         </section>
