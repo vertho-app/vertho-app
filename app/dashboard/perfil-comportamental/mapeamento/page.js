@@ -309,9 +309,9 @@ export default function MapeamentoPage() {
     }
     setSaving(false);
 
-    // Delay for spinner effect
-    setTimeout(() => setPhase(PHASE.RESULTS), 1800);
-  }, [rank1, rank2, pairs1, pairs2, learnPrefs, formEmail, formName, formGender]);
+    // Após calcular, vai direto pra tela consolidada de perfil (com Stitch mockup)
+    setTimeout(() => router.push('/dashboard/perfil-comportamental'), 1800);
+  }, [rank1, rank2, pairs1, pairs2, learnPrefs, formEmail, formName, formGender, router]);
 
   /* ─── Navigation helpers ─── */
   const nextRankGroup = (phaseKey) => {
