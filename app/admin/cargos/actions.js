@@ -105,11 +105,19 @@ export async function salvarEhLideranca(cargoId, ehLideranca) {
   try {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;
     if (!uuidRegex.test(cargoId)) return { success: false, error: 'Cargo precisa estar em cargos_empresa' };
+    const { data: cargo } = await sb.from('cargos_empresa')
+      .select('nome, empresa_id').eq('id', cargoId).maybeSingle();
     const { error } = await sb.from('cargos_empresa')
       .update({ eh_lideranca: !!ehLideranca })
       .eq('id', cargoId);
     if (error) return { success: false, error: error.message };
-    return { success: true };
+
+    // Invalida fits existentes desse cargo (vão ser recalculados sob nova regra)
+    if (cargo) {
+      await sb.from('fit_resultados').delete()
+        .eq('empresa_id', cargo.empresa_id).eq('cargo', cargo.nome);
+    }
+    return { success: true, message: 'Salvo · fits recalcular pendente' };
   } catch (err) {
     return { success: false, error: err.message };
   }

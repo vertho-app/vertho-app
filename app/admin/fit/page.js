@@ -125,6 +125,8 @@ export default function FitPage() {
   const [loadingRanking, setLoadingRanking] = useState(false);
   const [calculating, setCalculating] = useState(false);
   const [toast, setToast] = useState(null);
+  const [sortBy, setSortBy] = useState('fit'); // fit|nome|mapeamento|competencias|lideranca|disc|classificacao
+  const [sortDir, setSortDir] = useState('desc');
   const [detailColab, setDetailColab] = useState(null);
   const [leituraAi, setLeituraAi] = useState(null);
   const [leituraLoading, setLeituraLoading] = useState(false);
@@ -184,23 +186,28 @@ export default function FitPage() {
 
   async function handleCalcular(cargoNome, forcar = false) {
     setCalculating(true);
-    const r = await calcularFitLote(empresaId, cargoNome, { forcar });
-    setCalculating(false);
-    if (!r.success) { flash('Erro: ' + r.error); return; }
-    flash(r.message);
-    if (r.erros_detalhados?.length) {
-      const resumo = r.erros_detalhados.slice(0, 5).map(e => `• ${e.nome}: ${e.erro}`).join('\n');
-      console.group('[Fit lote] Erros:');
-      r.erros_detalhados.forEach(e => console.error(e.nome, '→', e.erro));
-      console.groupEnd();
-      alert(`${r.erros_detalhados.length} colaborador(es) com erro:\n\n${resumo}${r.erros_detalhados.length > 5 ? `\n\n... e mais ${r.erros_detalhados.length - 5}` : ''}`);
+    try {
+      const r = await calcularFitLote(empresaId, cargoNome, { forcar });
+      if (!r.success) { flash('Erro: ' + r.error); return; }
+      flash(r.message);
+      if (r.erros_detalhados?.length) {
+        const resumo = r.erros_detalhados.slice(0, 5).map(e => `• ${e.nome}: ${e.erro}`).join('\n');
+        console.group('[Fit lote] Erros:');
+        r.erros_detalhados.forEach(e => console.error(e.nome, '→', e.erro));
+        console.groupEnd();
+        alert(`${r.erros_detalhados.length} colaborador(es) com erro:\n\n${resumo}${r.erros_detalhados.length > 5 ? `\n\n... e mais ${r.erros_detalhados.length - 5}` : ''}`);
+      }
+      // Recarrega a lista de cargos e ranking
+      await Promise.all([
+        loadCargosComFit(empresaId).then(setCargos),
+        handleSelectCargo(cargoNome),
+      ]);
+    } catch (err) {
+      flash('Erro inesperado: ' + err.message);
+      console.error('[handleCalcular]', err);
+    } finally {
+      setCalculating(false);
     }
-    // Recarrega a lista de cargos para refletir a nova média/total no card e
-    // em paralelo atualiza o ranking do cargo selecionado.
-    await Promise.all([
-      loadCargosComFit(empresaId).then(setCargos),
-      handleSelectCargo(cargoNome),
-    ]);
   }
 
   if (!empresaId) return <div className="max-w-[1100px] mx-auto px-4 py-6 text-center"><p className="text-gray-400">Acesse via pipeline da empresa.</p></div>;
@@ -273,21 +280,51 @@ export default function FitPage() {
             <div className="text-center py-8 text-sm text-gray-500">Nenhum fit calculado. Clique em "Calcular Fit" no cargo.</div>
           ) : (
             <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
+              {(() => {
+                const toggleSort = (col) => {
+                  if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+                  else { setSortBy(col); setSortDir(col === 'nome' || col === 'classificacao' ? 'asc' : 'desc'); }
+                };
+                const sortedRanking = [...ranking].sort((a, b) => {
+                  let va, vb;
+                  switch (sortBy) {
+                    case 'nome': va = a.colaborador?.nome || ''; vb = b.colaborador?.nome || ''; break;
+                    case 'mapeamento': va = a.blocos.mapeamento?.score ?? -1; vb = b.blocos.mapeamento?.score ?? -1; break;
+                    case 'competencias': va = a.blocos.competencias?.score ?? -1; vb = b.blocos.competencias?.score ?? -1; break;
+                    case 'lideranca': va = a.blocos.lideranca?.excluido ? -1 : (a.blocos.lideranca?.score ?? -1); vb = b.blocos.lideranca?.excluido ? -1 : (b.blocos.lideranca?.score ?? -1); break;
+                    case 'disc': va = a.blocos.disc?.score ?? -1; vb = b.blocos.disc?.score ?? -1; break;
+                    case 'classificacao': va = a.classificacao || ''; vb = b.classificacao || ''; break;
+                    case 'fit':
+                    default: va = a.fit_final; vb = b.fit_final;
+                  }
+                  if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+                  return sortDir === 'asc' ? va - vb : vb - va;
+                });
+                const SortHeader = ({ col, label, align = 'center' }) => {
+                  const ativo = sortBy === col;
+                  const arrow = ativo ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕';
+                  return (
+                    <th className={`px-4 py-2 text-${align} cursor-pointer hover:text-cyan-400`} onClick={() => toggleSort(col)}>
+                      {label}<span className={ativo ? 'text-cyan-400' : 'text-gray-700'}>{arrow}</span>
+                    </th>
+                  );
+                };
+                return (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-white/[0.06] text-[9px] font-bold text-gray-500 uppercase tracking-widest">
                     <th className="px-4 py-2 text-center w-10">#</th>
-                    <th className="px-4 py-2 text-left">Colaborador</th>
-                    <th className="px-4 py-2 text-center">Fit</th>
-                    <th className="px-4 py-2 text-center">Mapeamento</th>
-                    <th className="px-4 py-2 text-center">Competências</th>
-                    <th className="px-4 py-2 text-center">Liderança</th>
-                    <th className="px-4 py-2 text-center">DISC</th>
-                    <th className="px-4 py-2 text-left">Classificação</th>
+                    <SortHeader col="nome" label="Colaborador" align="left" />
+                    <SortHeader col="fit" label="Fit" />
+                    <SortHeader col="mapeamento" label="Mapeamento" />
+                    <SortHeader col="competencias" label="Competências" />
+                    <SortHeader col="lideranca" label="Liderança" />
+                    <SortHeader col="disc" label="DISC" />
+                    <SortHeader col="classificacao" label="Classificação" align="left" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.03]">
-                  {ranking.map(r => {
+                  {sortedRanking.map(r => {
                     const faixa = getFaixa(r.fit_final);
                     return (
                       <tr key={r.colaborador.id} className="hover:bg-white/[0.02] cursor-pointer" onClick={() => openDetail(r)}>
@@ -310,6 +347,8 @@ export default function FitPage() {
                   })}
                 </tbody>
               </table>
+                );
+              })()}
             </div>
           )}
 

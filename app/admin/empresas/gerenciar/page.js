@@ -487,6 +487,14 @@ export default function GerenciarPage() {
                         </div>
                       </div>
 
+                      <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer select-none">
+                        <input type="checkbox"
+                          checked={editCargo.eh_lideranca !== false}
+                          onChange={e => setEditCargo(p => ({ ...p, eh_lideranca: e.target.checked }))} />
+                        <span className="font-semibold">Cargo de liderança</span>
+                        <span className="text-gray-500 text-[10px] ml-1">(quando desmarcado, bloco "Liderança" do Fit é excluído)</span>
+                      </label>
+
                       {/* Campos descritivos */}
                       {CARGO_FIELDS.map(f => (
                         <div key={f.key}>

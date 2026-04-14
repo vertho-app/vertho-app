@@ -138,6 +138,7 @@ export async function salvarCargo(empresaId, cargo) {
     stakeholders: cargo.stakeholders?.trim() || null,
     decisoes_recorrentes: cargo.decisoes_recorrentes?.trim() || null,
     tensoes_comuns: cargo.tensoes_comuns?.trim() || null,
+    eh_lideranca: cargo.eh_lideranca !== false,
     updated_at: new Date().toISOString(),
   };
 
