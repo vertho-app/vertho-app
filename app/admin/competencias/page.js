@@ -167,8 +167,8 @@ export default function CompetenciasPage() {
         <div className="rounded-xl p-4 border border-white/[0.06] mb-4" style={{ background: '#0F2A4A' }}>
           <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-2">Importar Competências via CSV</p>
           <p className="text-xs text-gray-400 mb-1">Colunas aceitas (separador: vírgula ou ponto-e-vírgula):</p>
-          <p className="text-[10px] text-cyan-400 font-mono mb-1">cod_comp, <strong>nome</strong>*, pilar, cargo, descricao, cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia, evidencias_esperadas, perguntas_alvo</p>
-          <p className="text-[10px] text-gray-600">* <strong>nome</strong> é obrigatória. Demais são opcionais. Dedup por nome+cargo.</p>
+          <p className="text-[10px] text-cyan-400 font-mono mb-1">cod_comp, <strong>nome</strong>*, pilar, cargo, <strong>descricao</strong>*, cod_desc, nome_curto, descritor_completo, <strong>n1_gap</strong>*, <strong>n2_desenvolvimento</strong>*, n3_meta, <strong>n4_referencia</strong>*, evidencias_esperadas, perguntas_alvo</p>
+          <p className="text-[10px] text-gray-600">* obrigatórios: <strong>nome, descricao, n1_gap, n2_desenvolvimento, n4_referencia</strong>. Demais são opcionais. Dedup por cod_comp+cod_desc.</p>
           <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white cursor-pointer"
             style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
             {importing ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
@@ -188,6 +188,15 @@ export default function CompetenciasPage() {
                 return obj;
               }).filter(c => c.nome);
               if (!parsed.length) { flash('Nenhuma competência válida. Verifique coluna "nome".'); setImporting(false); e.target.value = ''; return; }
+              // Validação de obrigatórios
+              const OBRIG = ['nome', 'descricao', 'n1_gap', 'n2_desenvolvimento', 'n4_referencia'];
+              const invalidos = parsed.filter(c => OBRIG.some(k => !c[k]?.trim()));
+              if (invalidos.length > 0) {
+                flash(`${invalidos.length} linha(s) sem obrigatórios (${OBRIG.join(', ')}). Linhas ignoradas.`);
+                const validos = parsed.filter(c => OBRIG.every(k => c[k]?.trim()));
+                if (validos.length === 0) { setImporting(false); e.target.value = ''; return; }
+                parsed.length = 0; parsed.push(...validos);
+              }
               const r = await importarCompetenciasCSV(empresaId, parsed);
               flash(r.success ? r.message : 'Erro: ' + r.error);
               setImporting(false);
