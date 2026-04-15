@@ -26,12 +26,13 @@ const nextConfig = {
     '/**': ['./public/logo-vertho.png', './public/logo-vertho-cover.png', './public/template-fundo-relatorios.png'],
   },
 
-  // Anexos em base64 (PDF/Office/imagens até 10 MB) precisam caber no payload
-  // da server action. Default do Next é 1 MB — insuficiente para o fluxo de
-  // envios com anexo adicional. 15 MB dá folga (10 MB binário ≈ 14 MB base64).
-  // Em Next 16, serverActions é top-level (saiu de experimental).
-  serverActions: {
-    bodySizeLimit: '15mb',
+  // Upload de anexos (PDF/imagens/áudio) via server action. Default Next é 1MB,
+  // insuficiente pra podcasts (m4a típico passa disso). 50MB cobre áudios longos.
+  // Next 16 (Turbopack) coloca a chave em experimental, não no top-level.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '50mb',
+    },
   },
 };
 
