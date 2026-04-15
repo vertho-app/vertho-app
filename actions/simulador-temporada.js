@@ -329,11 +329,11 @@ async function simularQualitativa(sb, trilha, colab, s, perfilEvolucao) {
     .update({ status: 'em_andamento' })
     .eq('trilha_id', trilha.id).eq('semana', 14).eq('status', 'pendente');
 
-  // Dispara avaliação acumulada (mesmo hook do endpoint real)
-  try {
-    const { gerarAvaliacaoAcumulada } = await import('@/actions/avaliacao-acumulada');
-    await gerarAvaliacaoAcumulada(trilha.id);
-  } catch (e) { console.warn('[sim acumulada]', e.message); }
+  // Dispara avaliação acumulada (mesmo hook do endpoint real). Propaga erro
+  // pra cima se falhar — antes silenciava e a acumulada ficava sem ser gerada.
+  const { gerarAvaliacaoAcumulada } = await import('@/actions/avaliacao-acumulada');
+  const r = await gerarAvaliacaoAcumulada(trilha.id);
+  if (r?.error) throw new Error(`Acumulada falhou: ${r.error}`);
 }
 
 // ── SEM 14: prepara cenário B e gera resposta simulada (SEM scoring) ──

@@ -42,7 +42,9 @@ export async function gerarAvaliacaoAcumulada(trilhaId) {
       evidenciasAcumuladas,
       nomeColab: nome,
     });
-    const r = await callAI(system, user, {}, 1500);
+    // max_tokens generoso — cada descritor ocupa ~250 tok de output (justificativa + tendência + nota);
+    // com 6 descritores + resumo geral facilmente passa de 2000.
+    const r = await callAI(system, user, {}, 3000);
     primaria = JSON.parse(r.replace(/```json\n?|```\n?/g, '').trim());
   } catch (err) {
     console.error('[acumulado primária]', err);
