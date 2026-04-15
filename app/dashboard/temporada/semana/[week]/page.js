@@ -58,6 +58,10 @@ export default function SemanaPage({ params }) {
   const [tdInput, setTdInput] = useState('');
   const [tdBusy, setTdBusy] = useState(false);
   const [tdOpen, setTdOpen] = useState(false);
+  // Missão Prática (sems 4/8/12): modo + compromisso.
+  // modo=null → nada escolhido; 'pratica' → vai executar na vida real; 'cenario' → fallback escrito
+  const [compromissoInput, setCompromissoInput] = useState('');
+  const [missaoBusy, setMissaoBusy] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -120,6 +124,28 @@ export default function SemanaPage({ params }) {
     if (r.history) setChatHistory(r.history);
     setChatFinished(!!r.finished);
     setChatBusy(false);
+  }
+
+  async function setMissaoModo(modo) {
+    if (missaoBusy) return;
+    if (modo === 'pratica' && !compromissoInput.trim()) return;
+    setMissaoBusy(true);
+    const r = await fetch('/api/temporada/missao', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        trilhaId: data.trilha.id,
+        semana: semanaNum,
+        modo,
+        compromisso: modo === 'pratica' ? compromissoInput.trim() : undefined,
+      }),
+    }).then(r => r.json());
+    setMissaoBusy(false);
+    if (!r.error) {
+      const user = (await sb.auth.getUser()).data.user;
+      const fresh = await loadTemporadaPorEmail(user.email);
+      setData(fresh);
+    }
   }
 
   async function sendTiraDuvida() {
@@ -199,21 +225,91 @@ export default function SemanaPage({ params }) {
         </>
       )}
 
-      {/* Contexto da aplicação (semanas 4, 8, 12) */}
-      {isAplicacao && cenario && (
-        <GlassCard className="mb-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Target size={16} className="text-amber-400" />
-            <span className="text-xs uppercase text-amber-400 font-bold">Contexto</span>
-          </div>
-          <div className="prose prose-invert prose-sm max-w-none">
-            {/* Defensive: remove eventual título ('# ...' ou '## ...') e a primeira
-                linha solta acima do 'Contexto:' pra cenários já gerados antes do
-                prompt novo. */}
-            <ReactMarkdown>{stripCenarioTitulo(cenario.texto)}</ReactMarkdown>
-          </div>
-        </GlassCard>
-      )}
+      {/* Missão Prática (sems 4/8/12). Três estados:
+          (A) sem modo: apresenta missão + form de compromisso OU opção pelo cenário escrito.
+          (B) modo=pratica: missão + compromisso salvo (readonly) — chat abaixo vira "relate o que você fez".
+          (C) modo=cenario: fallback escrito (Contexto) — chat abaixo segue fluxo analítico clássico. */}
+      {isAplicacao && (() => {
+        const modoAplicacao = progressoSemana?.feedback?.modo;
+        const compromissoSalvo = progressoSemana?.feedback?.compromisso;
+        const missaoTexto = semana.missao?.texto;
+
+        // Retro-compat: trilhas antigas não têm missao → skip escolha, vai direto pro cenário.
+        const modoEfetivo = modoAplicacao || (!missaoTexto ? 'cenario' : null);
+
+        // Estado A — escolha de modo (só se tem missao e ainda não escolheu)
+        if (!modoEfetivo) {
+          return (
+            <GlassCard className="mb-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Target size={16} className="text-amber-400" />
+                <span className="text-xs uppercase text-amber-400 font-bold">Missão Prática</span>
+              </div>
+              <div className="prose prose-invert prose-sm max-w-none mb-4">
+                <ReactMarkdown>{missaoTexto}</ReactMarkdown>
+              </div>
+              <label className="block text-xs text-gray-400 mb-2">
+                Qual situação da sua rotina você vai usar pra aplicar isso? (1-2 frases)
+              </label>
+              <textarea value={compromissoInput}
+                onChange={e => setCompromissoInput(e.target.value)}
+                rows={2} placeholder="Ex: a reunião de quarta com o cliente X..."
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-500 mb-3" />
+              <div className="flex gap-2 flex-wrap">
+                <button onClick={() => setMissaoModo('pratica')}
+                  disabled={missaoBusy || !compromissoInput.trim()}
+                  className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-sm font-bold">
+                  Aceito a missão
+                </button>
+                <button onClick={() => setMissaoModo('cenario')}
+                  disabled={missaoBusy}
+                  className="px-4 py-2 rounded-lg border border-white/15 hover:border-white/30 disabled:opacity-50 text-xs text-gray-400">
+                  Não vou aplicar na prática — usar cenário escrito
+                </button>
+              </div>
+            </GlassCard>
+          );
+        }
+
+        // Estado B — modo=pratica
+        if (modoAplicacao === 'pratica') {
+          return (
+            <GlassCard className="mb-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Target size={16} className="text-amber-400" />
+                <span className="text-xs uppercase text-amber-400 font-bold">Missão Prática</span>
+              </div>
+              {missaoTexto && (
+                <div className="prose prose-invert prose-sm max-w-none mb-3">
+                  <ReactMarkdown>{missaoTexto}</ReactMarkdown>
+                </div>
+              )}
+              <div className="rounded-lg bg-amber-500/5 border border-amber-500/20 p-3">
+                <p className="text-[10px] uppercase text-amber-400 font-bold tracking-wider mb-1">Seu compromisso</p>
+                <p className="text-sm text-gray-200">{compromissoSalvo}</p>
+              </div>
+              {!chatStarted && (
+                <p className="text-xs text-gray-500 mt-3">
+                  Execute durante a semana. Quando tiver concluído, clique em <span className="text-amber-400">Relatar execução</span> abaixo pra contar o que aconteceu.
+                </p>
+              )}
+            </GlassCard>
+          );
+        }
+
+        // Estado C — modo=cenario (fallback)
+        return (
+          <GlassCard className="mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Target size={16} className="text-amber-400" />
+              <span className="text-xs uppercase text-amber-400 font-bold">Contexto</span>
+            </div>
+            <div className="prose prose-invert prose-sm max-w-none">
+              <ReactMarkdown>{stripCenarioTitulo(cenario?.texto || '')}</ReactMarkdown>
+            </div>
+          </GlassCard>
+        );
+      })()}
 
       {isAvaliacao && semanaNum === 13 && (
         <GlassCard className="mb-4 border-purple-500/30 bg-purple-500/5">
@@ -311,23 +407,32 @@ export default function SemanaPage({ params }) {
             <span className="text-xs uppercase text-purple-400 font-bold">
               {semanaNum === 13 ? 'Conversa de fechamento'
                : semanaNum === 14 ? 'Cenário + avaliação final'
-               : isAplicacao ? 'Feedback (Evidências)'
-               : 'Evidências'}
+               : isAplicacao
+                 ? (progressoSemana?.feedback?.modo === 'pratica' ? 'Relato da Missão' : 'Feedback (Evidências)')
+                 : 'Evidências'}
             </span>
           </div>
 
-          {!chatStarted ? (
-            <button
-              onClick={startChat}
-              disabled={!conteudoConsumido && !isAplicacao && !isAvaliacao}
-              className="w-full px-4 py-3 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-sm font-bold"
-            >
-              {semanaNum === 13 ? 'Iniciar conversa de fechamento'
-               : semanaNum === 14 ? 'Ver cenário final'
-               : isAplicacao ? 'Enviar minha resposta'
-               : 'Levantar evidências'}
-            </button>
-          ) : (
+          {!chatStarted ? (() => {
+            // Em sems 4/8/12 o chat só destrava após o modo ser definido.
+            // Retro-compat: trilhas antigas sem missao não exigem modo.
+            const temMissao = !!semana.missao?.texto;
+            const aplicacaoSemModo = isAplicacao && temMissao && !progressoSemana?.feedback?.modo;
+            return (
+              <button
+                onClick={startChat}
+                disabled={(!conteudoConsumido && !isAplicacao && !isAvaliacao) || aplicacaoSemModo}
+                title={aplicacaoSemModo ? 'Defina como vai executar a missão antes' : ''}
+                className="w-full px-4 py-3 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold"
+              >
+                {semanaNum === 13 ? 'Iniciar conversa de fechamento'
+                 : semanaNum === 14 ? 'Ver cenário final'
+                 : isAplicacao
+                   ? (progressoSemana?.feedback?.modo === 'pratica' ? 'Relatar execução' : 'Enviar minha resposta')
+                   : 'Levantar evidências'}
+              </button>
+            );
+          })() : (
             <>
               <div className="space-y-3 max-h-96 overflow-y-auto mb-3">
                 {chatHistory.map((m, i) => (
@@ -356,7 +461,13 @@ export default function SemanaPage({ params }) {
                       value={chatInput}
                       onChange={e => setChatInput(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && sendMessage()}
-                      placeholder={isAplicacao ? 'Descreva como você conduziria...' : 'Sua resposta...'}
+                      placeholder={
+                        isAplicacao
+                          ? (progressoSemana?.feedback?.modo === 'pratica'
+                              ? 'Relate o que aconteceu quando você executou...'
+                              : 'Descreva como você conduziria...')
+                          : 'Sua resposta...'
+                      }
                       className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
                       disabled={chatBusy}
                     />
