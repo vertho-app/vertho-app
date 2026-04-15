@@ -99,6 +99,21 @@ export async function POST(request) {
       }
 
       await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot, finished });
+
+      // Ao finalizar a sem 13, dispara automaticamente a avaliação acumulada
+      // (1ª IA + check por 2ª IA). Roda em background: não bloqueia a resposta
+      // ao colab. Persiste em feedback.acumulado pra consumo pela sem 14.
+      if (finished) {
+        (async () => {
+          try {
+            const { gerarAvaliacaoAcumulada } = await import('@/actions/avaliacao-acumulada');
+            await gerarAvaliacaoAcumulada(trilhaId);
+          } catch (e) {
+            console.error('[VERTHO] avaliação acumulada sem 13:', e?.message);
+          }
+        })();
+      }
+
       if (finished && Number(semana) < 14) await liberarProxima(sb, trilhaId, 14);
 
       return NextResponse.json({ message: respostaIA, turnIA: proximoTurnIA, finished, history: historico });
@@ -147,6 +162,13 @@ export async function POST(request) {
         sb, trilha.empresa_id, trilha.colaborador_id, trilha.competencia_foco, descritores
       );
 
+      // Carrega avaliação acumulada (se já calculada no fim da sem 13).
+      // Prioridade pro scorer: nota_acumulada por descritor (estruturada).
+      // Fallback: evidências textuais agregadas.
+      const { data: prog13 } = await sb.from('temporada_semana_progresso')
+        .select('feedback').eq('trilha_id', trilhaId).eq('semana', 13).maybeSingle();
+      const acumuladoPrimaria = prog13?.feedback?.acumulado?.primaria || null;
+
       // Agrega evidências das 13 semanas anteriores (conteúdo + prática + sem 13)
       // pra triangulação. A nota_pos NUNCA sai só do cenário.
       const evidenciasAcumuladas = await agregarEvidencias13Semanas(sb, trilhaId, descritoresComRegua);
@@ -157,6 +179,7 @@ export async function POST(request) {
         cenario, resposta: message, nomeColab: nome,
         perfilDominante: colab?.perfil_dominante,
         evidenciasAcumuladas,
+        acumuladoPrimaria, // notas estruturadas já pontuadas por descritor (pode ser null)
       });
       const r = await callAI(system, user, {}, 1500);
       let parsed = {};
