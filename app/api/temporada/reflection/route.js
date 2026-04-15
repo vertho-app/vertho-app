@@ -23,7 +23,7 @@ async function extrairDadosEstruturados(historico, tipoConversa, semanaPlan) {
 }
 
 const MAX_TURNS_SOCRATIC = 10; // 5 IA + 5 colab
-const MAX_TURNS_ANALYTIC = 12; // 6 IA + 6 colab
+const MAX_TURNS_ANALYTIC = 10; // 5 IA + 5 colab — turn 5 é fechamento obrigatório, sem réplica
 
 /**
  * POST /api/temporada/reflection

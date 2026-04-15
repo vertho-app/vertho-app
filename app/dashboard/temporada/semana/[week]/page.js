@@ -12,6 +12,30 @@ import MicInput from '@/components/mic-input';
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen };
 
+/**
+ * Remove o título do cenário (cenários antigos vinham com "## Título" ou
+ * uma linha solta antes do "**Contexto:**"). Novos cenários já não têm,
+ * mas mantemos o strip defensivo.
+ */
+function stripCenarioTitulo(texto) {
+  if (!texto) return '';
+  const linhas = String(texto).split('\n');
+  let i = 0;
+  while (i < linhas.length) {
+    const l = linhas[i].trim();
+    if (!l) { i++; continue; }
+    // markdown heading
+    if (/^#{1,6}\s/.test(l)) { i++; continue; }
+    // linha solta antes do Contexto: (sem negrito, sem prefixo)
+    if (!/^\*\*|^-\s/.test(l) && i + 1 < linhas.length && /\*\*Contexto:/i.test(linhas.slice(i + 1).join('\n'))) {
+      i++;
+      continue;
+    }
+    break;
+  }
+  return linhas.slice(i).join('\n');
+}
+
 export default function SemanaPage({ params }) {
   const { week } = use(params);
   const semanaNum = Number(week);
@@ -175,15 +199,18 @@ export default function SemanaPage({ params }) {
         </>
       )}
 
-      {/* Cenário (semanas de aplicação) */}
+      {/* Contexto da aplicação (semanas 4, 8, 12) */}
       {isAplicacao && cenario && (
         <GlassCard className="mb-4">
           <div className="flex items-center gap-2 mb-3">
             <Target size={16} className="text-amber-400" />
-            <span className="text-xs uppercase text-amber-400 font-bold">Cenário · {cenario.complexidade}</span>
+            <span className="text-xs uppercase text-amber-400 font-bold">Contexto</span>
           </div>
           <div className="prose prose-invert prose-sm max-w-none">
-            <ReactMarkdown>{cenario.texto}</ReactMarkdown>
+            {/* Defensive: remove eventual título ('# ...' ou '## ...') e a primeira
+                linha solta acima do 'Contexto:' pra cenários já gerados antes do
+                prompt novo. */}
+            <ReactMarkdown>{stripCenarioTitulo(cenario.texto)}</ReactMarkdown>
           </div>
         </GlassCard>
       )}
