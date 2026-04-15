@@ -506,12 +506,13 @@ export default function Fase2Page({ params }) {
                                 <span className="text-xs text-gray-300 font-medium">{c.nome}</span>
                               )}
                               {c.descritor && (
-                                <p className="text-[10px] text-gray-500 mt-0.5">
-                                  {c.descritor}
+                                <p className="text-[10px] mt-0.5 flex items-center gap-2 flex-wrap">
+                                  <span className="font-bold text-cyan-200">DESCRITOR FOCO:</span>
+                                  <span className="text-gray-200">{c.descritor}</span>
                                   {c.nota_descritor != null && (
-                                    <span className="ml-2 text-amber-400">nota: {Number(c.nota_descritor).toFixed(1)}</span>
+                                    <span className="font-bold text-amber-400">nota {Number(c.nota_descritor).toFixed(1)}</span>
                                   )}
-                                  {c.formato && <span className="ml-2 text-gray-600 uppercase">· {c.formato}</span>}
+                                  {c.formato && <span className="text-gray-600 uppercase">· {c.formato}</span>}
                                 </p>
                               )}
                               {c.desafio && (
