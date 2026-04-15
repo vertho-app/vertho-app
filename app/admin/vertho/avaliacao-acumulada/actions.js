@@ -70,7 +70,7 @@ export async function loadAvaliacaoAcumuladaDetalhe(email, progressoId) {
   const sb = createSupabaseAdmin();
   const { data, error } = await sb.from('temporada_semana_progresso')
     .select(`
-      id, trilha_id, concluido_em, feedback,
+      id, trilha_id, colaborador_id, concluido_em, feedback,
       colaboradores!inner(nome_completo, cargo, perfil_dominante),
       empresas!inner(nome),
       trilhas!inner(competencia_foco, descritores_selecionados)
@@ -80,6 +80,19 @@ export async function loadAvaliacaoAcumuladaDetalhe(email, progressoId) {
   if (!data) return { error: 'Registro não encontrado' };
 
   const acum = data.feedback?.acumulado;
+
+  // Busca notas iniciais EXTERNAMENTE (não vindo da IA acumuladora, que é cega
+  // pra iniciais por design). Usado só pra exibir comparação no painel Vertho.
+  const descs = Array.isArray(data.trilhas?.descritores_selecionados) ? data.trilhas.descritores_selecionados : [];
+  const { data: initialRows } = await sb.from('descriptor_assessments')
+    .select('descritor, nota')
+    .eq('colaborador_id', data.colaborador_id)
+    .eq('competencia', data.trilhas?.competencia_foco)
+    .in('descritor', descs.map(d => d.descritor));
+  const notasIniciais = Object.fromEntries((initialRows || []).map(r => [r.descritor, Number(r.nota)]));
+  // Fallback pra snapshot do JSONB se não achar no descriptor_assessments
+  for (const d of descs) if (notasIniciais[d.descritor] == null) notasIniciais[d.descritor] = d.nota_atual;
+
   return {
     ok: true,
     detalhe: {
@@ -93,6 +106,7 @@ export async function loadAvaliacaoAcumuladaDetalhe(email, progressoId) {
       geradoEm: acum?.gerado_em || null,
       primaria: acum?.primaria || null,
       auditoria: acum?.auditoria || null,
+      notasIniciais, // { descritor: nota_inicial } pra comparação visual no painel
     },
   };
 }

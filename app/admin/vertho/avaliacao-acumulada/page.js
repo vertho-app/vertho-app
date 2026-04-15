@@ -184,15 +184,19 @@ function DetalheModal({ detalhe, loading, onClose, onRegerar }) {
                 <p className="text-[10px] uppercase tracking-widest text-emerald-400 mb-1">1ª IA — Nota Acumulada por Descritor</p>
                 <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2">
                   <p className="text-xs">Média: <b className="text-emerald-300">{detalhe.primaria.nota_media_acumulada}</b></p>
-                  {detalhe.primaria.avaliacao_acumulada?.map((d, i) => (
-                    <div key={i} className="text-[11px] border-t border-white/5 pt-2">
-                      <p className="font-bold text-white">
-                        {d.descritor} — inicial {d.nota_inicial} → acumulada <span className="text-emerald-300">{d.nota_acumulada}</span>
-                        <span className="text-[10px] text-gray-400"> ({d.nivel_rubrica}, tendência {d.tendencia}, {d.quantidade_referencias} semana(s))</span>
-                      </p>
-                      <p className="text-gray-400 mt-0.5">{d.justificativa}</p>
-                    </div>
-                  ))}
+                  {detalhe.primaria.avaliacao_acumulada?.map((d, i) => {
+                    const inicial = detalhe.notasIniciais?.[d.descritor];
+                    return (
+                      <div key={i} className="text-[11px] border-t border-white/5 pt-2">
+                        <p className="font-bold text-white">
+                          {d.descritor} — {inicial != null && <>inicial <span className="text-gray-400">{inicial}</span> → </>}
+                          acumulada <span className="text-emerald-300">{d.nota_acumulada ?? '—'}</span>
+                          <span className="text-[10px] text-gray-400"> ({d.nivel_rubrica}, tendência {d.tendencia}, {d.quantidade_referencias} semana(s))</span>
+                        </p>
+                        <p className="text-gray-400 mt-0.5">{d.justificativa}</p>
+                      </div>
+                    );
+                  })}
                   <p className="text-xs text-gray-300 italic border-t border-white/5 pt-2">{detalhe.primaria.resumo_geral}</p>
                 </div>
               </section>
