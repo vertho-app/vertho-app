@@ -45,7 +45,7 @@ export async function POST(request) {
     }
 
     const { data: colab } = await sb.from('colaboradores')
-      .select('nome_completo, cargo').eq('id', trilha.colaborador_id).maybeSingle();
+      .select('nome_completo, cargo, perfil_dominante').eq('id', trilha.colaborador_id).maybeSingle();
     const nome = (colab?.nome_completo || '').split(' ')[0] || 'você';
     const descritores = Array.isArray(trilha.descritores_selecionados) ? trilha.descritores_selecionados : [];
 
@@ -70,8 +70,12 @@ export async function POST(request) {
 
       const proximoTurnIA = turnsIA + 1;
       const { system } = promptEvolutionQualitative({
-        nomeColab: nome, cargo: colab?.cargo, competencia: trilha.competencia_foco,
-        descritores, insightsAnteriores, turnIA: proximoTurnIA, totalTurns: TOTAL,
+        nomeColab: nome,
+        cargo: colab?.cargo,
+        perfilDominante: colab?.perfil_dominante,
+        competencia: trilha.competencia_foco,
+        descritores, insightsAnteriores,
+        turnIA: proximoTurnIA, totalTurns: TOTAL,
       });
       const messages = historico.map(m => ({ role: m.role, content: m.content }));
       if (proximoTurnIA === 1 && messages.length === 0) {
