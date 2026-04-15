@@ -44,7 +44,7 @@ export async function POST(request) {
     }
 
     const { data: colab } = await sb.from('colaboradores')
-      .select('nome_completo, cargo').eq('id', trilha.colaborador_id).maybeSingle();
+      .select('nome_completo, cargo, perfil_dominante').eq('id', trilha.colaborador_id).maybeSingle();
     if (!colab) return NextResponse.json({ error: 'colab não encontrado' }, { status: 404 });
 
     const semanaPlan = (trilha.temporada_plano || []).find(s => s.semana === Number(semana));
@@ -73,6 +73,7 @@ export async function POST(request) {
       competencia: trilha.competencia_foco,
       descritor: semanaPlan.descritor,
       conteudoResumo,
+      perfilDominante: colab.perfil_dominante,
       historico,
     });
 
