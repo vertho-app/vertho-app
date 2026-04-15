@@ -42,9 +42,25 @@ export async function POST(request) {
     const sb = createSupabaseAdmin();
 
     const { data: trilha } = await sb.from('trilhas')
-      .select('id, colaborador_id, competencia_foco, temporada_plano')
+      .select('id, colaborador_id, competencia_foco, temporada_plano, data_inicio')
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return NextResponse.json({ error: 'trilha não encontrada' }, { status: 404 });
+
+    // Gate temporal: semana só libera na segunda às 03:00 BRT correspondente.
+    const { semanaLiberadaPorData, formatarLiberacao } = await import('@/lib/season-engine/week-gating');
+    if (!semanaLiberadaPorData(trilha.data_inicio, semana)) {
+      return NextResponse.json({
+        error: `Semana ${semana} ainda bloqueada. Libera ${formatarLiberacao(trilha.data_inicio, semana)}.`,
+      }, { status: 403 });
+    }
+    // Gate de progressão: anterior precisa estar concluída.
+    if (Number(semana) > 1) {
+      const { data: prev } = await sb.from('temporada_semana_progresso')
+        .select('status').eq('trilha_id', trilhaId).eq('semana', Number(semana) - 1).maybeSingle();
+      if (prev?.status !== 'concluido') {
+        return NextResponse.json({ error: `Conclua a semana ${Number(semana) - 1} antes.` }, { status: 403 });
+      }
+    }
 
     const { data: colab } = await sb.from('colaboradores')
       .select('nome_completo, cargo, perfil_dominante').eq('id', trilha.colaborador_id).maybeSingle();

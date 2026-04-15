@@ -6,6 +6,7 @@ import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, BookOpen, Target, Sparkles, Lock, Check, Play, Video, FileText, Headphones, Award } from 'lucide-react';
 import { loadTemporadaPorEmail } from '@/actions/temporadas';
 import { PageContainer, PageHero, GlassCard } from '@/components/page-shell';
+import { semanaLiberadaPorData, formatarLiberacao } from '@/lib/season-engine/week-gating';
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen };
 const TIPO_LABEL = { conteudo: 'Episódio', aplicacao: 'Aplicação', avaliacao: 'Avaliação' };
@@ -81,7 +82,20 @@ export default function TemporadaPage() {
           const p = progressoMap[s.semana];
           const concluida = p?.status === 'concluido';
           const emAndamento = p?.status === 'em_andamento';
-          const liberada = concluida || emAndamento || s.semana === 1;
+          // Gate temporal: só libera na segunda-feira correspondente às 03:00 BRT.
+          const liberadaPorData = semanaLiberadaPorData(trilha.data_inicio, s.semana);
+          // Gate de progressão: só libera se a anterior já está concluída.
+          const anteriorConcluida = s.semana === 1
+            ? true
+            : progressoMap[s.semana - 1]?.status === 'concluido';
+          // emAndamento sozinho não basta — a próxima é auto-promovida quando a anterior conclui,
+          // mas o gate temporal deve continuar valendo. Por isso exigimos liberadaPorData também.
+          const liberada = concluida || (liberadaPorData && (emAndamento || anteriorConcluida));
+          const motivoBloqueio = !liberada
+            ? (!liberadaPorData
+                ? `Libera ${formatarLiberacao(trilha.data_inicio, s.semana)}`
+                : 'Conclua a semana anterior')
+            : '';
 
           const Icon = s.tipo === 'aplicacao' ? Target : s.tipo === 'avaliacao' ? Sparkles : (FORMAT_ICON[s.conteudo?.formato_core] || BookOpen);
 
@@ -90,6 +104,7 @@ export default function TemporadaPage() {
               key={s.semana}
               onClick={() => liberada && router.push(`/dashboard/temporada/semana/${s.semana}`)}
               disabled={!liberada}
+              title={motivoBloqueio}
               className={`relative rounded-xl p-3 text-left transition-all border ${
                 concluida ? 'bg-emerald-500/10 border-emerald-500/30 hover:border-emerald-400' :
                 emAndamento ? 'bg-cyan-500/10 border-cyan-500/40 ring-2 ring-cyan-500/30 hover:border-cyan-400' :
@@ -108,6 +123,9 @@ export default function TemporadaPage() {
               </div>
               {s.conteudo?.formato_core && liberada && (
                 <div className="text-[9px] text-gray-500 mt-0.5">{s.conteudo.formato_core}</div>
+              )}
+              {!liberada && motivoBloqueio && (
+                <div className="text-[9px] text-gray-500 mt-0.5 truncate">{motivoBloqueio}</div>
               )}
             </button>
           );

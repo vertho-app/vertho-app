@@ -108,6 +108,7 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig } = 
       .order('criado_em', { ascending: false }).limit(1).maybeSingle();
 
     const numeroTemporada = (existente?.numero_temporada || 0) + 1;
+    const { nextMondayISO } = await import('@/lib/season-engine/week-gating');
     const payload = {
       empresa_id: colab.empresa_id,
       colaborador_id: colaboradorId,
@@ -116,6 +117,7 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig } = 
       temporada_plano: semanas,
       descritores_selecionados: descritoresSelecionados,
       status: 'ativa',
+      data_inicio: nextMondayISO(), // semana 1 libera na próxima segunda às 03:00 BRT
       cursos: [], // campo legado, conteúdo agora vive em temporada_plano
     };
 
