@@ -25,6 +25,9 @@ export default function SemanaPage({ params }) {
   const [chatBusy, setChatBusy] = useState(false);
   const [chatFinished, setChatFinished] = useState(false);
   const [chatStarted, setChatStarted] = useState(false);
+  // Só libera "Marcar como realizado" depois que o colab abriu o link do conteúdo
+  // (ou, pra vídeo, o auto-consumido dispara no 80% via postMessage).
+  const [abriuConteudo, setAbriuConteudo] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -120,15 +123,18 @@ export default function SemanaPage({ params }) {
           <GlassCard className="mb-4">
             <ConteudoViewer conteudo={conteudo} formatoAtivo={formatoAtivo} setFormatoAtivo={setFormatoAtivo}
               trilhaId={data.trilha.id} semana={semanaNum}
+              onAbrirConteudo={() => setAbriuConteudo(true)}
               onAutoConsumido={() => !conteudoConsumido && handleConsumido()} />
             {!conteudoConsumido && (
-              <button onClick={handleConsumido} className="mt-4 flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm font-bold">
-                <Check size={14} /> Marcar como assistido
+              <button onClick={handleConsumido} disabled={!abriuConteudo}
+                title={!abriuConteudo ? 'Abra o conteúdo antes de marcar como realizado' : ''}
+                className="mt-4 flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold">
+                <Check size={14} /> Marcar como realizado
               </button>
             )}
             {conteudoConsumido && (
               <div className="mt-4 flex items-center gap-2 text-emerald-400 text-xs">
-                <Check size={14} /> Conteúdo concluído
+                <Check size={14} /> Conteúdo realizado
               </div>
             )}
           </GlassCard>
@@ -256,7 +262,7 @@ export default function SemanaPage({ params }) {
   );
 }
 
-function ConteudoViewer({ conteudo, formatoAtivo, setFormatoAtivo, onAutoConsumido, trilhaId, semana }) {
+function ConteudoViewer({ conteudo, formatoAtivo, setFormatoAtivo, onAutoConsumido, onAbrirConteudo, trilhaId, semana }) {
   const formatos = Object.keys(conteudo.formatos_disponiveis || {});
   const ativo = formatoAtivo || conteudo.formato_core;
   const item = conteudo.formatos_disponiveis?.[ativo] || (ativo === conteudo.formato_core ? { url: conteudo.core_url, titulo: conteudo.core_titulo } : null);
@@ -272,6 +278,10 @@ function ConteudoViewer({ conteudo, formatoAtivo, setFormatoAtivo, onAutoConsumi
         // Bunny player.js envia 'timeupdate' com seconds/duration, ou 'play_finished'
         const pct = data?.progress != null ? Number(data.progress) :
                     (data?.seconds && data?.duration ? data.seconds / data.duration : null);
+        // Play iniciado libera o botão "Marcar como realizado"
+        if (data?.event === 'play' || data?.event === 'playing' || data?.event === 'play_started') {
+          onAbrirConteudo?.();
+        }
         if ((pct && pct >= 0.8) || data?.event === 'play_finished' || data?.event === 'ended') {
           if (!markedRef && onAutoConsumido) {
             markedRef = true;
@@ -330,7 +340,9 @@ function ConteudoViewer({ conteudo, formatoAtivo, setFormatoAtivo, onAutoConsumi
       )}
       {item?.url && (ativo === 'texto' || ativo === 'case') && (
         <div className="prose prose-invert prose-sm max-w-none">
-          <a href={item.url} target="_blank" rel="noopener" className="text-cyan-400">Abrir conteúdo →</a>
+          <a href={item.url} target="_blank" rel="noopener"
+            onClick={() => onAbrirConteudo?.()}
+            className="text-cyan-400">Abrir conteúdo →</a>
         </div>
       )}
     </div>
