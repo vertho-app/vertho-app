@@ -126,7 +126,7 @@ export default function AvaliacaoAcumuladaPage() {
                       {r.auditoriaNota != null && <> · Auditoria <span className={cfg.text + ' font-bold'}>{r.auditoriaNota}/100</span></>}
                     </p>
                     {r.alertas.length > 0 && (
-                      <p className="text-[10px] text-amber-300 mt-1 truncate">⚠ {r.alertas.slice(0, 2).join(' · ')}</p>
+                      <p className="text-[10px] text-amber-300 mt-1 truncate">⚠ {r.alertas.slice(0, 2).map(a => typeof a === 'string' ? a : (a.detalhe || a.tipo || '')).join(' · ')}</p>
                     )}
                   </button>
                   <button onClick={() => reger(r.trilhaId)} disabled={regerando === r.trilhaId}
@@ -216,7 +216,12 @@ function DetalheModal({ detalhe, loading, onClose, onRegerar }) {
                   {detalhe.auditoria.alertas?.length > 0 && (
                     <div>
                       <p className="text-[10px] text-amber-400 font-bold mt-2">Alertas:</p>
-                      <ul className="text-[11px] text-amber-200 list-disc pl-4">{detalhe.auditoria.alertas.map((a, i) => <li key={i}>{a}</li>)}</ul>
+                      <ul className="text-[11px] text-amber-200 list-disc pl-4 space-y-1">
+                        {detalhe.auditoria.alertas.map((a, i) => {
+                          if (typeof a === 'string') return <li key={i}>{a}</li>;
+                          return <li key={i}>{a.descritor && <span className="text-amber-400 font-bold">[{a.descritor}] </span>}{a.detalhe || a.tipo || JSON.stringify(a)}</li>;
+                        })}
+                      </ul>
                     </div>
                   )}
                   {detalhe.auditoria.ajustes_sugeridos?.length > 0 && (

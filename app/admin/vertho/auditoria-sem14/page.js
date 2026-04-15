@@ -130,7 +130,7 @@ export default function AuditoriaSem14Page() {
                     </p>
                     {r.auditoriaAlertas.length > 0 && (
                       <p className="text-[10px] text-amber-300 mt-1 truncate">
-                        ⚠ {r.auditoriaAlertas.slice(0, 2).join(' · ')}
+                        ⚠ {r.auditoriaAlertas.slice(0, 2).map(a => typeof a === 'string' ? a : (a.detalhe || a.tipo || '')).join(' · ')}
                       </p>
                     )}
                   </div>
@@ -220,8 +220,17 @@ function DetalheModal({ detalhe, loading, onClose }) {
                   {detalhe.auditoria.alertas?.length > 0 && (
                     <div>
                       <p className="text-[10px] text-amber-400 font-bold mt-2">Alertas:</p>
-                      <ul className="text-[11px] text-amber-200 list-disc pl-4">
-                        {detalhe.auditoria.alertas.map((a, i) => <li key={i}>{a}</li>)}
+                      <ul className="text-[11px] text-amber-200 list-disc pl-4 space-y-1">
+                        {detalhe.auditoria.alertas.map((a, i) => {
+                          if (typeof a === 'string') return <li key={i}>{a}</li>;
+                          return (
+                            <li key={i}>
+                              {a.descritor && <span className="text-amber-400 font-bold">[{a.descritor}] </span>}
+                              {a.tipo && <span className="text-[10px] text-amber-500 mr-1">{a.tipo}:</span>}
+                              {a.detalhe || a.mensagem || JSON.stringify(a)}
+                            </li>
+                          );
+                        })}
                       </ul>
                     </div>
                   )}
