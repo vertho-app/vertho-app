@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ChevronRight, ChevronDown, BookOpen, Target, Sparkles, Video, FileText, Headphones, FileType, Pause, Play, Archive, RefreshCw, Eye, X } from 'lucide-react';
 import { listarTemporadasEmpresa, pausarRetomarTemporada, arquivarTemporada, regerarSemana, loadProgressoDetalhado } from '@/actions/temporadas';
+import { simularTemporadaCompleta } from '@/actions/simulador-temporada';
+import { getSupabase } from '@/lib/supabase-browser';
 
 const STATUS_COLORS = {
   ativa: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
@@ -66,6 +68,25 @@ export default function TemporadasAdminPage() {
     setBusy(false);
   }
 
+  async function handleSimular(trilhaId, nome) {
+    const perfil = prompt(
+      `SIMULAR TEMPORADA COMPLETA de ${nome}?\n\nIsso preenche as sems 1-13 com conversas fictícias geradas por IA (Haiku) e prepara a sem 14 pra scoring manual.\n\nEscolha o perfil de evolução:\n  1 = evolucao_confirmada\n  2 = evolucao_parcial (default)\n  3 = estagnacao\n  4 = regressao\n\nDigite 1-4 ou cancele:`,
+      '2'
+    );
+    if (!perfil) return;
+    const mapa = { 1: 'evolucao_confirmada', 2: 'evolucao_parcial', 3: 'estagnacao', 4: 'regressao' };
+    const perfilEvolucao = mapa[perfil.trim()] || 'evolucao_parcial';
+    if (!confirm(`Simular com perfil "${perfilEvolucao}"? Pode levar 5-10 minutos. Apaga qualquer progresso das sems 1-14.`)) return;
+    setBusy(true);
+    const sb = getSupabase();
+    const { data: { user } } = await sb.auth.getUser();
+    const r = await simularTemporadaCompleta(user.email, { trilhaId, perfilEvolucao });
+    if (r.error) alert(`Erro: ${r.error}\n\nEtapas OK: ${(r.steps || []).length}`);
+    else alert(`Simulação concluída! ${r.steps.length} etapas. Cenário B disponível: ${r.steps.find(s => s.semana === 14)?.cenario_disponivel ? 'sim' : 'não'}`);
+    await recarregar();
+    setBusy(false);
+  }
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setEmpresaId(params.get('empresa'));
@@ -113,6 +134,7 @@ export default function TemporadasAdminPage() {
                 onPausar={() => handlePausar(t.id)}
                 onArquivar={() => handleArquivar(t.id, t.colab?.nome_completo)}
                 onRegerar={(semana) => handleRegerar(t.id, semana)}
+                onSimular={() => handleSimular(t.id, t.colab?.nome_completo || 'colab')}
                 onVerDetalhe={() => handleVerDetalhe(t.id)}
                 busy={busy} />
             ))}
@@ -125,7 +147,7 @@ export default function TemporadasAdminPage() {
   );
 }
 
-function TemporadaCard({ t, expanded, onToggle, onPausar, onArquivar, onRegerar, onVerDetalhe, busy }) {
+function TemporadaCard({ t, expanded, onToggle, onPausar, onArquivar, onRegerar, onSimular, onVerDetalhe, busy }) {
   const colab = t.colab || {};
   const semanas = Array.isArray(t.temporada_plano) ? t.temporada_plano : [];
   const descritores = Array.isArray(t.descritores_selecionados) ? t.descritores_selecionados : [];
@@ -146,6 +168,10 @@ function TemporadaCard({ t, expanded, onToggle, onPausar, onArquivar, onRegerar,
         <button onClick={onVerDetalhe} disabled={busy} title="Ver progresso detalhado"
           className="p-1.5 rounded hover:bg-white/10 text-cyan-400 disabled:opacity-50">
           <Eye size={14} />
+        </button>
+        <button onClick={onSimular} disabled={busy} title="Simular temporada completa (testes Vertho)"
+          className="p-1.5 rounded hover:bg-white/10 text-purple-400 disabled:opacity-50 text-[10px] font-bold">
+          SIM
         </button>
         {statusKey !== 'arquivada' && (
           <>
