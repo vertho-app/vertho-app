@@ -60,7 +60,7 @@ export async function gerarAvaliacaoAcumulada(trilhaId) {
       evidenciasAcumuladas,
       avaliacaoPrimaria: primaria,
     });
-    const r = await callAI(system, user, {}, 1000);
+    const r = await callAI(system, user, {}, 3000);
     auditoria = JSON.parse(r.replace(/```json\n?|```\n?/g, '').trim());
   } catch (err) {
     console.error('[acumulado check]', err);

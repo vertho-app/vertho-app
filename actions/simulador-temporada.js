@@ -154,19 +154,19 @@ async function simularSocratico(sb, trilha, colab, s, perfilEvolucao) {
       turnIA,
     });
     const mensagensPayload = messages.length ? messages : [{ role: 'user', content: '[INICIE]' }];
-    const respIA = (await callAIChat(system, mensagensPayload, {}, 500)).trim();
+    const respIA = (await callAIChat(system, mensagensPayload, {}, 2000)).trim();
     historico.push({ role: 'assistant', content: respIA, timestamp: new Date().toISOString(), turn: turnIA });
 
     if (turnIA >= maxIA) break;
 
-    // Colab fala (simulador)
+    // Colab fala (simulador) — resposta curta (2-5 frases), mas folga pra não cortar
     const userTurn = turnIA;
     const simP = promptSimuladorColab({
       perfilEvolucao, semana: s.semana, tipoChat: 'socratic',
       competencia: trilha.competencia_foco, descritor: s.descritor,
       desafio, historico, turnUser: userTurn, cargo: colab?.cargo,
     });
-    const respColab = (await callAI(simP.system, simP.user, SIM_MODEL, 300)).trim();
+    const respColab = (await callAI(simP.system, simP.user, SIM_MODEL, 1000)).trim();
     historico.push({ role: 'user', content: respColab, timestamp: new Date().toISOString() });
   }
 
@@ -176,7 +176,7 @@ async function simularSocratico(sb, trilha, colab, s, perfilEvolucao) {
     const transcript = historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content}`).join('\n\n');
     const sys = 'Você é um extrator. Retorne APENAS JSON válido.';
     const usr = `CONVERSA:\n${transcript}\n\nExtraia:\n{\n  "desafio_realizado": "sim|parcial|nao",\n  "relato_resumo": "1 frase",\n  "insight_principal": "1 frase",\n  "compromisso_proxima": "1 frase",\n  "qualidade_reflexao": "alta|media|baixa"\n}`;
-    const r = await callAI(sys, usr, {}, 400);
+    const r = await callAI(sys, usr, {}, 2000);
     extracao = JSON.parse(r.replace(/```json\n?|```\n?/g, '').trim());
   } catch (e) { console.warn('[sim extract]', e.message); }
 
@@ -205,7 +205,7 @@ async function simularMissaoPratica(sb, trilha, colab, s, perfilEvolucao) {
     perfilEvolucao, competencia: trilha.competencia_foco,
     descritoresCobertos: cobertos, cargo: colab?.cargo, missao: missaoTexto,
   });
-  const compromisso = (await callAI(cmp.system, cmp.user, SIM_MODEL, 150)).trim();
+  const compromisso = (await callAI(cmp.system, cmp.user, SIM_MODEL, 500)).trim();
 
   // 2. set modo=pratica
   await upsertProgresso(sb, trilha, s.semana, {
@@ -225,7 +225,7 @@ async function simularMissaoPratica(sb, trilha, colab, s, perfilEvolucao) {
     competencia: trilha.competencia_foco, descritor: cobertos.join(', '),
     missao: missaoTexto, historico: [], turnUser: 1, cargo: colab?.cargo,
   });
-  const relatoInicial = (await callAI(simInit.system, simInit.user, SIM_MODEL, 400)).trim();
+  const relatoInicial = (await callAI(simInit.system, simInit.user, SIM_MODEL, 1500)).trim();
   historico.push({ role: 'user', content: relatoInicial, timestamp: new Date().toISOString() });
 
   for (let turnIA = 1; turnIA <= maxIA; turnIA++) {
@@ -236,7 +236,7 @@ async function simularMissaoPratica(sb, trilha, colab, s, perfilEvolucao) {
       missao: missaoTexto, compromisso,
       historico, turnIA,
     });
-    const respIA = (await callAIChat(system, messages, {}, 500)).trim();
+    const respIA = (await callAIChat(system, messages, {}, 2000)).trim();
     historico.push({ role: 'assistant', content: respIA, timestamp: new Date().toISOString(), turn: turnIA });
 
     if (turnIA >= maxIA) break;
@@ -248,7 +248,7 @@ async function simularMissaoPratica(sb, trilha, colab, s, perfilEvolucao) {
       competencia: trilha.competencia_foco, descritor: cobertos.join(', '),
       missao: missaoTexto, historico, turnUser, cargo: colab?.cargo,
     });
-    const respColab = (await callAI(simP.system, simP.user, SIM_MODEL, 300)).trim();
+    const respColab = (await callAI(simP.system, simP.user, SIM_MODEL, 1000)).trim();
     historico.push({ role: 'user', content: respColab, timestamp: new Date().toISOString() });
   }
 
@@ -258,7 +258,7 @@ async function simularMissaoPratica(sb, trilha, colab, s, perfilEvolucao) {
     const transcript = historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content}`).join('\n\n');
     const sys = 'Você é um extrator de dados. Retorne APENAS JSON.';
     const usr = `CONVERSA:\n${transcript}\n\nExtraia:\n{\n  "avaliacao_por_descritor": [\n${cobertos.map(d => `    { "descritor": "${d}", "nota": 1.0-4.0, "observacao": "1 frase" }`).join(',\n')}\n  ],\n  "sintese_bloco": "1 frase"\n}`;
-    const r = await callAI(sys, usr, {}, 500);
+    const r = await callAI(sys, usr, {}, 3000);
     extracao = JSON.parse(r.replace(/```json\n?|```\n?/g, '').trim());
   } catch (e) { console.warn('[sim extract aplicacao]', e.message); }
 
@@ -296,7 +296,7 @@ async function simularQualitativa(sb, trilha, colab, s, perfilEvolucao) {
     });
     const messages = historico.map(m => ({ role: m.role, content: m.content }));
     if (turnIA === 1 && !messages.length) messages.push({ role: 'user', content: '[INICIE]' });
-    const respIA = (await callAIChat(system, messages, {}, 600)).trim();
+    const respIA = (await callAIChat(system, messages, {}, 2500)).trim();
     historico.push({ role: 'assistant', content: respIA, timestamp: new Date().toISOString(), turn: turnIA });
 
     if (turnIA >= maxIA) break;
@@ -306,7 +306,7 @@ async function simularQualitativa(sb, trilha, colab, s, perfilEvolucao) {
       competencia: trilha.competencia_foco, descritor: descritoresArr.map(d => d.descritor).join(', '),
       historico, turnUser: turnIA, cargo: colab?.cargo,
     });
-    const respColab = (await callAI(simP.system, simP.user, SIM_MODEL, 400)).trim();
+    const respColab = (await callAI(simP.system, simP.user, SIM_MODEL, 1200)).trim();
     historico.push({ role: 'user', content: respColab, timestamp: new Date().toISOString() });
   }
 
@@ -315,7 +315,7 @@ async function simularQualitativa(sb, trilha, colab, s, perfilEvolucao) {
   try {
     const transcript = historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content}`).join('\n\n');
     const { system: s2, user: u2 } = promptEvolutionQualitativeExtract({ descritores: descritoresArr, transcript });
-    const r = await callAI(s2, u2, {}, 1200);
+    const r = await callAI(s2, u2, {}, 4000);
     extracao = JSON.parse(r.replace(/```json\n?|```\n?/g, '').trim());
   } catch (e) { console.warn('[sim extract qualitativa]', e.message); }
 
@@ -368,7 +368,7 @@ async function simularSem14Ate(sb, trilha, colab, perfilEvolucao) {
     descritor: descritoresArr.map(d => d.descritor).join(', '),
     cenario, historico: [], turnUser: 1, cargo: colab?.cargo,
   });
-  const resposta = (await callAI(simP.system, simP.user, SIM_MODEL, 800)).trim();
+  const resposta = (await callAI(simP.system, simP.user, SIM_MODEL, 2500)).trim();
 
   await upsertProgresso(sb, trilha, 14, {
     tipo: 'avaliacao',
