@@ -150,11 +150,16 @@ export async function POST(request) {
         sb, trilha.empresa_id, trilha.colaborador_id, trilha.competencia_foco, descritores
       );
 
+      // Agrega evidências das 13 semanas anteriores (conteúdo + prática + sem 13)
+      // pra triangulação. A nota_pos NUNCA sai só do cenário.
+      const evidenciasAcumuladas = await agregarEvidencias13Semanas(sb, trilhaId, descritoresComRegua);
+
       const { system, user } = promptEvolutionScenarioScore({
         competencia: trilha.competencia_foco,
         descritores: descritoresComRegua,
         cenario, resposta: message, nomeColab: nome,
         perfilDominante: colab?.perfil_dominante,
+        evidenciasAcumuladas,
       });
       const r = await callAI(system, user, {}, 1500);
       let parsed = {};
@@ -170,6 +175,7 @@ export async function POST(request) {
           descritores: descritoresComRegua,
           cenario, resposta: message,
           avaliacaoPrimaria: parsed,
+          evidenciasAcumuladas,
         });
         const rCheck = await callAI(sCheck, uCheck, {}, 1200);
         auditoria = JSON.parse(rCheck.replace(/```json\n?|```\n?/g, '').trim());
@@ -237,6 +243,83 @@ async function enriquecerComReguaENotaPre(sb, empresaId, colaboradorId, competen
     ...d,
     nota_atual: mapaNota[d.descritor] != null ? mapaNota[d.descritor] : d.nota_atual,
   }));
+}
+
+/**
+ * Agrega evidências qualitativas das 13 semanas anteriores numa string
+ * estruturada por descritor. A semana 14 NUNCA avalia só pelo cenário —
+ * triangula com o histórico completo da temporada.
+ */
+async function agregarEvidencias13Semanas(sb, trilhaId, descritoresComRegua) {
+  const { data: progressos } = await sb.from('temporada_semana_progresso')
+    .select('semana, tipo, descritor, reflexao, feedback, tira_duvidas')
+    .eq('trilha_id', trilhaId).lte('semana', 13).order('semana');
+  if (!progressos?.length) return '';
+
+  // Mapa de temporada_plano pra saber qual descritor cada semana trabalhou
+  const { data: trilhaPlan } = await sb.from('trilhas')
+    .select('temporada_plano').eq('id', trilhaId).maybeSingle();
+  const plano = Array.isArray(trilhaPlan?.temporada_plano) ? trilhaPlan.temporada_plano : [];
+  const descritorPorSem = Object.fromEntries(plano.map(s => [s.semana, s.descritor]));
+  const descritoresCobertosPorSem = Object.fromEntries(plano.map(s => [s.semana, s.descritores_cobertos || []]));
+
+  const linhasPorDescritor = {};
+  for (const d of descritoresComRegua) linhasPorDescritor[d.descritor] = [];
+
+  for (const p of progressos) {
+    // Conteúdo (sems 1-12 exceto 4/8/12): reflexão socrática
+    if (p.tipo === 'conteudo' && p.reflexao) {
+      const desc = descritorPorSem[p.semana];
+      if (desc && linhasPorDescritor[desc]) {
+        const partes = [
+          `Sem ${p.semana} (conteúdo/reflexão)`,
+          p.reflexao.insight_principal && `insight: "${p.reflexao.insight_principal}"`,
+          p.reflexao.desafio_realizado && `desafio: ${p.reflexao.desafio_realizado}`,
+          p.reflexao.qualidade_reflexao && `qualidade: ${p.reflexao.qualidade_reflexao}`,
+        ].filter(Boolean).join(' · ');
+        linhasPorDescritor[desc].push(partes);
+      }
+    }
+    // Prática (sems 4/8/12): feedback analítico ou missão
+    if (p.tipo === 'aplicacao' && p.feedback) {
+      const cobertos = descritoresCobertosPorSem[p.semana] || [];
+      const avals = Array.isArray(p.feedback.avaliacao_por_descritor) ? p.feedback.avaliacao_por_descritor : [];
+      const modo = p.feedback.modo || 'cenario';
+      const compromisso = p.feedback.compromisso;
+      for (const desc of cobertos) {
+        if (!linhasPorDescritor[desc]) continue;
+        const aval = avals.find(a => a.descritor === desc);
+        const partes = [
+          `Sem ${p.semana} (prática${modo === 'pratica' ? ' — missão real' : ' — cenário escrito'})`,
+          modo === 'pratica' && compromisso && `compromisso: "${compromisso}"`,
+          aval?.observacao && `avaliação: "${aval.observacao}"`,
+          aval?.nota && `nota: ${aval.nota}`,
+        ].filter(Boolean).join(' · ');
+        if (partes) linhasPorDescritor[desc].push(partes);
+      }
+    }
+    // Sem 13: evolução percebida
+    if (p.semana === 13 && p.reflexao?.evolucao_percebida) {
+      for (const ev of p.reflexao.evolucao_percebida) {
+        if (!linhasPorDescritor[ev.descritor]) continue;
+        const partes = [
+          `Sem 13 (auto-percepção)`,
+          ev.antes && `antes: "${ev.antes}"`,
+          ev.depois && `depois: "${ev.depois}"`,
+          ev.evidencia && `evidência: "${ev.evidencia}"`,
+          ev.nivel_percebido != null && `nível percebido: ${ev.nivel_percebido}`,
+        ].filter(Boolean).join(' · ');
+        linhasPorDescritor[ev.descritor].push(partes);
+      }
+    }
+  }
+
+  const blocos = descritoresComRegua.map(d => {
+    const linhas = linhasPorDescritor[d.descritor] || [];
+    if (!linhas.length) return `### ${d.descritor}\n(sem evidência registrada nas 13 semanas)`;
+    return `### ${d.descritor}\n- ${linhas.join('\n- ')}`;
+  });
+  return blocos.join('\n\n');
 }
 
 async function upsertProg(sb, { prog, trilhaId, semana, tipo, empresaId, colaboradorId, slotKey, novoSlot, finished }) {
