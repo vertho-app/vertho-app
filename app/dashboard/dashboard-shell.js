@@ -127,8 +127,9 @@ export default function DashboardShell({ children }) {
         })}
       </nav>
 
-      {/* BETO — chat flutuante */}
-      <BetoChat />
+      {/* BETO — chat flutuante. Oculto nas telas de semana da temporada
+          pra não competir com Tira-Dúvidas (que é escopado no descritor). */}
+      {!/^\/dashboard\/temporada\/semana\//.test(pathname) && <BetoChat />}
     </div>
   );
 }

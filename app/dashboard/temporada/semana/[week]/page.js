@@ -212,9 +212,10 @@ export default function SemanaPage({ params }) {
         </GlassCard>
       )}
 
-      {/* Tira-Dúvidas: só em semanas de conteúdo, após consumir o conteúdo.
-          Chat livre focado no descritor da semana (guard-rail no prompt). */}
-      {!isAplicacao && !isAvaliacao && conteudoConsumido && (
+      {/* Tira-Dúvidas: só em semanas de conteúdo. Botão liberado após marcar
+          o conteúdo como realizado — mas renderiza o card sempre pra dar
+          visibilidade do recurso. */}
+      {!isAplicacao && !isAvaliacao && (
         <GlassCard className="mb-4">
           <div className="flex items-center gap-2 mb-3">
             <HelpCircle size={16} className="text-cyan-400" />
@@ -224,8 +225,10 @@ export default function SemanaPage({ params }) {
 
           {!tdOpen ? (
             <button onClick={() => setTdOpen(true)}
-              className="w-full px-4 py-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-sm font-bold">
-              Tirar dúvida sobre a semana
+              disabled={!conteudoConsumido}
+              title={!conteudoConsumido ? 'Marque o conteúdo como realizado antes de tirar dúvidas' : ''}
+              className="w-full px-4 py-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold">
+              {conteudoConsumido ? 'Tirar dúvida sobre a semana' : 'Libera após marcar conteúdo como realizado'}
             </button>
           ) : (
             <>
