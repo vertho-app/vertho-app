@@ -9,7 +9,7 @@ ALTER TABLE trilhas
 -- (acordado: ignora data de criação original)
 UPDATE trilhas
 SET data_inicio = (
-  CURRENT_DATE + ((8 - EXTRACT(ISODOW FROM CURRENT_DATE)::int) % 7 + 1) * INTERVAL '1 day'
+  CURRENT_DATE + (((7 - EXTRACT(ISODOW FROM CURRENT_DATE)::int) % 7) + 1) * INTERVAL '1 day'
 )::date
 WHERE data_inicio IS NULL;
 
