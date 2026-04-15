@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ChevronRight, ChevronDown, BookOpen, Target, Sparkles, Video, FileText, Headphones, FileType, Pause, Play, Archive, RefreshCw, Eye, X } from 'lucide-react';
 import { listarTemporadasEmpresa, pausarRetomarTemporada, arquivarTemporada, regerarSemana, loadProgressoDetalhado } from '@/actions/temporadas';
-import { simularTemporadaCompleta } from '@/actions/simulador-temporada';
+import { simularUmaSemanaSimulacao } from '@/actions/simulador-temporada';
 import { getSupabase } from '@/lib/supabase-browser';
 
 const STATUS_COLORS = {
@@ -68,23 +68,35 @@ export default function TemporadasAdminPage() {
     setBusy(false);
   }
 
+  const [simProgress, setSimProgress] = useState(null); // { semana, total, erros }
+
   async function handleSimular(trilhaId, nome) {
     const perfil = prompt(
-      `SIMULAR TEMPORADA COMPLETA de ${nome}?\n\nIsso preenche as sems 1-13 com conversas fictícias geradas por IA (Haiku) e prepara a sem 14 pra scoring manual.\n\nEscolha o perfil de evolução:\n  1 = evolucao_confirmada\n  2 = evolucao_parcial (default)\n  3 = estagnacao\n  4 = regressao\n\nDigite 1-4 ou cancele:`,
+      `SIMULAR TEMPORADA de ${nome}?\n\nProcessa sems 1-14 uma por vez (evita timeout). Cada semana leva 30-90s.\n\nEscolha o perfil:\n  1 = evolucao_confirmada\n  2 = evolucao_parcial (default)\n  3 = estagnacao\n  4 = regressao\n\nDigite 1-4 ou cancele:`,
       '2'
     );
     if (!perfil) return;
     const mapa = { 1: 'evolucao_confirmada', 2: 'evolucao_parcial', 3: 'estagnacao', 4: 'regressao' };
     const perfilEvolucao = mapa[perfil.trim()] || 'evolucao_parcial';
-    if (!confirm(`Simular com perfil "${perfilEvolucao}"? Pode levar 5-10 minutos. Apaga qualquer progresso das sems 1-14.`)) return;
+    if (!confirm(`Simular com perfil "${perfilEvolucao}"? Apaga progresso existente das 14 semanas.`)) return;
+
     setBusy(true);
     const sb = getSupabase();
     const { data: { user } } = await sb.auth.getUser();
-    const r = await simularTemporadaCompleta(user.email, { trilhaId, perfilEvolucao });
-    if (r.error) alert(`Erro: ${r.error}\n\nEtapas OK: ${(r.steps || []).length}`);
-    else alert(`Simulação concluída! ${r.steps.length} etapas. Cenário B disponível: ${r.steps.find(s => s.semana === 14)?.cenario_disponivel ? 'sim' : 'não'}`);
-    await recarregar();
+    const erros = [];
+    setSimProgress({ semana: 0, total: 14, erros: [] });
+
+    for (let sem = 1; sem <= 14; sem++) {
+      setSimProgress({ semana: sem, total: 14, erros: [...erros] });
+      const r = await simularUmaSemanaSimulacao(user.email, { trilhaId, semana: sem, perfilEvolucao });
+      if (r?.error) erros.push(`Sem ${sem}: ${r.error}`);
+    }
+
+    setSimProgress(null);
     setBusy(false);
+    await recarregar();
+    if (erros.length) alert(`Simulação terminou com ${erros.length} erro(s):\n\n${erros.join('\n')}`);
+    else alert(`Simulação concluída com sucesso (14 semanas).`);
   }
 
   useEffect(() => {
@@ -143,6 +155,21 @@ export default function TemporadasAdminPage() {
       </div>
 
       {detalhe && <DetalheModal detalhe={detalhe} onClose={() => setDetalhe(null)} />}
+
+      {simProgress && (
+        <div className="fixed bottom-4 right-4 z-40 rounded-xl border border-purple-500/30 bg-[#0a0e1a]/95 backdrop-blur p-4 shadow-xl min-w-[260px]">
+          <p className="text-xs font-bold text-purple-300 mb-2">Simulando temporada</p>
+          <p className="text-sm text-white">
+            Sem <span className="text-purple-300 font-bold">{simProgress.semana}</span> de {simProgress.total}
+          </p>
+          <div className="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden">
+            <div className="h-full bg-purple-400 transition-all" style={{ width: `${(simProgress.semana / simProgress.total) * 100}%` }} />
+          </div>
+          {simProgress.erros.length > 0 && (
+            <p className="text-[10px] text-red-300 mt-2">⚠ {simProgress.erros.length} erro(s)</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

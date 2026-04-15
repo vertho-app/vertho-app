@@ -30,6 +30,55 @@ const MAX_TURNS = {
  * @param {string} opts.trilhaId
  * @param {string} opts.perfilEvolucao - evolucao_confirmada|evolucao_parcial|estagnacao|regressao
  */
+/**
+ * Simula UMA semana só. Usado pelo cliente em loop pra evitar timeout do
+ * server action (300s máx na Vercel). Retorna { ok, semana, tipo } ou { error }.
+ *
+ * @param {string} semanaKey - 'setup' | 'N' (1-14) | 'finalizar'
+ *   - 'setup': nada (reservado)
+ *   - 'N' numérica: processa aquela semana (conteúdo/aplicação/qualitativa/cenário)
+ */
+export async function simularUmaSemanaSimulacao(email, { trilhaId, semana, perfilEvolucao = 'evolucao_parcial' }) {
+  const ctx = await getUserContext(email);
+  if (!ctx?.isPlatformAdmin) return { error: 'Acesso restrito à Vertho' };
+
+  const sb = createSupabaseAdmin();
+  const { data: trilha } = await sb.from('trilhas')
+    .select('id, empresa_id, colaborador_id, competencia_foco, temporada_plano, descritores_selecionados')
+    .eq('id', trilhaId).maybeSingle();
+  if (!trilha) return { error: 'Trilha não encontrada' };
+
+  const { data: colab } = await sb.from('colaboradores')
+    .select('nome_completo, cargo, perfil_dominante').eq('id', trilha.colaborador_id).maybeSingle();
+
+  const plano = Array.isArray(trilha.temporada_plano) ? trilha.temporada_plano : [];
+  const s = plano.find(x => x.semana === Number(semana));
+  if (!s) return { error: `Semana ${semana} não está no plano` };
+
+  try {
+    if (s.tipo === 'conteudo' && s.descritor) {
+      await simularSocratico(sb, trilha, colab, s, perfilEvolucao);
+      return { ok: true, semana: Number(semana), tipo: 'conteudo' };
+    }
+    if (s.tipo === 'aplicacao') {
+      await simularMissaoPratica(sb, trilha, colab, s, perfilEvolucao);
+      return { ok: true, semana: Number(semana), tipo: 'aplicacao' };
+    }
+    if (s.tipo === 'avaliacao' && Number(semana) === 13) {
+      await simularQualitativa(sb, trilha, colab, s, perfilEvolucao);
+      return { ok: true, semana: 13, tipo: 'qualitativa' };
+    }
+    if (s.tipo === 'avaliacao' && Number(semana) === 14) {
+      const r = await simularSem14Ate(sb, trilha, colab, perfilEvolucao);
+      return { ok: true, semana: 14, tipo: 'cenario_b', cenario_disponivel: r.cenarioOk };
+    }
+    return { ok: true, semana: Number(semana), tipo: 'skip', reason: 'sem ação definida' };
+  } catch (err) {
+    console.error(`[simular sem ${semana}]`, err);
+    return { error: `Sem ${semana}: ${err?.message || 'erro'}` };
+  }
+}
+
 export async function simularTemporadaCompleta(email, { trilhaId, perfilEvolucao = 'evolucao_parcial' }) {
   const ctx = await getUserContext(email);
   if (!ctx?.isPlatformAdmin) return { error: 'Acesso restrito à Vertho' };
