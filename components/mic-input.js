@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Mic, MicOff } from 'lucide-react';
 
 /**
@@ -12,12 +12,20 @@ import { Mic, MicOff } from 'lucide-react';
  * - onChange: callback(novoTexto) chamado conforme o usuário fala
  * - disabled: booleano para desabilitar o botão
  */
-export default function MicInput({ value, onChange, disabled }) {
+const MicInput = forwardRef(function MicInput({ value, onChange, disabled }, ref) {
   const [supported, setSupported] = useState(false);
   const [listening, setListening] = useState(false);
   const [error, setError] = useState('');
   const recognitionRef = useRef(null);
   const baseTextRef = useRef('');
+
+  // Expõe stop() pro parent — usado pra encerrar a gravação ao enviar mensagem.
+  useImperativeHandle(ref, () => ({
+    stop: () => {
+      try { recognitionRef.current?.stop(); } catch {}
+      setListening(false);
+    },
+  }));
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -120,4 +128,6 @@ export default function MicInput({ value, onChange, disabled }) {
       {error && <span className="text-[10px] text-red-400">{error}</span>}
     </div>
   );
-}
+});
+
+export default MicInput;

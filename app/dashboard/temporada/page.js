@@ -9,7 +9,7 @@ import { PageContainer, PageHero, GlassCard } from '@/components/page-shell';
 import { semanaLiberadaPorData, formatarLiberacao } from '@/lib/season-engine/week-gating';
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen };
-const TIPO_LABEL = { conteudo: 'Episódio', aplicacao: 'Aplicação', avaliacao: 'Avaliação' };
+const TIPO_LABEL = { conteudo: 'Episódio', aplicacao: 'Prática', avaliacao: 'Avaliação' };
 const TIPO_COR = { conteudo: '#06B6D4', aplicacao: '#F59E0B', avaliacao: '#A78BFA' };
 
 export default function TemporadaPage() {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useRef, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
 import { formatarLiberacao } from '@/lib/season-engine/week-gating';
@@ -62,6 +62,9 @@ export default function SemanaPage({ params }) {
   // modo=null → nada escolhido; 'pratica' → vai executar na vida real; 'cenario' → fallback escrito
   const [compromissoInput, setCompromissoInput] = useState('');
   const [missaoBusy, setMissaoBusy] = useState(false);
+  // Refs pros MicInputs: ao enviar mensagem paramos a gravação automaticamente.
+  const chatMicRef = useRef(null);
+  const tdMicRef = useRef(null);
 
   useEffect(() => {
     (async () => {
@@ -150,6 +153,7 @@ export default function SemanaPage({ params }) {
 
   async function sendTiraDuvida() {
     if (!tdInput.trim() || tdBusy) return;
+    tdMicRef.current?.stop();
     const msg = tdInput;
     setTdInput('');
     setTdHistory(h => [...h, { role: 'user', content: msg, timestamp: new Date().toISOString() }]);
@@ -165,6 +169,7 @@ export default function SemanaPage({ params }) {
 
   async function sendMessage() {
     if (!chatInput.trim() || chatBusy) return;
+    chatMicRef.current?.stop();
     const msg = chatInput;
     setChatInput('');
     setChatHistory(h => [...h, { role: 'user', content: msg, timestamp: new Date().toISOString() }]);
@@ -188,7 +193,7 @@ export default function SemanaPage({ params }) {
       {/* Header */}
       <div className="mb-6">
         <div className="text-xs uppercase text-cyan-400 mb-1">
-          Semana {semanaNum} de 14 · {isAplicacao ? 'Aplicação Prática' : isAvaliacao ? 'Avaliação' : 'Episódio'}
+          Semana {semanaNum} de 14 · {isAplicacao ? 'Prática' : isAvaliacao ? 'Avaliação' : 'Episódio'}
         </div>
         <h1 className="text-2xl font-bold text-white">{semana.descritor || data.trilha.competencia_foco}</h1>
       </div>
@@ -386,18 +391,19 @@ export default function SemanaPage({ params }) {
               </div>
               <div className="space-y-2">
                 <div className="flex gap-2">
-                  <input type="text" value={tdInput}
+                  <textarea value={tdInput}
                     onChange={e => setTdInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && sendTiraDuvida()}
-                    placeholder="Sua dúvida..."
-                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTiraDuvida(); } }}
+                    placeholder="Sua dúvida... (Shift+Enter pra nova linha)"
+                    rows={2}
+                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500 resize-none"
                     disabled={tdBusy} />
                   <button onClick={sendTiraDuvida} disabled={tdBusy || !tdInput.trim()}
                     className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50">
                     <Send size={16} />
                   </button>
                 </div>
-                <MicInput value={tdInput} onChange={setTdInput} disabled={tdBusy} />
+                <MicInput ref={tdMicRef} value={tdInput} onChange={setTdInput} disabled={tdBusy} />
               </div>
             </>
           )}
@@ -472,26 +478,26 @@ export default function SemanaPage({ params }) {
               {!chatFinished ? (
                 <div className="space-y-2">
                   <div className="flex gap-2">
-                    <input
-                      type="text"
+                    <textarea
                       value={chatInput}
                       onChange={e => setChatInput(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && sendMessage()}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
                       placeholder={
                         isAplicacao
                           ? (progressoSemana?.feedback?.modo === 'pratica'
-                              ? 'Relate o que aconteceu quando você executou...'
-                              : 'Descreva como você conduziria...')
-                          : 'Sua resposta...'
+                              ? 'Relate o que aconteceu... (Shift+Enter pra nova linha)'
+                              : 'Descreva como você conduziria... (Shift+Enter pra nova linha)')
+                          : 'Sua resposta... (Shift+Enter pra nova linha)'
                       }
-                      className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
+                      rows={2}
+                      className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500 resize-none"
                       disabled={chatBusy}
                     />
                     <button onClick={sendMessage} disabled={chatBusy || !chatInput.trim()} className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50">
                       <Send size={16} />
                     </button>
                   </div>
-                  <MicInput value={chatInput} onChange={setChatInput} disabled={chatBusy} />
+                  <MicInput ref={chatMicRef} value={chatInput} onChange={setChatInput} disabled={chatBusy} />
                 </div>
               ) : (
                 <div className="text-center text-emerald-400 text-xs py-2">
