@@ -243,23 +243,38 @@ PERGUNTA 4: ${resp.r4 || '(sem resposta)'}`;
             // Popula descriptor_assessments com as notas IA4 por descritor
             // (alimenta o motor de temporadas — select-descriptors usa essas notas)
             try {
-              const notasPorDesc = avaliacao.consolidacao?.notas_por_descritor || {};
-              const rows = Object.values(notasPorDesc)
-                .filter(d => d?.nome && typeof d.nota_decimal === 'number')
-                .map(d => ({
-                  empresa_id: empresaId,
-                  colaborador_id: resp.colaborador_id,
-                  cargo: resp.cargo,
-                  competencia: resp.competencia_nome,
-                  descritor: d.nome,
-                  nota: Math.max(1.0, Math.min(4.0, d.nota_decimal)),
-                  origem: 'ia4',
-                  assessment_date: new Date().toISOString(),
-                }));
-              if (rows.length > 0) {
-                await sb.from('descriptor_assessments').upsert(rows, {
-                  onConflict: 'colaborador_id,competencia,descritor',
-                });
+              // Resolve competencia_nome se vazio (comum em rows antigas)
+              let competenciaNome = resp.competencia_nome;
+              if (!competenciaNome && resp.competencia_id) {
+                const { data: cc } = await sb.from('competencias')
+                  .select('nome').eq('id', resp.competencia_id).maybeSingle();
+                if (cc?.nome) {
+                  competenciaNome = cc.nome;
+                  // persiste de volta na resposta
+                  await sb.from('respostas').update({ competencia_nome: cc.nome }).eq('id', resp.id);
+                }
+              }
+              if (!competenciaNome || !resp.colaborador_id) {
+                console.warn('[IA4] descriptor_assessments: sem competencia_nome/colab_id', resp.id);
+              } else {
+                const notasPorDesc = avaliacao.consolidacao?.notas_por_descritor || {};
+                const rows = Object.values(notasPorDesc)
+                  .filter(d => d?.nome && typeof d.nota_decimal === 'number')
+                  .map(d => ({
+                    empresa_id: empresaId,
+                    colaborador_id: resp.colaborador_id,
+                    cargo: resp.cargo,
+                    competencia: competenciaNome,
+                    descritor: d.nome,
+                    nota: Math.max(1.0, Math.min(4.0, d.nota_decimal)),
+                    origem: 'ia4',
+                    assessment_date: new Date().toISOString(),
+                  }));
+                if (rows.length > 0) {
+                  await sb.from('descriptor_assessments').upsert(rows, {
+                    onConflict: 'colaborador_id,competencia,descritor',
+                  });
+                }
               }
             } catch (e) {
               console.warn('[IA4] descriptor_assessments upsert falhou:', e.message);
