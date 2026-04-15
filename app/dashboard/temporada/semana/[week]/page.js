@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
+import { formatarLiberacao } from '@/lib/season-engine/week-gating';
 import ReactMarkdown from 'react-markdown';
 import { Loader2, ArrowLeft, Video, FileText, Headphones, BookOpen, Send, Sparkles, Target, Check } from 'lucide-react';
 import { loadTemporadaPorEmail, marcarConteudoConsumido } from '@/actions/temporadas';
@@ -251,7 +252,9 @@ export default function SemanaPage({ params }) {
                 </div>
               ) : (
                 <div className="text-center text-emerald-400 text-xs py-2">
-                  ✓ Conversa concluída · Próxima semana liberada
+                  {semanaNum >= 14
+                    ? '✓ Conversa concluída · Temporada finalizada'
+                    : `✓ Conversa concluída · Próxima semana libera ${formatarLiberacao(data.trilha.data_inicio, semanaNum + 1)}`}
                 </div>
               )}
             </>
