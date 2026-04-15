@@ -25,6 +25,11 @@ export default function EvidenciasPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filtroQualidade, setFiltroQualidade] = useState('todos');
+  const [empresaId, setEmpresaId] = useState(null);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setEmpresaId(new URLSearchParams(window.location.search).get('empresa'));
+  }, []);
   const [detalhe, setDetalhe] = useState(null);
   const [loadingDetalhe, setLoadingDetalhe] = useState(false);
 
@@ -32,13 +37,13 @@ export default function EvidenciasPage() {
     setLoading(true);
     const { data: { user } } = await sb.auth.getUser();
     if (!user) { router.replace('/login'); return; }
-    const r = await listarEvidencias(user.email, { qualidade: filtroQualidade });
+    const r = await listarEvidencias(user.email, { qualidade: filtroQualidade, empresaId });
     if (r.error) setError(r.error);
     else { setRows(r.rows); setResumo(r.resumo); }
     setLoading(false);
   }
 
-  useEffect(() => { carregar(); }, [filtroQualidade]);
+  useEffect(() => { carregar(); }, [filtroQualidade, empresaId]);
 
   async function abrir(id) {
     setLoadingDetalhe(true);

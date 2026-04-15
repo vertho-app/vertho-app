@@ -102,6 +102,11 @@ const PHASE_CONFIG = [
     { label: 'Reavaliação', actions: [
       { key: 'cenarios-b', label: 'Cenários B + Check', icon: Zap, ai: 'dual' },
     ]},
+    { label: 'Auditoria Vertho (interna)', actions: [
+      { key: 'vertho-evidencias', label: 'Evidências Semanais', icon: Sparkles, hrefFn: (id) => `/admin/vertho/evidencias?empresa=${id}` },
+      { key: 'vertho-acumulada', label: 'Avaliação Acumulada', icon: ClipboardCheck, hrefFn: (id) => `/admin/vertho/avaliacao-acumulada?empresa=${id}` },
+      { key: 'vertho-sem14', label: 'Auditoria Sem 14', icon: ClipboardCheck, hrefFn: (id) => `/admin/vertho/auditoria-sem14?empresa=${id}` },
+    ]},
     { label: 'Evolução', actions: [
       { key: 'evolucao-temp', label: 'Evolution Report (Temporadas)', icon: TrendingUp, hrefFn: (id) => `/admin/evolucao?empresa=${id}` },
       { key: 'evolucao', label: 'Evolução (Fusão 3 Fontes)', icon: TrendingUp, ai: true },

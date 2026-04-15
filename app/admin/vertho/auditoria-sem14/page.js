@@ -20,6 +20,11 @@ export default function AuditoriaSem14Page() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('todos');
+  const [empresaId, setEmpresaId] = useState(null);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setEmpresaId(new URLSearchParams(window.location.search).get('empresa'));
+  }, []);
   const [detalheId, setDetalheId] = useState(null);
   const [detalhe, setDetalhe] = useState(null);
   const [loadingDetalhe, setLoadingDetalhe] = useState(false);
@@ -28,13 +33,13 @@ export default function AuditoriaSem14Page() {
     setLoading(true);
     const { data: { user } } = await sb.auth.getUser();
     if (!user) { router.replace('/login'); return; }
-    const r = await listarAuditoriasSem14(user.email, { status: filtroStatus });
+    const r = await listarAuditoriasSem14(user.email, { status: filtroStatus, empresaId });
     if (r.error) setError(r.error);
     else { setRows(r.rows); setResumo(r.resumo); }
     setLoading(false);
   }
 
-  useEffect(() => { carregar(); }, [filtroStatus]);
+  useEffect(() => { carregar(); }, [filtroStatus, empresaId]);
 
   async function abrirDetalhe(id) {
     setDetalheId(id);
