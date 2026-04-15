@@ -62,7 +62,15 @@ export default function TemporadaPage() {
       )}
 
       {trilha.status === 'concluida' && trilha.evolution_report && (
-        <EvolutionReportCard report={trilha.evolution_report} />
+        <>
+          <EvolutionReportCard report={trilha.evolution_report} />
+          <div className="mb-6">
+            <button onClick={() => router.push('/dashboard/temporada/concluida')}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-emerald-600 hover:opacity-90 text-sm font-bold">
+              Ver relatório completo da temporada →
+            </button>
+          </div>
+        </>
       )}
 
       {/* Progresso */}
