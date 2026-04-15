@@ -243,7 +243,7 @@ export default function SemanaPage({ params }) {
             <GlassCard className="mb-4">
               <div className="flex items-center gap-2 mb-3">
                 <Target size={16} className="text-amber-400" />
-                <span className="text-xs uppercase text-amber-400 font-bold">Missão Prática</span>
+                <span className="text-xs uppercase text-amber-400 font-bold">Missão da Semana</span>
               </div>
               <div className="prose prose-invert prose-sm max-w-none mb-4">
                 <ReactMarkdown>{missaoTexto}</ReactMarkdown>
@@ -270,7 +270,7 @@ export default function SemanaPage({ params }) {
             <GlassCard className="mb-4">
               <div className="flex items-center gap-2 mb-3">
                 <Target size={16} className="text-amber-400" />
-                <span className="text-xs uppercase text-amber-400 font-bold">Missão Prática</span>
+                <span className="text-xs uppercase text-amber-400 font-bold">Missão da Semana</span>
               </div>
               {missaoTexto && (
                 <div className="prose prose-invert prose-sm max-w-none mb-3">
@@ -286,15 +286,15 @@ export default function SemanaPage({ params }) {
                   <p className="text-xs text-gray-400 mb-3">
                     Você conseguiu executar a missão esta semana?
                   </p>
-                  <div className="flex gap-2 flex-wrap">
+                  <div className="flex gap-2">
                     <button onClick={startChat}
-                      className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm font-bold">
-                      Sim, consegui — relatar execução
+                      className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm font-bold min-w-[80px]">
+                      Sim
                     </button>
                     <button onClick={() => setMissaoModo('cenario')}
                       disabled={missaoBusy}
-                      className="px-4 py-2 rounded-lg border border-white/15 hover:border-white/30 disabled:opacity-50 text-xs text-gray-400">
-                      Não consegui — ir para cenário escrito
+                      className="px-5 py-2 rounded-lg border border-white/15 hover:border-white/30 disabled:opacity-50 text-sm text-gray-300 min-w-[80px]">
+                      Não
                     </button>
                   </div>
                 </>
@@ -405,8 +405,10 @@ export default function SemanaPage({ params }) {
       )}
 
       {/* Evidências — socrático, levanta evidências do comportamento do colab.
-          (Antes chamado de "Mentor IA".) Inclui semanas de avaliação (13/14). */}
-      {true && (
+          (Antes chamado de "Mentor IA".) Inclui semanas de avaliação (13/14).
+          Em sems 4/8/12 com modo=prática, só aparece depois do colab clicar 'Sim'
+          (chatStarted) pra não poluir a tela com botão duplicado / card sem sentido. */}
+      {!(isAplicacao && progressoSemana?.feedback?.modo === 'pratica' && !chatStarted) && (
         <GlassCard className="mb-4">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles size={16} className="text-purple-400" />
