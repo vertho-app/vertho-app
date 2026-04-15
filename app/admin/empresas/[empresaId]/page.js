@@ -25,7 +25,7 @@ import {
   verStatusEnvios,
   rodarIA4, checkAvaliacoes,
   montarTrilhasLote, salvarCompetenciaFoco, loadCompetenciasFoco,
-  gerarCenariosBLote, iniciarReavaliacaoLote, gerarRelatoriosEvolucaoLote, gerarPlenariaEvolucao, gerarRelatorioRHManual, gerarRelatorioPlenaria, enviarLinksPerfil, gerarDossieGestor, checkCenarios,
+  gerarCenariosBLote, gerarRelatoriosEvolucaoLote, gerarPlenariaEvolucao, gerarRelatorioRHManual, gerarRelatorioPlenaria, enviarLinksPerfil, gerarDossieGestor, checkCenarios,
 } from './actions';
 
 // ── AI Models ──
@@ -101,7 +101,6 @@ const PHASE_CONFIG = [
   { num: 4, icon: TrendingUp, color: '#A78BFA', groups: [
     { label: 'Reavaliação', actions: [
       { key: 'cenarios-b', label: 'Cenários B + Check', icon: Zap, ai: 'dual' },
-      { key: 'reav', label: 'Iniciar Reavaliação', icon: MessageSquare },
     ]},
     { label: 'Evolução', actions: [
       { key: 'evolucao-temp', label: 'Evolution Report (Temporadas)', icon: TrendingUp, hrefFn: (id) => `/admin/evolucao?empresa=${id}` },
@@ -118,7 +117,7 @@ const ACTION_MAP = {
   'simular-disc': simularMapeamentoDISCLote,
   trilhas: montarTrilhasLote,
   temporadas: gerarTemporadasLote,
-  'cenarios-b': gerarCenariosBLote, reav: iniciarReavaliacaoLote, evolucao: gerarRelatoriosEvolucaoLote, plenaria: gerarPlenariaEvolucao,
+  'cenarios-b': gerarCenariosBLote, evolucao: gerarRelatoriosEvolucaoLote, plenaria: gerarPlenariaEvolucao,
   'rh-rel': gerarRelatorioRHManual, 'rh-plen': gerarRelatorioPlenaria,
   'rh-links': enviarLinksPerfil, 'rh-dossie': gerarDossieGestor, 'rh-check': checkCenarios,
 };
