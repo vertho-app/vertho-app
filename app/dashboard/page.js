@@ -283,6 +283,12 @@ export default function DashboardHomePage() {
           <button className="text-gray-400 hover:text-white transition-colors" title="Notificações">
             <Bell size={18} />
           </button>
+          {(data?.view === 'gestor' || data?.view === 'rh') && (
+            <button onClick={() => router.push('/dashboard/gestor/equipe-evolucao')}
+              className="flex items-center gap-1.5 text-xs text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 rounded-full px-3 py-1.5">
+              Equipe
+            </button>
+          )}
           {(() => {
             // Se já tem temporada pronta, a avaliação foi concluída (pré-requisito).
             // totalComp não serve como gate aqui: ele conta TODAS competências da empresa,

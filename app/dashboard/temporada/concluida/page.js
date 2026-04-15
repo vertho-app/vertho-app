@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, ArrowLeft, Sparkles, Trophy, Target, MessageSquare, CheckCircle2, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Loader2, ArrowLeft, Sparkles, Trophy, Target, MessageSquare, CheckCircle2, TrendingUp, TrendingDown, Minus, Download } from 'lucide-react';
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import ReactMarkdown from 'react-markdown';
 import { loadTemporadaConcluida } from '@/actions/temporada-concluida';
@@ -43,9 +43,27 @@ export default function TemporadaConcluidaPage() {
 
   return (
     <PageContainer>
-      <button onClick={() => router.push('/dashboard/temporada')} className="flex items-center gap-2 text-xs text-gray-400 hover:text-cyan-400 mb-4">
-        <ArrowLeft size={14} /> Voltar à temporada
-      </button>
+      <div className="flex items-center justify-between mb-4">
+        <button onClick={() => router.push('/dashboard/temporada')} className="flex items-center gap-2 text-xs text-gray-400 hover:text-cyan-400">
+          <ArrowLeft size={14} /> Voltar à temporada
+        </button>
+        <button onClick={async () => {
+          const { data: { session } } = await sb.auth.getSession();
+          const res = await fetch('/api/temporada/concluida/pdf', {
+            headers: { Authorization: `Bearer ${session?.access_token}` },
+          });
+          if (!res.ok) { alert('Erro ao gerar PDF'); return; }
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `temporada-${data.trilha.numeroTemporada}.pdf`;
+          a.click();
+          URL.revokeObjectURL(url);
+        }} className="flex items-center gap-2 text-xs text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 rounded-full px-3 py-1.5">
+          <Download size={12} /> Baixar PDF
+        </button>
+      </div>
 
       {/* Hero */}
       <div className="mb-8">
