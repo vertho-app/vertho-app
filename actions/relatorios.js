@@ -107,11 +107,14 @@ export async function gerarRelatorioIndividual(empresaId, colaboradorId, aiConfi
     const { data: empresa } = await sb.from('empresas')
       .select('nome, segmento').eq('id', empresaId).single();
 
-    // Buscar TODAS respostas do colab (avaliadas ou não)
+    // Buscar TODAS respostas do colab (avaliadas ou não). Aceita match
+    // por colaborador_id OU por email_colaborador (alguns rows antigos
+    // têm colaborador_id NULL).
+    const emailFilter = (colab.email || '').trim().toLowerCase();
     const { data: respostas } = await sb.from('respostas')
-      .select('competencia_id, competencia_nome, avaliacao_ia, nivel_ia4, nota_ia4, pontos_fortes, pontos_atencao, feedback_ia4')
+      .select('competencia_id, competencia_nome, avaliacao_ia, nivel_ia4, nota_ia4, pontos_fortes, pontos_atencao, feedback_ia4, colaborador_id, email_colaborador')
       .eq('empresa_id', empresaId)
-      .eq('colaborador_id', colaboradorId);
+      .or(`colaborador_id.eq.${colaboradorId}${emailFilter ? `,email_colaborador.eq.${emailFilter}` : ''}`);
 
     // Top 5 esperado do cargo (fonte de verdade)
     const { data: cargoEmp } = await sb.from('cargos_empresa')
