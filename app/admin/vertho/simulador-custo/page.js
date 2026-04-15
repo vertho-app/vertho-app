@@ -130,6 +130,9 @@ export default function SimuladorCustoPage() {
                     {call.critical && (
                       <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-300">crítica</span>
                     )}
+                    {call.opcional && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-500/10 text-gray-400">opcional</span>
+                    )}
                   </div>
                   <p className="text-[11px] text-gray-500 mt-0.5">{call.descricao}</p>
                   <p className="text-[10px] text-gray-600 mt-1">
@@ -162,7 +165,10 @@ export default function SimuladorCustoPage() {
         <ul className="list-disc pl-5 space-y-1">
           <li>Estimativas aproximadas. Uso real pode variar ±30% conforme tamanho de histórico, qualidade da régua e respostas do colab.</li>
           <li><b>Tira-Dúvidas</b> é opcional e a estimativa (3 perguntas/semana × 12 sems) pode ser muito maior ou menor.</li>
+          <li><b>PDI</b> e <b>Relatório Individual</b> marcados como "opcional" — só rodam se o admin clicar; tela Temporada Concluída + PDF já cobrem o caso padrão.</li>
+          <li><b>Evolution Report</b> (fim sem 14) é consolidação programática dos JSONs — não usa IA, por isso não está no catálogo.</li>
           <li>Não inclui IA1/IA2/IA3/Cenários B — essas rodam uma vez por empresa, não escalam com colabs.</li>
+          <li>Scorer sem 14 e check ficaram mais caros depois da triangulação (cenário + régua + acumulada estruturada + evidências brutas = ~8k tokens in).</li>
           <li>Preços de modelos atualizados em nov/2025. Consulte fornecedor pra valores vigentes.</li>
           <li>Simulador de Temporada (teste) custa extra: ~200 chamadas (Haiku pra colab simulado, Sonnet pro mentor) ≈ USD 1-2 por rodada.</li>
         </ul>
