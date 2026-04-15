@@ -61,7 +61,7 @@ export async function POST(request) {
         historico.push({ role: 'user', content: message, timestamp: new Date().toISOString() });
       }
       const turnsIA = historico.filter(m => m.role === 'assistant').length;
-      const TOTAL = 8;
+      const TOTAL = 12;
 
       // Coleta insights das semanas 1-12 pra contextualizar
       const { data: outrasSem } = await sb.from('temporada_semana_progresso')
