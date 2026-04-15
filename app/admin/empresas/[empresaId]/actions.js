@@ -351,7 +351,6 @@ import { checkAvaliacoes as _check } from '@/actions/check-ia4';
 import { gerarPDIs as _pdis, gerarPDIsDescritores as _pdisDesc, montarTrilhasLote as _trilhas, criarEstruturaFase4 as _estrutura, iniciarFase4ParaTodos as _iniciar, triggerSegundaFase4 as _trigSeg, triggerQuintaFase4 as _trigQui, getStatusFase4 as _statusF4, salvarCompetenciaFoco as _salvarFoco, loadCompetenciasFoco as _loadFoco } from '@/actions/fase4';
 import { gerarCenariosBLote as _cenB, checkCenariosBLote as _checkCenB, checkCenarioBUm as _checkCenBUm, regenerarCenarioB as _regenCenB, regenerarERecheckarCenariosBLote as _regenLote, iniciarReavaliacaoLote as _reav, gerarRelatoriosEvolucaoLote as _evolucao, gerarPlenariaEvolucao as _plenaria, gerarRelatorioRHManual as _rhManual, gerarRelatorioPlenaria as _rhPlen, enviarLinksPerfil as _links, gerarDossieGestor as _dossie, checkCenarios as _checkCen } from '@/actions/fase5';
 import { dispararLinksCIS as _dispCIS, dispararRelatoriosLote as _dispLote } from '@/actions/whatsapp-lote';
-import { iniciarCapacitacao as _iniciarCap, avancarSemana as _avancarSem, enviarNudgesInatividade as _nudges } from '@/actions/capacitacao';
 
 export async function rodarIA1(e, c) { return _ia1(e, c); }
 export async function rodarIA2(e, c) { return _ia2(e, c); }
@@ -392,6 +391,3 @@ export async function gerarDossieGestor(e, c) { return _dossie(e, c); }
 export async function checkCenarios(e, c) { return _checkCen(e, c); }
 export async function dispararRelatoriosLote(e) { return _dispLote(e); }
 export async function dispararLinksCIS(e) { return _dispCIS(e); }
-export async function iniciarCapacitacao(e) { return _iniciarCap(e); }
-export async function avancarSemana(e) { return _avancarSem(e); }
-export async function enviarNudgesInatividade(e) { return _nudges(e); }

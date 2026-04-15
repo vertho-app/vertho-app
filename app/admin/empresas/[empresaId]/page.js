@@ -25,7 +25,6 @@ import {
   verStatusEnvios,
   rodarIA4, checkAvaliacoes,
   montarTrilhasLote, salvarCompetenciaFoco, loadCompetenciasFoco,
-  iniciarCapacitacao, avancarSemana, enviarNudgesInatividade,
   gerarCenariosBLote, iniciarReavaliacaoLote, gerarRelatoriosEvolucaoLote, gerarPlenariaEvolucao, gerarRelatorioRHManual, gerarRelatorioPlenaria, enviarLinksPerfil, gerarDossieGestor, checkCenarios,
 } from './actions';
 
@@ -98,11 +97,6 @@ const PHASE_CONFIG = [
       { key: 'temporadas', label: 'Gerar Temporadas', icon: Sparkles, ai: true },
       { key: 'temporadas-ver', label: 'Ver Temporadas', icon: Layers, hrefFn: (id) => `/admin/temporadas?empresa=${id}` },
     ]},
-    { label: 'Capacitação (legado)', actions: [
-      { key: 'iniciar-cap', label: 'Iniciar Capacitação', icon: Play },
-      { key: 'avancar-sem', label: 'Avançar Semana', icon: Clock },
-      { key: 'nudges', label: 'Nudges Inatividade', icon: AlertTriangle },
-    ]},
   ]},
   { num: 4, icon: TrendingUp, color: '#A78BFA', groups: [
     { label: 'Reavaliação', actions: [
@@ -123,7 +117,6 @@ const ACTION_MAP = {
   ia4: rodarIA4,
   'simular-disc': simularMapeamentoDISCLote,
   trilhas: montarTrilhasLote,
-  'iniciar-cap': iniciarCapacitacao, 'avancar-sem': avancarSemana, nudges: enviarNudgesInatividade,
   temporadas: gerarTemporadasLote,
   'cenarios-b': gerarCenariosBLote, reav: iniciarReavaliacaoLote, evolucao: gerarRelatoriosEvolucaoLote, plenaria: gerarPlenariaEvolucao,
   'rh-rel': gerarRelatorioRHManual, 'rh-plen': gerarRelatorioPlenaria,
@@ -581,16 +574,6 @@ export default function EmpresaPipelinePage({ params }) {
                       <button onClick={() => router.push(`/admin/empresas/${empresaId}/fase4`)}
                         className="text-[10px] font-bold text-purple-400 hover:text-purple-300">
                         {`Cen\u00e1rios B \u2192`}
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Fase 3: link para dashboard */}
-                  {fase.num === 3 && (
-                    <div className="mb-3 mt-2 flex items-center gap-4 justify-end">
-                      <button onClick={() => router.push(`/admin/empresas/${empresaId}/fase3`)}
-                        className="text-[10px] font-bold text-green-400 hover:text-green-300">
-                        Dashboard Capacitação →
                       </button>
                     </div>
                   )}
