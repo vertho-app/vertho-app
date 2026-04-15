@@ -119,17 +119,23 @@ export async function POST(request) {
       return NextResponse.json({ message: respostaIA, turnIA: proximoTurnIA, finished, history: historico });
     }
 
-    // Semana 14: cenário + resposta + pontuação
+    // Semana 14: cenário B + 4 perguntas sequenciais (mesmo formato do mapeamento) → pontuação
     if (Number(semana) === 14) {
+      const DIMENSOES = [
+        { key: 'pergunta_aprofund_1', label: 'SITUAÇÃO' },
+        { key: 'pergunta_aprofund_2', label: 'AÇÃO' },
+        { key: 'pergunta_raciocinio',  label: 'RACIOCÍNIO' },
+        { key: 'pergunta_cis',         label: 'AUTOSSENSIBILIDADE' },
+      ];
+
       if (action === 'init') {
         let cenario = dados.cenario;
+        let perguntas = dados.perguntas;
         let cenario_b_id = dados.cenario_b_id || null;
 
-        if (!cenario) {
-          // Cenário SEMPRE vem do banco_cenarios (cenário B) — curado pela Vertho.
-          // Sem fallback de geração IA: avaliação final exige cenário validado.
+        if (!cenario || !perguntas) {
           const { data: cenB } = await sb.from('banco_cenarios')
-            .select('id, titulo, descricao')
+            .select('id, titulo, descricao, pergunta_aprofund_1, pergunta_aprofund_2, pergunta_raciocinio, pergunta_cis')
             .eq('empresa_id', trilha.empresa_id)
             .eq('cargo', colab?.cargo || 'todos')
             .eq('tipo_cenario', 'cenario_b')
@@ -137,24 +143,52 @@ export async function POST(request) {
 
           if (!cenB?.descricao) {
             return NextResponse.json({
-              error: `Cenário B não cadastrado para ${trilha.competencia_foco} + cargo ${colab?.cargo || 'todos'}. Peça à Vertho pra incluir no banco de cenários antes de iniciar a semana 14.`,
-            }, { status: 424 }); // 424 Failed Dependency
+              error: `Cenário B não cadastrado para ${trilha.competencia_foco} + cargo ${colab?.cargo || 'todos'}.`,
+            }, { status: 424 });
           }
           cenario = `## ${cenB.titulo || 'Cenário final'}\n\n${cenB.descricao}`;
           cenario_b_id = cenB.id;
+          perguntas = DIMENSOES.map(d => ({ dimensao: d.label, texto: cenB[d.key] || '' })).filter(p => p.texto);
         }
 
-        const novoSlot = { ...dados, cenario, cenario_b_id, transcript_completo: historico };
+        // IA fala primeiro: cenário já está no card acima, aqui só faz a 1ª pergunta
+        if (historico.length === 0) {
+          const primeira = perguntas[0];
+          const abertura = `Leia o cenário acima e vamos conversar em 4 dimensões. Começando:\n\n**${primeira?.dimensao || 'SITUAÇÃO'}**: ${primeira?.texto || 'Como você lidaria com essa situação?'}`;
+          historico.push({ role: 'assistant', content: abertura, timestamp: new Date().toISOString(), turn: 1, dimensao: primeira?.dimensao });
+        }
+
+        const novoSlot = { ...dados, cenario, cenario_b_id, perguntas, transcript_completo: historico };
         await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot, finished: false });
-        return NextResponse.json({ cenario, cenario_b_id, finished: false });
+        return NextResponse.json({ cenario, cenario_b_id, perguntas, history: historico, finished: false });
       }
 
-      // action === 'send': colab enviou a resposta → pontua
+      // action === 'send': colab respondeu. Pode ser pergunta 1-3 (faz próxima) ou pergunta 4 (scorer).
       if (!message) return NextResponse.json({ error: 'message obrigatório' }, { status: 400 });
       const cenario = dados.cenario;
-      if (!cenario) return NextResponse.json({ error: 'cenário não iniciado' }, { status: 400 });
+      const perguntas = dados.perguntas || [];
+      if (!cenario || !perguntas.length) return NextResponse.json({ error: 'cenário não iniciado — chame action=init primeiro' }, { status: 400 });
 
       historico.push({ role: 'user', content: message, timestamp: new Date().toISOString() });
+
+      const respostasColab = historico.filter(m => m.role === 'user').length; // 1..4
+
+      // Se ainda há pergunta a fazer: IA agradece brevemente e passa pra próxima
+      if (respostasColab < perguntas.length) {
+        const proxima = perguntas[respostasColab];
+        const msgIA = `Obrigado. Próxima dimensão.\n\n**${proxima.dimensao}**: ${proxima.texto}`;
+        historico.push({ role: 'assistant', content: msgIA, timestamp: new Date().toISOString(), turn: respostasColab + 1, dimensao: proxima.dimensao });
+        const novoSlot = { ...dados, transcript_completo: historico, cenario, perguntas };
+        await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot, finished: false });
+        return NextResponse.json({ message: msgIA, history: historico, finished: false, dimensao: proxima.dimensao });
+      }
+
+      // Colab respondeu à última pergunta → scorer
+      // Monta "resposta" como concatenação das 4 respostas rotuladas por dimensão
+      const respostasUser = historico.filter(m => m.role === 'user');
+      const respostaAgregada = perguntas.map((p, i) =>
+        `[${p.dimensao}] ${p.texto}\n→ ${respostasUser[i]?.content || '(sem resposta)'}`
+      ).join('\n\n');
 
       // Enriquece descritores com a régua de maturidade (n1-n4) + nota_pre FRESH
       // de descriptor_assessments (não do snapshot JSONB, que pode estar desatualizado).
@@ -176,10 +210,10 @@ export async function POST(request) {
       const { system, user } = promptEvolutionScenarioScore({
         competencia: trilha.competencia_foco,
         descritores: descritoresComRegua,
-        cenario, resposta: message, nomeColab: nome,
+        cenario, resposta: respostaAgregada, nomeColab: nome,
         perfilDominante: colab?.perfil_dominante,
         evidenciasAcumuladas,
-        acumuladoPrimaria, // notas estruturadas já pontuadas por descritor (pode ser null)
+        acumuladoPrimaria,
       });
       const r = await callAI(system, user, {}, 10000);
       let parsed = {};
@@ -193,7 +227,7 @@ export async function POST(request) {
         const { system: sCheck, user: uCheck } = promptEvolutionScenarioCheck({
           competencia: trilha.competencia_foco,
           descritores: descritoresComRegua,
-          cenario, resposta: message,
+          cenario, resposta: respostaAgregada,
           avaliacaoPrimaria: parsed,
           evidenciasAcumuladas,
         });
@@ -206,7 +240,7 @@ export async function POST(request) {
       const novoSlot = {
         ...dados, ...parsed,
         auditoria, // { nota_auditoria, status, ajustes_sugeridos, alertas, resumo_auditoria }
-        cenario, transcript_completo: historico, cenario_resposta: message,
+        cenario, transcript_completo: historico, cenario_resposta: respostaAgregada,
       };
       await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot, finished: true });
 
