@@ -14,10 +14,11 @@ export default function RelatoriosPage({ params }) {
   const { empresaId } = use(params);
   const router = useRouter();
 
-  const [data, setData] = useState({ individuais: [], gestor: null, rh: null });
+  const [data, setData] = useState({ individuais: [], gestores: [], gestor: null, rh: null });
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('individual');
   const [openId, setOpenId] = useState(null);
+  const [gestorIdx, setGestorIdx] = useState(0);
 
   useEffect(() => {
     loadRelatoriosEmpresa(empresaId).then(d => { setData(d); setLoading(false); });
@@ -27,7 +28,7 @@ export default function RelatoriosPage({ params }) {
 
   const TABS = [
     { key: 'individual', label: `PDI (${data.individuais.length})`, icon: User },
-    { key: 'gestor', label: 'Gestor', icon: Users, has: !!data.gestor },
+    { key: 'gestor', label: `Gestor${(data.gestores?.length || 0) > 1 ? ` (${data.gestores.length})` : ''}`, icon: Users, has: (data.gestores?.length || 0) > 0 },
     { key: 'rh', label: 'RH', icon: Building2, has: !!data.rh },
   ];
 
@@ -168,13 +169,27 @@ export default function RelatoriosPage({ params }) {
       {/* ═══ GESTOR ═══ */}
       {tab === 'gestor' && (
         <div>
-          {!data.gestor ? (
+          {(!data.gestores || data.gestores.length === 0) ? (
             <Empty text="Relatório gestor não gerado. Rode 'Gestor' no pipeline." />
           ) : (() => {
-            const c = data.gestor.conteudo;
-            const gestorPdfLink = `/api/relatorios/pdf?id=${data.gestor.id}`;
+            const ativo = data.gestores[Math.min(gestorIdx, data.gestores.length - 1)];
+            const c = ativo.conteudo;
+            const gestorPdfLink = `/api/relatorios/pdf?id=${ativo.id}`;
             return (
               <div className="space-y-4">
+                {data.gestores.length > 1 && (
+                  <div className="flex items-center gap-2 flex-wrap p-3 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Gestor:</span>
+                    {data.gestores.map((g, i) => (
+                      <button key={g.id} onClick={() => setGestorIdx(i)}
+                        className={`text-[11px] font-bold px-3 py-1.5 rounded-lg border transition-all ${
+                          i === gestorIdx ? 'bg-cyan-400/15 text-cyan-300 border-cyan-400/40' : 'text-gray-400 border-white/[0.08] hover:border-white/[0.2]'
+                        }`}>
+                        {g.gestor_nome}{g.equipe_size ? ` · ${g.equipe_size} colabs` : ''}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="flex justify-end mb-3">
                   <a href={gestorPdfLink} target="_blank" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all">
                     <Download size={11} /> Download PDF

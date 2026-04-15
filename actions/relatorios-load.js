@@ -10,7 +10,7 @@ export async function loadRelatoriosEmpresa(empresaId) {
     .eq('empresa_id', empresaId)
     .order('gerado_em', { ascending: false });
 
-  if (error || !data?.length) return { individuais: [], gestor: null, rh: null };
+  if (error || !data?.length) return { individuais: [], gestores: [], gestor: null, rh: null };
 
   // Buscar nomes dos colaboradores
   const colabIds = [...new Set(data.map(r => r.colaborador_id).filter(Boolean))];
@@ -29,11 +29,19 @@ export async function loadRelatoriosEmpresa(empresaId) {
       colaborador_cargo: colabMap[r.colaborador_id]?.cargo || '—',
     }));
 
-  const gestorRaw = data.find(r => r.tipo === 'gestor');
-  const gestor = gestorRaw ? {
-    ...gestorRaw,
-    conteudo: typeof gestorRaw.conteudo === 'string' ? JSON.parse(gestorRaw.conteudo) : gestorRaw.conteudo,
-  } : null;
+  const gestores = data
+    .filter(r => r.tipo === 'gestor')
+    .map(r => {
+      const conteudo = typeof r.conteudo === 'string' ? JSON.parse(r.conteudo) : r.conteudo;
+      return {
+        ...r,
+        conteudo,
+        gestor_nome: conteudo?.gestor_nome || colabMap[r.colaborador_id]?.nome_completo || '—',
+        gestor_email: conteudo?.gestor_email || null,
+        equipe_size: Array.isArray(conteudo?.ranking_atencao) ? conteudo.ranking_atencao.length : null,
+      };
+    });
+  const gestor = gestores[0] || null;
 
   const rhRaw = data.find(r => r.tipo === 'rh');
   const rh = rhRaw ? {
@@ -41,5 +49,5 @@ export async function loadRelatoriosEmpresa(empresaId) {
     conteudo: typeof rhRaw.conteudo === 'string' ? JSON.parse(rhRaw.conteudo) : rhRaw.conteudo,
   } : null;
 
-  return { individuais, gestor, rh };
+  return { individuais, gestores, gestor, rh };
 }
