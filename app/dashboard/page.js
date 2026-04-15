@@ -284,11 +284,11 @@ export default function DashboardHomePage() {
             <Bell size={18} />
           </button>
           {(() => {
-            // Esconde o botão quando o colab já respondeu todas as competências.
-            // totalComp = competências da empresa; respondidas = respostas únicas do colab.
-            const total = colaborador.totalComp || 0;
+            // Se já tem temporada pronta, a avaliação foi concluída (pré-requisito).
+            // totalComp não serve como gate aqui: ele conta TODAS competências da empresa,
+            // mas o assessment só pede as Top 5 do cargo — dava falso "continuar".
+            if (data?.temporadaPronta) return null;
             const respondidas = colaborador.respondidas || 0;
-            if (total > 0 && respondidas >= total) return null;
             return (
               <button onClick={() => router.push('/dashboard/assessment')}
                 className="flex items-center gap-2 text-sm font-extrabold text-white px-5 py-2.5 rounded-full transition-all hover:opacity-90"
