@@ -4,10 +4,29 @@ import { useState, useEffect, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft, Loader2, Bot, ChevronDown, CheckCircle, AlertTriangle,
-  User, FileText, Filter, RefreshCw, BookOpen, ExternalLink
+  User, FileText, Filter, RefreshCw, BookOpen, ExternalLink,
+  Play, Headphones, Film,
 } from 'lucide-react';
 import { loadRespostasAvaliadas, reavaliarResposta, rechecarResposta } from '@/actions/fase3';
 import { loadTrilhas } from '@/actions/trilhas-load';
+import VideoModal from '@/components/video-modal';
+
+// Ícone por formato de conteúdo (consistente com dashboard do colab).
+const FORMATO_ICON = {
+  video: Film,
+  audio: Headphones,
+  texto: FileText,
+  case: BookOpen,
+  pdf: FileText,
+};
+
+// Extrai {libraryId, videoId} de URLs do Bunny (iframe.mediadelivery.net/embed/<lib>/<id>).
+// Retorna null se não for uma URL do Bunny — aí o link abre em nova aba como antes.
+function parseBunnyEmbed(url) {
+  if (!url) return null;
+  const m = String(url).match(/iframe\.mediadelivery\.net\/embed\/(\d+)\/([a-f0-9-]+)/i);
+  return m ? { libraryId: m[1], videoId: m[2] } : null;
+}
 
 const NIVEL_COLORS = {
   1: 'text-red-400', 2: 'text-amber-400', 3: 'text-cyan-400', 4: 'text-green-400',
@@ -29,6 +48,7 @@ export default function Fase2Page({ params }) {
   const [actionId, setActionId] = useState(null);
   const [batchRunning, setBatchRunning] = useState(false);
   const [toast, setToast] = useState(null);
+  const [activeVideo, setActiveVideo] = useState(null); // { libraryId, videoId, title }
   function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 3000); }
 
   async function handleRevisarTodos() {
@@ -495,16 +515,32 @@ export default function Fase2Page({ params }) {
                             {c.semana && (
                               <span className="text-[10px] font-bold text-amber-400 shrink-0 mt-0.5 w-12">SEM {String(c.semana).padStart(2, '0')}</span>
                             )}
-                            <BookOpen size={12} className="text-cyan-400 shrink-0 mt-1" />
+                            {(() => {
+                              const Ico = FORMATO_ICON[c.formato] || BookOpen;
+                              return <Ico size={12} className="text-cyan-400 shrink-0 mt-1" />;
+                            })()}
                             <div className="flex-1 min-w-0">
-                              {c.url ? (
-                                <a href={c.url} target="_blank" rel="noopener noreferrer"
-                                  className="text-xs text-cyan-300 hover:text-cyan-200 font-medium flex items-center gap-1">
-                                  {c.nome} <ExternalLink size={10} />
-                                </a>
-                              ) : (
-                                <span className="text-xs text-gray-300 font-medium">{c.nome}</span>
-                              )}
+                              {(() => {
+                                if (!c.url) {
+                                  return <span className="text-xs text-gray-300 font-medium">{c.nome}</span>;
+                                }
+                                const bunny = c.formato === 'video' ? parseBunnyEmbed(c.url) : null;
+                                if (bunny) {
+                                  return (
+                                    <button type="button"
+                                      onClick={() => setActiveVideo({ ...bunny, title: c.nome })}
+                                      className="text-xs text-cyan-300 hover:text-cyan-200 font-medium flex items-center gap-1 text-left">
+                                      {c.nome} <Play size={10} fill="currentColor" />
+                                    </button>
+                                  );
+                                }
+                                return (
+                                  <a href={c.url} target="_blank" rel="noopener noreferrer"
+                                    className="text-xs text-cyan-300 hover:text-cyan-200 font-medium flex items-center gap-1">
+                                    {c.nome} <ExternalLink size={10} />
+                                  </a>
+                                );
+                              })()}
                               {c.descritor && (
                                 <p className="text-[10px] mt-0.5 flex items-center gap-2 flex-wrap">
                                   <span className="font-bold text-cyan-200">DESCRITOR FOCO:</span>
@@ -594,6 +630,15 @@ export default function Fase2Page({ params }) {
             })}
           </div>
         )
+      )}
+
+      {activeVideo && (
+        <VideoModal
+          libraryId={activeVideo.libraryId}
+          videoId={activeVideo.videoId}
+          title={activeVideo.title}
+          onClose={() => setActiveVideo(null)}
+        />
       )}
     </div>
   );
