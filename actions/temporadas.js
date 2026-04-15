@@ -279,14 +279,20 @@ export async function regerarSemana(trilhaId, semana, aiConfig = {}) {
       plano[idx] = { ...slot, conteudo: { ...(slot.conteudo || {}), desafio_texto: novoDesafio } };
     } else if (slot.tipo === 'aplicacao') {
       const { promptCenario } = await import('@/lib/season-engine/prompts/scenario');
+      const { promptMissao } = await import('@/lib/season-engine/prompts/missao');
       const complexidade = { 4: 'simples', 8: 'intermediario', 12: 'completo' }[semana] || 'intermediario';
-      const { system, user } = promptCenario({
-        competencia: trilha.competencia_foco,
-        descritores: slot.descritores_cobertos || [],
-        cargo: colab?.cargo, contexto, complexidade,
-      });
-      const novoCenario = (await callAI(system, user, aiConfig, 800)).trim();
-      plano[idx] = { ...slot, cenario: { texto: novoCenario, complexidade } };
+      const descritores = slot.descritores_cobertos || [];
+      const m = promptMissao({ competencia: trilha.competencia_foco, descritores, cargo: colab?.cargo, contexto });
+      const c = promptCenario({ competencia: trilha.competencia_foco, descritores, cargo: colab?.cargo, contexto, complexidade });
+      const [novaMissao, novoCenario] = await Promise.all([
+        callAI(m.system, m.user, aiConfig, 500).then(r => r.trim()),
+        callAI(c.system, c.user, aiConfig, 800).then(r => r.trim()),
+      ]);
+      plano[idx] = {
+        ...slot,
+        missao: { texto: novaMissao },
+        cenario: { texto: novoCenario, complexidade },
+      };
     } else {
       return { success: false, error: 'Semana de avaliação não pode ser regerada' };
     }
