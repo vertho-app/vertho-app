@@ -107,7 +107,9 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig } = 
       .eq('empresa_id', colab.empresa_id)
       .order('criado_em', { ascending: false }).limit(1).maybeSingle();
 
-    const numeroTemporada = (existente?.numero_temporada || 0) + 1;
+    // Com UPDATE na mesma row, regenerar não deve inflar o contador.
+    // Mantém o número da temporada existente; só começa em 1 se for primeira vez.
+    const numeroTemporada = existente?.numero_temporada || 1;
     const { nextMondayISO } = await import('@/lib/season-engine/week-gating');
     const payload = {
       empresa_id: colab.empresa_id,
