@@ -128,8 +128,19 @@ export async function gerarRelatorioIndividual(empresaId, colaboradorId, aiConfi
     // competencia_nome em respostas.
     const normKey = s => (s || '').toString().trim().toLowerCase();
     const respPorNome = {};
+    const respPorCompId = {};
     for (const r of (respostas || [])) {
       if (r.competencia_nome) respPorNome[normKey(r.competencia_nome)] = r;
+      if (r.competencia_id) respPorCompId[r.competencia_id] = r;
+    }
+    // Fallback: resolve nome→id via competencias table pra cobrir respostas
+    // que tenham só competencia_id (sem competencia_nome desnormalizado).
+    const { data: compsByName } = await sb.from('competencias')
+      .select('id, nome, empresa_id')
+      .or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
+    const nomeToId = {};
+    for (const c of (compsByName || [])) {
+      nomeToId[normKey(c.nome)] = c.id;
     }
 
     // Lista alvo: top5 do cargo se existe, senão usa as competências respondidas
@@ -152,7 +163,8 @@ export async function gerarRelatorioIndividual(empresaId, colaboradorId, aiConfi
     }
 
     const dadosComps = competenciasAlvo.map(nomeComp => {
-      const r = respPorNome[normKey(nomeComp)];
+      const k = normKey(nomeComp);
+      const r = respPorNome[k] || respPorCompId[nomeToId[k]];
       if (!r) {
         // Top5 mas o colab não respondeu (ou IA4 falhou totalmente)
         return {
@@ -196,6 +208,21 @@ export async function gerarRelatorioIndividual(empresaId, colaboradorId, aiConfi
     const relatorio = await extractJSON(resultado);
 
     if (!relatorio) return { success: false, error: 'IA não retornou relatório válido' };
+
+    // Pós-processo: força nivel/nota_decimal dos dados reais (LLM as vezes ignora).
+    const dadosByName = Object.fromEntries(dadosComps.map(d => [normKey(d.competencia), d]));
+    const overlay = (c, key = 'nome') => {
+      const src = dadosByName[normKey(c[key] || c.competencia || c.nome)];
+      if (!src) return c;
+      return {
+        ...c,
+        nivel: src.nivel === 'pendente' ? null : src.nivel,
+        nota_decimal: src.nota_decimal === 'pendente' ? null : src.nota_decimal,
+        flag: src.nivel === 'pendente' || (typeof src.nivel === 'number' && src.nivel < 3),
+      };
+    };
+    if (Array.isArray(relatorio.competencias)) relatorio.competencias = relatorio.competencias.map(c => overlay(c, 'nome'));
+    if (Array.isArray(relatorio.resumo_desempenho)) relatorio.resumo_desempenho = relatorio.resumo_desempenho.map(c => overlay(c, 'competencia'));
 
     // Gerar PDF
     let pdfPath = null;

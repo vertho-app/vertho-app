@@ -428,6 +428,13 @@ export default function EmpresaPipelinePage({ params }) {
           <img src="/logo-vertho.png" alt="Vertho" style={{ height: '24px' }} className="shrink-0" />
           <div className="text-center flex-1 px-4">
             <h1 className="text-xl font-bold text-white">{empresa.nome}</h1>
+            <div className="flex items-center justify-center gap-1.5 mt-0.5">
+              <span className="text-cyan-400/60">●</span>
+              <span className="text-[10px] font-mono text-gray-500">
+                v{(process.env.NEXT_PUBLIC_APP_VERSION || '0.0.0').split('.').slice(0,2).join('.')}.{process.env.NEXT_PUBLIC_BUILD_NUM || '?'}
+                <span className="text-gray-600"> · {process.env.NEXT_PUBLIC_BUILD_DATE || ''}</span>
+              </span>
+            </div>
             <div className="flex items-center justify-center gap-4 mt-1">
               <span className="text-xs text-gray-500">
                 {empresa.segmento === 'educacao' ? '🎓 Educação' : empresa.segmento === 'corporativo' ? '🏢 Corporativo' : '—'}
@@ -451,8 +458,8 @@ export default function EmpresaPipelinePage({ params }) {
       </div>
 
       {/* Pipeline + Log lado a lado em telas grandes */}
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px] gap-4 mb-6">
-        <div className="space-y-3">
+      <div className="gap-4 mb-6 flex flex-col md:flex-row md:items-start">
+        <div className="space-y-3 flex-1 min-w-0">
         {fases.map((fase, idx) => {
           const config = PHASE_CONFIG.find(p => p.num === fase.num);
           if (!config) return null;
@@ -654,7 +661,7 @@ export default function EmpresaPipelinePage({ params }) {
       </div>
 
       {/* Coluna lateral: Log + Configurações avançadas */}
-      <div className="space-y-4 md:sticky md:top-4 self-start">
+      <div className="space-y-4 md:sticky md:top-4 md:w-[300px] md:shrink-0 self-start">
       {logs.length > 0 && (
         <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A', maxHeight: 'calc(60vh)' }}>
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.04]">
