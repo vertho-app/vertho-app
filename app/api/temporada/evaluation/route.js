@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI, callAIChat } from '@/actions/ai-client';
 import { promptEvolutionQualitative, promptEvolutionQualitativeExtract } from '@/lib/season-engine/prompts/evolution-qualitative';
 import { promptEvolutionScenarioGen, promptEvolutionScenarioScore } from '@/lib/season-engine/prompts/evolution-scenario';
+import { promptEvolutionScenarioCheck } from '@/lib/season-engine/prompts/evolution-scenario-check';
 import { gerarEvolutionReport } from '@/actions/evolution-report';
 
 /**
@@ -143,13 +144,17 @@ export async function POST(request) {
 
       historico.push({ role: 'user', content: message, timestamp: new Date().toISOString() });
 
-      // Enriquece descritores com a régua de maturidade (n1-n4) pra pontuação ancorada
-      const descritoresComRegua = await enriquecerComRegua(sb, trilha.empresa_id, trilha.competencia_foco, descritores);
+      // Enriquece descritores com a régua de maturidade (n1-n4) + nota_pre FRESH
+      // de descriptor_assessments (não do snapshot JSONB, que pode estar desatualizado).
+      const descritoresComRegua = await enriquecerComReguaENotaPre(
+        sb, trilha.empresa_id, trilha.colaborador_id, trilha.competencia_foco, descritores
+      );
 
       const { system, user } = promptEvolutionScenarioScore({
         competencia: trilha.competencia_foco,
         descritores: descritoresComRegua,
         cenario, resposta: message, nomeColab: nome,
+        perfilDominante: colab?.perfil_dominante,
       });
       const r = await callAI(system, user, {}, 1500);
       let parsed = {};
@@ -157,7 +162,26 @@ export async function POST(request) {
         console.error('[VERTHO] parse sem14:', e.message);
       }
 
-      const novoSlot = { ...dados, ...parsed, cenario, transcript_completo: historico, cenario_resposta: message };
+      // Check por segunda IA — audita a avaliação primária (igual check-ia4 do mapeamento).
+      let auditoria = null;
+      try {
+        const { system: sCheck, user: uCheck } = promptEvolutionScenarioCheck({
+          competencia: trilha.competencia_foco,
+          descritores: descritoresComRegua,
+          cenario, resposta: message,
+          avaliacaoPrimaria: parsed,
+        });
+        const rCheck = await callAI(sCheck, uCheck, {}, 1200);
+        auditoria = JSON.parse(rCheck.replace(/```json\n?|```\n?/g, '').trim());
+      } catch (e) {
+        console.error('[VERTHO] check sem14:', e.message);
+      }
+
+      const novoSlot = {
+        ...dados, ...parsed,
+        auditoria, // { nota_auditoria, status, ajustes_sugeridos, alertas, resumo_auditoria }
+        cenario, transcript_completo: historico, cenario_resposta: message,
+      };
       await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot, finished: true });
 
       // Gera Evolution Report automático
@@ -166,6 +190,7 @@ export async function POST(request) {
       return NextResponse.json({
         finished: true,
         avaliacao: parsed,
+        auditoria,
         evolution_report: report.evolution_report,
       });
     }
@@ -192,6 +217,26 @@ async function enriquecerComRegua(sb, empresaId, competencia, descritores) {
   }
   const mapa = Object.fromEntries((rows || []).map(r => [r.nome_curto, r]));
   return descritores.map(d => ({ ...d, ...(mapa[d.descritor] || {}) }));
+}
+
+/**
+ * Como enriquecerComRegua, mas também sobrescreve nota_atual com a nota FRESH
+ * de descriptor_assessments (em caso de remapeamento posterior à criação da trilha).
+ * Se não houver registro fresh, mantém o snapshot (nota_atual original).
+ */
+async function enriquecerComReguaENotaPre(sb, empresaId, colaboradorId, competencia, descritores) {
+  const base = await enriquecerComRegua(sb, empresaId, competencia, descritores);
+  const nomes = base.map(d => d.descritor);
+  const { data: assessments } = await sb.from('descriptor_assessments')
+    .select('descritor, nota')
+    .eq('colaborador_id', colaboradorId)
+    .eq('competencia', competencia)
+    .in('descritor', nomes);
+  const mapaNota = Object.fromEntries((assessments || []).map(a => [a.descritor, Number(a.nota)]));
+  return base.map(d => ({
+    ...d,
+    nota_atual: mapaNota[d.descritor] != null ? mapaNota[d.descritor] : d.nota_atual,
+  }));
 }
 
 async function upsertProg(sb, { prog, trilhaId, semana, tipo, empresaId, colaboradorId, slotKey, novoSlot, finished }) {
