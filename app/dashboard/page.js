@@ -6,6 +6,7 @@ import { getSupabase } from '@/lib/supabase-browser';
 import {
   Search, Bell, ArrowRight, Play, ChevronRight, Loader2,
   BookOpen, FileEdit, Compass, Hourglass, CheckCircle2, AlertCircle, Hammer,
+  FileText, Headphones, Video,
 } from 'lucide-react';
 import { loadDashboardData } from './dashboard-actions';
 import { loadHomeKpis } from '@/actions/dashboard-kpis';
@@ -157,49 +158,57 @@ function CardProximoMarco({ marco, onClick }) {
   );
 }
 
+// Configuração visual por formato. Mantemos a mesma paleta (cyan/teal)
+// pra preservar identidade — só o ícone central muda.
+const FORMATO_CONFIG = {
+  video:  { Icon: Play,       label: 'Vídeo' },
+  audio:  { Icon: Headphones, label: 'Áudio' },
+  texto:  { Icon: FileText,   label: 'Artigo' },
+  case:   { Icon: BookOpen,   label: 'Estudo de caso' },
+  pdf:    { Icon: FileText,   label: 'PDF' },
+};
+
 function CapacitacaoCard({ item, onClick }) {
+  const cfg = FORMATO_CONFIG[item.formato] || FORMATO_CONFIG.video;
+  const isVideo = item.formato === 'video' && item.bunny_video_id;
+  const legenda = item.descritor || cfg.label;
+
   return (
     <div className="flex-shrink-0 w-[300px] md:w-[420px] snap-start group cursor-pointer" onClick={onClick}>
       <div
         className="relative aspect-video rounded-xl overflow-hidden mb-3 border border-white/[0.05] transition-transform duration-300 group-hover:scale-[1.02]"
         style={{ background: 'linear-gradient(135deg, #0F2B54 0%, #0D9488 100%)' }}
       >
-        {/* Thumbnail real do Bunny via proxy. Fica sobreposta ao gradient
-            (que serve de fallback se a imagem não carregar). */}
-        <img src={`/api/bunny-thumb/${item.videoId}`}
-          alt={item.titulo}
-          loading="lazy"
-          className="absolute inset-0 w-full h-full object-cover"
-          onError={(e) => { e.currentTarget.style.display = 'none'; }}
-        />
+        {/* Vídeos: thumbnail Bunny por cima do gradient. Outros formatos: só gradient + ícone grande. */}
+        {isVideo && (
+          <img src={`/api/bunny-thumb/${item.bunny_video_id}`}
+            alt={item.titulo}
+            loading="lazy"
+            className="absolute inset-0 w-full h-full object-cover"
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
 
-        {/* Play overlay central — aparece cheio no hover */}
+        {/* Ícone central — varia conforme formato */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110"
             style={{
               background: 'rgba(0,180,216,0.85)',
               boxShadow: '0 0 24px rgba(0,180,216,0.5)',
             }}>
-            <Play size={26} className="text-white ml-1" fill="currentColor" />
+            <cfg.Icon size={26} className={`text-white ${item.formato === 'video' ? 'ml-1' : ''}`}
+              fill={item.formato === 'video' ? 'currentColor' : 'none'} />
           </div>
         </div>
 
-        {item.badge && (
-          <div className="absolute top-4 left-4 bg-cyan-400 text-slate-900 text-[10px] font-extrabold px-3 py-1 rounded-full flex items-center gap-1">
-            <Play size={10} fill="currentColor" />
-            {item.badge}
-          </div>
-        )}
-
-        {typeof item.progresso === 'number' && (
-          <div className="absolute bottom-0 left-0 w-full h-1 bg-white/15">
-            <div className="bg-cyan-400 h-full" style={{ width: `${item.progresso}%` }} />
-          </div>
-        )}
+        {/* Badge de formato (canto superior esquerdo) */}
+        <div className="absolute top-4 left-4 bg-cyan-400/90 text-slate-900 text-[10px] font-extrabold px-3 py-1 rounded-full">
+          {cfg.label.toUpperCase()}
+        </div>
       </div>
-      <h3 className="text-white font-semibold text-base mb-1">{item.titulo}</h3>
-      <p className="text-gray-500 text-xs">{item.legenda}</p>
+      <h3 className="text-white font-semibold text-base mb-1 line-clamp-2">{item.titulo}</h3>
+      <p className="text-gray-500 text-xs line-clamp-1">{legenda}</p>
     </div>
   );
 }
@@ -231,13 +240,19 @@ export default function DashboardHomePage() {
     init();
   }, []);
 
-  // Lista de vídeos do Bunny — atualiza a cada montagem; o server cacheia 5 min
+  // Capacitação recomendada: multi-formato (video, texto, audio, case)
+  // filtrada pela competência foco do colaborador.
   useEffect(() => {
-    fetch('/api/bunny-videos')
+    const competencia = data?.competenciaFoco;
+    const empresaId = data?.colaborador?.empresa_id;
+    if (!competencia) { setCapacitacoes([]); return; }
+    const params = new URLSearchParams({ competencia });
+    if (empresaId) params.set('empresa_id', empresaId);
+    fetch(`/api/capacitacao-recomendada?${params}`)
       .then(r => r.ok ? r.json() : null)
       .then(d => setCapacitacoes(Array.isArray(d?.items) ? d.items : []))
       .catch(() => setCapacitacoes([]));
-  }, []);
+  }, [data?.competenciaFoco, data?.colaborador?.empresa_id]);
 
   if (loading) {
     return (
@@ -327,7 +342,7 @@ export default function DashboardHomePage() {
             </h2>
             <div className="space-y-2">
               {ultimosVideos.map(v => {
-                const meta = capacitacoes.find(c => c.videoId === v.videoId);
+                const meta = capacitacoes.find(c => c.bunny_video_id === v.videoId);
                 const titulo = meta?.titulo || 'Vídeo';
                 return (
                   <button key={v.videoId}
@@ -385,8 +400,14 @@ export default function DashboardHomePage() {
 
             <div className="flex gap-4 md:gap-6 overflow-x-auto pb-6 snap-x -mx-5 md:-mx-10 px-5 md:px-10">
               {capacitacoes.map(item => (
-                <CapacitacaoCard key={item.videoId} item={item}
-                  onClick={() => setActiveVideo({ videoId: item.videoId, titulo: item.titulo })} />
+                <CapacitacaoCard key={item.id} item={item}
+                  onClick={() => {
+                    if (item.formato === 'video' && item.bunny_video_id) {
+                      setActiveVideo({ videoId: item.bunny_video_id, titulo: item.titulo });
+                    } else if (item.url) {
+                      window.open(item.url, '_blank', 'noopener');
+                    }
+                  }} />
               ))}
             </div>
           </section>
