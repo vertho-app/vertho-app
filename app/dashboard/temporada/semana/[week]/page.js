@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
 import { formatarLiberacao } from '@/lib/season-engine/week-gating';
 import ReactMarkdown from 'react-markdown';
-import { Loader2, ArrowLeft, Video, FileText, Headphones, BookOpen, Send, Sparkles, Target, Check } from 'lucide-react';
+import { Loader2, ArrowLeft, Video, FileText, Headphones, BookOpen, Send, Sparkles, Target, Check, HelpCircle } from 'lucide-react';
 import { loadTemporadaPorEmail, marcarConteudoConsumido } from '@/actions/temporadas';
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import MicInput from '@/components/mic-input';
@@ -29,6 +29,11 @@ export default function SemanaPage({ params }) {
   // Só libera "Marcar como realizado" depois que o colab abriu o link do conteúdo
   // (ou, pra vídeo, o auto-consumido dispara no 80% via postMessage).
   const [abriuConteudo, setAbriuConteudo] = useState(false);
+  // Tira-Dúvidas — estado independente do chat de Evidências.
+  const [tdHistory, setTdHistory] = useState([]);
+  const [tdInput, setTdInput] = useState('');
+  const [tdBusy, setTdBusy] = useState(false);
+  const [tdOpen, setTdOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -46,6 +51,11 @@ export default function SemanaPage({ params }) {
           setChatHistory(transcript);
           setChatStarted(true);
           setChatFinished(prog?.status === 'concluido');
+        }
+        const tdTranscript = prog?.tira_duvidas?.transcript_completo || [];
+        if (tdTranscript.length > 0) {
+          setTdHistory(tdTranscript);
+          setTdOpen(true);
         }
       }
       setLoading(false);
@@ -86,6 +96,21 @@ export default function SemanaPage({ params }) {
     if (r.history) setChatHistory(r.history);
     setChatFinished(!!r.finished);
     setChatBusy(false);
+  }
+
+  async function sendTiraDuvida() {
+    if (!tdInput.trim() || tdBusy) return;
+    const msg = tdInput;
+    setTdInput('');
+    setTdHistory(h => [...h, { role: 'user', content: msg, timestamp: new Date().toISOString() }]);
+    setTdBusy(true);
+    const r = await fetch('/api/temporada/tira-duvidas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trilhaId: data.trilha.id, semana: semanaNum, message: msg }),
+    }).then(r => r.json());
+    if (r.history) setTdHistory(r.history);
+    setTdBusy(false);
   }
 
   async function sendMessage() {
@@ -187,7 +212,68 @@ export default function SemanaPage({ params }) {
         </GlassCard>
       )}
 
-      {/* Chat com Mentor IA (inclui semanas de avaliação) */}
+      {/* Tira-Dúvidas: só em semanas de conteúdo, após consumir o conteúdo.
+          Chat livre focado no descritor da semana (guard-rail no prompt). */}
+      {!isAplicacao && !isAvaliacao && conteudoConsumido && (
+        <GlassCard className="mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <HelpCircle size={16} className="text-cyan-400" />
+            <span className="text-xs uppercase text-cyan-400 font-bold">Tira-Dúvidas</span>
+            <span className="text-[10px] text-gray-500">· só responde sobre {semana.descritor}</span>
+          </div>
+
+          {!tdOpen ? (
+            <button onClick={() => setTdOpen(true)}
+              className="w-full px-4 py-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-sm font-bold">
+              Tirar dúvida sobre a semana
+            </button>
+          ) : (
+            <>
+              <div className="space-y-3 max-h-80 overflow-y-auto mb-3">
+                {tdHistory.length === 0 && (
+                  <p className="text-xs text-gray-500 italic text-center py-4">
+                    Pergunte o que quiser sobre <span className="text-cyan-400">{semana.descritor}</span>.
+                  </p>
+                )}
+                {tdHistory.map((m, i) => (
+                  <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
+                      m.role === 'user' ? 'bg-cyan-600 text-white' : 'bg-white/5 text-gray-200 border border-white/10'
+                    }`}>
+                      <ReactMarkdown>{m.content}</ReactMarkdown>
+                    </div>
+                  </div>
+                ))}
+                {tdBusy && (
+                  <div className="flex justify-start">
+                    <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-2 text-sm text-gray-400">
+                      <Loader2 size={14} className="animate-spin inline" /> pensando...
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input type="text" value={tdInput}
+                    onChange={e => setTdInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && sendTiraDuvida()}
+                    placeholder="Sua dúvida..."
+                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
+                    disabled={tdBusy} />
+                  <button onClick={sendTiraDuvida} disabled={tdBusy || !tdInput.trim()}
+                    className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50">
+                    <Send size={16} />
+                  </button>
+                </div>
+                <MicInput value={tdInput} onChange={setTdInput} disabled={tdBusy} />
+              </div>
+            </>
+          )}
+        </GlassCard>
+      )}
+
+      {/* Evidências — socrático, levanta evidências do comportamento do colab.
+          (Antes chamado de "Mentor IA".) Inclui semanas de avaliação (13/14). */}
       {true && (
         <GlassCard className="mb-4">
           <div className="flex items-center gap-2 mb-3">
@@ -195,8 +281,8 @@ export default function SemanaPage({ params }) {
             <span className="text-xs uppercase text-purple-400 font-bold">
               {semanaNum === 13 ? 'Conversa de fechamento'
                : semanaNum === 14 ? 'Cenário + avaliação final'
-               : isAplicacao ? 'Feedback do Mentor IA'
-               : 'Reflexão com o Mentor IA'}
+               : isAplicacao ? 'Feedback (Evidências)'
+               : 'Evidências'}
             </span>
           </div>
 
@@ -209,7 +295,7 @@ export default function SemanaPage({ params }) {
               {semanaNum === 13 ? 'Iniciar conversa de fechamento'
                : semanaNum === 14 ? 'Ver cenário final'
                : isAplicacao ? 'Enviar minha resposta'
-               : 'Conversar com o Mentor'}
+               : 'Levantar evidências'}
             </button>
           ) : (
             <>
