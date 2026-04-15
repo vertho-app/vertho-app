@@ -25,9 +25,9 @@ async function extrairDadosEstruturados(historico, tipoConversa, semanaPlan) {
   return JSON.parse(resp.replace(/```json\n?|```\n?/g, '').trim());
 }
 
-const MAX_TURNS_SOCRATIC = 10; // 5 IA + 5 colab
-const MAX_TURNS_ANALYTIC = 10; // 5 IA + 5 colab — cenário escrito
-const MAX_TURNS_MISSAO_FEEDBACK = 14; // 7 IA + 7 colab — relato de missão prática tem mais detalhes pra extrair
+const MAX_TURNS_SOCRATIC = 12; // 6 IA + 6 colab — evidências de 1 descritor
+const MAX_TURNS_ANALYTIC = 20; // 10 IA + 10 colab — cenário escrito, 3 descritores
+const MAX_TURNS_MISSAO_FEEDBACK = 20; // 10 IA + 10 colab — relato de missão prática, 3 descritores
 
 /**
  * POST /api/temporada/reflection
