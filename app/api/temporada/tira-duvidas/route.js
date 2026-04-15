@@ -79,7 +79,8 @@ export async function POST(request) {
 
     let respostaIA;
     try {
-      respostaIA = (await callAIChat(system, messages, {}, 400)).trim();
+      // Haiku 4.5: rápido e barato; o prompt é prescritivo o suficiente.
+      respostaIA = (await callAIChat(system, messages, { model: 'claude-haiku-4-5-20251001' }, 400)).trim();
     } catch (err) {
       console.error('[tira-duvidas] callAIChat:', err);
       return NextResponse.json({ error: 'Erro na IA' }, { status: 500 });
