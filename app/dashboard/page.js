@@ -283,11 +283,20 @@ export default function DashboardHomePage() {
           <button className="text-gray-400 hover:text-white transition-colors" title="Notificações">
             <Bell size={18} />
           </button>
-          <button onClick={() => router.push('/dashboard/assessment')}
-            className="flex items-center gap-2 text-sm font-extrabold text-white px-5 py-2.5 rounded-full transition-all hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
-            Iniciar Avaliação
-          </button>
+          {(() => {
+            // Esconde o botão quando o colab já respondeu todas as competências.
+            // totalComp = competências da empresa; respondidas = respostas únicas do colab.
+            const total = colaborador.totalComp || 0;
+            const respondidas = colaborador.respondidas || 0;
+            if (total > 0 && respondidas >= total) return null;
+            return (
+              <button onClick={() => router.push('/dashboard/assessment')}
+                className="flex items-center gap-2 text-sm font-extrabold text-white px-5 py-2.5 rounded-full transition-all hover:opacity-90"
+                style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+                {respondidas > 0 ? 'Continuar Avaliação' : 'Iniciar Avaliação'}
+              </button>
+            );
+          })()}
         </div>
       </div>
 
