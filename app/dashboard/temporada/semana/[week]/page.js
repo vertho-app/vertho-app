@@ -76,7 +76,9 @@ export default function SemanaPage({ params }) {
         const semana = (r.trilha?.temporada_plano || []).find(s => s.semana === semanaNum);
         setFormatoAtivo(semana?.conteudo?.formato_core || null);
         const prog = (r.progresso || []).find(p => p.semana === semanaNum);
-        const slot = semana?.tipo === 'aplicacao' ? 'feedback' : 'reflexao';
+        // Sem 14 guarda dados em `feedback`, mesmo sendo tipo='avaliacao'.
+        // Sem 13 em `reflexao`. Aplicação (4/8/12) em `feedback`. Conteúdo em `reflexao`.
+        const slot = (semana?.tipo === 'aplicacao' || semanaNum === 14) ? 'feedback' : 'reflexao';
         const transcript = prog?.[slot]?.transcript_completo || [];
         if (transcript.length > 0) {
           setChatHistory(transcript);
@@ -127,6 +129,12 @@ export default function SemanaPage({ params }) {
     if (r.history) setChatHistory(r.history);
     setChatFinished(!!r.finished);
     setChatBusy(false);
+    // Sem 14: init grava cenario no feedback — recarrega pra renderizar na tela.
+    if (semanaNum === 14 && r.cenario) {
+      const user = (await sb.auth.getUser()).data.user;
+      const fresh = await loadTemporadaPorEmail(user.email);
+      setData(fresh);
+    }
   }
 
   async function setMissaoModo(modo) {
@@ -334,17 +342,27 @@ export default function SemanaPage({ params }) {
         </GlassCard>
       )}
 
-      {isAvaliacao && semanaNum === 14 && (
-        <GlassCard className="mb-4 border-amber-500/30 bg-amber-500/5">
-          <div className="flex items-center gap-2 mb-2">
-            <Target size={16} className="text-amber-400" />
-            <span className="text-xs uppercase text-amber-400 font-bold">Cenário final</span>
-          </div>
-          <p className="text-sm text-gray-300">
-            Um cenário completo para você aplicar tudo o que desenvolveu. Sua resposta será avaliada em cada descritor da competência.
-          </p>
-        </GlassCard>
-      )}
+      {isAvaliacao && semanaNum === 14 && (() => {
+        // Se já tem cenário em feedback, mostra. Senão, placeholder informativo.
+        const cenarioTexto = progressoSemana?.feedback?.cenario;
+        return (
+          <GlassCard className="mb-4 border-amber-500/30 bg-amber-500/5">
+            <div className="flex items-center gap-2 mb-2">
+              <Target size={16} className="text-amber-400" />
+              <span className="text-xs uppercase text-amber-400 font-bold">Cenário final</span>
+            </div>
+            {cenarioTexto ? (
+              <div className="prose prose-invert prose-sm max-w-none">
+                <ReactMarkdown>{stripCenarioTitulo(cenarioTexto)}</ReactMarkdown>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-300">
+                Um cenário completo para você aplicar tudo o que desenvolveu. Clique em <span className="text-purple-400">Ver cenário final</span> abaixo pra começar.
+              </p>
+            )}
+          </GlassCard>
+        );
+      })()}
 
       {/* Tira-Dúvidas: só em semanas de conteúdo. Botão liberado após marcar
           o conteúdo como realizado — mas renderiza o card sempre pra dar
