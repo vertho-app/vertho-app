@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI, callAIChat } from '@/actions/ai-client';
 import { promptEvolutionQualitative, promptEvolutionQualitativeExtract } from '@/lib/season-engine/prompts/evolution-qualitative';
-import { promptEvolutionScenarioGen, promptEvolutionScenarioScore } from '@/lib/season-engine/prompts/evolution-scenario';
+import { promptEvolutionScenarioScore } from '@/lib/season-engine/prompts/evolution-scenario';
 import { promptEvolutionScenarioCheck } from '@/lib/season-engine/prompts/evolution-scenario-check';
 import { gerarEvolutionReport } from '@/actions/evolution-report';
 
@@ -111,25 +111,22 @@ export async function POST(request) {
         let cenario_b_id = dados.cenario_b_id || null;
 
         if (!cenario) {
-          // 1. Tenta reusar cenário B existente (banco_cenarios) da competência + cargo
+          // Cenário SEMPRE vem do banco_cenarios (cenário B) — curado pela Vertho.
+          // Sem fallback de geração IA: avaliação final exige cenário validado.
           const { data: cenB } = await sb.from('banco_cenarios')
-            .select('id, titulo, descricao, alternativas')
+            .select('id, titulo, descricao')
             .eq('empresa_id', trilha.empresa_id)
             .eq('cargo', colab?.cargo || 'todos')
             .eq('tipo_cenario', 'cenario_b')
             .limit(1).maybeSingle();
 
-          if (cenB?.descricao) {
-            cenario = `## ${cenB.titulo || 'Cenário final'}\n\n${cenB.descricao}`;
-            cenario_b_id = cenB.id;
-          } else {
-            // 2. Fallback: gera novo via prompt evolution
-            const { system, user } = promptEvolutionScenarioGen({
-              competencia: trilha.competencia_foco, descritores,
-              cargo: colab?.cargo, contexto: 'corporativo',
-            });
-            cenario = (await callAI(system, user, {}, 1200)).trim();
+          if (!cenB?.descricao) {
+            return NextResponse.json({
+              error: `Cenário B não cadastrado para ${trilha.competencia_foco} + cargo ${colab?.cargo || 'todos'}. Peça à Vertho pra incluir no banco de cenários antes de iniciar a semana 14.`,
+            }, { status: 424 }); // 424 Failed Dependency
           }
+          cenario = `## ${cenB.titulo || 'Cenário final'}\n\n${cenB.descricao}`;
+          cenario_b_id = cenB.id;
         }
 
         const novoSlot = { ...dados, cenario, cenario_b_id, transcript_completo: historico };
