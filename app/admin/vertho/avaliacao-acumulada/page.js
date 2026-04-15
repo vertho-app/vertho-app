@@ -68,7 +68,7 @@ export default function AvaliacaoAcumuladaPage() {
   return (
     <div className="max-w-[1200px] mx-auto px-4 py-6 sm:px-6 min-h-screen">
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.push('/admin/dashboard')}
+        <button onClick={() => router.push(empresaId ? `/admin/empresas/${empresaId}?fase=4` : '/admin/dashboard')}
           className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white">
           <ArrowLeft size={16} />
         </button>
