@@ -255,18 +255,11 @@ export default function SemanaPage({ params }) {
                 onChange={e => setCompromissoInput(e.target.value)}
                 rows={2} placeholder="Ex: a reunião de quarta com o cliente X..."
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-500 mb-3" />
-              <div className="flex gap-2 flex-wrap">
-                <button onClick={() => setMissaoModo('pratica')}
-                  disabled={missaoBusy || !compromissoInput.trim()}
-                  className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-sm font-bold">
-                  Aceito a missão
-                </button>
-                <button onClick={() => setMissaoModo('cenario')}
-                  disabled={missaoBusy}
-                  className="px-4 py-2 rounded-lg border border-white/15 hover:border-white/30 disabled:opacity-50 text-xs text-gray-400">
-                  Não vou aplicar na prática — usar cenário escrito
-                </button>
-              </div>
+              <button onClick={() => setMissaoModo('pratica')}
+                disabled={missaoBusy || !compromissoInput.trim()}
+                className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-sm font-bold">
+                Aceito a missão
+              </button>
             </GlassCard>
           );
         }
@@ -284,14 +277,27 @@ export default function SemanaPage({ params }) {
                   <ReactMarkdown>{missaoTexto}</ReactMarkdown>
                 </div>
               )}
-              <div className="rounded-lg bg-amber-500/5 border border-amber-500/20 p-3">
+              <div className="rounded-lg bg-amber-500/5 border border-amber-500/20 p-3 mb-3">
                 <p className="text-[10px] uppercase text-amber-400 font-bold tracking-wider mb-1">Seu compromisso</p>
                 <p className="text-sm text-gray-200">{compromissoSalvo}</p>
               </div>
               {!chatStarted && (
-                <p className="text-xs text-gray-500 mt-3">
-                  Execute durante a semana. Quando tiver concluído, clique em <span className="text-amber-400">Relatar execução</span> abaixo pra contar o que aconteceu.
-                </p>
+                <>
+                  <p className="text-xs text-gray-400 mb-3">
+                    Você conseguiu executar a missão esta semana?
+                  </p>
+                  <div className="flex gap-2 flex-wrap">
+                    <button onClick={startChat}
+                      className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm font-bold">
+                      Sim, consegui — relatar execução
+                    </button>
+                    <button onClick={() => setMissaoModo('cenario')}
+                      disabled={missaoBusy}
+                      className="px-4 py-2 rounded-lg border border-white/15 hover:border-white/30 disabled:opacity-50 text-xs text-gray-400">
+                      Não consegui — ir para cenário escrito
+                    </button>
+                  </div>
+                </>
               )}
             </GlassCard>
           );
@@ -417,7 +423,16 @@ export default function SemanaPage({ params }) {
             // Em sems 4/8/12 o chat só destrava após o modo ser definido.
             // Retro-compat: trilhas antigas sem missao não exigem modo.
             const temMissao = !!semana.missao?.texto;
+            const modoPratica = progressoSemana?.feedback?.modo === 'pratica';
             const aplicacaoSemModo = isAplicacao && temMissao && !progressoSemana?.feedback?.modo;
+            // Em modo prática, a entrada é o botão "Sim, consegui" no card acima.
+            if (modoPratica) {
+              return (
+                <p className="text-xs text-gray-500 italic">
+                  Clique em <span className="text-emerald-400">Sim, consegui — relatar execução</span> acima pra começar.
+                </p>
+              );
+            }
             return (
               <button
                 onClick={startChat}
@@ -427,9 +442,8 @@ export default function SemanaPage({ params }) {
               >
                 {semanaNum === 13 ? 'Iniciar conversa de fechamento'
                  : semanaNum === 14 ? 'Ver cenário final'
-                 : isAplicacao
-                   ? (progressoSemana?.feedback?.modo === 'pratica' ? 'Relatar execução' : 'Enviar minha resposta')
-                   : 'Levantar evidências'}
+                 : isAplicacao ? 'Enviar minha resposta'
+                 : 'Levantar evidências'}
               </button>
             );
           })() : (

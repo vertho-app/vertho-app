@@ -55,9 +55,11 @@ export async function POST(request) {
       .select('*').eq('trilha_id', trilhaId).eq('semana', semana).maybeSingle();
 
     const existente = prog?.feedback || { transcript_completo: [] };
-    // Uma vez definido, não permite trocar (evita resetar progresso de chat)
-    if (existente.modo && existente.modo !== modo) {
-      return NextResponse.json({ error: `Modo já definido como '${existente.modo}'. Não pode alternar.` }, { status: 409 });
+    const temChat = Array.isArray(existente.transcript_completo) && existente.transcript_completo.length > 0;
+    // Permite trocar de modo enquanto o chat de feedback ainda não começou.
+    // Depois que o relato inicia, trocar apagaria conversa — bloqueia.
+    if (existente.modo && existente.modo !== modo && temChat) {
+      return NextResponse.json({ error: `Modo '${existente.modo}' já tem conversa iniciada — não pode alternar.` }, { status: 409 });
     }
 
     const novoFeedback = {

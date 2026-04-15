@@ -26,7 +26,8 @@ async function extrairDadosEstruturados(historico, tipoConversa, semanaPlan) {
 }
 
 const MAX_TURNS_SOCRATIC = 10; // 5 IA + 5 colab
-const MAX_TURNS_ANALYTIC = 10; // 5 IA + 5 colab — turn 5 é fechamento obrigatório, sem réplica
+const MAX_TURNS_ANALYTIC = 10; // 5 IA + 5 colab — cenário escrito
+const MAX_TURNS_MISSAO_FEEDBACK = 14; // 7 IA + 7 colab — relato de missão prática tem mais detalhes pra extrair
 
 /**
  * POST /api/temporada/reflection
@@ -86,9 +87,11 @@ export async function POST(request) {
     } else {
       tipoConversa = 'socratic';
     }
-    const maxTurns = (tipoConversa === 'analytic' || tipoConversa === 'missao_feedback')
+    const maxTurns = tipoConversa === 'analytic'
       ? MAX_TURNS_ANALYTIC
-      : MAX_TURNS_SOCRATIC;
+      : tipoConversa === 'missao_feedback'
+        ? MAX_TURNS_MISSAO_FEEDBACK
+        : MAX_TURNS_SOCRATIC;
 
     const slot = semanaPlan.tipo === 'aplicacao' ? 'feedback' : 'reflexao';
     const dados = prog?.[slot] || { transcript_completo: [] };
