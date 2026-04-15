@@ -795,6 +795,7 @@ export default function EmpresaPipelinePage({ params }) {
         )}
       </div>
       </div>
+      </div>
 
       {/* Model Picker */}
       {modelPicker && (
