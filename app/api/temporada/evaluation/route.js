@@ -122,10 +122,10 @@ export async function POST(request) {
     // Semana 14: cenário B + 4 perguntas sequenciais (mesmo formato do mapeamento) → pontuação
     if (Number(semana) === 14) {
       const DIMENSOES = [
-        { key: 'pergunta_aprofund_1', label: 'SITUAÇÃO' },
-        { key: 'pergunta_aprofund_2', label: 'AÇÃO' },
-        { key: 'pergunta_raciocinio',  label: 'RACIOCÍNIO' },
-        { key: 'pergunta_cis',         label: 'AUTOSSENSIBILIDADE' },
+        { key: 'p1', label: 'SITUAÇÃO' },
+        { key: 'p2', label: 'AÇÃO' },
+        { key: 'p3', label: 'RACIOCÍNIO' },
+        { key: 'p4', label: 'AUTOSSENSIBILIDADE' },
       ];
 
       if (action === 'init') {
@@ -135,7 +135,7 @@ export async function POST(request) {
 
         if (!cenario || !perguntas) {
           const { data: cenB } = await sb.from('banco_cenarios')
-            .select('id, titulo, descricao, pergunta_aprofund_1, pergunta_aprofund_2, pergunta_raciocinio, pergunta_cis')
+            .select('id, titulo, descricao, alternativas')
             .eq('empresa_id', trilha.empresa_id)
             .eq('cargo', colab?.cargo || 'todos')
             .eq('tipo_cenario', 'cenario_b')
@@ -148,7 +148,13 @@ export async function POST(request) {
           }
           cenario = `## ${cenB.titulo || 'Cenário final'}\n\n${cenB.descricao}`;
           cenario_b_id = cenB.id;
-          perguntas = DIMENSOES.map(d => ({ dimensao: d.label, texto: cenB[d.key] || '' })).filter(p => p.texto);
+          const alt = cenB.alternativas || {};
+          perguntas = DIMENSOES.map(d => ({ dimensao: d.label, texto: alt[d.key] || '' })).filter(p => p.texto);
+          if (perguntas.length === 0) {
+            return NextResponse.json({
+              error: 'Cenário B encontrado mas sem perguntas (alternativas.p1..p4 ausentes). Regere o cenário B.',
+            }, { status: 424 });
+          }
         }
 
         // IA fala primeiro: cenário já está no card acima, aqui só faz a 1ª pergunta
