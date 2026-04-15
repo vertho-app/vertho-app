@@ -157,10 +157,11 @@ export async function POST(request) {
           }
         }
 
-        // IA fala primeiro: cenário já está no card acima, aqui só faz a 1ª pergunta
+        // Apresenta a 1ª pergunta (cenário já está no card acima — não duplica).
+        // Sem IA no meio: perguntas são estáticas vindas do banco.
         if (historico.length === 0) {
           const primeira = perguntas[0];
-          const abertura = `Leia o cenário acima e vamos conversar em 4 dimensões. Começando:\n\n**${primeira?.dimensao || 'SITUAÇÃO'}**: ${primeira?.texto || 'Como você lidaria com essa situação?'}`;
+          const abertura = `**${primeira?.dimensao || 'SITUAÇÃO'}**\n\n${primeira?.texto || ''}`;
           historico.push({ role: 'assistant', content: abertura, timestamp: new Date().toISOString(), turn: 1, dimensao: primeira?.dimensao });
         }
 
@@ -179,10 +180,10 @@ export async function POST(request) {
 
       const respostasColab = historico.filter(m => m.role === 'user').length; // 1..4
 
-      // Se ainda há pergunta a fazer: IA agradece brevemente e passa pra próxima
+      // Se ainda há pergunta a fazer: mostra próxima pergunta (sem IA, texto estático)
       if (respostasColab < perguntas.length) {
         const proxima = perguntas[respostasColab];
-        const msgIA = `Obrigado. Próxima dimensão.\n\n**${proxima.dimensao}**: ${proxima.texto}`;
+        const msgIA = `**${proxima.dimensao}**\n\n${proxima.texto}`;
         historico.push({ role: 'assistant', content: msgIA, timestamp: new Date().toISOString(), turn: respostasColab + 1, dimensao: proxima.dimensao });
         const novoSlot = { ...dados, transcript_completo: historico, cenario, perguntas };
         await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot, finished: false });
