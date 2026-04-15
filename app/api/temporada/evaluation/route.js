@@ -82,7 +82,7 @@ export async function POST(request) {
       if (proximoTurnIA === 1 && messages.length === 0) {
         messages.push({ role: 'user', content: '[INICIE A CONVERSA conforme o TURN 1]' });
       }
-      const respostaIA = (await callAIChat(system, messages, {}, 2000)).trim();
+      const respostaIA = (await callAIChat(system, messages, {}, 4000)).trim();
       historico.push({ role: 'assistant', content: respostaIA, timestamp: new Date().toISOString(), turn: proximoTurnIA });
 
       const finished = proximoTurnIA >= TOTAL;
@@ -92,7 +92,7 @@ export async function POST(request) {
         try {
           const transcript = historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content}`).join('\n\n');
           const { system: s2, user: u2 } = promptEvolutionQualitativeExtract({ descritores, transcript });
-          const r = await callAI(s2, u2, {}, 4000);
+          const r = await callAI(s2, u2, {}, 8000);
           const parsed = JSON.parse(r.replace(/```json\n?|```\n?/g, '').trim());
           Object.assign(novoSlot, parsed);
         } catch (e) { console.error('[VERTHO] extract sem13:', e.message); }
@@ -181,7 +181,7 @@ export async function POST(request) {
         evidenciasAcumuladas,
         acumuladoPrimaria, // notas estruturadas já pontuadas por descritor (pode ser null)
       });
-      const r = await callAI(system, user, {}, 4000);
+      const r = await callAI(system, user, {}, 10000);
       let parsed = {};
       try { parsed = JSON.parse(r.replace(/```json\n?|```\n?/g, '').trim()); } catch (e) {
         console.error('[VERTHO] parse sem14:', e.message);
@@ -197,7 +197,7 @@ export async function POST(request) {
           avaliacaoPrimaria: parsed,
           evidenciasAcumuladas,
         });
-        const rCheck = await callAI(sCheck, uCheck, {}, 3000);
+        const rCheck = await callAI(sCheck, uCheck, {}, 8000);
         auditoria = JSON.parse(rCheck.replace(/```json\n?|```\n?/g, '').trim());
       } catch (e) {
         console.error('[VERTHO] check sem14:', e.message);
