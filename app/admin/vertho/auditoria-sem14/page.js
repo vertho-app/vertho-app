@@ -195,6 +195,8 @@ function DetalheModal({ detalhe, loading, onClose, onRevisado }) {
 
         {loading || !detalhe ? (
           <div className="py-12 flex justify-center"><Loader2 size={24} className="animate-spin text-cyan-400" /></div>
+        ) : !detalhe.colaborador ? (
+          <div className="p-5 text-sm text-red-400">Erro ao carregar detalhe. Dados incompletos.</div>
         ) : (
           <div className="p-5 space-y-4 text-sm">
             <section>
@@ -229,9 +231,10 @@ function DetalheModal({ detalhe, loading, onClose, onRevisado }) {
                   </div>
                   {detalhe.avaliacaoPrimaria.avaliacao_por_descritor?.map((d, i) => {
                     const acum = (detalhe.acumulada || []).find(a => a.descritor === d.descritor);
-                    const pre = Number(d.nota_pre);
-                    const delta = d.delta != null ? Number(d.delta) : (Number(d.nota_pos) - pre);
-                    const corVsPre = (v) => { const n = Number(v); if (isNaN(n)) return 'text-gray-400'; return n > pre ? 'text-emerald-300' : n < pre ? 'text-red-400' : 'text-gray-300'; };
+                    const pre = Number(d.nota_pre) || 0;
+                    const pos = Number(d.nota_pos) || 0;
+                    const delta = !isNaN(Number(d.delta)) ? Number(d.delta) : (pos - pre);
+                    const corVsPre = (v) => { const n = Number(v); if (!v || isNaN(n)) return 'text-gray-400'; return n > pre ? 'text-emerald-300' : n < pre ? 'text-red-400' : 'text-gray-300'; };
                     const corDelta = delta > 0 ? 'text-emerald-300' : delta < 0 ? 'text-red-400' : 'text-gray-400';
                     return (
                       <div key={i} className="border-t border-white/5 pt-2">
@@ -241,7 +244,7 @@ function DetalheModal({ detalhe, loading, onClose, onRevisado }) {
                           <p className={`text-center text-[11px] font-bold ${corVsPre(acum?.nota_acumulada)}`}>{acum?.nota_acumulada ?? '—'}</p>
                           <p className={`text-center text-[11px] font-bold ${corVsPre(d.nota_cenario)}`}>{d.nota_cenario ?? '—'}</p>
                           <p className={`text-center text-[11px] font-bold ${corVsPre(d.nota_pos)}`}>{d.nota_pos}</p>
-                          <p className={`text-center text-[11px] font-bold ${corDelta}`}>{delta > 0 ? '+' : ''}{delta.toFixed(2)}</p>
+                          <p className={`text-center text-[11px] font-bold ${corDelta}`}>{isNaN(delta) ? '—' : `${delta > 0 ? '+' : ''}${delta.toFixed(2)}`}</p>
                         </div>
                         <p className={`text-[10px] ${corFinal} mt-0.5`}>
                           {d.classificacao} ({d.consistencia_com_acumulado || '—'})
