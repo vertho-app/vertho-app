@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAIChat } from '@/actions/ai-client';
 import { promptTiraDuvidas } from '@/lib/season-engine/prompts/tira-duvidas';
+import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 
 /**
  * POST /api/temporada/tira-duvidas
@@ -57,6 +58,19 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Marque o conteúdo como realizado antes de tirar dúvidas.' }, { status: 403 });
     }
 
+    // Rate limit: máx 10 perguntas por dia por colab (feature=tira_duvidas).
+    // Evita abuso + custo descontrolado. Janela de 24h.
+    const { count: usoHoje } = await sb.from('ia_usage_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('colaborador_id', trilha.colaborador_id)
+      .eq('feature', 'tira_duvidas')
+      .gte('created_at', new Date(Date.now() - 24 * 3600 * 1000).toISOString());
+    if ((usoHoje || 0) >= 10) {
+      return NextResponse.json({
+        error: 'Você atingiu o limite diário (10 perguntas) do Tira-Dúvidas. Tente de novo amanhã.',
+      }, { status: 429 });
+    }
+
     const dados = prog?.tira_duvidas || { transcript_completo: [] };
     const historico = Array.isArray(dados.transcript_completo) ? dados.transcript_completo : [];
     historico.push({ role: 'user', content: message, timestamp: new Date().toISOString() });
@@ -67,14 +81,22 @@ export async function POST(request) {
       semanaPlan.conteudo?.core_titulo,
     ].filter(Boolean).join('\n');
 
+    // PII masking: substitui nome real por alias opaco antes de mandar pra IA
+    const { masked: colabMasked, map: piiMap } = maskColaborador(colab);
+    // Sanitiza histórico (substitui PII do texto + nome do colab por alias)
+    const historicoMasked = historico.map(m => ({
+      ...m,
+      content: maskTextPII(m.content, piiMap),
+    }));
+
     const { system, messages } = promptTiraDuvidas({
-      nomeColab: (colab.nome_completo || '').split(' ')[0],
+      nomeColab: colabMasked.nome,
       cargo: colab.cargo,
       competencia: trilha.competencia_foco,
       descritor: semanaPlan.descritor,
       conteudoResumo,
       perfilDominante: colab.perfil_dominante,
-      historico,
+      historico: historicoMasked,
     });
 
     let respostaIA;
@@ -86,6 +108,9 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Erro na IA' }, { status: 500 });
     }
 
+    // Despersonaliza: troca aliases de volta por nomes reais antes de exibir
+    respostaIA = unmaskPII(respostaIA, piiMap);
+
     historico.push({ role: 'assistant', content: respostaIA, timestamp: new Date().toISOString() });
 
     // Persiste APENAS no campo tira_duvidas. Não mexe em status/reflexao/feedback.
@@ -93,6 +118,19 @@ export async function POST(request) {
     await sb.from('temporada_semana_progresso')
       .update({ tira_duvidas: novoDados })
       .eq('id', prog.id);
+
+    // Telemetria — log da chamada pra rate limit futuro + custo
+    await sb.from('ia_usage_log').insert({
+      empresa_id: trilha.empresa_id,
+      colaborador_id: trilha.colaborador_id,
+      feature: 'tira_duvidas',
+      trilha_id: trilhaId,
+      semana: Number(semana),
+      model: 'claude-haiku-4-5-20251001',
+      // tokens aprox: sistema+histórico médio; valores precisos precisariam parse da response
+      input_tokens: Math.round((system.length + JSON.stringify(messages).length) / 4),
+      output_tokens: Math.round(respostaIA.length / 4),
+    });
 
     return NextResponse.json({ message: respostaIA, history: historico });
   } catch (err) {

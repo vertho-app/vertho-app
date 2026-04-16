@@ -62,24 +62,35 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig } = 
       .eq('colaborador_id', colaboradorId)
       .eq('competencia', competenciaAlvo);
 
-    // Fallback em cascata:
-    //   1. competencias da empresa do colab (com nome_curto preenchido)
-    //   2. competencias_base (global)
+    // Anti-viés: se colab NÃO tem assessment da competência, exigimos que
+    // seja feito ANTES da trilha. Não mais default 1.5 que enviesa a alocação
+    // de semanas ao tratar ausência como "gap moderado".
     if (!assessment || assessment.length === 0) {
-      const { data: emp } = await sb.from('competencias')
-        .select('nome_curto')
-        .eq('empresa_id', colab.empresa_id)
-        .eq('nome', competenciaAlvo)
-        .not('nome_curto', 'is', null);
-      let descritoresUnicos = [...new Set((emp || []).map(b => b.nome_curto))];
+      return {
+        error: `Colaborador ainda não tem avaliação (descriptor_assessments) para "${competenciaAlvo}". Rode a rodada de mapeamento antes de gerar a temporada — default 1.5 causa viés na seleção de descritores.`,
+        codigo: 'sem_assessment',
+      };
+    }
 
-      if (descritoresUnicos.length === 0) {
-        const { data: base } = await sb.from('competencias_base')
-          .select('nome_curto').eq('nome', competenciaAlvo).not('nome_curto', 'is', null);
-        descritoresUnicos = [...new Set((base || []).map(b => b.nome_curto))];
-      }
+    // Cobertura mínima: se não tem assessment pra TODOS os descritores da
+    // competência, marca os ausentes como "não avaliado" (não contam na
+    // alocação — selectDescriptors ignora quem não tem nota).
+    const { data: descsEmp } = await sb.from('competencias')
+      .select('nome_curto')
+      .eq('empresa_id', colab.empresa_id)
+      .eq('nome', competenciaAlvo)
+      .not('nome_curto', 'is', null);
+    let descritoresCatalogo = [...new Set((descsEmp || []).map(b => b.nome_curto))];
+    if (descritoresCatalogo.length === 0) {
+      const { data: base } = await sb.from('competencias_base')
+        .select('nome_curto').eq('nome', competenciaAlvo).not('nome_curto', 'is', null);
+      descritoresCatalogo = [...new Set((base || []).map(b => b.nome_curto))];
+    }
 
-      assessment = descritoresUnicos.map(d => ({ descritor: d, nota: 1.5 }));
+    const avaliadosSet = new Set(assessment.map(a => a.descritor));
+    const ausentes = descritoresCatalogo.filter(d => !avaliadosSet.has(d));
+    if (ausentes.length > 0) {
+      console.warn(`[gerarTemporada] ${ausentes.length} descritor(es) sem avaliação — ignorados na alocação:`, ausentes);
     }
 
     if (assessment.length === 0) {

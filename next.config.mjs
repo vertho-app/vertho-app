@@ -26,9 +26,11 @@ const nextConfig = {
     '/**': ['./public/logo-vertho.png', './public/logo-vertho-cover.png', './public/template-fundo-relatorios.png'],
   },
 
-  // Upload de anexos (PDF/imagens/áudio) via server action. Default Next é 1MB,
-  // insuficiente pra podcasts (m4a típico passa disso). 50MB cobre áudios longos.
-  // Next 16 (Turbopack) coloca a chave em experimental, não no top-level.
+  // Server actions: default Next 16 é 1MB. Next 16 não suporta limite
+  // por rota ainda — usa-se global. 50MB cobre upload de podcasts m4a
+  // pelo form admin de conteúdos. TODO: migrar upload de áudio/vídeo
+  // pra signed URL direto pro Supabase Storage (bypass server action)
+  // e aí baixar este limite pra 15MB.
   experimental: {
     serverActions: {
       bodySizeLimit: '50mb',

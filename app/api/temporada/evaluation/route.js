@@ -4,6 +4,7 @@ import { callAI, callAIChat } from '@/actions/ai-client';
 import { promptEvolutionQualitative, promptEvolutionQualitativeExtract } from '@/lib/season-engine/prompts/evolution-qualitative';
 import { promptEvolutionScenarioScore } from '@/lib/season-engine/prompts/evolution-scenario';
 import { promptEvolutionScenarioCheck } from '@/lib/season-engine/prompts/evolution-scenario-check';
+import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { gerarEvolutionReport } from '@/actions/evolution-report';
 
 /**
@@ -214,12 +215,18 @@ export async function POST(request) {
       // pra triangulação. A nota_pos NUNCA sai só do cenário.
       const evidenciasAcumuladas = await agregarEvidencias13Semanas(sb, trilhaId, descritoresComRegua);
 
+      // PII masking pra chamadas IA externas — substitui nome real + sanitiza
+      // texto livre (emails/telefones/menções) antes de enviar.
+      const { masked: colabMasked, map: piiMap } = maskColaborador(colab);
+      const respostaMasked = maskTextPII(respostaAgregada, piiMap);
+      const evidenciasMasked = maskTextPII(evidenciasAcumuladas, piiMap);
+
       const { system, user } = promptEvolutionScenarioScore({
         competencia: trilha.competencia_foco,
         descritores: descritoresComRegua,
-        cenario, resposta: respostaAgregada, nomeColab: nome,
+        cenario, resposta: respostaMasked, nomeColab: colabMasked.nome,
         perfilDominante: colab?.perfil_dominante,
-        evidenciasAcumuladas,
+        evidenciasAcumuladas: evidenciasMasked,
         acumuladoPrimaria,
       });
       const r = await callAI(system, user, {}, 10000);
@@ -228,18 +235,27 @@ export async function POST(request) {
         console.error('[VERTHO] parse sem14:', e.message);
       }
 
-      // Check por segunda IA — audita a avaliação primária (igual check-ia4 do mapeamento).
+      // Despersonaliza campos textuais do output (resumo_avaliacao e justificativas)
+      if (parsed?.resumo_avaliacao) parsed.resumo_avaliacao = unmaskPII(parsed.resumo_avaliacao, piiMap);
+      if (Array.isArray(parsed?.avaliacao_por_descritor)) {
+        parsed.avaliacao_por_descritor = parsed.avaliacao_por_descritor.map(d => ({
+          ...d, justificativa: unmaskPII(d.justificativa, piiMap),
+        }));
+      }
+
+      // Check por segunda IA — também com masking aplicado
       let auditoria = null;
       try {
         const { system: sCheck, user: uCheck } = promptEvolutionScenarioCheck({
           competencia: trilha.competencia_foco,
           descritores: descritoresComRegua,
-          cenario, resposta: respostaAgregada,
+          cenario, resposta: respostaMasked,
           avaliacaoPrimaria: parsed,
-          evidenciasAcumuladas,
+          evidenciasAcumuladas: evidenciasMasked,
         });
         const rCheck = await callAI(sCheck, uCheck, {}, 8000);
         auditoria = JSON.parse(rCheck.replace(/```json\n?|```\n?/g, '').trim());
+        if (auditoria?.resumo_auditoria) auditoria.resumo_auditoria = unmaskPII(auditoria.resumo_auditoria, piiMap);
       } catch (e) {
         console.error('[VERTHO] check sem14:', e.message);
       }

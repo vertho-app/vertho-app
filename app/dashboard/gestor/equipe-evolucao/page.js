@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
 import { ArrowLeft, Loader2, Users, TrendingUp, TrendingDown, Minus, ChevronRight, Clock, X, FileDown, Download } from 'lucide-react';
 import { PageContainer, GlassCard } from '@/components/page-shell';
-import { listarEquipeEvolucao, loadLideradoConcluida } from './actions';
+import { listarEquipeEvolucao, loadLideradoConcluida, listarCheckpointsPendentes, salvarCheckpointGestor } from './actions';
 
 const STATUS_CFG = {
   em_andamento:         { cor: 'cyan',    icon: Clock,        label: 'Em andamento' },
@@ -28,15 +28,31 @@ export default function EquipeEvolucaoPage() {
   const [ordem, setOrdem] = useState('delta_desc');
   const [detalhe, setDetalhe] = useState(null);
   const [loadingDetalhe, setLoadingDetalhe] = useState(false);
+  const [checkpoints, setCheckpoints] = useState([]);
 
   async function carregar() {
     setLoading(true);
     const { data: { user } } = await sb.auth.getUser();
     if (!user) { router.replace('/login'); return; }
-    const r = await listarEquipeEvolucao(user.email);
+    const [r, cp] = await Promise.all([
+      listarEquipeEvolucao(user.email),
+      listarCheckpointsPendentes(user.email),
+    ]);
     if (r.error) setError(r.error);
     else { setRows(r.rows); setResumo(r.resumo); }
+    if (cp.ok) setCheckpoints(cp.rows);
     setLoading(false);
+  }
+
+  async function handleCheckpoint(cp, avaliacao) {
+    const obs = avaliacao !== 'evoluindo' ? prompt(`Por que ${cp.colab} está ${avaliacao}? (opcional)`) : null;
+    if (avaliacao !== 'evoluindo' && obs === null) return; // cancelou
+    const { data: { user } } = await sb.auth.getUser();
+    const r = await salvarCheckpointGestor(user.email, {
+      trilhaId: cp.trilhaId, semana: cp.semana, avaliacao, observacao: obs || null,
+    });
+    if (r.error) alert(r.error);
+    else await carregar();
   }
 
   useEffect(() => { carregar(); }, []);
@@ -104,6 +120,32 @@ export default function EquipeEvolucaoPage() {
           <Card label="Parciais" valor={resumo.evolucaoParcial} cor="text-amber-300" />
           <Card label="Estagnação" valor={resumo.estagnacao} cor="text-gray-400" />
           <Card label="Regressão" valor={resumo.regressao} cor="text-red-400" />
+        </div>
+      )}
+
+      {checkpoints.length > 0 && (
+        <div className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/[0.05] p-4">
+          <p className="text-xs uppercase tracking-widest text-amber-400 font-bold mb-3">
+            ⚠ Checkpoints pendentes ({checkpoints.length})
+          </p>
+          <div className="space-y-2">
+            {checkpoints.map((cp, i) => (
+              <div key={i} className="flex items-center gap-3 flex-wrap bg-white/[0.02] rounded-lg p-3 border border-amber-500/20">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white truncate">{cp.colab}</p>
+                  <p className="text-[11px] text-gray-400">Sem {cp.semana} · {cp.competencia}</p>
+                </div>
+                <div className="flex gap-1 flex-wrap">
+                  <button onClick={() => handleCheckpoint(cp, 'evoluindo')}
+                    className="text-[10px] px-2 py-1 rounded bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 hover:bg-emerald-500/25">Evoluindo</button>
+                  <button onClick={() => handleCheckpoint(cp, 'estagnado')}
+                    className="text-[10px] px-2 py-1 rounded bg-amber-500/15 border border-amber-400/30 text-amber-300 hover:bg-amber-500/25">Estagnado</button>
+                  <button onClick={() => handleCheckpoint(cp, 'regredindo')}
+                    className="text-[10px] px-2 py-1 rounded bg-red-500/15 border border-red-400/30 text-red-300 hover:bg-red-500/25">Regredindo</button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

@@ -11,21 +11,23 @@
 //   Stream → Library → Webhooks → URL:
 //   https://www.vertho.com.br/api/webhooks/bunny
 //
-// BUNNY_WEBHOOK_SECRET (opcional): valida via header Authorization ou ?token=
+// BUNNY_WEBHOOK_SECRET (OBRIGATÓRIO em produção): valida via header Authorization ou ?token=
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 
 export async function POST(req) {
   try {
-    // Validação do secret (opcional)
+    // Validação de secret — obrigatória. Sem secret configurado = rejeita.
     const secret = process.env.BUNNY_WEBHOOK_SECRET;
-    if (secret) {
-      const auth = req.headers.get('authorization') || '';
-      const tokenHeader = auth.replace(/^Bearer\s+/i, '');
-      const tokenQuery = new URL(req.url).searchParams.get('token') || '';
-      if (tokenHeader !== secret && tokenQuery !== secret) {
-        return new Response('Unauthorized', { status: 401 });
-      }
+    if (!secret) {
+      console.error('[bunny webhook] BUNNY_WEBHOOK_SECRET não configurado — rejeitando');
+      return new Response('Webhook secret not configured', { status: 503 });
+    }
+    const auth = req.headers.get('authorization') || '';
+    const tokenHeader = auth.replace(/^Bearer\s+/i, '');
+    const tokenQuery = new URL(req.url).searchParams.get('token') || '';
+    if (tokenHeader !== secret && tokenQuery !== secret) {
+      return new Response('Unauthorized', { status: 401 });
     }
 
     const payload = await req.json().catch(() => null);

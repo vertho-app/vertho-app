@@ -89,6 +89,102 @@ export async function listarEquipeEvolucao(email) {
 }
 
 /**
+ * Lista checkpoints pendentes (sems 5 ou 10) da equipe do gestor.
+ * Cria automaticamente quando a sem correspondente entra em andamento.
+ */
+export async function listarCheckpointsPendentes(email) {
+  const ctx = await getUserContext(email);
+  if (!ctx?.colaborador) return { error: 'Não autenticado' };
+  const isGestor = ctx.role === 'gestor';
+  const isRH = ctx.role === 'rh' || ctx.isPlatformAdmin;
+  if (!isGestor && !isRH) return { error: 'Acesso restrito' };
+
+  const sb = createSupabaseAdmin();
+  const empresaId = ctx.colaborador.empresa_id;
+
+  let colabQ = sb.from('colaboradores').select('id, nome_completo, area_depto').eq('empresa_id', empresaId);
+  if (isGestor && ctx.colaborador.area_depto) colabQ = colabQ.eq('area_depto', ctx.colaborador.area_depto);
+  const { data: colabs } = await colabQ;
+  if (!colabs?.length) return { ok: true, rows: [] };
+
+  // Trilhas ativas desses colabs que passaram da sem 5 ou sem 10
+  const { data: trilhas } = await sb.from('trilhas')
+    .select('id, colaborador_id, competencia_foco, numero_temporada, status')
+    .in('colaborador_id', colabs.map(c => c.id))
+    .eq('status', 'ativa');
+  if (!trilhas?.length) return { ok: true, rows: [] };
+
+  // Pra cada trilha, olha progresso nas sems 5 e 10
+  const { data: progs } = await sb.from('temporada_semana_progresso')
+    .select('trilha_id, semana, status')
+    .in('trilha_id', trilhas.map(t => t.id))
+    .in('semana', [5, 10]);
+
+  // E checkpoints existentes
+  const { data: checkpoints } = await sb.from('checkpoints_gestor')
+    .select('trilha_id, semana, status, avaliacao_gestor')
+    .in('trilha_id', trilhas.map(t => t.id));
+  const cpMap = {};
+  (checkpoints || []).forEach(c => { cpMap[`${c.trilha_id}_${c.semana}`] = c; });
+
+  const rows = [];
+  for (const t of trilhas) {
+    const colab = colabs.find(c => c.id === t.colaborador_id);
+    for (const sem of [5, 10]) {
+      const prog = (progs || []).find(p => p.trilha_id === t.id && p.semana === sem);
+      if (!prog || prog.status === 'pendente') continue; // só sinaliza quando sem entrou
+      const cp = cpMap[`${t.id}_${sem}`];
+      if (cp?.status === 'validado') continue; // já foi
+      rows.push({
+        trilhaId: t.id,
+        colabId: colab?.id,
+        colab: colab?.nome_completo,
+        competencia: t.competencia_foco,
+        semana: sem,
+        statusCheckpoint: cp?.status || 'pendente',
+        avaliacaoGestor: cp?.avaliacao_gestor || null,
+      });
+    }
+  }
+
+  return { ok: true, rows };
+}
+
+/**
+ * Gestor salva o checkpoint (sems 5 ou 10).
+ */
+export async function salvarCheckpointGestor(email, { trilhaId, semana, avaliacao, observacao }) {
+  const ctx = await getUserContext(email);
+  if (!ctx?.colaborador) return { error: 'Não autenticado' };
+  if (ctx.role !== 'gestor' && ctx.role !== 'rh' && !ctx.isPlatformAdmin) return { error: 'Acesso restrito' };
+  if (![5, 10].includes(Number(semana))) return { error: 'Semana inválida (só 5 ou 10)' };
+  if (!['evoluindo', 'estagnado', 'regredindo'].includes(avaliacao)) return { error: 'Avaliação inválida' };
+
+  const sb = createSupabaseAdmin();
+  const { data: trilha } = await sb.from('trilhas')
+    .select('id, empresa_id, colaborador_id').eq('id', trilhaId).maybeSingle();
+  if (!trilha) return { error: 'Trilha não encontrada' };
+
+  const payload = {
+    trilha_id: trilhaId,
+    empresa_id: trilha.empresa_id,
+    colaborador_id: trilha.colaborador_id,
+    gestor_id: ctx.colaborador.id,
+    semana: Number(semana),
+    status: avaliacao === 'evoluindo' ? 'validado' : 'alerta',
+    avaliacao_gestor: avaliacao,
+    observacao: observacao || null,
+    validado_em: new Date().toISOString(),
+  };
+
+  // Upsert via delete+insert (chave única trilha_id+semana)
+  await sb.from('checkpoints_gestor').delete().eq('trilha_id', trilhaId).eq('semana', Number(semana));
+  const { error } = await sb.from('checkpoints_gestor').insert(payload);
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
+/**
  * Gestor/RH pode ver detalhe de um liderado (reusa loadTemporadaConcluida
  * passando o email do colab liderado, mas valida autorização).
  */
