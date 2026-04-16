@@ -10,6 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit",
     "migrate:legacy": "node scripts/migracao_legado.js",
     "test": "npx playwright test",
     "test:ui": "npx playwright test --ui",

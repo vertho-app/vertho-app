@@ -4,19 +4,38 @@
  * Estratégia "shift-left": o prompt recebe IDs opacos (COLAB_A3F2, CLIENTE_X) em
  * vez de nomes reais. O "de-para" (map) fica local e pode ser usado pra
  * despersonalizar a saída da IA antes de exibir ao usuário.
- *
- * Uso:
- *   const { masked, map } = maskPII({ colaborador: { nome: 'Rodrigo Naves', email: 'rodrigo@x.com' } });
- *   // masked = { colaborador: { nome: 'COLAB_A3F2', email: 'email@masked.local' } }
- *   // map = { 'COLAB_A3F2': 'Rodrigo', 'email@masked.local': 'rodrigo@x.com' }
- *   const respostaIA = await callAI(system, user.replace(/RODRIGO/g, masked.nome));
- *   const despersonalizada = unmaskPII(respostaIA, map);
- *
- * Também expõe `maskTextPII(texto)` — detecta e substitui emails/telefones/
- * nomes próprios em texto livre (transcripts, relatos).
  */
 
-function hashStable(input) {
+export type PIIMap = Record<string, string>;
+
+export interface ColaboradorInput {
+  id?: string;
+  nome?: string;
+  nome_completo?: string;
+  email?: string;
+  cargo?: string;
+  [k: string]: unknown;
+}
+
+export interface EmpresaInput {
+  id?: string;
+  nome?: string;
+  slug?: string;
+  [k: string]: unknown;
+}
+
+export interface MaskedColaborador extends ColaboradorInput {
+  nome: string;
+  nome_completo: string;
+  email: string | null;
+}
+
+export interface MaskedEmpresa extends EmpresaInput {
+  nome: string;
+  slug: string;
+}
+
+function hashStable(input: unknown): string {
   const s = String(input || '');
   let h = 0;
   for (let i = 0; i < s.length; i++) h = ((h << 5) - h) + s.charCodeAt(i);
@@ -26,11 +45,10 @@ function hashStable(input) {
 /**
  * Mascara PII de um colaborador pra uso no prompt.
  * Mantém cargo/perfil (contextuais, não identificáveis).
- *
- * @param {Object} colab - { id?, nome, nome_completo?, email, cargo?, ... }
- * @returns {{ masked: Object, map: Object<string,string> }}
  */
-export function maskColaborador(colab) {
+export function maskColaborador(
+  colab: ColaboradorInput | null | undefined,
+): { masked: MaskedColaborador | null; map: PIIMap } {
   if (!colab) return { masked: null, map: {} };
   const idBase = colab.id || colab.email || colab.nome_completo || colab.nome || 'unknown';
   const alias = `COLAB_${hashStable(idBase)}`;
@@ -38,8 +56,8 @@ export function maskColaborador(colab) {
   const nome = colab.nome_completo || colab.nome;
   const primeiroNome = (nome || '').split(' ')[0] || alias;
 
-  const map = { [alias]: primeiroNome };
-  if (colab.email) map[emailAlias] = colab.email;
+  const map: PIIMap = { [alias]: primeiroNome };
+  if (colab.email && emailAlias) map[emailAlias] = colab.email;
   if (nome) map[nome] = alias;
 
   return {
@@ -56,10 +74,12 @@ export function maskColaborador(colab) {
 /**
  * Mascara PII de uma empresa.
  */
-export function maskEmpresa(empresa) {
+export function maskEmpresa(
+  empresa: EmpresaInput | null | undefined,
+): { masked: MaskedEmpresa | null; map: PIIMap } {
   if (!empresa) return { masked: null, map: {} };
   const alias = `EMPRESA_${hashStable(empresa.id || empresa.nome || 'x')}`;
-  const map = { [alias]: empresa.nome };
+  const map: PIIMap = { [alias]: empresa.nome || '' };
   return {
     masked: { ...empresa, nome: alias, slug: alias.toLowerCase() },
     map,
@@ -70,12 +90,9 @@ export function maskEmpresa(empresa) {
  * Sanitiza texto livre (transcripts, relatos) substituindo emails e telefones.
  * NÃO tenta detectar nomes próprios por NER (muito falso-positivo sem modelo);
  * use maskColaborador pra cobrir menções ao próprio colab.
- *
- * @param {string} texto
- * @param {Object} [extraMap] - substituições adicionais (nome → alias)
  */
-export function maskTextPII(texto, extraMap = {}) {
-  if (!texto) return texto;
+export function maskTextPII(texto: string | null | undefined, extraMap: PIIMap = {}): string {
+  if (!texto) return texto || '';
   let out = String(texto);
 
   // Emails
@@ -97,8 +114,8 @@ export function maskTextPII(texto, extraMap = {}) {
  * Inverte mascaramento em resposta da IA antes de exibir ao usuário.
  * Troca aliases pelos valores reais.
  */
-export function unmaskPII(texto, map) {
-  if (!texto || !map) return texto;
+export function unmaskPII(texto: string | null | undefined, map: PIIMap | null | undefined): string {
+  if (!texto || !map) return texto || '';
   let out = String(texto);
   for (const [alias, real] of Object.entries(map)) {
     if (!alias || !real) continue;
@@ -110,13 +127,25 @@ export function unmaskPII(texto, map) {
 
 /**
  * Wrapper helper: prepara payload mascarado pra prompt.
- * Útil em rotas que passam colab + empresa pra IA.
  */
-export function prepararPayloadMascarado({ colaborador, empresa, textos = {} }) {
+export function prepararPayloadMascarado({
+  colaborador,
+  empresa,
+  textos = {},
+}: {
+  colaborador: ColaboradorInput | null;
+  empresa: EmpresaInput | null;
+  textos?: Record<string, string>;
+}): {
+  colaborador: MaskedColaborador | null;
+  empresa: MaskedEmpresa | null;
+  textos: Record<string, string>;
+  map: PIIMap;
+} {
   const { masked: mColab, map: mapColab } = maskColaborador(colaborador);
   const { masked: mEmp, map: mapEmp } = maskEmpresa(empresa);
-  const mapGlobal = { ...mapColab, ...mapEmp };
-  const textosMascarados = {};
+  const mapGlobal: PIIMap = { ...mapColab, ...mapEmp };
+  const textosMascarados: Record<string, string> = {};
   for (const [k, v] of Object.entries(textos)) {
     textosMascarados[k] = maskTextPII(v, mapGlobal);
   }

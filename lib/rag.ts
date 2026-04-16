@@ -7,30 +7,51 @@ import { createSupabaseAdmin } from './supabase';
  * de embeddings externo. Quando subirmos pgvector + embeddings, este arquivo
  * é o único que muda — callers continuam idênticos.
  *
- * Uso típico:
- *   const ctx = await retrieveContext(empresaId, "como funciona o banco de horas?");
- *   const system = buildSystem({ ..., groundingContext: ctx });
- *
  * Filosofia: NUNCA passar dados de um tenant pra IA de outro. A função
  * sempre exige empresaId — sem default, sem "global". Isolamento é premissa.
  */
 
+export interface KbChunk {
+  id: string;
+  titulo: string;
+  conteudo: string;
+  categoria: string | null;
+  score: number;
+}
+
+export interface KbDocSummary {
+  id: string;
+  titulo: string;
+  categoria: string | null;
+  source_url: string | null;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export interface IngestDocInput {
+  empresaId: string;
+  titulo: string;
+  conteudo: string;
+  categoria?: string | null;
+  sourceUrl?: string | null;
+  criadoPor?: string | null;
+}
+
 /**
  * Busca top-k trechos mais relevantes na base do tenant.
- *
- * @param {string} empresaId - tenant owner da busca (obrigatório)
- * @param {string} query - pergunta ou trecho pra buscar
- * @param {number} k - top-K resultados (default 5)
- * @returns {Promise<Array<{id, titulo, conteudo, categoria, score}>>}
  */
-export async function retrieveContext(empresaId, query, k = 5) {
+export async function retrieveContext(
+  empresaId: string,
+  query: string,
+  k: number = 5,
+): Promise<KbChunk[]> {
   if (!empresaId) throw new Error('retrieveContext: empresaId obrigatório');
   if (!query || typeof query !== 'string') return [];
 
   const sb = createSupabaseAdmin();
   const { data, error } = await sb.rpc('kb_search', {
     p_empresa_id: empresaId,
-    p_query: query.slice(0, 500),  // limita query pra evitar timeout FTS
+    p_query: query.slice(0, 500),
     p_limit: k,
   });
 
@@ -38,25 +59,13 @@ export async function retrieveContext(empresaId, query, k = 5) {
     console.error('[rag.retrieveContext]', error);
     return [];
   }
-  return data || [];
+  return (data as KbChunk[]) || [];
 }
 
 /**
  * Formata trechos recuperados como bloco de contexto pra injetar no prompt.
- *
- * Padrão:
- *   ## Contexto da empresa
- *   ### [título 1]
- *   conteúdo...
- *   ### [título 2]
- *   ...
- *
- * Se não houver resultados, retorna string vazia — prompt deve lidar.
- *
- * @param {Array} chunks - saída de retrieveContext
- * @returns {string}
  */
-export function formatGroundingBlock(chunks) {
+export function formatGroundingBlock(chunks: KbChunk[] | null | undefined): string {
   if (!Array.isArray(chunks) || chunks.length === 0) return '';
   const blocos = chunks.map((c) => {
     const head = c.categoria
@@ -69,14 +78,6 @@ export function formatGroundingBlock(chunks) {
 
 /**
  * Adiciona um documento à base de conhecimento do tenant.
- *
- * @param {Object} args
- * @param {string} args.empresaId
- * @param {string} args.titulo
- * @param {string} args.conteudo
- * @param {string} [args.categoria] - regulamento/valores/cargos/faq/onboarding
- * @param {string} [args.sourceUrl]
- * @param {string} [args.criadoPor] - colaborador_id
  */
 export async function ingestDoc({
   empresaId,
@@ -85,7 +86,7 @@ export async function ingestDoc({
   categoria = null,
   sourceUrl = null,
   criadoPor = null,
-}) {
+}: IngestDocInput): Promise<string | undefined> {
   if (!empresaId) throw new Error('ingestDoc: empresaId obrigatório');
   if (!titulo || !conteudo) throw new Error('ingestDoc: titulo+conteudo obrigatórios');
 
@@ -100,13 +101,13 @@ export async function ingestDoc({
   }).select('id').single();
 
   if (error) throw error;
-  return data?.id;
+  return (data as { id: string } | null)?.id;
 }
 
 /**
  * Desativa um documento (soft delete).
  */
-export async function deactivateDoc(empresaId, docId) {
+export async function deactivateDoc(empresaId: string, docId: string): Promise<void> {
   const sb = createSupabaseAdmin();
   const { error } = await sb.from('knowledge_base')
     .update({ ativo: false })
@@ -118,7 +119,7 @@ export async function deactivateDoc(empresaId, docId) {
 /**
  * Lista todos os docs ativos do tenant (pra painel de admin).
  */
-export async function listDocs(empresaId) {
+export async function listDocs(empresaId: string): Promise<KbDocSummary[]> {
   if (!empresaId) throw new Error('listDocs: empresaId obrigatório');
   const sb = createSupabaseAdmin();
   const { data } = await sb.from('knowledge_base')
@@ -126,5 +127,5 @@ export async function listDocs(empresaId) {
     .eq('empresa_id', empresaId)
     .eq('ativo', true)
     .order('atualizado_em', { ascending: false });
-  return data || [];
+  return (data as KbDocSummary[]) || [];
 }
