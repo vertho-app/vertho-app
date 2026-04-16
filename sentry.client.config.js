@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nextjs';
+import { scrubPII } from './lib/sentry-scrub-pii.js';
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -8,6 +9,11 @@ Sentry.init({
 
   // Não enviar em dev
   enabled: process.env.NODE_ENV === 'production',
+
+  // LGPD — filtra emails/telefones/CPF antes de enviar
+  beforeSend: scrubPII,
+  beforeSendTransaction: scrubPII,
+  sendDefaultPii: false,
 
   // Ignora erros de rede do usuário (não são bugs nossos)
   ignoreErrors: [

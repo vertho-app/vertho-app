@@ -142,18 +142,27 @@ export async function uploadConteudo(formData) {
       conteudo_inline = formData.get('conteudo_inline') || '';
       if (!conteudo_inline.trim()) return { success: false, error: 'Conteúdo obrigatório' };
     } else {
-      const file = formData.get('file');
-      if (!file || typeof file === 'string') return { success: false, error: 'Arquivo obrigatório' };
-      const ext = (file.name || '').split('.').pop() || 'bin';
-      const path = `${formato}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const { error: upErr } = await sb.storage.from('conteudos').upload(path, buffer, {
-        contentType: file.type || undefined, upsert: false,
-      });
-      if (upErr) return { success: false, error: `Upload falhou: ${upErr.message}` };
-      const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(path);
-      url = publicUrl;
-      storage_path = path;
+      // Preferência: cliente já fez upload direto via /api/upload/signed-url
+      // e manda só o storage_path. Caso não tenha, tenta upload pelo server
+      // (usado só pra arquivos pequenos, <15MB).
+      const pathPreUploaded = formData.get('storage_path');
+      if (pathPreUploaded) {
+        storage_path = pathPreUploaded;
+        const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(pathPreUploaded);
+        url = publicUrl;
+      } else {
+        const file = formData.get('file');
+        if (!file || typeof file === 'string') return { success: false, error: 'Arquivo ou storage_path obrigatório' };
+        const path = `${formato}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+        const buffer = Buffer.from(await file.arrayBuffer());
+        const { error: upErr } = await sb.storage.from('conteudos').upload(path, buffer, {
+          contentType: file.type || undefined, upsert: false,
+        });
+        if (upErr) return { success: false, error: `Upload falhou: ${upErr.message}` };
+        const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(path);
+        url = publicUrl;
+        storage_path = path;
+      }
     }
 
     const { data, error } = await sb.from('micro_conteudos').insert({

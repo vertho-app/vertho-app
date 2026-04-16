@@ -1,0 +1,53 @@
+# Supabase local config — gerado manualmente (sem `supabase init` porque
+# o projeto já tem DB em produção).
+#
+# Uso:
+#   supabase login
+#   supabase link --project-ref xwuqrgrvakxtphbmudwj
+#   supabase db pull          # baixa schema atual pra migrations/
+#   supabase db push          # aplica migrations pendentes
+#   supabase db diff          # compara local vs remoto
+
+project_id = "vertho-app"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[db.pooler]
+enabled = false
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "https://vertho.com.br"
+additional_redirect_urls = [
+  "https://vertho.ai",
+  "https://*.vertho.ai",
+  "http://localhost:3000",
+]
+jwt_expiry = 3600
+enable_signup = false
+enable_confirmations = false
+
+[auth.email]
+enable_signup = false
+double_confirm_changes = true
+enable_confirmations = false
+
+[analytics]
+enabled = false
+
+[functions]
+# Edge functions — não usamos hoje (tudo em Next.js server actions)

@@ -70,10 +70,15 @@ function extractClaudeText(content) {
 async function callClaude(system, user, model, maxTokens, options = {}) {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+  // Prompt Caching igual ao Chat (ver comentário em callClaudeChat)
+  const systemBlock = typeof system === 'string' && system.length > 4000
+    ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
+    : system;
+
   const params = {
     model,
     max_tokens: maxTokens,
-    system,
+    system: systemBlock,
     messages: [{ role: 'user', content: user }],
     ...(options.temperature != null ? { temperature: options.temperature } : {}),
   };
@@ -107,10 +112,18 @@ async function callClaude(system, user, model, maxTokens, options = {}) {
 async function callClaudeChat(system, messages, model, maxTokens, options = {}) {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+  // Prompt Caching: se system é grande (>1024 tokens ≈ 4000 chars), marca como
+  // cache_control ephemeral. Chamadas subsequentes em 5 min com mesmo system
+  // pagam só 10% do custo normal no cached tier. Ideal pro Motor de Temporadas
+  // (system prompts grandes + histórico variável).
+  const systemBlock = typeof system === 'string' && system.length > 4000
+    ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
+    : system;
+
   const params = {
     model,
     max_tokens: maxTokens,
-    system,
+    system: systemBlock,
     messages,
     ...(options.temperature != null ? { temperature: options.temperature } : {}),
   };
