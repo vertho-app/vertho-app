@@ -12,6 +12,7 @@ import {
 } from '@/actions/fase1';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import { loadCargos, salvarTop5 } from '@/app/admin/cargos/actions';
+import { getSupabase } from '@/lib/supabase-browser';
 
 export default function Fase1Page({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = use(params);
@@ -40,13 +41,20 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
   const [cenarios, setCenarios] = useState([]);
   const [cenOpen, setCenOpen] = useState(null);
   const [cenAction, setCenAction] = useState(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 2500); }
 
+  // Resolve email on mount
+  useEffect(() => {
+    getSupabase().auth.getUser().then(({ data: { user } }) => setUserEmail(user?.email || null));
+  }, []);
+
   const refresh = useCallback(async () => {
+    if (!userEmail) return;
     const [t, c, g] = await Promise.all([
       loadTop10TodosCargos(empresaId),
-      loadCompetencias(empresaId),
+      loadCompetencias(userEmail, empresaId),
       loadGabaritosCargos(empresaId),
     ]);
     setTop10(t);
@@ -54,7 +62,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
     setGabaritos(g);
 
     // Top 5 (cargos com competências top10)
-    const cargosR = await loadCargos(empresaId);
+    const cargosR = await loadCargos(userEmail, empresaId);
     if (cargosR.success) {
       setCargosData(cargosR.data || []);
       const edits = {};
@@ -67,9 +75,9 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
     setCenarios(cens);
 
     setLoading(false);
-  }, [empresaId]);
+  }, [empresaId, userEmail]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { if (userEmail) refresh(); }, [refresh, userEmail]);
 
   // ── Top10 helpers ──
   const cargosTop10 = [...new Set(top10.map(t => t.cargo))].sort();

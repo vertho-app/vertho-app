@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseClient, createSupabaseAdmin } from '@/lib/supabase';
+import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireUser } from '@/lib/auth/request-context';
 
-export async function GET(req) {
+export async function GET(req: Request) {
   try {
-    const supabase = createSupabaseClient(req);
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+    const auth = await requireUser(req);
+    if (auth instanceof Response) return auth;
 
-    const email = user.email;
+    const email = auth.email;
     const sb = createSupabaseAdmin();
 
     const { data: colab } = await sb.from('colaboradores')
@@ -26,27 +26,26 @@ export async function GET(req) {
       .eq('colaborador_id', colab.id)
       .not('r1', 'is', null);
 
-    const respondidas = new Set((respostas || []).map(r => r.competencia_id));
-    const pendentes = (cenarios || []).filter(c => !respondidas.has(c.competencia_id));
+    const respondidas = new Set((respostas || []).map((r: any) => r.competencia_id));
+    const pendentes = (cenarios || []).filter((c: any) => !respondidas.has(c.competencia_id));
 
     return NextResponse.json({ colaborador: colab, pendentes, total: cenarios?.length || 0, respondidas: respondidas.size });
-  } catch (err) {
+  } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
-export async function POST(req) {
+export async function POST(req: Request) {
   try {
-    const supabase = createSupabaseClient(req);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+    const auth = await requireUser(req);
+    if (auth instanceof Response) return auth;
 
     const body = await req.json();
     const { cenario_id, competencia_id, r1, r2, r3, r4 } = body;
 
     const sb = createSupabaseAdmin();
     const { data: colab } = await sb.from('colaboradores')
-      .select('id, empresa_id').eq('email', user.email).single();
+      .select('id, empresa_id').eq('email', auth.email).single();
     if (!colab) return NextResponse.json({ error: 'Colaborador não encontrado' }, { status: 404 });
 
     const { error } = await sb.from('respostas').insert({
@@ -59,7 +58,7 @@ export async function POST(req) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ success: true });
-  } catch (err) {
+  } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

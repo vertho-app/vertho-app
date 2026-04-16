@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { callAIChat } from '@/actions/ai-client';
+import { requireUser } from '@/lib/auth/request-context';
 
-export async function POST(req) {
+export async function POST(req: Request) {
   try {
+    const auth = await requireUser(req);
+    if (auth instanceof Response) return auth;
+
     const { system, messages, model } = await req.json();
 
     if (!messages?.length) {
@@ -17,7 +21,7 @@ export async function POST(req) {
     );
 
     return NextResponse.json({ ok: true, mensagem: response });
-  } catch (err) {
+  } catch (err: any) {
     console.error('[chat-simulador]', err.message);
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }

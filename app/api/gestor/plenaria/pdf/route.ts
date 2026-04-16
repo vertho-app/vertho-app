@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireRole } from '@/lib/auth/request-context';
 import { listarEquipeEvolucao } from '@/app/dashboard/gestor/equipe-evolucao/actions';
 import { renderPlenariaEquipePDF } from '@/lib/plenaria-equipe-pdf';
 
@@ -9,18 +10,16 @@ import { renderPlenariaEquipePDF } from '@/lib/plenaria-equipe-pdf';
  */
 export async function GET(request: NextRequest) {
   try {
-    const auth = request.headers.get('authorization');
-    if (!auth?.startsWith('Bearer ')) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+    const auth = await requireRole(request, ['gestor', 'rh', 'admin']);
+    if (auth instanceof Response) return auth;
 
-    const sb = createSupabaseAdmin();
-    const { data: userData } = await sb.auth.getUser(auth.slice(7));
-    const email = userData?.user?.email;
-    if (!email) return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    const email = auth.email;
 
     const r = await listarEquipeEvolucao(email);
     if (r.error) return NextResponse.json({ error: r.error }, { status: 403 });
 
     // Dados do gestor pro cabeçalho
+    const sb = createSupabaseAdmin();
     const { data: gestor } = await sb.from('colaboradores')
       .select('nome_completo, empresas!inner(nome)').eq('email', email).maybeSingle();
     const g: any = gestor;
@@ -39,7 +38,7 @@ export async function GET(request: NextRequest) {
         'Content-Disposition': `attachment; filename="plenaria-equipe.pdf"`,
       },
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('[gestor/plenaria/pdf]', err);
     return NextResponse.json({ error: err?.message || 'Erro' }, { status: 500 });
   }

@@ -4,50 +4,59 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2, Briefcase, Check, Save, ChevronDown } from 'lucide-react';
 import { loadEmpresas, loadCargos, salvarTop5, salvarEhLideranca } from './actions';
+import { getSupabase } from '@/lib/supabase-browser';
 
 export default function CargosPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const empresaParam = searchParams.get('empresa');
-  const [empresas, setEmpresas] = useState([]);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [empresas, setEmpresas] = useState<any[]>([]);
   const [empresaId, setEmpresaId] = useState(empresaParam || '');
   const [empresaNome, setEmpresaNome] = useState('');
-  const [cargos, setCargos] = useState([]);
+  const [cargos, setCargos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingCargos, setLoadingCargos] = useState(false);
-  const [saving, setSaving] = useState({});
-  const [top5Edits, setTop5Edits] = useState({});
-  const [toast, setToast] = useState(null);
+  const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const [top5Edits, setTop5Edits] = useState<Record<string, string[]>>({});
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
-    loadEmpresas().then(r => {
+    (async () => {
+      const { data: { user } } = await getSupabase().auth.getUser();
+      const email = user?.email || null;
+      setUserEmail(email);
+      if (!email) { setLoading(false); return; }
+
+      const r = await loadEmpresas(email);
       if (r.success) {
         setEmpresas(r.data || []);
         if (empresaParam) {
-          const emp = (r.data || []).find(e => e.id === empresaParam);
+          const emp = (r.data || []).find((e: any) => e.id === empresaParam);
           if (emp) setEmpresaNome(emp.nome);
-          handleSelectEmpresa(empresaParam);
+          handleSelectEmpresa(empresaParam, email);
         }
       }
       setLoading(false);
-    });
+    })();
   }, []);
 
-  async function handleSelectEmpresa(id) {
+  async function handleSelectEmpresa(id: string, emailOverride?: string) {
+    const email = emailOverride || userEmail;
     setEmpresaId(id);
-    if (!id) { setCargos([]); return; }
+    if (!id || !email) { setCargos([]); return; }
     setLoadingCargos(true);
-    const r = await loadCargos(id);
+    const r = await loadCargos(email, id);
     if (r.success) {
       setCargos(r.data || []);
-      const edits = {};
-      (r.data || []).forEach(c => { edits[c.id] = c.top5_workshop || []; });
+      const edits: Record<string, string[]> = {};
+      (r.data || []).forEach((c: any) => { edits[c.id] = c.top5_workshop || []; });
       setTop5Edits(edits);
     }
     setLoadingCargos(false);
   }
 
-  function toggleCompetencia(cargoId, comp) {
+  function toggleCompetencia(cargoId: string, comp: string) {
     setTop5Edits(prev => {
       const current = prev[cargoId] || [];
       const exists = current.includes(comp);
@@ -63,9 +72,10 @@ export default function CargosPage() {
     });
   }
 
-  async function handleSave(cargoId) {
+  async function handleSave(cargoId: string) {
+    if (!userEmail) return;
     setSaving(prev => ({ ...prev, [cargoId]: true }));
-    const r = await salvarTop5(cargoId, top5Edits[cargoId] || []);
+    const r = await salvarTop5(userEmail, cargoId, top5Edits[cargoId] || []);
     setSaving(prev => ({ ...prev, [cargoId]: false }));
     if (r.success) {
       setToast('Top 5 salvo!');
@@ -102,7 +112,7 @@ export default function CargosPage() {
             <select value={empresaId} onChange={e => handleSelectEmpresa(e.target.value)}
               className="w-full appearance-none rounded-lg border border-white/10 bg-[#0F2A4A] text-white text-sm px-4 py-2.5 pr-10 focus:outline-none focus:border-cyan-400/50">
               <option value="">Selecione uma empresa...</option>
-              {empresas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+              {empresas.map((e: any) => <option key={e.id} value={e.id}>{e.nome}</option>)}
             </select>
             <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
           </div>
@@ -134,7 +144,7 @@ export default function CargosPage() {
       {/* Cargos list */}
       {!loadingCargos && cargos.length > 0 && (
         <div className="space-y-4">
-          {cargos.map(cargo => {
+          {cargos.map((cargo: any) => {
             const top10 = cargo.competencias_top10 || [];
             const selected = top5Edits[cargo.id] || [];
             return (
@@ -155,7 +165,7 @@ export default function CargosPage() {
                     <p className="text-xs text-gray-500">Nenhuma competencia Top 10 gerada pela IA ainda.</p>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {top10.map((comp, i) => {
+                      {top10.map((comp: string, i: number) => {
                         const isSelected = selected.includes(comp);
                         const isFull = selected.length >= 5 && !isSelected;
                         return (

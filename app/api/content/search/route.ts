@@ -1,37 +1,18 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireUser, assertTenantAccess } from '@/lib/auth/request-context';
 
 /**
  * GET /api/content/search
  *
- * Busca micro-conteúdos por competência/descritor/nível, com fallback gradual:
- *  1. exato (competência + descritor + nível + formato + contexto + cargo)
- *  2. relaxa cargo (cargo='todos')
- *  3. relaxa contexto (contexto='generico')
- *  4. relaxa formato (qualquer formato)
- *  5. relaxa descritor (qualquer descritor da competência)
- *
- * Query params:
- *   - competencia (obrigatório)
- *   - descritor (opcional)
- *   - nivel (opcional, default 1.5) — busca conteúdo com nivel_min <= nivel <= nivel_max
- *   - formato (opcional) — video|audio|texto|case|pdf
- *   - contexto (opcional) — educacional|corporativo|generico
- *   - cargo (opcional)
- *   - empresa_id (opcional) — se passado, inclui conteúdo da empresa + global; senão só global
- *   - prioridade (opcional, csv) — ordem de formatos preferidos, ex: "audio,video,texto,case"
- *
- * Retorna:
- *   {
- *     core: [...],                     // melhores matches (top 5)
- *     complementar: [...],             // tipo_conteudo='complementar'
- *     formatos_disponiveis: [...],     // formatos únicos encontrados (para o switch)
- *     formato_core: 'video' | null,    // primeiro formato da prioridade que tem conteúdo
- *     match_level: 1..5                // nível de relaxamento usado
- *   }
+ * Busca micro-conteúdos por competência/descritor/nível, com fallback gradual.
+ * Requer autenticação. Se empresa_id passado, valida tenant access.
  */
-export async function GET(request) {
+export async function GET(request: Request) {
   try {
+    const auth = await requireUser(request);
+    if (auth instanceof Response) return auth;
+
     const { searchParams } = new URL(request.url);
     const competencia = searchParams.get('competencia');
     if (!competencia) {
@@ -46,6 +27,12 @@ export async function GET(request) {
     const empresaId = searchParams.get('empresa_id');
     const prioridade = (searchParams.get('prioridade') || '').split(',').map(s => s.trim()).filter(Boolean);
 
+    // Se empresa_id passado, validar tenant access
+    if (empresaId) {
+      const guard = assertTenantAccess(auth, empresaId);
+      if (guard) return guard;
+    }
+
     const sb = createSupabaseAdmin();
 
     // Tentativas em cascata, da mais específica para a mais relaxada
@@ -57,8 +44,8 @@ export async function GET(request) {
       { level: 5, descritor: false,       formato: false,     contexto: false, cargo: false },
     ];
 
-    let resultados = [];
-    let matchLevel = null;
+    let resultados: any[] = [];
+    let matchLevel: number | null = null;
 
     for (const t of tentativas) {
       let q = sb.from('micro_conteudos')
@@ -68,8 +55,8 @@ export async function GET(request) {
         .lte('nivel_min', nivel)
         .gte('nivel_max', nivel);
 
-      if (t.descritor) q = q.eq('descritor', descritor);
-      if (t.formato) q = q.eq('formato', formato);
+      if (t.descritor) q = q.eq('descritor', descritor!);
+      if (t.formato) q = q.eq('formato', formato!);
       if (t.contexto) q = q.eq('contexto', contexto);
       if (t.cargo) q = q.eq('cargo', cargo);
 
@@ -96,16 +83,16 @@ export async function GET(request) {
       }
     }
 
-    const core = resultados.filter(r => r.tipo_conteudo === 'core').slice(0, 5);
-    const complementar = resultados.filter(r => r.tipo_conteudo === 'complementar').slice(0, 10);
-    const formatosDisponiveis = [...new Set(resultados.map(r => r.formato))];
+    const core = resultados.filter((r: any) => r.tipo_conteudo === 'core').slice(0, 5);
+    const complementar = resultados.filter((r: any) => r.tipo_conteudo === 'complementar').slice(0, 10);
+    const formatosDisponiveis = [...new Set(resultados.map((r: any) => r.formato))];
 
     // Formato_core baseado na prioridade do colaborador
-    let formatoCore = null;
+    let formatoCore: string | null = null;
     if (prioridade.length > 0) {
       formatoCore = prioridade.find(f => formatosDisponiveis.includes(f)) || null;
     } else if (formatosDisponiveis.length > 0) {
-      formatoCore = formatosDisponiveis[0];
+      formatoCore = formatosDisponiveis[0] as string;
     }
 
     return NextResponse.json({
@@ -116,7 +103,7 @@ export async function GET(request) {
       match_level: matchLevel,
       total: resultados.length,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('[content/search]', err);
     return NextResponse.json({ error: err?.message || 'Erro' }, { status: 500 });
   }

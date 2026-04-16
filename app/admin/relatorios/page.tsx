@@ -4,37 +4,46 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2, FileBarChart, Download, ChevronDown, User } from 'lucide-react';
 import { loadEmpresas, loadRelatorios } from './actions';
+import { getSupabase } from '@/lib/supabase-browser';
 
 export default function RelatoriosPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const empresaParam = searchParams.get('empresa');
-  const [empresas, setEmpresas] = useState([]);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [empresas, setEmpresas] = useState<any[]>([]);
   const [empresaId, setEmpresaId] = useState(empresaParam || '');
   const [empresaNome, setEmpresaNome] = useState('');
-  const [relatorios, setRelatorios] = useState([]);
+  const [relatorios, setRelatorios] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingRel, setLoadingRel] = useState(false);
 
   useEffect(() => {
-    loadEmpresas().then(r => {
+    (async () => {
+      const { data: { user } } = await getSupabase().auth.getUser();
+      const email = user?.email || null;
+      setUserEmail(email);
+      if (!email) { setLoading(false); return; }
+
+      const r = await loadEmpresas(email);
       if (r.success) {
         setEmpresas(r.data || []);
         if (empresaParam) {
-          const emp = (r.data || []).find(e => e.id === empresaParam);
+          const emp = (r.data || []).find((e: any) => e.id === empresaParam);
           if (emp) setEmpresaNome(emp.nome);
-          handleSelectEmpresa(empresaParam);
+          handleSelectEmpresa(empresaParam, email);
         }
       }
       setLoading(false);
-    });
+    })();
   }, []);
 
-  async function handleSelectEmpresa(id) {
+  async function handleSelectEmpresa(id: string, emailOverride?: string) {
+    const email = emailOverride || userEmail;
     setEmpresaId(id);
-    if (!id) { setRelatorios([]); return; }
+    if (!id || !email) { setRelatorios([]); return; }
     setLoadingRel(true);
-    const r = await loadRelatorios(id);
+    const r = await loadRelatorios(email, id);
     if (r.success) setRelatorios(r.data || []);
     setLoadingRel(false);
   }
@@ -65,7 +74,7 @@ export default function RelatoriosPage() {
             <select value={empresaId} onChange={e => handleSelectEmpresa(e.target.value)}
               className="w-full appearance-none rounded-lg border border-white/10 bg-[#0F2A4A] text-white text-sm px-4 py-2.5 pr-10 focus:outline-none focus:border-cyan-400/50">
               <option value="">Selecione uma empresa...</option>
-              {empresas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+              {empresas.map((e: any) => <option key={e.id} value={e.id}>{e.nome}</option>)}
             </select>
             <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
           </div>
@@ -99,7 +108,7 @@ export default function RelatoriosPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.03]">
-                {relatorios.map(r => (
+                {relatorios.map((r: any) => (
                   <tr key={r.id} className="hover:bg-white/[0.02] transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">

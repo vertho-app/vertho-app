@@ -13,10 +13,21 @@ export async function GET(req: Request) {
   if (guard) return guard;
 
   const sb = createSupabaseAdmin();
-  const { data, error } = await sb.from('colaboradores')
+  let query = sb.from('colaboradores')
     .select('*')
     .eq('empresa_id', empresaId!)
     .order('nome_completo');
+
+  // Gestor: restringir à mesma area_depto (fail closed se gestor sem área)
+  if (auth.role === 'gestor') {
+    const gestorArea = auth.colaborador?.area_depto;
+    if (!gestorArea) {
+      return NextResponse.json({ error: 'gestor sem area_depto definida' }, { status: 403 });
+    }
+    query = query.eq('area_depto', gestorArea);
+  }
+
+  const { data, error } = await query;
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);

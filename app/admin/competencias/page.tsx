@@ -10,6 +10,7 @@ import {
   salvarCompetencia, excluirCompetencia, copiarBaseParaEmpresa, importarCompetenciasCSV, loadCargosEmpresa
 } from './actions';
 import { parseSpreadsheet } from '@/lib/parse-spreadsheet';
+import { getSupabase } from '@/lib/supabase-browser';
 
 const EMPTY_COMP = { nome: '', descricao: '', cargo: '', cod_comp: '', pilar: '' };
 
@@ -17,68 +18,76 @@ export default function CompetenciasPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const empresaParam = searchParams.get('empresa');
-  const [empresas, setEmpresas] = useState([]);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [empresas, setEmpresas] = useState<any[]>([]);
   const [empresaId, setEmpresaId] = useState(empresaParam || '');
   const [empresaNome, setEmpresaNome] = useState('');
   const [segmento, setSegmento] = useState('');
-  const [comps, setComps] = useState([]);
-  const [baselist, setBaselist] = useState([]);
+  const [comps, setComps] = useState<any[]>([]);
+  const [baselist, setBaselist] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingComps, setLoadingComps] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editComp, setEditComp] = useState<any>(EMPTY_COMP);
   const [saving, setSaving] = useState(false);
   const [showBase, setShowBase] = useState(false);
-  const [toast, setToast] = useState(null);
+  const [toast, setToast] = useState<string | null>(null);
   const [filtroCargo, setFiltroCargo] = useState('');
   const [cargoParaCopiar, setCargoParaCopiar] = useState('');
-  const [cargosEmpresa, setCargosEmpresa] = useState([]);
+  const [cargosEmpresa, setCargosEmpresa] = useState<string[]>([]);
   const [showImport, setShowImport] = useState(false);
   const [importing, setImporting] = useState(false);
 
   useEffect(() => {
-    loadEmpresas().then(r => {
+    (async () => {
+      const { data: { user } } = await getSupabase().auth.getUser();
+      const email = user?.email || null;
+      setUserEmail(email);
+      if (!email) { setLoading(false); return; }
+
+      const r = await loadEmpresas(email);
       if (r.success) {
         setEmpresas(r.data || []);
         if (empresaParam) {
-          const emp = (r.data || []).find(e => e.id === empresaParam);
+          const emp = (r.data || []).find((e: any) => e.id === empresaParam);
           if (emp) setEmpresaNome(emp.nome);
-          handleSelectEmpresa(empresaParam);
+          handleSelectEmpresa(empresaParam, email);
         }
       }
       setLoading(false);
-    });
+    })();
   }, []);
 
-  function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 2500); }
+  function flash(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2500); }
 
-  async function handleSelectEmpresa(id) {
+  async function handleSelectEmpresa(id: string, emailOverride?: string) {
+    const email = emailOverride || userEmail;
     setEmpresaId(id);
-    if (!id) { setComps([]); setBaselist([]); return; }
+    if (!id || !email) { setComps([]); setBaselist([]); return; }
     setLoadingComps(true);
-    const emp = empresas.find(e => e.id === id);
+    const emp = empresas.find((e: any) => e.id === id);
     setSegmento(emp?.segmento || '');
     const [r1, r2, cargos] = await Promise.all([
-      loadCompetencias(id),
-      loadCompetenciasBase(emp?.segmento || null),
-      loadCargosEmpresa(id),
+      loadCompetencias(email, id),
+      loadCompetenciasBase(email, emp?.segmento || null),
+      loadCargosEmpresa(email, id),
     ]);
-    setCargosEmpresa(cargos || []);
+    setCargosEmpresa((cargos as string[]) || []);
     if (r1.success) setComps(r1.data || []);
     if (r2.success) setBaselist(r2.data || []);
     setLoadingComps(false);
   }
 
   function openAdd() { setEditComp(EMPTY_COMP); setShowModal(true); }
-  function openEdit(c) { setEditComp({ ...c }); setShowModal(true); }
+  function openEdit(c: any) { setEditComp({ ...c }); setShowModal(true); }
 
   async function handleSave() {
-    if (!editComp.nome.trim()) return;
+    if (!editComp.nome.trim() || !userEmail) return;
     setSaving(true);
-    const r = await salvarCompetencia(empresaId, editComp);
+    const r = await salvarCompetencia(userEmail, empresaId, editComp);
     setSaving(false);
     if (r.success) {
-      flash(r.message);
+      flash(r.message!);
       setShowModal(false);
       handleSelectEmpresa(empresaId);
     } else {
@@ -86,9 +95,9 @@ export default function CompetenciasPage() {
     }
   }
 
-  async function handleDelete(id) {
-    if (!confirm('Excluir esta competencia?')) return;
-    const r = await excluirCompetencia(id);
+  async function handleDelete(id: string) {
+    if (!confirm('Excluir esta competencia?') || !userEmail) return;
+    const r = await excluirCompetencia(userEmail, id);
     if (r.success) {
       flash('Excluida');
       handleSelectEmpresa(empresaId);
@@ -97,10 +106,11 @@ export default function CompetenciasPage() {
     }
   }
 
-  async function handleCopy(baseId) {
-    const r = await copiarBaseParaEmpresa(empresaId, baseId, cargoParaCopiar || null);
+  async function handleCopy(baseId: string) {
+    if (!userEmail) return;
+    const r = await copiarBaseParaEmpresa(userEmail, empresaId, baseId, cargoParaCopiar || null);
     if (r.success) {
-      flash(r.message);
+      flash(r.message!);
       handleSelectEmpresa(empresaId);
     } else {
       flash('Erro: ' + r.error);
@@ -156,7 +166,7 @@ export default function CompetenciasPage() {
             <select value={empresaId} onChange={e => handleSelectEmpresa(e.target.value)}
               className="w-full appearance-none rounded-lg border border-white/10 bg-[#0F2A4A] text-white text-sm px-4 py-2.5 pr-10 focus:outline-none focus:border-cyan-400/50">
               <option value="">Selecione uma empresa...</option>
-              {empresas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+              {empresas.map((e: any) => <option key={e.id} value={e.id}>{e.nome}</option>)}
             </select>
             <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
           </div>
@@ -176,7 +186,7 @@ export default function CompetenciasPage() {
             {importing ? 'Importando...' : 'Selecionar arquivo (CSV ou XLSX)'}
             <input type="file" accept=".csv,.xlsx,.xls" className="hidden" disabled={importing} onChange={async e => {
               const file = e.target.files?.[0];
-              if (!file) return;
+              if (!file || !userEmail) return;
               setImporting(true);
               const rowsRaw = await parseSpreadsheet(file);
 
@@ -184,10 +194,10 @@ export default function CompetenciasPage() {
               // as linhas dos descritores subsequentes vêm com nome/descricao/etc vazios.
               // Copia do registro anterior para manter o agrupamento por competência.
               const CAMPOS_COMP = ['nome', 'cod_comp', 'pilar', 'cargo', 'descricao', 'evidencias_esperadas', 'perguntas_alvo'];
-              const rows = [];
-              let anterior = {};
+              const rows: any[] = [];
+              let anterior: any = {};
               for (const r of rowsRaw) {
-                const filled = { ...r };
+                const filled: any = { ...r };
                 for (const k of CAMPOS_COMP) {
                   if (!filled[k]?.trim() && anterior[k]?.trim()) filled[k] = anterior[k];
                 }
@@ -204,15 +214,15 @@ export default function CompetenciasPage() {
 
               // Validação de obrigatórios (após forward-fill)
               const OBRIG = ['nome', 'descricao', 'n1_gap', 'n2_desenvolvimento', 'n4_referencia'];
-              const invalidos = parsed.filter(c => OBRIG.some(k => !c[k]?.trim()));
+              const invalidos = parsed.filter((c: any) => OBRIG.some(k => !c[k]?.trim()));
               if (invalidos.length > 0) {
                 flash(`${invalidos.length} linha(s) sem obrigatórios (${OBRIG.join(', ')}). Linhas ignoradas.`);
-                const validos = parsed.filter(c => OBRIG.every(k => c[k]?.trim()));
+                const validos = parsed.filter((c: any) => OBRIG.every(k => c[k]?.trim()));
                 if (validos.length === 0) { setImporting(false); e.target.value = ''; return; }
                 parsed.length = 0; parsed.push(...validos);
               }
-              const r = await importarCompetenciasCSV(empresaId, parsed);
-              flash(r.success ? r.message : 'Erro: ' + r.error);
+              const r = await importarCompetenciasCSV(userEmail, empresaId, parsed);
+              flash(r.success ? r.message! : 'Erro: ' + r.error);
               setImporting(false);
               e.target.value = '';
               if (r.success) handleSelectEmpresa(empresaId);
@@ -225,14 +235,14 @@ export default function CompetenciasPage() {
 
       {/* Filtro por cargo */}
       {!loadingComps && comps.length > 0 && (() => {
-        const cargos = [...new Set(comps.map(c => c.cargo).filter(Boolean))].sort();
+        const cargos = [...new Set(comps.map((c: any) => c.cargo).filter(Boolean))].sort();
         return cargos.length > 0 ? (
           <div className="flex items-center gap-2 mb-3">
             <Filter size={14} className="text-gray-400" />
             <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
               className="px-3 py-1.5 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
               <option value="">Todos os cargos</option>
-              {cargos.map(c => <option key={c} value={c}>{c}</option>)}
+              {(cargos as string[]).map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
         ) : null;
@@ -249,9 +259,9 @@ export default function CompetenciasPage() {
       {/* Table — agrupada por competência */}
       {!loadingComps && comps.length > 0 && (() => {
         // Agrupar por cod_comp (ou nome se não tiver cod)
-        const filtered = comps.filter(c => !filtroCargo || c.cargo === filtroCargo);
-        const grupos = {};
-        filtered.forEach(c => {
+        const filtered = comps.filter((c: any) => !filtroCargo || c.cargo === filtroCargo);
+        const grupos: Record<string, any> = {};
+        filtered.forEach((c: any) => {
           const key = c.cod_comp || c.nome;
           if (!grupos[key]) grupos[key] = { comp: c, descritores: [] };
           if (c.cod_desc || c.nome_curto || c.descritor_completo) {
@@ -269,7 +279,7 @@ export default function CompetenciasPage() {
         <div className="mb-6">
           <p className="text-[10px] text-gray-500 mb-2">{compCount} competências · {descCount} descritores</p>
           <div className="space-y-2">
-            {uniqueComps.map(({ comp: c, descritores }) => (
+            {uniqueComps.map(({ comp: c, descritores }: any) => (
               <div key={c.cod_comp || c.id} className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
                 {/* Competência header */}
                 <div className="flex items-center gap-4 px-4 py-3">
@@ -287,8 +297,8 @@ export default function CompetenciasPage() {
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => openEdit(c)} className="w-7 h-7 flex items-center justify-center rounded text-gray-500 hover:text-cyan-400"><Pencil size={13} /></button>
                     <button onClick={() => {
-                      if (!confirm(`Excluir "${c.nome}" e todos os seus descritores?`)) return;
-                      Promise.all(descritores.map(d => excluirCompetencia(d.id))).then(() => {
+                      if (!confirm(`Excluir "${c.nome}" e todos os seus descritores?`) || !userEmail) return;
+                      Promise.all(descritores.map((d: any) => excluirCompetencia(userEmail!, d.id))).then(() => {
                         flash('Competência excluída');
                         handleSelectEmpresa(empresaId);
                       });
@@ -300,7 +310,7 @@ export default function CompetenciasPage() {
                 {descritores.length > 0 && descritores[0].cod_desc && (
                   <div className="border-t border-white/[0.04]">
                     <div className="divide-y divide-white/[0.02]">
-                      {descritores.map(d => (
+                      {descritores.map((d: any) => (
                         <div key={d.id} className="px-4 py-2 text-[11px] text-gray-200 hover:bg-white/[0.02]">
                           {d.nome_curto || d.descritor_completo || '—'}
                         </div>
@@ -337,7 +347,7 @@ export default function CompetenciasPage() {
           </div>
 
           <div className="divide-y divide-white/[0.03]">
-            {baselist.map(b => (
+            {baselist.map((b: any) => (
               <div key={b.id} className="flex items-center justify-between px-5 py-3 hover:bg-white/[0.02] transition-colors">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-white">{b.nome}</p>
@@ -372,14 +382,14 @@ export default function CompetenciasPage() {
               ].map(f => (
                 <div key={f.key}>
                   <label className="block text-xs font-bold text-gray-400 mb-1">{f.label}</label>
-                  <input value={editComp[f.key] || ''} onChange={e => setEditComp(p => ({ ...p, [f.key]: e.target.value }))}
+                  <input value={editComp[f.key] || ''} onChange={e => setEditComp((p: any) => ({ ...p, [f.key]: e.target.value }))}
                     placeholder={f.placeholder}
                     className="w-full rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 focus:outline-none focus:border-cyan-400/50" />
                 </div>
               ))}
               <div>
                 <label className="block text-xs font-bold text-gray-400 mb-1">Descricao</label>
-                <textarea value={editComp.descricao || ''} onChange={e => setEditComp(p => ({ ...p, descricao: e.target.value }))}
+                <textarea value={editComp.descricao || ''} onChange={e => setEditComp((p: any) => ({ ...p, descricao: e.target.value }))}
                   rows={3} placeholder="Descricao da competencia..."
                   className="w-full rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 focus:outline-none focus:border-cyan-400/50 resize-none" />
               </div>

@@ -1,10 +1,17 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { NextResponse, type NextRequest } from 'next/server';
+import { requireUser, assertTenantAccess } from '@/lib/auth/request-context';
 
 export async function GET(request: NextRequest) {
+  const auth = await requireUser(request);
+  if (auth instanceof Response) return auth;
+
   const { searchParams } = new URL(request.url);
   const empresaId = searchParams.get('empresa');
   if (!empresaId) return NextResponse.json([], { status: 400 });
+
+  const guard = assertTenantAccess(auth, empresaId);
+  if (guard) return guard;
 
   const sb = createSupabaseAdmin();
   const { data } = await sb.from('banco_cenarios')

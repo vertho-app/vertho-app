@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2, Trophy, Trash2, Plus, X, ChevronDown, Filter } from 'lucide-react';
 import { loadTop10TodosCargos, adicionarTop10, removerTop10 } from '@/actions/fase1';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
+import { getSupabase } from '@/lib/supabase-browser';
 
 export default function Top10Page() {
   const router = useRouter();
@@ -18,21 +19,26 @@ export default function Top10Page() {
   const [filtroCargo, setFiltroCargo] = useState('');
   const [showAdd, setShowAdd] = useState(null); // cargo para adicionar
   const [addSearch, setAddSearch] = useState('');
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 2500); }
 
+  useEffect(() => {
+    getSupabase().auth.getUser().then(({ data: { user } }) => setUserEmail(user?.email || null));
+  }, []);
+
   async function refresh() {
-    if (!empresaId) return;
+    if (!empresaId || !userEmail) return;
     const [t, c] = await Promise.all([
       loadTop10TodosCargos(empresaId),
-      loadCompetencias(empresaId),
+      loadCompetencias(userEmail, empresaId),
     ]);
     setTop10(t);
     if (c.success) setAllComps(c.data || []);
     setLoading(false);
   }
 
-  useEffect(() => { refresh(); }, [empresaId]);
+  useEffect(() => { if (userEmail) refresh(); }, [empresaId, userEmail]);
 
   // Agrupar por cargo
   const cargos = [...new Set(top10.map(t => t.cargo))].sort();

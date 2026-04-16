@@ -1,15 +1,22 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { isPlatformAdmin } from '@/lib/authz';
 
-export async function loadEmpresas() {
+async function guardAdmin(email: string | null | undefined) {
+  if (!email || !(await isPlatformAdmin(email))) throw new Error('FORBIDDEN');
+}
+
+export async function loadEmpresas(callerEmail: string) {
+  await guardAdmin(callerEmail);
   const sb = createSupabaseAdmin();
   const { data, error } = await sb.from('empresas').select('id, nome, segmento').order('nome');
   if (error) return { success: false, error: error.message };
   return { success: true, data };
 }
 
-export async function loadCompetencias(empresaId) {
+export async function loadCompetencias(callerEmail: string, empresaId: string) {
+  await guardAdmin(callerEmail);
   const sb = createSupabaseAdmin();
   try {
     const { data, error } = await sb.from('competencias')
@@ -20,12 +27,13 @@ export async function loadCompetencias(empresaId) {
 
     if (error) return { success: false, error: error.message };
     return { success: true, data };
-  } catch (err) {
+  } catch (err: any) {
     return { success: false, error: err.message };
   }
 }
 
-export async function loadCompetenciasBase(segmento) {
+export async function loadCompetenciasBase(callerEmail: string, segmento: string | null) {
+  await guardAdmin(callerEmail);
   const sb = createSupabaseAdmin();
   try {
     let query = sb.from('competencias_base').select('*').order('nome');
@@ -33,12 +41,13 @@ export async function loadCompetenciasBase(segmento) {
     const { data, error } = await query;
     if (error) return { success: false, error: error.message };
     return { success: true, data };
-  } catch (err) {
+  } catch (err: any) {
     return { success: false, error: err.message };
   }
 }
 
-export async function salvarCompetencia(empresaId, comp) {
+export async function salvarCompetencia(callerEmail: string, empresaId: string, comp: any) {
+  await guardAdmin(callerEmail);
   const sb = createSupabaseAdmin();
   try {
     const registro = {
@@ -65,28 +74,30 @@ export async function salvarCompetencia(empresaId, comp) {
 
     if (result.error) return { success: false, error: result.error.message };
     return { success: true, data: result.data, message: comp.id ? 'Atualizada' : 'Criada' };
-  } catch (err) {
+  } catch (err: any) {
     return { success: false, error: err.message };
   }
 }
 
-export async function excluirCompetencia(id) {
+export async function excluirCompetencia(callerEmail: string, id: string) {
+  await guardAdmin(callerEmail);
   const sb = createSupabaseAdmin();
   try {
     const { error } = await sb.from('competencias').delete().eq('id', id);
     if (error) return { success: false, error: error.message };
     return { success: true, message: 'Excluida' };
-  } catch (err) {
+  } catch (err: any) {
     return { success: false, error: err.message };
   }
 }
 
-export async function importarCompetenciasCSV(empresaId, comps) {
+export async function importarCompetenciasCSV(callerEmail: string, empresaId: string, comps: any[]) {
+  await guardAdmin(callerEmail);
   const sb = createSupabaseAdmin();
   const { data: existentes } = await sb.from('competencias')
     .select('cod_comp, cod_desc, nome_curto, nome, cargo').eq('empresa_id', empresaId);
   // Dedup por cod_comp+cod_desc (ou cod_comp+nome_curto se cod_desc vazio)
-  const keyOf = c => {
+  const keyOf = (c: any) => {
     const comp = (c.cod_comp || c.nome || '').trim();
     const desc = (c.cod_desc || c.nome_curto || '').trim();
     return `${comp}||${desc}`.toLowerCase();
@@ -94,7 +105,7 @@ export async function importarCompetenciasCSV(empresaId, comps) {
   const existSet = new Set((existentes || []).map(keyOf));
 
   // Dedup interno do lote também (evita linhas repetidas no mesmo arquivo)
-  const vistasLote = new Set();
+  const vistasLote = new Set<string>();
   const novos = comps
     .filter(c => {
       if (!c.nome?.trim()) return false;
@@ -127,7 +138,8 @@ export async function importarCompetenciasCSV(empresaId, comps) {
   return { success: true, message: `${novos.length} competências importadas` };
 }
 
-export async function copiarBaseParaEmpresa(empresaId, baseId, cargo = null) {
+export async function copiarBaseParaEmpresa(callerEmail: string, empresaId: string, baseId: string, cargo: string | null = null) {
+  await guardAdmin(callerEmail);
   const sb = createSupabaseAdmin();
   try {
     const { data: base, error: errBase } = await sb.from('competencias_base')
@@ -146,20 +158,21 @@ export async function copiarBaseParaEmpresa(empresaId, baseId, cargo = null) {
 
     if (error) return { success: false, error: error.message };
     return { success: true, message: `"${base.nome}" copiada${cargo ? ` para ${cargo}` : ''}` };
-  } catch (err) {
+  } catch (err: any) {
     return { success: false, error: err.message };
   }
 }
 
-export async function loadCargosEmpresa(empresaId) {
+export async function loadCargosEmpresa(callerEmail: string, empresaId: string) {
+  await guardAdmin(callerEmail);
   const sb = createSupabaseAdmin();
   const [colabs, comps] = await Promise.all([
     sb.from('colaboradores').select('cargo').eq('empresa_id', empresaId).not('cargo', 'is', null),
     sb.from('competencias').select('cargo').eq('empresa_id', empresaId).not('cargo', 'is', null),
   ]);
   const todos = [
-    ...(colabs.data || []).map(c => c.cargo),
-    ...(comps.data || []).map(c => c.cargo),
+    ...(colabs.data || []).map((c: any) => c.cargo),
+    ...(comps.data || []).map((c: any) => c.cargo),
   ].filter(Boolean);
   return [...new Set(todos)].sort();
 }
