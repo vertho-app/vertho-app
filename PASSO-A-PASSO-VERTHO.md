@@ -22,6 +22,13 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 - **Cada linha = 1 descritor**. Uma competência com 6 descritores → 6 linhas com mesmo `nome` e `nome_curto` diferentes
 - A régua n1-n4 é usada na avaliação final (sem 14) para ancorar a pontuação
 
+### 3.5 (Opcional) Popular Base de Conhecimento (RAG)
+**Admin Vertho** · `/admin/vertho/knowledge-base?empresa={id}`
+- Botão **"Popular base inicial"** cria 6 docs seed (régua, modos de missão, privacidade, etc.)
+- Upload de PDFs/DOCX com políticas internas, valores, manuais (até 4MB por arquivo)
+- Cada doc é fragmentado por seção, indexado em FTS PT-BR + embedding Voyage (voyage-3-large, 1024d)
+- Enriquece respostas da IA com contexto da empresa (Tira-Dúvidas, Evidências socrático, Missão feedback, Relatórios Gestor/RH)
+
 ### 4. (Opcional) Preferências de aprendizagem
 **Colaborador** · `/dashboard/perfil` ou mapeamento comportamental
 - Colab ranqueia formatos: vídeo, texto, áudio, case
@@ -286,6 +293,8 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 
 **`/admin/vertho/simulador-custo`** — Calculadora interativa de custo IA: catálogo 20 chamadas, 7 modelos, 3 presets.
 
+**`/admin/vertho/knowledge-base`** — CRUD da base de conhecimento RAG per-tenant. Upload PDF/DOCX/TXT/MD (até 4MB), botão "Popular base inicial" (6 docs seed), preview de busca. Alimenta grounding em Tira-Dúvidas + Evidências + Missão Feedback + Relatórios Gestor/RH.
+
 Todos com back button context-aware.
 
 ### 29. Arquivar e iniciar próxima temporada
@@ -306,6 +315,9 @@ Todos com back button context-aware.
 ### Taxa de conclusão alimenta o A/B testing
 - `build-season` ordena conteúdos candidatos por `taxa_conclusao DESC`
 - Conteúdos com alta taxa são servidos preferencialmente
+
+### Backfill de embeddings (quando trocar provider)
+`npm run backfill:embeddings` — re-gera embeddings dos docs existentes em `knowledge_base` (útil ao trocar `EMBEDDING_PROVIDER` entre Voyage e OpenAI).
 
 ---
 

@@ -1,7 +1,7 @@
 # Vertho Mentor IA — Arquitetura do Sistema
 
 > Documento oficial de arquitetura — SaaS B2B de desenvolvimento de competencias por IA.
-> Ultima atualizacao: 15/04/2026
+> Ultima atualizacao: 16/04/2026
 > Revisado contra o codigo-fonte em producao (vertho.com.br)
 > Metodo: auditoria automatizada + revisao manual
 
@@ -22,7 +22,7 @@
 
 | Camada | Tecnologia | Versao | Status |
 |--------|-----------|--------|--------|
-| **Framework** | Next.js (App Router) | 16.2.2 | ✅ |
+| **Framework** | Next.js (App Router) | 16.2.4 | ✅ |
 | **UI** | React | 19.2.4 | ✅ |
 | **Estilizacao** | Tailwind CSS | 4.0 | ✅ |
 | **Icones** | Lucide React | 1.7.0 | ✅ |
@@ -34,12 +34,15 @@
 | **IA Leve** | Claude Haiku 4.5 (Tira-Duvidas, Simulador) | via SDK | ✅ |
 | **PDF** | @react-pdf/renderer (geracao) | 4.4.0 | ✅ |
 | **PDF Reader** | pdfjs-dist (leitura) | 5.6 | ✅ |
+| **Embeddings** | Voyage AI (voyage-3-large) | — | ✅ |
+| **Spreadsheet parse** | read-excel-file | 8.0 | ✅ |
 | **Filas** | Upstash QStash | 2.10.1 | ✅ |
 | **WhatsApp** | Z-API (REST) | — | 🔑 |
-| **Email** | Resend API | — | 🔑 |
+| **Email** | Resend SDK | 6.12 | 🔑 |
 | **Scraping Primario** | Jina AI Reader | — | ✅ |
 | **Scraping Fallback** | Firecrawl | — | 🔑 |
 | **Error Tracking** | Sentry | — | 🔑 |
+| **TypeScript** | tsc --noEmit (strict: false) | 5.9 | ✅ |
 | **Testes** | Playwright + smoke-test.js | — | ✅ |
 | **Hospedagem** | Vercel (Serverless) | — | ✅ |
 | **DNS/CDN** | Cloudflare (Full Strict SSL) | — | ✅ |
@@ -50,7 +53,7 @@
 
 ---
 
-## 2. Estrutura de Pastas (~160 arquivos JS)
+## 2. Estrutura de Pastas (~200 arquivos TS (100% TypeScript))
 
 ```
 nextjs-app/
@@ -65,56 +68,57 @@ nextjs-app/
 │   └── workflows/
 │       └── smoke-test.yml        # CI/CD: smoke test em cada push
 ├── app/
-│   ├── layout.js                 # Root layout (Inter font, meta, theme)
+│   ├── layout.tsx                # Root layout (Inter font, meta, theme)
 │   ├── globals.css               # Tailwind + design tokens (navy, cyan, teal)
-│   ├── global-error.js           # Error boundary → Sentry
-│   ├── page.js                   # Redirect → /login
+│   ├── global-error.tsx          # Error boundary → Sentry
+│   ├── not-found.tsx             # 404 page
+│   ├── page.tsx                  # Redirect → /login
 │   ├── login/
-│   │   ├── page.js               # Server Component: resolve tenant → branding
-│   │   └── login-form.js         # Client: Magic Link + senha
+│   │   ├── page.tsx              # Server Component: resolve tenant → branding
+│   │   └── login-form.tsx        # Client: Magic Link + senha
 │   ├── dashboard/                # Area do colaborador (autenticado)
-│   │   ├── page.js               # Dashboard com Proximo Passo + Acesso Rapido
-│   │   ├── layout.js             # Shell: header + bottom nav + BETO
-│   │   ├── dashboard-shell.js    # Client: nav
-│   │   ├── dashboard-actions.js  # loadDashboardData() com RBAC explicito
+│   │   ├── page.tsx              # Dashboard com Proximo Passo + Acesso Rapido
+│   │   ├── layout.tsx            # Shell: header + bottom nav + BETO
+│   │   ├── dashboard-shell.tsx   # Client: nav
+│   │   ├── dashboard-actions.ts  # loadDashboardData() com RBAC explicito
 │   │   ├── assessment/
-│   │   │   ├── page.js           # Lista competencias com status
-│   │   │   ├── assessment-actions.js
-│   │   │   └── chat/page.js      # Motor Conversacional Fase 3
-│   │   ├── pdi/page.js           # PDI com cards expandiveis
-│   │   ├── perfil/page.js        # Perfil + DISC preview + logout
+│   │   │   ├── page.tsx          # Lista competencias com status
+│   │   │   ├── assessment-actions.ts
+│   │   │   └── chat/page.tsx     # Motor Conversacional Fase 3
+│   │   ├── pdi/page.tsx          # PDI com cards expandiveis
+│   │   ├── perfil/page.tsx       # Perfil + DISC preview + logout
 │   │   ├── perfil-comportamental/
-│   │   │   ├── page.js           # Resultado DISC ou "Iniciar Mapeamento"
-│   │   │   └── mapeamento/page.js  # Instrumento DISC completo (29 steps)
-│   │   ├── evolucao/page.js      # Comparativo inicial vs reavaliacao
-│   │   ├── jornada/page.js       # Timeline vertical 5 fases
+│   │   │   ├── page.tsx          # Resultado DISC ou "Iniciar Mapeamento"
+│   │   │   └── mapeamento/page.tsx # Instrumento DISC completo (29 steps)
+│   │   ├── evolucao/page.tsx     # Comparativo inicial vs reavaliacao
+│   │   ├── jornada/page.tsx      # Timeline vertical 5 fases
 │   │   ├── praticar/
-│   │   │   ├── page.js           # Pilula semanal + progresso
-│   │   │   └── evidencia/page.js # Formulario de evidencia
+│   │   │   ├── page.tsx          # Pilula semanal + progresso
+│   │   │   └── evidencia/page.tsx # Formulario de evidencia
 │   │   ├── temporada/
-│   │   │   ├── page.js           # Timeline 14 semanas (cards coloridos)
-│   │   │   ├── semana/[week]/page.js  # Player + desafio + Tira-Duvidas + Evidencias
-│   │   │   ├── sem14/page.js     # NOVO: Wizard 4 perguntas (cenario B)
-│   │   │   └── concluida/page.js # NOVO: Temporada Concluida (5 blocos + PDF)
+│   │   │   ├── page.tsx          # Timeline 14 semanas (cards coloridos)
+│   │   │   ├── semana/[week]/page.tsx  # Player + desafio + Tira-Duvidas + Evidencias
+│   │   │   ├── sem14/page.tsx    # NOVO: Wizard 4 perguntas (cenario B)
+│   │   │   └── concluida/page.tsx # NOVO: Temporada Concluida (5 blocos + PDF)
 │   │   └── gestor/
 │   │       └── equipe-evolucao/  # NOVO: Dashboard gestor
-│   │           ├── page.js       # Lista liderados + delta + status + filtros
-│   │           └── actions.js    # Server actions do gestor
+│   │           ├── page.tsx      # Lista liderados + delta + status + filtros
+│   │           └── actions.ts    # Server actions do gestor
 │   ├── admin/                    # Painel administrativo
-│   │   ├── layout.js             # Wrapper AdminGuard
-│   │   ├── admin-guard.js        # Server-side via platform_admins
-│   │   ├── admin-actions.js      # checkAdminAccess()
-│   │   ├── dashboard/page.js     # 7 KPIs + System Health + lista empresas
+│   │   ├── layout.tsx            # Wrapper AdminGuard
+│   │   ├── admin-guard.tsx       # Server-side via platform_admins
+│   │   ├── admin-actions.ts      # checkAdminAccess()
+│   │   ├── dashboard/page.tsx    # 7 KPIs + System Health + lista empresas
 │   │   ├── empresas/
 │   │   │   ├── nova/             # Form: nome + segmento (auto-slug)
 │   │   │   ├── gerenciar/        # Import CSV com role
 │   │   │   └── [empresaId]/
-│   │   │       ├── page.js       # Pipeline Fases 0-5
-│   │   │       ├── actions.js
-│   │   │       ├── fase0/page.js # Moodle detalhes
-│   │   │       ├── fase1/page.js # Fase 1: Top 10, Gabarito, Cenarios
-│   │   │       ├── fase2/page.js # Fase 2: Diagnostico + Trilhas
-│   │   │       └── configuracoes/page.js  # 5 tabs
+│   │   │       ├── page.tsx      # Pipeline Fases 0-5
+│   │   │       ├── actions.ts
+│   │   │       ├── fase0/page.tsx # Moodle detalhes
+│   │   │       ├── fase1/page.tsx # Fase 1: Top 10, Gabarito, Cenarios
+│   │   │       ├── fase2/page.tsx # Fase 2: Diagnostico + Trilhas
+│   │   │       └── configuracoes/page.tsx  # 5 tabs
 │   │   ├── cargos/               # Top 5 selection
 │   │   ├── competencias/         # CRUD completo + copy da base
 │   │   ├── assessment-descritores/ # Grid colab x descritor (notas 1-4)
@@ -130,170 +134,186 @@ nextjs-app/
 │   │   ├── videos/               # Analytics Bunny
 │   │   ├── platform-admins/      # Gestao admins
 │   │   ├── preferencias-aprendizagem/
-│   │   └── vertho/               # NOVO: Paineis Admin Vertho
+│   │   └── vertho/               # Paineis Admin Vertho
 │   │       ├── evidencias/       # Conversas socraticas 1-12, extracao, transcript
-│   │       │   ├── page.js
-│   │       │   └── actions.js
+│   │       │   ├── page.tsx
+│   │       │   └── actions.ts
 │   │       ├── avaliacao-acumulada/  # Nota por descritor + auditoria + regerar
-│   │       │   ├── page.js
-│   │       │   └── actions.js
+│   │       │   ├── page.tsx
+│   │       │   └── actions.ts
 │   │       ├── auditoria-sem14/  # 4 notas + delta + regerar com feedback
-│   │       │   ├── page.js
-│   │       │   └── actions.js
-│   │       └── simulador-custo/  # Calculadora interativa custo IA
-│   │           └── page.js
+│   │       │   ├── page.tsx
+│   │       │   └── actions.ts
+│   │       ├── simulador-custo/  # Calculadora interativa custo IA
+│   │       │   └── page.tsx
+│   │       └── knowledge-base/   # NOVO: CRUD base conhecimento RAG per-tenant
+│   │           ├── page.tsx
+│   │           └── actions.ts
 │   ├── actions/
-│   │   ├── beto.js               # BETO contextual
-│   │   └── manutencao.js
+│   │   ├── beto.ts               # BETO contextual
+│   │   └── manutencao.ts
 │   └── api/
-│       ├── chat/route.js         # Motor Conversacional
-│       ├── chat-simulador/route.js
-│       ├── assessment/route.js
-│       ├── colaboradores/route.js
-│       ├── upload-logo/route.js
-│       ├── cron/route.js         # 3 cron jobs
-│       ├── content/search/route.js  # Busca micro_conteudos
-│       ├── capacitacao-recomendada/route.js  # NOVO: multi-formato por comp foco
-│       ├── relatorios/individual/route.js
-│       ├── relatorios/pdf/route.js
+│       ├── chat/route.ts         # Motor Conversacional
+│       ├── chat-simulador/route.ts
+│       ├── assessment/route.ts
+│       ├── colaboradores/route.ts
+│       ├── upload-logo/route.ts
+│       ├── cron/route.ts         # 3 cron jobs
+│       ├── content/search/route.ts  # Busca micro_conteudos
+│       ├── capacitacao-recomendada/route.ts  # multi-formato por comp foco
+│       ├── relatorios/individual/route.ts
+│       ├── relatorios/pdf/route.ts
 │       ├── temporada/
-│       │   ├── reflection/route.js    # Chat socratico/analitico
-│       │   ├── tira-duvidas/route.js  # NOVO: Chat reativo (Haiku 4.5)
-│       │   ├── missao/route.js        # NOVO: set_modo + compromisso
-│       │   ├── evaluation/route.js    # Sem 14 wizard + triangulacao
-│       │   └── concluida/pdf/route.js # NOVO: PDF Evolution Report
+│       │   ├── reflection/route.ts    # Chat socratico/analitico (c/ grounding RAG)
+│       │   ├── tira-duvidas/route.ts  # Chat reativo Haiku 4.5 (c/ grounding RAG)
+│       │   ├── missao/route.ts        # set_modo + compromisso
+│       │   ├── evaluation/route.ts    # Sem 14 wizard + triangulacao
+│       │   └── concluida/pdf/route.ts # PDF Evolution Report
 │       ├── gestor/
-│       │   └── plenaria/pdf/route.js  # NOVO: PDF Plenaria equipe
+│       │   └── plenaria/pdf/route.ts  # PDF Plenaria equipe
 │       ├── webhooks/
-│       │   ├── bunny/route.js
-│       │   ├── qstash/route.js
-│       │   └── qstash/whatsapp-cis/route.js
+│       │   ├── bunny/route.ts
+│       │   ├── qstash/route.ts
+│       │   └── qstash/whatsapp-cis/route.ts
 │       └── ...
-├── actions/                      # Server Actions (logica de negocio, ~40 arquivos)
-│   ├── ai-client.js              # callAI + callAIChat + Extended Thinking
-│   ├── utils.js                  # extractJSON, extractBlock, stripBlocks
-│   ├── fase1.js                  # IA1, IA2, IA3, Cenarios
-│   ├── fase2.js                  # Forms, emails, coleta, status
-│   ├── fase3.js                  # IA4, relatorios
-│   ├── fase4.js                  # PDI, trilhas, triggers
-│   ├── fase5.js                  # Reavaliacao, evolucao, plenaria
-│   ├── temporadas.js             # Motor de Temporadas (gerar, carregar, listar)
-│   ├── conteudos.js              # Banco micro-conteudos + Bunny + tagging IA
-│   ├── conteudos-metrics.js      # Metricas de conteudos
-│   ├── avaliacao-acumulada.js    # NOVO: Auto-trigger pos sem 13, dual-IA
-│   ├── evolution-report.js       # NOVO: Consolida sems 13+14
-│   ├── temporada-concluida.js    # NOVO: Dados tela Concluida
-│   ├── simulador-temporada.js    # NOVO: 1 sem/chamada, 4 perfis, Haiku
-│   ├── assessment-descritores.js # CRUD assessment descritores
-│   ├── cenario-b.js              # Cenario B
-│   ├── check-ia4.js              # Validacao 4D x 25pts = 100
-│   ├── evolucao-granular.js      # Delta por descritor
-│   ├── fit-v2.js                 # Calculo Fit v2
-│   ├── trilhas-load.js           # Carregar trilhas
-│   ├── tutor-evidencia.js        # Avaliacao evidencia
-│   ├── competencias.js           # CRUD por empresa
-│   ├── competencias-base.js      # CRUD base global
-│   ├── ppp.js                    # Jina + Firecrawl + 10 secoes
-│   ├── onboarding.js             # Criar empresa, importar, config
-│   ├── cron-jobs.js              # cleanup, segunda, quinta
-│   ├── dashboard-kpis.js         # KPIs home
-│   ├── bunny-stats.js            # Metricas Bunny
-│   ├── video-analytics.js        # Analytics por colab
-│   ├── video-tracking.js         # Registro views
-│   ├── whatsapp.js               # Z-API
-│   ├── whatsapp-lote.js          # QStash lote
-│   ├── automacao-envios.js       # PDF + WhatsApp lote
-│   ├── relatorios.js             # Geracao relatorios
-│   ├── relatorios-load.js        # Load relatorios
-│   ├── simulador-conversas.js    # Simulador admin
-│   ├── simulador-disc.js         # Simulador DISC
-│   ├── backup.js                 # Backup actions
-│   ├── preferencias-aprendizagem.js
-│   └── manutencao.js
+├── actions/                      # Server Actions (logica de negocio, 41 arquivos .ts)
+│   ├── ai-client.ts              # callAI + callAIChat + Extended Thinking
+│   ├── utils.ts                  # extractJSON, extractBlock, stripBlocks
+│   ├── fase1.ts                  # IA1, IA2, IA3, Cenarios
+│   ├── fase2.ts                  # Forms, emails, coleta, status
+│   ├── fase3.ts                  # IA4, relatorios
+│   ├── fase4.ts                  # PDI, trilhas, triggers
+│   ├── fase5.ts                  # Reavaliacao, evolucao, plenaria
+│   ├── temporadas.ts             # Motor de Temporadas (gerar, carregar, listar)
+│   ├── conteudos.ts              # Banco micro-conteudos + Bunny + tagging IA
+│   ├── conteudos-metrics.ts      # Metricas de conteudos
+│   ├── avaliacao-acumulada.ts    # Auto-trigger pos sem 13, dual-IA
+│   ├── evolution-report.ts       # Consolida sems 13+14
+│   ├── temporada-concluida.ts    # Dados tela Concluida
+│   ├── simulador-temporada.ts    # 1 sem/chamada, 4 perfis, Haiku
+│   ├── assessment-descritores.ts # CRUD assessment descritores
+│   ├── cenario-b.ts              # Cenario B
+│   ├── check-ia4.ts              # Validacao 4D x 25pts = 100
+│   ├── evolucao-granular.ts      # Delta por descritor
+│   ├── fit-v2.ts                 # Calculo Fit v2
+│   ├── trilhas-load.ts           # Carregar trilhas
+│   ├── tutor-evidencia.ts        # Avaliacao evidencia
+│   ├── competencias.ts           # CRUD por empresa
+│   ├── competencias-base.ts      # CRUD base global
+│   ├── ppp.ts                    # Jina + Firecrawl + 10 secoes
+│   ├── onboarding.ts             # Criar empresa, importar, config
+│   ├── cron-jobs.ts              # cleanup, segunda, quinta
+│   ├── dashboard-kpis.ts         # KPIs home
+│   ├── bunny-stats.ts            # Metricas Bunny
+│   ├── video-analytics.ts        # Analytics por colab
+│   ├── video-tracking.ts         # Registro views
+│   ├── whatsapp.ts               # Z-API
+│   ├── whatsapp-lote.ts          # QStash lote
+│   ├── automacao-envios.ts       # PDF + WhatsApp lote
+│   ├── relatorios.ts             # Geracao relatorios (c/ grounding RAG)
+│   ├── relatorios-load.ts        # Load relatorios
+│   ├── simulador-conversas.ts    # Simulador admin
+│   ├── simulador-disc.ts         # Simulador DISC
+│   ├── backup.ts                 # Backup actions
+│   ├── preferencias-aprendizagem.ts
+│   └── manutencao.ts
 ├── components/
-│   ├── beto-chat.js              # Chat flutuante (hidden em semana pages)
-│   ├── mic-input.js              # Web Speech API (forwardRef + stop on send)
-│   ├── page-shell.js             # PageContainer, PageHero, GlassCard, SectionHeader
-│   ├── preferencias-ranking.js
-│   ├── video-modal.js            # Bunny iframe + postMessage tracking
+│   ├── beto-chat.tsx             # Chat flutuante (hidden em semana pages)
+│   ├── mic-input.tsx             # Web Speech API (forwardRef + stop on send)
+│   ├── page-shell.tsx            # PageContainer, PageHero, GlassCard, SectionHeader
+│   ├── preferencias-ranking.tsx
+│   ├── video-modal.tsx           # Bunny iframe + postMessage tracking
 │   ├── dashboard/
-│   │   ├── RHView.js
-│   │   └── ManagerView.js
+│   │   ├── RHView.tsx
+│   │   └── ManagerView.tsx
 │   └── pdf/
-│       ├── styles.js             # NotoSans, paleta, helpers
-│       ├── RelatorioTemplate.js
-│       ├── RelatorioIndividual.js
-│       ├── RelatorioGestor.js
-│       ├── RelatorioRH.js
-│       ├── PdfCover.js
-│       ├── SectionTitle.js
-│       ├── StatusBadge.js
-│       ├── CompetencyBlock.js
-│       └── ChecklistBox.js
-├── lib/
-│   ├── supabase.js               # createSupabaseClient + createSupabaseAdmin
-│   ├── supabase-browser.js       # Singleton browser client
-│   ├── tenant-resolver.js        # resolveTenant(slug) cache 5min
-│   ├── ui-resolver.js            # getCustomLabel + isHidden
-│   ├── authz.js                  # RBAC: getUserContext, isPlatformAdmin, roles
-│   ├── versioning.js             # Prompt versioning (SHA-256 dedup)
-│   ├── logger.js                 # Logger estruturado
-│   ├── notifications.js          # Templates email + WhatsApp
-│   ├── competencias-base.js      # Arrays educacao/corporativo + PILAR_COLORS
-│   ├── pdf-assets.js             # Assets para PDFs
-│   ├── markdown-to-pdf.js        # Converter markdown para PDF
-│   ├── parse-spreadsheet.js      # Parser de planilhas
-│   ├── ai-tasks.js               # Tasks IA auxiliares
-│   ├── ia-cost-catalog.js        # NOVO: Catalogo 20 chamadas x 7 modelos x 3 presets
-│   ├── temporada-concluida-pdf.js  # NOVO: PDF Evolution Report individual
-│   ├── plenaria-equipe-pdf.js    # NOVO: PDF Plenaria consolidado do time
-│   ├── disc-arquetipos.js
-│   ├── avatar-presets.js
-│   ├── preferencias-config.js
+│       ├── styles.ts             # NotoSans, paleta, helpers
+│       ├── RelatorioTemplate.tsx
+│       ├── RelatorioIndividual.tsx
+│       ├── RelatorioGestor.tsx
+│       ├── RelatorioRH.tsx
+│       ├── PdfCover.tsx
+│       ├── SectionTitle.tsx
+│       ├── StatusBadge.tsx
+│       ├── CompetencyBlock.tsx
+│       └── ChecklistBox.tsx
+├── lib/                          # 45 arquivos .ts
+│   ├── supabase.ts               # createSupabaseClient + createSupabaseAdmin
+│   ├── supabase-browser.ts       # Singleton browser client
+│   ├── tenant-resolver.ts        # resolveTenant(slug) cache 5min
+│   ├── tenant-db.ts              # Helper multi-tenant DB
+│   ├── ui-resolver.ts            # getCustomLabel + isHidden
+│   ├── authz.ts                  # RBAC: getUserContext, isPlatformAdmin, roles
+│   ├── versioning.ts             # Prompt versioning (SHA-256 dedup)
+│   ├── logger.ts                 # Logger estruturado
+│   ├── notifications.ts          # Templates email + WhatsApp
+│   ├── competencias-base.ts      # Arrays educacao/corporativo + PILAR_COLORS
+│   ├── pdf-assets.ts             # Assets para PDFs
+│   ├── markdown-to-pdf.ts        # Converter markdown para PDF
+│   ├── parse-spreadsheet.ts      # Parser planilhas (read-excel-file v8)
+│   ├── pii-masker.ts             # Mascara PII antes de enviar para LLMs externos
+│   ├── ai-tasks.ts               # Tasks IA auxiliares
+│   ├── ia-cost-catalog.ts        # Catalogo chamadas IA x modelos x presets (inclui RAG)
+│   ├── embeddings.ts             # NOVO: Wrapper Voyage / OpenAI embedding provider
+│   ├── rag.ts                    # NOVO: kb_search_hybrid + formatacao grounding
+│   ├── rag-ingest.ts             # NOVO: Parser PDF/DOCX -> chunks -> embedding
+│   ├── rag-seed.ts               # NOVO: 6 docs seed (regua, modos missao, privacidade...)
+│   ├── temporada-concluida-pdf.ts  # PDF Evolution Report individual
+│   ├── plenaria-equipe-pdf.ts    # PDF Plenaria consolidado do time
+│   ├── disc-arquetipos.ts
+│   ├── avatar-presets.ts
+│   ├── preferencias-config.ts
 │   ├── season-engine/            # Motor de Temporadas
-│   │   ├── build-season.js       # buildSeason(): 14 semanas (missao+cenario em paralelo)
-│   │   ├── select-descriptors.js # selectDescriptors(): 9 slots por gap
-│   │   ├── week-gating.js        # NOVO: Gate calendario + anterior concluida
-│   │   └── prompts/              # 16 prompts
-│   │       ├── socratic.js       # Evidencias: 6 turnos, DISC, anti-alucinacao
-│   │       ├── analytic.js       # Feedback analitico: 10 turnos
-│   │       ├── challenge.js      # Desafio semanal
-│   │       ├── scenario.js       # Cenario situacional
-│   │       ├── tira-duvidas.js   # NOVO: Chat reativo (Haiku 4.5)
-│   │       ├── missao.js         # NOVO: Missao pratica
-│   │       ├── missao-feedback.js # NOVO: IA analisa relato (10 turnos)
-│   │       ├── acumulado.js      # NOVO: Avaliacao acumulada (cega, dual-IA)
-│   │       ├── evolution-qualitative.js  # Sem 13: 12 turnos, 6 etapas
-│   │       ├── evolution-scenario.js     # Sem 14 cenario
-│   │       ├── evolution-scenario-check.js # NOVO: Check 2a IA
-│   │       ├── simulador-temporada.js    # NOVO: 4 perfis
-│   │       ├── case-study.js
-│   │       ├── text-content.js
-│   │       ├── video-script.js
-│   │       └── podcast-script.js
+│   │   ├── build-season.ts       # buildSeason(): 14 semanas (missao+cenario em paralelo)
+│   │   ├── select-descriptors.ts # selectDescriptors(): 9 slots por gap
+│   │   ├── week-gating.ts        # Gate calendario + anterior concluida
+│   │   └── prompts/              # 16 prompts (todos .ts)
+│   │       ├── socratic.ts       # Evidencias: 6 turnos, DISC, anti-alucinacao (c/ grounding)
+│   │       ├── analytic.ts       # Feedback analitico: 10 turnos
+│   │       ├── challenge.ts      # Desafio semanal
+│   │       ├── scenario.ts       # Cenario situacional
+│   │       ├── tira-duvidas.ts   # Chat reativo Haiku 4.5 (c/ grounding)
+│   │       ├── missao.ts         # Missao pratica
+│   │       ├── missao-feedback.ts # IA analisa relato (10 turnos, c/ grounding)
+│   │       ├── acumulado.ts      # Avaliacao acumulada (cega, dual-IA)
+│   │       ├── evolution-qualitative.ts  # Sem 13: 12 turnos, 6 etapas
+│   │       ├── evolution-scenario.ts     # Sem 14 cenario
+│   │       ├── evolution-scenario-check.ts # Check 2a IA
+│   │       ├── simulador-temporada.ts    # 4 perfis
+│   │       ├── case-study.ts
+│   │       ├── text-content.ts
+│   │       ├── video-script.ts
+│   │       └── podcast-script.ts
 │   ├── fit-v2/
-│   │   ├── engine.js
-│   │   ├── blocos.js
-│   │   ├── classificacao.js
-│   │   ├── gap-analysis.js
-│   │   ├── penalizacoes.js
-│   │   ├── ranking.js
-│   │   └── validacao.js
+│   │   ├── engine.ts
+│   │   ├── blocos.ts
+│   │   ├── classificacao.ts
+│   │   ├── gap-analysis.ts
+│   │   ├── penalizacoes.ts
+│   │   ├── ranking.ts
+│   │   └── validacao.ts
 │   ├── prompts/
-│   │   ├── behavioral-report-prompt.js
-│   │   ├── fit-executive-prompt.js
-│   │   └── insights-executivos-prompt.js
+│   │   ├── behavioral-report-prompt.ts
+│   │   ├── fit-executive-prompt.ts
+│   │   └── insights-executivos-prompt.ts
 │   └── supabase/
-│       └── mapCISProfile.js
+│       └── mapCISProfile.ts
 ├── scripts/
 │   ├── smoke-test.js
+│   ├── backfill-embeddings.js    # NOVO: re-gera embeddings ao trocar provider
 │   ├── backup-project.ps1
 │   ├── checkpoint.ps1
 │   ├── auto-backup-diario.ps1
 │   └── instalar-backup-automatico.ps1
 ├── tests/                        # Playwright e2e (86 specs)
+├── migrations/                   # 43 migrations SQL (001 -> 043)
+├── tsconfig.json                 # TypeScript config (strict:false, allowJs, checkJs:false)
 ├── docs/
 │   ├── envs-importantes.md
+│   ├── rag-architecture.md       # NOVO: Arquitetura RAG (Voyage, pgvector, backfill, pitfalls)
+│   ├── typescript-migration.md   # NOVO: Guia migracao TS (config, criterios, erros comuns)
+│   ├── tenant-db-migration.md
+│   ├── migrations-workflow.md
 │   ├── checklist-antes-de-prompt-grande.md
 │   ├── checklist-antes-de-deploy.md
 │   └── rotina-antifalha.md
@@ -389,22 +409,22 @@ Modelos: Claude Sonnet 4.6, Claude Opus 4.6, Claude Haiku 4.5, Gemini 3 Flash, G
 
 | Prompt | Arquivo | Turnos | Modelo | Uso |
 |---|---|---|---|---|
-| Tira-Duvidas | `tira-duvidas.js` | ilimitado | Haiku 4.5 | Chat reativo por semana, guard-rail no descritor |
-| Evidencias (socratica) | `socratic.js` | 6 | Sonnet | DISC + anti-alucinacao + perguntas abertas |
-| Desafio | `challenge.js` | — | Sonnet | Micro-acao observavel |
-| Cenario | `scenario.js` | — | Sonnet | Cenario situacional com stakeholders |
-| Missao | `missao.js` | — | Sonnet | Missao pratica (sem 4/8/12) |
-| Missao Feedback | `missao-feedback.js` | 10 | Sonnet | IA analisa relato da missao |
-| Analitico (fallback) | `analytic.js` | 10 | Sonnet | Feedback cenario escrito |
-| Evolution Qualitativa | `evolution-qualitative.js` | 12 | Sonnet | Sem 13: 6 etapas, microcaso, DISC |
-| Acumulada | `acumulado.js` | single-shot | Sonnet + auditor | Pontua 1-4 cega, max 8000+6000 tok |
-| Evolution Cenario | `evolution-scenario.js` | — | Sonnet | Gera cenario sem 14 |
-| Evolution Check | `evolution-scenario-check.js` | — | Sonnet | 2a IA valida cenario |
-| Simulador | `simulador-temporada.js` | 1 sem/chamada | Haiku | 4 perfis comportamentais |
-| Case Study | `case-study.js` | — | Sonnet | Geracao de caso |
-| Texto | `text-content.js` | — | Sonnet | Geracao de artigo |
-| Video Script | `video-script.js` | — | Sonnet | Roteiro video |
-| Podcast Script | `podcast-script.js` | — | Sonnet | Roteiro podcast |
+| Tira-Duvidas | `tira-duvidas.ts` | ilimitado | Haiku 4.5 | Chat reativo, guard-rail descritor, grounding RAG |
+| Evidencias (socratica) | `socratic.ts` | 6 | Sonnet | DISC + anti-alucinacao + grounding RAG |
+| Desafio | `challenge.ts` | — | Sonnet | Micro-acao observavel |
+| Cenario | `scenario.ts` | — | Sonnet | Cenario situacional com stakeholders |
+| Missao | `missao.ts` | — | Sonnet | Missao pratica (sem 4/8/12) |
+| Missao Feedback | `missao-feedback.ts` | 10 | Sonnet | IA analisa relato (c/ grounding RAG) |
+| Analitico (fallback) | `analytic.ts` | 10 | Sonnet | Feedback cenario escrito |
+| Evolution Qualitativa | `evolution-qualitative.ts` | 12 | Sonnet | Sem 13: 6 etapas, microcaso, DISC |
+| Acumulada | `acumulado.ts` | single-shot | Sonnet + auditor | Pontua 1-4 cega, max 8000+6000 tok |
+| Evolution Cenario | `evolution-scenario.ts` | — | Sonnet | Gera cenario sem 14 |
+| Evolution Check | `evolution-scenario-check.ts` | — | Sonnet | 2a IA valida cenario |
+| Simulador | `simulador-temporada.ts` | 1 sem/chamada | Haiku | 4 perfis comportamentais |
+| Case Study | `case-study.ts` | — | Sonnet | Geracao de caso |
+| Texto | `text-content.ts` | — | Sonnet | Geracao de artigo |
+| Video Script | `video-script.ts` | — | Sonnet | Roteiro video |
+| Podcast Script | `podcast-script.ts` | — | Sonnet | Roteiro podcast |
 
 ### 5.4 Avaliacao Sem 14 (Triangulacao)
 - Cenario B SEMPRE do `banco_cenarios` (sem fallback IA)
@@ -435,6 +455,46 @@ Tabela `prompt_versions` (SHA-256 dedup).
 
 ---
 
+## 5.7 RAG / Grounding per-tenant
+
+Sistema de Retrieval-Augmented Generation que enriquece respostas da IA com contexto da empresa (valores, cultura, politicas internas, manuais).
+
+### Schema SQL
+- **Migration 041** — Tabela `knowledge_base` (empresa_id, titulo, chunk_index, content, metadata JSONB) + funcao `kb_search` (FTS PT-BR via tsvector com unaccent).
+- **Migration 042** — Extensao `pgvector` + coluna `embedding VECTOR(1536)` + funcoes `kb_search_semantic` (cosine distance) e `kb_search_hybrid` (RRF — Reciprocal Rank Fusion combinando FTS + vector).
+- **Migration 043** — Dimensao reduzida de 1536 para **1024** (requisito nativo do Voyage-3-large). Sem perda de dados (base vazia no momento da migration).
+
+### Provider de Embeddings
+- **Atual: Voyage** (`voyage-3-large`, 1024d nativo) — configurado via `EMBEDDING_PROVIDER=voyage` + `VOYAGE_API_KEY` em Vercel prod e `.env.local`.
+- **Fallback: OpenAI** — suportado via `EMBEDDING_PROVIDER=openai` (usa `text-embedding-3-small` com parametro `dimensions: 1024`).
+- Wrapper: `lib/embeddings.ts`.
+
+### Superficies com Grounding Ativo (commit 8dc80df)
+| Superficie | Query | Arquivo |
+|---|---|---|
+| Tira-Duvidas | Pergunta do colaborador | `/api/temporada/tira-duvidas` |
+| Evidencias socratico | Competencia + descritor + ultimas msgs | `/api/temporada/reflection` |
+| Missao Feedback | Competencia + descritor + ultimas msgs | `/api/temporada/reflection` |
+| Relatorio Gestor | Valores + cultura da empresa | `actions/relatorios.ts::gerarRelatorioGestor` |
+| Relatorio RH | Valores + cultura da empresa | `actions/relatorios.ts::gerarRelatorioRH` |
+
+### Ingest
+- **`lib/rag-ingest.ts`** — Parser PDF (via pdf-parse) e DOCX (via mammoth) — fragmenta por secao, gera embeddings, upserta em `knowledge_base`.
+- **`lib/rag-seed.ts`** — 6 docs base: temporada (visao geral), evidencias (metodologia socratica), tira-duvidas, regua de maturidade, modos de missao, privacidade.
+
+### Painel Admin
+- **`/admin/vertho/knowledge-base`** — CRUD + Upload (PDF/DOCX/TXT/MD ate 4MB) + botao "Popular base inicial" (seed) + preview de busca (FTS/vector/hybrid).
+
+### Backfill
+- Script `scripts/backfill-embeddings.js` + npm `backfill:embeddings` — re-gera embeddings de docs existentes ao trocar provider.
+
+### Custo
+- `lib/ia-cost-catalog.ts` contem chamada `rag-query-embed` (voyage-3-large, 138 calls/colab x 100 tokens) + 3 chamadas com grounding que tiveram +800 tokens input (`evidencias-socratic`, `tira-duvidas`, `missao-feedback`).
+
+Documentacao detalhada: **`docs/rag-architecture.md`**.
+
+---
+
 ## 6. Integracoes
 
 ### 6.1 WhatsApp — Z-API + QStash
@@ -445,8 +505,8 @@ Dispatch de formularios e relatorios. Status: 🔑 RESEND_API_KEY.
 
 ### 6.3 PDF — @react-pdf/renderer + pdfjs-dist
 Geracao server-side. Fonte NotoSans. PDFs: Individual, Gestor, RH, Comportamental, **Evolution Report**, **Plenaria**.
-- `lib/temporada-concluida-pdf.js` — PDF Evolution Report individual
-- `lib/plenaria-equipe-pdf.js` — PDF Plenaria consolidado do time
+- `lib/temporada-concluida-pdf.ts` — PDF Evolution Report individual
+- `lib/plenaria-equipe-pdf.ts` — PDF Plenaria consolidado do time
 Status: ✅
 
 ### 6.4 Scraping — Jina AI + Firecrawl
@@ -539,7 +599,7 @@ Tabelas: trilhas, colaboradores, temporada_semana_progresso
 
 ---
 
-## 8. Modelagem de Dados (36 migrations)
+## 8. Modelagem de Dados (43 migrations)
 
 ### Dados Transacionais
 ```
@@ -629,6 +689,7 @@ npm run test:ui
 - RLS habilitado em todas as tabelas principais (5 adicionais via migration 037)
 - Nenhuma NEXT_PUBLIC sensivel
 - Sentry para error tracking
+- **npm audit: 0 vulnerabilities** (xlsx removido, Next.js patched para 16.2.4, resend instalado)
 
 ### Repositorio publico
 - NUNCA commitar .env, credenciais ou tokens
@@ -639,7 +700,7 @@ npm run test:ui
 
 ## 12. Observabilidade
 
-- `lib/logger.js` — logger estruturado
+- `lib/logger.ts` — logger estruturado
 - Sentry — erros client + server + edge
 - System Health no admin dashboard
 - Prompt versioning em `prompt_versions`
@@ -655,9 +716,10 @@ npm run test:ui
 | Evidencias | `/admin/vertho/evidencias` | Conversas socraticas sem 1-12, extracao, transcript |
 | Avaliacao Acumulada | `/admin/vertho/avaliacao-acumulada` | Nota por descritor + auditoria + regerar |
 | Auditoria Sem 14 | `/admin/vertho/auditoria-sem14` | 4 notas (pre/acumulada/cenario/final) + delta + regerar com feedback |
-| Simulador de Custo | `/admin/vertho/simulador-custo` | Calculadora interativa: catalogo 20 chamadas, 7 modelos, 3 presets |
+| Simulador de Custo | `/admin/vertho/simulador-custo` | Calculadora interativa: catalogo chamadas x modelos x presets |
+| Knowledge Base (RAG) | `/admin/vertho/knowledge-base` | CRUD + Upload PDF/DOCX + Seed + preview de busca (grounding per-tenant) |
 
-Todos com filtro `?empresa=` e back button context-aware. Dados via `lib/ia-cost-catalog.js`.
+Todos com filtro `?empresa=` e back button context-aware. Dados via `lib/ia-cost-catalog.ts`.
 
 ---
 
@@ -682,7 +744,13 @@ Task Scheduler Windows → scripts/auto-backup-diario.ps1 (todo dia 20h)
 | `scripts/auto-backup-diario.ps1` | Backup diario automatico |
 
 ### Restauracao do Schema
-- Rodar migrations em ordem: `supabase/migrations/001*.sql` ate `036*.sql`
+- Rodar migrations em ordem: `supabase/migrations/001*.sql` ate `043*.sql`
+
+### Backfill de embeddings
+- `npm run backfill:embeddings` — re-gera embeddings em `knowledge_base` (util ao trocar `EMBEDDING_PROVIDER`)
+
+### TypeScript
+- `npm run typecheck` — roda `tsc --noEmit` (config: `strict:false`, `jsx:"preserve"`, `allowJs:true`, `checkJs:false`)
 
 ---
 
@@ -708,9 +776,11 @@ Sentry: Error tracking
 - Labels renomeadas: "Aplicacao" → "Pratica", "Mentor IA" → "Evidencias"
 - Cenario: titulo removido, "CENARIO" → "CONTEXTO"
 - "Marcar como assistido" → "Marcar como realizado"
+- `xlsx` — removido (2 CVEs high sem fix) → substituido por `read-excel-file@^8`
+- `jsconfig.json` — substituido por `tsconfig.json` (migracao 100% TypeScript)
 
 ---
 
 *Documento validado contra o codigo-fonte em producao.*
-*~160 arquivos JS | 36 migrations SQL | 86 e2e tests | 20+ env vars | vertho.com.br*
-*Revisao: 15/04/2026*
+*~200 arquivos TS | 43 migrations SQL | 86 e2e tests | 22+ env vars | vertho.com.br*
+*Revisao: 16/04/2026*
