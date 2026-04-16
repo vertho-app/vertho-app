@@ -12,6 +12,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "migrate:legacy": "node scripts/migracao_legado.js",
+    "backfill:embeddings": "node scripts/backfill-embeddings.js",
     "test": "npx playwright test",
     "test:ui": "npx playwright test --ui",
     "smoke": "node scripts/smoke-test.js"

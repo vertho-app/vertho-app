@@ -100,8 +100,8 @@ VALUES (
 - [x] Seed automático (botão "Popular base inicial")
 - [x] Parser de PDF/docx → chunks
 - [x] Chunk size calibrado (~3200 chars ≈ 800 tokens com overlap 200)
-- [ ] Backfill embeddings em rows pré-existentes (script `scripts/backfill-embeddings.js`)
-- [ ] Pré-warmup do índice IVFFLAT após backfill (REINDEX + ANALYZE)
+- [x] Backfill embeddings em rows pré-existentes (`scripts/backfill-embeddings.js`)
+- [ ] Pré-warmup do índice IVFFLAT após backfill (REINDEX + ANALYZE) — manual no SQL editor, sugerido ao fim do script
 - [ ] Upgrade `lists` no índice IVFFLAT quando passar de 10k rows
 
 ## Como ativar embeddings (semântico + híbrido)
@@ -121,7 +121,18 @@ VOYAGE_API_KEY=...          # ou OPENAI_API_KEY se openai
 | Voyage | `voyage-3-large` (output 1536) | 1024 nativo | ~$0.18 | Anthropic recomenda |
 
 ### 2. Backfill (rows existentes)
-TODO: criar `scripts/backfill-embeddings.js` que itera knowledge_base sem embedding e gera. Sem isso, novos docs criados após ativação ganham embedding automático (via `ingestDoc`), mas docs antigos ficam só com FTS.
+```bash
+node scripts/backfill-embeddings.js --dry              # checa quantos faltam
+node scripts/backfill-embeddings.js                    # roda em todas as empresas
+node scripts/backfill-embeddings.js --empresa <uuid>   # só uma empresa
+node scripts/backfill-embeddings.js --limit 50         # só 50 rows (teste)
+```
+Após o backfill, rodar no SQL editor:
+```sql
+REINDEX INDEX idx_kb_embedding;
+ANALYZE knowledge_base;
+```
+Novos docs criados após ativação ganham embedding automático via `ingestDoc` (background, best-effort).
 
 ### 3. Sem mudança em callers
 `retrieveContext()` detecta automaticamente se embedding está disponível e usa híbrido (RRF). Se quebrar, cai pra FTS silenciosamente.
