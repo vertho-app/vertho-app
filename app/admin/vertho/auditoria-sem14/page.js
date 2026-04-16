@@ -246,7 +246,7 @@ function DetalheModal({ detalhe, loading, onClose, onRevisado }) {
                           <p className={`text-center text-[11px] font-bold ${corVsPre(d.nota_pos)}`}>{d.nota_pos}</p>
                           <p className={`text-center text-[11px] font-bold ${corDelta}`}>{isNaN(delta) ? '—' : `${delta > 0 ? '+' : ''}${delta.toFixed(2)}`}</p>
                         </div>
-                        <p className={`text-[10px] ${corFinal} mt-0.5`}>
+                        <p className={`text-[10px] ${corVsPre(d.nota_pos)} mt-0.5`}>
                           {d.classificacao} ({d.consistencia_com_acumulado || '—'})
                         </p>
                         <p className="text-[10px] text-gray-500 mt-0.5">{d.justificativa}</p>
