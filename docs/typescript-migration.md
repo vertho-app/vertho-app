@@ -12,9 +12,9 @@ Motivação: ganho de tipos em pontos de alto risco (authz, ai-client, season-en
 |---|---|---|
 | `lib/authz` | authz.ts | ✅ |
 | `types/index.d.ts` | Colaborador, UserContext, Role, Trilha, etc. | ✅ |
-| `lib/tenant-db` | tenant-db.js | ⬜ próximo |
-| `lib/season-engine/*` | select-descriptors.js, build-season.js | ⬜ |
-| `actions/ai-client` | ai-client.js | ⬜ (prioridade, chama Anthropic) |
+| `lib/tenant-db` | tenant-db.ts | ✅ |
+| `actions/ai-client` | ai-client.ts | ✅ |
+| `lib/season-engine/*` | select-descriptors.js, build-season.js | ⬜ próximo |
 | `lib/pii-masker` | pii-masker.js | ⬜ |
 | `actions/temporadas` | temporadas.js | ⬜ (grande, por último) |
 | Componentes React | **fora de escopo** | — |

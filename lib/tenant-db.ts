@@ -20,39 +20,58 @@
  */
 
 import { createSupabaseAdmin } from './supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
-export function tenantDb(tenantId) {
+/**
+ * Wrapper builder que se parece com `sb.from()` do Supabase mas com filtros
+ * de tenant injetados. Tipado como `any` porque o builder do Supabase tem
+ * encadeamento dinâmico difícil de modelar — o ganho de tipos aqui não
+ * compensa a fricção. As tabelas chamadoras já tipam seus retornos.
+ */
+type TenantQueryBuilder = any;
+
+export interface TenantDb {
+  from(table: string): TenantQueryBuilder;
+  /** Escape hatch: acesso direto ao client admin, bypass do filtro.
+   *  Use só em tabelas globais (competencias_base, platform_admins) ou
+   *  operações cross-tenant legítimas. */
+  raw: SupabaseClient;
+  /** Auth, storage, rpc seguem no raw. */
+  auth: SupabaseClient['auth'];
+  storage: SupabaseClient['storage'];
+  rpc: SupabaseClient['rpc'];
+}
+
+export function tenantDb(tenantId: string): TenantDb {
   if (!tenantId) throw new Error('tenantDb: tenantId obrigatório');
   const sb = createSupabaseAdmin();
 
   return {
-    // Query builder tenant-scoped — força filtro por empresa_id em select/update/delete,
-    // injeta empresa_id em insert/upsert.
-    from(table) {
+    from(table: string): TenantQueryBuilder {
       const q = sb.from(table);
       return new Proxy(q, {
-        get(target, prop) {
+        get(target: any, prop: string | symbol) {
           if (prop === 'select') {
-            return (...args) => target.select(...args).eq('empresa_id', tenantId);
+            return (...args: unknown[]) => target.select(...args).eq('empresa_id', tenantId);
           }
           if (prop === 'insert') {
-            return (rows, opts) => {
+            return (rows: unknown, opts?: unknown) => {
               const withTenant = Array.isArray(rows)
-                ? rows.map(r => ({ empresa_id: tenantId, ...r })) // row pode sobrescrever se quiser
-                : { empresa_id: tenantId, ...rows };
+                ? rows.map((r) => ({ empresa_id: tenantId, ...(r as object) }))
+                : { empresa_id: tenantId, ...(rows as object) };
               return target.insert(withTenant, opts);
             };
           }
           if (prop === 'upsert') {
-            return (rows, opts) => {
+            return (rows: unknown, opts?: unknown) => {
               const withTenant = Array.isArray(rows)
-                ? rows.map(r => ({ empresa_id: tenantId, ...r }))
-                : { empresa_id: tenantId, ...rows };
+                ? rows.map((r) => ({ empresa_id: tenantId, ...(r as object) }))
+                : { empresa_id: tenantId, ...(rows as object) };
               return target.upsert(withTenant, opts);
             };
           }
           if (prop === 'update') {
-            return (changes) => target.update(changes).eq('empresa_id', tenantId);
+            return (changes: unknown) => target.update(changes).eq('empresa_id', tenantId);
           }
           if (prop === 'delete') {
             return () => target.delete().eq('empresa_id', tenantId);
@@ -63,12 +82,7 @@ export function tenantDb(tenantId) {
       });
     },
 
-    /** Escape hatch: acesso direto ao client admin, bypass do filtro.
-     *  Use só em tabelas globais (competencias_base, platform_admins) ou
-     *  operações cross-tenant legítimas. */
     raw: sb,
-
-    /** Auth, storage, rpc seguem no raw. */
     auth: sb.auth,
     storage: sb.storage,
     rpc: sb.rpc.bind(sb),
@@ -79,9 +93,9 @@ export function tenantDb(tenantId) {
  * Helper: extrai tenantId do colaborador a partir do email autenticado.
  * Uso típico em rotas/actions que recebem email do usuário logado.
  */
-export async function resolveTenantByEmail(email) {
+export async function resolveTenantByEmail(email: string): Promise<string | null> {
   const sb = createSupabaseAdmin();
   const { data } = await sb.from('colaboradores')
     .select('empresa_id').eq('email', email).maybeSingle();
-  return data?.empresa_id || null;
+  return (data as { empresa_id?: string } | null)?.empresa_id || null;
 }

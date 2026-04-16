@@ -76,6 +76,7 @@ export default function AdminDashboard() {
             <NavBtn onClick={() => router.push('/admin/vertho/evidencias')} icon={ShieldCheck} label="Evidências" hover="purple" />
             <NavBtn onClick={() => router.push('/admin/vertho/avaliacao-acumulada')} icon={ShieldCheck} label="Avaliação Acumulada" hover="purple" />
             <NavBtn onClick={() => router.push('/admin/vertho/auditoria-sem14')} icon={ShieldCheck} label="Auditoria Sem 14" hover="purple" />
+            <NavBtn onClick={() => router.push('/admin/vertho/knowledge-base')} icon={ShieldCheck} label="Knowledge Base" hover="cyan" />
             <NavBtn onClick={() => router.push('/admin/platform-admins')} icon={ShieldCheck} label="Admins" hover="purple" />
             <NavBtn onClick={() => router.push('/admin/lixeira')} icon={ShieldCheck} label="Lixeira" hover="amber" />
           </div>
