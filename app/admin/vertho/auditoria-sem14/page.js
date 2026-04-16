@@ -214,7 +214,11 @@ function DetalheModal({ detalhe, loading, onClose, onRevisado }) {
                   </div>
                   {detalhe.avaliacaoPrimaria.avaliacao_por_descritor?.map((d, i) => (
                     <div key={i} className="text-[11px] border-t border-white/5 pt-2">
-                      <p className="font-bold text-white">{d.descritor} — {d.nota_pre} → <span className="text-emerald-300">{d.nota_pos}</span> ({d.classificacao})</p>
+                      <p className="font-bold text-white">{d.descritor} — {d.nota_pre} → <span className={
+                        d.classificacao === 'regrediu' ? 'text-red-400' : d.classificacao === 'evoluiu' ? 'text-emerald-300' : 'text-gray-300'
+                      }>{d.nota_pos}</span> <span className={
+                        d.classificacao === 'regrediu' ? 'text-red-400' : d.classificacao === 'evoluiu' ? 'text-emerald-300' : 'text-gray-400'
+                      }>({d.classificacao})</span></p>
                       <p className="text-gray-400 mt-0.5">{d.justificativa}</p>
                       {d.consistencia_com_acumulado && (
                         <p className="text-[10px] text-amber-300 mt-0.5">consistência: {d.consistencia_com_acumulado}</p>
