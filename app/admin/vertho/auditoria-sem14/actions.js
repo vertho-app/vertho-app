@@ -153,19 +153,57 @@ export async function regerarScoringComFeedback(email, progressoId) {
   const { promptEvolutionScenarioScore } = await import('@/lib/season-engine/prompts/evolution-scenario');
   const { promptEvolutionScenarioCheck } = await import('@/lib/season-engine/prompts/evolution-scenario-check');
 
+  // Agrega evidências das 13 sems (era '' antes — root cause do "EVIDÊNCIAS AUSENTES")
+  const { data: progs } = await sb.from('temporada_semana_progresso')
+    .select('semana, tipo, reflexao, feedback')
+    .eq('trilha_id', trilha.id).lte('semana', 13).order('semana');
+  const plano = trilha.descritores_selecionados; // fallback — plano completo seria melhor
+  const { data: planRow } = await sb.from('trilhas').select('temporada_plano').eq('id', trilha.id).maybeSingle();
+  const planoArr = Array.isArray(planRow?.temporada_plano) ? planRow.temporada_plano : [];
+  const descPorSem = Object.fromEntries(planoArr.map(s => [s.semana, s.descritor]));
+  const cobPorSem = Object.fromEntries(planoArr.map(s => [s.semana, s.descritores_cobertos || []]));
+  const linhas = Object.fromEntries(nomes.map(n => [n, []]));
+  for (const p of (progs || [])) {
+    const r = p.reflexao || {};
+    const f = p.feedback || {};
+    if (p.tipo === 'conteudo' && r.insight_principal) {
+      const d = descPorSem[p.semana];
+      if (d && linhas[d]) linhas[d].push(`Sem ${p.semana} | insight: "${r.insight_principal}" | desafio: ${r.desafio_realizado || '?'} | qualidade: ${r.qualidade_reflexao || '?'}`);
+    }
+    if (p.tipo === 'aplicacao' && f) {
+      for (const d of (cobPorSem[p.semana] || [])) {
+        if (!linhas[d]) continue;
+        const aval = (f.avaliacao_por_descritor || []).find(a => a.descritor === d);
+        if (aval) linhas[d].push(`Sem ${p.semana} (${f.modo || 'cenario'}) | nota: ${aval.nota} | obs: "${aval.observacao || ''}"`);
+      }
+    }
+    if (p.semana === 13 && r.evolucao_percebida) {
+      for (const ev of r.evolucao_percebida) {
+        if (linhas[ev.descritor]) linhas[ev.descritor].push(`Sem 13 | antes: "${ev.antes || ''}" | depois: "${ev.depois || ''}" | nivel: ${ev.nivel_percebido ?? '?'}`);
+      }
+    }
+  }
+  const evidenciasAcumuladas = nomes.map(n =>
+    `### ${n}\n` + (linhas[n].length ? '- ' + linhas[n].join('\n- ') : '(sem evidência)')
+  ).join('\n\n');
+
+  const nomeColab = (colab?.nome_completo || '').split(' ')[0];
+
   // Scorer com feedback injetado
   const { system, user } = promptEvolutionScenarioScore({
     competencia: trilha.competencia_foco,
     descritores: descritoresEnriquecidos,
     cenario: fb.cenario,
     resposta: fb.cenario_resposta,
-    nomeColab: (colab?.nome_completo || '').split(' ')[0],
+    nomeColab,
     perfilDominante: colab?.perfil_dominante,
-    evidenciasAcumuladas: '', // simplificado — pode agregar se quiser
+    evidenciasAcumuladas,
     acumuladoPrimaria,
   });
 
-  const systemComFeedback = system + `\n\n## FEEDBACK DA AUDITORIA ANTERIOR (CORRIJA OS PROBLEMAS ABAIXO):\n${feedbackAuditoria}`;
+  const systemComFeedback = system +
+    `\n\nATENÇÃO: O nome do colaborador é "${nomeColab}". NÃO use nomes de personagens do cenário (Marcelo, Henrique, etc.) no resumo_avaliacao — use SOMENTE "${nomeColab}".` +
+    `\n\n## FEEDBACK DA AUDITORIA ANTERIOR (CORRIJA OS PROBLEMAS ABAIXO):\n${feedbackAuditoria}`;
 
   let parsed = {};
   try {
@@ -184,7 +222,7 @@ export async function regerarScoringComFeedback(email, progressoId) {
       cenario: fb.cenario,
       resposta: fb.cenario_resposta,
       avaliacaoPrimaria: parsed,
-      evidenciasAcumuladas: '',
+      evidenciasAcumuladas,
     });
     const rC = await callAI(sC, uC, {}, 8000);
     auditoria = JSON.parse(rC.replace(/```json\n?|```\n?/g, '').trim());
