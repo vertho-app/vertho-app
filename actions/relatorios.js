@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { callAI } from './ai-client';
 import { extractJSON } from './utils';
+import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { getLogoCoverBase64 } from '@/lib/pdf-assets';
 import React from 'react';
@@ -346,6 +347,13 @@ export async function gerarRelatorioGestor(empresaId, aiConfig = {}) {
       return { success: false, error: 'Nenhum colaborador tem gestor_email preenchido. Configure em /admin/empresas/gerenciar.' };
     }
 
+    // RAG/grounding: traz valores + cultura da empresa pra contextualizar recomendações
+    let groundingBlock = '';
+    try {
+      const chunks = await retrieveContext(empresaId, 'valores cultura organizacional políticas desenvolvimento pessoas', 4);
+      groundingBlock = formatGroundingBlock(chunks);
+    } catch (err) { console.warn('[gestor grounding]', err?.message); }
+
     // Avaliações IA4 (uma vez só, indexa por colab)
     const { data: respostas } = await tdb.from('respostas')
       .select('colaborador_id, competencia_id, competencia_nome, avaliacao_ia, nivel_ia4')
@@ -391,7 +399,7 @@ export async function gerarRelatorioGestor(empresaId, aiConfig = {}) {
           }
         });
 
-        const user = `EMPRESA: ${empresa.nome} (${empresa.segmento})\nGESTOR: ${gestorNome} (${gestorEmail})\nTOTAL EQUIPE: ${membros.length}\nDISC: D=${discDist.D} I=${discDist.I} S=${discDist.S} C=${discDist.C}\n\nDADOS DA EQUIPE:\n${JSON.stringify(membros, null, 2)}`;
+        const user = `EMPRESA: ${empresa.nome} (${empresa.segmento})\nGESTOR: ${gestorNome} (${gestorEmail})\nTOTAL EQUIPE: ${membros.length}\nDISC: D=${discDist.D} I=${discDist.I} S=${discDist.S} C=${discDist.C}\n${groundingBlock ? `\n${groundingBlock}\n` : ''}\nDADOS DA EQUIPE:\n${JSON.stringify(membros, null, 2)}`;
 
         const resultado = await callAI(RELATORIO_GESTOR_SYSTEM, user, aiConfig, 64000);
         const relatorio = await extractJSON(resultado);
@@ -565,13 +573,20 @@ export async function gerarRelatorioRH(empresaId, aiConfig = {}) {
     const discOrg = { D: 0, I: 0, S: 0, C: 0 };
     (colabs || []).forEach(c => { if (c.perfil_dominante) { const d = c.perfil_dominante.replace('Alto ', ''); if (discOrg[d] !== undefined) discOrg[d]++; } });
 
+    // RAG/grounding: contexto institucional pra decisões de RH terem identidade
+    let groundingBlock = '';
+    try {
+      const chunks = await retrieveContext(empresaId, 'valores cultura organizacional políticas treinamento desenvolvimento estrategia', 5);
+      groundingBlock = formatGroundingBlock(chunks);
+    } catch (err) { console.warn('[rh grounding]', err?.message); }
+
     const user = `EMPRESA: ${empresa.nome} (${empresa.segmento})
 TOTAL AVALIADOS: ${colabIds.length}
 TOTAL AVALIACOES: ${respostas.length}
 MEDIA GERAL: ${media}
 DISTRIBUICAO: N1=${dist.n1} N2=${dist.n2} N3=${dist.n3} N4=${dist.n4}
 DISC ORGANIZACIONAL: D=${discOrg.D} I=${discOrg.I} S=${discOrg.S} C=${discOrg.C}
-
+${groundingBlock ? `\n${groundingBlock}\n` : ''}
 POR CARGO:
 ${JSON.stringify(cargosData, null, 2)}
 

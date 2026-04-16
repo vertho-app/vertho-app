@@ -10,25 +10,46 @@ Até aqui, toda IA respondia só com conhecimento do modelo base. Problemas:
 
 Grounding resolve: antes de responder, IA recebe trechos curados da **base de conhecimento daquela empresa**. Respostas viram **citáveis** e **auditáveis**.
 
-## Estado atual (MVP)
+## Estado atual
 
 ### Backend
 - `migrations/041-knowledge-base.sql` — tabela `knowledge_base` per-tenant (RLS)
-- Coluna `tsv` auto-gerada (tsvector PT-BR, peso A título + B conteúdo)
-- Função SQL `kb_search(empresa_id, query, limit)` retorna top-k por `ts_rank`
+  - Coluna `tsv` auto-gerada (tsvector PT-BR, peso A título + B conteúdo)
+  - `kb_search(empresa_id, query, limit)` — FTS por `ts_rank`
+- `migrations/042-pgvector.sql` — habilita pgvector
+  - `embedding VECTOR(1536)` + `embedding_model` + `embedding_at`
+  - Índice IVFFLAT cosine
+  - `kb_search_semantic(empresa_id, query_emb, limit)` — busca semântica
+  - `kb_search_hybrid(empresa_id, query, query_emb, limit, k=60)` — RRF (FTS+vector)
 
 ### Retrieval
-- `lib/rag.js`
-  - `retrieveContext(empresaId, query, k=5)` — chama `kb_search`
+- `lib/rag.ts`
+  - `retrieveContext(empresaId, query, k=5)` — tenta híbrido se embedding ativo, senão FTS
   - `formatGroundingBlock(chunks)` — formata como bloco injetável no prompt
-  - `ingestDoc({ empresaId, titulo, conteudo, categoria })` — admin adiciona
-  - `listDocs(empresaId)` — painel lista
-  - `deactivateDoc(empresaId, id)` — soft delete
+  - `ingestDoc(...)` — best-effort gera embedding em background após insert
+  - `listDocs(empresaId)`, `deactivateDoc(empresaId, id)` — admin
+- `lib/embeddings.ts`
+  - `embedText(t)` / `embedQuery(t)` — provider via `EMBEDDING_PROVIDER` env
+  - Suporta `openai` (text-embedding-3-small, 1536d) e `voyage` (voyage-3-large, 1536 output)
+  - `none` (default) — desabilita embeddings, retrieval fica em FTS puro
 
-### Aplicação
-- `/api/temporada/tira-duvidas` — busca trechos, injeta em `## Contexto da empresa`
-- Prompt instrui: "use APENAS se relevante, cite brevemente o título"
-- Falha silenciosa: se retrieval quebra, segue sem grounding (melhor do que bloquear)
+### Ingestão
+- `lib/rag-ingest.ts`
+  - `parsePdf(buffer)` (pdf-parse), `parseDocx(buffer)` (mammoth), `parseDocument(buffer, hint)`
+  - `chunkBySection(text)` — detecta headings + split por max chars com overlap
+- `lib/rag-seed.ts`
+  - `SEED_TEMPLATE` — 6 docs base (temporada, evidências, tira-dúvidas, régua, modos, privacidade)
+  - `seedKnowledgeBase(empresaId)` — idempotente
+
+### Aplicação (grounding ativo)
+- `/api/temporada/tira-duvidas` — query = pergunta do colab
+- `/api/temporada/reflection` (Evidências socrático e Missão Prática feedback)
+  query = competência + descritor + últimas mensagens
+- `actions/relatorios.js::gerarRelatorioGestor` + `gerarRelatorioRH` (Plenária)
+  query = "valores cultura organizacional políticas..."
+
+### Painel
+- `/admin/vertho/knowledge-base` — CRUD + Upload PDF/DOCX/TXT/MD + preview de busca + seed botão
 
 ## Fluxo de uma pergunta (tira-dúvidas)
 
@@ -75,45 +96,35 @@ VALUES (
 
 ## TODO curto prazo
 
-- [ ] Painel admin `/admin/vertho/knowledge-base` pra RH alimentar
-- [ ] Seed automático em empresa nova (values, glossário, FAQ base)
-- [ ] Parser de PDF/docx → chunks (80% dos docs empresa estão em PDF)
-- [ ] Chunk size calibrado (500-800 tokens? testar recall)
+- [x] Painel admin `/admin/vertho/knowledge-base` pra RH alimentar
+- [x] Seed automático (botão "Popular base inicial")
+- [x] Parser de PDF/docx → chunks
+- [x] Chunk size calibrado (~3200 chars ≈ 800 tokens com overlap 200)
+- [ ] Backfill embeddings em rows pré-existentes (script `scripts/backfill-embeddings.js`)
+- [ ] Pré-warmup do índice IVFFLAT após backfill (REINDEX + ANALYZE)
+- [ ] Upgrade `lists` no índice IVFFLAT quando passar de 10k rows
 
-## Upgrade path: semântico (pgvector)
+## Como ativar embeddings (semântico + híbrido)
 
-FTS funciona pra match lexical. Perde em sinônimos, paráfrases e multilíngue. Upgrade:
+A infra está **pronta**. Pra ativar:
 
-### 1. Instalar pgvector
-```sql
-CREATE EXTENSION vector;
-ALTER TABLE knowledge_base ADD COLUMN embedding VECTOR(1536);
-CREATE INDEX idx_kb_embedding ON knowledge_base
-  USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+### 1. Configurar provider via env
+```bash
+# .env.local ou Vercel env
+EMBEDDING_PROVIDER=voyage   # ou 'openai'
+VOYAGE_API_KEY=...          # ou OPENAI_API_KEY se openai
 ```
 
-### 2. Escolher provider
-| Provider | Dim | Custo /1M tokens | Nota |
-|---|---|---|---|
-| Voyage AI (`voyage-3`) | 1024 | $0.06 | Anthropic recomenda |
-| OpenAI (`text-embedding-3-small`) | 1536 | $0.02 | Mais barato |
-| Cohere (`embed-multilingual-v3`) | 1024 | $0.10 | Forte em PT-BR |
+| Provider | Modelo | Dim | Custo /1M tokens | Nota |
+|---|---|---|---|---|
+| OpenAI | `text-embedding-3-small` | 1536 | $0.02 | Mais barato |
+| Voyage | `voyage-3-large` (output 1536) | 1024 nativo | ~$0.18 | Anthropic recomenda |
 
-### 3. Backfill + gerar em insert
-```js
-// lib/embeddings.js (TODO)
-export async function embedText(text) { ... }
+### 2. Backfill (rows existentes)
+TODO: criar `scripts/backfill-embeddings.js` que itera knowledge_base sem embedding e gera. Sem isso, novos docs criados após ativação ganham embedding automático (via `ingestDoc`), mas docs antigos ficam só com FTS.
 
-// Em ingestDoc:
-const emb = await embedText(titulo + '\n' + conteudo);
-await sb.from('knowledge_base').insert({ ..., embedding: emb });
-```
-
-### 4. Mudar `kb_search`
-Substituir `ts_rank` por `embedding <=> query_embedding` (cosine distance). `lib/rag.js` não precisa mudar — mesma assinatura.
-
-### 5. Híbrido (ideal)
-Combinar FTS + vector (ex: RRF — Reciprocal Rank Fusion). Pega o melhor dos dois.
+### 3. Sem mudança em callers
+`retrieveContext()` detecta automaticamente se embedding está disponível e usa híbrido (RRF). Se quebrar, cai pra FTS silenciosamente.
 
 ## Pitfalls conhecidos
 

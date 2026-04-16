@@ -5,6 +5,7 @@ import { promptSocratic } from '@/lib/season-engine/prompts/socratic';
 import { promptAnalytic } from '@/lib/season-engine/prompts/analytic';
 import { promptMissaoFeedback } from '@/lib/season-engine/prompts/missao-feedback';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
+import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
 
 async function extrairDadosEstruturados(historico, tipoConversa, semanaPlan) {
   const transcript = historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content}`).join('\n\n');
@@ -47,7 +48,7 @@ export async function POST(request) {
     const sb = createSupabaseAdmin();
 
     const { data: trilha } = await sb.from('trilhas')
-      .select('id, colaborador_id, competencia_foco, temporada_plano, data_inicio')
+      .select('id, colaborador_id, empresa_id, competencia_foco, temporada_plano, data_inicio')
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return NextResponse.json({ error: 'trilha não encontrada' }, { status: 404 });
 
@@ -120,6 +121,21 @@ export async function POST(request) {
       content: maskTextPII(m.content, piiMap),
     }));
 
+    // RAG/grounding: query usa o tema da semana (descritor + competência) +
+    // últimas mensagens do colab pra captar contexto da conversa atual.
+    let groundingBlock = '';
+    try {
+      const queryParts = [
+        trilha.competencia_foco,
+        semanaPlan.descritor || (semanaPlan.descritores_cobertos || []).join(' '),
+        ...historico.filter(m => m.role === 'user').slice(-2).map(m => maskTextPII(m.content, piiMap).slice(0, 200)),
+      ].filter(Boolean);
+      const chunks = await retrieveContext(trilha.empresa_id, queryParts.join(' '), 4);
+      groundingBlock = formatGroundingBlock(chunks);
+    } catch (err) {
+      console.warn('[reflection] retrieveContext:', err?.message);
+    }
+
     // Monta prompt
     let promptData;
     if (tipoConversa === 'socratic') {
@@ -132,6 +148,7 @@ export async function POST(request) {
         desafio: semanaPlan.conteudo?.desafio_texto || '',
         historico: historicoMasked,
         turnIA: proximoTurnIA,
+        groundingContext: groundingBlock,
       });
     } else if (tipoConversa === 'missao_feedback') {
       promptData = promptMissaoFeedback({
@@ -143,6 +160,7 @@ export async function POST(request) {
         compromisso: maskTextPII(prog?.feedback?.compromisso || '', piiMap),
         historico: historicoMasked,
         turnIA: proximoTurnIA,
+        groundingContext: groundingBlock,
       });
     } else {
       promptData = promptAnalytic({
