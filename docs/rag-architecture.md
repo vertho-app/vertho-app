@@ -17,7 +17,7 @@ Grounding resolve: antes de responder, IA recebe trechos curados da **base de co
   - Coluna `tsv` auto-gerada (tsvector PT-BR, peso A título + B conteúdo)
   - `kb_search(empresa_id, query, limit)` — FTS por `ts_rank`
 - `migrations/042-pgvector.sql` — habilita pgvector
-  - `embedding VECTOR(1536)` + `embedding_model` + `embedding_at`
+  - `embedding VECTOR(1024)` (migration 043; era 1536 em 042) + `embedding_model` + `embedding_at`
   - Índice IVFFLAT cosine
   - `kb_search_semantic(empresa_id, query_emb, limit)` — busca semântica
   - `kb_search_hybrid(empresa_id, query, query_emb, limit, k=60)` — RRF (FTS+vector)
@@ -117,8 +117,8 @@ VOYAGE_API_KEY=...          # ou OPENAI_API_KEY se openai
 
 | Provider | Modelo | Dim | Custo /1M tokens | Nota |
 |---|---|---|---|---|
-| OpenAI | `text-embedding-3-small` | 1536 | $0.02 | Mais barato |
-| Voyage | `voyage-3-large` (output 1536) | 1024 nativo | ~$0.18 | Anthropic recomenda |
+| OpenAI | `text-embedding-3-small` | 1024 (via `dimensions` param) | $0.02 | Mais barato |
+| Voyage | `voyage-3-large` | 1024 nativo | ~$0.18 | Anthropic recomenda |
 
 ### 2. Backfill (rows existentes)
 ```bash

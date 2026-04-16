@@ -7,8 +7,8 @@
  *   VOYAGE_API_KEY=...   (se voyage)
  *
  * Modelos default:
- *   openai → text-embedding-3-small (1536 dims, $0.02/1M tokens)
- *   voyage → voyage-3-large (1024 nativo; pedimos output 1536 pra casar com schema)
+ *   openai → text-embedding-3-small (output 1024 via param)
+ *   voyage → voyage-3-large (1024 nativo)
  *
  * Quando provider=none, embedTexts() retorna [] silenciosamente — callers
  * devem fazer fallback pra FTS (kb_search) sem quebrar.
@@ -21,7 +21,7 @@ export interface EmbedResult {
   model: string;
 }
 
-const EMBEDDING_DIM = 1536;
+const EMBEDDING_DIM = 1024;
 
 function getProvider(): EmbeddingProvider {
   const p = (process.env.EMBEDDING_PROVIDER || 'none').toLowerCase();
@@ -106,8 +106,8 @@ async function embedVoyage(text: string): Promise<EmbedResult> {
     body: JSON.stringify({
       model,
       input: [text.slice(0, 8000)],
-      output_dimension: EMBEDDING_DIM,
       input_type: 'document',
+      // output_dimension omitido — usa default nativo (1024)
     }),
   });
 
@@ -144,7 +144,6 @@ export async function embedQuery(text: string): Promise<EmbedResult | null> {
       body: JSON.stringify({
         model: 'voyage-3-large',
         input: [text.slice(0, 8000)],
-        output_dimension: EMBEDDING_DIM,
         input_type: 'query',
       }),
     });

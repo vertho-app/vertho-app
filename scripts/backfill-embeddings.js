@@ -102,7 +102,7 @@ async function embedOpenAI(text) {
   const res = await fetch('https://api.openai.com/v1/embeddings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.OPENAI_API_KEY}` },
-    body: JSON.stringify({ model: 'text-embedding-3-small', input: text, dimensions: 1536 }),
+    body: JSON.stringify({ model: 'text-embedding-3-small', input: text, dimensions: 1024 }),
   });
   if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await res.text()}`);
   const data = await res.json();
@@ -118,7 +118,6 @@ async function embedVoyage(text) {
     body: JSON.stringify({
       model: 'voyage-3-large',
       input: [text],
-      output_dimension: 1536,
       input_type: 'document',
     }),
   });
