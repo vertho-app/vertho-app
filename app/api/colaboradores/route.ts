@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUser, requireRole, assertTenantAccess, assertColabAccess } from '@/lib/auth/request-context';
+import { csrfCheck } from '@/lib/csrf';
 
 // GET lista colabs por empresa. Exige gestor/rh/admin da MESMA empresa.
 export async function GET(req: Request) {
@@ -35,6 +36,9 @@ export async function GET(req: Request) {
 
 // POST cria colab. Exige rh/admin da MESMA empresa do body.
 export async function POST(req: Request) {
+  const csrf = csrfCheck(req);
+  if (csrf) return csrf;
+
   const auth = await requireRole(req, ['rh', 'admin']);
   if (auth instanceof Response) return auth;
 
@@ -50,6 +54,9 @@ export async function POST(req: Request) {
 
 // PUT atualiza colab. Exige rh/admin da empresa do colab (consulta antes).
 export async function PUT(req: Request) {
+  const csrf = csrfCheck(req);
+  if (csrf) return csrf;
+
   const auth = await requireRole(req, ['rh', 'admin']);
   if (auth instanceof Response) return auth;
 
@@ -75,6 +82,9 @@ export async function PUT(req: Request) {
 
 // DELETE colab. Exige rh/admin da empresa do colab.
 export async function DELETE(req: Request) {
+  const csrf = csrfCheck(req);
+  if (csrf) return csrf;
+
   const auth = await requireRole(req, ['rh', 'admin']);
   if (auth instanceof Response) return auth;
 

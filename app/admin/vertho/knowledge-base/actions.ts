@@ -1,7 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { getUserContext } from '@/lib/authz';
+import { requireAdminAction, requireUserAction } from '@/lib/auth/action-context';
 import { ingestDoc, deactivateDoc, listDocs } from '@/lib/rag';
 import { parseAndChunk } from '@/lib/rag-ingest';
 import { seedKnowledgeBase } from '@/lib/rag-seed';
@@ -9,9 +9,8 @@ import { seedKnowledgeBase } from '@/lib/rag-seed';
 /**
  * Lista empresas pra seletor (apenas platform admin enxerga todas).
  */
-export async function listarEmpresas(email) {
-  const ctx = await getUserContext(email);
-  if (!ctx?.isPlatformAdmin) return { error: 'Acesso restrito à Vertho' };
+export async function listarEmpresas() {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   const { data, error } = await sb.from('empresas')
     .select('id, nome, slug')
@@ -24,9 +23,8 @@ export async function listarEmpresas(email) {
 /**
  * Lista docs ativos do tenant. RH da empresa ou platform admin.
  */
-export async function listarDocsKB(email, empresaId) {
-  const ctx = await getUserContext(email);
-  if (!ctx) return { error: 'Não autenticado' };
+export async function listarDocsKB(empresaId) {
+  const ctx = await requireUserAction();
   // Platform admin pode ver qualquer empresa; RH só a sua
   const podeAcessar = ctx.isPlatformAdmin || (ctx.role === 'rh' && ctx.empresaId === empresaId);
   if (!podeAcessar) return { error: 'Acesso restrito' };
@@ -39,9 +37,8 @@ export async function listarDocsKB(email, empresaId) {
 /**
  * Carrega 1 doc completo pra editar.
  */
-export async function carregarDocKB(email, empresaId, docId) {
-  const ctx = await getUserContext(email);
-  if (!ctx) return { error: 'Não autenticado' };
+export async function carregarDocKB(empresaId, docId) {
+  const ctx = await requireUserAction();
   const podeAcessar = ctx.isPlatformAdmin || (ctx.role === 'rh' && ctx.empresaId === empresaId);
   if (!podeAcessar) return { error: 'Acesso restrito' };
 
@@ -57,9 +54,8 @@ export async function carregarDocKB(email, empresaId, docId) {
 /**
  * Cria novo doc.
  */
-export async function criarDocKB(email, payload) {
-  const ctx = await getUserContext(email);
-  if (!ctx) return { error: 'Não autenticado' };
+export async function criarDocKB(payload) {
+  const ctx = await requireUserAction();
   const podeAcessar = ctx.isPlatformAdmin || (ctx.role === 'rh' && ctx.empresaId === payload.empresaId);
   if (!podeAcessar) return { error: 'Acesso restrito' };
 
@@ -86,9 +82,8 @@ export async function criarDocKB(email, payload) {
 /**
  * Atualiza doc existente.
  */
-export async function atualizarDocKB(email, docId, payload) {
-  const ctx = await getUserContext(email);
-  if (!ctx) return { error: 'Não autenticado' };
+export async function atualizarDocKB(docId, payload) {
+  const ctx = await requireUserAction();
 
   const sb = createSupabaseAdmin();
   // Confere ownership
@@ -123,9 +118,8 @@ export async function atualizarDocKB(email, docId, payload) {
 /**
  * Soft delete (desativa).
  */
-export async function desativarDocKB(email, empresaId, docId) {
-  const ctx = await getUserContext(email);
-  if (!ctx) return { error: 'Não autenticado' };
+export async function desativarDocKB(empresaId, docId) {
+  const ctx = await requireUserAction();
   const podeAcessar = ctx.isPlatformAdmin || (ctx.role === 'rh' && ctx.empresaId === empresaId);
   if (!podeAcessar) return { error: 'Acesso restrito' };
 
@@ -148,9 +142,8 @@ export async function desativarDocKB(email, empresaId, docId) {
  * @param {string} email
  * @param {FormData} formData - { empresaId, categoria?, sourceUrl?, file: File }
  */
-export async function uploadDocsArquivo(email, formData) {
-  const ctx = await getUserContext(email);
-  if (!ctx) return { error: 'Não autenticado' };
+export async function uploadDocsArquivo(formData) {
+  const ctx = await requireUserAction();
 
   const empresaId = formData.get('empresaId');
   const categoria = formData.get('categoria') || null;
@@ -199,9 +192,8 @@ export async function uploadDocsArquivo(email, formData) {
  * Popula a base com docs template (Vertho onboarding, política, etc).
  * Idempotente: pula docs que já existem (por título).
  */
-export async function seedKB(email, empresaId) {
-  const ctx = await getUserContext(email);
-  if (!ctx) return { error: 'Não autenticado' };
+export async function seedKB(empresaId) {
+  const ctx = await requireUserAction();
   const podeAcessar = ctx.isPlatformAdmin || (ctx.role === 'rh' && ctx.empresaId === empresaId);
   if (!podeAcessar) return { error: 'Acesso restrito' };
   if (!empresaId) return { error: 'empresaId obrigatório' };
@@ -217,9 +209,8 @@ export async function seedKB(email, empresaId) {
 /**
  * Preview de busca: roda kb_search pra testar relevância.
  */
-export async function testarBuscaKB(email, empresaId, query) {
-  const ctx = await getUserContext(email);
-  if (!ctx) return { error: 'Não autenticado' };
+export async function testarBuscaKB(empresaId, query) {
+  const ctx = await requireUserAction();
   const podeAcessar = ctx.isPlatformAdmin || (ctx.role === 'rh' && ctx.empresaId === empresaId);
   if (!podeAcessar) return { error: 'Acesso restrito' };
   if (!query?.trim()) return { ok: true, resultados: [] };

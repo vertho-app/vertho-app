@@ -33,7 +33,7 @@ export default function AuditoriaSem14Page() {
     setLoading(true);
     const { data: { user } } = await sb.auth.getUser();
     if (!user) { router.replace('/login'); return; }
-    const r = await listarAuditoriasSem14(user.email, { status: filtroStatus, empresaId });
+    const r = await listarAuditoriasSem14({ status: filtroStatus, empresaId });
     if (r.error) setError(r.error);
     else { setRows(r.rows); setResumo(r.resumo); }
     setLoading(false);
@@ -44,8 +44,7 @@ export default function AuditoriaSem14Page() {
   async function abrirDetalhe(id) {
     setDetalheId(id);
     setLoadingDetalhe(true);
-    const { data: { user } } = await sb.auth.getUser();
-    const r = await loadAuditoriaSem14Detalhe(user.email, id);
+    const r = await loadAuditoriaSem14Detalhe(id);
     setLoadingDetalhe(false);
     if (r.error) { setError(r.error); setDetalheId(null); return; }
     setDetalhe(r.detalhe);
@@ -164,14 +163,12 @@ function Card({ label, valor, cor }) {
 }
 
 function BotaoRegerar({ progressoId, onRevisado }) {
-  const sb = getSupabase();
   const [busy, setBusy] = useState(false);
   return (
     <button onClick={async () => {
       if (!confirm('Regerar scoring com os feedbacks da auditoria? A IA vai corrigir os problemas apontados.')) return;
       setBusy(true);
-      const { data: { user } } = await sb.auth.getUser();
-      const r = await regerarScoringComFeedback(user.email, progressoId);
+      const r = await regerarScoringComFeedback(progressoId);
       setBusy(false);
       if (r.error) alert('Erro: ' + r.error);
       else { alert(`Regenerado! Nova nota de auditoria: ${r.novaNota}/100 (${r.novoStatus})`); onRevisado?.(); }

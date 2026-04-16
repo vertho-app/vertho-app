@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireRole, assertTenantAccess } from '@/lib/auth/request-context';
 import { heavyLimiter } from '@/lib/rate-limit';
+import { csrfCheck } from '@/lib/csrf';
 
 /**
  * POST /api/upload/signed-url
@@ -16,6 +17,9 @@ import { heavyLimiter } from '@/lib/rate-limit';
  */
 export async function POST(request: Request) {
   try {
+    const csrf = csrfCheck(request);
+    if (csrf) return csrf;
+
     // Só RH ou platform admin pode fazer upload de conteúdo curado
     const auth = await requireRole(request, ['rh', 'admin']);
     if (auth instanceof Response) return auth;

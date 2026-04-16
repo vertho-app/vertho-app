@@ -1,8 +1,10 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 export async function criarNovaEmpresa(dados) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   const slug = dados.nome.trim().toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')

@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI, callAIChat } from '@/actions/ai-client';
 import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
 import { aiLimiter } from '@/lib/rate-limit';
+import { csrfCheck } from '@/lib/csrf';
 import { promptEvolutionQualitative, promptEvolutionQualitativeExtract } from '@/lib/season-engine/prompts/evolution-qualitative';
 import { promptEvolutionScenarioScore } from '@/lib/season-engine/prompts/evolution-scenario';
 import { promptEvolutionScenarioCheck } from '@/lib/season-engine/prompts/evolution-scenario-check';
@@ -19,6 +20,9 @@ import { gerarEvolutionReport } from '@/actions/evolution-report';
  */
 export async function POST(request) {
   try {
+    const csrf = csrfCheck(request);
+    if (csrf) return csrf;
+
     const auth = await requireUser(request);
     if (auth instanceof Response) return auth;
 

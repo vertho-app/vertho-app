@@ -1,8 +1,10 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 export async function loadConfig(empresaId) {
+  await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sb = createSupabaseAdmin();
   const { data, error } = await sb.from('empresas')
@@ -13,6 +15,7 @@ export async function loadConfig(empresaId) {
 }
 
 export async function salvarConfig(empresaId, sysConfig) {
+  await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sb = createSupabaseAdmin();
   const { error } = await sb.from('empresas')
@@ -23,6 +26,7 @@ export async function salvarConfig(empresaId, sysConfig) {
 }
 
 export async function salvarBranding(empresaId, branding) {
+  await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sb = createSupabaseAdmin();
 
@@ -42,6 +46,7 @@ export async function salvarBranding(empresaId, branding) {
 // ── Gerenciar Roles da Equipe ──────────────────────────────────────────────
 
 export async function loadEquipe(empresaId) {
+  await requireAdminAction();
   if (!empresaId) return [];
   const sb = createSupabaseAdmin();
   const { data } = await sb.from('colaboradores')
@@ -52,6 +57,7 @@ export async function loadEquipe(empresaId) {
 }
 
 export async function atualizarRole(colaboradorId, novoRole) {
+  await requireAdminAction();
   if (!colaboradorId || !novoRole) return { success: false, error: 'Dados obrigatorios' };
   const validRoles = ['colaborador', 'gestor', 'rh'];
   if (!validRoles.includes(novoRole)) return { success: false, error: `Role invalido. Use: ${validRoles.join(', ')}` };
@@ -65,6 +71,7 @@ export async function atualizarRole(colaboradorId, novoRole) {
 }
 
 export async function salvarSlug(empresaId, slug) {
+  await requireAdminAction();
   if (!empresaId || !slug) return { success: false, error: 'empresaId e slug obrigatórios' };
 
   const clean = slug.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '');

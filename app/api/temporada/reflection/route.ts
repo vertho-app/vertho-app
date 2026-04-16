@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI, callAIChat } from '@/actions/ai-client';
 import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
 import { aiLimiter } from '@/lib/rate-limit';
+import { csrfCheck } from '@/lib/csrf';
 import { promptSocratic } from '@/lib/season-engine/prompts/socratic';
 import { promptAnalytic } from '@/lib/season-engine/prompts/analytic';
 import { promptMissaoFeedback } from '@/lib/season-engine/prompts/missao-feedback';
@@ -44,6 +45,9 @@ const MAX_TURNS_MISSAO_FEEDBACK = 20; // 10 IA + 10 colab — relato de missão 
  */
 export async function POST(request) {
   try {
+    const csrf = csrfCheck(request);
+    if (csrf) return csrf;
+
     const auth = await requireUser(request);
     if (auth instanceof Response) return auth;
 

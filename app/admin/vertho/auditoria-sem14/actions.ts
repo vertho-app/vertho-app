@@ -1,7 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { getUserContext } from '@/lib/authz';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 /**
  * Lista auditorias da semana 14 de todas as empresas.
@@ -10,9 +10,8 @@ import { getUserContext } from '@/lib/authz';
  * @param {string} email do usuário autenticado
  * @param {Object} filtros { status: 'todos'|'aprovado'|'revisar', empresaId?, limit? }
  */
-export async function listarAuditoriasSem14(email, filtros: any = {}) {
-  const ctx = await getUserContext(email);
-  if (!ctx?.isPlatformAdmin) return { error: 'Acesso restrito à Vertho' };
+export async function listarAuditoriasSem14(filtros: any = {}) {
+  await requireAdminAction();
 
   const sb = createSupabaseAdmin();
   const limit = filtros.limit || 50;
@@ -86,9 +85,8 @@ export async function listarAuditoriasSem14(email, filtros: any = {}) {
  * no prompt do scorer — a IA corrige com base nos alertas.
  * Depois roda check de novo.
  */
-export async function regerarScoringComFeedback(email, progressoId) {
-  const ctx = await getUserContext(email);
-  if (!ctx?.isPlatformAdmin) return { error: 'Acesso restrito à Vertho' };
+export async function regerarScoringComFeedback(progressoId) {
+  await requireAdminAction();
 
   const sb = createSupabaseAdmin();
   const { data: prog } = await sb.from('temporada_semana_progresso')
@@ -249,9 +247,8 @@ export async function regerarScoringComFeedback(email, progressoId) {
   return { ok: true, novaNota: auditoria?.nota_auditoria, novoStatus: auditoria?.status };
 }
 
-export async function loadAuditoriaSem14Detalhe(email, progressoId) {
-  const ctx = await getUserContext(email);
-  if (!ctx?.isPlatformAdmin) return { error: 'Acesso restrito à Vertho' };
+export async function loadAuditoriaSem14Detalhe(progressoId) {
+  await requireAdminAction();
 
   const sb = createSupabaseAdmin();
   const { data, error } = await sb.from('temporada_semana_progresso')

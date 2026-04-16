@@ -1,8 +1,10 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 export async function loadEmpresaPipeline(empresaId) {
+  await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sb = createSupabaseAdmin();
 
@@ -59,6 +61,7 @@ export async function loadEmpresaPipeline(empresaId) {
 }
 
 export async function excluirEmpresa(empresaId) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   const { error } = await sb.from('empresas').delete().eq('id', empresaId);
   if (error) return { success: false, error: error.message };
@@ -66,6 +69,7 @@ export async function excluirEmpresa(empresaId) {
 }
 
 export async function limparRegistros(empresaId, tabelas, colaboradorId = null, fields = null, opts: any = {}) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   const { hardDelete = false } = opts;
   let pdfsRemovidos = 0;
@@ -143,6 +147,7 @@ export async function limparRegistros(empresaId, tabelas, colaboradorId = null, 
  * Lista itens da lixeira (agrupados por tabela + data).
  */
 export async function listarLixeira(empresaId, opts: any = {}) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   let q = sb.from('trash').select('*').order('deletado_em', { ascending: false });
   if (empresaId) q = q.eq('empresa_id', empresaId);
@@ -157,6 +162,7 @@ export async function listarLixeira(empresaId, opts: any = {}) {
  * Pode passar IDs específicos ou critérios (tabela + intervalo de tempo).
  */
 export async function restaurarDaLixeira(trashIds: any[] = []) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   if (!trashIds.length) return { success: false, error: 'Nenhum ID informado' };
 
@@ -193,6 +199,7 @@ export async function restaurarDaLixeira(trashIds: any[] = []) {
  * Esvazia lixeira permanentemente (hard delete dos itens em trash).
  */
 export async function esvaziarLixeira(empresaId, dias = 30) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   const corte = new Date(Date.now() - dias * 86400 * 1000).toISOString();
   let q: any = sb.from('trash').delete().lt('deletado_em', corte);
@@ -203,6 +210,7 @@ export async function esvaziarLixeira(empresaId, dias = 30) {
 }
 
 export async function limparCenariosB(empresaId) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   const { error, count } = await sb.from('banco_cenarios')
     .delete({ count: 'exact' })
@@ -213,6 +221,7 @@ export async function limparCenariosB(empresaId) {
 }
 
 export async function limparReavaliacaoSessoes(empresaId) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   const { error, count } = await sb.from('reavaliacao_sessoes')
     .delete({ count: 'exact' })
@@ -226,6 +235,7 @@ export async function limparReavaliacaoSessoes(empresaId) {
 // uma competência já foi respondida — filtrar só canal='dashboard' deixava
 // respostas de simulação admin bloqueando a retomada do fluxo.
 export async function limparMapeamentoCompetencias(empresaId, colaboradorId = null) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   let q = sb.from('respostas')
     .delete({ count: 'exact' })
@@ -241,6 +251,7 @@ export async function limparMapeamentoCompetencias(empresaId, colaboradorId = nu
 // Útil para bypass do rate limit de magic links durante testes.
 // Cria o auth.user se não existir; senão atualiza a senha.
 export async function definirSenhaTesteEmpresa(empresaId) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
 
   const { data: colabs, error: colabErr } = await sb.from('colaboradores')
@@ -296,6 +307,7 @@ export async function definirSenhaTesteEmpresa(empresaId) {
 }
 
 export async function limparMapeamento(empresaId, colaboradorId = null) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
 
   // Antes de limpar: remove PDFs órfãos do Storage
@@ -335,6 +347,7 @@ export async function limparMapeamento(empresaId, colaboradorId = null) {
 }
 
 export async function loadColaboradoresLista(empresaId) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   const { data } = await sb.from('colaboradores')
     .select('id, nome_completo, email')
@@ -352,42 +365,42 @@ import { gerarPDIs as _pdis, gerarPDIsDescritores as _pdisDesc, montarTrilhasLot
 import { gerarCenariosBLote as _cenB, checkCenariosBLote as _checkCenB, checkCenarioBUm as _checkCenBUm, regenerarCenarioB as _regenCenB, regenerarERecheckarCenariosBLote as _regenLote, iniciarReavaliacaoLote as _reav, gerarRelatoriosEvolucaoLote as _evolucao, gerarPlenariaEvolucao as _plenaria, gerarRelatorioRHManual as _rhManual, gerarRelatorioPlenaria as _rhPlen, enviarLinksPerfil as _links, gerarDossieGestor as _dossie, checkCenarios as _checkCen } from '@/actions/fase5';
 import { dispararLinksCIS as _dispCIS, dispararRelatoriosLote as _dispLote } from '@/actions/whatsapp-lote';
 
-export async function rodarIA1(e, c) { return _ia1(e, c); }
-export async function rodarIA2(e, c) { return _ia2(e, c); }
-export async function rodarIA3(e, c) { return _ia3(e, c); }
-export async function dispararEmails(e) { return _emails(e); }
-export async function verStatusEnvios(e) { return _status(e); }
-export async function rodarIA4(e, c) { return _ia4(e, c); }
-export async function verFilaIA4(e) { return _fila(e); }
-export async function checkAvaliacoes(e, c) { return _check(e, c); }
-export async function gerarRelatoriosIndividuais(e, c) { return _relInd(e, c); }
-export async function gerarRelatorioGestor(e, c) { return _relGestor(e, c); }
-export async function gerarRelatorioRH(e, c) { return _relRH(e, c); }
-export async function enviarRelIndividuais(e) { return _envInd(e); }
-export async function enviarRelGestor(e) { return _envGestor(e); }
-export async function enviarRelRH(e) { return _envRH(e); }
-export async function gerarPDIs(e, c) { return _pdis(e, c); }
-export async function gerarPDIsDescritores(e) { return _pdisDesc(e); }
-export async function montarTrilhasLote(e) { return _trilhas(e); }
-export async function salvarCompetenciaFoco(e, cargo, comp) { return _salvarFoco(e, cargo, comp); }
-export async function loadCompetenciasFoco(e) { return _loadFoco(e); }
-export async function criarEstruturaFase4(e) { return _estrutura(e); }
-export async function iniciarFase4ParaTodos(e) { return _iniciar(e); }
-export async function triggerSegundaFase4(e) { return _trigSeg(e); }
-export async function triggerQuintaFase4(e) { return _trigQui(e); }
-export async function getStatusFase4(e) { return _statusF4(e); }
-export async function gerarCenariosBLote(e, c) { return _cenB(e, c); }
-export async function checkCenariosBLote(e, c) { return _checkCenB(e, c); }
-export async function checkCenarioBUm(cenarioId, modelo) { return _checkCenBUm(cenarioId, modelo); }
-export async function regenerarCenarioB(cenarioId, aiConfig) { return _regenCenB(cenarioId, aiConfig); }
-export async function regenerarERecheckarCenariosBLote(empresaId, aiConfig) { return _regenLote(empresaId, aiConfig); }
-export async function iniciarReavaliacaoLote(e, c) { return _reav(e, c); }
-export async function gerarRelatoriosEvolucaoLote(e, c) { return _evolucao(e, c); }
-export async function gerarPlenariaEvolucao(e, c) { return _plenaria(e, c); }
-export async function gerarRelatorioRHManual(e, c) { return _rhManual(e, c); }
-export async function gerarRelatorioPlenaria(e, c) { return _rhPlen(e, c); }
-export async function enviarLinksPerfil(e) { return _links(e); }
-export async function gerarDossieGestor(e, c) { return _dossie(e, c); }
-export async function checkCenarios(e, c) { return _checkCen(e, c); }
-export async function dispararRelatoriosLote(e) { return _dispLote(e); }
-export async function dispararLinksCIS(e) { return _dispCIS(e); }
+export async function rodarIA1(e, c) { await requireAdminAction(); return _ia1(e, c); }
+export async function rodarIA2(e, c) { await requireAdminAction(); return _ia2(e, c); }
+export async function rodarIA3(e, c) { await requireAdminAction(); return _ia3(e, c); }
+export async function dispararEmails(e) { await requireAdminAction(); return _emails(e); }
+export async function verStatusEnvios(e) { await requireAdminAction(); return _status(e); }
+export async function rodarIA4(e, c) { await requireAdminAction(); return _ia4(e, c); }
+export async function verFilaIA4(e) { await requireAdminAction(); return _fila(e); }
+export async function checkAvaliacoes(e, c) { await requireAdminAction(); return _check(e, c); }
+export async function gerarRelatoriosIndividuais(e, c) { await requireAdminAction(); return _relInd(e, c); }
+export async function gerarRelatorioGestor(e, c) { await requireAdminAction(); return _relGestor(e, c); }
+export async function gerarRelatorioRH(e, c) { await requireAdminAction(); return _relRH(e, c); }
+export async function enviarRelIndividuais(e) { await requireAdminAction(); return _envInd(e); }
+export async function enviarRelGestor(e) { await requireAdminAction(); return _envGestor(e); }
+export async function enviarRelRH(e) { await requireAdminAction(); return _envRH(e); }
+export async function gerarPDIs(e, c) { await requireAdminAction(); return _pdis(e, c); }
+export async function gerarPDIsDescritores(e) { await requireAdminAction(); return _pdisDesc(e); }
+export async function montarTrilhasLote(e) { await requireAdminAction(); return _trilhas(e); }
+export async function salvarCompetenciaFoco(e, cargo, comp) { await requireAdminAction(); return _salvarFoco(e, cargo, comp); }
+export async function loadCompetenciasFoco(e) { await requireAdminAction(); return _loadFoco(e); }
+export async function criarEstruturaFase4(e) { await requireAdminAction(); return _estrutura(e); }
+export async function iniciarFase4ParaTodos(e) { await requireAdminAction(); return _iniciar(e); }
+export async function triggerSegundaFase4(e) { await requireAdminAction(); return _trigSeg(e); }
+export async function triggerQuintaFase4(e) { await requireAdminAction(); return _trigQui(e); }
+export async function getStatusFase4(e) { await requireAdminAction(); return _statusF4(e); }
+export async function gerarCenariosBLote(e, c) { await requireAdminAction(); return _cenB(e, c); }
+export async function checkCenariosBLote(e, c) { await requireAdminAction(); return _checkCenB(e, c); }
+export async function checkCenarioBUm(cenarioId, modelo) { await requireAdminAction(); return _checkCenBUm(cenarioId, modelo); }
+export async function regenerarCenarioB(cenarioId, aiConfig) { await requireAdminAction(); return _regenCenB(cenarioId, aiConfig); }
+export async function regenerarERecheckarCenariosBLote(empresaId, aiConfig) { await requireAdminAction(); return _regenLote(empresaId, aiConfig); }
+export async function iniciarReavaliacaoLote(e, c) { await requireAdminAction(); return _reav(e, c); }
+export async function gerarRelatoriosEvolucaoLote(e, c) { await requireAdminAction(); return _evolucao(e, c); }
+export async function gerarPlenariaEvolucao(e, c) { await requireAdminAction(); return _plenaria(e, c); }
+export async function gerarRelatorioRHManual(e, c) { await requireAdminAction(); return _rhManual(e, c); }
+export async function gerarRelatorioPlenaria(e, c) { await requireAdminAction(); return _rhPlen(e, c); }
+export async function enviarLinksPerfil(e) { await requireAdminAction(); return _links(e); }
+export async function gerarDossieGestor(e, c) { await requireAdminAction(); return _dossie(e, c); }
+export async function checkCenarios(e, c) { await requireAdminAction(); return _checkCen(e, c); }
+export async function dispararRelatoriosLote(e) { await requireAdminAction(); return _dispLote(e); }
+export async function dispararLinksCIS(e) { await requireAdminAction(); return _dispCIS(e); }

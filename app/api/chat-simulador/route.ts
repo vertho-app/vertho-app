@@ -2,9 +2,13 @@ import { NextResponse } from 'next/server';
 import { callAIChat } from '@/actions/ai-client';
 import { requireUser } from '@/lib/auth/request-context';
 import { aiLimiter } from '@/lib/rate-limit';
+import { csrfCheck } from '@/lib/csrf';
 
 export async function POST(req: Request) {
   try {
+    const csrf = csrfCheck(req);
+    if (csrf) return csrf;
+
     const auth = await requireUser(req);
     if (auth instanceof Response) return auth;
 

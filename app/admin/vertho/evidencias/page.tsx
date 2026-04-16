@@ -37,7 +37,7 @@ export default function EvidenciasPage() {
     setLoading(true);
     const { data: { user } } = await sb.auth.getUser();
     if (!user) { router.replace('/login'); return; }
-    const r = await listarEvidencias(user.email, { qualidade: filtroQualidade, empresaId });
+    const r = await listarEvidencias({ qualidade: filtroQualidade, empresaId });
     if (r.error) setError(r.error);
     else { setRows(r.rows); setResumo(r.resumo); }
     setLoading(false);
@@ -48,8 +48,7 @@ export default function EvidenciasPage() {
   async function abrir(id) {
     setLoadingDetalhe(true);
     setDetalhe({ id });
-    const { data: { user } } = await sb.auth.getUser();
-    const r = await loadEvidenciaDetalhe(user.email, id);
+    const r = await loadEvidenciaDetalhe(id);
     setLoadingDetalhe(false);
     if (r.error) { setError(r.error); setDetalhe(null); return; }
     setDetalhe({ ...r.detalhe, id });

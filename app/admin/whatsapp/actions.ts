@@ -1,8 +1,10 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 export async function loadEmpresas() {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   const { data, error } = await sb.from('empresas').select('id, nome').order('nome');
   if (error) return { success: false, error: error.message };
@@ -10,6 +12,7 @@ export async function loadEmpresas() {
 }
 
 export async function loadWhatsappStatus(empresaId) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   try {
     const [enviosRes, relatoriosRes] = await Promise.all([
@@ -106,6 +109,7 @@ async function deletarAnexoTemporario(sb, path) {
  *   os destinatários, em email (Resend attachments) e WhatsApp (send-document).
  */
 export async function dispararMensagemCustomizada(empresaId, template, canal, filtros: any = {}, assuntoTemplate = '', comPDF = false, anexoExtra: any = null) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   try {
     const { data: empresa } = await sb.from('empresas')
@@ -289,6 +293,7 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
 }
 
 export async function loadColaboradoresEnvio(empresaId) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   // Tentar com telefone, fallback sem
   let data;

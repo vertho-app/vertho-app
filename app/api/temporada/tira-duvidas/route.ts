@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAIChat } from '@/actions/ai-client';
 import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
 import { aiLimiter } from '@/lib/rate-limit';
+import { csrfCheck } from '@/lib/csrf';
 import { promptTiraDuvidas } from '@/lib/season-engine/prompts/tira-duvidas';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
@@ -20,6 +21,9 @@ import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
  */
 export async function POST(request) {
   try {
+    const csrf = csrfCheck(request);
+    if (csrf) return csrf;
+
     const auth = await requireUser(request);
     if (auth instanceof Response) return auth;
 

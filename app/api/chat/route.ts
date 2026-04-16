@@ -5,6 +5,7 @@ import { extractBlock, stripBlocks } from '@/actions/utils';
 import { getOrCreatePromptVersion } from '@/lib/versioning';
 import { requireUser, assertTenantAccess, assertColabAccess } from '@/lib/auth/request-context';
 import { aiLimiter } from '@/lib/rate-limit';
+import { csrfCheck } from '@/lib/csrf';
 
 // ── Defaults ────────────────────────────────────────────────────────────────
 
@@ -20,6 +21,9 @@ const MAX_MESSAGE_LENGTH = 4096;
 
 export async function POST(req) {
   try {
+    const csrf = csrfCheck(req);
+    if (csrf) return csrf;
+
     const auth = await requireUser(req);
     if (auth instanceof Response) return auth;
 

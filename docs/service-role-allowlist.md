@@ -8,6 +8,10 @@
 
 ### ✅ Grupo 1 — Aceitável (uso legítimo de admin)
 
+**Critério**: só entra neste grupo se tiver proteção server-side explícita
+(requireAdminAction, requireRoleAction, ou checagem equivalente no servidor).
+Guard client-side ou page-level NÃO conta.
+
 Usos onde service_role é necessário ou justificável: infraestrutura, jobs internos,
 operações cross-tenant, resolução de auth, platform-admin protegido por `requireAdminAction()`.
 
@@ -36,17 +40,17 @@ operações cross-tenant, resolução de auth, platform-admin protegido por `req
 | `app/admin/platform-admins/actions.ts` | Protegido por requireAdminAction() |
 | `app/admin/empresas/gerenciar/actions.ts` | Protegido por requireAdminAction() |
 | `app/admin/empresas/nova/actions.ts` | Protegido por requireAdminAction() |
-| `app/admin/empresas/[empresaId]/actions.ts` | Protegido por adminGuard (page-level) |
-| `app/admin/empresas/[empresaId]/configuracoes/actions.ts` | Protegido por adminGuard |
+| `app/admin/empresas/[empresaId]/actions.ts` | Protegido por requireAdminAction() |
+| `app/admin/empresas/[empresaId]/configuracoes/actions.ts` | Protegido por requireAdminAction() |
 | `app/admin/cargos/actions.ts` | Protegido por requireAdminAction() |
 | `app/admin/competencias/actions.ts` | Protegido por requireAdminAction() |
 | `app/admin/relatorios/actions.ts` | Protegido por requireAdminAction() |
-| `app/admin/ppp/actions.ts` | Protegido por adminGuard |
-| `app/admin/whatsapp/actions.ts` | Protegido por adminGuard |
-| `app/admin/vertho/evidencias/actions.ts` | Protegido por adminGuard |
-| `app/admin/vertho/avaliacao-acumulada/actions.ts` | Protegido por adminGuard |
-| `app/admin/vertho/auditoria-sem14/actions.ts` | Protegido por adminGuard |
-| `app/admin/vertho/knowledge-base/actions.ts` | Protegido por adminGuard |
+| `app/admin/ppp/actions.ts` | Protegido por requireAdminAction() |
+| `app/admin/whatsapp/actions.ts` | Protegido por requireAdminAction() |
+| `app/admin/vertho/evidencias/actions.ts` | Protegido por requireAdminAction() |
+| `app/admin/vertho/avaliacao-acumulada/actions.ts` | Protegido por requireAdminAction() |
+| `app/admin/vertho/auditoria-sem14/actions.ts` | Protegido por requireAdminAction() |
+| `app/admin/vertho/knowledge-base/actions.ts` | Protegido por requireAdminAction() |
 
 ### 🔄 Grupo 2 — Deveria migrar (leitura user-scoped já protegida por P0/P1)
 
@@ -134,3 +138,13 @@ requer RLS policies completas + testes extensivos.
 2. Client user-scoped criado com token do usuário autenticado
 3. Testes por tabela (query com user A não retorna dados de user B)
 4. Fallback: se RLS falhar, a proteção de app (P0/P1) continua ativa
+
+## CSRF / Origin Check
+
+Proteção de origin aplicada em 8 rotas mutativas via `lib/csrf.ts`:
+- Requests com Bearer explícito: bypass (não é cookie-based)
+- Requests GET/HEAD/OPTIONS: bypass (safe methods)
+- Demais: exige Origin confiável (*.vertho.com.br, *.vercel.app, localhost)
+- Falha fechada com 403
+
+Exceções: webhooks (bunny, qstash) e cron — não são cookie-based.

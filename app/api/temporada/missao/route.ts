@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
 import { aiLimiter } from '@/lib/rate-limit';
+import { csrfCheck } from '@/lib/csrf';
 
 /**
  * POST /api/temporada/missao
@@ -14,6 +15,9 @@ import { aiLimiter } from '@/lib/rate-limit';
  */
 export async function POST(request) {
   try {
+    const csrf = csrfCheck(request);
+    if (csrf) return csrf;
+
     const auth = await requireUser(request);
     if (auth instanceof Response) return auth;
 

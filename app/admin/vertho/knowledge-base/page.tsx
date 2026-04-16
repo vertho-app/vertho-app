@@ -41,7 +41,7 @@ export default function KnowledgeBasePage() {
       const { data: { user } } = await sb.auth.getUser();
       if (!user) { router.replace('/login'); return; }
       setUser(user);
-      const r = await listarEmpresas(user.email);
+      const r = await listarEmpresas();
       if (r.error) { setError(r.error); setLoading(false); return; }
       setEmpresas(r.empresas);
       if (r.empresas[0]) setEmpresaId(r.empresas[0].id);
@@ -56,7 +56,7 @@ export default function KnowledgeBasePage() {
 
   async function carregar() {
     setLoading(true);
-    const r = await listarDocsKB(user.email, empresaId);
+    const r = await listarDocsKB(empresaId);
     if (r.error) setError(r.error);
     else setDocs(r.docs);
     setLoading(false);
@@ -67,7 +67,7 @@ export default function KnowledgeBasePage() {
       setEditor({ titulo: '', conteudo: '', categoria: 'regulamento', sourceUrl: '' });
       return;
     }
-    const r = await carregarDocKB(user.email, empresaId, docId);
+    const r = await carregarDocKB(empresaId, docId);
     if (r.error) { setError(r.error); return; }
     setEditor({
       id: r.doc.id,
@@ -93,8 +93,8 @@ export default function KnowledgeBasePage() {
       sourceUrl: editor.sourceUrl,
     };
     const r = editor.id
-      ? await atualizarDocKB(user.email, editor.id, payload)
-      : await criarDocKB(user.email, payload);
+      ? await atualizarDocKB(editor.id, payload)
+      : await criarDocKB(payload);
     setSaving(false);
     if (r.error) { setError(r.error); return; }
     setEditor(null);
@@ -103,14 +103,14 @@ export default function KnowledgeBasePage() {
 
   async function desativar(docId) {
     if (!confirm('Desativar esse documento? Ele some das buscas (soft delete).')) return;
-    const r = await desativarDocKB(user.email, empresaId, docId);
+    const r = await desativarDocKB(empresaId, docId);
     if (r.error) { setError(r.error); return; }
     carregar();
   }
 
   async function testar() {
     if (!busca.trim()) { setResultadosBusca(null); return; }
-    const r = await testarBuscaKB(user.email, empresaId, busca);
+    const r = await testarBuscaKB(empresaId, busca);
     if (r.error) { setError(r.error); return; }
     setResultadosBusca(r.resultados);
   }
@@ -126,7 +126,7 @@ export default function KnowledgeBasePage() {
       fd.set('empresaId', empresaId);
       fd.set('categoria', uploadCategoria);
       fd.set('file', file);
-      const r = await uploadDocsArquivo(user.email, fd);
+      const r = await uploadDocsArquivo(fd);
       if (r.error) { setError(r.error); return; }
       carregar();
     } finally {
@@ -221,7 +221,7 @@ export default function KnowledgeBasePage() {
           <p className="text-sm text-gray-500">Nenhum doc ainda.</p>
           <button onClick={async () => {
             setError('');
-            const r = await seedKB(user.email, empresaId);
+            const r = await seedKB(empresaId);
             if (r.error) { setError(r.error); return; }
             carregar();
           }}

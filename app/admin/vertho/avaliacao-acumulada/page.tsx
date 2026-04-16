@@ -34,7 +34,7 @@ export default function AvaliacaoAcumuladaPage() {
     setLoading(true);
     const { data: { user } } = await sb.auth.getUser();
     if (!user) { router.replace('/login'); return; }
-    const r = await listarAvaliacoesAcumuladas(user.email, { status: filtroStatus, empresaId });
+    const r = await listarAvaliacoesAcumuladas({ status: filtroStatus, empresaId });
     if (r.error) setError(r.error);
     else { setRows(r.rows); setResumo(r.resumo); }
     setLoading(false);
@@ -45,8 +45,7 @@ export default function AvaliacaoAcumuladaPage() {
   async function abrirDetalhe(id) {
     setLoadingDetalhe(true);
     setDetalhe({ id });
-    const { data: { user } } = await sb.auth.getUser();
-    const r = await loadAvaliacaoAcumuladaDetalhe(user.email, id);
+    const r = await loadAvaliacaoAcumuladaDetalhe(id);
     setLoadingDetalhe(false);
     if (r.error) { setError(r.error); setDetalhe(null); return; }
     setDetalhe({ ...r.detalhe, id });
@@ -54,8 +53,7 @@ export default function AvaliacaoAcumuladaPage() {
 
   async function reger(trilhaId) {
     setRegerando(trilhaId);
-    const { data: { user } } = await sb.auth.getUser();
-    const r = await regerarAvaliacaoAcumulada(user.email, trilhaId);
+    const r = await regerarAvaliacaoAcumulada(trilhaId);
     setRegerando(null);
     if (r.error) alert(r.error);
     else { await carregar(); if (detalhe?.trilhaId === trilhaId) await abrirDetalhe(detalhe.id); }

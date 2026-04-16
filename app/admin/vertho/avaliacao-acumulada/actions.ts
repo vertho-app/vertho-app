@@ -1,12 +1,11 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { getUserContext } from '@/lib/authz';
+import { requireAdminAction } from '@/lib/auth/action-context';
 import { gerarAvaliacaoAcumulada } from '@/actions/avaliacao-acumulada';
 
-export async function listarAvaliacoesAcumuladas(email, filtros: any = {}) {
-  const ctx = await getUserContext(email);
-  if (!ctx?.isPlatformAdmin) return { error: 'Acesso restrito à Vertho' };
+export async function listarAvaliacoesAcumuladas(filtros: any = {}) {
+  await requireAdminAction();
 
   const sb = createSupabaseAdmin();
   const limit = filtros.limit || 50;
@@ -63,9 +62,8 @@ export async function listarAvaliacoesAcumuladas(email, filtros: any = {}) {
   return { ok: true, rows: filtered, resumo };
 }
 
-export async function loadAvaliacaoAcumuladaDetalhe(email, progressoId) {
-  const ctx = await getUserContext(email);
-  if (!ctx?.isPlatformAdmin) return { error: 'Acesso restrito à Vertho' };
+export async function loadAvaliacaoAcumuladaDetalhe(progressoId) {
+  await requireAdminAction();
 
   const sb = createSupabaseAdmin();
   const { data, error } = await sb.from('temporada_semana_progresso')
@@ -116,8 +114,7 @@ export async function loadAvaliacaoAcumuladaDetalhe(email, progressoId) {
  * Permite Vertho regenerar manualmente a avaliação acumulada (caso tenha
  * havido ajuste de régua, novas evidências, etc).
  */
-export async function regerarAvaliacaoAcumulada(email, trilhaId) {
-  const ctx = await getUserContext(email);
-  if (!ctx?.isPlatformAdmin) return { error: 'Acesso restrito à Vertho' };
+export async function regerarAvaliacaoAcumulada(trilhaId) {
+  await requireAdminAction();
   return gerarAvaliacaoAcumulada(trilhaId);
 }

@@ -1,16 +1,15 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { getUserContext } from '@/lib/authz';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 /**
  * Lista Evidências semanais (conversas socráticas das sems 1-12)
  * de todas as empresas. Exibe extrações estruturadas (insight, qualidade,
  * desafio_realizado) + meta da conversa.
  */
-export async function listarEvidencias(email, filtros: any = {}) {
-  const ctx = await getUserContext(email);
-  if (!ctx?.isPlatformAdmin) return { error: 'Acesso restrito à Vertho' };
+export async function listarEvidencias(filtros: any = {}) {
+  await requireAdminAction();
 
   const sb = createSupabaseAdmin();
   const limit = filtros.limit || 100;
@@ -78,9 +77,8 @@ export async function listarEvidencias(email, filtros: any = {}) {
 /**
  * Detalhe completo: transcript da conversa + extração estruturada.
  */
-export async function loadEvidenciaDetalhe(email, progressoId) {
-  const ctx = await getUserContext(email);
-  if (!ctx?.isPlatformAdmin) return { error: 'Acesso restrito à Vertho' };
+export async function loadEvidenciaDetalhe(progressoId) {
+  await requireAdminAction();
 
   const sb = createSupabaseAdmin();
   const { data, error } = await sb.from('temporada_semana_progresso')
