@@ -9,8 +9,6 @@ import {
   criarColaborador,
   loadCargos, salvarCargo, excluirCargo, sincronizarCargosDeColaboradores
 } from './actions';
-import { getSupabase } from '@/lib/supabase-browser';
-
 const CARGO_FIELDS = [
   { key: 'descricao', label: 'Descrição do Cargo', placeholder: 'Responsabilidades principais...', rows: 3 },
   { key: 'principais_entregas', label: 'Principais Entregas Esperadas', placeholder: 'Resultados que se espera do cargo...', rows: 2 },
@@ -43,41 +41,36 @@ export default function GerenciarPage() {
   const [editCargo, setEditCargo] = useState(null); // cargo sendo editado
   const [savingCargo, setSavingCargo] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [ue, setUe] = useState(''); // userEmail do admin autenticado
 
   useEffect(() => {
-    getSupabase().auth.getUser().then(({ data: { user } }) => {
-      if (!user?.email) return;
-      setUe(user.email);
-      loadEmpresas(user.email).then(data => {
-        setEmpresas(data);
-        if (empresaParam) {
-          const emp = data.find((e: any) => e.id === empresaParam);
-          if (emp) setEmpresaNome(emp.nome);
-        }
-      }).finally(() => setLoading(false));
-    });
+    loadEmpresas().then(data => {
+      setEmpresas(data);
+      if (empresaParam) {
+        const emp = data.find((e: any) => e.id === empresaParam);
+        if (emp) setEmpresaNome(emp.nome);
+      }
+    }).finally(() => setLoading(false));
   }, [empresaParam]);
 
   useEffect(() => {
-    if (tenantId && ue) {
-      loadResumoEmpresa(ue, tenantId).then(setResumo);
-      loadColaboradores(ue, tenantId).then(setColabs);
-      loadCargos(ue, tenantId).then(setCargos);
+    if (tenantId) {
+      loadResumoEmpresa(tenantId).then(setResumo);
+      loadColaboradores(tenantId).then(setColabs);
+      loadCargos(tenantId).then(setCargos);
     } else { setResumo(null); setColabs([]); setCargos([]); }
-  }, [tenantId, ue]);
+  }, [tenantId]);
 
   async function refresh() {
-    if (!tenantId || !ue) return;
-    const [r, c] = await Promise.all([loadResumoEmpresa(ue, tenantId), loadColaboradores(ue, tenantId)]);
+    if (!tenantId) return;
+    const [r, c] = await Promise.all([loadResumoEmpresa(tenantId), loadColaboradores(tenantId)]);
     setResumo(r);
     setColabs(c);
   }
 
   async function refreshCargos() {
-    if (!tenantId || !ue) return;
+    if (!tenantId) return;
     setLoadingCargos(true);
-    const data = await loadCargos(ue, tenantId);
+    const data = await loadCargos(tenantId);
     setCargos(data);
     setLoadingCargos(false);
   }
@@ -105,7 +98,7 @@ export default function GerenciarPage() {
       setImporting(false); return;
     }
 
-    const r = await importarColaboradoresLote(ue, tenantId, parsed);
+    const r = await importarColaboradoresLote(tenantId, parsed);
     setMsg(r.success ? r.message : r.error);
     setImporting(false);
     e.target.value = '';
@@ -129,8 +122,8 @@ export default function GerenciarPage() {
     if (!editId) return;
     setSaving(true);
     const r = editId === 'new'
-      ? await criarColaborador(ue, tenantId, editData)
-      : await atualizarColaborador(ue, editId, editData);
+      ? await criarColaborador(tenantId, editData)
+      : await atualizarColaborador(editId, editData);
     setSaving(false);
     if (r.success) {
       setEditId(null);
@@ -143,7 +136,7 @@ export default function GerenciarPage() {
 
   async function handleDelete(id, nome) {
     if (!confirm(`Excluir "${nome || 'colaborador'}"? Esta ação não pode ser desfeita.`)) return;
-    const r = await excluirColaborador(ue, id);
+    const r = await excluirColaborador(id);
     if (r.success) { refresh(); setMsg('Colaborador excluído'); }
     else setMsg('Erro: ' + r.error);
   }
@@ -151,7 +144,7 @@ export default function GerenciarPage() {
   async function handleSyncCargos() {
     if (!tenantId) return;
     setSyncing(true);
-    const r = await sincronizarCargosDeColaboradores(ue, tenantId);
+    const r = await sincronizarCargosDeColaboradores(tenantId);
     setSyncing(false);
     setMsg(r.success ? r.message : 'Erro: ' + r.error);
     if (r.success) refreshCargos();
@@ -160,7 +153,7 @@ export default function GerenciarPage() {
   async function handleSaveCargo() {
     if (!editCargo || !tenantId) return;
     setSavingCargo(true);
-    const r = await salvarCargo(ue, tenantId, editCargo);
+    const r = await salvarCargo(tenantId, editCargo);
     setSavingCargo(false);
     if (r.success) {
       setEditCargo(null);
@@ -173,7 +166,7 @@ export default function GerenciarPage() {
 
   async function handleDeleteCargo(id, nome) {
     if (!confirm(`Excluir cargo "${nome}"?`)) return;
-    const r = await excluirCargo(ue, id);
+    const r = await excluirCargo(id);
     if (r.success) { refreshCargos(); setMsg('Cargo excluído'); }
     else setMsg('Erro: ' + r.error);
   }

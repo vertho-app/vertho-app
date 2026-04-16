@@ -10,7 +10,6 @@ import {
   salvarCompetencia, excluirCompetencia, copiarBaseParaEmpresa, importarCompetenciasCSV, loadCargosEmpresa
 } from './actions';
 import { parseSpreadsheet } from '@/lib/parse-spreadsheet';
-import { getSupabase } from '@/lib/supabase-browser';
 
 const EMPTY_COMP = { nome: '', descricao: '', cargo: '', cod_comp: '', pilar: '' };
 
@@ -18,7 +17,6 @@ export default function CompetenciasPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const empresaParam = searchParams.get('empresa');
-  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [empresas, setEmpresas] = useState<any[]>([]);
   const [empresaId, setEmpresaId] = useState(empresaParam || '');
   const [empresaNome, setEmpresaNome] = useState('');
@@ -40,18 +38,13 @@ export default function CompetenciasPage() {
 
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await getSupabase().auth.getUser();
-      const email = user?.email || null;
-      setUserEmail(email);
-      if (!email) { setLoading(false); return; }
-
-      const r = await loadEmpresas(email);
+      const r = await loadEmpresas();
       if (r.success) {
         setEmpresas(r.data || []);
         if (empresaParam) {
           const emp = (r.data || []).find((e: any) => e.id === empresaParam);
           if (emp) setEmpresaNome(emp.nome);
-          handleSelectEmpresa(empresaParam, email);
+          handleSelectEmpresa(empresaParam);
         }
       }
       setLoading(false);
@@ -60,17 +53,16 @@ export default function CompetenciasPage() {
 
   function flash(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2500); }
 
-  async function handleSelectEmpresa(id: string, emailOverride?: string) {
-    const email = emailOverride || userEmail;
+  async function handleSelectEmpresa(id: string) {
     setEmpresaId(id);
-    if (!id || !email) { setComps([]); setBaselist([]); return; }
+    if (!id) { setComps([]); setBaselist([]); return; }
     setLoadingComps(true);
     const emp = empresas.find((e: any) => e.id === id);
     setSegmento(emp?.segmento || '');
     const [r1, r2, cargos] = await Promise.all([
-      loadCompetencias(email, id),
-      loadCompetenciasBase(email, emp?.segmento || null),
-      loadCargosEmpresa(email, id),
+      loadCompetencias(id),
+      loadCompetenciasBase(emp?.segmento || null),
+      loadCargosEmpresa(id),
     ]);
     setCargosEmpresa((cargos as string[]) || []);
     if (r1.success) setComps(r1.data || []);
@@ -82,9 +74,9 @@ export default function CompetenciasPage() {
   function openEdit(c: any) { setEditComp({ ...c }); setShowModal(true); }
 
   async function handleSave() {
-    if (!editComp.nome.trim() || !userEmail) return;
+    if (!editComp.nome.trim()) return;
     setSaving(true);
-    const r = await salvarCompetencia(userEmail, empresaId, editComp);
+    const r = await salvarCompetencia(empresaId, editComp);
     setSaving(false);
     if (r.success) {
       flash(r.message!);
@@ -96,8 +88,8 @@ export default function CompetenciasPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Excluir esta competencia?') || !userEmail) return;
-    const r = await excluirCompetencia(userEmail, id);
+    if (!confirm('Excluir esta competencia?')) return;
+    const r = await excluirCompetencia(id);
     if (r.success) {
       flash('Excluida');
       handleSelectEmpresa(empresaId);
@@ -107,8 +99,7 @@ export default function CompetenciasPage() {
   }
 
   async function handleCopy(baseId: string) {
-    if (!userEmail) return;
-    const r = await copiarBaseParaEmpresa(userEmail, empresaId, baseId, cargoParaCopiar || null);
+    const r = await copiarBaseParaEmpresa(empresaId, baseId, cargoParaCopiar || null);
     if (r.success) {
       flash(r.message!);
       handleSelectEmpresa(empresaId);
@@ -186,7 +177,7 @@ export default function CompetenciasPage() {
             {importing ? 'Importando...' : 'Selecionar arquivo (CSV ou XLSX)'}
             <input type="file" accept=".csv,.xlsx,.xls" className="hidden" disabled={importing} onChange={async e => {
               const file = e.target.files?.[0];
-              if (!file || !userEmail) return;
+              if (!file) return;
               setImporting(true);
               const rowsRaw = await parseSpreadsheet(file);
 
@@ -221,7 +212,7 @@ export default function CompetenciasPage() {
                 if (validos.length === 0) { setImporting(false); e.target.value = ''; return; }
                 parsed.length = 0; parsed.push(...validos);
               }
-              const r = await importarCompetenciasCSV(userEmail, empresaId, parsed);
+              const r = await importarCompetenciasCSV(empresaId, parsed);
               flash(r.success ? r.message! : 'Erro: ' + r.error);
               setImporting(false);
               e.target.value = '';
@@ -297,8 +288,8 @@ export default function CompetenciasPage() {
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => openEdit(c)} className="w-7 h-7 flex items-center justify-center rounded text-gray-500 hover:text-cyan-400"><Pencil size={13} /></button>
                     <button onClick={() => {
-                      if (!confirm(`Excluir "${c.nome}" e todos os seus descritores?`) || !userEmail) return;
-                      Promise.all(descritores.map((d: any) => excluirCompetencia(userEmail!, d.id))).then(() => {
+                      if (!confirm(`Excluir "${c.nome}" e todos os seus descritores?`)) return;
+                      Promise.all(descritores.map((d: any) => excluirCompetencia(d.id))).then(() => {
                         flash('Competência excluída');
                         handleSelectEmpresa(empresaId);
                       });

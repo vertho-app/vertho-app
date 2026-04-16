@@ -1,21 +1,17 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { isPlatformAdmin } from '@/lib/authz';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
-async function guardAdmin(email: string | null | undefined) {
-  if (!email || !(await isPlatformAdmin(email))) throw new Error('FORBIDDEN');
-}
-
-export async function loadEmpresas(callerEmail: string) {
-  await guardAdmin(callerEmail);
+export async function loadEmpresas() {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   const { data } = await sb.from('empresas').select('id, nome, segmento').order('nome');
   return data || [];
 }
 
-export async function loadResumoEmpresa(callerEmail: string, empresaId: any) {
-  await guardAdmin(callerEmail);
+export async function loadResumoEmpresa(empresaId: any) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   const { count: colabs } = await sb.from('colaboradores')
     .select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId);
@@ -24,8 +20,8 @@ export async function loadResumoEmpresa(callerEmail: string, empresaId: any) {
   return { colabs: colabs || 0, competencias: comps?.length || 0 };
 }
 
-export async function importarColaboradoresLote(callerEmail: string, empresaId: any, colabs: any) {
-  await guardAdmin(callerEmail);
+export async function importarColaboradoresLote(empresaId: any, colabs: any) {
+  await requireAdminAction();
 
   const sb = createSupabaseAdmin();
   const { data: existentes } = await sb.from('colaboradores')
@@ -51,8 +47,8 @@ export async function importarColaboradoresLote(callerEmail: string, empresaId: 
   return { success: true, message: `${novos.length} colaboradores importados` };
 }
 
-export async function loadColaboradores(callerEmail: string, empresaId: any) {
-  await guardAdmin(callerEmail);
+export async function loadColaboradores(empresaId: any) {
+  await requireAdminAction();
 
   const sb = createSupabaseAdmin();
   const { data: d1, error: e1 } = await sb.from('colaboradores')
@@ -67,8 +63,8 @@ export async function loadColaboradores(callerEmail: string, empresaId: any) {
   return (d2 || []).map((c: any) => ({ ...c, telefone: null, gestor_nome: null, gestor_email: null, gestor_whatsapp: null }));
 }
 
-export async function criarColaborador(callerEmail: string, empresaId: any, campos: any) {
-  await guardAdmin(callerEmail);
+export async function criarColaborador(empresaId: any, campos: any) {
+  await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresa obrigatória' };
   if (!campos?.email?.trim()) return { success: false, error: 'email obrigatório' };
 
@@ -98,8 +94,8 @@ export async function criarColaborador(callerEmail: string, empresaId: any, camp
   return { success: true, id: data.id };
 }
 
-export async function atualizarColaborador(callerEmail: string, id: any, campos: any) {
-  await guardAdmin(callerEmail);
+export async function atualizarColaborador(id: any, campos: any) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
 
   const { data: existente } = await sb.from('colaboradores').select('empresa_id').eq('id', id).maybeSingle();
@@ -122,8 +118,8 @@ export async function atualizarColaborador(callerEmail: string, id: any, campos:
   return { success: true };
 }
 
-export async function excluirColaborador(callerEmail: string, id: any) {
-  await guardAdmin(callerEmail);
+export async function excluirColaborador(id: any) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
 
   const { data: existente } = await sb.from('colaboradores').select('empresa_id').eq('id', id).maybeSingle();
@@ -136,8 +132,8 @@ export async function excluirColaborador(callerEmail: string, id: any) {
 
 // ── Cargos ──────────────────────────────────────────────────────────────────
 
-export async function loadCargos(callerEmail: string, empresaId: any) {
-  await guardAdmin(callerEmail);
+export async function loadCargos(empresaId: any) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   const { data, error } = await sb.from('cargos_empresa')
     .select('*')
@@ -147,8 +143,8 @@ export async function loadCargos(callerEmail: string, empresaId: any) {
   return data || [];
 }
 
-export async function salvarCargo(callerEmail: string, empresaId: any, cargo: any) {
-  await guardAdmin(callerEmail);
+export async function salvarCargo(empresaId: any, cargo: any) {
+  await requireAdminAction();
 
   const sb = createSupabaseAdmin();
   const registro = {
@@ -179,8 +175,8 @@ export async function salvarCargo(callerEmail: string, empresaId: any, cargo: an
   return { success: true, data: result.data };
 }
 
-export async function excluirCargo(callerEmail: string, id: any) {
-  await guardAdmin(callerEmail);
+export async function excluirCargo(id: any) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
 
   const { data: existe } = await sb.from('cargos_empresa').select('empresa_id').eq('id', id).maybeSingle();
@@ -191,8 +187,8 @@ export async function excluirCargo(callerEmail: string, id: any) {
   return { success: true };
 }
 
-export async function sincronizarCargosDeColaboradores(callerEmail: string, empresaId: any) {
-  await guardAdmin(callerEmail);
+export async function sincronizarCargosDeColaboradores(empresaId: any) {
+  await requireAdminAction();
 
   const sb = createSupabaseAdmin();
   const { data: colabs } = await sb.from('colaboradores')

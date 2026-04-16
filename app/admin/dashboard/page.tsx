@@ -7,7 +7,6 @@ import {
   Plus, Loader2, ChevronRight, RefreshCw, Zap, BookMarked, ShieldCheck
 } from 'lucide-react';
 import { loadAdminDashboard } from './actions';
-import { getSupabase } from '@/lib/supabase-browser';
 
 function fmt(n) { return (n ?? 0).toLocaleString('pt-BR'); }
 
@@ -33,9 +32,7 @@ export default function AdminDashboard() {
   const router = useRouter();
 
   async function load() {
-    const { data: { user } } = await getSupabase().auth.getUser();
-    if (!user?.email) return;
-    const r = await loadAdminDashboard(user.email);
+    const r = await loadAdminDashboard();
     setData(r);
     setLoading(false);
     setRefreshing(false);

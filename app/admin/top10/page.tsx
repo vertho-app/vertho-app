@@ -5,8 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2, Trophy, Trash2, Plus, X, ChevronDown, Filter } from 'lucide-react';
 import { loadTop10TodosCargos, adicionarTop10, removerTop10 } from '@/actions/fase1';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
-import { getSupabase } from '@/lib/supabase-browser';
-
 export default function Top10Page() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -19,26 +17,21 @@ export default function Top10Page() {
   const [filtroCargo, setFiltroCargo] = useState('');
   const [showAdd, setShowAdd] = useState(null); // cargo para adicionar
   const [addSearch, setAddSearch] = useState('');
-  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 2500); }
 
-  useEffect(() => {
-    getSupabase().auth.getUser().then(({ data: { user } }) => setUserEmail(user?.email || null));
-  }, []);
-
   async function refresh() {
-    if (!empresaId || !userEmail) return;
+    if (!empresaId) return;
     const [t, c] = await Promise.all([
       loadTop10TodosCargos(empresaId),
-      loadCompetencias(userEmail, empresaId),
+      loadCompetencias(empresaId),
     ]);
     setTop10(t);
     if (c.success) setAllComps(c.data || []);
     setLoading(false);
   }
 
-  useEffect(() => { if (userEmail) refresh(); }, [empresaId, userEmail]);
+  useEffect(() => { refresh(); }, [empresaId]);
 
   // Agrupar por cargo
   const cargos = [...new Set(top10.map(t => t.cargo))].sort();

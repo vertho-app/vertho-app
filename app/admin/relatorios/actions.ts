@@ -1,22 +1,18 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { isPlatformAdmin } from '@/lib/authz';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
-async function guardAdmin(email: string | null | undefined) {
-  if (!email || !(await isPlatformAdmin(email))) throw new Error('FORBIDDEN');
-}
-
-export async function loadEmpresas(callerEmail: string) {
-  await guardAdmin(callerEmail);
+export async function loadEmpresas() {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   const { data, error } = await sb.from('empresas').select('id, nome').order('nome');
   if (error) return { success: false, error: error.message };
   return { success: true, data };
 }
 
-export async function loadRelatorios(callerEmail: string, empresaId: string) {
-  await guardAdmin(callerEmail);
+export async function loadRelatorios(empresaId: string) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   try {
     const { data, error } = await sb.from('relatorios')

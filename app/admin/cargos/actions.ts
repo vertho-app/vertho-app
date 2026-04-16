@@ -1,22 +1,18 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { isPlatformAdmin } from '@/lib/authz';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
-async function guardAdmin(email: string | null | undefined) {
-  if (!email || !(await isPlatformAdmin(email))) throw new Error('FORBIDDEN');
-}
-
-export async function loadEmpresas(callerEmail: string) {
-  await guardAdmin(callerEmail);
+export async function loadEmpresas() {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   const { data, error } = await sb.from('empresas').select('id, nome').order('nome');
   if (error) return { success: false, error: error.message };
   return { success: true, data };
 }
 
-export async function loadCargos(callerEmail: string, empresaId: string) {
-  await guardAdmin(callerEmail);
+export async function loadCargos(empresaId: string) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   try {
     // 1. Tentar cargos_empresa
@@ -90,8 +86,8 @@ export async function loadCargos(callerEmail: string, empresaId: string) {
   }
 }
 
-export async function salvarTop5(callerEmail: string, cargoId: string, top5: any) {
-  await guardAdmin(callerEmail);
+export async function salvarTop5(cargoId: string, top5: any) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   try {
     // Se cargoId é UUID, atualiza cargos_empresa; senão ignora
@@ -108,8 +104,8 @@ export async function salvarTop5(callerEmail: string, cargoId: string, top5: any
   }
 }
 
-export async function salvarEhLideranca(callerEmail: string, cargoId: string, ehLideranca: boolean) {
-  await guardAdmin(callerEmail);
+export async function salvarEhLideranca(cargoId: string, ehLideranca: boolean) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   try {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;

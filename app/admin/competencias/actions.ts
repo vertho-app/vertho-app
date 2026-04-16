@@ -1,22 +1,18 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { isPlatformAdmin } from '@/lib/authz';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
-async function guardAdmin(email: string | null | undefined) {
-  if (!email || !(await isPlatformAdmin(email))) throw new Error('FORBIDDEN');
-}
-
-export async function loadEmpresas(callerEmail: string) {
-  await guardAdmin(callerEmail);
+export async function loadEmpresas() {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   const { data, error } = await sb.from('empresas').select('id, nome, segmento').order('nome');
   if (error) return { success: false, error: error.message };
   return { success: true, data };
 }
 
-export async function loadCompetencias(callerEmail: string, empresaId: string) {
-  await guardAdmin(callerEmail);
+export async function loadCompetencias(empresaId: string) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   try {
     const { data, error } = await sb.from('competencias')
@@ -32,8 +28,8 @@ export async function loadCompetencias(callerEmail: string, empresaId: string) {
   }
 }
 
-export async function loadCompetenciasBase(callerEmail: string, segmento: string | null) {
-  await guardAdmin(callerEmail);
+export async function loadCompetenciasBase(segmento: string | null) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   try {
     let query = sb.from('competencias_base').select('*').order('nome');
@@ -46,8 +42,8 @@ export async function loadCompetenciasBase(callerEmail: string, segmento: string
   }
 }
 
-export async function salvarCompetencia(callerEmail: string, empresaId: string, comp: any) {
-  await guardAdmin(callerEmail);
+export async function salvarCompetencia(empresaId: string, comp: any) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   try {
     const registro = {
@@ -79,8 +75,8 @@ export async function salvarCompetencia(callerEmail: string, empresaId: string, 
   }
 }
 
-export async function excluirCompetencia(callerEmail: string, id: string) {
-  await guardAdmin(callerEmail);
+export async function excluirCompetencia(id: string) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   try {
     const { error } = await sb.from('competencias').delete().eq('id', id);
@@ -91,8 +87,8 @@ export async function excluirCompetencia(callerEmail: string, id: string) {
   }
 }
 
-export async function importarCompetenciasCSV(callerEmail: string, empresaId: string, comps: any[]) {
-  await guardAdmin(callerEmail);
+export async function importarCompetenciasCSV(empresaId: string, comps: any[]) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   const { data: existentes } = await sb.from('competencias')
     .select('cod_comp, cod_desc, nome_curto, nome, cargo').eq('empresa_id', empresaId);
@@ -138,8 +134,8 @@ export async function importarCompetenciasCSV(callerEmail: string, empresaId: st
   return { success: true, message: `${novos.length} competências importadas` };
 }
 
-export async function copiarBaseParaEmpresa(callerEmail: string, empresaId: string, baseId: string, cargo: string | null = null) {
-  await guardAdmin(callerEmail);
+export async function copiarBaseParaEmpresa(empresaId: string, baseId: string, cargo: string | null = null) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   try {
     const { data: base, error: errBase } = await sb.from('competencias_base')
@@ -163,8 +159,8 @@ export async function copiarBaseParaEmpresa(callerEmail: string, empresaId: stri
   }
 }
 
-export async function loadCargosEmpresa(callerEmail: string, empresaId: string) {
-  await guardAdmin(callerEmail);
+export async function loadCargosEmpresa(empresaId: string) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   const [colabs, comps] = await Promise.all([
     sb.from('colaboradores').select('cargo').eq('empresa_id', empresaId).not('cargo', 'is', null),

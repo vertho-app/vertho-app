@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Trash2, Loader2, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { loadPlatformAdmins, adicionarAdmin, removerAdmin } from './actions';
-import { getSupabase } from '@/lib/supabase-browser';
 
 export default function PlatformAdminsPage() {
   const router = useRouter();
@@ -16,34 +15,28 @@ export default function PlatformAdminsPage() {
   const [removing, setRemoving] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    getSupabase().auth.getUser().then(({ data: { user } }) => {
-      if (!user?.email) return;
-      setUserEmail(user.email);
-      loadPlatformAdmins(user.email).then(d => { setAdmins(d); setLoading(false); });
-    });
+    loadPlatformAdmins().then(d => { setAdmins(d); setLoading(false); });
   }, []);
 
   async function handleAdd(e: any) {
     e.preventDefault();
-    if (!email.trim() || !userEmail) return;
+    if (!email.trim()) return;
     setAdding(true); setError('');
-    const r = await adicionarAdmin(userEmail, email, nome);
+    const r = await adicionarAdmin(email, nome);
     if (r.success) {
       setSuccess(r.message); setTimeout(() => setSuccess(''), 3000);
       setEmail(''); setNome('');
-      loadPlatformAdmins(userEmail).then(setAdmins);
+      loadPlatformAdmins().then(setAdmins);
     } else { setError(r.error); }
     setAdding(false);
   }
 
   async function handleRemove(id: any, adminEmail: any) {
     if (!confirm(`Remover ${adminEmail} como admin da plataforma?`)) return;
-    if (!userEmail) return;
     setRemoving(id);
-    const r = await removerAdmin(userEmail, id);
+    const r = await removerAdmin(id);
     if (r.success) {
       setAdmins(prev => prev.filter(a => a.id !== id));
       setSuccess(r.message); setTimeout(() => setSuccess(''), 3000);

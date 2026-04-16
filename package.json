@@ -21,6 +21,7 @@
     "@anthropic-ai/sdk": "^0.81.0",
     "@react-pdf/renderer": "^4.4.0",
     "@sentry/nextjs": "^10.47.0",
+    "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.49.4",
     "@upstash/qstash": "^2.10.1",
     "lucide-react": "^1.7.0",

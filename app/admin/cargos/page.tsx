@@ -4,13 +4,11 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2, Briefcase, Check, Save, ChevronDown } from 'lucide-react';
 import { loadEmpresas, loadCargos, salvarTop5, salvarEhLideranca } from './actions';
-import { getSupabase } from '@/lib/supabase-browser';
 
 export default function CargosPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const empresaParam = searchParams.get('empresa');
-  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [empresas, setEmpresas] = useState<any[]>([]);
   const [empresaId, setEmpresaId] = useState(empresaParam || '');
   const [empresaNome, setEmpresaNome] = useState('');
@@ -23,30 +21,24 @@ export default function CargosPage() {
 
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await getSupabase().auth.getUser();
-      const email = user?.email || null;
-      setUserEmail(email);
-      if (!email) { setLoading(false); return; }
-
-      const r = await loadEmpresas(email);
+      const r = await loadEmpresas();
       if (r.success) {
         setEmpresas(r.data || []);
         if (empresaParam) {
           const emp = (r.data || []).find((e: any) => e.id === empresaParam);
           if (emp) setEmpresaNome(emp.nome);
-          handleSelectEmpresa(empresaParam, email);
+          handleSelectEmpresa(empresaParam);
         }
       }
       setLoading(false);
     })();
   }, []);
 
-  async function handleSelectEmpresa(id: string, emailOverride?: string) {
-    const email = emailOverride || userEmail;
+  async function handleSelectEmpresa(id: string) {
     setEmpresaId(id);
-    if (!id || !email) { setCargos([]); return; }
+    if (!id) { setCargos([]); return; }
     setLoadingCargos(true);
-    const r = await loadCargos(email, id);
+    const r = await loadCargos(id);
     if (r.success) {
       setCargos(r.data || []);
       const edits: Record<string, string[]> = {};
@@ -73,9 +65,8 @@ export default function CargosPage() {
   }
 
   async function handleSave(cargoId: string) {
-    if (!userEmail) return;
     setSaving(prev => ({ ...prev, [cargoId]: true }));
-    const r = await salvarTop5(userEmail, cargoId, top5Edits[cargoId] || []);
+    const r = await salvarTop5(cargoId, top5Edits[cargoId] || []);
     setSaving(prev => ({ ...prev, [cargoId]: false }));
     if (r.success) {
       setToast('Top 5 salvo!');

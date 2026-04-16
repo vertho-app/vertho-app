@@ -18,7 +18,6 @@ import { listarPendentesSimulacao, simularUmaResposta } from '@/actions/simulado
 import { simularMapeamentoDISCLote } from '@/actions/simulador-disc';
 import { gerarRelatorioIndividual, gerarRelatoriosIndividuaisLote, gerarRelatorioGestor as gerarRelGestor, gerarRelatorioRH as gerarRelRH } from '@/actions/relatorios';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
-import { getSupabase } from '@/lib/supabase-browser';
 import { gerarTemporadasLote } from '@/actions/temporadas';
 import {
   loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, limparMapeamentoCompetencias, limparCenariosB, limparReavaliacaoSessoes, definirSenhaTesteEmpresa, loadColaboradoresLista,
@@ -157,25 +156,18 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
   const [gabExpanded, setGabExpanded] = useState(null);
   const [envioStatus, setEnvioStatus] = useState(null);
   const [focoData, setFocoData] = useState(null); // [{cargo, competencia_foco, top5}]
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-
-  // Resolve email on mount
-  useEffect(() => {
-    getSupabase().auth.getUser().then(({ data: { user } }) => setUserEmail(user?.email || null));
-  }, []);
 
   const refreshTop10 = useCallback(async () => {
-    if (!userEmail) return;
     const [t, c, g] = await Promise.all([
       loadTop10TodosCargos(empresaId),
-      loadCompetencias(userEmail, empresaId),
+      loadCompetencias(empresaId),
       loadGabaritosCargos(empresaId),
     ]);
     setTop10(t);
     if (c.success) setTop10Comps(c.data || []);
     setGabaritos(g);
     setTop10Loaded(true);
-  }, [empresaId, userEmail]);
+  }, [empresaId]);
 
   const addLog = useCallback((msg, type = 'info') => {
     setLogs(prev => {

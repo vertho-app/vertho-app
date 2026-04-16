@@ -1,14 +1,10 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { isPlatformAdmin } from '@/lib/authz';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
-async function guardAdmin(email: string | null | undefined) {
-  if (!email || !(await isPlatformAdmin(email))) throw new Error('FORBIDDEN');
-}
-
-export async function loadPlatformAdmins(callerEmail: string) {
-  await guardAdmin(callerEmail);
+export async function loadPlatformAdmins() {
+  await requireAdminAction();
 
   const sb = createSupabaseAdmin();
   const { data } = await sb.from('platform_admins')
@@ -17,8 +13,8 @@ export async function loadPlatformAdmins(callerEmail: string) {
   return data || [];
 }
 
-export async function adicionarAdmin(callerEmail: string, email: any, nome: any) {
-  await guardAdmin(callerEmail);
+export async function adicionarAdmin(email: any, nome: any) {
+  await requireAdminAction();
   if (!email?.trim()) return { success: false, error: 'Email obrigatorio' };
 
   const sb = createSupabaseAdmin();
@@ -34,8 +30,8 @@ export async function adicionarAdmin(callerEmail: string, email: any, nome: any)
   return { success: true, message: `${clean} adicionado como admin` };
 }
 
-export async function removerAdmin(callerEmail: string, id: any) {
-  await guardAdmin(callerEmail);
+export async function removerAdmin(id: any) {
+  await requireAdminAction();
   if (!id) return { success: false, error: 'ID obrigatorio' };
   const sb = createSupabaseAdmin();
   const { error } = await sb.from('platform_admins').delete().eq('id', id);
