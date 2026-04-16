@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAIChat } from '@/actions/ai-client';
 import { promptTiraDuvidas } from '@/lib/season-engine/prompts/tira-duvidas';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
+import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
 
 /**
  * POST /api/temporada/tira-duvidas
@@ -81,6 +82,16 @@ export async function POST(request) {
       semanaPlan.conteudo?.core_titulo,
     ].filter(Boolean).join('\n');
 
+    // RAG/grounding: busca top-5 trechos relevantes na base do tenant.
+    // Query = última pergunta do colab. Sem pesquisa = sem contexto (OK).
+    let groundingBlock = '';
+    try {
+      const chunks = await retrieveContext(trilha.empresa_id, message, 5);
+      groundingBlock = formatGroundingBlock(chunks);
+    } catch (err) {
+      console.warn('[tira-duvidas] retrieveContext falhou (seguindo sem grounding):', err?.message);
+    }
+
     // PII masking: substitui nome real por alias opaco antes de mandar pra IA
     const { masked: colabMasked, map: piiMap } = maskColaborador(colab);
     // Sanitiza histórico (substitui PII do texto + nome do colab por alias)
@@ -97,6 +108,7 @@ export async function POST(request) {
       conteudoResumo,
       perfilDominante: colab.perfil_dominante,
       historico: historicoMasked,
+      groundingContext: groundingBlock,
     });
 
     let respostaIA;
