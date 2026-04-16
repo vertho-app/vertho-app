@@ -131,9 +131,11 @@ export function assertTenantAccess(
 
 /**
  * Valida que o usuário pode acessar dados de um colaborador.
- * - próprio colab: OK
- * - gestor/rh da mesma empresa: OK
- * - platform admin: OK
+ * - platform admin: acesso total
+ * - próprio colab: acesso ao próprio registro
+ * - RH: qualquer colaborador da mesma empresa
+ * - gestor: apenas colaboradores da mesma empresa E mesma area_depto
+ *   (se gestor não tem area_depto definida → fail closed, sem acesso a terceiros)
  * Caso contrário: 403.
  */
 export async function assertColabAccess(
@@ -149,17 +151,26 @@ export async function assertColabAccess(
     const sb = createSupabaseAdmin();
     const { data } = await sb
       .from('colaboradores')
-      .select('empresa_id')
+      .select('empresa_id, area_depto')
       .eq('id', colabId)
       .maybeSingle();
-    if (data?.empresa_id === auth.empresaId) return null;
+    if (!data || data.empresa_id !== auth.empresaId) {
+      return NextResponse.json({ error: 'sem acesso a este colaborador' }, { status: 403 });
+    }
+    if (auth.role === 'rh') return null;
+    // Gestor: restringe a mesma area_depto (fail closed se area_depto do gestor é null)
+    const gestorArea = auth.colaborador?.area_depto;
+    if (!gestorArea || data.area_depto !== gestorArea) {
+      return NextResponse.json({ error: 'gestor sem acesso a colaborador de outra área' }, { status: 403 });
+    }
+    return null;
   }
   return NextResponse.json({ error: 'sem acesso a este colaborador' }, { status: 403 });
 }
 
 /**
- * Valida acesso por email (mesmas regras de assertColabAccess mas entrada
- * é email em vez de id). Útil em rotas antigas que recebem email.
+ * Valida acesso por email (mesmas regras de assertColabAccess: RH empresa
+ * inteira, gestor restrito a mesma area_depto, fail closed se gestor sem área).
  */
 export async function assertEmailAccess(
   auth: AuthenticatedContext,
@@ -172,10 +183,19 @@ export async function assertEmailAccess(
     const sb = createSupabaseAdmin();
     const { data } = await sb
       .from('colaboradores')
-      .select('empresa_id')
+      .select('empresa_id, area_depto')
       .eq('email', normalizado)
       .maybeSingle();
-    if (data?.empresa_id === auth.empresaId) return null;
+    if (!data || data.empresa_id !== auth.empresaId) {
+      return NextResponse.json({ error: 'sem acesso a este colaborador' }, { status: 403 });
+    }
+    if (auth.role === 'rh') return null;
+    // Gestor: mesma area_depto (fail closed se gestor sem área)
+    const gestorArea = auth.colaborador?.area_depto;
+    if (!gestorArea || data.area_depto !== gestorArea) {
+      return NextResponse.json({ error: 'gestor sem acesso a colaborador de outra área' }, { status: 403 });
+    }
+    return null;
   }
   return NextResponse.json({ error: 'sem acesso a este colaborador' }, { status: 403 });
 }

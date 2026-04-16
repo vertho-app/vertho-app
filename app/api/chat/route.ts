@@ -56,6 +56,15 @@ export async function POST(req) {
       if (data.status === 'concluido') {
         return NextResponse.json({ ok: false, error: 'Sessão já concluída' }, { status: 400 });
       }
+      // Sessão é fonte de verdade: validar ownership contra o contexto autenticado
+      const sessaoColabGuard = await assertColabAccess(auth, data.colaborador_id);
+      if (sessaoColabGuard) return sessaoColabGuard;
+      if (data.empresa_id && data.empresa_id !== empresaId) {
+        return NextResponse.json({ ok: false, error: 'sessaoId inconsistente com empresaId' }, { status: 403 });
+      }
+      if (data.colaborador_id !== colaboradorId) {
+        return NextResponse.json({ ok: false, error: 'sessaoId inconsistente com colaboradorId' }, { status: 403 });
+      }
       sessao = data;
     } else {
       // Busca sessão ativa existente para esta competência
