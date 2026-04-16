@@ -289,10 +289,11 @@ export async function loadAuditoriaSem14Detalhe(email, progressoId) {
         delta_medio: fb.delta_medio,
         resumo_avaliacao: fb.resumo_avaliacao,
       },
-      // Nota acumulada (da 1ª IA ao fim da sem 13) pra comparação
       acumulada: (() => {
-        const a = fb13?.feedback?.acumulado?.primaria?.avaliacao_acumulada || [];
-        return a.map(x => ({ descritor: x.descritor, nota_acumulada: x.nota_acumulada }));
+        try {
+          const a = fb13?.feedback?.acumulado?.primaria?.avaliacao_acumulada || [];
+          return a.map(x => ({ descritor: x.descritor, nota_acumulada: x.nota_acumulada }));
+        } catch { return []; }
       })(),
       auditoria: fb.auditoria,
     },
