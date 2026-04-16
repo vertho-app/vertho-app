@@ -2,22 +2,22 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, ShieldAlert } from 'lucide-react';
 import { checkAdminAccess } from './admin-actions';
 
 export default function AdminGuard({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<'checking' | 'authorized' | 'unauthorized' | 'unauthenticated'>('checking');
   const router = useRouter();
-  const supabase = getSupabase();
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) { setStatus('unauthenticated'); return; }
-
-      // Verificação server-side via server action
-      const result = await checkAdminAccess(session.user.email!);
-      setStatus(result.authorized ? 'authorized' : 'unauthorized');
+    checkAdminAccess().then(result => {
+      if (result.authorized) {
+        setStatus('authorized');
+      } else {
+        setStatus(result.reason === 'unauthenticated' ? 'unauthenticated' : 'unauthorized');
+      }
+    }).catch(() => {
+      setStatus('unauthorized');
     });
   }, []);
 

@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireRole, assertTenantAccess } from '@/lib/auth/request-context';
+import { csrfCheck } from '@/lib/csrf';
 
 export async function POST(req) {
   try {
+    const csrf = csrfCheck(req);
+    if (csrf) return csrf;
+
     // RH da empresa pode trocar o logo; platform admin também (via requireRole('admin')).
     const auth = await requireRole(req, ['rh', 'admin']);
     if (auth instanceof Response) return auth;

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUser } from '@/lib/auth/request-context';
+import { csrfCheck } from '@/lib/csrf';
 
 export async function GET(req: Request) {
   try {
@@ -37,6 +38,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const csrf = csrfCheck(req);
+    if (csrf) return csrf;
+
     const auth = await requireUser(req);
     if (auth instanceof Response) return auth;
 
