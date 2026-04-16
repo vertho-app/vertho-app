@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
 import { selectDescriptors } from '@/lib/season-engine/select-descriptors';
 import { buildSeason } from '@/lib/season-engine/build-season';
@@ -405,18 +406,27 @@ export async function loadProgressoDetalhado(trilhaId) {
 export async function loadTemporada(colaboradorId) {
   try {
     if (!colaboradorId) return { error: 'colaboradorId obrigatório' };
-    const sb = createSupabaseAdmin();
-    const { data: trilha } = await sb.from('trilhas')
+
+    // Descobre empresa_id do colab pra poder usar tenantDb (que força filtro).
+    // Uso raw aqui porque colaboradores busca é a fonte do tenantId.
+    const sbRaw = createSupabaseAdmin();
+    const { data: colaborador } = await sbRaw.from('colaboradores')
+      .select('id, nome_completo, cargo, email, perfil_dominante, empresa_id')
+      .eq('id', colaboradorId).maybeSingle();
+    if (!colaborador?.empresa_id) return { error: 'Colab sem empresa_id' };
+
+    // A partir daqui, todas queries em tabelas tenant-owned passam por tenantDb.
+    // Se alguém adicionar .from('trilhas').select() sem .eq('empresa_id'),
+    // o wrapper garante que o filtro vai.
+    const tdb = tenantDb(colaborador.empresa_id);
+
+    const { data: trilha } = await tdb.from('trilhas')
       .select('*').eq('colaborador_id', colaboradorId)
       .order('criado_em', { ascending: false }).limit(1).maybeSingle();
     if (!trilha) return { error: 'Sem temporada' };
 
-    const { data: progresso } = await sb.from('temporada_semana_progresso')
+    const { data: progresso } = await tdb.from('temporada_semana_progresso')
       .select('*').eq('trilha_id', trilha.id).order('semana');
-
-    const { data: colaborador } = await sb.from('colaboradores')
-      .select('id, nome_completo, cargo, email, perfil_dominante')
-      .eq('id', colaboradorId).maybeSingle();
 
     return { ok: true, trilha, progresso: progresso || [], colaborador };
   } catch (err) {
