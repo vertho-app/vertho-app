@@ -47,3 +47,6 @@ playwright-report/
 
 # MCP server config (contém API keys)
 .mcp.json
+
+# Claude Code local settings (contém preferências pessoais/overrides do dev)
+.claude/settings.local.json
