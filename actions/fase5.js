@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 import { callAI, callAIChat } from './ai-client';
 import { extractJSON } from './utils';
 
@@ -30,12 +31,12 @@ Nota >= 90 = aprovado. Nota < 90 = revisar com sugestao concreta.
 Retorne APENAS JSON valido:
 {"nota":85,"erro_grave":false,"dimensoes":{"aderencia":18,"realismo":19,"contencao":16,"decisao":17,"discriminante":15},"justificativa":"...","sugestao":"...","alertas":[]}`;
 
-// Helper: busca descritores (linhas filhas em competencias com mesmo cod_comp)
-async function fetchDescritoresTexto(sb, empresaId, codComp) {
+// Helper: busca descritores (linhas filhas em competencias com mesmo cod_comp).
+// Recebe tdb (tenant-scoped) — empresa_id é injetado automaticamente.
+async function fetchDescritoresTexto(tdb, codComp) {
   if (!codComp) return '';
-  const { data: descs } = await sb.from('competencias')
+  const { data: descs } = await tdb.from('competencias')
     .select('cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
-    .eq('empresa_id', empresaId)
     .eq('cod_comp', codComp)
     .not('cod_desc', 'is', null);
   if (!descs?.length) return '';
@@ -103,11 +104,11 @@ ${feedbackExtra ? `\n## FEEDBACK DA REVISÃO ANTERIOR (CORRIJA ESTES PONTOS):\n$
   return { system, user };
 }
 
-// Helper: busca PPP resumido (mesmo padrão do check cenário A)
-async function fetchPppResumo(sb, empresaId) {
-  const { data: ppp } = await sb.from('ppp_escolas')
+// Helper: busca PPP resumido (mesmo padrão do check cenário A).
+// Recebe tdb tenant-scoped.
+async function fetchPppResumo(tdb) {
+  const { data: ppp } = await tdb.from('ppp_escolas')
     .select('extracao')
-    .eq('empresa_id', empresaId)
     .eq('status', 'extraido')
     .limit(1)
     .maybeSingle();
@@ -116,7 +117,8 @@ async function fetchPppResumo(sb, empresaId) {
   return JSON.stringify(ext).slice(0, 500);
 }
 
-// Helper: roda check em 1 cenário B e persiste resultado
+// Helper: roda check em 1 cenário B e persiste resultado.
+// Recebe sb (raw — banco_cenarios é misto, update por id é seguro).
 async function runCheckOnCenB(sb, cen, comp, descritoresTexto, pppResumo, modelo) {
   const alt = typeof cen.alternativas === 'string' ? JSON.parse(cen.alternativas) : (cen.alternativas || {});
   const perguntas = [alt.p1, alt.p2, alt.p3, alt.p4].filter(Boolean).map((p, i) => `P${i+1}: ${p}`).join('\n');
@@ -159,16 +161,18 @@ ${pppResumo ? `\nCONTEXTO PPP:\n${pppResumo}` : ''}`;
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function gerarCenariosBLote(empresaId, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const sbRaw = createSupabaseAdmin();
+  const tdb = tenantDb(empresaId);
   try {
-    const { data: empresa } = await sb.from('empresas')
+    // empresas: id é o tenant — sem empresa_id; usar raw
+    const { data: empresa } = await sbRaw.from('empresas')
       .select('nome, segmento').eq('id', empresaId).single();
 
-    // Cenários A existentes
-    // Cenários A (sem join — competencias pode não ter FK)
-    const { data: cenariosA } = await sb.from('banco_cenarios')
+    // Cenários A existentes — banco_cenarios é misto, mas filtramos por
+    // empresa explicitamente, então tdb está OK (deduz pelo tenantId).
+    const { data: cenariosA } = await tdb.from('banco_cenarios')
       .select('id, titulo, descricao, cargo, competencia_id')
-      .eq('empresa_id', empresaId)
       .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b');
 
     if (!cenariosA?.length) return { success: false, error: 'Nenhum cenário A encontrado. Rode IA3 primeiro.' };
@@ -178,30 +182,30 @@ export async function gerarCenariosBLote(empresaId, aiConfig = {}) {
     const descritoresMap = {};
 
     for (const cid of compIdsNeeded) {
-      const { data: comp } = await sb.from('competencias')
+      const { data: comp } = await tdb.from('competencias')
         .select('id, nome, descricao, cod_comp')
         .eq('id', cid)
         .maybeSingle();
       if (comp) {
         compMap[comp.id] = comp;
-        descritoresMap[comp.id] = await fetchDescritoresTexto(sb, empresaId, comp.cod_comp);
+        descritoresMap[comp.id] = await fetchDescritoresTexto(tdb, comp.cod_comp);
       }
     }
     const compIds = Object.keys(compMap);
 
     // Já tem B?
-    const { data: cenariosB } = await sb.from('banco_cenarios')
+    const { data: cenariosB } = await tdb.from('banco_cenarios')
       .select('competencia_id, cargo')
-      .eq('empresa_id', empresaId).eq('tipo_cenario', 'cenario_b');
+      .eq('tipo_cenario', 'cenario_b');
     const jaTemB = new Set((cenariosB || []).map(c => `${c.competencia_id}::${c.cargo}`));
 
     // PPP da empresa (contexto institucional para geração)
-    const { data: ppps } = await sb.from('ppp_escolas')
-      .select('valores').eq('empresa_id', empresaId).limit(1);
+    const { data: ppps } = await tdb.from('ppp_escolas')
+      .select('valores').limit(1);
     const pppContexto = ppps?.[0]?.valores ? JSON.stringify(ppps[0].valores) : '';
 
     // PPP resumo para o check (formato diferente — extração)
-    const pppResumoCheck = await fetchPppResumo(sb, empresaId);
+    const pppResumoCheck = await fetchPppResumo(tdb);
 
     const checkModel = aiConfig?.checkModel;
     let gerados = 0, aprovados = 0, revisar = 0, skipJaTemB = 0, skipSemComp = 0;
@@ -218,8 +222,8 @@ export async function gerarCenariosBLote(empresaId, aiConfig = {}) {
       const cenarioData = await extractJSON(resultado);
       if (!cenarioData?.titulo) continue;
 
-      const { data: inserted, error: insErr } = await sb.from('banco_cenarios').insert({
-        empresa_id: empresaId,
+      // empresa_id é injetado pelo tdb.insert
+      const { data: inserted, error: insErr } = await tdb.from('banco_cenarios').insert({
         competencia_id: cenA.competencia_id,
         cargo: cenA.cargo,
         titulo: cenarioData.titulo,
@@ -241,7 +245,7 @@ export async function gerarCenariosBLote(empresaId, aiConfig = {}) {
       // Check inline se modelo foi informado
       if (checkModel && inserted) {
         try {
-          const chk = await runCheckOnCenB(sb, inserted, comp, descritoresTexto, pppResumoCheck, checkModel);
+          const chk = await runCheckOnCenB(sbRaw, inserted, comp, descritoresTexto, pppResumoCheck, checkModel);
           if (chk.success) {
             if (chk.status === 'aprovado') aprovados++; else revisar++;
           }
@@ -263,19 +267,23 @@ export async function gerarCenariosBLote(empresaId, aiConfig = {}) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function checkCenarioBUm(cenarioId, modelo = null) {
-  const sb = createSupabaseAdmin();
+  const sbRaw = createSupabaseAdmin();
   try {
-    const { data: cen } = await sb.from('banco_cenarios')
+    // banco_cenarios é misto → raw por id
+    const { data: cen } = await sbRaw.from('banco_cenarios')
       .select('id, empresa_id, titulo, descricao, cargo, competencia_id, alternativas')
       .eq('id', cenarioId).single();
     if (!cen) return { success: false, error: 'Cenário não encontrado' };
 
-    const { data: comp } = await sb.from('competencias')
+    if (!cen.empresa_id) return { success: false, error: 'Cenário sem empresa_id (catálogo nacional não tem check)' };
+    const tdb = tenantDb(cen.empresa_id);
+
+    const { data: comp } = await tdb.from('competencias')
       .select('id, nome, cod_comp').eq('id', cen.competencia_id).maybeSingle();
 
-    const descritoresTexto = comp ? await fetchDescritoresTexto(sb, cen.empresa_id, comp.cod_comp) : '';
-    const pppResumo = await fetchPppResumo(sb, cen.empresa_id);
-    const r = await runCheckOnCenB(sb, cen, comp, descritoresTexto, pppResumo, modelo);
+    const descritoresTexto = comp ? await fetchDescritoresTexto(tdb, comp.cod_comp) : '';
+    const pppResumo = await fetchPppResumo(tdb);
+    const r = await runCheckOnCenB(sbRaw, cen, comp, descritoresTexto, pppResumo, modelo);
     if (!r.success) return r;
     return { success: true, message: `Check: ${r.nota}pts — ${r.status}`, nota: r.nota, status: r.status };
   } catch (err) {
@@ -288,33 +296,36 @@ export async function checkCenarioBUm(cenarioId, modelo = null) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function regenerarCenarioB(cenarioId, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
+  const sbRaw = createSupabaseAdmin();
   try {
-    const { data: cen } = await sb.from('banco_cenarios')
+    // banco_cenarios é misto → raw por id
+    const { data: cen } = await sbRaw.from('banco_cenarios')
       .select('id, empresa_id, competencia_id, cargo, titulo, descricao, justificativa_check, sugestao_check')
       .eq('id', cenarioId).single();
     if (!cen) return { success: false, error: 'Cenário não encontrado' };
 
-    const { data: empresa } = await sb.from('empresas')
+    if (!cen.empresa_id) return { success: false, error: 'Cenário sem empresa_id (não pode regenerar catálogo nacional)' };
+    const tdb = tenantDb(cen.empresa_id);
+
+    const { data: empresa } = await sbRaw.from('empresas')
       .select('nome, segmento').eq('id', cen.empresa_id).single();
 
-    const { data: comp } = await sb.from('competencias')
+    const { data: comp } = await tdb.from('competencias')
       .select('id, nome, descricao, cod_comp').eq('id', cen.competencia_id).maybeSingle();
     if (!comp) return { success: false, error: 'Competência não encontrada' };
 
-    const descritoresTexto = await fetchDescritoresTexto(sb, cen.empresa_id, comp.cod_comp);
+    const descritoresTexto = await fetchDescritoresTexto(tdb, comp.cod_comp);
 
     // Buscar cenário A original para referência (qualquer tipo != cenario_b para mesma comp+cargo)
-    const { data: cenA } = await sb.from('banco_cenarios')
+    const { data: cenA } = await tdb.from('banco_cenarios')
       .select('titulo, descricao')
-      .eq('empresa_id', cen.empresa_id)
       .eq('competencia_id', cen.competencia_id)
       .eq('cargo', cen.cargo)
       .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b')
       .limit(1).maybeSingle();
 
-    const { data: ppps } = await sb.from('ppp_escolas')
-      .select('valores').eq('empresa_id', cen.empresa_id).limit(1);
+    const { data: ppps } = await tdb.from('ppp_escolas')
+      .select('valores').limit(1);
     const pppContexto = ppps?.[0]?.valores ? JSON.stringify(ppps[0].valores) : '';
 
     const feedbackExtra = [cen.justificativa_check, cen.sugestao_check].filter(Boolean).join('\n');
@@ -326,7 +337,7 @@ export async function regenerarCenarioB(cenarioId, aiConfig = {}) {
     const cenarioData = await extractJSON(resposta);
     if (!cenarioData?.titulo) return { success: false, error: 'IA não retornou cenário válido' };
 
-    const { error: updErr } = await sb.from('banco_cenarios').update({
+    const { error: updErr } = await sbRaw.from('banco_cenarios').update({
       titulo: cenarioData.titulo,
       descricao: cenarioData.descricao,
       alternativas: {
@@ -361,24 +372,24 @@ export async function regenerarCenarioB(cenarioId, aiConfig = {}) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function iniciarReavaliacaoLote(empresaId, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const tdb = tenantDb(empresaId);
   try {
-    const { data: colaboradores } = await sb.from('colaboradores')
-      .select('id, nome_completo, cargo, email, perfil_dominante, d_natural, i_natural, s_natural, c_natural')
-      .eq('empresa_id', empresaId);
+    const { data: colaboradores } = await tdb.from('colaboradores')
+      .select('id, nome_completo, cargo, email, perfil_dominante, d_natural, i_natural, s_natural, c_natural');
     if (!colaboradores?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
 
     // Cenários B (chave: competencia_id::cargo)
-    const { data: cenariosB } = await sb.from('banco_cenarios')
-      .select('id, competencia_id, cargo').eq('empresa_id', empresaId).eq('tipo_cenario', 'cenario_b');
+    const { data: cenariosB } = await tdb.from('banco_cenarios')
+      .select('id, competencia_id, cargo').eq('tipo_cenario', 'cenario_b');
     if (!cenariosB?.length) return { success: false, error: 'Nenhum cenário B. Gere cenários B primeiro.' };
     const cenarioMap = {};
     cenariosB.forEach(c => { cenarioMap[`${c.competencia_id}::${c.cargo}`] = c.id; });
 
     // Respostas iniciais (baseline + cálculo de gap)
-    const { data: respostas } = await sb.from('respostas')
+    const { data: respostas } = await tdb.from('respostas')
       .select('colaborador_id, competencia_id, nivel_ia4, avaliacao_ia')
-      .eq('empresa_id', empresaId).not('avaliacao_ia', 'is', null);
+      .not('avaliacao_ia', 'is', null);
     if (!respostas?.length) return { success: false, error: 'Nenhuma avaliação IA4 encontrada. Rode IA4 primeiro.' };
     const baselineMap = {};
     (respostas || []).forEach(r => {
@@ -389,15 +400,14 @@ export async function iniciarReavaliacaoLote(empresaId, aiConfig = {}) {
     });
 
     // Competência foco por cargo (definida pelo RH)
-    const { data: cargosEmpresa } = await sb.from('cargos_empresa')
-      .select('nome, competencia_foco').eq('empresa_id', empresaId);
+    const { data: cargosEmpresa } = await tdb.from('cargos_empresa')
+      .select('nome, competencia_foco');
     const focoMap = {};
     (cargosEmpresa || []).forEach(c => { if (c.competencia_foco) focoMap[c.nome] = c.competencia_foco; });
 
     // Competências (parent rows, cod_desc IS NULL)
-    const { data: competencias, error: compErr } = await sb.from('competencias')
+    const { data: competencias, error: compErr } = await tdb.from('competencias')
       .select('id, nome, cargo, cod_comp')
-      .eq('empresa_id', empresaId)
       .is('cod_desc', null);
     if (compErr) return { success: false, error: `competencias: ${compErr.message}` };
     const compByIdMap = {};
@@ -410,9 +420,8 @@ export async function iniciarReavaliacaoLote(empresaId, aiConfig = {}) {
     // Descritores por cod_comp (linhas filhas em competencias)
     const descritoresCache = {};
     for (const comp of competencias || []) {
-      const { data: descs } = await sb.from('competencias')
+      const { data: descs } = await tdb.from('competencias')
         .select('cod_desc, nome_curto, descritor_completo')
-        .eq('empresa_id', empresaId)
         .eq('cod_comp', comp.cod_comp)
         .not('cod_desc', 'is', null);
       descritoresCache[comp.id] = (descs || []).map((d, i) => ({
@@ -436,14 +445,14 @@ export async function iniciarReavaliacaoLote(empresaId, aiConfig = {}) {
     });
 
     // Trilha progresso
-    const { data: progressos } = await sb.from('fase4_progresso')
-      .select('colaborador_id, pct_conclusao, semana_atual').eq('empresa_id', empresaId);
+    const { data: progressos } = await tdb.from('fase4_progresso')
+      .select('colaborador_id, pct_conclusao, semana_atual');
     const progMap = {};
     (progressos || []).forEach(p => { progMap[p.colaborador_id] = p; });
 
     // Sessões já criadas (dedupe por colab+comp)
-    const { data: sessoes } = await sb.from('reavaliacao_sessoes')
-      .select('colaborador_id, competencia_id').eq('empresa_id', empresaId);
+    const { data: sessoes } = await tdb.from('reavaliacao_sessoes')
+      .select('colaborador_id, competencia_id');
     const jaCriado = new Set((sessoes || []).map(s => `${s.colaborador_id}::${s.competencia_id}`));
 
     let criados = 0, pulados = 0;
@@ -493,8 +502,8 @@ export async function iniciarReavaliacaoLote(empresaId, aiConfig = {}) {
 
       const descritores = descritoresCache[compAlvo.id] || [];
 
-      const { error } = await sb.from('reavaliacao_sessoes').insert({
-        empresa_id: empresaId,
+      // empresa_id é injetado pelo tdb.insert
+      const { error } = await tdb.from('reavaliacao_sessoes').insert({
         colaborador_id: colab.id,
         competencia_id: compAlvo.id,
         cenario_b_id: cenarioBId,
@@ -584,15 +593,18 @@ A análise será feita depois, por outro sistema.`;
 }
 
 export async function processarReavaliacao(sessaoId, mensagem, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
+  const sbRaw = createSupabaseAdmin();
   try {
-    const { data: sessao, error: sessaoErr } = await sb.from('reavaliacao_sessoes')
+    // Descobre tenant via sessão (raw — query inicial)
+    const { data: sessao, error: sessaoErr } = await sbRaw.from('reavaliacao_sessoes')
       .select('*, competencias!inner(nome), colaboradores!inner(nome_completo, cargo)')
       .eq('id', sessaoId).single();
 
     if (sessaoErr) return { success: false, error: sessaoErr.message };
     if (!sessao) return { success: false, error: 'Sessão não encontrada' };
     if (sessao.status === 'concluida') return { success: false, error: 'Sessão já concluída' };
+
+    const tdb = tenantDb(sessao.empresa_id);
 
     const historico = sessao.historico || [];
     historico.push({ role: 'user', content: mensagem });
@@ -609,7 +621,7 @@ export async function processarReavaliacao(sessaoId, mensagem, aiConfig = {}) {
     try { meta = metaMatch ? JSON.parse(metaMatch[1]) : {}; } catch {}
     const encerrar = meta.encerrar || novoTurno >= MAX_TURNOS;
 
-    await sb.from('reavaliacao_sessoes').update({
+    await tdb.from('reavaliacao_sessoes').update({
       historico,
       turno: novoTurno,
       ...(encerrar ? { status: 'concluida' } : {}),
@@ -632,11 +644,12 @@ export async function processarReavaliacao(sessaoId, mensagem, aiConfig = {}) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 async function extrairDadosReavaliacao(sessaoId, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
-  const { data: sessao } = await sb.from('reavaliacao_sessoes')
+  const sbRaw = createSupabaseAdmin();
+  const { data: sessao } = await sbRaw.from('reavaliacao_sessoes')
     .select('*, competencias!inner(nome), colaboradores!inner(nome_completo, cargo)')
     .eq('id', sessaoId).single();
   if (!sessao) return;
+  const tdb = tenantDb(sessao.empresa_id);
 
   const ctx = sessao.extracao_qualitativa?._contexto_sessao || {};
   // Descritores vêm do contexto (populado em iniciarReavaliacaoLote via cod_comp)
@@ -683,7 +696,7 @@ Extraia:
 
   if (extracao) {
     // Preservar _contexto_sessao e adicionar extração
-    await sb.from('reavaliacao_sessoes')
+    await tdb.from('reavaliacao_sessoes')
       .update({ extracao_qualitativa: { ...extracao, _contexto_sessao: ctx } })
       .eq('id', sessaoId);
   }
@@ -697,34 +710,35 @@ Extraia:
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function gerarEvolucaoFusao(empresaId, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const sbRaw = createSupabaseAdmin();
+  const tdb = tenantDb(empresaId);
   try {
-    const { data: empresa } = await sb.from('empresas')
+    const { data: empresa } = await sbRaw.from('empresas')
       .select('nome, segmento').eq('id', empresaId).single();
 
-    const { data: colaboradores } = await sb.from('colaboradores')
-      .select('id, nome_completo, cargo, perfil_dominante, d_natural, i_natural, s_natural, c_natural')
-      .eq('empresa_id', empresaId);
+    const { data: colaboradores } = await tdb.from('colaboradores')
+      .select('id, nome_completo, cargo, perfil_dominante, d_natural, i_natural, s_natural, c_natural');
     if (!colaboradores?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
 
     // Fonte 1: Respostas iniciais (Cenário A)
-    const { data: respostasA } = await sb.from('respostas')
+    const { data: respostasA } = await tdb.from('respostas')
       .select('colaborador_id, competencia_id, nivel_ia4, avaliacao_ia, r1, r2, r3, r4')
-      .eq('empresa_id', empresaId).not('avaliacao_ia', 'is', null).is('tipo_resposta', null);
+      .not('avaliacao_ia', 'is', null).is('tipo_resposta', null);
 
     // Fonte 2: Respostas reavaliação (Cenário B)
-    const { data: respostasB } = await sb.from('respostas')
+    const { data: respostasB } = await tdb.from('respostas')
       .select('colaborador_id, competencia_id, nivel_ia4, avaliacao_ia, r1, r2, r3, r4')
-      .eq('empresa_id', empresaId).eq('tipo_resposta', 'cenario_b').not('avaliacao_ia', 'is', null);
+      .eq('tipo_resposta', 'cenario_b').not('avaliacao_ia', 'is', null);
 
     // Fonte 3: Conversa Semana 15
-    const { data: sessoes } = await sb.from('reavaliacao_sessoes')
+    const { data: sessoes } = await tdb.from('reavaliacao_sessoes')
       .select('colaborador_id, competencia_id, extracao_qualitativa, baseline_nivel')
-      .eq('empresa_id', empresaId).eq('status', 'concluida');
+      .eq('status', 'concluida');
 
     // Competências (parent rows, cod_desc IS NULL). Sem coluna gabarito.
-    const { data: competencias, error: compErr } = await sb.from('competencias')
-      .select('id, nome, cod_comp').eq('empresa_id', empresaId).is('cod_desc', null);
+    const { data: competencias, error: compErr } = await tdb.from('competencias')
+      .select('id, nome, cod_comp').is('cod_desc', null);
     if (compErr) return { success: false, error: `competencias: ${compErr.message}` };
     const compMap = {};
     (competencias || []).forEach(c => { compMap[c.id] = c; });
@@ -732,9 +746,8 @@ export async function gerarEvolucaoFusao(empresaId, aiConfig = {}) {
     // Descritores por competencia via cod_comp (mesmo padrão de iniciarReavaliacaoLote)
     const descritoresMap = {};
     for (const comp of competencias || []) {
-      const { data: descs } = await sb.from('competencias')
+      const { data: descs } = await tdb.from('competencias')
         .select('cod_desc, nome_curto, descritor_completo')
-        .eq('empresa_id', empresaId)
         .eq('cod_comp', comp.cod_comp)
         .not('cod_desc', 'is', null);
       descritoresMap[comp.id] = (descs || []).map((d, i) =>
@@ -743,9 +756,8 @@ export async function gerarEvolucaoFusao(empresaId, aiConfig = {}) {
     }
 
     // Trilha progresso
-    const { data: progressos } = await sb.from('fase4_progresso')
-      .select('colaborador_id, pct_conclusao, semana_atual, cursos_progresso')
-      .eq('empresa_id', empresaId);
+    const { data: progressos } = await tdb.from('fase4_progresso')
+      .select('colaborador_id, pct_conclusao, semana_atual, cursos_progresso');
     const progMap = {};
     (progressos || []).forEach(p => { progMap[p.colaborador_id] = p; });
 
@@ -893,8 +905,8 @@ Cursos concluídos: ${cursosConcluidos} de ${cursosInfo.length}
         const fusao = await extractJSON(resultado);
         if (!fusao) continue;
 
-        await sb.from('relatorios').upsert({
-          empresa_id: empresaId,
+        // empresa_id é injetado pelo tdb.upsert
+        await tdb.from('relatorios').upsert({
           colaborador_id: colab.id,
           tipo: 'evolucao',
           conteudo: { competencia: comp.nome, competencia_id: compId, ...fusao },
@@ -917,14 +929,16 @@ Cursos concluídos: ${cursosConcluidos} de ${cursosInfo.length}
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function gerarPlenariaEvolucao(empresaId, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const sbRaw = createSupabaseAdmin();
+  const tdb = tenantDb(empresaId);
   try {
-    const { data: empresa } = await sb.from('empresas')
+    const { data: empresa } = await sbRaw.from('empresas')
       .select('nome, segmento').eq('id', empresaId).single();
 
-    const { data: relatorios } = await sb.from('relatorios')
+    const { data: relatorios } = await tdb.from('relatorios')
       .select('conteudo, colaboradores!inner(nome_completo, cargo)')
-      .eq('empresa_id', empresaId).eq('tipo', 'evolucao');
+      .eq('tipo', 'evolucao');
 
     if (!relatorios?.length) return { success: false, error: 'Nenhum relatório de evolução. Gere a evolução primeiro.' };
 
@@ -1022,8 +1036,9 @@ Gere:
     const plenaria = await extractJSON(resultado);
 
     if (plenaria) {
-      await sb.from('relatorios').upsert({
-        empresa_id: empresaId, colaborador_id: null, tipo: 'plenaria_evolucao',
+      // empresa_id é injetado pelo tdb.upsert
+      await tdb.from('relatorios').upsert({
+        colaborador_id: null, tipo: 'plenaria_evolucao',
         conteudo: plenaria, gerado_em: new Date().toISOString(),
       }, { onConflict: 'empresa_id,colaborador_id,tipo' });
     }
@@ -1043,11 +1058,13 @@ export async function gerarRelatoriosEvolucaoLote(empresaId, aiConfig = {}) {
 }
 
 export async function gerarRelatorioRHManual(empresaId, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const sbRaw = createSupabaseAdmin();
+  const tdb = tenantDb(empresaId);
   try {
-    const { data: empresa } = await sb.from('empresas').select('nome, segmento').eq('id', empresaId).single();
-    const { data: relEvolucao } = await sb.from('relatorios').select('*, colaboradores(nome_completo, cargo)').eq('empresa_id', empresaId).eq('tipo', 'evolucao');
-    const { data: relRHAnterior } = await sb.from('relatorios').select('conteudo').eq('empresa_id', empresaId).eq('tipo', 'rh').single();
+    const { data: empresa } = await sbRaw.from('empresas').select('nome, segmento').eq('id', empresaId).single();
+    const { data: relEvolucao } = await tdb.from('relatorios').select('*, colaboradores(nome_completo, cargo)').eq('tipo', 'evolucao');
+    const { data: relRHAnterior } = await tdb.from('relatorios').select('conteudo').eq('tipo', 'rh').single();
 
     const system = `Você é um consultor estratégico de RH. Gere relatório analítico pós-desenvolvimento. Responda APENAS com JSON válido.`;
     const user = `Empresa: ${empresa.nome} (${empresa.segmento})
@@ -1059,18 +1076,20 @@ Gere: { "resumo_executivo": "...", "roi_desenvolvimento": "...", "evolucao_organ
     const resultado = await callAI(system, user, aiConfig, 8000, { temperature: TEMP });
     const relatorio = await extractJSON(resultado);
     if (relatorio) {
-      await sb.from('relatorios').upsert({ empresa_id: empresaId, colaborador_id: null, tipo: 'rh_manual', conteudo: relatorio, gerado_em: new Date().toISOString() }, { onConflict: 'empresa_id,colaborador_id,tipo' });
+      await tdb.from('relatorios').upsert({ colaborador_id: null, tipo: 'rh_manual', conteudo: relatorio, gerado_em: new Date().toISOString() }, { onConflict: 'empresa_id,colaborador_id,tipo' });
     }
     return { success: true, message: 'Relatório RH manual gerado' };
   } catch (err) { return { success: false, error: err.message }; }
 }
 
 export async function gerarRelatorioPlenaria(empresaId, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const sbRaw = createSupabaseAdmin();
+  const tdb = tenantDb(empresaId);
   try {
-    const { data: plenaria } = await sb.from('relatorios').select('conteudo').eq('empresa_id', empresaId).eq('tipo', 'plenaria_evolucao').single();
+    const { data: plenaria } = await tdb.from('relatorios').select('conteudo').eq('tipo', 'plenaria_evolucao').single();
     if (!plenaria) return { success: false, error: 'Plenária de evolução não encontrada.' };
-    const { data: empresa } = await sb.from('empresas').select('nome').eq('id', empresaId).single();
+    const { data: empresa } = await sbRaw.from('empresas').select('nome').eq('id', empresaId).single();
 
     const system = `Transforme dados da plenária em relatório formal. Responda APENAS com JSON válido.`;
     const user = `Empresa: ${empresa.nome}\nDados: ${JSON.stringify(plenaria.conteudo, null, 2)}
@@ -1079,17 +1098,19 @@ Gere: { "titulo": "...", "data": "${new Date().toISOString().split('T')[0]}", "p
     const resultado = await callAI(system, user, aiConfig, 4096, { temperature: TEMP });
     const relatorio = await extractJSON(resultado);
     if (relatorio) {
-      await sb.from('relatorios').upsert({ empresa_id: empresaId, colaborador_id: null, tipo: 'plenaria_relatorio', conteudo: relatorio, gerado_em: new Date().toISOString() }, { onConflict: 'empresa_id,colaborador_id,tipo' });
+      await tdb.from('relatorios').upsert({ colaborador_id: null, tipo: 'plenaria_relatorio', conteudo: relatorio, gerado_em: new Date().toISOString() }, { onConflict: 'empresa_id,colaborador_id,tipo' });
     }
     return { success: true, message: 'Relatório da plenária gerado' };
   } catch (err) { return { success: false, error: err.message }; }
 }
 
 export async function enviarLinksPerfil(empresaId) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const sbRaw = createSupabaseAdmin();
+  const tdb = tenantDb(empresaId);
   try {
-    const { data: empresa } = await sb.from('empresas').select('nome, slug').eq('id', empresaId).single();
-    const { data: colaboradores } = await sb.from('colaboradores').select('id, nome_completo, email').eq('empresa_id', empresaId);
+    const { data: empresa } = await sbRaw.from('empresas').select('nome, slug').eq('id', empresaId).single();
+    const { data: colaboradores } = await tdb.from('colaboradores').select('id, nome_completo, email');
     if (!colaboradores?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
     const { Resend } = await import('resend');
     const resend = new Resend(process.env.RESEND_API_KEY);
@@ -1110,24 +1131,27 @@ export async function enviarLinksPerfil(empresaId) {
 }
 
 export async function gerarDossieGestor(empresaId, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const sbRaw = createSupabaseAdmin();
+  const tdb = tenantDb(empresaId);
   try {
-    const { data: empresa } = await sb.from('empresas').select('nome, segmento').eq('id', empresaId).single();
-    const { data: todos } = await sb.from('relatorios').select('tipo, conteudo, colaboradores(nome_completo, cargo)').eq('empresa_id', empresaId);
+    const { data: empresa } = await sbRaw.from('empresas').select('nome, segmento').eq('id', empresaId).single();
+    const { data: todos } = await tdb.from('relatorios').select('tipo, conteudo, colaboradores(nome_completo, cargo)');
     const porTipo = {};
     for (const r of todos || []) { if (!porTipo[r.tipo]) porTipo[r.tipo] = []; porTipo[r.tipo].push({ colaborador: r.colaboradores?.nome_completo, resumo: r.conteudo?.resumo_executivo || r.conteudo?.evolucao_geral }); }
 
     const resultado = await callAI('Compile em dossiê executivo. JSON válido.', `Empresa: ${empresa.nome} (${empresa.segmento})\nRelatórios: ${JSON.stringify(porTipo, null, 2)}\nGere: { "titulo": "...", "sumario_executivo": "...", "diagnostico_inicial": "...", "evolucao": "...", "roi": "...", "recomendacoes": ["..."], "conclusao": "..." }`, aiConfig, 8000, { temperature: TEMP });
     const dossie = await extractJSON(resultado);
-    if (dossie) { await sb.from('relatorios').upsert({ empresa_id: empresaId, colaborador_id: null, tipo: 'dossie_gestor', conteudo: dossie, gerado_em: new Date().toISOString() }, { onConflict: 'empresa_id,colaborador_id,tipo' }); }
+    if (dossie) { await tdb.from('relatorios').upsert({ colaborador_id: null, tipo: 'dossie_gestor', conteudo: dossie, gerado_em: new Date().toISOString() }, { onConflict: 'empresa_id,colaborador_id,tipo' }); }
     return { success: true, message: 'Dossiê do gestor gerado' };
   } catch (err) { return { success: false, error: err.message }; }
 }
 
 export async function checkCenarios(empresaId, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const tdb = tenantDb(empresaId);
   try {
-    const { data: cenarios } = await sb.from('banco_cenarios').select('id, titulo, descricao, alternativas, competencias!inner(nome)').eq('empresa_id', empresaId);
+    const { data: cenarios } = await tdb.from('banco_cenarios').select('id, titulo, descricao, alternativas, competencias!inner(nome)');
     if (!cenarios?.length) return { success: false, error: 'Nenhum cenário encontrado' };
 
     const resultado = await callAI('Verifique qualidade dos cenários. JSON válido.', `Verifique ${cenarios.length} cenários: ${JSON.stringify(cenarios.slice(0, 20), null, 2)}\nRetorne: { "total": ${Math.min(cenarios.length, 20)}, "aprovados": N, "com_ressalvas": N, "reprovados": N, "detalhes": [{"cenario_id": "...", "status": "...", "observacao": "..."}] }`, aiConfig, 64000, { temperature: TEMP });
@@ -1141,12 +1165,12 @@ export async function checkCenarios(empresaId, aiConfig = {}) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function loadCenariosB(empresaId) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return [];
+  const tdb = tenantDb(empresaId);
 
   // Buscar cenários B
-  const { data } = await sb.from('banco_cenarios')
+  const { data } = await tdb.from('banco_cenarios')
     .select('*')
-    .eq('empresa_id', empresaId)
     .eq('tipo_cenario', 'cenario_b')
     .order('cargo', { ascending: true });
 
@@ -1154,16 +1178,15 @@ export async function loadCenariosB(empresaId) {
 
   // Buscar cenários A correspondentes para pegar o nome da competência via título
   // (workaround: a query de competencias falha no Vercel)
-  const { data: cenariosA } = await sb.from('banco_cenarios')
+  const { data: cenariosA } = await tdb.from('banco_cenarios')
     .select('competencia_id, titulo')
-    .eq('empresa_id', empresaId)
     .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b');
 
   // Tentar buscar competências (pode falhar no Vercel)
   const compIds = [...new Set(data.map(c => c.competencia_id).filter(Boolean))];
   const compMap = {};
   for (const cid of compIds) {
-    const { data: comp } = await sb.from('competencias').select('nome').eq('id', cid).maybeSingle();
+    const { data: comp } = await tdb.from('competencias').select('nome').eq('id', cid).maybeSingle();
     if (comp) compMap[cid] = comp.nome;
   }
 
@@ -1180,11 +1203,12 @@ export async function loadCenariosB(empresaId) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function checkCenariosBLote(empresaId, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const sbRaw = createSupabaseAdmin();
+  const tdb = tenantDb(empresaId);
   try {
-    const { data: cenarios } = await sb.from('banco_cenarios')
+    const { data: cenarios } = await tdb.from('banco_cenarios')
       .select('id, empresa_id, titulo, descricao, cargo, competencia_id, alternativas, nota_check')
-      .eq('empresa_id', empresaId)
       .eq('tipo_cenario', 'cenario_b');
 
     if (!cenarios?.length) return { success: false, error: 'Nenhum cenário B encontrado. Gere cenários B primeiro.' };
@@ -1193,7 +1217,7 @@ export async function checkCenariosBLote(empresaId, aiConfig = {}) {
     if (!pendentes.length) return { success: true, message: `Todos os ${cenarios.length} cenários B já foram checados` };
 
     const modelo = aiConfig?.checkModel || aiConfig?.model || 'gemini-3-flash-preview';
-    const pppResumo = await fetchPppResumo(sb, empresaId);
+    const pppResumo = await fetchPppResumo(tdb);
     const compCache = {}, descCache = {};
     let ok = 0, erros = 0;
 
@@ -1201,15 +1225,15 @@ export async function checkCenariosBLote(empresaId, aiConfig = {}) {
       try {
         let comp = compCache[cen.competencia_id];
         if (!comp) {
-          const { data } = await sb.from('competencias')
+          const { data } = await tdb.from('competencias')
             .select('id, nome, cod_comp').eq('id', cen.competencia_id).maybeSingle();
           comp = compCache[cen.competencia_id] = data || null;
         }
         let descritoresTexto = descCache[cen.competencia_id];
         if (descritoresTexto === undefined) {
-          descritoresTexto = descCache[cen.competencia_id] = comp ? await fetchDescritoresTexto(sb, empresaId, comp.cod_comp) : '';
+          descritoresTexto = descCache[cen.competencia_id] = comp ? await fetchDescritoresTexto(tdb, comp.cod_comp) : '';
         }
-        const r = await runCheckOnCenB(sb, cen, comp, descritoresTexto, pppResumo, modelo);
+        const r = await runCheckOnCenB(sbRaw, cen, comp, descritoresTexto, pppResumo, modelo);
         if (r.success) ok++; else erros++;
       } catch { erros++; }
     }
@@ -1225,11 +1249,11 @@ export async function checkCenariosBLote(empresaId, aiConfig = {}) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function regenerarERecheckarCenariosBLote(empresaId, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const tdb = tenantDb(empresaId);
   try {
-    let query = sb.from('banco_cenarios')
+    let query = tdb.from('banco_cenarios')
       .select('id, nota_check, titulo')
-      .eq('empresa_id', empresaId)
       .eq('tipo_cenario', 'cenario_b');
     if (!aiConfig?.incluirAprovados) query = query.lt('nota_check', 90);
     const { data: cenarios } = await query;
