@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
 import { ArrowLeft, Loader2, ShieldCheck, AlertTriangle, CheckCircle2, ChevronRight, X } from 'lucide-react';
-import { listarAuditoriasSem14, loadAuditoriaSem14Detalhe, revisarAvaliacaoSem14 } from './actions';
+import { listarAuditoriasSem14, loadAuditoriaSem14Detalhe, regerarScoringComFeedback } from './actions';
 
 const STATUS_COR = {
   aprovado: { bg: 'bg-emerald-500/15', text: 'text-emerald-300', border: 'border-emerald-500/30', icon: CheckCircle2, label: 'Aprovado' },
@@ -163,6 +163,25 @@ function Card({ label, valor, cor }) {
   );
 }
 
+function BotaoRegerar({ progressoId, onRevisado }) {
+  const sb = getSupabase();
+  const [busy, setBusy] = useState(false);
+  return (
+    <button onClick={async () => {
+      if (!confirm('Regerar scoring com os feedbacks da auditoria? A IA vai corrigir os problemas apontados.')) return;
+      setBusy(true);
+      const { data: { user } } = await sb.auth.getUser();
+      const r = await regerarScoringComFeedback(user.email, progressoId);
+      setBusy(false);
+      if (r.error) alert('Erro: ' + r.error);
+      else { alert(`Regenerado! Nova nota de auditoria: ${r.novaNota}/100 (${r.novoStatus})`); onRevisado?.(); }
+    }} disabled={busy}
+      className="mt-3 w-full py-2 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-sm font-bold flex items-center justify-center gap-2">
+      {busy ? <><Loader2 size={14} className="animate-spin" /> Regenerando...</> : 'Regerar com feedback da auditoria'}
+    </button>
+  );
+}
+
 function DetalheModal({ detalhe, loading, onClose, onRevisado }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto"
@@ -245,6 +264,12 @@ function DetalheModal({ detalhe, loading, onClose, onRevisado }) {
                       </ul>
                     </div>
                   )}
+                  {detalhe.auditoria.status === 'revisar' && (
+                    <BotaoRegerar progressoId={detalhe.id} onRevisado={onRevisado} />
+                  )}
+                  {detalhe.auditoria.regerado_com_feedback && (
+                    <p className="text-[10px] text-gray-500 mt-2 italic">Regenerada com feedback da auditoria em {new Date(detalhe.auditoria.regerado_em || '').toLocaleString('pt-BR')}</p>
+                  )}
                 </div>
               </section>
             ) : (
@@ -260,8 +285,6 @@ function DetalheModal({ detalhe, loading, onClose, onRevisado }) {
               <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-xs text-gray-300 whitespace-pre-wrap">{detalhe.resposta}</div>
             </section>
 
-            {/* Revisão Vertho */}
-            <RevisaoSection detalhe={detalhe} onRevisado={onRevisado} />
           </div>
         )}
       </div>
@@ -269,74 +292,3 @@ function DetalheModal({ detalhe, loading, onClose, onRevisado }) {
   );
 }
 
-function RevisaoSection({ detalhe, onRevisado }) {
-  const sb = getSupabase();
-  const [busy, setBusy] = useState(false);
-  const [ajustes, setAjustes] = useState({});
-
-  const statusRev = detalhe?.avaliacaoPrimaria?.status_revisao;
-  if (statusRev === 'aprovado_vertho' || statusRev === 'ajustado_vertho') {
-    return (
-      <section className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
-        <p className="text-xs text-emerald-300 font-bold">
-          ✓ {statusRev === 'aprovado_vertho' ? 'Aprovado pela Vertho' : 'Ajustado pela Vertho'}
-        </p>
-      </section>
-    );
-  }
-
-  async function handleAprovar() {
-    setBusy(true);
-    const { data: { user } } = await sb.auth.getUser();
-    const r = await revisarAvaliacaoSem14(user.email, detalhe.id, { acao: 'aprovar' });
-    setBusy(false);
-    if (r.error) alert(r.error);
-    else onRevisado?.();
-  }
-
-  async function handleAjustar() {
-    const ajustesArr = Object.entries(ajustes)
-      .filter(([_, v]) => v.nota_pos != null && v.nota_pos !== '')
-      .map(([desc, v]) => ({ descritor: desc, nota_pos: Number(v.nota_pos), motivo: v.motivo || 'ajuste manual Vertho' }));
-    if (!ajustesArr.length) { alert('Nenhum ajuste definido'); return; }
-    setBusy(true);
-    const { data: { user } } = await sb.auth.getUser();
-    const r = await revisarAvaliacaoSem14(user.email, detalhe.id, { acao: 'ajustar', ajustes: ajustesArr });
-    setBusy(false);
-    if (r.error) alert(r.error);
-    else onRevisado?.();
-  }
-
-  const descs = detalhe?.avaliacaoPrimaria?.avaliacao_por_descritor || [];
-
-  return (
-    <section className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-4 space-y-3">
-      <p className="text-[10px] uppercase tracking-widest text-purple-400 font-bold">Revisão Vertho</p>
-
-      <div className="space-y-2">
-        {descs.map((d, i) => (
-          <div key={i} className="flex items-center gap-2 text-[11px] flex-wrap">
-            <span className="text-white font-bold flex-1 min-w-0 truncate">{d.descritor}</span>
-            <span className="text-gray-400 shrink-0">IA: {d.nota_pos}</span>
-            <span className="text-gray-500 shrink-0">→</span>
-            <input type="number" step="0.1" min="1" max="4" placeholder={d.nota_pos}
-              value={ajustes[d.descritor]?.nota_pos ?? ''}
-              onChange={e => setAjustes({ ...ajustes, [d.descritor]: { ...ajustes[d.descritor], nota_pos: e.target.value } })}
-              className="w-16 bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-xs text-white outline-none focus:border-purple-400" />
-          </div>
-        ))}
-      </div>
-
-      <div className="flex gap-2 pt-2">
-        <button onClick={handleAprovar} disabled={busy}
-          className="flex-1 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm font-bold disabled:opacity-50">
-          Aprovar como está
-        </button>
-        <button onClick={handleAjustar} disabled={busy}
-          className="flex-1 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-sm font-bold disabled:opacity-50">
-          Salvar ajustes
-        </button>
-      </div>
-    </section>
-  );
-}

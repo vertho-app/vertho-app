@@ -82,65 +82,133 @@ export async function listarAuditoriasSem14(email, filtros = {}) {
  * lado a lado pra review manual da Vertho.
  */
 /**
- * Vertho aprova ou ajusta a avaliação da sem 14 após revisão manual.
- * - 'aprovar': marca status_revisao='aprovado_vertho', mantém notas.
- * - 'ajustar': aceita notas ajustadas por descritor, recalcula médias,
- *   marca status_revisao='ajustado_vertho'.
+ * Regera o scoring da sem 14 injetando o feedback da auditoria anterior
+ * no prompt do scorer — a IA corrige com base nos alertas.
+ * Depois roda check de novo.
  */
-export async function revisarAvaliacaoSem14(email, progressoId, { acao, ajustes }) {
+export async function regerarScoringComFeedback(email, progressoId) {
   const ctx = await getUserContext(email);
   if (!ctx?.isPlatformAdmin) return { error: 'Acesso restrito à Vertho' };
 
   const sb = createSupabaseAdmin();
   const { data: prog } = await sb.from('temporada_semana_progresso')
-    .select('id, trilha_id, feedback').eq('id', progressoId).maybeSingle();
+    .select('id, trilha_id, empresa_id, colaborador_id, feedback')
+    .eq('id', progressoId).maybeSingle();
   if (!prog) return { error: 'Registro não encontrado' };
 
   const fb = prog.feedback || {};
+  const auditoriaAnterior = fb.auditoria;
+  if (!auditoriaAnterior) return { error: 'Sem auditoria anterior pra usar como feedback' };
 
-  if (acao === 'aprovar') {
-    fb.status_revisao = 'aprovado_vertho';
-    fb.revisado_em = new Date().toISOString();
-    fb.revisado_por = email;
-  } else if (acao === 'ajustar' && Array.isArray(ajustes)) {
-    const avalDescs = fb.avaliacao_por_descritor || [];
-    for (const aj of ajustes) {
-      const desc = avalDescs.find(d => d.descritor === aj.descritor);
-      if (desc && aj.nota_pos != null) {
-        desc.nota_pos_original = desc.nota_pos;
-        desc.nota_pos = Number(aj.nota_pos);
-        desc.delta = Number(aj.nota_pos) - Number(desc.nota_pre);
-        desc.classificacao = desc.delta >= 0.2 ? 'evoluiu' : desc.delta <= -0.2 ? 'regrediu' : 'manteve';
-        desc.ajustado_por_vertho = true;
-        desc.motivo_ajuste = aj.motivo || 'ajuste manual Vertho';
-      }
-    }
-    fb.avaliacao_por_descritor = avalDescs;
-    const notas = avalDescs.map(d => Number(d.nota_pos)).filter(n => !isNaN(n));
-    if (notas.length) {
-      fb.nota_media_pos = (notas.reduce((a, b) => a + b, 0) / notas.length).toFixed(2);
-      const pres = avalDescs.map(d => Number(d.nota_pre)).filter(n => !isNaN(n));
-      fb.nota_media_pre = pres.length ? (pres.reduce((a, b) => a + b, 0) / pres.length).toFixed(2) : fb.nota_media_pre;
-      fb.delta_medio = (Number(fb.nota_media_pos) - Number(fb.nota_media_pre)).toFixed(2);
-    }
-    fb.status_revisao = 'ajustado_vertho';
-    fb.revisado_em = new Date().toISOString();
-    fb.revisado_por = email;
-  } else {
-    return { error: "acao deve ser 'aprovar' ou 'ajustar'" };
+  const { data: trilha } = await sb.from('trilhas')
+    .select('id, empresa_id, colaborador_id, competencia_foco, descritores_selecionados')
+    .eq('id', prog.trilha_id).maybeSingle();
+  if (!trilha) return { error: 'Trilha não encontrada' };
+
+  const { data: colab } = await sb.from('colaboradores')
+    .select('nome_completo, cargo, perfil_dominante').eq('id', trilha.colaborador_id).maybeSingle();
+
+  const descritores = Array.isArray(trilha.descritores_selecionados) ? trilha.descritores_selecionados : [];
+  const { callAI } = await import('@/actions/ai-client');
+
+  // Enriquece com régua + nota_pre fresh (reusa helpers do evaluation route)
+  const nomes = descritores.map(d => d.descritor);
+  let { data: regRows } = await sb.from('competencias')
+    .select('nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
+    .eq('empresa_id', trilha.empresa_id).eq('nome', trilha.competencia_foco)
+    .in('nome_curto', nomes);
+  if (!regRows?.length) {
+    const { data: base } = await sb.from('competencias_base')
+      .select('nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
+      .eq('nome', trilha.competencia_foco).in('nome_curto', nomes);
+    regRows = base || [];
+  }
+  const regMap = Object.fromEntries(regRows.map(r => [r.nome_curto, r]));
+  const { data: assRows } = await sb.from('descriptor_assessments')
+    .select('descritor, nota').eq('colaborador_id', trilha.colaborador_id)
+    .eq('competencia', trilha.competencia_foco).in('descritor', nomes);
+  const notaMap = Object.fromEntries((assRows || []).map(a => [a.descritor, Number(a.nota)]));
+  const descritoresEnriquecidos = descritores.map(d => ({
+    ...d, ...(regMap[d.descritor] || {}),
+    nota_atual: notaMap[d.descritor] != null ? notaMap[d.descritor] : d.nota_atual,
+  }));
+
+  // Acumulada + evidências
+  const { data: prog13 } = await sb.from('temporada_semana_progresso')
+    .select('feedback').eq('trilha_id', trilha.id).eq('semana', 13).maybeSingle();
+  const acumuladoPrimaria = prog13?.feedback?.acumulado?.primaria || null;
+
+  // Monta feedback da auditoria anterior como instrução extra pro scorer
+  const feedbackAuditoria = [
+    `A avaliação anterior recebeu nota ${auditoriaAnterior.nota_auditoria}/100 da auditoria.`,
+    auditoriaAnterior.resumo_auditoria && `Resumo: ${auditoriaAnterior.resumo_auditoria}`,
+    ...(auditoriaAnterior.alertas || []).map(a =>
+      typeof a === 'string' ? `Alerta: ${a}` : `Alerta [${a.descritor || a.tipo || ''}]: ${a.descricao || a.detalhe || ''}`
+    ),
+    ...(auditoriaAnterior.ajustes_sugeridos || []).map(a =>
+      `Ajuste sugerido [${a.descritor}]: nota ${a.nota_pos_sugerida} — ${a.motivo}`
+    ),
+  ].filter(Boolean).join('\n');
+
+  const { promptEvolutionScenarioScore } = await import('@/lib/season-engine/prompts/evolution-scenario');
+  const { promptEvolutionScenarioCheck } = await import('@/lib/season-engine/prompts/evolution-scenario-check');
+
+  // Scorer com feedback injetado
+  const { system, user } = promptEvolutionScenarioScore({
+    competencia: trilha.competencia_foco,
+    descritores: descritoresEnriquecidos,
+    cenario: fb.cenario,
+    resposta: fb.cenario_resposta,
+    nomeColab: (colab?.nome_completo || '').split(' ')[0],
+    perfilDominante: colab?.perfil_dominante,
+    evidenciasAcumuladas: '', // simplificado — pode agregar se quiser
+    acumuladoPrimaria,
+  });
+
+  const systemComFeedback = system + `\n\n## FEEDBACK DA AUDITORIA ANTERIOR (CORRIJA OS PROBLEMAS ABAIXO):\n${feedbackAuditoria}`;
+
+  let parsed = {};
+  try {
+    const r = await callAI(systemComFeedback, user, {}, 10000);
+    parsed = JSON.parse(r.replace(/```json\n?|```\n?/g, '').trim());
+  } catch (e) {
+    return { error: 'Scorer falhou: ' + e.message };
   }
 
-  await sb.from('temporada_semana_progresso').update({ feedback: fb }).eq('id', prog.id);
-
-  // Regenera Evolution Report com notas ajustadas
-  if (acao === 'ajustar') {
-    try {
-      const { gerarEvolutionReport } = await import('@/actions/evolution-report');
-      await gerarEvolutionReport(prog.trilha_id);
-    } catch (e) { console.warn('[revisao] evolution report:', e.message); }
+  // Check novo
+  let auditoria = null;
+  try {
+    const { system: sC, user: uC } = promptEvolutionScenarioCheck({
+      competencia: trilha.competencia_foco,
+      descritores: descritoresEnriquecidos,
+      cenario: fb.cenario,
+      resposta: fb.cenario_resposta,
+      avaliacaoPrimaria: parsed,
+      evidenciasAcumuladas: '',
+    });
+    const rC = await callAI(sC, uC, {}, 8000);
+    auditoria = JSON.parse(rC.replace(/```json\n?|```\n?/g, '').trim());
+  } catch (e) {
+    console.warn('[regerar check]', e.message);
   }
 
-  return { ok: true, acao, status_revisao: fb.status_revisao };
+  // Salva
+  const novoFb = {
+    ...fb, ...parsed,
+    auditoria,
+    auditoria_anterior: auditoriaAnterior,
+    regerado_com_feedback: true,
+    regerado_em: new Date().toISOString(),
+  };
+  await sb.from('temporada_semana_progresso').update({ feedback: novoFb }).eq('id', prog.id);
+
+  // Regenera Evolution Report
+  try {
+    const { gerarEvolutionReport } = await import('@/actions/evolution-report');
+    await gerarEvolutionReport(prog.trilha_id);
+  } catch (e) { console.warn('[regerar ER]', e.message); }
+
+  return { ok: true, novaNota: auditoria?.nota_auditoria, novoStatus: auditoria?.status };
 }
 
 export async function loadAuditoriaSem14Detalhe(email, progressoId) {
