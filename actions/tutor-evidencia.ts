@@ -90,18 +90,22 @@ Avalie e gere feedback:
       return { success: true, feedback: 'Obrigado pela sua evidência! Continue praticando.', pontos: 5, avaliacao: null };
     }
 
-    // Salvar pontuação na capacitação
+    // Salvar pontuação na capacitação (tabela pode não existir em todos os ambientes)
     const pontos = avaliacao.pontos_total || 5;
-    await sb.from('capacitacao')
-      .update({
-        pontos,
-        evidencia_avaliacao: avaliacao,
-        pilula_ok: true,
-      })
-      .eq('colaborador_id', colaboradorId)
-      .eq('empresa_id', empresaId)
-      .eq('semana', semana)
-      .eq('tipo', 'evidencia');
+    try {
+      await sb.from('capacitacao')
+        .update({
+          pontos,
+          evidencia_avaliacao: avaliacao,
+          pilula_ok: true,
+        })
+        .eq('colaborador_id', colaboradorId)
+        .eq('empresa_id', empresaId)
+        .eq('semana', semana)
+        .eq('tipo', 'evidencia');
+    } catch (e) {
+      console.warn('[avaliarEvidencia] capacitacao update falhou (tabela pode não existir):', e?.message);
+    }
 
     return {
       success: true,

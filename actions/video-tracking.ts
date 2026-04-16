@@ -9,7 +9,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
  *
  * Se o evento for 'play_finished' e o vídeo estiver associado a algum
  * curso da trilha do colab (via `cursos[].bunny_video_id`), marca esse
- * curso como concluído em fase4_progresso.cursos_progresso.
+ * curso como concluído em temporada_semana_progresso.conteudo_consumido.
  */
 interface VideoWatchedParams {
   colaboradorId: string;
@@ -70,7 +70,7 @@ export async function registrarVideoWatched({
 /**
  * Se `videoId` corresponder a um curso da trilha do colab (coluna
  * `cursos[].bunny_video_id`), marca esse curso como concluído em
- * `fase4_progresso.cursos_progresso`. Operação idempotente.
+ * `temporada_semana_progresso.conteudo_consumido`. Operação idempotente.
  *
  * Pra habilitar a integração, o admin precisa editar a trilha e adicionar
  * `bunny_video_id: "<guid>"` em cada item de `cursos`. Sem essa chave
@@ -96,15 +96,16 @@ async function concluirPilulaSeMapeada(colaboradorId, empresaId, videoId) {
 
   const semanaMatch = cursos[idxMatch]?.semana || (idxMatch + 1);
 
-  // Atualiza cursos_progresso em fase4_progresso
-  const { data: progresso } = await sb.from('fase4_progresso')
-    .select('id, cursos_progresso')
+  // Atualiza conteudo_consumido em temporada_semana_progresso
+  const { data: progresso } = await sb.from('temporada_semana_progresso')
+    .select('id, conteudo_consumido')
     .eq('colaborador_id', colaboradorId)
     .eq('empresa_id', empresaId)
+    .eq('semana', semanaMatch)
     .maybeSingle();
   if (!progresso) return;
 
-  const arr = Array.isArray(progresso.cursos_progresso) ? [...progresso.cursos_progresso] : [];
+  const arr = Array.isArray(progresso.conteudo_consumido) ? [...progresso.conteudo_consumido] : [];
   const j = arr.findIndex(p => p?.semana === semanaMatch);
   if (j >= 0) {
     if (arr[j].concluido) return; // já concluído
@@ -113,7 +114,7 @@ async function concluirPilulaSeMapeada(colaboradorId, empresaId, videoId) {
     arr.push({ semana: semanaMatch, concluido: true, concluido_em: new Date().toISOString() });
   }
 
-  await sb.from('fase4_progresso')
-    .update({ cursos_progresso: arr })
+  await sb.from('temporada_semana_progresso')
+    .update({ conteudo_consumido: arr })
     .eq('id', progresso.id);
 }

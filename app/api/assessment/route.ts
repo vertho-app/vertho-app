@@ -17,9 +17,8 @@ export async function GET(req: Request) {
     if (!colab) return NextResponse.json({ error: 'Colaborador não encontrado' }, { status: 404 });
 
     const { data: cenarios } = await sb.from('banco_cenarios')
-      .select('id, competencia_id, cenario, p1, p2, p3, p4')
+      .select('id, competencia_id, titulo, descricao, alternativas, p1, p2, p3, p4')
       .eq('empresa_id', colab.empresa_id)
-      .eq('email_colaborador', email)
       .order('created_at');
 
     const { data: respostas } = await sb.from('respostas')

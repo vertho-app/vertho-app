@@ -125,6 +125,7 @@ export async function triggerSegunda() {
         : (pilula?.resumo || titulo);
 
       // Registrar envio na capacitação. empresa_id é injetado pelo tdb.insert
+      // Nota: tabela capacitacao pode não existir em todos os ambientes (legado)
       try {
         await tdb.from('capacitacao').insert({
           colaborador_id: envio.colaborador_id,
@@ -133,7 +134,9 @@ export async function triggerSegunda() {
           pilula_ok: false,
           pontos: 0,
         });
-      } catch { /* Ignora se já existe */ }
+      } catch (e) {
+        console.warn('[triggerSegunda] capacitacao insert falhou (tabela pode não existir):', e?.message);
+      }
 
       // Enviar WhatsApp via QStash (se tiver telefone)
       if (telefone) {

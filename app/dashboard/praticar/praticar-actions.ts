@@ -8,7 +8,7 @@ import { findColabByEmail } from '@/lib/authz';
  *
  * Fonte dos dados:
  * - trilhas         → competencia_foco, cursos (array), status (pendente/ativo/concluido)
- * - fase4_progresso → semana_atual, pct_conclusao, cursos_progresso (se a capacitação já foi iniciada)
+ * - temporada_semana_progresso → semana, conteudo_consumido (se a capacitação já foi iniciada)
  *
  * Estados possíveis:
  * - semAtiva = false              → não tem trilha nenhuma
@@ -38,19 +38,20 @@ export async function loadTrilhaAtual(email) {
 
   const cursos = Array.isArray(trilha.cursos) ? trilha.cursos : [];
 
-  // 2) Progresso da capacitação (existe só quando o RH/admin iniciou a capacitação)
-  const { data: progresso } = await sb.from('fase4_progresso')
-    .select('semana_atual, status, cursos_progresso, pct_conclusao, iniciado_em')
+  // 2) Progresso da capacitação (temporada_semana_progresso — schema novo)
+  const { data: progressoRows } = await sb.from('temporada_semana_progresso')
+    .select('semana, conteudo_consumido, created_at')
     .eq('colaborador_id', colab.id)
     .eq('empresa_id', colab.empresa_id)
-    .maybeSingle();
+    .order('semana', { ascending: false });
 
-  const semanaAtual = progresso?.semana_atual || 0;
+  const ultimoProgresso = progressoRows?.[0] || null;
+  const semanaAtual = ultimoProgresso?.semana || 0;
   const totalSemanas = 14;
   const ehImplementacao = [4, 8, 12].includes(semanaAtual);
 
   // Estado "pendente" — trilha preparada mas ainda não iniciada
-  if (!progresso || trilha.status === 'pendente') {
+  if (!ultimoProgresso || trilha.status === 'pendente') {
     return {
       colaborador: colab,
       semAtiva: true,
@@ -61,7 +62,7 @@ export async function loadTrilhaAtual(email) {
   }
 
   // Em andamento
-  const cursosProgresso = Array.isArray(progresso.cursos_progresso) ? progresso.cursos_progresso : [];
+  const cursosProgresso = Array.isArray(ultimoProgresso.conteudo_consumido) ? ultimoProgresso.conteudo_consumido : [];
   const semanasCompletas = cursosProgresso.filter(c => c.concluido).map(c => c.semana).filter(Boolean);
   const trilhaSemanas = [];
   for (let s = 1; s <= totalSemanas; s++) {
@@ -79,13 +80,13 @@ export async function loadTrilhaAtual(email) {
     status: 'ativa',
     semanaAtual,
     totalSemanas,
-    pctConclusao: progresso.pct_conclusao || 0,
+    pctConclusao: Math.round((semanaAtual / totalSemanas) * 100),
     competenciaFoco: trilha.competencia_foco,
     cursos,
     cursosProgresso,
     ehImplementacao,
     trilha: trilhaSemanas,
-    iniciadoEm: progresso.iniciado_em,
+    iniciadoEm: ultimoProgresso.created_at,
   };
 }
 
@@ -99,24 +100,37 @@ export async function registrarEvidencia(colaboradorId, empresaId, semana, texto
 
   const sb = createSupabaseAdmin();
 
-  const { data, error } = await sb.from('capacitacao').insert({
-    empresa_id: empresaId,
-    colaborador_id: colaboradorId,
-    semana,
-    tipo: 'evidencia',
-    evidencia_texto: texto.trim(),
-    pilula_ok: false,
-    pontos: 0,
-  }).select('id').single();
+  let recordId: string | null = null;
+  try {
+    const { data, error } = await sb.from('capacitacao').insert({
+      empresa_id: empresaId,
+      colaborador_id: colaboradorId,
+      semana,
+      tipo: 'evidencia',
+      evidencia_texto: texto.trim(),
+      pilula_ok: false,
+      pontos: 0,
+    }).select('id').single();
 
-  if (error) return { error: error.message };
+    if (error) {
+      console.warn('[registrarEvidencia] capacitacao insert falhou (tabela pode não existir):', error.message);
+    } else {
+      recordId = data.id;
+    }
+  } catch (e) {
+    console.warn('[registrarEvidencia] capacitacao insert falhou (tabela pode não existir):', e?.message);
+  }
 
   try {
     const { avaliarEvidencia } = await import('@/actions/tutor-evidencia');
     const avaliacao = await avaliarEvidencia(colaboradorId, empresaId, semana, texto.trim());
-    return { ok: true, id: data.id, feedback: avaliacao.feedback, pontos: avaliacao.pontos, avaliacao: avaliacao.avaliacao };
+    return { ok: true, id: recordId, feedback: avaliacao.feedback, pontos: avaliacao.pontos, avaliacao: avaliacao.avaliacao };
   } catch {
-    await sb.from('capacitacao').update({ pontos: 5, pilula_ok: true }).eq('id', data.id);
-    return { ok: true, id: data.id, feedback: 'Obrigado pela sua evidência! Continue praticando.', pontos: 5 };
+    if (recordId) {
+      try {
+        await sb.from('capacitacao').update({ pontos: 5, pilula_ok: true }).eq('id', recordId);
+      } catch { /* tabela pode não existir */ }
+    }
+    return { ok: true, id: recordId, feedback: 'Obrigado pela sua evidência! Continue praticando.', pontos: 5 };
   }
 }

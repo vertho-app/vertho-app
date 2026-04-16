@@ -37,15 +37,17 @@ export async function loadHomeKpis(email: string): Promise<any> {
       .limit(1)
       .maybeSingle();
 
-    const { data: progresso } = await sb.from('fase4_progresso')
-      .select('semana_atual, cursos_progresso, iniciado_em, status')
+    const { data: progresso } = await sb.from('temporada_semana_progresso')
+      .select('semana, conteudo_consumido, created_at')
       .eq('colaborador_id', colab.id)
       .eq('empresa_id', colab.empresa_id)
+      .order('semana', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
-    const semanaAtual = progresso?.semana_atual || 0;
+    const semanaAtual = progresso?.semana || 0;
     const cursos = Array.isArray(trilha?.cursos) ? trilha.cursos : [];
-    const cursosProg = Array.isArray(progresso?.cursos_progresso) ? progresso.cursos_progresso : [];
+    const cursosProg = Array.isArray(progresso?.conteudo_consumido) ? progresso.conteudo_consumido : [];
 
     // ── 1. Pílula da semana ──────────────────────────────────────────────
     let pilula = null;
@@ -63,18 +65,24 @@ export async function loadHomeKpis(email: string): Promise<any> {
 
     // ── 2. Evidência da semana ──────────────────────────────────────────
     let evidencia = null;
-    if (semanaAtual > 0 && progresso?.iniciado_em) {
-      const { data: evid } = await sb.from('capacitacao')
-        .select('id, created_at')
-        .eq('colaborador_id', colab.id)
-        .eq('empresa_id', colab.empresa_id)
-        .eq('semana', semanaAtual)
-        .eq('tipo', 'evidencia')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    if (semanaAtual > 0 && progresso?.created_at) {
+      let evid = null;
+      try {
+        const { data } = await sb.from('capacitacao')
+          .select('id, created_at')
+          .eq('colaborador_id', colab.id)
+          .eq('empresa_id', colab.empresa_id)
+          .eq('semana', semanaAtual)
+          .eq('tipo', 'evidencia')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        evid = data;
+      } catch (e) {
+        console.warn('[loadHomeKpis] capacitacao query falhou (tabela pode não existir):', e?.message);
+      }
 
-      const inicioCapacitacao = new Date(progresso.iniciado_em);
+      const inicioCapacitacao = new Date(progresso.created_at);
       const inicioSemana = new Date(inicioCapacitacao.getTime() + (semanaAtual - 1) * SEMANA_DIAS * MS_DIA);
       const fimSemana = new Date(inicioSemana.getTime() + SEMANA_DIAS * MS_DIA);
 
@@ -110,8 +118,8 @@ export async function loadHomeKpis(email: string): Promise<any> {
 
     // ── 4. Próximo marco (countdown em dias) ─────────────────────────────
     let proximoMarco = null;
-    if (semanaAtual > 0 && progresso?.iniciado_em) {
-      const inicio = new Date(progresso.iniciado_em);
+    if (semanaAtual > 0 && progresso?.created_at) {
+      const inicio = new Date(progresso.created_at);
       const marcos = [];
       for (let s = semanaAtual + 1; s <= TOTAL_SEMANAS; s++) {
         const dataSemana = new Date(inicio.getTime() + (s - 1) * SEMANA_DIAS * MS_DIA);

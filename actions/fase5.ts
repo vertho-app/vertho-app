@@ -450,11 +450,17 @@ export async function iniciarReavaliacaoLote(empresaId: string, aiConfig: AIConf
       });
     });
 
-    // Trilha progresso
-    const { data: progressos } = await tdb.from('fase4_progresso')
-      .select('colaborador_id, pct_conclusao, semana_atual');
-    const progMap = {};
-    (progressos || []).forEach(p => { progMap[p.colaborador_id] = p; });
+    // Trilha progresso (temporada_semana_progresso — schema novo)
+    const { data: progressos } = await tdb.from('temporada_semana_progresso')
+      .select('colaborador_id, semana, conteudo_consumido');
+    const progMap: Record<string, { pct_conclusao: number; semana_atual: number }> = {};
+    (progressos || []).forEach(p => {
+      const prev = progMap[p.colaborador_id];
+      const sem = p.semana || 0;
+      if (!prev || sem > prev.semana_atual) {
+        progMap[p.colaborador_id] = { semana_atual: sem, pct_conclusao: Math.round((sem / 14) * 100) };
+      }
+    });
 
     // Sessões já criadas (dedupe por colab+comp)
     const { data: sessoes } = await tdb.from('reavaliacao_sessoes')
@@ -761,11 +767,22 @@ export async function gerarEvolucaoFusao(empresaId: string, aiConfig: AIConfig =
       );
     }
 
-    // Trilha progresso
-    const { data: progressos } = await tdb.from('fase4_progresso')
-      .select('colaborador_id, pct_conclusao, semana_atual, cursos_progresso');
-    const progMap = {};
-    (progressos || []).forEach(p => { progMap[p.colaborador_id] = p; });
+    // Trilha progresso (temporada_semana_progresso — schema novo)
+    const { data: progressos } = await tdb.from('temporada_semana_progresso')
+      .select('colaborador_id, semana, conteudo_consumido');
+    const progMap: Record<string, { pct_conclusao: number; semana_atual: number; cursos_progresso: any[] }> = {};
+    (progressos || []).forEach(p => {
+      const prev = progMap[p.colaborador_id];
+      const sem = p.semana || 0;
+      const conteudo = Array.isArray(p.conteudo_consumido) ? p.conteudo_consumido : [];
+      if (!prev || sem > prev.semana_atual) {
+        progMap[p.colaborador_id] = {
+          semana_atual: sem,
+          pct_conclusao: Math.round((sem / 14) * 100),
+          cursos_progresso: conteudo,
+        };
+      }
+    });
 
     // Mapas
     const resAMap = {};

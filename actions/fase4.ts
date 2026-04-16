@@ -307,117 +307,30 @@ export async function _montarTrilhasLote_legacy(empresaId: string) {
 
 // ── Criar estrutura da Fase 4 ───────────────────────────────────────────────
 
-export async function criarEstruturaFase4(empresaId: string) {
-  const sb = createSupabaseAdmin();
-  try {
-    const { data: colaboradores } = await sb.from('colaboradores')
-      .select('id')
-      .eq('empresa_id', empresaId);
-
-    if (!colaboradores?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
-
-    let criados = 0;
-    for (const colab of colaboradores) {
-      const { error } = await sb.from('fase4_progresso').upsert({
-        empresa_id: empresaId,
-        colaborador_id: colab.id,
-        semana_atual: 1,
-        status: 'aguardando_inicio',
-        checkins: [],
-        criado_em: new Date().toISOString(),
-      }, { onConflict: 'empresa_id,colaborador_id' });
-
-      if (!error) criados++;
-    }
-
-    return { success: true, message: `Estrutura Fase 4 criada para ${criados} colaboradores` };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
+export async function criarEstruturaFase4(_empresaId: string) {
+  return { success: false, error: 'Fluxo legado desativado — use Temporadas' };
 }
 
 // ── Iniciar Fase 4 para todos ───────────────────────────────────────────────
 
-export async function iniciarFase4ParaTodos(empresaId: string) {
-  const sb = createSupabaseAdmin();
-  try {
-    const { data, error } = await sb.from('fase4_progresso')
-      .update({ status: 'em_andamento', iniciado_em: new Date().toISOString() })
-      .eq('empresa_id', empresaId)
-      .eq('status', 'aguardando_inicio')
-      .select('id');
-
-    if (error) return { success: false, error: error.message };
-    return { success: true, message: `Fase 4 iniciada para ${data?.length || 0} colaboradores` };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
+export async function iniciarFase4ParaTodos(_empresaId: string) {
+  return { success: false, error: 'Fluxo legado desativado — use Temporadas' };
 }
 
 // ── Trigger 2a semana ───────────────────────────────────────────────────────
 
-export async function triggerSegundaFase4(empresaId: string) {
-  const sb = createSupabaseAdmin();
-  try {
-    const { data, error } = await sb.from('fase4_progresso')
-      .update({ semana_atual: 2 })
-      .eq('empresa_id', empresaId)
-      .eq('status', 'em_andamento')
-      .lt('semana_atual', 2)
-      .select('id');
-
-    if (error) return { success: false, error: error.message };
-    return { success: true, message: `${data?.length || 0} colaboradores avançaram para semana 2` };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
+export async function triggerSegundaFase4(_empresaId: string) {
+  return { success: false, error: 'Fluxo legado desativado — use Temporadas' };
 }
 
 // ── Trigger 5a semana ───────────────────────────────────────────────────────
 
-export async function triggerQuintaFase4(empresaId: string) {
-  const sb = createSupabaseAdmin();
-  try {
-    const { data, error } = await sb.from('fase4_progresso')
-      .update({ semana_atual: 5 })
-      .eq('empresa_id', empresaId)
-      .eq('status', 'em_andamento')
-      .lt('semana_atual', 5)
-      .select('id');
-
-    if (error) return { success: false, error: error.message };
-    return { success: true, message: `${data?.length || 0} colaboradores avançaram para semana 5` };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
+export async function triggerQuintaFase4(_empresaId: string) {
+  return { success: false, error: 'Fluxo legado desativado — use Temporadas' };
 }
 
 // ── Status Fase 4 ───────────────────────────────────────────────────────────
 
-export async function getStatusFase4(empresaId: string) {
-  const sb = createSupabaseAdmin();
-  try {
-    const { data: progressos } = await sb.from('fase4_progresso')
-      .select('*, colaboradores!inner(nome_completo)')
-      .eq('empresa_id', empresaId);
-
-    if (!progressos?.length) return { success: true, message: 'Nenhum progresso Fase 4 encontrado', dados: [] };
-
-    const resumo = {
-      total: progressos.length,
-      aguardando: progressos.filter(p => p.status === 'aguardando_inicio').length,
-      em_andamento: progressos.filter(p => p.status === 'em_andamento').length,
-      concluido: progressos.filter(p => p.status === 'concluido').length,
-      semana_media: Math.round(progressos.reduce((s, p) => s + (p.semana_atual || 0), 0) / progressos.length),
-    };
-
-    return {
-      success: true,
-      message: `Fase 4: ${resumo.em_andamento} em andamento, ${resumo.concluido} concluídos, semana média: ${resumo.semana_media}`,
-      resumo,
-      dados: progressos,
-    };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
+export async function getStatusFase4(_empresaId: string) {
+  return { success: false, error: 'Fluxo legado desativado — use Temporadas' };
 }
