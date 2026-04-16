@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 import { callAI } from './ai-client';
 import { promptAvaliacaoAcumulada, promptAvaliacaoAcumuladaCheck } from '@/lib/season-engine/prompts/acumulado';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
@@ -13,14 +14,16 @@ import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
  * qualitativa. Também pode ser chamada manualmente pelo admin Vertho.
  */
 export async function gerarAvaliacaoAcumulada(trilhaId) {
-  const sb = createSupabaseAdmin();
-
-  const { data: trilha } = await sb.from('trilhas')
+  // Descobre tenant via trilha (raw — query inicial sem tenant conhecido).
+  const sbRaw = createSupabaseAdmin();
+  const { data: trilha } = await sbRaw.from('trilhas')
     .select('id, empresa_id, colaborador_id, competencia_foco, descritores_selecionados, temporada_plano')
     .eq('id', trilhaId).maybeSingle();
   if (!trilha) return { error: 'trilha não encontrada' };
 
-  const { data: colab } = await sb.from('colaboradores')
+  const tdb = tenantDb(trilha.empresa_id);
+
+  const { data: colab } = await tdb.from('colaboradores')
     .select('nome_completo, cargo').eq('id', trilha.colaborador_id).maybeSingle();
   const nome = (colab?.nome_completo || '').split(' ')[0] || 'colab';
 
@@ -28,11 +31,11 @@ export async function gerarAvaliacaoAcumulada(trilhaId) {
   if (!descritores.length) return { error: 'sem descritores_selecionados' };
 
   // Enriquece com régua + nota_pre fresh
-  const descritoresComRegua = await enriquecerComRegua(sb, trilha.empresa_id, trilha.competencia_foco, descritores);
-  const descritoresFresh = await atualizarNotaAtualFresh(sb, trilha.colaborador_id, trilha.competencia_foco, descritoresComRegua);
+  const descritoresComRegua = await enriquecerComRegua(tdb, sbRaw, trilha.competencia_foco, descritores);
+  const descritoresFresh = await atualizarNotaAtualFresh(tdb, trilha.colaborador_id, trilha.competencia_foco, descritoresComRegua);
 
   // Agrega evidências das 13 semanas
-  const evidenciasAcumuladas = await agregarEvidencias(sb, trilhaId, descritoresFresh, trilha.temporada_plano);
+  const evidenciasAcumuladas = await agregarEvidencias(tdb, trilhaId, descritoresFresh, trilha.temporada_plano);
 
   // PII masking pro prompt externo (Claude). Nome do colab vira alias;
   // evidências (transcripts literais) passam pelo sanitizador.
@@ -87,18 +90,16 @@ export async function gerarAvaliacaoAcumulada(trilhaId) {
     auditoria,
   };
 
-  const { data: prog13 } = await sb.from('temporada_semana_progresso')
+  const { data: prog13 } = await tdb.from('temporada_semana_progresso')
     .select('id, feedback').eq('trilha_id', trilhaId).eq('semana', 13).maybeSingle();
 
   if (prog13) {
     const novoFb = { ...(prog13.feedback || {}), acumulado: payload };
-    await sb.from('temporada_semana_progresso').update({ feedback: novoFb }).eq('id', prog13.id);
+    await tdb.from('temporada_semana_progresso').update({ feedback: novoFb }).eq('id', prog13.id);
   } else {
-    // Sem 13 ainda não existe — cria linha mínima. Normalmente não deveria
-    // acontecer, mas é robustez.
-    await sb.from('temporada_semana_progresso').insert({
+    // empresa_id é injetado pelo tdb.insert
+    await tdb.from('temporada_semana_progresso').insert({
       trilha_id: trilhaId,
-      empresa_id: trilha.empresa_id,
       colaborador_id: trilha.colaborador_id,
       semana: 13, tipo: 'avaliacao', status: 'em_andamento',
       feedback: { acumulado: payload },
@@ -110,13 +111,14 @@ export async function gerarAvaliacaoAcumulada(trilhaId) {
 
 // ── Helpers ──
 
-async function enriquecerComRegua(sb, empresaId, competencia, descritores) {
+async function enriquecerComRegua(tdb, sbRaw, competencia, descritores) {
   const nomesCurtos = descritores.map(d => d.descritor);
-  let { data: rows } = await sb.from('competencias')
+  let { data: rows } = await tdb.from('competencias')
     .select('nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
-    .eq('empresa_id', empresaId).eq('nome', competencia).in('nome_curto', nomesCurtos);
+    .eq('nome', competencia).in('nome_curto', nomesCurtos);
   if (!rows || rows.length === 0) {
-    const { data: base } = await sb.from('competencias_base')
+    // competencias_base é GLOBAL (catálogo nacional) → raw
+    const { data: base } = await sbRaw.from('competencias_base')
       .select('nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
       .eq('nome', competencia).in('nome_curto', nomesCurtos);
     rows = base || [];
@@ -125,9 +127,9 @@ async function enriquecerComRegua(sb, empresaId, competencia, descritores) {
   return descritores.map(d => ({ ...d, ...(mapa[d.descritor] || {}) }));
 }
 
-async function atualizarNotaAtualFresh(sb, colaboradorId, competencia, descritores) {
+async function atualizarNotaAtualFresh(tdb, colaboradorId, competencia, descritores) {
   const nomes = descritores.map(d => d.descritor);
-  const { data } = await sb.from('descriptor_assessments')
+  const { data } = await tdb.from('descriptor_assessments')
     .select('descritor, nota')
     .eq('colaborador_id', colaboradorId).eq('competencia', competencia).in('descritor', nomes);
   const mapa = Object.fromEntries((data || []).map(a => [a.descritor, Number(a.nota)]));
@@ -137,8 +139,8 @@ async function atualizarNotaAtualFresh(sb, colaboradorId, competencia, descritor
   }));
 }
 
-async function agregarEvidencias(sb, trilhaId, descritores, plano) {
-  const { data: progressos } = await sb.from('temporada_semana_progresso')
+async function agregarEvidencias(tdb, trilhaId, descritores, plano) {
+  const { data: progressos } = await tdb.from('temporada_semana_progresso')
     .select('semana, tipo, reflexao, feedback')
     .eq('trilha_id', trilhaId).lte('semana', 13).order('semana');
   if (!progressos?.length) return '';

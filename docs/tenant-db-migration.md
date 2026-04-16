@@ -20,13 +20,14 @@ Atualizar conforme migrar.
 | `fase1.js::loadTop10` + `loadTop10TodosCargos` + `adicionarTop10` + `removerTop10` + `loadGabaritosCargos` | ✅ | alta | resto do fase1 ainda não |
 | `fase1.js` (IA1/IA2/IA3 — rodarIA1/rodarIA2/rodarIA3) | ⬜ | alta | grandes, cross-table; tocar isoladamente |
 | `fase3.js` | ⬜ | alta | sessoes_avaliacao |
-| `fase5.js` | ⬜ | alta | relatorios |
+| `fase5.js` | ⬜ | alta | relatorios — grande, fazer em sub-fases |
 | `conteudos.js` | ⏭️ N/A | — | painel curatorial Vertho (cross-tenant intencional) |
-| `relatorios.js` + `relatorios-load.js` | ⬜ | alta | |
-| `competencias.js` | ⬜ | média | |
-| `preferencias-aprendizagem.js` | ⬜ | média | |
-| `avaliacao-acumulada.js` | ⬜ | média | |
-| `evolution-report.js` | ⬜ | média | |
+| `relatorios.js` | ⬜ | alta | |
+| `relatorios-load.js::loadRelatoriosEmpresa` | ✅ | alta | |
+| `competencias.js` (3 funções) | ✅ | média | loadCompetencias, salvarCompetencia, excluirCompetencia |
+| `preferencias-aprendizagem.js::loadPreferenciasEmpresa` | ✅ | média | loadPreferenciasGlobais mantém raw (cross-tenant) |
+| `avaliacao-acumulada.js::gerarAvaliacaoAcumulada` | ✅ | média | helpers refatorados pra receber tdb+sbRaw |
+| `evolution-report.js` (2 funções) | ✅ | média | gerarEvolutionReport, loadEvolutionReportsEmpresa |
 | `simulador-*.js` | ⬜ | baixa | dev-only |
 | `cron-jobs.js` | ⬜ | baixa | jobs periódicos — usar tenantDb por iteração |
 

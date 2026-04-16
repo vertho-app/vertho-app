@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 import { COLS, calcularRanking } from '@/lib/preferencias-config';
 
 /**
@@ -9,15 +10,13 @@ import { COLS, calcularRanking } from '@/lib/preferencias-config';
 export async function loadPreferenciasEmpresa(empresaId) {
   try {
     if (!empresaId) return { error: 'empresa obrigatória' };
-    const sb = createSupabaseAdmin();
+    const tdb = tenantDb(empresaId);
 
-    const { count: totalColabs } = await sb.from('colaboradores')
-      .select('id', { count: 'exact', head: true })
-      .eq('empresa_id', empresaId);
+    const { count: totalColabs } = await tdb.from('colaboradores')
+      .select('id', { count: 'exact', head: true });
 
-    const { data: rows, error } = await sb.from('colaboradores')
+    const { data: rows, error } = await tdb.from('colaboradores')
       .select(COLS)
-      .eq('empresa_id', empresaId)
       .not('pref_video_curto', 'is', null);
 
     if (error) return { error: error.message };

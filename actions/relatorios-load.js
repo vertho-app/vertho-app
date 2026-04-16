@@ -1,13 +1,13 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 
 export async function loadRelatoriosEmpresa(empresaId) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { individuais: [], gestores: [], gestor: null, rh: null };
+  const tdb = tenantDb(empresaId);
 
-  const { data, error } = await sb.from('relatorios')
+  const { data, error } = await tdb.from('relatorios')
     .select('id, empresa_id, colaborador_id, tipo, conteudo, gerado_em')
-    .eq('empresa_id', empresaId)
     .order('gerado_em', { ascending: false });
 
   if (error || !data?.length) return { individuais: [], gestores: [], gestor: null, rh: null };
@@ -16,7 +16,7 @@ export async function loadRelatoriosEmpresa(empresaId) {
   const colabIds = [...new Set(data.map(r => r.colaborador_id).filter(Boolean))];
   const colabMap = {};
   if (colabIds.length) {
-    const { data: colabs } = await sb.from('colaboradores').select('id, nome_completo, cargo').in('id', colabIds);
+    const { data: colabs } = await tdb.from('colaboradores').select('id, nome_completo, cargo').in('id', colabIds);
     (colabs || []).forEach(c => { colabMap[c.id] = c; });
   }
 

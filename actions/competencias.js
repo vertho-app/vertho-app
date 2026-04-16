@@ -1,15 +1,16 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 
 // ── Load competências da empresa ────────────────────────────────────────────
 
 export async function loadCompetencias(empresaId) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   try {
-    const { data, error } = await sb.from('competencias')
+    const tdb = tenantDb(empresaId);
+    const { data, error } = await tdb.from('competencias')
       .select('*')
-      .eq('empresa_id', empresaId)
       .order('cargo')
       .order('nome');
 
@@ -23,10 +24,11 @@ export async function loadCompetencias(empresaId) {
 // ── Salvar (criar ou atualizar) competência ─────────────────────────────────
 
 export async function salvarCompetencia(empresaId, comp) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   try {
+    const tdb = tenantDb(empresaId);
+    // empresa_id é injetado pelo tdb.insert/update
     const registro = {
-      empresa_id: empresaId,
       nome: comp.nome,
       descricao: comp.descricao,
       cargo: comp.cargo,
@@ -37,16 +39,13 @@ export async function salvarCompetencia(empresaId, comp) {
 
     let result;
     if (comp.id) {
-      // Atualizar existente
-      result = await sb.from('competencias')
+      result = await tdb.from('competencias')
         .update(registro)
         .eq('id', comp.id)
-        .eq('empresa_id', empresaId)
         .select()
         .single();
     } else {
-      // Criar nova
-      result = await sb.from('competencias')
+      result = await tdb.from('competencias')
         .insert(registro)
         .select()
         .single();
@@ -62,9 +61,13 @@ export async function salvarCompetencia(empresaId, comp) {
 // ── Excluir competência ─────────────────────────────────────────────────────
 
 export async function excluirCompetencia(id) {
-  const sb = createSupabaseAdmin();
+  // Não recebe empresaId — descobre via raw + valida tenant pra defesa em profundidade.
   try {
-    const { error } = await sb.from('competencias').delete().eq('id', id);
+    const sbRaw = createSupabaseAdmin();
+    const { data: row } = await sbRaw.from('competencias').select('empresa_id').eq('id', id).maybeSingle();
+    if (!row) return { success: false, error: 'Não encontrada' };
+    const tdb = tenantDb(row.empresa_id);
+    const { error } = await tdb.from('competencias').delete().eq('id', id);
     if (error) return { success: false, error: error.message };
     return { success: true, message: 'Competência excluída' };
   } catch (err) {

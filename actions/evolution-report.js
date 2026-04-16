@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 
 /**
  * Classifica convergência de um descritor comparando nota_pre (início da temporada),
@@ -22,15 +23,17 @@ function classificarConvergencia({ nota_pre, nota_pos, nivel_percebido }) {
  */
 export async function gerarEvolutionReport(trilhaId) {
   try {
-    const sb = createSupabaseAdmin();
-    const { data: trilha } = await sb.from('trilhas')
-      .select('id, colaborador_id, descritores_selecionados')
+    // Descobre tenant via trilha (raw — query inicial sem tenant conhecido).
+    const sbRaw = createSupabaseAdmin();
+    const { data: trilha } = await sbRaw.from('trilhas')
+      .select('id, colaborador_id, empresa_id, descritores_selecionados')
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return { success: false, error: 'Trilha não encontrada' };
 
-    const { data: prog13 } = await sb.from('temporada_semana_progresso')
+    const tdb = tenantDb(trilha.empresa_id);
+    const { data: prog13 } = await tdb.from('temporada_semana_progresso')
       .select('reflexao').eq('trilha_id', trilhaId).eq('semana', 13).maybeSingle();
-    const { data: prog14 } = await sb.from('temporada_semana_progresso')
+    const { data: prog14 } = await tdb.from('temporada_semana_progresso')
       .select('feedback').eq('trilha_id', trilhaId).eq('semana', 14).maybeSingle();
 
     const qualitativa = prog13?.reflexao?.evolucao_percebida || [];
@@ -67,7 +70,7 @@ export async function gerarEvolutionReport(trilhaId) {
       },
     };
 
-    await sb.from('trilhas').update({
+    await tdb.from('trilhas').update({
       evolution_report,
       evolution_generated_at: new Date().toISOString(),
       status: 'concluida',
@@ -88,15 +91,14 @@ export async function gerarEvolutionReport(trilhaId) {
 export async function loadEvolutionReportsEmpresa(empresaId) {
   try {
     if (!empresaId) return { error: 'empresaId obrigatório' };
-    const sb = createSupabaseAdmin();
-    const { data: trilhas } = await sb.from('trilhas')
+    const tdb = tenantDb(empresaId);
+    const { data: trilhas } = await tdb.from('trilhas')
       .select('id, colaborador_id, competencia_foco, evolution_report, evolution_generated_at')
-      .eq('empresa_id', empresaId)
       .eq('status', 'concluida')
       .not('evolution_report', 'is', null);
 
     const ids = (trilhas || []).map(t => t.colaborador_id);
-    const { data: colabs } = await sb.from('colaboradores')
+    const { data: colabs } = await tdb.from('colaboradores')
       .select('id, nome_completo, cargo, area_depto').in('id', ids);
     const colabMap = Object.fromEntries((colabs || []).map(c => [c.id, c]));
 
