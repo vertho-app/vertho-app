@@ -229,17 +229,18 @@ function DetalheModal({ detalhe, loading, onClose, onRevisado }) {
                   </div>
                   {detalhe.avaliacaoPrimaria.avaliacao_por_descritor?.map((d, i) => {
                     const acum = (detalhe.acumulada || []).find(a => a.descritor === d.descritor);
-                    const delta = d.delta != null ? Number(d.delta) : (Number(d.nota_pos) - Number(d.nota_pre));
-                    const corFinal = d.classificacao === 'regrediu' ? 'text-red-400' : d.classificacao === 'evoluiu' ? 'text-emerald-300' : 'text-gray-300';
+                    const pre = Number(d.nota_pre);
+                    const delta = d.delta != null ? Number(d.delta) : (Number(d.nota_pos) - pre);
+                    const corVsPre = (v) => { const n = Number(v); if (isNaN(n)) return 'text-gray-400'; return n > pre ? 'text-emerald-300' : n < pre ? 'text-red-400' : 'text-gray-300'; };
                     const corDelta = delta > 0 ? 'text-emerald-300' : delta < 0 ? 'text-red-400' : 'text-gray-400';
                     return (
                       <div key={i} className="border-t border-white/5 pt-2">
                         <div className="grid grid-cols-7 gap-1 items-center">
                           <p className="col-span-2 text-[11px] font-bold text-white truncate" title={d.descritor}>{d.descritor}</p>
                           <p className="text-center text-[11px] text-gray-400">{d.nota_pre}</p>
-                          <p className="text-center text-[11px] text-cyan-300">{acum?.nota_acumulada ?? '—'}</p>
-                          <p className="text-center text-[11px] text-amber-300">{d.nota_cenario ?? '—'}</p>
-                          <p className={`text-center text-[11px] font-bold ${corFinal}`}>{d.nota_pos}</p>
+                          <p className={`text-center text-[11px] font-bold ${corVsPre(acum?.nota_acumulada)}`}>{acum?.nota_acumulada ?? '—'}</p>
+                          <p className={`text-center text-[11px] font-bold ${corVsPre(d.nota_cenario)}`}>{d.nota_cenario ?? '—'}</p>
+                          <p className={`text-center text-[11px] font-bold ${corVsPre(d.nota_pos)}`}>{d.nota_pos}</p>
                           <p className={`text-center text-[11px] font-bold ${corDelta}`}>{delta > 0 ? '+' : ''}{delta.toFixed(2)}</p>
                         </div>
                         <p className={`text-[10px] ${corFinal} mt-0.5`}>
