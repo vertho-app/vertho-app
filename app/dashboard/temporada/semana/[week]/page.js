@@ -95,6 +95,8 @@ export default function SemanaPage({ params }) {
     })();
   }, [router, sb, semanaNum]);
 
+  // Sem 14 tem UI própria (idêntica ao mapeamento)
+  if (semanaNum === 14) { router.replace('/dashboard/temporada/sem14'); return <Center><Loader2 className="animate-spin text-cyan-400" /></Center>; }
   if (loading) return <Center><Loader2 className="animate-spin text-cyan-400" /></Center>;
   if (!data?.trilha) return <Center><p className="text-gray-400">Temporada não encontrada</p></Center>;
 

@@ -110,7 +110,7 @@ export default function TemporadaPage() {
           return (
             <button
               key={s.semana}
-              onClick={() => liberada && router.push(`/dashboard/temporada/semana/${s.semana}`)}
+              onClick={() => liberada && router.push(s.semana === 14 ? '/dashboard/temporada/sem14' : `/dashboard/temporada/semana/${s.semana}`)}
               disabled={!liberada}
               title={motivoBloqueio}
               className={`relative rounded-xl p-3 text-left transition-all border ${
