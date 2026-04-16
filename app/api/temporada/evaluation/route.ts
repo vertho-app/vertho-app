@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI, callAIChat } from '@/actions/ai-client';
 import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
+import { aiLimiter } from '@/lib/rate-limit';
 import { promptEvolutionQualitative, promptEvolutionQualitativeExtract } from '@/lib/season-engine/prompts/evolution-qualitative';
 import { promptEvolutionScenarioScore } from '@/lib/season-engine/prompts/evolution-scenario';
 import { promptEvolutionScenarioCheck } from '@/lib/season-engine/prompts/evolution-scenario-check';
@@ -20,6 +21,9 @@ export async function POST(request) {
   try {
     const auth = await requireUser(request);
     if (auth instanceof Response) return auth;
+
+    const limited = aiLimiter.check(request, auth.email);
+    if (limited) return limited;
 
     const body = await request.json();
     const { trilhaId, semana, message, action = 'send', colaboradorId: colabBody } = body;

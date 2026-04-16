@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireRole, assertTenantAccess } from '@/lib/auth/request-context';
+import { heavyLimiter } from '@/lib/rate-limit';
 
 /**
  * POST /api/upload/signed-url
@@ -18,6 +19,9 @@ export async function POST(request: Request) {
     // Só RH ou platform admin pode fazer upload de conteúdo curado
     const auth = await requireRole(request, ['rh', 'admin']);
     if (auth instanceof Response) return auth;
+
+    const limited = heavyLimiter.check(request, auth.email);
+    if (limited) return limited;
 
     const { formato, filename } = await request.json();
     if (!formato || !filename) return NextResponse.json({ error: 'formato+filename obrigatórios' }, { status: 400 });

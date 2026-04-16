@@ -4,6 +4,7 @@ import { callAIChat, callAI } from '@/actions/ai-client';
 import { extractBlock, stripBlocks } from '@/actions/utils';
 import { getOrCreatePromptVersion } from '@/lib/versioning';
 import { requireUser, assertTenantAccess, assertColabAccess } from '@/lib/auth/request-context';
+import { aiLimiter } from '@/lib/rate-limit';
 
 // ── Defaults ────────────────────────────────────────────────────────────────
 
@@ -21,6 +22,9 @@ export async function POST(req) {
   try {
     const auth = await requireUser(req);
     if (auth instanceof Response) return auth;
+
+    const limited = aiLimiter.check(req, auth.email);
+    if (limited) return limited;
 
     const body = await req.json();
     const { sessaoId, empresaId, colaboradorId, competenciaId, mensagem } = body;

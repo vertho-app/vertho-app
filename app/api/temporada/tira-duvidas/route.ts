@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAIChat } from '@/actions/ai-client';
 import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
+import { aiLimiter } from '@/lib/rate-limit';
 import { promptTiraDuvidas } from '@/lib/season-engine/prompts/tira-duvidas';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
@@ -21,6 +22,9 @@ export async function POST(request) {
   try {
     const auth = await requireUser(request);
     if (auth instanceof Response) return auth;
+
+    const limited = aiLimiter.check(request, auth.email);
+    if (limited) return limited;
 
     const body = await request.json();
     const { trilhaId, semana, message, colaboradorId: colabBody } = body;

@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server';
 import { callAIChat } from '@/actions/ai-client';
 import { requireUser } from '@/lib/auth/request-context';
+import { aiLimiter } from '@/lib/rate-limit';
 
 export async function POST(req: Request) {
   try {
     const auth = await requireUser(req);
     if (auth instanceof Response) return auth;
+
+    const limited = aiLimiter.check(req, auth.email);
+    if (limited) return limited;
 
     const { system, messages, model } = await req.json();
 

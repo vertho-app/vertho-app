@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
+import { aiLimiter } from '@/lib/rate-limit';
 
 /**
  * POST /api/temporada/missao
@@ -15,6 +16,9 @@ export async function POST(request) {
   try {
     const auth = await requireUser(request);
     if (auth instanceof Response) return auth;
+
+    const limited = aiLimiter.check(request, auth.email);
+    if (limited) return limited;
 
     const body = await request.json();
     const { trilhaId, semana, modo, compromisso, colaboradorId: colabBody } = body;
