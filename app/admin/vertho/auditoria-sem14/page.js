@@ -209,22 +209,42 @@ function DetalheModal({ detalhe, loading, onClose, onRevisado }) {
                 <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2">
                   <div className="flex gap-4 text-xs flex-wrap">
                     <span>Pré: <b>{detalhe.avaliacaoPrimaria.nota_media_pre}</b></span>
-                    <span>Pós: <b className="text-emerald-300">{detalhe.avaliacaoPrimaria.nota_media_pos}</b></span>
-                    <span>Δ: <b className="text-cyan-300">{detalhe.avaliacaoPrimaria.delta_medio}</b></span>
+                    <span>Acumulada: <b className="text-cyan-300">{(() => {
+                      const acum = detalhe.acumulada || [];
+                      const notas = acum.map(a => a.nota_acumulada).filter(n => n != null);
+                      return notas.length ? (notas.reduce((a,b) => a+b, 0) / notas.length).toFixed(2) : '—';
+                    })()}</b></span>
+                    <span>Cenário: <b className="text-amber-300">{detalhe.avaliacaoPrimaria.nota_media_cenario || '—'}</b></span>
+                    <span>Final: <b className="text-emerald-300">{detalhe.avaliacaoPrimaria.nota_media_pos}</b></span>
+                    <span>Δ: <b className={Number(detalhe.avaliacaoPrimaria.delta_medio) >= 0 ? 'text-emerald-300' : 'text-red-400'}>{detalhe.avaliacaoPrimaria.delta_medio}</b></span>
                   </div>
-                  {detalhe.avaliacaoPrimaria.avaliacao_por_descritor?.map((d, i) => (
-                    <div key={i} className="text-[11px] border-t border-white/5 pt-2">
-                      <p className="font-bold text-white">{d.descritor} — {d.nota_pre} → <span className={
-                        d.classificacao === 'regrediu' ? 'text-red-400' : d.classificacao === 'evoluiu' ? 'text-emerald-300' : 'text-gray-300'
-                      }>{d.nota_pos}</span> <span className={
-                        d.classificacao === 'regrediu' ? 'text-red-400' : d.classificacao === 'evoluiu' ? 'text-emerald-300' : 'text-gray-400'
-                      }>({d.classificacao})</span></p>
-                      <p className="text-gray-400 mt-0.5">{d.justificativa}</p>
-                      {d.consistencia_com_acumulado && (
-                        <p className="text-[10px] text-amber-300 mt-0.5">consistência: {d.consistencia_com_acumulado}</p>
-                      )}
-                    </div>
-                  ))}
+                  {/* Header tabela de notas */}
+                  <div className="grid grid-cols-6 gap-1 text-[9px] uppercase tracking-widest text-gray-500 pb-1 border-b border-white/10">
+                    <span className="col-span-2">Descritor</span>
+                    <span className="text-center">Pré</span>
+                    <span className="text-center">Acumulada</span>
+                    <span className="text-center">Cenário</span>
+                    <span className="text-center">Final</span>
+                  </div>
+                  {detalhe.avaliacaoPrimaria.avaliacao_por_descritor?.map((d, i) => {
+                    const acum = (detalhe.acumulada || []).find(a => a.descritor === d.descritor);
+                    const corFinal = d.classificacao === 'regrediu' ? 'text-red-400' : d.classificacao === 'evoluiu' ? 'text-emerald-300' : 'text-gray-300';
+                    return (
+                      <div key={i} className="border-t border-white/5 pt-2">
+                        <div className="grid grid-cols-6 gap-1 items-center">
+                          <p className="col-span-2 text-[11px] font-bold text-white truncate" title={d.descritor}>{d.descritor}</p>
+                          <p className="text-center text-[11px] text-gray-400">{d.nota_pre}</p>
+                          <p className="text-center text-[11px] text-cyan-300">{acum?.nota_acumulada ?? '—'}</p>
+                          <p className="text-center text-[11px] text-amber-300">{d.nota_cenario ?? '—'}</p>
+                          <p className={`text-center text-[11px] font-bold ${corFinal}`}>{d.nota_pos}</p>
+                        </div>
+                        <p className={`text-[10px] ${corFinal} mt-0.5`}>
+                          {d.classificacao} ({d.consistencia_com_acumulado || '—'})
+                        </p>
+                        <p className="text-[10px] text-gray-500 mt-0.5">{d.justificativa}</p>
+                      </div>
+                    );
+                  })}
                   <p className="text-xs text-gray-300 italic border-t border-white/5 pt-2">{detalhe.avaliacaoPrimaria.resumo_avaliacao}</p>
                 </div>
               </section>

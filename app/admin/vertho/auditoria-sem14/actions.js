@@ -265,6 +265,10 @@ export async function loadAuditoriaSem14Detalhe(email, progressoId) {
   if (error) return { error: error.message };
   if (!data) return { error: 'Registro não encontrado' };
 
+  // Busca progresso da sem 13 pra acumulada
+  const { data: fb13 } = await sb.from('temporada_semana_progresso')
+    .select('feedback').eq('trilha_id', data.trilha_id).eq('semana', 13).maybeSingle();
+
   const fb = data.feedback || {};
   return {
     ok: true,
@@ -280,13 +284,16 @@ export async function loadAuditoriaSem14Detalhe(email, progressoId) {
       avaliacaoPrimaria: {
         avaliacao_por_descritor: fb.avaliacao_por_descritor,
         nota_media_pre: fb.nota_media_pre,
+        nota_media_cenario: fb.nota_media_cenario || null,
         nota_media_pos: fb.nota_media_pos,
         delta_medio: fb.delta_medio,
         resumo_avaliacao: fb.resumo_avaliacao,
-        status_revisao: fb.status_revisao || null,
-        revisado_em: fb.revisado_em || null,
-        revisado_por: fb.revisado_por || null,
       },
+      // Nota acumulada (da 1ª IA ao fim da sem 13) pra comparação
+      acumulada: (() => {
+        const a = fb13?.feedback?.acumulado?.primaria?.avaliacao_acumulada || [];
+        return a.map(x => ({ descritor: x.descritor, nota_acumulada: x.nota_acumulada }));
+      })(),
       auditoria: fb.auditoria,
     },
   };
