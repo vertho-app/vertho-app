@@ -1119,7 +1119,6 @@ export async function enviarLinksPerfil(empresaId: string) {
     const { data: empresa } = await sbRaw.from('empresas').select('nome, slug').eq('id', empresaId).single();
     const { data: colaboradores } = await tdb.from('colaboradores').select('id, nome_completo, email');
     if (!colaboradores?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
-    // @ts-ignore — `resend` é instalado fora do package.json (runtime)
     const { Resend } = await import('resend');
     const resend = new Resend(process.env.RESEND_API_KEY);
     let enviados = 0;
