@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 import { callAI } from './ai-client';
 import { extractJSON } from './utils';
 
@@ -94,24 +95,26 @@ Retorne APENAS JSON valido:
 }`;
 
 export async function rodarIA4(empresaId, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const sbRaw = createSupabaseAdmin();
+  const tdb = tenantDb(empresaId);
   try {
     // Buscar respostas pendentes
-    const { data: respostas, error: respErr } = await sb.from('respostas')
+    const { data: respostas, error: respErr } = await tdb.from('respostas')
       .select('*')
-      .eq('empresa_id', empresaId)
       .is('avaliacao_ia', null)
       .not('r1', 'is', null);
 
     if (respErr) return { success: false, error: respErr.message };
     if (!respostas?.length) return { success: true, message: 'Nenhuma resposta pendente de avaliação' };
 
-    const { data: empresa } = await sb.from('empresas')
+    // empresas: id é o tenant — sem empresa_id; usar raw
+    const { data: empresa } = await sbRaw.from('empresas')
       .select('nome, segmento').eq('id', empresaId).single();
 
     // Buscar colaboradores com perfil CIS
     const colabIds = [...new Set(respostas.map(r => r.colaborador_id).filter(Boolean))];
-    const { data: colabs } = await sb.from('colaboradores')
+    const { data: colabs } = await tdb.from('colaboradores')
       .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, lid_executivo, lid_motivador, lid_metodico, lid_sistematico, perfil_dominante, comp_ousadia, comp_comando, comp_objetividade, comp_assertividade, comp_persuasao, comp_extroversao, comp_entusiasmo, comp_sociabilidade, comp_empatia, comp_paciencia, comp_persistencia, comp_planejamento, comp_organizacao, comp_detalhismo, comp_prudencia, comp_concentracao')
       .in('id', colabIds);
     const colabMap = {};
@@ -120,8 +123,8 @@ export async function rodarIA4(empresaId, aiConfig = {}) {
     // Buscar PPP
     let contextoPPP = '';
     try {
-      const { data: ppp } = await sb.from('ppp_escolas')
-        .select('extracao').eq('empresa_id', empresaId).eq('status', 'extraido')
+      const { data: ppp } = await tdb.from('ppp_escolas')
+        .select('extracao').eq('status', 'extraido')
         .order('extracted_at', { ascending: false }).limit(1).maybeSingle();
       if (ppp?.extracao) {
         const ext = typeof ppp.extracao === 'string' ? JSON.parse(ppp.extracao) : ppp.extracao;
@@ -135,10 +138,11 @@ export async function rodarIA4(empresaId, aiConfig = {}) {
       try {
         const colab = colabMap[resp.colaborador_id] || {};
 
-        // Buscar cenário com perguntas
+        // Buscar cenário com perguntas — banco_cenarios é misto (global + tenant);
+        // busca por id usa raw pra cobrir ambos os casos.
         let cenarioTexto = '', perguntasTexto = '';
         if (resp.cenario_id) {
-          const { data: cen } = await sb.from('banco_cenarios')
+          const { data: cen } = await sbRaw.from('banco_cenarios')
             .select('titulo, descricao, alternativas')
             .eq('id', resp.cenario_id).maybeSingle();
           if (cen) {
@@ -154,15 +158,14 @@ export async function rodarIA4(empresaId, aiConfig = {}) {
         // Buscar competência com descritores N1-N4
         let compNome = '', compCod = '', descritoresTexto = '';
         if (resp.competencia_id) {
-          const { data: comp } = await sb.from('competencias')
+          const { data: comp } = await tdb.from('competencias')
             .select('nome, cod_comp, descricao').eq('id', resp.competencia_id).maybeSingle();
           compNome = comp?.nome || '';
           compCod = comp?.cod_comp || '';
 
           // Buscar descritores com régua N1-N4
-          const { data: descs } = await sb.from('competencias')
+          const { data: descs } = await tdb.from('competencias')
             .select('cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
-            .eq('empresa_id', empresaId)
             .eq('cod_comp', comp?.cod_comp)
             .not('cod_desc', 'is', null);
 
@@ -228,7 +231,7 @@ PERGUNTA 4: ${resp.r4 || '(sem resposta)'}`;
           const nivelGeral = avaliacao.consolidacao?.nivel_geral || avaliacao.nivel_geral || null;
           const notaDecimal = avaliacao.consolidacao?.media_descritores || avaliacao.nota_decimal || null;
 
-          const { error: updErr } = await sb.from('respostas').update({
+          const { error: updErr } = await tdb.from('respostas').update({
             avaliacao_ia: avaliacao,
             nivel_ia4: nivelGeral,
             nota_ia4: notaDecimal,
@@ -246,22 +249,22 @@ PERGUNTA 4: ${resp.r4 || '(sem resposta)'}`;
               // Resolve competencia_nome se vazio (comum em rows antigas)
               let competenciaNome = resp.competencia_nome;
               if (!competenciaNome && resp.competencia_id) {
-                const { data: cc } = await sb.from('competencias')
+                const { data: cc } = await tdb.from('competencias')
                   .select('nome').eq('id', resp.competencia_id).maybeSingle();
                 if (cc?.nome) {
                   competenciaNome = cc.nome;
                   // persiste de volta na resposta
-                  await sb.from('respostas').update({ competencia_nome: cc.nome }).eq('id', resp.id);
+                  await tdb.from('respostas').update({ competencia_nome: cc.nome }).eq('id', resp.id);
                 }
               }
               if (!competenciaNome || !resp.colaborador_id) {
                 console.warn('[IA4] descriptor_assessments: sem competencia_nome/colab_id', resp.id);
               } else {
                 const notasPorDesc = avaliacao.consolidacao?.notas_por_descritor || {};
+                // empresa_id é injetado pelo tdb.upsert
                 const rows = Object.values(notasPorDesc)
                   .filter(d => d?.nome && typeof d.nota_decimal === 'number')
                   .map(d => ({
-                    empresa_id: empresaId,
                     colaborador_id: resp.colaborador_id,
                     cargo: resp.cargo,
                     competencia: competenciaNome,
@@ -271,7 +274,7 @@ PERGUNTA 4: ${resp.r4 || '(sem resposta)'}`;
                     assessment_date: new Date().toISOString(),
                   }));
                 if (rows.length > 0) {
-                  await sb.from('descriptor_assessments').upsert(rows, {
+                  await tdb.from('descriptor_assessments').upsert(rows, {
                     onConflict: 'colaborador_id,competencia,descritor',
                   });
                 }
@@ -301,37 +304,40 @@ PERGUNTA 4: ${resp.r4 || '(sem resposta)'}`;
 // ── Re-avaliar resposta (com feedback do check) ─────────────────────────────
 
 export async function reavaliarResposta(respostaId, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
+  const sbRaw = createSupabaseAdmin();
   try {
-    // Buscar resposta com check anterior
-    const { data: resp } = await sb.from('respostas')
+    // Descobre tenant via resposta (raw — query inicial sem tenant)
+    const { data: resp } = await sbRaw.from('respostas')
       .select('id, empresa_id, colaborador_id, competencia_id, cenario_id, r1, r2, r3, r4, payload_ia4')
       .eq('id', respostaId).single();
     if (!resp) return { success: false, error: 'Resposta não encontrada' };
+
+    const tdb = tenantDb(resp.empresa_id);
 
     // Extrair feedback do check
     const check = typeof resp.payload_ia4 === 'string' ? JSON.parse(resp.payload_ia4) : resp.payload_ia4;
     const feedbackCheck = [check?.justificativa, check?.revisao].filter(Boolean).join('\n');
 
     // Limpar avaliação anterior (manter status_ia4 null para re-check)
-    const { error: clearErr } = await sb.from('respostas').update({
+    const { error: clearErr } = await tdb.from('respostas').update({
       avaliacao_ia: null, nivel_ia4: null, nota_ia4: null,
       status_ia4: null, payload_ia4: null,
       pontos_fortes: null, pontos_atencao: null, feedback_ia4: null, avaliado_em: null,
     }).eq('id', respostaId).select('id');
     if (clearErr) return { success: false, error: `Limpar avaliação falhou: ${clearErr.message}` };
 
-    // Buscar dados necessários (mesmo fluxo do rodarIA4)
-    const { data: empresa } = await sb.from('empresas')
+    // empresas: id é o tenant — sem empresa_id; usar raw
+    const { data: empresa } = await sbRaw.from('empresas')
       .select('nome, segmento').eq('id', resp.empresa_id).single();
 
-    const { data: colab } = await sb.from('colaboradores')
+    const { data: colab } = await tdb.from('colaboradores')
       .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, perfil_dominante, lid_executivo, lid_motivador, lid_metodico, lid_sistematico')
       .eq('id', resp.colaborador_id).single();
 
     let cenarioTexto = '', perguntasTexto = '';
     if (resp.cenario_id) {
-      const { data: cen } = await sb.from('banco_cenarios')
+      // banco_cenarios é misto (global+tenant) → raw por id
+      const { data: cen } = await sbRaw.from('banco_cenarios')
         .select('titulo, descricao, alternativas').eq('id', resp.cenario_id).maybeSingle();
       if (cen) {
         cenarioTexto = `${cen.titulo}\n${cen.descricao}`;
@@ -342,12 +348,12 @@ export async function reavaliarResposta(respostaId, aiConfig = {}) {
 
     let compNome = '', compCod = '', descritoresTexto = '';
     if (resp.competencia_id) {
-      const { data: comp } = await sb.from('competencias')
+      const { data: comp } = await tdb.from('competencias')
         .select('nome, cod_comp').eq('id', resp.competencia_id).maybeSingle();
       compNome = comp?.nome || ''; compCod = comp?.cod_comp || '';
-      const { data: descs } = await sb.from('competencias')
+      const { data: descs } = await tdb.from('competencias')
         .select('cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
-        .eq('empresa_id', resp.empresa_id).eq('cod_comp', comp?.cod_comp).not('cod_desc', 'is', null);
+        .eq('cod_comp', comp?.cod_comp).not('cod_desc', 'is', null);
       if (descs?.length) {
         descritoresTexto = descs.map((d, i) => `DESCRITOR ${i + 1}: ${d.cod_desc} — ${d.nome_curto || ''}\nN1: ${d.n1_gap || ''}\nN2: ${d.n2_desenvolvimento || ''}\nN3: ${d.n3_meta || ''}\nN4: ${d.n4_referencia || ''}`).join('\n\n');
       }
@@ -373,7 +379,7 @@ export async function reavaliarResposta(respostaId, aiConfig = {}) {
     const nivelGeral = avaliacao.consolidacao?.nivel_geral || avaliacao.nivel_geral || null;
     const notaDecimal = avaliacao.consolidacao?.media_descritores || avaliacao.nota_decimal || null;
 
-    const { data: updated, error: updErr } = await sb.from('respostas').update({
+    const { data: updated, error: updErr } = await tdb.from('respostas').update({
       avaliacao_ia: avaliacao,
       nivel_ia4: nivelGeral,
       nota_ia4: notaDecimal,
@@ -402,17 +408,16 @@ export async function rechecarResposta(respostaId, aiConfig = {}) {
 // ── Ver fila de IA4 ─────────────────────────────────────────────────────────
 
 export async function verFilaIA4(empresaId) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const tdb = tenantDb(empresaId);
   try {
-    const { count: pendentes } = await sb.from('respostas')
+    const { count: pendentes } = await tdb.from('respostas')
       .select('id', { count: 'exact', head: true })
-      .eq('empresa_id', empresaId)
       .is('avaliacao_ia', null)
       .not('r1', 'is', null);
 
-    const { count: avaliadas } = await sb.from('respostas')
+    const { count: avaliadas } = await tdb.from('respostas')
       .select('id', { count: 'exact', head: true })
-      .eq('empresa_id', empresaId)
       .not('avaliacao_ia', 'is', null);
 
     return {
@@ -429,10 +434,11 @@ export async function verFilaIA4(empresaId) {
 // ── Carregar respostas com avaliação ─────────────────────────────────────────
 
 export async function loadRespostasAvaliadas(empresaId) {
-  const sb = createSupabaseAdmin();
-  const { data, error } = await sb.from('respostas')
+  if (!empresaId) return [];
+  const sbRaw = createSupabaseAdmin();
+  const tdb = tenantDb(empresaId);
+  const { data, error } = await tdb.from('respostas')
     .select('id, colaborador_id, competencia_id, cenario_id, r1, r2, r3, r4, nivel_simulado, avaliacao_ia, nivel_ia4, nota_ia4, status_ia4, payload_ia4, pontos_fortes, pontos_atencao, feedback_ia4, created_at')
-    .eq('empresa_id', empresaId)
     .not('r1', 'is', null)
     .order('created_at', { ascending: false });
 
@@ -441,21 +447,22 @@ export async function loadRespostasAvaliadas(empresaId) {
   const colabIds = [...new Set(data.map(r => r.colaborador_id).filter(Boolean))];
   const colabMap = {};
   if (colabIds.length) {
-    const { data: colabs } = await sb.from('colaboradores').select('id, nome_completo, cargo').in('id', colabIds);
+    const { data: colabs } = await tdb.from('colaboradores').select('id, nome_completo, cargo').in('id', colabIds);
     (colabs || []).forEach(c => { colabMap[c.id] = c; });
   }
 
   const compIds = [...new Set(data.map(r => r.competencia_id).filter(Boolean))];
   const compMap = {};
   if (compIds.length) {
-    const { data: comps } = await sb.from('competencias').select('id, nome, cod_comp').in('id', compIds);
+    const { data: comps } = await tdb.from('competencias').select('id, nome, cod_comp').in('id', compIds);
     (comps || []).forEach(c => { compMap[c.id] = c; });
   }
 
   const cenIds = [...new Set(data.map(r => r.cenario_id).filter(Boolean))];
   const cenMap = {};
   if (cenIds.length) {
-    const { data: cens } = await sb.from('banco_cenarios').select('id, titulo, alternativas').in('id', cenIds);
+    // banco_cenarios é misto → raw
+    const { data: cens } = await sbRaw.from('banco_cenarios').select('id, titulo, alternativas').in('id', cenIds);
     (cens || []).forEach(c => { cenMap[c.id] = c; });
   }
 

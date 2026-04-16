@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 import { callAI } from './ai-client';
 import { extractJSON } from './utils';
 import { renderToBuffer } from '@react-pdf/renderer';
@@ -97,28 +98,30 @@ FORMATO: APENAS JSON valido. Portugues com acentuacao correta.
 }`;
 
 export async function gerarRelatorioIndividual(empresaId, colaboradorId, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const sbRaw = createSupabaseAdmin();
+  const tdb = tenantDb(empresaId);
   try {
-    const { data: colab } = await sb.from('colaboradores')
+    const { data: colab } = await tdb.from('colaboradores')
       .select('id, nome_completo, cargo, email, d_natural, i_natural, s_natural, c_natural, perfil_dominante, lid_executivo, lid_motivador, lid_metodico, lid_sistematico')
       .eq('id', colaboradorId).single();
     if (!colab) return { success: false, error: 'Colaborador não encontrado' };
 
-    const { data: empresa } = await sb.from('empresas')
+    // empresas: id é o tenant — sem empresa_id; usar raw
+    const { data: empresa } = await sbRaw.from('empresas')
       .select('nome, segmento').eq('id', empresaId).single();
 
     // Buscar TODAS respostas do colab (avaliadas ou não). Aceita match
     // por colaborador_id OU por email_colaborador (alguns rows antigos
     // têm colaborador_id NULL).
     const emailFilter = (colab.email || '').trim().toLowerCase();
-    const { data: respostas } = await sb.from('respostas')
+    const { data: respostas } = await tdb.from('respostas')
       .select('competencia_id, competencia_nome, avaliacao_ia, nivel_ia4, nota_ia4, pontos_fortes, pontos_atencao, feedback_ia4, colaborador_id, email_colaborador')
-      .eq('empresa_id', empresaId)
       .or(`colaborador_id.eq.${colaboradorId}${emailFilter ? `,email_colaborador.eq.${emailFilter}` : ''}`);
 
     // Top 5 esperado do cargo (fonte de verdade)
-    const { data: cargoEmp } = await sb.from('cargos_empresa')
-      .select('top5_workshop').eq('empresa_id', empresaId).eq('nome', colab.cargo).maybeSingle();
+    const { data: cargoEmp } = await tdb.from('cargos_empresa')
+      .select('top5_workshop').eq('nome', colab.cargo).maybeSingle();
     const top5Esperado = cargoEmp?.top5_workshop || [];
 
     if (!respostas?.length && !top5Esperado.length) {
@@ -138,7 +141,8 @@ export async function gerarRelatorioIndividual(empresaId, colaboradorId, aiConfi
     }
     // Fallback: resolve nome→id via competencias table pra cobrir respostas
     // que tenham só competencia_id (sem competencia_nome desnormalizado).
-    const { data: compsByName } = await sb.from('competencias')
+    // OR com empresa_id.is.null cobre catálogo nacional → mantém raw.
+    const { data: compsByName } = await sbRaw.from('competencias')
       .select('id, nome, empresa_id')
       .or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
     const nomeToId = {};
@@ -155,7 +159,7 @@ export async function gerarRelatorioIndividual(empresaId, colaboradorId, aiConfi
     const compIds = [...new Set((respostas || []).map(r => r.competencia_id).filter(Boolean))];
     const compMap = {};
     if (compIds.length) {
-      const { data: comps } = await sb.from('competencias').select('id, nome, cod_comp').in('id', compIds);
+      const { data: comps } = await tdb.from('competencias').select('id, nome, cod_comp').in('id', compIds);
       (comps || []).forEach(c => { compMap[c.nome] = c; });
     }
 
@@ -167,7 +171,7 @@ export async function gerarRelatorioIndividual(empresaId, colaboradorId, aiConfi
 
     // Fallback adicional: descriptor_assessments populado pela IA4
     // (auto-hook). Quando respostas não trazem nivel/nota, calcula media.
-    const { data: descAssess } = await sb.from('descriptor_assessments')
+    const { data: descAssess } = await tdb.from('descriptor_assessments')
       .select('competencia, descritor, nota')
       .eq('colaborador_id', colaboradorId);
     const assessByComp = {};
@@ -222,9 +226,8 @@ export async function gerarRelatorioIndividual(empresaId, colaboradorId, aiConfi
     // Buscar trilha montada (conteúdos recomendados do catálogo Vertho)
     let trilhaTexto = '';
     try {
-      const { data: trilha } = await sb.from('trilhas')
+      const { data: trilha } = await tdb.from('trilhas')
         .select('cursos')
-        .eq('empresa_id', empresaId)
         .eq('colaborador_id', colaboradorId)
         .maybeSingle();
       if (trilha?.cursos?.length) {
@@ -261,12 +264,11 @@ export async function gerarRelatorioIndividual(empresaId, colaboradorId, aiConfi
     try {
       const pdfData = { conteudo: relatorio, colaborador_nome: colab.nome_completo, colaborador_cargo: colab.cargo, gerado_em: new Date().toISOString() };
       const buffer = await gerarPDFBuffer('individual', pdfData, empresa.nome);
-      if (buffer) pdfPath = await salvarPDFStorage(sb, empresaId, 'individual', colab.nome_completo, buffer);
+      if (buffer) pdfPath = await salvarPDFStorage(sbRaw, empresaId, 'individual', colab.nome_completo, buffer);
     } catch (e) { console.error('[PDF Gen]', e.message); }
 
-    // Salvar
-    const { error: saveErr } = await sb.from('relatorios').upsert({
-      empresa_id: empresaId,
+    // Salvar — empresa_id é injetado pelo tdb.upsert
+    const { error: saveErr } = await tdb.from('relatorios').upsert({
       colaborador_id: colaboradorId,
       tipo: 'individual',
       conteudo: relatorio,
@@ -321,15 +323,16 @@ FORMATO: APENAS JSON valido. Portugues com acentuacao correta.
 }`;
 
 export async function gerarRelatorioGestor(empresaId, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const sbRaw = createSupabaseAdmin();
+  const tdb = tenantDb(empresaId);
   try {
-    const { data: empresa } = await sb.from('empresas')
+    const { data: empresa } = await sbRaw.from('empresas')
       .select('nome, segmento').eq('id', empresaId).single();
 
     // Busca TODOS os colabs e agrupa por gestor_email
-    const { data: todosColabs } = await sb.from('colaboradores')
-      .select('id, nome_completo, email, cargo, gestor_email, gestor_nome, perfil_dominante, d_natural, i_natural, s_natural, c_natural, role')
-      .eq('empresa_id', empresaId);
+    const { data: todosColabs } = await tdb.from('colaboradores')
+      .select('id, nome_completo, email, cargo, gestor_email, gestor_nome, perfil_dominante, d_natural, i_natural, s_natural, c_natural, role');
 
     const equipesPorGestor = {};
     for (const c of (todosColabs || [])) {
@@ -344,9 +347,8 @@ export async function gerarRelatorioGestor(empresaId, aiConfig = {}) {
     }
 
     // Avaliações IA4 (uma vez só, indexa por colab)
-    const { data: respostas } = await sb.from('respostas')
+    const { data: respostas } = await tdb.from('respostas')
       .select('colaborador_id, competencia_id, competencia_nome, avaliacao_ia, nivel_ia4')
-      .eq('empresa_id', empresaId)
       .not('avaliacao_ia', 'is', null);
     const respPorColab = {};
     for (const r of (respostas || [])) {
@@ -401,11 +403,11 @@ export async function gerarRelatorioGestor(empresaId, aiConfig = {}) {
         try {
           const pdfData = { conteudo: relatorio, gestor_nome: gestorNome, gerado_em: new Date().toISOString() };
           const buffer = await gerarPDFBuffer('gestor', pdfData, empresa.nome);
-          if (buffer) pdfPath = await salvarPDFStorage(sb, empresaId, 'gestor', `${empresa.nome}-${gestorNome}`, buffer);
+          if (buffer) pdfPath = await salvarPDFStorage(sbRaw, empresaId, 'gestor', `${empresa.nome}-${gestorNome}`, buffer);
         } catch (e) { console.error('[PDF Gestor]', e.message); }
 
-        await sb.from('relatorios').upsert({
-          empresa_id: empresaId,
+        // empresa_id é injetado pelo tdb.upsert
+        await tdb.from('relatorios').upsert({
           colaborador_id: gestorColab?.id || null,
           tipo: 'gestor',
           conteudo: { ...relatorio, gestor_email: gestorEmail, gestor_nome: gestorNome },
@@ -493,21 +495,22 @@ FORMATO: APENAS JSON valido. Portugues com acentuacao correta.
 }`;
 
 export async function gerarRelatorioRH(empresaId, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const sbRaw = createSupabaseAdmin();
+  const tdb = tenantDb(empresaId);
   try {
-    const { data: empresa } = await sb.from('empresas')
+    const { data: empresa } = await sbRaw.from('empresas')
       .select('nome, segmento').eq('id', empresaId).single();
 
-    const { data: respostas } = await sb.from('respostas')
+    const { data: respostas } = await tdb.from('respostas')
       .select('colaborador_id, competencia_id, avaliacao_ia, nivel_ia4, nota_ia4')
-      .eq('empresa_id', empresaId)
       .not('avaliacao_ia', 'is', null);
 
     if (!respostas?.length) return { success: false, error: 'Nenhuma avaliação encontrada' };
 
     // Colaboradores
     const colabIds = [...new Set(respostas.map(r => r.colaborador_id).filter(Boolean))];
-    const { data: colabs } = await sb.from('colaboradores')
+    const { data: colabs } = await tdb.from('colaboradores')
       .select('id, nome_completo, cargo, perfil_dominante')
       .in('id', colabIds);
     const colabMap = {};
@@ -517,7 +520,7 @@ export async function gerarRelatorioRH(empresaId, aiConfig = {}) {
     const compIds = [...new Set(respostas.map(r => r.competencia_id).filter(Boolean))];
     const compMap = {};
     if (compIds.length) {
-      const { data: comps } = await sb.from('competencias').select('id, nome').in('id', compIds);
+      const { data: comps } = await tdb.from('competencias').select('id, nome').in('id', compIds);
       (comps || []).forEach(c => { compMap[c.id] = c; });
     }
 
@@ -584,11 +587,12 @@ ${JSON.stringify(registros, null, 2)}`;
     try {
       const pdfData = { conteudo: relatorio, gerado_em: new Date().toISOString() };
       const buffer = await gerarPDFBuffer('rh', pdfData, empresa.nome);
-      if (buffer) pdfPath = await salvarPDFStorage(sb, empresaId, 'rh', empresa.nome, buffer);
+      if (buffer) pdfPath = await salvarPDFStorage(sbRaw, empresaId, 'rh', empresa.nome, buffer);
     } catch (e) { console.error('[PDF Gen RH]', e.message); }
 
-    await sb.from('relatorios').upsert({
-      empresa_id: empresaId, colaborador_id: null, tipo: 'rh',
+    // empresa_id é injetado pelo tdb.upsert
+    await tdb.from('relatorios').upsert({
+      colaborador_id: null, tipo: 'rh',
       conteudo: relatorio, pdf_path: pdfPath, gerado_em: new Date().toISOString(),
     }, { onConflict: 'empresa_id,colaborador_id,tipo' }).select('id');
 
@@ -603,21 +607,20 @@ ${JSON.stringify(registros, null, 2)}`;
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function gerarRelatoriosIndividuaisLote(empresaId, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const tdb = tenantDb(empresaId);
   try {
     // Buscar colaboradores com avaliações
-    const { data: respostas } = await sb.from('respostas')
+    const { data: respostas } = await tdb.from('respostas')
       .select('colaborador_id')
-      .eq('empresa_id', empresaId)
       .not('avaliacao_ia', 'is', null);
 
     const colabIds = [...new Set((respostas || []).map(r => r.colaborador_id).filter(Boolean))];
     if (!colabIds.length) return { success: false, error: 'Nenhuma avaliação encontrada' };
 
     // Verificar quais já têm relatório
-    const { data: existentes } = await sb.from('relatorios')
+    const { data: existentes } = await tdb.from('relatorios')
       .select('colaborador_id')
-      .eq('empresa_id', empresaId)
       .eq('tipo', 'individual');
     const jaGerados = new Set((existentes || []).map(r => r.colaborador_id));
 
