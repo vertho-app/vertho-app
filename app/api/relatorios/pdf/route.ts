@@ -72,7 +72,7 @@ export async function GET(request) {
 
     const logoBase64 = getLogoCoverBase64();
     const buffer = await renderToBuffer(
-      React.createElement(tipoCfg.C, { data, empresaNome, logoBase64 })
+      React.createElement(tipoCfg.C, { data, empresaNome, logoBase64 }) as any
     );
 
     // Salvar no storage para próximos downloads
@@ -90,7 +90,7 @@ export async function GET(request) {
       console.error('[PDF upload]', e.message);
     }
 
-    return new NextResponse(buffer, {
+    return new NextResponse(buffer as any, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${filename}"`,

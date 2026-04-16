@@ -14,7 +14,7 @@ export async function loadDashboardData(email) {
   if (!ctx?.colaborador) return { error: 'Colaborador nao encontrado para este e-mail' };
 
   const sb = createSupabaseAdmin();
-  const colab = ctx.colaborador;
+  const colab: any = ctx.colaborador;
   const view = getDashboardView(ctx);
 
   // Progresso individual

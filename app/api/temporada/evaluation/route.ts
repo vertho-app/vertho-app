@@ -238,7 +238,7 @@ export async function POST(request) {
         acumuladoPrimaria,
       });
       const r = await callAI(system, user, {}, 10000);
-      let parsed = {};
+      let parsed: any = {};
       try { parsed = JSON.parse(r.replace(/```json\n?|```\n?/g, '').trim()); } catch (e) {
         console.error('[VERTHO] parse sem14:', e.message);
       }
@@ -246,7 +246,7 @@ export async function POST(request) {
       // Despersonaliza campos textuais do output (resumo_avaliacao e justificativas)
       if (parsed?.resumo_avaliacao) parsed.resumo_avaliacao = unmaskPII(parsed.resumo_avaliacao, piiMap);
       if (Array.isArray(parsed?.avaliacao_por_descritor)) {
-        parsed.avaliacao_por_descritor = parsed.avaliacao_por_descritor.map(d => ({
+        parsed.avaliacao_por_descritor = parsed.avaliacao_por_descritor.map((d: any) => ({
           ...d, justificativa: unmaskPII(d.justificativa, piiMap),
         }));
       }

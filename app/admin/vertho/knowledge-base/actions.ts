@@ -99,7 +99,7 @@ export async function atualizarDocKB(email, docId, payload) {
   const podeAcessar = ctx.isPlatformAdmin || (ctx.role === 'rh' && ctx.empresaId === existing.empresa_id);
   if (!podeAcessar) return { error: 'Acesso restrito' };
 
-  const updates = {};
+  const updates: any = {};
   if (typeof payload.titulo === 'string') {
     if (payload.titulo.length > 200) return { error: 'titulo > 200 chars' };
     updates.titulo = payload.titulo.trim();

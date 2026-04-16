@@ -103,7 +103,7 @@ export async function baixarMeuPdiPdf(email) {
       const buffer = await renderToBuffer(
         React.createElement(RelatorioIndividualPDF, {
           data, empresaNome: emp?.nome || '', logoBase64: getLogoCoverBase64(),
-        })
+        }) as any
       );
       path = `${rel.empresa_id}/individual-${slug}-${Date.now()}.pdf`;
       const { error: upErr } = await sb.storage.from('relatorios-pdf').upload(path, buffer, {

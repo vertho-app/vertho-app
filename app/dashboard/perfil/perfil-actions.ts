@@ -37,7 +37,7 @@ export async function salvarFotoPerfil(email, { base64, mime }) {
     if (!email) return { error: 'Não autenticado' };
     if (!base64) return { error: 'Foto obrigatória' };
 
-    const colab = await findColabByEmail(email, 'id, empresa_id, foto_url');
+    const colab: any = await findColabByEmail(email, 'id, empresa_id, foto_url');
     if (!colab) return { error: 'Colaborador não encontrado' };
 
     const sb = createSupabaseAdmin();
@@ -83,7 +83,7 @@ export async function salvarAvatarPreset(email, presetId) {
     const valid = AVATAR_PRESETS.some(p => p.id === presetId);
     if (!valid) return { error: 'Preset inválido' };
 
-    const colab = await findColabByEmail(email, 'id, foto_url');
+    const colab: any = await findColabByEmail(email, 'id, foto_url');
     if (!colab) return { error: 'Colaborador não encontrado' };
 
     const sb = createSupabaseAdmin();
@@ -111,7 +111,7 @@ export async function salvarAvatarPreset(email, presetId) {
 export async function removerAvatar(email) {
   try {
     if (!email) return { error: 'Não autenticado' };
-    const colab = await findColabByEmail(email, 'id, foto_url');
+    const colab: any = await findColabByEmail(email, 'id, foto_url');
     if (!colab) return { error: 'Colaborador não encontrado' };
 
     const sb = createSupabaseAdmin();

@@ -95,10 +95,10 @@ export async function POST(request) {
     // PII masking: substitui nome real por alias opaco antes de mandar pra IA
     const { masked: colabMasked, map: piiMap } = maskColaborador(colab);
     // Sanitiza histórico (substitui PII do texto + nome do colab por alias)
-    const historicoMasked = historico.map(m => ({
+    const historicoMasked = historico.map((m: any) => ({
       ...m,
       content: maskTextPII(m.content, piiMap),
-    }));
+    })) as any;
 
     const { system, messages } = promptTiraDuvidas({
       nomeColab: colabMasked.nome,
@@ -114,7 +114,7 @@ export async function POST(request) {
     let respostaIA;
     try {
       // Haiku 4.5: rápido e barato; o prompt é prescritivo o suficiente.
-      respostaIA = (await callAIChat(system, messages, { model: 'claude-haiku-4-5-20251001' }, 1500)).trim();
+      respostaIA = (await callAIChat(system, messages as any, { model: 'claude-haiku-4-5-20251001' }, 1500)).trim();
     } catch (err) {
       console.error('[tira-duvidas] callAIChat:', err);
       return NextResponse.json({ error: 'Erro na IA' }, { status: 500 });

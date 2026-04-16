@@ -128,7 +128,7 @@ export async function POST(req) {
         'conversa_fase3', modeloAvaliador, systemPrompt,
         { max_tokens: 1024, max_turnos: MAX_TURNOS, confianca_encerrar: CONFIANCA_ENCERRAR }
       );
-      const versaoRegua = comp?.versao_regua || 1;
+      const versaoRegua = (comp as any)?.versao_regua || 1;
       if (promptVersionId) {
         await sb.from('sessoes_avaliacao')
           .update({ prompt_version_id: promptVersionId, versao_regua: versaoRegua })

@@ -30,7 +30,7 @@ export async function GET(request) {
     const buffer = await renderTemporadaConcluidaPDF(dados);
     const fileName = `temporada-${dados.trilha.numeroTemporada}-${(dados.colab.nome || 'colab').replace(/\s+/g, '-')}.pdf`;
 
-    return new NextResponse(buffer, {
+    return new NextResponse(buffer as any, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

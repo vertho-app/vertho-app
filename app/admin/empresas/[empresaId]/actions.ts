@@ -14,12 +14,12 @@ export async function loadEmpresaPipeline(empresaId) {
   const [colabRes, compRes, cargosRes, cenariosRes, enviosRes, respostasRes, avalRes, pppRes] = await Promise.all([
     sb.from('colaboradores').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId),
     sb.from('competencias').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId),
-    sb.from('cargos').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId).then(r => r).catch(() => ({ count: 0 })),
+    (sb.from('cargos').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId) as any).then((r: any) => r).catch(() => ({ count: 0 })),
     sb.from('banco_cenarios').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId),
     sb.from('envios_diagnostico').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId),
     sb.from('respostas').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId),
     sb.from('respostas').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId).not('nivel_ia4', 'is', null),
-    sb.from('ppp_escolas').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId).then(r => r).catch(() => ({ count: 0 })),
+    (sb.from('ppp_escolas').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId) as any).then((r: any) => r).catch(() => ({ count: 0 })),
   ]);
 
   const totalColab = colabRes.count || 0;
@@ -65,7 +65,7 @@ export async function excluirEmpresa(empresaId) {
   return { success: true };
 }
 
-export async function limparRegistros(empresaId, tabelas, colaboradorId = null, fields = null, opts = {}) {
+export async function limparRegistros(empresaId, tabelas, colaboradorId = null, fields = null, opts: any = {}) {
   const sb = createSupabaseAdmin();
   const { hardDelete = false } = opts;
   let pdfsRemovidos = 0;
@@ -142,7 +142,7 @@ export async function limparRegistros(empresaId, tabelas, colaboradorId = null, 
 /**
  * Lista itens da lixeira (agrupados por tabela + data).
  */
-export async function listarLixeira(empresaId, opts = {}) {
+export async function listarLixeira(empresaId, opts: any = {}) {
   const sb = createSupabaseAdmin();
   let q = sb.from('trash').select('*').order('deletado_em', { ascending: false });
   if (empresaId) q = q.eq('empresa_id', empresaId);
@@ -156,7 +156,7 @@ export async function listarLixeira(empresaId, opts = {}) {
  * Restaura registros da lixeira (re-INSERT na tabela origem).
  * Pode passar IDs específicos ou critérios (tabela + intervalo de tempo).
  */
-export async function restaurarDaLixeira(trashIds = []) {
+export async function restaurarDaLixeira(trashIds: any[] = []) {
   const sb = createSupabaseAdmin();
   if (!trashIds.length) return { success: false, error: 'Nenhum ID informado' };
 
@@ -171,7 +171,7 @@ export async function restaurarDaLixeira(trashIds = []) {
   }
 
   let restaurados = 0, erros = 0;
-  for (const [tabela, payloads] of Object.entries(porTabela)) {
+  for (const [tabela, payloads] of Object.entries(porTabela) as [string, any[]][]) {
     const { error } = await sb.from(tabela).upsert(payloads);
     if (error) { erros++; console.error(`[restaurar ${tabela}]`, error.message); }
     else restaurados += payloads.length;
@@ -195,7 +195,7 @@ export async function restaurarDaLixeira(trashIds = []) {
 export async function esvaziarLixeira(empresaId, dias = 30) {
   const sb = createSupabaseAdmin();
   const corte = new Date(Date.now() - dias * 86400 * 1000).toISOString();
-  let q = sb.from('trash').delete().lt('deletado_em', corte);
+  let q: any = sb.from('trash').delete().lt('deletado_em', corte);
   if (empresaId) q = q.eq('empresa_id', empresaId);
   const { error, count } = await q.select('id', { count: 'exact' });
   if (error) return { success: false, error: error.message };

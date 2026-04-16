@@ -91,7 +91,7 @@ export async function criarColaborador(empresaId, campos) {
 export async function atualizarColaborador(id, campos) {
   const sb = createSupabaseAdmin();
   const VALID_ROLES = ['colaborador', 'gestor', 'rh'];
-  const update = {};
+  const update: any = {};
   if (campos.nome_completo !== undefined) update.nome_completo = campos.nome_completo?.trim() || null;
   if (campos.email !== undefined) update.email = campos.email?.trim().toLowerCase() || null;
   if (campos.cargo !== undefined) update.cargo = campos.cargo?.trim() || null;

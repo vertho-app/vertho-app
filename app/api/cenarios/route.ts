@@ -1,7 +1,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 
-export async function GET(request) {
+export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const empresaId = searchParams.get('empresa');
   if (!empresaId) return NextResponse.json([], { status: 400 });
@@ -13,7 +13,7 @@ export async function GET(request) {
     .order('cargo')
     .order('created_at', { ascending: false });
 
-  const result = (data || []).map(c => ({
+  const result = (data || []).map((c: any) => ({
     ...c,
     competencia_nome: c.competencia?.nome || null,
     competencia_cod: c.competencia?.cod_comp || null,

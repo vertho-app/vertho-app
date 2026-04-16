@@ -10,8 +10,8 @@ export async function loadAdminDashboard() {
     sb.from('colaboradores').select('id, empresa_id', { count: 'exact', head: false }),
     sb.from('respostas').select('id', { count: 'exact', head: true }),
     sb.from('banco_cenarios').select('id', { count: 'exact', head: true }),
-    sb.from('trilhas').select('id', { count: 'exact', head: true }).then(r => r).catch(() => ({ count: 0 })),
-    sb.from('capacitacao').select('id', { count: 'exact', head: true }).then(r => r).catch(() => ({ count: 0 })),
+    (sb.from('trilhas').select('id', { count: 'exact', head: true }) as any).then((r: any) => r).catch(() => ({ count: 0 })),
+    (sb.from('capacitacao').select('id', { count: 'exact', head: true }) as any).then((r: any) => r).catch(() => ({ count: 0 })),
   ]);
 
   const empresas = empresasRes.data || [];

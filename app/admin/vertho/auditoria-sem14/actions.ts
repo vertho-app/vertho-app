@@ -10,7 +10,7 @@ import { getUserContext } from '@/lib/authz';
  * @param {string} email do usuário autenticado
  * @param {Object} filtros { status: 'todos'|'aprovado'|'revisar', empresaId?, limit? }
  */
-export async function listarAuditoriasSem14(email, filtros = {}) {
+export async function listarAuditoriasSem14(email, filtros: any = {}) {
   const ctx = await getUserContext(email);
   if (!ctx?.isPlatformAdmin) return { error: 'Acesso restrito à Vertho' };
 
@@ -38,7 +38,7 @@ export async function listarAuditoriasSem14(email, filtros = {}) {
   if (error) return { error: error.message };
 
   // Filtra client-side pelo status da auditoria (JSONB não é trivial no Supabase filter)
-  const rows = (data || []).map(r => {
+  const rows = (data || []).map((r: any) => {
     const fb = r.feedback || {};
     const auditoria = fb.auditoria || null;
     return {
@@ -264,21 +264,22 @@ export async function loadAuditoriaSem14Detalhe(email, progressoId) {
     .eq('id', progressoId).maybeSingle();
   if (error) return { error: error.message };
   if (!data) return { error: 'Registro não encontrado' };
+  const d: any = data;
 
   // Busca progresso da sem 13 pra acumulada
   const { data: fb13 } = await sb.from('temporada_semana_progresso')
-    .select('feedback').eq('trilha_id', data.trilha_id).eq('semana', 13).maybeSingle();
+    .select('feedback').eq('trilha_id', d.trilha_id).eq('semana', 13).maybeSingle();
 
-  const fb = data.feedback || {};
+  const fb = d.feedback || {};
   return {
     ok: true,
     detalhe: {
-      colaborador: data.colaboradores?.nome_completo,
-      cargo: data.colaboradores?.cargo,
-      perfilDominante: data.colaboradores?.perfil_dominante,
-      empresa: data.empresas?.nome,
-      competencia: data.trilhas?.competencia_foco,
-      concluidoEm: data.concluido_em,
+      colaborador: d.colaboradores?.nome_completo,
+      cargo: d.colaboradores?.cargo,
+      perfilDominante: d.colaboradores?.perfil_dominante,
+      empresa: d.empresas?.nome,
+      competencia: d.trilhas?.competencia_foco,
+      concluidoEm: d.concluido_em,
       cenario: fb.cenario,
       resposta: fb.cenario_resposta,
       avaliacaoPrimaria: {
@@ -291,8 +292,8 @@ export async function loadAuditoriaSem14Detalhe(email, progressoId) {
       },
       acumulada: (() => {
         try {
-          const a = fb13?.feedback?.acumulado?.primaria?.avaliacao_acumulada || [];
-          return a.map(x => ({ descritor: x.descritor, nota_acumulada: x.nota_acumulada }));
+          const a = (fb13 as any)?.feedback?.acumulado?.primaria?.avaliacao_acumulada || [];
+          return a.map((x: any) => ({ descritor: x.descritor, nota_acumulada: x.nota_acumulada }));
         } catch { return []; }
       })(),
       auditoria: fb.auditoria,

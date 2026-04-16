@@ -37,7 +37,7 @@ export async function GET() {
       {
         headers: { AccessKey: key, Accept: 'application/json' },
         next: { revalidate: 300 }, // Cache server-side de 5 min
-      }
+      } as any
     );
     if (!res.ok) {
       return Response.json({ error: `Bunny API ${res.status}` }, { status: 502 });
@@ -47,9 +47,9 @@ export async function GET() {
     // Filtra só vídeos prontos pra reprodução (status 4 = encoded) e ordena
     // do mais novo pro mais antigo
     const items = (data?.items || [])
-      .filter(v => v?.status === 4 && v?.guid)
-      .sort((a, b) => new Date(b.dateUploaded) - new Date(a.dateUploaded))
-      .map(v => ({
+      .filter((v: any) => v?.status === 4 && v?.guid)
+      .sort((a: any, b: any) => new Date(b.dateUploaded).getTime() - new Date(a.dateUploaded).getTime())
+      .map((v: any) => ({
         videoId: v.guid,
         titulo: cleanTitle(v.title),
         legenda: formatDuration(v.length),

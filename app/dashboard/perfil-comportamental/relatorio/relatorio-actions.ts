@@ -32,7 +32,7 @@ async function renderPdfBuffer(data) {
   const { default: RelatorioComportamentalPDF } = await import('@/components/pdf/RelatorioComportamental');
 
   return renderToBuffer(
-    React.createElement(RelatorioComportamentalPDF, { data })
+    React.createElement(RelatorioComportamentalPDF, { data }) as any
   );
 }
 
@@ -52,11 +52,11 @@ function pdfPathFor(colab) {
  * - Usa cache (`report_texts` + `report_generated_at`) se < 30 dias e `force` for false.
  * - Caso contrário, monta o prompt e chama o LLM via callAI, salvando o resultado.
  */
-export async function loadBehavioralReport(email, opts = {}) {
+export async function loadBehavioralReport(email, opts: any = {}) {
   try {
     if (!email) return { error: 'Não autenticado' };
 
-    const colab = await findColabByEmail(email, CIS_COLUMNS);
+    const colab: any = await findColabByEmail(email, CIS_COLUMNS);
     if (!colab) return { error: 'Colaborador não encontrado' };
 
     const hasDISC = colab.perfil_dominante && (colab.d_natural || colab.i_natural || colab.s_natural || colab.c_natural);
@@ -114,9 +114,9 @@ async function fetchColabPorId(colabId) {
  *
  * Aceita o colab inteiro (caller já consultou), um email, OU um colabId.
  */
-export async function gerarEsalvarRelatorioComportamental({ email, colab: inputColab, colabId } = {}) {
+export async function gerarEsalvarRelatorioComportamental({ email, colab: inputColab, colabId }: any = {}) {
   try {
-    let colab = inputColab;
+    let colab: any = inputColab;
     if (!colab && email) {
       colab = await findColabByEmail(email, CIS_COLUMNS);
     }

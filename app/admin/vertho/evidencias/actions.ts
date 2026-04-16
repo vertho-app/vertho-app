@@ -8,7 +8,7 @@ import { getUserContext } from '@/lib/authz';
  * de todas as empresas. Exibe extrações estruturadas (insight, qualidade,
  * desafio_realizado) + meta da conversa.
  */
-export async function listarEvidencias(email, filtros = {}) {
+export async function listarEvidencias(email, filtros: any = {}) {
   const ctx = await getUserContext(email);
   if (!ctx?.isPlatformAdmin) return { error: 'Acesso restrito à Vertho' };
 
@@ -36,10 +36,10 @@ export async function listarEvidencias(email, filtros = {}) {
   const { data, error } = await q;
   if (error) return { error: error.message };
 
-  const rows = (data || []).map(r => {
+  const rows = (data || []).map((r: any) => {
     const ref = r.reflexao || {};
-    const plano = Array.isArray(r.trilhas?.temporada_plano) ? r.trilhas.temporada_plano : [];
-    const descritor = plano.find(s => s.semana === r.semana)?.descritor || '—';
+    const plano: any[] = Array.isArray(r.trilhas?.temporada_plano) ? r.trilhas.temporada_plano : [];
+    const descritor = plano.find((s: any) => s.semana === r.semana)?.descritor || '—';
     return {
       id: r.id,
       trilhaId: r.trilha_id,
@@ -93,23 +93,24 @@ export async function loadEvidenciaDetalhe(email, progressoId) {
     .eq('id', progressoId).maybeSingle();
   if (error) return { error: error.message };
   if (!data) return { error: 'Registro não encontrado' };
+  const dt: any = data;
 
-  const plano = Array.isArray(data.trilhas?.temporada_plano) ? data.trilhas.temporada_plano : [];
-  const semanaPlan = plano.find(s => s.semana === data.semana) || {};
+  const plano: any[] = Array.isArray(dt.trilhas?.temporada_plano) ? dt.trilhas.temporada_plano : [];
+  const semanaPlan: any = plano.find((s: any) => s.semana === dt.semana) || {};
 
-  const ref = data.reflexao || {};
+  const ref = dt.reflexao || {};
   return {
     ok: true,
     detalhe: {
-      semana: data.semana,
-      colaborador: data.colaboradores?.nome_completo,
-      cargo: data.colaboradores?.cargo,
-      perfilDominante: data.colaboradores?.perfil_dominante,
-      empresa: data.empresas?.nome,
-      competencia: data.trilhas?.competencia_foco,
+      semana: dt.semana,
+      colaborador: dt.colaboradores?.nome_completo,
+      cargo: dt.colaboradores?.cargo,
+      perfilDominante: dt.colaboradores?.perfil_dominante,
+      empresa: dt.empresas?.nome,
+      competencia: dt.trilhas?.competencia_foco,
       descritor: semanaPlan.descritor,
       desafio: semanaPlan.conteudo?.desafio_texto,
-      concluidoEm: data.concluido_em,
+      concluidoEm: dt.concluido_em,
       extracao: {
         insight_principal: ref.insight_principal,
         desafio_realizado: ref.desafio_realizado,

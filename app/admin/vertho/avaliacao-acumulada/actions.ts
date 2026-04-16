@@ -4,7 +4,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { getUserContext } from '@/lib/authz';
 import { gerarAvaliacaoAcumulada } from '@/actions/avaliacao-acumulada';
 
-export async function listarAvaliacoesAcumuladas(email, filtros = {}) {
+export async function listarAvaliacoesAcumuladas(email, filtros: any = {}) {
   const ctx = await getUserContext(email);
   if (!ctx?.isPlatformAdmin) return { error: 'Acesso restrito à Vertho' };
 
@@ -28,7 +28,7 @@ export async function listarAvaliacoesAcumuladas(email, filtros = {}) {
   const { data, error } = await q;
   if (error) return { error: error.message };
 
-  const rows = (data || []).map(r => {
+  const rows = (data || []).map((r: any) => {
     const acum = r.feedback?.acumulado || null;
     return {
       id: r.id,
@@ -78,31 +78,32 @@ export async function loadAvaliacaoAcumuladaDetalhe(email, progressoId) {
     .eq('id', progressoId).maybeSingle();
   if (error) return { error: error.message };
   if (!data) return { error: 'Registro não encontrado' };
+  const dt: any = data;
 
-  const acum = data.feedback?.acumulado;
+  const acum = dt.feedback?.acumulado;
 
   // Busca notas iniciais EXTERNAMENTE (não vindo da IA acumuladora, que é cega
   // pra iniciais por design). Usado só pra exibir comparação no painel Vertho.
-  const descs = Array.isArray(data.trilhas?.descritores_selecionados) ? data.trilhas.descritores_selecionados : [];
+  const descs: any[] = Array.isArray(dt.trilhas?.descritores_selecionados) ? dt.trilhas.descritores_selecionados : [];
   const { data: initialRows } = await sb.from('descriptor_assessments')
     .select('descritor, nota')
-    .eq('colaborador_id', data.colaborador_id)
-    .eq('competencia', data.trilhas?.competencia_foco)
-    .in('descritor', descs.map(d => d.descritor));
-  const notasIniciais = Object.fromEntries((initialRows || []).map(r => [r.descritor, Number(r.nota)]));
+    .eq('colaborador_id', dt.colaborador_id)
+    .eq('competencia', dt.trilhas?.competencia_foco)
+    .in('descritor', descs.map((d: any) => d.descritor));
+  const notasIniciais: Record<string, any> = Object.fromEntries((initialRows || []).map((r: any) => [r.descritor, Number(r.nota)]));
   // Fallback pra snapshot do JSONB se não achar no descriptor_assessments
   for (const d of descs) if (notasIniciais[d.descritor] == null) notasIniciais[d.descritor] = d.nota_atual;
 
   return {
     ok: true,
     detalhe: {
-      trilhaId: data.trilha_id,
-      colaborador: data.colaboradores?.nome_completo,
-      cargo: data.colaboradores?.cargo,
-      perfilDominante: data.colaboradores?.perfil_dominante,
-      empresa: data.empresas?.nome,
-      competencia: data.trilhas?.competencia_foco,
-      concluidoEm: data.concluido_em,
+      trilhaId: dt.trilha_id,
+      colaborador: dt.colaboradores?.nome_completo,
+      cargo: dt.colaboradores?.cargo,
+      perfilDominante: dt.colaboradores?.perfil_dominante,
+      empresa: dt.empresas?.nome,
+      competencia: dt.trilhas?.competencia_foco,
+      concluidoEm: dt.concluido_em,
       geradoEm: acum?.gerado_em || null,
       primaria: acum?.primaria || null,
       auditoria: acum?.auditoria || null,

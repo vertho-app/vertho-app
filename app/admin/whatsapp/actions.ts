@@ -105,7 +105,7 @@ async function deletarAnexoTemporario(sb, path) {
  *   É enviado adicionalmente ao PDF do relatório (se comPDF=true) para todos
  *   os destinatários, em email (Resend attachments) e WhatsApp (send-document).
  */
-export async function dispararMensagemCustomizada(empresaId, template, canal, filtros = {}, assuntoTemplate = '', comPDF = false, anexoExtra = null) {
+export async function dispararMensagemCustomizada(empresaId, template, canal, filtros: any = {}, assuntoTemplate = '', comPDF = false, anexoExtra: any = null) {
   const sb = createSupabaseAdmin();
   try {
     const { data: empresa } = await sb.from('empresas')
@@ -173,7 +173,7 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
             });
           }
 
-          const emailBody = {
+          const emailBody: any = {
             from: fromEmail,
             to: colab.email,
             subject: (assuntoTemplate || `[${empresa.nome}] Avaliação`)

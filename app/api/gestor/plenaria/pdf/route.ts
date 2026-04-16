@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { listarEquipeEvolucao } from '@/app/dashboard/gestor/equipe-evolucao/actions';
 import { renderPlenariaEquipePDF } from '@/lib/plenaria-equipe-pdf';
@@ -7,7 +7,7 @@ import { renderPlenariaEquipePDF } from '@/lib/plenaria-equipe-pdf';
  * GET /api/gestor/plenaria/pdf
  * Gera PDF de plenária da equipe pro gestor/RH autenticado.
  */
-export async function GET(request) {
+export async function GET(request: NextRequest) {
   try {
     const auth = request.headers.get('authorization');
     if (!auth?.startsWith('Bearer ')) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
@@ -23,15 +23,16 @@ export async function GET(request) {
     // Dados do gestor pro cabeçalho
     const { data: gestor } = await sb.from('colaboradores')
       .select('nome_completo, empresas!inner(nome)').eq('email', email).maybeSingle();
+    const g: any = gestor;
 
     const buffer = await renderPlenariaEquipePDF({
-      gestorNome: gestor?.nome_completo,
-      empresa: gestor?.empresas?.nome,
+      gestorNome: g?.nome_completo,
+      empresa: g?.empresas?.nome,
       resumo: r.resumo,
       rows: r.rows,
     });
 
-    return new NextResponse(buffer, {
+    return new NextResponse(buffer as any, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

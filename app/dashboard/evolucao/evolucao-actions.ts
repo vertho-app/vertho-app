@@ -31,8 +31,8 @@ export async function loadEvolucao(email) {
     .order('created_at');
 
   // Agrupar sessões por competência (pode ter inicial + reavaliação)
-  const porCompetencia = {};
-  (sessoes || []).forEach(s => {
+  const porCompetencia: Record<string, any> = {};
+  (sessoes || []).forEach((s: any) => {
     const key = s.competencia_id;
     if (!porCompetencia[key]) {
       porCompetencia[key] = { nome: s.competencia_nome, inicial: null, reavaliacao: null };
@@ -45,14 +45,14 @@ export async function loadEvolucao(email) {
   });
 
   // Calcular métricas
-  const competencias = Object.values(porCompetencia);
+  const competencias: any[] = Object.values(porCompetencia);
   const totalAvaliadas = competencias.length;
-  const comReavaliacao = competencias.filter(c => c.reavaliacao).length;
+  const comReavaliacao = competencias.filter((c: any) => c.reavaliacao).length;
   const notaMedia = totalAvaliadas > 0
-    ? competencias.reduce((sum, c) => sum + (c.reavaliacao?.nota_decimal || c.inicial?.nota_decimal || 0), 0) / totalAvaliadas
+    ? competencias.reduce((sum: number, c: any) => sum + (c.reavaliacao?.nota_decimal || c.inicial?.nota_decimal || 0), 0) / totalAvaliadas
     : 0;
   const deltaMedia = comReavaliacao > 0
-    ? competencias.filter(c => c.reavaliacao).reduce((sum, c) => sum + ((c.reavaliacao.nota_decimal || 0) - (c.inicial.nota_decimal || 0)), 0) / comReavaliacao
+    ? competencias.filter((c: any) => c.reavaliacao).reduce((sum: number, c: any) => sum + ((c.reavaliacao.nota_decimal || 0) - (c.inicial.nota_decimal || 0)), 0) / comReavaliacao
     : 0;
 
   return {

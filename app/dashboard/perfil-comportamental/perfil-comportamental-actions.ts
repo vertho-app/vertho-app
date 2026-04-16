@@ -34,7 +34,7 @@ const COLS = [
 export async function loadPerfilCIS(email) {
   if (!email) return { error: 'Nao autenticado' };
 
-  const colab = await findColabByEmail(email, COLS);
+  const colab: any = await findColabByEmail(email, COLS);
   if (!colab) return { error: 'Colaborador nao encontrado' };
 
   // Resumo executivo: arquétipo + tags + insights (do cache OU fallback)
@@ -61,11 +61,11 @@ export async function loadPerfilCIS(email) {
  * Gera 3 insights executivos via LLM, salva em colaboradores.insights_executivos
  * com timestamp. Reusa cache se < 30 dias e `force` for false.
  */
-export async function gerarInsightsExecutivos(email, opts = {}) {
+export async function gerarInsightsExecutivos(email, opts: any = {}) {
   try {
     if (!email) return { error: 'Não autenticado' };
 
-    const colab = await findColabByEmail(email, COLS);
+    const colab: any = await findColabByEmail(email, COLS);
     if (!colab) return { error: 'Colaborador não encontrado' };
 
     const force = !!opts.force;
