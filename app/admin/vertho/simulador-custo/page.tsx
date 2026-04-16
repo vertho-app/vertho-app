@@ -143,9 +143,13 @@ export default function SimuladorCustoPage() {
                   <select value={models[call.id]}
                     onChange={e => { setPreset('custom'); setModels({ ...models, [call.id]: e.target.value }); }}
                     className="bg-white/5 border border-white/10 rounded px-2 py-1 text-xs text-white">
-                    {MODEL_IDS.map(id => (
-                      <option key={id} value={id} className="bg-[#0d1426]">{MODELS[id].label}</option>
-                    ))}
+                    {MODEL_IDS
+                      .filter(id => call.fase === 'RAG'
+                        ? id.startsWith('voyage')
+                        : !id.startsWith('voyage'))
+                      .map(id => (
+                        <option key={id} value={id} className="bg-[#0d1426]">{MODELS[id].label}</option>
+                      ))}
                   </select>
                   <div className="text-right min-w-[80px]">
                     <p className="text-sm font-bold text-emerald-300">USD {(c?.usd || 0).toFixed(3)}</p>
@@ -164,10 +168,13 @@ export default function SimuladorCustoPage() {
         <p className="font-bold text-amber-300">Notas:</p>
         <ul className="list-disc pl-5 space-y-1">
           <li>Estimativas aproximadas. Uso real pode variar ±30% conforme tamanho de histórico, qualidade da régua e respostas do colab.</li>
+          <li><b>Grounding RAG</b> (Voyage embeddings + kb_search_hybrid) está incluso nos <b>inTokens</b> das chamadas afetadas (Tira-Dúvidas, Evidências socrático, Missão feedback): +800 tok/call de contexto da knowledge_base. Se a base estiver vazia, não há grounding — subtraia ~$0.30/colab/ciclo.</li>
+          <li><b>Embedding Voyage</b> (fase RAG) roda ~138 queries por colab × 100 tokens × $0.18/1M ≈ $0.0025/colab. Custo irrisório mas registrado pra completude.</li>
           <li><b>Tira-Dúvidas</b> é opcional e a estimativa (3 perguntas/semana × 12 sems) pode ser muito maior ou menor.</li>
           <li><b>PDI</b> e <b>Relatório Individual</b> marcados como "opcional" — só rodam se o admin clicar; tela Temporada Concluída + PDF já cobrem o caso padrão.</li>
           <li><b>Evolution Report</b> (fim sem 14) é consolidação programática dos JSONs — não usa IA, por isso não está no catálogo.</li>
-          <li>Não inclui IA1/IA2/IA3/Cenários B — essas rodam uma vez por empresa, não escalam com colabs.</li>
+          <li><b>Relatório Gestor</b> e <b>Relatório RH</b> (fase 5) usam IA + grounding, mas rodam 1×/gestor e 1×/empresa — fora do modelo per-colab. Estimativa: ~$0.10/gestor e ~$0.20/empresa/ciclo.</li>
+          <li>Não inclui IA1/IA2/IA3/Cenários B/ingest de docs — rodam uma vez por empresa, não escalam com colabs.</li>
           <li>Scorer sem 14 e check ficaram mais caros depois da triangulação (cenário + régua + acumulada estruturada + evidências brutas = ~8k tokens in).</li>
           <li>Preços de modelos atualizados em nov/2025. Consulte fornecedor pra valores vigentes.</li>
           <li>Simulador de Temporada (teste) custa extra: ~200 chamadas (Haiku pra colab simulado, Sonnet pro mentor) ≈ USD 1-2 por rodada.</li>

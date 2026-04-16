@@ -16,6 +16,8 @@ export const MODELS = {
   'gemini-3.1-pro-preview':    { label: 'Gemini 3.1 Pro',     inUsd: 1.5, outUsd: 5 },
   'gpt-5.4':                   { label: 'GPT 5.4',            inUsd: 10, outUsd: 30 },
   'gpt-5.4-mini':              { label: 'GPT 5.4 Mini',       inUsd: 1,  outUsd: 4 },
+  // Embedding (sem custo de output)
+  'voyage-3-large':            { label: 'Voyage-3-large (embed)', inUsd: 0.18, outUsd: 0 },
 };
 
 export const MODEL_IDS = Object.keys(MODELS);
@@ -90,8 +92,8 @@ export const CALLS = [
     id: 'evidencias-socratic',
     fase: 'Temporada',
     nome: 'Evidências (mentor socrático)',
-    descricao: 'Conversa de reflexão sem. Cada turno IA.',
-    inTokens: 2000, // system + histórico crescente médio
+    descricao: 'Conversa de reflexão sem. Cada turno IA. Inclui grounding RAG (~4 chunks da knowledge_base).',
+    inTokens: 2800, // system + histórico crescente médio + grounding (~800 tok)
     outTokens: 250,
     exec: 6 * 12, // 6 turnos IA × 12 sems de conteúdo
     defaultModel: 'claude-sonnet-4-6',
@@ -112,11 +114,24 @@ export const CALLS = [
     id: 'tira-duvidas',
     fase: 'Temporada',
     nome: 'Tira-Dúvidas',
-    descricao: 'Chat reativo com colab (média 3 perguntas/sem).',
-    inTokens: 1200,
+    descricao: 'Chat reativo com colab (média 3 perguntas/sem). Inclui grounding RAG (~5 chunks).',
+    inTokens: 2000, // 1200 base + ~800 grounding
     outTokens: 250,
     exec: 3 * 12, // 3 perguntas × 12 sems de conteúdo (estimativa)
     defaultModel: 'claude-haiku-4-5-20251001',
+    critical: false,
+  },
+
+  // ── EMBEDDING (grounding RAG) ──
+  {
+    id: 'rag-query-embed',
+    fase: 'RAG',
+    nome: 'Embedding de query (grounding)',
+    descricao: 'Vetoriza cada query antes do kb_search_hybrid. 1 call por chamada com grounding (tira-dúvidas + evidências + missão + relatórios).',
+    inTokens: 100, // query média ~100 tokens
+    outTokens: 0,  // embedding não tem output
+    exec: 36 + 6 * 12 + 10 * 3, // tira-dúvidas + evidências + missão feedback ≈ 138/colab
+    defaultModel: 'voyage-3-large',
     critical: false,
   },
 
@@ -125,8 +140,8 @@ export const CALLS = [
     id: 'missao-feedback',
     fase: 'Temporada',
     nome: 'Missão Feedback (análise 10 turnos)',
-    descricao: 'IA analisa relato do colab + aprofunda por descritor.',
-    inTokens: 2800, // inclui missão + compromisso + histórico
+    descricao: 'IA analisa relato do colab + aprofunda por descritor. Inclui grounding RAG (~4 chunks).',
+    inTokens: 3600, // 2800 base + ~800 grounding
     outTokens: 300,
     exec: 10 * 3,
     defaultModel: 'claude-sonnet-4-6',
@@ -253,12 +268,16 @@ export const PRESETS = {
   best: {
     label: 'Melhor (Opus)',
     desc: 'Máxima qualidade. Opus 4.6 em tudo que for avaliativo.',
-    model: (call) => (call.critical ? 'claude-opus-4-6' : 'claude-sonnet-4-6'),
+    model: (call) => {
+      if (call.fase === 'RAG') return call.defaultModel;
+      return call.critical ? 'claude-opus-4-6' : 'claude-sonnet-4-6';
+    },
   },
   balanced: {
     label: 'Custo-benefício (Sonnet+Haiku)',
     desc: 'Sonnet no crítico (scoring, avaliação, extração). Haiku nas conversas reativas (Tira-Dúvidas) e gerações simples.',
     model: (call) => {
+      if (call.fase === 'RAG') return call.defaultModel;
       if (call.critical) return 'claude-sonnet-4-6';
       if (call.id === 'tira-duvidas' || call.id === 'desafio') return 'claude-haiku-4-5-20251001';
       return 'claude-sonnet-4-6';
@@ -268,6 +287,7 @@ export const PRESETS = {
     label: 'Barata (Haiku + Sonnet onde obrigatório)',
     desc: 'Haiku 4.5 em tudo que for conversacional. Sonnet só em scorers finais (sem 14 + check). Risco maior de erros pequenos.',
     model: (call) => {
+      if (call.fase === 'RAG') return call.defaultModel;
       const mustBeSonnet = ['sem14-scorer', 'sem14-check', 'acumulada-primaria', 'acumulada-check', 'ia4-avaliacao', 'ia4-check'];
       if (mustBeSonnet.includes(call.id)) return 'claude-sonnet-4-6';
       return 'claude-haiku-4-5-20251001';
