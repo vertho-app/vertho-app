@@ -81,6 +81,68 @@ export async function listarAuditoriasSem14(email, filtros = {}) {
  * Retorna detalhe completo de uma auditoria — avaliação primária + auditoria
  * lado a lado pra review manual da Vertho.
  */
+/**
+ * Vertho aprova ou ajusta a avaliação da sem 14 após revisão manual.
+ * - 'aprovar': marca status_revisao='aprovado_vertho', mantém notas.
+ * - 'ajustar': aceita notas ajustadas por descritor, recalcula médias,
+ *   marca status_revisao='ajustado_vertho'.
+ */
+export async function revisarAvaliacaoSem14(email, progressoId, { acao, ajustes }) {
+  const ctx = await getUserContext(email);
+  if (!ctx?.isPlatformAdmin) return { error: 'Acesso restrito à Vertho' };
+
+  const sb = createSupabaseAdmin();
+  const { data: prog } = await sb.from('temporada_semana_progresso')
+    .select('id, trilha_id, feedback').eq('id', progressoId).maybeSingle();
+  if (!prog) return { error: 'Registro não encontrado' };
+
+  const fb = prog.feedback || {};
+
+  if (acao === 'aprovar') {
+    fb.status_revisao = 'aprovado_vertho';
+    fb.revisado_em = new Date().toISOString();
+    fb.revisado_por = email;
+  } else if (acao === 'ajustar' && Array.isArray(ajustes)) {
+    const avalDescs = fb.avaliacao_por_descritor || [];
+    for (const aj of ajustes) {
+      const desc = avalDescs.find(d => d.descritor === aj.descritor);
+      if (desc && aj.nota_pos != null) {
+        desc.nota_pos_original = desc.nota_pos;
+        desc.nota_pos = Number(aj.nota_pos);
+        desc.delta = Number(aj.nota_pos) - Number(desc.nota_pre);
+        desc.classificacao = desc.delta >= 0.2 ? 'evoluiu' : desc.delta <= -0.2 ? 'regrediu' : 'manteve';
+        desc.ajustado_por_vertho = true;
+        desc.motivo_ajuste = aj.motivo || 'ajuste manual Vertho';
+      }
+    }
+    fb.avaliacao_por_descritor = avalDescs;
+    const notas = avalDescs.map(d => Number(d.nota_pos)).filter(n => !isNaN(n));
+    if (notas.length) {
+      fb.nota_media_pos = (notas.reduce((a, b) => a + b, 0) / notas.length).toFixed(2);
+      const pres = avalDescs.map(d => Number(d.nota_pre)).filter(n => !isNaN(n));
+      fb.nota_media_pre = pres.length ? (pres.reduce((a, b) => a + b, 0) / pres.length).toFixed(2) : fb.nota_media_pre;
+      fb.delta_medio = (Number(fb.nota_media_pos) - Number(fb.nota_media_pre)).toFixed(2);
+    }
+    fb.status_revisao = 'ajustado_vertho';
+    fb.revisado_em = new Date().toISOString();
+    fb.revisado_por = email;
+  } else {
+    return { error: "acao deve ser 'aprovar' ou 'ajustar'" };
+  }
+
+  await sb.from('temporada_semana_progresso').update({ feedback: fb }).eq('id', prog.id);
+
+  // Regenera Evolution Report com notas ajustadas
+  if (acao === 'ajustar') {
+    try {
+      const { gerarEvolutionReport } = await import('@/actions/evolution-report');
+      await gerarEvolutionReport(prog.trilha_id);
+    } catch (e) { console.warn('[revisao] evolution report:', e.message); }
+  }
+
+  return { ok: true, acao, status_revisao: fb.status_revisao };
+}
+
 export async function loadAuditoriaSem14Detalhe(email, progressoId) {
   const ctx = await getUserContext(email);
   if (!ctx?.isPlatformAdmin) return { error: 'Acesso restrito à Vertho' };
@@ -115,6 +177,9 @@ export async function loadAuditoriaSem14Detalhe(email, progressoId) {
         nota_media_pos: fb.nota_media_pos,
         delta_medio: fb.delta_medio,
         resumo_avaliacao: fb.resumo_avaliacao,
+        status_revisao: fb.status_revisao || null,
+        revisado_em: fb.revisado_em || null,
+        revisado_por: fb.revisado_por || null,
       },
       auditoria: fb.auditoria,
     },

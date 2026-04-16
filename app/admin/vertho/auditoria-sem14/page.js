@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
 import { ArrowLeft, Loader2, ShieldCheck, AlertTriangle, CheckCircle2, ChevronRight, X } from 'lucide-react';
-import { listarAuditoriasSem14, loadAuditoriaSem14Detalhe } from './actions';
+import { listarAuditoriasSem14, loadAuditoriaSem14Detalhe, revisarAvaliacaoSem14 } from './actions';
 
 const STATUS_COR = {
   aprovado: { bg: 'bg-emerald-500/15', text: 'text-emerald-300', border: 'border-emerald-500/30', icon: CheckCircle2, label: 'Aprovado' },
@@ -130,7 +130,7 @@ export default function AuditoriaSem14Page() {
                     </p>
                     {r.auditoriaAlertas.length > 0 && (
                       <p className="text-[10px] text-amber-300 mt-1 truncate">
-                        ⚠ {r.auditoriaAlertas.slice(0, 2).map(a => typeof a === 'string' ? a : (a.detalhe || a.tipo || '')).join(' · ')}
+                        ⚠ {r.auditoriaAlertas.slice(0, 2).map(a => typeof a === 'string' ? a : (a.detalhe || a.descricao || a.tipo || '')).join(' · ')}
                       </p>
                     )}
                   </div>
@@ -144,9 +144,10 @@ export default function AuditoriaSem14Page() {
 
       {detalheId && (
         <DetalheModal
-          detalhe={detalhe}
+          detalhe={detalhe ? { ...detalhe, id: detalheId } : null}
           loading={loadingDetalhe}
           onClose={() => { setDetalheId(null); setDetalhe(null); }}
+          onRevisado={async () => { await carregar(); if (detalheId) await abrirDetalhe(detalheId); }}
         />
       )}
     </div>
@@ -162,7 +163,7 @@ function Card({ label, valor, cor }) {
   );
 }
 
-function DetalheModal({ detalhe, loading, onClose }) {
+function DetalheModal({ detalhe, loading, onClose, onRevisado }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto"
       onClick={onClose}>
@@ -227,7 +228,7 @@ function DetalheModal({ detalhe, loading, onClose }) {
                             <li key={i}>
                               {a.descritor && <span className="text-amber-400 font-bold">[{a.descritor}] </span>}
                               {a.tipo && <span className="text-[10px] text-amber-500 mr-1">{a.tipo}:</span>}
-                              {a.detalhe || a.mensagem || JSON.stringify(a)}
+                              {a.detalhe || a.descricao || a.mensagem || JSON.stringify(a)}
                             </li>
                           );
                         })}
@@ -258,9 +259,84 @@ function DetalheModal({ detalhe, loading, onClose }) {
               <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Resposta do Colaborador</p>
               <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-xs text-gray-300 whitespace-pre-wrap">{detalhe.resposta}</div>
             </section>
+
+            {/* Revisão Vertho */}
+            <RevisaoSection detalhe={detalhe} onRevisado={onRevisado} />
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+function RevisaoSection({ detalhe, onRevisado }) {
+  const sb = getSupabase();
+  const [busy, setBusy] = useState(false);
+  const [ajustes, setAjustes] = useState({});
+
+  const statusRev = detalhe?.avaliacaoPrimaria?.status_revisao;
+  if (statusRev === 'aprovado_vertho' || statusRev === 'ajustado_vertho') {
+    return (
+      <section className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+        <p className="text-xs text-emerald-300 font-bold">
+          ✓ {statusRev === 'aprovado_vertho' ? 'Aprovado pela Vertho' : 'Ajustado pela Vertho'}
+        </p>
+      </section>
+    );
+  }
+
+  async function handleAprovar() {
+    setBusy(true);
+    const { data: { user } } = await sb.auth.getUser();
+    const r = await revisarAvaliacaoSem14(user.email, detalhe.id, { acao: 'aprovar' });
+    setBusy(false);
+    if (r.error) alert(r.error);
+    else onRevisado?.();
+  }
+
+  async function handleAjustar() {
+    const ajustesArr = Object.entries(ajustes)
+      .filter(([_, v]) => v.nota_pos != null && v.nota_pos !== '')
+      .map(([desc, v]) => ({ descritor: desc, nota_pos: Number(v.nota_pos), motivo: v.motivo || 'ajuste manual Vertho' }));
+    if (!ajustesArr.length) { alert('Nenhum ajuste definido'); return; }
+    setBusy(true);
+    const { data: { user } } = await sb.auth.getUser();
+    const r = await revisarAvaliacaoSem14(user.email, detalhe.id, { acao: 'ajustar', ajustes: ajustesArr });
+    setBusy(false);
+    if (r.error) alert(r.error);
+    else onRevisado?.();
+  }
+
+  const descs = detalhe?.avaliacaoPrimaria?.avaliacao_por_descritor || [];
+
+  return (
+    <section className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-4 space-y-3">
+      <p className="text-[10px] uppercase tracking-widest text-purple-400 font-bold">Revisão Vertho</p>
+
+      <div className="space-y-2">
+        {descs.map((d, i) => (
+          <div key={i} className="flex items-center gap-2 text-[11px] flex-wrap">
+            <span className="text-white font-bold flex-1 min-w-0 truncate">{d.descritor}</span>
+            <span className="text-gray-400 shrink-0">IA: {d.nota_pos}</span>
+            <span className="text-gray-500 shrink-0">→</span>
+            <input type="number" step="0.1" min="1" max="4" placeholder={d.nota_pos}
+              value={ajustes[d.descritor]?.nota_pos ?? ''}
+              onChange={e => setAjustes({ ...ajustes, [d.descritor]: { ...ajustes[d.descritor], nota_pos: e.target.value } })}
+              className="w-16 bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-xs text-white outline-none focus:border-purple-400" />
+          </div>
+        ))}
+      </div>
+
+      <div className="flex gap-2 pt-2">
+        <button onClick={handleAprovar} disabled={busy}
+          className="flex-1 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm font-bold disabled:opacity-50">
+          Aprovar como está
+        </button>
+        <button onClick={handleAjustar} disabled={busy}
+          className="flex-1 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-sm font-bold disabled:opacity-50">
+          Salvar ajustes
+        </button>
+      </div>
+    </section>
   );
 }
