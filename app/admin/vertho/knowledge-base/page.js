@@ -4,11 +4,11 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
 import {
-  ArrowLeft, Loader2, BookOpen, Plus, Search, Trash2, Pencil, X, Save,
+  ArrowLeft, Loader2, BookOpen, Plus, Search, Trash2, Pencil, X, Save, Upload,
 } from 'lucide-react';
 import {
   listarEmpresas, listarDocsKB, carregarDocKB,
-  criarDocKB, atualizarDocKB, desativarDocKB, testarBuscaKB,
+  criarDocKB, atualizarDocKB, desativarDocKB, testarBuscaKB, uploadDocsArquivo, seedKB,
 } from './actions';
 
 const CATEGORIAS = [
@@ -33,6 +33,8 @@ export default function KnowledgeBasePage() {
   const [saving, setSaving] = useState(false);
   const [busca, setBusca] = useState('');
   const [resultadosBusca, setResultadosBusca] = useState(null);
+  const [uploadCategoria, setUploadCategoria] = useState('regulamento');
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -113,6 +115,25 @@ export default function KnowledgeBasePage() {
     setResultadosBusca(r.resultados);
   }
 
+  async function uploadArquivo(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploading(true);
+    setError('');
+    try {
+      const fd = new FormData();
+      fd.set('empresaId', empresaId);
+      fd.set('categoria', uploadCategoria);
+      fd.set('file', file);
+      const r = await uploadDocsArquivo(user.email, fd);
+      if (r.error) { setError(r.error); return; }
+      carregar();
+    } finally {
+      setUploading(false);
+    }
+  }
+
   if (error && !docs.length && !empresas.length) {
     return <div className="min-h-screen flex items-center justify-center"><p className="text-red-400">{error}</p></div>;
   }
@@ -130,10 +151,26 @@ export default function KnowledgeBasePage() {
           </h1>
           <p className="text-xs text-gray-500">Documentos consultados pela IA (Tira-Dúvidas e futuros prompts) pra grounding.</p>
         </div>
-        <button onClick={() => abrirEditor(null)}
-          className="px-3 py-2 rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 hover:bg-cyan-500/30 text-xs font-bold flex items-center gap-1.5">
-          <Plus size={14} /> Novo doc
-        </button>
+        <div className="flex items-center gap-2">
+          <select value={uploadCategoria} onChange={e => setUploadCategoria(e.target.value)}
+            className="px-2 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-white">
+            {CATEGORIAS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+          </select>
+          <label className={`px-3 py-2 rounded-lg border text-xs font-bold flex items-center gap-1.5 cursor-pointer ${
+            uploading
+              ? 'bg-purple-500/10 border-purple-400/30 text-purple-200/60'
+              : 'bg-purple-500/20 border-purple-400/40 text-purple-300 hover:bg-purple-500/30'
+          }`}>
+            {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+            Upload PDF/DOCX
+            <input type="file" accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
+              onChange={uploadArquivo} disabled={uploading} className="hidden" />
+          </label>
+          <button onClick={() => abrirEditor(null)}
+            className="px-3 py-2 rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 hover:bg-cyan-500/30 text-xs font-bold flex items-center gap-1.5">
+            <Plus size={14} /> Novo doc
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-3 mb-6 flex-wrap items-end">
@@ -180,7 +217,19 @@ export default function KnowledgeBasePage() {
       {loading ? (
         <div className="flex items-center justify-center py-12"><Loader2 size={28} className="animate-spin text-cyan-400" /></div>
       ) : docs.length === 0 ? (
-        <p className="text-center py-12 text-sm text-gray-500">Nenhum doc ainda. Crie o primeiro.</p>
+        <div className="text-center py-12 space-y-3">
+          <p className="text-sm text-gray-500">Nenhum doc ainda.</p>
+          <button onClick={async () => {
+            setError('');
+            const r = await seedKB(user.email, empresaId);
+            if (r.error) { setError(r.error); return; }
+            carregar();
+          }}
+            className="px-4 py-2 rounded-lg bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 hover:bg-emerald-500/30 text-xs font-bold">
+            Popular base inicial (template Vertho)
+          </button>
+          <p className="text-[11px] text-gray-600">Cria 6 docs base: como funciona temporada, evidências, tira-dúvidas, régua de níveis, modos de missão, política de privacidade.</p>
+        </div>
       ) : (
         <div className="space-y-2">
           {docs.map(d => (

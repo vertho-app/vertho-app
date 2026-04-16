@@ -3,6 +3,8 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getUserContext } from '@/lib/authz';
 import { ingestDoc, deactivateDoc, listDocs } from '@/lib/rag';
+import { parseAndChunk } from '@/lib/rag-ingest';
+import { seedKnowledgeBase } from '@/lib/rag-seed';
 
 /**
  * Lista empresas pra seletor (apenas platform admin enxerga todas).
@@ -132,6 +134,83 @@ export async function desativarDocKB(email, empresaId, docId) {
     return { ok: true };
   } catch (err) {
     return { error: err?.message || 'Erro ao desativar' };
+  }
+}
+
+/**
+ * Upload de arquivo (PDF/DOCX/TXT/MD): extrai texto, quebra em chunks por
+ * seção e cria 1 doc por chunk. Cada chunk vira um row em knowledge_base
+ * com title = "<arquivo>: <heading>" pra rastreabilidade.
+ *
+ * Server Action limit: 4MB no body (Next default). Se quiser >4MB, usar
+ * signed URL upload (não implementado aqui — começo com small files).
+ *
+ * @param {string} email
+ * @param {FormData} formData - { empresaId, categoria?, sourceUrl?, file: File }
+ */
+export async function uploadDocsArquivo(email, formData) {
+  const ctx = await getUserContext(email);
+  if (!ctx) return { error: 'Não autenticado' };
+
+  const empresaId = formData.get('empresaId');
+  const categoria = formData.get('categoria') || null;
+  const sourceUrl = formData.get('sourceUrl') || null;
+  const file = formData.get('file');
+
+  const podeAcessar = ctx.isPlatformAdmin || (ctx.role === 'rh' && ctx.empresaId === empresaId);
+  if (!podeAcessar) return { error: 'Acesso restrito' };
+  if (!empresaId) return { error: 'empresaId obrigatório' };
+  if (!file || typeof file === 'string') return { error: 'Arquivo obrigatório' };
+  if (file.size > 4 * 1024 * 1024) return { error: 'Arquivo > 4MB. Quebre em partes.' };
+
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const chunks = await parseAndChunk(buffer, { mime: file.type, filename: file.name });
+
+    if (!chunks.length) return { error: 'Documento vazio ou ilegível' };
+
+    const filenameBase = (file.name || 'documento').replace(/\.[^.]+$/, '');
+    const ids = [];
+    for (const c of chunks) {
+      const titulo = `${filenameBase}: ${c.titulo}`.slice(0, 200);
+      const id = await ingestDoc({
+        empresaId,
+        titulo,
+        conteudo: c.conteudo,
+        categoria,
+        sourceUrl,
+        criadoPor: ctx.colaborador?.id || null,
+      });
+      if (id) ids.push(id);
+    }
+
+    return {
+      ok: true,
+      message: `${ids.length} chunk(s) criado(s) a partir de ${file.name}`,
+      chunks: ids.length,
+    };
+  } catch (err) {
+    console.error('[uploadDocsArquivo]', err);
+    return { error: err?.message || 'Falha ao processar arquivo' };
+  }
+}
+
+/**
+ * Popula a base com docs template (Vertho onboarding, política, etc).
+ * Idempotente: pula docs que já existem (por título).
+ */
+export async function seedKB(email, empresaId) {
+  const ctx = await getUserContext(email);
+  if (!ctx) return { error: 'Não autenticado' };
+  const podeAcessar = ctx.isPlatformAdmin || (ctx.role === 'rh' && ctx.empresaId === empresaId);
+  if (!podeAcessar) return { error: 'Acesso restrito' };
+  if (!empresaId) return { error: 'empresaId obrigatório' };
+
+  try {
+    const r = await seedKnowledgeBase(empresaId);
+    return { ok: true, message: `${r.criados} criados, ${r.pulados} já existiam`, ...r };
+  } catch (err) {
+    return { error: err?.message || 'Falha no seed' };
   }
 }
 
