@@ -1,0 +1,140 @@
+<script>
+/**
+ * ============================================================
+ * VERTHO APP — Router
+ * ============================================================
+ * Hash-based SPA router.
+ * Rotas: #inicio, #jornada, #praticar, #evolucao, #perfil
+ * Sub-rotas: #pdi, #pdi/competencia/123, #assessment, etc.
+ * ============================================================
+ */
+
+var Router = {
+  _currentRoute: null,
+  _container: null,
+  
+  /**
+   * Rotas registradas
+   * Cada rota mapeia para uma função de render em Views
+   */
+  routes: {
+    'inicio':     { tab: 'inicio',   render: 'renderInicio',     title: 'Início' },
+    'jornada':    { tab: 'jornada',  render: 'renderJornada',    title: 'Minha Jornada' },
+    'praticar':   { tab: 'praticar', render: 'renderPraticar',   title: 'Praticar' },
+    'evolucao':   { tab: 'evolucao', render: 'renderEvolucao',   title: 'Evolução' },
+    'perfil':     { tab: 'perfil',   render: 'renderPerfil',     title: 'Perfil' },
+    
+    // Sub-rotas (não têm tab ativo no nav — usam o pai)
+    'pdi':        { tab: 'inicio',   render: 'renderPDI',        title: 'Meu PDI' },
+    'pdi-detalhe':{ tab: 'inicio',   render: 'renderPDIDetalhe', title: 'Competência' },
+    'assessment': { tab: 'jornada',  render: 'renderAssessment', title: 'Mapeamento' },
+    'academia':   { tab: 'praticar', render: 'renderAcademia',   title: 'Conteúdos' },
+    'resultado':  { tab: 'evolucao', render: 'renderResultado',  title: 'Resultado' },
+    'comparacao': { tab: 'evolucao', render: 'renderComparacao', title: 'Comparação' },
+    'perfil-cis-resultado': { tab: 'inicio', render: 'renderPerfilCISResultado', title: 'Perfil Comportamental' }
+  },
+  
+  /**
+   * Inicializa o router
+   */
+  init: function() {
+    this._container = document.getElementById('view-container');
+    
+    // Escuta mudanças de hash
+    window.addEventListener('hashchange', this._onHashChange.bind(this));
+    
+    // Rota inicial
+    var hash = window.location.hash.replace('#', '') || 'inicio';
+    this.go(hash);
+  },
+  
+  /**
+   * Navega para uma rota
+   * @param {string} route - Nome da rota (ex: 'inicio', 'pdi')
+   * @param {Object} params - Parâmetros opcionais (ficam em State)
+   */
+  go: function(route, params) {
+    if (params) {
+      State.set('routeParams', params);
+    }
+
+    // Salvar rota anterior para Router.back()
+    if (this._currentRoute && this._currentRoute !== route) {
+      this._prevRoute = this._currentRoute;
+    }
+
+    window.location.hash = route;
+    
+    // Se o hash já era o mesmo, hashchange não dispara
+    if (this._currentRoute === route) {
+      this._render(route);
+    }
+  },
+  
+  /**
+   * Volta para a rota anterior (ou para início)
+   */
+  back: function() {
+    // Dentro de iframe GAS, history.back pode falhar — fallback para início
+    if (this._prevRoute) {
+      this.go(this._prevRoute);
+    } else {
+      this.go('inicio');
+    }
+  },
+  
+  /**
+   * Retorna rota atual
+   */
+  current: function() {
+    return this._currentRoute;
+  },
+  
+  // ─── INTERNOS ──────────────────────────────────
+  
+  _onHashChange: function() {
+    var hash = window.location.hash.replace('#', '') || 'inicio';
+    this._render(hash);
+  },
+  
+  _render: function(route) {
+    var routeConfig = this.routes[route];
+    
+    if (!routeConfig) {
+      console.warn('Rota desconhecida:', route, '→ redirecionando para inicio');
+      route = 'inicio';
+      routeConfig = this.routes.inicio;
+    }
+    
+    this._currentRoute = route;
+    
+    // Atualiza navegação inferior
+    this._updateNav(routeConfig.tab);
+    
+    // Renderiza a view
+    this._container.innerHTML = '';
+    this._container.scrollTop = 0;
+    
+    var viewFn = Views[routeConfig.render];
+    if (typeof viewFn === 'function') {
+      var content = viewFn(State.get('routeParams'));
+      
+      if (typeof content === 'string') {
+        this._container.innerHTML = content;
+        this._container.firstChild && this._container.firstChild.classList.add('view-enter');
+      }
+      // Se a view retorna void, ela manipula o DOM diretamente
+    } else {
+      this._container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🚧</div><p>Tela em construção</p></div>';
+    }
+  },
+  
+  _updateNav: function(activeTab) {
+    var items = document.querySelectorAll('.nav-item');
+    items.forEach(function(item) {
+      var isActive = item.getAttribute('data-route') === activeTab;
+      item.classList.toggle('active', isActive);
+    });
+  }
+};
+</script>

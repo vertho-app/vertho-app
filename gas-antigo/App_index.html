@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#0F2A4A">
+  <title>Vertho</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <?!= include('App_css-app') ?>
+</head>
+<body>
+  
+  <!-- ============================================ -->
+  <!-- LOGIN SCREEN                                 -->
+  <!-- ============================================ -->
+  <div id="login-screen" class="loading-screen" style="justify-content:center;padding:24px;">
+    <div style="max-width:360px;width:100%;text-align:center;">
+      <img src="https://lh3.googleusercontent.com/d/12SkHlQSU-0LjAdxhRZsHPFcRwcpB0jRT" alt="Vertho" style="width:180px;height:auto;margin-bottom:32px">
+      <div style="font-size:18px;font-weight:600;color:#fff;margin-bottom:8px">Sua jornada de desenvolvimento</div>
+      <div style="font-size:14px;color:rgba(255,255,255,0.6);margin-bottom:28px">Digite seu e-mail para acessar</div>
+      <input type="email" id="login-email" placeholder="seu@email.com"
+        style="width:100%;padding:14px 16px;border-radius:12px;border:2px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.08);color:#fff;font-size:16px;font-family:inherit;outline:none;margin-bottom:16px;text-align:center"
+        onkeydown="if(event.key==='Enter')document.getElementById('login-btn').click()">
+      <button id="login-btn" onclick="App.login()"
+        style="width:100%;padding:14px 0;border-radius:12px;border:none;background:linear-gradient(135deg,#0D9488,#0F766E);color:#fff;font-size:16px;font-weight:700;letter-spacing:0.5px;cursor:pointer;font-family:inherit;transition:opacity 0.2s">
+        Entrar
+      </button>
+      <div id="login-error" style="color:#EF4444;font-size:13px;margin-top:12px;display:none"></div>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- LOADING SCREEN                               -->
+  <!-- ============================================ -->
+  <div id="loading-screen" class="loading-screen" style="display:none">
+    <div class="loading-logo"><img src="https://lh3.googleusercontent.com/d/12SkHlQSU-0LjAdxhRZsHPFcRwcpB0jRT" alt="Vertho" style="width:180px;height:auto"></div>
+    <div class="loading-text">Carregando sua jornada...</div>
+  </div>
+  
+  <!-- ============================================ -->
+  <!-- APP SHELL                                    -->
+  <!-- ============================================ -->
+  <div id="app" class="app" style="display:none;">
+    
+    <!-- Header -->
+    <header id="app-header" class="app-header">
+      <div class="header-left">
+        <span class="header-logo"><img src="https://lh3.googleusercontent.com/d/1mA5eddv8335AccTjwoLPQdTWK_UnoGhM" alt="vertho" style="height:28px;width:auto"></span>
+      </div>
+      <div class="header-right">
+        <button class="header-btn" onclick="App.showNotifications()" aria-label="Notificações">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </button>
+      </div>
+    </header>
+    
+    <!-- View Container (todas as views são renderizadas aqui) -->
+    <main id="view-container" class="view-container">
+      <!-- Views são injetadas dinamicamente pelo Router -->
+    </main>
+    
+    <!-- BETO FAB (Floating Action Button) -->
+    <button id="beto-fab" class="beto-fab" onclick="BETO.toggle()" aria-label="Falar com Mentor IA">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <span class="beto-fab-label">BETO</span>
+    </button>
+    
+    <!-- BETO Chat Overlay -->
+    <div id="beto-overlay" class="beto-overlay" style="display:none;">
+      <div class="beto-chat">
+        <div class="beto-chat-header">
+          <span class="beto-chat-title">Mentor IA</span>
+          <button class="beto-close" onclick="BETO.toggle()">✕</button>
+        </div>
+        <div id="beto-messages" class="beto-messages"></div>
+        <div class="beto-input-area">
+          <input 
+            type="text" 
+            id="beto-input" 
+            class="beto-input" 
+            placeholder="Digite sua dúvida..."
+            onkeydown="if(event.key==='Enter')BETO.send()"
+          >
+          <button class="beto-send" onclick="BETO.send()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Bottom Navigation -->
+    <nav id="bottom-nav" class="bottom-nav">
+      <button class="nav-item active" data-route="inicio" onclick="Router.go('inicio')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>Início</span>
+      </button>
+      <button class="nav-item" data-route="jornada" onclick="Router.go('jornada')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span>Jornada</span>
+      </button>
+      <button class="nav-item" data-route="praticar" onclick="Router.go('praticar')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <span>Praticar</span>
+      </button>
+      <button class="nav-item" data-route="evolucao" onclick="Router.go('evolucao')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        <span>Evolução</span>
+      </button>
+      <button class="nav-item" data-route="perfil" onclick="Router.go('perfil')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span>Perfil</span>
+      </button>
+    </nav>
+    
+  </div><!-- /app -->
+  
+  <!-- Toast container -->
+  <div id="toast-container" class="toast-container"></div>
+  
+  <!-- ============================================ -->
+  <!-- JAVASCRIPT (carrega por último)              -->
+  <!-- ============================================ -->
+  <script>var APP_TEST_EMAIL = '<?= testEmail ?>';</script>
+  <?!= include('App_js-api') ?>
+  <?!= include('App_js-state') ?>
+  <?!= include('App_js-router') ?>
+  <?!= include('App_js-views') ?>
+  <?!= include('App_js-beto') ?>
+  <?!= include('App_js-app') ?>
+  
+</body>
+</html>

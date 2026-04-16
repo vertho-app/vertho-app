@@ -1,0 +1,224 @@
+<script>
+/**
+ * ============================================================
+ * VERTHO APP — Inicialização
+ * ============================================================
+ * Boot sequence:
+ * 1. Identifica usuário via Session
+ * 2. Carrega dados iniciais
+ * 3. Esconde loading screen
+ * 4. Inicializa router
+ * ============================================================
+ */
+
+var App = {
+  _email: '',
+
+  init: function() {
+    console.log('[Vertho] Aguardando login...');
+    // Checar email na URL (vindo de redirect do diagnóstico/CIS)
+    var urlParams = new URLSearchParams(window.location.search);
+    var urlEmail = urlParams.get('email');
+    if (urlEmail) {
+      App._email = urlEmail.trim().toLowerCase();
+      sessionStorage.setItem('vertho_email', App._email);
+      history.replaceState(null, '', window.location.pathname);
+      // Mostrar loading, esconder login
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('loading-screen').style.display = 'flex';
+      App._boot();
+      return;
+    }
+    var saved = sessionStorage.getItem('vertho_email');
+    if (saved) {
+      App._email = saved;
+      // Mostrar loading, esconder login
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('loading-screen').style.display = 'flex';
+      App._boot();
+      return;
+    }
+    // Senão, aguarda o login-screen (já visível no HTML)
+  },
+
+  /**
+   * Chamado pelo botão Entrar na tela de login
+   */
+  login: function() {
+    var input = document.getElementById('login-email');
+    var errDiv = document.getElementById('login-error');
+    var btn = document.getElementById('login-btn');
+    var email = (input.value || '').trim().toLowerCase();
+
+    if (!email || email.indexOf('@') < 1) {
+      errDiv.textContent = 'Digite um e-mail válido.';
+      errDiv.style.display = 'block';
+      return;
+    }
+
+    errDiv.style.display = 'none';
+    btn.textContent = 'Verificando...';
+    btn.disabled = true;
+    input.disabled = true;
+
+    App._email = email;
+    sessionStorage.setItem('vertho_email', email);
+
+    // Mostrar loading, esconder login
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('loading-screen').style.display = 'flex';
+
+    App._boot();
+  },
+
+  /**
+   * Boot real — após ter email
+   */
+  _boot: function() {
+    console.log('[Vertho] Boot com email:', App._email);
+
+    API.call('boot.getAll', { email: App._email })
+      .then(function(data) {
+        if (!data || !data.user) throw { error: 'USER_NOT_FOUND' };
+        console.log('[Vertho] Boot OK:', data.user.nome || data.user.email);
+
+        State.set('user', data.user);
+        State.set('dashboard', data.dashboard || {
+          jornada: { percentual: 0, etapaAtual: 'Iniciar jornada' },
+          pdi: {}, focoDaSemana: {}, evolucao: {}
+        });
+        State.set('etapas', data.etapas || []);
+        State.set('trilha', data.trilha || {});
+        State.set('gasUrl', data.gasUrl || '');
+
+        App._showApp();
+        Router.init();
+      })
+      .catch(function(err) {
+        console.error('[Vertho] Falha no boot:', err);
+
+        if (err && err.error === 'USER_NOT_FOUND') {
+          // Email não encontrado — voltar ao login com erro
+          sessionStorage.removeItem('vertho_email');
+          document.getElementById('loading-screen').style.display = 'none';
+          document.getElementById('login-screen').style.display = 'flex';
+          var errDiv = document.getElementById('login-error');
+          errDiv.textContent = 'E-mail não encontrado no sistema. Verifique com seu gestor.';
+          errDiv.style.display = 'block';
+          var btn = document.getElementById('login-btn');
+          btn.textContent = 'Entrar';
+          btn.disabled = false;
+          document.getElementById('login-email').disabled = false;
+        } else {
+          App._showError('Não foi possível conectar. Verifique sua conexão e recarregue a página.');
+        }
+      });
+  },
+
+  /**
+   * Logout — volta para tela de login
+   */
+  logout: function() {
+    sessionStorage.removeItem('vertho_email');
+    App._email = '';
+    State._store = {};
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('login-email').value = '';
+    document.getElementById('login-email').disabled = false;
+    document.getElementById('login-btn').textContent = 'Entrar';
+    document.getElementById('login-btn').disabled = false;
+    document.getElementById('login-error').style.display = 'none';
+  },
+  
+  /**
+   * Esconde loading e mostra o app
+   */
+  _showApp: function() {
+    var login = document.getElementById('login-screen');
+    var loading = document.getElementById('loading-screen');
+    var app = document.getElementById('app');
+
+    login.style.display = 'none';
+    loading.classList.add('fade-out');
+    app.style.display = 'flex';
+    
+    setTimeout(function() {
+      loading.style.display = 'none';
+    }, 400);
+  },
+  
+  /**
+   * Mostra tela de erro fatal
+   */
+  /**
+   * Abre URL externa na mesma janela (sai do iframe do GAS)
+   */
+  openDiagnostico: function() {
+    var email = App._email || '';
+    var url = 'https://competencias.vertho.com.br?email=' + encodeURIComponent(email);
+    App.openExternal(url);
+  },
+
+  openExternal: function(url) {
+    // Abrir na mesma aba para manter contexto de navegação
+    window.location.href = url;
+  },
+
+  _showError: function(msg) {
+    var loading = document.getElementById('loading-screen');
+    var text = loading.querySelector('.loading-text');
+    text.textContent = msg;
+    text.style.color = '#E74C3C';
+  },
+  
+  /**
+   * Tela de onboarding para usuário novo
+   */
+  _showOnboarding: function(email) {
+    var container = document.getElementById('view-container');
+    container.innerHTML = 
+      '<div class="view-enter" style="text-align:center;padding-top:40px">' +
+        '<div style="font-size:48px;margin-bottom:16px">👋</div>' +
+        '<div class="card-title" style="font-size:var(--font-xl)">Bem-vindo à Vertho!</div>' +
+        '<div class="text-sm text-muted mt-md">Seu email: ' + _esc(email) + '</div>' +
+        '<div class="text-sm text-muted mt-sm">Parece que você ainda não está cadastrado no sistema.</div>' +
+        '<div class="text-sm text-muted mt-sm">Fale com o gestor da sua secretaria para liberar seu acesso.</div>' +
+      '</div>';
+    
+    // Esconde nav e fab
+    document.getElementById('bottom-nav').style.display = 'none';
+    document.getElementById('beto-fab').style.display = 'none';
+  },
+  
+  /**
+   * Placeholder para notificações
+   */
+  showNotifications: function() {
+    Toast.show('Nenhuma notificação no momento');
+  },
+  
+  /**
+   * Força refresh dos dados do state
+   */
+  refreshData: function() {
+    State.invalidate('dashboard');
+    State.invalidate('etapas');
+    State.invalidate('pdi');
+    State.invalidate('progresso');
+    Router.go(Router.current());
+    Toast.show('Dados atualizados');
+  }
+};
+
+
+// ─── BOOT ─────────────────────────────────────────
+// Espera o DOM estar pronto
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', App.init);
+} else {
+  App.init();
+}
+</script>

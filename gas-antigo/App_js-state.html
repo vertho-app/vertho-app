@@ -1,0 +1,92 @@
+<script>
+/**
+ * ============================================================
+ * VERTHO APP — State Management
+ * ============================================================
+ * Store simples em memória. Persiste dados do servidor
+ * para evitar re-fetch desnecessário.
+ * ============================================================
+ */
+
+var State = {
+  _data: {},
+  _listeners: {},
+  
+  /**
+   * Lê um valor do state
+   */
+  get: function(key) {
+    return this._data[key];
+  },
+  
+  /**
+   * Grava um valor e notifica listeners
+   */
+  set: function(key, value) {
+    this._data[key] = value;
+    this._notify(key, value);
+  },
+  
+  /**
+   * Atualiza parcialmente um objeto no state (merge)
+   */
+  update: function(key, partial) {
+    var current = this._data[key] || {};
+    this._data[key] = Object.assign({}, current, partial);
+    this._notify(key, this._data[key]);
+  },
+  
+  /**
+   * Remove um valor (força re-fetch na próxima leitura)
+   */
+  invalidate: function(key) {
+    delete this._data[key];
+  },
+  
+  /**
+   * Registra listener para mudanças em uma key
+   */
+  on: function(key, callback) {
+    if (!this._listeners[key]) this._listeners[key] = [];
+    this._listeners[key].push(callback);
+  },
+  
+  /**
+   * Remove listener
+   */
+  off: function(key, callback) {
+    if (!this._listeners[key]) return;
+    this._listeners[key] = this._listeners[key].filter(function(cb) {
+      return cb !== callback;
+    });
+  },
+  
+  _notify: function(key, value) {
+    var listeners = this._listeners[key] || [];
+    listeners.forEach(function(cb) {
+      try { cb(value); } catch(e) { console.error('State listener error:', e); }
+    });
+  },
+  
+  /**
+   * Helper: busca do server se não tiver em cache
+   * @param {string} stateKey - Key no State
+   * @param {string} apiAction - Ação da API
+   * @param {Object} params - Parâmetros
+   * @param {boolean} force - Forçar re-fetch
+   * @returns {Promise}
+   */
+  fetch: function(stateKey, apiAction, params, force) {
+    var cached = this.get(stateKey);
+    if (cached && !force) {
+      return Promise.resolve(cached);
+    }
+    
+    var self = this;
+    return API.call(apiAction, params).then(function(data) {
+      self.set(stateKey, data);
+      return data;
+    });
+  }
+};
+</script>
