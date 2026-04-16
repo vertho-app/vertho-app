@@ -5,29 +5,31 @@ import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
 import { selectDescriptors } from '@/lib/season-engine/select-descriptors';
 import { buildSeason } from '@/lib/season-engine/build-season';
+import type { AIConfig } from './ai-client';
+
+interface GerarTemporadaParams {
+  colaboradorId?: string;
+  competencia?: string;
+  aiConfig?: AIConfig;
+}
 
 /**
  * Wrapper: carrega temporada do colab logado via email.
  */
-export async function loadTemporadaPorEmail(email) {
+export async function loadTemporadaPorEmail(email: string) {
   try {
     const colab = await findColabByEmail(email, 'id');
     if (!colab) return { error: 'Colab não encontrado' };
     return loadTemporada(colab.id);
-  } catch (err) {
+  } catch (err: any) {
     return { error: err?.message || 'Erro' };
   }
 }
 
 /**
  * Gera uma temporada de 14 semanas pra um colaborador, focada em 1 competência.
- *
- * @param {Object} params
- * @param {string} params.colaboradorId
- * @param {string} params.competencia - se não passado, busca de competencias_foco
- * @param {Object} params.aiConfig - opcional
  */
-export async function gerarTemporada({ colaboradorId, competencia, aiConfig } = {}) {
+export async function gerarTemporada({ colaboradorId, competencia, aiConfig }: GerarTemporadaParams = {}) {
   try {
     if (!colaboradorId) return { error: 'colaboradorId obrigatório' };
     const sbRaw = createSupabaseAdmin();
@@ -85,15 +87,15 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig } = 
       .select('nome_curto')
       .eq('nome', competenciaAlvo)
       .not('nome_curto', 'is', null);
-    let descritoresCatalogo = [...new Set((descsEmp || []).map(b => b.nome_curto))];
+    let descritoresCatalogo: string[] = [...new Set<string>((descsEmp || []).map((b: any) => b.nome_curto))];
     if (descritoresCatalogo.length === 0) {
       // competencias_base é tabela GLOBAL (catálogo nacional) → raw.
       const { data: base } = await sbRaw.from('competencias_base')
         .select('nome_curto').eq('nome', competenciaAlvo).not('nome_curto', 'is', null);
-      descritoresCatalogo = [...new Set((base || []).map(b => b.nome_curto))];
+      descritoresCatalogo = [...new Set<string>((base || []).map((b: any) => b.nome_curto))];
     }
 
-    const avaliadosSet = new Set(assessment.map(a => a.descritor));
+    const avaliadosSet = new Set(assessment.map((a: any) => a.descritor));
     const ausentes = descritoresCatalogo.filter(d => !avaliadosSet.has(d));
     if (ausentes.length > 0) {
       console.warn(`[gerarTemporada] ${ausentes.length} descritor(es) sem avaliação — ignorados na alocação:`, ausentes);
@@ -118,6 +120,7 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig } = 
     });
 
     // 7) Persiste em trilhas (estende registro existente ou cria novo)
+    // (semanas é o output de buildSeason — array de SemanaPlan)
     const { data: existente } = await tdb.from('trilhas')
       .select('id, numero_temporada')
       .eq('colaborador_id', colaboradorId)
@@ -140,7 +143,7 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig } = 
     };
 
     // Constraint única: 1 trilha por (empresa, colab). Sempre UPDATE se existe.
-    let trilhaId;
+    let trilhaId: string;
     if (existente) {
       const { error } = await tdb.from('trilhas').update(payload).eq('id', existente.id);
       if (error) return { error: error.message };
@@ -152,7 +155,7 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig } = 
     }
 
     // 8) Cria registros de progresso (semana 1 = disponível, demais = bloqueada)
-    const progressos = semanas.map(s => ({
+    const progressos = semanas.map((s: any) => ({
       trilha_id: trilhaId,
       colaborador_id: colaboradorId,
       semana: s.semana,
@@ -170,13 +173,13 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig } = 
       descritores: descritoresSelecionados.length,
       semanas: semanas.length,
     };
-  } catch (err) {
+  } catch (err: any) {
     console.error('[gerarTemporada]', err);
     return { error: err?.message || 'Erro' };
   }
 }
 
-function derivarPrioridadeFormatos(colab) {
+function derivarPrioridadeFormatos(colab: any): string[] {
   // Mapeia colunas pref_* (1-5 likert) → ordem dos formatos do motor
   const scores = [
     { f: 'video', s: Math.max(Number(colab.pref_video_curto || 0), Number(colab.pref_video_longo || 0)) },
@@ -190,7 +193,7 @@ function derivarPrioridadeFormatos(colab) {
   return ordenado;
 }
 
-function inferirContexto(segmento) {
+function inferirContexto(segmento?: string | null): string {
   if (!segmento) return 'generico';
   const s = String(segmento).toLowerCase();
   if (s.includes('educa') || s.includes('escola')) return 'educacional';
@@ -202,7 +205,7 @@ function inferirContexto(segmento) {
  * Gera temporadas para todos os colaboradores de uma empresa que têm
  * competência foco definida (em trilhas existentes ou no parametro).
  */
-export async function gerarTemporadasLote(empresaId, aiConfig) {
+export async function gerarTemporadasLote(empresaId: string, aiConfig?: AIConfig) {
   try {
     if (!empresaId) return { error: 'empresaId obrigatório' };
     const sb = createSupabaseAdmin();
@@ -210,7 +213,7 @@ export async function gerarTemporadasLote(empresaId, aiConfig) {
       .select('id, nome_completo').eq('empresa_id', empresaId);
     if (!colabs?.length) return { error: 'Sem colaboradores' };
 
-    const resultados = [];
+    const resultados: any[] = [];
     for (const c of colabs) {
       const r = await gerarTemporada({ colaboradorId: c.id, aiConfig });
       resultados.push({ colab: c.nome_completo, ...r });
@@ -224,7 +227,7 @@ export async function gerarTemporadasLote(empresaId, aiConfig) {
       resultados,
       message: `${ok}/${colabs.length} temporadas geradas${errosUnicos.length ? ` · erros: ${errosUnicos.join('; ')}` : ''}`,
     };
-  } catch (err) {
+  } catch (err: any) {
     console.error('[gerarTemporadasLote]', err);
     return { success: false, error: err?.message || 'Erro' };
   }
@@ -233,7 +236,7 @@ export async function gerarTemporadasLote(empresaId, aiConfig) {
 /**
  * Pausa/retoma uma temporada (toggle baseado no status atual).
  */
-export async function pausarRetomarTemporada(trilhaId) {
+export async function pausarRetomarTemporada(trilhaId: string) {
   try {
     const sb = createSupabaseAdmin();
     const { data: t } = await sb.from('trilhas').select('status').eq('id', trilhaId).maybeSingle();
@@ -242,18 +245,18 @@ export async function pausarRetomarTemporada(trilhaId) {
     const { error } = await sb.from('trilhas').update({ status: novo }).eq('id', trilhaId);
     if (error) return { success: false, error: error.message };
     return { success: true, status: novo, message: `Temporada ${novo}` };
-  } catch (err) {
+  } catch (err: any) {
     return { success: false, error: err?.message };
   }
 }
 
-export async function arquivarTemporada(trilhaId) {
+export async function arquivarTemporada(trilhaId: string) {
   try {
     const sb = createSupabaseAdmin();
     const { error } = await sb.from('trilhas').update({ status: 'arquivada' }).eq('id', trilhaId);
     if (error) return { success: false, error: error.message };
     return { success: true, message: 'Arquivada' };
-  } catch (err) {
+  } catch (err: any) {
     return { success: false, error: err?.message };
   }
 }
@@ -262,7 +265,7 @@ export async function arquivarTemporada(trilhaId) {
  * Regera desafio (semana de conteúdo) OU cenário (semana de aplicação)
  * para uma semana específica. Reseta o progresso.
  */
-export async function regerarSemana(trilhaId, semana, aiConfig = {}) {
+export async function regerarSemana(trilhaId: string, semana: number, aiConfig: AIConfig = {}) {
   try {
     const sb = createSupabaseAdmin();
     const { data: trilha } = await sb.from('trilhas')
@@ -270,8 +273,8 @@ export async function regerarSemana(trilhaId, semana, aiConfig = {}) {
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return { success: false, error: 'Trilha não encontrada' };
 
-    const plano = Array.isArray(trilha.temporada_plano) ? [...trilha.temporada_plano] : [];
-    const idx = plano.findIndex(s => s.semana === Number(semana));
+    const plano: any[] = Array.isArray(trilha.temporada_plano) ? [...trilha.temporada_plano] : [];
+    const idx = plano.findIndex((s: any) => s.semana === Number(semana));
     if (idx < 0) return { success: false, error: 'Semana não encontrada no plano' };
 
     const { data: colab } = await sb.from('colaboradores')
@@ -295,7 +298,7 @@ export async function regerarSemana(trilhaId, semana, aiConfig = {}) {
     } else if (slot.tipo === 'aplicacao') {
       const { promptCenario } = await import('@/lib/season-engine/prompts/scenario');
       const { promptMissao } = await import('@/lib/season-engine/prompts/missao');
-      const complexidade = { 4: 'simples', 8: 'intermediario', 12: 'completo' }[semana] || 'intermediario';
+      const complexidade = ({ 4: 'simples', 8: 'intermediario', 12: 'completo' } as Record<number, string>)[semana] || 'intermediario';
       const descritores = slot.descritores_cobertos || [];
       const m = promptMissao({ competencia: trilha.competencia_foco, descritores, cargo: colab?.cargo, contexto });
       const c = promptCenario({ competencia: trilha.competencia_foco, descritores, cargo: colab?.cargo, contexto, complexidade });
@@ -320,7 +323,7 @@ export async function regerarSemana(trilhaId, semana, aiConfig = {}) {
       .eq('trilha_id', trilhaId).eq('semana', Number(semana));
 
     return { success: true, message: `Semana ${semana} regerada` };
-  } catch (err) {
+  } catch (err: any) {
     console.error('[VERTHO] regerarSemana:', err);
     return { success: false, error: err?.message };
   }
@@ -329,7 +332,7 @@ export async function regerarSemana(trilhaId, semana, aiConfig = {}) {
 /**
  * Lista temporadas de uma empresa (admin viewer).
  */
-export async function listarTemporadasEmpresa(empresaId) {
+export async function listarTemporadasEmpresa(empresaId: string) {
   try {
     if (!empresaId) return { error: 'empresaId obrigatório' };
     const tdb = tenantDb(empresaId);
@@ -339,13 +342,13 @@ export async function listarTemporadasEmpresa(empresaId) {
       .order('criado_em', { ascending: false });
     if (error) return { error: error.message };
 
-    const ids = (data || []).map(t => t.colaborador_id);
+    const ids = (data || []).map((t: any) => t.colaborador_id);
     const { data: colabs } = await tdb.from('colaboradores')
       .select('id, nome_completo, cargo').in('id', ids);
-    const colabMap = Object.fromEntries((colabs || []).map(c => [c.id, c]));
+    const colabMap = Object.fromEntries((colabs || []).map((c: any) => [c.id, c]));
 
-    return { items: (data || []).map(t => ({ ...t, colab: colabMap[t.colaborador_id] || null })) };
-  } catch (err) {
+    return { items: (data || []).map((t: any) => ({ ...t, colab: colabMap[t.colaborador_id] || null })) };
+  } catch (err: any) {
     return { error: err?.message || 'Erro' };
   }
 }
@@ -353,7 +356,7 @@ export async function listarTemporadasEmpresa(empresaId) {
 /**
  * Marca o conteúdo core de uma semana como consumido.
  */
-export async function marcarConteudoConsumido(trilhaId, semana) {
+export async function marcarConteudoConsumido(trilhaId: string, semana: number) {
   try {
     const sb = createSupabaseAdmin();
     const { data: existente } = await sb.from('temporada_semana_progresso')
@@ -367,14 +370,14 @@ export async function marcarConteudoConsumido(trilhaId, semana) {
       await sb.from('temporada_semana_progresso').update(payload).eq('id', existente.id);
     } else {
       const { data: t } = await sb.from('trilhas').select('empresa_id, colaborador_id, temporada_plano').eq('id', trilhaId).maybeSingle();
-      const tipo = (t?.temporada_plano || []).find(s => s.semana === semana)?.tipo || 'conteudo';
+      const tipo = (t?.temporada_plano || []).find((s: any) => s.semana === semana)?.tipo || 'conteudo';
       await sb.from('temporada_semana_progresso').insert({
         trilha_id: trilhaId, empresa_id: t.empresa_id, colaborador_id: t.colaborador_id,
         semana, tipo, ...payload,
       });
     }
     return { ok: true };
-  } catch (err) {
+  } catch (err: any) {
     return { error: err?.message || 'Erro' };
   }
 }
@@ -383,7 +386,7 @@ export async function marcarConteudoConsumido(trilhaId, semana) {
  * Carrega progresso detalhado de todas as semanas de uma trilha (admin view).
  * Inclui transcripts completos de reflexão/feedback/avaliação.
  */
-export async function loadProgressoDetalhado(trilhaId) {
+export async function loadProgressoDetalhado(trilhaId: string) {
   try {
     const sb = createSupabaseAdmin();
     const { data: trilha } = await sb.from('trilhas')
@@ -398,7 +401,7 @@ export async function loadProgressoDetalhado(trilhaId) {
       .select('nome_completo, cargo').eq('id', trilha.colaborador_id).maybeSingle();
 
     return { success: true, trilha, colab, progresso: progresso || [] };
-  } catch (err) {
+  } catch (err: any) {
     return { error: err?.message };
   }
 }
@@ -406,7 +409,7 @@ export async function loadProgressoDetalhado(trilhaId) {
 /**
  * Carrega a temporada ativa de um colaborador (com plano + progresso).
  */
-export async function loadTemporada(colaboradorId) {
+export async function loadTemporada(colaboradorId: string) {
   try {
     if (!colaboradorId) return { error: 'colaboradorId obrigatório' };
 
@@ -432,7 +435,7 @@ export async function loadTemporada(colaboradorId) {
       .select('*').eq('trilha_id', trilha.id).order('semana');
 
     return { ok: true, trilha, progresso: progresso || [], colaborador };
-  } catch (err) {
+  } catch (err: any) {
     return { error: err?.message || 'Erro' };
   }
 }

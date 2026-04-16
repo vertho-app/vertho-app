@@ -2,7 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
-import { callAI } from './ai-client';
+import { callAI, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
 
 // ── IA4: Avaliar respostas (fiel ao GAS — modelo temático) ──────────────────
@@ -94,7 +94,7 @@ Retorne APENAS JSON valido:
   "feedback": "Paragrafo construtivo e especifico."
 }`;
 
-export async function rodarIA4(empresaId, aiConfig = {}) {
+export async function rodarIA4(empresaId: string, aiConfig: AIConfig = {}) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
@@ -113,12 +113,12 @@ export async function rodarIA4(empresaId, aiConfig = {}) {
       .select('nome, segmento').eq('id', empresaId).single();
 
     // Buscar colaboradores com perfil CIS
-    const colabIds = [...new Set(respostas.map(r => r.colaborador_id).filter(Boolean))];
+    const colabIds = [...new Set(respostas.map((r: any) => r.colaborador_id).filter(Boolean))];
     const { data: colabs } = await tdb.from('colaboradores')
       .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, lid_executivo, lid_motivador, lid_metodico, lid_sistematico, perfil_dominante, comp_ousadia, comp_comando, comp_objetividade, comp_assertividade, comp_persuasao, comp_extroversao, comp_entusiasmo, comp_sociabilidade, comp_empatia, comp_paciencia, comp_persistencia, comp_planejamento, comp_organizacao, comp_detalhismo, comp_prudencia, comp_concentracao')
       .in('id', colabIds);
-    const colabMap = {};
-    (colabs || []).forEach(c => { colabMap[c.id] = c; });
+    const colabMap: Record<string, any> = {};
+    (colabs || []).forEach((c: any) => { colabMap[c.id] = c; });
 
     // Buscar PPP
     let contextoPPP = '';
@@ -148,9 +148,9 @@ export async function rodarIA4(empresaId, aiConfig = {}) {
           if (cen) {
             cenarioTexto = `${cen.titulo}\n${cen.descricao}`;
             const pergs = Array.isArray(cen.alternativas) ? cen.alternativas : [];
-            perguntasTexto = pergs.map((p, i) => {
+            perguntasTexto = pergs.map((p: any, i: number) => {
               const num = p.numero || i + 1;
-              return `P${num}: ${p.texto || ''}\nDescritores primarios: ${Array.isArray(p.descritores_primarios) ? p.descritores_primarios.map(d => `D${d}`).join(', ') : ''}\nDiferenciacao: ${p.o_que_diferencia_niveis || ''}`;
+              return `P${num}: ${p.texto || ''}\nDescritores primarios: ${Array.isArray(p.descritores_primarios) ? p.descritores_primarios.map((d: any) => `D${d}`).join(', ') : ''}\nDiferenciacao: ${p.o_que_diferencia_niveis || ''}`;
             }).join('\n\n');
           }
         }
@@ -170,7 +170,7 @@ export async function rodarIA4(empresaId, aiConfig = {}) {
             .not('cod_desc', 'is', null);
 
           if (descs?.length) {
-            descritoresTexto = descs.map((d, i) => {
+            descritoresTexto = descs.map((d: any, i: number) => {
               return `DESCRITOR ${i + 1}: ${d.cod_desc} — ${d.nome_curto || d.descritor_completo || ''}
 N1 (Emergente): ${d.n1_gap || 'Não definido'}
 N2 (Em desenvolvimento): ${d.n2_desenvolvimento || 'Não definido'}
@@ -235,8 +235,8 @@ PERGUNTA 4: ${resp.r4 || '(sem resposta)'}`;
             avaliacao_ia: avaliacao,
             nivel_ia4: nivelGeral,
             nota_ia4: notaDecimal,
-            pontos_fortes: avaliacao.descritores_destaque?.pontos_fortes?.map(p => p.descritor || p).join('; ') || null,
-            pontos_atencao: avaliacao.descritores_destaque?.gaps_prioritarios?.map(g => g.descritor || g).join('; ') || null,
+            pontos_fortes: avaliacao.descritores_destaque?.pontos_fortes?.map((p: any) => p.descritor || p).join('; ') || null,
+            pontos_atencao: avaliacao.descritores_destaque?.gaps_prioritarios?.map((g: any) => g.descritor || g).join('; ') || null,
             feedback_ia4: avaliacao.feedback || null,
             avaliado_em: new Date().toISOString(),
           }).eq('id', resp.id).select('id');
@@ -262,9 +262,9 @@ PERGUNTA 4: ${resp.r4 || '(sem resposta)'}`;
               } else {
                 const notasPorDesc = avaliacao.consolidacao?.notas_por_descritor || {};
                 // empresa_id é injetado pelo tdb.upsert
-                const rows = Object.values(notasPorDesc)
-                  .filter(d => d?.nome && typeof d.nota_decimal === 'number')
-                  .map(d => ({
+                const rows = (Object.values(notasPorDesc) as any[])
+                  .filter((d: any) => d?.nome && typeof d.nota_decimal === 'number')
+                  .map((d: any) => ({
                     colaborador_id: resp.colaborador_id,
                     cargo: resp.cargo,
                     competencia: competenciaNome,
@@ -279,7 +279,7 @@ PERGUNTA 4: ${resp.r4 || '(sem resposta)'}`;
                   });
                 }
               }
-            } catch (e) {
+            } catch (e: any) {
               console.warn('[IA4] descriptor_assessments upsert falhou:', e.message);
             }
           }
@@ -289,21 +289,21 @@ PERGUNTA 4: ${resp.r4 || '(sem resposta)'}`;
           ultimoErro = `IA não retornou JSON válido (${resp.nome_colaborador} / ${resp.competencia_nome})`;
           console.error(`[IA4] FALHA mesmo após retry: ${resp.nome_colaborador}`, resultado?.slice(0, 500));
         }
-      } catch (e) {
+      } catch (e: any) {
         erros++;
         ultimoErro = e.message;
       }
     }
 
     return { success: true, message: `IA4 concluída: ${avaliadas} avaliadas${erros ? `, ${erros} erros` : ''}${ultimoErro ? ` — ${ultimoErro}` : ''}` };
-  } catch (err) {
+  } catch (err: any) {
     return { success: false, error: err.message };
   }
 }
 
 // ── Re-avaliar resposta (com feedback do check) ─────────────────────────────
 
-export async function reavaliarResposta(respostaId, aiConfig = {}) {
+export async function reavaliarResposta(respostaId: string, aiConfig: AIConfig = {}) {
   const sbRaw = createSupabaseAdmin();
   try {
     // Descobre tenant via resposta (raw — query inicial sem tenant)
@@ -342,7 +342,7 @@ export async function reavaliarResposta(respostaId, aiConfig = {}) {
       if (cen) {
         cenarioTexto = `${cen.titulo}\n${cen.descricao}`;
         const pergs = Array.isArray(cen.alternativas) ? cen.alternativas : [];
-        perguntasTexto = pergs.map((p, i) => `P${p.numero || i + 1}: ${p.texto || ''}\nDescritores: ${Array.isArray(p.descritores_primarios) ? p.descritores_primarios.map(d => `D${d}`).join(', ') : ''}\nDiferenciacao: ${p.o_que_diferencia_niveis || ''}`).join('\n\n');
+        perguntasTexto = pergs.map((p: any, i: number) => `P${p.numero || i + 1}: ${p.texto || ''}\nDescritores: ${Array.isArray(p.descritores_primarios) ? p.descritores_primarios.map((d: any) => `D${d}`).join(', ') : ''}\nDiferenciacao: ${p.o_que_diferencia_niveis || ''}`).join('\n\n');
       }
     }
 
@@ -355,7 +355,7 @@ export async function reavaliarResposta(respostaId, aiConfig = {}) {
         .select('cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
         .eq('cod_comp', comp?.cod_comp).not('cod_desc', 'is', null);
       if (descs?.length) {
-        descritoresTexto = descs.map((d, i) => `DESCRITOR ${i + 1}: ${d.cod_desc} — ${d.nome_curto || ''}\nN1: ${d.n1_gap || ''}\nN2: ${d.n2_desenvolvimento || ''}\nN3: ${d.n3_meta || ''}\nN4: ${d.n4_referencia || ''}`).join('\n\n');
+        descritoresTexto = descs.map((d: any, i: number) => `DESCRITOR ${i + 1}: ${d.cod_desc} — ${d.nome_curto || ''}\nN1: ${d.n1_gap || ''}\nN2: ${d.n2_desenvolvimento || ''}\nN3: ${d.n3_meta || ''}\nN4: ${d.n4_referencia || ''}`).join('\n\n');
       }
     }
 
@@ -383,8 +383,8 @@ export async function reavaliarResposta(respostaId, aiConfig = {}) {
       avaliacao_ia: avaliacao,
       nivel_ia4: nivelGeral,
       nota_ia4: notaDecimal,
-      pontos_fortes: avaliacao.descritores_destaque?.pontos_fortes?.map(p => p.descritor || p).join('; ') || null,
-      pontos_atencao: avaliacao.descritores_destaque?.gaps_prioritarios?.map(g => g.descritor || g).join('; ') || null,
+      pontos_fortes: avaliacao.descritores_destaque?.pontos_fortes?.map((p: any) => p.descritor || p).join('; ') || null,
+      pontos_atencao: avaliacao.descritores_destaque?.gaps_prioritarios?.map((g: any) => g.descritor || g).join('; ') || null,
       feedback_ia4: avaliacao.feedback || null,
       avaliado_em: new Date().toISOString(),
     }).eq('id', respostaId).select('id');
@@ -393,21 +393,21 @@ export async function reavaliarResposta(respostaId, aiConfig = {}) {
     if (!updated?.length) return { success: false, error: 'Re-avaliação: 0 linhas atualizadas' };
 
     return { success: true, message: `Re-avaliado: ${compNome} — N${nivelGeral}` };
-  } catch (err) {
+  } catch (err: any) {
     return { success: false, error: err.message };
   }
 }
 
 // ── Re-checar UMA resposta ───────────────────────────────────────────────────
 
-export async function rechecarResposta(respostaId, aiConfig = {}) {
+export async function rechecarResposta(respostaId: string, aiConfig: AIConfig = {}) {
   const { checarUmaResposta } = await import('./check-ia4');
   return checarUmaResposta(respostaId, aiConfig);
 }
 
 // ── Ver fila de IA4 ─────────────────────────────────────────────────────────
 
-export async function verFilaIA4(empresaId) {
+export async function verFilaIA4(empresaId: string) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
@@ -426,14 +426,14 @@ export async function verFilaIA4(empresaId) {
       pendentes: pendentes || 0,
       avaliadas: avaliadas || 0,
     };
-  } catch (err) {
+  } catch (err: any) {
     return { success: false, error: err.message };
   }
 }
 
 // ── Carregar respostas com avaliação ─────────────────────────────────────────
 
-export async function loadRespostasAvaliadas(empresaId) {
+export async function loadRespostasAvaliadas(empresaId: string) {
   if (!empresaId) return [];
   const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
@@ -444,29 +444,29 @@ export async function loadRespostasAvaliadas(empresaId) {
 
   if (error || !data?.length) return [];
 
-  const colabIds = [...new Set(data.map(r => r.colaborador_id).filter(Boolean))];
-  const colabMap = {};
+  const colabIds = [...new Set(data.map((r: any) => r.colaborador_id).filter(Boolean))];
+  const colabMap: Record<string, any> = {};
   if (colabIds.length) {
     const { data: colabs } = await tdb.from('colaboradores').select('id, nome_completo, cargo').in('id', colabIds);
-    (colabs || []).forEach(c => { colabMap[c.id] = c; });
+    (colabs || []).forEach((c: any) => { colabMap[c.id] = c; });
   }
 
-  const compIds = [...new Set(data.map(r => r.competencia_id).filter(Boolean))];
-  const compMap = {};
+  const compIds = [...new Set(data.map((r: any) => r.competencia_id).filter(Boolean))];
+  const compMap: Record<string, any> = {};
   if (compIds.length) {
     const { data: comps } = await tdb.from('competencias').select('id, nome, cod_comp').in('id', compIds);
-    (comps || []).forEach(c => { compMap[c.id] = c; });
+    (comps || []).forEach((c: any) => { compMap[c.id] = c; });
   }
 
-  const cenIds = [...new Set(data.map(r => r.cenario_id).filter(Boolean))];
-  const cenMap = {};
+  const cenIds = [...new Set(data.map((r: any) => r.cenario_id).filter(Boolean))];
+  const cenMap: Record<string, any> = {};
   if (cenIds.length) {
     // banco_cenarios é misto → raw
     const { data: cens } = await sbRaw.from('banco_cenarios').select('id, titulo, alternativas').in('id', cenIds);
-    (cens || []).forEach(c => { cenMap[c.id] = c; });
+    (cens || []).forEach((c: any) => { cenMap[c.id] = c; });
   }
 
-  return data.map(r => ({
+  return data.map((r: any) => ({
     ...r,
     colaborador_nome: colabMap[r.colaborador_id]?.nome_completo || '—',
     colaborador_cargo: colabMap[r.colaborador_id]?.cargo || '—',
@@ -479,26 +479,26 @@ export async function loadRespostasAvaliadas(empresaId) {
 
 // ── Relatórios ──────────────────────────────────────────────────────────────
 
-export async function gerarRelatoriosIndividuais(empresaId, aiConfig = {}) {
+export async function gerarRelatoriosIndividuais(_empresaId: string, _aiConfig: AIConfig = {}) {
   return { success: true, message: 'Relatórios individuais: funcionalidade em desenvolvimento' };
 }
 
-export async function gerarRelatorioGestor(empresaId, aiConfig = {}) {
+export async function gerarRelatorioGestor(_empresaId: string, _aiConfig: AIConfig = {}) {
   return { success: true, message: 'Relatório gestor: funcionalidade em desenvolvimento' };
 }
 
-export async function gerarRelatorioRH(empresaId, aiConfig = {}) {
+export async function gerarRelatorioRH(_empresaId: string, _aiConfig: AIConfig = {}) {
   return { success: true, message: 'Relatório RH: funcionalidade em desenvolvimento' };
 }
 
-export async function enviarRelIndividuais(empresaId) {
+export async function enviarRelIndividuais(_empresaId: string) {
   return { success: true, message: 'Envio individuais: funcionalidade em desenvolvimento' };
 }
 
-export async function enviarRelGestor(empresaId) {
+export async function enviarRelGestor(_empresaId: string) {
   return { success: true, message: 'Envio gestor: funcionalidade em desenvolvimento' };
 }
 
-export async function enviarRelRH(empresaId) {
+export async function enviarRelRH(_empresaId: string) {
   return { success: true, message: 'Envio RH: funcionalidade em desenvolvimento' };
 }

@@ -2,14 +2,14 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
-import { callAI } from './ai-client';
+import { callAI, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
 
 // ── IA1: Selecionar top 10 competências por cargo ───────────────────────────
 // Seleciona das competências JÁ CADASTRADAS na empresa (tabela competencias).
 // Resultado salvo em top10_cargos para validação humana.
 
-export async function rodarIA1(empresaId, aiConfig = {}) {
+export async function rodarIA1(empresaId: string, aiConfig: AIConfig = {}) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
@@ -53,8 +53,8 @@ export async function rodarIA1(empresaId, aiConfig = {}) {
     const valores = await buscarValores(tdb, empresa.nome);
 
     // 4. Agrupar competências por cargo (usar o cargo DA COMPETÊNCIA, não do colaborador)
-    const cargoCompsMap = {};
-    compsUnicas.forEach(c => {
+    const cargoCompsMap: Record<string, any[]> = {};
+    compsUnicas.forEach((c: any) => {
       const cargo = c.cargo || '_sem_cargo';
       if (!cargoCompsMap[cargo]) cargoCompsMap[cargo] = [];
       cargoCompsMap[cargo].push(c);
@@ -146,7 +146,7 @@ export async function rodarIA1(empresaId, aiConfig = {}) {
 
 // ── CRUD top10 (para validação manual) ──────────────────────────────────────
 
-export async function loadTop10(empresaId, cargo) {
+export async function loadTop10(empresaId: string, cargo: string) {
   if (!empresaId) return [];
   const tdb = tenantDb(empresaId);
   const { data } = await tdb.from('top10_cargos')
@@ -156,7 +156,7 @@ export async function loadTop10(empresaId, cargo) {
   return data || [];
 }
 
-export async function loadTop10TodosCargos(empresaId) {
+export async function loadTop10TodosCargos(empresaId: string) {
   if (!empresaId) return [];
   const tdb = tenantDb(empresaId);
   const { data } = await tdb.from('top10_cargos')
@@ -166,7 +166,7 @@ export async function loadTop10TodosCargos(empresaId) {
   return data || [];
 }
 
-export async function adicionarTop10(empresaId, cargo, competenciaId) {
+export async function adicionarTop10(empresaId: string, cargo: string, competenciaId: string) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   // Pegar próxima posição
@@ -187,7 +187,7 @@ export async function adicionarTop10(empresaId, cargo, competenciaId) {
   return { success: true };
 }
 
-export async function removerTop10(id) {
+export async function removerTop10(id: string) {
   // Não recebe empresaId. Descobre via raw + valida tenant pra defesa em profundidade.
   const sbRaw = createSupabaseAdmin();
   const { data: row } = await sbRaw.from('top10_cargos').select('empresa_id').eq('id', id).maybeSingle();
@@ -200,7 +200,7 @@ export async function removerTop10(id) {
 
 // ── Gabarito CIS (leitura) ───────────────────────────────────────────────────
 
-export async function loadGabaritosCargos(empresaId) {
+export async function loadGabaritosCargos(empresaId: string) {
   if (!empresaId) return [];
   const tdb = tenantDb(empresaId);
   const { data, error } = await tdb.from('cargos_empresa')
@@ -211,7 +211,7 @@ export async function loadGabaritosCargos(empresaId) {
   return data || [];
 }
 
-export async function loadCenarios(empresaId) {
+export async function loadCenarios(empresaId: string) {
   if (!empresaId) return [];
   const tdb = tenantDb(empresaId);
   // Listar colunas explicitamente para garantir que check fields vêm
@@ -250,7 +250,7 @@ export async function loadCenarios(empresaId) {
 }
 
 // Limpar cenários que não estão no Top 5
-export async function limparCenariosAntigos(empresaId) {
+export async function limparCenariosAntigos(empresaId: string) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
@@ -470,7 +470,7 @@ const SUB_COMPETENCIAS_CIS = [
   { nome: 'Prudência', dim: 'C' }, { nome: 'Concentração', dim: 'C' },
 ];
 
-export async function rodarIA2(empresaId, aiConfig = {}) {
+export async function rodarIA2(empresaId: string, aiConfig: AIConfig = {}) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
@@ -490,7 +490,7 @@ export async function rodarIA2(empresaId, aiConfig = {}) {
     const { data: top10All } = await tdb.from('top10_cargos')
       .select('cargo, competencia:competencias(nome)');
 
-    const top10PorCargo = {};
+    const top10PorCargo: Record<string, string[]> = {};
     (top10All || []).forEach(t => {
       if (!top10PorCargo[t.cargo]) top10PorCargo[t.cargo] = [];
       if (t.competencia?.nome) top10PorCargo[t.cargo].push(t.competencia.nome);
@@ -611,7 +611,7 @@ INSTRUÇÃO:
 // Processamento unitário (1 competência por chamada) para caber no timeout do Vercel Hobby
 
 // Lista competências do Top 5 pendentes para gerar cenário
-export async function listarFilaIA3(empresaId) {
+export async function listarFilaIA3(empresaId: string) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
@@ -658,7 +658,7 @@ export async function listarFilaIA3(empresaId) {
 }
 
 // Gera cenário para UMA competência (cabe em 60s)
-export async function rodarIA3Uma(empresaId, cargoNome, competenciaId, aiConfig = {}) {
+export async function rodarIA3Uma(empresaId: string, cargoNome: string, competenciaId: string, aiConfig: AIConfig = {}) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
@@ -734,12 +734,12 @@ export async function rodarIA3Uma(empresaId, cargoNome, competenciaId, aiConfig 
 }
 
 // Wrapper que o pipeline chama — retorna a fila para o frontend processar
-export async function rodarIA3(empresaId, aiConfig = {}) {
+export async function rodarIA3(empresaId: string, aiConfig: AIConfig = {}) {
   return listarFilaIA3(empresaId);
 }
 
 // Regenerar cenário com base no feedback do check
-export async function regenerarCenario(cenarioId, aiConfig = {}) {
+export async function regenerarCenario(cenarioId: string, aiConfig: AIConfig = {}) {
   const sbRaw = createSupabaseAdmin();
   try {
     // banco_cenarios é misto → raw por id
@@ -818,7 +818,7 @@ export async function regenerarCenario(cenarioId, aiConfig = {}) {
 // ── Check Cenários (validação via Gemini) ───────────────────────────────────
 // Usa IA diferente da que gerou (Gemini audita Claude)
 
-export async function listarFilaCheck(empresaId) {
+export async function listarFilaCheck(empresaId: string) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   const { data } = await tdb.from('banco_cenarios')
@@ -838,7 +838,7 @@ export async function listarFilaCheck(empresaId) {
   };
 }
 
-export async function checkCenarioUm(cenarioId, empresaId = null, cargo = null, competenciaId = null, modelo = null) {
+export async function checkCenarioUm(cenarioId: string, empresaId: string | null = null, cargo: string | null = null, competenciaId: string | null = null, modelo: string | null = null) {
   const sbRaw = createSupabaseAdmin();
   try {
     // banco_cenarios é misto → raw na busca por id ou por empresa+cargo+competencia

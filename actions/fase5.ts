@@ -2,8 +2,14 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
-import { callAI, callAIChat } from './ai-client';
+import { callAI, callAIChat, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
+
+// Configs específicas da fase 5 (estende a base com flags do check + lote)
+type Fase5Config = AIConfig & {
+  checkModel?: string;
+  incluirAprovados?: boolean;
+};
 
 // ── Constantes (alinhadas com GAS) ──────────────────────────────────────────
 const MAX_TURNOS = 8;
@@ -160,7 +166,7 @@ ${pppResumo ? `\nCONTEXTO PPP:\n${pppResumo}` : ''}`;
 // Inclui: dilema ético, faceta avaliada, validação Gemini
 // ══════════════════════════════════════════════════════════════════════════════
 
-export async function gerarCenariosBLote(empresaId, aiConfig = {}) {
+export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Config = {}) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
@@ -266,7 +272,7 @@ export async function gerarCenariosBLote(empresaId, aiConfig = {}) {
 // 1b. CHECK DE 1 CENÁRIO B
 // ══════════════════════════════════════════════════════════════════════════════
 
-export async function checkCenarioBUm(cenarioId, modelo = null) {
+export async function checkCenarioBUm(cenarioId: string, modelo: string | null = null) {
   const sbRaw = createSupabaseAdmin();
   try {
     // banco_cenarios é misto → raw por id
@@ -295,7 +301,7 @@ export async function checkCenarioBUm(cenarioId, modelo = null) {
 // 1c. REGENERAR 1 CENÁRIO B (usa feedback do check anterior)
 // ══════════════════════════════════════════════════════════════════════════════
 
-export async function regenerarCenarioB(cenarioId, aiConfig = {}) {
+export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = {}) {
   const sbRaw = createSupabaseAdmin();
   try {
     // banco_cenarios é misto → raw por id
@@ -371,7 +377,7 @@ export async function regenerarCenarioB(cenarioId, aiConfig = {}) {
 //   - Senão usa a competência com maior gap (gap = 4 - nivel_ia4)
 // ══════════════════════════════════════════════════════════════════════════════
 
-export async function iniciarReavaliacaoLote(empresaId, aiConfig = {}) {
+export async function iniciarReavaliacaoLote(empresaId: string, aiConfig: AIConfig = {}) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
@@ -592,7 +598,7 @@ Você NÃO está avaliando. Está coletando evidências de mudança.
 A análise será feita depois, por outro sistema.`;
 }
 
-export async function processarReavaliacao(sessaoId, mensagem, aiConfig = {}) {
+export async function processarReavaliacao(sessaoId: string, mensagem: string, aiConfig: AIConfig = {}) {
   const sbRaw = createSupabaseAdmin();
   try {
     // Descobre tenant via sessão (raw — query inicial)
@@ -617,7 +623,7 @@ export async function processarReavaliacao(sessaoId, mensagem, aiConfig = {}) {
 
     // Verificar [META]
     const metaMatch = resposta.match(/\[META\](.*?)\[\/META\]/s);
-    let meta = {};
+    let meta: any = {};
     try { meta = metaMatch ? JSON.parse(metaMatch[1]) : {}; } catch {}
     const encerrar = meta.encerrar || novoTurno >= MAX_TURNOS;
 
@@ -709,7 +715,7 @@ Extraia:
 // Inclui: ganhos_qualitativos, trilha detalhada, conexao_cis em recomendação
 // ══════════════════════════════════════════════════════════════════════════════
 
-export async function gerarEvolucaoFusao(empresaId, aiConfig = {}) {
+export async function gerarEvolucaoFusao(empresaId: string, aiConfig: AIConfig = {}) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
@@ -928,7 +934,7 @@ Cursos concluídos: ${cursosConcluidos} de ${cursosInfo.length}
 // Tom: celebre avanços ANTES de apontar gaps
 // ══════════════════════════════════════════════════════════════════════════════
 
-export async function gerarPlenariaEvolucao(empresaId, aiConfig = {}) {
+export async function gerarPlenariaEvolucao(empresaId: string, aiConfig: AIConfig = {}) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
@@ -943,10 +949,11 @@ export async function gerarPlenariaEvolucao(empresaId, aiConfig = {}) {
     if (!relatorios?.length) return { success: false, error: 'Nenhum relatório de evolução. Gere a evolução primeiro.' };
 
     // Agregar (ANÔNIMO)
-    const porCargo = {}, porComp = {};
+    type AggBucket = { deltas: number[]; descUp: number; descTotal: number; count: number };
+    const porCargo: Record<string, AggBucket> = {}, porComp: Record<string, AggBucket> = {};
     let totalDelta = 0, totalDescUp = 0, totalDesc = 0;
     const convergencias = { EVOLUCAO_CONFIRMADA: 0, EVOLUCAO_PARCIAL: 0, SEM_EVOLUCAO: 0, EVOLUCAO_INVISIVEL: 0 };
-    const gapsPersistentes = {};
+    const gapsPersistentes: Record<string, number> = {};
 
     for (const rel of relatorios) {
       const c = rel.conteudo;
@@ -1053,11 +1060,11 @@ Gere:
 // 7. FUNÇÕES AUXILIARES (compatibilidade)
 // ══════════════════════════════════════════════════════════════════════════════
 
-export async function gerarRelatoriosEvolucaoLote(empresaId, aiConfig = {}) {
+export async function gerarRelatoriosEvolucaoLote(empresaId: string, aiConfig: AIConfig = {}) {
   return gerarEvolucaoFusao(empresaId, aiConfig);
 }
 
-export async function gerarRelatorioRHManual(empresaId, aiConfig = {}) {
+export async function gerarRelatorioRHManual(empresaId: string, aiConfig: AIConfig = {}) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
@@ -1082,7 +1089,7 @@ Gere: { "resumo_executivo": "...", "roi_desenvolvimento": "...", "evolucao_organ
   } catch (err) { return { success: false, error: err.message }; }
 }
 
-export async function gerarRelatorioPlenaria(empresaId, aiConfig = {}) {
+export async function gerarRelatorioPlenaria(empresaId: string, aiConfig: AIConfig = {}) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
@@ -1104,7 +1111,7 @@ Gere: { "titulo": "...", "data": "${new Date().toISOString().split('T')[0]}", "p
   } catch (err) { return { success: false, error: err.message }; }
 }
 
-export async function enviarLinksPerfil(empresaId) {
+export async function enviarLinksPerfil(empresaId: string) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
@@ -1112,6 +1119,7 @@ export async function enviarLinksPerfil(empresaId) {
     const { data: empresa } = await sbRaw.from('empresas').select('nome, slug').eq('id', empresaId).single();
     const { data: colaboradores } = await tdb.from('colaboradores').select('id, nome_completo, email');
     if (!colaboradores?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
+    // @ts-ignore — `resend` é instalado fora do package.json (runtime)
     const { Resend } = await import('resend');
     const resend = new Resend(process.env.RESEND_API_KEY);
     let enviados = 0;
@@ -1130,7 +1138,7 @@ export async function enviarLinksPerfil(empresaId) {
   } catch (err) { return { success: false, error: err.message }; }
 }
 
-export async function gerarDossieGestor(empresaId, aiConfig = {}) {
+export async function gerarDossieGestor(empresaId: string, aiConfig: AIConfig = {}) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
@@ -1147,7 +1155,7 @@ export async function gerarDossieGestor(empresaId, aiConfig = {}) {
   } catch (err) { return { success: false, error: err.message }; }
 }
 
-export async function checkCenarios(empresaId, aiConfig = {}) {
+export async function checkCenarios(empresaId: string, aiConfig: AIConfig = {}) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
@@ -1164,7 +1172,7 @@ export async function checkCenarios(empresaId, aiConfig = {}) {
 // 9. CARREGAR CENÁRIOS B (para tela de visualização)
 // ══════════════════════════════════════════════════════════════════════════════
 
-export async function loadCenariosB(empresaId) {
+export async function loadCenariosB(empresaId: string) {
   if (!empresaId) return [];
   const tdb = tenantDb(empresaId);
 
@@ -1183,8 +1191,8 @@ export async function loadCenariosB(empresaId) {
     .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b');
 
   // Tentar buscar competências (pode falhar no Vercel)
-  const compIds = [...new Set(data.map(c => c.competencia_id).filter(Boolean))];
-  const compMap = {};
+  const compIds = [...new Set(data.map((c: any) => c.competencia_id).filter(Boolean))] as string[];
+  const compMap: Record<string, string> = {};
   for (const cid of compIds) {
     const { data: comp } = await tdb.from('competencias').select('nome').eq('id', cid).maybeSingle();
     if (comp) compMap[cid] = comp.nome;
@@ -1202,7 +1210,7 @@ export async function loadCenariosB(empresaId) {
 // 10. CHECK CENÁRIOS B EM LOTE (mesma lógica do check cenário A)
 // ══════════════════════════════════════════════════════════════════════════════
 
-export async function checkCenariosBLote(empresaId, aiConfig = {}) {
+export async function checkCenariosBLote(empresaId: string, aiConfig: Fase5Config = {}) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
@@ -1248,7 +1256,7 @@ export async function checkCenariosBLote(empresaId, aiConfig = {}) {
 // 11. REGENERAR + RECHECAR EM LOTE (todos os cenários B com nota < 90)
 // ══════════════════════════════════════════════════════════════════════════════
 
-export async function regenerarERecheckarCenariosBLote(empresaId, aiConfig = {}) {
+export async function regenerarERecheckarCenariosBLote(empresaId: string, aiConfig: Fase5Config = {}) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
