@@ -14,8 +14,8 @@ export async function parseSpreadsheet(file) {
   const isExcel = /\.xlsx?$/i.test(file.name);
 
   if (isExcel) {
-    const { default: readXlsxFile } = await import('read-excel-file');
-    const rows = await readXlsxFile(file);
+    const { readSheet } = await import('read-excel-file/browser');
+    const rows = await readSheet(file);
     if (!rows?.length) return [];
     const header = rows[0].map(h => normalizeKey(h));
     return rows.slice(1).map(cols => {

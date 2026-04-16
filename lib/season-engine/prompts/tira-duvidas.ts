@@ -6,6 +6,22 @@
  *
  * Guard-rail: recusa qualquer tema fora do descritor da semana.
  */
+interface ChatMessage {
+  role: string;
+  content: string;
+}
+
+interface PromptTiraDuvidasParams {
+  nomeColab?: string;
+  cargo?: string;
+  competencia: string;
+  descritor: string;
+  conteudoResumo?: string;
+  perfilDominante?: string | null;
+  historico?: ChatMessage[];
+  groundingContext?: string;
+}
+
 export function promptTiraDuvidas({
   nomeColab,
   cargo,
@@ -15,7 +31,7 @@ export function promptTiraDuvidas({
   perfilDominante,
   historico = [],
   groundingContext = '',
-}) {
+}: PromptTiraDuvidasParams) {
   const perfilBloco = perfilDominante
     ? `Perfil comportamental do colaborador: ${perfilDominante}. Adapte a FORMA de orientar (não o conteúdo técnico):
 - D (direto/dominante): seja objetivo, acionável, sem rodeios.

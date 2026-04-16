@@ -4,7 +4,7 @@
  * perfil de evolução pré-escolhido pelo admin.
  */
 
-const PERFIS = {
+const PERFIS: Record<string, string> = {
   evolucao_confirmada: `O colaborador DEMONSTROU evolução clara ao longo da temporada:
 - Sems 1-4: reflexões iniciais um pouco superficiais mas engajadas, começa a articular padrões.
 - Sems 5-8: começa a trazer exemplos concretos, percebe os comportamentos em si mesmo.
@@ -47,7 +47,26 @@ const PERFIS = {
  * @param {number} ctx.turnUser - número do turn do user (1, 2, 3...)
  * @param {string} ctx.cargo
  */
-export function promptSimuladorColab(ctx) {
+interface ChatMessage {
+  role: string;
+  content: string;
+}
+
+interface PromptSimuladorColabCtx {
+  perfilEvolucao: string;
+  semana: number;
+  tipoChat: string;
+  competencia: string;
+  descritor: string;
+  desafio?: string;
+  missao?: string;
+  cenario?: string;
+  historico?: ChatMessage[];
+  turnUser: number;
+  cargo: string;
+}
+
+export function promptSimuladorColab(ctx: PromptSimuladorColabCtx) {
   const perfilInstr = PERFIS[ctx.perfilEvolucao] || PERFIS.evolucao_parcial;
 
   const contexto = [
@@ -91,7 +110,15 @@ Gere a próxima fala do colab. Apenas o texto, sem aspas.`;
  * Gera o COMPROMISSO do colab pra sems de Missão Prática (4/8/12).
  * Texto curto: 1-2 frases dizendo qual situação da rotina vai usar.
  */
-export function promptSimuladorCompromisso({ perfilEvolucao, competencia, descritoresCobertos, cargo, missao }) {
+interface PromptSimuladorCompromissoParams {
+  perfilEvolucao: string;
+  competencia: string;
+  descritoresCobertos: string[];
+  cargo: string;
+  missao?: string;
+}
+
+export function promptSimuladorCompromisso({ perfilEvolucao, competencia, descritoresCobertos, cargo, missao }: PromptSimuladorCompromissoParams) {
   const perfilInstr = PERFIS[perfilEvolucao] || PERFIS.evolucao_parcial;
   const system = `Você está SIMULANDO um colaborador declarando seu compromisso de aplicar uma missão prática na semana. Retorne APENAS o texto do compromisso — sem aspas, sem prefixo.
 

@@ -6,15 +6,25 @@ import { createSupabaseAdmin } from './supabase';
  * curto o bastante para refletir mudanças de ui_config.
  */
 const CACHE_TTL_MS = 5 * 60 * 1000;
-const cache = new Map();
+
+export interface Tenant {
+  id: string;
+  nome: string;
+  slug: string;
+  ui_config: any;
+}
+
+interface CacheEntry {
+  data: Tenant | null;
+  ts: number;
+}
+
+const cache = new Map<string, CacheEntry>();
 
 /**
  * Resolve um slug de tenant para os dados da empresa.
- *
- * @param {string} slug — ex: "zula"
- * @returns {Promise<{id: string, nome: string, slug: string, ui_config: object} | null>}
  */
-export async function resolveTenant(slug) {
+export async function resolveTenant(slug: string | null | undefined): Promise<Tenant | null> {
   if (!slug) return null;
 
   const key = slug.toLowerCase();
@@ -38,18 +48,15 @@ export async function resolveTenant(slug) {
     return null;
   }
 
-  cache.set(key, { data, ts: Date.now() });
-  return data;
+  cache.set(key, { data: data as Tenant, ts: Date.now() });
+  return data as Tenant;
 }
 
 /**
  * Extrai o slug do tenant a partir dos headers da request (server-side).
  * Usado em Server Components e API Routes.
- *
- * @param {Headers|Request} headersOrRequest
- * @returns {string|null}
  */
-export function getTenantSlug(headersOrRequest) {
+export function getTenantSlug(headersOrRequest: Request | Headers): string | null {
   const h = headersOrRequest instanceof Request
     ? headersOrRequest.headers
     : headersOrRequest;
@@ -58,11 +65,8 @@ export function getTenantSlug(headersOrRequest) {
 
 /**
  * Conveniência: extrai slug dos headers e resolve o tenant de uma vez.
- *
- * @param {Headers|Request} headersOrRequest
- * @returns {Promise<{id: string, nome: string, slug: string, ui_config: object} | null>}
  */
-export async function resolveTenantFromHeaders(headersOrRequest) {
+export async function resolveTenantFromHeaders(headersOrRequest: Request | Headers): Promise<Tenant | null> {
   const slug = getTenantSlug(headersOrRequest);
   if (!slug) return null;
   return resolveTenant(slug);

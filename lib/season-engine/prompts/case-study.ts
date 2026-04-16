@@ -1,7 +1,16 @@
 /**
  * Gera estudo de caso narrativo (600-1000 palavras) — experiencial, não explicativo.
  */
-export function promptCaseStudy({ competencia, descritor, nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico' }) {
+interface PromptCaseStudyParams {
+  competencia: string;
+  descritor: string;
+  nivelMin?: number;
+  nivelMax?: number;
+  cargo?: string;
+  contexto?: string;
+}
+
+export function promptCaseStudy({ competencia, descritor, nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico' }: PromptCaseStudyParams) {
   const dificuldade = nivelMin <= 1.5 ? 'SITUAÇÕES ÓBVIAS (o descritor aparece de forma clara)'
     : nivelMin <= 2.5 ? 'DILEMAS AMBÍGUOS (múltiplas respostas plausíveis)'
     : 'CASOS COMPLEXOS (dilemas éticos, escolhas difíceis)';

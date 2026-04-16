@@ -74,12 +74,13 @@ export function TemporadaConcluidaPDF({ dados }) {
       ...descritores.map((d, i) => {
         const conv = CONV_LABEL[d.convergencia] || CONV_LABEL.estagnacao;
         const cor = CONV_COR[d.convergencia] || CONV_COR.estagnacao;
-        const delta = (d.nota_pos - d.nota_pre).toFixed(1);
+        const deltaNum = d.nota_pos - d.nota_pre;
+        const delta = deltaNum.toFixed(1);
         return React.createElement(View, { key: i, style: styles.card, wrap: false },
           React.createElement(View, { style: styles.row },
             React.createElement(Text, { style: styles.rowLabel }, sanitize(d.descritor)),
             React.createElement(Text, { style: { ...styles.rowValue, color: cor, fontWeight: 700 } },
-              `${d.nota_pre} → ${d.nota_pos} (${delta > 0 ? '+' : ''}${delta})`
+              `${d.nota_pre} → ${d.nota_pos} (${deltaNum > 0 ? '+' : ''}${delta})`
             ),
           ),
           React.createElement(Text, { style: { ...styles.pill, color: cor } }, sanitize(conv)),

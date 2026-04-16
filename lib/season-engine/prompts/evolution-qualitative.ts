@@ -6,7 +6,13 @@
  * Adaptado ao perfil DISC.
  */
 
-function estiloPorPerfil(perfil) {
+interface EstiloDisc {
+  tom: string;
+  gatilhos: string;
+  evitar: string;
+}
+
+function estiloPorPerfil(perfil: string | null | undefined): EstiloDisc {
   const p = (perfil || '').toLowerCase();
   if (p.includes('d')) return {
     tom: 'Direto, objetivo. Pergunte RESULTADOS e DECISÕES — não sentimentos.',
@@ -42,7 +48,18 @@ function estiloPorPerfil(perfil) {
  *   9-10 integração dos descritores (2 ângulos) | 11 maior avanço
  *   12 síntese final (sem perguntas, sem plano 30d)
  */
-function instrucaoPorTurn({ turnIA, nomeColab, competencia, descritores }) {
+interface DescritorInfo {
+  descritor: string;
+}
+
+interface InstrucaoPorTurnParams {
+  turnIA: number;
+  nomeColab: string;
+  competencia: string;
+  descritores: DescritorInfo[];
+}
+
+function instrucaoPorTurn({ turnIA, nomeColab, competencia, descritores }: InstrucaoPorTurnParams): string {
   const descList = descritores.map(d => `"${d.descritor}"`).join(', ');
 
   if (turnIA === 1) {
@@ -134,6 +151,17 @@ Ancore TUDO no que ${nomeColab} disse — NUNCA invente evolução sem evidênci
 Máximo 180 palavras totais.`;
 }
 
+interface PromptEvolutionQualitativeParams {
+  nomeColab: string;
+  cargo: string;
+  perfilDominante?: string | null;
+  competencia: string;
+  descritores: DescritorInfo[];
+  insightsAnteriores: string[];
+  turnIA: number;
+  totalTurns?: number;
+}
+
 export function promptEvolutionQualitative({
   nomeColab,
   cargo,
@@ -143,7 +171,7 @@ export function promptEvolutionQualitative({
   insightsAnteriores,
   turnIA,
   totalTurns,
-}) {
+}: PromptEvolutionQualitativeParams) {
   const estilo = estiloPorPerfil(perfilDominante);
   const instrucao = instrucaoPorTurn({ turnIA, nomeColab, competencia, descritores });
 
@@ -208,7 +236,12 @@ ${instrucao}`;
 /**
  * Prompt de extração estruturada após a conversa qualitativa.
  */
-export function promptEvolutionQualitativeExtract({ descritores, transcript }) {
+interface PromptEvolutionQualitativeExtractParams {
+  descritores: DescritorInfo[];
+  transcript: string;
+}
+
+export function promptEvolutionQualitativeExtract({ descritores, transcript }: PromptEvolutionQualitativeExtractParams) {
   const system = `Você é um extrator de dados. Retorne APENAS JSON válido, sem markdown.`;
   const user = `CONVERSA DE FECHAMENTO DA TEMPORADA:
 ${transcript}

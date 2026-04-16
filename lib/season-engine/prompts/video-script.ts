@@ -2,7 +2,17 @@
  * Gera roteiro de vídeo (3-5 min) para gravação externa/HeyGen.
  * Linguagem de câmera: frases curtas, conversa entre colegas, sem markdown.
  */
-export function promptVideoScript({ competencia, descritor, nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico', duracaoSegundos = null }) {
+interface PromptVideoScriptParams {
+  competencia: string;
+  descritor: string;
+  nivelMin?: number;
+  nivelMax?: number;
+  cargo?: string;
+  contexto?: string;
+  duracaoSegundos?: number | null;
+}
+
+export function promptVideoScript({ competencia, descritor, nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico', duracaoSegundos = null }: PromptVideoScriptParams) {
   const duracao = duracaoSegundos ? `${Math.floor(duracaoSegundos/60)}:${String(duracaoSegundos%60).padStart(2,'0')}` : '3:00';
   const palavrasAlvo = duracaoSegundos ? Math.round(duracaoSegundos * 2.5) : 450; // ~150 palavras/min
   const focoPorNivel = nivelMin <= 1.5

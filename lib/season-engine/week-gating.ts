@@ -12,7 +12,7 @@ const UNLOCK_HOUR_UTC = UNLOCK_HOUR_BRT + SP_OFFSET_HOURS; // 06:00 UTC
  * Retorna a próxima segunda-feira (em SP) estritamente após `now`, formato 'YYYY-MM-DD'.
  * Se hoje é segunda, retorna a segunda da semana seguinte.
  */
-export function nextMondayISO(now = new Date()) {
+export function nextMondayISO(now: Date = new Date()): string {
   // Converte "agora" pra data SP (subtrai 3h)
   const sp = new Date(now.getTime() - SP_OFFSET_HOURS * 3600 * 1000);
   const dow = sp.getUTCDay(); // 0=dom,1=seg,...
@@ -26,7 +26,7 @@ export function nextMondayISO(now = new Date()) {
  * @param {string} dataInicio 'YYYY-MM-DD' (a segunda da semana 1, em SP)
  * @param {number} n semana (1..14)
  */
-export function semanaLiberadaEm(dataInicio, n) {
+export function semanaLiberadaEm(dataInicio: string | null | undefined, n: number | string): Date | null {
   if (!dataInicio) return null;
   const [y, m, d] = String(dataInicio).slice(0, 10).split('-').map(Number);
   const base = Date.UTC(y, m - 1, d, UNLOCK_HOUR_UTC, 0, 0);
@@ -36,7 +36,7 @@ export function semanaLiberadaEm(dataInicio, n) {
 /**
  * @returns {boolean} true se a semana já liberou (data atual >= unlock).
  */
-export function semanaLiberadaPorData(dataInicio, n, now = new Date()) {
+export function semanaLiberadaPorData(dataInicio: string | null | undefined, n: number | string, now: Date = new Date()): boolean {
   const unlock = semanaLiberadaEm(dataInicio, n);
   if (!unlock) return false;
   return now.getTime() >= unlock.getTime();
@@ -46,7 +46,7 @@ export function semanaLiberadaPorData(dataInicio, n, now = new Date()) {
  * Formata a data de liberação para exibição (ex.: "seg 12/05").
  * Horário (03:00) não é exibido — é detalhe de implementação.
  */
-export function formatarLiberacao(dataInicio, n) {
+export function formatarLiberacao(dataInicio: string | null | undefined, n: number | string): string {
   const unlock = semanaLiberadaEm(dataInicio, n);
   if (!unlock) return '';
   const sp = new Date(unlock.getTime() - SP_OFFSET_HOURS * 3600 * 1000);

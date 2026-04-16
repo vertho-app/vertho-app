@@ -5,6 +5,23 @@
  *
  * 10 turns da IA — turn 10 é fechamento obrigatório sem réplica.
  */
+interface ChatMessage {
+  role: string;
+  content: string;
+}
+
+interface PromptMissaoFeedbackParams {
+  nomeColab: string;
+  cargo: string;
+  competencia: string;
+  descritoresCobertos: string[];
+  missao: string;
+  compromisso?: string;
+  historico: ChatMessage[];
+  turnIA: number;
+  groundingContext?: string;
+}
+
 export function promptMissaoFeedback({
   nomeColab,
   cargo,
@@ -15,12 +32,12 @@ export function promptMissaoFeedback({
   historico,
   turnIA,
   groundingContext = '',
-}) {
+}: PromptMissaoFeedbackParams) {
   const d1 = descritoresCobertos[0] || 'o primeiro descritor';
   const d2 = descritoresCobertos[1] || d1;
   const d3 = descritoresCobertos[2] || d2;
 
-  const instrucaoTurn = {
+  const instrucaoTurn: Record<number, string> = {
     1: `TURN 1 (ACOLHIMENTO + PEDIDO DE CONTEXTO).
   - Reconheça que ${nomeColab} executou.
   - Peça 1 detalhe aberto do QUE ACONTECEU — ex: "Me conta o que aconteceu no momento em que você [ação mencionada]?".

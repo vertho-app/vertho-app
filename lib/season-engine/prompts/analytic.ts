@@ -3,12 +3,27 @@
  * aplicação (4, 8, 12) quando modo='cenario' (fallback).
  * 10 turns da IA — turn 10 é fechamento obrigatório sem réplica.
  */
-export function promptAnalytic({ nomeColab, cargo, competencia, descritoresCobertos, cenario, historico, turnIA }) {
+interface ChatMessage {
+  role: string;
+  content: string;
+}
+
+interface PromptAnalyticParams {
+  nomeColab: string;
+  cargo: string;
+  competencia: string;
+  descritoresCobertos: string[];
+  cenario: string;
+  historico: ChatMessage[];
+  turnIA: number;
+}
+
+export function promptAnalytic({ nomeColab, cargo, competencia, descritoresCobertos, cenario, historico, turnIA }: PromptAnalyticParams) {
   const d1 = descritoresCobertos[0] || 'o primeiro descritor';
   const d2 = descritoresCobertos[1] || d1;
   const d3 = descritoresCobertos[2] || d2;
 
-  const instrucaoTurn = {
+  const instrucaoTurn: Record<number, string> = {
     1: `TURN 1 (ACOLHIMENTO + PONTOS FORTES).
   - Acuse recebimento da resposta de ${nomeColab}.
   - Destaque 1-2 pontos FORTES específicos (cite trechos/ideias literais da resposta).

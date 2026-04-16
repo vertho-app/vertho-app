@@ -8,7 +8,13 @@
  * Baseado em padrões comportamentais observados: cada estilo responde
  * melhor a gatilhos diferentes de pergunta socrática.
  */
-function estiloPorPerfil(perfil) {
+interface EstiloDisc {
+  tom: string;
+  gatilhos: string;
+  evitar: string;
+}
+
+function estiloPorPerfil(perfil: string | null | undefined): EstiloDisc {
   const p = (perfil || '').toLowerCase();
   if (p.includes('d')) return {
     tom: 'Direto, objetivo. Pergunte RESULTADOS e DECISÕES — não sentimentos.',
@@ -33,9 +39,26 @@ function estiloPorPerfil(perfil) {
   return { tom: 'Tom neutro acolhedor.', gatilhos: '"O que aconteceu?", "O que te levou a isso?", "O que mudou?"', evitar: '—' };
 }
 
-export function promptSocratic({ nomeColab, cargo, perfilDominante, competencia, descritor, desafio, historico, turnIA, groundingContext = '' }) {
+interface ChatMessage {
+  role: string;
+  content: string;
+}
+
+interface PromptSocraticParams {
+  nomeColab: string;
+  cargo: string;
+  perfilDominante?: string | null;
+  competencia: string;
+  descritor: string;
+  desafio: string;
+  historico: ChatMessage[];
+  turnIA: number;
+  groundingContext?: string;
+}
+
+export function promptSocratic({ nomeColab, cargo, perfilDominante, competencia, descritor, desafio, historico, turnIA, groundingContext = '' }: PromptSocraticParams) {
   const estilo = estiloPorPerfil(perfilDominante);
-  const instrucaoTurn = {
+  const instrucaoTurn: Record<number, string> = {
     1: `ESTE É O TURN 1 (ABERTURA).
   - Cumprimente ${nomeColab} pelo primeiro nome.
   - Referencie o desafio da semana: "${desafio}"
@@ -101,7 +124,7 @@ ${groundingContext ? `${groundingContext}\n\nUse o contexto acima APENAS se a co
 
 ${instrucaoTurn}`;
 
-  const messages = [];
+  const messages: ChatMessage[] = [];
   if (historico && historico.length > 0) {
     for (const m of historico) messages.push({ role: m.role, content: m.content });
   }

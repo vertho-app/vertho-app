@@ -1,7 +1,16 @@
 /**
  * Gera o desafio semanal — micro-ação prática, observável, executável em 1 semana.
  */
-export function promptDesafio({ competencia, descritor, nivel, cargo, contexto, semana }) {
+interface PromptDesafioParams {
+  competencia: string;
+  descritor: string;
+  nivel: number;
+  cargo: string;
+  contexto: string;
+  semana: number;
+}
+
+export function promptDesafio({ competencia, descritor, nivel, cargo, contexto, semana }: PromptDesafioParams) {
   const nivelLabel = nivel <= 1.5 ? 'iniciante (ação básica)' :
                      nivel <= 2.5 ? 'em desenvolvimento (refinar)' :
                      nivel <= 3.5 ? 'proficiente (aprofundar)' : 'avançado (referenciar outros)';

@@ -2,7 +2,23 @@
  * Semana 14 — cenário final que integra todos os descritores da temporada.
  * Após resposta, a IA pontua cada descritor de 1.0 a 4.0.
  */
-export function promptEvolutionScenarioGen({ competencia, descritores, cargo, contexto }) {
+interface DescritorRubrica {
+  descritor: string;
+  nota_atual?: number;
+  n1_gap?: string;
+  n2_desenvolvimento?: string;
+  n3_meta?: string;
+  n4_referencia?: string;
+}
+
+interface PromptEvolutionScenarioGenParams {
+  competencia: string;
+  descritores: DescritorRubrica[];
+  cargo: string;
+  contexto: string;
+}
+
+export function promptEvolutionScenarioGen({ competencia, descritores, cargo, contexto }: PromptEvolutionScenarioGenParams) {
   const system = `Você é um designer de casos para avaliação final de competências. Cria cenário REALISTA que força escolhas difíceis e integra múltiplos descritores.`;
   const user = `Crie o CENÁRIO FINAL de uma temporada de 14 semanas para avaliar TODOS os descritores abaixo integrados numa única situação.
 
@@ -51,7 +67,7 @@ Retorne APENAS o markdown do cenário.`;
  *
  * @param {Array} descritores - [{descritor, nota_atual, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia}]
  */
-function tomDevolutivaPorPerfil(perfil) {
+function tomDevolutivaPorPerfil(perfil: string | null | undefined): string {
   const p = (perfil || '').toLowerCase();
   if (p.includes('d')) return 'Direto, objetivo. Nomeie resultado/ação específica. Evite floreios.';
   if (p.includes('i')) return 'Caloroso, reconheça esforço. Valide emoção sem enfeitar.';
@@ -60,7 +76,18 @@ function tomDevolutivaPorPerfil(perfil) {
   return 'Tom neutro acolhedor.';
 }
 
-export function promptEvolutionScenarioScore({ competencia, descritores, cenario, resposta, nomeColab, perfilDominante, evidenciasAcumuladas, acumuladoPrimaria }) {
+interface PromptEvolutionScenarioScoreParams {
+  competencia: string;
+  descritores: DescritorRubrica[];
+  cenario: string;
+  resposta: string;
+  nomeColab: string;
+  perfilDominante?: string | null;
+  evidenciasAcumuladas?: string;
+  acumuladoPrimaria?: unknown;
+}
+
+export function promptEvolutionScenarioScore({ competencia, descritores, cenario, resposta, nomeColab, perfilDominante, evidenciasAcumuladas, acumuladoPrimaria }: PromptEvolutionScenarioScoreParams) {
   const tomDevol = tomDevolutivaPorPerfil(perfilDominante);
   const system = `Você é um avaliador rigoroso e CRITERIOSO. A avaliação da semana 14 é o PONTO DE CHEGADA de uma temporada de 13 semanas — você NUNCA pontua só pela resposta ao cenário. Pontua pela TRIANGULAÇÃO da resposta com toda a evidência acumulada.
 

@@ -20,16 +20,22 @@ const styles = StyleSheet.create({
 });
 
 // Sanitiza chars fora WinAnsi (fontes standard pdf-lib não suportam Unicode amplo)
-function sanitize(s) {
+function sanitize(s: unknown): string {
   return String(s || '').replace(/[^\x20-\x7E\u00A0-\u00FF]/g, '');
+}
+
+interface MdBlock {
+  type: 'p' | 'h1' | 'h2' | 'h3' | 'li' | 'li-num';
+  text: string;
+  num?: string;
 }
 
 // Parse simples: divide por linhas, identifica tipo de cada bloco.
 // skipFirstH1: ignora o primeiro `# ` do corpo (evita duplicar com o título já renderizado)
-function parseMarkdown(md, { skipFirstH1 = false } = {}) {
+function parseMarkdown(md: string | null | undefined, { skipFirstH1 = false }: { skipFirstH1?: boolean } = {}): MdBlock[] {
   const lines = String(md || '').split('\n');
-  const blocks = [];
-  let paragraph = [];
+  const blocks: MdBlock[] = [];
+  let paragraph: string[] = [];
   let firstH1Skipped = !skipFirstH1;
   const flush = () => {
     if (paragraph.length) {
@@ -52,7 +58,7 @@ function parseMarkdown(md, { skipFirstH1 = false } = {}) {
       continue;
     }
     if (/^[-*]\s+/.test(line)) { flush(); blocks.push({ type: 'li', text: line.replace(/^[-*]\s+/, '') }); continue; }
-    if (/^\d+\.\s+/.test(line)) { flush(); blocks.push({ type: 'li-num', text: line.replace(/^\d+\.\s+/, ''), num: line.match(/^(\d+)/)[1] }); continue; }
+    if (/^\d+\.\s+/.test(line)) { flush(); blocks.push({ type: 'li-num', text: line.replace(/^\d+\.\s+/, ''), num: line.match(/^(\d+)/)![1] }); continue; }
 
     paragraph.push(line);
   }
@@ -61,7 +67,7 @@ function parseMarkdown(md, { skipFirstH1 = false } = {}) {
 }
 
 // Renderiza texto com **negrito** parseado em runs
-function renderBold(text) {
+function renderBold(text: string): any[] {
   const parts = sanitize(text).split(/(\*\*[^*]+\*\*)/g);
   return parts.map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**')) {
@@ -71,7 +77,13 @@ function renderBold(text) {
   });
 }
 
-export function MarkdownPDF({ titulo, conteudoMd, meta: _meta }) {
+interface MarkdownPDFParams {
+  titulo?: string;
+  conteudoMd: string;
+  meta?: any;
+}
+
+export function MarkdownPDF({ titulo, conteudoMd, meta: _meta }: MarkdownPDFParams) {
   // meta (subtítulo "Competência · Descritor · gerado por IA") foi removido a pedido do produto.
   const blocks = parseMarkdown(conteudoMd, { skipFirstH1: Boolean(titulo) });
   return React.createElement(Document, { title: titulo },
@@ -93,7 +105,7 @@ export function MarkdownPDF({ titulo, conteudoMd, meta: _meta }) {
 /**
  * Gera PDF buffer do markdown e retorna Uint8Array.
  */
-export async function renderMarkdownPDF({ titulo, conteudoMd, meta }) {
+export async function renderMarkdownPDF({ titulo, conteudoMd, meta }: MarkdownPDFParams) {
   const { renderToBuffer } = await import('@react-pdf/renderer');
   return renderToBuffer(MarkdownPDF({ titulo, conteudoMd, meta }));
 }

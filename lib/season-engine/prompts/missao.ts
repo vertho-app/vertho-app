@@ -4,7 +4,14 @@
  * os 3 descritores das semanas anteriores na rotina real (não em resposta
  * fictícia). Cenário escrito fica como fallback.
  */
-export function promptMissao({ competencia, descritores, cargo, contexto }) {
+interface PromptMissaoParams {
+  competencia: string;
+  descritores: string[];
+  cargo: string;
+  contexto: string;
+}
+
+export function promptMissao({ competencia, descritores, cargo, contexto }: PromptMissaoParams) {
   const system = `Você é um designer de missões práticas de desenvolvimento. Sua missão integra descritores comportamentais em uma única tarefa que o profissional executa no trabalho real durante a semana — não em resposta escrita.`;
 
   const user = `Crie 1 MISSÃO PRÁTICA que o colaborador vai executar durante a semana no trabalho real.

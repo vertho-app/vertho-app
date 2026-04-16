@@ -1,7 +1,16 @@
 /**
  * Gera artigo markdown (800-1200 palavras) para leitura ativa.
  */
-export function promptTextContent({ competencia, descritor, nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico' }) {
+interface PromptTextContentParams {
+  competencia: string;
+  descritor: string;
+  nivelMin?: number;
+  nivelMax?: number;
+  cargo?: string;
+  contexto?: string;
+}
+
+export function promptTextContent({ competencia, descritor, nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico' }: PromptTextContentParams) {
   const focoPorNivel = nivelMin <= 1.5 ? 'FUNDAMENTOS'
     : nivelMin <= 2.5 ? 'REFINAMENTO'
     : 'MAESTRIA';

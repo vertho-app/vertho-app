@@ -2,7 +2,17 @@
  * Gera roteiro de podcast/áudio (3-5 min) para narração (ElevenLabs voice clone).
  * Linguagem íntima, storytelling, otimizada para consumo sem tela.
  */
-export function promptPodcastScript({ competencia, descritor, nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico', duracaoSegundos = null }) {
+interface PromptPodcastScriptParams {
+  competencia: string;
+  descritor: string;
+  nivelMin?: number;
+  nivelMax?: number;
+  cargo?: string;
+  contexto?: string;
+  duracaoSegundos?: number | null;
+}
+
+export function promptPodcastScript({ competencia, descritor, nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico', duracaoSegundos = null }: PromptPodcastScriptParams) {
   const duracao = duracaoSegundos ? `${Math.floor(duracaoSegundos/60)}:${String(duracaoSegundos%60).padStart(2,'0')}` : '4:00';
   const palavrasAlvo = duracaoSegundos ? Math.round(duracaoSegundos * 2.3) : 500; // podcast ~140 palavras/min
   const focoPorNivel = nivelMin <= 1.5

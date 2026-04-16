@@ -6,7 +6,22 @@
  * o cenário da sem 14). O scorer da sem 14 usa essa nota como referência
  * de "padrão da temporada" pra triangular com a resposta única ao cenário.
  */
-export function promptAvaliacaoAcumulada({ competencia, descritores, evidenciasAcumuladas, nomeColab }) {
+interface DescritorRubrica {
+  descritor: string;
+  n1_gap?: string;
+  n2_desenvolvimento?: string;
+  n3_meta?: string;
+  n4_referencia?: string;
+}
+
+interface PromptAvaliacaoAcumuladaParams {
+  competencia: string;
+  descritores: DescritorRubrica[];
+  evidenciasAcumuladas: string;
+  nomeColab: string;
+}
+
+export function promptAvaliacaoAcumulada({ competencia, descritores, evidenciasAcumuladas, nomeColab }: PromptAvaliacaoAcumuladaParams) {
   const reguas = descritores.map(d => {
     // Propositalmente NÃO exibe nota_atual/inicial aqui pra evitar ancoragem.
     // Régua pura é o único referencial.
@@ -55,7 +70,14 @@ ${descritores.map(d => `    { "descritor": "${d.descritor}", "nota_acumulada": "
 /**
  * Check por 2ª IA da avaliação acumulada. Igual ao check-ia4 do mapeamento.
  */
-export function promptAvaliacaoAcumuladaCheck({ competencia, descritores, evidenciasAcumuladas, avaliacaoPrimaria }) {
+interface PromptAvaliacaoAcumuladaCheckParams {
+  competencia: string;
+  descritores: DescritorRubrica[];
+  evidenciasAcumuladas: string;
+  avaliacaoPrimaria: unknown;
+}
+
+export function promptAvaliacaoAcumuladaCheck({ competencia, descritores, evidenciasAcumuladas, avaliacaoPrimaria }: PromptAvaliacaoAcumuladaCheckParams) {
   const system = `Você é um auditor de qualidade de avaliação acumulada de competências. Verifica se a pontuação dada por outra IA ao "padrão da temporada" é DEFENSÁVEL.
 
 FILOSOFIA:

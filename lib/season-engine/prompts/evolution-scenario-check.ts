@@ -4,7 +4,24 @@
  * nota 0-100 (≥90 = aprovado, <90 = revisar). Detecta erros graves:
  * nota sem evidência, delta inexplicado, justificativa genérica.
  */
-export function promptEvolutionScenarioCheck({ competencia, descritores, cenario, resposta, avaliacaoPrimaria, evidenciasAcumuladas }) {
+interface DescritorRubrica {
+  descritor: string;
+  n1_gap?: string;
+  n2_desenvolvimento?: string;
+  n3_meta?: string;
+  n4_referencia?: string;
+}
+
+interface PromptEvolutionScenarioCheckParams {
+  competencia: string;
+  descritores: DescritorRubrica[];
+  cenario: string;
+  resposta: string;
+  avaliacaoPrimaria: unknown;
+  evidenciasAcumuladas?: string;
+}
+
+export function promptEvolutionScenarioCheck({ competencia, descritores, cenario, resposta, avaliacaoPrimaria, evidenciasAcumuladas }: PromptEvolutionScenarioCheckParams) {
   const system = `Você é um auditor de qualidade de avaliação de competências. Sua tarefa é verificar se a avaliação gerada pela IA primária é RAZOÁVEL — não perfeita.
 
 FILOSOFIA DA AUDITORIA:

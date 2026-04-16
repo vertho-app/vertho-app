@@ -3,8 +3,16 @@
  * Formato: 1 tensão central + 1 fator complicador (intermediário/completo) + max 2 stakeholders.
  * Resposta genérica ("conversaria com todos") deve ser INSUFICIENTE — força escolha.
  */
-export function promptCenario({ competencia, descritores, cargo, contexto, complexidade }) {
-  const regrasComplexidade = {
+interface PromptCenarioParams {
+  competencia: string;
+  descritores: string[];
+  cargo: string;
+  contexto: string;
+  complexidade: string;
+}
+
+export function promptCenario({ competencia, descritores, cargo, contexto, complexidade }: PromptCenarioParams) {
+  const regrasComplexidade: Record<string, string> = {
     simples: '1 tensão central + 1 stakeholder nomeado. Sem complicador.',
     intermediario: '1 tensão central + 1 fator complicador + 2 stakeholders nomeados com posições conflitantes.',
     completo: '1 tensão central + 1 fator complicador + 1 dilema ético embutido + 2 stakeholders nomeados com posições conflitantes.',

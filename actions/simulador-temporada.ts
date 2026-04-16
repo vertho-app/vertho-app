@@ -163,7 +163,7 @@ async function simularSocratico(sb: any, trilha: any, colab: any, s: any, perfil
       turnIA,
     });
     const mensagensPayload = messages.length ? messages : [{ role: 'user', content: '[INICIE]' }];
-    const respIA = (await callAIChat(system, mensagensPayload, {}, 2000)).trim();
+    const respIA = (await callAIChat(system, mensagensPayload as any, {}, 2000)).trim();
     historico.push({ role: 'assistant', content: respIA, timestamp: new Date().toISOString(), turn: turnIA });
 
     if (turnIA >= maxIA) break;
@@ -245,7 +245,7 @@ async function simularMissaoPratica(sb: any, trilha: any, colab: any, s: any, pe
       missao: missaoTexto, compromisso,
       historico, turnIA,
     });
-    const respIA = (await callAIChat(system, messages, {}, 2000)).trim();
+    const respIA = (await callAIChat(system, messages as any, {}, 2000)).trim();
     historico.push({ role: 'assistant', content: respIA, timestamp: new Date().toISOString(), turn: turnIA });
 
     if (turnIA >= maxIA) break;
