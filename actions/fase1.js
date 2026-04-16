@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 import { callAI } from './ai-client';
 import { extractJSON } from './utils';
 
@@ -147,38 +148,38 @@ export async function rodarIA1(empresaId, aiConfig = {}) {
 // ── CRUD top10 (para validação manual) ──────────────────────────────────────
 
 export async function loadTop10(empresaId, cargo) {
-  const sb = createSupabaseAdmin();
-  const { data } = await sb.from('top10_cargos')
+  if (!empresaId) return [];
+  const tdb = tenantDb(empresaId);
+  const { data } = await tdb.from('top10_cargos')
     .select('*, competencia:competencias(id, nome, cod_comp, pilar, descricao)')
-    .eq('empresa_id', empresaId)
     .eq('cargo', cargo)
     .order('posicao');
   return data || [];
 }
 
 export async function loadTop10TodosCargos(empresaId) {
-  const sb = createSupabaseAdmin();
-  const { data } = await sb.from('top10_cargos')
+  if (!empresaId) return [];
+  const tdb = tenantDb(empresaId);
+  const { data } = await tdb.from('top10_cargos')
     .select('*, competencia:competencias(id, nome, cod_comp, pilar, descricao)')
-    .eq('empresa_id', empresaId)
     .order('cargo')
     .order('posicao');
   return data || [];
 }
 
 export async function adicionarTop10(empresaId, cargo, competenciaId) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const tdb = tenantDb(empresaId);
   // Pegar próxima posição
-  const { data: existentes } = await sb.from('top10_cargos')
+  const { data: existentes } = await tdb.from('top10_cargos')
     .select('posicao')
-    .eq('empresa_id', empresaId)
     .eq('cargo', cargo)
     .order('posicao', { ascending: false })
     .limit(1);
   const proxPosicao = (existentes?.[0]?.posicao || 0) + 1;
 
-  const { error } = await sb.from('top10_cargos').insert({
-    empresa_id: empresaId,
+  // empresa_id é injetado pelo tdb.insert
+  const { error } = await tdb.from('top10_cargos').insert({
     cargo,
     competencia_id: competenciaId,
     posicao: proxPosicao,
@@ -188,8 +189,12 @@ export async function adicionarTop10(empresaId, cargo, competenciaId) {
 }
 
 export async function removerTop10(id) {
-  const sb = createSupabaseAdmin();
-  const { error } = await sb.from('top10_cargos').delete().eq('id', id);
+  // Não recebe empresaId. Descobre via raw + valida tenant pra defesa em profundidade.
+  const sbRaw = createSupabaseAdmin();
+  const { data: row } = await sbRaw.from('top10_cargos').select('empresa_id').eq('id', id).maybeSingle();
+  if (!row) return { success: false, error: 'Não encontrado' };
+  const tdb = tenantDb(row.empresa_id);
+  const { error } = await tdb.from('top10_cargos').delete().eq('id', id);
   if (error) return { success: false, error: error.message };
   return { success: true };
 }
@@ -197,10 +202,10 @@ export async function removerTop10(id) {
 // ── Gabarito CIS (leitura) ───────────────────────────────────────────────────
 
 export async function loadGabaritosCargos(empresaId) {
-  const sb = createSupabaseAdmin();
-  const { data, error } = await sb.from('cargos_empresa')
+  if (!empresaId) return [];
+  const tdb = tenantDb(empresaId);
+  const { data, error } = await tdb.from('cargos_empresa')
     .select('id, nome, gabarito, raciocinio_ia2')
-    .eq('empresa_id', empresaId)
     .not('gabarito', 'is', null)
     .order('nome');
   if (error) return [];

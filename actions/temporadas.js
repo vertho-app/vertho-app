@@ -30,17 +30,21 @@ export async function loadTemporadaPorEmail(email) {
 export async function gerarTemporada({ colaboradorId, competencia, aiConfig } = {}) {
   try {
     if (!colaboradorId) return { error: 'colaboradorId obrigatório' };
-    const sb = createSupabaseAdmin();
+    const sbRaw = createSupabaseAdmin();
 
-    const { data: colab } = await sb.from('colaboradores')
+    // Busca raw porque colaboradores é root de tenancy (descobre o tenant aqui).
+    const { data: colab } = await sbRaw.from('colaboradores')
       .select('id, nome_completo, cargo, empresa_id, area_depto, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso')
       .eq('id', colaboradorId).maybeSingle();
     if (!colab) return { error: 'Colaborador não encontrado' };
 
+    // A partir daqui, todas queries em tabelas tenant-owned passam por tdb.
+    const tdb = tenantDb(colab.empresa_id);
+
     // 1) Determina competência foco — usa trilha existente se nada explícito
     let competenciaAlvo = competencia;
     if (!competenciaAlvo) {
-      const { data: trilhaExist } = await sb.from('trilhas')
+      const { data: trilhaExist } = await tdb.from('trilhas')
         .select('competencia_foco')
         .eq('colaborador_id', colaboradorId)
         .order('criado_em', { ascending: false })
@@ -49,8 +53,9 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig } = 
     }
     if (!competenciaAlvo) return { error: 'Sem competência foco definida pra este colaborador' };
 
-    // 2) Descobre contexto/setor da empresa
-    const { data: empresa } = await sb.from('empresas')
+    // 2) Descobre contexto/setor da empresa.
+    // empresas não tem coluna empresa_id (o id DELA é o tenant) → usa raw.
+    const { data: empresa } = await sbRaw.from('empresas')
       .select('segmento').eq('id', colab.empresa_id).maybeSingle();
     const contexto = inferirContexto(empresa?.segmento);
 
@@ -58,7 +63,7 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig } = 
     const prioridadeFormatos = derivarPrioridadeFormatos(colab);
 
     // 4) Assessment de descritores
-    let { data: assessment } = await sb.from('descriptor_assessments')
+    let { data: assessment } = await tdb.from('descriptor_assessments')
       .select('descritor, nota')
       .eq('colaborador_id', colaboradorId)
       .eq('competencia', competenciaAlvo);
@@ -76,14 +81,14 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig } = 
     // Cobertura mínima: se não tem assessment pra TODOS os descritores da
     // competência, marca os ausentes como "não avaliado" (não contam na
     // alocação — selectDescriptors ignora quem não tem nota).
-    const { data: descsEmp } = await sb.from('competencias')
+    const { data: descsEmp } = await tdb.from('competencias')
       .select('nome_curto')
-      .eq('empresa_id', colab.empresa_id)
       .eq('nome', competenciaAlvo)
       .not('nome_curto', 'is', null);
     let descritoresCatalogo = [...new Set((descsEmp || []).map(b => b.nome_curto))];
     if (descritoresCatalogo.length === 0) {
-      const { data: base } = await sb.from('competencias_base')
+      // competencias_base é tabela GLOBAL (catálogo nacional) → raw.
+      const { data: base } = await sbRaw.from('competencias_base')
         .select('nome_curto').eq('nome', competenciaAlvo).not('nome_curto', 'is', null);
       descritoresCatalogo = [...new Set((base || []).map(b => b.nome_curto))];
     }
@@ -113,18 +118,17 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig } = 
     });
 
     // 7) Persiste em trilhas (estende registro existente ou cria novo)
-    const { data: existente } = await sb.from('trilhas')
+    const { data: existente } = await tdb.from('trilhas')
       .select('id, numero_temporada')
       .eq('colaborador_id', colaboradorId)
-      .eq('empresa_id', colab.empresa_id)
       .order('criado_em', { ascending: false }).limit(1).maybeSingle();
 
     // Com UPDATE na mesma row, regenerar não deve inflar o contador.
     // Mantém o número da temporada existente; só começa em 1 se for primeira vez.
     const numeroTemporada = existente?.numero_temporada || 1;
     const { nextMondayISO } = await import('@/lib/season-engine/week-gating');
+    // empresa_id é injetado pelo tdb.insert/upsert/update — não precisa repetir aqui.
     const payload = {
-      empresa_id: colab.empresa_id,
       colaborador_id: colaboradorId,
       competencia_foco: competenciaAlvo,
       numero_temporada: numeroTemporada,
@@ -138,11 +142,11 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig } = 
     // Constraint única: 1 trilha por (empresa, colab). Sempre UPDATE se existe.
     let trilhaId;
     if (existente) {
-      const { error } = await sb.from('trilhas').update(payload).eq('id', existente.id);
+      const { error } = await tdb.from('trilhas').update(payload).eq('id', existente.id);
       if (error) return { error: error.message };
       trilhaId = existente.id;
     } else {
-      const { data: nova, error } = await sb.from('trilhas').insert(payload).select('id').maybeSingle();
+      const { data: nova, error } = await tdb.from('trilhas').insert(payload).select('id').maybeSingle();
       if (error) return { error: error.message };
       trilhaId = nova.id;
     }
@@ -150,14 +154,13 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig } = 
     // 8) Cria registros de progresso (semana 1 = disponível, demais = bloqueada)
     const progressos = semanas.map(s => ({
       trilha_id: trilhaId,
-      empresa_id: colab.empresa_id,
       colaborador_id: colaboradorId,
       semana: s.semana,
       tipo: s.tipo,
       status: s.semana === 1 ? 'em_andamento' : 'pendente',
     }));
-    await sb.from('temporada_semana_progresso').delete().eq('trilha_id', trilhaId);
-    await sb.from('temporada_semana_progresso').insert(progressos);
+    await tdb.from('temporada_semana_progresso').delete().eq('trilha_id', trilhaId);
+    await tdb.from('temporada_semana_progresso').insert(progressos);
 
     return {
       ok: true,
@@ -328,16 +331,16 @@ export async function regerarSemana(trilhaId, semana, aiConfig = {}) {
  */
 export async function listarTemporadasEmpresa(empresaId) {
   try {
-    const sb = createSupabaseAdmin();
-    let q = sb.from('trilhas')
+    if (!empresaId) return { error: 'empresaId obrigatório' };
+    const tdb = tenantDb(empresaId);
+    const { data, error } = await tdb.from('trilhas')
       .select('id, colaborador_id, competencia_foco, numero_temporada, status, criado_em, descritores_selecionados, temporada_plano')
-      .not('temporada_plano', 'is', null);
-    if (empresaId) q = q.eq('empresa_id', empresaId);
-    const { data, error } = await q.order('criado_em', { ascending: false });
+      .not('temporada_plano', 'is', null)
+      .order('criado_em', { ascending: false });
     if (error) return { error: error.message };
 
     const ids = (data || []).map(t => t.colaborador_id);
-    const { data: colabs } = await sb.from('colaboradores')
+    const { data: colabs } = await tdb.from('colaboradores')
       .select('id, nome_completo, cargo').in('id', ids);
     const colabMap = Object.fromEntries((colabs || []).map(c => [c.id, c]));
 

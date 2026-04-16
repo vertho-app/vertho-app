@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 import { calcularFit, converterGabaritoParaPerfil, extrairPerfilReal } from '@/lib/fit-v2/engine';
 import { gerarRanking, gerarDistribuicao } from '@/lib/fit-v2/ranking';
 import { buildFitExecutivePrompt } from '@/lib/prompts/fit-executive-prompt';
@@ -8,11 +9,20 @@ import { callAI } from '@/actions/ai-client';
 
 const LEITURA_AI_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
 
+// Helper interno: descobre empresa_id de um cargo pra escopar tdb.
+async function tenantDoCargo(cargoId) {
+  const sb = createSupabaseAdmin();
+  const { data } = await sb.from('cargos_empresa').select('empresa_id').eq('id', cargoId).maybeSingle();
+  return data?.empresa_id || null;
+}
+
 // ── Salvar/carregar perfil ideal ────────────────────────────────────────────
 
 export async function salvarPerfilIdeal(cargoId, perfilIdeal) {
-  const sb = createSupabaseAdmin();
-  const { error } = await sb.from('cargos_empresa')
+  const empresaId = await tenantDoCargo(cargoId);
+  if (!empresaId) return { success: false, error: 'Cargo não encontrado' };
+  const tdb = tenantDb(empresaId);
+  const { error } = await tdb.from('cargos_empresa')
     .update({ fit_perfil_ideal: perfilIdeal, fit_versao: '2.0' })
     .eq('id', cargoId)
     .select('id');
@@ -21,8 +31,10 @@ export async function salvarPerfilIdeal(cargoId, perfilIdeal) {
 }
 
 export async function loadPerfilIdeal(cargoId) {
-  const sb = createSupabaseAdmin();
-  const { data } = await sb.from('cargos_empresa')
+  const empresaId = await tenantDoCargo(cargoId);
+  if (!empresaId) return null;
+  const tdb = tenantDb(empresaId);
+  const { data } = await tdb.from('cargos_empresa')
     .select('id, nome, gabarito, fit_perfil_ideal, fit_versao')
     .eq('id', cargoId).single();
   return data;
@@ -31,12 +43,12 @@ export async function loadPerfilIdeal(cargoId) {
 // ── Calcular Fit individual ─────────────────────────────────────────────────
 
 export async function calcularFitIndividual(empresaId, cargoNome, colaboradorId) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const tdb = tenantDb(empresaId);
 
   // Buscar cargo e perfil ideal
-  const { data: cargo } = await sb.from('cargos_empresa')
+  const { data: cargo } = await tdb.from('cargos_empresa')
     .select('id, nome, gabarito, fit_perfil_ideal, eh_lideranca')
-    .eq('empresa_id', empresaId)
     .eq('nome', cargoNome)
     .maybeSingle();
 
@@ -57,7 +69,7 @@ export async function calcularFitIndividual(empresaId, cargoNome, colaboradorId)
   }
 
   // Buscar colaborador
-  const { data: colab } = await sb.from('colaboradores')
+  const { data: colab } = await tdb.from('colaboradores')
     .select('*')
     .eq('id', colaboradorId).single();
   if (!colab) return { success: false, error: 'Colaborador não encontrado' };
@@ -78,8 +90,7 @@ export async function calcularFitIndividual(empresaId, cargoNome, colaboradorId)
   if (!resultado.success) return resultado;
 
   // Persistir
-  const { error: saveErr } = await sb.from('fit_resultados').upsert({
-    empresa_id: empresaId,
+  const { error: saveErr } = await tdb.from('fit_resultados').upsert({
     colaborador_id: colaboradorId,
     cargo_id: cargo.id,
     cargo_nome: cargoNome,
@@ -107,13 +118,13 @@ export async function calcularFitIndividual(empresaId, cargoNome, colaboradorId)
 // ── Calcular Fit em lote (todos do cargo) ───────────────────────────────────
 
 export async function calcularFitLote(empresaId, cargoNome, opts = {}) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const tdb = tenantDb(empresaId);
   const { forcar = false } = opts;
 
   // Buscar colaboradores do cargo com mapeamento
-  const { data: colabs } = await sb.from('colaboradores')
+  const { data: colabs } = await tdb.from('colaboradores')
     .select('id, nome_completo, email, cargo')
-    .eq('empresa_id', empresaId)
     .eq('cargo', cargoNome)
     .not('mapeamento_em', 'is', null);
 
@@ -123,8 +134,8 @@ export async function calcularFitLote(empresaId, cargoNome, opts = {}) {
   let colabsPraCalcular = colabs;
   let pulados = 0;
   if (!forcar) {
-    const { data: jaCalculados } = await sb.from('fit_resultados')
-      .select('colaborador_id').eq('empresa_id', empresaId).eq('cargo', cargoNome);
+    const { data: jaCalculados } = await tdb.from('fit_resultados')
+      .select('colaborador_id').eq('cargo', cargoNome);
     const jaSet = new Set((jaCalculados || []).map(r => r.colaborador_id));
     colabsPraCalcular = colabs.filter(c => !jaSet.has(c.id));
     pulados = colabs.length - colabsPraCalcular.length;
@@ -168,20 +179,19 @@ export async function calcularFitLote(empresaId, cargoNome, opts = {}) {
 // ── Buscar ranking de um cargo ──────────────────────────────────────────────
 
 export async function loadRankingCargo(empresaId, cargoNome) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const tdb = tenantDb(empresaId);
 
-  const { data: resultados } = await sb.from('fit_resultados')
+  const { data: resultados } = await tdb.from('fit_resultados')
     .select('*')
-    .eq('empresa_id', empresaId)
     .eq('cargo_nome', cargoNome)
     .order('fit_final', { ascending: false });
 
   if (!resultados?.length) return { success: true, data: [], distribuicao: {} };
 
   // Buscar perfil ideal para blocos críticos
-  const { data: cargo } = await sb.from('cargos_empresa')
+  const { data: cargo } = await tdb.from('cargos_empresa')
     .select('fit_perfil_ideal, gabarito')
-    .eq('empresa_id', empresaId)
     .eq('nome', cargoNome)
     .maybeSingle();
 
@@ -222,8 +232,13 @@ export async function loadRankingCargo(empresaId, cargoNome) {
 // ── Buscar fit individual ───────────────────────────────────────────────────
 
 export async function loadFitIndividual(colaboradorId) {
-  const sb = createSupabaseAdmin();
-  const { data } = await sb.from('fit_resultados')
+  // Descobre tenant via colaborador (raw — colaboradores é root de tenancy)
+  const sbRaw = createSupabaseAdmin();
+  const { data: colab } = await sbRaw.from('colaboradores')
+    .select('empresa_id').eq('id', colaboradorId).maybeSingle();
+  if (!colab?.empresa_id) return null;
+  const tdb = tenantDb(colab.empresa_id);
+  const { data } = await tdb.from('fit_resultados')
     .select('*')
     .eq('colaborador_id', colaboradorId)
     .order('created_at', { ascending: false })
@@ -251,12 +266,11 @@ export async function gerarLeituraExecutivaFit(empresaId, colaboradorId, cargoNo
       return { success: false, error: 'Parâmetros obrigatórios ausentes' };
     }
 
-    const sb = createSupabaseAdmin();
+    const tdb = tenantDb(empresaId);
 
     // 1) Carrega o registro do fit
-    const { data: row } = await sb.from('fit_resultados')
+    const { data: row } = await tdb.from('fit_resultados')
       .select('*')
-      .eq('empresa_id', empresaId)
       .eq('colaborador_id', colaboradorId)
       .eq('cargo_nome', cargoNome)
       .maybeSingle();
@@ -287,7 +301,7 @@ export async function gerarLeituraExecutivaFit(empresaId, colaboradorId, cargoNo
     if (!texto) return { success: false, error: 'LLM retornou vazio' };
 
     // 5) Salva cache
-    await sb.from('fit_resultados')
+    await tdb.from('fit_resultados')
       .update({
         leitura_executiva_ai: texto,
         leitura_executiva_ai_at: new Date().toISOString(),
@@ -304,18 +318,17 @@ export async function gerarLeituraExecutivaFit(empresaId, colaboradorId, cargoNo
 // ── Listar cargos com contagem de fits ──────────────────────────────────────
 
 export async function loadCargosComFit(empresaId) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return [];
+  const tdb = tenantDb(empresaId);
 
-  const { data: cargos } = await sb.from('cargos_empresa')
+  const { data: cargos } = await tdb.from('cargos_empresa')
     .select('id, nome, gabarito, fit_perfil_ideal')
-    .eq('empresa_id', empresaId)
     .order('nome');
 
   if (!cargos?.length) return [];
 
-  const { data: fits } = await sb.from('fit_resultados')
-    .select('cargo_nome, fit_final')
-    .eq('empresa_id', empresaId);
+  const { data: fits } = await tdb.from('fit_resultados')
+    .select('cargo_nome, fit_final');
 
   const fitPorCargo = {};
   (fits || []).forEach(f => {

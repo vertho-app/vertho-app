@@ -12,22 +12,23 @@ Atualizar conforme migrar.
 
 | Action | Status | Prioridade | Notas |
 |---|---|---|---|
-| `temporadas.js::loadTemporada` | ✅ feito (exemplo canônico) | crítica | |
-| `temporadas.js::gerarTemporada` | ⬜ parcial (tem filtro manual) | crítica | Tocar depois |
-| `temporadas.js::loadTemporadaPorEmail` | ✅ (via loadTemporada) | crítica | |
-| `temporadas.js::listarTemporadasEmpresa` | ⬜ | alta | |
-| `conteudos.js` | ⬜ | alta | micro_conteudos, sensível |
-| `fase1.js` (IA1/IA2/IA3) | ⬜ | alta | |
+| `temporadas.js::loadTemporada` | ✅ | crítica | exemplo canônico |
+| `temporadas.js::gerarTemporada` | ✅ | crítica | tdb em trilhas/competencias/descriptor_assessments/temporada_semana_progresso; raw em colaboradores+empresas+competencias_base |
+| `temporadas.js::loadTemporadaPorEmail` | ✅ | crítica | via loadTemporada |
+| `temporadas.js::listarTemporadasEmpresa` | ✅ | alta | empresaId agora obrigatório |
+| `fit-v2.js` (8 funções) | ✅ | alta | salvarPerfilIdeal, loadPerfilIdeal, calcularFitIndividual, calcularFitLote, loadRankingCargo, loadFitIndividual, gerarLeituraExecutivaFit, loadCargosComFit |
+| `fase1.js::loadTop10` + `loadTop10TodosCargos` + `adicionarTop10` + `removerTop10` + `loadGabaritosCargos` | ✅ | alta | resto do fase1 ainda não |
+| `fase1.js` (IA1/IA2/IA3 — rodarIA1/rodarIA2/rodarIA3) | ⬜ | alta | grandes, cross-table; tocar isoladamente |
 | `fase3.js` | ⬜ | alta | sessoes_avaliacao |
 | `fase5.js` | ⬜ | alta | relatorios |
-| `fit-v2.js` | ⬜ | alta | fit_resultados |
+| `conteudos.js` | ⏭️ N/A | — | painel curatorial Vertho (cross-tenant intencional) |
 | `relatorios.js` + `relatorios-load.js` | ⬜ | alta | |
 | `competencias.js` | ⬜ | média | |
 | `preferencias-aprendizagem.js` | ⬜ | média | |
 | `avaliacao-acumulada.js` | ⬜ | média | |
 | `evolution-report.js` | ⬜ | média | |
 | `simulador-*.js` | ⬜ | baixa | dev-only |
-| `cron-jobs.js` | ⬜ | baixa | jobs periódicos |
+| `cron-jobs.js` | ⬜ | baixa | jobs periódicos — usar tenantDb por iteração |
 
 ## Padrão
 
