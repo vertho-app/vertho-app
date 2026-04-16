@@ -1,18 +1,21 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { requireAdminAction, assertTenantAccessAction } from '@/lib/auth/action-context';
+import { isPlatformAdmin } from '@/lib/authz';
 
-export async function loadEmpresas() {
-  await requireAdminAction();
+async function guardAdmin(email: string | null | undefined) {
+  if (!email || !(await isPlatformAdmin(email))) throw new Error('FORBIDDEN');
+}
+
+export async function loadEmpresas(callerEmail: string) {
+  await guardAdmin(callerEmail);
   const sb = createSupabaseAdmin();
   const { data } = await sb.from('empresas').select('id, nome, segmento').order('nome');
   return data || [];
 }
 
-export async function loadResumoEmpresa(empresaId) {
-  const auth = await requireAdminAction();
-  assertTenantAccessAction(auth, empresaId);
+export async function loadResumoEmpresa(callerEmail: string, empresaId: any) {
+  await guardAdmin(callerEmail);
   const sb = createSupabaseAdmin();
   const { count: colabs } = await sb.from('colaboradores')
     .select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId);
@@ -21,20 +24,19 @@ export async function loadResumoEmpresa(empresaId) {
   return { colabs: colabs || 0, competencias: comps?.length || 0 };
 }
 
-export async function importarColaboradoresLote(empresaId, colabs) {
-  const auth = await requireAdminAction();
-  assertTenantAccessAction(auth, empresaId);
+export async function importarColaboradoresLote(callerEmail: string, empresaId: any, colabs: any) {
+  await guardAdmin(callerEmail);
 
   const sb = createSupabaseAdmin();
   const { data: existentes } = await sb.from('colaboradores')
     .select('email').eq('empresa_id', empresaId);
-  const emailsExistentes = new Set((existentes || []).map(c => c.email.toLowerCase()));
+  const emailsExistentes = new Set((existentes || []).map((c: any) => c.email.toLowerCase()));
 
   const VALID_ROLES = ['colaborador', 'gestor', 'rh'];
 
   const novos = colabs
-    .filter(c => c.email && !emailsExistentes.has(c.email.toLowerCase()))
-    .map(c => ({
+    .filter((c: any) => c.email && !emailsExistentes.has(c.email.toLowerCase()))
+    .map((c: any) => ({
       empresa_id: empresaId,
       nome_completo: c.nome?.trim() || null,
       email: c.email.trim().toLowerCase(),
@@ -49,12 +51,10 @@ export async function importarColaboradoresLote(empresaId, colabs) {
   return { success: true, message: `${novos.length} colaboradores importados` };
 }
 
-export async function loadColaboradores(empresaId) {
-  const auth = await requireAdminAction();
-  assertTenantAccessAction(auth, empresaId);
+export async function loadColaboradores(callerEmail: string, empresaId: any) {
+  await guardAdmin(callerEmail);
 
   const sb = createSupabaseAdmin();
-  // Tentar com telefone, fallback sem
   const { data: d1, error: e1 } = await sb.from('colaboradores')
     .select('id, nome_completo, email, cargo, role, area_depto, telefone, gestor_nome, gestor_email, gestor_whatsapp, mapeamento_em')
     .eq('empresa_id', empresaId)
@@ -64,20 +64,18 @@ export async function loadColaboradores(empresaId) {
     .select('id, nome_completo, email, cargo, role, area_depto, mapeamento_em')
     .eq('empresa_id', empresaId)
     .order('nome_completo');
-  return (d2 || []).map(c => ({ ...c, telefone: null, gestor_nome: null, gestor_email: null, gestor_whatsapp: null }));
+  return (d2 || []).map((c: any) => ({ ...c, telefone: null, gestor_nome: null, gestor_email: null, gestor_whatsapp: null }));
 }
 
-export async function criarColaborador(empresaId, campos) {
-  const auth = await requireAdminAction();
+export async function criarColaborador(callerEmail: string, empresaId: any, campos: any) {
+  await guardAdmin(callerEmail);
   if (!empresaId) return { success: false, error: 'empresa obrigatória' };
-  assertTenantAccessAction(auth, empresaId);
   if (!campos?.email?.trim()) return { success: false, error: 'email obrigatório' };
 
   const sb = createSupabaseAdmin();
   const VALID_ROLES = ['colaborador', 'gestor', 'rh'];
   const email = campos.email.trim().toLowerCase();
 
-  // Bloqueia duplicata por (empresa_id, email)
   const { data: existente } = await sb.from('colaboradores')
     .select('id').eq('empresa_id', empresaId).eq('email', email).maybeSingle();
   if (existente) return { success: false, error: 'já existe colaborador com este email nesta empresa' };
@@ -100,14 +98,12 @@ export async function criarColaborador(empresaId, campos) {
   return { success: true, id: data.id };
 }
 
-export async function atualizarColaborador(id, campos) {
-  const auth = await requireAdminAction();
+export async function atualizarColaborador(callerEmail: string, id: any, campos: any) {
+  await guardAdmin(callerEmail);
   const sb = createSupabaseAdmin();
 
-  // Valida que o colab existe e pertence a uma empresa acessível (admin bypassa por definição).
   const { data: existente } = await sb.from('colaboradores').select('empresa_id').eq('id', id).maybeSingle();
   if (!existente) return { success: false, error: 'colab não encontrado' };
-  assertTenantAccessAction(auth, existente.empresa_id);
 
   const VALID_ROLES = ['colaborador', 'gestor', 'rh'];
   const update: any = {};
@@ -126,13 +122,12 @@ export async function atualizarColaborador(id, campos) {
   return { success: true };
 }
 
-export async function excluirColaborador(id) {
-  const auth = await requireAdminAction();
+export async function excluirColaborador(callerEmail: string, id: any) {
+  await guardAdmin(callerEmail);
   const sb = createSupabaseAdmin();
 
   const { data: existente } = await sb.from('colaboradores').select('empresa_id').eq('id', id).maybeSingle();
   if (!existente) return { success: false, error: 'colab não encontrado' };
-  assertTenantAccessAction(auth, existente.empresa_id);
 
   const { error } = await sb.from('colaboradores').delete().eq('id', id);
   if (error) return { success: false, error: error.message };
@@ -141,9 +136,8 @@ export async function excluirColaborador(id) {
 
 // ── Cargos ──────────────────────────────────────────────────────────────────
 
-export async function loadCargos(empresaId) {
-  const auth = await requireAdminAction();
-  assertTenantAccessAction(auth, empresaId);
+export async function loadCargos(callerEmail: string, empresaId: any) {
+  await guardAdmin(callerEmail);
   const sb = createSupabaseAdmin();
   const { data, error } = await sb.from('cargos_empresa')
     .select('*')
@@ -153,9 +147,8 @@ export async function loadCargos(empresaId) {
   return data || [];
 }
 
-export async function salvarCargo(empresaId, cargo) {
-  const auth = await requireAdminAction();
-  assertTenantAccessAction(auth, empresaId);
+export async function salvarCargo(callerEmail: string, empresaId: any, cargo: any) {
+  await guardAdmin(callerEmail);
 
   const sb = createSupabaseAdmin();
   const registro = {
@@ -176,10 +169,8 @@ export async function salvarCargo(empresaId, cargo) {
 
   let result;
   if (cargo.id) {
-    // Garante que o cargo pertence à empresa validada
     const { data: existe } = await sb.from('cargos_empresa').select('empresa_id').eq('id', cargo.id).maybeSingle();
     if (!existe) return { success: false, error: 'cargo não encontrado' };
-    assertTenantAccessAction(auth, existe.empresa_id);
     result = await sb.from('cargos_empresa').update(registro).eq('id', cargo.id).select().single();
   } else {
     result = await sb.from('cargos_empresa').insert(registro).select().single();
@@ -188,41 +179,37 @@ export async function salvarCargo(empresaId, cargo) {
   return { success: true, data: result.data };
 }
 
-export async function excluirCargo(id) {
-  const auth = await requireAdminAction();
+export async function excluirCargo(callerEmail: string, id: any) {
+  await guardAdmin(callerEmail);
   const sb = createSupabaseAdmin();
 
   const { data: existe } = await sb.from('cargos_empresa').select('empresa_id').eq('id', id).maybeSingle();
   if (!existe) return { success: false, error: 'cargo não encontrado' };
-  assertTenantAccessAction(auth, existe.empresa_id);
 
   const { error } = await sb.from('cargos_empresa').delete().eq('id', id);
   if (error) return { success: false, error: error.message };
   return { success: true };
 }
 
-export async function sincronizarCargosDeColaboradores(empresaId) {
-  const auth = await requireAdminAction();
-  assertTenantAccessAction(auth, empresaId);
+export async function sincronizarCargosDeColaboradores(callerEmail: string, empresaId: any) {
+  await guardAdmin(callerEmail);
 
   const sb = createSupabaseAdmin();
-  // Buscar cargos únicos dos colaboradores
   const { data: colabs } = await sb.from('colaboradores')
     .select('cargo, area_depto')
     .eq('empresa_id', empresaId)
     .not('cargo', 'is', null);
 
-  const cargosMap = {};
-  (colabs || []).forEach(c => {
+  const cargosMap: Record<string, string | null> = {};
+  (colabs || []).forEach((c: any) => {
     if (c.cargo && !cargosMap[c.cargo]) {
       cargosMap[c.cargo] = c.area_depto || null;
     }
   });
 
-  // Buscar cargos já existentes
   const { data: existentes } = await sb.from('cargos_empresa')
     .select('nome').eq('empresa_id', empresaId);
-  const existSet = new Set((existentes || []).map(c => c.nome.toLowerCase()));
+  const existSet = new Set((existentes || []).map((c: any) => c.nome.toLowerCase()));
 
   const novos = Object.entries(cargosMap)
     .filter(([nome]) => !existSet.has(nome.toLowerCase()))

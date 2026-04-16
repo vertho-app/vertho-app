@@ -1,10 +1,14 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { requireAdminAction } from '@/lib/auth/action-context';
+import { isPlatformAdmin } from '@/lib/authz';
 
-export async function loadAdminDashboard() {
-  await requireAdminAction();
+async function guardAdmin(email: string | null | undefined) {
+  if (!email || !(await isPlatformAdmin(email))) throw new Error('FORBIDDEN');
+}
+
+export async function loadAdminDashboard(callerEmail: string) {
+  await guardAdmin(callerEmail);
 
   const sb = createSupabaseAdmin();
 

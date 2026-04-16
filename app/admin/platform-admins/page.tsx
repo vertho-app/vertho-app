@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Trash2, Loader2, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { loadPlatformAdmins, adicionarAdmin, removerAdmin } from './actions';
+import { getSupabase } from '@/lib/supabase-browser';
 
 export default function PlatformAdminsPage() {
   const router = useRouter();
@@ -15,28 +16,34 @@ export default function PlatformAdminsPage() {
   const [removing, setRemoving] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    loadPlatformAdmins().then(d => { setAdmins(d); setLoading(false); });
+    getSupabase().auth.getUser().then(({ data: { user } }) => {
+      if (!user?.email) return;
+      setUserEmail(user.email);
+      loadPlatformAdmins(user.email).then(d => { setAdmins(d); setLoading(false); });
+    });
   }, []);
 
-  async function handleAdd(e) {
+  async function handleAdd(e: any) {
     e.preventDefault();
-    if (!email.trim()) return;
+    if (!email.trim() || !userEmail) return;
     setAdding(true); setError('');
-    const r = await adicionarAdmin(email, nome);
+    const r = await adicionarAdmin(userEmail, email, nome);
     if (r.success) {
       setSuccess(r.message); setTimeout(() => setSuccess(''), 3000);
       setEmail(''); setNome('');
-      loadPlatformAdmins().then(setAdmins);
+      loadPlatformAdmins(userEmail).then(setAdmins);
     } else { setError(r.error); }
     setAdding(false);
   }
 
-  async function handleRemove(id, adminEmail) {
+  async function handleRemove(id: any, adminEmail: any) {
     if (!confirm(`Remover ${adminEmail} como admin da plataforma?`)) return;
+    if (!userEmail) return;
     setRemoving(id);
-    const r = await removerAdmin(id);
+    const r = await removerAdmin(userEmail, id);
     if (r.success) {
       setAdmins(prev => prev.filter(a => a.id !== id));
       setSuccess(r.message); setTimeout(() => setSuccess(''), 3000);
