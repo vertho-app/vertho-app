@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 import { callAI } from './ai-client';
 import { extractJSON } from './utils';
 
@@ -9,26 +10,24 @@ import { extractJSON } from './utils';
 // Distribuição realista: 30% fraco (N1-2), 50% médio (N2-3), 20% forte (N3-4)
 
 export async function listarPendentesSimulacao(empresaId) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const tdb = tenantDb(empresaId);
 
   // Buscar cenários existentes
-  const { data: cenarios } = await sb.from('banco_cenarios')
-    .select('id, cargo, competencia_id, titulo')
-    .eq('empresa_id', empresaId);
+  const { data: cenarios } = await tdb.from('banco_cenarios')
+    .select('id, cargo, competencia_id, titulo');
 
   if (!cenarios?.length) return { success: false, error: 'Nenhum cenário encontrado. Rode IA3 primeiro.' };
 
   // Buscar colaboradores
-  const { data: colabs } = await sb.from('colaboradores')
-    .select('id, nome_completo, email, cargo')
-    .eq('empresa_id', empresaId);
+  const { data: colabs } = await tdb.from('colaboradores')
+    .select('id, nome_completo, email, cargo');
 
   if (!colabs?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
 
   // Buscar respostas existentes
-  const { data: respostas } = await sb.from('respostas')
-    .select('colaborador_id, competencia_id')
-    .eq('empresa_id', empresaId);
+  const { data: respostas } = await tdb.from('respostas')
+    .select('colaborador_id, competencia_id');
 
   const respSet = new Set((respostas || []).map(r => `${r.colaborador_id}::${r.competencia_id}`));
 
@@ -54,15 +53,17 @@ export async function listarPendentesSimulacao(empresaId) {
 }
 
 export async function simularUmaResposta(empresaId, colaboradorId, cenarioId, aiConfig = {}) {
-  const sb = createSupabaseAdmin();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const sbRaw = createSupabaseAdmin();
+  const tdb = tenantDb(empresaId);
   try {
     // Buscar colaborador
-    const { data: colab } = await sb.from('colaboradores')
+    const { data: colab } = await tdb.from('colaboradores')
       .select('id, nome_completo, email, cargo').eq('id', colaboradorId).single();
     if (!colab) return { success: false, error: 'Colaborador não encontrado' };
 
-    // Buscar cenário com perguntas
-    const { data: cenario } = await sb.from('banco_cenarios')
+    // Buscar cenário com perguntas — banco_cenarios é misto, raw por id
+    const { data: cenario } = await sbRaw.from('banco_cenarios')
       .select('id, titulo, descricao, alternativas, competencia_id, cargo')
       .eq('id', cenarioId).single();
     if (!cenario) return { success: false, error: 'Cenário não encontrado' };
@@ -71,7 +72,7 @@ export async function simularUmaResposta(empresaId, colaboradorId, cenarioId, ai
     if (perguntas.length < 4) return { success: false, error: `Cenário com ${perguntas.length} perguntas (precisa 4)` };
 
     // Buscar competência
-    const { data: comp } = await sb.from('competencias')
+    const { data: comp } = await tdb.from('competencias')
       .select('nome, descricao').eq('id', cenario.competencia_id).maybeSingle();
 
     // Sortear nível alvo
@@ -123,9 +124,8 @@ Retorne APENAS JSON:
 
     if (!resultado?.r1) return { success: false, error: 'IA não retornou respostas válidas' };
 
-    // Salvar
-    const { error: saveErr } = await sb.from('respostas').upsert({
-      empresa_id: empresaId,
+    // Salvar — empresa_id é injetado pelo tdb.upsert
+    const { error: saveErr } = await tdb.from('respostas').upsert({
       colaborador_id: colaboradorId,
       competencia_id: cenario.competencia_id,
       cenario_id: cenarioId,

@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 import { templateWhatsAppPilula, templateWhatsAppEvidencia } from '@/lib/notifications';
 
 const TIMEOUT_ABANDONO_HORAS = 48;
@@ -13,11 +14,15 @@ const SEMANAS_IMPL = [4, 8, 12]; // Semanas de implementação (sem pílula nova
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export async function cleanupSessoes() {
-  const sb = createSupabaseAdmin();
+  // Cron CROSS-TENANT por design: varre todas empresas em uma só varredura.
+  // Usa raw porque a query precisa atravessar todos os tenants (admin scope).
+  // Em vez de tdb por iteração, manter raw aqui é correto — é um job de
+  // manutenção da plataforma, não uma operação de tenant individual.
+  const sbRaw = createSupabaseAdmin();
   const cutoff = new Date(Date.now() - TIMEOUT_ABANDONO_HORAS * 60 * 60 * 1000).toISOString();
 
   // Buscar sessões ativas com updated_at > 48h
-  const { data: abandonadas } = await sb.from('sessoes_avaliacao')
+  const { data: abandonadas } = await sbRaw.from('sessoes_avaliacao')
     .select('id, colaborador_id, competencia_id, updated_at')
     .eq('status', 'em_andamento')
     .lt('updated_at', cutoff);
@@ -28,7 +33,7 @@ export async function cleanupSessoes() {
 
   for (const sessao of abandonadas) {
     // Resetar sessão para estado inicial
-    const { error } = await sb.from('sessoes_avaliacao')
+    const { error } = await sbRaw.from('sessoes_avaliacao')
       .update({
         status: 'em_andamento',
         fase: 'cenario',
@@ -46,10 +51,10 @@ export async function cleanupSessoes() {
 
     if (!error) {
       // Limpar mensagens do chat (histórico)
-      await sb.from('mensagens_chat').delete().eq('sessao_id', sessao.id);
+      await sbRaw.from('mensagens_chat').delete().eq('sessao_id', sessao.id);
 
       // Registrar motivo do reset
-      await sb.from('mensagens_chat').insert({
+      await sbRaw.from('mensagens_chat').insert({
         sessao_id: sessao.id,
         role: 'system',
         content: `Sessão resetada por inatividade (>${TIMEOUT_ABANDONO_HORAS}h)`,
@@ -69,10 +74,12 @@ export async function cleanupSessoes() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export async function triggerSegunda() {
-  const sb = createSupabaseAdmin();
+  // Cron itera todas empresas, mas usa tenantDb por iteração pra escopar
+  // operações tenant-owned (fase4_envios, capacitacao). empresas é raw (id é tenant).
+  const sbRaw = createSupabaseAdmin();
 
   // Buscar todas as empresas com fase 4 ativa
-  const { data: empresas } = await sb.from('empresas')
+  const { data: empresas } = await sbRaw.from('empresas')
     .select('id, nome, slug, sys_config');
 
   if (!empresas?.length) return { enviados: 0, message: 'Nenhuma empresa encontrada' };
@@ -83,11 +90,11 @@ export async function triggerSegunda() {
   for (const empresa of empresas) {
     const cadencia = empresa.sys_config?.cadencia || {};
     const horaConfig = cadencia.fase4_hora || 8;
+    const tdb = tenantDb(empresa.id);
 
     // Buscar colaboradores com fase4 ativa
-    const { data: envios } = await sb.from('fase4_envios')
+    const { data: envios } = await tdb.from('fase4_envios')
       .select('id, colaborador_id, semana_atual, sequencia, status, colaboradores!inner(nome_completo, email, whatsapp)')
-      .eq('empresa_id', empresa.id)
       .eq('status', 'ativo');
 
     if (!envios?.length) continue;
@@ -100,7 +107,7 @@ export async function triggerSegunda() {
 
       // Verificar se concluiu
       if (semana > TOTAL_SEMANAS) {
-        await sb.from('fase4_envios')
+        await tdb.from('fase4_envios')
           .update({ status: 'concluido' })
           .eq('id', envio.id);
         continue;
@@ -117,9 +124,8 @@ export async function triggerSegunda() {
         ? `Esta é uma semana de implementação. Aplique o que aprendeu nas últimas semanas e registre suas evidências.`
         : (pilula?.resumo || titulo);
 
-      // Registrar envio na capacitação
-      await sb.from('capacitacao').insert({
-        empresa_id: empresa.id,
+      // Registrar envio na capacitação. empresa_id é injetado pelo tdb.insert
+      await tdb.from('capacitacao').insert({
         colaborador_id: envio.colaborador_id,
         semana: semana,
         tipo: ehImpl ? 'implementacao' : 'pilula',
@@ -137,7 +143,7 @@ export async function triggerSegunda() {
       }
 
       // Atualizar último envio
-      await sb.from('fase4_envios')
+      await tdb.from('fase4_envios')
         .update({ ultimo_envio: new Date().toISOString() })
         .eq('id', envio.id);
     }
@@ -152,9 +158,9 @@ export async function triggerSegunda() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export async function triggerQuinta() {
-  const sb = createSupabaseAdmin();
+  const sbRaw = createSupabaseAdmin();
 
-  const { data: empresas } = await sb.from('empresas')
+  const { data: empresas } = await sbRaw.from('empresas')
     .select('id, nome, slug, sys_config');
 
   if (!empresas?.length) return { enviados: 0, message: 'Nenhuma empresa encontrada' };
@@ -164,9 +170,9 @@ export async function triggerQuinta() {
   let nudges = 0;
 
   for (const empresa of empresas) {
-    const { data: envios } = await sb.from('fase4_envios')
+    const tdb = tenantDb(empresa.id);
+    const { data: envios } = await tdb.from('fase4_envios')
       .select('id, colaborador_id, semana_atual, sequencia, status, ultimo_envio, colaboradores!inner(nome_completo, email, whatsapp)')
-      .eq('empresa_id', empresa.id)
       .eq('status', 'ativo');
 
     if (!envios?.length) continue;
@@ -205,7 +211,7 @@ export async function triggerQuinta() {
       }
 
       // Avançar semana
-      await sb.from('fase4_envios')
+      await tdb.from('fase4_envios')
         .update({ semana_atual: semana + 1 })
         .eq('id', envio.id);
     }

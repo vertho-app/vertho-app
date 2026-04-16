@@ -17,19 +17,34 @@ Atualizar conforme migrar.
 | `temporadas.js::loadTemporadaPorEmail` | ✅ | crítica | via loadTemporada |
 | `temporadas.js::listarTemporadasEmpresa` | ✅ | alta | empresaId agora obrigatório |
 | `fit-v2.js` (8 funções) | ✅ | alta | salvarPerfilIdeal, loadPerfilIdeal, calcularFitIndividual, calcularFitLote, loadRankingCargo, loadFitIndividual, gerarLeituraExecutivaFit, loadCargosComFit |
-| `fase1.js::loadTop10` + `loadTop10TodosCargos` + `adicionarTop10` + `removerTop10` + `loadGabaritosCargos` | ✅ | alta | resto do fase1 ainda não |
-| `fase1.js` (IA1/IA2/IA3 — rodarIA1/rodarIA2/rodarIA3) | ⬜ | alta | grandes, cross-table; tocar isoladamente |
-| `fase3.js` | ⬜ | alta | sessoes_avaliacao |
-| `fase5.js` | ⬜ | alta | relatorios — grande, fazer em sub-fases |
+| `fase1.js::loadTop10` + `loadTop10TodosCargos` + `adicionarTop10` + `removerTop10` + `loadGabaritosCargos` | ✅ | alta | top10/gabarito CRUD |
+| `fase1.js` (IA1/IA2/IA3 + cenarios — 9 funções) | ✅ | alta | rodarIA1, rodarIA2, listarFilaIA3, rodarIA3Uma, regenerarCenario, listarFilaCheck, checkCenarioUm, loadCenarios, limparCenariosAntigos |
+| `fase3.js` (4 funções) | ✅ | alta | rodarIA4, reavaliarResposta, verFilaIA4, loadRespostasAvaliadas |
+| `fase5.js` (15 funções) | ✅ | alta | gerarCenariosBLote, checkCenarioBUm, regenerarCenarioB, iniciarReavaliacaoLote, processarReavaliacao, gerarEvolucaoFusao, gerarPlenariaEvolucao, etc. |
 | `conteudos.js` | ⏭️ N/A | — | painel curatorial Vertho (cross-tenant intencional) |
-| `relatorios.js` | ⬜ | alta | |
+| `relatorios.js` (4 funções) | ✅ | alta | gerarRelatorioIndividual, gerarRelatorioGestor, gerarRelatorioRH, gerarRelatoriosIndividuaisLote |
 | `relatorios-load.js::loadRelatoriosEmpresa` | ✅ | alta | |
 | `competencias.js` (3 funções) | ✅ | média | loadCompetencias, salvarCompetencia, excluirCompetencia |
 | `preferencias-aprendizagem.js::loadPreferenciasEmpresa` | ✅ | média | loadPreferenciasGlobais mantém raw (cross-tenant) |
 | `avaliacao-acumulada.js::gerarAvaliacaoAcumulada` | ✅ | média | helpers refatorados pra receber tdb+sbRaw |
 | `evolution-report.js` (2 funções) | ✅ | média | gerarEvolutionReport, loadEvolutionReportsEmpresa |
-| `simulador-*.js` | ⬜ | baixa | dev-only |
-| `cron-jobs.js` | ⬜ | baixa | jobs periódicos — usar tenantDb por iteração |
+| `simulador-temporada.js` (2 funções) | ✅ | baixa | simularUmaSemanaSimulacao, simularTemporadaCompleta — helpers internos recebem tdb |
+| `simulador-conversas.js` (2 funções) | ✅ | baixa | listarPendentesSimulacao, simularUmaResposta |
+| `simulador-disc.js::simularMapeamentoDISCLote` | ✅ | baixa | |
+| `cron-jobs.js` | ✅ | baixa | triggerSegunda/triggerQuinta usam tdb por iteração; cleanupSessoes mantém raw (cross-tenant por design) |
+
+## Status final (2026-04-16)
+
+**Migração concluída**: ~50 funções em 13 arquivos de actions usam tenantDb.
+A defesa em profundidade contra esquecer `.eq('empresa_id', X)` está ativa
+em todo o caminho crítico.
+
+Exceções legítimas (raw mantido por design):
+- `conteudos.js` — painel curatorial Vertho (admin gerencia micro_conteudos globais)
+- `cron-jobs.js::cleanupSessoes` — varredura cross-tenant de manutenção
+- `preferencias-aprendizagem.js::loadPreferenciasGlobais` — agregado cross-tenant (admin)
+- `findColabByEmail` em authz.ts — discovery do tenant (não tem tenant ainda)
+- Queries iniciais de descoberta de tenant (colaboradores, empresas, banco_cenarios por id)
 
 ## Padrão
 

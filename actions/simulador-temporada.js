@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 import { callAI, callAIChat } from './ai-client';
 import {
   promptSimuladorColab,
@@ -42,13 +43,14 @@ export async function simularUmaSemanaSimulacao(email, { trilhaId, semana, perfi
   const ctx = await getUserContext(email);
   if (!ctx?.isPlatformAdmin) return { error: 'Acesso restrito à Vertho' };
 
-  const sb = createSupabaseAdmin();
-  const { data: trilha } = await sb.from('trilhas')
+  const sbRaw = createSupabaseAdmin();
+  const { data: trilha } = await sbRaw.from('trilhas')
     .select('id, empresa_id, colaborador_id, competencia_foco, temporada_plano, descritores_selecionados')
     .eq('id', trilhaId).maybeSingle();
   if (!trilha) return { error: 'Trilha não encontrada' };
 
-  const { data: colab } = await sb.from('colaboradores')
+  const tdb = tenantDb(trilha.empresa_id);
+  const { data: colab } = await tdb.from('colaboradores')
     .select('nome_completo, cargo, perfil_dominante').eq('id', trilha.colaborador_id).maybeSingle();
 
   const plano = Array.isArray(trilha.temporada_plano) ? trilha.temporada_plano : [];
@@ -57,19 +59,19 @@ export async function simularUmaSemanaSimulacao(email, { trilhaId, semana, perfi
 
   try {
     if (s.tipo === 'conteudo' && s.descritor) {
-      await simularSocratico(sb, trilha, colab, s, perfilEvolucao);
+      await simularSocratico(tdb, trilha, colab, s, perfilEvolucao);
       return { ok: true, semana: Number(semana), tipo: 'conteudo' };
     }
     if (s.tipo === 'aplicacao') {
-      await simularMissaoPratica(sb, trilha, colab, s, perfilEvolucao);
+      await simularMissaoPratica(tdb, trilha, colab, s, perfilEvolucao);
       return { ok: true, semana: Number(semana), tipo: 'aplicacao' };
     }
     if (s.tipo === 'avaliacao' && Number(semana) === 13) {
-      await simularQualitativa(sb, trilha, colab, s, perfilEvolucao);
+      await simularQualitativa(tdb, trilha, colab, s, perfilEvolucao);
       return { ok: true, semana: 13, tipo: 'qualitativa' };
     }
     if (s.tipo === 'avaliacao' && Number(semana) === 14) {
-      const r = await simularSem14Ate(sb, trilha, colab, perfilEvolucao);
+      const r = await simularSem14Ate(tdb, trilha, colab, perfilEvolucao);
       return { ok: true, semana: 14, tipo: 'cenario_b', cenario_disponivel: r.cenarioOk };
     }
     return { ok: true, semana: Number(semana), tipo: 'skip', reason: 'sem ação definida' };
@@ -83,13 +85,14 @@ export async function simularTemporadaCompleta(email, { trilhaId, perfilEvolucao
   const ctx = await getUserContext(email);
   if (!ctx?.isPlatformAdmin) return { error: 'Acesso restrito à Vertho' };
 
-  const sb = createSupabaseAdmin();
-  const { data: trilha } = await sb.from('trilhas')
+  const sbRaw = createSupabaseAdmin();
+  const { data: trilha } = await sbRaw.from('trilhas')
     .select('id, empresa_id, colaborador_id, competencia_foco, temporada_plano, descritores_selecionados')
     .eq('id', trilhaId).maybeSingle();
   if (!trilha) return { error: 'Trilha não encontrada' };
 
-  const { data: colab } = await sb.from('colaboradores')
+  const tdb = tenantDb(trilha.empresa_id);
+  const { data: colab } = await tdb.from('colaboradores')
     .select('nome_completo, cargo, perfil_dominante').eq('id', trilha.colaborador_id).maybeSingle();
   const nome = (colab?.nome_completo || '').split(' ')[0] || 'Colab';
 
@@ -104,19 +107,19 @@ export async function simularTemporadaCompleta(email, { trilhaId, perfilEvolucao
       if (semana > 13) break; // sem 14 tratada depois
 
       if (s.tipo === 'conteudo' && s.descritor) {
-        await simularSocratico(sb, trilha, colab, s, perfilEvolucao);
+        await simularSocratico(tdb, trilha, colab, s, perfilEvolucao);
         steps.push({ semana, tipo: 'conteudo', ok: true });
       } else if (s.tipo === 'aplicacao') {
-        await simularMissaoPratica(sb, trilha, colab, s, perfilEvolucao);
+        await simularMissaoPratica(tdb, trilha, colab, s, perfilEvolucao);
         steps.push({ semana, tipo: 'aplicacao_pratica', ok: true });
       } else if (s.tipo === 'avaliacao' && semana === 13) {
-        await simularQualitativa(sb, trilha, colab, s, perfilEvolucao);
+        await simularQualitativa(tdb, trilha, colab, s, perfilEvolucao);
         steps.push({ semana: 13, tipo: 'qualitativa', ok: true });
       }
     }
 
     // Sem 14: inicia cenário B + gera resposta simulada (NÃO finaliza — admin scoring manual)
-    const sem14 = await simularSem14Ate(sb, trilha, colab, perfilEvolucao);
+    const sem14 = await simularSem14Ate(tdb, trilha, colab, perfilEvolucao);
     steps.push({ semana: 14, tipo: 'cenario_b_resposta_gerada', ok: true, cenario_disponivel: sem14.cenarioOk });
 
     return { ok: true, steps, colab: colab?.nome_completo, perfilEvolucao };

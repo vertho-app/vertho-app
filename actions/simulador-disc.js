@@ -1,6 +1,6 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 
 /**
  * Simula o mapeamento comportamental DISC de colaboradores que ainda não fizeram.
@@ -12,11 +12,10 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 export async function simularMapeamentoDISCLote(empresaId) {
   try {
     if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
-    const sb = createSupabaseAdmin();
+    const tdb = tenantDb(empresaId);
 
-    const { data: colabs } = await sb.from('colaboradores')
+    const { data: colabs } = await tdb.from('colaboradores')
       .select('id, nome_completo, perfil_dominante')
-      .eq('empresa_id', empresaId)
       .is('perfil_dominante', null);
 
     if (!colabs?.length) return { success: true, message: 'Todos já têm mapeamento DISC', simulados: 0 };
@@ -24,7 +23,7 @@ export async function simularMapeamentoDISCLote(empresaId) {
     let simulados = 0;
     for (const colab of colabs) {
       const payload = gerarMapeamentoRandomico();
-      const { error } = await sb.from('colaboradores').update(payload).eq('id', colab.id);
+      const { error } = await tdb.from('colaboradores').update(payload).eq('id', colab.id);
       if (!error) simulados++;
     }
 
