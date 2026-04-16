@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireRole, assertTenantAccess } from '@/lib/auth/request-context';
 
 export async function POST(req) {
   try {
+    // RH da empresa pode trocar o logo; platform admin também (via requireRole('admin')).
+    const auth = await requireRole(req, ['rh', 'admin']);
+    if (auth instanceof Response) return auth;
+
     const formData = await req.formData();
     const file = formData.get('file');
     const empresaId = formData.get('empresaId');
@@ -10,6 +15,9 @@ export async function POST(req) {
     if (!file || !empresaId) {
       return NextResponse.json({ error: 'file e empresaId obrigatórios' }, { status: 400 });
     }
+
+    const tenantGuard = assertTenantAccess(auth, String(empresaId));
+    if (tenantGuard) return tenantGuard;
 
     // Validar tipo
     const allowed = ['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp'];

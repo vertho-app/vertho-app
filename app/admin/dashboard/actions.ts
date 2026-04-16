@@ -1,8 +1,11 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 export async function loadAdminDashboard() {
+  await requireAdminAction();
+
   const sb = createSupabaseAdmin();
 
   const [empresasRes, colabsRes, respostasRes, cenariosRes, trilhasRes, capacitacaoRes] = await Promise.all([

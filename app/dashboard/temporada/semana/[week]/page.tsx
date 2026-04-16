@@ -9,6 +9,7 @@ import { Loader2, ArrowLeft, Video, FileText, Headphones, BookOpen, Send, Sparkl
 import { loadTemporadaPorEmail, marcarConteudoConsumido } from '@/actions/temporadas';
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import MicInput from '@/components/mic-input';
+import { fetchAuth } from '@/lib/auth/fetch-auth';
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen };
 
@@ -143,7 +144,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
     if (missaoBusy) return;
     if (modo === 'pratica' && !compromissoInput.trim()) return;
     setMissaoBusy(true);
-    const r = await fetch('/api/temporada/missao', {
+    const r = await fetchAuth('/api/temporada/missao', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -168,7 +169,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
     setTdInput('');
     setTdHistory(h => [...h, { role: 'user', content: msg, timestamp: new Date().toISOString() }]);
     setTdBusy(true);
-    const r = await fetch('/api/temporada/tira-duvidas', {
+    const r = await fetchAuth('/api/temporada/tira-duvidas', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ trilhaId: data.trilha.id, semana: semanaNum, message: msg }),

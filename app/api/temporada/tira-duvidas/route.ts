@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAIChat } from '@/actions/ai-client';
+import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
 import { promptTiraDuvidas } from '@/lib/season-engine/prompts/tira-duvidas';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
@@ -18,7 +19,11 @@ import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
  */
 export async function POST(request) {
   try {
-    const { trilhaId, semana, message } = await request.json();
+    const auth = await requireUser(request);
+    if (auth instanceof Response) return auth;
+
+    const body = await request.json();
+    const { trilhaId, semana, message, colaboradorId: colabBody } = body;
     if (!trilhaId || !semana || !message) {
       return NextResponse.json({ error: 'trilhaId+semana+message obrigatórios' }, { status: 400 });
     }
@@ -29,6 +34,12 @@ export async function POST(request) {
       .select('id, colaborador_id, empresa_id, competencia_foco, temporada_plano, data_inicio')
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return NextResponse.json({ error: 'trilha não encontrada' }, { status: 404 });
+
+    if (colabBody && colabBody !== trilha.colaborador_id) {
+      return NextResponse.json({ error: 'colaboradorId não corresponde à trilha' }, { status: 403 });
+    }
+    const guard = await assertColabAccess(auth, trilha.colaborador_id);
+    if (guard) return guard;
 
     // Gates idênticos a reflection
     const { semanaLiberadaPorData, formatarLiberacao } = await import('@/lib/season-engine/week-gating');

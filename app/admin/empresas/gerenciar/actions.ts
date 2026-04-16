@@ -1,14 +1,18 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminAction, assertTenantAccessAction } from '@/lib/auth/action-context';
 
 export async function loadEmpresas() {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   const { data } = await sb.from('empresas').select('id, nome, segmento').order('nome');
   return data || [];
 }
 
 export async function loadResumoEmpresa(empresaId) {
+  const auth = await requireAdminAction();
+  assertTenantAccessAction(auth, empresaId);
   const sb = createSupabaseAdmin();
   const { count: colabs } = await sb.from('colaboradores')
     .select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId);
@@ -18,6 +22,9 @@ export async function loadResumoEmpresa(empresaId) {
 }
 
 export async function importarColaboradoresLote(empresaId, colabs) {
+  const auth = await requireAdminAction();
+  assertTenantAccessAction(auth, empresaId);
+
   const sb = createSupabaseAdmin();
   const { data: existentes } = await sb.from('colaboradores')
     .select('email').eq('empresa_id', empresaId);
@@ -43,6 +50,9 @@ export async function importarColaboradoresLote(empresaId, colabs) {
 }
 
 export async function loadColaboradores(empresaId) {
+  const auth = await requireAdminAction();
+  assertTenantAccessAction(auth, empresaId);
+
   const sb = createSupabaseAdmin();
   // Tentar com telefone, fallback sem
   const { data: d1, error: e1 } = await sb.from('colaboradores')
@@ -58,7 +68,9 @@ export async function loadColaboradores(empresaId) {
 }
 
 export async function criarColaborador(empresaId, campos) {
+  const auth = await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresa obrigatória' };
+  assertTenantAccessAction(auth, empresaId);
   if (!campos?.email?.trim()) return { success: false, error: 'email obrigatório' };
 
   const sb = createSupabaseAdmin();
@@ -89,7 +101,14 @@ export async function criarColaborador(empresaId, campos) {
 }
 
 export async function atualizarColaborador(id, campos) {
+  const auth = await requireAdminAction();
   const sb = createSupabaseAdmin();
+
+  // Valida que o colab existe e pertence a uma empresa acessível (admin bypassa por definição).
+  const { data: existente } = await sb.from('colaboradores').select('empresa_id').eq('id', id).maybeSingle();
+  if (!existente) return { success: false, error: 'colab não encontrado' };
+  assertTenantAccessAction(auth, existente.empresa_id);
+
   const VALID_ROLES = ['colaborador', 'gestor', 'rh'];
   const update: any = {};
   if (campos.nome_completo !== undefined) update.nome_completo = campos.nome_completo?.trim() || null;
@@ -108,7 +127,13 @@ export async function atualizarColaborador(id, campos) {
 }
 
 export async function excluirColaborador(id) {
+  const auth = await requireAdminAction();
   const sb = createSupabaseAdmin();
+
+  const { data: existente } = await sb.from('colaboradores').select('empresa_id').eq('id', id).maybeSingle();
+  if (!existente) return { success: false, error: 'colab não encontrado' };
+  assertTenantAccessAction(auth, existente.empresa_id);
+
   const { error } = await sb.from('colaboradores').delete().eq('id', id);
   if (error) return { success: false, error: error.message };
   return { success: true };
@@ -117,6 +142,8 @@ export async function excluirColaborador(id) {
 // ── Cargos ──────────────────────────────────────────────────────────────────
 
 export async function loadCargos(empresaId) {
+  const auth = await requireAdminAction();
+  assertTenantAccessAction(auth, empresaId);
   const sb = createSupabaseAdmin();
   const { data, error } = await sb.from('cargos_empresa')
     .select('*')
@@ -127,6 +154,9 @@ export async function loadCargos(empresaId) {
 }
 
 export async function salvarCargo(empresaId, cargo) {
+  const auth = await requireAdminAction();
+  assertTenantAccessAction(auth, empresaId);
+
   const sb = createSupabaseAdmin();
   const registro = {
     empresa_id: empresaId,
@@ -146,6 +176,10 @@ export async function salvarCargo(empresaId, cargo) {
 
   let result;
   if (cargo.id) {
+    // Garante que o cargo pertence à empresa validada
+    const { data: existe } = await sb.from('cargos_empresa').select('empresa_id').eq('id', cargo.id).maybeSingle();
+    if (!existe) return { success: false, error: 'cargo não encontrado' };
+    assertTenantAccessAction(auth, existe.empresa_id);
     result = await sb.from('cargos_empresa').update(registro).eq('id', cargo.id).select().single();
   } else {
     result = await sb.from('cargos_empresa').insert(registro).select().single();
@@ -155,13 +189,22 @@ export async function salvarCargo(empresaId, cargo) {
 }
 
 export async function excluirCargo(id) {
+  const auth = await requireAdminAction();
   const sb = createSupabaseAdmin();
+
+  const { data: existe } = await sb.from('cargos_empresa').select('empresa_id').eq('id', id).maybeSingle();
+  if (!existe) return { success: false, error: 'cargo não encontrado' };
+  assertTenantAccessAction(auth, existe.empresa_id);
+
   const { error } = await sb.from('cargos_empresa').delete().eq('id', id);
   if (error) return { success: false, error: error.message };
   return { success: true };
 }
 
 export async function sincronizarCargosDeColaboradores(empresaId) {
+  const auth = await requireAdminAction();
+  assertTenantAccessAction(auth, empresaId);
+
   const sb = createSupabaseAdmin();
   // Buscar cargos únicos dos colaboradores
   const { data: colabs } = await sb.from('colaboradores')

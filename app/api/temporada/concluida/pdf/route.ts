@@ -1,30 +1,33 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { loadTemporadaConcluida } from '@/actions/temporada-concluida';
 import { renderTemporadaConcluidaPDF } from '@/lib/temporada-concluida-pdf';
+import { requireUser, assertEmailAccess } from '@/lib/auth/request-context';
 
 /**
  * GET /api/temporada/concluida/pdf
- * Retorna PDF da tela "Temporada Concluida" do colab autenticado.
- * OU ?email=<colab> (platform admin / gestor acessando relatório de outro).
+ *
+ * Modo SELF (sem params): baixa PDF do colab autenticado (usuário logado).
+ * Modo ASSISTIDO (?email=<colab>): apenas gestor/rh da mesma empresa OU platform admin.
+ *
+ * O email do usuário autenticado SEMPRE vem do token/cookie — nunca do query string.
  */
-export async function GET(request) {
+export async function GET(request: Request) {
   try {
+    const auth = await requireUser(request);
+    if (auth instanceof Response) return auth;
+
     const { searchParams } = new URL(request.url);
-    const sb = createSupabaseAdmin();
-
-    // Autenticação via cookie (Supabase) — lê do header
-    const auth = request.headers.get('authorization');
     const emailParam = searchParams.get('email');
-    let email = emailParam;
-    if (!email && auth?.startsWith('Bearer ')) {
-      const token = auth.slice(7);
-      const { data } = await sb.auth.getUser(token);
-      email = data?.user?.email;
-    }
-    if (!email) return NextResponse.json({ error: 'email obrigatório (param ou token)' }, { status: 401 });
 
-    const dados = await loadTemporadaConcluida(email);
+    let emailAlvo = auth.email;
+    if (emailParam && emailParam.trim() && emailParam.trim().toLowerCase() !== auth.email) {
+      // Quer ver relatório de outro → precisa ter role elevado ou ser platform admin
+      const guard = await assertEmailAccess(auth, emailParam);
+      if (guard) return guard;
+      emailAlvo = emailParam.trim().toLowerCase();
+    }
+
+    const dados = await loadTemporadaConcluida(emailAlvo);
     if (dados.error) return NextResponse.json({ error: dados.error }, { status: 404 });
 
     const buffer = await renderTemporadaConcluidaPDF(dados);
@@ -37,7 +40,7 @@ export async function GET(request) {
         'Content-Disposition': `attachment; filename="${fileName}"`,
       },
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('[temporada/concluida/pdf]', err);
     return NextResponse.json({ error: err?.message || 'Erro' }, { status: 500 });
   }

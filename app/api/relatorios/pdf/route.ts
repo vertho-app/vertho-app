@@ -5,6 +5,7 @@ import RelatorioIndividualPDF from '@/components/pdf/RelatorioIndividual';
 import RelatorioGestorPDF from '@/components/pdf/RelatorioGestor';
 import RelatorioRHPDF from '@/components/pdf/RelatorioRH';
 import { getLogoCoverBase64 } from '@/lib/pdf-assets';
+import { requireUser, assertTenantAccess, assertColabAccess } from '@/lib/auth/request-context';
 import React from 'react';
 
 const COMPONENTS = {
@@ -15,6 +16,9 @@ const COMPONENTS = {
 
 export async function GET(request) {
   try {
+    const auth = await requireUser(request);
+    if (auth instanceof Response) return auth;
+
     const { searchParams } = new URL(request.url);
     const relatorioId = searchParams.get('id');
 
@@ -25,6 +29,22 @@ export async function GET(request) {
     const { data: rel } = await sb.from('relatorios')
       .select('*').eq('id', relatorioId).single();
     if (!rel) return NextResponse.json({ error: 'Relatório não encontrado' }, { status: 404 });
+
+    // Validações de acesso:
+    // - Sempre exige mesma empresa (ou platform admin).
+    // - Se relatório é individual, exige acesso ao colab (próprio/gestor/rh/admin).
+    // - Relatórios "gestor"/"rh" exigem role adequado na empresa (gestor/rh/admin).
+    const tenantGuard = assertTenantAccess(auth, rel.empresa_id);
+    if (tenantGuard) return tenantGuard;
+
+    if (rel.tipo === 'individual' && rel.colaborador_id) {
+      const colabGuard = await assertColabAccess(auth, rel.colaborador_id);
+      if (colabGuard) return colabGuard;
+    } else if (rel.tipo === 'gestor' || rel.tipo === 'rh') {
+      if (!auth.isPlatformAdmin && auth.role !== 'gestor' && auth.role !== 'rh') {
+        return NextResponse.json({ error: 'relatório agregado exige gestor/rh/admin' }, { status: 403 });
+      }
+    }
 
     const tipoCfg = COMPONENTS[rel.tipo];
     if (!tipoCfg) return NextResponse.json({ error: `Tipo "${rel.tipo}" não suportado para PDF` }, { status: 400 });

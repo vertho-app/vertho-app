@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
 
 /**
  * POST /api/temporada/missao
@@ -12,7 +13,11 @@ import { createSupabaseAdmin } from '@/lib/supabase';
  */
 export async function POST(request) {
   try {
-    const { trilhaId, semana, modo, compromisso } = await request.json();
+    const auth = await requireUser(request);
+    if (auth instanceof Response) return auth;
+
+    const body = await request.json();
+    const { trilhaId, semana, modo, compromisso, colaboradorId: colabBody } = body;
     if (!trilhaId || !semana || !modo) {
       return NextResponse.json({ error: 'trilhaId+semana+modo obrigatórios' }, { status: 400 });
     }
@@ -29,6 +34,14 @@ export async function POST(request) {
       .select('id, empresa_id, colaborador_id, temporada_plano, data_inicio')
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return NextResponse.json({ error: 'trilha não encontrada' }, { status: 404 });
+
+    // Se body trouxe colaboradorId, precisa bater com o dono da trilha.
+    if (colabBody && colabBody !== trilha.colaborador_id) {
+      return NextResponse.json({ error: 'colaboradorId não corresponde à trilha' }, { status: 403 });
+    }
+    // Usuário precisa ter acesso ao colab da trilha (próprio, gestor/rh mesma empresa, ou admin).
+    const guard = await assertColabAccess(auth, trilha.colaborador_id);
+    if (guard) return guard;
 
     const semanaPlan = (trilha.temporada_plano || []).find(s => s.semana === Number(semana));
     if (!semanaPlan) return NextResponse.json({ error: 'semana fora do plano' }, { status: 400 });

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI, callAIChat } from '@/actions/ai-client';
+import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
 import { promptEvolutionQualitative, promptEvolutionQualitativeExtract } from '@/lib/season-engine/prompts/evolution-qualitative';
 import { promptEvolutionScenarioScore } from '@/lib/season-engine/prompts/evolution-scenario';
 import { promptEvolutionScenarioCheck } from '@/lib/season-engine/prompts/evolution-scenario-check';
@@ -17,19 +18,30 @@ import { gerarEvolutionReport } from '@/actions/evolution-report';
  */
 export async function POST(request) {
   try {
-    const { trilhaId, semana, message, action = 'send' } = await request.json();
-    if (!trilhaId || !semana) return NextResponse.json({ error: 'trilhaId+semana' }, { status: 400 });
+    const auth = await requireUser(request);
+    if (auth instanceof Response) return auth;
 
-    if (action === 'generate_report') {
-      const r = await gerarEvolutionReport(trilhaId);
-      return NextResponse.json(r);
-    }
+    const body = await request.json();
+    const { trilhaId, semana, message, action = 'send', colaboradorId: colabBody } = body;
+    if (!trilhaId || !semana) return NextResponse.json({ error: 'trilhaId+semana' }, { status: 400 });
 
     const sb = createSupabaseAdmin();
     const { data: trilha } = await sb.from('trilhas')
       .select('id, colaborador_id, empresa_id, competencia_foco, temporada_plano, descritores_selecionados, data_inicio')
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return NextResponse.json({ error: 'trilha' }, { status: 404 });
+
+    // Valida colab: body (se veio) tem que bater com trilha + usuário com acesso.
+    if (colabBody && colabBody !== trilha.colaborador_id) {
+      return NextResponse.json({ error: 'colaboradorId não corresponde à trilha' }, { status: 403 });
+    }
+    const guard = await assertColabAccess(auth, trilha.colaborador_id);
+    if (guard) return guard;
+
+    if (action === 'generate_report') {
+      const r = await gerarEvolutionReport(trilhaId);
+      return NextResponse.json(r);
+    }
 
     // Gate temporal + progressão (idem reflection)
     const { semanaLiberadaPorData, formatarLiberacao } = await import('@/lib/season-engine/week-gating');

@@ -7,6 +7,7 @@ import { Loader2, ArrowLeft, Play, CheckCircle2, AlertTriangle, Mic, MicOff } fr
 import { loadTemporadaPorEmail } from '@/actions/temporadas';
 import ReactMarkdown from 'react-markdown';
 import MicInput from '@/components/mic-input';
+import { fetchAuth } from '@/lib/auth/fetch-auth';
 
 const MIN_CHARS = 20;
 
@@ -70,7 +71,7 @@ export default function Sem14Page() {
         });
         setStep(0);
       } else {
-        const initResp = await fetch('/api/temporada/evaluation', {
+        const initResp = await fetchAuth('/api/temporada/evaluation', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ trilhaId: r.trilha.id, semana: 14, action: 'init' }),
@@ -101,7 +102,7 @@ export default function Sem14Page() {
     // Envia as 4 respostas em sequência (pedagogicamente correto — o backend
     // espera 4 mensagens antes do scorer). Reusa o fluxo send existente.
     for (let i = 0; i < respostas.length; i++) {
-      const r = await fetch('/api/temporada/evaluation', {
+      const r = await fetchAuth('/api/temporada/evaluation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ trilhaId, semana: 14, action: 'send', message: respostas[i] }),

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI, callAIChat } from '@/actions/ai-client';
+import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
 import { promptSocratic } from '@/lib/season-engine/prompts/socratic';
 import { promptAnalytic } from '@/lib/season-engine/prompts/analytic';
 import { promptMissaoFeedback } from '@/lib/season-engine/prompts/missao-feedback';
@@ -42,7 +43,11 @@ const MAX_TURNS_MISSAO_FEEDBACK = 20; // 10 IA + 10 colab — relato de missão 
  */
 export async function POST(request) {
   try {
-    const { trilhaId, semana, message, action = 'send' } = await request.json();
+    const auth = await requireUser(request);
+    if (auth instanceof Response) return auth;
+
+    const body = await request.json();
+    const { trilhaId, semana, message, action = 'send', colaboradorId: colabBody } = body;
     if (!trilhaId || !semana) return NextResponse.json({ error: 'trilhaId+semana obrigatórios' }, { status: 400 });
 
     const sb = createSupabaseAdmin();
@@ -51,6 +56,13 @@ export async function POST(request) {
       .select('id, colaborador_id, empresa_id, competencia_foco, temporada_plano, data_inicio')
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return NextResponse.json({ error: 'trilha não encontrada' }, { status: 404 });
+
+    // Se body trouxe colaboradorId, tem que bater com o dono da trilha.
+    if (colabBody && colabBody !== trilha.colaborador_id) {
+      return NextResponse.json({ error: 'colaboradorId não corresponde à trilha' }, { status: 403 });
+    }
+    const guard = await assertColabAccess(auth, trilha.colaborador_id);
+    if (guard) return guard;
 
     // Gate temporal: semana só libera na segunda às 03:00 BRT correspondente.
     const { semanaLiberadaPorData, formatarLiberacao } = await import('@/lib/season-engine/week-gating');

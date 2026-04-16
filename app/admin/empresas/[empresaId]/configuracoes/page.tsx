@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { loadConfig, salvarConfig, salvarBranding, salvarSlug, loadEquipe, atualizarRole } from './actions';
 import { limparSessoesAntigas, limparSessoesTeste } from '@/app/actions/manutencao';
+import { fetchAuth } from '@/lib/auth/fetch-auth';
 
 const DIAS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 import { AI_TASKS, MODELOS_DISPONIVEIS } from '@/lib/ai-tasks';
@@ -106,7 +107,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
       const fd = new FormData();
       fd.append('file', file);
       fd.append('empresaId', empresaId);
-      const res = await fetch('/api/upload-logo', { method: 'POST', body: fd });
+      const res = await fetchAuth('/api/upload-logo', { method: 'POST', body: fd });
       const json = await res.json();
       if (json.success) {
         setBranding(prev => ({ ...prev, logo_url: json.url }));

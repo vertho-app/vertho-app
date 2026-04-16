@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Send, Loader2, CheckCircle, AlertTriangle, ArrowLeft, Shield } from 'lucide-react';
 import { getColabByEmail } from '@/app/dashboard/colab-action';
+import { fetchAuth } from '@/lib/auth/fetch-auth';
 
 export default function ChatPage() {
   const searchParams = useSearchParams();
@@ -89,7 +90,7 @@ export default function ChatPage() {
     setError('');
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await fetchAuth('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

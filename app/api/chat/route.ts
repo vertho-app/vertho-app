@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAIChat, callAI } from '@/actions/ai-client';
 import { extractBlock, stripBlocks } from '@/actions/utils';
 import { getOrCreatePromptVersion } from '@/lib/versioning';
+import { requireUser, assertTenantAccess, assertColabAccess } from '@/lib/auth/request-context';
 
 // ── Defaults ────────────────────────────────────────────────────────────────
 
@@ -18,12 +19,23 @@ const MAX_MESSAGE_LENGTH = 4096;
 
 export async function POST(req) {
   try {
+    const auth = await requireUser(req);
+    if (auth instanceof Response) return auth;
+
     const body = await req.json();
     const { sessaoId, empresaId, colaboradorId, competenciaId, mensagem } = body;
 
     if (!empresaId || !colaboradorId || !competenciaId || !mensagem?.trim()) {
       return NextResponse.json({ ok: false, error: 'Campos obrigatórios: empresaId, colaboradorId, competenciaId, mensagem' }, { status: 400 });
     }
+
+    // Valida tenant: empresaId do body tem que bater com auth (admin bypassa).
+    const tenantGuard = assertTenantAccess(auth, empresaId);
+    if (tenantGuard) return tenantGuard;
+
+    // Valida acesso ao colaborador: próprio OU gestor/rh mesma empresa OU admin.
+    const colabGuard = await assertColabAccess(auth, colaboradorId);
+    if (colabGuard) return colabGuard;
 
     // Validar tamanho da mensagem (regra do GAS)
     const msgTrimmed = mensagem.trim().slice(0, MAX_MESSAGE_LENGTH);
