@@ -403,7 +403,11 @@ export async function loadTemporada(colaboradorId) {
     const { data: progresso } = await sb.from('temporada_semana_progresso')
       .select('*').eq('trilha_id', trilha.id).order('semana');
 
-    return { ok: true, trilha, progresso: progresso || [] };
+    const { data: colaborador } = await sb.from('colaboradores')
+      .select('id, nome_completo, cargo, email, perfil_dominante')
+      .eq('id', colaboradorId).maybeSingle();
+
+    return { ok: true, trilha, progresso: progresso || [], colaborador };
   } catch (err) {
     return { error: err?.message || 'Erro' };
   }

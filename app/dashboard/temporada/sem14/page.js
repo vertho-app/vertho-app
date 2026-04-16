@@ -1,69 +1,75 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, ArrowLeft, Send, CheckCircle, AlertTriangle, Shield } from 'lucide-react';
+import { Loader2, ArrowLeft, Play, CheckCircle2, AlertTriangle, Mic, MicOff } from 'lucide-react';
 import { loadTemporadaPorEmail } from '@/actions/temporadas';
 import ReactMarkdown from 'react-markdown';
+import MicInput from '@/components/mic-input';
+
+const MIN_CHARS = 20;
 
 /**
- * Avaliação Final da Temporada (Semana 14).
- * UX idêntica ao mapeamento (/dashboard/assessment/chat): header, chat
- * bubble, input fixo, card de avaliação ao fim. Backend:
- * /api/temporada/evaluation com 4 perguntas estáticas do cenário B.
+ * Avaliação Final da Temporada (Semana 14) — UX idêntica ao mapeamento:
+ * wizard com cenário + 4 perguntas + botões anterior/próxima + submit final.
  */
 export default function Sem14Page() {
   const router = useRouter();
   const sb = getSupabase();
-  const scrollRef = useRef(null);
+  const micRef = useRef(null);
 
   const [trilhaId, setTrilhaId] = useState(null);
+  const [colabNome, setColabNome] = useState('');
+  const [cargo, setCargo] = useState('');
   const [competencia, setCompetencia] = useState('');
   const [cenario, setCenario] = useState('');
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
-  const [dimensaoAtual, setDimensaoAtual] = useState('SITUAÇÃO');
-  const [loading, setLoading] = useState(false);
-  const [initLoading, setInitLoading] = useState(true);
-  const [finished, setFinished] = useState(false);
-  const [avaliacao, setAvaliacao] = useState(null);
+  const [perguntas, setPerguntas] = useState([]);
+  const [respostas, setRespostas] = useState(['', '', '', '']);
+  const [step, setStep] = useState(-1); // -1 = loading, 0 = cenário, 1..4 = pergunta, 5 = submit, 6 = finalizada
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, loading]);
+  const [avaliacao, setAvaliacao] = useState(null);
 
   useEffect(() => {
     (async () => {
       const { data: { user } } = await sb.auth.getUser();
       if (!user) { router.replace('/login'); return; }
       const r = await loadTemporadaPorEmail(user.email);
-      if (r.error || !r.trilha) { setError(r.error || 'Sem trilha'); setInitLoading(false); return; }
+      if (r.error || !r.trilha) { setError(r.error || 'Sem trilha'); return; }
       setTrilhaId(r.trilha.id);
       setCompetencia(r.trilha.competencia_foco);
+      setColabNome(r.colaborador?.nome_completo || '');
+      setCargo(r.colaborador?.cargo || '');
 
-      // Carrega estado da sem 14 OU inicia
       const prog = (r.progresso || []).find(p => p.semana === 14);
       const fb = prog?.feedback || {};
-      if (fb.transcript_completo?.length > 0) {
-        setMessages(fb.transcript_completo);
-        setCenario(fb.cenario || '');
-        if (prog.status === 'concluido') {
-          setFinished(true);
-          setAvaliacao({
-            nota_media_pre: fb.nota_media_pre,
-            nota_media_pos: fb.nota_media_pos,
-            delta_medio: fb.delta_medio,
-            resumo_avaliacao: fb.resumo_avaliacao,
-            avaliacao_por_descritor: fb.avaliacao_por_descritor || [],
-          });
-        } else {
-          const ultima = fb.transcript_completo[fb.transcript_completo.length - 1];
-          if (ultima?.dimensao) setDimensaoAtual(ultima.dimensao);
-        }
+
+      // Já concluída — mostra avaliação
+      if (prog?.status === 'concluido') {
+        setAvaliacao({
+          nota_media_pre: fb.nota_media_pre,
+          nota_media_pos: fb.nota_media_pos,
+          delta_medio: fb.delta_medio,
+          resumo_avaliacao: fb.resumo_avaliacao,
+        });
+        setStep(6);
+        return;
+      }
+
+      // Carrega cenário + perguntas (faz init se não tem)
+      if (fb.cenario && fb.perguntas) {
+        setCenario(fb.cenario);
+        setPerguntas(fb.perguntas);
+        // recupera respostas parciais se existirem no transcript
+        const respostasExistentes = (fb.transcript_completo || []).filter(m => m.role === 'user').map(m => m.content);
+        setRespostas(prev => {
+          const next = [...prev];
+          respostasExistentes.forEach((r, i) => { if (i < 4) next[i] = r; });
+          return next;
+        });
+        setStep(0);
       } else {
-        // Dispara init
         const initResp = await fetch('/api/temporada/evaluation', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -72,45 +78,48 @@ export default function Sem14Page() {
         if (!initResp.ok) {
           const err = await initResp.json();
           setError(err.error || 'Erro ao iniciar sem 14');
-          setInitLoading(false); return;
+          return;
         }
         const data = await initResp.json();
         setCenario(data.cenario || '');
-        setMessages(data.history || []);
-        if (data.history?.length) setDimensaoAtual(data.history[0].dimensao || 'SITUAÇÃO');
+        setPerguntas(data.perguntas || []);
+        setStep(0);
       }
-      setInitLoading(false);
     })();
   }, [router, sb]);
 
-  async function handleSend(e) {
-    e?.preventDefault();
-    if (!input.trim() || loading) return;
-    const msg = input;
-    setInput('');
-    setMessages(m => [...m, { role: 'user', content: msg, timestamp: new Date().toISOString() }]);
-    setLoading(true);
-    const r = await fetch('/api/temporada/evaluation', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ trilhaId, semana: 14, action: 'send', message: msg }),
-    });
-    if (!r.ok) {
-      const err = await r.json();
-      alert(err.error || 'Erro ao enviar');
-      setLoading(false); return;
-    }
-    const data = await r.json();
-    if (data.history) setMessages(data.history);
-    if (data.dimensao) setDimensaoAtual(data.dimensao);
-    if (data.finished) {
-      setFinished(true);
-      setAvaliacao(data.avaliacao);
-    }
-    setLoading(false);
+  function setResposta(i, val) {
+    setRespostas(prev => prev.map((r, idx) => idx === i ? val : r));
   }
 
-  if (initLoading) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
+  async function finalizar() {
+    if (respostas.some(r => r.trim().length < MIN_CHARS)) {
+      alert('Todas as 4 perguntas precisam ser respondidas com pelo menos ' + MIN_CHARS + ' caracteres.');
+      return;
+    }
+    setBusy(true);
+    // Envia as 4 respostas em sequência (pedagogicamente correto — o backend
+    // espera 4 mensagens antes do scorer). Reusa o fluxo send existente.
+    for (let i = 0; i < respostas.length; i++) {
+      const r = await fetch('/api/temporada/evaluation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trilhaId, semana: 14, action: 'send', message: respostas[i] }),
+      });
+      if (!r.ok) {
+        const err = await r.json();
+        alert('Erro: ' + (err.error || 'Falha ao enviar'));
+        setBusy(false); return;
+      }
+      if (i === respostas.length - 1) {
+        const data = await r.json();
+        if (data.finished && data.avaliacao) setAvaliacao(data.avaliacao);
+      }
+    }
+    setBusy(false);
+    setStep(6);
+  }
+
   if (error) return (
     <div className="flex items-center justify-center h-[60dvh]">
       <div className="text-center">
@@ -121,124 +130,146 @@ export default function Sem14Page() {
     </div>
   );
 
+  if (step < 0) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
+
   return (
-    <div className="flex flex-col h-[calc(100dvh-var(--header-height)-var(--nav-height))]">
-      {/* Header */}
-      <div className="shrink-0 px-4 py-3 border-b border-white/[0.06]" style={{ background: '#0F2A4A' }}>
-        <div className="flex items-center justify-between">
-          <button onClick={() => router.push('/dashboard/temporada')} className="text-gray-500 hover:text-white">
-            <ArrowLeft size={18} />
-          </button>
-          <div className="text-center flex-1 px-3">
-            <p className="text-sm font-bold text-white truncate">{competencia || 'Avaliação Final'}</p>
-            <div className="flex items-center justify-center gap-3 mt-1">
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-400/15 text-purple-300">
-                Semana 14 · Avaliação
-              </span>
-              {!finished && (
-                <span className="text-[10px] text-gray-500">
-                  Dimensão: <span className="text-cyan-400 font-bold">{dimensaoAtual}</span>
-                </span>
-              )}
-              {finished && (
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-400/15 text-green-400">
-                  Concluída
-                </span>
-              )}
-            </div>
+    <div className="max-w-3xl mx-auto px-4 py-6">
+      <button onClick={() => router.push('/dashboard/temporada')} className="flex items-center gap-2 text-xs text-gray-400 hover:text-cyan-400 mb-4">
+        <ArrowLeft size={14} /> Voltar à temporada
+      </button>
+
+      {/* Card de progresso do colab */}
+      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 mb-4">
+        <div className="flex items-start justify-between flex-wrap gap-2">
+          <div>
+            <p className="text-base font-bold text-white">{colabNome}</p>
+            <p className="text-xs text-gray-400">{cargo}</p>
           </div>
-          <Shield size={18} className="text-gray-700" />
+          <p className="text-xs font-bold text-cyan-400">
+            {step <= 0 ? '0%' : step === 6 ? '100%' : `${Math.round(((step - 1) / 4) * 100)}%`}
+          </p>
         </div>
+        <div className="mt-3 h-1.5 rounded-full bg-white/5 overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-cyan-500 to-emerald-500 transition-all"
+            style={{ width: step === 6 ? '100%' : step > 0 ? `${((step - 1) / 4) * 100}%` : '0%' }} />
+        </div>
+        <p className="text-[10px] text-gray-500 mt-2">
+          {step === 6 ? 'Avaliação concluída' : `Semana 14 · ${competencia}`}
+        </p>
       </div>
 
-      {/* Cenário colapsável */}
-      {cenario && (
-        <div className="shrink-0 mx-4 mt-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.03]">
-          <details>
-            <summary className="cursor-pointer px-4 py-2.5 text-[11px] font-bold text-amber-400 uppercase tracking-widest">
-              Cenário final · clique para expandir
-            </summary>
-            <div className="px-4 pb-3 prose prose-invert prose-sm max-w-none text-xs text-gray-300">
-              <ReactMarkdown>{cenario}</ReactMarkdown>
-            </div>
-          </details>
+      {/* STEP 0 — Cenário */}
+      {step === 0 && (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+          <p className="text-xs uppercase tracking-widest text-cyan-400 font-bold mb-3">Contexto</p>
+          <div className="prose prose-invert prose-sm max-w-none text-gray-200 mb-5">
+            <ReactMarkdown>{cenario}</ReactMarkdown>
+          </div>
+          <button onClick={() => setStep(1)}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-[#091D35] font-bold text-sm">
+            <Play size={14} fill="currentColor" /> Iniciar avaliação
+          </button>
         </div>
       )}
 
-      {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages.map((m, i) => (
-          <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
-              m.role === 'user'
-                ? 'bg-cyan-500/15 text-cyan-100 rounded-br-md'
-                : 'bg-white/[0.06] text-gray-200 rounded-bl-md'
-            }`}>
-              {m.content}
+      {/* STEPS 1..4 — Perguntas */}
+      {step >= 1 && step <= 4 && perguntas[step - 1] && (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs uppercase tracking-widest text-cyan-400 font-bold">
+              Pergunta {step} de 4
+            </p>
+            <div className="flex gap-1">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className={`h-1 w-12 rounded-full transition-all ${
+                  i <= step ? 'bg-cyan-400' : 'bg-white/10'
+                }`} />
+              ))}
             </div>
           </div>
-        ))}
-        {loading && (
-          <div className="flex justify-start">
-            <div className="bg-white/[0.06] px-4 py-3 rounded-2xl rounded-bl-md">
-              <Loader2 size={16} className="animate-spin text-gray-500" />
-            </div>
-          </div>
-        )}
-      </div>
 
-      {/* Avaliação final */}
-      {avaliacao && (
-        <div className="shrink-0 mx-4 mb-3 rounded-xl border border-green-400/20 overflow-hidden" style={{ background: '#0F2A4A' }}>
-          <div className="px-4 py-2.5 border-b border-green-400/10 flex items-center gap-2">
-            <CheckCircle size={14} className="text-green-400" />
-            <span className="text-xs font-bold text-green-400">Avaliação Concluída</span>
+          <div className="rounded-xl bg-cyan-500/5 border-l-4 border-cyan-500 p-4 mb-3">
+            <p className="text-[10px] uppercase tracking-widest text-cyan-400 font-bold mb-1">{perguntas[step - 1].dimensao}</p>
+            <p className="text-sm text-white font-semibold leading-relaxed">{perguntas[step - 1].texto}</p>
           </div>
-          <div className="p-4 space-y-3">
-            <div className="grid grid-cols-3 gap-2">
-              <div className="text-center p-2 rounded-lg" style={{ background: '#091D35' }}>
-                <p className="text-lg font-bold text-white">{avaliacao.nota_media_pre}</p>
-                <p className="text-[9px] text-gray-500 uppercase">Pré</p>
-              </div>
-              <div className="text-center p-2 rounded-lg" style={{ background: '#091D35' }}>
-                <p className="text-lg font-bold text-cyan-400">{avaliacao.nota_media_pos}</p>
-                <p className="text-[9px] text-gray-500 uppercase">Pós</p>
-              </div>
-              <div className="text-center p-2 rounded-lg" style={{ background: '#091D35' }}>
-                <p className={`text-lg font-bold ${Number(avaliacao.delta_medio) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {Number(avaliacao.delta_medio) > 0 ? '+' : ''}{avaliacao.delta_medio}
-                </p>
-                <p className="text-[9px] text-gray-500 uppercase">Delta</p>
-              </div>
-            </div>
-            {avaliacao.resumo_avaliacao && (
-              <div className="p-3 rounded-lg border border-white/[0.06]" style={{ background: '#091D35' }}>
-                <p className="text-xs text-gray-300 leading-relaxed">{avaliacao.resumo_avaliacao}</p>
-              </div>
-            )}
-            <button onClick={() => router.push('/dashboard/temporada/concluida')}
-              className="w-full py-2 rounded-lg bg-gradient-to-r from-cyan-600 to-emerald-600 hover:opacity-90 text-sm font-bold">
-              Ver relatório completo →
+
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <p className="text-[11px] text-gray-500 flex-1">
+              <b className="text-cyan-400">Dica:</b> Clique em <b className="text-cyan-400">Gravar por voz</b> e fale naturalmente em português — o texto aparece no campo enquanto você fala. Permita acesso ao microfone na primeira vez.
+            </p>
+            <MicInput ref={micRef} value={respostas[step - 1]}
+              onChange={val => setResposta(step - 1, val)} disabled={busy} />
+          </div>
+
+          <textarea value={respostas[step - 1]}
+            onChange={e => setResposta(step - 1, e.target.value)}
+            placeholder="Descreva com detalhes sua resposta..."
+            rows={6}
+            disabled={busy}
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500 resize-vertical" />
+
+          <div className="flex items-center justify-between mt-2 mb-4">
+            <span className={`text-[11px] ${respostas[step - 1].trim().length >= MIN_CHARS ? 'text-emerald-400' : 'text-red-400'}`}>
+              {respostas[step - 1].length} / mín. {MIN_CHARS} caracteres
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button onClick={() => { micRef.current?.stop(); setStep(step - 1); }} disabled={busy}
+              className="flex-1 py-3 rounded-xl border border-white/10 hover:border-white/30 text-sm text-gray-300 disabled:opacity-50">
+              ← Anterior
             </button>
+            {step < 4 ? (
+              <button onClick={() => {
+                if (respostas[step - 1].trim().length < MIN_CHARS) { alert(`Mínimo ${MIN_CHARS} caracteres.`); return; }
+                micRef.current?.stop(); setStep(step + 1);
+              }} disabled={busy}
+                className="flex-1 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-[#091D35] font-bold text-sm disabled:opacity-50">
+                Próxima →
+              </button>
+            ) : (
+              <button onClick={() => { micRef.current?.stop(); finalizar(); }} disabled={busy}
+                className="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#091D35] font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2">
+                {busy ? <><Loader2 size={14} className="animate-spin" /> Processando...</> : <>Finalizar avaliação</>}
+              </button>
+            )}
           </div>
         </div>
       )}
 
-      {/* Input */}
-      {!finished && (
-        <form onSubmit={handleSend} className="shrink-0 flex items-center gap-2 p-3 border-t border-white/[0.06]" style={{ background: '#091D35' }}>
-          <input
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            placeholder="Sua resposta..."
-            disabled={loading}
-            className="flex-1 px-4 py-3 rounded-xl border border-white/10 bg-white/[0.05] text-sm text-white outline-none placeholder:text-white/30 focus:border-cyan-400/40 disabled:opacity-50"
-          />
-          <button type="submit" disabled={loading || !input.trim()}
-            className="w-11 h-11 flex items-center justify-center rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed">
-            <Send size={16} className="text-[#091D35]" />
+      {/* STEP 6 — Concluída */}
+      {step === 6 && avaliacao && (
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.05] p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <CheckCircle2 size={20} className="text-emerald-400" />
+            <p className="text-base font-bold text-white">Avaliação concluída</p>
+          </div>
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="text-center rounded-lg bg-white/[0.05] p-3">
+              <p className="text-xl font-bold text-white">{avaliacao.nota_media_pre}</p>
+              <p className="text-[10px] text-gray-500 uppercase">Pré</p>
+            </div>
+            <div className="text-center rounded-lg bg-white/[0.05] p-3">
+              <p className="text-xl font-bold text-cyan-400">{avaliacao.nota_media_pos}</p>
+              <p className="text-[10px] text-gray-500 uppercase">Pós</p>
+            </div>
+            <div className="text-center rounded-lg bg-white/[0.05] p-3">
+              <p className={`text-xl font-bold ${Number(avaliacao.delta_medio) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {Number(avaliacao.delta_medio) > 0 ? '+' : ''}{avaliacao.delta_medio}
+              </p>
+              <p className="text-[10px] text-gray-500 uppercase">Delta</p>
+            </div>
+          </div>
+          {avaliacao.resumo_avaliacao && (
+            <div className="rounded-lg bg-white/[0.03] p-3 text-sm text-gray-200 mb-4">
+              {avaliacao.resumo_avaliacao}
+            </div>
+          )}
+          <button onClick={() => router.push('/dashboard/temporada/concluida')}
+            className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-emerald-600 hover:opacity-90 text-sm font-bold text-white">
+            Ver relatório completo →
           </button>
-        </form>
+        </div>
       )}
     </div>
   );
