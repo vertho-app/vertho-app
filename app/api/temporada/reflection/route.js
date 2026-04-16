@@ -4,6 +4,7 @@ import { callAI, callAIChat } from '@/actions/ai-client';
 import { promptSocratic } from '@/lib/season-engine/prompts/socratic';
 import { promptAnalytic } from '@/lib/season-engine/prompts/analytic';
 import { promptMissaoFeedback } from '@/lib/season-engine/prompts/missao-feedback';
+import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 
 async function extrairDadosEstruturados(historico, tipoConversa, semanaPlan) {
   const transcript = historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content}`).join('\n\n');
@@ -111,38 +112,46 @@ export async function POST(request) {
 
     const proximoTurnIA = turnsIA + 1;
 
+    // PII masking: substitui nome real por alias + sanitiza PII no histórico
+    // antes de enviar pra IA externa. Map preserva relação pra despersonalizar output.
+    const { masked: colabMasked, map: piiMap } = maskColaborador(colab);
+    const historicoMasked = historico.map(m => ({
+      ...m,
+      content: maskTextPII(m.content, piiMap),
+    }));
+
     // Monta prompt
     let promptData;
     if (tipoConversa === 'socratic') {
       promptData = promptSocratic({
-        nomeColab: (colab.nome_completo || '').split(' ')[0],
+        nomeColab: colabMasked.nome,
         cargo: colab.cargo,
         perfilDominante: colab.perfil_dominante,
         competencia: trilha.competencia_foco,
         descritor: semanaPlan.descritor,
         desafio: semanaPlan.conteudo?.desafio_texto || '',
-        historico,
+        historico: historicoMasked,
         turnIA: proximoTurnIA,
       });
     } else if (tipoConversa === 'missao_feedback') {
       promptData = promptMissaoFeedback({
-        nomeColab: (colab.nome_completo || '').split(' ')[0],
+        nomeColab: colabMasked.nome,
         cargo: colab.cargo,
         competencia: trilha.competencia_foco,
         descritoresCobertos: semanaPlan.descritores_cobertos || [],
         missao: semanaPlan.missao?.texto || '',
-        compromisso: prog?.feedback?.compromisso || '',
-        historico,
+        compromisso: maskTextPII(prog?.feedback?.compromisso || '', piiMap),
+        historico: historicoMasked,
         turnIA: proximoTurnIA,
       });
     } else {
       promptData = promptAnalytic({
-        nomeColab: (colab.nome_completo || '').split(' ')[0],
+        nomeColab: colabMasked.nome,
         cargo: colab.cargo,
         competencia: trilha.competencia_foco,
         descritoresCobertos: semanaPlan.descritores_cobertos || [],
         cenario: semanaPlan.cenario?.texto || '',
-        historico,
+        historico: historicoMasked,
         turnIA: proximoTurnIA,
       });
     }
@@ -155,6 +164,9 @@ export async function POST(request) {
       console.error('[reflection] callAIChat:', err);
       return NextResponse.json({ error: 'Erro na IA' }, { status: 500 });
     }
+
+    // Despersonaliza resposta antes de persistir/exibir
+    respostaIA = unmaskPII(respostaIA, piiMap);
 
     historico.push({ role: 'assistant', content: respostaIA, timestamp: new Date().toISOString(), turn: proximoTurnIA });
 

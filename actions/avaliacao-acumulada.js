@@ -3,6 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI } from './ai-client';
 import { promptAvaliacaoAcumulada, promptAvaliacaoAcumuladaCheck } from '@/lib/season-engine/prompts/acumulado';
+import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 
 /**
  * Gera avaliação acumulada da temporada (1ª IA) + check por 2ª IA e
@@ -33,35 +34,47 @@ export async function gerarAvaliacaoAcumulada(trilhaId) {
   // Agrega evidências das 13 semanas
   const evidenciasAcumuladas = await agregarEvidencias(sb, trilhaId, descritoresFresh, trilha.temporada_plano);
 
+  // PII masking pro prompt externo (Claude). Nome do colab vira alias;
+  // evidências (transcripts literais) passam pelo sanitizador.
+  const { masked: colabMasked, map: piiMap } = maskColaborador(colab);
+  const evidenciasMasked = maskTextPII(evidenciasAcumuladas, piiMap);
+
   // 1ª IA — avaliação primária
   let primaria = null;
   try {
     const { system, user } = promptAvaliacaoAcumulada({
       competencia: trilha.competencia_foco,
       descritores: descritoresFresh,
-      evidenciasAcumuladas,
-      nomeColab: nome,
+      evidenciasAcumuladas: evidenciasMasked,
+      nomeColab: colabMasked.nome,
     });
-    // max_tokens com folga — 6 descritores × justificativa com trechos literais + resumo_geral
-    // pode passar fácil de 5k. Modelos suportam 64k, então 8k dá margem ampla.
     const r = await callAI(system, user, {}, 8000);
     primaria = JSON.parse(r.replace(/```json\n?|```\n?/g, '').trim());
+    // Despersonaliza textos livres antes de persistir
+    if (primaria?.resumo_geral) primaria.resumo_geral = unmaskPII(primaria.resumo_geral, piiMap);
+    if (Array.isArray(primaria?.avaliacao_acumulada)) {
+      primaria.avaliacao_acumulada = primaria.avaliacao_acumulada.map(d => ({
+        ...d, justificativa: unmaskPII(d.justificativa, piiMap),
+      }));
+    }
   } catch (err) {
     console.error('[acumulado primária]', err);
     return { error: 'Falha na 1ª IA: ' + err.message };
   }
 
-  // 2ª IA — check
+  // 2ª IA — check (mask também na primária que vai pro prompt)
   let auditoria = null;
   try {
+    const primariaMask = JSON.parse(maskTextPII(JSON.stringify(primaria), piiMap));
     const { system, user } = promptAvaliacaoAcumuladaCheck({
       competencia: trilha.competencia_foco,
       descritores: descritoresFresh,
-      evidenciasAcumuladas,
-      avaliacaoPrimaria: primaria,
+      evidenciasAcumuladas: evidenciasMasked,
+      avaliacaoPrimaria: primariaMask,
     });
     const r = await callAI(system, user, {}, 6000);
     auditoria = JSON.parse(r.replace(/```json\n?|```\n?/g, '').trim());
+    if (auditoria?.resumo_auditoria) auditoria.resumo_auditoria = unmaskPII(auditoria.resumo_auditoria, piiMap);
   } catch (err) {
     console.error('[acumulado check]', err);
     // Não falha — grava primária sem auditoria
