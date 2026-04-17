@@ -72,64 +72,110 @@ async function fetchDescritoresTexto(tdb, codComp) {
 }
 
 // Helper: monta prompts de geração de cenário B
-function buildCenBPrompts(empresa, cenA, comp, descritoresTexto, pppContexto, feedbackExtra = '') {
-  const system = `<PAPEL>
-Você é um especialista em avaliação de competências comportamentais com 20 anos de experiência.
-Cria cenários situacionais que funcionam como instrumentos diagnósticos.
-Empresa: ${empresa.nome} (${empresa.segmento})
-</PAPEL>
+function buildCenBPrompts(empresa: any, cenA: any, comp: any, descritoresTexto: string, pppContexto: string, feedbackExtra = ''): { system: string; user: string } {
+  const system = `Você é um especialista em avaliação de competências comportamentais e design de instrumentos diagnósticos da Vertho.
 
-<TAREFA>
-Crie um CENÁRIO B complementar ao cenário A já existente.
-O cenário B usa a MESMA competência mas com situação-gatilho DIFERENTE.
-</TAREFA>
+═══ TAREFA ═══
+Criar um CENÁRIO B complementar ao Cenário A já existente.
+O Cenário B NÃO é "outro cenário". É um SEGUNDO INSTRUMENTO DE MEDIÇÃO
+da mesma competência, útil para triangulação na semana 14.
 
-<REGRAS_DE_CONSTRUCAO>
-1. REALISMO CONTEXTUAL — use elementos reais, nomes brasileiros, contexto específico
-2. ESTRUTURA DO DILEMA — situação concreta, tensão real, não extrema
-3. PODER DISCRIMINANTE — permite respostas em 4 níveis (N1-N4)
-4. DIVERSIDADE EM RELAÇÃO AO CENÁRIO A — situação-gatilho OBRIGATORIAMENTE diferente
-5. DILEMA ÉTICO EMBUTIDO — tensão ética sutil que revele valores na resposta
-</REGRAS_DE_CONSTRUCAO>
+═══ REGRAS INEGOCIÁVEIS ═══
 
-Responda APENAS com JSON válido.`;
+1. MESMA COMPETÊNCIA, OUTRA SITUAÇÃO-GATILHO
+   A diferença deve ser ESTRUTURAL, não cosmética (trocar nomes não conta).
 
-  const user = `## Competência avaliada
-Nome: ${comp.nome}
-Descrição: ${comp.descricao || ''}
-Cargo: ${cenA.cargo}
+2. COMPLEMENTARIDADE
+   Observar uma FACETA COMPLEMENTAR da competência.
+   Se o Cenário A testava faceta X, privilegiar faceta Y.
+   Não repetir o mesmo núcleo de dilema com roupas novas.
 
-## Descritores (régua por nível)
-${descritoresTexto || '(sem descritores cadastrados)'}
+3. UTILIDADE PARA TRIANGULAÇÃO
+   Reduzir risco de resposta ensaiada. Gerar leitura comparável mas não redundante.
 
-${pppContexto ? `## Contexto institucional (PPP/Valores)\n${pppContexto}\n` : ''}
-## Cenário A original (NÃO repetir — crie algo DIFERENTE)
-Título: ${cenA.titulo}
-Descrição: ${cenA.descricao}
-${feedbackExtra ? `\n## FEEDBACK DA REVISÃO ANTERIOR (CORRIJA ESTES PONTOS):\n${feedbackExtra}\n` : ''}
-## Formato de saída (JSON obrigatório):
+4. REALISMO CONTEXTUAL
+   Plausível pro cargo. Linguagem real. Máx 2 stakeholders nomeados.
+   Nomes brasileiros. Sem teatralidade.
+
+5. DILEMA / TRADE-OFF
+   Se pode responder bem sem escolher nada → cenário FALHOU.
+
+6. PODER DISCRIMINANTE
+   N1 visivelmente diferente de N3. Resposta genérica deve FALHAR.
+
+7. ESTRUTURA DAS 4 PERGUNTAS
+   P1 = situação / leitura do caso
+   P2 = ação / decisão prática
+   P3 = raciocínio / critério de escolha
+   P4 = autossensibilidade / consciência de limite ou risco
+
+8. DILEMA ÉTICO EMBUTIDO
+   Tensão ética sutil e natural, não didática.
+
+═══ FORMATO JSON (APENAS JSON, sem markdown) ═══
+
 {
-  "titulo": "título do cenário B",
-  "descricao": "contexto (80-150 palavras, personagens brasileiros, situação concreta)",
-  "p1": "Dimensão SITUAÇÃO — pergunta aberta",
-  "p2": "Dimensão AÇÃO — pergunta aberta",
-  "p3": "Dimensão RACIOCÍNIO — pergunta aberta",
-  "p4": "Dimensão AUTOSSENSIBILIDADE — pergunta aberta",
-  "faceta_avaliada": "qual aspecto específico da competência este cenário testa",
+  "titulo": "título curto",
+  "descricao": "texto do cenário (80-150 palavras)",
+  "faceta_avaliada": "faceta principal observada",
+  "facetas_secundarias": ["faceta 2", "faceta 3"],
+  "diferenca_estrutural_vs_cenario_a": "o que muda de verdade vs Cenário A (1 frase)",
+  "por_que_essa_variacao_importa": "por que útil para triangulação (1 frase)",
+  "tradeoff_testado": "qual escolha difícil está no centro",
+  "armadilha_de_resposta_generica": "por que resposta vaga não resolve",
+  "stakeholders_centrais": ["Nome1", "Nome2"],
+  "p1": "pergunta de situação",
+  "p2": "pergunta de ação",
+  "p3": "pergunta de raciocínio",
+  "p4": "pergunta de autossensibilidade",
+  "objetivo_diagnostico": {
+    "p1": "o que P1 quer revelar",
+    "p2": "o que P2 quer revelar",
+    "p3": "o que P3 quer revelar",
+    "p4": "o que P4 quer revelar"
+  },
   "referencia_avaliacao": {
-    "nivel_1": "que tipo de resposta indica N1",
-    "nivel_2": "que tipo de resposta indica N2",
-    "nivel_3": "que tipo de resposta indica N3",
-    "nivel_4": "que tipo de resposta indica N4"
+    "nivel_1": "como responderia N1",
+    "nivel_2": "como responderia N2",
+    "nivel_3": "como responderia N3",
+    "nivel_4": "como responderia N4"
   },
   "dilema_etico_embutido": {
-    "valor_testado": "nome do valor ético em jogo",
-    "caminho_facil": "o que a pessoa faria se cedesse",
-    "caminho_etico": "o que a pessoa faria mantendo o valor"
-  }
+    "valor_testado": "valor em tensão",
+    "caminho_facil": "solução mais fácil",
+    "caminho_etico": "solução alinhada ao valor"
+  },
+  "confianca_cenario": 0.85,
+  "riscos_do_cenario": ["risco 1", "risco 2"]
 }`;
 
-  return { system, user };
+  // ── User prompt estruturado ──
+  const blocks: string[] = [];
+
+  blocks.push(`═══ EMPRESA ═══\nNome: ${empresa.nome}\nSegmento: ${empresa.segmento || 'Não informado'}`);
+  blocks.push(`═══ CARGO ═══\n${cenA.cargo}`);
+  blocks.push(`═══ COMPETÊNCIA ═══\nNome: ${comp.nome}\n${comp.descricao ? `Descrição: ${comp.descricao}` : ''}`);
+
+  if (descritoresTexto) blocks.push(`═══ DESCRITORES / RÉGUA ═══\n${descritoresTexto}`);
+  if (pppContexto) blocks.push(`═══ CONTEXTO PPP / DOSSIÊ ═══\n${pppContexto}`);
+
+  // Cenário A com metadados se disponíveis
+  const altA = typeof cenA.alternativas === 'object' && !Array.isArray(cenA.alternativas) ? cenA.alternativas : {};
+  let cenABlock = `═══ CENÁRIO A ORIGINAL (NÃO repetir — crie algo ESTRUTURALMENTE DIFERENTE) ═══\nTítulo: ${cenA.titulo}\nDescrição: ${cenA.descricao}`;
+  if (altA.faceta_testada_principal) cenABlock += `\nFaceta avaliada: ${altA.faceta_testada_principal}`;
+  if (altA.tradeoff_testado) cenABlock += `\nTrade-off: ${altA.tradeoff_testado}`;
+  blocks.push(cenABlock);
+
+  blocks.push(`═══ INSTRUÇÃO ═══
+Crie um Cenário B da mesma competência, mas com situação-gatilho ESTRUTURALMENTE diferente.
+Não repita o mesmo núcleo do Cenário A com roupas novas.
+O Cenário B deve ser útil para triangulação na semana 14.`);
+
+  if (feedbackExtra) {
+    blocks.push(`═══ FEEDBACK DA REVISÃO ANTERIOR (CORRIJA ESTES PONTOS) ═══\n${feedbackExtra}`);
+  }
+
+  return { system, user: blocks.join('\n\n') };
 }
 
 // Helper: busca PPP resumido (mesmo padrão do check cenário A).
@@ -146,23 +192,29 @@ async function fetchPppResumo(tdb) {
 }
 
 // Helper: roda check em 1 cenário B e persiste resultado.
-// Recebe sb (raw — banco_cenarios é misto, update por id é seguro).
-async function runCheckOnCenB(sb, cen, comp, descritoresTexto, pppResumo, modelo) {
+async function runCheckOnCenB(sb: any, cen: any, comp: any, descritoresTexto: string, pppResumo: string, modelo: string | null) {
   const alt = typeof cen.alternativas === 'string' ? JSON.parse(cen.alternativas) : (cen.alternativas || {});
-  const perguntas = [alt.p1, alt.p2, alt.p3, alt.p4].filter(Boolean).map((p, i) => `P${i+1}: ${p}`).join('\n');
+  const perguntas = [alt.p1 || cen.p1, alt.p2 || cen.p2, alt.p3 || cen.p3, alt.p4 || cen.p4].filter(Boolean);
+  const perguntasTexto = perguntas.map((p: any, i: number) => {
+    const texto = typeof p === 'string' ? p : p.texto || JSON.stringify(p);
+    const obj = alt.objetivo_diagnostico?.[`p${i + 1}`] || '';
+    return `P${i + 1}: ${texto}${obj ? `\n  Objetivo: ${obj}` : ''}`;
+  }).join('\n\n');
 
-  const user = `CARGO: ${cen.cargo}
-COMPETENCIA: ${comp?.nome || 'N/D'}
+  const blocks: string[] = [];
+  blocks.push(`═══ CARGO ═══\n${cen.cargo}`);
+  blocks.push(`═══ COMPETÊNCIA ═══\n${comp?.nome || 'N/D'}`);
+  if (descritoresTexto) blocks.push(`═══ DESCRITORES ═══\n${descritoresTexto}`);
+  blocks.push(`═══ CENÁRIO B ═══\nTítulo: ${cen.titulo}\nContexto: ${cen.descricao}`);
+  if (alt.faceta_avaliada) blocks.push(`Faceta: ${alt.faceta_avaliada}`);
+  if (alt.tradeoff_testado) blocks.push(`Trade-off: ${alt.tradeoff_testado}`);
+  if (alt.armadilha_de_resposta_generica) blocks.push(`Armadilha anti-genérico: ${alt.armadilha_de_resposta_generica}`);
+  if (alt.diferenca_estrutural_vs_cenario_a) blocks.push(`Diferença vs A: ${alt.diferenca_estrutural_vs_cenario_a}`);
+  blocks.push(`═══ PERGUNTAS ═══\n${perguntasTexto}`);
+  if (pppResumo) blocks.push(`═══ CONTEXTO PPP ═══\n${pppResumo}`);
+  blocks.push(`═══ INSTRUÇÃO ═══\nSe o cenário for bem escrito mas metodologicamente fraco, PENALIZE.`);
 
-CENARIO B:
-Titulo: ${cen.titulo}
-Contexto: ${cen.descricao}
-
-PERGUNTAS:
-${perguntas}
-
-${descritoresTexto ? `DESCRITORES:\n${descritoresTexto}` : ''}
-${pppResumo ? `\nCONTEXTO PPP:\n${pppResumo}` : ''}`;
+  const user = blocks.join('\n\n');
 
   const resposta = await callAI(CHECK_CEN_B_SYSTEM, user, { model: modelo || 'gemini-3-flash-preview' }, 4096, { temperature: TEMP });
   const resultado = await extractJSON(resposta);
@@ -258,24 +310,61 @@ export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Confi
 
       const descritoresTexto = descritoresMap[cenA.competencia_id] || '';
       const { system, user } = buildCenBPrompts(empresa, cenA, comp, descritoresTexto, pppContexto);
-      const resultado = await callAI(system, user, aiConfig, 4096, { temperature: TEMP });
-      const cenarioData = await extractJSON(resultado);
+      let resultado = await callAI(system, user, aiConfig, 6144, { temperature: TEMP });
+      let cenarioData = await extractJSON(resultado);
+
+      // ── Validação pós-resposta ──
+      if (cenarioData) {
+        const errors: string[] = [];
+        if (!cenarioData.p1 || !cenarioData.p2 || !cenarioData.p3 || !cenarioData.p4) errors.push('Faltam perguntas p1-p4');
+        if (typeof cenarioData.confianca_cenario === 'number' && (cenarioData.confianca_cenario < 0 || cenarioData.confianca_cenario > 1)) errors.push('confianca fora de 0-1');
+        if (Array.isArray(cenarioData.stakeholders_centrais) && cenarioData.stakeholders_centrais.length > 2) errors.push('Max 2 stakeholders');
+
+        // Heurística de semelhança: overlap de palavras substantivas entre A e B
+        const stopwords = new Set(['de','da','do','das','dos','em','na','no','nas','nos','um','uma','o','a','os','as','que','e','para','com','por','se','ao','ou','mais','não','como','mas','sua','seu','seus','suas','este','esta','esse','essa']);
+        const extractWords = (t: string) => (t || '').toLowerCase().replace(/[^a-záàâãéèêíóòôõúç\s]/g, '').split(/\s+/).filter(w => w.length > 3 && !stopwords.has(w));
+        const wordsA = new Set(extractWords(cenA.descricao));
+        const wordsB = extractWords(cenarioData.descricao || '');
+        const overlap = wordsB.filter(w => wordsA.has(w)).length;
+        const overlapPct = wordsB.length > 0 ? overlap / wordsB.length : 0;
+        if (overlapPct > 0.6) errors.push(`Semelhança excessiva com Cenário A (${Math.round(overlapPct * 100)}% overlap)`);
+
+        if (errors.length > 0) {
+          console.warn(`[CenB] ${comp.nome}: validação (${errors.join('; ')}). Retry.`);
+          resultado = await callAI(system, user + `\n\n═══ CORREÇÃO NECESSÁRIA ═══\n${errors.join('\n')}`, aiConfig, 6144, { temperature: TEMP });
+          const retry = await extractJSON(resultado);
+          if (retry?.titulo) cenarioData = retry;
+        }
+      }
+
       if (!cenarioData?.titulo) continue;
 
-      // empresa_id é injetado pelo tdb.insert
+      // Persistência enriquecida
       const { data: inserted, error: insErr } = await tdb.from('banco_cenarios').insert({
         competencia_id: cenA.competencia_id,
         cargo: cenA.cargo,
         titulo: cenarioData.titulo,
         descricao: cenarioData.descricao,
+        p1: cenarioData.p1,
+        p2: cenarioData.p2,
+        p3: cenarioData.p3,
+        p4: cenarioData.p4,
         alternativas: {
           p1: cenarioData.p1,
           p2: cenarioData.p2,
           p3: cenarioData.p3,
           p4: cenarioData.p4,
-          referencia_avaliacao: cenarioData.referencia_avaliacao,
-          dilema_etico: cenarioData.dilema_etico_embutido,
-          faceta_avaliada: cenarioData.faceta_avaliada,
+          faceta_avaliada: cenarioData.faceta_avaliada || null,
+          facetas_secundarias: cenarioData.facetas_secundarias || [],
+          diferenca_estrutural_vs_cenario_a: cenarioData.diferenca_estrutural_vs_cenario_a || null,
+          por_que_essa_variacao_importa: cenarioData.por_que_essa_variacao_importa || null,
+          tradeoff_testado: cenarioData.tradeoff_testado || null,
+          armadilha_de_resposta_generica: cenarioData.armadilha_de_resposta_generica || null,
+          objetivo_diagnostico: cenarioData.objetivo_diagnostico || null,
+          referencia_avaliacao: cenarioData.referencia_avaliacao || null,
+          dilema_etico: cenarioData.dilema_etico_embutido || null,
+          confianca_cenario: typeof cenarioData.confianca_cenario === 'number' ? Math.max(0, Math.min(1, cenarioData.confianca_cenario)) : null,
+          riscos_do_cenario: cenarioData.riscos_do_cenario || [],
         },
         tipo_cenario: 'cenario_b',
       }).select('id, titulo, descricao, cargo, alternativas').single();

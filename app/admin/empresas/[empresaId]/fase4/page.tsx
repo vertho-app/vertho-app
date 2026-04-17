@@ -9,6 +9,18 @@ import {
 import { loadCenariosB } from '@/actions/fase5';
 import { checkCenarioBUm, regenerarCenarioB, regenerarERecheckarCenariosBLote } from '../actions';
 
+const CHECK_DIM_MAX: Record<string, number> = {
+  aderencia_competencia: 15, cobertura_descritores: 15, realismo_contextual: 15,
+  contencao_sobriedade: 10, clareza_tradeoff: 15, poder_discriminante: 20, auditabilidade: 10,
+  // Legacy
+  aderencia: 20, realismo: 20, contencao: 20, decisao: 20, discriminante: 20,
+};
+const CHECK_DIM_LABELS: Record<string, string> = {
+  aderencia_competencia: 'Aderência', cobertura_descritores: 'Cobertura', realismo_contextual: 'Realismo',
+  contencao_sobriedade: 'Contenção', clareza_tradeoff: 'Trade-off', poder_discriminante: 'Discriminante', auditabilidade: 'Auditab.',
+  aderencia: 'Aderência', realismo: 'Realismo', contencao: 'Contenção', decisao: 'Decisão', discriminante: 'Discriminante',
+};
+
 const AI_MODELS = [
   { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
   { id: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
@@ -64,9 +76,9 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
   }
 
   async function handleRegenerarLote() {
-    const abaixoDe90 = cenariosB.filter(c => c.nota_check != null && c.nota_check < 90).length;
-    if (!abaixoDe90) { flash('Nenhum cenário abaixo de 90'); return; }
-    if (!confirm(`Regenerar + rechecar ${abaixoDe90} cenários abaixo de 90?`)) return;
+    const abaixoDe90 = cenariosB.filter(c => c.status_check === 'revisar' || c.status_check === 'aprovado_com_ressalvas').length;
+    if (!abaixoDe90) { flash('Nenhum cenário para regenerar'); return; }
+    if (!confirm(`Regenerar + rechecar ${abaixoDe90} cenários (revisar + ressalvas)?`)) return;
     setActionId('lote');
     flash(`Processando ${abaixoDe90} cenários...`);
     const r = await regenerarERecheckarCenariosBLote(empresaId, { model: genModel, checkModel });
@@ -129,6 +141,11 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
             {cenariosB.filter(c => c.status_check === 'aprovado').length} aprovados
           </span>
         )}
+        {cenariosB.filter(c => c.status_check === 'aprovado_com_ressalvas').length > 0 && (
+          <span className="bg-cyan-400/15 text-cyan-400 px-1.5 py-0.5 rounded font-bold">
+            {cenariosB.filter(c => c.status_check === 'aprovado_com_ressalvas').length} ressalvas
+          </span>
+        )}
         {cenariosB.filter(c => c.status_check === 'revisar').length > 0 && (
           <span className="bg-amber-400/15 text-amber-400 px-1.5 py-0.5 rounded font-bold">
             {cenariosB.filter(c => c.status_check === 'revisar').length} revisar
@@ -142,12 +159,12 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
       </div>
 
       {/* Ações em lote */}
-      {cenariosB.filter(c => c.nota_check != null && c.nota_check < 90).length > 0 && (
+      {cenariosB.filter(c => c.status_check === 'revisar' || c.status_check === 'aprovado_com_ressalvas').length > 0 && (
         <div className="flex items-center gap-2 mb-5 flex-wrap">
           <button disabled={actionId === 'lote'} onClick={handleRegenerarLote}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 transition-all disabled:opacity-50">
             {actionId === 'lote' ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-            Regenerar + Rechecar {'<'}90 ({cenariosB.filter(c => c.nota_check != null && c.nota_check < 90).length})
+            Regenerar + Rechecar revisar/ressalvas ({cenariosB.filter(c => c.status_check === 'revisar' || c.status_check === 'aprovado_com_ressalvas').length})
           </button>
         </div>
       )}
@@ -161,6 +178,7 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
       ) : (
         Object.entries(porCargo).map(([cargo, cens]: [string, any]) => {
           const aprovados = cens.filter((c: any) => c.status_check === 'aprovado').length;
+          const ressalvas = cens.filter((c: any) => c.status_check === 'aprovado_com_ressalvas').length;
           const revisar = cens.filter((c: any) => c.status_check === 'revisar').length;
           const pendentes = cens.filter((c: any) => !c.status_check).length;
 
@@ -170,6 +188,7 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                 <h2 className="text-sm font-bold text-white">{cargo}</h2>
                 <span className="text-[10px] text-gray-500">{cens.length} cen{'\u00e1'}rios</span>
                 {aprovados > 0 && <span className="text-[9px] bg-green-400/15 text-green-400 px-1.5 py-0.5 rounded">{aprovados} aprovados</span>}
+                {ressalvas > 0 && <span className="text-[9px] bg-cyan-400/15 text-cyan-400 px-1.5 py-0.5 rounded">{ressalvas} ressalvas</span>}
                 {revisar > 0 && <span className="text-[9px] bg-amber-400/15 text-amber-400 px-1.5 py-0.5 rounded">{revisar} revisar</span>}
                 {pendentes > 0 && <span className="text-[9px] bg-gray-400/15 text-gray-400 px-1.5 py-0.5 rounded">{pendentes} pendentes</span>}
               </div>
@@ -186,12 +205,14 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                   return (
                     <div key={c.id} className={`rounded-xl border overflow-hidden ${
                       c.status_check === 'aprovado' ? 'border-green-400/20' :
+                      c.status_check === 'aprovado_com_ressalvas' ? 'border-cyan-400/20' :
                       c.status_check === 'revisar' ? 'border-amber-400/20' : 'border-white/[0.06]'
                     }`} style={{ background: '#0F2A4A' }}>
                       <button onClick={() => setOpenId(isOpen ? null : c.id)}
                         className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/[0.02] transition-colors">
                         <div className="flex-1 min-w-0 flex items-center gap-2">
                           {c.status_check === 'aprovado' && <CheckCircle size={14} className="text-green-400 shrink-0" />}
+                          {c.status_check === 'aprovado_com_ressalvas' && <CheckCircle size={14} className="text-cyan-400 shrink-0" />}
                           {c.status_check === 'revisar' && <AlertTriangle size={14} className="text-amber-400 shrink-0" />}
                           <span className="text-xs font-bold text-white">{c.titulo || 'Cen\u00e1rio B'}</span>
                           {c.competencia_nome && <span className="text-[10px] text-purple-400">{c.competencia_nome}</span>}
@@ -199,7 +220,9 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                         <div className="flex items-center gap-2 shrink-0">
                           {c.nota_check != null && (
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                              c.nota_check >= 90 ? 'bg-green-400/15 text-green-400' : 'bg-amber-400/15 text-amber-400'
+                              c.status_check === 'aprovado' ? 'bg-green-400/15 text-green-400' :
+                              c.status_check === 'aprovado_com_ressalvas' ? 'bg-cyan-400/15 text-cyan-400' :
+                              'bg-amber-400/15 text-amber-400'
                             }`}>{c.nota_check}pts</span>
                           )}
                           <ChevronDown size={14} className={`text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
@@ -215,6 +238,9 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                             {[alt.p1, alt.p2, alt.p3, alt.p4].map((p, i) => p && (
                               <div key={i} className="p-3 rounded-lg" style={{ background: '#091D35' }}>
                                 <p className="text-xs font-bold text-white">P{i + 1}: {p}</p>
+                                {alt.objetivo_diagnostico?.[`p${i+1}`] && (
+                                  <p className="text-[9px] text-purple-300/60 mt-1">{'\uD83C\uDFAF'} {alt.objetivo_diagnostico[`p${i+1}`]}</p>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -224,6 +250,45 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                             <div className="mb-3">
                               <p className="text-[9px] font-bold text-purple-400 uppercase tracking-widest mb-1">Faceta Avaliada</p>
                               <p className="text-xs text-gray-300">{faceta}</p>
+                            </div>
+                          )}
+
+                          {/* Novos campos enriquecidos */}
+                          {alt.diferenca_estrutural_vs_cenario_a && (
+                            <div className="mb-2">
+                              <p className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest mb-0.5">Diferen{'\u00e7'}a vs Cen{'\u00e1'}rio A</p>
+                              <p className="text-xs text-gray-300">{alt.diferenca_estrutural_vs_cenario_a}</p>
+                            </div>
+                          )}
+                          {alt.por_que_essa_variacao_importa && (
+                            <p className="text-[10px] text-gray-400 mb-2 italic">{'\u21B3'} {alt.por_que_essa_variacao_importa}</p>
+                          )}
+                          {alt.tradeoff_testado && (
+                            <div className="mb-2">
+                              <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest mb-0.5">Trade-off</p>
+                              <p className="text-xs text-gray-300">{alt.tradeoff_testado}</p>
+                            </div>
+                          )}
+                          {alt.armadilha_de_resposta_generica && (
+                            <div className="mb-2">
+                              <p className="text-[9px] font-bold text-red-300 uppercase tracking-widest mb-0.5">Armadilha anti-gen{'\u00e9'}rico</p>
+                              <p className="text-xs text-gray-400">{alt.armadilha_de_resposta_generica}</p>
+                            </div>
+                          )}
+                          {Array.isArray(alt.facetas_secundarias) && alt.facetas_secundarias.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mb-2">
+                              {alt.facetas_secundarias.map((f: string, j: number) => (
+                                <span key={j} className="text-[9px] px-1.5 py-0.5 rounded bg-purple-400/10 text-purple-300">{f}</span>
+                              ))}
+                            </div>
+                          )}
+                          {typeof alt.confianca_cenario === 'number' && (
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-[9px] text-gray-500">Confian{'\u00e7'}a:</span>
+                              <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden max-w-[100px]">
+                                <div className="h-full rounded-full" style={{ width: `${Math.round(alt.confianca_cenario * 100)}%`, background: alt.confianca_cenario >= 0.8 ? '#34D399' : alt.confianca_cenario >= 0.6 ? '#FBBF24' : '#F87171' }} />
+                              </div>
+                              <span className="text-[9px] text-gray-400">{Math.round(alt.confianca_cenario * 100)}%</span>
                             </div>
                           )}
 
@@ -258,22 +323,45 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                           {/* Check result */}
                           {c.nota_check != null && (
                             <div className={`p-3 rounded-lg border ${
-                              c.status_check === 'aprovado' ? 'border-green-400/20 bg-green-400/5' : 'border-amber-400/20 bg-amber-400/5'
+                              c.status_check === 'aprovado' ? 'border-green-400/20 bg-green-400/5' :
+                              c.status_check === 'aprovado_com_ressalvas' ? 'border-cyan-400/20 bg-cyan-400/5' :
+                              'border-amber-400/20 bg-amber-400/5'
                             }`}>
-                              <span className={`text-xs font-bold ${c.status_check === 'aprovado' ? 'text-green-400' : 'text-amber-400'}`}>
-                                Check: {c.nota_check}pts — {c.status_check === 'aprovado' ? 'Aprovado' : 'Revisar'}
+                              <span className={`text-xs font-bold ${
+                                c.status_check === 'aprovado' ? 'text-green-400' :
+                                c.status_check === 'aprovado_com_ressalvas' ? 'text-cyan-400' :
+                                'text-amber-400'
+                              }`}>
+                                Check: {c.nota_check}pts — {c.status_check === 'aprovado' ? 'Aprovado' : c.status_check === 'aprovado_com_ressalvas' ? 'Aprovado c/ Ressalvas' : 'Revisar'}
                               </span>
                               {dims && (
                                 <div className="flex flex-wrap gap-2 mt-2">
-                                  {Object.entries(dims).map(([k, v]: [string, any]) => (
-                                    <span key={k} className={`text-[9px] px-1.5 py-0.5 rounded ${v >= 18 ? 'bg-green-400/10 text-green-400' : v >= 14 ? 'bg-amber-400/10 text-amber-400' : 'bg-red-400/10 text-red-400'}`}>
-                                      {k}: {v}/20
-                                    </span>
-                                  ))}
+                                  {Object.entries(dims).map(([k, v]: [string, any]) => {
+                                    const mx = CHECK_DIM_MAX[k] || 20;
+                                    const pct = (v / mx) * 100;
+                                    const label = CHECK_DIM_LABELS[k] || k;
+                                    return (
+                                      <span key={k} className={`text-[9px] px-1.5 py-0.5 rounded ${pct >= 90 ? 'bg-green-400/10 text-green-400' : pct >= 70 ? 'bg-amber-400/10 text-amber-400' : 'bg-red-400/10 text-red-400'}`}>
+                                        {label}: {v}/{mx}
+                                      </span>
+                                    );
+                                  })}
                                 </div>
                               )}
                               {c.justificativa_check && <p className="text-[10px] text-gray-400 mt-2">{c.justificativa_check}</p>}
                               {c.sugestao_check && <p className="text-[10px] text-amber-300 mt-1">{`Sugest\u00e3o`}: {c.sugestao_check}</p>}
+                              {(() => {
+                                const al = typeof c.alertas_check === 'object' && !Array.isArray(c.alertas_check) ? c.alertas_check : {};
+                                return (
+                                  <>
+                                    {al.ponto_mais_forte && <p className="text-[10px] text-green-300/80 mt-1">{'\u2726'} {al.ponto_mais_forte}</p>}
+                                    {al.ponto_mais_fraco && <p className="text-[10px] text-amber-300/80 mt-1">{'\u26A0'} {al.ponto_mais_fraco}</p>}
+                                    {Array.isArray(al.descritores_sem_cobertura) && al.descritores_sem_cobertura.length > 0 && (
+                                      <p className="text-[10px] text-red-300/80 mt-1">{'\u2717'} Sem cobertura: {al.descritores_sem_cobertura.join(', ')}</p>
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </div>
                           )}
 
@@ -286,7 +374,7 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                                 Validar
                               </button>
                             )}
-                            {c.nota_check != null && c.nota_check < 90 && (
+                            {c.nota_check != null && (c.status_check === 'revisar' || c.status_check === 'aprovado_com_ressalvas') && (
                               <>
                                 <button disabled={actionId === c.id} onClick={() => handleRegenerar(c.id)}
                                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 transition-all disabled:opacity-50">
@@ -300,7 +388,7 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                                 </button>
                               </>
                             )}
-                            {c.nota_check != null && c.nota_check >= 90 && (
+                            {c.nota_check != null && c.status_check === 'aprovado' && (
                               <button disabled={actionId === c.id} onClick={() => handleRegenerar(c.id)}
                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-gray-400 border border-white/10 hover:bg-white/5 transition-all disabled:opacity-50">
                                 {actionId === c.id ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
