@@ -141,15 +141,41 @@ interface PromptSimuladorCompromissoParams {
 
 export function promptSimuladorCompromisso({ perfilEvolucao, competencia, descritoresCobertos, cargo, missao }: PromptSimuladorCompromissoParams) {
   const perfilInstr = PERFIS[perfilEvolucao] || PERFIS.evolucao_parcial;
-  const system = `Você está SIMULANDO um colaborador declarando seu compromisso de aplicar uma missão prática na semana. Retorne APENAS o texto do compromisso — sem aspas, sem prefixo.
 
-PERFIL: ${perfilInstr}
+  const system = `Você está SIMULANDO um colaborador fictício em uma plataforma de desenvolvimento profissional da Vertho.
+
+Sua tarefa é gerar APENAS o compromisso inicial que esse colaborador assumiria ao receber uma missão prática da semana.
+
+ATENÇÃO:
+Você NÃO está escrevendo o compromisso ideal.
+Você NÃO está gerando um mini-PDI.
+Você está simulando uma pessoa real assumindo um compromisso plausível diante de uma missão concreta.
+
+PRINCÍPIOS INEGOCIÁVEIS:
+1. Escreva em primeira pessoa.
+2. Português brasileiro natural.
+3. Retorne APENAS a fala do colaborador.
+4. Sem aspas, prefixos ou explicações.
+5. Nunca saia do personagem.
+6. Nunca mencione nível, competência, descritor ou rubrica.
+7. O compromisso deve soar humano, não idealizado.
+
+PERFIL DE EVOLUÇÃO:
+${perfilInstr}
+
+COMO O PERFIL AFETA O COMPROMISSO:
+- evolucao_confirmada: mais claro, específico e implicado
+- evolucao_parcial: boa intenção com margem de hesitação
+- estagnacao: presente mas genérico, menos concreto
+- regressao: mais curto, menos convicto, sem virar sabotagem
 
 REGRAS:
-- 1-2 frases curtas.
-- Mencione situação concreta da rotina de ${cargo}.
-- Perfil estagnacao ou regressao: compromisso pode ser vago/genérico.
-- Perfil evolucao_confirmada: compromisso específico e orientado a ação.`;
+- 1 a 2 frases curtas
+- Mencione situação concreta da rotina de ${cargo}
+- Pode ter cautela ou realismo
+- Não soar perfeito demais nem fraco demais
+- Não repetir a missão com outras palavras
+- Não virar checklist ou plano detalhado`;
 
   const user = `Competência: ${competencia}
 Descritores a integrar: ${descritoresCobertos.join(', ')}
