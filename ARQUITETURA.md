@@ -53,7 +53,7 @@
 
 ---
 
-## 2. Estrutura de Pastas (~200 arquivos TS (100% TypeScript))
+## 2. Estrutura de Pastas (~230 arquivos TS/TSX + 11 .js residuais em lib/)
 
 ```
 nextjs-app/
@@ -306,7 +306,7 @@ nextjs-app/
 │   ├── auto-backup-diario.ps1
 │   └── instalar-backup-automatico.ps1
 ├── tests/                        # Playwright e2e (86 specs)
-├── migrations/                   # 43 migrations SQL (001 -> 043)
+├── migrations/                   # 45 migrations SQL (022 -> 045)
 ├── tsconfig.json                 # TypeScript config (strict:false, allowJs, checkJs:false)
 ├── docs/
 │   ├── envs-importantes.md
@@ -783,5 +783,5 @@ Sentry: Error tracking
 ---
 
 *Documento validado contra o codigo-fonte em producao.*
-*~200 arquivos TS | 43 migrations SQL | 86 e2e tests | 22+ env vars | vertho.com.br*
+*~230 arquivos TS + 11 .js residuais | 45 migrations SQL | 111 unit + 86 e2e tests | 22+ env vars | vertho.com.br*
 *Revisao: 16/04/2026*
