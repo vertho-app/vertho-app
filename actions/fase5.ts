@@ -1164,42 +1164,61 @@ export async function gerarEvolucaoFusao(empresaId: string, aiConfig: AIConfig =
     const sessaoMap = {};
     (sessoes || []).forEach(s => { sessaoMap[`${s.colaborador_id}::${s.competencia_id}`] = s; });
 
-    const system = `Você é o Mentor IA do programa Vertho. Sua tarefa é analisar a EVOLUÇÃO de um colaborador comparando avaliação inicial com reavaliação, usando até 3 fontes de dados.
+    const system = `Você é o Motor de Evolução da Vertho.
 
-## FONTES DE DADOS
-1. Cenário A — diagnóstico inicial (nível, nota, descritores, feedback IA)
-2. Cenário B — reavaliação situacional (nível, evidências observadas)
-3. Conversa Semana 15 — reavaliação qualitativa (o que o colaborador RELATA ter mudado)
+═══ TAREFA ═══
+Analisar a EVOLUÇÃO de um colaborador comparando avaliação inicial e
+reavaliação, usando até 3 fontes de dados com pesos e naturezas diferentes.
 
-## ANÁLISE POR DESCRITOR
-Para CADA descritor da competência:
-1. Calcule delta numérico (nível B - nível A)
-2. Identifique evidência DEMONSTRADA no cenário B
-3. Identifique evidência RELATADA na conversa
-4. Cruze as 3 fontes e classifique CONVERGÊNCIA
+═══ FONTES DE DADOS ═══
 
-## CLASSIFICAÇÃO DE CONVERGÊNCIA
-| Classificação | Critério |
-|---|---|
-| EVOLUCAO_CONFIRMADA | Delta positivo + evidência no cenário B + relato convergente |
-| EVOLUCAO_PARCIAL | Delta positivo em apenas 1-2 fontes OU evidência fraca |
-| SEM_EVOLUCAO | Sem delta + sem evidência + sem relato |
-| EVOLUCAO_INVISIVEL | Sem delta numérico MAS evidência qualitativa forte |
+1. CENÁRIO A — diagnóstico inicial (linha de base)
+   Mostra o nível inicial por descritor.
 
-## CONSCIÊNCIA DO GAP
-Avalie se o colaborador PERCEBE seus próprios gaps:
+2. CENÁRIO B — reavaliação situacional estruturada
+   Mostra evidência DEMONSTRADA em contexto comparável.
+   Tende a ter mais peso que relato subjetivo.
+
+3. CONVERSA DE REAVALIAÇÃO QUALITATIVA
+   Mostra evidência RELATADA, consciência do gap, percepção de mudança
+   e dificuldade persistente. Complementa a leitura, mas NÃO substitui
+   evidência demonstrada.
+
+═══ PRINCÍPIOS ═══
+1. Evidência demonstrada pesa mais que relato
+2. Relato qualitativo forte pode complementar ou revelar "evolução invisível"
+3. Fala bonita mas abstrata NÃO confirma evolução
+4. Ausência de delta não impede leitura qualitativa (com prudência)
+5. NÃO invente mudança, impacto ou comportamento
+6. DISC/CIS NÃO altera nota — serve apenas como leitura contextual
+7. Se as fontes conflitam, explicite o conflito e reduza a confiança
+
+═══ ANÁLISE POR DESCRITOR ═══
+Para cada descritor:
+1. Nível inicial (Cenário A)
+2. Nível cenário B
+3. Delta numérico
+4. Evidência DEMONSTRADA no Cenário B + força
+5. Evidência RELATADA na conversa + força
+6. Citação do colaborador, quando relevante
+7. Dificuldade persistente, se houver
+8. Convergência entre as fontes
+9. Conexão CIS contextual
+10. Confiança da leitura + limites
+
+═══ CLASSIFICAÇÃO DE CONVERGÊNCIA ═══
+- EVOLUCAO_CONFIRMADA: delta positivo + evidência demonstrada + relato convergente
+- EVOLUCAO_PARCIAL: delta parcial OU evidência fraca/moderada OU relato sem sustentação total
+- SEM_EVOLUCAO: sem delta + sem evidência demonstrada + sem relato consistente
+- EVOLUCAO_INVISIVEL: sem delta numérico MAS evidência qualitativa forte
+
+═══ CONSCIÊNCIA DO GAP ═══
 - alta: reconhece explicitamente, cita ações de melhoria
 - media: reconhece parcialmente ou de forma genérica
 - baixa: não reconhece ou atribui a fatores externos
 
-## CONEXÃO CIS (DISC)
-Conecte gaps persistentes ao perfil comportamental DISC.
-Ex: "Perfil D alto pode dificultar a escuta ativa (descritor D3)"
+Retorne APENAS JSON válido.`;
 
-## TRILHA — EFETIVIDADE
-Analise correlação entre engajamento na trilha e evolução.
-
-Responda APENAS com JSON válido.`;
 
     let gerados = 0;
     for (const colab of colaboradores) {
@@ -1231,76 +1250,91 @@ Responda APENAS com JSON válido.`;
         const extLimpo = { ...extSem15 };
         delete extLimpo._contexto_sessao;
 
-        const user = `## Contexto
-Empresa: ${empresa.nome} (${empresa.segmento})
-Colaborador: ${colab.nome_completo} | Cargo: ${colab.cargo}
-Perfil DISC: ${colab.perfil_dominante || 'N/D'} (D=${colab.d_natural||0} I=${colab.i_natural||0} S=${colab.s_natural||0} C=${colab.c_natural||0})
+        const userBlocks: string[] = [];
 
-## Competência: ${comp.nome}
-Descritores:
-${descritores.join('\n')}
+        userBlocks.push(`═══ EMPRESA ═══\n${empresa.nome} (${empresa.segmento})`);
+        userBlocks.push(`═══ COLABORADOR ═══\n${colab.nome_completo} · ${colab.cargo}\nDISC: ${colab.perfil_dominante || 'N/D'} (D=${colab.d_natural||0} I=${colab.i_natural||0} S=${colab.s_natural||0} C=${colab.c_natural||0})\nNOTA: DISC NÃO altera nota — serve apenas como leitura contextual.`);
+        userBlocks.push(`═══ COMPETÊNCIA ═══\n${comp.nome}\n\nDescritores:\n${descritores.join('\n')}`);
+        userBlocks.push(`═══ FONTE 1 — CENÁRIO A (diagnóstico inicial) ═══\nNível: N${fonteA.nivel_ia4}\nAvaliação:\n${JSON.stringify(fonteA.avaliacao_ia)}`);
+        userBlocks.push(`═══ FONTE 2 — CENÁRIO B (reavaliação situacional) ═══\n${fonteB ? `Nível: N${fonteB.nivel_ia4}\nAvaliação:\n${JSON.stringify(fonteB.avaliacao_ia)}` : 'Não disponível'}`);
+        userBlocks.push(`═══ FONTE 3 — CONVERSA QUALITATIVA (reavaliação pós-jornada) ═══\n${Object.keys(extLimpo).length ? JSON.stringify(extLimpo, null, 2) : 'Não disponível'}`);
+        userBlocks.push(`═══ TRILHA DE CAPACITAÇÃO ═══\nProgresso: ${trilha?.pct_conclusao || 0}%\nSemana: ${trilha?.semana_atual || '?'}/14\nCursos concluídos: ${cursosConcluidos} de ${cursosInfo.length}`);
 
-## FONTE 1 — Cenário A (avaliação inicial)
-Nível: N${fonteA.nivel_ia4}
-Avaliação: ${JSON.stringify(fonteA.avaliacao_ia)}
-
-## FONTE 2 — Cenário B (reavaliação)
-${fonteB ? `Nível: N${fonteB.nivel_ia4}\nAvaliação: ${JSON.stringify(fonteB.avaliacao_ia)}` : 'Não disponível'}
-
-## FONTE 3 — Conversa Semana 15 (reavaliação qualitativa)
-${Object.keys(extLimpo).length ? JSON.stringify(extLimpo) : 'Não disponível'}
-
-## Trilha de capacitação
-Progresso: ${trilha?.pct_conclusao || 0}%
-Semana: ${trilha?.semana_atual || '?'}/14
-Cursos concluídos: ${cursosConcluidos} de ${cursosInfo.length}
-
-## Formato de saída (JSON):
+        userBlocks.push(`═══ FORMATO DE SAÍDA (JSON) ═══
 {
-  "resumo_executivo": {
-    "nota_cenario_a": N,
-    "nota_cenario_b": N ou null,
-    "delta": N,
-    "nivel_a": "N1-N4",
-    "nivel_b": "N1-N4 ou null",
-    "descritores_que_subiram": N,
-    "descritores_total": N,
-    "sintese": "2-3 frases"
-  },
+  "resumo_executivo": "síntese curta, fiel e orientada a evolução (3-4 frases)",
   "evolucao_por_descritor": [
     {
       "descritor": "D1",
-      "nome": "nome do descritor",
-      "nivel_a": N, "nivel_b": N, "delta": N,
-      "evidencia_cenario_b": "evidência observada",
-      "evidencia_conversa": "evidência relatada",
-      "citacao_colaborador": "frase literal se existir",
+      "nome": "nome",
+      "nivel_a": 2.0,
+      "nivel_b": 2.8,
+      "delta": 0.8,
+      "evidencia_cenario_b": "síntese da evidência demonstrada",
+      "forca_evidencia_cenario_b": "fraca|moderada|forte",
+      "evidencia_conversa": "síntese da evidência relatada",
+      "forca_evidencia_conversa": "fraca|moderada|forte",
+      "citacao_colaborador": "trecho curto se houver",
+      "dificuldade_persistente": "o que continua difícil, se houver",
       "convergencia": "EVOLUCAO_CONFIRMADA|EVOLUCAO_PARCIAL|SEM_EVOLUCAO|EVOLUCAO_INVISIVEL",
-      "conexao_cis": "relação com perfil DISC",
-      "confianca": "alta|media|baixa"
+      "conexao_cis": "leitura contextual breve",
+      "confianca": 0.75,
+      "limites_da_leitura": ["limite 1"]
     }
   ],
-  "ganhos_qualitativos": "evolução que NÃO aparece nos números (mudança de postura, consciência, etc)",
-  "consciencia_do_gap": "alta|media|baixa",
+  "ganhos_qualitativos": ["ganho 1", "ganho 2"],
+  "gaps_persistentes": ["gap 1"],
+  "consciencia_do_gap": {
+    "nivel": "alta|media|baixa",
+    "justificativa": "frase curta"
+  },
   "trilha_efetividade": {
     "semanas_concluidas": ${trilha?.semana_atual || 0},
     "cursos_concluidos": ${cursosConcluidos},
-    "correlacao": "análise da relação entre engajamento e evolução"
+    "correlacao": "forte|moderada|fraca|inconclusiva",
+    "justificativa": "frase curta"
   },
   "recomendacao_ciclo2": {
-    "descritores_foco": ["D1", "D4"],
-    "justificativa": "por que estes descritores",
-    "formato_sugerido": "1:1|grupo|autodirigido|misto",
+    "descritores_foco": ["D1", "D3"],
+    "justificativa": "frase curta",
+    "formato_sugerido": "pratica|conteudo|mentoria|misto",
     "conexao_cis": "como adaptar ao perfil DISC ${colab.perfil_dominante || 'do colaborador'}"
   },
-  "feedback_colaborador": "8-10 linhas, tom mentor, construtivo, celebre avanços antes de apontar gaps"
-}`;
+  "feedback_colaborador": {
+    "mensagem_positiva": "o avanço mais consistente",
+    "mensagem_construtiva": "o principal ponto em aberto",
+    "proximo_passo": "ação sugerida pro próximo ciclo"
+  },
+  "alertas_metodologicos": ["alerta se houver"]
+}
 
-        const resultado = await callAI(system, user, aiConfig, 64000, { temperature: TEMP });
+REGRAS:
+- confianca: 0.0 a 1.0
+- ganhos_qualitativos e gaps_persistentes: arrays
+- feedback_colaborador: objeto estruturado (não string)
+- se fontes conflitam, explicite e reduza confiança`);
+
+        const user = userBlocks.join('\n\n');
+
+        const resultado = await callAI(system, user, aiConfig, 8192, { temperature: TEMP });
         const fusao = await extractJSON(resultado);
         if (!fusao) continue;
 
-        // empresa_id é injetado pelo tdb.upsert
+        // Validação leve
+        if (Array.isArray(fusao.evolucao_por_descritor)) {
+          for (const d of fusao.evolucao_por_descritor) {
+            if (typeof d.confianca === 'number') d.confianca = Math.max(0, Math.min(1, d.confianca));
+            if (typeof d.confianca === 'string') {
+              d.confianca = d.confianca === 'alta' ? 0.85 : d.confianca === 'media' ? 0.55 : 0.25;
+            }
+          }
+        }
+        // Feedback como string (compatibilidade com consumers)
+        if (typeof fusao.feedback_colaborador === 'object') {
+          const fb = fusao.feedback_colaborador;
+          fusao.feedback_colaborador_text = [fb.mensagem_positiva, fb.mensagem_construtiva, fb.proximo_passo].filter(Boolean).join('\n');
+        }
+
         await tdb.from('relatorios').upsert({
           colaborador_id: colab.id,
           tipo: 'evolucao',
