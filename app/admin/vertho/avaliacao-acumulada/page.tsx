@@ -195,6 +195,11 @@ function DetalheModal({ detalhe, loading, onClose, onRegerar }) {
                           {d.descritor} — {inicial != null && <>inicial <span className="text-gray-400">{inicial}</span> → </>}
                           acumulada <span className="text-emerald-300">{d.nota_acumulada ?? '—'}</span>
                           <span className="text-[10px] text-gray-400"> ({d.nivel_rubrica}, tendência {d.tendencia}, {d.quantidade_referencias} semana(s))</span>
+                          {d.forca_do_padrao && (
+                            <span className={`ml-1 text-[9px] px-1.5 py-0.5 rounded ${d.forca_do_padrao === 'forte' ? 'bg-emerald-500/20 text-emerald-400' : d.forca_do_padrao === 'moderada' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400'}`}>
+                              {d.forca_do_padrao}
+                            </span>
+                          )}
                         </p>
                         <p className="text-gray-400 mt-0.5">{d.justificativa}</p>
                       </div>
@@ -209,8 +214,13 @@ function DetalheModal({ detalhe, loading, onClose, onRegerar }) {
               <section>
                 <p className="text-[10px] uppercase tracking-widest text-purple-400 mb-1">2ª IA — Auditoria</p>
                 <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3 space-y-2">
-                  <p className="text-xs">Nota: <b className="text-purple-300">{detalhe.auditoria.nota_auditoria}/100</b> · Status: <b className="text-purple-300">{detalhe.auditoria.status}</b></p>
+                  <p className="text-xs">
+                    Nota: <b className="text-purple-300">{detalhe.auditoria.nota_auditoria}/100</b> · Status: <b className={`${detalhe.auditoria.status === 'aprovado' ? 'text-emerald-300' : detalhe.auditoria.status === 'aprovado_com_ajustes' ? 'text-amber-300' : 'text-red-300'}`}>{detalhe.auditoria.status}</b>
+                    {detalhe.auditoria.erro_grave && <span className="text-red-400 ml-2 text-[10px]">ERRO GRAVE</span>}
+                  </p>
                   {detalhe.auditoria.resumo_auditoria && <p className="text-xs text-gray-300">{detalhe.auditoria.resumo_auditoria}</p>}
+                  {detalhe.auditoria.ponto_mais_confiavel && <p className="text-[10px] text-emerald-400/70 mt-1">Mais confiável: {detalhe.auditoria.ponto_mais_confiavel}</p>}
+                  {detalhe.auditoria.ponto_mais_fragil && <p className="text-[10px] text-red-400/70">Mais frágil: {detalhe.auditoria.ponto_mais_fragil}</p>}
                   {detalhe.auditoria.alertas?.length > 0 && (
                     <div>
                       <p className="text-[10px] text-amber-400 font-bold mt-2">Alertas:</p>

@@ -3,7 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { callAI } from './ai-client';
-import { promptAvaliacaoAcumulada, promptAvaliacaoAcumuladaCheck } from '@/lib/season-engine/prompts/acumulado';
+import { promptAvaliacaoAcumulada, promptAvaliacaoAcumuladaCheck, validateAvaliacaoAcumulada, validateAvaliacaoAcumuladaCheck } from '@/lib/season-engine/prompts/acumulado';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 
 /**
@@ -52,8 +52,9 @@ export async function gerarAvaliacaoAcumulada(trilhaId: string) {
       nomeColab: colabMasked.nome,
     });
     const r = await callAI(system, user, {}, 8000);
-    primaria = JSON.parse(r.replace(/```json\n?|```\n?/g, '').trim());
-    // Despersonaliza textos livres antes de persistir
+    let cleaned = r.trim();
+    if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
+    primaria = validateAvaliacaoAcumulada(JSON.parse(cleaned));
     if (primaria?.resumo_geral) primaria.resumo_geral = unmaskPII(primaria.resumo_geral, piiMap);
     if (Array.isArray(primaria?.avaliacao_acumulada)) {
       primaria.avaliacao_acumulada = primaria.avaliacao_acumulada.map((d: any) => ({
@@ -76,7 +77,9 @@ export async function gerarAvaliacaoAcumulada(trilhaId: string) {
       avaliacaoPrimaria: primariaMask,
     });
     const r = await callAI(system, user, {}, 6000);
-    auditoria = JSON.parse(r.replace(/```json\n?|```\n?/g, '').trim());
+    let cleanedCheck = r.trim();
+    if (cleanedCheck.startsWith('```')) cleanedCheck = cleanedCheck.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
+    auditoria = validateAvaliacaoAcumuladaCheck(JSON.parse(cleanedCheck));
     if (auditoria?.resumo_auditoria) auditoria.resumo_auditoria = unmaskPII(auditoria.resumo_auditoria, piiMap);
   } catch (err) {
     console.error('[acumulado check]', err);
@@ -160,6 +163,8 @@ async function agregarEvidencias(tdb: any, trilhaId: string, descritores: any[],
           p.reflexao.insight_principal && `insight: "${p.reflexao.insight_principal}"`,
           p.reflexao.desafio_realizado && `desafio: ${p.reflexao.desafio_realizado}`,
           p.reflexao.qualidade_reflexao && `qualidade: ${p.reflexao.qualidade_reflexao}`,
+          p.reflexao.sinais_extraidos?.exemplo_concreto && 'exemplo concreto: sim',
+          p.reflexao.sinais_extraidos?.autopercepcao && 'autopercepção: sim',
         ].filter(Boolean).join(' · ');
         linhasPorDescritor[desc].push(partes);
       }
@@ -175,6 +180,8 @@ async function agregarEvidencias(tdb: any, trilhaId: string, descritores: any[],
           `Sem ${p.semana} (${modo === 'pratica' ? 'missão real' : 'cenário escrito'})`,
           aval?.observacao && `obs: "${aval.observacao}"`,
           aval?.nota && `nota: ${aval.nota}`,
+          aval?.forca_evidencia && `força: ${aval.forca_evidencia}`,
+          aval?.trecho_sustentador && `trecho: "${aval.trecho_sustentador}"`,
         ].filter(Boolean).join(' · ');
         if (partes) linhasPorDescritor[desc].push(partes);
       }
@@ -188,6 +195,8 @@ async function agregarEvidencias(tdb: any, trilhaId: string, descritores: any[],
           ev.depois && `depois: "${ev.depois}"`,
           ev.evidencia && `evidência: "${ev.evidencia}"`,
           ev.nivel_percebido != null && `nível percebido: ${ev.nivel_percebido}`,
+          ev.forca_evidencia && `força: ${ev.forca_evidencia}`,
+          ev.confianca != null && `confiança: ${ev.confianca}`,
         ].filter(Boolean).join(' · ');
         linhasPorDescritor[ev.descritor].push(partes);
       }
