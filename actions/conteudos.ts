@@ -475,29 +475,58 @@ export async function sugerirTagsIA(conteudoId: string, aiConfig?: AIConfig) {
       if (co.nome_curto) descritoresPorComp[co.nome].add(co.nome_curto);
     });
 
-    const system = `Você é um especialista em desenvolvimento de competências. Analise o conteúdo abaixo e sugira tags para classificá-lo no banco de micro-conteúdos. Responda APENAS com JSON válido, sem markdown.`;
+    const system = `Você é um especialista em classificação de conteúdos de desenvolvimento profissional da Vertho.
 
-    const user = `TÍTULO: ${c.titulo}
-DESCRIÇÃO: ${c.descricao || '(sem descrição)'}
-FORMATO: ${c.formato}
-DURAÇÃO: ${c.duracao_min || '?'} min
+Sua tarefa é analisar um conteúdo e sugerir tags para classificá-lo no banco de micro-conteúdos.
 
-COMPETÊNCIAS DISPONÍVEIS (escolha 1):
-${competenciasUnicas.slice(0, 50).join(', ')}
+ATENÇÃO:
+Você NÃO está inventando tags livremente.
+Você está classificando dentro de um vocabulário controlado, com prudência e foco em utilidade prática.
 
-Retorne JSON no formato:
+PRINCÍPIOS INEGOCIÁVEIS:
+1. Use apenas a lista de competências fornecida.
+2. Nunca invente competência fora do vocabulário.
+3. Não force encaixe quando a base estiver fraca.
+4. Prefira prudência a falsa precisão.
+5. Classifique pelo que o conteúdo REALMENTE entrega, não pelo que o título promete.
+6. Se a descrição for vaga, reduza a confiança.
+
+RETORNE APENAS JSON VÁLIDO, sem markdown, sem texto antes ou depois.`;
+
+    const descritoresInfo = competenciasUnicas.slice(0, 30).map(comp => {
+      const descs = descritoresPorComp[comp];
+      return descs?.size ? `${comp} (${[...descs].slice(0, 5).join(', ')})` : comp;
+    }).join('\n');
+
+    const user = `CONTEÚDO A CLASSIFICAR:
+- Título: ${c.titulo}
+- Descrição: ${c.descricao || '(sem descrição)'}
+- Formato: ${c.formato}
+- Duração: ${c.duracao_min || '?'} min
+
+COMPETÊNCIAS DISPONÍVEIS (escolha EXATAMENTE 1):
+${descritoresInfo}
+
+Retorne JSON:
 {
-  "competencia": "<uma das competências acima ou 'Não classificado'>",
-  "descritor": "<descritor específico ou null>",
-  "nivel_min": 1.0,
-  "nivel_max": 4.0,
+  "competencia": "nome exato da lista acima",
+  "descritor": "descritor sugerido ou null",
+  "nivel_min": 1,
+  "nivel_max": 2,
   "contexto": "educacional|corporativo|generico",
-  "cargo": "todos|<cargo específico>",
+  "cargo": "todos ou cargo específico",
   "setor": "educacao_publica|saude|agro|todos",
-  "tipo_conteudo": "core|complementar",
-  "confianca": 0.0-1.0,
-  "raciocinio": "<1 frase explicando a escolha>"
-}`;
+  "tipo_conteudo": "video|texto|audio|case|ferramenta|outro",
+  "confianca": "alta|media|baixa",
+  "raciocinio": "explicação curta e honesta da classificação"
+}
+
+REGRAS:
+- competencia deve vir EXATAMENTE da lista fornecida
+- nivel_min e nivel_max entre 1 e 4, nivel_min <= nivel_max
+- se o conteúdo parecer introdutório, não inflar nivel_max
+- se a base estiver fraca (descrição vaga, título genérico), confianca = "baixa"
+- raciocinio deve ser específico ao conteúdo, não genérico`;
 
     // Modelo configurado da tarefa conteudo_tags (usa empresa_id do conteúdo)
     const { getModelForTask } = await import('@/lib/ai-tasks');
