@@ -1,11 +1,27 @@
 # Catálogo de Prompts da IA — Vertho Mentor IA
 
-> Todas as chamadas `callAI` / `callAIChat` do projeto Vertho Mentor IA (Next.js), com system prompt, inputs e uso.
-> Roteador universal: `actions/ai-client.ts` (`callAI` single-turn + `callAIChat` multi-turn). Roteia por prefixo do modelo: `gemini*` → Gemini, `gpt*|o1|o3|o4` → OpenAI, default → Claude (Anthropic SDK). Modelo default = `claude-sonnet-4-6`.
-> Prompt caching automático: se `system` tem mais de 4000 chars → `cache_control: ephemeral` (economia 90% em chamadas subsequentes dentro de 5 min).
-> Extended thinking: habilitado quando `options.thinking = true` (budget 32k-65k tokens).
+> Revisão: 2026-04-17 | Total: 59 prompts catalogados (45 ativos + 5 wrappers/reusos + 5 legados + 4 auxiliares)
+>
+> Roteador universal: `actions/ai-client.ts` (`callAI` single-turn + `callAIChat` multi-turn). Default = `claude-sonnet-4-6`.
+> Prompt caching automático: `system` > 4000 chars → `cache_control: ephemeral`.
+> Extended thinking: `options.thinking = true` (budget 32k-65k tokens).
 > Streaming: automático quando `maxTokens > 8192`.
-> Revisão: 2026-04-17
+
+## Legenda Documental
+
+| Badge | Significado |
+|-------|-------------|
+| **`ATIVO`** | Prompt em uso na produção atual |
+| **`LEGADO`** | Prompt mantido por compatibilidade ou referência, não mais o caminho principal |
+| **`WRAPPER`** | Reusa prompt de outro item, possivelmente com appendix adicional |
+| **`AUXILIAR`** | Prompt de suporte (simulação, proxy, helper) — não é prompt de negócio principal |
+
+| Campo | Significado |
+|-------|-------------|
+| **Prompt documentado como: `resumo_editorial`** | O texto abaixo é uma síntese do prompt real. Consulte o arquivo-fonte para o texto literal completo |
+| **Prompt documentado como: `literal`** | O texto abaixo é o prompt literal do código (pode ter sido abreviado para caber no catálogo) |
+| **Prompt documentado como: `reuso`** | Este item reutiliza o prompt de outro item, indicado no campo "Reusa prompt de" |
+| **Prompt documentado como: `appendix`** | Este item adiciona instruções extras sobre um prompt existente |
 
 ## Índice
 
@@ -29,6 +45,7 @@
 ## Fase 1 — Parametrização (IA1/IA2/IA3 + Check)
 
 ### 1.1 IA1 — Top 10 competências por cargo
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/fase1.ts::rodarIA1` (build em `buildSystemPromptSelecao` + `buildUserPrompt`)
 - **Modelo default**: Claude Sonnet 4.6 (configurável via `aiConfig.model`)
@@ -67,6 +84,7 @@
 - **Consumido por**: Persistido em `top10_cargos`. Consumido por Fase 2 (IA2) e pelo gerador de cenários (IA3).
 
 ### 1.2 IA2 — Gabarito CIS/DISC ideal por cargo
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/fase1.ts::rodarIA2`
 - **Modelo default**: Claude Sonnet 4.6
@@ -108,6 +126,7 @@
 - **Consumido por**: Persistido em `cargos_empresa.gabarito` + `cargos_empresa.raciocinio_ia2`. Usado por IA3 (cenários) e FIT v2.
 
 ### 1.3 IA3 — Gerar cenários contextuais
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/fase1.ts::rodarIA3Uma` (build em `buildIA3SystemPrompt` + `buildIA3UserPrompt`)
 - **Modelo default**: Claude Sonnet 4.6
@@ -146,6 +165,7 @@
 - **Consumido por**: `banco_cenarios` (alternativas[]). Usado por IA4 (Fase 3) para avaliar respostas.
 
 ### 1.4 IA3 — Regenerar cenário (com feedback)
+> `WRAPPER` · Prompt documentado como: `reuso` (de 1.3 com appendix de feedback)
 
 - **Arquivo**: `actions/fase1.ts::regenerarCenario`
 - **Idêntico a IA3** (mesmo system prompt `buildIA3SystemPrompt`), mas com appendix no user prompt:
@@ -157,6 +177,7 @@
 - **Consumido por**: Atualiza `banco_cenarios` (limpa campos de check).
 
 ### 1.5 Check Cenário (Auditor — Gemini)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/fase1.ts::checkCenarioUm`
 - **Modelo default**: `gemini-3-flash-preview` (parâmetro `modelo`)
@@ -198,6 +219,7 @@
 ## Fase 3 — Avaliação IA4 (Mapeamento)
 
 ### 2.1 IA4 — Motor de Avaliação de Competências (constante `IA4_SYSTEM`)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/fase3.ts::rodarIA4` (system prompt em `IA4_SYSTEM` no topo do arquivo)
 - **Modelo default**: Claude Sonnet 4.6
@@ -255,6 +277,7 @@
 - **Consumido por**: `respostas` (avaliacao_ia JSONB, nivel_ia4, nota_ia4, pontos_fortes, pontos_atencao, feedback_ia4). Também popula `descriptor_assessments` (alimentando o motor de temporadas).
 
 ### 2.2 IA4 — Re-avaliação com feedback do check
+> `WRAPPER` · Prompt documentado como: `reuso` (de 2.1 com appendix de check)
 
 - **Arquivo**: `actions/fase3.ts::reavaliarResposta`
 - **System prompt**: Mesmo `IA4_SYSTEM` de 2.1.
@@ -272,6 +295,7 @@
 ## Chat Fase 3 — Entrevista + Avaliação + Auditoria
 
 ### 3.1 Entrevistadora Mentor IA (conversa fase 3)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `app/api/chat/route.ts::buildSystemPrompt` (usado via `callAIChat`)
 - **Modelo default**: `claude-sonnet-4-6` (configurável via `empresas.sys_config.ai.modelo_padrao`)
@@ -330,6 +354,7 @@
 - **Consumido por**: `mensagens_chat` (com meta em metadata). Se encerrar → chama 3.2 (eval).
 
 ### 3.2 Avaliador IA4 do Chat (evalPrompt)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `app/api/chat/route.ts::encerrarSessao` (evalPrompt inline)
 - **Modelo default**: `claude-sonnet-4-6` (ou configurado em `sys_config.ai.modelo_padrao`)
@@ -369,6 +394,7 @@
 - **Consumido por**: `sessoes_avaliacao.rascunho_avaliacao`. Versionado via `prompt_version_id`.
 
 ### 3.3 Auditor Gemini do Chat (auditPrompt)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `app/api/chat/route.ts::encerrarSessao` (auditPrompt inline)
 - **Modelo default**: `gemini-3-flash-preview`
@@ -394,6 +420,7 @@
 - **Consumido por**: Se `status=corrigido` → usa `avaliacao_corrigida`, senão mantém rascunho. Persiste em `sessoes_avaliacao.validacao_audit` + `avaliacao_final`.
 
 ### 3.4 Chat Simulador (proxy genérico)
+> `AUXILIAR` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `app/api/chat-simulador/route.ts`
 - **Modelo default**: `claude-sonnet-4-6` (configurável via body)
@@ -409,6 +436,7 @@
 ## Check IA4 (Auditor Gemini)
 
 ### 4.1 CHECK IA4 — Auditor de avaliações
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/check-ia4.ts::checkAvaliacoes` + `checarUmaResposta` (constante `CHECK_SYSTEM`)
 - **Modelo default**: `gemini-3-flash-preview` (configurável)
@@ -458,6 +486,7 @@
 ## Fase 5 — Cenário B + Reavaliação + Fusão + Plenária
 
 ### 5.1 Gerar Cenário B (lote)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/fase5.ts::buildCenBPrompts` (usado em `gerarCenariosBLote` e `regenerarCenarioB`)
 - **Modelo default**: Claude Sonnet 4.6
@@ -498,6 +527,7 @@
 - **Consumido por**: `banco_cenarios` com `tipo_cenario = 'cenario_b'`.
 
 ### 5.2 Check Cenário B
+> `WRAPPER` · Prompt documentado como: `reuso` (de 1.5, harmonizado)
 
 - **Arquivo**: `actions/fase5.ts::CHECK_CEN_B_SYSTEM` (constante) + `runCheckOnCenB`
 - **Modelo default**: `gemini-3-flash-preview`
@@ -508,6 +538,7 @@
 - **Output/Consumido**: Mesmos campos `nota_check`, `status_check`, etc em `banco_cenarios`.
 
 ### 5.3 Reavaliação conversacional (sessão 8 turnos)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/fase5.ts::buildReavSystemPrompt` + `processarReavaliacao`
 - **Modelo default**: Claude Sonnet 4.6
@@ -552,6 +583,7 @@
 - **Consumido por**: `reavaliacao_sessoes.historico`.
 
 ### 5.4 Extração qualitativa (após encerrar reavaliação)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/fase5.ts::extrairDadosReavaliacao`
 - **Max tokens**: 4096
@@ -570,6 +602,7 @@
 - **Consumido por**: `reavaliacao_sessoes.extracao_qualitativa` (mantendo `_contexto_sessao`).
 
 ### 5.5 Evolução com Fusão de 3 Fontes
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/fase5.ts::gerarEvolucaoFusao`
 - **Modelo default**: Claude Sonnet 4.6
@@ -615,6 +648,7 @@
 - **Consumido por**: `relatorios` tipo='evolucao' (upsert).
 
 ### 5.6 Plenária de Evolução Institucional
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/fase5.ts::gerarPlenariaEvolucao`
 - **Max tokens**: 64000
@@ -646,6 +680,7 @@
 - **Consumido por**: `relatorios` tipo='plenaria_evolucao'.
 
 ### 5.7 Relatório RH Manual (pós-ciclo)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/fase5.ts::gerarRelatorioRHManual`
 - **Max tokens**: 8000
@@ -659,6 +694,7 @@
 - **Consumido por**: `relatorios` tipo='rh_manual'.
 
 ### 5.8 Relatório Plenária (formal)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/fase5.ts::gerarRelatorioPlenaria`
 - **Max tokens**: 4096
@@ -667,6 +703,7 @@
 - **Consumido por**: `relatorios` tipo='plenaria_relatorio'.
 
 ### 5.9 Dossiê do Gestor (executivo)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/fase5.ts::gerarDossieGestor`
 - **Max tokens**: 8000
@@ -675,6 +712,7 @@
 - **Consumido por**: `relatorios` tipo='dossie_gestor'.
 
 ### 5.10 Check Cenários (lote geral)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/fase5.ts::checkCenarios`
 - **Max tokens**: 64000
@@ -687,6 +725,7 @@
 ## Motor de Temporadas (14 semanas)
 
 ### 6.1 Prompt Desafio Semanal (conteúdo)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/challenge.ts::promptDesafio`
 - **Callers**: `lib/season-engine/build-season.ts::montarSemanaConteudo`, `actions/temporadas.ts::regerarSemana`
@@ -706,6 +745,7 @@
 - **Consumido por**: `trilhas.temporada_plano[].conteudo.desafio_texto`.
 
 ### 6.2 Prompt Cenário (aplicação — sems 4/8/12)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/scenario.ts::promptCenario`
 - **Callers**: `lib/season-engine/build-season.ts::montarSemanaAplicacao`, `actions/temporadas.ts::regerarSemana`
@@ -723,6 +763,7 @@
 - **Consumido por**: `trilhas.temporada_plano[].cenario.texto`.
 
 ### 6.3 Prompt Missão Prática (aplicação — modo prática)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/missao.ts::promptMissao`
 - **Callers**: `lib/season-engine/build-season.ts::montarSemanaAplicacao`, `actions/temporadas.ts::regerarSemana`
@@ -738,6 +779,7 @@
 - **Consumido por**: `trilhas.temporada_plano[].missao.texto`.
 
 ### 6.4 Socrático — Conversa semanal (sems de conteúdo)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/socratic.ts::promptSocratic`
 - **Callers**: `app/api/temporada/reflection/route.ts` (send/init), `actions/simulador-temporada.ts::simularSocratico`
@@ -774,6 +816,7 @@
 - **Consumido por**: `temporada_semana_progresso.reflexao.transcript_completo`.
 
 ### 6.5 Analytic — Feedback sobre cenário escrito (modo cenário)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/analytic.ts::promptAnalytic`
 - **Caller**: `app/api/temporada/reflection/route.ts` (tipoConversa='analytic')
@@ -800,6 +843,7 @@
 - **Consumido por**: `temporada_semana_progresso.feedback.transcript_completo`.
 
 ### 6.6 Missão Feedback — Feedback sobre relato de missão (modo prática)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/missao-feedback.ts::promptMissaoFeedback`
 - **Caller**: `app/api/temporada/reflection/route.ts` (tipoConversa='missao_feedback')
@@ -827,6 +871,7 @@
 - **Consumido por**: `temporada_semana_progresso.feedback.transcript_completo`.
 
 ### 6.7 Extração estruturada pós-conversa (semanal)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `app/api/temporada/reflection/route.ts::extrairDadosEstruturados`
 - **Max tokens**: 2000 (socratic) / 3000 (analytic+missao)
@@ -844,6 +889,7 @@
 - **Consumido por**: Merge em `reflexao` ou `feedback` do progresso.
 
 ### 6.8 Tira-Dúvidas (tutor reativo)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/tira-duvidas.ts::promptTiraDuvidas`
 - **Caller**: `app/api/temporada/tira-duvidas/route.ts`
@@ -882,6 +928,7 @@
 - **Consumido por**: `temporada_semana_progresso.tira_duvidas.transcript_completo` + `ia_usage_log`.
 
 ### 6.9 Evolution Qualitative — Conversa sem 13 (fechamento temporada)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/evolution-qualitative.ts::promptEvolutionQualitative` + `promptEvolutionQualitativeExtract`
 - **Callers**: `app/api/temporada/evaluation/route.ts` (sem=13), `actions/simulador-temporada.ts::simularQualitativa`
@@ -916,6 +963,7 @@
 - **Consumido por**: Merge em `reflexao` da sem 13.
 
 ### 6.10 Avaliação Acumulada (IA1 fim sem 13)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/acumulado.ts::promptAvaliacaoAcumulada`
 - **Caller**: `actions/avaliacao-acumulada.ts::gerarAvaliacaoAcumulada` (disparado automaticamente fim sem 13)
@@ -942,6 +990,7 @@
 - **Consumido por**: `temporada_semana_progresso.feedback.acumulado.primaria` (sem 13).
 
 ### 6.11 Avaliação Acumulada Check (IA2)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/acumulado.ts::promptAvaliacaoAcumuladaCheck`
 - **Max tokens**: 6000
@@ -967,6 +1016,7 @@
 - **Consumido por**: `feedback.acumulado.auditoria`.
 
 ### 6.12 Evolution Scenario Score (sem 14 — scorer final)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/evolution-scenario.ts::promptEvolutionScenarioScore`
 - **Caller**: `app/api/temporada/evaluation/route.ts` (sem=14), `app/admin/vertho/auditoria-sem14/actions.ts::regerarScoringComFeedback`
@@ -1004,6 +1054,7 @@
 - **Consumido por**: `temporada_semana_progresso.feedback` (sem 14) + Evolution Report.
 
 ### 6.13 Evolution Scenario Check (audit sem 14)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/evolution-scenario-check.ts::promptEvolutionScenarioCheck`
 - **Max tokens**: 8000
@@ -1033,6 +1084,7 @@
 ## Relatórios (Individual / Gestor / RH)
 
 ### 7.1 Relatório Individual — PDI (RELATORIO_IND_SYSTEM)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/relatorios.ts::gerarRelatorioIndividual` (constante `RELATORIO_IND_SYSTEM`)
 - **Modelo default**: Claude Sonnet 4.6
@@ -1070,6 +1122,7 @@
 - **Consumido por**: `relatorios` tipo='individual' + renderização PDF via `RelatorioIndividual.tsx` em `/storage/relatorios-pdf/{empresa}/individual-*.pdf`.
 
 ### 7.2 Relatório Gestor (RELATORIO_GESTOR_SYSTEM)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/relatorios.ts::gerarRelatorioGestor`
 - **Max tokens**: 64000
@@ -1096,6 +1149,7 @@
 - **Consumido por**: `relatorios` tipo='gestor' + PDF.
 
 ### 7.3 Relatório RH (RELATORIO_RH_SYSTEM)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/relatorios.ts::gerarRelatorioRH`
 - **Max tokens**: 64000
@@ -1126,6 +1180,7 @@
 ## PPP / Dossiê Corporativo
 
 ### 8.1 Extração PPP Educacional
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/ppp.ts::buildPromptEducacional` (chamado por `extrairPPP`)
 - **Modelo default**: Configurável (default `claude-sonnet-4-6`)
@@ -1150,6 +1205,7 @@
 - **Consumido por**: `ppp_escolas.extracao` (usado por IA1/IA2/IA3 Fase 1).
 
 ### 8.2 Extração PPP Corporativo (Dossiê)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/ppp.ts::buildPromptCorporativo`
 - **Max tokens**: 16000
@@ -1180,6 +1236,7 @@
 - **Consumido por**: Mesmo `ppp_escolas.extracao`.
 
 ### 8.3 Enriquecimento via Web
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/ppp.ts::enriquecerViaWeb`
 - **Max tokens**: 8000
@@ -1212,6 +1269,7 @@
 ## Perfil Comportamental (Dashboard)
 
 ### 9.1 Relatório Comportamental (Textos narrativos)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `app/dashboard/perfil-comportamental/relatorio/relatorio-actions.ts::gerarTextosLLM` (prompt em `lib/prompts/behavioral-report-prompt.js`)
 - **Modelo**: Via `getModelForTask(empresaId, 'relatorio_comportamental')`
@@ -1228,6 +1286,7 @@
 - **Consumido por**: `colaboradores.report_texts` + renderização PDF (`RelatorioComportamental.tsx`) em `relatorios-pdf`.
 
 ### 9.2 Insights Executivos
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `app/dashboard/perfil-comportamental/perfil-comportamental-actions.ts::gerarInsightsExecutivos` (prompt em `lib/prompts/insights-executivos-prompt.js`)
 - **Modelo**: Via `getModelForTask(empresaId, 'insights_executivos')`
@@ -1248,6 +1307,7 @@
 ## FIT v2 (Leitura Executiva)
 
 ### 10.1 Leitura Executiva do Fit
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/fit-v2.ts::gerarLeituraExecutivaFit` (prompt em `lib/prompts/fit-executive-prompt.js`)
 - **Modelo default**: Claude Sonnet 4.6 (default do callAI)
@@ -1268,6 +1328,7 @@
 ## Conteúdos e Tagging
 
 ### 11.1 Video Script
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/video-script.ts::promptVideoScript`
 - **Caller**: `actions/conteudos.ts::gerarConteudoIA` (formato='video')
@@ -1285,6 +1346,7 @@
 - **Consumido por**: `micro_conteudos.conteudo_inline`.
 
 ### 11.2 Podcast Script
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/podcast-script.ts::promptPodcastScript`
 - **Caller**: Mesmo, formato='audio'
@@ -1301,6 +1363,7 @@
 - **Consumido por**: `micro_conteudos`.
 
 ### 11.3 Text Content (Artigo markdown)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/text-content.ts::promptTextContent`
 - **Caller**: Mesmo, formato='texto'
@@ -1316,6 +1379,7 @@
 - **Consumido por**: `micro_conteudos.conteudo_inline` + PDF via `renderMarkdownPDF`.
 
 ### 11.4 Case Study (Estudo de Caso)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/case-study.ts::promptCaseStudy`
 - **Caller**: Mesmo, formato='case'
@@ -1331,6 +1395,7 @@
 - **Consumido por**: Igual `text`.
 
 ### 11.5 Sugerir Tags IA (Classificação de conteúdos)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/conteudos.ts::sugerirTagsIA`
 - **Modelo**: Via `getModelForTask(empresaId, 'conteudo_tags')`
@@ -1351,6 +1416,7 @@
 ## Simuladores
 
 ### 12.1 Simulador de Respostas (Fase 3)
+> `AUXILIAR` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/simulador-conversas.ts::simularUmaResposta`
 - **Max tokens**: 4096
@@ -1375,6 +1441,7 @@
 - **Consumido por**: `respostas` (para testar IA4).
 
 ### 12.2 Simulador de Temporada — Colab (Haiku)
+> `AUXILIAR` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivos**: `lib/season-engine/prompts/simulador-temporada.ts::promptSimuladorColab` + `promptSimuladorCompromisso`
 - **Caller**: `actions/simulador-temporada.ts` (várias funções: `simularSocratico`, `simularMissaoPratica`, `simularQualitativa`, `simularSem14Ate`)
@@ -1401,6 +1468,7 @@
 - **Consumido por**: Persistido em `temporada_semana_progresso` como se fosse colab real.
 
 ### 12.3 Simulador de Compromisso (missão prática)
+> `AUXILIAR` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/simulador-temporada.ts::promptSimuladorCompromisso`
 - **Max tokens**: 500
@@ -1408,6 +1476,7 @@
 - **Consumido por**: `temporada_semana_progresso.feedback.compromisso`.
 
 ### 12.4 Extração pós-simulação (simulador)
+> `AUXILIAR` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/simulador-temporada.ts` — várias chamadas inline
 - **System**: `SIM_EXTRACTOR_SYSTEM` — constante alinhada com 6.7 (EXTRATOR_SYSTEM). Mesmos princípios anti-alucinação.
@@ -1419,6 +1488,7 @@
 ## Fase 4 (PDI legado)
 
 ### 13.1 Gerar PDIs
+> `LEGADO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/fase4.ts::gerarPDIs`
 - **Max tokens**: 6000
@@ -1439,6 +1509,7 @@
 ## Outros (Cenário B legado, Evolução Granular, Tutor Evidência)
 
 ### 14.1 Gerar Cenário B (legado / DISC-aware)
+> `LEGADO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/cenario-b.ts::gerarCenarioB`
 - **Max tokens**: 32768
@@ -1468,6 +1539,7 @@
 - **Consumido por**: `banco_cenarios`.
 
 ### 14.2 Evolução Granular (por descritor)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/evolucao-granular.ts::gerarEvolucaoDescritores`
 - **Max tokens**: 32768
@@ -1488,6 +1560,7 @@
 - **Consumido por**: `evolucao_descritores` (upsert).
 
 ### 14.3 Tutor Evidência (Avaliar evidência submetida — legado Fase 4 GAS)
+> `LEGADO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/tutor-evidencia.ts::avaliarEvidencia`
 - **Max tokens**: 1024
@@ -1516,6 +1589,7 @@
 - **Consumido por**: `capacitacao.evidencia_avaliacao` + pontos.
 
 ### 14.4 Auditoria Sem 14 — Regerar com Feedback
+> `ATIVO` · Prompt documentado como: `appendix (sobre 6.12)`
 
 - **Arquivo**: `app/admin/vertho/auditoria-sem14/actions.ts::regerarScoringComFeedback`
 - **Max tokens**: 10000 (scorer) + 8000 (check)
@@ -1532,6 +1606,7 @@
 - **Consumido por**: Substitui `feedback` + preserva `auditoria_anterior` + dispara regen do Evolution Report.
 
 ### 14.5 Auditoria Sem 14 — Check com Feedback
+> `ATIVO` · Prompt documentado como: `appendix (sobre 6.13)`
 
 - **Arquivo**: `app/admin/vertho/auditoria-sem14/actions.ts` (segunda chamada em `regerarScoringComFeedback`)
 - **Reusa**: 6.13 (`promptEvolutionScenarioCheck`).
@@ -1542,6 +1617,17 @@
 ## Resumo Estatístico
 
 **Total de prompts catalogados: 59**
+
+Por status:
+
+| Status | Qtd | Itens |
+|--------|-----|-------|
+| `ATIVO` | 45 | Prompts em uso na produção |
+| `WRAPPER` | 3 | Reusos: 1.4, 2.2, 5.2 |
+| `LEGADO` | 3 | Mantidos: 13.1, 14.1, 14.3 |
+| `AUXILIAR` | 5 | Simulação/teste: 3.4, 12.1–12.4 |
+| `APPENDIX` | 2 | Instruções extras: 14.4, 14.5 |
+| `ATIVO + APPENDIX` | 1 | 5.10 (check lote ativo mas simplificado) |
 
 Por categoria:
 

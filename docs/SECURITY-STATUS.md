@@ -100,26 +100,28 @@ Prerequisito para migracao real: RLS policies por tabela + testes de enforcement
 - Total: 30 migrations (022-051)
 
 ### Cobertura de testes
-- **~227 testes vitest** (17 arquivos)
+- **243 testes vitest** (17 arquivos)
 - Mix de comportamental (handlers reais mockados) e estrutural (presenca de guards no codigo)
 - Testes comportamentais: ~20 (rotas + actions)
 - Testes estruturais: ~85 (string matching — complementares, nao substituem comportamental)
 - Guard de service_role: 3 testes (allowlist + stale + contagem)
 - **Testes de isolamento cross-tenant**: 9 cenarios (tenant A nao acessa B, acesso legitimo permitido, colab access)
-- **Testes anti-identity-by-parameter**: 107 cenarios (18 actions + 8 pages verificadas)
+- **Testes anti-identity-by-parameter**: 123 cenarios (22 actions + 8 pages verificadas)
 
 ### Endurecimento de dashboard actions (completo 2026-04-17)
 **Primeira onda (10 actions):** loadDashboardData, loadHomeKpis, loadJornada,
 loadPerfil, salvarFotoPerfil, salvarAvatarPreset, removerAvatar, loadPDI,
 baixarMeuPdiPdf, registrarEvidencia.
 
-**Segunda onda (16 functions em 6 arquivos):** listarEquipeEvolucao,
+**Segunda onda (15 functions em 6 arquivos):** listarEquipeEvolucao,
 listarCheckpointsPendentes, salvarCheckpointGestor, loadLideradoConcluida,
 getDiagnosticoDoDia, salvarRespostaDiagnostico, loadAssessmentData,
 loadPerfilCIS, gerarInsightsExecutivos, salvarPerfilComportamental,
 loadBehavioralReport, gerarEsalvarRelatorioComportamental,
-baixarRelatorioComportamentalPdf, regenerarRelatorioComportamentalPdf,
+baixarRelatorioComportamentalPdf, regenerarRelatorioComportamental,
 loadEvolucao.
+
+**Wrapper corrigido:** getColabByEmail (app/dashboard/colab-action.ts).
 
 Todas derivam identidade 100% server-side via `getAuthenticatedEmailFromAction()`.
 Nenhuma aceita mais email/colaboradorId/empresaId do client como identidade do caller.

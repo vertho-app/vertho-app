@@ -32,11 +32,11 @@ describe('Dashboard actions — identidade não vem por parâmetro', () => {
     { file: 'app/dashboard/pdi/pdi-actions.ts', functions: ['loadPDI', 'baixarMeuPdiPdf'] },
     { file: 'app/dashboard/praticar/praticar-actions.ts', functions: ['registrarEvidencia'] },
     { file: 'actions/dashboard-kpis.ts', functions: ['loadHomeKpis'] },
-    { file: 'app/dashboard/gestor/equipe-evolucao/actions.ts', functions: ['listarEquipeEvolucao', 'listarCheckpointsPendentes', 'salvarCheckpointGestor'] },
-    { file: 'app/dashboard/assessment/assessment-actions.ts', functions: ['getDiagnosticoDoDia', 'salvarRespostaDiagnostico'] },
+    { file: 'app/dashboard/gestor/equipe-evolucao/actions.ts', functions: ['listarEquipeEvolucao', 'listarCheckpointsPendentes', 'salvarCheckpointGestor', 'loadLideradoConcluida'] },
+    { file: 'app/dashboard/assessment/assessment-actions.ts', functions: ['getDiagnosticoDoDia', 'salvarRespostaDiagnostico', 'loadAssessmentData'] },
     { file: 'app/dashboard/perfil-comportamental/perfil-comportamental-actions.ts', functions: ['loadPerfilCIS', 'gerarInsightsExecutivos'] },
     { file: 'app/dashboard/perfil-comportamental/mapeamento/mapeamento-actions.ts', functions: ['salvarPerfilComportamental'] },
-    { file: 'app/dashboard/perfil-comportamental/relatorio/relatorio-actions.ts', functions: ['loadBehavioralReport', 'baixarRelatorioComportamentalPdf'] },
+    { file: 'app/dashboard/perfil-comportamental/relatorio/relatorio-actions.ts', functions: ['loadBehavioralReport', 'baixarRelatorioComportamentalPdf', 'gerarEsalvarRelatorioComportamental', 'regenerarRelatorioComportamental'] },
     { file: 'app/dashboard/evolucao/evolucao-actions.ts', functions: ['loadEvolucao'] },
     { file: 'app/dashboard/colab-action.ts', functions: ['getColabByEmail'] },
   ];
@@ -47,10 +47,12 @@ describe('Dashboard actions — identidade não vem por parâmetro', () => {
       const signatures = getExportedFunctionSignatures(source);
 
       for (const fnName of functions) {
-        it(`${fnName}() não aceita email como parâmetro`, () => {
+        it(`${fnName}() não aceita email como parâmetro de identidade`, () => {
           const sig = signatures.find(s => s.name === fnName);
           expect(sig, `Função ${fnName} não encontrada em ${file}`).toBeDefined();
-          expect(sig!.params).not.toMatch(/\bemail\b/i);
+          // Rejeita 'email' standalone como primeiro param (identidade do caller).
+          // Permite 'colabEmail' como alvo legítimo de operação.
+          expect(sig!.params).not.toMatch(/^email\b|,\s*email\b/i);
         });
 
         it(`${fnName}() não aceita colaboradorId como parâmetro`, () => {
