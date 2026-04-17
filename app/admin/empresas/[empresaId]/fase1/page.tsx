@@ -264,14 +264,33 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
             const isOpen = gabOpen === g.nome;
             if (!gab) return null;
 
+            // Compatibilidade: tela1/tela2 podem ser array (legado) ou objeto (novo)
+            const t1Items = Array.isArray(gab.tela1) ? gab.tela1 : (gab.tela1?.caracteristicas || []);
+            const t1Conf = gab.tela1?.confianca;
+            const t2Items = Array.isArray(gab.tela2) ? gab.tela2 : (gab.tela2?.subcompetencias || []);
+            const t2Conf = gab.tela2?.confianca;
+            const t3 = gab.tela3 || {};
+            const t3Conf = t3.confianca;
+            const t4 = gab.tela4 || {};
+            const t4Conf = t4.confianca;
+
             return (
               <div key={g.id} className="mb-3 rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
                 <button onClick={() => setGabOpen(isOpen ? null : g.nome)}
                   className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/[0.02] transition-colors">
-                  <span className="text-sm font-bold text-white">{g.nome}</span>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className="text-sm font-bold text-white">{g.nome}</span>
+                    {g.confianca_media_ia2 != null && (
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                        g.confianca_media_ia2 >= 0.8 ? 'bg-green-400/15 text-green-400' :
+                        g.confianca_media_ia2 >= 0.6 ? 'bg-amber-400/15 text-amber-400' :
+                        'bg-red-400/15 text-red-400'
+                      }`}>{Math.round(g.confianca_media_ia2 * 100)}%</span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-3">
-                    {gab.tela3 && <span className="text-[10px] text-gray-500">
-                      E:{gab.tela3.executor}% · M:{gab.tela3.motivador}% · Me:{gab.tela3.metodico}% · S:{gab.tela3.sistematico}%
+                    {t3.executor != null && <span className="text-[10px] text-gray-500">
+                      E:{t3.executor}% · M:{t3.motivador}% · Me:{t3.metodico}% · S:{t3.sistematico}%
                     </span>}
                     <ChevronDown size={14} className={`text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                   </div>
@@ -279,33 +298,48 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                 {isOpen && (
                   <div className="px-4 pb-4 space-y-4 border-t border-white/[0.04]">
                     {/* Tela 1 */}
-                    {gab.tela1?.length > 0 && (
+                    {t1Items.length > 0 && (
                       <div className="pt-3">
-                        <SectionTitle color="cyan">Características do Perfil</SectionTitle>
+                        <div className="flex items-center gap-2 mb-2">
+                          <SectionTitle color="cyan">Características do Perfil</SectionTitle>
+                          {t1Conf != null && <span className="text-[9px] text-gray-500">conf: {Math.round(t1Conf * 100)}%</span>}
+                        </div>
                         <div className="flex flex-wrap gap-1.5">
-                          {gab.tela1.map((c, i) => <span key={i} className="text-[11px] px-2.5 py-1 rounded-full bg-cyan-400/10 text-cyan-300">{c}</span>)}
+                          {t1Items.map((c: any, i: number) => <span key={i} className="text-[11px] px-2.5 py-1 rounded-full bg-cyan-400/10 text-cyan-300">{c}</span>)}
                         </div>
                       </div>
                     )}
                     {/* Tela 2 */}
-                    {gab.tela2?.length > 0 && (
+                    {t2Items.length > 0 && (
                       <div>
-                        <SectionTitle color="amber">Perfis DISC</SectionTitle>
+                        <div className="flex items-center gap-2 mb-2">
+                          <SectionTitle color="amber">Sub-competências CIS</SectionTitle>
+                          {t2Conf != null && <span className="text-[9px] text-gray-500">conf: {Math.round(t2Conf * 100)}%</span>}
+                        </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                          {gab.tela2.map((s, i) => (
+                          {t2Items.map((s: any, i: number) => (
                             <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#091D35' }}>
                               <span className={`text-xs font-bold w-4 ${discColor(s.dimensao)}`}>{s.dimensao}</span>
                               <span className="text-xs text-white font-medium flex-1">{s.nome}</span>
                               <span className="text-[10px] text-gray-500">{s.faixa_min} → {s.faixa_max}</span>
+                              {s.prioridade && <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${
+                                s.prioridade === 'alta' ? 'bg-red-400/10 text-red-300' :
+                                s.prioridade === 'media' ? 'bg-amber-400/10 text-amber-300' :
+                                'bg-gray-400/10 text-gray-400'
+                              }`}>{s.prioridade}</span>}
                             </div>
                           ))}
                         </div>
                       </div>
                     )}
                     {/* Tela 3 */}
-                    {gab.tela3 && (
+                    {t3.executor != null && (
                       <div>
-                        <SectionTitle color="green">Estilos de Liderança</SectionTitle>
+                        <div className="flex items-center gap-2 mb-2">
+                          <SectionTitle color="green">Estilos de Liderança</SectionTitle>
+                          {t3.estilo_predominante && <span className="text-[10px] text-green-300/70">{t3.estilo_predominante}</span>}
+                          {t3Conf != null && <span className="text-[9px] text-gray-500">conf: {Math.round(t3Conf * 100)}%</span>}
+                        </div>
                         <div className="grid grid-cols-4 gap-2">
                           {[
                             { key: 'executor', label: 'Executor', color: '#EF4444' },
@@ -314,20 +348,24 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                             { key: 'sistematico', label: 'Sistemático', color: '#3B82F6' },
                           ].map(e => (
                             <div key={e.key} className="text-center p-3 rounded-lg" style={{ background: '#091D35' }}>
-                              <div className="text-2xl font-bold" style={{ color: e.color }}>{gab.tela3[e.key]}%</div>
+                              <div className="text-2xl font-bold" style={{ color: e.color }}>{t3[e.key]}%</div>
                               <div className="text-[10px] text-gray-500 mt-1">{e.label}</div>
                             </div>
                           ))}
                         </div>
+                        {t3.justificativa && <p className="text-[10px] text-gray-400 mt-2 italic">{t3.justificativa}</p>}
                       </div>
                     )}
                     {/* Tela 4 */}
-                    {gab.tela4 && (
+                    {(t4.D || t4.I || t4.S || t4.C) && (
                       <div>
-                        <SectionTitle color="red">Faixas DISC Ideais</SectionTitle>
+                        <div className="flex items-center gap-2 mb-2">
+                          <SectionTitle color="red">Faixas DISC Ideais</SectionTitle>
+                          {t4Conf != null && <span className="text-[9px] text-gray-500">conf: {Math.round(t4Conf * 100)}%</span>}
+                        </div>
                         <div className="grid grid-cols-4 gap-2">
                           {['D', 'I', 'S', 'C'].map(dim => {
-                            const f = gab.tela4[dim];
+                            const f = t4[dim];
                             return f ? (
                               <div key={dim} className="text-center p-3 rounded-lg" style={{ background: '#091D35' }}>
                                 <span className={`text-lg font-bold ${discColor(dim)}`}>{dim}</span>
@@ -337,6 +375,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                             ) : null;
                           })}
                         </div>
+                        {t4.justificativa && <p className="text-[10px] text-gray-400 mt-2 italic">{t4.justificativa}</p>}
                       </div>
                     )}
                     {/* Raciocínio */}
@@ -344,8 +383,10 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                       <div className="pt-2 border-t border-white/[0.04]">
                         <SectionTitle color="gray">Raciocínio da IA</SectionTitle>
                         {rac.sinais_do_caso?.length > 0 && <p className="text-[11px] text-gray-400 mb-1"><span className="text-gray-500 font-semibold">Sinais:</span> {rac.sinais_do_caso.join('; ')}</p>}
+                        {rac.hipotese_base && <p className="text-[11px] text-gray-400 mb-1"><span className="text-gray-500 font-semibold">Hipótese:</span> {rac.hipotese_base}</p>}
                         {rac.leitura_principal && <p className="text-[11px] text-gray-400 mb-1"><span className="text-gray-500 font-semibold">Leitura:</span> {rac.leitura_principal}</p>}
-                        {rac.diferenciais_vs_outros_cargos && <p className="text-[11px] text-gray-400"><span className="text-gray-500 font-semibold">Diferenciais:</span> {rac.diferenciais_vs_outros_cargos}</p>}
+                        {rac.incertezas && <p className="text-[11px] text-amber-300/60 mb-1"><span className="text-amber-400/80 font-semibold">Incertezas:</span> {rac.incertezas}</p>}
+                        {rac.diferenciais_vs_outros_cargos && <p className="text-[11px] text-gray-400"><span className="text-gray-500 font-semibold">Diferenciais:</span> {typeof rac.diferenciais_vs_outros_cargos === 'string' ? rac.diferenciais_vs_outros_cargos : (Array.isArray(rac.diferenciais_vs_outros_cargos) ? rac.diferenciais_vs_outros_cargos.join('; ') : '')}</p>}
                       </div>
                     )}
                   </div>
