@@ -294,9 +294,9 @@ nextjs-app/
 │   │   ├── ranking.ts
 │   │   └── validacao.ts
 │   ├── prompts/
-│   │   ├── behavioral-report-prompt.ts
-│   │   ├── fit-executive-prompt.ts
-│   │   └── insights-executivos-prompt.ts
+│   │   ├── behavioral-report-prompt.js
+│   │   ├── fit-executive-prompt.js
+│   │   └── insights-executivos-prompt.js
 │   └── supabase/
 │       └── mapCISProfile.ts
 ├── scripts/
@@ -434,7 +434,7 @@ Modelos: Claude Sonnet 4.6, Claude Opus 4.6, Claude Haiku 4.5, Gemini 3 Flash, G
 | Gestor (7.2) | `relatorios.ts` | — | Sonnet | JSON: resumo_executivo always object, risco_se_nao_agir, impacto_se_nao_agir |
 | RH (7.3) | `relatorios.ts` | — | Sonnet | JSON: resumo_executivo always object, perfil_disc always forca_coletiva/risco_coletivo |
 | PPP (8.1-8.3) | `ppp.ts` | — | Sonnet | _metadata_extracao, prudencia reforcada |
-| Comportamental (9.1) | `behavioral-report-prompt.ts` | — | Sonnet | Campos extras: relacoes_e_comunicacao, modo_de_trabalho, frases_chave |
+| Comportamental (9.1) | `behavioral-report-prompt.js` | — | Sonnet | Campos extras: relacoes_e_comunicacao, modo_de_trabalho, frases_chave |
 | Tags IA (11.5) | `conteudos.ts` | — | Sonnet | Vocabulario controlado, confianca enum |
 
 ### 5.4 Avaliacao Sem 14 (Triangulacao)
