@@ -470,15 +470,13 @@ const WEB_ENRICHABLE = {
 
 async function enriquecerViaWeb(empresa, dadosBase, aiModel) {
   try {
-    // Identificar lacunas nas seções enriquecíveis
-    const lacunas = [];
+    const lacunas: string[] = [];
     for (const [secao, permitido] of Object.entries(WEB_ENRICHABLE)) {
       if (!permitido) continue;
       const sec = dadosBase[secao];
       if (!sec) { lacunas.push(secao); continue; }
-      // Verificar se conteudo está vazio/nulo
       const conteudo = sec.conteudo || sec;
-      if (!conteudo || conteudo === 'Nao identificado no documento') {
+      if (!conteudo || conteudo === 'Nao identificado no documento' || conteudo === 'Não declarado no documento') {
         lacunas.push(secao);
       } else if (sec.confianca === 'baixa') {
         lacunas.push(secao);
@@ -487,14 +485,13 @@ async function enriquecerViaWeb(empresa, dadosBase, aiModel) {
 
     if (lacunas.length === 0) return { enriched: false, dados: dadosBase, fontes: [] };
 
-    // Buscar informações da web sobre a empresa
     const searchQueries = [
       `${empresa.nome} sobre empresa`,
       `${empresa.nome} missão visão valores`,
       `${empresa.nome} produtos serviços mercado`,
     ];
 
-    const webContents = [];
+    const webContents: { query: string; texto: string }[] = [];
     for (const query of searchQueries) {
       const result = await scrapeJina(`https://www.google.com/search?q=${encodeURIComponent(query)}`);
       if (result.ok && result.texto.length > 200) {
@@ -502,7 +499,6 @@ async function enriquecerViaWeb(empresa, dadosBase, aiModel) {
       }
     }
 
-    // Tentar buscar o site institucional da empresa
     const possibleSites = [
       `https://www.${empresa.nome.toLowerCase().replace(/\s+/g, '')}.com.br`,
       `https://${empresa.nome.toLowerCase().replace(/\s+/g, '')}.com.br`,
@@ -511,62 +507,107 @@ async function enriquecerViaWeb(empresa, dadosBase, aiModel) {
       const result = await scrapeJina(site);
       if (result.ok && result.texto.length > 200) {
         webContents.push({ query: site, texto: result.texto.slice(0, 8000) });
-        break; // Um site basta
+        break;
       }
     }
 
     if (webContents.length === 0) return { enriched: false, dados: dadosBase, fontes: [] };
 
-    // Chamar IA para enriquecer apenas as lacunas
-    const enrichSystem = `Voce e um especialista em enriquecimento de contexto corporativo.
-Recebera um Dossie de Contexto ja extraido de material interno, e informacoes publicas da web.
+    const enrichSystem = `Você é um especialista em enriquecimento prudente de contexto corporativo da Vertho.
 
-SUA MISSAO: Preencher APENAS as lacunas indicadas, usando as fontes web.
+Sua tarefa é enriquecer APENAS lacunas do dossiê corporativo com base em informações públicas obtidas na web.
 
-REGRAS CRITICAS:
-1. NAO altere informacoes ja extraidas do material interno — elas tem prioridade.
-2. NAO invente processos internos, cultura real ou dinamica operacional.
-3. Tudo que vier da web deve ser marcado com origem "site_institucional" ou "release_noticia".
-4. Confianca maxima para dados web = "media". NUNCA "alta" (alta = apenas material interno).
-5. Se a informacao web for generica ou duvidosa, NAO inclua — melhor lacuna que dado ruim.
-6. Marque como hipotese_controlada qualquer inferencia.
+ATENÇÃO:
+Você NÃO está reconstruindo o dossiê do zero.
+Você NÃO está corrigindo o material interno.
+Você NÃO está inferindo cultura ou processo real.
+Você está apenas preenchendo lacunas com sinais públicos úteis e prudentes.
 
-Responda APENAS com JSON valido contendo somente as secoes que voce conseguiu enriquecer.`;
+PRINCÍPIOS INEGOCIÁVEIS:
+1. Informação de documento interno sempre tem prioridade.
+2. Não altere nem sobrescreva o que já foi extraído de material interno.
+3. Tudo que vier da web deve ter origem pública explícita.
+4. A confiança máxima para web é "media". Nunca "alta".
+5. Se a web não trouxer base boa, mantenha a lacuna.
+6. Melhor lacuna do que dado ruim.
+7. Nunca trate marketing institucional como prova de dinâmica operacional real.
+8. Nunca invente processo, cultura, tensão ou stakeholder interno.
+
+CLASSIFICAÇÕES:
+- origem: site_institucional | release_noticia | nao_identificado
+- confianca: media | baixa (nunca alta)
+
+RETORNE APENAS JSON VÁLIDO, sem markdown, sem texto antes ou depois.
+
+FORMATO OBRIGATÓRIO:
+{
+  "secoes_enriquecidas": [
+    {
+      "secao": "nome_da_secao",
+      "conteudo": "texto curto ou objeto estruturado",
+      "origem": "site_institucional|release_noticia|nao_identificado",
+      "confianca": "media|baixa",
+      "justificativa_enriquecimento": "por que essa adição é prudente"
+    }
+  ],
+  "secoes_mantidas_com_lacuna": [
+    {"secao": "nome", "motivo": "por que a web não trouxe base suficiente"}
+  ],
+  "alertas_metodologicos": ["alerta 1"]
+}`;
 
     const enrichUser = `Empresa: ${empresa.nome}
 
-DOSSIE ATUAL (extraido do material interno):
+DOSSIÊ ATUAL (extraído do material interno):
 ${JSON.stringify(dadosBase, null, 2).slice(0, 8000)}
 
 LACUNAS A PREENCHER: ${lacunas.join(', ')}
 
-FONTES WEB DISPONIVEIS:
+FONTES WEB DISPONÍVEIS:
 ${webContents.map(w => `[Fonte: ${w.query}]\n${w.texto}`).join('\n\n---\n\n')}
 
 ---
-Retorne JSON com APENAS as secoes que voce conseguiu enriquecer, no mesmo formato do dossie.
-Para cada secao enriquecida, use origem e confianca adequados.
-Se nao conseguiu enriquecer uma secao, NAO inclua no JSON.`;
+Preencha APENAS as lacunas indicadas. Se não houver base web segura, registre em secoes_mantidas_com_lacuna.`;
 
     const enrichResult = await callAI(enrichSystem, enrichUser, { model: aiModel }, 8000);
     const enrichData = await extractJSON(enrichResult);
 
     if (!enrichData) return { enriched: false, dados: dadosBase, fontes: webContents.map(w => w.query) };
 
-    // Merge: sobrescrever apenas seções que estavam em lacuna
     const merged = { ...dadosBase };
-    for (const secao of lacunas) {
-      if (enrichData[secao]) {
-        merged[secao] = enrichData[secao];
+    const secoesEnriquecidas: string[] = [];
+
+    if (Array.isArray(enrichData.secoes_enriquecidas)) {
+      for (const item of enrichData.secoes_enriquecidas) {
+        if (!item.secao || !lacunas.includes(item.secao)) continue;
+        merged[item.secao] = {
+          conteudo: item.conteudo,
+          origem: item.origem || 'nao_identificado',
+          confianca: item.confianca === 'media' ? 'media' : 'baixa',
+        };
+        secoesEnriquecidas.push(item.secao);
+      }
+    } else {
+      // Fallback: formato legado (seções diretas no JSON)
+      for (const secao of lacunas) {
+        if (enrichData[secao]) {
+          merged[secao] = enrichData[secao];
+          secoesEnriquecidas.push(secao);
+        }
       }
     }
 
-    // Adicionar fontes web ao metadata
-    if (!merged._metadata) merged._metadata = {};
-    merged._metadata.fontes_web = webContents.map(w => w.query);
-    merged._metadata.secoes_enriquecidas_web = Object.keys(enrichData).filter(k => lacunas.includes(k));
+    if (!merged._metadata_extracao) merged._metadata_extracao = {};
+    merged._metadata_extracao.fontes_web = webContents.map(w => w.query);
+    merged._metadata_extracao.secoes_enriquecidas_web = secoesEnriquecidas;
+    if (enrichData.alertas_metodologicos?.length) {
+      merged._metadata_extracao.alertas_web = enrichData.alertas_metodologicos;
+    }
+    if (enrichData.secoes_mantidas_com_lacuna?.length) {
+      merged._metadata_extracao.lacunas_mantidas = enrichData.secoes_mantidas_com_lacuna;
+    }
 
-    return { enriched: true, dados: merged, fontes: webContents };
+    return { enriched: secoesEnriquecidas.length > 0, dados: merged, fontes: webContents };
   } catch (err) {
     console.error('Erro no enriquecimento web:', err);
     return { enriched: false, dados: dadosBase, fontes: [] };
