@@ -29,7 +29,7 @@
 - Nao distribuido — baseline defense-in-depth
 
 ### Validacao de outputs IA (P1)
-- Todas as saidas de prompts possuem funcoes de validacao: `validateEvolutionScenarioScore`, `validateAvaliacaoAcumulada`, `validateEvolutionExtract`, etc.
+- Funcoes de validacao de output em prompts criticos: `validateEvolutionScenarioScore`, `validateAvaliacaoAcumulada`, `validateEvolutionExtract`, `validateEvolutionScenarioCheck`, `validateAvaliacaoAcumuladaCheck`, `parseDesafioResponse`, `parseCenarioResponse`, `parseMissaoResponse`. Prompts de fases 1-5, conteudos e relatorios usam `extractJSON` generico sem validacao estrutural
 - Parsing JSON estruturado com limpeza de backticks antes de `JSON.parse`
 - Clamping de valores numericos: notas 1-4, confianca 0-1
 - Validacao de enums para vocabularios controlados (`forca_evidencia`, `tendencia`, `convergencia`, etc.)
@@ -38,7 +38,7 @@
 - Regras anti-alucinacao em todos os prompts conversacionais (IA nao inventa dados do colab)
 - Regras anti-inflacao em prompts de avaliacao (sem 13, acumulada, sem 14)
 - Grounding RAG disciplinado com regras explicitas de uso do contexto recuperado
-- Mascaramento de PII mantido em todas as chamadas IA
+- Mascaramento de PII aplicado nos fluxos de chat (reflection, evaluation, tira-duvidas) e relatorios (gestor, acumulada, sem14 scorer). Nao auditado exaustivamente em todas as chamadas IA — fluxos batch (fase1, fase5, conteudos, simuladores) nao passam por PII masking
 
 ### CI guard (P2)
 - `config/service-role-allowlist.json`: 88 arquivos com contagem
@@ -85,4 +85,4 @@
 - Rate limiting distribuido (so por Lambda instance)
 - CSRF em server actions (Next.js tem protecao built-in mas nao auditamos)
 - Testes E2E de isolamento real (requer 2 tenants em test env)
-- Auditoria de todas as 88 actions server-side (so as prioritarias foram hardened)
+- Auditoria parcial das actions server-side — as prioritarias (relatorios, evaluation, reflection, fit) foram hardened com auth + tenant check; demais actions usam guards basicos

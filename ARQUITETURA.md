@@ -53,7 +53,7 @@
 
 ---
 
-## 2. Estrutura de Pastas (~230 arquivos TS/TSX + 11 .js residuais em lib/)
+## 2. Estrutura de Pastas (~230 arquivos TS/TSX + ~27 .js residuais em lib/, tests/ e config)
 
 ```
 nextjs-app/
@@ -238,7 +238,7 @@ nextjs-app/
 │       ├── StatusBadge.tsx
 │       ├── CompetencyBlock.tsx
 │       └── ChecklistBox.tsx
-├── lib/                          # 45 arquivos .ts
+├── lib/                          # ~50 arquivos (.ts + .js residuais em fit-v2/, prompts/)
 │   ├── supabase.ts               # createSupabaseClient + createSupabaseAdmin
 │   ├── supabase-browser.ts       # Singleton browser client
 │   ├── tenant-resolver.ts        # resolveTenant(slug) cache 5min
@@ -307,7 +307,7 @@ nextjs-app/
 │   ├── auto-backup-diario.ps1
 │   └── instalar-backup-automatico.ps1
 ├── tests/                        # Playwright e2e (86 specs)
-├── migrations/                   # 45 migrations SQL (022 -> 045)
+├── migrations/                   # 26 migrations SQL (022 -> 047)
 ├── tsconfig.json                 # TypeScript config (strict:false, allowJs, checkJs:false)
 ├── docs/
 │   ├── envs-importantes.md
@@ -472,7 +472,7 @@ Sistema de Retrieval-Augmented Generation que enriquece respostas da IA com cont
 
 ### Schema SQL
 - **Migration 041** — Tabela `knowledge_base` (empresa_id, titulo, chunk_index, content, metadata JSONB) + funcao `kb_search` (FTS PT-BR via tsvector com unaccent).
-- **Migration 042** — Extensao `pgvector` + coluna `embedding VECTOR(1536)` + funcoes `kb_search_semantic` (cosine distance) e `kb_search_hybrid` (RRF — Reciprocal Rank Fusion combinando FTS + vector).
+- **Migration 042** — Extensao `pgvector` + coluna `embedding VECTOR(1536)` + funcoes `kb_search_semantic` e `kb_search_hybrid` (RRF). Nota: migration 043 reduziu a dimensão para 1024.
 - **Migration 043** — Dimensao reduzida de 1536 para **1024** (requisito nativo do Voyage-3-large). Sem perda de dados (base vazia no momento da migration).
 
 ### Provider de Embeddings
@@ -610,7 +610,7 @@ Tabelas: trilhas, colaboradores, temporada_semana_progresso
 
 ---
 
-## 8. Modelagem de Dados (43 migrations)
+## 8. Modelagem de Dados (26 migrations — 022 a 047)
 
 ### Dados Transacionais
 ```
@@ -755,7 +755,7 @@ Task Scheduler Windows → scripts/auto-backup-diario.ps1 (todo dia 20h)
 | `scripts/auto-backup-diario.ps1` | Backup diario automatico |
 
 ### Restauracao do Schema
-- Rodar migrations em ordem: `supabase/migrations/001*.sql` ate `043*.sql`
+- Rodar migrations em ordem: `migrations/022*.sql` ate `047*.sql`
 
 ### Backfill de embeddings
 - `npm run backfill:embeddings` — re-gera embeddings em `knowledge_base` (util ao trocar `EMBEDDING_PROVIDER`)
@@ -788,7 +788,7 @@ Sentry: Error tracking
 - Cenario: titulo removido, "CENARIO" → "CONTEXTO"
 - "Marcar como assistido" → "Marcar como realizado"
 - `xlsx` — removido (2 CVEs high sem fix) → substituido por `read-excel-file@^8`
-- `jsconfig.json` — substituido por `tsconfig.json` (migracao 100% TypeScript)
+- `jsconfig.json` — substituido por `tsconfig.json` (migração majoritária para TypeScript; ~27 .js residuais permanecem em lib/fit-v2, lib/prompts, tests/ e configs)
 - `gas-antigo/` (69 arquivos GAS) — removido 2026-04-17
 - `migrations-legacy/` (37 SQL) — removido 2026-04-17
 - `migrate:legacy` npm script — removido
@@ -798,5 +798,5 @@ Sentry: Error tracking
 ---
 
 *Documento validado contra o codigo-fonte em producao.*
-*~230 arquivos TS + 11 .js residuais | 45 migrations SQL | 111 unit + 86 e2e tests | 22+ env vars | vertho.com.br*
+*~230 arquivos TS + ~27 .js residuais | 26 migrations SQL (022-047) | 111 unit + 86 e2e tests | 22+ env vars | vertho.com.br*
 *Revisao: 17/04/2026*

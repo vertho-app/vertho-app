@@ -1067,7 +1067,7 @@
   - Dados por competência: {competencia, nivel, nota_decimal, pontos_fortes, gaps, feedback}
   - Conteúdos recomendados (trilha): nome, competência, formato, nível, URL
 - **Output**: JSON PDI completo.
-- **Consumido por**: `relatorios` tipo='individual' + renderização PDF via `RelatorioIndividual.jsx` em `/storage/relatorios-pdf/{empresa}/individual-*.pdf`.
+- **Consumido por**: `relatorios` tipo='individual' + renderização PDF via `RelatorioIndividual.tsx` em `/storage/relatorios-pdf/{empresa}/individual-*.pdf`.
 
 ### 7.2 Relatório Gestor (RELATORIO_GESTOR_SYSTEM)
 
@@ -1225,7 +1225,7 @@
   ```
 - **Inputs user**: Output de `buildBehavioralReportPrompt(raw)` — dados DISC (natural + adaptado), liderança, 16 competências. (Prompt construtor em `lib/prompts/behavioral-report-prompt.js`.)
 - **Output**: JSON com textos narrativos para PDF comportamental. Campos extras: `relacoes_e_comunicacao`, `modo_de_trabalho`, `frases_chave`. Campos existentes mantidos.
-- **Consumido por**: `colaboradores.report_texts` + renderização PDF (`RelatorioComportamental.jsx`) em `relatorios-pdf`.
+- **Consumido por**: `colaboradores.report_texts` + renderização PDF (`RelatorioComportamental.tsx`) em `relatorios-pdf`.
 
 ### 9.2 Insights Executivos
 
@@ -1541,26 +1541,26 @@
 
 ## Resumo Estatístico
 
-**Total de prompts catalogados: 47**
+**Total de prompts catalogados: 59**
 
 Por categoria:
 
-| Seção | Qtd prompts |
-|---|---|
-| Fase 1 (IA1/IA2/IA3/regenera/check) | 5 |
-| Fase 3 (IA4) | 2 (eval + reavaliação) |
-| Chat Fase 3 | 4 (entrevistadora + eval + audit + proxy) |
-| Check IA4 | 1 |
-| Fase 5 | 10 (cenárioB × 2, reav, extração, fusão, plenária, rh manual, plenária formal, dossiê, check lote) |
-| Motor Temporadas | 13 (desafio, cenário, missão, socratic, analytic, missao feedback, extração socratic+analytic, tira-dúvidas, qualitativa, extract qualitativa, acumulado, acumulado check, evolution scenario score, evolution scenario check) |
-| Relatórios | 3 (individual, gestor, rh) |
-| PPP | 3 (educacional, corporativo, enriquecimento web) |
-| Dashboard Perfil | 2 (comportamental, insights) |
-| FIT v2 | 1 |
-| Conteúdos/Tagging | 5 (video, podcast, texto, case, tags) |
-| Simuladores | 4 (respostas, colab temporada, compromisso, extração sim) |
-| Fase 4 | 1 (PDI legado) |
-| Outros | 4 (cenárioB legado, evolução granular, tutor evidência, regerar sem14 com feedback + check) |
+| Seção | Qtd | Detalhes |
+|---|---|---|
+| Fase 1 (IA1/IA2/IA3/regenera/check) | 5 | 1.1–1.5 |
+| Fase 3 (IA4) | 2 | eval + reavaliação |
+| Chat Fase 3 | 4 | entrevistadora + eval + audit + proxy |
+| Check IA4 | 1 | auditor |
+| Fase 5 | 10 | cenárioB ×2, reav, extração, fusão, plenária, rh manual, plenária formal, dossiê, check lote |
+| Motor Temporadas | 13 | desafio, cenário, missão, socrático, analytic, missão feedback, extração (1 prompt, 2 modos), tira-dúvidas, qualitativa, extract qualitativa, acumulada, acumulada check, scorer sem14, check sem14 |
+| Relatórios | 3 | individual, gestor, RH |
+| PPP | 3 | educacional, corporativo, enriquecimento web |
+| Dashboard Perfil | 2 | comportamental, insights |
+| FIT v2 | 1 | leitura executiva |
+| Conteúdos/Tagging | 5 | vídeo, podcast, texto, case, tags |
+| Simuladores | 4 | respostas, colab temporada, compromisso, extração sim |
+| Fase 4 | 1 | PDI legado |
+| Outros | 5 | cenárioB legado, evolução granular, tutor evidência, regerar sem14, check sem14 com feedback |
 
 ## Notas de Integração
 

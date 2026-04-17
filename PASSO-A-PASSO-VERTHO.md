@@ -140,7 +140,7 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 **Colaborador** · `/dashboard/temporada`
 - Vê timeline com 14 cards (status: concluída/em andamento/bloqueada)
 - **Gate duplo**: semana N libera em `data_inicio + (N-1)*7 dias @ 03:00 BRT` **E** anterior concluída
-- Helper: `lib/season-engine/week-gating.js`
+- Helper: `lib/season-engine/week-gating.ts`
 
 ### 19. Semanas de Conteúdo (sem 1-3, 5-7, 9-11)
 **Colaborador** · `/dashboard/temporada/semana/{N}`
@@ -177,11 +177,11 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
    - API: `POST /api/temporada/missao` (set_modo + compromisso)
 3. **Execução**: colab executa a missão na vida real durante a semana
 4. **Relato**: colab retorna e relata o que aconteceu
-5. **Feedback IA** (10 turnos via `prompts/missao-feedback.js`):
+5. **Feedback IA** (10 turnos via `prompts/missao-feedback.ts`):
    - IA analisa o relato, explora aprendizados, conecta com descritores
    - **Anti-alucinação** e **anti-relato-bonito**: IA questiona relatos genéricos
 6. **Fallback "Não consegui"**: se colab declara que não executou a missão
-   - Cai para cenário escrito (feedback analítico, 10 turnos via `prompts/analytic.js`)
+   - Cai para cenário escrito (feedback analítico, 10 turnos via `prompts/analytic.ts`)
    - Complexidade aumenta: simples → intermediário → completo
    - Cobre descritores dos blocos anteriores
 
@@ -206,7 +206,7 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
   - `maior_avanco`
   - `ponto_atencao`
   - `microcaso_resposta_qualidade`
-- Prompt: `prompts/evolution-qualitative.js`
+- Prompt: `prompts/evolution-qualitative.ts`
 
 ### 22. Avaliação Acumulada (auto-trigger ao fim da sem 13)
 **Sistema** (automático, sem interação do colab)
@@ -218,8 +218,8 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 - **2a IA** audita a avaliação (max_tokens 6000)
 - **`validateAvaliacaoAcumulada`**: valida estrutura, `forca_do_padrao`, **3-status check** (forte/moderado/fraco)
 - Resultado persiste em `temporada_semana_progresso.feedback.acumulado` da sem 13
-- Prompt: `prompts/acumulado.js`
-- Action: `actions/avaliacao-acumulada.js`
+- Prompt: `prompts/acumulado.ts`
+- Action: `actions/avaliacao-acumulada.ts`
 
 ### 23. Semana 14 — Avaliação Final (Cenário B)
 **Colaborador** · `/dashboard/temporada/sem14`
@@ -244,14 +244,14 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 ### 24. Temporada Concluída + Evolution Report
 **Colaborador** · `/dashboard/temporada/concluida`
 
-- `actions/evolution-report.js` consolida sems 13+14 → `trilhas.evolution_report`
+- `actions/evolution-report.ts` consolida sems 13+14 → `trilhas.evolution_report`
 - **Tela com 5 blocos**:
   1. **Hero**: resumo da jornada, competência foco, status geral
   2. **Comparativo por descritor**: nota pré → pós + delta + classificação
   3. **Momentos Insight**: frases marcantes das reflexões semanais
   4. **Missões**: resultado das missões práticas (sem 4/8/12)
   5. **Avaliação Final**: 4 notas por descritor + síntese
-- **PDF individual** via `/api/temporada/concluida/pdf` (gerado por `lib/temporada-concluida-pdf.js`)
+- **PDF individual** via `/api/temporada/concluida/pdf` (gerado por `lib/temporada-concluida-pdf.ts`)
 - Classificação de cada descritor:
   - Evolução confirmada: nota_pos >= nota_pre + 0.5 **e** qualitativa positiva
   - Evolução parcial: nota_pos >= nota_pre + 0.2 **ou** qualitativa positiva
@@ -277,7 +277,7 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 **Gestor/RH** · `/api/gestor/plenaria/pdf`
 
 - PDF consolidado do time inteiro
-- Gerado por `lib/plenaria-equipe-pdf.js`
+- Gerado por `lib/plenaria-equipe-pdf.ts`
 - `resumo_executivo` sempre objeto, `perfil_disc` sempre `forca_coletiva/risco_coletivo`
 - Visão agregada: quem evoluiu, quem estagnou, padrões por competência
 
