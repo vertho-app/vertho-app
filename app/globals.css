@@ -3,27 +3,55 @@
 :root {
   --header-height: 56px;
   --nav-height: 64px;
+
+  /* Design System Vertho — tokens do handoff */
+  --navy-deep: #06172C;
   --navy: #0F2A4A;
   --navy-dark: #091D35;
-  --cyan: #00B4D8;
+  --navy-card: #0c2039;
+  --cyan: #34C5CC;
+  --cyan-bright: #00B4D8;
+  --cyan-soft: #9AE2E6;
   --cyan-light: #48CAE4;
+  --teal: #0D9488;
+  --violet: #7C3AED;
+  --ink: #F3F7FB;
+  --ink-dim: rgba(243, 247, 251, 0.62);
+  --ink-faint: rgba(243, 247, 251, 0.38);
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.14);
+  --good: #2ECC71;
   --success: #2ECC71;
-  --warning: #F39C12;
+  --coral: #F97354;
+  --gold: #F4B740;
+  --warning: #F4B740;
   --danger: #E74C3C;
 }
 
 body {
-  background: var(--navy-dark);
-  color: white;
+  background:
+    radial-gradient(1200px 600px at 85% -10%, rgba(52, 197, 204, 0.06), transparent 60%),
+    radial-gradient(900px 500px at -10% 30%, rgba(124, 58, 237, 0.08), transparent 60%),
+    linear-gradient(180deg, #06172C 0%, #091D35 35%, #0A1F3A 100%);
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.01em;
 }
 
 @theme inline {
+  --color-navy-deep: #06172C;
   --color-navy: #0F2A4A;
   --color-navy-dark: #091D35;
-  --color-cyan: #00B4D8;
+  --color-navy-card: #0c2039;
+  --color-cyan: #34C5CC;
+  --color-cyan-bright: #00B4D8;
+  --color-cyan-soft: #9AE2E6;
   --color-cyan-light: #48CAE4;
+  --color-teal: #0D9488;
+  --color-violet: #7C3AED;
   --color-success: #2ECC71;
-  --color-warning: #F39C12;
+  --color-warning: #F4B740;
   --color-danger: #E74C3C;
+  --color-coral: #F97354;
+  --color-gold: #F4B740;
 }
