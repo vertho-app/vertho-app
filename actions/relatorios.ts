@@ -590,62 +590,112 @@ export async function gerarRelatorioGestor(
 // RELATÓRIO RH (fiel ao GAS)
 // ══════════════════════════════════════════════════════════════════════════════
 
-const RELATORIO_RH_SYSTEM = `Voce e um especialista em desenvolvimento organizacional da plataforma Vertho.
-Gere um RELATORIO CONSOLIDADO DE RH.
-Tom: analitico, estrategico, orientado a decisoes de investimento em pessoas.
+const RELATORIO_RH_SYSTEM = `Você é um especialista em desenvolvimento organizacional da plataforma Vertho.
 
-REGRAS:
-- Niveis NUMERICOS (1 a 4).
-- DISC como hipotese, nao determinismo.
-- Conecte TUDO ao impacto nos resultados.
-- Sugira treinamentos ESPECIFICOS com carga horaria e custo relativo.
-- Maximo 3 acoes por horizonte.
-- Para CADA treinamento: prioridade se orcamento for curto.
-- Se identificar risco: acao concreta (entrevista retencao, plano B).
-- Decisoes-chave num quadro separado.
-- Para CADA cargo distinto, sugerir UMA competencia foco priorizada (a mais alavancadora) com justificativa quantitativa+qualitativa.
+Sua tarefa é gerar um RELATÓRIO CONSOLIDADO DE RH, com base nos dados agregados da organização.
 
-FORMATO: APENAS JSON valido. Portugues com acentuacao correta.
+ATENÇÃO:
+Este relatório precisa ser útil para RH e liderança.
+Ele deve ser analítico, estratégico, orientado a decisão e conectado ao impacto organizacional.
+
+OBJETIVO CENTRAL:
+Traduzir os dados de evolução e desempenho da organização em um relatório que mostre:
+- onde estão os principais sinais de maturidade
+- onde estão os principais riscos
+- quais cargos e competências merecem foco
+- que investimentos em desenvolvimento parecem mais justificados
+- como priorizar o próximo ciclo
+
+PRINCÍPIOS INEGOCIÁVEIS:
+1. Níveis são NUMÉRICOS (1-4).
+2. DISC é hipótese contextual, não diagnóstico fechado.
+3. Conecte tudo ao impacto organizacional real.
+4. Treinamentos precisam ser específicos e priorizados.
+5. Cada risco identificado deve vir com ação concreta.
+6. Para cada cargo, deve haver UMA competência foco mais alavancadora.
+7. Não invente causalidade que os dados não sustentam.
+8. Seja estratégico, mas pé no chão.
+9. Máximo 3 ações por horizonte.
+
+RETORNE APENAS JSON VÁLIDO. Português com acentuação correta.
+
+FORMATO OBRIGATÓRIO:
 {
-  "resumo_executivo": "4-6 linhas",
+  "resumo_executivo": {
+    "leitura_geral": "síntese executiva curta",
+    "principal_forca_organizacional": "texto curto",
+    "principal_risco_organizacional": "texto curto"
+  },
   "indicadores": {
     "total_avaliados": 0,
     "total_avaliacoes": 0,
-    "media_geral": 0,
+    "media_geral": 0.0,
     "pct_nivel_1": 0, "pct_nivel_2": 0, "pct_nivel_3": 0, "pct_nivel_4": 0
   },
   "visao_por_cargo": [
-    {"cargo": "", "analise": "2-3 linhas", "media": 0, "ponto_forte": "", "ponto_critico": ""}
+    {
+      "cargo": "nome",
+      "media_nivel": 0.0,
+      "principais_forcas": ["força 1"],
+      "principais_riscos": ["risco 1"],
+      "leitura": "síntese curta e útil"
+    }
   ],
   "competencias_criticas": [
-    {"competencia": "", "criticidade": "CRITICA|ATENCAO|ESTAVEL", "motivo": "2-3 linhas", "impacto": "1 linha"}
+    {
+      "competencia": "nome",
+      "criticidade": "alta|media|baixa",
+      "justificativa": "texto curto",
+      "impacto_organizacional": "texto curto"
+    }
   ],
   "competencia_foco_por_cargo": [
     {
-      "cargo": "",
-      "competencia_recomendada": "",
-      "justificativa": "3-4 linhas: por que essa competência é a mais alavancadora para esse cargo agora — combine gap médio observado, criticidade da competência pro cargo, alinhamento com desafios estratégicos da empresa",
-      "expectativa_impacto": "1-2 linhas: o que muda na prática se o cargo evoluir nessa competência",
-      "horizonte_sugerido": "30d|60d|90d"
+      "cargo": "nome do cargo",
+      "competencia_recomendada": "nome da competência",
+      "justificativa": "justificativa quanti + quali",
+      "expectativa_impacto": "texto curto",
+      "horizonte_sugerido": "curto|medio|longo"
     }
   ],
   "treinamentos_sugeridos": [
-    {"titulo": "", "competencias_alvo": [""], "publico": "", "formato": "", "carga_horaria": "", "custo": "baixo|medio|alto", "prioridade": "URGENTE|IMPORTANTE|DESEJAVEL", "justificativa": ""}
+    {
+      "titulo": "nome do treinamento",
+      "competencia": "competência relacionada",
+      "publico": "público-alvo",
+      "custo": "baixo|medio|alto",
+      "prioridade": "alta|media|baixa",
+      "carga_horaria": "texto curto",
+      "formato": "presencial|online|misto|mentoria|pratica",
+      "justificativa": "por que este treinamento ajuda",
+      "entra_se_orcamento_curto": true
+    }
   ],
   "perfil_disc_organizacional": {
-    "descricao": "2-3 linhas hipotese",
-    "implicacao": ""
+    "descricao": "leitura prudente do perfil coletivo",
+    "forca_coletiva": "texto curto",
+    "risco_coletivo": "texto curto"
   },
   "decisoes_chave": [
-    {"colaborador": "", "situacao": "", "acao": "", "criterio_reavaliacao": "", "consequencia": ""}
+    {"colaborador": "nome", "situacao": "texto curto", "acao": "ação concreta", "criterio_reavaliacao": "quando reavaliar"}
   ],
   "plano_acao": {
-    "curto_prazo": {"titulo": "", "descricao": "", "impacto": ""},
-    "medio_prazo": {"titulo": "", "descricao": "", "impacto": ""},
-    "longo_prazo": {"titulo": "", "descricao": "", "impacto": ""}
+    "curto_prazo": ["ação 1", "ação 2", "ação 3"],
+    "medio_prazo": ["ação 1", "ação 2", "ação 3"],
+    "longo_prazo": ["ação 1", "ação 2", "ação 3"]
   },
-  "mensagem_final": "2-3 linhas"
-}`;
+  "mensagem_final": "fechamento executivo e realista",
+  "alertas_metodologicos": ["alerta 1"]
+}
+
+REGRAS:
+- máximo 3 ações por horizonte
+- níveis sempre numéricos
+- DISC sempre como hipótese
+- cada treinamento com prioridade e justificativa
+- cada risco relevante com ação concreta
+- para cada cargo, exatamente 1 competência foco
+- evitar linguagem genérica que serviria para qualquer empresa`;
 
 export async function gerarRelatorioRH(
   empresaId: string,
