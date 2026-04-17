@@ -119,49 +119,66 @@ export async function extrairPPP(empresaId: string, { urls = [], textos = [], mo
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function buildPromptEducacional(empresa, todosTextos) {
-  const system = `Voce e um especialista em analise de documentos educacionais e institucionais brasileiros.
-Sua tarefa e extrair de um PPP ou documento institucional as informacoes necessarias para contextualizar cenarios de avaliacao de competencias.
+  const system = `Você é um especialista em análise de documentos educacionais e institucionais brasileiros.
 
-IMPORTANTE: Extraia APENAS o que esta explicito ou claramente implicito no documento.
-Nao invente, nao complemente com conhecimento geral.
-Se uma secao nao existir no documento, escreva "Nao declarado no documento".
+Sua tarefa é extrair, a partir de um PPP ou documento institucional educacional, o contexto necessário para gerar cenários e avaliações de competências de forma fiel à realidade da instituição.
 
-REGRA DE CONCISAO: Seja direto e objetivo em cada secao.
-- Secoes descritivas: maximo 5 frases curtas cada.
-- Listas: maximo 8 itens.
-Priorize COMPLETAR TODAS AS 10 SECOES ao inves de detalhar demais cada uma.
-E OBRIGATORIO entregar da secao 1 ate a secao 10 completas.
+ATENÇÃO:
+Você NÃO está fazendo um resumo escolar genérico.
+Você NÃO está interpretando livremente o documento.
+Você está EXTRAINDO CONTEXTO ESTRUTURADO para uso posterior em prompts de avaliação e desenvolvimento.
 
-Responda APENAS com JSON valido.`;
+OBJETIVO CENTRAL:
+Transformar o documento em um contexto educacional claro, conciso e utilizável, preservando:
+- identidade institucional
+- contexto da comunidade
+- práticas descritas
+- vocabulário recorrente
+- desafios e metas
+- valores institucionais
+- competências priorizadas
 
-  const user = `Instituicao: ${empresa.nome} (${empresa.segmento})
+PRINCÍPIOS INEGOCIÁVEIS:
+1. Extraia apenas o que está explícito ou claramente implícito no documento.
+2. Nunca invente contexto, cultura ou prática institucional.
+3. Se não houver base suficiente, escreva exatamente: "Não declarado no documento".
+4. Não transforme ideal declarado em prática consolidada sem sustentação.
+5. Seja conciso: no máximo 5 frases curtas por seção.
+6. Listas com no máximo 8 itens.
+7. Entregue obrigatoriamente todas as seções.
+8. Priorize o que ajuda a entender como a instituição funciona.
+9. Evite abstrações vazias e pedagogês ornamental.
+
+RETORNE APENAS JSON VÁLIDO, sem markdown, sem texto antes ou depois.`;
+
+  const user = `Instituição: ${empresa.nome} (${empresa.segmento})
 
 Documento:
 ${todosTextos.slice(0, 60000)}
 
 ---
-Extraia no formato JSON abaixo. Todas as 10 secoes sao OBRIGATORIAS:
+Extraia no formato JSON abaixo. Todas as seções são OBRIGATÓRIAS:
 
 {
   "perfil_instituicao": {
     "nome": "nome completo",
-    "tipo": "escola municipal / empresa corporativa / etc",
+    "tipo": "escola municipal / estadual / privada / etc",
     "segmento": "${empresa.segmento}",
-    "porte": "n aprox de colaboradores/alunos",
+    "porte": "nº aprox de colaboradores/alunos",
     "localizacao": "cidade, UF"
   },
-  "comunidade_contexto": "3-5 frases sobre o perfil da comunidade/mercado atendido",
+  "comunidade_contexto": "3-5 frases sobre o perfil da comunidade atendida",
   "identidade": {
     "missao": "transcrever ou sintetizar",
     "visao": "transcrever ou sintetizar",
-    "principios": ["principio 1", "principio 2"],
-    "concepcao": "como a instituicao entende seu papel (2-3 frases)"
+    "principios": ["princípio 1", "princípio 2"],
+    "concepcao": "como a instituição entende seu papel (2-3 frases)"
   },
   "praticas_descritas": [
-    {"nome": "pratica/projeto/programa", "descricao": "1 frase", "frequencia": "permanente/anual/etc"}
+    {"nome": "prática/projeto/programa", "descricao": "1 frase", "frequencia": "permanente/anual/etc"}
   ],
-  "inclusao_diversidade": "3-5 frases sobre como trata diversidade e inclusao",
-  "gestao_participacao": "3-5 frases sobre modelo de gestao e participacao",
+  "inclusao_diversidade": "3-5 frases sobre como trata diversidade e inclusão",
+  "gestao_participacao": "3-5 frases sobre modelo de gestão e participação",
   "infraestrutura_recursos": {
     "espacos": ["lab", "biblioteca", "etc"],
     "tecnologia": ["plataformas", "equipamentos"],
@@ -175,10 +192,24 @@ Extraia no formato JSON abaixo. Todas as 10 secoes sao OBRIGATORIAS:
     {"termo": "sigla ou termo", "significado": "o que significa naquele contexto"}
   ],
   "competencias_priorizadas": [
-    {"nome": "competencia", "justificativa": "por que o documento indica isso", "relevancia": "alta|media|baixa"}
+    {"nome": "competência", "justificativa": "por que o documento indica isso", "relevancia": "alta|media|baixa"}
   ],
-  "valores_institucionais": ["valor 1", "valor 2"]
-}`;
+  "valores_institucionais": ["valor 1", "valor 2"],
+  "_metadata_extracao": {
+    "sinais_fortes": ["sinal forte encontrado no documento"],
+    "limites_do_documento": ["o que o documento não cobre bem"],
+    "alertas_de_interpretacao": ["alerta sobre interpretação frágil"]
+  }
+}
+
+REGRAS:
+- Todas as seções obrigatórias devem existir
+- Se faltar informação, usar "Não declarado no documento" ou lista vazia
+- Máximo 5 frases curtas por seção textual
+- Listas com máximo 8 itens
+- _metadata_extracao é opcional mas recomendado
+- Não invente termos, valores ou competências fora do que o documento sustenta
+- Registre competências priorizadas apenas quando houver base documental clara`;
 
   return { system, user };
 }
