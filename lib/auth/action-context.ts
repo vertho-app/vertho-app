@@ -67,10 +67,10 @@ export async function requireRoleAction(roles: AllowedRole[]): Promise<Authentic
   throw new Error(`FORBIDDEN: role necessário ${roles.join('|')}`);
 }
 
-export function assertTenantAccessAction(
+export async function assertTenantAccessAction(
   auth: AuthenticatedContext,
   empresaId: string | null | undefined,
-): void {
+): Promise<void> {
   if (!empresaId) throw new Error('BAD_REQUEST: empresaId obrigatório');
   if (auth.isPlatformAdmin) return;
   if (auth.empresaId !== empresaId) throw new Error('FORBIDDEN: sem acesso a esta empresa');
