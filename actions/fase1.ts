@@ -940,18 +940,72 @@ export async function rodarIA3Uma(empresaId: string, cargoNome: string, competen
     const system = buildIA3SystemPrompt();
     const user = buildIA3UserPrompt(empresa, cargoNome, cargoDetalhe, comp, descritores || [], valores, contextoPPP, gabCIS);
 
-    const resposta = await callAI(system, user, aiConfig, 64000);
-    const resultado = await extractJSON(resposta);
+    let resposta = await callAI(system, user, aiConfig, 6144);
+    let resultado = await extractJSON(resposta);
 
     if (!resultado) return { success: false, error: 'IA não retornou JSON válido' };
 
-    // Normalizar formato: a IA pode retornar em vários formatos
+    // Normalizar formato
     const cen = resultado.cenario || resultado.scenario || resultado;
     const titulo = cen.titulo || cen.title || resultado.titulo || 'Cenário';
     const contexto = cen.contexto || cen.context || cen.descricao || resultado.contexto || '';
     const perguntas = resultado.perguntas || resultado.questions || cen.perguntas || [];
 
     if (!contexto && !titulo) return { success: false, error: 'IA não retornou cenário válido' };
+
+    // ── Validação pós-resposta ──
+    const errors: string[] = [];
+
+    // 4 perguntas obrigatórias
+    if (!Array.isArray(perguntas) || perguntas.length !== 4) {
+      errors.push(`Esperado 4 perguntas, recebido ${Array.isArray(perguntas) ? perguntas.length : 0}`);
+    }
+
+    // Cobertura de descritores
+    if (descritores?.length && Array.isArray(perguntas)) {
+      const allDescs = new Set<number>();
+      perguntas.forEach((p: any) => {
+        if (Array.isArray(p.descritores_primarios)) {
+          p.descritores_primarios.forEach((d: number) => allDescs.add(d));
+        }
+      });
+      const missing = [];
+      for (let i = 1; i <= descritores.length; i++) {
+        if (!allDescs.has(i)) missing.push(`D${i}`);
+      }
+      if (missing.length) errors.push(`Descritores sem cobertura: ${missing.join(', ')}`);
+    }
+
+    // Confiança
+    if (typeof cen.confianca_cenario === 'number' && (cen.confianca_cenario < 0 || cen.confianca_cenario > 1)) {
+      errors.push(`confianca_cenario fora de 0-1: ${cen.confianca_cenario}`);
+    }
+
+    // Retry se erros críticos
+    if (errors.length > 0) {
+      console.warn(`[IA3] ${comp.nome}: validação (${errors.join('; ')}). Retry.`);
+      const retryUser = user + `\n\n═══ ATENÇÃO: CORREÇÃO NECESSÁRIA ═══\n${errors.join('\n')}\nCorrija e retorne JSON válido.`;
+      resposta = await callAI(system, retryUser, aiConfig, 6144);
+      const retryResult = await extractJSON(resposta);
+      if (retryResult) {
+        resultado = retryResult;
+        const cen2 = retryResult.cenario || retryResult;
+        if (cen2.titulo) Object.assign(cen, cen2);
+      }
+    }
+
+    // Montar alternativas enriquecidas (preserva perguntas + metadados do cenário)
+    const alternativasEnriquecidas = {
+      perguntas: (resultado.perguntas || resultado.questions || cen.perguntas || perguntas),
+      faceta_testada_principal: cen.faceta_testada_principal || null,
+      tradeoff_testado: cen.tradeoff_testado || null,
+      fator_complicador: cen.fator_complicador || null,
+      dilema_etico: cen.dilema_etico || resultado.dilema_etico || null,
+      armadilha_de_resposta_generica: cen.armadilha_de_resposta_generica || null,
+      confianca_cenario: typeof cen.confianca_cenario === 'number' ? Math.max(0, Math.min(1, cen.confianca_cenario)) : null,
+      riscos_do_cenario: cen.riscos_do_cenario || null,
+      mapa_cobertura_descritores: resultado.mapa_cobertura_descritores || null,
+    };
 
     // Salvar (limpa anterior). empresa_id é injetado pelo tdb.delete/insert
     await tdb.from('banco_cenarios')
@@ -962,9 +1016,9 @@ export async function rodarIA3Uma(empresaId: string, cargoNome: string, competen
     const { error: insertErr } = await tdb.from('banco_cenarios').insert({
       competencia_id: comp.id,
       cargo: cargoNome,
-      titulo,
-      descricao: contexto,
-      alternativas: perguntas,
+      titulo: cen.titulo || titulo,
+      descricao: cen.contexto || contexto,
+      alternativas: alternativasEnriquecidas,
     });
 
     if (insertErr) return { success: false, error: `Erro ao salvar: ${insertErr.message}` };
@@ -1026,20 +1080,30 @@ export async function regenerarCenario(cenarioId: string, aiConfig: AIConfig = {
       user += `\n\nFEEDBACK DA REVISÃO ANTERIOR (CORRIJA ESTES PONTOS):\n${feedbackExtra}`;
     }
 
-    const resposta = await callAI(system, user, aiConfig, 64000);
+    const resposta = await callAI(system, user, aiConfig, 6144);
     const resultado = await extractJSON(resposta);
     if (!resultado) return { success: false, error: 'IA não retornou JSON válido' };
 
     const cen2 = resultado.cenario || resultado.scenario || resultado;
     const titulo = cen2.titulo || cen2.title || resultado.titulo || 'Cenário';
     const contexto = cen2.contexto || cen2.context || cen2.descricao || resultado.contexto || '';
-    const perguntas = resultado.perguntas || resultado.questions || cen2.perguntas || [];
 
-    // Atualizar cenário existente (limpa check anterior)
+    const alternativasEnriquecidas = {
+      perguntas: (resultado.perguntas || resultado.questions || cen2.perguntas || []),
+      faceta_testada_principal: cen2.faceta_testada_principal || null,
+      tradeoff_testado: cen2.tradeoff_testado || null,
+      fator_complicador: cen2.fator_complicador || null,
+      dilema_etico: cen2.dilema_etico || resultado.dilema_etico || null,
+      armadilha_de_resposta_generica: cen2.armadilha_de_resposta_generica || null,
+      confianca_cenario: typeof cen2.confianca_cenario === 'number' ? Math.max(0, Math.min(1, cen2.confianca_cenario)) : null,
+      riscos_do_cenario: cen2.riscos_do_cenario || null,
+      mapa_cobertura_descritores: resultado.mapa_cobertura_descritores || null,
+    };
+
     const { error: updErr } = await sbRaw.from('banco_cenarios').update({
       titulo,
       descricao: contexto,
-      alternativas: perguntas,
+      alternativas: alternativasEnriquecidas,
       nota_check: null,
       status_check: null,
       dimensoes_check: null,
@@ -1203,102 +1267,176 @@ ${pppResumo ? `\nCONTEXTO PPP:\n${pppResumo}` : ''}`;
   }
 }
 
-function buildIA3SystemPrompt() {
-  return `Você é um especialista com 20 anos em avaliação de competências em organizações brasileiras.
-Especialidade: criar cenários situacionais como instrumentos diagnósticos.
-Os cenários funcionam como "radiografia" — a resposta revela naturalmente o nível de maturidade.
+function buildIA3SystemPrompt(): string {
+  return `Você é um especialista com 20 anos em avaliação de competências comportamentais em organizações brasileiras.
+Sua especialidade: criar cenários situacionais como INSTRUMENTOS DIAGNÓSTICOS.
 
-TAREFA: Crie UM cenário situacional + 4 perguntas temáticas para a competência descrita.
+═══ OBJETIVO ═══
 
-REGRAS DE CONSTRUÇÃO:
-1. ESTRUTURA DO CENÁRIO
-   - Contexto: 250-400 palavras, personagens nomeados, situação-gatilho
-   - 1 tensão central + 1 complicador (máx 2 tensões)
-   - Máx 2 stakeholders nomeados
-   - 1 dado concreto (número, prazo, %)
-   - Teste: 10 segundos para entender o problema
+Criar UM cenário situacional + 4 perguntas temáticas que funcionem como
+INSTRUMENTO DE ASSESSMENT. NÃO é storytelling. NÃO é treinamento. NÃO é texto bonito.
+O cenário é uma radiografia: a resposta revela o nível de maturidade.
 
-2. REALISMO CONTEXTUAL
-   - Use APENAS elementos do contexto da empresa/escola fornecido
-   - Vocabulário e siglas da organização
-   - Nomes brasileiros para personagens
+═══ PILARES DO CENÁRIO ═══
 
-3. DECISÃO FORÇADA (REGRA DE OURO)
-   - Se pode responder SEM ABRIR MÃO DE NADA → cenário NÃO funciona
-   - P1: ESCOLHA — cenário de decisão com trade-off real
+1. DECISÃO FORÇADA (REGRA DE OURO)
+   Se o avaliado pode responder BEM sem abrir mão de nada, priorizar nada ou
+   assumir risco algum → o cenário FALHOU como instrumento.
+   - P1: ESCOLHA — trade-off real, priorização com custo
    - P2: COMO — execução sabendo que haverá resistência
-   - P3: TENSÃO HUMANA — lidar com pessoa que resiste/sofre
-   - P4: SUSTENTABILIDADE — como saber que funcionou
+   - P3: TENSÃO HUMANA — lidar com pessoa que resiste/sofre/discorda
+   - P4: SUSTENTABILIDADE — como saber que funcionou no médio prazo
 
-4. COBERTURA DE DESCRITORES
-   - Cada pergunta deve cobrir 2-3 descritores como foco primário
-   - As 4 perguntas JUNTAS devem cobrir TODOS os descritores fornecidos
-   - Para cada pergunta, indique o que diferencia N1/N2/N3/N4
+2. FACETA ESPECÍFICA
+   O cenário testa uma FACETA ESPECÍFICA da competência, não "a competência
+   de forma genérica". Explicite qual aspecto é o foco.
 
-5. DILEMA ÉTICO EMBUTIDO
-   - O cenário DEVE conter pelo menos 1 situação onde o caminho mais fácil entra em conflito com um valor organizacional
-   - NÃO explicitar o dilema — ele deve emergir NATURALMENTE
+3. TRADE-OFF CENTRAL
+   Todo cenário precisa ter UM trade-off claro no centro. Se não houver
+   escolha difícil, não há diagnóstico.
 
-6. LIMITES
+4. PODER DISCRIMINANTE
+   Resposta N1 deve ser VISIVELMENTE diferente de N3. Se não é, o cenário
+   não discrimina. Resposta genérica/clichê DEVE falhar.
+
+5. COBERTURA DE DESCRITORES
+   Cada pergunta cobre 2-3 descritores como foco primário.
+   As 4 perguntas JUNTAS cobrem TODOS os descritores fornecidos.
+
+6. REALISMO CONTEXTUAL
+   Personagens brasileiros nomeados, vocabulário da organização, 1 dado
+   concreto (número, prazo, %), situação plausível no dia a dia do cargo.
+
+7. DILEMA ÉTICO EMBUTIDO
+   Pelo menos 1 situação onde o caminho mais fácil conflita com um valor
+   organizacional. NÃO explicitar — deve emergir naturalmente.
+
+8. SOBRIEDADE
+   - Máx 2 stakeholders nomeados
+   - Máx 2 tensões (1 central + 1 complicador)
+   - Sem subtramas
+   - Sem cenário teatral ou sofisticado demais
+   - 10 segundos pra entender o problema
    - Contexto: máx 900 caracteres
    - Cada pergunta: máx 200 caracteres
    - Perguntas ABERTAS (não múltipla escolha)
 
-Retorne APENAS JSON válido:
+═══ FORMATO JSON (APENAS JSON, sem markdown) ═══
+
 {
-  "cenario": {"titulo":"...","contexto":"... (250-400 palavras)"},
+  "cenario": {
+    "titulo": "Título curto e descritivo",
+    "contexto": "Contexto do cenário (250-400 palavras)",
+    "faceta_testada_principal": "Qual aspecto específico da competência este cenário mais testa",
+    "tradeoff_testado": "Qual escolha difícil o avaliado precisa fazer",
+    "fator_complicador": "O que torna a situação mais difícil do que parece",
+    "stakeholders_centrais": ["Nome1", "Nome2"],
+    "dilema_etico": {
+      "valor_testado": "Qual valor organizacional está em jogo",
+      "caminho_facil": "O que a pessoa faria se cedesse",
+      "caminho_etico": "O que a pessoa faria mantendo o valor"
+    },
+    "armadilha_de_resposta_generica": "Por que 'alinhar com todos' ou resposta vaga não resolve este cenário",
+    "confianca_cenario": 0.85,
+    "riscos_do_cenario": "Limitações deste cenário como instrumento (1-2 frases honestas)"
+  },
   "perguntas": [
-    {"numero":1,"texto":"...","descritores_primarios":[1,2],"o_que_diferencia_niveis":"N1:... | N2:... | N3:... | N4:..."},
-    {"numero":2,"texto":"...","descritores_primarios":[3,4],"o_que_diferencia_niveis":"N1:... | N2:... | N3:... | N4:..."},
-    {"numero":3,"texto":"...","descritores_primarios":[5,6],"o_que_diferencia_niveis":"N1:... | N2:... | N3:... | N4:..."},
-    {"numero":4,"texto":"...","descritores_primarios":[1,3,5],"o_que_diferencia_niveis":"N1:... | N2:... | N3:... | N4:..."}
+    {
+      "numero": 1,
+      "texto": "Pergunta aberta (máx 200 chars)",
+      "objetivo_diagnostico": "O que esta pergunta quer revelar sobre o avaliado",
+      "descritores_primarios": [1, 2],
+      "o_que_diferencia_niveis": "N1: ... | N2: ... | N3: ... | N4: ...",
+      "resposta_generica_falha_porque": "Por que resposta vaga/clichê não funciona aqui"
+    }
   ],
-  "dilema_etico": {"valor_testado":"...","caminho_facil":"...","caminho_etico":"..."}
-}`;
+  "mapa_cobertura_descritores": {
+    "D1": [1, 3],
+    "D2": [1, 4],
+    "D3": [2],
+    "D4": [2, 3],
+    "D5": [3, 4],
+    "D6": [4]
+  }
 }
 
-function buildIA3UserPrompt(empresa, cargoNome, cargoDetalhe, comp, descritores, valores, contextoPPP, gabCIS) {
-  let prompt = `EMPRESA: ${empresa.nome} (${empresa.segmento})
-CARGO: ${cargoNome}`;
+REGRAS DO JSON:
+- 4 perguntas obrigatórias
+- descritores_primarios: números dos descritores (D1=1, D2=2, etc.)
+- mapa_cobertura_descritores: cada descritor deve aparecer em pelo menos 1 pergunta
+- confianca_cenario: 0.0 a 1.0
+- stakeholders_centrais: máximo 2`;
+}
 
-  if (cargoDetalhe.descricao) prompt += `\nDESCRIÇÃO DO CARGO: ${cargoDetalhe.descricao}`;
-  if (cargoDetalhe.principais_entregas) prompt += `\nENTREGAS: ${cargoDetalhe.principais_entregas}`;
-  if (cargoDetalhe.stakeholders) prompt += `\nSTAKEHOLDERS: ${cargoDetalhe.stakeholders}`;
-  if (cargoDetalhe.tensoes_comuns) prompt += `\nTENSÕES: ${cargoDetalhe.tensoes_comuns}`;
+function buildIA3UserPrompt(empresa: any, cargoNome: string, cargoDetalhe: any, comp: any, descritores: any[], valores: string[], contextoPPP: string, gabCIS: any): string {
+  const blocks: string[] = [];
 
-  prompt += `\n\nCOMPETÊNCIA: ${comp.cod_comp} — ${comp.nome}`;
-  if (comp.descricao) prompt += `\nDescrição: ${comp.descricao}`;
+  blocks.push(`═══ EMPRESA ═══
+Nome: ${empresa.nome}
+Segmento: ${empresa.segmento || 'Não informado'}`);
 
-  // Descritores com níveis N1-N4
-  if (descritores.length > 0) {
-    prompt += `\n\nDESCRITORES (${descritores.length}):`;
-    descritores.forEach((d, i) => {
-      prompt += `\nD${i + 1}: ${d.cod_desc} — ${d.nome_curto || d.descritor_completo || ''}`;
-      if (d.n1_gap) prompt += `\n  N1 (Gap): ${d.n1_gap}`;
-      if (d.n3_meta) prompt += `\n  N3 (Meta): ${d.n3_meta}`;
-    });
-    prompt += `\nREGRA: Cada pergunta cobre >=2 descritores. As 4 perguntas cobrem TODOS os ${descritores.length}.`;
+  blocks.push(`═══ CARGO ═══
+Cargo: ${cargoNome}`);
+
+  if (cargoDetalhe.descricao || cargoDetalhe.principais_entregas || cargoDetalhe.stakeholders || cargoDetalhe.decisoes_recorrentes || cargoDetalhe.tensoes_comuns) {
+    let ctx = '═══ CONTEXTO ORGANIZACIONAL ═══';
+    if (cargoDetalhe.descricao) ctx += `\nDescrição do cargo: ${cargoDetalhe.descricao}`;
+    if (cargoDetalhe.principais_entregas) ctx += `\nPrincipais entregas: ${cargoDetalhe.principais_entregas}`;
+    if (cargoDetalhe.stakeholders) ctx += `\nStakeholders: ${cargoDetalhe.stakeholders}`;
+    if (cargoDetalhe.decisoes_recorrentes) ctx += `\nDecisões recorrentes: ${cargoDetalhe.decisoes_recorrentes}`;
+    if (cargoDetalhe.tensoes_comuns) ctx += `\nTensões e situações difíceis: ${cargoDetalhe.tensoes_comuns}`;
+    blocks.push(ctx);
   }
 
-  prompt += `\n\nVALORES ORGANIZACIONAIS: ${valores.join(', ')}`;
-  prompt += `\nREGRA DE VALORES: O cenário DEVE conter pelo menos 1 dilema onde o caminho mais fácil conflita com um valor acima.`;
+  blocks.push(`═══ COMPETÊNCIA-ALVO ═══
+Código: ${comp.cod_comp || '—'}
+Nome: ${comp.nome}
+${comp.descricao ? `Descrição: ${comp.descricao}` : ''}`);
+
+  if (descritores.length > 0) {
+    let desc = `═══ DESCRITORES DA COMPETÊNCIA (${descritores.length}) ═══`;
+    descritores.forEach((d: any, i: number) => {
+      desc += `\nD${i + 1}: ${d.cod_desc} — ${d.nome_curto || d.descritor_completo || ''}`;
+      if (d.n1_gap) desc += `\n  N1 (Gap): ${d.n1_gap}`;
+      if (d.n2_desenvolvimento) desc += `\n  N2 (Desenvolvimento): ${d.n2_desenvolvimento}`;
+      if (d.n3_meta) desc += `\n  N3 (Meta): ${d.n3_meta}`;
+      if (d.n4_referencia) desc += `\n  N4 (Referência): ${d.n4_referencia}`;
+    });
+    blocks.push(desc);
+  }
+
+  blocks.push(`═══ VALORES ORGANIZACIONAIS ═══\n${valores.join(', ')}`);
 
   if (gabCIS) {
-    prompt += `\n\nPERFIL CIS IDEAL DO CARGO:`;
+    let perfil = '═══ PERFIL IDEAL DO CARGO (IA2) ═══';
     if (gabCIS.tela4) {
-      prompt += `\n  D: ${gabCIS.tela4.D?.min} → ${gabCIS.tela4.D?.max}`;
-      prompt += `\n  I: ${gabCIS.tela4.I?.min} → ${gabCIS.tela4.I?.max}`;
-      prompt += `\n  S: ${gabCIS.tela4.S?.min} → ${gabCIS.tela4.S?.max}`;
-      prompt += `\n  C: ${gabCIS.tela4.C?.min} → ${gabCIS.tela4.C?.max}`;
+      perfil += `\nDISC ideal:`;
+      for (const f of ['D', 'I', 'S', 'C']) {
+        if (gabCIS.tela4[f]) perfil += `\n  ${f}: ${gabCIS.tela4[f].min} → ${gabCIS.tela4[f].max}`;
+      }
     }
     if (gabCIS.tela3) {
-      prompt += `\n  Estilos: Executor ${gabCIS.tela3.executor}% | Motivador ${gabCIS.tela3.motivador}% | Metódico ${gabCIS.tela3.metodico}% | Sistemático ${gabCIS.tela3.sistematico}%`;
+      perfil += `\nEstilos de liderança: Executor ${gabCIS.tela3.executor}% | Motivador ${gabCIS.tela3.motivador}% | Metódico ${gabCIS.tela3.metodico}% | Sistemático ${gabCIS.tela3.sistematico}%`;
     }
-    prompt += `\nUse o perfil para escolher o TIPO de gatilho que revela pontos cegos deste perfil.`;
+    perfil += `\nUse o perfil para escolher o TIPO de gatilho que revela pontos cegos deste perfil.`;
+    blocks.push(perfil);
   }
 
-  if (contextoPPP) prompt += `\n\nCONTEXTO DA EMPRESA:\n${contextoPPP.slice(0, 3000)}`;
+  if (contextoPPP) {
+    blocks.push(`═══ CONTEXTO PPP / DOSSIÊ ═══\n${contextoPPP.slice(0, 3000)}`);
+  }
 
-  return prompt;
+  blocks.push(`═══ INSTRUÇÃO DE LEITURA ═══
+1. Identifique qual FACETA da competência mais importa neste cargo específico.
+2. Defina qual ESCOLHA DIFÍCIL diferenciaria respostas N1/N2/N3/N4.
+3. Pense em qual RESPOSTA GENÉRICA precisaria falhar — se ela funciona, o cenário é fraco.
+4. Distribua os ${descritores.length} descritores nas 4 perguntas (cada pergunta ≥2, cobertura total).
+5. Verifique: o cenário tem trade-off REAL? Resposta "boa pra todos" é impossível?
+
+═══ OBJETIVO ═══
+Gere o cenário como INSTRUMENTO DIAGNÓSTICO que a IA4 e o check vão usar
+para avaliar e auditar. Priorize clareza, discriminância e utilidade — não criatividade literária.`);
+
+  return blocks.join('\n\n');
 }
 
