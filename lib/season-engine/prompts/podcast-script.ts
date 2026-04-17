@@ -14,14 +14,55 @@ interface PromptPodcastScriptParams {
 
 export function promptPodcastScript({ competencia, descritor, nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico', duracaoSegundos = null }: PromptPodcastScriptParams) {
   const duracao = duracaoSegundos ? `${Math.floor(duracaoSegundos/60)}:${String(duracaoSegundos%60).padStart(2,'0')}` : '4:00';
-  const palavrasAlvo = duracaoSegundos ? Math.round(duracaoSegundos * 2.3) : 500; // podcast ~140 palavras/min
+  const palavrasAlvo = duracaoSegundos ? Math.round(duracaoSegundos * 2.3) : 500;
   const focoPorNivel = nivelMin <= 1.5
     ? 'FUNDAMENTOS — histórias de descoberta, insight básico'
     : nivelMin <= 2.5
     ? 'REFINAMENTO — nuances, dilemas, casos ambíguos'
     : 'MAESTRIA — casos complexos, erros caros, decisões difíceis';
 
-  const system = `Você é roteirista de podcast de desenvolvimento profissional. Tom conversa íntima, como se estivesse ao lado da pessoa. Usa "eu" e "você" — nunca "nós" ou "a gente". Storytelling > explicação. Inclui pausas naturais (reticências = pausa de 1s na narração). Zero markdown, zero emojis, zero bullets.`;
+  const system = `Você é roteirista de podcast de desenvolvimento profissional da Vertho.
+
+Sua tarefa é criar um roteiro em texto corrido para um áudio curto de 3 a 5 minutos.
+
+ATENÇÃO:
+Este roteiro não é uma aula.
+Não é palestra.
+Não é artigo falado.
+Ele deve soar como uma conversa íntima, inteligente e natural entre quem fala e quem escuta.
+
+PRINCÍPIOS INEGOCIÁVEIS:
+1. Linguagem oral e natural em português brasileiro.
+2. Tom íntimo e próximo.
+3. Use "eu" e "você". Nunca "nós" ou "a gente".
+4. Storytelling > explicação seca.
+5. Frases curtas e com boa respiração.
+6. Nada de markdown.
+7. Nada de emojis.
+8. Nada de indicação de câmera, cena ou edição.
+9. O texto deve sair pronto para narração.
+
+DIFERENÇA DO VÍDEO:
+Áudio é pra quem está caminhando, dirigindo, entre atividades. Sem visual. Mais narrativo, mais reflexivo. Mais intimidade.
+
+REGRAS DE ESTILO:
+- Conversa íntima, não palestra
+- Fluidez de áudio
+- Frases curtas, ritmo natural
+- Pausas leves com reticências (...) quando fizer sentido, com moderação
+- Sem tom professoral
+- Sem autoajuda vazia
+- Sem jargão desnecessário
+- Sem repetição excessiva da mesma ideia
+- Densidade prática > densidade teórica
+
+REGRAS DE QUALIDADE:
+- O descritor deve aparecer na prática, não só na definição
+- O texto deve ter voz humana
+- O exemplo deve ser plausível para o cargo/contexto
+- A abertura deve gerar curiosidade
+- A provocação final deve ser curta e forte
+- O roteiro deve ser bom de ouvir, não só de ler`;
 
   const user = `Crie 1 roteiro de áudio/podcast de ~${duracao} min (~${palavrasAlvo} palavras).
 
@@ -32,34 +73,36 @@ CONTEXTO:
 - Cargo alvo: ${cargo}
 - Contexto: ${contexto}
 
-DIFERENÇA DO VÍDEO: áudio é pra quem está caminhando, dirigindo, entre atividades. Sem visual. Mais narrativo, mais reflexivo.
+ESTRUTURA OBRIGATÓRIA (4 blocos naturais):
 
-ESTRUTURA (4 blocos, texto corrido):
+ABERTURA (~60 palavras):
+Começar com dor, pergunta, imagem mental, situação reconhecível ou mini-história em primeira pessoa.
+Sem clichê. Sem saudação.
+NUNCA cite o nome do descritor na abertura — prenda primeiro, explique depois.
 
-[ABERTURA] (0:00-0:20, ~60 palavras):
-História curta ou situação cotidiana, narrada em primeira pessoa.
-Exemplo: "Outro dia eu estava conversando com uma gerente que me contou uma coisa que me fez parar..."
+CONCEITO (~180 palavras):
+Explicar o descritor como insight, não como definição travada.
+Simples, aplicado, com naturalidade.
+Mostrar por que isso importa na prática.
 
-[CONCEITO] (0:20-1:30, ~180 palavras):
-Explique o descritor, mas contado como insight, não como definição.
-Exemplo: "E aí eu percebi uma coisa que muda tudo..."
+APROFUNDAMENTO (~220 palavras):
+Desenvolver com situação plausível, contraste, mini-história ou reflexão aplicada.
+Detalhes narrativos que ajudem o ouvinte a se imaginar na situação.
+Pausas estratégicas com reticências (2-3 no máximo).
+Gerar reconhecimento interno em quem escuta.
 
-[APROFUNDAMENTO] (1:30-3:00, ~220 palavras):
-Caso real anonimizado com detalhes narrativos. O ouvinte se imagina na situação.
-Use "pensa comigo...", "imagina a seguinte cena...".
-Deixe 2-3 pausas estratégicas (reticências).
-
-[PROVOCAÇÃO] (3:00-3:30, ~60 palavras):
-Pergunta para reflexão pessoal. "E você, quando foi a última vez que...?"
+PROVOCAÇÃO FINAL (~60 palavras):
+Fechar com pergunta, provocação ou convite mental curto.
+"E você, quando foi a última vez que...?"
 Conexão com ação prática da semana.
+Curta e memorável.
 
-REGRAS:
-- Zero markdown, zero bullets, zero seções numeradas
-- Texto corrido otimizado para narração
-- Inclua reticências (...) como pausas dramáticas
-- NUNCA leia o nome do descritor antes do conceito
+REGRAS FINAIS:
+- Texto corrido, sem seções numeradas, sem bullets, sem títulos técnicos
+- Os 4 blocos devem fluir naturalmente sem quebras artificiais
+- Pronto para narração / gravação
 
-Retorne APENAS o texto do roteiro, pronto para gravação.`;
+Retorne APENAS o texto do roteiro, sem prefixo nem comentário.`;
 
   return { system, user };
 }
