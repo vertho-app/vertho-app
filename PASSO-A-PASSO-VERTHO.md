@@ -88,6 +88,7 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 ### 14. Gerar PDI individual (opcional)
 **Admin** · Fase 2 · **Relatórios · Gerar PDI**
 - Gera PDF individual com diagnóstico e plano de desenvolvimento
+- `resumo_geral` sempre objeto, `plano_30_dias` sempre `{foco, acoes}`, `estudo_recomendado` sempre objetos
 
 ---
 
@@ -149,7 +150,7 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
    - Switch de formato se existem outros disponíveis
    - Vídeo: progresso >80% marca automático como consumido via postMessage
    - Botão **"Marcar como realizado"** como fallback (gate: só libera após clicar link)
-2. **Desafio da semana**: 1 micro-ação observável gerada por Claude (card destacado)
+2. **Desafio da semana**: 1 micro-ação observável gerada por Claude (card destacado, JSON estruturado: `{desafio_texto, acao_observavel, criterio_de_execucao, por_que_cabe_na_semana}`)
 3. **Tira-Dúvidas** (NOVO): chat reativo sobre o conteúdo da semana
    - Guard-rail no descritor da semana (não divaga)
    - Modelo: Haiku 4.5
@@ -157,12 +158,10 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
    - Persiste em `temporada_semana_progresso.tira_duvidas` JSONB
    - API: `POST /api/temporada/tira-duvidas`
 4. **Evidências** (socrática, 6 turnos IA + 6 colab):
-   - Turn 1: abertura + pergunta aberta
-   - Turn 2: aprofundamento de contexto
-   - Turn 3: motivações/decisões
-   - Turn 4: aprendizado/percepção
-   - Turn 5: integração + pattern
+   - **10 princípios** de condução socrática
+   - **6 turnos com progressão explícita** (abertura → aprofundamento → motivações → aprendizado → integração → fechamento)
    - Turn 6: fechamento com bullets Desafio / Insight / Compromisso
+   - **Grounding RAG disciplinado**: regras explícitas de uso do contexto recuperado
    - **Tom adaptado ao perfil DISC** do colab
    - **Regra anti-alucinação**: IA não inventa dados do colab
    - **Input por voz** disponível (Web Speech API, botão microfone)
@@ -172,14 +171,16 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 **Colaborador** · `/dashboard/temporada/semana/{4|8|12}`
 
 **Fluxo (substitui cenário escrito como default):**
-1. **Missão Prática apresentada**: ação real para executar na semana
+1. **Cenário apresentado**: JSON estruturado com `cenarioToMarkdown` para renderização
+2. **Missão Prática apresentada**: JSON estruturado com `missaoToMarkdown` para renderização
    - Colab aceita missão + declara compromisso
    - API: `POST /api/temporada/missao` (set_modo + compromisso)
-2. **Execução**: colab executa a missão na vida real durante a semana
-3. **Relato**: colab retorna e relata o que aconteceu
-4. **Feedback IA** (10 turnos via `prompts/missao-feedback.js`):
+3. **Execução**: colab executa a missão na vida real durante a semana
+4. **Relato**: colab retorna e relata o que aconteceu
+5. **Feedback IA** (10 turnos via `prompts/missao-feedback.js`):
    - IA analisa o relato, explora aprendizados, conecta com descritores
-5. **Fallback "Não consegui"**: se colab declara que não executou a missão
+   - **Anti-alucinação** e **anti-relato-bonito**: IA questiona relatos genéricos
+6. **Fallback "Não consegui"**: se colab declara que não executou a missão
    - Cai para cenário escrito (feedback analítico, 10 turnos via `prompts/analytic.js`)
    - Complexidade aumenta: simples → intermediário → completo
    - Cobre descritores dos blocos anteriores
@@ -198,9 +199,10 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
   5. **Integração de descritores**: 2 ângulos diferentes
   6. **Maior avanço + síntese final**
 - **DISC adaptado** ao perfil do colab
+- **10 princípios anti-inflação** na condução
 - **Regra anti-alucinação**
 - Ao final, Claude extrai via JSON:
-  - `evolucao_percebida[]`: para cada descritor, antes/depois/nivel_percebido
+  - `evolucao_percebida[]`: para cada descritor, antes/depois/nivel_percebido com **confiança 0-1** e **citações literais**
   - `maior_avanco`
   - `ponto_atencao`
   - `microcaso_resposta_qualidade`
@@ -214,6 +216,7 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
   - **Cega para nota inicial** (anti-viés de ancoragem)
   - max_tokens 8000
 - **2a IA** audita a avaliação (max_tokens 6000)
+- **`validateAvaliacaoAcumulada`**: valida estrutura, `forca_do_padrao`, **3-status check** (forte/moderado/fraco)
 - Resultado persiste em `temporada_semana_progresso.feedback.acumulado` da sem 13
 - Prompt: `prompts/acumulado.js`
 - Action: `actions/avaliacao-acumulada.js`
@@ -230,6 +233,8 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 - **UX wizard** idêntica ao mapeamento DISC (steps, não chat)
 - **Scorer triangula**: cenário + acumulada + evidências 13 semanas
   - Check por 2a IA
+  - `resumo_avaliacao` SEMPRE objeto (nunca string)
+  - **`validateEvolutionScenarioScore`**: valida estrutura + **6 critérios check**
   - Ponderação explícita: consistente / divergente cenário superior / divergente cenário inferior
   - Gera **4 notas por descritor**: pré, acumulada, cenário, final
   - `nota_cenario` isolada + `nota_pos` triangulada
@@ -265,14 +270,15 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
   - Status: evolução confirmada / parcial / estagnação / regressão
 - Filtros + ordenação
 - Click-through: modal com detalhe completo do colab
-- PDF individual por colab
+- PDF individual por colab: `resumo_executivo` sempre objeto, `risco_se_nao_agir` incluído
 - Botão **"Equipe"** na top bar (visível para gestor/RH)
 
-### 26. Plenária PDF
+### 26. Plenária PDF (Relatório RH)
 **Gestor/RH** · `/api/gestor/plenaria/pdf`
 
 - PDF consolidado do time inteiro
 - Gerado por `lib/plenaria-equipe-pdf.js`
+- `resumo_executivo` sempre objeto, `perfil_disc` sempre `forca_coletiva/risco_coletivo`
 - Visão agregada: quem evoluiu, quem estagnou, padrões por competência
 
 ### 27. Evolution Report da empresa (Admin)
@@ -349,13 +355,22 @@ Todos com back button context-aware.
 | Conversa | Onde | Turns IA | Modelo | Personalização |
 |---|---|---|---|---|
 | Tira-Dúvidas | sem 1-3, 5-7, 9-11 | ilimitado | Haiku 4.5 | guard-rail no descritor da semana |
-| Evidências (socrática) | sem 1-3, 5-7, 9-11 | 6 | Claude Sonnet | DISC + anti-alucinação + perguntas abertas |
-| Missão Feedback | sem 4, 8, 12 | 10 | Claude Sonnet | IA analisa relato da missão |
-| Analítica (fallback) | sem 4, 8, 12 | 10 | Claude Sonnet | alterna pontos fortes ↔ provocações |
-| Evolution qualitativa | sem 13 | 12 | Claude Sonnet | 6 etapas, microcaso, DISC |
-| Avaliação Acumulada | pós sem 13 | — (single-shot) | Claude Sonnet + auditor | cega p/ nota inicial, max 8000+6000 tok |
-| Evolution cenário | sem 14 | — (wizard 4 perguntas) | Claude Sonnet + auditor | triangulação + 4 notas, régua n1-n4 |
+| Evidências (socrática) | sem 1-3, 5-7, 9-11 | 6 | Sonnet 4.6 | DISC + anti-alucinação + perguntas abertas |
+| Missão Feedback | sem 4, 8, 12 | 10 | Sonnet 4.6 | IA analisa relato da missão |
+| Analítica (fallback) | sem 4, 8, 12 | 10 | Sonnet 4.6 | alterna pontos fortes ↔ provocações |
+| Evolution qualitativa | sem 13 | 12 | Sonnet 4.6 | 6 etapas, microcaso, DISC |
+| Avaliação Acumulada | pós sem 13 | — (single-shot) | Sonnet 4.6 + auditor | cega p/ nota inicial, max 8000+6000 tok |
+| Evolution cenário | sem 14 | — (wizard 4 perguntas) | Sonnet 4.6 + auditor | triangulação + 4 notas, régua n1-n4 |
 | Simulador | admin | 1 sem/chamada | Haiku | 4 perfis comportamentais |
+
+---
+
+---
+
+## Notas de manutenção (2026-04-17)
+
+- **Favicon**: `app/icon.svg` adicionado ao projeto
+- **Remoção de legado**: `gas-antigo/` (69 arquivos) e `migrations-legacy/` (37 SQL files) removidos; script npm `migrate:legacy` removido
 
 ---
 

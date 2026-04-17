@@ -1,7 +1,7 @@
 # Vertho Mentor IA — Arquitetura do Sistema
 
 > Documento oficial de arquitetura — SaaS B2B de desenvolvimento de competencias por IA.
-> Ultima atualizacao: 16/04/2026
+> Ultima atualizacao: 17/04/2026
 > Revisado contra o codigo-fonte em producao (vertho.com.br)
 > Metodo: auditoria automatizada + revisao manual
 
@@ -69,6 +69,7 @@ nextjs-app/
 │       └── smoke-test.yml        # CI/CD: smoke test em cada push
 ├── app/
 │   ├── layout.tsx                # Root layout (Inter font, meta, theme)
+│   ├── icon.svg                  # Favicon SVG
 │   ├── globals.css               # Tailwind + design tokens (navy, cyan, teal)
 │   ├── global-error.tsx          # Error boundary → Sentry
 │   ├── not-found.tsx             # 404 page
@@ -412,20 +413,29 @@ Modelos: Claude Sonnet 4.6, Claude Opus 4.6, Claude Haiku 4.5, Gemini 3 Flash, G
 |---|---|---|---|---|
 | Tira-Duvidas | `tira-duvidas.ts` | ilimitado | Haiku 4.5 | Chat reativo, guard-rail descritor, grounding RAG |
 | Evidencias (socratica) | `socratic.ts` | 6 | Sonnet | DISC + anti-alucinacao + grounding RAG |
-| Desafio | `challenge.ts` | — | Sonnet | Micro-acao observavel |
-| Cenario | `scenario.ts` | — | Sonnet | Cenario situacional com stakeholders |
-| Missao | `missao.ts` | — | Sonnet | Missao pratica (sem 4/8/12) |
+| Desafio | `challenge.ts` | — | Sonnet | JSON: desafio_texto, acao_observavel, criterio_de_execucao, por_que_cabe_na_semana |
+| Cenario | `scenario.ts` | — | Sonnet | JSON + parseCenarioResponse + cenarioToMarkdown |
+| Missao | `missao.ts` | — | Sonnet | JSON + parseMissaoResponse + missaoToMarkdown |
 | Missao Feedback | `missao-feedback.ts` | 10 | Sonnet | IA analisa relato (c/ grounding RAG) |
 | Analitico (fallback) | `analytic.ts` | 10 | Sonnet | Feedback cenario escrito |
 | Evolution Qualitativa | `evolution-qualitative.ts` | 12 | Sonnet | Sem 13: 6 etapas, microcaso, DISC |
-| Acumulada | `acumulado.ts` | single-shot | Sonnet + auditor | Pontua 1-4 cega, max 8000+6000 tok |
-| Evolution Cenario | `evolution-scenario.ts` | — | Sonnet | Gera cenario sem 14 |
-| Evolution Check | `evolution-scenario-check.ts` | — | Sonnet | 2a IA valida cenario |
+| Extracao pos-conversa (6.7) | `socratic.ts` | — | Sonnet | JSON: sinais_extraidos, forca_evidencia, trecho_sustentador, alertas_metodologicos |
+| Sem13 extracao (6.9.1) | `evolution-qualitative.ts` | — | Sonnet | JSON: confianca 0-1, citacoes_literais, limites_da_leitura |
+| Acumulada (6.10) | `acumulado.ts` | single-shot | Sonnet + auditor | JSON: forca_do_padrao, trechos_sustentadores, limites_da_base. validateAvaliacaoAcumulada |
+| Check Acumulada (6.11) | `acumulado.ts` | single-shot | auditor | 6 criterios ponderados, 3-status. validateAvaliacaoAcumuladaCheck |
+| Sem14 scorer (6.12) | `evolution-scenario.ts` | — | Sonnet | resumo_avaliacao ALWAYS object. validateEvolutionScenarioScore |
+| Check sem14 (6.13) | `evolution-scenario-check.ts` | — | Sonnet | 6 criterios. validateEvolutionScenarioCheck |
 | Simulador | `simulador-temporada.ts` | 1 sem/chamada | Haiku | 4 perfis comportamentais |
 | Case Study | `case-study.ts` | — | Sonnet | Geracao de caso |
 | Texto | `text-content.ts` | — | Sonnet | Geracao de artigo |
 | Video Script | `video-script.ts` | — | Sonnet | Roteiro video |
 | Podcast Script | `podcast-script.ts` | — | Sonnet | Roteiro podcast |
+| PDI (7.1) | `fase4.ts` | — | Sonnet | JSON: resumo_geral always object, plano_30_dias always {foco, acoes}, estudo_recomendado always objects |
+| Gestor (7.2) | `relatorios.ts` | — | Sonnet | JSON: resumo_executivo always object, risco_se_nao_agir, impacto_se_nao_agir |
+| RH (7.3) | `relatorios.ts` | — | Sonnet | JSON: resumo_executivo always object, perfil_disc always forca_coletiva/risco_coletivo |
+| PPP (8.1-8.3) | `ppp.ts` | — | Sonnet | _metadata_extracao, prudencia reforcada |
+| Comportamental (9.1) | `behavioral-report-prompt.ts` | — | Sonnet | Campos extras: relacoes_e_comunicacao, modo_de_trabalho, frases_chave |
+| Tags IA (11.5) | `conteudos.ts` | — | Sonnet | Vocabulario controlado, confianca enum |
 
 ### 5.4 Avaliacao Sem 14 (Triangulacao)
 - Cenario B SEMPRE do `banco_cenarios` (sem fallback IA)
@@ -779,9 +789,14 @@ Sentry: Error tracking
 - "Marcar como assistido" → "Marcar como realizado"
 - `xlsx` — removido (2 CVEs high sem fix) → substituido por `read-excel-file@^8`
 - `jsconfig.json` — substituido por `tsconfig.json` (migracao 100% TypeScript)
+- `gas-antigo/` (69 arquivos GAS) — removido 2026-04-17
+- `migrations-legacy/` (37 SQL) — removido 2026-04-17
+- `migrate:legacy` npm script — removido
+- `relatorio-arquitetura-vertho.md` — removido
+- Compatibilidade legada removida: perfil_disc fallback, typeof string checks em PDFs, resumo_avaliacao_detalhado
 
 ---
 
 *Documento validado contra o codigo-fonte em producao.*
 *~230 arquivos TS + 11 .js residuais | 45 migrations SQL | 111 unit + 86 e2e tests | 22+ env vars | vertho.com.br*
-*Revisao: 16/04/2026*
+*Revisao: 17/04/2026*

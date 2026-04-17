@@ -1,6 +1,6 @@
 # Estado atual de seguranca — Vertho Mentor IA
 
-> Ultima revisao: 2026-04-16
+> Ultima revisao: 2026-04-17
 
 ## Camadas de protecao implementadas
 
@@ -28,6 +28,18 @@
 - heavyLimiter (5/min) em 1 rota upload
 - Nao distribuido — baseline defense-in-depth
 
+### Validacao de outputs IA (P1)
+- Todas as saidas de prompts possuem funcoes de validacao: `validateEvolutionScenarioScore`, `validateAvaliacaoAcumulada`, `validateEvolutionExtract`, etc.
+- Parsing JSON estruturado com limpeza de backticks antes de `JSON.parse`
+- Clamping de valores numericos: notas 1-4, confianca 0-1
+- Validacao de enums para vocabularios controlados (`forca_evidencia`, `tendencia`, `convergencia`, etc.)
+
+### Seguranca de prompts IA (P1)
+- Regras anti-alucinacao em todos os prompts conversacionais (IA nao inventa dados do colab)
+- Regras anti-inflacao em prompts de avaliacao (sem 13, acumulada, sem 14)
+- Grounding RAG disciplinado com regras explicitas de uso do contexto recuperado
+- Mascaramento de PII mantido em todas as chamadas IA
+
 ### CI guard (P2)
 - `config/service-role-allowlist.json`: 88 arquivos com contagem
 - Testes vitest bloqueiam:
@@ -37,6 +49,11 @@
 - Integrado ao GitHub Actions (`typecheck.yml`)
 
 ## Divida consciente
+
+### Codigo legado removido
+- `gas-antigo/` removido (69 arquivos de codigo GAS legado)
+- `migrations-legacy/` removido (37 arquivos SQL de migracoes antigas)
+- Script npm `migrate:legacy` removido
 
 ### service_role (88 arquivos)
 - **34** usos aceitaveis (infra, jobs, webhooks, admin protegido)
