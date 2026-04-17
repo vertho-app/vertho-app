@@ -369,14 +369,24 @@ function SemanaDetalhe({ semana, progresso }) {
           {p.reflexao && (
             <>
               {p.reflexao.desafio_realizado && (
-                <div className="flex gap-2 text-[11px]">
+                <div className="flex flex-wrap gap-2 text-[11px]">
                   <span className="text-gray-500">Desafio:</span>
                   <span className="text-white font-bold">{p.reflexao.desafio_realizado}</span>
                   {p.reflexao.qualidade_reflexao && <span className="text-gray-500">· qualidade: <span className="text-cyan-400">{p.reflexao.qualidade_reflexao}</span></span>}
+                  {p.reflexao.sinais_extraidos && (
+                    <span className="text-gray-500">·
+                      {p.reflexao.sinais_extraidos.exemplo_concreto && <span className="text-emerald-400 ml-1">exemplo</span>}
+                      {p.reflexao.sinais_extraidos.autopercepcao && <span className="text-emerald-400 ml-1">autopercepção</span>}
+                      {p.reflexao.sinais_extraidos.compromisso_especifico && <span className="text-emerald-400 ml-1">compromisso</span>}
+                    </span>
+                  )}
                 </div>
               )}
               {p.reflexao.insight_principal && <Block titulo="💡 Insight" content={p.reflexao.insight_principal} />}
               {p.reflexao.compromisso_proxima && <Block titulo="📝 Compromisso" content={p.reflexao.compromisso_proxima} />}
+              {p.reflexao.limites_da_conversa?.length > 0 && (
+                <div className="text-[10px] text-amber-400/70">{p.reflexao.limites_da_conversa.join(' · ')}</div>
+              )}
               {p.reflexao.transcript_completo?.length > 0 && <Transcript title="Conversa de reflexão" items={p.reflexao.transcript_completo} />}
             </>
           )}
@@ -392,11 +402,19 @@ function SemanaDetalhe({ semana, progresso }) {
                       <div key={i} className="flex items-center gap-2 text-[11px] p-1.5 rounded bg-white/5">
                         <span className="text-white font-bold flex-1">{a.descritor}</span>
                         <span className="text-cyan-400">{a.nota || a.nota_pos}</span>
+                        {a.forca_evidencia && (
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded ${a.forca_evidencia === 'forte' ? 'bg-emerald-500/20 text-emerald-400' : a.forca_evidencia === 'moderada' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400'}`}>
+                            {a.forca_evidencia}
+                          </span>
+                        )}
                         <span className="text-gray-400 flex-[2]">{a.observacao || a.justificativa}</span>
                       </div>
                     ))}
                   </div>
                 </div>
+              )}
+              {p.feedback.alertas_metodologicos?.length > 0 && (
+                <div className="text-[10px] text-amber-400/70">{p.feedback.alertas_metodologicos.join(' · ')}</div>
               )}
               {p.feedback.sintese_bloco && <Block titulo="📊 Síntese do bloco" content={p.feedback.sintese_bloco} />}
               {p.feedback.transcript_completo?.length > 0 && <Transcript title="Conversa de feedback" items={p.feedback.transcript_completo} />}

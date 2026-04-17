@@ -10,24 +10,145 @@ import { promptMissaoFeedback } from '@/lib/season-engine/prompts/missao-feedbac
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
 
+function parseExtracaoResponse(raw: string): any {
+  let cleaned = raw.trim();
+  if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
+  return JSON.parse(cleaned);
+}
+
+function validateExtracaoSocratic(parsed: any): any {
+  const validos = ['sim', 'parcial', 'nao'];
+  if (!validos.includes(parsed.desafio_realizado)) parsed.desafio_realizado = 'parcial';
+  const qualidades = ['alta', 'media', 'baixa'];
+  if (!qualidades.includes(parsed.qualidade_reflexao)) parsed.qualidade_reflexao = 'media';
+  if (!parsed.relato_resumo || typeof parsed.relato_resumo !== 'string') parsed.relato_resumo = '';
+  if (!parsed.insight_principal || typeof parsed.insight_principal !== 'string') parsed.insight_principal = '';
+  if (!parsed.compromisso_proxima || typeof parsed.compromisso_proxima !== 'string') parsed.compromisso_proxima = '';
+  if (!parsed.sinais_extraidos || typeof parsed.sinais_extraidos !== 'object') {
+    parsed.sinais_extraidos = { exemplo_concreto: false, autopercepcao: false, compromisso_especifico: false };
+  }
+  if (!Array.isArray(parsed.limites_da_conversa)) parsed.limites_da_conversa = [];
+  return parsed;
+}
+
+function validateExtracaoAnalytic(parsed: any, descritores: string[]): any {
+  if (!Array.isArray(parsed.avaliacao_por_descritor)) parsed.avaliacao_por_descritor = [];
+  parsed.avaliacao_por_descritor = parsed.avaliacao_por_descritor.map((d: any) => {
+    const nota = typeof d.nota === 'number' ? Math.max(1, Math.min(4, Math.round(d.nota * 10) / 10)) : 2.0;
+    const forcas = ['fraca', 'moderada', 'forte'];
+    return {
+      descritor: d.descritor || '',
+      nota,
+      forca_evidencia: forcas.includes(d.forca_evidencia) ? d.forca_evidencia : 'fraca',
+      observacao: d.observacao || '',
+      trecho_sustentador: d.trecho_sustentador || '',
+      limite: d.limite || '',
+    };
+  });
+  if (!parsed.sintese_bloco || typeof parsed.sintese_bloco !== 'string') parsed.sintese_bloco = '';
+  if (!Array.isArray(parsed.alertas_metodologicos)) parsed.alertas_metodologicos = [];
+  return parsed;
+}
+
+const EXTRATOR_SYSTEM = `Você é um extrator de dados estruturados da Vertho.
+
+Sua tarefa é analisar uma conversa semanal e transformá-la em um JSON estruturado, fiel ao que foi realmente dito.
+
+ATENÇÃO:
+Você NÃO está avaliando formalmente.
+Você NÃO está aconselhando.
+Você NÃO está completando lacunas.
+Você está EXTRAINDO o que a conversa sustenta.
+
+PRINCÍPIOS INEGOCIÁVEIS:
+1. Extraia somente o que foi efetivamente dito ou claramente sustentado.
+2. Não invente comportamento, avanço, execução ou insight.
+3. Diferencie fala bonita de evidência concreta.
+4. Se faltar base, explicite isso.
+5. O output precisa ser útil para merge no progresso semanal.
+
+REGRAS DE EXTRAÇÃO:
+- Se algo estiver forte, diga por quê
+- Se algo estiver fraco, diga por quê
+- Se o descritor não tiver base suficiente, isso deve aparecer
+- Não use linguagem vaga
+- Não infle nota ou qualidade da reflexão sem sustentação
+
+RETORNE APENAS JSON VÁLIDO, sem markdown, sem backticks, sem texto antes ou depois.`;
+
 async function extrairDadosEstruturados(historico, tipoConversa, semanaPlan) {
   const transcript = historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content}`).join('\n\n');
-  // missao_feedback usa a mesma estrutura do analytic (avaliação por descritor).
   const estiloAnalytic = tipoConversa === 'analytic' || tipoConversa === 'missao_feedback';
 
   if (!estiloAnalytic) {
-    const system = 'Você é um extrator de dados estruturados. Analise a conversa e retorne APENAS um JSON válido, sem markdown, sem backticks.';
-    const user = `CONVERSA:\n${transcript}\n\nExtraia:\n{\n  "desafio_realizado": "sim" | "parcial" | "nao",\n  "relato_resumo": "1 frase resumindo o que aconteceu",\n  "insight_principal": "1 frase com o principal aprendizado",\n  "compromisso_proxima": "1 frase com o compromisso para a próxima semana",\n  "qualidade_reflexao": "alta" | "media" | "baixa"\n}\n\nRegras:\n- desafio_realizado: "sim" se executou, "parcial" se tentou, "nao" se não tentou\n- qualidade_reflexao: alta=reflexão profunda, media=superficial, baixa=respostas genéricas/curtas\n- Baseie-se APENAS na conversa`;
-    const resp = await callAI(system, user, {}, 2000);
-    return JSON.parse(resp.replace(/```json\n?|```\n?/g, '').trim());
+    const user = `MODO: socratic
+Foco: reflexão, insight, compromisso e qualidade da reflexão.
+
+CONVERSA:
+${transcript}
+
+EXTRAIA o JSON abaixo, preenchendo com base EXCLUSIVA na conversa:
+{
+  "desafio_realizado": "sim|parcial|nao",
+  "relato_resumo": "síntese curta e fiel do que o colaborador relatou",
+  "insight_principal": "principal percepção emergente — só se apareceu de fato",
+  "compromisso_proxima": "compromisso plausível assumido — só se foi dito",
+  "qualidade_reflexao": "alta|media|baixa",
+  "sinais_extraidos": {
+    "exemplo_concreto": true/false,
+    "autopercepcao": true/false,
+    "compromisso_especifico": true/false
+  },
+  "limites_da_conversa": ["limite 1 se houver"]
+}
+
+REGRAS:
+- desafio_realizado: "sim" se executou e relatou, "parcial" se tentou mas incompleto, "nao" se não tentou
+- qualidade_reflexao: alta = reflexão profunda com exemplo e insight genuíno; media = reflexão superficial sem detalhe; baixa = respostas genéricas ou monossilábicas
+- sinais_extraidos: marque true somente se apareceu de forma concreta na conversa
+- limites_da_conversa: liste pontos onde faltou aprofundamento ou evidência
+- NÃO complete lacunas com "bom senso"
+- NÃO infle qualidade_reflexao`;
+    const resp = await callAI(EXTRATOR_SYSTEM, user, {}, 2000);
+    return validateExtracaoSocratic(parseExtracaoResponse(resp));
   }
 
-  // analytic ou missao_feedback: extrai avaliação por descritor
-  const system = 'Você é um extrator de dados estruturados. Retorne APENAS JSON válido, sem markdown.';
   const descritores = semanaPlan.descritores_cobertos || [];
-  const user = `CONVERSA DE FEEDBACK:\n${transcript}\n\nExtraia:\n{\n  "avaliacao_por_descritor": [\n${descritores.map(d => `    { "descritor": "${d}", "nota": 1.0-4.0, "observacao": "1 frase" }`).join(',\n')}\n  ],\n  "sintese_bloco": "1 frase sobre o progresso geral do bloco"\n}`;
-  const resp = await callAI(system, user, {}, 3000);
-  return JSON.parse(resp.replace(/```json\n?|```\n?/g, '').trim());
+  const modoLabel = tipoConversa === 'missao_feedback' ? 'missao_feedback (evidência prática real)' : 'analytic (resposta a cenário escrito)';
+  const user = `MODO: ${modoLabel}
+Foco: leitura analítica por descritor com nota prudente e força de evidência.
+
+CONVERSA:
+${transcript}
+
+DESCRITORES A AVALIAR: ${descritores.join(', ')}
+
+EXTRAIA o JSON abaixo, preenchendo com base EXCLUSIVA na conversa:
+{
+  "avaliacao_por_descritor": [
+${descritores.map(d => `    {
+      "descritor": "${d}",
+      "nota": 1.0-4.0,
+      "forca_evidencia": "fraca|moderada|forte",
+      "observacao": "síntese curta e fiel",
+      "trecho_sustentador": "trecho curto ou paráfrase fiel do que sustenta a nota",
+      "limite": "o que faltou para sustentar melhor"
+    }`).join(',\n')}
+  ],
+  "sintese_bloco": "síntese curta e útil do progresso geral",
+  "alertas_metodologicos": ["alerta se houver"]
+}
+
+REGRAS:
+- nota entre 1.0 e 4.0 — não infle sem sustentação
+- forca_evidencia: "forte" = ação concreta + consequência percebida; "moderada" = relato com algum detalhe; "fraca" = menção vaga ou ausente
+- trecho_sustentador: cite ou parafraseie trecho literal da conversa
+- limite: explicite o que faltou — se não faltou nada, pode ficar vazio
+- alertas_metodologicos: liste se houver risco de viés, falta de base ou inflação
+- NÃO preencha todos os descritores como se todos tivessem aparecido bem
+- NÃO transforme intenção em evidência de execução`;
+  const resp = await callAI(EXTRATOR_SYSTEM, user, {}, 3000);
+  return validateExtracaoAnalytic(parseExtracaoResponse(resp), descritores);
 }
 
 const MAX_TURNS_SOCRATIC = 12; // 6 IA + 6 colab — evidências de 1 descritor
