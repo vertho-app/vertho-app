@@ -93,11 +93,16 @@ export async function loadTrilhaAtual(email) {
 /**
  * Registra evidência de prática semanal (Fase 4).
  */
-export async function registrarEvidencia(colaboradorId, empresaId, semana, texto) {
-  if (!colaboradorId || !empresaId || !semana || !texto?.trim()) {
+export async function registrarEvidencia(email: string, semana: number, texto: string) {
+  if (!email || !semana || !texto?.trim()) {
     return { error: 'Dados incompletos' };
   }
 
+  const colab = await findColabByEmail(email);
+  if (!colab) return { error: 'Colaborador não encontrado' };
+
+  const colaboradorId = colab.id;
+  const empresaId = colab.empresa_id;
   const sb = createSupabaseAdmin();
 
   let recordId: string | null = null;

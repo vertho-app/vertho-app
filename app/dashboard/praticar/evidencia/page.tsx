@@ -37,9 +37,9 @@ export default function EvidenciaPage() {
     setSubmitting(true);
     setError('');
 
+    const { data: { user: u } } = await supabase.auth.getUser();
     const result = await registrarEvidencia(
-      data.colaborador.id,
-      data.colaborador.empresa_id,
+      u?.email || '',
       data.semanaAtual,
       texto
     );
