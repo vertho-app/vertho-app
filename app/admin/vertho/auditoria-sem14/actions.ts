@@ -148,7 +148,7 @@ export async function regerarScoringComFeedback(progressoId) {
     ),
   ].filter(Boolean).join('\n');
 
-  const { promptEvolutionScenarioScore } = await import('@/lib/season-engine/prompts/evolution-scenario');
+  const { promptEvolutionScenarioScore, validateEvolutionScenarioScore } = await import('@/lib/season-engine/prompts/evolution-scenario');
   const { promptEvolutionScenarioCheck } = await import('@/lib/season-engine/prompts/evolution-scenario-check');
 
   // Agrega evidências das 13 sems (era '' antes — root cause do "EVIDÊNCIAS AUSENTES")
@@ -206,7 +206,9 @@ export async function regerarScoringComFeedback(progressoId) {
   let parsed = {};
   try {
     const r = await callAI(systemComFeedback, user, {}, 10000);
-    parsed = JSON.parse(r.replace(/```json\n?|```\n?/g, '').trim());
+    let cleaned14 = r.trim();
+    if (cleaned14.startsWith('```')) cleaned14 = cleaned14.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
+    parsed = validateEvolutionScenarioScore(JSON.parse(cleaned14));
   } catch (e) {
     return { error: 'Scorer falhou: ' + e.message };
   }

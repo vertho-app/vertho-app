@@ -1,6 +1,6 @@
 /**
  * Semana 14 — cenário final que integra todos os descritores da temporada.
- * Após resposta, a IA pontua cada descritor de 1.0 a 4.0.
+ * Após resposta, a IA pontua cada descritor por TRIANGULAÇÃO.
  */
 interface DescritorRubrica {
   descritor: string;
@@ -61,12 +61,6 @@ Retorne APENAS o markdown do cenário.`;
   return { system, user };
 }
 
-/**
- * Avalia a resposta do colaborador, pontuando cada descritor ancorado
- * na régua de maturidade (n1_gap, n2_desenvolvimento, n3_meta, n4_referencia).
- *
- * @param {Array} descritores - [{descritor, nota_atual, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia}]
- */
 function tomDevolutivaPorPerfil(perfil: string | null | undefined): string {
   const p = (perfil || '').toLowerCase();
   if (p.includes('d')) return 'Direto, objetivo. Nomeie resultado/ação específica. Evite floreios.';
@@ -89,45 +83,64 @@ interface PromptEvolutionScenarioScoreParams {
 
 export function promptEvolutionScenarioScore({ competencia, descritores, cenario, resposta, nomeColab, perfilDominante, evidenciasAcumuladas, acumuladoPrimaria }: PromptEvolutionScenarioScoreParams) {
   const tomDevol = tomDevolutivaPorPerfil(perfilDominante);
-  const system = `Você é um avaliador rigoroso e CRITERIOSO. A avaliação da semana 14 é o PONTO DE CHEGADA de uma temporada de 13 semanas — você NUNCA pontua só pela resposta ao cenário. Pontua pela TRIANGULAÇÃO da resposta com toda a evidência acumulada.
+  const system = `Você é um avaliador rigoroso e criterioso da Vertho.
 
-REGRAS OBJETIVAS (pontuação não varia por perfil, cargo ou estilo):
-- Ancore EXCLUSIVAMENTE na RÉGUA DE MATURIDADE fornecida. Nada de julgamento livre.
-- Use GRANULARIDADE de 0.1 (ex: 1.8, 2.3, 2.7). Não arredonde pra 0.5. A nota deve refletir com precisão o padrão.
-- Regressão (nota_pos < nota_pre) é possível — não force evolução.
-- Nomeie explicitamente o delta vs mapeamento inicial: "evoluiu de X para Y" / "manteve em X" / "regrediu de X para Y".
+Sua tarefa é calcular a AVALIAÇÃO FINAL da semana 14 por TRIANGULAÇÃO.
 
-COMO PONDERAR RESPOSTA AO CENÁRIO × EVIDÊNCIA ACUMULADA:
-A evidência acumulada (13 semanas) tem PESO MAIOR que a resposta única ao cenário. Regra:
+ATENÇÃO:
+A semana 14 é o ponto de chegada.
+Você NUNCA pontua só pela resposta ao cenário.
+Você pontua pela triangulação entre:
+- nota pré (baseline)
+- avaliação acumulada das 13 semanas
+- resposta ao cenário
+- evidências acumuladas da temporada
 
-1. **CONSISTENTE** (cenário e acumulado apontam pro mesmo nível, diferença ≤ 0.5):
-   → nota_pos = nível consolidado. "consistencia_com_acumulado": "consistente".
+OBJETIVO CENTRAL:
+Determinar, por descritor, qual é a leitura final mais defensável do estado atual do colaborador, após a jornada completa.
 
-2. **DIVERGENTE — CENÁRIO SUPERIOR** (cenário sugere X, acumulado sugere X-1 ou menor):
-   → Uma resposta escrita pode ser preparada/ensaiada. Não espelha padrão real.
-   → Puxa a nota pra PERTO DO ACUMULADO, com pequena elevação (0.3-0.5) se o cenário for robusto.
-   → "consistencia_com_acumulado": "divergente_cenario_superior". Justificativa EXPLICITA: "cenário mostrou X, mas evidência das 13 semanas aponta Y — por isso a nota pondera".
+PRINCÍPIOS INEGOCIÁVEIS:
+1. Ancore EXCLUSIVAMENTE na régua de maturidade.
+2. Use granularidade 0.1 (ex: 1.8, 2.3, 2.7).
+3. Regressão é possível — não force evolução.
+4. Evidência demonstrada pesa mais do que fala bonita.
+5. Resposta ao cenário NÃO invalida automaticamente o acumulado.
+6. Acumulado forte NÃO pode ser ignorado por um cenário fraco isolado.
+7. Cenário muito bom, mas isolado, NÃO pode gerar nota final inflada sem sustentação.
+8. DISC altera só o tom da devolutiva, nunca a nota.
+9. Toda justificativa deve citar evidência do cenário + evidência acumulada + leitura da régua.
 
-3. **DIVERGENTE — CENÁRIO INFERIOR** (cenário sugere X, acumulado sugere X+1 ou mais):
-   → Resposta pode ter sido feita com pouco tempo/cansaço. Não apaga a evidência.
-   → Puxa pra PERTO DO ACUMULADO, com pequena redução (0.3-0.5) se o cenário for claramente fraco.
-   → "consistencia_com_acumulado": "divergente_cenario_inferior". Justificativa explicita.
+PONDERAÇÃO RESPOSTA × ACUMULADO:
 
-4. **SEM EVIDÊNCIA ACUMULADA** (descritor sem registros nas 13 semanas):
-   → Use APENAS cenário + régua. "consistencia_com_acumulado": "consistente" (com nota "sem_acumulado").
+1. CONSISTENTE (cenário e acumulado diferem ≤ 0.5):
+   → nota_pos = nível consolidado coerente entre as duas fontes.
 
-REGRAS DURAS (pisos e tetos):
-- 4.0 só se acumulado E cenário demonstram claramente o comportamento de referência. Nunca só pelo cenário.
-- Se acumulado mostra N1-2 em TODAS as semanas, nota_pos ≤ 2.5 independente do cenário.
-- Se acumulado mostra N3 consistente em pelo menos 3 semanas, nota_pos ≥ 2.5 independente do cenário fraco.
-- Cite trecho literal da resposta + trecho de evidência acumulada + nível da régua na justificativa.
+2. DIVERGENTE CENÁRIO SUPERIOR (cenário bem acima do acumulado):
+   → Risco de resposta ensaiada/formulação pontual.
+   → Puxa pra PERTO DO ACUMULADO com pequena elevação (0.3-0.5) se cenário for robusto.
+   → Justificativa EXPLÍCITA.
 
-REGRA PARA O resumo_avaliacao (devolutiva pro colab):
-- Tom adaptado ao perfil DISC: ${tomDevol}
-- Cite pelo menos 1 evidência das 13 semanas além do cenário (ex: "Na sem 5 você relatou X, isso reforça...").
-- Conteúdo NUNCA muda por perfil — o que muda é a forma de dizer.
+3. DIVERGENTE CENÁRIO INFERIOR (cenário bem abaixo do acumulado):
+   → Risco de cansaço/pressa/nervosismo.
+   → Puxa pra PERTO DO ACUMULADO com pequena redução (0.3-0.5) se cenário for claramente fraco.
+   → Justificativa EXPLÍCITA.
 
-Retorne APENAS JSON válido, sem markdown.`;
+4. SEM EVIDÊNCIA ACUMULADA:
+   → Use cenário + régua com prudência.
+   → Explicite fragilidade metodológica.
+
+REGRAS DURAS:
+- 4.0 só se acumulado E cenário sustentarem referência.
+- Acumulado N1-2 consistente → nota_pos ≤ 2.5 independente do cenário.
+- Acumulado N3 consistente (3+ semanas) → nota_pos ≥ 2.5 independente do cenário fraco.
+
+DEVOLUTIVA (resumo_avaliacao):
+- Tom adaptado ao DISC: ${tomDevol}
+- Conteúdo NUNCA muda por perfil — o que muda é a forma.
+- Cite ao menos 1 evidência das 13 semanas além do cenário.
+- Seja honesto, construtivo e não inflado.
+
+RETORNE APENAS JSON VÁLIDO, sem markdown, sem texto antes ou depois.`;
 
   const reguas = descritores.map(d => {
     const linhas = [`### ${d.descritor} (nota inicial: ${d.nota_atual})`];
@@ -147,31 +160,112 @@ ${cenario}
 RESPOSTA DE ${nomeColab} AO CENÁRIO:
 "${resposta}"
 
-RÉGUA DE MATURIDADE (use como critério OBJETIVO):
+RÉGUA DE MATURIDADE (critério OBJETIVO):
 ${reguas}
 
-${acumuladoPrimaria ? `AVALIAÇÃO ACUMULADA (1ª IA já calculou a nota por descritor baseada nas 13 semanas — USE ISSO como referência de padrão da temporada):
+${acumuladoPrimaria ? `AVALIAÇÃO ACUMULADA (padrão das 13 semanas — USE como referência):
 ${JSON.stringify(acumuladoPrimaria, null, 2)}
 
-` : ''}EVIDÊNCIAS BRUTAS DAS 13 SEMANAS (pra triangular quando precisar):
+` : ''}EVIDÊNCIAS DAS 13 SEMANAS (pra triangular):
 ${evidenciasAcumuladas || '(sem evidências registradas)'}
 
-REGRAS DE PONTUAÇÃO:
-- Compare a resposta de ${nomeColab} com os comportamentos descritos na régua
-- Use GRANULARIDADE de 0.1 (ex: 1.8, 2.3, 2.7) — a nota reflete o ponto exato entre os níveis, não arredonde
-- Justificativa DEVE citar trecho específico da resposta + referenciar o nível da régua
-- Seja rigoroso: 4.0 só se demonstrou claramente o comportamento de referência
-
-Retorne JSON:
+EXTRAIA o JSON abaixo com base na TRIANGULAÇÃO:
 {
   "avaliacao_por_descritor": [
-${descritores.map(d => `    { "descritor": "${d.descritor}", "nota_pre": ${d.nota_atual}, "nota_cenario": "1.0-4.0 (nota baseada SOMENTE na resposta ao cenário + régua, SEM triangulação com acumulado)", "nota_pos": "1.0-4.0 (nota FINAL triangulada: cenário + acumulado + evidências, aplicando regras de ponderação)", "delta": "número (nota_pos - nota_pre)", "classificacao": "evoluiu | manteve | regrediu", "nivel_rubrica": "lacuna | em_desenvolvimento | meta | referencia", "consistencia_com_acumulado": "consistente | divergente_cenario_superior | divergente_cenario_inferior", "justificativa": "cite trecho literal da resposta + trecho da evidência acumulada + nível da régua + mencione explicitamente a evolução/manutenção/regressão vs mapeamento inicial (${d.nota_atual})" }`).join(',\n')}
+${descritores.map(d => `    {
+      "descritor": "${d.descritor}",
+      "nota_pre": ${d.nota_atual},
+      "nota_acumulada": null,
+      "nota_cenario": 1.0-4.0,
+      "nota_pos": 1.0-4.0,
+      "delta": 0.0,
+      "classificacao": "evoluiu|manteve|regrediu",
+      "nivel_rubrica": "lacuna|em_desenvolvimento|meta|referencia",
+      "consistencia_com_acumulado": "consistente|divergente_cenario_superior|divergente_cenario_inferior|sem_evidencia_acumulada",
+      "justificativa": "cite trecho do cenário + evidência acumulada + régua",
+      "trecho_cenario": "trecho curto da resposta",
+      "evidencia_acumulada": "trecho curto ou síntese fiel das 13 semanas",
+      "limites_da_leitura": ["limite 1"]
+    }`).join(',\n')}
   ],
-  "nota_media_pre": "número (média das nota_pre)",
-  "nota_media_cenario": "número (média das nota_cenario)",
-  "nota_media_pos": "número (média das nota_pos — triangulada)",
-  "delta_medio": "nota_media_pos - nota_media_pre",
-  "resumo_avaliacao": "1 parágrafo com devolutiva pra ${nomeColab}, no tom DISC, citando deltas reais da tabela acima"
-}`;
+  "nota_media_pre": 0.0,
+  "nota_media_acumulada": 0.0,
+  "nota_media_cenario": 0.0,
+  "nota_media_pos": 0.0,
+  "delta_medio": 0.0,
+  "resumo_avaliacao": {
+    "mensagem_geral": "devolutiva honesta e construtiva para ${nomeColab}",
+    "evidencias_citadas": ["evidência 1", "evidência 2"],
+    "principal_avanco": "texto curto",
+    "principal_ponto_de_atencao": "texto curto"
+  },
+  "alertas_metodologicos": ["alerta 1"]
+}
+
+REGRAS:
+- nota_cenario = nota baseada SOMENTE na resposta ao cenário + régua
+- nota_pos = nota FINAL triangulada (cenário + acumulado + evidências)
+- nota_acumulada = preencha com o valor da avaliação acumulada fornecida, ou null
+- delta = nota_pos - nota_pre
+- classificacao: evoluiu se delta > 0.3, regrediu se delta < -0.3, manteve se entre
+- trecho_cenario e evidencia_acumulada devem ser curtos e fiéis
+- limites_da_leitura: quando a triangulação tiver fragilidade
+- alertas_metodologicos: divergências, base fraca, inflação
+- Não force todos os descritores a evoluir`;
+
   return { system, user };
+}
+
+const CLASSIFICACOES = ['evoluiu', 'manteve', 'regrediu'];
+const NIVEIS = ['lacuna', 'em_desenvolvimento', 'meta', 'referencia'];
+const CONSISTENCIAS = ['consistente', 'divergente_cenario_superior', 'divergente_cenario_inferior', 'sem_evidencia_acumulada'];
+
+export function validateEvolutionScenarioScore(parsed: any): any {
+  if (!Array.isArray(parsed.avaliacao_por_descritor)) parsed.avaliacao_por_descritor = [];
+  parsed.avaliacao_por_descritor = parsed.avaliacao_por_descritor.map((d: any) => {
+    const clamp = (v: any) => v != null && typeof v === 'number' ? Math.max(1, Math.min(4, Math.round(v * 10) / 10)) : null;
+    const nota_pre = clamp(d.nota_pre);
+    const nota_pos = clamp(d.nota_pos);
+    const delta = nota_pre != null && nota_pos != null ? Math.round((nota_pos - nota_pre) * 10) / 10 : null;
+    return {
+      descritor: d.descritor || '',
+      nota_pre,
+      nota_acumulada: clamp(d.nota_acumulada),
+      nota_cenario: clamp(d.nota_cenario),
+      nota_pos,
+      delta,
+      classificacao: CLASSIFICACOES.includes(d.classificacao) ? d.classificacao : (delta != null ? (delta > 0.3 ? 'evoluiu' : delta < -0.3 ? 'regrediu' : 'manteve') : 'manteve'),
+      nivel_rubrica: NIVEIS.includes(d.nivel_rubrica) ? d.nivel_rubrica : 'em_desenvolvimento',
+      consistencia_com_acumulado: CONSISTENCIAS.includes(d.consistencia_com_acumulado) ? d.consistencia_com_acumulado : 'consistente',
+      justificativa: d.justificativa || '',
+      trecho_cenario: d.trecho_cenario || '',
+      evidencia_acumulada: d.evidencia_acumulada || '',
+      limites_da_leitura: Array.isArray(d.limites_da_leitura) ? d.limites_da_leitura : [],
+    };
+  });
+  const avg = (key: string) => {
+    const vals = parsed.avaliacao_por_descritor.map((d: any) => d[key]).filter((v: any) => v != null);
+    return vals.length ? Math.round((vals.reduce((a: number, b: number) => a + b, 0) / vals.length) * 10) / 10 : null;
+  };
+  if (typeof parsed.nota_media_pre !== 'number') parsed.nota_media_pre = avg('nota_pre');
+  if (typeof parsed.nota_media_acumulada !== 'number') parsed.nota_media_acumulada = avg('nota_acumulada');
+  if (typeof parsed.nota_media_cenario !== 'number') parsed.nota_media_cenario = avg('nota_cenario');
+  if (typeof parsed.nota_media_pos !== 'number') parsed.nota_media_pos = avg('nota_pos');
+  if (typeof parsed.delta_medio !== 'number') {
+    parsed.delta_medio = parsed.nota_media_pre != null && parsed.nota_media_pos != null
+      ? Math.round((parsed.nota_media_pos - parsed.nota_media_pre) * 10) / 10 : null;
+  }
+  if (parsed.resumo_avaliacao && typeof parsed.resumo_avaliacao === 'object') {
+    parsed.resumo_avaliacao_detalhado = {
+      mensagem_geral: parsed.resumo_avaliacao.mensagem_geral || '',
+      evidencias_citadas: Array.isArray(parsed.resumo_avaliacao.evidencias_citadas) ? parsed.resumo_avaliacao.evidencias_citadas : [],
+      principal_avanco: parsed.resumo_avaliacao.principal_avanco || '',
+      principal_ponto_de_atencao: parsed.resumo_avaliacao.principal_ponto_de_atencao || '',
+    };
+    parsed.resumo_avaliacao = parsed.resumo_avaliacao.mensagem_geral || '';
+  } else if (typeof parsed.resumo_avaliacao !== 'string') {
+    parsed.resumo_avaliacao = '';
+  }
+  if (!Array.isArray(parsed.alertas_metodologicos)) parsed.alertas_metodologicos = [];
+  return parsed;
 }

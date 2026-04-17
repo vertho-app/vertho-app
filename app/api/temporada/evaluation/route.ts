@@ -5,7 +5,7 @@ import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
 import { aiLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
 import { promptEvolutionQualitative, promptEvolutionQualitativeExtract, validateEvolutionExtract } from '@/lib/season-engine/prompts/evolution-qualitative';
-import { promptEvolutionScenarioScore } from '@/lib/season-engine/prompts/evolution-scenario';
+import { promptEvolutionScenarioScore, validateEvolutionScenarioScore } from '@/lib/season-engine/prompts/evolution-scenario';
 import { promptEvolutionScenarioCheck } from '@/lib/season-engine/prompts/evolution-scenario-check';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { gerarEvolutionReport } from '@/actions/evolution-report';
@@ -261,12 +261,17 @@ export async function POST(request) {
       });
       const r = await callAI(system, user, {}, 10000);
       let parsed: any = {};
-      try { parsed = JSON.parse(r.replace(/```json\n?|```\n?/g, '').trim()); } catch (e) {
+      try {
+        let cleaned14 = r.trim();
+        if (cleaned14.startsWith('```')) cleaned14 = cleaned14.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
+        parsed = validateEvolutionScenarioScore(JSON.parse(cleaned14));
+      } catch (e) {
         console.error('[VERTHO] parse sem14:', e.message);
       }
 
-      // Despersonaliza campos textuais do output (resumo_avaliacao e justificativas)
+      // Despersonaliza campos textuais do output
       if (parsed?.resumo_avaliacao) parsed.resumo_avaliacao = unmaskPII(parsed.resumo_avaliacao, piiMap);
+      if (parsed?.resumo_avaliacao_detalhado?.mensagem_geral) parsed.resumo_avaliacao_detalhado.mensagem_geral = unmaskPII(parsed.resumo_avaliacao_detalhado.mensagem_geral, piiMap);
       if (Array.isArray(parsed?.avaliacao_por_descritor)) {
         parsed.avaliacao_por_descritor = parsed.avaliacao_por_descritor.map((d: any) => ({
           ...d, justificativa: unmaskPII(d.justificativa, piiMap),
