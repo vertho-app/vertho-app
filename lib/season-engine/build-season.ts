@@ -7,8 +7,8 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI } from '@/actions/ai-client';
 import { promptDesafio, parseDesafioResponse } from '@/lib/season-engine/prompts/challenge';
-import { promptCenario } from '@/lib/season-engine/prompts/scenario';
-import { promptMissao } from '@/lib/season-engine/prompts/missao';
+import { promptCenario, parseCenarioResponse, cenarioToMarkdown } from '@/lib/season-engine/prompts/scenario';
+import { promptMissao, parseMissaoResponse, missaoToMarkdown } from '@/lib/season-engine/prompts/missao';
 import type { SelectedDescriptor } from './select-descriptors';
 
 interface MicroConteudo {
@@ -54,8 +54,21 @@ interface SemanaAplicacao {
   tipo: 'aplicacao';
   descritor: null;
   descritores_cobertos: string[];
-  missao?: { texto: string };
-  cenario?: { texto: string; complexidade: string };
+  missao?: {
+    texto: string;
+    acao_principal?: string;
+    contexto_de_aplicacao?: string;
+    criterio_de_execucao?: string;
+    integracao_descritores?: { descritor: string; como_aparece: string }[];
+  };
+  cenario?: {
+    texto: string;
+    complexidade: string;
+    tensao_central?: string;
+    tradeoff_testado?: string;
+    armadilha_resposta_generica?: string;
+    stakeholders?: string[];
+  };
   status: 'disponivel' | 'bloqueada';
 }
 
@@ -283,21 +296,46 @@ async function montarSemanaAplicacao(
   const complexidade = complexidadeMap[semana];
   const cobertos = blocosCobertos[semana] || [];
 
-  let missaoTexto = '';
-  let cenarioTexto = '';
+  let missaoObj: SemanaAplicacao['missao'] = { texto: '' };
+  let cenarioObj: SemanaAplicacao['cenario'] = { texto: '', complexidade };
   try {
     const m = promptMissao({ competencia, descritores: cobertos, cargo, contexto });
     const c = promptCenario({ competencia, descritores: cobertos, cargo, contexto, complexidade });
     const [mResp, cResp] = await Promise.all([
-      callAI(m.system, m.user, aiConfig, 500),
+      callAI(m.system, m.user, aiConfig, 600),
       callAI(c.system, c.user, aiConfig, 800),
     ]);
-    missaoTexto = (mResp || '').trim();
-    cenarioTexto = (cResp || '').trim();
+
+    const missaoParsed = parseMissaoResponse(mResp);
+    if (missaoParsed) {
+      missaoObj = {
+        texto: missaoToMarkdown(missaoParsed),
+        acao_principal: missaoParsed.acao_principal,
+        contexto_de_aplicacao: missaoParsed.contexto_de_aplicacao,
+        criterio_de_execucao: missaoParsed.criterio_de_execucao,
+        integracao_descritores: missaoParsed.integracao_descritores,
+      };
+    } else {
+      missaoObj = { texto: (mResp || '').trim() };
+    }
+
+    const cenarioParsed = parseCenarioResponse(cResp);
+    if (cenarioParsed) {
+      cenarioObj = {
+        texto: cenarioToMarkdown(cenarioParsed),
+        complexidade,
+        tensao_central: cenarioParsed.tensao_central,
+        tradeoff_testado: cenarioParsed.tradeoff_testado,
+        armadilha_resposta_generica: cenarioParsed.armadilha_resposta_generica,
+        stakeholders: cenarioParsed.stakeholders,
+      };
+    } else {
+      cenarioObj = { texto: (cResp || '').trim(), complexidade };
+    }
   } catch (err: any) {
     console.warn(`[buildSeason] missao/cenario sem ${semana}: ${err?.message ?? err}`);
-    missaoTexto = missaoTexto || `Missão pendente. Aplique os descritores ${cobertos.join(', ')} em uma situação real do seu cargo esta semana.`;
-    cenarioTexto = cenarioTexto || `Cenário pendente. Descreva como você aplicaria os descritores ${cobertos.join(', ')} em uma situação típica do seu cargo.`;
+    if (!missaoObj.texto) missaoObj.texto = `Missão pendente. Aplique os descritores ${cobertos.join(', ')} em uma situação real do seu cargo esta semana.`;
+    if (!cenarioObj.texto) cenarioObj.texto = `Cenário pendente. Descreva como você aplicaria os descritores ${cobertos.join(', ')} em uma situação típica do seu cargo.`;
   }
 
   return {
@@ -305,8 +343,8 @@ async function montarSemanaAplicacao(
     tipo: 'aplicacao',
     descritor: null,
     descritores_cobertos: cobertos,
-    missao: { texto: missaoTexto },
-    cenario: { texto: cenarioTexto, complexidade },
+    missao: missaoObj,
+    cenario: cenarioObj,
     status: 'bloqueada',
   };
 }

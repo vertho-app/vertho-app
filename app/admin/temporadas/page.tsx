@@ -340,8 +340,27 @@ function SemanaDetalhe({ semana, progresso }) {
               )}
             </>
           )}
+          {temAplicacao && semana.missao && (
+            <>
+              <Block titulo="🎯 Missão" markdown={semana.missao.texto} />
+              {semana.missao.acao_principal && (
+                <div className="ml-4 space-y-1 text-[10px]">
+                  <div><span className="text-amber-400/60 uppercase font-semibold">Ação: </span><span className="text-gray-400">{semana.missao.acao_principal}</span></div>
+                  {semana.missao.criterio_de_execucao && <div><span className="text-amber-400/60 uppercase font-semibold">Critério: </span><span className="text-gray-400">{semana.missao.criterio_de_execucao}</span></div>}
+                </div>
+              )}
+            </>
+          )}
           {temAplicacao && semana.cenario && (
-            <Block titulo="🎭 Cenário" markdown={semana.cenario.texto} />
+            <>
+              <Block titulo="🎭 Cenário" markdown={semana.cenario.texto} />
+              {semana.cenario.tradeoff_testado && (
+                <div className="ml-4 space-y-1 text-[10px]">
+                  <div><span className="text-purple-400/60 uppercase font-semibold">Trade-off: </span><span className="text-gray-400">{semana.cenario.tradeoff_testado}</span></div>
+                  {semana.cenario.armadilha_resposta_generica && <div><span className="text-purple-400/60 uppercase font-semibold">Armadilha: </span><span className="text-gray-400">{semana.cenario.armadilha_resposta_generica}</span></div>}
+                </div>
+              )}
+            </>
           )}
           {temAvaliacao && p.reflexao?.cenario && (
             <Block titulo="🎭 Cenário (sem 14)" markdown={p.reflexao.cenario} />

@@ -300,21 +300,28 @@ export async function regerarSemana(trilhaId: string, semana: number, aiConfig: 
         : { desafio_texto: rawResp };
       plano[idx] = { ...slot, conteudo: { ...(slot.conteudo || {}), ...desafioFields } };
     } else if (slot.tipo === 'aplicacao') {
-      const { promptCenario } = await import('@/lib/season-engine/prompts/scenario');
-      const { promptMissao } = await import('@/lib/season-engine/prompts/missao');
+      const { promptCenario, parseCenarioResponse, cenarioToMarkdown } = await import('@/lib/season-engine/prompts/scenario');
+      const { promptMissao, parseMissaoResponse, missaoToMarkdown } = await import('@/lib/season-engine/prompts/missao');
       const complexidade = ({ 4: 'simples', 8: 'intermediario', 12: 'completo' } as Record<number, string>)[semana] || 'intermediario';
       const descritores = slot.descritores_cobertos || [];
       const m = promptMissao({ competencia: trilha.competencia_foco, descritores, cargo: colab?.cargo, contexto });
       const c = promptCenario({ competencia: trilha.competencia_foco, descritores, cargo: colab?.cargo, contexto, complexidade });
-      const [novaMissao, novoCenario] = await Promise.all([
-        callAI(m.system, m.user, aiConfig, 500).then(r => r.trim()),
-        callAI(c.system, c.user, aiConfig, 800).then(r => r.trim()),
+      const [mResp, cResp] = await Promise.all([
+        callAI(m.system, m.user, aiConfig, 600),
+        callAI(c.system, c.user, aiConfig, 800),
       ]);
-      plano[idx] = {
-        ...slot,
-        missao: { texto: novaMissao },
-        cenario: { texto: novoCenario, complexidade },
-      };
+
+      const missaoParsed = parseMissaoResponse(mResp);
+      const missaoObj = missaoParsed
+        ? { texto: missaoToMarkdown(missaoParsed), acao_principal: missaoParsed.acao_principal, contexto_de_aplicacao: missaoParsed.contexto_de_aplicacao, criterio_de_execucao: missaoParsed.criterio_de_execucao, integracao_descritores: missaoParsed.integracao_descritores }
+        : { texto: (mResp || '').trim() };
+
+      const cenarioParsed = parseCenarioResponse(cResp);
+      const cenarioObj = cenarioParsed
+        ? { texto: cenarioToMarkdown(cenarioParsed), complexidade, tensao_central: cenarioParsed.tensao_central, tradeoff_testado: cenarioParsed.tradeoff_testado, armadilha_resposta_generica: cenarioParsed.armadilha_resposta_generica, stakeholders: cenarioParsed.stakeholders }
+        : { texto: (cResp || '').trim(), complexidade };
+
+      plano[idx] = { ...slot, missao: missaoObj, cenario: cenarioObj };
     } else {
       return { success: false, error: 'Semana de avaliação não pode ser regerada' };
     }
