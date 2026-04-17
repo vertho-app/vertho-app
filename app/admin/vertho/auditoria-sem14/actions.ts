@@ -136,17 +136,22 @@ export async function regerarScoringComFeedback(progressoId) {
     .select('feedback').eq('trilha_id', trilha.id).eq('semana', 13).maybeSingle();
   const acumuladoPrimaria = prog13?.feedback?.acumulado?.primaria || null;
 
-  // Monta feedback da auditoria anterior como instrução extra pro scorer
-  const feedbackAuditoria = [
-    `A avaliação anterior recebeu nota ${auditoriaAnterior.nota_auditoria}/100 da auditoria.`,
-    auditoriaAnterior.resumo_auditoria && `Resumo: ${auditoriaAnterior.resumo_auditoria}`,
-    ...(auditoriaAnterior.alertas || []).map(a =>
-      typeof a === 'string' ? `Alerta: ${a}` : `Alerta [${a.descritor || a.tipo || ''}]: ${a.descricao || a.detalhe || ''}`
-    ),
-    ...(auditoriaAnterior.ajustes_sugeridos || []).map(a =>
-      `Ajuste sugerido [${a.descritor}]: nota ${a.nota_pos_sugerida} — ${a.motivo}`
-    ),
-  ].filter(Boolean).join('\n');
+  // Monta feedback da auditoria anterior como instrução extra
+  const alertasTexto = (auditoriaAnterior.alertas || []).map((a: any) =>
+    typeof a === 'string' ? `- ${a}` : `- [${a.descritor || a.tipo || ''}] ${a.descricao || a.detalhe || ''}`
+  ).join('\n') || '(nenhum)';
+  const ajustesTexto = (auditoriaAnterior.ajustes_sugeridos || []).map((a: any) =>
+    `- [${a.descritor}]: nota sugerida ${a.nota_pos_sugerida} — ${a.motivo}`
+  ).join('\n') || '(nenhum)';
+  const feedbackAuditoria = `Nota da auditoria: ${auditoriaAnterior.nota_auditoria}/100
+Status: ${auditoriaAnterior.status || 'revisar'}
+Resumo: ${auditoriaAnterior.resumo_auditoria || '(sem resumo)'}
+${auditoriaAnterior.ponto_mais_confiavel ? `Ponto mais confiável: ${auditoriaAnterior.ponto_mais_confiavel}` : ''}
+${auditoriaAnterior.ponto_mais_fragil ? `Ponto mais frágil: ${auditoriaAnterior.ponto_mais_fragil}` : ''}
+Alertas:
+${alertasTexto}
+Ajustes sugeridos:
+${ajustesTexto}`;
 
   const { promptEvolutionScenarioScore, validateEvolutionScenarioScore } = await import('@/lib/season-engine/prompts/evolution-scenario');
   const { promptEvolutionScenarioCheck, validateEvolutionScenarioCheck } = await import('@/lib/season-engine/prompts/evolution-scenario-check');
@@ -199,11 +204,27 @@ export async function regerarScoringComFeedback(progressoId) {
     acumuladoPrimaria,
   });
 
-  const systemComFeedback = system +
-    `\n\nATENÇÃO: O nome do colaborador é "${nomeColab}". NÃO use nomes de personagens do cenário (Marcelo, Henrique, etc.) no resumo_avaliacao — use SOMENTE "${nomeColab}".` +
-    `\n\n## FEEDBACK DA AUDITORIA ANTERIOR (CORRIJA OS PROBLEMAS ABAIXO):\n${feedbackAuditoria}`;
+  const scorerAppendix = `
 
-  let parsed = {};
+ATENÇÃO: Esta é uma REGERAÇÃO COM FEEDBACK da avaliação da semana 14.
+
+REGRAS ADICIONAIS OBRIGATÓRIAS:
+1. O nome do colaborador é "${nomeColab}". No resumo_avaliacao, use SOMENTE "${nomeColab}".
+2. NÃO use nomes de personagens do cenário no resumo_avaliacao.
+3. Você recebeu feedback da auditoria anterior. Use esse feedback para corrigir APENAS os pontos realmente frágeis.
+4. NÃO descarte automaticamente o que já estava defensável.
+5. NÃO corrija por estilo. Corrija por coerência metodológica.
+6. Se a auditoria anterior apontou supervalorização do cenário, ignorância do acumulado, delta incoerente, justificativa genérica ou ausência de limites — esses pontos precisam ser explicitamente tratados.
+7. Preserve a lógica de triangulação: cenário não manda sozinho, acumulado não pode ser apagado, regressão é possível, evolução não deve ser forçada.
+
+FEEDBACK DA AUDITORIA ANTERIOR:
+${feedbackAuditoria}
+
+Produza uma nova versão MAIS DEFENSÁVEL da avaliação final.`;
+
+  const systemComFeedback = system + scorerAppendix;
+
+  let parsed: any = {};
   try {
     const r = await callAI(systemComFeedback, user, {}, 10000);
     let cleaned14 = r.trim();
@@ -213,7 +234,13 @@ export async function regerarScoringComFeedback(progressoId) {
     return { error: 'Scorer falhou: ' + e.message };
   }
 
-  // Check novo
+  // Validação: resumo_avaliacao não pode conter nomes de personagens do cenário
+  const resumoText = typeof parsed.resumo_avaliacao === 'string' ? parsed.resumo_avaliacao : parsed.resumo_avaliacao?.mensagem_geral || '';
+  if (resumoText && nomeColab && !resumoText.includes(nomeColab) && resumoText.length > 50) {
+    console.warn('[regerar] resumo_avaliacao pode não conter nome do colab');
+  }
+
+  // Check de segunda rodada
   let auditoria = null;
   try {
     const { system: sC, user: uC } = promptEvolutionScenarioCheck({
@@ -224,7 +251,23 @@ export async function regerarScoringComFeedback(progressoId) {
       avaliacaoPrimaria: parsed,
       evidenciasAcumuladas,
     });
-    const rC = await callAI(sC, uC, {}, 8000);
+
+    const checkAppendix = `
+
+ATENÇÃO: Esta é uma AUDITORIA DE SEGUNDA RODADA da semana 14.
+
+REGRAS ADICIONAIS:
+1. O scorer foi reexecutado com base no feedback da auditoria anterior.
+2. Verifique se os problemas apontados foram realmente corrigidos.
+3. Diferencie: problema resolvido / parcialmente resolvido / mantido / novo problema.
+4. Se um problema anterior persistiu, diga isso claramente.
+5. Se a nova versão criou novo erro, sinalize.
+6. Não trate como auditoria cega de primeira passagem.
+
+AUDITORIA ANTERIOR:
+${feedbackAuditoria}`;
+
+    const rC = await callAI(sC + checkAppendix, uC, {}, 8000);
     let cleanedChk = rC.trim();
     if (cleanedChk.startsWith('```')) cleanedChk = cleanedChk.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
     auditoria = validateEvolutionScenarioCheck(JSON.parse(cleanedChk));
