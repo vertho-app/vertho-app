@@ -350,8 +350,9 @@ lib/tenant-resolver.js:
 - Todas as tabelas transacionais possuem `empresa_id` (FK para `empresas.id`)
 
 **Camada 2 — RLS (Row Level Security)**
-- RLS habilitado em todas as tabelas principais
+- RLS habilitado nas tabelas principais, porém com policies permissivas (`USING (true)`) — não atua como barreira real enquanto queries usam service_role
 - Migration 037: RLS habilitado em `competencias`, `competencias_base`, `platform_admins`, `reavaliacao_sessoes`, `videos_watched`
+- **Status real**: RLS está ativo mas não funciona como defense-in-depth porque todas as queries usam `createSupabaseAdmin()` (service_role bypassa RLS)
 
 **Camada 3 — Codigo (Server Actions + API Routes)**
 - Server actions usam `createSupabaseAdmin()` com filtro EXPLICITO de `empresa_id`
@@ -686,7 +687,7 @@ npm run test:ui
 - RBAC explicito: coluna `role` + tabela `platform_admins`
 - Admin guard server-side
 - API colaboradores: empresa_id obrigatorio
-- RLS habilitado em todas as tabelas principais (5 adicionais via migration 037)
+- RLS habilitado nas tabelas principais (5 adicionais via migration 037), porém policies permissivas — proteção real vem da camada de app
 - Nenhuma NEXT_PUBLIC sensivel
 - Sentry para error tracking
 - **npm audit: 0 vulnerabilities** (xlsx removido, Next.js patched para 16.2.4, resend instalado)

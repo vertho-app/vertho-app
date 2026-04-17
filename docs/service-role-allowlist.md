@@ -150,3 +150,24 @@ Proteção de origin aplicada em 8 rotas mutativas via `lib/csrf.ts`:
 - Falha fechada com 403
 
 Exceções: webhooks (bunny, qstash) e cron — não são cookie-based.
+
+## Cobertura de testes
+
+### Testes comportamentais (handlers reais com mocks de dependência)
+Rotas com testes que importam o handler real e validam status HTTP:
+- `POST /api/chat` — auth 401, body validation 400
+- `GET/POST /api/colaboradores` — auth 401, role 403
+- `POST /api/upload/signed-url` — auth 401, role 403, admin passa gate
+- `GET/POST /api/assessment` — auth 401, CSRF 403, Bearer bypass
+- `POST /api/temporada/tira-duvidas` — auth 401, validation 400
+- `loadPlatformAdmins` / `adicionarAdmin` — throws UNAUTHORIZED
+- `loadAdminDashboard` — throws UNAUTHORIZED
+
+### Testes estruturais (string matching no source)
+~85 testes verificam presença de guards (`requireUser`, `requireRole`, `csrfCheck`, etc.) no codigo-fonte de rotas e actions. Complementam os comportamentais mas nao substituem.
+
+### Guard de service_role (CI)
+3 testes vitest + GitHub Actions (`typecheck.yml`):
+- Arquivo novo com `createSupabaseAdmin` fora da allowlist → falha
+- Contagem aumentada em arquivo ja permitido → falha
+- Entrada stale (arquivo removido) → falha
