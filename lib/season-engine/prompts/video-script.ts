@@ -1,6 +1,6 @@
 /**
  * Gera roteiro de vídeo (3-5 min) para gravação externa/HeyGen.
- * Linguagem de câmera: frases curtas, conversa entre colegas, sem markdown.
+ * Texto corrido, linguagem oral, pronto para narração.
  */
 interface PromptVideoScriptParams {
   competencia: string;
@@ -14,14 +14,48 @@ interface PromptVideoScriptParams {
 
 export function promptVideoScript({ competencia, descritor, nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico', duracaoSegundos = null }: PromptVideoScriptParams) {
   const duracao = duracaoSegundos ? `${Math.floor(duracaoSegundos/60)}:${String(duracaoSegundos%60).padStart(2,'0')}` : '3:00';
-  const palavrasAlvo = duracaoSegundos ? Math.round(duracaoSegundos * 2.5) : 450; // ~150 palavras/min
+  const palavrasAlvo = duracaoSegundos ? Math.round(duracaoSegundos * 2.5) : 450;
   const focoPorNivel = nivelMin <= 1.5
-    ? 'FUNDAMENTOS — aquela pessoa que está começando a desenvolver esse descritor. Conceitos básicos, exemplos diretos.'
+    ? 'FUNDAMENTOS — pessoa começando a desenvolver. Conceitos básicos, exemplos diretos.'
     : nivelMin <= 2.5
     ? 'REFINAMENTO — pessoa que já pratica mas quer aprimorar. Nuances, casos menos óbvios.'
-    : 'MAESTRIA — quem já domina e quer transferir para liderar. Casos complexos, dilemas.';
+    : 'MAESTRIA — quem já domina e quer transferir/liderar. Casos complexos, dilemas.';
 
-  const system = `Você é roteirista especializado em micro-aprendizagem (vídeo de 3-5 min). Linguagem conversa entre colegas, não palestra. Frases curtas (máx 20 palavras). Português brasileiro natural. Zero markdown, zero indicações de câmera, zero emojis.`;
+  const system = `Você é roteirista de micro-aprendizagem da Vertho, especializado em vídeos curtos de desenvolvimento profissional.
+
+Sua tarefa é criar um roteiro em texto corrido para um vídeo de 3 a 5 minutos.
+
+ATENÇÃO:
+Este roteiro não é uma palestra.
+Não é artigo falado.
+Não é texto institucional.
+Ele precisa soar como uma conversa clara, prática e bem construída entre colegas.
+
+PRINCÍPIOS INEGOCIÁVEIS:
+1. Linguagem oral e natural em português brasileiro.
+2. Frases curtas, com boa respiração (máx ~20 palavras quando possível).
+3. Nada de markdown.
+4. Nada de emojis.
+5. Nada de indicações de câmera, cena ou edição.
+6. O texto deve ser gravável do jeito que sair.
+7. O vídeo deve ser útil para quem está trabalhando, não para quem quer teoria acadêmica.
+
+REGRAS DE ESTILO:
+- Conversa entre colegas, não palestra
+- Parágrafos curtos
+- Sem jargão excessivo
+- Sem repetir a mesma ideia de três jeitos
+- Sem soar robótico
+- Sem soar motivacional demais
+- Densidade prática > densidade teórica
+- Tom curioso, não autoritário
+
+REGRAS DE QUALIDADE:
+- O exemplo deve ser coerente com cargo/contexto
+- O descritor deve aparecer na prática, não só na definição
+- O roteiro deve ter começo forte e final claro
+- Evitar abstrações vazias e metáforas excessivas
+- Personagens nomeados quando houver storytelling (ex: "Ana, gerente regional...")`;
 
   const user = `Crie 1 roteiro de vídeo de ~${duracao} min (~${palavrasAlvo} palavras) para o tema abaixo.
 
@@ -32,29 +66,37 @@ CONTEXTO:
 - Cargo alvo: ${cargo}
 - Contexto: ${contexto}
 
-ESTRUTURA OBRIGATÓRIA (4 blocos):
+ESTRUTURA OBRIGATÓRIA (4 blocos naturais):
 
-[GANCHO] (0:00-0:15, ~40 palavras):
-Pergunta provocativa OU situação reconhecível do dia a dia. Sem saudação. Vai direto.
+GANCHO (~40 palavras):
+Abrir com uma dor, situação reconhecível, pergunta ou contraste forte.
+Sem saudação. Sem clichê. Vai direto.
+NUNCA cite o nome do descritor no gancho — prenda primeiro, explique depois.
 
-[CONCEITO] (0:15-1:30, ~150 palavras):
-Explique o descritor na prática. Máximo 2 conceitos-chave. Exemplos concretos.
+CONCEITO (~150 palavras):
+Explicar o descritor de forma simples e aplicada.
+Sem definição acadêmica engessada.
+Máximo 2 conceitos-chave.
+Mostrar por que isso importa na prática.
 
-[EXEMPLO] (1:30-3:00, ~200 palavras):
-Cenário com personagens fictícios (dê nomes). Mostre comportamento CERTO e ERRADO.
-Storytelling com começo/meio/fim. Deixe visual mesmo sendo áudio.
+EXEMPLO PRÁTICO (~200 palavras):
+Trazer uma situação plausível do trabalho.
+Personagens com nomes.
+Mostrar comportamento concreto — o que a pessoa fez, como decidiu, o que mudou.
+Storytelling com começo/meio/fim.
+Ajudar a visualizar o conceito em ação.
 
-[CHAMADA] (3:00-3:30, ~60 palavras):
-Conecte com uma micro-ação prática da semana do colaborador.
-Frase de encerramento memorável.
+CHAMADA FINAL (~60 palavras):
+Fechar com uma provocação, pergunta ou micro convite à aplicação.
+Conectar com a rotina da semana.
+Curta e memorável.
 
-REGRAS:
-- Texto corrido, sem seções numeradas, sem bullets
-- NUNCA cite o nome do descritor no gancho (prenda primeiro, explique depois)
-- Personagens nomeados (ex: "Ana, gerente regional...")
-- Tom: curioso, não autoritário
+REGRAS FINAIS:
+- Texto corrido, sem seções numeradas, sem bullets, sem títulos técnicos
+- Os 4 blocos devem fluir naturalmente sem quebras artificiais
+- Pronto para narração / gravação
 
-Retorne APENAS o texto do roteiro, pronto para gravação, sem prefixo nem comentário.`;
+Retorne APENAS o texto do roteiro, sem prefixo nem comentário.`;
 
   return { system, user };
 }
