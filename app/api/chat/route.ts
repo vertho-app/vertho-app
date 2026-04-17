@@ -611,58 +611,137 @@ REGRAS DO JSON:
     };
   }
 
-  // ── Etapa 2: Gemini audita ────────────────────────────────────────────
+  // ── Etapa 2: Gemini audita (avaliação conversacional) ──────────────────
 
-  const auditPrompt = `Você é um auditor de qualidade de avaliações comportamentais.
+  const auditPrompt = `Você é um auditor de qualidade de avaliações comportamentais da Vertho.
 
-COMPETÊNCIA AVALIADA: ${comp?.nome || 'N/A'}
-${comp?.gabarito ? `RÉGUA:\n${JSON.stringify(comp.gabarito)}` : ''}
+═══ CONTEXTO ═══
+Você está auditando uma AVALIAÇÃO CONVERSACIONAL — baseada em diálogo,
+não em prova estruturada. Isso exige atenção especial:
+- Evidência concreta vale mais que eloquência na conversa
+- Reflexão sem ação concreta NÃO sustenta nota alta sozinha
+- Autossensibilidade é valiosa mas NÃO substitui comportamento demonstrado
+- A avaliação NÃO pode inferir fatos ou impactos não mencionados na conversa
 
-RASCUNHO DA AVALIAÇÃO (feita por outro modelo de IA):
+═══ COMPETÊNCIA ═══
+${comp?.nome || 'N/A'}
+${comp?.gabarito ? `\n═══ RÉGUA ═══\n${JSON.stringify(comp.gabarito)}` : ''}
+
+═══ AVALIAÇÃO A AUDITAR (gerada por outro modelo de IA) ═══
 ${JSON.stringify(rascunho, null, 2)}
 
-EVIDÊNCIAS ORIGINAIS:
+═══ EVIDÊNCIAS ORIGINAIS COLETADAS ═══
 ${JSON.stringify(evidencias, null, 2)}
 
-Audite esta avaliação em 6 critérios e retorne APENAS um bloco [AUDIT]:
+═══ HISTÓRICO DA CONVERSA ═══
+${messages.map(m => `[${m.role}]: ${m.content}`).join('\n\n')}
+
+═══ 6 CRITÉRIOS DE AUDITORIA ═══
+
+1. ANCORAGEM EM EVIDÊNCIA (ok|ajustar|erro_grave)
+   Cada nota está ancorada em evidência textual real da conversa?
+   Nota alta sem trecho concreto = ajustar.
+
+2. COERÊNCIA NÍVEL × NOTA (ok|ajustar)
+   O nível atribuído é coerente com a nota decimal e as travas aplicadas?
+
+3. PRUDÊNCIA CONVERSACIONAL (ok|ajustar|erro_grave)
+   A avaliação foi prudente o suficiente dado que é conversa (não prova)?
+   Nota N3+ sem ação concreta demonstrada = erro grave.
+
+4. ALUCINAÇÃO / EXTRAPOLAÇÃO (ok|ajustar|erro_grave)
+   A avaliação inventou fatos, inferiu impactos não mencionados ou atribuiu
+   comportamentos não demonstrados na conversa?
+
+5. ESPECIFICIDADE DO FEEDBACK (ok|ajustar)
+   O feedback cita trechos reais? É específico o suficiente pra ser útil?
+   Feedback genérico ("boa comunicação") = ajustar.
+
+6. QUALIDADE DAS RECOMENDAÇÕES (ok|ajustar)
+   As recomendações de PDI são proporcionais à força da evidência?
+   Recomendação sem base na conversa = ajustar.
+
+═══ ERROS GRAVES ═══
+- Nota N3+ sem evidência concreta demonstrada
+- Fato inventado ou extrapolado
+- Feedback que contradiz as evidências
+→ Se houver erro grave: status = "reprovado" ou "corrigido" com nota reduzida
+
+═══ CLASSIFICAÇÃO ═══
+- aprovado: avaliação defensável como está
+- corrigido: ajustes aplicados (preencher avaliacao_corrigida)
+- reprovado: avaliação não utilizável (justificar por quê)
+
+═══ FORMATO: BLOCO [AUDIT] ═══
 
 [AUDIT]
 {
   "status": "aprovado|corrigido|reprovado",
+  "erro_grave": false,
   "criterios": {
-    "evidencias": "ok|ajustar",
-    "nivel": "ok|ajustar",
-    "nota": "ok|ajustar",
-    "lacuna": "ok|ajustar",
-    "alucinacoes": "ok|ajustar",
-    "vies": "ok|ajustar"
+    "ancoragem_evidencia": "ok|ajustar|erro_grave",
+    "coerencia_nivel_nota": "ok|ajustar",
+    "prudencia_conversacional": "ok|ajustar|erro_grave",
+    "alucinacao_extrapolacao": "ok|ajustar|erro_grave",
+    "especificidade_feedback": "ok|ajustar",
+    "qualidade_recomendacoes": "ok|ajustar"
   },
-  "justificativa": "Explique brevemente sua decisão",
+  "ponto_mais_confiavel": "O que a avaliação fez melhor",
+  "ponto_mais_fragil": "Onde a avaliação é mais vulnerável",
+  "descritores_com_risco": ["descritores onde a nota parece frágil"],
+  "tipo_de_erro_predominante": "extrapolação|falta_prudencia|generico|nenhum",
+  "justificativa": "Avaliação geral da qualidade (2-3 frases)",
+  "mudancas_aplicadas": ["lista de mudanças se status=corrigido"],
+  "alertas_residuais": ["riscos que permanecem mesmo após correção"],
   "avaliacao_corrigida": null
 }
 [/AUDIT]
 
-Se status="corrigido", preencha avaliacao_corrigida com a mesma estrutura do rascunho, mas com os valores ajustados.
-Se status="aprovado", avaliacao_corrigida deve ser null.`;
+REGRAS:
+- Se aprovado → avaliacao_corrigida = null
+- Se corrigido → avaliacao_corrigida com mesma estrutura do rascunho (com ajustes)
+- Se reprovado → justificativa deve explicar por que não é utilizável
+- Prefira rigor metodológico a elegância`;
 
-  // Registrar versão do prompt de auditoria
   const auditPromptVersionId = await getOrCreatePromptVersion(
-    'auditoria_gemini', modeloValidador, auditPrompt, { max_tokens: 65536 }
+    'auditoria_gemini_conversacional', modeloValidador, auditPrompt, { max_tokens: 8192 }
   );
 
-  let audit = null;
+  let audit: any = null;
   try {
-    const auditResponse = await callAI(auditPrompt, '', { model: modeloValidador }, 65536);
+    const auditResponse = await callAI(auditPrompt, '', { model: modeloValidador }, 8192);
     audit = await extractBlock(auditResponse, 'AUDIT');
-  } catch (err) {
+  } catch (err: any) {
     console.error('[encerrarSessao] Auditoria falhou:', err.message);
+  }
+
+  // ── Validação do audit ──
+  if (audit) {
+    if (audit.status === 'aprovado' && audit.avaliacao_corrigida) {
+      audit.avaliacao_corrigida = null;
+    }
+    if (audit.status === 'corrigido' && !audit.avaliacao_corrigida) {
+      console.warn('[encerrarSessao] Audit marcou corrigido sem avaliacao_corrigida — tratando como aprovado');
+      audit.status = 'aprovado';
+    }
   }
 
   // ── Etapa 3: Consolidar resultado ───────────────────────────────────────
 
-  let avaliacaoFinal;
+  let avaliacaoFinal: any;
   if (audit?.status === 'corrigido' && audit.avaliacao_corrigida) {
     avaliacaoFinal = audit.avaliacao_corrigida;
+    // Re-consolidar em código se veio com avaliacao_por_descritor
+    if (avaliacaoFinal.avaliacao_por_descritor && !avaliacaoFinal.consolidacao?.media_descritores) {
+      const descs = avaliacaoFinal.avaliacao_por_descritor;
+      const notasCorr = descs.map((d: any) => Math.max(1, Math.min(4, d.nota_sugerida || d.nota_decimal || 1)));
+      const mediaCorr = notasCorr.length ? Math.round((notasCorr.reduce((a: number, b: number) => a + b, 0) / notasCorr.length) * 100) / 100 : 0;
+      avaliacaoFinal.nivel = Math.floor(mediaCorr);
+      avaliacaoFinal.nota_decimal = mediaCorr;
+      avaliacaoFinal.lacuna = -Math.max(0, 3 - avaliacaoFinal.nivel);
+    }
+  } else if (audit?.status === 'reprovado') {
+    avaliacaoFinal = { ...rascunho, _reprovado: true, _motivo: audit.justificativa };
   } else {
     avaliacaoFinal = rascunho;
   }
@@ -670,15 +749,15 @@ Se status="aprovado", avaliacao_corrigida deve ser null.`;
   // ── Etapa 4: Persistir ────────────────────────────────────────────────
 
   await sb.from('sessoes_avaliacao').update({
-    status: 'concluido',
+    status: audit?.status === 'reprovado' ? 'reprovado' : 'concluido',
     fase: 'concluida',
     rascunho_avaliacao: rascunho,
     validacao_audit: audit,
     avaliacao_final: avaliacaoFinal,
     modelo_avaliador: modeloAvaliador,
     modelo_validador: modeloValidador,
-    nivel: avaliacaoFinal.nivel,
-    nota_decimal: avaliacaoFinal.nota_decimal,
+    nivel: avaliacaoFinal.nivel || avaliacaoFinal.consolidacao?.nivel_geral,
+    nota_decimal: avaliacaoFinal.nota_decimal || avaliacaoFinal.consolidacao?.media_descritores,
     lacuna: avaliacaoFinal.lacuna,
     eval_prompt_version_id: evalPromptVersionId,
     audit_prompt_version_id: auditPromptVersionId,
