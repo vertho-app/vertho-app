@@ -307,7 +307,7 @@ nextjs-app/
 │   ├── auto-backup-diario.ps1
 │   └── instalar-backup-automatico.ps1
 ├── tests/                        # Playwright e2e (86 specs)
-├── migrations/                   # 26 migrations SQL (022 -> 047)
+├── migrations/                   # 30 migrations SQL (022 -> 051)
 ├── tsconfig.json                 # TypeScript config (strict:false, allowJs, checkJs:false)
 ├── docs/
 │   ├── envs-importantes.md
@@ -610,7 +610,7 @@ Tabelas: trilhas, colaboradores, temporada_semana_progresso
 
 ---
 
-## 8. Modelagem de Dados (26 migrations — 022 a 047)
+## 8. Modelagem de Dados (30 migrations — 022 a 051)
 
 ### Dados Transacionais
 ```

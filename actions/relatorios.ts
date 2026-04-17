@@ -804,11 +804,15 @@ ${JSON.stringify(registros, null, 2)}`;
       if (buffer) pdfPath = await salvarPDFStorage(sbRaw, empresaId, 'rh', empresa.nome, buffer);
     } catch (e: any) { console.error('[PDF Gen RH]', e.message); }
 
-    // empresa_id é injetado pelo tdb.upsert
-    await tdb.from('relatorios').upsert({
-      colaborador_id: null, tipo: 'rh',
-      conteudo: relatorio, pdf_path: pdfPath, gerado_em: new Date().toISOString(),
-    }, { onConflict: 'empresa_id,colaborador_id,tipo' }).select('id');
+    // Relatório RH é agregado (colaborador_id = NULL).
+    // PostgreSQL UNIQUE não detecta conflito em NULL — select+update/insert explícito.
+    const { data: existingRh } = await tdb.from('relatorios')
+      .select('id').eq('tipo', 'rh').is('colaborador_id', null).maybeSingle();
+    if (existingRh) {
+      await tdb.from('relatorios').update({ conteudo: relatorio, pdf_path: pdfPath, gerado_em: new Date().toISOString() }).eq('id', existingRh.id);
+    } else {
+      await tdb.from('relatorios').insert({ colaborador_id: null, tipo: 'rh', conteudo: relatorio, pdf_path: pdfPath, gerado_em: new Date().toISOString() });
+    }
 
     return { success: true, message: `Relatório RH gerado${pdfPath ? ' (PDF salvo)' : ''}` };
   } catch (err: any) {

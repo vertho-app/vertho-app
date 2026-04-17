@@ -11,6 +11,19 @@ type Fase5Config = AIConfig & {
   incluirAprovados?: boolean;
 };
 
+// ── Helper: upsert para relatórios agregados (colaborador_id = NULL) ────────
+// PostgreSQL UNIQUE não detecta conflito em NULL, então onConflict não funciona.
+// Solução: select + update/insert explícito.
+async function upsertRelatorioAgregado(tdb: any, tipo: string, conteudo: any) {
+  const { data: existing } = await tdb.from('relatorios')
+    .select('id').eq('tipo', tipo).is('colaborador_id', null).maybeSingle();
+  if (existing) {
+    await tdb.from('relatorios').update({ conteudo, gerado_em: new Date().toISOString() }).eq('id', existing.id);
+  } else {
+    await tdb.from('relatorios').insert({ colaborador_id: null, tipo, conteudo, gerado_em: new Date().toISOString() });
+  }
+}
+
 // ── Constantes (alinhadas com GAS) ──────────────────────────────────────────
 const MAX_TURNOS = 8;
 const TEMP = 0.4; // temperatura GAS para consistência
@@ -1611,7 +1624,7 @@ Retorne APENAS JSON válido.`;
     const resultado = await callAI(system, user, aiConfig, 8192, { temperature: TEMP });
     const relatorio = await extractJSON(resultado);
     if (relatorio) {
-      await tdb.from('relatorios').upsert({ colaborador_id: null, tipo: 'rh_manual', conteudo: relatorio, gerado_em: new Date().toISOString() }, { onConflict: 'empresa_id,colaborador_id,tipo' });
+      await upsertRelatorioAgregado(tdb, 'rh_manual', relatorio);
     }
     return { success: true, message: 'Relatório RH manual gerado' };
   } catch (err) { return { success: false, error: err.message }; }
@@ -1694,7 +1707,7 @@ Retorne APENAS JSON válido.`;
     const resultado = await callAI(system, user, aiConfig, 8192, { temperature: TEMP });
     const relatorio = await extractJSON(resultado);
     if (relatorio) {
-      await tdb.from('relatorios').upsert({ colaborador_id: null, tipo: 'plenaria_relatorio', conteudo: relatorio, gerado_em: new Date().toISOString() }, { onConflict: 'empresa_id,colaborador_id,tipo' });
+      await upsertRelatorioAgregado(tdb, 'plenaria_relatorio', relatorio);
     }
     return { success: true, message: 'Relatório formal da plenária gerado' };
   } catch (err: any) { return { success: false, error: err.message }; }
@@ -1780,9 +1793,7 @@ Retorne APENAS JSON válido.`;
     const resultado = await callAI(system, user, aiConfig, 8192, { temperature: TEMP });
     const dossie = await extractJSON(resultado);
     if (dossie) {
-      await tdb.from('relatorios').upsert({
-        colaborador_id: null, tipo: 'dossie_gestor', conteudo: dossie, gerado_em: new Date().toISOString(),
-      }, { onConflict: 'empresa_id,colaborador_id,tipo' });
+      await upsertRelatorioAgregado(tdb, 'dossie_gestor', dossie);
     }
     return { success: true, message: 'Dossiê do gestor gerado' };
   } catch (err: any) { return { success: false, error: err.message }; }
