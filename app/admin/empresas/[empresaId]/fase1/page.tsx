@@ -94,6 +94,19 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
   const parseJSON = (v) => { try { return typeof v === 'string' ? JSON.parse(v) : v; } catch { return null; } };
 
   // ── Cenários helpers ──
+  const DIM_MAX: Record<string, number> = {
+    aderencia_competencia: 15, cobertura_descritores: 15, realismo_contextual: 15,
+    contencao_sobriedade: 10, clareza_tradeoff: 15, poder_discriminante: 20, auditabilidade: 10,
+    // Legacy
+    aderencia: 20, realismo: 20, contencao: 20, decisao: 20, discriminante: 20,
+  };
+  const DIM_LABELS: Record<string, string> = {
+    aderencia_competencia: 'Aderência', cobertura_descritores: 'Cobertura', realismo_contextual: 'Realismo',
+    contencao_sobriedade: 'Contenção', clareza_tradeoff: 'Trade-off', poder_discriminante: 'Discriminante', auditabilidade: 'Auditab.',
+    // Legacy
+    aderencia: 'Aderência', realismo: 'Realismo', contencao: 'Contenção', decisao: 'Decisão', discriminante: 'Discriminante',
+  };
+
   const cenariosPorCargo = {};
   cenarios.forEach(c => {
     if (!cenariosPorCargo[c.cargo]) cenariosPorCargo[c.cargo] = [];
@@ -362,6 +375,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
             </div>
           {Object.entries(cenariosPorCargo).map(([cargo, cens]: [string, any]) => {
             const aprovados = cens.filter(c => c.status_check === 'aprovado').length;
+            const ressalvas = cens.filter(c => c.status_check === 'aprovado_com_ressalvas').length;
             const revisar = cens.filter(c => c.status_check === 'revisar').length;
             const pendentes = cens.filter(c => !c.status_check).length;
             return (
@@ -370,13 +384,14 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                   <h2 className="text-sm font-bold text-white">{cargo}</h2>
                   <span className="text-[10px] text-gray-500">{cens.length} cenários</span>
                   {aprovados > 0 && <span className="text-[9px] bg-green-400/15 text-green-400 px-1.5 py-0.5 rounded">{aprovados} aprovados</span>}
+                  {ressalvas > 0 && <span className="text-[9px] bg-cyan-400/15 text-cyan-400 px-1.5 py-0.5 rounded">{ressalvas} ressalvas</span>}
                   {revisar > 0 && <span className="text-[9px] bg-amber-400/15 text-amber-400 px-1.5 py-0.5 rounded">{revisar} revisar</span>}
                   {pendentes > 0 && <span className="text-[9px] bg-gray-400/15 text-gray-400 px-1.5 py-0.5 rounded">{pendentes} pendentes</span>}
-                  {revisar > 0 && (
+                  {(revisar > 0 || ressalvas > 0) && (
                     <button
                       disabled={!!cenAction}
                       onClick={async () => {
-                        const paraRevisar = cens.filter(c => c.status_check === 'revisar');
+                        const paraRevisar = cens.filter(c => c.status_check === 'revisar' || c.status_check === 'aprovado_com_ressalvas');
                         let ok = 0, semCheck = 0;
                         for (const c of paraRevisar) {
                           setCenAction({ id: c.id, type: 'regen' });
@@ -396,7 +411,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                         refresh();
                       }}
                       className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold text-amber-300 border border-amber-400/40 hover:bg-amber-400/10 transition-all disabled:opacity-50 ml-auto">
-                      <RefreshCw size={10} /> Revisar todos ({revisar})
+                      <RefreshCw size={10} /> Revisar todos ({revisar + ressalvas})
                     </button>
                   )}
                   {pendentes > 0 && (
@@ -424,13 +439,15 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                 <div className="space-y-2">
                   {cens.map((c: any) => {
                     const isOpen = cenOpen === c.id;
-                    const perguntas = Array.isArray(c.alternativas) ? c.alternativas : [];
+                    const altObj = typeof c.alternativas === 'object' && !Array.isArray(c.alternativas) ? c.alternativas : {};
+                    const perguntas = altObj.perguntas || (Array.isArray(c.alternativas) ? c.alternativas : []);
                     const isActing = cenAction?.id === c.id;
                     const dims = typeof c.dimensoes_check === 'string' ? JSON.parse(c.dimensoes_check) : c.dimensoes_check;
 
                     return (
                       <div key={c.id} className={`rounded-xl border overflow-hidden ${
                         c.status_check === 'aprovado' ? 'border-green-400/20' :
+                        c.status_check === 'aprovado_com_ressalvas' ? 'border-cyan-400/20' :
                         c.status_check === 'revisar' ? 'border-amber-400/20' : 'border-white/[0.06]'
                       }`} style={{ background: '#0F2A4A' }}>
                         {/* Header */}
@@ -438,6 +455,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                           className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/[0.02] transition-colors">
                           <div className="flex-1 min-w-0 flex items-center gap-2">
                             {c.status_check === 'aprovado' && <CheckCircle size={14} className="text-green-400 shrink-0" />}
+                            {c.status_check === 'aprovado_com_ressalvas' && <CheckCircle size={14} className="text-cyan-400 shrink-0" />}
                             {c.status_check === 'revisar' && <AlertTriangle size={14} className="text-amber-400 shrink-0" />}
                             <span className="text-xs font-bold text-white">{c.titulo || 'Cenário'}</span>
                             {c.competencia_nome && <span className="text-[10px] text-cyan-400">{c.competencia_nome}</span>}
@@ -445,7 +463,9 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                           <div className="flex items-center gap-2 shrink-0">
                             {c.nota_check != null && (
                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                                c.nota_check >= 90 ? 'bg-green-400/15 text-green-400' : 'bg-amber-400/15 text-amber-400'
+                                c.status_check === 'aprovado' ? 'bg-green-400/15 text-green-400' :
+                                c.status_check === 'aprovado_com_ressalvas' ? 'bg-cyan-400/15 text-cyan-400' :
+                                'bg-amber-400/15 text-amber-400'
                               }`}>{c.nota_check}pts</span>
                             )}
                             <ChevronDown size={14} className={`text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
@@ -456,6 +476,26 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                           <div className="px-4 pb-4 border-t border-white/[0.04]">
                             {/* Contexto */}
                             <p className="text-xs text-gray-300 leading-relaxed mt-3 mb-4">{c.descricao}</p>
+
+                            {/* Metadados do cenário */}
+                            {(() => {
+                              const alt = typeof c.alternativas === 'object' && !Array.isArray(c.alternativas) ? c.alternativas : {};
+                              if (!alt.faceta_testada_principal && !alt.tradeoff_testado) return null;
+                              return (
+                                <div className="flex flex-wrap gap-2 mb-3">
+                                  {alt.faceta_testada_principal && (
+                                    <span className="text-[9px] px-2 py-1 rounded-full bg-purple-400/10 text-purple-300 border border-purple-400/15">
+                                      Faceta: {alt.faceta_testada_principal}
+                                    </span>
+                                  )}
+                                  {alt.tradeoff_testado && (
+                                    <span className="text-[9px] px-2 py-1 rounded-full bg-cyan-400/10 text-cyan-300 border border-cyan-400/15">
+                                      Trade-off: {alt.tradeoff_testado}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
 
                             {/* Perguntas */}
                             {perguntas.length > 0 && (
@@ -471,6 +511,12 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                                     {p.o_que_diferencia_niveis && (
                                       <p className="text-[10px] text-gray-500 mt-1">{p.o_que_diferencia_niveis}</p>
                                     )}
+                                    {p.objetivo_diagnostico && (
+                                      <p className="text-[9px] text-purple-300/60 mt-1">🎯 {p.objetivo_diagnostico}</p>
+                                    )}
+                                    {p.resposta_generica_falha_porque && (
+                                      <p className="text-[9px] text-amber-300/60 mt-1">⚡ Anti-genérico: {p.resposta_generica_falha_porque}</p>
+                                    )}
                                   </div>
                                 ))}
                               </div>
@@ -479,21 +525,37 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                             {/* Resultado do Check */}
                             {c.nota_check != null && (
                               <div className={`p-3 rounded-lg border mb-3 ${
-                                c.status_check === 'aprovado' ? 'border-green-400/20 bg-green-400/5' : 'border-amber-400/20 bg-amber-400/5'
+                                c.status_check === 'aprovado' ? 'border-green-400/20 bg-green-400/5' :
+                                c.status_check === 'aprovado_com_ressalvas' ? 'border-cyan-400/20 bg-cyan-400/5' :
+                                'border-amber-400/20 bg-amber-400/5'
                               }`}>
                                 <div className="flex items-center gap-2 mb-2">
-                                  <span className={`text-xs font-bold ${c.status_check === 'aprovado' ? 'text-green-400' : 'text-amber-400'}`}>
-                                    Check: {c.nota_check}pts — {c.status_check === 'aprovado' ? 'Aprovado' : 'Revisar'}
+                                  <span className={`text-xs font-bold ${
+                                    c.status_check === 'aprovado' ? 'text-green-400' :
+                                    c.status_check === 'aprovado_com_ressalvas' ? 'text-cyan-400' : 'text-amber-400'
+                                  }`}>
+                                    Check: {c.nota_check}pts — {
+                                      c.status_check === 'aprovado' ? 'Aprovado' :
+                                      c.status_check === 'aprovado_com_ressalvas' ? 'Aprovado com ressalvas' : 'Revisar'
+                                    }
                                   </span>
                                 </div>
                                 {/* Dimensões */}
                                 {dims && (
                                   <div className="flex flex-wrap gap-2 mb-2">
-                                    {Object.entries(dims).map(([k, v]: [string, any]) => (
-                                      <span key={k} className={`text-[9px] px-1.5 py-0.5 rounded ${v >= 18 ? 'bg-green-400/10 text-green-400' : v >= 14 ? 'bg-amber-400/10 text-amber-400' : 'bg-red-400/10 text-red-400'}`}>
-                                        {k}: {v}/20
-                                      </span>
-                                    ))}
+                                    {Object.entries(dims).map(([k, v]: [string, any]) => {
+                                      const max = DIM_MAX[k] || 20;
+                                      const pct = (v / max) * 100;
+                                      return (
+                                        <span key={k} className={`text-[9px] px-1.5 py-0.5 rounded ${
+                                          pct >= 85 ? 'bg-green-400/10 text-green-400' :
+                                          pct >= 65 ? 'bg-amber-400/10 text-amber-400' :
+                                          'bg-red-400/10 text-red-400'
+                                        }`}>
+                                          {DIM_LABELS[k] || k}: {v}/{max}
+                                        </span>
+                                      );
+                                    })}
                                   </div>
                                 )}
                                 {c.justificativa_check && (
@@ -502,12 +564,38 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                                 {c.sugestao_check && (
                                   <p className="text-[10px] text-gray-400"><span className="font-semibold text-amber-400/80">Sugestão:</span> {c.sugestao_check}</p>
                                 )}
+                                {/* Campos enriquecidos do check */}
+                                {(() => {
+                                  const al = typeof c.alertas_check === 'object' && !Array.isArray(c.alertas_check) ? c.alertas_check : {};
+                                  return (
+                                    <>
+                                      {al.ponto_mais_forte && (
+                                        <p className="text-[10px] text-green-300/80 mt-1">✦ Ponto forte: {al.ponto_mais_forte}</p>
+                                      )}
+                                      {al.ponto_mais_fraco && (
+                                        <p className="text-[10px] text-amber-300/80 mt-1">⚠ Ponto fraco: {al.ponto_mais_fraco}</p>
+                                      )}
+                                      {Array.isArray(al.descritores_sem_cobertura) && al.descritores_sem_cobertura.length > 0 && (
+                                        <p className="text-[10px] text-red-300/80 mt-1">✗ Descritores sem cobertura: {al.descritores_sem_cobertura.join(', ')}</p>
+                                      )}
+                                      {Array.isArray(al.perguntas_com_risco) && al.perguntas_com_risco.length > 0 && (
+                                        <div className="mt-2 space-y-1">
+                                          {al.perguntas_com_risco.map((p: any, j: number) => (
+                                            <div key={j} className="text-[10px] text-amber-300/70 pl-2 border-l border-amber-400/20">
+                                              P{p.numero}: {p.problema}{p.correcao_recomendada ? ` → ${p.correcao_recomendada}` : ''}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </div>
                             )}
 
                             {/* Ações */}
                             <div className="flex items-center gap-2">
-                              {c.status_check === 'revisar' && (
+                              {(c.status_check === 'revisar' || c.status_check === 'aprovado_com_ressalvas') && (
                                 <button disabled={isActing} onClick={async () => {
                                   setCenAction({ id: c.id, type: 'regen' });
                                   // 1. Regenerar
