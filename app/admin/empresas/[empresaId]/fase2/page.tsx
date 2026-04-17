@@ -462,6 +462,57 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                         );
                       })()}
 
+                      {/* Histórico de revisão (se houve reavaliação) */}
+                      {avaliacao?._revisao && (
+                        <div>
+                          <p className="text-[9px] font-bold text-purple-400 uppercase tracking-widest mb-2">Revisão controlada</p>
+                          <div className="p-3 rounded-lg border border-purple-400/15 bg-purple-400/5 space-y-2">
+                            {/* Tratamento do feedback */}
+                            {avaliacao._revisao.tratamento_do_feedback?.itens?.map((item: any, j: number) => {
+                              const decCor: Record<string, string> = {
+                                corrigir: 'bg-green-400/10 text-green-300',
+                                corrigir_parcialmente: 'bg-cyan-400/10 text-cyan-300',
+                                manter: 'bg-gray-400/10 text-gray-400',
+                                nao_aplicavel: 'bg-gray-400/10 text-gray-500',
+                              };
+                              return (
+                                <div key={j} className="text-[10px]">
+                                  <div className="flex items-start gap-2">
+                                    <span className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold ${decCor[item.decisao] || decCor.manter}`}>
+                                      {item.decisao}
+                                    </span>
+                                    <span className="text-gray-300">{item.ponto_auditoria}</span>
+                                  </div>
+                                  {item.justificativa && (
+                                    <p className="text-gray-500 ml-16 mt-0.5 italic">{item.justificativa}</p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                            {/* Mudanças e preservados */}
+                            {avaliacao._revisao.tratamento_do_feedback?.mudancas_relevantes?.length > 0 && (
+                              <div className="pt-1.5 border-t border-purple-400/10">
+                                <p className="text-[9px] font-bold text-green-300 mb-0.5">Mudanças:</p>
+                                {avaliacao._revisao.tratamento_do_feedback.mudancas_relevantes.map((m: string, j: number) => (
+                                  <p key={j} className="text-[10px] text-gray-400">→ {m}</p>
+                                ))}
+                              </div>
+                            )}
+                            {avaliacao._revisao.tratamento_do_feedback?.pontos_preservados?.length > 0 && (
+                              <div>
+                                <p className="text-[9px] font-bold text-gray-500 mb-0.5">Preservados:</p>
+                                {avaliacao._revisao.tratamento_do_feedback.pontos_preservados.map((p: string, j: number) => (
+                                  <p key={j} className="text-[10px] text-gray-500">= {p}</p>
+                                ))}
+                              </div>
+                            )}
+                            <p className="text-[9px] text-gray-600 pt-1">
+                              Revisado em {new Date(avaliacao._revisao.revisado_em).toLocaleDateString('pt-BR')}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Check */}
                       {check && (
                         <div>

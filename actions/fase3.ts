@@ -407,49 +407,120 @@ R4: ${resp.r4 || '(sem resposta)'}`);
   }
 }
 
-// ── Re-avaliar resposta (com feedback do check) ─────────────────────────────
+// ── Re-avaliar resposta (revisão controlada com feedback do check) ──────────
+
+const IA4_REVIEW_SYSTEM = `Você é o Motor de Revisão de Avaliações da Vertho Mentor IA.
+
+═══ TAREFA ═══
+REVISAR uma avaliação anterior com base no feedback de uma auditoria (2ª IA).
+Isto NÃO é uma reavaliação do zero — é uma REVISÃO CONTROLADA.
+
+═══ PRINCÍPIOS DA REVISÃO ═══
+
+1. PRESERVE o que já era defensável na avaliação anterior
+2. CORRIJA apenas os pontos onde a auditoria aponta problema real E as evidências sustentam a correção
+3. Se a auditoria sugerir algo que NÃO se sustenta nas evidências das respostas, MANTENHA a avaliação anterior e EXPLIQUE por quê
+4. O feedback da auditoria é IMPORTANTE, mas NÃO substitui a régua nem as evidências
+5. Toda mudança de nota/nível DEVE ter justificativa explícita
+
+═══ REGRAS (mesmas da IA4 original) ═══
+- Evidência ou não conta
+- Intenção não é evidência
+- Na dúvida → nível inferior
+- N3/N4 exigem evidência robusta
+- Perfil CIS NÃO altera nota
+- NUNCA inventar dados não presentes nas respostas
+
+═══ PROCESSO OBRIGATÓRIO ═══
+
+1. Ler o feedback da auditoria (cada ponto)
+2. Para cada ponto: verificar se as evidências das respostas sustentam a correção
+3. Decidir: corrigir | corrigir_parcialmente | manter | nao_aplicavel
+4. Gerar avaliação revisada com as correções aceitas
+5. Documentar o que mudou e o que foi preservado
+
+═══ FORMATO JSON ═══
+
+{
+  "avaliacao_revisada": {
+    "avaliacao_por_descritor": [
+      {
+        "numero": 1,
+        "nome": "nome do descritor",
+        "nota_decimal": 2.33,
+        "nivel_sugerido": 2,
+        "confianca": 0.80,
+        "sustentacao": "forte",
+        "evidencias": ["trecho 1"],
+        "limites_da_evidencia": ["o que não foi demonstrado"],
+        "racional": "Por que este nível"
+      }
+    ],
+    "descritores_destaque": {
+      "pontos_fortes": [{"descritor": "", "nivel": 3, "evidencia_resumida": ""}],
+      "gaps_prioritarios": [{"descritor": "", "nivel": 1, "o_que_faltou": ""}]
+    },
+    "feedback": {
+      "tom_base": "acolhedor / direto / técnico",
+      "resumo_geral": "2-3 frases",
+      "mensagem_positiva": "O que fez bem",
+      "mensagem_construtiva": "Onde melhorar",
+      "recomendacoes": ["ação 1", "ação 2"]
+    }
+  },
+  "tratamento_do_feedback": {
+    "itens": [
+      {
+        "ponto_auditoria": "O que a auditoria apontou",
+        "decisao": "corrigir",
+        "justificativa": "Por que aceitou/rejeitou este ponto"
+      }
+    ],
+    "mudancas_relevantes": ["D2: nota 1.67→2.33 (auditoria identificou evidência não computada)"],
+    "pontos_preservados": ["D1: nota mantida em 2.00 (auditoria sugeriu N3 mas sem evidência suficiente)"]
+  }
+}
+
+REGRAS DO JSON:
+- decisao: "corrigir" | "corrigir_parcialmente" | "manter" | "nao_aplicavel"
+- nota_decimal: 1.00 a 4.00
+- confianca: 0.0 a 1.0
+- tratamento_do_feedback.itens: pelo menos 1 item (não pode ignorar a auditoria)
+- mudancas_relevantes e pontos_preservados: obrigatórios (podem ser arrays vazios)`;
 
 export async function reavaliarResposta(respostaId: string, aiConfig: AIConfig = {}) {
   const sbRaw = createSupabaseAdmin();
   try {
-    // Descobre tenant via resposta (raw — query inicial sem tenant)
     const { data: resp } = await sbRaw.from('respostas')
-      .select('id, empresa_id, colaborador_id, competencia_id, cenario_id, r1, r2, r3, r4, payload_ia4')
+      .select('id, empresa_id, colaborador_id, competencia_id, cenario_id, r1, r2, r3, r4, avaliacao_ia, payload_ia4')
       .eq('id', respostaId).single();
     if (!resp) return { success: false, error: 'Resposta não encontrada' };
 
     const tdb = tenantDb(resp.empresa_id);
 
+    // Preservar avaliação anterior
+    const avaliacaoAnterior = typeof resp.avaliacao_ia === 'string' ? JSON.parse(resp.avaliacao_ia) : resp.avaliacao_ia;
+
     // Extrair feedback do check
     const check = typeof resp.payload_ia4 === 'string' ? JSON.parse(resp.payload_ia4) : resp.payload_ia4;
-    const feedbackCheck = [check?.justificativa, check?.revisao].filter(Boolean).join('\n');
+    const feedbackCheck = check ? JSON.stringify(check, null, 2) : '';
 
-    // Limpar avaliação anterior (manter status_ia4 null para re-check)
-    const { error: clearErr } = await tdb.from('respostas').update({
-      avaliacao_ia: null, nivel_ia4: null, nota_ia4: null,
-      status_ia4: null, payload_ia4: null,
-      pontos_fortes: null, pontos_atencao: null, feedback_ia4: null, avaliado_em: null,
-    }).eq('id', respostaId).select('id');
-    if (clearErr) return { success: false, error: `Limpar avaliação falhou: ${clearErr.message}` };
-
-    // empresas: id é o tenant — sem empresa_id; usar raw
     const { data: empresa } = await sbRaw.from('empresas')
       .select('nome, segmento').eq('id', resp.empresa_id).single();
 
     const { data: colab } = await tdb.from('colaboradores')
-      .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, perfil_dominante, lid_executivo, lid_motivador, lid_metodico, lid_sistematico')
+      .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, perfil_dominante')
       .eq('id', resp.colaborador_id).single();
 
     let cenarioTexto = '', perguntasTexto = '';
     if (resp.cenario_id) {
-      // banco_cenarios é misto (global+tenant) → raw por id
       const { data: cen } = await sbRaw.from('banco_cenarios')
         .select('titulo, descricao, alternativas').eq('id', resp.cenario_id).maybeSingle();
       if (cen) {
         cenarioTexto = `${cen.titulo}\n${cen.descricao}`;
         const altObj2 = typeof cen.alternativas === 'object' && !Array.isArray(cen.alternativas) ? cen.alternativas : {};
         const pergs = altObj2.perguntas || (Array.isArray(cen.alternativas) ? cen.alternativas : []);
-        perguntasTexto = pergs.map((p: any, i: number) => `P${p.numero || i + 1}: ${p.texto || ''}\nDescritores: ${Array.isArray(p.descritores_primarios) ? p.descritores_primarios.map((d: any) => `D${d}`).join(', ') : ''}\nDiferenciacao: ${p.o_que_diferencia_niveis || ''}`).join('\n\n');
+        perguntasTexto = pergs.map((p: any, i: number) => `P${p.numero || i + 1}: ${p.texto || ''}`).join('\n');
       }
     }
 
@@ -459,47 +530,139 @@ export async function reavaliarResposta(respostaId: string, aiConfig: AIConfig =
         .select('nome, cod_comp').eq('id', resp.competencia_id).maybeSingle();
       compNome = comp?.nome || ''; compCod = comp?.cod_comp || '';
       const { data: descs } = await tdb.from('competencias')
-        .select('cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
+        .select('cod_desc, nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
         .eq('cod_comp', comp?.cod_comp).not('cod_desc', 'is', null);
       if (descs?.length) {
-        descritoresTexto = descs.map((d: any, i: number) => `DESCRITOR ${i + 1}: ${d.cod_desc} — ${d.nome_curto || ''}\nN1: ${d.n1_gap || ''}\nN2: ${d.n2_desenvolvimento || ''}\nN3: ${d.n3_meta || ''}\nN4: ${d.n4_referencia || ''}`).join('\n\n');
+        descritoresTexto = descs.map((d: any, i: number) =>
+          `D${i + 1}: ${d.cod_desc} — ${d.nome_curto || ''}\nN1: ${d.n1_gap || ''}\nN2: ${d.n2_desenvolvimento || ''}\nN3: ${d.n3_meta || ''}\nN4: ${d.n4_referencia || ''}`
+        ).join('\n\n');
       }
     }
 
-    let perfilCIS = '';
-    if (colab?.d_natural != null) {
-      perfilCIS = `DISC: D=${colab.d_natural} | I=${colab.i_natural} | S=${colab.s_natural} | C=${colab.c_natural}\nDominante: ${colab.perfil_dominante || '—'}`;
-    }
+    // ── User prompt estruturado ──
+    const userBlocks: string[] = [];
 
-    // Montar prompt com feedback do check
-    let user = `=== DADOS DO PROFISSIONAL ===\nNOME: ${colab?.nome_completo || '—'}\nCARGO: ${colab?.cargo || '—'}\nEMPRESA: ${empresa?.nome || '—'}\n\n${perfilCIS}\n\n=== COMPETENCIA ===\n${compCod} — ${compNome}\n\n=== DESCRITORES ===\n${descritoresTexto || '(não disponíveis)'}\n\n=== CENARIO ===\n${cenarioTexto}\n\n=== PERGUNTAS ===\n${perguntasTexto}\n\n=== RESPOSTAS ===\nR1: ${resp.r1 || '—'}\nR2: ${resp.r2 || '—'}\nR3: ${resp.r3 || '—'}\nR4: ${resp.r4 || '—'}`;
+    userBlocks.push(`═══ PROFISSIONAL ═══\n${colab?.nome_completo || '—'} · ${colab?.cargo || '—'} · ${empresa?.nome || '—'}`);
+    userBlocks.push(`═══ COMPETÊNCIA ═══\n${compCod} — ${compNome}`);
+    userBlocks.push(`═══ RÉGUA DE MATURIDADE ═══\n${descritoresTexto || '(não disponíveis)'}`);
+    if (cenarioTexto) userBlocks.push(`═══ CENÁRIO ═══\n${cenarioTexto}`);
+    if (perguntasTexto) userBlocks.push(`═══ PERGUNTAS ═══\n${perguntasTexto}`);
+
+    userBlocks.push(`═══ RESPOSTAS DO PROFISSIONAL ═══
+R1: ${resp.r1 || '—'}
+R2: ${resp.r2 || '—'}
+R3: ${resp.r3 || '—'}
+R4: ${resp.r4 || '—'}`);
+
+    // Avaliação anterior (resumida)
+    if (avaliacaoAnterior) {
+      const descAnterior = avaliacaoAnterior.avaliacao_por_descritor || [];
+      const resumoAnterior = descAnterior.map((d: any) =>
+        `${d.nome}: nota ${d.nota_decimal} (N${d.nivel_sugerido}) conf ${d.confianca} — ${d.racional || ''}`
+      ).join('\n');
+      const consol = avaliacaoAnterior.consolidacao || {};
+      userBlocks.push(`═══ AVALIAÇÃO ANTERIOR ═══
+Nível geral: N${consol.nivel_geral || '?'} (média: ${consol.media_descritores || '?'})
+Travas: ${(consol.travas_aplicadas || []).join('; ')}
+
+Por descritor:
+${resumoAnterior || '(formato legado — sem detalhamento por descritor)'}`);
+    }
 
     if (feedbackCheck) {
-      user += `\n\n=== FEEDBACK DA AUDITORIA ANTERIOR (CORRIJA ESTES PONTOS) ===\n${feedbackCheck}`;
+      userBlocks.push(`═══ FEEDBACK DA AUDITORIA (2ª IA) ═══\n${feedbackCheck}`);
     }
 
-    const resultado = await callAI(IA4_SYSTEM, user, aiConfig, 8192);
-    const avaliacao = await extractJSON(resultado);
+    userBlocks.push(`═══ INSTRUÇÃO DE REVISÃO ═══
+1. Leia CADA ponto da auditoria
+2. Para cada ponto: verifique se as EVIDÊNCIAS das respostas sustentam a correção
+3. Se sustentam → corrija a nota/nível e explique
+4. Se NÃO sustentam → mantenha a avaliação anterior e explique por quê
+5. NÃO refaça tudo do zero — revise cirurgicamente
+6. Documente mudanças E preservações no tratamento_do_feedback`);
 
-    if (!avaliacao) return { success: false, error: 'IA não retornou avaliação válida' };
+    const user = userBlocks.join('\n\n');
+    const resultado = await callAI(IA4_REVIEW_SYSTEM, user, aiConfig, 8192);
+    let revisao = await extractJSON(resultado);
 
-    const nivelGeral = avaliacao.consolidacao?.nivel_geral || avaliacao.nivel_geral || null;
-    const notaDecimal = avaliacao.consolidacao?.media_descritores || avaliacao.nota_decimal || null;
+    if (!revisao) return { success: false, error: 'IA não retornou revisão válida' };
+
+    // ── Consolidação em código (mesmo padrão da IA4 original) ──
+    const descPorDescritor = revisao.avaliacao_revisada?.avaliacao_por_descritor || [];
+    const notasPorDesc: Record<string, any> = {};
+    for (const d of descPorDescritor) {
+      const key = `D${d.numero}`;
+      const nota = Math.max(1.0, Math.min(4.0, d.nota_decimal || 1.0));
+      notasPorDesc[key] = {
+        nome: d.nome,
+        nota_decimal: Math.round(nota * 100) / 100,
+        nivel: Math.floor(nota),
+        confianca: d.confianca || 0,
+        sustentacao: d.sustentacao || 'insuficiente',
+      };
+    }
+
+    const notas = Object.values(notasPorDesc).map((d: any) => d.nota_decimal);
+    const mediaDescritores = notas.length
+      ? Math.round((notas.reduce((a: number, b: number) => a + b, 0) / notas.length) * 100) / 100 : 0;
+    let nivelGeral = Math.floor(mediaDescritores);
+
+    const travasAplicadas: string[] = [];
+    const niveisN1 = Object.values(notasPorDesc).filter((d: any) => d.nivel === 1).length;
+    if (niveisN1 > 3) { nivelGeral = Math.min(nivelGeral, 1); travasAplicadas.push(`${niveisN1} descritores N1 → max N1`); }
+    else if (niveisN1 > 0 && nivelGeral > 2) { nivelGeral = Math.min(nivelGeral, 2); travasAplicadas.push('Descritor N1 → max N2'); }
+    const temN3 = Object.values(notasPorDesc).some((d: any) => d.nivel >= 3);
+    if (temN3 && nivelGeral < 2) { nivelGeral = 2; travasAplicadas.push('Evidência N3 → mínimo N2'); }
+    nivelGeral = Math.max(1, Math.min(4, nivelGeral));
+
+    const confs = Object.values(notasPorDesc).map((d: any) => d.confianca || 0).filter((c: number) => c > 0);
+    const confiancaGeral = confs.length ? Math.round((confs.reduce((a, b) => a + b, 0) / confs.length) * 100) / 100 : 0;
+
+    // Montar avaliação final com histórico de revisão
+    const avaliacaoFinal = {
+      ...(revisao.avaliacao_revisada || {}),
+      consolidacao: {
+        notas_por_descritor: notasPorDesc,
+        media_descritores: mediaDescritores,
+        nivel_geral: nivelGeral,
+        gap: Math.max(0, 3 - nivelGeral),
+        confianca_geral: confiancaGeral,
+        travas_aplicadas: travasAplicadas.length ? travasAplicadas : ['Nenhuma'],
+      },
+      _revisao: {
+        avaliacao_anterior: avaliacaoAnterior,
+        auditoria: check,
+        tratamento_do_feedback: revisao.tratamento_do_feedback || null,
+        revisado_em: new Date().toISOString(),
+      },
+    };
+
+    const feedbackObj = revisao.avaliacao_revisada?.feedback;
+    const feedbackStr = typeof feedbackObj === 'object'
+      ? [feedbackObj.resumo_geral, feedbackObj.mensagem_positiva, feedbackObj.mensagem_construtiva].filter(Boolean).join('\n')
+      : (feedbackObj || '');
 
     const { data: updated, error: updErr } = await tdb.from('respostas').update({
-      avaliacao_ia: avaliacao,
+      avaliacao_ia: avaliacaoFinal,
       nivel_ia4: nivelGeral,
-      nota_ia4: notaDecimal,
-      pontos_fortes: avaliacao.descritores_destaque?.pontos_fortes?.map((p: any) => p.descritor || p).join('; ') || null,
-      pontos_atencao: avaliacao.descritores_destaque?.gaps_prioritarios?.map((g: any) => g.descritor || g).join('; ') || null,
-      feedback_ia4: avaliacao.feedback || null,
+      nota_ia4: mediaDescritores,
+      pontos_fortes: avaliacaoFinal.descritores_destaque?.pontos_fortes?.map((p: any) => p.descritor || p).join('; ') || null,
+      pontos_atencao: avaliacaoFinal.descritores_destaque?.gaps_prioritarios?.map((g: any) => g.descritor || g).join('; ') || null,
+      feedback_ia4: feedbackStr || null,
+      status_ia4: null,
+      payload_ia4: null,
       avaliado_em: new Date().toISOString(),
     }).eq('id', respostaId).select('id');
 
     if (updErr) return { success: false, error: `Re-avaliação UPDATE falhou: ${updErr.message}` };
     if (!updated?.length) return { success: false, error: 'Re-avaliação: 0 linhas atualizadas' };
 
-    return { success: true, message: `Re-avaliado: ${compNome} — N${nivelGeral}` };
+    const mudancas = revisao.tratamento_do_feedback?.mudancas_relevantes?.length || 0;
+    const preservados = revisao.tratamento_do_feedback?.pontos_preservados?.length || 0;
+    return {
+      success: true,
+      message: `Revisado: ${compNome} — N${nivelGeral} (${mudancas} mudanças, ${preservados} preservados)`,
+    };
   } catch (err: any) {
     return { success: false, error: err.message };
   }
