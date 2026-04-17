@@ -1646,28 +1646,26 @@ export async function gerarRelatorioPlenaria(empresaId: string, aiConfig: AIConf
     const { data: empresa } = await sbRaw.from('empresas').select('nome, segmento').eq('id', empresaId).single();
     const { data: relRH } = await tdb.from('relatorios').select('conteudo').eq('tipo', 'rh_manual').maybeSingle();
 
-    const system = `Você é o redator institucional da Vertho.
+    const system = `Você é um redator executivo institucional da Vertho.
 
-═══ TAREFA ═══
-Transformar a plenária de evolução em RELATÓRIO FORMAL: claro, executivo
-e acionável. NÃO é ata burocrática nem resumo genérico.
+Sua tarefa é transformar os dados consolidados de uma plenária de evolução em um RELATÓRIO FORMAL DE PLENÁRIA, claro, organizado e útil para registro institucional e tomada de decisão.
 
-═══ PRINCÍPIOS ═══
-1. Claro, objetivo e institucional
-2. NÃO invente dados, decisões ou causalidades
-3. Diferencie: resultado observado / interpretação / deliberação / encaminhamento
-4. Evite linguagem vaga ou ornamental
-5. Útil pra leitura executiva e documentação formal
-6. Prudente quando a base não sustentar conclusão forte
-7. Celebre avanços → limites → próximos passos
+ATENÇÃO:
+Este relatório não é uma ata literal.
+Não é uma transcrição de reunião.
+Não é um texto genérico de consultoria.
+Ele deve ser um documento formal, executivo e acionável.
 
-═══ 4 SEÇÕES ═══
-1. PAUTA — contexto + objetivo + escopo
-2. RESULTADOS — avanços + gaps + padrões + leitura institucional
-3. DELIBERAÇÕES — decisões + prioridades + focos
-4. ENCAMINHAMENTOS — ações + responsáveis (papéis, não nomes) + horizonte
+PRINCÍPIOS INEGOCIÁVEIS:
+1. Mantenha anonimato dos participantes e dados individuais.
+2. Diferencie claramente dado apresentado de decisão tomada.
+3. Não invente consenso, fala ou encaminhamento.
+4. Organize o relatório com clareza institucional.
+5. Seja formal, mas sem burocracia excessiva.
+6. O relatório deve ser útil para leitura posterior e memória do ciclo.
+7. Valorize avanços reais sem esconder gaps importantes.
 
-Retorne APENAS JSON válido.`;
+RETORNE APENAS JSON VÁLIDO, sem markdown, sem texto antes ou depois.`;
 
     const userBlocks: string[] = [];
     userBlocks.push(`═══ EMPRESA ═══\n${empresa.nome} (${empresa.segmento})\nData: ${new Date().toISOString().split('T')[0]}`);
@@ -1676,38 +1674,50 @@ Retorne APENAS JSON válido.`;
       userBlocks.push(`═══ RELATÓRIO RH (contexto estratégico) ═══\n${JSON.stringify(relRH.conteudo, null, 2).slice(0, 2000)}`);
     }
 
-    userBlocks.push(`═══ FORMATO DE SAÍDA (JSON) ═══
+    userBlocks.push(`FORMATO DE SAÍDA (JSON):
 {
-  "titulo": "Plenária de Evolução — ${empresa.nome}",
-  "data": "${new Date().toISOString().split('T')[0]}",
+  "identificacao": {
+    "titulo": "Relatório de Plenária de Evolução",
+    "empresa": "${empresa.nome}",
+    "competencia_ou_escopo": "competência, programa ou escopo da plenária",
+    "periodo_referente": "texto curto",
+    "data_relatorio": "${new Date().toISOString().split('T')[0]}"
+  },
   "pauta": {
-    "contexto": "texto curto",
-    "objetivo": "texto curto",
-    "escopo_analisado": ["item 1", "item 2"]
+    "objetivo_da_plenaria": "texto curto",
+    "topicos_principais": ["tópico 1", "tópico 2"]
   },
-  "resultados": {
-    "principais_avancos": ["avanço 1", "avanço 2"],
-    "gaps_persistentes": ["gap 1", "gap 2"],
-    "padroes_relevantes": ["padrão 1"],
-    "leitura_institucional": "síntese curta e prudente"
+  "resultados_apresentados": {
+    "visao_geral": "síntese executiva dos resultados apresentados",
+    "destaques_positivos": ["destaque 1"],
+    "pontos_de_atencao": ["ponto 1"]
   },
-  "deliberacoes": {
-    "decisoes_tomadas": ["decisão 1"],
-    "prioridades_definidas": ["prioridade 1"],
-    "focos_para_continuidade": ["foco 1"]
+  "leitura_institucional": {
+    "interpretacao_geral": "texto curto",
+    "tensoes_relevantes": ["tensão 1"],
+    "implicacoes_para_o_negocio_ou_operacao": ["implicação 1"]
   },
-  "encaminhamentos": [
-    {
-      "acao": "ação definida",
-      "responsavel_esperado": "RH|gestor|lideranca|admin da plataforma",
-      "prioridade": "alta|media|baixa",
-      "horizonte": "curto_prazo|medio_prazo|proximo_ciclo",
-      "observacao": "texto curto"
-    }
+  "deliberacoes": [
+    {"deliberacao": "decisão ou consenso assumido", "justificativa": "por que fez sentido"}
   ],
-  "alertas_metodologicos": ["alerta 1"],
-  "limites_da_leitura": ["limite 1"]
-}`);
+  "encaminhamentos": [
+    {"encaminhamento": "ação definida", "responsavel_tipo": "RH|lideranca|gestor|empresa", "horizonte": "imediato|curto|medio", "objetivo": "o que busca produzir"}
+  ],
+  "fechamento_executivo": {
+    "sintese_final": "síntese curta e formal",
+    "proximo_marco_sugerido": "texto curto"
+  },
+  "alertas_metodologicos": ["alerta 1"]
+}
+
+REGRAS:
+- manter linguagem formal e clara
+- não citar nomes de participantes
+- resultados_apresentados deve refletir o que foi mostrado
+- deliberacoes só devem aparecer quando defensáveis
+- encaminhamentos claros e acionáveis
+- máximo 6 deliberações, máximo 8 encaminhamentos
+- sem linguagem genérica que serviria para qualquer plenária`);
 
     const user = userBlocks.join('\n\n');
     const resultado = await callAI(system, user, aiConfig, 8192, { temperature: TEMP });
