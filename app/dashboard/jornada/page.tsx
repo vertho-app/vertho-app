@@ -41,7 +41,7 @@ export default function JornadaPage() {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/login'); return; }
-      const result = await loadJornada(user.email);
+      const result = await loadJornada();
       if (result.error) setError(result.error);
       else setData(result);
       setLoading(false);

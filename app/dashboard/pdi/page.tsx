@@ -178,7 +178,7 @@ export default function PDIPage() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/login'); return; }
-      const result = await loadPDI(user.email);
+      const result = await loadPDI();
       if (result.error) setError(result.error);
       else setData(result);
       setLoading(false);
@@ -191,7 +191,7 @@ export default function PDIPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/login'); return; }
-      const r = await baixarMeuPdiPdf(user.email);
+      const r = await baixarMeuPdiPdf();
       if (r.error) { setDownloadErr(r.error); return; }
       // Download direto via signed URL (sem passar pelo server action)
       window.location.href = r.url;

@@ -62,7 +62,7 @@ export default function DashboardHomePage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/login'); return; }
       const [result, kpisR, histR] = await Promise.all([
-        loadDashboardData(user.email),
+        loadDashboardData(),
         loadHomeKpis(user.email),
         loadUltimosVideosColab(user.email, 3),
       ]);

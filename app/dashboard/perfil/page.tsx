@@ -62,7 +62,7 @@ export default function PerfilPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/login'); return; }
       setUserEmail(user.email);
-      const result = await loadPerfil(user.email);
+      const result = await loadPerfil();
       if (result.error) setError(result.error);
       else setData(result);
       setLoading(false);
@@ -90,7 +90,7 @@ export default function PerfilPage() {
         r.onerror = rej;
         r.readAsDataURL(file);
       });
-      const result = await salvarFotoPerfil(userEmail, { base64, mime: file.type });
+      const result = await salvarFotoPerfil({ base64, mime: file.type });
       if (result.error) setError(result.error);
       else {
         setData(prev => ({ ...prev, colaborador: { ...prev.colaborador, foto_url: result.foto_url, avatar_preset: null } }));
@@ -104,7 +104,7 @@ export default function PerfilPage() {
   async function handleSelectPreset(id) {
     if (!userEmail) return;
     setSaving(true);
-    const result = await salvarAvatarPreset(userEmail, id);
+    const result = await salvarAvatarPreset(id);
     setSaving(false);
     if (result.error) setError(result.error);
     else {
@@ -116,7 +116,7 @@ export default function PerfilPage() {
   async function handleRemoverAvatar() {
     if (!userEmail) return;
     setSaving(true);
-    const result = await removerAvatar(userEmail);
+    const result = await removerAvatar();
     setSaving(false);
     if (result.error) setError(result.error);
     else {

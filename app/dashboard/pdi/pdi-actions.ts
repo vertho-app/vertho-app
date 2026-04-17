@@ -8,8 +8,10 @@ import { getLogoCoverBase64 } from '@/lib/pdf-assets';
  * Carrega o PDI ativo do colaborador.
  * O campo `conteudo` é JSONB com objetivos por competência.
  */
-export async function loadPDI(email) {
-  if (!email) return { error: 'Nao autenticado' };
+export async function loadPDI() {
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
+  if (!email) return { error: 'Não autenticado' };
 
   const colab = await findColabByEmail(email, 'id, nome_completo, email, cargo, area_depto, empresa_id');
   if (!colab) return { error: 'Colaborador nao encontrado' };
@@ -64,8 +66,10 @@ export async function loadPDI(email) {
  * Se o PDF ainda não existe no bucket, gera on-the-fly e sobe primeiro.
  * Client usa a URL direto pra baixar (sem passar payload pelo server action).
  */
-export async function baixarMeuPdiPdf(email) {
+export async function baixarMeuPdiPdf() {
   try {
+    const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+    const email = await getAuthenticatedEmailFromAction();
     if (!email) return { error: 'Não autenticado' };
     const colab = await findColabByEmail(email, 'id, nome_completo, cargo, empresa_id');
     if (!colab) return { error: 'Colaborador não encontrado' };

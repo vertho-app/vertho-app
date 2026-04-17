@@ -7,8 +7,10 @@ import { AVATAR_PRESETS } from '@/lib/avatar-presets';
 /**
  * Carrega dados do perfil do colaborador.
  */
-export async function loadPerfil(email) {
-  if (!email) return { error: 'Nao autenticado' };
+export async function loadPerfil() {
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
+  if (!email) return { error: 'Não autenticado' };
 
   const colab = await findColabByEmail(
     email,
@@ -32,8 +34,10 @@ export async function loadPerfil(email) {
  * Upload de foto pro bucket `avatars` e grava `foto_url` no colab.
  * Aceita { base64, mime }. Limpa avatar_preset porque foto tem precedência.
  */
-export async function salvarFotoPerfil(email, { base64, mime }) {
+export async function salvarFotoPerfil({ base64, mime }) {
   try {
+    const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+    const email = await getAuthenticatedEmailFromAction();
     if (!email) return { error: 'Não autenticado' };
     if (!base64) return { error: 'Foto obrigatória' };
 
@@ -77,9 +81,12 @@ export async function salvarFotoPerfil(email, { base64, mime }) {
 /**
  * Salva o avatar preset escolhido (limpa foto_url se existir).
  */
-export async function salvarAvatarPreset(email, presetId) {
+export async function salvarAvatarPreset(presetId) {
   try {
-    if (!email || !presetId) return { error: 'Dados incompletos' };
+    const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+    const email = await getAuthenticatedEmailFromAction();
+    if (!email) return { error: 'Não autenticado' };
+    if (!presetId) return { error: 'Dados incompletos' };
     const valid = AVATAR_PRESETS.some(p => p.id === presetId);
     if (!valid) return { error: 'Preset inválido' };
 
@@ -108,8 +115,10 @@ export async function salvarAvatarPreset(email, presetId) {
 /**
  * Remove foto/preset, volta pra iniciais.
  */
-export async function removerAvatar(email) {
+export async function removerAvatar() {
   try {
+    const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+    const email = await getAuthenticatedEmailFromAction();
     if (!email) return { error: 'Não autenticado' };
     const colab: any = await findColabByEmail(email, 'id, foto_url');
     if (!colab) return { error: 'Colaborador não encontrado' };

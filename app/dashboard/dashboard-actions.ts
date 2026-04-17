@@ -7,8 +7,10 @@ import { getUserContext, getDashboardView } from '@/lib/authz';
  * Carrega dados do dashboard usando o papel explícito (coluna `role`).
  * Nunca infere papel por regex em `cargo`.
  */
-export async function loadDashboardData(email) {
-  if (!email) return { error: 'Nao autenticado' };
+export async function loadDashboardData() {
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
+  if (!email) return { error: 'Não autenticado' };
 
   const ctx = await getUserContext(email);
   if (!ctx?.colaborador) return { error: 'Colaborador nao encontrado para este e-mail' };

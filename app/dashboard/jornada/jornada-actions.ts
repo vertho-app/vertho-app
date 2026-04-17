@@ -7,8 +7,10 @@ import { findColabByEmail } from '@/lib/authz';
  * Carrega a jornada do colaborador — status de cada fase.
  * Fases: Diagnóstico → Avaliação → PDI → Capacitação → Reavaliação
  */
-export async function loadJornada(email) {
-  if (!email) return { error: 'Nao autenticado' };
+export async function loadJornada() {
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
+  if (!email) return { error: 'Não autenticado' };
 
   const colab = await findColabByEmail(email, 'id, nome_completo, email, cargo, area_depto, empresa_id, perfil_dominante, created_at');
   if (!colab) return { error: 'Colaborador nao encontrado' };

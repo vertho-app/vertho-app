@@ -1,82 +1,93 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
+import * as fs from 'fs';
+import * as path from 'path';
 
 /**
- * Testes de isolamento para fluxos de dashboard.
- * Verificam que a source-of-truth de tenant/identity é server-side
- * e que queries são corretamente filtradas por empresa_id.
+ * Testes de regressão: verificam que actions de dashboard
+ * NÃO aceitam email/identidade como parâmetro.
+ * Se alguém voltar a adicionar `email` como parâmetro, estes testes falham.
  */
 
-// Mock findColabByEmail — simula resolução server-side de identidade
-const COLAB_A = {
-  id: 'colab-a-id',
-  nome_completo: 'Maria Silva',
-  cargo: 'Analista',
-  email: 'maria@empresaA.com',
-  empresa_id: 'empresa-a-id',
-  perfil_dominante: 'D',
-  role: 'colaborador',
-  area_depto: 'Vendas',
-};
+const ROOT = path.resolve(__dirname, '../../..');
 
-const COLAB_B = {
-  id: 'colab-b-id',
-  nome_completo: 'João Santos',
-  cargo: 'Gerente',
-  email: 'joao@empresaB.com',
-  empresa_id: 'empresa-b-id',
-  perfil_dominante: 'I',
-  role: 'gestor',
-  area_depto: 'TI',
-};
+function readAction(filePath: string): string {
+  return fs.readFileSync(path.join(ROOT, filePath), 'utf-8');
+}
 
-vi.mock('@/lib/authz', () => ({
-  findColabByEmail: vi.fn((email: string) => {
-    if (email === COLAB_A.email) return Promise.resolve(COLAB_A);
-    if (email === COLAB_B.email) return Promise.resolve(COLAB_B);
-    return Promise.resolve(null);
-  }),
-  getUserContext: vi.fn(),
-}));
+function getExportedFunctionSignatures(source: string): { name: string; params: string }[] {
+  const regex = /export\s+async\s+function\s+(\w+)\s*\(([^)]*)\)/g;
+  const results: { name: string; params: string }[] = [];
+  let match;
+  while ((match = regex.exec(source)) !== null) {
+    results.push({ name: match[1], params: match[2].trim() });
+  }
+  return results;
+}
 
-describe('Dashboard actions — source of truth', () => {
-  it('findColabByEmail resolve identidade a partir de email autenticado', async () => {
-    const { findColabByEmail } = await import('@/lib/authz');
+describe('Dashboard actions — identidade não vem por parâmetro', () => {
+  const actionFiles = [
+    { file: 'app/dashboard/dashboard-actions.ts', functions: ['loadDashboardData'] },
+    { file: 'app/dashboard/jornada/jornada-actions.ts', functions: ['loadJornada'] },
+    { file: 'app/dashboard/perfil/perfil-actions.ts', functions: ['loadPerfil', 'salvarFotoPerfil', 'salvarAvatarPreset', 'removerAvatar'] },
+    { file: 'app/dashboard/pdi/pdi-actions.ts', functions: ['loadPDI', 'baixarMeuPdiPdf'] },
+    { file: 'app/dashboard/praticar/praticar-actions.ts', functions: ['registrarEvidencia'] },
+  ];
 
-    const colabA = await findColabByEmail(COLAB_A.email);
-    expect(colabA).not.toBeNull();
-    expect(colabA!.empresa_id).toBe('empresa-a-id');
-    expect(colabA!.id).toBe('colab-a-id');
+  for (const { file, functions } of actionFiles) {
+    describe(file, () => {
+      const source = readAction(file);
+      const signatures = getExportedFunctionSignatures(source);
 
-    const colabB = await findColabByEmail(COLAB_B.email);
-    expect(colabB).not.toBeNull();
-    expect(colabB!.empresa_id).toBe('empresa-b-id');
-  });
+      for (const fnName of functions) {
+        it(`${fnName}() não aceita email como parâmetro`, () => {
+          const sig = signatures.find(s => s.name === fnName);
+          expect(sig, `Função ${fnName} não encontrada em ${file}`).toBeDefined();
+          expect(sig!.params).not.toMatch(/\bemail\b/i);
+        });
 
-  it('email desconhecido retorna null — não permite acesso', async () => {
-    const { findColabByEmail } = await import('@/lib/authz');
-    const colab = await findColabByEmail('hacker@evil.com');
-    expect(colab).toBeNull();
-  });
+        it(`${fnName}() não aceita colaboradorId como parâmetro`, () => {
+          const sig = signatures.find(s => s.name === fnName);
+          expect(sig!.params).not.toMatch(/\bcolaboradorId\b/i);
+        });
 
-  it('colab A não pode assumir empresa_id de B via findColabByEmail', async () => {
-    const { findColabByEmail } = await import('@/lib/authz');
-    const colab = await findColabByEmail(COLAB_A.email);
-    expect(colab!.empresa_id).not.toBe(COLAB_B.empresa_id);
-  });
+        it(`${fnName}() não aceita empresaId como parâmetro`, () => {
+          const sig = signatures.find(s => s.name === fnName);
+          expect(sig!.params).not.toMatch(/\bempresaId\b/i);
+        });
+      }
+
+      it('usa getAuthenticatedEmailFromAction para derivar identidade', () => {
+        for (const fnName of functions) {
+          expect(source).toContain('getAuthenticatedEmailFromAction');
+        }
+      });
+    });
+  }
 });
 
-describe('Dashboard queries — tenant scoping pattern', () => {
-  it('queries de dashboard usam empresa_id do colab autenticado, não do cliente', () => {
-    const empresaIdDoServidor = COLAB_A.empresa_id;
-    const empresaIdDoCliente = 'empresa-b-id';
+describe('Dashboard pages — não passam email para actions', () => {
+  const pageFiles = [
+    { file: 'app/dashboard/page.tsx', calls: ['loadDashboardData'] },
+    { file: 'app/dashboard/jornada/page.tsx', calls: ['loadJornada'] },
+    { file: 'app/dashboard/perfil/page.tsx', calls: ['loadPerfil', 'salvarFotoPerfil', 'salvarAvatarPreset', 'removerAvatar'] },
+    { file: 'app/dashboard/pdi/page.tsx', calls: ['loadPDI', 'baixarMeuPdiPdf'] },
+  ];
 
-    expect(empresaIdDoServidor).not.toBe(empresaIdDoCliente);
-    expect(empresaIdDoServidor).toBe('empresa-a-id');
-  });
+  for (const { file, calls } of pageFiles) {
+    describe(file, () => {
+      const source = readAction(file);
 
-  it('gestor vê apenas sua área dentro da empresa', () => {
-    const area = COLAB_B.area_depto;
-    expect(area).toBe('TI');
-    expect(area).not.toBe('Vendas');
-  });
+      for (const fnName of calls) {
+        it(`chamada a ${fnName}() não passa user.email`, () => {
+          const callPattern = new RegExp(`${fnName}\\([^)]*user\\.email[^)]*\\)`);
+          expect(source).not.toMatch(callPattern);
+        });
+
+        it(`chamada a ${fnName}() não passa userEmail`, () => {
+          const callPattern = new RegExp(`${fnName}\\([^)]*userEmail[^)]*\\)`);
+          expect(source).not.toMatch(callPattern);
+        });
+      }
+    });
+  }
 });

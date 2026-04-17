@@ -100,7 +100,7 @@ export async function loadHomeKpis(email: string): Promise<any> {
     // ── 3. Fase atual da jornada ─────────────────────────────────────────
     let faseAtual = null;
     try {
-      const jornadaR = await loadJornada(email);
+      const jornadaR = await loadJornada();
       if (!jornadaR?.error && jornadaR?.fases?.length) {
         const fases = jornadaR.fases;
         const proxima = fases.find(f => f.status !== 'completed');
