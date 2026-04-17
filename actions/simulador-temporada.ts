@@ -12,6 +12,20 @@ import { promptMissaoFeedback } from '@/lib/season-engine/prompts/missao-feedbac
 import { promptEvolutionQualitative, promptEvolutionQualitativeExtract, validateEvolutionExtract } from '@/lib/season-engine/prompts/evolution-qualitative';
 import { getUserContext } from '@/lib/authz';
 
+const SIM_EXTRACTOR_SYSTEM = `Você é um extrator de dados estruturados da Vertho.
+
+Sua tarefa é analisar uma CONVERSA SIMULADA e transformá-la em JSON estruturado, fiel ao que foi dito.
+
+PRINCÍPIOS:
+1. Extraia somente o que foi efetivamente dito ou claramente sustentado.
+2. Não invente avanço, execução, insight ou evidência.
+3. Diferencie fala bonita de evidência concreta.
+4. Se faltar base, explicite isso.
+5. Preserve ambiguidade quando existir.
+6. Não infle qualidade ou nota sem sustentação.
+
+RETORNE APENAS JSON VÁLIDO, sem markdown, sem backticks.`;
+
 // Simulador usa Haiku pra ser rápido; mentor mantém default (Sonnet).
 const SIM_MODEL = { model: 'claude-haiku-4-5-20251001' };
 
@@ -183,10 +197,35 @@ async function simularSocratico(sb: any, trilha: any, colab: any, s: any, perfil
   let extracao = {};
   try {
     const transcript = historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content}`).join('\n\n');
-    const sys = 'Você é um extrator. Retorne APENAS JSON válido.';
-    const usr = `CONVERSA:\n${transcript}\n\nExtraia:\n{\n  "desafio_realizado": "sim|parcial|nao",\n  "relato_resumo": "1 frase",\n  "insight_principal": "1 frase",\n  "compromisso_proxima": "1 frase",\n  "qualidade_reflexao": "alta|media|baixa"\n}`;
-    const r = await callAI(sys, usr, {}, 2000);
-    extracao = JSON.parse(r.replace(/```json\n?|```\n?/g, '').trim());
+    const usr = `MODO: socratic (conversa simulada)
+
+CONVERSA:
+${transcript}
+
+EXTRAIA:
+{
+  "desafio_realizado": "sim|parcial|nao",
+  "relato_resumo": "síntese curta e fiel",
+  "insight_principal": "principal percepção emergente — só se apareceu de fato",
+  "compromisso_proxima": "compromisso assumido — só se foi dito",
+  "qualidade_reflexao": "alta|media|baixa",
+  "sinais_extraidos": {
+    "exemplo_concreto": true,
+    "autopercepcao": true,
+    "compromisso_especifico": true
+  },
+  "limites_da_conversa": ["limite 1 se houver"]
+}
+
+REGRAS:
+- desafio_realizado: "sim" se executou, "parcial" se tentou, "nao" se não
+- qualidade_reflexao: alta = profunda com exemplo; media = superficial; baixa = genérica
+- sinais_extraidos: true somente se apareceu concretamente
+- NÃO infle qualidade sem sustentação`;
+    const r = await callAI(SIM_EXTRACTOR_SYSTEM, usr, {}, 2000);
+    let cleaned = r.trim();
+    if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
+    extracao = JSON.parse(cleaned);
   } catch (e) { console.warn('[sim extract]', e.message); }
 
   await upsertProgresso(sb, trilha, s.semana, {
@@ -265,10 +304,38 @@ async function simularMissaoPratica(sb: any, trilha: any, colab: any, s: any, pe
   let extracao = {};
   try {
     const transcript = historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content}`).join('\n\n');
-    const sys = 'Você é um extrator de dados. Retorne APENAS JSON.';
-    const usr = `CONVERSA:\n${transcript}\n\nExtraia:\n{\n  "avaliacao_por_descritor": [\n${cobertos.map((d: any) => `    { "descritor": "${d}", "nota": 1.0-4.0, "observacao": "1 frase" }`).join(',\n')}\n  ],\n  "sintese_bloco": "1 frase"\n}`;
-    const r = await callAI(sys, usr, {}, 3000);
-    extracao = JSON.parse(r.replace(/```json\n?|```\n?/g, '').trim());
+    const usr = `MODO: missao_feedback (conversa simulada — evidência prática)
+
+CONVERSA:
+${transcript}
+
+DESCRITORES: ${cobertos.join(', ')}
+
+EXTRAIA:
+{
+  "avaliacao_por_descritor": [
+${cobertos.map((d: any) => `    {
+      "descritor": "${d}",
+      "nota": 1.0-4.0,
+      "forca_evidencia": "fraca|moderada|forte",
+      "observacao": "síntese curta e fiel",
+      "trecho_sustentador": "trecho curto ou paráfrase fiel",
+      "limite": "o que faltou"
+    }`).join(',\n')}
+  ],
+  "sintese_bloco": "síntese curta do bloco",
+  "alertas_metodologicos": ["alerta se houver"]
+}
+
+REGRAS:
+- nota entre 1.0 e 4.0 — não infle sem sustentação
+- forca_evidencia: forte = ação+consequência; moderada = algum detalhe; fraca = vago
+- Se o descritor não tiver base, forca_evidencia = "fraca"
+- NÃO force todas as notas altas`;
+    const r = await callAI(SIM_EXTRACTOR_SYSTEM, usr, {}, 3000);
+    let cleanedA = r.trim();
+    if (cleanedA.startsWith('```')) cleanedA = cleanedA.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
+    extracao = JSON.parse(cleanedA);
   } catch (e) { console.warn('[sim extract aplicacao]', e.message); }
 
   await upsertProgresso(sb, trilha, s.semana, {
