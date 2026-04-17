@@ -1771,39 +1771,81 @@ export async function gerarDossieGestor(empresaId: string, aiConfig: AIConfig = 
       porTipo[r.tipo].push({ colaborador: r.colaboradores?.nome_completo, cargo: r.colaboradores?.cargo, resumo: r.conteudo?.resumo_executivo || r.conteudo?.evolucao_geral });
     }
 
-    const system = `Você é um consultor executivo de gestão de pessoas da Vertho.
+    const system = `Você é um consultor executivo de desenvolvimento de equipes da Vertho.
 
-═══ TAREFA ═══
-Compilar DOSSIÊ EXECUTIVO consolidando diagnóstico + evolução + recomendações
-da empresa em um documento final pra liderança.
+Sua tarefa é gerar um DOSSIÊ DO GESTOR, com base no diagnóstico inicial da equipe, na evolução observada ao longo do ciclo e nas implicações práticas para a gestão.
 
-═══ PRINCÍPIOS ═══
-1. Executivo e orientado a decisão
-2. Celebre ganhos antes de apontar riscos
-3. NÃO invente impacto sem base
-4. ROI como "retorno de desenvolvimento" (prudente)
-5. Conexão clara com gestão e resultados
+ATENÇÃO:
+Este dossiê não é um resumo bonito do projeto.
+Não é uma peça de marketing.
+Não é um relatório individual.
+Ele deve ser um documento executivo, claro e útil para o gestor entender o time e agir melhor sobre ele.
 
-Retorne APENAS JSON válido.`;
+PRINCÍPIOS INEGOCIÁVEIS:
+1. Seja executivo, claro e acionável.
+2. Compare diagnóstico inicial e evolução observada.
+3. Não force conclusões positivas.
+4. Diferencie avanço consistente de ganho parcial.
+5. O ROI deve ser prudente e gerencial, não fictício.
+6. Toda recomendação relevante deve ter conexão com os dados.
+7. O dossiê deve ajudar o gestor a agir, não apenas a entender.
+8. Sem linguagem genérica que serviria para qualquer equipe.
+
+RETORNE APENAS JSON VÁLIDO, sem markdown, sem texto antes ou depois.`;
 
     const userBlocks: string[] = [];
-    userBlocks.push(`═══ EMPRESA ═══\n${empresa.nome} (${empresa.segmento})`);
-    if (relPlenaria?.conteudo) userBlocks.push(`═══ PLENÁRIA DE EVOLUÇÃO ═══\n${JSON.stringify(relPlenaria.conteudo, null, 2).slice(0, 3000)}`);
-    if (relRH?.conteudo) userBlocks.push(`═══ RELATÓRIO RH ═══\n${JSON.stringify(relRH.conteudo, null, 2).slice(0, 2000)}`);
-    userBlocks.push(`═══ RELATÓRIOS POR TIPO ═══\n${JSON.stringify(porTipo, null, 2).slice(0, 4000)}`);
+    userBlocks.push(`EMPRESA: ${empresa.nome} (${empresa.segmento})`);
+    if (relPlenaria?.conteudo) userBlocks.push(`PLENÁRIA DE EVOLUÇÃO:\n${JSON.stringify(relPlenaria.conteudo, null, 2).slice(0, 3000)}`);
+    if (relRH?.conteudo) userBlocks.push(`RELATÓRIO RH:\n${JSON.stringify(relRH.conteudo, null, 2).slice(0, 2000)}`);
+    userBlocks.push(`RELATÓRIOS POR TIPO:\n${JSON.stringify(porTipo, null, 2).slice(0, 4000)}`);
 
-    userBlocks.push(`═══ FORMATO ═══
+    userBlocks.push(`FORMATO DE SAÍDA (JSON):
 {
-  "titulo": "Dossiê Executivo — ${empresa.nome}",
-  "sumario_executivo": "síntese estratégica (3-4 frases)",
-  "diagnostico_inicial": "leitura do ponto de partida",
-  "evolucao": "leitura dos avanços e gaps persistentes",
-  "roi_desenvolvimento": "retorno observado ou hipótese de impacto",
-  "recomendacoes": ["recomendação 1", "recomendação 2"],
-  "proximos_passos": ["passo 1", "passo 2"],
-  "conclusao": "mensagem final executiva",
+  "titulo": "Dossiê Executivo do Gestor",
+  "sumario_executivo": {
+    "leitura_geral": "síntese executiva curta",
+    "principal_ganho_do_ciclo": "texto curto",
+    "principal_alerta_para_gestao": "texto curto"
+  },
+  "diagnostico_inicial": {
+    "fotografia_da_equipe": "síntese do ponto de partida",
+    "forcas_iniciais": ["força 1"],
+    "riscos_iniciais": ["risco 1"],
+    "implicacao_gerencial_inicial": "o que isso significava para o gestor"
+  },
+  "evolucao": {
+    "sintese": "texto curto",
+    "avancos_consistentes": [
+      {"tema": "nome do avanço", "evidencia": "síntese curta"}
+    ],
+    "ganhos_parciais": [
+      {"tema": "ganho parcial", "limite": "o que faltou consolidar"}
+    ],
+    "gaps_que_permanecem": [
+      {"gap": "nome", "risco_para_gestao": "por que importa"}
+    ]
+  },
+  "roi": {
+    "leitura": "retorno gerencial prudente do ciclo",
+    "ganhos_para_a_gestao": ["ganho 1"],
+    "limites_do_retorno": ["limite 1"]
+  },
+  "recomendacoes": [
+    {"recomendacao": "ação sugerida", "horizonte": "imediato|curto|medio", "objetivo": "o que pretende", "justificativa": "por que faz sentido"}
+  ],
+  "conclusao": {
+    "fechamento": "síntese final executiva",
+    "proximo_passo_recomendado": "texto curto"
+  },
   "alertas_metodologicos": ["alerta 1"]
-}`);
+}
+
+REGRAS:
+- integrar diagnóstico + evolução + implicação gerencial
+- roi prudente e útil
+- máximo 6 recomendações
+- diferenciar avanço consistente, ganho parcial e gap persistente
+- sem linguagem vaga ou genérica`);
 
     const user = userBlocks.join('\n\n');
     const resultado = await callAI(system, user, aiConfig, 8192, { temperature: TEMP });
