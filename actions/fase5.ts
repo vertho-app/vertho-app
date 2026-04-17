@@ -1502,10 +1502,7 @@ Descritores que subiram: ${totalDescUp} de ${totalDesc} (${totalDesc ? Math.roun
     const plenaria = await extractJSON(resultado);
 
     if (plenaria) {
-      await tdb.from('relatorios').upsert({
-        colaborador_id: null, tipo: 'plenaria_evolucao',
-        conteudo: plenaria, gerado_em: new Date().toISOString(),
-      }, { onConflict: 'empresa_id,colaborador_id,tipo' });
+      await upsertRelatorioAgregado(tdb, 'plenaria_evolucao', plenaria);
     }
 
     return { success: true, message: 'Plenária de evolução institucional gerada' };
