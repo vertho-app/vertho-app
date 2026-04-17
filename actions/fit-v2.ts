@@ -292,7 +292,7 @@ export async function gerarLeituraExecutivaFit(empresaId: string, colaboradorId:
     if (!resultado) return { success: false, error: 'Resultado do fit indisponível' };
 
     const prompt = buildFitExecutivePrompt({ resultado, cargoNome });
-    const system = 'Você é um consultor sênior de desenvolvimento humano. Responda apenas com o texto final, sem markdown nem aspas.';
+    const system = 'Você é um consultor sênior de desenvolvimento humano da Vertho. Fit é contextual, não destino. Nunca use linguagem determinista. Responda apenas com o texto final, sem markdown nem aspas.';
 
     // 4) Chama LLM
     const raw = await callAI(system, prompt, {}, 800);
