@@ -255,22 +255,45 @@ Produza uma nova versão MAIS DEFENSÁVEL da avaliação final.`;
     const checkAppendix = `
 
 ATENÇÃO: Esta é uma AUDITORIA DE SEGUNDA RODADA da semana 14.
+Você está auditando uma NOVA VERSÃO do scoring final, gerada após feedback da auditoria anterior.
 
-REGRAS ADICIONAIS:
-1. O scorer foi reexecutado com base no feedback da auditoria anterior.
-2. Verifique se os problemas apontados foram realmente corrigidos.
-3. Diferencie: problema resolvido / parcialmente resolvido / mantido / novo problema.
-4. Se um problema anterior persistiu, diga isso claramente.
-5. Se a nova versão criou novo erro, sinalize.
-6. Não trate como auditoria cega de primeira passagem.
+REGRAS ADICIONAIS OBRIGATÓRIAS:
+1. Não trate esta rodada como auditoria cega de primeira passagem.
+2. Compare a nova versão com os problemas apontados anteriormente.
+3. Sua tarefa é dizer:
+   - o que foi corrigido
+   - o que foi corrigido parcialmente
+   - o que ainda permaneceu frágil
+   - se surgiu algum novo problema
+4. Se um problema anterior foi resolvido, reconheça explicitamente.
+5. Se um problema anterior persistiu, sinalize claramente.
+6. Se a nova versão criou novo erro metodológico, destaque.
+7. Continue auditando a DEFENSABILIDADE da triangulação, não a "beleza" do texto.
+8. Mantenha rigor com: 4.0 sem base, cenário supervalorizado, acumulado ignorado, delta incoerente, justificativa genérica, ausência de limites.
 
-AUDITORIA ANTERIOR:
-${feedbackAuditoria}`;
+CONTEXTO DA AUDITORIA ANTERIOR:
+${feedbackAuditoria}
+
+EXPECTATIVA DESTA RODADA:
+- resumo_auditoria deve dizer se a nova versão ficou melhor resolvida, parcialmente corrigida ou ainda frágil
+- alertas devem refletir problemas mantidos E novos problemas
+- ajustes_sugeridos devem focar no que ainda precisa ser corrigido
+- Não seja complacente só porque houve reprocessamento
+- Reconheça melhora real quando ela aconteceu`;
 
     const rC = await callAI(sC + checkAppendix, uC, {}, 8000);
     let cleanedChk = rC.trim();
     if (cleanedChk.startsWith('```')) cleanedChk = cleanedChk.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
     auditoria = validateEvolutionScenarioCheck(JSON.parse(cleanedChk));
+
+    // Validação de segunda rodada: resumo deve referenciar comparação
+    if (auditoria?.resumo_auditoria) {
+      const resumo = auditoria.resumo_auditoria.toLowerCase();
+      const temComparacao = ['corrig', 'melhora', 'manteve', 'persist', 'anterior', 'segunda', 'resolv', 'parcial'].some(w => resumo.includes(w));
+      if (!temComparacao) {
+        console.warn('[regerar check] resumo_auditoria pode não estar comparando com rodada anterior');
+      }
+    }
   } catch (e) {
     console.warn('[regerar check]', e.message);
   }
