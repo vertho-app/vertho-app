@@ -32,6 +32,18 @@ const NIVEL_COLORS = {
   1: 'text-red-400', 2: 'text-amber-400', 3: 'text-cyan-400', 4: 'text-green-400',
 };
 
+const CHECK_DIM_MAX: Record<string, number> = {
+  ancoragem_evidencia: 20, coerencia_nivel_nota: 20, coerencia_consolidacao: 15,
+  especificidade_feedback: 15, qualidade_recomendacoes: 15, prudencia_metodologica: 15,
+  // Legacy
+  evidencias_niveis: 25, consolidacao: 25, feedback_especificidade: 25, desenvolvimento: 25,
+};
+const CHECK_DIM_LABELS: Record<string, string> = {
+  ancoragem_evidencia: 'Ancoragem', coerencia_nivel_nota: 'Nível×Nota', coerencia_consolidacao: 'Consolidação',
+  especificidade_feedback: 'Feedback', qualidade_recomendacoes: 'Recomendações', prudencia_metodologica: 'Prudência',
+  evidencias_niveis: 'Evidências', consolidacao: 'Consolidação', feedback_especificidade: 'Feedback', desenvolvimento: 'Recomend.',
+};
+
 export default function Fase2Page({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = use(params);
   const router = useRouter();
@@ -52,7 +64,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
   function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 3000); }
 
   async function handleRevisarTodos() {
-    const paraRevisar = respostas.filter(r => r.status_ia4 === 'revisar');
+    const paraRevisar = respostas.filter(r => r.status_ia4 === 'revisar' || r.status_ia4 === 'aprovado_com_ajustes');
     if (!paraRevisar.length) { flash('Nenhuma avaliação para revisar'); return; }
     setBatchRunning(true);
     flash(`Re-avaliando ${paraRevisar.length} respostas...`);
@@ -99,6 +111,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
     if (filtroStatus === 'avaliado' && !r.avaliacao_ia) return false;
     if (filtroStatus === 'pendente' && r.avaliacao_ia) return false;
     if (filtroStatus === 'aprovado' && r.status_ia4 !== 'aprovado') return false;
+    if (filtroStatus === 'aprovado_com_ajustes' && r.status_ia4 !== 'aprovado_com_ajustes') return false;
     if (filtroStatus === 'revisar' && r.status_ia4 !== 'revisar') return false;
     return true;
   });
@@ -114,6 +127,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
     total: respostas.length,
     avaliadas: respostas.filter(r => r.avaliacao_ia).length,
     aprovadas: respostas.filter(r => r.status_ia4 === 'aprovado').length,
+    com_ajustes: respostas.filter(r => r.status_ia4 === 'aprovado_com_ajustes').length,
     revisar: respostas.filter(r => r.status_ia4 === 'revisar').length,
     pendentes: respostas.filter(r => !r.avaliacao_ia).length,
   };
@@ -159,13 +173,14 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
         <span className="text-gray-400">Total: <span className="text-white font-bold">{stats.total}</span></span>
         <span className="text-gray-400">Avaliadas: <span className="text-cyan-400 font-bold">{stats.avaliadas}</span></span>
         {stats.aprovadas > 0 && <span className="bg-green-400/15 text-green-400 px-1.5 py-0.5 rounded font-bold">{stats.aprovadas} aprovadas</span>}
+        {stats.com_ajustes > 0 && <span className="bg-cyan-400/15 text-cyan-400 px-1.5 py-0.5 rounded font-bold">{stats.com_ajustes} com ajustes</span>}
         {stats.revisar > 0 && <span className="bg-amber-400/15 text-amber-400 px-1.5 py-0.5 rounded font-bold">{stats.revisar} revisar</span>}
         {stats.pendentes > 0 && <span className="bg-gray-400/15 text-gray-400 px-1.5 py-0.5 rounded font-bold">{stats.pendentes} pendentes</span>}
-        {stats.revisar > 0 && (
+        {(stats.revisar > 0 || stats.com_ajustes > 0) && (
           <button onClick={handleRevisarTodos} disabled={batchRunning}
             className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 transition-all disabled:opacity-50">
             {batchRunning ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
-            Re-avaliar todos ({stats.revisar})
+            Re-avaliar todos ({stats.revisar + stats.com_ajustes})
           </button>
         )}
       </div>
@@ -189,6 +204,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
           <option value="pendente">Pendente</option>
           <option value="avaliado">Avaliado</option>
           <option value="aprovado">Aprovado</option>
+          <option value="aprovado_com_ajustes">Com ajustes</option>
           <option value="revisar">Revisar</option>
         </select>
       </div>
@@ -217,6 +233,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
               return (
                 <div key={r.id} className={`rounded-xl border overflow-hidden ${
                   r.status_ia4 === 'aprovado' ? 'border-green-400/20' :
+                  r.status_ia4 === 'aprovado_com_ajustes' ? 'border-cyan-400/20' :
                   r.status_ia4 === 'revisar' ? 'border-amber-400/20' :
                   r.avaliacao_ia ? 'border-cyan-400/10' : 'border-white/[0.06]'
                 }`} style={{ background: '#0F2A4A' }}>
@@ -226,6 +243,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                     className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/[0.02] transition-colors">
                     <div className="flex-1 min-w-0 flex items-center gap-2">
                       {r.status_ia4 === 'aprovado' && <CheckCircle size={14} className="text-green-400 shrink-0" />}
+                      {r.status_ia4 === 'aprovado_com_ajustes' && <CheckCircle size={14} className="text-cyan-400 shrink-0" />}
                       {r.status_ia4 === 'revisar' && <AlertTriangle size={14} className="text-amber-400 shrink-0" />}
                       <span className="text-xs font-bold text-white">{r.competencia_nome}</span>
                       {r.competencia_cod && <span className="text-[9px] font-mono text-cyan-400/60">{r.competencia_cod}</span>}
@@ -246,7 +264,9 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                       )}
                       {check?.nota !== undefined && (
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                          check.nota >= 90 ? 'bg-green-400/15 text-green-400' : 'bg-amber-400/15 text-amber-400'
+                          check.nota >= 90 ? 'bg-green-400/15 text-green-400' :
+                          check.nota >= 80 ? 'bg-cyan-400/15 text-cyan-400' :
+                          'bg-amber-400/15 text-amber-400'
                         }`}>Check {check.nota}pts</span>
                       )}
                       {!avaliacao && <span className="text-[9px] text-gray-600">Pendente</span>}
@@ -518,31 +538,64 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                         <div>
                           <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest mb-2">Check (Auditoria)</p>
                           <div className={`p-3 rounded-lg border ${
-                            check.nota >= 90 ? 'border-green-400/20 bg-green-400/5' : 'border-amber-400/20 bg-amber-400/5'
+                            check.nota >= 90 ? 'border-green-400/20 bg-green-400/5' :
+                            check.nota >= 80 ? 'border-cyan-400/20 bg-cyan-400/5' :
+                            'border-amber-400/20 bg-amber-400/5'
                           }`}>
                             <div className="flex items-center gap-2 mb-2">
-                              <span className={`text-sm font-bold ${check.nota >= 90 ? 'text-green-400' : 'text-amber-400'}`}>
-                                {check.nota}pts — {check.nota >= 90 ? 'Aprovado' : 'Revisar'}
+                              <span className={`text-sm font-bold ${
+                                check.nota >= 90 ? 'text-green-400' :
+                                check.nota >= 80 ? 'text-cyan-400' :
+                                'text-amber-400'
+                              }`}>
+                                {check.nota}pts — {check.nota >= 90 ? 'Aprovado' : check.nota >= 80 ? 'Aprovado c/ ajustes' : 'Revisar'}
                               </span>
                             </div>
                             {check.dimensoes && (
                               <div className="flex flex-wrap gap-2 mb-2">
-                                {Object.entries(check.dimensoes).map(([k, v]: [string, any]) => (
-                                  <span key={k} className={`text-[9px] px-1.5 py-0.5 rounded ${
-                                    v >= 22 ? 'bg-green-400/10 text-green-400' : v >= 18 ? 'bg-amber-400/10 text-amber-400' : 'bg-red-400/10 text-red-400'
-                                  }`}>{k}: {v}/25</span>
-                                ))}
+                                {Object.entries(check.dimensoes).map(([k, v]: [string, any]) => {
+                                  const max = CHECK_DIM_MAX[k] || 25;
+                                  const pct = (v / max) * 100;
+                                  return (
+                                    <span key={k} className={`text-[9px] px-1.5 py-0.5 rounded ${
+                                      pct >= 85 ? 'bg-green-400/10 text-green-400' : pct >= 70 ? 'bg-amber-400/10 text-amber-400' : 'bg-red-400/10 text-red-400'
+                                    }`}>{CHECK_DIM_LABELS[k] || k}: {v}/{max}</span>
+                                  );
+                                })}
                               </div>
                             )}
                             {check.justificativa && <p className="text-[10px] text-gray-400 mb-1">{check.justificativa}</p>}
                             {check.revisao && <p className="text-[10px] text-amber-300"><span className="font-bold">Revisar:</span> {check.revisao}</p>}
+                            {!check.revisao && Array.isArray(check.mudancas_sugeridas) && check.mudancas_sugeridas.length > 0 && (
+                              <p className="text-[10px] text-amber-300"><span className="font-bold">Revisar:</span> {check.mudancas_sugeridas.join('; ')}</p>
+                            )}
+                            {check.ponto_mais_confiavel && (
+                              <p className="text-[10px] text-green-300/80 mt-1">✦ Ponto forte: {check.ponto_mais_confiavel}</p>
+                            )}
+                            {check.ponto_mais_fragil && (
+                              <p className="text-[10px] text-amber-300/80 mt-1">⚠ Ponto frágil: {check.ponto_mais_fragil}</p>
+                            )}
+                            {Array.isArray(check.descritores_com_risco) && check.descritores_com_risco.length > 0 && (
+                              <p className="text-[10px] text-red-300/80 mt-1">✗ Descritores com risco: {check.descritores_com_risco.join(', ')}</p>
+                            )}
+                            {check.tipo_de_erro_predominante && check.tipo_de_erro_predominante !== 'nenhum' && (
+                              <p className="text-[10px] text-purple-300/80 mt-1">Tipo de erro: {check.tipo_de_erro_predominante}</p>
+                            )}
+                            {Array.isArray(check.mudancas_sugeridas) && check.mudancas_sugeridas.length > 0 && (
+                              <div className="mt-1.5">
+                                <p className="text-[9px] font-bold text-cyan-400">Mudanças sugeridas:</p>
+                                {check.mudancas_sugeridas.map((m: string, j: number) => (
+                                  <p key={j} className="text-[10px] text-gray-400 ml-2">→ {m}</p>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
 
                       {/* Ações */}
                       <div className="flex items-center gap-2 pt-2">
-                        {r.status_ia4 === 'revisar' && (
+                        {(r.status_ia4 === 'revisar' || r.status_ia4 === 'aprovado_com_ajustes') && (
                           <button disabled={actionId === r.id} onClick={async () => {
                             setActionId(r.id);
                             flash('Re-avaliando...');

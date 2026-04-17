@@ -4,60 +4,137 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
 
-const CHECK_SYSTEM = `Voce e um auditor de qualidade de Assessment Comportamental.
-Sua tarefa e verificar se a avaliacao gerada por uma IA e ACEITAVEL — nao perfeita.
+const CHECK_SYSTEM = `Você é um auditor de qualidade de Assessment Comportamental da Vertho.
+Sua tarefa: verificar se a avaliação gerada por uma IA é DEFENSÁVEL como produto Vertho.
 
-FILOSOFIA DA AUDITORIA:
-- Voce NAO esta refazendo a avaliacao. Esta verificando se ela e RAZOAVEL.
-- Diferencas de +-1 nivel em descritores individuais sao ACEITAVEIS (margens de interpretacao).
-- O foco e detectar ERROS GRAVES: nivel completamente errado, feedback generico, matematica errada.
-- Se o nivel geral esta dentro de +-1 do que voce daria, a coerencia e BOA.
-- Avaliacoes imperfeitas mas razoaveis devem receber nota 85-95.
-- Reserve notas < 70 para avaliacoes com erros OBJETIVOS.
+═══ PRINCÍPIOS ═══
 
-Avalie em 4 dimensoes (25pts cada = 100pts):
+- Evidência concreta vale mais que texto bonito
+- N3/N4 sem base concreta devem ser penalizados FORTEMENTE
+- Feedback genérico é erro metodológico
+- Recomendação sem base observável deve derrubar nota
+- O auditor PROTEGE rigor, prática e baixo viés
 
-1. EVIDENCIAS E NIVEIS (25pts)
-   - Descritores tem evidencia textual da resposta? (pode ser parafrase)
-   - Nivel geral esta dentro de +-1 do que a regua indica? Se sim → 20-25pts
-   - Penalize APENAS se: nivel N3+ sem NENHUMA evidencia concreta, ou resposta claramente N1 avaliada como N3+
+═══ 6 CRITÉRIOS DE AUDITORIA (total 100 pontos) ═══
 
-2. COERENCIA DA CONSOLIDACAO (25pts)
-   Verificacao matematica:
-   - media_descritores → nivel_geral: arredondado para baixo? (2.6 → N2)
-   - Travas: descritor critico N1 → max N2; mais de 3 N1 → N1
-   - GAP = 3 - nivel_geral correto?
-   - Matematica correta → 23-25pts. Erro leve → 18-22pts
+1. ANCORAGEM EM EVIDÊNCIA (20pts)
+   Cada nota por descritor está ancorada em evidência textual real?
+   N3+ sem trecho concreto = penalizar fortemente.
 
-3. FEEDBACK + ESPECIFICIDADE (25pts)
-   - Feedback menciona algo especifico das respostas? (nao precisa citar literalmente)
-   - Tom construtivo e personalizado?
-   - ERRO GRAVE (→ nota max 60 TOTAL): feedback 100% generico que serviria para qualquer pessoa
-   - Pontos fortes citam evidencias reais? Gaps sao relevantes?
+2. COERÊNCIA NÍVEL × NOTA (20pts)
+   O nível geral é coerente com as notas por descritor?
+   A nota decimal reflete corretamente a média?
 
-4. DESENVOLVIMENTO / RECOMENDACOES (25pts)
-   - Gaps prioritarios sao acionaveis?
-   - Pontos de desenvolvimento fazem sentido para o nivel identificado?
-   - NAO sugere recursos externos (livros, podcasts)? Se sim, penalize -5pts
+3. COERÊNCIA DA CONSOLIDAÇÃO (15pts)
+   Travas foram aplicadas corretamente?
+   (descritor N1 → max N2; >3 N1 → N1; floor da média)
+   GAP = 3 - nivel_geral correto?
+   Matemática correta?
 
-Nota >= 90 = Aprovado | < 90 = Revisar
-ERRO GRAVE = nota maxima 60 (feedback generico, nivel totalmente errado, alucinacao)
+4. ESPECIFICIDADE DO FEEDBACK (15pts)
+   O feedback menciona algo específico das respostas?
+   Tom construtivo e personalizado?
+   ERRO GRAVE: feedback 100% genérico que serviria para qualquer pessoa.
 
-Retorne APENAS JSON valido:
+5. QUALIDADE DAS RECOMENDAÇÕES (15pts)
+   Gaps prioritários são acionáveis?
+   Recomendações são proporcionais à força da evidência?
+   NÃO sugere recursos externos (livros, podcasts)?
+
+6. PRUDÊNCIA METODOLÓGICA (15pts)
+   A avaliação é prudente dado as evidências disponíveis?
+   Inferiu fatos não mencionados? Extrapolou impactos?
+   Na dúvida, escolheu o nível inferior?
+
+═══ ERROS GRAVES (forçam nota máxima 60) ═══
+
+- N3/N4 sem evidência concreta suficiente
+- Feedback 100% genérico
+- Recomendação sem base observável
+- Consolidação contraditória (ex: média 1.5 com nível N3)
+- Inferência/alucinação evidente
+- Erro matemático claro (média ou travas)
+
+═══ CLASSIFICAÇÃO ═══
+
+90-100 = aprovado
+80-89 = aprovado_com_ajustes
+0-79 = revisar (mudancas_sugeridas obrigatório)
+
+═══ FORMATO JSON (APENAS JSON, sem markdown) ═══
+
 {
   "nota": 87,
-  "status": "aprovado|revisar",
+  "status": "aprovado_com_ajustes",
   "erro_grave": false,
-  "dimensoes": {
-    "evidencias_niveis": 22,
-    "consolidacao": 23,
-    "feedback_especificidade": 21,
-    "desenvolvimento": 21
+  "criterios": {
+    "ancoragem_evidencia": 18,
+    "coerencia_nivel_nota": 17,
+    "coerencia_consolidacao": 13,
+    "especificidade_feedback": 14,
+    "qualidade_recomendacoes": 12,
+    "prudencia_metodologica": 13
   },
-  "justificativa": "O que esta bom e o que precisa melhorar.",
-  "revisao": "O que corrigir (vazio se aprovado).",
-  "alertas": []
-}`;
+  "ponto_mais_confiavel": "O que a avaliação fez melhor",
+  "ponto_mais_fragil": "Onde a avaliação é mais vulnerável",
+  "descritores_com_risco": ["descritores onde a nota parece frágil"],
+  "tipo_de_erro_predominante": "extrapolacao|falta_prudencia|generico|matematica|nenhum",
+  "justificativa": "Avaliação geral (2-3 frases concretas, não genéricas)",
+  "mudancas_sugeridas": ["lista de correções específicas se status != aprovado"],
+  "alertas": ["riscos residuais"]
+}
+
+REGRA: Prefira rigor metodológico a elegância. Se a avaliação for razoável
+mas imprudente, penalize. Se for conservadora e bem ancorada, premie.`;
+
+function buildCheckUser(colab: any, compNome: string, perfilCIS: string, resp: any, reguaTexto: string, cenarioTexto: string, perguntasTexto: string): string {
+  const blocks: string[] = [];
+
+  blocks.push(`═══ PROFISSIONAL ═══
+${colab?.nome_completo || '—'} · ${colab?.cargo || '—'}`);
+
+  blocks.push(`═══ COMPETÊNCIA ═══\n${compNome}`);
+
+  if (perfilCIS) blocks.push(`═══ PERFIL CIS ═══\n${perfilCIS}`);
+
+  blocks.push(`═══ RESPOSTAS DO PROFISSIONAL ═══
+R1: ${resp.r1 || '—'}
+R2: ${resp.r2 || '—'}
+R3: ${resp.r3 || '—'}
+R4: ${resp.r4 || '—'}`);
+
+  if (reguaTexto) blocks.push(`═══ RÉGUA DE MATURIDADE ═══\n${reguaTexto}`);
+  if (cenarioTexto) blocks.push(`═══ CENÁRIO ═══\n${cenarioTexto}`);
+  if (perguntasTexto) blocks.push(`═══ PERGUNTAS ═══\n${perguntasTexto}`);
+
+  // Avaliação a auditar — incluir campos enriquecidos se disponíveis
+  const av = typeof resp.avaliacao_ia === 'string' ? JSON.parse(resp.avaliacao_ia) : resp.avaliacao_ia;
+  blocks.push(`═══ AVALIAÇÃO A AUDITAR ═══\n${JSON.stringify(av, null, 2)}`);
+
+  blocks.push(`═══ INSTRUÇÃO ═══
+Verifique se esta avaliação é DEFENSÁVEL como produto Vertho.
+Se for bem escrita mas metodologicamente fraca, PENALIZE.
+Prefira rigor a elegância.`);
+
+  return blocks.join('\n\n');
+}
+
+function processCheckResult(check: any): { status: string; check: any } {
+  if (!check || check.nota === undefined) return { status: 'erro', check: null };
+
+  // Validação: erro_grave força max 60
+  if (check.erro_grave && check.nota > 60) {
+    check.nota = 60;
+  }
+
+  // Status
+  const status = check.nota >= 90 ? 'aprovado'
+    : check.nota >= 80 ? 'aprovado_com_ajustes'
+    : 'revisar';
+  check.status = status;
+
+  return { status, check };
+}
 
 export async function checkAvaliacoes(empresaId: string, aiConfig: AIConfig = {}) {
   const sb = createSupabaseAdmin();
@@ -72,13 +149,12 @@ export async function checkAvaliacoes(empresaId: string, aiConfig: AIConfig = {}
     if (qErr) return { success: false, error: qErr.message };
     if (!respostas?.length) return { success: true, message: 'Nenhuma avaliação pendente de check' };
 
-    // Buscar colaboradores
-    const colabIds = [...new Set(respostas.map(r => r.colaborador_id).filter(Boolean))];
+    const colabIds = [...new Set(respostas.map((r: any) => r.colaborador_id).filter(Boolean))];
     const { data: colabs } = await sb.from('colaboradores')
       .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, perfil_dominante')
       .in('id', colabIds);
-    const colabMap = {};
-    (colabs || []).forEach(c => { colabMap[c.id] = c; });
+    const colabMap: Record<string, any> = {};
+    (colabs || []).forEach((c: any) => { colabMap[c.id] = c; });
 
     const model = aiConfig?.model || 'gemini-3-flash-preview';
     let checados = 0, erros = 0, ultimoErro = '';
@@ -87,7 +163,6 @@ export async function checkAvaliacoes(empresaId: string, aiConfig: AIConfig = {}
       try {
         const colab = colabMap[resp.colaborador_id] || {};
 
-        // Cenário + perguntas
         let cenarioTexto = '', perguntasTexto = '';
         if (resp.cenario_id) {
           const { data: cen } = await sb.from('banco_cenarios')
@@ -95,60 +170,40 @@ export async function checkAvaliacoes(empresaId: string, aiConfig: AIConfig = {}
             .eq('id', resp.cenario_id).maybeSingle();
           if (cen) {
             cenarioTexto = `${cen.titulo}\n${cen.descricao}`;
-            const pergs = Array.isArray(cen.alternativas) ? cen.alternativas : [];
-            perguntasTexto = pergs.map((p, i) => `P${p.numero || i + 1}: ${p.texto || ''}`).join('\n');
+            const altObj = typeof cen.alternativas === 'object' && !Array.isArray(cen.alternativas) ? cen.alternativas : {};
+            const pergs = altObj.perguntas || (Array.isArray(cen.alternativas) ? cen.alternativas : []);
+            perguntasTexto = pergs.map((p: any, i: number) => `P${p.numero || i + 1}: ${p.texto || ''}`).join('\n');
           }
         }
 
-        // Competência + régua
         let compNome = '', reguaTexto = '';
         if (resp.competencia_id) {
           const { data: comp } = await sb.from('competencias')
             .select('nome, cod_comp').eq('id', resp.competencia_id).maybeSingle();
           compNome = comp?.nome || '';
-
           const { data: descs } = await sb.from('competencias')
             .select('cod_desc, nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
             .eq('empresa_id', empresaId).eq('cod_comp', comp?.cod_comp).not('cod_desc', 'is', null);
-
           if (descs?.length) {
-            reguaTexto = descs.map((d, i) =>
+            reguaTexto = descs.map((d: any, i: number) =>
               `D${i + 1} ${d.cod_desc}: ${d.nome_curto}\n  N1: ${d.n1_gap || '—'}\n  N2: ${d.n2_desenvolvimento || '—'}\n  N3: ${d.n3_meta || '—'}\n  N4: ${d.n4_referencia || '—'}`
             ).join('\n\n');
           }
         }
 
-        // Perfil CIS
         let perfilCIS = '';
         if (colab.d_natural != null) {
           perfilCIS = `DISC: D=${colab.d_natural} I=${colab.i_natural} S=${colab.s_natural} C=${colab.c_natural} → ${colab.perfil_dominante || '—'}`;
         }
 
-        const user = `COLABORADOR: ${colab.nome_completo || '—'} | CARGO: ${colab.cargo || '—'}
-COMPETENCIA: ${compNome}
-${perfilCIS ? `\n${perfilCIS}\n` : ''}
-RESPOSTAS DO COLABORADOR:
-R1: ${resp.r1 || '—'}
-R2: ${resp.r2 || '—'}
-R3: ${resp.r3 || '—'}
-R4: ${resp.r4 || '—'}
-
-${reguaTexto ? `REGUA DE MATURIDADE (N1-N4 por descritor):\n${reguaTexto}\n` : ''}
-CENARIO:
-${cenarioTexto}
-
-PERGUNTAS:
-${perguntasTexto}
-
-AVALIACAO A AUDITAR:
-${JSON.stringify(resp.avaliacao_ia, null, 2)}`;
-
+        const user = buildCheckUser(colab, compNome, perfilCIS, resp, reguaTexto, cenarioTexto, perguntasTexto);
         const resultado = await callAI(CHECK_SYSTEM, user, { model }, 8192);
-        const check = await extractJSON(resultado);
+        const raw = await extractJSON(resultado);
+        const { status, check } = processCheckResult(raw);
 
-        if (check?.nota !== undefined) {
+        if (check) {
           const { error: updErr } = await sb.from('respostas').update({
-            status_ia4: check.nota >= 90 ? 'aprovado' : 'revisar',
+            status_ia4: status,
             payload_ia4: check,
           }).eq('id', resp.id).select('id');
 
@@ -158,7 +213,7 @@ ${JSON.stringify(resp.avaliacao_ia, null, 2)}`;
           erros++;
           ultimoErro = 'Check não retornou nota';
         }
-      } catch (e) {
+      } catch (e: any) {
         erros++;
         ultimoErro = e.message;
       }
@@ -168,12 +223,10 @@ ${JSON.stringify(resp.avaliacao_ia, null, 2)}`;
       success: true,
       message: `Check IA4: ${checados} verificadas${erros ? `, ${erros} erros` : ''}${ultimoErro ? ` — ${ultimoErro}` : ''}`,
     };
-  } catch (err) {
+  } catch (err: any) {
     return { success: false, error: err.message };
   }
 }
-
-// ── Checar UMA resposta individual ──────────────────────────────────────────
 
 export async function checarUmaResposta(respostaId: string, aiConfig: AIConfig = {}) {
   const sb = createSupabaseAdmin();
@@ -184,29 +237,26 @@ export async function checarUmaResposta(respostaId: string, aiConfig: AIConfig =
     if (!resp) return { success: false, error: 'Resposta não encontrada' };
     if (!resp.avaliacao_ia) return { success: false, error: 'Resposta não foi avaliada ainda' };
 
-    // Limpar check anterior
     await sb.from('respostas').update({ status_ia4: null, payload_ia4: null }).eq('id', respostaId).select('id');
 
-    // Buscar colaborador
     const { data: colab } = await sb.from('colaboradores')
       .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, perfil_dominante')
       .eq('id', resp.colaborador_id).maybeSingle();
 
     const model = aiConfig?.model || 'gemini-3-flash-preview';
 
-    // Cenário + perguntas
     let cenarioTexto = '', perguntasTexto = '';
     if (resp.cenario_id) {
       const { data: cen } = await sb.from('banco_cenarios')
         .select('titulo, descricao, alternativas').eq('id', resp.cenario_id).maybeSingle();
       if (cen) {
         cenarioTexto = `${cen.titulo}\n${cen.descricao}`;
-        const pergs = Array.isArray(cen.alternativas) ? cen.alternativas : [];
-        perguntasTexto = pergs.map((p, i) => `P${p.numero || i + 1}: ${p.texto || ''}`).join('\n');
+        const altObj = typeof cen.alternativas === 'object' && !Array.isArray(cen.alternativas) ? cen.alternativas : {};
+        const pergs = altObj.perguntas || (Array.isArray(cen.alternativas) ? cen.alternativas : []);
+        perguntasTexto = pergs.map((p: any, i: number) => `P${p.numero || i + 1}: ${p.texto || ''}`).join('\n');
       }
     }
 
-    // Competência + régua
     let compNome = '', reguaTexto = '';
     if (resp.competencia_id) {
       const { data: comp } = await sb.from('competencias')
@@ -216,7 +266,7 @@ export async function checarUmaResposta(respostaId: string, aiConfig: AIConfig =
         .select('cod_desc, nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
         .eq('empresa_id', resp.empresa_id).eq('cod_comp', comp?.cod_comp).not('cod_desc', 'is', null);
       if (descs?.length) {
-        reguaTexto = descs.map((d, i) =>
+        reguaTexto = descs.map((d: any, i: number) =>
           `D${i + 1} ${d.cod_desc}: ${d.nome_curto}\n  N1: ${d.n1_gap || '—'}\n  N2: ${d.n2_desenvolvimento || '—'}\n  N3: ${d.n3_meta || '—'}\n  N4: ${d.n4_referencia || '—'}`
         ).join('\n\n');
       }
@@ -227,36 +277,22 @@ export async function checarUmaResposta(respostaId: string, aiConfig: AIConfig =
       perfilCIS = `DISC: D=${colab.d_natural} I=${colab.i_natural} S=${colab.s_natural} C=${colab.c_natural} → ${colab.perfil_dominante || '—'}`;
     }
 
-    const user = `COLABORADOR: ${colab?.nome_completo || '—'} | CARGO: ${colab?.cargo || '—'}
-COMPETENCIA: ${compNome}
-${perfilCIS ? `\n${perfilCIS}\n` : ''}
-RESPOSTAS:
-R1: ${resp.r1 || '—'}
-R2: ${resp.r2 || '—'}
-R3: ${resp.r3 || '—'}
-R4: ${resp.r4 || '—'}
-
-${reguaTexto ? `REGUA DE MATURIDADE:\n${reguaTexto}\n` : ''}
-CENARIO:\n${cenarioTexto}
-PERGUNTAS:\n${perguntasTexto}
-
-AVALIACAO A AUDITAR:
-${JSON.stringify(resp.avaliacao_ia, null, 2)}`;
-
+    const user = buildCheckUser(colab, compNome, perfilCIS, resp, reguaTexto, cenarioTexto, perguntasTexto);
     const resultado = await callAI(CHECK_SYSTEM, user, { model }, 8192);
-    const check = await extractJSON(resultado);
+    const raw = await extractJSON(resultado);
+    const { status, check } = processCheckResult(raw);
 
-    if (check?.nota !== undefined) {
+    if (check) {
       const { error: updErr } = await sb.from('respostas').update({
-        status_ia4: check.nota >= 90 ? 'aprovado' : 'revisar',
+        status_ia4: status,
         payload_ia4: check,
       }).eq('id', respostaId).select('id');
 
       if (updErr) return { success: false, error: updErr.message };
-      return { success: true, message: `Check: ${compNome} — ${check.nota}pts (${check.nota >= 90 ? 'aprovado' : 'revisar'})`, nota: check.nota };
+      return { success: true, message: `Check: ${compNome} — ${check.nota}pts (${status})`, nota: check.nota, status };
     }
     return { success: false, error: 'Check não retornou nota' };
-  } catch (err) {
+  } catch (err: any) {
     return { success: false, error: err.message };
   }
 }
