@@ -55,7 +55,7 @@
 - `migrations-legacy/` removido (37 arquivos SQL de migracoes antigas)
 - Script npm `migrate:legacy` removido
 
-### service_role (~80 arquivos apos remocao de stubs)
+### service_role (88 arquivos de codigo + 10 arquivos de teste)
 - **34** usos aceitaveis (infra, jobs, webhooks, admin protegido)
 - **29** candidatos a migracao para user-scoped (quando RLS estiver pronta)
 - **~17** complexos demais pra migrar sem RLS policies completas + testes

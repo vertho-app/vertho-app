@@ -93,10 +93,14 @@ export async function loadTrilhaAtual(email) {
 /**
  * Registra evidência de prática semanal (Fase 4).
  */
-export async function registrarEvidencia(email: string, semana: number, texto: string) {
-  if (!email || !semana || !texto?.trim()) {
+export async function registrarEvidencia(semana: number, texto: string) {
+  if (!semana || !texto?.trim()) {
     return { error: 'Dados incompletos' };
   }
+
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
+  if (!email) return { error: 'Não autenticado' };
 
   const colab = await findColabByEmail(email);
   if (!colab) return { error: 'Colaborador não encontrado' };
