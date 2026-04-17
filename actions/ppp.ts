@@ -77,9 +77,12 @@ export async function extrairPPP(empresaId: string, { urls = [], textos = [], mo
       }
     }
 
-    // Normalizar
-    if (!dados.competencias_priorizadas) dados.competencias_priorizadas = [];
-    dados.competencias = dados.competencias_priorizadas;
+    // Normalizar — formato corporativo pode ter { conteudo, origem, confianca }
+    const unwrap = (field: any) => field?.conteudo != null ? field.conteudo : field;
+    const compsPri = unwrap(dados.competencias_priorizadas);
+    if (!compsPri) dados.competencias_priorizadas = [];
+    dados.competencias = Array.isArray(compsPri) ? compsPri : [];
+    const valoresInst = unwrap(dados.valores_institucionais);
 
     // Step 4: Salvar
     const { error } = await sb.from('ppp_escolas')
@@ -90,7 +93,7 @@ export async function extrairPPP(empresaId: string, { urls = [], textos = [], mo
         url_site: urls[0] || null,
         status: 'extraido',
         extracao: JSON.stringify(dados),
-        valores: dados.valores_institucionais || dados.identidade_cultura?.valores || [],
+        valores: Array.isArray(valoresInst) ? valoresInst : (dados.identidade_cultura?.valores || dados.identidade_cultura?.conteudo?.valores || []),
         extracted_at: new Date().toISOString(),
       }, { onConflict: 'empresa_id,escola' });
 
@@ -215,38 +218,53 @@ REGRAS:
 }
 
 function buildPromptCorporativo(empresa, todosTextos) {
-  const system = `Voce e um especialista em extracao de contexto corporativo para geracao de cenarios de assessment por competencias.
+  const system = `Você é um especialista em extração de contexto corporativo para geração de cenários e avaliações da Vertho.
 
-MISSAO: Extrair um Dossie de Contexto Operacional a partir de documentos fornecidos pela empresa.
-Este dossie sera usado para gerar cenarios de competencias altamente fieis ao dia a dia da organizacao.
+Sua tarefa é transformar materiais corporativos em um Dossiê de Contexto Operacional estruturado.
 
-REGRAS DE SEGURANCA METODOLOGICA:
-1. NUNCA trate hipotese como fato. Se nao esta no documento, marque como lacuna.
-2. NUNCA preencha processos internos, cultura real ou dinamica operacional sem evidencia no material.
-3. NUNCA assuma cultura real a partir apenas do site institucional — sites refletem imagem publica, nao realidade operacional.
-4. NUNCA invente tensoes internas, conflitos ou erros sem base documental.
-5. Separe claramente "contexto publico" de "dinamica operacional real".
-6. Use job postings e descricoes de cargo como PISTA, nao como verdade absoluta.
+ATENÇÃO:
+Você NÃO está fazendo um resumo corporativo bonito.
+Você NÃO está interpretando livremente a empresa.
+Você está EXTRAINDO CONTEXTO para uso posterior em prompts de competências, cenários e relatórios.
 
-CLASSIFICACAO DE CONFIANCA (obrigatoria para cada secao):
-- "alta": informacao explicita no material fornecido (documento interno, dados oficiais)
-- "media": informacao implicita ou parcialmente evidenciada no material
-- "baixa": inferencia a partir de pistas indiretas (site, vagas, releases)
+OBJETIVO CENTRAL:
+Transformar os materiais da empresa em um dossiê útil, fiel e prudente, preservando:
+- identidade organizacional
+- stakeholders e mercado
+- operação e processos descritos
+- modelo de pessoas
+- governança e decisão
+- tecnologia e recursos
+- desafios e estratégia
+- vocabulário corporativo
+- tensões e dilemas
+- cadência e rituais
+- sinais sobre cultura e reconhecimento
 
-CLASSIFICACAO DE ORIGEM (obrigatoria para cada secao):
-- "documento_interno": PPP, relatorio, apresentacao interna, regulamento
-- "site_institucional": site oficial, pagina sobre, pagina de carreiras
-- "release_noticia": materia jornalistica, release, entrevista publica
-- "nao_identificado": secao sem informacao suficiente no material
+PRINCÍPIOS INEGOCIÁVEIS:
+1. Nunca trate hipótese como fato. Se não está no material, marque como lacuna.
+2. Nunca preencha processos internos, cultura real ou dinâmica operacional sem evidência.
+3. Nunca assuma cultura real a partir do site institucional — sites refletem imagem pública, não realidade operacional.
+4. Nunca invente tensões internas, conflitos ou erros sem base documental.
+5. Separe claramente "contexto público" de "dinâmica operacional real".
+6. Job postings e descrições de cargo são PISTA, não verdade absoluta.
+7. Quando faltar base, use conteudo: null e confianca: "baixa".
 
-REGRA DE CONCISAO:
-- Secoes descritivas: maximo 5 frases curtas cada.
-- Listas: maximo 8 itens.
-- OBRIGATORIO entregar todas as 10 secoes completas.
-- Para cada secao, preencha conteudo + origem + confianca.
-- Se a secao nao tem informacao, preencha conteudo como null e confianca como "baixa".
+CLASSIFICAÇÃO OBRIGATÓRIA POR SEÇÃO:
+- confianca: "alta" (documento interno explícito) | "media" (implícito ou fonte pública consistente) | "baixa" (inferência fraca)
+- origem: "documento_interno" | "site_institucional" | "release_noticia" | "nao_identificado"
 
-Responda APENAS com JSON valido.`;
+REGRAS DE QUALIDADE:
+- Seções descritivas: máximo 5 frases curtas cada.
+- Listas: máximo 8 itens.
+- OBRIGATÓRIO entregar todas as seções completas.
+- Cada seção com conteudo + origem + confianca.
+- Priorize o que ajuda a entender a empresa de verdade.
+- Capture vocabulário e tensões úteis para cenários.
+- Não force preenchimento positivo.
+- Evite consultoriês e frases que serviriam para qualquer empresa.
+
+RETORNE APENAS JSON VÁLIDO, sem markdown, sem texto antes ou depois.`;
 
   const user = `Empresa: ${empresa.nome} (${empresa.segmento})
 
@@ -410,14 +428,23 @@ TODAS as 10 secoes sao OBRIGATORIAS, cada uma com conteudo + origem + confianca:
     "origem": "...",
     "confianca": "..."
   },
-  "competencias_priorizadas": [
-    {"nome": "competencia", "justificativa": "por que o documento indica isso", "relevancia": "alta|media|baixa"}
-  ],
-  "valores_institucionais": ["valor 1", "valor 2"],
-  "_metadata": {
-    "lacunas": ["secoes ou campos onde nao havia informacao suficiente"],
-    "hipoteses_controladas": ["inferencias feitas a partir de pistas indiretas — NAO sao fatos confirmados"],
-    "recomendacao_validacao": ["pontos que devem ser validados com RH ou gestor da empresa"]
+  "competencias_priorizadas": {
+    "conteudo": [
+      {"nome": "competência", "justificativa": "por que o material indica isso", "relevancia": "alta|media|baixa"}
+    ],
+    "origem": "...",
+    "confianca": "..."
+  },
+  "valores_institucionais": {
+    "conteudo": ["valor 1", "valor 2"],
+    "origem": "...",
+    "confianca": "..."
+  },
+  "_metadata_extracao": {
+    "sinais_fortes": ["sinal forte encontrado no material"],
+    "limites_do_material": ["o que o material não cobre bem"],
+    "alertas_de_interpretacao": ["alerta sobre interpretação frágil"],
+    "recomendacao_validacao": ["pontos que devem ser validados com RH ou gestor"]
   }
 }`;
 
