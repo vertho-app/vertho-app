@@ -616,92 +616,225 @@ export async function rodarIA2(empresaId: string, aiConfig: AIConfig = {}) {
 
     // 5. Para cada cargo com top10, gerar gabarito CIS
     let totalGerados = 0;
+    const NOMES_SUBCOMPS = new Set(SUB_COMPETENCIAS_CIS.map(s => s.nome));
+    const FAIXAS_VALIDAS = ['Muito baixo (0-20)', 'Baixo (21-40)', 'Alto (41-60)', 'Muito alto (61-80)', 'Extremamente alto (81-100)'];
 
     for (const [cargoNome, compNomes] of Object.entries(top10PorCargo)) {
       const detalhe = cargosDetalheMap[cargoNome.toLowerCase()] || {};
 
-      const system = `Você é um especialista em avaliação comportamental CIS/DISC.
-Sua tarefa: gerar o GABARITO COMPORTAMENTAL IDEAL para o cargo descrito.
-O gabarito tem 4 telas. Retorne APENAS JSON válido.
+      const system = `Você é um especialista em avaliação comportamental CIS/DISC com 20 anos de experiência.
 
-HIERARQUIA DE FONTES (ordem de prioridade):
-1. DESCRIÇÃO DO CARGO E CONTEXTO DA EMPRESA — fonte primária
-2. SINAIS EXPLÍCITOS DO TEXTO — palavras, ênfases no cargo/empresa
-3. CONHECIMENTO COMPORTAMENTAL — apenas para refinar, nunca sobrescrever
-4. REGRA DE OURO: Nunca use conhecimento genérico para sobrescrever sinais claros do caso.
+TAREFA: Gerar o GABARITO COMPORTAMENTAL IDEAL para o cargo descrito.
+O gabarito alimenta o assessment de competências (IA3) e o Fit v2 da Vertho.
+Ele deve ser prudente, defensável e auditável.
 
-REGRAS DE DIFERENCIAÇÃO:
-- Cargos diferentes DEVEM ter perfis diferentes
-- Pelo menos 2 dos 4 fatores DISC devem diferir entre cargos na mesma empresa
+═══ SEQUÊNCIA LÓGICA OBRIGATÓRIA ═══
 
-TELA 1: Características do perfil ideal (pares de opostos)
-- Selecione até 20 características da lista. Cada item = lado esquerdo OU direito do par.
-- Pares disponíveis: ${PARES_DISC.join(' | ')}
+Antes de montar as 4 telas, siga esta ordem mental:
+1. SINAIS: Identifique 3-5 sinais explícitos do cargo (entregas, tensões, stakeholders)
+2. HIPÓTESE-BASE: Forme uma leitura inicial do perfil comportamental ideal
+3. INCERTEZAS: Declare onde faltam sinais ou onde há ambiguidade
+4. TRADUÇÃO: Só então traduza a hipótese nas 4 telas
 
-TELA 2: Sub-competências CIS com faixas ideais
-- Selecione 6-10 das 16 disponíveis (NÃO todas):
-  ${SUB_COMPETENCIAS_CIS.map(s => `${s.nome} (${s.dim})`).join(', ')}
-- Faixas: "Muito baixo (0-20)" | "Baixo (21-40)" | "Alto (41-60)" | "Muito alto (61-80)" | "Extremamente alto (81-100)"
+═══ HIERARQUIA DE FONTES ═══
 
-TELA 3: Estilo de Liderança (4 estilos, soma = 100)
-- Executor, Motivador, Metódico, Sistemático
+1. Descrição do cargo, entregas, decisões, stakeholders, tensões (PRIMÁRIA)
+2. Valores e contexto organizacional
+3. Competências priorizadas pela IA1
+4. Contexto PPP / dossiê institucional
+5. Conhecimento comportamental geral (APENAS para refinar, NUNCA para sobrescrever sinais)
 
-TELA 4: Faixas DISC ideais (min e max para D, I, S, C)
-- Mesmas faixas da Tela 2
+═══ REGRAS DE PRUDÊNCIA ═══
 
-FORMATO JSON:
+- NÃO gere perfis extremos sem evidência clara (ex: D=90 só porque "é gestor")
+- Se faltar evidência para um fator, use intensidade MODERADA, não alta
+- NÃO "feche demais" o perfil — incerteza é informação válida
+- Cargos genéricos NÃO devem virar perfis artificialmente extremos
+- Cargos diferentes na mesma empresa DEVEM ter perfis diferentes
+- As 4 telas DEVEM ser coerentes entre si (ex: se tela1 indica perfil analítico, tela4 não pode ter C muito baixo sem justificativa)
+
+═══ 4 TELAS DO GABARITO ═══
+
+TELA 1 — Características do perfil ideal (pares de opostos)
+Selecione até 20 da lista. Cada item = um polo do par:
+${PARES_DISC.join(' | ')}
+
+TELA 2 — Sub-competências CIS (6 a 10 das 16 disponíveis, NÃO todas)
+${SUB_COMPETENCIAS_CIS.map(s => `${s.nome} (${s.dim})`).join(', ')}
+Faixas: "Muito baixo (0-20)" | "Baixo (21-40)" | "Alto (41-60)" | "Muito alto (61-80)" | "Extremamente alto (81-100)"
+
+TELA 3 — Estilos de Liderança (soma EXATA = 100)
+Executor, Motivador, Metódico, Sistemático
+
+TELA 4 — Faixas DISC ideais (min e max pra D, I, S, C)
+Mesmas faixas da Tela 2. min <= max sempre.
+
+═══ FORMATO JSON (APENAS JSON, sem markdown) ═══
+
 {
   "gabarito": {
-    "tela1": ["Comunicativo", "Orientação a Resultados", ...],
-    "tela2": [{"nome":"Empatia","dimensao":"S","faixa_min":"Alto (41-60)","faixa_max":"Muito alto (61-80)"}, ...],
-    "tela3": {"executor":10,"motivador":40,"metodico":35,"sistematico":15},
+    "tela1": {
+      "caracteristicas": ["Comunicativo", "Orientação a Resultados"],
+      "confianca": 0.85
+    },
+    "tela2": {
+      "subcompetencias": [
+        {"nome": "Empatia", "dimensao": "S", "prioridade": "alta", "faixa_min": "Alto (41-60)", "faixa_max": "Muito alto (61-80)", "justificativa": "Cargo exige..."}
+      ],
+      "confianca": 0.78
+    },
+    "tela3": {
+      "executor": 10, "motivador": 40, "metodico": 35, "sistematico": 15,
+      "estilo_predominante": "Motivador",
+      "justificativa": "Entregas do cargo indicam...",
+      "confianca": 0.82
+    },
     "tela4": {
-      "D":{"min":"Baixo (21-40)","max":"Muito alto (61-80)"},
-      "I":{"min":"Alto (41-60)","max":"Extremamente alto (81-100)"},
-      "S":{"min":"Alto (41-60)","max":"Muito alto (61-80)"},
-      "C":{"min":"Muito baixo (0-20)","max":"Alto (41-60)"}
+      "D": {"min": "Baixo (21-40)", "max": "Muito alto (61-80)"},
+      "I": {"min": "Alto (41-60)", "max": "Extremamente alto (81-100)"},
+      "S": {"min": "Alto (41-60)", "max": "Muito alto (61-80)"},
+      "C": {"min": "Muito baixo (0-20)", "max": "Alto (41-60)"},
+      "justificativa": "Perfil relacional com...",
+      "confianca": 0.75
     }
   },
   "raciocinio_estruturado": {
-    "sinais_do_caso": ["sinal 1", "sinal 2"],
-    "leitura_principal": "interpretação direta dos sinais",
-    "diferenciais_vs_outros_cargos": "como este perfil se diferencia"
+    "sinais_do_caso": ["sinal 1 do contexto", "sinal 2"],
+    "hipotese_base": "Leitura inicial do perfil ideal antes de traduzir nas telas",
+    "incertezas": "O que faltou de informação ou onde houve ambiguidade",
+    "diferenciais_vs_outros_cargos": "Como este perfil se diferencia de cargos similares"
   }
-}`;
+}
 
-      const user = `EMPRESA: ${empresa.nome} (${empresa.segmento})
-CARGO: ${cargoNome}
-${detalhe.descricao ? `DESCRIÇÃO DO CARGO: ${detalhe.descricao}` : ''}
-${detalhe.principais_entregas ? `ENTREGAS ESPERADAS: ${detalhe.principais_entregas}` : ''}
-${detalhe.stakeholders ? `STAKEHOLDERS: ${detalhe.stakeholders}` : ''}
-${detalhe.decisoes_recorrentes ? `DECISÕES RECORRENTES: ${detalhe.decisoes_recorrentes}` : ''}
-${detalhe.tensoes_comuns ? `TENSÕES: ${detalhe.tensoes_comuns}` : ''}
-VALORES: ${valores.join(', ')}
-TOP COMPETÊNCIAS SELECIONADAS: ${compNomes.join(', ')}
-${contextoPPP ? `\nCONTEXTO DA EMPRESA:\n${contextoPPP.slice(0, 2000)}` : ''}
+REGRAS DO JSON:
+- confianca: 0.0 a 1.0 por tela (0.7+ = boa sustentação)
+- tela2: 6 a 10 subcompetências, apenas nomes da lista oficial
+- tela3: executor + motivador + metodico + sistematico = EXATAMENTE 100
+- tela4: min <= max pra cada fator DISC
+- raciocinio_estruturado: obrigatório (auditoria humana lê isso)`;
 
-INSTRUÇÃO:
-1. Leia descrição e entregas. Identifique 3-5 SINAIS EXPLÍCITOS.
+      // ── User prompt estruturado ──
+      const userBlocks: string[] = [];
+
+      userBlocks.push(`═══ EMPRESA ═══
+Nome: ${empresa.nome}
+Segmento: ${empresa.segmento || 'Não informado'}`);
+
+      userBlocks.push(`═══ CARGO-ALVO ═══
+Cargo: ${cargoNome}`);
+
+      if (detalhe.descricao || detalhe.principais_entregas || detalhe.stakeholders || detalhe.decisoes_recorrentes || detalhe.tensoes_comuns) {
+        let ctx = '═══ CONTEXTO ORGANIZACIONAL ═══';
+        if (detalhe.descricao) ctx += `\nDescrição do cargo: ${detalhe.descricao}`;
+        if (detalhe.principais_entregas) ctx += `\nPrincipais entregas: ${detalhe.principais_entregas}`;
+        if (detalhe.stakeholders) ctx += `\nStakeholders: ${detalhe.stakeholders}`;
+        if (detalhe.decisoes_recorrentes) ctx += `\nDecisões recorrentes: ${detalhe.decisoes_recorrentes}`;
+        if (detalhe.tensoes_comuns) ctx += `\nTensões e situações difíceis: ${detalhe.tensoes_comuns}`;
+        userBlocks.push(ctx);
+      }
+
+      userBlocks.push(`═══ COMPETÊNCIAS PRIORIZADAS PELA IA1 ═══
+${compNomes.join(', ')}`);
+
+      if (contextoPPP) {
+        userBlocks.push(`═══ CONTEXTO PPP / DOSSIÊ CORPORATIVO ═══\n${contextoPPP.slice(0, 2000)}`);
+      }
+
+      if (detalhe.contexto_cultural) {
+        userBlocks.push(`═══ CONTEXTO CULTURAL DO CARGO ═══\n${detalhe.contexto_cultural}`);
+      }
+
+      userBlocks.push(`═══ VALORES ORGANIZACIONAIS ═══\n${valores.join(', ')}`);
+
+      userBlocks.push(`═══ REFERÊNCIAS COMPORTAMENTAIS DISPONÍVEIS ═══
+Pares: ${PARES_DISC.length} pares de opostos
+Sub-competências CIS: ${SUB_COMPETENCIAS_CIS.map(s => s.nome).join(', ')}
+Estilos de Liderança: Executor, Motivador, Metódico, Sistemático
+Fatores DISC: D (Dominância), I (Influência), S (Estabilidade), C (Conformidade)`);
+
+      userBlocks.push(`═══ INSTRUÇÃO DE LEITURA ═══
+1. Leia descrição e entregas. Identifique 3-5 SINAIS EXPLÍCITOS do que o cargo exige.
 2. Forme HIPÓTESE-BASE do perfil ANTES de aplicar referência comportamental.
-3. Use conhecimento CIS APENAS para refinar.
-4. Garanta que este perfil é DIFERENTE dos outros cargos desta empresa.
-5. Tela 3: soma DEVE ser exatamente 100.`;
+3. Declare INCERTEZAS onde faltam sinais ou há ambiguidade.
+4. Use conhecimento CIS APENAS para refinar, nunca para sobrescrever sinais do caso.
+5. Garanta que este perfil é DIFERENTE dos outros cargos desta empresa.
+6. Tela 3: soma DEVE ser exatamente 100.
+7. Tela 4: min DEVE ser <= max para cada fator.
+8. Se faltar evidência para um fator, use intensidade moderada e confiança baixa.`);
 
-      const resposta = await callAI(system, user, aiConfig, 6000);
-      const resultado = await extractJSON(resposta);
+      const user = userBlocks.join('\n\n');
+      let resposta = await callAI(system, user, aiConfig, 8192);
+      let resultado = await extractJSON(resposta);
+
+      // ── Validação pós-resposta ──
+      if (resultado?.gabarito) {
+        const g = resultado.gabarito;
+        let invalid = false;
+        const errors: string[] = [];
+
+        // Validar tela3: soma = 100
+        const t3 = g.tela3 || {};
+        const somaLid = (t3.executor || 0) + (t3.motivador || 0) + (t3.metodico || 0) + (t3.sistematico || 0);
+        if (somaLid !== 100) { errors.push(`Tela3: soma liderança = ${somaLid}, deve ser 100`); invalid = true; }
+
+        // Validar tela4: min <= max (comparar ordinal das faixas)
+        const faixaOrd = (f: string) => FAIXAS_VALIDAS.indexOf(f);
+        if (g.tela4) {
+          for (const fator of ['D', 'I', 'S', 'C']) {
+            const f = g.tela4[fator];
+            if (f && faixaOrd(f.min) > faixaOrd(f.max)) {
+              errors.push(`Tela4: ${fator} min (${f.min}) > max (${f.max})`);
+              invalid = true;
+            }
+          }
+        }
+
+        // Validar tela2: subcompetências na lista oficial
+        const subcomps = g.tela2?.subcompetencias || g.tela2 || [];
+        if (Array.isArray(subcomps)) {
+          const subNames = subcomps.map((s: any) => s.nome);
+          const invalidas = subNames.filter((n: string) => !NOMES_SUBCOMPS.has(n));
+          if (invalidas.length) { errors.push(`Tela2: subcompetências fora da lista: ${invalidas.join(', ')}`); }
+          if (subNames.length < 6 || subNames.length > 10) { errors.push(`Tela2: ${subNames.length} subcomps (esperado 6-10)`); }
+        }
+
+        // Validar confianca
+        for (const tela of ['tela1', 'tela2', 'tela3', 'tela4']) {
+          const conf = g[tela]?.confianca;
+          if (typeof conf === 'number' && (conf < 0 || conf > 1)) {
+            errors.push(`${tela}: confiança ${conf} fora de 0-1`);
+          }
+        }
+
+        // Retry se soma errada ou erro grave
+        if (invalid) {
+          console.warn(`[IA2] ${cargoNome}: validação falhou (${errors.join('; ')}). Retry.`);
+          const retryUser = user + `\n\n═══ ATENÇÃO: CORREÇÃO NECESSÁRIA ═══\n${errors.join('\n')}\nCorrija e retorne JSON válido.`;
+          resposta = await callAI(system, retryUser, aiConfig, 8192);
+          const retryResult = await extractJSON(resposta);
+          if (retryResult?.gabarito) resultado = retryResult;
+        }
+      }
 
       if (resultado?.gabarito) {
-        // Salvar no cargos_empresa se existir, senão criar
-        // empresa_id é injetado pelo tdb.update/upsert
+        // Calcular confiança média
+        const g = resultado.gabarito;
+        const confs = [g.tela1?.confianca, g.tela2?.confianca, g.tela3?.confianca, g.tela4?.confianca]
+          .filter((c: any) => typeof c === 'number') as number[];
+        const confMedia = confs.length ? Math.round((confs.reduce((a, b) => a + b, 0) / confs.length) * 100) / 100 : null;
+
+        const updateData: any = {
+          gabarito: resultado.gabarito,
+          raciocinio_ia2: resultado.raciocinio_estruturado || null,
+          confianca_media_ia2: confMedia,
+        };
+
         if (detalhe.id) {
-          await tdb.from('cargos_empresa')
-            .update({ gabarito: resultado.gabarito, raciocinio_ia2: resultado.raciocinio_estruturado || null })
-            .eq('id', detalhe.id);
+          await tdb.from('cargos_empresa').update(updateData).eq('id', detalhe.id);
         } else {
           await tdb.from('cargos_empresa').upsert({
             nome: cargoNome,
-            gabarito: resultado.gabarito,
-            raciocinio_ia2: resultado.raciocinio_estruturado || null,
+            ...updateData,
           }, { onConflict: 'empresa_id,nome' });
         }
         totalGerados++;
