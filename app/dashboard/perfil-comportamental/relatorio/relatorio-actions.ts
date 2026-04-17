@@ -13,7 +13,7 @@ const BUCKET = 'relatorios-pdf';
 
 async function gerarTextosLLM(raw, empresaId) {
   const prompt = buildBehavioralReportPrompt(raw);
-  const system = 'Você é um analista comportamental sênior. Responda APENAS com JSON válido, sem markdown nem comentários.';
+  const system = 'Você é um analista comportamental sênior da Vertho. DISC é tendência, não sentença. Nunca use linguagem determinista. Responda APENAS com JSON válido, sem markdown nem comentários.';
   const { getModelForTask } = await import('@/lib/ai-tasks');
   const model = await getModelForTask(empresaId, 'relatorio_comportamental');
   const rawAnswer = await callAI(system, prompt, { model }, 4096);
