@@ -286,15 +286,19 @@ export async function regerarSemana(trilhaId: string, semana: number, aiConfig: 
     const { callAI } = await import('@/actions/ai-client');
 
     if (slot.tipo === 'conteudo' && slot.descritor) {
-      const { promptDesafio } = await import('@/lib/season-engine/prompts/challenge');
+      const { promptDesafio, parseDesafioResponse } = await import('@/lib/season-engine/prompts/challenge');
       const { system, user } = promptDesafio({
         competencia: trilha.competencia_foco,
         descritor: slot.descritor,
         nivel: slot.nivel_atual || 1.5,
         cargo: colab?.cargo, contexto, semana,
       });
-      const novoDesafio = (await callAI(system, user, aiConfig, 300)).trim();
-      plano[idx] = { ...slot, conteudo: { ...(slot.conteudo || {}), desafio_texto: novoDesafio } };
+      const rawResp = (await callAI(system, user, aiConfig, 400)).trim();
+      const parsed = parseDesafioResponse(rawResp);
+      const desafioFields = parsed
+        ? { desafio_texto: parsed.desafio_texto, acao_observavel: parsed.acao_observavel, criterio_de_execucao: parsed.criterio_de_execucao, por_que_cabe_na_semana: parsed.por_que_cabe_na_semana }
+        : { desafio_texto: rawResp };
+      plano[idx] = { ...slot, conteudo: { ...(slot.conteudo || {}), ...desafioFields } };
     } else if (slot.tipo === 'aplicacao') {
       const { promptCenario } = await import('@/lib/season-engine/prompts/scenario');
       const { promptMissao } = await import('@/lib/season-engine/prompts/missao');

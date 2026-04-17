@@ -6,7 +6,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI } from '@/actions/ai-client';
-import { promptDesafio } from '@/lib/season-engine/prompts/challenge';
+import { promptDesafio, parseDesafioResponse } from '@/lib/season-engine/prompts/challenge';
 import { promptCenario } from '@/lib/season-engine/prompts/scenario';
 import { promptMissao } from '@/lib/season-engine/prompts/missao';
 import type { SelectedDescriptor } from './select-descriptors';
@@ -40,6 +40,9 @@ interface SemanaConteudo {
     core_titulo: string;
     core_url: string | null;
     desafio_texto: string;
+    acao_observavel?: string;
+    criterio_de_execucao?: string;
+    por_que_cabe_na_semana?: string;
     formatos_disponiveis: Record<string, { id: string; url: string | null | undefined; titulo: string }>;
     fallback_gerado: boolean;
   };
@@ -207,8 +210,11 @@ async function montarSemanaConteudo(
     formatoCore = 'texto';
   }
 
-  // Gera desafio via Claude
+  // Gera desafio via Claude (JSON estruturado)
   let desafioTexto = '';
+  let acaoObservavel: string | undefined;
+  let criterioExecucao: string | undefined;
+  let porQueCabe: string | undefined;
   try {
     const { system, user } = promptDesafio({
       competencia,
@@ -218,10 +224,18 @@ async function montarSemanaConteudo(
       contexto,
       semana,
     });
-    desafioTexto = await callAI(system, user, aiConfig, 300);
-    desafioTexto = desafioTexto.trim();
+    const rawResp = await callAI(system, user, aiConfig, 400);
+    const parsed = parseDesafioResponse(rawResp);
+    if (parsed) {
+      desafioTexto = parsed.desafio_texto;
+      acaoObservavel = parsed.acao_observavel;
+      criterioExecucao = parsed.criterio_de_execucao;
+      porQueCabe = parsed.por_que_cabe_na_semana;
+    } else {
+      desafioTexto = rawResp.trim();
+    }
   } catch (err: any) {
-    console.warn(`[buildSeason] desafio sem 1: ${err?.message ?? err}`);
+    console.warn(`[buildSeason] desafio sem ${semana}: ${err?.message ?? err}`);
     desafioTexto = `Aplique ${descritorSel.descritor} em uma situação real esta semana e observe o resultado.`;
   }
 
@@ -240,6 +254,9 @@ async function montarSemanaConteudo(
       core_titulo: (reused ? '[Continuação] ' : '') + (coreContent?.titulo || `Episódio ${semana}: ${descritorSel.descritor}`),
       core_url: coreContent?.url || null,
       desafio_texto: desafioTexto,
+      acao_observavel: acaoObservavel,
+      criterio_de_execucao: criterioExecucao,
+      por_que_cabe_na_semana: porQueCabe,
       formatos_disponiveis: Object.fromEntries(
         Object.entries(formatosDisponiveis).map(([f, c]) => [f, { id: c.id, url: c.url, titulo: c.titulo }])
       ),

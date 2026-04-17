@@ -237,6 +237,20 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
               <span className="text-xs uppercase text-cyan-400 font-bold">Desafio da semana</span>
             </div>
             <p className="text-sm text-gray-200">{conteudo.desafio_texto}</p>
+            {conteudo.acao_observavel && (
+              <div className="mt-3 space-y-2 border-t border-cyan-500/20 pt-3">
+                <div>
+                  <span className="text-[10px] uppercase text-cyan-400/70 font-semibold">O que observar</span>
+                  <p className="text-xs text-gray-300">{conteudo.acao_observavel}</p>
+                </div>
+                {conteudo.criterio_de_execucao && (
+                  <div>
+                    <span className="text-[10px] uppercase text-cyan-400/70 font-semibold">Como saber que fez</span>
+                    <p className="text-xs text-gray-300">{conteudo.criterio_de_execucao}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </GlassCard>
         </>
       )}

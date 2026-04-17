@@ -330,7 +330,15 @@ function SemanaDetalhe({ semana, progresso }) {
       {open && (
         <div className="px-4 pb-4 pt-1 border-t border-white/5 space-y-3 text-xs">
           {temConteudo && semana.conteudo && (
-            <Block titulo="🎯 Desafio" content={semana.conteudo.desafio_texto} />
+            <>
+              <Block titulo="🎯 Desafio" content={semana.conteudo.desafio_texto} />
+              {semana.conteudo.acao_observavel && (
+                <div className="ml-4 space-y-1 text-[10px]">
+                  <div><span className="text-cyan-400/60 uppercase font-semibold">Ação: </span><span className="text-gray-400">{semana.conteudo.acao_observavel}</span></div>
+                  {semana.conteudo.criterio_de_execucao && <div><span className="text-cyan-400/60 uppercase font-semibold">Critério: </span><span className="text-gray-400">{semana.conteudo.criterio_de_execucao}</span></div>}
+                </div>
+              )}
+            </>
           )}
           {temAplicacao && semana.cenario && (
             <Block titulo="🎭 Cenário" markdown={semana.cenario.texto} />
