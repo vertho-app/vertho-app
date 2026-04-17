@@ -3,11 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, Check, CircleDot, Lock, ArrowRight, ChevronRight } from 'lucide-react';
+import { Loader2, Check, ArrowRight, Clock } from 'lucide-react';
 import { loadJornada } from './jornada-actions';
-import { PageContainer, PageHero, GlassCard } from '@/components/page-shell';
 
-const FASE_HREF = {
+const FASE_HREF: Record<number, string> = {
   1: '/dashboard/perfil-comportamental',
   2: '/dashboard/assessment',
   3: '/dashboard/pdi',
@@ -15,7 +14,7 @@ const FASE_HREF = {
   5: '/dashboard/evolucao',
 };
 
-const CTA_LABEL = {
+const CTA_LABEL: Record<number, string> = {
   1: 'Fazer diagnóstico (DISC)',
   2: 'Iniciar avaliação',
   3: 'Ver meu PDI',
@@ -23,50 +22,16 @@ const CTA_LABEL = {
   5: 'Ver minha evolução',
 };
 
-const STATUS_LABEL = {
-  completed: 'Concluída',
-  current: 'Em curso',
-  pending: 'Bloqueada',
+const FASE_DESC: Record<number, string> = {
+  1: 'Mapeamento do seu perfil comportamental e estilo de liderança.',
+  2: 'Avaliação de competências por cenários situacionais.',
+  3: 'Seu plano de desenvolvimento individual baseado nos resultados.',
+  4: 'Temporada de 14 semanas com conteúdo, prática e reflexão.',
+  5: 'Medição de evolução pós-capacitação e consolidação dos avanços.',
 };
 
-function StepDot({ status }) {
-  if (status === 'completed') {
-    return (
-      <div className="rounded-full flex items-center justify-center border-2 w-11 h-11 shrink-0"
-        style={{
-          background: '#0F2A4A',
-          borderColor: '#00B4D8',
-          boxShadow: '0 0 12px rgba(0,180,216,0.4)',
-        }}>
-        <Check size={20} className="text-cyan-400" strokeWidth={3} />
-      </div>
-    );
-  }
-  if (status === 'current') {
-    return (
-      <div className="rounded-full flex items-center justify-center border-2 w-12 h-12 shrink-0"
-        style={{
-          background: '#0F2A4A',
-          borderColor: '#00B4D8',
-          boxShadow: '0 0 24px rgba(0,180,216,0.7)',
-        }}>
-        <CircleDot size={22} className="text-cyan-400" />
-      </div>
-    );
-  }
-  return (
-    <div className="rounded-full flex items-center justify-center border-2 w-11 h-11 shrink-0 opacity-70"
-      style={{
-        background: '#0F2A4A',
-        borderColor: 'rgba(255,255,255,0.12)',
-      }}>
-      <Lock size={18} className="text-gray-500" />
-    </div>
-  );
-}
-
 export default function JornadaPage() {
-  const [data, setData] = useState(null);
+  const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const router = useRouter();
@@ -85,210 +50,179 @@ export default function JornadaPage() {
   }, []);
 
   if (loading) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
-  if (error) return <PageContainer><p className="text-center text-gray-400">{error}</p></PageContainer>;
+  if (error) return <div className="px-5 pt-10 text-center text-gray-400">{error}</div>;
   if (!data) return null;
 
   const { colaborador, fases } = data;
   const total = fases.length;
-  const faseAtualIdx = fases.findIndex(f => f.status !== 'completed');
+  const faseAtualIdx = fases.findIndex((f: any) => f.status !== 'completed');
   const concluidas = faseAtualIdx < 0 ? total : faseAtualIdx;
   const faseAtual = faseAtualIdx >= 0 ? fases[faseAtualIdx] : null;
+  const faseNum = faseAtual?.fase || total;
+  const pct = Math.round((concluidas / total) * 100);
+  const firstName = (colaborador.nome_completo || '').split(' ')[0] || '';
 
-  // Normaliza status em 3 buckets: completed | current | pending
-  const enriched = fases.map((f, i) => ({
+  const enriched = fases.map((f: any, i: number) => ({
     ...f,
     displayStatus: i < concluidas ? 'completed' : i === faseAtualIdx ? 'current' : 'pending',
   }));
 
-  // Progress bar horizontal: vai do centro da fase 1 (10%) até o centro da fase atual.
-  // Entre os centros, a distância total é 80% (de 10% a 90%).
-  const fillPct = faseAtualIdx < 0 ? 80 : (faseAtualIdx / (total - 1)) * 80;
-
   return (
-    <PageContainer>
-      <PageHero
-        eyebrow="SUA JORNADA"
-        title={faseAtual ? `Você está na Fase ${faseAtual.fase}` : 'Jornada concluída'}
-        titleAccent={faseAtual ? `— ${faseAtual.titulo}` : ''}
-        subtitle={`${concluidas} de ${total} fases concluídas · ${colaborador.nome_completo}`}
-      />
+    <div>
+      {/* Header */}
+      <header className="px-5 pt-6 pb-4">
+        <p className="text-[#9ae2e6] text-[11px] font-bold tracking-[0.12em] uppercase mb-2">Sua jornada</p>
+        <h1 className="text-[2.05rem] leading-[1.03] font-extrabold tracking-tight mb-2">
+          {faseAtual ? (
+            <>Você está na Fase {faseNum}{' '}<span className="text-[#34C5CC]">{faseAtual.titulo}</span></>
+          ) : (
+            <span className="text-[#34C5CC]">Jornada concluída 🎉</span>
+          )}
+        </h1>
+        <p className="text-base text-white/65">
+          {concluidas} de {total} fases concluídas • {firstName || colaborador.nome_completo}
+        </p>
+      </header>
 
-      {/* Layout reordena no mobile: card focal ANTES da timeline, e lista oculta */}
-      <div className="flex flex-col">
-
-      {/* ── Timeline horizontal (desktop) ──────────────────────────────────── */}
-      <div className="hidden md:block relative mb-10 order-1">
-        {/* Linha de fundo */}
-        <div className="absolute top-[22px] h-[2px] bg-white/[0.08] z-0"
-          style={{ left: '10%', right: '10%' }} />
-        {/* Linha preenchida até a fase atual */}
-        <div className="absolute top-[22px] h-[2px] bg-cyan-400 z-0 transition-all duration-700"
+      <main className="flex-1 px-5 pb-28 space-y-6">
+        {/* Hero card */}
+        <section className="rounded-[28px] p-5"
           style={{
-            left: '10%',
-            width: `${fillPct}%`,
-            boxShadow: '0 0 8px rgba(0,180,216,0.6)',
-          }} />
-
-        <div className="relative flex justify-between items-start z-10 gap-2">
-          {enriched.map(f => {
-            const clickable = f.displayStatus !== 'pending';
-            return (
-              <button key={f.fase}
-                onClick={() => clickable && FASE_HREF[f.fase] && router.push(FASE_HREF[f.fase])}
-                disabled={!clickable}
-                className={`flex flex-col items-center gap-3 flex-1 min-w-0 transition-transform ${
-                  clickable ? 'hover:scale-105 cursor-pointer' : 'cursor-default'
-                }`}>
-                <StepDot status={f.displayStatus} />
-                <div className="text-center">
-                  <p className={`font-bold text-sm ${f.displayStatus === 'pending' ? 'text-gray-500' : 'text-white'}`}>
-                    Fase {f.fase}
-                  </p>
-                  <p className={`text-[10px] uppercase tracking-wider font-semibold truncate max-w-[110px] ${
-                    f.displayStatus === 'current' ? 'text-cyan-400'
-                    : f.displayStatus === 'completed' ? 'text-gray-400'
-                    : 'text-gray-600'
-                  }`}>
-                    {f.titulo}
-                  </p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── Timeline vertical (mobile) ─── vem DEPOIS do card focal ─────── */}
-      <div className="md:hidden mb-8 relative order-2">
-        <div className="absolute left-[22px] top-6 bottom-6 w-[2px] bg-white/[0.08]" />
-        {/* Linha cyan até a fase atual */}
-        {concluidas > 0 && (
-          <div className="absolute left-[22px] top-6 w-[2px] bg-cyan-400 transition-all duration-700"
-            style={{
-              height: `calc(${(concluidas / Math.max(1, total - 1)) * 100}% - ${concluidas >= total ? 0 : 24}px)`,
-              boxShadow: '0 0 6px rgba(0,180,216,0.5)',
-            }} />
-        )}
-        <div className="space-y-3 relative">
-          {enriched.map(f => {
-            const clickable = f.displayStatus !== 'pending';
-            const statusText = STATUS_LABEL[f.displayStatus];
-            const statusColor = f.displayStatus === 'current' ? 'text-cyan-400'
-              : f.displayStatus === 'completed' ? 'text-emerald-400'
-              : 'text-gray-500';
-            return (
-              <button key={f.fase}
-                onClick={() => clickable && FASE_HREF[f.fase] && router.push(FASE_HREF[f.fase])}
-                disabled={!clickable}
-                className={`flex items-center gap-3 w-full text-left ${!clickable ? 'opacity-80' : ''}`}>
-                <StepDot status={f.displayStatus} />
-                <div className="flex-1 min-w-0">
-                  <p className={`font-bold text-sm ${f.displayStatus === 'pending' ? 'text-gray-500' : 'text-white'}`}>
-                    Fase {f.fase} — {f.titulo}
-                  </p>
-                  <p className={`text-[10px] uppercase tracking-wider font-semibold ${statusColor}`}>
-                    {statusText}
-                  </p>
-                </div>
-                {clickable && <ChevronRight size={16} className="text-gray-500 shrink-0" />}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── Card focal da fase atual ─── mobile: antes da timeline (order-1) ── */}
-      {faseAtual && (
-        <div className="flex justify-center mb-6 md:mb-12 order-1 md:order-2">
-          <div className="rounded-2xl border-2 p-6 md:p-8 max-w-[640px] w-full"
-            style={{
-              background: 'rgba(255,255,255,0.03)',
-              backdropFilter: 'blur(12px)',
-              borderColor: 'rgba(0,180,216,0.4)',
-              boxShadow: '0 0 40px rgba(0,180,216,0.15)',
-            }}>
-            <div className="flex flex-col items-center text-center">
-              <p className="text-xl md:text-3xl font-extrabold text-white mb-1">
-                Fase {faseAtual.fase} — {faseAtual.titulo}
-              </p>
-              <p className="text-sm font-semibold text-cyan-400 mb-4">Fase atual</p>
-              <p className="text-gray-400 text-sm md:text-base mb-6 max-w-md leading-relaxed">
-                {faseAtual.descricao}
-              </p>
-              <button onClick={() => FASE_HREF[faseAtual.fase] && router.push(FASE_HREF[faseAtual.fase])}
-                className="inline-flex items-center gap-2 px-6 md:px-8 py-3 rounded-full font-bold text-white transition-all hover:scale-[1.02] active:scale-95"
-                style={{
-                  background: 'linear-gradient(135deg, #00B4D8, #0D9488)',
-                  boxShadow: '0 0 28px rgba(0,180,216,0.3)',
-                }}>
-                {CTA_LABEL[faseAtual.fase] || 'Continuar'} <ArrowRight size={16} />
-              </button>
+            background: 'radial-gradient(circle at top right, rgba(52,197,204,0.14), transparent 42%), linear-gradient(135deg, #0f2b54 0%, #123960 100%)',
+            border: '1px solid rgba(52,197,204,0.2)',
+            boxShadow: '0 16px 40px rgba(0,0,0,0.22)',
+          }}>
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div>
+              <p className="text-[#9ae2e6] text-[11px] font-bold tracking-[0.12em] uppercase mb-2">Fase atual</p>
+              <h2 className="text-[1.9rem] leading-[1.06] font-extrabold tracking-tight">
+                {faseAtual?.titulo || 'Todas concluídas'}
+              </h2>
+            </div>
+            <div className="shrink-0 px-3 py-2 rounded-full bg-white/10 border border-white/10 text-[12px] font-semibold text-white/85">
+              Fase {faseNum}
             </div>
           </div>
-        </div>
-      )}
+          <p className="text-sm text-white/70 leading-relaxed mb-5">
+            {FASE_DESC[faseNum] || 'Continue sua jornada de desenvolvimento.'}
+          </p>
+          <div className="grid grid-cols-2 gap-3 mb-5">
+            <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+              <p className="text-[12px] text-white/55 mb-1">Progresso geral</p>
+              <p className="text-xl font-extrabold">{pct}%</p>
+            </div>
+            <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+              <p className="text-[12px] text-white/55 mb-1">Status atual</p>
+              <p className="text-xl font-extrabold text-[#34C5CC]">
+                {faseAtual ? 'Em curso' : 'Concluída'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => router.push(FASE_HREF[faseNum] || '/dashboard/evolucao')}
+            className="w-full py-4 rounded-2xl font-bold text-base transition-all duration-200 flex items-center justify-center gap-2"
+            style={{ background: 'linear-gradient(90deg, #34c5cc 0%, #2dd4bf 100%)', color: '#062032', boxShadow: '0 10px 24px rgba(52,197,204,0.22)' }}>
+            {CTA_LABEL[faseNum] || 'Ver minha evolução'}
+            <ArrowRight size={18} />
+          </button>
+        </section>
 
-      {!faseAtual && (
-        <div className="flex justify-center mb-6 md:mb-12 order-1 md:order-2">
-          <GlassCard className="max-w-[640px] w-full text-center" padding="p-6 md:p-8">
-            <p className="text-xl md:text-2xl font-extrabold text-white mb-1">🎉 Jornada concluída</p>
-            <p className="text-sm text-gray-400 mb-4">
-              Você completou todas as fases. Acompanhe sua evolução nos próximos ciclos.
-            </p>
-            <button onClick={() => router.push('/dashboard/evolucao')}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold text-white"
-              style={{
-                background: 'linear-gradient(135deg, #00B4D8, #0D9488)',
-                boxShadow: '0 0 28px rgba(0,180,216,0.3)',
-              }}>
-              Ver minha evolução <ArrowRight size={16} />
-            </button>
-          </GlassCard>
-        </div>
-      )}
+        {/* Timeline vertical */}
+        <section className="rounded-[28px] p-5"
+          style={{
+            background: 'linear-gradient(180deg, rgba(12,32,56,0.96) 0%, rgba(8,26,46,0.96) 100%)',
+            border: '1px solid rgba(52,197,204,0.14)',
+            boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
+          }}>
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="text-lg font-bold">Fases da jornada</h3>
+              <p className="text-sm text-white/60">Acompanhe seu caminho até aqui</p>
+            </div>
+            <span className="text-sm font-semibold text-[#9AE2E6]">{total} etapas</span>
+          </div>
 
-      {/* ── Lista expandida — só desktop (mobile não mostra duplicado) ────── */}
-      <div className="hidden md:block order-3">
-        <p className="text-[10px] font-bold tracking-[0.2em] text-gray-500 uppercase mb-3">
-          Todas as fases
-        </p>
-        <div className="space-y-2">
-          {enriched.map(f => {
-            const clickable = f.displayStatus !== 'pending';
-            const statusColor = f.displayStatus === 'completed' ? 'text-emerald-400'
-              : f.displayStatus === 'current' ? 'text-cyan-400'
-              : 'text-gray-500';
-            return (
-              <button key={f.fase}
-                onClick={() => clickable && FASE_HREF[f.fase] && router.push(FASE_HREF[f.fase])}
-                disabled={!clickable}
-                className={`w-full text-left rounded-xl p-3 md:p-4 border border-white/[0.06] transition-colors ${
-                  clickable ? 'hover:border-white/[0.15] hover:bg-white/[0.03] cursor-pointer' : 'opacity-70 cursor-default'
-                }`}
-                style={{ background: 'rgba(255,255,255,0.02)' }}>
-                <div className="flex items-center gap-3">
-                  <span className={`font-mono text-sm font-bold shrink-0 w-6 ${statusColor}`}>#{f.fase}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-white">{f.titulo}</p>
-                    <p className="text-[11px] text-gray-500 truncate">{f.descricao}</p>
-                    {f.data && (
-                      <p className="text-[10px] text-gray-600 mt-0.5">
-                        {new Date(f.data).toLocaleDateString('pt-BR')}
+          <div className="relative">
+            {/* Linha de fundo */}
+            <div className="absolute left-5 top-3 bottom-3 w-[2px]"
+              style={{ background: 'linear-gradient(180deg, rgba(52,197,204,0.55) 0%, rgba(52,197,204,0.18) 100%)' }} />
+
+            <div className="space-y-6 relative z-10">
+              {enriched.map((f: any) => {
+                const isDone = f.displayStatus === 'completed';
+                const isCurrent = f.displayStatus === 'current';
+                const clickable = f.displayStatus !== 'pending';
+
+                const dotClass = isDone
+                  ? 'border-2 border-[rgba(52,197,204,0.65)] shadow-[0_0_0_6px_rgba(52,197,204,0.05)]'
+                  : isCurrent
+                  ? 'border-2 border-[#34c5cc] shadow-[0_0_0_8px_rgba(52,197,204,0.08)]'
+                  : 'border-2 border-white/16';
+
+                const dotBg = isDone || isCurrent
+                  ? 'radial-gradient(circle at center, rgba(52,197,204,0.18), rgba(11,29,50,1))'
+                  : 'rgba(11,29,50,0.88)';
+
+                return (
+                  <button key={f.fase}
+                    onClick={() => clickable && FASE_HREF[f.fase] && router.push(FASE_HREF[f.fase])}
+                    disabled={!clickable}
+                    className={`flex items-start gap-4 w-full text-left ${!clickable ? 'opacity-60' : ''}`}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${dotClass}`}
+                      style={{ background: dotBg }}>
+                      {isDone ? (
+                        <Check size={20} className="text-[#34C5CC]" strokeWidth={2.2} />
+                      ) : isCurrent ? (
+                        <div className="w-3 h-3 rounded-full bg-[#34C5CC]" />
+                      ) : (
+                        <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
+                      )}
+                    </div>
+                    <div className="pt-1 flex-1 min-w-0">
+                      <h4 className={`font-bold ${isCurrent ? 'text-xl text-white' : 'text-lg text-white/88'}`}>
+                        Fase {f.fase} — {f.titulo}
+                      </h4>
+                      <p className={`text-[12px] font-semibold tracking-[0.14em] uppercase mt-1 ${
+                        isDone ? 'text-[#34C5CC]' : isCurrent ? 'text-[#9AE2E6]' : 'text-gray-500'
+                      }`}>
+                        {isDone ? 'Concluída' : isCurrent ? 'Em curso' : 'Bloqueada'}
                       </p>
-                    )}
-                  </div>
-                  <span className={`text-[10px] font-bold uppercase tracking-widest ${statusColor} shrink-0`}>
-                    {STATUS_LABEL[f.displayStatus]}
-                  </span>
-                  {clickable && <ChevronRight size={14} className="text-gray-500 shrink-0" />}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+                      {isCurrent && (
+                        <p className="text-sm text-white/60 mt-2 leading-relaxed">
+                          {FASE_DESC[f.fase] || ''}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </section>
 
-      </div>{/* /flex-col reorder */}
-    </PageContainer>
+        {/* Próximo passo */}
+        <section className="rounded-[24px] p-4 flex items-start gap-4"
+          style={{
+            background: 'linear-gradient(180deg, rgba(12,32,56,0.96) 0%, rgba(8,26,46,0.96) 100%)',
+            border: '1px solid rgba(52,197,204,0.14)',
+            boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
+          }}>
+          <div className="w-12 h-12 rounded-2xl bg-[#0F2B54] border border-[#34C5CC]/20 flex items-center justify-center shrink-0">
+            <Clock size={20} className="text-[#34C5CC]" />
+          </div>
+          <div>
+            <p className="text-[#9ae2e6] text-[11px] font-bold tracking-[0.12em] uppercase mb-1">Próximo passo</p>
+            <h4 className="text-base font-bold mb-1">
+              {faseAtual ? `Concluir ${faseAtual.titulo.toLowerCase()}` : 'Acompanhar sua evolução'}
+            </h4>
+            <p className="text-sm text-white/65 leading-relaxed">
+              {faseAtual
+                ? 'Finalize esta fase para avançar na sua jornada de desenvolvimento.'
+                : 'Visualize seu relatório consolidado de evolução e próximos passos.'}
+            </p>
+          </div>
+        </section>
+      </main>
+    </div>
   );
 }
