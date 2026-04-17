@@ -98,11 +98,11 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
           <View style={s.section} wrap={false}>
             <SectionTitle>Resumo Executivo</SectionTitle>
             <View style={s.box}>
-              <Text style={s.text}>{typeof c.resumo_executivo === 'string' ? c.resumo_executivo : c.resumo_executivo.leitura_geral}</Text>
-              {typeof c.resumo_executivo === 'object' && c.resumo_executivo.principal_forca_organizacional && (
+              <Text style={s.text}>{c.resumo_executivo.leitura_geral}</Text>
+              {c.resumo_executivo.principal_forca_organizacional && (
                 <Text style={{ ...s.text, color: '#2E7D32', marginTop: 4 }}>Força: {c.resumo_executivo.principal_forca_organizacional}</Text>
               )}
-              {typeof c.resumo_executivo === 'object' && c.resumo_executivo.principal_risco_organizacional && (
+              {c.resumo_executivo.principal_risco_organizacional && (
                 <Text style={{ ...s.text, color: '#B91C1C', marginTop: 2 }}>Risco: {c.resumo_executivo.principal_risco_organizacional}</Text>
               )}
             </View>
@@ -232,23 +232,14 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
           <View style={s.section} wrap={false}>
             <SectionTitle>Perfil DISC Organizacional</SectionTitle>
             <View style={s.box}><Text style={s.text}>{c.perfil_disc_organizacional.descricao}</Text></View>
-            {(c.perfil_disc_organizacional.implicacao || c.perfil_disc_organizacional.implicacao_pedagogica || c.perfil_disc_organizacional.forca_coletiva) && (
+            {c.perfil_disc_organizacional.forca_coletiva && (
               <View style={{ backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', borderRadius: 6, padding: 10 }}>
-                {c.perfil_disc_organizacional.forca_coletiva ? (
+                <Text style={{ fontFamily: 'NotoSans', fontSize: 9, fontWeight: 600, color: '#166534', marginBottom: 3 }}>{'For\u00e7a coletiva'}</Text>
+                <Text style={s.text}>{c.perfil_disc_organizacional.forca_coletiva}</Text>
+                {c.perfil_disc_organizacional.risco_coletivo && (
                   <>
-                    <Text style={{ fontFamily: 'NotoSans', fontSize: 9, fontWeight: 600, color: '#166534', marginBottom: 3 }}>{'For\u00e7a coletiva'}</Text>
-                    <Text style={s.text}>{c.perfil_disc_organizacional.forca_coletiva}</Text>
-                    {c.perfil_disc_organizacional.risco_coletivo && (
-                      <>
-                        <Text style={{ fontFamily: 'NotoSans', fontSize: 9, fontWeight: 600, color: '#92400E', marginBottom: 3, marginTop: 6 }}>Risco coletivo</Text>
-                        <Text style={s.text}>{c.perfil_disc_organizacional.risco_coletivo}</Text>
-                      </>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <Text style={{ fontFamily: 'NotoSans', fontSize: 9, fontWeight: 600, color: '#1E40AF', marginBottom: 3 }}>{'Implica\u00e7\u00e3o'}</Text>
-                    <Text style={s.text}>{c.perfil_disc_organizacional.implicacao || c.perfil_disc_organizacional.implicacao_pedagogica}</Text>
+                    <Text style={{ fontFamily: 'NotoSans', fontSize: 9, fontWeight: 600, color: '#92400E', marginBottom: 3, marginTop: 6 }}>Risco coletivo</Text>
+                    <Text style={s.text}>{c.perfil_disc_organizacional.risco_coletivo}</Text>
                   </>
                 )}
               </View>

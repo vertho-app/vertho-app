@@ -270,8 +270,7 @@ export async function POST(request) {
       }
 
       // Despersonaliza campos textuais do output
-      if (parsed?.resumo_avaliacao) parsed.resumo_avaliacao = unmaskPII(parsed.resumo_avaliacao, piiMap);
-      if (parsed?.resumo_avaliacao_detalhado?.mensagem_geral) parsed.resumo_avaliacao_detalhado.mensagem_geral = unmaskPII(parsed.resumo_avaliacao_detalhado.mensagem_geral, piiMap);
+      if (parsed?.resumo_avaliacao?.mensagem_geral) parsed.resumo_avaliacao.mensagem_geral = unmaskPII(parsed.resumo_avaliacao.mensagem_geral, piiMap);
       if (Array.isArray(parsed?.avaliacao_por_descritor)) {
         parsed.avaliacao_por_descritor = parsed.avaliacao_por_descritor.map((d: any) => ({
           ...d, justificativa: unmaskPII(d.justificativa, piiMap),

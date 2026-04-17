@@ -75,7 +75,15 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
         {c.resumo_executivo && (
           <View style={s.section} wrap={false}>
             <SectionTitle>Resumo Executivo</SectionTitle>
-            <View style={s.box}><Text style={s.text}>{typeof c.resumo_executivo === 'string' ? c.resumo_executivo : c.resumo_executivo.leitura_geral || JSON.stringify(c.resumo_executivo)}</Text></View>
+            <View style={s.box}>
+              <Text style={s.text}>{c.resumo_executivo.leitura_geral}</Text>
+              {c.resumo_executivo.principal_avanco && (
+                <Text style={{ ...s.text, color: '#2E7D32', marginTop: 4 }}>Avanço: {c.resumo_executivo.principal_avanco}</Text>
+              )}
+              {c.resumo_executivo.principal_ponto_de_atencao && (
+                <Text style={{ ...s.text, color: '#E65100', marginTop: 2 }}>Atenção: {c.resumo_executivo.principal_ponto_de_atencao}</Text>
+              )}
+            </View>
           </View>
         )}
 

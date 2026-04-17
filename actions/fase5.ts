@@ -1561,7 +1561,7 @@ Retorne APENAS JSON válido.`;
     const evolucaoAnonima = (relEvolucao || []).map((r: any) => ({
       cargo: r.colaboradores?.cargo,
       competencia: r.conteudo?.competencia,
-      resumo: typeof r.conteudo?.resumo_executivo === 'string' ? r.conteudo.resumo_executivo : r.conteudo?.resumo_executivo?.sintese || '',
+      resumo: r.conteudo?.resumo_executivo?.leitura_geral || r.conteudo?.resumo_executivo?.sintese || '',
       convergencias: (r.conteudo?.evolucao_por_descritor || []).map((d: any) => d.convergencia),
       gaps: r.conteudo?.gaps_persistentes || [],
       ganhos: r.conteudo?.ganhos_qualitativos || [],

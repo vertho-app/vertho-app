@@ -173,10 +173,10 @@ FORMATO OBRIGATÓRIO:
       "melhorar": ["2-3 pontos concretos para melhorar"],
       "feedback": "Parágrafo com análise construtiva",
       "plano_30_dias": {
-        "semana_1": "meta/ação em primeira pessoa",
-        "semana_2": "meta/ação em primeira pessoa",
-        "semana_3": "meta/ação em primeira pessoa",
-        "semana_4": "meta/ação em primeira pessoa"
+        "semana_1": {"foco": "tema em primeira pessoa", "acoes": ["ação 1", "ação 2"]},
+        "semana_2": {"foco": "tema em primeira pessoa", "acoes": ["ação 1", "ação 2"]},
+        "semana_3": {"foco": "tema em primeira pessoa", "acoes": ["ação 1", "ação 2"]},
+        "semana_4": {"foco": "tema em primeira pessoa", "acoes": ["ação 1", "ação 2"]}
       },
       "dicas_desenvolvimento": ["Quando [gatilho], [ação]. Ex: Quando sentir resistência, diga: Me ajuda a entender..."],
       "estudo_recomendado": [

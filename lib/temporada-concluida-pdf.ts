@@ -120,9 +120,9 @@ export function TemporadaConcluidaPDF({ dados }) {
 
       // Avaliação final
       sem14 && React.createElement(Text, { style: styles.h2 }, 'Avaliacao final'),
-      sem14?.resumo_avaliacao && React.createElement(View, { style: styles.card },
+      sem14?.resumo_avaliacao?.mensagem_geral && React.createElement(View, { style: styles.card },
         React.createElement(Text, { style: styles.h3 }, 'Devolutiva'),
-        React.createElement(Text, null, sanitize(sem14.resumo_avaliacao)),
+        React.createElement(Text, null, sanitize(sem14.resumo_avaliacao.mensagem_geral)),
         sem14.nota_media_pos != null && React.createElement(Text, { style: { ...styles.rowValue, marginTop: 4 } },
           `Nota media pos-temporada: ${Number(sem14.nota_media_pos).toFixed(1)}/4.0`
         ),

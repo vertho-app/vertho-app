@@ -208,10 +208,10 @@ export default function TemporadaConcluidaPage() {
                 <p className="text-xs text-gray-300 mt-2 whitespace-pre-wrap border-l-2 border-cyan-500/30 pl-3">{sem14.resposta}</p>
               </details>
             )}
-            {sem14.resumo_avaliacao && (
+            {sem14.resumo_avaliacao?.mensagem_geral && (
               <div className="rounded-lg bg-white/[0.03] p-3 mt-3">
                 <p className="text-[10px] uppercase text-purple-400 font-bold tracking-widest mb-1">Devolutiva</p>
-                <p className="text-sm text-gray-200">{sem14.resumo_avaliacao}</p>
+                <p className="text-sm text-gray-200">{sem14.resumo_avaliacao.mensagem_geral}</p>
               </div>
             )}
             {sem14.nota_media_pos != null && (

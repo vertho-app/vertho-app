@@ -250,7 +250,7 @@ function DetalheModal({ detalhe, loading, onClose, onRevisado }) {
                       </div>
                     );
                   })}
-                  <p className="text-xs text-gray-300 italic border-t border-white/5 pt-2">{detalhe.avaliacaoPrimaria.resumo_avaliacao}</p>
+                  <p className="text-xs text-gray-300 italic border-t border-white/5 pt-2">{typeof detalhe.avaliacaoPrimaria.resumo_avaliacao === 'object' ? detalhe.avaliacaoPrimaria.resumo_avaliacao.mensagem_geral : detalhe.avaliacaoPrimaria.resumo_avaliacao}</p>
                 </div>
               </section>
             )}

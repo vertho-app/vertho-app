@@ -261,9 +261,9 @@ export default function Sem14Page() {
               <p className="text-[10px] text-gray-500 uppercase">Delta</p>
             </div>
           </div>
-          {avaliacao.resumo_avaliacao && (
+          {avaliacao.resumo_avaliacao?.mensagem_geral && (
             <div className="rounded-lg bg-white/[0.03] p-3 text-sm text-gray-200 mb-4">
-              {avaliacao.resumo_avaliacao}
+              {avaliacao.resumo_avaliacao.mensagem_geral}
             </div>
           )}
           <button onClick={() => router.push('/dashboard/temporada/concluida')}

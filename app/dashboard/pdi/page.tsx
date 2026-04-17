@@ -142,7 +142,7 @@ function CompetencyBlock({ comp, idx }: { comp?: any; idx?: any }) {
               <SectionTitle icon={BookOpen} color="#8B5CF6">Estudo Recomendado</SectionTitle>
               <ul className="space-y-1">
                 {comp.estudo_recomendado.map((e, i) => (
-                  <li key={i} className="text-xs text-gray-200 leading-relaxed">• {e}</li>
+                  <li key={i} className="text-xs text-gray-200 leading-relaxed">• {typeof e === 'string' ? e : e.titulo + (e.por_que_ajuda ? ' — ' + e.por_que_ajuda : '')}</li>
                 ))}
               </ul>
             </div>
@@ -283,7 +283,17 @@ export default function PDIPage() {
       {c.resumo_geral && (
         <div className="rounded-xl p-4 border-l-4 border-white/[0.06]" style={{ background: '#0F2A4A', borderLeftColor: '#0F2B54' }}>
           <SectionTitle>Resumo Geral</SectionTitle>
-          <p className="text-sm text-gray-200 leading-relaxed">{c.resumo_geral}</p>
+          <p className="text-sm text-gray-200 leading-relaxed">{typeof c.resumo_geral === 'string' ? c.resumo_geral : c.resumo_geral.leitura}</p>
+          {typeof c.resumo_geral === 'object' && c.resumo_geral.principais_forcas?.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {c.resumo_geral.principais_forcas.map((f, i) => (
+                <li key={i} className="text-xs text-emerald-400 leading-relaxed">+ {f}</li>
+              ))}
+            </ul>
+          )}
+          {typeof c.resumo_geral === 'object' && c.resumo_geral.principal_ponto_de_atencao && (
+            <p className="text-xs text-amber-400 mt-2">! {c.resumo_geral.principal_ponto_de_atencao}</p>
+          )}
         </div>
       )}
 

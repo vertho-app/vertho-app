@@ -256,15 +256,26 @@ export function validateEvolutionScenarioScore(parsed: any): any {
       ? Math.round((parsed.nota_media_pos - parsed.nota_media_pre) * 10) / 10 : null;
   }
   if (parsed.resumo_avaliacao && typeof parsed.resumo_avaliacao === 'object') {
-    parsed.resumo_avaliacao_detalhado = {
+    parsed.resumo_avaliacao = {
       mensagem_geral: parsed.resumo_avaliacao.mensagem_geral || '',
       evidencias_citadas: Array.isArray(parsed.resumo_avaliacao.evidencias_citadas) ? parsed.resumo_avaliacao.evidencias_citadas : [],
       principal_avanco: parsed.resumo_avaliacao.principal_avanco || '',
       principal_ponto_de_atencao: parsed.resumo_avaliacao.principal_ponto_de_atencao || '',
     };
-    parsed.resumo_avaliacao = parsed.resumo_avaliacao.mensagem_geral || '';
-  } else if (typeof parsed.resumo_avaliacao !== 'string') {
-    parsed.resumo_avaliacao = '';
+  } else if (typeof parsed.resumo_avaliacao === 'string') {
+    parsed.resumo_avaliacao = {
+      mensagem_geral: parsed.resumo_avaliacao,
+      evidencias_citadas: [],
+      principal_avanco: '',
+      principal_ponto_de_atencao: '',
+    };
+  } else {
+    parsed.resumo_avaliacao = {
+      mensagem_geral: '',
+      evidencias_citadas: [],
+      principal_avanco: '',
+      principal_ponto_de_atencao: '',
+    };
   }
   if (!Array.isArray(parsed.alertas_metodologicos)) parsed.alertas_metodologicos = [];
   return parsed;

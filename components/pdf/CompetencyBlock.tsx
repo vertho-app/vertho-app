@@ -175,23 +175,16 @@ export default function CompetencyBlock({ comp, index, total }: { comp: any; ind
           {['semana_1', 'semana_2', 'semana_3', 'semana_4'].map((sem: string, si: number) => {
             const semana = comp.plano_30_dias[sem];
             if (!semana) return null;
-            const isStr = typeof semana === 'string';
             return (
               <View key={si} style={s.weekCard} wrap={false}>
                 <View style={s.weekNum}>
                   <Text style={s.weekNumText}>{si + 1}</Text>
                 </View>
                 <View style={s.weekContent}>
-                  {isStr ? (
-                    <Text style={s.weekFoco}>{semana}</Text>
-                  ) : (
-                    <>
-                      <Text style={s.weekFoco}>{semana.foco}</Text>
-                      {semana.acoes?.map((a: any, ai: number) => (
-                        <Text key={ai} style={s.weekAcao}>- {a}</Text>
-                      ))}
-                    </>
-                  )}
+                  <Text style={s.weekFoco}>{semana.foco}</Text>
+                  {semana.acoes?.map((a: any, ai: number) => (
+                    <Text key={ai} style={s.weekAcao}>- {a}</Text>
+                  ))}
                 </View>
               </View>
             );
@@ -214,7 +207,7 @@ export default function CompetencyBlock({ comp, index, total }: { comp: any; ind
         <View style={s.estudoBox} wrap={false}>
           <Text style={s.estudoLabel}>Estudo Recomendado</Text>
           {comp.estudo_recomendado.map((e: any, i: number) => (
-            <Text key={i} style={s.estudoItem}>- {typeof e === 'string' ? e : `${e.titulo}${e.por_que_ajuda ? ` — ${e.por_que_ajuda}` : ''}`}</Text>
+            <Text key={i} style={s.estudoItem}>- {e.titulo}{e.por_que_ajuda ? ` — ${e.por_que_ajuda}` : ''}</Text>
           ))}
         </View>
       )}

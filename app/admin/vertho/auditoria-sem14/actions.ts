@@ -235,7 +235,7 @@ Produza uma nova versão MAIS DEFENSÁVEL da avaliação final.`;
   }
 
   // Validação: resumo_avaliacao não pode conter nomes de personagens do cenário
-  const resumoText = typeof parsed.resumo_avaliacao === 'string' ? parsed.resumo_avaliacao : parsed.resumo_avaliacao?.mensagem_geral || '';
+  const resumoText = parsed.resumo_avaliacao?.mensagem_geral || '';
   if (resumoText && nomeColab && !resumoText.includes(nomeColab) && resumoText.length > 50) {
     console.warn('[regerar] resumo_avaliacao pode não conter nome do colab');
   }

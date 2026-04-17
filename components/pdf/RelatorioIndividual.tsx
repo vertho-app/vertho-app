@@ -99,15 +99,15 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
           <View style={s.section} wrap={false}>
             <SectionTitle>Resumo Geral</SectionTitle>
             <View style={s.resumoCard}>
-              <Text style={s.text}>{typeof c.resumo_geral === 'string' ? c.resumo_geral : c.resumo_geral.leitura}</Text>
-              {typeof c.resumo_geral === 'object' && c.resumo_geral.principais_forcas?.length > 0 && (
+              <Text style={s.text}>{c.resumo_geral.leitura}</Text>
+              {c.resumo_geral.principais_forcas?.length > 0 && (
                 <View style={{ marginTop: 6 }}>
                   {c.resumo_geral.principais_forcas.map((f: string, i: number) => (
                     <Text key={i} style={{ ...s.text, color: '#2E7D32' }}>+ {f}</Text>
                   ))}
                 </View>
               )}
-              {typeof c.resumo_geral === 'object' && c.resumo_geral.principal_ponto_de_atencao && (
+              {c.resumo_geral.principal_ponto_de_atencao && (
                 <Text style={{ ...s.text, color: '#E65100', marginTop: 4 }}>! {c.resumo_geral.principal_ponto_de_atencao}</Text>
               )}
             </View>
