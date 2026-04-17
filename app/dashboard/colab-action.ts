@@ -7,6 +7,9 @@ import { findColabByEmail } from '@/lib/authz';
  * respeitando o tenant (header x-tenant-slug). Não pode ser chamado diretamente
  * de browser query — precisa passar pelo runtime do Next.
  */
-export async function getColabByEmail(email, select) {
+export async function getColabByEmail(select?: string) {
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
+  if (!email) return null;
   return await findColabByEmail(email, select);
 }

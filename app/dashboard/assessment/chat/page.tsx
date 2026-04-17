@@ -39,7 +39,7 @@ export default function ChatPage() {
       if (!u) { setError('Não autenticado'); setInitLoading(false); return; }
       setUser(u);
 
-      const c = await getColabByEmail(u.email, 'id, nome_completo, empresa_id');
+      const c = await getColabByEmail('id, nome_completo, empresa_id');
       if (!c) { setError('Colaborador não encontrado'); setInitLoading(false); return; }
       setColab(c);
 

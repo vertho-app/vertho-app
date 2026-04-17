@@ -24,9 +24,11 @@ function validateExtracaoSocratic(parsed: any): any {
   if (!parsed.relato_resumo || typeof parsed.relato_resumo !== 'string') parsed.relato_resumo = '';
   if (!parsed.insight_principal || typeof parsed.insight_principal !== 'string') parsed.insight_principal = '';
   if (!parsed.compromisso_proxima || typeof parsed.compromisso_proxima !== 'string') parsed.compromisso_proxima = '';
+  if (parsed.citacao_chave !== null && typeof parsed.citacao_chave !== 'string') parsed.citacao_chave = null;
   if (!parsed.sinais_extraidos || typeof parsed.sinais_extraidos !== 'object') {
-    parsed.sinais_extraidos = { exemplo_concreto: false, autopercepcao: false, compromisso_especifico: false };
+    parsed.sinais_extraidos = { exemplo_concreto: false, autopercepcao: false, compromisso_especifico: false, conexao_com_pratica: false };
   }
+  if (parsed.sinais_extraidos.conexao_com_pratica === undefined) parsed.sinais_extraidos.conexao_com_pratica = false;
   if (!Array.isArray(parsed.limites_da_conversa)) parsed.limites_da_conversa = [];
   return parsed;
 }
@@ -50,29 +52,31 @@ function validateExtracaoAnalytic(parsed: any, descritores: string[]): any {
   return parsed;
 }
 
-const EXTRATOR_SYSTEM = `Você é um extrator de dados estruturados da Vertho.
-
-Sua tarefa é analisar uma conversa semanal e transformá-la em um JSON estruturado, fiel ao que foi realmente dito.
+const EXTRATOR_CORE_SYSTEM = `Você é um extrator de dados estruturados da Vertho.
 
 ATENÇÃO:
 Você NÃO está avaliando formalmente.
 Você NÃO está aconselhando.
 Você NÃO está completando lacunas.
-Você está EXTRAINDO o que a conversa sustenta.
+Você NÃO está escrevendo feedback bonito.
+Você está EXTRAINDO o que a conversa realmente sustenta.
 
 PRINCÍPIOS INEGOCIÁVEIS:
 1. Extraia somente o que foi efetivamente dito ou claramente sustentado.
 2. Não invente comportamento, avanço, execução ou insight.
-3. Diferencie fala bonita de evidência concreta.
-4. Se faltar base, explicite isso.
-5. O output precisa ser útil para merge no progresso semanal.
+3. Diferencie fala articulada de evidência concreta — fala bonita não é prova.
+4. Exemplo concreto com ação e consequência vale mais do que opinião ou intenção.
+5. Se faltar base, reduza confiança ou força da evidência em vez de inventar.
+6. Intenção declarada sem execução relatada = evidência fraca.
+7. Autocrítica verbal sem mudança prática = sinal, não prova.
+8. Toda leitura relevante deve ter trecho ou paráfrase de sustentação.
+9. Se um descritor não tiver base suficiente na conversa, isso deve ser explicitado.
+10. O output deve ser útil para a etapa seguinte (merge, avaliação, fusão, relatório).
 
-REGRAS DE EXTRAÇÃO:
-- Se algo estiver forte, diga por quê
-- Se algo estiver fraco, diga por quê
-- Se o descritor não tiver base suficiente, isso deve aparecer
-- Não use linguagem vaga
-- Não infle nota ou qualidade da reflexão sem sustentação
+FORÇA DA EVIDÊNCIA:
+- fraca: abstrata, genérica, teórica, sem ação observável
+- moderada: concreta mas incompleta, sem consequência clara ou sem repetição
+- forte: concreta + coerente + com ação, critério e/ou consequência percebida
 
 RETORNE APENAS JSON VÁLIDO, sem markdown, sem backticks, sem texto antes ou depois.`;
 
@@ -81,35 +85,38 @@ async function extrairDadosEstruturados(historico, tipoConversa, semanaPlan) {
   const estiloAnalytic = tipoConversa === 'analytic' || tipoConversa === 'missao_feedback';
 
   if (!estiloAnalytic) {
-    const user = `MODO: socratic
+    const user = `MODO: socratic — conversa semanal de reflexão
 Foco: reflexão, insight, compromisso e qualidade da reflexão.
 
 CONVERSA:
 ${transcript}
 
-EXTRAIA o JSON abaixo, preenchendo com base EXCLUSIVA na conversa:
+EXTRAIA com base EXCLUSIVA na conversa:
 {
   "desafio_realizado": "sim|parcial|nao",
   "relato_resumo": "síntese curta e fiel do que o colaborador relatou",
   "insight_principal": "principal percepção emergente — só se apareceu de fato",
   "compromisso_proxima": "compromisso plausível assumido — só se foi dito",
   "qualidade_reflexao": "alta|media|baixa",
+  "citacao_chave": "trecho curto mais relevante da fala do colaborador, ou null se nada relevante",
   "sinais_extraidos": {
-    "exemplo_concreto": true/false,
-    "autopercepcao": true/false,
-    "compromisso_especifico": true/false
+    "exemplo_concreto": true,
+    "autopercepcao": true,
+    "compromisso_especifico": true,
+    "conexao_com_pratica": true
   },
   "limites_da_conversa": ["limite 1 se houver"]
 }
 
 REGRAS:
 - desafio_realizado: "sim" se executou e relatou, "parcial" se tentou mas incompleto, "nao" se não tentou
-- qualidade_reflexao: alta = reflexão profunda com exemplo e insight genuíno; media = reflexão superficial sem detalhe; baixa = respostas genéricas ou monossilábicas
-- sinais_extraidos: marque true somente se apareceu de forma concreta na conversa
-- limites_da_conversa: liste pontos onde faltou aprofundamento ou evidência
+- qualidade_reflexao: alta = reflexão profunda com exemplo concreto e insight genuíno; media = reflexão superficial sem detalhe prático; baixa = respostas genéricas ou monossilábicas
+- citacao_chave: trecho curto que melhor sustenta a leitura de qualidade — se a conversa for muito rasa, use null
+- sinais_extraidos: marque true somente se apareceu de forma concreta
+- conexao_com_pratica: true se o colaborador conectou o conteúdo a algo do trabalho real
 - NÃO complete lacunas com "bom senso"
 - NÃO infle qualidade_reflexao`;
-    const resp = await callAI(EXTRATOR_SYSTEM, user, {}, 2000);
+    const resp = await callAI(EXTRATOR_CORE_SYSTEM, user, {}, 2000);
     return validateExtracaoSocratic(parseExtracaoResponse(resp));
   }
 
@@ -147,7 +154,7 @@ REGRAS:
 - alertas_metodologicos: liste se houver risco de viés, falta de base ou inflação
 - NÃO preencha todos os descritores como se todos tivessem aparecido bem
 - NÃO transforme intenção em evidência de execução`;
-  const resp = await callAI(EXTRATOR_SYSTEM, user, {}, 3000);
+  const resp = await callAI(EXTRATOR_CORE_SYSTEM, user, {}, 3000);
   return validateExtracaoAnalytic(parseExtracaoResponse(resp), descritores);
 }
 

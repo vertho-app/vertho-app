@@ -1294,7 +1294,9 @@ Retorne APENAS JSON válido.`;
     }
   ],
   "ganhos_qualitativos": ["ganho 1", "ganho 2"],
-  "gaps_persistentes": ["gap 1"],
+  "gaps_persistentes": [
+    {"gap": "nome curto", "sinal": "como aparece nas fontes", "fonte_principal": "cenario_b|conversa|ambos"}
+  ],
   "consciencia_do_gap": {
     "nivel": "alta|media|baixa",
     "justificativa": "frase curta"

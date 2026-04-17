@@ -224,7 +224,7 @@ export default function MapeamentoPage() {
       setUserEmail(user.email || '');
       setFormEmail(user.email || '');
       // Buscar nome do colaborador via server action (tenant-aware)
-      const colab = await getColabByEmail(user.email, 'nome_completo');
+      const colab = await getColabByEmail('nome_completo');
       const name = colab?.nome_completo || user.user_metadata?.name || '';
       setUserName(name);
       setFormName(name);
