@@ -129,27 +129,10 @@ export default function DashboardHomePage() {
     <div>
       {/* Header */}
       <header className="px-5 pt-6 pb-4">
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
-              <img src="/logo-vertho.png" alt="Vertho" className="h-5 w-auto" onError={e => { e.currentTarget.style.display = 'none'; }} />
-            </div>
-            <div>
-              <p className="text-sm font-semibold tracking-tight">Vertho</p>
-              <p className="text-[12px] text-white/64">Sua jornada de desenvolvimento</p>
-            </div>
-          </div>
-          <button onClick={() => router.push('/dashboard/perfil')}
-            className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
-            <Bell size={20} className="text-white/70" />
-          </button>
-        </div>
-        <div>
-          <p className="text-base text-white/70 mb-1">Olá, {firstName}</p>
-          <h1 className="text-[2rem] leading-[1.05] font-extrabold tracking-tight">
-            Seu próximo avanço começa hoje
-          </h1>
-        </div>
+        <p className="text-base text-white/70 mb-1">Olá, {firstName}</p>
+        <h1 className="text-[2rem] leading-[1.05] font-extrabold tracking-tight">
+          Seu próximo avanço começa hoje
+        </h1>
       </header>
 
       {/* Main */}
