@@ -7,92 +7,114 @@ import { extractJSON } from './utils';
 
 // ── IA4: Avaliar respostas (fiel ao GAS — modelo temático) ──────────────────
 
-const IA4_SYSTEM = `Voce e o Motor de Avaliacao de Competencias da Vertho Mentor IA.
-Sua tarefa e avaliar as 4 respostas de um profissional a um cenario situacional,
-classificando-o nos 4 niveis de maturidade usando a regua fornecida,
-e gerar feedback personalizado.
+const IA4_SYSTEM = `Você é o Motor de Avaliação de Competências da Vertho Mentor IA.
 
-=== FILOSOFIA DA AVALIACAO ===
-Esta avaliacao usa o MODELO TEMATICO:
-- O profissional recebeu UM cenario padronizado e respondeu 4 perguntas tematicas
-- Cada pergunta cobre descritores especificos da competencia
-- Nivel 3 e o IDEAL (META). Qualquer nota abaixo de 3 e GAP
-- O perfil CIS NAO influencia a nota — influencia APENAS o feedback
+═══ TAREFA ═══
+Avaliar as 4 respostas de um profissional a um cenário situacional.
+Gerar INSUMOS DE AVALIAÇÃO auditáveis — a consolidação final (média, travas, nível geral) será feita em código, NÃO por você.
 
-=== REGRAS DE AVALIACAO — INVIOLAVEIS ===
-1. AVALIE SOMENTE COM BASE NA REGUA FORNECIDA. Nao invente criterios.
-2. EVIDENCIA OU NAO CONTA. Intencao nao e evidencia. "Eu faria..." generico nao e evidencia. Acao concreta descrita e evidencia.
-3. REGRA DE EVIDENCIA MINIMA: Resposta vaga, curta ou generica → maximo N1.
-4. NA DUVIDA ENTRE DOIS NIVEIS → ESCOLHER O INFERIOR. Sempre.
-5. RESPOSTA PERFEITA DEMAIS: Sem acoes concretas para o cenario → tende a N2-N3, nao N4.
-6. RESPOSTA QUE MISTURA NIVEIS: Priorizar o comportamento predominante. Limitacoes graves pesam mais.
-7. CONFIANCA: 0-100 por descritor. Abaixo de 70 = evidencia insuficiente.
+═══ FILOSOFIA ═══
+- Modelo temático: 1 cenário, 4 perguntas, cada pergunta cobre descritores específicos
+- N3 = META (proficiente). Abaixo de N3 = gap. N4 = referência
+- Perfil CIS/DISC NÃO altera nota — influencia APENAS o tom do feedback
 
-=== REGRA CRITICA — AUSENCIA DE MENCAO NAO E NIVEL 1 ===
-N1 significa postura EXCLUDENTE, PASSIVA ou que IGNORA a competencia.
-Se a resposta demonstra acoes concretas e intencionais em QUALQUER descritor, o nivel minimo e N2.
-NUNCA atribua N1 a quem demonstrou acao concreta — mesmo que outros descritores nao tenham sido mencionados.
-TRAVA ANTI-REBAIXAMENTO: Se demonstrou acoes de N3 em qualquer resposta, nivel geral MINIMO e N2.
+═══ REGRAS DE AVALIAÇÃO — INVIOLÁVEIS ═══
 
-=== PROCESSO DE AVALIACAO — 2 ETAPAS ===
+1. AVALIE COM BASE EXCLUSIVA NA RÉGUA FORNECIDA. Não invente critérios.
+2. EVIDÊNCIA OU NÃO CONTA:
+   - Intenção não é evidência ("eu faria..." genérico)
+   - Linguagem bonita não é evidência
+   - Ação concreta descrita é evidência
+3. RESPOSTA VAGA / CURTA / GENÉRICA → máximo N1
+4. NA DÚVIDA ENTRE DOIS NÍVEIS → escolher o INFERIOR
+5. N3 e N4 EXIGEM evidência robusta e consistente
+   - N3: ação demonstrada com contexto + resultado esperado
+   - N4: ação + visão sistêmica + impacto além do imediato
+6. LIMITAÇÕES GRAVES pesam mais que pontos positivos isolados
+7. AUSÊNCIA DE MENÇÃO NÃO É N1:
+   - N1 = postura excludente/passiva/ignora
+   - Se demonstrou ação concreta em QUALQUER descritor → mínimo N2
 
-ETAPA 1 — AVALIACAO POR RESPOSTA (R1, R2, R3, R4):
-a) Identifique os descritores cobertos por aquela pergunta
-b) Extraia evidencias textuais da resposta
-c) Compare com a regua de maturidade (N1, N2, N3, N4)
-d) Atribua nota_decimal com 2 casas (1.00 a 4.00) para cada descritor
-   1.00 = inicio N1, 2.00 = inicio N2, 3.00 = META, 4.00 = Referencia
-   Valores intermediarios = transicao (ex: 1.67 = comportamentos parciais de N2)
-e) Atribua confianca (0-100)
+═══ REGRA ANTI-ALUCINAÇÃO ═══
+PROIBIDO inventar dados não presentes nas respostas.
+Use APENAS: nome do profissional, cargo, competência e trechos REAIS das respostas.
 
-ETAPA 2 — CONSOLIDACAO + FEEDBACK:
-a) nota_decimal final por descritor = media quando aparece em multiplas respostas
-   "nivel" = inteiro arredondado para BAIXO (1.67 → N1, 2.33 → N2)
-b) media_descritores = media aritmetica das nota_decimal de todos os descritores
-c) TRAVAS:
-   - Descritor critico com nivel N1 → nivel geral MAXIMO N2
-   - Mais de 3 descritores N1 → nivel geral N1
-   - Arredondar para baixo (2.6 = N2, nao N3)
-d) nivel_geral: 1, 2, 3 ou 4
-e) GAP = 3 - nivel_geral (se positivo, senao 0)
-f) Feedback: positivo e construtivo, sem jargao tecnico.
-   ABRIR com o que o profissional fez bem, depois gaps com tom de mentor.
+═══ PROCESSO OBRIGATÓRIO ═══
 
-=== REGRA ANTI-ALUCINACAO (CRITICA) ===
-PROIBIDO inventar dados que nao estejam nas respostas:
-- NAO inventar nomes de pessoas ou situacoes
-- Use APENAS: nome do profissional, cargo, competencia e trechos reais das respostas
+ETAPA 1 — AVALIAÇÃO POR RESPOSTA (R1, R2, R3, R4):
+Para cada resposta:
+a) Identifique descritores cobertos pela pergunta
+b) Extraia evidências textuais (trechos ou paráfrases fiéis)
+c) Identifique limites da evidência (o que faltou, o que ficou vago)
+d) Sugira nota_decimal (1.00 a 4.00, 2 casas) por descritor
+e) Atribua confiança (0.0 a 1.0) por descritor
 
-CAMPOS OBRIGATORIOS (JSON invalido se vazio):
-- feedback: NUNCA vazio ou generico
-- pontos_fortes: pelo menos 1 item
-- gaps_prioritarios: todos os descritores com nivel < 3
+ETAPA 2 — AVALIAÇÃO POR DESCRITOR (consolidação dos insumos):
+Para cada descritor:
+a) Reúna evidências de todas as respostas onde apareceu
+b) Sugira nota_decimal final e nível sugerido (1, 2, 3 ou 4)
+c) Classifique a sustentação: forte / fraca / insuficiente
+d) Atribua confiança
 
-Retorne APENAS JSON valido:
+ETAPA 3 — FEEDBACK:
+a) Tom adaptado ao perfil CIS (se fornecido) — MAS nota NÃO muda
+b) Abrir com pontos positivos (sandwich)
+c) Gaps com tom de mentor (construtivo, não punitivo)
+d) Recomendações práticas
+
+═══ FORMATO JSON (APENAS JSON, sem markdown) ═══
+
 {
   "profissional": "nome",
   "cargo": "cargo",
   "competencia": {"codigo": "COD", "nome": "Nome"},
   "avaliacao_por_resposta": {
-    "R1": {"descritores_avaliados": [{"numero": 1, "nome": "desc", "nota_decimal": 2.33, "nivel": 2, "confianca": 85, "evidencia": "trecho literal"}]},
+    "R1": {
+      "descritores_avaliados": [
+        {"numero": 1, "nome": "desc", "nota_decimal": 2.33, "confianca": 0.85, "evidencia": "trecho literal", "limites": "o que faltou"}
+      ]
+    },
     "R2": {"descritores_avaliados": []},
     "R3": {"descritores_avaliados": []},
     "R4": {"descritores_avaliados": []}
   },
-  "consolidacao": {
-    "notas_por_descritor": {"D1": {"nome": "", "nota_decimal": 1.67, "nivel": 1, "confianca": 85}},
-    "media_descritores": 2.25,
-    "nivel_geral": 2,
-    "gap": 1,
-    "confianca_geral": 77,
-    "travas_aplicadas": ["Nenhuma"]
+  "avaliacao_por_descritor": [
+    {
+      "numero": 1,
+      "nome": "nome do descritor",
+      "nota_decimal": 2.33,
+      "nivel_sugerido": 2,
+      "confianca": 0.80,
+      "sustentacao": "forte",
+      "evidencias": ["trecho 1", "trecho 2"],
+      "limites_da_evidencia": ["o que não foi demonstrado"],
+      "racional": "Por que este nível e não outro (1 frase)"
+    }
+  ],
+  "insumos_consolidacao": {
+    "descritores_com_evidencia_forte": ["D1", "D3"],
+    "descritores_com_evidencia_fraca": ["D2"],
+    "descritores_sem_sustentacao": ["D5"],
+    "alertas_metodologicos": ["alerta se houver"]
   },
   "descritores_destaque": {
-    "pontos_fortes": [{"descritor": "", "nivel": 3, "evidencia_resumida": ""}],
-    "gaps_prioritarios": [{"descritor": "", "nivel": 1, "o_que_faltou": ""}]
+    "pontos_fortes": [{"descritor": "nome", "nivel": 3, "evidencia_resumida": ""}],
+    "gaps_prioritarios": [{"descritor": "nome", "nivel": 1, "o_que_faltou": ""}]
   },
-  "feedback": "Paragrafo construtivo e especifico."
-}`;
+  "feedback": {
+    "tom_base": "acolhedor / direto / técnico (baseado no perfil CIS)",
+    "resumo_geral": "2-3 frases de visão geral",
+    "mensagem_positiva": "O que fez bem (específico)",
+    "mensagem_construtiva": "Onde melhorar (específico, tom mentor)",
+    "recomendacoes": ["ação prática 1", "ação prática 2"]
+  }
+}
+
+REGRAS DO JSON:
+- nota_decimal: 1.00 a 4.00
+- confianca: 0.0 a 1.0
+- sustentacao: "forte" | "fraca" | "insuficiente"
+- NÃO calcule media_descritores, nivel_geral, gap ou travas — isso é feito em código`;
 
 export async function rodarIA4(empresaId: string, aiConfig: AIConfig = {}) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
@@ -147,7 +169,8 @@ export async function rodarIA4(empresaId: string, aiConfig: AIConfig = {}) {
             .eq('id', resp.cenario_id).maybeSingle();
           if (cen) {
             cenarioTexto = `${cen.titulo}\n${cen.descricao}`;
-            const pergs = Array.isArray(cen.alternativas) ? cen.alternativas : [];
+            const altObj = typeof cen.alternativas === 'object' && !Array.isArray(cen.alternativas) ? cen.alternativas : {};
+            const pergs = altObj.perguntas || (Array.isArray(cen.alternativas) ? cen.alternativas : []);
             perguntasTexto = pergs.map((p: any, i: number) => {
               const num = p.numero || i + 1;
               return `P${num}: ${p.texto || ''}\nDescritores primarios: ${Array.isArray(p.descritores_primarios) ? p.descritores_primarios.map((d: any) => `D${d}`).join(', ') : ''}\nDiferenciacao: ${p.o_que_diferencia_niveis || ''}`;
@@ -189,55 +212,140 @@ Dominante: ${colab.perfil_dominante || '—'}
 Lideranca: Executor=${colab.lid_executivo || 0}% | Motivador=${colab.lid_motivador || 0}% | Metodico=${colab.lid_metodico || 0}% | Sistematico=${colab.lid_sistematico || 0}%`;
         }
 
-        const user = `=== DADOS DO PROFISSIONAL ===
-NOME: ${colab.nome_completo || '—'}
-CARGO: ${colab.cargo || '—'}
-EMPRESA: ${empresa.nome} (${empresa.segmento})
+        const userBlocks: string[] = [];
 
-${perfilCIS}
+        userBlocks.push(`═══ PROFISSIONAL ═══
+Nome: ${colab.nome_completo || '—'}
+Cargo: ${colab.cargo || '—'}`);
 
-${contextoPPP ? `=== CONTEXTO DA EMPRESA ===\n${contextoPPP}\n` : ''}
-=== COMPETENCIA AVALIADA ===
-CODIGO: ${compCod}
-NOME: ${compNome}
+        userBlocks.push(`═══ EMPRESA ═══
+${empresa.nome} (${empresa.segmento})`);
 
-=== DESCRITORES (REGUA N1-N4) ===
-${descritoresTexto || '(descritores não disponíveis)'}
+        if (contextoPPP) {
+          userBlocks.push(`═══ CONTEXTO INSTITUCIONAL ═══\n${contextoPPP}`);
+        }
 
-=== CENARIO APRESENTADO ===
-${cenarioTexto}
+        if (perfilCIS) {
+          userBlocks.push(`═══ PERFIL COMPORTAMENTAL ═══\n${perfilCIS}\nNOTA: O perfil NÃO altera a nota. Influencia APENAS o tom do feedback.`);
+        }
 
-=== PERGUNTAS E MAPEAMENTO ===
-${perguntasTexto}
+        userBlocks.push(`═══ COMPETÊNCIA AVALIADA ═══
+Código: ${compCod}
+Nome: ${compNome}`);
 
-=== RESPOSTAS DO PROFISSIONAL ===
-PERGUNTA 1: ${resp.r1 || '(sem resposta)'}
-PERGUNTA 2: ${resp.r2 || '(sem resposta)'}
-PERGUNTA 3: ${resp.r3 || '(sem resposta)'}
-PERGUNTA 4: ${resp.r4 || '(sem resposta)'}`;
+        userBlocks.push(`═══ RÉGUA DE MATURIDADE ═══\n${descritoresTexto || '(descritores não disponíveis)'}`);
 
-        let resultado = await callAI(IA4_SYSTEM, user, aiConfig, 64000);
+        if (cenarioTexto) {
+          userBlocks.push(`═══ CENÁRIO APRESENTADO ═══\n${cenarioTexto}`);
+        }
+
+        if (perguntasTexto) {
+          userBlocks.push(`═══ PERGUNTAS E MAPEAMENTO ═══\n${perguntasTexto}`);
+        }
+
+        userBlocks.push(`═══ RESPOSTAS DO PROFISSIONAL ═══
+R1: ${resp.r1 || '(sem resposta)'}
+R2: ${resp.r2 || '(sem resposta)'}
+R3: ${resp.r3 || '(sem resposta)'}
+R4: ${resp.r4 || '(sem resposta)'}`);
+
+        userBlocks.push(`═══ INSTRUÇÃO DE AVALIAÇÃO ═══
+1. Leia cada resposta SEPARADAMENTE antes de avaliar
+2. Extraia evidências textuais REAIS (não invente)
+3. Compare com a régua — cada nível tem critérios específicos
+4. NÃO assuma comportamento não dito
+5. NÃO trate intenção como evidência suficiente
+6. Descritors sem evidência suficiente: declare como "insuficiente"
+7. Gere insumos — a consolidação matemática é feita depois`);
+
+        const user = userBlocks.join('\n\n');
+
+        let resultado = await callAI(IA4_SYSTEM, user, aiConfig, 8192);
         let avaliacao = await extractJSON(resultado);
 
         // Retry 1x se IA não retornou JSON válido na primeira tentativa
         if (!avaliacao) {
           console.warn(`[IA4] retry para ${resp.nome_colaborador}: primeira resposta sem JSON (${(resultado || '').slice(0, 200)}...)`);
           const userRetry = `${user}\n\n=== ATENÇÃO ===\nSua resposta anterior não foi um JSON válido. Retorne APENAS o JSON, sem texto antes ou depois, sem markdown.`;
-          resultado = await callAI(IA4_SYSTEM, userRetry, aiConfig, 64000);
+          resultado = await callAI(IA4_SYSTEM, userRetry, aiConfig, 8192);
           avaliacao = await extractJSON(resultado);
         }
 
         if (avaliacao) {
-          const nivelGeral = avaliacao.consolidacao?.nivel_geral || avaliacao.nivel_geral || null;
-          const notaDecimal = avaliacao.consolidacao?.media_descritores || avaliacao.nota_decimal || null;
+          // ── Consolidação em código (não mais no prompt) ──
+          const descPorDescritor = avaliacao.avaliacao_por_descritor || [];
+
+          // Calcular notas consolidadas
+          const notasPorDesc: Record<string, any> = {};
+          for (const d of descPorDescritor) {
+            const key = `D${d.numero}`;
+            const nota = Math.max(1.0, Math.min(4.0, d.nota_decimal || 1.0));
+            const nivel = Math.floor(nota); // floor = arredondar pra baixo
+            notasPorDesc[key] = {
+              nome: d.nome,
+              nota_decimal: Math.round(nota * 100) / 100,
+              nivel,
+              confianca: d.confianca || 0,
+              sustentacao: d.sustentacao || 'insuficiente',
+            };
+          }
+
+          // Média
+          const notas = Object.values(notasPorDesc).map((d: any) => d.nota_decimal);
+          const mediaDescritores = notas.length
+            ? Math.round((notas.reduce((a: number, b: number) => a + b, 0) / notas.length) * 100) / 100
+            : 0;
+
+          // Nível geral (floor da média)
+          let nivelGeral = Math.floor(mediaDescritores);
+
+          // Travas
+          const travasAplicadas: string[] = [];
+          const niveisN1 = Object.values(notasPorDesc).filter((d: any) => d.nivel === 1).length;
+          if (niveisN1 > 3) {
+            nivelGeral = Math.min(nivelGeral, 1);
+            travasAplicadas.push(`${niveisN1} descritores N1 → nível geral máximo N1`);
+          } else if (niveisN1 > 0 && nivelGeral > 2) {
+            nivelGeral = Math.min(nivelGeral, 2);
+            travasAplicadas.push(`Descritor N1 presente → nível geral máximo N2`);
+          }
+
+          // Anti-rebaixamento: se tem evidência N3 em algum descritor, mínimo N2
+          const temN3 = Object.values(notasPorDesc).some((d: any) => d.nivel >= 3);
+          if (temN3 && nivelGeral < 2) {
+            nivelGeral = 2;
+            travasAplicadas.push('Evidência N3 presente → nível mínimo N2');
+          }
+
+          nivelGeral = Math.max(1, Math.min(4, nivelGeral));
+          const gap = Math.max(0, 3 - nivelGeral);
+
+          // Confiança geral = média das confianças
+          const confs = Object.values(notasPorDesc).map((d: any) => d.confianca || 0).filter((c: number) => c > 0);
+          const confiancaGeral = confs.length ? Math.round((confs.reduce((a, b) => a + b, 0) / confs.length) * 100) / 100 : 0;
+
+          // Montar consolidação (adicionada ao JSON da IA)
+          avaliacao.consolidacao = {
+            notas_por_descritor: notasPorDesc,
+            media_descritores: mediaDescritores,
+            nivel_geral: nivelGeral,
+            gap,
+            confianca_geral: confiancaGeral,
+            travas_aplicadas: travasAplicadas.length ? travasAplicadas : ['Nenhuma'],
+          };
+
+          // Feedback como string (compatibilidade com consumers)
+          const feedbackStr = typeof avaliacao.feedback === 'object'
+            ? [avaliacao.feedback.resumo_geral, avaliacao.feedback.mensagem_positiva, avaliacao.feedback.mensagem_construtiva].filter(Boolean).join('\n')
+            : (avaliacao.feedback || '');
 
           const { error: updErr } = await tdb.from('respostas').update({
             avaliacao_ia: avaliacao,
             nivel_ia4: nivelGeral,
-            nota_ia4: notaDecimal,
+            nota_ia4: mediaDescritores,
             pontos_fortes: avaliacao.descritores_destaque?.pontos_fortes?.map((p: any) => p.descritor || p).join('; ') || null,
             pontos_atencao: avaliacao.descritores_destaque?.gaps_prioritarios?.map((g: any) => g.descritor || g).join('; ') || null,
-            feedback_ia4: avaliacao.feedback || null,
+            feedback_ia4: feedbackStr || null,
             avaliado_em: new Date().toISOString(),
           }).eq('id', resp.id).select('id');
 
@@ -260,10 +368,8 @@ PERGUNTA 4: ${resp.r4 || '(sem resposta)'}`;
               if (!competenciaNome || !resp.colaborador_id) {
                 console.warn('[IA4] descriptor_assessments: sem competencia_nome/colab_id', resp.id);
               } else {
-                const notasPorDesc = avaliacao.consolidacao?.notas_por_descritor || {};
-                // empresa_id é injetado pelo tdb.upsert
-                const rows = (Object.values(notasPorDesc) as any[])
-                  .filter((d: any) => d?.nome && typeof d.nota_decimal === 'number')
+                const rows = descPorDescritor
+                  .filter((d: any) => d.nome && typeof d.nota_decimal === 'number')
                   .map((d: any) => ({
                     colaborador_id: resp.colaborador_id,
                     cargo: resp.cargo,
@@ -341,7 +447,8 @@ export async function reavaliarResposta(respostaId: string, aiConfig: AIConfig =
         .select('titulo, descricao, alternativas').eq('id', resp.cenario_id).maybeSingle();
       if (cen) {
         cenarioTexto = `${cen.titulo}\n${cen.descricao}`;
-        const pergs = Array.isArray(cen.alternativas) ? cen.alternativas : [];
+        const altObj2 = typeof cen.alternativas === 'object' && !Array.isArray(cen.alternativas) ? cen.alternativas : {};
+        const pergs = altObj2.perguntas || (Array.isArray(cen.alternativas) ? cen.alternativas : []);
         perguntasTexto = pergs.map((p: any, i: number) => `P${p.numero || i + 1}: ${p.texto || ''}\nDescritores: ${Array.isArray(p.descritores_primarios) ? p.descritores_primarios.map((d: any) => `D${d}`).join(', ') : ''}\nDiferenciacao: ${p.o_que_diferencia_niveis || ''}`).join('\n\n');
       }
     }
@@ -371,7 +478,7 @@ export async function reavaliarResposta(respostaId: string, aiConfig: AIConfig =
       user += `\n\n=== FEEDBACK DA AUDITORIA ANTERIOR (CORRIJA ESTES PONTOS) ===\n${feedbackCheck}`;
     }
 
-    const resultado = await callAI(IA4_SYSTEM, user, aiConfig, 64000);
+    const resultado = await callAI(IA4_SYSTEM, user, aiConfig, 8192);
     const avaliacao = await extractJSON(resultado);
 
     if (!avaliacao) return { success: false, error: 'IA não retornou avaliação válida' };

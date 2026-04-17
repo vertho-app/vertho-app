@@ -282,6 +282,14 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                         const pontos = avaliacao.descritores_destaque || {};
                         const feedback = avaliacao.feedback;
                         const porPergunta = avaliacao.por_pergunta;
+                        const descPorDescritor = avaliacao.avaliacao_por_descritor; // novo formato
+                        const insumos = avaliacao.insumos_consolidacao; // novo formato
+
+                        const SUST_COLORS = {
+                          forte: 'bg-green-400/15 text-green-400',
+                          fraca: 'bg-amber-400/15 text-amber-400',
+                          insuficiente: 'bg-red-400/15 text-red-400',
+                        };
 
                         return (
                         <div>
@@ -295,7 +303,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                                 <span className="text-xs text-gray-500">({Number(nDecimal).toFixed(2)})</span>
                               )}
                               {gap != null && gap > 0 && <span className="text-[9px] bg-red-400/15 text-red-400 px-1.5 py-0.5 rounded">GAP: {gap}</span>}
-                              {confianca != null && <span className="text-[9px] text-gray-600">Confiança: {confianca}%</span>}
+                              {confianca != null && <span className="text-[9px] text-gray-600">Confiança: {(confianca <= 1 ? (confianca * 100).toFixed(0) : confianca)}%</span>}
                             </div>
 
                             {/* Travas */}
@@ -303,7 +311,72 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                               <div className="text-[9px] text-amber-400">Travas: {travas.join('; ')}</div>
                             )}
 
-                            {/* Avaliação por resposta (formato GAS detalhado) */}
+                            {/* Avaliação por descritor (novo formato) */}
+                            {Array.isArray(descPorDescritor) && descPorDescritor.length > 0 && (
+                              <div>
+                                <p className="text-[9px] font-bold text-cyan-400 mt-2 mb-1">Avaliação por Descritor</p>
+                                <div className="space-y-1.5">
+                                  {descPorDescritor.map((d, i) => (
+                                    <div key={i} className="p-2 rounded border border-white/[0.04]" style={{ background: '#0a1e38' }}>
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className={`text-[10px] font-bold ${NIVEL_COLORS[d.nivel_sugerido || Math.floor(d.nota_decimal)] || 'text-gray-400'}`}>
+                                          D{d.numero}: N{d.nivel_sugerido || Math.floor(d.nota_decimal)} ({d.nota_decimal?.toFixed(2)})
+                                        </span>
+                                        <span className="text-[10px] text-gray-300">{d.nome}</span>
+                                        {d.sustentacao && (
+                                          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${SUST_COLORS[d.sustentacao] || 'bg-gray-400/15 text-gray-400'}`}>
+                                            {d.sustentacao}
+                                          </span>
+                                        )}
+                                        {d.confianca != null && (
+                                          <span className="text-[9px] text-gray-600 ml-auto">
+                                            conf: {(d.confianca <= 1 ? (d.confianca * 100).toFixed(0) : d.confianca)}%
+                                          </span>
+                                        )}
+                                      </div>
+                                      {d.racional && <p className="text-[9px] text-gray-500 mt-0.5 italic">{d.racional}</p>}
+                                      {Array.isArray(d.evidencias) && d.evidencias.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mt-1">
+                                          {d.evidencias.map((ev, j) => (
+                                            <span key={j} className="text-[9px] bg-white/[0.04] text-gray-400 px-1.5 py-0.5 rounded">{ev}</span>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {Array.isArray(d.limites_da_evidencia) && d.limites_da_evidencia.length > 0 && (
+                                        <p className="text-[9px] text-gray-600 mt-0.5">Limites: {d.limites_da_evidencia.join('; ')}</p>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Insumos de consolidação (novo formato) */}
+                            {insumos && (
+                              <div className="mt-2">
+                                <p className="text-[9px] font-bold text-gray-500 mb-1">Insumos de Consolidação</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {Array.isArray(insumos.descritores_com_evidencia_forte) && insumos.descritores_com_evidencia_forte.map((d, i) => (
+                                    <span key={`f${i}`} className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-green-400/15 text-green-400">{d} forte</span>
+                                  ))}
+                                  {Array.isArray(insumos.descritores_com_evidencia_fraca) && insumos.descritores_com_evidencia_fraca.map((d, i) => (
+                                    <span key={`w${i}`} className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-400/15 text-amber-400">{d} fraca</span>
+                                  ))}
+                                  {Array.isArray(insumos.descritores_sem_sustentacao) && insumos.descritores_sem_sustentacao.map((d, i) => (
+                                    <span key={`n${i}`} className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-red-400/15 text-red-400">{d} s/ sust.</span>
+                                  ))}
+                                </div>
+                                {Array.isArray(insumos.alertas_metodologicos) && insumos.alertas_metodologicos.length > 0 && (
+                                  <div className="mt-1">
+                                    {insumos.alertas_metodologicos.map((a, i) => (
+                                      <p key={i} className="text-[9px] text-amber-300">⚠ {a}</p>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Avaliação por resposta (formato detalhado) */}
                             {porResp && Object.entries(porResp).map(([key, val]: [string, any]) => (
                               val?.descritores_avaliados?.length > 0 && (
                                 <div key={key}>
@@ -314,14 +387,14 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                                         D{d.numero}: {d.nota_decimal?.toFixed(2) || `N${d.nivel}`}
                                       </span>
                                       <span className="text-gray-500 truncate">{d.evidencia || d.nome || ''}</span>
-                                      {d.confianca && <span className="text-gray-600 shrink-0">{d.confianca}%</span>}
+                                      {d.confianca != null && <span className="text-gray-600 shrink-0">{(d.confianca <= 1 ? (d.confianca * 100).toFixed(0) : d.confianca)}%</span>}
                                     </div>
                                   ))}
                                 </div>
                               )
                             ))}
 
-                            {/* Por pergunta (formato simplificado) */}
+                            {/* Por pergunta (formato simplificado legado) */}
                             {!porResp && porPergunta?.length > 0 && (
                               <div className="space-y-1">
                                 {avaliacao.por_pergunta.map((p, i) => (
@@ -351,9 +424,39 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                               </div>
                             )}
 
-                            {feedback && (
+                            {/* Feedback estruturado (novo formato) ou string (legado) */}
+                            {feedback && typeof feedback === 'object' ? (
+                              <div className="pt-2 border-t border-white/[0.04] space-y-1.5">
+                                {feedback.tom_base && (
+                                  <p className="text-[9px] text-gray-600">Tom: {feedback.tom_base}</p>
+                                )}
+                                {feedback.resumo_geral && (
+                                  <p className="text-[10px] text-gray-300">{feedback.resumo_geral}</p>
+                                )}
+                                {feedback.mensagem_positiva && (
+                                  <div className="p-2 rounded bg-green-400/5 border border-green-400/10">
+                                    <p className="text-[9px] font-bold text-green-400 mb-0.5">Positivo</p>
+                                    <p className="text-[10px] text-gray-300">{feedback.mensagem_positiva}</p>
+                                  </div>
+                                )}
+                                {feedback.mensagem_construtiva && (
+                                  <div className="p-2 rounded bg-amber-400/5 border border-amber-400/10">
+                                    <p className="text-[9px] font-bold text-amber-400 mb-0.5">Construtivo</p>
+                                    <p className="text-[10px] text-gray-300">{feedback.mensagem_construtiva}</p>
+                                  </div>
+                                )}
+                                {Array.isArray(feedback.recomendacoes) && feedback.recomendacoes.length > 0 && (
+                                  <div>
+                                    <p className="text-[9px] font-bold text-cyan-400">Recomendações:</p>
+                                    {feedback.recomendacoes.map((rec, i) => (
+                                      <p key={i} className="text-[10px] text-gray-400 ml-2">• {rec}</p>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ) : feedback ? (
                               <p className="text-[10px] text-gray-400 pt-1 border-t border-white/[0.04]">{feedback}</p>
-                            )}
+                            ) : null}
                           </div>
                         </div>
                         );
