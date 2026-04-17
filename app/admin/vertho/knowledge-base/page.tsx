@@ -154,7 +154,7 @@ export default function KnowledgeBasePage() {
         <div className="flex items-center gap-2">
           <select value={uploadCategoria} onChange={e => setUploadCategoria(e.target.value)}
             className="px-2 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-white">
-            {CATEGORIAS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+            {CATEGORIAS.map(c => <option key={c.id} value={c.id} className="bg-[#0d1426] text-white">{c.label}</option>)}
           </select>
           <label className={`px-3 py-2 rounded-lg border text-xs font-bold flex items-center gap-1.5 cursor-pointer ${
             uploading
@@ -178,7 +178,7 @@ export default function KnowledgeBasePage() {
           <label className="text-[10px] uppercase tracking-widest text-gray-500 mb-1 block">Empresa</label>
           <select value={empresaId} onChange={e => setEmpresaId(e.target.value)}
             className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white">
-            {empresas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+            {empresas.map(e => <option key={e.id} value={e.id} className="bg-[#0d1426] text-white">{e.nome}</option>)}
           </select>
         </div>
       </div>
@@ -295,7 +295,7 @@ function Editor({ editor, setEditor, onClose, onSalvar, saving }) {
             <label className="text-[10px] uppercase tracking-widest text-gray-500 mb-1 block">Categoria</label>
             <select value={editor.categoria} onChange={e => setEditor({ ...editor, categoria: e.target.value })}
               className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white">
-              {CATEGORIAS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+              {CATEGORIAS.map(c => <option key={c.id} value={c.id} className="bg-[#0d1426] text-white">{c.label}</option>)}
             </select>
           </div>
           <div>
