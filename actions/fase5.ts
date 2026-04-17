@@ -1891,73 +1891,84 @@ export async function checkCenarios(empresaId: string, aiConfig: AIConfig = {}) 
       };
     });
 
-    const system = `Você é o auditor de lote de cenários da Vertho.
+    const system = `Você é um auditor de qualidade de cenários da Vertho.
 
-═══ TAREFA ═══
-Analisar um CONJUNTO de cenários e produzir leitura operacional da qualidade.
-Este check NÃO substitui o check unitário oficial — serve pra visão de carteira,
-padrões de erro e priorização de correções.
+Sua tarefa é analisar um LOTE de cenários e verificar se têm qualidade metodológica e editorial suficiente para uso na plataforma.
 
-═══ PRINCÍPIOS ═══
-1. Avalie como instrumento diagnóstico, não como texto bonito
-2. Criterioso com trade-off, resposta genérica e poder discriminante
-3. Na dúvida → prudência
-4. Nem todo cenário com ressalva precisa ser refeito imediatamente
-5. Gerar visão individual + consolidada
+ATENÇÃO:
+Você NÃO está apenas revisando texto.
+Você NÃO está procurando "cenários bonitos".
+Você está auditando se cada cenário realmente funciona como instrumento prático e discriminante de avaliação ou desenvolvimento.
 
-═══ CRITÉRIOS POR CENÁRIO ═══
-- aderencia_competencia (0-15)
-- realismo_contextual (0-15)
-- clareza_tradeoff (0-20)
-- poder_discriminante (0-20)
-- sobriedade (0-15)
-- risco_resposta_generica (0-15)
+PRINCÍPIOS INEGOCIÁVEIS:
+1. Realismo contextual importa.
+2. Dilema concreto importa.
+3. Poder discriminante importa.
+4. Perguntas genéricas enfraquecem o cenário.
+5. Texto bonito não compensa fraqueza metodológica.
+6. Cenário com baixa utilidade prática não deve ser aprovado.
+7. Toda ressalva ou reprovação deve gerar orientação clara de correção.
 
-═══ CLASSIFICAÇÃO ═══
-- aprovado (≥80)
-- com_ressalvas (60-79)
-- reprovado (<60)
+SINAIS DE PROBLEMA:
+- situação abstrata demais
+- contexto pouco plausível
+- conflito fraco
+- pergunta óbvia ou moralizante
+- resposta "conversaria com todos" resolve fácil
+- baixa diferença entre respostas fortes e fracas
+- descritor mal testado
+- excesso de didatismo
+- cenário muito parecido com outros do lote
 
-Retorne APENAS JSON válido.`;
+RETORNE APENAS JSON VÁLIDO, sem markdown, sem texto antes ou depois.`;
 
-    const user = `═══ LOTE DE ${lote.length} CENÁRIOS ═══
+    const user = `LOTE DE ${lote.length} CENÁRIOS:
 
 ${JSON.stringify(lote, null, 2)}
 
-═══ FORMATO ═══
+FORMATO DE SAÍDA (JSON):
 {
   "total": ${lote.length},
   "aprovados": 0,
   "com_ressalvas": 0,
   "reprovados": 0,
-  "risco_operacional_lote": "baixo|medio|alto",
-  "padroes_de_erro": [
-    {"tipo": "tradeoff_fraco|generico|baixo_realismo|baixa_discriminacao|redundancia|outro", "frequencia": 0, "impacto": "baixo|medio|alto", "leitura": "texto curto"}
-  ],
-  "prioridades_de_regeneracao": [
-    {"cenario_id": "id", "titulo": "titulo", "prioridade": "alta|media|baixa", "motivo": "texto curto"}
-  ],
   "detalhes": [
     {
       "cenario_id": "id",
       "titulo": "titulo",
       "status": "aprovado|com_ressalvas|reprovado",
-      "nota": 0,
-      "problema_principal": "texto curto",
-      "ajuste_recomendado": "texto curto",
-      "prioridade_correcao": "alta|media|baixa",
-      "criterios": {
+      "nota_geral": 0,
+      "dimensoes": {
         "aderencia_competencia": 0,
         "realismo_contextual": 0,
-        "clareza_tradeoff": 0,
+        "dilema_e_tensao": 0,
         "poder_discriminante": 0,
-        "sobriedade": 0,
-        "risco_resposta_generica": 0
-      }
+        "qualidade_perguntas": 0,
+        "risco_de_generico": 0,
+        "prontidao_para_uso": 0
+      },
+      "forcas": ["força 1"],
+      "problemas": ["problema 1"],
+      "ajustes_sugeridos": ["ajuste 1"],
+      "justificativa_curta": "síntese objetiva do veredito"
     }
   ],
-  "leitura_executiva_lote": "síntese curta e operacional"
-}`;
+  "leitura_do_lote": {
+    "padroes_positivos": ["padrão 1"],
+    "padroes_de_risco": ["risco 1"],
+    "recomendacao_editorial": "síntese do que fazer com o lote"
+  },
+  "alertas_metodologicos": ["alerta 1"]
+}
+
+REGRAS:
+- nota_geral e dimensões em escala 0-10
+- aprovado ≥ 7, com_ressalvas 5-6.9, reprovado < 5
+- risco_de_generico é invertida: quanto maior, pior
+- justificativa_curta clara e específica
+- ajustes_sugeridos acionáveis
+- não aprovar por benevolência
+- leitura_do_lote obrigatória com padrões agregados`;
 
     const resultado = await callAI(system, user, { model: aiConfig?.model || 'gemini-3-flash-preview' }, 8192, { temperature: TEMP });
     const verificacao = await extractJSON(resultado);
