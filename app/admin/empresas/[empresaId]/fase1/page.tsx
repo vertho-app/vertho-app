@@ -305,7 +305,23 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                           {t1Conf != null && <span className="text-[9px] text-gray-500">conf: {Math.round(t1Conf * 100)}%</span>}
                         </div>
                         <div className="flex flex-wrap gap-1.5">
-                          {t1Items.map((c: any, i: number) => <span key={i} className="text-[11px] px-2.5 py-1 rounded-full bg-cyan-400/10 text-cyan-300">{c}</span>)}
+                          {t1Items.map((c: any, i: number) => {
+                            const isObj = typeof c === 'object';
+                            const label = isObj ? c.polo_escolhido : c;
+                            const intensidade = isObj ? c.intensidade : null;
+                            return (
+                              <span key={i} className="text-[11px] px-2.5 py-1 rounded-full bg-cyan-400/10 text-cyan-300 inline-flex items-center gap-1" title={isObj ? c.justificativa : undefined}>
+                                {label}
+                                {intensidade && (
+                                  <span className={`text-[8px] px-1 py-0.5 rounded ${
+                                    intensidade === 'alta' ? 'bg-red-400/15 text-red-300' :
+                                    intensidade === 'moderada' ? 'bg-amber-400/15 text-amber-300' :
+                                    'bg-gray-400/15 text-gray-400'
+                                  }`}>{intensidade}</span>
+                                )}
+                              </span>
+                            );
+                          })}
                         </div>
                       </div>
                     )}

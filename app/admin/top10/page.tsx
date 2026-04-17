@@ -234,7 +234,7 @@ export default function Top10Page() {
                         <span className="text-[10px] text-amber-400 shrink-0">&#8226;</span>
                         <div>
                           <span className="text-xs font-semibold text-white">{q.nome}</span>
-                          <span className="text-[10px] text-gray-500 ml-1.5">&mdash; {q.motivo_exclusao}</span>
+                          <span className="text-[10px] text-gray-500 ml-1.5">&mdash; {q.motivo_nao_entrou || q.motivo_exclusao}</span>
                         </div>
                       </div>
                     ))}

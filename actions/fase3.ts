@@ -86,7 +86,9 @@ d) Recomendações práticas
       "nivel_sugerido": 2,
       "confianca": 0.80,
       "sustentacao": "forte",
-      "evidencias": ["trecho 1", "trecho 2"],
+      "evidencias": [
+        {"resposta": "R1", "trecho": "trecho literal ou paráfrase fiel", "forca_evidencia": "fraca|moderada|forte"}
+      ],
       "limites_da_evidencia": ["o que não foi demonstrado"],
       "racional": "Por que este nível e não outro (1 frase)"
     }
@@ -107,7 +109,17 @@ d) Recomendações práticas
     "mensagem_positiva": "O que fez bem (específico)",
     "mensagem_construtiva": "Onde melhorar (específico, tom mentor)",
     "recomendacoes": ["ação prática 1", "ação prática 2"]
-  }
+  },
+  "recomendacoes_pdi": [
+    {
+      "descritor_foco": "D1",
+      "nivel_atual_sugerido": 2,
+      "nivel_meta": 3,
+      "acao": "ação prática sugerida",
+      "por_que_importa": "frase curta",
+      "barreira_provavel": "frase curta"
+    }
+  ]
 }
 
 REGRAS DO JSON:
@@ -333,6 +345,13 @@ R4: ${resp.r4 || '(sem resposta)'}`);
             confianca_geral: confiancaGeral,
             travas_aplicadas: travasAplicadas.length ? travasAplicadas : ['Nenhuma'],
           };
+
+          // recomendacoes_pdi pode estar dentro de feedback (legado) ou top-level (novo)
+          if (avaliacao.recomendacoes_pdi) {
+            // já está no top-level — ok
+          } else if (avaliacao.feedback?.recomendacoes_pdi) {
+            avaliacao.recomendacoes_pdi = avaliacao.feedback.recomendacoes_pdi;
+          }
 
           // Feedback como string (compatibilidade com consumers)
           const feedbackStr = typeof avaliacao.feedback === 'object'

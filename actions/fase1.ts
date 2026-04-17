@@ -487,13 +487,14 @@ Retorne APENAS JSON válido (sem markdown, sem texto antes/depois):
     {
       "id": "COD",
       "nome": "Nome",
-      "motivo_exclusao": "Por que ficou de fora apesar de relevante"
+      "motivo_nao_entrou": "Por que ficou logo abaixo do corte.",
+      "confianca": 0.0
     }
   ],
   "resumo_executivo": {
     "leitura_do_cargo": "2-3 frases: como a IA leu o perfil de exigências do cargo",
-    "riscos_de_omissao": "O que pode ser perdido com esta seleção (1-2 frases honestas)",
-    "cobertura_da_selecao": "Quais pilares/dimensões ficaram cobertos e quais não (1-2 frases)"
+    "riscos_de_omissao": ["possível subcobrir algum aspecto relevante"],
+    "cobertura_da_selecao": ["dimensão 1 coberta", "dimensão 2 coberta"]
   }
 }
 
@@ -502,6 +503,10 @@ REGRAS DO JSON:
 - evidencias_do_caso: 1 a 3 itens curtos extraídos do contexto fornecido
 - quase_entrou: 2 a 3 competências que ficaram no limite
 - posicao: 1 a ${maxSel} (ordem de prioridade)
+
+REGRAS ADICIONAIS:
+- Não repita a mesma justificativa em competências diferentes
+- Pense como alguém que está montando um instrumento de diagnóstico, não como alguém fazendo um texto bonito
 
 ═══ LISTA DE COMPETÊNCIAS DISPONÍVEIS (${total}) ═══
 
@@ -674,7 +679,9 @@ Mesmas faixas da Tela 2. min <= max sempre.
 {
   "gabarito": {
     "tela1": {
-      "caracteristicas": ["Comunicativo", "Orientação a Resultados"],
+      "caracteristicas": [
+        {"par": "NOME_DO_PAR", "polo_escolhido": "Comunicativo", "intensidade": "moderada", "justificativa": "frase específica", "confianca": 0.85}
+      ],
       "confianca": 0.85
     },
     "tela2": {
@@ -1446,7 +1453,7 @@ O cenário é uma radiografia: a resposta revela o nível de maturidade.
     },
     "armadilha_de_resposta_generica": "Por que 'alinhar com todos' ou resposta vaga não resolve este cenário",
     "confianca_cenario": 0.85,
-    "riscos_do_cenario": "Limitações deste cenário como instrumento (1-2 frases honestas)"
+    "riscos_do_cenario": ["possível fragilidade 1", "possível fragilidade 2"]
   },
   "perguntas": [
     {
