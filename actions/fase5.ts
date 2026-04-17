@@ -1733,14 +1733,59 @@ export async function gerarDossieGestor(empresaId: string, aiConfig: AIConfig = 
   try {
     const { data: empresa } = await sbRaw.from('empresas').select('nome, segmento').eq('id', empresaId).single();
     const { data: todos } = await tdb.from('relatorios').select('tipo, conteudo, colaboradores(nome_completo, cargo)');
-    const porTipo = {};
-    for (const r of todos || []) { if (!porTipo[r.tipo]) porTipo[r.tipo] = []; porTipo[r.tipo].push({ colaborador: r.colaboradores?.nome_completo, resumo: r.conteudo?.resumo_executivo || r.conteudo?.evolucao_geral }); }
+    const { data: relPlenaria } = await tdb.from('relatorios').select('conteudo').eq('tipo', 'plenaria_evolucao').maybeSingle();
+    const { data: relRH } = await tdb.from('relatorios').select('conteudo').eq('tipo', 'rh_manual').maybeSingle();
 
-    const resultado = await callAI('Compile em dossiê executivo. JSON válido.', `Empresa: ${empresa.nome} (${empresa.segmento})\nRelatórios: ${JSON.stringify(porTipo, null, 2)}\nGere: { "titulo": "...", "sumario_executivo": "...", "diagnostico_inicial": "...", "evolucao": "...", "roi": "...", "recomendacoes": ["..."], "conclusao": "..." }`, aiConfig, 8000, { temperature: TEMP });
+    const porTipo: Record<string, any[]> = {};
+    for (const r of todos || []) {
+      if (!porTipo[r.tipo]) porTipo[r.tipo] = [];
+      porTipo[r.tipo].push({ colaborador: r.colaboradores?.nome_completo, cargo: r.colaboradores?.cargo, resumo: r.conteudo?.resumo_executivo || r.conteudo?.evolucao_geral });
+    }
+
+    const system = `Você é um consultor executivo de gestão de pessoas da Vertho.
+
+═══ TAREFA ═══
+Compilar DOSSIÊ EXECUTIVO consolidando diagnóstico + evolução + recomendações
+da empresa em um documento final pra liderança.
+
+═══ PRINCÍPIOS ═══
+1. Executivo e orientado a decisão
+2. Celebre ganhos antes de apontar riscos
+3. NÃO invente impacto sem base
+4. ROI como "retorno de desenvolvimento" (prudente)
+5. Conexão clara com gestão e resultados
+
+Retorne APENAS JSON válido.`;
+
+    const userBlocks: string[] = [];
+    userBlocks.push(`═══ EMPRESA ═══\n${empresa.nome} (${empresa.segmento})`);
+    if (relPlenaria?.conteudo) userBlocks.push(`═══ PLENÁRIA DE EVOLUÇÃO ═══\n${JSON.stringify(relPlenaria.conteudo, null, 2).slice(0, 3000)}`);
+    if (relRH?.conteudo) userBlocks.push(`═══ RELATÓRIO RH ═══\n${JSON.stringify(relRH.conteudo, null, 2).slice(0, 2000)}`);
+    userBlocks.push(`═══ RELATÓRIOS POR TIPO ═══\n${JSON.stringify(porTipo, null, 2).slice(0, 4000)}`);
+
+    userBlocks.push(`═══ FORMATO ═══
+{
+  "titulo": "Dossiê Executivo — ${empresa.nome}",
+  "sumario_executivo": "síntese estratégica (3-4 frases)",
+  "diagnostico_inicial": "leitura do ponto de partida",
+  "evolucao": "leitura dos avanços e gaps persistentes",
+  "roi_desenvolvimento": "retorno observado ou hipótese de impacto",
+  "recomendacoes": ["recomendação 1", "recomendação 2"],
+  "proximos_passos": ["passo 1", "passo 2"],
+  "conclusao": "mensagem final executiva",
+  "alertas_metodologicos": ["alerta 1"]
+}`);
+
+    const user = userBlocks.join('\n\n');
+    const resultado = await callAI(system, user, aiConfig, 8192, { temperature: TEMP });
     const dossie = await extractJSON(resultado);
-    if (dossie) { await tdb.from('relatorios').upsert({ colaborador_id: null, tipo: 'dossie_gestor', conteudo: dossie, gerado_em: new Date().toISOString() }, { onConflict: 'empresa_id,colaborador_id,tipo' }); }
+    if (dossie) {
+      await tdb.from('relatorios').upsert({
+        colaborador_id: null, tipo: 'dossie_gestor', conteudo: dossie, gerado_em: new Date().toISOString(),
+      }, { onConflict: 'empresa_id,colaborador_id,tipo' });
+    }
     return { success: true, message: 'Dossiê do gestor gerado' };
-  } catch (err) { return { success: false, error: err.message }; }
+  } catch (err: any) { return { success: false, error: err.message }; }
 }
 
 export async function checkCenarios(empresaId: string, aiConfig: AIConfig = {}) {

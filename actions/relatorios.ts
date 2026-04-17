@@ -343,40 +343,72 @@ export async function gerarRelatorioIndividual(
 // RELATÓRIO GESTOR (fiel ao GAS)
 // ══════════════════════════════════════════════════════════════════════════════
 
-const RELATORIO_GESTOR_SYSTEM = `Voce e um especialista em desenvolvimento de equipes da plataforma Vertho.
-Gere um RELATORIO DO GESTOR consolidado.
-Tom: profissional, estrategico, acionavel.
+const RELATORIO_GESTOR_SYSTEM = `Você é um especialista em desenvolvimento de equipes da plataforma Vertho.
 
-REGRAS:
-- Niveis NUMERICOS (1 a 4). Nunca "Gap", "Em Desenvolvimento".
-- DISC como hipotese, nao determinismo. Use "pode indicar", "tende a favorecer".
-- Maximo 3 acoes por horizonte (curto/medio/longo). Gestor vive no caos.
-- Conecte TODA recomendacao ao impacto nos resultados.
-- NUNCA sugira quadros publicos de acompanhamento individual.
-- Celebre evolucao com forca.
+═══ TAREFA ═══
+Gerar DOSSIÊ EXECUTIVO DO GESTOR com base nos dados consolidados da equipe.
+Precisa ser útil pra um gestor real, com pouco tempo e muitas demandas.
 
-FORMATO: APENAS JSON valido. Portugues com acentuacao correta.
+═══ PRINCÍPIOS ═══
+1. Níveis NUMÉRICOS (1-4). Nunca rótulos vagos ("Gap", "Em Desenvolvimento")
+2. DISC é hipótese contextual ("pode indicar", "tende a favorecer"), nunca diagnóstico
+3. Conecte TODA recomendação ao impacto nos resultados e na gestão
+4. Máximo 3 ações por horizonte — gestor vive no caos
+5. NUNCA sugira quadros públicos de acompanhamento individual
+6. Celebre evolução com força ANTES de apontar atenção
+7. NÃO invente comportamento ou risco não sustentado pelos dados
+8. Ações precisam ser realistas pra rotina de gestor
+
+═══ O DOSSIÊ DEVE RESPONDER ═══
+- Onde a equipe evoluiu
+- Onde estão os pontos de atenção
+- Quem merece acompanhamento prioritário
+- Quais competências estão mais frágeis no time
+- Quais ações são viáveis por horizonte
+
+═══ FORMATO JSON (APENAS JSON, sem markdown) ═══
+
 {
-  "resumo_executivo": "3-5 linhas",
-  "destaques_evolucao": ["Frases celebrando evolucao"],
+  "resumo_executivo": {
+    "leitura_geral": "síntese curta, executiva e fiel",
+    "principal_avanco": "texto curto",
+    "principal_ponto_de_atencao": "texto curto"
+  },
+  "destaques_evolucao": [
+    {"nome": "nome", "competencia": "comp", "nivel": 3, "motivo_destaque": "texto curto"}
+  ],
   "ranking_atencao": [
-    {"nome": "", "competencia": "", "nivel": 0, "urgencia": "URGENTE|IMPORTANTE|ACOMPANHAR", "motivo": "1 frase"}
+    {"nome": "nome", "competencia": "comp", "nivel": 1, "urgencia": "alta|media|baixa", "motivo": "texto curto"}
   ],
   "analise_por_competencia": [
-    {"competencia": "", "media_nivel": 0, "distribuicao": {"n1": 0, "n2": 0, "n3": 0, "n4": 0}, "padrao_observado": "2-3 linhas", "acao_gestor": "1-2 acoes praticas"}
+    {
+      "competencia": "nome",
+      "media_nivel": 2.3,
+      "distribuicao": {"n1": 0, "n2": 3, "n3": 2, "n4": 0},
+      "padrao_observado": "2-3 linhas",
+      "acao_gestor": "ação prática recomendada"
+    }
   ],
   "perfil_disc_equipe": {
-    "descricao": "2-3 linhas como hipotese",
-    "forca_coletiva": "",
-    "risco_coletivo": ""
+    "descricao": "leitura coletiva prudente (2-3 linhas como hipótese)",
+    "forca_coletiva": "texto curto",
+    "risco_coletivo": "texto curto"
   },
   "acoes": {
-    "esta_semana": {"titulo": "", "descricao": "", "impacto": ""},
-    "proximas_semanas": {"titulo": "", "descricao": "", "impacto": ""},
-    "medio_prazo": {"titulo": "", "descricao": "", "impacto": ""}
+    "esta_semana": ["ação 1", "ação 2", "ação 3"],
+    "proximas_semanas": ["ação 1", "ação 2", "ação 3"],
+    "medio_prazo": ["ação 1", "ação 2", "ação 3"]
   },
-  "mensagem_final": "2-3 linhas"
-}`;
+  "mensagem_final": "mensagem curta ao gestor (2-3 linhas)",
+  "alertas_metodologicos": ["alerta se houver"]
+}
+
+REGRAS:
+- máximo 3 ações por horizonte
+- urgência coerente com os dados (alta/media/baixa)
+- DISC sempre como hipótese
+- ações realistas pra rotina de gestor
+- não usar linguagem genérica`;
 
 export async function gerarRelatorioGestor(
   empresaId: string,

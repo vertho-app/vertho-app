@@ -75,7 +75,7 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
         {c.resumo_executivo && (
           <View style={s.section} wrap={false}>
             <SectionTitle>Resumo Executivo</SectionTitle>
-            <View style={s.box}><Text style={s.text}>{c.resumo_executivo}</Text></View>
+            <View style={s.box}><Text style={s.text}>{typeof c.resumo_executivo === 'string' ? c.resumo_executivo : c.resumo_executivo.leitura_geral || JSON.stringify(c.resumo_executivo)}</Text></View>
           </View>
         )}
 
@@ -167,15 +167,25 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
             {acoes.map(({ key, label, bg, contentBg }) => {
               const a = c.acoes[key];
               if (!a) return null;
+              // Compatibilidade: formato novo (array de strings) ou legado (objeto {titulo,descricao,impacto})
+              const isArr = Array.isArray(a);
               return (
                 <View key={key} style={s.acaoCard} wrap={false}>
                   <View style={{ ...s.acaoHeader, backgroundColor: bg }}>
                     <Text style={s.acaoHeaderText}>{label}</Text>
                   </View>
                   <View style={{ ...s.acaoContent, backgroundColor: contentBg }}>
-                    <Text style={s.acaoTitulo}>{a.titulo}</Text>
-                    <Text style={s.text}>{a.descricao}</Text>
-                    {a.impacto && <Text style={{ fontFamily: 'NotoSans', fontSize: 9, color: colors.textSecondary, fontStyle: 'italic', marginTop: 2 }}>{a.impacto}</Text>}
+                    {isArr ? (
+                      a.map((item: string, j: number) => (
+                        <Text key={j} style={s.text}>{`\u2022 ${item}`}</Text>
+                      ))
+                    ) : (
+                      <>
+                        <Text style={s.acaoTitulo}>{a.titulo}</Text>
+                        <Text style={s.text}>{a.descricao}</Text>
+                        {a.impacto && <Text style={{ fontFamily: 'NotoSans', fontSize: 9, color: colors.textSecondary, fontStyle: 'italic', marginTop: 2 }}>{a.impacto}</Text>}
+                      </>
+                    )}
                   </View>
                 </View>
               );
