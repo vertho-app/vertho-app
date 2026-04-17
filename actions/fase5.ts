@@ -1622,21 +1622,82 @@ export async function gerarRelatorioPlenaria(empresaId: string, aiConfig: AIConf
   const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
   try {
-    const { data: plenaria } = await tdb.from('relatorios').select('conteudo').eq('tipo', 'plenaria_evolucao').single();
+    const { data: plenaria } = await tdb.from('relatorios').select('conteudo').eq('tipo', 'plenaria_evolucao').maybeSingle();
     if (!plenaria) return { success: false, error: 'Plenária de evolução não encontrada.' };
-    const { data: empresa } = await sbRaw.from('empresas').select('nome').eq('id', empresaId).single();
+    const { data: empresa } = await sbRaw.from('empresas').select('nome, segmento').eq('id', empresaId).single();
+    const { data: relRH } = await tdb.from('relatorios').select('conteudo').eq('tipo', 'rh_manual').maybeSingle();
 
-    const system = `Transforme dados da plenária em relatório formal. Responda APENAS com JSON válido.`;
-    const user = `Empresa: ${empresa.nome}\nDados: ${JSON.stringify(plenaria.conteudo, null, 2)}
-Gere: { "titulo": "...", "data": "${new Date().toISOString().split('T')[0]}", "pauta": ["..."], "resultados": "...", "deliberacoes": ["..."], "encaminhamentos": [{"acao": "...", "responsavel": "...", "prazo": "..."}] }`;
+    const system = `Você é o redator institucional da Vertho.
 
-    const resultado = await callAI(system, user, aiConfig, 4096, { temperature: TEMP });
+═══ TAREFA ═══
+Transformar a plenária de evolução em RELATÓRIO FORMAL: claro, executivo
+e acionável. NÃO é ata burocrática nem resumo genérico.
+
+═══ PRINCÍPIOS ═══
+1. Claro, objetivo e institucional
+2. NÃO invente dados, decisões ou causalidades
+3. Diferencie: resultado observado / interpretação / deliberação / encaminhamento
+4. Evite linguagem vaga ou ornamental
+5. Útil pra leitura executiva e documentação formal
+6. Prudente quando a base não sustentar conclusão forte
+7. Celebre avanços → limites → próximos passos
+
+═══ 4 SEÇÕES ═══
+1. PAUTA — contexto + objetivo + escopo
+2. RESULTADOS — avanços + gaps + padrões + leitura institucional
+3. DELIBERAÇÕES — decisões + prioridades + focos
+4. ENCAMINHAMENTOS — ações + responsáveis (papéis, não nomes) + horizonte
+
+Retorne APENAS JSON válido.`;
+
+    const userBlocks: string[] = [];
+    userBlocks.push(`═══ EMPRESA ═══\n${empresa.nome} (${empresa.segmento})\nData: ${new Date().toISOString().split('T')[0]}`);
+    userBlocks.push(`═══ DADOS DA PLENÁRIA DE EVOLUÇÃO ═══\n${JSON.stringify(plenaria.conteudo, null, 2).slice(0, 5000)}`);
+    if (relRH?.conteudo) {
+      userBlocks.push(`═══ RELATÓRIO RH (contexto estratégico) ═══\n${JSON.stringify(relRH.conteudo, null, 2).slice(0, 2000)}`);
+    }
+
+    userBlocks.push(`═══ FORMATO DE SAÍDA (JSON) ═══
+{
+  "titulo": "Plenária de Evolução — ${empresa.nome}",
+  "data": "${new Date().toISOString().split('T')[0]}",
+  "pauta": {
+    "contexto": "texto curto",
+    "objetivo": "texto curto",
+    "escopo_analisado": ["item 1", "item 2"]
+  },
+  "resultados": {
+    "principais_avancos": ["avanço 1", "avanço 2"],
+    "gaps_persistentes": ["gap 1", "gap 2"],
+    "padroes_relevantes": ["padrão 1"],
+    "leitura_institucional": "síntese curta e prudente"
+  },
+  "deliberacoes": {
+    "decisoes_tomadas": ["decisão 1"],
+    "prioridades_definidas": ["prioridade 1"],
+    "focos_para_continuidade": ["foco 1"]
+  },
+  "encaminhamentos": [
+    {
+      "acao": "ação definida",
+      "responsavel_esperado": "RH|gestor|lideranca|admin da plataforma",
+      "prioridade": "alta|media|baixa",
+      "horizonte": "curto_prazo|medio_prazo|proximo_ciclo",
+      "observacao": "texto curto"
+    }
+  ],
+  "alertas_metodologicos": ["alerta 1"],
+  "limites_da_leitura": ["limite 1"]
+}`);
+
+    const user = userBlocks.join('\n\n');
+    const resultado = await callAI(system, user, aiConfig, 8192, { temperature: TEMP });
     const relatorio = await extractJSON(resultado);
     if (relatorio) {
       await tdb.from('relatorios').upsert({ colaborador_id: null, tipo: 'plenaria_relatorio', conteudo: relatorio, gerado_em: new Date().toISOString() }, { onConflict: 'empresa_id,colaborador_id,tipo' });
     }
-    return { success: true, message: 'Relatório da plenária gerado' };
-  } catch (err) { return { success: false, error: err.message }; }
+    return { success: true, message: 'Relatório formal da plenária gerado' };
+  } catch (err: any) { return { success: false, error: err.message }; }
 }
 
 export async function enviarLinksPerfil(empresaId: string) {
