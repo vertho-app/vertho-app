@@ -28,6 +28,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Security tests + service-role guard
+        run: npm run test:unit
+
       - name: Report result
         if: failure()
-        run: echo "::error::TypeScript check failed. Run 'npm run typecheck' locally to see errors."
+        run: echo "::error::TypeScript check or security tests failed. Run 'npm run typecheck' and 'npm run test:unit' locally to see errors."

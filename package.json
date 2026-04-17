@@ -15,6 +15,8 @@
     "backfill:embeddings": "node scripts/backfill-embeddings.js",
     "test": "npx playwright test",
     "test:ui": "npx playwright test --ui",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
     "smoke": "node scripts/smoke-test.js"
   },
   "dependencies": {
@@ -43,6 +45,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "tailwindcss": "^4.0.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.4"
   }
 }
