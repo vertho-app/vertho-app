@@ -16,48 +16,83 @@ const MAX_TURNOS = 8;
 const TEMP = 0.4; // temperatura GAS para consistência
 
 // System prompt do check de cenário B — harmonizado com o check do cenário A
-const CHECK_CEN_B_SYSTEM = `Você é um auditor especialista em Assessment Comportamental.
-Avalie o cenário B como INSTRUMENTO DIAGNÓSTICO (não como texto literário).
+const CHECK_CEN_B_SYSTEM = `Você é o auditor de qualidade do Cenário B da Vertho.
 
-═══ 7 DIMENSÕES (total 100 pontos) ═══
+═══ TAREFA ═══
+Auditar se o Cenário B funciona como INSTRUMENTO COMPLEMENTAR real ao Cenário A,
+útil para triangulação na semana 14.
 
-1. ADERÊNCIA À COMPETÊNCIA (15pts): Cenário avalia a competência indicada? Faceta relevante?
-2. COBERTURA DE DESCRITORES (15pts): Todos cobertos pelas 4 perguntas? Mapa coerente?
-3. REALISMO CONTEXTUAL (15pts): Contexto crível pro cargo? Vocabulário da organização?
-4. CONTENÇÃO E SOBRIEDADE (10pts): ≤900 chars contexto, ≤2 tensões, ≤2 stakeholders, ≤200 chars/pergunta?
-5. CLAREZA DO TRADE-OFF (15pts): Escolha difícil REAL? Se pode "agradar todos" → penalize.
-6. PODER DISCRIMINANTE (20pts): N1 diferente de N3? Resposta genérica FALHA?
-7. AUDITABILIDADE (10pts): Metadados claros pra revisão humana e IA4?
+Um bom Cenário B não é apenas "plausível". Ele precisa ser metodologicamente
+útil como SEGUNDO instrumento de medição da mesma competência.
+
+═══ 8 DIMENSÕES (total 100 pontos) ═══
+
+1. ADERÊNCIA À COMPETÊNCIA (15pts)
+   O cenário avalia a competência indicada? A faceta faz sentido?
+
+2. DIFERENÇA ESTRUTURAL VS CENÁRIO A (15pts)
+   A diferença é REAL e metodológica? Ou apenas cosmética (nomes/contexto trocados)?
+
+3. COMPLEMENTARIDADE (10pts)
+   Observa faceta complementar relevante? Evita repetir núcleo de dilema do A?
+
+4. REALISMO CONTEXTUAL (10pts)
+   Plausível pro cargo? Sem caricatura? Máx 2 stakeholders?
+
+5. CLAREZA DO TRADE-OFF (15pts)
+   Existe escolha difícil real? Se pode responder bem sem escolher → penalize forte.
+
+6. PODER DISCRIMINANTE (15pts)
+   Diferencia N1-N4? Resposta vaga/genérica FALHA?
+
+7. ADEQUAÇÃO DAS PERGUNTAS À SEM14 (10pts)
+   P1=situação? P2=ação? P3=raciocínio? P4=autossensibilidade?
+
+8. UTILIDADE PARA TRIANGULAÇÃO (10pts)
+   Leitura útil quando combinado com acumulada + evidências das 13 semanas?
+   Reduz risco de resposta ensaiada?
 
 ═══ ERROS GRAVES (nota máxima 60) ═══
-- Pergunta fechada (sim/não)
-- 4+ tensões simultâneas
-- 5+ stakeholders nomeados
+- Cenário B repete estruturalmente o A
+- Faceta principal é a mesma do A sem justificativa
 - Trade-off inexistente ou muito fraco
-- Descritor relevante sem cobertura
-- Cenário teatral/sofisticado demais
-- Resposta genérica suficiente pra ir bem
+- Resposta genérica suficiente pra "ir bem"
+- Perguntas fora da lógica situação/ação/raciocínio/autossensibilidade
+- Cenário pouco utilizável pra triangulação
 - Competência avaliada não é a indicada
+- Cenário teatral / sofisticado demais
 
 ═══ CLASSIFICAÇÃO ═══
 90-100 = aprovado | 80-89 = aprovado_com_ressalvas | 0-79 = revisar
 
-Retorne APENAS JSON válido:
+═══ FORMATO JSON ═══
+
 {
   "nota": 85,
   "status": "aprovado_com_ressalvas",
   "erro_grave": false,
-  "dimensoes": {"aderencia_competencia":13,"cobertura_descritores":12,"realismo_contextual":14,"contencao_sobriedade":9,"clareza_tradeoff":13,"poder_discriminante":17,"auditabilidade":7},
+  "dimensoes": {
+    "aderencia_competencia": 13,
+    "diferenca_estrutural_vs_a": 12,
+    "complementaridade": 8,
+    "realismo_contextual": 9,
+    "clareza_tradeoff": 13,
+    "poder_discriminante": 13,
+    "adequacao_sem14": 8,
+    "utilidade_triangulacao": 9
+  },
   "ponto_mais_forte": "...",
   "ponto_mais_fraco": "...",
-  "descritores_sem_cobertura": [],
-  "perguntas_com_risco": [{"numero":2,"problema":"...","correcao_recomendada":"..."}],
-  "justificativa": "...",
-  "sugestao": "...",
+  "problema_principal_vs_cenario_a": "em que o B falha como complemento do A",
+  "riscos_de_triangulacao": ["risco 1"],
+  "perguntas_com_risco": [{"numero": 2, "problema": "...", "correcao_recomendada": "..."}],
+  "justificativa": "síntese objetiva (2-3 frases)",
+  "sugestao": "principal ajuste recomendado",
   "alertas": []
 }
 
-REGRA: Se cenário for bem escrito mas metodologicamente fraco, PENALIZE.`;
+REGRA: Se cenário for bem escrito mas metodologicamente fraco como
+COMPLEMENTO do A, PENALIZE. Prefira rigor a elegância.`;
 
 // Helper: busca descritores (linhas filhas em competencias com mesmo cod_comp).
 // Recebe tdb (tenant-scoped) — empresa_id é injetado automaticamente.
@@ -192,7 +227,8 @@ async function fetchPppResumo(tdb) {
 }
 
 // Helper: roda check em 1 cenário B e persiste resultado.
-async function runCheckOnCenB(sb: any, cen: any, comp: any, descritoresTexto: string, pppResumo: string, modelo: string | null) {
+// cenarioA é opcional — se passado, o auditor compara B vs A.
+async function runCheckOnCenB(sb: any, cen: any, comp: any, descritoresTexto: string, pppResumo: string, modelo: string | null, cenarioA?: any) {
   const alt = typeof cen.alternativas === 'string' ? JSON.parse(cen.alternativas) : (cen.alternativas || {});
   const perguntas = [alt.p1 || cen.p1, alt.p2 || cen.p2, alt.p3 || cen.p3, alt.p4 || cen.p4].filter(Boolean);
   const perguntasTexto = perguntas.map((p: any, i: number) => {
@@ -204,15 +240,32 @@ async function runCheckOnCenB(sb: any, cen: any, comp: any, descritoresTexto: st
   const blocks: string[] = [];
   blocks.push(`═══ CARGO ═══\n${cen.cargo}`);
   blocks.push(`═══ COMPETÊNCIA ═══\n${comp?.nome || 'N/D'}`);
-  if (descritoresTexto) blocks.push(`═══ DESCRITORES ═══\n${descritoresTexto}`);
-  blocks.push(`═══ CENÁRIO B ═══\nTítulo: ${cen.titulo}\nContexto: ${cen.descricao}`);
-  if (alt.faceta_avaliada) blocks.push(`Faceta: ${alt.faceta_avaliada}`);
-  if (alt.tradeoff_testado) blocks.push(`Trade-off: ${alt.tradeoff_testado}`);
-  if (alt.armadilha_de_resposta_generica) blocks.push(`Armadilha anti-genérico: ${alt.armadilha_de_resposta_generica}`);
-  if (alt.diferenca_estrutural_vs_cenario_a) blocks.push(`Diferença vs A: ${alt.diferenca_estrutural_vs_cenario_a}`);
+  if (descritoresTexto) blocks.push(`═══ DESCRITORES / RÉGUA ═══\n${descritoresTexto}`);
+
+  // Cenário A pra comparação
+  if (cenarioA) {
+    const altA = typeof cenarioA.alternativas === 'object' && !Array.isArray(cenarioA.alternativas) ? cenarioA.alternativas : {};
+    let cenABlock = `═══ CENÁRIO A ORIGINAL (pra comparação) ═══\nTítulo: ${cenarioA.titulo}\nDescrição: ${cenarioA.descricao}`;
+    if (altA.faceta_testada_principal || altA.faceta_avaliada) cenABlock += `\nFaceta: ${altA.faceta_testada_principal || altA.faceta_avaliada}`;
+    if (altA.tradeoff_testado) cenABlock += `\nTrade-off: ${altA.tradeoff_testado}`;
+    blocks.push(cenABlock);
+  }
+
+  // Cenário B completo
+  let cenBBlock = `═══ CENÁRIO B GERADO ═══\nTítulo: ${cen.titulo}\nContexto: ${cen.descricao}`;
+  if (alt.faceta_avaliada) cenBBlock += `\nFaceta: ${alt.faceta_avaliada}`;
+  if (Array.isArray(alt.facetas_secundarias) && alt.facetas_secundarias.length) cenBBlock += `\nFacetas secundárias: ${alt.facetas_secundarias.join(', ')}`;
+  if (alt.diferenca_estrutural_vs_cenario_a) cenBBlock += `\nDiferença vs A: ${alt.diferenca_estrutural_vs_cenario_a}`;
+  if (alt.por_que_essa_variacao_importa) cenBBlock += `\nPor que importa: ${alt.por_que_essa_variacao_importa}`;
+  if (alt.tradeoff_testado) cenBBlock += `\nTrade-off: ${alt.tradeoff_testado}`;
+  if (alt.armadilha_de_resposta_generica) cenBBlock += `\nArmadilha anti-genérico: ${alt.armadilha_de_resposta_generica}`;
+  if (typeof alt.confianca_cenario === 'number') cenBBlock += `\nConfiança: ${alt.confianca_cenario}`;
+  if (Array.isArray(alt.riscos_do_cenario) && alt.riscos_do_cenario.length) cenBBlock += `\nRiscos: ${alt.riscos_do_cenario.join('; ')}`;
+  blocks.push(cenBBlock);
+
   blocks.push(`═══ PERGUNTAS ═══\n${perguntasTexto}`);
   if (pppResumo) blocks.push(`═══ CONTEXTO PPP ═══\n${pppResumo}`);
-  blocks.push(`═══ INSTRUÇÃO ═══\nSe o cenário for bem escrito mas metodologicamente fraco, PENALIZE.`);
+  blocks.push(`═══ INSTRUÇÃO ═══\nAudite se o Cenário B funciona como instrumento COMPLEMENTAR real ao Cenário A.\nSe bem escrito mas metodologicamente fraco como complemento, PENALIZE.`);
 
   const user = blocks.join('\n\n');
 
@@ -237,7 +290,8 @@ async function runCheckOnCenB(sb: any, cen: any, comp: any, descritoresTexto: st
       alertas: resultado.alertas || [],
       ponto_mais_forte: resultado.ponto_mais_forte || null,
       ponto_mais_fraco: resultado.ponto_mais_fraco || null,
-      descritores_sem_cobertura: resultado.descritores_sem_cobertura || [],
+      problema_principal_vs_cenario_a: resultado.problema_principal_vs_cenario_a || null,
+      riscos_de_triangulacao: resultado.riscos_de_triangulacao || [],
       perguntas_com_risco: resultado.perguntas_com_risco || [],
     },
     checked_at: new Date().toISOString(),
@@ -374,7 +428,7 @@ export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Confi
       // Check inline se modelo foi informado
       if (checkModel && inserted) {
         try {
-          const chk = await runCheckOnCenB(sbRaw, inserted, comp, descritoresTexto, pppResumoCheck, checkModel);
+          const chk = await runCheckOnCenB(sbRaw, inserted, comp, descritoresTexto, pppResumoCheck, checkModel, cenA);
           if (chk.success) {
             if (chk.status === 'aprovado') aprovados++; else revisar++;
           }
@@ -412,7 +466,15 @@ export async function checkCenarioBUm(cenarioId: string, modelo: string | null =
 
     const descritoresTexto = comp ? await fetchDescritoresTexto(tdb, comp.cod_comp) : '';
     const pppResumo = await fetchPppResumo(tdb);
-    const r = await runCheckOnCenB(sbRaw, cen, comp, descritoresTexto, pppResumo, modelo);
+
+    // Buscar cenário A correspondente pra comparação
+    const { data: cenA } = await tdb.from('banco_cenarios')
+      .select('titulo, descricao, alternativas')
+      .eq('competencia_id', cen.competencia_id).eq('cargo', cen.cargo)
+      .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b')
+      .limit(1).maybeSingle();
+
+    const r = await runCheckOnCenB(sbRaw, cen, comp, descritoresTexto, pppResumo, modelo, cenA || undefined);
     if (!r.success) return r;
     return { success: true, message: `Check: ${r.nota}pts — ${r.status}`, nota: r.nota, status: r.status };
   } catch (err) {
@@ -457,32 +519,60 @@ export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = 
       .select('valores').limit(1);
     const pppContexto = ppps?.[0]?.valores ? JSON.stringify(ppps[0].valores) : '';
 
-    const feedbackExtra = [cen.justificativa_check, cen.sugestao_check].filter(Boolean).join('\n');
+    // Feedback enriquecido do check
+    const feedbackParts = [cen.justificativa_check, cen.sugestao_check];
+    // Ler alertas_check enriquecidos se disponíveis
+    const { data: cenFull } = await sbRaw.from('banco_cenarios')
+      .select('alertas_check').eq('id', cenarioId).maybeSingle();
+    const alertas = typeof cenFull?.alertas_check === 'object' ? cenFull.alertas_check : {};
+    if (alertas.problema_principal_vs_cenario_a) feedbackParts.push(`Problema vs A: ${alertas.problema_principal_vs_cenario_a}`);
+    if (Array.isArray(alertas.riscos_de_triangulacao) && alertas.riscos_de_triangulacao.length) {
+      feedbackParts.push(`Riscos de triangulação: ${alertas.riscos_de_triangulacao.join('; ')}`);
+    }
+    if (Array.isArray(alertas.perguntas_com_risco)) {
+      alertas.perguntas_com_risco.forEach((p: any) => {
+        feedbackParts.push(`P${p.numero}: ${p.problema}${p.correcao_recomendada ? ` → ${p.correcao_recomendada}` : ''}`);
+      });
+    }
+    const feedbackExtra = feedbackParts.filter(Boolean).join('\n');
     const refCenA = cenA || { cargo: cen.cargo, titulo: cen.titulo, descricao: cen.descricao };
     refCenA.cargo = cen.cargo;
 
     const { system, user } = buildCenBPrompts(empresa, refCenA, comp, descritoresTexto, pppContexto, feedbackExtra);
-    const resposta = await callAI(system, user, aiConfig, 4096, { temperature: TEMP });
+    const resposta = await callAI(system, user, aiConfig, 6144, { temperature: TEMP });
     const cenarioData = await extractJSON(resposta);
     if (!cenarioData?.titulo) return { success: false, error: 'IA não retornou cenário válido' };
 
     const { error: updErr } = await sbRaw.from('banco_cenarios').update({
       titulo: cenarioData.titulo,
       descricao: cenarioData.descricao,
+      p1: cenarioData.p1,
+      p2: cenarioData.p2,
+      p3: cenarioData.p3,
+      p4: cenarioData.p4,
       alternativas: {
         p1: cenarioData.p1,
         p2: cenarioData.p2,
         p3: cenarioData.p3,
         p4: cenarioData.p4,
-        referencia_avaliacao: cenarioData.referencia_avaliacao,
-        dilema_etico: cenarioData.dilema_etico_embutido,
-        faceta_avaliada: cenarioData.faceta_avaliada,
+        faceta_avaliada: cenarioData.faceta_avaliada || null,
+        facetas_secundarias: cenarioData.facetas_secundarias || [],
+        diferenca_estrutural_vs_cenario_a: cenarioData.diferenca_estrutural_vs_cenario_a || null,
+        por_que_essa_variacao_importa: cenarioData.por_que_essa_variacao_importa || null,
+        tradeoff_testado: cenarioData.tradeoff_testado || null,
+        armadilha_de_resposta_generica: cenarioData.armadilha_de_resposta_generica || null,
+        objetivo_diagnostico: cenarioData.objetivo_diagnostico || null,
+        referencia_avaliacao: cenarioData.referencia_avaliacao || null,
+        dilema_etico: cenarioData.dilema_etico_embutido || null,
+        confianca_cenario: typeof cenarioData.confianca_cenario === 'number' ? Math.max(0, Math.min(1, cenarioData.confianca_cenario)) : null,
+        riscos_do_cenario: cenarioData.riscos_do_cenario || [],
       },
       nota_check: null,
       status_check: null,
       dimensoes_check: null,
       justificativa_check: null,
       sugestao_check: null,
+      alertas_check: null,
       checked_at: null,
     }).eq('id', cenarioId);
 

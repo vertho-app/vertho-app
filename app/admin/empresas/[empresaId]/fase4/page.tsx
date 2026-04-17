@@ -10,14 +10,20 @@ import { loadCenariosB } from '@/actions/fase5';
 import { checkCenarioBUm, regenerarCenarioB, regenerarERecheckarCenariosBLote } from '../actions';
 
 const CHECK_DIM_MAX: Record<string, number> = {
-  aderencia_competencia: 15, cobertura_descritores: 15, realismo_contextual: 15,
-  contencao_sobriedade: 10, clareza_tradeoff: 15, poder_discriminante: 20, auditabilidade: 10,
+  // Check B 8 dimensões
+  aderencia_competencia: 15, diferenca_estrutural_vs_a: 15, complementaridade: 10,
+  realismo_contextual: 10, clareza_tradeoff: 15, poder_discriminante: 15,
+  adequacao_sem14: 10, utilidade_triangulacao: 10,
+  // Check A 7 dimensões (fallback)
+  cobertura_descritores: 15, contencao_sobriedade: 10, auditabilidade: 10,
   // Legacy
   aderencia: 20, realismo: 20, contencao: 20, decisao: 20, discriminante: 20,
 };
 const CHECK_DIM_LABELS: Record<string, string> = {
-  aderencia_competencia: 'Aderência', cobertura_descritores: 'Cobertura', realismo_contextual: 'Realismo',
-  contencao_sobriedade: 'Contenção', clareza_tradeoff: 'Trade-off', poder_discriminante: 'Discriminante', auditabilidade: 'Auditab.',
+  aderencia_competencia: 'Aderência', diferenca_estrutural_vs_a: 'Diferença vs A', complementaridade: 'Complementar.',
+  realismo_contextual: 'Realismo', clareza_tradeoff: 'Trade-off', poder_discriminante: 'Discriminante',
+  adequacao_sem14: 'Sem14', utilidade_triangulacao: 'Triangulação',
+  cobertura_descritores: 'Cobertura', contencao_sobriedade: 'Contenção', auditabilidade: 'Auditab.',
   aderencia: 'Aderência', realismo: 'Realismo', contencao: 'Contenção', decisao: 'Decisão', discriminante: 'Discriminante',
 };
 
@@ -356,6 +362,12 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                                   <>
                                     {al.ponto_mais_forte && <p className="text-[10px] text-green-300/80 mt-1">{'\u2726'} {al.ponto_mais_forte}</p>}
                                     {al.ponto_mais_fraco && <p className="text-[10px] text-amber-300/80 mt-1">{'\u26A0'} {al.ponto_mais_fraco}</p>}
+                                    {al.problema_principal_vs_cenario_a && (
+                                      <p className="text-[10px] text-purple-300/80 mt-1">↔ vs Cenário A: {al.problema_principal_vs_cenario_a}</p>
+                                    )}
+                                    {Array.isArray(al.riscos_de_triangulacao) && al.riscos_de_triangulacao.length > 0 && (
+                                      <p className="text-[10px] text-red-300/80 mt-1">△ Riscos triangulação: {al.riscos_de_triangulacao.join('; ')}</p>
+                                    )}
                                     {Array.isArray(al.descritores_sem_cobertura) && al.descritores_sem_cobertura.length > 0 && (
                                       <p className="text-[10px] text-red-300/80 mt-1">{'\u2717'} Sem cobertura: {al.descritores_sem_cobertura.join(', ')}</p>
                                     )}
