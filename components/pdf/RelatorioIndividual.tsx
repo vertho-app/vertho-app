@@ -115,26 +115,24 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
         )}
 
         {/* Perfil Comportamental */}
-        {(c.perfil_comportamental || c.perfil_disc) && (
+        {c.perfil_comportamental && (
           <View style={s.section} wrap={false}>
             <SectionTitle>Perfil Comportamental</SectionTitle>
             <View style={s.perfilBox}>
-              <Text style={s.text}>
-                {c.perfil_comportamental?.descricao || c.perfil_disc?.descricao}
-              </Text>
+              <Text style={s.text}>{c.perfil_comportamental.descricao}</Text>
             </View>
           </View>
         )}
 
         {/* Pontos Fortes / Pontos de Atenção — cards contrastantes */}
-        {(c.perfil_comportamental || c.perfil_disc) && (
+        {c.perfil_comportamental && (
           <View style={s.pontosRow} wrap={false}>
             <View style={{ ...s.pontosCol, backgroundColor: '#E8F5E9', marginRight: 5, borderLeftWidth: 4, borderLeftColor: '#2E7D32' }}>
               <View style={s.pontosHeader}>
                 <View style={{ ...s.pontosDot, backgroundColor: '#2E7D32' }} />
                 <Text style={{ ...s.pontosLabel, color: '#2E7D32' }}>Pontos Fortes</Text>
               </View>
-              {(c.perfil_comportamental?.pontos_forca || c.perfil_disc?.pontos_forca)?.map((p: any, i: number) => (
+              {c.perfil_comportamental.pontos_forca?.map((p: any, i: number) => (
                 <Text key={i} style={s.pontosItem}>+ {p}</Text>
               ))}
             </View>
@@ -143,7 +141,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64 }
                 <View style={{ ...s.pontosDot, backgroundColor: '#E65100' }} />
                 <Text style={{ ...s.pontosLabel, color: '#E65100' }}>Pontos de Atenção</Text>
               </View>
-              {(c.perfil_comportamental?.pontos_atencao || c.perfil_disc?.pontos_atencao)?.map((p: any, i: number) => (
+              {c.perfil_comportamental.pontos_atencao?.map((p: any, i: number) => (
                 <Text key={i} style={s.pontosItem}>! {p}</Text>
               ))}
             </View>
