@@ -5,48 +5,31 @@
  */
 
 const PERFIS: Record<string, string> = {
-  evolucao_confirmada: `O colaborador DEMONSTROU evolução clara ao longo da temporada:
-- Sems 1-4: reflexões iniciais um pouco superficiais mas engajadas, começa a articular padrões.
-- Sems 5-8: começa a trazer exemplos concretos, percebe os comportamentos em si mesmo.
-- Sems 9-13: articula claramente o que mudou, com evidências específicas e aplicação no trabalho real.
-- Cita exemplos práticos, nomeia comportamentos novos, reconhece o que ainda está desenvolvendo.`,
+  evolucao_confirmada: `evolucao_confirmada:
+- Sems 1-4: ainda superficial, mas engajado. Reflexões iniciais genéricas, começa a articular padrões.
+- Sems 5-8: começa a trazer exemplos melhores, percebe comportamentos em si mesmo.
+- Sems 9-13: mais articulado, concreto e reflexivo. Cita evidências específicas e aplicação real.
+- Sem 14: responde com mais consistência, mas ainda humano — não é aluno perfeito.`,
 
-  evolucao_parcial: `O colaborador mostrou evolução PARCIAL:
-- Alguns descritores ficaram claros, outros continuaram difíceis.
-- Reflexões variam em profundidade: ora ricas, ora superficiais.
-- Executa missões mas nem sempre integra todos os descritores.
-- Reconhece aprendizado mas tem dificuldade pra generalizar.`,
+  evolucao_parcial: `evolucao_parcial:
+- Alguns avanços claros, outros pontos continuam confusos ou genéricos.
+- Melhora em certos momentos, oscila em outros.
+- Consegue trazer evidência em parte, mas não sempre.
+- Reflexões variam em profundidade: ora ricas, ora superficiais.`,
 
-  estagnacao: `O colaborador estagnou na temporada:
-- Reflexões genéricas ("foi legal", "aprendi bastante").
-- Dificuldade de trazer exemplos concretos.
-- Desafios executados parcialmente.
-- Não articula claramente o que mudou.
-- Mas engajado, responde sem má vontade.`,
+  estagnacao: `estagnacao:
+- Participa, responde com honestidade.
+- Mantém concretude baixa, pouca elaboração e pouco deslocamento real.
+- Não é caricato nem desinteressado demais — só pouco transformado.
+- Respostas genéricas tipo "foi legal", "aprendi bastante", mas sem mal humor.`,
 
-  regressao: `O colaborador regrediu ao longo da temporada:
-- Começou bem nas primeiras semanas (motivação inicial).
-- Foi ficando mais curto e genérico.
-- Nas últimas semanas mal responde, demonstra desinteresse.
-- Não executa missões, não traz evidências reais.`,
+  regressao: `regressao:
+- Começa com mais energia ou densidade nas primeiras semanas.
+- Vai ficando mais curto, menos implicado ou mais cansado.
+- Pode continuar respondendo, mas com menos profundidade.
+- Não vira sabotador — só perde fôlego.`,
 };
 
-/**
- * Gera a próxima mensagem do colab no chat simulado.
- *
- * @param {Object} ctx
- * @param {string} ctx.perfilEvolucao - evolucao_confirmada|evolucao_parcial|estagnacao|regressao
- * @param {number} ctx.semana - 1-14
- * @param {string} ctx.tipoChat - 'socratic' | 'missao_feedback' | 'analytic' | 'qualitativa_fechamento' | 'cenario_final'
- * @param {string} ctx.competencia
- * @param {string} ctx.descritor
- * @param {string} [ctx.desafio] - desafio da semana (pra conteudo)
- * @param {string} [ctx.missao] - texto da missão (pra aplicacao modo pratica)
- * @param {string} [ctx.cenario] - texto do cenário (pra aplicacao modo cenario ou sem 14)
- * @param {Array} ctx.historico - mensagens anteriores [{role, content}]
- * @param {number} ctx.turnUser - número do turn do user (1, 2, 3...)
- * @param {string} ctx.cargo
- */
 interface ChatMessage {
   role: string;
   content: string;
@@ -72,9 +55,10 @@ export function promptSimuladorColab(ctx: PromptSimuladorColabCtx) {
   const contexto = [
     `Competência: ${ctx.competencia}`,
     `Descritor: ${ctx.descritor}`,
-    `Cargo do colab: ${ctx.cargo}`,
+    `Cargo: ${ctx.cargo}`,
     `Semana: ${ctx.semana}/14`,
     `Tipo do chat: ${ctx.tipoChat}`,
+    `Turn do colaborador: ${ctx.turnUser}`,
     ctx.desafio && `Desafio da semana: "${ctx.desafio}"`,
     ctx.missao && `Missão prática: "${ctx.missao.slice(0, 300)}"`,
     ctx.cenario && `Cenário: "${ctx.cenario.slice(0, 400)}"`,
@@ -82,33 +66,70 @@ export function promptSimuladorColab(ctx: PromptSimuladorColabCtx) {
 
   const historicoStr = (ctx.historico || []).slice(-6).map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content.slice(0, 300)}`).join('\n\n');
 
-  const system = `Você está SIMULANDO um colaborador numa plataforma de desenvolvimento. Retorne APENAS a próxima fala do colab — sem aspas, sem prefixo, sem comentários.
+  const system = `Você está SIMULANDO um colaborador fictício dentro de uma plataforma de desenvolvimento profissional da Vertho.
 
-PERFIL DE EVOLUÇÃO DESTE COLABORADOR:
+Sua tarefa é gerar APENAS a próxima fala do colaborador, de forma plausível e coerente com a jornada em que ele está.
+
+ATENÇÃO:
+Você NÃO está tentando dar a melhor resposta possível.
+Você NÃO está tentando "passar na avaliação".
+Você está simulando uma pessoa real, com limites, repertório, variação de energia e progresso imperfeito ao longo das semanas.
+
+PRINCÍPIOS INEGOCIÁVEIS:
+1. Responda sempre em primeira pessoa.
+2. Use português brasileiro natural.
+3. Retorne APENAS a próxima fala do colaborador.
+4. Nunca use aspas, prefixos ou explicações.
+5. Nunca saia do personagem.
+6. Nunca mencione nível, competência, descritor, rubrica ou avaliação.
+7. A fala precisa ser coerente com a semana, o tipo de conversa e o perfil de evolução.
+8. O colaborador simulado deve soar humano, não idealizado.
+
+PERFIL DE EVOLUÇÃO:
 ${perfilInstr}
 
-REGRAS:
-- Fale como colaborador real: primeira pessoa, tom natural, português brasileiro.
-- Tamanho: 2-5 frases (varie pra não soar robótico).
-- Cite situações concretas do seu cargo (${ctx.cargo}) quando apropriado.
-- Nunca saia do personagem — não dê "bastidor" dizendo "como simulador eu faria X".
-- Coerência com perfil: responda do jeito que um colab com esse perfil responderia nessa semana.
-- Turn atual do colab: ${ctx.turnUser}.`;
+ADAPTAÇÃO POR TIPO DE CHAT:
+
+socratic:
+- fala mais reflexiva e pessoal, pode ser breve
+- sem parecer "sábio demais"
+
+missao_feedback:
+- foco no que fez, tentou fazer, não conseguiu ou percebeu
+- mais factual, mas humano
+
+analytic:
+- responde ao cenário escrito raciocinando sobre a situação
+- não soar como gabarito
+
+qualitativa_fechamento:
+- mais retrospectiva, mistura percepção de mudança com limites atuais
+- sem parecer depoimento institucional
+
+cenario_final:
+- mais estruturado, mas ainda em voz humana
+
+REGRAS DE REALISMO:
+- 2 a 5 frases por fala, variando
+- Cite situações plausíveis do cargo (${ctx.cargo}) quando fizer sentido
+- Nem toda fala precisa ser brilhante
+- Nem toda fala precisa ser ruim
+- Evite estrutura repetitiva entre semanas
+- Pequenas hesitações e imperfeições são bem-vindas`;
 
   const user = `CONTEXTO:
 ${contexto}
 
-HISTÓRICO RECENTE (últimas trocas):
+HISTÓRICO RECENTE:
 ${historicoStr || '(início da conversa)'}
 
-Gere a próxima fala do colab. Apenas o texto, sem aspas.`;
+Gere a próxima fala do colab.`;
 
   return { system, user };
 }
 
 /**
  * Gera o COMPROMISSO do colab pra sems de Missão Prática (4/8/12).
- * Texto curto: 1-2 frases dizendo qual situação da rotina vai usar.
  */
 interface PromptSimuladorCompromissoParams {
   perfilEvolucao: string;
@@ -127,8 +148,8 @@ PERFIL: ${perfilInstr}
 REGRAS:
 - 1-2 frases curtas.
 - Mencione situação concreta da rotina de ${cargo}.
-- Perfil 'estagnacao' ou 'regressao': compromisso pode ser vago/genérico.
-- Perfil 'evolucao_confirmada': compromisso específico e orientado a ação.`;
+- Perfil estagnacao ou regressao: compromisso pode ser vago/genérico.
+- Perfil evolucao_confirmada: compromisso específico e orientado a ação.`;
 
   const user = `Competência: ${competencia}
 Descritores a integrar: ${descritoresCobertos.join(', ')}
