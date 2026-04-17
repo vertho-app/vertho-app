@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2, Trophy, Trash2, Plus, X, ChevronDown, Filter } from 'lucide-react';
 import { loadTop10TodosCargos, adicionarTop10, removerTop10 } from '@/actions/fase1';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
+import { getSupabase } from '@/lib/supabase-browser';
 export default function Top10Page() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -17,6 +18,7 @@ export default function Top10Page() {
   const [filtroCargo, setFiltroCargo] = useState('');
   const [showAdd, setShowAdd] = useState(null); // cargo para adicionar
   const [addSearch, setAddSearch] = useState('');
+  const [ia1Resultados, setIa1Resultados] = useState<Record<string, any>>({});
 
   function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 2500); }
 
@@ -28,6 +30,19 @@ export default function Top10Page() {
     ]);
     setTop10(t);
     if (c.success) setAllComps(c.data || []);
+
+    // Buscar ia1_resultado dos cargos
+    try {
+      const sb = getSupabase();
+      const { data: cargosEmp } = await sb.from('cargos_empresa')
+        .select('nome, ia1_resultado')
+        .eq('empresa_id', empresaId)
+        .not('ia1_resultado', 'is', null);
+      const resultMap: Record<string, any> = {};
+      (cargosEmp || []).forEach((c: any) => { resultMap[c.nome] = c.ia1_resultado; });
+      setIa1Resultados(resultMap);
+    } catch { /* ia1_resultado é opcional */ }
+
     setLoading(false);
   }
 
@@ -154,6 +169,28 @@ export default function Top10Page() {
                       {t.competencia?.pilar && <span className="text-[10px] text-gray-500">{t.competencia.pilar}</span>}
                     </div>
                     {t.justificativa && <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-2">{t.justificativa}</p>}
+                    {t.confianca != null && (
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                          <div className="h-full rounded-full"
+                            style={{
+                              width: `${Math.round(t.confianca * 100)}%`,
+                              background: t.confianca >= 0.8 ? '#34D399' : t.confianca >= 0.6 ? '#FBBF24' : '#F87171',
+                            }} />
+                        </div>
+                        <span className="text-[10px] font-bold text-gray-400 shrink-0">{Math.round(t.confianca * 100)}%</span>
+                      </div>
+                    )}
+                    {Array.isArray(t.evidencias) && t.evidencias.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {t.evidencias.map((ev: string, j: number) => (
+                          <span key={j} className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-400/10 text-cyan-400/80">{ev}</span>
+                        ))}
+                      </div>
+                    )}
+                    {t.papel_na_cobertura && (
+                      <p className="text-[10px] text-purple-300/80 mt-1 italic">&#8627; {t.papel_na_cobertura}</p>
+                    )}
                   </div>
                   <button onClick={() => handleRemove(t.id)}
                     className="w-7 h-7 flex items-center justify-center rounded text-gray-600 hover:text-red-400 shrink-0 transition-colors">
@@ -165,6 +202,46 @@ export default function Top10Page() {
                 <div className="px-4 py-6 text-center text-xs text-gray-500">Nenhuma competência selecionada</div>
               )}
             </div>
+
+            {/* Resumo IA1: quase entraram + resumo executivo */}
+            {ia1Resultados[cargo] && (
+              <div className="mt-3 space-y-2">
+                {/* Resumo executivo */}
+                {ia1Resultados[cargo].resumo_executivo && (
+                  <div className="rounded-xl p-3 border border-purple-400/10" style={{ background: 'rgba(158,78,221,0.05)' }}>
+                    <p className="text-[10px] font-bold text-purple-300 uppercase tracking-widest mb-1">Leitura do cargo</p>
+                    <p className="text-xs text-gray-300">{ia1Resultados[cargo].resumo_executivo.leitura_do_cargo}</p>
+                    {ia1Resultados[cargo].resumo_executivo.riscos_de_omissao && (
+                      <>
+                        <p className="text-[10px] font-bold text-amber-300 uppercase tracking-widest mt-2 mb-1">Riscos da selecao</p>
+                        <p className="text-xs text-gray-400">{ia1Resultados[cargo].resumo_executivo.riscos_de_omissao}</p>
+                      </>
+                    )}
+                    {ia1Resultados[cargo].resumo_executivo.cobertura_da_selecao && (
+                      <>
+                        <p className="text-[10px] font-bold text-cyan-300 uppercase tracking-widest mt-2 mb-1">Cobertura</p>
+                        <p className="text-xs text-gray-400">{ia1Resultados[cargo].resumo_executivo.cobertura_da_selecao}</p>
+                      </>
+                    )}
+                  </div>
+                )}
+                {/* Quase entraram */}
+                {Array.isArray(ia1Resultados[cargo].quase_entrou) && ia1Resultados[cargo].quase_entrou.length > 0 && (
+                  <div className="rounded-xl p-3 border border-white/[0.06]" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Quase entraram</p>
+                    {ia1Resultados[cargo].quase_entrou.map((q: any, j: number) => (
+                      <div key={j} className="flex items-start gap-2 mb-1.5 last:mb-0">
+                        <span className="text-[10px] text-amber-400 shrink-0">&#8226;</span>
+                        <div>
+                          <span className="text-xs font-semibold text-white">{q.nome}</span>
+                          <span className="text-[10px] text-gray-500 ml-1.5">&mdash; {q.motivo_exclusao}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         );
       })}

@@ -107,32 +107,69 @@ export async function rodarIA1(empresaId: string, aiConfig: AIConfig = {}) {
         const system = buildSystemPromptSelecao(compsDoCargo, cargoNome);
         const user = buildUserPrompt(empresa, cargoInfo, valores, contextoPPP);
 
-        const resposta = await callAI(system, user, aiConfig, 4096);
-        const resultado = await extractJSON(resposta);
+        const resposta = await callAI(system, user, aiConfig, 8192);
+        let resultado = await extractJSON(resposta);
 
         if (resultado?.top10 && Array.isArray(resultado.top10)) {
+          // Validação pós-resposta
+          const validIds = new Set(competencias.map((c: any) => (c.cod_comp || c.id || '').toLowerCase()));
+          const validNomes = new Set(competencias.map((c: any) => c.nome.toLowerCase()));
+
+          // Filtrar top10 válidos
+          const top10Valid = (resultado.top10 || []).filter((sel: any) => {
+            const selId = (sel.id || '').trim().toLowerCase();
+            const selNome = (sel.nome || '').trim().toLowerCase();
+            if (!selId && !selNome) return false;
+            if (typeof sel.confianca === 'number' && (sel.confianca < 0 || sel.confianca > 1)) return false;
+            return true;
+          });
+
+          // Se menos de 7 válidos (de 10), fazer retry
+          if (top10Valid.length < Math.min(7, compsDoCargo.length)) {
+            console.warn(`[IA1] ${cargoNome}: só ${top10Valid.length} válidos. Retry.`);
+            const retry = await callAI(system, user + '\n\nATENÇÃO: sua resposta anterior não tinha competências suficientes da lista. Use EXATAMENTE os IDs/nomes da lista fornecida.', aiConfig, 8192);
+            const retryResult = await extractJSON(retry);
+            if (retryResult?.top10?.length > top10Valid.length) {
+              resultado.top10 = retryResult.top10;
+            }
+          }
+
+          // Persistir top10
           const usedIds = new Set();
-          for (let i = 0; i < resultado.top10.length; i++) {
+          for (let i = 0; i < (resultado.top10 || []).length; i++) {
             const sel = resultado.top10[i];
             const selId = (sel.id || sel.cod_comp || '').trim().toLowerCase();
             const selNome = (sel.nome || '').trim().toLowerCase();
 
-            const match = competencias.find(c => !usedIds.has(c.id) && c.cod_comp && selId && c.cod_comp.toLowerCase() === selId)
-              || competencias.find(c => !usedIds.has(c.id) && selNome && c.nome.toLowerCase() === selNome)
-              || competencias.find(c => !usedIds.has(c.id) && selNome && c.nome.toLowerCase().includes(selNome))
-              || competencias.find(c => !usedIds.has(c.id) && selNome && selNome.includes(c.nome.toLowerCase()));
+            const match = competencias.find((c: any) => !usedIds.has(c.id) && c.cod_comp && selId && c.cod_comp.toLowerCase() === selId)
+              || competencias.find((c: any) => !usedIds.has(c.id) && selNome && c.nome.toLowerCase() === selNome)
+              || competencias.find((c: any) => !usedIds.has(c.id) && selNome && c.nome.toLowerCase().includes(selNome))
+              || competencias.find((c: any) => !usedIds.has(c.id) && selNome && selNome.includes(c.nome.toLowerCase()));
 
             if (!match) continue;
             usedIds.add(match.id);
 
-            // empresa_id é injetado pelo tdb.insert
             await tdb.from('top10_cargos').insert({
               cargo: cargoNome,
               competencia_id: match.id,
-              posicao: i + 1,
+              posicao: sel.posicao || i + 1,
               justificativa: sel.justificativa || null,
+              confianca: typeof sel.confianca === 'number' ? Math.max(0, Math.min(1, sel.confianca)) : null,
+              evidencias: Array.isArray(sel.evidencias_do_caso) ? sel.evidencias_do_caso : [],
+              papel_na_cobertura: sel.papel_na_cobertura || null,
             });
             totalSelecionadas++;
+          }
+
+          // Persistir resumo do cargo (quase_entrou + resumo_executivo)
+          if (resultado.quase_entrou || resultado.resumo_executivo) {
+            await tdb.from('cargos_empresa').update({
+              ia1_resultado: {
+                quase_entrou: resultado.quase_entrou || [],
+                resumo_executivo: resultado.resumo_executivo || {},
+                gerado_em: new Date().toISOString(),
+              },
+            }).eq('nome', cargoNome);
           }
         }
       }
@@ -391,54 +428,125 @@ async function buscarBaseCompetencias(sb, segmento) {
   }
 }
 
-function buildSystemPromptSelecao(competencias, cargoAlvo) {
-  const baseTexto = competencias.map(comp =>
-    `${comp.cod_comp || comp.id} | ${comp.nome} | ${comp.pilar || ''} | ${comp.descricao || ''}`
-  ).join('\n');
-
+function buildSystemPromptSelecao(competencias: any[], cargoAlvo: string): string {
   const total = competencias.length;
   const maxSel = Math.min(10, total);
 
-  return `Você é a IA de parametrização da Vertho.
-Sua tarefa: SELECIONAR as competências MAIS RELEVANTES para o cargo "${cargoAlvo}" da lista abaixo.
+  const listaComps = competencias.map((c: any) =>
+    `- ID: ${c.cod_comp || c.id} | NOME: ${c.nome} | PILAR: ${c.pilar || '—'} | DESCRIÇÃO: ${c.descricao || '—'}`
+  ).join('\n');
 
-IMPORTANTE:
-- Selecione APENAS da lista fornecida — NÃO invente competências.
-- A lista tem ${total} competências.
-- ${total <= 10 ? `Selecione TODAS as ${total}. Não omita nenhuma.` : `Selecione exatamente 10.`}
+  return `Você é a IA de parametrização da plataforma Vertho Mentor IA.
 
-Retorne APENAS JSON válido, sem markdown:
-{"top10":[{"id":"COD","nome":"Nome exato da lista","justificativa":"Frase específica."},...]}
+TAREFA: Selecionar as ${maxSel} competências MAIS RELEVANTES para o cargo "${cargoAlvo}" da lista fornecida.
 
-REGRAS:
-1. Selecione exatamente ${maxSel} competências.
-2. Use "id" e "nome" EXATAMENTE como aparecem na lista.
-3. A justificativa DEVE citar elemento específico do cargo.
+═══ REGRAS INVIOLÁVEIS ═══
 
-LISTA DE COMPETÊNCIAS (${total}):
+1. SELECIONE APENAS DA LISTA FORNECIDA. NÃO invente competências.
+2. Selecione EXATAMENTE ${maxSel} competências (nem mais, nem menos).
+3. Use "id" e "nome" EXATAMENTE como aparecem na lista.
+4. Cada competência selecionada deve ser ÚNICA (sem duplicatas).
 
-LISTA DE COMPETÊNCIAS DISPONÍVEIS (id | nome | pilar | descrição):
-${baseTexto}`;
+═══ CRITÉRIOS DE PRIORIZAÇÃO ═══
+
+Hierarquia de fontes (da mais forte pra mais fraca):
+1. ENTREGAS E DECISÕES RECORRENTES do cargo (fonte primária)
+2. TENSÕES E SITUAÇÕES DIFÍCEIS do cargo (revela gaps críticos)
+3. STAKEHOLDERS e contexto relacional (competências interpessoais)
+4. PPP / DOSSIÊ CORPORATIVO (valores e cultura)
+5. SEGMENTO DA EMPRESA (contexto setorial)
+
+Critérios de seleção:
+- IMPACTO NO SUCESSO: priorize competências que diferenciam desempenho bom de excelente no cargo
+- PODER DISCRIMINANTE: priorize competências que geram respostas observavelmente diferentes entre níveis 1-4
+- COBERTURA: garanta que os pilares mais relevantes do cargo estejam representados
+- ANTI-REDUNDÂNCIA: evite 2+ competências que avaliem essencialmente o mesmo comportamento
+
+PROIBIDO:
+- Justificativas genéricas ("importante para qualquer profissional", "essencial no mercado")
+- Selecionar por popularidade em vez de relevância para o cargo específico
+- Ignorar tensões/dilemas do cargo em favor de competências "seguras"
+
+═══ FORMATO DE SAÍDA ═══
+
+Retorne APENAS JSON válido (sem markdown, sem texto antes/depois):
+
+{
+  "top10": [
+    {
+      "id": "COD_COMP exato da lista",
+      "nome": "Nome exato da lista",
+      "posicao": 1,
+      "confianca": 0.92,
+      "justificativa": "Frase que cita elemento específico do cargo/contexto.",
+      "evidencias_do_caso": ["elemento 1 do contexto", "elemento 2"],
+      "papel_na_cobertura": "O que esta competência cobre que as outras não cobrem"
+    }
+  ],
+  "quase_entrou": [
+    {
+      "id": "COD",
+      "nome": "Nome",
+      "motivo_exclusao": "Por que ficou de fora apesar de relevante"
+    }
+  ],
+  "resumo_executivo": {
+    "leitura_do_cargo": "2-3 frases: como a IA leu o perfil de exigências do cargo",
+    "riscos_de_omissao": "O que pode ser perdido com esta seleção (1-2 frases honestas)",
+    "cobertura_da_selecao": "Quais pilares/dimensões ficaram cobertos e quais não (1-2 frases)"
+  }
 }
 
-function buildUserPrompt(empresa, cargoInfo, valores, contextoPPP) {
-  let prompt = `EMPRESA: ${empresa.nome}
-SEGMENTO: ${empresa.segmento || 'Não informado'}
-CARGO: ${cargoInfo.cargo}
-ÁREA: ${cargoInfo.area || 'Não informado'}`;
+REGRAS DO JSON:
+- confianca: número entre 0.0 e 1.0 (0.7+ = alta confiança)
+- evidencias_do_caso: 1 a 3 itens curtos extraídos do contexto fornecido
+- quase_entrou: 2 a 3 competências que ficaram no limite
+- posicao: 1 a ${maxSel} (ordem de prioridade)
 
-  if (cargoInfo.descricao) prompt += `\nDESCRIÇÃO DO CARGO: ${cargoInfo.descricao}`;
-  if (cargoInfo.entregas) prompt += `\nPRINCIPAIS ENTREGAS: ${cargoInfo.entregas}`;
-  if (cargoInfo.stakeholders) prompt += `\nSTAKEHOLDERS: ${cargoInfo.stakeholders}`;
-  if (cargoInfo.decisoes) prompt += `\nDECISÕES RECORRENTES: ${cargoInfo.decisoes}`;
-  if (cargoInfo.tensoes) prompt += `\nTENSÕES E SITUAÇÕES DIFÍCEIS: ${cargoInfo.tensoes}`;
+═══ LISTA DE COMPETÊNCIAS DISPONÍVEIS (${total}) ═══
 
-  prompt += `\nVALORES ORGANIZACIONAIS: ${valores.join(', ')}`;
+${listaComps}`;
+}
 
-  if (cargoInfo.contexto_extra) prompt += `\nCONTEXTO CULTURAL DO CARGO: ${cargoInfo.contexto_extra}`;
-  if (contextoPPP) prompt += `\n\nCONTEXTO DA EMPRESA:\n${contextoPPP}`;
+function buildUserPrompt(empresa: any, cargoInfo: any, valores: string[], contextoPPP: string): string {
+  const blocks: string[] = [];
 
-  return prompt;
+  blocks.push(`═══ EMPRESA ═══
+Nome: ${empresa.nome}
+Segmento: ${empresa.segmento || 'Não informado'}`);
+
+  blocks.push(`═══ CARGO-ALVO ═══
+Cargo: ${cargoInfo.cargo}
+Área: ${cargoInfo.area || 'Não informado'}`);
+
+  if (cargoInfo.descricao || cargoInfo.entregas || cargoInfo.stakeholders || cargoInfo.decisoes || cargoInfo.tensoes) {
+    let ctx = '═══ CONTEXTO ORGANIZACIONAL ═══';
+    if (cargoInfo.descricao) ctx += `\nDescrição do cargo: ${cargoInfo.descricao}`;
+    if (cargoInfo.entregas) ctx += `\nPrincipais entregas esperadas: ${cargoInfo.entregas}`;
+    if (cargoInfo.stakeholders) ctx += `\nStakeholders: ${cargoInfo.stakeholders}`;
+    if (cargoInfo.decisoes) ctx += `\nDecisões recorrentes: ${cargoInfo.decisoes}`;
+    if (cargoInfo.tensoes) ctx += `\nTensões e situações difíceis: ${cargoInfo.tensoes}`;
+    blocks.push(ctx);
+  }
+
+  if (contextoPPP) {
+    blocks.push(`═══ CONTEXTO PPP / DOSSIÊ CORPORATIVO ═══\n${contextoPPP}`);
+  }
+
+  if (cargoInfo.contexto_extra) {
+    blocks.push(`═══ CONTEXTO CULTURAL DO CARGO ═══\n${cargoInfo.contexto_extra}`);
+  }
+
+  blocks.push(`═══ VALORES ORGANIZACIONAIS ═══\n${valores.join(', ')}`);
+
+  blocks.push(`═══ INSTRUÇÃO DE LEITURA ═══
+1. Leia a descrição do cargo e as entregas. Identifique 3-5 SINAIS EXPLÍCITOS do que o cargo exige.
+2. Cruze esses sinais com as tensões/decisões — elas revelam onde competências são TESTADAS no dia a dia.
+3. Verifique se PPP/valores introduzem alguma exigência adicional (ex: cultura de transparência → comunicação).
+4. Selecione priorizando IMPACTO + PODER DISCRIMINANTE + COBERTURA, nessa ordem.
+5. Na dúvida entre duas competências parecidas, escolha a que gera comportamentos mais observáveis.`);
+
+  return blocks.join('\n\n');
 }
 
 // ── IA2: Gerar gabarito CIS (4 telas comportamentais por cargo) ─────────────
