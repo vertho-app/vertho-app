@@ -79,8 +79,11 @@
 ### Schema
 - `respostas`: 46 colunas em producao, reconciliadas via migration 044
 - `banco_cenarios`: reconciliado via migration 045 (incl. p1..p4 que nunca tinham sido aplicados)
-- Divergencias documentadas: colaborador_id nullable, FKs ausentes, indice duplicado
-- Detalhes: migrations 044/045 + notas inline
+- `relatorios`: formalizado via migration 048 (existia sem migration rastreada)
+- `capacitacao`: formalizado via migration 049 (codigo tratava ausencia com try/catch)
+- Divergencias conhecidas e aceitas: colaborador_id nullable, FKs ausentes, indice duplicado
+- Processo anti-drift: `docs/SCHEMA-PROCESS.md`
+- Total: 28 migrations (022-049)
 
 ### Cobertura de testes
 - **120 testes vitest** (16 arquivos)
