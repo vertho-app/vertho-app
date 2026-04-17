@@ -32,11 +32,9 @@ export default function EquipeEvolucaoPage() {
 
   async function carregar() {
     setLoading(true);
-    const { data: { user } } = await sb.auth.getUser();
-    if (!user) { router.replace('/login'); return; }
     const [r, cp] = await Promise.all([
-      listarEquipeEvolucao(user.email),
-      listarCheckpointsPendentes(user.email),
+      listarEquipeEvolucao(),
+      listarCheckpointsPendentes(),
     ]);
     if (r.error) setError(r.error);
     else { setRows(r.rows); setResumo(r.resumo); }
@@ -47,8 +45,7 @@ export default function EquipeEvolucaoPage() {
   async function handleCheckpoint(cp, avaliacao) {
     const obs = avaliacao !== 'evoluindo' ? prompt(`Por que ${cp.colab} está ${avaliacao}? (opcional)`) : null;
     if (avaliacao !== 'evoluindo' && obs === null) return; // cancelou
-    const { data: { user } } = await sb.auth.getUser();
-    const r = await salvarCheckpointGestor(user.email, {
+    const r = await salvarCheckpointGestor({
       trilhaId: cp.trilhaId, semana: cp.semana, avaliacao, observacao: obs || null,
     });
     if (r.error) alert(r.error);
@@ -60,8 +57,7 @@ export default function EquipeEvolucaoPage() {
   async function abrir(colabEmail) {
     setLoadingDetalhe(true);
     setDetalhe({ colabEmail });
-    const { data: { user } } = await sb.auth.getUser();
-    const r = await loadLideradoConcluida(user.email, colabEmail);
+    const r = await loadLideradoConcluida(colabEmail);
     setLoadingDetalhe(false);
     if (r.error) { alert(r.error); setDetalhe(null); return; }
     setDetalhe({ ...r, colabEmail });

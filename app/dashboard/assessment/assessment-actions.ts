@@ -8,16 +8,18 @@ import { findColabByEmail } from '@/lib/authz';
  * Regra: 1 competência por dia, seguindo a ordem do Top 5 do cargo.
  * Dedupe diário: se já respondeu hoje, bloqueia até amanhã.
  */
-export async function getDiagnosticoDoDia(email) {
+export async function getDiagnosticoDoDia() {
   try {
-    return await _getDiagnosticoDoDia(email);
+    return await _getDiagnosticoDoDia();
   } catch (err) {
     console.error('[getDiagnosticoDoDia]', err);
     return { error: err?.message || 'Erro ao carregar diagnóstico' };
   }
 }
 
-async function _getDiagnosticoDoDia(email) {
+async function _getDiagnosticoDoDia() {
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
   if (!email) return { error: 'Não autenticado' };
 
   const colab = await findColabByEmail(email, 'id, nome_completo, cargo, empresa_id');
@@ -126,16 +128,18 @@ async function _getDiagnosticoDoDia(email) {
  * Salva a resposta do diagnóstico do dia.
  * Calcula a próxima competência pendente e retorna.
  */
-export async function salvarRespostaDiagnostico(email, cenarioId, compId, compNome, payload) {
+export async function salvarRespostaDiagnostico(cenarioId, compId, compNome, payload) {
   try {
-    return await _salvarRespostaDiagnostico(email, cenarioId, compId, compNome, payload);
+    return await _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload);
   } catch (err) {
     console.error('[salvarRespostaDiagnostico]', err);
     return { error: err?.message || 'Erro ao salvar resposta' };
   }
 }
 
-async function _salvarRespostaDiagnostico(email, cenarioId, compId, compNome, payload) {
+async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload) {
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
   if (!email) return { error: 'Não autenticado' };
   if (!compId || !compNome) return { error: 'Competência inválida' };
   const { r1, r2, r3, r4, repr } = payload || {};
@@ -207,6 +211,6 @@ async function _salvarRespostaDiagnostico(email, cenarioId, compId, compNome, pa
  * Mantida para compatibilidade com código antigo — retorna os mesmos dados do
  * loadDiagnosticoDoDia em um formato próximo ao antigo (não é mais usado pelo novo UI).
  */
-export async function loadAssessmentData(email) {
-  return await getDiagnosticoDoDia(email);
+export async function loadAssessmentData() {
+  return await getDiagnosticoDoDia();
 }

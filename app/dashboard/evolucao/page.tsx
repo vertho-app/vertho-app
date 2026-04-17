@@ -25,7 +25,7 @@ export default function EvolucaoPage() {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/login'); return; }
-      const result = await loadEvolucao(user.email);
+      const result = await loadEvolucao();
       if (result.error) setError(result.error);
       else setData(result);
       setLoading(false);

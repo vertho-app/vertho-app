@@ -302,7 +302,7 @@ export default function MapeamentoPage() {
     // Save
     setSaving(true);
     try {
-      const res = await salvarPerfilComportamental(formEmail, resultData);
+      const res = await salvarPerfilComportamental(resultData);
       if (!res.success) setSaveError(res.error || 'Erro ao salvar');
     } catch (e) {
       setSaveError(e.message);
@@ -312,7 +312,7 @@ export default function MapeamentoPage() {
     // Pequeno delay pra garantir que a gravação terminou de propagar, então
     // REDIRECIONA pra tela consolidada. replace evita voltar pra essa tela.
     setTimeout(() => router.replace('/dashboard/perfil-comportamental'), 800);
-  }, [rank1, rank2, pairs1, pairs2, learnPrefs, formEmail, formName, formGender, router]);
+  }, [rank1, rank2, pairs1, pairs2, learnPrefs, formName, formGender, router]);
 
   /* ─── Navigation helpers ─── */
   const nextRankGroup = (phaseKey) => {

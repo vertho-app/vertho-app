@@ -272,7 +272,7 @@ function InsightText({ text }) {
   );
 }
 
-function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCached, userEmail }) {
+function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCached }) {
   const router = useRouter();
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [insightsLocal, setInsightsLocal] = useState(insights);
@@ -280,10 +280,10 @@ function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCa
 
   // Dispara geração via IA na primeira visita após o mapeamento
   useEffect(() => {
-    if (insightsCached || generated || !userEmail) return;
+    if (insightsCached || generated) return;
     let cancelled = false;
     setInsightsLoading(true);
-    gerarInsightsExecutivos(userEmail)
+    gerarInsightsExecutivos()
       .then(r => {
         if (cancelled) return;
         if (r?.insights?.length) setInsightsLocal(r.insights);
@@ -293,7 +293,7 @@ function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCa
       .finally(() => { if (!cancelled) setInsightsLoading(false); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userEmail]);
+  }, []);
 
   const letraDominante = inferLetraDominante(c.perfil_dominante);
   const discScores = [
@@ -406,7 +406,6 @@ export default function PerfilComportamentalPage() {
   const [narrativa, setNarrativa] = useState(null); // { raw, texts } do loadBehavioralReport
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [userEmail, setUserEmail] = useState(null);
   const [downloading, setDownloading] = useState(false);
   const router = useRouter();
   const supabase = getSupabase();
@@ -415,12 +414,11 @@ export default function PerfilComportamentalPage() {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/login'); return; }
-      setUserEmail(user.email);
 
       // Carrega perfil (barras, 16 competências etc) e análise narrativa em paralelo
       const [result, narr] = await Promise.all([
-        loadPerfilCIS(user.email),
-        loadBehavioralReport(user.email).catch(() => null),
+        loadPerfilCIS(),
+        loadBehavioralReport().catch(() => null),
       ]);
       if (result.error) setError(result.error);
       else setData(result);
@@ -431,9 +429,8 @@ export default function PerfilComportamentalPage() {
   }, []);
 
   async function handleDownloadPdf() {
-    if (!userEmail) return;
     setDownloading(true);
-    const r = await baixarRelatorioComportamentalPdf(userEmail);
+    const r = await baixarRelatorioComportamentalPdf();
     setDownloading(false);
     if (r.error) { setError(r.error); return; }
     const a = document.createElement('a');
@@ -521,7 +518,6 @@ export default function PerfilComportamentalPage() {
         tags={tags}
         insights={insights}
         insightsCached={data.insightsCached}
-        userEmail={userEmail}
       />
 
       {/* Análise narrativa (quadrantes DISC, top5 forças/gaps, liderança, pressão) */}

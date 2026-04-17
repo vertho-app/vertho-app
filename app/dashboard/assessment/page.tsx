@@ -46,9 +46,7 @@ export default function AssessmentPage() {
   useEffect(() => {
     (async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) { router.replace('/login'); return; }
-        const r: any = await getDiagnosticoDoDia(user.email);
+        const r: any = await getDiagnosticoDoDia();
         if (!r) { setError('Resposta vazia do servidor'); setPhase(PHASE.ERROR); return; }
         if (r.error) { setError(r.error); setPhase(PHASE.ERROR); return; }
         setData(r);
@@ -83,9 +81,8 @@ export default function AssessmentPage() {
   async function enviarResposta() {
     if (!repr) { flash('Escolha a representatividade (1 a 10).'); return; }
     setSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
     const cen = data.cenarioDoDia;
-    const r: any = await salvarRespostaDiagnostico(user.email, cen.cenarioId, cen.compId, cen.compNome, {
+    const r: any = await salvarRespostaDiagnostico(cen.cenarioId, cen.compId, cen.compNome, {
       ...respostas,
       repr,
     });
@@ -303,8 +300,7 @@ export default function AssessmentPage() {
                 setRepr(null);
                 setPergIdx(0);
                 setSaveResult(null);
-                const { data: { user } } = await supabase.auth.getUser();
-                const r: any = await getDiagnosticoDoDia(user.email);
+                const r: any = await getDiagnosticoDoDia();
                 if (r.error) { setError(r.error); setPhase(PHASE.ERROR); return; }
                 setData(r);
                 if (r.concluiuTudo) setPhase(PHASE.CONCLUIDO);

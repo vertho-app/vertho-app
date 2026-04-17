@@ -8,7 +8,9 @@ import { findColabByEmail } from '@/lib/authz';
  * Salva os resultados do mapeamento comportamental DISC no Supabase.
  * Todas as métricas em colunas separadas para facilitar queries e relatórios.
  */
-export async function salvarPerfilComportamental(email, resultados) {
+export async function salvarPerfilComportamental(resultados) {
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
   if (!email || !resultados) {
     return { success: false, error: 'Dados incompletos' };
   }
@@ -109,7 +111,7 @@ export async function salvarPerfilComportamental(email, resultados) {
       const { gerarEsalvarRelatorioComportamental } = await import(
         '@/app/dashboard/perfil-comportamental/relatorio/relatorio-actions'
       );
-      const result = await gerarEsalvarRelatorioComportamental({ email });
+      const result = await gerarEsalvarRelatorioComportamental({});
       if (result?.error) {
         console.warn('[salvarPerfilComportamental] pré-geração falhou:', result.error);
       }

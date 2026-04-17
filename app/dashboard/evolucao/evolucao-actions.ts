@@ -3,8 +3,10 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
 
-export async function loadEvolucao(email) {
-  if (!email) return { error: 'Email obrigatório' };
+export async function loadEvolucao() {
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
+  if (!email) return { error: 'Não autenticado' };
 
   const colab = await findColabByEmail(email, 'id, nome_completo, empresa_id');
   if (!colab) return { error: 'Colaborador não encontrado' };

@@ -986,37 +986,32 @@ async function extrairDadosReavaliacao(sessaoId: any, aiConfig: any = {}) {
     }
   }
 
-  const system = `Você é o extrator qualitativo da Vertho.
+  const system = `Você é um extrator de evidências qualitativas da Vertho.
 
-═══ TAREFA ═══
-Analisar a conversa de reavaliação pós-jornada e transformar o conteúdo
-em dados estruturados por descritor da competência.
+Sua tarefa é analisar a conversa de reavaliação de um colaborador e extrair dados qualitativos por descritor, de forma fiel, prudente e útil para análise posterior.
 
-Você NÃO está avaliando formalmente. Está EXTRAINDO evidências qualitativas
-RELATADAS na conversa.
+ATENÇÃO:
+Você NÃO está fazendo a avaliação final da competência.
+Você NÃO está escrevendo um feedback bonito.
+Você NÃO está completando lacunas.
+Você está EXTRAINDO o que a conversa realmente sustenta.
 
-═══ PRINCÍPIOS ═══
-1. Extraia somente o que foi efetivamente dito ou sustentado
-2. NÃO invente evolução, comportamento ou maturidade
-3. Diferencie relato concreto de percepção subjetiva
-4. Dificuldade persistente é informação VALIOSA
-5. Se não houver evidência pra um descritor, diga explicitamente
-6. Teoria aprendida NÃO é evidência de mudança prática
-7. Intenção sem execução = evidência fraca
+PRINCÍPIOS INEGOCIÁVEIS:
+1. Extraia apenas o que foi dito ou claramente sustentado.
+2. Fala teórica não vale como evidência forte.
+3. Exemplo concreto vale mais do que opinião.
+4. Se não houver base suficiente, reduza a confiança.
+5. Não force um descritor a ter evidência se a conversa não o cobrir.
+6. nivel_percebido é leitura qualitativa provisória, não avaliação final.
+7. DISC/CIS é contexto, não destino.
+8. Toda evidência relevante deve ter citação curta de sustentação.
 
-═══ TIPOS DE EVIDÊNCIA ═══
-- mudanca_percebida
-- evidencia_relatada_concreta
-- dificuldade_persistente
-- autossensibilidade
-- intencao_sem_execucao
-
-═══ FORÇA ═══
+FORÇA DA EVIDÊNCIA:
 - fraca: abstrata, genérica, teórica, sem ação observável
-- moderada: concreta mas incompleta ou sem consequência
+- moderada: concreta mas incompleta ou sem consequência clara
 - forte: concreta + coerente + com ação e consequência/critério
 
-Retorne APENAS JSON válido.`;
+RETORNE APENAS JSON VÁLIDO, sem markdown, sem texto antes ou depois.`;
 
   const blocks: string[] = [];
   blocks.push(`═══ COMPETÊNCIA ═══\n${sessao.competencias.nome}`);
@@ -1032,49 +1027,52 @@ Retorne APENAS JSON válido.`;
     `${h.role === 'user' ? 'COLABORADOR' : 'MENTOR'}: ${h.content.replace(/\[META\].*?\[\/META\]/s, '').trim()}`
   ).join('\n\n')}`);
 
-  blocks.push(`═══ FORMATO DE SAÍDA ═══
+  blocks.push(`FORMATO DE SAÍDA (JSON):
 {
-  "resumo_qualitativo": "síntese curta e fiel da conversa",
+  "resumo_qualitativo": {
+    "leitura_geral": "síntese curta e fiel da conversa",
+    "sinal_mais_forte": "principal evidência qualitativa observada",
+    "limite_mais_relevante": "principal limite qualitativo observado"
+  },
   "evidencias_por_descritor": [
     {
       "descritor": "D1",
       "nome_descritor": "nome",
-      "tipos_evidencia": ["mudanca_percebida", "evidencia_relatada_concreta"],
-      "evidencia_relatada": "síntese do que foi relatado",
-      "mudanca_percebida": "o que o colaborador percebe ter mudado",
-      "dificuldade_persistente": "o que ainda continua difícil, se houver",
-      "nivel_percebido": 2.6,
-      "forca_geral": "fraca|moderada|forte",
+      "evidencia_relatada": "síntese curta e fiel do que o colaborador relatou",
+      "nivel_percebido": 2,
       "confianca": 0.75,
-      "citacoes_literais": ["citação curta 1"],
-      "limites_da_conversa": ["o que faltou"]
+      "forca_da_evidencia": "forte|moderada|fraca",
+      "citacao_literal": "trecho curto da fala que sustenta",
+      "limite_da_evidencia": "o que faltou para sustentar melhor"
     }
   ],
-  "gaps_persistentes": ["gap 1"],
+  "gaps_persistentes": [
+    {"gap": "nome curto", "sinal": "como aparece na conversa"}
+  ],
   "ganhos_qualitativos": ["ganho 1"],
   "consciencia_do_gap": {
     "nivel": "alta|media|baixa",
-    "justificativa": "frase curta"
+    "justificativa": "por que essa leitura"
   },
   "conexao_cis": {
-    "sinais_observados": ["como o estilo aparece no relato"],
-    "cuidados": ["não usar DISC pra nota"]
+    "leitura": "leitura breve e prudente conectando conversa ao perfil",
+    "cuidados_de_interpretacao": ["cuidado 1"]
   },
   "recomendacao_ciclo2": {
     "descritores_foco": ["D1", "D3"],
-    "justificativa": "frase curta",
-    "formato_sugerido": "pratica|conteudo|mentoria|misto"
+    "justificativa": "por que esses descritores",
+    "tipo_de_trabalho_sugerido": ["pratica", "feedback"]
   },
-  "limites_gerais_da_conversa": ["limite 1"],
   "alertas_metodologicos": ["alerta 1"]
 }
 
 REGRAS:
 - confianca: 0.0 a 1.0
-- nivel_percebido: pode usar decimal
-- citacoes_literais: 0 a 2 trechos curtos
-- não force todos os descritores a terem evidência forte
-- se fraco, registre em limites_da_conversa`);
+- nivel_percebido: escala 1 a 4, pode usar decimal
+- citacao_literal: curta e fiel
+- gaps_persistentes devem sair da conversa, não de inferência
+- se um descritor não tiver base suficiente, confiança baixa e forca fraca
+- sem linguagem genérica`);
 
   const user = blocks.join('\n\n');
   const resultado = await callAI(system, user, aiConfig, 8192, { temperature: TEMP });

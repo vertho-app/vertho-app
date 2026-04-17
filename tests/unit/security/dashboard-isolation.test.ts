@@ -32,6 +32,12 @@ describe('Dashboard actions — identidade não vem por parâmetro', () => {
     { file: 'app/dashboard/pdi/pdi-actions.ts', functions: ['loadPDI', 'baixarMeuPdiPdf'] },
     { file: 'app/dashboard/praticar/praticar-actions.ts', functions: ['registrarEvidencia'] },
     { file: 'actions/dashboard-kpis.ts', functions: ['loadHomeKpis'] },
+    { file: 'app/dashboard/gestor/equipe-evolucao/actions.ts', functions: ['listarEquipeEvolucao', 'listarCheckpointsPendentes', 'salvarCheckpointGestor'] },
+    { file: 'app/dashboard/assessment/assessment-actions.ts', functions: ['getDiagnosticoDoDia', 'salvarRespostaDiagnostico'] },
+    { file: 'app/dashboard/perfil-comportamental/perfil-comportamental-actions.ts', functions: ['loadPerfilCIS', 'gerarInsightsExecutivos'] },
+    { file: 'app/dashboard/perfil-comportamental/mapeamento/mapeamento-actions.ts', functions: ['salvarPerfilComportamental'] },
+    { file: 'app/dashboard/perfil-comportamental/relatorio/relatorio-actions.ts', functions: ['loadBehavioralReport', 'baixarRelatorioComportamentalPdf'] },
+    { file: 'app/dashboard/evolucao/evolucao-actions.ts', functions: ['loadEvolucao'] },
   ];
 
   for (const { file, functions } of actionFiles) {
@@ -68,10 +74,14 @@ describe('Dashboard actions — identidade não vem por parâmetro', () => {
 
 describe('Dashboard pages — não passam email para actions', () => {
   const pageFiles = [
-    { file: 'app/dashboard/page.tsx', calls: ['loadDashboardData'] },
+    { file: 'app/dashboard/page.tsx', calls: ['loadDashboardData', 'loadHomeKpis'] },
     { file: 'app/dashboard/jornada/page.tsx', calls: ['loadJornada'] },
     { file: 'app/dashboard/perfil/page.tsx', calls: ['loadPerfil', 'salvarFotoPerfil', 'salvarAvatarPreset', 'removerAvatar'] },
     { file: 'app/dashboard/pdi/page.tsx', calls: ['loadPDI', 'baixarMeuPdiPdf'] },
+    { file: 'app/dashboard/gestor/equipe-evolucao/page.tsx', calls: ['listarEquipeEvolucao', 'listarCheckpointsPendentes'] },
+    { file: 'app/dashboard/assessment/page.tsx', calls: ['getDiagnosticoDoDia', 'salvarRespostaDiagnostico'] },
+    { file: 'app/dashboard/perfil-comportamental/page.tsx', calls: ['loadPerfilCIS', 'loadBehavioralReport'] },
+    { file: 'app/dashboard/evolucao/page.tsx', calls: ['loadEvolucao'] },
   ];
 
   for (const { file, calls } of pageFiles) {

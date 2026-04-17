@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
     const email = auth.email;
 
-    const r = await listarEquipeEvolucao(email);
+    const r = await listarEquipeEvolucao();
     if (r.error) return NextResponse.json({ error: r.error }, { status: 403 });
 
     // Dados do gestor pro cabeçalho

@@ -8,7 +8,10 @@ import { loadTemporadaConcluida } from '@/actions/temporada-concluida';
  * Lista os liderados do gestor com temporada (em andamento ou concluída)
  * e seu status de evolução. Gestor vê só sua área; RH vê tudo da empresa.
  */
-export async function listarEquipeEvolucao(email) {
+export async function listarEquipeEvolucao() {
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
+  if (!email) return { error: 'Não autenticado' };
   const ctx = await getUserContext(email);
   if (!ctx?.colaborador) return { error: 'Não autenticado' };
   const isGestor = ctx.role === 'gestor';
@@ -92,7 +95,10 @@ export async function listarEquipeEvolucao(email) {
  * Lista checkpoints pendentes (sems 5 ou 10) da equipe do gestor.
  * Cria automaticamente quando a sem correspondente entra em andamento.
  */
-export async function listarCheckpointsPendentes(email) {
+export async function listarCheckpointsPendentes() {
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
+  if (!email) return { error: 'Não autenticado' };
   const ctx = await getUserContext(email);
   if (!ctx?.colaborador) return { error: 'Não autenticado' };
   const isGestor = ctx.role === 'gestor';
@@ -153,7 +159,10 @@ export async function listarCheckpointsPendentes(email) {
 /**
  * Gestor salva o checkpoint (sems 5 ou 10).
  */
-export async function salvarCheckpointGestor(email, { trilhaId, semana, avaliacao, observacao }) {
+export async function salvarCheckpointGestor({ trilhaId, semana, avaliacao, observacao }) {
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
+  if (!email) return { error: 'Não autenticado' };
   const ctx = await getUserContext(email);
   if (!ctx?.colaborador) return { error: 'Não autenticado' };
   if (ctx.role !== 'gestor' && ctx.role !== 'rh' && !ctx.isPlatformAdmin) return { error: 'Acesso restrito' };
@@ -188,7 +197,10 @@ export async function salvarCheckpointGestor(email, { trilhaId, semana, avaliaca
  * Gestor/RH pode ver detalhe de um liderado (reusa loadTemporadaConcluida
  * passando o email do colab liderado, mas valida autorização).
  */
-export async function loadLideradoConcluida(email, colabEmail) {
+export async function loadLideradoConcluida(colabEmail) {
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
+  if (!email) return { error: 'Não autenticado' };
   const ctx = await getUserContext(email);
   if (!ctx?.colaborador) return { error: 'Não autenticado' };
   const isGestor = ctx.role === 'gestor';

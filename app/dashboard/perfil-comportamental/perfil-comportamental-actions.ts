@@ -31,8 +31,10 @@ const COLS = [
  * Carrega todos os dados do perfil comportamental do colaborador:
  * DISC natural + adaptado, liderança, 16 competências e perfil dominante.
  */
-export async function loadPerfilCIS(email) {
-  if (!email) return { error: 'Nao autenticado' };
+export async function loadPerfilCIS() {
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
+  if (!email) return { error: 'Não autenticado' };
 
   const colab: any = await findColabByEmail(email, COLS);
   if (!colab) return { error: 'Colaborador nao encontrado' };
@@ -61,8 +63,10 @@ export async function loadPerfilCIS(email) {
  * Gera 3 insights executivos via LLM, salva em colaboradores.insights_executivos
  * com timestamp. Reusa cache se < 30 dias e `force` for false.
  */
-export async function gerarInsightsExecutivos(email, opts: any = {}) {
+export async function gerarInsightsExecutivos(opts: any = {}) {
   try {
+    const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+    const email = await getAuthenticatedEmailFromAction();
     if (!email) return { error: 'Não autenticado' };
 
     const colab: any = await findColabByEmail(email, COLS);

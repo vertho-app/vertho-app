@@ -52,8 +52,10 @@ function pdfPathFor(colab) {
  * - Usa cache (`report_texts` + `report_generated_at`) se < 30 dias e `force` for false.
  * - Caso contrário, monta o prompt e chama o LLM via callAI, salvando o resultado.
  */
-export async function loadBehavioralReport(email, opts: any = {}) {
+export async function loadBehavioralReport(opts: any = {}) {
   try {
+    const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+    const email = await getAuthenticatedEmailFromAction();
     if (!email) return { error: 'Não autenticado' };
 
     const colab: any = await findColabByEmail(email, CIS_COLUMNS);
@@ -114,11 +116,13 @@ async function fetchColabPorId(colabId) {
  *
  * Aceita o colab inteiro (caller já consultou), um email, OU um colabId.
  */
-export async function gerarEsalvarRelatorioComportamental({ email, colab: inputColab, colabId }: any = {}) {
+export async function gerarEsalvarRelatorioComportamental({ colab: inputColab, colabId }: any = {}) {
   try {
     let colab: any = inputColab;
-    if (!colab && email) {
-      colab = await findColabByEmail(email, CIS_COLUMNS);
+    if (!colab && !colabId) {
+      const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+      const email = await getAuthenticatedEmailFromAction();
+      if (email) colab = await findColabByEmail(email, CIS_COLUMNS);
     }
     if (!colab && colabId) {
       colab = await fetchColabPorId(colabId);
@@ -209,11 +213,11 @@ export async function pregerarPdfsEmpresa(empresaId) {
 /**
  * Força regeneração dos textos do LLM (e re-gera o PDF).
  */
-export async function regenerarRelatorioComportamental(email) {
-  const result = await loadBehavioralReport(email, { force: true });
+export async function regenerarRelatorioComportamental() {
+  const result = await loadBehavioralReport({ force: true });
   if (result.error) return result;
   // re-gera o PDF com os novos textos
-  await gerarEsalvarRelatorioComportamental({ email });
+  await gerarEsalvarRelatorioComportamental({});
   return result;
 }
 
@@ -248,8 +252,10 @@ async function _baixarPdfParaColab(colab) {
  * Gera signed URL para baixar o PDF do colaborador autenticado.
  * Usado pela página `/dashboard/perfil-comportamental/relatorio`.
  */
-export async function baixarRelatorioComportamentalPdf(email) {
+export async function baixarRelatorioComportamentalPdf() {
   try {
+    const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+    const email = await getAuthenticatedEmailFromAction();
     if (!email) return { error: 'Não autenticado' };
     const colab = await findColabByEmail(email, CIS_COLUMNS);
     if (!colab) return { error: 'Colaborador não encontrado' };
