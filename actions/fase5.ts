@@ -16,26 +16,48 @@ const MAX_TURNOS = 8;
 const TEMP = 0.4; // temperatura GAS para consistência
 
 // System prompt do check de cenário B — harmonizado com o check do cenário A
-const CHECK_CEN_B_SYSTEM = `Voce e um avaliador especialista em Assessment Comportamental.
-Avalie o cenario B e as perguntas com base em 5 dimensoes (20pts cada, total 100):
+const CHECK_CEN_B_SYSTEM = `Você é um auditor especialista em Assessment Comportamental.
+Avalie o cenário B como INSTRUMENTO DIAGNÓSTICO (não como texto literário).
 
-1. ADERENCIA A COMPETENCIA (20pts): O cenario avalia a competencia indicada? Descritores cobertos?
-2. REALISMO CONTEXTUAL (20pts): Contexto e personagens criveis para o cargo/empresa? Usa vocabulario do PPP?
-3. CONTENCAO (20pts): Contexto max ~900 chars? Max 2 tensoes? Max 2 stakeholders nomeados? Perguntas max ~200 chars?
-4. FORCA DE DECISAO (20pts): P1 forca ESCOLHA? P2 pede COMO com obstaculo? P3 aborda tensao humana? P4 pede acompanhamento?
-5. PODER DISCRIMINANTE (20pts): Resposta N2 seria diferente de N3? Nao permite resposta vaga?
+═══ 7 DIMENSÕES (total 100 pontos) ═══
 
-ERROS GRAVES (forca nota max 60):
-- Pergunta fechada (sim/nao)
-- Cenario com 4+ tensoes simultaneas
-- Contexto com 5+ stakeholders nomeados
-- Pergunta que permite resposta generica sem escolha
-- Competencia avaliada nao e a indicada
+1. ADERÊNCIA À COMPETÊNCIA (15pts): Cenário avalia a competência indicada? Faceta relevante?
+2. COBERTURA DE DESCRITORES (15pts): Todos cobertos pelas 4 perguntas? Mapa coerente?
+3. REALISMO CONTEXTUAL (15pts): Contexto crível pro cargo? Vocabulário da organização?
+4. CONTENÇÃO E SOBRIEDADE (10pts): ≤900 chars contexto, ≤2 tensões, ≤2 stakeholders, ≤200 chars/pergunta?
+5. CLAREZA DO TRADE-OFF (15pts): Escolha difícil REAL? Se pode "agradar todos" → penalize.
+6. PODER DISCRIMINANTE (20pts): N1 diferente de N3? Resposta genérica FALHA?
+7. AUDITABILIDADE (10pts): Metadados claros pra revisão humana e IA4?
 
-Nota >= 90 = aprovado. Nota < 90 = revisar com sugestao concreta.
+═══ ERROS GRAVES (nota máxima 60) ═══
+- Pergunta fechada (sim/não)
+- 4+ tensões simultâneas
+- 5+ stakeholders nomeados
+- Trade-off inexistente ou muito fraco
+- Descritor relevante sem cobertura
+- Cenário teatral/sofisticado demais
+- Resposta genérica suficiente pra ir bem
+- Competência avaliada não é a indicada
 
-Retorne APENAS JSON valido:
-{"nota":85,"erro_grave":false,"dimensoes":{"aderencia":18,"realismo":19,"contencao":16,"decisao":17,"discriminante":15},"justificativa":"...","sugestao":"...","alertas":[]}`;
+═══ CLASSIFICAÇÃO ═══
+90-100 = aprovado | 80-89 = aprovado_com_ressalvas | 0-79 = revisar
+
+Retorne APENAS JSON válido:
+{
+  "nota": 85,
+  "status": "aprovado_com_ressalvas",
+  "erro_grave": false,
+  "dimensoes": {"aderencia_competencia":13,"cobertura_descritores":12,"realismo_contextual":14,"contencao_sobriedade":9,"clareza_tradeoff":13,"poder_discriminante":17,"auditabilidade":7},
+  "ponto_mais_forte": "...",
+  "ponto_mais_fraco": "...",
+  "descritores_sem_cobertura": [],
+  "perguntas_com_risco": [{"numero":2,"problema":"...","correcao_recomendada":"..."}],
+  "justificativa": "...",
+  "sugestao": "...",
+  "alertas": []
+}
+
+REGRA: Se cenário for bem escrito mas metodologicamente fraco, PENALIZE.`;
 
 // Helper: busca descritores (linhas filhas em competencias com mesmo cod_comp).
 // Recebe tdb (tenant-scoped) — empresa_id é injetado automaticamente.
@@ -146,14 +168,26 @@ ${pppResumo ? `\nCONTEXTO PPP:\n${pppResumo}` : ''}`;
   const resultado = await extractJSON(resposta);
   if (!resultado?.nota) return { success: false, error: 'Check não retornou nota' };
 
-  const statusCheck = resultado.nota >= 90 ? 'aprovado' : 'revisar';
+  // Validar coerência erro_grave × nota
+  if (resultado.erro_grave && resultado.nota > 60) resultado.nota = 60;
+
+  const statusCheck = resultado.nota >= 90 ? 'aprovado'
+    : resultado.nota >= 80 ? 'aprovado_com_ressalvas'
+    : 'revisar';
+
   await sb.from('banco_cenarios').update({
     nota_check: resultado.nota,
     status_check: statusCheck,
     dimensoes_check: resultado.dimensoes || null,
     justificativa_check: resultado.justificativa || null,
     sugestao_check: resultado.sugestao || null,
-    alertas_check: resultado.alertas || [],
+    alertas_check: {
+      alertas: resultado.alertas || [],
+      ponto_mais_forte: resultado.ponto_mais_forte || null,
+      ponto_mais_fraco: resultado.ponto_mais_fraco || null,
+      descritores_sem_cobertura: resultado.descritores_sem_cobertura || [],
+      perguntas_com_risco: resultado.perguntas_com_risco || [],
+    },
     checked_at: new Date().toISOString(),
   }).eq('id', cen.id);
 

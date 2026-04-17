@@ -1039,15 +1039,26 @@ export async function regenerarCenario(cenarioId: string, aiConfig: AIConfig = {
   try {
     // banco_cenarios é misto → raw por id
     const { data: cen } = await sbRaw.from('banco_cenarios')
-      .select('empresa_id, competencia_id, cargo, sugestao_check, justificativa_check')
+      .select('empresa_id, competencia_id, cargo, sugestao_check, justificativa_check, alertas_check')
       .eq('id', cenarioId).single();
     if (!cen) return { success: false, error: 'Cenário não encontrado' };
     if (!cen.empresa_id) return { success: false, error: 'Cenário sem empresa_id (catálogo nacional)' };
 
     const tdb = tenantDb(cen.empresa_id);
 
-    // Regenerar passando feedback como contexto extra
-    const feedbackExtra = [cen.justificativa_check, cen.sugestao_check].filter(Boolean).join('\n');
+    // Regenerar passando feedback enriquecido
+    const alertas = typeof cen.alertas_check === 'object' ? cen.alertas_check : {};
+    const feedbackParts = [cen.justificativa_check, cen.sugestao_check];
+    if (alertas.ponto_mais_fraco) feedbackParts.push(`Ponto mais fraco: ${alertas.ponto_mais_fraco}`);
+    if (Array.isArray(alertas.descritores_sem_cobertura) && alertas.descritores_sem_cobertura.length) {
+      feedbackParts.push(`Descritores sem cobertura: ${alertas.descritores_sem_cobertura.join(', ')}`);
+    }
+    if (Array.isArray(alertas.perguntas_com_risco)) {
+      alertas.perguntas_com_risco.forEach((p: any) => {
+        feedbackParts.push(`P${p.numero}: ${p.problema}. Sugestão: ${p.correcao_recomendada}`);
+      });
+    }
+    const feedbackExtra = feedbackParts.filter(Boolean).join('\n');
 
     // Buscar dados necessários (como rodarIA3Uma)
     let empresa;
@@ -1197,60 +1208,74 @@ export async function checkCenarioUm(cenarioId: string, empresaId: string | null
       pppResumo = JSON.stringify(ext).slice(0, 500);
     }
 
-    // Montar perguntas
-    const perguntas = Array.isArray(cen.alternativas)
-      ? cen.alternativas.map(p => `P${p.numero || ''}: ${p.texto || JSON.stringify(p)}`).join('\n')
-      : '';
+    // Montar perguntas (suporta formato novo e legado)
+    const alt = typeof cen.alternativas === 'string' ? JSON.parse(cen.alternativas) : (cen.alternativas || {});
+    const perguntasArr = alt.perguntas || (Array.isArray(alt) ? alt : []);
+    const perguntasTexto = perguntasArr.map((p: any) => {
+      let t = `P${p.numero || ''}: ${p.texto || JSON.stringify(p)}`;
+      if (p.objetivo_diagnostico) t += `\n  Objetivo: ${p.objetivo_diagnostico}`;
+      if (p.descritores_primarios) t += `\n  Descritores primários: ${Array.isArray(p.descritores_primarios) ? p.descritores_primarios.map((d: any) => `D${d}`).join(', ') : ''}`;
+      if (p.o_que_diferencia_niveis) t += `\n  Diferenciação: ${p.o_que_diferencia_niveis}`;
+      return t;
+    }).join('\n\n');
 
-    const system = `Voce e um avaliador especialista em Assessment Comportamental.
-Avalie o cenario e as perguntas com base em 5 dimensoes (20pts cada, total 100):
+    // Campos estruturados da IA3 (se existirem)
+    const faceta = alt.faceta_testada_principal || '';
+    const tradeoff = alt.tradeoff_testado || '';
+    const armadilha = alt.armadilha_de_resposta_generica || '';
+    const mapaCobertura = alt.mapa_cobertura_descritores ? JSON.stringify(alt.mapa_cobertura_descritores) : '';
+    const riscos = alt.riscos_do_cenario || '';
 
-1. ADERENCIA A COMPETENCIA (20pts): O cenario avalia a competencia indicada? Descritores cobertos?
-2. REALISMO CONTEXTUAL (20pts): Contexto e personagens criveis para o cargo/empresa? Usa vocabulario do PPP?
-3. CONTENCAO (20pts): Contexto max ~900 chars? Max 2 tensoes? Max 2 stakeholders nomeados? Perguntas max ~200 chars?
-4. FORCA DE DECISAO (20pts): P1 forca ESCOLHA? P2 pede COMO com obstaculo? P3 aborda tensao humana? P4 pede acompanhamento?
-5. PODER DISCRIMINANTE (20pts): Resposta N2 seria diferente de N3? Nao permite resposta vaga?
+    const system = buildCheckSystemPrompt();
 
-ERROS GRAVES (forca nota max 60):
-- Pergunta fechada (sim/nao)
-- Cenario com 4+ tensoes simultaneas
-- Contexto com 5+ stakeholders nomeados
-- Pergunta que permite resposta generica sem escolha
-- Competencia avaliada nao e a indicada
+    let user = `═══ CARGO ═══\n${cen.cargo}`;
+    user += `\n\n═══ COMPETÊNCIA ═══\n${compNome}`;
+    if (descritoresTexto) user += `\n\n═══ DESCRITORES ═══\n${descritoresTexto}`;
+    user += `\n\n═══ CENÁRIO ═══\nTítulo: ${cen.titulo}\nContexto: ${cen.descricao}`;
+    if (faceta) user += `\nFaceta testada: ${faceta}`;
+    if (tradeoff) user += `\nTrade-off: ${tradeoff}`;
+    if (armadilha) user += `\nArmadilha anti-genérico: ${armadilha}`;
+    if (riscos) user += `\nRiscos declarados: ${riscos}`;
+    user += `\n\n═══ PERGUNTAS ═══\n${perguntasTexto}`;
+    if (mapaCobertura) user += `\n\n═══ MAPA DE COBERTURA ═══\n${mapaCobertura}`;
+    if (pppResumo) user += `\n\n═══ CONTEXTO PPP ═══\n${pppResumo}`;
+    user += `\n\n═══ INSTRUÇÃO ═══\nSe o cenário for bem escrito mas metodologicamente fraco, PENALIZE. Prefira rigor metodológico a elegância textual.`;
 
-Nota >= 90 = aprovado. Nota < 90 = revisar com sugestao concreta.
-
-Retorne APENAS JSON valido:
-{"nota":85,"erro_grave":false,"dimensoes":{"aderencia":18,"realismo":19,"contencao":16,"decisao":17,"discriminante":15},"justificativa":"...","sugestao":"...","alertas":[]}`;
-
-    const user = `CARGO: ${cen.cargo}
-COMPETENCIA: ${compNome}
-
-CENARIO:
-Titulo: ${cen.titulo}
-Contexto: ${cen.descricao}
-
-PERGUNTAS:
-${perguntas}
-
-${descritoresTexto ? `DESCRITORES:\n${descritoresTexto}` : ''}
-${pppResumo ? `\nCONTEXTO PPP:\n${pppResumo}` : ''}`;
-
-    // Usar Gemini para validar (IA diferente da que gerou)
     const resposta = await callAI(system, user, { model: modelo || 'gemini-3-flash-preview' }, 4096);
-    const resultado = await extractJSON(resposta);
+    let resultado = await extractJSON(resposta);
 
     if (!resultado?.nota) return { success: false, error: 'Validação não retornou resultado' };
 
-    // Salvar resultado — .select() garante que o update é confirmado
-    const statusCheck = resultado.nota >= 90 ? 'aprovado' : 'revisar';
+    // ── Validação pós-resposta ──
+    const dim = resultado.dimensoes || {};
+    const somaMax = (dim.aderencia_competencia || 0) + (dim.cobertura_descritores || 0) +
+      (dim.realismo_contextual || 0) + (dim.contencao_sobriedade || 0) +
+      (dim.clareza_tradeoff || 0) + (dim.poder_discriminante || 0) + (dim.auditabilidade || 0);
+
+    // Validar coerência erro_grave × nota
+    if (resultado.erro_grave && resultado.nota > 60) {
+      console.warn(`[Check] erro_grave=true mas nota=${resultado.nota}. Forçando max 60.`);
+      resultado.nota = 60;
+    }
+
+    // Status
+    const statusCheck = resultado.nota >= 90 ? 'aprovado'
+      : resultado.nota >= 80 ? 'aprovado_com_ressalvas'
+      : 'revisar';
+
     const { data: updated, error: updErr } = await sbRaw.from('banco_cenarios').update({
       nota_check: resultado.nota,
       status_check: statusCheck,
       dimensoes_check: resultado.dimensoes || null,
       justificativa_check: resultado.justificativa || null,
       sugestao_check: resultado.sugestao || null,
-      alertas_check: resultado.alertas || [],
+      alertas_check: {
+        alertas: resultado.alertas || [],
+        ponto_mais_forte: resultado.ponto_mais_forte || null,
+        ponto_mais_fraco: resultado.ponto_mais_fraco || null,
+        descritores_sem_cobertura: resultado.descritores_sem_cobertura || [],
+        perguntas_com_risco: resultado.perguntas_com_risco || [],
+      },
       checked_at: new Date().toISOString(),
     }).eq('id', cen.id).select('id, nota_check');
 
@@ -1259,12 +1284,95 @@ ${pppResumo ? `\nCONTEXTO PPP:\n${pppResumo}` : ''}`;
 
     return {
       success: true,
-      message: `${cen.titulo}: ${resultado.nota}pts (${resultado.nota >= 90 ? 'aprovado' : 'revisar'})`,
+      message: `${cen.titulo}: ${resultado.nota}pts (${statusCheck})`,
       nota: resultado.nota,
+      status: statusCheck,
     };
   } catch (err) {
     return { success: false, error: err.message };
   }
+}
+
+function buildCheckSystemPrompt(): string {
+  return `Você é um auditor especialista em Assessment Comportamental com 20 anos de experiência.
+Sua tarefa: avaliar se o cenário funciona como INSTRUMENTO DIAGNÓSTICO real.
+NÃO avalie como texto literário. Avalie como ferramenta de assessment.
+
+═══ 7 DIMENSÕES DE AVALIAÇÃO (total 100 pontos) ═══
+
+1. ADERÊNCIA À COMPETÊNCIA (15pts)
+   O cenário avalia a competência indicada? A faceta testada é relevante pro cargo?
+
+2. COBERTURA DE DESCRITORES (15pts)
+   Todos os descritores relevantes estão cobertos pelas 4 perguntas?
+   O mapa de cobertura é coerente? Algum descritor ficou sem pergunta?
+
+3. REALISMO CONTEXTUAL (15pts)
+   Contexto e personagens são críveis pro cargo/empresa? Vocabulário da organização?
+   Dados concretos (números, prazos)?
+
+4. CONTENÇÃO E SOBRIEDADE (10pts)
+   Contexto ≤900 chars? Máx 2 tensões? Máx 2 stakeholders nomeados?
+   Perguntas ≤200 chars? Sem subtramas? Sem cenário teatral?
+
+5. CLAREZA DO TRADE-OFF (15pts)
+   Existe escolha difícil REAL no centro? O avaliado precisa abrir mão de algo?
+   Se pode responder "bem pra todos" → penalize fortemente.
+
+6. PODER DISCRIMINANTE (20pts) — DIMENSÃO MAIS IMPORTANTE
+   Resposta N1 seria visivelmente diferente de N3?
+   Resposta genérica/clichê FALHA? Cada pergunta exige ação concreta ou priorização?
+
+7. AUDITABILIDADE (10pts)
+   Os metadados do cenário (faceta, trade-off, armadilha, mapa) são claros e
+   úteis pra revisão humana? A IA4 consegue usar isso pra avaliar?
+
+═══ ERROS GRAVES (forçam nota máxima 60) ═══
+
+- Pergunta fechada (sim/não)
+- Cenário com 4+ tensões simultâneas
+- Contexto com 5+ stakeholders nomeados
+- Trade-off inexistente ou muito fraco
+- Descritor relevante sem cobertura em nenhuma pergunta
+- Cenário teatral/sofisticado demais para uso em produção
+- Resposta genérica suficiente para "ir bem" nas 4 perguntas
+- Competência avaliada não é a indicada
+- Incoerência entre perguntas e mapa de cobertura
+
+═══ CLASSIFICAÇÃO ═══
+
+90-100 = aprovado
+80-89 = aprovado_com_ressalvas
+0-79 = revisar (com sugestão concreta obrigatória)
+
+═══ FORMATO JSON (APENAS JSON, sem markdown) ═══
+
+{
+  "nota": 85,
+  "status": "aprovado_com_ressalvas",
+  "erro_grave": false,
+  "dimensoes": {
+    "aderencia_competencia": 13,
+    "cobertura_descritores": 12,
+    "realismo_contextual": 14,
+    "contencao_sobriedade": 9,
+    "clareza_tradeoff": 13,
+    "poder_discriminante": 17,
+    "auditabilidade": 7
+  },
+  "ponto_mais_forte": "O que o cenário faz melhor como instrumento",
+  "ponto_mais_fraco": "Onde o cenário é mais vulnerável como instrumento",
+  "descritores_sem_cobertura": ["D3", "D5"],
+  "perguntas_com_risco": [
+    {"numero": 2, "problema": "aceita resposta genérica", "correcao_recomendada": "reformular pra forçar priorização"}
+  ],
+  "justificativa": "Avaliação geral do cenário como instrumento (2-3 frases)",
+  "sugestao": "O que mudar pra melhorar (se nota < 90)",
+  "alertas": ["alerta 1", "alerta 2"]
+}
+
+REGRA: Se cenário for bem escrito mas metodologicamente fraco, PENALIZE.
+Prefira rigor metodológico a elegância textual.`;
 }
 
 function buildIA3SystemPrompt(): string {
