@@ -104,6 +104,7 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
                     </View>
                   </View>
                   {(r.motivo || r.motivo_curto) && <Text style={s.rankMotivo}>{r.motivo || r.motivo_curto}</Text>}
+                  {r.risco_se_nao_agir && <Text style={{ ...s.rankMotivo, color: '#991B1B' }}>Risco: {r.risco_se_nao_agir}</Text>}
                 </View>
               );
             })}
@@ -129,6 +130,7 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
                   <View style={{ backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', borderRadius: 6, padding: 10, marginTop: 4 }}>
                     <Text style={{ fontFamily: 'NotoSans', fontSize: 9, fontWeight: 600, color: '#1E40AF', marginBottom: 3 }}>{'A\u00e7\u00e3o do Gestor'}</Text>
                     <Text style={s.text}>{a.acao_gestor}</Text>
+                    {a.impacto_se_nao_agir && <Text style={{ fontFamily: 'NotoSans', fontSize: 8, color: '#991B1B', fontStyle: 'italic', marginTop: 3 }}>Risco: {a.impacto_se_nao_agir}</Text>}
                   </View>
                 )}
               </View>
