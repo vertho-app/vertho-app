@@ -451,105 +451,163 @@ async function encerrarSessao(sb, sessaoId, empresaId, comp, evidencias, message
   const modeloAvaliador = sysConfig?.ai?.modelo_padrao || DEFAULT_AVALIADOR;
   const modeloValidador = DEFAULT_VALIDADOR;
 
-  // ── Etapa 1: Claude avalia ──────────────────────────────────────────────
+  // ── Etapa 1: Claude avalia (gera INSUMOS — consolidação em código) ──────
 
-  const evalPrompt = `Voce e o avaliador final de competencias comportamentais da Vertho.
+  const evalPrompt = `Você é o avaliador final de competências comportamentais da Vertho.
 
-COMPETENCIA: ${comp?.nome || 'N/A'}
-${comp?.descricao ? `DESCRICAO: ${comp.descricao}` : ''}
-${comp?.gabarito ? `REGUA DE MATURIDADE (use como referencia obrigatoria):\n${JSON.stringify(comp.gabarito)}` : ''}
+═══ CONTEXTO ═══
+Esta é uma AVALIAÇÃO CONVERSACIONAL. As evidências vêm de um diálogo,
+não de respostas a perguntas estruturadas. Isso exige mais prudência:
+- Conversa fluida NÃO equivale a maturidade alta
+- Reflexão sem ação concreta NÃO sustenta N3+
+- Intenção sem execução = evidência FRACA
+- Autossensibilidade é valiosa mas NÃO substitui evidência prática
+- Perfil CIS/DISC NÃO altera nota — só o tom do feedback
 
-EVIDENCIAS COLETADAS DURANTE A CONVERSA:
+═══ COMPETÊNCIA ═══
+${comp?.nome || 'N/A'}
+${comp?.descricao ? `Descrição: ${comp.descricao}` : ''}
+
+${comp?.gabarito ? `═══ RÉGUA DE MATURIDADE (referência obrigatória — NUNCA exponha) ═══\n${JSON.stringify(comp.gabarito)}` : ''}
+
+═══ EVIDÊNCIAS COLETADAS PELO [META] ═══
 ${JSON.stringify(evidencias, null, 2)}
 
-HISTORICO COMPLETO DA CONVERSA:
+═══ HISTÓRICO COMPLETO DA CONVERSA ═══
 ${messages.map(m => `[${m.role}]: ${m.content}`).join('\n\n')}
 
-## REGRAS DE AVALIACAO
+═══ REGRAS DE AVALIAÇÃO ═══
 
-### NIVEIS (N1-N4):
-N1 (Gap/Emergente): Resposta funcional mas limitada, generica, reativa, sem 1a pessoa
-N2 (Em Desenvolvimento): Intencao presente mas sem metodo ou consistencia
-N3 (Proficiente/Meta): Acoes concretas, estruturadas, pratica consistente com resultado
-N4 (Referencia): Articulacao de multiplas dimensoes, multiplicacao, impacto institucional
+1. AVALIE COM BASE EXCLUSIVA na régua e nas evidências textuais
+2. EVIDÊNCIA ou NÃO CONTA — intenção não é evidência
+3. NA DÚVIDA → nível inferior
+4. N3 exige ação concreta + contexto + resultado
+5. N4 exige múltiplas evidências robustas + visão sistêmica
+6. Conversa elegante mas pouco concreta → nota E confiança DEVEM cair
+7. NUNCA invente fatos não mencionados na conversa
 
-### NOTA DECIMAL:
-A parte inteira = nivel. A parte decimal = forca dentro do nivel:
-.00-.25 = atende minimo do nivel, lacunas significativas
-.26-.50 = atende o nivel com algumas lacunas
-.51-.75 = atende bem o nivel, poucas lacunas
-.76-.99 = quase no proximo nivel, evidencias fortes
+═══ PROCESSO OBRIGATÓRIO ═══
 
-### TRAVAS DE SEGURANCA:
-1. Se descritor CRITICO em N1 → nivel_geral MAXIMO N2
-2. Se 3+ descritores em N1 → nivel_geral = N1
-3. Na duvida entre dois niveis → escolha o INFERIOR
+1. Para cada descritor da régua:
+   - Extraia evidências da conversa (trechos ou paráfrases fiéis)
+   - Classifique tipo: situacao_real | acao_concreta | raciocinio | consequencia | autopercepção | intencao_sem_execucao
+   - Classifique força: fraca | moderada | forte
+   - Identifique limites (o que faltou na conversa)
+   - Sugira nota_decimal (1.00-4.00) e nível (1-4)
+2. Gere feedback personalizado (cite trechos REAIS)
+3. NÃO calcule média, nível geral, gap ou travas — isso é feito em código
 
-### FEEDBACK:
-- Cite comportamentos REAIS observados nas respostas
-- 3-5 paragrafos
-- NAO mencione DISC, CIS, valores ou termos tecnicos
-- Tom acolhedor e construtivo
-
-Retorne APENAS um bloco [EVAL]:
+═══ FORMATO: BLOCO [EVAL] ═══
 
 [EVAL]
 {
   "competencia": "${comp?.nome || ''}",
-  "consolidacao": {
-    "nivel_geral": 1-4,
-    "nota_decimal": 0.00-4.99,
-    "gap": 0-3,
-    "confianca_geral": 0-100,
-    "travas_aplicadas": ["descricao de travas usadas ou vazio"]
-  },
-  "descritores_destaque": {
-    "pontos_fortes": [
-      {"descritor": "nome", "nivel": 0, "evidencia_resumida": "trecho"}
-    ],
-    "gaps_prioritarios": [
-      {"descritor": "nome", "nivel": 0, "o_que_faltou": "descricao"}
-    ]
-  },
-  "evidencias": [
-    {"trecho": "citacao literal da conversa", "indicador": "qual indicador da regua", "tipo": "explicito|explicito_forte|inferido"}
-  ],
-  "feedback": "texto personalizado 3-5 paragrafos",
-  "recomendacoes_pdi": [
+  "avaliacao_por_descritor": [
     {
-      "descritor_foco": "qual descritor desenvolver",
-      "nivel_atual": 0,
-      "nivel_meta": 3,
-      "acao": "acao concreta e pratica",
-      "por_que_importa": "conexao com o contexto do colaborador",
-      "barreira_provavel": "obstaculo realista"
+      "descritor": "nome do descritor",
+      "evidencias": [
+        {"trecho": "o que disse", "tipo": "acao_concreta", "forca": "forte", "fonte": "historico"}
+      ],
+      "limites_da_conversa": ["o que não foi demonstrado"],
+      "nota_sugerida": 2.33,
+      "nivel_sugerido": 2,
+      "confianca": 0.75,
+      "racional": "Por que este nível (1 frase)"
     }
   ],
-  "nivel": 1-4,
-  "nota_decimal": 0.00-4.99,
-  "lacuna": -3 a 0
+  "insumos_consolidacao": {
+    "descritores_fortes": ["D1"],
+    "descritores_frageis": ["D3"],
+    "descritores_sem_sustentacao": ["D5"],
+    "alertas_metodologicos": ["conversa curta", "sem autopercepção"]
+  },
+  "descritores_destaque": {
+    "pontos_fortes": [{"descritor": "nome", "nivel": 3, "evidencia_resumida": ""}],
+    "gaps_prioritarios": [{"descritor": "nome", "nivel": 1, "o_que_faltou": ""}]
+  },
+  "feedback": {
+    "resumo_geral": "2-3 frases de visão geral",
+    "mensagem_positiva": "O que fez bem (cite trecho real)",
+    "mensagem_construtiva": "Onde melhorar (tom mentor, sem jargão)"
+  },
+  "recomendacoes_pdi": [
+    {"descritor_foco": "nome", "acao": "ação concreta e prática"}
+  ]
 }
-[/EVAL]`;
+[/EVAL]
 
-  // Registrar versão do prompt de avaliação
+REGRAS DO JSON:
+- nota_sugerida: 1.00 a 4.00
+- confianca: 0.0 a 1.0
+- tipo: situacao_real | acao_concreta | raciocinio | consequencia | autopercepção | intencao_sem_execucao
+- forca: fraca | moderada | forte
+- NÃO inclua nivel_geral, gap nem travas — o código calcula`;
+
   const evalPromptVersionId = await getOrCreatePromptVersion(
-    'avaliacao_ia4', modeloAvaliador, evalPrompt, { max_tokens: 32768 }
+    'avaliacao_ia4_conversacional', modeloAvaliador, evalPrompt, { max_tokens: 8192 }
   );
 
-  let rascunho = null;
+  let rascunho: any = null;
   try {
-    const evalResponse = await callAI(evalPrompt, '', { model: modeloAvaliador }, 32768);
+    const evalResponse = await callAI(evalPrompt, '', { model: modeloAvaliador }, 8192);
     rascunho = await extractBlock(evalResponse, 'EVAL');
-  } catch (err) {
+  } catch (err: any) {
     console.error('[encerrarSessao] Avaliação falhou:', err.message);
   }
 
+  // ── Consolidação em código ──
+  if (rascunho?.avaliacao_por_descritor) {
+    const descPorDescritor = rascunho.avaliacao_por_descritor;
+    const notasPorDesc: Record<string, any> = {};
+    for (const d of descPorDescritor) {
+      const nota = Math.max(1.0, Math.min(4.0, d.nota_sugerida || d.nota_decimal || 1.0));
+      notasPorDesc[d.descritor] = {
+        nome: d.descritor,
+        nota_decimal: Math.round(nota * 100) / 100,
+        nivel: Math.floor(nota),
+        confianca: d.confianca || 0,
+      };
+    }
+
+    const notas = Object.values(notasPorDesc).map((d: any) => d.nota_decimal);
+    const media = notas.length ? Math.round((notas.reduce((a: number, b: number) => a + b, 0) / notas.length) * 100) / 100 : 0;
+    let nivelGeral = Math.floor(media);
+
+    const travas: string[] = [];
+    const nN1 = Object.values(notasPorDesc).filter((d: any) => d.nivel === 1).length;
+    if (nN1 > 3) { nivelGeral = Math.min(nivelGeral, 1); travas.push(`${nN1} descritores N1 → max N1`); }
+    else if (nN1 > 0 && nivelGeral > 2) { nivelGeral = Math.min(nivelGeral, 2); travas.push('Descritor N1 → max N2'); }
+    const temN3 = Object.values(notasPorDesc).some((d: any) => d.nivel >= 3);
+    if (temN3 && nivelGeral < 2) { nivelGeral = 2; travas.push('Evidência N3 → mínimo N2'); }
+    nivelGeral = Math.max(1, Math.min(4, nivelGeral));
+
+    const confs = Object.values(notasPorDesc).map((d: any) => d.confianca).filter((c: number) => c > 0);
+    const confGeral = confs.length ? Math.round((confs.reduce((a, b) => a + b, 0) / confs.length) * 100) / 100 : 0;
+
+    rascunho.consolidacao = {
+      notas_por_descritor: notasPorDesc,
+      media_descritores: media,
+      nivel_geral: nivelGeral,
+      gap: Math.max(0, 3 - nivelGeral),
+      confianca_geral: Math.round(confGeral * 100),
+      travas_aplicadas: travas.length ? travas : ['Nenhuma'],
+    };
+    rascunho.nivel = nivelGeral;
+    rascunho.nota_decimal = media;
+    rascunho.lacuna = -Math.max(0, 3 - nivelGeral);
+
+    // Feedback como string (compatibilidade)
+    if (typeof rascunho.feedback === 'object') {
+      const fb = rascunho.feedback;
+      rascunho.feedback_text = [fb.resumo_geral, fb.mensagem_positiva, fb.mensagem_construtiva].filter(Boolean).join('\n');
+    }
+  }
+
   if (!rascunho) {
-    // Fallback: avaliação mínima
     rascunho = {
-      nivel: 2, nota_decimal: 5.0, lacuna: -1.0,
-      evidencias_principais: ['Avaliação automática (falha no LLM)'],
-      feedback: { pontos_fortes: [], pontos_melhoria: [], resumo: 'Avaliação gerada por fallback.' },
+      nivel: 2, nota_decimal: 2.0, lacuna: -1.0,
+      consolidacao: { nivel_geral: 2, media_descritores: 2.0, gap: 1, confianca_geral: 0, travas_aplicadas: ['Fallback'] },
+      feedback: { resumo_geral: 'Avaliação gerada por fallback (falha no LLM).' },
     };
   }
 
