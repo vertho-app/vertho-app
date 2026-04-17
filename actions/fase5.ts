@@ -1529,32 +1529,37 @@ export async function gerarRelatorioRHManual(empresaId: string, aiConfig: AIConf
     const { data: relRHAnterior } = await tdb.from('relatorios').select('conteudo').eq('tipo', 'rh').maybeSingle();
     const { data: relPlenaria } = await tdb.from('relatorios').select('conteudo').eq('tipo', 'plenaria_evolucao').maybeSingle();
 
-    const system = `Você é um consultor estratégico de RH da Vertho.
+    const system = `Você é um consultor estratégico de RH da plataforma Vertho.
 
-═══ TAREFA ═══
-Gerar RELATÓRIO ANALÍTICO PÓS-DESENVOLVIMENTO com base na evolução
-agregada do grupo após o ciclo da plataforma.
+Sua tarefa é gerar um RELATÓRIO DE RH PÓS-CICLO, com base em:
+- um relatório anterior de RH
+- e os dados agregados de evolução após o ciclo de desenvolvimento
 
-═══ PRINCÍPIOS ═══
-1. NÃO invente impacto que a base não sustenta
-2. Diferencie fato observado de hipótese estratégica
-3. Conecte evolução a implicações organizacionais concretas
-4. Evite linguagem genérica de RH sem base nos dados
-5. Celebre ganhos reais ANTES de apontar limites
-6. ROI com prudência: se sem dado financeiro, use "retorno de
-   desenvolvimento", "sinais de tração", "redução de risco"
-7. Linguagem para RH e liderança executiva
+ATENÇÃO:
+Este relatório não é um resumo institucional genérico.
+Não é um texto de comemoração.
+Não é uma peça de marketing.
+Ele deve ser um relatório executivo, analítico e útil para decisão de RH.
 
-═══ 7 SEÇÕES OBRIGATÓRIAS ═══
-1. RESUMO_EXECUTIVO — leitura + principal ganho + principal alerta
-2. ROI_DESENVOLVIMENTO — sinais de tração + limites + hipóteses
-3. EVOLUCAO_ORGANIZACIONAL — avanços + padrões por cargo/competência
-4. GAPS_RESOLVIDOS — lacunas que melhoraram + implicação
-5. GAPS_PERSISTENTES — lacunas que continuam + implicação
-6. RECOMENDACOES_ESTRATEGICAS — prioridades + decisões + riscos
-7. PROXIMOS_CICLOS — focos + formatos + cargos prioritários
+OBJETIVO CENTRAL:
+Comparar o diagnóstico anterior com a evolução observada e produzir leitura estratégica sobre:
+- o que mudou
+- o que permaneceu
+- o que vale sustentar
+- o que precisa entrar no próximo ciclo
+- que tipo de retorno organizacional o desenvolvimento parece ter gerado
 
-Retorne APENAS JSON válido.`;
+PRINCÍPIOS INEGOCIÁVEIS:
+1. Seja estratégico e orientado a decisão.
+2. Compare sempre "antes x depois".
+3. Não force impacto onde a base for fraca.
+4. Celebre avanços reais, sem inflar conclusões.
+5. Diferencie claramente gap resolvido, mitigado e persistente.
+6. Use linguagem executiva, clara e útil.
+7. Toda recomendação relevante deve ter conexão com os dados.
+8. Quando houver limitação metodológica, explicite.
+
+RETORNE APENAS JSON VÁLIDO, sem markdown, sem texto antes ou depois.`;
 
     const userBlocks: string[] = [];
     userBlocks.push(`═══ EMPRESA ═══\n${empresa.nome} (${empresa.segmento})`);
@@ -1578,44 +1583,48 @@ Retorne APENAS JSON válido.`;
     }));
     userBlocks.push(`═══ EVOLUÇÃO AGREGADA (${evolucaoAnonima.length} colaboradores — anônimo) ═══\n${JSON.stringify(evolucaoAnonima, null, 2)}`);
 
-    userBlocks.push(`═══ FORMATO DE SAÍDA (JSON) ═══
+    userBlocks.push(`FORMATO DE SAÍDA (JSON):
 {
   "resumo_executivo": {
-    "leitura_geral": "síntese estratégica curta",
+    "leitura_geral": "síntese executiva do que o ciclo entregou",
     "principal_ganho": "texto curto",
-    "principal_alerta": "texto curto"
+    "principal_lacuna_remanescente": "texto curto"
   },
   "roi_desenvolvimento": {
-    "leitura": "interpretação prudente do retorno",
-    "sinais_de_tracao": ["sinal 1"],
-    "limites_da_base": ["limite 1"],
-    "hipoteses_de_impacto": ["hipótese 1"]
+    "leitura": "interpretação prudente do retorno do ciclo",
+    "sinais_de_retorno": ["sinal 1", "sinal 2"],
+    "limites_da_inferencia": ["limite 1"]
   },
   "evolucao_organizacional": {
-    "avancos_institucionais": ["avanço 1"],
-    "padroes_por_cargo": ["padrão 1"],
-    "padroes_por_competencia": ["padrão 1"],
-    "leitura": "síntese curta"
+    "sintese": "texto curto",
+    "ganhos_mais_consistentes": ["ganho 1"],
+    "evidencias_agregadas": ["evidência 1"]
   },
   "gaps_resolvidos": [
-    {"gap": "nome", "evidencia": "como evoluiu", "implicacao_organizacional": "por que importa"}
+    {"gap": "nome", "o_que_mudou": "síntese da evolução", "grau_resolucao": "resolvido|mitigado"}
   ],
   "gaps_persistentes": [
-    {"gap": "nome", "evidencia": "como segue", "implicacao_organizacional": "por que importa"}
+    {"gap": "nome", "por_que_permanece": "síntese curta", "risco_organizacional": "texto curto"}
   ],
-  "recomendacoes_estrategicas": {
-    "prioridades_rh": ["prioridade 1"],
-    "decisoes_recomendadas": ["decisão 1"],
-    "riscos_de_nao_acao": ["risco 1"]
-  },
+  "recomendacoes_estrategicas": [
+    {"recomendacao": "ação estratégica", "horizonte": "curto|medio|longo", "justificativa": "por que agora"}
+  ],
   "proximos_ciclos": {
-    "competencias_foco": ["comp 1"],
-    "cargos_prioritarios": ["cargo 1"],
-    "formatos_sugeridos": ["pratica", "mentoria"],
-    "hipotese_de_desenho": "texto curto"
+    "focos_prioritarios": ["foco 1"],
+    "publicos_prioritarios": ["público 1"],
+    "formatos_recomendados": ["formato 1"],
+    "criterio_de_priorizacao": "lógica usada"
   },
   "alertas_metodologicos": ["alerta 1"]
-}`);
+}
+
+REGRAS:
+- comparar diagnóstico anterior x evolução atual
+- evitar afirmações causais absolutas
+- roi_desenvolvimento prudente e útil
+- máximo 5 recomendações estratégicas
+- máximo 5 focos prioritários
+- sem linguagem genérica que serviria para qualquer empresa`);
 
     const user = userBlocks.join('\n\n');
     const resultado = await callAI(system, user, aiConfig, 8192, { temperature: TEMP });
