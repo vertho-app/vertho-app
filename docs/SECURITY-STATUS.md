@@ -100,12 +100,24 @@ Prerequisito para migracao real: RLS policies por tabela + testes de enforcement
 - Total: 30 migrations (022-051)
 
 ### Cobertura de testes
-- **120 testes vitest** (16 arquivos)
+- **~172 testes vitest** (17 arquivos)
 - Mix de comportamental (handlers reais mockados) e estrutural (presenca de guards no codigo)
 - Testes comportamentais: ~20 (rotas + actions)
 - Testes estruturais: ~85 (string matching — complementares, nao substituem comportamental)
 - Guard de service_role: 3 testes (allowlist + stale + contagem)
 - **Testes de isolamento cross-tenant**: 9 cenarios (tenant A nao acessa B, acesso legitimo permitido, colab access)
+- **Testes anti-identity-by-parameter**: ~52 cenarios (9 actions + 4 pages verificadas para ausencia de email/colaboradorId/empresaId como param)
+
+### Endurecimento de dashboard actions (sprint 2026-04-17)
+9 actions de dashboard corrigidas para derivar identidade 100% server-side:
+loadDashboardData, loadHomeKpis, loadJornada, loadPerfil, salvarFotoPerfil,
+salvarAvatarPreset, removerAvatar, loadPDI, baixarMeuPdiPdf, registrarEvidencia.
+Nenhuma aceita mais email/colaboradorId/empresaId do client.
+Padrão: `getAuthenticatedEmailFromAction()` (cookies SSR via @supabase/ssr).
+
+Segunda onda (fora do escopo atual): assessment-actions, evolucao-actions,
+mapeamento-actions, perfil-comportamental-actions, equipe-evolucao/actions
+— a serem endurecidas em sprint futura.
 
 ## O que NAO esta coberto
 - RLS real no banco (policies sao permissivas)

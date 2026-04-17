@@ -63,7 +63,7 @@ export default function DashboardHomePage() {
       if (!user) { router.replace('/login'); return; }
       const [result, kpisR, histR] = await Promise.all([
         loadDashboardData(),
-        loadHomeKpis(user.email),
+        loadHomeKpis(),
         loadUltimosVideosColab(user.email, 3),
       ]);
       if (!result.error) setData(result);

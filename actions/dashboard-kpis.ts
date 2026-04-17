@@ -18,8 +18,10 @@ const MS_DIA = 24 * 60 * 60 * 1000;
  * 3. Fase atual           — Fase 1-5 da jornada
  * 4. Próximo marco        — countdown em dias
  */
-export async function loadHomeKpis(email: string): Promise<any> {
+export async function loadHomeKpis(): Promise<any> {
   try {
+    const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+    const email = await getAuthenticatedEmailFromAction();
     if (!email) return { error: 'Não autenticado' };
 
     const colab = await findColabByEmail(email, 'id, empresa_id');
