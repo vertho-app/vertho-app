@@ -4,7 +4,7 @@ import { callAI, callAIChat } from '@/actions/ai-client';
 import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
 import { aiLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
-import { promptEvolutionQualitative, promptEvolutionQualitativeExtract } from '@/lib/season-engine/prompts/evolution-qualitative';
+import { promptEvolutionQualitative, promptEvolutionQualitativeExtract, validateEvolutionExtract } from '@/lib/season-engine/prompts/evolution-qualitative';
 import { promptEvolutionScenarioScore } from '@/lib/season-engine/prompts/evolution-scenario';
 import { promptEvolutionScenarioCheck } from '@/lib/season-engine/prompts/evolution-scenario-check';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
@@ -122,7 +122,9 @@ export async function POST(request) {
           const transcript = historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content}`).join('\n\n');
           const { system: s2, user: u2 } = promptEvolutionQualitativeExtract({ descritores, transcript });
           const r = await callAI(s2, u2, {}, 8000);
-          const parsed = JSON.parse(r.replace(/```json\n?|```\n?/g, '').trim());
+          let cleaned = r.trim();
+          if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
+          const parsed = validateEvolutionExtract(JSON.parse(cleaned), descritores);
           Object.assign(novoSlot, parsed);
         } catch (e) { console.error('[VERTHO] extract sem13:', e.message); }
       }

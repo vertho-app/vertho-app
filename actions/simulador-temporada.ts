@@ -9,7 +9,7 @@ import {
 } from '@/lib/season-engine/prompts/simulador-temporada';
 import { promptSocratic } from '@/lib/season-engine/prompts/socratic';
 import { promptMissaoFeedback } from '@/lib/season-engine/prompts/missao-feedback';
-import { promptEvolutionQualitative, promptEvolutionQualitativeExtract } from '@/lib/season-engine/prompts/evolution-qualitative';
+import { promptEvolutionQualitative, promptEvolutionQualitativeExtract, validateEvolutionExtract } from '@/lib/season-engine/prompts/evolution-qualitative';
 import { getUserContext } from '@/lib/authz';
 
 // Simulador usa Haiku pra ser rápido; mentor mantém default (Sonnet).
@@ -325,7 +325,9 @@ async function simularQualitativa(sb: any, trilha: any, colab: any, s: any, perf
     const transcript = historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content}`).join('\n\n');
     const { system: s2, user: u2 } = promptEvolutionQualitativeExtract({ descritores: descritoresArr, transcript });
     const r = await callAI(s2, u2, {}, 4000);
-    extracao = JSON.parse(r.replace(/```json\n?|```\n?/g, '').trim());
+    let cleaned = r.trim();
+    if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
+    extracao = validateEvolutionExtract(JSON.parse(cleaned), descritoresArr);
   } catch (e) { console.warn('[sim extract qualitativa]', e.message); }
 
   await upsertProgresso(sb, trilha, 13, {
