@@ -1792,13 +1792,112 @@ export async function checkCenarios(empresaId: string, aiConfig: AIConfig = {}) 
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
-    const { data: cenarios } = await tdb.from('banco_cenarios').select('id, titulo, descricao, alternativas, competencias!inner(nome)');
+    const { data: cenarios } = await tdb.from('banco_cenarios')
+      .select('id, titulo, descricao, cargo, alternativas, competencia_id')
+      .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b')
+      .order('cargo');
     if (!cenarios?.length) return { success: false, error: 'Nenhum cenário encontrado' };
 
-    const resultado = await callAI('Verifique qualidade dos cenários. JSON válido.', `Verifique ${cenarios.length} cenários: ${JSON.stringify(cenarios.slice(0, 20), null, 2)}\nRetorne: { "total": ${Math.min(cenarios.length, 20)}, "aprovados": N, "com_ressalvas": N, "reprovados": N, "detalhes": [{"cenario_id": "...", "status": "...", "observacao": "..."}] }`, aiConfig, 64000, { temperature: TEMP });
+    // Buscar nomes de competências
+    const compIds = [...new Set(cenarios.map((c: any) => c.competencia_id).filter(Boolean))] as string[];
+    const compMap: Record<string, string> = {};
+    for (const cid of compIds) {
+      const { data: comp } = await tdb.from('competencias').select('nome').eq('id', cid).maybeSingle();
+      if (comp) compMap[cid] = comp.nome;
+    }
+
+    // Montar resumo por cenário (até 20)
+    const lote = cenarios.slice(0, 20).map((c: any) => {
+      const alt = typeof c.alternativas === 'object' && !Array.isArray(c.alternativas) ? c.alternativas : {};
+      return {
+        id: c.id,
+        titulo: c.titulo,
+        cargo: c.cargo,
+        competencia: compMap[c.competencia_id] || '—',
+        contexto_resumido: (c.descricao || '').slice(0, 300),
+        faceta: alt.faceta_testada_principal || alt.faceta_avaliada || '',
+        tradeoff: alt.tradeoff_testado || '',
+        armadilha: alt.armadilha_de_resposta_generica || '',
+        perguntas: [alt.p1, alt.p2, alt.p3, alt.p4].filter(Boolean).length,
+      };
+    });
+
+    const system = `Você é o auditor de lote de cenários da Vertho.
+
+═══ TAREFA ═══
+Analisar um CONJUNTO de cenários e produzir leitura operacional da qualidade.
+Este check NÃO substitui o check unitário oficial — serve pra visão de carteira,
+padrões de erro e priorização de correções.
+
+═══ PRINCÍPIOS ═══
+1. Avalie como instrumento diagnóstico, não como texto bonito
+2. Criterioso com trade-off, resposta genérica e poder discriminante
+3. Na dúvida → prudência
+4. Nem todo cenário com ressalva precisa ser refeito imediatamente
+5. Gerar visão individual + consolidada
+
+═══ CRITÉRIOS POR CENÁRIO ═══
+- aderencia_competencia (0-15)
+- realismo_contextual (0-15)
+- clareza_tradeoff (0-20)
+- poder_discriminante (0-20)
+- sobriedade (0-15)
+- risco_resposta_generica (0-15)
+
+═══ CLASSIFICAÇÃO ═══
+- aprovado (≥80)
+- com_ressalvas (60-79)
+- reprovado (<60)
+
+Retorne APENAS JSON válido.`;
+
+    const user = `═══ LOTE DE ${lote.length} CENÁRIOS ═══
+
+${JSON.stringify(lote, null, 2)}
+
+═══ FORMATO ═══
+{
+  "total": ${lote.length},
+  "aprovados": 0,
+  "com_ressalvas": 0,
+  "reprovados": 0,
+  "risco_operacional_lote": "baixo|medio|alto",
+  "padroes_de_erro": [
+    {"tipo": "tradeoff_fraco|generico|baixo_realismo|baixa_discriminacao|redundancia|outro", "frequencia": 0, "impacto": "baixo|medio|alto", "leitura": "texto curto"}
+  ],
+  "prioridades_de_regeneracao": [
+    {"cenario_id": "id", "titulo": "titulo", "prioridade": "alta|media|baixa", "motivo": "texto curto"}
+  ],
+  "detalhes": [
+    {
+      "cenario_id": "id",
+      "titulo": "titulo",
+      "status": "aprovado|com_ressalvas|reprovado",
+      "nota": 0,
+      "problema_principal": "texto curto",
+      "ajuste_recomendado": "texto curto",
+      "prioridade_correcao": "alta|media|baixa",
+      "criterios": {
+        "aderencia_competencia": 0,
+        "realismo_contextual": 0,
+        "clareza_tradeoff": 0,
+        "poder_discriminante": 0,
+        "sobriedade": 0,
+        "risco_resposta_generica": 0
+      }
+    }
+  ],
+  "leitura_executiva_lote": "síntese curta e operacional"
+}`;
+
+    const resultado = await callAI(system, user, { model: aiConfig?.model || 'gemini-3-flash-preview' }, 8192, { temperature: TEMP });
     const verificacao = await extractJSON(resultado);
-    return { success: true, message: `Verificação: ${verificacao?.aprovados || 0} aprovados, ${verificacao?.com_ressalvas || 0} com ressalvas`, verificacao };
-  } catch (err) { return { success: false, error: err.message }; }
+    return {
+      success: true,
+      message: `Verificação: ${verificacao?.aprovados || 0} aprovados, ${verificacao?.com_ressalvas || 0} com ressalvas, ${verificacao?.reprovados || 0} reprovados`,
+      verificacao,
+    };
+  } catch (err: any) { return { success: false, error: err.message }; }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
