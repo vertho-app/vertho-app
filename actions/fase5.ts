@@ -1402,71 +1402,93 @@ export async function gerarPlenariaEvolucao(empresaId: string, aiConfig: AIConfi
     const avg = arr => arr.length ? (arr.reduce((s, v) => s + v, 0) / arr.length).toFixed(2) : '0';
     const totalConv = Object.values(convergencias).reduce((s, v) => s + v, 0) || 1;
 
-    const system = `Você é o Motor de Plenária de Evolução do programa Vertho Mentor IA.
-Sua tarefa é analisar dados AGREGADOS de evolução de um grupo de profissionais após 14 semanas de capacitação.
+    const system = `Você é o Motor de Plenária de Evolução Institucional da Vertho.
 
-ESTE RELATÓRIO É DIFERENTE DA PLENÁRIA INICIAL.
-A plenária inicial mostra o DIAGNÓSTICO. Esta mostra a EVOLUÇÃO.
+═══ TAREFA ═══
+Analisar dados AGREGADOS e ANÔNIMOS de evolução de um grupo após a
+jornada de desenvolvimento. Produzir leitura institucional orientada
+a padrões e decisões.
 
-## ESTRUTURA DO RELATÓRIO (6 seções):
-1. VISÃO GERAL DA EVOLUÇÃO — delta médio, % que avançou, descritores com mais evolução
-2. ANÁLISE POR CARGO — para cada cargo: delta, gaps comuns, destaques
-3. ANÁLISE POR COMPETÊNCIA — para cada competência: evolução média, descritores que evoluíram, gaps persistentes
-4. CONVERGÊNCIA DE EVIDÊNCIAS — % confirmada/parcial/sem/invisível + interpretação dos padrões
-5. GAPS PERSISTENTES — ALERTA INSTITUCIONAL — descritores com mais gaps, padrões coletivos
-6. RECOMENDAÇÕES PARA CICLO 2 — descritores foco, formato sugerido, ações institucionais
+═══ PRINCÍPIOS ═══
+1. Dados são ANÔNIMOS — NUNCA cite nomes ou casos identificáveis
+2. Use estatísticas, percentuais, tendências e padrões
+3. CELEBRE avanços ANTES de apontar gaps
+4. Seja construtivo, claro e orientado a ação
+5. Não superinterprete sinais fracos — diga quando é tendência, não certeza
+6. Evite frases genéricas que serviriam para qualquer empresa
+7. Explicite limites da leitura (amostra pequena, pouca diferença, etc.)
 
-## REGRAS:
-- Dados são ANÔNIMOS — NUNCA cite nomes de colaboradores
-- Use estatísticas e percentuais, não casos individuais
-- Tom institucional, construtivo, orientado a ação
-- CELEBRE AVANÇOS ANTES de apontar gaps
-- Português brasileiro
+═══ 6 SEÇÕES OBRIGATÓRIAS ═══
 
-Responda APENAS com JSON válido.`;
+1. VISAO_GERAL — delta médio, % convergências, descritores com maior avanço
+2. ANALISE_POR_CARGO — padrões, avanços e gaps por cargo
+3. ANALISE_POR_COMPETENCIA — competências com mais tração vs mais dificuldade
+4. CONVERGENCIA_DE_EVIDENCIAS — consistência do processo (confirmada/parcial/sem/invisível)
+5. GAPS_PERSISTENTES — alerta institucional + riscos se nada mudar
+6. RECOMENDACOES_CICLO_2 — prioridades + formatos + ações concretas
 
-    const user = `Empresa: ${empresa.nome} (${empresa.segmento})
+Retorne APENAS JSON válido.`;
+
+    const userBlocks: string[] = [];
+    userBlocks.push(`═══ EMPRESA ═══\n${empresa.nome} (${empresa.segmento})`);
+    userBlocks.push(`═══ DADOS AGREGADOS ═══
 Total: ${relatorios.length} colaboradores analisados
+Delta médio: ${avg(relatorios.map((r: any) => r.conteudo?.resumo_executivo?.delta || 0))}
+Descritores que subiram: ${totalDescUp} de ${totalDesc} (${totalDesc ? Math.round(totalDescUp/totalDesc*100) : 0}%)`);
 
-Delta médio: ${avg(relatorios.map(r => r.conteudo?.resumo_executivo?.delta || 0))}
-Descritores que subiram: ${totalDescUp} de ${totalDesc} (${totalDesc ? Math.round(totalDescUp/totalDesc*100) : 0}%)
-
-Convergências:
+    userBlocks.push(`═══ CONVERGÊNCIAS ═══
 - CONFIRMADA: ${convergencias.EVOLUCAO_CONFIRMADA} (${Math.round(convergencias.EVOLUCAO_CONFIRMADA/totalConv*100)}%)
 - PARCIAL: ${convergencias.EVOLUCAO_PARCIAL} (${Math.round(convergencias.EVOLUCAO_PARCIAL/totalConv*100)}%)
 - SEM EVOLUÇÃO: ${convergencias.SEM_EVOLUCAO} (${Math.round(convergencias.SEM_EVOLUCAO/totalConv*100)}%)
-- INVISÍVEL: ${convergencias.EVOLUCAO_INVISIVEL} (${Math.round(convergencias.EVOLUCAO_INVISIVEL/totalConv*100)}%)
+- INVISÍVEL: ${convergencias.EVOLUCAO_INVISIVEL} (${Math.round(convergencias.EVOLUCAO_INVISIVEL/totalConv*100)}%)`);
 
-Por cargo:
-${Object.entries(porCargo).map(([cargo, d]) => `  ${cargo}: delta ${avg(d.deltas)}, ${d.descUp}/${d.descTotal} descritores, ${d.count} colaboradores`).join('\n')}
+    userBlocks.push(`═══ POR CARGO ═══\n${Object.entries(porCargo).map(([cargo, d]) => `${cargo}: delta ${avg(d.deltas)}, ${d.descUp}/${d.descTotal} descritores, ${d.count} colabs`).join('\n')}`);
+    userBlocks.push(`═══ POR COMPETÊNCIA ═══\n${Object.entries(porComp).map(([comp, d]) => `${comp}: delta ${avg(d.deltas)}, ${d.descUp}/${d.descTotal} descritores`).join('\n')}`);
+    userBlocks.push(`═══ GAPS PERSISTENTES (top 10) ═══\n${Object.entries(gapsPersistentes).sort((a: any,b: any) => b[1]-a[1]).slice(0,10).map(([d, n]) => `${d}: ${n} ocorrências`).join('\n')}`);
 
-Por competência:
-${Object.entries(porComp).map(([comp, d]) => `  ${comp}: delta ${avg(d.deltas)}, ${d.descUp}/${d.descTotal} descritores`).join('\n')}
-
-Gaps persistentes (top 10):
-${Object.entries(gapsPersistentes).sort((a,b) => b[1]-a[1]).slice(0,10).map(([d, n]) => `  ${d}: ${n} ocorrências`).join('\n')}
-
-Gere:
+    userBlocks.push(`═══ FORMATO DE SAÍDA (JSON) ═══
 {
-  "titulo": "Plenária de Evolução — ${empresa.nome}",
-  "resumo_evolucao": "análise geral celebrando avanços + indicando desafios",
-  "percentual_medio_evolucao": N,
-  "analise_por_cargo": [{"cargo": "...", "delta_medio": N, "destaque_positivo": "...", "gap_principal": "...", "recomendacao": "..."}],
-  "analise_por_competencia": [{"competencia": "...", "delta_medio": N, "descritores_que_evoluiram": "...", "gap_persistente": "..."}],
-  "convergencia_institucional": {
-    "confirmada_pct": N, "parcial_pct": N, "sem_evolucao_pct": N, "invisivel_pct": N,
-    "interpretacao": "o que esses números dizem sobre a efetividade do programa"
+  "visao_geral_da_evolucao": {
+    "resumo_executivo": "síntese institucional curta",
+    "delta_medio": 0.0,
+    "percentuais_convergencia": {
+      "evolucao_confirmada": 0, "evolucao_parcial": 0,
+      "sem_evolucao": 0, "evolucao_invisivel": 0
+    },
+    "descritores_com_maior_evolucao": ["desc 1", "desc 2"],
+    "leitura_geral": "texto curto"
   },
-  "gaps_persistentes_institucionais": ["top 5 descritores + padrão coletivo"],
-  "recomendacoes_ciclo2": ["5-7 recomendações concretas incluindo formato e ações institucionais"],
-  "formato_plenaria_sugerido": "como apresentar na plenária"
-}`;
+  "analise_por_cargo": [
+    {"cargo": "nome", "principais_avancos": ["avanço 1"], "gaps_mais_frequentes": ["gap 1"], "leitura": "síntese prudente"}
+  ],
+  "analise_por_competencia": [
+    {"competencia": "nome", "sinais_de_avanco": ["sinal 1"], "pontos_de_atencao": ["ponto 1"], "leitura": "síntese curta"}
+  ],
+  "convergencia_de_evidencias": {
+    "leitura": "consistência das evidências",
+    "pontos_fortes_do_processo": ["ponto 1"],
+    "limites_do_processo": ["limite 1"]
+  },
+  "gaps_persistentes_alerta_institucional": {
+    "top_gaps": ["gap 1", "gap 2"],
+    "leitura": "por que isso importa",
+    "riscos_se_nada_mudar": ["risco 1"]
+  },
+  "recomendacoes_para_ciclo_2": {
+    "prioridades_por_competencia": ["prioridade 1"],
+    "prioridades_por_cargo": ["prioridade 1"],
+    "formatos_sugeridos": ["pratica", "mentoria"],
+    "acoes_recomendadas": ["ação 1", "ação 2"]
+  },
+  "alertas_metodologicos": ["alerta 1"],
+  "limites_da_leitura": ["limite 1"]
+}`);
 
-    const resultado = await callAI(system, user, aiConfig, 64000, { temperature: TEMP });
+    const user = userBlocks.join('\n\n');
+    const resultado = await callAI(system, user, aiConfig, 8192, { temperature: TEMP });
     const plenaria = await extractJSON(resultado);
 
     if (plenaria) {
-      // empresa_id é injetado pelo tdb.upsert
       await tdb.from('relatorios').upsert({
         colaborador_id: null, tipo: 'plenaria_evolucao',
         conteudo: plenaria, gerado_em: new Date().toISOString(),
