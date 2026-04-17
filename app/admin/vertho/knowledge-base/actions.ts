@@ -14,7 +14,6 @@ export async function listarEmpresas() {
   const sb = createSupabaseAdmin();
   const { data, error } = await sb.from('empresas')
     .select('id, nome, slug')
-    .eq('ativa', true)
     .order('nome');
   if (error) return { error: error.message };
   return { ok: true, empresas: data || [] };
