@@ -83,7 +83,7 @@
 - `capacitacao`: formalizado via migration 049 (codigo tratava ausencia com try/catch)
 - Divergencias conhecidas e aceitas: colaborador_id nullable, FKs ausentes, indice duplicado
 - Processo anti-drift: `docs/SCHEMA-PROCESS.md`
-- Total: 28 migrations (022-049)
+- Total: 30 migrations (022-051)
 
 ### Cobertura de testes
 - **120 testes vitest** (16 arquivos)

@@ -755,7 +755,7 @@ Task Scheduler Windows → scripts/auto-backup-diario.ps1 (todo dia 20h)
 | `scripts/auto-backup-diario.ps1` | Backup diario automatico |
 
 ### Restauracao do Schema
-- Rodar migrations em ordem: `migrations/022*.sql` ate `049*.sql`
+- Rodar migrations em ordem: `migrations/022*.sql` ate `051*.sql`
 - Processo de alteracao de schema: `docs/SCHEMA-PROCESS.md`
 
 ### Backfill de embeddings
@@ -799,5 +799,5 @@ Sentry: Error tracking
 ---
 
 *Documento validado contra o codigo-fonte em producao.*
-*~230 arquivos TS + ~27 .js residuais | 28 migrations SQL (022-049) | 111 unit + 86 e2e tests | 22+ env vars | vertho.com.br*
+*~230 arquivos TS + ~27 .js residuais | 30 migrations SQL (022-051) | 111 unit + 86 e2e tests | 22+ env vars | vertho.com.br*
 *Revisao: 17/04/2026*

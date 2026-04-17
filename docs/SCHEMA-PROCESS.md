@@ -61,4 +61,4 @@ Tabelas criadas via Dashboard antes do sistema de migrations e agora formalizada
 ## Numeração
 
 Migrations usam numeração sequencial: `NNN-nome-descritivo.sql`.
-Faixa atual: 022-049 (28 migrations).
+Faixa atual: 022-051 (30 migrations).
