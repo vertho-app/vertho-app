@@ -258,74 +258,116 @@ interface PromptEvolutionQualitativeExtractParams {
 }
 
 export function promptEvolutionQualitativeExtract({ descritores, transcript }: PromptEvolutionQualitativeExtractParams) {
-  const system = `Você é um extrator de dados estruturados da Vertho.
+  const system = `Você é o extrator qualitativo da Vertho para a semana 13.
 
-Sua tarefa é analisar a conversa de fechamento da temporada e transformá-la em JSON estruturado, fiel ao que foi realmente dito.
+Sua tarefa é analisar a conversa final da temporada e transformá-la em dados estruturados sobre evolução percebida e evidências qualitativas por descritor.
 
-PRINCÍPIOS:
+ATENÇÃO:
+Você NÃO está avaliando formalmente a competência.
+Você NÃO está dando nota final.
+Você NÃO está aconselhando.
+Você está EXTRAINDO o que a conversa sustenta sobre a evolução da pessoa ao longo da temporada.
+
+OBJETIVO CENTRAL:
+Converter a conversa final da semana 13 em um artefato estruturado que permita entender:
+- o que o colaborador percebe que mudou
+- quais evidências concretas ele relatou
+- quais dificuldades persistem
+- como respondeu ao microcaso
+- qual o maior avanço percebido
+- qual o principal ponto de atenção
+- e o quanto essa conversa sustenta uma leitura confiável por descritor
+
+PRINCÍPIOS INEGOCIÁVEIS:
 1. Extraia somente o que foi efetivamente dito ou claramente sustentado.
-2. Não invente evolução, comportamento ou insight.
-3. Diferencie fala bonita de evidência concreta.
-4. Se faltar base para um descritor, explicite isso.
-5. nivel_percebido deve ser conservador — não infle sem sustentação.
+2. Não invente evolução, maturidade, impacto ou comportamento.
+3. Diferencie percepção subjetiva de evidência concreta.
+4. Dificuldade persistente é informação valiosa e deve aparecer.
+5. Microcaso bem respondido é sinal útil, mas não substitui evidência real vivida.
+6. Se não houver base suficiente para um descritor, isso deve ser explicitado.
+7. Teoria aprendida ou fala articulada não bastam para sustentar evolução prática.
 
-RETORNE APENAS JSON VÁLIDO, sem markdown, sem backticks.`;
+FORÇA DA BASE:
+- fraca = abstrata, teórica, vaga ou sem ação observável
+- moderada = concreta, mas incompleta ou sem consequência clara
+- forte = concreta, coerente, com ação, critério e/ou consequência
+
+RETORNE APENAS JSON VÁLIDO, sem markdown, sem backticks, sem texto antes ou depois.`;
 
   const user = `CONVERSA DE FECHAMENTO DA TEMPORADA:
 ${transcript}
 
 Descritores trabalhados: ${descritores.map(d => d.descritor).join(', ')}
 
-Extraia:
+EXTRAIA o JSON abaixo, preenchendo com base EXCLUSIVA na conversa:
 {
   "evolucao_percebida": [
 ${descritores.map(d => `    {
       "descritor": "${d.descritor}",
-      "antes": "como estava no início — baseado no que o colaborador disse",
-      "depois": "como está agora — baseado no que relatou",
+      "antes": "como a pessoa se percebia antes — baseado no que disse",
+      "depois": "como a pessoa se percebe hoje — baseado no que relatou",
       "nivel_percebido": 1.0-4.0,
       "forca_evidencia": "fraca|moderada|forte",
-      "evidencia": "trecho literal ou paráfrase fiel que sustenta, ou null se não houve",
-      "limite": "o que faltou para sustentar melhor"
+      "confianca": 0.0-1.0,
+      "evidencia": "síntese objetiva do que sustenta essa leitura, ou null",
+      "citacoes_literais": ["trecho curto 1", "trecho curto 2"],
+      "limites_da_leitura": ["o que faltou para sustentar melhor"]
     }`).join(',\n')}
   ],
-  "insight_geral": "principal aprendizado que emergiu na conversa",
+  "insight_geral": "principal percepção emergente da conversa",
   "maior_avanco": "o avanço que o colaborador nomeou como o maior",
   "ponto_atencao": "gap remanescente mais relevante",
   "microcaso_resposta_qualidade": "alta|media|baixa",
-  "alertas_metodologicos": ["alerta se houver risco de viés ou inflação"]
+  "microcaso_justificativa": "síntese curta da qualidade da resposta ao microcaso",
+  "consciencia_do_gap": "alta|media|baixa",
+  "dificuldades_persistentes": ["dificuldade 1"],
+  "ganhos_qualitativos": ["ganho 1"],
+  "alertas_metodologicos": ["alerta se houver risco de viés ou inflação"],
+  "limites_gerais_da_conversa": ["limite geral 1"]
 }
 
 REGRAS:
-- nivel_percebido entre 1.0 e 4.0 — conservador
+- nivel_percebido entre 1.0 e 4.0 — conservador, não infle
+- confianca entre 0.0 e 1.0 — quanto a conversa sustenta essa leitura
 - forca_evidencia: "forte" = exemplo concreto com ação e consequência; "moderada" = relato com algum detalhe; "fraca" = menção vaga ou ausente
-- Se um descritor não foi discutido, evidencia: null e forca_evidencia: "fraca"
-- Não force qualidade alta sem sustentação
-- alertas_metodologicos: liste se houver risco de viés ou falta de base`;
+- citacoes_literais: 0 a 2 trechos curtos da conversa (pode ser vazio)
+- Se um descritor não foi discutido: evidencia null, forca_evidencia "fraca", confianca baixa
+- Não force todos os descritores a parecerem positivos
+- Não force qualidade alta ou confiança alta sem sustentação
+- alertas_metodologicos: fala articulada sem prática, microcaso melhor que exemplos reais, etc.
+- limites_gerais_da_conversa: pontos que impedem uma leitura mais forte`;
 
   return { system, user };
 }
 
 export function validateEvolutionExtract(parsed: any, descritores: DescritorInfo[]): any {
   if (!Array.isArray(parsed.evolucao_percebida)) parsed.evolucao_percebida = [];
+  const forcas = ['fraca', 'moderada', 'forte'];
+  const qualidades = ['alta', 'media', 'baixa'];
   parsed.evolucao_percebida = parsed.evolucao_percebida.map((d: any) => {
     const nota = typeof d.nivel_percebido === 'number' ? Math.max(1, Math.min(4, Math.round(d.nivel_percebido * 10) / 10)) : 2.0;
-    const forcas = ['fraca', 'moderada', 'forte'];
+    const conf = typeof d.confianca === 'number' ? Math.max(0, Math.min(1, Math.round(d.confianca * 100) / 100)) : 0.5;
     return {
       descritor: d.descritor || '',
       antes: d.antes || '',
       depois: d.depois || '',
       nivel_percebido: nota,
       forca_evidencia: forcas.includes(d.forca_evidencia) ? d.forca_evidencia : 'fraca',
+      confianca: conf,
       evidencia: d.evidencia || null,
-      limite: d.limite || '',
+      citacoes_literais: Array.isArray(d.citacoes_literais) ? d.citacoes_literais.slice(0, 2) : [],
+      limites_da_leitura: Array.isArray(d.limites_da_leitura) ? d.limites_da_leitura : [],
     };
   });
   if (!parsed.insight_geral || typeof parsed.insight_geral !== 'string') parsed.insight_geral = '';
   if (!parsed.maior_avanco || typeof parsed.maior_avanco !== 'string') parsed.maior_avanco = '';
   if (!parsed.ponto_atencao || typeof parsed.ponto_atencao !== 'string') parsed.ponto_atencao = '';
-  const qualidades = ['alta', 'media', 'baixa'];
   if (!qualidades.includes(parsed.microcaso_resposta_qualidade)) parsed.microcaso_resposta_qualidade = 'media';
+  if (!parsed.microcaso_justificativa || typeof parsed.microcaso_justificativa !== 'string') parsed.microcaso_justificativa = '';
+  if (!qualidades.includes(parsed.consciencia_do_gap)) parsed.consciencia_do_gap = 'media';
+  if (!Array.isArray(parsed.dificuldades_persistentes)) parsed.dificuldades_persistentes = [];
+  if (!Array.isArray(parsed.ganhos_qualitativos)) parsed.ganhos_qualitativos = [];
   if (!Array.isArray(parsed.alertas_metodologicos)) parsed.alertas_metodologicos = [];
+  if (!Array.isArray(parsed.limites_gerais_da_conversa)) parsed.limites_gerais_da_conversa = [];
   return parsed;
 }
