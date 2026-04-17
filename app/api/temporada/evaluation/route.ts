@@ -6,7 +6,7 @@ import { aiLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
 import { promptEvolutionQualitative, promptEvolutionQualitativeExtract, validateEvolutionExtract } from '@/lib/season-engine/prompts/evolution-qualitative';
 import { promptEvolutionScenarioScore, validateEvolutionScenarioScore } from '@/lib/season-engine/prompts/evolution-scenario';
-import { promptEvolutionScenarioCheck } from '@/lib/season-engine/prompts/evolution-scenario-check';
+import { promptEvolutionScenarioCheck, validateEvolutionScenarioCheck } from '@/lib/season-engine/prompts/evolution-scenario-check';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { gerarEvolutionReport } from '@/actions/evolution-report';
 
@@ -289,7 +289,9 @@ export async function POST(request) {
           evidenciasAcumuladas: evidenciasMasked,
         });
         const rCheck = await callAI(sCheck, uCheck, {}, 8000);
-        auditoria = JSON.parse(rCheck.replace(/```json\n?|```\n?/g, '').trim());
+        let cleanedChk = rCheck.trim();
+        if (cleanedChk.startsWith('```')) cleanedChk = cleanedChk.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
+        auditoria = validateEvolutionScenarioCheck(JSON.parse(cleanedChk));
         if (auditoria?.resumo_auditoria) auditoria.resumo_auditoria = unmaskPII(auditoria.resumo_auditoria, piiMap);
       } catch (e) {
         console.error('[VERTHO] check sem14:', e.message);

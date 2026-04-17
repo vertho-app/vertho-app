@@ -149,7 +149,7 @@ export async function regerarScoringComFeedback(progressoId) {
   ].filter(Boolean).join('\n');
 
   const { promptEvolutionScenarioScore, validateEvolutionScenarioScore } = await import('@/lib/season-engine/prompts/evolution-scenario');
-  const { promptEvolutionScenarioCheck } = await import('@/lib/season-engine/prompts/evolution-scenario-check');
+  const { promptEvolutionScenarioCheck, validateEvolutionScenarioCheck } = await import('@/lib/season-engine/prompts/evolution-scenario-check');
 
   // Agrega evidências das 13 sems (era '' antes — root cause do "EVIDÊNCIAS AUSENTES")
   const { data: progs } = await sb.from('temporada_semana_progresso')
@@ -225,7 +225,9 @@ export async function regerarScoringComFeedback(progressoId) {
       evidenciasAcumuladas,
     });
     const rC = await callAI(sC, uC, {}, 8000);
-    auditoria = JSON.parse(rC.replace(/```json\n?|```\n?/g, '').trim());
+    let cleanedChk = rC.trim();
+    if (cleanedChk.startsWith('```')) cleanedChk = cleanedChk.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
+    auditoria = validateEvolutionScenarioCheck(JSON.parse(cleanedChk));
   } catch (e) {
     console.warn('[regerar check]', e.message);
   }

@@ -261,11 +261,14 @@ function DetalheModal({ detalhe, loading, onClose, onRevisado }) {
                 <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3 space-y-2">
                   <p className="text-xs">
                     Nota: <b className="text-purple-300">{detalhe.auditoria.nota_auditoria}/100</b>
-                    {' · '}Status: <b className="text-purple-300">{detalhe.auditoria.status}</b>
+                    {' · '}Status: <b className={`${detalhe.auditoria.status === 'aprovado' ? 'text-emerald-300' : detalhe.auditoria.status === 'aprovado_com_ajustes' ? 'text-amber-300' : 'text-red-300'}`}>{detalhe.auditoria.status}</b>
+                    {detalhe.auditoria.erro_grave && <span className="text-red-400 ml-2 text-[10px]">ERRO GRAVE</span>}
                   </p>
                   {detalhe.auditoria.resumo_auditoria && (
                     <p className="text-xs text-gray-300">{detalhe.auditoria.resumo_auditoria}</p>
                   )}
+                  {detalhe.auditoria.ponto_mais_confiavel && <p className="text-[10px] text-emerald-400/70">Mais confiável: {detalhe.auditoria.ponto_mais_confiavel}</p>}
+                  {detalhe.auditoria.ponto_mais_fragil && <p className="text-[10px] text-red-400/70">Mais frágil: {detalhe.auditoria.ponto_mais_fragil}</p>}
                   {detalhe.auditoria.alertas?.length > 0 && (
                     <div>
                       <p className="text-[10px] text-amber-400 font-bold mt-2">Alertas:</p>
@@ -293,7 +296,7 @@ function DetalheModal({ detalhe, loading, onClose, onRevisado }) {
                       </ul>
                     </div>
                   )}
-                  {detalhe.auditoria.status === 'revisar' && (
+                  {(detalhe.auditoria.status === 'revisar' || detalhe.auditoria.status === 'aprovado_com_ajustes') && (
                     <BotaoRegerar progressoId={detalhe.id} onRevisado={onRevisado} />
                   )}
                   {detalhe.auditoria.regerado_com_feedback && (
