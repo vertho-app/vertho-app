@@ -941,10 +941,10 @@ export async function processarReavaliacao(sessaoId: string, mensagem: string, a
 
 // ══════════════════════════════════════════════════════════════════════════════
 // 4. EXTRAÇÃO QUALITATIVA DA REAVALIAÇÃO
-// Extrai evidências por descritor D1-D6, citações literais, consciência gap
+// Transforma conversa em artefato estruturado por descritor, útil pra fusão 5.5
 // ══════════════════════════════════════════════════════════════════════════════
 
-async function extrairDadosReavaliacao(sessaoId, aiConfig = {}) {
+async function extrairDadosReavaliacao(sessaoId: any, aiConfig: any = {}) {
   const sbRaw = createSupabaseAdmin();
   const { data: sessao } = await sbRaw.from('reavaliacao_sessoes')
     .select('*, competencias!inner(nome), colaboradores!inner(nome_completo, cargo)')
@@ -953,50 +953,133 @@ async function extrairDadosReavaliacao(sessaoId, aiConfig = {}) {
   const tdb = tenantDb(sessao.empresa_id);
 
   const ctx = sessao.extracao_qualitativa?._contexto_sessao || {};
-  // Descritores vêm do contexto (populado em iniciarReavaliacaoLote via cod_comp)
-  const descritores = (ctx.descritores || []).map((d, i) =>
+  const descritores = (ctx.descritores || []).map((d: any, i: number) =>
     `${d.codigo || `D${i + 1}`}: ${d.nome || ''}`
   );
 
-  const system = `Analise a conversa de reavaliação e extraia dados qualitativos por descritor.
-Use os códigos de descritores fornecidos (D1, D2...).
-Responda APENAS com JSON válido.`;
+  // Extrair sinais do [META] acumulado na conversa (se disponíveis)
+  const metaSinais: any[] = [];
+  for (const h of (sessao.historico || [])) {
+    if (h.role === 'assistant') {
+      const m = h.content.match(/\[META\](.*?)\[\/META\]/s);
+      if (m) {
+        try {
+          const parsed = JSON.parse(m[1]);
+          if (Array.isArray(parsed.evidencias_coletadas)) {
+            metaSinais.push(...parsed.evidencias_coletadas);
+          }
+        } catch {}
+      }
+    }
+  }
 
-  const user = `Competência: ${sessao.competencias.nome}
-Colaborador: ${sessao.colaboradores.nome_completo} (${sessao.colaboradores.cargo})
-Nível baseline: N${sessao.baseline_nivel || '?'}
-Perfil DISC: ${ctx.disc?.perfil || 'N/D'}
+  const system = `Você é o extrator qualitativo da Vertho.
 
-Descritores da competência:
-${descritores.join('\n')}
+═══ TAREFA ═══
+Analisar a conversa de reavaliação pós-jornada e transformar o conteúdo
+em dados estruturados por descritor da competência.
 
-Conversa completa:
-${sessao.historico.map(h => `${h.role === 'user' ? 'COLABORADOR' : 'MENTOR'}: ${h.content.replace(/\[META\].*?\[\/META\]/s, '')}`).join('\n\n')}
+Você NÃO está avaliando formalmente. Está EXTRAINDO evidências qualitativas
+RELATADAS na conversa.
 
-Extraia:
+═══ PRINCÍPIOS ═══
+1. Extraia somente o que foi efetivamente dito ou sustentado
+2. NÃO invente evolução, comportamento ou maturidade
+3. Diferencie relato concreto de percepção subjetiva
+4. Dificuldade persistente é informação VALIOSA
+5. Se não houver evidência pra um descritor, diga explicitamente
+6. Teoria aprendida NÃO é evidência de mudança prática
+7. Intenção sem execução = evidência fraca
+
+═══ TIPOS DE EVIDÊNCIA ═══
+- mudanca_percebida
+- evidencia_relatada_concreta
+- dificuldade_persistente
+- autossensibilidade
+- intencao_sem_execucao
+
+═══ FORÇA ═══
+- fraca: abstrata, genérica, teórica, sem ação observável
+- moderada: concreta mas incompleta ou sem consequência
+- forte: concreta + coerente + com ação e consequência/critério
+
+Retorne APENAS JSON válido.`;
+
+  const blocks: string[] = [];
+  blocks.push(`═══ COMPETÊNCIA ═══\n${sessao.competencias.nome}`);
+  blocks.push(`═══ COLABORADOR ═══\n${sessao.colaboradores.nome_completo} (${sessao.colaboradores.cargo})\nNível baseline: N${sessao.baseline_nivel || '?'}`);
+  if (ctx.disc?.perfil) blocks.push(`═══ PERFIL DISC ═══\n${ctx.disc.perfil} (D=${ctx.disc.D||0} I=${ctx.disc.I||0} S=${ctx.disc.S||0} C=${ctx.disc.C||0})\nNOTA: NÃO use DISC pra nota, apenas pra leitura contextual.`);
+  blocks.push(`═══ DESCRITORES ═══\n${descritores.join('\n')}`);
+
+  if (metaSinais.length > 0) {
+    blocks.push(`═══ SINAIS DO [META] (coletados durante a conversa) ═══\n${JSON.stringify(metaSinais.slice(0, 20), null, 2)}`);
+  }
+
+  blocks.push(`═══ CONVERSA COMPLETA ═══\n${sessao.historico.map((h: any) =>
+    `${h.role === 'user' ? 'COLABORADOR' : 'MENTOR'}: ${h.content.replace(/\[META\].*?\[\/META\]/s, '').trim()}`
+  ).join('\n\n')}`);
+
+  blocks.push(`═══ FORMATO DE SAÍDA ═══
 {
-  "resumo_qualitativo": "3-4 linhas resumindo as mudanças relatadas",
+  "resumo_qualitativo": "síntese curta e fiel da conversa",
   "evidencias_por_descritor": [
     {
       "descritor": "D1",
-      "nome_descritor": "nome do descritor",
-      "evidencia_relatada": "evidência concreta mencionada",
-      "nivel_percebido": 1-4,
-      "confianca": "alta|media|baixa",
-      "citacao_literal": "frase exata do colaborador entre aspas"
+      "nome_descritor": "nome",
+      "tipos_evidencia": ["mudanca_percebida", "evidencia_relatada_concreta"],
+      "evidencia_relatada": "síntese do que foi relatado",
+      "mudanca_percebida": "o que o colaborador percebe ter mudado",
+      "dificuldade_persistente": "o que ainda continua difícil, se houver",
+      "nivel_percebido": 2.6,
+      "forca_geral": "fraca|moderada|forte",
+      "confianca": 0.75,
+      "citacoes_literais": ["citação curta 1"],
+      "limites_da_conversa": ["o que faltou"]
     }
   ],
-  "gaps_persistentes": ["D4", "D6"],
-  "consciencia_do_gap": "alta|media|baixa",
-  "conexao_cis": "como o perfil DISC (${ctx.disc?.perfil || 'N/D'}) apareceu na conversa",
-  "recomendacao_ciclo2": "foco para próximo ciclo"
-}`;
+  "gaps_persistentes": ["gap 1"],
+  "ganhos_qualitativos": ["ganho 1"],
+  "consciencia_do_gap": {
+    "nivel": "alta|media|baixa",
+    "justificativa": "frase curta"
+  },
+  "conexao_cis": {
+    "sinais_observados": ["como o estilo aparece no relato"],
+    "cuidados": ["não usar DISC pra nota"]
+  },
+  "recomendacao_ciclo2": {
+    "descritores_foco": ["D1", "D3"],
+    "justificativa": "frase curta",
+    "formato_sugerido": "pratica|conteudo|mentoria|misto"
+  },
+  "limites_gerais_da_conversa": ["limite 1"],
+  "alertas_metodologicos": ["alerta 1"]
+}
 
-  const resultado = await callAI(system, user, aiConfig, 4096, { temperature: TEMP });
-  const extracao = await extractJSON(resultado);
+REGRAS:
+- confianca: 0.0 a 1.0
+- nivel_percebido: pode usar decimal
+- citacoes_literais: 0 a 2 trechos curtos
+- não force todos os descritores a terem evidência forte
+- se fraco, registre em limites_da_conversa`);
 
+  const user = blocks.join('\n\n');
+  const resultado = await callAI(system, user, aiConfig, 8192, { temperature: TEMP });
+  let extracao = await extractJSON(resultado);
+
+  // Validação leve
   if (extracao) {
-    // Preservar _contexto_sessao e adicionar extração
+    // Confiança entre 0 e 1
+    if (Array.isArray(extracao.evidencias_por_descritor)) {
+      for (const d of extracao.evidencias_por_descritor) {
+        if (typeof d.confianca === 'number') d.confianca = Math.max(0, Math.min(1, d.confianca));
+        // Compatibilidade: confiança como string → converter
+        if (typeof d.confianca === 'string') {
+          d.confianca = d.confianca === 'alta' ? 0.85 : d.confianca === 'media' ? 0.55 : 0.25;
+        }
+      }
+    }
+    // Preservar _contexto_sessao
     await tdb.from('reavaliacao_sessoes')
       .update({ extracao_qualitativa: { ...extracao, _contexto_sessao: ctx } })
       .eq('id', sessaoId);
