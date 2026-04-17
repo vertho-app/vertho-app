@@ -3,6 +3,8 @@
 > Inventário de 88 arquivos que usam `createSupabaseAdmin()` (service_role key).
 > service_role bypassa RLS — cada uso precisa de justificativa.
 > Revisão: 2026-04-16
+>
+> **Nota**: A versão técnica/auditável da allowlist está em `config/service-role-allowlist.json` (com contagem por arquivo).
 
 ## Classificação
 
