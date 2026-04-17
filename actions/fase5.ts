@@ -1516,16 +1516,99 @@ export async function gerarRelatorioRHManual(empresaId: string, aiConfig: AIConf
   try {
     const { data: empresa } = await sbRaw.from('empresas').select('nome, segmento').eq('id', empresaId).single();
     const { data: relEvolucao } = await tdb.from('relatorios').select('*, colaboradores(nome_completo, cargo)').eq('tipo', 'evolucao');
-    const { data: relRHAnterior } = await tdb.from('relatorios').select('conteudo').eq('tipo', 'rh').single();
+    const { data: relRHAnterior } = await tdb.from('relatorios').select('conteudo').eq('tipo', 'rh').maybeSingle();
+    const { data: relPlenaria } = await tdb.from('relatorios').select('conteudo').eq('tipo', 'plenaria_evolucao').maybeSingle();
 
-    const system = `Você é um consultor estratégico de RH. Gere relatório analítico pós-desenvolvimento. Responda APENAS com JSON válido.`;
-    const user = `Empresa: ${empresa.nome} (${empresa.segmento})
-RH anterior: ${JSON.stringify(relRHAnterior?.conteudo || {}, null, 2)}
-Evolução: ${JSON.stringify((relEvolucao || []).map(r => ({ nome: r.colaboradores?.nome_completo, ...r.conteudo })), null, 2)}
+    const system = `Você é um consultor estratégico de RH da Vertho.
 
-Gere: { "resumo_executivo": "...", "roi_desenvolvimento": "...", "evolucao_organizacional": "...", "gaps_resolvidos": ["..."], "gaps_persistentes": ["..."], "recomendacoes_estrategicas": ["..."], "proximos_ciclos": ["..."] }`;
+═══ TAREFA ═══
+Gerar RELATÓRIO ANALÍTICO PÓS-DESENVOLVIMENTO com base na evolução
+agregada do grupo após o ciclo da plataforma.
 
-    const resultado = await callAI(system, user, aiConfig, 8000, { temperature: TEMP });
+═══ PRINCÍPIOS ═══
+1. NÃO invente impacto que a base não sustenta
+2. Diferencie fato observado de hipótese estratégica
+3. Conecte evolução a implicações organizacionais concretas
+4. Evite linguagem genérica de RH sem base nos dados
+5. Celebre ganhos reais ANTES de apontar limites
+6. ROI com prudência: se sem dado financeiro, use "retorno de
+   desenvolvimento", "sinais de tração", "redução de risco"
+7. Linguagem para RH e liderança executiva
+
+═══ 7 SEÇÕES OBRIGATÓRIAS ═══
+1. RESUMO_EXECUTIVO — leitura + principal ganho + principal alerta
+2. ROI_DESENVOLVIMENTO — sinais de tração + limites + hipóteses
+3. EVOLUCAO_ORGANIZACIONAL — avanços + padrões por cargo/competência
+4. GAPS_RESOLVIDOS — lacunas que melhoraram + implicação
+5. GAPS_PERSISTENTES — lacunas que continuam + implicação
+6. RECOMENDACOES_ESTRATEGICAS — prioridades + decisões + riscos
+7. PROXIMOS_CICLOS — focos + formatos + cargos prioritários
+
+Retorne APENAS JSON válido.`;
+
+    const userBlocks: string[] = [];
+    userBlocks.push(`═══ EMPRESA ═══\n${empresa.nome} (${empresa.segmento})`);
+
+    if (relRHAnterior?.conteudo) {
+      userBlocks.push(`═══ RELATÓRIO RH ANTERIOR (baseline) ═══\n${JSON.stringify(relRHAnterior.conteudo, null, 2).slice(0, 3000)}`);
+    }
+
+    if (relPlenaria?.conteudo) {
+      userBlocks.push(`═══ PLENÁRIA DE EVOLUÇÃO ═══\n${JSON.stringify(relPlenaria.conteudo, null, 2).slice(0, 3000)}`);
+    }
+
+    // Dados de evolução (anônimos — só cargo + conteúdo)
+    const evolucaoAnonima = (relEvolucao || []).map((r: any) => ({
+      cargo: r.colaboradores?.cargo,
+      competencia: r.conteudo?.competencia,
+      resumo: typeof r.conteudo?.resumo_executivo === 'string' ? r.conteudo.resumo_executivo : r.conteudo?.resumo_executivo?.sintese || '',
+      convergencias: (r.conteudo?.evolucao_por_descritor || []).map((d: any) => d.convergencia),
+      gaps: r.conteudo?.gaps_persistentes || [],
+      ganhos: r.conteudo?.ganhos_qualitativos || [],
+    }));
+    userBlocks.push(`═══ EVOLUÇÃO AGREGADA (${evolucaoAnonima.length} colaboradores — anônimo) ═══\n${JSON.stringify(evolucaoAnonima, null, 2)}`);
+
+    userBlocks.push(`═══ FORMATO DE SAÍDA (JSON) ═══
+{
+  "resumo_executivo": {
+    "leitura_geral": "síntese estratégica curta",
+    "principal_ganho": "texto curto",
+    "principal_alerta": "texto curto"
+  },
+  "roi_desenvolvimento": {
+    "leitura": "interpretação prudente do retorno",
+    "sinais_de_tracao": ["sinal 1"],
+    "limites_da_base": ["limite 1"],
+    "hipoteses_de_impacto": ["hipótese 1"]
+  },
+  "evolucao_organizacional": {
+    "avancos_institucionais": ["avanço 1"],
+    "padroes_por_cargo": ["padrão 1"],
+    "padroes_por_competencia": ["padrão 1"],
+    "leitura": "síntese curta"
+  },
+  "gaps_resolvidos": [
+    {"gap": "nome", "evidencia": "como evoluiu", "implicacao_organizacional": "por que importa"}
+  ],
+  "gaps_persistentes": [
+    {"gap": "nome", "evidencia": "como segue", "implicacao_organizacional": "por que importa"}
+  ],
+  "recomendacoes_estrategicas": {
+    "prioridades_rh": ["prioridade 1"],
+    "decisoes_recomendadas": ["decisão 1"],
+    "riscos_de_nao_acao": ["risco 1"]
+  },
+  "proximos_ciclos": {
+    "competencias_foco": ["comp 1"],
+    "cargos_prioritarios": ["cargo 1"],
+    "formatos_sugeridos": ["pratica", "mentoria"],
+    "hipotese_de_desenho": "texto curto"
+  },
+  "alertas_metodologicos": ["alerta 1"]
+}`);
+
+    const user = userBlocks.join('\n\n');
+    const resultado = await callAI(system, user, aiConfig, 8192, { temperature: TEMP });
     const relatorio = await extractJSON(resultado);
     if (relatorio) {
       await tdb.from('relatorios').upsert({ colaborador_id: null, tipo: 'rh_manual', conteudo: relatorio, gerado_em: new Date().toISOString() }, { onConflict: 'empresa_id,colaborador_id,tipo' });
