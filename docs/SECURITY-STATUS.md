@@ -55,11 +55,20 @@
 - `migrations-legacy/` removido (37 arquivos SQL de migracoes antigas)
 - Script npm `migrate:legacy` removido
 
-### service_role (88 arquivos)
+### service_role (~80 arquivos apos remocao de stubs)
 - **34** usos aceitaveis (infra, jobs, webhooks, admin protegido)
 - **29** candidatos a migracao para user-scoped (quando RLS estiver pronta)
-- **25** complexos demais pra migrar sem RLS policies completas + testes
+- **~17** complexos demais pra migrar sem RLS policies completas + testes
+- 8 stubs de API sem auth removidos (sprint 2026-04-17)
 - Inventario completo: `docs/service-role-allowlist.md` + `config/service-role-allowlist.json`
+
+### Stubs API removidos (sprint 2026-04-17)
+- `api/relatorios/route.ts`, `api/pdi/route.ts`, `api/ppp/route.ts`, `api/cargos/route.ts`, `api/academia/route.ts`, `api/generate-narratives/route.ts`, `api/relatorios/individual/route.ts`, `api/webhooks/qstash/route.ts`
+- Todos retornavam `{status:'ok'}` sem nenhuma autenticacao — risco de superficie de ataque
+
+### registrarEvidencia corrigido (sprint 2026-04-17)
+- Antes: aceitava `colaboradorId` e `empresaId` como parametros do client sem validacao
+- Depois: recebe `email`, resolve via `findColabByEmail()` (ownership server-side)
 
 ### RLS
 - Habilitada em varias tabelas mas com policies permissivas (`USING (true)`)
@@ -74,11 +83,12 @@
 - Detalhes: migrations 044/045 + notas inline
 
 ### Cobertura de testes
-- **111 testes vitest** (15 arquivos)
+- **120 testes vitest** (16 arquivos)
 - Mix de comportamental (handlers reais mockados) e estrutural (presenca de guards no codigo)
 - Testes comportamentais: ~20 (rotas + actions)
 - Testes estruturais: ~85 (string matching — complementares, nao substituem comportamental)
 - Guard de service_role: 3 testes (allowlist + stale + contagem)
+- **Testes de isolamento cross-tenant**: 9 cenarios (tenant A nao acessa B, acesso legitimo permitido, colab access)
 
 ## O que NAO esta coberto
 - RLS real no banco (policies sao permissivas)
