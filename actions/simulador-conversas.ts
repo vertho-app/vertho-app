@@ -77,47 +77,79 @@ export async function simularUmaResposta(empresaId: string, colaboradorId: strin
 
     // Sortear nível alvo
     const rand = Math.random();
-    let nivelAlvo, perfilResp;
+    let nivelAlvo: number, perfilLabel: string;
     if (rand < 0.30) {
       nivelAlvo = Math.random() < 0.5 ? 1 : 2;
-      perfilResp = `FRACO (N${nivelAlvo}): Respostas vagas, genéricas, sem exemplos concretos. Usa "acho que sim", "depende", "faria o básico". Não demonstra reflexão. Respostas curtas (2-3 frases).`;
+      perfilLabel = 'fraco';
     } else if (rand < 0.80) {
       nivelAlvo = Math.random() < 0.5 ? 2 : 3;
-      perfilResp = `MÉDIO (N${nivelAlvo}): Respostas com alguma substância mas inconsistentes. Dá exemplos genéricos. Reconhece dificuldades sem plano claro. Mostra intenção mas falta método. Respostas médias (3-5 frases).`;
+      perfilLabel = 'medio';
     } else {
       nivelAlvo = Math.random() < 0.5 ? 3 : 4;
-      perfilResp = `FORTE (N${nivelAlvo}): Respostas detalhadas com exemplos concretos e reflexão. Demonstra intencionalidade e autocrítica. Propõe ações específicas, conecta ao impacto. Respostas completas (4-7 frases).`;
+      perfilLabel = 'forte';
     }
-
-    // Gerar respostas via IA
-    const system = `Você vai simular as respostas de um colaborador a 4 perguntas de um cenário de avaliação de competências.
-
-COLABORADOR: ${colab.nome_completo || colab.email}
-CARGO: ${colab.cargo}
-COMPETÊNCIA: ${comp?.nome || 'Competência'}
-
-CENÁRIO:
-${cenario.descricao}
-
-PERFIL DE RESPOSTA:
-${perfilResp}
-
-REGRAS:
-- Respostas REALISTAS — linguagem coloquial, natural
-- Coerentes com o perfil de nível indicado
-- Cada resposta é independente mas coerente com o cenário
-- NÃO use linguagem acadêmica ou perfeita
-- Se nível fraco: hesitações, respostas incompletas, genéricas
-- Se nível forte: exemplos concretos, reflexão, plano de ação
-
-Retorne APENAS JSON:
-{"r1": "resposta à P1", "r2": "resposta à P2", "r3": "resposta à P3", "r4": "resposta à P4"}`;
 
     const perguntasTexto = perguntas.map((p, i) =>
       `P${p.numero || i + 1}: ${p.texto || (typeof p === 'string' ? p : JSON.stringify(p))}`
     ).join('\n\n');
 
-    const user = `Responda estas 4 perguntas como o colaborador descrito:\n\n${perguntasTexto}`;
+    const system = `Você vai simular as respostas de um colaborador fictício a 4 perguntas de um cenário de avaliação de competências.
+
+ATENÇÃO:
+Seu papel NÃO é produzir a melhor resposta possível.
+Seu papel é gerar respostas PLAUSÍVEIS, humanas e úteis para testar a robustez da IA avaliadora.
+
+PRINCÍPIOS INEGOCIÁVEIS:
+1. Escreva sempre em primeira pessoa.
+2. Use português brasileiro natural.
+3. Não use linguagem acadêmica.
+4. Não mencione nível, rubrica, competência ou descritor.
+5. As respostas devem soar humanas, não "treinadas para avaliação".
+6. As 4 respostas devem variar naturalmente entre si.
+7. Mesmo respostas fortes devem parecer de pessoa real.
+
+PERFIS DE RESPOSTA:
+
+FRACO (N1-2):
+- vago, genérico, pouca estrutura, pouca consequência
+- hesitação plausível ("acho", "tentaria", "depende")
+- 2 a 4 frases por resposta
+- sem caricatura
+
+MÉDIO (N2-3):
+- alguma substância mas inconsistente
+- critério parcial, exemplo mais genérico
+- 3 a 5 frases por resposta
+- bom para gerar ambiguidade real de avaliação
+
+FORTE (N3-4):
+- ação concreta, critério claro, adaptação
+- consequência percebida, autopercepção mais madura
+- 4 a 7 frases por resposta
+- ainda humano, sem soar ensaiado
+
+REGRAS DE QUALIDADE:
+- R1 a R4 precisam responder à lógica de cada pergunta
+- não copie a mesma estrutura em todas
+- P4 tende a trazer mais consciência de limite ou aprendizado
+- use situações plausíveis para o cargo
+- não escreva como consultor, professor ou IA
+
+RETORNE APENAS JSON VÁLIDO, sem markdown, sem texto antes ou depois.
+{"r1": "resposta P1", "r2": "resposta P2", "r3": "resposta P3", "r4": "resposta P4"}`;
+
+    const user = `COLABORADOR: ${colab.nome_completo || colab.email}
+CARGO: ${colab.cargo}
+COMPETÊNCIA: ${comp?.nome || 'Competência'}
+PERFIL-ALVO: ${perfilLabel} (N${nivelAlvo})
+
+CENÁRIO:
+${cenario.descricao}
+
+PERGUNTAS:
+${perguntasTexto}
+
+Responda as 4 perguntas como esse colaborador responderia.`;
 
     const resposta = await callAI(system, user, aiConfig, 4096);
     const resultado = await extractJSON(resposta);
