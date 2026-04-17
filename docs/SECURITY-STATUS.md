@@ -68,7 +68,21 @@
 
 ### registrarEvidencia corrigido (sprint 2026-04-17)
 - Antes: aceitava `colaboradorId` e `empresaId` como parametros do client sem validacao
-- Depois: recebe `email`, resolve via `findColabByEmail()` (ownership server-side)
+- Depois: identidade 100% server-side via `getAuthenticatedEmailFromAction()` (cookies SSR)
+
+### Avaliacao de reducao de service_role (sprint 2026-04-17)
+6 fluxos de dashboard avaliados para migracao de `createSupabaseAdmin()`:
+- 4 read-only puros (content/search, capacitacao-recomendada, dashboard-actions, jornada-actions)
+- 2 parciais (perfil-actions e pdi-actions precisam de storage)
+
+**Decisao: manter service_role em todos os 6.** Motivo: sem RLS real ativa, trocar
+service_role por anon key nao reduz privilegio efetivo — ambos leem todas as tabelas.
+A reducao real de risco ja esta feita via:
+- tenant derivado server-side (findColabByEmail / getUserContext)
+- queries filtradas por empresa_id no codigo
+- ownership checks antes de qualquer operacao
+
+Prerequisito para migracao real: RLS policies por tabela + testes de enforcement
 
 ### RLS
 - Habilitada em varias tabelas mas com policies permissivas (`USING (true)`)
