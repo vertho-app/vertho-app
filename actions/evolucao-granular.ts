@@ -89,46 +89,63 @@ export async function gerarEvolucaoDescritores(empresaId: string, colaboradorId:
         C: colaborador.c_natural,
       };
 
-      const system = `Voce e um especialista em avaliacao de competencias comportamentais com profundo conhecimento da metodologia DISC.
-Sua tarefa e analisar a evolucao de um colaborador entre avaliacao inicial e reavaliacao, descritor por descritor.
-Responda APENAS com JSON valido, sem texto adicional.`;
+      const system = `Você é um especialista em análise de evolução de competências da Vertho.
 
-      const user = `## Competencia
-Nome: ${competencia.nome}
-Descricao: ${competencia.descricao}
-Gabarito (descritores e niveis): ${JSON.stringify(competencia.gabarito)}
+Sua tarefa é analisar a evolução de um colaborador, descritor por descritor, comparando avaliação inicial e reavaliação.
 
-## Perfil DISC do colaborador
-${JSON.stringify(discProfile)}
+ATENÇÃO:
+Você NÃO está fazendo uma nova avaliação completa.
+Você está produzindo uma leitura ANALÍTICA DA EVOLUÇÃO por descritor.
 
-## Avaliacao Inicial
+PRINCÍPIOS INEGOCIÁVEIS:
+1. Não force evolução.
+2. Não esconda regressão quando houver base.
+3. Não trate cenário isolado como verdade absoluta.
+4. Não use DISC/CIS como explicação determinista — use como contexto ("pode favorecer", "tende a influenciar").
+5. Toda leitura precisa ser útil, específica e conectada ao descritor.
+6. Seja analítico, mas sem exagero interpretativo.
+7. Prefira prudência a falsa precisão.
+
+RETORNE APENAS JSON VÁLIDO (array), sem markdown, sem texto antes ou depois.`;
+
+      const user = `COMPETÊNCIA: ${competencia.nome}
+Descrição: ${competencia.descricao}
+Gabarito (descritores e níveis): ${JSON.stringify(competencia.gabarito)}
+
+PERFIL DISC: ${JSON.stringify(discProfile)}
+
+AVALIAÇÃO INICIAL:
 ${JSON.stringify(sessaoInicial.avaliacao_final)}
 
-## Reavaliacao
+REAVALIAÇÃO:
 ${JSON.stringify(sessaoReav.avaliacao_final)}
 
-## Cenario B utilizado na reavaliacao
-${cenarioB ? JSON.stringify({ titulo: cenarioB.titulo, descricao: cenarioB.descricao }) : 'Nao disponivel'}
+CENÁRIO B (reavaliação):
+${cenarioB ? JSON.stringify({ titulo: cenarioB.titulo, descricao: cenarioB.descricao }) : 'Não disponível'}
 
-## Instrucoes
-Para CADA descritor presente no gabarito da competencia, analise a evolucao e retorne um array JSON:
-
+Para CADA descritor do gabarito, retorne:
 [
   {
-    "descritor": "Nome/identificador do descritor",
-    "nivel_inicial": 1-5,
-    "nivel_reavaliacao": 1-5,
-    "delta": -4 a +4,
-    "evidencia_cenario_B": "Que evidencia do Cenario B mostra a mudanca (ou falta dela) neste descritor",
-    "convergencia": "sim|parcial|nao — a aprendizagem convergiu com o esperado?",
-    "convergencia_detalhe": "Explicacao breve da convergencia",
-    "conexao_CIS": "Como o perfil DISC (${colaborador.perfil_dominante}) se relaciona com a mudanca neste descritor",
-    "recomendacao": "Proximos passos para desenvolvimento neste descritor"
+    "descritor": "nome do descritor",
+    "nivel_inicial": 1.0-4.0,
+    "nivel_reavaliacao": 1.0-4.0,
+    "delta": -3.0 a +3.0,
+    "evidencia_cenario_B": "síntese curta e fiel da evidência principal",
+    "convergencia": "convergente_positiva|convergente_parcial|estavel|regressiva|divergente",
+    "convergencia_detalhe": "explicação curta e específica do movimento",
+    "conexao_CIS": "leitura contextual breve e prudente — sem determinismo",
+    "recomendacao": "próximo foco útil e proporcional ao movimento"
   }
 ]
 
-Seja preciso nos niveis, baseando-se nos dados da avaliacao_final.
-Se a avaliacao_final nao tiver dados por descritor, estime com base no contexto geral.`;
+REGRAS:
+- delta pode ser positivo, zero ou negativo
+- convergencia deve vir da lista controlada
+- evidencia_cenario_B curta e fiel ao que apareceu
+- conexao_CIS como hipótese contextual, não explicação causal
+- recomendacao proporcional ao delta (evolução grande → manutenção; gap → foco)
+- Baseie-se nos dados da avaliacao_final. Se não houver por descritor, estime com prudência
+- NÃO force todos positivos — reconheça estagnação e regressão quando houver base`;
 
       const resultado = await callAI(system, user, aiConfig, 32768);
       const descritores = await extractJSON(resultado);
