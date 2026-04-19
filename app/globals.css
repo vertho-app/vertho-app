@@ -15,6 +15,11 @@
   --purple: #9E4EDD;
   --purple-deep: #3B0A6D;
 
+  /* Tokens de fase — setados por data-phase no shell de página */
+  --phase-accent: #34c5cc;
+  --phase-deep: #06202a;
+  --phase-glow: rgba(52, 197, 204, 0.24);
+
   /* Tokens funcionais */
   --ink: #F3F7FB;
   --ink-dim: rgba(243, 247, 251, 0.62);
@@ -54,3 +59,10 @@ body {
   --color-danger: #E74C3C;
   --color-coral: #F97354;
 }
+
+/* Phase accent overrides */
+[data-phase="1"] { --phase-accent:#9ae2e6; --phase-deep:#0a1a33; --phase-glow:rgba(154,226,230,0.22); }
+[data-phase="2"] { --phase-accent:#34c5cc; --phase-deep:#06202a; --phase-glow:rgba(52,197,204,0.24); }
+[data-phase="3"] { --phase-accent:#7ba7e0; --phase-deep:#1a1f4a; --phase-glow:rgba(123,167,224,0.26); }
+[data-phase="4"] { --phase-accent:#b888e8; --phase-deep:#1a0d33; --phase-glow:rgba(184,136,232,0.26); }
+[data-phase="5"] { --phase-accent:#e1aaf0; --phase-deep:#1a0220; --phase-glow:rgba(225,170,240,0.26); }

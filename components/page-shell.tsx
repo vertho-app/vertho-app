@@ -19,12 +19,8 @@ export function PageContainer({ children, className = '' }: { children: React.Re
  * Hero editorial — saudação/categoria + título grande + subtítulo.
  * Usado no topo de cada sub-página pra manter coerência com a home.
  *
- * Props:
- * - eyebrow: string curta em caps (ex: "JORNADA", "MEU PDI")
- * - title: título grande
- * - subtitle: texto complementar opcional
- * - showBack: mostrar botão voltar (default false no desktop)
- * - actions: JSX opcional à direita do título (botões/CTAs)
+ * A cor de --phase-accent é herdada do ancestral com data-phase="N".
+ * Fallback: ciano da marca (#22d3ee).
  */
 interface PageHeroProps {
   eyebrow?: React.ReactNode;
@@ -40,8 +36,10 @@ export function PageHero({ eyebrow, title, subtitle, showBack = true, actions, t
   return (
     <header className="mb-8 md:mb-12">
       {showBack && (
-        <button onClick={() => router.back()}
-          className="flex items-center gap-1.5 text-xs md:text-sm text-gray-400 hover:text-white transition-colors mb-3 md:mb-5">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center gap-1.5 text-xs md:text-sm text-gray-400 hover:text-white transition-colors mb-3 md:mb-5"
+        >
           <ArrowLeft size={16} /> Voltar
         </button>
       )}
@@ -49,13 +47,26 @@ export function PageHero({ eyebrow, title, subtitle, showBack = true, actions, t
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div className="min-w-0">
           {eyebrow && (
-            <p className="text-[10px] md:text-xs font-bold tracking-[0.25em] text-cyan-400 uppercase mb-2">
+            // ✅ PATCH: era text-cyan-400 hardcoded — agora herda --phase-accent
+            <p
+              className="text-[10px] md:text-xs font-bold tracking-[0.25em] uppercase mb-2"
+              style={{ color: 'var(--phase-accent, #22d3ee)' }}
+            >
               {eyebrow}
             </p>
           )}
-          <h1 className="font-extrabold text-2xl md:text-4xl text-white leading-tight"
-            style={{ textShadow: '0 0 40px rgba(0, 180, 216, 0.15)' }}>
-            {title}{titleAccent && <span className="text-cyan-400"> {titleAccent}</span>}
+          <h1
+            className="font-extrabold text-2xl md:text-4xl text-white leading-tight"
+            // ✅ PATCH: textShadow usa color-mix com --phase-accent em vez de ciano fixo
+            style={{
+              textShadow:
+                '0 0 40px color-mix(in oklab, var(--phase-accent, #00B4D8) 20%, transparent)',
+            }}
+          >
+            {title}
+            {titleAccent && (
+              <span style={{ color: 'var(--phase-accent, #22d3ee)' }}> {titleAccent}</span>
+            )}
           </h1>
           {subtitle && (
             <p className="text-sm text-gray-400 mt-2 max-w-2xl leading-relaxed">{subtitle}</p>
@@ -72,10 +83,20 @@ export function PageHero({ eyebrow, title, subtitle, showBack = true, actions, t
  * GlassCard — wrapper leve com backdrop blur + border sutil.
  * Consistente com os bento cards da home.
  */
-export function GlassCard({ children, className = '', padding = 'p-5 md:p-6' }: { children: React.ReactNode; className?: string; padding?: string }) {
+export function GlassCard({
+  children,
+  className = '',
+  padding = 'p-5 md:p-6',
+}: {
+  children: React.ReactNode;
+  className?: string;
+  padding?: string;
+}) {
   return (
-    <div className={`rounded-2xl border border-white/[0.06] ${padding} ${className}`}
-      style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
+    <div
+      className={`rounded-2xl border border-white/[0.06] ${padding} ${className}`}
+      style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}
+    >
       {children}
     </div>
   );
@@ -84,7 +105,15 @@ export function GlassCard({ children, className = '', padding = 'p-5 md:p-6' }: 
 /**
  * SectionHeader — título de seção interna com eyebrow tracking.
  */
-export function SectionHeader({ eyebrow, title, actions }: { eyebrow?: React.ReactNode; title?: React.ReactNode; actions?: React.ReactNode }) {
+export function SectionHeader({
+  eyebrow,
+  title,
+  actions,
+}: {
+  eyebrow?: React.ReactNode;
+  title?: React.ReactNode;
+  actions?: React.ReactNode;
+}) {
   return (
     <div className="flex items-end justify-between mb-4 md:mb-6">
       <div>
