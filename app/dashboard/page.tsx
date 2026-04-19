@@ -12,6 +12,7 @@ import { loadHomeKpis } from '@/actions/dashboard-kpis';
 import { loadUltimosVideosColab } from '@/actions/video-analytics';
 import VideoModal from '@/components/video-modal';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
+import { ContentThumb } from '@/components/content-thumb';
 
 const BUNNY_LIBRARY = 636615;
 
@@ -251,15 +252,8 @@ export default function DashboardHomePage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               {capacitacoes.slice(0, 4).map(item => {
-                const Icon = FORMATO_ICON[item.formato] || Play;
-                const label = FORMATO_LABEL[item.formato] || 'Conteúdo';
                 const isVideo = item.formato === 'video' && item.bunny_video_id;
-                const gradients: Record<string, string> = {
-                  video: 'linear-gradient(135deg, #9AE2E6, #34C5CC)',
-                  audio: 'linear-gradient(135deg, #0F2B54, #3B0A6D)',
-                  texto: 'linear-gradient(135deg, #0D9488, #0F766E)',
-                  case: 'linear-gradient(135deg, #1E3A5F, #0D9488)',
-                };
+                const label = FORMATO_LABEL[item.formato] || 'Conteúdo';
                 const pillColors: Record<string, string> = {
                   video: 'bg-[#34C5CC]/15 text-[#9AE2E6]',
                   audio: 'bg-[#9E4EDD]/18 text-[#E1AAF0]',
@@ -274,18 +268,13 @@ export default function DashboardHomePage() {
                       if (isVideo) setActiveVideo({ videoId: item.bunny_video_id, titulo: item.titulo });
                       else if (item.url) window.open(item.url, '_blank', 'noopener');
                     }}>
-                    <div className="aspect-[1.25/1] flex items-center justify-center relative overflow-hidden"
-                      style={{ background: gradients[item.formato] || gradients.video }}>
-                      {isVideo && (
-                        <img src={`/api/bunny-thumb/${item.bunny_video_id}`} alt={item.titulo}
-                          loading="lazy" className="absolute inset-0 w-full h-full object-cover"
-                          onError={e => { e.currentTarget.style.display = 'none'; }} />
-                      )}
-                      <div className="relative w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                        <Icon size={24} className={`text-white ${item.formato === 'video' ? 'ml-0.5' : ''}`}
-                          fill={item.formato === 'video' ? 'currentColor' : 'none'} />
-                      </div>
-                    </div>
+                    <ContentThumb
+                      formato={item.formato}
+                      ordem={item.ordem ?? null}
+                      duracao={item.duracao_fmt ?? null}
+                      titulo={item.titulo}
+                      bunnyId={item.bunny_video_id}
+                    />
                     <div className="p-4">
                       <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold mb-2 ${pillColors[item.formato] || pillColors.video}`}>
                         {label}
