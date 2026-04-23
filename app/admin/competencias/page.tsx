@@ -301,11 +301,43 @@ export default function CompetenciasPage() {
                 {descritores.length > 0 && descritores[0].cod_desc && (
                   <div className="border-t border-white/[0.04]">
                     <div className="divide-y divide-white/[0.02]">
-                      {descritores.map((d: any) => (
-                        <div key={d.id} className="px-4 py-2 text-[11px] text-gray-200 hover:bg-white/[0.02]">
-                          {d.nome_curto || d.descritor_completo || '—'}
-                        </div>
-                      ))}
+                      {descritores.map((d: any) => {
+                        const hasN1 = !!d.n1_gap;
+                        const hasN2 = !!d.n2_desenvolvimento;
+                        const hasN3 = !!d.n3_meta;
+                        const hasN4 = !!d.n4_referencia;
+                        const filled = [hasN1, hasN2, hasN3, hasN4].filter(Boolean).length;
+                        return (
+                          <div key={d.id} className="group px-4 py-2 text-[11px] text-gray-200 hover:bg-white/[0.02]">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="flex-1">{d.nome_curto || d.descritor_completo || '—'}</span>
+                              <div className="flex items-center gap-1 shrink-0">
+                                {[
+                                  { label: 'N1', has: hasN1 },
+                                  { label: 'N2', has: hasN2 },
+                                  { label: 'N3', has: hasN3 },
+                                  { label: 'N4', has: hasN4 },
+                                ].map(n => (
+                                  <span key={n.label} className={`text-[9px] px-1.5 py-0.5 rounded ${n.has ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/15 text-red-400/60'}`}>
+                                    {n.label}
+                                  </span>
+                                ))}
+                                <span className={`text-[9px] ml-1 ${filled === 4 ? 'text-emerald-400' : filled >= 2 ? 'text-amber-400' : 'text-red-400'}`}>
+                                  {filled}/4
+                                </span>
+                              </div>
+                            </div>
+                            {/* Hover: mostra conteúdo da régua */}
+                            <div className="hidden group-hover:block mt-1.5 space-y-1 text-[10px] text-gray-400 pl-2 border-l border-white/[0.06]">
+                              {hasN1 && <p><span className="text-red-400 font-semibold">N1</span> {d.n1_gap}</p>}
+                              {hasN2 && <p><span className="text-amber-400 font-semibold">N2</span> {d.n2_desenvolvimento}</p>}
+                              {hasN3 && <p><span className="text-cyan-400 font-semibold">N3</span> {d.n3_meta}</p>}
+                              {hasN4 && <p><span className="text-emerald-400 font-semibold">N4</span> {d.n4_referencia}</p>}
+                              {filled === 0 && <p className="text-red-400/60 italic">Régua não preenchida</p>}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
