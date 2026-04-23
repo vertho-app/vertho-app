@@ -40,6 +40,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
   const [cenarios, setCenarios] = useState([]);
   const [cenOpen, setCenOpen] = useState(null);
   const [cenAction, setCenAction] = useState(null);
+  const [cenProgress, setCenProgress] = useState<{ current: number; total: number; label: string } | null>(null);
 
   function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 2500); }
 
@@ -472,8 +473,10 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                       onClick={async () => {
                         const paraRevisar = cens.filter(c => c.status_check === 'revisar' || c.status_check === 'aprovado_com_ressalvas');
                         let ok = 0, semCheck = 0;
-                        for (const c of paraRevisar) {
+                        for (let idx = 0; idx < paraRevisar.length; idx++) {
+                          const c = paraRevisar[idx];
                           setCenAction({ id: c.id, type: 'regen' });
+                          setCenProgress({ current: idx + 1, total: paraRevisar.length, label: c.titulo || `Cenário ${idx + 1}` });
                           try {
                             const r = await regenerarCenario(c.id);
                             if (r.success) {
@@ -486,6 +489,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                           }
                         }
                         setCenAction(null);
+                        setCenProgress(null);
                         flash(`${ok} revisados${semCheck ? ` · ${semCheck} sem validação (clique 'Validar todos')` : ''}`);
                         refresh();
                       }}
@@ -515,6 +519,18 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                     </button>
                   )}
                 </div>
+                {cenProgress && (
+                  <div className="mb-3 rounded-lg border border-amber-400/20 bg-amber-400/5 px-4 py-3">
+                    <div className="flex items-center justify-between text-[11px] mb-1.5">
+                      <span className="text-amber-400 font-bold">Revisando {cenProgress.current}/{cenProgress.total}</span>
+                      <span className="text-gray-400 truncate ml-3 max-w-[300px]">{cenProgress.label}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                      <div className="h-full rounded-full bg-amber-400 transition-all duration-300"
+                        style={{ width: `${Math.round((cenProgress.current / cenProgress.total) * 100)}%` }} />
+                    </div>
+                  </div>
+                )}
                 <div className="space-y-2">
                   {cens.map((c: any) => {
                     const isOpen = cenOpen === c.id;
