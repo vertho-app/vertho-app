@@ -243,29 +243,6 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
       {/* ══════════════ TAB: TOP 5 ══════════════ */}
       {tab === 'top5' && (
         <div>
-          {cargosData.length > 0 && top10.length > 0 && (
-            <div className="mb-4 flex items-center gap-2">
-              <button
-                onClick={async () => {
-                  for (const cargo of cargosData) {
-                    const cargoTop10 = top10
-                      .filter(t => t.cargo === cargo.nome)
-                      .sort((a, b) => (a.posicao || 99) - (b.posicao || 99))
-                      .slice(0, 5)
-                      .map(t => t.competencia?.nome)
-                      .filter(Boolean);
-                    if (cargoTop10.length > 0 && !(cargo.top5_workshop?.length)) {
-                      await salvarTop5(cargo.id, cargoTop10);
-                    }
-                  }
-                  refresh();
-                }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-amber-400/30 text-amber-400 hover:bg-amber-400/10 transition-all">
-                <Target size={12} /> Auto-preencher do Top 10 (primeiras 5)
-              </button>
-              <span className="text-[10px] text-gray-500">Só preenche cargos sem Top 5 definido</span>
-            </div>
-          )}
           {cargosData.length === 0 ? (
             <Empty icon={Target} text="Nenhum cargo encontrado. Selecione Top 5 na tela de Cargos & Top 5." />
           ) : cargosData.map(cargo => {
