@@ -23,7 +23,7 @@ import {
   loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, limparMapeamentoCompetencias, limparCenariosB, limparReavaliacaoSessoes, definirSenhaTesteEmpresa, loadColaboradoresLista,
   rodarIA1, rodarIA2, rodarIA3,
   verStatusEnvios,
-  rodarIA4, checkAvaliacoes,
+  rodarIA4, rodarIA4Uma, listarPendentesIA4, checkAvaliacoes,
   montarTrilhasLote, salvarCompetenciaFoco, loadCompetenciasFoco,
   gerarCenariosBLote, gerarRelatoriosEvolucaoLote, gerarPlenariaEvolucao, gerarRelatorioRHManual, gerarRelatorioPlenaria, enviarLinksPerfil, gerarDossieGestor, checkCenarios,
 } from './actions';
@@ -238,13 +238,26 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         return;
       }
 
-      // IA4 — Avaliar + Check (dual picker)
+      // IA4 — Avaliar uma por vez + Check (dual picker)
       if (actionKey === 'ia4') {
         const checkModel = aiConfig?.checkModel;
-        addLog(`⏳ Avaliando respostas com ${aiConfig?.model || 'modelo padrão'}...`, 'info');
-        const r1 = await rodarIA4(empresaId, aiConfig || undefined);
-        addLog(r1.success ? `✅ ${r1.message}` : `❌ ${r1.error}`, r1.success ? 'success' : 'error');
-        if (r1.success && checkModel) {
+        addLog(`⏳ Listando respostas pendentes...`, 'info');
+        const fila = await listarPendentesIA4(empresaId);
+        if (!fila.success || !fila.data?.length) {
+          addLog(fila.data?.length === 0 ? '✅ Nenhuma resposta pendente' : `❌ ${fila.error}`, fila.data?.length === 0 ? 'success' : 'error');
+          setPendingAction(null);
+          return;
+        }
+        addLog(`📋 ${fila.data.length} respostas pendentes. Avaliando uma por vez...`, 'info');
+        let ok = 0, erros = 0;
+        for (let i = 0; i < fila.data.length; i++) {
+          addLog(`⏳ [${i + 1}/${fila.data.length}] Avaliando...`, 'info');
+          const r = await rodarIA4Uma(empresaId, fila.data[i].id, aiConfig || undefined);
+          if (r.success) { ok++; addLog(`✅ ${r.message}`, 'success'); }
+          else { erros++; addLog(`⚠ ${r.error}`, 'error'); }
+        }
+        addLog(`✅ IA4: ${ok} avaliadas${erros ? `, ${erros} erros` : ''}`, 'success');
+        if (ok > 0 && checkModel) {
           addLog(`🔍 Validando avaliações com ${checkModel}...`, 'info');
           const r2 = await checkAvaliacoes(empresaId, { model: checkModel });
           addLog(r2.success ? `✅ ${r2.message}` : `⚠ Check falhou: ${r2.error}`, r2.success ? 'success' : 'error');

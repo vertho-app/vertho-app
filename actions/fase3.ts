@@ -128,6 +128,240 @@ REGRAS DO JSON:
 - sustentacao: "forte" | "fraca" | "insuficiente"
 - NÃO calcule media_descritores, nivel_geral, gap ou travas — isso é feito em código`;
 
+async function _avaliarUmaResposta(tdb: any, sbRaw: any, resp: any, colab: any, empresa: any, contextoPPP: string, aiConfig: AIConfig) {
+  let cenarioTexto = '', perguntasTexto = '';
+  if (resp.cenario_id) {
+    const { data: cen } = await sbRaw.from('banco_cenarios')
+      .select('titulo, descricao, alternativas')
+      .eq('id', resp.cenario_id).maybeSingle();
+    if (cen) {
+      cenarioTexto = `${cen.titulo}\n${cen.descricao}`;
+      const altObj = typeof cen.alternativas === 'object' && !Array.isArray(cen.alternativas) ? cen.alternativas : {};
+      const pergs = altObj.perguntas || (Array.isArray(cen.alternativas) ? cen.alternativas : []);
+      perguntasTexto = pergs.map((p: any, i: number) => {
+        const num = p.numero || i + 1;
+        return `P${num}: ${p.texto || ''}\nDescritores primarios: ${Array.isArray(p.descritores_primarios) ? p.descritores_primarios.map((d: any) => `D${d}`).join(', ') : ''}\nDiferenciacao: ${p.o_que_diferencia_niveis || ''}`;
+      }).join('\n\n');
+    }
+  }
+
+  let compNome = '', compCod = '', descritoresTexto = '';
+  if (resp.competencia_id) {
+    const { data: comp } = await tdb.from('competencias')
+      .select('nome, cod_comp, descricao').eq('id', resp.competencia_id).maybeSingle();
+    compNome = comp?.nome || '';
+    compCod = comp?.cod_comp || '';
+    const { data: descs } = await tdb.from('competencias')
+      .select('cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
+      .eq('cod_comp', comp?.cod_comp)
+      .not('cod_desc', 'is', null);
+    if (descs?.length) {
+      descritoresTexto = descs.map((d: any, i: number) => {
+        return `DESCRITOR ${i + 1}: ${d.cod_desc} — ${d.nome_curto || d.descritor_completo || ''}
+N1 (Emergente): ${d.n1_gap || 'Não definido'}
+N2 (Em desenvolvimento): ${d.n2_desenvolvimento || 'Não definido'}
+N3 (Proficiente/META): ${d.n3_meta || 'Não definido'}
+N4 (Referência): ${d.n4_referencia || 'Não definido'}`;
+      }).join('\n\n');
+    }
+  }
+
+  let perfilCIS = '';
+  if (colab.d_natural != null) {
+    perfilCIS = `PERFIL CIS:
+DISC: D=${colab.d_natural} | I=${colab.i_natural} | S=${colab.s_natural} | C=${colab.c_natural}
+Dominante: ${colab.perfil_dominante || '—'}
+Lideranca: Executor=${colab.lid_executivo || 0}% | Motivador=${colab.lid_motivador || 0}% | Metodico=${colab.lid_metodico || 0}% | Sistematico=${colab.lid_sistematico || 0}%`;
+  }
+
+  const userBlocks: string[] = [];
+  userBlocks.push(`═══ PROFISSIONAL ═══\nNome: ${colab.nome_completo || '—'}\nCargo: ${colab.cargo || '—'}`);
+  userBlocks.push(`═══ EMPRESA ═══\n${empresa?.nome || '—'} (${empresa?.segmento || '—'})`);
+  if (contextoPPP) userBlocks.push(`═══ CONTEXTO INSTITUCIONAL ═══\n${contextoPPP}`);
+  if (perfilCIS) userBlocks.push(`═══ PERFIL COMPORTAMENTAL ═══\n${perfilCIS}\nNOTA: O perfil NÃO altera a nota. Influencia APENAS o tom do feedback.`);
+  userBlocks.push(`═══ COMPETÊNCIA AVALIADA ═══\nCódigo: ${compCod}\nNome: ${compNome}`);
+  userBlocks.push(`═══ RÉGUA DE MATURIDADE ═══\n${descritoresTexto || '(descritores não disponíveis)'}`);
+  if (cenarioTexto) userBlocks.push(`═══ CENÁRIO APRESENTADO ═══\n${cenarioTexto}`);
+  if (perguntasTexto) userBlocks.push(`═══ PERGUNTAS E MAPEAMENTO ═══\n${perguntasTexto}`);
+  userBlocks.push(`═══ RESPOSTAS DO PROFISSIONAL ═══
+R1: ${resp.r1 || '(sem resposta)'}
+R2: ${resp.r2 || '(sem resposta)'}
+R3: ${resp.r3 || '(sem resposta)'}
+R4: ${resp.r4 || '(sem resposta)'}`);
+  userBlocks.push(`═══ INSTRUÇÃO DE AVALIAÇÃO ═══
+1. Leia cada resposta SEPARADAMENTE antes de avaliar
+2. Extraia evidências textuais REAIS (não invente)
+3. Compare com a régua — cada nível tem critérios específicos
+4. NÃO assuma comportamento não dito
+5. NÃO trate intenção como evidência suficiente
+6. Descritors sem evidência suficiente: declare como "insuficiente"
+7. Gere insumos — a consolidação matemática é feita depois`);
+
+  const user = userBlocks.join('\n\n');
+  let resultado = await callAI(IA4_SYSTEM, user, aiConfig, 8192);
+  let avaliacao = await extractJSON(resultado);
+
+  if (!avaliacao) {
+    console.warn(`[IA4] retry para ${colab.nome_completo}: primeira resposta sem JSON`);
+    const userRetry = `${user}\n\n=== ATENÇÃO ===\nSua resposta anterior não foi um JSON válido. Retorne APENAS o JSON, sem texto antes ou depois, sem markdown.`;
+    resultado = await callAI(IA4_SYSTEM, userRetry, aiConfig, 8192);
+    avaliacao = await extractJSON(resultado);
+  }
+
+  if (!avaliacao) {
+    return { success: false, error: `IA não retornou JSON válido (${colab.nome_completo || resp.colaborador_id})` };
+  }
+
+  const descPorDescritor = avaliacao.avaliacao_por_descritor || [];
+  const notasPorDesc: Record<string, any> = {};
+  for (const d of descPorDescritor) {
+    const key = `D${d.numero}`;
+    const nota = Math.max(1.0, Math.min(4.0, d.nota_decimal || 1.0));
+    notasPorDesc[key] = {
+      nome: d.nome,
+      nota_decimal: Math.round(nota * 100) / 100,
+      nivel: Math.floor(nota),
+      confianca: d.confianca || 0,
+      sustentacao: d.sustentacao || 'insuficiente',
+    };
+  }
+
+  const notas = Object.values(notasPorDesc).map((d: any) => d.nota_decimal);
+  const mediaDescritores = notas.length
+    ? Math.round((notas.reduce((a: number, b: number) => a + b, 0) / notas.length) * 100) / 100
+    : 0;
+
+  let nivelGeral = Math.floor(mediaDescritores);
+  const travasAplicadas: string[] = [];
+  const niveisN1 = Object.values(notasPorDesc).filter((d: any) => d.nivel === 1).length;
+  if (niveisN1 > 3) {
+    nivelGeral = Math.min(nivelGeral, 1);
+    travasAplicadas.push(`${niveisN1} descritores N1 → nível geral máximo N1`);
+  } else if (niveisN1 > 0 && nivelGeral > 2) {
+    nivelGeral = Math.min(nivelGeral, 2);
+    travasAplicadas.push(`Descritor N1 presente → nível geral máximo N2`);
+  }
+  const temN3 = Object.values(notasPorDesc).some((d: any) => d.nivel >= 3);
+  if (temN3 && nivelGeral < 2) {
+    nivelGeral = 2;
+    travasAplicadas.push('Evidência N3 presente → nível mínimo N2');
+  }
+  nivelGeral = Math.max(1, Math.min(4, nivelGeral));
+  const gap = Math.max(0, 3 - nivelGeral);
+
+  const confs = Object.values(notasPorDesc).map((d: any) => d.confianca || 0).filter((c: number) => c > 0);
+  const confiancaGeral = confs.length ? Math.round((confs.reduce((a, b) => a + b, 0) / confs.length) * 100) / 100 : 0;
+
+  avaliacao.consolidacao = {
+    notas_por_descritor: notasPorDesc,
+    media_descritores: mediaDescritores,
+    nivel_geral: nivelGeral,
+    gap,
+    confianca_geral: confiancaGeral,
+    travas_aplicadas: travasAplicadas.length ? travasAplicadas : ['Nenhuma'],
+  };
+
+  if (!avaliacao.recomendacoes_pdi && avaliacao.feedback?.recomendacoes_pdi) {
+    avaliacao.recomendacoes_pdi = avaliacao.feedback.recomendacoes_pdi;
+  }
+
+  const feedbackStr = typeof avaliacao.feedback === 'object'
+    ? [avaliacao.feedback.resumo_geral, avaliacao.feedback.mensagem_positiva, avaliacao.feedback.mensagem_construtiva].filter(Boolean).join('\n')
+    : (avaliacao.feedback || '');
+
+  const { error: updErr } = await tdb.from('respostas').update({
+    avaliacao_ia: avaliacao,
+    nivel_ia4: nivelGeral,
+    nota_ia4: mediaDescritores,
+    pontos_fortes: avaliacao.descritores_destaque?.pontos_fortes?.map((p: any) => p.descritor || p).join('; ') || null,
+    pontos_atencao: avaliacao.descritores_destaque?.gaps_prioritarios?.map((g: any) => g.descritor || g).join('; ') || null,
+    feedback_ia4: feedbackStr || null,
+    avaliado_em: new Date().toISOString(),
+  }).eq('id', resp.id).select('id');
+
+  if (updErr) return { success: false, error: updErr.message };
+
+  try {
+    let competenciaNome = resp.competencia_nome;
+    if (!competenciaNome && resp.competencia_id) {
+      const { data: cc } = await tdb.from('competencias')
+        .select('nome').eq('id', resp.competencia_id).maybeSingle();
+      if (cc?.nome) {
+        competenciaNome = cc.nome;
+        await tdb.from('respostas').update({ competencia_nome: cc.nome }).eq('id', resp.id);
+      }
+    }
+    if (competenciaNome && resp.colaborador_id) {
+      const rows = descPorDescritor
+        .filter((d: any) => d.nome && typeof d.nota_decimal === 'number')
+        .map((d: any) => ({
+          colaborador_id: resp.colaborador_id,
+          cargo: resp.cargo,
+          competencia: competenciaNome,
+          descritor: d.nome,
+          nota: Math.max(1.0, Math.min(4.0, d.nota_decimal)),
+          origem: 'ia4',
+          assessment_date: new Date().toISOString(),
+        }));
+      if (rows.length > 0) {
+        await tdb.from('descriptor_assessments').upsert(rows, {
+          onConflict: 'colaborador_id,competencia,descritor',
+        });
+      }
+    }
+  } catch (e: any) {
+    console.warn('[IA4] descriptor_assessments upsert falhou:', e.message);
+  }
+
+  return { success: true, message: `${colab.nome_completo?.split(' ')[0] || '?'}: N${nivelGeral} — ${compNome || 'competência'}` };
+}
+
+export async function listarPendentesIA4(empresaId: string) {
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório', data: [] };
+  const tdb = tenantDb(empresaId);
+  const { data, error } = await tdb.from('respostas')
+    .select('id, colaborador_id, competencia_id, competencia_nome')
+    .is('avaliacao_ia', null)
+    .not('r1', 'is', null);
+  if (error) return { success: false, error: error.message, data: [] };
+  return { success: true, data: data || [] };
+}
+
+export async function rodarIA4Uma(empresaId: string, respostaId: string, aiConfig: AIConfig = {}) {
+  if (!empresaId || !respostaId) return { success: false, error: 'empresaId e respostaId obrigatórios' };
+  const sbRaw = createSupabaseAdmin();
+  const tdb = tenantDb(empresaId);
+  try {
+    const { data: resp, error: respErr } = await tdb.from('respostas')
+      .select('*').eq('id', respostaId).single();
+    if (respErr || !resp) return { success: false, error: respErr?.message || 'Resposta não encontrada' };
+    if (resp.avaliacao_ia) return { success: true, message: 'Já avaliada' };
+
+    const empresa = (await sbRaw.from('empresas').select('nome, segmento').eq('id', empresaId).single()).data;
+    const colabIds = [resp.colaborador_id].filter(Boolean);
+    const { data: colabs } = await tdb.from('colaboradores')
+      .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, lid_executivo, lid_motivador, lid_metodico, lid_sistematico, perfil_dominante, comp_ousadia, comp_comando, comp_objetividade, comp_assertividade, comp_persuasao, comp_extroversao, comp_entusiasmo, comp_sociabilidade, comp_empatia, comp_paciencia, comp_persistencia, comp_planejamento, comp_organizacao, comp_detalhismo, comp_prudencia, comp_concentracao')
+      .in('id', colabIds);
+    const colab = colabs?.[0] || {};
+
+    let contextoPPP = '';
+    try {
+      const { data: ppp } = await tdb.from('ppp_escolas')
+        .select('extracao').eq('status', 'extraido')
+        .order('extracted_at', { ascending: false }).limit(1).maybeSingle();
+      if (ppp?.extracao) {
+        const ext = typeof ppp.extracao === 'string' ? JSON.parse(ppp.extracao) : ppp.extracao;
+        contextoPPP = JSON.stringify(ext).slice(0, 2000);
+      }
+    } catch {}
+
+    return await _avaliarUmaResposta(tdb, sbRaw, resp, colab, empresa, contextoPPP, aiConfig);
+  } catch (err: any) {
+    console.error('[IA4uma] ERRO:', err.message, err.stack?.split('\n').slice(0, 3).join(' '));
+    return { success: false, error: err.message };
+  }
+}
+
 export async function rodarIA4(empresaId: string, aiConfig: AIConfig = {}) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sbRaw = createSupabaseAdmin();
@@ -171,253 +405,13 @@ export async function rodarIA4(empresaId: string, aiConfig: AIConfig = {}) {
     for (const resp of respostas) {
       try {
         const colab = colabMap[resp.colaborador_id] || {};
-
-        // Buscar cenário com perguntas — banco_cenarios é misto (global + tenant);
-        // busca por id usa raw pra cobrir ambos os casos.
-        let cenarioTexto = '', perguntasTexto = '';
-        if (resp.cenario_id) {
-          const { data: cen } = await sbRaw.from('banco_cenarios')
-            .select('titulo, descricao, alternativas')
-            .eq('id', resp.cenario_id).maybeSingle();
-          if (cen) {
-            cenarioTexto = `${cen.titulo}\n${cen.descricao}`;
-            const altObj = typeof cen.alternativas === 'object' && !Array.isArray(cen.alternativas) ? cen.alternativas : {};
-            const pergs = altObj.perguntas || (Array.isArray(cen.alternativas) ? cen.alternativas : []);
-            perguntasTexto = pergs.map((p: any, i: number) => {
-              const num = p.numero || i + 1;
-              return `P${num}: ${p.texto || ''}\nDescritores primarios: ${Array.isArray(p.descritores_primarios) ? p.descritores_primarios.map((d: any) => `D${d}`).join(', ') : ''}\nDiferenciacao: ${p.o_que_diferencia_niveis || ''}`;
-            }).join('\n\n');
-          }
-        }
-
-        // Buscar competência com descritores N1-N4
-        let compNome = '', compCod = '', descritoresTexto = '';
-        if (resp.competencia_id) {
-          const { data: comp } = await tdb.from('competencias')
-            .select('nome, cod_comp, descricao').eq('id', resp.competencia_id).maybeSingle();
-          compNome = comp?.nome || '';
-          compCod = comp?.cod_comp || '';
-
-          // Buscar descritores com régua N1-N4
-          const { data: descs } = await tdb.from('competencias')
-            .select('cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
-            .eq('cod_comp', comp?.cod_comp)
-            .not('cod_desc', 'is', null);
-
-          if (descs?.length) {
-            descritoresTexto = descs.map((d: any, i: number) => {
-              return `DESCRITOR ${i + 1}: ${d.cod_desc} — ${d.nome_curto || d.descritor_completo || ''}
-N1 (Emergente): ${d.n1_gap || 'Não definido'}
-N2 (Em desenvolvimento): ${d.n2_desenvolvimento || 'Não definido'}
-N3 (Proficiente/META): ${d.n3_meta || 'Não definido'}
-N4 (Referência): ${d.n4_referencia || 'Não definido'}`;
-            }).join('\n\n');
-          }
-        }
-
-        // Perfil CIS formatado
-        let perfilCIS = '';
-        if (colab.d_natural != null) {
-          perfilCIS = `PERFIL CIS:
-DISC: D=${colab.d_natural} | I=${colab.i_natural} | S=${colab.s_natural} | C=${colab.c_natural}
-Dominante: ${colab.perfil_dominante || '—'}
-Lideranca: Executor=${colab.lid_executivo || 0}% | Motivador=${colab.lid_motivador || 0}% | Metodico=${colab.lid_metodico || 0}% | Sistematico=${colab.lid_sistematico || 0}%`;
-        }
-
-        const userBlocks: string[] = [];
-
-        userBlocks.push(`═══ PROFISSIONAL ═══
-Nome: ${colab.nome_completo || '—'}
-Cargo: ${colab.cargo || '—'}`);
-
-        userBlocks.push(`═══ EMPRESA ═══
-${empresa.nome} (${empresa.segmento})`);
-
-        if (contextoPPP) {
-          userBlocks.push(`═══ CONTEXTO INSTITUCIONAL ═══\n${contextoPPP}`);
-        }
-
-        if (perfilCIS) {
-          userBlocks.push(`═══ PERFIL COMPORTAMENTAL ═══\n${perfilCIS}\nNOTA: O perfil NÃO altera a nota. Influencia APENAS o tom do feedback.`);
-        }
-
-        userBlocks.push(`═══ COMPETÊNCIA AVALIADA ═══
-Código: ${compCod}
-Nome: ${compNome}`);
-
-        userBlocks.push(`═══ RÉGUA DE MATURIDADE ═══\n${descritoresTexto || '(descritores não disponíveis)'}`);
-
-        if (cenarioTexto) {
-          userBlocks.push(`═══ CENÁRIO APRESENTADO ═══\n${cenarioTexto}`);
-        }
-
-        if (perguntasTexto) {
-          userBlocks.push(`═══ PERGUNTAS E MAPEAMENTO ═══\n${perguntasTexto}`);
-        }
-
-        userBlocks.push(`═══ RESPOSTAS DO PROFISSIONAL ═══
-R1: ${resp.r1 || '(sem resposta)'}
-R2: ${resp.r2 || '(sem resposta)'}
-R3: ${resp.r3 || '(sem resposta)'}
-R4: ${resp.r4 || '(sem resposta)'}`);
-
-        userBlocks.push(`═══ INSTRUÇÃO DE AVALIAÇÃO ═══
-1. Leia cada resposta SEPARADAMENTE antes de avaliar
-2. Extraia evidências textuais REAIS (não invente)
-3. Compare com a régua — cada nível tem critérios específicos
-4. NÃO assuma comportamento não dito
-5. NÃO trate intenção como evidência suficiente
-6. Descritors sem evidência suficiente: declare como "insuficiente"
-7. Gere insumos — a consolidação matemática é feita depois`);
-
-        const user = userBlocks.join('\n\n');
-
-        let resultado = await callAI(IA4_SYSTEM, user, aiConfig, 8192);
-        let avaliacao = await extractJSON(resultado);
-
-        // Retry 1x se IA não retornou JSON válido na primeira tentativa
-        if (!avaliacao) {
-          console.warn(`[IA4] retry para ${resp.nome_colaborador}: primeira resposta sem JSON (${(resultado || '').slice(0, 200)}...)`);
-          const userRetry = `${user}\n\n=== ATENÇÃO ===\nSua resposta anterior não foi um JSON válido. Retorne APENAS o JSON, sem texto antes ou depois, sem markdown.`;
-          resultado = await callAI(IA4_SYSTEM, userRetry, aiConfig, 8192);
-          avaliacao = await extractJSON(resultado);
-        }
-
-        if (avaliacao) {
-          // ── Consolidação em código (não mais no prompt) ──
-          const descPorDescritor = avaliacao.avaliacao_por_descritor || [];
-
-          // Calcular notas consolidadas
-          const notasPorDesc: Record<string, any> = {};
-          for (const d of descPorDescritor) {
-            const key = `D${d.numero}`;
-            const nota = Math.max(1.0, Math.min(4.0, d.nota_decimal || 1.0));
-            const nivel = Math.floor(nota); // floor = arredondar pra baixo
-            notasPorDesc[key] = {
-              nome: d.nome,
-              nota_decimal: Math.round(nota * 100) / 100,
-              nivel,
-              confianca: d.confianca || 0,
-              sustentacao: d.sustentacao || 'insuficiente',
-            };
-          }
-
-          // Média
-          const notas = Object.values(notasPorDesc).map((d: any) => d.nota_decimal);
-          const mediaDescritores = notas.length
-            ? Math.round((notas.reduce((a: number, b: number) => a + b, 0) / notas.length) * 100) / 100
-            : 0;
-
-          // Nível geral (floor da média)
-          let nivelGeral = Math.floor(mediaDescritores);
-
-          // Travas
-          const travasAplicadas: string[] = [];
-          const niveisN1 = Object.values(notasPorDesc).filter((d: any) => d.nivel === 1).length;
-          if (niveisN1 > 3) {
-            nivelGeral = Math.min(nivelGeral, 1);
-            travasAplicadas.push(`${niveisN1} descritores N1 → nível geral máximo N1`);
-          } else if (niveisN1 > 0 && nivelGeral > 2) {
-            nivelGeral = Math.min(nivelGeral, 2);
-            travasAplicadas.push(`Descritor N1 presente → nível geral máximo N2`);
-          }
-
-          // Anti-rebaixamento: se tem evidência N3 em algum descritor, mínimo N2
-          const temN3 = Object.values(notasPorDesc).some((d: any) => d.nivel >= 3);
-          if (temN3 && nivelGeral < 2) {
-            nivelGeral = 2;
-            travasAplicadas.push('Evidência N3 presente → nível mínimo N2');
-          }
-
-          nivelGeral = Math.max(1, Math.min(4, nivelGeral));
-          const gap = Math.max(0, 3 - nivelGeral);
-
-          // Confiança geral = média das confianças
-          const confs = Object.values(notasPorDesc).map((d: any) => d.confianca || 0).filter((c: number) => c > 0);
-          const confiancaGeral = confs.length ? Math.round((confs.reduce((a, b) => a + b, 0) / confs.length) * 100) / 100 : 0;
-
-          // Montar consolidação (adicionada ao JSON da IA)
-          avaliacao.consolidacao = {
-            notas_por_descritor: notasPorDesc,
-            media_descritores: mediaDescritores,
-            nivel_geral: nivelGeral,
-            gap,
-            confianca_geral: confiancaGeral,
-            travas_aplicadas: travasAplicadas.length ? travasAplicadas : ['Nenhuma'],
-          };
-
-          // recomendacoes_pdi pode estar dentro de feedback (legado) ou top-level (novo)
-          if (avaliacao.recomendacoes_pdi) {
-            // já está no top-level — ok
-          } else if (avaliacao.feedback?.recomendacoes_pdi) {
-            avaliacao.recomendacoes_pdi = avaliacao.feedback.recomendacoes_pdi;
-          }
-
-          // Feedback como string (compatibilidade com consumers)
-          const feedbackStr = typeof avaliacao.feedback === 'object'
-            ? [avaliacao.feedback.resumo_geral, avaliacao.feedback.mensagem_positiva, avaliacao.feedback.mensagem_construtiva].filter(Boolean).join('\n')
-            : (avaliacao.feedback || '');
-
-          const { error: updErr } = await tdb.from('respostas').update({
-            avaliacao_ia: avaliacao,
-            nivel_ia4: nivelGeral,
-            nota_ia4: mediaDescritores,
-            pontos_fortes: avaliacao.descritores_destaque?.pontos_fortes?.map((p: any) => p.descritor || p).join('; ') || null,
-            pontos_atencao: avaliacao.descritores_destaque?.gaps_prioritarios?.map((g: any) => g.descritor || g).join('; ') || null,
-            feedback_ia4: feedbackStr || null,
-            avaliado_em: new Date().toISOString(),
-          }).eq('id', resp.id).select('id');
-
-          if (!updErr) {
-            avaliadas++;
-            // Popula descriptor_assessments com as notas IA4 por descritor
-            // (alimenta o motor de temporadas — select-descriptors usa essas notas)
-            try {
-              // Resolve competencia_nome se vazio (comum em rows antigas)
-              let competenciaNome = resp.competencia_nome;
-              if (!competenciaNome && resp.competencia_id) {
-                const { data: cc } = await tdb.from('competencias')
-                  .select('nome').eq('id', resp.competencia_id).maybeSingle();
-                if (cc?.nome) {
-                  competenciaNome = cc.nome;
-                  // persiste de volta na resposta
-                  await tdb.from('respostas').update({ competencia_nome: cc.nome }).eq('id', resp.id);
-                }
-              }
-              if (!competenciaNome || !resp.colaborador_id) {
-                console.warn('[IA4] descriptor_assessments: sem competencia_nome/colab_id', resp.id);
-              } else {
-                const rows = descPorDescritor
-                  .filter((d: any) => d.nome && typeof d.nota_decimal === 'number')
-                  .map((d: any) => ({
-                    colaborador_id: resp.colaborador_id,
-                    cargo: resp.cargo,
-                    competencia: competenciaNome,
-                    descritor: d.nome,
-                    nota: Math.max(1.0, Math.min(4.0, d.nota_decimal)),
-                    origem: 'ia4',
-                    assessment_date: new Date().toISOString(),
-                  }));
-                if (rows.length > 0) {
-                  await tdb.from('descriptor_assessments').upsert(rows, {
-                    onConflict: 'colaborador_id,competencia,descritor',
-                  });
-                }
-              }
-            } catch (e: any) {
-              console.warn('[IA4] descriptor_assessments upsert falhou:', e.message);
-            }
-          }
-          else { erros++; ultimoErro = updErr.message; }
-        } else {
-          erros++;
-          ultimoErro = `IA não retornou JSON válido (${resp.nome_colaborador} / ${resp.competencia_nome})`;
-          console.error(`[IA4] FALHA mesmo após retry: ${resp.nome_colaborador}`, resultado?.slice(0, 500));
-        }
+        const r = await _avaliarUmaResposta(tdb, sbRaw, resp, colab, empresa, contextoPPP, aiConfig);
+        if (r.success) avaliadas++;
+        else { erros++; ultimoErro = r.error || 'Erro desconhecido'; }
       } catch (e: any) {
         erros++;
         ultimoErro = e.message;
-        console.error(`[IA4] ERRO no colab ${resp.colaborador_id?.slice(0,8)} / comp ${resp.competencia_nome}:`, e.message, e.stack?.split('\n').slice(0, 3).join(' '));
+        console.error(`[IA4] ERRO no colab ${resp.colaborador_id?.slice(0,8)} / comp ${resp.competencia_nome}:`, e.message);
       }
     }
 
