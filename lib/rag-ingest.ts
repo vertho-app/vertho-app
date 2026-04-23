@@ -35,8 +35,16 @@ const DEFAULT_OVERLAP = 200;
  * Extrai texto de um PDF via pdf-parse (binário Buffer).
  */
 export async function parsePdf(buffer: Buffer): Promise<ParsedDoc> {
-  // Import dinâmico — pdf-parse só funciona em runtime Node, não em Edge.
-  // O package exporta named "pdf"; usamos any pra cobrir variações de versão.
+  // pdf-parse v2 usa pdfjs-dist que precisa de DOMMatrix (browser API).
+  // Polyfill mínimo para ambiente serverless (Vercel/Node).
+  if (typeof globalThis.DOMMatrix === 'undefined') {
+    (globalThis as any).DOMMatrix = class DOMMatrix {
+      constructor() { return Object.create(DOMMatrix.prototype); }
+      static fromMatrix() { return new DOMMatrix(); }
+      static fromFloat32Array() { return new DOMMatrix(); }
+      static fromFloat64Array() { return new DOMMatrix(); }
+    };
+  }
   const mod: any = await import('pdf-parse');
   const pdfParse = mod.default || mod.pdf || mod;
   const r = await pdfParse(buffer);
