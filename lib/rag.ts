@@ -117,6 +117,7 @@ export async function ingestDoc({
     categoria,
     source_url: sourceUrl,
     criado_por: criadoPor,
+    ativo: true,
   }).select('id').single();
 
   if (error) throw error;
@@ -162,7 +163,7 @@ export async function listDocs(empresaId: string): Promise<KbDocSummary[]> {
   const { data } = await sb.from('knowledge_base')
     .select('id, titulo, categoria, source_url, criado_em, atualizado_em')
     .eq('empresa_id', empresaId)
-    .eq('ativo', true)
+    .neq('ativo', false)
     .order('atualizado_em', { ascending: false });
   return (data as KbDocSummary[]) || [];
 }

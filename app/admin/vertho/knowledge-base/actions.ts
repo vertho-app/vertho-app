@@ -230,23 +230,22 @@ export async function testarBuscaKB(empresaId, query) {
     console.warn('[testarBuscaKB] kb_search exception:', e?.message);
   }
 
-  // Fallback: busca simples por ILIKE
+  // Fallback: busca simples por ILIKE (ativo != false inclui NULL e true)
   const termo = query.slice(0, 100).replace(/[%_]/g, '');
   const { data: fallback } = await sb.from('knowledge_base')
     .select('id, titulo, conteudo, categoria')
     .eq('empresa_id', empresaId)
-    .eq('ativo', true)
+    .neq('ativo', false)
     .ilike('conteudo', `%${termo}%`)
     .limit(5);
 
   if (fallback?.length) {
     resultados = fallback.map(r => ({ ...r, score: 0 }));
   } else {
-    // Tenta por título
     const { data: byTitulo } = await sb.from('knowledge_base')
       .select('id, titulo, conteudo, categoria')
       .eq('empresa_id', empresaId)
-      .eq('ativo', true)
+      .neq('ativo', false)
       .ilike('titulo', `%${termo}%`)
       .limit(5);
     resultados = (byTitulo || []).map(r => ({ ...r, score: 0 }));
