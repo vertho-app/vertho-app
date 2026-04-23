@@ -51,8 +51,9 @@ async function extractPdfText(file) {
     staticText = pages.join('\n\n');
   } catch {}
 
-  const combined = [formText, staticText].filter(Boolean).join('\n\n---\n\n');
-  return { text: combined, numPages };
+  // Se tem form fields preenchidos, usa SÓ eles (texto estático é template/instrução que polui)
+  const text = formText || staticText;
+  return { text, numPages };
 }
 
 export default function PPPPage() {

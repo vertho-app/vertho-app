@@ -66,11 +66,11 @@ export async function parsePdf(buffer: Buffer): Promise<ParsedDoc> {
     console.warn('[parsePdf] form field extraction failed (ok for non-form PDFs):', e?.message);
   }
 
-  // Combina: form fields primeiro (mais rico), depois texto estático
-  const combined = [formText, staticText].filter(Boolean).join('\n\n---\n\n');
+  // Se tem form fields preenchidos, usa SÓ eles (texto estático é template/instrução que polui)
+  const finalText = formText || staticText;
 
   return {
-    text: combined,
+    text: finalText,
     pages: result.totalPages || 0,
     meta: {},
   };
