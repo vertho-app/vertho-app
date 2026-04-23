@@ -180,7 +180,29 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                           <span className="text-sm font-semibold text-white">{t.competencia?.nome || '—'}</span>
                           {t.competencia?.cod_comp && <span className="text-[9px] font-mono text-cyan-400/70 bg-cyan-400/10 px-1.5 py-0.5 rounded">{t.competencia.cod_comp}</span>}
                         </div>
-                        {t.justificativa && <p className="text-[10px] text-gray-500 mt-0.5">{t.justificativa}</p>}
+                        {(t.motivo || t.justificativa) && <p className="text-[10px] text-gray-500 mt-0.5">{t.motivo || t.justificativa}</p>}
+                        {(t.aderencia_cargo != null || t.aderencia_mercado != null) && (
+                          <div className="flex items-center gap-4 mt-1.5">
+                            {t.aderencia_cargo != null && (
+                              <div className="flex items-center gap-1.5 flex-1">
+                                <span className="text-[9px] text-gray-500 shrink-0 w-10">Cargo</span>
+                                <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                                  <div className="h-full rounded-full bg-cyan-400" style={{ width: `${Math.round(t.aderencia_cargo * 100)}%` }} />
+                                </div>
+                                <span className="text-[9px] font-bold text-cyan-400 shrink-0">{Math.round(t.aderencia_cargo * 100)}%</span>
+                              </div>
+                            )}
+                            {t.aderencia_mercado != null && (
+                              <div className="flex items-center gap-1.5 flex-1">
+                                <span className="text-[9px] text-gray-500 shrink-0 w-14">Mercado</span>
+                                <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                                  <div className="h-full rounded-full bg-purple-400" style={{ width: `${Math.round(t.aderencia_mercado * 100)}%` }} />
+                                </div>
+                                <span className="text-[9px] font-bold text-purple-400 shrink-0">{Math.round(t.aderencia_mercado * 100)}%</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <button onClick={async () => { const r = await removerTop10(t.id); if (r.success) { flash('Removida'); refresh(); } }}
                         className="text-gray-600 hover:text-red-400 shrink-0"><Trash2 size={13} /></button>
