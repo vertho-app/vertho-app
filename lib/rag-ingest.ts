@@ -66,10 +66,9 @@ export async function parsePdf(buffer: Buffer): Promise<ParsedDoc> {
         const label = FIELD_LABELS[raw.toLowerCase().trim()] || raw.replace(/_/g, ' ').replace(/\s+/g, ' ').toUpperCase();
         let value = '';
         try {
-          const type = f.constructor.name;
-          if (type === 'PDFTextField') value = (f as any).getText() || '';
-          else if (type === 'PDFDropdown') value = (f as any).getSelected()?.join(', ') || '';
-          else if (type === 'PDFCheckBox') value = (f as any).isChecked() ? 'sim' : 'não';
+          if (typeof (f as any).getText === 'function') value = (f as any).getText() || '';
+          else if (typeof (f as any).getSelected === 'function') value = (f as any).getSelected()?.join(', ') || '';
+          else if (typeof (f as any).isChecked === 'function') value = (f as any).isChecked() ? 'sim' : 'não';
         } catch {}
         if (value.trim()) parts.push(`## ${label}\n${value.trim()}`);
       }
