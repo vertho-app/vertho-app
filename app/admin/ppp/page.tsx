@@ -6,17 +6,53 @@ import { ArrowLeft, Loader2, FileText, Link2, Plus, Sparkles, Upload, Eye, Trash
 import { loadEmpresa, loadPPPs, excluirPPP } from './actions';
 import { extrairPPP } from '@/actions/ppp';
 async function extractPdfText(file) {
-  const pdfjsLib = await import('pdfjs-dist');
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
   const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
-  const pages = [];
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    pages.push(content.items.map((item: any) => item.str).join(' '));
-  }
-  return { text: pages.join('\n\n'), numPages: pdf.numPages };
+  const buffer = new Uint8Array(arrayBuffer);
+
+  // 1. Extrai form fields via pdf-lib (formulários preenchidos)
+  let formText = '';
+  let numPages = 0;
+  try {
+    const { PDFDocument } = await import('pdf-lib');
+    const pdf = await PDFDocument.load(buffer);
+    numPages = pdf.getPageCount();
+    const form = pdf.getForm();
+    const fields = form.getFields();
+    if (fields.length > 0) {
+      const parts: string[] = [];
+      for (const f of fields) {
+        const name = f.getName().replace(/_/g, ' ').replace(/\s+/g, ' ');
+        let value = '';
+        try {
+          const type = f.constructor.name;
+          if (type === 'PDFTextField') value = (f as any).getText() || '';
+          else if (type === 'PDFDropdown') value = (f as any).getSelected()?.join(', ') || '';
+          else if (type === 'PDFCheckBox') value = (f as any).isChecked() ? 'sim' : 'não';
+        } catch {}
+        if (value.trim()) parts.push(`${name}: ${value.trim()}`);
+      }
+      formText = parts.join('\n\n');
+    }
+  } catch {}
+
+  // 2. Extrai texto estático via pdfjs-dist
+  let staticText = '';
+  try {
+    const pdfjsLib = await import('pdfjs-dist');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+    if (!numPages) numPages = pdf.numPages;
+    const pages: string[] = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      pages.push(content.items.map((item: any) => item.str).join(' '));
+    }
+    staticText = pages.join('\n\n');
+  } catch {}
+
+  const combined = [formText, staticText].filter(Boolean).join('\n\n---\n\n');
+  return { text: combined, numPages };
 }
 
 export default function PPPPage() {

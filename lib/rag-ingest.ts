@@ -35,11 +35,42 @@ const DEFAULT_OVERLAP = 200;
  * Extrai texto de um PDF via pdf-parse (binário Buffer).
  */
 export async function parsePdf(buffer: Buffer): Promise<ParsedDoc> {
-  // unpdf funciona em serverless sem DOM, sem worker, sem DOMMatrix.
+  // 1. Extrai texto estático via unpdf (serverless-safe)
   const { extractText } = await import('unpdf');
   const result = await extractText(new Uint8Array(buffer));
+  let staticText = Array.isArray(result.text) ? result.text.join('\n\n') : (result.text || '');
+
+  // 2. Extrai form fields via pdf-lib (PDFs com formulário preenchido)
+  let formText = '';
+  try {
+    const { PDFDocument } = await import('pdf-lib');
+    const pdf = await PDFDocument.load(buffer);
+    const form = pdf.getForm();
+    const fields = form.getFields();
+    if (fields.length > 0) {
+      const parts: string[] = [];
+      for (const f of fields) {
+        const name = f.getName().replace(/_/g, ' ').replace(/\s+/g, ' ');
+        let value = '';
+        try {
+          const type = f.constructor.name;
+          if (type === 'PDFTextField') value = (f as any).getText() || '';
+          else if (type === 'PDFDropdown') value = (f as any).getSelected()?.join(', ') || '';
+          else if (type === 'PDFCheckBox') value = (f as any).isChecked() ? 'sim' : 'não';
+        } catch {}
+        if (value.trim()) parts.push(`${name}: ${value.trim()}`);
+      }
+      formText = parts.join('\n\n');
+    }
+  } catch (e: any) {
+    console.warn('[parsePdf] form field extraction failed (ok for non-form PDFs):', e?.message);
+  }
+
+  // Combina: form fields primeiro (mais rico), depois texto estático
+  const combined = [formText, staticText].filter(Boolean).join('\n\n---\n\n');
+
   return {
-    text: Array.isArray(result.text) ? result.text.join('\n\n') : (result.text || ''),
+    text: combined,
     pages: result.totalPages || 0,
     meta: {},
   };
