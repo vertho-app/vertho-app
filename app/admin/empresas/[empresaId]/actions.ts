@@ -395,7 +395,15 @@ export async function rodarIA2(e, c) { await requireAdminAction(); return _ia2(e
 export async function rodarIA3(e, c) { await requireAdminAction(); return _ia3(e, c); }
 export async function dispararEmails(e) { await requireAdminAction(); return _emails(e); }
 export async function verStatusEnvios(e) { await requireAdminAction(); return _status(e); }
-export async function rodarIA4(e, c) { await requireAdminAction(); return _ia4(e, c); }
+export async function rodarIA4(e, c) {
+  try {
+    await requireAdminAction();
+    return await _ia4(e, c);
+  } catch (err: any) {
+    console.error('[rodarIA4 wrapper]', err.message);
+    return { success: false, error: err.message };
+  }
+}
 export async function verFilaIA4(e) { await requireAdminAction(); return _fila(e); }
 export async function checkAvaliacoes(e, c) { await requireAdminAction(); return _check(e, c); }
 export async function gerarRelatoriosIndividuais(e, c) { await requireAdminAction(); return _relInd(e, c); }

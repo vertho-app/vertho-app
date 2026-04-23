@@ -417,11 +417,13 @@ R4: ${resp.r4 || '(sem resposta)'}`);
       } catch (e: any) {
         erros++;
         ultimoErro = e.message;
+        console.error(`[IA4] ERRO no colab ${resp.colaborador_id?.slice(0,8)} / comp ${resp.competencia_nome}:`, e.message, e.stack?.split('\n').slice(0, 3).join(' '));
       }
     }
 
     return { success: true, message: `IA4 concluída: ${avaliadas} avaliadas${erros ? `, ${erros} erros` : ''}${ultimoErro ? ` — ${ultimoErro}` : ''}` };
   } catch (err: any) {
+    console.error('[IA4] ERRO GERAL:', err.message, err.stack?.split('\n').slice(0, 3).join(' '));
     return { success: false, error: err.message };
   }
 }
