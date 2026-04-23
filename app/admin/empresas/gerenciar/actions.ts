@@ -221,3 +221,34 @@ export async function sincronizarCargosDeColaboradores(empresaId: any) {
   if (error) return { success: false, error: error.message };
   return { success: true, message: `${novos.length} cargos sincronizados dos colaboradores` };
 }
+
+export async function importarCargosLote(empresaId: any, cargos: any[]) {
+  await requireAdminAction();
+  if (!empresaId || !cargos?.length) return { success: false, error: 'Dados incompletos' };
+
+  const sb = createSupabaseAdmin();
+  const { data: existentes } = await sb.from('cargos_empresa')
+    .select('nome').eq('empresa_id', empresaId);
+  const existSet = new Set((existentes || []).map((c: any) => c.nome.toLowerCase().trim()));
+
+  const novos = cargos
+    .filter(c => c.nome?.trim() && !existSet.has(c.nome.trim().toLowerCase()))
+    .map(c => ({
+      empresa_id: empresaId,
+      nome: c.nome.trim(),
+      area_depto: c.area_depto?.trim() || null,
+      descricao: c.descricao?.trim() || null,
+      principais_entregas: c.principais_entregas?.trim() || null,
+      stakeholders: c.stakeholders?.trim() || null,
+      decisoes_recorrentes: c.decisoes_recorrentes?.trim() || null,
+      tensoes_comuns: c.tensoes_comuns?.trim() || null,
+      contexto_cultural: c.contexto_cultural?.trim() || null,
+      eh_lideranca: c.eh_lideranca === 'sim' || c.eh_lideranca === true,
+    }));
+
+  if (novos.length === 0) return { success: true, message: 'Todos os cargos já estavam cadastrados (duplicatas ignoradas)' };
+
+  const { error } = await sb.from('cargos_empresa').insert(novos);
+  if (error) return { success: false, error: error.message };
+  return { success: true, message: `${novos.length} cargos importados (${cargos.length - novos.length} duplicatas ignoradas)` };
+}

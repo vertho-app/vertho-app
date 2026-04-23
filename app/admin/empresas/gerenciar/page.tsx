@@ -7,7 +7,7 @@ import { parseSpreadsheet } from '@/lib/parse-spreadsheet';
 import {
   loadEmpresas, loadResumoEmpresa, importarColaboradoresLote, loadColaboradores, atualizarColaborador, excluirColaborador,
   criarColaborador,
-  loadCargos, salvarCargo, excluirCargo, sincronizarCargosDeColaboradores
+  loadCargos, salvarCargo, excluirCargo, sincronizarCargosDeColaboradores, importarCargosLote
 } from './actions';
 const CARGO_FIELDS = [
   { key: 'descricao', label: 'Descrição do Cargo', placeholder: 'Responsabilidades principais...', rows: 3 },
@@ -103,6 +103,36 @@ export default function GerenciarPage() {
     setImporting(false);
     e.target.value = '';
     if (r.success) refresh();
+  }
+
+  async function handleCargosCSV(e) {
+    const file = e.target.files?.[0];
+    if (!file || !tenantId) return;
+    setImporting(true); setMsg('');
+
+    const rows = await parseSpreadsheet(file);
+    const parsed = rows.map(obj => ({
+      nome: obj.nome || obj.cargo,
+      area_depto: obj.area_depto || obj.area || obj.departamento,
+      descricao: obj.descricao,
+      principais_entregas: obj.principais_entregas || obj.entregas,
+      stakeholders: obj.stakeholders,
+      decisoes_recorrentes: obj.decisoes_recorrentes || obj.decisoes,
+      tensoes_comuns: obj.tensoes_comuns || obj.tensoes,
+      contexto_cultural: obj.contexto_cultural || obj.contexto,
+      eh_lideranca: obj.eh_lideranca || obj.lideranca,
+    })).filter(c => c.nome);
+
+    if (parsed.length === 0) {
+      setMsg('Nenhum cargo válido. Verifique coluna "nome" ou "cargo".');
+      setImporting(false); return;
+    }
+
+    const r = await importarCargosLote(tenantId, parsed);
+    setMsg(r.success ? r.message : r.error);
+    setImporting(false);
+    e.target.value = '';
+    if (r.success) { const cr = await loadCargos(tenantId); setCargos(cr as any); }
   }
 
   function startEdit(c) {
@@ -548,8 +578,38 @@ export default function GerenciarPage() {
               <label className="flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold text-white cursor-pointer"
                 style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
                 {importing ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-                {importing ? 'Importando...' : 'Importar CSV'}
+                {importing ? 'Importando...' : 'Importar Colaboradores CSV'}
                 <input type="file" accept=".csv,.xlsx,.xls" onChange={handleCSV} className="hidden" disabled={importing} />
+              </label>
+
+              {/* Importar Cargos */}
+              <div className="rounded-xl p-4 border border-white/[0.06] mt-6 mb-4" style={{ background: '#0F2A4A' }}>
+                <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-2">Importar Cargos via CSV</p>
+                <p className="text-xs text-gray-400 mb-2">Cria cargos em lote na tabela `cargos_empresa`. Duplicatas por nome são ignoradas.</p>
+                <div className="overflow-x-auto">
+                  <table className="text-[10px] text-gray-300">
+                    <thead><tr className="border-b border-white/[0.06]">
+                      <th className="pr-4 py-1 text-left font-bold text-white">Coluna</th>
+                      <th className="pr-4 py-1 text-left font-bold text-white">Obrigatória</th>
+                      <th className="py-1 text-left font-bold text-white">Exemplo</th>
+                    </tr></thead>
+                    <tbody>
+                      <tr><td className="pr-4 py-0.5 text-purple-400 font-semibold">nome / cargo</td><td className="pr-4">Sim</td><td>Gerente Comercial</td></tr>
+                      <tr><td className="pr-4 py-0.5">area_depto / area</td><td className="pr-4">Não</td><td>Comercial</td></tr>
+                      <tr><td className="pr-4 py-0.5">descricao</td><td className="pr-4">Não</td><td>Responsável por...</td></tr>
+                      <tr><td className="pr-4 py-0.5">principais_entregas</td><td className="pr-4">Não</td><td>Meta de vendas, pipeline...</td></tr>
+                      <tr><td className="pr-4 py-0.5">stakeholders</td><td className="pr-4">Não</td><td>Diretoria, clientes...</td></tr>
+                      <tr><td className="pr-4 py-0.5">eh_lideranca</td><td className="pr-4">Não</td><td>sim / não (default: sim)</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <label className="flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold text-white cursor-pointer"
+                style={{ background: 'linear-gradient(135deg, #9E4EDD, #3B0A6D)' }}>
+                {importing ? <Loader2 size={14} className="animate-spin" /> : <Briefcase size={14} />}
+                {importing ? 'Importando...' : 'Importar Cargos CSV'}
+                <input type="file" accept=".csv,.xlsx,.xls" onChange={handleCargosCSV} className="hidden" disabled={importing} />
               </label>
             </>
           )}
