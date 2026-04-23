@@ -68,7 +68,16 @@ export async function simularUmaResposta(empresaId: string, colaboradorId: strin
       .eq('id', cenarioId).single();
     if (!cenario) return { success: false, error: 'Cenário não encontrado' };
 
-    const perguntas = Array.isArray(cenario.alternativas) ? cenario.alternativas : [];
+    // Formato novo: alternativas.perguntas[{texto, numero}] ou alternativas.p1..p4 ou array direto
+    const alt = cenario.alternativas || {};
+    let perguntas: any[] = [];
+    if (Array.isArray(alt)) {
+      perguntas = alt;
+    } else if (Array.isArray(alt.perguntas)) {
+      perguntas = alt.perguntas;
+    } else if (alt.p1) {
+      perguntas = [alt.p1, alt.p2, alt.p3, alt.p4].filter(Boolean).map((t, i) => typeof t === 'string' ? { texto: t, numero: i + 1 } : t);
+    }
     if (perguntas.length < 4) return { success: false, error: `Cenário com ${perguntas.length} perguntas (precisa 4)` };
 
     // Buscar competência
