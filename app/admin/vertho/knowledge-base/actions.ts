@@ -215,11 +215,25 @@ export async function testarBuscaKB(empresaId, query) {
   if (!query?.trim()) return { ok: true, resultados: [] };
 
   const sb = createSupabaseAdmin();
+
+  // Tenta RPC kb_search (FTS). Se a function não existir no banco, fallback para ILIKE.
   const { data, error } = await sb.rpc('kb_search', {
     p_empresa_id: empresaId,
     p_query: query.slice(0, 500),
     p_limit: 5,
   });
-  if (error) return { error: error.message };
-  return { ok: true, resultados: data || [] };
+
+  if (!error) return { ok: true, resultados: data || [] };
+
+  // Fallback: busca simples por ILIKE (quando kb_search não está no banco)
+  console.warn('[testarBuscaKB] kb_search falhou, usando fallback ILIKE:', error.message);
+  const { data: fallback, error: fbErr } = await sb.from('knowledge_base')
+    .select('id, titulo, conteudo, categoria')
+    .eq('empresa_id', empresaId)
+    .eq('ativo', true)
+    .or(`titulo.ilike.%${query.slice(0, 100)}%,conteudo.ilike.%${query.slice(0, 100)}%`)
+    .limit(5);
+
+  if (fbErr) return { error: fbErr.message };
+  return { ok: true, resultados: (fallback || []).map(r => ({ ...r, score: 0 })) };
 }
