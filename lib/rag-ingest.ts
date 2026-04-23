@@ -48,8 +48,11 @@ export async function parsePdf(buffer: Buffer): Promise<ParsedDoc> {
     (globalThis as any).Path2D = class Path2D { addPath(){} closePath(){} moveTo(){} lineTo(){} bezierCurveTo(){} quadraticCurveTo(){} arc(){} arcTo(){} ellipse(){} rect(){} };
   }
   const pdfjsLib: any = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  // Desabilita worker — não funciona em serverless (Vercel Lambda)
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+  if (pdfjsLib.GlobalWorkerOptions) pdfjsLib.GlobalWorkerOptions.workerPort = null;
   const uint8 = new Uint8Array(buffer);
-  const doc = await pdfjsLib.getDocument({ data: uint8, useSystemFonts: true }).promise;
+  const doc = await pdfjsLib.getDocument({ data: uint8, useSystemFonts: true, isEvalSupported: false, useWorkerFetch: false, disableAutoFetch: true }).promise;
   const pages: string[] = [];
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);
