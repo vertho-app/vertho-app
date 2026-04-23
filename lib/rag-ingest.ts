@@ -41,6 +41,18 @@ export async function parsePdf(buffer: Buffer): Promise<ParsedDoc> {
   let staticText = Array.isArray(result.text) ? result.text.join('\n\n') : (result.text || '');
 
   // 2. Extrai form fields via pdf-lib (PDFs com formulário preenchido)
+  const FIELD_LABELS: Record<string, string> = {
+    'desafios_estrat_gicos_atuais__desafios': 'DESAFIOS ESTRATÉGICOS ATUAIS',
+    'desafios_estrat_gicos_atuais__transformacoes': 'TRANSFORMAÇÕES EM CURSO',
+    'tens_es_e_dilemas_recorrentes__tensoes': 'TENSÕES E DILEMAS RECORRENTES',
+    'cultura_real_reconhecimento_e_n_o_toler_ncia__celebrado': 'O QUE É CELEBRADO',
+    'cultura_real_reconhecimento_e_n_o_toler_ncia__nao_tolerado': 'O QUE NÃO É TOLERADO',
+    'cad_ncia_de_rituais__rituais': 'CADÊNCIA DE RITUAIS',
+    'comunica_o_e_decis_o__canais': 'CANAIS DE COMUNICAÇÃO',
+    'comunica_o_e_decis_o__decisao': 'TOMADA DE DECISÃO',
+    'maturidade_cultural__erros': 'TRATAMENTO DE ERROS',
+    'maturidade_cultural__safety': 'SEGURANÇA PSICOLÓGICA',
+  };
   let formText = '';
   try {
     const { PDFDocument } = await import('pdf-lib');
@@ -50,7 +62,8 @@ export async function parsePdf(buffer: Buffer): Promise<ParsedDoc> {
     if (fields.length > 0) {
       const parts: string[] = [];
       for (const f of fields) {
-        const name = f.getName().replace(/_/g, ' ').replace(/\s+/g, ' ');
+        const raw = f.getName();
+        const label = FIELD_LABELS[raw.toLowerCase().trim()] || raw.replace(/_/g, ' ').replace(/\s+/g, ' ').toUpperCase();
         let value = '';
         try {
           const type = f.constructor.name;
@@ -58,12 +71,12 @@ export async function parsePdf(buffer: Buffer): Promise<ParsedDoc> {
           else if (type === 'PDFDropdown') value = (f as any).getSelected()?.join(', ') || '';
           else if (type === 'PDFCheckBox') value = (f as any).isChecked() ? 'sim' : 'não';
         } catch {}
-        if (value.trim()) parts.push(`${name}: ${value.trim()}`);
+        if (value.trim()) parts.push(`## ${label}\n${value.trim()}`);
       }
       formText = parts.join('\n\n');
     }
   } catch (e: any) {
-    console.warn('[parsePdf] form field extraction failed (ok for non-form PDFs):', e?.message);
+    console.warn('[parsePdf] form field extraction failed:', e?.message);
   }
 
   // Se tem form fields preenchidos, usa SÓ eles (texto estático é template/instrução que polui)

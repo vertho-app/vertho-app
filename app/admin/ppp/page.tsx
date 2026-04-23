@@ -5,11 +5,30 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2, FileText, Link2, Plus, Sparkles, Upload, Eye, Trash2, RefreshCw } from 'lucide-react';
 import { loadEmpresa, loadPPPs, excluirPPP } from './actions';
 import { extrairPPP } from '@/actions/ppp';
+// Mapa de nomes de form fields do template Vertho → seções legíveis
+const FIELD_LABELS: Record<string, string> = {
+  'desafios_estrat_gicos_atuais__desafios': 'DESAFIOS ESTRATÉGICOS ATUAIS',
+  'desafios_estrat_gicos_atuais__transformacoes': 'TRANSFORMAÇÕES EM CURSO',
+  'tens_es_e_dilemas_recorrentes__tensoes': 'TENSÕES E DILEMAS RECORRENTES',
+  'cultura_real_reconhecimento_e_n_o_toler_ncia__celebrado': 'O QUE É CELEBRADO (comportamentos reconhecidos)',
+  'cultura_real_reconhecimento_e_n_o_toler_ncia__nao_tolerado': 'O QUE NÃO É TOLERADO (comportamentos com consequências)',
+  'cad_ncia_de_rituais__rituais': 'CADÊNCIA DE RITUAIS',
+  'comunica_o_e_decis_o__canais': 'CANAIS DE COMUNICAÇÃO',
+  'comunica_o_e_decis_o__decisao': 'TOMADA DE DECISÃO',
+  'maturidade_cultural__erros': 'TRATAMENTO DE ERROS',
+  'maturidade_cultural__safety': 'SEGURANÇA PSICOLÓGICA',
+};
+
+function formatFieldName(raw: string): string {
+  const key = raw.toLowerCase().trim();
+  if (FIELD_LABELS[key]) return FIELD_LABELS[key];
+  return raw.replace(/_/g, ' ').replace(/\s+/g, ' ').toUpperCase();
+}
+
 async function extractPdfText(file) {
   const arrayBuffer = await file.arrayBuffer();
   const buffer = new Uint8Array(arrayBuffer);
 
-  // 1. Extrai form fields via pdf-lib (formulários preenchidos)
   let formText = '';
   let numPages = 0;
   try {
@@ -21,7 +40,7 @@ async function extractPdfText(file) {
     if (fields.length > 0) {
       const parts: string[] = [];
       for (const f of fields) {
-        const name = f.getName().replace(/_/g, ' ').replace(/\s+/g, ' ');
+        const label = formatFieldName(f.getName());
         let value = '';
         try {
           const type = f.constructor.name;
@@ -29,31 +48,31 @@ async function extractPdfText(file) {
           else if (type === 'PDFDropdown') value = (f as any).getSelected()?.join(', ') || '';
           else if (type === 'PDFCheckBox') value = (f as any).isChecked() ? 'sim' : 'não';
         } catch {}
-        if (value.trim()) parts.push(`${name}: ${value.trim()}`);
+        if (value.trim()) parts.push(`## ${label}\n${value.trim()}`);
       }
       formText = parts.join('\n\n');
     }
   } catch {}
 
-  // 2. Extrai texto estático via pdfjs-dist
+  // Fallback: texto estático (PDFs sem formulário)
   let staticText = '';
-  try {
-    const pdfjsLib = await import('pdfjs-dist');
-    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
-    if (!numPages) numPages = pdf.numPages;
-    const pages: string[] = [];
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      pages.push(content.items.map((item: any) => item.str).join(' '));
-    }
-    staticText = pages.join('\n\n');
-  } catch {}
+  if (!formText) {
+    try {
+      const pdfjsLib = await import('pdfjs-dist');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+      const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+      if (!numPages) numPages = pdf.numPages;
+      const pages: string[] = [];
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        pages.push(content.items.map((item: any) => item.str).join(' '));
+      }
+      staticText = pages.join('\n\n');
+    } catch {}
+  }
 
-  // Se tem form fields preenchidos, usa SÓ eles (texto estático é template/instrução que polui)
-  const text = formText || staticText;
-  return { text, numPages };
+  return { text: formText || staticText, numPages };
 }
 
 export default function PPPPage() {
