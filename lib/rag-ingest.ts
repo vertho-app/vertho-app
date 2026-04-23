@@ -35,23 +35,20 @@ const DEFAULT_OVERLAP = 200;
  * Extrai texto de um PDF via pdf-parse (binário Buffer).
  */
 export async function parsePdf(buffer: Buffer): Promise<ParsedDoc> {
-  // pdf-parse v2 usa pdfjs-dist que precisa de DOMMatrix (browser API).
-  // Polyfill mínimo para ambiente serverless (Vercel/Node).
-  if (typeof globalThis.DOMMatrix === 'undefined') {
-    (globalThis as any).DOMMatrix = class DOMMatrix {
-      constructor() { return Object.create(DOMMatrix.prototype); }
-      static fromMatrix() { return new DOMMatrix(); }
-      static fromFloat32Array() { return new DOMMatrix(); }
-      static fromFloat64Array() { return new DOMMatrix(); }
-    };
+  // Usa pdfjs-dist/legacy diretamente — funciona em Node/serverless sem DOMMatrix.
+  const pdfjsLib: any = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const uint8 = new Uint8Array(buffer);
+  const doc = await pdfjsLib.getDocument({ data: uint8, useSystemFonts: true }).promise;
+  const pages: string[] = [];
+  for (let i = 1; i <= doc.numPages; i++) {
+    const page = await doc.getPage(i);
+    const content = await page.getTextContent();
+    pages.push(content.items.map((item: any) => item.str).join(' '));
   }
-  const mod: any = await import('pdf-parse');
-  const pdfParse = mod.default || mod.pdf || mod;
-  const r = await pdfParse(buffer);
   return {
-    text: r.text || '',
-    pages: r.numpages,
-    meta: r.info || {},
+    text: pages.join('\n\n'),
+    pages: doc.numPages,
+    meta: {},
   };
 }
 
