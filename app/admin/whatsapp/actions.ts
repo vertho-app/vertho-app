@@ -150,11 +150,13 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
       const link = `https://${empresa.slug}.${domain}/login`;
 
       // Substituir variáveis no template
+      const linkDisc = `https://${empresa.slug}.${domain}/dashboard/perfil-comportamental/mapeamento`;
       const msg = template
         .replace(/\{\{nome\}\}/g, nome)
         .replace(/\{\{cargo\}\}/g, colab.cargo || '')
         .replace(/\{\{empresa\}\}/g, empresa.nome)
-        .replace(/\{\{link\}\}/g, link);
+        .replace(/\{\{link\}\}/g, link)
+        .replace(/\{\{link_disc\}\}/g, linkDisc);
 
       if (canal === 'email' && colab.email) {
         if (!hasResend) { erroDetalhe = 'RESEND_API_KEY não configurada'; erros++; continue; }

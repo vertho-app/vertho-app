@@ -22,7 +22,8 @@ const VARIAVEIS = [
   { tag: '{{nome}}', label: 'Nome', exemplo: 'Maria' },
   { tag: '{{cargo}}', label: 'Cargo', exemplo: 'Consultor de Vendas' },
   { tag: '{{empresa}}', label: 'Empresa', exemplo: 'Boehringer Ingelheim' },
-  { tag: '{{link}}', label: 'Link', exemplo: 'https://vertho.app/avaliacao/...' },
+  { tag: '{{link}}', label: 'Link', exemplo: 'https://vertho.app/login' },
+  { tag: '{{link_disc}}', label: 'Link DISC', exemplo: 'https://vertho.app/dashboard/perfil-comportamental/mapeamento' },
 ];
 
 const DEFAULT_MSGS = {
