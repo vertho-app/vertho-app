@@ -168,17 +168,35 @@ export default function Top10Page() {
                       )}
                       {t.competencia?.pilar && <span className="text-[10px] text-gray-500">{t.competencia.pilar}</span>}
                     </div>
-                    {t.justificativa && <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-2">{t.justificativa}</p>}
-                    {t.confianca != null && (
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-                          <div className="h-full rounded-full"
-                            style={{
-                              width: `${Math.round(t.confianca * 100)}%`,
-                              background: t.confianca >= 0.8 ? '#34D399' : t.confianca >= 0.6 ? '#FBBF24' : '#F87171',
-                            }} />
-                        </div>
-                        <span className="text-[10px] font-bold text-gray-400 shrink-0">{Math.round(t.confianca * 100)}%</span>
+                    {(t.motivo || t.justificativa) && <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-2">{t.motivo || t.justificativa}</p>}
+                    {(t.confianca != null || t.aderencia_cargo != null) && (
+                      <div className="flex items-center gap-4 mt-1.5">
+                        {t.aderencia_cargo != null && (
+                          <div className="flex items-center gap-1.5 flex-1">
+                            <span className="text-[9px] text-gray-500 shrink-0 w-10">Cargo</span>
+                            <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                              <div className="h-full rounded-full bg-cyan-400" style={{ width: `${Math.round(t.aderencia_cargo * 100)}%` }} />
+                            </div>
+                            <span className="text-[9px] font-bold text-cyan-400 shrink-0">{Math.round(t.aderencia_cargo * 100)}%</span>
+                          </div>
+                        )}
+                        {t.aderencia_mercado != null && (
+                          <div className="flex items-center gap-1.5 flex-1">
+                            <span className="text-[9px] text-gray-500 shrink-0 w-14">Mercado</span>
+                            <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                              <div className="h-full rounded-full bg-purple-400" style={{ width: `${Math.round(t.aderencia_mercado * 100)}%` }} />
+                            </div>
+                            <span className="text-[9px] font-bold text-purple-400 shrink-0">{Math.round(t.aderencia_mercado * 100)}%</span>
+                          </div>
+                        )}
+                        {t.confianca != null && !t.aderencia_cargo && (
+                          <div className="flex items-center gap-1.5 flex-1">
+                            <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: `${Math.round(t.confianca * 100)}%`, background: t.confianca >= 0.8 ? '#34D399' : t.confianca >= 0.6 ? '#FBBF24' : '#F87171' }} />
+                            </div>
+                            <span className="text-[10px] font-bold text-gray-400 shrink-0">{Math.round(t.confianca * 100)}%</span>
+                          </div>
+                        )}
                       </div>
                     )}
                     {Array.isArray(t.evidencias) && t.evidencias.length > 0 && (

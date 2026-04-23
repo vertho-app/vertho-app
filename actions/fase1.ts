@@ -155,6 +155,9 @@ export async function rodarIA1(empresaId: string, aiConfig: AIConfig = {}) {
               posicao: sel.posicao || i + 1,
               justificativa: sel.justificativa || null,
               confianca: typeof sel.confianca === 'number' ? Math.max(0, Math.min(1, sel.confianca)) : null,
+              aderencia_cargo: typeof sel.aderencia_cargo === 'number' ? Math.max(0, Math.min(1, sel.aderencia_cargo)) : null,
+              aderencia_mercado: typeof sel.aderencia_mercado === 'number' ? Math.max(0, Math.min(1, sel.aderencia_mercado)) : null,
+              motivo: sel.motivo || null,
               evidencias: Array.isArray(sel.evidencias_do_caso) ? sel.evidencias_do_caso : [],
               papel_na_cobertura: sel.papel_na_cobertura || null,
             });
@@ -478,7 +481,10 @@ Retorne APENAS JSON válido (sem markdown, sem texto antes/depois):
       "nome": "Nome exato da lista",
       "posicao": 1,
       "confianca": 0.92,
+      "aderencia_cargo": 0.90,
+      "aderencia_mercado": 0.75,
       "justificativa": "Frase que cita elemento específico do cargo/contexto.",
+      "motivo": "Por que esta competência é crítica para ESTE cargo especificamente",
       "evidencias_do_caso": ["elemento 1 do contexto", "elemento 2"],
       "papel_na_cobertura": "O que esta competência cobre que as outras não cobrem"
     }
@@ -499,7 +505,10 @@ Retorne APENAS JSON válido (sem markdown, sem texto antes/depois):
 }
 
 REGRAS DO JSON:
-- confianca: número entre 0.0 e 1.0 (0.7+ = alta confiança)
+- confianca: 0.0 a 1.0 — quão seguro você está desta seleção (0.7+ = alta)
+- aderencia_cargo: 0.0 a 1.0 — quanto esta competência é exigida no dia a dia do cargo
+- aderencia_mercado: 0.0 a 1.0 — quanto esta competência responde a desafios/oportunidades de mercado e setor
+- motivo: frase curta e específica (não genérica) dizendo POR QUE esta competência importa para ESTE cargo
 - evidencias_do_caso: 1 a 3 itens curtos extraídos do contexto fornecido
 - quase_entrou: 2 a 3 competências que ficaram no limite
 - posicao: 1 a ${maxSel} (ordem de prioridade)
