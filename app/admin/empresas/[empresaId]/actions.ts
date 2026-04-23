@@ -33,9 +33,29 @@ export async function loadEmpresaPipeline(empresaId) {
   const avaliadas = avalRes.count || 0;
   const totalPPPs = pppRes.count || 0;
 
-  // Contagem de top10 por cargo (competencias agrupadas)
-  const { data: compsPorCargo } = await sb.from('competencias').select('cargo').eq('empresa_id', empresaId);
-  const cargosComTop10 = new Set((compsPorCargo || []).map(c => c.cargo).filter(Boolean)).size;
+  // Contagem de top10 por cargo
+  const { count: totalTop10 } = await sb.from('top10_cargos')
+    .select('id', { count: 'exact', head: true })
+    .eq('empresa_id', empresaId);
+  const cargosComTop10 = totalTop10 ? Math.ceil((totalTop10 || 0) / 10) : 0;
+
+  // Top 5 definidos
+  const { data: cargosComTop5Data } = await sb.from('cargos_empresa')
+    .select('top5_workshop')
+    .eq('empresa_id', empresaId);
+  const cargosComTop5 = (cargosComTop5Data || []).filter(c => Array.isArray(c.top5_workshop) && c.top5_workshop.length > 0).length;
+
+  // Gabaritos (IA2)
+  const { count: totalGabaritos } = await sb.from('cargos_empresa')
+    .select('id', { count: 'exact', head: true })
+    .eq('empresa_id', empresaId)
+    .not('gabarito', 'is', null);
+
+  // Cenários aprovados
+  const { count: cenariosAprovados } = await sb.from('banco_cenarios')
+    .select('id', { count: 'exact', head: true })
+    .eq('empresa_id', empresaId)
+    .eq('status_check', 'aprovado');
 
   // Envios respondidos
   const { count: respondidos } = await sb.from('envios_diagnostico')
@@ -43,11 +63,16 @@ export async function loadEmpresaPipeline(empresaId) {
     .eq('empresa_id', empresaId)
     .not('respondido_em', 'is', null);
 
+  // Fase 1 status: precisa Top10 + Top5 + cenários para ser concluída
+  const fase1Status = (totalCenarios > 0 && cargosComTop5 > 0 && (totalTop10 || 0) > 0)
+    ? 'concluido'
+    : ((totalTop10 || 0) > 0 || totalCenarios > 0) ? 'andamento' : (totalColab > 0 ? 'andamento' : 'pendente');
+
   const fases = [
     { num: 0, titulo: 'Onboarding & PPP', status: totalColab > 0 ? 'concluido' : 'andamento',
       metricas: [{ label: 'Colaboradores', valor: totalColab }, { label: 'Cargos', valor: totalCargos }, { label: 'PPPs', valor: totalPPPs }] },
-    { num: 1, titulo: 'Análise de Cargos & Cenários', status: totalCenarios > 0 ? 'concluido' : totalColab > 0 ? 'andamento' : 'pendente',
-      metricas: [{ label: 'Top 10', valor: cargosComTop10, total: totalCargos || cargosComTop10 }, { label: 'Cenários', valor: totalCenarios }] },
+    { num: 1, titulo: 'Análise de Cargos & Cenários', status: fase1Status,
+      metricas: [{ label: 'Top 10', valor: cargosComTop10, total: totalCargos || cargosComTop10 }, { label: 'Top 5', valor: cargosComTop5, total: totalCargos || cargosComTop5 }, { label: 'Cenários', valor: totalCenarios }, { label: 'Aprovados', valor: cenariosAprovados || 0 }] },
     { num: 2, titulo: 'Formulários & Envios', status: totalEnvios > 0 ? 'concluido' : totalCenarios > 0 ? 'andamento' : 'pendente',
       metricas: [{ label: 'Enviados', valor: totalEnvios }, { label: 'Respondidos', valor: respondidos || 0, total: totalEnvios }] },
     { num: 3, titulo: 'Diagnóstico IA & Relatórios', status: avaliadas > 0 ? (avaliadas >= totalRespostas ? 'concluido' : 'andamento') : totalRespostas > 0 ? 'andamento' : 'pendente',
