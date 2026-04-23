@@ -56,6 +56,7 @@ const PHASE_CONFIG = [
       { key: 'competencias', label: 'Competências', icon: BookOpen, href: '/admin/competencias' },
       { key: 'ppp', label: 'Extrair PPPs', icon: FileText, href: '/admin/ppp' },
       { key: 'preferencias', label: 'Preferências de Aprendizagem', icon: GraduationCap, hrefFn: (id) => `/admin/empresas/${id}/fase0?tab=preferencias` },
+      { key: 'knowledge-base', label: 'Knowledge Base (RAG)', icon: Database, hrefFn: (id) => `/admin/vertho/knowledge-base?empresa=${id}` },
     ]},
     { label: 'Conteúdo', actions: [
       { key: 'videos', label: 'Vídeos (Bunny)', icon: Film, hrefFn: (id) => `/admin/videos?empresa=${id}` },

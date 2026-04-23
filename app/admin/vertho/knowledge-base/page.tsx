@@ -44,7 +44,12 @@ export default function KnowledgeBasePage() {
       const r = await listarEmpresas();
       if (r.error) { setError(r.error); setLoading(false); return; }
       setEmpresas(r.empresas);
-      if (r.empresas[0]) setEmpresaId(r.empresas[0].id);
+      const urlEmpresa = new URLSearchParams(window.location.search).get('empresa');
+      if (urlEmpresa && r.empresas.some(e => e.id === urlEmpresa)) {
+        setEmpresaId(urlEmpresa);
+      } else if (r.empresas[0]) {
+        setEmpresaId(r.empresas[0].id);
+      }
       setLoading(false);
     })();
   }, []);
