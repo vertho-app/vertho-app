@@ -40,7 +40,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
   const [cenarios, setCenarios] = useState([]);
   const [cenOpen, setCenOpen] = useState(null);
   const [cenAction, setCenAction] = useState(null);
-  const [cenProgress, setCenProgress] = useState<{ current: number; total: number; label: string } | null>(null);
+  const [cenProgress, setCenProgress] = useState<{ current: number; total: number; label: string; cargo: string } | null>(null);
 
   function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 2500); }
 
@@ -442,17 +442,6 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
           {cenarios.length === 0 ? (
             <Empty icon={FileText} text="Nenhum cenário. Rode IA3 no pipeline." />
           ) : (<>
-            <div className="flex items-center gap-2 mb-4">
-              <button onClick={async () => {
-                if (!confirm('Remover cenários de competências que não estão no Top 5?')) return;
-                const r = await limparCenariosAntigos(empresaId);
-                flash(r.success ? r.message : 'Erro: ' + r.error);
-                if (r.success) refresh();
-              }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold text-gray-400 border border-white/10 hover:text-red-400 hover:border-red-400/30 transition-all">
-                <Trash2 size={11} /> Limpar fora do Top 5
-              </button>
-            </div>
           {Object.entries(cenariosPorCargo).map(([cargo, cens]: [string, any]) => {
             const aprovados = cens.filter(c => c.status_check === 'aprovado').length;
             const ressalvas = cens.filter(c => c.status_check === 'aprovado_com_ressalvas').length;
@@ -476,7 +465,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                         for (let idx = 0; idx < paraRevisar.length; idx++) {
                           const c = paraRevisar[idx];
                           setCenAction({ id: c.id, type: 'regen' });
-                          setCenProgress({ current: idx + 1, total: paraRevisar.length, label: c.titulo || `Cenário ${idx + 1}` });
+                          setCenProgress({ current: idx + 1, total: paraRevisar.length, label: c.titulo || `Cenário ${idx + 1}`, cargo });
                           try {
                             const r = await regenerarCenario(c.id);
                             if (r.success) {
@@ -519,7 +508,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                     </button>
                   )}
                 </div>
-                {cenProgress && (
+                {cenProgress && cenProgress.cargo === cargo && (
                   <div className="mb-3 rounded-lg border border-amber-400/20 bg-amber-400/5 px-4 py-3">
                     <div className="flex items-center justify-between text-[11px] mb-1.5">
                       <span className="text-amber-400 font-bold">Revisando {cenProgress.current}/{cenProgress.total}</span>
