@@ -216,24 +216,41 @@ export async function testarBuscaKB(empresaId, query) {
 
   const sb = createSupabaseAdmin();
 
-  // Tenta RPC kb_search (FTS). Se a function não existir no banco, fallback para ILIKE.
-  const { data, error } = await sb.rpc('kb_search', {
-    p_empresa_id: empresaId,
-    p_query: query.slice(0, 500),
-    p_limit: 5,
-  });
+  // Tenta RPC kb_search (FTS). Se falhar ou retornar vazio, fallback para ILIKE.
+  let resultados: any[] = [];
+  try {
+    const { data, error } = await sb.rpc('kb_search', {
+      p_empresa_id: empresaId,
+      p_query: query.slice(0, 500),
+      p_limit: 5,
+    });
+    if (!error && data?.length) return { ok: true, resultados: data };
+    if (error) console.warn('[testarBuscaKB] kb_search falhou:', error.message);
+  } catch (e: any) {
+    console.warn('[testarBuscaKB] kb_search exception:', e?.message);
+  }
 
-  if (!error) return { ok: true, resultados: data || [] };
-
-  // Fallback: busca simples por ILIKE (quando kb_search não está no banco)
-  console.warn('[testarBuscaKB] kb_search falhou, usando fallback ILIKE:', error.message);
-  const { data: fallback, error: fbErr } = await sb.from('knowledge_base')
+  // Fallback: busca simples por ILIKE
+  const termo = query.slice(0, 100).replace(/[%_]/g, '');
+  const { data: fallback } = await sb.from('knowledge_base')
     .select('id, titulo, conteudo, categoria')
     .eq('empresa_id', empresaId)
     .eq('ativo', true)
-    .or(`titulo.ilike.%${query.slice(0, 100)}%,conteudo.ilike.%${query.slice(0, 100)}%`)
+    .ilike('conteudo', `%${termo}%`)
     .limit(5);
 
-  if (fbErr) return { error: fbErr.message };
-  return { ok: true, resultados: (fallback || []).map(r => ({ ...r, score: 0 })) };
+  if (fallback?.length) {
+    resultados = fallback.map(r => ({ ...r, score: 0 }));
+  } else {
+    // Tenta por título
+    const { data: byTitulo } = await sb.from('knowledge_base')
+      .select('id, titulo, conteudo, categoria')
+      .eq('empresa_id', empresaId)
+      .eq('ativo', true)
+      .ilike('titulo', `%${termo}%`)
+      .limit(5);
+    resultados = (byTitulo || []).map(r => ({ ...r, score: 0 }));
+  }
+
+  return { ok: true, resultados };
 }
