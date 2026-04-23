@@ -367,10 +367,26 @@ Todos com back button context-aware.
 
 ---
 
-## Notas de manutenção (2026-04-17)
+## Notas de manutenção
 
-- **Favicon**: `app/icon.svg` adicionado ao projeto
-- **Remoção de legado**: `gas-antigo/` (69 arquivos) e `migrations-legacy/` (37 SQL files) removidos; script npm `migrate:legacy` removido
+### 2026-04-19 — Design System Fase 1
+- **Design System**: `docs/DESIGN-SYSTEM.md` com paleta oficial, tipografia, tokens
+- **Paleta oficial**: navy `#0F2B54`, cyan `#34C5CC`, purple `#9E4EDD`, lilac `#E1AAEF`, purple-deep `#3B0A6D`
+- **Tokens de fase** em `globals.css`: F1-F5 com cores dinâmicas via `data-phase` + `--phase-accent/deep/glow`
+- **Fonte Instrument Serif** carregada em `layout.tsx` via `next/font/google` (`--font-serif`)
+- **Componentes novos**: `UserAvatar` (monograma serif italic + borda de fase), `ContentThumb` (thumbnails temáticos)
+- **Dashboard Home**: hero card com gradiente/glow por fase, `data-phase` propaga tokens CSS
+- **PageHero**: eyebrow herda `var(--phase-accent)` em vez de cyan hardcoded
+
+### 2026-04-17 — Segurança e Schema
+- **Auth server-side**: 26 actions de dashboard corrigidas — identidade 100% via `getAuthenticatedEmailFromAction()` (cookies SSR)
+- **243 testes de segurança** (17 arquivos) — regressão anti-identity-by-parameter
+- **Stubs API removidos**: 8 rotas sem auth que retornavam `{status:'ok'}`
+- **Schema**: migrations 048-051 (relatorios, capacitacao, unicidade NULL, evidencia_avaliacao)
+- **Processo anti-drift**: `docs/SCHEMA-PROCESS.md`
+- **Go-live checklist**: `docs/GO-LIVE-CHECKLIST.md`
+- **Favicon**: `app/icon.svg` (navy + cyan da marca)
+- **Remoção de legado**: `gas-antigo/`, `migrations-legacy/`, `migrate:legacy` script, stubs, compat legada de PDFs
 
 ---
 
