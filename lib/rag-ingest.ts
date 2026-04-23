@@ -35,33 +35,12 @@ const DEFAULT_OVERLAP = 200;
  * Extrai texto de um PDF via pdf-parse (binário Buffer).
  */
 export async function parsePdf(buffer: Buffer): Promise<ParsedDoc> {
-  // pdfjs-dist v5 legacy ainda pode pedir DOMMatrix em Node — polyfill inline.
-  if (typeof globalThis.DOMMatrix === 'undefined') {
-    class M { m11=1;m12=0;m13=0;m14=0;m21=0;m22=1;m23=0;m24=0;m31=0;m32=0;m33=1;m34=0;m41=0;m42=0;m43=0;m44=1;a=1;b=0;c=0;d=1;e=0;f=0;is2D=true;isIdentity=true;
-      inverse(){return new M()}multiply(){return new M()}translate(){return new M()}scale(){return new M()}rotate(){return new M()}transformPoint(p:any){return p||{x:0,y:0,z:0,w:1}}
-      static fromMatrix(){return new M()}static fromFloat32Array(){return new M()}static fromFloat64Array(){return new M()}
-      toFloat32Array(){return new Float32Array(16)}toFloat64Array(){return new Float64Array(16)}toString(){return'matrix(1,0,0,1,0,0)'}
-    }
-    (globalThis as any).DOMMatrix = M;
-  }
-  if (typeof globalThis.Path2D === 'undefined') {
-    (globalThis as any).Path2D = class Path2D { addPath(){} closePath(){} moveTo(){} lineTo(){} bezierCurveTo(){} quadraticCurveTo(){} arc(){} arcTo(){} ellipse(){} rect(){} };
-  }
-  const pdfjsLib: any = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  // Desabilita worker — não funciona em serverless (Vercel Lambda)
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '';
-  if (pdfjsLib.GlobalWorkerOptions) pdfjsLib.GlobalWorkerOptions.workerPort = null;
-  const uint8 = new Uint8Array(buffer);
-  const doc = await pdfjsLib.getDocument({ data: uint8, useSystemFonts: true, isEvalSupported: false, useWorkerFetch: false, disableAutoFetch: true }).promise;
-  const pages: string[] = [];
-  for (let i = 1; i <= doc.numPages; i++) {
-    const page = await doc.getPage(i);
-    const content = await page.getTextContent();
-    pages.push(content.items.map((item: any) => item.str).join(' '));
-  }
+  // unpdf funciona em serverless sem DOM, sem worker, sem DOMMatrix.
+  const { extractText } = await import('unpdf');
+  const result = await extractText(new Uint8Array(buffer));
   return {
-    text: pages.join('\n\n'),
-    pages: doc.numPages,
+    text: Array.isArray(result.text) ? result.text.join('\n\n') : (result.text || ''),
+    pages: result.totalPages || 0,
     meta: {},
   };
 }
