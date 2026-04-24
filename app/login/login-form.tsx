@@ -78,15 +78,20 @@ export default function LoginForm({ branding }: { branding: any }) {
       return;
     }
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email: trimmed,
-      options: {
-        emailRedirectTo: `${window.location.origin}${redirectTo}`,
-      },
-    });
+    const [otpResult] = await Promise.all([
+      supabase.auth.signInWithOtp({
+        email: trimmed,
+        options: { emailRedirectTo: `${window.location.origin}${redirectTo}` },
+      }),
+      fetch('/api/auth/magic-link-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmed, redirectTo: `${window.location.origin}${redirectTo}` }),
+      }).catch(() => {}),
+    ]);
 
-    if (error) {
-      setErrorMsg(error.message);
+    if (otpResult.error) {
+      setErrorMsg(otpResult.error.message);
       setStatus('error');
     } else {
       setStatus('sent');
@@ -125,12 +130,12 @@ export default function LoginForm({ branding }: { branding: any }) {
         {status === 'sent' ? (
           /* ── Link enviado ── */
           <div className="bg-white/10 rounded-xl p-6 border border-white/15">
-            <div className="text-3xl mb-3">&#9993;&#65039;</div>
+            <div className="text-3xl mb-3">🔐</div>
             <p className="font-semibold mb-1" style={{ color: fontColor || '#FFFFFF' }}>Link enviado!</p>
             <p className="text-sm" style={{ color: fontColorSecondary || '#FFFFFF99' }}>
-              Verifique sua caixa de entrada em{' '}
-              <span className="font-medium" style={{ color: accentColor }}>{email}</span>{' '}
-              e clique no link para acessar.
+              Verifique seu <strong>e-mail</strong> e <strong>WhatsApp</strong> para{' '}
+              <span className="font-medium" style={{ color: accentColor }}>{email}</span>.{' '}
+              Clique no link para acessar.
             </p>
             <button
               onClick={() => setStatus('idle')}
