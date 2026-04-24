@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { getPreset } from '@/lib/avatar-presets';
 
 /**
  * UserAvatar
@@ -20,10 +19,10 @@ interface UserAvatarProps {
   name?: string | null;
   /** URL da foto. Se carregar, exibe em destaque; se falhar, mostra monograma. */
   photoUrl?: string | null;
-  /** Preset salvo no colaborador. Usado quando não há foto. */
-  avatarPreset?: string | null;
   /** Tamanho em px (largura = altura). Default: 40 */
   size?: number;
+  /** Preset de avatar (emoji ou ID) */
+  avatarPreset?: string | null;
   /** Classe extra pro elemento raiz */
   className?: string;
   onClick?: () => void;
@@ -32,7 +31,7 @@ interface UserAvatarProps {
 export function UserAvatar({
   name,
   photoUrl,
-  avatarPreset,
+  avatarPreset: _avatarPreset,
   size = 40,
   className = '',
   onClick,
@@ -40,7 +39,6 @@ export function UserAvatar({
   const [photoFailed, setPhotoFailed] = React.useState(false);
   const monogram = toMonogram(name);
   const showPhoto = !!photoUrl && !photoFailed;
-  const preset = !showPhoto && avatarPreset ? getPreset(avatarPreset) : null;
 
   const fontSize = Math.round(size * 0.38);
   const borderWidth = size >= 48 ? 2 : 1.5;
@@ -74,33 +72,21 @@ export function UserAvatar({
 
       {/* Monograma (visível quando não há foto) */}
       {!showPhoto && (
-        <>
-          {preset ? (
-            <span
-              className="absolute inset-0 flex items-center justify-center select-none"
-              style={{ fontSize: Math.round(size * 0.48) }}
-              aria-hidden
-            >
-              {preset.emoji}
-            </span>
-          ) : (
-            <span
-              className="absolute inset-0 flex items-center justify-center select-none"
-              style={{
-                fontFamily: "'Instrument Serif', serif",
-                fontStyle: 'italic',
-                fontSize,
-                lineHeight: 1,
-                color: 'var(--phase-accent, #9AE2E6)',
-                // Leve glow no monograma
-                textShadow: '0 0 12px color-mix(in oklab, var(--phase-accent, #34C5CC) 35%, transparent)',
-              }}
-              aria-hidden
-            >
-              {monogram}
-            </span>
-          )}
-        </>
+        <span
+          className="absolute inset-0 flex items-center justify-center select-none"
+          style={{
+            fontFamily: "'Instrument Serif', serif",
+            fontStyle: 'italic',
+            fontSize,
+            lineHeight: 1,
+            color: 'var(--phase-accent, #9AE2E6)',
+            // Leve glow no monograma
+            textShadow: '0 0 12px color-mix(in oklab, var(--phase-accent, #34C5CC) 35%, transparent)',
+          }}
+          aria-hidden
+        >
+          {monogram}
+        </span>
       )}
 
       {/* Overlay sutil ao hover */}

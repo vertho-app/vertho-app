@@ -38,6 +38,7 @@ const PHASE_TOKENS: Record<number, { accent: string; deep: string; glow: string 
   5: { accent: '#e1aaf0', deep: '#1a0220', glow: 'rgba(225,170,240,0.26)' },
 };
 
+// Glifo serif por fase (mantém consistência com o sistema de identidade)
 const FASE_GLYPH = ['', 'a', 'b', 'c', 'd', 'e'];
 
 const serifStyle: React.CSSProperties = {
@@ -100,6 +101,7 @@ export default function JornadaPage() {
           style={{ color: 'var(--phase-accent)' }}>
           Sua jornada
         </p>
+        {/* ✅ h1 em Instrument Serif */}
         <h1 style={{
           ...serifStyle,
           fontSize: 'clamp(30px, 5.5vw, 48px)',
@@ -115,7 +117,7 @@ export default function JornadaPage() {
               </em>
             </>
           ) : (
-            <em style={{ color: 'var(--phase-accent)' }}>Jornada concluída</em>
+            <em style={{ color: 'var(--phase-accent)' }}>Jornada concluída 🎉</em>
           )}
         </h1>
         <p className="text-sm text-white/55">
@@ -125,7 +127,7 @@ export default function JornadaPage() {
 
       <main className="flex-1 px-5 pb-28 space-y-6">
 
-        {/* Hero card */}
+        {/* Hero card — fase atual */}
         <section className="rounded-[28px] p-5 relative overflow-hidden"
           style={{
             background: `radial-gradient(circle at top right, ${phaseTokens.glow}, transparent 42%), linear-gradient(135deg, ${phaseTokens.deep} 0%, #0f2b54 100%)`,
@@ -138,6 +140,7 @@ export default function JornadaPage() {
                 style={{ color: 'var(--phase-accent)' }}>
                 Fase atual
               </p>
+              {/* ✅ título da fase em serif */}
               <h2 style={{
                 ...serifStyle,
                 fontSize: 'clamp(26px, 5vw, 38px)',
@@ -147,9 +150,18 @@ export default function JornadaPage() {
                 {faseAtual?.titulo || <em style={{ color: 'var(--phase-accent)' }}>Todas concluídas</em>}
               </h2>
             </div>
-            <span className="shrink-0 px-3 py-1.5 rounded-full bg-white/10 border border-white/10 text-[11px] font-semibold text-white/80"
-              style={{ fontFamily: 'var(--font-mono, monospace)', letterSpacing: '.08em' }}>
-              F{String(faseNum).padStart(2, '0')}
+            <span
+              className="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold"
+              style={{
+                fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+                fontStyle: 'italic',
+                background: 'color-mix(in oklab, var(--phase-accent) 16%, transparent)',
+                border: '1px solid color-mix(in oklab, var(--phase-accent) 45%, transparent)',
+                color: 'var(--phase-accent)',
+                letterSpacing: '-.01em',
+                fontSize: 14,
+              }}>
+              F{faseNum}
             </span>
           </div>
           <p className="text-sm text-white/65 leading-relaxed mb-5">
@@ -171,7 +183,7 @@ export default function JornadaPage() {
             onClick={() => router.push(FASE_HREF[faseNum] || '/dashboard/evolucao')}
             className="w-full py-4 rounded-2xl font-bold text-base transition-all duration-200 flex items-center justify-center gap-2"
             style={{
-              background: `linear-gradient(90deg, var(--phase-accent), color-mix(in oklab, var(--phase-accent) 88%, white))`,
+              background: 'var(--phase-accent)',
               color: '#062032',
               boxShadow: '0 10px 24px var(--phase-glow)',
             }}>
@@ -180,7 +192,7 @@ export default function JornadaPage() {
           </button>
         </section>
 
-        {/* Timeline vertical */}
+        {/* Timeline vertical — C forte */}
         <section className="rounded-[28px] p-5"
           style={{
             background: 'linear-gradient(180deg, rgba(12,32,56,0.96) 0%, rgba(8,26,46,0.96) 100%)',
@@ -189,6 +201,7 @@ export default function JornadaPage() {
           }}>
           <div className="flex items-center justify-between mb-5">
             <div>
+              {/* ✅ título da seção em serif */}
               <h3 style={{ ...serifStyle, fontSize: 22, color: '#fff', marginBottom: 2 }}>
                 Fases da jornada
               </h3>
@@ -200,6 +213,7 @@ export default function JornadaPage() {
           </div>
 
           <div className="relative">
+            {/* Linha espectro ciano → violeta */}
             <div className="absolute left-[22px] top-3 bottom-3 w-[2px] opacity-55"
               style={{ background: 'linear-gradient(180deg, #9ae2e6 0%, #34c5cc 25%, #7ba7e0 50%, #b888e8 75%, #e1aaf0 100%)' }} />
 
@@ -208,7 +222,7 @@ export default function JornadaPage() {
                 const isDone = f.displayStatus === 'completed';
                 const isCurrent = f.displayStatus === 'current';
                 const clickable = f.displayStatus !== 'pending';
-                const glyph = FASE_GLYPH[f.fase] ?? '';
+                const glyph = FASE_GLYPH[f.fase] ?? '·';
                 const tk = f.tokens;
 
                 return (
@@ -216,6 +230,7 @@ export default function JornadaPage() {
                     onClick={() => clickable && FASE_HREF[f.fase] && router.push(FASE_HREF[f.fase])}
                     disabled={!clickable}
                     className={`flex items-center gap-4 w-full text-left ${!clickable ? 'opacity-50' : ''}`}>
+                    {/* Dot com glifo serif */}
                     <div
                       className="shrink-0 flex items-center justify-center rounded-full"
                       style={{
@@ -234,6 +249,7 @@ export default function JornadaPage() {
                     </div>
 
                     <div className="flex-1 min-w-0">
+                      {/* ✅ nome da fase em serif quando atual */}
                       <h4 style={{
                         fontFamily: isCurrent
                           ? 'var(--font-serif, "Instrument Serif", serif)'
@@ -246,6 +262,7 @@ export default function JornadaPage() {
                       }}>
                         Fase {f.fase} — {f.titulo}
                       </h4>
+                      {/* status em serif itálico pequeno */}
                       <p style={{
                         ...serifStyle,
                         fontSize: 13,

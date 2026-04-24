@@ -24,12 +24,35 @@
   --ink: #F3F7FB;
   --ink-dim: rgba(243, 247, 251, 0.62);
   --ink-faint: rgba(243, 247, 251, 0.38);
-  --line: rgba(255, 255, 255, 0.08);
-  --line-strong: rgba(255, 255, 255, 0.14);
   --success: #2ECC71;
   --warning: #F4B740;
   --danger: #E74C3C;
   --coral: #F97354;
+
+  /* ─── g: Border-radius — 3 valores, use estes e só estes ──────────────
+     sm  → botões inline, pills, badges, dots pequenos
+     md  → cards internos, chips, linhas de lista
+     lg  → cards principais, hero sections, modais
+     ──────────────────────────────────────────────────────────────────── */
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+
+  /* ─── i: Bordas — 3 opacidades, use estes e só estes ─────────────────
+     line        → borda neutra padrão (maioria dos cards)
+     line-strong → borda com mais contraste (hover, focus, divisores)
+     line-phase  → borda colorida pela fase atual (hero, CTA area)
+     ──────────────────────────────────────────────────────────────────── */
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.14);
+  --line-phase: color-mix(in oklab, var(--phase-accent) 22%, transparent);
+
+  /* ─── h: Sombras — 2 níveis, use com parcimônia ──────────────────────
+     shadow-float → modais, FABs, dropdowns — elementos que flutuam
+     shadow-card  → REMOVER de 80% dos cards; manter só onde há elevação real
+     ──────────────────────────────────────────────────────────────────── */
+  --shadow-float: 0 24px 48px rgba(0, 0, 0, 0.42), 0 8px 16px rgba(0, 0, 0, 0.28);
+  --shadow-card:  0 8px 20px rgba(0, 0, 0, 0.18);
 }
 
 body {
@@ -58,6 +81,11 @@ body {
   --color-warning: #F4B740;
   --color-danger: #E74C3C;
   --color-coral: #F97354;
+
+  /* ─── g: radius tokens no Tailwind ─── */
+  --radius-sm:  10px;
+  --radius-md:  16px;
+  --radius-lg:  24px;
 }
 
 /* Phase accent overrides */
