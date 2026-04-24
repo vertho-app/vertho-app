@@ -88,9 +88,64 @@ function tryParsePracticeJSON(raw: any) {
   }
 }
 
+function salvagePracticeJSON(raw: any) {
+  if (!raw || typeof raw !== 'string') return null;
+  const text = raw.replace(/^```json?\s*/i, '').replace(/```\s*$/i, '').trim();
+  const keys = [
+    'contexto',
+    'tensao_central',
+    'fator_complicador',
+    'stakeholders',
+    'tradeoff_testado',
+    'armadilha_resposta_generica',
+    'pergunta',
+  ];
+  if (!text.includes('"contexto"') && !text.includes('"tensao_central"')) return null;
+
+  const esc = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parseStr = (key: string) => {
+    const next = keys.filter((item) => item !== key).map(esc).join('|');
+    const re = new RegExp(`"${esc(key)}"\\s*:\\s*"([\\s\\S]*?)(?:"\\s*(?=,\\s*"(?:${next})"|\\s*}\\s*$)|$)`, 'i');
+    const match = text.match(re);
+    return match?.[1]
+      ?.replace(/\\"/g, '"')
+      .replace(/\\n/g, '\n')
+      .replace(/\\r/g, '')
+      .replace(/\\t/g, '\t')
+      .replace(/\\\\/g, '\\')
+      .trim() || '';
+  };
+  const parseArr = (key: string) => {
+    const next = keys.filter((item) => item !== key).map(esc).join('|');
+    const re = new RegExp(`"${esc(key)}"\\s*:\\s*\\[([\\s\\S]*?)(?:\\]\\s*(?=,\\s*"(?:${next})"|\\s*}\\s*$)|$)`, 'i');
+    const block = text.match(re)?.[1] || '';
+    return Array.from(block.matchAll(/"([\s\S]*?)(?:"\s*(?=,|$)|$)/g))
+      .map((match) => match[1]
+        .replace(/\\"/g, '"')
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '')
+        .replace(/\\t/g, '\t')
+        .replace(/\\\\/g, '\\')
+        .trim())
+      .filter(Boolean);
+  };
+
+  const parsed = {
+    contexto: parseStr('contexto'),
+    tensao_central: parseStr('tensao_central'),
+    fator_complicador: parseStr('fator_complicador'),
+    stakeholders: parseArr('stakeholders'),
+    tradeoff_testado: parseStr('tradeoff_testado'),
+    armadilha_resposta_generica: parseStr('armadilha_resposta_generica'),
+    pergunta: parseStr('pergunta'),
+  };
+
+  return Object.values(parsed).some((value) => Array.isArray(value) ? value.length > 0 : Boolean(value)) ? parsed : null;
+}
+
 function formatPracticeScenario(raw: any) {
   const text = safeText(raw);
-  const parsed = tryParsePracticeJSON(text);
+  const parsed = tryParsePracticeJSON(text) || salvagePracticeJSON(text);
   if (!parsed) return { markdown: text, pergunta: '' };
 
   const lines = [];

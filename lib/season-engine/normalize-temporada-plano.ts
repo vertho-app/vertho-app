@@ -32,6 +32,89 @@ function parseLooseJSON(raw: unknown): any | null {
   return null;
 }
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function unescapeJsonLike(value: string): string {
+  return value
+    .replace(/\\"/g, '"')
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '')
+    .replace(/\\t/g, '\t')
+    .replace(/\\\\/g, '\\')
+    .trim();
+}
+
+function extractLooseStringField(text: string, key: string, knownKeys: string[]): string {
+  const nextKeys = knownKeys.filter((item) => item !== key).map(escapeRegex).join('|');
+  const pattern = new RegExp(
+    `"${escapeRegex(key)}"\\s*:\\s*"([\\s\\S]*?)(?:"\\s*(?=,\\s*"(?:${nextKeys})"|\\s*}\\s*$)|$)`,
+    'i',
+  );
+  const match = text.match(pattern);
+  return match?.[1] ? unescapeJsonLike(match[1]) : '';
+}
+
+function extractLooseArrayField(text: string, key: string, knownKeys: string[]): string[] {
+  const nextKeys = knownKeys.filter((item) => item !== key).map(escapeRegex).join('|');
+  const pattern = new RegExp(
+    `"${escapeRegex(key)}"\\s*:\\s*\\[([\\s\\S]*?)(?:\\]\\s*(?=,\\s*"(?:${nextKeys})"|\\s*}\\s*$)|$)`,
+    'i',
+  );
+  const block = text.match(pattern)?.[1] || '';
+  const items: string[] = [];
+  const itemRegex = /"([\s\S]*?)(?:"\s*(?=,|$)|$)/g;
+  let match: RegExpExecArray | null = null;
+  while ((match = itemRegex.exec(block))) {
+    const value = unescapeJsonLike(match[1]);
+    if (value) items.push(value);
+  }
+  return items;
+}
+
+function salvageCenarioStructured(raw: string): CenarioStructured | null {
+  const text = stripCodeFence(raw);
+  if (!text.includes('"contexto"') && !text.includes('"tensao_central"')) return null;
+
+  const knownKeys = [
+    'contexto',
+    'tensao_central',
+    'fator_complicador',
+    'stakeholders',
+    'tradeoff_testado',
+    'armadilha_resposta_generica',
+    'pergunta',
+    'complexidade_aplicada',
+    'complexidade',
+    'por_que_essa_complexidade_faz_sentido',
+  ];
+
+  const contexto = extractLooseStringField(text, 'contexto', knownKeys);
+  const tensao = extractLooseStringField(text, 'tensao_central', knownKeys);
+  const fator = extractLooseStringField(text, 'fator_complicador', knownKeys);
+  const stakeholders = extractLooseArrayField(text, 'stakeholders', knownKeys).slice(0, 2);
+  const tradeoff = extractLooseStringField(text, 'tradeoff_testado', knownKeys);
+  const armadilha = extractLooseStringField(text, 'armadilha_resposta_generica', knownKeys);
+  const pergunta = extractLooseStringField(text, 'pergunta', knownKeys);
+  const complexidade = extractLooseStringField(text, 'complexidade_aplicada', knownKeys) || extractLooseStringField(text, 'complexidade', knownKeys);
+  const porque = extractLooseStringField(text, 'por_que_essa_complexidade_faz_sentido', knownKeys);
+
+  if (!contexto && !tensao && !fator && !tradeoff && !armadilha && !pergunta) return null;
+
+  return {
+    contexto,
+    tensao_central: tensao,
+    fator_complicador: fator,
+    stakeholders,
+    tradeoff_testado: tradeoff,
+    armadilha_resposta_generica: armadilha,
+    pergunta,
+    complexidade_aplicada: complexidade,
+    por_que_essa_complexidade_faz_sentido: porque,
+  };
+}
+
 function toMissaoStructured(raw: any): MissaoStructured | null {
   if (!raw) return null;
 
@@ -75,12 +158,12 @@ function toCenarioStructured(raw: any): CenarioStructured | null {
   if (!raw) return null;
 
   if (typeof raw === 'string') {
-    return parseCenarioResponse(raw) || toCenarioStructured(parseLooseJSON(raw));
+    return parseCenarioResponse(raw) || salvageCenarioStructured(raw) || toCenarioStructured(parseLooseJSON(raw));
   }
 
   if (typeof raw === 'object') {
     if (typeof raw.texto === 'string') {
-      return parseCenarioResponse(raw.texto) || toCenarioStructured(parseLooseJSON(raw.texto));
+      return parseCenarioResponse(raw.texto) || salvageCenarioStructured(raw.texto) || toCenarioStructured(parseLooseJSON(raw.texto));
     }
 
     if (
