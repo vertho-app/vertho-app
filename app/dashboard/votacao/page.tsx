@@ -28,11 +28,7 @@ export default function VotacaoPage() {
       if (result.error) setError(result.error);
       else {
         setData(result);
-        if (result.votoExistente?.competencias_escolhidas) {
-          setSelected(result.votoExistente.competencias_escolhidas);
-          setSugestao(result.votoExistente.sugestao_nova || '');
-          setSaved(true);
-        }
+        // Se já votou, a tela read-only será exibida
       }
       setLoading(false);
     }
@@ -86,7 +82,41 @@ export default function VotacaoPage() {
   );
   if (!data) return null;
 
+  const jaVotou = !!data.votoExistente;
   const available = (data.competencias || []).filter((c: any) => !selected.includes(c.nome));
+
+  // Tela read-only se já votou
+  if (jaVotou) return (
+    <div className="max-w-[640px] mx-auto px-5 py-6">
+      <button onClick={() => router.back()} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white mb-4">
+        <ArrowLeft size={16} /> Voltar
+      </button>
+      <div className="rounded-2xl border border-green-400/20 p-6 text-center" style={{ background: 'rgba(16,185,129,0.06)' }}>
+        <Check size={48} className="text-green-400 mx-auto mb-3" />
+        <h2 className="text-lg font-bold text-white mb-1">Voto registrado!</h2>
+        <p className="text-sm text-gray-400 mb-5">
+          Seu voto foi salvo em {new Date(data.votoExistente.votado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}.
+        </p>
+        <div className="space-y-2 text-left mb-4">
+          {(data.votoExistente.competencias_escolhidas || []).map((nome: string, idx: number) => (
+            <div key={nome} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
+              <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-bold shrink-0 ${
+                idx === 0 ? 'bg-amber-400/20 text-amber-400' : 'bg-cyan-400/15 text-cyan-400'
+              }`}>{idx + 1}</span>
+              <span className="text-sm font-medium text-white">{nome}</span>
+            </div>
+          ))}
+        </div>
+        {data.votoExistente.sugestao_nova && (
+          <p className="text-xs text-gray-500 text-left">Sugestão: <span className="text-amber-300">{data.votoExistente.sugestao_nova}</span></p>
+        )}
+      </div>
+      <button onClick={() => router.push('/dashboard')}
+        className="w-full mt-4 py-3 rounded-xl font-bold text-gray-300 border border-white/10 hover:bg-white/5 transition">
+        Voltar ao dashboard
+      </button>
+    </div>
+  );
 
   return (
     <div className="max-w-[640px] mx-auto px-5 py-6">
@@ -214,11 +244,6 @@ export default function VotacaoPage() {
         {saving ? 'Salvando...' : saved ? 'Voto registrado ✓' : `Enviar meu voto (${selected.length}/5)`}
       </button>
 
-      {data.votoExistente && (
-        <p className="text-center text-[11px] text-gray-500 mt-2">
-          Último voto em {new Date(data.votoExistente.votado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}. Você pode alterar a qualquer momento.
-        </p>
-      )}
     </div>
   );
 }
