@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 
 function tryParseJSON(s: any) {
   if (!s || typeof s !== 'string') return null;
@@ -84,7 +85,8 @@ export async function loadTrilhas(empresaId: string) {
     : { data: [] };
 
   return data.map(t => {
-    const plano = Array.isArray(t.temporada_plano) ? t.temporada_plano : (typeof t.temporada_plano === 'string' ? JSON.parse(t.temporada_plano) : null);
+    const planoRaw = Array.isArray(t.temporada_plano) ? t.temporada_plano : (typeof t.temporada_plano === 'string' ? JSON.parse(t.temporada_plano) : null);
+    const plano = normalizeTemporadaPlano(planoRaw);
     const cursosLegacy = typeof t.cursos === 'string' ? JSON.parse(t.cursos) : (t.cursos || []);
 
     let obrigatorios = [];

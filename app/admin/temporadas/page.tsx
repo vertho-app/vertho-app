@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import ReactMarkdown from 'react-markdown';
 import { ArrowLeft, ChevronRight, ChevronDown, BookOpen, Target, Sparkles, Video, FileText, Headphones, FileType, Pause, Play, Archive, RefreshCw, Eye, X } from 'lucide-react';
 import { listarTemporadasEmpresa, pausarRetomarTemporada, arquivarTemporada, regerarSemana, loadProgressoDetalhado } from '@/actions/temporadas';
 import { simularUmaSemanaSimulacao } from '@/actions/simulador-temporada';
@@ -431,7 +432,7 @@ function Block({ titulo, content, markdown }: { titulo?: any; content?: any; mar
     <div>
       <div className="text-[10px] uppercase text-gray-500 mb-1">{titulo}</div>
       <div className="text-[11px] text-gray-300 italic whitespace-pre-wrap p-2 rounded bg-white/5">
-        {markdown || content || '—'}
+        {markdown ? <ReactMarkdown>{String(markdown)}</ReactMarkdown> : (content || '—')}
       </div>
     </div>
   );

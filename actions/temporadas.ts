@@ -5,6 +5,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
 import { selectDescriptors } from '@/lib/season-engine/select-descriptors';
 import { buildSeason } from '@/lib/season-engine/build-season';
+import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import type { AIConfig } from './ai-client';
 
 interface GerarTemporadaParams {
@@ -365,7 +366,13 @@ export async function listarTemporadasEmpresa(empresaId: string) {
       .select('id, nome_completo, cargo').in('id', ids);
     const colabMap = Object.fromEntries((colabs || []).map((c: any) => [c.id, c]));
 
-    return { items: (data || []).map((t: any) => ({ ...t, colab: colabMap[t.colaborador_id] || null })) };
+    return {
+      items: (data || []).map((t: any) => ({
+        ...t,
+        temporada_plano: normalizeTemporadaPlano(t.temporada_plano),
+        colab: colabMap[t.colaborador_id] || null,
+      })),
+    };
   } catch (err: any) {
     return { error: err?.message || 'Erro' };
   }
@@ -418,7 +425,15 @@ export async function loadProgressoDetalhado(trilhaId: string) {
     const { data: colab } = await sb.from('colaboradores')
       .select('nome_completo, cargo').eq('id', trilha.colaborador_id).maybeSingle();
 
-    return { success: true, trilha, colab, progresso: progresso || [] };
+    return {
+      success: true,
+      trilha: {
+        ...trilha,
+        temporada_plano: normalizeTemporadaPlano(trilha.temporada_plano),
+      },
+      colab,
+      progresso: progresso || [],
+    };
   } catch (err: any) {
     return { error: err?.message };
   }
@@ -452,7 +467,15 @@ export async function loadTemporada(colaboradorId: string) {
     const { data: progresso } = await tdb.from('temporada_semana_progresso')
       .select('*').eq('trilha_id', trilha.id).order('semana');
 
-    return { ok: true, trilha, progresso: progresso || [], colaborador };
+    return {
+      ok: true,
+      trilha: {
+        ...trilha,
+        temporada_plano: normalizeTemporadaPlano(trilha.temporada_plano),
+      },
+      progresso: progresso || [],
+      colaborador,
+    };
   } catch (err: any) {
     return { error: err?.message || 'Erro' };
   }
