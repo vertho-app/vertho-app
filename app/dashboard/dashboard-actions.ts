@@ -82,3 +82,15 @@ export async function loadDashboardData() {
     teamData,
   };
 }
+
+export async function loadAvatarData() {
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
+  if (!email) return null;
+  const sb = createSupabaseAdmin();
+  const { data } = await sb.from('colaboradores')
+    .select('nome_completo, foto_url')
+    .eq('email', email)
+    .maybeSingle();
+  return data || { nome_completo: email, foto_url: null };
+}

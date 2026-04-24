@@ -5,8 +5,8 @@ import { useRouter, usePathname } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Home, Clock, Play, TrendingUp, User, LogOut } from 'lucide-react';
 import BetoChat from '@/components/beto-chat';
-// ✅ NOVO import
 import { UserAvatar } from '@/components/user-avatar';
+import { loadAvatarData } from './dashboard-actions';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Início', icon: Home },
@@ -28,19 +28,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       if (!session) { router.replace('/login'); return; }
       setUser(session.user);
 
-      supabase
-        .from('colaboradores')
-        .select('nome_completo, foto_url')
-        .eq('email', session.user.email)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (data) setColaborador(data);
-          else {
-            const meta = session.user.user_metadata;
-            const fallbackName = meta?.full_name || meta?.name || session.user.email;
-            setColaborador({ nome_completo: fallbackName, foto_url: meta?.avatar_url || null });
-          }
-        });
+      loadAvatarData().then(d => { if (d) setColaborador(d); });
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
