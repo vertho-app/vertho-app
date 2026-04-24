@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { findColabByEmail } from '@/lib/authz';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,17 +26,33 @@ export async function POST(req: NextRequest) {
 
     const magicLink = linkData.properties.action_link;
 
-    const { data: colabData, error: colabErr } = await sb.from('colaboradores')
-      .select('nome_completo, telefone, empresa_id')
-      .eq('email', trimmed);
-    console.log('[magic-link] colabs found:', colabData?.length, 'telefone:', colabData?.[0]?.telefone, 'err:', colabErr?.message);
-    const colab = colabData?.[0] || null;
+    // Busca colaborador — usa findColabByEmail que resolve tenant pelo cookie
+    const colab = await findColabByEmail(trimmed, 'id, nome_completo, telefone, empresa_id');
+    console.log('[magic-link] colab:', colab?.nome_completo, 'tel:', colab?.telefone, 'empresa:', colab?.empresa_id);
 
-    const empresa = colab?.empresa_id
-      ? (await sb.from('empresas').select('nome').eq('id', colab.empresa_id).maybeSingle()).data
+    // Fallback: se findColabByEmail não achou (sem cookie de tenant), busca direto
+    let telefone = (colab as any)?.telefone;
+    let nomeCompleto = colab?.nome_completo;
+    let empresaId = colab?.empresa_id;
+
+    if (!colab) {
+      const { data: rows } = await sb.from('colaboradores')
+        .select('nome_completo, telefone, empresa_id')
+        .ilike('email', trimmed)
+        .limit(1);
+      if (rows?.[0]) {
+        telefone = rows[0].telefone;
+        nomeCompleto = rows[0].nome_completo;
+        empresaId = rows[0].empresa_id;
+        console.log('[magic-link] fallback found:', nomeCompleto, 'tel:', telefone);
+      }
+    }
+
+    const empresa = empresaId
+      ? (await sb.from('empresas').select('nome').eq('id', empresaId).maybeSingle()).data
       : null;
 
-    const nome = colab?.nome_completo?.split(' ')[0] || '';
+    const nome = nomeCompleto?.split(' ')[0] || '';
     const empresaNome = empresa?.nome || 'Vertho';
 
     const results = { email: false, whatsapp: false };
@@ -60,12 +77,7 @@ export async function POST(req: NextRequest) {
         const res = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
-          body: JSON.stringify({
-            from: fromEmail,
-            to: trimmed,
-            subject: `Seu acesso — ${empresaNome}`,
-            html,
-          }),
+          body: JSON.stringify({ from: fromEmail, to: trimmed, subject: `Seu acesso — ${empresaNome}`, html }),
         });
         results.email = res.ok;
         if (!res.ok) console.error('[magic-link] Resend error:', await res.text());
@@ -77,9 +89,9 @@ export async function POST(req: NextRequest) {
     // 2) WhatsApp via Z-API
     const zapiInstance = process.env.ZAPI_INSTANCE_ID;
     const zapiToken = process.env.ZAPI_TOKEN;
-    if (zapiInstance && zapiToken && colab?.telefone) {
+    if (zapiInstance && zapiToken && telefone) {
       try {
-        let phone = colab.telefone.replace(/\D/g, '');
+        let phone = String(telefone).replace(/\D/g, '');
         if (phone.length <= 11) phone = `55${phone}`;
 
         const msg = `Olá, ${nome}! 🔐\n\nSeu link de acesso à *${empresaNome}*:\n${magicLink}\n\nClique para entrar direto, sem senha.\nEste link expira em 24h.`;
@@ -99,7 +111,7 @@ export async function POST(req: NextRequest) {
     if (!results.email && !results.whatsapp) {
       const detail = [
         !resendKey && 'RESEND_API_KEY não configurada',
-        !colab?.telefone && 'colaborador sem telefone',
+        !telefone && `colaborador sem telefone (found: ${!!colab})`,
         (!zapiInstance || !zapiToken) && 'Z-API não configurado',
       ].filter(Boolean).join('; ');
       return NextResponse.json({ error: `Não foi possível enviar. ${detail || 'Verifique os logs.'}` });

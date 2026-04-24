@@ -17,6 +17,7 @@ export interface Colaborador {
   role?: Role;
   perfil_dominante?: PerfilDISC;
   gestor_id?: string | null;
+  telefone?: string | null;
   ativo?: boolean;
 }
 
