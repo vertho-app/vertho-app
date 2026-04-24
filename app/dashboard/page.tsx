@@ -180,6 +180,7 @@ export default function DashboardHomePage() {
           style={{
             background: 'linear-gradient(180deg, rgba(12,32,56,0.96) 0%, rgba(8,26,46,0.96) 100%)',
             border: `1px solid color-mix(in oklab, var(--phase-accent) 22%, transparent)`,
+            maxWidth: 640,
           }}
         >
           {/* Topo: label + percentual + fase */}
@@ -190,9 +191,11 @@ export default function DashboardHomePage() {
                 Sua jornada
               </p>
               {/* Percentual grande em serif */}
-              <div style={{ ...serifStyle, fontSize: 48, lineHeight: .85, letterSpacing: '-.04em', color: 'var(--phase-accent)' }}>
-                {Math.min(pct, 100)}
-                <sup style={{ fontFamily: 'var(--font-sans, Inter)', fontStyle: 'normal', fontSize: 16, color: 'rgba(255,255,255,0.4)', marginLeft: 3, verticalAlign: 'top' }}>%</sup>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                <span style={{ ...serifStyle, fontSize: 52, lineHeight: .85, letterSpacing: '-.04em', color: 'var(--phase-accent)' }}>
+                  {Math.min(pct, 100)}
+                </span>
+                <span style={{ fontFamily: 'var(--font-sans, Inter)', fontStyle: 'normal', fontWeight: 700, fontSize: 18, color: 'color-mix(in oklab, var(--phase-accent) 55%, transparent)', lineHeight: 1 }}>%</span>
               </div>
             </div>
             <div className="text-right" style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 11, color: 'rgba(255,255,255,0.4)', letterSpacing: '.12em', lineHeight: 1.7 }}>
