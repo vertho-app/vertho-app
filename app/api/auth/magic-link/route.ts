@@ -25,10 +25,11 @@ export async function POST(req: NextRequest) {
 
     const magicLink = linkData.properties.action_link;
 
-    const colab = (await sb.from('colaboradores')
+    const { data: colabData, error: colabErr } = await sb.from('colaboradores')
       .select('nome_completo, telefone, empresa_id')
-      .eq('email', trimmed)
-      .maybeSingle()).data;
+      .eq('email', trimmed);
+    console.log('[magic-link] colabs found:', colabData?.length, 'telefone:', colabData?.[0]?.telefone, 'err:', colabErr?.message);
+    const colab = colabData?.[0] || null;
 
     const empresa = colab?.empresa_id
       ? (await sb.from('empresas').select('nome').eq('id', colab.empresa_id).maybeSingle()).data
