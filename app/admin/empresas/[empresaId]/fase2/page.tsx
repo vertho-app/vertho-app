@@ -32,6 +32,13 @@ const NIVEL_COLORS = {
   1: 'text-red-400', 2: 'text-amber-400', 3: 'text-cyan-400', 4: 'text-green-400',
 };
 
+function safeText(v: any): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  try { return JSON.stringify(v); } catch { return String(v); }
+}
+
 const CHECK_DIM_MAX: Record<string, number> = {
   ancoragem_evidencia: 20, coerencia_nivel_nota: 20, coerencia_consolidacao: 15,
   especificidade_feedback: 15, qualidade_recomendacoes: 15, prudencia_metodologica: 15,
@@ -354,11 +361,11 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                                           </span>
                                         )}
                                       </div>
-                                      {d.racional && <p className="text-[9px] text-gray-500 mt-0.5 italic">{d.racional}</p>}
+                                      {d.racional && <p className="text-[9px] text-gray-500 mt-0.5 italic">{safeText(d.racional)}</p>}
                                       {Array.isArray(d.evidencias) && d.evidencias.length > 0 && (
                                         <div className="flex flex-wrap gap-1 mt-1">
                                           {d.evidencias.map((ev, j) => (
-                                            <span key={j} className="text-[9px] bg-white/[0.04] text-gray-400 px-1.5 py-0.5 rounded">{ev}</span>
+                                            <span key={j} className="text-[9px] bg-white/[0.04] text-gray-400 px-1.5 py-0.5 rounded">{safeText(ev)}</span>
                                           ))}
                                         </div>
                                       )}
@@ -389,7 +396,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                                 {Array.isArray(insumos.alertas_metodologicos) && insumos.alertas_metodologicos.length > 0 && (
                                   <div className="mt-1">
                                     {insumos.alertas_metodologicos.map((a, i) => (
-                                      <p key={i} className="text-[9px] text-amber-300">⚠ {a}</p>
+                                      <p key={i} className="text-[9px] text-amber-300">⚠ {safeText(a)}</p>
                                     ))}
                                   </div>
                                 )}
@@ -406,7 +413,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                                       <span className={`font-bold shrink-0 ${NIVEL_COLORS[Math.floor(d.nota_decimal || d.nivel)] || 'text-gray-400'}`}>
                                         D{d.numero}: {d.nota_decimal?.toFixed(2) || `N${d.nivel}`}
                                       </span>
-                                      <span className="text-gray-500 truncate">{d.evidencia || d.nome || ''}</span>
+                                      <span className="text-gray-500 truncate">{safeText(d.evidencia || d.nome)}</span>
                                       {d.confianca != null && <span className="text-gray-600 shrink-0">{(d.confianca <= 1 ? (d.confianca * 100).toFixed(0) : d.confianca)}%</span>}
                                     </div>
                                   ))}
@@ -420,7 +427,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                                 {avaliacao.por_pergunta.map((p, i) => (
                                   <div key={i} className="flex items-start gap-2 text-[10px]">
                                     <span className={`font-bold shrink-0 ${NIVEL_COLORS[p.nivel] || 'text-gray-400'}`}>P{p.pergunta}: N{p.nivel}</span>
-                                    <span className="text-gray-500">{p.justificativa}</span>
+                                    <span className="text-gray-500">{safeText(p.justificativa)}</span>
                                   </div>
                                 ))}
                               </div>
@@ -430,7 +437,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                               <div>
                                 <p className="text-[9px] text-green-400 font-bold">Pontos fortes:</p>
                                 {(pontos.pontos_fortes || avaliacao.pontos_fortes).map((p, i) => (
-                                  <p key={i} className="text-[10px] text-gray-400">• {typeof p === 'string' ? p : `${p.descritor || p.nome}: ${p.evidencia_resumida || ''}`}</p>
+                                  <p key={i} className="text-[10px] text-gray-400">• {typeof p === 'string' ? p : `${safeText(p.descritor || p.nome)}: ${safeText(p.evidencia_resumida)}`}</p>
                                 ))}
                               </div>
                             )}
@@ -439,7 +446,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                               <div>
                                 <p className="text-[9px] text-amber-400 font-bold">Gaps / Desenvolvimento:</p>
                                 {(pontos.gaps_prioritarios || avaliacao.pontos_desenvolvimento).map((p, i) => (
-                                  <p key={i} className="text-[10px] text-gray-400">• {typeof p === 'string' ? p : `${p.descritor || p.nome}: ${p.o_que_faltou || ''}`}</p>
+                                  <p key={i} className="text-[10px] text-gray-400">• {typeof p === 'string' ? p : `${safeText(p.descritor || p.nome)}: ${safeText(p.o_que_faltou)}`}</p>
                                 ))}
                               </div>
                             )}
@@ -448,34 +455,34 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                             {feedback && typeof feedback === 'object' ? (
                               <div className="pt-2 border-t border-white/[0.04] space-y-1.5">
                                 {feedback.tom_base && (
-                                  <p className="text-[9px] text-gray-600">Tom: {feedback.tom_base}</p>
+                                  <p className="text-[9px] text-gray-600">Tom: {safeText(feedback.tom_base)}</p>
                                 )}
                                 {feedback.resumo_geral && (
-                                  <p className="text-[10px] text-gray-300">{feedback.resumo_geral}</p>
+                                  <p className="text-[10px] text-gray-300">{safeText(feedback.resumo_geral)}</p>
                                 )}
                                 {feedback.mensagem_positiva && (
                                   <div className="p-2 rounded bg-green-400/5 border border-green-400/10">
                                     <p className="text-[9px] font-bold text-green-400 mb-0.5">Positivo</p>
-                                    <p className="text-[10px] text-gray-300">{feedback.mensagem_positiva}</p>
+                                    <p className="text-[10px] text-gray-300">{safeText(feedback.mensagem_positiva)}</p>
                                   </div>
                                 )}
                                 {feedback.mensagem_construtiva && (
                                   <div className="p-2 rounded bg-amber-400/5 border border-amber-400/10">
                                     <p className="text-[9px] font-bold text-amber-400 mb-0.5">Construtivo</p>
-                                    <p className="text-[10px] text-gray-300">{feedback.mensagem_construtiva}</p>
+                                    <p className="text-[10px] text-gray-300">{safeText(feedback.mensagem_construtiva)}</p>
                                   </div>
                                 )}
                                 {Array.isArray(feedback.recomendacoes) && feedback.recomendacoes.length > 0 && (
                                   <div>
                                     <p className="text-[9px] font-bold text-cyan-400">Recomendações:</p>
                                     {feedback.recomendacoes.map((rec, i) => (
-                                      <p key={i} className="text-[10px] text-gray-400 ml-2">• {rec}</p>
+                                      <p key={i} className="text-[10px] text-gray-400 ml-2">• {safeText(rec)}</p>
                                     ))}
                                   </div>
                                 )}
                               </div>
                             ) : feedback ? (
-                              <p className="text-[10px] text-gray-400 pt-1 border-t border-white/[0.04]">{feedback}</p>
+                              <p className="text-[10px] text-gray-400 pt-1 border-t border-white/[0.04]">{safeText(feedback)}</p>
                             ) : null}
                           </div>
                         </div>
@@ -501,10 +508,10 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                                     <span className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold ${decCor[item.decisao] || decCor.manter}`}>
                                       {item.decisao}
                                     </span>
-                                    <span className="text-gray-300">{item.ponto_auditoria}</span>
+                                    <span className="text-gray-300">{safeText(item.ponto_auditoria)}</span>
                                   </div>
                                   {item.justificativa && (
-                                    <p className="text-gray-500 ml-16 mt-0.5 italic">{item.justificativa}</p>
+                                    <p className="text-gray-500 ml-16 mt-0.5 italic">{safeText(item.justificativa)}</p>
                                   )}
                                 </div>
                               );
@@ -514,15 +521,15 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                               <div className="pt-1.5 border-t border-purple-400/10">
                                 <p className="text-[9px] font-bold text-green-300 mb-0.5">Mudanças:</p>
                                 {avaliacao._revisao.tratamento_do_feedback.mudancas_relevantes.map((m: string, j: number) => (
-                                  <p key={j} className="text-[10px] text-gray-400">→ {m}</p>
+                                  <p key={j} className="text-[10px] text-gray-400">→ {safeText(m)}</p>
                                 ))}
                               </div>
                             )}
                             {avaliacao._revisao.tratamento_do_feedback?.pontos_preservados?.length > 0 && (
                               <div>
                                 <p className="text-[9px] font-bold text-gray-500 mb-0.5">Preservados:</p>
-                                {avaliacao._revisao.tratamento_do_feedback.pontos_preservados.map((p: string, j: number) => (
-                                  <p key={j} className="text-[10px] text-gray-500">= {p}</p>
+                                {avaliacao._revisao.tratamento_do_feedback.pontos_preservados.map((p: any, j: number) => (
+                                  <p key={j} className="text-[10px] text-gray-500">= {safeText(p)}</p>
                                 ))}
                               </div>
                             )}
@@ -564,28 +571,28 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                                 })}
                               </div>
                             )}
-                            {check.justificativa && <p className="text-[10px] text-gray-400 mb-1">{check.justificativa}</p>}
-                            {check.revisao && <p className="text-[10px] text-amber-300"><span className="font-bold">Revisar:</span> {check.revisao}</p>}
+                            {check.justificativa && <p className="text-[10px] text-gray-400 mb-1">{safeText(check.justificativa)}</p>}
+                            {check.revisao && <p className="text-[10px] text-amber-300"><span className="font-bold">Revisar:</span> {safeText(check.revisao)}</p>}
                             {!check.revisao && Array.isArray(check.mudancas_sugeridas) && check.mudancas_sugeridas.length > 0 && (
-                              <p className="text-[10px] text-amber-300"><span className="font-bold">Revisar:</span> {check.mudancas_sugeridas.join('; ')}</p>
+                              <p className="text-[10px] text-amber-300"><span className="font-bold">Revisar:</span> {check.mudancas_sugeridas.map(safeText).join('; ')}</p>
                             )}
                             {check.ponto_mais_confiavel && (
-                              <p className="text-[10px] text-green-300/80 mt-1">✦ Ponto forte: {check.ponto_mais_confiavel}</p>
+                              <p className="text-[10px] text-green-300/80 mt-1">✦ Ponto forte: {safeText(check.ponto_mais_confiavel)}</p>
                             )}
                             {check.ponto_mais_fragil && (
-                              <p className="text-[10px] text-amber-300/80 mt-1">⚠ Ponto frágil: {check.ponto_mais_fragil}</p>
+                              <p className="text-[10px] text-amber-300/80 mt-1">⚠ Ponto frágil: {safeText(check.ponto_mais_fragil)}</p>
                             )}
                             {Array.isArray(check.descritores_com_risco) && check.descritores_com_risco.length > 0 && (
-                              <p className="text-[10px] text-red-300/80 mt-1">✗ Descritores com risco: {check.descritores_com_risco.join(', ')}</p>
+                              <p className="text-[10px] text-red-300/80 mt-1">✗ Descritores com risco: {check.descritores_com_risco.map(safeText).join(', ')}</p>
                             )}
                             {check.tipo_de_erro_predominante && check.tipo_de_erro_predominante !== 'nenhum' && (
-                              <p className="text-[10px] text-purple-300/80 mt-1">Tipo de erro: {check.tipo_de_erro_predominante}</p>
+                              <p className="text-[10px] text-purple-300/80 mt-1">Tipo de erro: {safeText(check.tipo_de_erro_predominante)}</p>
                             )}
                             {Array.isArray(check.mudancas_sugeridas) && check.mudancas_sugeridas.length > 0 && (
                               <div className="mt-1.5">
                                 <p className="text-[9px] font-bold text-cyan-400">Mudanças sugeridas:</p>
-                                {check.mudancas_sugeridas.map((m: string, j: number) => (
-                                  <p key={j} className="text-[10px] text-gray-400 ml-2">→ {m}</p>
+                                {check.mudancas_sugeridas.map((m: any, j: number) => (
+                                  <p key={j} className="text-[10px] text-gray-400 ml-2">→ {safeText(m)}</p>
                                 ))}
                               </div>
                             )}
