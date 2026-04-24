@@ -7,11 +7,13 @@ import {
   Mail, MessageCircle, FileBarChart, Filter, Eye, Tag, Users,
   Paperclip, FileText, X,
 } from 'lucide-react';
-import { loadEmpresas, loadWhatsappStatus, loadColaboradoresEnvio, dispararMensagemCustomizada } from './actions';
+import { loadEmpresas, loadWhatsappStatus, loadColaboradoresEnvio, dispararMensagemCustomizada, enviarMagicLinksWhatsApp } from './actions';
 import { dispararLinksCIS, dispararRelatoriosLote } from '@/actions/whatsapp-lote';
 import { dispararEmails } from '@/actions/fase2';
+import { Key } from 'lucide-react';
 
 const TABS = [
+  { key: 'magic-link', label: 'Magic Link WhatsApp', icon: Key, color: 'text-teal-400' },
   { key: 'email', label: 'Email Convites', icon: Mail, color: 'text-blue-400' },
   { key: 'whatsapp', label: 'WhatsApp Convites', icon: MessageCircle, color: 'text-green-400' },
   { key: 'relatorios-email', label: 'Email Relatórios', icon: Mail, color: 'text-purple-400' },
@@ -216,8 +218,50 @@ export default function EnviosPage() {
             ))}
           </div>
 
-          {/* Layout 2 colunas */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* ═══ MAGIC LINK ═══ */}
+          {tab === 'magic-link' && (
+            <div className="rounded-xl border border-teal-400/20 p-5" style={{ background: '#0F2A4A' }}>
+              <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                <Key size={14} className="text-teal-400" /> Enviar Magic Link por WhatsApp
+              </h3>
+              <p className="text-xs text-gray-400 mb-4">
+                Gera um link de acesso direto (sem senha) para cada colaborador e envia por WhatsApp.
+                O link expira em 24h e é pessoal.
+              </p>
+              <div className="mb-3">
+                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Filtrar por cargo</p>
+                <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
+                  <option value="">Todos os cargos</option>
+                  {cargos.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px] text-teal-400 font-semibold mb-4">
+                <Users size={12} />
+                {(colabs as any[]).filter(c => c.telefone && c.email).length} colaborador(es) com telefone + email
+              </div>
+              <button
+                disabled={sending || !empresaId}
+                onClick={async () => {
+                  setSending(true); setResult(null);
+                  const filtros = filtroCargo ? { cargo: filtroCargo } : {};
+                  const r = await enviarMagicLinksWhatsApp(empresaId, filtros);
+                  setResult(r); setSending(false);
+                }}
+                className="w-full py-3 rounded-xl text-sm font-bold text-[#0C1829] bg-gradient-to-r from-teal-400 to-teal-500 hover:brightness-110 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                {sending ? 'Enviando...' : 'Enviar Magic Links'}
+              </button>
+              {result && (
+                <div className={`mt-3 p-3 rounded-lg text-xs ${result.success ? 'bg-green-400/10 text-green-400' : 'bg-red-400/10 text-red-400'}`}>
+                  {result.message || result.error}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Layout 2 colunas (outras tabs) */}
+          {tab !== 'magic-link' && <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Coluna esquerda: Filtros + Editor */}
             <div className="space-y-4">
               {/* Filtros */}
@@ -366,7 +410,7 @@ export default function EnviosPage() {
                 </ul>
               </div>
             </div>
-          </div>
+          </div>}
         </>
       )}
     </div>

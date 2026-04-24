@@ -294,6 +294,84 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
   }
 }
 
+export async function enviarMagicLinksWhatsApp(empresaId: string, filtros: any = {}) {
+  await requireAdminAction();
+  const sb = createSupabaseAdmin();
+  try {
+    const { data: empresa } = await sb.from('empresas')
+      .select('nome, slug').eq('id', empresaId).single();
+    if (!empresa) return { success: false, error: 'Empresa não encontrada' };
+
+    let { data: colabs } = await sb.from('colaboradores')
+      .select('id, nome_completo, email, cargo, telefone')
+      .eq('empresa_id', empresaId);
+    if (!colabs?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
+
+    colabs = colabs.filter(c => c.telefone && c.email);
+    if (filtros.cargo) colabs = colabs.filter(c => c.cargo === filtros.cargo);
+    if (!colabs.length) return { success: false, error: 'Nenhum colaborador com telefone e email' };
+
+    const zapiInstance = process.env.ZAPI_INSTANCE_ID;
+    const zapiToken = process.env.ZAPI_TOKEN;
+    const zapiClient = process.env.ZAPI_CLIENT_TOKEN || '';
+    if (!zapiInstance || !zapiToken) return { success: false, error: 'Z-API não configurado' };
+
+    const domain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'vertho.com.br';
+    const redirectUrl = `https://${empresa.slug}.${domain}/dashboard`;
+    let enviados = 0, erros = 0, ultimoErro = '';
+
+    for (const colab of colabs) {
+      try {
+        if (enviados > 0) await new Promise(r => setTimeout(r, 1200));
+
+        const { data: linkData, error: linkErr } = await sb.auth.admin.generateLink({
+          type: 'magiclink',
+          email: colab.email,
+          options: { redirectTo: redirectUrl },
+        });
+        if (linkErr || !linkData?.properties?.action_link) {
+          erros++;
+          ultimoErro = linkErr?.message || 'Falha ao gerar magic link';
+          continue;
+        }
+
+        const magicLink = linkData.properties.action_link;
+        const nome = colab.nome_completo?.split(' ')[0] || '';
+        let phone = colab.telefone.replace(/\D/g, '');
+        if (phone.length <= 11) phone = `55${phone}`;
+
+        const msg = `Olá, ${nome}! 👋
+
+Seu acesso à plataforma *${empresa.nome}* está pronto.
+
+Clique no link abaixo para entrar direto (sem precisar de senha):
+${magicLink}
+
+⚠️ Este link é pessoal e expira em 24h.
+
+— Equipe Vertho`;
+
+        const res = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-text`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Client-Token': zapiClient },
+          body: JSON.stringify({ phone, message: msg }),
+        });
+
+        if (res.ok) enviados++;
+        else { erros++; ultimoErro = await res.text(); }
+      } catch (e: any) {
+        erros++;
+        ultimoErro = e.message;
+      }
+    }
+
+    const msg2 = `${enviados} magic links enviados por WhatsApp${erros ? `, ${erros} erros` : ''}${ultimoErro ? ` — ${ultimoErro}` : ''}`;
+    return { success: enviados > 0, message: msg2, error: enviados === 0 ? msg2 : undefined };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
 export async function loadColaboradoresEnvio(empresaId) {
   await requireAdminAction();
   const sb = createSupabaseAdmin();
