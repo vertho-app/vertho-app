@@ -1,7 +1,7 @@
-'use server';
-
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
@@ -51,12 +51,19 @@ ${magicLink}
 Clique para entrar direto, sem senha.
 Este link expira em 24h.`;
 
-    await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-text`, {
+    const zapiRes = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-text`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Client-Token': zapiClient },
       body: JSON.stringify({ phone, message: msg }),
     });
 
+    if (!zapiRes.ok) {
+      const txt = await zapiRes.text();
+      console.error('[magic-link-whatsapp] Z-API error:', zapiRes.status, txt.slice(0, 300));
+      return NextResponse.json({ sent: false, error: txt.slice(0, 120) });
+    }
+
+    console.log('[magic-link-whatsapp] sent to', phone);
     return NextResponse.json({ sent: true });
   } catch (err: any) {
     console.error('[magic-link-whatsapp]', err.message);
