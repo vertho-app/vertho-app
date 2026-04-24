@@ -43,7 +43,7 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig }: G
     // A partir daqui, todas queries em tabelas tenant-owned passam por tdb.
     const tdb = tenantDb(colab.empresa_id);
 
-    // 1) Determina competência foco — usa trilha existente se nada explícito
+    // 1) Determina competência foco — trilha existente → cargo → erro
     let competenciaAlvo = competencia;
     if (!competenciaAlvo) {
       const { data: trilhaExist } = await tdb.from('trilhas')
@@ -52,6 +52,13 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig }: G
         .order('criado_em', { ascending: false })
         .limit(1).maybeSingle();
       competenciaAlvo = trilhaExist?.competencia_foco;
+    }
+    if (!competenciaAlvo && colab.cargo) {
+      const { data: cargoEmp } = await tdb.from('cargos_empresa')
+        .select('competencia_foco')
+        .eq('nome', colab.cargo)
+        .maybeSingle();
+      competenciaAlvo = cargoEmp?.competencia_foco;
     }
     if (!competenciaAlvo) return { error: 'Sem competência foco definida pra este colaborador' };
 
