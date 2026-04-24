@@ -75,15 +75,17 @@ export function GlassCard({
   children,
   className = '',
   padding = 'p-5 md:p-6',
+  style,
 }: {
   children: React.ReactNode;
   className?: string;
   padding?: string;
+  style?: React.CSSProperties;
 }) {
   return (
     <div
       className={`rounded-2xl border border-white/[0.06] ${padding} ${className}`}
-      style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}
+      style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)', ...style }}
     >
       {children}
     </div>
