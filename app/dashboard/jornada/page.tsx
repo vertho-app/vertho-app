@@ -30,6 +30,22 @@ const FASE_DESC: Record<number, string> = {
   5: 'Medição de evolução pós-capacitação e consolidação dos avanços.',
 };
 
+const PHASE_TOKENS: Record<number, { accent: string; deep: string; glow: string }> = {
+  1: { accent: '#9ae2e6', deep: '#0a1a33', glow: 'rgba(154,226,230,0.22)' },
+  2: { accent: '#34c5cc', deep: '#06202a', glow: 'rgba(52,197,204,0.24)'  },
+  3: { accent: '#7ba7e0', deep: '#1a1f4a', glow: 'rgba(123,167,224,0.26)' },
+  4: { accent: '#b888e8', deep: '#1a0d33', glow: 'rgba(184,136,232,0.26)' },
+  5: { accent: '#e1aaf0', deep: '#1a0220', glow: 'rgba(225,170,240,0.26)' },
+};
+
+const FASE_GLYPH = ['', 'a', 'b', 'c', 'd', 'e'];
+
+const serifStyle: React.CSSProperties = {
+  fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+  fontStyle: 'italic',
+  fontWeight: 400,
+};
+
 export default function JornadaPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -61,59 +77,92 @@ export default function JornadaPage() {
   const faseNum = faseAtual?.fase || total;
   const pct = Math.round((concluidas / total) * 100);
   const firstName = (colaborador.nome_completo || '').split(' ')[0] || '';
+  const phaseTokens = PHASE_TOKENS[faseNum] ?? PHASE_TOKENS[2];
 
   const enriched = fases.map((f: any, i: number) => ({
     ...f,
     displayStatus: i < concluidas ? 'completed' : i === faseAtualIdx ? 'current' : 'pending',
+    tokens: PHASE_TOKENS[f.fase] ?? PHASE_TOKENS[2],
   }));
 
   return (
-    <div>
+    <div
+      data-phase={String(faseNum)}
+      style={{
+        '--phase-accent': phaseTokens.accent,
+        '--phase-deep': phaseTokens.deep,
+        '--phase-glow': phaseTokens.glow,
+      } as React.CSSProperties}
+    >
       {/* Header */}
       <header className="px-5 pt-6 pb-4">
-        <p className="text-[#9ae2e6] text-[11px] font-bold tracking-[0.12em] uppercase mb-2">Sua jornada</p>
-        <h1 className="text-[2.05rem] leading-[1.03] font-extrabold tracking-tight mb-2">
+        <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-2"
+          style={{ color: 'var(--phase-accent)' }}>
+          Sua jornada
+        </p>
+        <h1 style={{
+          ...serifStyle,
+          fontSize: 'clamp(30px, 5.5vw, 48px)',
+          lineHeight: 1.02,
+          letterSpacing: '-0.02em',
+          marginBottom: 8,
+          color: '#fff',
+        }}>
           {faseAtual ? (
-            <>Você está na Fase {faseNum}{' '}<span className="text-[#34C5CC]">{faseAtual.titulo}</span></>
+            <>Você está na{' '}
+              <em style={{ color: 'var(--phase-accent)' }}>
+                Fase {faseNum} — {faseAtual.titulo}
+              </em>
+            </>
           ) : (
-            <span className="text-[#34C5CC]">Jornada concluída 🎉</span>
+            <em style={{ color: 'var(--phase-accent)' }}>Jornada concluída</em>
           )}
         </h1>
-        <p className="text-base text-white/65">
-          {concluidas} de {total} fases concluídas • {firstName || colaborador.nome_completo}
+        <p className="text-sm text-white/55">
+          {concluidas} de {total} fases concluídas · {firstName || colaborador.nome_completo}
         </p>
       </header>
 
       <main className="flex-1 px-5 pb-28 space-y-6">
+
         {/* Hero card */}
-        <section className="rounded-[28px] p-5"
+        <section className="rounded-[28px] p-5 relative overflow-hidden"
           style={{
-            background: 'radial-gradient(circle at top right, rgba(52,197,204,0.14), transparent 42%), linear-gradient(135deg, #0f2b54 0%, #123960 100%)',
-            border: '1px solid rgba(52,197,204,0.2)',
+            background: `radial-gradient(circle at top right, ${phaseTokens.glow}, transparent 42%), linear-gradient(135deg, ${phaseTokens.deep} 0%, #0f2b54 100%)`,
+            border: `1px solid color-mix(in oklab, var(--phase-accent) 25%, transparent)`,
             boxShadow: '0 16px 40px rgba(0,0,0,0.22)',
           }}>
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
-              <p className="text-[#9ae2e6] text-[11px] font-bold tracking-[0.12em] uppercase mb-2">Fase atual</p>
-              <h2 className="text-[1.9rem] leading-[1.06] font-extrabold tracking-tight">
-                {faseAtual?.titulo || 'Todas concluídas'}
+              <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-2"
+                style={{ color: 'var(--phase-accent)' }}>
+                Fase atual
+              </p>
+              <h2 style={{
+                ...serifStyle,
+                fontSize: 'clamp(26px, 5vw, 38px)',
+                lineHeight: 1.05,
+                letterSpacing: '-0.02em',
+              }}>
+                {faseAtual?.titulo || <em style={{ color: 'var(--phase-accent)' }}>Todas concluídas</em>}
               </h2>
             </div>
-            <div className="shrink-0 px-3 py-2 rounded-full bg-white/10 border border-white/10 text-[12px] font-semibold text-white/85">
-              Fase {faseNum}
-            </div>
+            <span className="shrink-0 px-3 py-1.5 rounded-full bg-white/10 border border-white/10 text-[11px] font-semibold text-white/80"
+              style={{ fontFamily: 'var(--font-mono, monospace)', letterSpacing: '.08em' }}>
+              F{String(faseNum).padStart(2, '0')}
+            </span>
           </div>
-          <p className="text-sm text-white/70 leading-relaxed mb-5">
+          <p className="text-sm text-white/65 leading-relaxed mb-5">
             {FASE_DESC[faseNum] || 'Continue sua jornada de desenvolvimento.'}
           </p>
           <div className="grid grid-cols-2 gap-3 mb-5">
-            <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-              <p className="text-[12px] text-white/55 mb-1">Progresso geral</p>
-              <p className="text-xl font-extrabold">{pct}%</p>
+            <div className="rounded-2xl bg-white/[0.04] border border-white/[0.08] p-4">
+              <p className="text-[11px] text-white/50 mb-1 uppercase tracking-wider">Progresso geral</p>
+              <p style={{ ...serifStyle, fontSize: 26, color: 'var(--phase-accent)' }}>{pct}%</p>
             </div>
-            <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-              <p className="text-[12px] text-white/55 mb-1">Status atual</p>
-              <p className="text-xl font-extrabold text-[#34C5CC]">
+            <div className="rounded-2xl bg-white/[0.04] border border-white/[0.08] p-4">
+              <p className="text-[11px] text-white/50 mb-1 uppercase tracking-wider">Status atual</p>
+              <p style={{ ...serifStyle, fontSize: 20, color: 'var(--phase-accent)' }}>
                 {faseAtual ? 'Em curso' : 'Concluída'}
               </p>
             </div>
@@ -121,7 +170,11 @@ export default function JornadaPage() {
           <button
             onClick={() => router.push(FASE_HREF[faseNum] || '/dashboard/evolucao')}
             className="w-full py-4 rounded-2xl font-bold text-base transition-all duration-200 flex items-center justify-center gap-2"
-            style={{ background: 'linear-gradient(90deg, #34c5cc 0%, #2dd4bf 100%)', color: '#062032', boxShadow: '0 10px 24px rgba(52,197,204,0.22)' }}>
+            style={{
+              background: `linear-gradient(90deg, var(--phase-accent), color-mix(in oklab, var(--phase-accent) 88%, white))`,
+              color: '#062032',
+              boxShadow: '0 10px 24px var(--phase-glow)',
+            }}>
             {CTA_LABEL[faseNum] || 'Ver minha evolução'}
             <ArrowRight size={18} />
           </button>
@@ -131,68 +184,85 @@ export default function JornadaPage() {
         <section className="rounded-[28px] p-5"
           style={{
             background: 'linear-gradient(180deg, rgba(12,32,56,0.96) 0%, rgba(8,26,46,0.96) 100%)',
-            border: '1px solid rgba(52,197,204,0.14)',
+            border: '1px solid rgba(255,255,255,0.07)',
             boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
           }}>
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h3 className="text-lg font-bold">Fases da jornada</h3>
-              <p className="text-sm text-white/60">Acompanhe seu caminho até aqui</p>
+              <h3 style={{ ...serifStyle, fontSize: 22, color: '#fff', marginBottom: 2 }}>
+                Fases da jornada
+              </h3>
+              <p className="text-sm text-white/50">Acompanhe seu caminho até aqui</p>
             </div>
-            <span className="text-sm font-semibold text-[#9AE2E6]">{total} etapas</span>
+            <span className="text-[11px] font-semibold" style={{ color: 'var(--phase-accent)', fontFamily: 'var(--font-mono, monospace)', letterSpacing: '.14em' }}>
+              {total} ETAPAS
+            </span>
           </div>
 
           <div className="relative">
-            {/* Linha de fundo */}
-            <div className="absolute left-5 top-3 bottom-3 w-[2px]"
-              style={{ background: 'linear-gradient(180deg, rgba(52,197,204,0.55) 0%, rgba(52,197,204,0.18) 100%)' }} />
+            <div className="absolute left-[22px] top-3 bottom-3 w-[2px] opacity-55"
+              style={{ background: 'linear-gradient(180deg, #9ae2e6 0%, #34c5cc 25%, #7ba7e0 50%, #b888e8 75%, #e1aaf0 100%)' }} />
 
-            <div className="space-y-6 relative z-10">
+            <div className="space-y-5 relative z-10">
               {enriched.map((f: any) => {
                 const isDone = f.displayStatus === 'completed';
                 const isCurrent = f.displayStatus === 'current';
                 const clickable = f.displayStatus !== 'pending';
-
-                const dotClass = isDone
-                  ? 'border-2 border-[rgba(52,197,204,0.65)] shadow-[0_0_0_6px_rgba(52,197,204,0.05)]'
-                  : isCurrent
-                  ? 'border-2 border-[#34c5cc] shadow-[0_0_0_8px_rgba(52,197,204,0.08)]'
-                  : 'border-2 border-white/16';
-
-                const dotBg = isDone || isCurrent
-                  ? 'radial-gradient(circle at center, rgba(52,197,204,0.18), rgba(11,29,50,1))'
-                  : 'rgba(11,29,50,0.88)';
+                const glyph = FASE_GLYPH[f.fase] ?? '';
+                const tk = f.tokens;
 
                 return (
                   <button key={f.fase}
                     onClick={() => clickable && FASE_HREF[f.fase] && router.push(FASE_HREF[f.fase])}
                     disabled={!clickable}
-                    className={`flex items-start gap-4 w-full text-left ${!clickable ? 'opacity-60' : ''}`}>
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${dotClass}`}
-                      style={{ background: dotBg }}>
-                      {isDone ? (
-                        <Check size={20} className="text-[#34C5CC]" strokeWidth={2.2} />
-                      ) : isCurrent ? (
-                        <div className="w-3 h-3 rounded-full bg-[#34C5CC]" />
-                      ) : (
-                        <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-                      )}
+                    className={`flex items-center gap-4 w-full text-left ${!clickable ? 'opacity-50' : ''}`}>
+                    <div
+                      className="shrink-0 flex items-center justify-center rounded-full"
+                      style={{
+                        width: isCurrent ? 48 : 44,
+                        height: isCurrent ? 48 : 44,
+                        background: isDone || isCurrent ? tk.accent : 'rgba(11,29,50,1)',
+                        border: `2px solid ${isDone || isCurrent ? tk.accent : 'rgba(255,255,255,0.12)'}`,
+                        color: isDone || isCurrent ? '#062032' : 'rgba(255,255,255,0.3)',
+                        boxShadow: isCurrent ? `0 0 0 6px ${tk.glow}, 0 0 28px ${tk.glow}` : 'none',
+                        fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+                        fontStyle: 'italic',
+                        fontSize: isCurrent ? 22 : 18,
+                        transition: 'all .2s ease',
+                      }}>
+                      {isDone ? <Check size={18} strokeWidth={2.5} /> : glyph}
                     </div>
-                    <div className="pt-1 flex-1 min-w-0">
-                      <h4 className={`font-bold ${isCurrent ? 'text-xl text-white' : 'text-lg text-white/88'}`}>
+
+                    <div className="flex-1 min-w-0">
+                      <h4 style={{
+                        fontFamily: isCurrent
+                          ? 'var(--font-serif, "Instrument Serif", serif)'
+                          : 'inherit',
+                        fontStyle: isCurrent ? 'italic' : 'normal',
+                        fontWeight: isCurrent ? 400 : 600,
+                        fontSize: isCurrent ? 19 : 15,
+                        color: isCurrent ? '#fff' : 'rgba(255,255,255,0.75)',
+                        marginBottom: 2,
+                      }}>
                         Fase {f.fase} — {f.titulo}
                       </h4>
-                      <p className={`text-[12px] font-semibold tracking-[0.14em] uppercase mt-1 ${
-                        isDone ? 'text-[#34C5CC]' : isCurrent ? 'text-[#9AE2E6]' : 'text-gray-500'
-                      }`}>
-                        {isDone ? 'Concluída' : isCurrent ? 'Em curso' : 'Bloqueada'}
+                      <p style={{
+                        ...serifStyle,
+                        fontSize: 13,
+                        color: isDone || isCurrent ? tk.accent : 'rgba(255,255,255,0.3)',
+                      }}>
+                        {isDone ? 'concluída' : isCurrent ? 'em curso' : 'bloqueada'}
                       </p>
                       {isCurrent && (
-                        <p className="text-sm text-white/60 mt-2 leading-relaxed">
+                        <p className="text-sm text-white/55 mt-1.5 leading-relaxed">
                           {FASE_DESC[f.fase] || ''}
                         </p>
                       )}
                     </div>
+
+                    {isCurrent && (
+                      <ArrowRight size={16} style={{ color: 'var(--phase-accent)', flexShrink: 0 }} />
+                    )}
                   </button>
                 );
               })}
@@ -204,18 +274,21 @@ export default function JornadaPage() {
         <section className="rounded-[24px] p-4 flex items-start gap-4"
           style={{
             background: 'linear-gradient(180deg, rgba(12,32,56,0.96) 0%, rgba(8,26,46,0.96) 100%)',
-            border: '1px solid rgba(52,197,204,0.14)',
-            boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
+            border: '1px solid rgba(255,255,255,0.07)',
           }}>
-          <div className="w-12 h-12 rounded-2xl bg-[#0F2B54] border border-[#34C5CC]/20 flex items-center justify-center shrink-0">
-            <Clock size={20} className="text-[#34C5CC]" />
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+            style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid color-mix(in oklab, var(--phase-accent) 22%, transparent)` }}>
+            <Clock size={20} style={{ color: 'var(--phase-accent)' }} />
           </div>
           <div>
-            <p className="text-[#9ae2e6] text-[11px] font-bold tracking-[0.12em] uppercase mb-1">Próximo passo</p>
-            <h4 className="text-base font-bold mb-1">
+            <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-1"
+              style={{ color: 'var(--phase-accent)' }}>
+              Próximo passo
+            </p>
+            <h4 style={{ ...serifStyle, fontSize: 17, color: '#fff', marginBottom: 4 }}>
               {faseAtual ? `Concluir ${faseAtual.titulo.toLowerCase()}` : 'Acompanhar sua evolução'}
             </h4>
-            <p className="text-sm text-white/65 leading-relaxed">
+            <p className="text-sm text-white/55 leading-relaxed">
               {faseAtual
                 ? 'Finalize esta fase para avançar na sua jornada de desenvolvimento.'
                 : 'Visualize seu relatório consolidado de evolução e próximos passos.'}
