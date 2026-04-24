@@ -5,11 +5,11 @@ import { cookies } from 'next/headers';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
+  const { searchParams, origin } = new URL(req.url);
   const code = searchParams.get('code');
   const token_hash = searchParams.get('token_hash');
-  const type = searchParams.get('type');
-  const redirectTo = searchParams.get('redirect_to') || searchParams.get('next') || '/dashboard';
+  const type = searchParams.get('type') as any;
+  const next = searchParams.get('next') || '/dashboard';
 
   const store = await cookies();
   const supabase = createServerClient(
@@ -27,11 +27,29 @@ export async function GET(req: NextRequest) {
     },
   );
 
-  if (code) {
-    await supabase.auth.exchangeCodeForSession(code);
-  } else if (token_hash && type) {
-    await supabase.auth.verifyOtp({ token_hash, type: type as any });
+  let error: string | null = null;
+
+  if (token_hash && type) {
+    const { error: verifyErr } = await supabase.auth.verifyOtp({ token_hash, type });
+    if (verifyErr) {
+      console.error('[auth/callback] verifyOtp error:', verifyErr.message);
+      error = verifyErr.message;
+    }
+  } else if (code) {
+    const { error: codeErr } = await supabase.auth.exchangeCodeForSession(code);
+    if (codeErr) {
+      console.error('[auth/callback] exchangeCode error:', codeErr.message);
+      error = codeErr.message;
+    }
+  } else {
+    error = 'Nenhum token ou código fornecido';
   }
 
-  return NextResponse.redirect(new URL(redirectTo, req.url));
+  if (error) {
+    const loginUrl = new URL('/login', origin);
+    loginUrl.searchParams.set('error', error);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  return NextResponse.redirect(new URL(next, origin));
 }

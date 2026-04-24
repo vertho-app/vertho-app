@@ -11,30 +11,26 @@ export async function POST(req: NextRequest) {
 
     const trimmed = email.trim().toLowerCase();
     const sb = createSupabaseAdmin();
+    const origin = redirectTo ? new URL(redirectTo).origin : '';
 
-    // redirectTo aponta para /login onde onAuthStateChange detecta a sessão
-    const origin = redirectTo ? new URL(redirectTo).origin : undefined;
-
+    // Gera magic link via admin API (sem rate limit)
     const { data: linkData, error: linkErr } = await sb.auth.admin.generateLink({
       type: 'magiclink',
       email: trimmed,
-      options: { redirectTo: origin ? `${origin}/login` : undefined },
+      options: { redirectTo: origin ? `${origin}/dashboard` : undefined },
     });
 
-    if (linkErr || !linkData?.properties?.action_link) {
-      const msg = linkErr?.message || 'generateLink não retornou action_link';
-      console.error('[magic-link] generateLink failed:', msg);
-      return NextResponse.json({ error: `Falha ao gerar link: ${msg}` });
+    if (linkErr || !linkData?.properties) {
+      console.error('[magic-link] generateLink failed:', linkErr?.message);
+      return NextResponse.json({ error: `Falha ao gerar link: ${linkErr?.message || 'erro desconhecido'}` });
     }
 
-    const magicLink = linkData.properties.action_link;
+    const tokenHash = linkData.properties.hashed_token;
+    const actionLink = linkData.properties.action_link;
 
-    // Busca colaborador — usa findColabByEmail que resolve tenant pelo cookie
+    // Busca colaborador para WhatsApp
     const colab = await findColabByEmail(trimmed, 'id, nome_completo, telefone, empresa_id');
-    console.log('[magic-link] colab:', colab?.nome_completo, 'tel:', colab?.telefone, 'empresa:', colab?.empresa_id);
-
-    // Fallback: se findColabByEmail não achou (sem cookie de tenant), busca direto
-    let telefone = (colab as any)?.telefone;
+    let telefone = colab?.telefone;
     let nomeCompleto = colab?.nome_completo;
     let empresaId = colab?.empresa_id;
 
@@ -47,7 +43,6 @@ export async function POST(req: NextRequest) {
         telefone = rows[0].telefone;
         nomeCompleto = rows[0].nome_completo;
         empresaId = rows[0].empresa_id;
-        console.log('[magic-link] fallback found:', nomeCompleto, 'tel:', telefone);
       }
     }
 
@@ -57,18 +52,10 @@ export async function POST(req: NextRequest) {
 
     const nome = nomeCompleto?.split(' ')[0] || '';
     const empresaNome = empresa?.nome || 'Vertho';
-
     const results = { email: false, whatsapp: false };
 
-    // 1) Email — usa Supabase OTP (SMTP já configurado) como método principal
+    // 1) Email — usa o Supabase action_link nativo (redireciona via Supabase verify)
     try {
-      const { error: otpErr } = await sb.auth.admin.generateLink({
-        type: 'magiclink',
-        email: trimmed,
-        options: { redirectTo: origin ? `${origin}/login` : undefined },
-      });
-      // generateLink com admin já cria o link mas NÃO envia email.
-      // Usamos signInWithOtp via service role pra disparar o email nativo do Supabase.
       const { createClient } = await import('@supabase/supabase-js');
       const sbAnon = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -76,23 +63,26 @@ export async function POST(req: NextRequest) {
       );
       const { error: emailErr } = await sbAnon.auth.signInWithOtp({
         email: trimmed,
-        options: { emailRedirectTo: origin ? `${origin}/login` : undefined },
+        options: { emailRedirectTo: origin ? `${origin}/dashboard` : undefined },
       });
       results.email = !emailErr;
-      if (emailErr) console.error('[magic-link] email OTP error:', emailErr.message);
+      if (emailErr) console.error('[magic-link] OTP email error:', emailErr.message);
     } catch (e: any) {
       console.error('[magic-link] email error:', e.message);
     }
 
-    // 2) WhatsApp via Z-API
+    // 2) WhatsApp — envia URL própria /auth/callback que verifica token server-side
     const zapiInstance = process.env.ZAPI_INSTANCE_ID;
     const zapiToken = process.env.ZAPI_TOKEN;
-    if (zapiInstance && zapiToken && telefone) {
+    if (zapiInstance && zapiToken && telefone && tokenHash && origin) {
       try {
         let phone = String(telefone).replace(/\D/g, '');
         if (phone.length <= 11) phone = `55${phone}`;
 
-        const msg = `Olá, ${nome}! 🔐\n\nSeu link de acesso à *${empresaNome}*:\n${magicLink}\n\nClique para entrar direto, sem senha.\nEste link expira em 24h.`;
+        // URL própria — nosso callback verifica o token_hash server-side
+        const whatsappLink = `${origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=magiclink`;
+
+        const msg = `Olá, ${nome}! 🔐\n\nSeu link de acesso à *${empresaNome}*:\n${whatsappLink}\n\nClique para entrar direto, sem senha.\nEste link expira em 24h.`;
 
         const res = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-text`, {
           method: 'POST',
@@ -108,15 +98,16 @@ export async function POST(req: NextRequest) {
 
     if (!results.email && !results.whatsapp) {
       const detail = [
-        !telefone && `colaborador sem telefone (found: ${!!colab})`,
+        !telefone && 'colaborador sem telefone',
         (!zapiInstance || !zapiToken) && 'Z-API não configurado',
+        !tokenHash && 'token não gerado',
       ].filter(Boolean).join('; ');
       return NextResponse.json({ error: `Não foi possível enviar. ${detail || 'Verifique os logs.'}` });
     }
 
     return NextResponse.json({ success: true, ...results });
   } catch (err: any) {
-    console.error('[magic-link]', err.message, err.stack?.split('\n').slice(0, 3).join(' '));
+    console.error('[magic-link]', err.message);
     return NextResponse.json({ error: `Erro: ${err.message}` });
   }
 }

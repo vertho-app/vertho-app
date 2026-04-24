@@ -78,22 +78,30 @@ export default function LoginForm({ branding }: { branding: any }) {
       return;
     }
 
-    try {
-      const res = await fetch('/api/auth/magic-link', {
+    // Email: signInWithOtp client-side (PKCE flow correto)
+    // WhatsApp: API route com token_hash verificado server-side
+    const [otpResult] = await Promise.all([
+      supabase.auth.signInWithOtp({
+        email: trimmed,
+        options: { emailRedirectTo: `${window.location.origin}${redirectTo}` },
+      }),
+      fetch('/api/auth/magic-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: trimmed, redirectTo: `${window.location.origin}${redirectTo}` }),
-      });
-      const data = await res.json();
-      if (data.error) {
-        setErrorMsg(data.error);
-        setStatus('error');
-      } else {
+      }).catch(() => null),
+    ]);
+
+    if (otpResult.error) {
+      // Rate limit no email, mas WhatsApp pode ter funcionado
+      if (otpResult.error.message.includes('rate') || otpResult.error.message.includes('limit')) {
         setStatus('sent');
+      } else {
+        setErrorMsg(otpResult.error.message);
+        setStatus('error');
       }
-    } catch {
-      setErrorMsg('Erro ao enviar. Tente novamente.');
-      setStatus('error');
+    } else {
+      setStatus('sent');
     }
   }
 
