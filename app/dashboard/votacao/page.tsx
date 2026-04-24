@@ -15,6 +15,8 @@ export default function VotacaoPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [toast, setToast] = useState('');
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const router = useRouter();
   const supabase = getSupabase();
 
@@ -106,10 +108,13 @@ export default function VotacaoPage() {
         </p>
       </header>
 
-      {/* Selecionadas (ordenáveis) */}
+      {/* Selecionadas (ordenáveis com drag & drop) */}
       <section className="mb-6">
-        <p className="text-[10px] font-bold tracking-[0.15em] uppercase text-cyan-400 mb-2">
-          Suas 5 escolhidas ({selected.length}/5)
+        <p className="text-[10px] font-bold tracking-[0.15em] uppercase text-cyan-400 mb-1">
+          Suas 5 escolhidas em ordem de importância ({selected.length}/5)
+        </p>
+        <p className="text-[11px] text-gray-500 mb-3">
+          1 = mais importante. Arraste ou use as setas para reordenar.
         </p>
         {selected.length === 0 ? (
           <div className="rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-gray-500">
@@ -118,8 +123,30 @@ export default function VotacaoPage() {
         ) : (
           <div className="space-y-1.5">
             {selected.map((nome, idx) => (
-              <div key={nome} className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-cyan-400/20" style={{ background: '#0F2A4A' }}>
-                <span className="w-6 h-6 rounded-lg bg-cyan-400/15 flex items-center justify-center text-[11px] font-bold text-cyan-400 shrink-0">
+              <div key={nome}
+                draggable
+                onDragStart={() => { setDragIdx(idx); setSaved(false); }}
+                onDragOver={e => { e.preventDefault(); setDragOverIdx(idx); }}
+                onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
+                onDrop={() => {
+                  if (dragIdx === null || dragIdx === idx) return;
+                  setSelected(prev => {
+                    const arr = [...prev];
+                    const [moved] = arr.splice(dragIdx, 1);
+                    arr.splice(idx, 0, moved);
+                    return arr;
+                  });
+                  setDragIdx(null);
+                  setDragOverIdx(null);
+                }}
+                className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all cursor-grab active:cursor-grabbing ${
+                  dragOverIdx === idx && dragIdx !== idx ? 'border-cyan-400 bg-cyan-400/10' : 'border-cyan-400/20'
+                } ${dragIdx === idx ? 'opacity-40' : ''}`}
+                style={{ background: dragOverIdx === idx && dragIdx !== idx ? undefined : '#0F2A4A' }}>
+                <GripVertical size={14} className="text-gray-600 shrink-0" />
+                <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-bold shrink-0 ${
+                  idx === 0 ? 'bg-amber-400/20 text-amber-400' : 'bg-cyan-400/15 text-cyan-400'
+                }`}>
                   {idx + 1}
                 </span>
                 <span className="flex-1 text-sm font-medium text-white">{nome}</span>
