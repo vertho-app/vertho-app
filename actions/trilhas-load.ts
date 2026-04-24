@@ -10,6 +10,39 @@ function tryParseJSON(s: any) {
   } catch { return null; }
 }
 
+function extractCenario(cen: any): { cenText: string; cenPerg: string } {
+  if (!cen) return { cenText: '', cenPerg: '' };
+
+  // 1) texto exists and is already formatted markdown (not raw JSON)
+  if (typeof cen.texto === 'string' && cen.texto.length > 0 && !cen.texto.trimStart().startsWith('{') && !cen.texto.includes('```')) {
+    return { cenText: cen.texto, cenPerg: cen.pergunta || '' };
+  }
+
+  // 2) Try to find structured fields — could be on cen directly, or parsed from cen.texto
+  const src = cen.contexto
+    ? cen
+    : tryParseJSON(cen.texto) || cen;
+
+  const parts: string[] = [];
+  if (src.contexto) parts.push(src.contexto);
+  if (src.tensao_central) parts.push(src.tensao_central);
+  if (src.fator_complicador) parts.push(src.fator_complicador);
+
+  if (parts.length > 0) {
+    return { cenText: parts.join('\n\n'), cenPerg: src.pergunta || '' };
+  }
+
+  // 3) Fallback: stringify whatever we have
+  if (typeof cen === 'string') return { cenText: cen, cenPerg: '' };
+  if (typeof cen.texto === 'string') {
+    const parsed = tryParseJSON(cen.texto);
+    if (parsed) return extractCenario(parsed);
+    return { cenText: cen.texto, cenPerg: '' };
+  }
+
+  return { cenText: '', cenPerg: '' };
+}
+
 export async function loadTrilhas(empresaId: string) {
   const sb = createSupabaseAdmin();
   const { data } = await sb.from('trilhas')
@@ -81,19 +114,7 @@ export async function loadTrilhas(empresaId: string) {
           });
         } else if (sem.tipo === 'aplicacao') {
           const cen = sem.cenario || {};
-          let cenText = '';
-          let cenPerg = '';
-          if (cen.texto && !cen.texto.includes('"contexto"')) {
-            cenText = cen.texto;
-            cenPerg = cen.pergunta || '';
-          } else {
-            // texto is raw JSON or missing — extract from structured fields
-            const src = cen.contexto ? cen : tryParseJSON(cen.texto) || cen;
-            cenText = src.contexto || '';
-            if (src.tensao_central) cenText += `\n\n${src.tensao_central}`;
-            if (src.fator_complicador) cenText += `\n\n${src.fator_complicador}`;
-            cenPerg = src.pergunta || '';
-          }
+          const { cenText, cenPerg } = extractCenario(cen);
           obrigatorios.push({
             tipo: 'aplicacao',
             semana: sem.semana,
