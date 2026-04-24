@@ -10,6 +10,13 @@ import { loadRelatoriosEmpresa } from '@/actions/relatorios-load';
 
 const NIVEL_COLORS = { 1: 'text-red-400', 2: 'text-amber-400', 3: 'text-cyan-400', 4: 'text-green-400' };
 
+function s(v: any): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  try { return JSON.stringify(v); } catch { return String(v); }
+}
+
 export default function RelatoriosPage({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = use(params);
   const router = useRouter();
@@ -91,13 +98,13 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                 {isOpen && c && (
                   <div className="px-4 pb-4 border-t border-white/[0.04] space-y-4">
                     {/* Acolhimento */}
-                    {c.acolhimento && <p className="text-xs text-gray-300 leading-relaxed mt-3 italic">{c.acolhimento}</p>}
+                    {c.acolhimento && <p className="text-xs text-gray-300 leading-relaxed mt-3 italic">{s(c.acolhimento)}</p>}
 
                     {/* Resumo */}
                     {c.resumo_geral && (
                       <div>
                         <SectionTitle>Resumo Geral</SectionTitle>
-                        <p className="text-xs text-gray-300 leading-relaxed">{c.resumo_geral}</p>
+                        <p className="text-xs text-gray-300 leading-relaxed">{s(c.resumo_geral)}</p>
                       </div>
                     )}
 
@@ -105,12 +112,12 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                     {c.perfil_comportamental && (
                       <div>
                         <SectionTitle color="purple">Perfil Comportamental</SectionTitle>
-                        <p className="text-xs text-gray-300 leading-relaxed mb-2">{c.perfil_comportamental.descricao || c.perfil_disc?.descricao}</p>
+                        <p className="text-xs text-gray-300 leading-relaxed mb-2">{s(c.perfil_comportamental.descricao || c.perfil_disc?.descricao)}</p>
                         {(c.perfil_comportamental.pontos_forca || c.perfil_disc?.pontos_forca)?.map((p, i) => (
-                          <p key={i} className="text-[10px] text-green-400">+ {p}</p>
+                          <p key={i} className="text-[10px] text-green-400">+ {s(p)}</p>
                         ))}
                         {(c.perfil_comportamental.pontos_atencao || c.perfil_disc?.pontos_atencao)?.map((p, i) => (
-                          <p key={i} className="text-[10px] text-amber-400">⚠ {p}</p>
+                          <p key={i} className="text-[10px] text-amber-400">{s(p)}</p>
                         ))}
                       </div>
                     )}
@@ -130,12 +137,12 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                                 {comp.nota_decimal && <span className="text-[10px] text-gray-500">({Number(comp.nota_decimal).toFixed(2)})</span>}
                                 {comp.evolucao && <span className={`text-[9px] ${comp.evolucao === 'subiu' ? 'text-green-400' : comp.evolucao === 'desceu' ? 'text-red-400' : 'text-gray-500'}`}>{comp.evolucao}</span>}
                               </div>
-                              {comp.analise && <p className="text-[10px] text-gray-400 mb-1">{comp.analise}</p>}
-                              {comp.evidencias_destaque?.map((e, j) => <p key={j} className="text-[10px] text-gray-500">• {e}</p>)}
-                              {comp.lacuna_principal && <p className="text-[10px] text-amber-400 mt-1">Gap: {comp.lacuna_principal}</p>}
-                              {comp.acao_pratica && <p className="text-[10px] text-cyan-400 mt-1">→ {comp.acao_pratica}</p>}
-                              {comp.script_pratico && <p className="text-[10px] text-cyan-400">→ {comp.script_pratico}</p>}
-                              {comp.recomendacao && <p className="text-[10px] text-gray-400 mt-1">{comp.recomendacao}</p>}
+                              {comp.analise && <p className="text-[10px] text-gray-400 mb-1">{s(comp.analise)}</p>}
+                              {comp.evidencias_destaque?.map((e, j) => <p key={j} className="text-[10px] text-gray-500">• {s(e)}</p>)}
+                              {comp.lacuna_principal && <p className="text-[10px] text-amber-400 mt-1">Gap: {s(comp.lacuna_principal)}</p>}
+                              {comp.acao_pratica && <p className="text-[10px] text-cyan-400 mt-1">{s(comp.acao_pratica)}</p>}
+                              {comp.script_pratico && <p className="text-[10px] text-cyan-400">{s(comp.script_pratico)}</p>}
+                              {comp.recomendacao && <p className="text-[10px] text-gray-400 mt-1">{s(comp.recomendacao)}</p>}
                             </div>
                           ))}
                         </div>
@@ -148,16 +155,16 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                         <SectionTitle color="green">Próximos Passos</SectionTitle>
                         {(Array.isArray(c.proximos_passos) ? c.proximos_passos : Object.values(c.proximos_passos)).map((p, i) => (
                           <div key={i} className="p-2 rounded-lg mb-1" style={{ background: '#091D35' }}>
-                            <p className="text-[10px] text-white font-bold">{p.competencia}</p>
-                            <p className="text-[10px] text-gray-300">{p.meta_primeira_pessoa}</p>
-                            {p.prazo && <span className="text-[9px] text-gray-500">{p.prazo}</span>}
+                            <p className="text-[10px] text-white font-bold">{s(p.competencia)}</p>
+                            <p className="text-[10px] text-gray-300">{s(p.meta_primeira_pessoa)}</p>
+                            {p.prazo && <span className="text-[9px] text-gray-500">{s(p.prazo)}</span>}
                           </div>
                         ))}
                       </div>
                     )}
 
                     {/* Mensagem final */}
-                    {c.mensagem_final && <p className="text-xs text-gray-400 italic pt-2 border-t border-white/[0.04]">{c.mensagem_final}</p>}
+                    {c.mensagem_final && <p className="text-xs text-gray-400 italic pt-2 border-t border-white/[0.04]">{s(c.mensagem_final)}</p>}
                   </div>
                 )}
               </div>
@@ -199,14 +206,14 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                 {c.resumo_executivo && (
                   <div className="p-4 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
                     <SectionTitle>Resumo Executivo</SectionTitle>
-                    <p className="text-xs text-gray-300 leading-relaxed">{c.resumo_executivo}</p>
+                    <p className="text-xs text-gray-300 leading-relaxed">{s(c.resumo_executivo)}</p>
                   </div>
                 )}
 
                 {c.destaques_evolucao?.length > 0 && (
                   <div className="p-4 rounded-xl border border-green-400/10" style={{ background: '#0F2A4A' }}>
                     <SectionTitle color="green">Destaques de Evolução</SectionTitle>
-                    {c.destaques_evolucao.map((d, i) => <p key={i} className="text-[10px] text-green-400">🌟 {d}</p>)}
+                    {c.destaques_evolucao.map((d, i) => <p key={i} className="text-[10px] text-green-400">{s(d)}</p>)}
                   </div>
                 )}
 
@@ -215,10 +222,10 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                     <SectionTitle color="amber">Ranking de Atenção</SectionTitle>
                     {c.ranking_atencao.map((r, i) => (
                       <div key={i} className="flex items-center gap-2 py-1 text-[10px]">
-                        <span className={`font-bold px-1.5 py-0.5 rounded ${r.urgencia === 'URGENTE' ? 'bg-red-400/15 text-red-400' : r.urgencia === 'IMPORTANTE' ? 'bg-amber-400/15 text-amber-400' : 'bg-gray-400/15 text-gray-400'}`}>{r.urgencia}</span>
-                        <span className="text-white font-medium">{r.nome}</span>
-                        <span className="text-gray-500">{r.competencia} — N{r.nivel || r.nivel_fase3}</span>
-                        <span className="text-gray-600 truncate">{r.motivo || r.motivo_curto}</span>
+                        <span className={`font-bold px-1.5 py-0.5 rounded ${r.urgencia === 'URGENTE' ? 'bg-red-400/15 text-red-400' : r.urgencia === 'IMPORTANTE' ? 'bg-amber-400/15 text-amber-400' : 'bg-gray-400/15 text-gray-400'}`}>{s(r.urgencia)}</span>
+                        <span className="text-white font-medium">{s(r.nome)}</span>
+                        <span className="text-gray-500">{s(r.competencia)} — N{r.nivel || r.nivel_fase3}</span>
+                        <span className="text-gray-600 truncate">{s(r.motivo || r.motivo_curto)}</span>
                       </div>
                     ))}
                   </div>
@@ -230,11 +237,11 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                     {c.analise_por_competencia.map((a, i) => (
                       <div key={i} className="mb-3 p-3 rounded-lg" style={{ background: '#091D35' }}>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-bold text-white">{a.competencia}</span>
-                          <span className="text-[10px] text-gray-500">Média: {a.media_nivel || a.media}</span>
+                          <span className="text-xs font-bold text-white">{s(a.competencia)}</span>
+                          <span className="text-[10px] text-gray-500">Média: {s(a.media_nivel || a.media)}</span>
                         </div>
-                        <p className="text-[10px] text-gray-400">{a.padrao_observado}</p>
-                        {a.acao_gestor && <p className="text-[10px] text-cyan-400 mt-1">→ {a.acao_gestor}</p>}
+                        <p className="text-[10px] text-gray-400">{s(a.padrao_observado)}</p>
+                        {a.acao_gestor && <p className="text-[10px] text-cyan-400 mt-1">{s(a.acao_gestor)}</p>}
                       </div>
                     ))}
                   </div>
@@ -250,16 +257,16 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                       return (
                         <div key={k} className="mb-2 p-2 rounded-lg" style={{ background: '#091D35' }}>
                           <p className="text-[9px] text-gray-500 font-bold uppercase">{labels[k]}</p>
-                          <p className="text-xs text-white font-bold">{a.titulo}</p>
-                          <p className="text-[10px] text-gray-400">{a.descricao}</p>
-                          {a.impacto && <p className="text-[10px] text-green-400 mt-0.5">{a.impacto}</p>}
+                          <p className="text-xs text-white font-bold">{s(a.titulo)}</p>
+                          <p className="text-[10px] text-gray-400">{s(a.descricao)}</p>
+                          {a.impacto && <p className="text-[10px] text-green-400 mt-0.5">{s(a.impacto)}</p>}
                         </div>
                       );
                     })}
                   </div>
                 )}
 
-                {c.mensagem_final && <p className="text-xs text-gray-400 italic">{c.mensagem_final}</p>}
+                {c.mensagem_final && <p className="text-xs text-gray-400 italic">{s(c.mensagem_final)}</p>}
               </div>
             );
           })()}
@@ -285,15 +292,15 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                 {c.resumo_executivo && (
                   <div className="p-4 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
                     <SectionTitle>Resumo Executivo</SectionTitle>
-                    <p className="text-xs text-gray-300 leading-relaxed">{c.resumo_executivo}</p>
+                    <p className="text-xs text-gray-300 leading-relaxed">{s(c.resumo_executivo)}</p>
                   </div>
                 )}
 
                 {c.indicadores && (
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {[
-                      { label: 'Avaliados', value: c.indicadores.total_avaliados, color: 'text-white' },
-                      { label: 'Média', value: c.indicadores.media_geral, color: 'text-cyan-400' },
+                      { label: 'Avaliados', value: s(c.indicadores.total_avaliados), color: 'text-white' },
+                      { label: 'Média', value: s(c.indicadores.media_geral), color: 'text-cyan-400' },
                       { label: 'N1-N2', value: `${(c.indicadores.pct_nivel_1 || 0) + (c.indicadores.pct_nivel_2 || 0)}%`, color: 'text-amber-400' },
                       { label: 'N3-N4', value: `${(c.indicadores.pct_nivel_3 || 0) + (c.indicadores.pct_nivel_4 || 0)}%`, color: 'text-green-400' },
                     ].map((ind, i) => (
@@ -312,10 +319,10 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                       <div key={i} className="mb-2 flex items-start gap-2">
                         <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
                           comp.criticidade === 'CRITICA' ? 'bg-red-400/15 text-red-400' : comp.criticidade === 'ATENCAO' ? 'bg-amber-400/15 text-amber-400' : 'bg-green-400/15 text-green-400'
-                        }`}>{comp.criticidade}</span>
+                        }`}>{s(comp.criticidade)}</span>
                         <div>
-                          <p className="text-xs text-white font-bold">{comp.competencia}</p>
-                          <p className="text-[10px] text-gray-400">{comp.motivo}</p>
+                          <p className="text-xs text-white font-bold">{s(comp.competencia)}</p>
+                          <p className="text-[10px] text-gray-400">{s(comp.motivo)}</p>
                         </div>
                       </div>
                     ))}
@@ -328,14 +335,14 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                     {c.treinamentos_sugeridos.map((t, i) => (
                       <div key={i} className="mb-2 p-3 rounded-lg" style={{ background: '#091D35' }}>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-bold text-white">{t.titulo}</span>
+                          <span className="text-xs font-bold text-white">{s(t.titulo)}</span>
                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
                             t.prioridade === 'URGENTE' ? 'bg-red-400/15 text-red-400' : t.prioridade === 'IMPORTANTE' ? 'bg-amber-400/15 text-amber-400' : 'bg-gray-400/15 text-gray-400'
-                          }`}>{t.prioridade}</span>
-                          {t.custo && <span className="text-[9px] text-gray-500">{t.custo}</span>}
+                          }`}>{s(t.prioridade)}</span>
+                          {t.custo && <span className="text-[9px] text-gray-500">{s(t.custo)}</span>}
                         </div>
-                        <p className="text-[10px] text-gray-400">{t.publico} · {t.formato} · {t.carga_horaria}</p>
-                        {t.justificativa && <p className="text-[10px] text-gray-500 mt-0.5">{t.justificativa}</p>}
+                        <p className="text-[10px] text-gray-400">{s(t.publico)} · {s(t.formato)} · {s(t.carga_horaria)}</p>
+                        {t.justificativa && <p className="text-[10px] text-gray-500 mt-0.5">{s(t.justificativa)}</p>}
                       </div>
                     ))}
                   </div>
@@ -346,9 +353,9 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                     <SectionTitle color="red">Decisões-Chave</SectionTitle>
                     {c.decisoes_chave.map((d, i) => (
                       <div key={i} className="mb-2 p-3 rounded-lg" style={{ background: '#091D35' }}>
-                        <p className="text-xs text-white font-bold">{d.colaborador}</p>
-                        <p className="text-[10px] text-gray-400">{d.situacao}</p>
-                        <p className="text-[10px] text-cyan-400 mt-0.5">→ {d.acao || d.acao_imediata}</p>
+                        <p className="text-xs text-white font-bold">{s(d.colaborador)}</p>
+                        <p className="text-[10px] text-gray-400">{s(d.situacao)}</p>
+                        <p className="text-[10px] text-cyan-400 mt-0.5">{s(d.acao || d.acao_imediata)}</p>
                       </div>
                     ))}
                   </div>
@@ -362,16 +369,16 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                       if (!a) return null;
                       return (
                         <div key={k} className="mb-2 p-2 rounded-lg" style={{ background: '#091D35' }}>
-                          <p className="text-xs text-white font-bold">{a.titulo}</p>
-                          <p className="text-[10px] text-gray-400">{a.descricao}</p>
-                          {a.impacto && <p className="text-[10px] text-green-400 mt-0.5">{a.impacto}</p>}
+                          <p className="text-xs text-white font-bold">{s(a.titulo)}</p>
+                          <p className="text-[10px] text-gray-400">{s(a.descricao)}</p>
+                          {a.impacto && <p className="text-[10px] text-green-400 mt-0.5">{s(a.impacto)}</p>}
                         </div>
                       );
                     })}
                   </div>
                 )}
 
-                {c.mensagem_final && <p className="text-xs text-gray-400 italic">{c.mensagem_final}</p>}
+                {c.mensagem_final && <p className="text-xs text-gray-400 italic">{s(c.mensagem_final)}</p>}
               </div>
             );
           })()}
