@@ -3,10 +3,6 @@
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 
-/**
- * Container base das sub-páginas do dashboard no padrão "Cinematic".
- * Dá respiro em desktop e padding compatível com a sidebar.
- */
 export function PageContainer({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
     <div className={`max-w-[1100px] mx-auto px-5 md:px-10 py-6 md:py-10 ${className}`}>
@@ -15,13 +11,6 @@ export function PageContainer({ children, className = '' }: { children: React.Re
   );
 }
 
-/**
- * Hero editorial — saudação/categoria + título grande + subtítulo.
- * Usado no topo de cada sub-página pra manter coerência com a home.
- *
- * A cor de --phase-accent é herdada do ancestral com data-phase="N".
- * Fallback: ciano da marca (#22d3ee).
- */
 interface PageHeroProps {
   eyebrow?: React.ReactNode;
   title: React.ReactNode;
@@ -43,11 +32,10 @@ export function PageHero({ eyebrow, title, subtitle, showBack = true, actions, t
           <ArrowLeft size={16} /> Voltar
         </button>
       )}
-
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div className="min-w-0">
           {eyebrow && (
-            // ✅ PATCH: era text-cyan-400 hardcoded — agora herda --phase-accent
+            // ✅ eyebrow usa --phase-accent; fallback ciano
             <p
               className="text-[10px] md:text-xs font-bold tracking-[0.25em] uppercase mb-2"
               style={{ color: 'var(--phase-accent, #22d3ee)' }}
@@ -55,34 +43,34 @@ export function PageHero({ eyebrow, title, subtitle, showBack = true, actions, t
               {eyebrow}
             </p>
           )}
+          {/* ✅ h1 em Instrument Serif itálico */}
           <h1
-            className="font-extrabold text-2xl md:text-4xl text-white leading-tight"
-            // ✅ PATCH: textShadow usa color-mix com --phase-accent em vez de ciano fixo
+            className="leading-tight"
             style={{
-              textShadow:
-                '0 0 40px color-mix(in oklab, var(--phase-accent, #00B4D8) 20%, transparent)',
+              fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+              fontStyle: 'italic',
+              fontWeight: 400,
+              fontSize: 'clamp(28px, 4.5vw, 44px)',
+              letterSpacing: '-0.02em',
+              color: '#fff',
+              textShadow: 'none',
             }}
           >
             {title}
             {titleAccent && (
-              <span style={{ color: 'var(--phase-accent, #22d3ee)' }}> {titleAccent}</span>
+              <em style={{ color: 'var(--phase-accent, #22d3ee)', fontStyle: 'italic' }}> {titleAccent}</em>
             )}
           </h1>
           {subtitle && (
             <p className="text-sm text-gray-400 mt-2 max-w-2xl leading-relaxed">{subtitle}</p>
           )}
         </div>
-
         {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
       </div>
     </header>
   );
 }
 
-/**
- * GlassCard — wrapper leve com backdrop blur + border sutil.
- * Consistente com os bento cards da home.
- */
 export function GlassCard({
   children,
   className = '',
@@ -102,9 +90,6 @@ export function GlassCard({
   );
 }
 
-/**
- * SectionHeader — título de seção interna com eyebrow tracking.
- */
 export function SectionHeader({
   eyebrow,
   title,
@@ -122,7 +107,18 @@ export function SectionHeader({
             {eyebrow}
           </p>
         )}
-        {title && <h2 className="text-lg md:text-xl font-extrabold text-white">{title}</h2>}
+        {title && (
+          <h2
+            className="text-lg md:text-xl font-extrabold text-white"
+            style={{
+              fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+              fontStyle: 'italic',
+              fontWeight: 400,
+            }}
+          >
+            {title}
+          </h2>
+        )}
       </div>
       {actions && <div className="flex items-center gap-2">{actions}</div>}
     </div>
