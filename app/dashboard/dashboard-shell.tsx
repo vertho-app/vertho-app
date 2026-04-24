@@ -28,7 +28,9 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       if (!session) { router.replace('/login'); return; }
       setUser(session.user);
 
-      loadAvatarData().then(d => { if (d) setColaborador(d); });
+      loadAvatarData(session.user.email)
+        .then(d => { if (d) setColaborador(d); })
+        .catch(() => {});
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(

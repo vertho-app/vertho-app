@@ -83,14 +83,22 @@ export async function loadDashboardData() {
   };
 }
 
-export async function loadAvatarData() {
-  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
-  const email = await getAuthenticatedEmailFromAction();
-  if (!email) return null;
-  const sb = createSupabaseAdmin();
-  const { data } = await sb.from('colaboradores')
-    .select('nome_completo, foto_url')
-    .eq('email', email)
-    .maybeSingle();
-  return data || { nome_completo: email, foto_url: null };
+export async function loadAvatarData(emailHint?: string) {
+  try {
+    let email = emailHint;
+    if (!email) {
+      const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+      email = await getAuthenticatedEmailFromAction();
+    }
+    if (!email) return null;
+    const sb = createSupabaseAdmin();
+    const { data } = await sb.from('colaboradores')
+      .select('nome_completo, foto_url')
+      .eq('email', email)
+      .maybeSingle();
+    return data || { nome_completo: email, foto_url: null };
+  } catch (err) {
+    console.error('[loadAvatarData]', err);
+    return null;
+  }
 }
