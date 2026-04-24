@@ -70,7 +70,7 @@ export default function VotacaoPage() {
     const r = await salvarVoto(selected, sugestao);
     setSaving(false);
     if (r.error) { setToast(r.error); setTimeout(() => setToast(''), 3000); }
-    else { setSaved(true); setToast('Voto registrado!'); setTimeout(() => setToast(''), 3000); }
+    else { setSaved(true); setToast('Voto registrado!'); setTimeout(() => router.push('/dashboard'), 1500); }
   }
 
   if (loading) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
