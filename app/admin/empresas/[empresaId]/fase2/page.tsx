@@ -66,6 +66,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
   const [filtroStatus, setFiltroStatus] = useState('');
   const [actionId, setActionId] = useState(null);
   const [batchRunning, setBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, ok: 0, erros: 0 });
   const [toast, setToast] = useState(null);
   const [activeVideo, setActiveVideo] = useState(null); // { libraryId, videoId, title }
   function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 3000); }
@@ -74,14 +75,16 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
     const paraRevisar = respostas.filter(r => r.status_ia4 === 'revisar' || r.status_ia4 === 'aprovado_com_ajustes');
     if (!paraRevisar.length) { flash('Nenhuma avaliação para revisar'); return; }
     setBatchRunning(true);
-    flash(`Re-avaliando ${paraRevisar.length} respostas...`);
+    setBatchProgress({ current: 0, total: paraRevisar.length, ok: 0, erros: 0 });
     let ok = 0, erros = 0;
-    for (const r of paraRevisar) {
-      const r1 = await reavaliarResposta(r.id);
+    for (let i = 0; i < paraRevisar.length; i++) {
+      setBatchProgress(p => ({ ...p, current: i + 1 }));
+      const r1 = await reavaliarResposta(paraRevisar[i].id);
       if (r1.success) {
-        await rechecarResposta(r.id);
+        await rechecarResposta(paraRevisar[i].id);
         ok++;
       } else { erros++; }
+      setBatchProgress(p => ({ ...p, ok, erros }));
     }
     setBatchRunning(false);
     flash(`${ok} re-avaliadas${erros ? `, ${erros} erros` : ''}`);
@@ -191,6 +194,30 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
           </button>
         )}
       </div>
+
+      {/* Barra de progresso do batch */}
+      {batchRunning && batchProgress.total > 0 && (
+        <div className="mb-4 rounded-xl p-3 border border-amber-400/20" style={{ background: '#0F2A4A' }}>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] font-bold text-amber-400">
+              Re-avaliando {batchProgress.current} de {batchProgress.total}...
+            </span>
+            <span className="text-[10px] text-gray-500">
+              {batchProgress.ok > 0 && <span className="text-green-400">{batchProgress.ok} ok</span>}
+              {batchProgress.erros > 0 && <span className="text-red-400 ml-2">{batchProgress.erros} erros</span>}
+            </span>
+          </div>
+          <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+            <div
+              className="h-full rounded-full bg-amber-400 transition-all duration-300"
+              style={{ width: `${Math.round((batchProgress.current / batchProgress.total) * 100)}%` }}
+            />
+          </div>
+          <p className="text-[9px] text-gray-600 mt-1">
+            {Math.round((batchProgress.current / batchProgress.total) * 100)}% concluído
+          </p>
+        </div>
+      )}
 
       {/* Filtros */}
       <div className="flex items-center gap-3 mb-5">
