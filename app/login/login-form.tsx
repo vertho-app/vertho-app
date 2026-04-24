@@ -78,23 +78,22 @@ export default function LoginForm({ branding }: { branding: any }) {
       return;
     }
 
-    const [otpResult] = await Promise.all([
-      supabase.auth.signInWithOtp({
-        email: trimmed,
-        options: { emailRedirectTo: `${window.location.origin}${redirectTo}` },
-      }),
-      fetch('/api/auth/magic-link-whatsapp', {
+    try {
+      const res = await fetch('/api/auth/magic-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: trimmed, redirectTo: `${window.location.origin}${redirectTo}` }),
-      }).catch(() => {}),
-    ]);
-
-    if (otpResult.error) {
-      setErrorMsg(otpResult.error.message);
+      });
+      const data = await res.json();
+      if (data.error) {
+        setErrorMsg(data.error);
+        setStatus('error');
+      } else {
+        setStatus('sent');
+      }
+    } catch {
+      setErrorMsg('Erro ao enviar. Tente novamente.');
       setStatus('error');
-    } else {
-      setStatus('sent');
     }
   }
 
