@@ -731,7 +731,10 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                             <div className="flex-1 min-w-0">
                               <p className="text-xs text-purple-200 font-bold">{c.nome}</p>
                               {c.cenario && (
-                                <p className="text-[11px] text-gray-300 mt-1 whitespace-pre-wrap">{c.cenario}</p>
+                                <p className="text-[11px] text-gray-300 mt-1 whitespace-pre-wrap">{safeText(c.cenario)}</p>
+                              )}
+                              {c.pergunta && (
+                                <p className="text-[11px] text-purple-300/80 mt-1 italic">{safeText(c.pergunta)}</p>
                               )}
                               {Array.isArray(c.descritores_cobertos) && c.descritores_cobertos.length > 0 && (
                                 <p className="text-[9px] text-gray-500 mt-1">Cobre: {c.descritores_cobertos.join(' · ')}</p>

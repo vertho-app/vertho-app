@@ -77,7 +77,8 @@ export async function loadTrilhas(empresaId: string) {
             semana: sem.semana,
             nome: `Aplicação prática (${sem.cenario?.complexidade || 'cenário'})`,
             descritores_cobertos: sem.descritores_cobertos || [],
-            cenario: sem.cenario?.texto || '',
+            cenario: sem.cenario?.texto || sem.cenario?.contexto || (typeof sem.cenario === 'string' ? sem.cenario : ''),
+            pergunta: sem.cenario?.pergunta || '',
           });
         } else if (sem.tipo === 'avaliacao') {
           obrigatorios.push({
