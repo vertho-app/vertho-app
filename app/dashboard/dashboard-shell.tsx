@@ -6,7 +6,6 @@ import { getSupabase } from '@/lib/supabase-browser';
 import { Home, Clock, Play, TrendingUp, User, LogOut } from 'lucide-react';
 import BetoChat from '@/components/beto-chat';
 import { UserAvatar } from '@/components/user-avatar';
-import { loadAvatarData } from './dashboard-actions';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Início', icon: Home },
@@ -28,8 +27,9 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       if (!session) { router.replace('/login'); return; }
       setUser(session.user);
 
-      loadAvatarData(session.user.email)
-        .then(d => { if (d) setColaborador(d); })
+      fetch('/api/me')
+        .then(r => r.json())
+        .then(d => { if (d?.nome_completo) setColaborador(d); })
         .catch(() => {});
     });
 

@@ -182,7 +182,7 @@ export default function DashboardHomePage() {
                 >
                   Foco da semana
                 </span>
-                <h2 className="text-[1.85rem] leading-[1.08] font-extrabold tracking-tight max-w-[260px]">
+                <h2 className="text-[1.5rem] sm:text-[1.85rem] leading-[1.08] font-extrabold tracking-tight line-clamp-2">
                   {competencia || 'Preparação'}
                 </h2>
               </div>
