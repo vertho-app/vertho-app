@@ -81,9 +81,40 @@ const acaoHorizontes = [
   { key: 'longo_prazo', label: 'Longo Prazo (pr\u00f3ximo semestre)', bg: '#16A34A', contentBg: '#F0FDF4' },
 ];
 
+function textOf(v: any): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  try { return JSON.stringify(v); } catch { return String(v); }
+}
+
+function parseJsonLike(v: any): any {
+  if (v == null || typeof v !== 'string') return v;
+  const trimmed = v.trim();
+  if ((!trimmed.startsWith('{') || !trimmed.endsWith('}')) && (!trimmed.startsWith('[') || !trimmed.endsWith(']'))) {
+    return v;
+  }
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return v;
+  }
+}
+
+function getResumoExecutivo(v: any) {
+  const parsed = typeof v === 'object' && v !== null ? v : parseJsonLike(v);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  return {
+    leitura: parsed.leitura_geral || parsed.leitura || '',
+    principalForca: parsed.principal_forca_organizacional || parsed.principal_avanco || '',
+    principalRisco: parsed.principal_risco_organizacional || parsed.principal_ponto_de_atencao || '',
+  };
+}
+
 export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data: any; empresaNome?: string; logoBase64?: string }) {
   const c = data.conteudo;
   if (!c) return null;
+  const resumoExecutivo = getResumoExecutivo(c.resumo_executivo);
 
   return (
     <Document>
@@ -98,12 +129,12 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
           <View style={s.section} wrap={false}>
             <SectionTitle>Resumo Executivo</SectionTitle>
             <View style={s.box}>
-              <Text style={s.text}>{c.resumo_executivo.leitura_geral}</Text>
-              {c.resumo_executivo.principal_forca_organizacional && (
-                <Text style={{ ...s.text, color: '#2E7D32', marginTop: 4 }}>Força: {c.resumo_executivo.principal_forca_organizacional}</Text>
+              <Text style={s.text}>{textOf(resumoExecutivo?.leitura || c.resumo_executivo)}</Text>
+              {(resumoExecutivo?.principalForca || c.resumo_executivo?.principal_forca_organizacional) && (
+                <Text style={{ ...s.text, color: '#2E7D32', marginTop: 4 }}>Força: {textOf(resumoExecutivo?.principalForca || c.resumo_executivo?.principal_forca_organizacional)}</Text>
               )}
-              {c.resumo_executivo.principal_risco_organizacional && (
-                <Text style={{ ...s.text, color: '#B91C1C', marginTop: 2 }}>Risco: {c.resumo_executivo.principal_risco_organizacional}</Text>
+              {(resumoExecutivo?.principalRisco || c.resumo_executivo?.principal_risco_organizacional) && (
+                <Text style={{ ...s.text, color: '#B91C1C', marginTop: 2 }}>Risco: {textOf(resumoExecutivo?.principalRisco || c.resumo_executivo?.principal_risco_organizacional)}</Text>
               )}
             </View>
           </View>
@@ -295,11 +326,20 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
               return (
                 <View key={key} style={s.acaoCard} wrap={false}>
                   <View style={{ ...s.acaoHeader, backgroundColor: bg }}>
-                    <Text style={s.acaoHeaderText}>{label}: {a.titulo}</Text>
+                    <Text style={s.acaoHeaderText}>{label}</Text>
                   </View>
                   <View style={{ ...s.acaoContent, backgroundColor: contentBg }}>
-                    <Text style={s.text}>{a.descricao}</Text>
-                    {a.impacto && <Text style={{ fontFamily: 'NotoSans', fontSize: 9, color: colors.textSecondary, fontStyle: 'italic', marginTop: 2 }}>{a.impacto}</Text>}
+                    {Array.isArray(a) ? (
+                      a.map((item: any, index: number) => (
+                        <Text key={index} style={s.text}>{`\u2022 ${textOf(item)}`}</Text>
+                      ))
+                    ) : (
+                      <>
+                        {a.titulo && <Text style={s.acaoTitulo}>{textOf(a.titulo)}</Text>}
+                        {a.descricao && <Text style={s.text}>{textOf(a.descricao)}</Text>}
+                        {a.impacto && <Text style={{ fontFamily: 'NotoSans', fontSize: 9, color: colors.textSecondary, fontStyle: 'italic', marginTop: 2 }}>{textOf(a.impacto)}</Text>}
+                      </>
+                    )}
                   </View>
                 </View>
               );

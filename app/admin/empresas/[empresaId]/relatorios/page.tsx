@@ -102,6 +102,35 @@ function urgenciaLabel(v: any): string {
   return String(v).toUpperCase();
 }
 
+function ActionHorizon({
+  label,
+  value,
+}: {
+  label: string;
+  value: any;
+}) {
+  if (!value) return null;
+
+  return (
+    <div className="mb-2 p-2 rounded-lg" style={{ background: '#091D35' }}>
+      <p className="text-[9px] text-gray-500 font-bold uppercase">{label}</p>
+      {Array.isArray(value) ? (
+        value.map((item, index) => (
+          <p key={index} className="text-[10px] text-gray-300">
+            • {s(item)}
+          </p>
+        ))
+      ) : (
+        <>
+          {value.titulo && <p className="text-xs text-white font-bold">{s(value.titulo)}</p>}
+          {value.descricao && <p className="text-[10px] text-gray-400">{s(value.descricao)}</p>}
+          {value.impacto && <p className="text-[10px] text-green-400 mt-0.5">{s(value.impacto)}</p>}
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function RelatoriosPage({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = use(params);
   const router = useRouter();
@@ -346,19 +375,9 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                 {c.acoes && (
                   <div className="p-4 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
                     <SectionTitle color="green">Ações</SectionTitle>
-                    {['esta_semana', 'proximas_semanas', 'medio_prazo'].map(k => {
-                      const a = c.acoes[k];
-                      if (!a) return null;
-                      const labels = { esta_semana: 'Esta semana', proximas_semanas: 'Próximas semanas', medio_prazo: 'Médio prazo' };
-                      return (
-                        <div key={k} className="mb-2 p-2 rounded-lg" style={{ background: '#091D35' }}>
-                          <p className="text-[9px] text-gray-500 font-bold uppercase">{labels[k]}</p>
-                          <p className="text-xs text-white font-bold">{s(a.titulo)}</p>
-                          <p className="text-[10px] text-gray-400">{s(a.descricao)}</p>
-                          {a.impacto && <p className="text-[10px] text-green-400 mt-0.5">{s(a.impacto)}</p>}
-                        </div>
-                      );
-                    })}
+                    <ActionHorizon label="Esta semana" value={c.acoes.esta_semana} />
+                    <ActionHorizon label="Próximas semanas" value={c.acoes.proximas_semanas} />
+                    <ActionHorizon label="Médio prazo" value={c.acoes.medio_prazo} />
                   </div>
                 )}
 
@@ -388,7 +407,7 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                 {c.resumo_executivo && (
                   <div className="p-4 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
                     <SectionTitle>Resumo Executivo</SectionTitle>
-                    <p className="text-xs text-gray-300 leading-relaxed">{s(c.resumo_executivo)}</p>
+                    <ResumoExecutivo value={c.resumo_executivo} />
                   </div>
                 )}
 
@@ -460,17 +479,9 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                 {c.plano_acao && (
                   <div className="p-4 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
                     <SectionTitle color="green">Plano de Ação RH</SectionTitle>
-                    {['curto_prazo', 'medio_prazo', 'longo_prazo'].map(k => {
-                      const a = c.plano_acao[k];
-                      if (!a) return null;
-                      return (
-                        <div key={k} className="mb-2 p-2 rounded-lg" style={{ background: '#091D35' }}>
-                          <p className="text-xs text-white font-bold">{s(a.titulo)}</p>
-                          <p className="text-[10px] text-gray-400">{s(a.descricao)}</p>
-                          {a.impacto && <p className="text-[10px] text-green-400 mt-0.5">{s(a.impacto)}</p>}
-                        </div>
-                      );
-                    })}
+                    <ActionHorizon label="Curto prazo" value={c.plano_acao.curto_prazo} />
+                    <ActionHorizon label="Médio prazo" value={c.plano_acao.medio_prazo} />
+                    <ActionHorizon label="Longo prazo" value={c.plano_acao.longo_prazo} />
                   </div>
                 )}
 
