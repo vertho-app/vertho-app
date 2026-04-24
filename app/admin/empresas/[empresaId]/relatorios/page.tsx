@@ -59,6 +59,49 @@ function ResumoGeral({ value }: { value: any }) {
   );
 }
 
+function getResumoExecutivoParts(v: any) {
+  const parsed = typeof v === 'object' && v !== null ? v : tryParseJsonLike(v);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  return {
+    leitura: parsed.leitura_geral || parsed.leitura || parsed.resumo || parsed.texto || '',
+    principalAvanco: parsed.principal_avanco || parsed.principal_forca_organizacional || '',
+    principalPontoAtencao: parsed.principal_ponto_de_atencao || parsed.principal_risco_organizacional || '',
+  };
+}
+
+function ResumoExecutivo({ value }: { value: any }) {
+  const parts = getResumoExecutivoParts(value);
+  if (!parts) return <p className="text-xs text-gray-300 leading-relaxed">{s(value)}</p>;
+
+  return (
+    <div className="space-y-2">
+      {parts.leitura && <p className="text-xs text-gray-300 leading-relaxed">{s(parts.leitura)}</p>}
+      {parts.principalAvanco && <p className="text-[10px] text-green-400">Avanço: {s(parts.principalAvanco)}</p>}
+      {parts.principalPontoAtencao && <p className="text-[10px] text-amber-400">Ponto de atenção: {s(parts.principalPontoAtencao)}</p>}
+    </div>
+  );
+}
+
+function getDestaqueItem(v: any) {
+  const parsed = typeof v === 'object' && v !== null ? v : tryParseJsonLike(v);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  return {
+    nome: parsed.nome || '',
+    competencia: parsed.competencia || '',
+    nivel: parsed.nivel,
+    motivo: parsed.motivo_destaque || parsed.motivo || parsed.texto || '',
+  };
+}
+
+function urgenciaLabel(v: any): string {
+  const raw = String(v || '').trim().toLowerCase();
+  if (!raw) return 'ATENCAO';
+  if (raw === 'urgente' || raw === 'alta') return 'URGENTE';
+  if (raw === 'importante' || raw === 'media' || raw === 'média') return 'IMPORTANTE';
+  if (raw === 'baixa' || raw === 'baixo') return 'ACOMPANHAR';
+  return String(v).toUpperCase();
+}
+
 export default function RelatoriosPage({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = use(params);
   const router = useRouter();
@@ -248,14 +291,25 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                 {c.resumo_executivo && (
                   <div className="p-4 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
                     <SectionTitle>Resumo Executivo</SectionTitle>
-                    <p className="text-xs text-gray-300 leading-relaxed">{s(c.resumo_executivo)}</p>
+                    <ResumoExecutivo value={c.resumo_executivo} />
                   </div>
                 )}
 
                 {c.destaques_evolucao?.length > 0 && (
                   <div className="p-4 rounded-xl border border-green-400/10" style={{ background: '#0F2A4A' }}>
                     <SectionTitle color="green">Destaques de Evolução</SectionTitle>
-                    {c.destaques_evolucao.map((d, i) => <p key={i} className="text-[10px] text-green-400">{s(d)}</p>)}
+                    {c.destaques_evolucao.map((d, i) => {
+                      const item = getDestaqueItem(d);
+                      if (!item) return <p key={i} className="text-[10px] text-green-400">+ {s(d)}</p>;
+                      return (
+                        <div key={i} className="mb-2">
+                          <p className="text-[10px] text-green-400 font-semibold">
+                            + {item.nome}{item.competencia ? ` — ${item.competencia}` : ''}{item.nivel != null ? ` (N${item.nivel})` : ''}
+                          </p>
+                          {item.motivo && <p className="text-[10px] text-gray-400">{s(item.motivo)}</p>}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 
@@ -264,7 +318,7 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                     <SectionTitle color="amber">Ranking de Atenção</SectionTitle>
                     {c.ranking_atencao.map((r, i) => (
                       <div key={i} className="flex items-center gap-2 py-1 text-[10px]">
-                        <span className={`font-bold px-1.5 py-0.5 rounded ${r.urgencia === 'URGENTE' ? 'bg-red-400/15 text-red-400' : r.urgencia === 'IMPORTANTE' ? 'bg-amber-400/15 text-amber-400' : 'bg-gray-400/15 text-gray-400'}`}>{s(r.urgencia)}</span>
+                        <span className={`font-bold px-1.5 py-0.5 rounded ${urgenciaLabel(r.urgencia) === 'URGENTE' ? 'bg-red-400/15 text-red-400' : urgenciaLabel(r.urgencia) === 'IMPORTANTE' ? 'bg-amber-400/15 text-amber-400' : 'bg-gray-400/15 text-gray-400'}`}>{urgenciaLabel(r.urgencia)}</span>
                         <span className="text-white font-medium">{s(r.nome)}</span>
                         <span className="text-gray-500">{s(r.competencia)} — N{r.nivel || r.nivel_fase3}</span>
                         <span className="text-gray-600 truncate">{s(r.motivo || r.motivo_curto)}</span>

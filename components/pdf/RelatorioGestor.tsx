@@ -59,9 +59,60 @@ const acoes = [
   { key: 'medio_prazo', label: 'M\u00e9dio Prazo (1\u20132 meses)', bg: '#16A34A', contentBg: '#F0FDF4' },
 ];
 
+function textOf(v: any): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  try { return JSON.stringify(v); } catch { return String(v); }
+}
+
+function parseJsonLike(v: any): any {
+  if (v == null || typeof v !== 'string') return v;
+  const trimmed = v.trim();
+  if ((!trimmed.startsWith('{') || !trimmed.endsWith('}')) && (!trimmed.startsWith('[') || !trimmed.endsWith(']'))) {
+    return v;
+  }
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return v;
+  }
+}
+
+function getResumoExecutivo(v: any) {
+  const parsed = typeof v === 'object' && v !== null ? v : parseJsonLike(v);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  return {
+    leitura: parsed.leitura_geral || parsed.leitura || '',
+    principalAvanco: parsed.principal_avanco || parsed.principal_forca_organizacional || '',
+    principalPontoAtencao: parsed.principal_ponto_de_atencao || parsed.principal_risco_organizacional || '',
+  };
+}
+
+function getDestaque(v: any) {
+  const parsed = typeof v === 'object' && v !== null ? v : parseJsonLike(v);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  return {
+    nome: parsed.nome || '',
+    competencia: parsed.competencia || '',
+    nivel: parsed.nivel,
+    motivo: parsed.motivo_destaque || parsed.motivo || parsed.texto || '',
+  };
+}
+
+function urgenciaLabel(v: any): string {
+  const raw = String(v || '').trim().toLowerCase();
+  if (!raw) return 'ATENCAO';
+  if (raw === 'urgente' || raw === 'alta') return 'URGENTE';
+  if (raw === 'importante' || raw === 'media' || raw === 'média') return 'IMPORTANTE';
+  if (raw === 'baixa' || raw === 'baixo') return 'ACOMPANHAR';
+  return String(v).toUpperCase();
+}
+
 export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { data: any; empresaNome?: string; logoBase64?: string }) {
   const c = data.conteudo;
   if (!c) return null;
+  const resumoExecutivo = getResumoExecutivo(c.resumo_executivo);
 
   return (
     <Document>
@@ -76,12 +127,12 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
           <View style={s.section} wrap={false}>
             <SectionTitle>Resumo Executivo</SectionTitle>
             <View style={s.box}>
-              <Text style={s.text}>{c.resumo_executivo.leitura_geral}</Text>
-              {c.resumo_executivo.principal_avanco && (
-                <Text style={{ ...s.text, color: '#2E7D32', marginTop: 4 }}>Avanço: {c.resumo_executivo.principal_avanco}</Text>
+              <Text style={s.text}>{textOf(resumoExecutivo?.leitura || c.resumo_executivo)}</Text>
+              {(resumoExecutivo?.principalAvanco || c.resumo_executivo?.principal_avanco) && (
+                <Text style={{ ...s.text, color: '#2E7D32', marginTop: 4 }}>Avanço: {textOf(resumoExecutivo?.principalAvanco || c.resumo_executivo?.principal_avanco)}</Text>
               )}
-              {c.resumo_executivo.principal_ponto_de_atencao && (
-                <Text style={{ ...s.text, color: '#E65100', marginTop: 2 }}>Atenção: {c.resumo_executivo.principal_ponto_de_atencao}</Text>
+              {(resumoExecutivo?.principalPontoAtencao || c.resumo_executivo?.principal_ponto_de_atencao) && (
+                <Text style={{ ...s.text, color: '#E65100', marginTop: 2 }}>Atenção: {textOf(resumoExecutivo?.principalPontoAtencao || c.resumo_executivo?.principal_ponto_de_atencao)}</Text>
               )}
             </View>
           </View>
@@ -92,7 +143,16 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
             <SectionTitle>{'Destaques de Evolu\u00e7\u00e3o'}</SectionTitle>
             <View style={s.evolBox}>
               {c.destaques_evolucao.map((d: any, i: number) => (
-                <Text key={i} style={s.evolItem}>+ {d}</Text>
+                <View key={i} style={{ marginBottom: 4 }}>
+                  <Text style={s.evolItem}>
+                    + {(() => {
+                      const item = getDestaque(d);
+                      if (!item) return textOf(d);
+                      return `${item.nome}${item.competencia ? ` — ${item.competencia}` : ''}${item.nivel != null ? ` (N${item.nivel})` : ''}`;
+                    })()}
+                  </Text>
+                  {getDestaque(d)?.motivo && <Text style={{ ...s.rankMotivo, color: '#166534' }}>{textOf(getDestaque(d)?.motivo)}</Text>}
+                </View>
               ))}
             </View>
           </View>
@@ -102,17 +162,18 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
           <View style={s.section}>
             <SectionTitle>{'Ranking de Aten\u00e7\u00e3o'}</SectionTitle>
             {(c.ranking_atencao || c.ranking_qualificado).map((r: any, i: number) => {
-              const bgStyle = r.urgencia === 'URGENTE' ? s.rankUrgente : r.urgencia === 'IMPORTANTE' ? s.rankImportante : s.rankOutro;
+              const urg = urgenciaLabel(r.urgencia);
+              const bgStyle = urg === 'URGENTE' ? s.rankUrgente : urg === 'IMPORTANTE' ? s.rankImportante : s.rankOutro;
               return (
                 <View key={i} style={{ ...s.rankCard, ...bgStyle }} wrap={false}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Text style={s.rankName}>{r.nome} {'\u2014'} {r.competencia} (N{r.nivel || r.nivel_fase3})</Text>
-                    <View style={{ ...s.badge, backgroundColor: r.urgencia === 'URGENTE' ? '#FEE2E2' : r.urgencia === 'IMPORTANTE' ? '#FEF3C7' : '#ECFDF3' }}>
-                      <Text style={{ ...s.badgeText, color: r.urgencia === 'URGENTE' ? '#991B1B' : r.urgencia === 'IMPORTANTE' ? '#92400E' : '#166534' }}>{r.urgencia}</Text>
+                    <Text style={s.rankName}>{textOf(r.nome)} {'\u2014'} {textOf(r.competencia)} (N{textOf(r.nivel || r.nivel_fase3)})</Text>
+                    <View style={{ ...s.badge, backgroundColor: urg === 'URGENTE' ? '#FEE2E2' : urg === 'IMPORTANTE' ? '#FEF3C7' : '#ECFDF3' }}>
+                      <Text style={{ ...s.badgeText, color: urg === 'URGENTE' ? '#991B1B' : urg === 'IMPORTANTE' ? '#92400E' : '#166534' }}>{urg}</Text>
                     </View>
                   </View>
-                  {(r.motivo || r.motivo_curto) && <Text style={s.rankMotivo}>{r.motivo || r.motivo_curto}</Text>}
-                  {r.risco_se_nao_agir && <Text style={{ ...s.rankMotivo, color: '#991B1B' }}>Risco: {r.risco_se_nao_agir}</Text>}
+                  {(r.motivo || r.motivo_curto) && <Text style={s.rankMotivo}>{textOf(r.motivo || r.motivo_curto)}</Text>}
+                  {r.risco_se_nao_agir && <Text style={{ ...s.rankMotivo, color: '#991B1B' }}>Risco: {textOf(r.risco_se_nao_agir)}</Text>}
                 </View>
               );
             })}
