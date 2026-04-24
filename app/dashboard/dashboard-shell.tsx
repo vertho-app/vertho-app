@@ -28,13 +28,19 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       if (!session) { router.replace('/login'); return; }
       setUser(session.user);
 
-      // ✅ Busca nome + foto pra alimentar o UserAvatar
       supabase
         .from('colaboradores')
         .select('nome_completo, foto_url')
         .eq('email', session.user.email)
-        .single()
-        .then(({ data }) => { if (data) setColaborador(data); });
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) setColaborador(data);
+          else {
+            const meta = session.user.user_metadata;
+            const fallbackName = meta?.full_name || meta?.name || session.user.email;
+            setColaborador({ nome_completo: fallbackName, foto_url: meta?.avatar_url || null });
+          }
+        });
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
