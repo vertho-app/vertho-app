@@ -12,11 +12,15 @@ export async function POST(req: NextRequest) {
     const trimmed = email.trim().toLowerCase();
     const sb = createSupabaseAdmin();
     let safeRedirectTo: string | undefined;
+    let nextPath = '/dashboard';
+    let origin = '';
     if (typeof redirectTo === 'string' && redirectTo) {
       try {
         const parsed = new URL(redirectTo);
+        origin = parsed.origin;
         // Mantém apenas o path/query/hash do próprio host informado no client.
         safeRedirectTo = `${parsed.origin}${parsed.pathname}${parsed.search}${parsed.hash}`;
+        nextPath = `${parsed.pathname}${parsed.search}${parsed.hash}` || '/dashboard';
       } catch {
         // ignora redirect inválido
       }
@@ -34,6 +38,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Falha ao gerar link: ${linkErr?.message || 'erro desconhecido'}` });
     }
 
+    const tokenHash = linkData.properties.hashed_token;
     const actionLink = linkData.properties.action_link;
 
     // Busca colaborador para WhatsApp
@@ -79,16 +84,17 @@ export async function POST(req: NextRequest) {
       console.error('[magic-link] email error:', e.message);
     }
 
-    // 2) WhatsApp — envia o action_link nativo do Supabase, igual ao fluxo do e-mail.
-    // Isso preserva o redirectTo e evita divergência entre callback custom e sessão final.
+    // 2) WhatsApp — usa callback server-side com token_hash.
+    // Isso evita depender do code_verifier do navegador original (PKCE), que costuma quebrar
+    // quando o link é aberto pelo app/navegador do WhatsApp.
     const zapiInstance = process.env.ZAPI_INSTANCE_ID;
     const zapiToken = process.env.ZAPI_TOKEN;
-    if (zapiInstance && zapiToken && telefone && actionLink) {
+    if (zapiInstance && zapiToken && telefone && tokenHash && origin) {
       try {
         let phone = String(telefone).replace(/\D/g, '');
         if (phone.length <= 11) phone = `55${phone}`;
 
-        const whatsappLink = actionLink;
+        const whatsappLink = `${origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(nextPath)}`;
         const msg = `Olá, ${nome}! 🔐\n\nSeu link de acesso à *${empresaNome}*:\n${whatsappLink}\n\nClique para entrar direto, sem senha.\nEste link expira em 24h.`;
 
         const res = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-text`, {
@@ -107,7 +113,7 @@ export async function POST(req: NextRequest) {
       const detail = [
         !telefone && 'colaborador sem telefone',
         (!zapiInstance || !zapiToken) && 'Z-API não configurado',
-        !actionLink && 'link não gerado',
+        !tokenHash && 'token não gerado',
       ].filter(Boolean).join('; ');
       return NextResponse.json({ error: `Não foi possível enviar. ${detail || 'Verifique os logs.'}` });
     }

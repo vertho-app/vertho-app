@@ -9,7 +9,8 @@ export async function GET(req: NextRequest) {
   const code = searchParams.get('code');
   const token_hash = searchParams.get('token_hash');
   const type = searchParams.get('type') as any;
-  const next = searchParams.get('next') || '/dashboard';
+  let next = searchParams.get('next') || '/dashboard';
+  if (!next.startsWith('/')) next = '/dashboard';
 
   const store = await cookies();
   const supabase = createServerClient(
@@ -28,6 +29,10 @@ export async function GET(req: NextRequest) {
   );
 
   let error: string | null = null;
+  const redirectTo = new URL(next, origin);
+  redirectTo.searchParams.delete('token_hash');
+  redirectTo.searchParams.delete('type');
+  redirectTo.searchParams.delete('next');
 
   if (token_hash && type) {
     const { error: verifyErr } = await supabase.auth.verifyOtp({ token_hash, type });
@@ -48,8 +53,9 @@ export async function GET(req: NextRequest) {
   if (error) {
     const loginUrl = new URL('/login', origin);
     loginUrl.searchParams.set('error', error);
+    if (next && next !== '/dashboard') loginUrl.searchParams.set('redirect', next);
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.redirect(new URL(next, origin));
+  return NextResponse.redirect(redirectTo);
 }
