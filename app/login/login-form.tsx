@@ -133,9 +133,7 @@ export default function LoginForm({ branding }: { branding: any }) {
             <div className="text-3xl mb-3">🔐</div>
             <p className="font-semibold mb-1" style={{ color: fontColor || '#FFFFFF' }}>Link enviado!</p>
             <p className="text-sm" style={{ color: fontColorSecondary || '#FFFFFF99' }}>
-              Verifique seu <strong>e-mail</strong> e <strong>WhatsApp</strong> para{' '}
-              <span className="font-medium" style={{ color: accentColor }}>{email}</span>.{' '}
-              Clique no link para acessar.
+              Clique no link enviado no seu <strong>e-mail</strong> ou <strong>WhatsApp</strong> para acessar seu ambiente de desenvolvimento.
             </p>
             <button
               onClick={() => setStatus('idle')}
