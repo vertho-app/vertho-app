@@ -17,6 +17,48 @@ function s(v: any): string {
   try { return JSON.stringify(v); } catch { return String(v); }
 }
 
+function tryParseJsonLike(v: any): any {
+  if (v == null || typeof v !== 'string') return v;
+  const trimmed = v.trim();
+  if ((!trimmed.startsWith('{') || !trimmed.endsWith('}')) && (!trimmed.startsWith('[') || !trimmed.endsWith(']'))) {
+    return v;
+  }
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return v;
+  }
+}
+
+function getResumoGeralParts(v: any) {
+  const parsed = tryParseJsonLike(v);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  return {
+    leitura: parsed.leitura || parsed.resumo || parsed.texto || '',
+    principaisForcas: Array.isArray(parsed.principais_forcas) ? parsed.principais_forcas : [],
+    pontoAtencao: parsed.principal_ponto_de_atencao || parsed.ponto_de_atencao || '',
+  };
+}
+
+function ResumoGeral({ value }: { value: any }) {
+  const parts = getResumoGeralParts(value);
+  if (!parts) return <p className="text-xs text-gray-300 leading-relaxed">{s(value)}</p>;
+
+  return (
+    <div className="space-y-2">
+      {parts.leitura && <p className="text-xs text-gray-300 leading-relaxed">{s(parts.leitura)}</p>}
+      {parts.principaisForcas.length > 0 && (
+        <div className="space-y-1">
+          {parts.principaisForcas.map((item: any, index: number) => (
+            <p key={index} className="text-[10px] text-green-400">+ {s(item)}</p>
+          ))}
+        </div>
+      )}
+      {parts.pontoAtencao && <p className="text-[10px] text-amber-400">Ponto de atenção: {s(parts.pontoAtencao)}</p>}
+    </div>
+  );
+}
+
 export default function RelatoriosPage({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = use(params);
   const router = useRouter();
@@ -104,7 +146,7 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                     {c.resumo_geral && (
                       <div>
                         <SectionTitle>Resumo Geral</SectionTitle>
-                        <p className="text-xs text-gray-300 leading-relaxed">{s(c.resumo_geral)}</p>
+                        <ResumoGeral value={c.resumo_geral} />
                       </div>
                     )}
 

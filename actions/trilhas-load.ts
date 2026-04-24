@@ -11,6 +11,23 @@ function tryParseJSON(s: any) {
   } catch { return null; }
 }
 
+function formatScenarioMarkdown(src: any): string {
+  if (!src || typeof src !== 'object') return '';
+  const lines: string[] = [];
+  if (src.contexto) lines.push(`**Contexto:** ${String(src.contexto)}`, '');
+  if (src.tensao_central) lines.push(`**Tensão central:** ${String(src.tensao_central)}`, '');
+  if (src.fator_complicador) lines.push(`**Fator complicador:** ${String(src.fator_complicador)}`, '');
+  if (Array.isArray(src.stakeholders) && src.stakeholders.length > 0) {
+    lines.push('**Stakeholders:**');
+    src.stakeholders.forEach((item: any) => lines.push(`- ${String(item)}`));
+    lines.push('');
+  }
+  if (src.tradeoff_testado) lines.push(`**Trade-off testado:** ${String(src.tradeoff_testado)}`, '');
+  if (src.armadilha_resposta_generica) lines.push(`**Armadilha de resposta genérica:** ${String(src.armadilha_resposta_generica)}`, '');
+  if (src.pergunta) lines.push(`**${String(src.pergunta)}**`);
+  return lines.join('\n').trim();
+}
+
 function extractCenario(cen: any): { cenText: string; cenPerg: string } {
   if (!cen) return { cenText: '', cenPerg: '' };
 
@@ -22,15 +39,11 @@ function extractCenario(cen: any): { cenText: string; cenPerg: string } {
   // 2) Try to find structured fields — could be on cen directly, or parsed from cen.texto
   const src = cen.contexto
     ? cen
-    : tryParseJSON(cen.texto) || cen;
+    : tryParseJSON(cen.texto) || (typeof cen === 'string' ? tryParseJSON(cen) : null) || cen;
 
-  const parts: string[] = [];
-  if (src.contexto) parts.push(src.contexto);
-  if (src.tensao_central) parts.push(src.tensao_central);
-  if (src.fator_complicador) parts.push(src.fator_complicador);
-
-  if (parts.length > 0) {
-    return { cenText: parts.join('\n\n'), cenPerg: src.pergunta || '' };
+  const markdown = formatScenarioMarkdown(src);
+  if (markdown) {
+    return { cenText: markdown, cenPerg: src.pergunta || '' };
   }
 
   // 3) Fallback: stringify whatever we have

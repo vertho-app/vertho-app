@@ -40,6 +40,44 @@ function safeText(v: any): string {
   try { return JSON.stringify(v); } catch { return String(v); }
 }
 
+function tryParseJsonLike(v: any) {
+  if (v == null || typeof v !== 'string') return v;
+  const trimmed = v.trim();
+  if ((!trimmed.startsWith('{') || !trimmed.endsWith('}')) && (!trimmed.startsWith('[') || !trimmed.endsWith(']'))) {
+    return v;
+  }
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return v;
+  }
+}
+
+function getResumoGeralData(v: any) {
+  const parsed = typeof v === 'object' && v !== null ? v : tryParseJsonLike(v);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  return {
+    leitura: parsed.leitura || parsed.resumo || parsed.texto || '',
+    principaisForcas: Array.isArray(parsed.principais_forcas) ? parsed.principais_forcas : [],
+    pontoAtencao: parsed.principal_ponto_de_atencao || parsed.ponto_de_atencao || '',
+  };
+}
+
+function renderResumoGeral(v: any, className = 'text-[10px] text-gray-300') {
+  const resumo = getResumoGeralData(v);
+  if (!resumo) return <p className={className}>{safeText(v)}</p>;
+
+  return (
+    <div className="space-y-1">
+      {resumo.leitura && <p className={className}>{safeText(resumo.leitura)}</p>}
+      {resumo.principaisForcas.map((item: any, index: number) => (
+        <p key={index} className="text-[10px] text-green-400">+ {safeText(item)}</p>
+      ))}
+      {resumo.pontoAtencao && <p className="text-[10px] text-amber-400">Ponto de atenção: {safeText(resumo.pontoAtencao)}</p>}
+    </div>
+  );
+}
+
 function tryParsePracticeJSON(raw: any) {
   if (!raw || typeof raw !== 'string') return null;
   try {
@@ -518,7 +556,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                                   <p className="text-[9px] text-gray-600">Tom: {safeText(feedback.tom_base)}</p>
                                 )}
                                 {feedback.resumo_geral && (
-                                  <p className="text-[10px] text-gray-300">{safeText(feedback.resumo_geral)}</p>
+                                  renderResumoGeral(feedback.resumo_geral)
                                 )}
                                 {feedback.mensagem_positiva && (
                                   <div className="p-2 rounded bg-green-400/5 border border-green-400/10">
