@@ -18,8 +18,9 @@ export async function POST(req: NextRequest) {
     });
 
     if (linkErr || !linkData?.properties?.action_link) {
-      console.error('[magic-link] generateLink failed:', linkErr?.message);
-      return NextResponse.json({ error: linkErr?.message || 'Falha ao gerar link' });
+      const msg = linkErr?.message || 'generateLink não retornou action_link';
+      console.error('[magic-link] generateLink failed:', msg);
+      return NextResponse.json({ error: `Falha ao gerar link: ${msg}` });
     }
 
     const magicLink = linkData.properties.action_link;
@@ -95,12 +96,17 @@ export async function POST(req: NextRequest) {
     }
 
     if (!results.email && !results.whatsapp) {
-      return NextResponse.json({ error: 'Não foi possível enviar o link. Tente novamente.' });
+      const detail = [
+        !resendKey && 'RESEND_API_KEY não configurada',
+        !colab?.telefone && 'colaborador sem telefone',
+        (!zapiInstance || !zapiToken) && 'Z-API não configurado',
+      ].filter(Boolean).join('; ');
+      return NextResponse.json({ error: `Não foi possível enviar. ${detail || 'Verifique os logs.'}` });
     }
 
     return NextResponse.json({ success: true, ...results });
   } catch (err: any) {
-    console.error('[magic-link]', err.message);
-    return NextResponse.json({ error: 'Erro interno. Tente novamente.' });
+    console.error('[magic-link]', err.message, err.stack?.split('\n').slice(0, 3).join(' '));
+    return NextResponse.json({ error: `Erro: ${err.message}` });
   }
 }
