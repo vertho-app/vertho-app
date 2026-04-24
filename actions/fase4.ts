@@ -162,7 +162,10 @@ export async function listarColabsParaTrilha(empresaId: string) {
     .select('id, nome_completo, cargo')
     .eq('empresa_id', empresaId)
     .order('nome_completo');
-  return { success: true, colabs: colabs || [] };
+  const { count } = await sb.from('trilhas')
+    .select('id', { count: 'exact', head: true })
+    .eq('empresa_id', empresaId);
+  return { success: true, colabs: colabs || [], trilhasExistentes: count || 0 };
 }
 
 /**

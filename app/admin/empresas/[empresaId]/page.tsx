@@ -366,6 +366,10 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         const r = await listarColabsParaTrilha(empresaId);
         const colabs = r?.colabs || [];
         if (colabs.length === 0) { addLog('Nenhum colaborador encontrado', 'error'); setPendingAction(null); return; }
+        if (r?.trilhasExistentes > 0) {
+          const ok = window.confirm(`Já existem ${r.trilhasExistentes} trilha(s). Regenerar vai sobrescrever as trilhas existentes. Continuar?`);
+          if (!ok) { addLog('Cancelado pelo usuário', 'info'); setPendingAction(null); return; }
+        }
         addLog(`📋 Vai gerar temporada para ${colabs.length} colab(s)`, 'info');
         let ok = 0, erros = 0;
         for (let i = 0; i < colabs.length; i++) {
