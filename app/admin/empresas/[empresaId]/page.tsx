@@ -747,7 +747,8 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                 { label: 'Cargos', tabelas: ['cargos_empresa'] },
                 { label: 'Colaboradores', tabelas: ['colaboradores'] },
                 { label: 'PPPs', tabelas: ['ppp_escolas'] },
-                { label: 'LIMPAR TUDO', tabelas: ['fit_resultados', 'relatorios', 'evolucao', 'evolucao_descritores', 'sessoes_avaliacao', 'respostas', 'envios_diagnostico', 'banco_cenarios', 'top10_cargos', 'competencias', 'cargos_empresa', 'ppp_escolas'], danger: true },
+                { label: 'Votação de competências', tabelas: ['votacao_competencias'] },
+                { label: 'LIMPAR TUDO', tabelas: ['fit_resultados', 'relatorios', 'evolucao', 'evolucao_descritores', 'sessoes_avaliacao', 'respostas', 'envios_diagnostico', 'banco_cenarios', 'top10_cargos', 'competencias', 'cargos_empresa', 'ppp_escolas', 'votacao_competencias'], danger: true },
               ].map(item => {
                 const scope = dangerColabId ? dangerColabs.find(c => c.id === dangerColabId)?.nome_completo || 'colaborador' : 'todos';
                 return (

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
 import {
-  ArrowRight, Play, Loader2,
+  ArrowRight, Play, Loader2, Check,
   BookOpen, FileText, Headphones, Zap, MessageCircle,
 } from 'lucide-react';
 import { loadDashboardData } from './dashboard-actions';
@@ -69,6 +69,7 @@ export default function DashboardHomePage() {
   const [capacitacoes, setCapacitacoes] = useState<any[]>([]);
   const [kpis, setKpis] = useState<any>(null);
   const [ultimosVideos, setUltimosVideos] = useState<any[]>([]);
+  const [votacaoAberta, setVotacaoAberta] = useState<any>(null);
   const router = useRouter();
   const supabase = getSupabase();
 
@@ -84,6 +85,12 @@ export default function DashboardHomePage() {
       if (!result.error) setData(result);
       if (!kpisR?.error) setKpis(kpisR);
       if (!histR?.error) setUltimosVideos(histR?.items || []);
+      // Verifica se há votação aberta
+      try {
+        const { loadCompetenciasParaVotar } = await import('@/actions/votacao');
+        const vr = await loadCompetenciasParaVotar();
+        if (!vr.error) setVotacaoAberta(vr);
+      } catch {}
       setLoading(false);
     }
     init();
@@ -324,6 +331,51 @@ export default function DashboardHomePage() {
             </button>
           </div>
         </section>
+
+        {/* Votação aberta */}
+        {votacaoAberta && !votacaoAberta.votoExistente && (
+          <section>
+            <button onClick={() => router.push('/dashboard/votacao')}
+              className="w-full text-left rounded-[22px] p-5 transition-all active:scale-[0.99] relative overflow-hidden"
+              style={{
+                background: 'linear-gradient(135deg, #0a2a33 0%, #0f2b54 100%)',
+                border: '1px solid rgba(52,197,204,0.3)',
+                boxShadow: '0 0 24px rgba(52,197,204,0.1)',
+              }}>
+              <div className="absolute top-2 right-3 px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/30 text-[9px] font-bold text-amber-400 uppercase tracking-wider">
+                Novo
+              </div>
+              <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-1" style={{ color: 'var(--phase-accent)' }}>
+                Votação aberta
+              </p>
+              <h4 className="text-base font-bold text-white mb-1">
+                Escolha as 5 competências mais importantes
+              </h4>
+              <p className="text-sm text-white/55 leading-relaxed">
+                Sua opinião conta! Selecione e ordene as competências que você considera prioritárias para o cargo de {votacaoAberta.colaborador?.cargo}.
+              </p>
+              <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold"
+                style={{ background: 'var(--phase-accent)', color: '#062032' }}>
+                Votar agora →
+              </div>
+            </button>
+          </section>
+        )}
+
+        {votacaoAberta?.votoExistente && (
+          <section>
+            <div className="rounded-[22px] p-4 flex items-center gap-3"
+              style={{ background: 'rgba(11,29,50,0.92)', border: '1px solid rgba(16,185,129,0.2)' }}>
+              <div className="w-10 h-10 rounded-xl bg-green-400/10 flex items-center justify-center shrink-0">
+                <Check size={18} className="text-green-400" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-white">Votação concluída</p>
+                <p className="text-xs text-gray-500">Seu voto foi registrado. Obrigado!</p>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Secondary cards */}
         <section className="space-y-3">
