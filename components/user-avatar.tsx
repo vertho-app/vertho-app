@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { getPreset } from '@/lib/avatar-presets';
 
 /**
  * UserAvatar
@@ -31,7 +32,7 @@ interface UserAvatarProps {
 export function UserAvatar({
   name,
   photoUrl,
-  avatarPreset: _avatarPreset,
+  avatarPreset,
   size = 40,
   className = '',
   onClick,
@@ -39,6 +40,8 @@ export function UserAvatar({
   const [photoFailed, setPhotoFailed] = React.useState(false);
   const monogram = toMonogram(name);
   const showPhoto = !!photoUrl && !photoFailed;
+  const preset = avatarPreset ? getPreset(avatarPreset) : null;
+  const showPreset = !showPhoto && !!preset;
 
   const fontSize = Math.round(size * 0.38);
   const borderWidth = size >= 48 ? 2 : 1.5;
@@ -70,8 +73,23 @@ export function UserAvatar({
         />
       )}
 
+      {/* Preset salvo (quando não há foto) */}
+      {showPreset && (
+        <span
+          className="absolute inset-0 flex items-center justify-center select-none"
+          style={{
+            background: preset.bg,
+            fontSize: Math.round(size * 0.48),
+            lineHeight: 1,
+          }}
+          aria-hidden
+        >
+          {preset.emoji}
+        </span>
+      )}
+
       {/* Monograma (visível quando não há foto) */}
-      {!showPhoto && (
+      {!showPhoto && !showPreset && (
         <span
           className="absolute inset-0 flex items-center justify-center select-none"
           style={{
