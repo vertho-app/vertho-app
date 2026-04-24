@@ -2,6 +2,14 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 
+function tryParseJSON(s: any) {
+  if (!s || typeof s !== 'string') return null;
+  try {
+    const clean = s.replace(/^```json?\s*/i, '').replace(/```\s*$/, '').trim();
+    return JSON.parse(clean);
+  } catch { return null; }
+}
+
 export async function loadTrilhas(empresaId: string) {
   const sb = createSupabaseAdmin();
   const { data } = await sb.from('trilhas')
@@ -72,13 +80,27 @@ export async function loadTrilhas(empresaId: string) {
             nivel: sem.nivel_atual,
           });
         } else if (sem.tipo === 'aplicacao') {
+          const cen = sem.cenario || {};
+          let cenText = '';
+          let cenPerg = '';
+          if (cen.texto && !cen.texto.includes('"contexto"')) {
+            cenText = cen.texto;
+            cenPerg = cen.pergunta || '';
+          } else {
+            // texto is raw JSON or missing — extract from structured fields
+            const src = cen.contexto ? cen : tryParseJSON(cen.texto) || cen;
+            cenText = src.contexto || '';
+            if (src.tensao_central) cenText += `\n\n${src.tensao_central}`;
+            if (src.fator_complicador) cenText += `\n\n${src.fator_complicador}`;
+            cenPerg = src.pergunta || '';
+          }
           obrigatorios.push({
             tipo: 'aplicacao',
             semana: sem.semana,
-            nome: `Aplicação prática (${sem.cenario?.complexidade || 'cenário'})`,
+            nome: `Aplicação prática (${cen.complexidade || cen.complexidade_aplicada || 'cenário'})`,
             descritores_cobertos: sem.descritores_cobertos || [],
-            cenario: sem.cenario?.texto || sem.cenario?.contexto || (typeof sem.cenario === 'string' ? sem.cenario : ''),
-            pergunta: sem.cenario?.pergunta || '',
+            cenario: cenText,
+            pergunta: cenPerg,
           });
         } else if (sem.tipo === 'avaliacao') {
           obrigatorios.push({
