@@ -4,6 +4,35 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
 
+// ── Check rápido: votação aberta? já votou? ──────────────────────────────
+
+export async function checkVotacaoStatus() {
+  try {
+    const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+    const email = await getAuthenticatedEmailFromAction();
+    if (!email) return null;
+
+    const colab = await findColabByEmail(email, 'id, empresa_id');
+    if (!colab) return null;
+
+    const sb = createSupabaseAdmin();
+    const { data: empresa } = await sb.from('empresas')
+      .select('sys_config').eq('id', colab.empresa_id).maybeSingle();
+    const votacaoAtiva = empresa?.sys_config?.votacao_ativa === true;
+    if (!votacaoAtiva) return { votacaoAtiva: false, jaVotou: false };
+
+    const tdb = tenantDb(colab.empresa_id);
+    const { data: voto } = await (tdb.from('votacao_competencias') as any)
+      .select('id')
+      .eq('colaborador_id', colab.id)
+      .maybeSingle();
+
+    return { votacaoAtiva: true, jaVotou: !!voto };
+  } catch {
+    return null;
+  }
+}
+
 // ── Colaborador: carregar competências para votar ─────────────────────────
 
 export async function loadCompetenciasParaVotar() {

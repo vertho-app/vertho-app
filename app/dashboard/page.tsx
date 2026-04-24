@@ -87,10 +87,12 @@ export default function DashboardHomePage() {
       if (!histR?.error) setUltimosVideos(histR?.items || []);
       // Verifica se há votação aberta
       try {
-        const { loadCompetenciasParaVotar } = await import('@/actions/votacao');
-        const vr = await loadCompetenciasParaVotar();
-        if (!vr.error) setVotacaoAberta(vr);
-      } catch {}
+        const { checkVotacaoStatus } = await import('@/actions/votacao');
+        const vr = await checkVotacaoStatus();
+        if (vr?.votacaoAtiva) setVotacaoAberta(vr);
+      } catch (e) {
+        console.error('[home] votacao check failed:', e);
+      }
       setLoading(false);
     }
     init();
@@ -333,7 +335,7 @@ export default function DashboardHomePage() {
         </section>
 
         {/* Votação aberta */}
-        {votacaoAberta && !votacaoAberta.votoExistente && (
+        {votacaoAberta?.votacaoAtiva && !votacaoAberta.jaVotou && (
           <section>
             <button onClick={() => router.push('/dashboard/votacao')}
               className="w-full text-left rounded-[22px] p-5 transition-all active:scale-[0.99] relative overflow-hidden"
@@ -352,7 +354,7 @@ export default function DashboardHomePage() {
                 Escolha as 5 competências mais importantes
               </h4>
               <p className="text-sm text-white/55 leading-relaxed">
-                Sua opinião conta! Selecione e ordene as competências que você considera prioritárias para o cargo de {votacaoAberta.colaborador?.cargo}.
+                Sua opinião conta! Selecione e ordene as competências que você considera prioritárias para o seu cargo.
               </p>
               <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold"
                 style={{ background: 'var(--phase-accent)', color: '#062032' }}>
@@ -362,7 +364,7 @@ export default function DashboardHomePage() {
           </section>
         )}
 
-        {votacaoAberta?.votoExistente && (
+        {votacaoAberta?.votacaoAtiva && votacaoAberta.jaVotou && (
           <section>
             <div className="rounded-[22px] p-4 flex items-center gap-3"
               style={{ background: 'rgba(11,29,50,0.92)', border: '1px solid rgba(16,185,129,0.2)' }}>
