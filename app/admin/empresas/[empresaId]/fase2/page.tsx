@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import ReactMarkdown from 'react-markdown';
 import {
   ArrowLeft, Loader2, Bot, ChevronDown, CheckCircle, AlertTriangle,
   User, FileText, Filter, RefreshCw, BookOpen, ExternalLink,
@@ -37,6 +38,38 @@ function safeText(v: any): string {
   if (typeof v === 'string') return v;
   if (typeof v === 'number' || typeof v === 'boolean') return String(v);
   try { return JSON.stringify(v); } catch { return String(v); }
+}
+
+function tryParsePracticeJSON(raw: any) {
+  if (!raw || typeof raw !== 'string') return null;
+  try {
+    const clean = raw.replace(/^```json?\s*/i, '').replace(/```\s*$/i, '').trim();
+    return JSON.parse(clean);
+  } catch {
+    return null;
+  }
+}
+
+function formatPracticeScenario(raw: any) {
+  const text = safeText(raw);
+  const parsed = tryParsePracticeJSON(text);
+  if (!parsed) return { markdown: text, pergunta: '' };
+
+  const lines = [];
+  if (parsed.contexto) lines.push(`**Contexto:** ${parsed.contexto}`, '');
+  if (parsed.tensao_central) lines.push(`**Tensão central:** ${parsed.tensao_central}`, '');
+  if (parsed.fator_complicador) lines.push(`**Fator complicador:** ${parsed.fator_complicador}`, '');
+  if (Array.isArray(parsed.stakeholders) && parsed.stakeholders.length > 0) {
+    lines.push('**Stakeholders:**');
+    parsed.stakeholders.forEach((item: any) => lines.push(`- ${String(item)}`));
+    lines.push('');
+  }
+  if (parsed.pergunta) lines.push(`**${parsed.pergunta}**`);
+
+  return {
+    markdown: lines.join('\n').trim() || text,
+    pergunta: parsed.pergunta || '',
+  };
 }
 
 const CHECK_DIM_MAX: Record<string, number> = {
@@ -724,6 +757,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                     {cursosOrdenados.map((c, i) => {
                       const tipo = c.tipo || 'conteudo';
                       if (tipo === 'aplicacao') {
+                        const cenarioFmt = formatPracticeScenario(c.cenario);
                         return (
                           <div key={i} className="flex items-start gap-3 px-3 py-2 rounded-lg border border-purple-400/20" style={{ background: '#1a1240' }}>
                             <span className="text-[10px] font-bold text-purple-300 shrink-0 mt-0.5 w-12">SEM {String(c.semana).padStart(2, '0')}</span>
@@ -731,10 +765,12 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                             <div className="flex-1 min-w-0">
                               <p className="text-xs text-purple-200 font-bold">{c.nome}</p>
                               {c.cenario && (
-                                <p className="text-[11px] text-gray-300 mt-1 whitespace-pre-wrap">{safeText(c.cenario)}</p>
+                                <div className="prose prose-invert prose-sm max-w-none text-[11px] text-gray-300 mt-1">
+                                  <ReactMarkdown>{cenarioFmt.markdown}</ReactMarkdown>
+                                </div>
                               )}
-                              {c.pergunta && (
-                                <p className="text-[11px] text-purple-300/80 mt-1 italic">{safeText(c.pergunta)}</p>
+                              {(c.pergunta || cenarioFmt.pergunta) && (
+                                <p className="text-[11px] text-purple-300/80 mt-1 italic">{safeText(c.pergunta || cenarioFmt.pergunta)}</p>
                               )}
                               {Array.isArray(c.descritores_cobertos) && c.descritores_cobertos.length > 0 && (
                                 <p className="text-[9px] text-gray-500 mt-1">Cobre: {c.descritores_cobertos.join(' · ')}</p>
