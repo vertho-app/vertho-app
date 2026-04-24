@@ -12,10 +12,14 @@ export async function POST(req: NextRequest) {
     const trimmed = email.trim().toLowerCase();
     const sb = createSupabaseAdmin();
 
+    // redirectTo aponta para /auth/callback que troca o code por sessão
+    const origin = redirectTo ? new URL(redirectTo).origin : undefined;
+    const callbackUrl = origin ? `${origin}/auth/callback?next=/dashboard` : undefined;
+
     const { data: linkData, error: linkErr } = await sb.auth.admin.generateLink({
       type: 'magiclink',
       email: trimmed,
-      options: { redirectTo: redirectTo || undefined },
+      options: { redirectTo: callbackUrl || undefined },
     });
 
     if (linkErr || !linkData?.properties?.action_link) {
