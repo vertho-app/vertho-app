@@ -1,7 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { getUserContext, getDashboardView } from '@/lib/authz';
+import { getUserContext, getDashboardView, findColabByEmail } from '@/lib/authz';
 
 /**
  * Carrega dados do dashboard usando o papel explícito (coluna `role`).
@@ -91,12 +91,8 @@ export async function loadAvatarData(emailHint?: string) {
       email = await getAuthenticatedEmailFromAction();
     }
     if (!email) return null;
-    const sb = createSupabaseAdmin();
-    const { data } = await sb.from('colaboradores')
-      .select('nome_completo, foto_url')
-      .eq('email', email)
-      .maybeSingle();
-    return data || { nome_completo: email, foto_url: null };
+    const data = await findColabByEmail(email, 'nome_completo, foto_url, avatar_preset');
+    return data || { nome_completo: email, foto_url: null, avatar_preset: null };
   } catch (err) {
     console.error('[loadAvatarData]', err);
     return null;

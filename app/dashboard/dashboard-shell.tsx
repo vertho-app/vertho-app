@@ -20,7 +20,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const pathname = usePathname();
   const supabase = getSupabase();
   const [user, setUser] = useState<any>(null);
-  const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string } | null>(null);
+  const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null } | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -61,6 +61,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         <UserAvatar
           name={colaborador?.nome_completo ?? user?.email}
           photoUrl={colaborador?.foto_url}
+          avatarPreset={colaborador?.avatar_preset}
           size={40}
           onClick={() => router.push('/dashboard/perfil')}
         />
@@ -106,6 +107,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           <UserAvatar
             name={colaborador?.nome_completo ?? user?.email}
             photoUrl={colaborador?.foto_url}
+            avatarPreset={colaborador?.avatar_preset}
             size={32}
             onClick={() => router.push('/dashboard/perfil')}
           />

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
-import { createSupabaseAdmin } from '@/lib/supabase';
+import { findColabByEmail } from '@/lib/authz';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,13 +21,16 @@ export async function GET() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user?.email) return NextResponse.json(null);
 
-    const sb = createSupabaseAdmin();
-    const { data } = await sb.from('colaboradores')
-      .select('nome_completo, foto_url')
-      .eq('email', user.email.trim().toLowerCase())
-      .maybeSingle();
+    const data = await findColabByEmail(
+      user.email,
+      'nome_completo, foto_url, avatar_preset',
+    );
 
-    return NextResponse.json(data || { nome_completo: user.email, foto_url: null });
+    return NextResponse.json(data || {
+      nome_completo: user.email,
+      foto_url: null,
+      avatar_preset: null,
+    });
   } catch (err) {
     console.error('[/api/me]', err);
     return NextResponse.json(null);
