@@ -81,7 +81,6 @@ const PHASE_CONFIG = [
     ]},
     { label: 'Trilhas', actions: [
       { key: 'foco', label: 'Competências Foco', icon: Target },
-      { key: 'trilhas', label: 'Montar Trilhas', icon: Layers },
     ]},
     { label: 'Relatórios', actions: [
       { key: 'rel-ind', label: 'Gerar PDI', icon: FileText, ai: true },
@@ -360,7 +359,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
       }
 
       // Trilhas/Temporadas em lote: processa 1 colab por vez no client (evita timeout)
-      if (actionKey === 'trilhas' || actionKey === 'temporadas') {
+      if (actionKey === 'temporadas') {
         const { listarColabsParaTrilha } = await import('@/actions/fase4');
         const { gerarTemporada } = await import('@/actions/temporadas');
         const r = await listarColabsParaTrilha(empresaId);
