@@ -12,14 +12,13 @@ export async function POST(req: NextRequest) {
     const trimmed = email.trim().toLowerCase();
     const sb = createSupabaseAdmin();
 
-    // redirectTo aponta para /auth/callback que troca o code por sessão
+    // redirectTo aponta para /login onde onAuthStateChange detecta a sessão
     const origin = redirectTo ? new URL(redirectTo).origin : undefined;
-    const callbackUrl = origin ? `${origin}/auth/callback?next=/dashboard` : undefined;
 
     const { data: linkData, error: linkErr } = await sb.auth.admin.generateLink({
       type: 'magiclink',
       email: trimmed,
-      options: { redirectTo: callbackUrl || undefined },
+      options: { redirectTo: origin ? `${origin}/login` : undefined },
     });
 
     if (linkErr || !linkData?.properties?.action_link) {
@@ -61,33 +60,28 @@ export async function POST(req: NextRequest) {
 
     const results = { email: false, whatsapp: false };
 
-    // 1) Email via Resend
-    const resendKey = process.env.RESEND_API_KEY;
-    if (resendKey) {
-      try {
-        const fromEmail = process.env.EMAIL_FROM || 'Vertho <noreply@vertho.com.br>';
-        const html = `
-          <div style="font-family:system-ui;max-width:480px;margin:0 auto;padding:32px 24px;background:#091D35;border-radius:16px;color:#fff">
-            <p style="font-size:15px;color:#ccc">Olá${nome ? `, ${nome}` : ''}!</p>
-            <p style="font-size:15px;color:#ccc">Clique no botão abaixo para acessar a plataforma <strong>${empresaNome}</strong>:</p>
-            <div style="text-align:center;margin:28px 0">
-              <a href="${magicLink}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#0D9488,#34C5CC);color:#062032;font-weight:bold;font-size:15px;border-radius:12px;text-decoration:none">
-                Acessar plataforma
-              </a>
-            </div>
-            <p style="font-size:12px;color:#666">Este link é pessoal e expira em 24h.</p>
-          </div>`;
-
-        const res = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
-          body: JSON.stringify({ from: fromEmail, to: trimmed, subject: `Seu acesso — ${empresaNome}`, html }),
-        });
-        results.email = res.ok;
-        if (!res.ok) console.error('[magic-link] Resend error:', await res.text());
-      } catch (e: any) {
-        console.error('[magic-link] Resend error:', e.message);
-      }
+    // 1) Email — usa Supabase OTP (SMTP já configurado) como método principal
+    try {
+      const { error: otpErr } = await sb.auth.admin.generateLink({
+        type: 'magiclink',
+        email: trimmed,
+        options: { redirectTo: origin ? `${origin}/login` : undefined },
+      });
+      // generateLink com admin já cria o link mas NÃO envia email.
+      // Usamos signInWithOtp via service role pra disparar o email nativo do Supabase.
+      const { createClient } = await import('@supabase/supabase-js');
+      const sbAnon = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      );
+      const { error: emailErr } = await sbAnon.auth.signInWithOtp({
+        email: trimmed,
+        options: { emailRedirectTo: origin ? `${origin}/login` : undefined },
+      });
+      results.email = !emailErr;
+      if (emailErr) console.error('[magic-link] email OTP error:', emailErr.message);
+    } catch (e: any) {
+      console.error('[magic-link] email error:', e.message);
     }
 
     // 2) WhatsApp via Z-API
@@ -114,7 +108,6 @@ export async function POST(req: NextRequest) {
 
     if (!results.email && !results.whatsapp) {
       const detail = [
-        !resendKey && 'RESEND_API_KEY não configurada',
         !telefone && `colaborador sem telefone (found: ${!!colab})`,
         (!zapiInstance || !zapiToken) && 'Z-API não configurado',
       ].filter(Boolean).join('; ');
