@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { addVercelDomain } from '@/lib/vercel-domain';
 
 // ── Criar nova empresa com auto-slug ────────────────────────────────────────
 
@@ -41,6 +42,11 @@ export async function criarNovaEmpresa(dados: any) {
       .single();
 
     if (error) return { success: false, error: error.message };
+
+    // Best-effort: registrar subdomínio no Vercel pra emitir SSL automaticamente.
+    // Não bloqueia/reverte a criação se falhar — admin pode adicionar manualmente.
+    addVercelDomain(slug).catch(() => {});
+
     return { success: true, data, message: `Empresa "${dados.nome}" criada com slug "${slug}"` };
   } catch (err) {
     return { success: false, error: err.message };

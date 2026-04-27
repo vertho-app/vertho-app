@@ -2,6 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { removeVercelDomain } from '@/lib/vercel-domain';
 
 export async function loadEmpresaPipeline(empresaId) {
   await requireAdminAction();
@@ -88,8 +89,17 @@ export async function loadEmpresaPipeline(empresaId) {
 export async function excluirEmpresa(empresaId) {
   await requireAdminAction();
   const sb = createSupabaseAdmin();
+
+  const { data: empresa } = await sb.from('empresas')
+    .select('slug')
+    .eq('id', empresaId)
+    .single();
+
   const { error } = await sb.from('empresas').delete().eq('id', empresaId);
   if (error) return { success: false, error: error.message };
+
+  if (empresa?.slug) removeVercelDomain(empresa.slug).catch(() => {});
+
   return { success: true };
 }
 

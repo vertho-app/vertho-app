@@ -2,6 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { addVercelDomain, removeVercelDomain } from '@/lib/vercel-domain';
 
 export async function loadConfig(empresaId) {
   await requireAdminAction();
@@ -87,9 +88,22 @@ export async function salvarSlug(empresaId, slug) {
 
   if (existing) return { success: false, error: `O slug "${clean}" já está em uso por outra empresa` };
 
+  const { data: prev } = await sb.from('empresas')
+    .select('slug')
+    .eq('id', empresaId)
+    .single();
+  const slugAnterior = prev?.slug;
+
   const { error } = await sb.from('empresas')
     .update({ slug: clean })
     .eq('id', empresaId);
   if (error) return { success: false, error: error.message };
+
+  // Best-effort: registrar novo subdomínio no Vercel + remover antigo
+  addVercelDomain(clean).catch(() => {});
+  if (slugAnterior && slugAnterior !== clean) {
+    removeVercelDomain(slugAnterior).catch(() => {});
+  }
+
   return { success: true, message: `Slug atualizado para "${clean}"`, slug: clean };
 }
