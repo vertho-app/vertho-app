@@ -573,6 +573,10 @@ export default function GerenciarPage() {
                       <tr><td className="pr-4 py-0.5">nome / nome_completo</td><td className="pr-4">Não</td><td>Maria Silva</td></tr>
                       <tr><td className="pr-4 py-0.5">cargo</td><td className="pr-4">Não</td><td>Coordenadora</td></tr>
                       <tr><td className="pr-4 py-0.5">role / papel</td><td className="pr-4">Não</td><td>colaborador / gestor / rh</td></tr>
+                      <tr><td className="pr-4 py-0.5">telefone / whatsapp / celular</td><td className="pr-4">Não</td><td>5511999998888</td></tr>
+                      <tr><td className="pr-4 py-0.5">gestor_nome / gestor</td><td className="pr-4">Não</td><td>João Souza</td></tr>
+                      <tr><td className="pr-4 py-0.5">gestor_email</td><td className="pr-4">Não</td><td>joao@empresa.com</td></tr>
+                      <tr><td className="pr-4 py-0.5">gestor_whatsapp / gestor_telefone</td><td className="pr-4">Não</td><td>5511988887777</td></tr>
                     </tbody>
                   </table>
                 </div>
