@@ -2,6 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
+import { APP_URL } from '@/lib/domain';
 import { templateWhatsAppPilula, templateWhatsAppEvidencia } from '@/lib/notifications';
 
 const TIMEOUT_ABANDONO_HORAS = 48;
@@ -236,8 +237,7 @@ async function publishToQStash(payload: any, delaySec: number = 0) {
     return;
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://vertho.com.br');
-  const webhookUrl = `${appUrl}/api/webhooks/qstash/whatsapp-cis`;
+  const webhookUrl = `${APP_URL}/api/webhooks/qstash/whatsapp-cis`;
 
   const res = await fetch('https://qstash.upstash.io/v2/publish/' + encodeURIComponent(webhookUrl), {
     method: 'POST',

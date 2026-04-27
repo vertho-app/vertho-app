@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { EMAIL_FROM_DEFAULT, tenantUrl } from '@/lib/domain';
 import crypto from 'crypto';
 
 // ── Disparar convites (email + WhatsApp unificado) ──────────────────────────
@@ -68,14 +69,12 @@ export async function dispararEmails(empresaId: string) {
         }, { onConflict: 'empresa_id,colaborador_id' });
       }
 
-      // Usar subdomínio da empresa: {slug}.vertho.com.br
-      const domain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'vertho.com.br';
-      const link = `https://${empresa.slug}.${domain}/avaliacao/${token}`;
+      const link = tenantUrl(empresa.slug, `/avaliacao/${token}`);
 
       // 1. Enviar email (se tem email e Resend configurado)
       if (colab.email && process.env.RESEND_API_KEY) {
         try {
-          const fromEmail = process.env.EMAIL_FROM || 'Vertho <noreply@vertho.com.br>';
+          const fromEmail = EMAIL_FROM_DEFAULT;
           const emailRes = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: {

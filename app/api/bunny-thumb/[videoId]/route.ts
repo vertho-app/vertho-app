@@ -1,10 +1,12 @@
 // Proxy para servir thumbnails de vídeos do Bunny Stream.
 //
-// O Bunny tem Hotlink Protection ativada com whitelist do domínio vertho.com.br.
+// O Bunny tem Hotlink Protection ativada com whitelist do domínio raiz.
 // Server-side passamos esse Referer e a CDN libera. Cacheamos a imagem 24h
 // no edge da Vercel (s-maxage) e no browser (max-age) para evitar re-fetch.
 
-const REFERER = 'https://www.vertho.com.br/';
+import { ROOT_DOMAIN } from '@/lib/domain';
+
+const REFERER = `https://www.${ROOT_DOMAIN}/`;
 const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function GET(_req, { params }) {

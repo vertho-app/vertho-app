@@ -2,6 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
+import { tenantEmailFrom, tenantUrl } from '@/lib/domain';
 import { callAI, callAIChat, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
 
@@ -1743,10 +1744,10 @@ export async function enviarLinksPerfil(empresaId: string) {
     for (const colab of colaboradores) {
       try {
         await resend.emails.send({
-          from: `Vertho Mentor <noreply@${empresa.slug}.vertho.com.br>`,
+          from: tenantEmailFrom(empresa.slug, 'Vertho Mentor'),
           to: colab.email,
           subject: `[${empresa.nome}] Seu Perfil de Evolução`,
-          html: `<p>Olá ${colab.nome_completo}!</p><p>Seu perfil está disponível.</p><p><a href="https://${empresa.slug}.vertho.com.br/dashboard/evolucao" style="background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;">Acessar Perfil</a></p>`,
+          html: `<p>Olá ${colab.nome_completo}!</p><p>Seu perfil está disponível.</p><p><a href="${tenantUrl(empresa.slug, '/dashboard/evolucao')}" style="background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;">Acessar Perfil</a></p>`,
         });
         enviados++;
       } catch {}

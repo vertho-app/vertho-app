@@ -12,9 +12,12 @@ import { NextResponse } from 'next/server';
  * Uso: logo ANTES do auth check nas rotas mutativas.
  */
 
-const TRUSTED_ORIGINS = new Set([
-  'https://vertho.com.br',
-  'https://www.vertho.com.br',
+// Lista de domínios raiz aceitos. Mantemos vertho.com.br + vertho.ai
+// simultaneamente durante a migração de domínio (cada um com www).
+const TRUSTED_ROOT_DOMAINS = ['vertho.com.br', 'vertho.ai'];
+
+const TRUSTED_ORIGINS = new Set<string>([
+  ...TRUSTED_ROOT_DOMAINS.flatMap(d => [`https://${d}`, `https://www.${d}`]),
   'http://localhost:3000',
   'http://localhost:3001',
 ]);
@@ -23,10 +26,12 @@ function isTrustedOrigin(origin: string | null, host: string | null): boolean {
   if (!origin) return false;
   // Exato match
   if (TRUSTED_ORIGINS.has(origin)) return true;
-  // Subdomínios *.vertho.com.br
+  // Subdomínios *.{root}
   try {
     const url = new URL(origin);
-    if (url.hostname.endsWith('.vertho.com.br')) return true;
+    for (const root of TRUSTED_ROOT_DOMAINS) {
+      if (url.hostname.endsWith(`.${root}`)) return true;
+    }
     if (url.hostname.endsWith('.vercel.app')) return true;
     // Same-origin: origin host == request host
     if (host && url.host === host) return true;

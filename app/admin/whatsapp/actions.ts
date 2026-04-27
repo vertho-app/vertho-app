@@ -2,6 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { APP_URL, EMAIL_FROM_DEFAULT, ROOT_DOMAIN, tenantUrl } from '@/lib/domain';
 
 export async function loadEmpresas() {
   await requireAdminAction();
@@ -133,8 +134,8 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
 
     if (!colabs.length) return { success: false, error: `Nenhum destinatário com ${canal === 'whatsapp' ? 'WhatsApp' : 'email'}` };
 
-    const domain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'vertho.com.br';
-    const fromEmail = process.env.EMAIL_FROM || 'Vertho <noreply@vertho.com.br>';
+    const domain = ROOT_DOMAIN;
+    const fromEmail = EMAIL_FROM_DEFAULT;
     const hasResend = !!process.env.RESEND_API_KEY;
     const hasQStash = !!process.env.QSTASH_TOKEN;
     const isRelatorio = comPDF;
@@ -270,8 +271,7 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
           } catch (e) { erroDetalhe = e.message; erros++; }
         } else if (process.env.QSTASH_TOKEN) {
           try {
-            const appUrl = process.env.NEXT_PUBLIC_APP_URL || `https://vertho.com.br`;
-            const webhookUrl = `${appUrl}/api/webhooks/qstash/whatsapp-cis`;
+            const webhookUrl = `${APP_URL}/api/webhooks/qstash/whatsapp-cis`;
             await fetch('https://qstash.upstash.io/v2/publish/' + encodeURIComponent(webhookUrl), {
               method: 'POST',
               headers: {
@@ -316,8 +316,7 @@ export async function enviarMagicLinksWhatsApp(empresaId: string, filtros: any =
     const zapiClient = process.env.ZAPI_CLIENT_TOKEN || '';
     if (!zapiInstance || !zapiToken) return { success: false, error: 'Z-API não configurado' };
 
-    const domain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'vertho.com.br';
-    const redirectUrl = `https://${empresa.slug}.${domain}/dashboard`;
+    const redirectUrl = tenantUrl(empresa.slug, '/dashboard');
     let enviados = 0, erros = 0, ultimoErro = '';
 
     for (const colab of colabs) {

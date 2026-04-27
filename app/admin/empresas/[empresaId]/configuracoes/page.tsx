@@ -9,6 +9,7 @@ import {
 import { loadConfig, salvarConfig, salvarBranding, salvarSlug, loadEquipe, atualizarRole } from './actions';
 import { limparSessoesAntigas, limparSessoesTeste } from '@/app/actions/manutencao';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
+import { ROOT_DOMAIN } from '@/lib/domain';
 
 const DIAS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 import { AI_TASKS, MODELOS_DISPONIVEIS } from '@/lib/ai-tasks';
@@ -214,10 +215,10 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
               <div className="flex items-center flex-1 gap-0 rounded-lg border border-white/10 overflow-hidden" style={{ background: '#091D35' }}>
                 <input value={slug} onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
                   placeholder="minha-empresa" className="flex-1 px-3 py-2.5 bg-transparent text-sm text-white outline-none placeholder:text-white/30" />
-                <span className="px-3 py-2.5 text-sm text-gray-500 border-l border-white/10 whitespace-nowrap">.vertho.com.br</span>
+                <span className="px-3 py-2.5 text-sm text-gray-500 border-l border-white/10 whitespace-nowrap">.{ROOT_DOMAIN}</span>
               </div>
             </div>
-            {slug && <p className="text-[10px] text-gray-500 mt-2">Login: <span className="text-cyan-400">{slug}.vertho.com.br/login</span></p>}
+            {slug && <p className="text-[10px] text-gray-500 mt-2">Login: <span className="text-cyan-400">{slug}.{ROOT_DOMAIN}/login</span></p>}
           </Panel>
 
           <Panel title="Logo da Empresa">
