@@ -38,6 +38,10 @@ export async function importarColaboradoresLote(empresaId: any, colabs: any) {
       email: c.email.trim().toLowerCase(),
       cargo: c.cargo?.trim() || null,
       role: VALID_ROLES.includes(c.role?.trim()?.toLowerCase()) ? c.role.trim().toLowerCase() : 'colaborador',
+      telefone: c.telefone?.toString().trim() || null,
+      gestor_nome: c.gestor_nome?.trim() || null,
+      gestor_email: c.gestor_email?.trim()?.toLowerCase() || null,
+      gestor_whatsapp: c.gestor_whatsapp?.toString().trim() || null,
     }));
 
   if (novos.length === 0) return { success: true, message: '0 novos (todos já existiam)' };

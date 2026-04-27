@@ -91,6 +91,10 @@ export default function GerenciarPage() {
       email: obj.email,
       cargo: obj.cargo,
       role: obj.role || obj.papel,
+      telefone: obj.telefone || obj.whatsapp || obj.celular || obj.fone,
+      gestor_nome: obj.gestor_nome || obj.gestor,
+      gestor_email: obj.gestor_email,
+      gestor_whatsapp: obj.gestor_whatsapp || obj.gestor_telefone || obj.gestor_celular,
     })).filter(c => c.email);
 
     if (parsed.length === 0) {
