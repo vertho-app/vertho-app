@@ -18,15 +18,17 @@ Font.register({
 Font.registerHyphenationCallback((word: string) => [word]);
 
 // ── Paleta Vertho Premium ───────────────────────────────────────────────────
-// Alinhada ao mockup PDI Rodrigo: navy profundo + cyan vibrante,
+// Alinhada ao mockup PDI Rodrigo (v2) — usa o cyan oficial da marca
+// (#34C5CC) em vez do neon. Navy profundo + cyan vibrante,
 // blocos coloridos com BG suave + borda fina (estilo print premium).
 export const colors = {
   // Primárias
-  navy: '#162040',
-  navy2: '#1E2D55',
+  navy: '#0F2B54',
+  navy2: '#1A3A6E',
   navyLight: '#1A3A6B',
-  cyan: '#3EF0E2',
-  cyan2: '#00C8BB',
+  cyan: '#34C5CC',
+  cyanLight: '#9AE2E6',
+  cyan2: '#34C5CC',          // alias mantido p/ compat
   teal: '#0D9488',
   white: '#FFFFFF',
   // Fundos de seção (BG suave + borda)
@@ -39,8 +41,9 @@ export const colors = {
   descritorBg: '#FFFBEB',    // amber/yellow
   descritorBorder: '#FDE68A',
   planoBg: '#F8FAFC',
-  estudoBg: '#F5F3FF',       // purple
+  estudoBg: '#F5F0FF',       // purple
   estudoBorder: '#DDD6FE',
+  purpleDark: '#3B0A6D',
   dicasBg: '#F0FDF4',
   dicasBorder: '#BBF7D0',
   summaryBg: '#F8FAFC',
@@ -61,7 +64,7 @@ export const colors = {
   green: '#16A34A',
   orange: '#EA580C',
   yellow: '#D97706',
-  purple: '#7C3AED',
+  purple: '#9E4EDD',
   // Grays
   gray100: '#F8FAFC',
   gray200: '#E2E8F0',
