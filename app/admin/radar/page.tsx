@@ -20,6 +20,25 @@ const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
 
 function fmt(n: any) { return Number(n ?? 0).toLocaleString('pt-BR'); }
 
+/**
+ * Converte ArrayBuffer em base64 sem estourar argument limit do JS engine
+ * (que `String.fromCharCode(...arr)` quebra com Uint8Array > ~120k bytes).
+ * Usa FileReader que lida nativamente com arquivos grandes.
+ */
+function arrayBufferToBase64(buffer: ArrayBuffer): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const dataUrl = reader.result as string;
+      // dataUrl = "data:application/...;base64,XXXXX"
+      const idx = dataUrl.indexOf(',');
+      resolve(idx >= 0 ? dataUrl.slice(idx + 1) : dataUrl);
+    };
+    reader.onerror = () => reject(reader.error || new Error('FileReader falhou'));
+    reader.readAsDataURL(new Blob([buffer]));
+  });
+}
+
 export default function AdminRadarPage() {
   const router = useRouter();
   const [stats, setStats] = useState<any>(null);
@@ -54,12 +73,15 @@ export default function AdminRadarPage() {
     setUploadingSaeb(true);
     addLog(`Saeb upload: ${file.name} (${(file.size / 1024).toFixed(0)}KB)`);
     const buffer = await file.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+    const base64 = await arrayBufferToBase64(buffer);
     try {
       const r = await ingestSaebFromUpload(base64, file.name, restringirIrece);
       if (r.success) {
         const res = r.result;
         addLog(`Saeb OK: ${res.totalSucesso} escolas, ${res.totalFalha} erros, ${res.totalSkipped} skipped`);
+        for (const err of (res.erros || []).slice(0, 3)) {
+          addLog(`  ↳ ${err.key}: ${err.msg}`);
+        }
       } else {
         addLog(`Saeb ERRO: ${r.error}`);
       }
@@ -87,6 +109,9 @@ export default function AdminRadarPage() {
       if (r.success) {
         const res = r.result;
         addLog(`ICA OK: ${res.totalSucesso} registros, ${res.totalFalha} erros, ${res.totalSkipped} skipped`);
+        for (const err of (res.erros || []).slice(0, 3)) {
+          addLog(`  ↳ ${err.key}: ${err.msg}`);
+        }
       } else {
         addLog(`ICA ERRO: ${r.error}`);
       }

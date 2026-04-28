@@ -46,3 +46,28 @@ export function nomeMunicipioIrece(ibge: string): string | null {
   const m = MICRORREGIAO_IRECE_BA.municipios.find((x) => x.ibge === ibge);
   return m ? m.nome : null;
 }
+
+/** Normaliza nome de município pra comparação (uppercase + sem acentos + trim) */
+function normalizarNome(nome: string): string {
+  return String(nome || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .trim();
+}
+
+const IRECE_NORM_LOOKUP: Map<string, string> = new Map(
+  MICRORREGIAO_IRECE_BA.municipios.map((m) => [normalizarNome(m.nome), m.ibge]),
+);
+
+/**
+ * Lookup: nome do município + UF → código IBGE 7 dígitos.
+ * Cobre os 20 municípios da microrregião de Irecê. Aceita variações
+ * comuns (uppercase/lowercase, com/sem acento). Retorna null se UF != BA
+ * ou município não está em Irecê.
+ */
+export function lookupIbgeIrece(municipio: string, uf?: string): string | null {
+  if (uf && uf.toUpperCase().trim() !== 'BA') return null;
+  const norm = normalizarNome(municipio);
+  return IRECE_NORM_LOOKUP.get(norm) || null;
+}

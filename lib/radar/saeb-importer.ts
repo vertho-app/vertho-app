@@ -16,7 +16,7 @@
  */
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { isIreceMunicipio } from './microrregiao-irece';
+import { isIreceMunicipio, lookupIbgeIrece } from './microrregiao-irece';
 import ExcelJS from 'exceljs';
 
 type Row = Record<string, unknown>;
@@ -126,9 +126,15 @@ export async function importarSaebXlsx(
       result.totalSkipped++;
       continue;
     }
-    const municipioIbge = String(r.municipio_ibge || r.codigo_municipio || '').trim();
+    const municipioNome = r.municipio ? String(r.municipio).trim() : '';
+    const ufNome = r.uf ? String(r.uf).trim().toUpperCase() : '';
+    // Tenta IBGE direto da planilha; se vazio, deriva do nome (Irecê)
+    let municipioIbge = String(r.municipio_ibge || r.codigo_municipio || '').trim();
+    if (!municipioIbge && municipioNome) {
+      municipioIbge = lookupIbgeIrece(municipioNome, ufNome) || '';
+    }
 
-    if (opts.restringirIrece && municipioIbge && !isIreceMunicipio(municipioIbge)) {
+    if (opts.restringirIrece && (!municipioIbge || !isIreceMunicipio(municipioIbge))) {
       result.totalSkipped++;
       continue;
     }
@@ -143,10 +149,10 @@ export async function importarSaebXlsx(
       codigo_inep: codigoInep,
       nome: String(r.nome || '').trim() || codigoInep,
       rede: r.rede ? String(r.rede).trim().toUpperCase() : null,
-      municipio: r.municipio ? String(r.municipio).trim() : '',
+      municipio: municipioNome || null,
       municipio_ibge: municipioIbge || null,
-      uf: r.uf ? String(r.uf).trim().toUpperCase() : '',
-      microrregiao: r.microrregiao ? String(r.microrregiao).trim() : null,
+      uf: ufNome || null,
+      microrregiao: r.microrregiao ? String(r.microrregiao).trim() : (municipioIbge && isIreceMunicipio(municipioIbge) ? 'Irecê' : null),
       zona: r.zona ? String(r.zona).trim().toUpperCase() : null,
       inse_grupo: r.inse_grupo ? Number(r.inse_grupo) : null,
       etapas,
