@@ -9,6 +9,7 @@ import {
   ingestFundebFromUpload,
   ingestPddeFromUpload,
   ingestVaarFromUpload,
+  ingestFundebReceitaFromUpload,
   deleteIngestRun,
 } from './actions';
 
@@ -48,6 +49,7 @@ export default function AdminRadarPage() {
   const [uploadingFundeb, setUploadingFundeb] = useState(false);
   const [uploadingPdde, setUploadingPdde] = useState(false);
   const [uploadingVaar, setUploadingVaar] = useState(false);
+  const [uploadingFundebRec, setUploadingFundebRec] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
 
   function addLog(msg: string) {
@@ -122,6 +124,26 @@ export default function AdminRadarPage() {
       } else addLog(`PDDE ERRO: ${r.error}`);
     } catch (e: any) { addLog(`PDDE EXCEÇÃO: ${e.message}`); }
     setUploadingPdde(false);
+    refresh();
+  }
+
+  async function handleFundebReceitaUpload(file: File) {
+    setUploadingFundebRec(true);
+    addLog(`FUNDEB Receita upload: ${file.name} (${(file.size / 1024).toFixed(0)}KB)`);
+    try {
+      const buffer = await file.arrayBuffer();
+      const base64 = await arrayBufferToBase64(buffer);
+      const r = await ingestFundebReceitaFromUpload(base64, file.name);
+      if (r.success) {
+        const res: any = r.result;
+        addLog(`FUNDEB Receita OK: ${res.totalSucesso} entes (ano ${res.ano}), ${res.totalFalha} erros, ${res.totalSkipped} skipped`);
+        if (typeof res.totalVaar === 'number' && res.totalVaar > 0) {
+          addLog(`  ↳ total VAAR distribuído: R$ ${res.totalVaar.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`);
+        }
+        for (const err of (res.erros || []).slice(0, 3)) addLog(`  ↳ ${err.key}: ${err.msg}`);
+      } else addLog(`FUNDEB Receita ERRO: ${r.error}`);
+    } catch (e: any) { addLog(`FUNDEB Receita EXCEÇÃO: ${e.message}`); }
+    setUploadingFundebRec(false);
     refresh();
   }
 
@@ -337,6 +359,25 @@ export default function AdminRadarPage() {
               {uploadingVaar ? 'Processando...' : 'Selecionar XLSX VAAR'}
               <input type="file" accept=".xlsx" className="hidden" disabled={uploadingVaar}
                 onChange={(e) => e.target.files?.[0] && handleVaarUpload(e.target.files[0])} />
+            </label>
+          </div>
+
+          <div className="rounded-2xl p-5 border border-white/[0.06]"
+            style={{ background: 'rgba(255,255,255,0.03)' }}>
+            <div className="flex items-center gap-2 mb-3">
+              <FileSpreadsheet size={16} className="text-cyan-400" />
+              <h3 className="text-sm font-bold text-white">FUNDEB Receita Prevista (XLSX)</h3>
+            </div>
+            <p className="text-xs text-white/50 mb-4">
+              Portaria Interministerial anual com receita prevista do FUNDEB por município,
+              decomposta em contribuição estadual/municipal + complementações VAAF, VAAT e VAAR.
+            </p>
+            <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white cursor-pointer"
+              style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+              {uploadingFundebRec ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+              {uploadingFundebRec ? 'Processando...' : 'Selecionar XLSX Receita'}
+              <input type="file" accept=".xlsx" className="hidden" disabled={uploadingFundebRec}
+                onChange={(e) => e.target.files?.[0] && handleFundebReceitaUpload(e.target.files[0])} />
             </label>
           </div>
         </div>

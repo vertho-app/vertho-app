@@ -113,7 +113,7 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
         {m.fundeb && m.fundeb.length > 0 && <FundebSection fundeb={m.fundeb} />}
 
         {/* VAAR — habilitação para complementação por resultado */}
-        {m.vaar && <VaarSection vaar={m.vaar} />}
+        {m.vaar && <VaarSection vaar={m.vaar} receita={m.receitaPrevista} />}
 
         {/* ICA cards */}
         {m.ica.length > 0 && (

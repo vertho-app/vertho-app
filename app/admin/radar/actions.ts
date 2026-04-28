@@ -10,6 +10,7 @@ import { importarSarespCsv } from '@/lib/radar/saresp-importer';
 import { importarFundebCsv } from '@/lib/radar/fundeb-importer';
 import { importarPddeCsv } from '@/lib/radar/pdde-importer';
 import { importarVaarXlsx } from '@/lib/radar/vaar-importer';
+import { importarFundebReceitaXlsx } from '@/lib/radar/fundeb-receita-importer';
 import { loadRadarCountStats } from '@/lib/radar/stats';
 
 async function startIngestRun(fonte: string, escopo: any, arquivoOrigem?: string) {
@@ -164,6 +165,22 @@ export async function ingestFundebFromUpload(textoCsv: string, arquivoNome: stri
   const runId = await startIngestRun('fundeb', { fonte: 'CSV Tesouro' }, arquivoNome);
   try {
     const result = await importarFundebCsv(textoCsv, { ingestRunId: runId });
+    const status = result.totalFalha > 0 && result.totalSucesso > 0 ? 'parcial' : result.totalFalha > 0 ? 'erro' : 'sucesso';
+    await finishIngestRun(runId, result, status);
+    return { success: true, runId, result };
+  } catch (err: any) {
+    await finishIngestRun(runId, { totalProcessado: 0, totalSucesso: 0, totalFalha: 1, totalSkipped: 0, erros: [{ key: 'fatal', msg: err?.message || String(err) }] }, 'erro');
+    return { success: false, error: err?.message || 'Erro', runId };
+  }
+}
+
+// ── FUNDEB Receita Prevista (XLSX Portaria Interministerial) ────────
+export async function ingestFundebReceitaFromUpload(arquivoBase64: string, arquivoNome: string) {
+  await requireAdminAction();
+  const buffer = Buffer.from(arquivoBase64, 'base64');
+  const runId = await startIngestRun('fundeb_receita', { fonte: 'XLSX Portaria Interministerial' }, arquivoNome);
+  try {
+    const result = await importarFundebReceitaXlsx(buffer, { ingestRunId: runId, arquivoNome });
     const status = result.totalFalha > 0 && result.totalSucesso > 0 ? 'parcial' : result.totalFalha > 0 ? 'erro' : 'sucesso';
     await finishIngestRun(runId, result, status);
     return { success: true, runId, result };

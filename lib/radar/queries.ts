@@ -118,6 +118,18 @@ export type VaarSnapshot = {
   pendencia: string | null;
 };
 
+export type FundebReceitaPrevista = {
+  municipio_ibge: string;
+  uf: string | null;
+  ano: number;
+  receita_contribuicao: number | null;
+  complementacao_vaaf: number | null;
+  complementacao_vaat: number | null;
+  complementacao_vaar: number | null;
+  complementacao_uniao_total: number | null;
+  total_receita_prevista: number | null;
+};
+
 export type IcaSnapshot = {
   municipio_ibge: string;
   uf: string;
@@ -200,6 +212,7 @@ export async function getMunicipio(ibge: string): Promise<{
   fundeb: FundebRepasse[];
   pddeMunicipal: PddeMunicipal[];
   vaar: VaarSnapshot | null;
+  receitaPrevista: FundebReceitaPrevista | null;
 } | null> {
   const sb = createSupabaseAdmin();
   const { data: escolas } = await sb
@@ -207,14 +220,16 @@ export async function getMunicipio(ibge: string): Promise<{
     .select('codigo_inep, nome, municipio, uf, rede')
     .eq('municipio_ibge', ibge);
 
-  // Fontes municipais (FUNDEB, PDDE municipal, VAAR) — buscadas em paralelo,
+  // Fontes municipais (FUNDEB, PDDE municipal, VAAR, receita prevista) — em paralelo,
   // independente de ter escola cadastrada (só dependem do IBGE).
-  const [fundebRes, pddeRes, vaarRes] = await Promise.all([
+  const [fundebRes, pddeRes, vaarRes, receitaRes] = await Promise.all([
     sb.from('diag_fundeb_repasses')
       .select('*').eq('municipio_ibge', ibge).order('ano', { ascending: false }).limit(8),
     sb.from('diag_pdde_municipal')
       .select('*').eq('municipio_ibge', ibge).order('ano', { ascending: false }).limit(8),
     sb.from('diag_fundeb_vaar')
+      .select('*').eq('municipio_ibge', ibge).order('ano', { ascending: false }).limit(1).maybeSingle(),
+    sb.from('diag_fundeb_receita_prevista')
       .select('*').eq('municipio_ibge', ibge).order('ano', { ascending: false }).limit(1).maybeSingle(),
   ]);
 
@@ -237,6 +252,7 @@ export async function getMunicipio(ibge: string): Promise<{
       fundeb: (fundebRes.data || []) as any,
       pddeMunicipal: (pddeRes.data || []) as any,
       vaar: (vaarRes.data as any) || null,
+      receitaPrevista: (receitaRes.data as any) || null,
     };
   }
 
@@ -270,6 +286,7 @@ export async function getMunicipio(ibge: string): Promise<{
     fundeb: (fundebRes.data || []) as any,
     pddeMunicipal: (pddeRes.data || []) as any,
     vaar: (vaarRes.data as any) || null,
+    receitaPrevista: (receitaRes.data as any) || null,
   };
 }
 
