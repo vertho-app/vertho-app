@@ -46,11 +46,11 @@ async function finishIngestRun(id: string, result: any, status: 'sucesso' | 'err
 export async function loadRadarStats() {
   await requireAdminAction();
   const sb = createSupabaseAdmin();
-  const [escolas, snapshots, ica, censo, ideb, saresp, fundeb, pdde, pddeMun, runs] = await Promise.all([
+  const [escolas, municipios, snapshots, ica, ideb, saresp, fundeb, pdde, pddeMun, runs] = await Promise.all([
     sb.from('diag_escolas').select('codigo_inep', { count: 'exact', head: true }),
+    sb.rpc('diag_count_municipios_distintos'),
     sb.from('diag_saeb_snapshots').select('id', { count: 'exact', head: true }),
     sb.from('diag_ica_snapshots').select('id', { count: 'exact', head: true }),
-    sb.from('diag_censo_infra').select('codigo_inep', { count: 'exact', head: true }),
     sb.from('diag_ideb_snapshots').select('id', { count: 'exact', head: true }),
     sb.from('diag_saresp_snapshots').select('codigo_inep', { count: 'exact', head: true }),
     sb.from('diag_fundeb_repasses').select('municipio_ibge', { count: 'exact', head: true }),
@@ -62,9 +62,9 @@ export async function loadRadarStats() {
   ]);
   return {
     escolas: escolas.count || 0,
+    municipios: typeof municipios.data === 'number' ? municipios.data : 0,
     snapshots: snapshots.count || 0,
     ica: ica.count || 0,
-    censo: censo.count || 0,
     ideb: ideb.count || 0,
     saresp: saresp.count || 0,
     fundeb: fundeb.count || 0,

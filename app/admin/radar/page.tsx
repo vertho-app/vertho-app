@@ -245,9 +245,9 @@ export default function AdminRadarPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           {[
             { label: 'Escolas cadastradas', val: stats?.escolas },
+            { label: 'Municípios', val: stats?.municipios },
             { label: 'Snapshots Saeb', val: stats?.snapshots },
             { label: 'Snapshots ICA', val: stats?.ica },
-            { label: 'Censo Escolar', val: stats?.censo },
             { label: 'Snapshots Ideb', val: stats?.ideb },
             { label: 'SARESP', val: stats?.saresp },
             { label: 'FUNDEB', val: stats?.fundeb },
