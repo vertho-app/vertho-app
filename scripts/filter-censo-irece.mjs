@@ -15,11 +15,13 @@ import { resolve, dirname, basename } from 'node:path';
 import { createInterface } from 'node:readline';
 import { argv, exit, stderr, stdout } from 'node:process';
 
+// 19 municípios da microrregião IBGE 29009 (Irecê/BA), validados
+// contra https://servicodados.ibge.gov.br/api/v1/localidades/microrregioes/29009/municipios
 const IRECE_IBGE = new Set([
-  '2900801', '2902708', '2902906', '2904902', '2906105', '2907400',
-  '2912012', '2913101', '2913200', '2914604', '2915205', '2915809',
-  '2917509', '2918506', '2919405', '2921005', '2925006', '2929206',
-  '2933000', '2933505',
+  '2901155', '2903003', '2903235', '2905305', '2906204', '2907608',
+  '2911303', '2912400', '2913101', '2914406', '2914604', '2918357',
+  '2918506', '2919157', '2922052', '2925600', '2929255', '2930808',
+  '2932408',
 ]);
 
 async function main() {

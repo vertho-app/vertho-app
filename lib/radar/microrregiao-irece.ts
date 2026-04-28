@@ -1,9 +1,9 @@
 /**
  * Microrregião de Irecê (Bahia) — escopo do piloto V1 do Radar.
  *
- * 20 municípios oficialmente classificados pelo IBGE como pertencentes
- * à microrregião de Irecê (recorte histórico, ainda usado como referência
- * pela secretaria estadual da Bahia em diagnósticos educacionais).
+ * 19 municípios da microrregião oficial 29009 (IBGE). Lista validada
+ * contra a API oficial em 2026-04-28:
+ *   https://servicodados.ibge.gov.br/api/v1/localidades/microrregioes/29009/municipios
  *
  * Códigos IBGE (7 dígitos) e nomes oficiais.
  */
@@ -11,26 +11,25 @@ export const MICRORREGIAO_IRECE_BA = {
   uf: 'BA',
   nome: 'Irecê',
   municipios: [
-    { ibge: '2900801', nome: 'América Dourada' },
-    { ibge: '2902708', nome: 'Barro Alto' },
-    { ibge: '2902906', nome: 'Barra do Mendes' },
-    { ibge: '2904902', nome: 'Cafarnaum' },
-    { ibge: '2906105', nome: 'Canarana' },
-    { ibge: '2907400', nome: 'Central' },
-    { ibge: '2912012', nome: 'Gentio do Ouro' },
-    { ibge: '2913101', nome: 'Ibipeba' },
-    { ibge: '2913200', nome: 'Ibititá' },
-    { ibge: '2914604', nome: 'Ipupiara' },
-    { ibge: '2915205', nome: 'Irecê' },
-    { ibge: '2915809', nome: 'Itaguaçu da Bahia' },
-    { ibge: '2917509', nome: 'João Dourado' },
+    { ibge: '2901155', nome: 'América Dourada' },
+    { ibge: '2903003', nome: 'Barra do Mendes' },
+    { ibge: '2903235', nome: 'Barro Alto' },
+    { ibge: '2905305', nome: 'Cafarnaum' },
+    { ibge: '2906204', nome: 'Canarana' },
+    { ibge: '2907608', nome: 'Central' },
+    { ibge: '2911303', nome: 'Gentio do Ouro' },
+    { ibge: '2912400', nome: 'Ibipeba' },
+    { ibge: '2913101', nome: 'Ibititá' },
+    { ibge: '2914406', nome: 'Iraquara' },
+    { ibge: '2914604', nome: 'Irecê' },
+    { ibge: '2918357', nome: 'João Dourado' },
     { ibge: '2918506', nome: 'Jussara' },
-    { ibge: '2919405', nome: 'Lapão' },
-    { ibge: '2921005', nome: 'Mulungu do Morro' },
-    { ibge: '2925006', nome: 'Presidente Dutra' },
-    { ibge: '2929206', nome: 'São Gabriel' },
-    { ibge: '2933000', nome: 'Uibaí' },
-    { ibge: '2933505', nome: 'Xique-Xique' },
+    { ibge: '2919157', nome: 'Lapão' },
+    { ibge: '2922052', nome: 'Mulungu do Morro' },
+    { ibge: '2925600', nome: 'Presidente Dutra' },
+    { ibge: '2929255', nome: 'São Gabriel' },
+    { ibge: '2930808', nome: 'Souto Soares' },
+    { ibge: '2932408', nome: 'Uibaí' },
   ],
 } as const;
 
