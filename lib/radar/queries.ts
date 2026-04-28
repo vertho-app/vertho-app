@@ -166,6 +166,7 @@ export type EscolaBenchmarkRow = {
   saeb_3em_lp: number | null;
   saeb_3em_mat: number | null;
   qtd_escolas: number;
+  inse_grupo: number | null;
 };
 
 export async function getEscolaBenchmarks(codigoInep: string): Promise<EscolaBenchmarkRow[]> {

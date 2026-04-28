@@ -69,20 +69,35 @@ export function EscolaBenchmarkTable({
   const visiveis = INDICADORES.filter((ind) => escola[ind.key] != null);
   if (visiveis.length === 0) return null;
 
+  const inseGrupo = escola.inse_grupo;
+
   return (
     <section className="mb-10">
       <div className="flex items-center gap-2 mb-4">
         <BarChart3 size={18} style={{ color: '#34c5cc' }} />
         <h2 className="text-white text-xl font-bold">
-          Comparativo · escola vs microrregião e estado
+          Comparativo · escola vs pares socioeconômicos
         </h2>
       </div>
       <p className="text-xs text-white/55 mb-4 leading-relaxed">
-        Indicadores desta escola ao lado da média das demais escolas da microrregião IBGE
-        {microrregiao ? ` (${microrregiao}${uf ? '/' + uf : ''})` : ''}{' '}
-        e do estado. Verde = acima da microrregião com folga; vermelho = abaixo.
-        A microrregião é a comparação primária por agrupar escolas com perfil
-        socioeconômico semelhante.
+        {inseGrupo != null ? (
+          <>
+            Médias da microrregião IBGE
+            {microrregiao ? ` (${microrregiao}${uf ? '/' + uf : ''})` : ''}{' '}
+            e do estado considerando <strong className="text-white/80">apenas escolas
+            do mesmo grupo INSE</strong> ({`Grupo ${inseGrupo}`} — Indicador de Nível
+            Socioeconômico do INEP). É a comparação mais justa, controlando por
+            contexto socioeconômico.
+          </>
+        ) : (
+          <>
+            Médias da microrregião IBGE
+            {microrregiao ? ` (${microrregiao}${uf ? '/' + uf : ''})` : ''}{' '}
+            e do estado. Esta escola não tem INSE classificado, então a média inclui
+            todas as escolas da região.
+          </>
+        )}{' '}
+        Verde = acima da microrregião com folga; vermelho = abaixo.
       </p>
 
       <div className="rounded-2xl border border-white/[0.06] overflow-x-auto"
@@ -131,8 +146,9 @@ export function EscolaBenchmarkTable({
       </div>
 
       <p className="text-[10px] text-white/40 mt-3">
-        Fonte: INEP (Saeb, Ideb). Médias agregadas a partir de diag_mv_escola_metricas
-        (médias excluem a própria escola).
+        Fonte: INEP (Saeb, Ideb, INSE). Médias agregadas a partir de
+        diag_mv_escola_metricas — excluem a própria escola e filtram por grupo INSE
+        quando a escola-alvo tem o indicador.
       </p>
     </section>
   );
