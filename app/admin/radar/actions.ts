@@ -9,6 +9,7 @@ import { importarIdebXlsx } from '@/lib/radar/ideb-importer';
 import { importarSarespCsv } from '@/lib/radar/saresp-importer';
 import { importarFundebCsv } from '@/lib/radar/fundeb-importer';
 import { importarPddeCsv } from '@/lib/radar/pdde-importer';
+import { importarVaarXlsx } from '@/lib/radar/vaar-importer';
 import { loadRadarCountStats } from '@/lib/radar/stats';
 
 async function startIngestRun(fonte: string, escopo: any, arquivoOrigem?: string) {
@@ -62,6 +63,8 @@ export async function loadRadarStats() {
     saresp: counts.saresp,
     fundeb: counts.fundeb,
     pdde: counts.pdde,
+    vaar: counts.vaar,
+    vaarBeneficiarios: counts.vaarBeneficiarios,
     runs: runs.data || [],
   };
 }
@@ -161,6 +164,22 @@ export async function ingestFundebFromUpload(textoCsv: string, arquivoNome: stri
   const runId = await startIngestRun('fundeb', { fonte: 'CSV Tesouro' }, arquivoNome);
   try {
     const result = await importarFundebCsv(textoCsv, { ingestRunId: runId });
+    const status = result.totalFalha > 0 && result.totalSucesso > 0 ? 'parcial' : result.totalFalha > 0 ? 'erro' : 'sucesso';
+    await finishIngestRun(runId, result, status);
+    return { success: true, runId, result };
+  } catch (err: any) {
+    await finishIngestRun(runId, { totalProcessado: 0, totalSucesso: 0, totalFalha: 1, totalSkipped: 0, erros: [{ key: 'fatal', msg: err?.message || String(err) }] }, 'erro');
+    return { success: false, error: err?.message || 'Erro', runId };
+  }
+}
+
+// ── VAAR (XLSX FNDE — habilitação para complementação-resultado) ────
+export async function ingestVaarFromUpload(arquivoBase64: string, arquivoNome: string) {
+  await requireAdminAction();
+  const buffer = Buffer.from(arquivoBase64, 'base64');
+  const runId = await startIngestRun('vaar', { fonte: 'XLSX FNDE' }, arquivoNome);
+  try {
+    const result = await importarVaarXlsx(buffer, { ingestRunId: runId, arquivoNome });
     const status = result.totalFalha > 0 && result.totalSucesso > 0 ? 'parcial' : result.totalFalha > 0 ? 'erro' : 'sucesso';
     await finishIngestRun(runId, result, status);
     return { success: true, runId, result };

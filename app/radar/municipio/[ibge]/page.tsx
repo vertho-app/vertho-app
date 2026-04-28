@@ -12,6 +12,7 @@ import { LeadCTA } from '../../_components/lead-cta';
 import { NarrativaIA, NarrativaSkeleton } from '../../_components/narrativa-ia';
 import { CitarButton } from '../../_components/citar-button';
 import { FundebSection } from '../../_components/fundeb-section';
+import { VaarSection } from '../../_components/vaar-section';
 
 export const dynamic = 'force-dynamic';
 
@@ -110,6 +111,9 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
 
         {/* FUNDEB — recursos da rede */}
         {m.fundeb && m.fundeb.length > 0 && <FundebSection fundeb={m.fundeb} />}
+
+        {/* VAAR — habilitação para complementação por resultado */}
+        {m.vaar && <VaarSection vaar={m.vaar} />}
 
         {/* ICA cards */}
         {m.ica.length > 0 && (

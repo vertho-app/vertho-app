@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2, Upload, RefreshCw, FileText, Trash2, Terminal } from 'lucide-react';
+import { ArrowLeft, Loader2, Upload, RefreshCw, FileText, FileSpreadsheet, Trash2, Terminal } from 'lucide-react';
 import {
   loadRadarStats,
   ingestIcaFromUpload,
   ingestFundebFromUpload,
   ingestPddeFromUpload,
+  ingestVaarFromUpload,
   deleteIngestRun,
 } from './actions';
 
@@ -46,6 +47,7 @@ export default function AdminRadarPage() {
   const [uploadingIca, setUploadingIca] = useState(false);
   const [uploadingFundeb, setUploadingFundeb] = useState(false);
   const [uploadingPdde, setUploadingPdde] = useState(false);
+  const [uploadingVaar, setUploadingVaar] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
 
   function addLog(msg: string) {
@@ -123,6 +125,26 @@ export default function AdminRadarPage() {
     refresh();
   }
 
+  async function handleVaarUpload(file: File) {
+    setUploadingVaar(true);
+    addLog(`VAAR upload: ${file.name} (${(file.size / 1024).toFixed(0)}KB)`);
+    try {
+      const buffer = await file.arrayBuffer();
+      const base64 = await arrayBufferToBase64(buffer);
+      const r = await ingestVaarFromUpload(base64, file.name);
+      if (r.success) {
+        const res: any = r.result;
+        addLog(`VAAR OK: ${res.totalSucesso} entes (ano ${res.ano}), ${res.totalFalha} erros, ${res.totalSkipped} skipped`);
+        if (typeof res.beneficiarios === 'number') {
+          addLog(`  ↳ beneficiários da complementação: ${res.beneficiarios}`);
+        }
+        for (const err of (res.erros || []).slice(0, 3)) addLog(`  ↳ ${err.key}: ${err.msg}`);
+      } else addLog(`VAAR ERRO: ${r.error}`);
+    } catch (e: any) { addLog(`VAAR EXCEÇÃO: ${e.message}`); }
+    setUploadingVaar(false);
+    refresh();
+  }
+
   async function handleDeleteRun(id: string) {
     if (!confirm('Excluir este run?')) return;
     await deleteIngestRun(id);
@@ -163,6 +185,8 @@ export default function AdminRadarPage() {
             { label: 'SARESP', val: stats?.saresp },
             { label: 'FUNDEB', val: stats?.fundeb },
             { label: 'PDDE', val: stats?.pdde },
+            { label: 'VAAR (entes)', val: stats?.vaar },
+            { label: 'VAAR beneficiários', val: stats?.vaarBeneficiarios },
           ].map((s) => (
             <div key={s.label} className="rounded-2xl p-4 border border-white/[0.06]"
               style={{ background: 'rgba(255,255,255,0.03)' }}>
@@ -229,7 +253,7 @@ export default function AdminRadarPage() {
         <p className="text-[10px] tracking-[0.2em] text-white/40 uppercase font-mono mb-3">
           Upload via web (arquivos pequenos)
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
           <div className="rounded-2xl p-5 border border-white/[0.06]"
             style={{ background: 'rgba(255,255,255,0.03)' }}>
             <div className="flex items-center gap-2 mb-3">
@@ -295,6 +319,25 @@ export default function AdminRadarPage() {
                   onChange={(e) => e.target.files?.[0] && handlePddeUpload(e.target.files[0], true)} />
               </label>
             </div>
+          </div>
+
+          <div className="rounded-2xl p-5 border border-white/[0.06]"
+            style={{ background: 'rgba(255,255,255,0.03)' }}>
+            <div className="flex items-center gap-2 mb-3">
+              <FileSpreadsheet size={16} className="text-cyan-400" />
+              <h3 className="text-sm font-bold text-white">VAAR (XLSX FNDE)</h3>
+            </div>
+            <p className="text-xs text-white/50 mb-4">
+              Lista anual de entes habilitados ou não a receber a complementação-resultado
+              do FUNDEB (Lei 14.113/2020). Detecta o ano pelo nome do arquivo.
+            </p>
+            <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white cursor-pointer"
+              style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+              {uploadingVaar ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+              {uploadingVaar ? 'Processando...' : 'Selecionar XLSX VAAR'}
+              <input type="file" accept=".xlsx" className="hidden" disabled={uploadingVaar}
+                onChange={(e) => e.target.files?.[0] && handleVaarUpload(e.target.files[0])} />
+            </label>
           </div>
         </div>
 

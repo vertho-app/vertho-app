@@ -9,6 +9,8 @@ type RadarCountStats = {
   saresp: number;
   fundeb: number;
   pdde: number;
+  vaar: number;
+  vaarBeneficiarios: number;
 };
 
 function mapRadarCountRow(row: any): RadarCountStats {
@@ -21,19 +23,21 @@ function mapRadarCountRow(row: any): RadarCountStats {
     saresp: Number(row?.saresp_snapshots || 0),
     fundeb: Number(row?.fundeb_repasses || 0),
     pdde: Number(row?.pdde_escola || 0) + Number(row?.pdde_municipal || 0),
+    vaar: Number(row?.vaar || 0),
+    vaarBeneficiarios: Number(row?.vaar_beneficiarios || 0),
   };
 }
 
 export async function loadRadarCountStats(sb: SupabaseClient): Promise<RadarCountStats> {
   const { data: mvRow } = await sb
     .from('diag_mv_radar_counts')
-    .select('escolas, municipios, saeb_snapshots, ica_snapshots, ideb_snapshots, saresp_snapshots, fundeb_repasses, pdde_escola, pdde_municipal')
+    .select('escolas, municipios, saeb_snapshots, ica_snapshots, ideb_snapshots, saresp_snapshots, fundeb_repasses, pdde_escola, pdde_municipal, vaar, vaar_beneficiarios')
     .limit(1)
     .maybeSingle();
 
   if (mvRow) return mapRadarCountRow(mvRow);
 
-  const [escolas, municipiosRpc, saeb, ica, ideb, saresp, fundeb, pdde, pddeMun] = await Promise.all([
+  const [escolas, municipiosRpc, saeb, ica, ideb, saresp, fundeb, pdde, pddeMun, vaar, vaarBenef] = await Promise.all([
     sb.from('diag_escolas').select('codigo_inep', { count: 'exact', head: true }),
     sb.rpc('diag_count_municipios_distintos'),
     sb.from('diag_saeb_snapshots').select('id', { count: 'exact', head: true }),
@@ -43,6 +47,8 @@ export async function loadRadarCountStats(sb: SupabaseClient): Promise<RadarCoun
     sb.from('diag_fundeb_repasses').select('municipio_ibge', { count: 'exact', head: true }),
     sb.from('diag_pdde_repasses').select('codigo_inep', { count: 'exact', head: true }),
     sb.from('diag_pdde_municipal').select('municipio_ibge', { count: 'exact', head: true }),
+    sb.from('diag_fundeb_vaar').select('municipio_ibge', { count: 'exact', head: true }),
+    sb.from('diag_fundeb_vaar').select('municipio_ibge', { count: 'exact', head: true }).eq('beneficiario', true),
   ]);
 
   let municipios = 0;
@@ -62,5 +68,7 @@ export async function loadRadarCountStats(sb: SupabaseClient): Promise<RadarCoun
     saresp: saresp.count || 0,
     fundeb: fundeb.count || 0,
     pdde: (pdde.count || 0) + (pddeMun.count || 0),
+    vaar: vaar.count || 0,
+    vaarBeneficiarios: vaarBenef.count || 0,
   };
 }
