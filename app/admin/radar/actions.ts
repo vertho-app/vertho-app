@@ -52,7 +52,7 @@ export async function loadRadarStats() {
     sb.from('diag_saeb_snapshots').select('id', { count: 'exact', head: true }),
     sb.from('diag_ica_snapshots').select('id', { count: 'exact', head: true }),
     sb.from('diag_censo_infra').select('codigo_inep', { count: 'exact', head: true }),
-    sb.from('diag_ideb_metas').select('codigo_inep', { count: 'exact', head: true }),
+    sb.from('diag_ideb_snapshots').select('id', { count: 'exact', head: true }),
     sb.from('diag_saresp_snapshots').select('codigo_inep', { count: 'exact', head: true }),
     sb.from('diag_fundeb_repasses').select('municipio_ibge', { count: 'exact', head: true }),
     sb.from('diag_pdde_repasses').select('codigo_inep', { count: 'exact', head: true }),

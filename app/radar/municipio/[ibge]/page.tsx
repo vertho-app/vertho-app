@@ -11,6 +11,7 @@ import { RadarHeader, RadarFooter } from '../../_components/radar-header';
 import { LeadCTA } from '../../_components/lead-cta';
 import { NarrativaIA, NarrativaSkeleton } from '../../_components/narrativa-ia';
 import { CitarButton } from '../../_components/citar-button';
+import { FundebSection } from '../../_components/fundeb-section';
 
 export const dynamic = 'force-dynamic';
 
@@ -93,9 +94,22 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
 
         <section className="mb-10 grid grid-cols-1 md:grid-cols-3 gap-4">
           <Suspense fallback={<NarrativaSkeleton resumoDeterm={determ.resumo} />}>
-            <NarrativaIA scope="municipio" municipio={m} ica={m.ica} determRefBlock={determRefBlock} />
+            <NarrativaIA
+              scope="municipio"
+              municipio={m}
+              ica={m.ica}
+              fundeb={m.fundeb}
+              pddeMunicipal={m.pddeMunicipal}
+              determRefBlock={determRefBlock}
+            />
           </Suspense>
         </section>
+
+        {/* Ideb médio das escolas */}
+        {m.ideb.length > 0 && <MunicipioIdebSection ideb={m.ideb} />}
+
+        {/* FUNDEB — recursos da rede */}
+        {m.fundeb && m.fundeb.length > 0 && <FundebSection fundeb={m.fundeb} />}
 
         {/* ICA cards */}
         {m.ica.length > 0 && (
@@ -166,3 +180,59 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
   );
 }
 
+function MunicipioIdebSection({ ideb }: {
+  ideb: Array<{
+    ano: number;
+    etapa: string;
+    idebAvg: number | null;
+    rendimentoAvg: number | null;
+    notaSaebAvg: number | null;
+    totalEscolas: number;
+  }>;
+}) {
+  const byEtapa = new Map<string, typeof ideb>();
+  for (const row of ideb) {
+    if (!byEtapa.has(row.etapa)) byEtapa.set(row.etapa, []);
+    byEtapa.get(row.etapa)!.push(row);
+  }
+
+  return (
+    <section className="mb-10">
+      <h2 className="text-white text-xl font-bold mb-4">Ideb médio das escolas</h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {Array.from(byEtapa.entries()).map(([etapa, rows]) => (
+          <div key={etapa}
+            className="rounded-2xl p-4 border border-white/[0.06]"
+            style={{ background: 'rgba(255,255,255,0.03)' }}>
+            <p className="text-[9px] uppercase tracking-wider font-mono text-white/40 mb-3">
+              {etapaLabel(etapa)}
+            </p>
+            <div className="space-y-2">
+              {rows
+                .slice()
+                .sort((a, b) => b.ano - a.ano)
+                .map((row) => (
+                  <div key={`${etapa}-${row.ano}`} className="flex items-center justify-between gap-3">
+                    <span className="text-xs text-white/45 font-mono">{row.ano}</span>
+                    <span className="text-lg text-white font-bold font-mono">
+                      {row.idebAvg != null ? row.idebAvg.toFixed(1) : '-'}
+                    </span>
+                    <span className="text-[10px] text-white/35 font-mono">
+                      {row.totalEscolas} escolas · N {row.notaSaebAvg != null ? row.notaSaebAvg.toFixed(2) : '-'}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function etapaLabel(etapa: string) {
+  if (etapa === '5_EF') return 'Anos iniciais';
+  if (etapa === '9_EF') return 'Anos finais';
+  if (etapa === '3_EM') return 'Ensino médio';
+  return etapa;
+}

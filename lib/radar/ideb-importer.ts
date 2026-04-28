@@ -136,25 +136,28 @@ export async function importarIdebXlsx(
     // Por simplicidade, pula linhas sem etapa identificável
     if (!etapa) { result.totalSkipped++; continue; }
 
-    // Pra cada ano com IDEB ou META, cria/upserta uma linha
+    // Pra cada ano com IDEB ou META, cria/upserta uma linha em diag_ideb_snapshots
+    // (escopo='escola'). Tabela tem schema flexível com escopo escola/municipio/uf/brasil.
     const anosCobertos = new Set<number>([...idebCols.keys(), ...metaCols.keys()]);
     for (const ano of anosCobertos) {
-      const meta = toNumOrNull(idebCols.has(ano) ? cells[metaCols.get(ano) ?? -1] : null);
+      const meta = toNumOrNull(metaCols.has(ano) ? cells[metaCols.get(ano) ?? -1] : null);
       const realizado = toNumOrNull(cells[idebCols.get(ano) ?? -1]);
       if (meta == null && realizado == null) continue;
       rowsToInsert.push({
+        chave: `escola:${codigoInep}:${ano}:${etapa}`,
+        escopo: 'escola',
         codigo_inep: codigoInep,
         ano,
         etapa,
-        meta_projetada: meta,
-        ideb_realizado: realizado,
+        ideb: realizado,
+        meta,
         ingest_run_id: opts.ingestRunId || null,
         atualizado_em: new Date().toISOString(),
       });
     }
 
     if (rowsToInsert.length >= 200) {
-      const { error } = await sb.from('diag_ideb_metas').upsert(rowsToInsert, { onConflict: 'codigo_inep,ano,etapa' });
+      const { error } = await sb.from('diag_ideb_snapshots').upsert(rowsToInsert, { onConflict: 'chave' });
       if (error) {
         result.totalFalha += rowsToInsert.length;
         result.erros.push({ key: 'batch', msg: error.message });
@@ -166,7 +169,7 @@ export async function importarIdebXlsx(
   }
 
   if (rowsToInsert.length > 0) {
-    const { error } = await sb.from('diag_ideb_metas').upsert(rowsToInsert, { onConflict: 'codigo_inep,ano,etapa' });
+    const { error } = await sb.from('diag_ideb_snapshots').upsert(rowsToInsert, { onConflict: 'chave' });
     if (error) {
       result.totalFalha += rowsToInsert.length;
       result.erros.push({ key: 'batch', msg: error.message });

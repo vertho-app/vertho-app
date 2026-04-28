@@ -5,7 +5,10 @@ import {
   getNarrativaMunicipio,
   isLikelyBot,
 } from '@/lib/radar/ia-narrativa';
-import type { Escola, SaebSnapshot, IcaSnapshot } from '@/lib/radar/queries';
+import type {
+  Escola, SaebSnapshot, IcaSnapshot,
+  CensoInfra, IdebSnapshot, SarespSnapshot, PddeRepasse, FundebRepasse, PddeMunicipal,
+} from '@/lib/radar/queries';
 
 type CommonProps = {
   determRefBlock: React.ReactNode;
@@ -15,12 +18,18 @@ type EscolaProps = CommonProps & {
   scope: 'escola';
   escola: Escola;
   saeb: SaebSnapshot[];
+  censo?: CensoInfra | null;
+  ideb?: IdebSnapshot[];
+  saresp?: SarespSnapshot[];
+  pdde?: PddeRepasse[];
 };
 
 type MunicipioProps = CommonProps & {
   scope: 'municipio';
   municipio: { ibge: string; nome: string; uf: string; totalEscolas: number; redes: Record<string, number> };
   ica: IcaSnapshot[];
+  fundeb?: FundebRepasse[];
+  pddeMunicipal?: PddeMunicipal[];
 };
 
 /**
@@ -31,8 +40,18 @@ export async function NarrativaIA(props: EscolaProps | MunicipioProps) {
   const h = await headers();
   const generateIfMissing = !isLikelyBot(h.get('user-agent'));
   const ia = props.scope === 'escola'
-    ? await getNarrativaEscola(props.escola, props.saeb, { generateIfMissing })
-    : await getNarrativaMunicipio(props.municipio, props.ica, { generateIfMissing });
+    ? await getNarrativaEscola(props.escola, props.saeb, {
+        generateIfMissing,
+        censo: props.censo ?? null,
+        ideb: props.ideb || [],
+        saresp: props.saresp || [],
+        pdde: props.pdde || [],
+      })
+    : await getNarrativaMunicipio(props.municipio, props.ica, {
+        generateIfMissing,
+        fundeb: props.fundeb || [],
+        pddeMunicipal: props.pddeMunicipal || [],
+      });
 
   return (
     <>

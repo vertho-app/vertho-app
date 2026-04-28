@@ -13,6 +13,8 @@ import { LeadCTA } from '../../_components/lead-cta';
 import { NarrativaIA, NarrativaSkeleton } from '../../_components/narrativa-ia';
 import { InfraSection } from '../../_components/infra-card';
 import { CitarButton } from '../../_components/citar-button';
+import { SarespSection } from '../../_components/saresp-section';
+import { PddeSection } from '../../_components/pdde-section';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,6 +40,9 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
   const escola = r.escola;
   const saeb = r.saeb;
   const censo = r.censo;
+  const ideb = r.ideb;
+  const saresp = r.saresp || [];
+  const pdde = r.pdde || [];
 
   // Tracking best-effort (não bloqueia render)
   registrarEvento('view_escola', { scopeType: 'escola', scopeId: escola.codigo_inep }).catch(() => {});
@@ -127,12 +132,30 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
         {/* Leitura IA + determinística (Suspense pra UX progressiva) */}
         <section className="mb-10 grid grid-cols-1 md:grid-cols-3 gap-4">
           <Suspense fallback={<NarrativaSkeleton resumoDeterm={determ.resumo} />}>
-            <NarrativaIA scope="escola" escola={escola} saeb={saeb} determRefBlock={determRefBlock} />
+            <NarrativaIA
+              scope="escola"
+              escola={escola}
+              saeb={saeb}
+              censo={censo}
+              ideb={ideb}
+              saresp={saresp}
+              pdde={pdde}
+              determRefBlock={determRefBlock}
+            />
           </Suspense>
         </section>
 
         {/* Infra (Censo Escolar) */}
         {censo && <InfraSection censo={censo} />}
+
+        {/* Ideb recente */}
+        {ideb.length > 0 && <IdebSection ideb={ideb} />}
+
+        {/* SARESP — só pra escolas SP */}
+        {escola.uf === 'SP' && saresp.length > 0 && <SarespSection saresp={saresp} />}
+
+        {/* PDDE — recursos federais diretos */}
+        {pdde.length > 0 && <PddeSection pdde={pdde} />}
 
         {/* Saeb cards */}
         {saeb.length > 0 ? (
@@ -174,3 +197,52 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
   );
 }
 
+function IdebSection({ ideb }: {
+  ideb: Array<{
+    ano: number;
+    etapa: string;
+    ideb: number | null;
+    meta: number | null;
+    indicador_rendimento: number | null;
+    nota_saeb: number | null;
+  }>;
+}) {
+  const byEtapa = new Map<string, typeof ideb>();
+  for (const row of ideb) {
+    if (!byEtapa.has(row.etapa)) byEtapa.set(row.etapa, []);
+    byEtapa.get(row.etapa)!.push(row);
+  }
+
+  return (
+    <section className="mb-10">
+      <h2 className="text-white text-xl font-bold mb-4">Ideb recente</h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {Array.from(byEtapa.entries()).map(([etapa, rows]) => (
+          <div key={etapa}
+            className="rounded-2xl p-4 border border-white/[0.06]"
+            style={{ background: 'rgba(255,255,255,0.03)' }}>
+            <p className="text-[9px] uppercase tracking-wider font-mono text-white/40 mb-3">
+              {ETAPA_LABELS[etapa] || etapa}
+            </p>
+            <div className="space-y-2">
+              {rows
+                .slice()
+                .sort((a, b) => b.ano - a.ano)
+                .map((row) => (
+                  <div key={`${etapa}-${row.ano}`} className="flex items-center justify-between gap-3">
+                    <span className="text-xs text-white/45 font-mono">{row.ano}</span>
+                    <span className="text-lg text-white font-bold font-mono">
+                      {row.ideb != null ? row.ideb.toFixed(1) : '-'}
+                    </span>
+                    <span className="text-[10px] text-white/35 font-mono">
+                      N {row.nota_saeb != null ? row.nota_saeb.toFixed(2) : '-'} · P {row.indicador_rendimento != null ? row.indicador_rendimento.toFixed(2) : '-'}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}

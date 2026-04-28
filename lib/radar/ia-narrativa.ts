@@ -5,17 +5,19 @@ import { callAI } from '@/actions/ai-client';
 import { stableJsonHash } from './hash';
 import type { Escola, SaebSnapshot, IcaSnapshot } from './queries';
 
-const PROMPT_VERSION_NARRATIVA = 'radar-narrativa-v1';
+const PROMPT_VERSION_NARRATIVA = 'radar-narrativa-v2';
 
 const SYSTEM_NARRATIVA = `Você é um analista educacional sênior do Vertho Mentor IA escrevendo análises públicas para gestores escolares e secretarias.
 
 REGRAS RÍGIDAS:
 1. Use APENAS os dados estruturados fornecidos. Nunca invente números, anos ou comparações.
-2. Cite anos e fonte (Saeb/INEP, ICA/INEP) sempre que mencionar um número.
+2. Cite anos e fonte (Saeb/INEP, Ideb/INEP, ICA/INEP, Censo/INEP, SARESP/Seduc-SP, FUNDEB/Tesouro, PDDE/FNDE) sempre que mencionar um número.
 3. Tom institucional, técnico-pedagógico. SEM linguagem promocional, SEM persona "BETO".
 4. Se um dado não estiver presente, escreva "dado não disponível" — não preencha lacunas.
 5. Foque em: o que o número significa, o que merece atenção, perguntas pedagógicas relevantes.
-6. Português brasileiro, formal mas acessível.
+6. Quando houver Ideb com meta vs realizado, cite explicitamente status (atingiu/superou/abaixo).
+7. Quando houver FUNDEB ou PDDE, conecte recursos a desafios pedagógicos quando fizer sentido (ex: "PDDE com saldo X pode financiar formação").
+8. Português brasileiro, formal mas acessível.
 
 FORMATO DE SAÍDA: JSON estrito com:
 {
@@ -63,16 +65,12 @@ function extractJson(text: string): NarrativaIA | null {
  * Detecta se o User-Agent parece bot/crawler. Pra bots, evitamos disparar
  * IA na primeira visita — eles servem cache se existir, senão veem só a
  * leitura determinística. Humanos sempre disparam (e enchem o cache).
- *
- * Anti-padrão: depender de UA é frágil, mas custo de IA × volume de bot
- * justifica. Custo do erro (bot ler determinística é OK; humano não ver
- * IA é ruim) — viés conservador a favor do bot.
  */
 const BOT_UA_RE =
   /bot|crawler|spider|crawl|googlebot|bingbot|yandex|baidu|duckduck|slurp|facebookexternalhit|whatsapp|telegram|twitter|preview|lighthouse|headless|chrome-lighthouse|gptbot|chatgpt|anthropic|perplexity/i;
 
 export function isLikelyBot(userAgent: string | null | undefined): boolean {
-  if (!userAgent) return true; // sem UA = trate como bot por segurança
+  if (!userAgent) return true;
   return BOT_UA_RE.test(userAgent);
 }
 
@@ -115,28 +113,66 @@ async function saveCache(
 export async function getNarrativaEscola(
   escola: Escola,
   saeb: SaebSnapshot[],
-  opts: { generateIfMissing?: boolean } = { generateIfMissing: true },
+  opts: {
+    generateIfMissing?: boolean;
+    censo?: any;
+    ideb?: any[];
+    saresp?: any[];
+    pdde?: any[];
+  } = { generateIfMissing: true },
 ): Promise<NarrativaIA> {
-  const dadosHash = stableJsonHash({ escola: { codigo_inep: escola.codigo_inep, ano_referencia: escola.ano_referencia, inse_grupo: escola.inse_grupo }, saeb });
+  const dadosHash = stableJsonHash({
+    escola: { codigo_inep: escola.codigo_inep, ano_referencia: escola.ano_referencia, inse_grupo: escola.inse_grupo },
+    saeb,
+    censo_scores: opts.censo ? {
+      basica: opts.censo.score_basica,
+      pedagogica: opts.censo.score_pedagogica,
+      acessibilidade: opts.censo.score_acessibilidade,
+      conectividade: opts.censo.score_conectividade,
+    } : null,
+    ideb: opts.ideb || [],
+    saresp: opts.saresp || [],
+    pdde: opts.pdde || [],
+  });
   const cached = await getCached('escola', escola.codigo_inep, dadosHash);
   if (cached) return cached;
 
-  // Se foi pedido pra não gerar (bot, ou modo économico), retorna fallback
   if (!opts.generateIfMissing) return FALLBACK;
 
-  const userMessage = `Escola: ${escola.nome} (INEP ${escola.codigo_inep})
-Município: ${escola.municipio}/${escola.uf} · Rede: ${escola.rede || 'não informada'}
-Microrregião: ${escola.microrregiao || 'não informada'} · Zona: ${escola.zona || 'não informada'}
-INSE Grupo: ${escola.inse_grupo ?? 'não informado'} (1=mais alto, 6=mais baixo)
-Etapas oferecidas: ${(escola.etapas || []).join(', ') || 'não informadas'}
-
-Snapshots Saeb (mais recente primeiro):
-${JSON.stringify(saeb.slice(0, 12), null, 2)}
-
-Escreva a análise pública seguindo o formato JSON.`;
+  const partes: string[] = [
+    `Escola: ${escola.nome} (INEP ${escola.codigo_inep})`,
+    `Município: ${escola.municipio}/${escola.uf} · Rede: ${escola.rede || 'não informada'}`,
+    `Microrregião: ${escola.microrregiao || 'não informada'} · Zona: ${escola.zona || 'não informada'}`,
+    `INSE Grupo: ${escola.inse_grupo ?? 'não informado'} (1=mais alto, 6=mais baixo)`,
+    `Etapas oferecidas: ${(escola.etapas || []).join(', ') || 'não informadas'}`,
+    '',
+    `Snapshots Saeb (mais recente primeiro):`,
+    JSON.stringify(saeb.slice(0, 12), null, 2),
+  ];
+  if (opts.ideb && opts.ideb.length > 0) {
+    partes.push('', `Ideb (resultados e metas oficiais INEP):`, JSON.stringify(opts.ideb.slice(0, 12), null, 2));
+  }
+  if (opts.censo) {
+    partes.push('', `Infraestrutura — scores 0-100 (Censo Escolar):`,
+      JSON.stringify({
+        basica: opts.censo.score_basica,
+        pedagogica: opts.censo.score_pedagogica,
+        acessibilidade: opts.censo.score_acessibilidade,
+        conectividade: opts.censo.score_conectividade,
+      }, null, 2));
+  }
+  if (opts.saresp && opts.saresp.length > 0) {
+    partes.push('', `SARESP (avaliação estadual SP, mais recente primeiro):`,
+      JSON.stringify(opts.saresp.slice(0, 8), null, 2));
+  }
+  if (opts.pdde && opts.pdde.length > 0) {
+    partes.push('', `PDDE — recursos federais diretos à escola (FNDE):`,
+      JSON.stringify(opts.pdde.slice(0, 4), null, 2));
+  }
+  partes.push('', `Escreva a análise pública seguindo o formato JSON.`);
 
   try {
-    const resp = await callAI(SYSTEM_NARRATIVA, userMessage, { model: 'claude-sonnet-4-6' }, 1200, { temperature: 0.4 });
+    const resp = await callAI(SYSTEM_NARRATIVA, partes.join('\n'), { model: 'claude-sonnet-4-6' }, 1400, { temperature: 0.4 });
     const parsed = extractJson(resp);
     if (parsed) {
       saveCache('escola', escola.codigo_inep, dadosHash, parsed).catch(() => {});
@@ -151,25 +187,44 @@ Escreva a análise pública seguindo o formato JSON.`;
 export async function getNarrativaMunicipio(
   municipio: { ibge: string; nome: string; uf: string; totalEscolas: number; redes: Record<string, number> },
   ica: IcaSnapshot[],
-  opts: { generateIfMissing?: boolean } = { generateIfMissing: true },
+  opts: {
+    generateIfMissing?: boolean;
+    fundeb?: any[];
+    pddeMunicipal?: any[];
+  } = { generateIfMissing: true },
 ): Promise<NarrativaIA> {
-  const dadosHash = stableJsonHash({ ibge: municipio.ibge, totalEscolas: municipio.totalEscolas, ica });
+  const dadosHash = stableJsonHash({
+    ibge: municipio.ibge,
+    totalEscolas: municipio.totalEscolas,
+    ica,
+    fundeb: opts.fundeb || [],
+    pdde: opts.pddeMunicipal || [],
+  });
   const cached = await getCached('municipio', municipio.ibge, dadosHash);
   if (cached) return cached;
 
   if (!opts.generateIfMissing) return FALLBACK;
 
-  const userMessage = `Município: ${municipio.nome}/${municipio.uf} (IBGE ${municipio.ibge})
-Total de escolas no Radar: ${municipio.totalEscolas}
-Distribuição por rede: ${JSON.stringify(municipio.redes)}
-
-Indicador Criança Alfabetizada — séries históricas:
-${JSON.stringify(ica.slice(0, 12), null, 2)}
-
-Escreva a análise pública seguindo o formato JSON.`;
+  const partes: string[] = [
+    `Município: ${municipio.nome}/${municipio.uf} (IBGE ${municipio.ibge})`,
+    `Total de escolas no Radar: ${municipio.totalEscolas}`,
+    `Distribuição por rede: ${JSON.stringify(municipio.redes)}`,
+    '',
+    `Indicador Criança Alfabetizada — séries históricas:`,
+    JSON.stringify(ica.slice(0, 12), null, 2),
+  ];
+  if (opts.fundeb && opts.fundeb.length > 0) {
+    partes.push('', `FUNDEB (Tesouro Nacional/FNDE — recursos da rede):`,
+      JSON.stringify(opts.fundeb.slice(0, 6), null, 2));
+  }
+  if (opts.pddeMunicipal && opts.pddeMunicipal.length > 0) {
+    partes.push('', `PDDE municipal (FNDE — agregado por município):`,
+      JSON.stringify(opts.pddeMunicipal.slice(0, 6), null, 2));
+  }
+  partes.push('', `Escreva a análise pública seguindo o formato JSON.`);
 
   try {
-    const resp = await callAI(SYSTEM_NARRATIVA, userMessage, { model: 'claude-sonnet-4-6' }, 1200, { temperature: 0.4 });
+    const resp = await callAI(SYSTEM_NARRATIVA, partes.join('\n'), { model: 'claude-sonnet-4-6' }, 1400, { temperature: 0.4 });
     const parsed = extractJson(resp);
     if (parsed) {
       saveCache('municipio', municipio.ibge, dadosHash, parsed).catch(() => {});
