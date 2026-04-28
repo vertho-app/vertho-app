@@ -25,16 +25,39 @@ export async function buscarEscolasMunicipios(termo: string): Promise<SearchResu
   if (isInepLike || isIbgeLike) {
     const { data: escola } = await sb
       .from('diag_escolas')
-      .select('codigo_inep, nome, municipio, uf, rede')
+      .select('codigo_inep, nome, municipio, uf, rede, municipio_ibge')
       .or(`codigo_inep.eq.${q},municipio_ibge.eq.${q}`)
-      .limit(10);
+      .limit(20);
     if (escola?.length) {
-      return escola.map((e: any) => ({
-        tipo: 'escola',
-        id: e.codigo_inep,
-        label: e.nome,
-        sub: [e.rede, `${e.municipio}/${e.uf}`].filter(Boolean).join(' · '),
-      }));
+      const results: SearchResult[] = [];
+      // Se o usuário buscou por código IBGE de 7 dígitos, oferece o município
+      // como primeira opção (não só as escolas dele).
+      if (isIbgeLike) {
+        const matchMun = escola.find((e: any) => e.municipio_ibge === q);
+        if (matchMun) {
+          // Pega a versão "mais limpa" do nome (com acentos válidos) entre
+          // escolas do mesmo IBGE — útil quando há mistura de encoding.
+          const candidatos = escola
+            .filter((e: any) => e.municipio_ibge === q)
+            .map((e: any) => String(e.municipio || ''));
+          const nomeLimpo = candidatos.find((n) => !n.includes('\uFFFD')) || candidatos[0] || matchMun.municipio;
+          results.push({
+            tipo: 'municipio',
+            id: q,
+            label: nomeLimpo,
+            sub: `${matchMun.uf} · município`,
+          });
+        }
+      }
+      for (const e of escola) {
+        results.push({
+          tipo: 'escola',
+          id: e.codigo_inep,
+          label: e.nome,
+          sub: [e.rede, `${e.municipio}/${e.uf}`].filter(Boolean).join(' · '),
+        });
+      }
+      return results;
     }
   }
 
