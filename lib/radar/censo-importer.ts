@@ -61,6 +61,16 @@ function parseSituacao(tp: any): string | null {
   return null;
 }
 
+function parseRedeCenso(tp: any): string | null {
+  // TP_DEPENDENCIA: 1=Federal, 2=Estadual, 3=Municipal, 4=Privada
+  const s = String(tp || '').trim();
+  if (s === '1') return 'FEDERAL';
+  if (s === '2') return 'ESTADUAL';
+  if (s === '3') return 'MUNICIPAL';
+  if (s === '4') return 'PRIVADA';
+  return null;
+}
+
 function toNumOrNull(v: any): number | null {
   if (v == null || v === '') return null;
   const s = String(v).replace(',', '.').trim();
@@ -106,7 +116,10 @@ export async function importarCensoCsv(
   const I_NOME = headerIdx('NO_ENTIDADE');
   const I_ANO = headerIdx('NU_ANO_CENSO');
   const I_IBGE = headerIdx('CO_MUNICIPIO');
+  const I_MUNI_NOME = headerIdx('NO_MUNICIPIO');
   const I_UF = headerIdx('SG_UF');
+  const I_MICRO = headerIdx('NO_MICRORREGIAO');
+  const I_DEP = headerIdx('TP_DEPENDENCIA');
   const I_LAT = headerIdx('LATITUDE');
   const I_LNG = headerIdx('LONGITUDE');
   const I_LOC = headerIdx('TP_LOCALIZACAO');
@@ -134,6 +147,7 @@ export async function importarCensoCsv(
   // Processa linhas
   let pos = firstLineEnd + 1;
   const rowsToInsert: any[] = [];
+  const escolasUpsert: any[] = [];
   const inseridosPorInep = new Set<string>(); // dedup por (inep, ano) durante a sessão
 
   while (pos < text.length) {
@@ -190,6 +204,9 @@ export async function importarCensoCsv(
     }
 
     const scores = calcularScores(indicadores);
+    const nome = I_NOME >= 0 ? String(cells[I_NOME] || '').trim() : '';
+    const muniNome = I_MUNI_NOME >= 0 ? String(cells[I_MUNI_NOME] || '').trim() : '';
+    const ufNome = I_UF >= 0 ? String(cells[I_UF] || '').trim().toUpperCase() : '';
 
     rowsToInsert.push({
       codigo_inep: codigoInep,
@@ -212,6 +229,24 @@ export async function importarCensoCsv(
       atualizado_em: new Date().toISOString(),
     });
 
+    // Upsert paralelo em diag_escolas (uma vez por INEP — essas linhas são
+    // basicamente fixas pra escola; Censo é de onde vem a maior fonte de
+    // novas escolas pro cadastro)
+    if (codigoInep && nome) {
+      escolasUpsert.push({
+        codigo_inep: codigoInep,
+        nome,
+        rede: parseRedeCenso(cells[I_DEP]),
+        municipio: muniNome || null,
+        municipio_ibge: ibge || null,
+        uf: ufNome || null,
+        microrregiao: I_MICRO >= 0 ? (String(cells[I_MICRO] || '').trim() || null) : null,
+        zona: parseLocalizacao(cells[I_LOC]),
+        ano_referencia: ano,
+        atualizado_em: new Date().toISOString(),
+      });
+    }
+
     // Insere em batch a cada 100 linhas pra evitar payloads gigantes
     if (rowsToInsert.length >= 100) {
       const r = await sb.from('diag_censo_infra').upsert(rowsToInsert, { onConflict: 'codigo_inep,ano' });
@@ -223,9 +258,18 @@ export async function importarCensoCsv(
       }
       rowsToInsert.length = 0;
     }
+    if (escolasUpsert.length >= 100) {
+      const r = await sb.from('diag_escolas').upsert(escolasUpsert, { onConflict: 'codigo_inep' });
+      if (r.error) result.erros.push({ key: 'escolas_batch', msg: r.error.message });
+      escolasUpsert.length = 0;
+    }
   }
 
   // Flush final
+  if (escolasUpsert.length > 0) {
+    const r = await sb.from('diag_escolas').upsert(escolasUpsert, { onConflict: 'codigo_inep' });
+    if (r.error) result.erros.push({ key: 'escolas_batch_final', msg: r.error.message });
+  }
   if (rowsToInsert.length > 0) {
     const r = await sb.from('diag_censo_infra').upsert(rowsToInsert, { onConflict: 'codigo_inep,ano' });
     if (r.error) {

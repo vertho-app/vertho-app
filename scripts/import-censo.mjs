@@ -103,6 +103,15 @@ function parseSituacao(tp) {
   if (s === '4') return 'transferida';
   return null;
 }
+function parseRede(tp) {
+  // TP_DEPENDENCIA: 1=Federal, 2=Estadual, 3=Municipal, 4=Privada
+  const s = String(tp || '').trim();
+  if (s === '1') return 'FEDERAL';
+  if (s === '2') return 'ESTADUAL';
+  if (s === '3') return 'MUNICIPAL';
+  if (s === '4') return 'PRIVADA';
+  return null;
+}
 function clamp(v, max) {
   const n = Number(String(v || '').replace(',', '.'));
   if (!Number.isFinite(n) || n > max || n < -max) return null;
@@ -190,38 +199,60 @@ async function main() {
   const inIdx = []; // [name, colIdx]
   const qtIdx = [];
 
-  const totals = { processado: 0, sucesso: 0, falha: 0, skipped: 0, erros: [] };
+  const totals = { processado: 0, sucesso: 0, falha: 0, skipped: 0, erros: [], escolasUpsert: 0 };
   const seen = new Set();
-  const batch = [];
+  const escolasSeen = new Set(); // dedup escolas dentro do upload (mesma escola aparece N vezes se múltiplos anos)
+  const batchCenso = [];
+  const batchEscolas = [];
   const BATCH_SIZE = 200;
   const startedAt = Date.now();
   let lastReport = startedAt;
 
-  async function flushBatch() {
-    if (batch.length === 0) return;
+  async function postBatch(table, conflict, body) {
+    return fetch(`${URL}/rest/v1/${table}?on_conflict=${conflict}`, {
+      method: 'POST',
+      headers: {
+        apikey: KEY,
+        Authorization: `Bearer ${KEY}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  async function flushCenso() {
+    if (batchCenso.length === 0) return;
     try {
-      const res = await fetch(`${URL}/rest/v1/diag_censo_infra?on_conflict=codigo_inep,ano`, {
-        method: 'POST',
-        headers: {
-          apikey: KEY,
-          Authorization: `Bearer ${KEY}`,
-          'Content-Type': 'application/json',
-          Prefer: 'resolution=merge-duplicates,return=minimal',
-        },
-        body: JSON.stringify(batch),
-      });
+      const res = await postBatch('diag_censo_infra', 'codigo_inep,ano', batchCenso);
       if (!res.ok) {
         const t = await res.text();
-        totals.falha += batch.length;
-        totals.erros.push({ key: 'batch', msg: t.slice(0, 300) });
+        totals.falha += batchCenso.length;
+        totals.erros.push({ key: 'censo_batch', msg: t.slice(0, 300) });
       } else {
-        totals.sucesso += batch.length;
+        totals.sucesso += batchCenso.length;
       }
     } catch (err) {
-      totals.falha += batch.length;
-      totals.erros.push({ key: 'batch_throw', msg: err.message });
+      totals.falha += batchCenso.length;
+      totals.erros.push({ key: 'censo_throw', msg: err.message });
     }
-    batch.length = 0;
+    batchCenso.length = 0;
+  }
+
+  async function flushEscolas() {
+    if (batchEscolas.length === 0) return;
+    try {
+      const res = await postBatch('diag_escolas', 'codigo_inep', batchEscolas);
+      if (res.ok) {
+        totals.escolasUpsert += batchEscolas.length;
+      } else {
+        const t = await res.text();
+        totals.erros.push({ key: 'escolas_batch', msg: t.slice(0, 300) });
+      }
+    } catch (err) {
+      totals.erros.push({ key: 'escolas_throw', msg: err.message });
+    }
+    batchEscolas.length = 0;
   }
 
   for await (const line of rl) {
@@ -232,7 +263,10 @@ async function main() {
       idx.NOME = header.indexOf('NO_ENTIDADE');
       idx.ANO = header.indexOf('NU_ANO_CENSO');
       idx.IBGE = header.indexOf('CO_MUNICIPIO');
+      idx.MUNICIPIO_NOME = header.indexOf('NO_MUNICIPIO');
       idx.UF = header.indexOf('SG_UF');
+      idx.MICRORREGIAO = header.indexOf('NO_MICRORREGIAO');
+      idx.DEP = header.indexOf('TP_DEPENDENCIA');
       idx.LAT = header.indexOf('LATITUDE');
       idx.LNG = header.indexOf('LONGITUDE');
       idx.LOC = header.indexOf('TP_LOCALIZACAO');
@@ -282,7 +316,7 @@ async function main() {
     }
     const scores = calcularScores(indicadores);
 
-    batch.push({
+    batchCenso.push({
       codigo_inep: codigoInep,
       ano,
       situacao_funcionamento: parseSituacao(cells[idx.SIT]),
@@ -303,9 +337,28 @@ async function main() {
       atualizado_em: new Date().toISOString(),
     });
 
-    if (batch.length >= BATCH_SIZE) {
-      await flushBatch();
+    // Upsert em diag_escolas — uma vez por INEP nesta sessão
+    if (!escolasSeen.has(codigoInep)) {
+      escolasSeen.add(codigoInep);
+      const nome = idx.NOME >= 0 ? String(cells[idx.NOME] || '').trim() : '';
+      const municipio = idx.MUNICIPIO_NOME >= 0 ? String(cells[idx.MUNICIPIO_NOME] || '').trim() : '';
+      const uf = idx.UF >= 0 ? String(cells[idx.UF] || '').trim().toUpperCase() : '';
+      batchEscolas.push({
+        codigo_inep: codigoInep,
+        nome: nome || codigoInep,
+        rede: parseRede(cells[idx.DEP]),
+        municipio: municipio || null,
+        municipio_ibge: ibge || null,
+        uf: uf || null,
+        microrregiao: idx.MICRORREGIAO >= 0 ? (String(cells[idx.MICRORREGIAO] || '').trim() || null) : null,
+        zona: parseLocalizacao(cells[idx.LOC]),
+        ano_referencia: ano,
+        atualizado_em: new Date().toISOString(),
+      });
     }
+
+    if (batchCenso.length >= BATCH_SIZE) await flushCenso();
+    if (batchEscolas.length >= BATCH_SIZE) await flushEscolas();
 
     const now = Date.now();
     if (now - lastReport > 2000) {
@@ -316,7 +369,8 @@ async function main() {
     }
   }
 
-  await flushBatch();
+  await flushCenso();
+  await flushEscolas();
 
   const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
   const status = totals.falha > 0 && totals.sucesso > 0 ? 'parcial' : totals.falha > 0 ? 'erro' : 'sucesso';
@@ -327,6 +381,7 @@ async function main() {
   stdout.write(`  Sucesso:    ${totals.sucesso.toLocaleString('pt-BR')}\n`);
   stdout.write(`  Falha:      ${totals.falha.toLocaleString('pt-BR')}\n`);
   stdout.write(`  Skipped:    ${totals.skipped.toLocaleString('pt-BR')}\n`);
+  stdout.write(`  Escolas upsert: ${totals.escolasUpsert.toLocaleString('pt-BR')}\n`);
   stdout.write(`  Status:     ${status}\n`);
   stdout.write(`  Run ID:     ${runId}\n`);
   if (totals.erros.length > 0) {
