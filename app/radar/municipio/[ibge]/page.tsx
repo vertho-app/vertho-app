@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
@@ -5,9 +6,9 @@ import { ArrowLeft, MapPin, GraduationCap } from 'lucide-react';
 
 import { getMunicipio, getEscolasMunicipio } from '@/lib/radar/queries';
 import { leituraIcaMunicipio } from '@/lib/radar/leitura-deterministica';
-import { getNarrativaMunicipio } from '@/lib/radar/ia-narrativa';
 import { RadarHeader, RadarFooter } from '../../_components/radar-header';
 import { LeadCTA } from '../../_components/lead-cta';
+import { NarrativaIA, NarrativaSkeleton } from '../../_components/narrativa-ia';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +33,11 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
 
   const escolas = await getEscolasMunicipio(ibge);
   const determ = leituraIcaMunicipio(m, m.ica);
-  const ia = await getNarrativaMunicipio(m, m.ica);
+  const determRefBlock = (
+    <p className="text-xs text-white/45 leading-relaxed italic border-l-2 border-white/10 pl-3">
+      {determ.resumo}
+    </p>
+  );
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -83,24 +88,9 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
         </section>
 
         <section className="mb-10 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-2 rounded-2xl p-5 border border-white/[0.06]"
-            style={{ background: 'rgba(255,255,255,0.03)' }}>
-            <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-3" style={{ color: '#34c5cc' }}>
-              Leitura
-            </p>
-            <p className="text-sm text-white/80 leading-relaxed mb-3">{ia.resumo}</p>
-            <p className="text-xs text-white/45 leading-relaxed italic border-l-2 border-white/10 pl-3">
-              {determ.resumo}
-            </p>
-          </div>
-          <div className="space-y-3">
-            {ia.pontos_atencao.length > 0 && (
-              <Bloco titulo="Pontos de Atenção" cor="#F97354" itens={ia.pontos_atencao} />
-            )}
-            {ia.pontos_destaque.length > 0 && (
-              <Bloco titulo="Destaques" cor="#34D399" itens={ia.pontos_destaque} />
-            )}
-          </div>
+          <Suspense fallback={<NarrativaSkeleton resumoDeterm={determ.resumo} />}>
+            <NarrativaIA scope="municipio" municipio={m} ica={m.ica} determRefBlock={determRefBlock} />
+          </Suspense>
         </section>
 
         {/* ICA cards */}
@@ -148,23 +138,6 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
           </section>
         )}
 
-        {/* Perguntas */}
-        {ia.perguntas_pedagogicas.length > 0 && (
-          <section className="mb-10 rounded-2xl p-5 border border-white/[0.06]"
-            style={{ background: 'rgba(154,226,230,0.04)' }}>
-            <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-3" style={{ color: '#9ae2e6' }}>
-              Perguntas para discussão na secretaria
-            </p>
-            <ul className="space-y-2">
-              {ia.perguntas_pedagogicas.map((q, i) => (
-                <li key={i} className="text-sm text-white/75 leading-relaxed">
-                  <span className="text-cyan-400 mr-2">→</span>{q}
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
         {/* CTA */}
         <section className="text-center py-12 mb-10 rounded-2xl border border-cyan-400/20"
           style={{ background: 'rgba(52,197,204,0.04)' }}>
@@ -186,17 +159,3 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
   );
 }
 
-function Bloco({ titulo, cor, itens }: { titulo: string; cor: string; itens: string[] }) {
-  return (
-    <div className="rounded-2xl p-4 border" style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.06)' }}>
-      <p className="text-[10px] font-bold tracking-[0.18em] uppercase mb-2" style={{ color: cor }}>
-        {titulo}
-      </p>
-      <ul className="space-y-1.5">
-        {itens.map((t, i) => (
-          <li key={i} className="text-xs text-white/70 leading-relaxed">{t}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
