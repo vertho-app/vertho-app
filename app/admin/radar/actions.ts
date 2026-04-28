@@ -5,6 +5,10 @@ import { requireAdminAction } from '@/lib/auth/action-context';
 import { importarSaebXlsx } from '@/lib/radar/saeb-importer';
 import { importarIcaCsv, importarIcaXlsx } from '@/lib/radar/ica-importer';
 import { importarCensoCsv } from '@/lib/radar/censo-importer';
+import { importarIdebXlsx } from '@/lib/radar/ideb-importer';
+import { importarSarespCsv } from '@/lib/radar/saresp-importer';
+import { importarFundebCsv } from '@/lib/radar/fundeb-importer';
+import { importarPddeCsv } from '@/lib/radar/pdde-importer';
 import { MICRORREGIAO_IRECE_BA, isIreceMunicipio } from '@/lib/radar/microrregiao-irece';
 
 async function startIngestRun(fonte: string, escopo: any, arquivoOrigem?: string) {
@@ -43,11 +47,16 @@ async function finishIngestRun(id: string, result: any, status: 'sucesso' | 'err
 export async function loadRadarStats() {
   await requireAdminAction();
   const sb = createSupabaseAdmin();
-  const [escolas, snapshots, ica, censo, runs] = await Promise.all([
+  const [escolas, snapshots, ica, censo, ideb, saresp, fundeb, pdde, pddeMun, runs] = await Promise.all([
     sb.from('diag_escolas').select('codigo_inep', { count: 'exact', head: true }),
     sb.from('diag_saeb_snapshots').select('id', { count: 'exact', head: true }),
     sb.from('diag_ica_snapshots').select('id', { count: 'exact', head: true }),
     sb.from('diag_censo_infra').select('codigo_inep', { count: 'exact', head: true }),
+    sb.from('diag_ideb_metas').select('codigo_inep', { count: 'exact', head: true }),
+    sb.from('diag_saresp_snapshots').select('codigo_inep', { count: 'exact', head: true }),
+    sb.from('diag_fundeb_repasses').select('municipio_ibge', { count: 'exact', head: true }),
+    sb.from('diag_pdde_repasses').select('codigo_inep', { count: 'exact', head: true }),
+    sb.from('diag_pdde_municipal').select('municipio_ibge', { count: 'exact', head: true }),
     sb.from('diag_ingest_runs').select('id, fonte, status, total_sucesso, total_falha, total_skipped, iniciado_em, arquivo_origem')
       .order('iniciado_em', { ascending: false })
       .limit(10),
@@ -57,6 +66,10 @@ export async function loadRadarStats() {
     snapshots: snapshots.count || 0,
     ica: ica.count || 0,
     censo: censo.count || 0,
+    ideb: ideb.count || 0,
+    saresp: saresp.count || 0,
+    fundeb: fundeb.count || 0,
+    pdde: (pdde.count || 0) + (pddeMun.count || 0),
     runs: runs.data || [],
   };
 }
@@ -145,6 +158,67 @@ export async function ingestCensoFromUpload(textoCsv: string, arquivoNome: strin
   } catch (err: any) {
     await finishIngestRun(runId, { totalProcessado: 0, totalSucesso: 0, totalFalha: 1, totalSkipped: 0, erros: [{ key: 'fatal', msg: err?.message || String(err) }] }, 'erro');
     return { success: false, error: err?.message || 'Erro desconhecido', runId };
+  }
+}
+
+// ── Ideb (XLSX INEP) ────────────────────────────────────────────────
+export async function ingestIdebFromUpload(arquivoBase64: string, arquivoNome: string) {
+  await requireAdminAction();
+  const buffer = Buffer.from(arquivoBase64, 'base64');
+  const runId = await startIngestRun('ideb', { fonte: 'XLSX INEP' }, arquivoNome);
+  try {
+    const result = await importarIdebXlsx(buffer, { ingestRunId: runId });
+    const status = result.totalFalha > 0 && result.totalSucesso > 0 ? 'parcial' : result.totalFalha > 0 ? 'erro' : 'sucesso';
+    await finishIngestRun(runId, result, status);
+    return { success: true, runId, result };
+  } catch (err: any) {
+    await finishIngestRun(runId, { totalProcessado: 0, totalSucesso: 0, totalFalha: 1, totalSkipped: 0, erros: [{ key: 'fatal', msg: err?.message || String(err) }] }, 'erro');
+    return { success: false, error: err?.message || 'Erro', runId };
+  }
+}
+
+// ── SARESP (CSV SP) ─────────────────────────────────────────────────
+export async function ingestSarespFromUpload(textoCsv: string, arquivoNome: string) {
+  await requireAdminAction();
+  const runId = await startIngestRun('saresp', { fonte: 'CSV SP' }, arquivoNome);
+  try {
+    const result = await importarSarespCsv(textoCsv, { ingestRunId: runId });
+    const status = result.totalFalha > 0 && result.totalSucesso > 0 ? 'parcial' : result.totalFalha > 0 ? 'erro' : 'sucesso';
+    await finishIngestRun(runId, result, status);
+    return { success: true, runId, result };
+  } catch (err: any) {
+    await finishIngestRun(runId, { totalProcessado: 0, totalSucesso: 0, totalFalha: 1, totalSkipped: 0, erros: [{ key: 'fatal', msg: err?.message || String(err) }] }, 'erro');
+    return { success: false, error: err?.message || 'Erro', runId };
+  }
+}
+
+// ── FUNDEB (CSV Tesouro) ────────────────────────────────────────────
+export async function ingestFundebFromUpload(textoCsv: string, arquivoNome: string) {
+  await requireAdminAction();
+  const runId = await startIngestRun('fundeb', { fonte: 'CSV Tesouro' }, arquivoNome);
+  try {
+    const result = await importarFundebCsv(textoCsv, { ingestRunId: runId });
+    const status = result.totalFalha > 0 && result.totalSucesso > 0 ? 'parcial' : result.totalFalha > 0 ? 'erro' : 'sucesso';
+    await finishIngestRun(runId, result, status);
+    return { success: true, runId, result };
+  } catch (err: any) {
+    await finishIngestRun(runId, { totalProcessado: 0, totalSucesso: 0, totalFalha: 1, totalSkipped: 0, erros: [{ key: 'fatal', msg: err?.message || String(err) }] }, 'erro');
+    return { success: false, error: err?.message || 'Erro', runId };
+  }
+}
+
+// ── PDDE (CSV FNDE — escola ou municipal) ───────────────────────────
+export async function ingestPddeFromUpload(textoCsv: string, arquivoNome: string, preferMunicipal = false) {
+  await requireAdminAction();
+  const runId = await startIngestRun('pdde', { fonte: 'CSV FNDE', preferMunicipal }, arquivoNome);
+  try {
+    const result = await importarPddeCsv(textoCsv, { ingestRunId: runId, preferMunicipal });
+    const status = result.totalFalha > 0 && result.totalSucesso > 0 ? 'parcial' : result.totalFalha > 0 ? 'erro' : 'sucesso';
+    await finishIngestRun(runId, result, status);
+    return { success: true, runId, result };
+  } catch (err: any) {
+    await finishIngestRun(runId, { totalProcessado: 0, totalSucesso: 0, totalFalha: 1, totalSkipped: 0, erros: [{ key: 'fatal', msg: err?.message || String(err) }] }, 'erro');
+    return { success: false, error: err?.message || 'Erro', runId };
   }
 }
 

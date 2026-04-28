@@ -9,6 +9,10 @@ import {
   ingestSaebFromUpload,
   ingestIcaFromUpload,
   ingestCensoFromUpload,
+  ingestIdebFromUpload,
+  ingestSarespFromUpload,
+  ingestFundebFromUpload,
+  ingestPddeFromUpload,
   deleteIngestRun,
 } from './actions';
 
@@ -47,6 +51,10 @@ export default function AdminRadarPage() {
   const [uploadingSaeb, setUploadingSaeb] = useState(false);
   const [uploadingIca, setUploadingIca] = useState(false);
   const [uploadingCenso, setUploadingCenso] = useState(false);
+  const [uploadingIdeb, setUploadingIdeb] = useState(false);
+  const [uploadingSaresp, setUploadingSaresp] = useState(false);
+  const [uploadingFundeb, setUploadingFundeb] = useState(false);
+  const [uploadingPdde, setUploadingPdde] = useState(false);
   const [seedLoading, setSeedLoading] = useState(false);
   const [restringirIrece, setRestringirIrece] = useState(true);
   const [logs, setLogs] = useState<string[]>([]);
@@ -149,6 +157,71 @@ export default function AdminRadarPage() {
     refresh();
   }
 
+  async function handleIdebUpload(file: File) {
+    setUploadingIdeb(true);
+    addLog(`Ideb upload: ${file.name} (${(file.size / 1024).toFixed(0)}KB)`);
+    try {
+      const buffer = await file.arrayBuffer();
+      const base64 = await arrayBufferToBase64(buffer);
+      const r = await ingestIdebFromUpload(base64, file.name);
+      if (r.success) {
+        const res = r.result;
+        addLog(`Ideb OK: ${res.totalSucesso} linhas, ${res.totalFalha} erros, ${res.totalSkipped} skipped`);
+        for (const err of (res.erros || []).slice(0, 3)) addLog(`  ↳ ${err.key}: ${err.msg}`);
+      } else addLog(`Ideb ERRO: ${r.error}`);
+    } catch (e: any) { addLog(`Ideb EXCEÇÃO: ${e.message}`); }
+    setUploadingIdeb(false);
+    refresh();
+  }
+
+  async function handleSarespUpload(file: File) {
+    setUploadingSaresp(true);
+    addLog(`SARESP upload: ${file.name} (${(file.size / 1024).toFixed(0)}KB)`);
+    try {
+      const text = await file.text();
+      const r = await ingestSarespFromUpload(text, file.name);
+      if (r.success) {
+        const res = r.result;
+        addLog(`SARESP OK: ${res.totalSucesso} linhas, ${res.totalFalha} erros, ${res.totalSkipped} skipped`);
+        for (const err of (res.erros || []).slice(0, 3)) addLog(`  ↳ ${err.key}: ${err.msg}`);
+      } else addLog(`SARESP ERRO: ${r.error}`);
+    } catch (e: any) { addLog(`SARESP EXCEÇÃO: ${e.message}`); }
+    setUploadingSaresp(false);
+    refresh();
+  }
+
+  async function handleFundebUpload(file: File) {
+    setUploadingFundeb(true);
+    addLog(`FUNDEB upload: ${file.name} (${(file.size / 1024).toFixed(0)}KB)`);
+    try {
+      const text = await file.text();
+      const r = await ingestFundebFromUpload(text, file.name);
+      if (r.success) {
+        const res = r.result;
+        addLog(`FUNDEB OK: ${res.totalSucesso} agregados, ${res.totalFalha} erros, ${res.totalSkipped} skipped`);
+        for (const err of (res.erros || []).slice(0, 3)) addLog(`  ↳ ${err.key}: ${err.msg}`);
+      } else addLog(`FUNDEB ERRO: ${r.error}`);
+    } catch (e: any) { addLog(`FUNDEB EXCEÇÃO: ${e.message}`); }
+    setUploadingFundeb(false);
+    refresh();
+  }
+
+  async function handlePddeUpload(file: File, preferMunicipal: boolean) {
+    setUploadingPdde(true);
+    addLog(`PDDE upload (${preferMunicipal ? 'municipal' : 'auto'}): ${file.name}`);
+    try {
+      const text = await file.text();
+      const r = await ingestPddeFromUpload(text, file.name, preferMunicipal);
+      if (r.success) {
+        const res = r.result;
+        addLog(`PDDE OK [${res.modo}]: ${res.totalSucesso} linhas, ${res.totalFalha} erros, ${res.totalSkipped} skipped`);
+        for (const err of (res.erros || []).slice(0, 3)) addLog(`  ↳ ${err.key}: ${err.msg}`);
+      } else addLog(`PDDE ERRO: ${r.error}`);
+    } catch (e: any) { addLog(`PDDE EXCEÇÃO: ${e.message}`); }
+    setUploadingPdde(false);
+    refresh();
+  }
+
   async function handleDeleteRun(id: string) {
     if (!confirm('Excluir este run?')) return;
     await deleteIngestRun(id);
@@ -185,6 +258,10 @@ export default function AdminRadarPage() {
             { label: 'Snapshots Saeb', val: stats?.snapshots },
             { label: 'Snapshots ICA', val: stats?.ica },
             { label: 'Censo Escolar', val: stats?.censo },
+            { label: 'Ideb metas', val: stats?.ideb },
+            { label: 'SARESP', val: stats?.saresp },
+            { label: 'FUNDEB', val: stats?.fundeb },
+            { label: 'PDDE', val: stats?.pdde },
           ].map((s) => (
             <div key={s.label} className="rounded-2xl p-4 border border-white/[0.06]"
               style={{ background: 'rgba(255,255,255,0.03)' }}>
@@ -274,6 +351,100 @@ export default function AdminRadarPage() {
               <input type="file" accept=".csv,.txt" className="hidden" disabled={uploadingCenso}
                 onChange={(e) => e.target.files?.[0] && handleCensoUpload(e.target.files[0])} />
             </label>
+          </div>
+        </div>
+
+        {/* Uploaders Fase 2 — Bett */}
+        <p className="text-[10px] tracking-[0.2em] text-white/40 uppercase font-mono mb-3">
+          Fontes adicionais (pré-Bett)
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+          <div className="rounded-2xl p-5 border border-white/[0.06]"
+            style={{ background: 'rgba(255,255,255,0.03)' }}>
+            <div className="flex items-center gap-2 mb-3">
+              <FileSpreadsheet size={16} className="text-cyan-400" />
+              <h3 className="text-sm font-bold text-white">Ideb projetado vs realizado (XLSX)</h3>
+            </div>
+            <p className="text-xs text-white/50 mb-3">
+              Planilha INEP "divulgacao_ideb_escolas". Lê IDEB_AAAA + META_AAAA por etapa
+              (AI/AF/EM). Status calculado: <code>atingiu / superou / abaixo</code>.
+            </p>
+            <p className="text-[10px] text-white/40 mb-4">
+              Metas oficiais só até 2021 (último ciclo INEP).
+            </p>
+            <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white cursor-pointer"
+              style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+              {uploadingIdeb ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+              {uploadingIdeb ? 'Processando...' : 'Selecionar XLSX Ideb'}
+              <input type="file" accept=".xlsx" className="hidden" disabled={uploadingIdeb}
+                onChange={(e) => e.target.files?.[0] && handleIdebUpload(e.target.files[0])} />
+            </label>
+          </div>
+
+          <div className="rounded-2xl p-5 border border-white/[0.06]"
+            style={{ background: 'rgba(255,255,255,0.03)' }}>
+            <div className="flex items-center gap-2 mb-3">
+              <FileText size={16} className="text-cyan-400" />
+              <h3 className="text-sm font-bold text-white">SARESP — SP (CSV)</h3>
+            </div>
+            <p className="text-xs text-white/50 mb-3">
+              Microdados SP (dadosabertos.sp.gov.br). Por escola, ano, série, disciplina.
+              Aceita PCT_ABAIXO_BASICO/BASICO/ADEQUADO/AVANCADO no JSONB.
+            </p>
+            <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white cursor-pointer"
+              style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+              {uploadingSaresp ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+              {uploadingSaresp ? 'Processando...' : 'Selecionar CSV SARESP'}
+              <input type="file" accept=".csv,.txt" className="hidden" disabled={uploadingSaresp}
+                onChange={(e) => e.target.files?.[0] && handleSarespUpload(e.target.files[0])} />
+            </label>
+          </div>
+
+          <div className="rounded-2xl p-5 border border-white/[0.06]"
+            style={{ background: 'rgba(255,255,255,0.03)' }}>
+            <div className="flex items-center gap-2 mb-3">
+              <FileText size={16} className="text-cyan-400" />
+              <h3 className="text-sm font-bold text-white">FUNDEB (CSV Tesouro)</h3>
+            </div>
+            <p className="text-xs text-white/50 mb-3">
+              CSV mensal por município. Agregamos automaticamente ano por ano.
+              Colunas: cod_municipio, ano_mes, valor_repasse_bruto, complementacao_uniao.
+            </p>
+            <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white cursor-pointer"
+              style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+              {uploadingFundeb ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+              {uploadingFundeb ? 'Processando...' : 'Selecionar CSV FUNDEB'}
+              <input type="file" accept=".csv,.txt" className="hidden" disabled={uploadingFundeb}
+                onChange={(e) => e.target.files?.[0] && handleFundebUpload(e.target.files[0])} />
+            </label>
+          </div>
+
+          <div className="rounded-2xl p-5 border border-white/[0.06]"
+            style={{ background: 'rgba(255,255,255,0.03)' }}>
+            <div className="flex items-center gap-2 mb-3">
+              <FileText size={16} className="text-cyan-400" />
+              <h3 className="text-sm font-bold text-white">PDDE (CSV FNDE)</h3>
+            </div>
+            <p className="text-xs text-white/50 mb-3">
+              Detecta automaticamente: se CSV tem CO_ESCOLA, usa por escola; senão
+              agrega por município. Aceita VALOR_RECEBIDO, SALDO_ATUAL, STATUS_PC.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold text-white cursor-pointer"
+                style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+                {uploadingPdde ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                Auto
+                <input type="file" accept=".csv,.txt" className="hidden" disabled={uploadingPdde}
+                  onChange={(e) => e.target.files?.[0] && handlePddeUpload(e.target.files[0], false)} />
+              </label>
+              <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold text-white cursor-pointer border border-white/10"
+                style={{ background: 'rgba(255,255,255,0.04)' }}>
+                {uploadingPdde ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                Forçar municipal
+                <input type="file" accept=".csv,.txt" className="hidden" disabled={uploadingPdde}
+                  onChange={(e) => e.target.files?.[0] && handlePddeUpload(e.target.files[0], true)} />
+              </label>
+            </div>
           </div>
         </div>
 
