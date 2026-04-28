@@ -134,7 +134,10 @@ export default function AdminRadarPage() {
         const res = r.result;
         addLog(`Censo OK: ${res.totalSucesso} escolas, ${res.totalFalha} erros, ${res.totalSkipped} skipped`);
         for (const err of (res.erros || []).slice(0, 3)) {
-          addLog(`  ↳ ${err.key}: ${err.msg}`);
+          addLog(`  ↳ erro ${err.key}: ${err.msg}`);
+        }
+        for (const skip of (res.skipsAmostra || [])) {
+          addLog(`  ↳ skip ${skip.key}: ${skip.motivo}`);
         }
       } else {
         addLog(`Censo ERRO: ${r.error}`);

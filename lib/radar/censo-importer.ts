@@ -22,6 +22,8 @@ type IngestResult = {
   totalFalha: number;
   totalSkipped: number;
   erros: { key: string; msg: string }[];
+  /** Amostra dos primeiros 3 motivos de skip (debug rápido) */
+  skipsAmostra?: { key: string; motivo: string }[];
 };
 
 function splitCsvLine(line: string, sep = ';'): string[] {
@@ -73,7 +75,13 @@ export async function importarCensoCsv(
 ): Promise<IngestResult> {
   const sb = createSupabaseAdmin();
   const result: IngestResult = {
-    totalProcessado: 0, totalSucesso: 0, totalFalha: 0, totalSkipped: 0, erros: [],
+    totalProcessado: 0, totalSucesso: 0, totalFalha: 0, totalSkipped: 0, erros: [], skipsAmostra: [],
+  };
+  const addSkip = (key: string, motivo: string) => {
+    result.totalSkipped++;
+    if (result.skipsAmostra && result.skipsAmostra.length < 3) {
+      result.skipsAmostra.push({ key, motivo });
+    }
   };
 
   // Detecta separador (CSV INEP usa ; mas alguns processados são , )
@@ -132,23 +140,36 @@ export async function importarCensoCsv(
     result.totalProcessado++;
 
     const cells = splitCsvLine(line, sep);
-    const codigoInep = String(cells[I_INEP] || '').trim();
-    const ano = Number(cells[I_ANO]);
-    if (!codigoInep || codigoInep.length !== 8 || !Number.isFinite(ano)) {
-      result.totalSkipped++;
+    const rawInep = cells[I_INEP];
+    const rawAno = cells[I_ANO];
+    const rawIbge = cells[I_IBGE];
+
+    const codigoInep = String(rawInep || '').trim();
+    const ano = Number(rawAno);
+
+    if (!codigoInep) {
+      addSkip(`linha ${result.totalProcessado}`, `CO_ENTIDADE vazio`);
       continue;
     }
-    const ibge = String(cells[I_IBGE] || '').trim().padStart(7, '0');
+    if (codigoInep.length !== 8) {
+      addSkip(codigoInep, `CO_ENTIDADE com ${codigoInep.length} dígitos (esperado 8): "${codigoInep}"`);
+      continue;
+    }
+    if (!Number.isFinite(ano)) {
+      addSkip(codigoInep, `NU_ANO_CENSO não numérico: "${rawAno}"`);
+      continue;
+    }
+    const ibge = String(rawIbge || '').trim().padStart(7, '0');
 
     if (opts.restringirIrece && !isIreceMunicipio(ibge)) {
-      result.totalSkipped++;
+      addSkip(codigoInep, `município ${ibge} fora da microrregião de Irecê`);
       continue;
     }
 
     // Dedup intra-arquivo
     const key = `${codigoInep}_${ano}`;
     if (inseridosPorInep.has(key)) {
-      result.totalSkipped++;
+      addSkip(codigoInep, `duplicado (${key}) — já processado neste run`);
       continue;
     }
     inseridosPorInep.add(key);
