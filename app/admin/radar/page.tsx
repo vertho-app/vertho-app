@@ -248,7 +248,7 @@ export default function AdminRadarPage() {
             { label: 'Snapshots Saeb', val: stats?.snapshots },
             { label: 'Snapshots ICA', val: stats?.ica },
             { label: 'Censo Escolar', val: stats?.censo },
-            { label: 'Ideb metas', val: stats?.ideb },
+            { label: 'Snapshots Ideb', val: stats?.ideb },
             { label: 'SARESP', val: stats?.saresp },
             { label: 'FUNDEB', val: stats?.fundeb },
             { label: 'PDDE', val: stats?.pdde },
@@ -315,13 +315,19 @@ export default function AdminRadarPage() {
               32 quantidades + 4 scores agregados.
             </p>
             <p className="text-[10px] text-white/40 mb-4 leading-relaxed">
-              <span className="text-white/60 font-bold">Importante:</span> filtre antes para Irecê — o CSV nacional tem ~165MB e
-              não cabe em server action. Rode <code className="text-cyan-400 bg-white/5 px-1 rounded">node scripts/filter-censo-irece.mjs Tabela_Escola_2025.csv</code> e faça upload do arquivo gerado.
+              <span className="text-white/60 font-bold">Para CSV nacional (~165MB):</span> use
+              o script local pra evitar timeout do server action:
+              <br />
+              <code className="text-cyan-400 bg-white/5 px-1 py-0.5 rounded mt-1 inline-block">
+                node scripts/import-censo.mjs Tabela_Escola_2025.csv
+              </code>
+              <br />
+              Upload abaixo aceita arquivos &lt; 15MB (apenas pra subset filtrado).
             </p>
             <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white cursor-pointer"
               style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
               {uploadingCenso ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-              {uploadingCenso ? 'Processando...' : 'Selecionar CSV Censo'}
+              {uploadingCenso ? 'Processando...' : 'Selecionar CSV (subset)'}
               <input type="file" accept=".csv,.txt" className="hidden" disabled={uploadingCenso}
                 onChange={(e) => e.target.files?.[0] && handleCensoUpload(e.target.files[0])} />
             </label>
@@ -337,14 +343,14 @@ export default function AdminRadarPage() {
             style={{ background: 'rgba(255,255,255,0.03)' }}>
             <div className="flex items-center gap-2 mb-3">
               <FileSpreadsheet size={16} className="text-cyan-400" />
-              <h3 className="text-sm font-bold text-white">Ideb projetado vs realizado (XLSX)</h3>
+              <h3 className="text-sm font-bold text-white">Ideb histórico (XLSX)</h3>
             </div>
             <p className="text-xs text-white/50 mb-3">
-              Planilha INEP "divulgacao_ideb_escolas". Lê IDEB_AAAA + META_AAAA por etapa
-              (AI/AF/EM). Status calculado: <code>atingiu / superou / abaixo</code>.
+              Planilhas oficiais INEP de divulgação do Ideb por escola. Use os scripts locais
+              para arquivos grandes e séries históricas; este upload fica para cargas pequenas.
             </p>
             <p className="text-[10px] text-white/40 mb-4">
-              Metas oficiais só até 2021 (último ciclo INEP).
+              A base principal agora usa diag_ideb_snapshots.
             </p>
             <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white cursor-pointer"
               style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>

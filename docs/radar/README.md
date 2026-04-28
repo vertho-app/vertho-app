@@ -83,15 +83,30 @@ Em `/admin/radar` → **"Selecionar arquivo ICA"** (aceita também CSV).
 
 ### 3. Censo Escolar (infra-estrutura)
 
-CSV completo do Censo tem ~165MB e não cabe em server action. Filtra antes:
+CSV completo do Censo tem ~165MB e não cabe em server action. **Duas opções:**
+
+**A) Upload direto via CLI (recomendado pra base nacional):**
 
 ```bash
 cd nextjs-app
+node scripts/import-censo.mjs "C:/Users/.../Tabela_Escola_2025.csv"
+# Streaming linha-a-linha → upsert em batches de 200 direto no Supabase
+# Lê SUPABASE_URL + SERVICE_ROLE_KEY do .env.local
+# Mostra progresso (linhas/s) em tempo real
+```
+
+Flags:
+- `--limit=10000` → testa com primeiras 10k linhas
+- `--ano=2025` → força um ano específico
+
+**B) Filtrar antes pra subir via /admin/radar (apenas subsets pequenos):**
+
+```bash
 node scripts/filter-censo-irece.mjs "C:/Users/.../Tabela_Escola_2025.csv"
 # gera Tabela_Escola_2025_irece.csv (~5MB) ao lado do input
 ```
 
-Em `/admin/radar` → **"Selecionar CSV Censo"**. Insere em `diag_censo_infra`:
+Em `/admin/radar` → **"Selecionar CSV (subset)"**. Insere em `diag_censo_infra`:
 - 213 indicadores `IN_*` em JSONB
 - 32 quantidades `QT_*` em JSONB
 - 4 scores 0-100 calculados via `lib/radar/censo-scores.ts`: básica (água/luz/esgoto), pedagógica (biblioteca/lab/quadra), acessibilidade (rampas/sinais), conectividade (internet/banda larga)
