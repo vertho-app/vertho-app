@@ -36,17 +36,9 @@ const nextConfig = {
     },
   },
 
-  // unzipper (dep transitiva do read-excel-file/node usado pela ingestão
-  // Saeb do Radar) tenta importar @aws-sdk/client-s3 dinamicamente para
-  // um adapter S3 que NÃO usamos. Mantém os pacotes como server-external
-  // pra evitar bundling, e stub-a o aws-sdk no Turbopack.
-  serverExternalPackages: ['unzipper', 'read-excel-file'],
-
-  turbopack: {
-    resolveAlias: {
-      '@aws-sdk/client-s3': { browser: '', node: '' },
-    },
-  },
+  // exceljs é ESM em modo nativo; mantém como server-external pra evitar
+  // problemas de bundling do Turbopack.
+  serverExternalPackages: ['exceljs'],
 };
 
 export default withSentryConfig(nextConfig, {

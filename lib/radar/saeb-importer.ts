@@ -17,10 +17,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { isIreceMunicipio } from './microrregiao-irece';
-// `read-excel-file/node` em runtime aceita { sheet: string|number },
-// mas a tipagem pública só expõe number. Cast para any pra simplificar.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const readXlsxFile = require('read-excel-file/node') as any;
+import ExcelJS from 'exceljs';
 
 type Row = Record<string, unknown>;
 
@@ -65,6 +62,42 @@ function rowsFromSheet(rows: any[][]): Row[] {
   });
 }
 
+/**
+ * Converte célula ExcelJS (que pode vir como objeto com `result`/`text` quando
+ * é fórmula, ou como Date, ou como hyperlink) em valor primitivo simples.
+ */
+function cellValue(cell: any): any {
+  if (cell == null) return null;
+  if (typeof cell === 'object' && !(cell instanceof Date)) {
+    if ('result' in cell) return cell.result;
+    if ('text' in cell) return cell.text;
+    if ('richText' in cell && Array.isArray(cell.richText)) {
+      return cell.richText.map((p: any) => p.text || '').join('');
+    }
+    if ('hyperlink' in cell && 'text' in cell) return cell.text;
+  }
+  return cell;
+}
+
+async function readSheetByName(buffer: Buffer, sheetName: string): Promise<any[][]> {
+  const wb = new ExcelJS.Workbook();
+  // ExcelJS aceita ArrayBuffer/Uint8Array; o type Buffer<ArrayBufferLike> do
+  // Node 24 não bate com o Buffer antigo do exceljs — converte explicitamente.
+  const ab = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
+  await wb.xlsx.load(ab);
+  const ws = wb.getWorksheet(sheetName);
+  if (!ws) throw new Error(`Aba "${sheetName}" não encontrada no XLSX`);
+  const out: any[][] = [];
+  ws.eachRow({ includeEmpty: false }, (row) => {
+    const cells: any[] = [];
+    // ExcelJS row.values é 1-indexed (índice 0 é null); slice fora.
+    const rawValues = (row.values as any[]).slice(1);
+    for (const v of rawValues) cells.push(cellValue(v));
+    out.push(cells);
+  });
+  return out;
+}
+
 export async function importarSaebXlsx(
   buffer: Buffer,
   opts: { ingestRunId: string; restringirIrece?: boolean } = { ingestRunId: '' },
@@ -78,10 +111,9 @@ export async function importarSaebXlsx(
     erros: [],
   };
 
-  // read-excel-file aceita Buffer no entrypoint /node.
-  // Cast porque o tipo público marca apenas number; em runtime aceita string com nome da aba.
-  const escolasRows = await readXlsxFile(buffer, { sheet: 'escolas' });
-  const distRows = await readXlsxFile(buffer, { sheet: 'distribuicoes' });
+  // exceljs lida bem com inlineStr vazios que vem do openpyxl/Python
+  const escolasRows = await readSheetByName(buffer, 'escolas');
+  const distRows = await readSheetByName(buffer, 'distribuicoes');
 
   const escolas = rowsFromSheet(escolasRows);
   const distribuicoes = rowsFromSheet(distRows);
