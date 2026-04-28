@@ -6,14 +6,17 @@ let cachedLogoCover: string | null = null;
 let cachedLogoCoverTried = false;
 
 /**
- * Retorna o logo escuro (fundo branco) usado na capa dos PDFs, como data URI.
- * Carregado uma vez por cold start. Se o arquivo não existir, retorna null.
+ * Retorna o logo CLARO (Vertho H claro) usado na capa, headers e contracapa
+ * dos PDFs, como data URI. Os layouts de PDI/Gestor/RH têm capa e barra
+ * superior em navy, então o logo precisa ser a versão clara (alta visibilidade
+ * sobre fundo escuro). Carregado uma vez por cold start.
  */
 export function getLogoCoverBase64(): string | null {
   if (cachedLogoCoverTried) return cachedLogoCover;
   cachedLogoCoverTried = true;
   try {
-    const logoPath = join(process.cwd(), 'public', 'logo-vertho-cover.png');
+    // logo-vertho.png é a versão "Logo Vertho H claro fundo transparente"
+    const logoPath = join(process.cwd(), 'public', 'logo-vertho.png');
     const buffer = readFileSync(logoPath);
     cachedLogoCover = `data:image/png;base64,${buffer.toString('base64')}`;
   } catch {
