@@ -35,4 +35,5 @@ CREATE INDEX IF NOT EXISTS idx_diag_censo_inep ON diag_censo_infra(codigo_inep);
 CREATE INDEX IF NOT EXISTS idx_diag_censo_ano  ON diag_censo_infra(ano DESC);
 
 ALTER TABLE diag_censo_infra ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "diag_censo_public_read" ON diag_censo_infra;
 CREATE POLICY "diag_censo_public_read" ON diag_censo_infra FOR SELECT USING (true);

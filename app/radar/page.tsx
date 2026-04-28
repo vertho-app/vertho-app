@@ -1,29 +1,17 @@
 import Link from 'next/link';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { loadRadarCountStats } from '@/lib/radar/stats';
 import { RadarSearch } from './_components/radar-search';
 
 export const dynamic = 'force-dynamic';
 
 async function getStats() {
   const sb = createSupabaseAdmin();
-  const [escolas, municipiosRpc, saeb] = await Promise.all([
-    sb.from('diag_escolas').select('codigo_inep', { count: 'exact', head: true }),
-    // RPC SQL pra COUNT(DISTINCT) — escala muito além do Set no Node.
-    sb.rpc('diag_count_municipios_distintos'),
-    sb.from('diag_saeb_snapshots').select('id', { count: 'exact', head: true }),
-  ]);
-  // Fallback: se RPC falhar (migration 060 não rodou ainda), usa Set
-  let municipios = 0;
-  if (typeof municipiosRpc.data === 'number') {
-    municipios = municipiosRpc.data;
-  } else {
-    const { data } = await sb.from('diag_escolas').select('municipio_ibge').not('municipio_ibge', 'is', null);
-    municipios = new Set((data || []).map((r: any) => r.municipio_ibge)).size;
-  }
+  const stats = await loadRadarCountStats(sb);
   return {
-    escolas: escolas.count || 0,
-    municipios,
-    saeb: saeb.count || 0,
+    escolas: stats.escolas,
+    municipios: stats.municipios,
+    saeb: stats.saeb,
   };
 }
 

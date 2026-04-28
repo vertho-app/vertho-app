@@ -9,6 +9,7 @@ import { importarIdebXlsx } from '@/lib/radar/ideb-importer';
 import { importarSarespCsv } from '@/lib/radar/saresp-importer';
 import { importarFundebCsv } from '@/lib/radar/fundeb-importer';
 import { importarPddeCsv } from '@/lib/radar/pdde-importer';
+import { loadRadarCountStats } from '@/lib/radar/stats';
 
 async function startIngestRun(fonte: string, escopo: any, arquivoOrigem?: string) {
   const sb = createSupabaseAdmin();
@@ -46,29 +47,21 @@ async function finishIngestRun(id: string, result: any, status: 'sucesso' | 'err
 export async function loadRadarStats() {
   await requireAdminAction();
   const sb = createSupabaseAdmin();
-  const [escolas, municipios, snapshots, ica, ideb, saresp, fundeb, pdde, pddeMun, runs] = await Promise.all([
-    sb.from('diag_escolas').select('codigo_inep', { count: 'exact', head: true }),
-    sb.rpc('diag_count_municipios_distintos'),
-    sb.from('diag_saeb_snapshots').select('id', { count: 'exact', head: true }),
-    sb.from('diag_ica_snapshots').select('id', { count: 'exact', head: true }),
-    sb.from('diag_ideb_snapshots').select('id', { count: 'exact', head: true }),
-    sb.from('diag_saresp_snapshots').select('codigo_inep', { count: 'exact', head: true }),
-    sb.from('diag_fundeb_repasses').select('municipio_ibge', { count: 'exact', head: true }),
-    sb.from('diag_pdde_repasses').select('codigo_inep', { count: 'exact', head: true }),
-    sb.from('diag_pdde_municipal').select('municipio_ibge', { count: 'exact', head: true }),
+  const [counts, runs] = await Promise.all([
+    loadRadarCountStats(sb),
     sb.from('diag_ingest_runs').select('id, fonte, status, total_sucesso, total_falha, total_skipped, iniciado_em, arquivo_origem')
       .order('iniciado_em', { ascending: false })
       .limit(10),
   ]);
   return {
-    escolas: escolas.count || 0,
-    municipios: typeof municipios.data === 'number' ? municipios.data : 0,
-    snapshots: snapshots.count || 0,
-    ica: ica.count || 0,
-    ideb: ideb.count || 0,
-    saresp: saresp.count || 0,
-    fundeb: fundeb.count || 0,
-    pdde: (pdde.count || 0) + (pddeMun.count || 0),
+    escolas: counts.escolas,
+    municipios: counts.municipios,
+    snapshots: counts.saeb,
+    ica: counts.ica,
+    ideb: counts.ideb,
+    saresp: counts.saresp,
+    fundeb: counts.fundeb,
+    pdde: counts.pdde,
     runs: runs.data || [],
   };
 }
