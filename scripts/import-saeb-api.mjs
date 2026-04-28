@@ -7,6 +7,7 @@
  *   node scripts/import-saeb-api.mjs --ano 2023 --inep 35218509
  *   node scripts/import-saeb-api.mjs --ano 2023 --uf BA --limit 100 --concurrency 5
  *   node scripts/import-saeb-api.mjs --ano 2023 --file Escolas.txt --concurrency 10
+ *   node scripts/import-saeb-api.mjs --ano 2023 --uf BA --offset 5000 --limit 5000
  *
  * Fontes de INEP:
  *   --inep 35218509,29061920    lista manual
@@ -34,8 +35,10 @@ const ANO = Number(flag('--ano', '2023'));
 const UF = flag('--uf');
 const FILE = flag('--file');
 const INEP_ARG = flag('--inep');
+const OFFSET = Math.max(0, Number(flag('--offset', '0')));
 const LIMIT = Number(flag('--limit', '0'));
 const CONCURRENCY = Math.max(1, Number(flag('--concurrency', '5')));
+const DB_BATCH_SIZE = Math.max(1, Number(flag('--db-batch-size', '50')));
 const DELAY_MS = Math.max(0, Number(flag('--delay-ms', '0')));
 const DRY = has('--dry');
 const NO_RUN = has('--no-run');
@@ -66,12 +69,15 @@ if (!targets.length) {
   process.exit(0);
 }
 
-const planned = LIMIT > 0 ? targets.slice(0, LIMIT) : targets;
+const sliced = OFFSET > 0 ? targets.slice(OFFSET) : targets;
+const planned = LIMIT > 0 ? sliced.slice(0, LIMIT) : sliced;
 console.log(DRY ? '== DRY RUN ==' : '== EXECUÇÃO REAL ==');
 console.log(`ano: ${ANO}`);
 console.log(`fonte: ${sourceLabel}`);
 console.log(`escolas: ${planned.length}`);
 console.log(`concorrência: ${CONCURRENCY}`);
+console.log(`batch DB: ${DB_BATCH_SIZE}`);
+if (OFFSET) console.log(`offset: ${OFFSET}`);
 if (DELAY_MS) console.log(`delay por escola: ${DELAY_MS}ms`);
 console.log(`endpoint exemplo: ${endpointSaebResultadoFinal(planned[0], ANO)}`);
 console.log('');
@@ -81,7 +87,7 @@ if (!DRY && !NO_RUN) {
   const { data, error } = await sb.from('diag_ingest_runs')
     .insert({
       fonte: 'saeb_api',
-      escopo: { ano: ANO, source: sourceLabel, limit: LIMIT || null, concurrency: CONCURRENCY },
+      escopo: { ano: ANO, source: sourceLabel, offset: OFFSET || null, limit: LIMIT || null, concurrency: CONCURRENCY, dbBatchSize: DB_BATCH_SIZE },
       status: 'rodando',
       total_planejado: planned.length,
       arquivo_origem: sourceLabel,
@@ -104,6 +110,9 @@ const result = {
   avisos: [],
 };
 
+const pendingPersist = [];
+let persistChain = Promise.resolve();
+
 const startedAt = Date.now();
 let nextProgressAt = Math.min(25, planned.length);
 await runPool(planned, CONCURRENCY, async (codigo, index) => {
@@ -111,6 +120,8 @@ await runPool(planned, CONCURRENCY, async (codigo, index) => {
   await importOne(codigo, index);
   logProgress();
 });
+await flushPersistQueue(true);
+await persistChain;
 
 const durationMs = Date.now() - startedAt;
 const status = result.totalFalha > 0 && (result.totalSucesso > 0 || result.totalSkipped > 0)
@@ -179,20 +190,58 @@ async function importOne(codigoInep, index) {
       return;
     }
 
-    const { error: escolaErr } = await sb.from('diag_escolas')
-      .upsert(normalized.escola, { onConflict: 'codigo_inep' });
-    if (escolaErr) throw new Error(`diag_escolas: ${escolaErr.message}`);
-
-    const { error: snapErr } = await sb.from('diag_saeb_snapshots')
-      .upsert(normalized.snapshots, { onConflict: 'codigo_inep,ano,etapa,disciplina' });
-    if (snapErr) throw new Error(`diag_saeb_snapshots: ${snapErr.message}`);
-
-    result.totalSucesso++;
+    pendingPersist.push({
+      key: codigoInep,
+      escola: normalized.escola,
+      snapshots: normalized.snapshots,
+    });
+    flushPersistQueue();
   } catch (err) {
     result.totalProcessado++;
     result.totalFalha++;
     pushError(codigoInep, err?.message || String(err));
   }
+}
+
+function flushPersistQueue(force = false) {
+  if (DRY) return persistChain;
+  if (!force && pendingPersist.length < DB_BATCH_SIZE) return persistChain;
+  if (!pendingPersist.length) return persistChain;
+
+  const batch = pendingPersist.splice(0, pendingPersist.length);
+  persistChain = persistChain.then(async () => {
+    const escolasBatch = dedupeEscolas(batch.map((item) => item.escola));
+    const snapshotsBatch = batch.flatMap((item) => item.snapshots);
+
+    const { error: escolaErr } = await sb.from('diag_escolas')
+      .upsert(escolasBatch, { onConflict: 'codigo_inep' });
+    if (escolaErr) throwPersistBatch(batch, `diag_escolas: ${escolaErr.message}`);
+
+    const { error: snapErr } = await sb.from('diag_saeb_snapshots')
+      .upsert(snapshotsBatch, { onConflict: 'codigo_inep,ano,etapa,disciplina' });
+    if (snapErr) throwPersistBatch(batch, `diag_saeb_snapshots: ${snapErr.message}`);
+
+    result.totalSucesso += batch.length;
+  }).catch((err) => {
+    const msg = err?.message || String(err);
+    for (const item of batch) {
+      result.totalFalha++;
+      pushError(item.key, msg);
+    }
+  });
+  return persistChain;
+}
+
+function throwPersistBatch(batch, msg) {
+  const error = new Error(msg);
+  error.batchKeys = batch.map((item) => item.key);
+  throw error;
+}
+
+function dedupeEscolas(rows) {
+  const map = new Map();
+  for (const row of rows) map.set(row.codigo_inep, row);
+  return Array.from(map.values());
 }
 
 async function fetchWithRetry(codigoInep, ano, attempts = 4) {
