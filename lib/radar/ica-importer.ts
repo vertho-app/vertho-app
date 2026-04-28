@@ -92,51 +92,72 @@ async function processIcaRows(
   const batch: any[] = [];
   const batchKeys: string[] = [];
 
+  // Detecta colunas dinâmicas tipo "PC_ALUNO_ALFABETIZADO_2024" — o XLSX
+  // INEP da edição N traz a taxa daquele ano + a do ano anterior + metas
+  // futuras, todas em colunas separadas com sufixo de ano. Para cada linha
+  // emitimos um registro por ano que tiver taxa real (>0).
+  const allKeys = rows.length ? Object.keys(rows[0]) : [];
+  const taxaAnualKeys: { ano: number; key: string }[] = [];
+  for (const k of allKeys) {
+    const m = k.match(/^PC_ALUNO_ALFABETIZADO_(\d{4})$/i);
+    if (m) taxaAnualKeys.push({ ano: Number(m[1]), key: k });
+  }
+
   for (const r of rows) {
     result.totalProcessado++;
 
     let ibge = String(pick(r, ['CO_MUNICIPIO', 'co_municipio', 'codigo_municipio', 'IBGE']) || '').trim();
-    // CO_MUNICIPIO pode vir como número (7 dígitos) — força string com padding
     if (ibge && /^\d+$/.test(ibge) && ibge.length < 7) ibge = ibge.padStart(7, '0');
     const uf = String(pick(r, ['SG_UF', 'UF', 'sg_uf']) || '').trim().toUpperCase();
-    const ano = Number(pick(r, ['ANO', 'NU_ANO', 'ano']));
+    const anoBase = Number(pick(r, ['ANO', 'NU_ANO', 'ano']));
     const dep = parseDependencia(pick(r, ['NO_TP_REDE', 'TP_DEPENDENCIA', 'tp_dependencia', 'rede', 'DEPENDENCIA']));
 
-    if (!ibge || ibge.length !== 7 || !uf || !ano) {
+    if (!ibge || ibge.length !== 7 || !uf || !anoBase) {
       result.totalSkipped++;
       continue;
     }
 
     const alunos = Number(pick(r, ['QT_ALUNOS_AVALIADOS', 'alunos_avaliados', 'qt_avaliados']));
     const alfa = Number(pick(r, ['QT_ALFABETIZADOS', 'alfabetizados', 'qt_alfabetizados']));
-    const taxa = Number(pick(r, ['PC_ALUNO_ALFABETIZADO', 'TX_ALFABETIZACAO', 'taxa', 'tx_alfabetizacao']));
+    const taxaSimples = Number(pick(r, ['PC_ALUNO_ALFABETIZADO', 'TX_ALFABETIZACAO', 'taxa', 'tx_alfabetizacao']));
     const taxaUf = Number(pick(r, ['TX_ALFABETIZACAO_UF', 'tx_uf']));
     const taxaBr = Number(pick(r, ['TX_ALFABETIZACAO_BR', 'tx_brasil']));
 
-    // Pula linhas-fantasma onde todas as métricas vêm zeradas/vazias —
-    // o XLSX INEP às vezes traz placeholders para anos futuros sem dados.
-    const temDado = (Number.isFinite(alunos) && alunos > 0) ||
-                    (Number.isFinite(alfa) && alfa > 0) ||
-                    (Number.isFinite(taxa) && taxa > 0);
-    if (!temDado) {
+    // Coleta os pares (ano, taxa) presentes na linha. Se houver colunas
+    // ano-sufixadas, gera um snapshot por ano com taxa > 0. Caso contrário,
+    // cai no fluxo antigo (1 snapshot pelo ANO da linha).
+    const pares: { ano: number; taxa: number }[] = [];
+    if (taxaAnualKeys.length > 0) {
+      for (const { ano, key } of taxaAnualKeys) {
+        const v = Number(r[key]);
+        if (Number.isFinite(v) && v > 0) pares.push({ ano, taxa: v });
+      }
+    }
+    if (pares.length === 0 && Number.isFinite(taxaSimples) && taxaSimples > 0) {
+      pares.push({ ano: anoBase, taxa: taxaSimples });
+    }
+
+    if (pares.length === 0) {
       result.totalSkipped++;
       continue;
     }
 
-    batch.push({
-      municipio_ibge: ibge,
-      uf,
-      rede: dep,
-      ano,
-      alunos_avaliados: Number.isFinite(alunos) ? alunos : null,
-      alfabetizados: Number.isFinite(alfa) ? alfa : null,
-      taxa: Number.isFinite(taxa) ? taxa : null,
-      total_estado: Number.isFinite(taxaUf) ? taxaUf : null,
-      total_brasil: Number.isFinite(taxaBr) ? taxaBr : null,
-      ingest_run_id: opts.ingestRunId || null,
-      atualizado_em: now,
-    });
-    batchKeys.push(`${ibge}/${dep}/${ano}`);
+    for (const par of pares) {
+      batch.push({
+        municipio_ibge: ibge,
+        uf,
+        rede: dep,
+        ano: par.ano,
+        alunos_avaliados: Number.isFinite(alunos) ? alunos : null,
+        alfabetizados: Number.isFinite(alfa) ? alfa : null,
+        taxa: par.taxa,
+        total_estado: Number.isFinite(taxaUf) && taxaUf > 0 ? taxaUf : null,
+        total_brasil: Number.isFinite(taxaBr) && taxaBr > 0 ? taxaBr : null,
+        ingest_run_id: opts.ingestRunId || null,
+        atualizado_em: now,
+      });
+      batchKeys.push(`${ibge}/${dep}/${par.ano}`);
+    }
   }
 
   // Dedupe por chave (XLSX INEP às vezes repete linhas) — última vence.
