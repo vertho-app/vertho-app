@@ -9,7 +9,7 @@ const s = StyleSheet.create({
     fontFamily: 'NotoSans',
     position: 'relative',
   },
-  // Decorações geométricas no fundo (círculos cyan dessaturados)
+  // Decorações geométricas no fundo (círculos cyan da paleta brand)
   // Usa opacity em vez de rgba (parser do react-pdf falha com alpha baixo)
   accent1: {
     position: 'absolute',
@@ -18,9 +18,9 @@ const s = StyleSheet.create({
     width: 230,
     height: 230,
     borderWidth: 22,
-    borderColor: colors.cyan,
+    borderColor: colors.cyanLight, // #9AE2E6
     borderRadius: 115,
-    opacity: 0.07,
+    opacity: 0.18,
   },
   accent2: {
     position: 'absolute',
@@ -29,9 +29,9 @@ const s = StyleSheet.create({
     width: 145,
     height: 145,
     borderWidth: 12,
-    borderColor: colors.cyan,
+    borderColor: colors.cyan, // #34C5CC
     borderRadius: 72,
-    opacity: 0.05,
+    opacity: 0.22,
   },
   // Topo (logo) — ratio fixo do "Logo Vertho H claro" (~4.23:1)
   top: { paddingHorizontal: 50, paddingTop: 50 },
