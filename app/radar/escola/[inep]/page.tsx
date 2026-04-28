@@ -10,6 +10,7 @@ import { RadarHeader, RadarFooter } from '../../_components/radar-header';
 import { SaebCard } from '../../_components/indicator-card';
 import { LeadCTA } from '../../_components/lead-cta';
 import { NarrativaIA, NarrativaSkeleton } from '../../_components/narrativa-ia';
+import { InfraSection } from '../../_components/infra-card';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,6 +35,7 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
   if (!r?.escola) return notFound();
   const escola = r.escola;
   const saeb = r.saeb;
+  const censo = r.censo;
 
   const determ = leituraSaebEscola(escola, saeb);
   const determRefBlock = (
@@ -123,6 +125,9 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
             <NarrativaIA scope="escola" escola={escola} saeb={saeb} determRefBlock={determRefBlock} />
           </Suspense>
         </section>
+
+        {/* Infra (Censo Escolar) */}
+        {censo && <InfraSection censo={censo} />}
 
         {/* Saeb cards */}
         {saeb.length > 0 ? (

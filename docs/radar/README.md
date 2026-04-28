@@ -80,6 +80,7 @@ pra ~$0.012).
 | `diag_escolas` | Cadastro de escolas (INEP, nome, município, INSE, etapas) |
 | `diag_saeb_snapshots` | Saeb por (INEP, ano, etapa, disciplina) com distribuição cumulativa + comparativos similares/UF/BR |
 | `diag_ica_snapshots` | ICA por (município, rede, ano) com benchmarks UF/BR |
+| `diag_censo_infra` | Censo Escolar — 213 indicadores IN_* + 32 QT_* + 4 scores agregados (infra básica, pedagógica, acessibilidade, conectividade) |
 | `diag_analises_ia` | Cache de narrativas IA por (scope, prompt_version, dados_hash) |
 | `diag_leads` | Captação com consentimento LGPD + status do PDF + dados de origem |
 | `diag_ingest_runs` | Observabilidade de cada upload (sucesso/falha/skipped + erros) |
@@ -125,6 +126,27 @@ A versão antiga fica em `diag_analises_ia` como histórico (não é apagada).
 
 ---
 
+## Importar Censo Escolar (infraestrutura)
+
+O CSV completo do Censo Escolar tem ~165MB e não cabe em server action.
+Use o helper local pra filtrar pela microrregião antes:
+
+```bash
+cd nextjs-app
+node scripts/filter-censo-irece.mjs "C:/Users/.../microdados_censo_escolar_2025/dados/Tabela_Escola_2025.csv"
+# gera Tabela_Escola_2025_irece.csv (~5MB) ao lado do input
+```
+
+Depois, em `/admin/radar` → "Selecionar CSV Censo" → escolhe o filtrado.
+
+O parser:
+- Insere em `diag_censo_infra` (1 linha por escola+ano)
+- Calcula 4 scores 0–100 agregados via `lib/radar/censo-scores.ts`
+- Salva 213 indicadores `IN_*` + 32 quantidades `QT_*` em JSONB pra consultas ad-hoc
+- Preenche lat/long, zona, situação de funcionamento
+
+A página da escola passa a exibir cards de infra logo após o hero.
+
 ## Adicionar mais municípios
 
 Para expandir além de Irecê:
@@ -132,8 +154,9 @@ Para expandir além de Irecê:
 1. Edite `lib/radar/microrregiao-irece.ts` para incluir nova microrregião,
    ou crie `lib/radar/microrregiao-<x>.ts` com a mesma estrutura
 2. Atualize a flag/UI em `/admin/radar` (label e regra `restringirIrece`)
-3. Rode o saeb_pipeline com a nova `Escolas.txt`
-4. Suba os XLSX/CSVs
+3. Atualize `IRECE_IBGE` em `scripts/filter-censo-irece.mjs` (ou clone o script)
+4. Rode o saeb_pipeline com a nova `Escolas.txt`
+5. Suba os XLSX/CSVs
 
 Para abrir cobertura nacional (V2): desligar a flag de restrição faz com
 que o importador aceite qualquer município.

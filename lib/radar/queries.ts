@@ -29,6 +29,22 @@ export type Escola = {
   ano_referencia: number | null;
 };
 
+export type CensoInfra = {
+  codigo_inep: string;
+  ano: number;
+  zona_localizacao: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  endereco: string | null;
+  bairro: string | null;
+  indicadores: Record<string, number>;
+  quantidades: Record<string, number>;
+  score_basica: number | null;
+  score_pedagogica: number | null;
+  score_acessibilidade: number | null;
+  score_conectividade: number | null;
+};
+
 export type IcaSnapshot = {
   municipio_ibge: string;
   uf: string;
@@ -44,6 +60,7 @@ export type IcaSnapshot = {
 export async function getEscola(codigoInep: string): Promise<{
   escola: Escola | null;
   saeb: SaebSnapshot[];
+  censo: CensoInfra | null;
 } | null> {
   const sb = createSupabaseAdmin();
   const { data: escola } = await sb
@@ -52,14 +69,25 @@ export async function getEscola(codigoInep: string): Promise<{
     .eq('codigo_inep', codigoInep)
     .single();
   if (!escola) return null;
-  const { data: saeb } = await sb
-    .from('diag_saeb_snapshots')
-    .select('*')
-    .eq('codigo_inep', codigoInep)
-    .order('ano', { ascending: false })
-    .order('etapa', { ascending: true })
-    .order('disciplina', { ascending: true });
-  return { escola: escola as any, saeb: (saeb || []) as any };
+  const [saebRes, censoRes] = await Promise.all([
+    sb.from('diag_saeb_snapshots')
+      .select('*')
+      .eq('codigo_inep', codigoInep)
+      .order('ano', { ascending: false })
+      .order('etapa', { ascending: true })
+      .order('disciplina', { ascending: true }),
+    sb.from('diag_censo_infra')
+      .select('*')
+      .eq('codigo_inep', codigoInep)
+      .order('ano', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  return {
+    escola: escola as any,
+    saeb: (saebRes.data || []) as any,
+    censo: (censoRes.data as any) || null,
+  };
 }
 
 export async function getMunicipio(ibge: string): Promise<{

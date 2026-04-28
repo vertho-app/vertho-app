@@ -8,6 +8,7 @@ import {
   seedMicrorregiaoIrece,
   ingestSaebFromUpload,
   ingestIcaFromUpload,
+  ingestCensoFromUpload,
   deleteIngestRun,
 } from './actions';
 
@@ -45,6 +46,7 @@ export default function AdminRadarPage() {
   const [loading, setLoading] = useState(true);
   const [uploadingSaeb, setUploadingSaeb] = useState(false);
   const [uploadingIca, setUploadingIca] = useState(false);
+  const [uploadingCenso, setUploadingCenso] = useState(false);
   const [seedLoading, setSeedLoading] = useState(false);
   const [restringirIrece, setRestringirIrece] = useState(true);
   const [logs, setLogs] = useState<string[]>([]);
@@ -122,6 +124,28 @@ export default function AdminRadarPage() {
     refresh();
   }
 
+  async function handleCensoUpload(file: File) {
+    setUploadingCenso(true);
+    addLog(`Censo upload: ${file.name} (${(file.size / 1024).toFixed(0)}KB)`);
+    try {
+      const text = await file.text();
+      const r = await ingestCensoFromUpload(text, file.name, restringirIrece);
+      if (r.success) {
+        const res = r.result;
+        addLog(`Censo OK: ${res.totalSucesso} escolas, ${res.totalFalha} erros, ${res.totalSkipped} skipped`);
+        for (const err of (res.erros || []).slice(0, 3)) {
+          addLog(`  ↳ ${err.key}: ${err.msg}`);
+        }
+      } else {
+        addLog(`Censo ERRO: ${r.error}`);
+      }
+    } catch (e: any) {
+      addLog(`Censo EXCEÇÃO: ${e.message}`);
+    }
+    setUploadingCenso(false);
+    refresh();
+  }
+
   async function handleDeleteRun(id: string) {
     if (!confirm('Excluir este run?')) return;
     await deleteIngestRun(id);
@@ -149,11 +173,12 @@ export default function AdminRadarPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           {[
             { label: 'Escolas cadastradas', val: stats?.escolas },
             { label: 'Snapshots Saeb', val: stats?.snapshots },
             { label: 'Snapshots ICA', val: stats?.ica },
+            { label: 'Censo Escolar', val: stats?.censo },
           ].map((s) => (
             <div key={s.label} className="rounded-2xl p-4 border border-white/[0.06]"
               style={{ background: 'rgba(255,255,255,0.03)' }}>
@@ -182,7 +207,7 @@ export default function AdminRadarPage() {
         </div>
 
         {/* Uploaders */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
           <div className="rounded-2xl p-5 border border-white/[0.06]"
             style={{ background: 'rgba(255,255,255,0.03)' }}>
             <div className="flex items-center gap-2 mb-3">
@@ -219,6 +244,29 @@ export default function AdminRadarPage() {
               {uploadingIca ? 'Processando...' : 'Selecionar arquivo ICA'}
               <input type="file" accept=".xlsx,.csv,.txt" className="hidden" disabled={uploadingIca}
                 onChange={(e) => e.target.files?.[0] && handleIcaUpload(e.target.files[0])} />
+            </label>
+          </div>
+
+          <div className="rounded-2xl p-5 border border-white/[0.06]"
+            style={{ background: 'rgba(255,255,255,0.03)' }}>
+            <div className="flex items-center gap-2 mb-3">
+              <FileSpreadsheet size={16} className="text-cyan-400" />
+              <h3 className="text-sm font-bold text-white">Censo Escolar (CSV)</h3>
+            </div>
+            <p className="text-xs text-white/50 mb-3">
+              Microdados INEP (Tabela_Escola_*.csv). 213 indicadores de infra +
+              32 quantidades + 4 scores agregados.
+            </p>
+            <p className="text-[10px] text-white/40 mb-4 leading-relaxed">
+              <span className="text-white/60 font-bold">Importante:</span> filtre antes para Irecê — o CSV nacional tem ~165MB e
+              não cabe em server action. Rode <code className="text-cyan-400 bg-white/5 px-1 rounded">node scripts/filter-censo-irece.mjs Tabela_Escola_2025.csv</code> e faça upload do arquivo gerado.
+            </p>
+            <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white cursor-pointer"
+              style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+              {uploadingCenso ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+              {uploadingCenso ? 'Processando...' : 'Selecionar CSV Censo'}
+              <input type="file" accept=".csv,.txt" className="hidden" disabled={uploadingCenso}
+                onChange={(e) => e.target.files?.[0] && handleCensoUpload(e.target.files[0])} />
             </label>
           </div>
         </div>
