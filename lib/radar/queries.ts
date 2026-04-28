@@ -130,6 +130,28 @@ export type FundebReceitaPrevista = {
   total_receita_prevista: number | null;
 };
 
+export type BenchmarkScope = 'cidade' | 'microrregiao' | 'estado' | 'brasil';
+
+export type BenchmarkRow = {
+  scope: BenchmarkScope;
+  ica_taxa: number | null;
+  ideb_5ef: number | null;
+  ideb_9ef: number | null;
+  ideb_3em: number | null;
+  saeb_5ef_lp: number | null;
+  saeb_5ef_mat: number | null;
+  saeb_9ef_lp: number | null;
+  saeb_9ef_mat: number | null;
+  fundeb_aluno: number | null;
+  qtd_munis: number;
+};
+
+export async function getMunicipioBenchmarks(ibge: string): Promise<BenchmarkRow[]> {
+  const sb = createSupabaseAdmin();
+  const { data } = await sb.rpc('diag_municipio_benchmarks', { p_ibge: ibge });
+  return (data as BenchmarkRow[]) || [];
+}
+
 export type IcaSnapshot = {
   municipio_ibge: string;
   uf: string;

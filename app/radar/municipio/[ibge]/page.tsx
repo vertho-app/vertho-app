@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { ArrowLeft, MapPin, GraduationCap } from 'lucide-react';
 
-import { getMunicipio, getEscolasMunicipio } from '@/lib/radar/queries';
+import { getMunicipio, getEscolasMunicipio, getMunicipioBenchmarks } from '@/lib/radar/queries';
 import { leituraIcaMunicipio } from '@/lib/radar/leitura-deterministica';
 import { registrarEvento } from '@/lib/radar/eventos';
 import { RadarHeader, RadarFooter } from '../../_components/radar-header';
@@ -13,6 +13,7 @@ import { NarrativaIA, NarrativaSkeleton } from '../../_components/narrativa-ia';
 import { CitarButton } from '../../_components/citar-button';
 import { FundebSection } from '../../_components/fundeb-section';
 import { VaarSection } from '../../_components/vaar-section';
+import { BenchmarkTable } from '../../_components/benchmark-table';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,7 +38,21 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
 
   registrarEvento('view_municipio', { scopeType: 'municipio', scopeId: ibge }).catch(() => {});
 
-  const escolas = await getEscolasMunicipio(ibge);
+  const [escolas, benchmarks] = await Promise.all([
+    getEscolasMunicipio(ibge),
+    getMunicipioBenchmarks(ibge),
+  ]);
+  const microrregiao = await (async () => {
+    const sb = (await import('@/lib/supabase')).createSupabaseAdmin();
+    const { data } = await sb
+      .from('diag_escolas')
+      .select('microrregiao')
+      .eq('municipio_ibge', ibge)
+      .not('microrregiao', 'is', null)
+      .limit(1)
+      .maybeSingle();
+    return (data as any)?.microrregiao || null;
+  })();
   const determ = leituraIcaMunicipio(m, m.ica);
   const determRefBlock = (
     <p className="text-xs text-white/45 leading-relaxed italic border-l-2 border-white/10 pl-3">
@@ -105,6 +120,11 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
             />
           </Suspense>
         </section>
+
+        {/* Comparativo cidade vs microrregião vs UF vs Brasil */}
+        {benchmarks.length > 0 && (
+          <BenchmarkTable rows={benchmarks} microrregiao={microrregiao} uf={m.uf} />
+        )}
 
         {/* Ideb médio das escolas */}
         {m.ideb.length > 0 && <MunicipioIdebSection ideb={m.ideb} />}
