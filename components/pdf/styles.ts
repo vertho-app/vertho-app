@@ -18,29 +18,50 @@ Font.register({
 Font.registerHyphenationCallback((word: string) => [word]);
 
 // ── Paleta Vertho Premium ───────────────────────────────────────────────────
+// Alinhada ao mockup PDI Rodrigo: navy profundo + cyan vibrante,
+// blocos coloridos com BG suave + borda fina (estilo print premium).
 export const colors = {
   // Primárias
-  navy: '#0F2B54',
+  navy: '#162040',
+  navy2: '#1E2D55',
   navyLight: '#1A3A6B',
-  cyan: '#00B4D8',
+  cyan: '#3EF0E2',
+  cyan2: '#00C8BB',
   teal: '#0D9488',
   white: '#FFFFFF',
-  // Fundos de seção
-  perfilBg: '#EEF3FB',
-  fezBemBg: '#E8F5E9',
-  melhorarBg: '#FFF3E0',
-  descritorBg: '#FFF8E1',
-  planoBg: '#E8EDF5',
-  checklistBg: '#F5F7FA',
-  coverAccent: '#00B4D8',
+  // Fundos de seção (BG suave + borda)
+  perfilBg: '#F0F9FF',       // azul muito claro (análise / perfil)
+  perfilBorder: '#BAE6FD',
+  fezBemBg: '#F0FDF4',
+  fezBemBorder: '#BBF7D0',
+  melhorarBg: '#FFF7ED',
+  melhorarBorder: '#FED7AA',
+  descritorBg: '#FFFBEB',    // amber/yellow
+  descritorBorder: '#FDE68A',
+  planoBg: '#F8FAFC',
+  estudoBg: '#F5F3FF',       // purple
+  estudoBorder: '#DDD6FE',
+  dicasBg: '#F0FDF4',
+  dicasBorder: '#BBF7D0',
   summaryBg: '#F8FAFC',
+  coverAccent: '#3EF0E2',
   // Texto
   textPrimary: '#1E293B',
   textSecondary: '#475569',
   textMuted: '#64748B',
   flagRed: '#B91C1C',
-  descritorTitle: '#E65100',
+  descritorTitle: '#D97706',
+  yellowText: '#78350F',
+  greenText: '#14532D',
+  orangeText: '#7C2D12',
+  blueText: '#0C4A6E',
+  purpleText: '#4C1D95',
   linkBlue: '#1565C0',
+  // Status escolhidos pra texto colorido nos labels
+  green: '#16A34A',
+  orange: '#EA580C',
+  yellow: '#D97706',
+  purple: '#7C3AED',
   // Grays
   gray100: '#F8FAFC',
   gray200: '#E2E8F0',
@@ -123,23 +144,32 @@ export const tableStyles = StyleSheet.create({
 });
 
 // ── Page Styles ─────────────────────────────────────────────────────────────
+// Layout: navy header full-width no topo + body em padding + footer fino.
+// Mockup PDI Rodrigo (210mm × 297mm): header 18mm, body 10mm padding.
 export const pageStyles = StyleSheet.create({
   page: {
     flexDirection: 'column', backgroundColor: colors.white,
-    paddingTop: 120, paddingBottom: 52, paddingHorizontal: 40,
+    paddingTop: 70, paddingBottom: 40, paddingHorizontal: 40,
     fontFamily: 'NotoSans',
   },
+  // Header navy fixo no topo (full bleed)
   header: {
-    position: 'absolute', top: 18, left: 40, right: 40,
+    position: 'absolute', top: 0, left: 0, right: 0,
+    backgroundColor: colors.navy,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    borderBottomWidth: 0.5, borderBottomColor: colors.gray300, paddingBottom: 6,
+    paddingHorizontal: 40, paddingVertical: 14,
   },
-  headerTitle: { fontSize: 11, color: colors.navy, fontWeight: 'bold', letterSpacing: 3 },
-  headerSub: { fontSize: fonts.small, color: colors.textMuted },
+  headerLogo: { height: 18 },
+  headerLabel: {
+    fontSize: 8, color: 'rgba(255,255,255,0.5)',
+    letterSpacing: 1, textTransform: 'uppercase', fontWeight: 500,
+  },
+  // Footer fino na base
   footer: {
-    position: 'absolute', bottom: 20, left: 40, right: 40,
+    position: 'absolute', bottom: 0, left: 0, right: 0,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    borderTopWidth: 0.5, borderTopColor: colors.gray300, paddingTop: 5,
+    paddingHorizontal: 40, paddingVertical: 10,
+    borderTopWidth: 0.5, borderTopColor: colors.borderLight,
   },
-  footerText: { fontSize: fonts.tiny, color: colors.navy, fontWeight: 'bold' },
+  footerText: { fontSize: 7, color: colors.gray500, letterSpacing: 0.4 },
 });

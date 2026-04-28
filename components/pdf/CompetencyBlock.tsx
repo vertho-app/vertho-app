@@ -1,218 +1,236 @@
 import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { colors, fonts, nivelColor, nivelBgColor, nivelLabel } from './styles';
-import { LevelDots } from './StatusBadge';
 import ChecklistBox from './ChecklistBox';
 
 const s = StyleSheet.create({
-  // ── Header navy ──
+  // ── Header navy compacto ────────────────────────────────────────────
   headerBox: {
-    backgroundColor: colors.navy, borderRadius: 5, padding: 12,
-    marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: colors.navy, borderRadius: 5, padding: 10,
+    marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
   headerLeft: { flex: 1, marginRight: 10 },
-  compName: { fontSize: 13, fontWeight: 'bold', color: colors.white, marginBottom: 2 },
-  counter: { fontSize: 6.5, color: '#7B91AB', letterSpacing: 0.3 },
-  headerRight: { alignItems: 'flex-end' },
-  levelRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
-  levelBadge: {
-    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 3, marginRight: 6,
+  compName: { fontSize: 12, fontWeight: 700, color: colors.white, lineHeight: 1.3 },
+  headerRight: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+  // Badges
+  badgeLevel: {
+    backgroundColor: colors.cyan,
+    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 3,
   },
-  levelText: { fontSize: 11, fontWeight: 'bold' },
-  statusText: { fontSize: 7.5, color: '#94A3B8', fontWeight: 'bold', letterSpacing: 0.3 },
-  // Flag
-  flagBadge: {
-    backgroundColor: '#FEE2E2', paddingHorizontal: 10, paddingVertical: 3,
-    borderRadius: 3, marginBottom: 10, alignSelf: 'flex-start',
+  badgeLevelText: { fontSize: 8, fontWeight: 700, color: colors.navy, letterSpacing: 0.5 },
+  badgeAtencao: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 3, marginLeft: 5,
   },
-  flagText: { fontSize: 7.5, fontWeight: 'bold', color: '#991B1B', letterSpacing: 0.5 },
-  // ── Section labels ──
-  sectionLabel: {
-    fontSize: 7.5, fontWeight: 'bold', color: colors.textMuted,
-    textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4,
+  badgeAtencaoText: { fontSize: 7.5, fontWeight: 700, color: colors.white, letterSpacing: 0.5 },
+  badgeDev: {
+    backgroundColor: colors.yellow,
+    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 3, marginLeft: 5,
   },
-  // Descritores
+  badgeDevText: { fontSize: 7.5, fontWeight: 700, color: colors.white, letterSpacing: 0.5 },
+  // ── Block container helper ───────────────────────────────────────────
+  blockLabel: {
+    fontSize: 7.5, fontWeight: 700, textTransform: 'uppercase',
+    letterSpacing: 0.8, marginBottom: 4,
+  },
+  blockItem: {
+    fontSize: 8.5, lineHeight: 1.6, marginBottom: 1.5,
+  },
+  // Descritores (amber/yellow)
   descritorBox: {
-    backgroundColor: '#FFF8E1', borderRadius: 4, padding: 10,
-    marginBottom: 10, borderLeftWidth: 3, borderLeftColor: '#E65100',
+    backgroundColor: colors.descritorBg,
+    borderWidth: 0.5, borderColor: colors.descritorBorder,
+    borderRadius: 3, padding: 9, marginBottom: 8,
   },
-  descritorItem: { fontSize: 9, color: colors.textPrimary, marginLeft: 6, marginBottom: 2.5, lineHeight: 1.5 },
-  // Two columns — fez bem / melhorar
-  twoCol: { flexDirection: 'row', marginBottom: 10 },
+  // Fez bem (green) e Melhorar (orange) — two cols
+  twoCol: { flexDirection: 'row', marginBottom: 8, gap: 6 },
   fezBemCol: {
-    flex: 1, backgroundColor: '#E8F5E9', padding: 10, marginRight: 4, borderRadius: 4,
-    borderLeftWidth: 3, borderLeftColor: '#2E7D32',
+    flex: 1, backgroundColor: colors.fezBemBg,
+    borderWidth: 0.5, borderColor: colors.fezBemBorder,
+    borderRadius: 3, padding: 9,
   },
   melhorarCol: {
-    flex: 1, backgroundColor: '#FFF3E0', padding: 10, marginLeft: 4, borderRadius: 4,
-    borderLeftWidth: 3, borderLeftColor: '#E65100',
+    flex: 1, backgroundColor: colors.melhorarBg,
+    borderWidth: 0.5, borderColor: colors.melhorarBorder,
+    borderRadius: 3, padding: 9,
   },
-  colHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
-  colDot: { width: 5, height: 5, borderRadius: 3, marginRight: 5 },
-  colLabel: { fontSize: 8, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 0.5 },
-  colItem: { fontSize: 9, color: colors.textPrimary, marginLeft: 10, marginBottom: 2.5, lineHeight: 1.45 },
-  // Feedback / An\u00e1lise
-  feedbackBox: {
-    backgroundColor: '#F0F4FA', borderRadius: 4, padding: 12,
-    marginBottom: 10, borderLeftWidth: 3, borderLeftColor: colors.cyan,
+  // Análise (blue)
+  analiseBox: {
+    backgroundColor: colors.perfilBg,
+    borderWidth: 0.5, borderColor: colors.perfilBorder,
+    borderRadius: 3, padding: 9, marginBottom: 8,
   },
-  feedbackLabel: {
-    fontSize: 8, fontWeight: 'bold', color: colors.cyan,
-    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5,
-  },
-  feedbackText: { fontSize: 9, color: colors.textSecondary, lineHeight: 1.65, fontStyle: 'italic' },
+  analiseText: { fontSize: 8.5, color: colors.blueText, lineHeight: 1.65, fontStyle: 'italic' },
   // Plano 30 dias
-  planoContainer: { marginBottom: 12 },
-  planoTitle: { fontSize: 10, fontWeight: 'bold', color: colors.navy, marginBottom: 8 },
-  weekCard: {
-    backgroundColor: '#E8EDF5', borderRadius: 4, padding: 10, marginBottom: 5,
-    flexDirection: 'row', alignItems: 'flex-start',
+  planoTitle: {
+    fontSize: 10, fontWeight: 700, color: colors.navy,
+    marginBottom: 4, marginTop: 2,
   },
-  weekNum: {
-    width: 26, height: 26, borderRadius: 13,
-    backgroundColor: colors.navy, alignItems: 'center', justifyContent: 'center',
-    marginRight: 10, marginTop: 1,
+  steps: { marginBottom: 8 },
+  step: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    backgroundColor: colors.gray100, borderWidth: 0.5, borderColor: colors.borderLight,
+    borderRadius: 3, padding: 8, marginBottom: 4,
   },
-  weekNumText: { fontSize: 10, fontWeight: 'bold', color: colors.white },
-  weekContent: { flex: 1 },
-  weekFoco: { fontSize: 9, fontWeight: 'bold', color: colors.navyLight, marginBottom: 3 },
-  weekAcao: { fontSize: 8.5, color: colors.textSecondary, marginLeft: 4, marginBottom: 1.5, lineHeight: 1.45 },
-  // Dicas
+  stepNum: {
+    width: 18, height: 18, borderRadius: 9, backgroundColor: colors.navy,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    marginTop: 1,
+  },
+  stepNumText: { fontSize: 8, fontWeight: 700, color: colors.white },
+  stepContent: { flex: 1 },
+  stepStrong: {
+    fontSize: 9, fontWeight: 700, color: colors.navy, marginBottom: 2,
+  },
+  stepSpan: {
+    fontSize: 8.5, color: colors.gray500, lineHeight: 1.55,
+  },
+  // Bottom row: dicas (green) + estudo (purple)
+  bottomRow: { flexDirection: 'row', marginBottom: 8, gap: 6 },
   dicasBox: {
-    marginBottom: 10, padding: 10, backgroundColor: '#F0FAF4', borderRadius: 4,
-    borderLeftWidth: 3, borderLeftColor: colors.teal,
+    flex: 1, backgroundColor: colors.dicasBg,
+    borderWidth: 0.5, borderColor: colors.dicasBorder,
+    borderRadius: 3, padding: 9,
   },
-  dicaLabel: { fontSize: 8, fontWeight: 'bold', color: colors.teal, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5 },
-  dicaItem: { fontSize: 8.5, color: colors.textSecondary, marginLeft: 6, marginBottom: 2.5, lineHeight: 1.5 },
-  // Estudo
   estudoBox: {
-    marginBottom: 10, padding: 10, backgroundColor: '#F5F0FF', borderRadius: 4,
-    borderLeftWidth: 3, borderLeftColor: '#6B46C1',
+    flex: 1, backgroundColor: colors.estudoBg,
+    borderWidth: 0.5, borderColor: colors.estudoBorder,
+    borderRadius: 3, padding: 9,
   },
-  estudoLabel: { fontSize: 8, fontWeight: 'bold', color: '#6B46C1', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5 },
-  estudoItem: { fontSize: 8.5, color: colors.linkBlue, marginLeft: 6, marginBottom: 2.5, lineHeight: 1.45 },
 });
+
+// Util: renderiza um item com prefix colorido (substitui o ::before do CSS)
+function PrefixedItem({ prefix, color, text, textColor }: {
+  prefix: string; color: string; text: string; textColor?: string;
+}) {
+  return (
+    <View style={{ flexDirection: 'row', marginBottom: 2 }}>
+      <Text style={{ fontSize: 9, fontWeight: 700, color, width: 12, marginTop: 0 }}>{prefix}</Text>
+      <Text style={{ fontSize: 8.5, color: textColor || colors.textPrimary, flex: 1, lineHeight: 1.6 }}>
+        {text}
+      </Text>
+    </View>
+  );
+}
 
 export default function CompetencyBlock({ comp, index, total }: { comp: any; index: number; total: number }) {
   const nivel = comp.nivel || comp.nivel_atual || 0;
   const isFlag = comp.flag || nivel <= 1;
-  const isStrong = nivel >= 3; // Compet\u00eancia consolidada — bloco mais compacto
-  const nColor = nivelColor(nivel);
-  const nBg = nivelBgColor(nivel);
+  const isStrong = nivel >= 3;
 
   return (
     <View>
-      {/* ── Header navy ── */}
+      {/* ── Header navy + badges ── */}
       <View style={s.headerBox} wrap={false}>
         <View style={s.headerLeft}>
           <Text style={s.compName}>{comp.nome}</Text>
-          <Text style={s.counter}>Competência {index + 1} de {total}</Text>
         </View>
         <View style={s.headerRight}>
-          <View style={s.levelRow}>
-            <View style={{ ...s.levelBadge, backgroundColor: nBg }}>
-              <Text style={{ ...s.levelText, color: nColor }}>N{nivel}</Text>
-            </View>
-            <LevelDots nivel={nivel} color={nColor} />
+          <View style={s.badgeLevel}>
+            <Text style={s.badgeLevelText}>N{nivel}</Text>
           </View>
-          <Text style={s.statusText}>{nivelLabel(nivel)}</Text>
+          {isFlag ? (
+            <View style={s.badgeAtencao}>
+              <Text style={s.badgeAtencaoText}>Atenção Prioritária</Text>
+            </View>
+          ) : nivel === 2 ? (
+            <View style={s.badgeDev}>
+              <Text style={s.badgeDevText}>Em Desenvolvimento</Text>
+            </View>
+          ) : null}
         </View>
       </View>
 
-      {/* Flag de prioridade */}
-      {isFlag && (
-        <View style={s.flagBadge}>
-          <Text style={s.flagText}>ATENÇÃO PRIORITÁRIA</Text>
-        </View>
-      )}
-
-      {/* ── Descritores em desenvolvimento (apenas para N1-2) ── */}
+      {/* ── Descritores em desenvolvimento (amber) ── */}
       {!isStrong && comp.descritores_desenvolvimento?.length > 0 && (
         <View style={s.descritorBox} wrap={false}>
-          <Text style={s.sectionLabel}>Descritores em Desenvolvimento</Text>
+          <Text style={{ ...s.blockLabel, color: colors.yellow }}>Descritores em Desenvolvimento</Text>
           {comp.descritores_desenvolvimento.map((d: any, i: number) => (
-            <Text key={i} style={s.descritorItem}>- {d}</Text>
+            <PrefixedItem key={i} prefix="→" color={colors.yellow} text={d} textColor={colors.yellowText} />
           ))}
         </View>
       )}
 
-      {/* ── Fez Bem / Melhorar ── */}
+      {/* ── Fez Bem / Melhorar (two-col) ── */}
       <View style={s.twoCol} wrap={false}>
         <View style={s.fezBemCol}>
-          <View style={s.colHeader}>
-            <View style={{ ...s.colDot, backgroundColor: '#2E7D32' }} />
-            <Text style={{ ...s.colLabel, color: '#2E7D32' }}>Fez Bem</Text>
-          </View>
+          <Text style={{ ...s.blockLabel, color: colors.green }}>Fez Bem</Text>
           {comp.fez_bem?.length > 0
-            ? comp.fez_bem.map((e: any, j: number) => <Text key={j} style={s.colItem}>+ {e}</Text>)
-            : <Text style={s.colItem}>-</Text>
+            ? comp.fez_bem.map((e: any, j: number) => (
+                <PrefixedItem key={j} prefix="+" color={colors.green} text={e} textColor={colors.greenText} />
+              ))
+            : <Text style={{ ...s.blockItem, color: colors.greenText }}>—</Text>
           }
         </View>
         <View style={s.melhorarCol}>
-          <View style={s.colHeader}>
-            <View style={{ ...s.colDot, backgroundColor: '#E65100' }} />
-            <Text style={{ ...s.colLabel, color: '#E65100' }}>Melhorar</Text>
-          </View>
+          <Text style={{ ...s.blockLabel, color: colors.orange }}>Melhorar</Text>
           {comp.melhorar?.length > 0
-            ? comp.melhorar.map((e: any, j: number) => <Text key={j} style={s.colItem}>- {e}</Text>)
-            : <Text style={s.colItem}>-</Text>
+            ? comp.melhorar.map((e: any, j: number) => (
+                <PrefixedItem key={j} prefix="↑" color={colors.orange} text={e} textColor={colors.orangeText} />
+              ))
+            : <Text style={{ ...s.blockItem, color: colors.orangeText }}>—</Text>
           }
         </View>
       </View>
 
-      {/* ── An\u00e1lise (feedback) ── */}
+      {/* ── Análise (azul, itálico) ── */}
       {comp.feedback && (
-        <View style={s.feedbackBox} wrap={false}>
-          <Text style={s.feedbackLabel}>Análise</Text>
-          <Text style={s.feedbackText}>{comp.feedback}</Text>
+        <View style={s.analiseBox} wrap={false}>
+          <Text style={{ ...s.blockLabel, color: '#0369A1' }}>Análise</Text>
+          <Text style={s.analiseText}>{comp.feedback}</Text>
         </View>
       )}
 
-      {/* ── Plano 30 dias (apenas para N1-2, priorit\u00e1rias) ── */}
+      {/* ── Plano 30 dias (steps numerados) ── */}
       {!isStrong && comp.plano_30_dias && (
-        <View style={s.planoContainer}>
+        <View>
           <Text style={s.planoTitle}>Plano de Desenvolvimento — 30 Dias</Text>
-          {['semana_1', 'semana_2', 'semana_3', 'semana_4'].map((sem: string, si: number) => {
-            const semana = comp.plano_30_dias[sem];
-            if (!semana) return null;
-            return (
-              <View key={si} style={s.weekCard} wrap={false}>
-                <View style={s.weekNum}>
-                  <Text style={s.weekNumText}>{si + 1}</Text>
+          <View style={s.steps}>
+            {['semana_1', 'semana_2', 'semana_3', 'semana_4'].map((sem: string, si: number) => {
+              const semana = comp.plano_30_dias[sem];
+              if (!semana) return null;
+              const acoesText = Array.isArray(semana.acoes) ? semana.acoes.join(' ') : (semana.acoes || '');
+              return (
+                <View key={si} style={s.step} wrap={false}>
+                  <View style={s.stepNum}>
+                    <Text style={s.stepNumText}>{si + 1}</Text>
+                  </View>
+                  <View style={s.stepContent}>
+                    <Text style={s.stepStrong}>{semana.foco}</Text>
+                    {acoesText && <Text style={s.stepSpan}>{acoesText}</Text>}
+                  </View>
                 </View>
-                <View style={s.weekContent}>
-                  <Text style={s.weekFoco}>{semana.foco}</Text>
-                  {semana.acoes?.map((a: any, ai: number) => (
-                    <Text key={ai} style={s.weekAcao}>- {a}</Text>
-                  ))}
-                </View>
-              </View>
-            );
-          })}
+              );
+            })}
+          </View>
         </View>
       )}
 
-      {/* ── Dicas de Desenvolvimento ── */}
-      {comp.dicas_desenvolvimento?.length > 0 && (
-        <View style={s.dicasBox} wrap={false}>
-          <Text style={s.dicaLabel}>Dicas de Desenvolvimento</Text>
-          {comp.dicas_desenvolvimento.map((d: any, i: number) => (
-            <Text key={i} style={s.dicaItem}>- {d}</Text>
-          ))}
+      {/* ── Bottom: Dicas (green) + Estudo (purple) ── */}
+      {(comp.dicas_desenvolvimento?.length > 0 || comp.estudo_recomendado?.length > 0) && (
+        <View style={s.bottomRow} wrap={false}>
+          {comp.dicas_desenvolvimento?.length > 0 && (
+            <View style={s.dicasBox}>
+              <Text style={{ ...s.blockLabel, color: colors.green }}>Dica de Desenvolvimento</Text>
+              {comp.dicas_desenvolvimento.map((d: any, i: number) => (
+                <Text key={i} style={{ fontSize: 8, color: colors.greenText, lineHeight: 1.6, marginBottom: 2 }}>{d}</Text>
+              ))}
+            </View>
+          )}
+          {comp.estudo_recomendado?.length > 0 && (
+            <View style={s.estudoBox}>
+              <Text style={{ ...s.blockLabel, color: colors.purple }}>Estudo Recomendado</Text>
+              {comp.estudo_recomendado.map((e: any, i: number) => (
+                <Text key={i} style={{ fontSize: 8, color: colors.purpleText, lineHeight: 1.6, marginBottom: 2 }}>
+                  {typeof e === 'string' ? e : `${e.titulo}${e.por_que_ajuda ? ' — ' + e.por_que_ajuda : ''}`}
+                </Text>
+              ))}
+            </View>
+          )}
         </View>
       )}
 
-      {/* ── Estudo Recomendado ── */}
-      {comp.estudo_recomendado?.length > 0 && (
-        <View style={s.estudoBox} wrap={false}>
-          <Text style={s.estudoLabel}>Estudo Recomendado</Text>
-          {comp.estudo_recomendado.map((e: any, i: number) => (
-            <Text key={i} style={s.estudoItem}>- {e.titulo}{e.por_que_ajuda ? ` — ${e.por_que_ajuda}` : ''}</Text>
-          ))}
-        </View>
-      )}
-
-      {/* ── Checklist T\u00e1tico ── */}
+      {/* ── Checklist Tático (navy + branco) ── */}
       {comp.checklist_tatico?.length > 0 && (
         <ChecklistBox items={comp.checklist_tatico} />
       )}

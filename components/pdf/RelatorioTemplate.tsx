@@ -22,8 +22,8 @@ export default function RelatorioTemplate({ title, children }: { title?: string;
       <Page size="A4" style={pageStyles.page}>
         {/* Header */}
         <View style={pageStyles.header} fixed>
-          <Text style={pageStyles.headerTitle}>VERTHO</Text>
-          <Text style={(pageStyles as any).headerDate}>{today}</Text>
+          <Text style={pageStyles.headerLabel}>VERTHO</Text>
+          <Text style={pageStyles.headerLabel}>{today}</Text>
         </View>
 
         {/* Content */}
