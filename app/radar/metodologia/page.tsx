@@ -6,7 +6,7 @@ import { RadarHeader, RadarFooter } from '../_components/radar-header';
 export const metadata: Metadata = {
   title: 'Metodologia',
   description:
-    'Como o Radar Vertho consolida indicadores oficiais do INEP, quais fontes usa, como compara escolas e quais limites a análise tem.',
+    'Como o Radar Vertho consolida Saeb, Ideb, ICA, SARESP, Censo Escolar, FUNDEB e PDDE em uma leitura única por escola e município, quais fontes usa, como compara e quais limites a análise tem.',
   alternates: { canonical: 'https://radar.vertho.ai/metodologia' },
 };
 
@@ -41,28 +41,74 @@ export default function MetodologiaPage() {
 
         <div className="prose prose-invert text-white/75 leading-relaxed space-y-6 text-[15px]">
           <p>
-            O Radar Vertho é uma plataforma <strong>pública e gratuita</strong> que organiza
-            indicadores educacionais oficiais do INEP por escola e município, com leitura
-            contextualizada e fontes citadas em cada página.
+            O Radar Vertho é uma plataforma <strong>pública e gratuita</strong> que reúne, em
+            uma única ficha por escola e município, os principais indicadores oficiais de
+            <strong> aprendizagem, infraestrutura e financiamento</strong> da educação básica
+            brasileira. Toda informação tem fonte e ano citados na própria página.
+          </p>
+          <p>
+            O objetivo é encurtar o caminho entre dado público e decisão pedagógica/gestora —
+            de pesquisador, jornalista, conselheiro ou diretor escolar — sem exigir cadastro
+            para navegar e sem mediação proprietária dos números.
           </p>
 
           <Section titulo="Fontes de dados">
+            <p className="mb-3">
+              Todos os dados vêm de bases públicas oficiais. Nenhum número é estimado ou imputado
+              pelo Radar — quando uma fonte não tem o dado, a página exibe "dado não disponível".
+            </p>
             <ul className="space-y-2 list-disc pl-5">
               <li>
                 <strong>Saeb (INEP):</strong> distribuição de proficiência por nível em Língua
-                Portuguesa e Matemática, no 5º ano EF, 9º ano EF e 3º ano EM. Bienal (anos ímpares).
-              </li>
-              <li>
-                <strong>ICA — Indicador Criança Alfabetizada (INEP):</strong> percentual de crianças
-                avaliadas que demonstram domínio das habilidades esperadas para o 2º ano do EF.
-                Anual, por município e rede administrativa.
+                Portuguesa e Matemática no 5º ano EF, 9º ano EF e 3º ano EM. Bienal (anos ímpares),
+                cobertura nacional, por escola.
               </li>
               <li>
                 <strong>Ideb (INEP):</strong> índice síntese que combina aprendizado (Saeb) com
-                fluxo escolar (taxas de rendimento). Quando os dados de origem são confiáveis e
-                cruzam com a escola correspondente, o Ideb é exibido. Caso contrário, omitido.
+                fluxo escolar (taxas de rendimento). Mostramos a série histórica por escola e a
+                meta INEP correspondente quando disponíveis.
+              </li>
+              <li>
+                <strong>ICA — Indicador Criança Alfabetizada (INEP):</strong> percentual de
+                crianças avaliadas no 2º ano EF que demonstram domínio das habilidades esperadas.
+                Anual, por município e rede administrativa.
+              </li>
+              <li>
+                <strong>SARESP (SEDUC-SP):</strong> microdados oficiais do Sistema de Avaliação de
+                Rendimento Escolar de SP. Disponível por escola, ano, série e disciplina nas
+                edições <strong>2023, 2024 e 2025</strong>. Como o SARESP usa código próprio da
+                rede, o cruzamento com o cadastro INEP é feito por similaridade de nome+município
+                (heurística Jaccard) — escolas onde o casamento não atinge confiança mínima são
+                omitidas.
+              </li>
+              <li>
+                <strong>Censo Escolar (INEP):</strong> cadastro nacional anual com 213 indicadores
+                de infraestrutura física (dependências, equipamentos, acessibilidade) e
+                quantitativos de matrícula. Usado para situar a estrutura do prédio e os recursos
+                disponíveis em cada escola.
+              </li>
+              <li>
+                <strong>FUNDEB (Tesouro Nacional / FNDE):</strong> repasses mensais agregados
+                anualmente por município, incluindo a parcela de complementação da União.
+                Relevante para entender a capacidade de financiamento da rede municipal.
+              </li>
+              <li>
+                <strong>PDDE (FNDE):</strong> Programa Dinheiro Direto na Escola — repasses
+                discricionários por escola (ou agregados por município, conforme disponibilidade
+                da fonte), saldos e status da prestação de contas.
               </li>
             </ul>
+          </Section>
+
+          <Section titulo="Cobertura geográfica e temporal">
+            <p>
+              O Radar começou com cobertura piloto restrita à microrregião de Irecê (BA) e hoje
+              opera em <strong>cobertura nacional</strong> para Saeb, Ideb, ICA, Censo Escolar,
+              FUNDEB e PDDE. SARESP é específico do estado de São Paulo, com séries de 2023 a
+              2025. Onde uma fonte não cobre uma escola/município (por exemplo, SARESP fora de
+              SP, ou Saeb de uma escola que não foi avaliada na edição), a seção correspondente
+              não aparece — em vez de inventar.
+            </p>
           </Section>
 
           <Section titulo="Comparações">
@@ -113,41 +159,65 @@ export default function MetodologiaPage() {
             </p>
           </Section>
 
-          <Section titulo="Análise por IA — limites">
+          <Section titulo="Análise por IA — limites e salvaguardas">
             <p>
               Cada página tem uma leitura institucional gerada por IA <strong>a partir
               exclusivamente dos dados estruturados</strong> mostrados na página. Regras rígidas:
             </p>
             <ul className="space-y-2 list-disc pl-5 mt-3">
-              <li>A IA não inventa números. Todo dado citado precisa de ano e fonte.</li>
-              <li>Quando um dado não está disponível, a IA escreve "dado não disponível" — não preenche lacunas.</li>
-              <li>A análise é cacheada por SHA-256 dos dados. Se os números não mudaram, o texto também não muda.</li>
-              <li>Disclaimer fixo: "Análise gerada a partir de dados públicos do INEP. Valores oficiais devem ser consultados em portais governamentais."</li>
+              <li>A IA não inventa números. Todo dado citado tem ano e fonte declarados.</li>
+              <li>Quando um dado não está disponível, a IA escreve "dado não disponível" — não preenche lacunas com estimativa.</li>
+              <li>A análise é cacheada por hash SHA-256 do conteúdo de entrada. Se os números não mudaram, o texto não muda — garantindo reprodutibilidade.</li>
+              <li>O modelo recebe instruções para não emitir juízo sobre indivíduos (professores, gestores, alunos). Toda observação é dirigida ao agregado escola/município.</li>
+              <li>Disclaimer fixo: "Análise gerada a partir de dados públicos. Valores oficiais devem ser consultados nos portais governamentais."</li>
             </ul>
           </Section>
 
           <Section titulo="Atualização dos dados">
             <p>
-              Os dados são importados a partir das publicações oficiais do INEP. O Saeb é bienal
-              (2019, 2021, 2023, 2025), o ICA é anual e o Censo Escolar é anual. Cada conjunto é
-              atualizado quando o INEP publica nova edição.
+              Os dados são reimportados sempre que cada fonte publica nova edição:
             </p>
+            <ul className="space-y-1 list-disc pl-5 mt-3">
+              <li>Saeb: bienal (2019, 2021, 2023, 2025…)</li>
+              <li>Ideb: divulgado pelo INEP no ano seguinte ao Saeb</li>
+              <li>ICA: anual</li>
+              <li>SARESP: anual (SP)</li>
+              <li>Censo Escolar: anual</li>
+              <li>FUNDEB e PDDE: atualização mensal/trimestral, consolidados ao fim de cada exercício</li>
+            </ul>
             <p className="mt-3">
               <strong>Observação sobre 2021:</strong> a edição do Saeb 2021 foi aplicada durante a
               pandemia de Covid-19. Quedas observadas entre 2019 e 2021 refletem efeito sistêmico
-              nacional, não deterioração isolada da escola.
+              nacional, não deterioração isolada de uma escola específica.
             </p>
           </Section>
 
-          <Section titulo="O que NÃO está aqui (ainda)">
+          <Section titulo="Como citar o Radar">
             <p>
-              A versão V1 do Radar prioriza profundidade sobre amplitude. Estão fora desta versão:
+              Para uso em pesquisas, reportagens e relatórios institucionais, citar como:
+            </p>
+            <p className="mt-3 px-4 py-3 rounded-lg border border-white/[0.08] text-sm font-mono text-white/80"
+              style={{ background: 'rgba(255,255,255,0.03)' }}>
+              VERTHO MENTOR IA. Radar Vertho — diagnóstico público da educação. Disponível em:
+              radar.vertho.ai. Acesso em: [data].
+            </p>
+            <p className="mt-3">
+              Para uso de tabelas e gráficos, agradecemos a referência à fonte primária (INEP, FNDE
+              ou Tesouro Nacional, conforme o caso) e o link para a página correspondente do Radar.
+              Cada página tem botão "Citar" que copia a referência completa para a área de
+              transferência.
+            </p>
+          </Section>
+
+          <Section titulo="Limites conhecidos">
+            <p>
+              Transparência sobre o que o Radar <em>ainda não faz</em>:
             </p>
             <ul className="space-y-1 list-disc pl-5 mt-3">
-              <li>Censo Escolar completo (302 colunas de infraestrutura) — V2.</li>
-              <li>Comparativo lado a lado entre escolas/municípios — V2.</li>
-              <li>Cobertura nacional — V1.5+ (V1 cobre microrregião de Irecê/BA).</li>
-              <li>Backlinks acadêmicos e ranking estadual — V1.5+.</li>
+              <li>Avaliações estaduais fora de SP (SAEPE-PE, SPAECE-CE, SAERS-RS, Paraná Avaliação etc.) — em estudo para próximas edições.</li>
+              <li>Microdados de aluno (raça/cor, gênero, NEE) — fora de escopo por LGPD.</li>
+              <li>Pareamento perfeito SARESP↔INEP em 100% dos casos — a heurística cobre a maioria, mas não tudo.</li>
+              <li>Ranking público de escolas — explicitamente não publicamos. Comparações são por pares similares, não classificatórias.</li>
             </ul>
           </Section>
 
