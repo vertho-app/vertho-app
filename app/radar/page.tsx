@@ -61,13 +61,15 @@ export default async function RadarHomePage() {
             marginBottom: 18,
           }}
         >
-          Saeb, Ideb e ICA da sua{' '}
+          Aprendizagem, infraestrutura e repasses da sua{' '}
           <em style={{ color: '#34c5cc' }}>escola</em>{' '}
           em um só lugar
         </h1>
-        <p className="text-base text-white/65 leading-relaxed max-w-[640px] mx-auto mb-10">
-          Indicadores oficiais do INEP organizados por escola e município, com leitura
-          contextualizada e fontes citadas. Gratuito, sem cadastro pra navegar.
+        <p className="text-base text-white/65 leading-relaxed max-w-[680px] mx-auto mb-10">
+          Saeb, Ideb, ICA e SARESP cruzados com Censo Escolar e repasses do FUNDEB e
+          PDDE — dados oficiais do INEP, FNDE e Tesouro organizados por escola e
+          município, com leitura contextualizada e fontes citadas. Gratuito, sem
+          cadastro pra navegar.
         </p>
 
         <RadarSearch />
@@ -85,16 +87,16 @@ export default async function RadarHomePage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
             {
-              title: 'Saeb por escola',
-              text: 'Distribuição por nível de proficiência em Língua Portuguesa e Matemática, comparada a escolas similares.',
+              title: 'Aprendizagem',
+              text: 'Saeb, Ideb e ICA em todo o Brasil, com SARESP por escola em São Paulo. Distribuição por nível de proficiência e benchmarks regionais.',
             },
             {
-              title: 'ICA municipal',
-              text: 'Indicador Criança Alfabetizada por município e rede, com benchmarks estadual e nacional.',
+              title: 'Infraestrutura',
+              text: 'Censo Escolar com 213 indicadores: dependências, equipamentos, acessibilidade e dimensões de qualidade do prédio escolar.',
             },
             {
-              title: 'Diagnóstico em PDF',
-              text: 'Leitura institucional e plano de ação organizado, gerado a partir de dados públicos do INEP.',
+              title: 'Repasses',
+              text: 'FUNDEB e complementação da União por município e PDDE por escola, com séries históricas e fontes oficiais do FNDE e Tesouro.',
             },
           ].map((card) => (
             <div
