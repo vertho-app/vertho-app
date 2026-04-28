@@ -71,8 +71,9 @@ export function VaarSection({ vaar }: { vaar: VaarSnapshot | null }) {
       <p className="text-xs text-white/55 mb-4 leading-relaxed">
         O VAAR é a parcela do FUNDEB que premia <strong className="text-white/80">resultado
         educacional</strong>. Para receber em {vaar.ano}, o município precisa cumprir as 5
-        condições legais (Lei nº 14.113/2020, art. 14, §1º) <em>e</em> ter evoluído nos
-        indicadores de atendimento e aprendizagem em relação ao ano anterior.
+        condições legais (Lei nº 14.113/2020, art. 14, §1º) <em>e</em> ter evoluído em
+        <strong className="text-white/80"> pelo menos um</strong> dos indicadores
+        (atendimento ou aprendizagem) em relação ao ano anterior.
       </p>
 
       <div
@@ -95,7 +96,7 @@ export function VaarSection({ vaar }: { vaar: VaarSnapshot | null }) {
         )}
         {vaar.habilitado === true && !isBeneficiario && (
           <p className="text-[11px] text-white/55 mt-1">
-            Habilitado, mas não evoluiu o suficiente nos indicadores.
+            Habilitado, mas não evoluiu em nenhum dos dois indicadores.
           </p>
         )}
       </div>
