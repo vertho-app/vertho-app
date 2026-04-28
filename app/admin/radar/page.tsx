@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2, Upload, RefreshCw, FileSpreadsheet, FileText, MapPin, AlertTriangle, CheckCircle, Trash2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Upload, RefreshCw, FileSpreadsheet, FileText, Trash2 } from 'lucide-react';
 import {
   loadRadarStats,
-  seedMicrorregiaoIrece,
   ingestSaebFromUpload,
   ingestIcaFromUpload,
   ingestCensoFromUpload,
@@ -55,8 +54,6 @@ export default function AdminRadarPage() {
   const [uploadingSaresp, setUploadingSaresp] = useState(false);
   const [uploadingFundeb, setUploadingFundeb] = useState(false);
   const [uploadingPdde, setUploadingPdde] = useState(false);
-  const [seedLoading, setSeedLoading] = useState(false);
-  const [restringirIrece, setRestringirIrece] = useState(true);
   const [logs, setLogs] = useState<string[]>([]);
 
   function addLog(msg: string) {
@@ -72,20 +69,13 @@ export default function AdminRadarPage() {
 
   useEffect(() => { refresh(); }, []);
 
-  async function handleSeed() {
-    setSeedLoading(true);
-    const r = await seedMicrorregiaoIrece();
-    addLog(`Seed Irecê: ${r.message}`);
-    setSeedLoading(false);
-  }
-
   async function handleSaebUpload(file: File) {
     setUploadingSaeb(true);
     addLog(`Saeb upload: ${file.name} (${(file.size / 1024).toFixed(0)}KB)`);
     const buffer = await file.arrayBuffer();
     const base64 = await arrayBufferToBase64(buffer);
     try {
-      const r = await ingestSaebFromUpload(base64, file.name, restringirIrece);
+      const r = await ingestSaebFromUpload(base64, file.name);
       if (r.success) {
         const res = r.result;
         addLog(`Saeb OK: ${res.totalSucesso} escolas, ${res.totalFalha} erros, ${res.totalSkipped} skipped`);
@@ -111,10 +101,10 @@ export default function AdminRadarPage() {
       if (isXlsx) {
         const buffer = await file.arrayBuffer();
         const base64 = await arrayBufferToBase64(buffer);
-        r = await ingestIcaFromUpload({ format: 'xlsx', arquivoBase64: base64 }, file.name, restringirIrece);
+        r = await ingestIcaFromUpload({ format: 'xlsx', arquivoBase64: base64 }, file.name);
       } else {
         const text = await file.text();
-        r = await ingestIcaFromUpload({ format: 'csv', texto: text }, file.name, restringirIrece);
+        r = await ingestIcaFromUpload({ format: 'csv', texto: text }, file.name);
       }
       if (r.success) {
         const res = r.result;
@@ -137,7 +127,7 @@ export default function AdminRadarPage() {
     addLog(`Censo upload: ${file.name} (${(file.size / 1024).toFixed(0)}KB)`);
     try {
       const text = await file.text();
-      const r = await ingestCensoFromUpload(text, file.name, restringirIrece);
+      const r = await ingestCensoFromUpload(text, file.name);
       if (r.success) {
         const res = r.result;
         addLog(`Censo OK: ${res.totalSucesso} escolas, ${res.totalFalha} erros, ${res.totalSkipped} skipped`);
@@ -271,22 +261,6 @@ export default function AdminRadarPage() {
               </p>
             </div>
           ))}
-        </div>
-
-        {/* Switch Irecê */}
-        <div className="rounded-2xl p-4 border border-white/[0.06] mb-6 flex items-center justify-between"
-          style={{ background: 'rgba(52,197,204,0.04)' }}>
-          <div className="flex items-center gap-3">
-            <MapPin size={16} className="text-cyan-400" />
-            <div>
-              <p className="text-sm font-bold text-white">Restringir piloto à microrregião de Irecê (BA)</p>
-              <p className="text-xs text-white/50">20 municípios. Linhas fora da microrregião serão ignoradas no upload.</p>
-            </div>
-          </div>
-          <button onClick={() => setRestringirIrece((v) => !v)}
-            className={`relative w-12 h-6 rounded-full transition-colors ${restringirIrece ? 'bg-cyan-500' : 'bg-white/10'}`}>
-            <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${restringirIrece ? 'translate-x-[26px]' : 'translate-x-0.5'}`} />
-          </button>
         </div>
 
         {/* Uploaders */}
@@ -445,23 +419,6 @@ export default function AdminRadarPage() {
                   onChange={(e) => e.target.files?.[0] && handlePddeUpload(e.target.files[0], true)} />
               </label>
             </div>
-          </div>
-        </div>
-
-        {/* Seed */}
-        <div className="rounded-2xl p-5 border border-white/[0.06] mb-6"
-          style={{ background: 'rgba(255,255,255,0.03)' }}>
-          <div className="flex items-center gap-3 justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-white">Microrregião Irecê</h3>
-              <p className="text-xs text-white/50">20 municípios da Bahia (escopo do piloto V1)</p>
-            </div>
-            <button onClick={handleSeed} disabled={seedLoading}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-cyan-300 border border-cyan-400/30"
-              style={{ background: 'rgba(52,197,204,0.06)' }}>
-              {seedLoading ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
-              Validar lista
-            </button>
           </div>
         </div>
 

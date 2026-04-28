@@ -11,7 +11,6 @@
  */
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { isIreceMunicipio } from './microrregiao-irece';
 import ExcelJS from 'exceljs';
 
 type IngestResult = {
@@ -78,7 +77,7 @@ function parseCsv(text: string): Record<string, string>[] {
 
 async function processIcaRows(
   rows: Record<string, any>[],
-  opts: { ingestRunId: string; restringirIrece?: boolean },
+  opts: { ingestRunId: string },
 ): Promise<IngestResult> {
   const sb = createSupabaseAdmin();
   const result: IngestResult = {
@@ -100,10 +99,6 @@ async function processIcaRows(
     const dep = parseDependencia(pick(r, ['NO_TP_REDE', 'TP_DEPENDENCIA', 'tp_dependencia', 'rede', 'DEPENDENCIA']));
 
     if (!ibge || ibge.length !== 7 || !uf || !ano) {
-      result.totalSkipped++;
-      continue;
-    }
-    if (opts.restringirIrece && !isIreceMunicipio(ibge)) {
       result.totalSkipped++;
       continue;
     }
@@ -147,7 +142,7 @@ async function processIcaRows(
 
 export async function importarIcaCsv(
   text: string,
-  opts: { ingestRunId: string; restringirIrece?: boolean } = { ingestRunId: '' },
+  opts: { ingestRunId: string } = { ingestRunId: '' },
 ): Promise<IngestResult> {
   const rows = parseCsv(text);
   return processIcaRows(rows, opts);
@@ -184,7 +179,7 @@ function cellValue(cell: any): any {
  */
 export async function importarIcaXlsx(
   buffer: Buffer,
-  opts: { ingestRunId: string; restringirIrece?: boolean } = { ingestRunId: '' },
+  opts: { ingestRunId: string } = { ingestRunId: '' },
 ): Promise<IngestResult> {
   const wb = new ExcelJS.Workbook();
   const ab = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;

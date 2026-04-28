@@ -13,7 +13,6 @@
  */
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { isIreceMunicipio } from './microrregiao-irece';
 import { calcularScores } from './censo-scores';
 
 type IngestResult = {
@@ -77,7 +76,7 @@ function clampLatLng(v: number | null, max: number): number | null {
 
 export async function importarCensoCsv(
   text: string,
-  opts: { ingestRunId: string; restringirIrece?: boolean } = { ingestRunId: '' },
+  opts: { ingestRunId: string } = { ingestRunId: '' },
 ): Promise<IngestResult> {
   const sb = createSupabaseAdmin();
   const result: IngestResult = {
@@ -167,10 +166,6 @@ export async function importarCensoCsv(
     }
     const ibge = String(rawIbge || '').trim().padStart(7, '0');
 
-    if (opts.restringirIrece && !isIreceMunicipio(ibge)) {
-      addSkip(codigoInep, `município ${ibge} fora da microrregião de Irecê`);
-      continue;
-    }
 
     // Dedup intra-arquivo
     const key = `${codigoInep}_${ano}`;

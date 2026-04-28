@@ -16,7 +16,7 @@
  */
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { isIreceMunicipio, lookupIbgeIrece } from './microrregiao-irece';
+import { lookupIbgeIrece } from './microrregiao-irece';
 import ExcelJS from 'exceljs';
 
 type Row = Record<string, unknown>;
@@ -100,7 +100,7 @@ async function readSheetByName(buffer: Buffer, sheetName: string): Promise<any[]
 
 export async function importarSaebXlsx(
   buffer: Buffer,
-  opts: { ingestRunId: string; restringirIrece?: boolean } = { ingestRunId: '' },
+  opts: { ingestRunId: string } = { ingestRunId: '' },
 ): Promise<IngestResult> {
   const sb = createSupabaseAdmin();
   const result: IngestResult = {
@@ -128,15 +128,11 @@ export async function importarSaebXlsx(
     }
     const municipioNome = r.municipio ? String(r.municipio).trim() : '';
     const ufNome = r.uf ? String(r.uf).trim().toUpperCase() : '';
-    // Tenta IBGE direto da planilha; se vazio, deriva do nome (Irecê)
+    // Tenta IBGE direto da planilha; se vazio, tenta lookup pra Irecê
+    // (saeb_pipeline Python não gera IBGE; fora de Irecê fica null e ok).
     let municipioIbge = String(r.municipio_ibge || r.codigo_municipio || '').trim();
     if (!municipioIbge && municipioNome) {
       municipioIbge = lookupIbgeIrece(municipioNome, ufNome) || '';
-    }
-
-    if (opts.restringirIrece && (!municipioIbge || !isIreceMunicipio(municipioIbge))) {
-      result.totalSkipped++;
-      continue;
     }
 
     const ano = Number(r.ano);
@@ -152,7 +148,7 @@ export async function importarSaebXlsx(
       municipio: municipioNome || null,
       municipio_ibge: municipioIbge || null,
       uf: ufNome || null,
-      microrregiao: r.microrregiao ? String(r.microrregiao).trim() : (municipioIbge && isIreceMunicipio(municipioIbge) ? 'Irecê' : null),
+      microrregiao: r.microrregiao ? String(r.microrregiao).trim() : null,
       zona: r.zona ? String(r.zona).trim().toUpperCase() : null,
       inse_grupo: r.inse_grupo ? Number(r.inse_grupo) : null,
       etapas,

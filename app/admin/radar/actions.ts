@@ -9,7 +9,6 @@ import { importarIdebXlsx } from '@/lib/radar/ideb-importer';
 import { importarSarespCsv } from '@/lib/radar/saresp-importer';
 import { importarFundebCsv } from '@/lib/radar/fundeb-importer';
 import { importarPddeCsv } from '@/lib/radar/pdde-importer';
-import { MICRORREGIAO_IRECE_BA, isIreceMunicipio } from '@/lib/radar/microrregiao-irece';
 
 async function startIngestRun(fonte: string, escopo: any, arquivoOrigem?: string) {
   const sb = createSupabaseAdmin();
@@ -74,38 +73,14 @@ export async function loadRadarStats() {
   };
 }
 
-/**
- * Cria/garante registros base de cada município de Irecê em diag_escolas.
- * Útil pra ter o cadastro mínimo antes da ingestão Saeb.
- *
- * Cria UMA "escola placeholder" (codigo_inep='municipio_<ibge>') por município?
- * Não — diag_escolas é só pra escolas reais. Esse seed cria entries vazias
- * NÃO. Em vez disso: deixamos a tabela vazia até a primeira ingestão Saeb
- * preencher com escolas reais. Esta função é mantida para futura expansão
- * (pré-popular Censo Escolar, por exemplo).
- */
-export async function seedMicrorregiaoIrece() {
-  await requireAdminAction();
-  return {
-    success: true,
-    message: `Microrregião Irecê definida: ${MICRORREGIAO_IRECE_BA.municipios.length} municípios. ` +
-      `Cadastro de escolas será populado pela ingestão Saeb.`,
-    municipios: MICRORREGIAO_IRECE_BA.municipios,
-  };
-}
-
-export async function ingestSaebFromUpload(arquivoBase64: string, arquivoNome: string, restringirIrece: boolean) {
+export async function ingestSaebFromUpload(arquivoBase64: string, arquivoNome: string) {
   await requireAdminAction();
   const buffer = Buffer.from(arquivoBase64, 'base64');
 
-  const runId = await startIngestRun(
-    'saeb',
-    { restringirIrece, microrregiao: 'Irecê' },
-    arquivoNome,
-  );
+  const runId = await startIngestRun('saeb', { escopo: 'nacional' }, arquivoNome);
 
   try {
-    const result = await importarSaebXlsx(buffer, { ingestRunId: runId, restringirIrece });
+    const result = await importarSaebXlsx(buffer, { ingestRunId: runId });
     const status = result.totalFalha > 0 && result.totalSucesso > 0 ? 'parcial' : result.totalFalha > 0 ? 'erro' : 'sucesso';
     await finishIngestRun(runId, result, status);
     return { success: true, runId, result };
@@ -118,20 +93,15 @@ export async function ingestSaebFromUpload(arquivoBase64: string, arquivoNome: s
 export async function ingestIcaFromUpload(
   payload: { format: 'csv'; texto: string } | { format: 'xlsx'; arquivoBase64: string },
   arquivoNome: string,
-  restringirIrece: boolean,
 ) {
   await requireAdminAction();
 
-  const runId = await startIngestRun(
-    'ica',
-    { restringirIrece, microrregiao: 'Irecê', formato: payload.format },
-    arquivoNome,
-  );
+  const runId = await startIngestRun('ica', { escopo: 'nacional', formato: payload.format }, arquivoNome);
 
   try {
     const result = payload.format === 'xlsx'
-      ? await importarIcaXlsx(Buffer.from(payload.arquivoBase64, 'base64'), { ingestRunId: runId, restringirIrece })
-      : await importarIcaCsv(payload.texto, { ingestRunId: runId, restringirIrece });
+      ? await importarIcaXlsx(Buffer.from(payload.arquivoBase64, 'base64'), { ingestRunId: runId })
+      : await importarIcaCsv(payload.texto, { ingestRunId: runId });
     const status = result.totalFalha > 0 && result.totalSucesso > 0 ? 'parcial' : result.totalFalha > 0 ? 'erro' : 'sucesso';
     await finishIngestRun(runId, result, status);
     return { success: true, runId, result };
@@ -141,17 +111,17 @@ export async function ingestIcaFromUpload(
   }
 }
 
-export async function ingestCensoFromUpload(textoCsv: string, arquivoNome: string, restringirIrece: boolean) {
+export async function ingestCensoFromUpload(textoCsv: string, arquivoNome: string) {
   await requireAdminAction();
 
   const runId = await startIngestRun(
     'censo',
-    { restringirIrece, microrregiao: 'Irecê' },
+    { escopo: 'nacional' },
     arquivoNome,
   );
 
   try {
-    const result = await importarCensoCsv(textoCsv, { ingestRunId: runId, restringirIrece });
+    const result = await importarCensoCsv(textoCsv, { ingestRunId: runId });
     const status = result.totalFalha > 0 && result.totalSucesso > 0 ? 'parcial' : result.totalFalha > 0 ? 'erro' : 'sucesso';
     await finishIngestRun(runId, result, status);
     return { success: true, runId, result };
