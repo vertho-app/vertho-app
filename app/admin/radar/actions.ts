@@ -152,7 +152,7 @@ export async function ingestSarespFromUpload(textoCsv: string, arquivoNome: stri
   await requireAdminAction();
   const runId = await startIngestRun('saresp', { fonte: 'CSV SP' }, arquivoNome);
   try {
-    const result = await importarSarespCsv(textoCsv, { ingestRunId: runId });
+    const result = await importarSarespCsv(textoCsv, { ingestRunId: runId, arquivoNome });
     const status = result.totalFalha > 0 && result.totalSucesso > 0 ? 'parcial' : result.totalFalha > 0 ? 'erro' : 'sucesso';
     await finishIngestRun(runId, result, status);
     return { success: true, runId, result };
