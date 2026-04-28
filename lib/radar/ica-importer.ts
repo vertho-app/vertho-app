@@ -88,6 +88,10 @@ async function processIcaRows(
     erros: [],
   };
 
+  const now = new Date().toISOString();
+  const batch: any[] = [];
+  const batchKeys: string[] = [];
+
   for (const r of rows) {
     result.totalProcessado++;
 
@@ -109,7 +113,7 @@ async function processIcaRows(
     const taxaUf = Number(pick(r, ['TX_ALFABETIZACAO_UF', 'tx_uf']));
     const taxaBr = Number(pick(r, ['TX_ALFABETIZACAO_BR', 'tx_brasil']));
 
-    const upsert = {
+    batch.push({
       municipio_ibge: ibge,
       uf,
       rede: dep,
@@ -120,18 +124,28 @@ async function processIcaRows(
       total_estado: Number.isFinite(taxaUf) ? taxaUf : null,
       total_brasil: Number.isFinite(taxaBr) ? taxaBr : null,
       ingest_run_id: opts.ingestRunId || null,
-      atualizado_em: new Date().toISOString(),
-    };
+      atualizado_em: now,
+    });
+    batchKeys.push(`${ibge}/${dep}/${ano}`);
+  }
 
+  // Dedupe por chave (XLSX INEP às vezes repete linhas) — última vence.
+  const dedupMap = new Map<string, any>();
+  batch.forEach((row, i) => dedupMap.set(batchKeys[i], row));
+  const deduped = Array.from(dedupMap.values());
+
+  // Upsert em chunks pra evitar payload gigante.
+  const CHUNK = 500;
+  for (let i = 0; i < deduped.length; i += CHUNK) {
+    const slice = deduped.slice(i, i + CHUNK);
     const { error } = await sb
       .from('diag_ica_snapshots')
-      .upsert(upsert, { onConflict: 'municipio_ibge,rede,ano' });
-
+      .upsert(slice, { onConflict: 'municipio_ibge,rede,ano' });
     if (error) {
-      result.totalFalha++;
-      result.erros.push({ key: `${ibge}/${dep}/${ano}`, msg: error.message });
+      result.totalFalha += slice.length;
+      result.erros.push({ key: `chunk_${i / CHUNK}`, msg: error.message });
     } else {
-      result.totalSucesso++;
+      result.totalSucesso += slice.length;
     }
   }
 
