@@ -3,7 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { importarSaebXlsx } from '@/lib/radar/saeb-importer';
-import { importarIcaCsv } from '@/lib/radar/ica-importer';
+import { importarIcaCsv, importarIcaXlsx } from '@/lib/radar/ica-importer';
 import { MICRORREGIAO_IRECE_BA, isIreceMunicipio } from '@/lib/radar/microrregiao-irece';
 
 async function startIngestRun(fonte: string, escopo: any, arquivoOrigem?: string) {
@@ -93,17 +93,23 @@ export async function ingestSaebFromUpload(arquivoBase64: string, arquivoNome: s
   }
 }
 
-export async function ingestIcaFromUpload(textoCsv: string, arquivoNome: string, restringirIrece: boolean) {
+export async function ingestIcaFromUpload(
+  payload: { format: 'csv'; texto: string } | { format: 'xlsx'; arquivoBase64: string },
+  arquivoNome: string,
+  restringirIrece: boolean,
+) {
   await requireAdminAction();
 
   const runId = await startIngestRun(
     'ica',
-    { restringirIrece, microrregiao: 'Irecê' },
+    { restringirIrece, microrregiao: 'Irecê', formato: payload.format },
     arquivoNome,
   );
 
   try {
-    const result = await importarIcaCsv(textoCsv, { ingestRunId: runId, restringirIrece });
+    const result = payload.format === 'xlsx'
+      ? await importarIcaXlsx(Buffer.from(payload.arquivoBase64, 'base64'), { ingestRunId: runId, restringirIrece })
+      : await importarIcaCsv(payload.texto, { ingestRunId: runId, restringirIrece });
     const status = result.totalFalha > 0 && result.totalSucesso > 0 ? 'parcial' : result.totalFalha > 0 ? 'erro' : 'sucesso';
     await finishIngestRun(runId, result, status);
     return { success: true, runId, result };

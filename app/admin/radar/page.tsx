@@ -72,10 +72,18 @@ export default function AdminRadarPage() {
 
   async function handleIcaUpload(file: File) {
     setUploadingIca(true);
-    addLog(`ICA upload: ${file.name}`);
-    const text = await file.text();
+    const isXlsx = /\.xlsx$/i.test(file.name);
+    addLog(`ICA upload: ${file.name} (${(file.size / 1024).toFixed(0)}KB · ${isXlsx ? 'XLSX' : 'CSV'})`);
     try {
-      const r = await ingestIcaFromUpload(text, file.name, restringirIrece);
+      let r;
+      if (isXlsx) {
+        const buffer = await file.arrayBuffer();
+        const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+        r = await ingestIcaFromUpload({ format: 'xlsx', arquivoBase64: base64 }, file.name, restringirIrece);
+      } else {
+        const text = await file.text();
+        r = await ingestIcaFromUpload({ format: 'csv', texto: text }, file.name, restringirIrece);
+      }
       if (r.success) {
         const res = r.result;
         addLog(`ICA OK: ${res.totalSucesso} registros, ${res.totalFalha} erros, ${res.totalSkipped} skipped`);
@@ -173,17 +181,18 @@ export default function AdminRadarPage() {
             style={{ background: 'rgba(255,255,255,0.03)' }}>
             <div className="flex items-center gap-2 mb-3">
               <FileText size={16} className="text-cyan-400" />
-              <h3 className="text-sm font-bold text-white">ICA (CSV INEP)</h3>
+              <h3 className="text-sm font-bold text-white">ICA (XLSX ou CSV INEP)</h3>
             </div>
             <p className="text-xs text-white/50 mb-4">
-              Indicador Criança Alfabetizada. CSV dos microdados públicos com colunas
-              CO_MUNICIPIO, ANO, TX_ALFABETIZACAO, etc.
+              Indicador Criança Alfabetizada. Aceita o XLSX oficial INEP
+              (resultados_e_metas_municipios.xlsx) ou CSV com colunas CO_MUNICIPIO,
+              PC_ALUNO_ALFABETIZADO, NO_TP_REDE, ANO.
             </p>
             <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white cursor-pointer"
               style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
               {uploadingIca ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-              {uploadingIca ? 'Processando...' : 'Selecionar CSV ICA'}
-              <input type="file" accept=".csv,.txt" className="hidden" disabled={uploadingIca}
+              {uploadingIca ? 'Processando...' : 'Selecionar arquivo ICA'}
+              <input type="file" accept=".xlsx,.csv,.txt" className="hidden" disabled={uploadingIca}
                 onChange={(e) => e.target.files?.[0] && handleIcaUpload(e.target.files[0])} />
             </label>
           </div>

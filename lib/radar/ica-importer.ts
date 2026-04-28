@@ -12,6 +12,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { isIreceMunicipio } from './microrregiao-irece';
+import ExcelJS from 'exceljs';
 
 type IngestResult = {
   totalProcessado: number;
@@ -75,9 +76,9 @@ function parseCsv(text: string): Record<string, string>[] {
   });
 }
 
-export async function importarIcaCsv(
-  text: string,
-  opts: { ingestRunId: string; restringirIrece?: boolean } = { ingestRunId: '' },
+async function processIcaRows(
+  rows: Record<string, any>[],
+  opts: { ingestRunId: string; restringirIrece?: boolean },
 ): Promise<IngestResult> {
   const sb = createSupabaseAdmin();
   const result: IngestResult = {
@@ -88,14 +89,15 @@ export async function importarIcaCsv(
     erros: [],
   };
 
-  const rows = parseCsv(text);
   for (const r of rows) {
     result.totalProcessado++;
 
-    const ibge = String(pick(r, ['CO_MUNICIPIO', 'co_municipio', 'codigo_municipio', 'IBGE']) || '').trim();
+    let ibge = String(pick(r, ['CO_MUNICIPIO', 'co_municipio', 'codigo_municipio', 'IBGE']) || '').trim();
+    // CO_MUNICIPIO pode vir como número (7 dígitos) — força string com padding
+    if (ibge && /^\d+$/.test(ibge) && ibge.length < 7) ibge = ibge.padStart(7, '0');
     const uf = String(pick(r, ['SG_UF', 'UF', 'sg_uf']) || '').trim().toUpperCase();
     const ano = Number(pick(r, ['ANO', 'NU_ANO', 'ano']));
-    const dep = parseDependencia(pick(r, ['TP_DEPENDENCIA', 'tp_dependencia', 'rede', 'DEPENDENCIA']));
+    const dep = parseDependencia(pick(r, ['NO_TP_REDE', 'TP_DEPENDENCIA', 'tp_dependencia', 'rede', 'DEPENDENCIA']));
 
     if (!ibge || ibge.length !== 7 || !uf || !ano) {
       result.totalSkipped++;
@@ -108,7 +110,7 @@ export async function importarIcaCsv(
 
     const alunos = Number(pick(r, ['QT_ALUNOS_AVALIADOS', 'alunos_avaliados', 'qt_avaliados']));
     const alfa = Number(pick(r, ['QT_ALFABETIZADOS', 'alfabetizados', 'qt_alfabetizados']));
-    const taxa = Number(pick(r, ['TX_ALFABETIZACAO', 'taxa', 'tx_alfabetizacao']));
+    const taxa = Number(pick(r, ['PC_ALUNO_ALFABETIZADO', 'TX_ALFABETIZACAO', 'taxa', 'tx_alfabetizacao']));
     const taxaUf = Number(pick(r, ['TX_ALFABETIZACAO_UF', 'tx_uf']));
     const taxaBr = Number(pick(r, ['TX_ALFABETIZACAO_BR', 'tx_brasil']));
 
@@ -139,4 +141,100 @@ export async function importarIcaCsv(
   }
 
   return result;
+}
+
+// ── Wrappers públicos por formato ──────────────────────────────────────
+
+export async function importarIcaCsv(
+  text: string,
+  opts: { ingestRunId: string; restringirIrece?: boolean } = { ingestRunId: '' },
+): Promise<IngestResult> {
+  const rows = parseCsv(text);
+  return processIcaRows(rows, opts);
+}
+
+/**
+ * Cell value helper para XLSX — extrai valor primitivo de células ExcelJS
+ * que podem vir como objeto (fórmula com .result, hyperlink, rich text).
+ */
+function cellValue(cell: any): any {
+  if (cell == null) return null;
+  if (typeof cell === 'object' && !(cell instanceof Date)) {
+    if ('result' in cell) return cell.result;
+    if ('text' in cell) return cell.text;
+    if ('richText' in cell && Array.isArray(cell.richText)) {
+      return cell.richText.map((p: any) => p.text || '').join('');
+    }
+  }
+  return cell;
+}
+
+/**
+ * Importa ICA a partir do XLSX oficial INEP (resultados_e_metas_municipios.xlsx).
+ *
+ * Formato esperado:
+ *   - Aba "Divulgação Alfabet Municipio"
+ *   - Linha 0: rótulos descritivos em maiúsculo (ANO DA AVALIAÇÃO, ...)
+ *   - Linha 1: nomes técnicos (ANO, CO_UF, SG_UF, CO_MUNICIPIO, NO_MUNICIPIO,
+ *              NO_TP_REDE, PC_ALUNO_ALFABETIZADO, META_FINAL_2024, ...)
+ *   - Linha 2+: dados
+ *
+ * Aceita também variações: tenta primeiro a aba específica, se não achar
+ * usa a primeira aba do workbook.
+ */
+export async function importarIcaXlsx(
+  buffer: Buffer,
+  opts: { ingestRunId: string; restringirIrece?: boolean } = { ingestRunId: '' },
+): Promise<IngestResult> {
+  const wb = new ExcelJS.Workbook();
+  const ab = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
+  await wb.xlsx.load(ab);
+
+  // Procura aba específica do INEP, fallback pra primeira
+  const sheetNames = wb.worksheets.map((w) => w.name);
+  const targetName =
+    sheetNames.find((n) => /alfabet/i.test(n)) ||
+    sheetNames.find((n) => /municipi/i.test(n)) ||
+    sheetNames[0];
+  const ws = wb.getWorksheet(targetName);
+  if (!ws) {
+    return {
+      totalProcessado: 0, totalSucesso: 0, totalFalha: 1, totalSkipped: 0,
+      erros: [{ key: 'sheet', msg: 'Nenhuma aba encontrada no XLSX' }],
+    };
+  }
+
+  // Coleta todas as linhas como arrays de células
+  const rawRows: any[][] = [];
+  ws.eachRow({ includeEmpty: false }, (row) => {
+    const cells = (row.values as any[]).slice(1).map(cellValue);
+    rawRows.push(cells);
+  });
+  if (rawRows.length < 2) {
+    return {
+      totalProcessado: 0, totalSucesso: 0, totalFalha: 1, totalSkipped: 0,
+      erros: [{ key: 'sheet', msg: 'XLSX sem linhas de dados' }],
+    };
+  }
+
+  // Detecta linha do header técnico: a que tem CO_MUNICIPIO ou similar.
+  // Se a primeira linha for descritiva ("ANO DA AVALIAÇÃO"), pula pra segunda.
+  let headerIdx = 0;
+  for (let i = 0; i < Math.min(3, rawRows.length); i++) {
+    const cells = rawRows[i].map((c) => String(c || '').toUpperCase());
+    if (cells.some((c) => /^CO_MUNICIPIO$/i.test(c) || /^NO_TP_REDE$/i.test(c))) {
+      headerIdx = i;
+      break;
+    }
+  }
+  const header = rawRows[headerIdx].map((h: any) => String(h || '').trim());
+  const dataRows = rawRows.slice(headerIdx + 1);
+
+  const rows: Record<string, any>[] = dataRows.map((cells) => {
+    const obj: Record<string, any> = {};
+    header.forEach((h, i) => { obj[h] = cells[i] ?? null; });
+    return obj;
+  });
+
+  return processIcaRows(rows, opts);
 }
