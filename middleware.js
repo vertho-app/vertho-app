@@ -28,7 +28,14 @@ const RESERVED_SUBDOMAINS = new Set([
   'mail',
   'smtp',
   'ftp',
+  'radar',
 ]);
+
+// Subdomínios públicos que rewriteam para um path interno do app
+// (radar.vertho.ai/<path>  →  /radar/<path>)
+const REWRITE_SUBDOMAINS = {
+  radar: '/radar',
+};
 
 // Domínios raiz (sem subdomínio = sem tenant)
 const ROOT_DOMAINS = [
@@ -69,8 +76,32 @@ function extractTenantSlug(hostname) {
   return null;
 }
 
+// Detecta se o host é um subdomínio público com rewrite (ex: radar.vertho.ai)
+function detectRewriteSubdomain(hostname) {
+  const host = hostname.split(':')[0];
+  for (const [sub, basePath] of Object.entries(REWRITE_SUBDOMAINS)) {
+    for (const root of ROOT_DOMAINS) {
+      if (host === `${sub}.${root}`) return basePath;
+    }
+  }
+  return null;
+}
+
 export function middleware(request) {
   const hostname = request.headers.get('host') || '';
+
+  // 1) Subdomínio público (radar): rewrite pra /radar/<path>
+  const rewriteBase = detectRewriteSubdomain(hostname);
+  if (rewriteBase) {
+    const url = request.nextUrl.clone();
+    // Evita prefixar duas vezes em re-runs do middleware
+    if (!url.pathname.startsWith(rewriteBase)) {
+      url.pathname = `${rewriteBase}${url.pathname}`;
+    }
+    return NextResponse.rewrite(url);
+  }
+
+  // 2) Tenant por subdomínio (fluxo existente)
   const slug = extractTenantSlug(hostname);
 
   // Sem tenant — fluxo normal, não faz nada
