@@ -48,6 +48,13 @@ console.log(DRY ? '== DRY RUN SARESP ==' : '== IMPORT SARESP ==');
 console.log(`arquivo: ${inputPath}`);
 console.log(`ano: ${anoBase}`);
 console.log(`linhas CSV: ${rows.length}`);
+
+// Pré-carrega escolas SP pra cross-match heurístico SP→INEP
+console.log('Carregando escolas SP (cross-match)...');
+const spEscolas = await loadSpEscolas();
+console.log(`  ${spEscolas.length} candidatas carregadas`);
+const inepBySp = new Map();
+let matchedInep = 0;
 console.log('');
 
 for (const r of rows) {
@@ -61,10 +68,25 @@ for (const r of rows) {
     continue;
   }
 
+  const escolaNome = String(pick(r, ['NOMESC', 'nomesc', 'NO_ESCOLA']) || '').trim() || null;
+
+  // Cross-match cache por codigo_sp (cada escola aparece em N linhas:
+  // série × disciplina × turno; só recompute uma vez)
+  let inepResolved = null;
+  if (escolaNome) {
+    if (inepBySp.has(codigoSp)) {
+      inepResolved = inepBySp.get(codigoSp);
+    } else {
+      inepResolved = bestInepMatch(escolaNome, spEscolas);
+      inepBySp.set(codigoSp, inepResolved);
+      if (inepResolved) matchedInep++;
+    }
+  }
+
   const row = {
     codigo_sp: codigoSp,
-    codigo_inep: null,
-    escola_nome: String(pick(r, ['NOMESC', 'nomesc', 'NO_ESCOLA']) || '').trim() || null,
+    codigo_inep: inepResolved,
+    escola_nome: escolaNome,
     dep_administrativa: String(pick(r, ['NomeDepBol', 'DEPADM', 'NomeDep', 'DEP']) || '').trim() || null,
     rede: parseRede(pick(r, ['NomeDepBol', 'DEPADM', 'rede'])),
     turno: String(pick(r, ['periodo', 'turno', 'TURNO']) || '').trim() || null,
@@ -106,6 +128,7 @@ for (let i = 0; i < normalized.length; i += BATCH_SIZE) {
 }
 
 console.log(`processadas:${result.totalProcessado} normalizadas:${normalized.length} ok:${result.totalSucesso} falha:${result.totalFalha} skip:${result.totalSkipped} dedup:${result.totalDedup}`);
+console.log(`cross-match SP→INEP: ${matchedInep} escolas únicas resolvidas (de ${inepBySp.size} tentadas)`);
 if (result.erros.length) {
   console.log('erros:');
   for (const e of result.erros) console.log(`- ${e.key}: ${e.msg}`);
@@ -196,6 +219,70 @@ function anoFromFilename(name) {
   if (!m) return null;
   const y = Number(m[1]);
   return y >= 2010 && y <= 2030 ? y : null;
+}
+
+// ── Cross-match SP→INEP (Jaccard similarity por tokens normalizados) ──
+async function loadSpEscolas() {
+  const out = [];
+  let from = 0;
+  const PAGE = 1000;
+  while (true) {
+    const { data, error } = await sb.from('diag_escolas')
+      .select('codigo_inep, nome')
+      .eq('uf', 'SP')
+      .order('codigo_inep')
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    if (!data?.length) break;
+    for (const e of data) {
+      out.push({ codigo_inep: e.codigo_inep, nome: e.nome, tokens: tokenize(normalizarNome(e.nome)) });
+    }
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+  return out;
+}
+
+function normalizarNome(nome) {
+  return String(nome || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/\bESCOLA ESTADUAL\b/g, '')
+    .replace(/\bE\.?\s?E\.?\b/g, '')
+    .replace(/\bESCOLA\b/g, '')
+    .replace(/\bPROFESSORA?\b/g, '')
+    .replace(/\bPROFA?\.?\b/g, '')
+    .replace(/\bDOUTORA?\b/g, '')
+    .replace(/\bDR\.?\b/g, '')
+    .replace(/\bDRA\.?\b/g, '')
+    .replace(/[^A-Z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+}
+
+function tokenize(s) {
+  return new Set(s.split(/\s+/).filter((t) => t.length >= 3));
+}
+
+function jaccard(a, b) {
+  if (a.size === 0 || b.size === 0) return 0;
+  let inter = 0;
+  for (const x of a) if (b.has(x)) inter++;
+  const union = a.size + b.size - inter;
+  return union > 0 ? inter / union : 0;
+}
+
+function bestInepMatch(nome, candidates) {
+  const tokens = tokenize(normalizarNome(nome));
+  if (tokens.size < 1) return null;
+  let bestScore = 0, secondScore = 0, bestInep = null;
+  for (const c of candidates) {
+    const s = jaccard(tokens, c.tokens);
+    if (s > bestScore) { secondScore = bestScore; bestScore = s; bestInep = c.codigo_inep; }
+    else if (s > secondScore) secondScore = s;
+  }
+  if (bestScore >= 0.72 && bestScore - secondScore >= 0.05) return bestInep;
+  if (bestScore >= 0.95) return bestInep;
+  return null;
 }
 
 function loadEnv() {
