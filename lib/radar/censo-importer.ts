@@ -69,6 +69,12 @@ function toNumOrNull(v: any): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function clampLatLng(v: number | null, max: number): number | null {
+  if (v == null || !Number.isFinite(v)) return null;
+  if (v > max || v < -max) return null;
+  return v;
+}
+
 export async function importarCensoCsv(
   text: string,
   opts: { ingestRunId: string; restringirIrece?: boolean } = { ingestRunId: '' },
@@ -196,8 +202,8 @@ export async function importarCensoCsv(
       situacao_funcionamento: parseSituacao(cells[I_SIT]),
       zona_localizacao: parseLocalizacao(cells[I_LOC]),
       zona_diferenciada: cells[I_LOC_DIF] || null,
-      latitude: I_LAT >= 0 ? toNumOrNull(cells[I_LAT]) : null,
-      longitude: I_LNG >= 0 ? toNumOrNull(cells[I_LNG]) : null,
+      latitude: I_LAT >= 0 ? clampLatLng(toNumOrNull(cells[I_LAT]), 90) : null,
+      longitude: I_LNG >= 0 ? clampLatLng(toNumOrNull(cells[I_LNG]), 180) : null,
       endereco: I_END >= 0 ? (cells[I_END] || null) : null,
       bairro: I_BAIRRO >= 0 ? (cells[I_BAIRRO] || null) : null,
       cep: I_CEP >= 0 ? (cells[I_CEP] || null) : null,

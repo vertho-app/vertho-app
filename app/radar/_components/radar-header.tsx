@@ -11,6 +11,7 @@ export function RadarHeader() {
       </Link>
       <nav className="flex items-center gap-5 text-xs text-white/60">
         <Link href="/" className="hover:text-white">Início</Link>
+        <Link href="/comparar" className="hover:text-white">Comparar</Link>
         <Link href="/metodologia" className="hover:text-white">Metodologia</Link>
         <a href="https://vertho.ai" className="hover:text-white">vertho.ai</a>
       </nav>

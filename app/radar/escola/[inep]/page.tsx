@@ -11,6 +11,7 @@ import { SaebCard } from '../../_components/indicator-card';
 import { LeadCTA } from '../../_components/lead-cta';
 import { NarrativaIA, NarrativaSkeleton } from '../../_components/narrativa-ia';
 import { InfraSection } from '../../_components/infra-card';
+import { CitarButton } from '../../_components/citar-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -154,10 +155,13 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
           <LeadCTA scopeType="escola" scopeId={escola.codigo_inep} scopeLabel={escola.nome} />
         </section>
 
-        {/* Disclaimer */}
-        <p className="text-[11px] text-white/35 text-center mb-2 max-w-[640px] mx-auto leading-relaxed">
-          Análise gerada a partir de dados públicos do INEP. Valores oficiais devem ser consultados em portais governamentais.
-        </p>
+        {/* Disclaimer + citar */}
+        <div className="flex flex-col items-center gap-3 mb-2">
+          <p className="text-[11px] text-white/35 text-center max-w-[640px] mx-auto leading-relaxed">
+            Análise gerada a partir de dados públicos do INEP. Valores oficiais devem ser consultados em portais governamentais.
+          </p>
+          <CitarButton scopeType="escola" scopeId={escola.codigo_inep} scopeLabel={escola.nome} />
+        </div>
       </div>
 
       <RadarFooter />

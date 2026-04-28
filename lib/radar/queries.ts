@@ -155,28 +155,258 @@ export async function getEscolasMunicipio(ibge: string, limit = 200): Promise<Pi
   return (data || []) as any;
 }
 
+// ── Comparativo lado-a-lado ──────────────────────────────────────────
+
+export type EscolaCompacta = {
+  codigo_inep: string;
+  nome: string;
+  rede: string | null;
+  municipio: string;
+  uf: string;
+  inse_grupo: number | null;
+  // Saeb agregado
+  saebPctNivel01: number | null;
+  saebTaxaPart: number | null;
+  saebFormacao: number | null;
+  saebAno: number | null;
+  // Censo scores
+  scoreBasica: number | null;
+  scorePedagogica: number | null;
+  scoreAcessibilidade: number | null;
+  scoreConectividade: number | null;
+};
+
+export async function getEscolasCompactas(inepCodes: string[]): Promise<EscolaCompacta[]> {
+  if (!inepCodes.length) return [];
+  const sb = createSupabaseAdmin();
+  const [escolas, saeb, censo] = await Promise.all([
+    sb.from('diag_escolas')
+      .select('codigo_inep, nome, rede, municipio, uf, inse_grupo')
+      .in('codigo_inep', inepCodes),
+    sb.from('diag_saeb_snapshots')
+      .select('codigo_inep, ano, distribuicao, taxa_participacao, formacao_docente')
+      .in('codigo_inep', inepCodes),
+    sb.from('diag_censo_infra')
+      .select('codigo_inep, score_basica, score_pedagogica, score_acessibilidade, score_conectividade, ano')
+      .in('codigo_inep', inepCodes)
+      .order('ano', { ascending: false }),
+  ]);
+
+  const censoByInep = new Map<string, any>();
+  for (const c of censo.data || []) {
+    if (!censoByInep.has((c as any).codigo_inep)) censoByInep.set((c as any).codigo_inep, c);
+  }
+
+  const saebByInep = new Map<string, any[]>();
+  for (const s of saeb.data || []) {
+    const inep = (s as any).codigo_inep;
+    if (!saebByInep.has(inep)) saebByInep.set(inep, []);
+    saebByInep.get(inep)!.push(s);
+  }
+
+  return (escolas.data || []).map((e: any) => {
+    const snaps = saebByInep.get(e.codigo_inep) || [];
+    const anos = snaps.length ? Math.max(...snaps.map((s: any) => s.ano)) : null;
+    const recentes = anos ? snaps.filter((s: any) => s.ano === anos) : [];
+    let sumPct = 0, cntPct = 0, sumPart = 0, cntPart = 0, sumForm = 0, cntForm = 0;
+    for (const s of recentes) {
+      const dist = s.distribuicao || {};
+      const pct = Number(dist['0'] || 0) + Number(dist['1'] || 0);
+      if (Number.isFinite(pct)) { sumPct += pct; cntPct++; }
+      if (s.taxa_participacao != null) { sumPart += Number(s.taxa_participacao); cntPart++; }
+      if (s.formacao_docente != null) { sumForm += Number(s.formacao_docente); cntForm++; }
+    }
+    const c = censoByInep.get(e.codigo_inep);
+    return {
+      codigo_inep: e.codigo_inep,
+      nome: e.nome,
+      rede: e.rede,
+      municipio: e.municipio,
+      uf: e.uf,
+      inse_grupo: e.inse_grupo,
+      saebPctNivel01: cntPct > 0 ? sumPct / cntPct : null,
+      saebTaxaPart: cntPart > 0 ? sumPart / cntPart : null,
+      saebFormacao: cntForm > 0 ? sumForm / cntForm : null,
+      saebAno: anos,
+      scoreBasica: c?.score_basica ?? null,
+      scorePedagogica: c?.score_pedagogica ?? null,
+      scoreAcessibilidade: c?.score_acessibilidade ?? null,
+      scoreConectividade: c?.score_conectividade ?? null,
+    };
+  });
+}
+
+// ── Agregações por UF ────────────────────────────────────────────────
+
+export type EstadoStats = {
+  uf: string;
+  totalEscolas: number;
+  totalMunicipios: number;
+  totalSnapshots: number;
+  microrregioes: { nome: string; total: number }[];
+  redes: Record<string, number>;
+};
+
+export async function getEstadoStats(uf: string): Promise<EstadoStats | null> {
+  const sb = createSupabaseAdmin();
+  const { data: escolas } = await sb
+    .from('diag_escolas')
+    .select('codigo_inep, municipio_ibge, microrregiao, rede')
+    .eq('uf', uf);
+  if (!escolas || escolas.length === 0) return null;
+
+  const municipiosUnicos = new Set<string>();
+  const microMap = new Map<string, number>();
+  const redes: Record<string, number> = {};
+  for (const e of escolas) {
+    if (e.municipio_ibge) municipiosUnicos.add(e.municipio_ibge);
+    if (e.microrregiao) microMap.set(e.microrregiao, (microMap.get(e.microrregiao) || 0) + 1);
+    const r = e.rede || 'OUTRA';
+    redes[r] = (redes[r] || 0) + 1;
+  }
+
+  const { count: totalSnapshots } = await sb
+    .from('diag_saeb_snapshots')
+    .select('id', { count: 'exact', head: true })
+    .in('codigo_inep', escolas.map((e: any) => e.codigo_inep).slice(0, 1000));
+
+  const microrregioes = Array.from(microMap.entries())
+    .map(([nome, total]) => ({ nome, total }))
+    .sort((a, b) => b.total - a.total);
+
+  return {
+    uf,
+    totalEscolas: escolas.length,
+    totalMunicipios: municipiosUnicos.size,
+    totalSnapshots: totalSnapshots || 0,
+    microrregioes,
+    redes,
+  };
+}
+
+export type RankingMunicipio = {
+  ibge: string;
+  nome: string;
+  totalEscolas: number;
+  // Saeb agregado
+  pctNivel01Avg: number | null;     // média de % nos níveis 0-1 (menor = melhor)
+  taxaParticipacaoAvg: number | null;
+  formacaoDocenteAvg: number | null;
+  // ICA mais recente
+  icaTaxa: number | null;
+  icaAno: number | null;
+};
+
+/**
+ * Ranking de municípios da UF por desempenho Saeb agregado.
+ * Score primário: média de (% N0 + % N1) nos snapshots do município.
+ * Menor = melhor. Inclui ICA municipal mais recente como contexto.
+ */
+export async function getRankingMunicipiosUf(uf: string): Promise<RankingMunicipio[]> {
+  const sb = createSupabaseAdmin();
+  const { data: escolas } = await sb
+    .from('diag_escolas')
+    .select('codigo_inep, municipio, municipio_ibge')
+    .eq('uf', uf)
+    .not('municipio_ibge', 'is', null);
+  if (!escolas?.length) return [];
+
+  // Map ibge -> { nome, codigos[] }
+  const grupos = new Map<string, { nome: string; codigos: string[] }>();
+  for (const e of escolas) {
+    const ibge = (e as any).municipio_ibge;
+    if (!ibge) continue;
+    if (!grupos.has(ibge)) grupos.set(ibge, { nome: (e as any).municipio || '', codigos: [] });
+    grupos.get(ibge)!.codigos.push((e as any).codigo_inep);
+  }
+
+  // Busca snapshots Saeb pra cada município (paralelo, mas dentro do limite)
+  const ibgesArr = Array.from(grupos.keys());
+  const { data: saebData } = await sb
+    .from('diag_saeb_snapshots')
+    .select('codigo_inep, distribuicao, taxa_participacao, formacao_docente')
+    .in('codigo_inep', escolas.map((e: any) => e.codigo_inep));
+  const saebByInep = new Map<string, any[]>();
+  for (const s of saebData || []) {
+    const inep = (s as any).codigo_inep;
+    if (!saebByInep.has(inep)) saebByInep.set(inep, []);
+    saebByInep.get(inep)!.push(s);
+  }
+
+  // ICA mais recente por município
+  const { data: icaData } = await sb
+    .from('diag_ica_snapshots')
+    .select('municipio_ibge, ano, rede, taxa')
+    .in('municipio_ibge', ibgesArr)
+    .order('ano', { ascending: false });
+  const icaByIbge = new Map<string, { ano: number; taxa: number | null }>();
+  for (const i of icaData || []) {
+    const ibge = (i as any).municipio_ibge;
+    if (icaByIbge.has(ibge)) continue;
+    if ((i as any).rede === 'MUNICIPAL' || !icaByIbge.has(ibge)) {
+      icaByIbge.set(ibge, { ano: (i as any).ano, taxa: (i as any).taxa });
+    }
+  }
+
+  const out: RankingMunicipio[] = [];
+  for (const [ibge, grupo] of grupos.entries()) {
+    let sumPct01 = 0;
+    let sumPart = 0;
+    let sumForm = 0;
+    let cntPct = 0;
+    let cntPart = 0;
+    let cntForm = 0;
+    for (const inep of grupo.codigos) {
+      const snaps = saebByInep.get(inep) || [];
+      for (const s of snaps) {
+        const dist = s.distribuicao || {};
+        const pct = (Number(dist['0'] || 0) + Number(dist['1'] || 0));
+        if (Number.isFinite(pct)) { sumPct01 += pct; cntPct++; }
+        if (s.taxa_participacao != null) { sumPart += Number(s.taxa_participacao); cntPart++; }
+        if (s.formacao_docente != null) { sumForm += Number(s.formacao_docente); cntForm++; }
+      }
+    }
+    const ica = icaByIbge.get(ibge);
+    out.push({
+      ibge,
+      nome: grupo.nome,
+      totalEscolas: grupo.codigos.length,
+      pctNivel01Avg: cntPct > 0 ? sumPct01 / cntPct : null,
+      taxaParticipacaoAvg: cntPart > 0 ? sumPart / cntPart : null,
+      formacaoDocenteAvg: cntForm > 0 ? sumForm / cntForm : null,
+      icaTaxa: ica?.taxa || null,
+      icaAno: ica?.ano || null,
+    });
+  }
+  return out;
+}
+
 export async function listAllScopes(): Promise<{
   escolas: { inep: string; updatedAt: string }[];
   municipios: { ibge: string; updatedAt: string }[];
+  estados: { uf: string; updatedAt: string }[];
 }> {
   const sb = createSupabaseAdmin();
   const { data: escolas } = await sb
     .from('diag_escolas')
     .select('codigo_inep, atualizado_em');
-  const { data: municipios } = await sb
+  const { data: rows } = await sb
     .from('diag_escolas')
-    .select('municipio_ibge, atualizado_em')
+    .select('municipio_ibge, uf, atualizado_em')
     .not('municipio_ibge', 'is', null);
-  // Dedup municípios
+  // Dedup municípios e UFs
   const muniMap = new Map<string, string>();
-  for (const m of municipios || []) {
+  const ufMap = new Map<string, string>();
+  for (const m of rows || []) {
     const ibge = (m as any).municipio_ibge;
-    if (!ibge) continue;
+    const uf = (m as any).uf;
     const ts = (m as any).atualizado_em || '';
-    if (!muniMap.has(ibge) || muniMap.get(ibge)! < ts) muniMap.set(ibge, ts);
+    if (ibge && (!muniMap.has(ibge) || muniMap.get(ibge)! < ts)) muniMap.set(ibge, ts);
+    if (uf && (!ufMap.has(uf) || ufMap.get(uf)! < ts)) ufMap.set(uf, ts);
   }
   return {
     escolas: (escolas || []).map((e: any) => ({ inep: e.codigo_inep, updatedAt: e.atualizado_em })),
     municipios: Array.from(muniMap.entries()).map(([ibge, ts]) => ({ ibge, updatedAt: ts })),
+    estados: Array.from(ufMap.entries()).map(([uf, ts]) => ({ uf, updatedAt: ts })),
   };
 }

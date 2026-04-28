@@ -9,6 +9,7 @@ import { leituraIcaMunicipio } from '@/lib/radar/leitura-deterministica';
 import { RadarHeader, RadarFooter } from '../../_components/radar-header';
 import { LeadCTA } from '../../_components/lead-cta';
 import { NarrativaIA, NarrativaSkeleton } from '../../_components/narrativa-ia';
+import { CitarButton } from '../../_components/citar-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -148,9 +149,12 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
           <LeadCTA scopeType="municipio" scopeId={ibge} scopeLabel={`${m.nome}/${m.uf}`} />
         </section>
 
-        <p className="text-[11px] text-white/35 text-center mb-2 max-w-[640px] mx-auto leading-relaxed">
-          Análise gerada a partir de dados públicos do INEP. Valores oficiais devem ser consultados em portais governamentais.
-        </p>
+        <div className="flex flex-col items-center gap-3 mb-2">
+          <p className="text-[11px] text-white/35 text-center max-w-[640px] mx-auto leading-relaxed">
+            Análise gerada a partir de dados públicos do INEP. Valores oficiais devem ser consultados em portais governamentais.
+          </p>
+          <CitarButton scopeType="municipio" scopeId={ibge} scopeLabel={`${m.nome}/${m.uf}`} />
+        </div>
       </div>
 
       <RadarFooter />

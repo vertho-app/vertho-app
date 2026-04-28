@@ -13,10 +13,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = 'https://radar.vertho.ai';
   const now = new Date();
 
-  const scopes = await listAllScopes().catch(() => ({ escolas: [], municipios: [] }));
+  const scopes = await listAllScopes().catch(() => ({ escolas: [], municipios: [], estados: [] }));
 
   const staticEntries: MetadataRoute.Sitemap = [
     { url: `${base}/`, lastModified: now, changeFrequency: 'weekly', priority: 1 },
+    { url: `${base}/comparar`, lastModified: now, changeFrequency: 'weekly', priority: 0.6 },
     { url: `${base}/metodologia`, lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
   ];
 
@@ -34,5 +35,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
-  return [...staticEntries, ...municipiosEntries, ...escolasEntries];
+  const estadosEntries: MetadataRoute.Sitemap = (scopes.estados || []).map((e) => ({
+    url: `${base}/estado/${e.uf}`,
+    lastModified: e.updatedAt ? new Date(e.updatedAt) : now,
+    changeFrequency: 'monthly' as const,
+    priority: 0.85,
+  }));
+
+  return [...staticEntries, ...estadosEntries, ...municipiosEntries, ...escolasEntries];
 }
