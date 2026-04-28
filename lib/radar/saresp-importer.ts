@@ -197,6 +197,13 @@ function parseCsv(text: string): Record<string, string>[] {
   });
 }
 
+function shouldReplaceSarespRow(prev: any, next: any): boolean {
+  const prevTurno = String(prev?.turno || '').toUpperCase();
+  const nextTurno = String(next?.turno || '').toUpperCase();
+  if (prevTurno !== 'GERAL' && nextTurno === 'GERAL') return true;
+  return false;
+}
+
 /** Tenta deduzir ano do nome do arquivo (ex: "...2025_0.csv" → 2025). */
 export function anoFromFilename(filename: string | undefined | null): number | null {
   if (!filename) return null;
@@ -232,6 +239,7 @@ export async function importarSarespCsv(
   const inepBySp = new Map<string, string | null>();
 
   const rowsToInsert: any[] = [];
+  const batchKeyIndex = new Map<string, number>();
 
   for (const r of rows) {
     result.totalProcessado++;
@@ -277,7 +285,7 @@ export async function importarSarespCsv(
       }
     }
 
-    rowsToInsert.push({
+    const rowToInsert = {
       codigo_sp: codigoSp,
       codigo_inep: inepResolved,
       escola_nome: escolaNome,
@@ -292,7 +300,18 @@ export async function importarSarespCsv(
       total_alunos: totalAlunos != null ? Math.round(totalAlunos) : null,
       ingest_run_id: opts.ingestRunId || null,
       atualizado_em: new Date().toISOString(),
-    });
+    };
+
+    const batchKey = `${rowToInsert.codigo_sp}|${rowToInsert.ano}|${rowToInsert.serie}|${rowToInsert.disciplina}`;
+    const existingIndex = batchKeyIndex.get(batchKey);
+    if (existingIndex != null) {
+      if (shouldReplaceSarespRow(rowsToInsert[existingIndex], rowToInsert)) {
+        rowsToInsert[existingIndex] = rowToInsert;
+      }
+      continue;
+    }
+    batchKeyIndex.set(batchKey, rowsToInsert.length);
+    rowsToInsert.push(rowToInsert);
 
     if (rowsToInsert.length >= 200) {
       const { error } = await sb
@@ -305,6 +324,7 @@ export async function importarSarespCsv(
         result.totalSucesso += rowsToInsert.length;
       }
       rowsToInsert.length = 0;
+      batchKeyIndex.clear();
     }
   }
 

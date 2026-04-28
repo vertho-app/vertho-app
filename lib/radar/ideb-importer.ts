@@ -1,5 +1,5 @@
 /**
- * Importador Ideb (metas projetadas vs realizado).
+ * Importador Ideb legado via upload admin.
  *
  * Formato esperado (XLSX INEP "divulgacao_ideb_escolas"):
  *   Header tem colunas IDEB_AAAA e META_AAAA por etapa (AI/AF/EM).
@@ -8,9 +8,8 @@
  * Detecta colunas por regex: ^(IDEB|META)_(\d{4})$.
  * Colunas de etapa podem vir como "AI", "AF", "EM" ou tipo "ANOS_INICIAIS".
  *
- * Schema diag_ideb_metas:
- *   (codigo_inep, ano, etapa, meta_projetada, ideb_realizado, status*)
- *   *status é coluna gerada (atingiu/superou/abaixo/sem_dado).
+ * Schema atual: diag_ideb_snapshots.
+ * Para cargas oficiais grandes e histórico recente, prefira scripts/import-ideb.mjs.
  */
 
 import { createSupabaseAdmin } from '@/lib/supabase';
@@ -44,11 +43,11 @@ function toNumOrNull(v: any): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function parseEtapa(raw: string): 'AI' | 'AF' | 'EM' | null {
+function parseEtapa(raw: string): '5_EF' | '9_EF' | '3_EM' | null {
   const s = (raw || '').toUpperCase();
-  if (s.startsWith('AI') || s.includes('INICIAIS')) return 'AI';
-  if (s.startsWith('AF') || s.includes('FINAIS')) return 'AF';
-  if (s.includes('EM') || s.includes('MEDIO') || s.includes('MÉDIO')) return 'EM';
+  if (s.startsWith('AI') || s.includes('INICIAIS')) return '5_EF';
+  if (s.startsWith('AF') || s.includes('FINAIS')) return '9_EF';
+  if (s.includes('EM') || s.includes('MEDIO') || s.includes('MÉDIO')) return '3_EM';
   return null;
 }
 
@@ -144,7 +143,7 @@ export async function importarIdebXlsx(
       const realizado = toNumOrNull(cells[idebCols.get(ano) ?? -1]);
       if (meta == null && realizado == null) continue;
       rowsToInsert.push({
-        chave: `escola:${codigoInep}:${ano}:${etapa}`,
+        chave: `escola|${codigoInep}||||${etapa}|${ano}`,
         escopo: 'escola',
         codigo_inep: codigoInep,
         ano,

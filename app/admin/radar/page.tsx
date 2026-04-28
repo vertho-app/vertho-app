@@ -127,6 +127,12 @@ export default function AdminRadarPage() {
     addLog(`Censo upload: ${file.name} (${(file.size / 1024).toFixed(0)}KB)`);
     try {
       const text = await file.text();
+      const header = text.slice(0, text.indexOf('\n') > 0 ? text.indexOf('\n') : 500).toUpperCase();
+      if (header.includes('CODESC') && header.includes('SERIE_ANO') && header.includes('MEDPROF')) {
+        addLog('Censo cancelado: este arquivo parece ser SARESP. Use o card "SARESP — SP (CSV)".');
+        setUploadingCenso(false);
+        return;
+      }
       const r = await ingestCensoFromUpload(text, file.name);
       if (r.success) {
         const res = r.result;
