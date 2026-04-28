@@ -1,4 +1,94 @@
 /**
+ * Cross-match heurístico SP→INEP por nome:
+ *
+ * Pre-carrega todas escolas com UF='SP' do diag_escolas. Pra cada linha
+ * SARESP, normaliza o nome (remove acentos/títulos/prefixos), tokeniza e
+ * computa Jaccard similarity contra cada escola candidata. Match único
+ * com score >= 0.72 vira codigo_inep gravado.
+ *
+ * Limitações conhecidas:
+ *  - Sem município/coordenadoria no CSV SARESP, todo nome compete com
+ *    todas as 5.5k escolas SP. Threshold conservador evita falsos positivos.
+ *  - Algumas escolas com nomes muito similares ficam ambíguas (não match).
+ *  - Resolução completa requer tabela DE-PARA oficial — V1.5.
+ */
+function normalizarNome(nome: string): string {
+  return String(nome || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/\bESCOLA ESTADUAL\b/g, '')
+    .replace(/\bE\.?\s?E\.?\b/g, '')
+    .replace(/\bESCOLA\b/g, '')
+    .replace(/\bPROFESSORA?\b/g, '')
+    .replace(/\bPROFA?\.?\b/g, '')
+    .replace(/\bDOUTORA?\b/g, '')
+    .replace(/\bDR\.?\b/g, '')
+    .replace(/\bDRA\.?\b/g, '')
+    .replace(/[^A-Z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function tokenize(s: string): Set<string> {
+  return new Set(s.split(/\s+/).filter((t) => t.length >= 3));
+}
+
+function jaccard(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  let inter = 0;
+  for (const x of a) if (b.has(x)) inter++;
+  const union = a.size + b.size - inter;
+  return union > 0 ? inter / union : 0;
+}
+
+type SpEscolaCandidate = {
+  codigo_inep: string;
+  nome: string;
+  tokens: Set<string>;
+};
+
+async function loadSpEscolas(sb: any): Promise<SpEscolaCandidate[]> {
+  // Limit alto pra cobrir todas escolas SP (~5.5k estaduais + outras)
+  const { data, error } = await sb
+    .from('diag_escolas')
+    .select('codigo_inep, nome')
+    .eq('uf', 'SP')
+    .limit(20000);
+  if (error || !data) return [];
+  return data.map((e: any) => ({
+    codigo_inep: e.codigo_inep,
+    nome: e.nome,
+    tokens: tokenize(normalizarNome(e.nome)),
+  }));
+}
+
+function bestInepMatch(sarespNome: string, candidates: SpEscolaCandidate[]): string | null {
+  const tokens = tokenize(normalizarNome(sarespNome));
+  if (tokens.size < 1) return null;
+
+  let bestScore = 0;
+  let bestInep: string | null = null;
+  let secondScore = 0;
+
+  for (const c of candidates) {
+    const s = jaccard(tokens, c.tokens);
+    if (s > bestScore) {
+      secondScore = bestScore;
+      bestScore = s;
+      bestInep = c.codigo_inep;
+    } else if (s > secondScore) {
+      secondScore = s;
+    }
+  }
+
+  // Match único: score alto E gap suficiente entre 1º e 2º (evita ambíguos)
+  if (bestScore >= 0.72 && (bestScore - secondScore) >= 0.05) return bestInep;
+  // Match exato fingerprint: score 1.0 sempre vence
+  if (bestScore >= 0.95) return bestInep;
+  return null;
+}
+
+/**
  * Importador SARESP (Seduc-SP) — formato oficial 2025.
  *
  * Header real (ponto-e-vírgula):
@@ -121,10 +211,10 @@ export function anoFromFilename(filename: string | undefined | null): number | n
 export async function importarSarespCsv(
   text: string,
   opts: { ingestRunId: string; ano?: number; arquivoNome?: string } = { ingestRunId: '' },
-): Promise<IngestResult> {
+): Promise<IngestResult & { matchedInep: number }> {
   const sb = createSupabaseAdmin();
-  const result: IngestResult = {
-    totalProcessado: 0, totalSucesso: 0, totalFalha: 0, totalSkipped: 0, erros: [],
+  const result: IngestResult & { matchedInep: number } = {
+    totalProcessado: 0, totalSucesso: 0, totalFalha: 0, totalSkipped: 0, erros: [], matchedInep: 0,
   };
 
   const anoBase = opts.ano || anoFromFilename(opts.arquivoNome) || new Date().getFullYear();
@@ -135,6 +225,11 @@ export async function importarSarespCsv(
     result.totalFalha = 1;
     return result;
   }
+
+  // Pré-carrega candidatos SP pra cross-match heurístico
+  const spEscolas = await loadSpEscolas(sb);
+  // Cache de resoluções por codigo_sp (evita recomputar pra mesma escola)
+  const inepBySp = new Map<string, string | null>();
 
   const rowsToInsert: any[] = [];
 
@@ -168,10 +263,24 @@ export async function importarSarespCsv(
     if (ad != null) dist.adequado = ad;
     if (av != null) dist.avancado = av;
 
+    const escolaNome = String(pick(r, ['NOMESC', 'nomesc', 'NO_ESCOLA']) || '').trim() || null;
+
+    // Cross-match heurístico SP→INEP por nome (1 lookup por escola única)
+    let inepResolved: string | null = codigoInep && codigoInep.length === 8 ? codigoInep : null;
+    if (!inepResolved && escolaNome && spEscolas.length > 0) {
+      if (inepBySp.has(codigoSp)) {
+        inepResolved = inepBySp.get(codigoSp) || null;
+      } else {
+        inepResolved = bestInepMatch(escolaNome, spEscolas);
+        inepBySp.set(codigoSp, inepResolved);
+        if (inepResolved) result.matchedInep++;
+      }
+    }
+
     rowsToInsert.push({
       codigo_sp: codigoSp,
-      codigo_inep: codigoInep && codigoInep.length === 8 ? codigoInep : null,
-      escola_nome: String(pick(r, ['NOMESC', 'nomesc', 'NO_ESCOLA']) || '').trim() || null,
+      codigo_inep: inepResolved,
+      escola_nome: escolaNome,
       dep_administrativa: String(pick(r, ['NomeDepBol', 'DEPADM', 'NomeDep', 'DEP']) || '').trim() || null,
       rede: parseRede(pick(r, ['NomeDepBol', 'DEPADM', 'rede'])),
       turno: String(pick(r, ['periodo', 'turno', 'TURNO']) || '').trim() || null,

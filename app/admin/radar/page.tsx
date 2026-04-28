@@ -171,8 +171,11 @@ export default function AdminRadarPage() {
       const text = await file.text();
       const r = await ingestSarespFromUpload(text, file.name);
       if (r.success) {
-        const res = r.result;
+        const res: any = r.result;
         addLog(`SARESP OK: ${res.totalSucesso} linhas, ${res.totalFalha} erros, ${res.totalSkipped} skipped`);
+        if (typeof res.matchedInep === 'number') {
+          addLog(`  ↳ cross-match SP→INEP: ${res.matchedInep} escolas resolvidas`);
+        }
         for (const err of (res.erros || []).slice(0, 3)) addLog(`  ↳ ${err.key}: ${err.msg}`);
       } else addLog(`SARESP ERRO: ${r.error}`);
     } catch (e: any) { addLog(`SARESP EXCEÇÃO: ${e.message}`); }
