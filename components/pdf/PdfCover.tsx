@@ -10,28 +10,26 @@ const s = StyleSheet.create({
     position: 'relative',
   },
   // Decorações geométricas no fundo (círculos cyan da paleta brand)
-  // Usa opacity em vez de rgba (parser do react-pdf falha com alpha baixo)
+  // react-pdf ignora opacity em borderColor — usa hex sólido direto.
   accent1: {
     position: 'absolute',
     right: -60,
-    top: '40%',
+    top: '38%',
     width: 230,
     height: 230,
-    borderWidth: 22,
+    borderWidth: 18,
     borderColor: colors.cyanLight, // #9AE2E6
     borderRadius: 115,
-    opacity: 0.18,
   },
   accent2: {
     position: 'absolute',
     right: 12,
-    top: '46%',
+    top: '44%',
     width: 145,
     height: 145,
-    borderWidth: 12,
+    borderWidth: 10,
     borderColor: colors.cyan, // #34C5CC
     borderRadius: 72,
-    opacity: 0.22,
   },
   // Topo (logo) — ratio fixo do "Logo Vertho H claro" (~4.23:1)
   top: { paddingHorizontal: 50, paddingTop: 50 },
@@ -54,8 +52,8 @@ const s = StyleSheet.create({
     fontSize: 48,
     fontWeight: 800,
     color: colors.white,
-    lineHeight: 1.0,
-    marginBottom: 10,
+    lineHeight: 1.1,
+    marginBottom: 22,
   },
   role: {
     fontSize: 13,
@@ -149,14 +147,6 @@ export default function PdfCover({
           <View style={s.metaItem}>
             <Text style={s.metaLabel}>Data</Text>
             <Text style={s.metaValue}>{dataFormatada}</Text>
-          </View>
-          <View style={s.metaItem}>
-            <Text style={s.metaLabel}>Gerado por</Text>
-            <Text style={s.metaValue}>Vertho Mentor IA</Text>
-          </View>
-          <View style={s.metaItem}>
-            <Text style={s.metaLabel}>Ciclo</Text>
-            <Text style={s.metaValue}>{ciclo}</Text>
           </View>
         </View>
       </View>
