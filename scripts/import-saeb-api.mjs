@@ -147,6 +147,15 @@ if (!DRY && runId) {
     .eq('id', runId);
 }
 
+if (!DRY && !NO_RUN && (status === 'sucesso' || status === 'parcial')) {
+  try {
+    await sb.rpc('refresh_diag_mvs');
+    console.log('materialized views: refresh ok');
+  } catch (err) {
+    console.log(`materialized views: refresh falhou (${err?.message || String(err)})`);
+  }
+}
+
 console.log('');
 console.log(`concluído em ${(durationMs / 1000).toFixed(1)}s — status:${status} ok:${result.totalSucesso} falha:${result.totalFalha} skip:${result.totalSkipped}`);
 if (runId) console.log(`runId: ${runId}`);
