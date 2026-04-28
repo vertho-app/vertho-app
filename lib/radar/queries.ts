@@ -152,6 +152,28 @@ export async function getMunicipioBenchmarks(ibge: string): Promise<BenchmarkRow
   return (data as BenchmarkRow[]) || [];
 }
 
+export type EscolaBenchmarkScope = 'escola' | 'microrregiao' | 'estado';
+
+export type EscolaBenchmarkRow = {
+  scope: EscolaBenchmarkScope;
+  ideb_5ef: number | null;
+  ideb_9ef: number | null;
+  ideb_3em: number | null;
+  saeb_5ef_lp: number | null;
+  saeb_5ef_mat: number | null;
+  saeb_9ef_lp: number | null;
+  saeb_9ef_mat: number | null;
+  saeb_3em_lp: number | null;
+  saeb_3em_mat: number | null;
+  qtd_escolas: number;
+};
+
+export async function getEscolaBenchmarks(codigoInep: string): Promise<EscolaBenchmarkRow[]> {
+  const sb = createSupabaseAdmin();
+  const { data } = await sb.rpc('diag_escola_benchmarks', { p_inep: codigoInep });
+  return (data as EscolaBenchmarkRow[]) || [];
+}
+
 export type IcaSnapshot = {
   municipio_ibge: string;
   uf: string;

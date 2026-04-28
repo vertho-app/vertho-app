@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { ArrowLeft, MapPin, Building2, Users, Calendar } from 'lucide-react';
 
-import { getEscola } from '@/lib/radar/queries';
+import { getEscola, getEscolaBenchmarks } from '@/lib/radar/queries';
 import { leituraSaebEscola, ETAPA_LABELS, DISC_LABELS } from '@/lib/radar/leitura-deterministica';
 import { registrarEvento } from '@/lib/radar/eventos';
 import { RadarHeader, RadarFooter } from '../../_components/radar-header';
@@ -15,6 +15,7 @@ import { InfraSection } from '../../_components/infra-card';
 import { CitarButton } from '../../_components/citar-button';
 import { SarespSection } from '../../_components/saresp-section';
 import { PddeSection } from '../../_components/pdde-section';
+import { EscolaBenchmarkTable } from '../../_components/escola-benchmark-table';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +44,8 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
   const ideb = r.ideb;
   const saresp = r.saresp || [];
   const pdde = r.pdde || [];
+
+  const benchmarks = await getEscolaBenchmarks(escola.codigo_inep);
 
   // Tracking best-effort (não bloqueia render)
   registrarEvento('view_escola', { scopeType: 'escola', scopeId: escola.codigo_inep }).catch(() => {});
@@ -144,6 +147,15 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
             />
           </Suspense>
         </section>
+
+        {/* Comparativo escola vs microrregião / estado */}
+        {benchmarks.length > 0 && (
+          <EscolaBenchmarkTable
+            rows={benchmarks}
+            microrregiao={(escola as any).microrregiao}
+            uf={escola.uf}
+          />
+        )}
 
         {/* Infra (Censo Escolar) */}
         {censo && <InfraSection censo={censo} />}
