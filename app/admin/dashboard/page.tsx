@@ -22,6 +22,7 @@ const serif: React.CSSProperties = {
 
 // ── nav items ──────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
+  { label: 'Radar (Ingestão)',   href: '/admin/radar',                            icon: BarChart2   },
   { label: 'Competências',       href: '/admin/competencias',                    icon: BookMarked  },
   { label: 'Simulador',          href: '/admin/simulador',                        icon: Zap         },
   { label: 'Conteúdos',          href: '/admin/conteudos',                        icon: BookOpen    },
