@@ -188,8 +188,11 @@ async function main() {
   const runId = await startIngestRun();
   stderr.write(`Run ID: ${runId}\n\n`);
 
+  // Microdados INEP vêm em ISO-8859-1 (latin1) — usar utf8 corrompe acentos
+  // (ex.: "Rondônia" vira "Rond\uFFFDnia"). latin1 do Node decodifica byte-a-byte
+  // como ISO-8859-1, e o output da string é UTF-8 nativo do JS.
   const rl = createInterface({
-    input: createReadStream(inputAbs, { encoding: 'utf8' }),
+    input: createReadStream(inputAbs, { encoding: 'latin1' }),
     crlfDelay: Infinity,
   });
 
