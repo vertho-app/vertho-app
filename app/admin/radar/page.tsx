@@ -100,7 +100,7 @@ export default function AdminRadarPage() {
       let r;
       if (isXlsx) {
         const buffer = await file.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+        const base64 = await arrayBufferToBase64(buffer);
         r = await ingestIcaFromUpload({ format: 'xlsx', arquivoBase64: base64 }, file.name, restringirIrece);
       } else {
         const text = await file.text();
