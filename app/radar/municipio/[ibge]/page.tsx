@@ -128,10 +128,16 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
                     {i.ano} · {i.rede}
                   </p>
                   <p className="text-3xl font-bold text-white mt-2 font-mono">{(i.taxa ?? 0).toFixed(1)}<span className="text-base text-white/45">%</span></p>
-                  <p className="text-[10px] text-white/45 mt-1 font-mono">
-                    {i.alfabetizados ?? 0} de {i.alunos_avaliados ?? 0} alunos
-                  </p>
-                  {i.total_estado != null && (
+                  {i.alunos_avaliados != null && i.alunos_avaliados > 0 ? (
+                    <p className="text-[10px] text-white/45 mt-1 font-mono">
+                      {i.alfabetizados ?? 0} de {i.alunos_avaliados} alunos
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-white/35 mt-1 italic">
+                      total de alunos não disponível na fonte
+                    </p>
+                  )}
+                  {i.total_estado != null && i.total_estado > 0 && (
                     <p className="text-[10px] text-white/35 mt-2">UF: {i.total_estado.toFixed(1)}% · BR: {(i.total_brasil || 0).toFixed(1)}%</p>
                   )}
                 </div>

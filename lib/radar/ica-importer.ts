@@ -113,6 +113,16 @@ async function processIcaRows(
     const taxaUf = Number(pick(r, ['TX_ALFABETIZACAO_UF', 'tx_uf']));
     const taxaBr = Number(pick(r, ['TX_ALFABETIZACAO_BR', 'tx_brasil']));
 
+    // Pula linhas-fantasma onde todas as métricas vêm zeradas/vazias —
+    // o XLSX INEP às vezes traz placeholders para anos futuros sem dados.
+    const temDado = (Number.isFinite(alunos) && alunos > 0) ||
+                    (Number.isFinite(alfa) && alfa > 0) ||
+                    (Number.isFinite(taxa) && taxa > 0);
+    if (!temDado) {
+      result.totalSkipped++;
+      continue;
+    }
+
     batch.push({
       municipio_ibge: ibge,
       uf,
