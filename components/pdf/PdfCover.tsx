@@ -9,7 +9,8 @@ const s = StyleSheet.create({
     fontFamily: 'NotoSans',
     position: 'relative',
   },
-  // Decorações geométricas no fundo (círculos cyan com baixa opacidade)
+  // Decorações geométricas no fundo (círculos cyan dessaturados)
+  // Usa opacity em vez de rgba (parser do react-pdf falha com alpha baixo)
   accent1: {
     position: 'absolute',
     right: -60,
@@ -17,8 +18,9 @@ const s = StyleSheet.create({
     width: 230,
     height: 230,
     borderWidth: 22,
-    borderColor: 'rgba(62,240,226,0.07)',
+    borderColor: colors.cyan,
     borderRadius: 115,
+    opacity: 0.07,
   },
   accent2: {
     position: 'absolute',
@@ -27,12 +29,13 @@ const s = StyleSheet.create({
     width: 145,
     height: 145,
     borderWidth: 12,
-    borderColor: 'rgba(62,240,226,0.05)',
+    borderColor: colors.cyan,
     borderRadius: 72,
+    opacity: 0.05,
   },
-  // Topo (logo)
+  // Topo (logo) — ratio fixo do "Logo Vertho H claro" (~4.23:1)
   top: { paddingHorizontal: 50, paddingTop: 50 },
-  logo: { height: 28, width: 'auto' },
+  logo: { height: 28, width: 118 },
   // Meio (título principal)
   middle: {
     flex: 1,
@@ -177,7 +180,7 @@ export function PdfBackCover({ logoBase64 }: { logoBase64?: string }) {
       fontFamily: 'NotoSans',
       gap: 20,
     },
-    logo: { height: 60, width: 'auto', opacity: 0.85 },
+    logo: { height: 60, width: 254, opacity: 0.85 },
     line: {
       fontSize: 8,
       color: 'rgba(255,255,255,0.3)',

@@ -162,7 +162,7 @@ export const pageStyles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 40, paddingVertical: 14,
   },
-  headerLogo: { height: 18 },
+  headerLogo: { height: 18, width: 76 },
   headerLabel: {
     fontSize: 8, color: 'rgba(255,255,255,0.5)',
     letterSpacing: 1, textTransform: 'uppercase', fontWeight: 500,
