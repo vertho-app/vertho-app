@@ -2,14 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2, Upload, RefreshCw, FileSpreadsheet, FileText, Trash2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Upload, RefreshCw, FileText, Trash2, Terminal } from 'lucide-react';
 import {
   loadRadarStats,
-  ingestSaebFromUpload,
   ingestIcaFromUpload,
-  ingestCensoFromUpload,
-  ingestIdebFromUpload,
-  ingestSarespFromUpload,
   ingestFundebFromUpload,
   ingestPddeFromUpload,
   deleteIngestRun,
@@ -47,11 +43,7 @@ export default function AdminRadarPage() {
   const router = useRouter();
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [uploadingSaeb, setUploadingSaeb] = useState(false);
   const [uploadingIca, setUploadingIca] = useState(false);
-  const [uploadingCenso, setUploadingCenso] = useState(false);
-  const [uploadingIdeb, setUploadingIdeb] = useState(false);
-  const [uploadingSaresp, setUploadingSaresp] = useState(false);
   const [uploadingFundeb, setUploadingFundeb] = useState(false);
   const [uploadingPdde, setUploadingPdde] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
@@ -68,29 +60,6 @@ export default function AdminRadarPage() {
   }
 
   useEffect(() => { refresh(); }, []);
-
-  async function handleSaebUpload(file: File) {
-    setUploadingSaeb(true);
-    addLog(`Saeb upload: ${file.name} (${(file.size / 1024).toFixed(0)}KB)`);
-    const buffer = await file.arrayBuffer();
-    const base64 = await arrayBufferToBase64(buffer);
-    try {
-      const r = await ingestSaebFromUpload(base64, file.name);
-      if (r.success) {
-        const res = r.result;
-        addLog(`Saeb OK: ${res.totalSucesso} escolas, ${res.totalFalha} erros, ${res.totalSkipped} skipped`);
-        for (const err of (res.erros || []).slice(0, 3)) {
-          addLog(`  ↳ ${err.key}: ${err.msg}`);
-        }
-      } else {
-        addLog(`Saeb ERRO: ${r.error}`);
-      }
-    } catch (e: any) {
-      addLog(`Saeb EXCEÇÃO: ${e.message}`);
-    }
-    setUploadingSaeb(false);
-    refresh();
-  }
 
   async function handleIcaUpload(file: File) {
     setUploadingIca(true);
@@ -119,73 +88,6 @@ export default function AdminRadarPage() {
       addLog(`ICA EXCEÇÃO: ${e.message}`);
     }
     setUploadingIca(false);
-    refresh();
-  }
-
-  async function handleCensoUpload(file: File) {
-    setUploadingCenso(true);
-    addLog(`Censo upload: ${file.name} (${(file.size / 1024).toFixed(0)}KB)`);
-    try {
-      const text = await file.text();
-      const header = text.slice(0, text.indexOf('\n') > 0 ? text.indexOf('\n') : 500).toUpperCase();
-      if (header.includes('CODESC') && header.includes('SERIE_ANO') && header.includes('MEDPROF')) {
-        addLog('Censo cancelado: este arquivo parece ser SARESP. Use o card "SARESP — SP (CSV)".');
-        setUploadingCenso(false);
-        return;
-      }
-      const r = await ingestCensoFromUpload(text, file.name);
-      if (r.success) {
-        const res = r.result;
-        addLog(`Censo OK: ${res.totalSucesso} escolas, ${res.totalFalha} erros, ${res.totalSkipped} skipped`);
-        for (const err of (res.erros || []).slice(0, 3)) {
-          addLog(`  ↳ erro ${err.key}: ${err.msg}`);
-        }
-        for (const skip of (res.skipsAmostra || [])) {
-          addLog(`  ↳ skip ${skip.key}: ${skip.motivo}`);
-        }
-      } else {
-        addLog(`Censo ERRO: ${r.error}`);
-      }
-    } catch (e: any) {
-      addLog(`Censo EXCEÇÃO: ${e.message}`);
-    }
-    setUploadingCenso(false);
-    refresh();
-  }
-
-  async function handleIdebUpload(file: File) {
-    setUploadingIdeb(true);
-    addLog(`Ideb upload: ${file.name} (${(file.size / 1024).toFixed(0)}KB)`);
-    try {
-      const buffer = await file.arrayBuffer();
-      const base64 = await arrayBufferToBase64(buffer);
-      const r = await ingestIdebFromUpload(base64, file.name);
-      if (r.success) {
-        const res = r.result;
-        addLog(`Ideb OK: ${res.totalSucesso} linhas, ${res.totalFalha} erros, ${res.totalSkipped} skipped`);
-        for (const err of (res.erros || []).slice(0, 3)) addLog(`  ↳ ${err.key}: ${err.msg}`);
-      } else addLog(`Ideb ERRO: ${r.error}`);
-    } catch (e: any) { addLog(`Ideb EXCEÇÃO: ${e.message}`); }
-    setUploadingIdeb(false);
-    refresh();
-  }
-
-  async function handleSarespUpload(file: File) {
-    setUploadingSaresp(true);
-    addLog(`SARESP upload: ${file.name} (${(file.size / 1024).toFixed(0)}KB)`);
-    try {
-      const text = await file.text();
-      const r = await ingestSarespFromUpload(text, file.name);
-      if (r.success) {
-        const res: any = r.result;
-        addLog(`SARESP OK: ${res.totalSucesso} linhas, ${res.totalFalha} erros, ${res.totalSkipped} skipped`);
-        if (typeof res.matchedInep === 'number') {
-          addLog(`  ↳ cross-match SP→INEP: ${res.matchedInep} escolas resolvidas`);
-        }
-        for (const err of (res.erros || []).slice(0, 3)) addLog(`  ↳ ${err.key}: ${err.msg}`);
-      } else addLog(`SARESP ERRO: ${r.error}`);
-    } catch (e: any) { addLog(`SARESP EXCEÇÃO: ${e.message}`); }
-    setUploadingSaresp(false);
     refresh();
   }
 
@@ -272,27 +174,62 @@ export default function AdminRadarPage() {
           ))}
         </div>
 
-        {/* Uploaders */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-          <div className="rounded-2xl p-5 border border-white/[0.06]"
-            style={{ background: 'rgba(255,255,255,0.03)' }}>
-            <div className="flex items-center gap-2 mb-3">
-              <FileSpreadsheet size={16} className="text-cyan-400" />
-              <h3 className="text-sm font-bold text-white">Saeb (XLSX do saeb_pipeline)</h3>
-            </div>
-            <p className="text-xs text-white/50 mb-4">
-              Aceita XLSX gerado pelo pipeline Python (3 abas: escolas, distribuicoes, falhas).
-              Cada upload cria um run em diag_ingest_runs.
-            </p>
-            <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white cursor-pointer"
-              style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
-              {uploadingSaeb ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-              {uploadingSaeb ? 'Processando...' : 'Selecionar XLSX Saeb'}
-              <input type="file" accept=".xlsx" className="hidden" disabled={uploadingSaeb}
-                onChange={(e) => e.target.files?.[0] && handleSaebUpload(e.target.files[0])} />
-            </label>
+        {/* Imports via CLI (bases nacionais grandes) */}
+        <p className="text-[10px] tracking-[0.2em] text-white/40 uppercase font-mono mb-3">
+          Imports via CLI (bases nacionais)
+        </p>
+        <div className="rounded-2xl p-5 border border-white/[0.06] mb-6"
+          style={{ background: 'rgba(255,255,255,0.03)' }}>
+          <div className="flex items-center gap-2 mb-3">
+            <Terminal size={16} className="text-cyan-400" />
+            <h3 className="text-sm font-bold text-white">Rodar local (sem timeout do server action)</h3>
           </div>
+          <p className="text-xs text-white/50 mb-4 leading-relaxed">
+            Bases grandes (Saeb, Censo ~165MB, Ideb, SARESP) são importadas por scripts
+            CLI que rodam direto contra o Supabase com service role e refrescam as
+            materialized views ao final. Cada run aparece em <code className="text-cyan-300">diag_ingest_runs</code>.
+          </p>
+          <div className="space-y-3">
+            {[
+              {
+                label: 'Saeb',
+                desc: 'Via API INEP (não precisa baixar arquivo).',
+                cmd: 'node scripts/import-saeb-api.mjs',
+              },
+              {
+                label: 'Censo Escolar',
+                desc: 'Microdados INEP — Tabela_Escola_*.csv (~165MB).',
+                cmd: 'node scripts/import-censo.mjs Tabela_Escola_2025.csv',
+              },
+              {
+                label: 'Ideb',
+                desc: 'XLSX oficial INEP por escola, séries históricas.',
+                cmd: 'node scripts/import-ideb.mjs ideb_escolas.xlsx',
+              },
+              {
+                label: 'SARESP — SP',
+                desc: 'CSV dadosabertos.sp.gov.br com cross-match SP→INEP.',
+                cmd: 'node scripts/import-saresp.mjs SARESP.csv',
+              },
+            ].map((it) => (
+              <div key={it.label} className="flex flex-col gap-1 pb-3 border-b border-white/[0.04] last:border-b-0 last:pb-0">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[11px] font-bold text-white uppercase tracking-wider">{it.label}</span>
+                  <span className="text-[11px] text-white/45">{it.desc}</span>
+                </div>
+                <code className="text-[11px] font-mono text-cyan-400 bg-white/5 px-2 py-1 rounded inline-block self-start">
+                  {it.cmd}
+                </code>
+              </div>
+            ))}
+          </div>
+        </div>
 
+        {/* Uploaders (cargas pequenas via UI) */}
+        <p className="text-[10px] tracking-[0.2em] text-white/40 uppercase font-mono mb-3">
+          Upload via web (arquivos pequenos)
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
           <div className="rounded-2xl p-5 border border-white/[0.06]"
             style={{ background: 'rgba(255,255,255,0.03)' }}>
             <div className="flex items-center gap-2 mb-3">
@@ -316,86 +253,10 @@ export default function AdminRadarPage() {
           <div className="rounded-2xl p-5 border border-white/[0.06]"
             style={{ background: 'rgba(255,255,255,0.03)' }}>
             <div className="flex items-center gap-2 mb-3">
-              <FileSpreadsheet size={16} className="text-cyan-400" />
-              <h3 className="text-sm font-bold text-white">Censo Escolar (CSV)</h3>
-            </div>
-            <p className="text-xs text-white/50 mb-3">
-              Microdados INEP (Tabela_Escola_*.csv). 213 indicadores de infra +
-              32 quantidades + 4 scores agregados.
-            </p>
-            <p className="text-[10px] text-white/40 mb-4 leading-relaxed">
-              <span className="text-white/60 font-bold">Para CSV nacional (~165MB):</span> use
-              o script local pra evitar timeout do server action:
-              <br />
-              <code className="text-cyan-400 bg-white/5 px-1 py-0.5 rounded mt-1 inline-block">
-                node scripts/import-censo.mjs Tabela_Escola_2025.csv
-              </code>
-              <br />
-              Upload abaixo aceita arquivos &lt; 15MB (apenas pra subset filtrado).
-            </p>
-            <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white cursor-pointer"
-              style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
-              {uploadingCenso ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-              {uploadingCenso ? 'Processando...' : 'Selecionar CSV (subset)'}
-              <input type="file" accept=".csv,.txt" className="hidden" disabled={uploadingCenso}
-                onChange={(e) => e.target.files?.[0] && handleCensoUpload(e.target.files[0])} />
-            </label>
-          </div>
-        </div>
-
-        {/* Uploaders Fase 2 — Bett */}
-        <p className="text-[10px] tracking-[0.2em] text-white/40 uppercase font-mono mb-3">
-          Fontes adicionais (pré-Bett)
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
-          <div className="rounded-2xl p-5 border border-white/[0.06]"
-            style={{ background: 'rgba(255,255,255,0.03)' }}>
-            <div className="flex items-center gap-2 mb-3">
-              <FileSpreadsheet size={16} className="text-cyan-400" />
-              <h3 className="text-sm font-bold text-white">Ideb histórico (XLSX)</h3>
-            </div>
-            <p className="text-xs text-white/50 mb-3">
-              Planilhas oficiais INEP de divulgação do Ideb por escola. Use os scripts locais
-              para arquivos grandes e séries históricas; este upload fica para cargas pequenas.
-            </p>
-            <p className="text-[10px] text-white/40 mb-4">
-              A base principal agora usa diag_ideb_snapshots.
-            </p>
-            <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white cursor-pointer"
-              style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
-              {uploadingIdeb ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-              {uploadingIdeb ? 'Processando...' : 'Selecionar XLSX Ideb'}
-              <input type="file" accept=".xlsx" className="hidden" disabled={uploadingIdeb}
-                onChange={(e) => e.target.files?.[0] && handleIdebUpload(e.target.files[0])} />
-            </label>
-          </div>
-
-          <div className="rounded-2xl p-5 border border-white/[0.06]"
-            style={{ background: 'rgba(255,255,255,0.03)' }}>
-            <div className="flex items-center gap-2 mb-3">
-              <FileText size={16} className="text-cyan-400" />
-              <h3 className="text-sm font-bold text-white">SARESP — SP (CSV)</h3>
-            </div>
-            <p className="text-xs text-white/50 mb-3">
-              Microdados SP (dadosabertos.sp.gov.br). Por escola, ano, série, disciplina.
-              Aceita PCT_ABAIXO_BASICO/BASICO/ADEQUADO/AVANCADO no JSONB.
-            </p>
-            <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white cursor-pointer"
-              style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
-              {uploadingSaresp ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-              {uploadingSaresp ? 'Processando...' : 'Selecionar CSV SARESP'}
-              <input type="file" accept=".csv,.txt" className="hidden" disabled={uploadingSaresp}
-                onChange={(e) => e.target.files?.[0] && handleSarespUpload(e.target.files[0])} />
-            </label>
-          </div>
-
-          <div className="rounded-2xl p-5 border border-white/[0.06]"
-            style={{ background: 'rgba(255,255,255,0.03)' }}>
-            <div className="flex items-center gap-2 mb-3">
               <FileText size={16} className="text-cyan-400" />
               <h3 className="text-sm font-bold text-white">FUNDEB (CSV Tesouro)</h3>
             </div>
-            <p className="text-xs text-white/50 mb-3">
+            <p className="text-xs text-white/50 mb-4">
               CSV mensal por município. Agregamos automaticamente ano por ano.
               Colunas: cod_municipio, ano_mes, valor_repasse_bruto, complementacao_uniao.
             </p>
