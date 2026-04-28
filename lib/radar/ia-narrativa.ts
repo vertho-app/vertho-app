@@ -59,6 +59,23 @@ function extractJson(text: string): NarrativaIA | null {
   }
 }
 
+/**
+ * Detecta se o User-Agent parece bot/crawler. Pra bots, evitamos disparar
+ * IA na primeira visita — eles servem cache se existir, senão veem só a
+ * leitura determinística. Humanos sempre disparam (e enchem o cache).
+ *
+ * Anti-padrão: depender de UA é frágil, mas custo de IA × volume de bot
+ * justifica. Custo do erro (bot ler determinística é OK; humano não ver
+ * IA é ruim) — viés conservador a favor do bot.
+ */
+const BOT_UA_RE =
+  /bot|crawler|spider|crawl|googlebot|bingbot|yandex|baidu|duckduck|slurp|facebookexternalhit|whatsapp|telegram|twitter|preview|lighthouse|headless|chrome-lighthouse|gptbot|chatgpt|anthropic|perplexity/i;
+
+export function isLikelyBot(userAgent: string | null | undefined): boolean {
+  if (!userAgent) return true; // sem UA = trate como bot por segurança
+  return BOT_UA_RE.test(userAgent);
+}
+
 async function getCached(scopeType: string, scopeId: string, dadosHash: string) {
   const sb = createSupabaseAdmin();
   const { data } = await sb
@@ -95,10 +112,17 @@ async function saveCache(
   });
 }
 
-export async function getNarrativaEscola(escola: Escola, saeb: SaebSnapshot[]): Promise<NarrativaIA> {
+export async function getNarrativaEscola(
+  escola: Escola,
+  saeb: SaebSnapshot[],
+  opts: { generateIfMissing?: boolean } = { generateIfMissing: true },
+): Promise<NarrativaIA> {
   const dadosHash = stableJsonHash({ escola: { codigo_inep: escola.codigo_inep, ano_referencia: escola.ano_referencia, inse_grupo: escola.inse_grupo }, saeb });
   const cached = await getCached('escola', escola.codigo_inep, dadosHash);
   if (cached) return cached;
+
+  // Se foi pedido pra não gerar (bot, ou modo économico), retorna fallback
+  if (!opts.generateIfMissing) return FALLBACK;
 
   const userMessage = `Escola: ${escola.nome} (INEP ${escola.codigo_inep})
 Município: ${escola.municipio}/${escola.uf} · Rede: ${escola.rede || 'não informada'}
@@ -127,10 +151,13 @@ Escreva a análise pública seguindo o formato JSON.`;
 export async function getNarrativaMunicipio(
   municipio: { ibge: string; nome: string; uf: string; totalEscolas: number; redes: Record<string, number> },
   ica: IcaSnapshot[],
+  opts: { generateIfMissing?: boolean } = { generateIfMissing: true },
 ): Promise<NarrativaIA> {
   const dadosHash = stableJsonHash({ ibge: municipio.ibge, totalEscolas: municipio.totalEscolas, ica });
   const cached = await getCached('municipio', municipio.ibge, dadosHash);
   if (cached) return cached;
+
+  if (!opts.generateIfMissing) return FALLBACK;
 
   const userMessage = `Município: ${municipio.nome}/${municipio.uf} (IBGE ${municipio.ibge})
 Total de escolas no Radar: ${municipio.totalEscolas}

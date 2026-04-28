@@ -6,14 +6,18 @@ export const dynamic = 'force-dynamic';
 
 async function getStats() {
   const sb = createSupabaseAdmin();
-  const [escolas, municipios, saeb] = await Promise.all([
+  const [escolas, ibgeRows, saeb] = await Promise.all([
     sb.from('diag_escolas').select('codigo_inep', { count: 'exact', head: true }),
-    sb.from('diag_escolas').select('municipio_ibge', { count: 'exact', head: true }),
+    // distinct via Set no JS — em escala >100k municípios trocar por RPC SQL.
+    sb.from('diag_escolas').select('municipio_ibge').not('municipio_ibge', 'is', null),
     sb.from('diag_saeb_snapshots').select('id', { count: 'exact', head: true }),
   ]);
+  const municipiosDistintos = new Set(
+    (ibgeRows.data || []).map((r: any) => r.municipio_ibge),
+  ).size;
   return {
     escolas: escolas.count || 0,
-    municipios: municipios.count || 0,
+    municipios: municipiosDistintos,
     saeb: saeb.count || 0,
   };
 }

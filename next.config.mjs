@@ -39,6 +39,12 @@ const nextConfig = {
   // exceljs é ESM em modo nativo; mantém como server-external pra evitar
   // problemas de bundling do Turbopack.
   serverExternalPackages: ['exceljs'],
+
+  // Define a root do projeto pra Turbopack — silencia warning de
+  // "inferred workspace root" e evita confusão quando há symlinks.
+  turbopack: {
+    root: import.meta.dirname,
+  },
 };
 
 export default withSentryConfig(nextConfig, {

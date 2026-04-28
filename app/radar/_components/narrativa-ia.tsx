@@ -1,7 +1,9 @@
+import { headers } from 'next/headers';
 import { Sparkles } from 'lucide-react';
 import {
   getNarrativaEscola,
   getNarrativaMunicipio,
+  isLikelyBot,
 } from '@/lib/radar/ia-narrativa';
 import type { Escola, SaebSnapshot, IcaSnapshot } from '@/lib/radar/queries';
 
@@ -26,9 +28,11 @@ type MunicipioProps = CommonProps & {
  * Wrap em <Suspense fallback={<NarrativaSkeleton />}> pra UX progressiva.
  */
 export async function NarrativaIA(props: EscolaProps | MunicipioProps) {
+  const h = await headers();
+  const generateIfMissing = !isLikelyBot(h.get('user-agent'));
   const ia = props.scope === 'escola'
-    ? await getNarrativaEscola(props.escola, props.saeb)
-    : await getNarrativaMunicipio(props.municipio, props.ica);
+    ? await getNarrativaEscola(props.escola, props.saeb, { generateIfMissing })
+    : await getNarrativaMunicipio(props.municipio, props.ica, { generateIfMissing });
 
   return (
     <>

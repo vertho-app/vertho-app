@@ -174,15 +174,47 @@ Sentry captura erros automaticamente (provider já configurado no projeto).
 
 ---
 
-## Limites conhecidos da V1
+## Features da V1 (estado atual)
 
-- Sem auto-fetch INEP — toda ingestão é manual via admin upload
-- Sem Censo Escolar (302 colunas, V2)
-- Sem Ideb por escola — V1 só calcula se Saeb + Taxa Rendimento batem
-- Sem comparativo lado-a-lado entre escolas
-- Sem páginas de UF (V1.5)
-- Sem follow-up D+1/D+7 do lead (V1.5 após validar conversão)
-- Cobertura: microrregião de Irecê (BA), 20 municípios
+- ✅ Páginas de escola, município e UF (`/escola/[inep]`, `/municipio/[ibge]`,
+  `/estado/[uf]`)
+- ✅ Comparativo lado a lado de até 4 escolas (`/comparar?escolas=A,B`)
+- ✅ Censo Escolar — 4 scores agregados + 213 IN_* + 32 QT_* em JSONB
+- ✅ Saeb por escola + ICA municipal
+- ✅ IA narrativa em escola e município (com cache + bot-aware)
+- ✅ Lead → PDF assíncrono via QStash + Resend (com validação, rate limit,
+  dedup 24h)
+- ✅ "Citar este Radar" (ABNT/APA/BibTeX)
+- ✅ Sitemap dinâmico, robots.txt, schema.org
+- ✅ Cobertura: microrregião de Irecê/BA (19 municípios)
+
+## Adiamentos conhecidos
+
+- Auto-fetch INEP (scraper integrado) — V1.5+
+- Funil dashboard interno — V1.5
+- Materialized views pra rankings UF — V1.5
+- Sitemap index pra >50k URLs — quando aplicável
+- pg_trgm na busca — quando volume justificar
+- Follow-up D+1/D+7 do lead — após validar conversão
 
 V1 é deliberadamente enxuto pra **provar conversão** (3+ leads/mês virando
 conversa comercial) antes de escalar.
+
+## Migrations a aplicar (em ordem)
+
+```
+054-diag-schema.sql                    # tabelas + bucket público
+055-diag-municipio-ibge-nullable.sql   # FK opcional pra escolas sem IBGE
+056-diag-censo-infra.sql               # tabela do Censo
+057-diag-censo-latlong-double.sql      # lat/long como DOUBLE PRECISION
+058-diag-relatorios-private.sql        # bucket privado + drop policy
+```
+
+## Segurança operacional
+
+- **Worker `/api/radar/lead-pdf`**: fail-closed em produção se signing keys
+  QStash ausentes (segue tolerante em dev/preview)
+- **Bucket `diag-relatorios`**: privado, acesso via signed URL 30d
+- **IA bot-aware**: User-Agent de crawler nunca dispara IA — só lê cache
+- **`capturarLead`**: valida escopo, rate limit 10/h por IP, dedup
+  idempotente por (email × scope) em 24h

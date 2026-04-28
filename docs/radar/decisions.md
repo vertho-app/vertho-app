@@ -1,7 +1,11 @@
 # Radar Vertho — Decisões de implementação
 
-Documento vivo das decisões tomadas durante a construção do Radar (v1).
-Contexto: spec `Vertho_Radar_Spec_v2_2.docx`, decisões alinhadas com Rodrigo em 2026-04-28.
+Documento vivo das decisões tomadas durante a construção do Radar.
+Contexto: spec `Vertho_Radar_Spec_v2_2.docx` — V1 alinhada com Rodrigo
+em 2026-04-28; itens originalmente V1.5/V2 (Censo Escolar, comparativo,
+páginas de UF, scraper backlinks-friendly) **anteciparam pra V1** durante
+o sprint piloto. Revisão de segurança aplicada em 2026-04-28 — ver
+seção "Segurança operacional".
 
 ---
 
@@ -110,14 +114,34 @@ Custos estimados (do Apêndice A da spec):
 
 Disclaimer fixo: "Análise gerada a partir de dados públicos do INEP. Valores oficiais devem ser consultados em portais governamentais."
 
-## 9. Adiamentos explícitos (fora da V1)
+## 9. Itens entregues além da V1 inicial
 
-- Censo Escolar full (302 cols × 1M linhas) → V2
-- Páginas de UF + comparativos → V1.5
-- Backlinks/PR → após M5
+Durante a sprint piloto, anteciparam pra V1:
+
+- ✅ **Censo Escolar** — `diag_censo_infra` com 213 IN_* + 32 QT_* + 4 scores
+  agregados; importador via CSV filtrado por `scripts/filter-censo-irece.mjs`
+- ✅ **Páginas de UF** — `/radar/estado/[uf]` com Top/Bottom municípios em
+  Saeb e ICA + lista de microrregiões cobertas
+- ✅ **Comparativo lado-a-lado** — `/radar/comparar?escolas=A,B,...` (até 4)
+  com destaque do "melhor" por linha
+- ✅ **"Citar este Radar"** — botão de citação ABNT/APA/BibTeX nas páginas
+  de escola e município (facilita backlinks acadêmicos espontâneos)
+- ✅ **UX progressivo da IA** — Suspense + skeleton + bot-aware (bots só
+  servem cache, humanos disparam geração)
+
+## 10. Adiamentos explícitos (fora da V1 atual)
+
+- Auto-fetch INEP (Playwright + OCR/Claude Vision em Vercel) → V1.5+
+  (parser tem complicação de OCR via Tesseract; investigação de API
+  JSON do INEP não rendeu — só endpoints autenticados)
 - RAG grounding em fontes oficiais → V1.5+
-- Auto-fetch INEP → V1.5+
-- Follow-up D+1 / D+7 → após validar conversão
+- Follow-up D+1 / D+7 do lead → após validar conversão piloto
+- Funnel dashboard interno (visitas → cliques → leads → PDFs → conversas) → V1.5
+- Materialized views para rankings UF (ao sair de Irecê) → V1.5
+- Sitemap index com chunks (>50k URLs) → quando aplicável
+- pg_trgm na busca de escolas → quando volume justificar (>10k escolas)
+- Migração `middleware.js` → proxy (Next 16 deprecou middleware) → manter
+  observação no roadmap, não bloqueante até Next 17
 
 ## 10. Observações operacionais
 
@@ -126,8 +150,23 @@ Disclaimer fixo: "Análise gerada a partir de dados públicos do INEP. Valores o
 - **Domínio `radar.vertho.ai`**: adicionado ao Vercel via CLI em 2026-04-28
 - **Env vars novas**: nenhuma (reaproveita `RESEND_API_KEY`, `QSTASH_TOKEN`, `ANTHROPIC_API_KEY` existentes)
 - **Custo do tempo**: 4-5h de implementação ativa (vs 111-164h estimado pela spec)
-- **Microrregião Irecê municípios** (validado IBGE):
-  América Dourada, Barra do Mendes, Barro Alto, Cafarnaum, Canarana,
-  Central, Gentio do Ouro, Ibipeba, Ibititá, Ipupiara, Irecê, Itaguaçu da Bahia,
-  João Dourado, Jussara, Lapão, Mulungu do Morro, Presidente Dutra,
-  São Gabriel, Uibaí, Xique-Xique
+- **Microrregião Irecê** (microrregião IBGE 29009, validado contra a API
+  oficial em 2026-04-28): 19 municípios. Atualização durante o sprint
+  corrigiu lista interna que tinha 14/20 IBGEs errados (incluindo Ibipeba
+  como `2913101` quando o correto é `2912400`). Lista canônica em
+  `lib/radar/microrregiao-irece.ts`. Removidos da lista anterior (erros):
+  Ipupiara, Itaguaçu da Bahia, Xique-Xique. Adicionados (faltavam):
+  Iraquara, Souto Soares.
+
+## 11. Segurança operacional (revisão 2026-04-28)
+
+- **Worker `/api/radar/lead-pdf`**: fail-closed em produção sem signing
+  keys QStash. Em dev/preview segue tolerante.
+- **Bucket `diag-relatorios`**: privado (migration 058). Acesso só via
+  signed URL de 30 dias.
+- **IA bot-aware**: server component lê `User-Agent`. Crawler nunca
+  dispara geração — só serve cache se existir; senão veem fallback +
+  leitura determinística. Humanos disparam normal.
+- **`capturarLead`**: valida que escola/município existe antes do insert,
+  rate limit 10/h por IP, dedup idempotente por (email × scope) em 24h.
+- **Bucket migrations a aplicar em ordem**: 054 → 055 → 056 → 057 → 058.

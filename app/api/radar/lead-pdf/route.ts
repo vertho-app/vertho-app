@@ -13,8 +13,14 @@ export const maxDuration = 60;
 async function verifyQStashSignature(req: Request, body: string): Promise<boolean> {
   const currentKey = process.env.QSTASH_CURRENT_SIGNING_KEY;
   const nextKey = process.env.QSTASH_NEXT_SIGNING_KEY;
+  // Fail-closed em produção: sem keys, recusa qualquer POST.
+  // Em dev/preview, segue sem verificar pra facilitar testes locais.
   if (!currentKey || !nextKey) {
-    console.warn('[radar/lead-pdf] Signing keys ausentes — pulando verificação');
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[radar/lead-pdf] FAIL-CLOSED: signing keys ausentes em produção');
+      return false;
+    }
+    console.warn('[radar/lead-pdf] dev/preview sem signing keys — pulando verificação');
     return true;
   }
   try {

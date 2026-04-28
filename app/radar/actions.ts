@@ -96,17 +96,86 @@ function hashIp(ip: string): string {
   return crypto.createHash('sha256').update(ip).digest('hex').slice(0, 16);
 }
 
+/**
+ * Valida que o scopeId aponta pra escola ou município que existe na base.
+ * Sem isso, qualquer string passaria e geraria PDF/IA "fantasma".
+ */
+async function validarScope(scopeType: 'escola' | 'municipio', scopeId: string): Promise<boolean> {
+  if (!/^\d+$/.test(scopeId)) return false;
+  const sb = createSupabaseAdmin();
+  if (scopeType === 'escola') {
+    if (scopeId.length !== 8) return false;
+    const { data } = await sb.from('diag_escolas').select('codigo_inep').eq('codigo_inep', scopeId).maybeSingle();
+    return !!data;
+  }
+  if (scopeType === 'municipio') {
+    if (scopeId.length !== 7) return false;
+    const { data: byEscola } = await sb.from('diag_escolas').select('municipio_ibge').eq('municipio_ibge', scopeId).limit(1).maybeSingle();
+    if (byEscola) return true;
+    const { data: byIca } = await sb.from('diag_ica_snapshots').select('municipio_ibge').eq('municipio_ibge', scopeId).limit(1).maybeSingle();
+    return !!byIca;
+  }
+  return false;
+}
+
+/**
+ * Rate limit best-effort sem Redis: conta leads por ip_hash na última hora.
+ * 10 leads/h por IP. Suficiente pra abuso casual; pra ataque coordenado,
+ * usar Cloudflare/Vercel WAF na frente.
+ */
+async function checkRateLimit(ipHash: string | null): Promise<{ ok: boolean; reason?: string }> {
+  if (!ipHash) return { ok: true };
+  const sb = createSupabaseAdmin();
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { count } = await sb
+    .from('diag_leads')
+    .select('id', { count: 'exact', head: true })
+    .eq('ip_hash', ipHash)
+    .gte('criado_em', oneHourAgo);
+  if ((count || 0) >= 10) return { ok: false, reason: 'Limite de 10 solicitações por hora atingido' };
+  return { ok: true };
+}
+
 export async function capturarLead(input: CapturarLeadInput): Promise<{ success: boolean; error?: string; leadId?: string }> {
   const email = input.email?.trim().toLowerCase();
-  if (!email || !email.includes('@')) return { success: false, error: 'E-mail inválido' };
+  if (!email || !email.includes('@') || email.length > 200) return { success: false, error: 'E-mail inválido' };
   if (!input.consentimento_lgpd) return { success: false, error: 'Consentimento LGPD obrigatório' };
   if (!input.scopeId || !input.scopeType) return { success: false, error: 'Escopo inválido' };
+  if (input.scopeType !== 'escola' && input.scopeType !== 'municipio') {
+    return { success: false, error: 'scope_type inválido' };
+  }
+
+  // 1. Valida que o escopo existe na base
+  const valido = await validarScope(input.scopeType, input.scopeId);
+  if (!valido) return { success: false, error: 'Escola ou município não encontrado na base' };
 
   const sb = createSupabaseAdmin();
   const h = await headers();
   const userAgent = h.get('user-agent') || null;
   const referer = h.get('referer') || null;
   const ip = h.get('x-forwarded-for')?.split(',')[0].trim() || h.get('x-real-ip') || '';
+  const ipHash = ip ? hashIp(ip) : null;
+
+  // 2. Rate limit por IP (10/hora)
+  const rl = await checkRateLimit(ipHash);
+  if (!rl.ok) return { success: false, error: rl.reason };
+
+  // 3. Dedup idempotente: se mesmo email + scope nas últimas 24h e PDF ainda
+  //    válido, retorna o lead existente sem reenfileirar. Custos × abuso × UX.
+  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data: existente } = await sb
+    .from('diag_leads')
+    .select('id, pdf_status')
+    .eq('email', email)
+    .eq('scope_type', input.scopeType)
+    .eq('scope_id', input.scopeId)
+    .gte('criado_em', dayAgo)
+    .order('criado_em', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (existente && existente.pdf_status !== 'erro') {
+    return { success: true, leadId: existente.id };
+  }
 
   const { data, error } = await sb
     .from('diag_leads')
@@ -114,16 +183,16 @@ export async function capturarLead(input: CapturarLeadInput): Promise<{ success:
       scope_type: input.scopeType,
       scope_id: input.scopeId,
       scope_label: input.scopeLabel,
-      nome: input.nome?.trim() || null,
+      nome: input.nome?.trim()?.slice(0, 200) || null,
       email,
-      cargo: input.cargo?.trim() || null,
-      organizacao: input.organizacao?.trim() || null,
+      cargo: input.cargo?.trim()?.slice(0, 200) || null,
+      organizacao: input.organizacao?.trim()?.slice(0, 200) || null,
       consentimento_lgpd: true,
       consentimento_em: new Date().toISOString(),
       pdf_status: 'pendente',
       user_agent: userAgent,
       referer,
-      ip_hash: ip ? hashIp(ip) : null,
+      ip_hash: ipHash,
     })
     .select('id')
     .single();
@@ -133,7 +202,7 @@ export async function capturarLead(input: CapturarLeadInput): Promise<{ success:
     return { success: false, error: error?.message || 'Erro ao salvar' };
   }
 
-  // Dispara geração assíncrona via QStash (best-effort)
+  // 4. Dispara geração assíncrona via QStash (best-effort)
   if (process.env.QSTASH_TOKEN) {
     try {
       const webhookUrl = `${APP_URL}/api/radar/lead-pdf`;
