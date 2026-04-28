@@ -6,6 +6,7 @@ import { ArrowLeft, MapPin, Building2, Users, Calendar } from 'lucide-react';
 
 import { getEscola } from '@/lib/radar/queries';
 import { leituraSaebEscola, ETAPA_LABELS, DISC_LABELS } from '@/lib/radar/leitura-deterministica';
+import { registrarEvento } from '@/lib/radar/eventos';
 import { RadarHeader, RadarFooter } from '../../_components/radar-header';
 import { SaebCard } from '../../_components/indicator-card';
 import { LeadCTA } from '../../_components/lead-cta';
@@ -37,6 +38,9 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
   const escola = r.escola;
   const saeb = r.saeb;
   const censo = r.censo;
+
+  // Tracking best-effort (não bloqueia render)
+  registrarEvento('view_escola', { scopeType: 'escola', scopeId: escola.codigo_inep }).catch(() => {});
 
   const determ = leituraSaebEscola(escola, saeb);
   const determRefBlock = (

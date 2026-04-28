@@ -3,6 +3,12 @@ import { NextResponse } from 'next/server';
 /**
  * Multi-tenant subdomain middleware.
  *
+ * NOTA Next.js 16+: o `middleware.js` foi sinalizado como caminho legado
+ * em favor de `proxy.ts` no roadmap futuro. A migração é cosmética
+ * (renomear o arquivo + export `proxy` em vez de `middleware`) e fica
+ * adiada até virar warning real do build ou requisito de Next 17.
+ * Implementação atual continua funcionando em Next 16 estável.
+ *
  * Fluxo:
  *   1. Lê o hostname da request (ex: zula.vertho.com.br)
  *   2. Extrai o slug do subdomínio (ex: "zula")
@@ -16,7 +22,10 @@ import { NextResponse } from 'next/server';
  *   - localhost:3000 (sem subdomínio)
  *   - *.vercel.app (preview deploys)
  *
- * Esses seguem o fluxo normal sem injeção de tenant.
+ * Subdomínios públicos com rewrite:
+ *   - radar.vertho.ai → /radar/<path>
+ *
+ * Os demais seguem o fluxo normal sem injeção de tenant.
  */
 
 // Subdomínios reservados que NÃO são tenants

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { Loader2, FileText, Mail, X } from 'lucide-react';
-import { capturarLead } from '../actions';
+import { capturarLead, registrarEventoClient } from '../actions';
 
 type Props = {
   scopeType: 'escola' | 'municipio';
@@ -40,7 +40,10 @@ export function LeadCTA({ scopeType, scopeId, scopeLabel }: Props) {
   return (
     <>
       <button
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setOpen(true);
+          registrarEventoClient('cta_lead_click', { tipo: scopeType, id: scopeId }).catch(() => {});
+        }}
         className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold text-white transition-all"
         style={{
           background: 'linear-gradient(135deg, #34c5cc, #0D9488)',

@@ -208,6 +208,9 @@ conversa comercial) antes de escalar.
 056-diag-censo-infra.sql               # tabela do Censo
 057-diag-censo-latlong-double.sql      # lat/long como DOUBLE PRECISION
 058-diag-relatorios-private.sql        # bucket privado + drop policy
+059-diag-pg-trgm.sql                   # pg_trgm + GIN indexes pra busca rápida
+060-diag-materialized-views.sql        # MVs de rankings + RPCs de refresh
+061-diag-eventos.sql                   # tabela de tracking + RPCs do funil
 ```
 
 ## Segurança operacional

@@ -32,6 +32,12 @@ async function finishIngestRun(id: string, result: any, status: 'sucesso' | 'err
       finalizado_em: new Date().toISOString(),
     })
     .eq('id', id);
+
+  // Refresh das materialized views após cada ingestão (best-effort).
+  // Se a migration 060 não rodou ainda, só ignora silenciosamente.
+  if (status === 'sucesso' || status === 'parcial') {
+    try { await sb.rpc('refresh_diag_mvs'); } catch { /* MV pode não existir */ }
+  }
 }
 
 export async function loadRadarStats() {

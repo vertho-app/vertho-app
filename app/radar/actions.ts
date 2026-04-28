@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { headers } from 'next/headers';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { APP_URL } from '@/lib/domain';
+import { registrarEvento } from '@/lib/radar/eventos';
 
 type SearchResult = {
   tipo: 'escola' | 'municipio';
@@ -37,7 +38,9 @@ export async function buscarEscolasMunicipios(termo: string): Promise<SearchResu
     }
   }
 
-  // Busca por nome (escolas e municípios)
+  // Busca por nome (escolas e municípios). Com pg_trgm + GIN, ilike
+  // %termo% usa o índice e fica O(log n) — sem precisar mudar a query.
+  // Filtra municipio_ibge null pra evitar resultados sem IBGE válido.
   const [escolas, municipios] = await Promise.all([
     sb.from('diag_escolas')
       .select('codigo_inep, nome, municipio, uf, rede')
@@ -46,6 +49,7 @@ export async function buscarEscolasMunicipios(termo: string): Promise<SearchResu
     sb.from('diag_escolas')
       .select('municipio, municipio_ibge, uf')
       .ilike('municipio', `%${q}%`)
+      .not('municipio_ibge', 'is', null)
       .limit(20),
   ]);
 
@@ -78,6 +82,16 @@ export async function buscarEscolasMunicipios(termo: string): Promise<SearchResu
   }
 
   return results;
+}
+
+// ── Tracking de eventos via client ────────────────────────────────────
+
+export async function registrarEventoClient(
+  tipo: 'view_escola' | 'view_municipio' | 'view_estado' | 'view_comparar' | 'cta_lead_click' | 'citar_aberto',
+  scope?: { tipo: 'escola' | 'municipio' | 'estado'; id: string },
+) {
+  await registrarEvento(tipo, scope ? { scopeType: scope.tipo, scopeId: scope.id } : {});
+  return { ok: true };
 }
 
 // ── Lead capture ──────────────────────────────────────────────────────
@@ -202,7 +216,10 @@ export async function capturarLead(input: CapturarLeadInput): Promise<{ success:
     return { success: false, error: error?.message || 'Erro ao salvar' };
   }
 
-  // 4. Dispara geração assíncrona via QStash (best-effort)
+  // 4. Tracking de evento (best-effort)
+  registrarEvento('lead_submit', { scopeType: input.scopeType, scopeId: input.scopeId, extra: { leadId: data.id } }).catch(() => {});
+
+  // 5. Dispara geração assíncrona via QStash (best-effort)
   if (process.env.QSTASH_TOKEN) {
     try {
       const webhookUrl = `${APP_URL}/api/radar/lead-pdf`;

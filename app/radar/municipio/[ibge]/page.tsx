@@ -6,6 +6,7 @@ import { ArrowLeft, MapPin, GraduationCap } from 'lucide-react';
 
 import { getMunicipio, getEscolasMunicipio } from '@/lib/radar/queries';
 import { leituraIcaMunicipio } from '@/lib/radar/leitura-deterministica';
+import { registrarEvento } from '@/lib/radar/eventos';
 import { RadarHeader, RadarFooter } from '../../_components/radar-header';
 import { LeadCTA } from '../../_components/lead-cta';
 import { NarrativaIA, NarrativaSkeleton } from '../../_components/narrativa-ia';
@@ -31,6 +32,8 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
   const { ibge } = await params;
   const m = await getMunicipio(ibge);
   if (!m) return notFound();
+
+  registrarEvento('view_municipio', { scopeType: 'municipio', scopeId: ibge }).catch(() => {});
 
   const escolas = await getEscolasMunicipio(ibge);
   const determ = leituraIcaMunicipio(m, m.ica);

@@ -169,6 +169,9 @@ export default function AdminRadarPage() {
           <span className="text-[10px] tracking-[0.2em] text-white/30 uppercase font-mono">
             RADAR · INGESTÃO
           </span>
+          <a href="/admin/radar/funnel" className="text-xs text-cyan-400 hover:text-cyan-300 mr-3">
+            Funnel →
+          </a>
           <button onClick={refresh} disabled={loading}
             className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/10 text-white/40">
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />

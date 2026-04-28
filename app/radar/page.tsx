@@ -6,18 +6,23 @@ export const dynamic = 'force-dynamic';
 
 async function getStats() {
   const sb = createSupabaseAdmin();
-  const [escolas, ibgeRows, saeb] = await Promise.all([
+  const [escolas, municipiosRpc, saeb] = await Promise.all([
     sb.from('diag_escolas').select('codigo_inep', { count: 'exact', head: true }),
-    // distinct via Set no JS — em escala >100k municípios trocar por RPC SQL.
-    sb.from('diag_escolas').select('municipio_ibge').not('municipio_ibge', 'is', null),
+    // RPC SQL pra COUNT(DISTINCT) — escala muito além do Set no Node.
+    sb.rpc('diag_count_municipios_distintos'),
     sb.from('diag_saeb_snapshots').select('id', { count: 'exact', head: true }),
   ]);
-  const municipiosDistintos = new Set(
-    (ibgeRows.data || []).map((r: any) => r.municipio_ibge),
-  ).size;
+  // Fallback: se RPC falhar (migration 060 não rodou ainda), usa Set
+  let municipios = 0;
+  if (typeof municipiosRpc.data === 'number') {
+    municipios = municipiosRpc.data;
+  } else {
+    const { data } = await sb.from('diag_escolas').select('municipio_ibge').not('municipio_ibge', 'is', null);
+    municipios = new Set((data || []).map((r: any) => r.municipio_ibge)).size;
+  }
   return {
     escolas: escolas.count || 0,
-    municipios: municipiosDistintos,
+    municipios,
     saeb: saeb.count || 0,
   };
 }

@@ -249,36 +249,55 @@ export type EstadoStats = {
 
 export async function getEstadoStats(uf: string): Promise<EstadoStats | null> {
   const sb = createSupabaseAdmin();
+
+  // Tenta primeiro a MV (rápida). Se vazia ou erro, cai pro fallback agregado em Node.
+  const { data: mv } = await sb
+    .from('diag_mv_estado_stats')
+    .select('total_escolas, total_municipios, total_snapshots')
+    .eq('uf', uf)
+    .maybeSingle();
+
+  // Microrregiões e redes ainda agregam no Node (volume baixo)
   const { data: escolas } = await sb
     .from('diag_escolas')
-    .select('codigo_inep, municipio_ibge, microrregiao, rede')
+    .select('codigo_inep, microrregiao, rede')
     .eq('uf', uf);
+
   if (!escolas || escolas.length === 0) return null;
 
-  const municipiosUnicos = new Set<string>();
   const microMap = new Map<string, number>();
   const redes: Record<string, number> = {};
   for (const e of escolas) {
-    if (e.municipio_ibge) municipiosUnicos.add(e.municipio_ibge);
     if (e.microrregiao) microMap.set(e.microrregiao, (microMap.get(e.microrregiao) || 0) + 1);
     const r = e.rede || 'OUTRA';
     redes[r] = (redes[r] || 0) + 1;
   }
-
-  const { count: totalSnapshots } = await sb
-    .from('diag_saeb_snapshots')
-    .select('id', { count: 'exact', head: true })
-    .in('codigo_inep', escolas.map((e: any) => e.codigo_inep).slice(0, 1000));
-
   const microrregioes = Array.from(microMap.entries())
     .map(([nome, total]) => ({ nome, total }))
     .sort((a, b) => b.total - a.total);
 
+  // Fallback: se MV não existe ainda (migration 060 não rodada), conta no Node
+  if (!mv) {
+    const ibges = new Set(escolas.map((e: any) => e.municipio_ibge).filter(Boolean));
+    const { count: snapshots } = await sb
+      .from('diag_saeb_snapshots')
+      .select('id', { count: 'exact', head: true })
+      .in('codigo_inep', escolas.map((e: any) => e.codigo_inep));
+    return {
+      uf,
+      totalEscolas: escolas.length,
+      totalMunicipios: ibges.size,
+      totalSnapshots: snapshots || 0,
+      microrregioes,
+      redes,
+    };
+  }
+
   return {
     uf,
-    totalEscolas: escolas.length,
-    totalMunicipios: municipiosUnicos.size,
-    totalSnapshots: totalSnapshots || 0,
+    totalEscolas: mv.total_escolas,
+    totalMunicipios: mv.total_municipios,
+    totalSnapshots: mv.total_snapshots || 0,
     microrregioes,
     redes,
   };
@@ -304,6 +323,39 @@ export type RankingMunicipio = {
  */
 export async function getRankingMunicipiosUf(uf: string): Promise<RankingMunicipio[]> {
   const sb = createSupabaseAdmin();
+
+  // Tenta primeiro a MV (preferencial). Inclui ICA via JOIN.
+  const { data: mv, error: mvErr } = await sb
+    .from('diag_mv_municipio_saeb_agg')
+    .select('municipio_ibge, municipio_nome, total_escolas, pct_n01_avg, taxa_participacao_avg, formacao_docente_avg')
+    .eq('uf', uf);
+
+  if (!mvErr && mv && mv.length > 0) {
+    const ibges = mv.map((m: any) => m.municipio_ibge);
+    const { data: ica } = await sb
+      .from('diag_mv_municipio_ica_recent')
+      .select('municipio_ibge, ano, taxa')
+      .in('municipio_ibge', ibges);
+    const icaByIbge = new Map<string, { ano: number; taxa: number | null }>();
+    for (const i of ica || []) {
+      icaByIbge.set((i as any).municipio_ibge, { ano: (i as any).ano, taxa: (i as any).taxa });
+    }
+    return mv.map((m: any) => {
+      const i = icaByIbge.get(m.municipio_ibge);
+      return {
+        ibge: m.municipio_ibge,
+        nome: m.municipio_nome || '',
+        totalEscolas: m.total_escolas || 0,
+        pctNivel01Avg: m.pct_n01_avg ?? null,
+        taxaParticipacaoAvg: m.taxa_participacao_avg ?? null,
+        formacaoDocenteAvg: m.formacao_docente_avg ?? null,
+        icaTaxa: i?.taxa ?? null,
+        icaAno: i?.ano ?? null,
+      };
+    });
+  }
+
+  // ── Fallback: agrega no Node se MV ainda não foi criada/refrescada ─
   const { data: escolas } = await sb
     .from('diag_escolas')
     .select('codigo_inep, municipio, municipio_ibge')
@@ -311,7 +363,6 @@ export async function getRankingMunicipiosUf(uf: string): Promise<RankingMunicip
     .not('municipio_ibge', 'is', null);
   if (!escolas?.length) return [];
 
-  // Map ibge -> { nome, codigos[] }
   const grupos = new Map<string, { nome: string; codigos: string[] }>();
   for (const e of escolas) {
     const ibge = (e as any).municipio_ibge;
@@ -320,7 +371,6 @@ export async function getRankingMunicipiosUf(uf: string): Promise<RankingMunicip
     grupos.get(ibge)!.codigos.push((e as any).codigo_inep);
   }
 
-  // Busca snapshots Saeb pra cada município (paralelo, mas dentro do limite)
   const ibgesArr = Array.from(grupos.keys());
   const { data: saebData } = await sb
     .from('diag_saeb_snapshots')
@@ -332,8 +382,6 @@ export async function getRankingMunicipiosUf(uf: string): Promise<RankingMunicip
     if (!saebByInep.has(inep)) saebByInep.set(inep, []);
     saebByInep.get(inep)!.push(s);
   }
-
-  // ICA mais recente por município
   const { data: icaData } = await sb
     .from('diag_ica_snapshots')
     .select('municipio_ibge, ano, rede, taxa')
@@ -350,12 +398,8 @@ export async function getRankingMunicipiosUf(uf: string): Promise<RankingMunicip
 
   const out: RankingMunicipio[] = [];
   for (const [ibge, grupo] of grupos.entries()) {
-    let sumPct01 = 0;
-    let sumPart = 0;
-    let sumForm = 0;
-    let cntPct = 0;
-    let cntPart = 0;
-    let cntForm = 0;
+    let sumPct01 = 0, sumPart = 0, sumForm = 0;
+    let cntPct = 0, cntPart = 0, cntForm = 0;
     for (const inep of grupo.codigos) {
       const snaps = saebByInep.get(inep) || [];
       for (const s of snaps) {

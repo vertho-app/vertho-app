@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { ArrowLeft, GraduationCap, Building2, MapPin, TrendingDown, TrendingUp } from 'lucide-react';
 
 import { getEstadoStats, getRankingMunicipiosUf } from '@/lib/radar/queries';
+import { registrarEvento } from '@/lib/radar/eventos';
 import { RadarHeader, RadarFooter } from '../../_components/radar-header';
 
 export const dynamic = 'force-dynamic';
@@ -39,6 +40,8 @@ export default async function EstadoPage({ params }: { params: Promise<{ uf: str
 
   const stats = await getEstadoStats(uf);
   if (!stats) return notFound();
+
+  registrarEvento('view_estado', { scopeType: 'estado', scopeId: uf }).catch(() => {});
 
   const ranking = await getRankingMunicipiosUf(uf);
 
