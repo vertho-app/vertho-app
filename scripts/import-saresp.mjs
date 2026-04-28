@@ -129,6 +129,16 @@ for (let i = 0; i < normalized.length; i += BATCH_SIZE) {
 
 console.log(`processadas:${result.totalProcessado} normalizadas:${normalized.length} ok:${result.totalSucesso} falha:${result.totalFalha} skip:${result.totalSkipped} dedup:${result.totalDedup}`);
 console.log(`cross-match SP→INEP: ${matchedInep} escolas únicas resolvidas (de ${inepBySp.size} tentadas)`);
+
+// Refresh das materialized views (cards do admin/home + rankings UF)
+if (!DRY) {
+  try {
+    await sb.rpc('refresh_diag_mvs');
+    console.log('materialized views refreshed.');
+  } catch (err) {
+    console.log(`refresh MVs falhou (não crítico): ${err?.message || err}`);
+  }
+}
 if (result.erros.length) {
   console.log('erros:');
   for (const e of result.erros) console.log(`- ${e.key}: ${e.msg}`);

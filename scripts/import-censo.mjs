@@ -376,6 +376,16 @@ async function main() {
   const status = totals.falha > 0 && totals.sucesso > 0 ? 'parcial' : totals.falha > 0 ? 'erro' : 'sucesso';
   await finishIngestRun(runId, totals, status);
 
+  // Refresh das materialized views (cards do admin/home + rankings UF)
+  try {
+    const refresh = await fetch(`${URL}/rest/v1/rpc/refresh_diag_mvs`, {
+      method: 'POST',
+      headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    stderr.write(`Refresh MVs: ${refresh.ok ? '✓' : 'falhou'}\n`);
+  } catch {}
+
   stdout.write(`\n✓ Concluído em ${elapsed}s\n`);
   stdout.write(`  Processado: ${totals.processado.toLocaleString('pt-BR')}\n`);
   stdout.write(`  Sucesso:    ${totals.sucesso.toLocaleString('pt-BR')}\n`);
