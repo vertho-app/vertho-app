@@ -5,7 +5,7 @@ import type { Metadata } from 'next';
 import { ArrowLeft } from 'lucide-react';
 
 import { getEscola, getEscolaBenchmarks, getEscolaInfraSaeb, getParesCidade, getIcaMunicipioRecente } from '@/lib/radar/queries';
-import { leituraSaebEscola, ETAPA_LABELS } from '@/lib/radar/leitura-deterministica';
+import { leituraSaebEscola } from '@/lib/radar/leitura-deterministica';
 import { registrarEvento } from '@/lib/radar/eventos';
 import { RadarHeader, RadarFooter } from '../../_components/radar-header';
 import { SaebCard } from '../../_components/indicator-card';
@@ -20,6 +20,9 @@ import { InfraSaebCard } from '../../_components/infra-saeb-card';
 import { HeroEscola } from '../../_components/hero-escola';
 import { ParesCidadeSection } from '../../_components/pares-cidade';
 import { AlfabetizacaoSaebCard } from '../../_components/alfabetizacao-saeb-card';
+import { IdebTimelineChart } from '../../_components/ideb-timeline-chart';
+import { SaebHistoryChart } from '../../_components/saeb-history-chart';
+import { DestaquesAtencao } from '../../_components/destaques-atencao';
 
 export const dynamic = 'force-dynamic';
 
@@ -120,6 +123,15 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
           </Suspense>
         </section>
 
+        {/* Destaques e Pontos de Atenção (gerados automaticamente) */}
+        <DestaquesAtencao
+          censo={censo}
+          saeb={saeb}
+          ideb={ideb}
+          benchmarks={benchmarks}
+          infraSaeb={infraSaeb.resumo}
+        />
+
         {/* Comparativo escola vs microrregião / estado (com barras) */}
         {benchmarks.length > 0 && (
           <EscolaBenchmarkTable
@@ -149,8 +161,34 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
         {/* Infra (Censo Escolar) */}
         {censo && <InfraSection censo={censo} />}
 
-        {/* Ideb recente */}
-        {ideb.length > 0 && <IdebSection ideb={ideb} />}
+        {/* Ideb timeline (chart SVG) */}
+        {ideb.length > 0 && (
+          <IdebTimelineChart
+            ideb={ideb}
+            microIdeb={
+              benchmarks.find((b) => b.scope === 'microrregiao')?.ideb_9ef ??
+              benchmarks.find((b) => b.scope === 'microrregiao')?.ideb_5ef ??
+              benchmarks.find((b) => b.scope === 'microrregiao')?.ideb_3em ?? null
+            }
+          />
+        )}
+
+        {/* Saeb história (chart SVG) */}
+        {saeb.length > 0 && (
+          <SaebHistoryChart
+            saeb={saeb}
+            microLp={
+              benchmarks.find((b) => b.scope === 'microrregiao')?.saeb_9ef_lp ??
+              benchmarks.find((b) => b.scope === 'microrregiao')?.saeb_5ef_lp ??
+              benchmarks.find((b) => b.scope === 'microrregiao')?.saeb_3em_lp ?? null
+            }
+            microMat={
+              benchmarks.find((b) => b.scope === 'microrregiao')?.saeb_9ef_mat ??
+              benchmarks.find((b) => b.scope === 'microrregiao')?.saeb_5ef_mat ??
+              benchmarks.find((b) => b.scope === 'microrregiao')?.saeb_3em_mat ?? null
+            }
+          />
+        )}
 
         {/* SARESP — só pra escolas SP */}
         {escola.uf === 'SP' && saresp.length > 0 && <SarespSection saresp={saresp} />}
@@ -198,52 +236,3 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
   );
 }
 
-function IdebSection({ ideb }: {
-  ideb: Array<{
-    ano: number;
-    etapa: string;
-    ideb: number | null;
-    meta: number | null;
-    indicador_rendimento: number | null;
-    nota_saeb: number | null;
-  }>;
-}) {
-  const byEtapa = new Map<string, typeof ideb>();
-  for (const row of ideb) {
-    if (!byEtapa.has(row.etapa)) byEtapa.set(row.etapa, []);
-    byEtapa.get(row.etapa)!.push(row);
-  }
-
-  return (
-    <section className="mb-10">
-      <h2 className="text-white text-xl font-bold mb-4">Ideb recente</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {Array.from(byEtapa.entries()).map(([etapa, rows]) => (
-          <div key={etapa}
-            className="rounded-2xl p-4 border border-white/[0.06]"
-            style={{ background: 'rgba(255,255,255,0.03)' }}>
-            <p className="text-[9px] uppercase tracking-wider font-mono text-white/40 mb-3">
-              {ETAPA_LABELS[etapa] || etapa}
-            </p>
-            <div className="space-y-2">
-              {rows
-                .slice()
-                .sort((a, b) => b.ano - a.ano)
-                .map((row) => (
-                  <div key={`${etapa}-${row.ano}`} className="flex items-center justify-between gap-3">
-                    <span className="text-xs text-white/45 font-mono">{row.ano}</span>
-                    <span className="text-lg text-white font-bold font-mono">
-                      {row.ideb != null ? row.ideb.toFixed(1) : '-'}
-                    </span>
-                    <span className="text-[10px] text-white/35 font-mono">
-                      N {row.nota_saeb != null ? row.nota_saeb.toFixed(2) : '-'} · P {row.indicador_rendimento != null ? row.indicador_rendimento.toFixed(2) : '-'}
-                    </span>
-                  </div>
-                ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
