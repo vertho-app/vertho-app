@@ -48,21 +48,21 @@ export function FaleConosco({ scopeType, scopeId, scopeName, scopeUf }: Props) {
   const buildMessage = () => {
     const url = typeof window !== 'undefined' ? window.location.href : '';
     if (scopeType === 'escola' && scopeName) {
-      return `Olá Rodrigo! Vi os dados da escola "${scopeName}" no Radar Vertho. Gostaria de conversar sobre como a Vertho pode ajudar.\n\nLink: ${url}`;
+      return `Olá! Vi os dados da escola "${scopeName}" no Radar Vertho. Gostaria de conversar sobre como a Vertho pode ajudar.\n\nLink: ${url}`;
     }
     if (scopeType === 'municipio' && scopeName) {
-      return `Olá Rodrigo! Vi os dados de ${scopeName}${scopeUf ? '/' + scopeUf : ''} no Radar Vertho. Sou gestor(a) de educação e gostaria de uma conversa.\n\nLink: ${url}`;
+      return `Olá! Vi os dados de ${scopeName}${scopeUf ? '/' + scopeUf : ''} no Radar Vertho. Sou gestor(a) de educação e gostaria de uma conversa.\n\nLink: ${url}`;
     }
     if (scopeType === 'rede' && scopeName) {
-      return `Olá Rodrigo! Vi a rede municipal de ${scopeName} no Radar. Quero entender como a Vertho pode ajudar nossa rede.\n\nLink: ${url}`;
+      return `Olá! Vi a rede municipal de ${scopeName} no Radar. Quero entender como a Vertho pode ajudar nossa rede.\n\nLink: ${url}`;
     }
     if (scopeType === 'estado' && scopeUf) {
-      return `Olá Rodrigo! Estou olhando dados de ${scopeUf} no Radar Vertho e gostaria de conversar sobre a Vertho.\n\nLink: ${url}`;
+      return `Olá! Estou olhando dados de ${scopeUf} no Radar Vertho e gostaria de conversar sobre a Vertho.\n\nLink: ${url}`;
     }
     if (scopeType === 'comparar') {
-      return `Olá Rodrigo! Estou comparando escolas no Radar Vertho. Gostaria de uma conversa sobre a Vertho.\n\nLink: ${url}`;
+      return `Olá! Estou comparando escolas no Radar Vertho. Gostaria de uma conversa sobre a Vertho.\n\nLink: ${url}`;
     }
-    return `Olá Rodrigo! Estou no Radar Vertho e gostaria de conversar sobre a Vertho.${url ? '\n\nLink: ' + url : ''}`;
+    return `Olá! Estou no Radar Vertho e gostaria de conversar sobre a Vertho.${url ? '\n\nLink: ' + url : ''}`;
   };
 
   const handleOpen = () => {
@@ -90,7 +90,7 @@ export function FaleConosco({ scopeType, scopeId, scopeName, scopeUf }: Props) {
       <button
         type="button"
         onClick={handleOpen}
-        aria-label="Falar com fundador da Vertho"
+        aria-label="Falar com sócio da Vertho"
         className={`fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 px-5 py-3 rounded-full text-sm font-bold shadow-xl transition-transform hover:scale-[1.03] ${
           pulse ? 'animate-pulse' : ''
         }`}
@@ -101,7 +101,7 @@ export function FaleConosco({ scopeType, scopeId, scopeName, scopeUf }: Props) {
         }}
       >
         <MessageCircle size={18} />
-        <span className="hidden sm:inline">Falar com fundador</span>
+        <span className="hidden sm:inline">Falar com sócio</span>
       </button>
 
       {open && (
@@ -126,8 +126,7 @@ export function FaleConosco({ scopeType, scopeId, scopeName, scopeUf }: Props) {
                   Vamos conversar?
                 </p>
                 <h3 className="text-white text-lg font-bold leading-tight">
-                  Rodrigo Naves<br />
-                  <span className="text-white/65 text-sm font-normal">Fundador da Vertho</span>
+                  Falar com um sócio
                 </h3>
               </div>
               <button
@@ -169,7 +168,7 @@ export function FaleConosco({ scopeType, scopeId, scopeName, scopeUf }: Props) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-bold text-white">Email</div>
-                  <div className="text-xs text-white/55 truncate">{CONTACT_EMAIL}</div>
+                  <div className="text-xs text-white/55">Abre seu cliente de e-mail com mensagem pronta</div>
                 </div>
               </button>
             </div>
