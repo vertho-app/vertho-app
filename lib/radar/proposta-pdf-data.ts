@@ -2,16 +2,22 @@ import 'server-only';
 
 import { callAI } from '@/actions/ai-client';
 import { stableJsonHash } from './hash';
-import { getEscola, getMunicipio, getEscolasMunicipio } from './queries';
-import type { Escola, SaebSnapshot, IcaSnapshot } from './queries';
+import { filterComparableEnem, getEscola, getMunicipio, getEscolasMunicipio } from './queries';
+import type {
+  Escola,
+  SaebSnapshot,
+  IcaSnapshot,
+  EnemEscolaSnapshot,
+  MunicipioEnemAggregate,
+} from './queries';
 
-const PROMPT_VERSION_PROPOSTA = 'radar-proposta-pdf-v1';
+const PROMPT_VERSION_PROPOSTA = 'radar-proposta-pdf-v2';
 
 const SYSTEM_PROPOSTA = `Você é um analista educacional sênior do Vertho Mentor IA escrevendo uma PROPOSTA PÚBLICA em PDF, dirigida a um gestor escolar ou secretário(a) municipal de educação.
 
 REGRAS DE NEGÓCIO:
 1. Use APENAS os dados estruturados fornecidos. Nunca invente números, anos ou comparações.
-2. Cite ano e fonte (Saeb/INEP, ICA/INEP) sempre que mencionar um número.
+2. Cite ano e fonte (Saeb/INEP, ICA/INEP, Enem/INEP) sempre que mencionar um número.
 3. Tom institucional, técnico-pedagógico, sério. SEM linguagem promocional excessiva, SEM persona "BETO".
 4. Foco prático: o que fazer com esse diagnóstico nos próximos 30/60/90 dias.
 5. Se um dado não estiver presente, escreva "dado não disponível" ou simplesmente omita aquele item.
@@ -20,8 +26,8 @@ REGRAS DE NEGÓCIO:
 FORMATO DE SAÍDA: JSON estrito com:
 {
   "resumo_executivo": "2 parágrafos curtos com a síntese do diagnóstico (até 800 chars)",
-  "leitura_saeb": "leitura textual do Saeb da escola/município (até 700 chars). Pode mencionar comparativos (similares/UF/BR).",
-  "contexto_municipal": "contexto ICA + estrutura do município (até 600 chars)",
+  "leitura_saeb": "leitura textual dos resultados de aprendizagem do Saeb e, quando houver, do Enem comparável (até 700 chars).",
+  "contexto_municipal": "contexto ICA + estrutura do município +, quando houver, leitura agregada do Enem (até 600 chars)",
   "pontos_atencao": ["..."],          // 3-5 itens
   "perguntas_pedagogicas": ["..."],   // 3 perguntas pra discussão
   "como_vertho_ajuda": ["..."],       // 3 itens curtos de aplicação prática (Mentor IA)
@@ -85,6 +91,8 @@ export type PropostaPayload = {
   escola?: Escola | null;
   saeb?: SaebSnapshot[];
   ica?: IcaSnapshot[];
+  enemEscola?: EnemEscolaSnapshot[];
+  enemMunicipio?: MunicipioEnemAggregate[];
   totalEscolas?: number;
   geradoEm: string;
 };
@@ -98,10 +106,12 @@ export async function montarPropostaPayload(
     if (!r?.escola) return null;
     const escola = r.escola;
     const saeb = r.saeb;
-    const dadosHash = stableJsonHash({ escola, saeb });
+    const enemEscola = filterComparableEnem(r.enem || []);
+    const dadosHash = stableJsonHash({ escola, saeb, enemEscola });
     const conteudo = await gerarOuCacheProposta('escola', scopeId, dadosHash, {
       escopo: { tipo: 'escola', nome: escola.nome, codigo_inep: escola.codigo_inep, municipio: escola.municipio, uf: escola.uf, rede: escola.rede, inse_grupo: escola.inse_grupo },
       saeb: saeb.slice(0, 16),
+      enem: enemEscola.slice(0, 4),
     });
     return {
       conteudo,
@@ -112,6 +122,7 @@ export async function montarPropostaPayload(
       uf: escola.uf,
       escola,
       saeb,
+      enemEscola,
       geradoEm: new Date().toISOString(),
     };
   }
@@ -120,10 +131,17 @@ export async function montarPropostaPayload(
   const m = await getMunicipio(scopeId);
   if (!m) return null;
   const escolas = await getEscolasMunicipio(scopeId, 50);
-  const dadosHash = stableJsonHash({ ibge: scopeId, ica: m.ica, totalEscolas: m.totalEscolas, redes: m.redes });
+  const dadosHash = stableJsonHash({
+    ibge: scopeId,
+    ica: m.ica,
+    enem: m.enem,
+    totalEscolas: m.totalEscolas,
+    redes: m.redes,
+  });
   const conteudo = await gerarOuCacheProposta('municipio', scopeId, dadosHash, {
     escopo: { tipo: 'municipio', ibge: scopeId, nome: m.nome, uf: m.uf, totalEscolas: m.totalEscolas, redes: m.redes, escolas_amostra: escolas.slice(0, 10).map(e => ({ inep: e.codigo_inep, nome: e.nome, rede: e.rede })) },
     ica: m.ica.slice(0, 10),
+    enem: m.enem.slice(0, 4),
   });
   return {
     conteudo,
@@ -133,6 +151,7 @@ export async function montarPropostaPayload(
     municipio: m.nome,
     uf: m.uf,
     ica: m.ica,
+    enemMunicipio: m.enem,
     totalEscolas: m.totalEscolas,
     geradoEm: new Date().toISOString(),
   };

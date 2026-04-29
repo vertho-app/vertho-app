@@ -105,12 +105,14 @@ export default function RadarPropostaPDF({
   logoBase64?: string;
   destinatario?: { nome?: string; organizacao?: string; cargo?: string };
 }) {
-  const { conteudo, scopeLabel, scopeType, municipio, uf, escola, saeb, ica } = payload;
+  const { conteudo, scopeLabel, scopeType, municipio, uf, escola, saeb, ica, enemEscola, enemMunicipio } = payload;
   const headerLabel = `${scopeType === 'escola' ? 'Diagnóstico Escola' : 'Diagnóstico Município'} · ${scopeLabel}`;
   const dataHoje = new Date(payload.geradoEm).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 
   // Reduz para mostrar até 8 linhas Saeb (último ano disponível primeiro)
   const saebTop = (saeb || []).slice(0, 8);
+  const enemEscolaTop = (enemEscola || []).slice(0, 4);
+  const enemMunicipioTop = (enemMunicipio || []).slice(0, 4);
 
   return (
     <Document title={`Diagnóstico Vertho — ${scopeLabel}`}>
@@ -174,6 +176,36 @@ export default function RadarPropostaPDF({
           </View>
         )}
 
+        {scopeType === 'escola' && enemEscolaTop.length > 0 && (
+          <View style={s.section} wrap={false}>
+            <SectionTitle>ENEM Comparável</SectionTitle>
+            <Text style={s.italic}>
+              Microdados do Enem com corte público de 10 ou mais participantes por escola.
+            </Text>
+            <View style={s.table}>
+              <View style={s.tableHead}>
+                <Text style={{ ...s.tableHeadCell, flex: 0.7 }}>Ano</Text>
+                <Text style={{ ...s.tableHeadCell, flex: 1, textAlign: 'right' }}>Participantes</Text>
+                <Text style={{ ...s.tableHeadCell, flex: 1, textAlign: 'right' }}>Média geral</Text>
+                <Text style={{ ...s.tableHeadCell, flex: 1, textAlign: 'right' }}>Objetiva</Text>
+                <Text style={{ ...s.tableHeadCell, flex: 1, textAlign: 'right' }}>Redação</Text>
+              </View>
+              {enemEscolaTop.map((row, i) => {
+                const rowStyle = i % 2 === 0 ? s.tableRow : s.tableRowAlt;
+                return (
+                  <View key={row.ano} style={rowStyle}>
+                    <Text style={{ ...s.tableCell, flex: 0.7 }}>{row.ano}</Text>
+                    <Text style={{ ...s.tableCell, flex: 1, textAlign: 'right' }}>{row.participantes_total.toLocaleString('pt-BR')}</Text>
+                    <Text style={{ ...s.tableCell, flex: 1, textAlign: 'right', fontWeight: 700, color: colors.navy }}>{row.media_geral != null ? row.media_geral.toFixed(1) : '—'}</Text>
+                    <Text style={{ ...s.tableCell, flex: 1, textAlign: 'right' }}>{row.media_objetiva != null ? row.media_objetiva.toFixed(1) : '—'}</Text>
+                    <Text style={{ ...s.tableCell, flex: 1, textAlign: 'right' }}>{row.media_redacao != null ? row.media_redacao.toFixed(1) : '—'}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
         <PageFooter />
       </Page>
 
@@ -207,6 +239,36 @@ export default function RadarPropostaPDF({
                     <Text style={{ ...s.tableCell, flex: 1, textAlign: 'right', fontWeight: 700, color: colors.navy }}>{i.taxa != null ? `${i.taxa.toFixed(1)}%` : '—'}</Text>
                     <Text style={{ ...s.tableCell, flex: 1, textAlign: 'right', color: colors.gray500 }}>{i.total_estado != null ? `${i.total_estado.toFixed(1)}%` : '—'}</Text>
                     <Text style={{ ...s.tableCell, flex: 1, textAlign: 'right', color: colors.gray500 }}>{i.total_brasil != null ? `${i.total_brasil.toFixed(1)}%` : '—'}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {scopeType === 'municipio' && enemMunicipioTop.length > 0 && (
+          <View style={s.section} wrap={false}>
+            <SectionTitle>ENEM Comparável do Município</SectionTitle>
+            <Text style={s.italic}>
+              Médias ponderadas do Enem usando apenas escolas com 10 ou mais participantes.
+            </Text>
+            <View style={s.table}>
+              <View style={s.tableHead}>
+                <Text style={{ ...s.tableHeadCell, flex: 0.7 }}>Ano</Text>
+                <Text style={{ ...s.tableHeadCell, flex: 1 }}>Escolas 10+</Text>
+                <Text style={{ ...s.tableHeadCell, flex: 1, textAlign: 'right' }}>Participantes</Text>
+                <Text style={{ ...s.tableHeadCell, flex: 1, textAlign: 'right' }}>Média geral</Text>
+                <Text style={{ ...s.tableHeadCell, flex: 1, textAlign: 'right' }}>Redação</Text>
+              </View>
+              {enemMunicipioTop.map((row, idx) => {
+                const rowStyle = idx % 2 === 0 ? s.tableRow : s.tableRowAlt;
+                return (
+                  <View key={row.ano} style={rowStyle}>
+                    <Text style={{ ...s.tableCell, flex: 0.7 }}>{row.ano}</Text>
+                    <Text style={{ ...s.tableCell, flex: 1 }}>{row.escolasCom10.toLocaleString('pt-BR')}</Text>
+                    <Text style={{ ...s.tableCell, flex: 1, textAlign: 'right' }}>{row.participantesTotalCom10.toLocaleString('pt-BR')}</Text>
+                    <Text style={{ ...s.tableCell, flex: 1, textAlign: 'right', fontWeight: 700, color: colors.navy }}>{row.mediaGeralPonderada != null ? row.mediaGeralPonderada.toFixed(1) : '—'}</Text>
+                    <Text style={{ ...s.tableCell, flex: 1, textAlign: 'right' }}>{row.mediaRedacaoPonderada != null ? row.mediaRedacaoPonderada.toFixed(1) : '—'}</Text>
                   </View>
                 );
               })}
@@ -296,8 +358,8 @@ export default function RadarPropostaPDF({
           <SectionTitle>Metodologia e Fontes</SectionTitle>
           <Text style={s.text}>
             Este diagnóstico foi gerado a partir de dados públicos do INEP (Instituto Nacional de
-            Estudos e Pesquisas Educacionais Anísio Teixeira) — Saeb e Indicador Criança Alfabetizada
-            (ICA) — agregados pelo Vertho Radar (radar.vertho.ai).
+            Estudos e Pesquisas Educacionais Anísio Teixeira) — Saeb, Indicador Criança Alfabetizada
+            (ICA) e microdados do Enem — agregados pelo Vertho Radar (radar.vertho.ai).
           </Text>
           <Text style={s.text}>
             <Text style={{ fontWeight: 700, color: colors.navy }}>Comparativo "escolas similares":</Text>{' '}
@@ -312,6 +374,11 @@ export default function RadarPropostaPDF({
           <Text style={s.text}>
             <Text style={{ fontWeight: 700, color: colors.navy }}>INSE:</Text> Indicador de Nível
             Socioeconômico do INEP. Grupo 1 = NSE mais alto. Grupo 6 = NSE mais baixo (escala invertida).
+          </Text>
+          <Text style={s.text}>
+            <Text style={{ fontWeight: 700, color: colors.navy }}>ENEM comparável:</Text>{' '}
+            quando usado neste documento, considera apenas escolas com 10 ou mais participantes no ano,
+            evitando leituras públicas instáveis por amostra pequena.
           </Text>
           <Text style={s.italic}>
             Análise textual gerada por IA usando exclusivamente os dados estruturados desta página.
