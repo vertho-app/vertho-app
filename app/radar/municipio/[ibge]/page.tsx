@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { ArrowLeft, MapPin, GraduationCap } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 import { getMunicipio, getEscolasMunicipio, getMunicipioBenchmarks, getMunicipioVariabilidade } from '@/lib/radar/queries';
 import { leituraIcaMunicipio } from '@/lib/radar/leitura-deterministica';
@@ -15,6 +15,7 @@ import { FundebSection } from '../../_components/fundeb-section';
 import { VaarSection } from '../../_components/vaar-section';
 import { BenchmarkTable } from '../../_components/benchmark-table';
 import { VariabilidadeCard } from '../../_components/variabilidade-card';
+import { HeroMunicipio } from '../../_components/hero-municipio';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,36 +82,25 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
       }}>
       <RadarHeader />
 
-      <div className="max-w-[1100px] mx-auto px-6">
-        <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-white/45 hover:text-white mb-6">
+      <div className="max-w-[1200px] mx-auto px-6 pt-6">
+        <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-white/45 hover:text-white mb-4">
           <ArrowLeft size={12} /> Buscar outro município
         </Link>
 
-        <section className="mb-10">
-          <p className="text-[10px] font-bold tracking-[0.25em] uppercase mb-3" style={{ color: '#34c5cc' }}>
-            Município · IBGE {ibge}
-          </p>
-          <h1 className="text-white mb-4"
-            style={{
-              fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
-              fontSize: 'clamp(32px, 5vw, 52px)',
-              lineHeight: 1.1,
-              letterSpacing: '-0.02em',
-            }}>
-            {m.nome}, <em style={{ color: '#34c5cc' }}>{m.uf}</em>
-          </h1>
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-white/55 font-mono">
-            <span className="flex items-center gap-1.5">
-              <GraduationCap size={12} style={{ color: '#34c5cc' }} />
-              {m.totalEscolas} escolas no Radar
-            </span>
-            {Object.entries(m.redes).slice(0, 4).map(([rede, n]) => (
-              <span key={rede} className="text-white/40">{rede}: {n}</span>
-            ))}
-          </div>
-        </section>
+        <HeroMunicipio
+          ibge={ibge}
+          nome={m.nome}
+          uf={m.uf}
+          totalEscolas={m.totalEscolas}
+          redes={m.redes}
+          ica={m.ica}
+          ideb={m.ideb}
+          fundeb={m.fundeb}
+          benchmarks={benchmarks}
+          microrregiao={microrregiao}
+        />
 
-        <section className="mb-10 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <section className="mb-12 grid grid-cols-1 md:grid-cols-3 gap-4">
           <Suspense fallback={<NarrativaSkeleton resumoDeterm={determ.resumo} />}>
             <NarrativaIA
               scope="municipio"
@@ -142,28 +132,52 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
 
         {/* ICA cards */}
         {m.ica.length > 0 && (
-          <section className="mb-10">
-            <h2 className="text-white text-xl font-bold mb-4">Indicador Criança Alfabetizada (ICA)</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <section className="mb-12">
+            <p className="text-[11px] tracking-[0.15em] uppercase font-bold mb-3" style={{ color: '#34c5cc' }}>
+              ICA · {m.nome}
+            </p>
+            <h2 className="text-white mb-3"
+              style={{
+                fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+                fontSize: 'clamp(24px, 3vw, 32px)',
+                fontWeight: 600,
+                lineHeight: 1.15,
+                letterSpacing: '-0.02em',
+              }}>
+              Indicador Criança Alfabetizada
+            </h2>
+            <p className="text-white/60 mb-6 leading-relaxed" style={{ fontSize: 15, maxWidth: 720 }}>
+              Percentual de crianças avaliadas no 2º ano EF que demonstram domínio das
+              habilidades de leitura, escrita e matemática esperadas.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {m.ica.slice(0, 9).map((i) => (
                 <div key={`${i.rede}-${i.ano}`}
-                  className="rounded-2xl p-4 border border-white/[0.06]"
-                  style={{ background: 'rgba(255,255,255,0.03)' }}>
-                  <p className="text-[9px] uppercase tracking-wider font-mono text-white/40">
+                  className="rounded-2xl p-5 border border-white/[0.08]"
+                  style={{ background: 'rgba(255,255,255,0.04)' }}>
+                  <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-white/45 mb-2">
                     {i.ano} · {i.rede}
                   </p>
-                  <p className="text-3xl font-bold text-white mt-2 font-mono">{(i.taxa ?? 0).toFixed(1)}<span className="text-base text-white/45">%</span></p>
+                  <p className="text-white"
+                    style={{
+                      fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+                      fontSize: 36, fontWeight: 600, lineHeight: 1,
+                    }}>
+                    {(i.taxa ?? 0).toFixed(1)}<span className="text-base text-white/45 ml-1">%</span>
+                  </p>
                   {i.alunos_avaliados != null && i.alunos_avaliados > 0 ? (
-                    <p className="text-[10px] text-white/45 mt-1 font-mono">
+                    <p className="text-[11px] text-white/55 mt-2 font-mono">
                       {i.alfabetizados ?? 0} de {i.alunos_avaliados} alunos
                     </p>
                   ) : (
-                    <p className="text-[10px] text-white/35 mt-1 italic">
+                    <p className="text-[11px] text-white/35 mt-2 italic">
                       total de alunos não disponível na fonte
                     </p>
                   )}
                   {i.total_estado != null && i.total_estado > 0 && (
-                    <p className="text-[10px] text-white/35 mt-2">UF: {i.total_estado.toFixed(1)}% · BR: {(i.total_brasil || 0).toFixed(1)}%</p>
+                    <p className="text-[11px] text-white/35 mt-2 font-mono">
+                      UF: {i.total_estado.toFixed(1)}% · BR: {(i.total_brasil || 0).toFixed(1)}%
+                    </p>
                   )}
                 </div>
               ))}
@@ -173,13 +187,29 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
 
         {/* Lista de escolas */}
         {escolas.length > 0 && (
-          <section className="mb-10">
-            <h2 className="text-white text-xl font-bold mb-4">Escolas em {m.nome}</h2>
-            <div className="rounded-2xl border border-white/[0.06] overflow-hidden"
-              style={{ background: 'rgba(255,255,255,0.02)' }}>
+          <section className="mb-12">
+            <p className="text-[11px] tracking-[0.15em] uppercase font-bold mb-3" style={{ color: '#34c5cc' }}>
+              Escolas no Radar
+            </p>
+            <h2 className="text-white mb-3"
+              style={{
+                fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+                fontSize: 'clamp(24px, 3vw, 32px)',
+                fontWeight: 600,
+                lineHeight: 1.15,
+                letterSpacing: '-0.02em',
+              }}>
+              Escolas em {m.nome}
+            </h2>
+            <p className="text-white/60 mb-6 leading-relaxed" style={{ fontSize: 15, maxWidth: 720 }}>
+              {escolas.length} {escolas.length === 1 ? 'escola listada' : 'escolas listadas'} no município.
+              Clique pra ver indicadores detalhados.
+            </p>
+            <div className="rounded-2xl border border-white/[0.08] overflow-hidden"
+              style={{ background: 'rgba(255,255,255,0.04)' }}>
               {escolas.map((e) => (
-                <Link key={e.codigo_inep} href={`/escola/${e.codigo_inep}`}
-                  className="flex items-center justify-between px-5 py-3 border-b border-white/[0.04] last:border-b-0 hover:bg-white/[0.03] transition-colors">
+                <Link key={e.codigo_inep} href={`/radar/escola/${e.codigo_inep}`}
+                  className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.04] last:border-b-0 hover:bg-white/[0.04] transition-colors">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-white truncate">{e.nome}</p>
                     <p className="text-[11px] text-white/40 font-mono">INEP {e.codigo_inep} · {e.rede || 'rede n/d'}</p>
@@ -232,28 +262,48 @@ function MunicipioIdebSection({ ideb }: {
   }
 
   return (
-    <section className="mb-10">
-      <h2 className="text-white text-xl font-bold mb-4">Ideb médio das escolas</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+    <section className="mb-12">
+      <p className="text-[11px] tracking-[0.15em] uppercase font-bold mb-3" style={{ color: '#34c5cc' }}>
+        Ideb · médio da rede
+      </p>
+      <h2 className="text-white mb-3"
+        style={{
+          fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+          fontSize: 'clamp(24px, 3vw, 32px)',
+          fontWeight: 600,
+          lineHeight: 1.15,
+          letterSpacing: '-0.02em',
+        }}>
+        Trajetória do Ideb por etapa
+      </h2>
+      <p className="text-white/60 mb-6 leading-relaxed" style={{ fontSize: 15, maxWidth: 720 }}>
+        Média do Ideb das escolas do município por etapa, com indicador de rendimento e
+        nota Saeb padronizada. Cobertura por edição varia conforme participação das escolas.
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {Array.from(byEtapa.entries()).map(([etapa, rows]) => (
           <div key={etapa}
-            className="rounded-2xl p-4 border border-white/[0.06]"
-            style={{ background: 'rgba(255,255,255,0.03)' }}>
-            <p className="text-[9px] uppercase tracking-wider font-mono text-white/40 mb-3">
+            className="rounded-2xl p-5 border border-white/[0.08]"
+            style={{ background: 'rgba(255,255,255,0.04)' }}>
+            <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-white/55 mb-3">
               {etapaLabel(etapa)}
             </p>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {rows
                 .slice()
                 .sort((a, b) => b.ano - a.ano)
                 .map((row) => (
-                  <div key={`${etapa}-${row.ano}`} className="flex items-center justify-between gap-3">
+                  <div key={`${etapa}-${row.ano}`} className="flex items-baseline justify-between gap-3">
                     <span className="text-xs text-white/45 font-mono">{row.ano}</span>
-                    <span className="text-lg text-white font-bold font-mono">
-                      {row.idebAvg != null ? row.idebAvg.toFixed(1) : '-'}
+                    <span className="font-mono"
+                      style={{
+                        fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+                        fontSize: 22, fontWeight: 600, color: 'white',
+                      }}>
+                      {row.idebAvg != null ? row.idebAvg.toFixed(1) : '—'}
                     </span>
-                    <span className="text-[10px] text-white/35 font-mono">
-                      {row.totalEscolas} escolas · N {row.notaSaebAvg != null ? row.notaSaebAvg.toFixed(2) : '-'}
+                    <span className="text-[10px] text-white/40 font-mono">
+                      {row.totalEscolas} esc · N {row.notaSaebAvg != null ? row.notaSaebAvg.toFixed(2) : '—'}
                     </span>
                   </div>
                 ))}

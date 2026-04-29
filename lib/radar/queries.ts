@@ -242,6 +242,67 @@ export type MunicipioVariabilidade = {
   etapa: '5_EF' | '9_EF' | '3_EM';
 };
 
+export type RedeStats = {
+  qtd_escolas: number;
+  saeb_lp_avg: number | null;
+  saeb_lp_stddev: number | null;
+  saeb_lp_min: number | null;
+  saeb_lp_max: number | null;
+  saeb_lp_p25: number | null;
+  saeb_lp_p75: number | null;
+  saeb_mat_avg: number | null;
+  saeb_mat_stddev: number | null;
+  saeb_mat_min: number | null;
+  saeb_mat_max: number | null;
+  saeb_mat_p25: number | null;
+  saeb_mat_p75: number | null;
+  ideb_avg: number | null;
+  ideb_stddev: number | null;
+  ideb_min: number | null;
+  ideb_max: number | null;
+  etapa: '5_EF' | '9_EF' | '3_EM';
+};
+
+export type RedeEscolaRanking = {
+  codigo_inep: string;
+  nome: string;
+  rede: string | null;
+  inse_grupo: number | null;
+  saeb_geral: number | null;
+  saeb_lp: number | null;
+  saeb_mat: number | null;
+  ideb: number | null;
+  rank_total: number;
+  qtd_total: number;
+  posicao: 'top' | 'bottom';
+};
+
+export type RedePorInse = {
+  inse_grupo: number;
+  qtd_escolas: number;
+  saeb_lp_avg: number | null;
+  saeb_mat_avg: number | null;
+  ideb_avg: number | null;
+};
+
+export async function getRedeStats(ibge: string): Promise<RedeStats | null> {
+  const sb = createSupabaseAdmin();
+  const { data } = await sb.rpc('diag_rede_stats', { p_ibge: ibge });
+  return Array.isArray(data) && data.length ? (data[0] as RedeStats) : null;
+}
+
+export async function getRedeRanking(ibge: string, limit = 5): Promise<RedeEscolaRanking[]> {
+  const sb = createSupabaseAdmin();
+  const { data } = await sb.rpc('diag_rede_ranking', { p_ibge: ibge, p_limit: limit });
+  return (data as RedeEscolaRanking[]) || [];
+}
+
+export async function getRedePorInse(ibge: string): Promise<RedePorInse[]> {
+  const sb = createSupabaseAdmin();
+  const { data } = await sb.rpc('diag_rede_por_inse', { p_ibge: ibge });
+  return (data as RedePorInse[]) || [];
+}
+
 export async function getMunicipioVariabilidade(ibge: string): Promise<MunicipioVariabilidade | null> {
   const sb = createSupabaseAdmin();
   // Tenta 9_EF primeiro (mais escolas em rede municipal típica), cai pra 5_EF
