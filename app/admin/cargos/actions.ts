@@ -15,8 +15,7 @@ export async function loadCargos(empresaId: string) {
   await requireAdminAction();
   const sb = createSupabaseAdmin();
   try {
-    // 1. Tentar cargos_empresa
-    // Buscar cargos — tentar com top5_workshop, fallback sem
+    // 1. cargos_empresa (com top5 quando coluna existe)
     let cargosEmpresa: any[] | null = null;
     const { data: ce1, error: err1 } = await sb.from('cargos_empresa')
       .select('id, nome, area_depto, descricao, top5_workshop, eh_lideranca')
@@ -25,7 +24,6 @@ export async function loadCargos(empresaId: string) {
     if (!err1) {
       cargosEmpresa = ce1;
     } else {
-      // Coluna top5_workshop pode não existir
       const { data: ce2 } = await sb.from('cargos_empresa')
         .select('id, nome, area_depto, descricao')
         .eq('empresa_id', empresaId)
@@ -33,54 +31,94 @@ export async function loadCargos(empresaId: string) {
       cargosEmpresa = ce2;
     }
 
-    // 2. Buscar cargos dos colaboradores (sempre, como fallback)
+    // 2. Cargos distintos em colaboradores
     const { data: colabs } = await sb.from('colaboradores')
       .select('cargo')
       .eq('empresa_id', empresaId)
       .not('cargo', 'is', null);
-
     const cargosColab = [...new Set((colabs || []).map((c: any) => c.cargo).filter(Boolean))].sort();
 
-    // 3. Merge: usar cargos_empresa se existir, senão criar do colaborador
-    const cargosNomes = cargosEmpresa?.length
-      ? [...new Set([...cargosEmpresa.map((c: any) => c.nome), ...cargosColab])].sort()
-      : cargosColab;
+    // 3. Cargos com top10 — pode haver cargos "órfãos" (a IA1 às vezes
+    // normaliza/abrevia nomes ex: "Consultor" no lugar de "Rare Diseases
+    // Demand Sr Consultant"). Pegamos todos pra exibir na UI.
+    let top10Rows: any[] = [];
+    try {
+      const { data: t10 } = await sb.from('top10_cargos')
+        .select('cargo, posicao, competencia_id, competencia:competencias(id, nome, cod_comp)')
+        .eq('empresa_id', empresaId)
+        .order('cargo')
+        .order('posicao');
+      top10Rows = t10 || [];
+    } catch {
+      // tabela pode não existir ainda
+    }
+    const cargosTop10 = [...new Set(top10Rows.map((t: any) => t.cargo).filter(Boolean))];
+    const top10ByCargo = new Map<string, string[]>();
+    for (const t of top10Rows) {
+      const nome = t.competencia?.nome;
+      if (!nome) continue;
+      if (!top10ByCargo.has(t.cargo)) top10ByCargo.set(t.cargo, []);
+      top10ByCargo.get(t.cargo)!.push(nome);
+    }
+
+    // 4. Merge: união de todas as fontes
+    const cargosNomes = [
+      ...new Set([
+        ...(cargosEmpresa || []).map((c: any) => c.nome),
+        ...cargosColab,
+        ...cargosTop10,
+      ].filter(Boolean)),
+    ].sort();
 
     if (!cargosNomes.length) return { success: true, data: [] };
 
-    // 4. Para cada cargo, buscar top10
     const cargosEmpMap = Object.fromEntries((cargosEmpresa || []).map((c: any) => [c.nome, c]));
     const result: any[] = [];
 
     for (const nome of cargosNomes) {
       const ce = cargosEmpMap[nome];
-      let top10Names: string[] = [];
-
-      try {
-        const { data: top10 } = await sb.from('top10_cargos')
-          .select('*, competencia:competencias(id, nome, cod_comp)')
-          .eq('empresa_id', empresaId)
-          .eq('cargo', nome)
-          .order('posicao');
-        top10Names = (top10 || []).map((t: any) => t.competencia?.nome).filter(Boolean);
-      } catch {
-        // tabela pode não existir ainda
-      }
-
-      let top5: any[] = [];
-      try { top5 = ce?.top5_workshop || []; } catch { /* coluna pode não existir */ }
+      const isOrfao = !ce && !cargosColab.includes(nome) && cargosTop10.includes(nome);
+      const semColabs = !ce && !cargosColab.includes(nome);
+      const top10Names = top10ByCargo.get(nome) || [];
 
       result.push({
         id: ce?.id || nome,
         nome,
         area_depto: ce?.area_depto || null,
-        eh_lideranca: ce?.eh_lideranca !== false, // default true
-        top5_workshop: top5,
+        eh_lideranca: ce?.eh_lideranca !== false,
+        top5_workshop: ce?.top5_workshop || [],
         competencias_top10: top10Names,
+        // Flags pra UI: cargo órfão = só existe em top10_cargos (IA gerou
+        // nome diferente do oficial). Admin pode "vincular" a um nome
+        // válido de cargos_empresa via renomearTop10Cargo.
+        is_orfao: isOrfao,
+        sem_colaboradores: semColabs,
       });
     }
 
     return { success: true, data: result };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Renomeia o `cargo` em todas as linhas de top10_cargos da empresa —
+ * útil quando a IA1 gerou um nome normalizado/abreviado e queremos vincular
+ * ao cargo oficial em cargos_empresa.
+ */
+export async function renomearTop10Cargo(empresaId: string, deNome: string, paraNome: string) {
+  await requireAdminAction();
+  if (!deNome || !paraNome) return { success: false, error: 'Nomes obrigatórios' };
+  if (deNome === paraNome) return { success: true, message: 'Sem alteração' };
+  const sb = createSupabaseAdmin();
+  try {
+    const { error } = await sb.from('top10_cargos')
+      .update({ cargo: paraNome })
+      .eq('empresa_id', empresaId)
+      .eq('cargo', deNome);
+    if (error) return { success: false, error: error.message };
+    return { success: true, message: `Top 10 vinculado: "${deNome}" → "${paraNome}"` };
   } catch (err: any) {
     return { success: false, error: err.message };
   }

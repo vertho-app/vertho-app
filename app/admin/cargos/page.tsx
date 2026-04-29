@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Loader2, Briefcase, Check, Save, ChevronDown } from 'lucide-react';
-import { loadEmpresas, loadCargos, salvarTop5, salvarEhLideranca } from './actions';
+import { ArrowLeft, Loader2, Briefcase, Check, Save, ChevronDown, AlertTriangle, Link2, X } from 'lucide-react';
+import { loadEmpresas, loadCargos, salvarTop5, salvarEhLideranca, renomearTop10Cargo } from './actions';
 
 export default function CargosPage() {
   const router = useRouter();
@@ -52,16 +52,32 @@ export default function CargosPage() {
     setTop5Edits(prev => {
       const current = prev[cargoId] || [];
       const exists = current.includes(comp);
-      let next;
-      if (exists) {
-        next = current.filter(c => c !== comp);
-      } else if (current.length >= 5) {
-        return prev;
-      } else {
-        next = [...current, comp];
-      }
+      const next = exists ? current.filter(c => c !== comp) : [...current, comp];
       return { ...prev, [cargoId]: next };
     });
+  }
+
+  // ── Modal de vínculo de cargo órfão ──
+  const [vinculandoCargo, setVinculandoCargo] = useState<{ deNome: string } | null>(null);
+  const [vinculoTarget, setVinculoTarget] = useState<string>('');
+  const [salvandoVinculo, setSalvandoVinculo] = useState(false);
+
+  async function handleVincular() {
+    if (!vinculandoCargo || !vinculoTarget) return;
+    setSalvandoVinculo(true);
+    const r = await renomearTop10Cargo(empresaId, vinculandoCargo.deNome, vinculoTarget);
+    setSalvandoVinculo(false);
+    if (r.success) {
+      setToast(r.message);
+      setTimeout(() => setToast(null), 3000);
+      setVinculandoCargo(null);
+      setVinculoTarget('');
+      // Recarrega lista
+      handleSelectEmpresa(empresaId);
+    } else {
+      setToast('Erro: ' + r.error);
+      setTimeout(() => setToast(null), 4000);
+    }
   }
 
   async function handleSave(cargoId: string) {
@@ -132,25 +148,74 @@ export default function CargosPage() {
         </div>
       )}
 
+      {/* Banner de orientação */}
+      {!loadingCargos && cargos.length > 0 && (
+        <div className="rounded-xl p-3 mb-4 border border-cyan-400/15 bg-cyan-400/[0.04] text-[11px] text-cyan-100/85 leading-relaxed">
+          <strong className="text-cyan-300">Workshop presencial:</strong>{' '}
+          <span className="text-cyan-100/70">
+            selecione as competências escolhidas no workshop entre as Top 10 do cargo. Pode escolher{' '}
+            <strong className="text-cyan-100/90">qualquer quantidade</strong> (≥ 1). Alternativamente, use a{' '}
+          </span>
+          <button onClick={() => router.push(`/admin/empresas/${empresaId}/votacao`)}
+            className="underline text-cyan-300 hover:text-cyan-200">
+            Votação dos colaboradores
+          </button>
+          <span className="text-cyan-100/70">.</span>
+        </div>
+      )}
+
       {/* Cargos list */}
       {!loadingCargos && cargos.length > 0 && (
         <div className="space-y-4">
           {cargos.map((cargo: any) => {
             const top10 = cargo.competencias_top10 || [];
             const selected = top5Edits[cargo.id] || [];
+            const isOrfao = !!cargo.is_orfao;
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(cargo.id);
+            const cargosValidos = cargos.filter((c: any) => /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(c.id));
+
             return (
               <div key={cargo.id} className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
-                <div className="px-5 py-3 border-b border-white/[0.06] flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-bold text-white">{cargo.nome}</h3>
-                    <p className="text-xs text-gray-500">Top 10 da IA  |  {selected.length}/5 selecionadas{cargo.eh_lideranca === false ? ' · não-líder' : ''}</p>
+                <div className="px-5 py-3 border-b border-white/[0.06] flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-white truncate">{cargo.nome}</h3>
+                      {isOrfao && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-400/15 text-amber-300 border border-amber-400/25">
+                          <AlertTriangle size={9} /> não vinculado
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Top 10 da IA · {top10.length} itens · {selected.length} selecionada{selected.length === 1 ? '' : 's'}
+                      {cargo.eh_lideranca === false ? ' · não-líder' : ''}
+                    </p>
                   </div>
-                  <button onClick={() => handleSave(cargo.id)} disabled={saving[cargo.id]}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white transition-colors disabled:opacity-50">
-                    {saving[cargo.id] ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-                    Salvar Top 5
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {isOrfao && cargosValidos.length > 0 && (
+                      <button onClick={() => { setVinculandoCargo({ deNome: cargo.nome }); setVinculoTarget(''); }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-amber-300 border border-amber-400/30 hover:bg-amber-400/10 transition-colors">
+                        <Link2 size={11} /> Vincular ao cargo correto
+                      </button>
+                    )}
+                    {isUuid && (
+                      <button onClick={() => handleSave(cargo.id)} disabled={saving[cargo.id]}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white transition-colors disabled:opacity-50">
+                        {saving[cargo.id] ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                        Salvar
+                      </button>
+                    )}
+                  </div>
                 </div>
+
+                {isOrfao && (
+                  <div className="px-5 py-2 border-b border-white/[0.04] bg-amber-400/[0.04] text-[11px] text-amber-200/85">
+                    A IA gerou Top 10 com este nome de cargo, mas ele não está cadastrado em <strong>cargos_empresa</strong> nem
+                    aparece nos colaboradores. Use o botão "Vincular" pra apontar pro cargo correto da empresa
+                    (renomeia em <code>top10_cargos</code> sem perda de dado).
+                  </div>
+                )}
+
                 <div className="p-5">
                   {top10.length === 0 ? (
                     <p className="text-xs text-gray-500">Nenhuma competencia Top 10 gerada pela IA ainda.</p>
@@ -158,13 +223,14 @@ export default function CargosPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {top10.map((comp: string, i: number) => {
                         const isSelected = selected.includes(comp);
-                        const isFull = selected.length >= 5 && !isSelected;
                         return (
-                          <button key={i} onClick={() => toggleCompetencia(cargo.id, comp)} disabled={isFull}
+                          <button key={i} onClick={() => toggleCompetencia(cargo.id, comp)}
+                            disabled={!isUuid}
+                            title={!isUuid ? 'Vincule este cargo primeiro' : undefined}
                             className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left text-sm transition-all ${
                               isSelected
                                 ? 'border-cyan-400/50 bg-cyan-400/10 text-white'
-                                : isFull
+                                : !isUuid
                                   ? 'border-white/[0.04] text-gray-600 cursor-not-allowed'
                                   : 'border-white/[0.06] text-gray-300 hover:border-white/20'
                             }`}>
@@ -183,6 +249,53 @@ export default function CargosPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Modal de vincular cargo órfão */}
+      {vinculandoCargo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={() => setVinculandoCargo(null)}>
+          <div className="w-full max-w-[480px] rounded-xl border border-white/[0.08] p-5" style={{ background: '#0A1D35' }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Link2 size={14} className="text-amber-300" />
+                Vincular cargo do Top 10
+              </h3>
+              <button onClick={() => setVinculandoCargo(null)} className="text-gray-500 hover:text-white">
+                <X size={16} />
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-400 mb-3 leading-relaxed">
+              A IA gerou Top 10 com o nome <strong className="text-white">"{vinculandoCargo.deNome}"</strong>.
+              Selecione abaixo o cargo oficial da empresa pra vincular:
+            </p>
+
+            <div className="relative mb-3">
+              <select value={vinculoTarget} onChange={(e) => setVinculoTarget(e.target.value)}
+                className="w-full appearance-none rounded-lg border border-white/10 text-white text-sm px-4 py-2.5 pr-10 focus:outline-none focus:border-cyan-400/50"
+                style={{ background: '#091D35' }}>
+                <option value="">Escolha um cargo...</option>
+                {cargos.filter((c: any) => /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(c.id) && c.nome !== vinculandoCargo.deNome)
+                  .map((c: any) => (
+                    <option key={c.id} value={c.nome}>{c.nome}</option>
+                  ))}
+              </select>
+              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setVinculandoCargo(null)}
+                className="px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white">
+                Cancelar
+              </button>
+              <button onClick={handleVincular} disabled={!vinculoTarget || salvandoVinculo}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-400/15 text-amber-300 border border-amber-400/30 hover:bg-amber-400/25 disabled:opacity-50">
+                {salvandoVinculo ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
+                Vincular
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
