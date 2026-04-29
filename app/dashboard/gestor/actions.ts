@@ -57,6 +57,15 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   const empresaId = ctx.colaborador.empresa_id;
   const meuId = ctx.colaborador.id;
 
+  // Detecta se a empresa tem fonte externa de perfil (OPQ32, Hogan, etc.)
+  // Quando tem, ela NÃO usa DISC — então "sem perfil" só conta quem está
+  // sem perfil_externo_dados (e ignora a ausência de DISC).
+  const { data: empCfg } = await sb.from('empresas')
+    .select('sys_config')
+    .eq('id', empresaId)
+    .maybeSingle();
+  const fonteExterna = (empCfg?.sys_config as any)?.perfil_externo_fonte ?? null;
+
   // ── 1. Liderados ──
   // Vínculo gestor→liderado é por colaboradores.gestor_email (string).
   // (NÃO existe coluna gestor_id na tabela — type em types/index.d.ts
@@ -171,12 +180,20 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
       mensagem: `${cpAtrasados.length} checkpoint${cpAtrasados.length === 1 ? '' : 's'} pendente${cpAtrasados.length === 1 ? '' : 's'} há mais de 7 dias`,
     });
   }
-  const semPerfil = liderados.filter((c: any) => !c.perfil_dominante && !c.perfil_externo_dados).length;
+  // Quando empresa usa fonte externa (OPQ32 etc.), DISC é ignorado:
+  // 'sem perfil' = sem perfil_externo_dados (PDF não foi extraído).
+  // Caso contrário, conta DISC como antes.
+  const semPerfil = fonteExterna
+    ? liderados.filter((c: any) => !c.perfil_externo_dados).length
+    : liderados.filter((c: any) => !c.perfil_dominante && !c.perfil_externo_dados).length;
   if (semPerfil > 0) {
+    const fonteLabel = fonteExterna === 'opq32' ? 'OPQ32' : fonteExterna || 'comportamental';
     alertas.push({
       tipo: 'sem_perfil',
       count: semPerfil,
-      mensagem: `${semPerfil} liderado${semPerfil === 1 ? '' : 's'} sem perfil comportamental mapeado`,
+      mensagem: fonteExterna
+        ? `${semPerfil} liderado${semPerfil === 1 ? ' ainda não tem' : 's ainda não têm'} ${fonteLabel} carregado`
+        : `${semPerfil} liderado${semPerfil === 1 ? '' : 's'} sem perfil comportamental mapeado`,
     });
   }
   // Estagnado: trilha ativa criada há >21 dias mas sem evolution_report e sem checkpoint respondido

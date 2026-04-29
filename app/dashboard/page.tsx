@@ -136,15 +136,20 @@ export default function DashboardHomePage() {
     5: 'Etapa final de reavaliação e consolidação.',
   };
 
+  // Empresa com fonte externa (OPQ32, Hogan...) NÃO usa DISC nativo:
+  // o colaborador não precisa fazer o mapeamento na ferramenta — pula o CTA.
+  const usaFonteExterna = !!data?.empresaPerfilExternoFonte;
+  const precisaMapeamentoDISC = !usaFonteExterna && !colaborador.perfil_dominante;
+
   function handleMainCTA() {
     if (competencia) return router.push('/dashboard/temporada');
-    if (!colaborador.perfil_dominante) return router.push('/dashboard/perfil-comportamental');
+    if (precisaMapeamentoDISC) return router.push('/dashboard/perfil-comportamental');
     router.push('/dashboard/assessment');
   }
 
   function mainCTALabel() {
     if (competencia) return 'Iniciar atividade de hoje';
-    if (!colaborador.perfil_dominante) return 'Fazer diagnóstico comportamental';
+    if (precisaMapeamentoDISC) return 'Fazer diagnóstico comportamental';
     return (colaborador.respondidas || 0) > 0 ? 'Continuar avaliação' : 'Iniciar avaliação';
   }
 

@@ -71,6 +71,14 @@ export async function loadDashboardData() {
   const competenciaFoco = trilhaAtiva?.competencia_foco || null;
   const temporadaPronta = !!(trilhaAtiva?.temporada_plano && Array.isArray(trilhaAtiva.temporada_plano) && trilhaAtiva.temporada_plano.length > 0 && trilhaAtiva.status !== 'arquivada');
 
+  // Fonte externa de perfil (OPQ32, Hogan, etc.) — quando empresa tem
+  // configurada, o colaborador não vai fazer mapeamento DISC nativo.
+  const { data: empCfg } = await sb.from('empresas')
+    .select('sys_config')
+    .eq('id', colab.empresa_id)
+    .maybeSingle();
+  const empresaPerfilExternoFonte = (empCfg?.sys_config as any)?.perfil_externo_fonte ?? null;
+
   return {
     colaborador: colab,
     role: ctx.role,
@@ -80,6 +88,7 @@ export async function loadDashboardData() {
     temporada: trilhaAtiva,
     temporadaPronta,
     teamData,
+    empresaPerfilExternoFonte,
   };
 }
 

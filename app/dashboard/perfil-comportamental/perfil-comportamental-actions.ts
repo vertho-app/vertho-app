@@ -36,8 +36,19 @@ export async function loadPerfilCIS() {
   const email = await getAuthenticatedEmailFromAction();
   if (!email) return { error: 'Não autenticado' };
 
-  const colab: any = await findColabByEmail(email, COLS);
+  const colab: any = await findColabByEmail(email, COLS + ', empresa_id, perfil_externo_fonte, perfil_externo_dados');
   if (!colab) return { error: 'Colaborador nao encontrado' };
+
+  // Empresa usa fonte externa de perfil (OPQ32 etc.)?
+  let empresaPerfilExternoFonte: string | null = null;
+  if (colab.empresa_id) {
+    const sb = createSupabaseAdmin();
+    const { data: empCfg } = await sb.from('empresas')
+      .select('sys_config')
+      .eq('id', colab.empresa_id)
+      .maybeSingle();
+    empresaPerfilExternoFonte = (empCfg?.sys_config as any)?.perfil_externo_fonte ?? null;
+  }
 
   // Resumo executivo: arquétipo + tags + insights (do cache OU fallback)
   const arquetipo = derivarArquetipo(colab.perfil_dominante);
@@ -56,6 +67,7 @@ export async function loadPerfilCIS() {
     tags,
     insights: insights || insightsHardcoded(colab.perfil_dominante),
     insightsCached,
+    empresaPerfilExternoFonte,
   };
 }
 
