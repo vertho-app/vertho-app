@@ -227,6 +227,19 @@ export async function getParesCidade(codigoInep: string, limit = 10): Promise<Pa
   return (data as ParCidade[]) || [];
 }
 
+export async function getIcaMunicipioRecente(ibge: string): Promise<IcaSnapshot | null> {
+  const sb = createSupabaseAdmin();
+  const { data } = await sb
+    .from('diag_ica_snapshots')
+    .select('*')
+    .eq('municipio_ibge', ibge)
+    .gt('taxa', 0)
+    .order('ano', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data as IcaSnapshot) || null;
+}
+
 export async function getEscolaInfraSaeb(codigoInep: string): Promise<{
   resumo: EscolaInfraSaeb | null;
   breakdown: EscolaN0Row[];
