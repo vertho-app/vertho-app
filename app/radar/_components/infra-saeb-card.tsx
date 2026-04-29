@@ -109,19 +109,25 @@ export function InfraSaebCard({
   const q = QUADRANTE_INFO[resumo.quadrante];
 
   return (
-    <section className="mb-10">
-      <div className="flex items-center gap-2 mb-4">
-        <Building size={18} style={{ color: '#34c5cc' }} />
-        <h2 className="text-white text-xl font-bold">
-          Infraestrutura × Desempenho (Saeb {resumo.saeb_ano || ''})
-        </h2>
-      </div>
-      <p className="text-xs text-white/55 mb-4 leading-relaxed">
-        Cruzamento entre o score de infraestrutura do Censo Escolar e o percentual de
-        alunos no nível 0 do Saeb (insuficiência crítica). O nível 0 da escola é
-        comparado com a mediana nacional <em>da mesma etapa e disciplina</em> —
-        importante porque a mediana de nível 0 varia muito entre 5º EF (~3%) e
-        9º EF/3º EM (~15-17%).
+    <section className="mb-12">
+      <p className="text-[11px] tracking-[0.15em] uppercase font-bold mb-3" style={{ color: '#34c5cc' }}>
+        Cruzamento Vertho
+      </p>
+      <h2 className="text-white mb-3"
+        style={{
+          fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+          fontSize: 'clamp(24px, 3vw, 32px)',
+          fontWeight: 600,
+          lineHeight: 1.15,
+          letterSpacing: '-0.02em',
+        }}>
+        Infraestrutura × Desempenho · Saeb {resumo.saeb_ano || ''}
+      </h2>
+      <p className="text-white/60 mb-6 leading-relaxed" style={{ fontSize: 15, maxWidth: 720 }}>
+        Score do Censo Escolar (4 dimensões) cruzado com o percentual de alunos no
+        nível 0 do Saeb. Cada (etapa × disciplina) é comparada à mediana nacional
+        correspondente — importante porque a mediana varia muito entre 5º EF (~3%)
+        e 9º EF/3º EM (~15-17%).
       </p>
 
       <div className="rounded-2xl p-5 border mb-4"

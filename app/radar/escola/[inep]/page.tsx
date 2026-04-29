@@ -2,10 +2,10 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { ArrowLeft, MapPin, Building2, Users, Calendar } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 import { getEscola, getEscolaBenchmarks, getEscolaInfraSaeb } from '@/lib/radar/queries';
-import { leituraSaebEscola, ETAPA_LABELS, DISC_LABELS } from '@/lib/radar/leitura-deterministica';
+import { leituraSaebEscola, ETAPA_LABELS } from '@/lib/radar/leitura-deterministica';
 import { registrarEvento } from '@/lib/radar/eventos';
 import { RadarHeader, RadarFooter } from '../../_components/radar-header';
 import { SaebCard } from '../../_components/indicator-card';
@@ -17,6 +17,7 @@ import { SarespSection } from '../../_components/saresp-section';
 import { PddeSection } from '../../_components/pdde-section';
 import { EscolaBenchmarkTable } from '../../_components/escola-benchmark-table';
 import { InfraSaebCard } from '../../_components/infra-saeb-card';
+import { HeroEscola } from '../../_components/hero-escola';
 
 export const dynamic = 'force-dynamic';
 
@@ -86,58 +87,21 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
       }}>
       <RadarHeader />
 
-      <div className="max-w-[1100px] mx-auto px-6">
-        <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-white/45 hover:text-white mb-6">
+      <div className="max-w-[1200px] mx-auto px-6 pt-6">
+        <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-white/45 hover:text-white mb-4">
           <ArrowLeft size={12} /> Buscar outra escola
         </Link>
 
-        {/* Hero */}
-        <section className="mb-10">
-          <p className="text-[10px] font-bold tracking-[0.25em] uppercase mb-3" style={{ color: '#34c5cc' }}>
-            Escola · INEP {escola.codigo_inep}
-          </p>
-          <h1 className="text-white mb-4"
-            style={{
-              fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
-              fontSize: 'clamp(28px, 4vw, 44px)',
-              lineHeight: 1.1,
-              letterSpacing: '-0.02em',
-            }}>
-            {escola.nome}
-          </h1>
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-white/55 font-mono">
-            <span className="flex items-center gap-1.5">
-              <MapPin size={12} style={{ color: '#34c5cc' }} />
-              <Link href={escola.municipio_ibge ? `/municipio/${escola.municipio_ibge}` : '/'} className="hover:text-white">
-                {escola.municipio}/{escola.uf}
-              </Link>
-            </span>
-            {escola.rede && (
-              <span className="flex items-center gap-1.5">
-                <Building2 size={12} style={{ color: '#34c5cc' }} />
-                {escola.rede}
-              </span>
-            )}
-            {escola.zona && (
-              <span className="flex items-center gap-1.5">
-                <Users size={12} style={{ color: '#34c5cc' }} />
-                Zona {escola.zona.toLowerCase()}
-              </span>
-            )}
-            {escola.ano_referencia && (
-              <span className="flex items-center gap-1.5">
-                <Calendar size={12} style={{ color: '#34c5cc' }} />
-                Ref. {escola.ano_referencia}
-              </span>
-            )}
-            {escola.inse_grupo != null && (
-              <span className="text-white/40">INSE Grupo {escola.inse_grupo}</span>
-            )}
-          </div>
-        </section>
+        {/* Hero (handoff vh3) */}
+        <HeroEscola
+          escola={escola}
+          saeb={saeb}
+          ideb={ideb}
+          benchmarks={benchmarks}
+        />
 
         {/* Leitura IA + determinística (Suspense pra UX progressiva) */}
-        <section className="mb-10 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <section className="mb-12 grid grid-cols-1 md:grid-cols-3 gap-4">
           <Suspense fallback={<NarrativaSkeleton resumoDeterm={determ.resumo} />}>
             <NarrativaIA
               scope="escola"
@@ -152,11 +116,11 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
           </Suspense>
         </section>
 
-        {/* Comparativo escola vs microrregião / estado */}
+        {/* Comparativo escola vs microrregião / estado (com barras) */}
         {benchmarks.length > 0 && (
           <EscolaBenchmarkTable
             rows={benchmarks}
-            microrregiao={(escola as any).microrregiao}
+            microrregiao={escola.microrregiao}
             uf={escola.uf}
           />
         )}

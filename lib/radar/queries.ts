@@ -13,6 +13,8 @@ export type SaebSnapshot = {
   matriculados?: number | null;
   taxa_participacao?: number | null;
   formacao_docente?: number | null;
+  media_proficiencia?: number | null;
+  media_similares?: number | null;
 };
 
 export type Escola = {

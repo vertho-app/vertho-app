@@ -2,22 +2,25 @@ import { BarChart3 } from 'lucide-react';
 import type { EscolaBenchmarkRow } from '@/lib/radar/queries';
 
 type IndicadorRow = {
-  key: keyof Omit<EscolaBenchmarkRow, 'scope' | 'qtd_escolas'>;
+  key: keyof Omit<EscolaBenchmarkRow, 'scope' | 'qtd_escolas' | 'inse_grupo'>;
   label: string;
   unit: 'ideb' | 'saeb';
-  threshold?: number;
+  // Range pra desenhar a barra como % do max esperado
+  max: number;
+  // limiar pro delta-tag
+  threshold: number;
 };
 
 const INDICADORES: IndicadorRow[] = [
-  { key: 'ideb_5ef',     label: 'Ideb — 5º ano EF',                 unit: 'ideb', threshold: 0.3 },
-  { key: 'ideb_9ef',     label: 'Ideb — 9º ano EF',                 unit: 'ideb', threshold: 0.3 },
-  { key: 'ideb_3em',     label: 'Ideb — 3º ano EM',                 unit: 'ideb', threshold: 0.3 },
-  { key: 'saeb_5ef_lp',  label: 'Saeb — 5º EF · Língua Portuguesa', unit: 'saeb', threshold: 10 },
-  { key: 'saeb_5ef_mat', label: 'Saeb — 5º EF · Matemática',        unit: 'saeb', threshold: 10 },
-  { key: 'saeb_9ef_lp',  label: 'Saeb — 9º EF · Língua Portuguesa', unit: 'saeb', threshold: 10 },
-  { key: 'saeb_9ef_mat', label: 'Saeb — 9º EF · Matemática',        unit: 'saeb', threshold: 10 },
-  { key: 'saeb_3em_lp',  label: 'Saeb — 3º EM · Língua Portuguesa', unit: 'saeb', threshold: 10 },
-  { key: 'saeb_3em_mat', label: 'Saeb — 3º EM · Matemática',        unit: 'saeb', threshold: 10 },
+  { key: 'ideb_5ef',     label: 'Ideb · 5º ano EF',                 unit: 'ideb', max: 8,   threshold: 0.3 },
+  { key: 'ideb_9ef',     label: 'Ideb · 9º ano EF',                 unit: 'ideb', max: 8,   threshold: 0.3 },
+  { key: 'ideb_3em',     label: 'Ideb · 3º ano EM',                 unit: 'ideb', max: 8,   threshold: 0.3 },
+  { key: 'saeb_5ef_lp',  label: 'Saeb · LP · 5º ano EF',            unit: 'saeb', max: 350, threshold: 10 },
+  { key: 'saeb_5ef_mat', label: 'Saeb · MAT · 5º ano EF',           unit: 'saeb', max: 350, threshold: 10 },
+  { key: 'saeb_9ef_lp',  label: 'Saeb · LP · 9º ano EF',            unit: 'saeb', max: 350, threshold: 10 },
+  { key: 'saeb_9ef_mat', label: 'Saeb · MAT · 9º ano EF',           unit: 'saeb', max: 350, threshold: 10 },
+  { key: 'saeb_3em_lp',  label: 'Saeb · LP · 3º ano EM',            unit: 'saeb', max: 400, threshold: 10 },
+  { key: 'saeb_3em_mat', label: 'Saeb · MAT · 3º ano EM',           unit: 'saeb', max: 400, threshold: 10 },
 ];
 
 function fmtValue(v: number | null, unit: IndicadorRow['unit']): string {
@@ -25,29 +28,84 @@ function fmtValue(v: number | null, unit: IndicadorRow['unit']): string {
   return unit === 'ideb' ? v.toFixed(2) : v.toFixed(0);
 }
 
-type Sinal = 'acima' | 'abaixo' | 'neutro';
-
-function calcSinal(escolaVal: number | null, refVal: number | null, threshold: number): Sinal {
-  if (escolaVal == null || refVal == null) return 'neutro';
-  const diff = escolaVal - refVal;
-  if (diff >= threshold) return 'acima';
-  if (diff <= -threshold) return 'abaixo';
-  return 'neutro';
+function pctOfMax(v: number | null, max: number): number {
+  if (v == null) return 0;
+  return Math.max(0, Math.min(100, (v / max) * 100));
 }
 
-function SinalDot({ sinal }: { sinal: Sinal }) {
-  const map = {
-    acima:  { color: '#6EE7B7', label: 'acima da microrregião' },
-    abaixo: { color: '#F97354', label: 'abaixo da microrregião' },
-    neutro: { color: 'rgba(255,255,255,0.25)', label: 'na média da microrregião' },
-  } as const;
-  const cfg = map[sinal];
+type Tone = 'good' | 'bad' | 'neutral';
+
+function deltaTone(escola: number | null, micro: number | null, threshold: number): Tone {
+  if (escola == null || micro == null) return 'neutral';
+  const d = escola - micro;
+  if (d >= threshold) return 'good';
+  if (d <= -threshold) return 'bad';
+  return 'neutral';
+}
+
+function deltaText(escola: number | null, micro: number | null, unit: IndicadorRow['unit']): string {
+  if (escola == null || micro == null) return '—';
+  const d = escola - micro;
+  if (unit === 'ideb') return `${d >= 0 ? '+' : ''}${d.toFixed(2)} vs micro`;
+  return `${d >= 0 ? '+' : ''}${d.toFixed(0)} pts vs micro`;
+}
+
+const TONE_COLOR: Record<Tone, string> = {
+  good: '#86efac',
+  bad: '#fca5a5',
+  neutral: 'rgba(255,255,255,0.55)',
+};
+const TONE_BG: Record<Tone, string> = {
+  good: 'rgba(34,197,94,0.18)',
+  bad: 'rgba(220,38,38,0.18)',
+  neutral: 'rgba(255,255,255,0.08)',
+};
+
+function Bar({
+  label,
+  qtd,
+  value,
+  unit,
+  max,
+  fillColor,
+  emphasized,
+}: {
+  label: string;
+  qtd?: number | null;
+  value: number | null;
+  unit: IndicadorRow['unit'];
+  max: number;
+  fillColor: string;
+  emphasized?: boolean;
+}) {
   return (
-    <span
-      className="inline-block w-2 h-2 rounded-full"
-      style={{ background: cfg.color }}
-      title={cfg.label}
-    />
+    <div className="grid grid-cols-12 items-center gap-3">
+      <div className="col-span-5 md:col-span-4 text-sm"
+        style={{ color: emphasized ? 'white' : 'rgba(255,255,255,0.7)', fontWeight: emphasized ? 700 : 500 }}>
+        {label}
+        {qtd != null && qtd > 1 && (
+          <span className="text-white/40 text-[11px] ml-1.5">({qtd.toLocaleString('pt-BR')} esc.)</span>
+        )}
+      </div>
+      <div className="col-span-5 md:col-span-7">
+        <div className="h-[14px] rounded-full overflow-hidden"
+          style={{ background: 'rgba(255,255,255,0.06)' }}>
+          <div className="h-full rounded-full transition-[width] duration-500"
+            style={{
+              width: `${pctOfMax(value, max)}%`,
+              background: fillColor,
+            }} />
+        </div>
+      </div>
+      <div className="col-span-2 md:col-span-1 text-right font-mono font-bold"
+        style={{
+          fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+          fontSize: 18,
+          color: emphasized ? '#fca5a5' : 'white',
+        }}>
+        {fmtValue(value, unit)}
+      </div>
+    </div>
   );
 }
 
@@ -72,84 +130,79 @@ export function EscolaBenchmarkTable({
   const inseGrupo = escola.inse_grupo;
 
   return (
-    <section className="mb-10">
-      <div className="flex items-center gap-2 mb-4">
-        <BarChart3 size={18} style={{ color: '#34c5cc' }} />
-        <h2 className="text-white text-xl font-bold">
-          Comparativo · escola vs pares socioeconômicos
-        </h2>
-      </div>
-      <p className="text-xs text-white/55 mb-4 leading-relaxed">
+    <section className="mb-12">
+      <p className="text-[11px] tracking-[0.15em] uppercase font-bold mb-3" style={{ color: '#34c5cc' }}>
+        Comparativo Justo
+      </p>
+      <h2 className="text-white mb-3"
+        style={{
+          fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+          fontSize: 'clamp(24px, 3vw, 32px)',
+          fontWeight: 600,
+          lineHeight: 1.15,
+          letterSpacing: '-0.02em',
+        }}>
+        Onde a escola está em relação a pares socioeconômicos
+      </h2>
+      <p className="text-white/60 mb-6 leading-relaxed" style={{ fontSize: 15, maxWidth: 720 }}>
         {inseGrupo != null ? (
           <>
-            Médias da microrregião IBGE
-            {microrregiao ? ` (${microrregiao}${uf ? '/' + uf : ''})` : ''}{' '}
-            e do estado considerando <strong className="text-white/80">apenas escolas
-            do mesmo grupo INSE</strong> ({`Grupo ${inseGrupo}`} — Indicador de Nível
-            Socioeconômico do INEP). É a comparação mais justa, controlando por
-            contexto socioeconômico.
+            Comparamos apenas com escolas do mesmo grupo INSE
+            ({`Grupo ${inseGrupo}`}) — controlando por contexto socioeconômico, não comparando
+            escolas em realidades distintas.
           </>
         ) : (
-          <>
-            Médias da microrregião IBGE
-            {microrregiao ? ` (${microrregiao}${uf ? '/' + uf : ''})` : ''}{' '}
-            e do estado. Esta escola não tem INSE classificado, então a média inclui
-            todas as escolas da região.
-          </>
-        )}{' '}
-        Verde = acima da microrregião com folga; vermelho = abaixo.
+          <>Esta escola não tem INSE classificado, então a média inclui todas as escolas da microrregião.</>
+        )}
       </p>
 
-      <div className="rounded-2xl border border-white/[0.06] overflow-x-auto"
-        style={{ background: 'rgba(255,255,255,0.03)' }}>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-[10px] tracking-[0.18em] uppercase font-mono text-white/40 border-b border-white/[0.06]">
-              <th className="px-4 py-3">Indicador</th>
-              <th className="px-3 py-3 text-right">Esta escola</th>
-              <th className="px-3 py-3 text-right">
-                Microrregião
-                {micro?.qtd_escolas ? <span className="text-white/30 text-[9px] ml-1">({micro.qtd_escolas} esc.)</span> : null}
-              </th>
-              <th className="px-3 py-3 text-right">
-                Estado
-                {estado?.qtd_escolas ? <span className="text-white/30 text-[9px] ml-1">({estado.qtd_escolas} esc.)</span> : null}
-              </th>
-              <th className="px-3 py-3 text-center w-12"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {visiveis.map((ind) => {
-              const ev = escola[ind.key];
-              const mv = micro?.[ind.key] ?? null;
-              const sinal = calcSinal(ev, mv, ind.threshold ?? 5);
-              return (
-                <tr key={ind.key} className="border-b border-white/[0.04] last:border-b-0">
-                  <td className="px-4 py-3 text-white/85">{ind.label}</td>
-                  <td className="px-3 py-3 text-right text-white font-mono font-bold">
-                    {fmtValue(ev, ind.unit)}
-                  </td>
-                  <td className="px-3 py-3 text-right text-white/65 font-mono">
-                    {fmtValue(mv, ind.unit)}
-                  </td>
-                  <td className="px-3 py-3 text-right text-white/55 font-mono">
-                    {fmtValue(estado?.[ind.key] ?? null, ind.unit)}
-                  </td>
-                  <td className="px-3 py-3 text-center">
-                    <SinalDot sinal={sinal} />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      <div className="flex flex-col gap-4">
+        {visiveis.map((ind) => {
+          const ev = escola[ind.key];
+          const mv = micro?.[ind.key] ?? null;
+          const sv = estado?.[ind.key] ?? null;
+          const tone = deltaTone(ev, mv, ind.threshold);
+          return (
+            <div key={ind.key} className="rounded-2xl border p-5 md:p-6 transition-colors"
+              style={{
+                background: 'rgba(255,255,255,0.04)',
+                borderColor: 'rgba(255,255,255,0.08)',
+              }}>
+              <div className="flex items-baseline justify-between flex-wrap gap-2 mb-4">
+                <h3 className="text-white text-base md:text-lg font-bold">{ind.label}</h3>
+                <span className="text-[12px] font-bold px-3 py-1 rounded-full"
+                  style={{ background: TONE_BG[tone], color: TONE_COLOR[tone] }}>
+                  {deltaText(ev, mv, ind.unit)}
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                <Bar label="Esta escola" value={ev} unit={ind.unit} max={ind.max}
+                  fillColor="#dc2626" emphasized />
+                <Bar label="Microrregião"
+                  qtd={micro?.qtd_escolas}
+                  value={mv} unit={ind.unit} max={ind.max}
+                  fillColor="#34c5cc" />
+                <Bar label="Estado"
+                  qtd={estado?.qtd_escolas}
+                  value={sv} unit={ind.unit} max={ind.max}
+                  fillColor="rgba(255,255,255,0.3)" />
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      <p className="text-[10px] text-white/40 mt-3">
-        Fonte: INEP (Saeb, Ideb, INSE). Médias agregadas a partir de
-        diag_mv_escola_metricas — excluem a própria escola e filtram por grupo INSE
-        quando a escola-alvo tem o indicador.
-      </p>
+      <div className="mt-5 rounded-xl px-4 py-3 text-[13px] leading-relaxed"
+        style={{
+          background: 'rgba(255,255,255,0.04)',
+          borderLeft: '3px solid #34c5cc',
+          color: 'rgba(255,255,255,0.7)',
+        }}>
+        <strong className="text-white/85">Como ler:</strong> verde = acima da microrregião com folga;
+        vermelho = abaixo. Médias da microrregião e do estado excluem a própria escola e
+        consideram apenas escolas do mesmo grupo INSE quando a escola-alvo tem o indicador.
+      </div>
     </section>
   );
 }
