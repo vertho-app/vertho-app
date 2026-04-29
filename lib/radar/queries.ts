@@ -100,6 +100,7 @@ export type MunicipioEnemAggregate = {
   totalEscolas: number;
   escolasCom10: number;
   participantesTotal: number;
+  participantesTotalCom10: number;
   participantesMediaGeral: number;
   mediaGeralPonderada: number | null;
   mediaObjetivaPonderada: number | null;
@@ -679,6 +680,7 @@ function aggregateMunicipioEnem(rows: Array<{
     escolas: Set<string>;
     escolasCom10: number;
     participantesTotal: number;
+    participantesTotalCom10: number;
     participantesMediaGeral: number;
     objWeightedSum: number;
     objWeight: number;
@@ -694,6 +696,7 @@ function aggregateMunicipioEnem(rows: Array<{
         escolas: new Set<string>(),
         escolasCom10: 0,
         participantesTotal: 0,
+        participantesTotalCom10: 0,
         participantesMediaGeral: 0,
         objWeightedSum: 0,
         objWeight: 0,
@@ -704,20 +707,24 @@ function aggregateMunicipioEnem(rows: Array<{
       });
     }
     const group = groups.get(row.ano)!;
+    const elegivel = (row.participantes_total || 0) >= 10;
     if (row.codigo_inep) group.escolas.add(row.codigo_inep);
-    if ((row.participantes_total || 0) >= 10) group.escolasCom10 += 1;
+    if (elegivel) group.escolasCom10 += 1;
     group.participantesTotal += Number(row.participantes_total || 0);
-    group.participantesMediaGeral += Number(row.participantes_com_media_geral || 0);
+    if (elegivel) {
+      group.participantesTotalCom10 += Number(row.participantes_total || 0);
+      group.participantesMediaGeral += Number(row.participantes_com_media_geral || 0);
+    }
 
-    if (row.media_objetiva != null && (row.participantes_com_objetiva || 0) > 0) {
+    if (elegivel && row.media_objetiva != null && (row.participantes_com_objetiva || 0) > 0) {
       group.objWeightedSum += Number(row.media_objetiva) * Number(row.participantes_com_objetiva);
       group.objWeight += Number(row.participantes_com_objetiva);
     }
-    if (row.media_redacao != null && (row.participantes_com_redacao || 0) > 0) {
+    if (elegivel && row.media_redacao != null && (row.participantes_com_redacao || 0) > 0) {
       group.redWeightedSum += Number(row.media_redacao) * Number(row.participantes_com_redacao);
       group.redWeight += Number(row.participantes_com_redacao);
     }
-    if (row.media_geral != null && (row.participantes_com_media_geral || 0) > 0) {
+    if (elegivel && row.media_geral != null && (row.participantes_com_media_geral || 0) > 0) {
       group.geralWeightedSum += Number(row.media_geral) * Number(row.participantes_com_media_geral);
       group.geralWeight += Number(row.participantes_com_media_geral);
     }
@@ -729,6 +736,7 @@ function aggregateMunicipioEnem(rows: Array<{
       totalEscolas: group.escolas.size,
       escolasCom10: group.escolasCom10,
       participantesTotal: group.participantesTotal,
+      participantesTotalCom10: group.participantesTotalCom10,
       participantesMediaGeral: group.participantesMediaGeral,
       mediaGeralPonderada: group.geralWeight > 0 ? group.geralWeightedSum / group.geralWeight : null,
       mediaObjetivaPonderada: group.objWeight > 0 ? group.objWeightedSum / group.objWeight : null,

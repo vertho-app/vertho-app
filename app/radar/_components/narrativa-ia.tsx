@@ -7,7 +7,7 @@ import {
 } from '@/lib/radar/ia-narrativa';
 import type {
   Escola, SaebSnapshot, IcaSnapshot,
-  CensoInfra, IdebSnapshot, SarespSnapshot, PddeRepasse, FundebRepasse, PddeMunicipal,
+  CensoInfra, IdebSnapshot, EnemEscolaSnapshot, MunicipioEnemAggregate, SarespSnapshot, PddeRepasse, FundebRepasse, PddeMunicipal,
 } from '@/lib/radar/queries';
 
 type CommonProps = {
@@ -20,6 +20,7 @@ type EscolaProps = CommonProps & {
   saeb: SaebSnapshot[];
   censo?: CensoInfra | null;
   ideb?: IdebSnapshot[];
+  enem?: EnemEscolaSnapshot[];
   saresp?: SarespSnapshot[];
   pdde?: PddeRepasse[];
 };
@@ -28,6 +29,7 @@ type MunicipioProps = CommonProps & {
   scope: 'municipio';
   municipio: { ibge: string; nome: string; uf: string; totalEscolas: number; redes: Record<string, number> };
   ica: IcaSnapshot[];
+  enem?: MunicipioEnemAggregate[];
   fundeb?: FundebRepasse[];
   pddeMunicipal?: PddeMunicipal[];
 };
@@ -44,11 +46,13 @@ export async function NarrativaIA(props: EscolaProps | MunicipioProps) {
         generateIfMissing,
         censo: props.censo ?? null,
         ideb: props.ideb || [],
+        enem: props.enem || [],
         saresp: props.saresp || [],
         pdde: props.pdde || [],
       })
     : await getNarrativaMunicipio(props.municipio, props.ica, {
         generateIfMissing,
+        enem: props.enem || [],
         fundeb: props.fundeb || [],
         pddeMunicipal: props.pddeMunicipal || [],
       });

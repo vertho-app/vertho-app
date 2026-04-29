@@ -3,15 +3,21 @@ import 'server-only';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI } from '@/actions/ai-client';
 import { stableJsonHash } from './hash';
-import type { Escola, SaebSnapshot, IcaSnapshot } from './queries';
+import type {
+  Escola,
+  SaebSnapshot,
+  IcaSnapshot,
+  EnemEscolaSnapshot,
+  MunicipioEnemAggregate,
+} from './queries';
 
-const PROMPT_VERSION_NARRATIVA = 'radar-narrativa-v2';
+const PROMPT_VERSION_NARRATIVA = 'radar-narrativa-v3';
 
 const SYSTEM_NARRATIVA = `Você é um analista educacional sênior do Vertho Mentor IA escrevendo análises públicas para gestores escolares e secretarias.
 
 REGRAS RÍGIDAS:
 1. Use APENAS os dados estruturados fornecidos. Nunca invente números, anos ou comparações.
-2. Cite anos e fonte (Saeb/INEP, Ideb/INEP, ICA/INEP, Censo/INEP, SARESP/Seduc-SP, FUNDEB/Tesouro, PDDE/FNDE) sempre que mencionar um número.
+2. Cite anos e fonte (Saeb/INEP, Ideb/INEP, ICA/INEP, Censo/INEP, Enem/INEP, SARESP/Seduc-SP, FUNDEB/Tesouro, PDDE/FNDE) sempre que mencionar um número.
 3. Tom institucional, técnico-pedagógico. SEM linguagem promocional, SEM persona "BETO".
 4. Se um dado não estiver presente, escreva "dado não disponível" — não preencha lacunas.
 5. Foque em: o que o número significa, o que merece atenção, perguntas pedagógicas relevantes.
@@ -117,10 +123,12 @@ export async function getNarrativaEscola(
     generateIfMissing?: boolean;
     censo?: any;
     ideb?: any[];
+    enem?: EnemEscolaSnapshot[];
     saresp?: any[];
     pdde?: any[];
   } = { generateIfMissing: true },
 ): Promise<NarrativaIA> {
+  const enemElegivel = (opts.enem || []).filter((row) => (row.participantes_total || 0) >= 10);
   const dadosHash = stableJsonHash({
     escola: { codigo_inep: escola.codigo_inep, ano_referencia: escola.ano_referencia, inse_grupo: escola.inse_grupo },
     saeb,
@@ -131,6 +139,7 @@ export async function getNarrativaEscola(
       conectividade: opts.censo.score_conectividade,
     } : null,
     ideb: opts.ideb || [],
+    enem: enemElegivel,
     saresp: opts.saresp || [],
     pdde: opts.pdde || [],
   });
@@ -151,6 +160,13 @@ export async function getNarrativaEscola(
   ];
   if (opts.ideb && opts.ideb.length > 0) {
     partes.push('', `Ideb (resultados e metas oficiais INEP):`, JSON.stringify(opts.ideb.slice(0, 12), null, 2));
+  }
+  if (enemElegivel.length > 0) {
+    partes.push(
+      '',
+      `ENEM (microdados por escola, corte público de 10+ participantes):`,
+      JSON.stringify(enemElegivel.slice(0, 4), null, 2),
+    );
   }
   if (opts.censo) {
     partes.push('', `Infraestrutura — scores 0-100 (Censo Escolar):`,
@@ -189,6 +205,7 @@ export async function getNarrativaMunicipio(
   ica: IcaSnapshot[],
   opts: {
     generateIfMissing?: boolean;
+    enem?: MunicipioEnemAggregate[];
     fundeb?: any[];
     pddeMunicipal?: any[];
   } = { generateIfMissing: true },
@@ -197,6 +214,7 @@ export async function getNarrativaMunicipio(
     ibge: municipio.ibge,
     totalEscolas: municipio.totalEscolas,
     ica,
+    enem: opts.enem || [],
     fundeb: opts.fundeb || [],
     pdde: opts.pddeMunicipal || [],
   });
@@ -213,6 +231,13 @@ export async function getNarrativaMunicipio(
     `Indicador Criança Alfabetizada — séries históricas:`,
     JSON.stringify(ica.slice(0, 12), null, 2),
   ];
+  if (opts.enem && opts.enem.length > 0) {
+    partes.push(
+      '',
+      `ENEM (microdados agregados do município, com médias ponderadas apenas em escolas com 10+ participantes):`,
+      JSON.stringify(opts.enem.slice(0, 4), null, 2),
+    );
+  }
   if (opts.fundeb && opts.fundeb.length > 0) {
     partes.push('', `FUNDEB (Tesouro Nacional/FNDE — recursos da rede):`,
       JSON.stringify(opts.fundeb.slice(0, 6), null, 2));

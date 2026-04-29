@@ -106,6 +106,7 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
               scope="municipio"
               municipio={m}
               ica={m.ica}
+              enem={m.enem}
               fundeb={m.fundeb}
               pddeMunicipal={m.pddeMunicipal}
               determRefBlock={determRefBlock}
@@ -330,6 +331,7 @@ function MunicipioEnemSection({ enem }: {
     totalEscolas: number;
     escolasCom10: number;
     participantesTotal: number;
+    participantesTotalCom10: number;
     participantesMediaGeral: number;
     mediaGeralPonderada: number | null;
     mediaObjetivaPonderada: number | null;
@@ -353,7 +355,7 @@ function MunicipioEnemSection({ enem }: {
       </h2>
       <p className="text-white/60 mb-6 leading-relaxed" style={{ fontSize: 15, maxWidth: 760 }}>
         Médias ponderadas pelos participantes com nota válida nos microdados do Enem. O indicador
-        “escolas com 10+” ajuda a enxergar o universo mais estável para comparações públicas.
+        “escolas com 10+” define o corte público usado no Radar para comparar o município.
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {enem.map((row) => (
@@ -370,7 +372,7 @@ function MunicipioEnemSection({ enem }: {
                 </p>
               </div>
               <p className="text-[11px] text-white/40 font-mono">
-                {row.participantesTotal.toLocaleString('pt-BR')} participantes
+                {row.participantesTotalCom10.toLocaleString('pt-BR')} participantes no corte
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3">
