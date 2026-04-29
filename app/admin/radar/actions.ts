@@ -51,7 +51,7 @@ export async function loadRadarStats() {
   const sb = createSupabaseAdmin();
   const [counts, runs] = await Promise.all([
     loadRadarCountStats(sb),
-    sb.from('diag_ingest_runs').select('id, fonte, status, total_sucesso, total_falha, total_skipped, iniciado_em, arquivo_origem')
+    sb.from('diag_ingest_runs').select('id, fonte, status, total_sucesso, total_falha, total_skipped, iniciado_em, finalizado_em, arquivo_origem, erros')
       .order('iniciado_em', { ascending: false })
       .limit(10),
   ]);
@@ -61,6 +61,8 @@ export async function loadRadarStats() {
     snapshots: counts.saeb,
     ica: counts.ica,
     ideb: counts.ideb,
+    censoInfra: counts.censoInfra,
+    censoDocentes: counts.censoDocentes,
     saresp: counts.saresp,
     fundeb: counts.fundeb,
     pdde: counts.pdde,
@@ -68,6 +70,50 @@ export async function loadRadarStats() {
     vaarBeneficiarios: counts.vaarBeneficiarios,
     runs: runs.data || [],
   };
+}
+
+export async function refreshRadarMaterializedViews() {
+  await requireAdminAction();
+  const sb = createSupabaseAdmin();
+  const { error } = await sb.rpc('refresh_diag_mvs');
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
+export async function markStaleIngestRuns(maxAgeHours = 12) {
+  await requireAdminAction();
+  const sb = createSupabaseAdmin();
+  const cutoff = new Date(Date.now() - Math.max(1, maxAgeHours) * 60 * 60 * 1000).toISOString();
+  const msg = `Marcado como interrompido pelo admin após ${maxAgeHours}h sem finalização.`;
+  const { data, error } = await sb
+    .from('diag_ingest_runs')
+    .update({
+      status: 'erro',
+      finalizado_em: new Date().toISOString(),
+      erros: [{ key: 'stale_run', msg, ts: new Date().toISOString() }],
+    })
+    .eq('status', 'rodando')
+    .lte('iniciado_em', cutoff)
+    .select('id');
+  if (error) return { success: false, error: error.message };
+  return { success: true, count: data?.length || 0 };
+}
+
+export async function interruptIngestRun(runId: string) {
+  await requireAdminAction();
+  if (!/^[0-9a-f-]{36}$/i.test(runId)) return { success: false, error: 'runId inválido' };
+  const sb = createSupabaseAdmin();
+  const { error } = await sb
+    .from('diag_ingest_runs')
+    .update({
+      status: 'erro',
+      finalizado_em: new Date().toISOString(),
+      erros: [{ key: 'interrompido_admin', msg: 'Marcado como interrompido pelo admin.', ts: new Date().toISOString() }],
+    })
+    .eq('id', runId)
+    .eq('status', 'rodando');
+  if (error) return { success: false, error: error.message };
+  return { success: true };
 }
 
 export async function ingestSaebFromUpload(arquivoBase64: string, arquivoNome: string) {

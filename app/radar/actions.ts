@@ -14,8 +14,10 @@ type SearchResult = {
 };
 
 export async function buscarEscolasMunicipios(termo: string): Promise<SearchResult[]> {
-  const q = termo.trim();
+  const q = termo.trim().replace(/[%_]/g, '').slice(0, 80);
   if (q.length < 2) return [];
+  const allowed = await checkPublicActionRateLimit('search_radar', 60, 10 * 60 * 1000);
+  if (!allowed) return [];
 
   const sb = createSupabaseAdmin();
   const isInepLike = /^\d{6,8}$/.test(q);
@@ -116,6 +118,8 @@ export async function registrarEventoClient(
     | 'fale_conosco_open' | 'wpp_click' | 'email_click',
   scope?: { tipo: 'escola' | 'municipio' | 'estado'; id: string },
 ) {
+  const allowed = await checkPublicActionRateLimit('event_client_radar', 120, 10 * 60 * 1000);
+  if (!allowed) return { ok: false };
   await registrarEvento(tipo, scope ? { scopeType: scope.tipo, scopeId: scope.id } : {});
   return { ok: true };
 }
@@ -134,6 +138,41 @@ export type CapturarLeadInput = {
 
 function hashIp(ip: string): string {
   return crypto.createHash('sha256').update(ip).digest('hex').slice(0, 16);
+}
+
+async function getRequestFingerprint() {
+  const h = await headers();
+  const ip = h.get('x-forwarded-for')?.split(',')[0].trim() || h.get('x-real-ip') || '';
+  return {
+    ipHash: ip ? hashIp(ip) : null,
+    userAgent: h.get('user-agent')?.slice(0, 500) || null,
+    referer: h.get('referer')?.slice(0, 500) || null,
+  };
+}
+
+async function checkPublicActionRateLimit(tipo: string, max: number, windowMs: number): Promise<boolean> {
+  const { ipHash, userAgent, referer } = await getRequestFingerprint();
+  if (!ipHash) return true;
+  const sb = createSupabaseAdmin();
+  const since = new Date(Date.now() - windowMs).toISOString();
+  const { count, error } = await sb
+    .from('diag_eventos')
+    .select('id', { count: 'exact', head: true })
+    .eq('tipo', tipo)
+    .eq('ip_hash', ipHash)
+    .gte('criado_em', since);
+  if (error) return true;
+  if ((count || 0) >= max) return false;
+
+  await sb.from('diag_eventos').insert({
+    tipo,
+    ip_hash: ipHash,
+    user_agent: userAgent,
+    referer,
+    is_bot: false,
+    extra: { rate_limit_window_ms: windowMs },
+  });
+  return true;
 }
 
 /**
@@ -295,4 +334,3 @@ async function dispararPdfWorker(leadId: string): Promise<void> {
     body: JSON.stringify({ leadId }),
   }).catch((err) => console.error('[capturarLead] internal dispatch failed', err));
 }
-

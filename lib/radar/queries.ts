@@ -1,5 +1,35 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 
+const SUPABASE_PAGE_SIZE = 1000;
+
+type SupabaseSelectBuilder = {
+  range: (from: number, to: number) => PromiseLike<{ data: any[] | null; error?: { message?: string } | null }>;
+};
+
+async function fetchAllRows<T>(buildQuery: () => SupabaseSelectBuilder, pageSize = SUPABASE_PAGE_SIZE): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await buildQuery().range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message || 'Falha ao paginar consulta Supabase');
+    const page = (data || []) as T[];
+    rows.push(...page);
+    if (page.length < pageSize) break;
+  }
+  return rows;
+}
+
+async function countRows(buildQuery: () => PromiseLike<{ count: number | null; error?: { message?: string } | null }>): Promise<number> {
+  const { count, error } = await buildQuery();
+  if (error) throw new Error(error.message || 'Falha ao contar registros Supabase');
+  return count || 0;
+}
+
+function chunks<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
 export type SaebSnapshot = {
   ano: number;
   etapa: '5_EF' | '9_EF' | '3_EM' | string;
@@ -591,10 +621,16 @@ export async function getMunicipio(ibge: string): Promise<{
   receitaPrevista: FundebReceitaPrevista | null;
 } | null> {
   const sb = createSupabaseAdmin();
-  const { data: escolas } = await sb
+  const escolas = await fetchAllRows<{
+    codigo_inep: string;
+    nome: string;
+    municipio: string;
+    uf: string;
+    rede: string | null;
+  }>(() => sb
     .from('diag_escolas')
     .select('codigo_inep, nome, municipio, uf, rede')
-    .eq('municipio_ibge', ibge);
+    .eq('municipio_ibge', ibge));
 
   // Fontes municipais (FUNDEB, PDDE municipal, VAAR, receita prevista) — em paralelo,
   // independente de ter escola cadastrada (só dependem do IBGE).
@@ -609,7 +645,7 @@ export async function getMunicipio(ibge: string): Promise<{
       .select('*').eq('municipio_ibge', ibge).order('ano', { ascending: false }).limit(1).maybeSingle(),
   ]);
 
-  if (!escolas || escolas.length === 0) {
+  if (!escolas.length) {
     // Pode ainda não ter escolas mas ter ICA/FUNDEB
     const { data: icaOnly } = await sb
       .from('diag_ica_snapshots')
@@ -918,13 +954,19 @@ export async function getEstadoStats(uf: string): Promise<EstadoStats | null> {
     .eq('uf', uf)
     .maybeSingle();
 
-  // Microrregiões e redes ainda agregam no Node (volume baixo)
-  const { data: escolas } = await sb
+  // Microrregiões e redes agregam no Node, mas com paginação explícita
+  // para UFs grandes não ficarem limitadas ao default do Supabase.
+  const escolas = await fetchAllRows<{
+    codigo_inep: string;
+    municipio_ibge: string | null;
+    microrregiao: string | null;
+    rede: string | null;
+  }>(() => sb
     .from('diag_escolas')
-    .select('codigo_inep, microrregiao, rede')
-    .eq('uf', uf);
+    .select('codigo_inep, municipio_ibge, microrregiao, rede')
+    .eq('uf', uf));
 
-  if (!escolas || escolas.length === 0) return null;
+  if (!escolas.length) return null;
 
   const microMap = new Map<string, number>();
   const redes: Record<string, number> = {};
@@ -940,15 +982,18 @@ export async function getEstadoStats(uf: string): Promise<EstadoStats | null> {
   // Fallback: se MV não existe ainda (migration 060 não rodada), conta no Node
   if (!mv) {
     const ibges = new Set(escolas.map((e: any) => e.municipio_ibge).filter(Boolean));
-    const { count: snapshots } = await sb
-      .from('diag_saeb_snapshots')
-      .select('id', { count: 'exact', head: true })
-      .in('codigo_inep', escolas.map((e: any) => e.codigo_inep));
+    let snapshots = 0;
+    for (const lote of chunks(escolas.map((e: any) => e.codigo_inep), 500)) {
+      snapshots += await countRows(() => sb
+        .from('diag_saeb_snapshots')
+        .select('id', { count: 'exact', head: true })
+        .in('codigo_inep', lote));
+    }
     return {
       uf,
       totalEscolas: escolas.length,
       totalMunicipios: ibges.size,
-      totalSnapshots: snapshots || 0,
+      totalSnapshots: snapshots,
       microrregioes,
       redes,
     };
@@ -1017,12 +1062,16 @@ export async function getRankingMunicipiosUf(uf: string): Promise<RankingMunicip
   }
 
   // ── Fallback: agrega no Node se MV ainda não foi criada/refrescada ─
-  const { data: escolas } = await sb
+  const escolas = await fetchAllRows<{
+    codigo_inep: string;
+    municipio: string | null;
+    municipio_ibge: string | null;
+  }>(() => sb
     .from('diag_escolas')
     .select('codigo_inep, municipio, municipio_ibge')
     .eq('uf', uf)
-    .not('municipio_ibge', 'is', null);
-  if (!escolas?.length) return [];
+    .not('municipio_ibge', 'is', null));
+  if (!escolas.length) return [];
 
   const grupos = new Map<string, { nome: string; codigos: string[] }>();
   for (const e of escolas) {
@@ -1033,10 +1082,14 @@ export async function getRankingMunicipiosUf(uf: string): Promise<RankingMunicip
   }
 
   const ibgesArr = Array.from(grupos.keys());
-  const { data: saebData } = await sb
-    .from('diag_saeb_snapshots')
-    .select('codigo_inep, distribuicao, taxa_participacao, formacao_docente')
-    .in('codigo_inep', escolas.map((e: any) => e.codigo_inep));
+  const saebData: any[] = [];
+  for (const lote of chunks(escolas.map((e: any) => e.codigo_inep), 500)) {
+    const { data } = await sb
+      .from('diag_saeb_snapshots')
+      .select('codigo_inep, distribuicao, taxa_participacao, formacao_docente')
+      .in('codigo_inep', lote);
+    saebData.push(...(data || []));
+  }
   const saebByInep = new Map<string, any[]>();
   for (const s of saebData || []) {
     const inep = (s as any).codigo_inep;
@@ -1092,17 +1145,54 @@ export async function listAllScopes(): Promise<{
   estados: { uf: string; updatedAt: string }[];
 }> {
   const sb = createSupabaseAdmin();
+  const [escolas, scopes] = await Promise.all([
+    fetchAllRows<{ codigo_inep: string; atualizado_em: string | null }>(() => sb
+      .from('diag_escolas')
+      .select('codigo_inep, atualizado_em')
+      .order('codigo_inep', { ascending: true })),
+    listMunicipiosEstadosSitemap(),
+  ]);
+  return {
+    escolas: escolas.map((e) => ({ inep: e.codigo_inep, updatedAt: e.atualizado_em || '' })),
+    municipios: scopes.municipios,
+    estados: scopes.estados,
+  };
+}
+
+export async function countRadarSchools(): Promise<number> {
+  const sb = createSupabaseAdmin();
+  return countRows(() => sb
+    .from('diag_escolas')
+    .select('codigo_inep', { count: 'exact', head: true }));
+}
+
+export async function listSitemapEscolas(offset: number, limit: number): Promise<{ inep: string; updatedAt: string }[]> {
+  const sb = createSupabaseAdmin();
   const { data: escolas } = await sb
     .from('diag_escolas')
-    .select('codigo_inep, atualizado_em');
-  const { data: rows } = await sb
+    .select('codigo_inep, atualizado_em')
+    .order('codigo_inep', { ascending: true })
+    .range(offset, offset + Math.max(0, limit - 1));
+  return (escolas || []).map((e: any) => ({ inep: e.codigo_inep, updatedAt: e.atualizado_em }));
+}
+
+export async function listMunicipiosEstadosSitemap(): Promise<{
+  municipios: { ibge: string; updatedAt: string }[];
+  estados: { uf: string; updatedAt: string }[];
+}> {
+  const sb = createSupabaseAdmin();
+  const rows = await fetchAllRows<{
+    municipio_ibge: string | null;
+    uf: string | null;
+    atualizado_em: string | null;
+  }>(() => sb
     .from('diag_escolas')
     .select('municipio_ibge, uf, atualizado_em')
-    .not('municipio_ibge', 'is', null);
+    .not('municipio_ibge', 'is', null));
   // Dedup municípios e UFs
   const muniMap = new Map<string, string>();
   const ufMap = new Map<string, string>();
-  for (const m of rows || []) {
+  for (const m of rows) {
     const ibge = (m as any).municipio_ibge;
     const uf = (m as any).uf;
     const ts = (m as any).atualizado_em || '';
@@ -1110,7 +1200,6 @@ export async function listAllScopes(): Promise<{
     if (uf && (!ufMap.has(uf) || ufMap.get(uf)! < ts)) ufMap.set(uf, ts);
   }
   return {
-    escolas: (escolas || []).map((e: any) => ({ inep: e.codigo_inep, updatedAt: e.atualizado_em })),
     municipios: Array.from(muniMap.entries()).map(([ibge, ts]) => ({ ibge, updatedAt: ts })),
     estados: Array.from(ufMap.entries()).map(([uf, ts]) => ({ uf, updatedAt: ts })),
   };

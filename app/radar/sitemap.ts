@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { listAllScopes } from '@/lib/radar/queries';
+import { countRadarSchools, listMunicipiosEstadosSitemap, listSitemapEscolas } from '@/lib/radar/queries';
 
 /**
  * Sitemap dinâmico do Radar com chunks de 5000 URLs.
@@ -16,8 +16,7 @@ import { listAllScopes } from '@/lib/radar/queries';
 const CHUNK_SIZE = 5000;
 
 export async function generateSitemaps() {
-  const scopes = await listAllScopes().catch(() => ({ escolas: [], municipios: [], estados: [] }));
-  const totalEscolas = scopes.escolas.length;
+  const totalEscolas = await countRadarSchools().catch(() => 0);
   // 1 chunk pra estático+estados+municípios + N chunks pra escolas
   const totalChunks = 1 + Math.max(1, Math.ceil(totalEscolas / CHUNK_SIZE));
   const out = [];
@@ -28,9 +27,9 @@ export async function generateSitemaps() {
 export default async function sitemap({ id }: { id: number }): Promise<MetadataRoute.Sitemap> {
   const base = 'https://radar.vertho.ai';
   const now = new Date();
-  const scopes = await listAllScopes().catch(() => ({ escolas: [], municipios: [], estados: [] }));
 
   if (id === 0) {
+    const scopes = await listMunicipiosEstadosSitemap().catch(() => ({ municipios: [], estados: [] }));
     const estaticas: MetadataRoute.Sitemap = [
       { url: `${base}/`, lastModified: now, changeFrequency: 'weekly', priority: 1 },
       { url: `${base}/comparar`, lastModified: now, changeFrequency: 'weekly', priority: 0.6 },
@@ -54,7 +53,7 @@ export default async function sitemap({ id }: { id: number }): Promise<MetadataR
   // Chunk de escolas (id começando em 1)
   const escolasIdx = id - 1;
   const start = escolasIdx * CHUNK_SIZE;
-  const fatia = scopes.escolas.slice(start, start + CHUNK_SIZE);
+  const fatia = await listSitemapEscolas(start, CHUNK_SIZE).catch(() => []);
   return fatia.map((e) => ({
     url: `${base}/escola/${e.inep}`,
     lastModified: e.updatedAt ? new Date(e.updatedAt) : now,

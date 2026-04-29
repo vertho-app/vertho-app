@@ -169,8 +169,20 @@ export async function POST(req: Request) {
   }
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function emailHtml({ nome, scopeLabel, pdfUrl }: { nome: string | null; scopeLabel: string; pdfUrl: string }) {
-  const saud = nome ? `Olá, ${nome.split(' ')[0]}!` : 'Olá!';
+  const primeiroNome = nome?.trim().split(/\s+/)[0];
+  const saud = primeiroNome ? `Olá, ${escapeHtml(primeiroNome)}!` : 'Olá!';
+  const safeScopeLabel = escapeHtml(scopeLabel);
+  const safePdfUrl = escapeHtml(pdfUrl);
   return `<!doctype html>
 <html><body style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#f6f7fb;padding:24px;">
   <table cellpadding="0" cellspacing="0" style="max-width:580px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;border:1px solid #e2e8f0;">
@@ -180,9 +192,9 @@ function emailHtml({ nome, scopeLabel, pdfUrl }: { nome: string | null; scopeLab
     </td></tr>
     <tr><td style="padding:28px;color:#1e293b;line-height:1.65;font-size:14px;">
       <p>${saud}</p>
-      <p>Preparamos seu diagnóstico Vertho para <strong>${scopeLabel}</strong>. O PDF está anexado e também disponível pelo link abaixo (válido por 30 dias):</p>
+      <p>Preparamos seu diagnóstico Vertho para <strong>${safeScopeLabel}</strong>. O PDF está anexado e também disponível pelo link abaixo (válido por 30 dias):</p>
       <p style="text-align:center;margin:28px 0;">
-        <a href="${pdfUrl}" style="background:#34c5cc;color:#0f2b54;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:700;">Baixar PDF</a>
+        <a href="${safePdfUrl}" style="background:#34c5cc;color:#0f2b54;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:700;">Baixar PDF</a>
       </p>
       <p>O documento traz uma leitura institucional dos indicadores oficiais do INEP, pontos de atenção e próximos passos sugeridos. Tudo gerado a partir de dados públicos.</p>
       <p style="margin-top:24px;color:#64748b;font-size:12px;">Quer aprofundar ou conversar sobre como o Mentor IA pode apoiar sua secretaria? Responda este e-mail ou escreva para <a href="mailto:radar@vertho.ai" style="color:#0f2b54;">radar@vertho.ai</a>.</p>

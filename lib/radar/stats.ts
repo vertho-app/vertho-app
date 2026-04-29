@@ -6,6 +6,8 @@ type RadarCountStats = {
   saeb: number;
   ica: number;
   ideb: number;
+  censoInfra: number;
+  censoDocentes: number;
   saresp: number;
   fundeb: number;
   pdde: number;
@@ -20,6 +22,8 @@ function mapRadarCountRow(row: any): RadarCountStats {
     saeb: Number(row?.saeb_snapshots || 0),
     ica: Number(row?.ica_snapshots || 0),
     ideb: Number(row?.ideb_snapshots || 0),
+    censoInfra: Number(row?.censo_infra || 0),
+    censoDocentes: Number(row?.censo_docentes || 0),
     saresp: Number(row?.saresp_snapshots || 0),
     fundeb: Number(row?.fundeb_repasses || 0),
     pdde: Number(row?.pdde_escola || 0) + Number(row?.pdde_municipal || 0),
@@ -31,18 +35,20 @@ function mapRadarCountRow(row: any): RadarCountStats {
 export async function loadRadarCountStats(sb: SupabaseClient): Promise<RadarCountStats> {
   const { data: mvRow } = await sb
     .from('diag_mv_radar_counts')
-    .select('escolas, municipios, saeb_snapshots, ica_snapshots, ideb_snapshots, saresp_snapshots, fundeb_repasses, pdde_escola, pdde_municipal, vaar, vaar_beneficiarios')
+    .select('escolas, municipios, saeb_snapshots, ica_snapshots, ideb_snapshots, censo_infra, censo_docentes, saresp_snapshots, fundeb_repasses, pdde_escola, pdde_municipal, vaar, vaar_beneficiarios')
     .limit(1)
     .maybeSingle();
 
   if (mvRow) return mapRadarCountRow(mvRow);
 
-  const [escolas, municipiosRpc, saeb, ica, ideb, saresp, fundeb, pdde, pddeMun, vaar, vaarBenef] = await Promise.all([
+  const [escolas, municipiosRpc, saeb, ica, ideb, censoInfra, censoDocentes, saresp, fundeb, pdde, pddeMun, vaar, vaarBenef] = await Promise.all([
     sb.from('diag_escolas').select('codigo_inep', { count: 'exact', head: true }),
     sb.rpc('diag_count_municipios_distintos'),
     sb.from('diag_saeb_snapshots').select('id', { count: 'exact', head: true }),
     sb.from('diag_ica_snapshots').select('id', { count: 'exact', head: true }),
     sb.from('diag_ideb_snapshots').select('id', { count: 'exact', head: true }),
+    sb.from('diag_censo_infra').select('codigo_inep', { count: 'exact', head: true }),
+    sb.from('diag_censo_docentes').select('codigo_inep', { count: 'exact', head: true }),
     sb.from('diag_saresp_snapshots').select('codigo_inep', { count: 'exact', head: true }),
     sb.from('diag_fundeb_repasses').select('municipio_ibge', { count: 'exact', head: true }),
     sb.from('diag_pdde_repasses').select('codigo_inep', { count: 'exact', head: true }),
@@ -65,6 +71,8 @@ export async function loadRadarCountStats(sb: SupabaseClient): Promise<RadarCoun
     saeb: saeb.count || 0,
     ica: ica.count || 0,
     ideb: ideb.count || 0,
+    censoInfra: censoInfra.count || 0,
+    censoDocentes: censoDocentes.count || 0,
     saresp: saresp.count || 0,
     fundeb: fundeb.count || 0,
     pdde: (pdde.count || 0) + (pddeMun.count || 0),

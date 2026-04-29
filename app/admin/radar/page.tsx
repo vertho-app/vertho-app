@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2, Upload, RefreshCw, FileText, FileSpreadsheet, Trash2, Terminal } from 'lucide-react';
+import { ArrowLeft, CircleStop, Loader2, Upload, RefreshCw, FileText, FileSpreadsheet, Trash2, Terminal } from 'lucide-react';
 import {
   loadRadarStats,
   ingestIcaFromUpload,
@@ -11,6 +11,9 @@ import {
   ingestVaarFromUpload,
   ingestFundebReceitaFromUpload,
   deleteIngestRun,
+  interruptIngestRun,
+  markStaleIngestRuns,
+  refreshRadarMaterializedViews,
 } from './actions';
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
@@ -19,6 +22,8 @@ const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   parcial:   { bg: 'rgba(245,158,11,0.15)', color: '#FCD34D' },
   erro:      { bg: 'rgba(239,68,68,0.15)',  color: '#F97354' },
 };
+
+const MAX_WEB_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 function fmt(n: any) { return Number(n ?? 0).toLocaleString('pt-BR'); }
 
@@ -50,10 +55,18 @@ export default function AdminRadarPage() {
   const [uploadingPdde, setUploadingPdde] = useState(false);
   const [uploadingVaar, setUploadingVaar] = useState(false);
   const [uploadingFundebRec, setUploadingFundebRec] = useState(false);
+  const [refreshingMvs, setRefreshingMvs] = useState(false);
+  const [markingStale, setMarkingStale] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
 
   function addLog(msg: string) {
     setLogs((prev) => [`${new Date().toLocaleTimeString('pt-BR')} · ${msg}`, ...prev].slice(0, 20));
+  }
+
+  function canUploadViaWeb(file: File) {
+    if (file.size <= MAX_WEB_UPLOAD_BYTES) return true;
+    addLog(`Upload bloqueado: ${file.name} tem ${(file.size / 1024 / 1024).toFixed(1)}MB; use CLI para arquivos acima de 25MB`);
+    return false;
   }
 
   async function refresh() {
@@ -66,6 +79,7 @@ export default function AdminRadarPage() {
   useEffect(() => { refresh(); }, []);
 
   async function handleIcaUpload(file: File) {
+    if (!canUploadViaWeb(file)) return;
     setUploadingIca(true);
     const isXlsx = /\.xlsx$/i.test(file.name);
     addLog(`ICA upload: ${file.name} (${(file.size / 1024).toFixed(0)}KB · ${isXlsx ? 'XLSX' : 'CSV'})`);
@@ -96,6 +110,7 @@ export default function AdminRadarPage() {
   }
 
   async function handleFundebUpload(file: File) {
+    if (!canUploadViaWeb(file)) return;
     setUploadingFundeb(true);
     addLog(`FUNDEB upload: ${file.name} (${(file.size / 1024).toFixed(0)}KB)`);
     try {
@@ -112,6 +127,7 @@ export default function AdminRadarPage() {
   }
 
   async function handlePddeUpload(file: File, preferMunicipal: boolean) {
+    if (!canUploadViaWeb(file)) return;
     setUploadingPdde(true);
     addLog(`PDDE upload (${preferMunicipal ? 'municipal' : 'auto'}): ${file.name}`);
     try {
@@ -128,6 +144,7 @@ export default function AdminRadarPage() {
   }
 
   async function handleFundebReceitaUpload(file: File) {
+    if (!canUploadViaWeb(file)) return;
     setUploadingFundebRec(true);
     addLog(`FUNDEB Receita upload: ${file.name} (${(file.size / 1024).toFixed(0)}KB)`);
     try {
@@ -148,6 +165,7 @@ export default function AdminRadarPage() {
   }
 
   async function handleVaarUpload(file: File) {
+    if (!canUploadViaWeb(file)) return;
     setUploadingVaar(true);
     addLog(`VAAR upload: ${file.name} (${(file.size / 1024).toFixed(0)}KB)`);
     try {
@@ -173,6 +191,30 @@ export default function AdminRadarPage() {
     refresh();
   }
 
+  async function handleInterruptRun(id: string) {
+    if (!confirm('Marcar este run como interrompido? Isso não encerra processo local ainda em execução.')) return;
+    const r = await interruptIngestRun(id);
+    addLog(r.success ? 'Run marcado como interrompido' : `Falha ao interromper run: ${r.error}`);
+    refresh();
+  }
+
+  async function handleRefreshMvs() {
+    setRefreshingMvs(true);
+    const r = await refreshRadarMaterializedViews();
+    addLog(r.success ? 'Materialized views atualizadas' : `Refresh MVs falhou: ${r.error}`);
+    setRefreshingMvs(false);
+    refresh();
+  }
+
+  async function handleMarkStale() {
+    if (!confirm('Marcar runs "rodando" com mais de 12h como interrompidos?')) return;
+    setMarkingStale(true);
+    const r = await markStaleIngestRuns(12);
+    addLog(r.success ? `Runs antigos marcados: ${r.count || 0}` : `Falha ao marcar runs antigos: ${r.error}`);
+    setMarkingStale(false);
+    refresh();
+  }
+
   return (
     <div className="min-h-dvh"
       style={{
@@ -190,10 +232,23 @@ export default function AdminRadarPage() {
           <a href="/admin/radar/funnel" className="text-xs text-cyan-400 hover:text-cyan-300 mr-3">
             Funnel →
           </a>
-          <button onClick={refresh} disabled={loading}
-            className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/10 text-white/40">
-            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={handleMarkStale} disabled={markingStale}
+              title="Marcar runs rodando antigos como interrompidos"
+              className="h-8 px-3 rounded-lg border border-amber-400/20 text-[10px] font-bold uppercase tracking-wider text-amber-200/80 hover:text-amber-100 disabled:opacity-50">
+              {markingStale ? 'Marcando...' : 'Limpar antigos'}
+            </button>
+            <button onClick={handleRefreshMvs} disabled={refreshingMvs}
+              title="Atualizar materialized views do Radar"
+              className="h-8 px-3 rounded-lg border border-cyan-400/20 text-[10px] font-bold uppercase tracking-wider text-cyan-200/80 hover:text-cyan-100 disabled:opacity-50">
+              {refreshingMvs ? 'Atualizando...' : 'Refresh MVs'}
+            </button>
+            <button onClick={refresh} disabled={loading}
+              title="Recarregar painel"
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/10 text-white/40">
+              <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+            </button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -204,6 +259,8 @@ export default function AdminRadarPage() {
             { label: 'Snapshots Saeb', val: stats?.snapshots },
             { label: 'Snapshots ICA', val: stats?.ica },
             { label: 'Snapshots Ideb', val: stats?.ideb },
+            { label: 'Censo Infra', val: stats?.censoInfra },
+            { label: 'Censo Docentes', val: stats?.censoDocentes },
             { label: 'SARESP', val: stats?.saresp },
             { label: 'FUNDEB', val: stats?.fundeb },
             { label: 'PDDE', val: stats?.pdde },
@@ -246,6 +303,11 @@ export default function AdminRadarPage() {
                 label: 'Censo Escolar',
                 desc: 'Microdados INEP — Tabela_Escola_*.csv (~165MB).',
                 cmd: 'node scripts/import-censo.mjs Tabela_Escola_2025.csv',
+              },
+              {
+                label: 'Censo Docentes',
+                desc: 'Microdados INEP — Tabela_Docente_*.csv com QT_DOC_*.',
+                cmd: 'node scripts/import-censo-docentes.mjs Tabela_Docente_2025.csv --ano 2025',
               },
               {
                 label: 'Ideb',
@@ -441,6 +503,11 @@ export default function AdminRadarPage() {
                         <span className="text-white/40">{r.total_skipped || 0}</span>
                       </td>
                       <td className="px-4 py-2">
+                        {r.status === 'rodando' && (
+                          <button onClick={() => handleInterruptRun(r.id)} className="text-white/30 hover:text-amber-300 mr-3" title="Marcar como interrompido">
+                            <CircleStop size={12} />
+                          </button>
+                        )}
                         <button onClick={() => handleDeleteRun(r.id)} className="text-white/30 hover:text-red-400">
                           <Trash2 size={12} />
                         </button>

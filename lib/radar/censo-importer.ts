@@ -78,6 +78,13 @@ function toNumOrNull(v: any): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function sanitizeQuantidade(name: string, value: number | null): number | null {
+  if (value == null || !Number.isFinite(value) || value < 0) return null;
+  if ([8888, 88888, 9999, 99999, 999999].includes(value)) return null;
+  if (name.startsWith('QT_PROF_') && value > 1000) return null;
+  return value;
+}
+
 function clampLatLng(v: number | null, max: number): number | null {
   if (v == null || !Number.isFinite(v)) return null;
   if (v > max || v < -max) return null;
@@ -199,7 +206,7 @@ export async function importarCensoCsv(
     }
     const quantidades: Record<string, number> = {};
     for (const [name, i] of qtIdx) {
-      const v = toNumOrNull(cells[i]);
+      const v = sanitizeQuantidade(name, toNumOrNull(cells[i]));
       if (v != null) quantidades[name] = v;
     }
 

@@ -122,6 +122,12 @@ function toNum(v) {
   const n = Number(String(v).replace(',', '.'));
   return Number.isFinite(n) ? n : null;
 }
+function sanitizeQuantidade(name, value) {
+  if (value == null || !Number.isFinite(value) || value < 0) return null;
+  if ([8888, 88888, 9999, 99999, 999999].includes(value)) return null;
+  if (name.startsWith('QT_PROF_') && value > 1000) return null;
+  return value;
+}
 
 // ── 4. Iniciar ingest_run ───────────────────────────────────────────
 async function rpc(path, init) {
@@ -314,7 +320,7 @@ async function main() {
     }
     const quantidades = {};
     for (const [name, i] of qtIdx) {
-      const v = toNum(cells[i]);
+      const v = sanitizeQuantidade(name, toNum(cells[i]));
       if (v != null) quantidades[name] = v;
     }
     const scores = calcularScores(indicadores);

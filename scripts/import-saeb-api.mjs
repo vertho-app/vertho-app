@@ -112,8 +112,10 @@ const result = {
 
 const pendingPersist = [];
 let persistChain = Promise.resolve();
+let runFinalized = false;
 
 const startedAt = Date.now();
+setupShutdownHandlers();
 let nextProgressAt = Math.min(25, planned.length);
 await runPool(planned, CONCURRENCY, async (codigo, index) => {
   if (DELAY_MS) await sleep(DELAY_MS);
@@ -132,20 +134,7 @@ const status = result.totalFalha > 0 && (result.totalSucesso > 0 || result.total
       ? 'parcial'
     : 'sucesso';
 
-if (!DRY && runId) {
-  await sb.from('diag_ingest_runs')
-    .update({
-      status,
-      total_processado: result.totalProcessado,
-      total_sucesso: result.totalSucesso,
-      total_falha: result.totalFalha,
-      total_skipped: result.totalSkipped,
-      erros: [...result.erros, ...result.avisos].slice(0, 50),
-      finalizado_em: new Date().toISOString(),
-      duracao_ms: durationMs,
-    })
-    .eq('id', runId);
-}
+await finalizeRun(status, durationMs);
 
 if (!DRY && !NO_RUN && (status === 'sucesso' || status === 'parcial')) {
   try {
@@ -166,6 +155,53 @@ if (result.erros.length) {
 if (result.avisos.length) {
   console.log('\nprimeiros avisos/skips:');
   for (const e of result.avisos.slice(0, 10)) console.log(`- ${e.key}: ${e.msg}`);
+}
+
+function setupShutdownHandlers() {
+  if (DRY || !runId) return;
+  for (const signal of ['SIGINT', 'SIGTERM']) {
+    process.once(signal, () => {
+      const durationMs = Date.now() - startedAt;
+      finalizeRun('erro', durationMs, [{
+        key: 'interrompido',
+        msg: `Processo recebeu ${signal}. Importação encerrada antes do final.`,
+        ts: new Date().toISOString(),
+      }]).finally(() => process.exit(signal === 'SIGINT' ? 130 : 143));
+    });
+  }
+  process.once('uncaughtException', (err) => {
+    console.error('ERRO FATAL:', err);
+    finalizeRun('erro', Date.now() - startedAt, [{
+      key: 'uncaught_exception',
+      msg: err?.message || String(err),
+      ts: new Date().toISOString(),
+    }]).finally(() => process.exit(1));
+  });
+  process.once('unhandledRejection', (err) => {
+    console.error('PROMISE REJEITADA:', err);
+    finalizeRun('erro', Date.now() - startedAt, [{
+      key: 'unhandled_rejection',
+      msg: err?.message || String(err),
+      ts: new Date().toISOString(),
+    }]).finally(() => process.exit(1));
+  });
+}
+
+async function finalizeRun(status, durationMs, extraErrors = []) {
+  if (DRY || !runId || runFinalized) return;
+  runFinalized = true;
+  await sb.from('diag_ingest_runs')
+    .update({
+      status,
+      total_processado: result.totalProcessado,
+      total_sucesso: result.totalSucesso,
+      total_falha: result.totalFalha,
+      total_skipped: result.totalSkipped,
+      erros: [...extraErrors, ...result.erros, ...result.avisos].slice(0, 50),
+      finalizado_em: new Date().toISOString(),
+      duracao_ms: durationMs,
+    })
+    .eq('id', runId);
 }
 
 async function importOne(codigoInep, index) {
