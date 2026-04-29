@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Upload, Loader2, Users, Pencil, Trash2, X, Check, Briefcase, RefreshCw, Plus, Save } from 'lucide-react';
+import { ArrowLeft, Upload, Loader2, Users, Pencil, Trash2, X, Check, Briefcase, RefreshCw, Plus, Save, Link2 } from 'lucide-react';
 import { parseSpreadsheet } from '@/lib/parse-spreadsheet';
 import {
   loadEmpresas, loadResumoEmpresa, importarColaboradoresLote, loadColaboradores, atualizarColaborador, excluirColaborador,
   criarColaborador,
-  loadCargos, salvarCargo, excluirCargo, sincronizarCargosDeColaboradores, importarCargosLote
+  loadCargos, salvarCargo, excluirCargo, sincronizarCargosDeColaboradores, importarCargosLote,
+  derivarGestorEmailPorNome,
 } from './actions';
 const CARGO_FIELDS = [
   { key: 'descricao', label: 'Descrição do Cargo', placeholder: 'Responsabilidades principais...', rows: 3 },
@@ -41,6 +42,7 @@ export default function GerenciarPage() {
   const [editCargo, setEditCargo] = useState(null); // cargo sendo editado
   const [savingCargo, setSavingCargo] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [vinculandoGestores, setVinculandoGestores] = useState(false);
 
   useEffect(() => {
     loadEmpresas().then(data => {
@@ -184,6 +186,23 @@ export default function GerenciarPage() {
     if (r.success) refreshCargos();
   }
 
+  async function handleVincularGestores() {
+    if (!tenantId) return;
+    setVinculandoGestores(true);
+    const r = await derivarGestorEmailPorNome(tenantId);
+    setVinculandoGestores(false);
+    if (!r.success) { setMsg('Erro: ' + r.error); return; }
+    const partes = [`${r.vinculados} vinculado${r.vinculados === 1 ? '' : 's'}`];
+    if (r.naoEncontrados.length > 0) {
+      partes.push(`${r.naoEncontrados.length} sem match (${r.naoEncontrados.slice(0, 2).map(x => x.gestor_nome).join(', ')}${r.naoEncontrados.length > 2 ? '...' : ''})`);
+    }
+    if (r.ambiguos.length > 0) {
+      partes.push(`${r.ambiguos.length} com múltiplos matches — preencher manualmente`);
+    }
+    setMsg(partes.join(' · '));
+    refresh();
+  }
+
   async function handleSaveCargo() {
     if (!editCargo || !tenantId) return;
     setSavingCargo(true);
@@ -255,10 +274,18 @@ export default function GerenciarPage() {
               Importar CSV
             </button>
             {tab === 'lista' && editId !== 'new' && (
-              <button onClick={startCreate}
-                className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-green-400/30 hover:text-green-400 transition-all">
-                <Plus size={12} /> Adicionar colaborador
-              </button>
+              <>
+                <button onClick={handleVincularGestores} disabled={vinculandoGestores}
+                  title="Pra colaboradores com gestor_nome mas sem gestor_email, busca o gestor pelo nome na empresa e popula o email automaticamente."
+                  className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-cyan-400/30 hover:text-cyan-400 transition-all disabled:opacity-40">
+                  {vinculandoGestores ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
+                  Vincular gestores
+                </button>
+                <button onClick={startCreate}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-green-400/30 hover:text-green-400 transition-all">
+                  <Plus size={12} /> Adicionar colaborador
+                </button>
+              </>
             )}
           </div>
 

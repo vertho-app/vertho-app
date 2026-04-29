@@ -256,3 +256,84 @@ export async function importarCargosLote(empresaId: any, cargos: any[]) {
   if (error) return { success: false, error: error.message };
   return { success: true, message: `${novos.length} cargos importados (${cargos.length - novos.length} duplicatas ignoradas)` };
 }
+
+/**
+ * Para colaboradores com gestor_nome preenchido mas gestor_email vazio,
+ * tenta achar um colaborador da mesma empresa cujo nome bate com gestor_nome
+ * (ilike, case-insensitive). Quando acha, copia o email pra gestor_email.
+ *
+ * Resolve casos de importação onde só veio o nome do gestor, não o email.
+ *
+ * Retorna relatório com vinculados / não-encontrados / ambíguos (mais de 1 match).
+ */
+export async function derivarGestorEmailPorNome(empresaId: string): Promise<{
+  success: boolean;
+  error?: string;
+  vinculados: number;
+  naoEncontrados: { colab: string; gestor_nome: string }[];
+  ambiguos: { colab: string; gestor_nome: string; matches: number }[];
+}> {
+  await requireAdminAction();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório', vinculados: 0, naoEncontrados: [], ambiguos: [] };
+  const sb = createSupabaseAdmin();
+
+  // 1. Pega todos os colabs com gestor_nome mas sem gestor_email
+  const { data: pendentes } = await sb.from('colaboradores')
+    .select('id, nome_completo, gestor_nome')
+    .eq('empresa_id', empresaId)
+    .not('gestor_nome', 'is', null)
+    .is('gestor_email', null);
+
+  if (!pendentes?.length) {
+    return { success: true, vinculados: 0, naoEncontrados: [], ambiguos: [] };
+  }
+
+  // 2. Pega todos os colabs da empresa (potenciais gestores)
+  const { data: todos } = await sb.from('colaboradores')
+    .select('id, nome_completo, email')
+    .eq('empresa_id', empresaId);
+  const candidatos = (todos || []).filter((c: any) => c.email);
+
+  // Função de match: normaliza espaços, remove acentos, ilike
+  const normalizar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
+
+  const naoEncontrados: { colab: string; gestor_nome: string }[] = [];
+  const ambiguos: { colab: string; gestor_nome: string; matches: number }[] = [];
+  const updates: { id: string; gestor_email: string }[] = [];
+
+  for (const p of pendentes as any[]) {
+    const alvo = normalizar(p.gestor_nome);
+    const matches = candidatos.filter((c: any) => {
+      const nome = normalizar(c.nome_completo || '');
+      // Match exato ou contém
+      return nome === alvo || nome.includes(alvo) || alvo.includes(nome);
+    });
+    if (matches.length === 0) {
+      naoEncontrados.push({ colab: p.nome_completo, gestor_nome: p.gestor_nome });
+    } else if (matches.length > 1) {
+      // Tenta match exato como desempate
+      const exato = matches.filter((c: any) => normalizar(c.nome_completo) === alvo);
+      if (exato.length === 1) {
+        updates.push({ id: p.id, gestor_email: exato[0].email.toLowerCase() });
+      } else {
+        ambiguos.push({ colab: p.nome_completo, gestor_nome: p.gestor_nome, matches: matches.length });
+      }
+    } else {
+      updates.push({ id: p.id, gestor_email: matches[0].email.toLowerCase() });
+    }
+  }
+
+  // 3. Aplica updates em lote (1 update por colab)
+  for (const u of updates) {
+    await sb.from('colaboradores')
+      .update({ gestor_email: u.gestor_email })
+      .eq('id', u.id);
+  }
+
+  return {
+    success: true,
+    vinculados: updates.length,
+    naoEncontrados,
+    ambiguos,
+  };
+}
