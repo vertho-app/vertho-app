@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { ArrowLeft, MapPin, Building2, Users, Calendar } from 'lucide-react';
 
-import { getEscola, getEscolaBenchmarks } from '@/lib/radar/queries';
+import { getEscola, getEscolaBenchmarks, getEscolaInfraSaeb } from '@/lib/radar/queries';
 import { leituraSaebEscola, ETAPA_LABELS, DISC_LABELS } from '@/lib/radar/leitura-deterministica';
 import { registrarEvento } from '@/lib/radar/eventos';
 import { RadarHeader, RadarFooter } from '../../_components/radar-header';
@@ -16,6 +16,7 @@ import { CitarButton } from '../../_components/citar-button';
 import { SarespSection } from '../../_components/saresp-section';
 import { PddeSection } from '../../_components/pdde-section';
 import { EscolaBenchmarkTable } from '../../_components/escola-benchmark-table';
+import { InfraSaebCard } from '../../_components/infra-saeb-card';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,7 +46,10 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
   const saresp = r.saresp || [];
   const pdde = r.pdde || [];
 
-  const benchmarks = await getEscolaBenchmarks(escola.codigo_inep);
+  const [benchmarks, infraSaeb] = await Promise.all([
+    getEscolaBenchmarks(escola.codigo_inep),
+    getEscolaInfraSaeb(escola.codigo_inep),
+  ]);
 
   // Tracking best-effort (não bloqueia render)
   registrarEvento('view_escola', { scopeType: 'escola', scopeId: escola.codigo_inep }).catch(() => {});
@@ -156,6 +160,9 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
             uf={escola.uf}
           />
         )}
+
+        {/* Cruzamento Infra × Saeb (quadrante editorial) */}
+        <InfraSaebCard resumo={infraSaeb.resumo} breakdown={infraSaeb.breakdown} />
 
         {/* Infra (Censo Escolar) */}
         {censo && <InfraSection censo={censo} />}

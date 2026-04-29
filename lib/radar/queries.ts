@@ -175,6 +175,66 @@ export async function getEscolaBenchmarks(codigoInep: string): Promise<EscolaBen
   return (data as EscolaBenchmarkRow[]) || [];
 }
 
+export type Quadrante =
+  | 'q1_bem_servida_aprende'
+  | 'q2_estrutura_resultado_baixo'
+  | 'q3_faz_mais_com_menos'
+  | 'q4_dupla_vulnerabilidade'
+  | 'sem_dados';
+
+export type EscolaInfraSaeb = {
+  codigo_inep: string;
+  score_basica: number | null;
+  score_pedagogica: number | null;
+  score_acessibilidade: number | null;
+  score_conectividade: number | null;
+  score_geral: number | null;
+  pct_n0_avg_simples: number | null;
+  n0_diff_mediana: number | null;
+  n0_ratio_mediana: number | null;
+  saeb_ano: number | null;
+  quadrante: Quadrante;
+};
+
+export type EscolaN0Row = {
+  codigo_inep: string;
+  etapa: string;
+  disciplina: string;
+  ano: number;
+  pct_n0_escola: number;
+  pct_n0_mediana_brasil: number;
+  diff_mediana: number;
+};
+
+export async function getEscolaInfraSaeb(codigoInep: string): Promise<{
+  resumo: EscolaInfraSaeb | null;
+  breakdown: EscolaN0Row[];
+}> {
+  const sb = createSupabaseAdmin();
+  const [resumoRes, breakdownRes] = await Promise.all([
+    sb.from('diag_mv_escola_infra_saeb').select('*').eq('codigo_inep', codigoInep).maybeSingle(),
+    sb.from('diag_view_escola_n0_breakdown')
+      .select('*')
+      .eq('codigo_inep', codigoInep)
+      .order('etapa', { ascending: true })
+      .order('disciplina', { ascending: true })
+      .order('ano', { ascending: false }),
+  ]);
+  // Para o breakdown, fica só o ano mais recente por (etapa, disc)
+  const seen = new Set<string>();
+  const breakdown: EscolaN0Row[] = [];
+  for (const row of (breakdownRes.data || []) as EscolaN0Row[]) {
+    const key = `${row.etapa}/${row.disciplina}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    breakdown.push(row);
+  }
+  return {
+    resumo: (resumoRes.data as EscolaInfraSaeb) || null,
+    breakdown,
+  };
+}
+
 export type IcaSnapshot = {
   municipio_ibge: string;
   uf: string;
