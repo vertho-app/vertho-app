@@ -3,12 +3,15 @@
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Home, Clock, Play, TrendingUp, User, LogOut } from 'lucide-react';
+import { Home, Clock, Play, TrendingUp, User, LogOut, Users2 } from 'lucide-react';
 import BetoChat from '@/components/beto-chat';
 import { UserAvatar } from '@/components/user-avatar';
 
-const NAV_ITEMS = [
+type NavItem = { href: string; label: string; icon: any; gestorOnly?: boolean };
+
+const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'Início', icon: Home },
+  { href: '/dashboard/gestor', label: 'Equipe', icon: Users2, gestorOnly: true },
   { href: '/dashboard/jornada', label: 'Jornada', icon: Clock },
   { href: '/dashboard/temporada', label: 'Temporada', icon: Play },
   { href: '/dashboard/evolucao', label: 'Evolução', icon: TrendingUp },
@@ -20,7 +23,9 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const pathname = usePathname();
   const supabase = getSupabase();
   const [user, setUser] = useState<any>(null);
-  const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null } | null>(null);
+  const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string } | null>(null);
+  const isGestorOuRH = colaborador?.role === 'gestor' || colaborador?.role === 'rh';
+  const navItems = NAV_ITEMS.filter((it) => !it.gestorOnly || isGestorOuRH);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -67,7 +72,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         />
 
         <nav className="flex flex-col gap-6 flex-1">
-          {NAV_ITEMS.map(item => {
+          {navItems.map(item => {
             const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
             const Icon = item.icon;
             return (
@@ -127,7 +132,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         className="md:hidden fixed bottom-0 left-0 right-0 flex items-center justify-around border-t border-white/[0.06] z-40"
         style={{ height: 'var(--nav-height)', background: '#091D35' }}
       >
-        {NAV_ITEMS.map(item => {
+        {navItems.map(item => {
           const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
           const Icon = item.icon;
           return (

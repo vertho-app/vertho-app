@@ -23,13 +23,14 @@ export async function GET() {
 
     const data = await findColabByEmail(
       user.email,
-      'nome_completo, foto_url, avatar_preset',
+      'nome_completo, foto_url, avatar_preset, role',
     );
 
     return NextResponse.json(data || {
       nome_completo: user.email,
       foto_url: null,
       avatar_preset: null,
+      role: 'colaborador',
     });
   } catch (err) {
     console.error('[/api/me]', err);
