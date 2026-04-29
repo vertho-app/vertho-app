@@ -1,5 +1,6 @@
-import { Award, AlertTriangle, Check, X, TrendingUp } from 'lucide-react';
+import { Award, AlertTriangle, Check, X, TrendingUp, Info } from 'lucide-react';
 import type { VaarEstimativa } from '@/lib/radar/vaar-estimativa';
+import type { CondIIDerivado } from '@/lib/radar/vaar-derivado';
 
 const FMT_BRL = new Intl.NumberFormat('pt-BR', {
   style: 'currency', currency: 'BRL', maximumFractionDigits: 0,
@@ -107,10 +108,14 @@ export function VaarSection({
   vaar,
   receita,
   estimativa,
+  condIIDerivado,
+  statusICMS,
 }: {
   vaar: VaarSnapshot | null;
   receita?: VaarReceita | null;
   estimativa?: VaarEstimativa | null;
+  condIIDerivado?: CondIIDerivado | null;
+  statusICMS?: { temLei: boolean; lei?: string; observacao?: string } | null;
 }) {
   if (!vaar) return null;
 
@@ -262,6 +267,75 @@ export function VaarSection({
         <StatusBadge value={vaar.cond_iv}  label={`IV — ${COND_LABELS.iv}`}  nota={COND_VERTHO_NOTA.iv} />
         <StatusBadge value={vaar.cond_v}   label={`V — ${COND_LABELS.v}`}   nota={COND_VERTHO_NOTA.v} />
       </div>
+
+      {/* Bloco de transparência: dados derivados das fontes que temos */}
+      {(condIIDerivado || statusICMS) && (
+        <div className="rounded-2xl border border-white/[0.06] mb-4 overflow-hidden"
+          style={{ background: 'rgba(255,255,255,0.02)' }}>
+          <div className="px-4 py-2.5 border-b border-white/[0.04] flex items-center gap-2">
+            <Info size={13} style={{ color: '#9ae2e6' }} />
+            <p className="text-[10px] tracking-[0.2em] uppercase font-mono" style={{ color: '#9ae2e6' }}>
+              Validação cruzada · dados que temos
+            </p>
+          </div>
+          <div className="p-4 space-y-3">
+            {condIIDerivado && (
+              <div>
+                <p className="text-[11px] text-white/65 mb-2">
+                  <strong className="text-white/85">Cond. II (Saeb ≥ 80%) — cálculo direto:</strong>{' '}
+                  agregado das escolas municipais com microdados Saeb {condIIDerivado.ano}.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {condIIDerivado.etapas.map((e) => (
+                    <div key={e.etapa}
+                      className="px-3 py-1.5 rounded-lg border text-[11px] font-mono"
+                      style={{
+                        borderColor: e.atende ? 'rgba(110,231,183,0.2)' : 'rgba(249,115,84,0.2)',
+                        background: e.atende ? 'rgba(110,231,183,0.06)' : 'rgba(249,115,84,0.06)',
+                        color: e.atende ? '#86efac' : '#fca5a5',
+                      }}>
+                      {e.etapa.replace('_EF', 'º EF').replace('_EM', 'º EM')}: {e.taxa.toFixed(1)}%{' '}
+                      <span className="text-white/40">({e.presentes}/{e.matriculados} · {e.escolas} esc)</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] text-white/40 mt-1.5">
+                  {condIIDerivado.todasAtendem
+                    ? '✓ Todas as etapas atendem ao limiar de 80%.'
+                    : '⚠ Pelo menos uma etapa abaixo de 80%.'}
+                  {' '}Compare com o badge oficial FNDE acima.
+                </p>
+              </div>
+            )}
+
+            {statusICMS && (
+              <div className="pt-3 border-t border-white/[0.04]">
+                <p className="text-[11px] text-white/65">
+                  <strong className="text-white/85">Cond. IV — status estadual:</strong>{' '}
+                  {statusICMS.temLei ? (
+                    <span style={{ color: '#86efac' }}>UF tem lei do ICMS Educacional</span>
+                  ) : (
+                    <span style={{ color: '#fca5a5' }}>UF sem lei do ICMS Educacional</span>
+                  )}
+                  {statusICMS.lei && <span className="text-white/55"> ({statusICMS.lei})</span>}
+                  {statusICMS.observacao && <span className="text-white/45"> · {statusICMS.observacao}</span>}
+                </p>
+                <p className="text-[10px] text-white/35 mt-1">
+                  Critério estadual; município herda o status. Levantamento legislativo curado pela Vertho — atualizado quando houver nova lei estadual.
+                </p>
+              </div>
+            )}
+
+            <div className="pt-3 border-t border-white/[0.04]">
+              <p className="text-[11px] text-white/55">
+                <strong className="text-white/75">Cond. III — limite técnico:</strong> redução de
+                desigualdades raciais/socioeconômicas exige microdados Saeb por aluno (com raça/cor +
+                NSE), não importados no Radar atual. O badge oficial FNDE acima é a referência.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
         <StatusBadge value={vaar.evoluiu_atendimento}  label="Evoluiu indicador de atendimento" />

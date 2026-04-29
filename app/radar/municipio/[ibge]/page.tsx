@@ -6,6 +6,7 @@ import { ArrowLeft } from 'lucide-react';
 
 import { getMunicipio, getMunicipioBenchmarks, getMunicipioVariabilidade } from '@/lib/radar/queries';
 import { estimarVaar } from '@/lib/radar/vaar-estimativa';
+import { calcularCondIIDerivadoMunicipio, getStatusICMSEducacional } from '@/lib/radar/vaar-derivado';
 import { leituraIcaMunicipio } from '@/lib/radar/leitura-deterministica';
 import { registrarEvento } from '@/lib/radar/eventos';
 import { RadarHeader, RadarFooter } from '../../_components/radar-header';
@@ -56,6 +57,10 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
         complementacaoVaat: m.receitaPrevista.complementacao_vaat,
       })
     : null;
+
+  // Cálculos derivados pra cond_ii e cond_iv (transparência ao oficial FNDE)
+  const condIIDerivado = m.vaar ? await calcularCondIIDerivadoMunicipio(ibge) : null;
+  const statusICMS = m.vaar ? getStatusICMSEducacional(m.uf) : null;
   const microrregiao = await (async () => {
     const sb = (await import('@/lib/supabase')).createSupabaseAdmin();
     const { data } = await sb
@@ -143,7 +148,15 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
         {m.fundeb && m.fundeb.length > 0 && <FundebSection fundeb={m.fundeb} />}
 
         {/* VAAR — habilitação para complementação por resultado */}
-        {m.vaar && <VaarSection vaar={m.vaar} receita={m.receitaPrevista} estimativa={vaarEstimativa} />}
+        {m.vaar && (
+          <VaarSection
+            vaar={m.vaar}
+            receita={m.receitaPrevista}
+            estimativa={vaarEstimativa}
+            condIIDerivado={condIIDerivado}
+            statusICMS={statusICMS}
+          />
+        )}
 
         {/* ICA cards */}
         {m.ica.length > 0 && (
