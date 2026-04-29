@@ -66,6 +66,7 @@ export default function GestorHomePage() {
   const k = data.kpis!;
   const alertas = data.alertas || [];
   const cps = data.checkpointsPendentes || [];
+  const semLiderados = data.scope === 'gestor' && k.liderados.total === 0;
 
   return (
     <PageContainer>
@@ -84,6 +85,28 @@ export default function GestorHomePage() {
           Ver evolução completa <ArrowRight size={11} />
         </button>
       </div>
+
+      {/* Aviso: gestor sem liderados vinculados */}
+      {semLiderados && (
+        <div className="mb-5 rounded-2xl p-4 border border-amber-400/25"
+          style={{ background: 'rgba(251,191,36,0.05)' }}>
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={16} className="text-amber-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-[12px] font-bold text-amber-200 mb-1">
+                Você ainda não tem liderados vinculados
+              </p>
+              <p className="text-[11px] text-amber-100/75 leading-relaxed">
+                A relação gestor → liderado é mantida pelo campo <code className="text-amber-200">gestor_id</code> em{' '}
+                <code className="text-amber-200">colaboradores</code>. Peça ao admin da empresa pra
+                vincular os colaboradores que você lidera (em <em>Gerenciar colaboradores</em>).
+                Enquanto não houver vínculo, esta tela aparece zerada por segurança — gestores não
+                veem dados de quem não é seu liderado direto.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Hero — 4 KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">

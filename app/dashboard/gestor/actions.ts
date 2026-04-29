@@ -58,12 +58,16 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   const meuId = ctx.colaborador.id;
 
   // ── 1. Liderados ──
+  // Gestor: filtra por gestor_id = meuId (vínculo direto). Se zero, NÃO
+  // faz fallback automático pra empresa toda — fail-closed pra evitar
+  // vazamento (gestor ver liderados que não são dele).
+  // RH/admin: vê empresa toda.
   let colabQ = sb.from('colaboradores')
-    .select('id, nome_completo, cargo, email, area_depto, perfil_dominante, perfil_externo_dados, foto_url')
+    .select('id, nome_completo, cargo, email, area_depto, perfil_dominante, perfil_externo_dados, foto_url, gestor_id')
     .eq('empresa_id', empresaId)
-    .neq('id', meuId); // gestor não aparece como liderado de si mesmo
-  if (isGestor && ctx.colaborador.area_depto) {
-    colabQ = colabQ.eq('area_depto', ctx.colaborador.area_depto);
+    .neq('id', meuId);
+  if (isGestor) {
+    colabQ = colabQ.eq('gestor_id', meuId);
   }
   const { data: colabs } = await colabQ;
   const liderados = colabs || [];

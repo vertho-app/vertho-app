@@ -21,12 +21,17 @@ export async function listarEquipeEvolucao() {
   const sb = createSupabaseAdmin();
   const empresaId = ctx.colaborador.empresa_id;
 
-  // Colabs: gestor vê sua área, RH vê empresa inteira
+  // Gestor: vê apenas seus liderados (gestor_id = self). RH/admin vê
+  // empresa inteira. Fail-closed: se gestor não tem ninguém com gestor_id
+  // apontando pra ele, retorna lista vazia (não cai pro fallback de
+  // empresa toda).
+  const meuId = ctx.colaborador.id;
   let colabQ = sb.from('colaboradores')
-    .select('id, nome_completo, cargo, email, area_depto')
-    .eq('empresa_id', empresaId);
-  if (isGestor && ctx.colaborador.area_depto) {
-    colabQ = colabQ.eq('area_depto', ctx.colaborador.area_depto);
+    .select('id, nome_completo, cargo, email, area_depto, gestor_id')
+    .eq('empresa_id', empresaId)
+    .neq('id', meuId);
+  if (isGestor) {
+    colabQ = colabQ.eq('gestor_id', meuId);
   }
   const { data: colabs } = await colabQ;
   if (!colabs?.length) return { ok: true, rows: [], resumo: { total: 0 } };
