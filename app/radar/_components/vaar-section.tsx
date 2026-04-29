@@ -1,4 +1,5 @@
-import { Award, AlertTriangle, Check, X } from 'lucide-react';
+import { Award, AlertTriangle, Check, X, TrendingUp } from 'lucide-react';
+import type { VaarEstimativa } from '@/lib/radar/vaar-estimativa';
 
 const FMT_BRL = new Intl.NumberFormat('pt-BR', {
   style: 'currency', currency: 'BRL', maximumFractionDigits: 0,
@@ -84,9 +85,11 @@ function StatusBadge({ value, label }: { value: boolean | null; label: string })
 export function VaarSection({
   vaar,
   receita,
+  estimativa,
 }: {
   vaar: VaarSnapshot | null;
   receita?: VaarReceita | null;
+  estimativa?: VaarEstimativa | null;
 }) {
   if (!vaar) return null;
 
@@ -94,6 +97,11 @@ export function VaarSection({
   const valorVaar = receita?.complementacao_vaar ?? null;
   const totalReceita = receita?.total_receita_prevista ?? null;
   const compTotal = receita?.complementacao_uniao_total ?? null;
+
+  // Proximidade VAAR — quantas das 5 condições legais o município atende
+  const condRespostas = [vaar.cond_i, vaar.cond_ii, vaar.cond_iii, vaar.cond_iv, vaar.cond_v];
+  const condAtende = condRespostas.filter((c) => c === true).length;
+  const condInformadas = condRespostas.filter((c) => c !== null).length;
   const headerBg = isBeneficiario
     ? 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.05))'
     : 'linear-gradient(135deg, rgba(249,115,84,0.12), rgba(249,115,84,0.04))';
@@ -189,6 +197,37 @@ export function VaarSection({
         </div>
       )}
 
+      {condInformadas > 0 && (
+        <div className="rounded-2xl p-4 border border-white/[0.06] mb-3"
+          style={{ background: 'rgba(255,255,255,0.03)' }}>
+          <div className="flex items-baseline justify-between gap-3 mb-2">
+            <p className="text-[10px] tracking-[0.25em] uppercase font-mono text-white/55">
+              Proximidade VAAR · {vaar.ano}
+            </p>
+            <p className="text-xs text-white/45 font-mono">
+              {condAtende} de 5
+            </p>
+          </div>
+          <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+            <div className="h-full rounded-full transition-all"
+              style={{
+                width: `${(condAtende / 5) * 100}%`,
+                background: condAtende === 5 ? '#6EE7B7' : condAtende >= 3 ? '#FCD34D' : '#F97354',
+              }} />
+          </div>
+          <p className="text-[11px] text-white/55 mt-2 leading-relaxed">
+            {condAtende === 5 && !isBeneficiario && (
+              <>Atende as 5 condições legais. Falta apenas evoluir em pelo menos um dos indicadores (atendimento ou aprendizagem).</>
+            )}
+            {condAtende === 5 && isBeneficiario && <>Atende as 5 condições legais e foi classificado como beneficiário.</>}
+            {condAtende < 5 && condAtende > 0 && (
+              <>Atende {condAtende} {condAtende === 1 ? 'das 5 condições' : 'das 5 condições'} legais. Para se habilitar, ajustar os {5 - condAtende} {5 - condAtende === 1 ? 'critério restante' : 'critérios restantes'} (detalhe abaixo).</>
+            )}
+            {condAtende === 0 && <>Não atende nenhuma das 5 condições legais para habilitação à VAAR.</>}
+          </p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
         <StatusBadge value={vaar.cond_i}   label={`I — ${COND_LABELS.i}`} />
         <StatusBadge value={vaar.cond_ii}  label={`II — ${COND_LABELS.ii}`} />
@@ -201,6 +240,68 @@ export function VaarSection({
         <StatusBadge value={vaar.evoluiu_atendimento}  label="Evoluiu indicador de atendimento" />
         <StatusBadge value={vaar.evoluiu_aprendizagem} label="Evoluiu indicador de aprendizagem" />
       </div>
+
+      {!isBeneficiario && estimativa && (
+        <div
+          className="rounded-2xl p-5 border mb-4"
+          style={{
+            background: 'linear-gradient(135deg, rgba(52,197,204,0.08), rgba(52,197,204,0.02))',
+            borderColor: 'rgba(52,197,204,0.25)',
+          }}
+        >
+          <div className="flex items-start gap-3 mb-3">
+            <TrendingUp size={18} style={{ color: '#34c5cc', flexShrink: 0, marginTop: 2 }} />
+            <div className="flex-1">
+              <p className="text-[10px] tracking-[0.25em] uppercase font-mono mb-1"
+                 style={{ color: '#34c5cc' }}>
+                Estimativa de receita potencial · projeção
+              </p>
+              <p className="text-[11px] text-white/65 leading-relaxed">
+                Se o município se habilitasse à VAAR e fosse classificado como beneficiário em {estimativa.ano},
+                a estimativa de receita complementar seria:
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 mb-3">
+            <div>
+              <p className="text-[9px] tracking-[0.18em] uppercase font-mono text-white/40 mb-1">
+                P25 (cenário conservador)
+              </p>
+              <p className="text-base font-mono text-white/75">
+                {FMT_BRL.format(estimativa.estimativaP25)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[9px] tracking-[0.18em] uppercase font-mono text-white/55 mb-1">
+                Mediana
+              </p>
+              <p className="text-xl font-mono font-bold" style={{ color: '#34c5cc' }}>
+                {FMT_BRL.format(estimativa.estimativaP50)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[9px] tracking-[0.18em] uppercase font-mono text-white/40 mb-1">
+                P75 (cenário otimista)
+              </p>
+              <p className="text-base font-mono text-white/75">
+                {FMT_BRL.format(estimativa.estimativaP75)}
+              </p>
+            </div>
+          </div>
+
+          <p className="text-[10px] text-white/45 leading-relaxed border-t border-white/[0.06] pt-3">
+            <strong className="text-white/65">Metodologia:</strong> projeção baseada na razão mediana entre
+            VAAR e (VAAF + VAAT) entre {estimativa.amostraTamanho} municípios beneficiários
+            {estimativa.metodologiaBase === 'uf' ? ` da mesma UF` : ' do Brasil (amostra UF insuficiente)'}, aplicada à
+            complementação federal já recebida pelo município ({FMT_BRL.format(estimativa.baseComplementacao)}).
+            Fração mediana usada: {(estimativa.ufRatio * 100).toFixed(1)}%.
+            <br />
+            <strong className="text-white/65">Não substitui</strong> análise oficial do FNDE — pressupõe que o município evolua nos indicadores
+            de atendimento ou aprendizagem e atenda às 5 condições legais.
+          </p>
+        </div>
+      )}
 
       {vaar.pendencia && (
         <div

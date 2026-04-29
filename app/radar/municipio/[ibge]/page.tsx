@@ -5,6 +5,7 @@ import type { Metadata } from 'next';
 import { ArrowLeft } from 'lucide-react';
 
 import { getMunicipio, getEscolasMunicipio, getMunicipioBenchmarks, getMunicipioVariabilidade } from '@/lib/radar/queries';
+import { estimarVaar } from '@/lib/radar/vaar-estimativa';
 import { leituraIcaMunicipio } from '@/lib/radar/leitura-deterministica';
 import { registrarEvento } from '@/lib/radar/eventos';
 import { RadarHeader, RadarFooter } from '../../_components/radar-header';
@@ -45,6 +46,16 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
     getMunicipioBenchmarks(ibge),
     getMunicipioVariabilidade(ibge),
   ]);
+
+  // Estimativa VAAR — só calcula quando município não é beneficiário
+  // mas recebe alguma complementação federal (VAAF/VAAT)
+  const vaarEstimativa = m.vaar && m.vaar.beneficiario === false && m.receitaPrevista
+    ? await estimarVaar({
+        uf: m.uf,
+        complementacaoVaaf: m.receitaPrevista.complementacao_vaaf,
+        complementacaoVaat: m.receitaPrevista.complementacao_vaat,
+      })
+    : null;
   const microrregiao = await (async () => {
     const sb = (await import('@/lib/supabase')).createSupabaseAdmin();
     const { data } = await sb
@@ -132,7 +143,7 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
         {m.fundeb && m.fundeb.length > 0 && <FundebSection fundeb={m.fundeb} />}
 
         {/* VAAR — habilitação para complementação por resultado */}
-        {m.vaar && <VaarSection vaar={m.vaar} receita={m.receitaPrevista} />}
+        {m.vaar && <VaarSection vaar={m.vaar} receita={m.receitaPrevista} estimativa={vaarEstimativa} />}
 
         {/* ICA cards */}
         {m.ica.length > 0 && (
