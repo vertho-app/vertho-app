@@ -163,10 +163,22 @@ export default function PerfilExternoPage({ params }: { params: Promise<{ empres
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-3 gap-3 mb-4">
         <Stat label="Colaboradores" valor={total} />
         <Stat label="Com PDF" valor={comPdf} acento={comPdf > 0 ? 'cyan' : undefined} />
         <Stat label="Extraídos" valor={extraidos} acento={extraidos > 0 ? 'green' : undefined} />
+      </div>
+
+      {/* Aviso sobre tipo de relatório */}
+      <div className="rounded-xl p-3 mb-6 border border-amber-400/20 bg-amber-400/[0.04] text-[11px] text-amber-100/85 leading-relaxed">
+        <strong className="text-amber-300">Atenção ao arquivo certo:</strong>{' '}
+        <span className="text-amber-100/70">
+          o sistema só aceita o <strong className="text-amber-100">"OPQ32 Perfil"</strong> (relatório de
+          ~3 páginas com tabela de Stens 1-10). Os arquivos com{' '}
+          <code className="text-amber-200">OPQ32Profile</code> no nome são os corretos. Outros relatórios SHL
+          (<code className="text-amber-100/60">DevReport</code>, <code className="text-amber-100/60">UCF</code>, etc.)
+          não funcionam — são narrativos, sem os scores estruturados que o pipeline IA precisa.
+        </span>
       </div>
 
       {/* Tabela */}

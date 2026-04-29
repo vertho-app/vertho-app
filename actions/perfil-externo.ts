@@ -6,6 +6,7 @@ import { requireAdminAction } from '@/lib/auth/action-context';
 import {
   montarOPQ32Profile,
   extrairMetadadosOPQ32,
+  detectarTipoSHL,
   type OPQ32Profile,
 } from '@/lib/perfil-externo/opq32-parser';
 
@@ -236,7 +237,31 @@ export async function extrairPerfilExterno(
     return { success: false, error: 'PDF parece vazio ou corrompido' };
   }
 
-  // Parseia OPQ32
+  // Detecta o tipo de relatório antes de tentar parsear
+  const tipo = detectarTipoSHL(texto);
+  if (tipo === 'shl_dev_report') {
+    return {
+      success: false,
+      error:
+        'Este parece ser um Development Report da SHL (relatório narrativo de desenvolvimento). O sistema espera o "OPQ32 Perfil" — relatório de ~3 páginas com a tabela de Stens (1-10) e o bloco "Dados do Candidato" na última página. Procure pelo arquivo cujo nome inclui "OPQ32Profile".',
+    };
+  }
+  if (tipo === 'shl_outro') {
+    return {
+      success: false,
+      error:
+        'Relatório SHL identificado, mas não é o "OPQ32 Perfil" suportado. Suba o relatório de tipo "OPQ32 Profile" (3 páginas, com tabela de Stens 1-10 e bloco "Dados do Candidato").',
+    };
+  }
+  if (tipo === 'desconhecido') {
+    return {
+      success: false,
+      error:
+        'Não foi possível identificar este PDF como um relatório SHL OPQ32. Confirme que o arquivo é o "OPQ32 Perfil" oficial.',
+    };
+  }
+
+  // tipo === 'opq32_profile' — segue parseando
   const meta = extrairMetadadosOPQ32(texto);
   const profile = montarOPQ32Profile({
     textoPdf: texto,
@@ -249,7 +274,7 @@ export async function extrairPerfilExterno(
     return {
       success: false,
       error:
-        'Não foi possível extrair os 32 stens do PDF. Confirme que é um relatório OPQ32 válido (página 3 deve ter o bloco "Dados do Candidato" com RP1=N, RP2=N, ...).',
+        'O PDF foi reconhecido como OPQ32 Perfil, mas não consegui extrair os 32 stens da página 3 (esperado >= 30 escalas). Pode ser uma versão mais antiga ou layout diferente. Me envia esse PDF pra ajustar o parser.',
     };
   }
 

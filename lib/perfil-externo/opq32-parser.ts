@@ -230,6 +230,39 @@ export function montarOPQ32Profile(opts: {
 }
 
 /**
+ * Detecta o tipo de relatório SHL pelo conteúdo do texto extraído.
+ * Útil pra dar mensagem de erro específica quando o usuário sobe o
+ * relatório errado (ex: Dev Report no lugar do OPQ32 Profile).
+ */
+export type SHLReportTipo =
+  | 'opq32_profile'      // OPQ32 Perfil: 3 páginas com bloco "Dados do Candidato" (suportado)
+  | 'shl_dev_report'     // Development Report: narrativo, sem stens estruturados
+  | 'shl_outro'          // Outro relatório SHL com header reconhecível
+  | 'desconhecido';
+
+export function detectarTipoSHL(textoPdf: string): SHLReportTipo {
+  const t = textoPdf.toLowerCase();
+  // OPQ32 Profile: tem o bloco "Dados do Candidato" + "OPQ32 Perfil"
+  const hasOPQHeader = /opq32\s+perfil|opq\s+perfil/i.test(textoPdf);
+  const hasDadosCand = /dados do candidato/i.test(textoPdf);
+  const hasStens = /\b(RP\d{1,2}|TS\d{1,2}|FE\d{1,2}|CNS)\s*=\s*\d+/.test(textoPdf);
+  if (hasOPQHeader && hasDadosCand && hasStens) return 'opq32_profile';
+
+  // Development Report (Boehringer e outros formatos): geralmente menciona
+  // "Development Report" ou "Plano de Desenvolvimento" ou "DevReport"
+  if (/development\s+report|dev\s+report|plano\s+de\s+desenvolvimento/i.test(textoPdf)) {
+    return 'shl_dev_report';
+  }
+
+  // Algum outro relatório SHL (UCF, MQ, Sales Report, etc.)
+  if (/shl\.com|shl global|©\s*\d{4}\s+shl/i.test(textoPdf) || t.includes('opq')) {
+    return 'shl_outro';
+  }
+
+  return 'desconhecido';
+}
+
+/**
  * Heurísticas pra extrair nome/data/grupo do texto. Tolera variações de
  * formato. Se não encontrar, retorna undefined (chamador decide).
  */
