@@ -29,13 +29,24 @@ export type VaarReceita = {
   total_receita_prevista: number | null;
 };
 
-// Descrições derivadas da Lei nº 14.113/2020, art. 14, §1º (incisos I a V)
+// Descrições oficiais da Lei nº 14.113/2020, art. 14, §1º (incisos I a V).
+// Detalhamento por Resoluções CIF (1/2022 a 17/2025).
 const COND_LABELS: Record<string, string> = {
-  i:   'Avaliação institucional ao fim do ensino fundamental I (alfabetização)',
-  ii:  'Plano de Carreira e Remuneração com avaliação periódica de desempenho docente',
-  iii: 'Critério técnico de mérito e desempenho na nomeação dos diretores escolares',
-  iv:  'Programa estruturado de educação em tempo integral',
-  v:   'Programa estruturado de inclusão e atendimento educacional especializado',
+  i:   'Provimento de gestor escolar por critério técnico de mérito e desempenho',
+  ii:  'Participação ≥ 80% dos estudantes nas avaliações Saeb',
+  iii: 'Redução de desigualdades educacionais (raça/cor e socioeconômica)',
+  iv:  'ICMS Educacional — lei estadual com critérios educacionais',
+  v:   'Currículo alinhado à BNCC, com Computação na Educação Básica',
+};
+
+// Onde a Vertho atua — honestidade técnica em vez de prometer demais.
+// 🟢 atuação direta · 🟡 atuação indireta · 🔴 fora do escopo
+const COND_VERTHO_NOTA: Record<string, string> = {
+  i:   '🟡 Vertho contribui via avaliação periódica de gestores (subcritério I.e da Resolução CIF 15/2025).',
+  ii:  '🔴 Comparecimento dos alunos no Saeb depende de logística da rede; fora do escopo Vertho.',
+  iii: '🟡 Vertho atua indiretamente via Diferenciação Pedagógica como competência docente.',
+  iv:  '🔴 Critério estadual (lei do ICMS Educacional). Município herda o status do estado.',
+  v:   '🟢 Vertho desenvolve professores dentro do referencial BNCC — atua na implementação efetiva.',
 };
 
 function ReceitaCell({
@@ -54,30 +65,40 @@ function ReceitaCell({
   );
 }
 
-function StatusBadge({ value, label }: { value: boolean | null; label: string }) {
+function StatusBadge({ value, label, nota }: { value: boolean | null; label: string; nota?: string }) {
   if (value === null) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-white/[0.06]">
-        <span className="text-white/40 text-xs">—</span>
-        <span className="text-[11px] text-white/45">{label}</span>
+      <div
+        className="flex items-start gap-2 px-3 py-2.5 rounded-lg border border-white/[0.06]"
+        title={nota}
+      >
+        <span className="text-white/40 text-xs leading-none mt-0.5">—</span>
+        <div className="flex-1 min-w-0">
+          <span className="text-[11px] text-white/45 block leading-snug">{label}</span>
+          {nota && <span className="text-[10px] text-white/35 block mt-1 leading-snug">{nota}</span>}
+        </div>
       </div>
     );
   }
   const ok = value === true;
   return (
     <div
-      className="flex items-center gap-2 px-3 py-2 rounded-lg border"
+      className="flex items-start gap-2 px-3 py-2.5 rounded-lg border"
       style={{
         borderColor: ok ? 'rgba(110, 231, 183, 0.2)' : 'rgba(249, 115, 84, 0.2)',
         background: ok ? 'rgba(110, 231, 183, 0.06)' : 'rgba(249, 115, 84, 0.06)',
       }}
+      title={nota}
     >
       {ok ? (
-        <Check size={14} style={{ color: '#6EE7B7' }} />
+        <Check size={14} style={{ color: '#6EE7B7', marginTop: 2, flexShrink: 0 }} />
       ) : (
-        <X size={14} style={{ color: '#F97354' }} />
+        <X size={14} style={{ color: '#F97354', marginTop: 2, flexShrink: 0 }} />
       )}
-      <span className="text-[11px] text-white/80">{label}</span>
+      <div className="flex-1 min-w-0">
+        <span className="text-[11px] text-white/80 block leading-snug">{label}</span>
+        {nota && <span className="text-[10px] text-white/55 block mt-1 leading-snug">{nota}</span>}
+      </div>
     </div>
   );
 }
@@ -116,11 +137,17 @@ export function VaarSection({
         </h2>
       </div>
       <p className="text-xs text-white/55 mb-4 leading-relaxed">
-        O VAAR é a parcela do FUNDEB que premia <strong className="text-white/80">resultado
-        educacional</strong>. Para receber em {vaar.ano}, o município precisa cumprir as 5
-        condições legais (Lei nº 14.113/2020, art. 14, §1º) <em>e</em> ter evoluído em
-        <strong className="text-white/80"> pelo menos um</strong> dos indicadores
-        (atendimento ou aprendizagem) em relação ao ano anterior.
+        O VAAR é a parcela do FUNDEB (≈ 2,5% da complementação federal) que premia{' '}
+        <strong className="text-white/80">resultado educacional</strong>. Para receber em {vaar.ano},
+        o município precisa cumprir as 5 condicionalidades da Lei nº 14.113/2020, art. 14, §1º{' '}
+        <em>e</em> ter evoluído em <strong className="text-white/80">pelo menos um</strong> dos
+        indicadores (atendimento ou aprendizagem) em relação ao ano anterior. Detalhamento por
+        Resoluções CIF (1/2022 a 17/2025); aferição via SIMEC (incisos I, IV, V) e microdados
+        Saeb/INEP (II, III).
+      </p>
+      <p className="text-[11px] text-white/45 mb-4 leading-relaxed border-l-2 border-cyan-400/30 pl-3">
+        Cada condicionalidade abaixo traz, em itálico, onde a Vertho atua:
+        <span className="text-white/55"> 🟢 atuação direta · 🟡 atuação indireta · 🔴 fora do escopo</span>.
       </p>
 
       <div
@@ -229,11 +256,11 @@ export function VaarSection({
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
-        <StatusBadge value={vaar.cond_i}   label={`I — ${COND_LABELS.i}`} />
-        <StatusBadge value={vaar.cond_ii}  label={`II — ${COND_LABELS.ii}`} />
-        <StatusBadge value={vaar.cond_iii} label={`III — ${COND_LABELS.iii}`} />
-        <StatusBadge value={vaar.cond_iv}  label={`IV — ${COND_LABELS.iv}`} />
-        <StatusBadge value={vaar.cond_v}   label={`V — ${COND_LABELS.v}`} />
+        <StatusBadge value={vaar.cond_i}   label={`I — ${COND_LABELS.i}`}   nota={COND_VERTHO_NOTA.i} />
+        <StatusBadge value={vaar.cond_ii}  label={`II — ${COND_LABELS.ii}`}  nota={COND_VERTHO_NOTA.ii} />
+        <StatusBadge value={vaar.cond_iii} label={`III — ${COND_LABELS.iii}`} nota={COND_VERTHO_NOTA.iii} />
+        <StatusBadge value={vaar.cond_iv}  label={`IV — ${COND_LABELS.iv}`}  nota={COND_VERTHO_NOTA.iv} />
+        <StatusBadge value={vaar.cond_v}   label={`V — ${COND_LABELS.v}`}   nota={COND_VERTHO_NOTA.v} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
