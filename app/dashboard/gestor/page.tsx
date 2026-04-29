@@ -97,9 +97,9 @@ export default function GestorHomePage() {
                 Você ainda não tem liderados vinculados
               </p>
               <p className="text-[11px] text-amber-100/75 leading-relaxed">
-                A relação gestor → liderado é mantida pelo campo <code className="text-amber-200">gestor_id</code> em{' '}
-                <code className="text-amber-200">colaboradores</code>. Peça ao admin da empresa pra
-                vincular os colaboradores que você lidera (em <em>Gerenciar colaboradores</em>).
+                O vínculo gestor → liderado é feito via campo <code className="text-amber-200">gestor_email</code>{' '}
+                em cada colaborador. Peça ao admin da empresa pra preencher esse campo com seu
+                e-mail nos colaboradores que você lidera (na importação ou em <em>Gerenciar colaboradores</em>).
                 Enquanto não houver vínculo, esta tela aparece zerada por segurança — gestores não
                 veem dados de quem não é seu liderado direto.
               </p>

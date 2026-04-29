@@ -21,17 +21,18 @@ export async function listarEquipeEvolucao() {
   const sb = createSupabaseAdmin();
   const empresaId = ctx.colaborador.empresa_id;
 
-  // Gestor: vê apenas seus liderados (gestor_id = self). RH/admin vê
-  // empresa inteira. Fail-closed: se gestor não tem ninguém com gestor_id
-  // apontando pra ele, retorna lista vazia (não cai pro fallback de
-  // empresa toda).
+  // Vínculo gestor→liderado é por colaboradores.gestor_email (não há
+  // coluna gestor_id; o type em types/index.d.ts está aspiracional/errado).
+  // Gestor: filtra liderados cujo gestor_email == self.email (ilike pra
+  // tolerar case). RH/admin: empresa inteira. Fail-closed.
   const meuId = ctx.colaborador.id;
+  const meuEmail = ctx.colaborador.email?.toLowerCase().trim();
   let colabQ = sb.from('colaboradores')
-    .select('id, nome_completo, cargo, email, area_depto, gestor_id')
+    .select('id, nome_completo, cargo, email, area_depto, gestor_email')
     .eq('empresa_id', empresaId)
     .neq('id', meuId);
-  if (isGestor) {
-    colabQ = colabQ.eq('gestor_id', meuId);
+  if (isGestor && meuEmail) {
+    colabQ = colabQ.ilike('gestor_email', meuEmail);
   }
   const { data: colabs } = await colabQ;
   if (!colabs?.length) return { ok: true, rows: [], resumo: { total: 0 } };

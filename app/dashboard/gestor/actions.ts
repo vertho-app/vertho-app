@@ -58,16 +58,18 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   const meuId = ctx.colaborador.id;
 
   // ── 1. Liderados ──
-  // Gestor: filtra por gestor_id = meuId (vínculo direto). Se zero, NÃO
-  // faz fallback automático pra empresa toda — fail-closed pra evitar
-  // vazamento (gestor ver liderados que não são dele).
-  // RH/admin: vê empresa toda.
+  // Vínculo gestor→liderado é por colaboradores.gestor_email (string).
+  // (NÃO existe coluna gestor_id na tabela — type em types/index.d.ts
+  // está aspiracional/errado.)
+  // Gestor: filtra por gestor_email ilike self.email. RH/admin: empresa toda.
+  // Fail-closed: se zero match, retorna lista vazia.
+  const meuEmail = ctx.colaborador.email?.toLowerCase().trim();
   let colabQ = sb.from('colaboradores')
-    .select('id, nome_completo, cargo, email, area_depto, perfil_dominante, perfil_externo_dados, foto_url, gestor_id')
+    .select('id, nome_completo, cargo, email, area_depto, perfil_dominante, perfil_externo_dados, foto_url, gestor_email')
     .eq('empresa_id', empresaId)
     .neq('id', meuId);
-  if (isGestor) {
-    colabQ = colabQ.eq('gestor_id', meuId);
+  if (isGestor && meuEmail) {
+    colabQ = colabQ.ilike('gestor_email', meuEmail);
   }
   const { data: colabs } = await colabQ;
   const liderados = colabs || [];
