@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import React from 'react';
 import { renderToBuffer } from '@react-pdf/renderer';
+import { Resend } from 'resend';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getLogoCoverBase64 } from '@/lib/pdf-assets';
 import { montarPropostaPayload } from '@/lib/radar/proposta-pdf-data';
@@ -112,11 +113,18 @@ export async function POST(req: Request) {
     }).eq('id', leadId);
 
     // ── 6. Envia email via Resend ──────────────────────────────────
-    if (process.env.RESEND_API_KEY && lead.email) {
+    let emailEnviado: 'sim' | 'sem-key' | 'sem-email' | 'erro' = 'sem-key';
+    let emailErrMsg: string | null = null;
+    if (!process.env.RESEND_API_KEY) {
+      emailEnviado = 'sem-key';
+      console.error('[radar/lead-pdf] RESEND_API_KEY ausente em runtime');
+    } else if (!lead.email) {
+      emailEnviado = 'sem-email';
+      console.error('[radar/lead-pdf] lead.email vazio:', leadId);
+    } else {
       try {
-        const { Resend } = await import('resend');
         const resend = new Resend(process.env.RESEND_API_KEY);
-        await resend.emails.send({
+        const sendResult = await resend.emails.send({
           from: EMAIL_FROM_DEFAULT,
           to: lead.email,
           subject: `Diagnóstico Vertho — ${propostaPayload.scopeLabel}`,
@@ -132,13 +140,22 @@ export async function POST(req: Request) {
             },
           ],
         });
+        if ((sendResult as any)?.error) {
+          emailEnviado = 'erro';
+          emailErrMsg = JSON.stringify((sendResult as any).error).slice(0, 300);
+          console.error('[radar/lead-pdf] Resend retornou erro:', emailErrMsg);
+        } else {
+          emailEnviado = 'sim';
+          console.log('[radar/lead-pdf] email enviado:', (sendResult as any)?.data?.id);
+        }
       } catch (emailErr: any) {
-        console.error('[radar/lead-pdf] Resend falhou:', emailErr?.message);
-        // Não marca como erro — PDF está pronto e URL signed funciona
+        emailEnviado = 'erro';
+        emailErrMsg = String(emailErr?.message || emailErr).slice(0, 300);
+        console.error('[radar/lead-pdf] Resend exception:', emailErr?.stack || emailErrMsg);
       }
     }
 
-    return NextResponse.json({ ok: true, leadId, pdfUrl });
+    return NextResponse.json({ ok: true, leadId, pdfUrl, emailEnviado, emailErrMsg });
   } catch (err: any) {
     console.error('[radar/lead-pdf] FATAL', err);
     if (leadId) {

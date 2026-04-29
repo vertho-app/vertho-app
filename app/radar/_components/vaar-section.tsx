@@ -241,6 +241,37 @@ export function VaarSection({
         <StatusBadge value={vaar.evoluiu_aprendizagem} label="Evoluiu indicador de aprendizagem" />
       </div>
 
+      {!isBeneficiario && !estimativa && receita && (
+        <div
+          className="rounded-2xl p-5 border mb-4"
+          style={{
+            background: 'rgba(255,255,255,0.03)',
+            borderColor: 'rgba(255,255,255,0.08)',
+          }}
+        >
+          <div className="flex items-start gap-3">
+            <TrendingUp size={18} style={{ color: '#9ae2e6', flexShrink: 0, marginTop: 2 }} />
+            <div className="flex-1">
+              <p className="text-[10px] tracking-[0.25em] uppercase font-mono mb-1"
+                 style={{ color: '#9ae2e6' }}>
+                Estimativa de receita potencial · não aplicável
+              </p>
+              <p className="text-[12px] text-white/65 leading-relaxed">
+                A VAAR é parte da <strong className="text-white/85">complementação da União ao FUNDEB</strong>{' '}
+                — destinada a redes que recebem VAAF/VAAT (cidades com receita própria insuficiente
+                para garantir o valor mínimo por aluno). Este município não recebe complementação federal
+                em {receita.ano}, portanto a projeção financeira da VAAR não se aplica ao seu perfil.
+                <br /><br />
+                <span className="text-white/45">
+                  O bloco de "Proximidade VAAR" acima ainda é útil: indica quais critérios pedagógicos a rede
+                  já cumpre — relevantes mesmo para redes que não disputam complementação federal.
+                </span>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {!isBeneficiario && estimativa && (
         <div
           className="rounded-2xl p-5 border mb-4"
