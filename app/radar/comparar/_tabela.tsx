@@ -49,10 +49,16 @@ export function CompararTabela({ escolas }: { escolas: EscolaCompacta[] }) {
       {/* Linhas */}
       {ROWS.map((row, ri) => {
         const valores = escolas.map((e) => row.acessor(e));
+        const exibidos = valores.map((v) => v != null ? row.format(v) : null);
         const definidos = valores.filter((v): v is number => v != null);
-        const melhor = definidos.length > 0
-          ? (row.direction === 'higher_better' ? Math.max(...definidos) : Math.min(...definidos))
-          : null;
+        let melhorStr: string | null = null;
+        if (definidos.length > 1) {
+          const melhorRaw = row.direction === 'higher_better' ? Math.max(...definidos) : Math.min(...definidos);
+          melhorStr = row.format(melhorRaw);
+          // Empate quando 2+ escolas caem na mesma string formatada
+          const ocorrencias = exibidos.filter((s) => s === melhorStr).length;
+          if (ocorrencias > 1) melhorStr = null;
+        }
 
         return (
           <div key={ri}>
@@ -70,7 +76,8 @@ export function CompararTabela({ escolas }: { escolas: EscolaCompacta[] }) {
               </div>
               {escolas.map((e, ei) => {
                 const v = valores[ei];
-                const isMelhor = v != null && v === melhor && definidos.length > 1;
+                const exibido = exibidos[ei];
+                const isMelhor = melhorStr != null && exibido === melhorStr;
                 return (
                   <div key={e.codigo_inep}
                     className="px-4 py-3 border-r border-white/[0.04] last:border-r-0 font-mono text-sm"
@@ -79,7 +86,7 @@ export function CompararTabela({ escolas }: { escolas: EscolaCompacta[] }) {
                       color: isMelhor ? '#34D399' : (v == null ? 'rgba(255,255,255,0.3)' : '#fff'),
                       fontWeight: isMelhor ? 700 : 500,
                     }}>
-                    {v != null ? row.format(v) : '—'}
+                    {exibido ?? '—'}
                     {isMelhor && (
                       <span className="ml-2 text-[9px] uppercase tracking-wider opacity-70">melhor</span>
                     )}

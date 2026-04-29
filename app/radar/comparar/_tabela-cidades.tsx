@@ -67,10 +67,17 @@ export function CompararTabelaCidades({ cidades }: { cidades: MunicipioCompacto[
       {/* Linhas */}
       {ROWS.map((row, ri) => {
         const valores = cidades.map((c) => row.acessor(c));
+        // Compara pelos valores APRESENTADOS (mesma precisão que o usuário vê).
+        // Evita marcar 5.5925 como melhor que 5.5912 quando ambos exibem "5.59".
+        const exibidos = valores.map((v) => v != null ? row.format(v) : null);
+        let melhorStr: string | null = null;
         const definidos = valores.filter((v): v is number => v != null);
-        let melhor: number | null = null;
         if (row.direction !== 'neutral' && definidos.length > 1) {
-          melhor = row.direction === 'higher_better' ? Math.max(...definidos) : Math.min(...definidos);
+          const melhorRaw = row.direction === 'higher_better' ? Math.max(...definidos) : Math.min(...definidos);
+          melhorStr = row.format(melhorRaw);
+          // Se 2 ou mais cidades caem na mesma string, vira empate (não destaca ninguém)
+          const ocorrencias = exibidos.filter((s) => s === melhorStr).length;
+          if (ocorrencias > 1) melhorStr = null;
         }
 
         return (
@@ -91,7 +98,8 @@ export function CompararTabelaCidades({ cidades }: { cidades: MunicipioCompacto[
               </div>
               {cidades.map((c, ci) => {
                 const v = valores[ci];
-                const isMelhor = v != null && v === melhor;
+                const exibido = exibidos[ci];
+                const isMelhor = melhorStr != null && exibido === melhorStr;
                 return (
                   <div key={c.ibge}
                     className="px-4 py-3 border-r border-white/[0.04] last:border-r-0 font-mono text-sm"
@@ -100,7 +108,7 @@ export function CompararTabelaCidades({ cidades }: { cidades: MunicipioCompacto[
                       color: isMelhor ? '#86efac' : (v == null ? 'rgba(255,255,255,0.3)' : '#fff'),
                       fontWeight: isMelhor ? 700 : 500,
                     }}>
-                    {v != null ? row.format(v) : '—'}
+                    {exibido ?? '—'}
                     {isMelhor && (
                       <span className="ml-2 text-[9px] uppercase tracking-wider opacity-70">melhor</span>
                     )}
