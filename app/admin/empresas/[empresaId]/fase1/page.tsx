@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft, Loader2, Trophy, Trash2, Plus, X, Search, ChevronDown,
   Briefcase, FileText, Target, Brain, RefreshCw, CheckCircle, AlertTriangle
@@ -16,8 +16,12 @@ import { loadCargos, salvarTop5 } from '@/app/admin/cargos/actions';
 export default function Fase1Page({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get('tab');
 
-  const [tab, setTab] = useState('top10');
+  const [tab, setTab] = useState(
+    ['top10', 'top5', 'gabarito', 'cenarios'].includes(initialTab || '') ? (initialTab as string) : 'top10'
+  );
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
 
@@ -241,34 +245,98 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
         </div>
       )}
 
-      {/* ══════════════ TAB: TOP 5 ══════════════ */}
+      {/* ══════════════ TAB: TOP 5 (editável — workshop) ══════════════ */}
       {tab === 'top5' && (
         <div>
+          <div className="rounded-xl p-3 mb-4 border border-cyan-400/15 bg-cyan-400/[0.04] text-[11px] text-cyan-100/85 leading-relaxed">
+            <strong className="text-cyan-300">Workshop presencial:</strong>{' '}
+            <span className="text-cyan-100/70">
+              selecione as competências escolhidas no workshop entre as Top 10 do cargo. Pode escolher{' '}
+              <strong className="text-cyan-100/90">qualquer quantidade</strong> (≥ 1) — não está mais limitado a 5.
+              Alternativamente, use a{' '}
+            </span>
+            <button onClick={() => router.push(`/admin/empresas/${empresaId}/votacao`)}
+              className="underline text-cyan-300 hover:text-cyan-200">
+              Votação dos colaboradores
+            </button>
+            <span className="text-cyan-100/70">.</span>
+          </div>
+
           {cargosData.length === 0 ? (
-            <Empty icon={Target} text="Nenhum cargo encontrado. Selecione Top 5 na tela de Cargos & Top 5." />
+            <Empty icon={Target} text="Nenhum cargo encontrado. Importe colaboradores e rode IA1 primeiro." />
           ) : cargosData.map(cargo => {
-            const selected = cargo.top5_workshop || [];
-            if (!selected.length) return (
-              <div key={cargo.id} className="mb-4 rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
-                <h3 className="text-sm font-bold text-white">{cargo.nome}</h3>
-                <p className="text-[10px] text-gray-500 mt-1">Nenhuma Top 5 selecionada</p>
-              </div>
-            );
+            const top10 = cargo.competencias_top10 || [];
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(cargo.id);
+            const selected: string[] = top5Edits[cargo.id] || [];
+            const dirty = JSON.stringify(selected) !== JSON.stringify(cargo.top5_workshop || []);
+            const isSaving = !!savingTop5[cargo.id];
+
+            const toggle = (comp: string) => {
+              const cur = selected.includes(comp)
+                ? selected.filter((c) => c !== comp)
+                : [...selected, comp];
+              setTop5Edits((prev) => ({ ...prev, [cargo.id]: cur }));
+            };
+
+            const salvar = async () => {
+              if (!isUuid) { flash('Cargo precisa estar em cargos_empresa pra salvar'); return; }
+              setSavingTop5((prev) => ({ ...prev, [cargo.id]: true }));
+              const r = await salvarTop5(cargo.id, selected);
+              setSavingTop5((prev) => ({ ...prev, [cargo.id]: false }));
+              if (r.success) { flash(`${cargo.nome}: ${selected.length} salvas`); refresh(); }
+              else flash('Erro: ' + r.error);
+            };
+
             return (
               <div key={cargo.id} className="mb-4 rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
-                <div className="px-4 py-3 border-b border-white/[0.06]">
-                  <h3 className="text-sm font-bold text-white">{cargo.nome}</h3>
-                  <p className="text-[10px] text-gray-500">{selected.length} competências selecionadas</p>
-                </div>
-                <div className="p-4">
-                  <div className="space-y-1.5">
-                    {selected.map((comp, i) => (
-                      <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-cyan-400/20 bg-cyan-400/5">
-                        <span className="text-[10px] font-mono text-cyan-400 font-bold w-4 text-center">{i + 1}</span>
-                        <span className="text-xs text-white font-medium">{comp}</span>
-                      </div>
-                    ))}
+                <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-bold text-white">{cargo.nome}</h3>
+                    <p className="text-[10px] text-gray-500">
+                      {selected.length} de {top10.length} selecionadas
+                      {dirty && <span className="text-amber-400 ml-2">· não salvo</span>}
+                    </p>
                   </div>
+                  {top10.length > 0 && (
+                    <button
+                      onClick={salvar}
+                      disabled={!dirty || isSaving || !isUuid}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 disabled:opacity-40 disabled:cursor-not-allowed">
+                      {isSaving ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle size={11} />}
+                      Salvar
+                    </button>
+                  )}
+                </div>
+
+                <div className="p-4">
+                  {top10.length === 0 ? (
+                    <p className="text-[11px] text-gray-500 italic">Top 10 vazio. Rode IA1 no pipeline primeiro.</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {top10.map((comp, i) => {
+                        const marcado = selected.includes(comp);
+                        return (
+                          <button
+                            type="button"
+                            key={comp + i}
+                            onClick={() => toggle(comp)}
+                            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
+                              marcado ? 'border border-cyan-400/30' : 'border border-transparent hover:border-white/[0.08]'
+                            }`}
+                            style={{ background: marcado ? 'rgba(52,197,204,0.08)' : 'rgba(255,255,255,0.02)' }}>
+                            <span
+                              className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                                marcado ? 'border-cyan-400 bg-cyan-400/20' : 'border-white/20 bg-transparent'
+                              }`}>
+                              {marcado && <CheckCircle size={11} className="text-cyan-400" />}
+                            </span>
+                            <span className="text-[10px] font-mono text-amber-400/70 w-4 text-center shrink-0">{i + 1}</span>
+                            <span className={`text-xs ${marcado ? 'font-bold text-white' : 'text-gray-400'}`}>{comp}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             );

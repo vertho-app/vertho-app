@@ -195,17 +195,22 @@ export async function loadResultadosVotacao(empresaId: string) {
 
 // ── Admin: aprovar Top 5 da votação ───────────────────────────────────────
 
-export async function aprovarTop5Votacao(empresaId: string, cargo: string, top5: string[]) {
+export async function aprovarTop5Votacao(empresaId: string, cargo: string, top: string[]) {
   const { requireAdminAction } = await import('@/lib/auth/action-context');
   await requireAdminAction();
 
-  if (!Array.isArray(top5) || top5.length !== 5) return { success: false, error: 'Selecione exatamente 5' };
+  if (!Array.isArray(top) || top.length < 1) {
+    return { success: false, error: 'Selecione ao menos 1 competência' };
+  }
+  // Dedup mantendo ordem
+  const dedup = Array.from(new Set(top.map((s) => String(s).trim()).filter(Boolean)));
+  if (dedup.length === 0) return { success: false, error: 'Nenhuma competência válida' };
 
   const tdb = tenantDb(empresaId);
   const { error } = await tdb.from('cargos_empresa')
-    .update({ top5_workshop: top5 })
+    .update({ top5_workshop: dedup })
     .eq('nome', cargo);
 
   if (error) return { success: false, error: error.message };
-  return { success: true, message: `Top 5 aprovado para ${cargo}` };
+  return { success: true, message: `${dedup.length} competência${dedup.length === 1 ? '' : 's'} aprovada${dedup.length === 1 ? '' : 's'} para ${cargo}` };
 }
