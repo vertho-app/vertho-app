@@ -208,6 +208,25 @@ export type EscolaN0Row = {
   diff_mediana: number;
 };
 
+export type ParCidade = {
+  codigo_inep: string;
+  nome: string;
+  rede: string | null;
+  is_target: boolean;
+  saeb_lp: number | null;
+  saeb_mat: number | null;
+  saeb_geral: number | null;
+  ideb_principal: number | null;
+  rank_geral: number;
+  total_pares: number;
+};
+
+export async function getParesCidade(codigoInep: string, limit = 10): Promise<ParCidade[]> {
+  const sb = createSupabaseAdmin();
+  const { data } = await sb.rpc('diag_escola_pares_cidade', { p_inep: codigoInep, p_limit: limit });
+  return (data as ParCidade[]) || [];
+}
+
 export async function getEscolaInfraSaeb(codigoInep: string): Promise<{
   resumo: EscolaInfraSaeb | null;
   breakdown: EscolaN0Row[];

@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { ArrowLeft } from 'lucide-react';
 
-import { getEscola, getEscolaBenchmarks, getEscolaInfraSaeb } from '@/lib/radar/queries';
+import { getEscola, getEscolaBenchmarks, getEscolaInfraSaeb, getParesCidade } from '@/lib/radar/queries';
 import { leituraSaebEscola, ETAPA_LABELS } from '@/lib/radar/leitura-deterministica';
 import { registrarEvento } from '@/lib/radar/eventos';
 import { RadarHeader, RadarFooter } from '../../_components/radar-header';
@@ -18,6 +18,7 @@ import { PddeSection } from '../../_components/pdde-section';
 import { EscolaBenchmarkTable } from '../../_components/escola-benchmark-table';
 import { InfraSaebCard } from '../../_components/infra-saeb-card';
 import { HeroEscola } from '../../_components/hero-escola';
+import { ParesCidadeSection } from '../../_components/pares-cidade';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,9 +48,10 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
   const saresp = r.saresp || [];
   const pdde = r.pdde || [];
 
-  const [benchmarks, infraSaeb] = await Promise.all([
+  const [benchmarks, infraSaeb, paresCidade] = await Promise.all([
     getEscolaBenchmarks(escola.codigo_inep),
     getEscolaInfraSaeb(escola.codigo_inep),
+    getParesCidade(escola.codigo_inep, 10),
   ]);
 
   // Tracking best-effort (não bloqueia render)
@@ -127,6 +129,13 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
 
         {/* Cruzamento Infra × Saeb (quadrante editorial) */}
         <InfraSaebCard resumo={infraSaeb.resumo} breakdown={infraSaeb.breakdown} />
+
+        {/* Pares INSE na mesma cidade (lista nominal) */}
+        <ParesCidadeSection
+          pares={paresCidade}
+          municipio={escola.municipio}
+          inseGrupo={escola.inse_grupo}
+        />
 
         {/* Infra (Censo Escolar) */}
         {censo && <InfraSection censo={censo} />}
