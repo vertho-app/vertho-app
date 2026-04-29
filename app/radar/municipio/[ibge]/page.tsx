@@ -124,6 +124,8 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
         {/* Ideb médio das escolas */}
         {m.ideb.length > 0 && <MunicipioIdebSection ideb={m.ideb} />}
 
+        {m.enem.length > 0 && <MunicipioEnemSection enem={m.enem} />}
+
         {/* FUNDEB — recursos da rede */}
         {m.fundeb && m.fundeb.length > 0 && <FundebSection fundeb={m.fundeb} />}
 
@@ -320,4 +322,77 @@ function etapaLabel(etapa: string) {
   if (etapa === '9_EF') return 'Anos finais';
   if (etapa === '3_EM') return 'Ensino médio';
   return etapa;
+}
+
+function MunicipioEnemSection({ enem }: {
+  enem: Array<{
+    ano: number;
+    totalEscolas: number;
+    escolasCom10: number;
+    participantesTotal: number;
+    participantesMediaGeral: number;
+    mediaGeralPonderada: number | null;
+    mediaObjetivaPonderada: number | null;
+    mediaRedacaoPonderada: number | null;
+  }>;
+}) {
+  return (
+    <section className="mb-12">
+      <p className="text-[11px] tracking-[0.15em] uppercase font-bold mb-3" style={{ color: '#34c5cc' }}>
+        ENEM · município
+      </p>
+      <h2 className="text-white mb-3"
+        style={{
+          fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+          fontSize: 'clamp(24px, 3vw, 32px)',
+          fontWeight: 600,
+          lineHeight: 1.15,
+          letterSpacing: '-0.02em',
+        }}>
+        Resultado agregado das escolas
+      </h2>
+      <p className="text-white/60 mb-6 leading-relaxed" style={{ fontSize: 15, maxWidth: 760 }}>
+        Médias ponderadas pelos participantes com nota válida nos microdados do Enem. O indicador
+        “escolas com 10+” ajuda a enxergar o universo mais estável para comparações públicas.
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {enem.map((row) => (
+          <div key={row.ano}
+            className="rounded-2xl p-5 border border-white/[0.08]"
+            style={{ background: 'rgba(255,255,255,0.04)' }}>
+            <div className="flex items-end justify-between gap-3 mb-4">
+              <div>
+                <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-white/45">
+                  ENEM {row.ano}
+                </p>
+                <p className="text-[11px] text-white/45 font-mono mt-1">
+                  {row.totalEscolas} escolas · {row.escolasCom10} com 10+ participantes
+                </p>
+              </div>
+              <p className="text-[11px] text-white/40 font-mono">
+                {row.participantesTotal.toLocaleString('pt-BR')} participantes
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <MunicipioEnemMetric label="Média geral" value={row.mediaGeralPonderada} />
+              <MunicipioEnemMetric label="Objetiva" value={row.mediaObjetivaPonderada} />
+              <MunicipioEnemMetric label="Redação" value={row.mediaRedacaoPonderada} />
+              <MunicipioEnemMetric label="Com média geral" value={row.participantesMediaGeral} integer />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MunicipioEnemMetric({ label, value, integer = false }: { label: string; value: number | null; integer?: boolean }) {
+  return (
+    <div className="rounded-xl border border-white/[0.06] p-3" style={{ background: 'rgba(255,255,255,0.02)' }}>
+      <p className="text-[10px] tracking-[0.14em] uppercase font-bold text-white/40 mb-2">{label}</p>
+      <p className="text-white font-mono text-xl">
+        {value == null ? '—' : integer ? value.toLocaleString('pt-BR') : value.toFixed(1)}
+      </p>
+    </div>
+  );
 }

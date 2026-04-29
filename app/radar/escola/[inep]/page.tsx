@@ -49,6 +49,7 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
   const saeb = r.saeb;
   const censo = r.censo;
   const ideb = r.ideb;
+  const enem = r.enem || [];
   const saresp = r.saresp || [];
   const pdde = r.pdde || [];
 
@@ -173,6 +174,8 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
           />
         )}
 
+        {enem.length > 0 && <EnemEscolaSection enem={enem} />}
+
         {/* Saeb história (chart SVG) */}
         {saeb.length > 0 && (
           <SaebHistoryChart
@@ -236,3 +239,96 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
   );
 }
 
+function EnemEscolaSection({ enem }: {
+  enem: Array<{
+    ano: number;
+    participantes_total: number;
+    participantes_com_objetiva: number;
+    participantes_com_redacao: number;
+    participantes_com_media_geral: number;
+    media_cn: number | null;
+    media_ch: number | null;
+    media_lc: number | null;
+    media_mt: number | null;
+    media_redacao: number | null;
+    media_objetiva: number | null;
+    media_geral: number | null;
+    dependencia_adm: string | null;
+    localizacao: string | null;
+  }>;
+}) {
+  return (
+    <section className="mb-12">
+      <p className="text-[11px] tracking-[0.15em] uppercase font-bold mb-3" style={{ color: '#34c5cc' }}>
+        ENEM · escola
+      </p>
+      <h2 className="text-white mb-3"
+        style={{
+          fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+          fontSize: 'clamp(24px, 3vw, 32px)',
+          fontWeight: 600,
+          lineHeight: 1.15,
+          letterSpacing: '-0.02em',
+        }}>
+        Desempenho agregado por escola
+      </h2>
+      <p className="text-white/60 mb-6 leading-relaxed" style={{ fontSize: 15, maxWidth: 760 }}>
+        Média das notas dos participantes associados a esta escola nos microdados do Enem. Escolas com menos de 10 participantes
+        exigem leitura cautelosa.
+      </p>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        {enem.map((row) => {
+          const amostraPequena = row.participantes_total < 10;
+          return (
+            <div key={row.ano}
+              className="rounded-2xl p-5 border border-white/[0.08]"
+              style={{ background: 'rgba(255,255,255,0.04)' }}>
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <div>
+                  <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-white/45">
+                    ENEM {row.ano}
+                  </p>
+                  <p className="text-[11px] text-white/45 font-mono mt-1">
+                    {row.dependencia_adm || 'rede n/d'} · {row.localizacao || 'localização n/d'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] text-white/40 font-mono">
+                    {row.participantes_total} participantes
+                  </p>
+                  {amostraPequena && (
+                    <p className="text-[10px] text-amber-300/90 font-mono">
+                      amostra pequena
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <Metric label="Média geral" value={row.media_geral} />
+                <Metric label="Objetiva" value={row.media_objetiva} />
+                <Metric label="Redação" value={row.media_redacao} />
+                <Metric label="CN" value={row.media_cn} />
+                <Metric label="CH" value={row.media_ch} />
+                <Metric label="LC" value={row.media_lc} />
+                <Metric label="MT" value={row.media_mt} />
+                <Metric label="Obj. completas" value={row.participantes_com_objetiva} integer />
+                <Metric label="Média geral vál." value={row.participantes_com_media_geral} integer />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function Metric({ label, value, integer = false }: { label: string; value: number | null; integer?: boolean }) {
+  return (
+    <div className="rounded-xl border border-white/[0.06] p-3" style={{ background: 'rgba(255,255,255,0.02)' }}>
+      <p className="text-[10px] tracking-[0.14em] uppercase font-bold text-white/40 mb-2">{label}</p>
+      <p className="text-white font-mono text-xl">
+        {value == null ? '—' : integer ? value.toLocaleString('pt-BR') : value.toFixed(1)}
+      </p>
+    </div>
+  );
+}

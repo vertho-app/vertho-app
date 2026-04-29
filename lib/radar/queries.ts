@@ -69,6 +69,43 @@ export type MunicipioIdebAggregate = {
   totalEscolas: number;
 };
 
+export type EnemEscolaSnapshot = {
+  codigo_inep: string;
+  ano: number;
+  municipio_ibge: string | null;
+  municipio: string | null;
+  uf: string | null;
+  dependencia_adm_code: number | null;
+  dependencia_adm: string | null;
+  localizacao_code: number | null;
+  localizacao: string | null;
+  situacao_funcionamento_code: number | null;
+  participantes_total: number;
+  participantes_com_objetiva: number;
+  participantes_com_redacao: number;
+  participantes_com_media_geral: number;
+  media_cn: number | null;
+  media_ch: number | null;
+  media_lc: number | null;
+  media_mt: number | null;
+  media_redacao: number | null;
+  media_objetiva: number | null;
+  media_geral: number | null;
+  presenca_dist: Record<string, Record<string, number>>;
+  status_redacao_dist: Record<string, number>;
+};
+
+export type MunicipioEnemAggregate = {
+  ano: number;
+  totalEscolas: number;
+  escolasCom10: number;
+  participantesTotal: number;
+  participantesMediaGeral: number;
+  mediaGeralPonderada: number | null;
+  mediaObjetivaPonderada: number | null;
+  mediaRedacaoPonderada: number | null;
+};
+
 export type SarespSnapshot = {
   codigo_inep: string;
   ano: number;
@@ -470,6 +507,7 @@ export async function getEscola(codigoInep: string): Promise<{
   saeb: SaebSnapshot[];
   censo: CensoInfra | null;
   ideb: IdebSnapshot[];
+  enem: EnemEscolaSnapshot[];
   saresp: SarespSnapshot[];
   pdde: PddeRepasse[];
 } | null> {
@@ -481,7 +519,7 @@ export async function getEscola(codigoInep: string): Promise<{
     .single();
   if (!escola) return null;
 
-  const [saebRes, censoRes, idebRes, sarespRes, pddeRes] = await Promise.all([
+  const [saebRes, censoRes, idebRes, enemRes, sarespRes, pddeRes] = await Promise.all([
     sb.from('diag_saeb_snapshots')
       .select('*')
       .eq('codigo_inep', codigoInep)
@@ -499,6 +537,10 @@ export async function getEscola(codigoInep: string): Promise<{
       .eq('codigo_inep', codigoInep)
       .in('ano', [2019, 2021, 2023])
       .order('etapa', { ascending: true })
+      .order('ano', { ascending: false }),
+    sb.from('diag_enem_escola_snapshots')
+      .select('*')
+      .eq('codigo_inep', codigoInep)
       .order('ano', { ascending: false }),
     (escola as any).uf === 'SP'
       ? sb.from('diag_saresp_snapshots')
@@ -519,6 +561,7 @@ export async function getEscola(codigoInep: string): Promise<{
     saeb: (saebRes.data || []) as any,
     censo: (censoRes.data as any) || null,
     ideb: (idebRes.data || []) as any,
+    enem: (enemRes.data || []) as any,
     saresp: (sarespRes.data || []) as any,
     pdde: (pddeRes.data || []) as any,
   };
@@ -530,6 +573,7 @@ export async function getMunicipio(ibge: string): Promise<{
   uf: string;
   ica: IcaSnapshot[];
   ideb: MunicipioIdebAggregate[];
+  enem: MunicipioEnemAggregate[];
   totalEscolas: number;
   redes: Record<string, number>;
   fundeb: FundebRepasse[];
@@ -570,6 +614,7 @@ export async function getMunicipio(ibge: string): Promise<{
       uf: icaOnly?.[0]?.uf || (fundebRes.data?.[0] as any)?.uf || '',
       ica: (icaOnly || []) as any,
       ideb: [],
+      enem: [],
       totalEscolas: 0,
       redes: {},
       fundeb: (fundebRes.data || []) as any,
@@ -597,6 +642,11 @@ export async function getMunicipio(ibge: string): Promise<{
     .in('ano', [2019, 2021, 2023])
     .order('etapa', { ascending: true })
     .order('ano', { ascending: false });
+  const { data: enemRows } = await sb
+    .from('diag_enem_escola_snapshots')
+    .select('ano, codigo_inep, participantes_total, participantes_com_objetiva, participantes_com_redacao, participantes_com_media_geral, media_objetiva, media_redacao, media_geral')
+    .eq('municipio_ibge', ibge)
+    .order('ano', { ascending: false });
 
   return {
     ibge,
@@ -604,6 +654,7 @@ export async function getMunicipio(ibge: string): Promise<{
     uf: escolas[0].uf,
     ica: (ica || []) as any,
     ideb: aggregateMunicipioIdeb((idebRows || []) as any),
+    enem: aggregateMunicipioEnem((enemRows || []) as any),
     totalEscolas: escolas.length,
     redes,
     fundeb: (fundebRes.data || []) as any,
@@ -611,6 +662,79 @@ export async function getMunicipio(ibge: string): Promise<{
     vaar: (vaarRes.data as any) || null,
     receitaPrevista: (receitaRes.data as any) || null,
   };
+}
+
+function aggregateMunicipioEnem(rows: Array<{
+  ano: number;
+  codigo_inep: string;
+  participantes_total: number;
+  participantes_com_objetiva: number;
+  participantes_com_redacao: number;
+  participantes_com_media_geral: number;
+  media_objetiva: number | null;
+  media_redacao: number | null;
+  media_geral: number | null;
+}>): MunicipioEnemAggregate[] {
+  const groups = new Map<number, {
+    escolas: Set<string>;
+    escolasCom10: number;
+    participantesTotal: number;
+    participantesMediaGeral: number;
+    objWeightedSum: number;
+    objWeight: number;
+    redWeightedSum: number;
+    redWeight: number;
+    geralWeightedSum: number;
+    geralWeight: number;
+  }>();
+
+  for (const row of rows) {
+    if (!groups.has(row.ano)) {
+      groups.set(row.ano, {
+        escolas: new Set<string>(),
+        escolasCom10: 0,
+        participantesTotal: 0,
+        participantesMediaGeral: 0,
+        objWeightedSum: 0,
+        objWeight: 0,
+        redWeightedSum: 0,
+        redWeight: 0,
+        geralWeightedSum: 0,
+        geralWeight: 0,
+      });
+    }
+    const group = groups.get(row.ano)!;
+    if (row.codigo_inep) group.escolas.add(row.codigo_inep);
+    if ((row.participantes_total || 0) >= 10) group.escolasCom10 += 1;
+    group.participantesTotal += Number(row.participantes_total || 0);
+    group.participantesMediaGeral += Number(row.participantes_com_media_geral || 0);
+
+    if (row.media_objetiva != null && (row.participantes_com_objetiva || 0) > 0) {
+      group.objWeightedSum += Number(row.media_objetiva) * Number(row.participantes_com_objetiva);
+      group.objWeight += Number(row.participantes_com_objetiva);
+    }
+    if (row.media_redacao != null && (row.participantes_com_redacao || 0) > 0) {
+      group.redWeightedSum += Number(row.media_redacao) * Number(row.participantes_com_redacao);
+      group.redWeight += Number(row.participantes_com_redacao);
+    }
+    if (row.media_geral != null && (row.participantes_com_media_geral || 0) > 0) {
+      group.geralWeightedSum += Number(row.media_geral) * Number(row.participantes_com_media_geral);
+      group.geralWeight += Number(row.participantes_com_media_geral);
+    }
+  }
+
+  return Array.from(groups.entries())
+    .map(([ano, group]) => ({
+      ano,
+      totalEscolas: group.escolas.size,
+      escolasCom10: group.escolasCom10,
+      participantesTotal: group.participantesTotal,
+      participantesMediaGeral: group.participantesMediaGeral,
+      mediaGeralPonderada: group.geralWeight > 0 ? group.geralWeightedSum / group.geralWeight : null,
+      mediaObjetivaPonderada: group.objWeight > 0 ? group.objWeightedSum / group.objWeight : null,
+      mediaRedacaoPonderada: group.redWeight > 0 ? group.redWeightedSum / group.redWeight : null,
+    }))
+    .sort((a, b) => b.ano - a.ano);
 }
 
 function aggregateMunicipioIdeb(rows: Array<{
