@@ -303,7 +303,7 @@ SELECT refresh_diag_mvs();
 056-diag-censo-infra.sql                  # tabela do Censo (idempotente)
 057-diag-censo-latlong-double.sql         # lat/long DOUBLE PRECISION
 058-diag-relatorios-private.sql           # bucket privado + drop policy
-058-diag-saeb-api-fields.sql              # campos da API INEP no Saeb
+058a-diag-saeb-api-fields.sql             # campos da API INEP no Saeb (paralelo a 058)
 059-diag-pg-trgm.sql                      # pg_trgm + GIN indexes
 060-diag-materialized-views.sql           # MVs + RPCs de refresh/count
 061-diag-eventos.sql                      # tracking + RPCs do funil
