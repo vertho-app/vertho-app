@@ -227,6 +227,36 @@ export async function getParesCidade(codigoInep: string, limit = 10): Promise<Pa
   return (data as ParCidade[]) || [];
 }
 
+export type MunicipioVariabilidade = {
+  qtd_escolas: number;
+  saeb_lp_avg: number | null;
+  saeb_lp_stddev: number | null;
+  saeb_lp_min: number | null;
+  saeb_lp_max: number | null;
+  saeb_mat_avg: number | null;
+  saeb_mat_stddev: number | null;
+  saeb_mat_min: number | null;
+  saeb_mat_max: number | null;
+  ideb_avg: number | null;
+  ideb_stddev: number | null;
+  etapa: '5_EF' | '9_EF' | '3_EM';
+};
+
+export async function getMunicipioVariabilidade(ibge: string): Promise<MunicipioVariabilidade | null> {
+  const sb = createSupabaseAdmin();
+  // Tenta 9_EF primeiro (mais escolas em rede municipal típica), cai pra 5_EF
+  for (const etapa of ['5_EF', '9_EF', '3_EM'] as const) {
+    const { data: stats } = await sb.rpc('diag_municipio_stats_etapa', {
+      p_ibge: ibge,
+      p_etapa: etapa,
+    });
+    if (stats && Array.isArray(stats) && stats.length > 0 && stats[0].qtd_escolas >= 5) {
+      return { ...stats[0], etapa } as MunicipioVariabilidade;
+    }
+  }
+  return null;
+}
+
 export async function getIcaMunicipioRecente(ibge: string): Promise<IcaSnapshot | null> {
   const sb = createSupabaseAdmin();
   const { data } = await sb
