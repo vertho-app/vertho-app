@@ -103,7 +103,15 @@ export default async function CompararPage({
           </div>
         </header>
 
-        <CompararPicker codigosAtuais={codigos} modo={modo} />
+        <CompararPicker
+          codigosAtuais={codigos}
+          modo={modo}
+          itensSelecionados={
+            modo === 'escolas'
+              ? escolas.map((e) => ({ id: e.codigo_inep, nome: e.nome, uf: e.uf }))
+              : cidades.map((c) => ({ id: c.ibge, nome: c.nome, uf: c.uf }))
+          }
+        />
 
         {modo === 'escolas' && escolas.length > 0 && (
           <div className="mt-8">

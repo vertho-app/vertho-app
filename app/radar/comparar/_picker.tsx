@@ -9,12 +9,16 @@ const MAX_ITEMS = 4;
 
 export type CompararModo = 'escolas' | 'cidades';
 
+export type ItemSelecionado = { id: string; nome: string; uf?: string | null };
+
 export function CompararPicker({
   codigosAtuais,
   modo,
+  itensSelecionados,
 }: {
   codigosAtuais: string[];
   modo: CompararModo;
+  itensSelecionados?: ItemSelecionado[];
 }) {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
@@ -115,16 +119,21 @@ export function CompararPicker({
       {/* Chips dos itens atuais */}
       {codigosAtuais.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-3">
-          {codigosAtuais.map((c) => (
-            <span key={c}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-mono border"
-              style={{ background: 'rgba(52,197,204,0.08)', borderColor: 'rgba(52,197,204,0.22)', color: '#9ae2e6' }}>
-              {labelChip} {c}
-              <button onClick={() => remover(c)} className="ml-1 hover:text-white">
-                <X size={11} />
-              </button>
-            </span>
-          ))}
+          {codigosAtuais.map((c) => {
+            const item = itensSelecionados?.find((x) => x.id === c);
+            const label = item?.nome || `${labelChip} ${c}`;
+            return (
+              <span key={c}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] border max-w-full"
+                style={{ background: 'rgba(52,197,204,0.08)', borderColor: 'rgba(52,197,204,0.22)', color: '#9ae2e6' }}>
+                <span className="font-medium truncate">{label}</span>
+                {item?.uf && <span className="text-white/45 font-mono text-[10px]">{item.uf}</span>}
+                <button onClick={() => remover(c)} className="ml-1 hover:text-white shrink-0">
+                  <X size={11} />
+                </button>
+              </span>
+            );
+          })}
         </div>
       )}
 
