@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { ArrowLeft } from 'lucide-react';
 
-import { getEscola, getEscolaBenchmarks, getEscolaInfraSaeb, getParesCidade, getIcaMunicipioRecente } from '@/lib/radar/queries';
+import { filterComparableEnem, getEscola, getEscolaBenchmarks, getEscolaInfraSaeb, getParesCidade, getIcaMunicipioRecente } from '@/lib/radar/queries';
 import { leituraSaebEscola } from '@/lib/radar/leitura-deterministica';
 import { registrarEvento } from '@/lib/radar/eventos';
 import { RadarHeader, RadarFooter } from '../../_components/radar-header';
@@ -50,7 +50,7 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
   const censo = r.censo;
   const ideb = r.ideb;
   const enem = r.enem || [];
-  const enemElegivel = enem.filter((row) => row.participantes_total >= 10);
+  const enemElegivel = filterComparableEnem(enem);
   const saresp = r.saresp || [];
   const pdde = r.pdde || [];
 
@@ -106,6 +106,7 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
           escola={escola}
           saeb={saeb}
           ideb={ideb}
+          enem={enemElegivel}
           benchmarks={benchmarks}
         />
 

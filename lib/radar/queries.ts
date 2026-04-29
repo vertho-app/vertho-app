@@ -95,6 +95,14 @@ export type EnemEscolaSnapshot = {
   status_redacao_dist: Record<string, number>;
 };
 
+export function isEnemComparable(row: Pick<EnemEscolaSnapshot, 'participantes_total'>): boolean {
+  return Number(row.participantes_total || 0) >= 10;
+}
+
+export function filterComparableEnem<T extends Pick<EnemEscolaSnapshot, 'participantes_total'>>(rows: T[]): T[] {
+  return rows.filter(isEnemComparable);
+}
+
 export type MunicipioEnemAggregate = {
   ano: number;
   totalEscolas: number;

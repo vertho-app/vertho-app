@@ -2,6 +2,7 @@ import 'server-only';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI } from '@/actions/ai-client';
+import { filterComparableEnem } from './queries';
 import { stableJsonHash } from './hash';
 import type {
   Escola,
@@ -128,7 +129,7 @@ export async function getNarrativaEscola(
     pdde?: any[];
   } = { generateIfMissing: true },
 ): Promise<NarrativaIA> {
-  const enemElegivel = (opts.enem || []).filter((row) => (row.participantes_total || 0) >= 10);
+  const enemElegivel = filterComparableEnem(opts.enem || []);
   const dadosHash = stableJsonHash({
     escola: { codigo_inep: escola.codigo_inep, ano_referencia: escola.ano_referencia, inse_grupo: escola.inse_grupo },
     saeb,

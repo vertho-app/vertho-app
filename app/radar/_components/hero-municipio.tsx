@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { BenchmarkRow, FundebRepasse, IcaSnapshot, MunicipioIdebAggregate } from '@/lib/radar/queries';
+import type { BenchmarkRow, FundebRepasse, IcaSnapshot, MunicipioEnemAggregate, MunicipioIdebAggregate } from '@/lib/radar/queries';
 
 type Stat = {
   label: string;
@@ -38,6 +38,7 @@ export function HeroMunicipio({
   redes,
   ica,
   ideb,
+  enem,
   fundeb,
   benchmarks,
   microrregiao,
@@ -49,6 +50,7 @@ export function HeroMunicipio({
   redes: Record<string, number>;
   ica: IcaSnapshot[];
   ideb: MunicipioIdebAggregate[];
+  enem: MunicipioEnemAggregate[];
   fundeb: FundebRepasse[];
   benchmarks: BenchmarkRow[];
   microrregiao: string | null;
@@ -74,6 +76,9 @@ export function HeroMunicipio({
   const microIdeb = microIdebKey ? (micro?.[microIdebKey as keyof BenchmarkRow] as number | null) : null;
 
   const fundebRecente = fundeb.filter((f) => f.valor_aluno_ano != null).sort((a, b) => b.ano - a.ano)[0];
+  const enemRecente = enem
+    .filter((row) => row.escolasCom10 > 0 && row.mediaGeralPonderada != null)
+    .sort((a, b) => b.ano - a.ano)[0];
 
   const stats: Stat[] = [];
   if (icaRecente && (icaRecente.taxa ?? 0) > 0) {
@@ -102,6 +107,13 @@ export function HeroMunicipio({
         : undefined,
     });
   }
+  if (enemRecente && enemRecente.mediaGeralPonderada != null) {
+    stats.push({
+      label: `ENEM · média geral · ${enemRecente.ano}`,
+      value: enemRecente.mediaGeralPonderada.toFixed(1),
+      sub: `${enemRecente.escolasCom10} escolas · ${enemRecente.participantesTotalCom10.toLocaleString('pt-BR')} participantes`,
+    });
+  }
   stats.push({
     label: 'Escolas no Radar',
     value: totalEscolas.toLocaleString('pt-BR'),
@@ -113,6 +125,7 @@ export function HeroMunicipio({
     bad: '#fca5a5',
     neutral: 'rgba(255,255,255,0.55)',
   };
+  const heroStats = stats.slice(0, 4);
 
   return (
     <header className="relative overflow-hidden mb-10 rounded-3xl"
@@ -162,16 +175,16 @@ export function HeroMunicipio({
           ))}
         </div>
 
-        {stats.length > 0 && (
+        {heroStats.length > 0 && (
           <div
             className="grid gap-px rounded-2xl overflow-hidden"
             style={{
-              gridTemplateColumns: `repeat(${Math.min(stats.length, 4)}, 1fr)`,
+              gridTemplateColumns: `repeat(${heroStats.length}, 1fr)`,
               background: 'rgba(255,255,255,0.12)',
               border: '1px solid rgba(255,255,255,0.12)',
             }}
           >
-            {stats.map((s, i) => (
+            {heroStats.map((s, i) => (
               <div key={i} className="flex flex-col p-5 md:p-6"
                 style={{ background: 'rgba(255,255,255,0.03)' }}>
                 <p className="text-[10px] tracking-[0.1em] uppercase font-bold text-white/55 mb-2">

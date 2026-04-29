@@ -95,6 +95,7 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
           redes={m.redes}
           ica={m.ica}
           ideb={m.ideb}
+          enem={m.enem}
           fundeb={m.fundeb}
           benchmarks={benchmarks}
           microrregiao={microrregiao}
