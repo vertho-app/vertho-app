@@ -2,18 +2,28 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, X, Search, Loader2 } from 'lucide-react';
+import { Plus, X, Search, Loader2, GraduationCap, MapPin } from 'lucide-react';
 import { buscarEscolasMunicipios } from '../actions';
 
 const MAX_ITEMS = 4;
 
-export function CompararPicker({ codigosAtuais }: { codigosAtuais: string[] }) {
+export type CompararModo = 'escolas' | 'cidades';
+
+export function CompararPicker({
+  codigosAtuais,
+  modo,
+}: {
+  codigosAtuais: string[];
+  modo: CompararModo;
+}) {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
   const [q, setQ] = useState('');
   const [items, setItems] = useState<{ tipo: string; id: string; label: string; sub?: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const tipoFiltro = modo === 'escolas' ? 'escola' : 'municipio';
 
   useEffect(() => {
     if (q.trim().length < 2) { setItems([]); return; }
@@ -22,12 +32,12 @@ export function CompararPicker({ codigosAtuais }: { codigosAtuais: string[] }) {
       setLoading(true);
       const r = await buscarEscolasMunicipios(q.trim());
       if (!cancelled) {
-        setItems(r.filter((x) => x.tipo === 'escola' && !codigosAtuais.includes(x.id)));
+        setItems(r.filter((x) => x.tipo === tipoFiltro && !codigosAtuais.includes(x.id)));
         setLoading(false);
       }
     }, 220);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [q, codigosAtuais]);
+  }, [q, codigosAtuais, tipoFiltro]);
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
@@ -37,36 +47,79 @@ export function CompararPicker({ codigosAtuais }: { codigosAtuais: string[] }) {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
-  function navigate(codes: string[]) {
+  function navigate(codes: string[], targetMode: CompararModo) {
     const params = new URLSearchParams();
-    if (codes.length) params.set('escolas', codes.join(','));
-    router.push(`/comparar${params.toString() ? `?${params}` : ''}`);
+    params.set('modo', targetMode);
+    if (codes.length) {
+      const key = targetMode === 'escolas' ? 'escolas' : 'ibges';
+      params.set(key, codes.join(','));
+    }
+    router.push(`/radar/comparar?${params.toString()}`);
   }
 
-  function adicionar(inep: string) {
-    if (codigosAtuais.includes(inep)) return;
-    const novo = [...codigosAtuais, inep].slice(0, MAX_ITEMS);
-    navigate(novo);
+  function trocarModo(novoModo: CompararModo) {
+    if (novoModo === modo) return;
+    // Trocar de modo limpa as seleções (escolas e cidades não compartilham IDs)
+    navigate([], novoModo);
+  }
+
+  function adicionar(id: string) {
+    if (codigosAtuais.includes(id)) return;
+    const novo = [...codigosAtuais, id].slice(0, MAX_ITEMS);
+    navigate(novo, modo);
     setQ('');
     setAberto(false);
   }
 
-  function remover(inep: string) {
-    navigate(codigosAtuais.filter((c) => c !== inep));
+  function remover(id: string) {
+    navigate(codigosAtuais.filter((c) => c !== id), modo);
   }
 
   const cheio = codigosAtuais.length >= MAX_ITEMS;
+  const placeholder = modo === 'escolas'
+    ? 'Buscar escola por nome ou INEP'
+    : 'Buscar município por nome ou IBGE';
+  const labelChip = modo === 'escolas' ? 'INEP' : 'IBGE';
+  const labelBotao = modo === 'escolas' ? 'Adicionar escola' : 'Adicionar cidade';
+  const limiteLabel = modo === 'escolas'
+    ? `Limite de ${MAX_ITEMS} escolas atingido`
+    : `Limite de ${MAX_ITEMS} cidades atingido`;
 
   return (
     <div className="mb-6">
-      {/* Chips das escolas atuais */}
+      {/* Toggle de modo */}
+      <div className="inline-flex rounded-xl border border-white/[0.08] p-1 mb-5"
+        style={{ background: 'rgba(255,255,255,0.03)' }}>
+        <button onClick={() => trocarModo('escolas')}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all"
+          style={{
+            background: modo === 'escolas' ? 'rgba(52,197,204,0.15)' : 'transparent',
+            color: modo === 'escolas' ? '#34c5cc' : 'rgba(255,255,255,0.55)',
+            border: modo === 'escolas' ? '1px solid rgba(52,197,204,0.3)' : '1px solid transparent',
+          }}>
+          <GraduationCap size={14} />
+          Escolas
+        </button>
+        <button onClick={() => trocarModo('cidades')}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all"
+          style={{
+            background: modo === 'cidades' ? 'rgba(52,197,204,0.15)' : 'transparent',
+            color: modo === 'cidades' ? '#34c5cc' : 'rgba(255,255,255,0.55)',
+            border: modo === 'cidades' ? '1px solid rgba(52,197,204,0.3)' : '1px solid transparent',
+          }}>
+          <MapPin size={14} />
+          Cidades
+        </button>
+      </div>
+
+      {/* Chips dos itens atuais */}
       {codigosAtuais.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-3">
           {codigosAtuais.map((c) => (
             <span key={c}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-mono border"
               style={{ background: 'rgba(52,197,204,0.08)', borderColor: 'rgba(52,197,204,0.22)', color: '#9ae2e6' }}>
-              INEP {c}
+              {labelChip} {c}
               <button onClick={() => remover(c)} className="ml-1 hover:text-white">
                 <X size={11} />
               </button>
@@ -82,7 +135,7 @@ export function CompararPicker({ codigosAtuais }: { codigosAtuais: string[] }) {
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white border transition-colors disabled:opacity-40"
             style={{ borderColor: 'rgba(52,197,204,0.32)', background: 'rgba(52,197,204,0.06)' }}>
             <Plus size={14} />
-            {cheio ? `Limite de ${MAX_ITEMS} escolas atingido` : 'Adicionar escola'}
+            {cheio ? limiteLabel : labelBotao}
           </button>
         ) : (
           <>
@@ -92,7 +145,7 @@ export function CompararPicker({ codigosAtuais }: { codigosAtuais: string[] }) {
             >
               <Search size={16} style={{ color: '#34c5cc' }} />
               <input autoFocus value={q} onChange={(e) => setQ(e.target.value)}
-                placeholder="Buscar escola ou INEP"
+                placeholder={placeholder}
                 className="flex-1 bg-transparent text-white text-sm outline-none placeholder:text-white/30" />
               {loading && <Loader2 size={14} className="animate-spin text-cyan-400" />}
             </div>

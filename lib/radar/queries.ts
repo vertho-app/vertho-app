@@ -303,6 +303,99 @@ export async function getRedePorInse(ibge: string): Promise<RedePorInse[]> {
   return (data as RedePorInse[]) || [];
 }
 
+export type MunicipioCompacto = {
+  ibge: string;
+  nome: string;
+  uf: string;
+  totalEscolas: number;
+  icaTaxa: number | null;
+  icaAno: number | null;
+  ideb_5ef: number | null;
+  ideb_9ef: number | null;
+  ideb_3em: number | null;
+  saeb_5ef_lp: number | null;
+  saeb_5ef_mat: number | null;
+  saeb_9ef_lp: number | null;
+  saeb_9ef_mat: number | null;
+  fundeb_aluno: number | null;
+  fundeb_ano: number | null;
+  vaar_beneficiario: boolean | null;
+  vaar_recebimento: number | null;
+  vaar_ano: number | null;
+};
+
+export async function getMunicipiosCompactos(ibges: string[]): Promise<MunicipioCompacto[]> {
+  if (!ibges.length) return [];
+  const sb = createSupabaseAdmin();
+
+  const [metRes, vaarRes, receitaRes, ...countResults] = await Promise.all([
+    sb.from('diag_mv_municipio_metricas').select('*').in('municipio_ibge', ibges),
+    sb.from('diag_fundeb_vaar').select('municipio_ibge, ano, beneficiario').in('municipio_ibge', ibges),
+    sb.from('diag_fundeb_receita_prevista').select('municipio_ibge, ano, complementacao_vaar').in('municipio_ibge', ibges),
+    // Para cada município, busca 1 row (nome/uf) + count exato em paralelo
+    ...ibges.map(async (ibge) => {
+      const [nomeRes, totalRes] = await Promise.all([
+        sb.from('diag_escolas').select('municipio, uf').eq('municipio_ibge', ibge).limit(1).maybeSingle(),
+        sb.from('diag_escolas').select('*', { count: 'exact', head: true }).eq('municipio_ibge', ibge),
+      ]);
+      return {
+        ibge,
+        nome: (nomeRes.data as any)?.municipio || ibge,
+        uf: (nomeRes.data as any)?.uf || '',
+        total: totalRes.count || 0,
+      };
+    }),
+  ]);
+
+  const metMap = new Map<string, any>();
+  for (const m of (metRes.data || [])) metMap.set(m.municipio_ibge, m);
+
+  const counts = new Map<string, { nome: string; uf: string; total: number }>();
+  for (const c of countResults as Array<{ ibge: string; nome: string; uf: string; total: number }>) {
+    counts.set(c.ibge, { nome: c.nome, uf: c.uf, total: c.total });
+  }
+
+  const vaarMap = new Map<string, { ano: number; beneficiario: boolean | null }>();
+  for (const v of (vaarRes.data || []) as any[]) {
+    const ex = vaarMap.get(v.municipio_ibge);
+    if (!ex || (v.ano > ex.ano)) vaarMap.set(v.municipio_ibge, v);
+  }
+
+  const receitaMap = new Map<string, { ano: number; vaar: number | null }>();
+  for (const r of (receitaRes.data || []) as any[]) {
+    const ex = receitaMap.get(r.municipio_ibge);
+    const cur = { ano: r.ano, vaar: r.complementacao_vaar };
+    if (!ex || (r.ano > ex.ano)) receitaMap.set(r.municipio_ibge, cur);
+  }
+
+  return ibges.map((ibge) => {
+    const met = metMap.get(ibge) || {};
+    const c = counts.get(ibge);
+    const vaar = vaarMap.get(ibge);
+    const rec = receitaMap.get(ibge);
+    return {
+      ibge,
+      nome: c?.nome || ibge,
+      uf: c?.uf || '',
+      totalEscolas: c?.total || 0,
+      icaTaxa: met.ica_taxa ?? null,
+      icaAno: met.ica_ano ?? null,
+      ideb_5ef: met.ideb_5ef ?? null,
+      ideb_9ef: met.ideb_9ef ?? null,
+      ideb_3em: met.ideb_3em ?? null,
+      saeb_5ef_lp: met.saeb_5ef_lp ?? null,
+      saeb_5ef_mat: met.saeb_5ef_mat ?? null,
+      saeb_9ef_lp: met.saeb_9ef_lp ?? null,
+      saeb_9ef_mat: met.saeb_9ef_mat ?? null,
+      fundeb_aluno: met.fundeb_aluno ?? null,
+      fundeb_ano: met.fundeb_ano ?? null,
+      vaar_beneficiario: vaar?.beneficiario ?? null,
+      vaar_recebimento: rec?.vaar ?? null,
+      vaar_ano: rec?.ano ?? vaar?.ano ?? null,
+    };
+  });
+}
+
 export async function getMunicipioVariabilidade(ibge: string): Promise<MunicipioVariabilidade | null> {
   const sb = createSupabaseAdmin();
   // Tenta 9_EF primeiro (mais escolas em rede municipal típica), cai pra 5_EF
