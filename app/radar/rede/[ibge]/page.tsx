@@ -44,8 +44,20 @@ export default async function RedeMunicipalPage({ params }: { params: Promise<{ 
     getRedePorInse(ibge),
   ]);
 
-  const top = ranking.filter((r) => r.posicao === 'top');
-  const bottom = ranking.filter((r) => r.posicao === 'bottom').reverse(); // mostrar do pior pro último-pior
+  const topAll = ranking.filter((r) => r.posicao === 'top');
+  const bottomAll = ranking.filter((r) => r.posicao === 'bottom').reverse(); // mostrar do pior pro último-pior
+
+  // Em redes pequenas, top 5 + bottom 5 sobrepõem (mesma escola em ambos).
+  // Limita k = floor(N/2) pra garantir conjuntos disjuntos. Se N <= 3, esconde.
+  const distinctInep = new Set([
+    ...topAll.map((r) => r.codigo_inep),
+    ...bottomAll.map((r) => r.codigo_inep),
+  ]);
+  const qtdEscolasRanking = stats?.qtd_escolas ?? distinctInep.size;
+  const k = qtdEscolasRanking <= 3 ? 0 : Math.min(5, Math.floor(qtdEscolasRanking / 2));
+  const topInepSet = new Set(topAll.slice(0, k).map((r) => r.codigo_inep));
+  const top = topAll.slice(0, k);
+  const bottom = bottomAll.filter((r) => !topInepSet.has(r.codigo_inep)).slice(0, k);
 
   return (
     <main className="min-h-dvh"
