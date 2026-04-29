@@ -11,10 +11,11 @@ Spec: `Vertho_Radar_Spec_v2_2.docx` · Decisões: `decisions.md`.
 ## TL;DR
 
 - **Pra você**: `app.vertho.ai/admin/radar` (ingestão), `app.vertho.ai/admin/radar/funnel` (analytics)
-- **Pro público**: `radar.vertho.ai` (busca, escola, município, estado, comparar, metodologia)
+- **Pro público**: `radar.vertho.ai` (busca, escola, município, rede, estado, comparar, metodologia)
 - **Stack**: Next 16 + Supabase + Claude Sonnet 4.6 + QStash + Resend, tudo no monorepo
-- **V1 piloto**: microrregião de Irecê/BA (19 municípios)
-- **Migrations rodadas**: 054–061 (rodar via `node scripts/...` ou Supabase Studio)
+- **Cobertura**: nacional (~197k escolas no Censo, Saeb/Ideb/ENEM nacionais; FUNDEB/VAAR a nível de rede)
+- **Design**: handoff vh3 (hero serif + cards de stats + charts SVG inline); leitura IA full-width + Pontos/Destaques 2-col
+- **Migrations aplicadas**: 054–078 (rodar via `node scripts/...` ou Supabase Studio)
 
 ---
 
@@ -25,11 +26,13 @@ Spec: `Vertho_Radar_Spec_v2_2.docx` · Decisões: `decisions.md`.
 | Rota | O que mostra |
 |---|---|
 | `/` | Home com busca + 3 stats reais (escolas, municípios distintos, snapshots Saeb) |
-| `/escola/[inep]` | Saeb da escola + Censo (4 scores de infra + 12 recursos) + IA narrativa via Suspense + CTA lead + "Citar" |
-| `/municipio/[ibge]` | ICA municipal por rede + lista de escolas + IA + CTA lead + "Citar" |
+| `/escola/[inep]` | Hero vh3 + Saeb (chart histórico + tabela) + Ideb timeline + ENEM (3º EM) + SARESP (SP) + Censo (4 scores + 213 IN_*) + benchmarks vs microrregião/UF + cruzamento Infra×Saeb + pares INSE da cidade + alfabetização×Saeb + PDDE + IA narrativa + CTA |
+| `/municipio/[ibge]` | Hero + ICA por rede + Ideb agregado + ENEM + FUNDEB + VAAR + variabilidade entre escolas + benchmark vs microrregião/UF/BR + IA + CTA |
+| `/rede/[ibge]` | Página dedicada da rede municipal (escolas, performance, infra agregada) |
 | `/estado/[uf]` | Stats UF + microrregiões + Top/Bottom 10 Saeb e Top 10 ICA |
-| `/comparar?escolas=A,B` | Lado a lado de até 4 escolas; URL compartilhável; "melhor" destacado |
+| `/comparar?escolas=A,B` | Lado a lado de até 4 escolas com chips honestos (binário VAAR, decisão "melhor" considerando empate) |
 | `/metodologia` | Fontes, escala de níveis, INSE, limites, LGPD |
+| `/bett` | Landing estática para o Bett (expo educação) |
 | `/sitemap.xml` | Sitemap-index com chunks de 5000 URLs |
 | `/robots.txt` | Permite tudo em `/`, bloqueia `/admin/`, `/dashboard/`, `/api/` |
 
@@ -152,22 +155,34 @@ Worker (com fail-closed em prod sem signing keys):
 | Tabela | O que guarda | Migration |
 |---|---|---|
 | `diag_escolas` | Cadastro de escolas (INEP, nome, município, INSE, etapas) | 054 (+ 055: nullable IBGE/UF) |
-| `diag_saeb_snapshots` | Saeb por (INEP, ano, etapa, disciplina) com distribuição cumulativa + comparativos similares/UF/BR | 054 |
+| `diag_saeb_snapshots` | Saeb por (INEP, ano, etapa, disciplina) com distribuição cumulativa + comparativos similares/UF/BR | 054 (+ 058: campos da API INEP) |
 | `diag_ica_snapshots` | ICA por (município, rede, ano) com benchmarks UF/BR | 054 |
-| `diag_censo_infra` | Censo Escolar — 213 IN_* + 32 QT_* + 4 scores agregados + lat/long (DOUBLE PRECISION) | 056 + 057 |
+| `diag_censo_infra` | Censo Escolar — 213 IN_* + 32 QT_* + 4 scores agregados + lat/long (DOUBLE PRECISION). Scores agrupados por famílias de campo (077) | 056 + 057 + 077 |
+| `diag_ideb` | Ideb + metas oficiais (anos finais/iniciais/médio) | 062 |
+| `diag_saresp` | SARESP escolas SP (proficiência + distribuição) | 063 + 066 |
+| `diag_enem_escola` | ENEM por escola (média geral + áreas + participantes) | 078 |
+| `diag_fundeb` | FUNDEB municipal (recursos por rede) | 064 (+ 068: VAAR; 069: receita prevista) |
+| `diag_pdde` | PDDE — repasses por escola e municipal | 065 |
 | `diag_analises_ia` | Cache de narrativas IA por `(scope, prompt_version, dados_hash)` | 054 |
 | `diag_leads` | Captação com consentimento LGPD + status do PDF + dados de origem | 054 |
 | `diag_ingest_runs` | Observabilidade de cada upload (sucesso/falha/skipped + erros) | 054 |
 | `diag_eventos` | Tracking append-only: views, cliques no CTA, leads, citações, etc | 061 |
 
-### Materialized views (migration 060)
+### Materialized views
 
-| MV | O que pré-computa |
-|---|---|
-| `diag_mv_escola_saeb_agg` | % nos níveis 0-1, taxa participação, formação docente — médias por escola |
-| `diag_mv_municipio_saeb_agg` | Mesmas agregações + total de escolas, agrupadas por município. Usada em `/estado/[uf]` |
-| `diag_mv_municipio_ica_recent` | ICA mais recente por município (DISTINCT ON ano) |
-| `diag_mv_estado_stats` | Stats por UF (total escolas/municípios/snapshots) |
+| MV | O que pré-computa | Migration |
+|---|---|---|
+| `diag_mv_escola_saeb_agg` | % nos níveis 0-1, taxa participação, formação docente — médias por escola | 060 |
+| `diag_mv_municipio_saeb_agg` | Mesmas agregações + total de escolas, agrupadas por município. Usada em `/estado/[uf]` | 060 |
+| `diag_mv_municipio_ica_recent` | ICA mais recente por município (DISTINCT ON ano) | 060 |
+| `diag_mv_estado_stats` | Stats por UF (total escolas/municípios/snapshots) | 060 |
+| `diag_mv_municipio_metricas` | Métricas agregadas por município pra ranking/benchmark | 070 |
+| `diag_mv_escola_metricas` | Métricas agregadas por escola | 071 |
+| `diag_mv_escola_benchmarks_inse` | Benchmarks de pares INSE da mesma cidade | 072 |
+| `diag_mv_escola_infra_saeb` | Cruzamento Infra × Saeb (quadrante editorial) | 073 |
+| `diag_mv_pares_cidade` | Lista nominal de pares INSE por cidade | 074 |
+| `diag_mv_municipio_stats_etapa` | Stats por etapa (5_EF / 9_EF / 3_EM) por município | 075 |
+| `diag_mv_rede_municipal` | Recorte da rede municipal (página `/rede/[ibge]`) | 076 |
 
 Refresh automático após cada ingestão (best-effort) via `SELECT refresh_diag_mvs()`.
 
@@ -288,9 +303,27 @@ SELECT refresh_diag_mvs();
 056-diag-censo-infra.sql                  # tabela do Censo (idempotente)
 057-diag-censo-latlong-double.sql         # lat/long DOUBLE PRECISION
 058-diag-relatorios-private.sql           # bucket privado + drop policy
+058-diag-saeb-api-fields.sql              # campos da API INEP no Saeb
 059-diag-pg-trgm.sql                      # pg_trgm + GIN indexes
 060-diag-materialized-views.sql           # MVs + RPCs de refresh/count
 061-diag-eventos.sql                      # tracking + RPCs do funil
+062-diag-ideb-metas.sql                   # Ideb + metas oficiais
+063-diag-saresp.sql                       # SARESP (escolas SP)
+064-diag-fundeb.sql                       # FUNDEB municipal
+065-diag-pdde.sql                         # PDDE
+066-diag-saresp-codigo-sp.sql             # mapeia código SP → INEP
+067-diag-radar-counts.sql                 # RPCs de contagem da home
+068-diag-fundeb-vaar.sql                  # VAAR (binário recebe/não)
+069-diag-fundeb-receita-prevista.sql      # receita prevista FUNDEB
+070-diag-municipio-metricas-mv.sql        # MV de métricas municipais
+071-diag-escola-metricas-mv.sql           # MV de métricas por escola
+072-diag-escola-benchmarks-inse.sql       # benchmarks pares INSE
+073-diag-escola-infra-saeb.sql            # cruzamento Infra × Saeb
+074-diag-pares-cidade.sql                 # pares INSE da cidade
+075-diag-municipio-stats-etapa.sql        # stats por etapa
+076-diag-rede-municipal.sql               # MV da rede municipal
+077-recompute-censo-scores.sql            # recompute scores (família) — alt. ao script
+078-diag-enem-escola.sql                  # ENEM por escola
 ```
 
 Pra rodar via Supabase Management API (com `SUPABASE_ACCESS_TOKEN` + `SUPABASE_PROJECT_REF` no `.env.local`):
@@ -301,6 +334,11 @@ node /tmp/run-migrations.mjs
 ```
 
 Ou cole arquivo por arquivo no SQL editor do Supabase Studio.
+
+> **Recompute do Censo após bug fix de famílias de campo** (commit `ab49682`):
+> os scores antigos (computados antes da agrupagem por família) ficam errados.
+> Rodar `node scripts/recompute-censo-scores.mjs` (idempotente, com retry pra
+> 5xx; ~17min pra base nacional de ~197k escolas) **OU** aplicar a migration 077.
 
 ---
 
@@ -318,20 +356,30 @@ Ou cole arquivo por arquivo no SQL editor do Supabase Studio.
 
 ---
 
-## Features da V1 (estado atual)
+## Features da V1.x (estado atual)
 
-- ✅ Páginas de escola, município e UF
-- ✅ Comparativo lado a lado de até 4 escolas (URL compartilhável)
-- ✅ Censo Escolar — 4 scores agregados + 213 IN_* + 32 QT_* em JSONB
-- ✅ Saeb por escola + ICA municipal
-- ✅ IA narrativa em escola e município (cache + Suspense + bot-aware)
+- ✅ Páginas de escola, município, **rede municipal**, UF
+- ✅ Comparativo lado a lado de até 4 escolas (URL compartilhável, chips honestos, empate destacado)
+- ✅ Censo Escolar — 4 scores agregados (agrupados por família de campo, fix `ab49682`) + 213 IN_* + 32 QT_*
+- ✅ Saeb por escola (chart histórico SVG) + ICA municipal
+- ✅ Ideb timeline + metas oficiais
+- ✅ ENEM por escola (3º EM, média geral + áreas)
+- ✅ SARESP (escolas SP)
+- ✅ FUNDEB municipal + VAAR (binário recebe/não recebe)
+- ✅ PDDE — repasses por escola e municipal
+- ✅ Pares INSE na mesma cidade (lista nominal) + benchmark vs microrregião/UF/BR
+- ✅ Cruzamento Infra × Saeb (quadrante editorial)
+- ✅ Variabilidade entre escolas da rede municipal
+- ✅ Destaques + Pontos de Atenção determinísticos (sem IA, gerado a partir dos dados)
+- ✅ IA narrativa em escola e município (cache + Suspense + bot-aware) — Leitura full-width + Pontos/Destaques 2-col
 - ✅ Lead → PDF assíncrono via QStash + Resend (validação, rate limit, dedup)
 - ✅ "Citar este Radar" (ABNT/APA/BibTeX) — facilitador de backlinks
 - ✅ Sitemap-index com chunks dinâmicos, robots.txt, schema.org
 - ✅ pg_trgm + GIN indexes pra busca rápida
-- ✅ Materialized views pra rankings UF
+- ✅ 11 materialized views pra rankings/benchmarks/cruzamentos
 - ✅ Funnel dashboard interno (`/admin/radar/funnel`)
-- ✅ Cobertura: microrregião de Irecê/BA (19 municípios)
+- ✅ Design system vh3 (hero serif, eyebrows, charts SVG inline, pílulas com tooltip INSE)
+- ✅ **Cobertura nacional** (~197k escolas)
 
 ## Adiamentos conhecidos
 
@@ -351,12 +399,22 @@ nextjs-app/
   app/radar/                                # rotas públicas
     page.tsx, layout.tsx, sitemap.ts, robots.ts, not-found.tsx
     actions.ts                              # buscarEscolasMunicipios + capturarLead + registrarEventoClient
-    escola/[inep]/page.tsx
-    municipio/[ibge]/page.tsx
+    escola/[inep]/page.tsx                  # hero + saeb + ideb + enem + saresp + censo + benchmarks + IA
+    municipio/[ibge]/page.tsx               # hero + ica + ideb + enem + fundeb + vaar + variabilidade
+    rede/[ibge]/page.tsx                    # rede municipal — escolas, performance, infra agregada
     estado/[uf]/page.tsx
     comparar/page.tsx + _picker + _tabela
     metodologia/page.tsx
-    _components/                            # radar-header, indicator-card, narrativa-ia, infra-card, lead-cta, citar-button
+    bett/page.tsx                           # landing estática Bett
+    _components/                            # 23 componentes (vh3):
+      hero-escola, hero-municipio, hero-estado
+      indicator-card, infra-card, infra-saeb-card
+      narrativa-ia, destaques-atencao
+      saeb-history-chart, ideb-timeline-chart
+      escola-benchmark-table, benchmark-table
+      pares-cidade, alfabetizacao-saeb-card, variabilidade-card
+      saresp-section, fundeb-section, vaar-section, pdde-section
+      radar-header, radar-search, lead-cta, citar-button
   app/admin/radar/                          # admin (auth-protected)
     page.tsx                                # ingestão
     actions.ts                              # ingestSaeb/Ica/Censo + loadRadarStats + seed
@@ -364,19 +422,22 @@ nextjs-app/
   app/api/radar/lead-pdf/route.ts           # worker QStash → PDF → Resend
 
   lib/radar/
-    queries.ts                              # getEscola, getMunicipio, getEstadoStats, getRankingMunicipiosUf, getEscolasCompactas
+    queries.ts                              # getEscola, getMunicipio, getEstadoStats, getRede, getEscolaBenchmarks, etc.
     ia-narrativa.ts                         # cache (scope, prompt_version, dados_hash) + isLikelyBot
     proposta-pdf-data.ts                    # IA da proposta do PDF
     leitura-deterministica.ts               # textos sem IA (fallback SEO)
     saeb-importer.ts, ica-importer.ts, censo-importer.ts
-    censo-scores.ts                         # 4 dimensões de score do Censo
+    censo-scores.ts                         # 4 dimensões de score do Censo (agrupadas por família)
     eventos.ts                              # registrarEvento server-side
-    microrregiao-irece.ts                   # lista canônica IBGE 29009
     hash.ts                                 # stableJsonHash pra cache IA
 
   components/pdf/RadarPropostaPDF.tsx       # 7 páginas, reusa PdfCover/PdfBackCover
 
-  scripts/filter-censo-irece.mjs            # filtra Censo CSV nacional → microrregião
+  scripts/
+    import-censo.mjs                        # streaming CSV nacional → upsert
+    import-censo-catalog.mjs, import-ideb.mjs, import-saeb-api.mjs, import-saresp.mjs
+    recompute-censo-scores.mjs              # recompute idempotente com retry (após fix de famílias)
+    filter-censo-irece.mjs                  # legado (subset por microrregião)
 
-  migrations/054 a 061                      # SQL versionado
+  migrations/054 a 078                      # SQL versionado
 ```
