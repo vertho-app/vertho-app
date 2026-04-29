@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter, Instrument_Serif } from "next/font/google";
+import { Analytics } from '@vercel/analytics/next';
 import "./globals.css";
 
 const inter = Inter({
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR" className={`${inter.variable} ${instrumentSerif.variable}`}>
       <body className="font-[var(--font-inter)]">
         {children}
+        <Analytics />
       </body>
     </html>
   );
