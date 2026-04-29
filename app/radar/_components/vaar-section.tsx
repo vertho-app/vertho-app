@@ -41,13 +41,17 @@ const COND_LABELS: Record<string, string> = {
 };
 
 // Onde a Vertho atua — honestidade técnica em vez de prometer demais.
-// 🟢 atuação direta · 🟡 atuação indireta · 🔴 fora do escopo
+// vertho_atua: true em I, III, V (atuação direta ou indireta clara)
+// vertho_atua: false em II, IV (logística da rede / critério estadual)
+const COND_VERTHO_ATUA: Record<string, boolean> = {
+  i: true, ii: false, iii: true, iv: false, v: true,
+};
 const COND_VERTHO_NOTA: Record<string, string> = {
-  i:   '🟡 Vertho contribui via avaliação periódica de gestores (subcritério I.e da Resolução CIF 15/2025).',
-  ii:  '🔴 Comparecimento dos alunos no Saeb depende de logística da rede; fora do escopo Vertho.',
-  iii: '🟡 Vertho atua indiretamente via Diferenciação Pedagógica como competência docente.',
-  iv:  '🔴 Critério estadual (lei do ICMS Educacional). Município herda o status do estado.',
-  v:   '🟢 Vertho desenvolve professores dentro do referencial BNCC — atua na implementação efetiva.',
+  i:   'Vertho contribui via avaliação periódica de gestores (subcritério I.e da Resolução CIF 15/2025).',
+  ii:  'Comparecimento dos alunos no Saeb depende de logística da rede; fora do escopo Vertho.',
+  iii: 'Vertho atua indiretamente via Diferenciação Pedagógica como competência docente.',
+  iv:  'Critério estadual (lei do ICMS Educacional). Município herda o status do estado.',
+  v:   'Vertho desenvolve professores dentro do referencial BNCC — atua na implementação efetiva.',
 };
 
 function ReceitaCell({
@@ -66,39 +70,90 @@ function ReceitaCell({
   );
 }
 
-function StatusBadge({ value, label, nota }: { value: boolean | null; label: string; nota?: string }) {
-  if (value === null) {
-    return (
-      <div
-        className="flex items-start gap-2 px-3 py-2.5 rounded-lg border border-white/[0.06]"
-        title={nota}
-      >
-        <span className="text-white/40 text-xs leading-none mt-0.5">—</span>
-        <div className="flex-1 min-w-0">
-          <span className="text-[11px] text-white/45 block leading-snug">{label}</span>
-          {nota && <span className="text-[10px] text-white/35 block mt-1 leading-snug">{nota}</span>}
-        </div>
-      </div>
-    );
-  }
+function StatusBadge({
+  value, label, nota, verthoAjuda,
+}: {
+  value: boolean | null;
+  label: string;
+  nota?: string;
+  verthoAjuda?: boolean;
+}) {
   const ok = value === true;
+  const isUnknown = value === null;
+
+  // Destaque verde forte quando Vertho ajuda neste critério (I, III, V)
+  // ganha precedência sobre o status legal (✓/✗) na visualização lateral.
+  const borderLeft = verthoAjuda ? '4px solid #34D399' : '0';
+  const baseBorder = isUnknown
+    ? 'rgba(255,255,255,0.06)'
+    : ok ? 'rgba(110,231,183,0.2)' : 'rgba(249,115,84,0.2)';
+  const baseBg = isUnknown
+    ? 'transparent'
+    : ok ? 'rgba(110,231,183,0.06)' : 'rgba(249,115,84,0.06)';
+  const verthoBg = verthoAjuda ? 'rgba(52,211,153,0.07)' : baseBg;
+  const verthoBorder = verthoAjuda ? 'rgba(52,211,153,0.35)' : baseBorder;
+
+  const Icon = isUnknown
+    ? <span className="text-white/40 text-xs leading-none mt-0.5">—</span>
+    : ok
+      ? <Check size={14} style={{ color: '#6EE7B7', marginTop: 2, flexShrink: 0 }} />
+      : <X size={14} style={{ color: '#F97354', marginTop: 2, flexShrink: 0 }} />;
+
   return (
     <div
-      className="flex items-start gap-2 px-3 py-2.5 rounded-lg border"
+      className="relative flex items-start gap-2 pl-3 pr-3 py-2.5 rounded-lg border"
       style={{
-        borderColor: ok ? 'rgba(110, 231, 183, 0.2)' : 'rgba(249, 115, 84, 0.2)',
-        background: ok ? 'rgba(110, 231, 183, 0.06)' : 'rgba(249, 115, 84, 0.06)',
+        borderColor: verthoBorder,
+        background: verthoBg,
+        borderLeftWidth: verthoAjuda ? 0 : 1,
+        paddingLeft: verthoAjuda ? 14 : 12,
       }}
       title={nota}
     >
-      {ok ? (
-        <Check size={14} style={{ color: '#6EE7B7', marginTop: 2, flexShrink: 0 }} />
-      ) : (
-        <X size={14} style={{ color: '#F97354', marginTop: 2, flexShrink: 0 }} />
+      {/* Barra verde lateral pra destacar critérios onde Vertho ajuda */}
+      {verthoAjuda && (
+        <span
+          aria-hidden
+          className="absolute top-0 left-0 bottom-0 rounded-l-lg"
+          style={{ width: 4, background: '#34D399' }}
+        />
       )}
+
+      {Icon}
       <div className="flex-1 min-w-0">
-        <span className="text-[11px] text-white/80 block leading-snug">{label}</span>
-        {nota && <span className="text-[10px] text-white/55 block mt-1 leading-snug">{nota}</span>}
+        <span className={`text-[11px] block leading-snug ${isUnknown ? 'text-white/45' : 'text-white/85'}`}>
+          {label}
+        </span>
+        {nota && (
+          <div className="flex items-start gap-1.5 mt-1.5">
+            {verthoAjuda ? (
+              <span
+                className="inline-flex items-center text-[9px] font-bold uppercase tracking-[0.12em] px-1.5 py-0.5 rounded-full flex-shrink-0"
+                style={{
+                  background: 'rgba(52,211,153,0.15)',
+                  color: '#34D399',
+                  border: '1px solid rgba(52,211,153,0.35)',
+                }}
+              >
+                Vertho ajuda
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center text-[9px] font-bold uppercase tracking-[0.12em] px-1.5 py-0.5 rounded-full flex-shrink-0"
+                style={{
+                  background: 'rgba(255,255,255,0.04)',
+                  color: 'rgba(255,255,255,0.45)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                }}
+              >
+                Fora do escopo
+              </span>
+            )}
+            <span className={`text-[10px] leading-snug ${verthoAjuda ? 'text-white/75' : 'text-white/45'}`}>
+              {nota}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -150,10 +205,21 @@ export function VaarSection({
         Resoluções CIF (1/2022 a 17/2025); aferição via SIMEC (incisos I, IV, V) e microdados
         Saeb/INEP (II, III).
       </p>
-      <p className="text-[11px] text-white/45 mb-4 leading-relaxed border-l-2 border-cyan-400/30 pl-3">
-        Cada condicionalidade abaixo traz, em itálico, onde a Vertho atua:
-        <span className="text-white/55"> 🟢 atuação direta · 🟡 atuação indireta · 🔴 fora do escopo</span>.
-      </p>
+      <div className="rounded-xl mb-4 px-4 py-3 border"
+        style={{
+          background: 'linear-gradient(135deg, rgba(52,211,153,0.08), rgba(52,211,153,0.02))',
+          borderColor: 'rgba(52,211,153,0.25)',
+        }}>
+        <p className="text-[11px] text-white/75 leading-relaxed">
+          <span className="inline-flex items-center text-[9px] font-bold uppercase tracking-[0.12em] px-1.5 py-0.5 rounded-full mr-2 align-middle"
+            style={{ background: 'rgba(52,211,153,0.18)', color: '#34D399', border: '1px solid rgba(52,211,153,0.35)' }}>
+            Vertho ajuda
+          </span>
+          A Vertho atua diretamente em <strong className="text-white/90">3 das 5 condicionalidades</strong>{' '}
+          (I, III e V) — destacadas abaixo com barra verde. Os critérios II (logística do Saeb) e IV
+          (lei estadual ICMS) são fora do escopo Vertho.
+        </p>
+      </div>
 
       <div
         className="rounded-2xl p-5 border mb-4"
@@ -261,11 +327,11 @@ export function VaarSection({
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
-        <StatusBadge value={vaar.cond_i}   label={`I — ${COND_LABELS.i}`}   nota={COND_VERTHO_NOTA.i} />
-        <StatusBadge value={vaar.cond_ii}  label={`II — ${COND_LABELS.ii}`}  nota={COND_VERTHO_NOTA.ii} />
-        <StatusBadge value={vaar.cond_iii} label={`III — ${COND_LABELS.iii}`} nota={COND_VERTHO_NOTA.iii} />
-        <StatusBadge value={vaar.cond_iv}  label={`IV — ${COND_LABELS.iv}`}  nota={COND_VERTHO_NOTA.iv} />
-        <StatusBadge value={vaar.cond_v}   label={`V — ${COND_LABELS.v}`}   nota={COND_VERTHO_NOTA.v} />
+        <StatusBadge value={vaar.cond_i}   label={`I — ${COND_LABELS.i}`}   nota={COND_VERTHO_NOTA.i}   verthoAjuda={COND_VERTHO_ATUA.i} />
+        <StatusBadge value={vaar.cond_ii}  label={`II — ${COND_LABELS.ii}`}  nota={COND_VERTHO_NOTA.ii}  verthoAjuda={COND_VERTHO_ATUA.ii} />
+        <StatusBadge value={vaar.cond_iii} label={`III — ${COND_LABELS.iii}`} nota={COND_VERTHO_NOTA.iii} verthoAjuda={COND_VERTHO_ATUA.iii} />
+        <StatusBadge value={vaar.cond_iv}  label={`IV — ${COND_LABELS.iv}`}  nota={COND_VERTHO_NOTA.iv}  verthoAjuda={COND_VERTHO_ATUA.iv} />
+        <StatusBadge value={vaar.cond_v}   label={`V — ${COND_LABELS.v}`}   nota={COND_VERTHO_NOTA.v}   verthoAjuda={COND_VERTHO_ATUA.v} />
       </div>
 
       {/* Bloco de transparência: dados derivados das fontes que temos */}
