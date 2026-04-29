@@ -242,23 +242,54 @@ export async function capturarLead(input: CapturarLeadInput): Promise<{ success:
   // 4. Tracking de evento (best-effort)
   registrarEvento('lead_submit', { scopeType: input.scopeType, scopeId: input.scopeId, extra: { leadId: data.id } }).catch(() => {});
 
-  // 5. Dispara geração assíncrona via QStash (best-effort)
+  // 5. Dispara geração — QStash se disponível, senão fallback direto
+  await dispararPdfWorker(data.id);
+
+  return { success: true, leadId: data.id };
+}
+
+/**
+ * Dispara o worker /api/radar/lead-pdf:
+ * - Preferência 1: QStash (assíncrono, com retry automático) — quando QSTASH_TOKEN configurado
+ * - Preferência 2: fetch interno direto com INTERNAL_DISPATCH_SECRET — fallback se QStash indisponível
+ *
+ * Best-effort: erros são logados mas não interrompem a captura do lead.
+ */
+async function dispararPdfWorker(leadId: string): Promise<void> {
+  const webhookUrl = `${APP_URL}/api/radar/lead-pdf`;
+
+  // Tenta QStash primeiro
   if (process.env.QSTASH_TOKEN) {
     try {
-      const webhookUrl = `${APP_URL}/api/radar/lead-pdf`;
-      await fetch('https://qstash.upstash.io/v2/publish/' + encodeURIComponent(webhookUrl), {
+      const r = await fetch('https://qstash.upstash.io/v2/publish/' + encodeURIComponent(webhookUrl), {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${process.env.QSTASH_TOKEN}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ leadId: data.id }),
+        body: JSON.stringify({ leadId }),
       });
+      if (r.ok) return;
+      console.error('[capturarLead] qstash retornou', r.status);
     } catch (err) {
       console.error('[capturarLead] qstash dispatch failed', err);
     }
   }
 
-  return { success: true, leadId: data.id };
+  // Fallback: chama o worker direto com secret interno (fire-and-forget)
+  if (!process.env.INTERNAL_DISPATCH_SECRET) {
+    console.warn('[capturarLead] sem QStash e sem INTERNAL_DISPATCH_SECRET — lead ficará pendente');
+    return;
+  }
+  // Não faz await — geração de PDF é lenta (~10s) e não queremos bloquear a server action.
+  // O worker atualizará o lead via Supabase quando terminar.
+  fetch(webhookUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-internal-dispatch': process.env.INTERNAL_DISPATCH_SECRET,
+    },
+    body: JSON.stringify({ leadId }),
+  }).catch((err) => console.error('[capturarLead] internal dispatch failed', err));
 }
 

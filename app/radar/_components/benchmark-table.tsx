@@ -112,7 +112,6 @@ export function BenchmarkTable({
               </th>
               <th className="px-3 py-3 text-right">Estado</th>
               <th className="px-3 py-3 text-right">Brasil</th>
-              <th className="px-3 py-3 text-center w-12"></th>
             </tr>
           </thead>
           <tbody>
@@ -123,8 +122,11 @@ export function BenchmarkTable({
               return (
                 <tr key={ind.key} className="border-b border-white/[0.04] last:border-b-0">
                   <td className="px-4 py-3 text-white/85">{ind.label}</td>
-                  <td className="px-3 py-3 text-right text-white font-mono font-bold">
-                    {fmtValue(cv, ind.unit)}
+                  <td className="px-3 py-3 text-right text-white font-mono font-bold whitespace-nowrap">
+                    <span className="inline-flex items-center gap-2 justify-end">
+                      <SinalDot sinal={sinal} />
+                      {fmtValue(cv, ind.unit)}
+                    </span>
                   </td>
                   <td className="px-3 py-3 text-right text-white/65 font-mono">
                     {fmtValue(mv, ind.unit)}
@@ -134,9 +136,6 @@ export function BenchmarkTable({
                   </td>
                   <td className="px-3 py-3 text-right text-white/45 font-mono">
                     {fmtValue(brasil?.[ind.key] ?? null, ind.unit)}
-                  </td>
-                  <td className="px-3 py-3 text-center">
-                    <SinalDot sinal={sinal} />
                   </td>
                 </tr>
               );

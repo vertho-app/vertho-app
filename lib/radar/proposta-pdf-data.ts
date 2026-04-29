@@ -294,26 +294,38 @@ async function gerarOuCacheProposta(
     return (cached as any).conteudo as PropostaConteudo;
   }
 
-  // Gera
-  try {
-    const userMessage = `Contexto da proposta:\n\n${JSON.stringify(contextoIA, null, 2)}\n\nProduza o JSON conforme o formato.`;
-    const resp = await callAI(SYSTEM_PROPOSTA, userMessage, { model: 'claude-sonnet-4-6' }, 3500, { temperature: 0.5 });
-    const parsed = extractJson(resp);
-    if (parsed) {
-      sb.from('diag_analises_ia').upsert({
-        scope_type: `proposta_${scopeType}`,
-        scope_id: scopeId,
-        prompt_version: PROMPT_VERSION_PROPOSTA,
-        dados_hash: dadosHash,
-        conteudo: parsed,
-        modelo: 'claude-sonnet-4-6',
-      }, {
-        onConflict: 'scope_type,scope_id,prompt_version,dados_hash',
-      }).then(() => {});
-      return parsed;
+  // Gera — Claude primário, GPT fallback
+  const userMessage = `Contexto da proposta:\n\n${JSON.stringify(contextoIA, null, 2)}\n\nProduza o JSON conforme o formato.`;
+  const fallbackOpenAI = process.env.OPENAI_FALLBACK_MODEL || 'gpt-5.1';
+
+  const tentar = async (model: string): Promise<{ parsed: PropostaConteudo | null; modelo: string }> => {
+    try {
+      const resp = await callAI(SYSTEM_PROPOSTA, userMessage, { model }, 3500, { temperature: 0.5 });
+      return { parsed: extractJson(resp), modelo: model };
+    } catch (err) {
+      console.error(`[proposta-pdf] modelo ${model} falhou:`, err);
+      return { parsed: null, modelo: model };
     }
-  } catch (err) {
-    console.error('[proposta-pdf] geração IA falhou', err);
+  };
+
+  let resultado = await tentar('claude-sonnet-4-6');
+  if (!resultado.parsed && process.env.OPENAI_API_KEY) {
+    console.warn('[proposta-pdf] Claude falhou; tentando GPT fallback');
+    resultado = await tentar(fallbackOpenAI);
+  }
+
+  if (resultado.parsed) {
+    sb.from('diag_analises_ia').upsert({
+      scope_type: `proposta_${scopeType}`,
+      scope_id: scopeId,
+      prompt_version: PROMPT_VERSION_PROPOSTA,
+      dados_hash: dadosHash,
+      conteudo: resultado.parsed,
+      modelo: resultado.modelo,
+    }, {
+      onConflict: 'scope_type,scope_id,prompt_version,dados_hash',
+    }).then(() => {});
+    return resultado.parsed;
   }
   return FALLBACK;
 }

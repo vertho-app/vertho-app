@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { ArrowLeft } from 'lucide-react';
 
-import { getMunicipio, getEscolasMunicipio, getMunicipioBenchmarks, getMunicipioVariabilidade } from '@/lib/radar/queries';
+import { getMunicipio, getMunicipioBenchmarks, getMunicipioVariabilidade } from '@/lib/radar/queries';
 import { estimarVaar } from '@/lib/radar/vaar-estimativa';
 import { leituraIcaMunicipio } from '@/lib/radar/leitura-deterministica';
 import { registrarEvento } from '@/lib/radar/eventos';
@@ -41,8 +41,7 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
 
   registrarEvento('view_municipio', { scopeType: 'municipio', scopeId: ibge }).catch(() => {});
 
-  const [escolas, benchmarks, variabilidade] = await Promise.all([
-    getEscolasMunicipio(ibge),
+  const [benchmarks, variabilidade] = await Promise.all([
     getMunicipioBenchmarks(ibge),
     getMunicipioVariabilidade(ibge),
   ]);
@@ -195,42 +194,6 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
                     </p>
                   )}
                 </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Lista de escolas */}
-        {escolas.length > 0 && (
-          <section className="mb-12">
-            <p className="text-[11px] tracking-[0.15em] uppercase font-bold mb-3" style={{ color: '#34c5cc' }}>
-              Escolas no Radar
-            </p>
-            <h2 className="text-white mb-3"
-              style={{
-                fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
-                fontSize: 'clamp(24px, 3vw, 32px)',
-                fontWeight: 600,
-                lineHeight: 1.15,
-                letterSpacing: '-0.02em',
-              }}>
-              Escolas em {m.nome}
-            </h2>
-            <p className="text-white/60 mb-6 leading-relaxed" style={{ fontSize: 15, maxWidth: 720 }}>
-              {escolas.length} {escolas.length === 1 ? 'escola listada' : 'escolas listadas'} no município.
-              Clique pra ver indicadores detalhados.
-            </p>
-            <div className="rounded-2xl border border-white/[0.08] overflow-hidden"
-              style={{ background: 'rgba(255,255,255,0.04)' }}>
-              {escolas.map((e) => (
-                <Link key={e.codigo_inep} href={`/radar/escola/${e.codigo_inep}`}
-                  className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.04] last:border-b-0 hover:bg-white/[0.04] transition-colors">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white truncate">{e.nome}</p>
-                    <p className="text-[11px] text-white/40 font-mono">INEP {e.codigo_inep} · {e.rede || 'rede n/d'}</p>
-                  </div>
-                  <span className="text-xs text-cyan-400 ml-3">→</span>
-                </Link>
               ))}
             </div>
           </section>

@@ -10,14 +10,22 @@ import { EMAIL_FROM_DEFAULT } from '@/lib/domain';
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-async function verifyQStashSignature(req: Request, body: string): Promise<boolean> {
+async function verifyRequest(req: Request, body: string): Promise<boolean> {
+  // 1) Bypass via header interno (server-to-server fallback quando QStash não está configurado).
+  // Só vale se INTERNAL_DISPATCH_SECRET estiver setado (caso contrário, ninguém consegue acionar
+  // por essa rota sem QStash signature).
+  const internalSecret = process.env.INTERNAL_DISPATCH_SECRET;
+  if (internalSecret) {
+    const headerToken = req.headers.get('x-internal-dispatch') || '';
+    if (headerToken && headerToken === internalSecret) return true;
+  }
+
+  // 2) QStash signature
   const currentKey = process.env.QSTASH_CURRENT_SIGNING_KEY;
   const nextKey = process.env.QSTASH_NEXT_SIGNING_KEY;
-  // Fail-closed em produção: sem keys, recusa qualquer POST.
-  // Em dev/preview, segue sem verificar pra facilitar testes locais.
   if (!currentKey || !nextKey) {
     if (process.env.NODE_ENV === 'production') {
-      console.error('[radar/lead-pdf] FAIL-CLOSED: signing keys ausentes em produção');
+      console.error('[radar/lead-pdf] FAIL-CLOSED: nem signing keys nem internal secret em produção');
       return false;
     }
     console.warn('[radar/lead-pdf] dev/preview sem signing keys — pulando verificação');
@@ -41,7 +49,7 @@ export async function POST(req: Request) {
 
   try {
     const rawBody = await req.text();
-    const valid = await verifyQStashSignature(req, rawBody);
+    const valid = await verifyRequest(req, rawBody);
     if (!valid) return NextResponse.json({ error: 'Assinatura inválida' }, { status: 401 });
 
     const payload = JSON.parse(rawBody);

@@ -13,6 +13,40 @@ import type {
 } from './queries';
 
 const PROMPT_VERSION_NARRATIVA = 'radar-narrativa-v3';
+const FALLBACK_OPENAI_MODEL = process.env.OPENAI_FALLBACK_MODEL || 'gpt-5.1';
+
+/**
+ * Tenta Claude e, se falhar, faz fallback pra GPT (OpenAI). Retorna null
+ * apenas se ambos falharem ou produzirem texto não-parseável.
+ */
+async function gerarComFallback(
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens: number,
+  parser: (text: string) => NarrativaIA | null,
+): Promise<NarrativaIA | null> {
+  // 1. Claude (primário)
+  try {
+    const resp = await callAI(systemPrompt, userPrompt, { model: 'claude-sonnet-4-6' }, maxTokens, { temperature: 0.4 });
+    const parsed = parser(resp);
+    if (parsed) return parsed;
+    console.warn('[ia-narrativa] Claude retornou texto não-parseável; tentando GPT');
+  } catch (err) {
+    console.error('[ia-narrativa] Claude falhou, tentando GPT:', err);
+  }
+
+  // 2. GPT (fallback) — só se OPENAI_API_KEY estiver setada
+  if (!process.env.OPENAI_API_KEY) return null;
+  try {
+    const resp = await callAI(systemPrompt, userPrompt, { model: FALLBACK_OPENAI_MODEL }, maxTokens, { temperature: 0.4 });
+    const parsed = parser(resp);
+    if (parsed) return parsed;
+    console.warn('[ia-narrativa] GPT também retornou texto não-parseável');
+  } catch (err) {
+    console.error('[ia-narrativa] GPT fallback falhou:', err);
+  }
+  return null;
+}
 
 const SYSTEM_NARRATIVA = `Você é um analista educacional sênior do Vertho Mentor IA escrevendo análises públicas para gestores escolares e secretarias.
 
@@ -188,15 +222,10 @@ export async function getNarrativaEscola(
   }
   partes.push('', `Escreva a análise pública seguindo o formato JSON.`);
 
-  try {
-    const resp = await callAI(SYSTEM_NARRATIVA, partes.join('\n'), { model: 'claude-sonnet-4-6' }, 1400, { temperature: 0.4 });
-    const parsed = extractJson(resp);
-    if (parsed) {
-      saveCache('escola', escola.codigo_inep, dadosHash, parsed).catch(() => {});
-      return parsed;
-    }
-  } catch (err) {
-    console.error('[ia-narrativa] escola falhou', err);
+  const parsed = await gerarComFallback(SYSTEM_NARRATIVA, partes.join('\n'), 1400, extractJson);
+  if (parsed) {
+    saveCache('escola', escola.codigo_inep, dadosHash, parsed).catch(() => {});
+    return parsed;
   }
   return FALLBACK;
 }
@@ -249,15 +278,10 @@ export async function getNarrativaMunicipio(
   }
   partes.push('', `Escreva a análise pública seguindo o formato JSON.`);
 
-  try {
-    const resp = await callAI(SYSTEM_NARRATIVA, partes.join('\n'), { model: 'claude-sonnet-4-6' }, 1400, { temperature: 0.4 });
-    const parsed = extractJson(resp);
-    if (parsed) {
-      saveCache('municipio', municipio.ibge, dadosHash, parsed).catch(() => {});
-      return parsed;
-    }
-  } catch (err) {
-    console.error('[ia-narrativa] municipio falhou', err);
+  const parsed = await gerarComFallback(SYSTEM_NARRATIVA, partes.join('\n'), 1400, extractJson);
+  if (parsed) {
+    saveCache('municipio', municipio.ibge, dadosHash, parsed).catch(() => {});
+    return parsed;
   }
   return FALLBACK;
 }
