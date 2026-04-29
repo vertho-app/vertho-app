@@ -100,7 +100,7 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
           microrregiao={microrregiao}
         />
 
-        <section className="mb-12 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <section className="mb-12 flex flex-col gap-4">
           <Suspense fallback={<NarrativaSkeleton resumoDeterm={determ.resumo} />}>
             <NarrativaIA
               scope="municipio"

@@ -108,7 +108,7 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
         />
 
         {/* Leitura IA + determinística (Suspense pra UX progressiva) */}
-        <section className="mb-12 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <section className="mb-12 flex flex-col gap-4">
           <Suspense fallback={<NarrativaSkeleton resumoDeterm={determ.resumo} />}>
             <NarrativaIA
               scope="escola"

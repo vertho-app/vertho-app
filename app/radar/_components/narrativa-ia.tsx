@@ -53,10 +53,12 @@ export async function NarrativaIA(props: EscolaProps | MunicipioProps) {
         pddeMunicipal: props.pddeMunicipal || [],
       });
 
+  const temDestaques = ia.pontos_atencao.length > 0 || ia.pontos_destaque.length > 0;
+
   return (
     <>
       <div
-        className="md:col-span-2 rounded-2xl p-5 border border-white/[0.06]"
+        className="rounded-2xl p-5 border border-white/[0.06]"
         style={{ background: 'rgba(255,255,255,0.03)' }}
       >
         <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-3" style={{ color: '#34c5cc' }}>
@@ -65,17 +67,20 @@ export async function NarrativaIA(props: EscolaProps | MunicipioProps) {
         <p className="text-sm text-white/80 leading-relaxed mb-3">{ia.resumo}</p>
         {props.determRefBlock}
       </div>
-      <div className="space-y-3">
-        {ia.pontos_atencao.length > 0 && (
-          <Bloco titulo="Pontos de Atenção" cor="#F97354" itens={ia.pontos_atencao} />
-        )}
-        {ia.pontos_destaque.length > 0 && (
-          <Bloco titulo="Destaques" cor="#34D399" itens={ia.pontos_destaque} />
-        )}
-      </div>
+
+      {temDestaques && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {ia.pontos_atencao.length > 0 && (
+            <Bloco titulo="Pontos de Atenção" cor="#F97354" itens={ia.pontos_atencao} />
+          )}
+          {ia.pontos_destaque.length > 0 && (
+            <Bloco titulo="Destaques" cor="#34D399" itens={ia.pontos_destaque} />
+          )}
+        </div>
+      )}
 
       {ia.perguntas_pedagogicas.length > 0 && (
-        <section className="md:col-span-3 rounded-2xl p-5 border border-white/[0.06] mt-1"
+        <section className="rounded-2xl p-5 border border-white/[0.06]"
           style={{ background: 'rgba(154,226,230,0.04)' }}>
           <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-3" style={{ color: '#9ae2e6' }}>
             {props.scope === 'escola' ? 'Perguntas pedagógicas para discussão' : 'Perguntas para discussão na secretaria'}
@@ -116,7 +121,7 @@ export function NarrativaSkeleton({ resumoDeterm }: { resumoDeterm: string }) {
   return (
     <>
       <div
-        className="md:col-span-2 rounded-2xl p-5 border border-white/[0.06]"
+        className="rounded-2xl p-5 border border-white/[0.06]"
         style={{ background: 'rgba(255,255,255,0.03)' }}
       >
         <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-3 flex items-center gap-2" style={{ color: '#34c5cc' }}>
@@ -147,7 +152,7 @@ export function NarrativaSkeleton({ resumoDeterm }: { resumoDeterm: string }) {
         </p>
       </div>
 
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-2xl p-4 border" style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.06)' }}>
           <div className="h-2.5 w-24 rounded animate-pulse mb-3" style={{ background: 'rgba(249,115,84,0.18)' }} />
           <div className="space-y-1.5">
