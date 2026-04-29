@@ -88,18 +88,30 @@ async function pgSelect(table, cols, range) {
 }
 
 async function pgUpsert(rows) {
-  const r = await fetch(`${URL}/rest/v1/diag_censo_infra?on_conflict=codigo_inep,ano`, {
-    method: 'POST',
-    headers: {
-      apikey: KEY, Authorization: `Bearer ${KEY}`,
-      'Content-Type': 'application/json',
-      Prefer: 'resolution=merge-duplicates,return=minimal',
-    },
-    body: JSON.stringify(rows),
-  });
-  if (!r.ok) {
-    const text = await r.text();
-    throw new Error(`upsert falhou ${r.status}: ${text.slice(0, 300)}`);
+  const maxAttempts = 5;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const r = await fetch(`${URL}/rest/v1/diag_censo_infra?on_conflict=codigo_inep,ano`, {
+        method: 'POST',
+        headers: {
+          apikey: KEY, Authorization: `Bearer ${KEY}`,
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=merge-duplicates,return=minimal',
+        },
+        body: JSON.stringify(rows),
+      });
+      if (r.ok) return;
+      if (r.status >= 500 && attempt < maxAttempts) {
+        const wait = 2000 * attempt;
+        await new Promise((res) => setTimeout(res, wait));
+        continue;
+      }
+      const text = await r.text();
+      throw new Error(`upsert falhou ${r.status}: ${text.slice(0, 200)}`);
+    } catch (err) {
+      if (attempt === maxAttempts) throw err;
+      await new Promise((res) => setTimeout(res, 2000 * attempt));
+    }
   }
 }
 
