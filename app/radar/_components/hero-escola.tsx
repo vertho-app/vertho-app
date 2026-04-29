@@ -136,7 +136,7 @@ export function HeroEscola({
       style={{
         background: 'linear-gradient(135deg, rgba(8,26,55,0.6) 0%, rgba(15,43,84,0.4) 100%)',
         border: '1px solid rgba(255,255,255,0.06)',
-        padding: 'clamp(28px, 4vw, 48px)',
+        padding: 'clamp(24px, 3vw, 36px)',
       }}>
       {/* círculos decorativos cyan */}
       <div aria-hidden className="pointer-events-none absolute"
@@ -168,7 +168,7 @@ export function HeroEscola({
         </div>
 
         {/* Nome */}
-        <h1 className="text-white mb-5"
+        <h1 className="text-white mb-4"
           style={{
             fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
             fontWeight: 600,
@@ -181,19 +181,24 @@ export function HeroEscola({
         </h1>
 
         {/* Pills */}
-        <div className="flex flex-wrap gap-2 mb-8">
+        <div className="flex flex-wrap gap-2">
           <Pill>{escola.municipio}/{escola.uf}</Pill>
           {escola.rede && <Pill>Rede {escola.rede.toLowerCase()}</Pill>}
           {escola.zona && <Pill>Zona {escola.zona.toLowerCase()}</Pill>}
-          {escola.inse_grupo != null && <Pill highlight>INSE Grupo {escola.inse_grupo}</Pill>}
           <Pill>INEP {escola.codigo_inep}</Pill>
-          {escola.ano_referencia && <Pill>Ref. {escola.ano_referencia}</Pill>}
+          <Pill
+            highlight={escola.inse_grupo != null}
+            title="INSE — Indicador de Nível Socioeconômico do INEP. Classifica a escola em grupos (1 mais vulnerável → 7 mais favorecido) que permitem comparar resultados com escolas socioeconomicamente similares."
+          >
+            {escola.inse_grupo != null ? `INSE Grupo ${escola.inse_grupo}` : 'INSE não informado'}
+            <span className="opacity-60 ml-0.5">(?)</span>
+          </Pill>
         </div>
 
         {/* Hero stats */}
         {stats.length > 0 && (
           <div
-            className="grid gap-px rounded-2xl overflow-hidden"
+            className="grid gap-px rounded-2xl overflow-hidden mt-7"
             style={{
               gridTemplateColumns: `repeat(${Math.min(stats.length, 4)}, 1fr)`,
               background: 'rgba(255,255,255,0.12)',
@@ -233,14 +238,24 @@ export function HeroEscola({
   );
 }
 
-function Pill({ children, highlight }: { children: React.ReactNode; highlight?: boolean }) {
+function Pill({
+  children,
+  highlight,
+  title,
+}: {
+  children: React.ReactNode;
+  highlight?: boolean;
+  title?: string;
+}) {
   return (
     <span
+      title={title}
       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
       style={{
         background: highlight ? 'rgba(52,197,204,0.15)' : 'rgba(255,255,255,0.08)',
         border: `1px solid ${highlight ? 'rgba(52,197,204,0.4)' : 'rgba(255,255,255,0.12)'}`,
         color: highlight ? '#9ae2e6' : 'rgba(255,255,255,0.85)',
+        cursor: title ? 'help' : undefined,
       }}
     >
       {children}
