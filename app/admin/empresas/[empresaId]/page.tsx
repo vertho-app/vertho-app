@@ -71,6 +71,7 @@ const PHASE_CONFIG = [
     { key: 'ia1',         label: 'IA1 — Top 10',               icon: Zap,          ai: true },
     { key: 'votacao',     label: 'Votação Colaboradores',       icon: Users,        hrefFn: (id: string) => `/admin/empresas/${id}/votacao` },
     { key: 'cargos-top5', label: 'Top 5',                       icon: Target,       href: '/admin/cargos' },
+    { key: 'perfil-ext',  label: 'Perfil Externo (OPQ32)',      icon: FileText,     hrefFn: (id: string) => `/admin/empresas/${id}/perfil-externo` },
     { key: 'ia2',         label: 'IA2 — Perfil Ideal',          icon: Zap,          ai: true },
     { key: 'ia3',         label: 'IA3 — Cenários + Check',      icon: Zap,          ai: 'dual' },
     { key: 'fit',         label: 'Fit Cargo Ideal',             icon: BarChart3,    href: '/admin/fit' },
