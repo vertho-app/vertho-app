@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
 import type { MunicipioCompacto } from '@/lib/radar/queries';
 
-type Direction = 'higher_better' | 'lower_better' | 'neutral';
+type Direction = 'higher_better' | 'lower_better' | 'neutral' | 'positive_is_good';
 
 const FMT_BRL = new Intl.NumberFormat('pt-BR', {
   style: 'currency', currency: 'BRL', maximumFractionDigits: 0,
@@ -24,7 +24,7 @@ const ROWS: Array<{
   { label: 'Saeb LP · 9º EF',                                      acessor: (m) => m.saeb_9ef_lp, format: (v) => v.toFixed(0), direction: 'higher_better' },
   { label: 'Saeb Mat · 9º EF',                                     acessor: (m) => m.saeb_9ef_mat, format: (v) => v.toFixed(0), direction: 'higher_better' },
   { group: 'Recursos', label: 'FUNDEB · R$ por aluno-ano',         acessor: (m) => m.fundeb_aluno, format: (v) => FMT_BRL.format(v), direction: 'higher_better' },
-  { label: 'VAAR · recebimento da União',                          acessor: (m) => m.vaar_recebimento, format: (v) => FMT_BRL.format(v), direction: 'higher_better' },
+  { label: 'VAAR · recebimento da União',                          acessor: (m) => m.vaar_recebimento, format: (v) => FMT_BRL.format(v), direction: 'positive_is_good' },
   { group: 'Cobertura', label: 'Escolas no Radar',                 acessor: (m) => m.totalEscolas, format: (v) => v.toLocaleString('pt-BR'), direction: 'neutral' },
 ];
 
@@ -71,12 +71,16 @@ export function CompararTabelaCidades({ cidades }: { cidades: MunicipioCompacto[
         // Evita marcar 5.5925 como melhor que 5.5912 quando ambos exibem "5.59".
         const exibidos = valores.map((v) => v != null ? row.format(v) : null);
         let melhorStr: string | null = null;
+        const positivos: Set<number> = new Set();
         const definidos = valores.filter((v): v is number => v != null);
-        if (row.direction !== 'neutral' && definidos.length > 1) {
+        if (row.direction === 'positive_is_good') {
+          // Qualquer valor > 0 é "bom" (binário: recebe ou não recebe)
+          valores.forEach((v, idx) => {
+            if (v != null && v > 0) positivos.add(idx);
+          });
+        } else if (row.direction !== 'neutral' && definidos.length > 1) {
           const melhorRaw = row.direction === 'higher_better' ? Math.max(...definidos) : Math.min(...definidos);
           melhorStr = row.format(melhorRaw);
-          // Empate sob mesma precisão: todas as que casam ficam destacadas como "melhor".
-          // Só suprime se TODAS empataram (não há diferenciação a fazer).
           const ocorrencias = exibidos.filter((s) => s === melhorStr).length;
           if (ocorrencias === exibidos.filter((s) => s != null).length) melhorStr = null;
         }
@@ -100,18 +104,21 @@ export function CompararTabelaCidades({ cidades }: { cidades: MunicipioCompacto[
               {cidades.map((c, ci) => {
                 const v = valores[ci];
                 const exibido = exibidos[ci];
+                const isPositivo = row.direction === 'positive_is_good' && positivos.has(ci);
                 const isMelhor = melhorStr != null && exibido === melhorStr;
+                const destacar = isPositivo || isMelhor;
+                const tagLabel = isPositivo ? 'recebe' : isMelhor ? 'melhor' : null;
                 return (
                   <div key={c.ibge}
                     className="px-4 py-3 border-r border-white/[0.04] last:border-r-0 font-mono text-sm"
                     style={{
-                      background: isMelhor ? 'rgba(110,231,183,0.08)' : undefined,
-                      color: isMelhor ? '#86efac' : (v == null ? 'rgba(255,255,255,0.3)' : '#fff'),
-                      fontWeight: isMelhor ? 700 : 500,
+                      background: destacar ? 'rgba(110,231,183,0.08)' : undefined,
+                      color: destacar ? '#86efac' : (v == null ? 'rgba(255,255,255,0.3)' : '#fff'),
+                      fontWeight: destacar ? 700 : 500,
                     }}>
                     {exibido ?? '—'}
-                    {isMelhor && (
-                      <span className="ml-2 text-[9px] uppercase tracking-wider opacity-70">melhor</span>
+                    {tagLabel && (
+                      <span className="ml-2 text-[9px] uppercase tracking-wider opacity-70">{tagLabel}</span>
                     )}
                   </div>
                 );
