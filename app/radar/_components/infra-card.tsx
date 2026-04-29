@@ -96,22 +96,27 @@ export function InfraSection({ censo }: { censo: CensoInfra }) {
 }
 
 function InfraDestaques({ indicadores }: { indicadores: Record<string, number> }) {
-  const destaque: { key: string; label: string }[] = [
-    { key: 'IN_BIBLIOTECA', label: 'Biblioteca' },
-    { key: 'IN_LABORATORIO_INFORMATICA', label: 'Lab. Informática' },
-    { key: 'IN_LABORATORIO_CIENCIAS', label: 'Lab. Ciências' },
-    { key: 'IN_QUADRA_ESPORTES', label: 'Quadra' },
-    { key: 'IN_INTERNET', label: 'Internet' },
-    { key: 'IN_INTERNET_APRENDIZAGEM', label: 'Internet pra aluno' },
-    { key: 'IN_BANDA_LARGA', label: 'Banda larga' },
-    { key: 'IN_AGUA_POTAVEL', label: 'Água potável' },
-    { key: 'IN_ENERGIA_REDE_PUBLICA', label: 'Energia rede pública' },
-    { key: 'IN_ESGOTO_REDE_PUBLICA', label: 'Esgoto rede pública' },
-    { key: 'IN_ACESSIBILIDADE_RAMPAS', label: 'Rampas' },
-    { key: 'IN_REFEITORIO', label: 'Refeitório' },
+  // Cada item considera múltiplas variáveis Censo via OR — uma escola pode
+  // declarar a presença de "água da rede" sem marcar "potável" e ainda ter
+  // água, por exemplo. A label reflete o que está sendo testado.
+  const destaque: { keys: string[]; label: string }[] = [
+    { keys: ['IN_BIBLIOTECA', 'IN_BIBLIOTECA_SALA_LEITURA', 'IN_SALA_LEITURA'],         label: 'Biblioteca ou sala de leitura' },
+    { keys: ['IN_LABORATORIO_INFORMATICA'],                                              label: 'Laboratório de informática' },
+    { keys: ['IN_LABORATORIO_CIENCIAS'],                                                 label: 'Laboratório de ciências' },
+    { keys: ['IN_QUADRA_ESPORTES', 'IN_QUADRA_ESPORTES_COBERTA', 'IN_PATIO_COBERTO'],    label: 'Quadra ou pátio coberto' },
+    { keys: ['IN_INTERNET'],                                                             label: 'Internet' },
+    { keys: ['IN_INTERNET_APRENDIZAGEM'],                                                label: 'Internet pedagógica' },
+    { keys: ['IN_BANDA_LARGA'],                                                          label: 'Banda larga' },
+    { keys: ['IN_AGUA_POTAVEL', 'IN_AGUA_REDE_PUBLICA'],                                 label: 'Água da rede pública' },
+    { keys: ['IN_ENERGIA_REDE_PUBLICA'],                                                 label: 'Energia da rede pública' },
+    { keys: ['IN_ESGOTO_REDE_PUBLICA'],                                                  label: 'Esgoto da rede pública' },
+    { keys: ['IN_ACESSIBILIDADE_RAMPAS'],                                                label: 'Rampas de acessibilidade' },
+    { keys: ['IN_REFEITORIO', 'IN_COZINHA'],                                             label: 'Refeitório ou cozinha' },
   ];
 
-  const items = destaque.filter((d) => d.key in indicadores);
+  // Filtra itens onde pelo menos UMA das chaves existe no objeto Censo
+  // (mesmo que o valor seja 0 — isso indica que o campo foi medido).
+  const items = destaque.filter((d) => d.keys.some((k) => k in indicadores));
   if (items.length === 0) return null;
 
   return (
@@ -119,10 +124,11 @@ function InfraDestaques({ indicadores }: { indicadores: Record<string, number> }
       style={{ background: 'rgba(255,255,255,0.04)' }}>
       <p className="text-sm font-bold text-white mb-4">Recursos disponíveis</p>
       <div className="flex flex-wrap gap-2">
-        {items.map(({ key, label }) => {
-          const has = indicadores[key] > 0;
+        {items.map(({ keys, label }) => {
+          // Tem se QUALQUER das chaves estiver marcada
+          const has = keys.some((k) => Number(indicadores[k]) > 0);
           return (
-            <span key={key}
+            <span key={label}
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[13px] font-semibold"
               style={
                 has
