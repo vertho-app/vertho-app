@@ -75,9 +75,10 @@ export function CompararTabelaCidades({ cidades }: { cidades: MunicipioCompacto[
         if (row.direction !== 'neutral' && definidos.length > 1) {
           const melhorRaw = row.direction === 'higher_better' ? Math.max(...definidos) : Math.min(...definidos);
           melhorStr = row.format(melhorRaw);
-          // Se 2 ou mais cidades caem na mesma string, vira empate (não destaca ninguém)
+          // Empate sob mesma precisão: todas as que casam ficam destacadas como "melhor".
+          // Só suprime se TODAS empataram (não há diferenciação a fazer).
           const ocorrencias = exibidos.filter((s) => s === melhorStr).length;
-          if (ocorrencias > 1) melhorStr = null;
+          if (ocorrencias === exibidos.filter((s) => s != null).length) melhorStr = null;
         }
 
         return (

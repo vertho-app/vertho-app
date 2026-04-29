@@ -55,9 +55,10 @@ export function CompararTabela({ escolas }: { escolas: EscolaCompacta[] }) {
         if (definidos.length > 1) {
           const melhorRaw = row.direction === 'higher_better' ? Math.max(...definidos) : Math.min(...definidos);
           melhorStr = row.format(melhorRaw);
-          // Empate quando 2+ escolas caem na mesma string formatada
+          // Empate sob mesma precisão: todos os empatados ficam destacados.
+          // Só suprime quando TODAS as escolas empatam (não há nada a diferenciar).
           const ocorrencias = exibidos.filter((s) => s === melhorStr).length;
-          if (ocorrencias > 1) melhorStr = null;
+          if (ocorrencias === exibidos.filter((s) => s != null).length) melhorStr = null;
         }
 
         return (
