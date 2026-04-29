@@ -78,30 +78,30 @@ export default function LoginForm({ branding }: { branding: any }) {
       return;
     }
 
-    // Email: signInWithOtp client-side (PKCE flow correto)
-    // WhatsApp: API route com token_hash verificado server-side
-    const [otpResult] = await Promise.all([
-      supabase.auth.signInWithOtp({
-        email: trimmed,
-        options: { emailRedirectTo: `${window.location.origin}${redirectTo}` },
-      }),
-      fetch('/api/auth/magic-link', {
+    // /api/auth/magic-link cuida de TUDO server-side:
+    // - gera link via admin.generateLink (sem rate limit)
+    // - envia email via Resend (não usa SMTP do Supabase Auth que tem
+    //   limite de 2 emails/h; antes era esse o erro "Error sending magic link email")
+    // - dispara WhatsApp via Z-API se telefone cadastrado
+    try {
+      const res = await fetch('/api/auth/magic-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: trimmed, redirectTo: `${window.location.origin}${redirectTo}` }),
-      }).catch(() => null),
-    ]);
-
-    if (otpResult.error) {
-      // Rate limit no email, mas WhatsApp pode ter funcionado
-      if (otpResult.error.message.includes('rate') || otpResult.error.message.includes('limit')) {
+      });
+      const data = await res.json();
+      if (data?.error) {
+        setErrorMsg(data.error);
+        setStatus('error');
+      } else if (data?.success) {
         setStatus('sent');
       } else {
-        setErrorMsg(otpResult.error.message);
+        setErrorMsg('Não foi possível enviar o link. Tente novamente.');
         setStatus('error');
       }
-    } else {
-      setStatus('sent');
+    } catch (e: any) {
+      setErrorMsg(`Erro de rede: ${e.message}`);
+      setStatus('error');
     }
   }
 

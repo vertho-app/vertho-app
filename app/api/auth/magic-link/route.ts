@@ -1,8 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Resend } from 'resend';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
+import { EMAIL_FROM_DEFAULT } from '@/lib/domain';
 
 export const dynamic = 'force-dynamic';
+
+function escapeHtml(s: string) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function emailHtml({ nome, empresaNome, link }: { nome: string; empresaNome: string; link: string }) {
+  const saud = nome ? `Olá, ${escapeHtml(nome)}!` : 'Olá!';
+  const safeEmp = escapeHtml(empresaNome);
+  return `<!doctype html>
+<html><body style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#f6f7fb;padding:24px;">
+  <table cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;border:1px solid #e2e8f0;">
+    <tr><td style="background:#0f2b54;padding:24px 28px;color:#fff;">
+      <p style="margin:0;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#34c5cc;">${safeEmp}</p>
+      <h1 style="margin:6px 0 0;font-size:22px;font-weight:700;">Seu link de acesso</h1>
+    </td></tr>
+    <tr><td style="padding:28px;color:#1e293b;line-height:1.65;font-size:14px;">
+      <p>${saud}</p>
+      <p>Clique no botão abaixo para entrar — sem precisar de senha. O link expira em 24 horas.</p>
+      <p style="text-align:center;margin:28px 0;">
+        <a href="${link}" style="background:#34c5cc;color:#0f2b54;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:700;display:inline-block;">Entrar agora</a>
+      </p>
+      <p style="font-size:12px;color:#64748b;">Se o botão não funcionar, copie o link abaixo no seu navegador:</p>
+      <p style="font-size:11px;color:#64748b;word-break:break-all;background:#f8fafc;padding:8px;border-radius:6px;">${escapeHtml(link)}</p>
+      <p style="margin-top:24px;color:#94a3b8;font-size:12px;">
+        Se você não solicitou este e-mail, ignore-o. Nenhuma ação será feita sem seu clique.
+      </p>
+    </td></tr>
+    <tr><td style="background:#f8fafc;padding:14px 28px;color:#94a3b8;font-size:11px;border-top:1px solid #e2e8f0;text-align:center;">
+      Este é um e-mail automático, não responda.
+    </td></tr>
+  </table>
+</body></html>`;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -67,21 +102,36 @@ export async function POST(req: NextRequest) {
     const empresaNome = empresa?.nome || 'Vertho';
     const results = { email: false, whatsapp: false };
 
-    // 1) Email — usa o Supabase action_link nativo (redireciona via Supabase verify)
-    try {
-      const { createClient } = await import('@supabase/supabase-js');
-      const sbAnon = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      );
-      const { error: emailErr } = await sbAnon.auth.signInWithOtp({
-        email: trimmed,
-        options: { emailRedirectTo: safeRedirectTo || undefined },
-      });
-      results.email = !emailErr;
-      if (emailErr) console.error('[magic-link] OTP email error:', emailErr.message);
-    } catch (e: any) {
-      console.error('[magic-link] email error:', e.message);
+    // 1) Email — envia direto via Resend usando o action_link gerado pelo
+    //    admin.generateLink (sem rate limit). Antes chamávamos signInWithOtp
+    //    que usa SMTP do Supabase Auth (limite 2 emails/h no plano padrão).
+    if (process.env.RESEND_API_KEY && actionLink) {
+      try {
+        // Se temos um redirectTo confiável, montamos um callback server-side
+        // com token_hash (mesma estratégia do WhatsApp) — evita problemas de
+        // PKCE quando o usuário abre o e-mail em outro navegador.
+        const linkPraEmail = (origin && tokenHash)
+          ? `${origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(nextPath)}`
+          : actionLink;
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const sendResult = await resend.emails.send({
+          from: EMAIL_FROM_DEFAULT,
+          to: trimmed,
+          subject: `${empresaNome} — seu link de acesso`,
+          html: emailHtml({ nome, empresaNome, link: linkPraEmail }),
+        });
+        if ((sendResult as any)?.error) {
+          console.error('[magic-link] Resend retornou erro:', JSON.stringify((sendResult as any).error).slice(0, 300));
+          results.email = false;
+        } else {
+          results.email = true;
+        }
+      } catch (e: any) {
+        console.error('[magic-link] Resend exception:', e.message);
+      }
+    } else if (!process.env.RESEND_API_KEY) {
+      console.error('[magic-link] RESEND_API_KEY ausente — email não enviado');
     }
 
     // 2) WhatsApp — usa callback server-side com token_hash.
