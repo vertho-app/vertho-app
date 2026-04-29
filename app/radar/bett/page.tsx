@@ -20,7 +20,6 @@ type Demo = {
   destaque?: boolean;
 };
 
-// Códigos placeholder — substituir por reais antes do evento
 const DEMOS: Demo[] = [
   {
     href: '/escola/29062519',
@@ -31,11 +30,12 @@ const DEMOS: Demo[] = [
     destaque: true,
   },
   {
-    href: '/escola/35000001',
+    href: '/escola/35915592',
     badge: 'Escola · São Paulo',
-    titulo: 'Escola Estadual SP',
-    sub: 'Saeb + SARESP + Censo. UF da Bett.',
+    titulo: 'EE Hugo Penteado Teixeira (Campinas)',
+    sub: 'Saeb (12 snapshots, 3 etapas) + Censo + INSE. Estadual.',
     icon: GraduationCap,
+    destaque: true,
   },
   {
     href: '/municipio/2912400',
@@ -60,10 +60,10 @@ const DEMOS: Demo[] = [
     icon: Map,
   },
   {
-    href: '/comparar',
+    href: '/comparar?escolas=35915592,35916754,35923655,35918040',
     badge: 'Comparativo',
-    titulo: 'Lado a lado',
-    sub: 'Selecione até 4 escolas e compare Saeb, infra e ICA.',
+    titulo: 'Comparar 4 escolas SP',
+    sub: 'Hugo Penteado, Pedro Geraldo, São Judas, Anna de Mello — lado a lado.',
     icon: ArrowRight,
   },
 ];
