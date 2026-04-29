@@ -23,6 +23,7 @@ import { AlfabetizacaoSaebCard } from '../../_components/alfabetizacao-saeb-card
 import { IdebTimelineChart } from '../../_components/ideb-timeline-chart';
 import { SaebHistoryChart } from '../../_components/saeb-history-chart';
 import { DestaquesAtencao } from '../../_components/destaques-atencao';
+import { FaleConosco } from '../../_components/fale-conosco';
 
 export const dynamic = 'force-dynamic';
 
@@ -237,6 +238,7 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
       </div>
 
       <RadarFooter />
+      <FaleConosco scopeType="escola" scopeId={escola.codigo_inep} scopeName={escola.nome} scopeUf={escola.uf} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
     </main>
   );

@@ -17,6 +17,7 @@ import { VaarSection } from '../../_components/vaar-section';
 import { BenchmarkTable } from '../../_components/benchmark-table';
 import { VariabilidadeCard } from '../../_components/variabilidade-card';
 import { HeroMunicipio } from '../../_components/hero-municipio';
+import { FaleConosco } from '../../_components/fale-conosco';
 
 export const dynamic = 'force-dynamic';
 
@@ -218,6 +219,7 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
       </div>
 
       <RadarFooter />
+      <FaleConosco scopeType="municipio" scopeId={ibge} scopeName={m.nome} scopeUf={m.uf} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
     </main>
   );

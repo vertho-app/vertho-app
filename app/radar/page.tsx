@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { loadRadarCountStats } from '@/lib/radar/stats';
 import { RadarSearch } from './_components/radar-search';
+import { FaleConosco } from './_components/fale-conosco';
 
 export const dynamic = 'force-dynamic';
 
@@ -122,6 +123,7 @@ export default async function RadarHomePage() {
           <span>Dados oficiais INEP · MEC</span>
         </div>
       </footer>
+      <FaleConosco scopeType="home" />
     </main>
   );
 }

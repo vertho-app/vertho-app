@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ArrowRight, Search, GraduationCap, MapPin, Map } from 'lucide-react';
 import { RadarHeader, RadarFooter } from '../_components/radar-header';
 import { RadarSearch } from '../_components/radar-search';
+import { FaleConosco } from '../_components/fale-conosco';
 
 export const metadata: Metadata = {
   title: 'Bett 2026 — demos do Radar',
@@ -147,6 +148,7 @@ export default function BettPage() {
       </section>
 
       <RadarFooter />
+      <FaleConosco scopeType="home" />
     </main>
   );
 }

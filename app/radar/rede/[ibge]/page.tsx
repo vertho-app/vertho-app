@@ -10,6 +10,7 @@ import {
 import { registrarEvento } from '@/lib/radar/eventos';
 import { RadarHeader, RadarFooter } from '../../_components/radar-header';
 import { CitarButton } from '../../_components/citar-button';
+import { FaleConosco } from '../../_components/fale-conosco';
 
 export const dynamic = 'force-dynamic';
 
@@ -132,6 +133,7 @@ export default async function RedeMunicipalPage({ params }: { params: Promise<{ 
       </div>
 
       <RadarFooter />
+      <FaleConosco scopeType="rede" scopeId={ibge} scopeName={m.nome} scopeUf={m.uf} />
     </main>
   );
 }

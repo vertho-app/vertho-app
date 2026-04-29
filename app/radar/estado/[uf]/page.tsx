@@ -6,6 +6,7 @@ import { ArrowLeft, TrendingDown, TrendingUp } from 'lucide-react';
 import { getEstadoStats, getRankingMunicipiosUf } from '@/lib/radar/queries';
 import { registrarEvento } from '@/lib/radar/eventos';
 import { RadarHeader, RadarFooter } from '../../_components/radar-header';
+import { FaleConosco } from '../../_components/fale-conosco';
 import { HeroEstado } from '../../_components/hero-estado';
 
 export const dynamic = 'force-dynamic';
@@ -207,6 +208,7 @@ export default async function EstadoPage({ params }: { params: Promise<{ uf: str
       </div>
 
       <RadarFooter />
+      <FaleConosco scopeType="estado" scopeUf={uf} scopeName={UF_NAMES[uf]} />
     </main>
   );
 }

@@ -110,7 +110,10 @@ export async function buscarEscolasMunicipios(termo: string): Promise<SearchResu
 // ── Tracking de eventos via client ────────────────────────────────────
 
 export async function registrarEventoClient(
-  tipo: 'view_escola' | 'view_municipio' | 'view_estado' | 'view_comparar' | 'cta_lead_click' | 'citar_aberto',
+  tipo:
+    | 'view_escola' | 'view_municipio' | 'view_estado' | 'view_comparar'
+    | 'cta_lead_click' | 'citar_aberto'
+    | 'fale_conosco_open' | 'wpp_click' | 'email_click',
   scope?: { tipo: 'escola' | 'municipio' | 'estado'; id: string },
 ) {
   await registrarEvento(tipo, scope ? { scopeType: scope.tipo, scopeId: scope.id } : {});

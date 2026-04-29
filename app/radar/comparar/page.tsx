@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ArrowLeft, GitCompare } from 'lucide-react';
 import { getEscolasCompactas, getMunicipiosCompactos } from '@/lib/radar/queries';
 import { RadarHeader, RadarFooter } from '../_components/radar-header';
+import { FaleConosco } from '../_components/fale-conosco';
 import { CompararPicker, type CompararModo } from './_picker';
 import { CompararTabela } from './_tabela';
 import { CompararTabelaCidades } from './_tabela-cidades';
@@ -151,6 +152,7 @@ export default async function CompararPage({
       </div>
 
       <RadarFooter />
+      <FaleConosco scopeType="comparar" />
     </main>
   );
 }

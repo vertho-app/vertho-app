@@ -14,7 +14,10 @@ type EventoTipo =
   | 'lead_submit'
   | 'pdf_pronto'
   | 'pdf_baixado'
-  | 'citar_aberto';
+  | 'citar_aberto'
+  | 'fale_conosco_open'
+  | 'wpp_click'
+  | 'email_click';
 
 function hashIp(ip: string): string {
   return crypto.createHash('sha256').update(ip).digest('hex').slice(0, 16);

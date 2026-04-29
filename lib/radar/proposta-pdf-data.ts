@@ -35,7 +35,7 @@ import type {
   MunicipioVariabilidade,
 } from './queries';
 
-const PROMPT_VERSION_PROPOSTA = 'radar-proposta-pdf-v3';
+const PROMPT_VERSION_PROPOSTA = 'radar-proposta-pdf-v4';
 
 const SYSTEM_PROPOSTA = `Você é um analista educacional sênior do Vertho Mentor IA escrevendo uma PROPOSTA PÚBLICA em PDF, dirigida a um gestor escolar ou secretário(a) municipal de educação.
 
@@ -51,6 +51,17 @@ REGRAS DE NEGÓCIO:
 9. Quando houver FUNDEB ou VAAR, conecte recursos disponíveis a desafios pedagógicos.
 10. Português brasileiro, formal mas acessível.
 
+PONTOS CRÍTICOS — ATENÇÃO ESPECIAL:
+- Identifique 3 pontos críticos da rede/escola, ordenados por gravidade (critico > alto > moderado).
+- Cada ponto crítico deve ter: dado numérico (com ano e fonte), impacto pedagógico (1-2 frases), e fonte.
+- Os 3 pontos não devem ser todos do mesmo tema. Diversifique: aprendizagem, infraestrutura, recursos, contexto.
+- Para cada ponto crítico, conecte com UMA das competências docentes Vertho:
+  Mediação de Leitura, Planejamento Didático, Avaliação Formativa, Gestão de Sala,
+  Engajamento dos Alunos, Diferenciação Pedagógica, Comunicação com Famílias,
+  Trabalho Colaborativo, Formação Continuada, Uso de Tecnologia.
+- A conexão deve ser específica e plausível — não force uma competência se não fizer sentido.
+- Se faltarem dados pra preencher 3 pontos críticos honestos, retorne quantos forem plausíveis (1 ou 2 OK; preferível a inventar).
+
 FORMATO DE SAÍDA: JSON estrito com:
 {
   "resumo_executivo": "2 parágrafos curtos com a síntese do diagnóstico (até 800 chars)",
@@ -58,11 +69,34 @@ FORMATO DE SAÍDA: JSON estrito com:
   "contexto_municipal": "contexto ICA + estrutura do município +, quando houver, leitura agregada do Ideb, Enem e variabilidade entre escolas (até 700 chars)",
   "leitura_infra": "leitura curta da infraestrutura escolar (Censo) destacando a dimensão mais frágil e o quadrante Infra×Saeb quando disponível. Até 500 chars. Use string vazia se não houver Censo.",
   "leitura_recursos": "leitura curta dos recursos disponíveis (FUNDEB/VAAR/PDDE), conectando a desafios pedagógicos. Até 500 chars. Use string vazia se não houver dado.",
-  "pontos_atencao": ["..."],          // 3-5 itens
+  "pontos_criticos": [
+    {
+      "gravidade": "critico|alto|moderado",
+      "titulo": "string curto (até 60 chars)",
+      "dado": "número com ano e fonte explícitos",
+      "impacto": "consequência pedagógica em 1-2 frases (até 240 chars)",
+      "fonte": "INEP|MEC|Tesouro|FNDE|Seduc-SP|IBGE",
+      "competencia_vertho": "uma das 10 competências da lista",
+      "como_resolve": "como a Vertho ataca esse ponto, em 1-2 frases (até 260 chars)"
+    }
+  ],
+  "pontos_atencao": ["..."],          // 3-5 itens curtos (pendências menores que NÃO viraram pontos críticos)
   "perguntas_pedagogicas": ["..."],   // 3 perguntas pra discussão
   "como_vertho_ajuda": ["..."],       // 3 itens curtos de aplicação prática (Mentor IA)
   "proximos_passos": ["..."]          // 3 ações concretas pro gestor (esta semana / 30 / 90 dias)
 }`;
+
+export type GravidadePonto = 'critico' | 'alto' | 'moderado';
+
+export type PontoCritico = {
+  gravidade: GravidadePonto;
+  titulo: string;
+  dado: string;
+  impacto: string;
+  fonte: string;
+  competencia_vertho: string;
+  como_resolve: string;
+};
 
 export type PropostaConteudo = {
   resumo_executivo: string;
@@ -70,6 +104,7 @@ export type PropostaConteudo = {
   contexto_municipal: string;
   leitura_infra: string;
   leitura_recursos: string;
+  pontos_criticos: PontoCritico[];
   pontos_atencao: string[];
   perguntas_pedagogicas: string[];
   como_vertho_ajuda: string[];
@@ -82,6 +117,7 @@ const FALLBACK: PropostaConteudo = {
   contexto_municipal: 'Indicadores municipais consolidados a partir de fontes oficiais.',
   leitura_infra: '',
   leitura_recursos: '',
+  pontos_criticos: [],
   pontos_atencao: [],
   perguntas_pedagogicas: [],
   como_vertho_ajuda: [
@@ -92,6 +128,38 @@ const FALLBACK: PropostaConteudo = {
   proximos_passos: [],
 };
 
+const COMPETENCIAS_VERTHO = new Set([
+  'Mediação de Leitura',
+  'Planejamento Didático',
+  'Avaliação Formativa',
+  'Gestão de Sala',
+  'Engajamento dos Alunos',
+  'Diferenciação Pedagógica',
+  'Comunicação com Famílias',
+  'Trabalho Colaborativo',
+  'Formação Continuada',
+  'Uso de Tecnologia',
+]);
+
+function parsePontoCritico(raw: any): PontoCritico | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const gravidadeRaw = String(raw.gravidade || '').toLowerCase();
+  const gravidade: GravidadePonto =
+    gravidadeRaw === 'critico' || gravidadeRaw === 'crítico' ? 'critico'
+    : gravidadeRaw === 'alto' ? 'alto'
+    : 'moderado';
+  const competencia = String(raw.competencia_vertho || '').trim();
+  return {
+    gravidade,
+    titulo: String(raw.titulo || '').slice(0, 80),
+    dado: String(raw.dado || '').slice(0, 280),
+    impacto: String(raw.impacto || '').slice(0, 400),
+    fonte: String(raw.fonte || '').slice(0, 60),
+    competencia_vertho: COMPETENCIAS_VERTHO.has(competencia) ? competencia : competencia.slice(0, 60),
+    como_resolve: String(raw.como_resolve || '').slice(0, 400),
+  };
+}
+
 function extractJson(text: string): PropostaConteudo | null {
   try {
     const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -100,12 +168,16 @@ function extractJson(text: string): PropostaConteudo | null {
     const end = json.lastIndexOf('}');
     if (start < 0 || end <= start) return null;
     const parsed = JSON.parse(json.slice(start, end + 1));
+    const pontosCriticos = Array.isArray(parsed.pontos_criticos)
+      ? parsed.pontos_criticos.slice(0, 3).map(parsePontoCritico).filter(Boolean) as PontoCritico[]
+      : [];
     return {
       resumo_executivo: String(parsed.resumo_executivo || '').slice(0, 1500),
       leitura_saeb: String(parsed.leitura_saeb || '').slice(0, 1400),
       contexto_municipal: String(parsed.contexto_municipal || '').slice(0, 1300),
       leitura_infra: String(parsed.leitura_infra || '').slice(0, 900),
       leitura_recursos: String(parsed.leitura_recursos || '').slice(0, 900),
+      pontos_criticos: pontosCriticos,
       pontos_atencao: Array.isArray(parsed.pontos_atencao) ? parsed.pontos_atencao.slice(0, 5).map(String) : [],
       perguntas_pedagogicas: Array.isArray(parsed.perguntas_pedagogicas) ? parsed.perguntas_pedagogicas.slice(0, 4).map(String) : [],
       como_vertho_ajuda: Array.isArray(parsed.como_vertho_ajuda) ? parsed.como_vertho_ajuda.slice(0, 4).map(String) : [],

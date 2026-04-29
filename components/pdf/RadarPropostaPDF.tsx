@@ -22,6 +22,12 @@ const QUADRANTE_LABEL: Record<string, string> = {
   sem_dados: 'Sem dados suficientes',
 };
 
+const GRAVIDADE_CONFIG: Record<string, { label: string; bgColor: string; borderColor: string; textColor: string; dotColor: string }> = {
+  critico:   { label: 'CRÍTICO',   bgColor: '#FEF2F2', borderColor: '#FCA5A5', textColor: '#991B1B', dotColor: '#DC2626' },
+  alto:      { label: 'ALTO',      bgColor: '#FFF7ED', borderColor: '#FED7AA', textColor: '#9A3412', dotColor: '#EA580C' },
+  moderado:  { label: 'MODERADO',  bgColor: '#FFFBEB', borderColor: '#FDE68A', textColor: '#78350F', dotColor: '#D97706' },
+};
+
 const s = StyleSheet.create({
   text: { fontSize: fonts.body, color: colors.textSecondary, lineHeight: 1.65, marginBottom: 6 },
   italic: { fontSize: fonts.body, color: colors.textMuted, fontStyle: 'italic', lineHeight: 1.6, marginBottom: 8 },
@@ -110,6 +116,39 @@ const s = StyleSheet.create({
   },
   cardValue: { fontSize: 11, fontWeight: 700, color: colors.navy, lineHeight: 1.3 },
   cardSub: { fontSize: 8, color: colors.textMuted, marginTop: 2 },
+  // Cards de pontos críticos
+  pontoCritico: {
+    borderLeftWidth: 4,
+    borderRadius: 3,
+    padding: 12,
+    marginBottom: 10,
+  },
+  pontoHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  pontoBadge: {
+    fontSize: 7, fontWeight: 700, paddingHorizontal: 6, paddingVertical: 2,
+    borderRadius: 8, color: colors.white, marginRight: 8, letterSpacing: 0.6,
+  },
+  pontoTitulo: { fontSize: 11, fontWeight: 700, color: colors.textPrimary, flex: 1 },
+  pontoCampo: { fontSize: 9, color: colors.textPrimary, lineHeight: 1.55, marginBottom: 4 },
+  pontoCampoLabel: { fontSize: 7, fontWeight: 700, color: colors.gray500, textTransform: 'uppercase', letterSpacing: 0.6 },
+  pontoFonte: { fontSize: 8, color: colors.gray500, fontStyle: 'italic', marginTop: 4 },
+  // Conexão Vertho
+  conexaoBlock: {
+    backgroundColor: colors.perfilBg,
+    borderWidth: 0.5,
+    borderColor: colors.perfilBorder,
+    borderRadius: 3,
+    padding: 12,
+    marginBottom: 10,
+  },
+  conexaoHeader: { flexDirection: 'row', alignItems: 'baseline', marginBottom: 6 },
+  conexaoNum: {
+    fontSize: 11, fontWeight: 700, color: colors.cyan, marginRight: 8,
+    fontFamily: 'NotoSans',
+  },
+  conexaoCompetencia: { fontSize: 10, fontWeight: 700, color: colors.navy, flex: 1 },
+  conexaoLink: { fontSize: 8.5, color: colors.gray500, marginBottom: 4, fontStyle: 'italic' },
+  conexaoTexto: { fontSize: 9, color: colors.blueText, lineHeight: 1.6 },
   // Quadrante highlight
   quadranteBlock: {
     backgroundColor: colors.descritorBg,
@@ -204,6 +243,8 @@ export default function RadarPropostaPDF({
   const temRecursos = fundebTop.length > 0 || vaar != null || pddeTop.length > 0 || pddeMunTop.length > 0;
   const temVariabilidade = variabilidade && variabilidade.qtd_escolas > 0;
   const temPdde = pddeTop.length > 0;
+  const pontosCriticos = conteudo.pontos_criticos || [];
+  const temPontosCriticos = pontosCriticos.length > 0;
 
   return (
     <Document title={`Diagnóstico Vertho — ${scopeLabel}`}>
@@ -729,6 +770,81 @@ export default function RadarPropostaPDF({
               </View>
             </View>
           )}
+
+          <PageFooter />
+        </Page>
+      )}
+
+      {/* PÁGINA — 3 PONTOS CRÍTICOS IDENTIFICADOS (prescritivo) */}
+      {temPontosCriticos && (
+        <Page size="A4" style={pageStyles.page} wrap>
+          <PageHeader logoBase64={logoBase64} label={headerLabel} />
+
+          <View style={s.section}>
+            <SectionTitle>Pontos críticos identificados</SectionTitle>
+            <Text style={s.italic}>
+              Detectamos {pontosCriticos.length === 1 ? '1 ponto crítico' : `${pontosCriticos.length} pontos críticos`} a partir
+              dos dados oficiais. Cada ponto traz: o número observado (com ano e fonte), a consequência pedagógica,
+              e a competência docente que a Vertho mobilizaria pra atacar o problema.
+            </Text>
+
+            {pontosCriticos.map((p, i) => {
+              const cfg = GRAVIDADE_CONFIG[p.gravidade] || GRAVIDADE_CONFIG.moderado;
+              return (
+                <View key={i} style={{ ...s.pontoCritico, backgroundColor: cfg.bgColor, borderLeftColor: cfg.dotColor, borderColor: cfg.borderColor, borderWidth: 0.5 }} wrap={false}>
+                  <View style={s.pontoHeader}>
+                    <Text style={{ ...s.pontoBadge, backgroundColor: cfg.dotColor }}>{cfg.label}</Text>
+                    <Text style={{ ...s.pontoTitulo, color: cfg.textColor }}>{p.titulo}</Text>
+                  </View>
+                  <Text style={s.pontoCampoLabel}>Dado</Text>
+                  <Text style={s.pontoCampo}>{p.dado}</Text>
+                  <Text style={s.pontoCampoLabel}>Impacto pedagógico</Text>
+                  <Text style={s.pontoCampo}>{p.impacto}</Text>
+                  {p.fonte && <Text style={s.pontoFonte}>Fonte: {p.fonte}</Text>}
+                </View>
+              );
+            })}
+          </View>
+
+          <PageFooter />
+        </Page>
+      )}
+
+      {/* PÁGINA — COMO A VERTHO RESOLVE CADA PONTO (prescritivo) */}
+      {temPontosCriticos && (
+        <Page size="A4" style={pageStyles.page} wrap>
+          <PageHeader logoBase64={logoBase64} label={headerLabel} />
+
+          <View style={s.section}>
+            <SectionTitle>Como a Vertho resolve cada ponto</SectionTitle>
+            <Text style={s.italic}>
+              A Vertho desenvolve competências docentes via Mentor IA + trilhas individuais.
+              Pra cada ponto crítico identificado acima, indicamos a competência específica
+              que mobilizaria a equipe pedagógica em direção à melhoria.
+            </Text>
+
+            {pontosCriticos.map((p, i) => (
+              <View key={i} style={s.conexaoBlock} wrap={false}>
+                <View style={s.conexaoHeader}>
+                  <Text style={s.conexaoNum}>{i + 1}.</Text>
+                  <Text style={s.conexaoCompetencia}>{p.competencia_vertho || 'Competência a definir'}</Text>
+                </View>
+                <Text style={s.conexaoLink}>↳ resposta ao ponto crítico: {p.titulo}</Text>
+                <Text style={s.conexaoTexto}>{p.como_resolve}</Text>
+              </View>
+            ))}
+
+            <View style={{ ...s.navyBlock, marginTop: 8 }}>
+              <Text style={s.navyLabel}>Próximo passo</Text>
+              <Text style={s.navyTitle}>30 minutos com Rodrigo (fundador) pra desenhar a trilha pra sua rede</Text>
+              <Text style={s.navyText}>
+                Conversamos sobre as 3 competências indicadas, validamos o diagnóstico com seu time
+                e desenhamos uma proposta de implementação adaptada ao porte da sua rede.
+                Escreva pra <Text style={{ color: colors.cyan, fontWeight: 700 }}>radar@vertho.ai</Text> ou
+                acesse <Text style={{ color: colors.cyan, fontWeight: 700 }}>radar.vertho.ai</Text>.
+              </Text>
+            </View>
+          </View>
 
           <PageFooter />
         </Page>
