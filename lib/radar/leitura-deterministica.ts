@@ -104,7 +104,14 @@ export function leituraIcaMunicipio(municipio: { nome: string; uf: string }, ica
     );
   }
 
-  const resumo = `Em ${recent.ano}, ${taxa.toFixed(1)}% das crianças avaliadas em ${municipio.nome}/${municipio.uf} (rede ${recent.rede.toLowerCase()}) foram consideradas alfabetizadas pelo Indicador Criança Alfabetizada (ICA). A média da ${municipio.uf} foi ${tEstado.toFixed(1)}% e do Brasil ${tBrasil.toFixed(1)}%.`;
+  const partes: string[] = [
+    `Em ${recent.ano}, ${taxa.toFixed(1)}% das crianças avaliadas em ${municipio.nome}/${municipio.uf} (rede ${recent.rede.toLowerCase()}) foram consideradas alfabetizadas pelo Indicador Criança Alfabetizada (ICA).`,
+  ];
+  const benches: string[] = [];
+  if (tEstado > 0) benches.push(`média da ${municipio.uf} foi ${tEstado.toFixed(1)}%`);
+  if (tBrasil > 0) benches.push(`do Brasil ${tBrasil.toFixed(1)}%`);
+  if (benches.length > 0) partes.push(`A ${benches.join(' e a ')}.`);
+  const resumo = partes.join(' ');
 
   return { resumo, pontosAtencao, pontosForcas };
 }
