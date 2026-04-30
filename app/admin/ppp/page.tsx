@@ -261,13 +261,24 @@ export default function PPPPage() {
                       for (const file of selected) {
                         try {
                           let text, info;
-                          if (file.name.toLowerCase().endsWith('.pdf')) {
+                          const lower = file.name.toLowerCase();
+                          if (lower.endsWith('.pdf')) {
                             const result = await extractPdfText(file);
                             text = result.text;
                             info = `✓ ${result.numPages} pág.`;
-                          } else {
+                          } else if (lower.endsWith('.docx')) {
+                            const arrayBuffer = await file.arrayBuffer();
+                            const mammoth = await import('mammoth');
+                            const result = await mammoth.extractRawText({ arrayBuffer });
+                            text = result.value || '';
+                            info = `✓ docx`;
+                          } else if (lower.endsWith('.txt')) {
                             text = await file.text();
-                            info = '✓ lido';
+                            info = '✓ txt';
+                          } else {
+                            // .doc/.ppt/.pptx — sem parser dedicado; fallback bruto e aviso
+                            text = await file.text();
+                            info = '⚠ parser limitado';
                           }
                           if (!text || text.trim().length < 10) throw new Error('Conteúdo vazio');
                           setFiles(prev => [...prev, {
