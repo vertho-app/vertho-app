@@ -115,7 +115,13 @@ export async function registrarEventoClient(
   tipo:
     | 'view_escola' | 'view_municipio' | 'view_estado' | 'view_comparar'
     | 'cta_lead_click' | 'citar_aberto'
-    | 'fale_conosco_open' | 'wpp_click' | 'email_click',
+    | 'fale_conosco_open' | 'wpp_click' | 'email_click'
+    | 'bett_home_view' | 'bett_search_focus' | 'bett_search_submit'
+    | 'bett_result_view' | 'bett_glimpse_view' | 'bett_unlock_click'
+    | 'bett_example_click' | 'bett_persona_click'
+    | 'bett_lead_open' | 'bett_lead_step1' | 'bett_lead_step2' | 'bett_lead_submit'
+    | 'bett_public_cta' | 'bett_schedule_click' | 'bett_wpp_click'
+    | 'bett_sticky_click',
   scope?: { tipo: 'escola' | 'municipio' | 'estado'; id: string },
 ) {
   const allowed = await checkPublicActionRateLimit('event_client_radar', 120, 10 * 60 * 1000);

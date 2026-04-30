@@ -38,12 +38,15 @@ const RESERVED_SUBDOMAINS = new Set([
   'smtp',
   'ftp',
   'radar',
+  'radarbett',
 ]);
 
 // Subdomínios públicos que rewriteam para um path interno do app
 // (radar.vertho.ai/<path>  →  /radar/<path>)
+// (radarbett.vertho.ai/<path>  →  /radarbett/<path>)
 const REWRITE_SUBDOMAINS = {
   radar: '/radar',
+  radarbett: '/radarbett',
 };
 
 // Domínios raiz (sem subdomínio = sem tenant)

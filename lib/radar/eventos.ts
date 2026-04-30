@@ -17,7 +17,23 @@ type EventoTipo =
   | 'citar_aberto'
   | 'fale_conosco_open'
   | 'wpp_click'
-  | 'email_click';
+  | 'email_click'
+  | 'bett_home_view'
+  | 'bett_search_focus'
+  | 'bett_search_submit'
+  | 'bett_result_view'
+  | 'bett_glimpse_view'
+  | 'bett_unlock_click'
+  | 'bett_example_click'
+  | 'bett_persona_click'
+  | 'bett_lead_open'
+  | 'bett_lead_step1'
+  | 'bett_lead_step2'
+  | 'bett_lead_submit'
+  | 'bett_public_cta'
+  | 'bett_schedule_click'
+  | 'bett_wpp_click'
+  | 'bett_sticky_click';
 
 function hashIp(ip: string): string {
   return crypto.createHash('sha256').update(ip).digest('hex').slice(0, 16);
