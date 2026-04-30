@@ -12,9 +12,10 @@ interface ExtrairPPPOpts {
   textos?: string[];
   model?: string;
   enriquecerWeb?: boolean;
+  nomeEscola?: string;  // identificador único pra suportar múltiplos PPPs por empresa
 }
 
-export async function extrairPPP(empresaId: string, { urls = [], textos = [], model, enriquecerWeb = false }: ExtrairPPPOpts = {}) {
+export async function extrairPPP(empresaId: string, { urls = [], textos = [], model, enriquecerWeb = false, nomeEscola }: ExtrairPPPOpts = {}) {
   await requireAdminAction();
   const sb = createSupabaseAdmin();
   try {
@@ -86,11 +87,12 @@ export async function extrairPPP(empresaId: string, { urls = [], textos = [], mo
     dados.competencias = Array.isArray(compsPri) ? compsPri : [];
     const valoresInst = unwrap(dados.valores_institucionais);
 
-    // Step 4: Salvar
+    // Step 4: Salvar — usa nomeEscola como chave (permite múltiplos PPPs por empresa)
+    const escolaIdent = (nomeEscola?.trim() || empresa.nome).slice(0, 200);
     const { error } = await sb.from('ppp_escolas')
       .upsert({
         empresa_id: empresaId,
-        escola: empresa.nome,
+        escola: escolaIdent,
         fonte: urls.length ? 'site' : 'json',
         url_site: urls[0] || null,
         status: 'extraido',

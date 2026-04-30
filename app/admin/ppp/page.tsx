@@ -94,6 +94,7 @@ export default function PPPPage() {
   const [model, setModel] = useState('claude-sonnet-4-6');
   const [viewPPP, setViewPPP] = useState(null);
   const [enriquecerWeb, setEnriquecerWeb] = useState(false);
+  const [nomeEscola, setNomeEscola] = useState('');
 
   useEffect(() => {
     async function init() {
@@ -127,16 +128,32 @@ export default function PPPPage() {
 
     setExtracting(true);
     setResult(null);
-    const r = await extrairPPP(empresaIdParam, { urls: urlList, textos: textoList, model, enriquecerWeb });
+    const r = await extrairPPP(empresaIdParam, {
+      urls: urlList, textos: textoList, model, enriquecerWeb,
+      nomeEscola: nomeEscola.trim() || undefined,
+    });
     setExtracting(false);
     if (r.success) {
       setResult(r.data || r);
       flash(r.message || 'Extração concluída');
+      setNomeEscola('');  // limpa pra próxima extração
       refresh();
     } else {
       flash('Erro: ' + r.error);
     }
   }
+
+  // Auto-sugere nome da escola pelo arquivo carregado (best-effort)
+  useEffect(() => {
+    if (nomeEscola.trim() || files.length === 0) return;
+    const f = files[0];
+    if (!f?.name) return;
+    // "PPP - Creche Alvorada.docx" → "Creche Alvorada"
+    let sug = f.name.replace(/\.[^.]+$/, '');
+    sug = sug.replace(/^PPP\s*[-–—_]\s*/i, '');
+    sug = sug.replace(/\(.*?\)/g, '').trim();
+    if (sug && sug !== f.name) setNomeEscola(sug);
+  }, [files, nomeEscola]);
 
   async function handleExcluir(id, nome) {
     if (!confirm(`Excluir PPP "${nome || id}"?`)) return;
@@ -191,6 +208,27 @@ export default function PPPPage() {
       {/* Form */}
       {showForm && (
         <div className="rounded-xl border border-white/[0.06] p-5 mb-6" style={{ background: '#0F2A4A' }}>
+          {/* Identificação da escola — usado como chave única */}
+          <div className="mb-5">
+            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">
+              Nome da escola / unidade
+              <span className="text-cyan-400/70 ml-1.5 normal-case font-normal tracking-normal">
+                (usado pra distinguir múltiplos PPPs da mesma empresa)
+              </span>
+            </label>
+            <input
+              type="text"
+              value={nomeEscola}
+              onChange={e => setNomeEscola(e.target.value)}
+              placeholder="Ex: Creche Alvorada, EMEF Joaquim Nabuco"
+              className="w-full px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/50 transition-colors"
+              style={{ background: '#091D35' }}
+            />
+            <p className="text-[10px] text-gray-500 mt-1.5">
+              Se vazio, usa o nome da empresa. <strong className="text-amber-300/80">Repetir o mesmo nome sobrescreve o PPP anterior.</strong>
+            </p>
+          </div>
+
           {/* Tabs */}
           <div className="grid grid-cols-2 gap-2 mb-5">
             <button onClick={() => setTab('arquivos')}
