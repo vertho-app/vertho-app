@@ -65,6 +65,34 @@ body {
   letter-spacing: -0.01em;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+ * Tipografia exclusiva do /radarbett/* (handoff Bett 2026)
+ * Plus Jakarta Sans (sans-serif body) + Fraunces (display serif)
+ * Escopo: tudo dentro de .radarbett-shell herda Jakarta como padrão.
+ * ───────────────────────────────────────────────────────────────────────── */
+.radarbett-shell {
+  font-family: var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.radarbett-shell .font-display,
+.radarbett-shell h1.serif,
+.radarbett-shell h2.serif,
+.radarbett-shell .serif {
+  font-family: var(--font-fraunces), "Fraunces", Georgia, serif;
+}
+.radarbett-shell .eyebrow-bett {
+  font-family: var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+/* Eyebrows existentes herdam Jakarta dentro do shell */
+.radarbett-shell .eyebrow-manrope,
+.radarbett-shell .eyebrow-manrope-sm {
+  font-family: var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif;
+}
+
 /* Tipografia radarbett — eyebrow Manrope (categorias curtas em uppercase) */
 .eyebrow-manrope {
   font-family: var(--font-manrope), "Manrope", system-ui, sans-serif;

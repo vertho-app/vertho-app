@@ -24,7 +24,7 @@ export default function NotFound() {
           <h1
             className="text-white mb-4"
             style={{
-              fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+              fontFamily: 'var(--font-fraunces), "Fraunces", Georgia, serif',
               fontWeight: 600,
               fontSize: 'clamp(36px, 6vw, 56px)',
               lineHeight: 1.05,

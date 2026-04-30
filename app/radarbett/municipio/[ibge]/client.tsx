@@ -96,7 +96,7 @@ export function MunicipioResultadoClient({
             <h1
               className="text-white mb-3"
               style={{
-                fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+                fontFamily: 'var(--font-fraunces), "Fraunces", Georgia, serif',
                 fontWeight: 600,
                 fontSize: 'clamp(28px, 4.5vw, 48px)',
                 lineHeight: 1.08,
@@ -133,7 +133,7 @@ export function MunicipioResultadoClient({
                 }}>
                 <Sparkles size={18} style={{ color: '#34c5cc' }} className="flex-shrink-0" />
                 <p className="text-white/90 leading-relaxed flex-1" style={{
-                  fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+                  fontFamily: 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif',
                   fontSize: 16,
                   fontWeight: 600,
                   letterSpacing: '-0.01em',
@@ -172,7 +172,7 @@ export function MunicipioResultadoClient({
             <div>
               <p className="eyebrow-manrope text-cyan-300/85">O que o Radar identificou</p>
               <h2 className="text-white mt-1" style={{
-                fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+                fontFamily: 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif',
                 fontSize: 22,
                 fontWeight: 700,
                 lineHeight: 1.2,
@@ -230,7 +230,7 @@ export function MunicipioResultadoClient({
           >
             <p className="eyebrow-manrope text-cyan-300/85 mb-2">Base da leitura</p>
             <h2 className="text-white mb-3" style={{
-              fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+              fontFamily: 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif',
               fontSize: 17,
               fontWeight: 700,
               letterSpacing: '-0.01em',
@@ -270,7 +270,7 @@ export function MunicipioResultadoClient({
             <h2
               className="text-white mb-3"
               style={{
-                fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+                fontFamily: 'var(--font-fraunces), "Fraunces", Georgia, serif',
                 fontSize: 'clamp(22px, 3vw, 30px)',
                 fontWeight: 600,
                 lineHeight: 1.15,

@@ -3,10 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowRight, Sparkles, BarChart3, Users, Lightbulb, Target,
-  GraduationCap, Building2, Landmark, FileText, Database, Lock,
-  Check, ChevronRight, MessageCircle, Calendar, MapPin,
-  TrendingUp, Layers, Award, Shield,
+  ArrowRight, Sparkles, BarChart3, TrendingUp, Layers,
+  GraduationCap, Building2, Landmark, FileText, Database,
+  Calendar, Shield,
 } from 'lucide-react';
 import { BettHeader } from './_components/bett-header';
 import { BettSearch } from './_components/bett-search';
@@ -62,7 +61,7 @@ export default function RadarBettHome() {
 
         <div className="max-w-[1100px] mx-auto px-6 pt-12 sm:pt-20 pb-16 relative">
           <p className="text-cyan-300/85 mb-4" style={{
-            fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+            fontFamily: 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif',
             fontSize: 11,
             fontWeight: 700,
             letterSpacing: '0.14em',
@@ -73,7 +72,7 @@ export default function RadarBettHome() {
           <h1
             className="text-white mb-5"
             style={{
-              fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+              fontFamily: 'var(--font-fraunces), "Fraunces", Georgia, serif',
               fontWeight: 600,
               fontSize: 'clamp(34px, 6vw, 64px)',
               lineHeight: 1.05,
@@ -112,6 +111,45 @@ export default function RadarBettHome() {
               Ver exemplo de diagnóstico <ArrowRight size={12} />
             </button>
           </div>
+
+          {/* Mockup browser preview — cards Ideb / Saeb / Infra */}
+          <div className="mt-12 sm:mt-16 max-w-[960px]">
+            <div className="rounded-2xl overflow-hidden border"
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                borderColor: 'rgba(255,255,255,0.10)',
+                boxShadow: '0 40px 80px -20px rgba(0,0,0,0.5)',
+              }}>
+              <div className="px-5 py-3 border-b flex items-center gap-2"
+                style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)' }}>
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#ff5f57' }} />
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#febc2e' }} />
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#28c840' }} />
+                <span className="ml-3 flex-1 px-3 py-1.5 rounded text-[11px] text-white/55 font-mono"
+                  style={{ background: 'rgba(255,255,255,0.06)' }}>
+                  radarbett.vertho.ai/escola/29061920
+                </span>
+              </div>
+              <div className="p-5 sm:p-8 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <PreviewCard label="Ideb · 9º ano" value="2,8" delta="−1,53 vs microrregião" deltaColor="#fca5a5" valueColor="#fca5a5" barPct={47} barColor="#dc2626" />
+                <PreviewCard label="Saeb · Português" value="211" delta="−26 pts vs pares" deltaColor="#fca5a5" valueColor="#fca5a5" barPct={70} barColor="#ea580c" />
+                <PreviewCard label="Infra Pedagógica" value="18" suffix="/100" delta="Crítica" deltaColor="rgba(255,255,255,0.55)" valueColor="#34c5cc" barPct={18} barColor="#dc2626" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════ 1B. STATS ═══════════════════ */}
+      <section className="pb-16 sm:pb-20">
+        <div className="max-w-[1100px] mx-auto px-6">
+          <div className="rounded-2xl overflow-hidden border grid grid-cols-2 sm:grid-cols-4"
+            style={{ borderColor: 'rgba(255,255,255,0.10)', background: 'rgba(255,255,255,0.02)' }}>
+            <StatCell num="180k+" desc="Escolas mapeadas" />
+            <StatCell num="5.570" desc="Municípios cobertos" />
+            <StatCell num="8" desc="Fontes oficiais cruzadas" />
+            <StatCell num="<10s" desc="Diagnóstico gerado" />
+          </div>
         </div>
       </section>
 
@@ -122,32 +160,33 @@ export default function RadarBettHome() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
             <SplitCard
+              tone="radar"
               icon={BarChart3}
-              iconColor="#9ae2e6"
+              iconColor="#34c5cc"
               eyebrow="O Radar revela"
               title="Sinais a partir de dados públicos"
               text="O Radar identifica sinais de aprendizagem, contexto escolar e oportunidades de atuação a partir de dados públicos oficiais."
               bullets={[
-                'Gargalos de aprendizagem',
-                'Variação entre escolas ou unidades',
-                'Sinais de risco e oportunidade',
-                'Hipóteses para aprofundamento',
+                'Gargalos de aprendizagem por disciplina e etapa',
+                'Variação entre escolas de mesmo perfil socioeconômico',
+                'Sinais de risco em infraestrutura e formação docente',
+                'Hipóteses contextualizadas para aprofundamento',
               ]}
             />
             <SplitCard
+              tone="vertho"
               icon={Sparkles}
-              iconColor="#34c5cc"
+              iconColor="#9e4edd"
               eyebrow="A Vertho transforma"
               title="Leitura em mudança real"
               text="A Vertho transforma essa leitura em desenvolvimento de pessoas, plano de ação, acompanhamento por IA e evidências de evolução."
               bullets={[
-                'Assessment de competências',
-                'PDI individualizado',
-                'Trilhas de desenvolvimento',
-                'MentorIA',
+                'Assessment de competências da equipe',
+                'PDI individualizado por gestor',
+                'Trilhas de desenvolvimento no cotidiano',
+                'MentorIA — conversa que vira prática',
                 'Relatórios e dossiês de evidência',
               ]}
-              destaque
             />
           </div>
 
@@ -221,44 +260,95 @@ export default function RadarBettHome() {
         </div>
       </Section>
 
-      {/* ═══════════════════ 6. DA LEITURA AO PLANO ═══════════════════ */}
+      {/* ═══════════════════ 6. JORNADA — STEPS TRACK ═══════════════════ */}
       <Section id="fluxo">
         <div className="max-w-[1100px] mx-auto px-6">
-          <SectionTitle>Como saímos do dado bruto para a mudança real</SectionTitle>
+          <SectionTitle>Cinco passos do sinal à evidência de evolução</SectionTitle>
+          <p className="text-white/55 mt-2 mb-12 max-w-[640px]" style={{ fontSize: 16, lineHeight: 1.65 }}>
+            Um caminho claro que começa no dado público e termina em mudança mensurável.
+          </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-8">
+          {/* Steps track horizontal — linha conectora gradient cyan→purple→green */}
+          <div className="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-y-8 gap-x-3 mt-4">
+            <div aria-hidden className="hidden lg:block absolute h-[2px] top-8 left-[10%] right-[10%]"
+              style={{
+                background: 'linear-gradient(90deg, #34c5cc 0%, #9e4edd 50%, #16a34a 100%)',
+                opacity: 0.35,
+              }} />
             {[
-              { num: '1', titulo: 'Identifica sinais', texto: 'O Radar cruza dados públicos para apontar gargalos e oportunidades.', icon: BarChart3 },
-              { num: '2', titulo: 'Gera hipóteses', texto: 'A leitura inicial ajuda a levantar hipóteses sobre aprendizagem, gestão e execução.', icon: Lightbulb },
-              { num: '3', titulo: 'Aprofunda com a Vertho', texto: 'Assessment, escuta, matriz de competências e contexto da rede.', icon: Sparkles },
-              { num: '4', titulo: 'Desenvolve pessoas', texto: 'Trilhas, PDIs e interações com MentorIA.', icon: Users },
-              { num: '5', titulo: 'Produz evidências', texto: 'Acompanhamento de evolução, engajamento, práticas e resultados.', icon: Award },
-            ].map((step, i) => (
-              <FluxoCard key={i} {...step} ultimo={i === 4} />
+              { num: '01', titulo: 'Identifica sinais', texto: 'Cruzamento de dados públicos para apontar gargalos e oportunidades.', tone: 'cyan' },
+              { num: '02', titulo: 'Gera hipóteses',   texto: 'Leitura inicial sobre aprendizagem, gestão e execução.', tone: 'cyanLight' },
+              { num: '03', titulo: 'Aprofunda',         texto: 'Assessment, escuta, matriz de competências e contexto da rede.', tone: 'purpleLight' },
+              { num: '04', titulo: 'Desenvolve',        texto: 'Trilhas, PDIs personalizados e interações com MentorIA.', tone: 'purple' },
+              { num: '05', titulo: 'Evidencia',         texto: 'Acompanhamento de evolução, engajamento e resultados.', tone: 'green' },
+            ].map((s) => (
+              <Step key={s.num} {...(s as any)} />
             ))}
           </div>
 
-          <p className="text-center text-white/65 mt-10 text-sm leading-relaxed max-w-[700px] mx-auto">
+          <p className="text-center text-white/65 mt-12 text-sm leading-relaxed max-w-[700px] mx-auto">
             <strong className="text-white/85">O Radar mostra onde olhar.</strong>{' '}
             A Vertho ajuda a transformar leitura em mudança real.
           </p>
         </div>
       </Section>
 
-      {/* ═══════════════════ 7. TANGIBILIZAÇÃO ═══════════════════ */}
+      {/* ═══════════════════ 7. PRODUTO ═══════════════════ */}
       <Section id="entrega">
         <div className="max-w-[1100px] mx-auto px-6">
           <SectionTitle>Mais do que análise — uma jornada prática</SectionTitle>
-          <p className="text-white/55 text-sm mt-2 mb-8 max-w-[640px]">
-            A solução combina mentoria por IA, planos individuais, trilhas estruturadas e relatórios
-            de evidência — tudo conectado ao cotidiano da escola.
+          <p className="text-white/55 mt-2 mb-12 max-w-[640px]" style={{ fontSize: 16, lineHeight: 1.65 }}>
+            Mentoria por IA, planos individuais, trilhas estruturadas e relatórios de evidência —
+            tudo conectado ao cotidiano da escola.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <TangibleMentor />
-            <TangiblePDI />
-            <TangibleTrilha />
-            <TangibleRelatorio />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* MentorIA — cyan */}
+            <ProdutoCard tone="cyan" badge="MentorIA" title="Conversa que vira prática"
+              lead="IA conversacional que transforma diagnóstico em treino prático — simulações, feedback e acompanhamento contínuo.">
+              <DemoBox>
+                <DemoLabel>Exemplo de interação</DemoLabel>
+                <ChatBubbleIA>Pelo diagnóstico, sua principal oportunidade está em acompanhamento pedagógico. Vamos praticar uma conversa de feedback?</ChatBubbleIA>
+                <ChatBubbleUser>Sim, quero treinar.</ChatBubbleUser>
+                <ChatBubbleIA>Ótimo. Vou simular uma situação real e depois te dar feedback.</ChatBubbleIA>
+              </DemoBox>
+            </ProdutoCard>
+
+            {/* PDI — purple */}
+            <ProdutoCard tone="purple" badge="PDI" title="Plano individual com evidência"
+              lead="Cada gestor recebe um plano de desenvolvimento conectado a competências, com ações concretas e evidências esperadas.">
+              <DemoBox>
+                <DemoLabel>Exemplo de competência</DemoLabel>
+                <MetricRow label="Competência" value="Gestão pedagógica" />
+                <MetricRow label="Nível atual" value="Em desenvolvimento" valueColor="#fb923c" />
+                <MetricRow label="Objetivo" value="Prática consistente" />
+                <MetricRow label="Evidência" value="Registro + intervenção" valueColor="#34c5cc" />
+              </DemoBox>
+            </ProdutoCard>
+
+            {/* Trilhas — green */}
+            <ProdutoCard tone="green" badge="Trilhas" title="Desenvolvimento no cotidiano"
+              lead="Jornadas semanais que conectam diagnóstico, conteúdo, prática e evidência para que o desenvolvimento aconteça no dia a dia.">
+              <DemoBox>
+                <DemoLabel>Estrutura tipo</DemoLabel>
+                <MetricRow label="Semana 1" value="Diagnóstico e priorização" />
+                <MetricRow label="Semana 2" value="Prática guiada" />
+                <MetricRow label="Semana 3" value="Aplicação na escola" />
+                <MetricRow label="Semana 4" value="Reflexão e evidência" />
+              </DemoBox>
+            </ProdutoCard>
+
+            {/* Evidências — orange */}
+            <ProdutoCard tone="orange" badge="Evidências" title="Mais que certificado de participação"
+              lead="A rede acompanha o desenvolvimento com dados reais — evolução de competências, engajamento e ações concluídas.">
+              <DemoBox>
+                <DemoLabel>Painel da rede</DemoLabel>
+                <MetricRow label="Participação" value="93%" valueColor="#86efac" />
+                <MetricRow label="Evolução média" value="+1.4 níveis" valueColor="#34c5cc" />
+                <MetricRow label="Ações concluídas" value="22" />
+                <MetricRow label="Evidências registradas" value="14" />
+              </DemoBox>
+            </ProdutoCard>
           </div>
         </div>
       </Section>
@@ -313,7 +403,7 @@ export default function RadarBettHome() {
         <div className="max-w-[820px] mx-auto px-6 text-center">
           <h2 className="text-white mb-3"
             style={{
-              fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+              fontFamily: 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif',
               fontSize: 'clamp(26px, 3.6vw, 36px)',
               fontWeight: 700,
               lineHeight: 1.15,
@@ -344,7 +434,7 @@ export default function RadarBettHome() {
               <div>
                 <h2 className="text-white"
                   style={{
-                    fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+                    fontFamily: 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif',
                     fontSize: 'clamp(22px, 3vw, 30px)',
                     fontWeight: 700,
                     lineHeight: 1.2,
@@ -430,7 +520,7 @@ export default function RadarBettHome() {
         <div className="max-w-[820px] mx-auto px-6 text-center">
           <h2 className="text-white mb-4"
             style={{
-              fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+              fontFamily: 'var(--font-fraunces), "Fraunces", Georgia, serif',
               fontSize: 'clamp(28px, 4.2vw, 44px)',
               fontWeight: 600,
               lineHeight: 1.1,
@@ -484,6 +574,71 @@ export default function RadarBettHome() {
 
 // ────────────────────────── Componentes ──────────────────────────
 
+function Step({ num, titulo, texto, tone }: { num: string; titulo: string; texto: string; tone: string }) {
+  const styles: Record<string, { bg: string; color: string; border: string }> = {
+    cyan:        { bg: 'rgba(52,197,204,0.15)',  color: '#34c5cc', border: 'rgba(52,197,204,0.30)' },
+    cyanLight:   { bg: 'rgba(52,197,204,0.12)',  color: '#9ae2e6', border: 'rgba(52,197,204,0.25)' },
+    purpleLight: { bg: 'rgba(158,78,221,0.12)',  color: '#c084fc', border: 'rgba(158,78,221,0.25)' },
+    purple:      { bg: 'rgba(158,78,221,0.15)',  color: '#c084fc', border: 'rgba(158,78,221,0.30)' },
+    green:       { bg: 'rgba(22,163,74,0.15)',   color: '#86efac', border: 'rgba(22,163,74,0.30)' },
+  };
+  const s = styles[tone] || styles.cyan;
+  return (
+    <div className="relative text-center px-2">
+      <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center relative z-10 border"
+        style={{ background: s.bg, color: s.color, borderColor: s.border }}>
+        <span style={{
+          fontFamily: 'var(--font-fraunces), "Fraunces", Georgia, serif',
+          fontSize: 22, fontWeight: 600,
+        }}>
+          {num}
+        </span>
+      </div>
+      <h4 className="text-white text-[15px] font-bold mb-1.5">{titulo}</h4>
+      <p className="text-white/55 leading-relaxed" style={{ fontSize: 13.5 }}>{texto}</p>
+    </div>
+  );
+}
+
+function PreviewCard({
+  label, value, suffix, delta, deltaColor, valueColor, barPct, barColor,
+}: {
+  label: string; value: string; suffix?: string; delta: string;
+  deltaColor: string; valueColor: string; barPct: number; barColor: string;
+}) {
+  return (
+    <div className="rounded-xl p-5 border"
+      style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)' }}>
+      <p className="text-[10px] tracking-[0.10em] uppercase text-white/55 font-bold mb-3">{label}</p>
+      <p className="leading-none mb-1.5" style={{
+        fontFamily: 'var(--font-fraunces), "Fraunces", Georgia, serif',
+        fontSize: 36, fontWeight: 600, color: valueColor,
+      }}>
+        {value}{suffix && <span style={{ fontSize: 16, color: 'rgba(255,255,255,0.30)' }}>{suffix}</span>}
+      </p>
+      <p className="text-[12px] font-bold mb-3" style={{ color: deltaColor }}>{delta}</p>
+      <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+        <div className="h-full rounded-full" style={{ width: `${barPct}%`, background: barColor }} />
+      </div>
+    </div>
+  );
+}
+
+function StatCell({ num, desc }: { num: string; desc: string }) {
+  return (
+    <div className="px-5 py-7 sm:py-8 text-center border-r border-b"
+      style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+      <p className="leading-none mb-2" style={{
+        fontFamily: 'var(--font-fraunces), "Fraunces", Georgia, serif',
+        fontSize: 'clamp(28px, 3.5vw, 40px)', fontWeight: 600, color: '#34c5cc',
+      }}>
+        {num}
+      </p>
+      <p className="text-[12px] sm:text-[13px] text-white/55 font-medium">{desc}</p>
+    </div>
+  );
+}
+
 function Section({ id, children }: { id?: string; children: React.ReactNode }) {
   return (
     <section id={id} className="py-12 sm:py-16">
@@ -497,7 +652,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
     <h2
       className="text-white mt-2"
       style={{
-        fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+        fontFamily: 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif',
         fontSize: 'clamp(26px, 3.6vw, 38px)',
         fontWeight: 700,
         lineHeight: 1.15,
@@ -510,27 +665,27 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 }
 
 function SplitCard({
-  icon: Icon, iconColor, eyebrow, title, text, bullets, destaque,
+  icon: Icon, iconColor, eyebrow, title, text, bullets, destaque, tone,
 }: {
   icon: any; iconColor: string; eyebrow: string; title: string; text: string;
-  bullets: string[]; destaque?: boolean;
+  bullets: string[]; destaque?: boolean; tone?: 'radar' | 'vertho';
 }) {
+  // tone='radar' (cyan) ou 'vertho' (purple) — usado na border-left e no eyebrow
+  const accent = tone === 'vertho' ? '#9e4edd' : '#34c5cc';
   return (
     <div
-      className="rounded-3xl p-6 sm:p-7 border"
+      className="relative rounded-3xl p-6 sm:p-8 border overflow-hidden"
       style={{
-        background: destaque
-          ? 'linear-gradient(135deg, rgba(52,197,204,0.10), rgba(52,197,204,0.02))'
-          : 'rgba(255,255,255,0.025)',
-        borderColor: destaque ? 'rgba(52,197,204,0.25)' : 'rgba(255,255,255,0.08)',
+        background: 'rgba(255,255,255,0.025)',
+        borderColor: 'rgba(255,255,255,0.10)',
       }}
     >
-      <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4"
-        style={{ background: `${iconColor}1A` }}>
-        <Icon size={20} style={{ color: iconColor }} />
-      </div>
-      <p className="text-white/55 mb-2" style={{
-        fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+      {/* border-left colored stripe */}
+      <span aria-hidden className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: accent }} />
+
+      <p className="mb-4" style={{
+        color: accent,
+        fontFamily: 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif',
         fontSize: 11,
         fontWeight: 700,
         letterSpacing: '0.14em',
@@ -538,18 +693,20 @@ function SplitCard({
       }}>
         {eyebrow}
       </p>
-      <h3 className="text-white mb-3" style={{
-        fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
-        fontSize: 'clamp(20px, 2vw, 22px)',
-        fontWeight: 700,
+      <h3 className="text-white mb-5" style={{
+        fontFamily: 'var(--font-fraunces), "Fraunces", Georgia, serif',
+        fontSize: 'clamp(22px, 2.2vw, 26px)',
+        fontWeight: 600,
         lineHeight: 1.2,
-        letterSpacing: '-0.02em',
+        letterSpacing: '-0.01em',
       }}>{title}</h3>
-      <p className="text-white/70 leading-relaxed mb-4" style={{ fontSize: 14 }}>{text}</p>
-      <ul className="space-y-2">
+      <p className="text-white/70 leading-relaxed mb-5" style={{ fontSize: 15 }}>{text}</p>
+      <ul className="space-y-3">
         {bullets.map((b) => (
-          <li key={b} className="flex items-center gap-2 text-[13px] text-white/85">
-            <Check size={13} className="text-cyan-400 flex-shrink-0" /> {b}
+          <li key={b} className="relative pl-6 text-[15px] text-white/75 leading-relaxed">
+            <span aria-hidden className="absolute left-0 top-2 w-2 h-2 rounded-sm"
+              style={{ background: accent, opacity: 0.55 }} />
+            {b}
           </li>
         ))}
       </ul>
@@ -580,7 +737,7 @@ function PersonaCard({
         <Icon size={18} style={{ color: '#34c5cc' }} />
       </div>
       <p className="text-white/45 mb-2" style={{
-        fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+        fontFamily: 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif',
         fontSize: 11,
         fontWeight: 700,
         letterSpacing: '0.14em',
@@ -589,7 +746,7 @@ function PersonaCard({
         {titulo}
       </p>
       <h3 className="text-white mb-3" style={{
-        fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+        fontFamily: 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif',
         fontSize: 'clamp(20px, 2vw, 22px)',
         fontWeight: 700,
         lineHeight: 1.2,
@@ -623,7 +780,7 @@ function RevealCard({
         <span className="text-[10px] font-mono text-white/30">{num}</span>
       </div>
       <h3 className="text-white mb-2" style={{
-        fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+        fontFamily: 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif',
         fontSize: 18,
         fontWeight: 700,
         lineHeight: 1.25,
@@ -636,7 +793,7 @@ function RevealCard({
 
 function ExemploCard({ titulo, leitura, oportunidade }: { titulo: string; leitura: string; oportunidade: string }) {
   const eyebrowStyle: React.CSSProperties = {
-    fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+    fontFamily: 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif',
     fontSize: 11,
     fontWeight: 700,
     letterSpacing: '0.14em',
@@ -651,7 +808,7 @@ function ExemploCard({ titulo, leitura, oportunidade }: { titulo: string; leitur
       }}
     >
       <h3 className="text-white mb-4" style={{
-        fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+        fontFamily: 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif',
         fontSize: 17,
         fontWeight: 700,
         lineHeight: 1.25,
@@ -669,38 +826,6 @@ function ExemploCard({ titulo, leitura, oportunidade }: { titulo: string; leitur
   );
 }
 
-function FluxoCard({
-  num, titulo, texto, icon: Icon, ultimo,
-}: {
-  num: string; titulo: string; texto: string; icon: any; ultimo?: boolean;
-}) {
-  return (
-    <div className="relative">
-      <div
-        className="rounded-2xl p-5 border h-full"
-        style={{
-          background: ultimo
-            ? 'linear-gradient(135deg, rgba(52,197,204,0.10), rgba(255,255,255,0.025))'
-            : 'rgba(255,255,255,0.025)',
-          borderColor: ultimo ? 'rgba(52,197,204,0.3)' : 'rgba(255,255,255,0.08)',
-        }}
-      >
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-[10px] font-mono text-white/35 tabular-nums">{num.padStart(2, '0')}</span>
-          <Icon size={14} style={{ color: ultimo ? '#34c5cc' : '#9ae2e6' }} />
-        </div>
-        <h3 className="text-white mb-1.5" style={{
-          fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
-          fontSize: 15,
-          fontWeight: 700,
-          lineHeight: 1.25,
-          letterSpacing: '-0.01em',
-        }}>{titulo}</h3>
-        <p className="text-white/60 leading-relaxed" style={{ fontSize: 13 }}>{texto}</p>
-      </div>
-    </div>
-  );
-}
 
 function InfoCard({
   icon: Icon, titulo, texto, tags,
@@ -720,7 +845,7 @@ function InfoCard({
         <Icon size={18} style={{ color: '#9ae2e6' }} />
       </div>
       <h3 className="text-white mb-2" style={{
-        fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+        fontFamily: 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif',
         fontSize: 18,
         fontWeight: 700,
         lineHeight: 1.25,
@@ -743,194 +868,88 @@ function InfoCard({
 
 // ────────────── Mockups da Seção 7 (estilizados, não fotorealistas) ──────────────
 
-function TangibleMentor() {
+/* ─── Produto Card (handoff Bett) ─────────────────────────────────────── */
+
+const PRODUTO_TONES: Record<string, { badgeBg: string; badgeText: string; border: string }> = {
+  cyan:   { badgeBg: 'rgba(52,197,204,0.15)',  badgeText: '#34c5cc', border: 'rgba(52,197,204,0.25)' },
+  purple: { badgeBg: 'rgba(158,78,221,0.15)',  badgeText: '#c084fc', border: 'rgba(158,78,221,0.25)' },
+  green:  { badgeBg: 'rgba(22,163,74,0.15)',   badgeText: '#86efac', border: 'rgba(22,163,74,0.25)'  },
+  orange: { badgeBg: 'rgba(234,88,12,0.15)',   badgeText: '#fb923c', border: 'rgba(234,88,12,0.25)'  },
+};
+
+function ProdutoCard({
+  tone, badge, title, lead, children,
+}: {
+  tone: keyof typeof PRODUTO_TONES; badge: string; title: string; lead: string;
+  children: React.ReactNode;
+}) {
+  const t = PRODUTO_TONES[tone];
   return (
-    <div className="rounded-2xl p-6 border" style={{ background: 'rgba(255,255,255,0.025)', borderColor: 'rgba(255,255,255,0.08)' }}>
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: 'rgba(52,197,204,0.12)' }}>
-          <MessageCircle size={16} style={{ color: '#34c5cc' }} />
-        </div>
-        <div>
-          <p className="eyebrow-manrope text-cyan-300/85">MentorIA</p>
-          <h3 className="text-white" style={{
-            fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
-            fontSize: 16, fontWeight: 700, lineHeight: 1.25, letterSpacing: '-0.01em',
-          }}>Conversa que vira prática</h3>
-        </div>
-      </div>
-
-      <div className="space-y-2 my-4">
-        <BubbleIA>
-          Pelo diagnóstico, sua principal oportunidade está em acompanhamento pedagógico. Vamos
-          praticar uma conversa de feedback com um professor?
-        </BubbleIA>
-        <BubbleUser>Sim, quero treinar.</BubbleUser>
-        <BubbleIA>
-          Ótimo. Vou simular uma situação real e depois te dar feedback.
-        </BubbleIA>
-      </div>
-
-      <p className="text-[11px] text-white/45 leading-relaxed">
-        A Vertho pode operar por experiências conversacionais em ambiente web ou canais integrados,
-        conforme configuração do projeto.
-      </p>
+    <div className="rounded-3xl p-7 sm:p-9 border transition-colors"
+      style={{ background: 'rgba(255,255,255,0.025)', borderColor: 'rgba(255,255,255,0.10)' }}>
+      <span className="inline-flex px-3 py-1 rounded-md mb-4 text-[11px] font-bold uppercase tracking-[0.10em]"
+        style={{ background: t.badgeBg, color: t.badgeText }}>
+        {badge}
+      </span>
+      <h4 className="text-white mb-3" style={{
+        fontFamily: 'var(--font-fraunces), "Fraunces", Georgia, serif',
+        fontSize: 22, fontWeight: 600, lineHeight: 1.2,
+      }}>{title}</h4>
+      <p className="text-white/55 mb-5" style={{ fontSize: 14, lineHeight: 1.65 }}>{lead}</p>
+      {children}
     </div>
   );
 }
 
-function BubbleIA({ children }: { children: React.ReactNode }) {
+function DemoBox({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-2">
-      <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[9px] font-bold"
-        style={{ background: '#34c5cc', color: '#06172C' }}>
-        IA
-      </div>
-      <div className="flex-1 rounded-2xl rounded-tl-sm px-3 py-2 text-[12px] text-white/80 leading-relaxed"
-        style={{ background: 'rgba(52,197,204,0.08)', border: '1px solid rgba(52,197,204,0.18)' }}>
-        {children}
-      </div>
+    <div className="rounded-xl p-4 border space-y-2"
+      style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}>
+      {children}
     </div>
   );
 }
 
-function BubbleUser({ children }: { children: React.ReactNode }) {
+function DemoLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-2 justify-end">
-      <div className="rounded-2xl rounded-tr-sm px-3 py-2 text-[12px] text-white/85 leading-relaxed max-w-[75%]"
-        style={{ background: 'rgba(255,255,255,0.06)' }}>
-        {children}
-      </div>
-      <div className="w-6 h-6 rounded-full flex-shrink-0" style={{ background: 'rgba(255,255,255,0.10)' }} />
+    <p className="text-[10px] uppercase tracking-[0.10em] font-bold text-white/30 mb-2">
+      {children}
+    </p>
+  );
+}
+
+function ChatBubbleIA({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl px-3.5 py-3 text-[13px] leading-relaxed"
+      style={{
+        background: 'rgba(52,197,204,0.10)',
+        border: '1px solid rgba(52,197,204,0.20)',
+        color: '#9ae2e6',
+      }}>
+      {children}
     </div>
   );
 }
 
-function TangiblePDI() {
+function ChatBubbleUser({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl p-6 border" style={{ background: 'rgba(255,255,255,0.025)', borderColor: 'rgba(255,255,255,0.08)' }}>
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: 'rgba(154,226,230,0.12)' }}>
-          <Target size={16} style={{ color: '#9ae2e6' }} />
-        </div>
-        <div>
-          <p className="eyebrow-manrope text-cyan-300/85">PDI</p>
-          <h3 className="text-white" style={{
-            fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
-            fontSize: 16, fontWeight: 700, lineHeight: 1.25, letterSpacing: '-0.01em',
-          }}>Plano individual com evidência esperada</h3>
-        </div>
-      </div>
-
-      <div className="space-y-2.5 mt-4">
-        <PdiRow label="Competência" value="Gestão pedagógica baseada em evidências" />
-        <PdiRow label="Nível atual" value="Em desenvolvimento" pillColor="#FCD34D" />
-        <PdiRow label="Objetivo" value="Evoluir para prática consistente" pillColor="#34D399" />
-        <PdiRow label="Ação recomendada" value="Realizar ciclos quinzenais de análise de aprendizagem com a coordenação." />
-        <PdiRow label="Evidência esperada" value="Registro de reunião, plano de intervenção e acompanhamento de resultado." />
-      </div>
+    <div className="rounded-xl px-3.5 py-3 text-[13px] leading-relaxed"
+      style={{
+        background: 'rgba(255,255,255,0.04)',
+        border: '1px solid rgba(255,255,255,0.10)',
+        color: 'rgba(255,255,255,0.75)',
+      }}>
+      {children}
     </div>
   );
 }
 
-function PdiRow({ label, value, pillColor }: { label: string; value: string; pillColor?: string }) {
+function MetricRow({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
   return (
-    <div>
-      <p className="eyebrow-manrope-sm text-white/40 mb-0.5">{label}</p>
-      {pillColor ? (
-        <span className="inline-block text-[11px] px-2 py-0.5 rounded-full"
-          style={{ background: `${pillColor}1A`, color: pillColor, border: `1px solid ${pillColor}33` }}>
-          {value}
-        </span>
-      ) : (
-        <p className="text-[12px] text-white/80 leading-relaxed">{value}</p>
-      )}
-    </div>
-  );
-}
-
-function TangibleTrilha() {
-  const semanas = [
-    { num: 1, titulo: 'Diagnóstico e priorização' },
-    { num: 2, titulo: 'Prática guiada' },
-    { num: 3, titulo: 'Aplicação na escola' },
-    { num: 4, titulo: 'Reflexão e evidência' },
-    { num: 5, titulo: 'Nova prática' },
-  ];
-  return (
-    <div className="rounded-2xl p-6 border" style={{ background: 'rgba(255,255,255,0.025)', borderColor: 'rgba(255,255,255,0.08)' }}>
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: 'rgba(52,197,204,0.12)' }}>
-          <Layers size={16} style={{ color: '#34c5cc' }} />
-        </div>
-        <div>
-          <p className="eyebrow-manrope text-cyan-300/85">Trilha</p>
-          <h3 className="text-white" style={{
-            fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
-            fontSize: 16, fontWeight: 700, lineHeight: 1.25, letterSpacing: '-0.01em',
-          }}>Desenvolvimento no cotidiano da escola</h3>
-        </div>
-      </div>
-
-      <div className="space-y-2 my-4">
-        {semanas.map((s, i) => (
-          <div key={s.num} className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-mono font-bold flex-shrink-0"
-              style={{
-                background: i === 0 ? '#34c5cc' : 'rgba(255,255,255,0.06)',
-                color: i === 0 ? '#06172C' : '#9ae2e6',
-              }}>
-              {s.num}
-            </div>
-            <p className="text-[12px] text-white/75">Semana {s.num}: {s.titulo}</p>
-          </div>
-        ))}
-      </div>
-
-      <p className="text-[11px] text-white/45 leading-relaxed">
-        Conecta diagnóstico, conteúdo, prática e evidência para que o desenvolvimento aconteça no
-        cotidiano da escola.
-      </p>
-    </div>
-  );
-}
-
-function TangibleRelatorio() {
-  return (
-    <div className="rounded-2xl p-6 border" style={{ background: 'rgba(255,255,255,0.025)', borderColor: 'rgba(255,255,255,0.08)' }}>
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: 'rgba(154,226,230,0.12)' }}>
-          <FileText size={16} style={{ color: '#9ae2e6' }} />
-        </div>
-        <div>
-          <p className="eyebrow-manrope text-cyan-300/85">Evidências</p>
-          <h3 className="text-white" style={{
-            fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
-            fontSize: 16, fontWeight: 700, lineHeight: 1.25, letterSpacing: '-0.01em',
-          }}>Mais que certificado de participação</h3>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 my-4">
-        <Metric label="Participação" value="93%" cor="#34D399" />
-        <Metric label="Evolução média" value="+1.4" cor="#34c5cc" />
-        <Metric label="Ações concluídas" value="22" cor="#9ae2e6" />
-        <Metric label="Evidências" value="14" cor="#FCD34D" />
-      </div>
-
-      <p className="text-[11px] text-white/45 leading-relaxed">
-        A rede acompanha o desenvolvimento com evidências, não apenas certificados de participação.
-      </p>
-    </div>
-  );
-}
-
-function Metric({ label, value, cor }: { label: string; value: string; cor: string }) {
-  return (
-    <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}>
-      <p className="eyebrow-manrope-sm text-white/45 mb-1">{label}</p>
-      <p className="text-xl font-bold tabular-nums" style={{ color: cor, fontFamily: 'var(--font-serif, "Instrument Serif", serif)' }}>
-        {value}
-      </p>
+    <div className="flex items-center justify-between py-2 border-b last:border-0"
+      style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+      <span className="text-[13px] text-white/55">{label}</span>
+      <span className="text-[13px] font-bold" style={{ color: valueColor || 'white' }}>{value}</span>
     </div>
   );
 }
