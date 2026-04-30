@@ -136,11 +136,26 @@ export default function PPPPage() {
     if (r.success) {
       setResult(r.data || r);
       flash(r.message || 'Extração concluída');
-      setNomeEscola('');  // limpa pra próxima extração
+      // Limpa tudo pra próxima extração ficar pronta de cara
+      setNomeEscola('');
+      setUrls(['']);
+      setTextos('');
+      setFiles([]);
       refresh();
     } else {
       flash('Erro: ' + r.error);
     }
+  }
+
+  function novaExtracao() {
+    // Limpa tudo pra começar uma extração do zero
+    setNomeEscola('');
+    setUrls(['']);
+    setTextos('');
+    setFiles([]);
+    setResult(null);
+    setTab('arquivos');
+    setShowForm(true);
   }
 
   // Auto-sugere nome da escola pelo arquivo carregado (best-effort)
@@ -192,10 +207,16 @@ export default function PPPPage() {
 
       {/* Nova Extração + Template */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <button onClick={() => setShowForm(!showForm)}
+        <button onClick={novaExtracao}
           className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-green-400 border border-green-400/30 hover:bg-green-400/10 transition-colors">
           <Plus size={14} /> Nova Extração
         </button>
+        {showForm && (
+          <button onClick={() => setShowForm(false)}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-gray-400 border border-white/10 hover:text-white transition-colors">
+            Fechar
+          </button>
+        )}
         <a href="/api/ppp/template" download
           className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-colors">
           <FileText size={14} /> Baixar formulário PDF
