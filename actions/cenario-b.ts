@@ -3,6 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
+import { formatPerfilContext } from '@/lib/perfil-comportamental';
 
 /**
  * Gera um Cenario B alternativo para uma sessao de avaliacao.
@@ -28,10 +29,10 @@ export async function gerarCenarioB(sessaoId: string, aiConfig: AIConfig = {}) {
       return { success: false, error: `Sessao nao encontrada: ${sessaoErr?.message || 'ID invalido'}` };
     }
 
-    // 2. Load colaborador with DISC profile
+    // 2. Load colaborador with profile (DISC nativo OU perfil externo OPQ32)
     const { data: colaborador, error: colabErr } = await sb
       .from('colaboradores')
-      .select('id, nome_completo, cargo, empresa_id, perfil_dominante, d_natural, i_natural, s_natural, c_natural')
+      .select('id, nome_completo, cargo, empresa_id, perfil_dominante, d_natural, i_natural, s_natural, c_natural, perfil_externo_fonte, perfil_externo_dados')
       .eq('id', sessao.colaborador_id)
       .single();
 
@@ -99,9 +100,8 @@ Nome: ${competencia.nome}
 Descricao: ${competencia.descricao}
 Gabarito (regua por descritor): ${JSON.stringify(competencia.gabarito)}
 
-## Perfil DISC do colaborador
-Dominante: ${colaborador.perfil_dominante}
-D=${colaborador.d_natural || 0}, I=${colaborador.i_natural || 0}, S=${colaborador.s_natural || 0}, C=${colaborador.c_natural || 0}
+## Perfil comportamental do colaborador
+${formatPerfilContext(colaborador as any)}
 
 ## Cenario A original (NAO repetir — crie algo DIFERENTE)
 Titulo: ${cenarioOriginal.titulo}

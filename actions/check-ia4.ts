@@ -3,6 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
+import { formatPerfilContext } from '@/lib/perfil-comportamental';
 
 const CHECK_SYSTEM = `Você é um auditor de qualidade de Assessment Comportamental da Vertho.
 Sua tarefa: verificar se a avaliação gerada por uma IA é DEFENSÁVEL como produto Vertho.
@@ -151,7 +152,7 @@ export async function checkAvaliacoes(empresaId: string, aiConfig: AIConfig = {}
 
     const colabIds = [...new Set(respostas.map((r: any) => r.colaborador_id).filter(Boolean))];
     const { data: colabs } = await sb.from('colaboradores')
-      .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, perfil_dominante')
+      .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, perfil_dominante, perfil_externo_fonte, perfil_externo_dados')
       .in('id', colabIds);
     const colabMap: Record<string, any> = {};
     (colabs || []).forEach((c: any) => { colabMap[c.id] = c; });
@@ -191,10 +192,7 @@ export async function checkAvaliacoes(empresaId: string, aiConfig: AIConfig = {}
           }
         }
 
-        let perfilCIS = '';
-        if (colab.d_natural != null) {
-          perfilCIS = `DISC: D=${colab.d_natural} I=${colab.i_natural} S=${colab.s_natural} C=${colab.c_natural} → ${colab.perfil_dominante || '—'}`;
-        }
+        const perfilCIS = formatPerfilContext(colab);
 
         const user = buildCheckUser(colab, compNome, perfilCIS, resp, reguaTexto, cenarioTexto, perguntasTexto);
         const resultado = await callAI(CHECK_SYSTEM, user, { model }, 8192);
@@ -240,7 +238,7 @@ export async function checarUmaResposta(respostaId: string, aiConfig: AIConfig =
     await sb.from('respostas').update({ status_ia4: null, payload_ia4: null }).eq('id', respostaId).select('id');
 
     const { data: colab } = await sb.from('colaboradores')
-      .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, perfil_dominante')
+      .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, perfil_dominante, perfil_externo_fonte, perfil_externo_dados')
       .eq('id', resp.colaborador_id).maybeSingle();
 
     const model = aiConfig?.model || 'gemini-3-flash-preview';
@@ -272,10 +270,7 @@ export async function checarUmaResposta(respostaId: string, aiConfig: AIConfig =
       }
     }
 
-    let perfilCIS = '';
-    if (colab?.d_natural != null) {
-      perfilCIS = `DISC: D=${colab.d_natural} I=${colab.i_natural} S=${colab.s_natural} C=${colab.c_natural} → ${colab.perfil_dominante || '—'}`;
-    }
+    const perfilCIS = formatPerfilContext(colab as any);
 
     const user = buildCheckUser(colab, compNome, perfilCIS, resp, reguaTexto, cenarioTexto, perguntasTexto);
     const resultado = await callAI(CHECK_SYSTEM, user, { model }, 8192);

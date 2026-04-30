@@ -3,6 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { callAI, type AIConfig } from './ai-client';
+import { formatPerfilContext } from '@/lib/perfil-comportamental';
 import { extractJSON } from './utils';
 
 // ── IA4: Avaliar respostas (fiel ao GAS — modelo temático) ──────────────────
@@ -166,12 +167,11 @@ N4 (Referência): ${d.n4_referencia || 'Não definido'}`;
     }
   }
 
-  let perfilCIS = '';
-  if (colab.d_natural != null) {
-    perfilCIS = `PERFIL CIS:
-DISC: D=${colab.d_natural} | I=${colab.i_natural} | S=${colab.s_natural} | C=${colab.c_natural}
-Dominante: ${colab.perfil_dominante || '—'}
-Lideranca: Executor=${colab.lid_executivo || 0}% | Motivador=${colab.lid_motivador || 0}% | Metodico=${colab.lid_metodico || 0}% | Sistematico=${colab.lid_sistematico || 0}%`;
+  // Helper unificado: DISC nativo ou OPQ32 conforme empresa
+  let perfilCIS = formatPerfilContext(colab);
+  // Adiciona estilo de liderança se houver dado DISC
+  if (colab.d_natural != null && colab.lid_executivo != null) {
+    perfilCIS += `\nLiderança: Executor=${colab.lid_executivo || 0}% | Motivador=${colab.lid_motivador || 0}% | Metódico=${colab.lid_metodico || 0}% | Sistemático=${colab.lid_sistematico || 0}%`;
   }
 
   const userBlocks: string[] = [];
@@ -340,7 +340,7 @@ export async function rodarIA4Uma(empresaId: string, respostaId: string, aiConfi
     const empresa = (await sbRaw.from('empresas').select('nome, segmento').eq('id', empresaId).single()).data;
     const colabIds = [resp.colaborador_id].filter(Boolean);
     const { data: colabs } = await tdb.from('colaboradores')
-      .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, lid_executivo, lid_motivador, lid_metodico, lid_sistematico, perfil_dominante, comp_ousadia, comp_comando, comp_objetividade, comp_assertividade, comp_persuasao, comp_extroversao, comp_entusiasmo, comp_sociabilidade, comp_empatia, comp_paciencia, comp_persistencia, comp_planejamento, comp_organizacao, comp_detalhismo, comp_prudencia, comp_concentracao')
+      .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, lid_executivo, lid_motivador, lid_metodico, lid_sistematico, perfil_dominante, comp_ousadia, comp_comando, comp_objetividade, comp_assertividade, comp_persuasao, comp_extroversao, comp_entusiasmo, comp_sociabilidade, comp_empatia, comp_paciencia, comp_persistencia, comp_planejamento, comp_organizacao, comp_detalhismo, comp_prudencia, comp_concentracao, perfil_externo_fonte, perfil_externo_dados')
       .in('id', colabIds);
     const colab = colabs?.[0] || {};
 
@@ -383,7 +383,7 @@ export async function rodarIA4(empresaId: string, aiConfig: AIConfig = {}) {
     // Buscar colaboradores com perfil CIS
     const colabIds = [...new Set(respostas.map((r: any) => r.colaborador_id).filter(Boolean))];
     const { data: colabs } = await tdb.from('colaboradores')
-      .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, lid_executivo, lid_motivador, lid_metodico, lid_sistematico, perfil_dominante, comp_ousadia, comp_comando, comp_objetividade, comp_assertividade, comp_persuasao, comp_extroversao, comp_entusiasmo, comp_sociabilidade, comp_empatia, comp_paciencia, comp_persistencia, comp_planejamento, comp_organizacao, comp_detalhismo, comp_prudencia, comp_concentracao')
+      .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, lid_executivo, lid_motivador, lid_metodico, lid_sistematico, perfil_dominante, comp_ousadia, comp_comando, comp_objetividade, comp_assertividade, comp_persuasao, comp_extroversao, comp_entusiasmo, comp_sociabilidade, comp_empatia, comp_paciencia, comp_persistencia, comp_planejamento, comp_organizacao, comp_detalhismo, comp_prudencia, comp_concentracao, perfil_externo_fonte, perfil_externo_dados')
       .in('id', colabIds);
     const colabMap: Record<string, any> = {};
     (colabs || []).forEach((c: any) => { colabMap[c.id] = c; });
@@ -524,7 +524,7 @@ export async function reavaliarResposta(respostaId: string, aiConfig: AIConfig =
       .select('nome, segmento').eq('id', resp.empresa_id).single();
 
     const { data: colab } = await tdb.from('colaboradores')
-      .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, perfil_dominante')
+      .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, perfil_dominante, perfil_externo_fonte, perfil_externo_dados')
       .eq('id', resp.colaborador_id).single();
 
     let cenarioTexto = '', perguntasTexto = '';

@@ -5,6 +5,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { tenantEmailFrom, tenantUrl } from '@/lib/domain';
 import { callAI, callAIChat, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
+import { formatPerfilContext } from '@/lib/perfil-comportamental';
 
 // Configs específicas da fase 5 (estende a base com flags do check + lote)
 type Fase5Config = AIConfig & {
@@ -609,7 +610,7 @@ export async function iniciarReavaliacaoLote(empresaId: string, aiConfig: AIConf
   const tdb = tenantDb(empresaId);
   try {
     const { data: colaboradores } = await tdb.from('colaboradores')
-      .select('id, nome_completo, cargo, email, perfil_dominante, d_natural, i_natural, s_natural, c_natural');
+      .select('id, nome_completo, cargo, email, perfil_dominante, d_natural, i_natural, s_natural, c_natural, perfil_externo_fonte, perfil_externo_dados');
     if (!colaboradores?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
 
     // Cenários B (chave: competencia_id::cargo)
@@ -1114,7 +1115,7 @@ export async function gerarEvolucaoFusao(empresaId: string, aiConfig: AIConfig =
       .select('nome, segmento').eq('id', empresaId).single();
 
     const { data: colaboradores } = await tdb.from('colaboradores')
-      .select('id, nome_completo, cargo, perfil_dominante, d_natural, i_natural, s_natural, c_natural');
+      .select('id, nome_completo, cargo, perfil_dominante, d_natural, i_natural, s_natural, c_natural, perfil_externo_fonte, perfil_externo_dados');
     if (!colaboradores?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
 
     // Fonte 1: Respostas iniciais (Cenário A)
@@ -1265,7 +1266,7 @@ Retorne APENAS JSON válido.`;
         const userBlocks: string[] = [];
 
         userBlocks.push(`═══ EMPRESA ═══\n${empresa.nome} (${empresa.segmento})`);
-        userBlocks.push(`═══ COLABORADOR ═══\n${colab.nome_completo} · ${colab.cargo}\nDISC: ${colab.perfil_dominante || 'N/D'} (D=${colab.d_natural||0} I=${colab.i_natural||0} S=${colab.s_natural||0} C=${colab.c_natural||0})\nNOTA: DISC NÃO altera nota — serve apenas como leitura contextual.`);
+        userBlocks.push(`═══ COLABORADOR ═══\n${colab.nome_completo} · ${colab.cargo}\n${formatPerfilContext(colab)}\nNOTA: o perfil comportamental NÃO altera nota — serve apenas como leitura contextual.`);
         userBlocks.push(`═══ COMPETÊNCIA ═══\n${comp.nome}\n\nDescritores:\n${descritores.join('\n')}`);
         userBlocks.push(`═══ FONTE 1 — CENÁRIO A (diagnóstico inicial) ═══\nNível: N${fonteA.nivel_ia4}\nAvaliação:\n${JSON.stringify(fonteA.avaliacao_ia)}`);
         userBlocks.push(`═══ FONTE 2 — CENÁRIO B (reavaliação situacional) ═══\n${fonteB ? `Nível: N${fonteB.nivel_ia4}\nAvaliação:\n${JSON.stringify(fonteB.avaliacao_ia)}` : 'Não disponível'}`);

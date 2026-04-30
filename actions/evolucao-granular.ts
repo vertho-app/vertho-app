@@ -3,6 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
+import { formatPerfilContext } from '@/lib/perfil-comportamental';
 
 /**
  * Gera evolucao granular por descritor, comparando avaliacao inicial vs reavaliacao.
@@ -21,7 +22,7 @@ export async function gerarEvolucaoDescritores(empresaId: string, colaboradorId:
     // 1. Load colaborador with DISC profile
     const { data: colaborador, error: colabErr } = await sb
       .from('colaboradores')
-      .select('id, nome_completo, cargo, perfil_dominante, d_natural, i_natural, s_natural, c_natural, empresa_id')
+      .select('id, nome_completo, cargo, perfil_dominante, d_natural, i_natural, s_natural, c_natural, empresa_id, perfil_externo_fonte, perfil_externo_dados')
       .eq('id', colaboradorId)
       .eq('empresa_id', empresaId)
       .single();
@@ -81,13 +82,8 @@ export async function gerarEvolucaoDescritores(empresaId: string, colaboradorId:
       const cenarioB = cenarios?.find(c => c.origin === 'cenario_b') || cenarios?.[1] || null;
 
       // 5. Call Claude to compare at descriptor level
-      const discProfile = {
-        perfil_dominante: colaborador.perfil_dominante,
-        D: colaborador.d_natural,
-        I: colaborador.i_natural,
-        S: colaborador.s_natural,
-        C: colaborador.c_natural,
-      };
+      // formatPerfilContext lida com DISC ou OPQ32 conforme empresa
+      const perfilTexto = formatPerfilContext(colaborador as any);
 
       const system = `Você é um especialista em análise de evolução de competências da Vertho.
 
@@ -112,7 +108,7 @@ RETORNE APENAS JSON VÁLIDO (array), sem markdown, sem texto antes ou depois.`;
 Descrição: ${competencia.descricao}
 Gabarito (descritores e níveis): ${JSON.stringify(competencia.gabarito)}
 
-PERFIL DISC: ${JSON.stringify(discProfile)}
+PERFIL COMPORTAMENTAL: ${perfilTexto}
 
 AVALIAÇÃO INICIAL:
 ${JSON.stringify(sessaoInicial.avaliacao_final)}
@@ -211,7 +207,7 @@ export async function gerarConvergenciaCIS(empresaId: string, colaboradorId: str
     // 1. Load colaborador DISC scores
     const { data: colaborador, error: colabErr } = await sb
       .from('colaboradores')
-      .select('id, nome_completo, perfil_dominante, d_natural, i_natural, s_natural, c_natural')
+      .select('id, nome_completo, perfil_dominante, d_natural, i_natural, s_natural, c_natural, perfil_externo_fonte, perfil_externo_dados')
       .eq('id', colaboradorId)
       .eq('empresa_id', empresaId)
       .single();
