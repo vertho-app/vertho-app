@@ -1,207 +1,114 @@
-'use client';
+import { Suspense } from 'react';
+import { CompararClient } from './client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ArrowLeft, ArrowRight, Lock, Calendar, GitCompare } from 'lucide-react';
-import { BettHeader } from '../_components/bett-header';
-import { BettSearch } from '../_components/bett-search';
-import { BettLeadModal } from '../_components/bett-lead-modal';
-import { StickyCTAMobile } from '../_components/sticky-cta';
-import { track } from '../_lib/tracking';
+export const dynamic = 'force-dynamic';
 
-/**
- * Versão comercial do comparar — V1 simples:
- * - Pede pro usuário buscar 1 escola/município
- * - Mostra que comparativo profundo está no produto Vertho (CTA pra lead)
- *
- * V2 (pós-Bett): aceitar query string ?escolas=A,B,C,D pré-populado
- * e mostrar comparativo lado-a-lado parcial com CTA pra leitura completa.
- */
-export default function CompararPage() {
-  const router = useRouter();
-  const [leadOpen, setLeadOpen] = useState(false);
-  const viewSent = useRef(false);
+export default async function CompararPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ escolas?: string; ibges?: string }>;
+}) {
+  const sp = await searchParams;
+  const escolas = (sp.escolas || '').split(',').filter((c) => /^\d{8}$/.test(c)).slice(0, 4);
+  const ibges = (sp.ibges || '').split(',').filter((c) => /^\d{7}$/.test(c)).slice(0, 4);
 
-  useEffect(() => {
-    if (!viewSent.current) {
-      track('bett_result_view');
-      viewSent.current = true;
-    }
-  }, []);
+  // Carrega dados básicos das escolas/municípios pré-populados
+  const escolasData = escolas.length > 0 ? await loadEscolas(escolas) : [];
+  const municipiosData = ibges.length > 0 ? await loadMunicipios(ibges) : [];
 
   return (
-    <main
-      className="min-h-dvh"
-      style={{
-        background:
-          'radial-gradient(1100px 600px at 88% -5%, rgba(52,197,204,.12), transparent 55%),' +
-          'radial-gradient(900px 500px at -5% 30%, rgba(154,226,230,.07), transparent 60%),' +
-          'linear-gradient(180deg,#06172C 0%,#091D35 50%,#0a1f3a 100%)',
-      }}
-    >
-      <BettHeader onAgendar={() => setLeadOpen(true)} />
-
-      <div className="max-w-[900px] mx-auto px-6 pt-6 pb-12">
-        <button
-          onClick={() => router.push('/')}
-          className="inline-flex items-center gap-1.5 text-xs text-white/45 hover:text-white mb-4"
-        >
-          <ArrowLeft size={12} /> Voltar pra home
-        </button>
-
-        <header className="mb-8">
-          <p className="text-[10px] tracking-[0.2em] uppercase font-mono text-cyan-300/80 mb-2">
-            Comparativo entre escolas e redes
-          </p>
-          <h1
-            className="text-white mb-4"
-            style={{
-              fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
-              fontSize: 'clamp(28px, 4.5vw, 44px)',
-              fontWeight: 600,
-              lineHeight: 1.1,
-              letterSpacing: '-0.02em',
-            }}
-          >
-            Compare escolas ou redes lado a <em style={{ color: '#34c5cc', fontStyle: 'italic' }}>lado</em>
-          </h1>
-          <p className="text-white/65 text-sm leading-relaxed max-w-[640px]">
-            Identifique padrões entre unidades e aprenda com escolas que performam melhor em
-            contextos similares. A comparação aprofundada é parte do diagnóstico construído com
-            a Vertho.
-          </p>
-        </header>
-
-        <section className="mb-8 rounded-2xl p-6 sm:p-7 border"
-          style={{ background: 'rgba(255,255,255,0.025)', borderColor: 'rgba(255,255,255,0.08)' }}>
-          <p className="text-[10px] tracking-[0.2em] uppercase font-mono text-cyan-300/80 mb-3">
-            1. Busque o ponto de partida
-          </p>
-          <BettSearch
-            onSelectResult={(r) => {
-              if (r.tipo === 'escola') router.push(`/escola/${r.id}`);
-              else router.push(`/municipio/${r.id}`);
-            }}
-          />
-          <p className="text-[11px] text-white/45 mt-3 leading-relaxed">
-            Comece pela escola ou município principal. A partir daí, a equipe Vertho desenha o
-            recorte de comparação que faz sentido pra sua realidade.
-          </p>
-        </section>
-
-        <section className="mb-8">
-          <div className="rounded-2xl p-6 border"
-            style={{
-              background: 'linear-gradient(135deg, rgba(52,197,204,0.08), rgba(52,197,204,0.02))',
-              borderColor: 'rgba(52,197,204,0.25)',
-            }}>
-            <div className="flex items-start gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: 'rgba(52,197,204,0.15)' }}>
-                <GitCompare size={18} style={{ color: '#34c5cc' }} />
-              </div>
-              <div>
-                <p className="text-[10px] tracking-[0.2em] uppercase font-mono text-cyan-300/80">
-                  Recorte feito sob medida
-                </p>
-                <h2 className="text-white text-base font-bold mt-1">
-                  O comparativo aprofundado é construído com a Vertho
-                </h2>
-              </div>
-            </div>
-
-            <p className="text-white/75 text-[14px] leading-relaxed mb-4">
-              Comparar escolas só faz sentido com <strong className="text-white/95">contexto</strong>.
-              A Vertho cruza Saeb, Ideb, Censo, INSE e variabilidade da rede pra desenhar o
-              recorte certo — escolas com perfil socioeconômico semelhante, mesma etapa, mesma
-              cidade ou microrregião.
-            </p>
-
-            <ul className="space-y-2 text-[13px] text-white/70 mb-5">
-              <li className="flex items-start gap-2">
-                <span className="text-cyan-300 mt-0.5">→</span>
-                <span>Mantenedor de rede privada: <strong className="text-white/85">unidades vs benchmark interno</strong></span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-cyan-300 mt-0.5">→</span>
-                <span>Diretor de escola: <strong className="text-white/85">pares INSE da mesma cidade</strong></span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-cyan-300 mt-0.5">→</span>
-                <span>Secretaria: <strong className="text-white/85">grupos de escolas por risco e oportunidade</strong></span>
-              </li>
-            </ul>
-
-            <button
-              onClick={() => setLeadOpen(true)}
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-full text-sm font-bold transition-all"
-              style={{
-                background: 'linear-gradient(135deg, #34c5cc, #2aa8ae)',
-                color: '#06172C',
-              }}
-            >
-              Solicitar comparativo personalizado <ArrowRight size={13} />
-            </button>
-          </div>
-        </section>
-
-        <section className="mb-8 rounded-2xl p-6 border text-center"
-          style={{ background: 'rgba(255,255,255,0.025)', borderColor: 'rgba(255,255,255,0.08)' }}>
-          <h2 className="text-white text-base font-bold mb-2">
-            Quer ver um exemplo?
-          </h2>
-          <p className="text-white/65 text-[13px] leading-relaxed mb-4 max-w-[520px] mx-auto">
-            Veja a leitura inicial de uma escola pública estadual em Campinas/SP.
-          </p>
-          <button
-            onClick={() => {
-              track('bett_example_click');
-              router.push('/escola/35915592');
-            }}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-[12px] font-bold border border-cyan-400/30 text-cyan-300 hover:bg-cyan-400/10 transition-colors"
-          >
-            Ver exemplo de leitura <ArrowRight size={11} />
-          </button>
-        </section>
-
-        <section>
-          <div
-            className="rounded-2xl p-6 sm:p-8 border text-center"
-            style={{
-              background: 'linear-gradient(135deg, rgba(52,197,204,0.06), rgba(255,255,255,0.025))',
-              borderColor: 'rgba(52,197,204,0.18)',
-            }}
-          >
-            <h2
-              className="text-white mb-3"
-              style={{
-                fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
-                fontSize: 'clamp(22px, 3vw, 30px)',
-                fontWeight: 600,
-                lineHeight: 1.15,
-              }}
-            >
-              Vamos conversar sobre <em style={{ color: '#34c5cc', fontStyle: 'italic' }}>sua rede?</em>
-            </h2>
-            <button
-              onClick={() => {
-                track('bett_schedule_click');
-                setLeadOpen(true);
-              }}
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-full text-sm font-bold transition-all"
-              style={{ background: 'linear-gradient(135deg, #34c5cc, #2aa8ae)', color: '#06172C' }}
-            >
-              <Calendar size={13} /> Agendar conversa com a Vertho
-            </button>
-          </div>
-        </section>
-      </div>
-
-      <BettLeadModal open={leadOpen} onClose={() => setLeadOpen(false)} />
-      <StickyCTAMobile
-        onBuscar={() => router.push('/')}
-        onLiberar={() => setLeadOpen(true)}
+    <Suspense>
+      <CompararClient
+        escolasData={escolasData}
+        municipiosData={municipiosData}
+        modo={escolasData.length > 0 ? 'escolas' : municipiosData.length > 0 ? 'municipios' : 'inicial'}
       />
-    </main>
+    </Suspense>
   );
+}
+
+async function loadEscolas(codigos: string[]) {
+  const { createSupabaseAdmin } = await import('@/lib/supabase');
+  const sb = createSupabaseAdmin();
+  const { data: escolas } = await sb
+    .from('diag_escolas')
+    .select('codigo_inep, nome, municipio, uf, rede, inse_grupo')
+    .in('codigo_inep', codigos);
+
+  if (!escolas?.length) return [];
+
+  // Pega o Saeb 9_EF mais recente de cada (proxy editorial)
+  const { data: saeb } = await sb
+    .from('diag_saeb_snapshots')
+    .select('codigo_inep, ano, etapa, disciplina, distribuicao, media_proficiencia')
+    .in('codigo_inep', codigos)
+    .eq('etapa', '9_EF')
+    .order('ano', { ascending: false });
+
+  const saebPorEscola = new Map<string, any[]>();
+  for (const s of (saeb || [])) {
+    const arr = saebPorEscola.get(s.codigo_inep) || [];
+    if (arr.length < 4) { arr.push(s); saebPorEscola.set(s.codigo_inep, arr); }
+  }
+
+  // Mantém a ordem dos códigos passados na URL
+  return codigos.map((cod) => {
+    const e = escolas.find((x: any) => x.codigo_inep === cod);
+    if (!e) return null;
+    const ss = saebPorEscola.get(cod) || [];
+    const lp = ss.find((s: any) => s.disciplina === 'LP');
+    const mat = ss.find((s: any) => s.disciplina === 'MAT');
+    const pctN01 = (snap: any) => {
+      if (!snap?.distribuicao) return null;
+      return Number(snap.distribuicao['0'] || 0) + Number(snap.distribuicao['1'] || 0);
+    };
+    return {
+      ...e,
+      saeb_ano: ss[0]?.ano ?? null,
+      saeb_lp: lp?.media_proficiencia ?? null,
+      saeb_mat: mat?.media_proficiencia ?? null,
+      pct_n01_lp: pctN01(lp),
+      pct_n01_mat: pctN01(mat),
+    };
+  }).filter(Boolean);
+}
+
+async function loadMunicipios(ibges: string[]) {
+  const { createSupabaseAdmin } = await import('@/lib/supabase');
+  const sb = createSupabaseAdmin();
+  // Conta escolas + nome
+  const { data: escolasMun } = await sb
+    .from('diag_escolas')
+    .select('municipio_ibge, municipio, uf')
+    .in('municipio_ibge', ibges);
+  const porIbge = new Map<string, { nome: string; uf: string; total: number }>();
+  for (const e of (escolasMun || [])) {
+    const cur = porIbge.get(e.municipio_ibge) || { nome: e.municipio, uf: e.uf, total: 0 };
+    cur.total++;
+    porIbge.set(e.municipio_ibge, cur);
+  }
+  // ICA mais recente
+  const { data: ica } = await sb
+    .from('diag_ica_snapshots')
+    .select('municipio_ibge, ano, taxa, rede')
+    .in('municipio_ibge', ibges)
+    .order('ano', { ascending: false });
+  const icaPorIbge = new Map<string, any>();
+  for (const i of (ica || [])) {
+    if (!icaPorIbge.has(i.municipio_ibge) && i.taxa != null) icaPorIbge.set(i.municipio_ibge, i);
+  }
+  return ibges.map((ibge) => {
+    const m = porIbge.get(ibge);
+    if (!m) return null;
+    const ic = icaPorIbge.get(ibge);
+    return {
+      ibge,
+      nome: m.nome,
+      uf: m.uf,
+      total: m.total,
+      ica_taxa: ic?.taxa ?? null,
+      ica_ano: ic?.ano ?? null,
+      ica_rede: ic?.rede ?? null,
+    };
+  }).filter(Boolean);
 }

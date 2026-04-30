@@ -1,0 +1,33 @@
+# Pastas grandes que NÃO devem ir pro deploy Vercel
+# (afetam tamanho do upload — limite é 1GB)
+
+# Microdados temporários (importação local)
+.tmp_*
+.cache/
+outputs/
+
+# Builds locais
+/.next/
+/out/
+
+# Logs e debug
+*.log
+npm-debug.log*
+
+# Backups e dumps
+*.dump
+*.bak
+*.zip
+*.tar
+*.gz
+**/backups/
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+
+# Test artifacts
+/coverage/
+/playwright-report/
+/test-results/
