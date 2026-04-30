@@ -56,6 +56,10 @@ export function EscolaResultadoClient({
 
   function abrirLead() {
     track('bett_unlock_click', { tipo: 'escola', id: escola.codigo_inep });
+    // Modo teste pré-Bett: libera o conteúdo imediatamente, sem esperar
+    // o lead ser preenchido. O modal de cadastro continua abrindo em paralelo
+    // pra capturar o contato. Reverter quando voltar ao gating estrito.
+    setUnlocked(true);
     setLeadOpen(true);
   }
 
