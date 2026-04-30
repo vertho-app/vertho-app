@@ -10,7 +10,9 @@ import { BettHeader } from '../_components/bett-header';
 import { BettSearch } from '../_components/bett-search';
 import { BettLeadModal } from '../_components/bett-lead-modal';
 import { StickyCTAMobile } from '../_components/sticky-cta';
+import { WhatsappIcon } from '../_components/whatsapp-icon';
 import { track } from '../_lib/tracking';
+import { openWhatsAppAgendar } from '../_lib/whatsapp';
 
 type EscolaCmp = {
   codigo_inep: string;
@@ -78,7 +80,7 @@ export function CompararClient({
           'linear-gradient(180deg,#06172C 0%,#091D35 50%,#0a1f3a 100%)',
       }}
     >
-      <BettHeader onAgendar={abrirLead} />
+      <BettHeader />
 
       <div className="max-w-[1100px] mx-auto px-6 pt-6 pb-12">
         <button
@@ -152,12 +154,12 @@ export function CompararClient({
             <button
               onClick={() => {
                 track('bett_schedule_click');
-                setLeadOpen(true);
+                openWhatsAppAgendar({ tipo: 'comparar' });
               }}
               className="inline-flex items-center gap-2 px-5 py-3 rounded-full text-sm font-bold transition-all"
-              style={{ background: 'linear-gradient(135deg, #34c5cc, #2aa8ae)', color: '#06172C' }}
+              style={{ background: 'linear-gradient(135deg, #25D366, #128C7E)', color: '#06172C' }}
             >
-              <Calendar size={13} /> Agendar conversa com a Vertho
+              <WhatsappIcon size={14} /> Agendar conversa com a Vertho
             </button>
           </div>
         </section>

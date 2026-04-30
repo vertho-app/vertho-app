@@ -9,7 +9,9 @@ import {
 import { BettHeader } from '../../_components/bett-header';
 import { BettLeadModal } from '../../_components/bett-lead-modal';
 import { StickyCTAMobile } from '../../_components/sticky-cta';
+import { WhatsappIcon } from '../../_components/whatsapp-icon';
 import { track } from '../../_lib/tracking';
+import { openWhatsAppAgendar } from '../../_lib/whatsapp';
 
 type Sinal = {
   tipo: 'aprendizagem' | 'contexto' | 'oportunidade';
@@ -77,7 +79,7 @@ export function EscolaResultadoClient({
           'linear-gradient(180deg,#06172C 0%,#091D35 50%,#0a1f3a 100%)',
       }}
     >
-      <BettHeader onAgendar={abrirLead} />
+      <BettHeader />
 
       <div className="max-w-[1100px] mx-auto px-6 pt-6 pb-12">
         {/* Voltar */}
@@ -311,11 +313,12 @@ export function EscolaResultadoClient({
               <button
                 onClick={() => {
                   track('bett_schedule_click', { tipo: 'escola', id: escola.codigo_inep });
-                  setLeadOpen(true);
+                  openWhatsAppAgendar({ tipo: 'escola', scope: escola.nome });
                 }}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-full text-sm font-bold border border-white/15 text-white/85 hover:bg-white/[0.04] transition-all"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-full text-sm font-bold transition-all"
+                style={{ background: 'linear-gradient(135deg, #25D366, #128C7E)', color: '#06172C' }}
               >
-                <Calendar size={13} /> Agendar conversa
+                <WhatsappIcon size={14} /> Agendar conversa
               </button>
             </div>
           </div>

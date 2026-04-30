@@ -11,7 +11,9 @@ import { BettHeader } from './_components/bett-header';
 import { BettSearch } from './_components/bett-search';
 import { BettLeadModal } from './_components/bett-lead-modal';
 import { StickyCTAMobile } from './_components/sticky-cta';
+import { WhatsappIcon } from './_components/whatsapp-icon';
 import { track } from './_lib/tracking';
+import { openWhatsAppAgendar } from './_lib/whatsapp';
 
 export default function RadarBettHome() {
   const router = useRouter();
@@ -50,7 +52,7 @@ export default function RadarBettHome() {
           'linear-gradient(180deg,#06172C 0%,#091D35 50%,#0a1f3a 100%)',
       }}
     >
-      <BettHeader onAgendar={() => abrirLead()} />
+      <BettHeader />
 
       {/* ═══════════════════ 1. HERO + BUSCA ═══════════════════ */}
       <section className="relative overflow-hidden">
@@ -547,11 +549,12 @@ export default function RadarBettHome() {
             <button
               onClick={() => {
                 track('bett_schedule_click');
-                abrirLead();
+                openWhatsAppAgendar({ tipo: 'cta' });
               }}
-              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full text-sm font-bold border border-white/15 text-white/85 hover:bg-white/[0.04] transition-all"
+              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full text-sm font-bold transition-all"
+              style={{ background: 'linear-gradient(135deg, #25D366, #128C7E)', color: '#06172C' }}
             >
-              <Calendar size={14} /> Agendar conversa na Bett
+              <WhatsappIcon size={15} /> Agendar conversa na Bett
             </button>
           </div>
         </div>

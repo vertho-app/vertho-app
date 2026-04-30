@@ -1,13 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { openWhatsAppAgendar } from '../_lib/whatsapp';
 
 /**
  * Header simples e institucional do radarbett.
- * Mantém "Radar Vertho" no logo (reuso visual). Sem tabs técnicas.
- * CTA "Agendar conversa" sempre visível no canto direito.
+ * CTA "Agendar conversa" sempre visível no canto direito — abre WhatsApp.
  */
-export function BettHeader({ onAgendar }: { onAgendar?: () => void }) {
+export function BettHeader() {
   return (
     <header
       className="sticky top-0 z-30 border-b border-white/[0.06]"
@@ -25,18 +25,16 @@ export function BettHeader({ onAgendar }: { onAgendar?: () => void }) {
           >
             Metodologia
           </Link>
-          {onAgendar && (
-            <button
-              onClick={onAgendar}
-              className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-full text-[12px] sm:text-[13px] font-bold transition-all"
-              style={{
-                background: 'linear-gradient(135deg, #34c5cc, #2aa8ae)',
-                color: '#06172C',
-              }}
-            >
-              Agendar conversa
-            </button>
-          )}
+          <button
+            onClick={() => openWhatsAppAgendar({ tipo: 'header' })}
+            className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-full text-[12px] sm:text-[13px] font-bold transition-all"
+            style={{
+              background: 'linear-gradient(135deg, #34c5cc, #2aa8ae)',
+              color: '#06172C',
+            }}
+          >
+            Agendar conversa
+          </button>
         </div>
       </div>
     </header>
