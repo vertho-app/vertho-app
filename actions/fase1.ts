@@ -216,11 +216,14 @@ export async function loadTop10(empresaId: string, cargo: string) {
   await requireAdminAction();
   if (!empresaId) return [];
   const tdb = tenantDb(empresaId);
+  // Match case/accent-insensitive: pega tudo e filtra em memória
   const { data } = await tdb.from('top10_cargos')
     .select('*, competencia:competencias(id, nome, cod_comp, pilar, descricao)')
-    .eq('cargo', cargo)
     .order('posicao');
-  return data || [];
+  const norm = (s: string | null | undefined) =>
+    (s || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+  const alvo = norm(cargo);
+  return (data || []).filter((r: any) => norm(r.cargo) === alvo);
 }
 
 export async function loadTop10TodosCargos(empresaId: string) {

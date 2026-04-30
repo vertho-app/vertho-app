@@ -52,14 +52,22 @@ export async function loadCompetenciasParaVotar() {
   const votacaoAtiva = empresa?.sys_config?.votacao_ativa === true;
   if (!votacaoAtiva) return { error: 'Votação não está aberta no momento' };
 
-  // Buscar TODAS as competências do cargo (não só Top 10)
-  const { data: comps } = await tdb.from('competencias')
-    .select('id, nome, cod_comp, descricao, pilar')
-    .eq('cargo', colab.cargo);
+  // Buscar TODAS as competências da empresa e filtrar por cargo com normalização
+  // (case-insensitive + sem acentos). Match exato falha quando a IA cadastra
+  // "Coordenação Pedagógica" e o colab tem "coordenacao pedagogica".
+  const norm = (s: string | null | undefined) =>
+    (s || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+  const cargoColabN = norm(colab.cargo);
+
+  const { data: compsRaw } = await tdb.from('competencias')
+    .select('id, nome, cod_comp, descricao, pilar, cargo')
+    .not('cargo', 'is', null);
+
+  const comps = (compsRaw || []).filter((c: any) => norm(c.cargo) === cargoColabN);
 
   // Deduplicar por cod_comp (descritores geram múltiplas linhas)
   const uniqueMap: Record<string, any> = {};
-  (comps || []).forEach(c => {
+  comps.forEach((c: any) => {
     const key = c.cod_comp || c.nome;
     if (!uniqueMap[key]) uniqueMap[key] = { nome: c.nome, cod_comp: c.cod_comp, descricao: c.descricao, pilar: c.pilar };
   });
