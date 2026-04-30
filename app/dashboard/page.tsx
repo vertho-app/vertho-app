@@ -294,52 +294,7 @@ export default function DashboardHomePage() {
           </div>
         </section>
 
-        {/* Foco da semana — vem depois do progresso */}
-        <section
-          className="rounded-[28px] p-5 relative overflow-hidden"
-          style={{
-            background: `linear-gradient(135deg, ${phaseTokens.deep} 0%, #0f2b54 100%)`,
-            border: `1px solid color-mix(in oklab, var(--phase-accent) 28%, transparent)`,
-          }}
-        >
-          <div aria-hidden className="absolute inset-0 pointer-events-none"
-            style={{ background: 'radial-gradient(ellipse at 85% 10%, var(--phase-glow), transparent 55%)' }} />
-          <div className="relative">
-            <div className="flex items-start justify-between gap-4 mb-3">
-              <div>
-                <span className="block mb-2 text-[10px] font-bold tracking-[0.2em] uppercase"
-                  style={{ color: 'var(--phase-accent)' }}>
-                  Foco da semana
-                </span>
-                <h2 style={{ ...serifStyle, fontSize: 'clamp(26px, 5vw, 38px)', lineHeight: 1.05, letterSpacing: '-0.02em' }}>
-                  {competencia || <em>Preparação</em>}
-                </h2>
-              </div>
-              <span className="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold"
-                style={{
-                  fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
-                  fontStyle: 'italic',
-                  background: `color-mix(in oklab, var(--phase-accent) 16%, transparent)`,
-                  border: `1px solid color-mix(in oklab, var(--phase-accent) 40%, transparent)`,
-                  color: 'var(--phase-accent)',
-                  fontSize: 14,
-                }}>
-                F{faseNum}
-              </span>
-            </div>
-            <p className="text-sm text-white/65 mb-5 leading-relaxed">
-              {faseDescricoes[faseNum] || 'Continue sua jornada de desenvolvimento.'}
-            </p>
-            <button onClick={handleMainCTA}
-              className="w-full py-4 rounded-2xl font-bold text-base transition-all duration-200 flex items-center justify-center gap-2"
-              style={{ background: 'var(--phase-accent)', color: '#062032', boxShadow: '0 10px 24px var(--phase-glow)' }}>
-              {mainCTALabel()}
-              <ArrowRight size={18} />
-            </button>
-          </div>
-        </section>
-
-        {/* Votação aberta */}
+        {/* Votação aberta — quando ativa, sobe pra primeira posição (chamada de ação curta) */}
         {votacaoAberta?.votacaoAtiva && !votacaoAberta.jaVotou && (
           <section>
             <button onClick={() => router.push('/dashboard/votacao')}
@@ -383,6 +338,51 @@ export default function DashboardHomePage() {
             </div>
           </section>
         )}
+
+        {/* Foco da semana — vem depois da votação (quando há votação ativa) */}
+        <section
+          className="rounded-[28px] p-5 relative overflow-hidden"
+          style={{
+            background: `linear-gradient(135deg, ${phaseTokens.deep} 0%, #0f2b54 100%)`,
+            border: `1px solid color-mix(in oklab, var(--phase-accent) 28%, transparent)`,
+          }}
+        >
+          <div aria-hidden className="absolute inset-0 pointer-events-none"
+            style={{ background: 'radial-gradient(ellipse at 85% 10%, var(--phase-glow), transparent 55%)' }} />
+          <div className="relative">
+            <div className="flex items-start justify-between gap-4 mb-3">
+              <div>
+                <span className="block mb-2 text-[10px] font-bold tracking-[0.2em] uppercase"
+                  style={{ color: 'var(--phase-accent)' }}>
+                  Foco da semana
+                </span>
+                <h2 style={{ ...serifStyle, fontSize: 'clamp(26px, 5vw, 38px)', lineHeight: 1.05, letterSpacing: '-0.02em' }}>
+                  {competencia || <em>Preparação</em>}
+                </h2>
+              </div>
+              <span className="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold"
+                style={{
+                  fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+                  fontStyle: 'italic',
+                  background: `color-mix(in oklab, var(--phase-accent) 16%, transparent)`,
+                  border: `1px solid color-mix(in oklab, var(--phase-accent) 40%, transparent)`,
+                  color: 'var(--phase-accent)',
+                  fontSize: 14,
+                }}>
+                F{faseNum}
+              </span>
+            </div>
+            <p className="text-sm text-white/65 mb-5 leading-relaxed">
+              {faseDescricoes[faseNum] || 'Continue sua jornada de desenvolvimento.'}
+            </p>
+            <button onClick={handleMainCTA}
+              className="w-full py-4 rounded-2xl font-bold text-base transition-all duration-200 flex items-center justify-center gap-2"
+              style={{ background: 'var(--phase-accent)', color: '#062032', boxShadow: '0 10px 24px var(--phase-glow)' }}>
+              {mainCTALabel()}
+              <ArrowRight size={18} />
+            </button>
+          </div>
+        </section>
 
         {/* Secondary cards */}
         <section className="space-y-3">
