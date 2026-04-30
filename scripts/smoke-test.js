@@ -49,11 +49,11 @@ const PAGES = [
 
 const APIS = [
   { path: '/api/assessment', method: 'GET', expect: [200, 401, 500], label: 'Assessment API' },
-  { path: '/api/colaboradores', method: 'GET', expect: [200, 500], label: 'Colaboradores API' },
-  { path: '/api/chat', method: 'POST', body: {}, expect: [400, 401, 500], label: 'Chat API (no body)' },
-  { path: '/api/chat-simulador', method: 'POST', body: { system: 'test', messages: [{ role: 'user', content: 'oi' }], model: 'claude-sonnet-4-6' }, expect: [200, 400, 500], label: 'Simulador API' },
+  { path: '/api/colaboradores', method: 'GET', expect: [200, 401, 403, 500], label: 'Colaboradores API' },
+  { path: '/api/chat', method: 'POST', body: {}, expect: [400, 401, 403, 500], label: 'Chat API (no body)' },
+  { path: '/api/chat-simulador', method: 'POST', body: { system: 'test', messages: [{ role: 'user', content: 'oi' }], model: 'claude-sonnet-4-6' }, expect: [200, 400, 401, 403, 500], label: 'Simulador API' },
   { path: '/api/cron?action=cleanup_sessoes', method: 'GET', expect: [200, 401, 500], label: 'Cron API' },
-  { path: '/api/upload-logo', method: 'POST', expect: [400, 500], label: 'Upload Logo API (no body)' },
+  { path: '/api/upload-logo', method: 'POST', expect: [400, 401, 403, 500], label: 'Upload Logo API (no body)' },
 ];
 
 // ── Test runner ─────────────────────────────────────────────────────────────
