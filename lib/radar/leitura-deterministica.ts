@@ -94,22 +94,25 @@ export function leituraIcaMunicipio(municipio: { nome: string; uf: string }, ica
   const tEstado = recent.total_estado ?? 0;
   const tBrasil = recent.total_brasil ?? 0;
 
+  // Pct sem casa decimal quando é inteiro (76 → "76%", 76.5 → "76.5%")
+  const fmt = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(1)}%`;
+
   if (tEstado && taxa < tEstado - 5) {
     pontosAtencao.push(
-      `ICA ${recent.ano}: ${taxa.toFixed(1)}% — abaixo da média da ${municipio.uf} (${tEstado.toFixed(1)}%).`
+      `ICA ${recent.ano}: ${fmt(taxa)} — abaixo da média da ${municipio.uf} (${fmt(tEstado)}).`
     );
   } else if (tEstado && taxa > tEstado + 5) {
     pontosForcas.push(
-      `ICA ${recent.ano}: ${taxa.toFixed(1)}% — acima da média da ${municipio.uf} (${tEstado.toFixed(1)}%).`
+      `ICA ${recent.ano}: ${fmt(taxa)} — acima da média da ${municipio.uf} (${fmt(tEstado)}).`
     );
   }
 
   const partes: string[] = [
-    `Em ${recent.ano}, ${taxa.toFixed(1)}% das crianças avaliadas em ${municipio.nome}/${municipio.uf} (rede ${recent.rede.toLowerCase()}) foram consideradas alfabetizadas pelo Indicador Criança Alfabetizada (ICA).`,
+    `Em ${recent.ano}, ${fmt(taxa)} das crianças avaliadas em ${municipio.nome}/${municipio.uf} (rede ${recent.rede.toLowerCase()}) foram consideradas alfabetizadas pelo Indicador Criança Alfabetizada (ICA).`,
   ];
   const benches: string[] = [];
-  if (tEstado > 0) benches.push(`média da ${municipio.uf} foi ${tEstado.toFixed(1)}%`);
-  if (tBrasil > 0) benches.push(`do Brasil ${tBrasil.toFixed(1)}%`);
+  if (tEstado > 0) benches.push(`média da ${municipio.uf} foi ${fmt(tEstado)}`);
+  if (tBrasil > 0) benches.push(`do Brasil ${fmt(tBrasil)}`);
   if (benches.length > 0) partes.push(`A ${benches.join(' e a ')}.`);
   const resumo = partes.join(' ');
 
