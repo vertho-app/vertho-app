@@ -37,6 +37,7 @@ export async function importarColaboradoresLote(empresaId: any, colabs: any) {
       nome_completo: c.nome?.trim() || null,
       email: c.email.trim().toLowerCase(),
       cargo: c.cargo?.trim() || null,
+      area_depto: c.area_depto?.trim() || null,
       role: VALID_ROLES.includes(c.role?.trim()?.toLowerCase()) ? c.role.trim().toLowerCase() : 'colaborador',
       telefone: c.telefone?.toString().trim() || null,
       gestor_nome: c.gestor_nome?.trim() || null,

@@ -92,6 +92,7 @@ export default function GerenciarPage() {
       nome: obj.nome || obj.nome_completo,
       email: obj.email,
       cargo: obj.cargo,
+      area_depto: obj.area_depto || obj.area || obj.departamento || obj.setor || obj.depto,
       role: obj.role || obj.papel,
       telefone: obj.telefone || obj.whatsapp || obj.celular || obj.fone,
       gestor_nome: obj.gestor_nome || obj.gestor,
