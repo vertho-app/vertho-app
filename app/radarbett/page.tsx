@@ -303,8 +303,7 @@ export default function RadarBettHome() {
       {/* ═══════════════════ 8. BUSCA INTERMEDIÁRIA ═══════════════════ */}
       <section className="py-12">
         <div className="max-w-[820px] mx-auto px-6 text-center">
-          <Eyebrow center>Comece pela sua escola</Eyebrow>
-          <h2 className="text-white mb-3 mt-2"
+          <h2 className="text-white mb-3"
             style={{
               fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
               fontSize: 'clamp(28px, 4vw, 40px)',
