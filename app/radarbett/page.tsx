@@ -68,7 +68,7 @@ export default function RadarBettHome() {
             letterSpacing: '0.14em',
             textTransform: 'uppercase',
           }}>
-            Radar Vertho · Bett 2026
+            Demonstração especial Bett Brasil 2026
           </p>
           <h1
             className="text-white mb-5"
@@ -83,10 +83,12 @@ export default function RadarBettHome() {
           >
             Sua escola ou rede já sabe <em style={{ color: '#34c5cc', fontStyle: 'italic' }}>onde precisa agir primeiro?</em>
           </h1>
-          <p className="text-white/70 leading-relaxed mb-8" style={{ fontSize: 17, maxWidth: 720 }}>
-            O Radar Vertho cruza dados públicos de aprendizagem, contexto escolar e execução para
-            gerar uma primeira leitura de oportunidades — e mostrar onde a Vertho pode apoiar com
-            diagnóstico, formação, IA e evidências de evolução.
+          <p className="text-white/75 leading-relaxed mb-3" style={{ fontSize: 17, maxWidth: 720 }}>
+            Busque uma escola ou município e veja sinais de aprendizagem, contexto e oportunidades de
+            atuação para a Vertho.
+          </p>
+          <p className="text-white/55 leading-relaxed mb-8" style={{ fontSize: 14, maxWidth: 720 }}>
+            Em poucos segundos, veja uma primeira leitura baseada em dados públicos oficiais.
           </p>
 
           <div ref={heroSearchRef} className="max-w-[640px]">
@@ -105,9 +107,9 @@ export default function RadarBettHome() {
                 track('bett_example_click');
                 router.push('/escola/35915592'); // Hugo Penteado · exemplo curado
               }}
-              className="inline-flex items-center gap-1.5 text-[12px] text-cyan-300 hover:text-cyan-200"
+              className="inline-flex items-center gap-1.5 text-[13px] font-bold text-cyan-300 hover:text-cyan-200"
             >
-              Ver exemplo de diagnóstico <ArrowRight size={11} />
+              Ver exemplo de diagnóstico <ArrowRight size={12} />
             </button>
           </div>
         </div>
@@ -156,46 +158,35 @@ export default function RadarBettHome() {
         </div>
       </Section>
 
-      {/* ═══════════════════ 3. PARA QUEM É O RADAR ═══════════════════ */}
-      <Section id="personas">
+      {/* ═══════════════════ 3. EXEMPLOS DE LEITURAS ═══════════════════ */}
+      <Section id="exemplos">
         <div className="max-w-[1100px] mx-auto px-6">
-          <SectionTitle>Três perspectivas, uma mesma pergunta</SectionTitle>
+          <SectionTitle>Como uma leitura inicial se traduz em oportunidade</SectionTitle>
+          <p className="text-white/55 text-sm mt-2 mb-8 max-w-[640px]">
+            Cenários ilustrativos baseados em padrões comuns encontrados em dados públicos. Não
+            representam escolas específicas.
+          </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-            <PersonaCard
-              icon={GraduationCap}
-              titulo="Para diretores de escola"
-              pergunta="Onde minha escola precisa agir primeiro?"
-              texto="Veja sinais de aprendizagem, contexto e oportunidades para orientar melhor sua equipe pedagógica."
-              cta="Ver exemplo para escola"
-              onClick={() => {
-                track('bett_persona_click', { tipo: 'escola', id: '35915592' });
-                router.push('/escola/35915592');
-              }}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ExemploCard
+              titulo="Baixa proficiência em matemática + boa participação"
+              leitura="Os estudantes estão sendo avaliados, mas a aprendizagem não está avançando no ritmo esperado."
+              oportunidade="Formação docente aplicada, trilhas por competência e acompanhamento com MentorIA."
             />
-            <PersonaCard
-              icon={Building2}
-              titulo="Para mantenedores e redes privadas"
-              pergunta="Quais unidades estão abaixo do potencial?"
-              texto="Identifique diferenças entre escolas, priorize investimentos e fortaleça a gestão pedagógica da rede."
-              cta="Ver exemplo para rede"
-              onClick={() => {
-                track('bett_persona_click');
-                focarBusca();
-              }}
+            <ExemploCard
+              titulo="IDEB estagnado nos anos finais"
+              leitura="Pode haver dificuldade de coordenação pedagógica, gestão de sala de aula ou acompanhamento da aprendizagem."
+              oportunidade="Assessment de competências da equipe gestora, PDI e plano de ação por escola."
             />
-            <PersonaCard
-              icon={Landmark}
-              titulo="Para secretarias de educação"
-              pergunta="Como priorizar apoio entre muitas escolas?"
-              texto="Use dados públicos para identificar riscos, oportunidades e frentes de atuação por escola ou município."
-              cta="Avaliar minha rede pública"
-              onClick={() => {
-                track('bett_persona_click');
-                track('bett_public_cta');
-                abrirLead();
-              }}
-              destaque
+            <ExemploCard
+              titulo="Rede com grande variação entre escolas"
+              leitura="Algumas escolas podem performar melhor mesmo em contextos semelhantes, indicando oportunidade de aprender com boas práticas internas."
+              oportunidade="Priorização por risco, identificação de boas práticas e jornada de desenvolvimento por grupos de escolas."
+            />
+            <ExemploCard
+              titulo="Boa estrutura, baixo resultado"
+              leitura="O desafio pode estar menos em recurso físico e mais em prática pedagógica, liderança ou execução."
+              oportunidade="Diagnóstico de competências, desenvolvimento de liderança escolar e acompanhamento contínuo."
             />
           </div>
         </div>
@@ -225,40 +216,6 @@ export default function RadarBettHome() {
               titulo="Oportunidade Vertho"
               texto="Indicação das frentes em que diagnóstico, desenvolvimento de competências, gestão pedagógica e IA podem apoiar a escola ou rede."
               destaque
-            />
-          </div>
-        </div>
-      </Section>
-
-      {/* ═══════════════════ 5. EXEMPLOS DE LEITURAS ═══════════════════ */}
-      <Section id="exemplos">
-        <div className="max-w-[1100px] mx-auto px-6">
-          <SectionTitle>Como uma leitura inicial se traduz em oportunidade</SectionTitle>
-          <p className="text-white/55 text-sm mt-2 mb-8 max-w-[640px]">
-            Cenários ilustrativos baseados em padrões comuns encontrados em dados públicos. Não
-            representam escolas específicas.
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <ExemploCard
-              titulo="Baixa proficiência em matemática + boa participação"
-              leitura="Os estudantes estão sendo avaliados, mas a aprendizagem não está avançando no ritmo esperado."
-              oportunidade="Formação docente aplicada, trilhas por competência e acompanhamento com MentorIA."
-            />
-            <ExemploCard
-              titulo="IDEB estagnado nos anos finais"
-              leitura="Pode haver dificuldade de coordenação pedagógica, gestão de sala de aula ou acompanhamento da aprendizagem."
-              oportunidade="Assessment de competências da equipe gestora, PDI e plano de ação por escola."
-            />
-            <ExemploCard
-              titulo="Rede com grande variação entre escolas"
-              leitura="Algumas escolas podem performar melhor mesmo em contextos semelhantes, indicando oportunidade de aprender com boas práticas internas."
-              oportunidade="Priorização por risco, identificação de boas práticas e jornada de desenvolvimento por grupos de escolas."
-            />
-            <ExemploCard
-              titulo="Boa estrutura, baixo resultado"
-              leitura="O desafio pode estar menos em recurso físico e mais em prática pedagógica, liderança ou execução."
-              oportunidade="Diagnóstico de competências, desenvolvimento de liderança escolar e acompanhamento contínuo."
             />
           </div>
         </div>
@@ -306,7 +263,52 @@ export default function RadarBettHome() {
         </div>
       </Section>
 
-      {/* ═══════════════════ 8. BUSCA INTERMEDIÁRIA ═══════════════════ */}
+      {/* ═══════════════════ 8. PARA QUEM É O RADAR ═══════════════════ */}
+      <Section id="personas">
+        <div className="max-w-[1100px] mx-auto px-6">
+          <SectionTitle>Três perspectivas, uma mesma pergunta</SectionTitle>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+            <PersonaCard
+              icon={GraduationCap}
+              titulo="Para diretores de escola"
+              pergunta="Onde minha escola precisa agir primeiro?"
+              texto="Veja sinais de aprendizagem, contexto e oportunidades para orientar melhor sua equipe pedagógica."
+              cta="Ver exemplo para escola"
+              onClick={() => {
+                track('bett_persona_click', { tipo: 'escola', id: '35915592' });
+                router.push('/escola/35915592');
+              }}
+            />
+            <PersonaCard
+              icon={Building2}
+              titulo="Para mantenedores e redes privadas"
+              pergunta="Quais unidades estão abaixo do potencial?"
+              texto="Identifique diferenças entre escolas, priorize investimentos e fortaleça a gestão pedagógica da rede."
+              cta="Ver exemplo para rede"
+              onClick={() => {
+                track('bett_persona_click');
+                focarBusca();
+              }}
+            />
+            <PersonaCard
+              icon={Landmark}
+              titulo="Para secretarias de educação"
+              pergunta="Como priorizar apoio entre muitas escolas?"
+              texto="Use dados públicos para identificar riscos, oportunidades e frentes de atuação por escola ou município."
+              cta="Avaliar minha rede pública"
+              onClick={() => {
+                track('bett_persona_click');
+                track('bett_public_cta');
+                abrirLead();
+              }}
+              destaque
+            />
+          </div>
+        </div>
+      </Section>
+
+      {/* ═══════════════════ 9. BUSCA INTERMEDIÁRIA ═══════════════════ */}
       <section className="py-12">
         <div className="max-w-[820px] mx-auto px-6 text-center">
           <h2 className="text-white mb-3"
@@ -348,7 +350,7 @@ export default function RadarBettHome() {
                     lineHeight: 1.2,
                     letterSpacing: '-0.02em',
                   }}>
-                  Gestão, evidências e prontidão para políticas educacionais
+                  Para Secretarias: priorização, evidências e prontidão da rede
                 </h2>
               </div>
             </div>
@@ -391,7 +393,7 @@ export default function RadarBettHome() {
                 color: '#06172C',
               }}
             >
-              Avaliar oportunidades da minha rede pública <ArrowRight size={14} />
+              Avaliar minha rede pública <ArrowRight size={14} />
             </button>
           </div>
         </div>
@@ -429,27 +431,28 @@ export default function RadarBettHome() {
           <h2 className="text-white mb-4"
             style={{
               fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
-              fontSize: 'clamp(30px, 4.5vw, 46px)',
+              fontSize: 'clamp(28px, 4.2vw, 44px)',
               fontWeight: 600,
               lineHeight: 1.1,
               letterSpacing: '-0.02em',
             }}>
-            Quer transformar diagnóstico em <em style={{ color: '#34c5cc', fontStyle: 'italic' }}>plano de ação?</em>
+            O diagnóstico inicial mostra onde olhar.{' '}
+            <em style={{ color: '#34c5cc', fontStyle: 'italic' }}>A Vertho ajuda sua escola ou rede a agir.</em>
           </h2>
-          <p className="text-white/65 leading-relaxed mb-8 max-w-[640px] mx-auto" style={{ fontSize: 16 }}>
-            A Vertho ajuda escolas e redes a desenvolver educadores, fortalecer a gestão pedagógica
-            e produzir evidências de evolução.
+          <p className="text-white/65 leading-relaxed mb-8 max-w-[680px] mx-auto" style={{ fontSize: 16 }}>
+            Transforme sinais de aprendizagem, contexto e gestão em plano de ação, desenvolvimento de
+            pessoas e evidências de evolução.
           </p>
           <div className="flex items-center justify-center gap-3 flex-wrap">
             <button
-              onClick={() => abrirLead()}
+              onClick={focarBusca}
               className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full text-sm font-bold transition-all"
               style={{
                 background: 'linear-gradient(135deg, #34c5cc, #2aa8ae)',
                 color: '#06172C',
               }}
             >
-              Gerar diagnóstico da minha rede <ArrowRight size={14} />
+              Ver diagnóstico inicial <ArrowRight size={14} />
             </button>
             <button
               onClick={() => {
@@ -458,7 +461,7 @@ export default function RadarBettHome() {
               }}
               className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full text-sm font-bold border border-white/15 text-white/85 hover:bg-white/[0.04] transition-all"
             >
-              <Calendar size={14} /> Agendar conversa com a Vertho
+              <Calendar size={14} /> Agendar conversa na Bett
             </button>
           </div>
         </div>

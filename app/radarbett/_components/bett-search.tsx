@@ -101,7 +101,7 @@ export function BettSearch({
           onChange={(e) => setTermo(e.target.value)}
           onFocus={handleFocus}
           onBlur={() => setFocused(false)}
-          placeholder="Busque por escola ou município"
+          placeholder="Digite o nome da escola ou município"
           className={`w-full bg-transparent text-white placeholder:text-white/40 outline-none ${
             isLarge ? 'text-base sm:text-lg pl-12 sm:pl-14 pr-32 sm:pr-40' : 'text-sm pl-11 pr-28'
           }`}

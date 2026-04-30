@@ -7,7 +7,7 @@ import { track } from '../_lib/tracking';
 /**
  * Sticky CTA mobile — aparece após o usuário sair do hero.
  * - Antes da busca: "Buscar minha escola"
- * - Depois da busca: "Liberar diagnóstico"
+ * - Depois da busca: "Liberar leitura completa"
  *
  * Apenas mobile. No desktop, o header já tem CTA "Agendar conversa".
  */
@@ -57,7 +57,7 @@ export function StickyCTAMobile({
       >
         {unlocked ? (
           <>
-            <Lock size={14} /> Liberar diagnóstico
+            <Lock size={14} /> Liberar leitura completa
           </>
         ) : (
           <>

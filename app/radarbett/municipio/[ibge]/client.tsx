@@ -89,8 +89,7 @@ export function MunicipioResultadoClient({
           <div aria-hidden className="pointer-events-none absolute"
             style={{ right: -120, top: -100, width: 420, height: 420, border: '50px solid rgba(52,197,204,0.05)', borderRadius: '50%' }} />
           <div className="relative">
-            <div className="flex items-center gap-2 mb-3 text-[10px] uppercase tracking-[0.18em] font-mono"
-              style={{ color: '#9ae2e6' }}>
+            <div className="flex items-center gap-2 mb-3 eyebrow-manrope" style={{ color: '#9ae2e6' }}>
               <Building2 size={12} />
               <span>Leitura inicial · Rede municipal</span>
             </div>
@@ -120,6 +119,34 @@ export function MunicipioResultadoClient({
           </div>
         </header>
 
+        {/* Highlight: contagem de sinais e oportunidades */}
+        {(() => {
+          const numSinais = sinais.filter(s => s.tipo !== 'oportunidade').length;
+          const numOport = sinais.filter(s => s.tipo === 'oportunidade').length;
+          if (numSinais === 0 && numOport === 0) return null;
+          return (
+            <section className="mb-6">
+              <div className="rounded-2xl px-5 sm:px-6 py-4 border flex items-center gap-3 flex-wrap"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(52,197,204,0.10), rgba(52,197,204,0.02))',
+                  borderColor: 'rgba(52,197,204,0.28)',
+                }}>
+                <Sparkles size={18} style={{ color: '#34c5cc' }} className="flex-shrink-0" />
+                <p className="text-white/90 leading-relaxed flex-1" style={{
+                  fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+                  fontSize: 16,
+                  fontWeight: 600,
+                  letterSpacing: '-0.01em',
+                }}>
+                  Identificamos <span style={{ color: '#34c5cc' }}>{numSinais} {numSinais === 1 ? 'sinal relevante' : 'sinais relevantes'}</span>
+                  {numOport > 0 && <> e <span style={{ color: '#34D399' }}>{numOport} {numOport === 1 ? 'oportunidade de atuação' : 'oportunidades de atuação'}</span></>}
+                  {' '}para a rede de <strong className="text-white">{municipio.nome}/{municipio.uf}</strong>.
+                </p>
+              </div>
+            </section>
+          );
+        })()}
+
         {/* Resumo */}
         <section className="mb-8">
           <div
@@ -129,10 +156,8 @@ export function MunicipioResultadoClient({
               borderColor: 'rgba(255,255,255,0.08)',
             }}
           >
-            <p className="text-[10px] tracking-[0.2em] uppercase font-mono text-cyan-300/80 mb-2">
-              Leitura institucional
-            </p>
-            <p className="text-white/85 text-[14px] leading-relaxed">{leituraResumo}</p>
+            <p className="eyebrow-manrope text-cyan-300/85 mb-2">Leitura institucional</p>
+            <p className="text-white/85 leading-relaxed" style={{ fontSize: 14 }}>{leituraResumo}</p>
             <p className="text-[11px] text-white/45 mt-3 italic leading-relaxed">
               Esta é uma leitura inicial baseada em dados públicos. Para transformar essa leitura em
               plano de ação, a Vertho aprofunda o diagnóstico com dados da rede, assessment de
@@ -145,10 +170,14 @@ export function MunicipioResultadoClient({
         <section className="mb-8">
           <div className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
             <div>
-              <p className="text-[10px] tracking-[0.2em] uppercase font-mono text-cyan-300/80">
-                O que o Radar identificou
-              </p>
-              <h2 className="text-white text-xl font-bold mt-1">
+              <p className="eyebrow-manrope text-cyan-300/85">O que o Radar identificou</p>
+              <h2 className="text-white mt-1" style={{
+                fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+                fontSize: 22,
+                fontWeight: 700,
+                lineHeight: 1.2,
+                letterSpacing: '-0.02em',
+              }}>
                 {sinais.filter(s => s.tipo !== 'oportunidade').length} sinais e{' '}
                 {sinais.filter(s => s.tipo === 'oportunidade').length} oportunidade
                 {sinais.filter(s => s.tipo === 'oportunidade').length === 1 ? '' : 's'} de atuação
@@ -199,10 +228,13 @@ export function MunicipioResultadoClient({
             className="rounded-2xl p-5 sm:p-6 border"
             style={{ background: 'rgba(255,255,255,0.025)', borderColor: 'rgba(255,255,255,0.08)' }}
           >
-            <p className="text-[10px] tracking-[0.2em] uppercase font-mono text-cyan-300/80 mb-2">
-              Base da leitura
-            </p>
-            <h2 className="text-white text-base font-bold mb-3">
+            <p className="eyebrow-manrope text-cyan-300/85 mb-2">Base da leitura</p>
+            <h2 className="text-white mb-3" style={{
+              fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+              fontSize: 17,
+              fontWeight: 700,
+              letterSpacing: '-0.01em',
+            }}>
               Dados públicos que entram na análise
             </h2>
             <ul className="space-y-2 text-[13px] text-white/75">
@@ -320,8 +352,7 @@ function SinalCard({
           style={{ background: `${cfg.color}1F` }}>
           <Icon size={14} style={{ color: cfg.color }} />
         </div>
-        <p className="text-[10px] tracking-[0.18em] uppercase font-mono"
-          style={{ color: cfg.color }}>
+        <p className="eyebrow-manrope" style={{ color: cfg.color }}>
           {cfg.label}
         </p>
       </div>
