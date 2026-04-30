@@ -190,17 +190,14 @@ export default function GestorHomePage() {
         )}
       </section>
 
-      {/* Próximas seções: Equipe em trilha, Mapa de perfis, Timeline — Etapas 2-4 */}
-      <GlassCard>
-        <p className="text-[11px] text-white/50 leading-relaxed">
-          <span className="text-cyan-300 font-bold">Em construção:</span> tabela detalhada da equipe,
-          mapa de perfis comportamentais, próximas trilhas concluindo. Por enquanto use{' '}
-          <button onClick={() => router.push('/dashboard/gestor/equipe-evolucao')}
-            className="underline text-cyan-300 hover:text-cyan-200">
-            Evolução da equipe
-          </button>{' '}para detalhes individuais.
-        </p>
-      </GlassCard>
+      {/* Seção 2 — Equipe em trilha (tabela com filtros) */}
+      <EquipeSection equipe={data.equipe || []} />
+
+      {/* Seção 3 — Mapa de perfis comportamentais (DISC ou OPQ32) */}
+      <PerfisSection perfis={data.perfis || []} fonteExterna={data.empresaPerfilExternoFonte} />
+
+      {/* Seção 4 — Timeline próximos eventos */}
+      <TimelineSection timeline={data.timeline || []} />
 
       {/* Modal de avaliação */}
       {modal && (
@@ -350,5 +347,168 @@ function AvaliarBtn({
       style={{ background: cfg.bg, color: cfg.color, borderColor: cfg.border }}>
       {cfg.label}
     </button>
+  );
+}
+
+// ════════════════ Etapa 2 — Equipe em trilha ════════════════
+
+function EquipeSection({ equipe }: { equipe: any[] }) {
+  const router = useRouter();
+  const [filtro, setFiltro] = useState<'todos' | 'em_andamento' | 'sem_trilha' | 'concluida'>('todos');
+  const filtrados = filtro === 'todos' ? equipe : equipe.filter((e) => e.status === filtro);
+  if (equipe.length === 0) return null;
+  return (
+    <section className="mb-6">
+      <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
+        <h2 className="text-white text-base font-bold">Equipe em trilha</h2>
+        <div className="flex gap-1 p-1 rounded-lg border border-white/[0.06]" style={{ background: '#091D35' }}>
+          {(['todos', 'em_andamento', 'sem_trilha', 'concluida'] as const).map((f) => (
+            <button key={f} onClick={() => setFiltro(f)}
+              className={`px-2.5 py-1 rounded text-[10px] font-bold transition-colors ${
+                filtro === f ? 'bg-cyan-400/15 text-cyan-300' : 'text-white/55 hover:text-white'
+              }`}>
+              {f === 'todos' ? 'Todos' : f === 'em_andamento' ? 'Em andamento' : f === 'sem_trilha' ? 'Sem trilha' : 'Concluídas'}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
+        {filtrados.map((e, i) => (
+          <button key={e.colabId}
+            onClick={() => router.push('/dashboard/gestor/equipe-evolucao')}
+            className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-white/[0.04] ${i > 0 ? 'border-t border-white/[0.04]' : ''}`}>
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+              style={{ background: 'linear-gradient(135deg, #34c5cc, #2aa8ae)' }}>
+              {e.colab.split(/\s+/).slice(0, 2).map((s: string) => s[0]?.toUpperCase()).join('')}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[13px] text-white font-bold truncate">{e.colab}</div>
+              <div className="text-[10px] text-white/45 truncate">
+                {e.cargo || '—'}
+                {e.competenciaFoco && <> · <span className="text-cyan-300/70">{e.competenciaFoco}</span></>}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <StatusPill status={e.status} />
+              {e.semana != null && (
+                <div className="hidden sm:block w-20">
+                  <div className="text-[9px] text-white/45 mb-0.5 text-right">sem {e.semana}/14</div>
+                  <div className="h-1 rounded-full overflow-hidden bg-white/[0.06]">
+                    <div className="h-full rounded-full" style={{ width: `${(e.semana / 14) * 100}%`, background: '#34c5cc' }} />
+                  </div>
+                </div>
+              )}
+              {e.delta != null && (
+                <span className="text-[10px] font-mono font-bold tabular-nums"
+                  style={{ color: e.delta > 0 ? '#34D399' : e.delta < 0 ? '#F87171' : '#9ae2e6' }}>
+                  {e.delta > 0 ? '+' : ''}{e.delta}
+                </span>
+              )}
+            </div>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function StatusPill({ status }: { status: string }) {
+  const cfg = {
+    em_andamento: { label: 'em andamento', color: '#34c5cc', bg: 'rgba(52,197,204,0.12)' },
+    pausada:      { label: 'pausada',      color: '#FCD34D', bg: 'rgba(252,211,77,0.12)' },
+    concluida:    { label: 'concluída',    color: '#34D399', bg: 'rgba(52,211,153,0.12)' },
+    sem_trilha:   { label: 'sem trilha',   color: '#9ca3af', bg: 'rgba(156,163,175,0.10)' },
+    arquivada:    { label: 'arquivada',    color: '#9ca3af', bg: 'rgba(156,163,175,0.10)' },
+  }[status] || { label: status, color: '#9ca3af', bg: 'rgba(156,163,175,0.10)' };
+  return (
+    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-[0.05em]"
+      style={{ background: cfg.bg, color: cfg.color }}>
+      {cfg.label}
+    </span>
+  );
+}
+
+// ════════════════ Etapa 3 — Mapa de perfis ════════════════
+
+function PerfisSection({ perfis, fonteExterna }: { perfis: any[]; fonteExterna?: string | null }) {
+  if (perfis.length === 0) return null;
+  return (
+    <section className="mb-6">
+      <h2 className="text-white text-base font-bold mb-3">
+        Mapa de perfis {fonteExterna === 'opq32' ? 'OPQ32' : 'comportamentais'}
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+        {perfis.map((p) => (
+          <div key={p.colabId} className="rounded-xl border border-white/[0.06] p-3"
+            style={{ background: 'rgba(255,255,255,0.025)' }}>
+            <p className="text-[12px] text-white font-bold truncate">{p.colab}</p>
+            <p className="text-[10px] text-white/45 truncate mb-2">{p.cargo || '—'}</p>
+            {p.fonte === 'sem_perfil' && (
+              <p className="text-[10px] text-white/35 italic">Sem perfil mapeado</p>
+            )}
+            {p.fonte === 'disc' && (
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-bold tabular-nums" style={{ color: '#34c5cc', fontFamily: 'var(--font-serif, "Instrument Serif", serif)' }}>
+                  {p.letraDom || '—'}
+                </span>
+                <span className="text-[10px] text-white/45">DISC dominante</span>
+              </div>
+            )}
+            {p.fonte === 'opq32' && (
+              <div className="space-y-1">
+                {(p.altas || []).slice(0, 2).map((a: any) => (
+                  <div key={a.codigo} className="flex items-center gap-1 text-[10px]">
+                    <span className="text-emerald-300 font-mono w-7">{a.sten}</span>
+                    <span className="text-white/75 truncate">{a.nome}</span>
+                  </div>
+                ))}
+                {(p.baixas || []).slice(0, 1).map((b: any) => (
+                  <div key={b.codigo} className="flex items-center gap-1 text-[10px]">
+                    <span className="text-red-300 font-mono w-7">{b.sten}</span>
+                    <span className="text-white/55 truncate">{b.nome}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ════════════════ Etapa 4 — Timeline ════════════════
+
+function TimelineSection({ timeline }: { timeline: any[] }) {
+  if (timeline.length === 0) return null;
+  return (
+    <section className="mb-6">
+      <h2 className="text-white text-base font-bold mb-3">Próximas 4 semanas</h2>
+      <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
+        {timeline.map((t, i) => {
+          const dt = new Date(t.data);
+          const dias = Math.ceil((dt.getTime() - Date.now()) / (24 * 3600 * 1000));
+          return (
+            <div key={i} className={`flex items-center gap-3 px-4 py-2.5 ${i > 0 ? 'border-t border-white/[0.04]' : ''}`}>
+              <div className="text-center shrink-0 w-12">
+                <div className="text-[10px] text-white/45 uppercase">
+                  {dt.toLocaleDateString('pt-BR', { month: 'short' })}
+                </div>
+                <div className="text-base font-bold text-white tabular-nums">
+                  {dt.getDate()}
+                </div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[12px] text-white font-bold truncate">{t.colab}</div>
+                <div className="text-[10px] text-white/55 truncate">{t.detalhe}</div>
+              </div>
+              <span className="text-[10px] text-white/55 font-mono shrink-0">
+                em {dias === 0 ? 'hoje' : dias === 1 ? '1d' : `${dias}d`}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }

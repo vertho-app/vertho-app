@@ -34,6 +34,41 @@ export type CheckpointPendenteDetalhado = {
   fonteDISC?: string | null;
 };
 
+export type EquipeRow = {
+  colabId: string;
+  colab: string;
+  cargo: string | null;
+  status: 'em_andamento' | 'pausada' | 'concluida' | 'sem_trilha' | 'arquivada';
+  competenciaFoco: string | null;
+  semana: number | null; // 1..14 ou null
+  delta: number | null; // só quando concluida
+  perfilDominante: string | null;
+  fontePerfilExterno: string | null;
+};
+
+export type PerfilColab = {
+  colabId: string;
+  colab: string;
+  cargo: string | null;
+  fonte: 'disc' | 'opq32' | 'sem_perfil';
+  // DISC
+  letraDom?: string | null;
+  d?: number | null; i?: number | null; s?: number | null; c?: number | null;
+  // OPQ32
+  altas?: { codigo: string; nome: string; sten: number }[];
+  baixas?: { codigo: string; nome: string; sten: number }[];
+};
+
+export type TimelineEvento = {
+  data: string; // ISO
+  tipo: 'checkpoint' | 'fim_trilha';
+  colab: string;
+  cargo: string | null;
+  detalhe: string;
+  trilhaId?: string;
+  semana?: number;
+};
+
 export type GestorHomeData = {
   ok: boolean;
   error?: string;
@@ -41,6 +76,10 @@ export type GestorHomeData = {
   kpis?: GestorKpi;
   alertas?: GestorAlerta[];
   checkpointsPendentes?: CheckpointPendenteDetalhado[];
+  equipe?: EquipeRow[];
+  perfis?: PerfilColab[];
+  timeline?: TimelineEvento[];
+  empresaPerfilExternoFonte?: string | null;
 };
 
 export async function getGestorHomeData(): Promise<GestorHomeData> {
@@ -230,6 +269,119 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   // Ordena: atrasados primeiro, mais antigos depois
   .sort((a, b) => b.diasPendente - a.diasPendente);
 
+  // ── 7. Equipe (com trilha info por colab) ──
+  const colabsTodasTrilhas = new Map<string, any[]>();
+  for (const t of (trilhas || [])) {
+    if (!colabsTodasTrilhas.has(t.colaborador_id)) colabsTodasTrilhas.set(t.colaborador_id, []);
+    colabsTodasTrilhas.get(t.colaborador_id)!.push(t);
+  }
+  const equipe: EquipeRow[] = liderados.map((c: any) => {
+    const t = trilhaPorColab.get(c.id);
+    let semana: number | null = null;
+    if (t?.data_inicio && (t.status === 'ativa' || t.status === 'pausada')) {
+      const dias = Math.max(1, Math.floor((Date.now() - new Date(t.data_inicio).getTime()) / (24 * 3600 * 1000)));
+      semana = Math.min(14, Math.ceil(dias / 7));
+    }
+    let delta: number | null = null;
+    if (t?.status === 'concluida' && t.evolution_report) {
+      const rep = t.evolution_report as any;
+      const desc = rep?.descritores || [];
+      const mPos = rep?.nota_media_pos != null ? Number(rep.nota_media_pos) : null;
+      const mPre = desc.length ? desc.reduce((a: number, d: any) => a + (d.nota_pre || 0), 0) / desc.length : null;
+      delta = (mPos != null && mPre != null) ? Number((mPos - mPre).toFixed(2)) : null;
+    }
+    const status: EquipeRow['status'] = !t ? 'sem_trilha'
+      : t.status === 'ativa' ? 'em_andamento'
+      : t.status === 'pausada' ? 'pausada'
+      : t.status === 'concluida' ? 'concluida'
+      : 'arquivada';
+    return {
+      colabId: c.id,
+      colab: c.nome_completo,
+      cargo: c.cargo,
+      status,
+      competenciaFoco: t?.competencia_foco || null,
+      semana,
+      delta,
+      perfilDominante: c.perfil_dominante || null,
+      fontePerfilExterno: c.perfil_externo_fonte || null,
+    };
+  });
+
+  // ── 8. Perfis comportamentais (DISC ou OPQ32) ──
+  const perfis: PerfilColab[] = liderados.map((c: any) => {
+    if (c.perfil_externo_dados) {
+      const dados = c.perfil_externo_dados as any;
+      return {
+        colabId: c.id,
+        colab: c.nome_completo,
+        cargo: c.cargo,
+        fonte: 'opq32',
+        altas: dados?.resumo?.altas?.slice(0, 3) || [],
+        baixas: dados?.resumo?.baixas?.slice(0, 3) || [],
+      };
+    }
+    if (c.perfil_dominante) {
+      return {
+        colabId: c.id,
+        colab: c.nome_completo,
+        cargo: c.cargo,
+        fonte: 'disc',
+        letraDom: c.perfil_dominante,
+        // disc_d/i/s/c não estão no select inicial; ficam null aqui (UI handle)
+      };
+    }
+    return {
+      colabId: c.id,
+      colab: c.nome_completo,
+      cargo: c.cargo,
+      fonte: 'sem_perfil',
+    };
+  });
+
+  // ── 9. Timeline próximos eventos (checkpoints futuros + fins de trilha) ──
+  const timeline: TimelineEvento[] = [];
+  for (const t of ativas) {
+    if (!t.data_inicio) continue;
+    const inicio = new Date(t.data_inicio).getTime();
+    const colab: any = liderId2obj.get(t.colaborador_id);
+    if (!colab) continue;
+    // Checkpoints sem 5 e 10
+    for (const sem of [5, 10] as const) {
+      const dataCp = new Date(inicio + sem * 7 * 24 * 3600 * 1000);
+      // Só inclui se ainda está no futuro próximo (próximas 4 semanas)
+      const diasAte = (dataCp.getTime() - Date.now()) / (24 * 3600 * 1000);
+      if (diasAte > 0 && diasAte <= 28) {
+        // Também checa se já tem checkpoint respondido pra essa semana
+        const jaRespondeu = checkpoints.find((cp: any) => cp.trilha_id === t.id && cp.semana === sem && cp.status !== 'pendente');
+        if (jaRespondeu) continue;
+        timeline.push({
+          data: dataCp.toISOString(),
+          tipo: 'checkpoint',
+          colab: colab.nome_completo,
+          cargo: colab.cargo,
+          detalhe: `Checkpoint semana ${sem} · ${t.competencia_foco || 'sem competência foco'}`,
+          trilhaId: t.id,
+          semana: sem,
+        });
+      }
+    }
+    // Fim da trilha (semana 14)
+    const fimTrilha = new Date(inicio + 14 * 7 * 24 * 3600 * 1000);
+    const diasFim = (fimTrilha.getTime() - Date.now()) / (24 * 3600 * 1000);
+    if (diasFim > 0 && diasFim <= 28) {
+      timeline.push({
+        data: fimTrilha.toISOString(),
+        tipo: 'fim_trilha',
+        colab: colab.nome_completo,
+        cargo: colab.cargo,
+        detalhe: `Fim de trilha · ${t.competencia_foco || 'sem competência foco'}`,
+        trilhaId: t.id,
+      });
+    }
+  }
+  timeline.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+
   return {
     ok: true,
     scope: isGestor ? 'gestor' : 'rh',
@@ -245,5 +397,9 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     },
     alertas,
     checkpointsPendentes,
+    equipe,
+    perfis,
+    timeline: timeline.slice(0, 10),
+    empresaPerfilExternoFonte: fonteExterna,
   };
 }

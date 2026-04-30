@@ -71,11 +71,35 @@ export async function rodarIA1(empresaId: string, aiConfig: AIConfig = {}) {
     const cargosParaProcessar = Object.keys(cargoCompsMap).filter(c => c !== '_sem_cargo');
     if (!cargosParaProcessar.length) return { success: false, error: 'Nenhum cargo encontrado nas competências' };
 
+    // 4.5. Reconciliação de nomes: o IA original aceitava 'Consultor' do CSV
+    // de competências, mas o cargo oficial é 'Rare Diseases Demand Sr Consultant'.
+    // Pra cada cargo de competência, tentamos achar match em cargos_empresa
+    // (exato, case-insensitive, ou contém em qualquer direção). Quando há
+    // match único, usamos o nome OFICIAL na hora de gravar top10_cargos.
+    const reconciliarCargo = (nomeOrig: string): string => {
+      const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+      const alvo = norm(nomeOrig);
+      const candidatos = (cargosDetalhados || []).filter((c: any) => {
+        const cn = norm(c.nome || '');
+        return cn === alvo || cn.includes(alvo) || alvo.includes(cn);
+      });
+      // Match exato vence
+      const exato = candidatos.find((c: any) => norm(c.nome) === alvo);
+      if (exato) return exato.nome;
+      // Único contém — assume
+      if (candidatos.length === 1) return candidatos[0].nome;
+      // Ambíguo (>1) ou nenhum: mantém original
+      return nomeOrig;
+    };
+
     // 5. Para cada cargo (das competências), pedir à IA que selecione as melhores
     let totalSelecionadas = 0;
 
-    for (const cargoNome of cargosParaProcessar) {
-      const compsDoCargo = cargoCompsMap[cargoNome];
+    for (const cargoNomeRaw of cargosParaProcessar) {
+      // Reconcilia: 'Consultor' → 'Rare Diseases Demand Sr Consultant' quando
+      // existe em cargos_empresa. Se não houver match, mantém o nome original.
+      const cargoNome = reconciliarCargo(cargoNomeRaw);
+      const compsDoCargo = cargoCompsMap[cargoNomeRaw];
       // Buscar dados ricos (match case-insensitive)
       const detalhe = cargosDetalheMap[cargoNome.toLowerCase()] || {};
       const cargoInfo = {
