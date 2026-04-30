@@ -41,7 +41,7 @@ export default async function MunicipioResultadoPage({ params }: { params: Promi
       leituraResumo={leitura.resumo}
       temIca={(m.ica || []).length > 0}
       temIdeb={(m.ideb || []).length > 0}
-      temFundeb={(m.fundeb || []).length > 0}
+      temFundeb={(m.fundeb || []).length > 0 || !!m.vaar || !!m.receitaPrevista}
     />
   );
 }
