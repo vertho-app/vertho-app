@@ -6,7 +6,7 @@ import {
   ArrowLeft, Save, Loader2, CheckCircle, AlertTriangle, X,
   Brain, Clock, Mail, Eye, EyeOff, Palette, Upload, Trash2, Globe, Users
 } from 'lucide-react';
-import { loadConfig, salvarConfig, salvarBranding, salvarSlug, loadEquipe, atualizarRole } from './actions';
+import { loadConfig, salvarConfig, salvarBranding, salvarSlug, loadEquipe, atualizarRole, vincularDominioVercel } from './actions';
 import { limparSessoesAntigas, limparSessoesTeste } from '@/app/actions/manutencao';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { ROOT_DOMAIN } from '@/lib/domain';
@@ -32,6 +32,8 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showKeys, setShowKeys] = useState({});
+  const [vinculando, setVinculando] = useState(false);
+  const [vincularMsg, setVincularMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   // Branding state
   const DEFAULT_BRANDING = {
@@ -219,6 +221,36 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
               </div>
             </div>
             {slug && <p className="text-[10px] text-gray-500 mt-2">Login: <span className="text-cyan-400">{slug}.{ROOT_DOMAIN}/login</span></p>}
+
+            {/* Vincular ao Vercel — emite SSL e habilita o subdomínio em prod */}
+            <div className="mt-4 pt-4 border-t border-white/[0.06]">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <p className="text-[12px] text-white/85 font-medium">Vincular ao Vercel</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">Necessário pra emitir SSL e ativar o subdomínio em produção.</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={vinculando || !slug}
+                  onClick={async () => {
+                    setVinculando(true);
+                    setVincularMsg(null);
+                    const r = await vincularDominioVercel(empresaId);
+                    setVincularMsg({ ok: !!r.success, text: r.success ? r.message : (r.error || 'Falha') });
+                    setVinculando(false);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-bold border border-cyan-400/30 text-cyan-300 hover:bg-cyan-400/10 disabled:opacity-50 transition-colors"
+                >
+                  {vinculando ? <Loader2 size={12} className="animate-spin" /> : <Globe size={12} />}
+                  {vinculando ? 'Vinculando...' : 'Vincular ao Vercel'}
+                </button>
+              </div>
+              {vincularMsg && (
+                <p className={`text-[11px] mt-2 ${vincularMsg.ok ? 'text-emerald-300/85' : 'text-red-300/85'}`}>
+                  {vincularMsg.text}
+                </p>
+              )}
+            </div>
           </Panel>
 
           <Panel title="Logo da Empresa">

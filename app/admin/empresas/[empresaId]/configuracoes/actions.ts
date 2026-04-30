@@ -99,11 +99,38 @@ export async function salvarSlug(empresaId, slug) {
     .eq('id', empresaId);
   if (error) return { success: false, error: error.message };
 
-  // Best-effort: registrar novo subdomínio no Vercel + remover antigo
-  addVercelDomain(clean).catch(() => {});
+  // Subdomínio antigo é removido automaticamente do Vercel; o novo precisa
+  // ser vinculado manualmente pelo botão "Vincular ao Vercel".
   if (slugAnterior && slugAnterior !== clean) {
     removeVercelDomain(slugAnterior).catch(() => {});
   }
 
-  return { success: true, message: `Slug atualizado para "${clean}"`, slug: clean };
+  return { success: true, message: `Slug atualizado para "${clean}". Lembre de vincular o novo subdomínio ao Vercel.`, slug: clean };
+}
+
+/**
+ * Vincula o subdomínio do tenant ao projeto Vercel (emissão de SSL).
+ * Acionado pelo botão "Vincular ao Vercel" no card de subdomínio em
+ * /admin/empresas/[id]/configuracoes (aba Branding).
+ */
+export async function vincularDominioVercel(empresaId: string) {
+  await requireAdminAction();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+
+  const sb = createSupabaseAdmin();
+  const { data: empresa } = await sb.from('empresas')
+    .select('slug, nome').eq('id', empresaId).maybeSingle();
+  if (!empresa?.slug) return { success: false, error: 'Empresa sem slug definido' };
+
+  const r = await addVercelDomain(empresa.slug);
+  if ('skipped' in r && r.skipped) {
+    return { success: false, error: 'VERCEL_TOKEN/PROJECT_ID não configurados em produção' };
+  }
+  if (!r.ok) {
+    return { success: false, error: (r as any).error || 'Falha ao vincular ao Vercel' };
+  }
+  if (r.alreadyExists) {
+    return { success: true, message: `${empresa.slug}.vertho.ai já estava vinculado.` };
+  }
+  return { success: true, message: `${empresa.slug}.vertho.ai vinculado. SSL será emitido em ~1 minuto.` };
 }
