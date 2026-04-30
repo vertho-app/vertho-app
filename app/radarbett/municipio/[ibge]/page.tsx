@@ -28,6 +28,14 @@ export default async function MunicipioResultadoPage({ params }: { params: Promi
   const leitura = leituraIcaMunicipio(m, m.ica || []);
   const sinais = computarSinaisMun(m);
 
+  // Stats: ICA mais recente da rede municipal (preferência), com benchmarks
+  const icaList = m.ica || [];
+  const icaRecente = [...icaList]
+    .filter((i: any) => i.rede === 'MUNICIPAL' && i.taxa != null)
+    .sort((a: any, b: any) => b.ano - a.ano)[0]
+    || [...icaList].filter((i: any) => i.taxa != null).sort((a: any, b: any) => b.ano - a.ano)[0]
+    || null;
+
   return (
     <MunicipioResultadoClient
       municipio={{
@@ -39,6 +47,12 @@ export default async function MunicipioResultadoPage({ params }: { params: Promi
       }}
       sinais={sinais}
       leituraResumo={leitura.resumo}
+      icaStat={icaRecente ? {
+        ano: icaRecente.ano,
+        taxa: Number(icaRecente.taxa),
+        totalEstado: icaRecente.total_estado != null ? Number(icaRecente.total_estado) : null,
+        totalBrasil: icaRecente.total_brasil != null ? Number(icaRecente.total_brasil) : null,
+      } : null}
       temIca={(m.ica || []).length > 0}
       temIdeb={(m.ideb || []).length > 0}
       temFundeb={(m.fundeb || []).length > 0 || !!m.vaar || !!m.receitaPrevista}

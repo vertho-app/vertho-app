@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft, Lock, Sparkles, MapPin, Building2, ArrowRight,
+  ArrowLeft, Lock, Sparkles, Building2, ArrowRight,
   TrendingUp, Layers, Calendar,
 } from 'lucide-react';
 import { BettHeader } from '../../_components/bett-header';
@@ -23,12 +23,20 @@ const TIPO_CFG = {
   oportunidade: { icon: Sparkles,   color: '#34D399', label: 'Oportunidade Vertho' },
 };
 
+type IcaStat = {
+  ano: number;
+  taxa: number;
+  totalEstado: number | null;
+  totalBrasil: number | null;
+};
+
 export function MunicipioResultadoClient({
-  municipio, sinais, leituraResumo, temIca, temIdeb, temFundeb,
+  municipio, sinais, leituraResumo, icaStat, temIca, temIdeb, temFundeb,
 }: {
   municipio: { ibge: string; nome: string; uf: string; totalEscolas: number; redes: Record<string, number> };
   sinais: Sinal[];
   leituraResumo: string;
+  icaStat: IcaStat | null;
   temIca: boolean;
   temIdeb: boolean;
   temFundeb: boolean;
@@ -84,7 +92,7 @@ export function MunicipioResultadoClient({
 
         {/* Hero do município */}
         <header
-          className="relative overflow-hidden mb-8 rounded-3xl p-6 sm:p-10"
+          className="relative overflow-hidden mb-6 rounded-3xl p-6 sm:p-10"
           style={{
             background: 'linear-gradient(135deg, rgba(8,26,55,0.6) 0%, rgba(15,43,84,0.4) 100%)',
             border: '1px solid rgba(255,255,255,0.06)',
@@ -93,76 +101,113 @@ export function MunicipioResultadoClient({
           <div aria-hidden className="pointer-events-none absolute"
             style={{ right: -120, top: -100, width: 420, height: 420, border: '50px solid rgba(52,197,204,0.05)', borderRadius: '50%' }} />
           <div className="relative">
-            <div className="flex items-center gap-2 mb-3 eyebrow-manrope" style={{ color: '#9ae2e6' }}>
+            <div className="flex items-center gap-2 mb-4 eyebrow-manrope" style={{ color: '#9ae2e6' }}>
               <Building2 size={12} />
               <span>Leitura inicial · Rede municipal</span>
             </div>
             <h1
-              className="text-white mb-3"
+              className="text-white mb-5"
               style={{
                 fontFamily: 'var(--font-fraunces), "Fraunces", Georgia, serif',
                 fontWeight: 600,
-                fontSize: 'clamp(28px, 4.5vw, 48px)',
-                lineHeight: 1.08,
-                letterSpacing: '-0.02em',
+                fontSize: 'clamp(36px, 5.5vw, 64px)',
+                lineHeight: 1.0,
+                letterSpacing: '-0.03em',
               }}
             >
               {municipio.nome}, <em style={{ color: '#34c5cc', fontStyle: 'italic' }}>{municipio.uf}</em>
             </h1>
-            <div className="flex flex-wrap gap-2 text-[12px] text-white/65">
-              <span className="inline-flex items-center gap-1"><MapPin size={11} /> IBGE {municipio.ibge}</span>
-              <span className="text-white/40">·</span>
-              <span>{municipio.totalEscolas.toLocaleString('pt-BR')} escolas no Radar</span>
-              {Object.entries(municipio.redes || {}).slice(0, 2).map(([rede, n]) => (
-                <span key={rede}>
-                  <span className="text-white/40">·</span>{' '}
-                  {(n as number).toLocaleString('pt-BR')} {String(rede).toLowerCase()}
-                </span>
+            <div className="flex flex-wrap gap-2 mb-5">
+              <Pill accent>{municipio.totalEscolas.toLocaleString('pt-BR')} escolas no Radar</Pill>
+              {Object.entries(municipio.redes || {}).slice(0, 3).map(([rede, n]) => (
+                <Pill key={rede}>{(n as number).toLocaleString('pt-BR')} {String(rede).toLowerCase()}</Pill>
               ))}
             </div>
+            {(() => {
+              const numSinais = sinais.filter(s => s.tipo !== 'oportunidade').length;
+              const numOport = sinais.filter(s => s.tipo === 'oportunidade').length;
+              if (numSinais === 0 && numOport === 0) return null;
+              return (
+                <p className="text-white/70 leading-relaxed" style={{ fontSize: 17, maxWidth: 720 }}>
+                  Identificamos <strong className="text-white" style={{ fontWeight: 600 }}>
+                    {numSinais} {numSinais === 1 ? 'sinal relevante' : 'sinais relevantes'}
+                  </strong>
+                  {numOport > 0 && <> e <strong className="text-white" style={{ fontWeight: 600 }}>
+                    {numOport} {numOport === 1 ? 'oportunidade de atuação' : 'oportunidades de atuação'}
+                  </strong></>}
+                  {' '}para a rede de {municipio.nome}/{municipio.uf}.
+                </p>
+              );
+            })()}
           </div>
         </header>
 
-        {/* Highlight: contagem de sinais e oportunidades */}
-        {(() => {
-          const numSinais = sinais.filter(s => s.tipo !== 'oportunidade').length;
-          const numOport = sinais.filter(s => s.tipo === 'oportunidade').length;
-          if (numSinais === 0 && numOport === 0) return null;
-          return (
-            <section className="mb-6">
-              <div className="rounded-2xl px-5 sm:px-6 py-4 border flex items-center gap-3 flex-wrap"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(52,197,204,0.10), rgba(52,197,204,0.02))',
-                  borderColor: 'rgba(52,197,204,0.28)',
-                }}>
-                <Sparkles size={18} style={{ color: '#34c5cc' }} className="flex-shrink-0" />
-                <p className="text-white/90 leading-relaxed flex-1" style={{
-                  fontFamily: 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif',
-                  fontSize: 16,
-                  fontWeight: 600,
-                  letterSpacing: '-0.01em',
-                }}>
-                  Identificamos <span style={{ color: '#34c5cc' }}>{numSinais} {numSinais === 1 ? 'sinal relevante' : 'sinais relevantes'}</span>
-                  {numOport > 0 && <> e <span style={{ color: '#34D399' }}>{numOport} {numOport === 1 ? 'oportunidade de atuação' : 'oportunidades de atuação'}</span></>}
-                  {' '}para a rede de <strong className="text-white">{municipio.nome}/{municipio.uf}</strong>.
-                </p>
-              </div>
-            </section>
-          );
-        })()}
+        {/* Stats grid — só renderiza se tiver dados ICA */}
+        {icaStat && (
+          <section className="mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <StatCard
+                label={`ICA ${icaStat.ano} · Alfabetização`}
+                value={`${fmtPct(icaStat.taxa)}`}
+                compare={
+                  icaStat.totalEstado != null
+                    ? { delta: icaStat.taxa - icaStat.totalEstado, ref: `vs média ${municipio.uf} (${fmtPct(icaStat.totalEstado)})` }
+                    : null
+                }
+              />
+              <StatCard
+                label={`ICA ${icaStat.ano} vs Brasil`}
+                value={`${fmtPct(icaStat.taxa)}`}
+                compare={
+                  icaStat.totalBrasil != null
+                    ? { delta: icaStat.taxa - icaStat.totalBrasil, ref: `vs média Brasil (${fmtPct(icaStat.totalBrasil)})` }
+                    : null
+                }
+              />
+              <StatCard
+                label="Escolas na rede municipal"
+                value={(municipio.redes?.MUNICIPAL || 0).toLocaleString('pt-BR')}
+                compareText={`De ${municipio.totalEscolas.toLocaleString('pt-BR')} escolas mapeadas`}
+              />
+            </div>
+          </section>
+        )}
 
-        {/* Resumo */}
+        {/* Leitura institucional — card com avatar Vertho */}
         <section className="mb-8">
           <div
-            className="rounded-2xl p-5 sm:p-6 border"
+            className="relative rounded-2xl p-7 sm:p-9 border overflow-hidden"
             style={{
               background: 'rgba(255,255,255,0.025)',
-              borderColor: 'rgba(255,255,255,0.08)',
+              borderColor: 'rgba(255,255,255,0.10)',
             }}
           >
-            <p className="eyebrow-manrope text-cyan-300/85 mb-2">Leitura institucional</p>
-            <p className="text-white/85 leading-relaxed" style={{ fontSize: 14 }}>{leituraResumo}</p>
-            <p className="text-[11px] text-white/45 mt-3 italic leading-relaxed">
+            <span aria-hidden className="absolute left-0 top-0 bottom-0 w-1"
+              style={{ background: 'linear-gradient(180deg, #34c5cc 0%, #9e4edd 100%)' }} />
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{
+                  background: 'linear-gradient(135deg, #0F2B54 0%, #9e4edd 100%)',
+                  color: '#34c5cc',
+                  fontWeight: 800,
+                  fontSize: 18,
+                }}>
+                V
+              </div>
+              <div>
+                <p className="text-white text-[14px] font-bold leading-tight">Vertho Mentor IA</p>
+                <p className="text-white/55 text-[12px] mt-0.5">Leitura institucional · Dados públicos INEP {icaStat?.ano || ''}</p>
+              </div>
+            </div>
+            <p className="leading-relaxed" style={{
+              fontFamily: 'var(--font-fraunces), "Fraunces", Georgia, serif',
+              fontSize: 18,
+              color: 'rgba(255,255,255,0.92)',
+            }}>
+              {leituraResumo}
+            </p>
+            <p className="text-[12px] text-white/45 mt-5 pt-5 border-t italic leading-relaxed"
+              style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
               Esta é uma leitura inicial baseada em dados públicos. Para transformar essa leitura em
               plano de ação, a Vertho aprofunda o diagnóstico com dados da rede, assessment de
               competências e desenho da jornada de desenvolvimento.
@@ -228,37 +273,25 @@ export function MunicipioResultadoClient({
 
         {/* Base de dados */}
         <section className="mb-8">
-          <div
-            className="rounded-2xl p-5 sm:p-6 border"
-            style={{ background: 'rgba(255,255,255,0.025)', borderColor: 'rgba(255,255,255,0.08)' }}
-          >
+          <div className="mb-6">
             <p className="eyebrow-manrope text-cyan-300/85 mb-2">Base da leitura</p>
-            <h2 className="text-white mb-3" style={{
-              fontFamily: 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif',
-              fontSize: 17,
-              fontWeight: 700,
-              letterSpacing: '-0.01em',
+            <h2 className="text-white mb-1" style={{
+              fontFamily: 'var(--font-fraunces), "Fraunces", Georgia, serif',
+              fontSize: 'clamp(22px, 2.6vw, 28px)',
+              fontWeight: 600,
+              letterSpacing: '-0.02em',
             }}>
-              Dados públicos que entram na análise
+              Dados públicos que entram <em style={{ color: '#34c5cc', fontStyle: 'italic' }}>na análise</em>
             </h2>
-            <ul className="space-y-2 text-[13px] text-white/75">
-              <li className="flex items-center gap-2">
-                <Dot ativo={temIca} />
-                <span>ICA — alfabetização do 2º ano EF {temIca ? '(disponível)' : '(sem dados)'}</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Dot ativo={temIdeb} />
-                <span>Ideb agregado da rede {temIdeb ? '(disponível)' : '(sem dados)'}</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Dot ativo={temFundeb} />
-                <span>FUNDEB / VAAR — recursos e prontidão {temFundeb ? '(disponível)' : '(sem dados)'}</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Dot ativo />
-                <span>Saeb das escolas da rede + Censo Escolar</span>
-              </li>
-            </ul>
+            <p className="text-white/55" style={{ fontSize: 14 }}>
+              Fontes oficiais do INEP e MEC. Cada número cita ano e origem.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <DadoCard nome="ICA" desc="Alfabetização do 2º ano EF" status={temIca ? 'ok' : 'off'} />
+            <DadoCard nome="Ideb" desc="Ideb agregado da rede" status={temIdeb ? 'ok' : 'off'} />
+            <DadoCard nome="FUNDEB / VAAR" desc="Recursos e prontidão" status={temFundeb ? 'ok' : 'off'} />
+            <DadoCard nome="Saeb + Censo" desc="Proficiência e infraestrutura por escola" status="partial" />
           </div>
         </section>
 
@@ -387,11 +420,74 @@ function SinalCard({
   );
 }
 
-function Dot({ ativo }: { ativo: boolean }) {
+function Pill({ children, accent }: { children: React.ReactNode; accent?: boolean }) {
   return (
     <span
-      className="inline-block w-2 h-2 rounded-full flex-shrink-0"
-      style={{ background: ativo ? '#34D399' : 'rgba(255,255,255,0.18)' }}
-    />
+      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[13px] font-medium border"
+      style={accent
+        ? { background: 'rgba(52,197,204,0.15)', borderColor: 'rgba(52,197,204,0.35)', color: '#9ae2e6' }
+        : { background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.70)' }
+      }
+    >
+      {children}
+    </span>
   );
+}
+
+function StatCard({
+  label, value, compare, compareText,
+}: {
+  label: string; value: string;
+  compare?: { delta: number; ref: string } | null;
+  compareText?: string;
+}) {
+  return (
+    <div className="rounded-2xl p-7 border text-center"
+      style={{ background: 'rgba(255,255,255,0.025)', borderColor: 'rgba(255,255,255,0.10)' }}>
+      <p className="text-[11px] uppercase tracking-[0.10em] font-bold text-white/55 mb-2.5">{label}</p>
+      <p className="leading-none mb-1.5" style={{
+        fontFamily: 'var(--font-fraunces), "Fraunces", Georgia, serif',
+        fontSize: 'clamp(36px, 4vw, 44px)',
+        fontWeight: 600,
+        color: '#34c5cc',
+      }}>
+        {value}
+      </p>
+      {compare ? (
+        <p className="text-[13px] text-white/55">
+          <span className="font-bold" style={{ color: compare.delta >= 0 ? '#86efac' : '#fca5a5' }}>
+            {compare.delta >= 0 ? '+' : ''}{compare.delta.toFixed(0)} p.p.
+          </span>{' '}
+          {compare.ref}
+        </p>
+      ) : compareText ? (
+        <p className="text-[13px] text-white/55">{compareText}</p>
+      ) : (
+        <p className="text-[13px] text-white/30 italic">benchmark indisponível</p>
+      )}
+    </div>
+  );
+}
+
+function DadoCard({ nome, desc, status }: { nome: string; desc: string; status: 'ok' | 'partial' | 'off' }) {
+  const cfg = {
+    ok:      { bg: 'rgba(22,163,74,0.15)',  color: '#86efac', label: 'Disponível' },
+    partial: { bg: 'rgba(234,88,12,0.15)',  color: '#fb923c', label: 'Parcial' },
+    off:     { bg: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.40)', label: 'Sem dados' },
+  }[status];
+  return (
+    <div className="rounded-2xl p-5 border"
+      style={{ background: 'rgba(255,255,255,0.025)', borderColor: 'rgba(255,255,255,0.10)' }}>
+      <p className="text-white text-[13px] font-bold mb-1.5">{nome}</p>
+      <p className="text-white/65 text-[13px] leading-relaxed mb-3">{desc}</p>
+      <span className="inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold"
+        style={{ background: cfg.bg, color: cfg.color }}>
+        {cfg.label}
+      </span>
+    </div>
+  );
+}
+
+function fmtPct(n: number): string {
+  return Number.isInteger(n) ? `${n}%` : `${n.toFixed(1)}%`;
 }
