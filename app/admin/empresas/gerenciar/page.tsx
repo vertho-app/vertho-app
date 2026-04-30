@@ -28,6 +28,21 @@ export default function GerenciarPage() {
   const [empresaNome, setEmpresaNome] = useState('');
   const [resumo, setResumo] = useState(null);
   const [colabs, setColabs] = useState([]);
+  const [sortBy, setSortBy] = useState<string>('nome_completo');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  function toggleSort(col: string) {
+    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(col); setSortDir('asc'); }
+  }
+
+  const colabsSorted = [...colabs].sort((a: any, b: any) => {
+    const va = (a?.[sortBy] ?? '').toString().toLowerCase();
+    const vb = (b?.[sortBy] ?? '').toString().toLowerCase();
+    if (va < vb) return sortDir === 'asc' ? -1 : 1;
+    if (va > vb) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [msg, setMsg] = useState('');
@@ -307,13 +322,13 @@ export default function GerenciarPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-white/[0.06] text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                        <th className="px-4 py-2 text-left">Nome</th>
-                        <th className="px-4 py-2 text-left">Email</th>
-                        <th className="px-4 py-2 text-left">Cargo</th>
-                        <th className="px-4 py-2 text-left">Área</th>
-                        <th className="px-4 py-2 text-left">Role</th>
-                        <th className="px-4 py-2 text-left">WhatsApp</th>
-                        <th className="px-4 py-2 text-left">Gestor</th>
+                        <SortTh col="nome_completo" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort}>Nome</SortTh>
+                        <SortTh col="email" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort}>Email</SortTh>
+                        <SortTh col="cargo" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort}>Cargo</SortTh>
+                        <SortTh col="area_depto" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort}>Área</SortTh>
+                        <SortTh col="role" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort}>Role</SortTh>
+                        <SortTh col="telefone" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort}>WhatsApp</SortTh>
+                        <SortTh col="gestor_nome" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort}>Gestor</SortTh>
                         <th className="px-4 py-2 text-center">Ações</th>
                       </tr>
                     </thead>
@@ -379,7 +394,7 @@ export default function GerenciarPage() {
                           </td>
                         </tr>
                       )}
-                      {colabs.map(c => (
+                      {colabsSorted.map(c => (
                         <tr key={c.id} className="hover:bg-white/[0.02]">
                           {editId === c.id ? (
                             <>
@@ -654,5 +669,30 @@ export default function GerenciarPage() {
         </>
       )}
     </div>
+  );
+}
+
+
+function SortTh({ col, sortBy, sortDir, onClick, children }: {
+  col: string;
+  sortBy: string;
+  sortDir: "asc" | "desc";
+  onClick: (col: string) => void;
+  children: React.ReactNode;
+}) {
+  const active = sortBy === col;
+  return (
+    <th className="px-4 py-2 text-left">
+      <button
+        type="button"
+        onClick={() => onClick(col)}
+        className={`inline-flex items-center gap-1 transition-colors ${active ? "text-cyan-300" : "text-gray-500 hover:text-gray-300"}`}
+      >
+        <span>{children}</span>
+        <span className="text-[8px] opacity-70">
+          {active ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
+        </span>
+      </button>
+    </th>
   );
 }
