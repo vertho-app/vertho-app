@@ -229,6 +229,9 @@ export default function AdminRadarPage() {
           <span className="text-[10px] tracking-[0.2em] text-white/30 uppercase font-mono">
             RADAR · INGESTÃO
           </span>
+          <a href="/admin/radar/qualidade-dados" className="text-xs text-cyan-400 hover:text-cyan-300 mr-3">
+            Qualidade →
+          </a>
           <a href="/admin/radar/funnel" className="text-xs text-cyan-400 hover:text-cyan-300 mr-3">
             Funnel →
           </a>
