@@ -754,6 +754,8 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                       { label: 'Avaliações IA4', tabelas: ['respostas'], fields: { avaliacao_ia: null, nivel_ia4: null, nota_ia4: null, status_ia4: null, payload_ia4: null } },
                       { label: 'Relatórios', tabelas: ['relatorios'] },
                       { label: 'Envios', tabelas: ['envios_diagnostico'] },
+                      { label: 'Competências (catálogo)', tabelas: ['competencias'] },
+                      { label: 'Colaboradores', tabelas: ['colaboradores'], danger: true },
                       { label: 'LIMPAR TUDO', tabelas: ['fit_resultados','relatorios','evolucao','evolucao_descritores','sessoes_avaliacao','respostas','envios_diagnostico','banco_cenarios','top10_cargos','competencias','cargos_empresa'], danger: true },
                     ].map((item: any) => {
                       const scope = dangerColabId ? dangerColabs.find((c: any) => c.id === dangerColabId)?.nome_completo || 'colaborador' : 'todos';

@@ -115,8 +115,10 @@ export async function limparRegistros(empresaId, tabelas, colaboradorId = null, 
     // UPDATE nullify: zera campos sem deletar linhas (ex: zerar IA4 mantendo respostas)
     if (fields) {
       let q = sb.from(t).update(fields).eq('empresa_id', empresaId);
-      if (colaboradorId && t !== 'cargos' && t !== 'competencias' && t !== 'ppp_escolas') {
+      if (colaboradorId && t !== 'cargos' && t !== 'competencias' && t !== 'ppp_escolas' && t !== 'colaboradores') {
         q = q.eq('colaborador_id', colaboradorId);
+      } else if (colaboradorId && t === 'colaboradores') {
+        q = q.eq('id', colaboradorId);
       }
       const { error } = await q;
       if (error) return { success: false, error: `Erro em ${t} (${operacao}): ${error.message}` };
@@ -138,8 +140,10 @@ export async function limparRegistros(empresaId, tabelas, colaboradorId = null, 
     // SOFT DELETE: copia rows pra trash, depois deleta da origem
     if (!hardDelete) {
       let selQ = sb.from(t).select('*').eq('empresa_id', empresaId);
-      if (colaboradorId && t !== 'cargos' && t !== 'competencias' && t !== 'ppp_escolas') {
+      if (colaboradorId && t !== 'cargos' && t !== 'competencias' && t !== 'ppp_escolas' && t !== 'colaboradores') {
         selQ = selQ.eq('colaborador_id', colaboradorId);
+      } else if (colaboradorId && t === 'colaboradores') {
+        selQ = selQ.eq('id', colaboradorId);
       }
       const { data: rows } = await selQ;
       if (rows && rows.length > 0) {
