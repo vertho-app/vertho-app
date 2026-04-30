@@ -15,15 +15,7 @@ export function BettHeader({ onAgendar }: { onAgendar?: () => void }) {
     >
       <div className="max-w-[1200px] mx-auto px-6 py-3 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
-          <span
-            className="text-white text-base font-bold"
-            style={{
-              fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
-              letterSpacing: '-0.01em',
-            }}
-          >
-            Radar <span style={{ color: '#34c5cc' }}>Vertho</span>
-          </span>
+          <img src="/logo-vertho.png" alt="Vertho" style={{ height: 22, opacity: 0.85 }} />
         </Link>
 
         <div className="flex items-center gap-2 sm:gap-3">

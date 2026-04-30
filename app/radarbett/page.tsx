@@ -110,7 +110,6 @@ export default function RadarBettHome() {
       {/* ═══════════════════ 2. RADAR REVELA · VERTHO TRANSFORMA ═══════════════════ */}
       <Section id="radar-vs-vertho">
         <div className="max-w-[1100px] mx-auto px-6">
-          <Eyebrow>Posicionamento</Eyebrow>
           <SectionTitle>O Radar revela. A Vertho transforma.</SectionTitle>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
@@ -154,7 +153,6 @@ export default function RadarBettHome() {
       {/* ═══════════════════ 3. PARA QUEM É O RADAR ═══════════════════ */}
       <Section id="personas">
         <div className="max-w-[1100px] mx-auto px-6">
-          <Eyebrow>Para quem é</Eyebrow>
           <SectionTitle>Três perspectivas, uma mesma pergunta</SectionTitle>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
@@ -200,7 +198,6 @@ export default function RadarBettHome() {
       {/* ═══════════════════ 4. O QUE O RADAR REVELA ═══════════════════ */}
       <Section id="o-que-revela">
         <div className="max-w-[1100px] mx-auto px-6">
-          <Eyebrow>O que você vê</Eyebrow>
           <SectionTitle>Três camadas que o Radar combina</SectionTitle>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
@@ -230,7 +227,6 @@ export default function RadarBettHome() {
       {/* ═══════════════════ 5. EXEMPLOS DE LEITURAS ═══════════════════ */}
       <Section id="exemplos">
         <div className="max-w-[1100px] mx-auto px-6">
-          <Eyebrow>Exemplos demonstrativos</Eyebrow>
           <SectionTitle>Como uma leitura inicial se traduz em oportunidade</SectionTitle>
           <p className="text-white/55 text-sm mt-2 mb-8 max-w-[640px]">
             Cenários ilustrativos baseados em padrões comuns encontrados em dados públicos. Não
@@ -265,7 +261,6 @@ export default function RadarBettHome() {
       {/* ═══════════════════ 6. DA LEITURA AO PLANO ═══════════════════ */}
       <Section id="fluxo">
         <div className="max-w-[1100px] mx-auto px-6">
-          <Eyebrow>Da leitura ao plano</Eyebrow>
           <SectionTitle>Como saímos do dado bruto para a mudança real</SectionTitle>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-8">
@@ -290,7 +285,6 @@ export default function RadarBettHome() {
       {/* ═══════════════════ 7. TANGIBILIZAÇÃO ═══════════════════ */}
       <Section id="entrega">
         <div className="max-w-[1100px] mx-auto px-6">
-          <Eyebrow>O que a Vertho entrega</Eyebrow>
           <SectionTitle>Mais do que análise — uma jornada prática</SectionTitle>
           <p className="text-white/55 text-sm mt-2 mb-8 max-w-[640px]">
             A solução combina mentoria por IA, planos individuais, trilhas estruturadas e relatórios
@@ -341,8 +335,7 @@ export default function RadarBettHome() {
                 <Landmark size={18} style={{ color: '#9ae2e6' }} />
               </div>
               <div>
-                <Eyebrow>Para redes públicas</Eyebrow>
-                <h2 className="text-white mt-1"
+                <h2 className="text-white"
                   style={{
                     fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
                     fontSize: 'clamp(24px, 3.4vw, 34px)',
@@ -402,7 +395,6 @@ export default function RadarBettHome() {
       {/* ═══════════════════ 10. FONTES + METODOLOGIA + PRIVACIDADE ═══════════════════ */}
       <Section id="confianca">
         <div className="max-w-[1100px] mx-auto px-6">
-          <Eyebrow>Confiança institucional</Eyebrow>
           <SectionTitle>Dados públicos, leitura responsável e privacidade</SectionTitle>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
@@ -489,14 +481,6 @@ function Section({ id, children }: { id?: string; children: React.ReactNode }) {
     <section id={id} className="py-12 sm:py-16">
       {children}
     </section>
-  );
-}
-
-function Eyebrow({ children, center }: { children: React.ReactNode; center?: boolean }) {
-  return (
-    <p className={`text-[10px] tracking-[0.25em] uppercase font-mono text-cyan-300/80 ${center ? 'text-center' : ''}`}>
-      {children}
-    </p>
   );
 }
 
