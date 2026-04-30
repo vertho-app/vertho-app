@@ -1,10 +1,12 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 // ── Load competências base (globais, por segmento) ──────────────────────────
 
 export async function loadCompetenciasBase(segmento: string | null) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   try {
     let query = sb.from('competencias_base').select('*').order('nome');
@@ -23,6 +25,7 @@ export async function loadCompetenciasBase(segmento: string | null) {
 // ── Salvar competência base ─────────────────────────────────────────────────
 
 export async function salvarCompetenciaBase(comp: any) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   try {
     const registro = {
@@ -57,6 +60,7 @@ export async function salvarCompetenciaBase(comp: any) {
 // ── Excluir competência base ────────────────────────────────────────────────
 
 export async function excluirCompetenciaBase(id: string) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   try {
     const { error } = await sb.from('competencias_base').delete().eq('id', id);

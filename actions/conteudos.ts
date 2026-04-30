@@ -6,6 +6,7 @@ import { promptVideoScript } from '@/lib/season-engine/prompts/video-script';
 import { promptPodcastScript } from '@/lib/season-engine/prompts/podcast-script';
 import { promptTextContent } from '@/lib/season-engine/prompts/text-content';
 import { promptCaseStudy } from '@/lib/season-engine/prompts/case-study';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 /**
  * Gera conteúdo (roteiro ou texto) via IA e salva em micro_conteudos.
@@ -40,6 +41,7 @@ export async function gerarConteudoIA({
   empresaId = null, aiConfig = {},
 }: GerarConteudoParams) {
   try {
+    await requireAdminAction();
     if (!formato || !competencia || !descritor) {
       return { success: false, error: 'formato, competencia e descritor obrigatórios' };
     }
@@ -142,6 +144,7 @@ export async function gerarConteudoIA({
  */
 export async function uploadConteudo(formData: any) {
   try {
+    await requireAdminAction();
     const sb = createSupabaseAdmin();
     const formato = formData.get('formato');
     const titulo = formData.get('titulo');
@@ -234,6 +237,7 @@ export async function gerarConteudoLote({
   empresaId = null, aiConfig = {},
 }: GerarConteudoLoteParams) {
   try {
+    await requireAdminAction();
     if (!formato || !competencia) {
       return { success: false, error: 'formato e competencia obrigatórios' };
     }
@@ -293,6 +297,7 @@ export async function gerarConteudoLote({
  */
 export async function loadOpcoesGerar() {
   try {
+    await requireAdminAction();
     const sb = createSupabaseAdmin();
     const { data: comps } = await sb.from('competencias')
       .select('nome, nome_curto, cargo')
@@ -342,6 +347,7 @@ function extrairTitulo(texto: string, fallback: string, formato: string) {
  */
 export async function importarVideosBunny() {
   try {
+    await requireAdminAction();
     const lib = process.env.BUNNY_LIBRARY_ID;
     const key = process.env.BUNNY_STREAM_API_KEY;
     if (!lib || !key) return { error: 'BUNNY_LIBRARY_ID/BUNNY_STREAM_API_KEY ausentes' };
@@ -412,6 +418,7 @@ interface ListarConteudosParams {
 
 export async function listarConteudos({ formato, competencia, semClassificacao, limit = 100 }: ListarConteudosParams = {}) {
   try {
+    await requireAdminAction();
     const sb = createSupabaseAdmin();
     let q = sb.from('micro_conteudos').select('*').order('created_at', { ascending: false }).limit(limit);
     if (formato) q = q.eq('formato', formato);
@@ -430,6 +437,7 @@ export async function listarConteudos({ formato, competencia, semClassificacao, 
  */
 export async function atualizarConteudo(id: string, patch: any) {
   try {
+    await requireAdminAction();
     if (!id) return { error: 'id obrigatório' };
     const sb = createSupabaseAdmin();
     const allowed = ['titulo','descricao','competencia','descritor','nivel_min','nivel_max',
@@ -446,6 +454,7 @@ export async function atualizarConteudo(id: string, patch: any) {
 
 export async function deletarConteudo(id: string) {
   try {
+    await requireAdminAction();
     const sb = createSupabaseAdmin();
     const { error } = await sb.from('micro_conteudos').delete().eq('id', id);
     if (error) return { error: error.message };
@@ -461,6 +470,7 @@ export async function deletarConteudo(id: string) {
  */
 export async function sugerirTagsIA(conteudoId: string, aiConfig?: AIConfig) {
   try {
+    await requireAdminAction();
     const sb = createSupabaseAdmin();
     const { data: c } = await sb.from('micro_conteudos').select('*').eq('id', conteudoId).maybeSingle();
     if (!c) return { error: 'Conteúdo não encontrado' };

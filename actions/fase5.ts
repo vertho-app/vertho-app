@@ -6,6 +6,7 @@ import { tenantEmailFrom, tenantUrl } from '@/lib/domain';
 import { callAI, callAIChat, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
 import { formatPerfilContext } from '@/lib/perfil-comportamental';
+import { requireAdminAction, requireUserAction } from '@/lib/auth/action-context';
 
 // Configs específicas da fase 5 (estende a base com flags do check + lote)
 type Fase5Config = AIConfig & {
@@ -322,6 +323,7 @@ async function runCheckOnCenB(sb: any, cen: any, comp: any, descritoresTexto: st
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Config = {}) {
+  await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
@@ -465,6 +467,7 @@ export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Confi
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function checkCenarioBUm(cenarioId: string, modelo: string | null = null) {
+  await requireAdminAction();
   const sbRaw = createSupabaseAdmin();
   try {
     // banco_cenarios é misto → raw por id
@@ -502,6 +505,7 @@ export async function checkCenarioBUm(cenarioId: string, modelo: string | null =
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = {}) {
+  await requireAdminAction();
   const sbRaw = createSupabaseAdmin();
   try {
     // banco_cenarios é misto → raw por id
@@ -606,6 +610,7 @@ export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = 
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function iniciarReavaliacaoLote(empresaId: string, aiConfig: AIConfig = {}) {
+  await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
@@ -900,6 +905,7 @@ A mensagem visível ao colaborador deve vir ANTES do [META].`;
 }
 
 export async function processarReavaliacao(sessaoId: string, mensagem: string, aiConfig: AIConfig = {}) {
+  await requireUserAction();
   const sbRaw = createSupabaseAdmin();
   try {
     // Descobre tenant via sessão (raw — query inicial)
@@ -1107,6 +1113,7 @@ REGRAS:
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function gerarEvolucaoFusao(empresaId: string, aiConfig: AIConfig = {}) {
+  await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
@@ -1373,6 +1380,7 @@ REGRAS:
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function gerarPlenariaEvolucao(empresaId: string, aiConfig: AIConfig = {}) {
+  await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
@@ -1518,10 +1526,12 @@ Descritores que subiram: ${totalDescUp} de ${totalDesc} (${totalDesc ? Math.roun
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function gerarRelatoriosEvolucaoLote(empresaId: string, aiConfig: AIConfig = {}) {
+  await requireAdminAction();
   return gerarEvolucaoFusao(empresaId, aiConfig);
 }
 
 export async function gerarRelatorioRHManual(empresaId: string, aiConfig: AIConfig = {}) {
+  await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
@@ -1639,6 +1649,7 @@ REGRAS:
 }
 
 export async function gerarRelatorioPlenaria(empresaId: string, aiConfig: AIConfig = {}) {
+  await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
@@ -1732,6 +1743,7 @@ REGRAS:
 }
 
 export async function enviarLinksPerfil(empresaId: string) {
+  await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
@@ -1758,6 +1770,7 @@ export async function enviarLinksPerfil(empresaId: string) {
 }
 
 export async function gerarDossieGestor(empresaId: string, aiConfig: AIConfig = {}) {
+  await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
@@ -1860,6 +1873,7 @@ REGRAS:
 }
 
 export async function checkCenarios(empresaId: string, aiConfig: AIConfig = {}) {
+  await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
@@ -1987,6 +2001,7 @@ REGRAS:
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function loadCenariosB(empresaId: string) {
+  await requireAdminAction();
   if (!empresaId) return [];
   const tdb = tenantDb(empresaId);
 
@@ -2025,6 +2040,7 @@ export async function loadCenariosB(empresaId: string) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function checkCenariosBLote(empresaId: string, aiConfig: Fase5Config = {}) {
+  await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
@@ -2071,6 +2087,7 @@ export async function checkCenariosBLote(empresaId: string, aiConfig: Fase5Confi
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function regenerarERecheckarCenariosBLote(empresaId: string, aiConfig: Fase5Config = {}) {
+  await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {

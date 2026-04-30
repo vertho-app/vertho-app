@@ -5,6 +5,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { callAI } from './ai-client';
 import { promptAvaliacaoAcumulada, promptAvaliacaoAcumuladaCheck, validateAvaliacaoAcumulada, validateAvaliacaoAcumuladaCheck } from '@/lib/season-engine/prompts/acumulado';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 /**
  * Gera avaliação acumulada da temporada (1ª IA) + check por 2ª IA e
@@ -14,6 +15,7 @@ import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
  * qualitativa. Também pode ser chamada manualmente pelo admin Vertho.
  */
 export async function gerarAvaliacaoAcumulada(trilhaId: string) {
+  await requireAdminAction();
   // Descobre tenant via trilha (raw — query inicial sem tenant conhecido).
   const sbRaw = createSupabaseAdmin();
   const { data: trilha } = await sbRaw.from('trilhas')

@@ -2,10 +2,12 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { addVercelDomain } from '@/lib/vercel-domain';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 // ── Criar nova empresa com auto-slug ────────────────────────────────────────
 
 export async function criarNovaEmpresa(dados: any) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   try {
     // Generate slug from name
@@ -56,6 +58,7 @@ export async function criarNovaEmpresa(dados: any) {
 // ── Importar colaboradores em lote (dedup por email) ────────────────────────
 
 export async function importarColaboradoresLote(empresaId: string, colaboradores: any[]) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   try {
     if (!Array.isArray(colaboradores) || !colaboradores.length) {
@@ -108,6 +111,7 @@ export async function importarColaboradoresLote(empresaId: string, colaboradores
 // ── Configurar competências iniciais ────────────────────────────────────────
 
 export async function configurarCompetencias(empresaId: string, competencias: any[]) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   try {
     if (!Array.isArray(competencias) || !competencias.length) {

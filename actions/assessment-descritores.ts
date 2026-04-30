@@ -1,12 +1,14 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 /**
  * Carrega assessment de descritores por colaborador de uma empresa.
  * Retorna grid editável: { colabs[], competencias[descritores[]], notas{colabId_descritor: nota} }
  */
 export async function loadAssessmentGrid(empresaId: string, competenciaFiltro: string | null = null) {
+  await requireAdminAction();
   try {
     if (!empresaId) return { error: 'empresaId obrigatório' };
     const sb = createSupabaseAdmin();
@@ -72,6 +74,7 @@ interface SalvarNotaParams {
 }
 
 export async function salvarNotaAssessment({ empresaId, colaboradorId, competencia, descritor, nota, cargo }: SalvarNotaParams) {
+  await requireAdminAction();
   try {
     const sb = createSupabaseAdmin();
     const { error } = await sb.from('descriptor_assessments').upsert({
@@ -95,6 +98,7 @@ export async function salvarNotaAssessment({ empresaId, colaboradorId, competenc
  * Apaga um assessment (ex: ao limpar uma célula).
  */
 export async function deletarNotaAssessment({ colaboradorId, competencia, descritor }: { colaboradorId: string; competencia: string; descritor: string }) {
+  await requireAdminAction();
   try {
     const sb = createSupabaseAdmin();
     const { error } = await sb.from('descriptor_assessments').delete()

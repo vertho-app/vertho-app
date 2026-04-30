@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
 import { formatPerfilContext } from '@/lib/perfil-comportamental';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 /**
  * Gera evolucao granular por descritor, comparando avaliacao inicial vs reavaliacao.
@@ -16,6 +17,7 @@ import { formatPerfilContext } from '@/lib/perfil-comportamental';
  * @returns {{ success: boolean, descritores?: array, error?: string }}
  */
 export async function gerarEvolucaoDescritores(empresaId: string, colaboradorId: string, aiConfig: AIConfig = {}) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
 
   try {
@@ -201,6 +203,7 @@ REGRAS:
  * @returns {{ success: boolean, analise?: object, error?: string }}
  */
 export async function gerarConvergenciaCIS(empresaId: string, colaboradorId: string) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
 
   try {

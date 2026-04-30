@@ -2,6 +2,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireUserAction } from '@/lib/auth/action-context';
 
 const client = new Anthropic();
 
@@ -24,6 +25,7 @@ Regras:
  * @param {string} email - Email do colaborador (opcional, para contexto)
  */
 export async function chatWithBeto(userMessage: string, history: Array<{ role: string; content: string }> = [], email: string | null = null) {
+  await requireUserAction();
   let systemPrompt = SYSTEM_PROMPT_BASE;
 
   // Se tiver email, buscar contexto da Fase 4 (pílula atual)

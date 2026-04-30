@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { APP_URL } from '@/lib/domain';
 import { templateWhatsAppPilula, templateWhatsAppEvidencia } from '@/lib/notifications';
+import { requireAdminOrCronAction } from '@/lib/auth/action-context';
 
 const TIMEOUT_ABANDONO_HORAS = 48;
 const TOTAL_SEMANAS = 14;
@@ -15,6 +16,7 @@ const SEMANAS_IMPL = [4, 8, 12]; // Semanas de implementação (sem pílula nova
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export async function cleanupSessoes() {
+  await requireAdminOrCronAction();
   // Cron CROSS-TENANT por design: varre todas empresas em uma só varredura.
   // Usa raw porque a query precisa atravessar todos os tenants (admin scope).
   // Em vez de tdb por iteração, manter raw aqui é correto — é um job de
@@ -75,6 +77,7 @@ export async function cleanupSessoes() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export async function triggerSegunda() {
+  await requireAdminOrCronAction();
   // Cron itera todas empresas, mas usa tenantDb por iteração pra escopar
   // operações tenant-owned (fase4_envios, capacitacao). empresas é raw (id é tenant).
   const sbRaw = createSupabaseAdmin();
@@ -164,6 +167,7 @@ export async function triggerSegunda() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export async function triggerQuinta() {
+  await requireAdminOrCronAction();
   const sbRaw = createSupabaseAdmin();
 
   const { data: empresas } = await sbRaw.from('empresas')

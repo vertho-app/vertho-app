@@ -1,5 +1,7 @@
 'use server';
 
+import { requireAdminAction } from '@/lib/auth/action-context';
+
 const getBaseUrl = () => {
   const instanceId = process.env.ZAPI_INSTANCE_ID;
   const token = process.env.ZAPI_TOKEN;
@@ -24,6 +26,7 @@ function formatPhone(telefone: string) {
 
 export async function enviarWhatsApp(telefone: string, mensagem: string) {
   try {
+    await requireAdminAction();
     const baseUrl = getBaseUrl();
     const phone = formatPhone(telefone);
 
@@ -52,6 +55,7 @@ export async function enviarWhatsApp(telefone: string, mensagem: string) {
 
 export async function enviarPDF(telefone: string, pdfBase64: string, filename: string) {
   try {
+    await requireAdminAction();
     const baseUrl = getBaseUrl();
     const phone = formatPhone(telefone);
 
@@ -81,6 +85,7 @@ export async function enviarPDF(telefone: string, pdfBase64: string, filename: s
 
 export async function enviarLink(telefone: string, url: string, titulo: string) {
   try {
+    await requireAdminAction();
     const baseUrl = getBaseUrl();
     const phone = formatPhone(telefone);
 

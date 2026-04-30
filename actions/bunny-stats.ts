@@ -1,5 +1,7 @@
 'use server';
 
+import { requireAdminAction } from '@/lib/auth/action-context';
+
 /**
  * Actions que consultam a API do Bunny Stream pra gerar métricas.
  * Usa BUNNY_LIBRARY_ID e BUNNY_STREAM_API_KEY do env.
@@ -36,6 +38,7 @@ function limparTitulo(raw: string | null | undefined) {
  * Métricas por vídeo: views, watch time, taxa de conclusão.
  */
 export async function loadBunnyVideosStats(empresaId: string | null = null) {
+  await requireAdminAction();
   try {
     const data = await bunnyFetch('/videos?page=1&itemsPerPage=100&orderBy=date');
     let items = (data?.items || [])
@@ -111,6 +114,7 @@ export async function loadBunnyVideosStats(empresaId: string | null = null) {
  * Heatmap de um vídeo — objeto { segundo: %viewers }.
  */
 export async function loadBunnyHeatmap(videoId: string) {
+  await requireAdminAction();
   try {
     if (!videoId) return { error: 'videoId obrigatório' };
     const data = await bunnyFetch(`/videos/${videoId}/heatmap`);
@@ -131,6 +135,7 @@ export async function loadBunnyHeatmap(videoId: string) {
  * webhook /api/webhooks/bunny). Retorna um mapa { colaboradorId: {videos, minutos} }.
  */
 export async function loadVideoWatchedPorColab(empresaId: string) {
+  await requireAdminAction();
   try {
     const { createSupabaseAdmin } = await import('@/lib/supabase');
     const sb = createSupabaseAdmin();
@@ -168,6 +173,7 @@ export async function loadVideoWatchedPorColab(empresaId: string) {
  * Estatísticas agregadas da library (views por dia).
  */
 export async function loadBunnyLibraryStats() {
+  await requireAdminAction();
   try {
     const data = await bunnyFetch('/statistics');
     const viewsChart = data?.viewsChart || {};

@@ -3,10 +3,12 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { EMAIL_FROM_DEFAULT, tenantUrl } from '@/lib/domain';
 import crypto from 'crypto';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 // ── Disparar convites (email + WhatsApp unificado) ──────────────────────────
 
 export async function dispararEmails(empresaId: string) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   try {
     const { data: empresa } = await sb.from('empresas')
@@ -141,6 +143,7 @@ export async function dispararEmails(empresaId: string) {
 // ── Ver status dos envios (com sync automático de respostas) ────────────────
 
 export async function verStatusEnvios(empresaId: string) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   try {
     // Auto-sync: marcar como respondido se sessão concluída

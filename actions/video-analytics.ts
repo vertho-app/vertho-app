@@ -2,6 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
+import { requireUserAction, requireAdminAction } from '@/lib/auth/action-context';
 
 const DIAS_INATIVO = 14;
 
@@ -10,6 +11,7 @@ const DIAS_INATIVO = 14;
  */
 export async function loadEmpresaInfo(empresaId: string | null | undefined) {
   try {
+    await requireUserAction();
     if (!empresaId) return null;
     const sb = createSupabaseAdmin();
     const { data } = await sb.from('empresas').select('id, nome').eq('id', empresaId).maybeSingle();
@@ -26,6 +28,7 @@ export async function loadEmpresaInfo(empresaId: string | null | undefined) {
  */
 export async function loadUltimosVideosColab(email: string, limit: number = 3) {
   try {
+    await requireUserAction();
     if (!email) return { error: 'email obrigatório' };
     const colab = await findColabByEmail(email, 'id');
     if (!colab) return { error: 'Colab não encontrado' };
@@ -69,6 +72,7 @@ export async function loadUltimosVideosColab(email: string, limit: number = 3) {
  */
 export async function loadEngajamentoEmpresa(empresaId: string | null | undefined) {
   try {
+    await requireAdminAction();
     const sb = createSupabaseAdmin();
 
     // Se empresaId for null/undefined, agrega global (todas empresas)
@@ -150,6 +154,7 @@ export async function loadEngajamentoEmpresa(empresaId: string | null | undefine
  */
 export async function loadAlertasInatividade(empresaId: string | null | undefined, dias: number = DIAS_INATIVO) {
   try {
+    await requireAdminAction();
     const sb = createSupabaseAdmin();
 
     let colabsQuery = sb.from('colaboradores')

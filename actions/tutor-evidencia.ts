@@ -3,6 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI } from './ai-client';
 import { extractJSON } from './utils';
+import { requireUserAction } from '@/lib/auth/action-context';
 
 /**
  * Avalia a qualidade de uma evidência submetida pelo colaborador.
@@ -15,6 +16,7 @@ import { extractJSON } from './utils';
  * @returns {{ success, feedback, pontos, avaliacao }}
  */
 export async function avaliarEvidencia(colaboradorId: string, empresaId: string, semana: number, evidenciaTexto: string) {
+  await requireUserAction();
   const sb = createSupabaseAdmin();
 
   try {

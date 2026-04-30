@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireUserAction } from '@/lib/auth/action-context';
 
 /**
  * Registra um evento de reprodução de vídeo Bunny capturado via
@@ -27,6 +28,7 @@ export async function registrarVideoWatched({
   videoLength,
 }: VideoWatchedParams = {} as any) {
   try {
+    await requireUserAction();
     if (!colaboradorId || !videoId || !eventType) {
       return { error: 'Dados incompletos' };
     }

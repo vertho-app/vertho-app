@@ -2,10 +2,12 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 // ── Load competências da empresa ────────────────────────────────────────────
 
 export async function loadCompetencias(empresaId: string) {
+  await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   try {
     const tdb = tenantDb(empresaId);
@@ -24,6 +26,7 @@ export async function loadCompetencias(empresaId: string) {
 // ── Salvar (criar ou atualizar) competência ─────────────────────────────────
 
 export async function salvarCompetencia(empresaId: string, comp: any) {
+  await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   try {
     const tdb = tenantDb(empresaId);
@@ -61,6 +64,7 @@ export async function salvarCompetencia(empresaId: string, comp: any) {
 // ── Excluir competência ─────────────────────────────────────────────────────
 
 export async function excluirCompetencia(id: string) {
+  await requireAdminAction();
   // Não recebe empresaId — descobre via raw + valida tenant pra defesa em profundidade.
   try {
     const sbRaw = createSupabaseAdmin();

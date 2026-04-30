@@ -3,6 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI } from './ai-client';
 import { extractJSON } from './utils';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 // ── Extrair contexto organizacional (PPP educacional / Dossiê corporativo) ──
 
@@ -14,6 +15,7 @@ interface ExtrairPPPOpts {
 }
 
 export async function extrairPPP(empresaId: string, { urls = [], textos = [], model, enriquecerWeb = false }: ExtrairPPPOpts = {}) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   try {
     const { data: empresa } = await sb.from('empresas')

@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminOrCronAction } from '@/lib/auth/action-context';
 
 /**
  * Recalcula taxa_conclusao de todos os micro_conteudos core usados em trilhas.
@@ -10,6 +11,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
  *   - consumos: quantas dessas semanas têm conteudo_consumido=true no progresso
  */
 export async function recalcularTaxaConclusao() {
+  await requireAdminOrCronAction();
   try {
     const sb = createSupabaseAdmin();
 

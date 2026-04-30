@@ -1,6 +1,6 @@
 'use server';
 
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { getUserContext } from '@/lib/authz';
 import type { AuthenticatedContext } from './request-context';
@@ -56,6 +56,22 @@ export async function requireAdminAction(): Promise<AuthenticatedContext> {
   const ctx = await requireUserAction();
   if (!ctx.isPlatformAdmin) throw new Error('FORBIDDEN: apenas platform admin');
   return ctx;
+}
+
+/**
+ * Aceita admin autenticado OU chamada interna do cron (Authorization: Bearer CRON_SECRET).
+ * Usar em actions que precisam ser chamáveis pelo /api/cron route handler.
+ */
+export async function requireAdminOrCronAction(): Promise<AuthenticatedContext | { isCron: true }> {
+  try {
+    const h = await headers();
+    const auth = h.get('authorization');
+    const cronSecret = process.env.CRON_SECRET;
+    if (cronSecret && auth?.replace('Bearer ', '') === cronSecret) {
+      return { isCron: true } as any;
+    }
+  } catch { /* sem header → cai pro admin auth */ }
+  return requireAdminAction();
 }
 
 type AllowedRole = 'colaborador' | 'gestor' | 'rh' | 'admin';

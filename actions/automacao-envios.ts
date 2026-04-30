@@ -2,12 +2,14 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { enviarPDF } from './whatsapp';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // ── Enviar PDFs em lote via WhatsApp ────────────────────────────────────────
 
 export async function enviarPDFsLote(empresaId: string) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
   try {
     const { data: empresa } = await sb.from('empresas')

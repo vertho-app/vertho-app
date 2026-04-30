@@ -4,12 +4,14 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { callAI, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 // ── Simulador de Respostas (para testes) ────────────────────────────────────
 // Gera respostas fictícias às 4 perguntas de cada cenário.
 // Distribuição realista: 30% fraco (N1-2), 50% médio (N2-3), 20% forte (N3-4)
 
 export async function listarPendentesSimulacao(empresaId: string) {
+  await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
 
@@ -53,6 +55,7 @@ export async function listarPendentesSimulacao(empresaId: string) {
 }
 
 export async function simularUmaResposta(empresaId: string, colaboradorId: string, cenarioId: string, aiConfig: AIConfig = {}) {
+  await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);

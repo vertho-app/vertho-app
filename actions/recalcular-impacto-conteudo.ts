@@ -2,6 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getUserContext } from '@/lib/authz';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 /**
  * Recalcula `impacto_medio_delta` e `impacto_amostras` de cada micro_conteudo.
@@ -18,6 +19,7 @@ import { getUserContext } from '@/lib/authz';
  * Admin-only. Chamar via botão ou cron mensal.
  */
 export async function recalcularImpactoConteudo(email: string) {
+  await requireAdminAction();
   const ctx = await getUserContext(email);
   if (!ctx?.isPlatformAdmin) return { error: 'Acesso restrito à Vertho' };
 

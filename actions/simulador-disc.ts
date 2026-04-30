@@ -1,6 +1,7 @@
 'use server';
 
 import { tenantDb } from '@/lib/tenant-db';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 /**
  * Simula o mapeamento comportamental DISC de colaboradores que ainda não fizeram.
@@ -10,6 +11,7 @@ import { tenantDb } from '@/lib/tenant-db';
  * Útil pra testes e demos — NÃO substitui o mapeamento real.
  */
 export async function simularMapeamentoDISCLote(empresaId: string) {
+  await requireAdminAction();
   try {
     if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
     const tdb = tenantDb(empresaId);

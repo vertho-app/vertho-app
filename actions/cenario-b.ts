@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
 import { formatPerfilContext } from '@/lib/perfil-comportamental';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 /**
  * Gera um Cenario B alternativo para uma sessao de avaliacao.
@@ -15,6 +16,7 @@ import { formatPerfilContext } from '@/lib/perfil-comportamental';
  * @returns {{ success: boolean, cenario?: object, error?: string }}
  */
 export async function gerarCenarioB(sessaoId: string, aiConfig: AIConfig = {}) {
+  await requireAdminAction();
   const sb = createSupabaseAdmin();
 
   try {

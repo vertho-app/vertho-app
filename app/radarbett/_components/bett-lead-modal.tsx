@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { X, Loader2, ArrowRight, ArrowLeft, CheckCircle, MessageCircle, Calendar } from 'lucide-react';
 import { capturarLead } from '../../radar/actions';
+import { capturarLeadComercial } from '@/actions/lead-comercial';
 import { track } from '../_lib/tracking';
 
 type Pre = {
@@ -79,9 +80,12 @@ export function BettLeadModal({
     track('bett_lead_step2');
 
     try {
-      // Reusa capturarLead existente. Quando não há scopeId real (busca não
-      // fornecida), envia como 'municipio' genérico. Para preservar fidelidade
-      // dos dados, consolidamos as informações extras em "organizacao".
+      // Caminho 1: lead com escopo válido de busca prévia (escola/município
+      // selecionado) — usa capturarLead que valida INEP/IBGE e dispara worker
+      // de PDF.
+      // Caminho 2: lead comercial sem escopo (clicou em "Agendar conversa"
+      // direto, sem buscar) — usa capturarLeadComercial que aceita lead
+      // sem escopo, salva como scope_type='comercial' e NÃO valida.
       const orgComplemento = [
         municipio && `Município: ${municipio}`,
         tipo && `Tipo: ${tipo === 'publica' ? 'pública' : 'privada'}`,
@@ -90,31 +94,43 @@ export function BettLeadModal({
       ].filter(Boolean).join(' · ');
       const organizacao = [instituicao, orgComplemento].filter(Boolean).join(' — ');
 
-      const r = await capturarLead({
-        scopeType: (pre?.scopeType as any) || 'municipio',
-        scopeId: pre?.scopeId || '0000000', // placeholder se não veio busca
-        scopeLabel: pre?.scopeLabel || instituicao,
-        nome: nome.trim(),
-        email: email.trim(),
-        cargo: cargo.trim(),
-        organizacao,
-        consentimento_lgpd: consent,
-      });
-
-      if ((r as any)?.error) {
-        // capturarLead pode falhar se scopeId não for válido. Em vez de
-        // bloquear o lead, aceitamos sucesso parcial: o pessoal já entrou.
-        // (Em V2: ter rota de lead "comercial" que não exige scope real.)
-        setError((r as any).error);
-        // Mas a Vertho ainda recebe via tracking event:
-        track('bett_lead_submit');
-        setStep('done');
-        if (onSuccess) onSuccess();
+      let r: any;
+      if (pre?.scopeType && pre?.scopeId) {
+        r = await capturarLead({
+          scopeType: pre.scopeType,
+          scopeId: pre.scopeId,
+          scopeLabel: pre.scopeLabel || instituicao,
+          nome: nome.trim(),
+          email: email.trim(),
+          cargo: cargo.trim(),
+          organizacao,
+          consentimento_lgpd: consent,
+        });
       } else {
-        track('bett_lead_submit');
-        setStep('done');
-        if (onSuccess) onSuccess();
+        r = await capturarLeadComercial({
+          nome: nome.trim(),
+          email: email.trim(),
+          whatsapp: whatsapp.trim() || undefined,
+          cargo: cargo.trim(),
+          instituicao: instituicao.trim(),
+          municipio: municipio.trim() || undefined,
+          tipo,
+          qtd_alunos: qtdAlunos.trim() || undefined,
+          qtd_escolas: qtdEscolas.trim() || undefined,
+          origem: 'radarbett',
+          consentimento_lgpd: consent,
+        });
       }
+
+      if (r?.error) {
+        setError(r.error);
+        // Não trata como sucesso — força o usuário a corrigir.
+        return;
+      }
+
+      track('bett_lead_submit');
+      setStep('done');
+      if (onSuccess) onSuccess();
     } catch (e: any) {
       setError(e.message || 'Erro ao enviar.');
     } finally {

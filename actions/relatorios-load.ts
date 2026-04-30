@@ -1,8 +1,10 @@
 'use server';
 
 import { tenantDb } from '@/lib/tenant-db';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 export async function loadRelatoriosEmpresa(empresaId: string) {
+  await requireAdminAction();
   if (!empresaId) return { individuais: [], gestores: [], gestor: null, rh: null };
   const tdb = tenantDb(empresaId);
 

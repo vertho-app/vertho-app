@@ -3,12 +3,14 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { COLS, calcularRanking } from '@/lib/preferencias-config';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 /**
  * Consolidado das preferências de aprendizagem da empresa.
  */
 export async function loadPreferenciasEmpresa(empresaId: string) {
   try {
+    await requireAdminAction();
     if (!empresaId) return { error: 'empresa obrigatória' };
     const tdb = tenantDb(empresaId);
 
@@ -40,6 +42,7 @@ export async function loadPreferenciasEmpresa(empresaId: string) {
  */
 export async function loadPreferenciasGlobais() {
   try {
+    await requireAdminAction();
     const sb = createSupabaseAdmin();
 
     const { data: empresas, error: e1 } = await sb.from('empresas')

@@ -2,6 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 /**
  * Classifica convergência de um descritor comparando nota_pre (início da temporada),
@@ -22,6 +23,7 @@ function classificarConvergencia({ nota_pre, nota_pos, nivel_percebido }: { nota
  * Salva em trilhas.evolution_report e marca status='concluida'.
  */
 export async function gerarEvolutionReport(trilhaId: string) {
+  await requireAdminAction();
   try {
     // Descobre tenant via trilha (raw — query inicial sem tenant conhecido).
     const sbRaw = createSupabaseAdmin();
@@ -89,6 +91,7 @@ export async function gerarEvolutionReport(trilhaId: string) {
  * e decidir próximo ciclo de treinamento.
  */
 export async function loadEvolutionReportsEmpresa(empresaId: string) {
+  await requireAdminAction();
   try {
     if (!empresaId) return { error: 'empresaId obrigatório' };
     const tdb = tenantDb(empresaId);

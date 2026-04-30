@@ -7,6 +7,7 @@ import { selectDescriptors } from '@/lib/season-engine/select-descriptors';
 import { buildSeason } from '@/lib/season-engine/build-season';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import type { AIConfig } from './ai-client';
+import { requireAdminAction, requireUserAction } from '@/lib/auth/action-context';
 
 interface GerarTemporadaParams {
   colaboradorId?: string;
@@ -19,6 +20,7 @@ interface GerarTemporadaParams {
  */
 export async function loadTemporadaPorEmail(email: string) {
   try {
+    await requireUserAction();
     const colab = await findColabByEmail(email, 'id');
     if (!colab) return { error: 'Colab não encontrado' };
     return loadTemporada(colab.id);
@@ -32,6 +34,7 @@ export async function loadTemporadaPorEmail(email: string) {
  */
 export async function gerarTemporada({ colaboradorId, competencia, aiConfig }: GerarTemporadaParams = {}) {
   try {
+    await requireAdminAction();
     if (!colaboradorId) return { error: 'colaboradorId obrigatório' };
     const sbRaw = createSupabaseAdmin();
 
@@ -215,6 +218,7 @@ function inferirContexto(segmento?: string | null): string {
  */
 export async function gerarTemporadasLote(empresaId: string, aiConfig?: AIConfig) {
   try {
+    await requireAdminAction();
     if (!empresaId) return { error: 'empresaId obrigatório' };
     const sb = createSupabaseAdmin();
     const { data: colabs } = await sb.from('colaboradores')
@@ -246,6 +250,7 @@ export async function gerarTemporadasLote(empresaId: string, aiConfig?: AIConfig
  */
 export async function pausarRetomarTemporada(trilhaId: string) {
   try {
+    await requireAdminAction();
     const sb = createSupabaseAdmin();
     const { data: t } = await sb.from('trilhas').select('status').eq('id', trilhaId).maybeSingle();
     if (!t) return { success: false, error: 'Trilha não encontrada' };
@@ -260,6 +265,7 @@ export async function pausarRetomarTemporada(trilhaId: string) {
 
 export async function arquivarTemporada(trilhaId: string) {
   try {
+    await requireAdminAction();
     const sb = createSupabaseAdmin();
     const { error } = await sb.from('trilhas').update({ status: 'arquivada' }).eq('id', trilhaId);
     if (error) return { success: false, error: error.message };
@@ -275,6 +281,7 @@ export async function arquivarTemporada(trilhaId: string) {
  */
 export async function regerarSemana(trilhaId: string, semana: number, aiConfig: AIConfig = {}) {
   try {
+    await requireAdminAction();
     const sb = createSupabaseAdmin();
     const { data: trilha } = await sb.from('trilhas')
       .select('id, colaborador_id, empresa_id, competencia_foco, temporada_plano, descritores_selecionados')
@@ -353,6 +360,7 @@ export async function regerarSemana(trilhaId: string, semana: number, aiConfig: 
  */
 export async function listarTemporadasEmpresa(empresaId: string) {
   try {
+    await requireAdminAction();
     if (!empresaId) return { error: 'empresaId obrigatório' };
     const tdb = tenantDb(empresaId);
     const { data, error } = await tdb.from('trilhas')
@@ -383,6 +391,7 @@ export async function listarTemporadasEmpresa(empresaId: string) {
  */
 export async function marcarConteudoConsumido(trilhaId: string, semana: number) {
   try {
+    await requireUserAction();
     const sb = createSupabaseAdmin();
     const { data: existente } = await sb.from('temporada_semana_progresso')
       .select('id, iniciado_em').eq('trilha_id', trilhaId).eq('semana', semana).maybeSingle();
@@ -413,6 +422,7 @@ export async function marcarConteudoConsumido(trilhaId: string, semana: number) 
  */
 export async function loadProgressoDetalhado(trilhaId: string) {
   try {
+    await requireAdminAction();
     const sb = createSupabaseAdmin();
     const { data: trilha } = await sb.from('trilhas')
       .select('id, colaborador_id, competencia_foco, temporada_plano, evolution_report')
@@ -444,6 +454,7 @@ export async function loadProgressoDetalhado(trilhaId: string) {
  */
 export async function loadTemporada(colaboradorId: string) {
   try {
+    await requireUserAction();
     if (!colaboradorId) return { error: 'colaboradorId obrigatório' };
 
     // Descobre empresa_id do colab pra poder usar tenantDb (que força filtro).

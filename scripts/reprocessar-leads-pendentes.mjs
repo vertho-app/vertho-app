@@ -18,9 +18,11 @@ const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const SECRET = process.env.INTERNAL_DISPATCH_SECRET;
 const isProd = process.argv.includes('--prod');
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://app.vertho.ai';
 const WORKER = isProd
-  ? `${process.env.APP_URL || 'https://radar.vertho.ai'}/api/radar/lead-pdf`
+  ? `${APP_URL}/api/radar/lead-pdf`
   : 'http://localhost:3000/api/radar/lead-pdf';
+console.log(`Worker URL: ${WORKER}`);
 
 if (!SECRET) {
   console.error('FALTA INTERNAL_DISPATCH_SECRET no .env.local');

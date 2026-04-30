@@ -6,6 +6,7 @@ import { calcularFit, converterGabaritoParaPerfil, extrairPerfilReal } from '@/l
 import { gerarRanking, gerarDistribuicao } from '@/lib/fit-v2/ranking';
 import { buildFitExecutivePrompt } from '@/lib/prompts/fit-executive-prompt';
 import { callAI } from '@/actions/ai-client';
+import { requireAdminAction } from '@/lib/auth/action-context';
 
 const LEITURA_AI_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
 
@@ -19,6 +20,7 @@ async function tenantDoCargo(cargoId: string) {
 // ── Salvar/carregar perfil ideal ────────────────────────────────────────────
 
 export async function salvarPerfilIdeal(cargoId: string, perfilIdeal: any) {
+  await requireAdminAction();
   const empresaId = await tenantDoCargo(cargoId);
   if (!empresaId) return { success: false, error: 'Cargo não encontrado' };
   const tdb = tenantDb(empresaId);
@@ -31,6 +33,7 @@ export async function salvarPerfilIdeal(cargoId: string, perfilIdeal: any) {
 }
 
 export async function loadPerfilIdeal(cargoId: string) {
+  await requireAdminAction();
   const empresaId = await tenantDoCargo(cargoId);
   if (!empresaId) return null;
   const tdb = tenantDb(empresaId);
@@ -43,6 +46,7 @@ export async function loadPerfilIdeal(cargoId: string) {
 // ── Calcular Fit individual ─────────────────────────────────────────────────
 
 export async function calcularFitIndividual(empresaId: string, cargoNome: string, colaboradorId: string): Promise<any> {
+  await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
 
@@ -118,6 +122,7 @@ export async function calcularFitIndividual(empresaId: string, cargoNome: string
 // ── Calcular Fit em lote (todos do cargo) ───────────────────────────────────
 
 export async function calcularFitLote(empresaId: string, cargoNome: string, opts: { forcar?: boolean } = {}) {
+  await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   const { forcar = false } = opts;
@@ -179,6 +184,7 @@ export async function calcularFitLote(empresaId: string, cargoNome: string, opts
 // ── Buscar ranking de um cargo ──────────────────────────────────────────────
 
 export async function loadRankingCargo(empresaId: string, cargoNome: string) {
+  await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
 
@@ -232,6 +238,7 @@ export async function loadRankingCargo(empresaId: string, cargoNome: string) {
 // ── Buscar fit individual ───────────────────────────────────────────────────
 
 export async function loadFitIndividual(colaboradorId: string) {
+  await requireAdminAction();
   // Descobre tenant via colaborador (raw — colaboradores é root de tenancy)
   const sbRaw = createSupabaseAdmin();
   const { data: colab } = await sbRaw.from('colaboradores')
@@ -261,6 +268,7 @@ export async function loadFitIndividual(colaboradorId: string) {
  * opts.force = true força regeneração mesmo se houver cache válido.
  */
 export async function gerarLeituraExecutivaFit(empresaId: string, colaboradorId: string, cargoNome: string, opts: { force?: boolean } = {}) {
+  await requireAdminAction();
   try {
     if (!empresaId || !colaboradorId || !cargoNome) {
       return { success: false, error: 'Parâmetros obrigatórios ausentes' };
@@ -318,6 +326,7 @@ export async function gerarLeituraExecutivaFit(empresaId: string, colaboradorId:
 // ── Listar cargos com contagem de fits ──────────────────────────────────────
 
 export async function loadCargosComFit(empresaId: string) {
+  await requireAdminAction();
   if (!empresaId) return [];
   const tdb = tenantDb(empresaId);
 

@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireUserAction } from '@/lib/auth/action-context';
 
 /**
  * Carrega dados pra tela "Temporada Concluída" do colaborador.
@@ -8,6 +9,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
  * cenário B + resposta + devolutiva.
  */
 export async function loadTemporadaConcluida(email: string) {
+  await requireUserAction();
   if (!email) return { error: 'Não autenticado' };
 
   const sb = createSupabaseAdmin();
