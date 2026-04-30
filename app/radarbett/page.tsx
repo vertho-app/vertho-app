@@ -61,7 +61,13 @@ export default function RadarBettHome() {
           style={{ left: -200, bottom: -200, width: 480, height: 480, border: '40px solid rgba(154,226,230,0.04)', borderRadius: '50%' }} />
 
         <div className="max-w-[1100px] mx-auto px-6 pt-12 sm:pt-20 pb-16 relative">
-          <p className="text-[10px] tracking-[0.3em] uppercase font-mono text-cyan-300/80 mb-4">
+          <p className="text-cyan-300/85 mb-4" style={{
+            fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+          }}>
             Radar Vertho · Bett 2026
           </p>
           <h1
@@ -305,9 +311,9 @@ export default function RadarBettHome() {
         <div className="max-w-[820px] mx-auto px-6 text-center">
           <h2 className="text-white mb-3"
             style={{
-              fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
-              fontSize: 'clamp(28px, 4vw, 40px)',
-              fontWeight: 600,
+              fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+              fontSize: 'clamp(26px, 3.6vw, 36px)',
+              fontWeight: 700,
               lineHeight: 1.15,
               letterSpacing: '-0.02em',
             }}>
@@ -336,10 +342,10 @@ export default function RadarBettHome() {
               <div>
                 <h2 className="text-white"
                   style={{
-                    fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
-                    fontSize: 'clamp(24px, 3.4vw, 34px)',
-                    fontWeight: 600,
-                    lineHeight: 1.18,
+                    fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+                    fontSize: 'clamp(22px, 3vw, 30px)',
+                    fontWeight: 700,
+                    lineHeight: 1.2,
                     letterSpacing: '-0.02em',
                   }}>
                   Gestão, evidências e prontidão para políticas educacionais
@@ -460,7 +466,7 @@ export default function RadarBettHome() {
 
       {/* Footer */}
       <footer className="border-t border-white/[0.06] py-8 mt-12">
-        <div className="max-w-[1100px] mx-auto px-6 flex flex-wrap items-center justify-between gap-3 text-[10px] tracking-[0.1em] uppercase text-white/35">
+        <div className="max-w-[1100px] mx-auto px-6 flex flex-wrap items-center justify-between gap-3 eyebrow-manrope-sm text-white/40">
           <span>© Vertho Mentor IA · radarbett.vertho.ai</span>
           <span>Dados públicos · INEP · MEC</span>
         </div>
@@ -488,10 +494,10 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
     <h2
       className="text-white mt-2"
       style={{
-        fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
-        fontSize: 'clamp(28px, 4vw, 42px)',
-        fontWeight: 600,
-        lineHeight: 1.12,
+        fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+        fontSize: 'clamp(26px, 3.6vw, 38px)',
+        fontWeight: 700,
+        lineHeight: 1.15,
         letterSpacing: '-0.02em',
       }}
     >
@@ -520,11 +526,23 @@ function SplitCard({
         style={{ background: `${iconColor}1A` }}>
         <Icon size={20} style={{ color: iconColor }} />
       </div>
-      <p className="text-[10px] tracking-[0.2em] uppercase font-mono text-white/55 mb-1.5">
+      <p className="text-white/55 mb-2" style={{
+        fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: '0.14em',
+        textTransform: 'uppercase',
+      }}>
         {eyebrow}
       </p>
-      <h3 className="text-white text-xl font-bold mb-3 leading-snug">{title}</h3>
-      <p className="text-white/65 text-sm leading-relaxed mb-4">{text}</p>
+      <h3 className="text-white mb-3" style={{
+        fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+        fontSize: 'clamp(20px, 2vw, 22px)',
+        fontWeight: 700,
+        lineHeight: 1.2,
+        letterSpacing: '-0.02em',
+      }}>{title}</h3>
+      <p className="text-white/70 leading-relaxed mb-4" style={{ fontSize: 14 }}>{text}</p>
       <ul className="space-y-2">
         {bullets.map((b) => (
           <li key={b} className="flex items-center gap-2 text-[13px] text-white/85">
@@ -558,16 +576,25 @@ function PersonaCard({
         style={{ background: 'rgba(52,197,204,0.12)' }}>
         <Icon size={18} style={{ color: '#34c5cc' }} />
       </div>
-      <p className="text-[11px] tracking-[0.18em] uppercase font-mono text-white/45 mb-1.5">
+      <p className="text-white/45 mb-2" style={{
+        fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: '0.14em',
+        textTransform: 'uppercase',
+      }}>
         {titulo}
       </p>
-      <h3 className="text-white text-base font-bold mb-3 leading-snug" style={{
-        fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
-        fontSize: 19,
+      <h3 className="text-white mb-3" style={{
+        fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+        fontSize: 'clamp(20px, 2vw, 22px)',
+        fontWeight: 700,
+        lineHeight: 1.2,
+        letterSpacing: '-0.02em',
       }}>
         {pergunta}
       </h3>
-      <p className="text-white/60 text-[13px] leading-relaxed mb-4">{texto}</p>
+      <p className="text-white/65 leading-relaxed mb-4" style={{ fontSize: 14 }}>{texto}</p>
       <span className="inline-flex items-center gap-1 text-[12px] font-bold text-cyan-300">
         {cta} <ArrowRight size={11} />
       </span>
@@ -592,13 +619,26 @@ function RevealCard({
         <Icon size={18} style={{ color: destaque ? '#34c5cc' : '#9ae2e6' }} />
         <span className="text-[10px] font-mono text-white/30">{num}</span>
       </div>
-      <h3 className="text-white text-base font-bold mb-2 leading-snug">{titulo}</h3>
-      <p className="text-white/60 text-[13px] leading-relaxed">{texto}</p>
+      <h3 className="text-white mb-2" style={{
+        fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+        fontSize: 18,
+        fontWeight: 700,
+        lineHeight: 1.25,
+        letterSpacing: '-0.01em',
+      }}>{titulo}</h3>
+      <p className="text-white/65 leading-relaxed" style={{ fontSize: 14 }}>{texto}</p>
     </div>
   );
 }
 
 function ExemploCard({ titulo, leitura, oportunidade }: { titulo: string; leitura: string; oportunidade: string }) {
+  const eyebrowStyle: React.CSSProperties = {
+    fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: '0.14em',
+    textTransform: 'uppercase',
+  };
   return (
     <div
       className="rounded-2xl p-6 border"
@@ -607,18 +647,20 @@ function ExemploCard({ titulo, leitura, oportunidade }: { titulo: string; leitur
         borderColor: 'rgba(255,255,255,0.08)',
       }}
     >
-      <h3 className="text-white text-[15px] font-bold mb-4 leading-snug">{titulo}</h3>
+      <h3 className="text-white mb-4" style={{
+        fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+        fontSize: 17,
+        fontWeight: 700,
+        lineHeight: 1.25,
+        letterSpacing: '-0.01em',
+      }}>{titulo}</h3>
       <div className="mb-3 pl-3 border-l-2 border-cyan-400/30">
-        <p className="text-[10px] tracking-[0.18em] uppercase font-mono text-cyan-300/70 mb-1">
-          Leitura
-        </p>
-        <p className="text-white/75 text-[13px] leading-relaxed">{leitura}</p>
+        <p className="text-cyan-300/85 mb-1" style={eyebrowStyle}>Leitura</p>
+        <p className="text-white/75 leading-relaxed" style={{ fontSize: 14 }}>{leitura}</p>
       </div>
       <div className="pl-3 border-l-2 border-emerald-400/30">
-        <p className="text-[10px] tracking-[0.18em] uppercase font-mono text-emerald-300/70 mb-1">
-          Oportunidade Vertho
-        </p>
-        <p className="text-white/75 text-[13px] leading-relaxed">{oportunidade}</p>
+        <p className="text-emerald-300/85 mb-1" style={eyebrowStyle}>Oportunidade Vertho</p>
+        <p className="text-white/75 leading-relaxed" style={{ fontSize: 14 }}>{oportunidade}</p>
       </div>
     </div>
   );
@@ -644,8 +686,14 @@ function FluxoCard({
           <span className="text-[10px] font-mono text-white/35 tabular-nums">{num.padStart(2, '0')}</span>
           <Icon size={14} style={{ color: ultimo ? '#34c5cc' : '#9ae2e6' }} />
         </div>
-        <h3 className="text-white text-sm font-bold mb-1.5 leading-snug">{titulo}</h3>
-        <p className="text-white/55 text-[12px] leading-relaxed">{texto}</p>
+        <h3 className="text-white mb-1.5" style={{
+          fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+          fontSize: 15,
+          fontWeight: 700,
+          lineHeight: 1.25,
+          letterSpacing: '-0.01em',
+        }}>{titulo}</h3>
+        <p className="text-white/60 leading-relaxed" style={{ fontSize: 13 }}>{texto}</p>
       </div>
     </div>
   );
@@ -668,8 +716,14 @@ function InfoCard({
         style={{ background: 'rgba(154,226,230,0.10)' }}>
         <Icon size={18} style={{ color: '#9ae2e6' }} />
       </div>
-      <h3 className="text-white text-base font-bold mb-2">{titulo}</h3>
-      <p className="text-white/60 text-[13px] leading-relaxed mb-3">{texto}</p>
+      <h3 className="text-white mb-2" style={{
+        fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+        fontSize: 18,
+        fontWeight: 700,
+        lineHeight: 1.25,
+        letterSpacing: '-0.01em',
+      }}>{titulo}</h3>
+      <p className="text-white/65 leading-relaxed mb-3" style={{ fontSize: 14 }}>{texto}</p>
       {tags && tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-2">
           {tags.map((t) => (
@@ -694,8 +748,11 @@ function TangibleMentor() {
           <MessageCircle size={16} style={{ color: '#34c5cc' }} />
         </div>
         <div>
-          <p className="text-[10px] tracking-[0.18em] uppercase font-mono text-cyan-300/70">MentorIA</p>
-          <h3 className="text-white text-sm font-bold">Conversa que vira prática</h3>
+          <p className="eyebrow-manrope text-cyan-300/85">MentorIA</p>
+          <h3 className="text-white" style={{
+            fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+            fontSize: 16, fontWeight: 700, lineHeight: 1.25, letterSpacing: '-0.01em',
+          }}>Conversa que vira prática</h3>
         </div>
       </div>
 
@@ -753,8 +810,11 @@ function TangiblePDI() {
           <Target size={16} style={{ color: '#9ae2e6' }} />
         </div>
         <div>
-          <p className="text-[10px] tracking-[0.18em] uppercase font-mono text-cyan-300/70">PDI</p>
-          <h3 className="text-white text-sm font-bold">Plano individual com evidência esperada</h3>
+          <p className="eyebrow-manrope text-cyan-300/85">PDI</p>
+          <h3 className="text-white" style={{
+            fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+            fontSize: 16, fontWeight: 700, lineHeight: 1.25, letterSpacing: '-0.01em',
+          }}>Plano individual com evidência esperada</h3>
         </div>
       </div>
 
@@ -772,7 +832,7 @@ function TangiblePDI() {
 function PdiRow({ label, value, pillColor }: { label: string; value: string; pillColor?: string }) {
   return (
     <div>
-      <p className="text-[9px] tracking-[0.2em] uppercase font-mono text-white/35 mb-0.5">{label}</p>
+      <p className="eyebrow-manrope-sm text-white/40 mb-0.5">{label}</p>
       {pillColor ? (
         <span className="inline-block text-[11px] px-2 py-0.5 rounded-full"
           style={{ background: `${pillColor}1A`, color: pillColor, border: `1px solid ${pillColor}33` }}>
@@ -800,8 +860,11 @@ function TangibleTrilha() {
           <Layers size={16} style={{ color: '#34c5cc' }} />
         </div>
         <div>
-          <p className="text-[10px] tracking-[0.18em] uppercase font-mono text-cyan-300/70">Trilha</p>
-          <h3 className="text-white text-sm font-bold">Desenvolvimento no cotidiano da escola</h3>
+          <p className="eyebrow-manrope text-cyan-300/85">Trilha</p>
+          <h3 className="text-white" style={{
+            fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+            fontSize: 16, fontWeight: 700, lineHeight: 1.25, letterSpacing: '-0.01em',
+          }}>Desenvolvimento no cotidiano da escola</h3>
         </div>
       </div>
 
@@ -836,8 +899,11 @@ function TangibleRelatorio() {
           <FileText size={16} style={{ color: '#9ae2e6' }} />
         </div>
         <div>
-          <p className="text-[10px] tracking-[0.18em] uppercase font-mono text-cyan-300/70">Evidências</p>
-          <h3 className="text-white text-sm font-bold">Mais que certificado de participação</h3>
+          <p className="eyebrow-manrope text-cyan-300/85">Evidências</p>
+          <h3 className="text-white" style={{
+            fontFamily: 'var(--font-manrope), "Manrope", system-ui, sans-serif',
+            fontSize: 16, fontWeight: 700, lineHeight: 1.25, letterSpacing: '-0.01em',
+          }}>Mais que certificado de participação</h3>
         </div>
       </div>
 
@@ -858,7 +924,7 @@ function TangibleRelatorio() {
 function Metric({ label, value, cor }: { label: string; value: string; cor: string }) {
   return (
     <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}>
-      <p className="text-[9px] tracking-[0.2em] uppercase font-mono text-white/40 mb-1">{label}</p>
+      <p className="eyebrow-manrope-sm text-white/45 mb-1">{label}</p>
       <p className="text-xl font-bold tabular-nums" style={{ color: cor, fontFamily: 'var(--font-serif, "Instrument Serif", serif)' }}>
         {value}
       </p>

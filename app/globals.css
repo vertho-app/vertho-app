@@ -65,6 +65,24 @@ body {
   letter-spacing: -0.01em;
 }
 
+/* Tipografia radarbett — eyebrow Manrope (categorias curtas em uppercase) */
+.eyebrow-manrope {
+  font-family: var(--font-manrope), "Manrope", system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Pequena variante (PDI labels, Metric labels) */
+.eyebrow-manrope-sm {
+  font-family: var(--font-manrope), "Manrope", system-ui, sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
 @theme inline {
   /* Paleta oficial */
   --color-navy: #0F2B54;
