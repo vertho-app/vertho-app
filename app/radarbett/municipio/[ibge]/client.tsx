@@ -33,18 +33,20 @@ type IcaStat = {
 };
 
 export function MunicipioResultadoClient({
-  municipio, sinais, leituraResumo, icaStat, temIca, temIdeb, temFundeb,
+  municipio, sinais, leituraResumo, narrativaModelo, icaStat, temIca, temIdeb, temFundeb, initialUnlocked = false,
 }: {
   municipio: { ibge: string; nome: string; uf: string; totalEscolas: number; redes: Record<string, number> };
   sinais: Sinal[];
   leituraResumo: string;
+  narrativaModelo?: string;
   icaStat: IcaStat | null;
   temIca: boolean;
   temIdeb: boolean;
   temFundeb: boolean;
+  initialUnlocked?: boolean;
 }) {
   const router = useRouter();
-  const [unlocked, setUnlocked] = useState(false);
+  const [unlocked, setUnlocked] = useState(initialUnlocked);
   const [leadOpen, setLeadOpen] = useState(false);
   const viewSent = useRef(false);
   const glimpseSent = useRef(false);
@@ -196,10 +198,18 @@ export function MunicipioResultadoClient({
                 }}>
                 V
               </div>
-              <div>
+              <div className="flex-1">
                 <p className="text-white text-[14px] font-bold leading-tight">Vertho Mentor IA</p>
                 <p className="text-white/55 text-[12px] mt-0.5">Leitura institucional · Dados públicos INEP {icaStat?.ano || ''}</p>
               </div>
+              {narrativaModelo && narrativaModelo !== 'fallback' && (
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] tracking-[0.12em] uppercase font-bold text-white/45 flex-shrink-0"
+                  title={`Análise gerada por ${narrativaModelo}`}
+                >
+                  <Sparkles size={10} /> Análise por IA
+                </span>
+              )}
             </div>
             <p className="leading-relaxed" style={{
               fontFamily: 'var(--font-fraunces), "Fraunces", Georgia, serif',

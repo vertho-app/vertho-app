@@ -1,7 +1,12 @@
 import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
 import type { Metadata } from 'next';
 import { getMunicipio } from '@/lib/radar/queries';
 import { leituraIcaMunicipio } from '@/lib/radar/leitura-deterministica';
+import {
+  getNarrativaRadarbettMunicipio,
+  isLikelyBotRadarbett,
+} from '@/lib/radar/ia-narrativa-radarbett';
 import { MunicipioResultadoClient } from './client';
 
 export const dynamic = 'force-dynamic';
@@ -20,13 +25,47 @@ export async function generateMetadata({ params }: { params: Promise<{ ibge: str
   };
 }
 
-export default async function MunicipioResultadoPage({ params }: { params: Promise<{ ibge: string }> }) {
+export default async function MunicipioResultadoPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ ibge: string }>;
+  searchParams: Promise<{ demo?: string }>;
+}) {
   const { ibge } = await params;
+  const sp = await searchParams;
+  const isDemo = sp?.demo === '1';
   const m = await getMunicipio(ibge);
   if (!m) return notFound();
 
-  const leitura = leituraIcaMunicipio(m, m.ica || []);
+  const leituraDet = leituraIcaMunicipio(m, m.ica || []);
   const sinais = computarSinaisMun(m);
+
+  // Narrativa IA (gpt-5.4-mini → fallback Claude). Bot-aware: crawlers só leem cache.
+  const userAgent = (await headers()).get('user-agent');
+  const isBot = isLikelyBotRadarbett(userAgent);
+  const narrativa = await getNarrativaRadarbettMunicipio(
+    {
+      ibge,
+      nome: m.nome,
+      uf: m.uf,
+      totalEscolas: m.totalEscolas,
+      redes: m.redes,
+    },
+    m.ica || [],
+    {
+      generateIfMissing: !isBot,
+      ideb: m.ideb || [],
+      enem: m.enem || [],
+      fundeb: m.fundeb || [],
+      vaar: m.vaar,
+      receitaPrevista: m.receitaPrevista,
+      pddeMunicipal: m.pddeMunicipal || [],
+    },
+  );
+  const leituraResumo = narrativa.resumo && narrativa.resumo.length >= 40
+    ? narrativa.resumo
+    : leituraDet.resumo;
 
   // Stats: ICA mais recente da rede municipal (preferência), com benchmarks
   const icaList = m.ica || [];
@@ -46,7 +85,8 @@ export default async function MunicipioResultadoPage({ params }: { params: Promi
         redes: m.redes,
       }}
       sinais={sinais}
-      leituraResumo={leitura.resumo}
+      leituraResumo={leituraResumo}
+      narrativaModelo={narrativa.modelo_usado}
       icaStat={icaRecente ? {
         ano: icaRecente.ano,
         taxa: Number(icaRecente.taxa),
@@ -56,6 +96,7 @@ export default async function MunicipioResultadoPage({ params }: { params: Promi
       temIca={(m.ica || []).length > 0}
       temIdeb={(m.ideb || []).length > 0}
       temFundeb={(m.fundeb || []).length > 0 || !!m.vaar || !!m.receitaPrevista}
+      initialUnlocked={isDemo}
     />
   );
 }

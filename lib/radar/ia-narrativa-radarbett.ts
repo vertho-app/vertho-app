@@ -205,3 +205,108 @@ export function isLikelyBotRadarbett(userAgent: string | null | undefined): bool
   if (!userAgent) return true;
   return BOT_UA_RE.test(userAgent);
 }
+
+// ── Narrativa para município ──────────────────────────────────────────────
+
+async function getCachedMunicipio(scopeId: string, dadosHash: string): Promise<NarrativaRadarbett | null> {
+  const sb = createSupabaseAdmin();
+  const { data } = await sb
+    .from('diag_analises_ia')
+    .select('conteudo, modelo')
+    .eq('scope_type', 'municipio')
+    .eq('scope_id', scopeId)
+    .eq('prompt_version', PROMPT_VERSION)
+    .eq('dados_hash', dadosHash)
+    .maybeSingle();
+  const c = (data as any)?.conteudo;
+  if (typeof c?.resumo === 'string' && c.resumo.length >= 20) {
+    return { resumo: c.resumo, modelo_usado: c.modelo_usado || (data as any)?.modelo || 'cache' };
+  }
+  return null;
+}
+
+async function saveCacheMunicipio(scopeId: string, dadosHash: string, c: NarrativaRadarbett) {
+  const sb = createSupabaseAdmin();
+  await sb.from('diag_analises_ia').upsert(
+    {
+      scope_type: 'municipio',
+      scope_id: scopeId,
+      prompt_version: PROMPT_VERSION,
+      dados_hash: dadosHash,
+      conteudo: c,
+      modelo: c.modelo_usado,
+    },
+    { onConflict: 'scope_type,scope_id,prompt_version,dados_hash' },
+  );
+}
+
+export async function getNarrativaRadarbettMunicipio(
+  municipio: { ibge: string; nome: string; uf: string; totalEscolas: number; redes: Record<string, number> },
+  ica: any[],
+  opts: {
+    generateIfMissing?: boolean;
+    ideb?: any[];
+    enem?: any[];
+    fundeb?: any[];
+    vaar?: any | null;
+    receitaPrevista?: any | null;
+    pddeMunicipal?: any[];
+  } = { generateIfMissing: true },
+): Promise<NarrativaRadarbett> {
+  const dadosHash = stableJsonHash({
+    ibge: municipio.ibge,
+    totalEscolas: municipio.totalEscolas,
+    redes: municipio.redes,
+    ica: (ica || []).slice(0, 12),
+    ideb: (opts.ideb || []).slice(0, 12),
+    enem: (opts.enem || []).slice(0, 8),
+    fundeb: (opts.fundeb || []).slice(0, 4),
+    vaar: opts.vaar ? { ano: opts.vaar.ano, recebe: opts.vaar.recebe } : null,
+    receita: opts.receitaPrevista ? { ano: opts.receitaPrevista.ano, valor: opts.receitaPrevista.valor_previsto } : null,
+    pdde: (opts.pddeMunicipal || []).slice(0, 4),
+  });
+
+  const cached = await getCachedMunicipio(municipio.ibge, dadosHash);
+  if (cached) return cached;
+  if (!opts.generateIfMissing) return FALLBACK;
+
+  const partes: string[] = [
+    `Município: ${municipio.nome}/${municipio.uf} (IBGE ${municipio.ibge})`,
+    `Total de escolas no Radar: ${municipio.totalEscolas}`,
+    `Distribuição por rede: ${JSON.stringify(municipio.redes)}`,
+  ];
+  if ((ica || []).length) {
+    partes.push('', 'Indicador Criança Alfabetizada — séries históricas (mais recente primeiro):',
+      JSON.stringify((ica || []).slice(0, 12), null, 2));
+  }
+  if (opts.ideb && opts.ideb.length) {
+    partes.push('', 'Ideb agregado (médias municipais por etapa):',
+      JSON.stringify(opts.ideb.slice(0, 8), null, 2));
+  }
+  if (opts.enem && opts.enem.length) {
+    partes.push('', 'ENEM (microdados agregados do município, médias ponderadas em escolas com 10+ participantes):',
+      JSON.stringify(opts.enem.slice(0, 4), null, 2));
+  }
+  if (opts.fundeb && opts.fundeb.length) {
+    partes.push('', 'FUNDEB (Tesouro Nacional/FNDE — recursos da rede):',
+      JSON.stringify(opts.fundeb.slice(0, 4), null, 2));
+  }
+  if (opts.vaar) {
+    partes.push('', `VAAR (binário recebe/não): ${JSON.stringify({ ano: opts.vaar.ano, recebe: opts.vaar.recebe })}`);
+  }
+  if (opts.receitaPrevista) {
+    partes.push('', `FUNDEB receita prevista: ${JSON.stringify({ ano: opts.receitaPrevista.ano, valor_previsto: opts.receitaPrevista.valor_previsto })}`);
+  }
+  if (opts.pddeMunicipal && opts.pddeMunicipal.length) {
+    partes.push('', 'PDDE municipal (FNDE — agregado):',
+      JSON.stringify(opts.pddeMunicipal.slice(0, 4), null, 2));
+  }
+  partes.push('', 'Escreva o parágrafo da leitura institucional do glimpse para o município (gestor da rede municipal como leitor).');
+
+  const parsed = await gerarComFallback(SYSTEM, partes.join('\n'));
+  if (parsed) {
+    saveCacheMunicipio(municipio.ibge, dadosHash, parsed).catch(() => {});
+    return parsed;
+  }
+  return FALLBACK;
+}
