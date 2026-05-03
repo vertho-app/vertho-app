@@ -44,6 +44,7 @@ export default async function EscolaResultadoPage({ params }: { params: Promise<
       leituraResumo={leitura.resumo}
       temIdeb={ideb.length > 0}
       temCenso={!!censo}
+      temEnem={enem.length > 0}
       saebSnapshots={saeb.length}
     />
   );

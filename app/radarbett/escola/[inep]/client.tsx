@@ -26,13 +26,14 @@ const TIPO_CFG = {
 };
 
 export function EscolaResultadoClient({
-  escola, sinais, leituraResumo, temIdeb, temCenso, saebSnapshots,
+  escola, sinais, leituraResumo, temIdeb, temCenso, temEnem, saebSnapshots,
 }: {
   escola: any;
   sinais: Sinal[];
   leituraResumo: string;
   temIdeb: boolean;
   temCenso: boolean;
+  temEnem: boolean;
   saebSnapshots: number;
 }) {
   const router = useRouter();
@@ -264,6 +265,10 @@ export function EscolaResultadoClient({
               <li className="flex items-center gap-2">
                 <Dot ativo={temIdeb} />
                 <span>Ideb · {temIdeb ? 'meta vs realizado disponível' : 'sem Ideb publicado'}</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Dot ativo={temEnem} />
+                <span>ENEM por escola · {temEnem ? 'média geral e por área disponível' : 'sem dados de ENEM publicados'}</span>
               </li>
               <li className="flex items-center gap-2">
                 <Dot ativo={temCenso} />
