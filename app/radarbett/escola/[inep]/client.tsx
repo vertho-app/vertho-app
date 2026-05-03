@@ -26,11 +26,12 @@ const TIPO_CFG = {
 };
 
 export function EscolaResultadoClient({
-  escola, sinais, leituraResumo, temIdeb, temCenso, temEnem, temSaresp, ufEscola, saebSnapshots, initialUnlocked = false,
+  escola, sinais, leituraResumo, narrativaModelo, temIdeb, temCenso, temEnem, temSaresp, ufEscola, saebSnapshots, initialUnlocked = false,
 }: {
   escola: any;
   sinais: Sinal[];
   leituraResumo: string;
+  narrativaModelo?: string;
   temIdeb: boolean;
   temCenso: boolean;
   temEnem: boolean;
@@ -127,6 +128,14 @@ export function EscolaResultadoClient({
               {escola.rede && <span>Rede {String(escola.rede).toLowerCase()}</span>}
               {escola.zona && <span className="text-white/40">·</span>}
               {escola.zona && <span>Zona {String(escola.zona).toLowerCase()}</span>}
+              {escola.inse_grupo != null && (
+                <>
+                  <span className="text-white/40">·</span>
+                  <span title="Indicador de Nível Socioeconômico (INEP) — escala 1=mais alto a 6=mais baixo">
+                    INSE Grupo {escola.inse_grupo}
+                  </span>
+                </>
+              )}
               <span className="text-white/40">·</span>
               <span className="font-mono">INEP {escola.codigo_inep}</span>
             </div>
@@ -170,7 +179,17 @@ export function EscolaResultadoClient({
               borderColor: 'rgba(255,255,255,0.08)',
             }}
           >
-            <p className="eyebrow-manrope text-cyan-300/85 mb-2">Leitura institucional</p>
+            <div className="flex items-baseline justify-between gap-3 mb-2 flex-wrap">
+              <p className="eyebrow-manrope text-cyan-300/85">Leitura institucional</p>
+              {narrativaModelo && narrativaModelo !== 'fallback' && (
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] tracking-[0.12em] uppercase font-bold text-white/45"
+                  title={`Análise gerada por ${narrativaModelo}`}
+                >
+                  <Sparkles size={10} /> Análise por IA
+                </span>
+              )}
+            </div>
             <p className="text-white/85 leading-relaxed" style={{ fontSize: 14 }}>{leituraResumo}</p>
             <p className="text-[11px] text-white/45 mt-3 italic leading-relaxed">
               Esta é uma leitura inicial baseada em dados públicos. Para transformar essa leitura em

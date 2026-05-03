@@ -1,7 +1,12 @@
 import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
 import type { Metadata } from 'next';
-import { getEscola } from '@/lib/radar/queries';
+import { getEscola, getEscolaBenchmarks } from '@/lib/radar/queries';
 import { leituraSaebEscola } from '@/lib/radar/leitura-deterministica';
+import {
+  getNarrativaRadarbettEscola,
+  isLikelyBotRadarbett,
+} from '@/lib/radar/ia-narrativa-radarbett';
 import { EscolaResultadoClient } from './client';
 
 export const dynamic = 'force-dynamic';
@@ -40,17 +45,40 @@ export default async function EscolaResultadoPage({
   const enem = r.enem || [];
   const saresp = r.saresp || [];
 
-  // Leitura determinística pra usar no glimpse (sem IA, rápido, sempre disponível)
-  const leitura = leituraSaebEscola(escola, saeb);
+  // Benchmarks INSE/microrregião/estado para enriquecer comparativos
+  const benchmarks = await getEscolaBenchmarks(inep);
 
-  // Computa hipóteses de "sinais" simples a partir dos dados
+  // Leitura determinística como fallback estável (sem IA)
+  const leituraDeterministica = leituraSaebEscola(escola, saeb);
+
+  // Narrativa IA (gpt-5.4-mini → fallback Claude Sonnet 4.6).
+  // Bot-aware: crawlers só leem cache, nunca disparam geração.
+  const userAgent = (await headers()).get('user-agent');
+  const isBot = isLikelyBotRadarbett(userAgent);
+  const narrativa = await getNarrativaRadarbettEscola(
+    escola,
+    saeb,
+    {
+      generateIfMissing: !isBot,
+      ideb,
+      enem,
+      censo,
+      benchmarks,
+    },
+  );
+  const leituraResumo = narrativa.resumo && narrativa.resumo.length >= 40
+    ? narrativa.resumo
+    : leituraDeterministica.resumo;
+
+  // Computa hipóteses de "sinais" simples a partir dos dados (sem IA)
   const sinais = computarSinais({ saeb, ideb, censo, enem, rede: (escola as any)?.rede });
 
   return (
     <EscolaResultadoClient
       escola={escola}
       sinais={sinais}
-      leituraResumo={leitura.resumo}
+      leituraResumo={leituraResumo}
+      narrativaModelo={narrativa.modelo_usado}
       temIdeb={ideb.length > 0}
       temCenso={!!censo}
       temEnem={enem.length > 0}
