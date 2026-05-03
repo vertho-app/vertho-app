@@ -406,7 +406,7 @@ function SinalCard({
         }}
       >
         {unlocked
-          ? `${sinal.preview} A leitura completa foi liberada — em breve a equipe Vertho retornará com aprofundamento personalizado.`
+          ? sinal.preview
           : `${sinal.preview} ${sinal.preview.split('').reverse().join('').slice(0, 80)}`}
       </p>
       {!unlocked && (

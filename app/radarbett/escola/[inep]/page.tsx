@@ -44,7 +44,7 @@ export default async function EscolaResultadoPage({
   const leitura = leituraSaebEscola(escola, saeb);
 
   // Computa hipóteses de "sinais" simples a partir dos dados
-  const sinais = computarSinais({ saeb, ideb, censo, enem });
+  const sinais = computarSinais({ saeb, ideb, censo, enem, rede: (escola as any)?.rede });
 
   return (
     <EscolaResultadoClient
@@ -69,8 +69,8 @@ type Sinal = {
 };
 
 function computarSinais({
-  saeb, ideb, censo, enem,
-}: { saeb: any[]; ideb: any[]; censo: any; enem: any[] }): Sinal[] {
+  saeb, ideb, censo, enem, rede,
+}: { saeb: any[]; ideb: any[]; censo: any; enem: any[]; rede?: string }): Sinal[] {
   const sinais: Sinal[] = [];
 
   // === Aprendizagem (Saeb) — % nos níveis 0-1 do snapshot mais recente
@@ -93,30 +93,43 @@ function computarSinais({
   }
 
   // === ENEM — média geral do snapshot mais recente (3º EM)
-  // Patamares aproximados das redes públicas: <500 baixo, 500-560 intermediário, ≥560 forte
+  // Patamares por dependência administrativa (estimativas ENEM 2024 das médias por rede):
+  //  PRIVADA: 540 baixo / 620 forte (referência ~580)
+  //  FEDERAL: 580 baixo / 660 forte (IFs e técnicas, top do país)
+  //  ESTADUAL/MUNICIPAL/pública: 480 baixo / 540 forte (referência ~510)
+  // Comparar privada com média pública é desigual — adaptamos por rede.
   const enemRecente = [...(enem || [])].sort((a, b) => b.ano - a.ano)[0];
   if (enemRecente?.media_geral != null) {
+    const redeNorm = String(rede || '').toUpperCase();
+    const isPrivada = redeNorm === 'PRIVADA';
+    const isFederal = redeNorm === 'FEDERAL';
+    const cortes = isPrivada
+      ? { baixo: 540, forte: 620, refLabel: 'média das escolas privadas no ENEM' }
+      : isFederal
+        ? { baixo: 580, forte: 660, refLabel: 'média das redes federais no ENEM' }
+        : { baixo: 480, forte: 540, refLabel: 'média das redes públicas no ENEM' };
+
     const m = Number(enemRecente.media_geral);
     const mTxt = m.toFixed(0);
     const ano = enemRecente.ano;
     const redacao = enemRecente.media_redacao != null ? Number(enemRecente.media_redacao) : null;
-    if (m < 500) {
+    if (m < cortes.baixo) {
       sinais.push({
         tipo: 'aprendizagem',
-        titulo: `Média ENEM ${ano}: ${mTxt} pts — gap em 3º EM`,
-        preview: `Média geral ${mTxt} pts abaixo do patamar de referência das redes públicas (~520). Redação: ${redacao?.toFixed(0) ?? '—'} pts. Preparação dos concluintes precisa de plano direcionado por área...`,
+        titulo: `Média ENEM ${ano}: ${mTxt} pts — abaixo do esperado para a rede`,
+        preview: `Média geral ${mTxt} pts abaixo da ${cortes.refLabel}. Redação: ${redacao?.toFixed(0) ?? '—'} pts. Preparação dos concluintes precisa de plano direcionado por área...`,
       });
-    } else if (m >= 560) {
+    } else if (m >= cortes.forte) {
       sinais.push({
         tipo: 'aprendizagem',
-        titulo: `Média ENEM ${ano}: ${mTxt} pts — resultado forte`,
-        preview: `Média geral ${mTxt} pts, acima da referência das redes públicas. Redação: ${redacao?.toFixed(0) ?? '—'} pts. Boas práticas de preparação que valem ser documentadas e mantidas...`,
+        titulo: `Média ENEM ${ano}: ${mTxt} pts — resultado forte para a rede`,
+        preview: `Média geral ${mTxt} pts, acima da ${cortes.refLabel}. Redação: ${redacao?.toFixed(0) ?? '—'} pts. Boas práticas de preparação que valem ser documentadas e mantidas...`,
       });
     } else {
       sinais.push({
         tipo: 'aprendizagem',
-        titulo: `Média ENEM ${ano}: ${mTxt} pts — patamar intermediário`,
-        preview: `Média geral ${mTxt} pts, próxima da referência das redes públicas. Redação: ${redacao?.toFixed(0) ?? '—'} pts. Espaço claro para fortalecer áreas específicas (ciências, matemática, linguagens)...`,
+        titulo: `Média ENEM ${ano}: ${mTxt} pts — patamar intermediário para a rede`,
+        preview: `Média geral ${mTxt} pts, próxima da ${cortes.refLabel}. Redação: ${redacao?.toFixed(0) ?? '—'} pts. Espaço claro para fortalecer áreas específicas (ciências, matemática, linguagens)...`,
       });
     }
 
