@@ -39,9 +39,9 @@ import { buildBehavioralReportPrompt } from './prompts/behavioral-report-prompt'
 
 const prompt = buildBehavioralReportPrompt(cisRawData);
 
-// Claude API
+// Claude API (modelo padrão da plataforma: Sonnet 4.6)
 const response = await anthropic.messages.create({
-  model: "claude-sonnet-4-20250514",
+  model: "claude-sonnet-4-6",
   max_tokens: 2000,
   messages: [{ role: "user", content: prompt }]
 });
@@ -74,18 +74,18 @@ html2pdf().set({
 }).from(element).save();
 ```
 
-## Integração com Antigravity
+## Integração com a plataforma Vertho
 
-No Antigravity, a orquestração funciona assim:
+No Vertho Mentor IA (Next.js + Supabase), a orquestração funciona assim:
 
-1. **Trigger**: usuário solicita relatório no dashboard
-2. **Supabase**: busca dados CIS do colaborador
-3. **Edge Function ou Antigravity Agent**: 
-   - Monta o prompt com `buildBehavioralReportPrompt()`
-   - Chama Claude/Gemini API
-   - Parseia o JSON de resposta
-4. **Frontend (Vercel)**: renderiza `<BehavioralReport data={...} />`
-5. **PDF**: botão de download usa html2pdf.js no client-side
+1. **Trigger**: colaborador conclui o mapeamento DISC ou solicita o relatório no dashboard
+2. **Supabase**: dados CIS já residem em `colaboradores` / tabela CIS multi-tenant (RLS por `empresa_id`)
+3. **Server Action (`actions/relatorios.ts` + helpers em `lib/perfil-comportamental.ts`)**:
+   - Monta o prompt com `buildBehavioralReportPrompt()` (também replicado em `lib/prompts/behavioral-report-prompt.js` para compat)
+   - Chama Claude (Sonnet 4.6) via `actions/ai-client.ts::callAI` com `extractJSON`
+   - Persiste o JSON validado em `relatorios`
+4. **Frontend**: `/dashboard/perfil-comportamental/relatorio` renderiza `<BehavioralReport data={...} />`
+5. **PDF**: gerado server-side via `@react-pdf/renderer` (componentes em `components/pdf/`); este pacote `html2pdf.js` é apenas para uso fora da plataforma
 
 ## Personalização
 

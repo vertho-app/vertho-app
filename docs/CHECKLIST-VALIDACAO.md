@@ -12,14 +12,18 @@
 - [ ] Empresa aparece em `/admin/dashboard`
 - [ ] Nome, slug e segmento estão preenchidos
 - [ ] Logo foi uploaded (se aplicável)
-- [ ] Subdomínio `{slug}.vertho.com.br` resolve corretamente
+- [ ] Subdomínio `{slug}.vertho.ai` resolve corretamente
+- [ ] Botão **"Vincular ao Vercel"** em `/admin/empresas/{id}/configuracoes` (Branding) executa sem erro (auto-registro foi removido em 2026-04)
 
 ### Passo 2 — Cadastrar colaboradores
 - [ ] Colaboradores aparecem na lista em `/admin/empresas/{id}`
 - [ ] Cada colab tem: nome, email, cargo, área/depto, role
-- [ ] Import de planilha processou sem erro (se usado)
+- [ ] Import de CSV reconhece coluna `area_depto` (+ aliases: `area`, `departamento`, `setor`, `depto`)
 - [ ] Roles estão corretos (colaborador/gestor/rh)
 - [ ] Gestor tem `gestor_email` preenchido para vincular equipe
+- [ ] **Ordenação por coluna** funciona (clique em qualquer header da tabela)
+- [ ] **Danger zone** exclui colaboradores/competências sem afetar outras empresas
+- [ ] **Lixeira** (`/admin/lixeira`) restaura registros excluídos
 
 ### Passo 3 — Cadastrar cargos e competências
 - [ ] CSV importou sem erro em `/admin/competencias`
@@ -46,7 +50,14 @@
 - [ ] Botão "IA1 — Top 10" roda sem erro
 - [ ] Top 10 aparece por cargo em `/admin/cargos`
 - [ ] Competências fazem sentido para o cargo (revisão humana)
-- [ ] Dados salvos em `top10_cargos`
+- [ ] Dados salvos em `top10_cargos` com `aderencia_cargo`, `aderencia_mercado` e `motivo` (migration 052)
+- [ ] Match cargo é case+accent insensitive (ex: "Coordenação Pedagógica" = "coordenacao pedagogica")
+
+### Passo 5b — Votação dos colaboradores
+- [ ] Card "Votação aberta" aparece **antes** de "Foco da semana" no `/dashboard`
+- [ ] Colab consegue votar em `/dashboard/votacao` (top 10 do próprio cargo)
+- [ ] Votos persistem em `votacao_competencias`
+- [ ] Admin vê resultados agregados em `/admin/empresas/{id}/votacao`
 
 ### Passo 6 — Validar Top 5
 - [ ] Admin revisou e editou o Top 5 de cada cargo
@@ -219,12 +230,14 @@
 ## Verificações Transversais
 
 ### Auth e Segurança
-- [ ] Login funciona (email + senha)
+- [ ] Login funciona (email + senha + magic link)
 - [ ] Redirect para `/login` quando não autenticado
 - [ ] Colaborador não acessa dados de outra empresa
 - [ ] Gestor só vê liderados da própria área
-- [ ] Admin actions exigem platform admin
-- [ ] Nenhuma action de dashboard aceita `email` do client
+- [ ] Admin actions exigem platform admin (`requireAdminAction()`)
+- [ ] Actions de dashboard usam `requireUserAction()` em vez de aceitar `email` do client
+- [ ] Cron jobs autenticam via assinatura QStash (`requireAdminOrCronAction()`)
+- [ ] `diag_analises_ia` tem RLS restrita (migration 081)
 
 ### Visual e UX
 - [ ] Cores da marca estão corretas (navy `#0F2B54`, cyan `#34C5CC`)
@@ -232,14 +245,20 @@
 - [ ] Tokens de fase mudam cor ao navegar (F1-F5)
 - [ ] Thumbnails de conteúdo mostram glifos tipográficos
 - [ ] Dropdowns têm fundo escuro (legíveis)
-- [ ] Favicon aparece (V cyan sobre navy)
+- [ ] Favicon aparece (logo "vi" oficial Vertho)
+- [ ] App principal: tipografia **Manrope + Instrument Serif**
+- [ ] `/radarbett/*`: tipografia **Plus Jakarta Sans + Fraunces** (escopada via `.radarbett-shell`)
+- [ ] Radarbett "Agendar conversa" abre WhatsApp direto (NÃO modal de lead)
+- [ ] Radarbett "Receber leitura completa" abre modal de lead (formulário)
 
 ### Infraestrutura
 - [ ] Variáveis de ambiente configuradas (ver `docs/GO-LIVE-CHECKLIST.md`)
-- [ ] Migrations aplicadas (022-051)
-- [ ] Storage buckets criados (avatars, relatorios-pdf, conteudos, backups)
+- [ ] Migrations aplicadas (022-082, 62 arquivos)
+- [ ] Storage buckets criados (avatars, relatorios-pdf, conteudos, backups, **diag-relatorios** privado)
 - [ ] SMTP configurado no Supabase
 - [ ] Cron job ativo (`/api/cron`)
+- [ ] Subdomínios `radar.vertho.ai` e `radarbett.vertho.ai` resolvem corretamente
+- [ ] Materialized views do Radar com refresh automático funcionando
 
 ### Dados e Persistência
 - [ ] Relatórios salvam em `relatorios` com upsert correto (incluindo NULL)

@@ -15,7 +15,8 @@ Spec: `Vertho_Radar_Spec_v2_2.docx` · Decisões: `decisions.md`.
 - **Stack**: Next 16 + Supabase + Claude Sonnet 4.6 + QStash + Resend, tudo no monorepo
 - **Cobertura**: nacional (~197k escolas no Censo, Saeb/Ideb/ENEM nacionais; FUNDEB/VAAR a nível de rede)
 - **Design**: handoff vh3 (hero serif + cards de stats + charts SVG inline); leitura IA full-width + Pontos/Destaques 2-col
-- **Migrations aplicadas**: 054–078 (rodar via `node scripts/...` ou Supabase Studio)
+- **Migrations aplicadas**: 054–082 (rodar via `node scripts/...` ou Supabase Studio)
+- **Radarbett**: variante para o Bett 2026 vive em `radarbett.vertho.ai` / `app/radarbett/*`. Stack visual diferente (Plus Jakarta Sans + Fraunces, escopados via `.radarbett-shell`) e CTA "Agendar conversa" abre WhatsApp direto. Não confundir com `/radar` (Radar Vertho público regular).
 
 ---
 
@@ -167,6 +168,7 @@ Worker (com fail-closed em prod sem signing keys):
 | `diag_leads` | Captação com consentimento LGPD + status do PDF + dados de origem | 054 |
 | `diag_ingest_runs` | Observabilidade de cada upload (sucesso/falha/skipped + erros) | 054 |
 | `diag_eventos` | Tracking append-only: views, cliques no CTA, leads, citações, etc | 061 |
+| `diag_censo_docentes` | Microdados INEP — docentes por escola (formação, vínculo, etc.) | 080 |
 
 ### Materialized views
 
@@ -324,6 +326,10 @@ SELECT refresh_diag_mvs();
 076-diag-rede-municipal.sql               # MV da rede municipal
 077-recompute-censo-scores.sql            # recompute scores (família) — alt. ao script
 078-diag-enem-escola.sql                  # ENEM por escola
+079-perfil-externo.sql                    # cadastro externo / autosvc (Mentor IA)
+080-diag-censo-docentes.sql               # docentes do Censo + saneamento QT_*
+081-diag-analises-ia-restrict-rls.sql     # RLS restrita em diag_analises_ia (auth audit P1)
+082-diag-qualidade-rpcs.sql               # RPCs do painel de qualidade dos dados
 ```
 
 Pra rodar via Supabase Management API (com `SUPABASE_ACCESS_TOKEN` + `SUPABASE_PROJECT_REF` no `.env.local`):
@@ -380,6 +386,9 @@ Ou cole arquivo por arquivo no SQL editor do Supabase Studio.
 - ✅ Funnel dashboard interno (`/admin/radar/funnel`)
 - ✅ Design system vh3 (hero serif, eyebrows, charts SVG inline, pílulas com tooltip INSE)
 - ✅ **Cobertura nacional** (~197k escolas)
+- ✅ **Painel de qualidade dos dados** (RPCs migration 082)
+- ✅ **ICA benchmarks oficiais MEC** em `lib/radar/ica-benchmarks-oficiais.ts` (Brasil 2025=66%, por UF 2023-2025) + script `scripts/recompute-ica-benchmarks.mjs`
+- ✅ **Radarbett** (Bett 2026): variante em `app/radarbett/*` com tipografia escopada e CTA WhatsApp direto
 
 ## Adiamentos conhecidos
 

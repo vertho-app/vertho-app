@@ -1,8 +1,8 @@
 # Vertho Mentor IA — Arquitetura do Sistema
 
 > Documento oficial de arquitetura — SaaS B2B de desenvolvimento de competencias por IA.
-> Ultima atualizacao: 17/04/2026
-> Revisado contra o codigo-fonte em producao (vertho.com.br)
+> Ultima atualizacao: 03/05/2026
+> Revisado contra o codigo-fonte em producao (vertho.ai)
 > Metodo: auditoria automatizada + revisao manual
 
 ---
@@ -46,14 +46,14 @@
 | **Testes** | Playwright + smoke-test.js | — | ✅ |
 | **Hospedagem** | Vercel (Serverless) | — | ✅ |
 | **DNS/CDN** | Cloudflare (Full Strict SSL) | — | ✅ |
-| **Dominio** | vertho.com.br (wildcard *.vertho.com.br) | — | ✅ |
+| **Dominio** | vertho.ai (raiz) + app.vertho.ai (auth/admin) + *.vertho.ai (tenants) + radar.vertho.ai + radarbett.vertho.ai. Legado vertho.com.br ainda atendido pelo middleware. | — | ✅ |
 | **CI/CD** | GitHub Actions (smoke test no push) | — | ✅ |
 
 **Config Next.js**: `experimental.serverActions.bodySizeLimit = '50mb'` (Next 16 compat).
 
 ---
 
-## 2. Estrutura de Pastas (~230 arquivos TS/TSX + ~27 .js residuais em lib/, tests/ e config)
+## 2. Estrutura de Pastas (~280 arquivos TS/TSX + ~27 .js residuais em lib/, tests/ e config)
 
 ```
 nextjs-app/
@@ -78,7 +78,8 @@ nextjs-app/
 │   │   ├── page.tsx              # Server Component: resolve tenant → branding
 │   │   └── login-form.tsx        # Client: Magic Link + senha
 │   ├── dashboard/                # Area do colaborador (autenticado)
-│   │   ├── page.tsx              # Dashboard com Proximo Passo + Acesso Rapido
+│   │   ├── page.tsx              # Card Votacao Aberta + Foco da semana + Acesso Rapido
+│   │   ├── home/page.tsx         # Dashboard "home" alternativo (KPIs + hero por fase)
 │   │   ├── layout.tsx            # Shell: header + bottom nav + BETO
 │   │   ├── dashboard-shell.tsx   # Client: nav
 │   │   ├── dashboard-actions.ts  # loadDashboardData() com RBAC explicito
@@ -90,7 +91,9 @@ nextjs-app/
 │   │   ├── perfil/page.tsx       # Perfil + DISC preview + logout
 │   │   ├── perfil-comportamental/
 │   │   │   ├── page.tsx          # Resultado DISC ou "Iniciar Mapeamento"
-│   │   │   └── mapeamento/page.tsx # Instrumento DISC completo (29 steps)
+│   │   │   ├── mapeamento/page.tsx # Instrumento DISC completo (29 steps)
+│   │   │   └── relatorio/page.tsx  # Relatorio comportamental detalhado
+│   │   ├── votacao/page.tsx      # NOVO: Votacao em competencias por cargo (case+accent insensitive)
 │   │   ├── evolucao/page.tsx     # Comparativo inicial vs reavaliacao
 │   │   ├── jornada/page.tsx      # Timeline vertical 5 fases
 │   │   ├── praticar/
@@ -99,10 +102,11 @@ nextjs-app/
 │   │   ├── temporada/
 │   │   │   ├── page.tsx          # Timeline 14 semanas (cards coloridos)
 │   │   │   ├── semana/[week]/page.tsx  # Player + desafio + Tira-Duvidas + Evidencias
-│   │   │   ├── sem14/page.tsx    # NOVO: Wizard 4 perguntas (cenario B)
-│   │   │   └── concluida/page.tsx # NOVO: Temporada Concluida (5 blocos + PDF)
+│   │   │   ├── sem14/page.tsx    # Wizard 4 perguntas (cenario B)
+│   │   │   └── concluida/page.tsx # Temporada Concluida (5 blocos + PDF)
 │   │   └── gestor/
-│   │       └── equipe-evolucao/  # NOVO: Dashboard gestor
+│   │       ├── page.tsx          # Hub do gestor
+│   │       └── equipe-evolucao/  # Dashboard gestor
 │   │           ├── page.tsx      # Lista liderados + delta + status + filtros
 │   │           └── actions.ts    # Server actions do gestor
 │   ├── admin/                    # Painel administrativo
@@ -112,21 +116,25 @@ nextjs-app/
 │   │   ├── dashboard/page.tsx    # 7 KPIs + System Health + lista empresas
 │   │   ├── empresas/
 │   │   │   ├── nova/             # Form: nome + segmento (auto-slug)
-│   │   │   ├── gerenciar/        # Import CSV com role
+│   │   │   ├── gerenciar/        # Import CSV com role + area_depto + ordenacao por coluna
 │   │   │   └── [empresaId]/
-│   │   │       ├── page.tsx      # Pipeline Fases 0-5
+│   │   │       ├── page.tsx      # Pipeline Fases 0-5 + Danger Zone (limpar competencias/colabs)
 │   │   │       ├── actions.ts
-│   │   │       ├── fase0/page.tsx # Moodle detalhes
-│   │   │       ├── fase1/page.tsx # Fase 1: Top 10, Gabarito, Cenarios
-│   │   │       ├── fase2/page.tsx # Fase 2: Diagnostico + Trilhas
-│   │   │       └── configuracoes/page.tsx  # 5 tabs
+│   │   │       ├── fase0/page.tsx # Onboarding empresa
+│   │   │       ├── fase1/page.tsx # Top 10, Gabarito, Cenarios
+│   │   │       ├── fase2/page.tsx # Diagnostico + Trilhas
+│   │   │       ├── fase4/page.tsx # NOVO: Envios diagnostico (WhatsApp/email lote)
+│   │   │       ├── votacao/page.tsx       # NOVO: Resultados votacao por cargo
+│   │   │       ├── perfil-externo/page.tsx # NOVO: Cadastro externo (autosvc) p/ piloto
+│   │   │       ├── relatorios/page.tsx
+│   │   │       └── configuracoes/page.tsx  # 5 tabs (incluindo Branding c/ "Vincular ao Vercel")
 │   │   ├── cargos/               # Top 5 selection
 │   │   ├── competencias/         # CRUD completo + copy da base
 │   │   ├── assessment-descritores/ # Grid colab x descritor (notas 1-4)
 │   │   ├── conteudos/            # Banco micro-conteudos + Bunny import + tagging IA
 │   │   ├── temporadas/           # Viewer temporadas + botao Simulador
 │   │   ├── evolucao/             # Evolution Report agregado
-│   │   ├── ppp/                  # Extracao PPP
+│   │   ├── ppp/                  # Extracao PPP (.docx via mammoth, multi-escola)
 │   │   ├── relatorios/           # Download PDFs
 │   │   ├── whatsapp/             # Disparo lote
 │   │   ├── simulador/            # Sandbox chat
@@ -135,21 +143,30 @@ nextjs-app/
 │   │   ├── videos/               # Analytics Bunny
 │   │   ├── platform-admins/      # Gestao admins
 │   │   ├── preferencias-aprendizagem/
+│   │   ├── lixeira/              # NOVO: Restore de registros excluidos
+│   │   ├── radar/                # NOVO: Ingestao Radar (Saeb/ICA/Censo) + funnel analytics
+│   │   │   ├── page.tsx
+│   │   │   └── funnel/page.tsx
 │   │   └── vertho/               # Paineis Admin Vertho
 │   │       ├── evidencias/       # Conversas socraticas 1-12, extracao, transcript
-│   │       │   ├── page.tsx
-│   │       │   └── actions.ts
 │   │       ├── avaliacao-acumulada/  # Nota por descritor + auditoria + regerar
-│   │       │   ├── page.tsx
-│   │       │   └── actions.ts
 │   │       ├── auditoria-sem14/  # 4 notas + delta + regerar com feedback
-│   │       │   ├── page.tsx
-│   │       │   └── actions.ts
 │   │       ├── simulador-custo/  # Calculadora interativa custo IA
-│   │       │   └── page.tsx
-│   │       └── knowledge-base/   # NOVO: CRUD base conhecimento RAG per-tenant
-│   │           ├── page.tsx
-│   │           └── actions.ts
+│   │       └── knowledge-base/   # CRUD base conhecimento RAG per-tenant
+│   ├── radar/                    # NOVO: Site publico Radar Vertho (radar.vertho.ai)
+│   │   ├── page.tsx              # Home com busca + 3 stats reais
+│   │   ├── escola/[inep]/        # Hero + Saeb + Ideb + ENEM + SARESP + Censo + benchmarks + IA
+│   │   ├── municipio/[ibge]/     # Hero + ICA + FUNDEB + VAAR + variabilidade + IA
+│   │   ├── rede/[ibge]/          # Rede municipal
+│   │   ├── estado/[uf]/          # Stats UF + microrregioes + Top/Bottom 10
+│   │   ├── comparar/             # Lado a lado de ate 4 escolas
+│   │   ├── metodologia/, bett/, sitemap.ts, robots.ts
+│   │   └── _components/          # 23 componentes vh3
+│   ├── radarbett/                # NOVO: Site publico Bett 2026 (radarbett.vertho.ai)
+│   │   ├── page.tsx              # Home com tipografia Plus Jakarta Sans + Fraunces (escopadas)
+│   │   ├── escola/[inep]/, municipio/[ibge]/, comparar/
+│   │   ├── _lib/whatsapp.ts      # openWhatsAppAgendar(ctx) — "Agendar conversa" abre WhatsApp direto
+│   │   └── _components/whatsapp-icon.tsx
 │   ├── actions/
 │   │   ├── beto.ts               # BETO contextual
 │   │   └── manutencao.ts
@@ -177,10 +194,10 @@ nextjs-app/
 │       │   ├── qstash/route.ts
 │       │   └── qstash/whatsapp-cis/route.ts
 │       └── ...
-├── actions/                      # Server Actions (logica de negocio, 41 arquivos .ts)
+├── actions/                      # Server Actions (logica de negocio, 42 arquivos .ts)
 │   ├── ai-client.ts              # callAI + callAIChat + Extended Thinking
 │   ├── utils.ts                  # extractJSON, extractBlock, stripBlocks
-│   ├── fase1.ts                  # IA1, IA2, IA3, Cenarios
+│   ├── fase1.ts                  # IA1, IA2, IA3, Cenarios (Top 10 case+accent insensitive)
 │   ├── fase2.ts                  # Forms, emails, coleta, status
 │   ├── fase3.ts                  # IA4, relatorios
 │   ├── fase4.ts                  # PDI, trilhas, triggers
@@ -188,6 +205,7 @@ nextjs-app/
 │   ├── temporadas.ts             # Motor de Temporadas (gerar, carregar, listar)
 │   ├── conteudos.ts              # Banco micro-conteudos + Bunny + tagging IA
 │   ├── conteudos-metrics.ts      # Metricas de conteudos
+│   ├── recalcular-impacto-conteudo.ts  # NOVO: Recalculo periodico de impacto
 │   ├── avaliacao-acumulada.ts    # Auto-trigger pos sem 13, dual-IA
 │   ├── evolution-report.ts       # Consolida sems 13+14
 │   ├── temporada-concluida.ts    # Dados tela Concluida
@@ -201,7 +219,10 @@ nextjs-app/
 │   ├── tutor-evidencia.ts        # Avaliacao evidencia
 │   ├── competencias.ts           # CRUD por empresa
 │   ├── competencias-base.ts      # CRUD base global
-│   ├── ppp.ts                    # Jina + Firecrawl + 10 secoes
+│   ├── votacao.ts                # NOVO: Votacao colabs nas top10 do cargo (load+save case+accent insensitive)
+│   ├── perfil-externo.ts         # NOVO: Onboarding autosvc para piloto
+│   ├── lead-comercial.ts         # NOVO: Captura de lead via Radar
+│   ├── ppp.ts                    # Jina + Firecrawl + 10 secoes (.docx via mammoth, multi-escola)
 │   ├── onboarding.ts             # Criar empresa, importar, config
 │   ├── cron-jobs.ts              # cleanup, segunda, quinta
 │   ├── dashboard-kpis.ts         # KPIs home
@@ -238,13 +259,31 @@ nextjs-app/
 │       ├── StatusBadge.tsx
 │       ├── CompetencyBlock.tsx
 │       └── ChecklistBox.tsx
-├── lib/                          # ~50 arquivos (.ts + .js residuais em fit-v2/, prompts/)
+├── lib/                          # ~60 arquivos (.ts + .js residuais em fit-v2/, prompts/)
 │   ├── supabase.ts               # createSupabaseClient + createSupabaseAdmin
 │   ├── supabase-browser.ts       # Singleton browser client
 │   ├── tenant-resolver.ts        # resolveTenant(slug) cache 5min
 │   ├── tenant-db.ts              # Helper multi-tenant DB
 │   ├── ui-resolver.ts            # getCustomLabel + isHidden
 │   ├── authz.ts                  # RBAC: getUserContext, isPlatformAdmin, roles
+│   ├── auth/                     # NOVO: action-context (requireAdminAction, requireUserAction, requireAdminOrCronAction), fetch-auth, request-context
+│   ├── csrf.ts                   # NOVO: Tokens anti-CSRF
+│   ├── rate-limit.ts             # NOVO: Rate limiting in-memory + dedup
+│   ├── domain.ts                 # NOVO: Helpers de dominio (vertho.ai resolution)
+│   ├── vercel-domain.ts          # NOVO: Vincular subdominio Vercel via API (botao manual)
+│   ├── perfil-comportamental.ts  # NOVO: Helper perfil DISC
+│   ├── perfil-externo/           # NOVO: Logica perfil externo (autosvc piloto)
+│   ├── sentry-scrub-pii.ts       # NOVO: Scrub PII antes de enviar pro Sentry
+│   ├── radar/                    # NOVO: Camada de dados+IA do Radar
+│   │   ├── queries.ts            # getEscola, getMunicipio, getRede, getEstadoStats, benchmarks
+│   │   ├── ica-benchmarks-oficiais.ts  # MEC oficial: Brasil 2025=66%, por UF 2023-2025
+│   │   ├── ia-narrativa.ts       # Cache (scope, prompt_version, dados_hash) + isLikelyBot
+│   │   ├── proposta-pdf-data.ts  # IA da proposta do PDF
+│   │   ├── leitura-deterministica.ts  # Textos sem IA (fallback SEO) + fmt percentual
+│   │   ├── saeb-importer.ts, ica-importer.ts, censo-importer.ts
+│   │   ├── censo-scores.ts       # 4 scores agrupados por familia de campo
+│   │   ├── eventos.ts            # registrarEvento server-side (funnel)
+│   │   └── hash.ts               # stableJsonHash p/ cache IA
 │   ├── versioning.ts             # Prompt versioning (SHA-256 dedup)
 │   ├── logger.ts                 # Logger estruturado
 │   ├── notifications.ts          # Templates email + WhatsApp
@@ -255,10 +294,10 @@ nextjs-app/
 │   ├── pii-masker.ts             # Mascara PII antes de enviar para LLMs externos
 │   ├── ai-tasks.ts               # Tasks IA auxiliares
 │   ├── ia-cost-catalog.ts        # Catalogo chamadas IA x modelos x presets (inclui RAG)
-│   ├── embeddings.ts             # NOVO: Wrapper Voyage / OpenAI embedding provider
-│   ├── rag.ts                    # NOVO: kb_search_hybrid + formatacao grounding
-│   ├── rag-ingest.ts             # NOVO: Parser PDF/DOCX -> chunks -> embedding
-│   ├── rag-seed.ts               # NOVO: 6 docs seed (regua, modos missao, privacidade...)
+│   ├── embeddings.ts             # Wrapper Voyage / OpenAI embedding provider
+│   ├── rag.ts                    # kb_search_hybrid + formatacao grounding
+│   ├── rag-ingest.ts             # Parser PDF/DOCX -> chunks -> embedding
+│   ├── rag-seed.ts               # 6 docs seed (regua, modos missao, privacidade...)
 │   ├── temporada-concluida-pdf.ts  # PDF Evolution Report individual
 │   ├── plenaria-equipe-pdf.ts    # PDF Plenaria consolidado do time
 │   ├── disc-arquetipos.ts
@@ -307,7 +346,7 @@ nextjs-app/
 │   ├── auto-backup-diario.ps1
 │   └── instalar-backup-automatico.ps1
 ├── tests/                        # Playwright e2e (86 specs)
-├── migrations/                   # 30 migrations SQL (022 -> 051)
+├── migrations/                   # 62 migrations SQL (022 -> 082)
 ├── tsconfig.json                 # TypeScript config (strict:false, allowJs, checkJs:false)
 ├── docs/
 │   ├── envs-importantes.md
@@ -329,11 +368,16 @@ nextjs-app/
 
 ### 3.1 Roteamento por Subdominio
 ```
-{slug}.vertho.com.br/login
-  → middleware.js extrai slug do hostname
-  → Injeta header x-tenant-slug
-  → Server Components resolvem tenant via lib/tenant-resolver.js (cache 5min)
+{slug}.vertho.ai/login (legado: {slug}.vertho.com.br)
+  → middleware.js extrai slug do hostname (suporta .ai e .com.br)
+  → Injeta header x-tenant-slug + cookie vertho-tenant-slug
+  → Server Components resolvem tenant via lib/tenant-resolver.ts (cache 5min)
+  → radar.vertho.ai     → reescreve para /radar/<path>     (site publico Radar)
+  → radarbett.vertho.ai → reescreve para /radarbett/<path> (site publico Bett 2026)
+  → app.vertho.ai       → app principal (auth/admin)
 ```
+
+**Vincular subdominio ao Vercel**: a partir de 2026-04, o registro NAO eh mais automatico em `criarNovaEmpresa`. Existe botao **"Vincular ao Vercel"** em `/admin/empresas/{id}/configuracoes` (aba Branding) — usa `lib/vercel-domain.ts`. Razao: cliente Ibipeba falhou silenciosamente no auto-registro.
 
 ### 3.2 Resolucao do Tenant
 ```
@@ -358,6 +402,14 @@ lib/tenant-resolver.js:
 **Camada 3 — Codigo (Server Actions + API Routes)**
 - Server actions usam `createSupabaseAdmin()` com filtro EXPLICITO de `empresa_id`
 - API routes: `/api/colaboradores` exige `empresa_id` no request
+
+**Camada 4 — Auth Action Context (auth audit P1+P2, 2026-04)**
+- `lib/auth/action-context.ts` provê três guardas para server actions:
+  - `requireAdminAction()` — exige platform admin
+  - `requireUserAction()` — exige usuário autenticado (qualquer role)
+  - `requireAdminOrCronAction()` — admin OU chamada do cron QStash assinada
+- Aplicado em ~120 server actions (votação, fase1-5, temporadas, ppp, conteudos, etc.)
+- Migration 081: RLS restrita em `diag_analises_ia`
 
 ### 3.4 Branding por Tenant
 Coluna `ui_config JSONB`: logo_url, 7 cores, font_color, login_subtitle, hidden_elements, labels.
@@ -610,7 +662,30 @@ Tabelas: trilhas, colaboradores, temporada_semana_progresso
 
 ---
 
-## 8. Modelagem de Dados (30 migrations — 022 a 051)
+## 8. Modelagem de Dados (62 migrations — 022 a 082)
+
+### Migrations 022-051 (core Mentor IA)
+Multi-tenant + Fit v2 + Temporadas + Tira-Duvidas + RAG (knowledge_base, pgvector 1024d) + Capacitacao + Relatorios.
+
+### Migrations 052-053 (votacao + aderencia)
+- **052** — `top10_cargos.aderencia_cargo`, `aderencia_mercado`, `motivo` (scores IA1)
+- **053** — `votacao_competencias` (colab vota nas top 10 do cargo, gera ranking de foco)
+
+### Migrations 054-082 (Radar Vertho — base nacional INEP)
+- **054** — schema Radar: `diag_escolas`, `diag_saeb_snapshots`, `diag_ica_snapshots`, `diag_analises_ia`, `diag_leads`, `diag_ingest_runs` + bucket `diag-relatorios`
+- **055-058** — refinamentos schema (IBGE nullable, Censo, lat/long, bucket privado, campos API INEP)
+- **059** — `pg_trgm` + GIN indexes p/ busca
+- **060** — Materialized views: `diag_mv_escola_saeb_agg`, `diag_mv_municipio_saeb_agg`, `diag_mv_municipio_ica_recent`, `diag_mv_estado_stats` + RPC `refresh_diag_mvs()`
+- **061** — `diag_eventos` (tracking funil) + RPCs
+- **062-066** — `diag_ideb` (metas), `diag_saresp` (escolas SP), `diag_fundeb`, `diag_pdde`, mapeamento código SP → INEP
+- **067-069** — RPCs de contagem da home, `diag_fundeb_vaar` (binário), receita prevista FUNDEB
+- **070-076** — MVs: métricas municipais/escolas, benchmarks INSE, infra×Saeb, pares cidade, stats por etapa, rede municipal
+- **077** — Recompute scores Censo (correção famílias de campo)
+- **078** — `diag_enem_escola` (3º EM)
+- **079** — `perfil_externo` (autosvc)
+- **080** — `diag_censo_docentes` (microdados INEP) + saneamento QT_*
+- **081** — RLS restrita em `diag_analises_ia` (auth audit P1)
+- **082** — RPCs `diag_qualidade_*` para painel de qualidade dos dados
 
 ### Dados Transacionais
 ```
@@ -755,7 +830,7 @@ Task Scheduler Windows → scripts/auto-backup-diario.ps1 (todo dia 20h)
 | `scripts/auto-backup-diario.ps1` | Backup diario automatico |
 
 ### Restauracao do Schema
-- Rodar migrations em ordem: `migrations/022*.sql` ate `051*.sql`
+- Rodar migrations em ordem: `migrations/022*.sql` ate `082*.sql`
 - Processo de alteracao de schema: `docs/SCHEMA-PROCESS.md`
 
 ### Backfill de embeddings
@@ -772,9 +847,19 @@ Task Scheduler Windows → scripts/auto-backup-diario.ps1 (todo dia 20h)
 GitHub: vertho-app/vertho-app (publico)
 Vercel: vertho-app (deploy via git push)
 Cloudflare: DNS + CDN (CNAME @ e * → cname.vercel-dns.com, SSL Full Strict)
-Supabase: PostgreSQL + Auth + Storage + RLS
-Upstash: QStash (filas async WhatsApp)
-Sentry: Error tracking
+  - vertho.ai (raiz)
+  - app.vertho.ai (auth/admin/dashboard)
+  - *.vertho.ai (tenants — vincular manualmente em /admin/empresas/{id}/configuracoes)
+  - radar.vertho.ai (Radar publico nacional)
+  - radarbett.vertho.ai (site Bett 2026)
+  - vertho.com.br (legado, ainda atendido pelo middleware)
+Supabase: PostgreSQL + Auth + Storage + RLS (pgvector 1024d)
+Upstash: QStash (filas async WhatsApp + Radar PDF worker)
+Resend: Email transacional
+Sentry: Error tracking (com lib/sentry-scrub-pii.ts)
+Bunny Stream: Video host
+Voyage AI: Embeddings (voyage-3-large)
+Z-API: WhatsApp gateway
 ```
 
 ---
@@ -799,5 +884,5 @@ Sentry: Error tracking
 ---
 
 *Documento validado contra o codigo-fonte em producao.*
-*~230 arquivos TS + ~27 .js residuais | 30 migrations SQL (022-051) | 111 unit + 86 e2e tests | 22+ env vars | vertho.com.br*
-*Revisao: 17/04/2026*
+*~280 arquivos TS + ~27 .js residuais | 62 migrations SQL (022-082) | 111 unit + 86 e2e tests | 22+ env vars | vertho.ai*
+*Revisao: 03/05/2026*

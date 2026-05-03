@@ -9,12 +9,20 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 ### 1. Criar empresa
 **Admin** · `/admin/dashboard` → botão **"+ Nova Empresa"**
 - Preencher: nome, slug (subdomínio), segmento (educacional/corporativo), logo
-- A empresa recebe um subdomínio `{slug}.vertho.com.br`
+- A empresa recebe um subdomínio `{slug}.vertho.ai`
+- **Vincular ao Vercel é manual**: após criar a empresa, abrir `/admin/empresas/{id}/configuracoes` → aba Branding → botão **"Vincular ao Vercel"** (auto-registro foi removido em 2026-04 após bug com Ibipeba)
 
 ### 2. Cadastrar colaboradores
 **Admin** · `/admin/empresas/{id}` → **Fase 0 · Cadastro · Colaboradores & Cargos**
 - Adicionar manualmente ou importar planilha
-- Cada colab: nome, email, cargo, área/depto, role (colaborador/gestor/rh)
+- Cada colab: nome, email, cargo, **área/depto** (`area_depto`, aliases: `area`, `departamento`, `setor`, `depto`), role (colaborador/gestor/rh)
+- Tabela com **ordenação por coluna** (clique no header)
+- **Danger zone** (limpar competências/colaboradores) disponível na própria página da empresa
+- Lixeira (`/admin/lixeira`) permite restaurar registros excluídos
+
+### 2b. (Alternativa) Cadastro externo / autosvc
+**Admin** · `/admin/empresas/{id}/perfil-externo`
+- Gera link público para preenchimento direto pelo colaborador (autosvc piloto, migration 079)
 
 ### 3. Cadastrar cargos e competências
 **Admin** · `/admin/competencias?empresa={id}`
@@ -42,6 +50,15 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 **Admin** · `/admin/empresas/{id}` → **Fase 1 · IA1 — Top 10**
 - IA analisa descrição do cargo + competências disponíveis
 - Salva as 10 competências prioritárias por cargo em `top10_cargos`
+- A partir de 2026 (migration 052), cada item carrega `aderencia_cargo` (0-1), `aderencia_mercado` (0-1) e `motivo` (frase curta)
+- **Match cargo-colab é case+accent insensitive** (ex: "Coordenação Pedagógica" = "coordenacao pedagogica")
+
+### 5b. Votação dos colaboradores nas Top 10
+**Colaborador** · `/dashboard/votacao`
+- Card "Votação aberta" aparece **antes** de "Foco da semana" no dashboard
+- Cada colab vota nas top 10 do próprio cargo, gerando ranking de relevância percebida
+- Persiste em `votacao_competencias` (migration 053)
+- **Admin** vê resultados em `/admin/empresas/{id}/votacao`
 
 ### 6. Validar Top 5
 **Admin** · `/admin/cargos` → revisar/editar o Top 5 de cada cargo
@@ -311,6 +328,19 @@ Todos com back button context-aware.
 
 ---
 
+## Sites públicos (paralelos ao Mentor IA)
+
+### Radar Vertho (`radar.vertho.ai`)
+Plataforma pública nacional de indicadores INEP por escola/município. Consulta sem cadastro; captação de leads via PDF assíncrono. Cobertura ~197k escolas.
+- Admin: `/admin/radar` (ingestão Saeb/ICA/Censo) e `/admin/radar/funnel` (analytics).
+- Doc detalhada: `docs/radar/README.md`.
+
+### Radarbett (`radarbett.vertho.ai`)
+Versão para o Bett 2026 — tipografia escopada (Plus Jakarta Sans + Fraunces) e CTA "Agendar conversa" abre WhatsApp direto (mensagem varia por contexto).
+- **Modo teste pré-Bett ativo**: "Liberar leitura completa" libera imediatamente sem capturar lead. Reverter pós-evento (gating estrito).
+
+---
+
 ## Loops contínuos (rodam em background)
 
 ### Cron diário (5h)
@@ -368,6 +398,17 @@ Todos com back button context-aware.
 ---
 
 ## Notas de manutenção
+
+### 2026-05-03 — Bett 2026, votação, perfil externo
+- **Radarbett** (`radarbett.vertho.ai`) shipado para o Bett: tipografia Plus Jakarta Sans + Fraunces escopada, "Agendar conversa" → WhatsApp direto, modo teste com unlock imediato (reverter pós-evento)
+- **Votação de competências** (`/dashboard/votacao`, migration 053) com match case+accent insensitive em `actions/votacao.ts` e `actions/fase1.ts::loadTop10`
+- **Perfil externo / autosvc** (migration 079) — onboarding piloto sem CSV
+- **Vincular Vercel manual**: removido auto-registro em `criarNovaEmpresa` após bug Ibipeba; botão em Branding
+- **PPP** suporta múltiplas escolas por empresa (chave de upsert por `nomeEscola`) e .docx via mammoth
+- **CSV de colaboradores** importa `area_depto` (+ aliases) e tabela tem ordenação por coluna
+- **Danger zone**: exclusão de competências e colaboradores em `/admin/empresas/{id}` + `/admin/lixeira`
+- **Auth audit P1+P2**: `lib/auth/action-context.ts` aplicado em ~120 server actions; migration 081 restringe RLS de `diag_analises_ia`
+- **ICA benchmarks oficiais MEC** em `lib/radar/ica-benchmarks-oficiais.ts` (Brasil 2025=66%, por UF 2023-2025); painel de qualidade dos dados (migration 082)
 
 ### 2026-04-19 — Design System Fase 1
 - **Design System**: `docs/DESIGN-SYSTEM.md` com paleta oficial, tipografia, tokens
