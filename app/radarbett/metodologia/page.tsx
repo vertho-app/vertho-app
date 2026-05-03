@@ -6,7 +6,7 @@ import { BettHeader } from '../_components/bett-header';
 export const metadata: Metadata = {
   title: 'Metodologia',
   description:
-    'Como o Radar Vertho consolida Saeb, Ideb, ICA, SARESP, Censo Escolar, FUNDEB e PDDE em uma leitura única por escola e município, quais fontes usa, como compara e quais limites a análise tem.',
+    'Como o Radar Vertho consolida Saeb, Ideb, ICA, ENEM, SARESP, Censo Escolar, FUNDEB e PDDE em uma leitura única por escola e município, quais fontes usa e como compara.',
   alternates: { canonical: 'https://radarbett.vertho.ai/metodologia' },
 };
 
@@ -88,6 +88,14 @@ export default function MetodologiaPage() {
                 omitidas.
               </li>
               <li>
+                <strong>ENEM por escola (INEP):</strong> média geral de cada escola no Exame
+                Nacional do Ensino Médio (concluintes do 3º EM), com desagregação por área
+                (Linguagens e Códigos, Ciências da Natureza, Ciências Humanas, Matemática e
+                Redação) e número de participantes. Anual, escolas com pelo menos 10 concluintes
+                avaliados (corte INEP). Usado para complementar a leitura do 3º EM nas escolas que
+                têm Ensino Médio.
+              </li>
+              <li>
                 <strong>Censo Escolar (INEP):</strong> cadastro nacional anual com 213 indicadores
                 de infraestrutura física (dependências, equipamentos, acessibilidade) e
                 quantitativos de matrícula. Usado para situar a estrutura do prédio e os recursos
@@ -109,11 +117,11 @@ export default function MetodologiaPage() {
           <Section titulo="Cobertura geográfica e temporal">
             <p>
               O Radar começou com cobertura piloto restrita à microrregião de Irecê (BA) e hoje
-              opera em <strong>cobertura nacional</strong> para Saeb, Ideb, ICA, Censo Escolar,
-              FUNDEB e PDDE. SARESP é específico do estado de São Paulo, com séries de 2023 a
-              2025. Onde uma fonte não cobre uma escola/município (por exemplo, SARESP fora de
-              SP, ou Saeb de uma escola que não foi avaliada na edição), a seção correspondente
-              não aparece — em vez de inventar.
+              opera em <strong>cobertura nacional</strong> para Saeb, Ideb, ICA, ENEM, Censo
+              Escolar, FUNDEB e PDDE. SARESP é específico do estado de São Paulo, com séries de
+              2023 a 2025. Onde uma fonte não cobre uma escola/município (por exemplo, SARESP
+              fora de SP, ou Saeb de uma escola que não foi avaliada na edição), a seção
+              correspondente não aparece — em vez de inventar.
             </p>
           </Section>
 
@@ -163,26 +171,13 @@ export default function MetodologiaPage() {
             </p>
           </Section>
 
-          <Section titulo="Análise por IA — limites e salvaguardas">
-            <p>
-              Cada página tem uma leitura institucional gerada por IA <strong>a partir
-              exclusivamente dos dados estruturados</strong> mostrados na página. Regras rígidas:
-            </p>
-            <ul className="space-y-2 list-disc pl-5 mt-3">
-              <li>A IA não inventa números. Todo dado citado tem ano e fonte declarados.</li>
-              <li>Quando um dado não está disponível, a IA escreve "dado não disponível" — não preenche lacunas com estimativa.</li>
-              <li>A análise é cacheada por hash SHA-256 do conteúdo de entrada. Se os números não mudaram, o texto não muda — garantindo reprodutibilidade.</li>
-              <li>O modelo recebe instruções para não emitir juízo sobre indivíduos (professores, gestores, alunos). Toda observação é dirigida ao agregado escola/município.</li>
-              <li>Disclaimer fixo: "Análise gerada a partir de dados públicos. Valores oficiais devem ser consultados nos portais governamentais."</li>
-            </ul>
-          </Section>
-
           <Section titulo="Atualização dos dados">
             <p>Os dados são reimportados sempre que cada fonte publica nova edição:</p>
             <ul className="space-y-1 list-disc pl-5 mt-3">
               <li>Saeb: bienal (2019, 2021, 2023, 2025…)</li>
               <li>Ideb: divulgado pelo INEP no ano seguinte ao Saeb</li>
               <li>ICA: anual</li>
+              <li>ENEM por escola: anual, divulgado no ano seguinte à aplicação</li>
               <li>SARESP: anual (SP)</li>
               <li>Censo Escolar: anual</li>
               <li>FUNDEB e PDDE: atualização mensal/trimestral, consolidados ao fim de cada exercício</li>
@@ -209,16 +204,6 @@ export default function MetodologiaPage() {
               Cada página tem botão "Citar" que copia a referência completa para a área de
               transferência.
             </p>
-          </Section>
-
-          <Section titulo="Limites conhecidos">
-            <p>Transparência sobre o que o Radar <em>ainda não faz</em>:</p>
-            <ul className="space-y-1 list-disc pl-5 mt-3">
-              <li>Avaliações estaduais fora de SP (SAEPE-PE, SPAECE-CE, SAERS-RS, Paraná Avaliação etc.) — em estudo para próximas edições.</li>
-              <li>Microdados de aluno (raça/cor, gênero, NEE) — fora de escopo por LGPD.</li>
-              <li>Pareamento perfeito SARESP↔INEP em 100% dos casos — a heurística cobre a maioria, mas não tudo.</li>
-              <li>Ranking público de escolas — explicitamente não publicamos. Comparações são por pares similares, não classificatórias.</li>
-            </ul>
           </Section>
 
           <Section titulo="Privacidade e LGPD">
