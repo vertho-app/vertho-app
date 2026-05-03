@@ -11,10 +11,12 @@ import type {
   EscolaBenchmarkRow,
 } from './queries';
 
-const PROMPT_VERSION = 'radarbett-narrativa-v1';
-// Modelo primário do glimpse radarbett. Pode ser sobrescrito por env.
-const MODEL_PRIMARY = process.env.RADARBETT_AI_MODEL || 'gpt-5.4-mini';
-const MODEL_FALLBACK = 'claude-sonnet-4-6';
+const PROMPT_VERSION = 'radarbett-narrativa-v2';
+// Modelo primário do glimpse radarbett — Claude Sonnet 4.6 oferece melhor
+// fidelidade às citações de número e fonte que o prompt exige. Override
+// possível via env (ex: 'gpt-5.4-mini' para experimentos de custo).
+const MODEL_PRIMARY = process.env.RADARBETT_AI_MODEL || 'claude-sonnet-4-6';
+const MODEL_FALLBACK = process.env.RADARBETT_AI_FALLBACK || 'gpt-5.4-mini';
 
 export type NarrativaRadarbett = {
   resumo: string;
@@ -40,25 +42,25 @@ REGRAS RÍGIDAS:
 FORMATO DE SAÍDA: APENAS o texto do parágrafo, sem aspas externas, sem JSON, sem prefixo. Máximo 380 caracteres.`;
 
 async function gerarComFallback(systemPrompt: string, userPrompt: string): Promise<NarrativaRadarbett | null> {
-  // 1. Modelo primário (gpt-5.4-mini ou env override)
-  if (process.env.OPENAI_API_KEY) {
-    try {
-      const resp = await callAI(systemPrompt, userPrompt, { model: MODEL_PRIMARY }, 600, { temperature: 0.4 });
-      const txt = String(resp || '').trim().replace(/^["']|["']$/g, '');
-      if (txt.length >= 40) return { resumo: txt.slice(0, 1200), modelo_usado: MODEL_PRIMARY };
-      console.warn(`[radarbett-narrativa] ${MODEL_PRIMARY} retornou texto muito curto`);
-    } catch (err) {
-      console.error(`[radarbett-narrativa] ${MODEL_PRIMARY} falhou, tentando Claude:`, err);
-    }
-  }
-  // 2. Fallback Claude
+  // 1. Modelo primário (Sonnet 4.6 default; pode ser override via env)
   try {
-    const resp = await callAI(systemPrompt, userPrompt, { model: MODEL_FALLBACK }, 600, { temperature: 0.4 });
+    const resp = await callAI(systemPrompt, userPrompt, { model: MODEL_PRIMARY }, 600, { temperature: 0.4 });
     const txt = String(resp || '').trim().replace(/^["']|["']$/g, '');
-    if (txt.length >= 40) return { resumo: txt.slice(0, 1200), modelo_usado: MODEL_FALLBACK };
-    console.warn('[radarbett-narrativa] Claude também retornou texto muito curto');
+    if (txt.length >= 40) return { resumo: txt.slice(0, 1200), modelo_usado: MODEL_PRIMARY };
+    console.warn(`[radarbett-narrativa] ${MODEL_PRIMARY} retornou texto muito curto`);
   } catch (err) {
-    console.error('[radarbett-narrativa] Claude fallback falhou:', err);
+    console.error(`[radarbett-narrativa] ${MODEL_PRIMARY} falhou, tentando fallback:`, err);
+  }
+  // 2. Fallback (gpt-5.4-mini default)
+  if (MODEL_FALLBACK && MODEL_FALLBACK !== MODEL_PRIMARY) {
+    try {
+      const resp = await callAI(systemPrompt, userPrompt, { model: MODEL_FALLBACK }, 600, { temperature: 0.4 });
+      const txt = String(resp || '').trim().replace(/^["']|["']$/g, '');
+      if (txt.length >= 40) return { resumo: txt.slice(0, 1200), modelo_usado: MODEL_FALLBACK };
+      console.warn(`[radarbett-narrativa] ${MODEL_FALLBACK} também retornou texto muito curto`);
+    } catch (err) {
+      console.error(`[radarbett-narrativa] ${MODEL_FALLBACK} fallback falhou:`, err);
+    }
   }
   return null;
 }

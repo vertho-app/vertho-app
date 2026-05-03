@@ -283,13 +283,14 @@ export function EscolaResultadoClient({
           )}
         </section>
 
-        {/* Onde a Vertho atua — frentes derivadas dos sinais */}
+        {/* Onde a Vertho pode ajudar — frentes derivadas dos sinais */}
         {panorama && (
           <AtuacaoVertho
             escolaNome={escola.nome}
             saeb={panorama.saeb}
             ideb={panorama.ideb}
             enem={panorama.enem}
+            censo={panorama.censo}
             quadrante={panorama.quadrante}
           />
         )}

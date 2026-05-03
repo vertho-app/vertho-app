@@ -174,12 +174,9 @@ function computarSinaisMun(m: any): Sinal[] {
     });
   }
 
-  // Oportunidade Vertho
-  sinais.push({
-    tipo: 'oportunidade',
-    titulo: 'Onde a Vertho pode apoiar',
-    preview: `Priorização por risco entre escolas, formação de coordenadores pedagógicos, MentorIA pra educadores e dossiê de evidências da rede...`,
-  });
+  // O card "Oportunidade Vertho" foi removido daqui — narrativa Vertho agora
+  // vive na seção dedicada "Onde a Vertho pode ajudar" (AtuacaoVerthoMunicipio),
+  // detectando frentes reais a partir dos dados da rede municipal.
 
   return sinais.slice(0, 4);
 }

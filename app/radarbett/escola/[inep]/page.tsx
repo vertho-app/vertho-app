@@ -298,20 +298,9 @@ function computarSinais({
     }
   }
 
-  // Oportunidade Vertho — sempre presente, varia conforme sinais detectados
-  if (sinais.length > 0) {
-    sinais.push({
-      tipo: 'oportunidade',
-      titulo: 'Onde a Vertho pode apoiar',
-      preview: `Combinação de assessment de competências da equipe gestora, trilha de desenvolvimento docente e acompanhamento por MentorIA...`,
-    });
-  } else {
-    sinais.push({
-      tipo: 'oportunidade',
-      titulo: 'Cenário positivo — fortalecimento de práticas',
-      preview: `Há espaço pra consolidar boas práticas com PDIs estruturados, registro de evidências e formação contínua dos educadores...`,
-    });
-  }
+  // O card "Oportunidade Vertho" foi removido daqui — agora a narrativa está
+  // consolidada na seção dedicada "Onde a Vertho pode ajudar" (AtuacaoVertho),
+  // que detecta frentes reais a partir dos dados específicos da escola.
 
   return sinais.slice(0, 6);
 }

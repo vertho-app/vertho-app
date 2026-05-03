@@ -1,6 +1,6 @@
 'use client';
 
-import { GraduationCap, BookOpen, Target, Sparkles, Award, Layers, Users } from 'lucide-react';
+import { GraduationCap, BookOpen, Target, Sparkles, Award, Layers, Users, TrendingUp, MessagesSquare, ArrowRightLeft } from 'lucide-react';
 import { openWhatsAppAgendar } from '../../_lib/whatsapp';
 import { WhatsappIcon } from '../../_components/whatsapp-icon';
 
@@ -26,13 +26,16 @@ const TONS: Record<string, { iconBg: string; iconColor: string; eyebrow: string;
 };
 
 function detectarFrentes({
-  ica, ideb, enem, vaar, redes, nome,
+  ica, ideb, enem, vaar, redes, dispersao, benchmarks, uf, nome,
 }: {
   ica: any[];
   ideb: any[];
   enem: any[];
   vaar: any | null;
   redes: Record<string, number>;
+  dispersao: any | null;
+  benchmarks: any[];
+  uf: string;
   nome: string;
 }): Frente[] {
   const frentes: Frente[] = [];
@@ -111,18 +114,82 @@ function detectarFrentes({
     }
   }
 
-  // 3. ENEM agregado fraco — trilha 3º EM
+  // 3. ENEM agregado — fraco, intermediário ou forte
   const enemRecente = [...enem].sort((a, b) => b.ano - a.ano)[0];
   if (enemRecente?.mediaGeralPonderada != null) {
     const m = Number(enemRecente.mediaGeralPonderada);
+    const mRedacao = enemRecente.mediaRedacaoPonderada != null ? Number(enemRecente.mediaRedacaoPonderada) : null;
     if (m < 500) {
       frentes.push({
         icon: Target,
         cor: 'purple',
         titulo: 'Plano de preparação dos concluintes do 3º EM',
-        evidencia: `Média ENEM ${enemRecente.ano} da rede = ${m.toFixed(0)} pts (${enemRecente.escolasCom10 || 0} escolas com 10+ participantes)`,
+        evidencia: `Média ENEM ${enemRecente.ano} da rede municipal = ${m.toFixed(0)} pts (${enemRecente.escolasCom10 || 0} escolas com 10+ participantes)`,
         atuacao: 'Trilha por área do ENEM, simulações conduzidas por MentorIA, formação docente focada nas áreas mais defasadas e acompanhamento individual dos concluintes.',
       });
+    } else if (m >= 540) {
+      frentes.push({
+        icon: Sparkles,
+        cor: 'green',
+        titulo: 'Manter a posição no ENEM da rede',
+        evidencia: `Média ENEM ${enemRecente.ano} da rede municipal = ${m.toFixed(0)} pts — patamar acima da média estadual pública`,
+        atuacao: 'Trilhas avançadas para concluintes com afinidade vocacional, mentoria por área, banco de redações modelo da rede e dossiê de evidências como benchmark regional.',
+      });
+    }
+    // Redação fraca da rede
+    if (mRedacao != null && mRedacao < 500) {
+      frentes.push({
+        icon: MessagesSquare,
+        cor: 'amber',
+        titulo: 'Formação em produção textual na rede',
+        evidencia: `Redação ENEM ${enemRecente.ano} = ${mRedacao.toFixed(0)} pts — habilidade que pode ser destravada com formação dirigida a professores de Linguagens`,
+        atuacao: 'Trilha de produção textual para professores de Linguagens da rede, ciclos de feedback escrito com MentorIA, banco de redações modelo e formação de banca interna.',
+      });
+    }
+  }
+
+  // 3b. Dispersão alta entre escolas da rede municipal — equalizar aprendizagem
+  if (dispersao && dispersao.totalEscolas >= 5) {
+    const cv = dispersao.media > 0 ? (dispersao.desvio / dispersao.media) * 100 : 0;
+    if (cv >= 15) {
+      frentes.push({
+        icon: ArrowRightLeft,
+        cor: 'amber',
+        titulo: 'Equalizar aprendizagem entre as escolas',
+        evidencia: `Dispersão alta (CV ${cv.toFixed(0)}%) no Ideb ${dispersao.etapa.replace('_', 'º ')} ${dispersao.ano} da rede — amplitude de ${(dispersao.max - dispersao.min).toFixed(1)} pts entre as escolas (${dispersao.min.toFixed(1)} a ${dispersao.max.toFixed(1)})`,
+        atuacao: 'Diagnóstico das causas da variação (gestão, prática docente, contexto), mentoria cruzada entre escolas top e bottom da rede, formação focada nas escolas com maior gap.',
+      });
+    }
+  }
+
+  // 3c. Comparativo com vizinhos — atrás da microrregião
+  if (benchmarks?.length) {
+    const cidade = benchmarks.find((b: any) => b.scope === 'cidade');
+    const micro = benchmarks.find((b: any) => b.scope === 'microrregiao');
+    // Pega a etapa principal do Ideb (a com mais escolas) na cidade
+    if (cidade && micro) {
+      const etapas: Array<'5_EF' | '9_EF' | '3_EM'> = ['5_EF', '9_EF', '3_EM'];
+      let pior: { etapa: string; valor: number; valorMicro: number; gap: number } | null = null;
+      for (const et of etapas) {
+        const key = et === '5_EF' ? 'ideb_5ef' : et === '9_EF' ? 'ideb_9ef' : 'ideb_3em';
+        const v = (cidade as any)[key];
+        const vMicro = (micro as any)[key];
+        if (v != null && vMicro != null) {
+          const gap = Number(v) - Number(vMicro);
+          if (gap <= -0.4 && (pior == null || gap < pior.gap)) {
+            pior = { etapa: et, valor: Number(v), valorMicro: Number(vMicro), gap };
+          }
+        }
+      }
+      if (pior) {
+        frentes.push({
+          icon: GraduationCap,
+          cor: 'amber',
+          titulo: `Recuperar terreno vs municípios vizinhos`,
+          evidencia: `Ideb ${ETAPA_LABEL[pior.etapa] || pior.etapa} ${pior.valor.toFixed(1)} vs ${pior.valorMicro.toFixed(1)} dos vizinhos da microrregião (${pior.gap.toFixed(1)} pts atrás)`,
+          atuacao: 'Diagnóstico comparativo com municípios vizinhos do mesmo perfil, identificação das alavancas que destravaram a melhoria nos pares, formação dirigida e plano de catch-up por escola.',
+        });
+      }
     }
   }
 
@@ -173,22 +240,25 @@ function detectarFrentes({
 }
 
 export function AtuacaoVerthoMunicipio({
-  ica, ideb, enem, vaar, redes, nome,
+  ica, ideb, enem, vaar, redes, dispersao, benchmarks, uf, nome,
 }: {
   ica: any[];
   ideb: any[];
   enem: any[];
   vaar: any | null;
   redes: Record<string, number>;
+  dispersao?: any | null;
+  benchmarks?: any[];
+  uf: string;
   nome: string;
 }) {
-  const frentes = detectarFrentes({ ica, ideb, enem, vaar, redes, nome });
+  const frentes = detectarFrentes({ ica, ideb, enem, vaar, redes, dispersao: dispersao ?? null, benchmarks: benchmarks ?? [], uf, nome });
   if (!frentes.length) return null;
 
   return (
     <section className="mb-10">
       <div className="mb-5">
-        <p className="eyebrow-manrope text-cyan-300/85 mb-2">Onde a Vertho atua</p>
+        <p className="eyebrow-manrope text-cyan-300/85 mb-2">Onde a Vertho pode ajudar</p>
         <h2 className="text-white" style={{
           fontFamily: 'var(--font-fraunces), "Fraunces", Georgia, serif',
           fontSize: 'clamp(24px, 3vw, 32px)',

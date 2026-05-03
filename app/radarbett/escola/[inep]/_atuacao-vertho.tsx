@@ -1,6 +1,6 @@
 'use client';
 
-import { GraduationCap, BookOpen, Target, TrendingDown, Sparkles, ArrowRight, Layers } from 'lucide-react';
+import { GraduationCap, BookOpen, Target, TrendingDown, TrendingUp, Sparkles, ArrowRight, Layers, Wifi, Users, MessagesSquare } from 'lucide-react';
 import { openWhatsAppAgendar } from '../../_lib/whatsapp';
 import { WhatsappIcon } from '../../_components/whatsapp-icon';
 
@@ -46,42 +46,83 @@ const TONS: Record<string, { iconBg: string; iconColor: string; eyebrow: string;
 };
 
 function detectarFrentes({
-  saeb, ideb, enem, quadrante, escolaNome,
+  saeb, ideb, enem, censo, quadrante, escolaNome,
 }: {
   saeb: any[];
   ideb: any[];
   enem: any[];
+  censo: any | null;
   quadrante: string | null;
   escolaNome: string;
 }): Frente[] {
   const frentes: Frente[] = [];
 
-  // 1. Formação docente — Saeb pctN0-1 alto
-  const saebRecente = [...saeb].sort((a, b) => b.ano - a.ano)[0];
-  if (saebRecente?.distribuicao) {
-    const pctN01 = (Number(saebRecente.distribuicao['0'] || 0) + Number(saebRecente.distribuicao['1'] || 0));
+  // 1. Saeb pctN0-1 — formação docente OU consolidação de boas práticas
+  // Olha LP e MAT separadamente do snapshot mais recente da etapa principal
+  const saebOrdenado = [...saeb].sort((a, b) => b.ano - a.ano);
+  const etapaPrincipal = (() => {
+    const counts: Record<string, number> = {};
+    for (const s of saebOrdenado) counts[s.etapa] = (counts[s.etapa] || 0) + 1;
+    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
+  })();
+  const ultimoAnoSaeb = saebOrdenado[0]?.ano;
+  const saebLP = etapaPrincipal && ultimoAnoSaeb
+    ? saebOrdenado.find((s) => s.etapa === etapaPrincipal && s.disciplina === 'LP' && s.ano === ultimoAnoSaeb)
+    : null;
+  const saebMAT = etapaPrincipal && ultimoAnoSaeb
+    ? saebOrdenado.find((s) => s.etapa === etapaPrincipal && s.disciplina === 'MAT' && s.ano === ultimoAnoSaeb)
+    : null;
+
+  for (const [s, disc, habilidade] of [
+    [saebLP, 'Língua Portuguesa', 'compreensão leitora e produção textual'],
+    [saebMAT, 'Matemática', 'numeracia e raciocínio lógico'],
+  ] as const) {
+    if (!s?.distribuicao) continue;
+    const pctN01 = (Number((s as any).distribuicao['0'] || 0) + Number((s as any).distribuicao['1'] || 0));
     if (pctN01 > 30) {
-      const disc = saebRecente.disciplina === 'LP' ? 'Língua Portuguesa' : 'Matemática';
-      const habilidade = saebRecente.disciplina === 'LP' ? 'compreensão leitora e produção textual' : 'numeracia e raciocínio lógico';
       frentes.push({
         icon: BookOpen,
         cor: 'cyan',
         titulo: `Formação docente em ${disc}`,
-        evidencia: `${pctN01.toFixed(0)}% dos alunos do ${ETAPA_LABEL[saebRecente.etapa] || saebRecente.etapa} nos níveis 0-1 em ${disc} · Saeb ${saebRecente.ano}`,
+        evidencia: `${pctN01.toFixed(0)}% dos alunos do ${ETAPA_LABEL[(s as any).etapa] || (s as any).etapa} nos níveis 0-1 em ${disc} · Saeb ${(s as any).ano}`,
         atuacao: `Trilha de formação docente aplicada com foco em ${habilidade}, MentorIA acompanhando a prática semanal e evidências registradas por professor.`,
+      });
+    } else if (pctN01 < 15 && pctN01 > 0) {
+      frentes.push({
+        icon: Sparkles,
+        cor: 'green',
+        titulo: `Consolidar prática em ${disc}`,
+        evidencia: `Apenas ${pctN01.toFixed(0)}% dos alunos no nível 0-1 em ${disc} · Saeb ${(s as any).ano} — resultado superior à média da rede`,
+        atuacao: `Documentação estruturada da prática que está funcionando, formação para replicar com novos professores e dossiê de evidências interno e para a rede.`,
       });
     }
   }
 
-  // 2. Trilha por área defasada — ENEM gap
+  // Saeb participação baixa — engajamento dos estudantes
+  const saebPart = saebLP || saebOrdenado[0];
+  if (saebPart?.taxa_participacao != null && saebPart.taxa_participacao < 75) {
+    frentes.push({
+      icon: Users,
+      cor: 'amber',
+      titulo: 'Engajamento dos estudantes na avaliação',
+      evidencia: `Apenas ${Number(saebPart.taxa_participacao).toFixed(0)}% dos alunos elegíveis participaram do Saeb ${saebPart.ano} — baixa participação compromete a leitura do diagnóstico`,
+      atuacao: `Diagnóstico das causas de evasão na avaliação, mobilização da comunidade escolar e alinhamento da equipe sobre o uso pedagógico do Saeb.`,
+    });
+  }
+
+  // 2. ENEM — múltiplas frentes (forte / intermediário / gap entre áreas / redação fraca)
   const enemRecente = [...enem].sort((a, b) => b.ano - a.ano)[0];
   if (enemRecente?.media_geral != null) {
+    const m = Number(enemRecente.media_geral);
+    const ano = enemRecente.ano;
     const areas = [
       { k: 'CN', nome: 'Ciências da Natureza', v: enemRecente.media_cn },
       { k: 'CH', nome: 'Ciências Humanas', v: enemRecente.media_ch },
       { k: 'LC', nome: 'Linguagens e Códigos', v: enemRecente.media_lc },
       { k: 'MT', nome: 'Matemática', v: enemRecente.media_mt },
     ].filter((a) => a.v != null).map((a) => ({ ...a, v: Number(a.v) }));
+
+    // 2.a — gap entre áreas
     if (areas.length >= 3) {
       const max = areas.reduce((a, b) => (a.v > b.v ? a : b));
       const min = areas.reduce((a, b) => (a.v < b.v ? a : b));
@@ -91,10 +132,40 @@ function detectarFrentes({
           icon: Target,
           cor: 'purple',
           titulo: 'Trilha para área defasada do 3º EM',
-          evidencia: `Gap de ${spread.toFixed(0)} pts no ENEM ${enemRecente.ano} entre ${max.nome} (${max.v.toFixed(0)}) e ${min.nome} (${min.v.toFixed(0)})`,
+          evidencia: `Gap de ${spread.toFixed(0)} pts no ENEM ${ano} entre ${max.nome} (${max.v.toFixed(0)}) e ${min.nome} (${min.v.toFixed(0)})`,
           atuacao: `Formação docente focada em ${min.nome}, simulações ENEM com MentorIA e plano de preparação dos concluintes por área.`,
         });
       }
+    }
+
+    // 2.b — média alta (manter excelência) ou média baixa (preparação dirigida)
+    if (m >= 600) {
+      frentes.push({
+        icon: Sparkles,
+        cor: 'green',
+        titulo: 'Manter excelência no ENEM',
+        evidencia: `Média geral ${m.toFixed(0)} pts no ENEM ${ano} — patamar de elite${enemRecente.media_redacao != null ? `, redação ${Number(enemRecente.media_redacao).toFixed(0)} pts` : ''}`,
+        atuacao: `Trilhas avançadas para concluintes, mentoria por área de afinidade vocacional e acompanhamento de desempenho com benchmarks de excelência.`,
+      });
+    } else if (m < 480) {
+      frentes.push({
+        icon: TrendingUp,
+        cor: 'amber',
+        titulo: 'Plano dirigido de preparação para o 3º EM',
+        evidencia: `Média geral ${m.toFixed(0)} pts no ENEM ${ano} — patamar abaixo da referência das redes públicas`,
+        atuacao: `Mapeamento individual dos concluintes, trilhas por área defasada, simulações guiadas com MentorIA e plano semanal de revisão de habilidades-chave.`,
+      });
+    }
+
+    // 2.c — redação fraca (gap específico)
+    if (enemRecente.media_redacao != null && Number(enemRecente.media_redacao) < 500) {
+      frentes.push({
+        icon: MessagesSquare,
+        cor: 'amber',
+        titulo: 'Formação focada em produção textual',
+        evidencia: `Média de redação ${Number(enemRecente.media_redacao).toFixed(0)} pts no ENEM ${ano} — habilidade que pode ser destravada com formação dirigida`,
+        atuacao: `Trilha de produção textual para professores de Linguagens, ciclos de feedback escrito com MentorIA e bancos de redações modelo da escola.`,
+      });
     }
   }
 
@@ -116,9 +187,8 @@ function detectarFrentes({
     }
   }
 
-  // 4. Plano de virada — queda do Ideb
+  // 4. Tendência Ideb — queda OU alta
   if (ordenadoIdeb.length >= 2) {
-    // Filtra a etapa mais frequente
     const counts: Record<string, number> = {};
     for (const r of ideb) counts[r.etapa] = (counts[r.etapa] || 0) + 1;
     const etapa = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
@@ -136,9 +206,28 @@ function detectarFrentes({
             evidencia: `Ideb ${ETAPA_LABEL[etapa] || etapa} caiu ${Math.abs(delta).toFixed(1)} pts entre ${series[0].ano} (${v0.toFixed(1)}) e ${series[series.length - 1].ano} (${v1.toFixed(1)})`,
             atuacao: `Diagnóstico pedagógico imediato com escuta socrática da equipe, plano de virada com marcos de 30/60/90 dias e MentorIA acompanhando os ciclos.`,
           });
+        } else if (delta >= 0.5) {
+          frentes.push({
+            icon: TrendingUp,
+            cor: 'green',
+            titulo: 'Sustentar trajetória de melhoria',
+            evidencia: `Ideb ${ETAPA_LABEL[etapa] || etapa} subiu ${delta.toFixed(1)} pts entre ${series[0].ano} (${v0.toFixed(1)}) e ${series[series.length - 1].ano} (${v1.toFixed(1)}) — tendência positiva confirmada`,
+            atuacao: `Documentação dos fatores que destravaram o crescimento, formação para escalar a prática e MentorIA dando suporte aos professores que sustentam o ciclo.`,
+          });
         }
       }
     }
+  }
+
+  // 4b. Censo conectividade alta — uso pedagógico de tecnologia
+  if (censo?.score_conectividade != null && Number(censo.score_conectividade) >= 80) {
+    frentes.push({
+      icon: Wifi,
+      cor: 'cyan',
+      titulo: 'Uso pedagógico da tecnologia já instalada',
+      evidencia: `Conectividade ${Number(censo.score_conectividade).toFixed(0)}/100 (Censo Escolar) — infraestrutura digital robusta sem uso pedagógico equivalente é uma alavanca subaproveitada`,
+      atuacao: `Formação docente em metodologias com tecnologia, MentorIA destravando experimentação e plano de adoção pedagógica do que já está instalado.`,
+    });
   }
 
   // 5. Quadrante Infra×Saeb
@@ -180,21 +269,22 @@ function detectarFrentes({
 }
 
 export function AtuacaoVertho({
-  escolaNome, saeb, ideb, enem, quadrante,
+  escolaNome, saeb, ideb, enem, censo, quadrante,
 }: {
   escolaNome: string;
   saeb: any[];
   ideb: any[];
   enem: any[];
+  censo: any | null;
   quadrante: string | null;
 }) {
-  const frentes = detectarFrentes({ saeb, ideb, enem, quadrante, escolaNome });
+  const frentes = detectarFrentes({ saeb, ideb, enem, censo, quadrante, escolaNome });
   if (!frentes.length) return null;
 
   return (
     <section className="mb-10">
       <div className="mb-5">
-        <p className="eyebrow-manrope text-cyan-300/85 mb-2">Onde a Vertho atua</p>
+        <p className="eyebrow-manrope text-cyan-300/85 mb-2">Onde a Vertho pode ajudar</p>
         <h2 className="text-white" style={{
           fontFamily: 'var(--font-fraunces), "Fraunces", Georgia, serif',
           fontSize: 'clamp(24px, 3vw, 32px)',

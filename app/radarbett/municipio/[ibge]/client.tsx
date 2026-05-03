@@ -281,7 +281,7 @@ export function MunicipioResultadoClient({
           )}
         </section>
 
-        {/* Onde a Vertho atua — frentes derivadas dos dados da rede municipal */}
+        {/* Onde a Vertho pode ajudar — frentes derivadas dos dados da rede municipal */}
         {panorama && (
           <AtuacaoVerthoMunicipio
             ica={panorama.ica}
@@ -289,6 +289,9 @@ export function MunicipioResultadoClient({
             enem={panorama.enem}
             vaar={panorama.vaar}
             redes={panorama.redes}
+            dispersao={panorama.dispersao}
+            benchmarks={panorama.benchmarks}
+            uf={municipio.uf}
             nome={municipio.nome}
           />
         )}
