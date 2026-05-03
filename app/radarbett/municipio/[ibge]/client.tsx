@@ -13,6 +13,7 @@ import { WhatsappIcon } from '../../_components/whatsapp-icon';
 import { track } from '../../_lib/tracking';
 import { openWhatsAppAgendar } from '../../_lib/whatsapp';
 import { PanoramaMunicipio } from './_panorama';
+import { AtuacaoVerthoMunicipio } from './_atuacao-vertho';
 
 type Sinal = {
   tipo: 'aprendizagem' | 'contexto' | 'oportunidade';
@@ -54,6 +55,7 @@ export function MunicipioResultadoClient({
     receitaPrevista: any | null;
     totalEscolas: number;
     redes: Record<string, number>;
+    benchmarks?: any[];
   };
 }) {
   const router = useRouter();
@@ -267,7 +269,7 @@ export function MunicipioResultadoClient({
           </div>
         </section>
 
-        {/* Panorama da rede — KPIs, distribuição, trajetória, VAAR */}
+        {/* Panorama da rede — KPIs, comparativo vizinhos, trajetória, VAAR */}
         {panorama && (
           <PanoramaMunicipio
             ica={panorama.ica}
@@ -278,6 +280,7 @@ export function MunicipioResultadoClient({
             receitaPrevista={panorama.receitaPrevista}
             totalEscolas={panorama.totalEscolas}
             redes={panorama.redes}
+            benchmarks={panorama.benchmarks}
           />
         )}
 
@@ -336,6 +339,19 @@ export function MunicipioResultadoClient({
             </div>
           )}
         </section>
+
+        {/* Onde a Vertho atua — frentes derivadas dos dados da rede municipal */}
+        {panorama && (
+          <AtuacaoVerthoMunicipio
+            ica={panorama.ica}
+            ideb={panorama.ideb}
+            enem={panorama.enem}
+            vaar={panorama.vaar}
+            totalEscolas={panorama.totalEscolas}
+            redes={panorama.redes}
+            nome={municipio.nome}
+          />
+        )}
 
         {/* Base de dados */}
         <section className="mb-8">

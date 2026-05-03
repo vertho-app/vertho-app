@@ -1,6 +1,6 @@
 'use client';
 
-import { GraduationCap, BookOpen, TrendingUp, Coins, Building2, Award, ArrowDown, ArrowUp, Minus, CheckCircle2, AlertCircle } from 'lucide-react';
+import { GraduationCap, BookOpen, TrendingUp, Coins, Award, ArrowDown, ArrowUp, Minus, CheckCircle2, AlertCircle } from 'lucide-react';
 
 type IcaLite = {
   rede: string | null;
@@ -48,13 +48,6 @@ const ETAPA_LABEL: Record<string, string> = {
   '3_EM': '3º EM',
 };
 
-const REDE_COR: Record<string, string> = {
-  MUNICIPAL: '#34c5cc',
-  ESTADUAL: '#9e4edd',
-  FEDERAL: '#86efac',
-  PRIVADA: '#fbbf24',
-};
-
 function fmtMilhar(v: number | null | undefined): string {
   if (v == null) return '—';
   return Math.round(v).toLocaleString('pt-BR');
@@ -67,8 +60,22 @@ function fmtMoeda(v: number | null | undefined): string {
   return `R$ ${v.toFixed(0)}`;
 }
 
+type BenchmarkRow = {
+  scope: 'cidade' | 'microrregiao' | 'estado' | 'brasil';
+  ica_taxa: number | null;
+  ideb_5ef: number | null;
+  ideb_9ef: number | null;
+  ideb_3em: number | null;
+  saeb_5ef_lp: number | null;
+  saeb_5ef_mat: number | null;
+  saeb_9ef_lp: number | null;
+  saeb_9ef_mat: number | null;
+  fundeb_aluno: number | null;
+  qtd_munis: number | null;
+};
+
 export function PanoramaMunicipio({
-  ica, ideb, enem, fundeb, vaar, receitaPrevista, totalEscolas, redes,
+  ica, ideb, enem, fundeb, vaar, receitaPrevista, totalEscolas, redes, benchmarks,
 }: {
   ica: IcaLite[];
   ideb: IdebMunLite[];
@@ -78,6 +85,7 @@ export function PanoramaMunicipio({
   receitaPrevista: any | null;
   totalEscolas: number;
   redes: Record<string, number>;
+  benchmarks?: BenchmarkRow[];
 }) {
   // ICA mais recente da rede municipal (preferencial), com benchmark UF/Brasil
   const icaMunicipal = ica
@@ -117,12 +125,6 @@ export function PanoramaMunicipio({
       .sort((a, b) => a.ano - b.ano)
       .slice(-6);
   })();
-
-  // Distribuição por rede para gráfico de barras
-  const totalRedes = Object.values(redes).reduce((a, b) => a + b, 0);
-  const redesOrdenadas = Object.entries(redes)
-    .filter(([k]) => k !== 'OUTRA' || (redes[k] || 0) > 0)
-    .sort((a, b) => b[1] - a[1]);
 
   const hasAnyKpi = icaMunicipal || idebRecentePorEtapa || enemRecente || fundebRecente;
   if (!hasAnyKpi) return null;
@@ -216,38 +218,78 @@ export function PanoramaMunicipio({
         )}
       </div>
 
-      {/* Distribuição por rede (gráfico de barras compacto) */}
-      {totalRedes > 0 && (
+      {/* Comparativo vs municípios vizinhos (microrregião) */}
+      {(benchmarks?.length || 0) > 0 && (idebRecentePorEtapa || icaMunicipal) && (
         <div
-          className="rounded-2xl border p-5 mb-6"
+          className="rounded-2xl border p-5 mb-6 overflow-hidden"
           style={{ background: 'rgba(255,255,255,0.025)', borderColor: 'rgba(255,255,255,0.08)' }}
         >
-          <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
-            <p className="text-[11px] tracking-[0.15em] uppercase font-bold text-white/55">
-              Distribuição da rede
-            </p>
-            <p className="text-[11px] text-white/45">
-              <Building2 size={11} className="inline mr-1 -mt-0.5" />
-              {totalEscolas} {totalEscolas === 1 ? 'escola' : 'escolas'} no total
-            </p>
+          <p className="text-[11px] tracking-[0.15em] uppercase font-bold text-white/55 mb-4">
+            Comparativo com vizinhos
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]" style={{ minWidth: 480 }}>
+              <thead>
+                <tr className="text-left text-white/45 text-[11px] uppercase tracking-wider">
+                  <th className="pb-3 pr-4">Indicador</th>
+                  <th className="pb-3 pr-4 text-cyan-300/90">Este município</th>
+                  <th className="pb-3 pr-4">Microrregião</th>
+                  <th className="pb-3 pr-4">UF</th>
+                  <th className="pb-3">Brasil</th>
+                </tr>
+              </thead>
+              <tbody className="text-white/85">
+                {icaMunicipal && (() => {
+                  const cidade = benchmarks.find((b) => b.scope === 'cidade');
+                  const microB = benchmarks.find((b) => b.scope === 'microrregiao');
+                  const estado = benchmarks.find((b) => b.scope === 'estado');
+                  const brasil = benchmarks.find((b) => b.scope === 'brasil');
+                  const v = cidade?.ica_taxa != null ? Number(cidade.ica_taxa) : Number(icaMunicipal.taxa);
+                  const vMicro = microB?.ica_taxa != null ? Number(microB.ica_taxa) : null;
+                  return (
+                    <BenchmarkRowEl
+                      indicador={`ICA · ${icaMunicipal.ano}`}
+                      esta={`${v.toFixed(0)}%`}
+                      micro={vMicro != null ? `${vMicro.toFixed(0)}%` : '—'}
+                      estado={estado?.ica_taxa != null ? `${Number(estado.ica_taxa).toFixed(0)}%` : '—'}
+                      brasil={brasil?.ica_taxa != null ? `${Number(brasil.ica_taxa).toFixed(0)}%` : '—'}
+                      deltaMicro={vMicro != null ? v - vMicro : null}
+                      sufixo="pp"
+                      qtdMicro={microB?.qtd_munis || null}
+                    />
+                  );
+                })()}
+                {idebRecentePorEtapa && (() => {
+                  const etapa = idebRecentePorEtapa.etapa;
+                  const key = etapa === '5_EF' ? 'ideb_5ef' : etapa === '9_EF' ? 'ideb_9ef' : 'ideb_3em';
+                  const cidade = benchmarks.find((b) => b.scope === 'cidade');
+                  const microB = benchmarks.find((b) => b.scope === 'microrregiao');
+                  const estado = benchmarks.find((b) => b.scope === 'estado');
+                  const brasil = benchmarks.find((b) => b.scope === 'brasil');
+                  const v = Number(idebRecentePorEtapa.idebAvg);
+                  const vMicro = (microB as any)?.[key] != null ? Number((microB as any)[key]) : null;
+                  return (
+                    <BenchmarkRowEl
+                      indicador={`Ideb ${ETAPA_LABEL[etapa] || etapa} · ${idebRecentePorEtapa.ano}`}
+                      esta={v.toFixed(1)}
+                      micro={vMicro != null ? vMicro.toFixed(1) : '—'}
+                      estado={(estado as any)?.[key] != null ? Number((estado as any)[key]).toFixed(1) : '—'}
+                      brasil={(brasil as any)?.[key] != null ? Number((brasil as any)[key]).toFixed(1) : '—'}
+                      deltaMicro={vMicro != null ? v - vMicro : null}
+                      sufixo=""
+                      qtdMicro={microB?.qtd_munis || null}
+                    />
+                  );
+                })()}
+              </tbody>
+            </table>
           </div>
-          <div className="space-y-2">
-            {redesOrdenadas.map(([rede, count]) => {
-              const pct = (count / totalRedes) * 100;
-              const cor = REDE_COR[rede] || '#94A3B8';
-              return (
-                <div key={rede}>
-                  <div className="flex items-baseline justify-between text-[12px] mb-1">
-                    <span className="text-white/85 font-bold">{rede.charAt(0) + rede.slice(1).toLowerCase()}</span>
-                    <span className="text-white/55 font-mono">{count} ({pct.toFixed(0)}%)</span>
-                  </div>
-                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
-                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: cor }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {benchmarks.find((b) => b.scope === 'microrregiao')?.qtd_munis != null && (
+            <p className="text-[11px] text-white/40 mt-3 italic leading-relaxed">
+              Microrregião: média entre {benchmarks.find((b) => b.scope === 'microrregiao')?.qtd_munis} municípios
+              vizinhos da mesma microrregião IBGE. Comparação contextualmente mais justa que UF/Brasil.
+            </p>
+          )}
         </div>
       )}
 
@@ -365,6 +407,38 @@ function KpiCard({
         </div>
       )}
     </div>
+  );
+}
+
+function BenchmarkRowEl({
+  indicador, esta, micro, estado, brasil, deltaMicro, sufixo, qtdMicro,
+}: {
+  indicador: string;
+  esta: string;
+  micro: string;
+  estado: string;
+  brasil: string;
+  deltaMicro: number | null;
+  sufixo: string;
+  qtdMicro: number | null;
+}) {
+  const corDelta = deltaMicro == null ? '#94A3B8' : deltaMicro > 0 ? '#86efac' : deltaMicro < 0 ? '#fca5a5' : '#94A3B8';
+  const sinal = deltaMicro == null ? '' : deltaMicro > 0 ? '+' : '';
+  return (
+    <tr className="border-t border-white/[0.05]">
+      <td className="py-3 pr-4 text-white/65">{indicador}</td>
+      <td className="py-3 pr-4 font-bold text-white">
+        {esta}
+        {deltaMicro != null && (
+          <span className="ml-2 text-[11px]" style={{ color: corDelta }}>
+            ({sinal}{Math.abs(deltaMicro) < 1 ? deltaMicro.toFixed(2) : deltaMicro.toFixed(0)}{sufixo ? ` ${sufixo}` : ''})
+          </span>
+        )}
+      </td>
+      <td className="py-3 pr-4">{micro}</td>
+      <td className="py-3 pr-4">{estado}</td>
+      <td className="py-3">{brasil}</td>
+    </tr>
   );
 }
 

@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import type { Metadata } from 'next';
-import { getMunicipio } from '@/lib/radar/queries';
+import { getMunicipio, getMunicipioBenchmarks } from '@/lib/radar/queries';
 import { leituraIcaMunicipio } from '@/lib/radar/leitura-deterministica';
 import {
   getNarrativaRadarbettMunicipio,
@@ -35,7 +35,10 @@ export default async function MunicipioResultadoPage({
   const { ibge } = await params;
   const sp = await searchParams;
   const isDemo = sp?.demo === '1';
-  const m = await getMunicipio(ibge);
+  const [m, municipioBenchmarks] = await Promise.all([
+    getMunicipio(ibge),
+    getMunicipioBenchmarks(ibge),
+  ]);
   if (!m) return notFound();
 
   const leituraDet = leituraIcaMunicipio(m, m.ica || []);
@@ -106,6 +109,7 @@ export default async function MunicipioResultadoPage({
         receitaPrevista: m.receitaPrevista,
         totalEscolas: m.totalEscolas,
         redes: m.redes,
+        benchmarks: municipioBenchmarks,
       }}
     />
   );

@@ -13,6 +13,7 @@ import { WhatsappIcon } from '../../_components/whatsapp-icon';
 import { track } from '../../_lib/tracking';
 import { openWhatsAppAgendar } from '../../_lib/whatsapp';
 import { PanoramaEscola } from './_panorama';
+import { AtuacaoVertho } from './_atuacao-vertho';
 
 type Sinal = {
   tipo: 'aprendizagem' | 'contexto' | 'oportunidade';
@@ -281,6 +282,17 @@ export function EscolaResultadoClient({
             </div>
           )}
         </section>
+
+        {/* Onde a Vertho atua — frentes derivadas dos sinais */}
+        {panorama && (
+          <AtuacaoVertho
+            escolaNome={escola.nome}
+            saeb={panorama.saeb}
+            ideb={panorama.ideb}
+            enem={panorama.enem}
+            quadrante={panorama.quadrante}
+          />
+        )}
 
         {/* Comparação contextual simples (texto, sem dashboard) */}
         <section className="mb-8">
