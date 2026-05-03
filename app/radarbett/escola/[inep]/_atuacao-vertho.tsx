@@ -303,7 +303,7 @@ export function AtuacaoVertho({
         {frentes.map((f, i) => <FrenteCard key={i} frente={f} />)}
       </div>
 
-      <div className="mt-6 flex justify-center">
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
         <button
           onClick={() => openWhatsAppAgendar({ tipo: 'cta' })}
           className="inline-flex items-center gap-2 px-5 py-3 rounded-full text-sm font-bold transition-all"
@@ -311,6 +311,13 @@ export function AtuacaoVertho({
         >
           <WhatsappIcon size={14} /> Agendar conversa sobre essas frentes
         </button>
+        <a
+          href="/jornada"
+          className="inline-flex items-center gap-2 px-5 py-3 rounded-full text-sm font-bold transition-all border"
+          style={{ borderColor: 'rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.85)' }}
+        >
+          Como cada frente vira ação <ArrowRight size={14} />
+        </a>
       </div>
     </section>
   );

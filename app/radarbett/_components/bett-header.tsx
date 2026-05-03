@@ -20,6 +20,12 @@ export function BettHeader() {
 
         <div className="flex items-center gap-2 sm:gap-3">
           <Link
+            href="/jornada"
+            className="hidden md:inline-flex text-[12px] text-white/55 hover:text-white/85 px-3 py-1.5 transition-colors"
+          >
+            Como ajudamos
+          </Link>
+          <Link
             href="/metodologia"
             className="hidden sm:inline-flex text-[12px] text-white/55 hover:text-white/85 px-3 py-1.5 transition-colors"
           >
