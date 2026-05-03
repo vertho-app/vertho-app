@@ -45,7 +45,7 @@ const TONS: Record<string, { iconBg: string; iconColor: string; eyebrow: string;
   },
 };
 
-function detectarFrentes({
+export function detectarFrentesEscola({
   saeb, ideb, enem, censo, quadrante, escolaNome,
 }: {
   saeb: any[];
@@ -278,7 +278,7 @@ export function AtuacaoVertho({
   censo: any | null;
   quadrante: string | null;
 }) {
-  const frentes = detectarFrentes({ saeb, ideb, enem, censo, quadrante, escolaNome });
+  const frentes = detectarFrentesEscola({ saeb, ideb, enem, censo, quadrante, escolaNome });
   if (!frentes.length) return null;
 
   return (

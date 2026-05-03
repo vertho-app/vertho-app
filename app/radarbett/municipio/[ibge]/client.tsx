@@ -13,7 +13,7 @@ import { WhatsappIcon } from '../../_components/whatsapp-icon';
 import { track } from '../../_lib/tracking';
 import { openWhatsAppAgendar } from '../../_lib/whatsapp';
 import { PanoramaMunicipio } from './_panorama';
-import { AtuacaoVerthoMunicipio } from './_atuacao-vertho';
+import { AtuacaoVerthoMunicipio, detectarFrentesMunicipio } from './_atuacao-vertho';
 
 type Sinal = {
   tipo: 'aprendizagem' | 'contexto' | 'oportunidade';
@@ -144,15 +144,27 @@ export function MunicipioResultadoClient({
             </div>
             {(() => {
               const numSinais = sinais.filter(s => s.tipo !== 'oportunidade').length;
-              const numOport = sinais.filter(s => s.tipo === 'oportunidade').length;
-              if (numSinais === 0 && numOport === 0) return null;
+              const numFrentes = panorama
+                ? detectarFrentesMunicipio({
+                    ica: panorama.ica,
+                    ideb: panorama.ideb,
+                    enem: panorama.enem,
+                    vaar: panorama.vaar,
+                    redes: panorama.redes,
+                    dispersao: panorama.dispersao ?? null,
+                    benchmarks: panorama.benchmarks ?? [],
+                    uf: municipio.uf,
+                    nome: municipio.nome,
+                  }).length
+                : 0;
+              if (numSinais === 0 && numFrentes === 0) return null;
               return (
                 <p className="text-white/70 leading-relaxed" style={{ fontSize: 17, maxWidth: 720 }}>
                   Identificamos <strong className="text-white" style={{ fontWeight: 600 }}>
                     {numSinais} {numSinais === 1 ? 'sinal relevante' : 'sinais relevantes'}
                   </strong>
-                  {numOport > 0 && <> e <strong className="text-white" style={{ fontWeight: 600 }}>
-                    {numOport} {numOport === 1 ? 'oportunidade de atuação' : 'oportunidades de atuação'}
+                  {numFrentes > 0 && <> e <strong className="text-white" style={{ fontWeight: 600 }}>
+                    {numFrentes} {numFrentes === 1 ? 'frente Vertho' : 'frentes Vertho'} ativas
                   </strong></>}
                   {' '}para a rede de {municipio.nome}/{municipio.uf}.
                 </p>
@@ -239,9 +251,7 @@ export function MunicipioResultadoClient({
                 lineHeight: 1.2,
                 letterSpacing: '-0.02em',
               }}>
-                {sinais.filter(s => s.tipo !== 'oportunidade').length} sinais e{' '}
-                {sinais.filter(s => s.tipo === 'oportunidade').length} oportunidade
-                {sinais.filter(s => s.tipo === 'oportunidade').length === 1 ? '' : 's'} de atuação
+                {sinais.filter(s => s.tipo !== 'oportunidade').length} {sinais.filter(s => s.tipo !== 'oportunidade').length === 1 ? 'sinal identificado' : 'sinais identificados'}
               </h2>
             </div>
             {!unlocked && (

@@ -25,7 +25,7 @@ const TONS: Record<string, { iconBg: string; iconColor: string; eyebrow: string;
   amber:  { iconBg: 'rgba(251,191,36,0.18)', iconColor: '#fbbf24', eyebrow: '#fbbf24', border: 'rgba(251,191,36,0.22)' },
 };
 
-function detectarFrentes({
+export function detectarFrentesMunicipio({
   ica, ideb, enem, vaar, redes, dispersao, benchmarks, uf, nome,
 }: {
   ica: any[];
@@ -252,7 +252,7 @@ export function AtuacaoVerthoMunicipio({
   uf: string;
   nome: string;
 }) {
-  const frentes = detectarFrentes({ ica, ideb, enem, vaar, redes, dispersao: dispersao ?? null, benchmarks: benchmarks ?? [], uf, nome });
+  const frentes = detectarFrentesMunicipio({ ica, ideb, enem, vaar, redes, dispersao: dispersao ?? null, benchmarks: benchmarks ?? [], uf, nome });
   if (!frentes.length) return null;
 
   return (

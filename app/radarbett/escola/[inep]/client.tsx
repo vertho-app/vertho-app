@@ -13,7 +13,7 @@ import { WhatsappIcon } from '../../_components/whatsapp-icon';
 import { track } from '../../_lib/tracking';
 import { openWhatsAppAgendar } from '../../_lib/whatsapp';
 import { PanoramaEscola } from './_panorama';
-import { AtuacaoVertho } from './_atuacao-vertho';
+import { AtuacaoVertho, detectarFrentesEscola } from './_atuacao-vertho';
 
 type Sinal = {
   tipo: 'aprendizagem' | 'contexto' | 'oportunidade';
@@ -152,11 +152,20 @@ export function EscolaResultadoClient({
           </div>
         </header>
 
-        {/* Highlight: contagem de sinais e oportunidades */}
+        {/* Highlight: contagem de sinais e frentes Vertho */}
         {(() => {
           const numSinais = sinais.filter(s => s.tipo !== 'oportunidade').length;
-          const numOport = sinais.filter(s => s.tipo === 'oportunidade').length;
-          if (numSinais === 0 && numOport === 0) return null;
+          const numFrentes = panorama
+            ? detectarFrentesEscola({
+                saeb: panorama.saeb,
+                ideb: panorama.ideb,
+                enem: panorama.enem,
+                censo: panorama.censo,
+                quadrante: panorama.quadrante,
+                escolaNome: escola.nome,
+              }).length
+            : 0;
+          if (numSinais === 0 && numFrentes === 0) return null;
           return (
             <section className="mb-6">
               <div className="rounded-2xl px-5 sm:px-6 py-4 border flex items-center gap-3 flex-wrap"
@@ -172,7 +181,7 @@ export function EscolaResultadoClient({
                   letterSpacing: '-0.01em',
                 }}>
                   Identificamos <span style={{ color: '#34c5cc' }}>{numSinais} {numSinais === 1 ? 'sinal relevante' : 'sinais relevantes'}</span>
-                  {numOport > 0 && <> e <span style={{ color: '#34D399' }}>{numOport} {numOport === 1 ? 'oportunidade de atuação' : 'oportunidades de atuação'}</span></>}
+                  {numFrentes > 0 && <> e <span style={{ color: '#34D399' }}>{numFrentes} {numFrentes === 1 ? 'frente Vertho ativa' : 'frentes Vertho ativas'}</span></>}
                   {' '}para <strong className="text-white">{escola.nome}</strong>.
                 </p>
               </div>
@@ -233,9 +242,7 @@ export function EscolaResultadoClient({
                 lineHeight: 1.2,
                 letterSpacing: '-0.02em',
               }}>
-                {sinais.filter(s => s.tipo !== 'oportunidade').length} sinais e{' '}
-                {sinais.filter(s => s.tipo === 'oportunidade').length} oportunidade
-                {sinais.filter(s => s.tipo === 'oportunidade').length === 1 ? '' : 's'} de atuação
+                {sinais.filter(s => s.tipo !== 'oportunidade').length} {sinais.filter(s => s.tipo !== 'oportunidade').length === 1 ? 'sinal identificado' : 'sinais identificados'}
               </h2>
             </div>
             {!unlocked && (
