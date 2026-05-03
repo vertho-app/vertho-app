@@ -155,82 +155,127 @@ export function PanoramaMunicipio({
         Indicadores principais
       </h2>
 
-      {/* KPI strip — até 4 cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        {icaMunicipal && (
-          <KpiCard
-            icon={BookOpen}
-            label={`ICA · ${(icaMunicipal.rede || 'rede').toLowerCase()}`}
-            ano={icaMunicipal.ano}
-            valor={`${Number(icaMunicipal.taxa).toFixed(0)}%`}
-            comparacao={
-              icaMunicipal.total_estado != null
-                ? {
-                    rotulo: 'UF',
-                    valor: `${Number(icaMunicipal.total_estado).toFixed(0)}%`,
-                    delta: Number(icaMunicipal.taxa) - Number(icaMunicipal.total_estado),
-                    unidade: ' pp',
+      {/* KPI strip — até 4 cards.
+          Para coerência com o card "Comparativo com vizinhos", todas as
+          comparações puxam dos benchmarks da MV municipal-only (RPC mig 083),
+          NÃO do total_estado/total_brasil do snapshot ICA (que mistura redes). */}
+      {(() => {
+        const ufB = (benchmarks || []).find((b) => b.scope === 'estado');
+        const brB = (benchmarks || []).find((b) => b.scope === 'brasil');
+        const cidadeB = (benchmarks || []).find((b) => b.scope === 'cidade');
+
+        // Saeb LP da etapa principal — opcional, preenche o 3º slot
+        let saebLpKpi: { etapa: string; valor: number; ufVal: number | null } | null = null;
+        if (idebRecentePorEtapa) {
+          const etapa = idebRecentePorEtapa.etapa;
+          const key = etapa === '5_EF' ? 'saeb_5ef_lp' : etapa === '9_EF' ? 'saeb_9ef_lp' : null;
+          if (key && cidadeB && (cidadeB as any)[key] != null) {
+            saebLpKpi = {
+              etapa,
+              valor: Number((cidadeB as any)[key]),
+              ufVal: ufB && (ufB as any)[key] != null ? Number((ufB as any)[key]) : null,
+            };
+          }
+        }
+
+        return (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+            {icaMunicipal && (
+              <KpiCard
+                icon={BookOpen}
+                label={`ICA · ${(icaMunicipal.rede || 'rede').toLowerCase()}`}
+                ano={icaMunicipal.ano}
+                valor={`${Number(icaMunicipal.taxa).toFixed(0)}%`}
+                comparacao={
+                  ufB?.ica_taxa != null
+                    ? {
+                        rotulo: 'UF (rede municipal)',
+                        valor: `${Number(ufB.ica_taxa).toFixed(0)}%`,
+                        delta: Number(icaMunicipal.taxa) - Number(ufB.ica_taxa),
+                        unidade: ' pp',
+                      }
+                    : brB?.ica_taxa != null
+                      ? {
+                          rotulo: 'Brasil',
+                          valor: `${Number(brB.ica_taxa).toFixed(0)}%`,
+                          delta: Number(icaMunicipal.taxa) - Number(brB.ica_taxa),
+                          unidade: ' pp',
+                        }
+                      : null
+                }
+              />
+            )}
+            {idebRecentePorEtapa && (() => {
+              const etapaKey = idebRecentePorEtapa.etapa === '5_EF' ? 'ideb_5ef'
+                : idebRecentePorEtapa.etapa === '9_EF' ? 'ideb_9ef' : 'ideb_3em';
+              const ufIdeb = ufB && (ufB as any)[etapaKey] != null ? Number((ufB as any)[etapaKey]) : null;
+              const v = Number(idebRecentePorEtapa.idebAvg);
+              return (
+                <KpiCard
+                  icon={GraduationCap}
+                  label={`Ideb agregado ${ETAPA_LABEL[idebRecentePorEtapa.etapa] || idebRecentePorEtapa.etapa}`}
+                  ano={idebRecentePorEtapa.ano}
+                  valor={v.toFixed(1)}
+                  comparacao={
+                    ufIdeb != null
+                      ? { rotulo: 'UF (rede municipal)', valor: ufIdeb.toFixed(1), delta: v - ufIdeb }
+                      : { rotulo: 'baseado em', valor: `${idebRecentePorEtapa.totalEscolas} ${idebRecentePorEtapa.totalEscolas === 1 ? 'escola' : 'escolas'}`, delta: null }
                   }
-                : icaMunicipal.total_brasil != null
-                  ? {
-                      rotulo: 'Brasil',
-                      valor: `${Number(icaMunicipal.total_brasil).toFixed(0)}%`,
-                      delta: Number(icaMunicipal.taxa) - Number(icaMunicipal.total_brasil),
-                      unidade: ' pp',
-                    }
-                  : null
-            }
-          />
-        )}
-        {idebRecentePorEtapa && (
-          <KpiCard
-            icon={GraduationCap}
-            label={`Ideb agregado ${ETAPA_LABEL[idebRecentePorEtapa.etapa] || idebRecentePorEtapa.etapa}`}
-            ano={idebRecentePorEtapa.ano}
-            valor={Number(idebRecentePorEtapa.idebAvg).toFixed(1)}
-            comparacao={{
-              rotulo: 'baseado em',
-              valor: `${idebRecentePorEtapa.totalEscolas} ${idebRecentePorEtapa.totalEscolas === 1 ? 'escola' : 'escolas'}`,
-              delta: null,
-            }}
-          />
-        )}
-        {enemRecente?.mediaGeralPonderada != null && (
-          <KpiCard
-            icon={TrendingUp}
-            label="ENEM rede"
-            ano={enemRecente.ano}
-            valor={Number(enemRecente.mediaGeralPonderada).toFixed(0)}
-            sufixo=" pts"
-            comparacao={
-              enemRecente.mediaRedacaoPonderada != null
-                ? {
-                    rotulo: 'redação',
-                    valor: `${Number(enemRecente.mediaRedacaoPonderada).toFixed(0)} pts`,
-                    delta: null,
-                  }
-                : { rotulo: 'escolas com 10+', valor: `${enemRecente.escolasCom10}`, delta: null }
-            }
-          />
-        )}
-        {fundebRecente && (
-          <KpiCard
-            icon={Coins}
-            label="FUNDEB · valor aluno/ano"
-            ano={fundebRecente.ano}
-            valor={fmtMoeda(fundebRecente.valor_aluno_ano)}
-            comparacao={
-              fundebRecente.matriculas_consideradas != null
-                ? {
-                    rotulo: 'matrículas',
-                    valor: fmtMilhar(fundebRecente.matriculas_consideradas),
-                    delta: null,
-                  }
-                : null
-            }
-          />
-        )}
-      </div>
+                />
+              );
+            })()}
+            {/* Slot 3: ENEM se houver, senão Saeb LP agregado */}
+            {enemRecente?.mediaGeralPonderada != null ? (
+              <KpiCard
+                icon={TrendingUp}
+                label="ENEM rede"
+                ano={enemRecente.ano}
+                valor={Number(enemRecente.mediaGeralPonderada).toFixed(0)}
+                sufixo=" pts"
+                comparacao={
+                  enemRecente.mediaRedacaoPonderada != null
+                    ? {
+                        rotulo: 'redação',
+                        valor: `${Number(enemRecente.mediaRedacaoPonderada).toFixed(0)} pts`,
+                        delta: null,
+                      }
+                    : { rotulo: 'escolas com 10+', valor: `${enemRecente.escolasCom10}`, delta: null }
+                }
+              />
+            ) : saebLpKpi ? (
+              <KpiCard
+                icon={BookOpen}
+                label={`Saeb LP ${ETAPA_LABEL[saebLpKpi.etapa] || saebLpKpi.etapa}`}
+                ano={null}
+                valor={saebLpKpi.valor.toFixed(0)}
+                sufixo=" pts"
+                comparacao={
+                  saebLpKpi.ufVal != null
+                    ? { rotulo: 'UF (rede municipal)', valor: `${saebLpKpi.ufVal.toFixed(0)} pts`, delta: saebLpKpi.valor - saebLpKpi.ufVal }
+                    : null
+                }
+              />
+            ) : null}
+            {fundebRecente && (
+              <KpiCard
+                icon={Coins}
+                label="FUNDEB · valor aluno/ano"
+                ano={fundebRecente.ano}
+                valor={fmtMoeda(fundebRecente.valor_aluno_ano)}
+                comparacao={
+                  fundebRecente.matriculas_consideradas != null
+                    ? {
+                        rotulo: 'matrículas consideradas',
+                        valor: fmtMilhar(fundebRecente.matriculas_consideradas),
+                        delta: null,
+                      }
+                    : null
+                }
+              />
+            )}
+          </div>
+        );
+      })()}
 
       {/* Dispersão entre escolas da rede municipal */}
       {dispersao && dispersao.totalEscolas >= 3 && (
@@ -311,7 +356,9 @@ export function PanoramaMunicipio({
           {benchmarks.find((b) => b.scope === 'microrregiao')?.qtd_munis != null && (
             <p className="text-[11px] text-white/40 mt-3 italic leading-relaxed">
               Microrregião: média entre {benchmarks.find((b) => b.scope === 'microrregiao')?.qtd_munis} municípios
-              vizinhos da mesma microrregião IBGE. Comparação contextualmente mais justa que UF/Brasil.
+              vizinhos da mesma microrregião IBGE. Todos os benchmarks consideram apenas redes municipais —
+              a referência mais comparável ao que a secretaria controla. Mesmo onde esta rede já está acima dos
+              vizinhos, há sempre um próximo nível para perseguir (ver "Espaço para crescer" abaixo).
             </p>
           )}
         </div>
