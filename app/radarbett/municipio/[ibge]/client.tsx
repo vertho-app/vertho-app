@@ -157,36 +157,68 @@ export function MunicipioResultadoClient({
           </div>
         </header>
 
-        {/* Stats grid — só renderiza se tiver dados ICA */}
-        {icaStat && (
-          <section className="mb-8">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <StatCard
-                label={`ICA ${icaStat.ano} · Alfabetização`}
-                value={`${fmtPct(icaStat.taxa)}`}
-                compare={
-                  icaStat.totalEstado != null
-                    ? { delta: icaStat.taxa - icaStat.totalEstado, ref: `vs média ${municipio.uf} (${fmtPct(icaStat.totalEstado)})` }
-                    : null
-                }
-              />
-              <StatCard
-                label={`ICA ${icaStat.ano} vs Brasil`}
-                value={`${fmtPct(icaStat.taxa)}`}
-                compare={
-                  icaStat.totalBrasil != null
-                    ? { delta: icaStat.taxa - icaStat.totalBrasil, ref: `vs média Brasil (${fmtPct(icaStat.totalBrasil)})` }
-                    : null
-                }
-              />
-              <StatCard
-                label="Escolas na rede municipal"
-                value={(municipio.redes?.MUNICIPAL || 0).toLocaleString('pt-BR')}
-                compareText={`De ${municipio.totalEscolas.toLocaleString('pt-BR')} escolas mapeadas`}
-              />
-            </div>
-          </section>
-        )}
+        {/* Stats grid — KPIs principais (ICA + Ideb agregado + total escolas) */}
+        {(() => {
+          // Ideb agregado mais recente da etapa principal (mais snapshots)
+          const idebList = panorama?.ideb || [];
+          let idebStat: { ano: number; etapa: string; valor: number; totalEscolas: number } | null = null;
+          if (idebList.length) {
+            const counts: Record<string, number> = {};
+            for (const r of idebList) counts[r.etapa] = (counts[r.etapa] || 0) + 1;
+            const etapa = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
+            const recent = etapa
+              ? idebList.filter((r: any) => r.etapa === etapa && r.idebAvg != null).sort((a: any, b: any) => b.ano - a.ano)[0]
+              : null;
+            if (recent && recent.idebAvg != null) {
+              idebStat = { ano: recent.ano, etapa: recent.etapa, valor: Number(recent.idebAvg), totalEscolas: recent.totalEscolas || 0 };
+            }
+          }
+          const ETAPA_LABEL: Record<string, string> = { '5_EF': '5º EF', '9_EF': '9º EF', '3_EM': '3º EM' };
+          const temAlgo = icaStat || idebStat;
+          if (!temAlgo) return null;
+
+          return (
+            <section className="mb-8">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {icaStat ? (
+                  <StatCard
+                    label={`ICA ${icaStat.ano} · alfabetização`}
+                    value={`${fmtPct(icaStat.taxa)}`}
+                    compare={
+                      icaStat.totalEstado != null
+                        ? { delta: icaStat.taxa - icaStat.totalEstado, ref: `vs ${municipio.uf} (${fmtPct(icaStat.totalEstado)})` }
+                        : icaStat.totalBrasil != null
+                          ? { delta: icaStat.taxa - icaStat.totalBrasil, ref: `vs Brasil (${fmtPct(icaStat.totalBrasil)})` }
+                          : null
+                    }
+                    compareSecondary={
+                      icaStat.totalEstado != null && icaStat.totalBrasil != null
+                        ? { delta: icaStat.taxa - icaStat.totalBrasil, ref: `vs Brasil (${fmtPct(icaStat.totalBrasil)})` }
+                        : null
+                    }
+                    unidade="pp"
+                  />
+                ) : (
+                  <StatCard label="ICA · alfabetização" value="—" compareText="dado não disponível" />
+                )}
+                {idebStat ? (
+                  <StatCard
+                    label={`Ideb agregado ${ETAPA_LABEL[idebStat.etapa] || idebStat.etapa} · ${idebStat.ano}`}
+                    value={idebStat.valor.toFixed(1)}
+                    compareText={`Média de ${idebStat.totalEscolas} ${idebStat.totalEscolas === 1 ? 'escola' : 'escolas'} avaliadas`}
+                  />
+                ) : (
+                  <StatCard label="Ideb agregado" value="—" compareText="sem Ideb publicado" />
+                )}
+                <StatCard
+                  label="Escolas na rede municipal"
+                  value={(municipio.redes?.MUNICIPAL || 0).toLocaleString('pt-BR')}
+                  compareText={`De ${municipio.totalEscolas.toLocaleString('pt-BR')} escolas mapeadas`}
+                />
+              </div>
+            </section>
+          );
+        })()}
 
         {/* Leitura institucional — card com avatar Vertho */}
         <section className="mb-8">
@@ -200,14 +232,11 @@ export function MunicipioResultadoClient({
             <span aria-hidden className="absolute left-0 top-0 bottom-0 w-1"
               style={{ background: 'linear-gradient(180deg, #34c5cc 0%, #9e4edd 100%)' }} />
             <div className="flex items-center gap-3 mb-5">
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{
-                  background: 'linear-gradient(135deg, #0F2B54 0%, #9e4edd 100%)',
-                  color: '#34c5cc',
-                  fontWeight: 800,
-                  fontSize: 18,
-                }}>
-                V
+              <div
+                className="rounded-xl flex items-center justify-center flex-shrink-0 px-3 h-11"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+              >
+                <img src="/logo-vertho.png" alt="Vertho Mentor IA" style={{ height: 20, display: 'block' }} />
               </div>
               <div className="flex-1">
                 <p className="text-white text-[14px] font-bold leading-tight">Vertho Mentor IA</p>
@@ -473,12 +502,15 @@ function Pill({ children, accent }: { children: React.ReactNode; accent?: boolea
 }
 
 function StatCard({
-  label, value, compare, compareText,
+  label, value, compare, compareSecondary, compareText, unidade,
 }: {
   label: string; value: string;
   compare?: { delta: number; ref: string } | null;
+  compareSecondary?: { delta: number; ref: string } | null;
   compareText?: string;
+  unidade?: 'pp' | 'pts';
 }) {
+  const u = unidade === 'pts' ? ' pts' : ' p.p.';
   return (
     <div className="rounded-2xl p-7 border text-center"
       style={{ background: 'rgba(255,255,255,0.025)', borderColor: 'rgba(255,255,255,0.10)' }}>
@@ -492,12 +524,22 @@ function StatCard({
         {value}
       </p>
       {compare ? (
-        <p className="text-[13px] text-white/55">
-          <span className="font-bold" style={{ color: compare.delta >= 0 ? '#86efac' : '#fca5a5' }}>
-            {compare.delta >= 0 ? '+' : ''}{compare.delta.toFixed(0)} p.p.
-          </span>{' '}
-          {compare.ref}
-        </p>
+        <>
+          <p className="text-[13px] text-white/55">
+            <span className="font-bold" style={{ color: compare.delta >= 0 ? '#86efac' : '#fca5a5' }}>
+              {compare.delta >= 0 ? '+' : ''}{compare.delta.toFixed(unidade === 'pts' ? 0 : 1)}{u}
+            </span>{' '}
+            {compare.ref}
+          </p>
+          {compareSecondary && (
+            <p className="text-[12px] text-white/45 mt-0.5">
+              <span className="font-bold" style={{ color: compareSecondary.delta >= 0 ? '#86efac' : '#fca5a5' }}>
+                {compareSecondary.delta >= 0 ? '+' : ''}{compareSecondary.delta.toFixed(unidade === 'pts' ? 0 : 1)}{u}
+              </span>{' '}
+              {compareSecondary.ref}
+            </p>
+          )}
+        </>
       ) : compareText ? (
         <p className="text-[13px] text-white/55">{compareText}</p>
       ) : (
