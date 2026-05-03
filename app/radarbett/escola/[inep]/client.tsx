@@ -26,7 +26,7 @@ const TIPO_CFG = {
 };
 
 export function EscolaResultadoClient({
-  escola, sinais, leituraResumo, temIdeb, temCenso, temEnem, temSaresp, temPdde, ufEscola, saebSnapshots,
+  escola, sinais, leituraResumo, temIdeb, temCenso, temEnem, temSaresp, ufEscola, saebSnapshots,
 }: {
   escola: any;
   sinais: Sinal[];
@@ -35,7 +35,6 @@ export function EscolaResultadoClient({
   temCenso: boolean;
   temEnem: boolean;
   temSaresp: boolean;
-  temPdde: boolean;
   ufEscola: string;
   saebSnapshots: number;
 }) {
@@ -282,10 +281,6 @@ export function EscolaResultadoClient({
               <li className="flex items-center gap-2">
                 <Dot ativo={temCenso} />
                 <span>Censo Escolar · {temCenso ? 'infraestrutura, recursos e contexto' : 'sem dados de Censo'}</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Dot ativo={temPdde} />
-                <span>PDDE · {temPdde ? 'repasses por escola disponíveis' : 'sem repasses PDDE registrados'}</span>
               </li>
             </ul>
           </div>
