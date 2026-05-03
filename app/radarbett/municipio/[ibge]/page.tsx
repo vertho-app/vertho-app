@@ -97,6 +97,16 @@ export default async function MunicipioResultadoPage({
       temIdeb={(m.ideb || []).length > 0}
       temFundeb={(m.fundeb || []).length > 0 || !!m.vaar || !!m.receitaPrevista}
       initialUnlocked={isDemo}
+      panorama={{
+        ica: m.ica || [],
+        ideb: m.ideb || [],
+        enem: m.enem || [],
+        fundeb: m.fundeb || [],
+        vaar: m.vaar,
+        receitaPrevista: m.receitaPrevista,
+        totalEscolas: m.totalEscolas,
+        redes: m.redes,
+      }}
     />
   );
 }

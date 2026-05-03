@@ -12,6 +12,7 @@ import { StickyCTAMobile } from '../../_components/sticky-cta';
 import { WhatsappIcon } from '../../_components/whatsapp-icon';
 import { track } from '../../_lib/tracking';
 import { openWhatsAppAgendar } from '../../_lib/whatsapp';
+import { PanoramaMunicipio } from './_panorama';
 
 type Sinal = {
   tipo: 'aprendizagem' | 'contexto' | 'oportunidade';
@@ -33,7 +34,7 @@ type IcaStat = {
 };
 
 export function MunicipioResultadoClient({
-  municipio, sinais, leituraResumo, narrativaModelo, icaStat, temIca, temIdeb, temFundeb, initialUnlocked = false,
+  municipio, sinais, leituraResumo, narrativaModelo, icaStat, temIca, temIdeb, temFundeb, initialUnlocked = false, panorama,
 }: {
   municipio: { ibge: string; nome: string; uf: string; totalEscolas: number; redes: Record<string, number> };
   sinais: Sinal[];
@@ -44,6 +45,16 @@ export function MunicipioResultadoClient({
   temIdeb: boolean;
   temFundeb: boolean;
   initialUnlocked?: boolean;
+  panorama?: {
+    ica: any[];
+    ideb: any[];
+    enem: any[];
+    fundeb: any[];
+    vaar: any | null;
+    receitaPrevista: any | null;
+    totalEscolas: number;
+    redes: Record<string, number>;
+  };
 }) {
   const router = useRouter();
   const [unlocked, setUnlocked] = useState(initialUnlocked);
@@ -226,6 +237,20 @@ export function MunicipioResultadoClient({
             </p>
           </div>
         </section>
+
+        {/* Panorama da rede — KPIs, distribuição, trajetória, VAAR */}
+        {panorama && (
+          <PanoramaMunicipio
+            ica={panorama.ica}
+            ideb={panorama.ideb}
+            enem={panorama.enem}
+            fundeb={panorama.fundeb}
+            vaar={panorama.vaar}
+            receitaPrevista={panorama.receitaPrevista}
+            totalEscolas={panorama.totalEscolas}
+            redes={panorama.redes}
+          />
+        )}
 
         {/* Sinais */}
         <section className="mb-8">
