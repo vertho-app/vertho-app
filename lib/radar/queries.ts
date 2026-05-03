@@ -243,6 +243,83 @@ export async function getMunicipioBenchmarksMunicipal(ibge: string): Promise<Ben
   return (data as BenchmarkRow[]) || [];
 }
 
+export type DispersaoEscolasMunicipal = {
+  etapa: string;
+  ano: number;
+  totalEscolas: number;
+  media: number;
+  mediana: number;
+  min: number;
+  max: number;
+  desvio: number;
+  // Distribuição: cada escola um ponto (codigo_inep + ideb)
+  pontos: { inep: string; nome: string; valor: number }[];
+};
+
+/**
+ * Calcula a dispersão de Ideb entre as escolas da rede MUNICIPAL de um
+ * município. Usa a etapa com mais escolas (geralmente 9_EF). Retorna
+ * estatísticas (min, max, mediana, média, desvio) + lista de pontos.
+ */
+export async function getDispersaoMunicipal(ibge: string): Promise<DispersaoEscolasMunicipal | null> {
+  const sb = createSupabaseAdmin();
+
+  const escolasRes = await sb
+    .from('diag_escolas')
+    .select('codigo_inep, nome')
+    .eq('municipio_ibge', ibge)
+    .eq('rede', 'MUNICIPAL');
+  const escolasMap = new Map<string, string>();
+  for (const e of (escolasRes.data || []) as any[]) escolasMap.set(e.codigo_inep, e.nome);
+  if (!escolasMap.size) return null;
+
+  const ineps = Array.from(escolasMap.keys());
+
+  // Pega último ano disponível e a etapa com maior contagem
+  const idebRes = await sb
+    .from('diag_ideb_snapshots')
+    .select('codigo_inep, ano, etapa, ideb')
+    .in('codigo_inep', ineps)
+    .not('ideb', 'is', null);
+  const rows = (idebRes.data || []) as { codigo_inep: string; ano: number; etapa: string; ideb: number }[];
+  if (!rows.length) return null;
+
+  const anoMax = Math.max(...rows.map((r) => r.ano));
+  const recentes = rows.filter((r) => r.ano === anoMax);
+  // Etapa com mais escolas
+  const counts: Record<string, number> = {};
+  for (const r of recentes) counts[r.etapa] = (counts[r.etapa] || 0) + 1;
+  const etapa = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
+  if (!etapa) return null;
+  const filtrados = recentes.filter((r) => r.etapa === etapa).map((r) => ({
+    inep: r.codigo_inep,
+    nome: escolasMap.get(r.codigo_inep) || '',
+    valor: Number(r.ideb),
+  }));
+  if (filtrados.length < 3) return null; // dispersão só faz sentido com volume mínimo
+
+  const valores = filtrados.map((p) => p.valor).sort((a, b) => a - b);
+  const min = valores[0];
+  const max = valores[valores.length - 1];
+  const media = valores.reduce((a, b) => a + b, 0) / valores.length;
+  const mediana = valores.length % 2
+    ? valores[(valores.length - 1) / 2]
+    : (valores[valores.length / 2 - 1] + valores[valores.length / 2]) / 2;
+  const desvio = Math.sqrt(valores.reduce((s, v) => s + (v - media) ** 2, 0) / valores.length);
+
+  return {
+    etapa,
+    ano: anoMax,
+    totalEscolas: filtrados.length,
+    media,
+    mediana,
+    min,
+    max,
+    desvio,
+    pontos: filtrados.sort((a, b) => a.valor - b.valor),
+  };
+}
+
 export type EscolaBenchmarkScope = 'escola' | 'microrregiao' | 'estado';
 
 export type EscolaBenchmarkRow = {

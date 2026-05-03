@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import type { Metadata } from 'next';
-import { getMunicipio, getMunicipioBenchmarksMunicipal } from '@/lib/radar/queries';
+import { getMunicipio, getMunicipioBenchmarksMunicipal, getDispersaoMunicipal } from '@/lib/radar/queries';
 import { leituraIcaMunicipio } from '@/lib/radar/leitura-deterministica';
 import {
   getNarrativaRadarbettMunicipio,
@@ -39,9 +39,11 @@ export default async function MunicipioResultadoPage({
   // (Ideb, ENEM, ICA filtrados por rede=MUNICIPAL).
   // Benchmarks comparam apenas redes municipais entre cidade, microrregião,
   // UF e Brasil (MV diag_mv_municipio_metricas_municipal, migration 083).
-  const [m, municipioBenchmarks] = await Promise.all([
+  // Dispersão Ideb entre as escolas municipais alimenta o card de variabilidade.
+  const [m, municipioBenchmarks, dispersao] = await Promise.all([
     getMunicipio(ibge, { filtrarRedeMunicipal: true }),
     getMunicipioBenchmarksMunicipal(ibge),
+    getDispersaoMunicipal(ibge),
   ]);
   if (!m) return notFound();
 
@@ -114,6 +116,7 @@ export default async function MunicipioResultadoPage({
         totalEscolas: m.totalEscolas,
         redes: m.redes,
         benchmarks: municipioBenchmarks,
+        dispersao,
       }}
     />
   );

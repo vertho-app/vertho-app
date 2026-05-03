@@ -56,6 +56,7 @@ export function MunicipioResultadoClient({
     totalEscolas: number;
     redes: Record<string, number>;
     benchmarks?: any[];
+    dispersao?: any | null;
   };
 }) {
   const router = useRouter();
@@ -208,7 +209,7 @@ export function MunicipioResultadoClient({
           </div>
         </section>
 
-        {/* Panorama da rede — KPIs, comparativo vizinhos, trajetória, VAAR */}
+        {/* Panorama da rede — KPIs, comparativo vizinhos, dispersão, trajetória, VAAR */}
         {panorama && (
           <PanoramaMunicipio
             ica={panorama.ica}
@@ -220,6 +221,7 @@ export function MunicipioResultadoClient({
             totalEscolas={panorama.totalEscolas}
             redes={panorama.redes}
             benchmarks={panorama.benchmarks}
+            dispersao={panorama.dispersao}
           />
         )}
 

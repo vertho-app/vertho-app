@@ -74,8 +74,20 @@ type BenchmarkRow = {
   qtd_munis: number | null;
 };
 
+type DispersaoLite = {
+  etapa: string;
+  ano: number;
+  totalEscolas: number;
+  media: number;
+  mediana: number;
+  min: number;
+  max: number;
+  desvio: number;
+  pontos: { inep: string; nome: string; valor: number }[];
+};
+
 export function PanoramaMunicipio({
-  ica, ideb, enem, fundeb, vaar, receitaPrevista, totalEscolas, redes, benchmarks,
+  ica, ideb, enem, fundeb, vaar, receitaPrevista, totalEscolas, redes, benchmarks, dispersao,
 }: {
   ica: IcaLite[];
   ideb: IdebMunLite[];
@@ -86,6 +98,7 @@ export function PanoramaMunicipio({
   totalEscolas: number;
   redes: Record<string, number>;
   benchmarks?: BenchmarkRow[];
+  dispersao?: DispersaoLite | null;
 }) {
   // ICA mais recente da rede municipal (preferencial), com benchmark UF/Brasil
   const icaMunicipal = ica
@@ -217,6 +230,11 @@ export function PanoramaMunicipio({
           />
         )}
       </div>
+
+      {/* Dispersão entre escolas da rede municipal */}
+      {dispersao && dispersao.totalEscolas >= 3 && (
+        <DispersaoCard d={dispersao} />
+      )}
 
       {/* Comparativo vs municípios vizinhos (microrregião) */}
       {(benchmarks?.length || 0) > 0 && (idebRecentePorEtapa || icaMunicipal) && (
@@ -452,6 +470,120 @@ function VaarRow({ label, valor }: { label: string; valor: boolean | null }) {
       <span className="font-bold" style={{ color: cor }}>
         {valor === true ? 'sim' : valor === false ? 'não' : 'n/d'}
       </span>
+    </div>
+  );
+}
+
+function DispersaoCard({ d }: { d: DispersaoLite }) {
+  const { min, max, media, mediana, desvio, totalEscolas, pontos, etapa, ano } = d;
+  const range = max - min;
+  // Mapeia valor → posição [0..100%]
+  const pos = (v: number) => range > 0 ? ((v - min) / range) * 100 : 50;
+
+  // Classifica cor do ponto: <= mediana - 0.5 fraco; >= mediana + 0.5 forte; senão neutro
+  const corPonto = (v: number) => {
+    if (v <= mediana - 0.5) return '#fca5a5';
+    if (v >= mediana + 0.5) return '#86efac';
+    return '#94A3B8';
+  };
+
+  // Coeficiente de variação (% — quão dispersa a rede é)
+  const cv = media > 0 ? (desvio / media) * 100 : 0;
+  const cvLabel = cv < 8 ? 'baixa' : cv < 15 ? 'moderada' : 'alta';
+  const cvCor = cv < 8 ? '#86efac' : cv < 15 ? '#fbbf24' : '#fca5a5';
+
+  // Top 3 e bottom 3 (clipping de nome)
+  const top3 = [...pontos].sort((a, b) => b.valor - a.valor).slice(0, 3);
+  const bot3 = [...pontos].sort((a, b) => a.valor - b.valor).slice(0, 3);
+
+  return (
+    <div
+      className="rounded-2xl border p-5 mb-6"
+      style={{ background: 'rgba(255,255,255,0.025)', borderColor: 'rgba(255,255,255,0.08)' }}
+    >
+      <div className="flex items-baseline justify-between mb-1 flex-wrap gap-2">
+        <p className="text-[11px] tracking-[0.15em] uppercase font-bold text-white/55">
+          Dispersão entre escolas · Ideb {etapa.replace('_', 'º ')} · {ano}
+        </p>
+        <p className="text-[11px] text-white/55">
+          <span style={{ color: cvCor, fontWeight: 700 }}>Variabilidade {cvLabel}</span>
+          <span className="text-white/35"> · CV {cv.toFixed(0)}%</span>
+        </p>
+      </div>
+      <p className="text-[12px] text-white/55 mb-5 leading-relaxed">
+        {totalEscolas} escolas da rede municipal · {min.toFixed(1)} a {max.toFixed(1)} (amplitude {range.toFixed(1)} pts) · mediana {mediana.toFixed(1)}
+      </p>
+
+      {/* Faixa horizontal com pontos distribuídos */}
+      <div className="relative w-full h-12 mb-4">
+        {/* track */}
+        <div
+          className="absolute left-0 right-0 top-1/2 h-1 rounded-full -translate-y-1/2"
+          style={{
+            background: 'linear-gradient(90deg, rgba(252,165,165,0.35) 0%, rgba(148,163,184,0.25) 50%, rgba(134,239,172,0.35) 100%)',
+          }}
+        />
+        {/* mediana marker */}
+        <div
+          className="absolute top-1 h-10"
+          style={{ left: `${pos(mediana)}%`, transform: 'translateX(-50%)' }}
+        >
+          <div className="w-px h-full bg-white/40" />
+          <p className="absolute top-full left-1/2 -translate-x-1/2 mt-0.5 text-[9px] font-mono text-white/55 whitespace-nowrap">
+            mediana {mediana.toFixed(1)}
+          </p>
+        </div>
+        {/* pontos das escolas */}
+        {pontos.map((p, i) => (
+          <div
+            key={p.inep}
+            title={`${p.nome}: ${p.valor.toFixed(1)}`}
+            className="absolute top-1/2 w-2.5 h-2.5 rounded-full -translate-x-1/2 -translate-y-1/2 hover:scale-150 transition-transform cursor-default"
+            style={{
+              left: `${pos(p.valor)}%`,
+              background: corPonto(p.valor),
+              boxShadow: `0 0 0 2px rgba(8,26,55,0.85), 0 0 8px ${corPonto(p.valor)}33`,
+              zIndex: i,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Min e Max labels */}
+      <div className="flex items-center justify-between text-[11px] text-white/55 font-mono mt-1 mb-5">
+        <span>min {min.toFixed(1)}</span>
+        <span>max {max.toFixed(1)}</span>
+      </div>
+
+      {/* Top 3 e Bottom 3 (lista compacta) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-white/[0.06]">
+        <div>
+          <p className="text-[10px] tracking-[0.15em] uppercase font-bold mb-2" style={{ color: '#86efac' }}>
+            Top 3 da rede
+          </p>
+          <ul className="space-y-1.5">
+            {top3.map((p) => (
+              <li key={p.inep} className="flex items-baseline justify-between gap-2 text-[12px]">
+                <span className="text-white/80 truncate">{p.nome}</span>
+                <span className="text-white font-bold font-mono flex-shrink-0">{p.valor.toFixed(1)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <p className="text-[10px] tracking-[0.15em] uppercase font-bold mb-2" style={{ color: '#fca5a5' }}>
+            Maior risco pedagógico
+          </p>
+          <ul className="space-y-1.5">
+            {bot3.map((p) => (
+              <li key={p.inep} className="flex items-baseline justify-between gap-2 text-[12px]">
+                <span className="text-white/80 truncate">{p.nome}</span>
+                <span className="text-white font-bold font-mono flex-shrink-0">{p.valor.toFixed(1)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
     </div>
   );
 }
