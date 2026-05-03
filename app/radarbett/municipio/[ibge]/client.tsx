@@ -259,8 +259,8 @@ export function MunicipioResultadoClient({
               }}>
               <Lock size={18} className="text-cyan-300 mx-auto mb-2" />
               <p className="text-white/85 text-sm leading-relaxed mb-3">
-                A leitura completa cruza Saeb, Ideb, ICA, FUNDEB e variabilidade da rede pra
-                sugerir frentes de atuação prioritárias.
+                A leitura completa cruza Saeb, Ideb, ICA, ENEM, FUNDEB/VAAR, PDDE e variabilidade
+                da rede pra sugerir frentes de atuação prioritárias.
               </p>
               <button
                 onClick={abrirLead}

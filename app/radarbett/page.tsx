@@ -147,7 +147,7 @@ export default function RadarBettHome() {
         <div className="max-w-[1100px] mx-auto px-6">
           <div className="rounded-2xl overflow-hidden border grid grid-cols-2 sm:grid-cols-4"
             style={{ borderColor: 'rgba(255,255,255,0.10)', background: 'rgba(255,255,255,0.02)' }}>
-            <StatCell num="180k+" desc="Escolas mapeadas" />
+            <StatCell num="200k+" desc="Escolas mapeadas" />
             <StatCell num="5.570" desc="Municípios cobertos" />
             <StatCell num="8" desc="Fontes oficiais cruzadas" />
             <StatCell num="<10s" desc="Diagnóstico gerado" />
@@ -243,7 +243,7 @@ export default function RadarBettHome() {
               num="01"
               icon={TrendingUp}
               titulo="Aprendizagem"
-              texto="Sinais de desempenho em indicadores como SAEB, IDEB, proficiência e evolução histórica."
+              texto="Sinais de desempenho em indicadores como Saeb, Ideb, ENEM, ICA (alfabetização) e SARESP, com proficiência por etapa e evolução histórica."
             />
             <RevealCard
               num="02"
@@ -282,7 +282,7 @@ export default function RadarBettHome() {
               { num: '02', titulo: 'Gera hipóteses',   texto: 'Leitura inicial sobre aprendizagem, gestão e execução.', tone: 'cyanLight' },
               { num: '03', titulo: 'Aprofunda',         texto: 'Assessment, escuta, matriz de competências e contexto da rede.', tone: 'purpleLight' },
               { num: '04', titulo: 'Desenvolve',        texto: 'Trilhas, PDIs personalizados e interações com MentorIA.', tone: 'purple' },
-              { num: '05', titulo: 'Evidencia',         texto: 'Acompanhamento de evolução, engajamento e resultados.', tone: 'green' },
+              { num: '05', titulo: 'Evidência',         texto: 'Acompanhamento de evolução, engajamento e resultados.', tone: 'green' },
             ].map((s) => (
               <Step key={s.num} {...(s as any)} />
             ))}
@@ -501,7 +501,7 @@ export default function RadarBettHome() {
               icon={Database}
               titulo="Fontes oficiais"
               texto="Bases públicas governamentais. A leitura cita ano e fonte de cada número. Sem invenção."
-              tags={['INEP', 'SAEB', 'IDEB', 'Censo Escolar', 'FNDE', 'Tesouro Nacional']}
+              tags={['INEP', 'Saeb', 'Ideb', 'ENEM', 'ICA', 'SARESP', 'Censo Escolar', 'FNDE/FUNDEB', 'Tesouro Nacional']}
             />
             <InfoCard
               icon={FileText}
