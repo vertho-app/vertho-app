@@ -12,6 +12,7 @@ import { StickyCTAMobile } from '../../_components/sticky-cta';
 import { WhatsappIcon } from '../../_components/whatsapp-icon';
 import { track } from '../../_lib/tracking';
 import { openWhatsAppAgendar } from '../../_lib/whatsapp';
+import { PanoramaEscola } from './_panorama';
 
 type Sinal = {
   tipo: 'aprendizagem' | 'contexto' | 'oportunidade';
@@ -26,7 +27,7 @@ const TIPO_CFG = {
 };
 
 export function EscolaResultadoClient({
-  escola, sinais, leituraResumo, narrativaModelo, temIdeb, temCenso, temEnem, temSaresp, ufEscola, saebSnapshots, initialUnlocked = false,
+  escola, sinais, leituraResumo, narrativaModelo, temIdeb, temCenso, temEnem, temSaresp, ufEscola, saebSnapshots, initialUnlocked = false, panorama,
 }: {
   escola: any;
   sinais: Sinal[];
@@ -39,6 +40,14 @@ export function EscolaResultadoClient({
   ufEscola: string;
   saebSnapshots: number;
   initialUnlocked?: boolean;
+  panorama?: {
+    saeb: any[];
+    ideb: any[];
+    enem: any[];
+    censo: any;
+    benchmarks: any[];
+    quadrante: string | null;
+  };
 }) {
   const router = useRouter();
   const [unlocked, setUnlocked] = useState(initialUnlocked);
@@ -198,6 +207,18 @@ export function EscolaResultadoClient({
             </p>
           </div>
         </section>
+
+        {/* Panorama da escola — KPIs, comparativos, trajetória, quadrante Infra×Saeb */}
+        {panorama && (
+          <PanoramaEscola
+            saeb={panorama.saeb}
+            ideb={panorama.ideb}
+            enem={panorama.enem}
+            censo={panorama.censo}
+            benchmarks={panorama.benchmarks}
+            quadrante={panorama.quadrante as any}
+          />
+        )}
 
         {/* Sinais identificados */}
         <section className="mb-8">

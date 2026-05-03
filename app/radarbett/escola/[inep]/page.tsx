@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import type { Metadata } from 'next';
-import { getEscola, getEscolaBenchmarks } from '@/lib/radar/queries';
+import { getEscola, getEscolaBenchmarks, getEscolaInfraSaeb } from '@/lib/radar/queries';
 import { leituraSaebEscola } from '@/lib/radar/leitura-deterministica';
 import {
   getNarrativaRadarbettEscola,
@@ -45,8 +45,12 @@ export default async function EscolaResultadoPage({
   const enem = r.enem || [];
   const saresp = r.saresp || [];
 
-  // Benchmarks INSE/microrregião/estado para enriquecer comparativos
-  const benchmarks = await getEscolaBenchmarks(inep);
+  // Benchmarks INSE/microrregião/estado + quadrante Infra×Saeb para o Panorama
+  const [benchmarks, infraSaebRes] = await Promise.all([
+    getEscolaBenchmarks(inep),
+    getEscolaInfraSaeb(inep),
+  ]);
+  const quadrante = infraSaebRes.resumo?.quadrante || null;
 
   // Leitura determinística como fallback estável (sem IA)
   const leituraDeterministica = leituraSaebEscola(escola, saeb);
@@ -86,6 +90,7 @@ export default async function EscolaResultadoPage({
       ufEscola={(escola as any)?.uf || ''}
       saebSnapshots={saeb.length}
       initialUnlocked={isDemo}
+      panorama={{ saeb, ideb, enem, censo, benchmarks, quadrante }}
     />
   );
 }
