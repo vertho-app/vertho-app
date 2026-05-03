@@ -26,39 +26,57 @@ const TONS: Record<string, { iconBg: string; iconColor: string; eyebrow: string;
 };
 
 function detectarFrentes({
-  ica, ideb, enem, vaar, totalEscolas, redes, nome,
+  ica, ideb, enem, vaar, redes, nome,
 }: {
   ica: any[];
   ideb: any[];
   enem: any[];
   vaar: any | null;
-  totalEscolas: number;
   redes: Record<string, number>;
   nome: string;
 }): Frente[] {
   const frentes: Frente[] = [];
+  const escolasMunicipais = redes?.MUNICIPAL || 0;
 
-  // 1. ICA — alfabetização aquém / em desenvolvimento
+  // 1. ICA — comparação relativa com UF/Brasil (não threshold absoluto)
   const icaRecente = [...ica].filter((i) => (i.rede || '').toUpperCase() === 'MUNICIPAL' && i.taxa != null).sort((a, b) => b.ano - a.ano)[0]
     || [...ica].filter((i) => i.taxa != null).sort((a, b) => b.ano - a.ano)[0];
   if (icaRecente) {
     const taxa = Number(icaRecente.taxa);
     const refUf = icaRecente.total_estado != null ? Number(icaRecente.total_estado) : null;
-    if (taxa < 60) {
+    const refBr = icaRecente.total_brasil != null ? Number(icaRecente.total_brasil) : null;
+    const ref = refUf ?? refBr ?? null;
+    const refLabel = refUf != null ? 'UF' : 'Brasil';
+    const delta = ref != null ? taxa - ref : null;
+
+    // Frente 1.a — alfabetização crítica (taxa baixa em absoluto OU delta negativo grande)
+    if (taxa < 50 || (delta != null && delta <= -10)) {
       frentes.push({
         icon: BookOpen,
         cor: 'cyan',
         titulo: 'Formação dos professores alfabetizadores',
-        evidencia: `ICA ${icaRecente.ano} = ${taxa.toFixed(0)}% das crianças do 2º ano EF alfabetizadas${refUf != null ? ` (vs ${refUf.toFixed(0)}% na UF)` : ''}`,
+        evidencia: `ICA ${icaRecente.ano} = ${taxa.toFixed(0)}% das crianças do 2º ano EF alfabetizadas${ref != null ? ` (${delta!.toFixed(0)} pp vs ${refLabel} ${ref.toFixed(0)}%)` : ''}`,
         atuacao: 'Trilha de formação aplicada em alfabetização para professores dos anos iniciais, MentorIA acompanhando os ciclos de prática e dossiê de evidências por escola.',
       });
-    } else if (taxa >= 60 && taxa < 80) {
+    }
+    // Frente 1.b — patamar bom mas com gap entre escolas (sempre cabe formação contínua)
+    else if (taxa < 80 && (delta == null || Math.abs(delta) < 5)) {
       frentes.push({
         icon: BookOpen,
         cor: 'cyan',
         titulo: 'Acelerar a curva de alfabetização',
-        evidencia: `ICA ${icaRecente.ano} = ${taxa.toFixed(0)}% — patamar intermediário com espaço para subir${refUf != null ? ` (UF: ${refUf.toFixed(0)}%)` : ''}`,
+        evidencia: `ICA ${icaRecente.ano} = ${taxa.toFixed(0)}% — alinhado com a média ${refLabel}${ref != null ? ` (${ref.toFixed(0)}%)` : ''}, mas há escolas atrás da curva`,
         atuacao: 'Diagnóstico das escolas com pior performance, formação focada em mediação de leitura e plano de virada para os anos iniciais.',
+      });
+    }
+    // Frente 1.c — resultado forte (taxa alta E acima da UF)
+    else if (taxa >= 80 || (delta != null && delta >= 5)) {
+      frentes.push({
+        icon: Sparkles,
+        cor: 'green',
+        titulo: 'Documentar e replicar a estratégia de alfabetização',
+        evidencia: `ICA ${icaRecente.ano} = ${taxa.toFixed(0)}%${ref != null ? ` (+${delta!.toFixed(0)} pp vs ${refLabel} ${ref.toFixed(0)}%)` : ''} — estratégia que funciona e merece ser sistematizada`,
+        atuacao: 'Mapeamento das práticas que sustentam o resultado, formação para escalar dentro da rede e dossiê de evidências para registro institucional e benchmark com municípios vizinhos.',
       });
     }
   }
@@ -108,14 +126,14 @@ function detectarFrentes({
     }
   }
 
-  // 4. Variabilidade entre escolas — diagnóstico de risco
-  if (totalEscolas >= 5) {
+  // 4. Variabilidade entre escolas municipais — diagnóstico de risco
+  if (escolasMunicipais >= 5) {
     frentes.push({
       icon: Layers,
       cor: 'cyan',
-      titulo: 'Priorização entre escolas da rede',
-      evidencia: `${totalEscolas} escolas mapeadas no município — variação de performance entre unidades é esperada e detectável nos dados`,
-      atuacao: 'Diagnóstico comparativo escola a escola, identificação das que carregam o maior risco e plano por grupos com priorização orçamentária.',
+      titulo: 'Priorização entre escolas da rede municipal',
+      evidencia: `${escolasMunicipais} escolas na rede municipal de ${nome} — variação de performance entre unidades é esperada e detectável nos dados`,
+      atuacao: 'Diagnóstico comparativo escola a escola, identificação das que carregam o maior risco pedagógico e plano por grupos com priorização orçamentária da secretaria.',
     });
   }
 
@@ -140,13 +158,13 @@ function detectarFrentes({
     }
   }
 
-  // 6. Coordenadores pedagógicos — sempre que rede municipal tiver volume
-  if ((redes?.MUNICIPAL || 0) >= 10) {
+  // 6. Coordenadores pedagógicos — quando a rede municipal tem volume
+  if (escolasMunicipais >= 10) {
     frentes.push({
       icon: Users,
       cor: 'purple',
       titulo: 'Formação de coordenadores pedagógicos',
-      evidencia: `Rede municipal de ${nome} com ${redes.MUNICIPAL} escolas — coordenação pedagógica é a alavanca de sustentação`,
+      evidencia: `Rede municipal de ${nome} com ${escolasMunicipais} escolas — coordenação pedagógica é a alavanca de sustentação`,
       atuacao: 'Trilha estruturada para coordenadores pedagógicos com foco em mediação de prática docente, observação de aula e ciclo de melhoria contínua, com MentorIA como copiloto.',
     });
   }
@@ -155,17 +173,16 @@ function detectarFrentes({
 }
 
 export function AtuacaoVerthoMunicipio({
-  ica, ideb, enem, vaar, totalEscolas, redes, nome,
+  ica, ideb, enem, vaar, redes, nome,
 }: {
   ica: any[];
   ideb: any[];
   enem: any[];
   vaar: any | null;
-  totalEscolas: number;
   redes: Record<string, number>;
   nome: string;
 }) {
-  const frentes = detectarFrentes({ ica, ideb, enem, vaar, totalEscolas, redes, nome });
+  const frentes = detectarFrentes({ ica, ideb, enem, vaar, redes, nome });
   if (!frentes.length) return null;
 
   return (

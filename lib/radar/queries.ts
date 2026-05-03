@@ -230,6 +230,19 @@ export async function getMunicipioBenchmarks(ibge: string): Promise<BenchmarkRow
   return (data as BenchmarkRow[]) || [];
 }
 
+/**
+ * Benchmarks de município comparando APENAS a rede municipal entre cidade,
+ * microrregião, UF e Brasil. Útil para o glimpse radarbett, onde a narrativa
+ * é dirigida ao gestor municipal e não faz sentido enviesar pela rede privada.
+ *
+ * Backed by `diag_mv_municipio_metricas_municipal` (migration 083).
+ */
+export async function getMunicipioBenchmarksMunicipal(ibge: string): Promise<BenchmarkRow[]> {
+  const sb = createSupabaseAdmin();
+  const { data } = await sb.rpc('diag_municipio_benchmarks_municipal', { p_ibge: ibge });
+  return (data as BenchmarkRow[]) || [];
+}
+
 export type EscolaBenchmarkScope = 'escola' | 'microrregiao' | 'estado';
 
 export type EscolaBenchmarkRow = {
@@ -606,7 +619,10 @@ export async function getEscola(codigoInep: string): Promise<{
   };
 }
 
-export async function getMunicipio(ibge: string): Promise<{
+export async function getMunicipio(
+  ibge: string,
+  opts: { filtrarRedeMunicipal?: boolean } = {},
+): Promise<{
   ibge: string;
   nome: string;
   uf: string;
@@ -614,12 +630,14 @@ export async function getMunicipio(ibge: string): Promise<{
   ideb: MunicipioIdebAggregate[];
   enem: MunicipioEnemAggregate[];
   totalEscolas: number;
+  totalEscolasMunicipais: number;
   redes: Record<string, number>;
   fundeb: FundebRepasse[];
   pddeMunicipal: PddeMunicipal[];
   vaar: VaarSnapshot | null;
   receitaPrevista: FundebReceitaPrevista | null;
 } | null> {
+  const apenasMunicipal = !!opts.filtrarRedeMunicipal;
   const sb = createSupabaseAdmin();
   const escolas = await fetchAllRows<{
     codigo_inep: string;
@@ -653,14 +671,18 @@ export async function getMunicipio(ibge: string): Promise<{
       .eq('municipio_ibge', ibge)
       .order('ano', { ascending: false });
     if (!icaOnly?.length && !fundebRes.data?.length) return null;
+    const icaFiltered = apenasMunicipal
+      ? (icaOnly || []).filter((r: any) => (r.rede || '').toUpperCase() === 'MUNICIPAL')
+      : (icaOnly || []);
     return {
       ibge,
       nome: '',
       uf: icaOnly?.[0]?.uf || (fundebRes.data?.[0] as any)?.uf || '',
-      ica: (icaOnly || []) as any,
+      ica: icaFiltered as any,
       ideb: [],
       enem: [],
       totalEscolas: 0,
+      totalEscolasMunicipais: 0,
       redes: {},
       fundeb: (fundebRes.data || []) as any,
       pddeMunicipal: (pddeRes.data || []) as any,
@@ -674,24 +696,35 @@ export async function getMunicipio(ibge: string): Promise<{
     const r = (e.rede || 'OUTRA').toString();
     redes[r] = (redes[r] || 0) + 1;
   }
+  // INEPs da rede municipal (usado quando filtrarRedeMunicipal=true)
+  const inepsMunicipais = new Set(escolas.filter((e) => (e.rede || '').toUpperCase() === 'MUNICIPAL').map((e) => e.codigo_inep));
 
-  const { data: ica } = await sb
+  let icaQ = sb
     .from('diag_ica_snapshots')
     .select('municipio_ibge, uf, rede, ano, alunos_avaliados, alfabetizados, taxa, total_estado, total_brasil')
     .eq('municipio_ibge', ibge)
     .order('ano', { ascending: false });
-  const { data: idebRows } = await sb
+  if (apenasMunicipal) icaQ = icaQ.eq('rede', 'MUNICIPAL');
+  const { data: ica } = await icaQ;
+
+  const { data: idebRowsAll } = await sb
     .from('diag_ideb_snapshots')
     .select('ano, etapa, codigo_inep, ideb, indicador_rendimento, nota_saeb')
     .eq('municipio_ibge', ibge)
     .in('ano', [2019, 2021, 2023])
     .order('etapa', { ascending: true })
     .order('ano', { ascending: false });
-  const { data: enemRows } = await sb
+  const idebRows = apenasMunicipal
+    ? (idebRowsAll || []).filter((r: any) => inepsMunicipais.has(r.codigo_inep))
+    : (idebRowsAll || []);
+
+  let enemQ = sb
     .from('diag_enem_escola_snapshots')
-    .select('ano, codigo_inep, participantes_total, participantes_com_objetiva, participantes_com_redacao, participantes_com_media_geral, media_objetiva, media_redacao, media_geral')
+    .select('ano, codigo_inep, participantes_total, participantes_com_objetiva, participantes_com_redacao, participantes_com_media_geral, media_objetiva, media_redacao, media_geral, dependencia_adm')
     .eq('municipio_ibge', ibge)
     .order('ano', { ascending: false });
+  if (apenasMunicipal) enemQ = enemQ.eq('dependencia_adm', 'MUNICIPAL');
+  const { data: enemRows } = await enemQ;
 
   return {
     ibge,
@@ -701,6 +734,7 @@ export async function getMunicipio(ibge: string): Promise<{
     ideb: aggregateMunicipioIdeb((idebRows || []) as any),
     enem: aggregateMunicipioEnem((enemRows || []) as any),
     totalEscolas: escolas.length,
+    totalEscolasMunicipais: inepsMunicipais.size,
     redes,
     fundeb: (fundebRes.data || []) as any,
     pddeMunicipal: (pddeRes.data || []) as any,

@@ -159,68 +159,7 @@ export function MunicipioResultadoClient({
           </div>
         </header>
 
-        {/* Stats grid — KPIs principais (ICA + Ideb agregado + total escolas) */}
-        {(() => {
-          // Ideb agregado mais recente da etapa principal (mais snapshots)
-          const idebList = panorama?.ideb || [];
-          let idebStat: { ano: number; etapa: string; valor: number; totalEscolas: number } | null = null;
-          if (idebList.length) {
-            const counts: Record<string, number> = {};
-            for (const r of idebList) counts[r.etapa] = (counts[r.etapa] || 0) + 1;
-            const etapa = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
-            const recent = etapa
-              ? idebList.filter((r: any) => r.etapa === etapa && r.idebAvg != null).sort((a: any, b: any) => b.ano - a.ano)[0]
-              : null;
-            if (recent && recent.idebAvg != null) {
-              idebStat = { ano: recent.ano, etapa: recent.etapa, valor: Number(recent.idebAvg), totalEscolas: recent.totalEscolas || 0 };
-            }
-          }
-          const ETAPA_LABEL: Record<string, string> = { '5_EF': '5º EF', '9_EF': '9º EF', '3_EM': '3º EM' };
-          const temAlgo = icaStat || idebStat;
-          if (!temAlgo) return null;
-
-          return (
-            <section className="mb-8">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {icaStat ? (
-                  <StatCard
-                    label={`ICA ${icaStat.ano} · alfabetização`}
-                    value={`${fmtPct(icaStat.taxa)}`}
-                    compare={
-                      icaStat.totalEstado != null
-                        ? { delta: icaStat.taxa - icaStat.totalEstado, ref: `vs ${municipio.uf} (${fmtPct(icaStat.totalEstado)})` }
-                        : icaStat.totalBrasil != null
-                          ? { delta: icaStat.taxa - icaStat.totalBrasil, ref: `vs Brasil (${fmtPct(icaStat.totalBrasil)})` }
-                          : null
-                    }
-                    compareSecondary={
-                      icaStat.totalEstado != null && icaStat.totalBrasil != null
-                        ? { delta: icaStat.taxa - icaStat.totalBrasil, ref: `vs Brasil (${fmtPct(icaStat.totalBrasil)})` }
-                        : null
-                    }
-                    unidade="pp"
-                  />
-                ) : (
-                  <StatCard label="ICA · alfabetização" value="—" compareText="dado não disponível" />
-                )}
-                {idebStat ? (
-                  <StatCard
-                    label={`Ideb agregado ${ETAPA_LABEL[idebStat.etapa] || idebStat.etapa} · ${idebStat.ano}`}
-                    value={idebStat.valor.toFixed(1)}
-                    compareText={`Média de ${idebStat.totalEscolas} ${idebStat.totalEscolas === 1 ? 'escola' : 'escolas'} avaliadas`}
-                  />
-                ) : (
-                  <StatCard label="Ideb agregado" value="—" compareText="sem Ideb publicado" />
-                )}
-                <StatCard
-                  label="Escolas na rede municipal"
-                  value={(municipio.redes?.MUNICIPAL || 0).toLocaleString('pt-BR')}
-                  compareText={`De ${municipio.totalEscolas.toLocaleString('pt-BR')} escolas mapeadas`}
-                />
-              </div>
-            </section>
-          );
-        })()}
+        {/* Stats grid removido — KPIs ficam consolidados no Panorama abaixo */}
 
         {/* Leitura institucional — card com avatar Vertho */}
         <section className="mb-8">
@@ -347,7 +286,6 @@ export function MunicipioResultadoClient({
             ideb={panorama.ideb}
             enem={panorama.enem}
             vaar={panorama.vaar}
-            totalEscolas={panorama.totalEscolas}
             redes={panorama.redes}
             nome={municipio.nome}
           />

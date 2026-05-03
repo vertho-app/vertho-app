@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import type { Metadata } from 'next';
-import { getMunicipio, getMunicipioBenchmarks } from '@/lib/radar/queries';
+import { getMunicipio, getMunicipioBenchmarksMunicipal } from '@/lib/radar/queries';
 import { leituraIcaMunicipio } from '@/lib/radar/leitura-deterministica';
 import {
   getNarrativaRadarbettMunicipio,
@@ -35,9 +35,13 @@ export default async function MunicipioResultadoPage({
   const { ibge } = await params;
   const sp = await searchParams;
   const isDemo = sp?.demo === '1';
+  // No glimpse radarbett, todos os agregados são da rede municipal
+  // (Ideb, ENEM, ICA filtrados por rede=MUNICIPAL).
+  // Benchmarks comparam apenas redes municipais entre cidade, microrregião,
+  // UF e Brasil (MV diag_mv_municipio_metricas_municipal, migration 083).
   const [m, municipioBenchmarks] = await Promise.all([
-    getMunicipio(ibge),
-    getMunicipioBenchmarks(ibge),
+    getMunicipio(ibge, { filtrarRedeMunicipal: true }),
+    getMunicipioBenchmarksMunicipal(ibge),
   ]);
   if (!m) return notFound();
 
