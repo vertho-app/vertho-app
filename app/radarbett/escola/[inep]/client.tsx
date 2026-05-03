@@ -26,7 +26,7 @@ const TIPO_CFG = {
 };
 
 export function EscolaResultadoClient({
-  escola, sinais, leituraResumo, temIdeb, temCenso, temEnem, temSaresp, ufEscola, saebSnapshots,
+  escola, sinais, leituraResumo, temIdeb, temCenso, temEnem, temSaresp, ufEscola, saebSnapshots, initialUnlocked = false,
 }: {
   escola: any;
   sinais: Sinal[];
@@ -37,9 +37,10 @@ export function EscolaResultadoClient({
   temSaresp: boolean;
   ufEscola: string;
   saebSnapshots: number;
+  initialUnlocked?: boolean;
 }) {
   const router = useRouter();
-  const [unlocked, setUnlocked] = useState(false);
+  const [unlocked, setUnlocked] = useState(initialUnlocked);
   const [leadOpen, setLeadOpen] = useState(false);
   const viewSent = useRef(false);
   const glimpseSent = useRef(false);

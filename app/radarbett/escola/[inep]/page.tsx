@@ -21,8 +21,16 @@ export async function generateMetadata({ params }: { params: Promise<{ inep: str
   };
 }
 
-export default async function EscolaResultadoPage({ params }: { params: Promise<{ inep: string }> }) {
+export default async function EscolaResultadoPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ inep: string }>;
+  searchParams: Promise<{ demo?: string }>;
+}) {
   const { inep } = await params;
+  const sp = await searchParams;
+  const isDemo = sp?.demo === '1';
   const r = await getEscola(inep);
   if (!r?.escola) return notFound();
   const escola = r.escola;
@@ -49,6 +57,7 @@ export default async function EscolaResultadoPage({ params }: { params: Promise<
       temSaresp={saresp.length > 0}
       ufEscola={(escola as any)?.uf || ''}
       saebSnapshots={saeb.length}
+      initialUnlocked={isDemo}
     />
   );
 }

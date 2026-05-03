@@ -106,7 +106,7 @@ export default function RadarBettHome() {
             <button
               onClick={() => {
                 track('bett_example_click');
-                router.push('/escola/35223141'); // EMEF Jairo de Almeida (SP) · gap pedagogico+gestor, infra OK
+                router.push('/escola/35012245?demo=1'); // Yolanda Conte (Sao Vicente/SP) · 5 sinais + oportunidade, demo aberto
               }}
               className="inline-flex items-center gap-1.5 text-[13px] font-bold text-cyan-300 hover:text-cyan-200"
             >
@@ -368,8 +368,8 @@ export default function RadarBettHome() {
               texto="Veja sinais de aprendizagem, contexto e oportunidades para orientar melhor sua equipe pedagógica."
               cta="Ver exemplo para escola"
               onClick={() => {
-                track('bett_persona_click', { tipo: 'escola', id: '35223141' });
-                router.push('/escola/35223141');
+                track('bett_persona_click', { tipo: 'escola', id: '35012245' });
+                router.push('/escola/35012245?demo=1');
               }}
             />
             <PersonaCard
