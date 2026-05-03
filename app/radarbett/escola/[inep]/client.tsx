@@ -26,7 +26,7 @@ const TIPO_CFG = {
 };
 
 export function EscolaResultadoClient({
-  escola, sinais, leituraResumo, temIdeb, temCenso, temEnem, saebSnapshots,
+  escola, sinais, leituraResumo, temIdeb, temCenso, temEnem, temSaresp, temPdde, ufEscola, saebSnapshots,
 }: {
   escola: any;
   sinais: Sinal[];
@@ -34,6 +34,9 @@ export function EscolaResultadoClient({
   temIdeb: boolean;
   temCenso: boolean;
   temEnem: boolean;
+  temSaresp: boolean;
+  temPdde: boolean;
+  ufEscola: string;
   saebSnapshots: number;
 }) {
   const router = useRouter();
@@ -270,9 +273,19 @@ export function EscolaResultadoClient({
                 <Dot ativo={temEnem} />
                 <span>ENEM por escola · {temEnem ? 'média geral e por área disponível' : 'sem dados de ENEM publicados'}</span>
               </li>
+              {ufEscola === 'SP' && (
+                <li className="flex items-center gap-2">
+                  <Dot ativo={temSaresp} />
+                  <span>SARESP (SP) · {temSaresp ? 'séries e disciplinas disponíveis' : 'sem dados de SARESP publicados'}</span>
+                </li>
+              )}
               <li className="flex items-center gap-2">
                 <Dot ativo={temCenso} />
                 <span>Censo Escolar · {temCenso ? 'infraestrutura, recursos e contexto' : 'sem dados de Censo'}</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Dot ativo={temPdde} />
+                <span>PDDE · {temPdde ? 'repasses por escola disponíveis' : 'sem repasses PDDE registrados'}</span>
               </li>
             </ul>
           </div>

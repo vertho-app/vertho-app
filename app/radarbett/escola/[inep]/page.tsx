@@ -30,6 +30,8 @@ export default async function EscolaResultadoPage({ params }: { params: Promise<
   const ideb = r.ideb || [];
   const censo = r.censo;
   const enem = r.enem || [];
+  const saresp = r.saresp || [];
+  const pdde = r.pdde || [];
 
   // Leitura determinística pra usar no glimpse (sem IA, rápido, sempre disponível)
   const leitura = leituraSaebEscola(escola, saeb);
@@ -45,6 +47,9 @@ export default async function EscolaResultadoPage({ params }: { params: Promise<
       temIdeb={ideb.length > 0}
       temCenso={!!censo}
       temEnem={enem.length > 0}
+      temSaresp={saresp.length > 0}
+      temPdde={pdde.length > 0}
+      ufEscola={(escola as any)?.uf || ''}
       saebSnapshots={saeb.length}
     />
   );

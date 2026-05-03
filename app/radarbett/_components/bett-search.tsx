@@ -89,6 +89,31 @@ export function BettSearch({
 
   return (
     <div ref={wrapperRef} className="relative w-full">
+      {/* Chip UF (opcional) — fica acima da barra de busca, à direita */}
+      <div className="flex justify-end mb-2">
+        <div className="relative inline-flex items-center gap-2">
+          <span className="text-[10px] tracking-[0.18em] uppercase font-bold text-white/45">
+            Filtrar por
+          </span>
+          <select
+            value={uf}
+            onChange={(e) => setUf(e.target.value)}
+            aria-label="Filtrar por UF"
+            className="appearance-none bg-white/[0.05] text-white/90 rounded-full font-bold cursor-pointer outline-none border border-white/[0.12] hover:bg-white/[0.10] focus:border-cyan-400/60 transition-colors h-7 pl-3 pr-7 text-[11px]"
+            style={{ letterSpacing: '0.06em' }}
+          >
+            <option value="" style={{ background: '#0c2848', color: 'white' }}>Todas as UFs</option>
+            {UFS.map((u) => (
+              <option key={u} value={u} style={{ background: '#0c2848', color: 'white' }}>{u}</option>
+            ))}
+          </select>
+          <ChevronDown
+            size={11}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-white/55 pointer-events-none"
+          />
+        </div>
+      </div>
+
       <div
         className={`relative flex items-center rounded-full transition-all ${
           isLarge ? 'h-14 sm:h-16' : 'h-12'
@@ -110,42 +135,15 @@ export function BettSearch({
           onBlur={() => setFocused(false)}
           placeholder="Digite o nome da escola ou município"
           className={`w-full bg-transparent text-white placeholder:text-white/40 outline-none ${
-            isLarge ? 'text-base sm:text-lg pl-12 sm:pl-14 pr-44 sm:pr-56' : 'text-sm pl-11 pr-40'
+            isLarge ? 'text-base sm:text-lg pl-12 sm:pl-14 pr-32 sm:pr-40' : 'text-sm pl-11 pr-28'
           }`}
         />
-        {/* Filtro UF (opcional) */}
-        <div
-          className={`absolute flex items-center ${
-            isLarge ? 'right-32 sm:right-40' : 'right-28'
-          }`}
-        >
-          {loading && (
-            <Loader2
-              size={isLarge ? 16 : 14}
-              className="text-cyan-400 animate-spin mr-2"
-            />
-          )}
-          <div className="relative">
-            <select
-              value={uf}
-              onChange={(e) => setUf(e.target.value)}
-              aria-label="Filtrar por UF"
-              className={`appearance-none bg-white/[0.05] text-white/85 rounded-full font-bold cursor-pointer outline-none border border-white/[0.10] hover:bg-white/[0.10] focus:border-cyan-400/60 transition-colors ${
-                isLarge ? 'h-9 pl-3 pr-7 text-[12px]' : 'h-7 pl-2.5 pr-6 text-[11px]'
-              }`}
-              style={{ letterSpacing: '0.04em' }}
-            >
-              <option value="" style={{ background: '#0c2848', color: 'white' }}>UF</option>
-              {UFS.map((u) => (
-                <option key={u} value={u} style={{ background: '#0c2848', color: 'white' }}>{u}</option>
-              ))}
-            </select>
-            <ChevronDown
-              size={isLarge ? 12 : 10}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-white/55 pointer-events-none"
-            />
-          </div>
-        </div>
+        {loading && (
+          <Loader2
+            size={isLarge ? 16 : 14}
+            className={`absolute ${isLarge ? 'right-32 sm:right-40' : 'right-28'} text-cyan-400 animate-spin`}
+          />
+        )}
         <button
           type="button"
           aria-label="Buscar"
