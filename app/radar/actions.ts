@@ -13,11 +13,18 @@ type SearchResult = {
   sub?: string;
 };
 
-export async function buscarEscolasMunicipios(termo: string): Promise<SearchResult[]> {
+export async function buscarEscolasMunicipios(
+  termo: string,
+  opts?: { uf?: string },
+): Promise<SearchResult[]> {
   const q = termo.trim().replace(/[%_]/g, '').slice(0, 80);
   if (q.length < 2) return [];
   const allowed = await checkPublicActionRateLimit('search_radar', 60, 10 * 60 * 1000);
   if (!allowed) return [];
+
+  // UF opcional: 2 letras válidas, normalizada para uppercase
+  const ufRaw = (opts?.uf || '').trim().toUpperCase();
+  const uf = /^[A-Z]{2}$/.test(ufRaw) ? ufRaw : null;
 
   const sb = createSupabaseAdmin();
   const isInepLike = /^\d{6,8}$/.test(q);
@@ -25,11 +32,13 @@ export async function buscarEscolasMunicipios(termo: string): Promise<SearchResu
 
   // Busca exata por código primeiro (rápido)
   if (isInepLike || isIbgeLike) {
-    const { data: escola } = await sb
+    let codigoQ = sb
       .from('diag_escolas')
       .select('codigo_inep, nome, municipio, uf, rede, municipio_ibge')
       .or(`codigo_inep.eq.${q},municipio_ibge.eq.${q}`)
-      .limit(20);
+      .limit(30);
+    if (uf) codigoQ = codigoQ.eq('uf', uf);
+    const { data: escola } = await codigoQ;
     if (escola?.length) {
       const results: SearchResult[] = [];
       // Se o usuário buscou por código IBGE de 7 dígitos, oferece o município
@@ -63,20 +72,24 @@ export async function buscarEscolasMunicipios(termo: string): Promise<SearchResu
     }
   }
 
-  // Busca por nome (escolas e municípios). Com pg_trgm + GIN, ilike
-  // %termo% usa o índice e fica O(log n) — sem precisar mudar a query.
-  // Filtra municipio_ibge null pra evitar resultados sem IBGE válido.
-  const [escolas, municipios] = await Promise.all([
-    sb.from('diag_escolas')
-      .select('codigo_inep, nome, municipio, uf, rede')
-      .ilike('nome', `%${q}%`)
-      .limit(8),
-    sb.from('diag_escolas')
-      .select('municipio, municipio_ibge, uf')
-      .ilike('municipio', `%${q}%`)
-      .not('municipio_ibge', 'is', null)
-      .limit(20),
-  ]);
+  // Busca por nome (escolas e municípios). Com pg_trgm + GIN, ilike %termo%
+  // usa o índice e fica O(log n). Filtra municipio_ibge null pra evitar
+  // resultados sem IBGE válido. Filtro opcional por UF.
+  let escolasQ = sb.from('diag_escolas')
+    .select('codigo_inep, nome, municipio, uf, rede')
+    .ilike('nome', `%${q}%`)
+    .order('nome', { ascending: true })
+    .limit(25);
+  let municipiosQ = sb.from('diag_escolas')
+    .select('municipio, municipio_ibge, uf')
+    .ilike('municipio', `%${q}%`)
+    .not('municipio_ibge', 'is', null)
+    .limit(60);
+  if (uf) {
+    escolasQ = escolasQ.eq('uf', uf);
+    municipiosQ = municipiosQ.eq('uf', uf);
+  }
+  const [escolas, municipios] = await Promise.all([escolasQ, municipiosQ]);
 
   // Dedup municípios pelo IBGE
   const municipiosUnicos = new Map<string, { municipio: string; uf: string }>();
@@ -88,7 +101,7 @@ export async function buscarEscolasMunicipios(termo: string): Promise<SearchResu
 
   const results: SearchResult[] = [];
   for (const [ibge, m] of municipiosUnicos) {
-    if (results.length >= 5) break;
+    if (results.length >= 8) break;
     results.push({
       tipo: 'municipio',
       id: ibge,
@@ -97,7 +110,7 @@ export async function buscarEscolasMunicipios(termo: string): Promise<SearchResu
     });
   }
   for (const e of escolas.data || []) {
-    if (results.length >= 12) break;
+    if (results.length >= 25) break;
     results.push({
       tipo: 'escola',
       id: e.codigo_inep,

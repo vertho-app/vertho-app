@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Loader2 } from 'lucide-react';
+import { Search, Loader2, ChevronDown } from 'lucide-react';
 import { buscarEscolasMunicipios } from '../actions';
 
 type Result = {
@@ -12,9 +12,16 @@ type Result = {
   sub?: string;        // município/UF, rede, etc
 };
 
+const UFS = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
+  'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
+  'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
+];
+
 export function RadarSearch() {
   const router = useRouter();
   const [q, setQ] = useState('');
+  const [uf, setUf] = useState<string>('');
   const [items, setItems] = useState<Result[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
@@ -28,7 +35,7 @@ export function RadarSearch() {
     let cancelled = false;
     const t = setTimeout(async () => {
       setLoading(true);
-      const r = await buscarEscolasMunicipios(q.trim());
+      const r = await buscarEscolasMunicipios(q.trim(), uf ? { uf } : undefined);
       if (!cancelled) {
         setItems(r);
         setOpen(true);
@@ -39,7 +46,7 @@ export function RadarSearch() {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [q]);
+  }, [q, uf]);
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
@@ -76,6 +83,24 @@ export function RadarSearch() {
           className="flex-1 bg-transparent text-white text-base outline-none placeholder:text-white/35"
         />
         {loading && <Loader2 size={16} className="animate-spin text-cyan-400" />}
+        <div className="relative flex-shrink-0">
+          <select
+            value={uf}
+            onChange={(e) => setUf(e.target.value)}
+            aria-label="Filtrar por UF"
+            className="appearance-none bg-white/[0.05] text-white/85 rounded-full font-bold cursor-pointer outline-none border border-white/[0.12] hover:bg-white/[0.10] focus:border-cyan-400/60 transition-colors h-8 pl-3 pr-7 text-[11px]"
+            style={{ letterSpacing: '0.04em' }}
+          >
+            <option value="" style={{ background: '#0b1d36', color: 'white' }}>UF</option>
+            {UFS.map((u) => (
+              <option key={u} value={u} style={{ background: '#0b1d36', color: 'white' }}>{u}</option>
+            ))}
+          </select>
+          <ChevronDown
+            size={11}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-white/55 pointer-events-none"
+          />
+        </div>
       </div>
 
       {open && items.length > 0 && (

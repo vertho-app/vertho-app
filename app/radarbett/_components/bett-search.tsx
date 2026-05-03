@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Loader2, ArrowRight, MapPin, GraduationCap } from 'lucide-react';
+import { Search, Loader2, ArrowRight, MapPin, GraduationCap, ChevronDown } from 'lucide-react';
 import { buscarEscolasMunicipios } from '../../radar/actions';
 import { track } from '../_lib/tracking';
 
@@ -12,6 +12,12 @@ type SearchResult = {
   label: string;
   sub?: string;
 };
+
+const UFS = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
+  'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
+  'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
+];
 
 /**
  * Componente de busca do radarbett — versão consultiva.
@@ -28,6 +34,7 @@ export function BettSearch({
 }) {
   const router = useRouter();
   const [termo, setTermo] = useState('');
+  const [uf, setUf] = useState<string>('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
@@ -51,13 +58,13 @@ export function BettSearch({
     if (!termo || termo.length < 2) { setResults([]); setOpen(false); return; }
     setLoading(true);
     debounce.current = setTimeout(async () => {
-      const r = await buscarEscolasMunicipios(termo);
+      const r = await buscarEscolasMunicipios(termo, uf ? { uf } : undefined);
       setResults(r || []);
       setOpen(true);
       setLoading(false);
     }, 350);
     return () => { if (debounce.current) clearTimeout(debounce.current); };
-  }, [termo]);
+  }, [termo, uf]);
 
   function handleFocus() {
     setFocused(true);
@@ -103,15 +110,42 @@ export function BettSearch({
           onBlur={() => setFocused(false)}
           placeholder="Digite o nome da escola ou município"
           className={`w-full bg-transparent text-white placeholder:text-white/40 outline-none ${
-            isLarge ? 'text-base sm:text-lg pl-12 sm:pl-14 pr-32 sm:pr-40' : 'text-sm pl-11 pr-28'
+            isLarge ? 'text-base sm:text-lg pl-12 sm:pl-14 pr-44 sm:pr-56' : 'text-sm pl-11 pr-40'
           }`}
         />
-        {loading && (
-          <Loader2
-            size={isLarge ? 16 : 14}
-            className={`absolute ${isLarge ? 'right-32 sm:right-40' : 'right-28'} text-cyan-400 animate-spin`}
-          />
-        )}
+        {/* Filtro UF (opcional) */}
+        <div
+          className={`absolute flex items-center ${
+            isLarge ? 'right-32 sm:right-40' : 'right-28'
+          }`}
+        >
+          {loading && (
+            <Loader2
+              size={isLarge ? 16 : 14}
+              className="text-cyan-400 animate-spin mr-2"
+            />
+          )}
+          <div className="relative">
+            <select
+              value={uf}
+              onChange={(e) => setUf(e.target.value)}
+              aria-label="Filtrar por UF"
+              className={`appearance-none bg-white/[0.05] text-white/85 rounded-full font-bold cursor-pointer outline-none border border-white/[0.10] hover:bg-white/[0.10] focus:border-cyan-400/60 transition-colors ${
+                isLarge ? 'h-9 pl-3 pr-7 text-[12px]' : 'h-7 pl-2.5 pr-6 text-[11px]'
+              }`}
+              style={{ letterSpacing: '0.04em' }}
+            >
+              <option value="" style={{ background: '#0c2848', color: 'white' }}>UF</option>
+              {UFS.map((u) => (
+                <option key={u} value={u} style={{ background: '#0c2848', color: 'white' }}>{u}</option>
+              ))}
+            </select>
+            <ChevronDown
+              size={isLarge ? 12 : 10}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-white/55 pointer-events-none"
+            />
+          </div>
+        </div>
         <button
           type="button"
           aria-label="Buscar"
