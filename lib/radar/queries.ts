@@ -243,6 +243,198 @@ export async function getMunicipioBenchmarksMunicipal(ibge: string): Promise<Ben
   return (data as BenchmarkRow[]) || [];
 }
 
+// ── Top benchmarks escalonados (sempre puxar a barra pra cima) ───────────────
+
+export type TopBenchScope = {
+  valor: number | null;
+  municipio_ibge: string | null;
+  municipio_nome: string | null;
+  total: number; // qtd de munis no escopo
+};
+
+export type TopBench = {
+  cidade: TopBenchScope; // total = 1
+  microrregiao: TopBenchScope; // melhor da microrregião
+  estado: TopBenchScope; // melhor da UF
+  brasil: TopBenchScope; // melhor do Brasil
+};
+
+export type TopBenchmarksMunicipal = {
+  uf: string;
+  microrregiao: string | null;
+  ica: TopBench | null;
+  ideb_5ef: TopBench | null;
+  ideb_9ef: TopBench | null;
+  ideb_3em: TopBench | null;
+  enem: TopBench | null;
+};
+
+/**
+ * Busca, para cada indicador, o melhor município por escopo (microrregião, UF,
+ * Brasil) considerando APENAS redes municipais. Permite "puxar a barra pra
+ * cima" — quando a cidade está bem vs vizinhos, mostra o gap até o melhor da
+ * UF; quando está acima da UF, mostra gap até o melhor do Brasil.
+ *
+ * Backed by `diag_mv_municipio_metricas_municipal` (mig 083).
+ */
+export async function getTopBenchmarksMunicipal(ibge: string): Promise<TopBenchmarksMunicipal | null> {
+  const sb = createSupabaseAdmin();
+  const alvoRes = await sb
+    .from('diag_mv_municipio_metricas_municipal')
+    .select('*')
+    .eq('municipio_ibge', ibge)
+    .maybeSingle();
+  if (!alvoRes.data) return null;
+  const alvo = alvoRes.data as any;
+  const { uf, microrregiao } = alvo;
+
+  // Para um indicador, busca top 1 da microrregião, UF e Brasil + total escolas no escopo
+  async function topPara(coluna: string): Promise<TopBench | null> {
+    const valorCidade = alvo[coluna] != null ? Number(alvo[coluna]) : null;
+    const [microR, ufR, brR] = await Promise.all([
+      microrregiao
+        ? sb.from('diag_mv_municipio_metricas_municipal')
+            .select(`municipio_ibge, ${coluna}`)
+            .eq('uf', uf)
+            .eq('microrregiao', microrregiao)
+            .not(coluna, 'is', null)
+            .order(coluna, { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        : Promise.resolve({ data: null } as any),
+      sb.from('diag_mv_municipio_metricas_municipal')
+        .select(`municipio_ibge, ${coluna}`)
+        .eq('uf', uf)
+        .not(coluna, 'is', null)
+        .order(coluna, { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      sb.from('diag_mv_municipio_metricas_municipal')
+        .select(`municipio_ibge, ${coluna}`)
+        .not(coluna, 'is', null)
+        .order(coluna, { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+    // Pega contagem de munis em cada escopo (com valor não-nulo)
+    const [microCount, ufCount, brCount] = await Promise.all([
+      microrregiao
+        ? sb.from('diag_mv_municipio_metricas_municipal')
+            .select('municipio_ibge', { count: 'exact', head: true })
+            .eq('uf', uf)
+            .eq('microrregiao', microrregiao)
+            .not(coluna, 'is', null)
+        : Promise.resolve({ count: 0 } as any),
+      sb.from('diag_mv_municipio_metricas_municipal')
+        .select('municipio_ibge', { count: 'exact', head: true })
+        .eq('uf', uf)
+        .not(coluna, 'is', null),
+      sb.from('diag_mv_municipio_metricas_municipal')
+        .select('municipio_ibge', { count: 'exact', head: true })
+        .not(coluna, 'is', null),
+    ]);
+
+    // Resolve nomes dos municípios top
+    const ibgesTop = [
+      (microR as any)?.data?.municipio_ibge,
+      (ufR as any)?.data?.municipio_ibge,
+      (brR as any)?.data?.municipio_ibge,
+    ].filter(Boolean) as string[];
+    const nomes: Record<string, string> = {};
+    if (ibgesTop.length) {
+      const { data: escs } = await sb
+        .from('diag_escolas')
+        .select('municipio_ibge, municipio')
+        .in('municipio_ibge', ibgesTop)
+        .limit(50);
+      for (const e of (escs || []) as any[]) {
+        if (!nomes[e.municipio_ibge]) nomes[e.municipio_ibge] = e.municipio;
+      }
+    }
+
+    return {
+      cidade: { valor: valorCidade, municipio_ibge: ibge, municipio_nome: null, total: 1 },
+      microrregiao: {
+        valor: (microR as any)?.data?.[coluna] != null ? Number((microR as any).data[coluna]) : null,
+        municipio_ibge: (microR as any)?.data?.municipio_ibge || null,
+        municipio_nome: (microR as any)?.data?.municipio_ibge ? nomes[(microR as any).data.municipio_ibge] || null : null,
+        total: (microCount as any)?.count || 0,
+      },
+      estado: {
+        valor: (ufR as any)?.data?.[coluna] != null ? Number((ufR as any).data[coluna]) : null,
+        municipio_ibge: (ufR as any)?.data?.municipio_ibge || null,
+        municipio_nome: (ufR as any)?.data?.municipio_ibge ? nomes[(ufR as any).data.municipio_ibge] || null : null,
+        total: (ufCount as any)?.count || 0,
+      },
+      brasil: {
+        valor: (brR as any)?.data?.[coluna] != null ? Number((brR as any).data[coluna]) : null,
+        municipio_ibge: (brR as any)?.data?.municipio_ibge || null,
+        municipio_nome: (brR as any)?.data?.municipio_ibge ? nomes[(brR as any).data.municipio_ibge] || null : null,
+        total: (brCount as any)?.count || 0,
+      },
+    };
+  }
+
+  // Roda em paralelo para todos os indicadores principais
+  const [icaT, ideb5T, ideb9T, ideb3T, enemT] = await Promise.all([
+    topPara('ica_taxa'),
+    topPara('ideb_5ef'),
+    topPara('ideb_9ef'),
+    topPara('ideb_3em'),
+    topPara('enem_media_geral'),
+  ]);
+
+  return {
+    uf,
+    microrregiao,
+    ica: icaT,
+    ideb_5ef: ideb5T,
+    ideb_9ef: ideb9T,
+    ideb_3em: ideb3T,
+    enem: enemT,
+  };
+}
+
+/**
+ * Helper: dado um TopBench, escolhe o **próximo benchmark "que puxa a barra
+ * pra cima"** considerando o valor da cidade. Se cidade está bem vs micro,
+ * sobe para UF; se está bem vs UF, sobe para Brasil. Sempre devolve um
+ * benchmark com valor estritamente maior que o da cidade — ou null se a
+ * cidade já é a melhor de tudo.
+ */
+export type ProximoBenchmark = {
+  scope: 'microrregiao' | 'estado' | 'brasil';
+  valor: number;
+  municipio_nome: string | null;
+  total: number;
+  delta: number; // distância da cidade até esse benchmark (positivo = a cidade tem que subir)
+  cidade: number;
+};
+
+export function escolherProximoBenchmark(t: TopBench | null): ProximoBenchmark | null {
+  if (!t || t.cidade.valor == null) return null;
+  const v = t.cidade.valor;
+  const candidatos: Array<{ scope: 'microrregiao' | 'estado' | 'brasil'; bench: TopBenchScope }> = [
+    { scope: 'microrregiao', bench: t.microrregiao },
+    { scope: 'estado', bench: t.estado },
+    { scope: 'brasil', bench: t.brasil },
+  ];
+  // Procura o primeiro benchmark cujo valor é estritamente maior que a cidade
+  for (const { scope, bench } of candidatos) {
+    if (bench.valor != null && bench.valor > v + 0.05) {
+      return {
+        scope,
+        valor: bench.valor,
+        municipio_nome: bench.municipio_nome,
+        total: bench.total,
+        delta: bench.valor - v,
+        cidade: v,
+      };
+    }
+  }
+  return null;
+}
+
 export type DispersaoEscolasMunicipal = {
   etapa: string;
   ano: number;

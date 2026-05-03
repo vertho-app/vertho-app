@@ -1,6 +1,6 @@
 'use client';
 
-import { GraduationCap, BookOpen, TrendingUp, Coins, Award, ArrowDown, ArrowUp, Minus, CheckCircle2, AlertCircle } from 'lucide-react';
+import { GraduationCap, BookOpen, TrendingUp, Coins, Award, ArrowDown, ArrowUp, Minus, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 
 type IcaLite = {
   rede: string | null;
@@ -87,7 +87,7 @@ type DispersaoLite = {
 };
 
 export function PanoramaMunicipio({
-  ica, ideb, enem, fundeb, vaar, receitaPrevista, totalEscolas, redes, benchmarks, dispersao,
+  ica, ideb, enem, fundeb, vaar, receitaPrevista, totalEscolas, redes, benchmarks, dispersao, topBenchmarks,
 }: {
   ica: IcaLite[];
   ideb: IdebMunLite[];
@@ -99,6 +99,7 @@ export function PanoramaMunicipio({
   redes: Record<string, number>;
   benchmarks?: BenchmarkRow[];
   dispersao?: DispersaoLite | null;
+  topBenchmarks?: any | null;
 }) {
   // ICA mais recente da rede municipal (preferencial), com benchmark UF/Brasil
   const icaMunicipal = ica
@@ -234,6 +235,11 @@ export function PanoramaMunicipio({
       {/* Dispersão entre escolas da rede municipal */}
       {dispersao && dispersao.totalEscolas >= 3 && (
         <DispersaoCard d={dispersao} />
+      )}
+
+      {/* Espaço para crescer — próximo benchmark "puxando a barra pra cima" */}
+      {topBenchmarks && (
+        <ProximoNivelCard tb={topBenchmarks} />
       )}
 
       {/* Comparativo vs municípios vizinhos (microrregião) */}
@@ -470,6 +476,163 @@ function VaarRow({ label, valor }: { label: string; valor: boolean | null }) {
       <span className="font-bold" style={{ color: cor }}>
         {valor === true ? 'sim' : valor === false ? 'não' : 'n/d'}
       </span>
+    </div>
+  );
+}
+
+function ProximoNivelCard({ tb }: { tb: any }) {
+  // Lista os indicadores onde há próximo benchmark "puxando a barra pra cima"
+  type Item = {
+    label: string;
+    cidade: number;
+    proximo: { scope: string; valor: number; municipio_nome: string | null; total: number };
+    delta: number;
+    sufixo: string;
+    decimais: number;
+  };
+  const items: Item[] = [];
+
+  function addInd(rotulo: string, top: any | null, sufixo: string, decimais: number) {
+    if (!top || top.cidade.valor == null) return;
+    const v = Number(top.cidade.valor);
+    // Encontra o próximo escopo cujo valor seja maior
+    const escopos: Array<['microrregiao' | 'estado' | 'brasil', { valor: number | null; municipio_nome: string | null; total: number }]> = [
+      ['microrregiao', top.microrregiao],
+      ['estado', top.estado],
+      ['brasil', top.brasil],
+    ];
+    for (const [scope, b] of escopos) {
+      if (b.valor != null && Number(b.valor) > v + 0.05) {
+        items.push({
+          label: rotulo,
+          cidade: v,
+          proximo: { scope, valor: Number(b.valor), municipio_nome: b.municipio_nome, total: b.total || 0 },
+          delta: Number(b.valor) - v,
+          sufixo,
+          decimais,
+        });
+        return;
+      }
+    }
+    // Se nenhum benchmark é estritamente maior, a cidade já é referência
+    items.push({
+      label: rotulo,
+      cidade: v,
+      proximo: { scope: 'topo', valor: v, municipio_nome: null, total: 0 },
+      delta: 0,
+      sufixo,
+      decimais,
+    });
+  }
+
+  addInd('Ideb 9º EF · agregado', tb.ideb_9ef, '', 1);
+  addInd('Ideb 5º EF · agregado', tb.ideb_5ef, '', 1);
+  addInd('Ideb 3º EM · agregado', tb.ideb_3em, '', 1);
+  addInd('ICA · alfabetização', tb.ica, '%', 0);
+  addInd('ENEM · média geral', tb.enem, ' pts', 0);
+
+  if (!items.length) return null;
+
+  // Filtra: mostra só itens onde há próximo nível real (não topo absoluto)
+  const comGap = items.filter((i) => i.delta > 0);
+  if (!comGap.length) {
+    // Cidade já é topo em tudo — celebra
+    return (
+      <div
+        className="rounded-2xl border p-5 mb-6"
+        style={{ background: 'rgba(22,163,74,0.08)', borderColor: 'rgba(22,163,74,0.30)' }}
+      >
+        <div className="flex items-center gap-3 mb-2">
+          <Sparkles size={16} style={{ color: '#86efac' }} />
+          <p className="text-[11px] tracking-[0.15em] uppercase font-bold" style={{ color: '#86efac' }}>
+            Rede de referência
+          </p>
+        </div>
+        <p className="text-white/85 text-[14px] leading-relaxed">
+          Em todos os indicadores avaliados, a rede municipal está no topo do Brasil — é referência para os
+          demais municípios. Frente Vertho relevante: documentar e sistematizar as práticas para sustentar
+          o patamar e atender outras redes que queiram aprender com este município.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="rounded-2xl border p-5 mb-6"
+      style={{ background: 'rgba(255,255,255,0.025)', borderColor: 'rgba(255,255,255,0.08)' }}
+    >
+      <div className="flex items-baseline justify-between mb-1 flex-wrap gap-2">
+        <p className="text-[11px] tracking-[0.15em] uppercase font-bold text-white/55">
+          Espaço para crescer
+        </p>
+        <p className="text-[11px] text-white/45">
+          Próximo benchmark · "puxar a barra pra cima"
+        </p>
+      </div>
+      <p className="text-[12px] text-white/55 mb-5 leading-relaxed">
+        Para cada indicador, mostramos a próxima referência dentro do escopo onde a rede ainda tem espaço:
+        microrregião, UF ou Brasil. A meta é a real — não uma média.
+      </p>
+
+      <div className="space-y-4">
+        {comGap.map((it, i) => <ProximoNivelRow key={i} it={it} />)}
+      </div>
+    </div>
+  );
+}
+
+function ProximoNivelRow({ it }: { it: any }) {
+  const escopoLabel: Record<string, string> = {
+    microrregiao: 'micro',
+    estado: 'UF',
+    brasil: 'Brasil',
+  };
+  const cor = it.proximo.scope === 'microrregiao' ? '#fbbf24' : it.proximo.scope === 'estado' ? '#34c5cc' : '#c084fc';
+  // Width % das barras (cidade vs próximo)
+  const max = Math.max(it.cidade, it.proximo.valor);
+  const wCidade = (it.cidade / max) * 100;
+  const wProx = 100;
+  const fmt = (v: number) => `${v.toFixed(it.decimais)}${it.sufixo}`;
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <p className="text-[12.5px] font-bold text-white/85">{it.label}</p>
+        <p className="text-[11px] text-white/55">
+          espaço de <span className="font-bold" style={{ color: cor }}>+{fmt(it.delta)}</span> até{' '}
+          <span className="font-bold text-white/85">{escopoLabel[it.proximo.scope]}</span>
+        </p>
+      </div>
+      <div className="space-y-1.5">
+        {/* Linha cidade */}
+        <div className="flex items-center gap-2 text-[11px]">
+          <span className="text-white/55 w-24 sm:w-32 flex-shrink-0">Esta rede</span>
+          <div className="flex-1 h-2 rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }}>
+            <div
+              className="h-full rounded-full"
+              style={{ width: `${wCidade}%`, background: 'rgba(148,163,184,0.65)' }}
+            />
+          </div>
+          <span className="font-mono font-bold text-white w-14 text-right flex-shrink-0">{fmt(it.cidade)}</span>
+        </div>
+        {/* Linha benchmark */}
+        <div className="flex items-center gap-2 text-[11px]">
+          <span className="text-white/55 w-24 sm:w-32 flex-shrink-0 truncate" title={it.proximo.municipio_nome || ''}>
+            {it.proximo.scope === 'microrregiao'
+              ? `Top da microrregião${it.proximo.municipio_nome ? ` · ${it.proximo.municipio_nome}` : ''}`
+              : it.proximo.scope === 'estado'
+                ? `Top da UF${it.proximo.municipio_nome ? ` · ${it.proximo.municipio_nome}` : ''}`
+                : `Top do Brasil${it.proximo.municipio_nome ? ` · ${it.proximo.municipio_nome}` : ''}`}
+          </span>
+          <div className="flex-1 h-2 rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }}>
+            <div
+              className="h-full rounded-full"
+              style={{ width: `${wProx}%`, background: cor, opacity: 0.85 }}
+            />
+          </div>
+          <span className="font-mono font-bold text-white w-14 text-right flex-shrink-0">{fmt(it.proximo.valor)}</span>
+        </div>
+      </div>
     </div>
   );
 }
