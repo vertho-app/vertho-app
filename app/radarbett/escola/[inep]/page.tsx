@@ -90,24 +90,49 @@ function computarSinais({
   const enemRecente = [...(enem || [])].sort((a, b) => b.ano - a.ano)[0];
   if (enemRecente?.media_geral != null) {
     const m = Number(enemRecente.media_geral);
+    const mTxt = m.toFixed(0);
+    const ano = enemRecente.ano;
+    const redacao = enemRecente.media_redacao != null ? Number(enemRecente.media_redacao) : null;
     if (m < 500) {
       sinais.push({
         tipo: 'aprendizagem',
-        titulo: `Média ENEM ${enemRecente.ano} sinaliza gap em 3º EM`,
-        preview: `Média geral abaixo do patamar de referência das redes públicas — preparação dos concluintes precisa de plano direcionado...`,
+        titulo: `Média ENEM ${ano}: ${mTxt} pts — gap em 3º EM`,
+        preview: `Média geral ${mTxt} pts abaixo do patamar de referência das redes públicas (~520). Redação: ${redacao?.toFixed(0) ?? '—'} pts. Preparação dos concluintes precisa de plano direcionado por área...`,
       });
     } else if (m >= 560) {
       sinais.push({
         tipo: 'aprendizagem',
-        titulo: `Resultado forte no ENEM ${enemRecente.ano}`,
-        preview: `Média geral acima da referência das redes públicas — boas práticas de preparação que valem ser documentadas...`,
+        titulo: `Média ENEM ${ano}: ${mTxt} pts — resultado forte`,
+        preview: `Média geral ${mTxt} pts, acima da referência das redes públicas. Redação: ${redacao?.toFixed(0) ?? '—'} pts. Boas práticas de preparação que valem ser documentadas e mantidas...`,
       });
     } else {
       sinais.push({
         tipo: 'aprendizagem',
-        titulo: `Desempenho ENEM ${enemRecente.ano} em patamar intermediário`,
-        preview: `Média geral próxima da referência das redes públicas — espaço claro para fortalecer áreas específicas (ciências, redação, matemática)...`,
+        titulo: `Média ENEM ${ano}: ${mTxt} pts — patamar intermediário`,
+        preview: `Média geral ${mTxt} pts, próxima da referência das redes públicas. Redação: ${redacao?.toFixed(0) ?? '—'} pts. Espaço claro para fortalecer áreas específicas (ciências, matemática, linguagens)...`,
       });
+    }
+
+    // Sinal extra: gap entre áreas (variação significativa indica força/lacuna específica)
+    const areas = [
+      { k: 'CN', nome: 'Ciências da Natureza', v: enemRecente.media_cn },
+      { k: 'CH', nome: 'Ciências Humanas', v: enemRecente.media_ch },
+      { k: 'LC', nome: 'Linguagens e Códigos', v: enemRecente.media_lc },
+      { k: 'MT', nome: 'Matemática', v: enemRecente.media_mt },
+    ]
+      .filter((a) => a.v != null)
+      .map((a) => ({ ...a, v: Number(a.v) }));
+    if (areas.length >= 3) {
+      const max = areas.reduce((a, b) => (a.v > b.v ? a : b));
+      const min = areas.reduce((a, b) => (a.v < b.v ? a : b));
+      const spread = max.v - min.v;
+      if (spread >= 80) {
+        sinais.push({
+          tipo: 'aprendizagem',
+          titulo: `Gap entre áreas no ENEM ${ano} (${spread.toFixed(0)} pts)`,
+          preview: `${max.nome} (${max.v.toFixed(0)} pts) puxa o resultado para cima; ${min.nome} (${min.v.toFixed(0)} pts) puxa para baixo. Formação docente focada na área defasada pode equilibrar o desempenho...`,
+        });
+      }
     }
   }
 
@@ -187,15 +212,35 @@ function computarSinais({
     }
   }
 
-  // Sinal de contexto — Censo / infraestrutura
+  // Sinal de contexto — Censo / infraestrutura (detalhado por dimensão)
   if (censo) {
-    const scores = [censo.score_basica, censo.score_pedagogica, censo.score_acessibilidade, censo.score_conectividade].filter((x) => x != null);
-    const min = Math.min(...scores);
-    if (min < 50 && scores.length >= 2) {
+    const dims = [
+      { k: 'básica', long: 'Infra básica (água, energia, esgoto, banheiros)', v: censo.score_basica },
+      { k: 'pedagógica', long: 'Infra pedagógica (biblioteca, laboratórios, espaços de aprendizagem)', v: censo.score_pedagogica },
+      { k: 'acessibilidade', long: 'Acessibilidade (rampas, banheiros adaptados, sinalização)', v: censo.score_acessibilidade },
+      { k: 'conectividade', long: 'Conectividade (internet, banda larga, rede)', v: censo.score_conectividade },
+    ]
+      .filter((d) => d.v != null)
+      .map((d) => ({ ...d, v: Number(d.v) }));
+
+    const lacunas = dims.filter((d) => d.v < 50);
+    const fortes = dims.filter((d) => d.v >= 75);
+
+    if (lacunas.length > 0 && dims.length >= 2) {
+      const txt = lacunas.map((l) => `${l.k} ${l.v.toFixed(0)}/100`).join(', ');
       sinais.push({
         tipo: 'contexto',
-        titulo: 'Infraestrutura pedagógica abaixo do esperado',
-        preview: `Pelo Censo Escolar mais recente, há dimensão de infraestrutura com score reduzido — leitura aprofundada explicita o gap...`,
+        titulo: `Lacunas de infraestrutura: ${txt}`,
+        preview: `Pelo Censo Escolar mais recente, ${lacunas.length === 1 ? 'a dimensão' : 'as dimensões'} ${lacunas.map((l) => l.long.toLowerCase()).join(' e ')} aparece${lacunas.length === 1 ? '' : 'm'} com score reduzido — leitura aprofundada explicita o gap e o impacto pedagógico...`,
+      });
+    }
+
+    if (fortes.length >= 2) {
+      const txt = fortes.map((f) => `${f.k} ${f.v.toFixed(0)}/100`).join(' · ');
+      sinais.push({
+        tipo: 'contexto',
+        titulo: `Pontos fortes de infraestrutura (${fortes.map((f) => f.k).join(' + ')})`,
+        preview: `Pelo Censo, ${txt}. Base estável que sustenta iniciativas pedagógicas e formativas sem precisar resolver pré-requisitos físicos...`,
       });
     }
   }
@@ -215,5 +260,5 @@ function computarSinais({
     });
   }
 
-  return sinais.slice(0, 5);
+  return sinais.slice(0, 6);
 }
