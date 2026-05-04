@@ -25,13 +25,24 @@ export const APP_URL: string =
  * Garante que a URL tem esquema `https://`. Aceita valor com ou sem
  * protocolo nas envs (paste descuidado de `app.vertho.ai` em vez de
  * `https://app.vertho.ai` é o erro mais comum).
+ *
+ * Limpa caracteres invisíveis (BOM, NBSP, espaços não-quebráveis, controle)
+ * que costumam vir junto em copy/paste de painéis admin.
  */
 function ensureHttps(url: string | undefined | null): string | null {
   if (!url) return null;
-  const trimmed = url.trim().replace(/\/+$/, ''); // sem trailing slash
-  if (!trimmed) return null;
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  return `https://${trimmed}`;
+  // Remove caracteres invisiveis: control chars, DEL, NBSP, BOM
+  // Range escapado em hex para evitar corrupcao de encoding do arquivo
+  const ctrlChars = String.fromCharCode(0x00) + '-' + String.fromCharCode(0x1F);
+  const ctrlChars2 = String.fromCharCode(0x7F) + '-' + String.fromCharCode(0xA0);
+  const bom = String.fromCharCode(0xFEFF);
+  const cleaned = String(url)
+    .replace(new RegExp('[' + ctrlChars + ctrlChars2 + bom + ']', 'g'), '')
+    .trim()
+    .replace(new RegExp('/+$'), ''); // sem trailing slash
+  if (!cleaned) return null;
+  if (/^https?:\/\//i.test(cleaned)) return cleaned;
+  return `https://${cleaned}`;
 }
 
 /**
