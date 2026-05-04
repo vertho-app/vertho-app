@@ -497,15 +497,17 @@ function ImprensaHeader() {
         </a>
 
         <a
-          href="mailto:contato@vertho.ai?subject=Imprensa%20%E2%80%94%20Vertho"
+          href="https://wa.me/5511911807809?text=Ol%C3%A1%21%20Sou%20da%20imprensa%20e%20gostaria%20de%20falar%20com%20a%20Vertho."
+          target="_blank"
+          rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-full text-[12px] sm:text-[13px] font-bold transition-all"
           style={{
             background: 'linear-gradient(135deg, #34C5CC, #2aa8ae)',
             color: '#06172C',
           }}
         >
-          <Mail size={14} strokeWidth={2.4} />
-          Falar com a imprensa
+          <WhatsappIcon size={14} />
+          Falar com a Vertho
         </a>
       </div>
     </header>
