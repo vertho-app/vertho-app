@@ -136,21 +136,13 @@ export async function listarMunicipiosPorUf(uf: string): Promise<MunicipioListag
   const allowed = await checkPublicActionRateLimit('list_municipios', 60, 10 * 60 * 1000);
   if (!allowed) return [];
 
+  // RPC diag_listar_municipios (mig 086) faz DISTINCT no SQL — evita o cap
+  // de 1000 rows do PostgREST que só trazia uma fração dos municípios.
   const sb = createSupabaseAdmin();
-  const { data } = await sb
-    .from('diag_escolas')
-    .select('municipio_ibge, municipio')
-    .eq('uf', ufNorm)
-    .not('municipio_ibge', 'is', null)
-    .limit(20000);
-
-  // Dedup por IBGE — diag_escolas tem 1 row por escola, então mesmo município repete
-  const map = new Map<string, string>();
-  for (const r of (data || []) as any[]) {
-    if (!map.has(r.municipio_ibge)) map.set(r.municipio_ibge, r.municipio);
-  }
-  return Array.from(map.entries())
-    .map(([municipio_ibge, municipio]) => ({ municipio_ibge, municipio }))
+  const { data } = await sb.rpc('diag_listar_municipios', { p_uf: ufNorm });
+  const rows = (data as MunicipioListagem[]) || [];
+  return rows
+    .slice()
     .sort((a, b) => a.municipio.localeCompare(b.municipio, 'pt-BR'));
 }
 
