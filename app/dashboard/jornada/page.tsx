@@ -15,7 +15,7 @@ const FASE_HREF: Record<number, string> = {
 };
 
 const CTA_LABEL: Record<number, string> = {
-  1: 'Fazer diagnóstico (DISC)',
+  1: 'Fazer diagnóstico comportamental',
   2: 'Iniciar avaliação',
   3: 'Ver meu PDI',
   4: 'Ver minha temporada',
@@ -23,7 +23,7 @@ const CTA_LABEL: Record<number, string> = {
 };
 
 const FASE_DESC: Record<number, string> = {
-  1: 'Mapeamento do seu perfil comportamental e estilo de liderança.',
+  1: 'Mapeamento do seu perfil comportamental.',
   2: 'Avaliação de competências por cenários situacionais.',
   3: 'Seu plano de desenvolvimento individual baseado nos resultados.',
   4: 'Temporada de 14 semanas com conteúdo, prática e reflexão.',
@@ -79,6 +79,24 @@ export default function JornadaPage() {
   const pct = Math.round((concluidas / total) * 100);
   const firstName = (colaborador.nome_completo || '').split(' ')[0] || '';
   const phaseTokens = PHASE_TOKENS[faseNum] ?? PHASE_TOKENS[2];
+  const usaPerfilExterno = !!data.empresaPerfilExternoFonte;
+
+  function faseHref(fase: any) {
+    if (fase?.fase === 1 && usaPerfilExterno && !data.temPerfilExterno) return null;
+    return FASE_HREF[fase?.fase];
+  }
+
+  function faseDesc(fase: any) {
+    if (fase?.fase === 1 && usaPerfilExterno) {
+      return 'Sua empresa usa mapeamento comportamental próprio. Você não precisa responder DISC na Vertho.';
+    }
+    return FASE_DESC[fase?.fase] || 'Continue sua jornada de desenvolvimento.';
+  }
+
+  function ctaLabel(fase: any) {
+    if (fase?.fase === 1 && usaPerfilExterno) return 'Ver perfil comportamental';
+    return CTA_LABEL[fase?.fase] || 'Ver minha evolução';
+  }
 
   const enriched = fases.map((f: any, i: number) => ({
     ...f,
@@ -165,7 +183,7 @@ export default function JornadaPage() {
             </span>
           </div>
           <p className="text-sm text-white/65 leading-relaxed mb-5">
-            {FASE_DESC[faseNum] || 'Continue sua jornada de desenvolvimento.'}
+            {faseDesc(faseAtual)}
           </p>
           <div className="grid grid-cols-2 gap-3 mb-5">
             <div className="rounded-2xl bg-white/[0.04] border border-white/[0.08] p-4">
@@ -180,15 +198,20 @@ export default function JornadaPage() {
             </div>
           </div>
           <button
-            onClick={() => router.push(FASE_HREF[faseNum] || '/dashboard/evolucao')}
+            onClick={() => {
+              const href = faseHref(faseAtual);
+              if (href) router.push(href);
+            }}
+            disabled={!faseHref(faseAtual)}
             className="w-full py-4 rounded-2xl font-bold text-base transition-all duration-200 flex items-center justify-center gap-2"
             style={{
               background: 'var(--phase-accent)',
               color: '#062032',
               boxShadow: '0 10px 24px var(--phase-glow)',
+              opacity: faseHref(faseAtual) ? 1 : 0.65,
             }}>
-            {CTA_LABEL[faseNum] || 'Ver minha evolução'}
-            <ArrowRight size={18} />
+            {faseHref(faseAtual) ? ctaLabel(faseAtual) : 'Etapa já tratada pela empresa'}
+            {faseHref(faseAtual) && <ArrowRight size={18} />}
           </button>
         </section>
 
@@ -221,13 +244,14 @@ export default function JornadaPage() {
               {enriched.map((f: any) => {
                 const isDone = f.displayStatus === 'completed';
                 const isCurrent = f.displayStatus === 'current';
-                const clickable = f.displayStatus !== 'pending';
+                const href = faseHref(f);
+                const clickable = f.displayStatus !== 'pending' && !!href;
                 const glyph = FASE_GLYPH[f.fase] ?? '·';
                 const tk = f.tokens;
 
                 return (
                   <button key={f.fase}
-                    onClick={() => clickable && FASE_HREF[f.fase] && router.push(FASE_HREF[f.fase])}
+                    onClick={() => clickable && router.push(href)}
                     disabled={!clickable}
                     className={`flex items-center gap-4 w-full text-left ${!clickable ? 'opacity-50' : ''}`}>
                     {/* Dot com glifo serif */}
@@ -272,7 +296,7 @@ export default function JornadaPage() {
                       </p>
                       {isCurrent && (
                         <p className="text-sm text-white/55 mt-1.5 leading-relaxed">
-                          {FASE_DESC[f.fase] || ''}
+                          {faseDesc(f)}
                         </p>
                       )}
                     </div>
@@ -307,7 +331,9 @@ export default function JornadaPage() {
             </h4>
             <p className="text-sm text-white/55 leading-relaxed">
               {faseAtual
-                ? 'Finalize esta fase para avançar na sua jornada de desenvolvimento.'
+                ? faseAtual.fase === 1 && usaPerfilExterno
+                  ? 'Sua próxima etapa acontece na avaliação de competências da Vertho.'
+                  : 'Finalize esta fase para avançar na sua jornada de desenvolvimento.'
                 : 'Visualize seu relatório consolidado de evolução e próximos passos.'}
             </p>
           </div>

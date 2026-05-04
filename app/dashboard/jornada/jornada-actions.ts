@@ -12,21 +12,33 @@ export async function loadJornada() {
   const email = await getAuthenticatedEmailFromAction();
   if (!email) return { error: 'Não autenticado' };
 
-  const colab = await findColabByEmail(email, 'id, nome_completo, email, cargo, area_depto, empresa_id, perfil_dominante, created_at');
+  const colab: any = await findColabByEmail(email, 'id, nome_completo, email, cargo, area_depto, empresa_id, perfil_dominante, perfil_externo_dados, created_at');
   if (!colab) return { error: 'Colaborador nao encontrado' };
 
   const sb = createSupabaseAdmin();
+  const { data: empCfg } = await sb.from('empresas')
+    .select('sys_config')
+    .eq('id', colab.empresa_id)
+    .maybeSingle();
+  const empresaPerfilExternoFonte = (empCfg?.sys_config as any)?.perfil_externo_fonte ?? null;
+  const usaPerfilExterno = !!empresaPerfilExternoFonte;
 
   const fases = [];
 
-  // Fase 1 — Diagnóstico (DISC/CIS)
+  // Fase 1 — Diagnóstico comportamental.
+  // Empresas com fonte externa/proprietária não fazem DISC na Vertho:
+  // a etapa não deve bloquear o avanço para a avaliação de competências.
   const temDISC = !!colab.perfil_dominante;
+  const temPerfilExterno = !!colab.perfil_externo_dados;
   fases.push({
     fase: 1,
     titulo: 'Diagnóstico',
-    descricao: 'Mapeamento do perfil comportamental (DISC)',
-    status: temDISC ? 'completed' : 'pending',
-    data: temDISC ? null : null, // DISC date not stored separately
+    descricao: usaPerfilExterno
+      ? 'Mapeamento comportamental conduzido pela empresa'
+      : 'Mapeamento do perfil comportamental',
+    status: (usaPerfilExterno || temDISC) ? 'completed' : 'pending',
+    data: (temDISC || temPerfilExterno) ? null : null, // DISC date not stored separately
+    usaPerfilExterno,
   });
 
   // Fase 2 — Avaliação (respostas de competências do fluxo do dashboard)
@@ -134,5 +146,7 @@ export async function loadJornada() {
   return {
     colaborador: colab,
     fases,
+    empresaPerfilExternoFonte,
+    temPerfilExterno,
   };
 }

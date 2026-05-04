@@ -41,13 +41,20 @@ export async function loadPerfilCIS() {
 
   // Empresa usa fonte externa de perfil (OPQ32 etc.)?
   let empresaPerfilExternoFonte: string | null = null;
+  let empresaPerfilExternoLabel = 'mapeamento comportamental próprio';
   if (colab.empresa_id) {
     const sb = createSupabaseAdmin();
     const { data: empCfg } = await sb.from('empresas')
       .select('sys_config')
       .eq('id', colab.empresa_id)
       .maybeSingle();
-    empresaPerfilExternoFonte = (empCfg?.sys_config as any)?.perfil_externo_fonte ?? null;
+    const cfg = (empCfg?.sys_config as any) || {};
+    empresaPerfilExternoFonte = cfg.perfil_externo_fonte ?? null;
+    empresaPerfilExternoLabel =
+      cfg.perfil_externo_label ||
+      cfg.perfil_externo_nome ||
+      cfg.perfil_comportamental_nome ||
+      'mapeamento comportamental próprio';
   }
 
   // Resumo executivo: arquétipo + tags + insights (do cache OU fallback)
@@ -68,6 +75,7 @@ export async function loadPerfilCIS() {
     insights: insights || insightsHardcoded(colab.perfil_dominante),
     insightsCached,
     empresaPerfilExternoFonte,
+    empresaPerfilExternoLabel,
   };
 }
 

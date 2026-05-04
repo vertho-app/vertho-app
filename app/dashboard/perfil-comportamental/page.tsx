@@ -445,32 +445,45 @@ export default function PerfilComportamentalPage() {
   if (error) return <div className="p-6 text-center text-gray-400">{error}</div>;
   if (!data) return null;
 
-  const { colaborador: c, empresaPerfilExternoFonte } = data as any;
+  const { colaborador: c, empresaPerfilExternoFonte, empresaPerfilExternoLabel } = data as any;
   const hasDISC = c.perfil_dominante && (c.d_natural || c.i_natural || c.s_natural || c.c_natural);
   const usaFonteExterna = !!empresaPerfilExternoFonte;
   const temPerfilExterno = !!c.perfil_externo_dados;
 
-  // Empresa com fonte externa (OPQ32 etc.) e colab AINDA não tem
-  // perfil_externo_dados extraído: NÃO oferecer mapeamento DISC nativo —
-  // mostra mensagem dizendo que o RH/Vertho carrega o relatório.
-  if (usaFonteExterna && !temPerfilExterno) {
-    const fonteLabel = empresaPerfilExternoFonte === 'opq32' ? 'OPQ32 (SHL)' : empresaPerfilExternoFonte;
+  // Empresa com fonte externa/proprietária: NUNCA oferecer DISC nativo.
+  // O perfil pode ser usado pelo pipeline interno quando houver dados, mas o
+  // colaborador não precisa responder o mapeamento da Vertho.
+  if (usaFonteExterna) {
+    const perfil = c.perfil_externo_dados || {};
+    const altas = Array.isArray(perfil?.resumo?.altas) ? perfil.resumo.altas.slice(0, 3) : [];
     return (
       <PageContainer>
         <PageHero
           eyebrow="PERFIL COMPORTAMENTAL"
-          title="Perfil ainda não disponível"
-          subtitle={`Sua empresa usa a ferramenta ${fonteLabel}. O perfil será carregado pela equipe da Vertho assim que recebermos seu relatório.`}
+          title={temPerfilExterno ? 'Perfil comportamental recebido' : 'Perfil comportamental tratado pela empresa'}
+          subtitle={`Sua empresa utiliza ${empresaPerfilExternoLabel || 'mapeamento comportamental próprio'}. Não há diagnóstico comportamental para responder na Vertho.`}
         />
         <div className="flex justify-center">
           <div className="rounded-2xl border border-white/[0.06] p-8 text-center max-w-[520px] w-full"
             style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
             <AlertCircle size={40} className="text-cyan-400 mx-auto mb-3" />
-            <p className="text-sm text-gray-400 leading-relaxed">
-              Sua empresa optou por usar <strong className="text-white/85">{fonteLabel}</strong> em
-              vez do mapeamento comportamental nativo da Vertho. Quando o RH disponibilizar seu
-              relatório, ele aparecerá aqui automaticamente.
+            <p className="text-sm text-gray-400 leading-relaxed mb-4">
+              {temPerfilExterno
+                ? 'Seu perfil comportamental já foi recebido e será usado pela Vertho para personalizar análises, recomendações e trilhas quando aplicável.'
+                : 'Quando o RH disponibilizar as informações do mapeamento, elas serão integradas pela Vertho aos fluxos internos da jornada.'}
             </p>
+            {altas.length > 0 && (
+              <div className="rounded-xl border border-white/[0.06] p-4 text-left" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-2">Destaques disponíveis</p>
+                <div className="space-y-1">
+                  {altas.map((a: any, i: number) => (
+                    <p key={i} className="text-xs text-gray-300">
+                      {a.nome || 'Escala'}{a.sten ? ` · sten ${a.sten}` : ''}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </PageContainer>

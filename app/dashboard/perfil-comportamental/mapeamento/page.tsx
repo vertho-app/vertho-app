@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
-import { salvarPerfilComportamental } from './mapeamento-actions';
+import { salvarPerfilComportamental, verificarDisponibilidadeMapeamento } from './mapeamento-actions';
 import { getColabByEmail } from '@/app/dashboard/colab-action';
 import { ArrowLeft, ChevronUp, ChevronDown, Loader2, Check, Star } from 'lucide-react';
 import Image from 'next/image';
@@ -221,6 +221,11 @@ export default function MapeamentoPage() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/login'); return; }
+      const disponibilidade = await verificarDisponibilidadeMapeamento();
+      if (!disponibilidade.permitido) {
+        router.replace(disponibilidade.redirectTo || '/dashboard/perfil-comportamental');
+        return;
+      }
       setUserEmail(user.email || '');
       setFormEmail(user.email || '');
       // Buscar nome do colaborador via server action (tenant-aware)

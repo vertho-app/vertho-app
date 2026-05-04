@@ -5,6 +5,35 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
 
 /**
+ * Verifica se o colaborador pode responder o DISC nativo.
+ * Empresas com fonte externa/proprietária bloqueiam esta tela.
+ */
+export async function verificarDisponibilidadeMapeamento() {
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
+  if (!email) return { permitido: false, redirectTo: '/login', motivo: 'Não autenticado' };
+
+  const colab = await findColabByEmail(email, 'id, empresa_id');
+  if (!colab) return { permitido: false, redirectTo: '/dashboard', motivo: 'Colaborador não encontrado' };
+
+  const sb = createSupabaseAdmin();
+  const { data: empCfg } = await sb.from('empresas')
+    .select('sys_config')
+    .eq('id', colab.empresa_id)
+    .maybeSingle();
+  const fonteExterna = (empCfg?.sys_config as any)?.perfil_externo_fonte ?? null;
+  if (fonteExterna) {
+    return {
+      permitido: false,
+      redirectTo: '/dashboard/perfil-comportamental',
+      motivo: 'Sua empresa usa mapeamento comportamental próprio.',
+    };
+  }
+
+  return { permitido: true };
+}
+
+/**
  * Salva os resultados do mapeamento comportamental DISC no Supabase.
  * Todas as métricas em colunas separadas para facilitar queries e relatórios.
  */
@@ -17,10 +46,22 @@ export async function salvarPerfilComportamental(resultados) {
 
   // Resolver o colaborador via tenant. Update por ID, não por email
   // (mesmo email pode existir em múltiplas empresas).
-  const colab = await findColabByEmail(email, 'id');
+  const colab = await findColabByEmail(email, 'id, empresa_id');
   if (!colab) return { success: false, error: 'Colaborador não encontrado' };
 
   const sb = createSupabaseAdmin();
+  const { data: empCfg } = await sb.from('empresas')
+    .select('sys_config')
+    .eq('id', colab.empresa_id)
+    .maybeSingle();
+  const fonteExterna = (empCfg?.sys_config as any)?.perfil_externo_fonte ?? null;
+  if (fonteExterna) {
+    return {
+      success: false,
+      error: 'Esta empresa usa mapeamento comportamental próprio. O DISC nativo não será salvo.',
+    };
+  }
+
   const { disc, dA, lead, comp, profile, learnPrefs } = resultados;
 
   // Antes de sobrescrever, deleta PDF antigo no Storage (se existir)
