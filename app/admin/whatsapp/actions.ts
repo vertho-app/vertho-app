@@ -218,10 +218,7 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
         if (phone.length <= 11) phone = `55${phone}`;
 
         // <= 50 destinatários: Z-API direto. > 50: QStash (async com retry).
-        // Fallback automático para Z-API direto se QSTASH_TOKEN não estiver
-        // setado — antes esse caso silenciosamente não enviava nada.
-        const usarQStash = colabs.length > 50 && !!process.env.QSTASH_TOKEN;
-        if (!usarQStash) {
+        if (colabs.length <= 50) {
           try {
             if (enviados > 0) await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -279,8 +276,8 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
             if (res.ok) { enviados++; }
             else { erroDetalhe = await res.text(); erros++; }
           } catch (e) { erroDetalhe = e.message; erros++; }
-        } else {
-          // Branch QStash (>50 + QSTASH_TOKEN setada)
+        } else if (process.env.QSTASH_TOKEN) {
+          // Branch QStash (>50 destinatários)
           try {
             // Usa APP_WEBHOOK_URL (app.{ROOT_DOMAIN}) — APP_URL pode apontar
             // pra raiz vertho.ai que está servida pelo Gamma e retorna 405.
