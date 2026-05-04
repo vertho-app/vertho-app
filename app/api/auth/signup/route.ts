@@ -96,7 +96,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Email já cadastrado nessa empresa' }, { status: 409 });
     }
 
-    // Cria colaborador (role mínima — admin promove se necessário)
+    // Cria colaborador (role mínima — admin promove se necessário).
+    // Schema da tabela: empresa_id, email, nome_completo, cargo, area_depto,
+    // telefone, gestor_nome/email/whatsapp, role. Não tem coluna `ativo`.
     const { error: insertErr } = await sb.from('colaboradores').insert({
       empresa_id: empresa.id,
       email,
@@ -104,13 +106,10 @@ export async function POST(req: NextRequest) {
       cargo,
       telefone: telefoneDigits,
       role: 'colaborador',
-      ativo: true,
     });
     if (insertErr) {
-      console.error('[signup] insert error:', insertErr.message, insertErr.details, insertErr.hint, insertErr.code);
-      return NextResponse.json({
-        error: `Erro ao criar cadastro: ${insertErr.message}${insertErr.details ? ' · ' + insertErr.details : ''}`,
-      }, { status: 500 });
+      console.error('[signup] insert error:', insertErr.message);
+      return NextResponse.json({ error: 'Erro ao criar cadastro' }, { status: 500 });
     }
 
     // Resolve redirect e gera magic link (mesma lógica do /api/auth/magic-link)
