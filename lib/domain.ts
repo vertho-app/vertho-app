@@ -50,14 +50,19 @@ function ensureHttps(url: string | undefined | null): string | null {
  * URL para webhooks (QStash, Bunny, Resend) que precisam bater de volta na
  * aplicação. NÃO pode usar APP_URL porque a raiz `vertho.ai` pode estar
  * apontando pra um site institucional externo (Gamma) — qualquer chamada
- * pra `vertho.ai/api/...` cai no Gamma e retorna 404/405. Webhooks têm que
- * ir pra `app.{ROOT_DOMAIN}` (Vercel) ou pro domínio Vercel direto.
+ * pra `vertho.ai/api/...` cai no Gamma e retorna 404/405.
+ *
+ * Também não deve preferir `VERCEL_URL`: em produção ele pode apontar para
+ * uma URL de deployment com Vercel Authentication/Deployment Protection, e
+ * filas externas como QStash receberiam 401 antes de chegar no route handler.
+ * Webhooks devem ir para o domínio público estável `app.{ROOT_DOMAIN}`, salvo
+ * quando `NEXT_PUBLIC_APP_WEBHOOK_URL` for definido explicitamente.
  *
  * Aceita env com ou sem protocolo (normaliza para https://).
  */
 export const APP_WEBHOOK_URL: string =
   ensureHttps(process.env.NEXT_PUBLIC_APP_WEBHOOK_URL) ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `https://app.${ROOT_DOMAIN}`);
+  `https://app.${ROOT_DOMAIN}`;
 
 /**
  * Base URL do QStash (Upstash). O token é vinculado a uma região específica
