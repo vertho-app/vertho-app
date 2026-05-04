@@ -39,15 +39,17 @@ const RESERVED_SUBDOMAINS = new Set([
   'ftp',
   'radar',
   'radarbett',
-  'imprensa', // site institucional Gamma — DNS aponta pro sites.gamma.app
+  'imprensa',
 ]);
 
 // Subdomínios públicos que rewriteam para um path interno do app
-// (radar.vertho.ai/<path>  →  /radar/<path>)
+// (radar.vertho.ai/<path>      →  /radar/<path>)
 // (radarbett.vertho.ai/<path>  →  /radarbett/<path>)
+// (imprensa.vertho.ai/<path>   →  /imprensa/<path>)
 const REWRITE_SUBDOMAINS = {
   radar: '/radar',
   radarbett: '/radarbett',
+  imprensa: '/imprensa',
 };
 
 // Domínios raiz (sem subdomínio = sem tenant)

@@ -47,48 +47,33 @@ const nextConfig = {
   },
 
   /**
-   * Rewrites pro site institucional Gamma servido no apex `vertho.ai`.
+   * Rewrite opcional pro site institucional Gamma servido no apex `vertho.ai`.
    *
-   * Hoje `vertho.ai` (apex) tem DNS apontando direto pro Gamma, o que impede
-   * paths como `vertho.ai/imprensa` (Gamma serve apenas um doc por domínio).
-   * Solução: apex passa a apontar pro Vercel, e a Next.js faz proxy reverso
-   * pros docs Gamma de cada path. URL pública continua `vertho.ai/imprensa`.
+   * `vertho.ai/imprensa` é nativo da Next agora (app/imprensa/page.tsx), então
+   * NÃO precisa rewrite — quando o DNS apex migrar pro Vercel, o Next serve a
+   * página direto.
    *
-   * Filtros `has: host` garantem que esses rewrites só rodam no apex (vertho.ai
+   * O único caso ainda dependente do Gamma é a HOME (`/`) — enquanto a home
+   * não for replicada na Next, configurar `GAMMA_HOME_URL` no Vercel faz a
+   * Next proxyar `/` pro doc Gamma. Sem essa env, `/` cai na home nativa.
+   *
+   * Filtro `has: host` garante que esse rewrite só roda no apex (vertho.ai
    * com ou sem www) — nunca em `app.`, `radar.`, `radarbett.` ou subdomínios
-   * de tenants, que continuam servindo a app normalmente.
-   *
-   * URL da home Gamma: configurar via env GAMMA_HOME_URL (ex.
-   * "https://vertho-home-xxx.gamma.site"). Quando ausente, a home não
-   * é proxyada e cai na 404 nativa da Next — útil pra preview deploys.
+   * de tenants.
    */
   async rewrites() {
-    const apexHostRegex = '(www\\.)?vertho\\.ai';
-    const gammaImprensa = 'https://vertho-educacao-tech-q94mydq.gamma.site';
     const gammaHome = process.env.GAMMA_HOME_URL?.replace(/\/+$/, '') || '';
+    if (!gammaHome) return [];
 
-    const rules = [
-      {
-        source: '/imprensa',
-        has: [{ type: 'host', value: apexHostRegex }],
-        destination: `${gammaImprensa}/`,
-      },
-      {
-        source: '/imprensa/:path*',
-        has: [{ type: 'host', value: apexHostRegex }],
-        destination: `${gammaImprensa}/:path*`,
-      },
-    ];
-
-    if (gammaHome) {
-      rules.unshift({
-        source: '/',
-        has: [{ type: 'host', value: apexHostRegex }],
-        destination: `${gammaHome}/`,
-      });
-    }
-
-    return { beforeFiles: rules };
+    return {
+      beforeFiles: [
+        {
+          source: '/',
+          has: [{ type: 'host', value: '(www\\.)?vertho\\.ai' }],
+          destination: `${gammaHome}/`,
+        },
+      ],
+    };
   },
 };
 
