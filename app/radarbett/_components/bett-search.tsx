@@ -133,15 +133,15 @@ export function BettSearch({
           onChange={(e) => setTermo(e.target.value)}
           onFocus={handleFocus}
           onBlur={() => setFocused(false)}
-          placeholder="Digite o nome da escola ou município"
+          placeholder={isLarge ? 'Nome da escola ou município' : 'Digite o nome'}
           className={`w-full bg-transparent text-white placeholder:text-white/40 outline-none ${
-            isLarge ? 'text-base sm:text-lg pl-12 sm:pl-14 pr-32 sm:pr-40' : 'text-sm pl-11 pr-28'
+            isLarge ? 'text-base sm:text-lg pl-12 sm:pl-14 pr-16 sm:pr-44' : 'text-sm pl-11 pr-14 sm:pr-32'
           }`}
         />
         {loading && (
           <Loader2
             size={isLarge ? 16 : 14}
-            className={`absolute ${isLarge ? 'right-32 sm:right-40' : 'right-28'} text-cyan-400 animate-spin`}
+            className={`absolute ${isLarge ? 'right-16 sm:right-44' : 'right-14 sm:right-32'} text-cyan-400 animate-spin`}
           />
         )}
         <button
@@ -152,14 +152,19 @@ export function BettSearch({
           }}
           disabled={!termo || results.length === 0}
           className={`absolute ${
-            isLarge ? 'right-2 px-4 sm:px-5 h-10 sm:h-12 text-sm' : 'right-1.5 px-3 h-9 text-[12px]'
+            isLarge
+              ? 'right-2 h-10 sm:h-12 text-sm w-10 sm:w-auto sm:px-5 flex items-center justify-center'
+              : 'right-1.5 h-9 text-[12px] w-9 sm:w-auto sm:px-3 flex items-center justify-center'
           } rounded-full font-bold transition-all disabled:opacity-40`}
           style={{
             background: 'linear-gradient(135deg, #34c5cc, #2aa8ae)',
             color: '#06172C',
           }}
         >
-          {isLarge ? 'Gerar diagnóstico inicial' : 'Gerar leitura'}
+          <Search size={isLarge ? 16 : 14} className="sm:hidden" strokeWidth={2.5} />
+          <span className="hidden sm:inline">
+            {isLarge ? 'Gerar diagnóstico inicial' : 'Gerar leitura'}
+          </span>
         </button>
       </div>
 
