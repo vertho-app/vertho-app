@@ -224,20 +224,21 @@ export default function CompetenciasPage() {
 
       {loadingComps && <div className="flex items-center justify-center py-12"><Loader2 size={24} className="animate-spin text-cyan-400" /></div>}
 
-      {/* Filtro por cargo */}
-      {!loadingComps && comps.length > 0 && (() => {
-        const cargos = [...new Set(comps.map((c: any) => c.cargo).filter(Boolean))].sort();
-        return cargos.length > 0 ? (
-          <div className="flex items-center gap-2 mb-3">
-            <Filter size={14} className="text-gray-400" />
-            <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
-              className="px-3 py-1.5 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
-              <option value="">Todos os cargos</option>
-              {(cargos as string[]).map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-        ) : null;
-      })()}
+      {/* Filtro por cargo — fonte é o estado `cargosEmpresa` (carregado via
+          loadCargosEmpresa em handleSelectEmpresa), que une cargos formais
+          de cargos_empresa + strings legadas de colaboradores/competencias.
+          Antes derivava só de comps.cargo, escondendo cargos formais sem
+          competência associada. */}
+      {!loadingComps && cargosEmpresa.length > 0 && (
+        <div className="flex items-center gap-2 mb-3">
+          <Filter size={14} className="text-gray-400" />
+          <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
+            className="px-3 py-1.5 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
+            <option value="">Todos os cargos</option>
+            {cargosEmpresa.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+      )}
 
       {/* Empty */}
       {!loadingComps && empresaId && comps.length === 0 && (
