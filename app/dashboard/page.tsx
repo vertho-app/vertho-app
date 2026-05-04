@@ -140,6 +140,13 @@ export default function DashboardHomePage() {
   // o colaborador não precisa fazer o mapeamento na ferramenta — pula o CTA.
   const usaFonteExterna = !!data?.empresaPerfilExternoFonte;
   const precisaMapeamentoDISC = !usaFonteExterna && !colaborador.perfil_dominante;
+  const phaseLabels = [
+    data?.empresaPerfilExternoFonte === 'opq32' ? 'OPQ' : usaFonteExterna ? 'Perfil' : 'DISC',
+    'Aval',
+    'PDI',
+    'Temp',
+    'Evol',
+  ] as const;
 
   function handleMainCTA() {
     if (competencia) return router.push('/dashboard/temporada');
@@ -245,7 +252,7 @@ export default function DashboardHomePage() {
 
           {/* Labels das fases */}
           <div className="grid mb-4" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
-            {(['DISC','Aval','PDI','Temp','Evol'] as const).map((label, i) => {
+            {phaseLabels.map((label, i) => {
               const n = i + 1;
               const done = n < faseNum;
               const current = n === faseNum;
