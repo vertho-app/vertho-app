@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     // Convenção: SEMPRE salvar telefone com country code, pra Z-API consumir
     // direto sem ter que prefixar em runtime.
     const phoneCheck = validateWhatsAppBR(telefoneRaw);
-    if (!phoneCheck.valid) {
+    if (phoneCheck.valid === false) {
       return NextResponse.json({ error: phoneCheck.error }, { status: 400 });
     }
     const telefoneE164 = phoneCheck.e164;
