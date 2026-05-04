@@ -2,8 +2,9 @@
  * Constantes e helpers centralizados para o domínio raiz da aplicação.
  *
  * Configuração via env (Vercel):
- *   - NEXT_PUBLIC_ROOT_DOMAIN  = "vertho.ai" (sem protocolo, sem subdomínio)
- *   - NEXT_PUBLIC_APP_URL      = "https://vertho.ai"
+ *   - NEXT_PUBLIC_ROOT_DOMAIN      = "vertho.ai" (sem protocolo, sem subdomínio)
+ *   - NEXT_PUBLIC_APP_URL          = "https://app.vertho.ai"
+ *   - NEXT_PUBLIC_APP_WEBHOOK_URL  = "https://app.vertho.ai"
  *   - EMAIL_FROM               = "Vertho <noreply@vertho.ai>"
  *
  * Para mudar de domínio, basta atualizar essas 3 envs no Vercel —
@@ -15,7 +16,7 @@
  */
 
 export const ROOT_DOMAIN: string =
-  process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'vertho.com.br';
+  process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'vertho.ai';
 
 export const APP_URL: string =
   process.env.NEXT_PUBLIC_APP_URL ||

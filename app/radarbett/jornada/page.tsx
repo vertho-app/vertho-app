@@ -207,6 +207,50 @@ export default function JornadaPage() {
           </div>
         </section>
 
+        {/* Três diferenciais (antes das 5 fases) */}
+        <section className="mb-16">
+          <h2
+            className="text-white mb-3 serif"
+            style={{
+              fontSize: 'clamp(26px, 3.6vw, 36px)',
+              fontWeight: 600,
+              lineHeight: 1.15,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Três coisas que ninguém mais{' '}
+            <em style={{ color: '#34c5cc', fontStyle: 'italic' }}>faz</em>.
+          </h2>
+          <p
+            className="text-white/65 leading-relaxed mb-8"
+            style={{ fontSize: 15, maxWidth: 720 }}
+          >
+            Não é curso online. Não é consultoria pontual. É uma jornada contínua que
+            conecta diagnóstico, prática e evidência.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <DiferencialCard
+              cor="cyan"
+              icone={<Sparkles size={18} strokeWidth={2.2} />}
+              titulo="MentorIA no bolso"
+              texto="IA conversacional que acompanha cada gestor no ritmo dele: simula situações reais, dá feedback e registra evidência. Funciona no celular, via WhatsApp."
+            />
+            <DiferencialCard
+              cor="green"
+              icone={<CheckCircle2 size={18} strokeWidth={2.2} />}
+              titulo="Evidência real, não certificado"
+              texto="Cada descritor de competência é avaliado por trecho da resposta — auditável e regravável. Re-mapeamento pós-jornada mede evolução real com cenários novos."
+            />
+            <DiferencialCard
+              cor="purple"
+              icone={<ArrowRight size={18} strokeWidth={2.2} />}
+              titulo="Do dado à prática em 14 semanas"
+              texto="Trilha de desenvolvimento que parte do PDI individual: conteúdo + missões no cotidiano + reflexão + evidência. Não é teoria — é ação na escola."
+            />
+          </div>
+        </section>
+
         {/* 5 Etapas */}
         <section className="mb-16 space-y-5">
           {ETAPAS.map((e) => (
@@ -223,28 +267,28 @@ export default function JornadaPage() {
               borderColor: 'rgba(37,211,102,0.22)',
             }}
           >
-            <div className="grid grid-cols-1 lg:grid-cols-[140px_1fr] gap-5 lg:gap-8 items-start">
-              <div className="flex lg:flex-col items-center lg:items-start gap-4 lg:gap-3">
-                <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: 'linear-gradient(135deg, #25D366, #128C7E)', color: '#06172C' }}
-                >
-                  <Smartphone size={26} strokeWidth={2.2} />
-                </div>
-                <div>
-                  <p className="text-[10px] tracking-[0.18em] uppercase font-bold mb-1" style={{ color: '#86efac' }}>
-                    Acesso
-                  </p>
-                  <h3 className="text-white text-[18px] font-bold leading-tight" style={{
-                    fontFamily: 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif',
-                    letterSpacing: '-0.02em',
-                  }}>
-                    Tudo pelo celular, no fluxo do trabalho
-                  </h3>
-                </div>
-              </div>
-
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6 lg:gap-10 items-center">
               <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div
+                    className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: 'linear-gradient(135deg, #25D366, #128C7E)', color: '#06172C' }}
+                  >
+                    <Smartphone size={22} strokeWidth={2.2} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] tracking-[0.18em] uppercase font-bold" style={{ color: '#86efac' }}>
+                      Acesso
+                    </p>
+                    <h3 className="text-white text-[17px] sm:text-[18px] font-bold leading-tight" style={{
+                      fontFamily: 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif',
+                      letterSpacing: '-0.02em',
+                    }}>
+                      Tudo pelo celular, no fluxo do trabalho
+                    </h3>
+                  </div>
+                </div>
+
                 <p className="text-white/80 leading-relaxed mb-4" style={{ fontSize: 15, maxWidth: 720 }}>
                   Toda a jornada — mapeamento, PDIs, Tutor IA, missões práticas, evidências, feedback —
                   acontece no celular. <strong className="text-white">Notificações via WhatsApp</strong> avisam
@@ -268,6 +312,9 @@ export default function JornadaPage() {
                   />
                 </div>
               </div>
+
+              {/* Mock de celular — preview da conversa MentorIA */}
+              <PhoneMock />
             </div>
           </div>
         </section>
@@ -302,6 +349,124 @@ export default function JornadaPage() {
         </div>
       </article>
     </main>
+  );
+}
+
+function DiferencialCard({
+  cor, icone, titulo, texto,
+}: { cor: 'cyan' | 'green' | 'purple'; icone: React.ReactNode; titulo: string; texto: string }) {
+  const tons = {
+    cyan:   { bg: 'rgba(52,197,204,0.10)',  iconBg: 'rgba(52,197,204,0.15)', iconColor: '#34c5cc', border: 'rgba(52,197,204,0.22)' },
+    green:  { bg: 'rgba(22,163,74,0.10)',   iconBg: 'rgba(22,163,74,0.15)',  iconColor: '#86efac', border: 'rgba(22,163,74,0.25)' },
+    purple: { bg: 'rgba(158,78,221,0.10)',  iconBg: 'rgba(158,78,221,0.15)', iconColor: '#c084fc', border: 'rgba(158,78,221,0.22)' },
+  };
+  const t = tons[cor];
+  return (
+    <div
+      className="rounded-2xl p-6 border transition-colors"
+      style={{ background: t.bg, borderColor: t.border }}
+    >
+      <div
+        className="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
+        style={{ background: t.iconBg, color: t.iconColor }}
+      >
+        {icone}
+      </div>
+      <h3 className="text-white text-[16px] font-bold mb-2 leading-tight" style={{
+        fontFamily: 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif',
+        letterSpacing: '-0.01em',
+      }}>
+        {titulo}
+      </h3>
+      <p className="text-white/70 text-[13.5px] leading-relaxed">{texto}</p>
+    </div>
+  );
+}
+
+function PhoneMock() {
+  return (
+    <div
+      className="relative mx-auto rounded-[36px] p-2 shadow-2xl"
+      style={{
+        background: 'linear-gradient(180deg, #1a2942, #0f1d33)',
+        border: '6px solid #06172C',
+        width: 240,
+        maxWidth: '100%',
+      }}
+    >
+      {/* Notch */}
+      <div
+        className="absolute left-1/2 -translate-x-1/2 top-2 rounded-full"
+        style={{ background: '#06172C', width: 80, height: 18, zIndex: 2 }}
+      />
+      <div
+        className="rounded-[28px] p-3 pt-7"
+        style={{ background: '#0a1f3a', minHeight: 380 }}
+      >
+        {/* Header WhatsApp */}
+        <div
+          className="flex items-center gap-2 pb-2.5 mb-3 border-b"
+          style={{ borderColor: 'rgba(255,255,255,0.06)' }}
+        >
+          <div
+            className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold"
+            style={{ background: 'linear-gradient(135deg, #34c5cc, #9e4edd)', color: '#06172C' }}
+          >
+            V
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-white text-[11px] font-bold leading-tight">Vertho MentorIA</p>
+            <p className="text-[9px]" style={{ color: '#86efac' }}>online agora</p>
+          </div>
+        </div>
+
+        {/* Conversa */}
+        <div className="space-y-2">
+          <ChatMsg from="ai">
+            Oi, Maria! 👋 Sua missão da semana está pronta: observar uma aula e registrar 3 pontos de feedback construtivo.
+          </ChatMsg>
+          <ChatTime>10:32</ChatTime>
+          <ChatMsg from="user">Vou fazer hoje à tarde!</ChatMsg>
+          <ChatTime>10:33</ChatTime>
+          <ChatMsg from="ai">
+            Ótimo! Depois me conta como foi — vou te ajudar a estruturar o feedback para a conversa com a professora.
+          </ChatMsg>
+          <ChatTime>10:33</ChatTime>
+          <ChatMsg from="ai">
+            Lembre: foque em comportamento observável, não em julgamento. Boa observação! 💪
+          </ChatMsg>
+          <ChatTime>10:34</ChatTime>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChatMsg({ from, children }: { from: 'ai' | 'user'; children: React.ReactNode }) {
+  const isAi = from === 'ai';
+  return (
+    <div className={`flex ${isAi ? 'justify-start' : 'justify-end'}`}>
+      <div
+        className="rounded-2xl px-2.5 py-1.5 text-[10.5px] leading-snug"
+        style={{
+          background: isAi ? 'rgba(255,255,255,0.06)' : 'rgba(37,211,102,0.20)',
+          color: isAi ? 'rgba(255,255,255,0.92)' : '#86efac',
+          maxWidth: '88%',
+          borderTopLeftRadius: isAi ? 6 : 14,
+          borderTopRightRadius: isAi ? 14 : 6,
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ChatTime({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[8.5px] text-white/35 px-1" style={{ marginTop: 1, marginBottom: 4 }}>
+      {children}
+    </p>
   );
 }
 
