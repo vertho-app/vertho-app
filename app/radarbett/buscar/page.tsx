@@ -14,7 +14,14 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://radarbett.vertho.ai/buscar' },
 };
 
-type SP = { termo?: string; uf?: string; rede?: string; etapa?: string; pagina?: string };
+type SP = {
+  termo?: string;
+  uf?: string;
+  rede?: string;
+  etapa?: string;
+  municipio?: string;
+  pagina?: string;
+};
 
 export default async function BuscaAvancadaPage({
   searchParams,
@@ -26,20 +33,29 @@ export default async function BuscaAvancadaPage({
   const uf = (sp.uf || '').trim().toUpperCase();
   const rede = (sp.rede || '').trim().toUpperCase();
   const etapa = (sp.etapa || '').trim();
+  const municipioIbge = (sp.municipio || '').trim();
   const pagina = Math.max(1, parseInt(sp.pagina || '1', 10) || 1);
   const PAGE_SIZE = 50;
 
-  const valido = !!(termo || uf || rede || etapa);
+  const valido = !!(termo || uf || rede || etapa || municipioIbge);
   const { rows, total } = valido
     ? await buscarEscolasAvancado({
         termo: termo || undefined,
         uf: uf || undefined,
+        municipio_ibge: municipioIbge || undefined,
         rede: (['PRIVADA', 'MUNICIPAL', 'ESTADUAL', 'FEDERAL'].includes(rede) ? rede : undefined) as any,
         etapa: (['5_EF', '9_EF', '3_EM'].includes(etapa) ? etapa : undefined) as any,
         limit: PAGE_SIZE,
         offset: (pagina - 1) * PAGE_SIZE,
       })
     : { rows: [], total: 0 };
+
+  // Resolve nome do município a partir do IBGE (vem do primeiro resultado;
+  // funciona porque rows[].municipio_ibge bate com o filtro)
+  let municipioNome = '';
+  if (municipioIbge) {
+    municipioNome = rows.find((r) => r.municipio_ibge === municipioIbge)?.municipio || '';
+  }
 
   const totalPaginas = Math.ceil(total / PAGE_SIZE);
 
@@ -77,7 +93,14 @@ export default async function BuscaAvancadaPage({
           </p>
         </div>
 
-        <BuscaForm initial={{ termo, uf, rede, etapa }} />
+        <BuscaForm initial={{
+          termo,
+          uf,
+          rede,
+          etapa,
+          municipio_ibge: municipioIbge,
+          municipio_nome: municipioNome,
+        }} />
 
         <section className="mt-8">
           {!valido && (

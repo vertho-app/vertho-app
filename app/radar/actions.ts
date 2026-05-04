@@ -123,6 +123,37 @@ export async function buscarEscolasMunicipios(
   return results;
 }
 
+// ── Lista de municípios por UF (alimenta autocomplete da busca avançada) ──
+
+export type MunicipioListagem = {
+  municipio_ibge: string;
+  municipio: string;
+};
+
+export async function listarMunicipiosPorUf(uf: string): Promise<MunicipioListagem[]> {
+  const ufNorm = uf?.trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(ufNorm || '')) return [];
+  const allowed = await checkPublicActionRateLimit('list_municipios', 60, 10 * 60 * 1000);
+  if (!allowed) return [];
+
+  const sb = createSupabaseAdmin();
+  const { data } = await sb
+    .from('diag_escolas')
+    .select('municipio_ibge, municipio')
+    .eq('uf', ufNorm)
+    .not('municipio_ibge', 'is', null)
+    .limit(20000);
+
+  // Dedup por IBGE — diag_escolas tem 1 row por escola, então mesmo município repete
+  const map = new Map<string, string>();
+  for (const r of (data || []) as any[]) {
+    if (!map.has(r.municipio_ibge)) map.set(r.municipio_ibge, r.municipio);
+  }
+  return Array.from(map.entries())
+    .map(([municipio_ibge, municipio]) => ({ municipio_ibge, municipio }))
+    .sort((a, b) => a.municipio.localeCompare(b.municipio, 'pt-BR'));
+}
+
 // ── Busca avançada (UF, Rede, Etapa, Município) ──────────────────────
 
 export type BuscaAvancadaResult = {
