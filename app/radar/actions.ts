@@ -123,6 +123,60 @@ export async function buscarEscolasMunicipios(
   return results;
 }
 
+// ── Busca avançada (UF, Rede, Etapa, Município) ──────────────────────
+
+export type BuscaAvancadaResult = {
+  codigo_inep: string;
+  nome: string;
+  municipio: string;
+  municipio_ibge: string;
+  uf: string;
+  rede: string | null;
+  etapas: string[] | null;
+  inse_grupo: number | null;
+  score: number;
+};
+
+export async function buscarEscolasAvancado(opts: {
+  termo?: string;
+  uf?: string;
+  municipio_ibge?: string;
+  rede?: 'PRIVADA' | 'MUNICIPAL' | 'ESTADUAL' | 'FEDERAL';
+  etapa?: '5_EF' | '9_EF' | '3_EM';
+  limit?: number;
+  offset?: number;
+}): Promise<{ rows: BuscaAvancadaResult[]; total: number }> {
+  const allowed = await checkPublicActionRateLimit('search_radar_avancado', 60, 10 * 60 * 1000);
+  if (!allowed) return { rows: [], total: 0 };
+
+  const sb = createSupabaseAdmin();
+  const safeTermo = opts.termo ? opts.termo.trim().replace(/[%_]/g, '').slice(0, 80) : null;
+  const ufNorm = opts.uf && /^[A-Z]{2}$/.test(opts.uf.trim().toUpperCase()) ? opts.uf.trim().toUpperCase() : null;
+  const params = {
+    p_termo: safeTermo,
+    p_uf: ufNorm,
+    p_municipio_ibge: opts.municipio_ibge || null,
+    p_rede: opts.rede || null,
+    p_etapa: opts.etapa || null,
+    p_limit: Math.min(opts.limit ?? 50, 100),
+    p_offset: Math.max(opts.offset ?? 0, 0),
+  };
+  const [listRes, countRes] = await Promise.all([
+    sb.rpc('diag_buscar_escolas_avancado', params),
+    sb.rpc('diag_buscar_escolas_avancado_count', {
+      p_termo: params.p_termo,
+      p_uf: params.p_uf,
+      p_municipio_ibge: params.p_municipio_ibge,
+      p_rede: params.p_rede,
+      p_etapa: params.p_etapa,
+    }),
+  ]);
+  return {
+    rows: (listRes.data as BuscaAvancadaResult[]) || [],
+    total: (countRes.data as number) || 0,
+  };
+}
+
 // ── Tracking de eventos via client ────────────────────────────────────
 
 export async function registrarEventoClient(

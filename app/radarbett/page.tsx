@@ -99,6 +99,10 @@ export default function RadarBettHome() {
             <p className="text-[11px] text-white/45 mt-3 leading-relaxed">
               Leitura inicial baseada em dados públicos oficiais. O diagnóstico completo é construído
               com a Vertho a partir da realidade da escola ou rede.
+              {' '}
+              <a href="/buscar" className="text-cyan-300/80 hover:text-cyan-200 underline underline-offset-2 ml-1">
+                Busca avançada com filtros →
+              </a>
             </p>
           </div>
 
