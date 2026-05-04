@@ -1,8 +1,46 @@
 'use server';
 
+import crypto from 'crypto';
+import { headers } from 'next/headers';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
+
+// Heurística leve pra classificar device a partir do user-agent.
+// Não tenta cobrir 100% dos casos — só os principais. Bots vão pra 'bot'.
+function detectDeviceType(ua: string | null): 'mobile' | 'tablet' | 'desktop' | 'bot' {
+  if (!ua) return 'desktop';
+  const s = ua.toLowerCase();
+  if (/bot|crawler|spider|crawling|googlebot|bingbot|yandex|baiduspider/.test(s)) return 'bot';
+  if (/ipad|tablet|kindle|playbook|silk/.test(s)) return 'tablet';
+  if (/android|webos|iphone|ipod|blackberry|iemobile|opera mini|mobile/.test(s)) return 'mobile';
+  return 'desktop';
+}
+
+// SHA-256 truncado em 16 chars pra distinguir devices sem armazenar IP raw.
+// Salt fixo por ambiente seria ideal, mas pra propósito de "veio do mesmo
+// IP?" o truncado suficiente.
+function hashIp(ip: string | null): string | null {
+  if (!ip) return null;
+  return crypto.createHash('sha256').update(ip).digest('hex').slice(0, 16);
+}
+
+async function captureRequestMetadata() {
+  try {
+    const h = await headers();
+    const userAgent = h.get('user-agent') || null;
+    // x-forwarded-for em Vercel: "client_ip, proxy1, proxy2" — pega o primeiro
+    const fwd = h.get('x-forwarded-for') || '';
+    const ip = fwd.split(',')[0]?.trim() || h.get('x-real-ip') || null;
+    return {
+      device_type: detectDeviceType(userAgent),
+      user_agent: userAgent ? userAgent.slice(0, 500) : null,  // limite defensivo
+      ip_hash: hashIp(ip),
+    };
+  } catch {
+    return { device_type: null, user_agent: null, ip_hash: null };
+  }
+}
 
 // ── Check rápido: votação aberta? já votou? ──────────────────────────────
 
@@ -101,6 +139,7 @@ export async function salvarVoto(competencias: string[], sugestaoNova?: string) 
   if (!colab) return { error: 'Colaborador não encontrado' };
 
   const tdb = tenantDb(colab.empresa_id);
+  const meta = await captureRequestMetadata();
 
   const { error } = await (tdb.from('votacao_competencias') as any).upsert({
     colaborador_id: colab.id,
@@ -108,6 +147,9 @@ export async function salvarVoto(competencias: string[], sugestaoNova?: string) 
     competencias_escolhidas: competencias,
     sugestao_nova: sugestaoNova?.trim() || null,
     votado_em: new Date().toISOString(),
+    device_type: meta.device_type,
+    user_agent: meta.user_agent,
+    ip_hash: meta.ip_hash,
   }, { onConflict: 'empresa_id,colaborador_id' });
 
   if (error) return { error: error.message };
