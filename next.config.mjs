@@ -45,6 +45,51 @@ const nextConfig = {
   turbopack: {
     root: import.meta.dirname,
   },
+
+  /**
+   * Rewrites pro site institucional Gamma servido no apex `vertho.ai`.
+   *
+   * Hoje `vertho.ai` (apex) tem DNS apontando direto pro Gamma, o que impede
+   * paths como `vertho.ai/imprensa` (Gamma serve apenas um doc por domínio).
+   * Solução: apex passa a apontar pro Vercel, e a Next.js faz proxy reverso
+   * pros docs Gamma de cada path. URL pública continua `vertho.ai/imprensa`.
+   *
+   * Filtros `has: host` garantem que esses rewrites só rodam no apex (vertho.ai
+   * com ou sem www) — nunca em `app.`, `radar.`, `radarbett.` ou subdomínios
+   * de tenants, que continuam servindo a app normalmente.
+   *
+   * URL da home Gamma: configurar via env GAMMA_HOME_URL (ex.
+   * "https://vertho-home-xxx.gamma.site"). Quando ausente, a home não
+   * é proxyada e cai na 404 nativa da Next — útil pra preview deploys.
+   */
+  async rewrites() {
+    const apexHostRegex = '(www\\.)?vertho\\.ai';
+    const gammaImprensa = 'https://vertho-educacao-tech-q94mydq.gamma.site';
+    const gammaHome = process.env.GAMMA_HOME_URL?.replace(/\/+$/, '') || '';
+
+    const rules = [
+      {
+        source: '/imprensa',
+        has: [{ type: 'host', value: apexHostRegex }],
+        destination: `${gammaImprensa}/`,
+      },
+      {
+        source: '/imprensa/:path*',
+        has: [{ type: 'host', value: apexHostRegex }],
+        destination: `${gammaImprensa}/:path*`,
+      },
+    ];
+
+    if (gammaHome) {
+      rules.unshift({
+        source: '/',
+        has: [{ type: 'host', value: apexHostRegex }],
+        destination: `${gammaHome}/`,
+      });
+    }
+
+    return { beforeFiles: rules };
+  },
 };
 
 export default withSentryConfig(nextConfig, {
