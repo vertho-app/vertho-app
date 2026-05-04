@@ -4,6 +4,7 @@ import {
   GraduationCap, Brain, Target, Map, Layers, BookOpen, RefreshCw, Film,
   Tv, FileText, Book, Zap, ShieldCheck,
 } from 'lucide-react';
+import { WhatsappIcon } from '../radarbett/_components/whatsapp-icon';
 
 export const metadata: Metadata = {
   title: 'Imprensa — Vertho',
@@ -379,7 +380,7 @@ export default function ImprensaPage() {
               produto e resultados. Resposta em até 1 dia útil.
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-3xl">
               <a
                 href="mailto:contato@vertho.ai?subject=Imprensa%20%E2%80%94%20Vertho"
                 className="group flex items-center gap-3 rounded-2xl p-4 border transition-all hover:translate-y-[-1px]"
@@ -400,6 +401,36 @@ export default function ImprensaPage() {
                   </p>
                   <p className="text-white text-[14px] font-semibold truncate">
                     contato@vertho.ai
+                  </p>
+                </div>
+                <ArrowRight
+                  size={16}
+                  className="ml-auto text-white/40 group-hover:text-white/85 transition-colors"
+                />
+              </a>
+
+              <a
+                href="https://wa.me/5511911807809?text=Ol%C3%A1%21%20Sou%20da%20imprensa%20e%20gostaria%20de%20falar%20com%20a%20Vertho."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex items-center gap-3 rounded-2xl p-4 border transition-all hover:translate-y-[-1px]"
+                style={{
+                  background: 'rgba(225,170,239,0.08)',
+                  borderColor: 'rgba(225,170,239,0.25)',
+                }}
+              >
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'rgba(225,170,239,0.18)', color: '#E1AAEF' }}
+                >
+                  <WhatsappIcon size={18} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-white/55 text-[10px] uppercase tracking-[0.18em] font-bold">
+                    WhatsApp
+                  </p>
+                  <p className="text-white text-[14px] font-semibold truncate">
+                    +55 11 91180-7809
                   </p>
                 </div>
                 <ArrowRight
