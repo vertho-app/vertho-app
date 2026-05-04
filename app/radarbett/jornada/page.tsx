@@ -419,9 +419,9 @@ function PhoneMock() {
             }}
           >
             <img
-              src="/logo-vertho-ac-claro.png"
+              src="/logo-vertho-sem-texto.png"
               alt="Vertho"
-              style={{ width: 16, height: 16, objectFit: 'contain' }}
+              style={{ width: 18, height: 18, objectFit: 'contain' }}
             />
           </div>
           <div className="flex-1 min-w-0">
