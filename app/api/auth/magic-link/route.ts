@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
-import { EMAIL_FROM_DEFAULT } from '@/lib/domain';
+import { APP_URL, EMAIL_FROM_DEFAULT } from '@/lib/domain';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,10 +13,13 @@ function escapeHtml(s: string) {
 function emailHtml({ nome, empresaNome, link }: { nome: string; empresaNome: string; link: string }) {
   const saud = nome ? `Olá, ${escapeHtml(nome)}!` : 'Olá!';
   const safeEmp = escapeHtml(empresaNome);
+  // URL absoluta — clientes de email não resolvem paths relativos.
+  const logoUrl = `${APP_URL}/logo-vertho.png`;
   return `<!doctype html>
 <html><body style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#f6f7fb;padding:24px;">
   <table cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;border:1px solid #e2e8f0;">
     <tr><td style="background:#0f2b54;padding:24px 28px;color:#fff;">
+      <img src="${logoUrl}" alt="Vertho" height="22" style="height:22px;display:block;margin-bottom:14px;border:0;outline:none;text-decoration:none;" />
       <p style="margin:0;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#34c5cc;">${safeEmp}</p>
       <h1 style="margin:6px 0 0;font-size:22px;font-weight:700;">Seu link de acesso</h1>
     </td></tr>
