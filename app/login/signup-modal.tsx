@@ -147,7 +147,7 @@ export default function SignupModal({
           Bem-vindo!
         </h2>
         <p className="text-[13px] mb-5" style={{ color: fontColorSecondary || '#FFFFFF99' }}>
-          Você ainda não tem cadastro. Preencha pra criar seu acesso.
+          Você ainda não tem cadastro. Preencha para criar seu acesso.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -175,7 +175,7 @@ export default function SignupModal({
             />
           </Field>
 
-          <Field label="WhatsApp" required hint="Pra receber o link de acesso">
+          <Field label="WhatsApp" required hint="Para receber o link de acesso">
             <input
               type="tel"
               value={telefone}
