@@ -305,8 +305,9 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
             });
             if (!rQ.ok) {
               const detail = await rQ.text();
-              console.error(`[dispararMensagemCustomizada] QStash ${rQ.status}: ${detail.slice(0, 200)}`);
-              erroDetalhe = `QStash ${rQ.status}: ${detail.slice(0, 120)}`;
+              const fullErr = `QStash ${rQ.status} (base=${QSTASH_BASE_URL}): ${detail.slice(0, 200)}`;
+              console.error(`[dispararMensagemCustomizada] ${fullErr}`);
+              erroDetalhe = fullErr.slice(0, 200);
               erros++;
             } else {
               enviados++;
