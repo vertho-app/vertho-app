@@ -3,6 +3,7 @@ import { Resend } from 'resend';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getTenantSlug } from '@/lib/tenant-resolver';
 import { APP_URL, EMAIL_FROM_DEFAULT } from '@/lib/domain';
+import { validateWhatsAppBR } from '@/lib/phone';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,23 +63,14 @@ export async function POST(req: NextRequest) {
     if (!nomeCompleto || nomeCompleto.length < 2) {
       return NextResponse.json({ error: 'Nome completo obrigatório' }, { status: 400 });
     }
-    // Strip TUDO que não é dígito. Aceita 10 (fixo) ou 11 (móvel com 9).
-    // Salvamos sempre apenas dígitos — qualquer máscara (parens/traços/espaços)
-    // que vier do client é descartada antes do INSERT.
-    const telefoneDigits = telefoneRaw.replace(/\D/g, '');
-    if (telefoneDigits.length !== 10 && telefoneDigits.length !== 11) {
-      return NextResponse.json({
-        error: `WhatsApp deve ter 11 dígitos (DDD + 9 + número). Você enviou ${telefoneDigits.length}.`,
-      }, { status: 400 });
+    // Valida e normaliza pra E.164 ("5511912345678" — 13 dígitos com 55).
+    // Convenção: SEMPRE salvar telefone com country code, pra Z-API consumir
+    // direto sem ter que prefixar em runtime.
+    const phoneCheck = validateWhatsAppBR(telefoneRaw);
+    if (!phoneCheck.valid) {
+      return NextResponse.json({ error: phoneCheck.error }, { status: 400 });
     }
-    // Validação adicional: DDD válido (11–99) e, se 11 dígitos, o 3º deve ser 9
-    const ddd = parseInt(telefoneDigits.slice(0, 2), 10);
-    if (isNaN(ddd) || ddd < 11 || ddd > 99) {
-      return NextResponse.json({ error: 'DDD inválido' }, { status: 400 });
-    }
-    if (telefoneDigits.length === 11 && telefoneDigits[2] !== '9') {
-      return NextResponse.json({ error: 'WhatsApp móvel deve começar com 9 após o DDD' }, { status: 400 });
-    }
+    const telefoneE164 = phoneCheck.e164;
 
     const slug = getTenantSlug(req);
     if (!slug) {
@@ -121,7 +113,7 @@ export async function POST(req: NextRequest) {
       email,
       nome_completo: nomeCompleto,
       cargo,
-      telefone: telefoneDigits,
+      telefone: telefoneE164,
       role: 'colaborador',
     });
     if (insertErr) {
@@ -183,21 +175,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // WhatsApp via Z-API (telefone é obrigatório no signup)
+    // WhatsApp via Z-API (telefone obrigatório no signup, já em E.164 com 55)
     const zapiInstance = process.env.ZAPI_INSTANCE_ID;
     const zapiToken = process.env.ZAPI_TOKEN;
-    if (zapiInstance && zapiToken && telefoneDigits && tokenHash && origin) {
+    if (zapiInstance && zapiToken && telefoneE164 && tokenHash && origin) {
       try {
-        let phone = telefoneDigits;
-        if (phone.length <= 11) phone = `55${phone}`;
-
         const whatsappLink = `${origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(nextPath)}`;
         const msg = `Olá, ${nome}! Bem-vindo à *${empresaNome}*! 🎉\n\nSeu link de acesso:\n${whatsappLink}\n\nClique para entrar direto, sem senha.\nEste link expira em 24h.`;
 
         const res = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-text`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Client-Token': process.env.ZAPI_CLIENT_TOKEN || '' },
-          body: JSON.stringify({ phone, message: msg }),
+          body: JSON.stringify({ phone: telefoneE164, message: msg }),
         });
         results.whatsapp = res.ok;
       } catch (e: any) {
