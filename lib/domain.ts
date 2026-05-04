@@ -21,6 +21,17 @@ export const APP_URL: string =
   process.env.NEXT_PUBLIC_APP_URL ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `https://${ROOT_DOMAIN}`);
 
+/**
+ * URL para webhooks (QStash, Bunny, Resend) que precisam bater de volta na
+ * aplicação. NÃO pode usar APP_URL porque a raiz `vertho.ai` pode estar
+ * apontando pra um site institucional externo (Gamma) — qualquer chamada
+ * pra `vertho.ai/api/...` cai no Gamma e retorna 404/405. Webhooks têm que
+ * ir pra `app.{ROOT_DOMAIN}` (Vercel) ou pro domínio Vercel direto.
+ */
+export const APP_WEBHOOK_URL: string =
+  process.env.NEXT_PUBLIC_APP_WEBHOOK_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `https://app.${ROOT_DOMAIN}`);
+
 export const EMAIL_FROM_DEFAULT: string =
   process.env.EMAIL_FROM || `Vertho <noreply@${ROOT_DOMAIN}>`;
 

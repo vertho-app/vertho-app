@@ -2,7 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
-import { APP_URL } from '@/lib/domain';
+import { APP_URL, APP_WEBHOOK_URL } from '@/lib/domain';
 import { templateWhatsAppPilula, templateWhatsAppEvidencia } from '@/lib/notifications';
 import { requireAdminOrCronAction } from '@/lib/auth/action-context';
 
@@ -241,7 +241,9 @@ async function publishToQStash(payload: any, delaySec: number = 0) {
     return;
   }
 
-  const webhookUrl = `${APP_URL}/api/webhooks/qstash/whatsapp-cis`;
+  // Usa APP_WEBHOOK_URL (app.{ROOT_DOMAIN}) — APP_URL pode apontar pra raiz
+  // vertho.ai que está servida pelo Gamma e retorna 405 nos endpoints API.
+  const webhookUrl = `${APP_WEBHOOK_URL}/api/webhooks/qstash/whatsapp-cis`;
 
   const res = await fetch('https://qstash.upstash.io/v2/publish/' + encodeURIComponent(webhookUrl), {
     method: 'POST',

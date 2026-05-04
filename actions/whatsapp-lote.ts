@@ -3,21 +3,21 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { templateWhatsAppCIS } from '@/lib/notifications';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { APP_WEBHOOK_URL } from '@/lib/domain';
 
 const DELAY_BETWEEN_MS = 2000; // 2s entre cada mensagem
 
 /**
  * Publica uma mensagem no QStash para entrega via webhook.
+ * Usa APP_WEBHOOK_URL (app.{ROOT_DOMAIN}) — não APP_URL — porque a raiz
+ * `vertho.ai` pode estar servida por site institucional externo (Gamma)
+ * que retorna 404/405 nos endpoints da API.
  */
 async function publishToQStash(payload: any, delaySec = 0) {
   const qstashToken = process.env.QSTASH_TOKEN;
   if (!qstashToken) throw new Error('QSTASH_TOKEN não configurado');
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : 'https://vertho-app-xi.vercel.app';
-
-  const webhookUrl = `${appUrl}/api/webhooks/qstash/whatsapp-cis`;
+  const webhookUrl = `${APP_WEBHOOK_URL}/api/webhooks/qstash/whatsapp-cis`;
 
   const headers = {
     'Authorization': `Bearer ${qstashToken}`,
