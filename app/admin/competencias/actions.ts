@@ -162,11 +162,19 @@ export async function copiarBaseParaEmpresa(empresaId: string, baseId: string, c
 export async function loadCargosEmpresa(empresaId: string) {
   await requireAdminAction();
   const sb = createSupabaseAdmin();
-  const [colabs, comps] = await Promise.all([
+  // União de 3 fontes pra cobrir tanto cargos formais quanto strings legadas:
+  //   - cargos_empresa.nome → cargos cadastrados formalmente (com descrição etc)
+  //   - colaboradores.cargo → string livre dos colaboradores
+  //   - competencias.cargo  → string livre nas competências
+  // Sem a primeira fonte, cargos cadastrados sem competência associada nem
+  // colaborador atribuído ficavam invisíveis no filtro.
+  const [formais, colabs, comps] = await Promise.all([
+    sb.from('cargos_empresa').select('nome').eq('empresa_id', empresaId),
     sb.from('colaboradores').select('cargo').eq('empresa_id', empresaId).not('cargo', 'is', null),
     sb.from('competencias').select('cargo').eq('empresa_id', empresaId).not('cargo', 'is', null),
   ]);
   const todos = [
+    ...(formais.data || []).map((c: any) => c.nome),
     ...(colabs.data || []).map((c: any) => c.cargo),
     ...(comps.data || []).map((c: any) => c.cargo),
   ].filter(Boolean);
