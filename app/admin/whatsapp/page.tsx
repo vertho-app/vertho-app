@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft, Loader2, Send, ChevronDown, CheckCircle, AlertCircle,
@@ -123,15 +123,56 @@ export default function EnviosPage() {
     return !!c.email;
   });
 
-  // Preview da mensagem
+  // Preview da mensagem (texto com placeholders resolvidos — vira JSX no render)
   const previewMsg = mensagem
     .replace(/\{\{nome\}\}/g, 'Maria')
     .replace(/\{\{cargo\}\}/g, 'Consultor de Vendas')
     .replace(/\{\{empresa\}\}/g, empresaNome || 'Empresa')
-    .replace(/\{\{link\}\}/g, 'https://vertho.app/avaliacao/abc123');
+    .replace(/\{\{link\}\}/g, 'https://vertho.app/avaliacao/abc123')
+    .replace(/\{\{link_disc\}\}/g, 'https://vertho.app/disc/abc123');
+
+  // Ref para inserir placeholders na posição do cursor
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   function inserirVariavel(tag) {
-    setMensagem(prev => prev + tag);
+    const ta = textareaRef.current;
+    if (!ta) {
+      // Fallback: append no final
+      setMensagem(prev => prev + tag);
+      return;
+    }
+    const start = ta.selectionStart ?? mensagem.length;
+    const end = ta.selectionEnd ?? mensagem.length;
+    const novo = mensagem.slice(0, start) + tag + mensagem.slice(end);
+    setMensagem(novo);
+    // Reposiciona o cursor logo após o tag inserido (no próximo tick)
+    setTimeout(() => {
+      ta.focus();
+      const pos = start + tag.length;
+      ta.setSelectionRange(pos, pos);
+    }, 0);
+  }
+
+  // Renderiza markdown do WhatsApp (*bold*, _italic_, ~strike~) como JSX,
+  // preservando quebras de linha (o container tem whitespace-pre-wrap).
+  function renderWaMarkdown(text: string): React.ReactNode[] {
+    if (!text) return [];
+    const out: React.ReactNode[] = [];
+    const re = /(\*[^*\n]+\*|_[^_\n]+_|~[^~\n]+~)/g;
+    let last = 0;
+    let key = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) out.push(<span key={key++}>{text.slice(last, m.index)}</span>);
+      const tok = m[0];
+      const inner = tok.slice(1, -1);
+      if (tok.startsWith('*')) out.push(<strong key={key++} className="text-white font-bold">{inner}</strong>);
+      else if (tok.startsWith('_')) out.push(<em key={key++} className="italic">{inner}</em>);
+      else out.push(<del key={key++} className="opacity-70">{inner}</del>);
+      last = m.index + tok.length;
+    }
+    if (last < text.length) out.push(<span key={key++}>{text.slice(last)}</span>);
+    return out;
   }
 
   async function handleAnexoChange(e) {
@@ -347,9 +388,14 @@ export default function EnviosPage() {
                 </div>
 
                 {/* Textarea */}
-                <textarea value={mensagem} onChange={e => setMensagem(e.target.value)} rows={8}
+                <textarea
+                  ref={textareaRef}
+                  value={mensagem}
+                  onChange={e => setMensagem(e.target.value)}
+                  rows={8}
                   className="w-full rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 focus:outline-none focus:border-cyan-400/50 resize-none font-mono"
-                  placeholder="Olá {{nome}}! ..." />
+                  placeholder="Olá {{nome}}! ..."
+                />
 
                 <div className="flex items-center justify-between mt-2 text-[9px] text-gray-600">
                   <span>*negrito* → <strong className="text-gray-400">negrito</strong> · _itálico_ → <em className="text-gray-400">itálico</em></span>
@@ -381,7 +427,9 @@ export default function EnviosPage() {
               <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
                 <p className="text-xs font-bold text-white flex items-center gap-1.5 mb-3"><Eye size={12} /> Preview da Mensagem</p>
                 <div className="rounded-lg p-4 text-sm text-gray-300 leading-relaxed whitespace-pre-wrap" style={{ background: '#091D35' }}>
-                  {previewMsg || <span className="text-gray-600 italic">A mensagem aparecerá aqui...</span>}
+                  {previewMsg
+                    ? renderWaMarkdown(previewMsg)
+                    : <span className="text-gray-600 italic">A mensagem aparecerá aqui...</span>}
                 </div>
               </div>
 
