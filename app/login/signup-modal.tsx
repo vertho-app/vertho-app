@@ -82,8 +82,19 @@ export default function SignupModal({
       setStatus('error');
       return;
     }
-    if (telefoneDigits.length < 10) {
-      setErrorMsg('Telefone com DDD obrigatório.');
+    if (telefoneDigits.length !== 11) {
+      setErrorMsg(`WhatsApp deve ter 11 dígitos (DDD + 9 + número). Você digitou ${telefoneDigits.length}.`);
+      setStatus('error');
+      return;
+    }
+    const dddOK = parseInt(telefoneDigits.slice(0, 2), 10);
+    if (isNaN(dddOK) || dddOK < 11 || dddOK > 99) {
+      setErrorMsg('DDD inválido.');
+      setStatus('error');
+      return;
+    }
+    if (telefoneDigits[2] !== '9') {
+      setErrorMsg('WhatsApp móvel deve começar com 9 após o DDD.');
       setStatus('error');
       return;
     }
@@ -175,14 +186,25 @@ export default function SignupModal({
             />
           </Field>
 
-          <Field label="WhatsApp" required hint="Para receber o link de acesso">
+          <Field
+            label="WhatsApp"
+            required
+            hint={(() => {
+              const n = telefone.replace(/\D/g, '').length;
+              if (n === 0) return 'Para receber o link de acesso';
+              if (n < 11) return `${n}/11 dígitos`;
+              if (n === 11) return '✓ 11 dígitos';
+              return `${n} dígitos (máx 11)`;
+            })()}
+          >
             <input
               type="tel"
               value={telefone}
               onChange={(e) => setTelefone(formatPhone(e.target.value))}
               placeholder="(11) 91234-5678"
               autoComplete="tel"
-              inputMode="tel"
+              inputMode="numeric"
+              maxLength={16}
               className="w-full py-2.5 px-3 rounded-lg border-2 border-white/10 bg-white/[0.06] text-white text-[14px] outline-none placeholder:text-white/30 transition-colors"
               onFocus={(e) => ((e.target as HTMLInputElement).style.borderColor = accentColor)}
               onBlur={(e) => ((e.target as HTMLInputElement).style.borderColor = '')}
