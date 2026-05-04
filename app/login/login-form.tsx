@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
+import SignupModal from './signup-modal';
 
 export default function LoginForm({ branding }: { branding: any }) {
   const [email, setEmail] = useState('');
@@ -10,6 +11,7 @@ export default function LoginForm({ branding }: { branding: any }) {
   const [mode, setMode] = useState<'otp' | 'password'>('otp');
   const [status, setStatus] = useState<'idle' | 'loading' | 'sent' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
+  const [showSignup, setShowSignup] = useState(false);
   const router = useRouter();
   const supabase = getSupabase();
 
@@ -78,10 +80,41 @@ export default function LoginForm({ branding }: { branding: any }) {
       return;
     }
 
+    // Antes de mandar magic-link, checa se o email existe nesse tenant.
+    // Se não existir e o tenant aceita open signup (sys_config.allow_open_signup),
+    // abre modal de cadastro em vez de seguir o fluxo padrão.
+    try {
+      const checkRes = await fetch('/api/auth/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmed }),
+      });
+      const check = await checkRes.json();
+      if (!checkRes.ok) {
+        setErrorMsg(check?.error || 'Erro ao verificar email.');
+        setStatus('error');
+        return;
+      }
+      if (!check.exists && check.allowSignup) {
+        setShowSignup(true);
+        setStatus('idle');
+        return;
+      }
+      if (!check.exists && !check.allowSignup) {
+        setErrorMsg('Email não cadastrado. Procure o administrador da empresa.');
+        setStatus('error');
+        return;
+      }
+      // exists === true → segue fluxo magic-link tradicional
+    } catch (e: any) {
+      setErrorMsg(`Erro de rede: ${e.message}`);
+      setStatus('error');
+      return;
+    }
+
     // /api/auth/magic-link cuida de TUDO server-side:
     // - gera link via admin.generateLink (sem rate limit)
-    // - envia email via Resend (não usa SMTP do Supabase Auth que tem
-    //   limite de 2 emails/h; antes era esse o erro "Error sending magic link email")
+    // - envia email via Resend
     // - dispara WhatsApp via Z-API se telefone cadastrado
     try {
       const res = await fetch('/api/auth/magic-link', {
@@ -196,6 +229,26 @@ export default function LoginForm({ branding }: { branding: any }) {
           </form>
         )}
       </div>
+
+      {showSignup && (
+        <SignupModal
+          email={email.trim().toLowerCase()}
+          redirectTo={`${typeof window !== 'undefined' ? window.location.origin : ''}${redirectTo}`}
+          branding={{
+            tenantName: tenantName || 'Vertho',
+            fontColor: fontColor || '#FFFFFF',
+            fontColorSecondary: fontColorSecondary || '#FFFFFF99',
+            primaryColor: primaryColor || '#34c5cc',
+            primaryColorEnd: primaryColorEnd || '#2aa8ae',
+            accentColor: accentColor || '#34c5cc',
+          }}
+          onClose={() => setShowSignup(false)}
+          onSuccess={() => {
+            setShowSignup(false);
+            setStatus('sent');
+          }}
+        />
+      )}
     </div>
   );
 }
