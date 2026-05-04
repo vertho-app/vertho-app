@@ -19,48 +19,50 @@ export const metadata: Metadata = {
 
 type Etapa = {
   num: string;
-  cor: 'cyan' | 'purple' | 'green' | 'amber';
+  cor: 'cyan' | 'lilac' | 'purple' | 'purpleDeep';
   titulo: string;
   resumo: string;
   pilares: { icon: any; label: string; texto: string }[];
 };
 
+// Paleta oficial Vertho — cyan #34C5CC, lilás #E1AAEF, purple #9E4EDD, purple-deep #3B0A6D.
+// Gradiente natural entre as 5 etapas: cyan → lilás → purple → purple-deep → cyan (loop).
 const COR: Record<string, { borda: string; bg: string; numBg: string; numColor: string; eyebrow: string; iconBg: string; iconColor: string }> = {
   cyan: {
     borda: 'rgba(52,197,204,0.25)',
     bg: 'rgba(52,197,204,0.05)',
-    numBg: 'linear-gradient(135deg, #34c5cc, #2aa8ae)',
+    numBg: 'linear-gradient(135deg, #34C5CC, #2aa8ae)',
     numColor: '#06172C',
-    eyebrow: '#34c5cc',
+    eyebrow: '#34C5CC',
     iconBg: 'rgba(52,197,204,0.12)',
-    iconColor: '#34c5cc',
+    iconColor: '#34C5CC',
+  },
+  lilac: {
+    borda: 'rgba(225,170,239,0.28)',
+    bg: 'rgba(225,170,239,0.05)',
+    numBg: 'linear-gradient(135deg, #E1AAEF, #c084fc)',
+    numColor: '#06172C',
+    eyebrow: '#E1AAEF',
+    iconBg: 'rgba(225,170,239,0.15)',
+    iconColor: '#E1AAEF',
   },
   purple: {
     borda: 'rgba(158,78,221,0.25)',
     bg: 'rgba(158,78,221,0.05)',
-    numBg: 'linear-gradient(135deg, #c084fc, #9e4edd)',
+    numBg: 'linear-gradient(135deg, #c084fc, #9E4EDD)',
     numColor: '#06172C',
     eyebrow: '#c084fc',
     iconBg: 'rgba(158,78,221,0.12)',
     iconColor: '#c084fc',
   },
-  green: {
-    borda: 'rgba(22,163,74,0.30)',
-    bg: 'rgba(22,163,74,0.06)',
-    numBg: 'linear-gradient(135deg, #86efac, #16a34a)',
-    numColor: '#06172C',
-    eyebrow: '#86efac',
-    iconBg: 'rgba(22,163,74,0.15)',
-    iconColor: '#86efac',
-  },
-  amber: {
-    borda: 'rgba(251,191,36,0.30)',
-    bg: 'rgba(251,191,36,0.05)',
-    numBg: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
-    numColor: '#06172C',
-    eyebrow: '#fbbf24',
-    iconBg: 'rgba(251,191,36,0.15)',
-    iconColor: '#fbbf24',
+  purpleDeep: {
+    borda: 'rgba(59,10,109,0.45)',
+    bg: 'rgba(59,10,109,0.10)',
+    numBg: 'linear-gradient(135deg, #9E4EDD, #3B0A6D)',
+    numColor: '#ffffff',
+    eyebrow: '#c084fc',
+    iconBg: 'rgba(158,78,221,0.18)',
+    iconColor: '#c084fc',
   },
 };
 
@@ -93,7 +95,7 @@ const ETAPAS: Etapa[] = [
   },
   {
     num: '03',
-    cor: 'amber',
+    cor: 'lilac',
     titulo: 'Diagnóstico',
     resumo:
       'O diagnóstico Vertho cruza tudo que foi mapeado: comportamento × competências × contexto da rede/escola. Daí saem o PDI individual, o relatório do gestor e o DNA Organizacional agregado.',
@@ -106,7 +108,7 @@ const ETAPAS: Etapa[] = [
   },
   {
     num: '04',
-    cor: 'green',
+    cor: 'purpleDeep',
     titulo: 'Capacitação',
     resumo:
       'A jornada de desenvolvimento parte do PDI: 14 semanas de trilha por competência foco, com Tutor IA acompanhando o ritmo e missões aplicadas no cotidiano da escola.',
@@ -411,12 +413,15 @@ function PhoneMock() {
         >
           <div
             className="w-7 h-7 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0"
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' }}
+            style={{
+              background: 'linear-gradient(135deg, rgba(52,197,204,0.18), rgba(158,78,221,0.18))',
+              border: '1px solid rgba(255,255,255,0.10)',
+            }}
           >
             <img
-              src="/logo-vertho.png"
+              src="/logo-vertho-ac-claro.png"
               alt="Vertho"
-              style={{ width: 18, height: 18, objectFit: 'contain' }}
+              style={{ width: 16, height: 16, objectFit: 'contain' }}
             />
           </div>
           <div className="flex-1 min-w-0">
