@@ -134,6 +134,13 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
 
     if (!colabs.length) return { success: false, error: `Nenhum destinatário com ${canal === 'whatsapp' ? 'WhatsApp' : 'email'}` };
 
+    // Log inicial: ajuda diagnosticar qual branch (direto vs QStash) será usado
+    console.log(
+      `[dispararMensagemCustomizada] empresa=${empresa.slug} canal=${canal} ` +
+      `colabs=${colabs.length} hasQStashToken=${!!process.env.QSTASH_TOKEN} ` +
+      `webhookUrl=${APP_WEBHOOK_URL}/api/webhooks/qstash/whatsapp-cis`,
+    );
+
     const domain = ROOT_DOMAIN;
     const fromEmail = EMAIL_FROM_DEFAULT;
     const hasResend = !!process.env.RESEND_API_KEY;
@@ -210,8 +217,11 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
         let phone = colab.telefone.replace(/\D/g, '');
         if (phone.length <= 11) phone = `55${phone}`;
 
-        // <= 50 destinatários: Z-API direto | > 50: QStash (async com retry)
-        if (colabs.length <= 50) {
+        // <= 50 destinatários: Z-API direto. > 50: QStash (async com retry).
+        // Fallback automático para Z-API direto se QSTASH_TOKEN não estiver
+        // setado — antes esse caso silenciosamente não enviava nada.
+        const usarQStash = colabs.length > 50 && !!process.env.QSTASH_TOKEN;
+        if (!usarQStash) {
           try {
             if (enviados > 0) await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -269,12 +279,13 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
             if (res.ok) { enviados++; }
             else { erroDetalhe = await res.text(); erros++; }
           } catch (e) { erroDetalhe = e.message; erros++; }
-        } else if (process.env.QSTASH_TOKEN) {
+        } else {
+          // Branch QStash (>50 + QSTASH_TOKEN setada)
           try {
             // Usa APP_WEBHOOK_URL (app.{ROOT_DOMAIN}) — APP_URL pode apontar
             // pra raiz vertho.ai que está servida pelo Gamma e retorna 405.
             const webhookUrl = `${APP_WEBHOOK_URL}/api/webhooks/qstash/whatsapp-cis`;
-            await fetch('https://qstash.upstash.io/v2/publish/' + encodeURIComponent(webhookUrl), {
+            const rQ = await fetch('https://qstash.upstash.io/v2/publish/' + encodeURIComponent(webhookUrl), {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -283,8 +294,19 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
               },
               body: JSON.stringify({ telefone: phone, mensagem: msg }),
             });
-            enviados++;
-          } catch (e) { erroDetalhe = e.message; erros++; }
+            if (!rQ.ok) {
+              const detail = await rQ.text();
+              console.error(`[dispararMensagemCustomizada] QStash ${rQ.status}: ${detail.slice(0, 200)}`);
+              erroDetalhe = `QStash ${rQ.status}: ${detail.slice(0, 120)}`;
+              erros++;
+            } else {
+              enviados++;
+            }
+          } catch (e) {
+            console.error('[dispararMensagemCustomizada] QStash falhou:', e.message);
+            erroDetalhe = `QStash: ${e.message}`;
+            erros++;
+          }
         }
       }
     }
