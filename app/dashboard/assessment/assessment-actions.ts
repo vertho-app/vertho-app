@@ -3,43 +3,46 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
 
-async function resolverTop5ComIds(sb: any, empresaId: string, cargo: string, top5: string[]) {
+async function resolverTop5ComCenario(sb: any, empresaId: string, cargo: string, top5: string[]) {
   const { data: compsDoCargo } = await sb.from('competencias')
     .select('id, nome, cod_desc')
     .eq('empresa_id', empresaId)
     .eq('cargo', cargo);
 
   const compIds = (compsDoCargo || []).map((c: any) => c.id).filter(Boolean);
-  let idsComCenario = new Set<string>();
+  const compPorId: Record<string, any> = Object.fromEntries((compsDoCargo || []).map((c: any) => [c.id, c]));
+  const cenarioPorNome: Record<string, any> = {};
   if (compIds.length > 0) {
     const { data: cenarios } = await sb.from('banco_cenarios')
-      .select('competencia_id')
+      .select('id, competencia_id, created_at')
       .eq('empresa_id', empresaId)
       .eq('cargo', cargo)
       .in('competencia_id', compIds)
-      .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b');
-    idsComCenario = new Set((cenarios || []).map((c: any) => c.competencia_id).filter(Boolean));
+      .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b')
+      .order('created_at', { ascending: false });
+    (cenarios || []).forEach((cenario: any) => {
+      const comp = compPorId[cenario.competencia_id];
+      const key = (comp?.nome || '').toLowerCase();
+      if (!key || cenarioPorNome[key]) return;
+      cenarioPorNome[key] = { ...cenario, compId: comp.id };
+    });
   }
 
-  const nomeToComp: Record<string, any> = {};
-  (compsDoCargo || []).forEach((c: any) => {
-    const key = (c.nome || '').toLowerCase();
+  const compPrincipalPorNome: Record<string, any> = {};
+  (compsDoCargo || []).forEach((comp: any) => {
+    const key = (comp.nome || '').toLowerCase();
     if (!key) return;
-    const atual = nomeToComp[key];
-    const atualTemCenario = atual ? idsComCenario.has(atual.id) : false;
-    const candidatoTemCenario = idsComCenario.has(c.id);
-    if (
-      !atual ||
-      (candidatoTemCenario && !atualTemCenario) ||
-      (candidatoTemCenario === atualTemCenario && !c.cod_desc && atual.cod_desc)
-    ) {
-      nomeToComp[key] = c;
+    const atual = compPrincipalPorNome[key];
+    if (!atual || (!comp.cod_desc && atual.cod_desc)) {
+      compPrincipalPorNome[key] = comp;
     }
   });
 
   return top5.map((n: string) => {
-    const comp = nomeToComp[(n || '').toLowerCase()];
-    return { nome: n, id: comp?.id || null };
+    const key = (n || '').toLowerCase();
+    const cenario = cenarioPorNome[key];
+    const comp = compPrincipalPorNome[key];
+    return { nome: n, id: cenario?.compId || comp?.id || null, cenarioId: cenario?.id || null };
   });
 }
 
@@ -76,10 +79,10 @@ async function _getDiagnosticoDoDia() {
   const top5 = cargoEmp?.top5_workshop || [];
   if (!top5.length) return { error: 'Nenhuma competência configurada para seu cargo' };
 
-  // Mapeia nomes do top5 → id da competência. Quando há múltiplas linhas
-  // por nome (descritores importados via CSV), prioriza o descritor que já
-  // tem cenário gerado para este cargo.
-  const top5ComId = await resolverTop5ComIds(sb, colab.empresa_id, colab.cargo, top5);
+  // Regra de negócio: cada competência do Top 5 tem um cenário.
+  // Como a tabela de competências pode ter linhas de descritores, resolvemos
+  // o cenário pelo nome da competência e usamos o id vinculado a esse cenário.
+  const top5ComCenario = await resolverTop5ComCenario(sb, colab.empresa_id, colab.cargo, top5);
 
   // Respostas já dadas pelo colaborador (filtra por competencia_id — mais confiável)
   const { data: respostas } = await sb.from('respostas')
@@ -90,7 +93,7 @@ async function _getDiagnosticoDoDia() {
 
   // Pega o primeiro do top5 que ainda não foi respondido (por id)
   // Sem limite diário — o colaborador pode responder quantas competências quiser no mesmo dia
-  const pendentes = top5ComId.filter(c => c.id && !jaRespondidasIds.has(c.id));
+  const pendentes = top5ComCenario.filter(c => c.id && !jaRespondidasIds.has(c.id));
   const respondidas = top5.length - pendentes.length;
   const pct = top5.length > 0 ? Math.round((respondidas / top5.length) * 100) : 0;
 
@@ -115,16 +118,16 @@ async function _getDiagnosticoDoDia() {
 
   const proxima = pendentes[0];
 
-  // Busca cenário A da comp+cargo
-  const { data: cen } = await sb.from('banco_cenarios')
+  // Busca o cenário A daquela competência/cargo.
+  let query = sb.from('banco_cenarios')
     .select('id, titulo, descricao, alternativas')
     .eq('empresa_id', colab.empresa_id)
-    .eq('competencia_id', proxima.id)
     .eq('cargo', colab.cargo)
     .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b')
     .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+  query = proxima.cenarioId ? query.eq('id', proxima.cenarioId) : query.eq('competencia_id', proxima.id);
+  const { data: cen } = await query.maybeSingle();
   if (!cen) return { error: `Cenário para "${proxima.nome}" ainda não foi gerado` };
 
   const alt = typeof cen.alternativas === 'string' ? JSON.parse(cen.alternativas) : (cen.alternativas || []);
@@ -209,13 +212,13 @@ async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload) 
     .select('top5_workshop').eq('empresa_id', colab.empresa_id).eq('nome', colab.cargo).maybeSingle();
   const top5 = cargoEmp?.top5_workshop || [];
 
-  const top5ComId = await resolverTop5ComIds(sb, colab.empresa_id, colab.cargo, top5);
+  const top5ComCenario = await resolverTop5ComCenario(sb, colab.empresa_id, colab.cargo, top5);
 
   const { data: respostas } = await sb.from('respostas')
     .select('competencia_id').eq('colaborador_id', colab.id).eq('empresa_id', colab.empresa_id);
   const jaSet = new Set((respostas || []).map(r => r.competencia_id).filter(Boolean));
 
-  const pendentes = top5ComId
+  const pendentes = top5ComCenario
     .filter((c: any) => c.id && !jaSet.has(c.id))
     .map((c: any) => c.nome);
 
