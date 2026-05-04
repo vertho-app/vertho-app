@@ -294,7 +294,8 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
             if (enviados === 0) {
               console.log(`[dispararMensagemCustomizada] QStash base=${QSTASH_BASE_URL} webhook=${webhookUrl}`);
             }
-            const rQ = await fetch(`${QSTASH_BASE_URL}/v2/publish/` + encodeURIComponent(webhookUrl), {
+            // QStash exige URL raw no path (sem encodeURIComponent) — encoded dá "invalid scheme"
+            const rQ = await fetch(`${QSTASH_BASE_URL}/v2/publish/${webhookUrl}`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

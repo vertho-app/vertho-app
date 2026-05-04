@@ -245,7 +245,8 @@ async function publishToQStash(payload: any, delaySec: number = 0) {
   // vertho.ai que está servida pelo Gamma e retorna 405 nos endpoints API.
   const webhookUrl = `${APP_WEBHOOK_URL}/api/webhooks/qstash/whatsapp-cis`;
 
-  const res = await fetch(`${QSTASH_BASE_URL}/v2/publish/` + encodeURIComponent(webhookUrl), {
+  // QStash exige URL raw no path (sem encodeURIComponent) — encoded dá "invalid scheme"
+  const res = await fetch(`${QSTASH_BASE_URL}/v2/publish/${webhookUrl}`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${qstashToken}`,

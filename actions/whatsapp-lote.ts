@@ -25,7 +25,9 @@ async function publishToQStash(payload: any, delaySec = 0) {
     'Upstash-Delay': `${delaySec}s`,
   };
 
-  const res = await fetch(`${QSTASH_BASE_URL}/v2/publish/` + encodeURIComponent(webhookUrl), {
+  // QStash exige URL raw no path (sem encodeURIComponent) — encoded retorna
+  // "invalid scheme" no QStash atual da Upstash.
+  const res = await fetch(`${QSTASH_BASE_URL}/v2/publish/${webhookUrl}`, {
     method: 'POST',
     headers,
     body: JSON.stringify(payload),
