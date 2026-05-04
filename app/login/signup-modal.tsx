@@ -31,8 +31,19 @@ export default function SignupModal({
   const [telefone, setTelefone] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
+  const [cargos, setCargos] = useState<{ id: string; nome: string }[]>([]);
+  const [cargosLoaded, setCargosLoaded] = useState(false);
 
   const { tenantName, fontColor, fontColorSecondary, primaryColor, primaryColorEnd, accentColor } = branding;
+
+  // Carrega cargos cadastrados na empresa pra montar o dropdown
+  useEffect(() => {
+    fetch('/api/auth/cargos')
+      .then((r) => r.json())
+      .then((d) => setCargos(d.cargos || []))
+      .catch(() => setCargos([]))
+      .finally(() => setCargosLoaded(true));
+  }, []);
 
   // Trava scroll do body enquanto modal aberto
   useEffect(() => {
@@ -178,17 +189,50 @@ export default function SignupModal({
             />
           </Field>
 
-          <Field label="Cargo" hint="Opcional">
-            <input
-              type="text"
-              value={cargo}
-              onChange={(e) => setCargo(e.target.value)}
-              placeholder="Ex: Diretor pedagógico"
-              autoComplete="organization-title"
-              className="w-full py-2.5 px-3 rounded-lg border-2 border-white/10 bg-white/[0.06] text-white text-[14px] outline-none placeholder:text-white/30 transition-colors"
-              onFocus={(e) => ((e.target as HTMLInputElement).style.borderColor = accentColor)}
-              onBlur={(e) => ((e.target as HTMLInputElement).style.borderColor = '')}
-            />
+          <Field
+            label="Cargo"
+            hint={!cargosLoaded ? 'Carregando…' : cargos.length === 0 ? 'Opcional' : 'Selecione'}
+          >
+            {cargos.length > 0 ? (
+              <div className="relative">
+                <select
+                  value={cargo}
+                  onChange={(e) => setCargo(e.target.value)}
+                  className="w-full appearance-none py-2.5 pl-3 pr-9 rounded-lg border-2 border-white/10 bg-white/[0.06] text-white text-[14px] outline-none transition-colors cursor-pointer"
+                  style={{ colorScheme: 'dark' }}
+                  onFocus={(e) => ((e.target as HTMLSelectElement).style.borderColor = accentColor)}
+                  onBlur={(e) => ((e.target as HTMLSelectElement).style.borderColor = '')}
+                >
+                  <option value="" style={{ background: '#0f1d33' }}>
+                    {cargosLoaded ? '— selecione —' : 'Carregando…'}
+                  </option>
+                  {cargos.map((c) => (
+                    <option key={c.id} value={c.nome} style={{ background: '#0f1d33' }}>
+                      {c.nome}
+                    </option>
+                  ))}
+                </select>
+                <span
+                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/50 text-[10px]"
+                  aria-hidden="true"
+                >
+                  ▼
+                </span>
+              </div>
+            ) : (
+              // Empresa sem cargos cadastrados — fallback pra input texto livre
+              <input
+                type="text"
+                value={cargo}
+                onChange={(e) => setCargo(e.target.value)}
+                placeholder="Ex: Diretor pedagógico"
+                autoComplete="organization-title"
+                disabled={!cargosLoaded}
+                className="w-full py-2.5 px-3 rounded-lg border-2 border-white/10 bg-white/[0.06] text-white text-[14px] outline-none placeholder:text-white/30 transition-colors"
+                onFocus={(e) => ((e.target as HTMLInputElement).style.borderColor = accentColor)}
+                onBlur={(e) => ((e.target as HTMLInputElement).style.borderColor = '')}
+              />
+            )}
           </Field>
 
           <button
