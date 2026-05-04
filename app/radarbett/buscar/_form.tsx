@@ -253,10 +253,14 @@ function MunicipioAutocomplete({
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const filtrados = filter.trim().length === 0
+  // Remove diacríticos (combining marks U+0300..U+036F). Usa escape
+  // explícito para evitar problemas de encoding do arquivo fonte.
+  const norm = (s: string) =>
+    s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const filtroNorm = norm(filter.trim());
+  const filtrados = filtroNorm.length === 0
     ? lista.slice(0, 60)
-    : lista.filter((m) => m.municipio.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-        .includes(filter.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''))).slice(0, 60);
+    : lista.filter((m) => norm(m.municipio).includes(filtroNorm)).slice(0, 60);
 
   return (
     <div ref={wrapperRef} className="relative">
