@@ -2,7 +2,46 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
-import { APP_URL, APP_WEBHOOK_URL, EMAIL_FROM_DEFAULT, QSTASH_BASE_URL, ROOT_DOMAIN, tenantUrl } from '@/lib/domain';
+import { APP_WEBHOOK_URL, EMAIL_FROM_DEFAULT, QSTASH_BASE_URL, ROOT_DOMAIN, tenantUrl } from '@/lib/domain';
+
+const RESEND_MIN_INTERVAL_MS = 250; // 4 req/s, abaixo do limite atual de 5 req/s
+
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function retryAfterMs(res: Response, fallbackMs: number) {
+  const raw = res.headers.get('retry-after');
+  if (!raw) return fallbackMs;
+  const seconds = Number(raw);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+  const dateMs = Date.parse(raw);
+  return Number.isFinite(dateMs) ? Math.max(0, dateMs - Date.now()) : fallbackMs;
+}
+
+async function enviarEmailResendComRetry(emailBody: any, throttle: { lastSentAt: number }) {
+  let ultimoErro = '';
+
+  for (let tentativa = 0; tentativa < 4; tentativa++) {
+    const elapsed = Date.now() - throttle.lastSentAt;
+    if (elapsed < RESEND_MIN_INTERVAL_MS) await sleep(RESEND_MIN_INTERVAL_MS - elapsed);
+    throttle.lastSentAt = Date.now();
+
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
+      body: JSON.stringify(emailBody),
+    });
+
+    if (res.ok) return { ok: true };
+
+    ultimoErro = await res.text();
+    if (res.status !== 429 || tentativa === 3) break;
+    await sleep(retryAfterMs(res, 1500 * (tentativa + 1)));
+  }
+
+  return { ok: false, error: ultimoErro };
+}
 
 export async function loadEmpresas() {
   await requireAdminAction();
@@ -203,6 +242,7 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
     const hasResend = !!process.env.RESEND_API_KEY;
     const hasQStash = !!process.env.QSTASH_TOKEN;
     const isRelatorio = comPDF;
+    const resendThrottle = { lastSentAt: 0 };
     let enviados = 0, erros = 0, erroDetalhe = '';
 
     // Anexo extra: usamos sempre base64 no endpoint /send-document/{ext}.
@@ -255,13 +295,9 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
           };
           if (attachments.length > 0) emailBody.attachments = attachments;
 
-          const res = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-            body: JSON.stringify(emailBody),
-          });
+          const res = await enviarEmailResendComRetry(emailBody, resendThrottle);
           if (res.ok) { enviados++; }
-          else { erroDetalhe = await res.text(); erros++; }
+          else { erroDetalhe = res.error || 'Falha ao enviar e-mail'; erros++; }
         } catch (e) { erroDetalhe = e.message; erros++; }
       }
 
