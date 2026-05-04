@@ -269,7 +269,7 @@ export default function RadarBettHome() {
       {/* ═══════════════════ 6. JORNADA — STEPS TRACK ═══════════════════ */}
       <Section id="fluxo">
         <div className="max-w-[1100px] mx-auto px-6">
-          <SectionTitle>Cinco passos do sinal à evidência de evolução</SectionTitle>
+          <SectionTitle>Cinco passos: do sinal à evidência de evolução</SectionTitle>
           <p className="text-white/55 mt-2 mb-12 max-w-[640px]" style={{ fontSize: 16, lineHeight: 1.65 }}>
             Um caminho claro que começa no dado público e termina em mudança mensurável.
           </p>
@@ -284,7 +284,7 @@ export default function RadarBettHome() {
             {[
               { num: '01', titulo: 'Identifica sinais', texto: 'Cruzamento de dados públicos para apontar gargalos e oportunidades.', tone: 'cyan' },
               { num: '02', titulo: 'Gera hipóteses',   texto: 'Leitura inicial sobre aprendizagem, gestão e execução.', tone: 'cyanLight' },
-              { num: '03', titulo: 'Aprofunda',         texto: 'Assessment, escuta, matriz de competências e contexto da rede.', tone: 'purpleLight' },
+              { num: '03', titulo: 'Aprofunda',         texto: 'Mapeamento, escuta, matriz de competências e contexto da rede.', tone: 'purpleLight' },
               { num: '04', titulo: 'Desenvolve',        texto: 'Trilhas, PDIs personalizados e interações com MentorIA.', tone: 'purple' },
               { num: '05', titulo: 'Evidência',         texto: 'Acompanhamento de evolução, engajamento e resultados.', tone: 'green' },
             ].map((s) => (
