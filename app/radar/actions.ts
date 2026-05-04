@@ -72,44 +72,45 @@ export async function buscarEscolasMunicipios(
     }
   }
 
-  // Busca por nome (escolas e municípios). Com pg_trgm + GIN, ilike %termo%
-  // usa o índice e fica O(log n). Filtra municipio_ibge null pra evitar
-  // resultados sem IBGE válido. Filtro opcional por UF.
-  let escolasQ = sb.from('diag_escolas')
-    .select('codigo_inep, nome, municipio, uf, rede')
-    .ilike('nome', `%${q}%`)
-    .order('nome', { ascending: true })
-    .limit(25);
-  let municipiosQ = sb.from('diag_escolas')
-    .select('municipio, municipio_ibge, uf')
-    .ilike('municipio', `%${q}%`)
-    .not('municipio_ibge', 'is', null)
-    .limit(60);
-  if (uf) {
-    escolasQ = escolasQ.eq('uf', uf);
-    municipiosQ = municipiosQ.eq('uf', uf);
-  }
-  const [escolas, municipios] = await Promise.all([escolasQ, municipiosQ]);
+  // Busca tolerante a acento e ordem das palavras (mig 084).
+  // RPCs diag_buscar_escolas / diag_buscar_municipios:
+  //  - Normalizam termo e dados (lower + unaccent)
+  //  - Quebram em tokens; cada palavra de 2+ chars deve aparecer no nome
+  //    em qualquer ordem (AND)
+  //  - Ordenam por similaridade trigram (score)
+  //  - Aceitam UF opcional como filtro
+  //  - Usam índices GIN trigram em forma normalizada
+  const [escolasRes, municipiosRes] = await Promise.all([
+    sb.rpc('diag_buscar_escolas', { p_termo: q, p_uf: uf, p_limit: 25 }),
+    sb.rpc('diag_buscar_municipios', { p_termo: q, p_uf: uf, p_limit: 60 }),
+  ]);
 
-  // Dedup municípios pelo IBGE
-  const municipiosUnicos = new Map<string, { municipio: string; uf: string }>();
-  for (const m of municipios.data || []) {
-    if (!municipiosUnicos.has(m.municipio_ibge)) {
-      municipiosUnicos.set(m.municipio_ibge, { municipio: m.municipio, uf: m.uf });
-    }
-  }
+  const escolasData = (escolasRes.data || []) as Array<{
+    codigo_inep: string;
+    nome: string;
+    municipio: string;
+    uf: string;
+    rede: string | null;
+    score: number;
+  }>;
+  const municipiosData = (municipiosRes.data || []) as Array<{
+    municipio_ibge: string;
+    municipio: string;
+    uf: string;
+    score: number;
+  }>;
 
   const results: SearchResult[] = [];
-  for (const [ibge, m] of municipiosUnicos) {
+  for (const m of municipiosData) {
     if (results.length >= 8) break;
     results.push({
       tipo: 'municipio',
-      id: ibge,
+      id: m.municipio_ibge,
       label: m.municipio,
       sub: `${m.uf} · município`,
     });
   }
-  for (const e of escolas.data || []) {
+  for (const e of escolasData) {
     if (results.length >= 25) break;
     results.push({
       tipo: 'escola',
