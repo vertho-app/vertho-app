@@ -107,8 +107,10 @@ export async function POST(req: NextRequest) {
       ativo: true,
     });
     if (insertErr) {
-      console.error('[signup] insert error:', insertErr.message);
-      return NextResponse.json({ error: 'Erro ao criar cadastro' }, { status: 500 });
+      console.error('[signup] insert error:', insertErr.message, insertErr.details, insertErr.hint, insertErr.code);
+      return NextResponse.json({
+        error: `Erro ao criar cadastro: ${insertErr.message}${insertErr.details ? ' · ' + insertErr.details : ''}`,
+      }, { status: 500 });
     }
 
     // Resolve redirect e gera magic link (mesma lógica do /api/auth/magic-link)
