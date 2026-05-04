@@ -1,17 +1,18 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
-  Activity, Target, Sparkles, ClipboardCheck, BarChart3,
+  Activity, Target, Sparkles, ClipboardCheck, ClipboardList, BarChart3,
   GraduationCap, BookOpen, Users, Layers, Database, Building2, Eye, MessagesSquare,
   Compass, ArrowRight, ArrowDown, MapPin, FileText, Lightbulb, CheckCircle2,
+  TrendingUp, GitCompare, Brain, Briefcase, Repeat, Award,
 } from 'lucide-react';
 import { BettHeader } from '../_components/bett-header';
 import { JornadaCTA } from './_cta';
 
 export const metadata: Metadata = {
-  title: 'Como a Vertho transforma diagnóstico em desenvolvimento',
+  title: 'Metodologia Vertho — 5 fases de desenvolvimento',
   description:
-    'A jornada Vertho.ai depois do diagnóstico do Radar: prioridades, trilhas, prática com evidência e gestão da evolução. Cinco passos para transformar dados em mudança real.',
+    'A metodologia Vertho.ai em cinco fases: Preparação (competências, cenários, perfil de cargo), Mapeamento (DISC + Liderança + competências), Diagnóstico (PDI, relatórios, DNA Organizacional), Capacitação (Jornada de 14 semanas, Tutor IA, prática) e Re-Avaliação (evolução, novos cenários, Mentor IA, feedback).',
   alternates: { canonical: 'https://radarbett.vertho.ai/jornada' },
 };
 
@@ -66,65 +67,66 @@ const ETAPAS: Etapa[] = [
   {
     num: '01',
     cor: 'cyan',
-    titulo: 'Diagnóstico',
+    titulo: 'Preparação',
     resumo:
-      'Identificamos sinais críticos da escola ou da rede: aprendizagem, infraestrutura, contexto docente, participação e evolução histórica — tudo a partir de dados oficiais públicos.',
+      'Primeiro a Vertho calibra o instrumento: define competências relevantes, constrói cenários customizados para a realidade da rede e formaliza o perfil ideal de cada cargo. Sem isso, todo mapeamento mede contra o vazio.',
     pilares: [
-      { icon: Database, label: 'Dados oficiais', texto: 'INEP, FNDE, Tesouro Nacional, SARESP. Toda informação tem ano e fonte.' },
-      { icon: GraduationCap, label: 'Por escola', texto: 'Saeb, Ideb, ENEM, Censo Escolar, pares INSE da microrregião.' },
-      { icon: Building2, label: 'Por rede', texto: 'ICA agregado, Ideb por etapa, FUNDEB, VAAR e dispersão entre escolas.' },
-      { icon: BarChart3, label: 'Painel de indicadores', texto: 'Tudo organizado para leitura ágil: KPIs, comparativos e trajetória.' },
+      { icon: ClipboardList, label: 'Definição de competências', texto: 'Conjunto de competências do contexto, com descritores observáveis e níveis de proficiência (n1 a n4).' },
+      { icon: Briefcase, label: 'Perfil do cargo ideal', texto: 'O que se espera do diretor, coordenador, supervisor — referência clara para mapear o que existe contra o que deveria.' },
+      { icon: Compass, label: 'Cenários customizados', texto: 'Situações reais da escola usadas para testar o exercício das competências (não casos genéricos de manual).' },
+      { icon: Target, label: 'Vínculo com prioridades da rede', texto: 'A preparação se conecta ao plano estratégico da secretaria — competências calibradas pelo desafio real.' },
     ],
   },
   {
     num: '02',
-    cor: 'amber',
-    titulo: 'Prioridades',
+    cor: 'purple',
+    titulo: 'Mapeamento',
     resumo:
-      'A leitura dos dados vira foco: quais competências, práticas e decisões precisam ser trabalhadas primeiro. Sem dispersar a equipe em frentes paralelas que não conversam.',
+      'Com as competências definidas, mapeamos quem é o profissional hoje: perfil comportamental (DISC + Liderança) e domínio técnico das competências esperadas para o cargo.',
     pilares: [
-      { icon: Target, label: 'Foco no que mais impacta', texto: 'Identificamos os gaps com maior efeito alavanca na aprendizagem.' },
-      { icon: Compass, label: 'Competências e práticas-chave', texto: 'Priorizamos o que move o ponteiro com a equipe que está disponível.' },
-      { icon: Lightbulb, label: 'Decisões com evidência', texto: 'Cada escolha tem dado por trás — não é palpite ou modismo pedagógico.' },
+      { icon: Brain, label: 'Perfil comportamental DISC', texto: 'Mapeamento do estilo de comportamento (Dominância, Influência, Estabilidade, Cautela) aplicado ao contexto educacional.' },
+      { icon: Award, label: 'Perfil de Liderança', texto: 'Estilo de liderança e seus arquétipos — conecta o "como faço" com o "como decido".' },
+      { icon: GraduationCap, label: 'Mapeamento de competências', texto: 'Cenários customizados aplicados em conversa estruturada com IA. Cada resposta vira evidência de proficiência por descritor.' },
+      { icon: Eye, label: 'Evidência por descritor', texto: 'Não é nota global. Cada descritor é avaliado por trecho da resposta — auditável e regravável.' },
     ],
   },
   {
     num: '03',
-    cor: 'purple',
-    titulo: 'Jornada de desenvolvimento',
+    cor: 'amber',
+    titulo: 'Diagnóstico',
     resumo:
-      'A Vertho cria trilhas personalizadas para educadores, gestores e equipes, conectadas aos desafios reais da rede — não conteúdo genérico.',
+      'O diagnóstico Vertho cruza tudo que foi mapeado: comportamento × competências × contexto da rede. Daí saem o PDI individual, o relatório do gestor e o DNA Organizacional da rede inteira.',
     pilares: [
-      { icon: Users, label: 'Trilhas por perfil', texto: 'Diretor, coordenador, professor — cada um na sua frente, com seu ritmo.' },
-      { icon: Layers, label: 'Competências prioritárias', texto: 'Identificadas no diagnóstico, escaladas no PDI, treinadas na trilha.' },
-      { icon: BookOpen, label: 'Práticas aplicáveis', texto: 'Conteúdo curto, ancorado em situações reais da escola.' },
-      { icon: Sparkles, label: 'IA como tutora', texto: 'MentorIA acompanha cada participante no ritmo dele, com contexto.' },
+      { icon: GitCompare, label: 'Cruzamento dos mapeamentos', texto: 'DISC + Liderança + competências por descritor, cruzados com o perfil de cargo ideal definido na preparação.' },
+      { icon: ClipboardCheck, label: 'PDI individualizado', texto: 'Plano de Desenvolvimento Individual com competência foco, ações concretas e marcos de evidência por colaborador.' },
+      { icon: FileText, label: 'Relatórios para o gestor', texto: 'Dossiê estruturado para conversa de feedback: contexto, gaps, hipóteses e roteiro de devolutiva.' },
+      { icon: Layers, label: 'DNA Organizacional', texto: 'Foto agregada da rede: padrões de competência, distribuição de perfis, força coletiva e risco coletivo.' },
     ],
   },
   {
     num: '04',
     cor: 'green',
-    titulo: 'Prática e evidência',
+    titulo: 'Capacitação',
     resumo:
-      'O desenvolvimento não fica só no conteúdo. Cada participante aplica no cotidiano, registra evidências e recebe devolutivas — fechando o ciclo aprender, fazer, mostrar, evoluir.',
+      'A jornada de desenvolvimento parte do PDI: 14 semanas de trilha por competência foco, com Tutor IA acompanhando o ritmo e missões aplicadas no cotidiano da escola.',
     pilares: [
-      { icon: ClipboardCheck, label: 'Missões práticas', texto: 'Tarefas observáveis, com critério de execução claro, na rotina da escola.' },
-      { icon: Eye, label: 'Evidências do cotidiano', texto: 'Cada participante registra o que aplicou — fica visível para a liderança.' },
-      { icon: MessagesSquare, label: 'Feedback inteligente', texto: 'Devolutiva da MentorIA + da liderança humana, integradas.' },
-      { icon: Activity, label: 'Acompanhamento da liderança', texto: 'Coordenadores e gestores enxergam o progresso em tempo real.' },
+      { icon: BookOpen, label: 'Jornada de Desenvolvimento', texto: 'Trilha de 14 semanas combinando conteúdo, prática, reflexão e evidência — orientada pelo PDI individual.' },
+      { icon: Sparkles, label: 'Tutor IA', texto: 'IA conversacional acompanhando o participante no ritmo dele: tira dúvidas, conduz socraticamente e responde com contexto da escola.' },
+      { icon: ClipboardCheck, label: 'Aplicação prática', texto: 'Missões observáveis no cotidiano. O desenvolvimento não fica no conteúdo — vira ação e fica registrado.' },
+      { icon: Activity, label: 'Acompanhamento da liderança', texto: 'Coordenadores e gestores enxergam o progresso em tempo real — engajamento, evidências, marcos.' },
     ],
   },
   {
     num: '05',
     cor: 'cyan',
-    titulo: 'Gestão da evolução',
+    titulo: 'Re-Avaliação',
     resumo:
-      'Secretarias e lideranças acompanham progresso, engajamento, evolução de competências e oportunidades de apoio — com painel pensado para decisão, não só leitura.',
+      'A jornada não termina com o último módulo. Re-mapeamos a competência depois da prática, com cenários novos e feedback estruturado — evidência de evolução real, não percepção.',
     pilares: [
-      { icon: BarChart3, label: 'Painéis de evolução', texto: 'Indicadores que mostram onde a rede subiu, onde travou e por quê.' },
-      { icon: FileText, label: 'Relatórios para gestores', texto: 'Dossiê de evidências por escola, área e período.' },
-      { icon: MapPin, label: 'Visão por escola, equipe e competência', texto: 'Cortes que respondem perguntas reais da gestão.' },
-      { icon: CheckCircle2, label: 'Decisões baseadas em evidências', texto: 'Plano do próximo ciclo sai do mesmo painel — fluxo contínuo.' },
+      { icon: Repeat, label: 'Re-mapeamento das competências', texto: 'Mesma metodologia da fase 2, agora medindo o quanto a competência foco subiu de nível depois da capacitação.' },
+      { icon: Compass, label: 'Novos cenários', texto: 'Situações inéditas (não as do mapeamento inicial) — evita memorização e mede aplicação real.' },
+      { icon: Brain, label: 'Mentor IA', texto: 'Conversa qualitativa estruturada que extrai a percepção do colaborador sobre a própria evolução, com triangulação.' },
+      { icon: TrendingUp, label: 'Feedback e próximo ciclo', texto: 'Devolutiva ao colaborador e ao gestor + insumo para o próximo ciclo de PDI. Fluxo contínuo, não evento isolado.' },
     ],
   },
 ];
@@ -146,7 +148,7 @@ export default function JornadaPage() {
         {/* Hero */}
         <section className="pt-12 sm:pt-20 pb-12 sm:pb-16">
           <p className="text-[10px] font-bold tracking-[0.25em] uppercase mb-3" style={{ color: '#34c5cc' }}>
-            Depois do diagnóstico
+            Metodologia Vertho · 5 fases
           </p>
           <h1
             className="text-white mb-5 serif"
@@ -165,12 +167,12 @@ export default function JornadaPage() {
             className="text-white/75 leading-relaxed mb-3"
             style={{ fontSize: 18, maxWidth: 760 }}
           >
-            A Vertho conecta dados, gestão pedagógica e desenvolvimento de educadores em uma jornada
-            prática, mensurável e contínua.
+            A Vertho aplica uma metodologia em cinco fases que conecta dados, gestão pedagógica e
+            desenvolvimento de pessoas em uma jornada prática, mensurável e contínua.
           </p>
           <p className="text-white/55 leading-relaxed" style={{ fontSize: 14, maxWidth: 760 }}>
-            Esta página descreve, em cinco passos, como o diagnóstico do Radar vira plano de ação,
-            jornada de desenvolvimento e evidência de evolução real.
+            Preparação · Mapeamento · Diagnóstico · Capacitação · Re-Avaliação. Cada fase tem entregas
+            concretas, instrumentos próprios e produz evidência para a próxima.
           </p>
         </section>
 
@@ -197,8 +199,8 @@ export default function JornadaPage() {
             </div>
             <BridgeBlock
               eyebrow="Vertho.ai"
-              titulo="A jornada que transforma diagnóstico em desenvolvimento"
-              texto="Prioridades, trilhas personalizadas, prática real, evidência e gestão da evolução."
+              titulo="Metodologia em cinco fases que viram plano de ação"
+              texto="Preparação, mapeamento, diagnóstico próprio, capacitação prática e re-avaliação. Instrumentos próprios e evidência acumulada a cada fase."
               accent="#c084fc"
             />
           </div>
