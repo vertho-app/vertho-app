@@ -141,6 +141,63 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
       `webhookUrl=${APP_WEBHOOK_URL}/api/webhooks/qstash/whatsapp-cis`,
     );
 
+    // Atalho: WhatsApp em lote (>50) via QStash em PARALELO. Sem isso, 53
+    // publishes sequenciais com latência transatlântica estouravam o timeout
+    // serverless do Vercel (10s default Hobby, 60s Pro) — só 2 publicavam.
+    if (
+      canal === 'whatsapp' &&
+      colabs.length > 50 &&
+      process.env.QSTASH_TOKEN &&
+      process.env.ZAPI_INSTANCE_ID &&
+      process.env.ZAPI_TOKEN
+    ) {
+      const webhookUrl = `${APP_WEBHOOK_URL}/api/webhooks/qstash/whatsapp-cis`;
+      if (!/^https?:\/\//i.test(webhookUrl)) {
+        return {
+          success: false,
+          error: `URL de webhook inválida (sem https://): ${webhookUrl}. Verifique env NEXT_PUBLIC_APP_WEBHOOK_URL no Vercel.`,
+        };
+      }
+      const dom = ROOT_DOMAIN;
+      const results = await Promise.all(colabs.map(async (colab: any, idx: number) => {
+        const nome = colab.nome_completo?.split(' ')[0] || '';
+        const link = `https://${empresa.slug}.${dom}/login`;
+        const linkDisc = `https://${empresa.slug}.${dom}/dashboard/perfil-comportamental/mapeamento`;
+        const msg = template
+          .replace(/\{\{nome\}\}/g, nome)
+          .replace(/\{\{cargo\}\}/g, colab.cargo || '')
+          .replace(/\{\{empresa\}\}/g, empresa.nome)
+          .replace(/\{\{link\}\}/g, link)
+          .replace(/\{\{link_disc\}\}/g, linkDisc);
+        let phone = colab.telefone.replace(/\D/g, '');
+        if (phone.length <= 11) phone = `55${phone}`;
+        try {
+          const rQ = await fetch(`${QSTASH_BASE_URL}/v2/publish/${webhookUrl}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${process.env.QSTASH_TOKEN}`,
+              'Upstash-Delay': `${idx * 2}s`,
+            },
+            body: JSON.stringify({ telefone: phone, mensagem: msg }),
+          });
+          if (!rQ.ok) {
+            const detail = await rQ.text();
+            return { ok: false, err: `QStash ${rQ.status}: ${detail.slice(0, 120)}` };
+          }
+          return { ok: true };
+        } catch (e: any) {
+          return { ok: false, err: e.message };
+        }
+      }));
+      const ok = results.filter(r => r.ok).length;
+      const fail = results.filter(r => !r.ok).length;
+      const firstErr = results.find(r => !r.ok)?.err || '';
+      const txt = `${ok} WhatsApp agendados via QStash, ${fail} erros${firstErr ? ` — ${firstErr}` : ''}`;
+      console.log(`[dispararMensagemCustomizada] paralelo: ${txt}`);
+      return { success: ok > 0, message: txt, error: ok === 0 ? txt : undefined };
+    }
+
     const domain = ROOT_DOMAIN;
     const fromEmail = EMAIL_FROM_DEFAULT;
     const hasResend = !!process.env.RESEND_API_KEY;
