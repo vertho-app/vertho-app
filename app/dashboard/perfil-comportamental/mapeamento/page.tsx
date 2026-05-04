@@ -557,7 +557,7 @@ export default function MapeamentoPage() {
         </div>
 
         {/* Top label */}
-        <p className="text-center text-sm font-semibold text-green-400 mb-3">👍 MAIS PARECIDO</p>
+        <p className="text-center text-[15px] font-semibold text-green-400 mb-3">👍 MAIS PARECIDO</p>
 
         {/* Ranking cards */}
         <div className="space-y-2 mb-3">
@@ -571,11 +571,11 @@ export default function MapeamentoPage() {
               className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-white/[0.04] cursor-grab active:cursor-grabbing active:border-cyan-400/40 active:scale-[1.02] transition-all"
               style={{ background: '#182B48' }}
             >
-              <span className="w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-extrabold flex-shrink-0"
+              <span className="w-7 h-7 rounded-lg flex items-center justify-center text-[12px] font-extrabold flex-shrink-0"
                 style={{ background: 'rgba(45,212,191,0.12)', color: '#2DD4BF' }}>
                 {idx + 1}
               </span>
-              <span className="flex-1 text-[13px] text-white font-semibold">{item.l}</span>
+              <span className="flex-1 text-[16px] text-white font-semibold">{item.l}</span>
               <div className="flex gap-1">
                 <button
                   disabled={idx === 0}
@@ -599,7 +599,7 @@ export default function MapeamentoPage() {
         </div>
 
         {/* Bottom label */}
-        <p className="text-center text-sm font-semibold text-amber-400 mb-6">👎 MENOS PARECIDO</p>
+        <p className="text-center text-[15px] font-semibold text-amber-400 mb-6">👎 MENOS PARECIDO</p>
 
         {/* Advance button */}
         <button
@@ -645,7 +645,7 @@ export default function MapeamentoPage() {
         </div>
 
         {/* Question */}
-        <p className="text-center text-sm font-semibold text-gray-300 mb-4">Qual te descreve melhor?</p>
+        <p className="text-center text-[15px] font-semibold text-gray-300 mb-4">Qual te descreve melhor?</p>
 
         {/* Option A */}
         <button
@@ -657,11 +657,11 @@ export default function MapeamentoPage() {
             boxShadow: selected === pair.fa ? '0 0 16px rgba(45,212,191,0.15)' : 'none',
           }}
         >
-          <span className="text-[14px] font-semibold text-white leading-relaxed">{pair.a}</span>
+          <span className="text-[16px] font-semibold text-white leading-relaxed">{pair.a}</span>
         </button>
 
         {/* OU */}
-        <p className="text-center text-[12px] font-extrabold text-gray-500 tracking-[2px] py-1.5">OU</p>
+        <p className="text-center text-[13px] font-extrabold text-gray-500 tracking-[2px] py-1.5">OU</p>
 
         {/* Option B */}
         <button
@@ -673,7 +673,7 @@ export default function MapeamentoPage() {
             boxShadow: selected === pair.fb ? '0 0 16px rgba(45,212,191,0.15)' : 'none',
           }}
         >
-          <span className="text-[14px] font-semibold text-white leading-relaxed">{pair.b}</span>
+          <span className="text-[16px] font-semibold text-white leading-relaxed">{pair.b}</span>
         </button>
 
         {/* Advance */}
@@ -706,14 +706,14 @@ export default function MapeamentoPage() {
         {/* Tag + title */}
         <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-cyan-400 mb-1">Última Etapa</p>
         <h1 className="text-[26px] font-black text-white leading-tight mb-1" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>Como você aprende melhor?</h1>
-        <p className="text-[13px] text-gray-400 mb-5">Dê de 1 a 5 estrelas para cada formato:</p>
+        <p className="text-[14px] text-gray-400 mb-5">Dê de 1 a 5 estrelas para cada formato:</p>
 
         {/* Format rows */}
         <div className="space-y-2">
           {FORMATS.map(fmt => (
             <div key={fmt.id} className="flex items-center gap-3 px-3 py-3 rounded-xl" style={{ background: '#182B48' }}>
-              <span className="text-[12px] shrink-0">{fmt.icon}</span>
-              <span className="flex-1 text-[12px] font-semibold text-white leading-snug">{fmt.label}</span>
+              <span className="text-[18px] shrink-0">{fmt.icon}</span>
+              <span className="flex-1 text-[14px] font-semibold text-white leading-snug">{fmt.label}</span>
               <div className="flex gap-0.5">
                 {[1, 2, 3, 4, 5].map(star => (
                   <button
