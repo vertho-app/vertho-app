@@ -39,6 +39,7 @@ const RESERVED_SUBDOMAINS = new Set([
   'ftp',
   'radar',
   'radarbett',
+  'imprensa', // site institucional Gamma — DNS aponta pro sites.gamma.app
 ]);
 
 // Subdomínios públicos que rewriteam para um path interno do app
