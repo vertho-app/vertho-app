@@ -22,14 +22,29 @@ export const APP_URL: string =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `https://${ROOT_DOMAIN}`);
 
 /**
+ * Garante que a URL tem esquema `https://`. Aceita valor com ou sem
+ * protocolo nas envs (paste descuidado de `app.vertho.ai` em vez de
+ * `https://app.vertho.ai` é o erro mais comum).
+ */
+function ensureHttps(url: string | undefined | null): string | null {
+  if (!url) return null;
+  const trimmed = url.trim().replace(/\/+$/, ''); // sem trailing slash
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
+/**
  * URL para webhooks (QStash, Bunny, Resend) que precisam bater de volta na
  * aplicação. NÃO pode usar APP_URL porque a raiz `vertho.ai` pode estar
  * apontando pra um site institucional externo (Gamma) — qualquer chamada
  * pra `vertho.ai/api/...` cai no Gamma e retorna 404/405. Webhooks têm que
  * ir pra `app.{ROOT_DOMAIN}` (Vercel) ou pro domínio Vercel direto.
+ *
+ * Aceita env com ou sem protocolo (normaliza para https://).
  */
 export const APP_WEBHOOK_URL: string =
-  process.env.NEXT_PUBLIC_APP_WEBHOOK_URL ||
+  ensureHttps(process.env.NEXT_PUBLIC_APP_WEBHOOK_URL) ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `https://app.${ROOT_DOMAIN}`);
 
 /**
@@ -40,9 +55,11 @@ export const APP_WEBHOOK_URL: string =
  *
  * Configurar via env `QSTASH_URL` no formato:
  *   QSTASH_URL=https://qstash-us-east-1.upstash.io  (sem barra final)
+ *
+ * Aceita env com ou sem protocolo (normaliza para https://).
  */
 export const QSTASH_BASE_URL: string =
-  process.env.QSTASH_URL || 'https://qstash.upstash.io';
+  ensureHttps(process.env.QSTASH_URL) || 'https://qstash.upstash.io';
 
 export const EMAIL_FROM_DEFAULT: string =
   process.env.EMAIL_FROM || `Vertho <noreply@${ROOT_DOMAIN}>`;

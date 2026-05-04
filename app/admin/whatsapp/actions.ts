@@ -282,6 +282,10 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
             // Usa APP_WEBHOOK_URL (app.{ROOT_DOMAIN}) — APP_URL pode apontar
             // pra raiz vertho.ai que está servida pelo Gamma e retorna 405.
             const webhookUrl = `${APP_WEBHOOK_URL}/api/webhooks/qstash/whatsapp-cis`;
+            // Log do que está sendo enviado (útil pra diagnosticar invalid scheme)
+            if (enviados === 0) {
+              console.log(`[dispararMensagemCustomizada] QStash base=${QSTASH_BASE_URL} webhook=${webhookUrl}`);
+            }
             const rQ = await fetch(`${QSTASH_BASE_URL}/v2/publish/` + encodeURIComponent(webhookUrl), {
               method: 'POST',
               headers: {
