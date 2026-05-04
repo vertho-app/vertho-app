@@ -1,7 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { EMAIL_FROM_DEFAULT, tenantUrl } from '@/lib/domain';
+import { APP_WEBHOOK_URL, EMAIL_FROM_DEFAULT, QSTASH_BASE_URL, tenantUrl } from '@/lib/domain';
 import crypto from 'crypto';
 import { requireAdminAction } from '@/lib/auth/action-context';
 
@@ -38,7 +38,6 @@ export async function dispararEmails(empresaId: string) {
     const envioMap: Record<string, string> = {};
     (enviosExistentes || []).forEach(e => { envioMap[e.colaborador_id] = e.status; });
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vertho.app';
     let emailsEnviados = 0, whatsEnviados = 0, jaEnviados = 0, erros = 0;
 
     for (const colab of colaboradores) {
@@ -107,8 +106,8 @@ export async function dispararEmails(empresaId: string) {
       if (colab.telefone && process.env.QSTASH_TOKEN) {
         try {
           const msg = `Olá${colab.nome_completo ? ` ${colab.nome_completo.split(' ')[0]}` : ''}! Você foi convidado(a) para a avaliação de competências da *${empresa.nome}*.\n\nAcesse: ${link}`;
-          const webhookUrl = `${baseUrl}/api/webhooks/qstash/whatsapp-cis`;
-          await fetch('https://qstash.upstash.io/v2/publish/' + encodeURIComponent(webhookUrl), {
+          const webhookUrl = `${APP_WEBHOOK_URL}/api/webhooks/qstash/whatsapp-cis`;
+          const qstashRes = await fetch(`${QSTASH_BASE_URL}/v2/publish/${webhookUrl}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -117,6 +116,7 @@ export async function dispararEmails(empresaId: string) {
             },
             body: JSON.stringify({ telefone: colab.telefone, mensagem: msg }),
           });
+          if (!qstashRes.ok) throw new Error(`QStash ${qstashRes.status}: ${(await qstashRes.text()).slice(0, 200)}`);
           whatsEnviados++;
         } catch { /* WhatsApp é best-effort */ }
       }

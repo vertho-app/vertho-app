@@ -9,7 +9,7 @@
 //
 // Configuração no painel Bunny:
 //   Stream → Library → Webhooks → URL:
-//   https://www.vertho.com.br/api/webhooks/bunny
+//   https://app.vertho.ai/api/webhooks/bunny
 //
 // BUNNY_WEBHOOK_SECRET (OBRIGATÓRIO em produção): valida via header Authorization ou ?token=
 

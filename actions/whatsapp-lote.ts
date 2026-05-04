@@ -3,7 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { templateWhatsAppCIS } from '@/lib/notifications';
 import { requireAdminAction } from '@/lib/auth/action-context';
-import { APP_WEBHOOK_URL, QSTASH_BASE_URL } from '@/lib/domain';
+import { APP_WEBHOOK_URL, QSTASH_BASE_URL, tenantUrl } from '@/lib/domain';
 
 const DELAY_BETWEEN_MS = 2000; // 2s entre cada mensagem
 
@@ -59,13 +59,11 @@ export async function dispararLinksCIS(empresaId: string) {
 
     if (!envios?.length) return { success: false, error: 'Nenhum envio pendente com telefone cadastrado' };
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vertho-app-xi.vercel.app';
-
     // Publicar todas no QStash em paralelo com delay incremental
     const results = await Promise.all(envios.map(async (envio: any, i) => {
       const nome = envio.colaboradores.nome_completo || 'Colaborador';
       const telefone = envio.colaboradores.telefone;
-      const link = `${baseUrl}/${empresa.slug}/avaliacao/${envio.token}`;
+      const link = tenantUrl(empresa.slug, `/avaliacao/${envio.token}`);
       const mensagem = templateWhatsAppCIS(nome, link);
       const delaySec = Math.floor((i * DELAY_BETWEEN_MS) / 1000);
 
@@ -115,12 +113,10 @@ export async function dispararRelatoriosLote(empresaId: string) {
 
     if (!relatorios?.length) return { success: false, error: 'Nenhum relatório com telefone' };
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vertho-app-xi.vercel.app';
-
     const results = await Promise.all(relatorios.map(async (rel: any, i) => {
       const nome = rel.colaboradores.nome_completo || 'Colaborador';
       const telefone = rel.colaboradores.telefone;
-      const link = `${baseUrl}/${empresa.slug}/relatorio/${rel.id}`;
+      const link = tenantUrl(empresa.slug, `/relatorio/${rel.id}`);
       const mensagem = `Olá, ${nome}! Seu relatório de competências da ${empresa.nome} está disponível:\n\n${link}`;
       const delaySec = Math.floor((i * DELAY_BETWEEN_MS) / 1000);
 

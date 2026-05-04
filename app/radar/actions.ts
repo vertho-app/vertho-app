@@ -3,7 +3,7 @@
 import crypto from 'crypto';
 import { headers } from 'next/headers';
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { APP_URL } from '@/lib/domain';
+import { APP_WEBHOOK_URL, QSTASH_BASE_URL } from '@/lib/domain';
 import { registrarEvento } from '@/lib/radar/eventos';
 
 type SearchResult = {
@@ -395,12 +395,12 @@ export async function capturarLead(input: CapturarLeadInput): Promise<{ success:
  * Best-effort: erros são logados mas não interrompem a captura do lead.
  */
 async function dispararPdfWorker(leadId: string): Promise<void> {
-  const webhookUrl = `${APP_URL}/api/radar/lead-pdf`;
+  const webhookUrl = `${APP_WEBHOOK_URL}/api/radar/lead-pdf`;
 
   // Tenta QStash primeiro
   if (process.env.QSTASH_TOKEN) {
     try {
-      const r = await fetch('https://qstash.upstash.io/v2/publish/' + encodeURIComponent(webhookUrl), {
+      const r = await fetch(`${QSTASH_BASE_URL}/v2/publish/${webhookUrl}`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${process.env.QSTASH_TOKEN}`,

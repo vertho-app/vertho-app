@@ -12,9 +12,8 @@ import { NextResponse } from 'next/server';
  * Uso: logo ANTES do auth check nas rotas mutativas.
  */
 
-// Lista de domínios raiz aceitos. Mantemos vertho.com.br + vertho.ai
-// simultaneamente durante a migração de domínio (cada um com www).
-const TRUSTED_ROOT_DOMAINS = ['vertho.com.br', 'vertho.ai'];
+// Lista de domínios raiz aceitos (cada um com www e subdomínios).
+const TRUSTED_ROOT_DOMAINS = ['vertho.ai'];
 
 const TRUSTED_ORIGINS = new Set<string>([
   ...TRUSTED_ROOT_DOMAINS.flatMap(d => [`https://${d}`, `https://www.${d}`]),

@@ -3,6 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { enviarPDF } from './whatsapp';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { APP_URL } from '@/lib/domain';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -34,8 +35,7 @@ export async function enviarPDFsLote(empresaId: string) {
 
       try {
         // Generate PDF via internal API
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vertho.app';
-        const pdfRes = await fetch(`${baseUrl}/api/relatorio-pdf/${rel.id}`, {
+        const pdfRes = await fetch(`${APP_URL}/api/relatorio-pdf/${rel.id}`, {
           method: 'GET',
           headers: {
             'x-api-key': process.env.INTERNAL_API_KEY || '',

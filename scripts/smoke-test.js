@@ -8,7 +8,7 @@
  *
  * Uso:
  *   node scripts/smoke-test.js                    # testa localhost:3000
- *   node scripts/smoke-test.js https://vertho.com.br  # testa produção
+ *   node scripts/smoke-test.js https://app.vertho.ai  # testa produção
  *   SMOKE_EMAIL=x SMOKE_PASS=y node scripts/smoke-test.js  # com auth
  */
 

@@ -19,8 +19,8 @@ export const ROOT_DOMAIN: string =
   process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'vertho.ai';
 
 export const APP_URL: string =
-  process.env.NEXT_PUBLIC_APP_URL ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `https://${ROOT_DOMAIN}`);
+  ensureHttps(process.env.NEXT_PUBLIC_APP_URL) ||
+  `https://app.${ROOT_DOMAIN}`;
 
 /**
  * Garante que a URL tem esquema `https://`. Aceita valor com ou sem

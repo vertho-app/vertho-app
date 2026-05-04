@@ -24,8 +24,8 @@ const VARIAVEIS = [
   { tag: '{{nome}}', label: 'Nome', exemplo: 'Maria' },
   { tag: '{{cargo}}', label: 'Cargo', exemplo: 'Consultor de Vendas' },
   { tag: '{{empresa}}', label: 'Empresa', exemplo: 'Boehringer Ingelheim' },
-  { tag: '{{link}}', label: 'Link', exemplo: 'https://vertho.app/login' },
-  { tag: '{{link_disc}}', label: 'Link DISC', exemplo: 'https://vertho.app/dashboard/perfil-comportamental/mapeamento' },
+  { tag: '{{link}}', label: 'Link', exemplo: 'https://ibipeba.vertho.ai/login' },
+  { tag: '{{link_disc}}', label: 'Link DISC', exemplo: 'https://ibipeba.vertho.ai/dashboard/perfil-comportamental/mapeamento' },
 ];
 
 const DEFAULT_MSGS = {
@@ -128,8 +128,8 @@ export default function EnviosPage() {
     .replace(/\{\{nome\}\}/g, 'Maria')
     .replace(/\{\{cargo\}\}/g, 'Consultor de Vendas')
     .replace(/\{\{empresa\}\}/g, empresaNome || 'Empresa')
-    .replace(/\{\{link\}\}/g, 'https://vertho.app/avaliacao/abc123')
-    .replace(/\{\{link_disc\}\}/g, 'https://vertho.app/disc/abc123');
+    .replace(/\{\{link\}\}/g, 'https://ibipeba.vertho.ai/avaliacao/abc123')
+    .replace(/\{\{link_disc\}\}/g, 'https://ibipeba.vertho.ai/dashboard/perfil-comportamental/mapeamento');
 
   // Ref para inserir placeholders na posição do cursor
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
