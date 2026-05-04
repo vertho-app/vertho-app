@@ -56,19 +56,30 @@ export async function POST(req) {
     let phone = telefone.replace(/\D/g, '');
     if (phone.length <= 11) phone = `55${phone}`;
 
+    // Log de diagnóstico: shape das envs (sem expor valores)
+    console.log(
+      `[qstash/whatsapp-cis] phone=${phone} inst.len=${instanceId.length} tok.len=${token.length} cli.len=${clientToken.length}`,
+    );
+
     const res = await fetch(`https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Client-Token': clientToken },
       body: JSON.stringify({ phone, message: mensagem }),
     });
+    const respText = await res.text();
 
     if (!res.ok) {
-      const detail = await res.text();
-      console.error(`[qstash/whatsapp-cis] Z-API ${res.status}: ${detail}`);
-      // Retorna 500 para QStash fazer retry automático
+      console.error(`[qstash/whatsapp-cis] Z-API HTTP ${res.status}: ${respText.slice(0, 300)}`);
       return NextResponse.json({ error: `Z-API ${res.status}` }, { status: 500 });
     }
-
+    // Z-API às vezes responde 200 com body de erro lógico (NOT_FOUND) — detecta
+    let parsed: any = null;
+    try { parsed = JSON.parse(respText); } catch { /* not json */ }
+    if (parsed?.error) {
+      console.error(`[qstash/whatsapp-cis] Z-API logical error: ${respText.slice(0, 300)}`);
+      return NextResponse.json({ error: `Z-API ${parsed.error}` }, { status: 500 });
+    }
+    console.log(`[qstash/whatsapp-cis] Z-API OK: ${respText.slice(0, 160)}`);
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('[qstash/whatsapp-cis] Erro:', err.message);
