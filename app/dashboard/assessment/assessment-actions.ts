@@ -3,6 +3,46 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
 
+async function resolverTop5ComIds(sb: any, empresaId: string, cargo: string, top5: string[]) {
+  const { data: compsDoCargo } = await sb.from('competencias')
+    .select('id, nome, cod_desc')
+    .eq('empresa_id', empresaId)
+    .eq('cargo', cargo);
+
+  const compIds = (compsDoCargo || []).map((c: any) => c.id).filter(Boolean);
+  let idsComCenario = new Set<string>();
+  if (compIds.length > 0) {
+    const { data: cenarios } = await sb.from('banco_cenarios')
+      .select('competencia_id')
+      .eq('empresa_id', empresaId)
+      .eq('cargo', cargo)
+      .in('competencia_id', compIds)
+      .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b');
+    idsComCenario = new Set((cenarios || []).map((c: any) => c.competencia_id).filter(Boolean));
+  }
+
+  const nomeToComp: Record<string, any> = {};
+  (compsDoCargo || []).forEach((c: any) => {
+    const key = (c.nome || '').toLowerCase();
+    if (!key) return;
+    const atual = nomeToComp[key];
+    const atualTemCenario = atual ? idsComCenario.has(atual.id) : false;
+    const candidatoTemCenario = idsComCenario.has(c.id);
+    if (
+      !atual ||
+      (candidatoTemCenario && !atualTemCenario) ||
+      (candidatoTemCenario === atualTemCenario && !c.cod_desc && atual.cod_desc)
+    ) {
+      nomeToComp[key] = c;
+    }
+  });
+
+  return top5.map((n: string) => {
+    const comp = nomeToComp[(n || '').toLowerCase()];
+    return { nome: n, id: comp?.id || null };
+  });
+}
+
 /**
  * Retorna o diagnóstico do dia do colaborador autenticado.
  * Regra: 1 competência por dia, seguindo a ordem do Top 5 do cargo.
@@ -37,21 +77,9 @@ async function _getDiagnosticoDoDia() {
   if (!top5.length) return { error: 'Nenhuma competência configurada para seu cargo' };
 
   // Mapeia nomes do top5 → id da competência. Quando há múltiplas linhas
-  // por nome (descritores importados via CSV), pega a linha 'principal'
-  // (cod_desc IS NULL) quando existe, senão o primeiro id disponível.
-  const { data: compsDoCargo } = await sb.from('competencias')
-    .select('id, nome, cod_desc')
-    .eq('empresa_id', colab.empresa_id)
-    .eq('cargo', colab.cargo);
-  const nomeToId = {};
-  (compsDoCargo || []).forEach(c => {
-    const key = (c.nome || '').toLowerCase();
-    if (!key) return;
-    // Prioriza linha sem cod_desc (mais estável); senão mantém o primeiro
-    if (!nomeToId[key] || !c.cod_desc) nomeToId[key] = c.id;
-  });
-
-  const top5ComId = top5.map(n => ({ nome: n, id: nomeToId[(n || '').toLowerCase()] || null }));
+  // por nome (descritores importados via CSV), prioriza o descritor que já
+  // tem cenário gerado para este cargo.
+  const top5ComId = await resolverTop5ComIds(sb, colab.empresa_id, colab.cargo, top5);
 
   // Respostas já dadas pelo colaborador (filtra por competencia_id — mais confiável)
   const { data: respostas } = await sb.from('respostas')
@@ -181,23 +209,15 @@ async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload) 
     .select('top5_workshop').eq('empresa_id', colab.empresa_id).eq('nome', colab.cargo).maybeSingle();
   const top5 = cargoEmp?.top5_workshop || [];
 
-  const { data: compsDoCargo } = await sb.from('competencias')
-    .select('id, nome, cod_desc').eq('empresa_id', colab.empresa_id).eq('cargo', colab.cargo);
-  const nomeToId = {};
-  (compsDoCargo || []).forEach(c => {
-    const key = (c.nome || '').toLowerCase();
-    if (!key) return;
-    if (!nomeToId[key] || !c.cod_desc) nomeToId[key] = c.id;
-  });
+  const top5ComId = await resolverTop5ComIds(sb, colab.empresa_id, colab.cargo, top5);
 
   const { data: respostas } = await sb.from('respostas')
     .select('competencia_id').eq('colaborador_id', colab.id).eq('empresa_id', colab.empresa_id);
   const jaSet = new Set((respostas || []).map(r => r.competencia_id).filter(Boolean));
 
-  const pendentes = top5.filter(n => {
-    const id = nomeToId[(n || '').toLowerCase()];
-    return id && !jaSet.has(id);
-  });
+  const pendentes = top5ComId
+    .filter((c: any) => c.id && !jaSet.has(c.id))
+    .map((c: any) => c.nome);
 
   return {
     success: true,
