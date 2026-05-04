@@ -237,7 +237,7 @@ export default function JornadaPage() {
               texto="IA conversacional que acompanha cada gestor no ritmo dele: simula situações reais, dá feedback e registra evidência. Funciona no celular, via WhatsApp."
             />
             <DiferencialCard
-              cor="green"
+              cor="lilac"
               icone={<CheckCircle2 size={18} strokeWidth={2.2} />}
               titulo="Evidência real, não certificado"
               texto="Cada descritor de competência é avaliado por trecho da resposta — auditável e regravável. Re-mapeamento pós-jornada mede evolução real com cenários novos."
@@ -354,11 +354,12 @@ export default function JornadaPage() {
 
 function DiferencialCard({
   cor, icone, titulo, texto,
-}: { cor: 'cyan' | 'green' | 'purple'; icone: React.ReactNode; titulo: string; texto: string }) {
+}: { cor: 'cyan' | 'lilac' | 'purple'; icone: React.ReactNode; titulo: string; texto: string }) {
+  // Cores oficiais Vertho: cyan #34C5CC, lilac #E1AAEF, purple #9E4EDD
   const tons = {
-    cyan:   { bg: 'rgba(52,197,204,0.10)',  iconBg: 'rgba(52,197,204,0.15)', iconColor: '#34c5cc', border: 'rgba(52,197,204,0.22)' },
-    green:  { bg: 'rgba(22,163,74,0.10)',   iconBg: 'rgba(22,163,74,0.15)',  iconColor: '#86efac', border: 'rgba(22,163,74,0.25)' },
-    purple: { bg: 'rgba(158,78,221,0.10)',  iconBg: 'rgba(158,78,221,0.15)', iconColor: '#c084fc', border: 'rgba(158,78,221,0.22)' },
+    cyan:   { bg: 'rgba(52,197,204,0.10)',  iconBg: 'rgba(52,197,204,0.15)', iconColor: '#34C5CC', border: 'rgba(52,197,204,0.22)' },
+    lilac:  { bg: 'rgba(225,170,239,0.08)', iconBg: 'rgba(225,170,239,0.15)', iconColor: '#E1AAEF', border: 'rgba(225,170,239,0.22)' },
+    purple: { bg: 'rgba(158,78,221,0.10)',  iconBg: 'rgba(158,78,221,0.15)', iconColor: '#c084fc', border: 'rgba(158,78,221,0.25)' },
   };
   const t = tons[cor];
   return (
@@ -409,14 +410,18 @@ function PhoneMock() {
           style={{ borderColor: 'rgba(255,255,255,0.06)' }}
         >
           <div
-            className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold"
-            style={{ background: 'linear-gradient(135deg, #34c5cc, #9e4edd)', color: '#06172C' }}
+            className="w-7 h-7 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0"
+            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' }}
           >
-            V
+            <img
+              src="/logo-vertho.png"
+              alt="Vertho"
+              style={{ width: 18, height: 18, objectFit: 'contain' }}
+            />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-white text-[11px] font-bold leading-tight">Vertho MentorIA</p>
-            <p className="text-[9px]" style={{ color: '#86efac' }}>online agora</p>
+            <p className="text-[9px]" style={{ color: '#34C5CC' }}>online agora</p>
           </div>
         </div>
 
