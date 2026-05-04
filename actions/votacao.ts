@@ -181,13 +181,16 @@ export async function loadResultadosVotacao(empresaId: string) {
     }
   }
 
-  // Ordenar rankings por pontos
+  // Ordenar rankings por pontos (desc) com desempate por votos (desc).
+  // Lógica: pontos pesam por intensidade (1ª > 2ª > 3ª escolha), mas em
+  // caso de empate, quanto mais votantes escolheram a competência, maior
+  // o consenso — então mais votos = melhor posição no desempate.
   const resultado: Record<string, any> = {};
   for (const [cargo, dados] of Object.entries(porCargo)) {
     const d = dados as any;
     const rankingArr = Object.entries(d.ranking)
       .map(([nome, stats]: [string, any]) => ({ nome, votos: stats.votos, pontos: stats.pontos }))
-      .sort((a, b) => b.pontos - a.pontos);
+      .sort((a, b) => b.pontos - a.pontos || b.votos - a.votos);
 
     resultado[cargo] = {
       total: d.total,
