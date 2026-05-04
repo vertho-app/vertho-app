@@ -4,10 +4,11 @@ import {
   Activity, Target, Sparkles, ClipboardCheck, ClipboardList, BarChart3,
   GraduationCap, BookOpen, Users, Layers, Database, Building2, Eye, MessagesSquare,
   Compass, ArrowRight, ArrowDown, MapPin, FileText, Lightbulb, CheckCircle2,
-  TrendingUp, GitCompare, Brain, Briefcase, Repeat, Award,
+  TrendingUp, GitCompare, Brain, Briefcase, Repeat, Award, Smartphone, Bell, Zap,
 } from 'lucide-react';
 import { BettHeader } from '../_components/bett-header';
 import { JornadaCTA } from './_cta';
+import { WhatsappIcon } from '../_components/whatsapp-icon';
 
 export const metadata: Metadata = {
   title: 'Metodologia Vertho — 5 fases de desenvolvimento',
@@ -74,7 +75,7 @@ const ETAPAS: Etapa[] = [
       { icon: ClipboardList, label: 'Definição de competências', texto: 'Conjunto de competências do contexto, com descritores observáveis e níveis de proficiência (n1 a n4).' },
       { icon: Briefcase, label: 'Perfil do cargo ideal', texto: 'O que se espera do diretor, coordenador, supervisor — referência clara para mapear o que existe contra o que deveria.' },
       { icon: Compass, label: 'Cenários customizados', texto: 'Situações reais da escola usadas para testar o exercício das competências (não casos genéricos de manual).' },
-      { icon: Target, label: 'Vínculo com prioridades da rede', texto: 'A preparação se conecta ao plano estratégico da secretaria — competências calibradas pelo desafio real.' },
+      { icon: Target, label: 'Vínculo com prioridades da rede/escola', texto: 'A preparação se conecta ao plano estratégico da secretaria ou direção — competências calibradas pelo desafio real.' },
     ],
   },
   {
@@ -95,12 +96,12 @@ const ETAPAS: Etapa[] = [
     cor: 'amber',
     titulo: 'Diagnóstico',
     resumo:
-      'O diagnóstico Vertho cruza tudo que foi mapeado: comportamento × competências × contexto da rede. Daí saem o PDI individual, o relatório do gestor e o DNA Organizacional da rede inteira.',
+      'O diagnóstico Vertho cruza tudo que foi mapeado: comportamento × competências × contexto da rede/escola. Daí saem o PDI individual, o relatório do gestor e o DNA Organizacional agregado.',
     pilares: [
       { icon: GitCompare, label: 'Cruzamento dos mapeamentos', texto: 'DISC + Liderança + competências por descritor, cruzados com o perfil de cargo ideal definido na preparação.' },
       { icon: ClipboardCheck, label: 'PDI individualizado', texto: 'Plano de Desenvolvimento Individual com competência foco, ações concretas e marcos de evidência por colaborador.' },
       { icon: FileText, label: 'Relatórios para o gestor', texto: 'Dossiê estruturado para conversa de feedback: contexto, gaps, hipóteses e roteiro de devolutiva.' },
-      { icon: Layers, label: 'DNA Organizacional', texto: 'Foto agregada da rede: padrões de competência, distribuição de perfis, força coletiva e risco coletivo.' },
+      { icon: Layers, label: 'DNA Organizacional', texto: 'Foto agregada da rede/escola: padrões de competência, distribuição de perfis, força coletiva e risco coletivo.' },
     ],
   },
   {
@@ -213,6 +214,64 @@ export default function JornadaPage() {
           ))}
         </section>
 
+        {/* Mobile-first com WhatsApp */}
+        <section className="mb-16">
+          <div
+            className="rounded-3xl border p-6 sm:p-8"
+            style={{
+              background: 'linear-gradient(135deg, rgba(37,211,102,0.08), rgba(52,197,204,0.04))',
+              borderColor: 'rgba(37,211,102,0.22)',
+            }}
+          >
+            <div className="grid grid-cols-1 lg:grid-cols-[140px_1fr] gap-5 lg:gap-8 items-start">
+              <div className="flex lg:flex-col items-center lg:items-start gap-4 lg:gap-3">
+                <div
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'linear-gradient(135deg, #25D366, #128C7E)', color: '#06172C' }}
+                >
+                  <Smartphone size={26} strokeWidth={2.2} />
+                </div>
+                <div>
+                  <p className="text-[10px] tracking-[0.18em] uppercase font-bold mb-1" style={{ color: '#86efac' }}>
+                    Acesso
+                  </p>
+                  <h3 className="text-white text-[18px] font-bold leading-tight" style={{
+                    fontFamily: 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif',
+                    letterSpacing: '-0.02em',
+                  }}>
+                    Tudo pelo celular, no fluxo do trabalho
+                  </h3>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-white/80 leading-relaxed mb-4" style={{ fontSize: 15, maxWidth: 720 }}>
+                  Toda a jornada — mapeamento, PDIs, Tutor IA, missões práticas, evidências, feedback —
+                  acontece no celular. <strong className="text-white">Notificações via WhatsApp</strong> avisam
+                  o que precisa ser feito quando precisa, sem app extra para baixar e sem login complicado.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <BeneficioMobile
+                    icon={<WhatsappIcon size={14} />}
+                    titulo="Notificações WhatsApp"
+                    texto="Cada novo módulo, missão e devolutiva chega como mensagem — engajamento sustentado sem precisar 'lembrar de entrar'."
+                  />
+                  <BeneficioMobile
+                    icon={<Zap size={14} strokeWidth={2.2} />}
+                    titulo="Sem app, sem fricção"
+                    texto="Roda em qualquer celular via navegador. Login com link mágico ou senha. Funciona com a equipe que já está disponível."
+                  />
+                  <BeneficioMobile
+                    icon={<Bell size={14} strokeWidth={2.2} />}
+                    titulo="Cadência inteligente"
+                    texto="A IA respeita o ritmo de cada participante e da rede. Lembretes na hora certa; pausa quando o ciclo escolar pede silêncio."
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Tagline antes do CTA */}
         <section className="mb-12 text-center">
           <h2
@@ -243,6 +302,29 @@ export default function JornadaPage() {
         </div>
       </article>
     </main>
+  );
+}
+
+function BeneficioMobile({
+  icon, titulo, texto,
+}: { icon: React.ReactNode; titulo: string; texto: string }) {
+  return (
+    <div
+      className="rounded-2xl p-4 border"
+      style={{
+        background: 'rgba(255,255,255,0.025)',
+        borderColor: 'rgba(255,255,255,0.06)',
+      }}
+    >
+      <div
+        className="w-8 h-8 rounded-lg flex items-center justify-center mb-2.5"
+        style={{ background: 'rgba(37,211,102,0.15)', color: '#86efac' }}
+      >
+        {icon}
+      </div>
+      <p className="text-white text-[13px] font-bold mb-1 leading-tight">{titulo}</p>
+      <p className="text-white/65 text-[12.5px] leading-relaxed">{texto}</p>
+    </div>
   );
 }
 
