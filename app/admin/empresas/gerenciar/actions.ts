@@ -3,6 +3,57 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 
+const VALID_ROLES = ['colaborador', 'gestor', 'rh'];
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
+
+function normalizeText(value: any) {
+  const text = value?.toString().trim();
+  return text || null;
+}
+
+function normalizeEmail(value: any) {
+  const email = normalizeText(value)?.toLowerCase();
+  return email || null;
+}
+
+function isValidEmail(email: string | null) {
+  return Boolean(email && email.length <= 254 && EMAIL_RE.test(email));
+}
+
+function normalizePhone(value: any) {
+  let digits = value?.toString().replace(/\D/g, '') || '';
+  if (!digits) return null;
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  if (!digits.startsWith('55') && digits.startsWith('0') && (digits.length === 11 || digits.length === 12)) {
+    digits = digits.slice(1);
+  }
+  if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) return digits;
+  if (digits.length === 10 || digits.length === 11) return `55${digits}`;
+  return null;
+}
+
+function hasValue(value: any) {
+  return Boolean(value?.toString().trim());
+}
+
+function formatIssue(issue: any) {
+  const valor = issue.valor ? ` "${issue.valor}"` : '';
+  const nome = issue.nome ? ` (${issue.nome})` : '';
+  return `linha ${issue.linha}${nome}: ${issue.campo}${valor} - ${issue.motivo}`;
+}
+
+function buildImportMessage(importados: number, duplicados: number, erros: any[], avisos: any[]) {
+  const parts = [`${importados} colaboradores importados`];
+  if (duplicados > 0) parts.push(`${duplicados} duplicata${duplicados === 1 ? '' : 's'} ignorada${duplicados === 1 ? '' : 's'}`);
+  if (erros.length > 0) parts.push(`${erros.length} linha${erros.length === 1 ? '' : 's'} com erro bloqueada${erros.length === 1 ? '' : 's'}`);
+  if (avisos.length > 0) parts.push(`${avisos.length} aviso${avisos.length === 1 ? '' : 's'} em telefone/e-mail de gestor`);
+
+  const detalhes = [...erros, ...avisos].slice(0, 8).map(formatIssue);
+  if (detalhes.length === 0) return parts.join(' · ');
+  const extra = erros.length + avisos.length - detalhes.length;
+  return `${parts.join(' · ')}\n${detalhes.join('\n')}${extra > 0 ? `\n... mais ${extra} ocorrência${extra === 1 ? '' : 's'}` : ''}`;
+}
+
 export async function loadEmpresas() {
   await requireAdminAction();
   const sb = createSupabaseAdmin();
@@ -26,30 +77,65 @@ export async function importarColaboradoresLote(empresaId: any, colabs: any) {
   const sb = createSupabaseAdmin();
   const { data: existentes } = await sb.from('colaboradores')
     .select('email').eq('empresa_id', empresaId);
-  const emailsExistentes = new Set((existentes || []).map((c: any) => c.email.toLowerCase()));
+  const emailsExistentes = new Set((existentes || []).map((c: any) => c.email?.toLowerCase()).filter(Boolean));
+  const emailsArquivo = new Set<string>();
+  const erros: any[] = [];
+  const avisos: any[] = [];
+  let duplicados = 0;
 
-  const VALID_ROLES = ['colaborador', 'gestor', 'rh'];
+  const novos = (colabs || []).reduce((acc: any[], c: any, index: number) => {
+    const linha = index + 2;
+    const nome = normalizeText(c.nome);
+    const email = normalizeEmail(c.email);
+    if (!isValidEmail(email)) {
+      erros.push({ linha, nome, campo: 'email', valor: c.email, motivo: 'e-mail inválido; linha não importada' });
+      return acc;
+    }
 
-  const novos = colabs
-    .filter((c: any) => c.email && !emailsExistentes.has(c.email.toLowerCase()))
-    .map((c: any) => ({
+    if (emailsExistentes.has(email!) || emailsArquivo.has(email!)) {
+      duplicados += 1;
+      return acc;
+    }
+    emailsArquivo.add(email!);
+
+    const telefone = normalizePhone(c.telefone);
+    if (hasValue(c.telefone) && !telefone) {
+      avisos.push({ linha, nome, campo: 'telefone/celular', valor: c.telefone, motivo: 'formato inválido; campo não salvo' });
+    }
+
+    const gestorEmail = normalizeEmail(c.gestor_email);
+    if (hasValue(c.gestor_email) && !isValidEmail(gestorEmail)) {
+      avisos.push({ linha, nome, campo: 'gestor_email', valor: c.gestor_email, motivo: 'e-mail inválido; campo não salvo' });
+    }
+
+    const gestorWhatsapp = normalizePhone(c.gestor_whatsapp);
+    if (hasValue(c.gestor_whatsapp) && !gestorWhatsapp) {
+      avisos.push({ linha, nome, campo: 'gestor_whatsapp', valor: c.gestor_whatsapp, motivo: 'formato inválido; campo não salvo' });
+    }
+
+    const role = normalizeText(c.role)?.toLowerCase();
+    acc.push({
       empresa_id: empresaId,
-      nome_completo: c.nome?.trim() || null,
-      email: c.email.trim().toLowerCase(),
-      cargo: c.cargo?.trim() || null,
-      area_depto: c.area_depto?.trim() || null,
-      role: VALID_ROLES.includes(c.role?.trim()?.toLowerCase()) ? c.role.trim().toLowerCase() : 'colaborador',
-      telefone: c.telefone?.toString().trim() || null,
-      gestor_nome: c.gestor_nome?.trim() || null,
-      gestor_email: c.gestor_email?.trim()?.toLowerCase() || null,
-      gestor_whatsapp: c.gestor_whatsapp?.toString().trim() || null,
-    }));
+      nome_completo: nome,
+      email,
+      cargo: normalizeText(c.cargo),
+      area_depto: normalizeText(c.area_depto),
+      role: VALID_ROLES.includes(role || '') ? role : 'colaborador',
+      telefone,
+      gestor_nome: normalizeText(c.gestor_nome),
+      gestor_email: isValidEmail(gestorEmail) ? gestorEmail : null,
+      gestor_whatsapp: gestorWhatsapp,
+    });
+    return acc;
+  }, []);
 
-  if (novos.length === 0) return { success: true, message: '0 novos (todos já existiam)' };
+  if (novos.length === 0) {
+    return { success: true, message: buildImportMessage(0, duplicados, erros, avisos), erros, avisos };
+  }
 
   const { error } = await sb.from('colaboradores').insert(novos);
   if (error) return { success: false, error: error.message };
-  return { success: true, message: `${novos.length} colaboradores importados` };
+  return { success: true, message: buildImportMessage(novos.length, duplicados, erros, avisos), erros, avisos };
 }
 
 export async function loadColaboradores(empresaId: any) {
@@ -71,11 +157,16 @@ export async function loadColaboradores(empresaId: any) {
 export async function criarColaborador(empresaId: any, campos: any) {
   await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresa obrigatória' };
-  if (!campos?.email?.trim()) return { success: false, error: 'email obrigatório' };
+  const email = normalizeEmail(campos?.email);
+  if (!isValidEmail(email)) return { success: false, error: 'email inválido' };
 
   const sb = createSupabaseAdmin();
-  const VALID_ROLES = ['colaborador', 'gestor', 'rh'];
-  const email = campos.email.trim().toLowerCase();
+  const telefone = normalizePhone(campos.telefone);
+  if (hasValue(campos.telefone) && !telefone) return { success: false, error: 'telefone/celular inválido. Use DDD, ex.: 11999998888 ou 5511999998888' };
+  const gestorEmail = normalizeEmail(campos.gestor_email);
+  if (hasValue(campos.gestor_email) && !isValidEmail(gestorEmail)) return { success: false, error: 'email do gestor inválido' };
+  const gestorWhatsapp = normalizePhone(campos.gestor_whatsapp);
+  if (hasValue(campos.gestor_whatsapp) && !gestorWhatsapp) return { success: false, error: 'whatsapp do gestor inválido. Use DDD, ex.: 11999998888 ou 5511999998888' };
 
   const { data: existente } = await sb.from('colaboradores')
     .select('id').eq('empresa_id', empresaId).eq('email', email).maybeSingle();
@@ -87,10 +178,10 @@ export async function criarColaborador(empresaId: any, campos: any) {
     nome_completo: campos.nome_completo?.trim() || null,
     cargo: campos.cargo?.trim() || null,
     area_depto: campos.area_depto?.trim() || null,
-    telefone: campos.telefone?.trim() || null,
+    telefone,
     gestor_nome: campos.gestor_nome?.trim() || null,
-    gestor_email: campos.gestor_email?.trim().toLowerCase() || null,
-    gestor_whatsapp: campos.gestor_whatsapp?.trim() || null,
+    gestor_email: gestorEmail,
+    gestor_whatsapp: gestorWhatsapp,
     role: VALID_ROLES.includes(campos.role) ? campos.role : 'colaborador',
   };
 
@@ -106,16 +197,31 @@ export async function atualizarColaborador(id: any, campos: any) {
   const { data: existente } = await sb.from('colaboradores').select('empresa_id').eq('id', id).maybeSingle();
   if (!existente) return { success: false, error: 'colab não encontrado' };
 
-  const VALID_ROLES = ['colaborador', 'gestor', 'rh'];
   const update: any = {};
   if (campos.nome_completo !== undefined) update.nome_completo = campos.nome_completo?.trim() || null;
-  if (campos.email !== undefined) update.email = campos.email?.trim().toLowerCase() || null;
+  if (campos.email !== undefined) {
+    const email = normalizeEmail(campos.email);
+    if (!isValidEmail(email)) return { success: false, error: 'email inválido' };
+    update.email = email;
+  }
   if (campos.cargo !== undefined) update.cargo = campos.cargo?.trim() || null;
   if (campos.area_depto !== undefined) update.area_depto = campos.area_depto?.trim() || null;
-  if (campos.telefone !== undefined) update.telefone = campos.telefone?.trim() || null;
+  if (campos.telefone !== undefined) {
+    const telefone = normalizePhone(campos.telefone);
+    if (hasValue(campos.telefone) && !telefone) return { success: false, error: 'telefone/celular inválido. Use DDD, ex.: 11999998888 ou 5511999998888' };
+    update.telefone = telefone;
+  }
   if (campos.gestor_nome !== undefined) update.gestor_nome = campos.gestor_nome?.trim() || null;
-  if (campos.gestor_email !== undefined) update.gestor_email = campos.gestor_email?.trim().toLowerCase() || null;
-  if (campos.gestor_whatsapp !== undefined) update.gestor_whatsapp = campos.gestor_whatsapp?.trim() || null;
+  if (campos.gestor_email !== undefined) {
+    const gestorEmail = normalizeEmail(campos.gestor_email);
+    if (hasValue(campos.gestor_email) && !isValidEmail(gestorEmail)) return { success: false, error: 'email do gestor inválido' };
+    update.gestor_email = gestorEmail;
+  }
+  if (campos.gestor_whatsapp !== undefined) {
+    const gestorWhatsapp = normalizePhone(campos.gestor_whatsapp);
+    if (hasValue(campos.gestor_whatsapp) && !gestorWhatsapp) return { success: false, error: 'whatsapp do gestor inválido. Use DDD, ex.: 11999998888 ou 5511999998888' };
+    update.gestor_whatsapp = gestorWhatsapp;
+  }
   if (campos.role !== undefined && VALID_ROLES.includes(campos.role)) update.role = campos.role;
 
   const { error } = await sb.from('colaboradores').update(update).eq('id', id);

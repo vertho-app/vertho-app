@@ -113,10 +113,10 @@ export default function GerenciarPage() {
       gestor_nome: obj.gestor_nome || obj.gestor,
       gestor_email: obj.gestor_email,
       gestor_whatsapp: obj.gestor_whatsapp || obj.gestor_telefone || obj.gestor_celular,
-    })).filter(c => c.email);
+    }));
 
     if (parsed.length === 0) {
-      setMsg('Nenhum colaborador válido. Verifique coluna "email".');
+      setMsg('Nenhuma linha encontrada no arquivo.');
       setImporting(false); return;
     }
 
@@ -624,6 +624,7 @@ export default function GerenciarPage() {
                   </table>
                 </div>
                 <p className="text-[10px] text-gray-600 mt-2">Se <span className="text-gray-400">role</span> vier vazio, o padrão é <span className="text-cyan-400">colaborador</span>. Duplicatas por email são ignoradas.</p>
+                <p className="text-[10px] text-amber-300/80 mt-1">E-mails inválidos bloqueiam a linha. Celular/WhatsApp deve ter DDD; aceitamos 11999998888 ou 5511999998888. Telefones inválidos aparecem como aviso e não são salvos.</p>
               </div>
 
               <label className="flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold text-white cursor-pointer"
@@ -665,7 +666,7 @@ export default function GerenciarPage() {
             </>
           )}
 
-          {msg && <p className="text-xs text-cyan-400 mt-3 text-center">{msg}</p>}
+          {msg && <p className="text-xs text-cyan-400 mt-3 text-center whitespace-pre-line">{msg}</p>}
         </>
       )}
     </div>
