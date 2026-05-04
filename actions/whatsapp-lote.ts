@@ -3,7 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { templateWhatsAppCIS } from '@/lib/notifications';
 import { requireAdminAction } from '@/lib/auth/action-context';
-import { APP_WEBHOOK_URL } from '@/lib/domain';
+import { APP_WEBHOOK_URL, QSTASH_BASE_URL } from '@/lib/domain';
 
 const DELAY_BETWEEN_MS = 2000; // 2s entre cada mensagem
 
@@ -25,7 +25,7 @@ async function publishToQStash(payload: any, delaySec = 0) {
     'Upstash-Delay': `${delaySec}s`,
   };
 
-  const res = await fetch('https://qstash.upstash.io/v2/publish/' + encodeURIComponent(webhookUrl), {
+  const res = await fetch(`${QSTASH_BASE_URL}/v2/publish/` + encodeURIComponent(webhookUrl), {
     method: 'POST',
     headers,
     body: JSON.stringify(payload),

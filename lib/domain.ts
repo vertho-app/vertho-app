@@ -32,6 +32,18 @@ export const APP_WEBHOOK_URL: string =
   process.env.NEXT_PUBLIC_APP_WEBHOOK_URL ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `https://app.${ROOT_DOMAIN}`);
 
+/**
+ * Base URL do QStash (Upstash). O token é vinculado a uma região específica
+ * (us-east-1, eu-central-1, etc) e a URL `qstash.upstash.io` genérica pode
+ * rotear pro lugar errado. Usar a URL regional do workspace evita 404s do
+ * tipo "user not found in this region".
+ *
+ * Configurar via env `QSTASH_URL` no formato:
+ *   QSTASH_URL=https://qstash-us-east-1.upstash.io  (sem barra final)
+ */
+export const QSTASH_BASE_URL: string =
+  process.env.QSTASH_URL || 'https://qstash.upstash.io';
+
 export const EMAIL_FROM_DEFAULT: string =
   process.env.EMAIL_FROM || `Vertho <noreply@${ROOT_DOMAIN}>`;
 

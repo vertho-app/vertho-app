@@ -2,7 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
-import { APP_URL, APP_WEBHOOK_URL, EMAIL_FROM_DEFAULT, ROOT_DOMAIN, tenantUrl } from '@/lib/domain';
+import { APP_URL, APP_WEBHOOK_URL, EMAIL_FROM_DEFAULT, QSTASH_BASE_URL, ROOT_DOMAIN, tenantUrl } from '@/lib/domain';
 
 export async function loadEmpresas() {
   await requireAdminAction();
@@ -282,7 +282,7 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
             // Usa APP_WEBHOOK_URL (app.{ROOT_DOMAIN}) — APP_URL pode apontar
             // pra raiz vertho.ai que está servida pelo Gamma e retorna 405.
             const webhookUrl = `${APP_WEBHOOK_URL}/api/webhooks/qstash/whatsapp-cis`;
-            const rQ = await fetch('https://qstash.upstash.io/v2/publish/' + encodeURIComponent(webhookUrl), {
+            const rQ = await fetch(`${QSTASH_BASE_URL}/v2/publish/` + encodeURIComponent(webhookUrl), {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
