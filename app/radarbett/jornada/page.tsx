@@ -70,7 +70,7 @@ const ETAPAS: Etapa[] = [
     cor: 'cyan',
     titulo: 'Preparação',
     resumo:
-      'Primeiro a Vertho calibra o instrumento: define competências relevantes, constrói cenários customizados para a realidade da rede e formaliza o perfil ideal de cada cargo. Sem isso, todo mapeamento mede contra o vazio.',
+      'Primeiro a Vertho calibra o instrumento: define competências relevantes, constrói cenários customizados para a realidade da rede/escola e formaliza o perfil ideal de cada cargo. Sem isso, todo mapeamento mede contra o vazio.',
     pilares: [
       { icon: ClipboardList, label: 'Definição de competências', texto: 'Conjunto de competências do contexto, com descritores observáveis e níveis de proficiência (n1 a n4).' },
       { icon: Briefcase, label: 'Perfil do cargo ideal', texto: 'O que se espera do diretor, coordenador, supervisor — referência clara para mapear o que existe contra o que deveria.' },
@@ -259,7 +259,7 @@ export default function JornadaPage() {
                   <BeneficioMobile
                     icon={<Zap size={14} strokeWidth={2.2} />}
                     titulo="Sem app, sem fricção"
-                    texto="Roda em qualquer celular via navegador. Login com link mágico ou senha. Funciona com a equipe que já está disponível."
+                    texto="Roda em qualquer celular pelo navegador. Login com link mágico — qualquer educador da escola usa, sem treinamento técnico."
                   />
                   <BeneficioMobile
                     icon={<Bell size={14} strokeWidth={2.2} />}
