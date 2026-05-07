@@ -74,6 +74,10 @@ export default function EnviosPage() {
   const [assunto, setAssunto] = useState('[{{empresa}}] Avaliação de Competências');
   const [mensagem, setMensagem] = useState(DEFAULT_MSGS.email);
   const [filtroCargo, setFiltroCargo] = useState('');
+  // Filtro por status de voto na votação de competências.
+  // 'todos' = sem filtro · 'nao_votou' = só quem ainda não votou (lembretes)
+  // · 'votou' = só quem já votou
+  const [filtroVoto, setFiltroVoto] = useState<'todos' | 'nao_votou' | 'votou'>('todos');
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState(null);
 
@@ -119,6 +123,8 @@ export default function EnviosPage() {
   // Destinatários filtrados
   const destinatarios = colabs.filter(c => {
     if (filtroCargo && c.cargo !== filtroCargo) return false;
+    if (filtroVoto === 'nao_votou' && c.votou) return false;
+    if (filtroVoto === 'votou' && !c.votou) return false;
     if (tab === 'whatsapp' || tab === 'relatorios-whatsapp') return !!c.telefone;
     return !!c.email;
   });
@@ -203,7 +209,9 @@ export default function EnviosPage() {
     setResult(null);
 
     const canal = (tab === 'email' || tab === 'relatorios-email') ? 'email' : 'whatsapp';
-    const filtros = filtroCargo ? { cargo: filtroCargo } : {};
+    const filtros: any = {};
+    if (filtroCargo) filtros.cargo = filtroCargo;
+    if (filtroVoto !== 'todos') filtros.voto = filtroVoto;
     const isRel = tab === 'relatorios-email' || tab === 'relatorios-whatsapp';
     const r = await dispararMensagemCustomizada(empresaId, mensagem, canal, filtros, assunto, isRel && anexarPDF, anexoExtra);
 
@@ -269,23 +277,36 @@ export default function EnviosPage() {
                 Gera um link de acesso direto (sem senha) para cada colaborador e envia por WhatsApp.
                 O link expira em 24h e é pessoal.
               </p>
-              <div className="mb-3">
-                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Filtrar por cargo</p>
-                <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
-                  <option value="">Todos os cargos</option>
-                  {cargos.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div>
+                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Cargo</p>
+                  <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
+                    <option value="">Todos os cargos</option>
+                    {cargos.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Votação</p>
+                  <select value={filtroVoto} onChange={e => setFiltroVoto(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
+                    <option value="todos">Todos</option>
+                    <option value="nao_votou">Não votaram</option>
+                    <option value="votou">Já votaram</option>
+                  </select>
+                </div>
               </div>
               <div className="flex items-center gap-1.5 text-[10px] text-teal-400 font-semibold mb-4">
                 <Users size={12} />
-                {(colabs as any[]).filter(c => c.telefone && c.email).length} colaborador(es) com telefone + email
+                {destinatarios.filter((c: any) => c.telefone && c.email).length} colaborador(es) com telefone + email
               </div>
               <button
                 disabled={sending || !empresaId}
                 onClick={async () => {
                   setSending(true); setResult(null);
-                  const filtros = filtroCargo ? { cargo: filtroCargo } : {};
+                  const filtros: any = {};
+    if (filtroCargo) filtros.cargo = filtroCargo;
+    if (filtroVoto !== 'todos') filtros.voto = filtroVoto;
                   const r = await enviarMagicLinksWhatsApp(empresaId, filtros);
                   setResult(r); setSending(false);
                 }}
@@ -315,6 +336,15 @@ export default function EnviosPage() {
                       className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
                       <option value="">Todos os cargos</option>
                       {cargos.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Votação</p>
+                    <select value={filtroVoto} onChange={e => setFiltroVoto(e.target.value as any)}
+                      className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
+                      <option value="todos">Todos</option>
+                      <option value="nao_votou">Não votaram</option>
+                      <option value="votou">Já votaram</option>
                     </select>
                   </div>
                 </div>

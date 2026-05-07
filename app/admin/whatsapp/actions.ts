@@ -167,6 +167,19 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
     // Filtrar por cargo
     if (filtros.cargo) colabs = colabs.filter(c => c.cargo === filtros.cargo);
 
+    // Filtrar por status de voto (votou/nao_votou) — útil pra disparo de
+    // lembrete só pra quem ainda não votou na votação de competências.
+    if (filtros.voto === 'nao_votou' || filtros.voto === 'votou') {
+      const { data: votos } = await sb
+        .from('votacao_competencias')
+        .select('colaborador_id')
+        .eq('empresa_id', empresaId);
+      const votouSet = new Set((votos || []).map((v: any) => v.colaborador_id));
+      colabs = filtros.voto === 'nao_votou'
+        ? colabs.filter(c => !votouSet.has(c.id))
+        : colabs.filter(c => votouSet.has(c.id));
+    }
+
     // Filtrar por canal
     if (canal === 'whatsapp') colabs = colabs.filter(c => c.telefone);
     else colabs = colabs.filter(c => c.email);
@@ -437,6 +450,16 @@ export async function enviarMagicLinksWhatsApp(empresaId: string, filtros: any =
 
     colabs = colabs.filter(c => c.telefone && c.email);
     if (filtros.cargo) colabs = colabs.filter(c => c.cargo === filtros.cargo);
+    if (filtros.voto === 'nao_votou' || filtros.voto === 'votou') {
+      const { data: votos } = await sb
+        .from('votacao_competencias')
+        .select('colaborador_id')
+        .eq('empresa_id', empresaId);
+      const votouSet = new Set((votos || []).map((v: any) => v.colaborador_id));
+      colabs = filtros.voto === 'nao_votou'
+        ? colabs.filter(c => !votouSet.has(c.id))
+        : colabs.filter(c => votouSet.has(c.id));
+    }
     if (!colabs.length) return { success: false, error: 'Nenhum colaborador com telefone e email' };
 
     const zapiInstance = process.env.ZAPI_INSTANCE_ID;
@@ -517,5 +540,15 @@ export async function loadColaboradoresEnvio(empresaId) {
       .order('nome_completo');
     data = (d2 || []).map(c => ({ ...c, telefone: null }));
   }
-  return data || [];
+  if (!data?.length) return [];
+
+  // Marca quem já votou na votação de competências (lookup por colaborador_id).
+  // Usado pra filtrar disparo só pra quem ainda não votou (ex: lembrete).
+  const { data: votos } = await sb
+    .from('votacao_competencias')
+    .select('colaborador_id')
+    .eq('empresa_id', empresaId);
+  const votouSet = new Set((votos || []).map((v: any) => v.colaborador_id));
+
+  return data.map((c: any) => ({ ...c, votou: votouSet.has(c.id) }));
 }
