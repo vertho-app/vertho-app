@@ -446,10 +446,15 @@ export const CALLS = [
 
 /**
  * Presets de modelos por uso.
- *   - premium: Opus 4.7 em tudo crítico, Sonnet no resto. Máxima qualidade, custo alto.
- *   - balanced: Sonnet no crítico, Haiku nas conversas leves. Padrão recomendado.
- *   - cheap: Haiku em quase tudo, Sonnet só onde erro grave é inaceitável.
+ *   - premium: Opus 4.7 em tudo crítico, Sonnet no resto. Máxima qualidade.
+ *   - balanced: Sonnet no crítico, Gemini 3 Flash no resto. Recheck em GPT 5.4 (cross-LLM).
+ *   - cheap: Gemini 3 Flash em quase tudo, Sonnet só nos scorers finais. Recheck em GPT 5.4.
+ *
+ * Recheck = chamadas de auditoria 2ª IA. Trocar de família (Anthropic→OpenAI) reduz
+ * o risco do auditor concordar com vieses do modelo primário.
  */
+const RECHECK_IDS = ['ia4-check', 'acumulada-check', 'sem14-check'];
+
 export const PRESETS = {
   premium: {
     label: 'Premium (Opus 4.7)',
@@ -460,29 +465,29 @@ export const PRESETS = {
     },
   },
   balanced: {
-    label: 'Custo-benefício (Sonnet+Haiku)',
-    desc: 'Sonnet no crítico (scoring, avaliação, extração). Haiku nas conversas reativas (Tira-Dúvidas) e gerações simples (desafio).',
+    label: 'Custo-benefício (Sonnet + Gemini Flash)',
+    desc: 'Sonnet 4.6 no crítico (scoring, extração, geração estruturada). Gemini 3 Flash em conversas leves e gerações simples. Rechecks em GPT 5.4 (cross-LLM audit).',
     model: (call) => {
       if (call.fase === 'RAG') return call.defaultModel;
+      if (RECHECK_IDS.includes(call.id)) return 'gpt-5.4';
       if (call.critical) return 'claude-sonnet-4-6';
-      const haikuList = ['tira-duvidas', 'desafio', 'tagging-conteudos', 'radarbett-narrativa'];
-      if (haikuList.includes(call.id)) return 'claude-haiku-4-5-20251001';
-      return 'claude-sonnet-4-6';
+      return 'gemini-3-flash-preview';
     },
   },
   cheap: {
-    label: 'Barata (Haiku + Sonnet onde obrigatório)',
-    desc: 'Haiku 4.5 em tudo conversacional. Sonnet apenas em scorers finais (sem 14, acumulada, IA4, proposta Radar). Risco maior de erros pequenos.',
+    label: 'Barata (Gemini Flash + Sonnet onde obrigatório)',
+    desc: 'Gemini 3 Flash em tudo conversacional. Sonnet 4.6 apenas em scorers finais (sem 14, acumulada, IA4, proposta Radar). Rechecks em GPT 5.4. Risco maior de erros pequenos.',
     model: (call) => {
       if (call.fase === 'RAG') return call.defaultModel;
+      if (RECHECK_IDS.includes(call.id)) return 'gpt-5.4';
       const mustBeSonnet = [
-        'sem14-scorer', 'sem14-check',
-        'acumulada-primaria', 'acumulada-check',
-        'ia4-avaliacao', 'ia4-check',
+        'sem14-scorer',
+        'acumulada-primaria',
+        'ia4-avaliacao',
         'radar-proposta-pdf',
       ];
       if (mustBeSonnet.includes(call.id)) return 'claude-sonnet-4-6';
-      return 'claude-haiku-4-5-20251001';
+      return 'gemini-3-flash-preview';
     },
   },
 };
