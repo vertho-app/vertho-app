@@ -17,7 +17,6 @@ export const MODELS = {
   'claude-opus-4-7':            { label: 'Claude Opus 4.7',     inUsd: 15,   outUsd: 75 },
   'claude-opus-4-6':            { label: 'Claude Opus 4.6',     inUsd: 15,   outUsd: 75 },
   'claude-sonnet-4-6':          { label: 'Claude Sonnet 4.6',   inUsd: 3,    outUsd: 15 },
-  'claude-haiku-4-5-20251001':  { label: 'Claude Haiku 4.5',    inUsd: 1,    outUsd: 5 },
   // Google
   'gemini-3-flash-preview':     { label: 'Gemini 3 Flash',      inUsd: 0.30, outUsd: 1.50 },
   'gemini-3.1-pro-preview':     { label: 'Gemini 3.1 Pro',      inUsd: 1.50, outUsd: 5 },
@@ -63,11 +62,11 @@ export const CALLS = [
     fase: 'Diagnóstico',
     scaleType: 'colab',
     nome: 'Check IA4 (auditoria 2ª IA)',
-    descricao: 'Auditor que verifica se IA4 foi defensável.',
+    descricao: 'Auditor cross-LLM que verifica se IA4 foi defensável.',
     inTokens: 4500,
     outTokens: 600,
     exec: 5,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'gpt-5.4',
     critical: true,
   },
 
@@ -169,7 +168,7 @@ export const CALLS = [
     inTokens: 2000,
     outTokens: 250,
     exec: 3 * 12,
-    defaultModel: 'claude-haiku-4-5-20251001',
+    defaultModel: 'gemini-3-flash-preview',
     critical: false,
   },
 
@@ -257,11 +256,11 @@ export const CALLS = [
     fase: 'Acumulada',
     scaleType: 'colab',
     nome: 'Check Acumuladora (auditoria)',
-    descricao: '2ª IA audita a acumulada em 4 dimensões (ancoragem/consistência/justificativa/sem-evidência).',
+    descricao: 'Auditor cross-LLM em 4 dimensões (ancoragem/consistência/justificativa/sem-evidência).',
     inTokens: 6500,
     outTokens: 600,
     exec: 1,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'gpt-5.4',
     critical: true,
   },
 
@@ -283,11 +282,11 @@ export const CALLS = [
     fase: 'Sem 14',
     scaleType: 'colab',
     nome: 'Check scorer sem 14',
-    descricao: '2ª IA audita a avaliação final (4 dimensões, com foco em triangulação).',
+    descricao: 'Auditor cross-LLM da avaliação final (4 dimensões, com foco em triangulação).',
     inTokens: 9000,
     outTokens: 700,
     exec: 1,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'gpt-5.4',
     critical: true,
   },
 
@@ -372,8 +371,8 @@ export const CALLS = [
     id: 'ia3-cenarios',
     fase: 'Setup Empresa',
     scaleType: 'empresa',
-    nome: 'IA3 — Cenários A + Check',
-    descricao: '5 cenários A por cargo × competência + dual-IA check.',
+    nome: 'IA3 — Cenários A (gerador)',
+    descricao: '5 cenários A por cargo × competência (1ª IA, geradora).',
     inTokens: 3000,
     outTokens: 2000,
     exec: 4 * 5,
@@ -381,15 +380,39 @@ export const CALLS = [
     critical: false,
   },
   {
+    id: 'ia3-cenarios-check',
+    fase: 'Setup Empresa',
+    scaleType: 'empresa',
+    nome: 'IA3 — Cenários A (check)',
+    descricao: 'Auditor cross-LLM dos cenários A — checa coerência com competência e qualidade pedagógica.',
+    inTokens: 3500,
+    outTokens: 600,
+    exec: 4 * 5,
+    defaultModel: 'gpt-5.4',
+    critical: false,
+  },
+  {
     id: 'cenarios-b',
     fase: 'Setup Empresa',
     scaleType: 'empresa',
-    nome: 'Cenários B (banco)',
-    descricao: 'Geração do banco de cenários B usados na sem 14. 1× por competência da empresa.',
+    nome: 'Cenários B (gerador)',
+    descricao: 'Geração do banco de cenários B usados na sem 14. 1× por competência da empresa (1ª IA, geradora).',
     inTokens: 3000,
     outTokens: 2500,
     exec: 4 * 5,
     defaultModel: 'claude-sonnet-4-6',
+    critical: false,
+  },
+  {
+    id: 'cenarios-b-check',
+    fase: 'Setup Empresa',
+    scaleType: 'empresa',
+    nome: 'Cenários B (check)',
+    descricao: 'Auditor cross-LLM dos cenários B — valida estrutura (4 perguntas P1-P4) + ancoragem na régua n1-n4.',
+    inTokens: 3500,
+    outTokens: 600,
+    exec: 4 * 5,
+    defaultModel: 'gpt-5.4',
     critical: false,
   },
 
@@ -445,50 +468,74 @@ export const CALLS = [
 ];
 
 /**
- * Presets de modelos por uso.
- *   - premium: Opus 4.7 em tudo crítico, Sonnet no resto. Máxima qualidade.
- *   - balanced: Sonnet no crítico, Gemini 3 Flash no resto. Recheck em GPT 5.4 (cross-LLM).
- *   - cheap: Gemini 3 Flash em quase tudo, Sonnet só nos scorers finais. Recheck em GPT 5.4.
- *
- * Recheck = chamadas de auditoria 2ª IA. Trocar de família (Anthropic→OpenAI) reduz
- * o risco do auditor concordar com vieses do modelo primário.
+ * Mapa check → primary. Cada par é dual-IA: o primário gera, o check audita.
+ * Os presets aplicam pareamento cross-família automaticamente via crossLlmCheck.
  */
-const RECHECK_IDS = ['ia4-check', 'acumulada-check', 'sem14-check'];
+const CHECK_PRIMARIES = {
+  'ia4-check': 'ia4-avaliacao',
+  'acumulada-check': 'acumulada-primaria',
+  'sem14-check': 'sem14-scorer',
+  'ia3-cenarios-check': 'ia3-cenarios',
+  'cenarios-b-check': 'cenarios-b',
+};
 
+/**
+ * Pareia modelo primário ao auditor de FAMÍLIA DIFERENTE com força similar.
+ * Garante que o auditor não compartilhe vieses do primário.
+ *   Sonnet 4.6   ↔ GPT 5.4
+ *   Gemini Flash ↔ GPT 5.4 Mini
+ *   Opus / Pro   ↔ GPT 5.5
+ */
+function crossLlmCheck(primaryModel) {
+  const map = {
+    'claude-opus-4-7':         'gpt-5.5',
+    'claude-opus-4-6':         'gpt-5.5',
+    'claude-sonnet-4-6':       'gpt-5.4',
+    'gemini-3.1-pro-preview':  'gpt-5.5',
+    'gemini-3-flash-preview':  'gpt-5.4-mini',
+    'gpt-5.5':                 'claude-opus-4-7',
+    'gpt-5.4':                 'claude-sonnet-4-6',
+    'gpt-5.4-mini':            'gemini-3-flash-preview',
+  };
+  return map[primaryModel] || primaryModel;
+}
+
+function applyPreset(call, primaryFn) {
+  if (call.fase === 'RAG') return call.defaultModel;
+  const primaryId = CHECK_PRIMARIES[call.id];
+  if (primaryId) {
+    const primaryCall = CALLS.find((c) => c.id === primaryId);
+    if (primaryCall) return crossLlmCheck(primaryFn(primaryCall));
+  }
+  return primaryFn(call);
+}
+
+/**
+ * Presets de modelos por uso. Todos aplicam pareamento cross-LLM nos checks
+ * automaticamente — auditor sempre é de família diferente do primário.
+ *   - premium: Opus 4.7 em tudo crítico, Sonnet no resto.
+ *   - balanced: Sonnet no crítico, Gemini 3 Flash no resto.
+ *   - cheap: Gemini 3 Flash em quase tudo, Sonnet só em scorers finais.
+ */
 export const PRESETS = {
   premium: {
     label: 'Premium (Opus 4.7)',
-    desc: 'Máxima qualidade. Opus 4.7 em tudo crítico (avaliações, scorers, auditorias), Sonnet 4.6 no resto.',
-    model: (call) => {
-      if (call.fase === 'RAG') return call.defaultModel;
-      return call.critical ? 'claude-opus-4-7' : 'claude-sonnet-4-6';
-    },
+    desc: 'Máxima qualidade. Opus 4.7 em tudo crítico (avaliações, scorers), Sonnet 4.6 no resto. Checks em GPT 5.5/5.4 (cross-família).',
+    model: (call) => applyPreset(call, (c) => (c.critical ? 'claude-opus-4-7' : 'claude-sonnet-4-6')),
   },
   balanced: {
     label: 'Custo-benefício (Sonnet + Gemini Flash)',
-    desc: 'Sonnet 4.6 no crítico (scoring, extração, geração estruturada). Gemini 3 Flash em conversas leves e gerações simples. Rechecks em GPT 5.4 (cross-LLM audit).',
-    model: (call) => {
-      if (call.fase === 'RAG') return call.defaultModel;
-      if (RECHECK_IDS.includes(call.id)) return 'gpt-5.4';
-      if (call.critical) return 'claude-sonnet-4-6';
-      return 'gemini-3-flash-preview';
-    },
+    desc: 'Sonnet 4.6 no crítico (scoring, extração, geração estruturada). Gemini 3 Flash em conversas leves e gerações simples. Checks em GPT 5.4 (Sonnet) ou GPT 5.4 Mini (Flash) — cross-família.',
+    model: (call) => applyPreset(call, (c) => (c.critical ? 'claude-sonnet-4-6' : 'gemini-3-flash-preview')),
   },
   cheap: {
     label: 'Barata (Gemini Flash + Sonnet onde obrigatório)',
-    desc: 'Gemini 3 Flash em tudo conversacional. Sonnet 4.6 apenas em scorers finais (sem 14, acumulada, IA4, proposta Radar). Rechecks em GPT 5.4. Risco maior de erros pequenos.',
-    model: (call) => {
-      if (call.fase === 'RAG') return call.defaultModel;
-      if (RECHECK_IDS.includes(call.id)) return 'gpt-5.4';
-      const mustBeSonnet = [
-        'sem14-scorer',
-        'acumulada-primaria',
-        'ia4-avaliacao',
-        'radar-proposta-pdf',
-      ];
-      if (mustBeSonnet.includes(call.id)) return 'claude-sonnet-4-6';
+    desc: 'Gemini 3 Flash em tudo conversacional. Sonnet 4.6 apenas em scorers finais (sem 14, acumulada, IA4, proposta Radar). Checks pareados em GPT 5.4/5.4 Mini. Risco maior de erros pequenos.',
+    model: (call) => applyPreset(call, (c) => {
+      const mustBeSonnet = ['sem14-scorer', 'acumulada-primaria', 'ia4-avaliacao', 'radar-proposta-pdf'];
+      if (mustBeSonnet.includes(c.id)) return 'claude-sonnet-4-6';
       return 'gemini-3-flash-preview';
-    },
+    }),
   },
 };
 
