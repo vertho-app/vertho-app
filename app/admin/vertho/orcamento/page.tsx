@@ -12,8 +12,9 @@ const PRESET_KEYS: PresetKey[] = ['premium', 'balanced', 'cheap'];
 
 const PRECOS_DEFAULT = {
   cotacao: 5.30,            // USD → BRL
+  precoSetupGeral: 5000,    // R$ taxa fixa de implantação (one-time, independente de clusters/colabs)
   precoColab: 1200,         // R$ por colaborador / ciclo
-  precoCluster: 4000,       // R$ por cluster (setup)
+  precoCluster: 4000,       // R$ por cluster (setup do cluster)
   precoPerfil: 500,         // R$ por perfil (cargo) dentro do cluster
   adicionalWorkshop: 15000, // R$ por cluster quando método = workshop (consultoria humana)
   descontoPct: 0,
@@ -115,11 +116,12 @@ export default function OrcamentoPage() {
     const custoIABrl = custoIAUsd * pricing.cotacao;
 
     // Valor de tabela (BRL)
+    const tabelaSetupGeral = pricing.precoSetupGeral;
     const tabelaColabs = nColabs * pricing.precoColab;
     const tabelaClusters = nClusters * pricing.precoCluster;
     const tabelaPerfis = nClusters * nPerfis * pricing.precoPerfil;
     const tabelaWorkshop = metodo === 'workshop' ? nClusters * pricing.adicionalWorkshop : 0;
-    const valorTabela = tabelaColabs + tabelaClusters + tabelaPerfis + tabelaWorkshop;
+    const valorTabela = tabelaSetupGeral + tabelaColabs + tabelaClusters + tabelaPerfis + tabelaWorkshop;
 
     const desconto = valorTabela * (pricing.descontoPct / 100);
     const valorFinal = valorTabela - desconto;
@@ -135,6 +137,7 @@ export default function OrcamentoPage() {
       custoColabsTotal,
       custoIAUsd,
       custoIABrl,
+      tabelaSetupGeral,
       tabelaColabs,
       tabelaClusters,
       tabelaPerfis,
@@ -211,8 +214,9 @@ export default function OrcamentoPage() {
       {/* Tabela de preços */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 mb-6">
         <p className="text-xs uppercase tracking-widest text-gray-400 mb-3">Tabela de preços (editável)</p>
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
           <FieldNumber label="Cotação USD→BRL" sub={`${moneyBRL(pricing.cotacao)} por USD`} value={pricing.cotacao} onChange={(v) => setPricingField('cotacao', v)} allowDecimals min={0} />
+          <FieldNumber label="R$ setup geral" sub={`${moneyBRL(pricing.precoSetupGeral)} (fixo)`} value={pricing.precoSetupGeral} onChange={(v) => setPricingField('precoSetupGeral', v)} min={0} />
           <FieldNumber label="R$ por colab" sub={`${moneyBRL(pricing.precoColab)} / ciclo`} value={pricing.precoColab} onChange={(v) => setPricingField('precoColab', v)} min={0} />
           <FieldNumber label="R$ por cluster" sub={`${moneyBRL(pricing.precoCluster)} setup`} value={pricing.precoCluster} onChange={(v) => setPricingField('precoCluster', v)} min={0} />
           <FieldNumber label="R$ por perfil" sub={`${moneyBRL(pricing.precoPerfil)} / cargo`} value={pricing.precoPerfil} onChange={(v) => setPricingField('precoPerfil', v)} min={0} />
@@ -247,7 +251,8 @@ export default function OrcamentoPage() {
             <Building2 size={14} /> Composição do valor de tabela
           </h3>
           <div className="space-y-1.5 text-sm">
-            <Row label={`${nColabs} colabs × ${moneyBRL(pricing.precoColab)}`} value={moneyBRL(calc.tabelaColabs)} />
+            <Row label="Setup geral (one-time)" value={moneyBRL(calc.tabelaSetupGeral)} />
+            <Row label={`${nColabs.toLocaleString('pt-BR')} colabs × ${moneyBRL(pricing.precoColab)}`} value={moneyBRL(calc.tabelaColabs)} />
             <Row label={`${nClusters} cluster${nClusters > 1 ? 's' : ''} × ${moneyBRL(pricing.precoCluster)}`} value={moneyBRL(calc.tabelaClusters)} />
             <Row label={`${nClusters * nPerfis} perfis × ${moneyBRL(pricing.precoPerfil)}`} value={moneyBRL(calc.tabelaPerfis)} />
             {metodo === 'workshop' && (
@@ -256,7 +261,7 @@ export default function OrcamentoPage() {
             <div className="pt-1.5 border-t border-white/5">
               <Row label="Subtotal" value={moneyBRL(calc.valorTabela)} bold />
             </div>
-            <Row label={`Desconto (${pricing.descontoPct}%)`} value={`- ${moneyBRL(calc.desconto)}`} muted />
+            <Row label={`Desconto (${pricing.descontoPct.toLocaleString('pt-BR')}%)`} value={`- ${moneyBRL(calc.desconto)}`} muted />
             <div className="pt-1.5 border-t border-white/5">
               <Row label="Valor final" value={moneyBRL(calc.valorFinal)} bold tone="emerald" />
             </div>
@@ -285,6 +290,7 @@ export default function OrcamentoPage() {
       <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-xs text-gray-300 space-y-2">
         <p className="font-bold text-amber-300">Notas:</p>
         <ul className="list-disc pl-5 space-y-1">
+          <li><b>Setup geral</b> = taxa fixa de implantação inicial (one-time, independente de clusters/colabs). Cobrir onboarding, kick-off, configuração do tenant Vertho, ajuste de branding.</li>
           <li><b>Cluster</b> = grupo de escolas com o MESMO Top 5 / PPP / cenários. Cada cluster paga 1× setup (PPP + IA3 + Cenários B; IA1/IA2 só se método=votação).</li>
           <li><b>Perfis</b> = nº de cargos distintos no cluster (ex: Coordenador + Diretor + Professor = 3). IA1 escala por perfil; IA2/IA3/Cenários B escalam por perfil × 5 (Top 5).</li>
           <li><b>Votação</b> roda fluxo IA completo. <b>Workshop</b> pula IA1+IA2 (humanos definem Top 5) mas adiciona o adicional de consultoria por cluster no preço de tabela.</li>
