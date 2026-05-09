@@ -341,10 +341,10 @@ function FieldNumber({
   }, [value]);
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-      <label className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-gray-500 mb-1">
-        {icon}
-        {label}
+    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 flex flex-col">
+      <label className="flex items-start gap-1.5 text-[10px] leading-tight uppercase tracking-widest text-gray-500 mb-1 min-h-[28px]">
+        {icon && <span className="shrink-0 mt-0.5">{icon}</span>}
+        <span>{label}</span>
       </label>
       <input
         type="text"
@@ -362,7 +362,7 @@ function FieldNumber({
         }}
         className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-sm text-white outline-none focus:border-cyan-500"
       />
-      {sub && <p className="text-[9px] text-gray-600 mt-0.5">{sub}</p>}
+      {sub && <p className="text-[9px] text-gray-600 mt-0.5 min-h-[12px]">{sub}</p>}
     </div>
   );
 }
