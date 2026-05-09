@@ -524,9 +524,9 @@ export const PRESETS = {
     model: (call) => applyPreset(call, (c) => (c.critical ? 'claude-opus-4-7' : 'claude-sonnet-4-6')),
   },
   balanced: {
-    label: 'Custo-benefício (Sonnet + Gemini Flash)',
-    desc: 'Sonnet 4.6 no crítico (scoring, extração, geração estruturada). Gemini 3 Flash em conversas leves e gerações simples. Checks em GPT 5.4 (Sonnet) ou GPT 5.4 Mini (Flash) — cross-família.',
-    model: (call) => applyPreset(call, (c) => (c.critical ? 'claude-sonnet-4-6' : 'gemini-3-flash-preview')),
+    label: 'Custo-benefício (Sonnet + GPT 5.4)',
+    desc: 'Sonnet 4.6 em todas as primárias (crítico e leve). Checks em GPT 5.4 (cross-família). Sem Gemini Flash.',
+    model: (call) => applyPreset(call, () => 'claude-sonnet-4-6'),
   },
   cheap: {
     label: 'Barata (Gemini Flash + Sonnet onde obrigatório)',

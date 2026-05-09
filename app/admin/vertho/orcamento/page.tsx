@@ -212,12 +212,12 @@ export default function OrcamentoPage() {
       <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 mb-6">
         <p className="text-xs uppercase tracking-widest text-gray-400 mb-3">Tabela de preços (editável)</p>
         <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
-          <FieldNumber label="Cotação USD→BRL" sub="" value={pricing.cotacao} onChange={(v) => setPricingField('cotacao', v)} step={0.01} min={0} />
-          <FieldNumber label="R$ por colab" sub="ciclo completo" value={pricing.precoColab} onChange={(v) => setPricingField('precoColab', v)} min={0} />
-          <FieldNumber label="R$ por cluster" sub="setup" value={pricing.precoCluster} onChange={(v) => setPricingField('precoCluster', v)} min={0} />
-          <FieldNumber label="R$ por perfil" sub="cargo" value={pricing.precoPerfil} onChange={(v) => setPricingField('precoPerfil', v)} min={0} />
-          <FieldNumber label="R$ workshop/cluster" sub="só se método=workshop" value={pricing.adicionalWorkshop} onChange={(v) => setPricingField('adicionalWorkshop', v)} min={0} />
-          <FieldNumber label="Desconto %" sub="aplicado no total" value={pricing.descontoPct} onChange={(v) => setPricingField('descontoPct', v)} min={0} step={0.5} />
+          <FieldNumber label="Cotação USD→BRL" sub={`${moneyBRL(pricing.cotacao)} por USD`} value={pricing.cotacao} onChange={(v) => setPricingField('cotacao', v)} step={0.01} min={0} />
+          <FieldNumber label="R$ por colab" sub={`${moneyBRL(pricing.precoColab)} / ciclo`} value={pricing.precoColab} onChange={(v) => setPricingField('precoColab', v)} min={0} />
+          <FieldNumber label="R$ por cluster" sub={`${moneyBRL(pricing.precoCluster)} setup`} value={pricing.precoCluster} onChange={(v) => setPricingField('precoCluster', v)} min={0} />
+          <FieldNumber label="R$ por perfil" sub={`${moneyBRL(pricing.precoPerfil)} / cargo`} value={pricing.precoPerfil} onChange={(v) => setPricingField('precoPerfil', v)} min={0} />
+          <FieldNumber label="R$ workshop/cluster" sub={`${moneyBRL(pricing.adicionalWorkshop)} (se workshop)`} value={pricing.adicionalWorkshop} onChange={(v) => setPricingField('adicionalWorkshop', v)} min={0} />
+          <FieldNumber label="Desconto %" sub={`${pricing.descontoPct.toLocaleString('pt-BR')}% no total`} value={pricing.descontoPct} onChange={(v) => setPricingField('descontoPct', v)} min={0} step={0.5} />
         </div>
       </div>
 
