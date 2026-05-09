@@ -6,6 +6,7 @@ import {
   Building2, Users, ClipboardCheck, Target, Database, BookOpen, GraduationCap,
   Plus, Loader2, RefreshCw, Zap, BookMarked, ShieldCheck, ChevronRight,
   Trash2, Video, GraduationCap as GradIcon, BarChart2, FileText, Shield,
+  Calculator,
 } from 'lucide-react';
 import { loadAdminDashboard } from './actions';
 
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { label: 'Simulador',          href: '/admin/simulador',                        icon: Zap         },
   { label: 'Conteúdos',          href: '/admin/conteudos',                        icon: BookOpen    },
   { label: 'Custo IA',           href: '/admin/vertho/simulador-custo',           icon: BarChart2   },
+  { label: 'Orçamento',          href: '/admin/vertho/orcamento',                 icon: Calculator  },
   { label: 'Vídeos',             href: '/admin/videos',                           icon: Video       },
   { label: 'Evidências',         href: '/admin/vertho/evidencias',                icon: FileText    },
   { label: 'Preferências',       href: '/admin/preferencias-aprendizagem',        icon: GradIcon    },
