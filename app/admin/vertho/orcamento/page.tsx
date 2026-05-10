@@ -11,13 +11,13 @@ type PresetKey = 'premium' | 'balanced' | 'cheap';
 const PRESET_KEYS: PresetKey[] = ['premium', 'balanced', 'cheap'];
 
 const PRECOS_DEFAULT = {
-  cotacao: 5.30,            // USD → BRL
-  precoSetupGeral: 5000,    // R$ taxa fixa de implantação (one-time, independente de clusters/colabs)
-  precoColab: 1200,         // R$ por colaborador / ciclo (one-time)
-  precoCluster: 4000,       // R$ por cluster (setup do cluster, one-time)
-  precoPerfil: 500,         // R$ por perfil (cargo) dentro do cluster (one-time)
-  adicionalWorkshop: 15000, // R$ por cluster quando método = workshop (one-time)
-  manutencaoMensalColab: 100, // R$ por colaborador / mês (recorrente — manutenção/suporte)
+  cotacao: 5.30,              // USD → BRL
+  precoSetupGeral: 5000,      // R$ taxa fixa de implantação (one-time, independente de clusters/colabs)
+  precoColab: 300,            // R$ por colaborador / mês (Mentor IA — recorrente)
+  precoCluster: 4000,         // R$ por cluster (setup do cluster, one-time)
+  precoPerfil: 500,           // R$ por perfil (cargo) dentro do cluster (one-time)
+  adicionalWorkshop: 15000,   // R$ por cluster quando método = workshop (one-time)
+  manutencaoMensalColab: 100, // R$ por colaborador / mês (manutenção/suporte — recorrente)
   descontoPct: 0,
 };
 
@@ -118,15 +118,16 @@ export default function OrcamentoPage() {
 
     // Valor de tabela (BRL)
     const tabelaSetupGeral = pricing.precoSetupGeral;
-    const tabelaColabs = nColabs * pricing.precoColab;
+    const tabelaColabsMes = nColabs * pricing.precoColab;        // Mentor IA recorrente
     const tabelaClusters = nClusters * pricing.precoCluster;
     const tabelaPerfis = nClusters * nPerfis * pricing.precoPerfil;
     const tabelaWorkshop = metodo === 'workshop' ? nClusters * pricing.adicionalWorkshop : 0;
-    const tabelaManutMes = nColabs * pricing.manutencaoMensalColab;
+    const tabelaManutMes = nColabs * pricing.manutencaoMensalColab; // suporte/hosting recorrente
+    const tabelaMensalidade = tabelaColabsMes + tabelaManutMes;     // total recorrente / mês
 
-    const oneTimeTabela = tabelaSetupGeral + tabelaColabs + tabelaClusters + tabelaPerfis + tabelaWorkshop;
-    const mes1Tabela = oneTimeTabela + tabelaManutMes;
-    const mesRecTabela = tabelaManutMes;
+    const oneTimeTabela = tabelaSetupGeral + tabelaClusters + tabelaPerfis + tabelaWorkshop;
+    const mes1Tabela = oneTimeTabela + tabelaMensalidade;
+    const mesRecTabela = tabelaMensalidade;
 
     const fatorDesc = 1 - pricing.descontoPct / 100;
     const mes1Final = mes1Tabela * fatorDesc;
@@ -153,11 +154,12 @@ export default function OrcamentoPage() {
       custoIAUsd,
       custoIABrl,
       tabelaSetupGeral,
-      tabelaColabs,
+      tabelaColabsMes,
       tabelaClusters,
       tabelaPerfis,
       tabelaWorkshop,
       tabelaManutMes,
+      tabelaMensalidade,
       oneTimeTabela,
       mes1Tabela,
       mesRecTabela,
@@ -241,11 +243,11 @@ export default function OrcamentoPage() {
         <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
           <FieldNumber label="Cotação USD→BRL" sub={`${moneyBRL(pricing.cotacao)} por USD`} value={pricing.cotacao} onChange={(v) => setPricingField('cotacao', v)} allowDecimals min={0} />
           <FieldNumber label="R$ setup geral" sub={`${moneyBRL(pricing.precoSetupGeral)} (fixo)`} value={pricing.precoSetupGeral} onChange={(v) => setPricingField('precoSetupGeral', v)} min={0} />
-          <FieldNumber label="R$ por colab" sub={`${moneyBRL(pricing.precoColab)} / ciclo`} value={pricing.precoColab} onChange={(v) => setPricingField('precoColab', v)} min={0} />
+          <FieldNumber label="R$ Mentor IA/colab" sub={`${moneyBRL(pricing.precoColab)} / colab / mês`} value={pricing.precoColab} onChange={(v) => setPricingField('precoColab', v)} min={0} />
           <FieldNumber label="R$ por cluster" sub={`${moneyBRL(pricing.precoCluster)} setup`} value={pricing.precoCluster} onChange={(v) => setPricingField('precoCluster', v)} min={0} />
           <FieldNumber label="R$ por perfil" sub={`${moneyBRL(pricing.precoPerfil)} / cargo`} value={pricing.precoPerfil} onChange={(v) => setPricingField('precoPerfil', v)} min={0} />
           <FieldNumber label="R$ workshop/cluster" sub={`${moneyBRL(pricing.adicionalWorkshop)} (se workshop)`} value={pricing.adicionalWorkshop} onChange={(v) => setPricingField('adicionalWorkshop', v)} min={0} />
-          <FieldNumber label="R$ manutenção/colab" sub={`${moneyBRL(pricing.manutencaoMensalColab)} / colab / mês`} value={pricing.manutencaoMensalColab} onChange={(v) => setPricingField('manutencaoMensalColab', v)} min={0} />
+          <FieldNumber label="R$ manutenção/colab" sub={`${moneyBRL(pricing.manutencaoMensalColab)} / colab / mês (suporte)`} value={pricing.manutencaoMensalColab} onChange={(v) => setPricingField('manutencaoMensalColab', v)} min={0} />
           <FieldNumber label="Desconto %" sub={`${pricing.descontoPct.toLocaleString('pt-BR')}% no total`} value={pricing.descontoPct} onChange={(v) => setPricingField('descontoPct', v)} min={0} allowDecimals />
         </div>
       </div>
@@ -271,7 +273,7 @@ export default function OrcamentoPage() {
               {calc.mesRecDesc > 0 && (
                 <div className="flex justify-between text-amber-300"><span>Desconto ({pricing.descontoPct.toLocaleString('pt-BR')}%)</span><span>- {moneyBRL(calc.mesRecDesc)}</span></div>
               )}
-              <div className="flex justify-between text-gray-500 pt-0.5"><span>Inclui manutenção/suporte</span><span>{nColabs.toLocaleString('pt-BR')} colab × {moneyBRL(pricing.manutencaoMensalColab)}</span></div>
+              <div className="flex justify-between text-gray-500 pt-0.5"><span>Inclui Mentor IA + manutenção</span><span>{nColabs.toLocaleString('pt-BR')} × {moneyBRL(pricing.precoColab + pricing.manutencaoMensalColab)}</span></div>
             </div>
           </div>
         </div>
@@ -295,7 +297,6 @@ export default function OrcamentoPage() {
           <div className="space-y-1.5 text-sm">
             <p className="text-[10px] uppercase text-gray-500 mb-1">One-time (Mês 1)</p>
             <Row label="Setup geral" value={moneyBRL(calc.tabelaSetupGeral)} />
-            <Row label={`${nColabs.toLocaleString('pt-BR')} colabs × ${moneyBRL(pricing.precoColab)} (ciclo)`} value={moneyBRL(calc.tabelaColabs)} />
             <Row label={`${nClusters} cluster${nClusters > 1 ? 's' : ''} × ${moneyBRL(pricing.precoCluster)}`} value={moneyBRL(calc.tabelaClusters)} />
             <Row label={`${nClusters * nPerfis} perfis × ${moneyBRL(pricing.precoPerfil)}`} value={moneyBRL(calc.tabelaPerfis)} />
             {metodo === 'workshop' && (
@@ -306,7 +307,11 @@ export default function OrcamentoPage() {
             </div>
 
             <p className="text-[10px] uppercase text-gray-500 mb-1 mt-3">Recorrente (mensal)</p>
-            <Row label={`${nColabs.toLocaleString('pt-BR')} colabs × ${moneyBRL(pricing.manutencaoMensalColab)} / mês`} value={moneyBRL(calc.tabelaManutMes)} />
+            <Row label={`Mentor IA: ${nColabs.toLocaleString('pt-BR')} × ${moneyBRL(pricing.precoColab)}`} value={moneyBRL(calc.tabelaColabsMes)} />
+            <Row label={`Manutenção: ${nColabs.toLocaleString('pt-BR')} × ${moneyBRL(pricing.manutencaoMensalColab)}`} value={moneyBRL(calc.tabelaManutMes)} />
+            <div className="pt-1.5 border-t border-white/5">
+              <Row label="Mensalidade total" value={moneyBRL(calc.tabelaMensalidade)} bold />
+            </div>
 
             <div className="pt-1.5 border-t border-white/5 mt-2">
               <Row label="Mês 1 (one-time + 1ª mens.)" value={moneyBRL(calc.mes1Tabela)} bold />
@@ -345,8 +350,8 @@ export default function OrcamentoPage() {
       <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-xs text-gray-300 space-y-2">
         <p className="font-bold text-amber-300">Notas:</p>
         <ul className="list-disc pl-5 space-y-1">
-          <li><b>Modelo de cobrança</b>: <b>Mês 1</b> = setup (one-time) + 1ª mensalidade. <b>Mês 2 em diante</b> = só mensalidade recorrente (manutenção/suporte/hosting).</li>
-          <li><b>Manutenção mensal</b> = R$/colab/mês recorrente. Cobre suporte, hosting, atualizações, novos conteúdos. Não inclui custo de IA significativo (já cobrado no ciclo).</li>
+          <li><b>Modelo de cobrança</b>: <b>Mês 1</b> = setup (one-time) + 1ª mensalidade. <b>Mês 2 em diante</b> = só mensalidade recorrente.</li>
+          <li><b>Mensalidade por colab</b> = Mentor IA (uso da plataforma) + Manutenção (suporte/hosting). Soma os dois inputs por colab por mês — atualmente {`R$ ${(pricing.precoColab + pricing.manutencaoMensalColab).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/colab/mês`}.</li>
           <li><b>Setup geral</b> = taxa fixa de implantação inicial (one-time, independente de clusters/colabs). Cobre onboarding, kick-off, configuração do tenant Vertho, ajuste de branding.</li>
           <li><b>Cluster</b> = grupo de escolas com o MESMO Top 5 / PPP / cenários. Cada cluster paga 1× setup (PPP + IA3 + Cenários B; IA1/IA2 só se método=votação).</li>
           <li><b>Perfis</b> = nº de cargos distintos no cluster (ex: Coordenador + Diretor + Professor = 3). IA1 escala por perfil; IA2/IA3/Cenários B escalam por perfil × 5 (Top 5).</li>
