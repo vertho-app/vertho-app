@@ -13,10 +13,11 @@ const PRESET_KEYS: PresetKey[] = ['premium', 'balanced', 'cheap'];
 const PRECOS_DEFAULT = {
   cotacao: 5.30,            // USD → BRL
   precoSetupGeral: 5000,    // R$ taxa fixa de implantação (one-time, independente de clusters/colabs)
-  precoColab: 1200,         // R$ por colaborador / ciclo
-  precoCluster: 4000,       // R$ por cluster (setup do cluster)
-  precoPerfil: 500,         // R$ por perfil (cargo) dentro do cluster
-  adicionalWorkshop: 15000, // R$ por cluster quando método = workshop (consultoria humana)
+  precoColab: 1200,         // R$ por colaborador / ciclo (one-time)
+  precoCluster: 4000,       // R$ por cluster (setup do cluster, one-time)
+  precoPerfil: 500,         // R$ por perfil (cargo) dentro do cluster (one-time)
+  adicionalWorkshop: 15000, // R$ por cluster quando método = workshop (one-time)
+  manutencaoMensalColab: 100, // R$ por colaborador / mês (recorrente — manutenção/suporte)
   descontoPct: 0,
 };
 
@@ -121,13 +122,27 @@ export default function OrcamentoPage() {
     const tabelaClusters = nClusters * pricing.precoCluster;
     const tabelaPerfis = nClusters * nPerfis * pricing.precoPerfil;
     const tabelaWorkshop = metodo === 'workshop' ? nClusters * pricing.adicionalWorkshop : 0;
-    const valorTabela = tabelaSetupGeral + tabelaColabs + tabelaClusters + tabelaPerfis + tabelaWorkshop;
+    const tabelaManutMes = nColabs * pricing.manutencaoMensalColab;
 
-    const desconto = valorTabela * (pricing.descontoPct / 100);
-    const valorFinal = valorTabela - desconto;
+    const oneTimeTabela = tabelaSetupGeral + tabelaColabs + tabelaClusters + tabelaPerfis + tabelaWorkshop;
+    const mes1Tabela = oneTimeTabela + tabelaManutMes;
+    const mesRecTabela = tabelaManutMes;
 
-    const margemAbs = valorFinal - custoIABrl;
-    const margemPct = valorFinal > 0 ? (margemAbs / valorFinal) * 100 : 0;
+    const fatorDesc = 1 - pricing.descontoPct / 100;
+    const mes1Final = mes1Tabela * fatorDesc;
+    const mesRecFinal = mesRecTabela * fatorDesc;
+    const mes1Desc = mes1Tabela - mes1Final;
+    const mesRecDesc = mesRecTabela - mesRecFinal;
+
+    // Anual (mês 1 + 11 mensalidades) e total 12 meses para visão de margem
+    const anualFinal = mes1Final + 11 * mesRecFinal;
+    const margemAbs = anualFinal - custoIABrl;
+    const margemPct = anualFinal > 0 ? (margemAbs / anualFinal) * 100 : 0;
+
+    // Manter compat (referenciado em alguns lugares)
+    const valorTabela = oneTimeTabela;
+    const desconto = oneTimeTabela * (pricing.descontoPct / 100);
+    const valorFinal = oneTimeTabela - desconto;
 
     return {
       custoSetupPorCluster,
@@ -142,6 +157,15 @@ export default function OrcamentoPage() {
       tabelaClusters,
       tabelaPerfis,
       tabelaWorkshop,
+      tabelaManutMes,
+      oneTimeTabela,
+      mes1Tabela,
+      mesRecTabela,
+      mes1Final,
+      mesRecFinal,
+      mes1Desc,
+      mesRecDesc,
+      anualFinal,
       valorTabela,
       desconto,
       valorFinal,
@@ -214,32 +238,50 @@ export default function OrcamentoPage() {
       {/* Tabela de preços */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 mb-6">
         <p className="text-xs uppercase tracking-widest text-gray-400 mb-3">Tabela de preços (editável)</p>
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
           <FieldNumber label="Cotação USD→BRL" sub={`${moneyBRL(pricing.cotacao)} por USD`} value={pricing.cotacao} onChange={(v) => setPricingField('cotacao', v)} allowDecimals min={0} />
           <FieldNumber label="R$ setup geral" sub={`${moneyBRL(pricing.precoSetupGeral)} (fixo)`} value={pricing.precoSetupGeral} onChange={(v) => setPricingField('precoSetupGeral', v)} min={0} />
           <FieldNumber label="R$ por colab" sub={`${moneyBRL(pricing.precoColab)} / ciclo`} value={pricing.precoColab} onChange={(v) => setPricingField('precoColab', v)} min={0} />
           <FieldNumber label="R$ por cluster" sub={`${moneyBRL(pricing.precoCluster)} setup`} value={pricing.precoCluster} onChange={(v) => setPricingField('precoCluster', v)} min={0} />
           <FieldNumber label="R$ por perfil" sub={`${moneyBRL(pricing.precoPerfil)} / cargo`} value={pricing.precoPerfil} onChange={(v) => setPricingField('precoPerfil', v)} min={0} />
           <FieldNumber label="R$ workshop/cluster" sub={`${moneyBRL(pricing.adicionalWorkshop)} (se workshop)`} value={pricing.adicionalWorkshop} onChange={(v) => setPricingField('adicionalWorkshop', v)} min={0} />
+          <FieldNumber label="R$ manutenção/colab" sub={`${moneyBRL(pricing.manutencaoMensalColab)} / colab / mês`} value={pricing.manutencaoMensalColab} onChange={(v) => setPricingField('manutencaoMensalColab', v)} min={0} />
           <FieldNumber label="Desconto %" sub={`${pricing.descontoPct.toLocaleString('pt-BR')}% no total`} value={pricing.descontoPct} onChange={(v) => setPricingField('descontoPct', v)} min={0} allowDecimals />
         </div>
       </div>
 
-      {/* Resumo financeiro */}
+      {/* Resumo financeiro — Mês 1 vs Mês 2+ */}
       <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 mb-6">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiBox label="Valor de tabela" value={moneyBRL(calc.valorTabela)} tone="white" />
-          <KpiBox label={`Desconto (${pricing.descontoPct}%)`} value={`- ${moneyBRL(calc.desconto)}`} tone="amber" />
-          <KpiBox label="Valor final" value={moneyBRL(calc.valorFinal)} tone="emerald" big />
-          <KpiBox label="Custo IA" value={moneyBRL(calc.custoIABrl)} sub={`USD ${calc.custoIAUsd.toFixed(2)} × ${pricing.cotacao}`} tone="gray" />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-xl bg-white/[0.04] p-4 border border-emerald-400/20">
+            <p className="text-[10px] uppercase tracking-widest text-emerald-300">Mês 1 — Setup + 1ª mensalidade</p>
+            <p className="text-3xl font-extrabold text-emerald-200 mt-1">{moneyBRL(calc.mes1Final)}</p>
+            <div className="mt-2 space-y-0.5 text-[11px] text-gray-400">
+              <div className="flex justify-between"><span>Tabela</span><span>{moneyBRL(calc.mes1Tabela)}</span></div>
+              {calc.mes1Desc > 0 && (
+                <div className="flex justify-between text-amber-300"><span>Desconto ({pricing.descontoPct.toLocaleString('pt-BR')}%)</span><span>- {moneyBRL(calc.mes1Desc)}</span></div>
+              )}
+            </div>
+          </div>
+          <div className="rounded-xl bg-white/[0.04] p-4 border border-cyan-400/20">
+            <p className="text-[10px] uppercase tracking-widest text-cyan-300">Mês 2+ — Mensalidade recorrente</p>
+            <p className="text-3xl font-extrabold text-cyan-200 mt-1">{moneyBRL(calc.mesRecFinal)}<span className="text-base text-gray-400 font-normal"> / mês</span></p>
+            <div className="mt-2 space-y-0.5 text-[11px] text-gray-400">
+              <div className="flex justify-between"><span>Tabela</span><span>{moneyBRL(calc.mesRecTabela)}</span></div>
+              {calc.mesRecDesc > 0 && (
+                <div className="flex justify-between text-amber-300"><span>Desconto ({pricing.descontoPct.toLocaleString('pt-BR')}%)</span><span>- {moneyBRL(calc.mesRecDesc)}</span></div>
+              )}
+              <div className="flex justify-between text-gray-500 pt-0.5"><span>Inclui manutenção/suporte</span><span>{nColabs.toLocaleString('pt-BR')} colab × {moneyBRL(pricing.manutencaoMensalColab)}</span></div>
+            </div>
+          </div>
         </div>
-        <div className="mt-4 pt-4 border-t border-white/5 flex items-baseline justify-between flex-wrap gap-2">
-          <p className="text-xs text-gray-400">
-            Margem (valor final − custo IA): <b className={calc.margemPct < 50 ? 'text-amber-300' : 'text-emerald-300'}>{moneyBRL(calc.margemAbs)}</b>
-          </p>
-          <p className="text-xs text-gray-500">
-            Margem %: <b className={calc.margemPct < 50 ? 'text-amber-300' : 'text-emerald-300'}>{calc.margemPct.toFixed(1)}%</b>
-          </p>
+
+        {/* Sub-stats */}
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <KpiBox label="Total 12 meses" value={moneyBRL(calc.anualFinal)} tone="white" />
+          <KpiBox label="Custo IA total" value={moneyBRL(calc.custoIABrl)} sub={`USD ${calc.custoIAUsd.toFixed(2)} × ${pricing.cotacao}`} tone="gray" />
+          <KpiBox label="Margem 12m (R$)" value={moneyBRL(calc.margemAbs)} tone={calc.margemPct < 50 ? 'amber' : 'emerald'} />
+          <KpiBox label="Margem 12m %" value={`${calc.margemPct.toFixed(1)}%`} tone={calc.margemPct < 50 ? 'amber' : 'emerald'} />
         </div>
       </div>
 
@@ -251,19 +293,32 @@ export default function OrcamentoPage() {
             <Building2 size={14} /> Composição do valor de tabela
           </h3>
           <div className="space-y-1.5 text-sm">
-            <Row label="Setup geral (one-time)" value={moneyBRL(calc.tabelaSetupGeral)} />
-            <Row label={`${nColabs.toLocaleString('pt-BR')} colabs × ${moneyBRL(pricing.precoColab)}`} value={moneyBRL(calc.tabelaColabs)} />
+            <p className="text-[10px] uppercase text-gray-500 mb-1">One-time (Mês 1)</p>
+            <Row label="Setup geral" value={moneyBRL(calc.tabelaSetupGeral)} />
+            <Row label={`${nColabs.toLocaleString('pt-BR')} colabs × ${moneyBRL(pricing.precoColab)} (ciclo)`} value={moneyBRL(calc.tabelaColabs)} />
             <Row label={`${nClusters} cluster${nClusters > 1 ? 's' : ''} × ${moneyBRL(pricing.precoCluster)}`} value={moneyBRL(calc.tabelaClusters)} />
             <Row label={`${nClusters * nPerfis} perfis × ${moneyBRL(pricing.precoPerfil)}`} value={moneyBRL(calc.tabelaPerfis)} />
             {metodo === 'workshop' && (
               <Row label={`Workshop: ${nClusters} × ${moneyBRL(pricing.adicionalWorkshop)}`} value={moneyBRL(calc.tabelaWorkshop)} />
             )}
             <div className="pt-1.5 border-t border-white/5">
-              <Row label="Subtotal" value={moneyBRL(calc.valorTabela)} bold />
+              <Row label="Subtotal one-time" value={moneyBRL(calc.oneTimeTabela)} bold />
             </div>
-            <Row label={`Desconto (${pricing.descontoPct.toLocaleString('pt-BR')}%)`} value={`- ${moneyBRL(calc.desconto)}`} muted />
-            <div className="pt-1.5 border-t border-white/5">
-              <Row label="Valor final" value={moneyBRL(calc.valorFinal)} bold tone="emerald" />
+
+            <p className="text-[10px] uppercase text-gray-500 mb-1 mt-3">Recorrente (mensal)</p>
+            <Row label={`${nColabs.toLocaleString('pt-BR')} colabs × ${moneyBRL(pricing.manutencaoMensalColab)} / mês`} value={moneyBRL(calc.tabelaManutMes)} />
+
+            <div className="pt-1.5 border-t border-white/5 mt-2">
+              <Row label="Mês 1 (one-time + 1ª mens.)" value={moneyBRL(calc.mes1Tabela)} bold />
+            </div>
+            {calc.mes1Desc > 0 && <Row label={`Desconto (${pricing.descontoPct.toLocaleString('pt-BR')}%)`} value={`- ${moneyBRL(calc.mes1Desc)}`} muted />}
+            <Row label="Mês 1 final" value={moneyBRL(calc.mes1Final)} bold tone="emerald" />
+
+            <div className="pt-1.5 border-t border-white/5 mt-2">
+              <Row label={`Mês 2+ (mensalidade)`} value={`${moneyBRL(calc.mesRecFinal)} / mês`} bold tone="emerald" />
+            </div>
+            <div className="pt-1.5 border-t border-white/5 mt-2">
+              <Row label="Total 12 meses" value={moneyBRL(calc.anualFinal)} bold />
             </div>
           </div>
         </div>
@@ -290,13 +345,15 @@ export default function OrcamentoPage() {
       <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-xs text-gray-300 space-y-2">
         <p className="font-bold text-amber-300">Notas:</p>
         <ul className="list-disc pl-5 space-y-1">
-          <li><b>Setup geral</b> = taxa fixa de implantação inicial (one-time, independente de clusters/colabs). Cobrir onboarding, kick-off, configuração do tenant Vertho, ajuste de branding.</li>
+          <li><b>Modelo de cobrança</b>: <b>Mês 1</b> = setup (one-time) + 1ª mensalidade. <b>Mês 2 em diante</b> = só mensalidade recorrente (manutenção/suporte/hosting).</li>
+          <li><b>Manutenção mensal</b> = R$/colab/mês recorrente. Cobre suporte, hosting, atualizações, novos conteúdos. Não inclui custo de IA significativo (já cobrado no ciclo).</li>
+          <li><b>Setup geral</b> = taxa fixa de implantação inicial (one-time, independente de clusters/colabs). Cobre onboarding, kick-off, configuração do tenant Vertho, ajuste de branding.</li>
           <li><b>Cluster</b> = grupo de escolas com o MESMO Top 5 / PPP / cenários. Cada cluster paga 1× setup (PPP + IA3 + Cenários B; IA1/IA2 só se método=votação).</li>
           <li><b>Perfis</b> = nº de cargos distintos no cluster (ex: Coordenador + Diretor + Professor = 3). IA1 escala por perfil; IA2/IA3/Cenários B escalam por perfil × 5 (Top 5).</li>
           <li><b>Votação</b> roda fluxo IA completo. <b>Workshop</b> pula IA1+IA2 (humanos definem Top 5) mas adiciona o adicional de consultoria por cluster no preço de tabela.</li>
           <li><b>Tagging conteúdos</b> roda 1× por orçamento (banco de conteúdos compartilhado entre clusters). Estimativa: 50 conteúdos × {`Sonnet/Gemini`}.</li>
           <li><b>Custo IA</b> usa o preset escolhido (premium/balanced/cheap). Detalhes por chamada em <a href="/admin/vertho/simulador-custo" className="text-cyan-400 hover:underline">Simulador de Custo</a>.</li>
-          <li><b>Margem</b> compara valor final com custo IA convertido em BRL — não inclui custos operacionais (suporte, hosting, salários, consultoria humana do workshop).</li>
+          <li><b>Margem 12m</b> compara o total de 12 meses (Mês 1 + 11 mensalidades, com desconto) com o custo IA convertido em BRL — não inclui custos operacionais (suporte, hosting, salários, consultoria humana do workshop).</li>
           <li><b>Adicional workshop</b> é apenas no preço de tabela. Se houver custo de consultor a ser repassado, considere refletir no preço por cluster ou criar campo separado.</li>
           <li>Tabela de preços é só estimativa — ajuste os valores antes de fechar uma proposta.</li>
         </ul>
