@@ -70,6 +70,11 @@ export default function VotacaoAdminPage({ params }: { params: Promise<{ empresa
 
   const cargos = data?.resultado ? Object.entries(data.resultado) : [];
 
+  // Total geral de votantes
+  const totalVotaram = cargos.reduce((acc, [, d]: [string, any]) => acc + (d.votaram || 0), 0);
+  const totalColabs = cargos.reduce((acc, [, d]: [string, any]) => acc + (d.total || 0), 0);
+  const pctTotal = totalColabs > 0 ? Math.round((totalVotaram / totalColabs) * 100) : 0;
+
   return (
     <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
       {toast && <div className="fixed top-4 right-4 z-50 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold shadow-lg">{toast}</div>}
@@ -101,11 +106,24 @@ export default function VotacaoAdminPage({ params }: { params: Promise<{ empresa
 
       {/* Status */}
       <div className={`rounded-xl p-4 mb-3 border ${data?.votacaoAtiva ? 'border-green-400/20 bg-green-400/5' : 'border-white/[0.06] bg-white/[0.02]'}`}>
-        <div className="flex items-center gap-2">
-          {data?.votacaoAtiva ? <CheckCircle size={16} className="text-green-400" /> : <AlertCircle size={16} className="text-gray-500" />}
-          <span className={`text-sm font-bold ${data?.votacaoAtiva ? 'text-green-400' : 'text-gray-500'}`}>
-            {data?.votacaoAtiva ? 'Votação aberta — colaboradores podem votar' : 'Votação fechada'}
-          </span>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            {data?.votacaoAtiva ? <CheckCircle size={16} className="text-green-400" /> : <AlertCircle size={16} className="text-gray-500" />}
+            <span className={`text-sm font-bold ${data?.votacaoAtiva ? 'text-green-400' : 'text-gray-500'}`}>
+              {data?.votacaoAtiva ? 'Votação aberta — colaboradores podem votar' : 'Votação fechada'}
+            </span>
+          </div>
+          {totalColabs > 0 && (
+            <div className="text-xs text-gray-400 flex items-center gap-2">
+              <Users size={12} className="text-cyan-400" />
+              <span><span className="text-cyan-400 font-bold">{totalVotaram}</span> de {totalColabs} votaram</span>
+              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                pctTotal >= 75 ? 'bg-green-400/15 text-green-400'
+                : pctTotal >= 40 ? 'bg-amber-400/15 text-amber-400'
+                : 'bg-gray-500/15 text-gray-400'
+              }`}>{pctTotal}%</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -130,12 +148,23 @@ export default function VotacaoAdminPage({ params }: { params: Promise<{ empresa
         </div>
       ) : (
         <div className="space-y-6">
-          {cargos.map(([cargo, dados]: [string, any]) => (
+          {cargos.map(([cargo, dados]: [string, any]) => {
+            const pctCargo = dados.total > 0 ? Math.round((dados.votaram / dados.total) * 100) : 0;
+            return (
             <div key={cargo} className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
               {/* Cargo header */}
               <div className="px-4 py-3 border-b border-white/[0.04] flex items-center justify-between">
                 <div>
-                  <h2 className="text-sm font-bold text-white">{cargo}</h2>
+                  <h2 className="text-sm font-bold text-white flex items-center gap-2 flex-wrap">
+                    {cargo}
+                    {dados.total > 0 && (
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                        pctCargo >= 75 ? 'bg-green-400/15 text-green-400'
+                        : pctCargo >= 40 ? 'bg-amber-400/15 text-amber-400'
+                        : 'bg-gray-500/15 text-gray-400'
+                      }`}>{pctCargo}%</span>
+                    )}
+                  </h2>
                   <p className="text-[10px] text-gray-500">
                     <span className="text-cyan-400 font-bold">{dados.votaram}</span> de {dados.total} votaram
                     {dados.faltam.length > 0 && (
@@ -216,7 +245,7 @@ export default function VotacaoAdminPage({ params }: { params: Promise<{ empresa
                 </div>
               )}
             </div>
-          ))}
+          );})}
         </div>
       )}
     </div>
