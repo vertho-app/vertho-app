@@ -205,6 +205,15 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
 
   // ── handleAction — INALTERADO ──────────────────────────────────────────
   async function handleAction(actionKey: string, label: string, aiConfig?: any) {
+    // Confirmação extra pra ações destrutivas / massivas
+    if (actionKey === 'simular-disc') {
+      const ok = window.confirm(
+        'Simular Mapeamento DISC vai POPULAR todos os colaboradores que ainda não têm perfil com dados aleatórios.\n\n' +
+        'Os perfis simulados podem ser identificados depois (origem="simulado"), mas isso bloqueia o mapeamento real até serem zerados manualmente.\n\n' +
+        'Esta ação só deve ser usada em ambientes de teste/demo. Confirma?'
+      );
+      if (!ok) return;
+    }
     const fn = ACTION_MAP[actionKey];
     setPendingAction(actionKey);
     const modelLabel = aiConfig ? ` [${AI_MODELS.find(m => m.id === aiConfig.model)?.label || aiConfig.model}]` : '';
