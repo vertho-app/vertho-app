@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
   Building2, Users, ClipboardCheck, Database, BookOpen,
@@ -448,16 +449,48 @@ export default function AdminDashboardPage() {
 function EmpresaFilter({ empresas, value, onChange }: { empresas: any[]; value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const ref = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => { setMounted(true); }, []);
+
+  // Calcula posição do dropdown baseado no trigger (e reajusta em scroll/resize)
   useEffect(() => {
+    if (!open) return;
+    function updateCoords() {
+      const el = triggerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + 8,
+        right: Math.max(8, window.innerWidth - rect.right),
+      });
+    }
+    updateCoords();
+    window.addEventListener('resize', updateCoords);
+    window.addEventListener('scroll', updateCoords, true);
+    return () => {
+      window.removeEventListener('resize', updateCoords);
+      window.removeEventListener('scroll', updateCoords, true);
+    };
+  }, [open]);
+
+  // Click outside fecha
+  useEffect(() => {
+    if (!open) return;
     function onDocClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        triggerRef.current && !triggerRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
         setOpen(false);
         setSearch('');
       }
     }
-    if (open) document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [open]);
 
@@ -472,8 +505,9 @@ function EmpresaFilter({ empresas, value, onChange }: { empresas: any[]; value: 
   const isAll = value === 'all';
 
   return (
-    <div ref={ref} className="relative">
+    <>
       <button
+        ref={triggerRef}
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-all"
         style={{
@@ -488,10 +522,16 @@ function EmpresaFilter({ empresas, value, onChange }: { empresas: any[]; value: 
         <ChevronRight size={13} className={`transition-transform ${open ? 'rotate-90' : ''}`} />
       </button>
 
-      {open && (
+      {mounted && open && createPortal(
         <div
-          className="absolute right-0 top-full mt-2 w-[280px] rounded-xl shadow-2xl z-50"
+          ref={dropdownRef}
+          className="rounded-xl shadow-2xl"
           style={{
+            position: 'fixed',
+            top: coords.top,
+            right: coords.right,
+            width: 280,
+            zIndex: 1000,
             background: 'rgba(9,29,56,.98)',
             border: '1px solid rgba(255,255,255,.1)',
             backdropFilter: 'blur(16px)',
@@ -545,9 +585,10 @@ function EmpresaFilter({ empresas, value, onChange }: { empresas: any[]; value: 
               })
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }
 
