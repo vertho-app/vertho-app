@@ -76,6 +76,7 @@ const PHASE_CONFIG = [
     { key: 'ia3',         label: 'IA3 — Cenários + Check',      icon: Zap,          ai: 'dual' },
     { key: 'fit',         label: 'Fit Cargo Ideal',             icon: BarChart3,    href: '/admin/fit' },
     { key: 'simular-disc',label: 'Simular Mapeamento DISC',     icon: MessageSquare,ai: false },
+    { key: 'perfis-disc', label: 'Perfis Comportamentais',      icon: Brain,        hrefFn: (id: string) => `/admin/empresas/${id}/perfis-comportamentais` },
     { key: 'envios',      label: 'Envios',                      icon: Send,         href: '/admin/whatsapp' },
   ]},
   { num: 2, icon: Bot, color: '#EF4444', groups: [
