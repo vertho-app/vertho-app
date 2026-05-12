@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Building2, Users, ClipboardCheck, Target, Database, BookOpen, GraduationCap,
+  Building2, Users, ClipboardCheck, Database, BookOpen,
   Plus, Loader2, RefreshCw, Zap, BookMarked, ShieldCheck, ChevronRight,
   Trash2, Video, GraduationCap as GradIcon, BarChart2, FileText, Shield,
   Calculator, LayoutDashboard, Bell, Search, Settings, LogOut, Brain,
-  Activity, CheckCircle2,
+  Activity, CheckCircle2, Filter, Globe, Vote, Sparkles,
 } from 'lucide-react';
 import { loadAdminDashboard } from './actions';
 
@@ -26,24 +26,51 @@ const mono: React.CSSProperties = {
 };
 
 // ── nav items (sidebar) ─────────────────────────────────────────────────────
-const NAV_ITEMS = [
-  { label: 'Dashboard',      sub: 'Visão geral',            href: '/admin/dashboard',                  icon: LayoutDashboard },
-  { label: 'Empresas',       sub: 'Tenants e pipeline',      href: '/admin/empresas/gerenciar',         icon: Building2 },
-  { label: 'Competências',   sub: 'Base e por cargo',        href: '/admin/competencias',               icon: BookMarked },
-  { label: 'Conteúdos',      sub: 'Banco de aprendizagem',   href: '/admin/conteudos',                  icon: BookOpen },
-  { label: 'Vídeos',         sub: 'Biblioteca Bunny',        href: '/admin/videos',                     icon: Video },
-  { label: 'Radar (Ingestão)', sub: 'Saeb / ICA / Censo',    href: '/admin/radar',                      icon: BarChart2 },
-  { label: 'Qualidade Dados', sub: 'Radar quality',         href: '/admin/radar/qualidade-dados',      icon: Database },
-  { label: 'Simulador',      sub: 'Teste de fluxo',          href: '/admin/simulador',                  icon: Zap },
-  { label: 'Custo IA',       sub: 'Catálogo de chamadas',    href: '/admin/vertho/simulador-custo',     icon: BarChart2 },
-  { label: 'Orçamento',      sub: 'Custo / Tabela / Final',  href: '/admin/vertho/orcamento',           icon: Calculator },
-  { label: 'Evidências',     sub: 'Sessões socráticas',      href: '/admin/vertho/evidencias',          icon: FileText },
-  { label: 'Av. Acumulada',  sub: 'Auditoria sem 13',        href: '/admin/vertho/avaliacao-acumulada', icon: ClipboardCheck },
-  { label: 'Sem 14',         sub: 'Auditoria final',         href: '/admin/vertho/auditoria-sem14',     icon: ShieldCheck },
-  { label: 'Knowledge Base', sub: 'RAG per-tenant',          href: '/admin/vertho/knowledge-base',      icon: Database },
-  { label: 'Preferências',   sub: 'Aprendizagem',            href: '/admin/preferencias-aprendizagem',  icon: GradIcon },
-  { label: 'Admins',         sub: 'Platform admins',         href: '/admin/platform-admins',            icon: Shield },
-  { label: 'Lixeira',        sub: 'Registros excluídos',     href: '/admin/lixeira',                    icon: Trash2 },
+// Cada item declara em que contexto aparece:
+//   showWhenAll      → quando "Todas as empresas" está selecionado (admin-wide)
+//   showWhenEmpresa  → quando uma empresa específica está selecionada (tenant-aware)
+// Default: ambos true.
+//
+// `hrefFn(empresaId)` constrói a URL — recebe o ID quando há empresa selecionada,
+// undefined quando "Todas".
+type NavItem = {
+  key: string;
+  label: string;
+  sub: string;
+  icon: any;
+  hrefFn: (empresaId?: string) => string;
+  showWhenAll?: boolean;
+  showWhenEmpresa?: boolean;
+};
+
+const NAV_ITEMS: NavItem[] = [
+  // Sempre visíveis
+  { key: 'dashboard',  label: 'Dashboard',      sub: 'Visão geral',           icon: LayoutDashboard, hrefFn: () => '/admin/dashboard' },
+  { key: 'empresas',   label: 'Empresas',       sub: 'Tenants e pipeline',    icon: Building2,       hrefFn: (id) => id ? `/admin/empresas/${id}` : '/admin/empresas/gerenciar' },
+
+  // Tenant-aware (mostra "Todas" → admin global / com empresa → pipeline daquela)
+  { key: 'pipeline',         label: 'Pipeline da empresa', sub: 'Fase 0 → Fase 5',           icon: Activity,        hrefFn: (id) => `/admin/empresas/${id}`,                       showWhenAll: false },
+  { key: 'votacao',          label: 'Votação',             sub: 'Top 5 por colaboradores',   icon: Vote,            hrefFn: (id) => `/admin/empresas/${id}/votacao`,               showWhenAll: false },
+  { key: 'perfis-disc',      label: 'Perfis Comportamentais', sub: 'DISC dos colabs',         icon: Brain,           hrefFn: (id) => `/admin/empresas/${id}/perfis-comportamentais`, showWhenAll: false },
+  { key: 'simulador',        label: 'Simulador',           sub: 'Teste de fluxo',            icon: Zap,             hrefFn: () => '/admin/simulador',                              showWhenAll: false },
+  { key: 'evidencias',       label: 'Evidências',          sub: 'Sessões socráticas',        icon: FileText,        hrefFn: (id) => `/admin/vertho/evidencias?empresa=${id}`,       showWhenAll: false },
+  { key: 'acumulada',        label: 'Av. Acumulada',       sub: 'Auditoria sem 13',          icon: ClipboardCheck,  hrefFn: (id) => `/admin/vertho/avaliacao-acumulada?empresa=${id}`, showWhenAll: false },
+  { key: 'sem14',            label: 'Sem 14',              sub: 'Auditoria final',           icon: ShieldCheck,     hrefFn: (id) => `/admin/vertho/auditoria-sem14?empresa=${id}`,  showWhenAll: false },
+
+  // Sempre visíveis (admin operacional)
+  { key: 'competencias',     label: 'Competências',        sub: 'Base e por cargo',           icon: BookMarked,     hrefFn: (id) => id ? `/admin/competencias?empresa=${id}` : '/admin/competencias' },
+  { key: 'conteudos',        label: 'Conteúdos',           sub: 'Banco de aprendizagem',      icon: BookOpen,       hrefFn: (id) => id ? `/admin/conteudos?empresa=${id}` : '/admin/conteudos' },
+  { key: 'videos',           label: 'Vídeos',              sub: 'Biblioteca Bunny',           icon: Video,          hrefFn: (id) => id ? `/admin/videos?empresa=${id}` : '/admin/videos' },
+  { key: 'knowledge-base',   label: 'Knowledge Base',      sub: 'RAG per-tenant',             icon: Database,       hrefFn: (id) => id ? `/admin/vertho/knowledge-base?empresa=${id}` : '/admin/vertho/knowledge-base' },
+  { key: 'preferencias',     label: 'Preferências',        sub: 'Aprendizagem',               icon: GradIcon,       hrefFn: () => '/admin/preferencias-aprendizagem' },
+
+  // Admin-wide (só "Todas")
+  { key: 'radar',            label: 'Radar (Ingestão)',    sub: 'Saeb / ICA / Censo',         icon: BarChart2,      hrefFn: () => '/admin/radar',                              showWhenEmpresa: false },
+  { key: 'qualidade-dados',  label: 'Qualidade Dados',     sub: 'Radar quality',              icon: Database,       hrefFn: () => '/admin/radar/qualidade-dados',              showWhenEmpresa: false },
+  { key: 'custo-ia',         label: 'Custo IA',            sub: 'Catálogo de chamadas',       icon: BarChart2,      hrefFn: () => '/admin/vertho/simulador-custo' },
+  { key: 'orcamento',        label: 'Orçamento',           sub: 'Custo / Tabela / Final',     icon: Calculator,     hrefFn: () => '/admin/vertho/orcamento' },
+  { key: 'admins',           label: 'Admins',              sub: 'Platform admins',            icon: Shield,         hrefFn: () => '/admin/platform-admins',                    showWhenEmpresa: false },
+  { key: 'lixeira',          label: 'Lixeira',             sub: 'Registros excluídos',        icon: Trash2,         hrefFn: () => '/admin/lixeira',                            showWhenEmpresa: false },
 ];
 
 function empresaGlyph(nome: string) {
@@ -58,6 +85,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [empresaFiltro, setEmpresaFiltro] = useState<string>('all'); // 'all' | empresaId
 
   async function load() {
     const r = await loadAdminDashboard();
@@ -79,6 +107,13 @@ export default function AdminDashboardPage() {
 
   const { empresas, totalColabs, totalAvaliacoes, totalPDIs, health } = data;
   const allHealthOk = Object.values(health).every((v) => v === 'OK');
+
+  const empresaSelecionada = empresaFiltro === 'all' ? null : empresas.find((e: any) => e.id === empresaFiltro);
+
+  const visibleNavItems = NAV_ITEMS.filter((item) => {
+    if (empresaSelecionada) return item.showWhenEmpresa !== false;
+    return item.showWhenAll !== false;
+  });
 
   // Top 5 empresas por engagement (proxy: nº de colaboradores)
   const top5 = [...empresas]
@@ -126,16 +161,32 @@ export default function AdminDashboardPage() {
           </button>
         </div>
 
+        {/* Contexto de filtro (visível apenas quando alguma empresa está selecionada) */}
+        {!collapsed && empresaSelecionada && (
+          <div className="px-3 pt-3 pb-1">
+            <div className="rounded-lg px-3 py-2 flex items-center gap-2"
+              style={{ background: 'rgba(52,197,204,.08)', border: '1px solid rgba(52,197,204,.25)' }}>
+              <span style={{ ...serif, fontSize: 16, color: '#34c5cc' }}>{empresaGlyph(empresaSelecionada.nome)}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[9px] uppercase tracking-widest" style={{ color: 'rgba(52,197,204,.7)', letterSpacing: '.18em' }}>Contexto</p>
+                <p className="text-xs font-bold text-white truncate">{empresaSelecionada.nome}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto py-3 px-2 flex flex-col gap-0.5">
-          {NAV_ITEMS.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
-            const active = item.href === '/admin/dashboard';
+            const active = item.key === 'dashboard';
+            const href = item.hrefFn(empresaSelecionada?.id);
             return (
               <button
-                key={item.href}
-                onClick={() => router.push(item.href)}
+                key={item.key}
+                onClick={() => router.push(href)}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all"
+                title={collapsed ? item.label : undefined}
                 style={{
                   background: active ? 'rgba(52,197,204,.12)' : 'transparent',
                   border: active ? '1px solid rgba(52,197,204,.25)' : '1px solid transparent',
@@ -188,28 +239,20 @@ export default function AdminDashboardPage() {
           className="flex items-center justify-between gap-4 px-5 md:px-8 h-16 shrink-0"
           style={{ background: 'rgba(7,27,56,.45)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,.05)' }}
         >
-          <div className="flex items-baseline gap-3">
+          <div className="flex items-baseline gap-3 min-w-0">
             <h1 style={{ ...serif, fontSize: 28, color: '#fff', lineHeight: 1 }}>
               Painel <em style={{ color: '#34c5cc' }}>Admin</em>
             </h1>
-            <span className="hidden sm:inline" style={{ ...mono, fontSize: 10, color: 'rgba(255,255,255,.4)', letterSpacing: '.14em', textTransform: 'uppercase' }}>
+            <span className="hidden sm:inline shrink-0" style={{ ...mono, fontSize: 10, color: 'rgba(255,255,255,.4)', letterSpacing: '.14em', textTransform: 'uppercase' }}>
               {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="relative hidden md:block">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: 'rgba(255,255,255,.4)' }} />
-              <input
-                placeholder="Buscar…"
-                className="pl-8 pr-3 py-1.5 rounded-lg text-sm outline-none"
-                style={{
-                  background: 'rgba(0,0,0,.22)',
-                  border: '1px solid rgba(255,255,255,.08)',
-                  color: '#fff',
-                  width: 220,
-                }}
-              />
-            </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <EmpresaFilter
+              empresas={empresas}
+              value={empresaFiltro}
+              onChange={setEmpresaFiltro}
+            />
             <button onClick={handleRefresh} disabled={refreshing} title="Atualizar"
               className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors"
               style={{ color: 'rgba(255,255,255,.5)' }}
@@ -293,9 +336,9 @@ export default function AdminDashboardPage() {
                       return (
                         <button
                           key={emp.id}
-                          onClick={() => router.push(`/admin/empresas/${emp.id}`)}
+                          onClick={() => setEmpresaFiltro(emp.id)}
                           className="w-full text-left group"
-                          title={`Abrir pipeline de ${emp.nome}`}
+                          title={`Filtrar painel pela empresa ${emp.nome}`}
                         >
                           <div className="flex items-center justify-between mb-1.5">
                             <span className="text-sm text-white truncate flex items-center gap-1.5">
@@ -363,16 +406,33 @@ export default function AdminDashboardPage() {
 
               <Panel className="lg:col-span-2 flex flex-col">
                 <h2 className="text-sm font-bold text-white">Ações rápidas</h2>
-                <p className="text-[11px] mb-4" style={{ color: 'rgba(255,255,255,.4)' }}>Tarefas administrativas comuns</p>
+                <p className="text-[11px] mb-4" style={{ color: 'rgba(255,255,255,.4)' }}>
+                  {empresaSelecionada ? `Contextual à empresa ${empresaSelecionada.nome}` : 'Tarefas administrativas globais'}
+                </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
-                  <QuickAction onClick={() => router.push('/admin/empresas/nova')} icon={<Plus size={16} />} accent="#34c5cc"
-                    title="Nova empresa" desc="Criar e onboarding de tenant" />
-                  <QuickAction onClick={() => router.push('/admin/simulador')} icon={<Zap size={16} />} accent="#9e4edd"
-                    title="Rodar simulador" desc="Testar fluxo conversacional" />
-                  <QuickAction onClick={() => router.push('/admin/vertho/orcamento')} icon={<Calculator size={16} />} accent="#f4b740"
-                    title="Orçamento" desc="Custo IA, tabela, valor final" />
-                  <QuickAction onClick={() => router.push('/admin/vertho/knowledge-base')} icon={<Brain size={16} />} accent="#2ecc71"
-                    title="Knowledge Base" desc="RAG per-tenant" />
+                  {empresaSelecionada ? (
+                    <>
+                      <QuickAction onClick={() => router.push(`/admin/empresas/${empresaSelecionada.id}`)} icon={<Activity size={16} />} accent="#34c5cc"
+                        title="Pipeline" desc={`Fase 0 → 5 de ${empresaSelecionada.nome}`} />
+                      <QuickAction onClick={() => router.push(`/admin/empresas/${empresaSelecionada.id}/votacao`)} icon={<Vote size={16} />} accent="#9e4edd"
+                        title="Votação" desc="Resultados por cargo" />
+                      <QuickAction onClick={() => router.push(`/admin/empresas/${empresaSelecionada.id}/perfis-comportamentais`)} icon={<Brain size={16} />} accent="#f4b740"
+                        title="Perfis DISC" desc="Mapeamentos completos" />
+                      <QuickAction onClick={() => router.push('/admin/simulador')} icon={<Zap size={16} />} accent="#2ecc71"
+                        title="Rodar simulador" desc="Testar fluxo conversacional" />
+                    </>
+                  ) : (
+                    <>
+                      <QuickAction onClick={() => router.push('/admin/empresas/nova')} icon={<Plus size={16} />} accent="#34c5cc"
+                        title="Nova empresa" desc="Criar e onboarding de tenant" />
+                      <QuickAction onClick={() => router.push('/admin/radar')} icon={<BarChart2 size={16} />} accent="#9e4edd"
+                        title="Radar (Ingestão)" desc="Subir dados Saeb/ICA/Censo" />
+                      <QuickAction onClick={() => router.push('/admin/vertho/orcamento')} icon={<Calculator size={16} />} accent="#f4b740"
+                        title="Orçamento" desc="Custo IA, tabela, valor final" />
+                      <QuickAction onClick={() => router.push('/admin/vertho/knowledge-base')} icon={<Brain size={16} />} accent="#2ecc71"
+                        title="Knowledge Base" desc="RAG per-tenant" />
+                    </>
+                  )}
                 </div>
               </Panel>
             </div>
@@ -384,6 +444,112 @@ export default function AdminDashboardPage() {
 }
 
 // ─── Subcomponents ──────────────────────────────────────────────────────────
+
+function EmpresaFilter({ empresas, value, onChange }: { empresas: any[]; value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setSearch('');
+      }
+    }
+    if (open) document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [open]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return empresas;
+    return empresas.filter((e: any) => (e.nome || '').toLowerCase().includes(q));
+  }, [empresas, search]);
+
+  const empresaAtual = empresas.find((e: any) => e.id === value);
+  const label = empresaAtual?.nome || 'Todas as empresas';
+  const isAll = value === 'all';
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-all"
+        style={{
+          background: isAll ? 'rgba(255,255,255,.04)' : 'rgba(52,197,204,.1)',
+          border: `1px solid ${isAll ? 'rgba(255,255,255,.1)' : 'rgba(52,197,204,.3)'}`,
+          color: isAll ? 'rgba(255,255,255,.85)' : '#34c5cc',
+          minWidth: 200,
+        }}
+      >
+        {isAll ? <Globe size={13} /> : <Filter size={13} />}
+        <span className="flex-1 text-left truncate font-bold">{label}</span>
+        <ChevronRight size={13} className={`transition-transform ${open ? 'rotate-90' : ''}`} />
+      </button>
+
+      {open && (
+        <div
+          className="absolute right-0 top-full mt-2 w-[280px] rounded-xl shadow-2xl z-50"
+          style={{
+            background: 'rgba(9,29,56,.98)',
+            border: '1px solid rgba(255,255,255,.1)',
+            backdropFilter: 'blur(16px)',
+          }}
+        >
+          <div className="p-2" style={{ borderBottom: '1px solid rgba(255,255,255,.05)' }}>
+            <div className="relative">
+              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: 'rgba(255,255,255,.4)' }} />
+              <input
+                autoFocus
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar empresa…"
+                className="w-full pl-8 pr-3 py-1.5 rounded-lg text-sm outline-none"
+                style={{ background: 'rgba(0,0,0,.3)', border: '1px solid rgba(255,255,255,.08)', color: '#fff' }}
+              />
+            </div>
+          </div>
+
+          <div className="max-h-[320px] overflow-y-auto py-1">
+            <button
+              onClick={() => { onChange('all'); setOpen(false); setSearch(''); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors hover:bg-white/5"
+              style={{ color: isAll ? '#34c5cc' : 'rgba(255,255,255,.85)' }}
+            >
+              <Globe size={14} />
+              <span className="flex-1 font-bold">Todas as empresas</span>
+              {isAll && <CheckCircle2 size={13} />}
+            </button>
+
+            {filtered.length === 0 ? (
+              <p className="px-3 py-3 text-[11px] text-center" style={{ color: 'rgba(255,255,255,.4)' }}>Nenhuma empresa encontrada.</p>
+            ) : (
+              filtered.map((emp: any) => {
+                const selected = emp.id === value;
+                return (
+                  <button
+                    key={emp.id}
+                    onClick={() => { onChange(emp.id); setOpen(false); setSearch(''); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors hover:bg-white/5"
+                    style={{ color: selected ? '#34c5cc' : 'rgba(255,255,255,.85)' }}
+                  >
+                    <span style={{ ...serif, fontSize: 14, color: selected ? '#34c5cc' : 'rgba(255,255,255,.55)' }}>
+                      {empresaGlyph(emp.nome)}
+                    </span>
+                    <span className="flex-1 truncate">{emp.nome}</span>
+                    <span style={{ ...mono, fontSize: 9, color: 'rgba(255,255,255,.4)' }}>{fmt(emp.totalColab)}</span>
+                    {selected && <CheckCircle2 size={13} />}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function KpiCard({ label, value, sub, accent, icon }: { label: string; value: number; sub?: string; accent: string; icon: React.ReactNode }) {
   return (
