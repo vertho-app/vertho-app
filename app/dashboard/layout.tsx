@@ -2,6 +2,7 @@ import { connection } from 'next/server';
 import type { Metadata, Viewport } from 'next';
 import DashboardShell from './dashboard-shell';
 import PwaRegister from './pwa-register';
+import IosInstallPrompt from './ios-install-prompt';
 
 export const metadata: Metadata = {
   manifest: '/manifest.webmanifest',
@@ -22,6 +23,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <>
       <PwaRegister />
+      <IosInstallPrompt />
       <DashboardShell>{children}</DashboardShell>
     </>
   );
