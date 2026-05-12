@@ -86,7 +86,28 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [empresaFiltro, setEmpresaFiltro] = useState<string>('all'); // 'all' | empresaId
+  const [empresaFiltro, setEmpresaFiltroState] = useState<string>('all'); // 'all' | empresaId
+
+  // Carrega filtro do localStorage no mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('vertho-admin-filter-empresa');
+      if (saved) setEmpresaFiltroState(saved);
+    } catch {}
+  }, []);
+
+  // Wrapper persiste no localStorage
+  function setEmpresaFiltro(id: string) {
+    setEmpresaFiltroState(id);
+    try { localStorage.setItem('vertho-admin-filter-empresa', id); } catch {}
+  }
+
+  // Se a empresa salva não existe mais (foi deletada), volta pra 'all'
+  useEffect(() => {
+    if (!data || empresaFiltro === 'all') return;
+    const exists = data.empresas.some((e: any) => e.id === empresaFiltro);
+    if (!exists) setEmpresaFiltro('all');
+  }, [data, empresaFiltro]);
 
   async function load() {
     const r = await loadAdminDashboard();
