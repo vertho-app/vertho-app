@@ -238,10 +238,10 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
               ))}
             </div>
             {config.programa_modo === 'onboarding' && (
-              <div className="flex items-start gap-2 mt-3 p-3 rounded-lg border border-amber-400/20" style={{ background: 'rgba(245,158,11,0.06)' }}>
-                <AlertTriangle size={13} className="text-amber-400 shrink-0 mt-0.5" />
-                <p className="text-[11px] text-amber-300/85 leading-relaxed">
-                  Modo Onboarding está em <b>implementação</b> (Fase 2/4). Trilhas multi-competência ficam disponíveis na Fase 3 — por ora, geração fica bloqueada se este modo estiver ativo.
+              <div className="flex items-start gap-2 mt-3 p-3 rounded-lg border border-cyan-400/20" style={{ background: 'rgba(6,182,212,0.06)' }}>
+                <CheckCircle size={13} className="text-cyan-400 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-cyan-300/85 leading-relaxed">
+                  Modo Onboarding ativo. Configure <code className="text-cyan-200">sys_config.competencias_onboarding</code> (array de 5 nomes) ou rode IA1 pro cargo — engine usa o top 5 do <code className="text-cyan-200">top10_cargos</code> como fallback. Tutor recebe push automático ao final das missões 4 e 7.
                 </p>
               </div>
             )}
