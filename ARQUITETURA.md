@@ -1,8 +1,8 @@
 # Vertho Mentor IA — Arquitetura do Sistema
 
 > Documento oficial de arquitetura — SaaS B2B de desenvolvimento de competencias por IA.
-> Ultima atualizacao: 03/05/2026
-> Revisado contra o codigo-fonte em producao (vertho.ai)
+> Ultima atualizacao: 13/05/2026
+> Revisado contra o codigo-fonte local e estado atual do workspace
 > Metodo: auditoria automatizada + revisao manual
 
 ---
@@ -53,7 +53,24 @@
 
 ---
 
-## 2. Estrutura de Pastas (~280 arquivos TS/TSX + ~27 .js residuais em lib/, tests/ e config)
+## 1.1 Estado de Retomada (13/05/2026)
+
+Contexto rapido para reinicializacao da maquina:
+
+- Branch atual: `master`, HEAD `4990742` (`admin: confirm() em mais acoes destrutivas/massivas (preventivo)`).
+- Arquivos rastreados: pendentes no momento desta revisao — `supabase/config.toml` (drift local) e este `ARQUITETURA.md`.
+- Nao versionados presentes no workspace: `.tmp_enem_2024/`, `outputs/`, `RESUMO.md`, `public/Logo sem texto.png`, `scripts/diag-tables-check.mjs`.
+- Ultimas frentes visiveis (semana 2026-05-12 → 13):
+  - **Admin Dashboard redesign**: sidebar dinamica + header com filtro de empresa (React Portal pra sair do stacking context) + bento grid mantendo cores Vertho. Filtro persistido em localStorage.
+  - **Gate de perfil comportamental pos-votacao**: bloqueia /perfil-comportamental ate o colab finalizar a votacao (commits `401b591`, `392980b`).
+  - **Tela admin de perfis comportamentais por empresa** (commit `0b2e0d1`): `/admin/empresas/{id}/perfis-comportamentais`.
+  - **Confirms preventivos em acoes destrutivas/massivas** (commits `3730e22`, `4990742`): `simular-disc`, `simular`, `temporadas`, `rel-ind`, `cenarios-b`, `evolucao`, `plenaria`, `rh-links`, `rh-dossie` no pipeline empresa; disparo WhatsApp/email e Magic Links; copia de competencia base. Razao: incidente em que admin clicou no botao errado e gerou todas as avaliacoes comportamentais.
+  - **PWA do dashboard removida** (commits `6828af3`, `7bc6855`): link WhatsApp no iOS sempre abre browser, scope `/dashboard/` nao agregou valor; kill switch `sw.js` ja retirado.
+- Para retomar localmente: entrar em `C:\GAS\Vertho App\nextjs-app`, rodar `npm run dev` e acessar `http://localhost:3000`.
+
+---
+
+## 2. Estrutura de Pastas (~378 arquivos TS/TSX + ~58 .js/.mjs em scripts, tests e configs)
 
 ```
 nextjs-app/
@@ -61,7 +78,7 @@ nextjs-app/
 ├── sentry.client.config.js       # Sentry (browser errors)
 ├── sentry.server.config.js       # Sentry (server errors)
 ├── sentry.edge.config.js         # Sentry (middleware errors)
-├── vercel.json                   # Cron jobs (3 triggers)
+├── vercel.json                   # Cron jobs (4 triggers)
 ├── playwright.config.js          # Config testes e2e
 ├── .env.example                  # Template env vars (sem segredos)
 ├── .github/
@@ -113,7 +130,7 @@ nextjs-app/
 │   │   ├── layout.tsx            # Wrapper AdminGuard
 │   │   ├── admin-guard.tsx       # Server-side via platform_admins
 │   │   ├── admin-actions.ts      # checkAdminAccess()
-│   │   ├── dashboard/page.tsx    # 7 KPIs + System Health + lista empresas
+│   │   ├── dashboard/page.tsx    # Redesign 2026-05: sidebar + header (filtro empresa via React Portal, persistido em localStorage) + bento grid
 │   │   ├── empresas/
 │   │   │   ├── nova/             # Form: nome + segmento (auto-slug)
 │   │   │   ├── gerenciar/        # Import CSV com role + area_depto + ordenacao por coluna
@@ -124,8 +141,9 @@ nextjs-app/
 │   │   │       ├── fase1/page.tsx # Top 10, Gabarito, Cenarios
 │   │   │       ├── fase2/page.tsx # Diagnostico + Trilhas
 │   │   │       ├── fase4/page.tsx # NOVO: Envios diagnostico (WhatsApp/email lote)
-│   │   │       ├── votacao/page.tsx       # NOVO: Resultados votacao por cargo
+│   │   │       ├── votacao/page.tsx       # NOVO: Resultados votacao por cargo + badge % votantes por cargo + total geral
 │   │   │       ├── perfil-externo/page.tsx # NOVO: Cadastro externo (autosvc) p/ piloto
+│   │   │       ├── perfis-comportamentais/page.tsx # NOVO 2026-05: Tela admin de perfis DISC por empresa
 │   │   │       ├── relatorios/page.tsx
 │   │   │       └── configuracoes/page.tsx  # 5 tabs (incluindo Branding c/ "Vincular ao Vercel")
 │   │   ├── cargos/               # Top 5 selection
@@ -144,9 +162,11 @@ nextjs-app/
 │   │   ├── platform-admins/      # Gestao admins
 │   │   ├── preferencias-aprendizagem/
 │   │   ├── lixeira/              # NOVO: Restore de registros excluidos
-│   │   ├── radar/                # NOVO: Ingestao Radar (Saeb/ICA/Censo) + funnel analytics
+│   │   ├── radar/                # NOVO: Ingestao Radar (Saeb/ICA/Censo) + qualidade + funnel analytics
 │   │   │   ├── page.tsx
-│   │   │   └── funnel/page.tsx
+│   │   │   ├── funnel/page.tsx
+│   │   │   ├── funnel-bett/page.tsx
+│   │   │   └── qualidade-dados/page.tsx
 │   │   └── vertho/               # Paineis Admin Vertho
 │   │       ├── evidencias/       # Conversas socraticas 1-12, extracao, transcript
 │   │       ├── avaliacao-acumulada/  # Nota por descritor + auditoria + regerar
@@ -164,9 +184,10 @@ nextjs-app/
 │   │   └── _components/          # 23 componentes vh3
 │   ├── radarbett/                # NOVO: Site publico Bett 2026 (radarbett.vertho.ai)
 │   │   ├── page.tsx              # Home com tipografia Plus Jakarta Sans + Fraunces (escopadas)
-│   │   ├── escola/[inep]/, municipio/[ibge]/, comparar/
+│   │   ├── escola/[inep]/, municipio/[ibge]/, comparar/, buscar/, jornada/, metodologia/
 │   │   ├── _lib/whatsapp.ts      # openWhatsAppAgendar(ctx) — "Agendar conversa" abre WhatsApp direto
-│   │   └── _components/whatsapp-icon.tsx
+│   │   ├── _lib/tracking.ts      # Eventos de funil Bett
+│   │   └── _components/          # header, busca, lead modal, sticky CTA, whatsapp icon
 │   ├── actions/
 │   │   ├── beto.ts               # BETO contextual
 │   │   └── manutencao.ts
@@ -176,7 +197,7 @@ nextjs-app/
 │       ├── assessment/route.ts
 │       ├── colaboradores/route.ts
 │       ├── upload-logo/route.ts
-│       ├── cron/route.ts         # 3 cron jobs
+│       ├── cron/route.ts         # 4 cron jobs
 │       ├── content/search/route.ts  # Busca micro_conteudos
 │       ├── capacitacao-recomendada/route.ts  # multi-formato por comp foco
 │       ├── relatorios/individual/route.ts
@@ -345,8 +366,8 @@ nextjs-app/
 │   ├── checkpoint.ps1
 │   ├── auto-backup-diario.ps1
 │   └── instalar-backup-automatico.ps1
-├── tests/                        # Playwright e2e (86 specs)
-├── migrations/                   # 62 migrations SQL (022 -> 082)
+├── tests/                        # Playwright + Vitest (27 arquivos de teste)
+├── migrations/                   # 70 arquivos SQL (022 -> 089, inclui 085 v1/v2)
 ├── tsconfig.json                 # TypeScript config (strict:false, allowJs, checkJs:false)
 ├── docs/
 │   ├── envs-importantes.md
@@ -662,7 +683,7 @@ Tabelas: trilhas, colaboradores, temporada_semana_progresso
 
 ---
 
-## 8. Modelagem de Dados (62 migrations — 022 a 082)
+## 8. Modelagem de Dados (70 arquivos SQL — 022 a 089)
 
 ### Migrations 022-051 (core Mentor IA)
 Multi-tenant + Fit v2 + Temporadas + Tira-Duvidas + RAG (knowledge_base, pgvector 1024d) + Capacitacao + Relatorios.
@@ -671,7 +692,7 @@ Multi-tenant + Fit v2 + Temporadas + Tira-Duvidas + RAG (knowledge_base, pgvecto
 - **052** — `top10_cargos.aderencia_cargo`, `aderencia_mercado`, `motivo` (scores IA1)
 - **053** — `votacao_competencias` (colab vota nas top 10 do cargo, gera ranking de foco)
 
-### Migrations 054-082 (Radar Vertho — base nacional INEP)
+### Migrations 054-089 (Radar Vertho — base nacional INEP + Bett)
 - **054** — schema Radar: `diag_escolas`, `diag_saeb_snapshots`, `diag_ica_snapshots`, `diag_analises_ia`, `diag_leads`, `diag_ingest_runs` + bucket `diag-relatorios`
 - **055-058** — refinamentos schema (IBGE nullable, Censo, lat/long, bucket privado, campos API INEP)
 - **059** — `pg_trgm` + GIN indexes p/ busca
@@ -686,6 +707,13 @@ Multi-tenant + Fit v2 + Temporadas + Tira-Duvidas + RAG (knowledge_base, pgvecto
 - **080** — `diag_censo_docentes` (microdados INEP) + saneamento QT_*
 - **081** — RLS restrita em `diag_analises_ia` (auth audit P1)
 - **082** — RPCs `diag_qualidade_*` para painel de qualidade dos dados
+- **083** — metricas municipais para pagina/rede municipal
+- **084** — busca fuzzy do Radar
+- **085 / 085-v2** — busca avancada de escolas (filtros por UF, rede, etapa e contagem)
+- **086** — RPC para listar municipios por UF
+- **087** — signup aberto para fluxo Bett
+- **088** — limpeza/saneamento de telefones
+- **089** — tracking de dispositivo na votacao
 
 ### Dados Transacionais
 ```
@@ -747,6 +775,7 @@ cis_referencia, cis_ia_referencia
 | cleanup_sessoes | Diario 05:00 | Reseta sessoes abandonadas >48h, recalcula taxa_conclusao |
 | trigger_segunda | Segunda 11:00 | Envia pilula semanal via QStash |
 | trigger_quinta | Quinta 11:00 | Solicita evidencia + nudge inatividade |
+| backup_diario | Diario 04:00 | Executa rotina de backup via `/api/cron?action=backup_diario` |
 
 ---
 
@@ -755,7 +784,7 @@ cis_referencia, cis_ia_referencia
 ### Smoke Test (HTTP)
 `node scripts/smoke-test.js https://vertho.com.br` — 29 rotas, CI-ready.
 
-### Playwright E2E (86 specs)
+### Playwright E2E + Vitest (27 arquivos de teste)
 ```
 npm test
 $env:SMOKE_EMAIL="x"; $env:SMOKE_PASS="y"; npm test
@@ -776,6 +805,20 @@ npm run test:ui
 - Nenhuma NEXT_PUBLIC sensivel
 - Sentry para error tracking
 - **npm audit: 0 vulnerabilities** (xlsx removido, Next.js patched para 16.2.4, resend instalado)
+
+### 11.1 Confirms preventivos (UX defensiva)
+
+Depois de um incidente em que admin clicou sem querer e gerou todas as avaliacoes comportamentais (commit `3730e22`), foi adicionada confirmacao explicita (`window.confirm`) em todas as acoes destrutivas/massivas do painel admin (commit `4990742`):
+
+| Local | Acoes protegidas |
+|---|---|
+| `/admin/empresas/{id}` `handleAction` (map `DANGEROUS_CONFIRMS`) | `simular-disc`, `simular`, `temporadas`, `rel-ind`, `cenarios-b`, `evolucao`, `plenaria`, `rh-links`, `rh-dossie` |
+| `/admin/empresas/{id}` Danger Zone | `limpar*`, `excluirEmpresa`, `definirSenhaTesteEmpresa` (mantidos) |
+| `/admin/whatsapp` | `handleDisparar` (com canal + nº destinatarios), Magic Links em massa |
+| `/admin/competencias` | `handleCopy` (copia da base) e `handleDelete` |
+| `/admin/conteudos`, `/admin/lixeira`, `/admin/platform-admins`, `/admin/temporadas` (Simular) | mantem confirms ja existentes |
+
+Padrao das mensagens: explicar **o que** vai acontecer, **escopo** (todos / N items), e se eh **reversivel** ou nao. Ver `app/admin/empresas/[empresaId]/page.tsx` linha ~208 para o template.
 
 ### Repositorio publico
 - NUNCA commitar .env, credenciais ou tokens
@@ -830,7 +873,7 @@ Task Scheduler Windows → scripts/auto-backup-diario.ps1 (todo dia 20h)
 | `scripts/auto-backup-diario.ps1` | Backup diario automatico |
 
 ### Restauracao do Schema
-- Rodar migrations em ordem: `migrations/022*.sql` ate `082*.sql`
+- Rodar migrations em ordem: `migrations/022*.sql` ate `089*.sql`
 - Processo de alteracao de schema: `docs/SCHEMA-PROCESS.md`
 
 ### Backfill de embeddings
@@ -874,7 +917,7 @@ Z-API: WhatsApp gateway
 - Cenario: titulo removido, "CENARIO" → "CONTEXTO"
 - "Marcar como assistido" → "Marcar como realizado"
 - `xlsx` — removido (2 CVEs high sem fix) → substituido por `read-excel-file@^8`
-- `jsconfig.json` — substituido por `tsconfig.json` (migração majoritária para TypeScript; ~27 .js residuais permanecem em lib/fit-v2, lib/prompts, tests/ e configs)
+- `jsconfig.json` — substituido por `tsconfig.json` (migração majoritária para TypeScript; arquivos .js/.mjs residuais permanecem em scripts, tests e configs)
 - `gas-antigo/` (69 arquivos GAS) — removido 2026-04-17
 - `migrations-legacy/` (37 SQL) — removido 2026-04-17
 - `migrate:legacy` npm script — removido
@@ -883,6 +926,6 @@ Z-API: WhatsApp gateway
 
 ---
 
-*Documento validado contra o codigo-fonte em producao.*
-*~280 arquivos TS + ~27 .js residuais | 62 migrations SQL (022-082) | 111 unit + 86 e2e tests | 22+ env vars | vertho.ai*
-*Revisao: 03/05/2026*
+*Documento validado contra o codigo-fonte local em 13/05/2026.*
+*~378 arquivos TS/TSX + ~58 JS/MJS | 70 arquivos SQL (022-089) | 27 arquivos de teste | 22+ env vars | vertho.ai*
+*Revisao: 13/05/2026 (HEAD `4990742` — confirms preventivos)*
