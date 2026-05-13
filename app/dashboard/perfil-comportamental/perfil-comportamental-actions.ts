@@ -42,6 +42,7 @@ export async function loadPerfilCIS() {
   // Empresa usa fonte externa de perfil (OPQ32 etc.)?
   let empresaPerfilExternoFonte: string | null = null;
   let empresaPerfilExternoLabel = 'mapeamento comportamental próprio';
+  let perfilComportamentalLiberado = true;
   if (colab.empresa_id) {
     const sb = createSupabaseAdmin();
     const { data: empCfg } = await sb.from('empresas')
@@ -50,6 +51,9 @@ export async function loadPerfilCIS() {
       .maybeSingle();
     const cfg = (empCfg?.sys_config as any) || {};
     empresaPerfilExternoFonte = cfg.perfil_externo_fonte ?? null;
+    perfilComportamentalLiberado =
+      cfg.perfil_comportamental_liberado !== false &&
+      !(cfg.votacao_ativa === true && cfg.perfil_comportamental_liberado !== true);
     empresaPerfilExternoLabel =
       cfg.perfil_externo_label ||
       cfg.perfil_externo_nome ||
@@ -76,6 +80,7 @@ export async function loadPerfilCIS() {
     insightsCached,
     empresaPerfilExternoFonte,
     empresaPerfilExternoLabel,
+    perfilComportamentalLiberado,
   };
 }
 

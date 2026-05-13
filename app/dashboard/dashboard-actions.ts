@@ -77,7 +77,11 @@ export async function loadDashboardData() {
     .select('sys_config')
     .eq('id', colab.empresa_id)
     .maybeSingle();
-  const empresaPerfilExternoFonte = (empCfg?.sys_config as any)?.perfil_externo_fonte ?? null;
+  const cfg = (empCfg?.sys_config as any) || {};
+  const empresaPerfilExternoFonte = cfg.perfil_externo_fonte ?? null;
+  const perfilComportamentalLiberado =
+    cfg.perfil_comportamental_liberado !== false &&
+    !(cfg.votacao_ativa === true && cfg.perfil_comportamental_liberado !== true);
 
   return {
     colaborador: colab,
@@ -89,6 +93,7 @@ export async function loadDashboardData() {
     temporadaPronta,
     teamData,
     empresaPerfilExternoFonte,
+    perfilComportamentalLiberado,
   };
 }
 

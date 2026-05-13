@@ -22,11 +22,22 @@ export async function verificarDisponibilidadeMapeamento() {
     .eq('id', colab.empresa_id)
     .maybeSingle();
   const fonteExterna = (empCfg?.sys_config as any)?.perfil_externo_fonte ?? null;
+  const cfg = (empCfg?.sys_config as any) || {};
+  const perfilLiberado =
+    cfg.perfil_comportamental_liberado !== false &&
+    !(cfg.votacao_ativa === true && cfg.perfil_comportamental_liberado !== true);
   if (fonteExterna) {
     return {
       permitido: false,
       redirectTo: '/dashboard/perfil-comportamental',
       motivo: 'Sua empresa usa mapeamento comportamental próprio.',
+    };
+  }
+  if (!perfilLiberado) {
+    return {
+      permitido: false,
+      redirectTo: '/dashboard/perfil-comportamental',
+      motivo: 'O perfil comportamental ainda não foi liberado pela empresa.',
     };
   }
 
@@ -55,10 +66,20 @@ export async function salvarPerfilComportamental(resultados) {
     .eq('id', colab.empresa_id)
     .maybeSingle();
   const fonteExterna = (empCfg?.sys_config as any)?.perfil_externo_fonte ?? null;
+  const cfg = (empCfg?.sys_config as any) || {};
+  const perfilLiberado =
+    cfg.perfil_comportamental_liberado !== false &&
+    !(cfg.votacao_ativa === true && cfg.perfil_comportamental_liberado !== true);
   if (fonteExterna) {
     return {
       success: false,
       error: 'Esta empresa usa mapeamento comportamental próprio. O DISC nativo não será salvo.',
+    };
+  }
+  if (!perfilLiberado) {
+    return {
+      success: false,
+      error: 'O perfil comportamental ainda não foi liberado pela empresa.',
     };
   }
 

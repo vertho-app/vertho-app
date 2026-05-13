@@ -80,9 +80,11 @@ export default function JornadaPage() {
   const firstName = (colaborador.nome_completo || '').split(' ')[0] || '';
   const phaseTokens = PHASE_TOKENS[faseNum] ?? PHASE_TOKENS[2];
   const usaPerfilExterno = !!data.empresaPerfilExternoFonte;
+  const perfilComportamentalLiberado = data.perfilComportamentalLiberado !== false;
 
   function faseHref(fase: any) {
     if (fase?.fase === 1 && usaPerfilExterno && !data.temPerfilExterno) return null;
+    if (fase?.fase === 1 && !usaPerfilExterno && !colaborador.perfil_dominante && !perfilComportamentalLiberado) return null;
     return FASE_HREF[fase?.fase];
   }
 
@@ -90,11 +92,15 @@ export default function JornadaPage() {
     if (fase?.fase === 1 && usaPerfilExterno) {
       return 'Sua empresa usa mapeamento comportamental próprio. Você não precisa responder DISC na Vertho.';
     }
+    if (fase?.fase === 1 && !perfilComportamentalLiberado && !colaborador.perfil_dominante) {
+      return 'O perfil comportamental será liberado pelo RH depois que a votação de competências for finalizada.';
+    }
     return FASE_DESC[fase?.fase] || 'Continue sua jornada de desenvolvimento.';
   }
 
   function ctaLabel(fase: any) {
     if (fase?.fase === 1 && usaPerfilExterno) return 'Ver perfil comportamental';
+    if (fase?.fase === 1 && !perfilComportamentalLiberado && !colaborador.perfil_dominante) return 'Aguardando liberação';
     return CTA_LABEL[fase?.fase] || 'Ver minha evolução';
   }
 

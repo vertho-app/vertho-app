@@ -20,8 +20,12 @@ export async function loadJornada() {
     .select('sys_config')
     .eq('id', colab.empresa_id)
     .maybeSingle();
-  const empresaPerfilExternoFonte = (empCfg?.sys_config as any)?.perfil_externo_fonte ?? null;
+  const cfg = (empCfg?.sys_config as any) || {};
+  const empresaPerfilExternoFonte = cfg.perfil_externo_fonte ?? null;
   const usaPerfilExterno = !!empresaPerfilExternoFonte;
+  const perfilComportamentalLiberado =
+    cfg.perfil_comportamental_liberado !== false &&
+    !(cfg.votacao_ativa === true && cfg.perfil_comportamental_liberado !== true);
 
   const fases = [];
 
@@ -35,7 +39,9 @@ export async function loadJornada() {
     titulo: 'Diagnóstico',
     descricao: usaPerfilExterno
       ? 'Mapeamento comportamental conduzido pela empresa'
-      : 'Mapeamento do perfil comportamental',
+      : perfilComportamentalLiberado
+        ? 'Mapeamento do perfil comportamental'
+        : 'Aguardando liberação do perfil comportamental',
     status: (usaPerfilExterno || temDISC) ? 'completed' : 'pending',
     data: (temDISC || temPerfilExterno) ? null : null, // DISC date not stored separately
     usaPerfilExterno,
@@ -148,5 +154,6 @@ export async function loadJornada() {
     fases,
     empresaPerfilExternoFonte,
     temPerfilExterno,
+    perfilComportamentalLiberado,
   };
 }

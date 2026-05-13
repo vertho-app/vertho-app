@@ -6,6 +6,7 @@ import { getSupabase } from '@/lib/supabase-browser';
 import {
   ArrowRight, Play, Loader2, Check,
   BookOpen, FileText, Headphones, Zap, MessageCircle,
+  Lock,
 } from 'lucide-react';
 import { loadDashboardData } from './dashboard-actions';
 import { loadHomeKpis } from '@/actions/dashboard-kpis';
@@ -139,7 +140,11 @@ export default function DashboardHomePage() {
   // Empresa com fonte externa (OPQ32, Hogan...) NÃO usa DISC nativo:
   // o colaborador não precisa fazer o mapeamento na ferramenta — pula o CTA.
   const usaFonteExterna = !!data?.empresaPerfilExternoFonte;
-  const precisaMapeamentoDISC = !usaFonteExterna && !colaborador.perfil_dominante;
+  const perfilComportamentalLiberado =
+    data?.perfilComportamentalLiberado !== false &&
+    votacaoAberta?.perfilComportamentalLiberado !== false;
+  const perfilComportamentalBloqueado = !usaFonteExterna && !colaborador.perfil_dominante && !perfilComportamentalLiberado;
+  const precisaMapeamentoDISC = !usaFonteExterna && !colaborador.perfil_dominante && perfilComportamentalLiberado;
   const phaseLabels = [
     data?.empresaPerfilExternoFonte === 'opq32' ? 'OPQ' : usaFonteExterna ? 'Perfil' : 'DISC',
     'Aval',
@@ -150,12 +155,20 @@ export default function DashboardHomePage() {
 
   function handleMainCTA() {
     if (competencia) return router.push('/dashboard/temporada');
+    if (perfilComportamentalBloqueado) {
+      if (votacaoAberta?.votacaoAtiva && !votacaoAberta.jaVotou) return router.push('/dashboard/votacao');
+      return;
+    }
     if (precisaMapeamentoDISC) return router.push('/dashboard/perfil-comportamental');
     router.push('/dashboard/assessment');
   }
 
   function mainCTALabel() {
     if (competencia) return 'Iniciar atividade de hoje';
+    if (perfilComportamentalBloqueado) {
+      if (votacaoAberta?.votacaoAtiva && !votacaoAberta.jaVotou) return 'Votar antes do perfil comportamental';
+      return 'Aguardando liberação do perfil comportamental';
+    }
     if (precisaMapeamentoDISC) return 'Fazer diagnóstico comportamental';
     return (colaborador.respondidas || 0) > 0 ? 'Continuar avaliação' : 'Iniciar avaliação';
   }
@@ -383,10 +396,17 @@ export default function DashboardHomePage() {
               {faseDescricoes[faseNum] || 'Continue sua jornada de desenvolvimento.'}
             </p>
             <button onClick={handleMainCTA}
+              disabled={perfilComportamentalBloqueado && !(votacaoAberta?.votacaoAtiva && !votacaoAberta.jaVotou)}
               className="w-full py-4 rounded-2xl font-bold text-base transition-all duration-200 flex items-center justify-center gap-2"
-              style={{ background: 'var(--phase-accent)', color: '#062032', boxShadow: '0 10px 24px var(--phase-glow)' }}>
+              style={{
+                background: perfilComportamentalBloqueado ? 'rgba(255,255,255,0.08)' : 'var(--phase-accent)',
+                color: perfilComportamentalBloqueado ? 'rgba(255,255,255,0.55)' : '#062032',
+                boxShadow: perfilComportamentalBloqueado ? 'none' : '0 10px 24px var(--phase-glow)',
+              }}>
               {mainCTALabel()}
-              <ArrowRight size={18} />
+              {perfilComportamentalBloqueado && !(votacaoAberta?.votacaoAtiva && !votacaoAberta.jaVotou)
+                ? <Lock size={18} />
+                : <ArrowRight size={18} />}
             </button>
           </div>
         </section>

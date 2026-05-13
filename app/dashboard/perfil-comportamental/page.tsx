@@ -449,6 +449,7 @@ export default function PerfilComportamentalPage() {
   const hasDISC = c.perfil_dominante && (c.d_natural || c.i_natural || c.s_natural || c.c_natural);
   const usaFonteExterna = !!empresaPerfilExternoFonte;
   const temPerfilExterno = !!c.perfil_externo_dados;
+  const perfilComportamentalLiberado = (data as any).perfilComportamentalLiberado !== false;
 
   // Empresa com fonte externa/proprietária: NUNCA oferecer DISC nativo.
   // O perfil pode ser usado pelo pipeline interno quando houver dados, mas o
@@ -492,6 +493,27 @@ export default function PerfilComportamentalPage() {
 
   // Fluxo DISC nativo — oferece mapeamento se ainda não tem.
   if (!hasDISC) {
+    if (!perfilComportamentalLiberado) {
+      return (
+        <PageContainer>
+          <PageHero
+            eyebrow="PERFIL COMPORTAMENTAL"
+            title="Próxima etapa ainda bloqueada"
+            subtitle="O perfil comportamental será liberado pelo RH depois que a votação de competências for finalizada."
+          />
+          <div className="flex justify-center">
+            <div className="rounded-2xl border border-amber-400/20 p-8 text-center max-w-[520px] w-full"
+              style={{ background: 'rgba(245,158,11,0.06)', backdropFilter: 'blur(12px)' }}>
+              <AlertCircle size={40} className="text-amber-300 mx-auto mb-3" />
+              <p className="text-sm text-gray-300 leading-relaxed">
+                Seu voto pode ser registrado primeiro. Assim que a empresa fechar a votação e liberar o próximo passo, o mapeamento DISC ficará disponível aqui.
+              </p>
+            </div>
+          </div>
+        </PageContainer>
+      );
+    }
+
     return (
       <PageContainer>
         <PageHero

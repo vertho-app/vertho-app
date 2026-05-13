@@ -2,8 +2,8 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2, Users, BarChart3, CheckCircle, AlertCircle, MessageCircle, Trophy } from 'lucide-react';
-import { loadResultadosVotacao, toggleVotacao, aprovarTop5Votacao } from '@/actions/votacao';
+import { ArrowLeft, Loader2, Users, BarChart3, CheckCircle, AlertCircle, MessageCircle, Trophy, Lock, Unlock } from 'lucide-react';
+import { loadResultadosVotacao, toggleVotacao, aprovarTop5Votacao, togglePerfilComportamental } from '@/actions/votacao';
 
 const MEDAL = ['🥇', '🥈', '🥉', '4º', '5º'];
 
@@ -14,6 +14,7 @@ export default function VotacaoAdminPage({ params }: { params: Promise<{ empresa
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
+  const [togglingPerfil, setTogglingPerfil] = useState(false);
   const [aprovando, setAprovando] = useState<string | null>(null);
   // selecaoPorCargo[cargo] = Set<string> de competências marcadas pra aprovação
   const [selecaoPorCargo, setSelecaoPorCargo] = useState<Record<string, Set<string>>>({});
@@ -42,6 +43,14 @@ export default function VotacaoAdminPage({ params }: { params: Promise<{ empresa
     setToggling(true);
     const r = await toggleVotacao(empresaId, !data.votacaoAtiva);
     setToggling(false);
+    flash(r.success ? r.message : r.error);
+    refresh();
+  }
+
+  async function handleTogglePerfil() {
+    setTogglingPerfil(true);
+    const r = await togglePerfilComportamental(empresaId, !data.perfilComportamentalLiberado);
+    setTogglingPerfil(false);
     flash(r.success ? r.message : r.error);
     refresh();
   }
@@ -93,15 +102,27 @@ export default function VotacaoAdminPage({ params }: { params: Promise<{ empresa
             <p className="text-xs text-gray-500">Consolidação dos votos dos colaboradores</p>
           </div>
         </div>
-        <button onClick={handleToggle} disabled={toggling}
-          className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-            data?.votacaoAtiva
-              ? 'bg-red-400/15 text-red-400 border border-red-400/30 hover:bg-red-400/25'
-              : 'bg-green-400/15 text-green-400 border border-green-400/30 hover:bg-green-400/25'
-          }`}>
-          {toggling ? <Loader2 size={14} className="animate-spin inline mr-1" /> : null}
-          {data?.votacaoAtiva ? 'Fechar votação' : 'Abrir votação'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={handleTogglePerfil} disabled={togglingPerfil || data?.votacaoAtiva}
+            title={data?.votacaoAtiva ? 'Feche a votação antes de liberar o próximo passo' : undefined}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-1.5 ${
+              data?.perfilComportamentalLiberado
+                ? 'bg-cyan-400/15 text-cyan-300 border border-cyan-400/30 hover:bg-cyan-400/25'
+                : 'bg-amber-400/15 text-amber-300 border border-amber-400/30 hover:bg-amber-400/25'
+            } disabled:opacity-50 disabled:cursor-not-allowed`}>
+            {togglingPerfil ? <Loader2 size={14} className="animate-spin" /> : data?.perfilComportamentalLiberado ? <Unlock size={14} /> : <Lock size={14} />}
+            {data?.perfilComportamentalLiberado ? 'Bloquear perfil' : 'Liberar perfil'}
+          </button>
+          <button onClick={handleToggle} disabled={toggling}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+              data?.votacaoAtiva
+                ? 'bg-red-400/15 text-red-400 border border-red-400/30 hover:bg-red-400/25'
+                : 'bg-green-400/15 text-green-400 border border-green-400/30 hover:bg-green-400/25'
+            }`}>
+            {toggling ? <Loader2 size={14} className="animate-spin inline mr-1" /> : null}
+            {data?.votacaoAtiva ? 'Fechar votação' : 'Abrir votação'}
+          </button>
+        </div>
       </div>
 
       {/* Status */}
@@ -124,6 +145,24 @@ export default function VotacaoAdminPage({ params }: { params: Promise<{ empresa
               }`}>{pctTotal}%</span>
             </div>
           )}
+        </div>
+      </div>
+
+      <div className={`rounded-xl p-4 mb-3 border ${data?.perfilComportamentalLiberado ? 'border-cyan-400/20 bg-cyan-400/5' : 'border-amber-400/20 bg-amber-400/5'}`}>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            {data?.perfilComportamentalLiberado ? <Unlock size={16} className="text-cyan-300" /> : <Lock size={16} className="text-amber-300" />}
+            <span className={`text-sm font-bold ${data?.perfilComportamentalLiberado ? 'text-cyan-300' : 'text-amber-300'}`}>
+              {data?.perfilComportamentalLiberado
+                ? 'Perfil comportamental liberado — colaboradores podem avançar'
+                : 'Perfil comportamental bloqueado — aguarde finalizar a votação'}
+            </span>
+          </div>
+          <span className="text-xs text-gray-400">
+            {data?.votacaoAtiva
+              ? 'Liberação disponível após fechar a votação'
+              : 'Use o botão “Liberar perfil” quando o ranking estiver fechado'}
+          </span>
         </div>
       </div>
 

@@ -44,6 +44,12 @@ async function captureRequestMetadata() {
 
 // ── Check rápido: votação aberta? já votou? ──────────────────────────────
 
+function isPerfilComportamentalLiberado(config: any) {
+  if (config?.perfil_comportamental_liberado === false) return false;
+  if (config?.votacao_ativa === true && config?.perfil_comportamental_liberado !== true) return false;
+  return true;
+}
+
 export async function checkVotacaoStatus() {
   try {
     const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
@@ -56,8 +62,10 @@ export async function checkVotacaoStatus() {
     const sb = createSupabaseAdmin();
     const { data: empresa } = await sb.from('empresas')
       .select('sys_config').eq('id', colab.empresa_id).maybeSingle();
-    const votacaoAtiva = empresa?.sys_config?.votacao_ativa === true;
-    if (!votacaoAtiva) return { votacaoAtiva: false, jaVotou: false };
+    const config = empresa?.sys_config || {};
+    const votacaoAtiva = config.votacao_ativa === true;
+    const perfilComportamentalLiberado = isPerfilComportamentalLiberado(config);
+    if (!votacaoAtiva) return { votacaoAtiva: false, jaVotou: false, perfilComportamentalLiberado };
 
     const tdb = tenantDb(colab.empresa_id);
     const { data: voto } = await (tdb.from('votacao_competencias') as any)
@@ -65,7 +73,7 @@ export async function checkVotacaoStatus() {
       .eq('colaborador_id', colab.id)
       .maybeSingle();
 
-    return { votacaoAtiva: true, jaVotou: !!voto };
+    return { votacaoAtiva: true, jaVotou: !!voto, perfilComportamentalLiberado };
   } catch {
     return null;
   }
@@ -168,12 +176,40 @@ export async function toggleVotacao(empresaId: string, ativa: boolean) {
 
   const config = empresa?.sys_config || {};
   config.votacao_ativa = ativa;
+  if (ativa || config.perfil_comportamental_liberado !== true) {
+    config.perfil_comportamental_liberado = false;
+  }
 
   const { error } = await sb.from('empresas')
     .update({ sys_config: config }).eq('id', empresaId);
 
   if (error) return { success: false, error: error.message };
   return { success: true, message: ativa ? 'Votação aberta' : 'Votação fechada' };
+}
+
+export async function togglePerfilComportamental(empresaId: string, liberado: boolean) {
+  const { requireAdminAction } = await import('@/lib/auth/action-context');
+  await requireAdminAction();
+
+  const sb = createSupabaseAdmin();
+  const { data: empresa } = await sb.from('empresas')
+    .select('sys_config').eq('id', empresaId).maybeSingle();
+
+  const config = empresa?.sys_config || {};
+  if (liberado && config.votacao_ativa === true) {
+    return { success: false, error: 'Feche a votação antes de liberar o perfil comportamental.' };
+  }
+
+  config.perfil_comportamental_liberado = liberado;
+
+  const { error } = await sb.from('empresas')
+    .update({ sys_config: config }).eq('id', empresaId);
+
+  if (error) return { success: false, error: error.message };
+  return {
+    success: true,
+    message: liberado ? 'Perfil comportamental liberado' : 'Perfil comportamental bloqueado',
+  };
 }
 
 // ── Admin: carregar resultados da votação ─────────────────────────────────
@@ -188,7 +224,9 @@ export async function loadResultadosVotacao(empresaId: string) {
   // Verificar status
   const { data: empresa } = await sb.from('empresas')
     .select('sys_config').eq('id', empresaId).maybeSingle();
-  const votacaoAtiva = empresa?.sys_config?.votacao_ativa === true;
+  const config = empresa?.sys_config || {};
+  const votacaoAtiva = config.votacao_ativa === true;
+  const perfilComportamentalLiberado = isPerfilComportamentalLiberado(config);
 
   // Todos os colaboradores
   const { data: colabs } = await tdb.from('colaboradores')
@@ -243,7 +281,7 @@ export async function loadResultadosVotacao(empresaId: string) {
     };
   }
 
-  return { votacaoAtiva, resultado };
+  return { votacaoAtiva, perfilComportamentalLiberado, resultado };
 }
 
 // ── Admin: aprovar Top 5 da votação ───────────────────────────────────────
