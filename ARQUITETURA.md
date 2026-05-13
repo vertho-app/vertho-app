@@ -57,7 +57,7 @@
 
 Contexto rapido para reinicializacao da maquina:
 
-- Branch atual: `master`, **Modo Onboarding** completo (Fases 1-4). Engine parametrizada via `lib/season-engine/programa-config.ts`; `getProgramaConfig` lê `sys_config.programa_modo`. Template `PROGRAMA_ONBOARDING` (10 sem, missões 4/7/9, cenário B sem 10, nível-meta 2, 5 comps em espiral). IA1 aceita viés por fase de carreira; IA3 (cenário) e missão aceitam modo integrador multi-competência. `actions/temporadas.gerarTemporadaOnboarding` faz trilha multi-comp; `gerarAvaliacaoAcumuladaParcial` roda acumulada por janela. Role `'tutor'` adicionado em `types/index.d.ts` + `lib/authz` (`isTutor`, `getTutorados`, `canTutorAccess`). UI admin: tab "Programa" + role tutor no dropdown. Migrations 090 (sys_config schema), 091 (trilhas.competencias_foco TEXT[]), 092 (colaboradores.tutorados_ids UUID[]).
+- Branch atual: `master`, HEAD `cca9c33`. **Modo Onboarding** completo (Fases 1-4 + pendências + testes). Detalhes na seção 17 deste documento. Migrations 090-092 aplicadas em prod via Studio.
 - Arquivos rastreados: pendentes no momento desta revisao — `supabase/config.toml` (drift local) e este `ARQUITETURA.md`.
 - Nao versionados presentes no workspace: `.tmp_enem_2024/`, `outputs/`, `RESUMO.md`, `public/Logo sem texto.png`, `scripts/diag-tables-check.mjs`.
 - Ultimas frentes visiveis (semana 2026-05-12 → 13):
@@ -926,6 +926,111 @@ Z-API: WhatsApp gateway
 
 ---
 
+## 17. Modo Onboarding (caso de uso da engine)
+
+> Modo do programa para profissionais recém-formados (foco inicial: professor recém-formado em escolas). **Não é produto novo** — é configuração da mesma engine de trilha. Ativado por empresa via `sys_config.programa_modo = 'onboarding'`.
+
+### 17.1 Como difere do programa Regular
+
+| Dimensão | Regular | Onboarding |
+|---|---|---|
+| Duração | 14 semanas | **10 semanas** |
+| Competências por trilha | 1 (aprofundada) | **5 (em espiral)** |
+| Nível-meta na régua | 3 (proficiente) | **2 (autonomia supervisionada)** |
+| Missões | Sem 4, 8, 12 (uni-competência) | **Sem 4, 7, 9 (multi-competência integradora)** |
+| Avaliação Acumulada | Sem 13 (auto-trigger) | **Embutida nas missões 4/7/9 (parcial cumulativa)** |
+| Cenário B (wizard final) | Sem 14 | **Sem 10** |
+| Slots de conteúdo | `[1,2,3,5,6,7,9,10,11]` | `[2,3,5,6,8]` — sem 1 = calibragem |
+| Acompanhamento | Gestor (por `gestor_email`) | **Tutor** (por `tutorados_ids[]`) |
+| Push automatizado | — | **WhatsApp pro tutor nas sems 4 e 7** (sugestão de pauta) |
+
+### 17.2 Arquivos-chave
+
+```
+lib/season-engine/programa-config.ts   # PROGRAMA_REGULAR + PROGRAMA_ONBOARDING + getProgramaConfig
+lib/season-engine/build-season.ts      # buildSeason recebe programaConfig + competencias[]
+lib/season-engine/select-descriptors.ts # selectDescriptors (regular) + selectDescriptorsMulti (onboarding)
+lib/season-engine/prompts/scenario.ts  # aceita cenarioTipo='integrador' + competenciasIntegradas[]
+lib/season-engine/prompts/missao.ts    # aceita missaoTipo='integradora' + competenciasIntegradas[]
+lib/season-engine/prompts/acumulado.ts # aceita nivelMetaAlvo: 2|3 (régua condicional)
+lib/notify-tutor.ts                    # notifyTutorMissaoConcluida (Z-API push)
+actions/temporadas.ts                  # gerarTemporada (regular) + gerarTemporadaOnboarding (multi)
+actions/avaliacao-acumulada.ts         # gerarAvaliacaoAcumulada (completo) + gerarAvaliacaoAcumuladaParcial (Onboarding)
+app/api/temporada/reflection/route.ts  # auto-trigger acumulada parcial + notify tutor ao concluir missão
+app/admin/empresas/[id]/configuracoes  # tab "Programa" (toggle modo + fase_carreira)
+lib/authz.ts                           # isTutor, getTutorados, canTutorAccess
+```
+
+### 17.3 Chaves novas em `sys_config` (JSONB)
+
+```jsonc
+{
+  "programa_modo": "regular" | "onboarding",          // default regular
+  "fase_carreira_default": "junior" | "pleno" | "senior", // viés da IA1
+  "nivel_meta_alvo": 2 | 3,                            // default 3
+  "duracao_semanas": 10 | 14,                          // futuro override
+  "num_competencias_trilha": 1 | 5,
+  "cadencia_template": "linear" | "espiral",
+  "competencias_onboarding": ["Comp1", ..., "Comp5"]   // override do top 5 do cargo
+}
+```
+
+Documentação enforced via migration 090 (`COMMENT ON COLUMN`).
+
+### 17.4 Migrations
+
+- **090** — `empresas.sys_config` COMMENT documentando chaves novas. Sem DDL.
+- **091** — `trilhas.competencias_foco TEXT[]` + backfill `ARRAY[competencia_foco]`.
+- **092** — `colaboradores.tutorados_ids UUID[]` + GIN index.
+
+### 17.5 RBAC do papel Tutor
+
+- Adicionado em `types/index.d.ts`: `Role = 'colaborador' | 'gestor' | 'rh' | 'tutor'`.
+- `lib/authz.ts`: `isTutor`, `getTutorados(ctx)`, `canTutorAccess(ctx, colabId)`.
+- `getDashboardView` retorna `'tutor'` quando aplicável.
+- `findColabByEmail` puxa `tutorados_ids` no select padrão.
+- Tutor reusa `/dashboard/gestor` e `/dashboard/gestor/equipe-evolucao`; filtros checam `tutorados_ids` (fail-closed: vazio = lista vazia).
+- Header da página: "Tutor · seus tutorados" + "Meus tutorados" quando `scope='tutor'`.
+
+### 17.6 Auto-trigger acumulada parcial
+
+Em `/api/temporada/reflection/route.ts` (linha ~390): ao concluir missão integradora em modo Onboarding, dispara `gerarAvaliacaoAcumuladaParcial(trilhaId, compsCobertas, semana, internal=true)` em background. Não bloqueia resposta ao colab. A flag `internal=true` pula `requireAdminAction` porque o caller é o próprio colaborador.
+
+Janela cumulativa vem de `programaConfig.competenciasNaMissao`:
+- Sem 4 → Comps 0-1 (índices)
+- Sem 7 → Comps 0-3
+- Sem 9 → todas (`[-1]`)
+
+### 17.7 Push WhatsApp pro Tutor (sems 4 e 7)
+
+`lib/notify-tutor.ts` → `notifyTutorMissaoConcluida({trilhaId, semana, competenciasIntegradas})`. Disparado em paralelo ao trigger da acumulada parcial. Mensagem inclui nome do tutorado, semana, competências cobertas e 3 perguntas de pauta sugerida. Hard-coded em `SEMANAS_NOTIFY = [4, 7]` — sem 9 é final, sem check-in.
+
+Comportamento defensivo: sem tutor vinculado → skip silencioso; tutor sem telefone → log; Z-API falha → log (não bloqueia conclusão da missão).
+
+### 17.8 Testes
+
+- **Unit (Vitest)** — `tests/unit/onboarding/programa-config.test.ts`: 24 testes cobrindo estrutura dos templates, `getProgramaConfig`, `descritoresCobertosNaMissao`, `selectDescriptorsMulti`.
+- **E2E (Playwright)** — `tests/onboarding-config-ui.spec.js`: tab Programa, toggle modo, banner ativo, dropdown fase_carreira, role Tutor no dropdown da Equipe.
+
+### 17.9 Pendências (fora do escopo Fases 1-4)
+
+- Push pro tutor além das sems 4 e 7 (ex.: alertas de inatividade).
+- UI dedicada pra atribuir `tutorados_ids` em massa (hoje só via SQL ou edição individual).
+- Testes específicos de IA1 com `fase_carreira` e acumulada com nível-meta 2 — pulados intencionalmente porque dependem de chamadas reais de IA e geram falsos negativos quando prompts evoluem.
+
+### 17.10 Commits do roll-out
+
+| Commit | Entrega |
+|---|---|
+| `776f953` | Fase 1 — Parametrização da engine (zero mudança funcional) |
+| `a177b3b` | Fase 2 — Template ONBOARDING + IA1 `fase_carreira` + UI admin tab Programa |
+| `2caa933` | Fases 3+4 — Multi-competência + prompts integradores + role Tutor + nível-meta 2 |
+| `1ccd877` | Auto-trigger acumulada parcial + dashboard tutor com escopo |
+| `777a726` | Push WhatsApp pro tutor ao concluir missões 4 e 7 |
+| `cca9c33` | Testes Vitest + Playwright + cleanup UI |
+
+---
+
 *Documento validado contra o codigo-fonte local em 13/05/2026.*
-*~378 arquivos TS/TSX + ~58 JS/MJS | 70 arquivos SQL (022-089) | 27 arquivos de teste | 22+ env vars | vertho.ai*
-*Revisao: 13/05/2026 (HEAD `4990742` — confirms preventivos)*
+*~378 arquivos TS/TSX + ~58 JS/MJS | 73 arquivos SQL (022-092) | 28 arquivos de teste (27 Playwright + 18 Vitest) | 22+ env vars | vertho.ai*
+*Revisao: 13/05/2026 (HEAD `cca9c33` — Modo Onboarding completo)*

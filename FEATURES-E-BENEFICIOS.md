@@ -1,17 +1,19 @@
 # Vertho — Features e Benefícios
 
 > Inventário das features em produção (Mentor IA + Radar + Radar Bett) com o benefício correspondente para o cliente. Base para o site, materiais comerciais e ajuste de comunicação.
-> Última atualização: 13/05/2026 — HEAD `eec468a`.
+> Última atualização: 13/05/2026 — HEAD `cca9c33`.
 
 ---
 
 ## O que é a Vertho
 
-A Vertho é uma plataforma SaaS B2B que **transforma diagnóstico de competências em desenvolvimento real**, usando IA conversacional, trilhas de 14 semanas e relatórios automatizados.
+A Vertho é uma plataforma SaaS B2B que **transforma diagnóstico de competências em desenvolvimento real**, usando IA conversacional, trilhas guiadas e relatórios automatizados.
 
 Três produtos vivos:
 
-- **Mentor IA** (principal) — Diagnóstico, plano de desenvolvimento individual e trilha guiada, multi-tenant por empresa.
+- **Mentor IA** (principal) — Diagnóstico, plano de desenvolvimento individual e trilha guiada, multi-tenant por empresa. Dois modos de uso:
+  - **Programa Regular** — 14 semanas focadas em 1 competência aprofundada (nível-meta 3 / proficiência).
+  - **Vertho Onboarding** — 10 semanas em espiral cobrindo 5 competências (nível-meta 2 / autonomia supervisionada), para profissionais recém-formados.
 - **Radar Vertho** ([radar.vertho.ai](https://radar.vertho.ai)) — Inteligência pública nacional sobre escolas, municípios, redes e estados (Saeb, Ideb, ENEM, Censo, FUNDEB) com narrativa por IA.
 - **Radar Bett** ([radarbett.vertho.ai](https://radarbett.vertho.ai)) — Site dedicado ao Bett Brasil 2026 com jornada comercial focada em conversão.
 
@@ -109,7 +111,47 @@ Três produtos vivos:
 
 ---
 
-## 5. Radar Vertho — Inteligência pública educacional
+## 5. Vertho Onboarding — Caso de uso para recém-formados
+
+> Mesmo motor do Mentor IA configurado para acelerar profissionais em fase inicial de carreira. Não é produto separado: é um *modo* da plataforma, ativável por empresa. Beta privado em 3-4 escolas que pediram a feature no Bett Brasil 2026 (foco: professor recém-formado).
+
+### 5.1 Como difere do programa Regular
+
+| Dimensão | Programa Regular | Vertho Onboarding |
+|---|---|---|
+| Duração | 14 semanas | **10 semanas** |
+| Competências | 1 aprofundada | **5 em espiral** |
+| Meta de proficiência | Nível 3 (proficiente) | **Nível 2 (autonomia supervisionada)** |
+| Cadência | Conteúdo→prática→reflexão | **Calibragem → fundamentos pareados → 3 missões integradoras** |
+| Acompanhamento | Gestor (equipe inteira) | **Tutor** (1-N tutorados específicos) |
+| Pricing previsto | Por seat anual | Por contratado/onboardeado (a definir) |
+
+### 5.2 Features específicas do Onboarding
+
+| Feature | O que é | Benefício |
+|---|---|---|
+| **Trilha de 10 semanas em espiral** | Sem 1 = calibragem; Sems 2/3/5/6/8 = fundamento de cada uma das 5 competências; Sems 4/7/9 = missões integradoras cumulativas; Sem 10 = cenário B + Evolution Report | Profissional sai de "saiu da faculdade" pra "consigo executar com supervisão" em ~2,5 meses, sem queimar etapas. |
+| **Missões integradoras multi-competência** | Sem 4 cobre Comps 1+2; sem 7 cobre 1-4; sem 9 cobre todas. IA monta cenários onde as competências precisam ser exercidas juntas, não isoladas | Aprendizado coerente com a realidade do trabalho — onde nada acontece em silos. |
+| **IA1 com viés por fase de carreira** | Configurável: `junior` prioriza competências operacionais/básicas; `senior` prioriza estratégicas/relacionais; `pleno` ou sem viés = comportamento default | Ranking de competências sintonizado com o momento da carreira — não pede "visão sistêmica" pra quem acabou de entrar. |
+| **Acumulada parcial automática nas missões** | Após cada missão integradora (4/7/9), dupla-IA roda acumulada cobrindo só as competências da janela cumulativa, em background | RH/Tutor recebem leitura intermediária do progresso sem esperar 10 semanas. |
+| **Régua nível-meta 2 (autonomia)** | Avaliações usam N2 como "Meta (autonomia supervisionada)" em vez de N3. Aprovação = todas as comps ≥ 2.0 | Critério calibrado à realidade do recém-formado — não é o mesmo nível esperado de um sênior. |
+| **Cenário B na sem 10** | Wizard final unificado com 4 perguntas (situação/ação/raciocínio/autossensibilidade) cobrindo todas as 5 competências | Avaliação consolidada da formação, em situação realista do cargo. |
+| **Papel "Tutor"** | Subset do papel Gestor: escopo restrito a `tutorados_ids` (não a uma equipe inteira por área). Dashboard mostra "Meus tutorados" | Professor sênior ou coordenador pedagógico acompanha 3-5 colegas em onboarding, sem ver dados de outras pessoas. |
+| **Push WhatsApp ao tutor nas sems 4 e 7** | Após cada missão integradora cumulativa, tutor recebe automaticamente: nome do tutorado, semana, competências cobertas e 3 perguntas de pauta sugerida pro check-in | Tutor não precisa lembrar quando agendar conversa — sistema avisa com pauta pronta. |
+| **Plenária do Onboarding (PDF)** | Mesmo motor da Plenária do Gestor, refatorado para aceitar título e responsável customizáveis. Pode ser entregue pelo Tutor ou RH | Documento consolidado da turma de recém-formados ao fim das 10 semanas. |
+| **Toggle por empresa** | Admin liga/desliga via tab "Programa" em configurações; `sys_config.programa_modo` controla. Top 5 default vem de `competencias_onboarding` ou top 5 do cargo no IA1 | Mesma plataforma, dois usos — escola escolhe se quer onboarding ou desenvolvimento de cargo regular. |
+
+### 5.3 Mensagens-chave do Onboarding (síntese pra copy)
+
+1. **"Da diplomação à autonomia em 10 semanas."**
+2. **"5 competências essenciais, exercidas juntas — como no trabalho real."**
+3. **"O tutor recebe pauta pronta — não precisa adivinhar o que perguntar."**
+4. **"Nível-meta calibrado pra quem está começando: autonomia supervisionada, não excelência sênior."**
+5. **"Sem produto separado: é a mesma plataforma de desenvolvimento, em modo recém-formado."**
+
+---
+
+## 6. Radar Vertho — Inteligência pública educacional
 
 Site público em [radar.vertho.ai](https://radar.vertho.ai).
 
@@ -131,7 +173,7 @@ Site público em [radar.vertho.ai](https://radar.vertho.ai).
 
 ---
 
-## 6. Radar Bett — Site Bett Brasil 2026
+## 7. Radar Bett — Site Bett Brasil 2026
 
 Site público em [radarbett.vertho.ai](https://radarbett.vertho.ai).
 
@@ -147,7 +189,7 @@ Site público em [radarbett.vertho.ai](https://radarbett.vertho.ai).
 
 ---
 
-## 7. Operação e suporte
+## 8. Operação e suporte
 
 | Feature | O que é | Benefício |
 |---|---|---|
@@ -160,7 +202,7 @@ Site público em [radarbett.vertho.ai](https://radarbett.vertho.ai).
 
 ---
 
-## 8. Mensagens-chave (síntese pra copy)
+## 9. Mensagens-chave (síntese pra copy)
 
 Para usar diretamente em hero, manchetes e materiais comerciais:
 
@@ -175,7 +217,7 @@ Para usar diretamente em hero, manchetes e materiais comerciais:
 
 ---
 
-## 9. O que NÃO falar (positioning trap)
+## 10. O que NÃO falar (positioning trap)
 
 Para a comunicação não soar genérica ou marketeira demais:
 
