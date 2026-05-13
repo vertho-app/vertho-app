@@ -9,6 +9,7 @@ import { promptAnalytic } from '@/lib/season-engine/prompts/analytic';
 import { promptMissaoFeedback } from '@/lib/season-engine/prompts/missao-feedback';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
+import { getProgramaConfig } from '@/lib/season-engine/programa-config';
 
 function parseExtracaoResponse(raw: string): any {
   let cleaned = raw.trim();
@@ -368,12 +369,45 @@ export async function POST(request) {
       await sb.from('temporada_semana_progresso').insert(upsertPayload);
     }
 
+    // Resolve programaConfig pra parametrizar transição + auto-trigger Onboarding
+    const { data: empConf } = await sb.from('empresas')
+      .select('sys_config').eq('id', trilha.empresa_id).maybeSingle();
+    const programaConfig = getProgramaConfig(empConf?.sys_config);
+
     // Se concluiu, libera próxima semana (status pendente → em_andamento na UI fica visível)
-    if (finished && Number(semana) < 14) {
+    if (finished && Number(semana) < programaConfig.semanas) {
       const proxima = Number(semana) + 1;
       await sb.from('temporada_semana_progresso')
         .update({ status: 'em_andamento' })
         .eq('trilha_id', trilhaId).eq('semana', proxima).eq('status', 'pendente');
+    }
+
+    // Modo Onboarding: ao concluir missão integradora (4/7/9), dispara acumulada
+    // parcial em background — agrega evidências das comps cobertas até aqui.
+    if (
+      finished &&
+      programaConfig.modo === 'onboarding' &&
+      semanaPlan.tipo === 'aplicacao' &&
+      programaConfig.semanasMissao.includes(Number(semana)) &&
+      programaConfig.competenciasNaMissao
+    ) {
+      const idxs = programaConfig.competenciasNaMissao[Number(semana)] || [];
+      const { data: trilhaComp } = await sb.from('trilhas')
+        .select('competencias_foco').eq('id', trilhaId).maybeSingle();
+      const compsTrilha: string[] = Array.isArray(trilhaComp?.competencias_foco) ? trilhaComp!.competencias_foco : [];
+      const compsCobertas = idxs.includes(-1)
+        ? compsTrilha
+        : idxs.map(i => compsTrilha[i]).filter(Boolean);
+      if (compsCobertas.length) {
+        (async () => {
+          try {
+            const { gerarAvaliacaoAcumuladaParcial } = await import('@/actions/avaliacao-acumulada');
+            await gerarAvaliacaoAcumuladaParcial(trilhaId, compsCobertas, Number(semana), true);
+          } catch (e: any) {
+            console.error('[onboarding acumulada parcial]', e?.message);
+          }
+        })();
+      }
     }
 
     return NextResponse.json({

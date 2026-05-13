@@ -74,10 +74,10 @@ export default function GestorHomePage() {
       <div className="flex items-baseline justify-between gap-3 mb-5 flex-wrap">
         <div>
           <p className="text-[10px] tracking-[0.2em] uppercase font-mono text-cyan-300/80 mb-1">
-            {data.scope === 'rh' ? 'RH · empresa toda' : 'Gestor · sua área'}
+            {data.scope === 'rh' ? 'RH · empresa toda' : data.scope === 'tutor' ? 'Tutor · seus tutorados' : 'Gestor · sua área'}
           </p>
           <h1 className="text-white text-2xl font-bold flex items-center gap-2">
-            <Users size={22} className="text-cyan-400" /> Minha equipe
+            <Users size={22} className="text-cyan-400" /> {data.scope === 'tutor' ? 'Meus tutorados' : 'Minha equipe'}
           </h1>
         </div>
         <button onClick={() => router.push('/dashboard/gestor/equipe-evolucao')}

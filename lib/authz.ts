@@ -8,7 +8,7 @@ import type { Colaborador, UserContext, Role } from '@/types';
 // o mesmo email existe em múltiplas empresas (cenário legítimo em multi-tenant).
 export async function findColabByEmail(
   email: string | null | undefined,
-  selectCols: string = 'id, nome_completo, email, cargo, area_depto, empresa_id, role, perfil_dominante',
+  selectCols: string = 'id, nome_completo, email, cargo, area_depto, empresa_id, role, perfil_dominante, tutorados_ids',
 ): Promise<Colaborador | null> {
   if (!email) return null;
 
@@ -119,12 +119,13 @@ export function canViewOwnJourney(ctx: UserContext | null | undefined): boolean 
   return !!ctx?.colaborador;
 }
 
-export type DashboardView = 'rh' | 'gestor' | 'colaborador';
+export type DashboardView = 'rh' | 'gestor' | 'tutor' | 'colaborador';
 
 export function getDashboardView(ctx: UserContext | null | undefined): DashboardView {
   if (!ctx) return 'colaborador';
   if (ctx.role === 'rh') return 'rh';
   if (ctx.role === 'gestor') return 'gestor';
+  if (ctx.role === 'tutor') return 'tutor';
   // admin_plataforma sem vínculo de colaborador → visão rh
   if (ctx.isPlatformAdmin && !ctx.colaborador) return 'rh';
   return (ctx.role as DashboardView) || 'colaborador';

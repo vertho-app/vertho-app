@@ -130,9 +130,14 @@ export async function gerarAvaliacaoAcumulada(trilhaId: string) {
  *
  * Comportamento: idêntico à acumulada completa, mas com escopo reduzido. Não
  * dispara em modo regular.
+ *
+ * Auth: requer admin OU sistema interno (auto-trigger ao concluir missão na
+ * route /api/temporada/reflection). Quando chamada pelo trigger, NÃO há admin —
+ * o usuário é o próprio colab que terminou a missão. Por isso `internal=true`
+ * pula `requireAdminAction`. Esse path é restrito a callers no servidor.
  */
-export async function gerarAvaliacaoAcumuladaParcial(trilhaId: string, competenciasFiltro: string[], semFim: number) {
-  await requireAdminAction();
+export async function gerarAvaliacaoAcumuladaParcial(trilhaId: string, competenciasFiltro: string[], semFim: number, internal: boolean = false) {
+  if (!internal) await requireAdminAction();
   if (!Array.isArray(competenciasFiltro) || competenciasFiltro.length === 0) {
     return { error: 'competenciasFiltro obrigatório' };
   }

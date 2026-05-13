@@ -16,23 +16,31 @@ export async function listarEquipeEvolucao() {
   if (!ctx?.colaborador) return { error: 'Não autenticado' };
   const isGestor = ctx.role === 'gestor';
   const isRH = ctx.role === 'rh' || ctx.isPlatformAdmin;
-  if (!isGestor && !isRH) return { error: 'Acesso restrito a gestor/RH' };
+  const isTutor = ctx.role === 'tutor';
+  if (!isGestor && !isRH && !isTutor) return { error: 'Acesso restrito a gestor/tutor/RH' };
 
   const sb = createSupabaseAdmin();
   const empresaId = ctx.colaborador.empresa_id;
 
-  // Vínculo gestor→liderado é por colaboradores.gestor_email (não há
-  // coluna gestor_id; o type em types/index.d.ts está aspiracional/errado).
-  // Gestor: filtra liderados cujo gestor_email == self.email (ilike pra
-  // tolerar case). RH/admin: empresa inteira. Fail-closed.
+  // Vínculo gestor→liderado é por colaboradores.gestor_email; vínculo tutor→
+  // tutorado é por colaboradores.tutorados_ids[] (Onboarding, Fase 4).
+  // Fail-closed: se tutor sem tutorados, retorna vazio.
   const meuId = ctx.colaborador.id;
   const meuEmail = ctx.colaborador.email?.toLowerCase().trim();
+  const tutoradosIds: string[] = (ctx.colaborador as any)?.tutorados_ids || [];
+
+  if (isTutor && tutoradosIds.length === 0) {
+    return { ok: true, rows: [], resumo: { total: 0 }, escopo: 'tutor' };
+  }
+
   let colabQ = sb.from('colaboradores')
     .select('id, nome_completo, cargo, email, area_depto, gestor_email')
     .eq('empresa_id', empresaId)
     .neq('id', meuId);
   if (isGestor && meuEmail) {
     colabQ = colabQ.ilike('gestor_email', meuEmail);
+  } else if (isTutor) {
+    colabQ = colabQ.in('id', tutoradosIds);
   }
   const { data: colabs } = await colabQ;
   if (!colabs?.length) return { ok: true, rows: [], resumo: { total: 0 } };
@@ -109,13 +117,18 @@ export async function listarCheckpointsPendentes() {
   if (!ctx?.colaborador) return { error: 'Não autenticado' };
   const isGestor = ctx.role === 'gestor';
   const isRH = ctx.role === 'rh' || ctx.isPlatformAdmin;
-  if (!isGestor && !isRH) return { error: 'Acesso restrito' };
+  const isTutor = ctx.role === 'tutor';
+  if (!isGestor && !isRH && !isTutor) return { error: 'Acesso restrito' };
 
   const sb = createSupabaseAdmin();
   const empresaId = ctx.colaborador.empresa_id;
+  const tutoradosIds: string[] = (ctx.colaborador as any)?.tutorados_ids || [];
+
+  if (isTutor && tutoradosIds.length === 0) return { ok: true, rows: [] };
 
   let colabQ = sb.from('colaboradores').select('id, nome_completo, area_depto').eq('empresa_id', empresaId);
   if (isGestor && ctx.colaborador.area_depto) colabQ = colabQ.eq('area_depto', ctx.colaborador.area_depto);
+  else if (isTutor) colabQ = colabQ.in('id', tutoradosIds);
   const { data: colabs } = await colabQ;
   if (!colabs?.length) return { ok: true, rows: [] };
 
@@ -211,16 +224,23 @@ export async function loadLideradoConcluida(colabEmail) {
   if (!ctx?.colaborador) return { error: 'Não autenticado' };
   const isGestor = ctx.role === 'gestor';
   const isRH = ctx.role === 'rh' || ctx.isPlatformAdmin;
-  if (!isGestor && !isRH) return { error: 'Acesso restrito' };
+  const isTutor = ctx.role === 'tutor';
+  if (!isGestor && !isRH && !isTutor) return { error: 'Acesso restrito' };
 
-  // Valida que o liderado é realmente do gestor/empresa
+  // Valida que o liderado é realmente do gestor/tutor/empresa
   const sb = createSupabaseAdmin();
   const { data: liderado } = await sb.from('colaboradores')
-    .select('empresa_id, area_depto').eq('email', colabEmail).maybeSingle();
+    .select('id, empresa_id, area_depto').eq('email', colabEmail).maybeSingle();
   if (!liderado) return { error: 'Colab não encontrado' };
   if (liderado.empresa_id !== ctx.colaborador.empresa_id) return { error: 'Colab de outra empresa' };
   if (isGestor && liderado.area_depto !== ctx.colaborador.area_depto) {
     return { error: 'Colab de outra área — só RH pode ver' };
+  }
+  if (isTutor) {
+    const tutoradosIds: string[] = (ctx.colaborador as any)?.tutorados_ids || [];
+    if (!tutoradosIds.includes(liderado.id)) {
+      return { error: 'Colab fora do seu escopo de tutor' };
+    }
   }
 
   return loadTemporadaConcluida(colabEmail);

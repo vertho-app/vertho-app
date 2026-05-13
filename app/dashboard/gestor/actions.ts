@@ -72,7 +72,7 @@ export type TimelineEvento = {
 export type GestorHomeData = {
   ok: boolean;
   error?: string;
-  scope?: 'gestor' | 'rh';
+  scope?: 'gestor' | 'rh' | 'tutor';
   kpis?: GestorKpi;
   alertas?: GestorAlerta[];
   checkpointsPendentes?: CheckpointPendenteDetalhado[];
@@ -90,11 +90,13 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   if (!ctx?.colaborador) return { ok: false, error: 'Não autenticado' };
   const isGestor = ctx.role === 'gestor';
   const isRH = ctx.role === 'rh' || ctx.isPlatformAdmin;
-  if (!isGestor && !isRH) return { ok: false, error: 'Acesso restrito a gestor/RH' };
+  const isTutor = ctx.role === 'tutor';
+  if (!isGestor && !isRH && !isTutor) return { ok: false, error: 'Acesso restrito a gestor/tutor/RH' };
 
   const sb = createSupabaseAdmin();
   const empresaId = ctx.colaborador.empresa_id;
   const meuId = ctx.colaborador.id;
+  const tutoradosIds: string[] = (ctx.colaborador as any)?.tutorados_ids || [];
 
   // Detecta se a empresa tem fonte externa de perfil (OPQ32, Hogan, etc.)
   // Quando tem, ela NÃO usa DISC — então "sem perfil" só conta quem está
@@ -118,6 +120,16 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     .neq('id', meuId);
   if (isGestor && meuEmail) {
     colabQ = colabQ.ilike('gestor_email', meuEmail);
+  } else if (isTutor) {
+    if (tutoradosIds.length === 0) {
+      // Fail-closed: tutor sem tutorados não vê ninguém.
+      return {
+        ok: true, scope: 'tutor',
+        kpis: { liderados: { total: 0, em_trilha: 0, sem_trilha: 0 }, em_andamento: { count: 0, semana_media: null }, checkpoints: { pendentes: 0, respondidos: 0 }, atividade_semana: { ativos: 0, total: 0 } },
+        alertas: [], checkpointsPendentes: [],
+      };
+    }
+    colabQ = colabQ.in('id', tutoradosIds);
   }
   const { data: colabs } = await colabQ;
   const liderados = colabs || [];
@@ -127,7 +139,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   if (liderIds.length === 0) {
     return {
       ok: true,
-      scope: isGestor ? 'gestor' : 'rh',
+      scope: isTutor ? 'tutor' : (isGestor ? 'gestor' : 'rh'),
       kpis: {
         liderados: { total: 0, em_trilha: 0, sem_trilha: 0 },
         em_andamento: { count: 0, semana_media: null },
