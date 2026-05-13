@@ -5,12 +5,21 @@ import { tenantDb } from '@/lib/tenant-db';
 import { callAI, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import type { FaseCarreira } from '@/lib/season-engine/programa-config';
 
 // ── IA1: Selecionar top 10 competências por cargo ───────────────────────────
 // Seleciona das competências JÁ CADASTRADAS na empresa (tabela competencias).
 // Resultado salvo em top10_cargos para validação humana.
+//
+// Aceita opcionalmente `faseCarreira` (junior|pleno|senior) que vieza o
+// ranking pra competências operacionais (junior) ou estratégicas (senior).
+// Fallback: lê `sys_config.fase_carreira_default` da empresa.
 
-export async function rodarIA1(empresaId: string, aiConfig: AIConfig = {}) {
+export interface RodarIA1Opts {
+  faseCarreira?: FaseCarreira;
+}
+
+export async function rodarIA1(empresaId: string, aiConfig: AIConfig = {}, opts: RodarIA1Opts = {}) {
   await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sbRaw = createSupabaseAdmin();
@@ -19,17 +28,21 @@ export async function rodarIA1(empresaId: string, aiConfig: AIConfig = {}) {
     // 1. Buscar empresa (id é tenant — usar raw)
     let empresa;
     const { data: emp1 } = await sbRaw.from('empresas')
-      .select('nome, segmento, ppp_texto')
+      .select('nome, segmento, ppp_texto, sys_config')
       .eq('id', empresaId).single();
     if (emp1) {
       empresa = emp1;
     } else {
       const { data: emp2 } = await sbRaw.from('empresas')
-        .select('nome, segmento')
+        .select('nome, segmento, sys_config')
         .eq('id', empresaId).single();
       empresa = emp2;
     }
     if (!empresa) return { success: false, error: `Empresa não encontrada (id: ${empresaId})` };
+
+    // Override > sys_config default > undefined (sem viés).
+    const faseCarreira: FaseCarreira | undefined =
+      opts.faseCarreira || (empresa as any)?.sys_config?.fase_carreira_default || undefined;
 
     // 2. Buscar competências da empresa (catálogo completo)
     const { data: competencias } = await tdb.from('competencias')
@@ -130,7 +143,7 @@ export async function rodarIA1(empresaId: string, aiConfig: AIConfig = {}) {
         }
       } else {
         // > 10: chamar IA para selecionar as 10 melhores
-        const system = buildSystemPromptSelecao(compsDoCargo, cargoNome);
+        const system = buildSystemPromptSelecao(compsDoCargo, cargoNome, faseCarreira);
         const user = buildUserPrompt(empresa, cargoInfo, valores, contextoPPP);
 
         const resposta = await callAI(system, user, aiConfig, 8192);
@@ -467,7 +480,7 @@ async function buscarBaseCompetencias(sb, segmento) {
   }
 }
 
-function buildSystemPromptSelecao(competencias: any[], cargoAlvo: string): string {
+function buildSystemPromptSelecao(competencias: any[], cargoAlvo: string, faseCarreira?: FaseCarreira): string {
   const total = competencias.length;
   const maxSel = Math.min(10, total);
 
@@ -475,9 +488,37 @@ function buildSystemPromptSelecao(competencias: any[], cargoAlvo: string): strin
     `- ID: ${c.cod_comp || c.id} | NOME: ${c.nome} | PILAR: ${c.pilar || '—'} | DESCRIÇÃO: ${c.descricao || '—'}`
   ).join('\n');
 
+  // Viés por fase de carreira — Onboarding (junior) prioriza operacional/básico,
+  // Senior prioriza estratégico/relacional. Pleno ou ausente = sem viés (default).
+  const VIES = {
+    junior: `
+
+═══ VIÉS POR FASE DE CARREIRA: JUNIOR (RECÉM-FORMADO) ═══
+
+Este cargo é ocupado por profissional em fase INICIAL da carreira. Priorize competências:
+- OPERACIONAIS e BÁSICAS: rotina, execução, organização, postura profissional.
+- FUNDAMENTAIS de exercer o papel com AUTONOMIA SUPERVISIONADA.
+- Que possam ser desenvolvidas em 8-10 semanas com mentoria.
+
+EVITE priorizar competências estratégicas, de liderança ou de articulação interdepartamental — elas viriam depois.
+Meta: chegar ao nível 2 (autonomia funcional supervisionada), não 3 (proficiente).`,
+    senior: `
+
+═══ VIÉS POR FASE DE CARREIRA: SENIOR ═══
+
+Este cargo é ocupado por profissional EXPERIENTE/SENIOR. Priorize competências:
+- ESTRATÉGICAS, RELACIONAIS e de LIDERANÇA: visão sistêmica, articulação, influência.
+- Que diferenciam um sênior de um pleno — não as básicas que ele já domina.
+- De alto IMPACTO ORGANIZACIONAL.
+
+EVITE priorizar competências operacionais básicas — elas são pressuposto, não diferencial.`,
+    pleno: '',
+  };
+  const blocoVies = faseCarreira ? (VIES[faseCarreira] || '') : '';
+
   return `Você é a IA de parametrização da plataforma Vertho Mentor IA.
 
-TAREFA: Selecionar as ${maxSel} competências MAIS RELEVANTES para o cargo "${cargoAlvo}" da lista fornecida.
+TAREFA: Selecionar as ${maxSel} competências MAIS RELEVANTES para o cargo "${cargoAlvo}" da lista fornecida.${blocoVies}
 
 ═══ REGRAS INVIOLÁVEIS ═══
 

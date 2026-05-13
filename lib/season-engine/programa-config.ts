@@ -61,13 +61,45 @@ export const PROGRAMA_REGULAR: ProgramaConfig = Object.freeze({
 }) as ProgramaConfig;
 
 /**
+ * Onboarding: trilha de 10 semanas em espiral cobrindo 5 competências.
+ * Missões integradoras nas semanas 4 (Comps 1+2), 7 (1+2+3+4) e 9 (todas).
+ * Cenário B na semana 10. Nível-meta 2 (funcional / autonomia supervisionada).
+ *
+ * Cadência detalhada:
+ *   1   — Calibragem (DISC + diagnóstico + onboarding institucional)
+ *   2,3 — Fundamento Comp 1 e 2
+ *   4   — Missão Integradora 1 (Comp 1+2)
+ *   5,6 — Fundamento Comp 3 e 4
+ *   7   — Missão Integradora 2 (Comp 1..4)
+ *   8   — Fundamento Comp 5
+ *   9   — Missão Integradora 3 (todas) + acumulada embutida
+ *   10  — Cenário B + Evolution Report
+ *
+ * NOTA Fase 2: o template existe e é selecionado por sys_config.programa_modo,
+ * mas `actions/temporadas.gerarTemporada` bloqueia geração em modo onboarding
+ * até a Fase 3 (que refatora `selectDescriptors` para multi-competência e
+ * adiciona prompts integradores no IA3).
+ */
+export const PROGRAMA_ONBOARDING: ProgramaConfig = Object.freeze({
+  modo: 'onboarding',
+  semanas: 10,
+  semanasMissao: [4, 7, 9],
+  semanasAvaliacao: [10],
+  semanaCenarioB: 10,
+  semanaAcumulada: 9, // embutida na última missão integradora
+  slotsConteudo: [2, 3, 5, 6, 8], // 5 fundamentos; sem 1 = calibragem
+  blocosCobertos: { 4: 2, 7: 4, 9: -1 }, // 2 comps, 4 comps, todas as 5
+  complexidadeMap: { 4: 'simples', 7: 'intermediario', 9: 'completo' },
+  nivelMetaAlvo: 2,
+  numCompetencias: 5,
+}) as ProgramaConfig;
+
+/**
  * Resolve a config a partir do `sys_config` JSONB de uma empresa.
- * Fase 1: sempre devolve REGULAR — nenhum tenant ainda usa modo onboarding.
- * Fase 2 vai estender pra ler `sys_config.programa_modo === 'onboarding'` e
- * devolver o template ONBOARDING.
+ * Lê `sys_config.programa_modo`; default = regular.
  */
 export function getProgramaConfig(sysConfig?: { programa_modo?: string } | null): ProgramaConfig {
-  // Fase 1: ignora sys_config — sempre regular. Documentado em ARQUITETURA.md.
+  if (sysConfig?.programa_modo === 'onboarding') return PROGRAMA_ONBOARDING;
   return PROGRAMA_REGULAR;
 }
 

@@ -76,6 +76,15 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig }: G
     const contexto = inferirContexto(empresa?.segmento);
     const programaConfig = getProgramaConfig(empresa?.sys_config);
 
+    // Modo Onboarding requer engine multi-competência (Fase 3). Até lá, bloqueia
+    // geração pra evitar trilha mal-formada no banco.
+    if (programaConfig.modo === 'onboarding') {
+      return {
+        error: 'Modo Onboarding ainda em implementação — multi-competência será habilitada na Fase 3. Volte sys_config.programa_modo pra "regular" pra gerar trilha de 14 semanas.',
+        codigo: 'onboarding_fase3_pendente',
+      };
+    }
+
     // 3) Prioridade de formatos — derivada das colunas pref_* em colaboradores
     const prioridadeFormatos = derivarPrioridadeFormatos(colab);
 

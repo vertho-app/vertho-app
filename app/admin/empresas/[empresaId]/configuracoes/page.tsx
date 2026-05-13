@@ -4,7 +4,7 @@ import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Save, Loader2, CheckCircle, AlertTriangle, X,
-  Brain, Clock, Mail, Eye, EyeOff, Palette, Upload, Trash2, Globe, Users
+  Brain, Clock, Mail, Eye, EyeOff, Palette, Upload, Trash2, Globe, Users, GraduationCap
 } from 'lucide-react';
 import { loadConfig, salvarConfig, salvarBranding, salvarSlug, loadEquipe, atualizarRole, vincularDominioVercel } from './actions';
 import { limparSessoesAntigas, limparSessoesTeste } from '@/app/actions/manutencao';
@@ -19,6 +19,8 @@ const DEFAULT_CONFIG = {
   ai: { modelo_padrao: 'claude-sonnet-4-6', modelos: {}, anthropic_key: null, gemini_key: null, openai_key: null, thinking: false },
   cadencia: { fase4_dia_pilula: 1, fase4_dia_evidencia: 4, fase4_hora: 8, email_ativo: true, whatsapp_ativo: true },
   envios: { email_remetente: null, email_alias: null },
+  programa_modo: 'regular' as 'regular' | 'onboarding',
+  fase_carreira_default: null as null | 'junior' | 'pleno' | 'senior',
 };
 
 export default function ConfigPage({ params }: { params: Promise<{ empresaId: string }> }) {
@@ -156,6 +158,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
       <div className="flex gap-1 mb-6 p-1 rounded-lg border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
         {[
           { id: 'equipe', label: 'Equipe', icon: Users },
+          { id: 'programa', label: 'Programa', icon: GraduationCap },
           { id: 'branding', label: 'Branding', icon: Palette },
           { id: 'ai', label: 'Inteligência Artificial', icon: Brain },
           { id: 'cadencia', label: 'Automações', icon: Clock },
@@ -204,6 +207,61 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
                 ))}
               </div>
             )}
+          </Panel>
+        </div>
+      )}
+
+      {/* ═══ Tab: Programa ═══ */}
+      {tab === 'programa' && (
+        <div className="space-y-4">
+          <Panel title="Modo do programa">
+            <p className="text-[10px] text-gray-500 mb-3">
+              Regular = trilha de 14 semanas, 1 competência aprofundada. Onboarding = 10 semanas em espiral cobrindo 5 competências (recém-formados / autonomia supervisionada).
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { id: 'regular', label: 'Regular (14 semanas)', desc: '1 competência · nível-meta 3' },
+                { id: 'onboarding', label: 'Onboarding (10 semanas)', desc: '5 competências · nível-meta 2' },
+              ].map(opt => (
+                <button key={opt.id}
+                  onClick={() => setConfig(prev => ({ ...prev, programa_modo: opt.id as any }))}
+                  className={`flex flex-col items-start gap-1 p-3 rounded-lg border text-left transition-colors ${
+                    config.programa_modo === opt.id
+                      ? 'border-cyan-400/50 bg-cyan-400/10'
+                      : 'border-white/10 hover:border-white/30'
+                  }`}
+                  style={{ background: config.programa_modo === opt.id ? undefined : '#091D35' }}>
+                  <span className="text-sm font-bold text-white">{opt.label}</span>
+                  <span className="text-[10px] text-gray-400">{opt.desc}</span>
+                </button>
+              ))}
+            </div>
+            {config.programa_modo === 'onboarding' && (
+              <div className="flex items-start gap-2 mt-3 p-3 rounded-lg border border-amber-400/20" style={{ background: 'rgba(245,158,11,0.06)' }}>
+                <AlertTriangle size={13} className="text-amber-400 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-amber-300/85 leading-relaxed">
+                  Modo Onboarding está em <b>implementação</b> (Fase 2/4). Trilhas multi-competência ficam disponíveis na Fase 3 — por ora, geração fica bloqueada se este modo estiver ativo.
+                </p>
+              </div>
+            )}
+          </Panel>
+
+          <Panel title="Fase de carreira (viés do IA1)">
+            <p className="text-[10px] text-gray-500 mb-3">
+              Quando setada, o IA1 vieza o ranking Top 10: <b>junior</b> prioriza competências operacionais/básicas; <b>senior</b> prioriza estratégicas/relacionais; <b>pleno</b> = sem viés.
+            </p>
+            <select value={config.fase_carreira_default || ''}
+              onChange={e => setConfig(prev => ({ ...prev, fase_carreira_default: (e.target.value || null) as any }))}
+              className="w-full px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40"
+              style={{ background: '#091D35' }}>
+              <option value="">— Sem viés (default) —</option>
+              <option value="junior">Junior (recém-formado)</option>
+              <option value="pleno">Pleno (sem viés explícito)</option>
+              <option value="senior">Senior</option>
+            </select>
+            <p className="text-[10px] text-gray-600 mt-2">
+              No Modo Onboarding o default sensato é <b>junior</b>. Modo Regular geralmente fica em branco.
+            </p>
           </Panel>
         </div>
       )}
