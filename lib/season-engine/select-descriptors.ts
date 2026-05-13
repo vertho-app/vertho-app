@@ -6,11 +6,14 @@
  *   - Filtra descritores com gap (nota < 3.0)
  *   - Ordena por gap decrescente
  *   - nota < 2.0 → 2 semanas; senão → 1 semana
- *   - Distribui em 9 slots de conteúdo: [1,2,3], [5,6,7], [9,10,11]
- *   - Slots contíguos por descritor (2 semanas = consecutivas)
+ *   - Distribui em N slots de conteúdo (default 9: [1,2,3], [5,6,7], [9,10,11])
+ *   - Slots contíguos por descritor (2 semanas = consecutivas dentro do bloco)
  *   - Sobram slots: puxa descritores >= 3.0 pra elevar a Avançado (1 semana cada)
  *   - Ainda sobram slots: redistribui aos descritores com maior gap (semana extra de reforço)
  *   - Faltam slots: prioriza maior gap, demais ficam pra próxima temporada
+ *
+ * Os slots são parametrizáveis via `programaConfig.slotsConteudo` — qualquer
+ * arranjo contíguo em blocos de 3 funciona. Default = regular 14 semanas.
  */
 
 export interface DescriptorAssessment {
@@ -31,8 +34,13 @@ interface InternalCandidate extends DescriptorAssessment {
   semanas_desejadas: number;
 }
 
-export function selectDescriptors(assessment: DescriptorAssessment[] = []): SelectedDescriptor[] {
-  const SLOTS = [1, 2, 3, 5, 6, 7, 9, 10, 11]; // 9 slots de conteúdo
+const DEFAULT_SLOTS = [1, 2, 3, 5, 6, 7, 9, 10, 11]; // 9 slots (regular 14sem)
+
+export function selectDescriptors(
+  assessment: DescriptorAssessment[] = [],
+  slots: number[] = DEFAULT_SLOTS,
+): SelectedDescriptor[] {
+  const SLOTS = slots;
   if (!Array.isArray(assessment) || assessment.length === 0) return [];
 
   // Separa em "tem gap" e "já proficiente"

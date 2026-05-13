@@ -57,7 +57,7 @@
 
 Contexto rapido para reinicializacao da maquina:
 
-- Branch atual: `master`, HEAD `4990742` (`admin: confirm() em mais acoes destrutivas/massivas (preventivo)`).
+- Branch atual: `master`, HEAD em movimento — Fase 1 do **Modo Onboarding** em curso (parametriza engine de trilha sem mudança funcional; `lib/season-engine/programa-config.ts` + propagação por `build-season`, `select-descriptors`, `actions/temporadas`, `actions/avaliacao-acumulada`, `app/api/temporada/evaluation`, `app/dashboard/temporada/*` e `lib/temporada-concluida-pdf.ts`). Migration 090 documenta as novas chaves de `sys_config`.
 - Arquivos rastreados: pendentes no momento desta revisao — `supabase/config.toml` (drift local) e este `ARQUITETURA.md`.
 - Nao versionados presentes no workspace: `.tmp_enem_2024/`, `outputs/`, `RESUMO.md`, `public/Logo sem texto.png`, `scripts/diag-tables-check.mjs`.
 - Ultimas frentes visiveis (semana 2026-05-12 → 13):

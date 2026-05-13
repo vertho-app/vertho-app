@@ -9,14 +9,19 @@ import { promptEvolutionScenarioScore, validateEvolutionScenarioScore } from '@/
 import { promptEvolutionScenarioCheck, validateEvolutionScenarioCheck } from '@/lib/season-engine/prompts/evolution-scenario-check';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { gerarEvolutionReport } from '@/actions/evolution-report';
+import { getProgramaConfig } from '@/lib/season-engine/programa-config';
 
 /**
  * POST /api/temporada/evaluation
- * Body: { trilhaId, semana: 13|14, message?, action: 'init'|'send'|'generate_report' }
+ * Body: { trilhaId, semana, message?, action: 'init'|'send'|'generate_report' }
  *
- * Semana 13: conversa qualitativa aberta (sem limite rígido, sugere 8 turns)
- * Semana 14: cenário → resposta → pontuação via IA
- * generate_report: consolida 13+14 em Evolution Report
+ * Semana da acumulada (regular=13): conversa qualitativa aberta (12 turns).
+ * Semana do cenário B (regular=14): cenário → 4 perguntas → pontuação via IA.
+ * generate_report: consolida ambas em Evolution Report.
+ *
+ * Quais semanas correspondem a quê vem de `empresas.sys_config` via
+ * `getProgramaConfig` — em Modo Onboarding a acumulada é embutida nas
+ * missões e o cenário B fica na sem 10.
  */
 export async function POST(request) {
   try {
@@ -38,6 +43,13 @@ export async function POST(request) {
       .select('id, colaborador_id, empresa_id, competencia_foco, temporada_plano, descritores_selecionados, data_inicio')
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return NextResponse.json({ error: 'trilha' }, { status: 404 });
+
+    // sys_config define quais semanas correspondem a acumulada / cenário B
+    const { data: empConf } = await sb.from('empresas')
+      .select('sys_config').eq('id', trilha.empresa_id).maybeSingle();
+    const programaConfig = getProgramaConfig(empConf?.sys_config);
+    const semAcumulada = programaConfig.semanaAcumulada;     // regular = 13
+    const semCenarioB = programaConfig.semanaCenarioB;       // regular = 14
 
     // Valida colab: body (se veio) tem que bater com trilha + usuário com acesso.
     if (colabBody && colabBody !== trilha.colaborador_id) {
@@ -73,21 +85,21 @@ export async function POST(request) {
 
     const { data: prog } = await sb.from('temporada_semana_progresso')
       .select('*').eq('trilha_id', trilhaId).eq('semana', semana).maybeSingle();
-    const slotKey = semana == 14 ? 'feedback' : 'reflexao';
+    const slotKey = Number(semana) === semCenarioB ? 'feedback' : 'reflexao';
     const dados = prog?.[slotKey] || { transcript_completo: [] };
     const historico = Array.isArray(dados.transcript_completo) ? dados.transcript_completo : [];
 
-    // Semana 13: conversa qualitativa
-    if (Number(semana) === 13) {
+    // Semana da acumulada (regular=13): conversa qualitativa
+    if (Number(semana) === semAcumulada) {
       if (action === 'send' && message) {
         historico.push({ role: 'user', content: message, timestamp: new Date().toISOString() });
       }
       const turnsIA = historico.filter(m => m.role === 'assistant').length;
       const TOTAL = 12;
 
-      // Coleta insights das semanas 1-12 pra contextualizar
+      // Coleta insights das semanas anteriores à acumulada pra contextualizar
       const { data: outrasSem } = await sb.from('temporada_semana_progresso')
-        .select('reflexao').eq('trilha_id', trilhaId).lte('semana', 12).not('reflexao', 'is', null);
+        .select('reflexao').eq('trilha_id', trilhaId).lt('semana', semAcumulada).not('reflexao', 'is', null);
       const insightsAnteriores = (outrasSem || []).map(s => s.reflexao?.insight_principal).filter(Boolean);
 
       const proximoTurnIA = turnsIA + 1;
@@ -145,13 +157,13 @@ export async function POST(request) {
         })();
       }
 
-      if (finished && Number(semana) < 14) await liberarProxima(sb, trilhaId, 14);
+      if (finished && Number(semana) < semCenarioB) await liberarProxima(sb, trilhaId, semCenarioB);
 
       return NextResponse.json({ message: respostaIA, turnIA: proximoTurnIA, finished, history: historico });
     }
 
-    // Semana 14: cenário B + 4 perguntas sequenciais (mesmo formato do mapeamento) → pontuação
-    if (Number(semana) === 14) {
+    // Semana do cenário B (regular=14): cenário + 4 perguntas → pontuação
+    if (Number(semana) === semCenarioB) {
       const DIMENSOES = [
         { key: 'p1', label: 'SITUAÇÃO' },
         { key: 'p2', label: 'AÇÃO' },
@@ -234,16 +246,16 @@ export async function POST(request) {
         sb, trilha.empresa_id, trilha.colaborador_id, trilha.competencia_foco, descritores
       );
 
-      // Carrega avaliação acumulada (se já calculada no fim da sem 13).
+      // Carrega avaliação acumulada (se já calculada no fim da semana da acumulada).
       // Prioridade pro scorer: nota_acumulada por descritor (estruturada).
       // Fallback: evidências textuais agregadas.
-      const { data: prog13 } = await sb.from('temporada_semana_progresso')
-        .select('feedback').eq('trilha_id', trilhaId).eq('semana', 13).maybeSingle();
-      const acumuladoPrimaria = prog13?.feedback?.acumulado?.primaria || null;
+      const { data: progAcum } = await sb.from('temporada_semana_progresso')
+        .select('feedback').eq('trilha_id', trilhaId).eq('semana', semAcumulada).maybeSingle();
+      const acumuladoPrimaria = progAcum?.feedback?.acumulado?.primaria || null;
 
-      // Agrega evidências das 13 semanas anteriores (conteúdo + prática + sem 13)
-      // pra triangulação. A nota_pos NUNCA sai só do cenário.
-      const evidenciasAcumuladas = await agregarEvidencias13Semanas(sb, trilhaId, descritoresComRegua);
+      // Agrega evidências de TODAS as semanas até a acumulada (conteúdo + prática
+      // + sem acumulada) pra triangulação. A nota_pos NUNCA sai só do cenário.
+      const evidenciasAcumuladas = await agregarEvidenciasAteAcumulada(sb, trilhaId, descritoresComRegua, semAcumulada);
 
       // PII masking pra chamadas IA externas — substitui nome real + sanitiza
       // texto livre (emails/telefones/menções) antes de enviar.
@@ -314,7 +326,7 @@ export async function POST(request) {
       });
     }
 
-    return NextResponse.json({ error: 'Semana inválida pra /evaluation' }, { status: 400 });
+    return NextResponse.json({ error: `Semana ${semana} inválida pra /evaluation — esperado ${semAcumulada} ou ${semCenarioB}` }, { status: 400 });
   } catch (err) {
     console.error('[VERTHO] /evaluation:', err);
     return NextResponse.json({ error: err?.message }, { status: 500 });
@@ -359,14 +371,14 @@ async function enriquecerComReguaENotaPre(sb, empresaId, colaboradorId, competen
 }
 
 /**
- * Agrega evidências qualitativas das 13 semanas anteriores numa string
- * estruturada por descritor. A semana 14 NUNCA avalia só pelo cenário —
- * triangula com o histórico completo da temporada.
+ * Agrega evidências qualitativas de TODAS as semanas até a acumulada
+ * numa string estruturada por descritor. A semana do cenário B NUNCA avalia
+ * só pelo cenário — triangula com o histórico completo da temporada.
  */
-async function agregarEvidencias13Semanas(sb, trilhaId, descritoresComRegua) {
+async function agregarEvidenciasAteAcumulada(sb, trilhaId, descritoresComRegua, semAcumulada = 13) {
   const { data: progressos } = await sb.from('temporada_semana_progresso')
     .select('semana, tipo, descritor, reflexao, feedback, tira_duvidas')
-    .eq('trilha_id', trilhaId).lte('semana', 13).order('semana');
+    .eq('trilha_id', trilhaId).lte('semana', semAcumulada).order('semana');
   if (!progressos?.length) return '';
 
   // Mapa de temporada_plano pra saber qual descritor cada semana trabalhou
@@ -411,12 +423,12 @@ async function agregarEvidencias13Semanas(sb, trilhaId, descritoresComRegua) {
         if (partes) linhasPorDescritor[desc].push(partes);
       }
     }
-    // Sem 13: evolução percebida
-    if (p.semana === 13 && p.reflexao?.evolucao_percebida) {
+    // Semana da acumulada (regular=13): evolução percebida
+    if (p.semana === semAcumulada && p.reflexao?.evolucao_percebida) {
       for (const ev of p.reflexao.evolucao_percebida) {
         if (!linhasPorDescritor[ev.descritor]) continue;
         const partes = [
-          `Sem 13 (auto-percepção)`,
+          `Sem ${semAcumulada} (auto-percepção)`,
           ev.antes && `antes: "${ev.antes}"`,
           ev.depois && `depois: "${ev.depois}"`,
           ev.evidencia && `evidência: "${ev.evidencia}"`,

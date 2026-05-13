@@ -5,8 +5,8 @@ import { requireUserAction } from '@/lib/auth/action-context';
 
 /**
  * Carrega dados pra tela "Temporada Concluída" do colaborador.
- * Consolida: evolution_report + momentos literais das 14 semanas +
- * cenário B + resposta + devolutiva.
+ * Consolida: evolution_report + momentos literais de TODAS as semanas +
+ * cenário B (semana final de avaliação) + resposta + devolutiva.
  */
 export async function loadTemporadaConcluida(email: string) {
   await requireUserAction();
@@ -66,17 +66,19 @@ export async function loadTemporadaConcluida(email: string) {
       sintese: p.feedback.sintese_bloco || null,
     }));
 
-  // Sem 14 — cenário + resposta + devolutiva
-  const prog14 = (progressos || []).find(p => p.semana === 14);
-  const sem14 = prog14?.feedback ? {
-    cenario: prog14.feedback.cenario || null,
-    resposta: prog14.feedback.cenario_resposta || null,
-    resumo_avaliacao: prog14.feedback.resumo_avaliacao || null,
-    avaliacao_por_descritor: prog14.feedback.avaliacao_por_descritor || [],
-    nota_media_pos: prog14.feedback.nota_media_pos || null,
+  // Semana do cenário B = última semana com tipo:'avaliacao' no plano
+  const semsAval = plano.filter((s: any) => s?.tipo === 'avaliacao').map((s: any) => s.semana);
+  const semCenarioB = semsAval.length ? Math.max(...semsAval) : 14;
+  const progCenarioB = (progressos || []).find(p => p.semana === semCenarioB);
+  const sem14 = progCenarioB?.feedback ? {
+    cenario: progCenarioB.feedback.cenario || null,
+    resposta: progCenarioB.feedback.cenario_resposta || null,
+    resumo_avaliacao: progCenarioB.feedback.resumo_avaliacao || null,
+    avaliacao_por_descritor: progCenarioB.feedback.avaliacao_por_descritor || [],
+    nota_media_pos: progCenarioB.feedback.nota_media_pos || null,
   } : null;
 
-  // Sem 13 — insight geral + próximo passo (do evolution_report já consolidado)
+  // Insight geral + próximo passo (do evolution_report já consolidado)
   return {
     ok: true,
     colab: { nome: colab.nome_completo, cargo: colab.cargo, perfilDominante: colab.perfil_dominante },
@@ -84,6 +86,7 @@ export async function loadTemporadaConcluida(email: string) {
       id: trilha.id,
       competencia: trilha.competencia_foco,
       numeroTemporada: trilha.numero_temporada,
+      totalSemanas: plano.length || 14,
     },
     evolutionReport: trilha.evolution_report,
     momentos,

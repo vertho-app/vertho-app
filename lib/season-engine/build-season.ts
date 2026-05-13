@@ -1,7 +1,10 @@
 /**
- * Monta o plano de 14 semanas a partir dos descritores selecionados,
+ * Monta o plano de N semanas (default 14) a partir dos descritores selecionados,
  * resolvendo o conteúdo (formato_core conforme prioridade do colaborador)
  * e gerando desafios + cenários via Claude.
+ *
+ * Duração, semanas de missão, semanas de avaliação e complexidade vêm de
+ * `ProgramaConfig` (default = PROGRAMA_REGULAR — comportamento de 14 sem).
  */
 
 import { createSupabaseAdmin } from '@/lib/supabase';
@@ -10,6 +13,7 @@ import { promptDesafio, parseDesafioResponse } from '@/lib/season-engine/prompts
 import { promptCenario, parseCenarioResponse, cenarioToMarkdown } from '@/lib/season-engine/prompts/scenario';
 import { promptMissao, parseMissaoResponse, missaoToMarkdown } from '@/lib/season-engine/prompts/missao';
 import type { SelectedDescriptor } from './select-descriptors';
+import { PROGRAMA_REGULAR, descritoresCobertosNaMissao, type ProgramaConfig } from './programa-config';
 
 interface MicroConteudo {
   id: string;
@@ -94,6 +98,7 @@ export interface BuildSeasonInput {
   prioridadeFormatos?: string[];
   empresaId?: string | null;
   aiConfig?: AIConfigOpt;
+  programaConfig?: ProgramaConfig;
 }
 
 /**
@@ -119,6 +124,7 @@ export async function buildSeason({
   prioridadeFormatos = ['video', 'texto', 'audio', 'case'],
   empresaId = null,
   aiConfig = {},
+  programaConfig = PROGRAMA_REGULAR,
 }: BuildSeasonInput): Promise<SemanaPlan[]> {
   const semanas: SemanaPlan[] = [];
 
@@ -131,11 +137,11 @@ export async function buildSeason({
   }
 
   const idsJaUsados = new Set<string>();
-  for (let semana = 1; semana <= 14; semana++) {
+  for (let semana = 1; semana <= programaConfig.semanas; semana++) {
     let plan: SemanaPlan;
-    if ([4, 8, 12].includes(semana)) {
-      plan = await montarSemanaAplicacao(semana, descritoresSelecionados, competencia, cargo, contexto, aiConfig);
-    } else if ([13, 14].includes(semana)) {
+    if (programaConfig.semanasMissao.includes(semana)) {
+      plan = await montarSemanaAplicacao(semana, descritoresSelecionados, competencia, cargo, contexto, aiConfig, programaConfig);
+    } else if (programaConfig.semanasAvaliacao.includes(semana)) {
       plan = {
         semana,
         tipo: 'avaliacao',
@@ -286,15 +292,10 @@ async function montarSemanaAplicacao(
   cargo: string,
   contexto: string,
   aiConfig: AIConfigOpt,
+  programaConfig: ProgramaConfig,
 ): Promise<SemanaAplicacao> {
-  const blocosCobertos: Record<number, string[]> = {
-    4: descritores.slice(0, 3).map(d => d.descritor),
-    8: descritores.slice(0, 6).map(d => d.descritor),
-    12: descritores.map(d => d.descritor),
-  };
-  const complexidadeMap: Record<number, string> = { 4: 'simples', 8: 'intermediario', 12: 'completo' };
-  const complexidade = complexidadeMap[semana];
-  const cobertos = blocosCobertos[semana] || [];
+  const complexidade = programaConfig.complexidadeMap[semana] || 'intermediario';
+  const cobertos = descritoresCobertosNaMissao(descritores, semana, programaConfig).map(d => d.descritor);
 
   let missaoObj: SemanaAplicacao['missao'] = { texto: '' };
   let cenarioObj: SemanaAplicacao['cenario'] = { texto: '', complexidade };

@@ -58,7 +58,12 @@ export default function TemporadaPage() {
   const semanas = Array.isArray(trilha.temporada_plano) ? trilha.temporada_plano : [];
   const progressoMap = Object.fromEntries((progresso || []).map((p: any) => [p.semana, p]));
   const concluidas = (progresso || []).filter((p: any) => p.status === 'concluido').length;
-  const pct = Math.round((concluidas / 14) * 100);
+  const totalSemanas = semanas.length || 14;
+  // Última semana de avaliação = onde fica o wizard cenário B (regular=14, onboarding=10).
+  // Como a rota é única (/sem14), redireciono pra ela tanto faz o número da semana.
+  const semanasAvaliacao = semanas.filter((s: any) => s.tipo === 'avaliacao').map((s: any) => s.semana);
+  const semCenarioB = semanasAvaliacao.length ? Math.max(...semanasAvaliacao) : totalSemanas;
+  const pct = Math.round((concluidas / Math.max(1, totalSemanas)) * 100);
 
   return (
     // ✅ data-phase="4" + CSS vars — toda a página herda a cor violeta da Temporada
@@ -70,7 +75,7 @@ export default function TemporadaPage() {
           // ✅ subtítulo com ênfase serif em "evoluir" e "próximo nível"
           subtitle={
             <span>
-              14 semanas para{' '}
+              {totalSemanas} semanas para{' '}
               <em style={{ ...serifStyle, color: 'var(--phase-accent)', fontSize: 'inherit' }}>evoluir</em>{' '}
               1 competência ao{' '}
               <em style={{ ...serifStyle, color: 'var(--phase-accent)', fontSize: 'inherit' }}>próximo nível</em>
@@ -105,9 +110,9 @@ export default function TemporadaPage() {
             <span className="text-xs uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.45)', fontFamily: 'var(--font-mono, monospace)', letterSpacing: '.2em' }}>
               Progresso
             </span>
-            {/* ✅ "X/14 semanas" em serif itálico na cor da fase */}
+            {/* ✅ "X/N semanas" em serif itálico na cor da fase */}
             <span style={{ ...serifStyle, fontSize: 16, color: 'var(--phase-accent)', letterSpacing: '-.01em' }}>
-              {concluidas}<span style={{ opacity: 0.5, fontStyle: 'normal', fontSize: 13 }}>/14</span> semanas
+              {concluidas}<span style={{ opacity: 0.5, fontStyle: 'normal', fontSize: 13 }}>/{totalSemanas}</span> semanas
             </span>
           </div>
           <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
@@ -140,7 +145,7 @@ export default function TemporadaPage() {
             return (
               <button
                 key={s.semana}
-                onClick={() => liberada && router.push(s.semana === 14 ? '/dashboard/temporada/sem14' : `/dashboard/temporada/semana/${s.semana}`)}
+                onClick={() => liberada && router.push(s.semana === semCenarioB ? '/dashboard/temporada/sem14' : `/dashboard/temporada/semana/${s.semana}`)}
                 disabled={!liberada}
                 title={motivoBloqueio}
                 className={`relative rounded-xl p-3 text-left transition-all border ${

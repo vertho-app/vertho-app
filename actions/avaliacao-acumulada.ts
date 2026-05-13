@@ -6,13 +6,14 @@ import { callAI } from './ai-client';
 import { promptAvaliacaoAcumulada, promptAvaliacaoAcumuladaCheck, validateAvaliacaoAcumulada, validateAvaliacaoAcumuladaCheck } from '@/lib/season-engine/prompts/acumulado';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { getProgramaConfig } from '@/lib/season-engine/programa-config';
 
 /**
  * Gera avaliação acumulada da temporada (1ª IA) + check por 2ª IA e
- * persiste em temporada_semana_progresso (semana=13).feedback.acumulado.
+ * persiste em temporada_semana_progresso (semana=programaConfig.semanaAcumulada).feedback.acumulado.
  *
- * Trigger: chamada no fim da semana 13, automaticamente, após extração
- * qualitativa. Também pode ser chamada manualmente pelo admin Vertho.
+ * Trigger: chamada no fim da semana de acumulada (regular=13), após
+ * extração qualitativa. Também pode ser chamada manualmente pelo admin Vertho.
  */
 export async function gerarAvaliacaoAcumulada(trilhaId: string) {
   await requireAdminAction();
@@ -25,6 +26,12 @@ export async function gerarAvaliacaoAcumulada(trilhaId: string) {
 
   const tdb = tenantDb(trilha.empresa_id);
 
+  // sys_config define qual semana é a "acumulada" (regular=13)
+  const { data: empresa } = await sbRaw.from('empresas')
+    .select('sys_config').eq('id', trilha.empresa_id).maybeSingle();
+  const programaConfig = getProgramaConfig(empresa?.sys_config);
+  const semanaAcumulada = programaConfig.semanaAcumulada;
+
   const { data: colab } = await tdb.from('colaboradores')
     .select('nome_completo, cargo').eq('id', trilha.colaborador_id).maybeSingle();
   const nome = (colab?.nome_completo || '').split(' ')[0] || 'colab';
@@ -36,8 +43,8 @@ export async function gerarAvaliacaoAcumulada(trilhaId: string) {
   const descritoresComRegua = await enriquecerComRegua(tdb, sbRaw, trilha.competencia_foco, descritores);
   const descritoresFresh = await atualizarNotaAtualFresh(tdb, trilha.colaborador_id, trilha.competencia_foco, descritoresComRegua);
 
-  // Agrega evidências das 13 semanas
-  const evidenciasAcumuladas = await agregarEvidencias(tdb, trilhaId, descritoresFresh, trilha.temporada_plano);
+  // Agrega evidências até a semana de acumulada (regular=13)
+  const evidenciasAcumuladas = await agregarEvidencias(tdb, trilhaId, descritoresFresh, trilha.temporada_plano, semanaAcumulada);
 
   // PII masking pro prompt externo (Claude). Nome do colab vira alias;
   // evidências (transcripts literais) passam pelo sanitizador.
@@ -88,25 +95,25 @@ export async function gerarAvaliacaoAcumulada(trilhaId: string) {
     // Não falha — grava primária sem auditoria
   }
 
-  // Persiste em sem 13 feedback.acumulado (ou cria linha se não houver)
+  // Persiste em sem da acumulada (regular=13) feedback.acumulado (ou cria linha se não houver)
   const payload = {
     gerado_em: new Date().toISOString(),
     primaria,
     auditoria,
   };
 
-  const { data: prog13 } = await tdb.from('temporada_semana_progresso')
-    .select('id, feedback').eq('trilha_id', trilhaId).eq('semana', 13).maybeSingle();
+  const { data: progSemAcumulada } = await tdb.from('temporada_semana_progresso')
+    .select('id, feedback').eq('trilha_id', trilhaId).eq('semana', semanaAcumulada).maybeSingle();
 
-  if (prog13) {
-    const novoFb = { ...(prog13.feedback || {}), acumulado: payload };
-    await tdb.from('temporada_semana_progresso').update({ feedback: novoFb }).eq('id', prog13.id);
+  if (progSemAcumulada) {
+    const novoFb = { ...(progSemAcumulada.feedback || {}), acumulado: payload };
+    await tdb.from('temporada_semana_progresso').update({ feedback: novoFb }).eq('id', progSemAcumulada.id);
   } else {
     // empresa_id é injetado pelo tdb.insert
     await tdb.from('temporada_semana_progresso').insert({
       trilha_id: trilhaId,
       colaborador_id: trilha.colaborador_id,
-      semana: 13, tipo: 'avaliacao', status: 'em_andamento',
+      semana: semanaAcumulada, tipo: 'avaliacao', status: 'em_andamento',
       feedback: { acumulado: payload },
     });
   }
@@ -144,10 +151,10 @@ async function atualizarNotaAtualFresh(tdb: any, colaboradorId: string, competen
   }));
 }
 
-async function agregarEvidencias(tdb: any, trilhaId: string, descritores: any[], plano: any) {
+async function agregarEvidencias(tdb: any, trilhaId: string, descritores: any[], plano: any, semanaLimite: number = 13) {
   const { data: progressos } = await tdb.from('temporada_semana_progresso')
     .select('semana, tipo, reflexao, feedback')
-    .eq('trilha_id', trilhaId).lte('semana', 13).order('semana');
+    .eq('trilha_id', trilhaId).lte('semana', semanaLimite).order('semana');
   if (!progressos?.length) return '';
 
   const planoArr = Array.isArray(plano) ? plano : [];

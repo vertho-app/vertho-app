@@ -1,0 +1,53 @@
+-- ============================================================================
+-- 090: Modo Onboarding — schema documentado de `empresas.sys_config`
+-- ============================================================================
+--
+-- Esta migration NÃO altera DDL. Documenta no banco (via COMMENT) as chaves
+-- que a engine de trilha passa a reconhecer em `sys_config` (JSONB livre).
+--
+-- Contexto: estamos lançando o Modo Onboarding como CONFIGURAÇÃO da
+-- engine existente — sem produto novo, sem tabelas paralelas. Toda
+-- diferença regular x onboarding vem de `sys_config`.
+--
+-- Aplicada via Supabase Studio. Reversível: basta remover o COMMENT.
+--
+-- Chaves reconhecidas em `sys_config` (todas opcionais, default = regular):
+--
+--   programa_modo: 'regular' | 'onboarding'
+--     Default 'regular'. Switch principal do modo.
+--
+--   fase_carreira_default: 'junior' | 'pleno' | 'senior'
+--     Viés padrão da IA1 ao rankear competências. Fase 2.
+--
+--   nivel_meta_alvo: 2 | 3
+--     Nível da régua de maturidade usado como meta. Regular=3, Onboarding=2.
+--     Aplicado na Avaliação Acumulada. Fase 4.
+--
+--   duracao_semanas: number
+--     Override da duração da trilha. Regular=14, Onboarding=10.
+--     Hoje a engine deriva isso do template — esta chave é fallback.
+--
+--   num_competencias_trilha: number
+--     Quantas competências cabem numa trilha. Regular=1, Onboarding=5.
+--     Fase 2.
+--
+--   cadencia_template: 'linear' | 'espiral'
+--     Linear = 1 competência aprofundada (regular).
+--     Espiral = N competências cobertas em rodadas (onboarding).
+--     Fase 2.
+--
+-- Convenção: o código lê via `lib/season-engine/programa-config.ts` →
+-- `getProgramaConfig(empresa.sys_config)`. Nesta Fase 1 a função SEMPRE
+-- devolve PROGRAMA_REGULAR — nenhum tenant ainda usa modo onboarding.
+-- ============================================================================
+
+COMMENT ON COLUMN empresas.sys_config IS
+'Configuração de sistema por empresa (JSONB). Chaves reconhecidas em 2026-05:
+- programa_modo: ''regular'' | ''onboarding'' (default regular)
+- fase_carreira_default: ''junior'' | ''pleno'' | ''senior''
+- nivel_meta_alvo: 2 | 3 (default 3)
+- duracao_semanas: number (default 14)
+- num_competencias_trilha: number (default 1)
+- cadencia_template: ''linear'' | ''espiral'' (default linear)
+- ai_model, cadencia, envios: configs pré-existentes
+Ver lib/season-engine/programa-config.ts pro contrato vivo.';

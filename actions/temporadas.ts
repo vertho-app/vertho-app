@@ -6,6 +6,7 @@ import { findColabByEmail } from '@/lib/authz';
 import { selectDescriptors } from '@/lib/season-engine/select-descriptors';
 import { buildSeason } from '@/lib/season-engine/build-season';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
+import { getProgramaConfig } from '@/lib/season-engine/programa-config';
 import type { AIConfig } from './ai-client';
 import { requireAdminAction, requireUserAction } from '@/lib/auth/action-context';
 
@@ -30,7 +31,9 @@ export async function loadTemporadaPorEmail(email: string) {
 }
 
 /**
- * Gera uma temporada de 14 semanas pra um colaborador, focada em 1 competência.
+ * Gera uma temporada pra um colaborador, focada em 1 competência.
+ * Duração e cadência vêm de `empresas.sys_config` via `getProgramaConfig`
+ * (default = regular 14 semanas).
  */
 export async function gerarTemporada({ colaboradorId, competencia, aiConfig }: GerarTemporadaParams = {}) {
   try {
@@ -66,11 +69,12 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig }: G
     }
     if (!competenciaAlvo) return { error: 'Sem competência foco definida pra este colaborador' };
 
-    // 2) Descobre contexto/setor da empresa.
+    // 2) Descobre contexto/setor da empresa + sys_config.
     // empresas não tem coluna empresa_id (o id DELA é o tenant) → usa raw.
     const { data: empresa } = await sbRaw.from('empresas')
-      .select('segmento').eq('id', colab.empresa_id).maybeSingle();
+      .select('segmento, sys_config').eq('id', colab.empresa_id).maybeSingle();
     const contexto = inferirContexto(empresa?.segmento);
+    const programaConfig = getProgramaConfig(empresa?.sys_config);
 
     // 3) Prioridade de formatos — derivada das colunas pref_* em colaboradores
     const prioridadeFormatos = derivarPrioridadeFormatos(colab);
@@ -117,9 +121,9 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig }: G
     }
 
     // 5) Seleciona descritores e aloca semanas
-    const descritoresSelecionados = selectDescriptors(assessment);
+    const descritoresSelecionados = selectDescriptors(assessment, programaConfig.slotsConteudo);
 
-    // 6) Monta plano de 14 semanas (com IA pra desafios + cenários)
+    // 6) Monta plano de N semanas (com IA pra desafios + cenários)
     const semanas = await buildSeason({
       descritoresSelecionados,
       competencia: competenciaAlvo,
@@ -128,6 +132,7 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig }: G
       prioridadeFormatos,
       empresaId: colab.empresa_id,
       aiConfig,
+      programaConfig,
     });
 
     // 7) Persiste em trilhas (estende registro existente ou cria novo)

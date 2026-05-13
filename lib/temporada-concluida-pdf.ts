@@ -55,7 +55,7 @@ export function TemporadaConcluidaPDF({ dados }) {
       // Cabeçalho
       React.createElement(Text, { style: styles.eyebrow }, `Temporada ${trilha.numeroTemporada} concluida`),
       React.createElement(Text, { style: styles.h1 }, `${firstName}, veja o que mudou em voce`),
-      React.createElement(Text, { style: styles.subtitle }, sanitize(`14 semanas dedicadas a ${trilha.competencia}.`)),
+      React.createElement(Text, { style: styles.subtitle }, sanitize(`${trilha.totalSemanas || 14} semanas dedicadas a ${trilha.competencia}.`)),
 
       // Resumo numérico
       React.createElement(View, { style: styles.statGrid },

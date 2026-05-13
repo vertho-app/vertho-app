@@ -12,8 +12,11 @@ import { fetchAuth } from '@/lib/auth/fetch-auth';
 const MIN_CHARS = 20;
 
 /**
- * Avaliação Final da Temporada (Semana 14) — UX idêntica ao mapeamento:
- * wizard com cenário + 4 perguntas + botões anterior/próxima + submit final.
+ * Avaliação Final da Temporada (semana do cenário B — regular=14, onboarding=10).
+ * Wizard com cenário + 4 perguntas + botões anterior/próxima + submit final.
+ *
+ * O número da semana é derivado do `temporada_plano` (última semana com
+ * `tipo: 'avaliacao'`) — a rota continua sendo `/sem14` por compatibilidade.
  */
 export default function Sem14Page() {
   const router = useRouter();
@@ -31,6 +34,7 @@ export default function Sem14Page() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [avaliacao, setAvaliacao] = useState(null);
+  const [semCenarioB, setSemCenarioB] = useState(14); // derivado do plano
 
   useEffect(() => {
     (async () => {
@@ -43,7 +47,13 @@ export default function Sem14Page() {
       setColabNome(r.colaborador?.nome_completo || '');
       setCargo(r.colaborador?.cargo || '');
 
-      const prog = (r.progresso || []).find(p => p.semana === 14);
+      // Última semana de avaliação no plano = wizard cenário B
+      const plano = Array.isArray(r.trilha.temporada_plano) ? r.trilha.temporada_plano : [];
+      const semsAval = plano.filter(s => s?.tipo === 'avaliacao').map(s => s.semana);
+      const semCB = semsAval.length ? Math.max(...semsAval) : 14;
+      setSemCenarioB(semCB);
+
+      const prog = (r.progresso || []).find(p => p.semana === semCB);
       const fb = prog?.feedback || {};
 
       // Já concluída — mostra avaliação
@@ -74,11 +84,11 @@ export default function Sem14Page() {
         const initResp = await fetchAuth('/api/temporada/evaluation', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ trilhaId: r.trilha.id, semana: 14, action: 'init' }),
+          body: JSON.stringify({ trilhaId: r.trilha.id, semana: semCB, action: 'init' }),
         });
         if (!initResp.ok) {
           const err = await initResp.json();
-          setError(err.error || 'Erro ao iniciar sem 14');
+          setError(err.error || `Erro ao iniciar semana ${semCB}`);
           return;
         }
         const data = await initResp.json();
@@ -105,7 +115,7 @@ export default function Sem14Page() {
       const r = await fetchAuth('/api/temporada/evaluation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trilhaId, semana: 14, action: 'send', message: respostas[i] }),
+        body: JSON.stringify({ trilhaId, semana: semCenarioB, action: 'send', message: respostas[i] }),
       });
       if (!r.ok) {
         const err = await r.json();
@@ -155,7 +165,7 @@ export default function Sem14Page() {
             style={{ width: step === 6 ? '100%' : step > 0 ? `${((step - 1) / 4) * 100}%` : '0%' }} />
         </div>
         <p className="text-[10px] text-gray-500 mt-2">
-          {step === 6 ? 'Avaliação concluída' : `Semana 14 · ${competencia}`}
+          {step === 6 ? 'Avaliação concluída' : `Semana ${semCenarioB} · ${competencia}`}
         </p>
       </div>
 
