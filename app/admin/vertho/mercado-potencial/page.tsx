@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useTransition, useMemo } from 'react';
+import { useState, useEffect, useTransition, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Loader2, RefreshCw, Filter, Building2, Users, School,
@@ -46,20 +46,34 @@ export default function MercadoPotencialPage() {
   const [idadeOnboarding, setIdadeOnboarding] = useState(29);
   const [ufs, setUfs] = useState<string[]>([]);
   const [redes, setRedes] = useState<string[]>([]);
+  const [municipioBusca, setMunicipioBusca] = useState('');
+  const [municipioDebounced, setMunicipioDebounced] = useState('');
   const [inseMin, setInseMin] = useState<number | null>(null);
   const [inseMax, setInseMax] = useState<number | null>(null);
   const [orderBy, setOrderBy] = useState('score_completo');
   const [orderDir, setOrderDir] = useState<'asc' | 'desc'>('desc');
   const [showFiltros, setShowFiltros] = useState(true);
+  const [limite, setLimite] = useState<number | null>(null); // null = usa default da tab
+
+  // Debounce do filtro de cidade — evita query a cada tecla
+  useEffect(() => {
+    const t = setTimeout(() => setMunicipioDebounced(municipioBusca), 400);
+    return () => clearTimeout(t);
+  }, [municipioBusca]);
+
+  // Defaults por tab (alinhados com o cap na action).
+  const DEFAULT_LIMITE: Record<Tab, number> = { municipio: 6000, rede: 8000, escola: 1000 };
+  const limiteEfetivo = limite ?? DEFAULT_LIMITE[tab];
 
   const filtros: MercadoFilters = useMemo(() => ({
     uf: ufs.length ? ufs : undefined,
     redes: redes.length ? redes : undefined,
+    municipioBusca: municipioDebounced.trim() || undefined,
     inseMin: inseMin ?? undefined,
     inseMax: inseMax ?? undefined,
     precoProf, precoGestor, idadeOnboarding,
-    orderBy, orderDir, limit: 500,
-  }), [ufs, redes, inseMin, inseMax, precoProf, precoGestor, idadeOnboarding, orderBy, orderDir]);
+    orderBy, orderDir, limit: limiteEfetivo,
+  }), [ufs, redes, municipioDebounced, inseMin, inseMax, precoProf, precoGestor, idadeOnboarding, orderBy, orderDir, limiteEfetivo]);
 
   async function carregar() {
     setLoading(true);
@@ -148,27 +162,36 @@ export default function MercadoPotencialPage() {
           </button>
           {showFiltros && (
             <div className="px-4 pb-4 border-t border-white/[0.06] space-y-4">
-              {/* Preços */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-4">
+              {/* Preços + limite */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4">
                 <NumInput label="R$/Professor/mês" value={precoProf} onChange={setPrecoProf} />
                 <NumInput label="R$/Gestor/mês" value={precoGestor} onChange={setPrecoGestor} />
-                <NumInput label="Idade-corte Onboarding (anos)" value={idadeOnboarding} onChange={setIdadeOnboarding} />
+                <NumInput label="Idade-corte Onboarding" value={idadeOnboarding} onChange={setIdadeOnboarding} />
+                <NumInput
+                  label={`Limite (default ${DEFAULT_LIMITE[tab].toLocaleString('pt-BR')})`}
+                  value={limite}
+                  onChange={setLimite}
+                  allowNull
+                />
               </div>
 
-              {/* UFs (multi-select) */}
-              <div>
-                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2">UF (multi-select)</p>
-                <div className="flex flex-wrap gap-1">
-                  {UFS.map(uf => (
-                    <button key={uf} onClick={() => toggleUf(uf)}
-                      className={`px-2 py-1 rounded-md text-[10px] font-semibold border transition-colors ${
-                        ufs.includes(uf)
-                          ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-300'
-                          : 'border-white/10 text-white/50 hover:border-white/30 hover:text-white/80'
-                      }`}>
-                      {uf}
-                    </button>
-                  ))}
+              {/* UF (dropdown multi-select) + filtro por cidade */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <UfDropdown selected={ufs} onChange={setUfs} />
+                <div>
+                  <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Cidade (busca por nome)</label>
+                  <div className="relative">
+                    <input value={municipioBusca} onChange={e => setMunicipioBusca(e.target.value)}
+                      placeholder="ex.: São Paulo, Salvador..."
+                      className="w-full px-3 py-2 pr-8 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40"
+                      style={{ background: '#091D35' }} />
+                    {municipioBusca && (
+                      <button onClick={() => setMunicipioBusca('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-white/40 hover:text-white">
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -194,7 +217,7 @@ export default function MercadoPotencialPage() {
 
               {/* INSE range */}
               <div className="grid grid-cols-2 gap-3">
-                <NumInput label="INSE mínimo (1=alto, 6=baixo)" value={inseMin} onChange={setInseMin} allowNull />
+                <NumInput label="INSE mínimo (1=baixo, 6=alto)" value={inseMin} onChange={setInseMin} allowNull />
                 <NumInput label="INSE máximo" value={inseMax} onChange={setInseMax} allowNull />
               </div>
             </div>
@@ -308,9 +331,10 @@ export default function MercadoPotencialPage() {
                   ))}
                 </tbody>
               </table>
-              {rows.length >= 500 && (
+              {rows.length >= limiteEfetivo && (
                 <p className="text-[10px] text-white/40 text-center py-2 border-t border-white/[0.04]">
-                  500 primeiros resultados. Use filtros mais específicos para refinar.
+                  {limiteEfetivo.toLocaleString('pt-BR')} primeiros resultados (limite atingido).
+                  {' '}Aumente o "Limite" no header ou filtre por UF/rede pra refinar.
                 </p>
               )}
             </div>
@@ -319,7 +343,7 @@ export default function MercadoPotencialPage() {
 
         {/* Rodapé com nota */}
         <p className="text-[10px] text-white/30 text-center mt-4">
-          TAM = (profs + gestores) × R$/mês configurado. Fit pedagógico = 0.4 + 0.3×(%sem pós) + 0.3×(%jovens). Score = TAM × Fit Ped × Fit Fin (INSE-dependente). Públicas usam INSE invertido como proxy de demanda; privadas usam INSE direto como proxy de poder aquisitivo.
+          TAM = (profs + gestores) × R$/mês configurado. Fit pedagógico = 0.4 + 0.3×(%sem pós) + 0.3×(%jovens). Score = TAM × Fit Ped × Fit Fin (INSE-dependente). INSE INEP: 1=mais baixo, 6=mais alto. Privadas pontuam alto com INSE alto (mais bolso); públicas pontuam alto com INSE baixo (mais demanda).
         </p>
       </div>
     </div>
@@ -352,6 +376,73 @@ function KPI({ label, value, cor, big = false }: { label: string; value: string;
       style={{ background: '#0b1d36', border: '1px solid rgba(255,255,255,.05)' }}>
       <p className="text-[9px] font-bold uppercase tracking-widest text-white/40 mb-1">{label}</p>
       <p className={`font-mono font-bold ${big ? 'text-base' : 'text-sm'}`} style={{ color: cor }}>{value}</p>
+    </div>
+  );
+}
+
+function UfDropdown({ selected, onChange }: { selected: string[]; onChange: (ufs: string[]) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    if (open) document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [open]);
+
+  function toggle(uf: string) {
+    onChange(selected.includes(uf) ? selected.filter(u => u !== uf) : [...selected, uf]);
+  }
+
+  const label = selected.length === 0
+    ? 'Todas as UFs'
+    : selected.length <= 3
+      ? selected.join(', ')
+      : `${selected.length} UFs selecionadas`;
+
+  return (
+    <div ref={ref} className="relative">
+      <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-1">
+        UF (multi-select)
+      </label>
+      <button onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40 hover:border-white/30 transition-colors"
+        style={{ background: '#091D35' }}>
+        <span className="truncate text-left">{label}</span>
+        <div className="flex items-center gap-1 shrink-0 ml-2">
+          {selected.length > 0 && (
+            <span onClick={e => { e.stopPropagation(); onChange([]); }}
+              className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white/60 hover:text-white hover:bg-white/10 cursor-pointer">
+              limpar
+            </span>
+          )}
+          <ChevronDown size={13} className="text-white/40" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: '.15s' }} />
+        </div>
+      </button>
+      {open && (
+        <div className="absolute z-20 top-full left-0 right-0 mt-1 rounded-lg p-2 max-h-72 overflow-y-auto"
+          style={{ background: '#0b1d36', border: '1px solid rgba(255,255,255,.1)', boxShadow: '0 8px 24px rgba(0,0,0,.4)' }}>
+          <div className="grid grid-cols-3 gap-1">
+            {UFS.map(uf => (
+              <button key={uf} onClick={() => toggle(uf)}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-semibold transition-colors ${
+                  selected.includes(uf)
+                    ? 'bg-cyan-400/15 text-cyan-300'
+                    : 'text-white/60 hover:bg-white/[0.05] hover:text-white'
+                }`}>
+                <span className={`w-3 h-3 rounded-sm border flex items-center justify-center text-[9px] ${
+                  selected.includes(uf) ? 'border-cyan-400 bg-cyan-400/20' : 'border-white/20'
+                }`}>
+                  {selected.includes(uf) && '✓'}
+                </span>
+                {uf}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

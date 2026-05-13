@@ -23,6 +23,7 @@ import { requireAdminAction } from '@/lib/auth/action-context';
 export interface MercadoFilters {
   uf?: string[];                          // multi-UF (vazio = todas)
   redes?: string[];                       // MUNICIPAL/ESTADUAL/FEDERAL/PRIVADA (vazio = todas)
+  municipioBusca?: string;                // busca por nome do município (ilike)
   inseMin?: number;                       // 1-6 (NULL passa)
   inseMax?: number;
   precoProf?: number;                     // R$/mês por professor (default 300)
@@ -30,7 +31,7 @@ export interface MercadoFilters {
   idadeOnboarding?: number;               // corte recém-formados (default 29)
   orderBy?: string;                       // coluna pra ordenar
   orderDir?: 'asc' | 'desc';
-  limit?: number;                         // default 500
+  limit?: number;
   offset?: number;
 }
 
@@ -78,19 +79,18 @@ function calcularScores(row: any, filtros: MercadoFilters): Partial<MercadoRowBa
   const fit_pedagogico = Math.min(1, 0.4 + 0.3 * pct_sem_pos + 0.3 * pct_jovens);
 
   // fit_financeiro: depende da rede principal (público vs privado)
-  // Pública: INSE alto (6) = mais necessidade pública (governo investe) — mas pra Vertho menos bolso.
-  // Privada: INSE alto (1) = mais bolso. Aqui assumimos rede como input do row, ou agregada.
-  // Pra MV de município (sem rede), uso INSE invertido como proxy de "necessidade" só.
+  // INSE INEP: 1 = nível socioeconômico MAIS BAIXO; 6 = MAIS ALTO.
+  // Normaliza pra inseNorm 0-1 onde 1 = mais rico, 0 = mais pobre.
+  // Privada: INSE alto = mais bolso. Pública: INSE baixo = mais demanda/ROI político.
   const redeRow = (row.rede || '').toUpperCase();
   let fit_financeiro: number | null = null;
   if (inse != null) {
-    const inseNorm = (6 - inse) / 5; // 0 (INSE 6) a 1 (INSE 1)
+    const inseNorm = (inse - 1) / 5; // 0 (INSE 1, mais pobre) a 1 (INSE 6, mais rico)
     if (redeRow === 'PRIVADA') {
-      // Privada com INSE alto (1) → mais bolso
+      // Privada com INSE alto (6) → mais bolso
       fit_financeiro = 0.4 + 0.6 * inseNorm;
     } else if (redeRow === 'MUNICIPAL' || redeRow === 'ESTADUAL' || redeRow === 'FEDERAL') {
-      // Pública: usa FUNDEB no futuro; por enquanto INSE invertido como proxy de "ROI político"
-      // (escolas mais carentes geram mais demanda pública). 0.5 a 0.9.
+      // Pública: escolas mais carentes (INSE baixo) geram mais demanda
       fit_financeiro = 0.5 + 0.4 * (1 - inseNorm);
     } else {
       // Município agregado (sem rede): combina ambos
@@ -113,6 +113,11 @@ function aplicarFiltrosBase(query: any, filtros: MercadoFilters) {
   if (filtros.uf?.length) query = query.in('uf', filtros.uf);
   if (filtros.inseMin != null) query = query.gte('inse_medio', filtros.inseMin);
   if (filtros.inseMax != null) query = query.lte('inse_medio', filtros.inseMax);
+  if (filtros.municipioBusca?.trim()) {
+    // ilike é case-insensitive; unaccent ficaria melhor, mas o índice gin trgm
+    // em diag_escolas não está nas MVs — usar ilike simples.
+    query = query.ilike('municipio', `%${filtros.municipioBusca.trim()}%`);
+  }
   return query;
 }
 
@@ -121,7 +126,8 @@ function aplicarFiltrosBase(query: any, filtros: MercadoFilters) {
 export async function loadMercadoMunicipios(filtros: MercadoFilters = {}) {
   await requireAdminAction();
   const sb = createSupabaseAdmin();
-  const limit = Math.min(filtros.limit ?? 500, 2000);
+  // ~5.570 municípios no Brasil — default cobre o universo inteiro.
+  const limit = Math.min(filtros.limit ?? 6000, 10000);
 
   let q = sb.from('diag_mv_mercado_municipio')
     .select('municipio_ibge, municipio, uf, microrregiao, qt_escolas, qt_escolas_municipal, qt_escolas_estadual, qt_escolas_federal, qt_escolas_privada, qt_professores, qt_docs_jovens, qt_docs_pos, qt_gestores, inse_medio, score_conectividade');
@@ -161,7 +167,9 @@ export async function loadMercadoMunicipios(filtros: MercadoFilters = {}) {
 export async function loadMercadoRedes(filtros: MercadoFilters = {}) {
   await requireAdminAction();
   const sb = createSupabaseAdmin();
-  const limit = Math.min(filtros.limit ?? 500, 2000);
+  // (5.570 municípios × 4 redes) = ~22k combinações no pior caso — default
+  // 8000 cobre maioria; use filtros pra reduzir mais.
+  const limit = Math.min(filtros.limit ?? 8000, 25000);
 
   let q = sb.from('diag_mv_mercado_rede')
     .select('municipio_ibge, municipio, uf, rede, qt_escolas, qt_professores, qt_docs_jovens, qt_docs_pos, qt_gestores, inse_medio');
@@ -197,7 +205,9 @@ export async function loadMercadoRedes(filtros: MercadoFilters = {}) {
 export async function loadMercadoEscolas(filtros: MercadoFilters = {}) {
   await requireAdminAction();
   const sb = createSupabaseAdmin();
-  const limit = Math.min(filtros.limit ?? 500, 2000);
+  // ~180k escolas no Brasil — default conservador 1000, force user a filtrar
+  // por UF/rede/INSE pra ver mais. Cap 10000 protege o browser.
+  const limit = Math.min(filtros.limit ?? 1000, 10000);
 
   let q = sb.from('diag_mv_mercado_escola')
     .select('codigo_inep, nome, municipio, municipio_ibge, uf, rede, inse_grupo, etapas, qt_professores, qt_docs_jovens, qt_docs_pos, qt_coord_pedag, qt_diretor_proxy, score_conectividade');
