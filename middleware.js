@@ -10,20 +10,24 @@ import { NextResponse } from 'next/server';
  * Implementação atual continua funcionando em Next 16 estável.
  *
  * Fluxo:
- *   1. Lê o hostname da request (ex: zula.vertho.com.br)
+ *   1. Lê o hostname da request (ex: zula.vertho.ai)
  *   2. Extrai o slug do subdomínio (ex: "zula")
  *   3. Injeta o header `x-tenant-slug` na request via rewrite
  *   4. Todas as rotas existentes continuam inalteradas — server components
  *      e API routes lêem o header quando precisarem saber o tenant.
  *
  * Domínios "raiz" (sem tenant):
- *   - vertho.com.br / www.vertho.com.br
- *   - app.vertho.com.br
+ *   - vertho.ai / www.vertho.ai (principal)
+ *   - app.vertho.ai
+ *   - vertho.com.br / app.vertho.com.br (legacy — mantido só por compat de
+ *     DNS antigo; será removido quando o registro expirar)
  *   - localhost:3000 (sem subdomínio)
  *   - *.vercel.app (preview deploys)
  *
  * Subdomínios públicos com rewrite:
  *   - radar.vertho.ai → /radar/<path>
+ *   - radarbett.vertho.ai → /radarbett/<path>
+ *   - imprensa.vertho.ai → /imprensa/<path>
  *
  * Os demais seguem o fluxo normal sem injeção de tenant.
  */
@@ -52,10 +56,11 @@ const REWRITE_SUBDOMAINS = {
   imprensa: '/imprensa',
 };
 
-// Domínios raiz (sem subdomínio = sem tenant)
+// Domínios raiz (sem subdomínio = sem tenant). vertho.com.br fica
+// no final como legacy — manter por compat até DNS expirar.
 const ROOT_DOMAINS = [
-  'vertho.com.br',
   'vertho.ai',
+  'vertho.com.br',
   'localhost',
   'vercel.app',
 ];
@@ -77,9 +82,9 @@ function extractTenantSlug(hostname) {
 
     if (host.endsWith(`.${root}`)) {
       // Extrai o que vem antes do domínio raiz
-      const subdomain = host.slice(0, -(root.length + 1)); // "zula" de "zula.vertho.com.br"
+      const subdomain = host.slice(0, -(root.length + 1)); // "zula" de "zula.vertho.ai"
 
-      // Pode ter múltiplos níveis (a.b.vertho.com.br) — pega só o primeiro
+      // Pode ter múltiplos níveis (a.b.vertho.ai) — pega só o primeiro
       const slug = subdomain.split('.')[0];
 
       if (!slug || RESERVED_SUBDOMAINS.has(slug)) return null;

@@ -46,7 +46,7 @@
 | **Testes** | Playwright + smoke-test.js | — | ✅ |
 | **Hospedagem** | Vercel (Serverless) | — | ✅ |
 | **DNS/CDN** | Cloudflare (Full Strict SSL) | — | ✅ |
-| **Dominio** | vertho.ai (raiz) + app.vertho.ai (auth/admin) + *.vertho.ai (tenants) + radar.vertho.ai + radarbett.vertho.ai. Legado vertho.com.br ainda atendido pelo middleware. | — | ✅ |
+| **Dominio** | vertho.ai (raiz) + app.vertho.ai (auth/admin) + *.vertho.ai (tenants) + radar.vertho.ai + radarbett.vertho.ai. vertho.com.br legado, mantido no middleware so por compat de DNS antigo. | — | ✅ |
 | **CI/CD** | GitHub Actions (smoke test no push) | — | ✅ |
 
 **Config Next.js**: `experimental.serverActions.bodySizeLimit = '50mb'` (Next 16 compat).
@@ -389,7 +389,7 @@ nextjs-app/
 
 ### 3.1 Roteamento por Subdominio
 ```
-{slug}.vertho.ai/login (legado: {slug}.vertho.com.br)
+{slug}.vertho.ai/login
   → middleware.js extrai slug do hostname (suporta .ai e .com.br)
   → Injeta header x-tenant-slug + cookie vertho-tenant-slug
   → Server Components resolvem tenant via lib/tenant-resolver.ts (cache 5min)
@@ -610,7 +610,7 @@ Import, thumbnails, embed, analytics, webhook. Status: ✅
 
 ### Fluxo A: Login + Tenant + Dashboard
 ```
-1. Usuario acessa {slug}.vertho.com.br/login
+1. Usuario acessa {slug}.vertho.ai/login
 2. middleware.js extrai slug → header x-tenant-slug
 3. tenant-resolver.js busca empresa por slug (cache 5min)
 4. LoginForm: email + senha/Magic Link → Supabase Auth
@@ -782,7 +782,7 @@ cis_referencia, cis_ia_referencia
 ## 10. Testes
 
 ### Smoke Test (HTTP)
-`node scripts/smoke-test.js https://vertho.com.br` — 29 rotas, CI-ready.
+`node scripts/smoke-test.js https://vertho.ai` — 29 rotas, CI-ready.
 
 ### Playwright E2E + Vitest (27 arquivos de teste)
 ```
@@ -895,7 +895,7 @@ Cloudflare: DNS + CDN (CNAME @ e * → cname.vercel-dns.com, SSL Full Strict)
   - *.vertho.ai (tenants — vincular manualmente em /admin/empresas/{id}/configuracoes)
   - radar.vertho.ai (Radar publico nacional)
   - radarbett.vertho.ai (site Bett 2026)
-  - vertho.com.br (legado, ainda atendido pelo middleware)
+  - vertho.com.br (legacy — middleware aceita por compat de DNS antigo; sera removido)
 Supabase: PostgreSQL + Auth + Storage + RLS (pgvector 1024d)
 Upstash: QStash (filas async WhatsApp + Radar PDF worker)
 Resend: Email transacional

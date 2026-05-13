@@ -6,7 +6,7 @@
 3. [ ] Smoke test passa             → npm run smoke
 4. [ ] Envs na Vercel               → Vercel Dashboard > Environment Variables
 5. [ ] Migrations rodadas           → Supabase SQL Editor
-6. [ ] Domínio OK                   → vertho.com.br → Cloudflare → Vercel
+6. [ ] Domínio OK                   → vertho.ai → Cloudflare → Vercel
 7. [ ] Push                         → git push origin master (deploy automático)
-8. [ ] Verificar deploy             → https://vertho.com.br/login
+8. [ ] Verificar deploy             → https://vertho.ai/login
 ```

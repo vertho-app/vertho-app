@@ -146,7 +146,7 @@ requer RLS policies completas + testes extensivos.
 Proteção de origin aplicada em 10 rotas mutativas via `lib/csrf.ts`:
 - Requests com Bearer explícito: bypass (não é cookie-based)
 - Requests GET/HEAD/OPTIONS: bypass (safe methods)
-- Demais: exige Origin confiável (*.vertho.com.br, *.vercel.app, localhost)
+- Demais: exige Origin confiável (*.vertho.ai, *.vercel.app, localhost)
 - Falha fechada com 403
 
 Exceções: webhooks (bunny, qstash) e cron — não são cookie-based.

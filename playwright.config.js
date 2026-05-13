@@ -6,7 +6,7 @@ module.exports = defineConfig({
   retries: 1,
   workers: 1, // Serial execution — avoids Supabase Auth rate limiting
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'https://vertho.com.br',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'https://vertho.ai',
     screenshot: 'only-on-failure',
     trace: 'on-first-retry',
   },

@@ -78,7 +78,7 @@ describe('POST /api/upload/signed-url — comportamento real', () => {
 
   it('passa do gate de auth com admin (400 por body ou 500, mas NÃO 401/403)', async () => {
     mockAuthResult = {
-      email: 'admin@vertho.com.br',
+      email: 'admin@vertho.ai',
       colaborador: { id: 'c1', empresa_id: 'e1', area_depto: 'TI' },
       role: 'admin',
       empresaId: 'e1',

@@ -71,14 +71,16 @@ CREATE INDEX idx_mv_mercado_escola_inse
   ON diag_mv_mercado_escola(inse_grupo);
 
 -- ── 2. Município (todas as redes agregadas) ─────────────────────────────────
+-- Nota: agrupa SÓ por municipio_ibge — mesmo IBGE pode ter grafias diferentes
+-- (com/sem acento) em diag_escolas. MIN() estabiliza com a primeira grafia.
 DROP MATERIALIZED VIEW IF EXISTS diag_mv_mercado_municipio CASCADE;
 
 CREATE MATERIALIZED VIEW diag_mv_mercado_municipio AS
 SELECT
   municipio_ibge,
-  municipio,
-  uf,
-  microrregiao,
+  MIN(municipio)                                        AS municipio,
+  MIN(uf)                                               AS uf,
+  MIN(microrregiao)                                     AS microrregiao,
   COUNT(*)                                              AS qt_escolas,
   COUNT(*) FILTER (WHERE rede = 'MUNICIPAL')            AS qt_escolas_municipal,
   COUNT(*) FILTER (WHERE rede = 'ESTADUAL')             AS qt_escolas_estadual,
@@ -91,7 +93,7 @@ SELECT
   AVG(inse_grupo) FILTER (WHERE inse_grupo IS NOT NULL) AS inse_medio,
   AVG(score_conectividade)                              AS score_conectividade
 FROM diag_mv_mercado_escola
-GROUP BY municipio_ibge, municipio, uf, microrregiao;
+GROUP BY municipio_ibge;
 
 CREATE UNIQUE INDEX idx_mv_mercado_municipio_ibge
   ON diag_mv_mercado_municipio(municipio_ibge);
@@ -104,8 +106,8 @@ DROP MATERIALIZED VIEW IF EXISTS diag_mv_mercado_rede CASCADE;
 CREATE MATERIALIZED VIEW diag_mv_mercado_rede AS
 SELECT
   municipio_ibge,
-  municipio,
-  uf,
+  MIN(municipio)                                        AS municipio,
+  MIN(uf)                                               AS uf,
   rede,
   COUNT(*)                                              AS qt_escolas,
   SUM(qt_professores)                                   AS qt_professores,
@@ -114,7 +116,7 @@ SELECT
   SUM(qt_coord_pedag + qt_diretor_proxy)                AS qt_gestores,
   AVG(inse_grupo) FILTER (WHERE inse_grupo IS NOT NULL) AS inse_medio
 FROM diag_mv_mercado_escola
-GROUP BY municipio_ibge, municipio, uf, rede;
+GROUP BY municipio_ibge, rede;
 
 CREATE UNIQUE INDEX idx_mv_mercado_rede_pk
   ON diag_mv_mercado_rede(municipio_ibge, rede);

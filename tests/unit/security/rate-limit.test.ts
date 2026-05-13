@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { createRateLimiter } from '@/lib/rate-limit';
 
 function makeRequest(ip: string = '1.2.3.4'): Request {
-  return new Request('https://app.vertho.com.br/api/test', {
+  return new Request('https://app.vertho.ai/api/test', {
     method: 'POST',
     headers: { 'x-forwarded-for': ip },
   });

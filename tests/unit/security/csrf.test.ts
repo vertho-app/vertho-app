@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { csrfCheck } from '@/lib/csrf';
 
 function makeRequest(method: string, headers: Record<string, string> = {}): Request {
-  return new Request('https://app.vertho.com.br/api/test', {
+  return new Request('https://app.vertho.ai/api/test', {
     method,
     headers,
   });
@@ -33,8 +33,8 @@ describe('csrfCheck', () => {
     expect(res!.status).toBe(403);
   });
 
-  it('POST com Origin=https://empresa.vertho.com.br -> null (pass)', () => {
-    const req = makeRequest('POST', { Origin: 'https://empresa.vertho.com.br' });
+  it('POST com Origin=https://empresa.vertho.ai -> null (pass)', () => {
+    const req = makeRequest('POST', { Origin: 'https://empresa.vertho.ai' });
     expect(csrfCheck(req)).toBeNull();
   });
 
@@ -43,8 +43,8 @@ describe('csrfCheck', () => {
     expect(csrfCheck(req)).toBeNull();
   });
 
-  it('POST com Referer=https://app.vertho.com.br/admin -> null (pass)', () => {
-    const req = makeRequest('POST', { Referer: 'https://app.vertho.com.br/admin' });
+  it('POST com Referer=https://app.vertho.ai/admin -> null (pass)', () => {
+    const req = makeRequest('POST', { Referer: 'https://app.vertho.ai/admin' });
     expect(csrfCheck(req)).toBeNull();
   });
 });

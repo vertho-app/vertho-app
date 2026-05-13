@@ -30,7 +30,7 @@ git push
 npm run build
 npm run smoke
 git push origin master
-# Verificar: https://vertho.com.br/login
+# Verificar: https://vertho.ai/login
 ```
 
 ## Snapshot local (emergência)

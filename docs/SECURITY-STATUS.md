@@ -19,7 +19,7 @@
 - `lib/csrf.ts::csrfCheck` em 10 rotas mutativas
 - Bearer explicito: bypass (nao cookie-vulnerable)
 - Safe methods (GET/HEAD/OPTIONS): bypass
-- Cookie-based: exige Origin confiavel (*.vertho.com.br, *.vercel.app, localhost)
+- Cookie-based: exige Origin confiavel (*.vertho.ai, *.vercel.app, localhost)
 - Fail closed com 403
 
 ### Rate limiting (P2)
