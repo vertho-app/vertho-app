@@ -448,6 +448,8 @@ export default function AdminDashboardPage() {
                     <>
                       <QuickAction onClick={() => router.push('/admin/empresas/nova')} icon={<Plus size={16} />} accent="#34c5cc"
                         title="Nova empresa" desc="Criar e onboarding de tenant" />
+                      <QuickAction onClick={() => router.push('/admin/vertho/mercado-potencial')} icon={<TrendingUp size={16} />} accent="#f97354"
+                        title="Mercado Potencial" desc="TAM por município, rede e escola" />
                       <QuickAction onClick={() => router.push('/admin/radar')} icon={<BarChart2 size={16} />} accent="#9e4edd"
                         title="Radar (Ingestão)" desc="Subir dados Saeb/ICA/Censo" />
                       <QuickAction onClick={() => router.push('/admin/vertho/orcamento')} icon={<Calculator size={16} />} accent="#f4b740"
