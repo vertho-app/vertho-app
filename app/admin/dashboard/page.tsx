@@ -8,7 +8,7 @@ import {
   Plus, Loader2, RefreshCw, Zap, BookMarked, ShieldCheck, ChevronRight,
   Trash2, Video, GraduationCap as GradIcon, BarChart2, FileText, Shield,
   Calculator, LayoutDashboard, Bell, Search, Settings, LogOut, Brain,
-  Activity, CheckCircle2, Filter, Globe, Vote, Sparkles,
+  Activity, CheckCircle2, Filter, Globe, Vote, Sparkles, TrendingUp,
 } from 'lucide-react';
 import { loadAdminDashboard } from './actions';
 
@@ -70,6 +70,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'qualidade-dados',  label: 'Qualidade Dados',     sub: 'Radar quality',              icon: Database,       hrefFn: () => '/admin/radar/qualidade-dados',              showWhenEmpresa: false },
   { key: 'custo-ia',         label: 'Custo IA',            sub: 'Catálogo de chamadas',       icon: BarChart2,      hrefFn: () => '/admin/vertho/simulador-custo' },
   { key: 'orcamento',        label: 'Orçamento',           sub: 'Custo / Tabela / Final',     icon: Calculator,     hrefFn: () => '/admin/vertho/orcamento' },
+  { key: 'mercado',          label: 'Mercado Potencial',   sub: 'Municípios · Redes · Escolas', icon: TrendingUp,   hrefFn: () => '/admin/vertho/mercado-potencial',          showWhenEmpresa: false },
   { key: 'admins',           label: 'Admins',              sub: 'Platform admins',            icon: Shield,         hrefFn: () => '/admin/platform-admins',                    showWhenEmpresa: false },
   { key: 'lixeira',          label: 'Lixeira',             sub: 'Registros excluídos',        icon: Trash2,         hrefFn: () => '/admin/lixeira',                            showWhenEmpresa: false },
 ];

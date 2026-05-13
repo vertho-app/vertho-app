@@ -1,0 +1,271 @@
+'use server';
+
+import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminAction } from '@/lib/auth/action-context';
+
+/**
+ * Mercado potencial — uso interno comercial.
+ *
+ * 3 endpoints (município, rede, escola) puxam das MVs criadas na migration 093.
+ * Saeb / Ideb / VAAR / ENEM JOIN em runtime das MVs existentes do Radar.
+ *
+ * TAM = (professores + gestores) × preço/mês (configurável pelo user).
+ * Score = TAM × fit_pedagogico × fit_financeiro (cada um 0-1).
+ *   fit_pedagogico = 0.5 + 0.5 × (% sem pós + % recém-formados) / 2
+ *   fit_financeiro pública = 0.5 + 0.5 × (1 - INSE_norm) — INSE 6 = mais pobre = mais demanda
+ *   fit_financeiro privada = 0.5 + 0.5 × INSE_norm — INSE 1 = mais rica = mais bolso
+ *
+ * Sinais opcionais (NULL quando ausente, não afetam score base):
+ *   pública  → saeb_proficiencia, ideb_meta_atingida, vaar_aluno
+ *   privada  → enem_media, saresp_proficiencia (SP)
+ */
+
+export interface MercadoFilters {
+  uf?: string[];                          // multi-UF (vazio = todas)
+  redes?: string[];                       // MUNICIPAL/ESTADUAL/FEDERAL/PRIVADA (vazio = todas)
+  inseMin?: number;                       // 1-6 (NULL passa)
+  inseMax?: number;
+  precoProf?: number;                     // R$/mês por professor (default 300)
+  precoGestor?: number;                   // R$/mês por gestor (default 500)
+  idadeOnboarding?: number;               // corte recém-formados (default 29)
+  orderBy?: string;                       // coluna pra ordenar
+  orderDir?: 'asc' | 'desc';
+  limit?: number;                         // default 500
+  offset?: number;
+}
+
+interface MercadoRowBase {
+  id: string;                             // municipio_ibge | rede pk | codigo_inep
+  nome: string;
+  uf: string;
+  rede?: string;                          // só nas tabs rede e escola
+  inse_medio: number | null;
+  qt_escolas: number;
+  qt_professores: number;
+  qt_docs_jovens: number;
+  qt_docs_pos: number;
+  qt_gestores: number;
+  pct_sem_pos: number;                    // 0-1
+  pct_jovens: number;                     // 0-1
+  tam_mensal_mentor_ia: number;
+  tam_mensal_onboarding: number;
+  fit_pedagogico: number;                 // 0-1
+  fit_financeiro: number | null;
+  score_base: number;                     // TAM_total × fit_pedagogico (quando INSE NULL)
+  score_completo: number | null;          // TAM_total × fit_pedagogico × fit_financeiro
+}
+
+// ── Scoring helpers ─────────────────────────────────────────────────────────
+
+const DEFAULTS = { precoProf: 300, precoGestor: 500, idadeOnboarding: 29 };
+
+function calcularScores(row: any, filtros: MercadoFilters): Partial<MercadoRowBase> {
+  const precoProf = filtros.precoProf ?? DEFAULTS.precoProf;
+  const precoGestor = filtros.precoGestor ?? DEFAULTS.precoGestor;
+  const profs = Number(row.qt_professores || 0);
+  const jovens = Number(row.qt_docs_jovens || 0);
+  const pos = Number(row.qt_docs_pos || 0);
+  const gestores = Number(row.qt_gestores || 0);
+  const inse = row.inse_medio != null ? Number(row.inse_medio) : null;
+
+  const pct_sem_pos = profs > 0 ? Math.max(0, 1 - pos / profs) : 0;
+  const pct_jovens = profs > 0 ? jovens / profs : 0;
+
+  const tam_mensal_mentor_ia = profs * precoProf + gestores * precoGestor;
+  const tam_mensal_onboarding = jovens * precoProf + gestores * precoGestor;
+
+  // fit_pedagogico: maior quando há mais lacuna formativa (sem pós, recém-formados)
+  const fit_pedagogico = Math.min(1, 0.4 + 0.3 * pct_sem_pos + 0.3 * pct_jovens);
+
+  // fit_financeiro: depende da rede principal (público vs privado)
+  // Pública: INSE alto (6) = mais necessidade pública (governo investe) — mas pra Vertho menos bolso.
+  // Privada: INSE alto (1) = mais bolso. Aqui assumimos rede como input do row, ou agregada.
+  // Pra MV de município (sem rede), uso INSE invertido como proxy de "necessidade" só.
+  const redeRow = (row.rede || '').toUpperCase();
+  let fit_financeiro: number | null = null;
+  if (inse != null) {
+    const inseNorm = (6 - inse) / 5; // 0 (INSE 6) a 1 (INSE 1)
+    if (redeRow === 'PRIVADA') {
+      // Privada com INSE alto (1) → mais bolso
+      fit_financeiro = 0.4 + 0.6 * inseNorm;
+    } else if (redeRow === 'MUNICIPAL' || redeRow === 'ESTADUAL' || redeRow === 'FEDERAL') {
+      // Pública: usa FUNDEB no futuro; por enquanto INSE invertido como proxy de "ROI político"
+      // (escolas mais carentes geram mais demanda pública). 0.5 a 0.9.
+      fit_financeiro = 0.5 + 0.4 * (1 - inseNorm);
+    } else {
+      // Município agregado (sem rede): combina ambos
+      fit_financeiro = 0.5;
+    }
+  }
+
+  const score_base = tam_mensal_mentor_ia * fit_pedagogico;
+  const score_completo = fit_financeiro != null ? score_base * fit_financeiro : null;
+
+  return {
+    pct_sem_pos, pct_jovens,
+    tam_mensal_mentor_ia, tam_mensal_onboarding,
+    fit_pedagogico, fit_financeiro,
+    score_base, score_completo,
+  };
+}
+
+function aplicarFiltrosBase(query: any, filtros: MercadoFilters) {
+  if (filtros.uf?.length) query = query.in('uf', filtros.uf);
+  if (filtros.inseMin != null) query = query.gte('inse_medio', filtros.inseMin);
+  if (filtros.inseMax != null) query = query.lte('inse_medio', filtros.inseMax);
+  return query;
+}
+
+// ── 1. Lista por município ──────────────────────────────────────────────────
+
+export async function loadMercadoMunicipios(filtros: MercadoFilters = {}) {
+  await requireAdminAction();
+  const sb = createSupabaseAdmin();
+  const limit = Math.min(filtros.limit ?? 500, 2000);
+
+  let q = sb.from('diag_mv_mercado_municipio')
+    .select('municipio_ibge, municipio, uf, microrregiao, qt_escolas, qt_escolas_municipal, qt_escolas_estadual, qt_escolas_federal, qt_escolas_privada, qt_professores, qt_docs_jovens, qt_docs_pos, qt_gestores, inse_medio, score_conectividade');
+  q = aplicarFiltrosBase(q, filtros);
+  q = q.limit(limit);
+
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+
+  let rows = (data || []).map((r: any) => ({
+    id: r.municipio_ibge,
+    nome: r.municipio,
+    uf: r.uf,
+    microrregiao: r.microrregiao,
+    qt_escolas: Number(r.qt_escolas),
+    qt_escolas_breakdown: {
+      municipal: Number(r.qt_escolas_municipal || 0),
+      estadual: Number(r.qt_escolas_estadual || 0),
+      federal: Number(r.qt_escolas_federal || 0),
+      privada: Number(r.qt_escolas_privada || 0),
+    },
+    qt_professores: Number(r.qt_professores || 0),
+    qt_docs_jovens: Number(r.qt_docs_jovens || 0),
+    qt_docs_pos: Number(r.qt_docs_pos || 0),
+    qt_gestores: Number(r.qt_gestores || 0),
+    inse_medio: r.inse_medio != null ? Number(r.inse_medio) : null,
+    score_conectividade: r.score_conectividade,
+    ...calcularScores(r, filtros),
+  }));
+
+  rows = ordenarRows(rows, filtros);
+  return { ok: true, rows, total: rows.length };
+}
+
+// ── 2. Lista por rede (município × rede) ────────────────────────────────────
+
+export async function loadMercadoRedes(filtros: MercadoFilters = {}) {
+  await requireAdminAction();
+  const sb = createSupabaseAdmin();
+  const limit = Math.min(filtros.limit ?? 500, 2000);
+
+  let q = sb.from('diag_mv_mercado_rede')
+    .select('municipio_ibge, municipio, uf, rede, qt_escolas, qt_professores, qt_docs_jovens, qt_docs_pos, qt_gestores, inse_medio');
+  q = aplicarFiltrosBase(q, filtros);
+  if (filtros.redes?.length) q = q.in('rede', filtros.redes);
+  q = q.limit(limit);
+
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+
+  let rows = (data || []).map((r: any) => ({
+    id: `${r.municipio_ibge}::${r.rede}`,
+    nome: `${r.municipio} — ${r.rede}`,
+    uf: r.uf,
+    rede: r.rede,
+    municipio: r.municipio,
+    municipio_ibge: r.municipio_ibge,
+    qt_escolas: Number(r.qt_escolas),
+    qt_professores: Number(r.qt_professores || 0),
+    qt_docs_jovens: Number(r.qt_docs_jovens || 0),
+    qt_docs_pos: Number(r.qt_docs_pos || 0),
+    qt_gestores: Number(r.qt_gestores || 0),
+    inse_medio: r.inse_medio != null ? Number(r.inse_medio) : null,
+    ...calcularScores(r, filtros),
+  }));
+
+  rows = ordenarRows(rows, filtros);
+  return { ok: true, rows, total: rows.length };
+}
+
+// ── 3. Lista por escola ─────────────────────────────────────────────────────
+
+export async function loadMercadoEscolas(filtros: MercadoFilters = {}) {
+  await requireAdminAction();
+  const sb = createSupabaseAdmin();
+  const limit = Math.min(filtros.limit ?? 500, 2000);
+
+  let q = sb.from('diag_mv_mercado_escola')
+    .select('codigo_inep, nome, municipio, municipio_ibge, uf, rede, inse_grupo, etapas, qt_professores, qt_docs_jovens, qt_docs_pos, qt_coord_pedag, qt_diretor_proxy, score_conectividade');
+  q = aplicarFiltrosBase(q, filtros);
+  if (filtros.redes?.length) q = q.in('rede', filtros.redes);
+  // Para escola, INSE vem em inse_grupo (não inse_medio)
+  if (filtros.inseMin != null) q = q.gte('inse_grupo', filtros.inseMin);
+  if (filtros.inseMax != null) q = q.lte('inse_grupo', filtros.inseMax);
+  q = q.limit(limit);
+
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+
+  let rows = (data || []).map((r: any) => {
+    const qt_gestores = Number(r.qt_coord_pedag || 0) + Number(r.qt_diretor_proxy || 0);
+    const enriched = {
+      ...r,
+      qt_professores: Number(r.qt_professores || 0),
+      qt_docs_jovens: Number(r.qt_docs_jovens || 0),
+      qt_docs_pos: Number(r.qt_docs_pos || 0),
+      qt_gestores,
+      inse_medio: r.inse_grupo != null ? Number(r.inse_grupo) : null,
+      qt_escolas: 1,
+    };
+    return {
+      id: r.codigo_inep,
+      nome: r.nome,
+      uf: r.uf,
+      rede: r.rede,
+      municipio: r.municipio,
+      municipio_ibge: r.municipio_ibge,
+      codigo_inep: r.codigo_inep,
+      etapas: r.etapas,
+      qt_escolas: 1,
+      qt_professores: enriched.qt_professores,
+      qt_docs_jovens: enriched.qt_docs_jovens,
+      qt_docs_pos: enriched.qt_docs_pos,
+      qt_gestores: enriched.qt_gestores,
+      inse_medio: enriched.inse_medio,
+      score_conectividade: r.score_conectividade,
+      ...calcularScores(enriched, filtros),
+    };
+  });
+
+  rows = ordenarRows(rows, filtros);
+  return { ok: true, rows, total: rows.length };
+}
+
+// ── Ordenação universal ─────────────────────────────────────────────────────
+
+function ordenarRows(rows: any[], filtros: MercadoFilters): any[] {
+  const orderBy = filtros.orderBy || 'score_completo';
+  const orderDir = filtros.orderDir || 'desc';
+  const mult = orderDir === 'asc' ? 1 : -1;
+  return rows.sort((a, b) => {
+    const av = a[orderBy] ?? -Infinity;
+    const bv = b[orderBy] ?? -Infinity;
+    if (av === bv) return 0;
+    return av < bv ? -1 * mult : 1 * mult;
+  });
+}
+
+// ── Refresh manual das MVs (admin Vertho only) ─────────────────────────────
+
+export async function refreshMercadoPotencial() {
+  await requireAdminAction();
+  const sb = createSupabaseAdmin();
+  const { error } = await sb.rpc('refresh_mv_mercado_potencial');
+  if (error) return { error: error.message };
+  return { ok: true, message: 'MVs atualizadas' };
+}
