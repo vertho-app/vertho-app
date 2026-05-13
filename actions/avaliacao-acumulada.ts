@@ -26,11 +26,12 @@ export async function gerarAvaliacaoAcumulada(trilhaId: string) {
 
   const tdb = tenantDb(trilha.empresa_id);
 
-  // sys_config define qual semana é a "acumulada" (regular=13)
+  // sys_config define qual semana é a "acumulada" (regular=13) + nível-meta
   const { data: empresa } = await sbRaw.from('empresas')
     .select('sys_config').eq('id', trilha.empresa_id).maybeSingle();
   const programaConfig = getProgramaConfig(empresa?.sys_config);
   const semanaAcumulada = programaConfig.semanaAcumulada;
+  const nivelMetaAlvo = programaConfig.nivelMetaAlvo;
 
   const { data: colab } = await tdb.from('colaboradores')
     .select('nome_completo, cargo').eq('id', trilha.colaborador_id).maybeSingle();
@@ -59,6 +60,7 @@ export async function gerarAvaliacaoAcumulada(trilhaId: string) {
       descritores: descritoresFresh,
       evidenciasAcumuladas: evidenciasMasked,
       nomeColab: colabMasked.nome,
+      nivelMetaAlvo,
     });
     const r = await callAI(system, user, {}, 8000);
     let cleaned = r.trim();
@@ -119,6 +121,97 @@ export async function gerarAvaliacaoAcumulada(trilhaId: string) {
   }
 
   return { ok: true, primaria, auditoria };
+}
+
+/**
+ * Acumulada PARCIAL — usada no Modo Onboarding após cada missão integradora
+ * (sems 4/7/9). Filtra `descritores_selecionados` pelas `competencias` passadas,
+ * roda a 1ª/2ª IA só nesse subset e persiste em `progresso.semana === semFim`.
+ *
+ * Comportamento: idêntico à acumulada completa, mas com escopo reduzido. Não
+ * dispara em modo regular.
+ */
+export async function gerarAvaliacaoAcumuladaParcial(trilhaId: string, competenciasFiltro: string[], semFim: number) {
+  await requireAdminAction();
+  if (!Array.isArray(competenciasFiltro) || competenciasFiltro.length === 0) {
+    return { error: 'competenciasFiltro obrigatório' };
+  }
+  const sbRaw = createSupabaseAdmin();
+  const { data: trilha } = await sbRaw.from('trilhas')
+    .select('id, empresa_id, colaborador_id, competencia_foco, descritores_selecionados, temporada_plano')
+    .eq('id', trilhaId).maybeSingle();
+  if (!trilha) return { error: 'trilha não encontrada' };
+
+  const tdb = tenantDb(trilha.empresa_id);
+  const { data: colab } = await tdb.from('colaboradores')
+    .select('nome_completo, cargo').eq('id', trilha.colaborador_id).maybeSingle();
+  const nome = (colab?.nome_completo || '').split(' ')[0] || 'colab';
+
+  // Filtra descritores que pertencem às competências da janela
+  const todos = Array.isArray(trilha.descritores_selecionados) ? trilha.descritores_selecionados : [];
+  const descritores = todos.filter((d: any) => d.competencia && competenciasFiltro.includes(d.competencia));
+  if (!descritores.length) return { error: 'sem descritores para as competências dadas' };
+
+  // Busca config pra saber nível-meta (Onboarding=2, regular=3)
+  const { data: empresa } = await sbRaw.from('empresas')
+    .select('sys_config').eq('id', trilha.empresa_id).maybeSingle();
+  const programaConfig = getProgramaConfig(empresa?.sys_config);
+  const nivelMetaAlvo = programaConfig.nivelMetaAlvo;
+
+  // Para cada competência, gera acumulada independente e agrega
+  const acumuladosPorComp: any[] = [];
+  for (const comp of competenciasFiltro) {
+    const descsComp = descritores.filter((d: any) => d.competencia === comp);
+    if (!descsComp.length) continue;
+    const descritoresComRegua = await enriquecerComRegua(tdb, sbRaw, comp, descsComp);
+    const descritoresFresh = await atualizarNotaAtualFresh(tdb, trilha.colaborador_id, comp, descritoresComRegua);
+    const evidenciasAcumuladas = await agregarEvidencias(tdb, trilhaId, descritoresFresh, trilha.temporada_plano, semFim);
+
+    const { masked: colabMasked, map: piiMap } = maskColaborador(colab);
+    const evidenciasMasked = maskTextPII(evidenciasAcumuladas, piiMap);
+
+    try {
+      const { system, user } = promptAvaliacaoAcumulada({
+        competencia: comp,
+        descritores: descritoresFresh,
+        evidenciasAcumuladas: evidenciasMasked,
+        nomeColab: colabMasked.nome,
+        nivelMetaAlvo,
+      });
+      const r = await callAI(system, user, {}, 8000);
+      let cleaned = r.trim();
+      if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
+      const primaria = validateAvaliacaoAcumulada(JSON.parse(cleaned));
+      if (primaria?.resumo_geral) primaria.resumo_geral = unmaskPII(primaria.resumo_geral, piiMap);
+      acumuladosPorComp.push({ competencia: comp, primaria });
+    } catch (err: any) {
+      console.error(`[acumulada parcial ${comp}]`, err);
+      acumuladosPorComp.push({ competencia: comp, error: err?.message });
+    }
+  }
+
+  // Persiste em sem_fim.feedback.acumulado (mesma estrutura do completo)
+  const payload = {
+    gerado_em: new Date().toISOString(),
+    parcial: true,
+    competencias: competenciasFiltro,
+    por_competencia: acumuladosPorComp,
+  };
+  const { data: progSemFim } = await tdb.from('temporada_semana_progresso')
+    .select('id, feedback').eq('trilha_id', trilhaId).eq('semana', semFim).maybeSingle();
+  if (progSemFim) {
+    const novoFb = { ...(progSemFim.feedback || {}), acumulado: payload };
+    await tdb.from('temporada_semana_progresso').update({ feedback: novoFb }).eq('id', progSemFim.id);
+  } else {
+    await tdb.from('temporada_semana_progresso').insert({
+      trilha_id: trilhaId,
+      colaborador_id: trilha.colaborador_id,
+      semana: semFim, tipo: 'aplicacao', status: 'em_andamento',
+      feedback: { acumulado: payload },
+    });
+  }
+
+  return { ok: true, parcial: true, acumuladosPorComp };
 }
 
 // ── Helpers ──

@@ -23,6 +23,8 @@ export interface DescriptorAssessment {
 
 export interface SelectedDescriptor {
   descritor: string;
+  /** Quando multi-competência (Onboarding), indica a competência do descritor. */
+  competencia?: string;
   nota_atual: number;
   gap: number;
   semanas_alocadas: number;
@@ -109,4 +111,49 @@ function slotsRestantesNoBloco(slotIdx: number): number {
   // Blocos: 0-2 → bloco 1; 3-5 → bloco 2; 6-8 → bloco 3
   const dentroDoBloco = slotIdx % 3;
   return 3 - dentroDoBloco;
+}
+
+// ── Multi-competência (Modo Onboarding) ─────────────────────────────────────
+
+export interface AssessmentPorCompetencia {
+  competencia: string;
+  assessment: DescriptorAssessment[];
+}
+
+/**
+ * Multi-competência: para cada competência alocada a uma semana de fundamento,
+ * pega o descritor mais relevante (maior gap, fallback 1º registrado) e gera
+ * 1 SelectedDescriptor com `competencia` preenchida.
+ *
+ * `semanaParaCompetenciaIdx` mapeia semana de fundamento → índice no array
+ * de competências. Ex: Onboarding tem { 2: 0, 3: 1, 5: 2, 6: 3, 8: 4 }.
+ *
+ * Não usa contiguidade — cada competência tem exatamente 1 slot. Diferente
+ * do regular, que aloca 2 semanas por descritor com gap profundo.
+ */
+export function selectDescriptorsMulti(
+  competenciasOrdenadas: AssessmentPorCompetencia[],
+  semanaParaCompetenciaIdx: Record<number, number>,
+): SelectedDescriptor[] {
+  const selecionados: SelectedDescriptor[] = [];
+  for (const [semStr, idx] of Object.entries(semanaParaCompetenciaIdx)) {
+    const semana = Number(semStr);
+    const comp = competenciasOrdenadas[idx];
+    if (!comp) continue;
+    const lista = Array.isArray(comp.assessment) ? comp.assessment : [];
+    // Escolhe descritor de maior gap (nota mais baixa); fallback = primeiro
+    const ordenados = [...lista].sort((a, b) => Number(a.nota) - Number(b.nota));
+    const escolhido = ordenados[0];
+    if (!escolhido) continue;
+    const nota = Number(escolhido.nota);
+    selecionados.push({
+      descritor: escolhido.descritor,
+      competencia: comp.competencia,
+      nota_atual: nota,
+      gap: Math.max(0, 3.0 - nota),
+      semanas_alocadas: 1,
+      semanas_ids: [semana],
+    });
+  }
+  return selecionados;
 }

@@ -1,13 +1,19 @@
 /**
- * Gera cenários situacionais para semanas de aplicação (4, 8, 12).
+ * Gera cenários situacionais para semanas de aplicação.
+ * Regular = competência única, descritores integrados (sems 4/8/12).
+ * Onboarding = múltiplas competências integradas (sems 4/7/9 com cenarioTipo='integrador').
  * Output JSON estruturado — texto composto para renderização markdown.
  */
+export type CenarioTipo = 'unico' | 'integrador';
+
 interface PromptCenarioParams {
   competencia: string;
   descritores: string[];
   cargo: string;
   contexto: string;
   complexidade: string;
+  cenarioTipo?: CenarioTipo;
+  competenciasIntegradas?: string[]; // só quando cenarioTipo='integrador'
 }
 
 export interface CenarioStructured {
@@ -22,10 +28,20 @@ export interface CenarioStructured {
   por_que_essa_complexidade_faz_sentido: string;
 }
 
-export function promptCenario({ competencia, descritores, cargo, contexto, complexidade }: PromptCenarioParams) {
+export function promptCenario({ competencia, descritores, cargo, contexto, complexidade, cenarioTipo = 'unico', competenciasIntegradas }: PromptCenarioParams) {
+  const integrador = cenarioTipo === 'integrador' && Array.isArray(competenciasIntegradas) && competenciasIntegradas.length > 1;
+
   const system = `Você é um designer de casos para desenvolvimento de competências executivas na Vertho.
 
-Sua tarefa é criar um cenário escrito de APLICAÇÃO PRÁTICA para semanas 4, 8 e 12 do motor de temporadas.
+Sua tarefa é criar um cenário escrito de APLICAÇÃO PRÁTICA para semanas de missão do motor de temporadas.${integrador ? `
+
+═══ MODO: CENÁRIO INTEGRADOR (multi-competência) ═══
+Este cenário precisa exigir aplicação simultânea de ${competenciasIntegradas!.length} competências:
+${competenciasIntegradas!.map(c => `  - ${c}`).join('\n')}
+
+Não trate as competências como tópicos separados — encadeie-as em uma única situação realista
+onde o colaborador precisa demonstrar todas ao mesmo tempo. A tensão central deve forçar trade-off
+entre dimensões cobertas por competências diferentes.` : ''}
 
 ATENÇÃO:
 Este cenário não é um cenário de assessment formal da Fase 1.
@@ -100,12 +116,13 @@ REGRAS DE FORMATO:
 - armadilha_resposta_generica é obrigatória
 - não invente jargão que não combine com o cargo`;
 
-  const user = `Crie 1 cenário de aplicação prática.
+  const user = `Crie 1 cenário de aplicação prática${integrador ? ' INTEGRADOR' : ''}.
 
 CONTEXTO:
 - Cargo: ${cargo}
 - Setor/contexto: ${contexto}
-- Competência: ${competencia}
+- Competência principal: ${competencia}${integrador ? `
+- Competências a integrar simultaneamente: ${competenciasIntegradas!.join(', ')}` : ''}
 - Descritores avaliados (integrar todos no cenário): ${descritores.join(', ')}
 - Complexidade: ${complexidade}`;
 

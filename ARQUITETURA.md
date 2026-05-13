@@ -57,7 +57,7 @@
 
 Contexto rapido para reinicializacao da maquina:
 
-- Branch atual: `master`, HEAD em movimento — Fase 1 do **Modo Onboarding** em curso (parametriza engine de trilha sem mudança funcional; `lib/season-engine/programa-config.ts` + propagação por `build-season`, `select-descriptors`, `actions/temporadas`, `actions/avaliacao-acumulada`, `app/api/temporada/evaluation`, `app/dashboard/temporada/*` e `lib/temporada-concluida-pdf.ts`). Migration 090 documenta as novas chaves de `sys_config`.
+- Branch atual: `master`, **Modo Onboarding** completo (Fases 1-4). Engine parametrizada via `lib/season-engine/programa-config.ts`; `getProgramaConfig` lê `sys_config.programa_modo`. Template `PROGRAMA_ONBOARDING` (10 sem, missões 4/7/9, cenário B sem 10, nível-meta 2, 5 comps em espiral). IA1 aceita viés por fase de carreira; IA3 (cenário) e missão aceitam modo integrador multi-competência. `actions/temporadas.gerarTemporadaOnboarding` faz trilha multi-comp; `gerarAvaliacaoAcumuladaParcial` roda acumulada por janela. Role `'tutor'` adicionado em `types/index.d.ts` + `lib/authz` (`isTutor`, `getTutorados`, `canTutorAccess`). UI admin: tab "Programa" + role tutor no dropdown. Migrations 090 (sys_config schema), 091 (trilhas.competencias_foco TEXT[]), 092 (colaboradores.tutorados_ids UUID[]).
 - Arquivos rastreados: pendentes no momento desta revisao — `supabase/config.toml` (drift local) e este `ARQUITETURA.md`.
 - Nao versionados presentes no workspace: `.tmp_enem_2024/`, `outputs/`, `RESUMO.md`, `public/Logo sem texto.png`, `scripts/diag-tables-check.mjs`.
 - Ultimas frentes visiveis (semana 2026-05-12 → 13):

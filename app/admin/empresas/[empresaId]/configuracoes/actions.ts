@@ -60,7 +60,7 @@ export async function loadEquipe(empresaId) {
 export async function atualizarRole(colaboradorId, novoRole) {
   await requireAdminAction();
   if (!colaboradorId || !novoRole) return { success: false, error: 'Dados obrigatorios' };
-  const validRoles = ['colaborador', 'gestor', 'rh'];
+  const validRoles = ['colaborador', 'gestor', 'rh', 'tutor'];
   if (!validRoles.includes(novoRole)) return { success: false, error: `Role invalido. Use: ${validRoles.join(', ')}` };
 
   const sb = createSupabaseAdmin();

@@ -92,7 +92,10 @@ export interface AIConfigOpt {
 
 export interface BuildSeasonInput {
   descritoresSelecionados: SelectedDescriptor[];
+  /** Competência principal (regular) ou competência "âncora" (onboarding). */
   competencia: string;
+  /** Multi-competência: array ordenado (Onboarding tem 5 itens). */
+  competencias?: string[];
   cargo: string;
   contexto?: string;
   prioridadeFormatos?: string[];
@@ -119,6 +122,7 @@ function computarScoreConteudo(c: MicroConteudo): number {
 export async function buildSeason({
   descritoresSelecionados,
   competencia,
+  competencias,
   cargo,
   contexto = 'generico',
   prioridadeFormatos = ['video', 'texto', 'audio', 'case'],
@@ -127,6 +131,8 @@ export async function buildSeason({
   programaConfig = PROGRAMA_REGULAR,
 }: BuildSeasonInput): Promise<SemanaPlan[]> {
   const semanas: SemanaPlan[] = [];
+  const isMulti = !!programaConfig.semanaParaCompetenciaIdx && Array.isArray(competencias) && competencias.length > 1;
+  const compsArray: string[] = isMulti ? competencias! : [competencia];
 
   // Mapeia semana → descritor (a partir de descritoresSelecionados)
   const semanaParaDescritor: Record<number, SelectedDescriptor> = {};
@@ -140,7 +146,7 @@ export async function buildSeason({
   for (let semana = 1; semana <= programaConfig.semanas; semana++) {
     let plan: SemanaPlan;
     if (programaConfig.semanasMissao.includes(semana)) {
-      plan = await montarSemanaAplicacao(semana, descritoresSelecionados, competencia, cargo, contexto, aiConfig, programaConfig);
+      plan = await montarSemanaAplicacao(semana, descritoresSelecionados, competencia, cargo, contexto, aiConfig, programaConfig, compsArray);
     } else if (programaConfig.semanasAvaliacao.includes(semana)) {
       plan = {
         semana,
@@ -160,7 +166,9 @@ export async function buildSeason({
           status: 'bloqueada',
         };
       } else {
-        plan = await montarSemanaConteudo(semana, d, competencia, cargo, contexto, prioridadeFormatos, empresaId, aiConfig, idsJaUsados);
+        // Em multi-competência, cada descritor pertence a uma competência específica
+        const compDaSemana = d.competencia || competencia;
+        plan = await montarSemanaConteudo(semana, d, compDaSemana, cargo, contexto, prioridadeFormatos, empresaId, aiConfig, idsJaUsados);
         if (plan.tipo === 'conteudo' && plan.conteudo?.core_id) idsJaUsados.add(plan.conteudo.core_id);
       }
     }
@@ -293,15 +301,43 @@ async function montarSemanaAplicacao(
   contexto: string,
   aiConfig: AIConfigOpt,
   programaConfig: ProgramaConfig,
+  competenciasArray: string[] = [competencia],
 ): Promise<SemanaAplicacao> {
   const complexidade = programaConfig.complexidadeMap[semana] || 'intermediario';
-  const cobertos = descritoresCobertosNaMissao(descritores, semana, programaConfig).map(d => d.descritor);
+
+  // Multi-competência: missão integradora cobre competências[indices da janela]
+  const indicesNaMissao = programaConfig.competenciasNaMissao?.[semana];
+  let competenciasIntegradas: string[] | undefined;
+  let descritoresParaMissao: SelectedDescriptor[];
+  if (indicesNaMissao && competenciasArray.length > 1) {
+    // Onboarding: pega competências da janela cumulativa (-1 = todas)
+    const idxs = indicesNaMissao.includes(-1)
+      ? competenciasArray.map((_, i) => i)
+      : indicesNaMissao;
+    competenciasIntegradas = idxs.map(i => competenciasArray[i]).filter(Boolean);
+    // Descritores cobertos: todos os descritores das competências envolvidas
+    descritoresParaMissao = descritores.filter(d => d.competencia && competenciasIntegradas!.includes(d.competencia));
+  } else {
+    // Regular: corte por blocosCobertos (3 → 6 → todos)
+    descritoresParaMissao = descritoresCobertosNaMissao(descritores, semana, programaConfig);
+  }
+
+  const cobertos = descritoresParaMissao.map(d => d.descritor);
+  const usaIntegrador = !!(competenciasIntegradas && competenciasIntegradas.length > 1);
 
   let missaoObj: SemanaAplicacao['missao'] = { texto: '' };
   let cenarioObj: SemanaAplicacao['cenario'] = { texto: '', complexidade };
   try {
-    const m = promptMissao({ competencia, descritores: cobertos, cargo, contexto });
-    const c = promptCenario({ competencia, descritores: cobertos, cargo, contexto, complexidade });
+    const m = promptMissao({
+      competencia, descritores: cobertos, cargo, contexto,
+      missaoTipo: usaIntegrador ? 'integradora' : 'unica',
+      competenciasIntegradas: usaIntegrador ? competenciasIntegradas : undefined,
+    });
+    const c = promptCenario({
+      competencia, descritores: cobertos, cargo, contexto, complexidade,
+      cenarioTipo: usaIntegrador ? 'integrador' : 'unico',
+      competenciasIntegradas: usaIntegrador ? competenciasIntegradas : undefined,
+    });
     const [mResp, cResp] = await Promise.all([
       callAI(m.system, m.user, aiConfig, 600),
       callAI(c.system, c.user, aiConfig, 800),

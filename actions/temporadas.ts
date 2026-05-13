@@ -3,7 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
-import { selectDescriptors } from '@/lib/season-engine/select-descriptors';
+import { selectDescriptors, selectDescriptorsMulti, type AssessmentPorCompetencia } from '@/lib/season-engine/select-descriptors';
 import { buildSeason } from '@/lib/season-engine/build-season';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { getProgramaConfig } from '@/lib/season-engine/programa-config';
@@ -75,14 +75,13 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig }: G
       .select('segmento, sys_config').eq('id', colab.empresa_id).maybeSingle();
     const contexto = inferirContexto(empresa?.segmento);
     const programaConfig = getProgramaConfig(empresa?.sys_config);
+    const isOnboarding = programaConfig.modo === 'onboarding';
 
-    // Modo Onboarding requer engine multi-competência (Fase 3). Até lá, bloqueia
-    // geração pra evitar trilha mal-formada no banco.
-    if (programaConfig.modo === 'onboarding') {
-      return {
-        error: 'Modo Onboarding ainda em implementação — multi-competência será habilitada na Fase 3. Volte sys_config.programa_modo pra "regular" pra gerar trilha de 14 semanas.',
-        codigo: 'onboarding_fase3_pendente',
-      };
+    // ── Modo Onboarding: trilha multi-competência ────────────────────────
+    if (isOnboarding) {
+      return await gerarTemporadaOnboarding({
+        colab, empresa, tdb, sbRaw, contexto, programaConfig, aiConfig, competenciaPrincipal: competenciaAlvo,
+      });
     }
 
     // 3) Prioridade de formatos — derivada das colunas pref_* em colaboradores
@@ -202,6 +201,148 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig }: G
     console.error('[gerarTemporada]', err);
     return { error: err?.message || 'Erro' };
   }
+}
+
+/**
+ * Modo Onboarding: trilha de 10 semanas em espiral cobrindo até 5 competências.
+ *
+ * Estratégia:
+ *  1. Resolve as N competências (sys_config.competencias_onboarding[] OR top10_cargos[0..4] do cargo)
+ *  2. Carrega assessment de descritores pra cada competência
+ *  3. selectDescriptorsMulti aloca 1 descritor/competência nos slots [2,3,5,6,8]
+ *  4. buildSeason recebe `competencias` array + plano monta missões integradoras
+ *  5. Persiste em `trilhas.competencias_foco TEXT[]` (migration 091)
+ */
+async function gerarTemporadaOnboarding(args: {
+  colab: any; empresa: any; tdb: any; sbRaw: any; contexto: string;
+  programaConfig: any; aiConfig?: AIConfig; competenciaPrincipal: string;
+}) {
+  const { colab, empresa, tdb, sbRaw, contexto, programaConfig, aiConfig, competenciaPrincipal } = args;
+  const N = programaConfig.numCompetencias || 5;
+
+  // 1) Lista de competências da trilha. Fonte de verdade:
+  //    a) sys_config.competencias_onboarding (override manual do RH)
+  //    b) top10_cargos do cargo, pegando as N primeiras (validadas via IA1)
+  let competencias: string[] = Array.isArray(empresa?.sys_config?.competencias_onboarding)
+    ? empresa.sys_config.competencias_onboarding.slice(0, N)
+    : [];
+
+  if (competencias.length < N) {
+    // Fallback: pega top N do cargo em top10_cargos
+    const { data: top10 } = await tdb.from('top10_cargos')
+      .select('competencia_id, posicao')
+      .eq('cargo', colab.cargo || '')
+      .order('posicao')
+      .limit(N);
+    if (top10?.length) {
+      const ids = top10.map((t: any) => t.competencia_id);
+      const { data: comps } = await tdb.from('competencias')
+        .select('id, nome')
+        .in('id', ids);
+      const mapaIdNome = Object.fromEntries((comps || []).map((c: any) => [c.id, c.nome]));
+      const nomesPorPosicao = top10
+        .map((t: any) => mapaIdNome[t.competencia_id])
+        .filter(Boolean);
+      // Dedup mantendo ordem
+      competencias = [...new Set<string>([...competencias, ...nomesPorPosicao])].slice(0, N);
+    }
+  }
+
+  if (competencias.length === 0) {
+    return {
+      error: `Modo Onboarding precisa de pelo menos 1 competência. Configure sys_config.competencias_onboarding ou rode IA1 pro cargo "${colab.cargo}".`,
+      codigo: 'onboarding_sem_competencias',
+    };
+  }
+
+  // 2) Assessment por competência. Cada competência precisa de pelo menos 1 descritor avaliado.
+  const assessments: AssessmentPorCompetencia[] = [];
+  for (const comp of competencias) {
+    const { data: rows } = await tdb.from('descriptor_assessments')
+      .select('descritor, nota')
+      .eq('colaborador_id', colab.id)
+      .eq('competencia', comp);
+    if (rows && rows.length > 0) {
+      assessments.push({ competencia: comp, assessment: rows });
+    } else {
+      console.warn(`[gerarTemporadaOnboarding] ${comp} sem assessment — usará default neutro`);
+      assessments.push({ competencia: comp, assessment: [{ descritor: 'Descritor padrão', nota: 1.5 }] });
+    }
+  }
+
+  // 3) Distribui 1 descritor por competência nos slots de fundamento ([2,3,5,6,8])
+  if (!programaConfig.semanaParaCompetenciaIdx) {
+    return { error: 'ProgramaConfig sem semanaParaCompetenciaIdx — não dá pra rodar Onboarding.' };
+  }
+  const descritoresSelecionados = selectDescriptorsMulti(assessments, programaConfig.semanaParaCompetenciaIdx);
+  if (descritoresSelecionados.length === 0) {
+    return { error: 'Nenhum descritor selecionado — verifique assessments das competências do Onboarding.' };
+  }
+
+  // 4) Monta plano (com IA pra missões integradoras + cenários)
+  const prioridadeFormatos = derivarPrioridadeFormatos(colab);
+  const semanas = await buildSeason({
+    descritoresSelecionados,
+    competencia: competencias[0], // âncora (1ª comp)
+    competencias,
+    cargo: colab.cargo,
+    contexto,
+    prioridadeFormatos,
+    empresaId: colab.empresa_id,
+    aiConfig,
+    programaConfig,
+  });
+
+  // 5) Persiste em `trilhas` (UPDATE se existir, INSERT senão)
+  const { data: existente } = await tdb.from('trilhas')
+    .select('id, numero_temporada')
+    .eq('colaborador_id', colab.id)
+    .order('criado_em', { ascending: false }).limit(1).maybeSingle();
+  const numeroTemporada = existente?.numero_temporada || 1;
+  const { nextMondayISO } = await import('@/lib/season-engine/week-gating');
+  const payload = {
+    colaborador_id: colab.id,
+    competencia_foco: competencias[0],            // compat — guarda âncora
+    competencias_foco: competencias,              // multi (migration 091)
+    numero_temporada: numeroTemporada,
+    temporada_plano: semanas,
+    descritores_selecionados: descritoresSelecionados,
+    status: 'ativa',
+    data_inicio: nextMondayISO(),
+    cursos: [],
+  };
+  let trilhaId: string;
+  if (existente) {
+    const { error } = await tdb.from('trilhas').update(payload).eq('id', existente.id);
+    if (error) return { error: error.message };
+    trilhaId = existente.id;
+  } else {
+    const { data: nova, error } = await tdb.from('trilhas').insert(payload).select('id').maybeSingle();
+    if (error) return { error: error.message };
+    trilhaId = nova.id;
+  }
+
+  // 6) Progresso
+  const progressos = semanas.map((s: any) => ({
+    trilha_id: trilhaId,
+    colaborador_id: colab.id,
+    semana: s.semana,
+    tipo: s.tipo,
+    status: s.semana === 1 ? 'em_andamento' : 'pendente',
+  }));
+  await tdb.from('temporada_semana_progresso').delete().eq('trilha_id', trilhaId);
+  await tdb.from('temporada_semana_progresso').insert(progressos);
+
+  return {
+    ok: true,
+    trilhaId,
+    numeroTemporada,
+    competencia: competencias[0],
+    competencias,
+    descritores: descritoresSelecionados.length,
+    semanas: semanas.length,
+    modo: 'onboarding',
+  };
 }
 
 function derivarPrioridadeFormatos(colab: any): string[] {

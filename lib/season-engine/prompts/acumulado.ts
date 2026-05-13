@@ -16,22 +16,34 @@ interface PromptAvaliacaoAcumuladaParams {
   descritores: DescritorRubrica[];
   evidenciasAcumuladas: string;
   nomeColab: string;
+  /** 3 = Meta proficiente (regular). 2 = Meta funcional / autonomia supervisionada (Onboarding). */
+  nivelMetaAlvo?: 2 | 3;
 }
 
-export function promptAvaliacaoAcumulada({ competencia, descritores, evidenciasAcumuladas, nomeColab }: PromptAvaliacaoAcumuladaParams) {
+export function promptAvaliacaoAcumulada({ competencia, descritores, evidenciasAcumuladas, nomeColab, nivelMetaAlvo = 3 }: PromptAvaliacaoAcumuladaParams) {
   const reguas = descritores.map(d => {
     const linhas = [`### ${d.descritor}`];
     if (d.n1_gap) linhas.push(`  1.0 - Lacuna: ${d.n1_gap}`);
-    if (d.n2_desenvolvimento) linhas.push(`  2.0 - Em desenvolvimento: ${d.n2_desenvolvimento}`);
-    if (d.n3_meta) linhas.push(`  3.0 - Meta (proficiente): ${d.n3_meta}`);
-    if (d.n4_referencia) linhas.push(`  4.0 - Referência (excelência): ${d.n4_referencia}`);
+    if (nivelMetaAlvo === 2) {
+      // Onboarding: N2 é a META; N3/N4 viram REFERÊNCIA / EXCELÊNCIA opcional.
+      if (d.n2_desenvolvimento) linhas.push(`  2.0 - Meta (autonomia supervisionada): ${d.n2_desenvolvimento}`);
+      if (d.n3_meta) linhas.push(`  3.0 - Referência (proficiente — opcional): ${d.n3_meta}`);
+      if (d.n4_referencia) linhas.push(`  4.0 - Excelência (acima da meta): ${d.n4_referencia}`);
+    } else {
+      if (d.n2_desenvolvimento) linhas.push(`  2.0 - Em desenvolvimento: ${d.n2_desenvolvimento}`);
+      if (d.n3_meta) linhas.push(`  3.0 - Meta (proficiente): ${d.n3_meta}`);
+      if (d.n4_referencia) linhas.push(`  4.0 - Referência (excelência): ${d.n4_referencia}`);
+    }
     if (!d.n1_gap && !d.n3_meta) linhas.push('  (sem régua cadastrada — use escala genérica 1-4)');
     return linhas.join('\n');
   }).join('\n\n');
+  const blocoMeta = nivelMetaAlvo === 2
+    ? '\n\nNOTA DE CONTEXTO (Modo Onboarding):\nO nível-meta deste programa é 2.0 (autonomia supervisionada / funcional). Aprovação = todas as competências em ≥ 2.0. Não eleve o critério para 3.0.'
+    : '';
 
   const system = `Você é um avaliador criterioso da Vertho.
 
-Sua tarefa é ler as evidências acumuladas de 13 semanas de desenvolvimento de ${nomeColab} sobre "${competencia}" e atribuir uma leitura ACUMULADA por descritor, ancorada EXCLUSIVAMENTE na régua.
+Sua tarefa é ler as evidências acumuladas das semanas de desenvolvimento de ${nomeColab} sobre "${competencia}" e atribuir uma leitura ACUMULADA por descritor, ancorada EXCLUSIVAMENTE na régua.${blocoMeta}
 
 ATENÇÃO:
 Você NÃO conhece a nota inicial.

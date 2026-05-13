@@ -46,12 +46,19 @@ const LABEL = {
   arquivada:            'Arquivada',
 };
 
-export function PlenariaEquipePDF({ gestorNome, empresa, resumo, rows }) {
+/**
+ * Renderiza a Plenária. Aceita `eyebrow` e `responsavelLabel` opcionais pra
+ * reaproveitar o template em outros contextos (Plenária Onboarding pelo
+ * Tutor, Plenária RH, etc.) sem duplicar o componente.
+ */
+export function PlenariaEquipePDF({ gestorNome, empresa, resumo, rows, eyebrow, responsavelLabel }) {
+  const tituloEyebrow = eyebrow || 'Plenaria de evolucao da equipe';
+  const labelResponsavel = responsavelLabel || 'Gestor';
   return React.createElement(Document, { title: `Plenaria - ${empresa || 'Equipe'}` },
     React.createElement(Page, { size: 'A4', style: styles.page },
-      React.createElement(Text, { style: styles.eyebrow }, 'Plenaria de evolucao da equipe'),
+      React.createElement(Text, { style: styles.eyebrow }, sanitize(tituloEyebrow)),
       React.createElement(Text, { style: styles.h1 }, sanitize(empresa || 'Equipe')),
-      gestorNome && React.createElement(Text, { style: styles.subtitle }, `Gestor: ${sanitize(gestorNome)}`),
+      gestorNome && React.createElement(Text, { style: styles.subtitle }, `${labelResponsavel}: ${sanitize(gestorNome)}`),
 
       // Sumário
       React.createElement(Text, { style: styles.h2 }, 'Sumario'),

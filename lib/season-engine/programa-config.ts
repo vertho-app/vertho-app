@@ -39,6 +39,18 @@ export interface ProgramaConfig {
   numCompetencias: number;
   /** Default usado pela IA1 quando nenhum override por cargo é dado. */
   faseCarreiraDefault?: FaseCarreira;
+  /**
+   * Multi-competência (Onboarding): mapeia semana de fundamento → índice no
+   * array de competências da trilha. Quando undefined, engine usa modo
+   * single-competência (regular).
+   */
+  semanaParaCompetenciaIdx?: Record<number, number>;
+  /**
+   * Multi-competência (Onboarding): para cada semana de missão, lista os
+   * índices das competências já trabalhadas até ali (acumulativo).
+   * -1 (em qualquer posição) = todas. Default regular: undefined.
+   */
+  competenciasNaMissao?: Record<number, number[]>;
 }
 
 /**
@@ -92,6 +104,10 @@ export const PROGRAMA_ONBOARDING: ProgramaConfig = Object.freeze({
   complexidadeMap: { 4: 'simples', 7: 'intermediario', 9: 'completo' },
   nivelMetaAlvo: 2,
   numCompetencias: 5,
+  // Sem 2 = Comp[0], Sem 3 = Comp[1], Sem 5 = Comp[2], Sem 6 = Comp[3], Sem 8 = Comp[4]
+  semanaParaCompetenciaIdx: { 2: 0, 3: 1, 5: 2, 6: 3, 8: 4 },
+  // Missão 1 (sem 4) = Comps 0+1; Missão 2 (sem 7) = 0..3; Missão 3 (sem 9) = todas
+  competenciasNaMissao: { 4: [0, 1], 7: [0, 1, 2, 3], 9: [-1] },
 }) as ProgramaConfig;
 
 /**

@@ -199,6 +199,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
                       }`}
                       style={{ minWidth: '120px' }}>
                       <option value="colaborador">Colaborador</option>
+                      <option value="tutor">Tutor (Onboarding)</option>
                       <option value="gestor">Gestor</option>
                       <option value="rh">RH / Diretor</option>
                     </select>

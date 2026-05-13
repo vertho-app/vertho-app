@@ -1,12 +1,18 @@
 /**
- * Gera a Missão Prática das semanas 4/8/12.
+ * Gera a Missão Prática das semanas de aplicação.
+ * Regular: missão de 1 competência (sems 4/8/12).
+ * Onboarding: missão integradora multi-competência (sems 4/7/9 com cenarioTipo='integrador').
  * Output JSON estruturado — texto composto para renderização markdown.
  */
+export type MissaoTipo = 'unica' | 'integradora';
+
 interface PromptMissaoParams {
   competencia: string;
   descritores: string[];
   cargo: string;
   contexto: string;
+  missaoTipo?: MissaoTipo;
+  competenciasIntegradas?: string[]; // só quando missaoTipo='integradora'
 }
 
 export interface MissaoStructured {
@@ -18,10 +24,19 @@ export interface MissaoStructured {
   por_que_cabe_na_semana: string;
 }
 
-export function promptMissao({ competencia, descritores, cargo, contexto }: PromptMissaoParams) {
+export function promptMissao({ competencia, descritores, cargo, contexto, missaoTipo = 'unica', competenciasIntegradas }: PromptMissaoParams) {
+  const integradora = missaoTipo === 'integradora' && Array.isArray(competenciasIntegradas) && competenciasIntegradas.length > 1;
+
   const system = `Você é um designer de missões práticas de desenvolvimento da Vertho.
 
-Sua tarefa é criar UMA missão prática de trabalho real para semanas 4, 8 e 12 do motor de temporadas.
+Sua tarefa é criar UMA missão prática de trabalho real para semanas de aplicação do motor de temporadas.${integradora ? `
+
+═══ MODO: MISSÃO INTEGRADORA (multi-competência) ═══
+Esta missão precisa exigir aplicação simultânea de ${competenciasIntegradas!.length} competências:
+${competenciasIntegradas!.map(c => `  - ${c}`).join('\n')}
+
+Crie UMA ação real que naturalmente exija o colaborador exercer essas competências juntas — não invente
+checklist com sub-tarefas isoladas. A missão deve ser um ato único onde as competências se entrelaçam.` : ''}
 
 ATENÇÃO:
 A missão não é uma resposta escrita.
@@ -84,12 +99,13 @@ REGRAS DE FORMATO:
 - integracao_descritores deve cobrir exatamente os descritores recebidos
 - por_que_cabe_na_semana deve ser curto e realista`;
 
-  const user = `Crie 1 missão prática de trabalho real.
+  const user = `Crie 1 missão prática de trabalho real${integradora ? ' INTEGRADORA' : ''}.
 
 CONTEXTO:
 - Cargo: ${cargo}
 - Setor/contexto: ${contexto}
-- Competência: ${competencia}
+- Competência principal: ${competencia}${integradora ? `
+- Competências a integrar simultaneamente: ${competenciasIntegradas!.join(', ')}` : ''}
 - Descritores a integrar (TODOS precisam aparecer naturalmente): ${descritores.join(', ')}`;
 
   return { system, user };

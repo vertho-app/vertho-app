@@ -329,7 +329,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         for (let i = 0; i < colabs.length; i++) {
           const c = colabs[i];
           addLog(`[${i + 1}/${colabs.length}] ${c.nome_completo}...`, 'info');
-          try { const r2 = await gerarTemporada({ colaboradorId: c.id, aiConfig }); if (r2.ok) { ok++; addLog(`  ✅ ${c.nome_completo}`, 'success'); } else { erros++; addLog(`  ❌ ${c.nome_completo}: ${r2.error}`, 'error'); } }
+          try { const r2: any = await gerarTemporada({ colaboradorId: c.id, aiConfig }); if (r2?.ok) { ok++; addLog(`  ✅ ${c.nome_completo}`, 'success'); } else { erros++; addLog(`  ❌ ${c.nome_completo}: ${r2?.error}`, 'error'); } }
           catch (e: any) { erros++; addLog(`  ❌ ${c.nome_completo}: ${e.message}`, 'error'); }
         }
         addLog(`🎉 Lote: ${ok}/${colabs.length}${erros ? ` (${erros} erros)` : ''}`, ok === colabs.length ? 'success' : 'info');
