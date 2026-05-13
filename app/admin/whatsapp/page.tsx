@@ -205,10 +205,18 @@ export default function EnviosPage() {
 
   async function handleDisparar() {
     if (!empresaId || !mensagem.trim()) return;
+
+    const canal = (tab === 'email' || tab === 'relatorios-email') ? 'email' : 'whatsapp';
+    const total = destinatarios.length;
+    const canalLabel = canal === 'email' ? 'EMAIL' : 'WHATSAPP';
+    if (!window.confirm(
+      `Disparar ${canalLabel} pra ${total} destinatário(s) agora?\n\n` +
+      `Mensagens não podem ser "desenviadas". Confirme a mensagem e os filtros antes de continuar.`
+    )) return;
+
     setSending(true);
     setResult(null);
 
-    const canal = (tab === 'email' || tab === 'relatorios-email') ? 'email' : 'whatsapp';
     const filtros: any = {};
     if (filtroCargo) filtros.cargo = filtroCargo;
     if (filtroVoto !== 'todos') filtros.voto = filtroVoto;
@@ -303,6 +311,11 @@ export default function EnviosPage() {
               <button
                 disabled={sending || !empresaId}
                 onClick={async () => {
+                  const totalElegivel = destinatarios.filter((c: any) => c.telefone && c.email).length;
+                  if (!window.confirm(
+                    `Enviar Magic Link por WHATSAPP pra ${totalElegivel} colaborador(es)?\n\n` +
+                    `Cada link expira em 24h. Mensagens não podem ser "desenviadas".\n\nConfirma?`
+                  )) return;
                   setSending(true); setResult(null);
                   const filtros: any = {};
     if (filtroCargo) filtros.cargo = filtroCargo;

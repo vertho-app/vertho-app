@@ -205,14 +205,39 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
 
   // ── handleAction — INALTERADO ──────────────────────────────────────────
   async function handleAction(actionKey: string, label: string, aiConfig?: any) {
-    // Confirmação extra pra ações destrutivas / massivas
-    if (actionKey === 'simular-disc') {
-      const ok = window.confirm(
+    // Confirmação extra pra ações destrutivas / massivas em lote
+    const DANGEROUS_CONFIRMS: Record<string, string> = {
+      'simular-disc':
         'Simular Mapeamento DISC vai POPULAR todos os colaboradores que ainda não têm perfil com dados aleatórios.\n\n' +
         'Os perfis simulados podem ser identificados depois (origem="simulado"), mas isso bloqueia o mapeamento real até serem zerados manualmente.\n\n' +
-        'Esta ação só deve ser usada em ambientes de teste/demo. Confirma?'
-      );
-      if (!ok) return;
+        'Esta ação só deve ser usada em ambientes de teste/demo. Confirma?',
+      'simular':
+        'Simular Respostas vai GERAR respostas fake (com IA) pra todos os cenários pendentes de todos os colaboradores.\n\n' +
+        'Isso polui o diagnóstico real e consome créditos de IA. Use só em ambiente de teste/demo.\n\nConfirma?',
+      'temporadas':
+        'Gerar Temporadas vai criar 14 SEMANAS de conteúdo pra TODOS os colaboradores da empresa.\n\n' +
+        'Operação cara (IA) e demorada. Se já houver trilhas, serão regeneradas. Confirma?',
+      'rel-ind':
+        'Gerar PDI vai produzir relatórios individuais pra TODOS os colaboradores pendentes.\n\n' +
+        'Operação cara (IA), demorada e sobrescreve relatórios anteriores. Confirma?',
+      'cenarios-b':
+        'Cenários B + Check vai GERAR a 2ª rodada de cenários pra TODOS os colaboradores.\n\n' +
+        'Operação cara (IA), demorada e sobrescreve cenários B anteriores. Confirma?',
+      'evolucao':
+        'Evolução vai GERAR relatórios de fusão (3 fontes) pra TODOS os colaboradores.\n\n' +
+        'Operação cara (IA) e sobrescreve relatórios anteriores. Confirma?',
+      'plenaria':
+        'Plenária Evolução vai GERAR o relatório agregado pra empresa toda.\n\n' +
+        'Operação cara (IA) e sobrescreve a plenária anterior. Confirma?',
+      'rh-links':
+        'Enviar Links de Perfil vai DISPARAR mensagens (WhatsApp/email) pra todos os colaboradores que ainda não acessaram o perfil externo.\n\n' +
+        'Mensagens não podem ser "desenviadas". Confirma?',
+      'rh-dossie':
+        'Gerar Dossiê do Gestor vai PRODUZIR um documento agregado pra empresa toda.\n\n' +
+        'Operação cara (IA) e sobrescreve o dossiê anterior. Confirma?',
+    };
+    if (DANGEROUS_CONFIRMS[actionKey]) {
+      if (!window.confirm(DANGEROUS_CONFIRMS[actionKey])) return;
     }
     const fn = ACTION_MAP[actionKey];
     setPendingAction(actionKey);

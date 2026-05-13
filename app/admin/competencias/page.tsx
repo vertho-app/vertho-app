@@ -99,6 +99,12 @@ export default function CompetenciasPage() {
   }
 
   async function handleCopy(baseId: string) {
+    const base = baselist.find((b: any) => b.id === baseId);
+    const nomeBase = base?.nome || 'esta competência';
+    if (!window.confirm(
+      `Copiar "${nomeBase}" da base pra o cargo "${cargoParaCopiar}"?\n\n` +
+      `A competência (e seus descritores) será adicionada à empresa. Se já existir, pode gerar duplicatas.`
+    )) return;
     const r = await copiarBaseParaEmpresa(empresaId, baseId, cargoParaCopiar || null);
     if (r.success) {
       flash(r.message!);
