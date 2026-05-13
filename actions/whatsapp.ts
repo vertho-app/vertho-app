@@ -24,9 +24,14 @@ function formatPhone(telefone: string) {
 
 // ── Enviar mensagem de texto via WhatsApp ───────────────────────────────────
 
-export async function enviarWhatsApp(telefone: string, mensagem: string) {
+/**
+ * Auth: requer admin OU sistema interno. Quando `internal=true`, pula
+ * `requireAdminAction` — usado por triggers automáticos do servidor
+ * (ex.: notificação do tutor ao concluir missão integradora no Onboarding).
+ */
+export async function enviarWhatsApp(telefone: string, mensagem: string, internal: boolean = false) {
   try {
-    await requireAdminAction();
+    if (!internal) await requireAdminAction();
     const baseUrl = getBaseUrl();
     const phone = formatPhone(telefone);
 
