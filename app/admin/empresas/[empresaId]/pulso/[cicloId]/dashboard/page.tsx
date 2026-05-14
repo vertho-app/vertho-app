@@ -4,9 +4,15 @@ import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Activity, Users, TrendingUp, RefreshCw, Loader2, Filter } from 'lucide-react';
 import { loadPulseDashboard, refreshPulseAggregates, type GroupType, type PulseDashboardData } from '@/actions/pulse/dashboard';
+import { loadPulseSignals } from '@/actions/pulse/signals';
+import { triangulate, type TriangulationOutput } from '@/lib/pulse/triangulation';
+import type { SignalScore } from '@/lib/pulse/signal-scoring';
 import { PulseScoreCard } from '@/components/pulse/PulseScoreCard';
 import { PulseDimensionChart } from '@/components/pulse/PulseDimensionChart';
 import { PulseDeltaTable } from '@/components/pulse/PulseDeltaTable';
+import { PulseSignalsCard } from '@/components/pulse/PulseSignalsCard';
+import { TriangulationSummary } from '@/components/pulse/TriangulationSummary';
+import { RecommendationsList } from '@/components/pulse/RecommendationsList';
 import { AnonymityGuardMessage } from '@/components/pulse/AnonymityGuardMessage';
 
 type State =
@@ -25,13 +31,28 @@ export default function PulseDashboardPage({
   const [groupType, setGroupType] = useState<GroupType>('company');
   const [groupKey, setGroupKey] = useState<string>('all');
   const [refreshing, setRefreshing] = useState(false);
+  const [signals, setSignals] = useState<SignalScore[] | null>(null);
+  const [triang, setTriang] = useState<TriangulationOutput | null>(null);
 
   async function load() {
     setState({ tag: 'loading' });
+    setSignals(null); setTriang(null);
     const r = await loadPulseDashboard(empresaId, cicloId, groupType, groupKey);
     if (r.ok === 'masked') { setState({ tag: 'masked', n: r.n, threshold: r.threshold }); return; }
     if (r.ok === false) { setState({ tag: 'error', msg: r.error }); return; }
     setState({ tag: 'ok', data: r.data });
+
+    // Carrega sinais em paralelo (graceful — sem bloquear UI)
+    const sigRes = await loadPulseSignals(empresaId, cicloId, { group_type: groupType, group_key: groupKey });
+    if (sigRes.ok === true) {
+      setSignals(sigRes.data.signals);
+      const tri = triangulate(r.data.dimensions, sigRes.data.signals, { n_t0: r.data.n_t0, n_t2: r.data.n_t2 });
+      setTriang(tri);
+    } else {
+      // Mesmo sem sinais, gera triangulação só com pulso
+      const tri = triangulate(r.data.dimensions, [], { n_t0: r.data.n_t0, n_t2: r.data.n_t2 });
+      setTriang(tri);
+    }
   }
 
   useEffect(() => { load(); }, [empresaId, cicloId, groupType, groupKey]);
@@ -152,14 +173,26 @@ export default function PulseDashboardPage({
         <PulseDeltaTable dimensions={d.dimensions} />
       </div>
 
-      {/* Placeholder pra blocos interpretativos (Etapa 4) */}
-      <div className="rounded-xl border border-white/[0.06] p-5" style={{ background: '#0F2A4A' }}>
-        <p className="text-xs font-bold text-white mb-2">Triangulação e recomendações</p>
-        <p className="text-[11px] text-gray-500">
-          Aceleradores, bloqueadores, alertas e recomendações serão gerados na próxima etapa
-          (sinais da jornada + Dual-IA + triangulação).
-        </p>
-      </div>
+      {/* Sinais da jornada */}
+      {signals && signals.length > 0 && (
+        <div className="mb-5">
+          <PulseSignalsCard signals={signals} />
+        </div>
+      )}
+
+      {/* Triangulação */}
+      {triang && (
+        <div className="mb-5">
+          <TriangulationSummary data={triang} />
+        </div>
+      )}
+
+      {/* Recomendações */}
+      {triang && triang.recommendations.length > 0 && (
+        <div className="mb-5">
+          <RecommendationsList items={triang.recommendations} />
+        </div>
+      )}
     </div>
   );
 }
