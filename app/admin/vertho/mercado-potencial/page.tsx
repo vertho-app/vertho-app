@@ -114,14 +114,16 @@ export default function MercadoPotencialPage() {
     setRedes(prev => prev.includes(rede) ? prev.filter(r => r !== rede) : [...prev, rede]);
   }
 
-  // Totais agregados das rows visíveis
+  // Totais agregados das rows visíveis.
+  // `qt_jovens_efetivo` é setado pelo backend conforme idade-corte selecionada
+  // (24 ou 29). Fallback pra qt_docs_jovens caso o backend antigo não envie.
   const totais = useMemo(() => {
     if (!rows.length) return null;
     return {
       qt_escolas: rows.reduce((a, r) => a + (r.qt_escolas || 0), 0),
       qt_professores: rows.reduce((a, r) => a + (r.qt_professores || 0), 0),
       qt_gestores: rows.reduce((a, r) => a + (r.qt_gestores || 0), 0),
-      qt_docs_jovens: rows.reduce((a, r) => a + (r.qt_docs_jovens || 0), 0),
+      qt_docs_jovens: rows.reduce((a, r) => a + (r.qt_jovens_efetivo ?? r.qt_docs_jovens ?? 0), 0),
       tam_mensal_mentor_ia: rows.reduce((a, r) => a + (r.tam_mensal_mentor_ia || 0), 0),
       tam_mensal_onboarding: rows.reduce((a, r) => a + (r.tam_mensal_onboarding || 0), 0),
     };
