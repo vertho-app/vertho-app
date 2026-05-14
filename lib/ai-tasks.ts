@@ -41,6 +41,10 @@ export const AI_TASKS = [
   // ── Fase 5 — Reavaliação ─────────────────────────────────
   { key: 'cenarios_b', label: 'Geração de Cenários B', fase: 'Fase 5' },
   { key: 'evolucao_fusao', label: 'Evolução (fusão 3 fontes)', fase: 'Fase 5' },
+
+  // ── Pulso de Desenvolvimento (Dual-IA) ───────────────────
+  { key: 'pulse_classify', label: 'Pulso — Classificador de texto aberto', fase: 'Pulso' },
+  { key: 'pulse_audit',    label: 'Pulso — Auditor (verifica classificação)', fase: 'Pulso' },
 ];
 
 export const MODELOS_DISPONIVEIS = [

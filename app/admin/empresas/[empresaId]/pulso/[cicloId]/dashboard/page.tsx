@@ -2,15 +2,17 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Activity, Users, TrendingUp, RefreshCw, Loader2, Filter } from 'lucide-react';
+import { ArrowLeft, Activity, Users, TrendingUp, RefreshCw, Loader2, Filter, Sparkles } from 'lucide-react';
 import { loadPulseDashboard, refreshPulseAggregates, type GroupType, type PulseDashboardData } from '@/actions/pulse/dashboard';
 import { loadPulseSignals } from '@/actions/pulse/signals';
+import { classificarRespostasAbertas, obterTemasCiclo, type ThemeAggregate } from '@/actions/pulse/classify';
 import { triangulate, type TriangulationOutput } from '@/lib/pulse/triangulation';
 import type { SignalScore } from '@/lib/pulse/signal-scoring';
 import { PulseScoreCard } from '@/components/pulse/PulseScoreCard';
 import { PulseDimensionChart } from '@/components/pulse/PulseDimensionChart';
 import { PulseDeltaTable } from '@/components/pulse/PulseDeltaTable';
 import { PulseSignalsCard } from '@/components/pulse/PulseSignalsCard';
+import { PulseThemesCloud } from '@/components/pulse/PulseThemesCloud';
 import { TriangulationSummary } from '@/components/pulse/TriangulationSummary';
 import { RecommendationsList } from '@/components/pulse/RecommendationsList';
 import { AnonymityGuardMessage } from '@/components/pulse/AnonymityGuardMessage';
@@ -31,28 +33,47 @@ export default function PulseDashboardPage({
   const [groupType, setGroupType] = useState<GroupType>('company');
   const [groupKey, setGroupKey] = useState<string>('all');
   const [refreshing, setRefreshing] = useState(false);
+  const [classificando, setClassificando] = useState(false);
   const [signals, setSignals] = useState<SignalScore[] | null>(null);
   const [triang, setTriang] = useState<TriangulationOutput | null>(null);
+  const [themes, setThemes] = useState<{ list: ThemeAggregate[]; total: number; confidence_summary?: { high: number; medium: number; low: number } } | null>(null);
 
   async function load() {
     setState({ tag: 'loading' });
-    setSignals(null); setTriang(null);
+    setSignals(null); setTriang(null); setThemes(null);
     const r = await loadPulseDashboard(empresaId, cicloId, groupType, groupKey);
     if (r.ok === 'masked') { setState({ tag: 'masked', n: r.n, threshold: r.threshold }); return; }
     if (r.ok === false) { setState({ tag: 'error', msg: r.error }); return; }
     setState({ tag: 'ok', data: r.data });
 
-    // Carrega sinais em paralelo (graceful — sem bloquear UI)
-    const sigRes = await loadPulseSignals(empresaId, cicloId, { group_type: groupType, group_key: groupKey });
-    if (sigRes.ok === true) {
-      setSignals(sigRes.data.signals);
-      const tri = triangulate(r.data.dimensions, sigRes.data.signals, { n_t0: r.data.n_t0, n_t2: r.data.n_t2 });
-      setTriang(tri);
-    } else {
-      // Mesmo sem sinais, gera triangulação só com pulso
-      const tri = triangulate(r.data.dimensions, [], { n_t0: r.data.n_t0, n_t2: r.data.n_t2 });
-      setTriang(tri);
+    // Carrega sinais + temas em paralelo (graceful — sem bloquear UI)
+    const [sigRes, themesRes] = await Promise.all([
+      loadPulseSignals(empresaId, cicloId, { group_type: groupType, group_key: groupKey }),
+      obterTemasCiclo(empresaId, cicloId, { group_type: groupType, group_key: groupKey }),
+    ]);
+
+    const sigs = sigRes.ok === true ? sigRes.data.signals : [];
+    setSignals(sigs);
+
+    if (themesRes.ok === true) {
+      setThemes({
+        list: themesRes.data.themes,
+        total: themesRes.data.total_respostas,
+        confidence_summary: themesRes.data.confidence_summary,
+      });
     }
+
+    const tri = triangulate(r.data.dimensions, sigs, { n_t0: r.data.n_t0, n_t2: r.data.n_t2 });
+    setTriang(tri);
+  }
+
+  async function handleClassificar() {
+    setClassificando(true);
+    const r = await classificarRespostasAbertas(empresaId, cicloId, { maxRespostas: 100 });
+    setClassificando(false);
+    if (r.ok === false) { alert(r.error); return; }
+    alert(`✓ Classificadas: ${r.processadas} · já existentes: ${r.ja_classificadas} · erros: ${r.erros}`);
+    await load();
   }
 
   useEffect(() => { load(); }, [empresaId, cicloId, groupType, groupKey]);
@@ -106,11 +127,18 @@ export default function PulseDashboardPage({
             <p className="text-xs text-gray-500">Dashboard agregado · status: {d.ciclo.status}</p>
           </div>
         </div>
-        <button onClick={handleRefresh} disabled={refreshing}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all disabled:opacity-50">
-          {refreshing ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
-          Atualizar
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={handleClassificar} disabled={classificando}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold text-purple-400 border border-purple-400/30 hover:bg-purple-400/10 transition-all disabled:opacity-50">
+            {classificando ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+            {classificando ? 'Classificando...' : 'Classificar texto IA'}
+          </button>
+          <button onClick={handleRefresh} disabled={refreshing}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all disabled:opacity-50">
+            {refreshing ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+            Atualizar
+          </button>
+        </div>
       </div>
 
       {/* Filtros de grupo */}
@@ -177,6 +205,17 @@ export default function PulseDashboardPage({
       {signals && signals.length > 0 && (
         <div className="mb-5">
           <PulseSignalsCard signals={signals} />
+        </div>
+      )}
+
+      {/* Temas das respostas abertas */}
+      {themes && themes.list.length > 0 && (
+        <div className="mb-5">
+          <PulseThemesCloud
+            themes={themes.list}
+            total={themes.total}
+            confidence_summary={themes.confidence_summary}
+          />
         </div>
       )}
 
