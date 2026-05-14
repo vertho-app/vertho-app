@@ -78,6 +78,9 @@ export default function EnviosPage() {
   // 'todos' = sem filtro · 'nao_votou' = só quem ainda não votou (lembretes)
   // · 'votou' = só quem já votou
   const [filtroVoto, setFiltroVoto] = useState<'todos' | 'nao_votou' | 'votou'>('todos');
+  // Filtro por presença de perfil comportamental (DISC).
+  // 'todos' = sem filtro · 'sim' = só quem já tem · 'nao' = só quem ainda não tem
+  const [filtroDisc, setFiltroDisc] = useState<'todos' | 'sim' | 'nao'>('todos');
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState(null);
 
@@ -125,6 +128,8 @@ export default function EnviosPage() {
     if (filtroCargo && c.cargo !== filtroCargo) return false;
     if (filtroVoto === 'nao_votou' && c.votou) return false;
     if (filtroVoto === 'votou' && !c.votou) return false;
+    if (filtroDisc === 'sim' && !c.temDisc) return false;
+    if (filtroDisc === 'nao' && c.temDisc) return false;
     if (tab === 'whatsapp' || tab === 'relatorios-whatsapp') return !!c.telefone;
     return !!c.email;
   });
@@ -220,6 +225,7 @@ export default function EnviosPage() {
     const filtros: any = {};
     if (filtroCargo) filtros.cargo = filtroCargo;
     if (filtroVoto !== 'todos') filtros.voto = filtroVoto;
+    if (filtroDisc !== 'todos') filtros.disc = filtroDisc;
     const isRel = tab === 'relatorios-email' || tab === 'relatorios-whatsapp';
     const r = await dispararMensagemCustomizada(empresaId, mensagem, canal, filtros, assunto, isRel && anexarPDF, anexoExtra);
 
@@ -285,7 +291,7 @@ export default function EnviosPage() {
                 Gera um link de acesso direto (sem senha) para cada colaborador e envia por WhatsApp.
                 O link expira em 24h e é pessoal.
               </p>
-              <div className="grid grid-cols-2 gap-2 mb-3">
+              <div className="grid grid-cols-3 gap-2 mb-3">
                 <div>
                   <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Cargo</p>
                   <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
@@ -301,6 +307,15 @@ export default function EnviosPage() {
                     <option value="todos">Todos</option>
                     <option value="nao_votou">Não votaram</option>
                     <option value="votou">Já votaram</option>
+                  </select>
+                </div>
+                <div>
+                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Perfil DISC</p>
+                  <select value={filtroDisc} onChange={e => setFiltroDisc(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
+                    <option value="todos">Todos</option>
+                    <option value="sim">Com perfil</option>
+                    <option value="nao">Sem perfil</option>
                   </select>
                 </div>
               </div>
@@ -320,6 +335,7 @@ export default function EnviosPage() {
                   const filtros: any = {};
     if (filtroCargo) filtros.cargo = filtroCargo;
     if (filtroVoto !== 'todos') filtros.voto = filtroVoto;
+    if (filtroDisc !== 'todos') filtros.disc = filtroDisc;
                   const r = await enviarMagicLinksWhatsApp(empresaId, filtros);
                   setResult(r); setSending(false);
                 }}
@@ -342,7 +358,7 @@ export default function EnviosPage() {
               {/* Filtros */}
               <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
                 <p className="text-xs font-bold text-white flex items-center gap-1.5 mb-3"><Filter size={12} /> Filtros de Destinatários</p>
-                <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="grid grid-cols-3 gap-2 mb-3">
                   <div>
                     <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Cargo</p>
                     <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
@@ -358,6 +374,15 @@ export default function EnviosPage() {
                       <option value="todos">Todos</option>
                       <option value="nao_votou">Não votaram</option>
                       <option value="votou">Já votaram</option>
+                    </select>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Perfil DISC</p>
+                    <select value={filtroDisc} onChange={e => setFiltroDisc(e.target.value as any)}
+                      className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
+                      <option value="todos">Todos</option>
+                      <option value="sim">Com perfil</option>
+                      <option value="nao">Sem perfil</option>
                     </select>
                   </div>
                 </div>

@@ -159,13 +159,17 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
     // Buscar colaboradores
     let colabs;
     const { data: c1, error: e1 } = await sb.from('colaboradores')
-      .select('id, nome_completo, email, cargo, telefone')
+      .select('id, nome_completo, email, cargo, telefone, perfil_dominante')
       .eq('empresa_id', empresaId);
-    colabs = e1 ? (await sb.from('colaboradores').select('id, nome_completo, email, cargo').eq('empresa_id', empresaId)).data : c1;
+    colabs = e1 ? (await sb.from('colaboradores').select('id, nome_completo, email, cargo, perfil_dominante').eq('empresa_id', empresaId)).data : c1;
     if (!colabs?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
 
     // Filtrar por cargo
     if (filtros.cargo) colabs = colabs.filter(c => c.cargo === filtros.cargo);
+
+    // Filtrar por presença de perfil comportamental (sim/nao)
+    if (filtros.disc === 'sim') colabs = colabs.filter(c => !!c.perfil_dominante);
+    else if (filtros.disc === 'nao') colabs = colabs.filter(c => !c.perfil_dominante);
 
     // Filtrar por status de voto (votou/nao_votou) — útil pra disparo de
     // lembrete só pra quem ainda não votou na votação de competências.
@@ -444,12 +448,14 @@ export async function enviarMagicLinksWhatsApp(empresaId: string, filtros: any =
     if (!empresa) return { success: false, error: 'Empresa não encontrada' };
 
     let { data: colabs } = await sb.from('colaboradores')
-      .select('id, nome_completo, email, cargo, telefone')
+      .select('id, nome_completo, email, cargo, telefone, perfil_dominante')
       .eq('empresa_id', empresaId);
     if (!colabs?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
 
     colabs = colabs.filter(c => c.telefone && c.email);
     if (filtros.cargo) colabs = colabs.filter(c => c.cargo === filtros.cargo);
+    if (filtros.disc === 'sim') colabs = colabs.filter(c => !!c.perfil_dominante);
+    else if (filtros.disc === 'nao') colabs = colabs.filter(c => !c.perfil_dominante);
     if (filtros.voto === 'nao_votou' || filtros.voto === 'votou') {
       const { data: votos } = await sb
         .from('votacao_competencias')
@@ -528,14 +534,14 @@ export async function loadColaboradoresEnvio(empresaId) {
   // Tentar com telefone, fallback sem
   let data;
   const { data: d1, error: e1 } = await sb.from('colaboradores')
-    .select('id, nome_completo, email, cargo, telefone')
+    .select('id, nome_completo, email, cargo, telefone, perfil_dominante')
     .eq('empresa_id', empresaId)
     .order('nome_completo');
   if (!e1) {
     data = d1;
   } else {
     const { data: d2 } = await sb.from('colaboradores')
-      .select('id, nome_completo, email, cargo')
+      .select('id, nome_completo, email, cargo, perfil_dominante')
       .eq('empresa_id', empresaId)
       .order('nome_completo');
     data = (d2 || []).map(c => ({ ...c, telefone: null }));
@@ -550,5 +556,5 @@ export async function loadColaboradoresEnvio(empresaId) {
     .eq('empresa_id', empresaId);
   const votouSet = new Set((votos || []).map((v: any) => v.colaborador_id));
 
-  return data.map((c: any) => ({ ...c, votou: votouSet.has(c.id) }));
+  return data.map((c: any) => ({ ...c, votou: votouSet.has(c.id), temDisc: !!c.perfil_dominante }));
 }
