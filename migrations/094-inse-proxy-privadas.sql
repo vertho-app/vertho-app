@@ -202,12 +202,45 @@ CREATE UNIQUE INDEX idx_mv_mercado_rede_pk
 CREATE INDEX idx_mv_mercado_rede_uf
   ON diag_mv_mercado_rede(uf, rede);
 
+-- Refresh repopula a tabela base via TRUNCATE+INSERT (não DROP — a MV
+-- diag_mv_mercado_escola tem dependência dela; DROP CASCADE quebraria tudo).
 CREATE OR REPLACE FUNCTION refresh_mv_mercado_potencial() RETURNS void AS $$
 BEGIN
+  TRUNCATE TABLE _tmp_mercado_escola_raw;
+  INSERT INTO _tmp_mercado_escola_raw
+  WITH censo_docentes_latest AS (
+    SELECT DISTINCT ON (codigo_inep) * FROM diag_censo_docentes ORDER BY codigo_inep, ano DESC
+  ),
+  censo_infra_latest AS (
+    SELECT DISTINCT ON (codigo_inep) * FROM diag_censo_infra ORDER BY codigo_inep, ano DESC
+  )
+  SELECT
+    e.codigo_inep, e.nome, e.municipio, e.municipio_ibge, e.uf, e.rede, e.microrregiao,
+    e.inse_grupo, e.etapas,
+    COALESCE(d.qt_doc_bas, 0),
+    COALESCE(d.qt_doc_bas_0_24, 0) + COALESCE(d.qt_doc_bas_25_29, 0),
+    COALESCE(d.qt_doc_bas_esco_sup_pos_espec, 0) + COALESCE(d.qt_doc_bas_esco_sup_pos_mestra, 0) + COALESCE(d.qt_doc_bas_esco_sup_pos_douto, 0),
+    COALESCE((i.quantidades->>'QT_PROF_COORDENADOR')::int, 0) + COALESCE((i.quantidades->>'QT_PROF_PEDAGOGIA')::int, 0),
+    1,
+    i.score_conectividade, i.score_pedagogica, i.score_basica,
+    COALESCE((i.indicadores->>'IN_CLIMATIZACAO')::int, 0),
+    COALESCE((i.indicadores->>'IN_LABORATORIO_CIENCIAS')::int, 0),
+    COALESCE((i.indicadores->>'IN_QUADRA_ESPORTES_COBERTA')::int, 0),
+    COALESCE((i.indicadores->>'IN_AUDITORIO')::int, 0),
+    COALESCE((i.quantidades->>'QT_DESKTOP_ALUNO')::int, 0) + COALESCE((i.quantidades->>'QT_COMP_PORTATIL_ALUNO')::int, 0) + COALESCE((i.quantidades->>'QT_TABLET_ALUNO')::int, 0)
+  FROM diag_escolas e
+  LEFT JOIN censo_docentes_latest d ON d.codigo_inep = e.codigo_inep
+  LEFT JOIN censo_infra_latest i ON i.codigo_inep = e.codigo_inep
+  WHERE e.status = 'ativa';
   REFRESH MATERIALIZED VIEW CONCURRENTLY diag_mv_mercado_escola;
   REFRESH MATERIALIZED VIEW CONCURRENTLY diag_mv_mercado_municipio;
   REFRESH MATERIALIZED VIEW CONCURRENTLY diag_mv_mercado_rede;
 END $$ LANGUAGE plpgsql;
+
+COMMENT ON TABLE _tmp_mercado_escola_raw IS
+'Tabela base permanente do mercado potencial (apesar do prefixo _tmp).
+A MV diag_mv_mercado_escola depende dela — TRUNCATE+INSERT no refresh,
+nunca DROP (CASCADE quebraria as MVs).';
 
 COMMENT ON COLUMN diag_mv_mercado_escola.inse_proxy_score IS
 'INSE proxy 0-100 composto a partir de sinais do Censo Escolar (score_*, IN_*, QT_*).
@@ -218,6 +251,7 @@ COMMENT ON COLUMN diag_mv_mercado_escola.inse_fonte IS
 'Indica se inse_efetivo vem do questionário INEP (oficial) ou do proxy do Censo (inferido).
 Mostrar badge "~" na UI quando inferido pra deixar o usuário ciente do viés.';
 
--- Cleanup: a tabela auxiliar não é mais necessária. Comente esta linha se
--- quiser manter pra debug/reanálise.
-DROP TABLE IF EXISTS _tmp_mercado_escola_raw;
+-- NÃO drope _tmp_mercado_escola_raw — Postgres cria dependência rígida
+-- da MV diag_mv_mercado_escola pra essa tabela (CTE). DROP CASCADE
+-- destruiria as 3 MVs. A tabela ocupa ~30-50MB e é repopulada via
+-- refresh_mv_mercado_potencial() (TRUNCATE + INSERT).
