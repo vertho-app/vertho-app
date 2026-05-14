@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useTransition, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Loader2, RefreshCw, Filter, Building2, Users, School,
@@ -382,13 +383,42 @@ function KPI({ label, value, cor, big = false }: { label: string; value: string;
 
 function UfDropdown({ selected, onChange }: { selected: string[]; onChange: (ufs: string[]) => void }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => { setMounted(true); }, []);
+
+  // Calcula posição do dropdown via Portal (sai do overflow do container pai)
   useEffect(() => {
-    function onClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    if (!open) return;
+    function update() {
+      const el = triggerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setCoords({ top: rect.bottom + 6, left: rect.left, width: rect.width });
     }
-    if (open) document.addEventListener('mousedown', onClick);
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
+    };
+  }, [open]);
+
+  // Click fora fecha
+  useEffect(() => {
+    if (!open) return;
+    function onClick(e: MouseEvent) {
+      const t = e.target as Node;
+      if (
+        triggerRef.current && !triggerRef.current.contains(t) &&
+        dropdownRef.current && !dropdownRef.current.contains(t)
+      ) setOpen(false);
+    }
+    document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
   }, [open]);
 
@@ -403,11 +433,11 @@ function UfDropdown({ selected, onChange }: { selected: string[]; onChange: (ufs
       : `${selected.length} UFs selecionadas`;
 
   return (
-    <div ref={ref} className="relative">
+    <div>
       <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-1">
         UF (multi-select)
       </label>
-      <button onClick={() => setOpen(!open)}
+      <button ref={triggerRef} onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40 hover:border-white/30 transition-colors"
         style={{ background: '#091D35' }}>
         <span className="truncate text-left">{label}</span>
@@ -421,9 +451,18 @@ function UfDropdown({ selected, onChange }: { selected: string[]; onChange: (ufs
           <ChevronDown size={13} className="text-white/40" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: '.15s' }} />
         </div>
       </button>
-      {open && (
-        <div className="absolute z-20 top-full left-0 right-0 mt-1 rounded-lg p-2 max-h-72 overflow-y-auto"
-          style={{ background: '#0b1d36', border: '1px solid rgba(255,255,255,.1)', boxShadow: '0 8px 24px rgba(0,0,0,.4)' }}>
+      {mounted && open && createPortal(
+        <div ref={dropdownRef}
+          className="rounded-lg p-2 max-h-72 overflow-y-auto shadow-2xl"
+          style={{
+            position: 'fixed',
+            top: coords.top,
+            left: coords.left,
+            width: Math.max(coords.width, 280),
+            zIndex: 1000,
+            background: '#0b1d36',
+            border: '1px solid rgba(255,255,255,.1)',
+          }}>
           <div className="grid grid-cols-3 gap-1">
             {UFS.map(uf => (
               <button key={uf} onClick={() => toggle(uf)}
@@ -441,7 +480,8 @@ function UfDropdown({ selected, onChange }: { selected: string[]; onChange: (ufs
               </button>
             ))}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

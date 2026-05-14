@@ -109,10 +109,15 @@ function calcularScores(row: any, filtros: MercadoFilters): Partial<MercadoRowBa
   };
 }
 
-function aplicarFiltrosBase(query: any, filtros: MercadoFilters) {
+/**
+ * Aplica filtros UF + INSE + busca de cidade na query.
+ * INSE: a MV de município/rede tem `inse_medio` (AVG agregado); a MV de escola
+ * tem `inse_grupo` (valor original 1-6). Caller passa o nome da coluna.
+ */
+function aplicarFiltrosBase(query: any, filtros: MercadoFilters, inseCol: 'inse_medio' | 'inse_grupo' = 'inse_medio') {
   if (filtros.uf?.length) query = query.in('uf', filtros.uf);
-  if (filtros.inseMin != null) query = query.gte('inse_medio', filtros.inseMin);
-  if (filtros.inseMax != null) query = query.lte('inse_medio', filtros.inseMax);
+  if (filtros.inseMin != null) query = query.gte(inseCol, filtros.inseMin);
+  if (filtros.inseMax != null) query = query.lte(inseCol, filtros.inseMax);
   if (filtros.municipioBusca?.trim()) {
     // ilike é case-insensitive; unaccent ficaria melhor, mas o índice gin trgm
     // em diag_escolas não está nas MVs — usar ilike simples.
@@ -211,11 +216,9 @@ export async function loadMercadoEscolas(filtros: MercadoFilters = {}) {
 
   let q = sb.from('diag_mv_mercado_escola')
     .select('codigo_inep, nome, municipio, municipio_ibge, uf, rede, inse_grupo, etapas, qt_professores, qt_docs_jovens, qt_docs_pos, qt_coord_pedag, qt_diretor_proxy, score_conectividade');
-  q = aplicarFiltrosBase(q, filtros);
+  // Escola usa `inse_grupo` (não `inse_medio` que existe só nas MVs agregadas).
+  q = aplicarFiltrosBase(q, filtros, 'inse_grupo');
   if (filtros.redes?.length) q = q.in('rede', filtros.redes);
-  // Para escola, INSE vem em inse_grupo (não inse_medio)
-  if (filtros.inseMin != null) q = q.gte('inse_grupo', filtros.inseMin);
-  if (filtros.inseMax != null) q = q.lte('inse_grupo', filtros.inseMax);
   q = q.limit(limit);
 
   const { data, error } = await q;
