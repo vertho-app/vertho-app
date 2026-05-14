@@ -323,7 +323,15 @@ export default function MercadoPotencialPage() {
                       <td className="px-3 py-2.5 text-right text-white/85">{fmt.int(r.qt_gestores)}</td>
                       <td className="px-3 py-2.5 text-right text-emerald-300/80">{fmt.pct(r.pct_jovens)}</td>
                       <td className="px-3 py-2.5 text-right text-amber-300/80">{fmt.pct(r.pct_sem_pos)}</td>
-                      <td className="px-3 py-2.5 text-right text-white/70">{fmt.inse(r.inse_medio)}</td>
+                      <td className="px-3 py-2.5 text-right text-white/70">
+                        {r.inse_fonte === 'inferido' ? (
+                          <span title="INSE inferido a partir do Censo Escolar (proxy). Privadas sem cobertura Saeb oficial.">
+                            <span className="text-amber-400/80 mr-0.5">~</span>{fmt.inse(r.inse_medio)}
+                          </span>
+                        ) : (
+                          fmt.inse(r.inse_medio)
+                        )}
+                      </td>
                       <td className="px-3 py-2.5 text-right text-cyan-300 font-mono">{fmt.brl(r.tam_mensal_mentor_ia)}</td>
                       <td className="px-3 py-2.5 text-right text-orange-300/85 font-mono">{fmt.brl(r.tam_mensal_onboarding)}</td>
                       <td className="px-3 py-2.5 text-right text-white/60">{fmt.pct(r.fit_pedagogico)}</td>
@@ -344,7 +352,7 @@ export default function MercadoPotencialPage() {
 
         {/* Rodapé com nota */}
         <p className="text-[10px] text-white/30 text-center mt-4">
-          TAM = (profs + gestores) × R$/mês configurado. Fit pedagógico = 0.4 + 0.3×(%sem pós) + 0.3×(%jovens). Score = TAM × Fit Ped × Fit Fin (INSE-dependente). INSE INEP: 1=mais baixo, 6=mais alto. Privadas pontuam alto com INSE alto (mais bolso); públicas pontuam alto com INSE baixo (mais demanda).
+          TAM = (profs + gestores) × R$/mês configurado. Fit pedagógico = 0.4 + 0.3×(%sem pós) + 0.3×(%jovens). Score = TAM × Fit Ped × Fit Fin (INSE-dependente). INSE INEP: 1=mais baixo, 6=mais alto. Privadas pontuam alto com INSE alto (mais bolso); públicas pontuam alto com INSE baixo (mais demanda). Valores INSE com <span className="text-amber-400/80">~</span> são <b>inferidos</b> via Censo Escolar (proxy) para privadas sem cobertura Saeb oficial.
         </p>
       </div>
     </div>
