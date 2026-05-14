@@ -131,6 +131,8 @@ export default function PulsoAdminPage({ params }: { params: Promise<{ empresaId
                   <p className="text-[9px] text-gray-600 mt-1 uppercase tracking-widest">Status: {c.status}</p>
                 </div>
                 <div className="flex items-center gap-3">
+                  <button onClick={() => router.push(`/admin/empresas/${empresaId}/pulso/${c.id}/enviar`)}
+                    className="text-[10px] font-bold text-purple-400 hover:underline">Enviar →</button>
                   <button onClick={() => router.push(`/admin/empresas/${empresaId}/pulso/${c.id}/dashboard`)}
                     className="text-[10px] font-bold text-cyan-400 hover:underline">Dashboard →</button>
                   <button onClick={() => abrirDetalhe(c.id)}
