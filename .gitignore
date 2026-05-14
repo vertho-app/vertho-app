@@ -28,6 +28,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# script outputs (podem conter PII de migrações ou dumps de dados)
+/outputs/
+*-dump.json
+
 # env files
 .env*.local
 
