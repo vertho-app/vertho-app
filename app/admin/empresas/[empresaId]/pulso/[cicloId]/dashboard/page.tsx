@@ -2,10 +2,11 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Activity, Users, TrendingUp, RefreshCw, Loader2, Filter, Sparkles } from 'lucide-react';
+import { ArrowLeft, Activity, Users, TrendingUp, RefreshCw, Loader2, Filter, Sparkles, Download, FileText } from 'lucide-react';
 import { loadPulseDashboard, refreshPulseAggregates, type GroupType, type PulseDashboardData } from '@/actions/pulse/dashboard';
 import { loadPulseSignals } from '@/actions/pulse/signals';
 import { classificarRespostasAbertas, obterTemasCiclo, type ThemeAggregate } from '@/actions/pulse/classify';
+import { exportarRelatorioPulso, type PulseReportKind } from '@/actions/pulse/export';
 import { triangulate, type TriangulationOutput } from '@/lib/pulse/triangulation';
 import type { SignalScore } from '@/lib/pulse/signal-scoring';
 import { PulseScoreCard } from '@/components/pulse/PulseScoreCard';
@@ -76,6 +77,20 @@ export default function PulseDashboardPage({
     await load();
   }
 
+  const [exportingKind, setExportingKind] = useState<PulseReportKind | null>(null);
+  async function handleExport(kind: PulseReportKind) {
+    if (kind === 'pulso_complementar_nr1' && !window.confirm(
+      'O relatório complementar para fatores psicossociais inclui disclaimer obrigatório: ' +
+      'a Vertho NÃO realiza diagnóstico técnico nem substitui PGR/PCMSO/SESMT/laudos. ' +
+      'Os dados aqui são insumo qualitativo complementar.\n\nGerar mesmo assim?'
+    )) return;
+    setExportingKind(kind);
+    const r = await exportarRelatorioPulso(empresaId, cicloId, kind, { group_type: groupType, group_key: groupKey });
+    setExportingKind(null);
+    if (r.ok === false) { alert(r.error); return; }
+    window.open(`/api/relatorios/pdf?id=${r.relatorio_id}`, '_blank');
+  }
+
   useEffect(() => { load(); }, [empresaId, cicloId, groupType, groupKey]);
 
   async function handleRefresh() {
@@ -127,11 +142,21 @@ export default function PulseDashboardPage({
             <p className="text-xs text-gray-500">Dashboard agregado · status: {d.ciclo.status}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           <button onClick={handleClassificar} disabled={classificando}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold text-purple-400 border border-purple-400/30 hover:bg-purple-400/10 transition-all disabled:opacity-50">
             {classificando ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
             {classificando ? 'Classificando...' : 'Classificar texto IA'}
+          </button>
+          <button onClick={() => handleExport('pulso_executivo')} disabled={exportingKind !== null}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all disabled:opacity-50">
+            {exportingKind === 'pulso_executivo' ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}
+            PDF Executivo
+          </button>
+          <button onClick={() => handleExport('pulso_complementar_nr1')} disabled={exportingKind !== null}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 transition-all disabled:opacity-50">
+            {exportingKind === 'pulso_complementar_nr1' ? <Loader2 size={11} className="animate-spin" /> : <FileText size={11} />}
+            Complementar NR-1
           </button>
           <button onClick={handleRefresh} disabled={refreshing}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all disabled:opacity-50">

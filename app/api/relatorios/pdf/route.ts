@@ -4,6 +4,8 @@ import { renderToBuffer } from '@react-pdf/renderer';
 import RelatorioIndividualPDF from '@/components/pdf/RelatorioIndividual';
 import RelatorioGestorPDF from '@/components/pdf/RelatorioGestor';
 import RelatorioRHPDF from '@/components/pdf/RelatorioRH';
+import RelatorioPulsoExecutivoPDF from '@/components/pdf/RelatorioPulsoExecutivo';
+import RelatorioPulsoNR1PDF from '@/components/pdf/RelatorioPulsoNR1';
 import { getLogoCoverBase64 } from '@/lib/pdf-assets';
 import { requireUser, assertTenantAccess, assertColabAccess } from '@/lib/auth/request-context';
 import React from 'react';
@@ -12,6 +14,8 @@ const COMPONENTS = {
   individual: { C: RelatorioIndividualPDF, prefix: 'vertho-pdi' },
   gestor: { C: RelatorioGestorPDF, prefix: 'vertho-gestor' },
   rh: { C: RelatorioRHPDF, prefix: 'vertho-rh' },
+  pulso_executivo: { C: RelatorioPulsoExecutivoPDF, prefix: 'vertho-pulso-executivo' },
+  pulso_complementar_nr1: { C: RelatorioPulsoNR1PDF, prefix: 'vertho-pulso-nr1' },
 };
 
 export async function GET(request) {
@@ -40,7 +44,8 @@ export async function GET(request) {
     if (rel.tipo === 'individual' && rel.colaborador_id) {
       const colabGuard = await assertColabAccess(auth, rel.colaborador_id);
       if (colabGuard) return colabGuard;
-    } else if (rel.tipo === 'gestor' || rel.tipo === 'rh') {
+    } else if (rel.tipo === 'gestor' || rel.tipo === 'rh'
+            || rel.tipo === 'pulso_executivo' || rel.tipo === 'pulso_complementar_nr1') {
       if (!auth.isPlatformAdmin && auth.role !== 'gestor' && auth.role !== 'rh') {
         return NextResponse.json({ error: 'relatório agregado exige gestor/rh/admin' }, { status: 403 });
       }
