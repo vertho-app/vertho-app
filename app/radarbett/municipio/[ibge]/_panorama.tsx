@@ -279,7 +279,7 @@ export function PanoramaMunicipio({
 
       {/* Dispersão entre escolas da rede municipal */}
       {dispersao && dispersao.totalEscolas >= 3 && (
-        <DispersaoCard d={dispersao} />
+        <DispersaoCard d={dispersao} totalMunicipais={redes?.MUNICIPAL ?? totalEscolas} />
       )}
 
       {/* Espaço para crescer — próximo benchmark "puxando a barra pra cima" */}
@@ -684,9 +684,10 @@ function ProximoNivelRow({ it }: { it: any }) {
   );
 }
 
-function DispersaoCard({ d }: { d: DispersaoLite }) {
+function DispersaoCard({ d, totalMunicipais }: { d: DispersaoLite; totalMunicipais?: number }) {
   const { min, max, media, mediana, desvio, totalEscolas, pontos, etapa, ano } = d;
   const range = max - min;
+  const totalRedeMunicipal = totalMunicipais && totalMunicipais > totalEscolas ? totalMunicipais : null;
   // Mapeia valor → posição [0..100%]
   const pos = (v: number) => range > 0 ? ((v - min) / range) * 100 : 50;
 
@@ -713,7 +714,7 @@ function DispersaoCard({ d }: { d: DispersaoLite }) {
     >
       <div className="flex items-baseline justify-between mb-1 flex-wrap gap-2">
         <p className="text-[11px] tracking-[0.15em] uppercase font-bold text-white/55">
-          Dispersão entre escolas · Ideb {etapa.replace('_', 'º ')} · {ano}
+          Dispersão entre escolas com Ideb · {etapa.replace('_', 'º ')} · {ano}
         </p>
         <p className="text-[11px] text-white/55">
           <span style={{ color: cvCor, fontWeight: 700 }}>Variabilidade {cvLabel}</span>
@@ -721,7 +722,9 @@ function DispersaoCard({ d }: { d: DispersaoLite }) {
         </p>
       </div>
       <p className="text-[12px] text-white/55 mb-5 leading-relaxed">
-        {totalEscolas} escolas da rede municipal · {min.toFixed(1)} a {max.toFixed(1)} (amplitude {range.toFixed(1)} pts) · mediana {mediana.toFixed(1)}
+        {totalEscolas} escolas municipais com Ideb publicado
+        {totalRedeMunicipal ? ` de ${totalRedeMunicipal} escolas municipais no Radar` : ' na rede municipal'}
+        {' '}· {min.toFixed(1)} a {max.toFixed(1)} (amplitude {range.toFixed(1)} pts) · mediana {mediana.toFixed(1)}
       </p>
 
       {/* Faixa horizontal com pontos distribuídos */}
