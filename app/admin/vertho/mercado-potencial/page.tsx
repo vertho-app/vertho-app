@@ -163,11 +163,21 @@ export default function MercadoPotencialPage() {
           </button>
           {showFiltros && (
             <div className="px-4 pb-4 border-t border-white/[0.06] space-y-4">
-              {/* Preços + limite */}
+              {/* Preços + idade-corte + limite */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4">
                 <NumInput label="R$/Professor/mês" value={precoProf} onChange={setPrecoProf} />
                 <NumInput label="R$/Gestor/mês" value={precoGestor} onChange={setPrecoGestor} />
-                <NumInput label="Idade-corte Onboarding" value={idadeOnboarding} onChange={setIdadeOnboarding} />
+                <div>
+                  <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Idade-corte Onboarding</label>
+                  <select value={idadeOnboarding}
+                    onChange={e => setIdadeOnboarding(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40"
+                    style={{ background: '#091D35' }}>
+                    <option value={24}>Até 24 anos</option>
+                    <option value={29}>Até 29 anos (default)</option>
+                  </select>
+                  <p className="text-[9px] text-gray-600 mt-1">INEP só publica faixas fixas — corte 24 ou 29.</p>
+                </div>
                 <NumInput
                   label={`Limite (default ${DEFAULT_LIMITE[tab].toLocaleString('pt-BR')})`}
                   value={limite}

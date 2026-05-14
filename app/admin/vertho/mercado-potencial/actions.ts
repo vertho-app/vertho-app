@@ -63,8 +63,14 @@ const DEFAULTS = { precoProf: 300, precoGestor: 500, idadeOnboarding: 29 };
 function calcularScores(row: any, filtros: MercadoFilters): Partial<MercadoRowBase> {
   const precoProf = filtros.precoProf ?? DEFAULTS.precoProf;
   const precoGestor = filtros.precoGestor ?? DEFAULTS.precoGestor;
+  const idadeCorte = filtros.idadeOnboarding ?? DEFAULTS.idadeOnboarding;
   const profs = Number(row.qt_professores || 0);
-  const jovens = Number(row.qt_docs_jovens || 0);
+  // INEP publica idade em faixas fixas — corte 24 usa só 0-24; corte 29
+  // (default) usa 0-24 + 25-29 (= qt_docs_jovens já agregado na MV).
+  // Outros valores caem no fallback 29 (limitação documentada).
+  const jovens = idadeCorte <= 24
+    ? Number(row.qt_docs_0_24 || 0)
+    : Number(row.qt_docs_jovens || 0);
   const pos = Number(row.qt_docs_pos || 0);
   const gestores = Number(row.qt_gestores || 0);
   const inse = row.inse_medio != null ? Number(row.inse_medio) : null;
@@ -135,7 +141,7 @@ export async function loadMercadoMunicipios(filtros: MercadoFilters = {}) {
   const limit = Math.min(filtros.limit ?? 6000, 10000);
 
   let q = sb.from('diag_mv_mercado_municipio')
-    .select('municipio_ibge, municipio, uf, microrregiao, qt_escolas, qt_escolas_municipal, qt_escolas_estadual, qt_escolas_federal, qt_escolas_privada, qt_professores, qt_docs_jovens, qt_docs_pos, qt_gestores, inse_medio, pct_inse_oficial, score_conectividade');
+    .select('municipio_ibge, municipio, uf, microrregiao, qt_escolas, qt_escolas_municipal, qt_escolas_estadual, qt_escolas_federal, qt_escolas_privada, qt_professores, qt_docs_0_24, qt_docs_jovens, qt_docs_pos, qt_gestores, inse_medio, pct_inse_oficial, score_conectividade');
   q = aplicarFiltrosBase(q, filtros);
   q = q.limit(limit);
 
@@ -155,6 +161,7 @@ export async function loadMercadoMunicipios(filtros: MercadoFilters = {}) {
       privada: Number(r.qt_escolas_privada || 0),
     },
     qt_professores: Number(r.qt_professores || 0),
+    qt_docs_0_24: Number(r.qt_docs_0_24 || 0),
     qt_docs_jovens: Number(r.qt_docs_jovens || 0),
     qt_docs_pos: Number(r.qt_docs_pos || 0),
     qt_gestores: Number(r.qt_gestores || 0),
@@ -178,7 +185,7 @@ export async function loadMercadoRedes(filtros: MercadoFilters = {}) {
   const limit = Math.min(filtros.limit ?? 8000, 25000);
 
   let q = sb.from('diag_mv_mercado_rede')
-    .select('municipio_ibge, municipio, uf, rede, qt_escolas, qt_professores, qt_docs_jovens, qt_docs_pos, qt_gestores, inse_medio, pct_inse_oficial');
+    .select('municipio_ibge, municipio, uf, rede, qt_escolas, qt_professores, qt_docs_0_24, qt_docs_jovens, qt_docs_pos, qt_gestores, inse_medio, pct_inse_oficial');
   q = aplicarFiltrosBase(q, filtros);
   if (filtros.redes?.length) q = q.in('rede', filtros.redes);
   q = q.limit(limit);
@@ -195,6 +202,7 @@ export async function loadMercadoRedes(filtros: MercadoFilters = {}) {
     municipio_ibge: r.municipio_ibge,
     qt_escolas: Number(r.qt_escolas),
     qt_professores: Number(r.qt_professores || 0),
+    qt_docs_0_24: Number(r.qt_docs_0_24 || 0),
     qt_docs_jovens: Number(r.qt_docs_jovens || 0),
     qt_docs_pos: Number(r.qt_docs_pos || 0),
     qt_gestores: Number(r.qt_gestores || 0),
@@ -217,7 +225,7 @@ export async function loadMercadoEscolas(filtros: MercadoFilters = {}) {
   const limit = Math.min(filtros.limit ?? 1000, 10000);
 
   let q = sb.from('diag_mv_mercado_escola')
-    .select('codigo_inep, nome, municipio, municipio_ibge, uf, rede, inse_grupo, inse_efetivo, inse_fonte, etapas, qt_professores, qt_docs_jovens, qt_docs_pos, qt_coord_pedag, qt_diretor_proxy, score_conectividade');
+    .select('codigo_inep, nome, municipio, municipio_ibge, uf, rede, inse_grupo, inse_efetivo, inse_fonte, etapas, qt_professores, qt_doc_0_24, qt_docs_jovens, qt_docs_pos, qt_coord_pedag, qt_diretor_proxy, score_conectividade');
   // Escola usa `inse_efetivo` (oficial OR proxy) pra filtros — pra que privadas
   // sem INSE oficial ainda apareçam quando o range cobrir o proxy.
   q = aplicarFiltrosBase(q, filtros, 'inse_efetivo');
@@ -233,6 +241,7 @@ export async function loadMercadoEscolas(filtros: MercadoFilters = {}) {
     const enriched = {
       ...r,
       qt_professores: Number(r.qt_professores || 0),
+      qt_docs_0_24: Number(r.qt_doc_0_24 || 0),   // escola tem qt_doc_0_24 singular
       qt_docs_jovens: Number(r.qt_docs_jovens || 0),
       qt_docs_pos: Number(r.qt_docs_pos || 0),
       qt_gestores,
@@ -250,6 +259,7 @@ export async function loadMercadoEscolas(filtros: MercadoFilters = {}) {
       etapas: r.etapas,
       qt_escolas: 1,
       qt_professores: enriched.qt_professores,
+      qt_docs_0_24: enriched.qt_docs_0_24,
       qt_docs_jovens: enriched.qt_docs_jovens,
       qt_docs_pos: enriched.qt_docs_pos,
       qt_gestores: enriched.qt_gestores,
