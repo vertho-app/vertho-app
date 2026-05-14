@@ -121,13 +121,15 @@ export default function MercadoPotencialPage() {
     if (!rows.length) return null;
     return {
       qt_escolas: rows.reduce((a, r) => a + (r.qt_escolas || 0), 0),
-      qt_professores: rows.reduce((a, r) => a + (r.qt_professores || 0), 0),
+      qt_professores_total: rows.reduce((a, r) => a + (r.qt_professores_total ?? r.qt_professores ?? 0), 0),
+      qt_professores_onboarding: rows.reduce((a, r) => a + (r.qt_professores_onboarding ?? r.qt_jovens_efetivo ?? r.qt_docs_jovens ?? 0), 0),
       qt_gestores: rows.reduce((a, r) => a + (r.qt_gestores || 0), 0),
       qt_docs_jovens: rows.reduce((a, r) => a + (r.qt_jovens_efetivo ?? r.qt_docs_jovens ?? 0), 0),
       tam_mensal_mentor_ia: rows.reduce((a, r) => a + (r.tam_mensal_mentor_ia || 0), 0),
       tam_mensal_onboarding: rows.reduce((a, r) => a + (r.tam_mensal_onboarding || 0), 0),
     };
   }, [rows]);
+  const idadeLabel = idadeOnboarding <= 24 ? 'até 24' : 'até 29';
 
   return (
     <div className="min-h-dvh"
@@ -258,8 +260,8 @@ export default function MercadoPotencialPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
             <KPI label="Linhas" value={fmt.int(rows.length)} cor="#34c5cc" />
             <KPI label="Escolas" value={fmt.int(totais.qt_escolas)} cor="#A78BFA" />
-            <KPI label="Professores" value={fmt.int(totais.qt_professores)} cor="#F4B740" />
-            <KPI label="Recém-formados" value={`${fmt.int(totais.qt_docs_jovens)} (${fmt.pct(totais.qt_docs_jovens / Math.max(1, totais.qt_professores))})`} cor="#2ECC71" />
+            <KPI label={`Professores ${idadeLabel}`} value={fmt.int(totais.qt_professores_onboarding)} cor="#F4B740" />
+            <KPI label="Participação no total" value={`${fmt.int(totais.qt_professores_total)} total · ${fmt.pct(totais.qt_professores_onboarding / Math.max(1, totais.qt_professores_total))}`} cor="#2ECC71" />
             <KPI label="Gestores" value={fmt.int(totais.qt_gestores)} cor="#06B6D4" />
             <KPI label="TAM Mentor IA/mês" value={fmt.brl(totais.tam_mensal_mentor_ia)} cor="#34c5cc" big />
             <KPI label="TAM Onboarding/mês" value={fmt.brl(totais.tam_mensal_onboarding)} cor="#F97354" big />
@@ -300,7 +302,7 @@ export default function MercadoPotencialPage() {
                     )}
                     <Th label="UF" coluna="uf" orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
                     <Th label="Escolas" coluna="qt_escolas" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
-                    <Th label="Profs" coluna="qt_professores" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
+                    <Th label={`Profs ${idadeLabel}`} coluna="qt_professores_onboarding" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
                     <Th label="Gest." coluna="qt_gestores" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
                     <Th label="% jovens" coluna="pct_jovens" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
                     <Th label="% sem pós" coluna="pct_sem_pos" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
@@ -331,7 +333,7 @@ export default function MercadoPotencialPage() {
                       )}
                       <td className="px-3 py-2.5 text-white/70">{r.uf}</td>
                       <td className="px-3 py-2.5 text-right text-white/85">{fmt.int(r.qt_escolas)}</td>
-                      <td className="px-3 py-2.5 text-right text-white">{fmt.int(r.qt_professores)}</td>
+                      <td className="px-3 py-2.5 text-right text-white">{fmt.int(r.qt_professores_onboarding ?? r.qt_jovens_efetivo)}</td>
                       <td className="px-3 py-2.5 text-right text-white/85">{fmt.int(r.qt_gestores)}</td>
                       <td className="px-3 py-2.5 text-right text-emerald-300/80">{fmt.pct(r.pct_jovens)}</td>
                       <td className="px-3 py-2.5 text-right text-amber-300/80">{fmt.pct(r.pct_sem_pos)}</td>

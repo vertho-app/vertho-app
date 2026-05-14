@@ -60,7 +60,7 @@ interface MercadoRowBase {
 
 const DEFAULTS = { precoProf: 300, precoGestor: 500, idadeOnboarding: 29 };
 
-function calcularScores(row: any, filtros: MercadoFilters): Partial<MercadoRowBase> & { qt_jovens_efetivo: number } {
+function calcularScores(row: any, filtros: MercadoFilters): Partial<MercadoRowBase> & { qt_jovens_efetivo: number; qt_professores_onboarding: number; qt_professores_total: number } {
   const precoProf = filtros.precoProf ?? DEFAULTS.precoProf;
   const precoGestor = filtros.precoGestor ?? DEFAULTS.precoGestor;
   const idadeCorte = filtros.idadeOnboarding ?? DEFAULTS.idadeOnboarding;
@@ -112,7 +112,9 @@ function calcularScores(row: any, filtros: MercadoFilters): Partial<MercadoRowBa
     tam_mensal_mentor_ia, tam_mensal_onboarding,
     fit_pedagogico, fit_financeiro,
     score_base, score_completo,
-    qt_jovens_efetivo: jovens,  // reflete idadeCorte escolhido (24 ou 29)
+    qt_jovens_efetivo: jovens,              // reflete idadeCorte escolhido (24 ou 29)
+    qt_professores_onboarding: jovens,      // público elegível do onboarding no corte selecionado
+    qt_professores_total: profs,
   };
 }
 
