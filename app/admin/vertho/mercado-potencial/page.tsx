@@ -42,8 +42,8 @@ export default function MercadoPotencialPage() {
   const [isPending, startTransition] = useTransition();
 
   // Filtros
-  const [precoProf, setPrecoProf] = useState(300);
-  const [precoGestor, setPrecoGestor] = useState(500);
+  const [precoProf, setPrecoProf] = useState(100);
+  const [precoGestor, setPrecoGestor] = useState(100);
   const [idadeOnboarding, setIdadeOnboarding] = useState(29);
   const [ufs, setUfs] = useState<string[]>([]);
   const [redes, setRedes] = useState<string[]>([]);

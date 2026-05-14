@@ -58,7 +58,7 @@ interface MercadoRowBase {
 
 // ── Scoring helpers ─────────────────────────────────────────────────────────
 
-const DEFAULTS = { precoProf: 300, precoGestor: 500, idadeOnboarding: 29 };
+const DEFAULTS = { precoProf: 100, precoGestor: 100, idadeOnboarding: 29 };
 
 function calcularScores(row: any, filtros: MercadoFilters): Partial<MercadoRowBase> & { qt_jovens_efetivo: number; qt_professores_onboarding: number; qt_professores_total: number } {
   const precoProf = filtros.precoProf ?? DEFAULTS.precoProf;
