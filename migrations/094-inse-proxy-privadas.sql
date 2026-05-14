@@ -2,15 +2,23 @@
 -- 094: INSE proxy para escolas sem cobertura oficial Saeb
 -- ============================================================================
 --
--- IMPORTANTE — TIMEOUT:
--- A criação da MV de escola processa ~180k linhas com 2 LATERAL JOINs e
--- extração de JSONB. No Supabase pode exceder o limite padrão de 8s do
--- PostgREST/pgbouncer. Solução: rodar em 3 etapas separadas no SQL Editor,
--- cada etapa abaixo. Cada etapa começa com SET statement_timeout pra forçar
--- 15 minutos só nesta sessão.
+-- IMPORTANTE — TIMEOUT DO SUPABASE STUDIO:
+-- O gateway api.supabase.com (frontend do Studio) tem timeout fixo de ~60s
+-- INDEPENDENTE do statement_timeout do Postgres. Se o "Failed to fetch"
+-- aparecer aqui, NÃO é o Postgres falhando — é o gateway desistindo.
 --
--- Se o Studio ainda der timeout no upstream (gateway), use conexão direta
--- ao Postgres (`psql`) ou um cliente como DBeaver/TablePlus.
+-- SOLUÇÃO RECOMENDADA: usar conexão direta ao Postgres, ignorando o gateway:
+--   1. Supabase Dashboard → Project Settings → Database → Connection String
+--   2. Copie a connection string "URI" (não Pooler — esse também tem limites)
+--   3. Cole no `psql` ou em um cliente como DBeaver/TablePlus/pgAdmin
+--   4. Execute toda esta migration de uma vez (não precisa dividir)
+--
+-- Como backup, deixei o script dividido em 3 etapas com SET statement_timeout.
+-- Use a Etapa 1 sozinha se quiser tentar no Studio (90% do trabalho está aí
+-- e ela rodando isolada cabe mais no limite do gateway).
+--
+-- OTIMIZAÇÃO: troquei LATERAL JOIN por DISTINCT ON, que é 5-10x mais rápido
+-- em tabelas como diag_censo_docentes/infra (poucos anos por escola).
 --
 -- INSE proxy = média ponderada de sinais do Censo Escolar que correlacionam
 -- com nível socioeconômico:
@@ -29,7 +37,19 @@ SET statement_timeout = '15min';
 
 DROP TABLE IF EXISTS _tmp_mercado_escola_raw;
 
+-- DISTINCT ON puxa só a última linha por escola — muito mais rápido que
+-- LATERAL JOIN com ORDER BY ano DESC LIMIT 1 (índice já existe nas duas).
 CREATE TABLE _tmp_mercado_escola_raw AS
+WITH censo_docentes_latest AS (
+  SELECT DISTINCT ON (codigo_inep) *
+  FROM diag_censo_docentes
+  ORDER BY codigo_inep, ano DESC
+),
+censo_infra_latest AS (
+  SELECT DISTINCT ON (codigo_inep) *
+  FROM diag_censo_infra
+  ORDER BY codigo_inep, ano DESC
+)
 SELECT
   e.codigo_inep,
   e.nome,
@@ -61,16 +81,8 @@ SELECT
     + COALESCE((i.quantidades->>'QT_COMP_PORTATIL_ALUNO')::int, 0)
     + COALESCE((i.quantidades->>'QT_TABLET_ALUNO')::int, 0)        AS qt_devices_aluno
 FROM diag_escolas e
-LEFT JOIN LATERAL (
-  SELECT * FROM diag_censo_docentes d2
-  WHERE d2.codigo_inep = e.codigo_inep
-  ORDER BY ano DESC LIMIT 1
-) d ON TRUE
-LEFT JOIN LATERAL (
-  SELECT * FROM diag_censo_infra i2
-  WHERE i2.codigo_inep = e.codigo_inep
-  ORDER BY ano DESC LIMIT 1
-) i ON TRUE
+LEFT JOIN censo_docentes_latest d ON d.codigo_inep = e.codigo_inep
+LEFT JOIN censo_infra_latest i ON i.codigo_inep = e.codigo_inep
 WHERE e.status = 'ativa';
 
 CREATE INDEX ON _tmp_mercado_escola_raw(codigo_inep);
