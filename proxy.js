@@ -1,13 +1,7 @@
 import { NextResponse } from 'next/server';
 
 /**
- * Multi-tenant subdomain middleware.
- *
- * NOTA Next.js 16+: o `middleware.js` foi sinalizado como caminho legado
- * em favor de `proxy.ts` no roadmap futuro. A migração é cosmética
- * (renomear o arquivo + export `proxy` em vez de `middleware`) e fica
- * adiada até virar warning real do build ou requisito de Next 17.
- * Implementação atual continua funcionando em Next 16 estável.
+ * Multi-tenant subdomain proxy.
  *
  * Fluxo:
  *   1. Lê o hostname da request (ex: zula.vertho.ai)
@@ -107,7 +101,7 @@ function detectRewriteSubdomain(hostname) {
   return null;
 }
 
-export function middleware(request) {
+export function proxy(request) {
   const hostname = request.headers.get('host') || '';
 
   // 1) Subdomínio público (radar): rewrite pra /radar/<path>

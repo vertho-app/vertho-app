@@ -10,7 +10,7 @@
  * Para mudar de domínio, basta atualizar essas 3 envs no Vercel —
  * o código todo passa a usar o novo domínio sem PRs.
  *
- * `middleware.js` mantém uma lista própria de domínios raiz (extração
+ * `proxy.js` mantém uma lista própria de domínios raiz (extração
  * de subdomínio precisa funcionar pra TODOS os domínios servidos
  * simultaneamente durante migrações).
  */
