@@ -179,6 +179,7 @@ export interface RadarFiltros {
   porte?: string;
   classificacao?: Classificacao;
   score_min?: number;
+  priorizados?: boolean;  // só priority_rank >= 90 (top 10% do funil)
   busca?: string;        // razão social / fantasia
   page?: number;
   pageSize?: number;
@@ -225,6 +226,7 @@ export async function listarEmpresas(
   q = q.or('score_explanation->>segmento_key.is.null,score_explanation->>segmento_key.neq.franquias_multiunidade');
   if (f.classificacao) q = q.eq('classificacao', f.classificacao);
   if (f.score_min != null) q = q.gte('score_total', f.score_min);
+  if (f.priorizados) q = q.gte('priority_rank', 90); // top 10% (mesma régua do funil)
   if (f.segmento_key) q = q.eq('score_explanation->>segmento_key', f.segmento_key);
   if (f.uf) q = q.eq('radarempresas_estabelecimentos.uf', f.uf);
   if (f.municipio) q = q.ilike('radarempresas_estabelecimentos.municipio_nome', `%${f.municipio}%`);

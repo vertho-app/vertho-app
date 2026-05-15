@@ -122,6 +122,7 @@ async function montarExport(
       _passa: (!f.segmento_key || segKey === f.segmento_key)
         && (!f.classificacao || sc?.classificacao === f.classificacao)
         && (f.score_min == null || (sc?.score_total ?? -1) >= f.score_min)
+        && (!f.priorizados || (sc?.priority_rank ?? -1) >= 90)
         && (!f.porte || emp?.porte_empresa === f.porte),
       v: [
         e.cnpj_completo, emp?.razao_social || '', e.nome_fantasia || '',

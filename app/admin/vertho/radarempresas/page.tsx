@@ -202,6 +202,12 @@ export default function RadarEmpresasPage() {
             onChange={v => setF({ ...f, score_min: v ? Number(v) : undefined })} />
         </div>
         <div className="flex items-center gap-2">
+          <label className="flex items-center gap-1.5 text-[11px] text-gray-300 whitespace-nowrap px-2 cursor-pointer select-none">
+            <input type="checkbox" checked={!!f.priorizados}
+              onChange={e => setF({ ...f, priorizados: e.target.checked || undefined })}
+              className="accent-cyan-400" />
+            Só priorizados (top 10%)
+          </label>
           <input value={f.busca || ''} onChange={e => setF({ ...f, busca: e.target.value || undefined })}
             placeholder="Nome fantasia..." onKeyDown={e => e.key === 'Enter' && buscar()}
             className="flex-1 rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 focus:outline-none focus:border-cyan-400/50" />
