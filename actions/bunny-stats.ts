@@ -1,6 +1,7 @@
 'use server';
 
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 
 /**
  * Actions que consultam a API do Bunny Stream pra gerar métricas.
@@ -38,7 +39,8 @@ function limparTitulo(raw: string | null | undefined) {
  * Métricas por vídeo: views, watch time, taxa de conclusão.
  */
 export async function loadBunnyVideosStats(empresaId: string | null = null) {
-  await requireAdminAction();
+  const sb = empresaId ? await requireAdminSupabase() : null;
+  if (!sb) await requireAdminAction();
   try {
     const data = await bunnyFetch('/videos?page=1&itemsPerPage=100&orderBy=date');
     let items = (data?.items || [])
@@ -64,9 +66,7 @@ export async function loadBunnyVideosStats(empresaId: string | null = null) {
 
     // Se empresaId, sobrescreve views/totalWatchTime/taxa pelos dados de
     // videos_watched filtrados pela empresa (atribuição via metaData)
-    if (empresaId) {
-      const { createSupabaseAdmin } = await import('@/lib/supabase');
-      const sb = createSupabaseAdmin();
+    if (empresaId && sb) {
       const { data: events } = await sb.from('videos_watched')
         .select('video_id, seconds_watched, video_length, event_type')
         .eq('empresa_id', empresaId);
@@ -135,10 +135,8 @@ export async function loadBunnyHeatmap(videoId: string) {
  * webhook /api/webhooks/bunny). Retorna um mapa { colaboradorId: {videos, minutos} }.
  */
 export async function loadVideoWatchedPorColab(empresaId: string) {
-  await requireAdminAction();
+  const sb = await requireAdminSupabase();
   try {
-    const { createSupabaseAdmin } = await import('@/lib/supabase');
-    const sb = createSupabaseAdmin();
     const { data, error } = await sb.from('videos_watched')
       .select('colaborador_id, video_id, seconds_watched')
       .eq('empresa_id', empresaId)

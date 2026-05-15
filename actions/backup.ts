@@ -2,7 +2,8 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { gzipSync } from 'node:zlib';
-import { requireAdminAction, requireAdminOrCronAction } from '@/lib/auth/action-context';
+import { requireAdminOrCronAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 
 // Tabelas críticas pro backup. Não inclui logs/cache (regenerável).
 const TABELAS = [
@@ -96,9 +97,8 @@ export async function executarBackupDiario() {
  * Lista os backups disponíveis no bucket.
  */
 export async function listarBackups() {
-  await requireAdminAction();
+  const sb = await requireAdminSupabase();
   try {
-    const sb = createSupabaseAdmin();
     const { data, error } = await sb.storage.from('backups').list('', {
       limit: 30, sortBy: { column: 'created_at', order: 'desc' },
     });

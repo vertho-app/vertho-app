@@ -3,9 +3,7 @@
   "allowlist": {
     "actions/assessment-descritores.ts": 3,
     "actions/avaliacao-acumulada.ts": 2,
-    "actions/backup.ts": 2,
-    "actions/bunny-stats.ts": 2,
-    "actions/check-ia4.ts": 2,
+    "actions/backup.ts": 1,
     "actions/competencias-base.ts": 3,
     "actions/conteudos.ts": 9,
     "actions/conteudos-metrics.ts": 1,
@@ -25,7 +23,6 @@
     "actions/pulse/dashboard.ts": 1,
     "actions/pulse/responder.ts": 4,
     "actions/pulse/signals.ts": 1,
-    "actions/relatorios.ts": 3,
     "actions/simulador-temporada.ts": 2,
     "actions/temporada-concluida.ts": 1,
     "actions/temporadas.ts": 8,

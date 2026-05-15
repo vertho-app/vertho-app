@@ -1,8 +1,8 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { callAI, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
@@ -200,9 +200,8 @@ export async function gerarRelatorioIndividual(
   colaboradorId: string,
   aiConfig: AIConfig = {},
 ): Promise<ServerResult> {
-  await requireAdminAction();
+  const sbRaw = await requireAdminSupabase();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
-  const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
   try {
     const { data: colab } = await tdb.from('colaboradores')
@@ -470,9 +469,8 @@ export async function gerarRelatorioGestor(
   empresaId: string,
   aiConfig: AIConfig = {},
 ): Promise<ServerResult> {
-  await requireAdminAction();
+  const sbRaw = await requireAdminSupabase();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
-  const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
   try {
     const { data: empresa } = await sbRaw.from('empresas')
@@ -704,9 +702,8 @@ export async function gerarRelatorioRH(
   empresaId: string,
   aiConfig: AIConfig = {},
 ): Promise<ServerResult> {
-  await requireAdminAction();
+  const sbRaw = await requireAdminSupabase();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
-  const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
   try {
     const { data: empresa } = await sbRaw.from('empresas')

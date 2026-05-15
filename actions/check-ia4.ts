@@ -1,10 +1,9 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
 import { formatPerfilContext } from '@/lib/perfil-comportamental';
-import { requireAdminAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 
 const CHECK_SYSTEM = `Você é um auditor de qualidade de Assessment Comportamental da Vertho.
 Sua tarefa: verificar se a avaliação gerada por uma IA é DEFENSÁVEL como produto Vertho.
@@ -139,8 +138,7 @@ function processCheckResult(check: any): { status: string; check: any } {
 }
 
 export async function checkAvaliacoes(empresaId: string, aiConfig: AIConfig = {}) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
 
   try {
     const { data: respostas, error: qErr } = await sb.from('respostas')
@@ -229,8 +227,7 @@ export async function checkAvaliacoes(empresaId: string, aiConfig: AIConfig = {}
 }
 
 export async function checarUmaResposta(respostaId: string, aiConfig: AIConfig = {}) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     const { data: resp } = await sb.from('respostas')
       .select('id, empresa_id, colaborador_id, competencia_id, cenario_id, r1, r2, r3, r4, avaliacao_ia, nivel_ia4')
