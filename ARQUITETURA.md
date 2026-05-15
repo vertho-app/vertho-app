@@ -1,7 +1,7 @@
 # Vertho Mentor IA — Arquitetura do Sistema
 
 > Documento oficial de arquitetura — SaaS B2B de desenvolvimento de competencias por IA.
-> Ultima atualizacao: 13/05/2026
+> Ultima atualizacao: 14/05/2026 (HEAD `b7b072b` — Pulso de Desenvolvimento + envio de convites)
 > Revisado contra o codigo-fonte local e estado atual do workspace
 > Metodo: auditoria automatizada + revisao manual
 
@@ -53,19 +53,18 @@
 
 ---
 
-## 1.1 Estado de Retomada (13/05/2026)
+## 1.1 Estado de Retomada (14/05/2026)
 
 Contexto rapido para reinicializacao da maquina:
 
-- Branch atual: `master`, HEAD `cca9c33`. **Modo Onboarding** completo (Fases 1-4 + pendências + testes). Detalhes na seção 17 deste documento. Migrations 090-092 aplicadas em prod via Studio.
-- Arquivos rastreados: pendentes no momento desta revisao — `supabase/config.toml` (drift local) e este `ARQUITETURA.md`.
-- Nao versionados presentes no workspace: `.tmp_enem_2024/`, `outputs/`, `RESUMO.md`, `public/Logo sem texto.png`, `scripts/diag-tables-check.mjs`.
-- Ultimas frentes visiveis (semana 2026-05-12 → 13):
-  - **Admin Dashboard redesign**: sidebar dinamica + header com filtro de empresa (React Portal pra sair do stacking context) + bento grid mantendo cores Vertho. Filtro persistido em localStorage.
-  - **Gate de perfil comportamental pos-votacao**: bloqueia /perfil-comportamental ate o colab finalizar a votacao (commits `401b591`, `392980b`).
-  - **Tela admin de perfis comportamentais por empresa** (commit `0b2e0d1`): `/admin/empresas/{id}/perfis-comportamentais`.
-  - **Confirms preventivos em acoes destrutivas/massivas** (commits `3730e22`, `4990742`): `simular-disc`, `simular`, `temporadas`, `rel-ind`, `cenarios-b`, `evolucao`, `plenaria`, `rh-links`, `rh-dossie` no pipeline empresa; disparo WhatsApp/email e Magic Links; copia de competencia base. Razao: incidente em que admin clicou no botao errado e gerou todas as avaliacoes comportamentais.
-  - **PWA do dashboard removida** (commits `6828af3`, `7bc6855`): link WhatsApp no iOS sempre abre browser, scope `/dashboard/` nao agregou valor; kill switch `sw.js` ja retirado.
+- Branch atual: `master`, HEAD `b7b072b`. **Modulo Pulso de Desenvolvimento** completo (Etapas 1-5 + envio de convites). Detalhes na seção 18. Migrations 090-098 aplicadas em prod.
+- Arquivos rastreados: pendentes no momento desta revisao — `supabase/config.toml` (drift local) e os 4 docs (`ARQUITETURA.md`, `FEATURES-E-BENEFICIOS.md`, `PASSO-A-PASSO-VERTHO.md`, `RESUMO.md`).
+- Nao versionados presentes no workspace: `.tmp_enem_2024/`, `outputs/`, `public/Logo sem texto.png`.
+- Ultimas frentes visiveis (semana 2026-05-13 → 14):
+  - **Modulo Pulso de Desenvolvimento** (commits `8468aa8`, `c9203d6`, `3cdcf19`, `54c84d3`, `71c625d`, `b7b072b`): pesquisa T0/T2 de 12 Likert + 1 aberta em 6 dimensoes, MV agregada com guard n>=7, sinais comportamentais on-demand, triangulacao por regras, Dual-IA (Sonnet classifica + Gemini audita) com taxonomia fechada de 12 temas, PDFs Executivo + Complementar NR-1, envio de convites via Z-API com magic link pessoal. 6 etapas em 1 dia (~10 dias-pessoa colapsados).
+  - **Migracao GAS -> Macae** (commits `e045cad`, `f604f9c`): 59 colabs, 18 competencias, 1 cargo, respostas com remapeamento por nome_comp, 51 PDIs migrados via Drive publico (`PDIs Gerados Template` folder). Samuel Protetti (samuel@vertho.ai) setado como gestor de todos os 58. Telefones com `+` removidos.
+  - **Filtro DISC nos Envios** (commit `7fb613d`): filtro "Perfil comportamental (sim/nao)" em todas as tabs de `/admin/whatsapp`. Client + server.
+  - **Mercado Potencial** (commits anteriores): pagina interna `/admin/vertho/mercado-potencial` cruzando Censo + INSE + Saeb/Ideb/VAAR. Migrations 093-095.
 - Para retomar localmente: entrar em `C:\GAS\Vertho App\nextjs-app`, rodar `npm run dev` e acessar `http://localhost:3000`.
 
 ---
@@ -715,6 +714,21 @@ Multi-tenant + Fit v2 + Temporadas + Tira-Duvidas + RAG (knowledge_base, pgvecto
 - **088** — limpeza/saneamento de telefones
 - **089** — tracking de dispositivo na votacao
 
+### Migrations 090-092 (Modo Onboarding)
+- **090** — `empresas.sys_config` COMMENT documentando chaves novas (programa_modo, fase_carreira, nivel_meta_alvo, etc.)
+- **091** — `trilhas.competencias_foco TEXT[]` + backfill (multi-competencia)
+- **092** — `colaboradores.tutorados_ids UUID[]` + GIN index
+
+### Migrations 093-095 (Mercado Potencial)
+- **093** — MVs `diag_mv_mercado_escola/municipio/rede` (cross Censo+Saeb+VAAR)
+- **094** — INSE proxy para escolas privadas sem Saeb (score ponderado de signals do Censo)
+- **095** — `qt_doc_0_24` (idade-corte flexivel)
+
+### Migrations 096-098 (Pulso de Desenvolvimento)
+- **096** — `pulse_ciclos`, `pulse_assignments`, `pulse_responses`, `pulse_audit_logs` (RLS permissiva)
+- **097** — MV `pulse_mv_aggregates` (company/area/cargo × dimensao × T0/T2 + linha `_geral`) + funcao `refresh_pulse_aggregates()`
+- **098** — `pulse_classifications` (saida Dual-IA: classifier_themes/sentiment + auditor_agrees/divergences + final_confidence) + `pulse_triangulations` (cache do resultado por ciclo+grupo)
+
 ### Dados Transacionais
 ```
 sessoes_avaliacao ← mensagens_chat (1:N por sessao_id)
@@ -1031,6 +1045,156 @@ Comportamento defensivo: sem tutor vinculado → skip silencioso; tutor sem tele
 
 ---
 
-*Documento validado contra o codigo-fonte local em 13/05/2026.*
-*~378 arquivos TS/TSX + ~58 JS/MJS | 73 arquivos SQL (022-092) | 28 arquivos de teste (27 Playwright + 18 Vitest) | 22+ env vars | vertho.ai*
-*Revisao: 13/05/2026 (HEAD `cca9c33` — Modo Onboarding completo)*
+## 18. Módulo Pulso de Desenvolvimento
+
+> Instrumento leve para entender se o ambiente favorece ou bloqueia o desenvolvimento das pessoas. **Não é** pesquisa de clima tradicional nem conformidade NR-1. **Não promete** diagnóstico psicossocial, laudo, risco individual, burnout ou saúde mental. Conexão com NR-1 é benefício colateral via relatório complementar opcional.
+
+### 18.1 Conceito
+
+Lógica do módulo:
+
+```
+Pulso T0 → Sinais da Jornada → Pulso T2 → Triangulação → Relatório agregado
+```
+
+- **Pulso T0** — linha de base declarada antes da jornada.
+- **Sinais da Jornada** — métricas comportamentais derivadas de `ia_usage_log`, `respostas`, `pulse_assignments`. Sem nova tabela; on-demand.
+- **Pulso T2** — percepção ao final da jornada (mesmas 6 dimensões).
+- **Triangulação** — cruza declarado × comportamental × temas; gera aceleradores, bloqueadores, alertas, divergências, recomendações.
+- **Relatório** — PDF executivo + complementar NR-1 (opcional, com disclaimer obrigatório).
+
+### 18.2 Estrutura das perguntas
+
+26 perguntas hardcoded em `lib/pulse/template.ts` (12 Likert + 1 aberta por momento). 6 dimensões × 2 perguntas:
+
+1. Clareza
+2. Condições
+3. Liderança
+4. Segurança para aprender
+5. Aplicação prática
+6. Futuro e permanência
+
+Escala Likert 1-5 (Discordo totalmente → Concordo totalmente).
+
+### 18.3 Privacy-by-design
+
+| Regra | Como é implementado |
+|---|---|
+| Dashboards gestor/RH só consomem agregados | `loadPulseDashboard` lê MV, nunca `pulse_responses` direto |
+| Nenhum recorte com n < 7 é exibido | `lib/pulse/anonymity.ts::PULSE_MIN_N=7` + `enforceMinN` + retorno `'masked'` |
+| Respostas abertas brutas nunca vão pra gestor/RH | Apenas temas agregados (`pulse_classifications.classifier_themes`) e contagens |
+| Sem ranking individual, score individual de clima/risco | UI não tem essa view |
+| Filtros que reduzem n<7 são bloqueados na UI | `grupos_disponiveis` filtrado server-side |
+| Logs de auditoria | `pulse_audit_logs` registra view_dashboard, view_dashboard_blocked, export_*, convite_enviado_* |
+
+Anti-vazamento na Dual-IA: `pulse_classifications` armazena apenas `classifier_evidence` (frase curta, <120 chars, sem identificadores) — nunca o texto bruto.
+
+### 18.4 Arquivos-chave
+
+```
+lib/pulse/template.ts            # 26 perguntas hardcoded (12 T0 + 12 T2 + 2 abertas)
+lib/pulse/anonymity.ts           # PULSE_MIN_N=7, enforceMinN, classifyScore
+lib/pulse/signal-scoring.ts      # Normalização sinais 1-5 + mapping pra dimensões
+lib/pulse/triangulation.ts       # triangulate() puro (sem efeito colateral)
+lib/pulse/dual-ai.ts             # classifyOpenText + auditClassification + resolveFinalConfidence
+lib/pulse/themes-taxonomy.ts     # 12 temas fixos (falta_tempo, falta_clareza, ..., aplicacao_concreta)
+
+actions/pulse/admin.ts           # criarCiclo, listarCiclos, dispararPulso (lote), fecharMomento
+actions/pulse/responder.ts       # loadAssignment, saveResponse (upsert), finishAssignment
+actions/pulse/dashboard.ts       # loadPulseDashboard, refreshPulseAggregates
+actions/pulse/signals.ts         # loadPulseSignals (on-demand, sem nova MV)
+actions/pulse/classify.ts        # classificarRespostasAbertas (lote), obterTemasCiclo
+actions/pulse/export.ts          # exportarRelatorioPulso (gera registro em relatorios)
+actions/pulse/envio.ts           # enviarConvitesPulso (Z-API + magic link), statusEnviosCiclo
+
+app/dashboard/pulso/[assignmentId]/page.tsx                  # Fluxo colab: intro → perguntas → done
+app/admin/empresas/[empresaId]/pulso/page.tsx                # Admin: gestão de ciclos + dispatch
+app/admin/empresas/[empresaId]/pulso/[cicloId]/dashboard/page.tsx  # Dashboard agregado
+app/admin/empresas/[empresaId]/pulso/[cicloId]/enviar/page.tsx     # Envio de convites WA/email
+
+components/pulse/  # LikertScale, PulseProgress, OpenTextQuestion, PulseCompletion,
+                   # PrivacyNotice, AnonymityGuardMessage, PulseScoreCard,
+                   # PulseDimensionChart, PulseDeltaTable, PulseSignalsCard,
+                   # PulseThemesCloud, TriangulationSummary, RecommendationsList
+
+components/pdf/RelatorioPulsoExecutivo.tsx  # PDF executivo
+components/pdf/RelatorioPulsoNR1.tsx        # PDF complementar NR-1 com disclaimer obrigatório
+
+app/api/relatorios/pdf/route.ts  # Estendido: pulso_executivo + pulso_complementar_nr1
+```
+
+### 18.5 Modelo de dados
+
+5 tabelas + 1 MV. RLS permissiva (filtro real fica em camada de aplicação, padrão do projeto):
+
+| Tabela | UK | Função |
+|---|---|---|
+| `pulse_ciclos` | — | Ciclo de pulso por empresa (T0+T2 com timestamps de abertura/fechamento) |
+| `pulse_assignments` | (ciclo_id, colaborador_id, pulse_moment) | "Convite" pra um colab responder T0 ou T2 |
+| `pulse_responses` | (assignment_id, question_id) | Resposta a uma pergunta (Likert ou texto) |
+| `pulse_audit_logs` | — | Logs de acesso a relatórios + envios + bloqueios n<7 |
+| `pulse_classifications` | (response_id) | Saída Dual-IA: classifier + auditor + final_confidence |
+| `pulse_triangulations` | (ciclo_id, group_type, group_key) | Cache do resultado consolidado por grupo |
+| `pulse_mv_aggregates` | (empresa_id, ciclo_id, group_type, group_key, pulse_moment, dimension_key) | MV com médias e n por grupo × dimensão × momento |
+
+### 18.6 Pipeline Dual-IA
+
+Registrado em `lib/ai-tasks.ts` como `pulse_classify` (default Sonnet 4.6) e `pulse_audit` (default Gemini Flash). Configurável por empresa via `sys_config.ai.modelos`.
+
+1. **Classifier** lê o texto e retorna JSON: `themes[]` (max 3 da taxonomia fechada), `sentiment`, `evidence` (frase curta), `confidence`.
+2. **Auditor** recebe texto original + saída do classifier e retorna: `agrees`, `divergences[]`, `confidence_adjusted`, `notes`.
+3. `resolveFinalConfidence` combina ambos (auditor='low' → 'low'; discordância → rebaixa 1 nível).
+4. `applyAuditCorrections` remove temas rejeitados.
+5. Agregação ignora `final_confidence='low'`.
+
+### 18.7 Envio de convites
+
+`enviarConvitesPulso(empresaId, cicloId, opts)` gera magic link pessoal via `sb.auth.admin.generateLink({ type:'magiclink', redirectTo: '/dashboard/pulso/{assignmentId}' })`, envia via Z-API com throttle 1.2s. Idempotente — pula assignments com audit log de `convite_enviado_*` (override via `force_resend=true`).
+
+UI: `/admin/empresas/[id]/pulso/[cicloId]/enviar` com toggle T0/T2, canal (WA/email/ambos), textarea com placeholders `{{nome}}`, `{{empresa}}`, `{{link_pulso}}`.
+
+### 18.8 Stage do módulo
+
+Flag `empresas.sys_config.pulse_stage`: `experimental` | `calibrating` | `production`. Por empresa (não global) — alinhado aos pilotos.
+
+Em `calibrating`:
+- Admin Vertho vê texto aberto bruto (debug).
+- Triangulação pode ser revisada antes de exibir a RH.
+- Coleta feedback do RH/gestor pra ajustar taxonomia e thresholds.
+
+Em `production`:
+- Apenas temas agregados são exibidos.
+- Insights só gerados se ≥60% das classificações tiverem confidence ≥ medium.
+
+### 18.9 Decisões de design (vs spec original)
+
+| Spec original | Implementado | Por quê |
+|---|---|---|
+| `pulse_templates` + `pulse_questions` (2 tabelas) | Seed estático em `lib/pulse/template.ts` | Template é fixo por design da metodologia. Tabelas viram opcionais quando empresa customizar. |
+| `journey_signals` + `journey_signal_aggregates` (2 tabelas) | Cálculo on-demand em `actions/pulse/signals.ts` | Dados-fonte já existem (`ia_usage_log`, `respostas`). Nova tabela duplicaria + drift. |
+| `pulse_open_text_themes` (tabela separada) | `themes_json` em `pulse_triangulations` | Só vira tabela se precisar busca cross-jornada. Não vale na fase MVP. |
+| `pulse_aggregates` (tabela) | MV `pulse_mv_aggregates` | Mesmo padrão das MVs do Radar. Refresh on-demand via RPC. |
+
+### 18.10 Commits do roll-out
+
+| Commit | Entrega |
+|---|---|
+| `8468aa8` | Etapa 1 — Coleta (migration 096, template, actions admin/responder, UI colab + admin) |
+| `c9203d6` | Etapa 2 — Agregados (migration 097, MV + guard n>=7, dashboard, delta T0/T2) |
+| `3cdcf19` | Etapa 3 — Sinais comportamentais + triangulação por regras |
+| `54c84d3` | Etapa 4 — Dual-IA (migration 098, Sonnet classifica + Gemini audita, 12 temas) |
+| `71c625d` | Etapa 5 — PDFs Executivo + Complementar NR-1 (com disclaimer obrigatório) |
+| `b7b072b` | Envio de convites por WhatsApp/email (magic link pessoal por assignment) |
+
+### 18.11 Piloto Macaé (status atual)
+
+- Ciclo `1b635ee0-a21e-4faa-9973-bd8c657fb41c` — "Piloto Macaé — 1º Semestre 2026" criado.
+- 59 assignments T0 criados (1 por colab ativo).
+- Status atual: `em_jornada` (T0 fechado intencionalmente — aguardando autorização pra disparo de convites).
+- Próximo passo: reabrir T0 + disparar convites via Z-API (Samuel Protetti é gestor de todos).
+
+---
+
+*Documento validado contra o codigo-fonte local em 14/05/2026.*
+*~395 arquivos TS/TSX + ~60 JS/MJS | ~79 arquivos SQL (022-098) | 28+ arquivos de teste | 22+ env vars | vertho.ai*
+*Revisao: 14/05/2026 (HEAD `b7b072b` — Módulo Pulso de Desenvolvimento completo + envio)*

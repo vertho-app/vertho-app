@@ -328,6 +328,96 @@ Todos com back button context-aware.
 
 ---
 
+## Fluxo paralelo: Pulso de Desenvolvimento
+
+> Pesquisa T0/T2 sobre o ambiente que sustenta a evolução. Independente das Fases 0-5 do Mentor IA — pode rodar em qualquer empresa, com ou sem trilha ativa. Mais detalhes em `ARQUITETURA.md` seção 18.
+
+### P1. Criar ciclo de Pulso
+**Admin** · `/admin/empresas/{id}/pulso` → botão **"+ Novo ciclo"**
+- Nome (ex: "Piloto Macaé — 1º Semestre 2026") + descrição opcional
+- Status inicial: `draft`
+
+### P2. Disparar assignments T0
+**Admin** · mesma página → card do ciclo → **"Disparar assignments"** no card T0
+- Cria 1 `pulse_assignment` por colaborador ativo (exceto tutores)
+- Idempotente — UK em (ciclo, colab, momento), reexecutar não duplica
+- Status do ciclo passa pra `t0_aberto`
+- O disparo cria assignments **mas não envia o link** — isso fica no passo P3
+
+### P3. Enviar convites por WhatsApp/email
+**Admin** · `/admin/empresas/{id}/pulso/{cicloId}/enviar`
+- Toggle T0 / T2 + canal (WA / email / ambos)
+- Editor de mensagem com placeholders `{{nome}}`, `{{empresa}}`, `{{link_pulso}}`
+- Gera magic link pessoal (24h) via `sb.auth.admin.generateLink` com `redirectTo` apontando direto pro `/dashboard/pulso/{assignmentId}`
+- Z-API com throttle 1.2s entre envios
+- Idempotente — registra audit log `convite_enviado_*`, pula quem já recebeu (override com checkbox **Reenviar**)
+- Stats em tempo real: total · enviados WA · enviados email · pendentes
+
+### P4. Colaborador responde
+**Colaborador** · link recebido → `/dashboard/pulso/{assignmentId}`
+- Tela intro com aviso de privacidade obrigatório
+- 12 perguntas Likert 1-5 (uma por vez) + 1 aberta (opcional)
+- Progresso visual + botão voltar + salvamento automático
+- 6 dimensões: clareza, condições, liderança, segurança para aprender, aplicação prática, futuro e permanência
+- Tela final: "Obrigado. Seu pulso foi registrado com segurança."
+
+### P5. Fechar T0 (opcional)
+**Admin** · botão **"Fechar momento"** no card T0
+- Status do ciclo passa pra `em_jornada`
+- Novas respostas são bloqueadas pra esse momento
+- T0 fechado é pré-requisito pra abrir T2 depois
+
+### P6. Dashboard agregado
+**Gestor/RH/Admin** · `/admin/empresas/{id}/pulso/{cicloId}/dashboard`
+- Cards: índice geral, respondentes T0/T2, delta, dimensão forte/crítica
+- Filtros: empresa toda / por área / por cargo (apenas recortes com n≥7 aparecem)
+- Gráfico por dimensão (barras T0 + T2 sobrepostas)
+- Tabela com leitura automática + classificação (favorável / parcial / atenção / bloqueador)
+- Sinais comportamentais (engagement IA, profundidade, completude) com guard n≥7
+- Botões **"Classificar texto IA"** (Dual-IA), **"PDF Executivo"**, **"Complementar NR-1"** no header
+
+### P7. Classificar respostas abertas (Dual-IA)
+**Admin** · botão **"Classificar texto IA"** no dashboard
+- Modelo 1 (Sonnet 4.6 default) classifica em taxonomia fechada de 12 temas: falta de tempo, falta de clareza, falta de apoio, ausência de feedback, sobrecarga, baixa autonomia, dificuldade de aplicação, insegurança para pedir ajuda, conflito de prioridades, reconhecimento, evolução percebida, aplicação prática concreta
+- Modelo 2 (Gemini Flash default) audita: aprova ou aponta divergências, ajusta confidence
+- Cap de 50 chamadas por execução; idempotente por `response_id`
+- `final_confidence='low'` é ignorada na agregação
+- Resultados aparecem em **PulseThemesCloud** com chips polarity-colored
+
+### P8. Triangulação e recomendações
+**Sistema** · ao abrir o dashboard
+- Cruza dimensões × sinais × temas
+- Gera aceleradores (dims ≥4 ou delta positivo), bloqueadores (dims <3), alertas (delta ≤-0.4), divergências (declarado vs comportamental), recomendações (por dimensão crítica)
+- Linguagem cautelosa obrigatória ("Há sinais de…", "Os dados sugerem…")
+- Confidence level: high (T0+T2 ≥7), medium (T0 ou T2 ≥7), low (insuficiente — não gera insight executivo)
+
+### P9. Exportar PDFs
+**Admin** · botões no header do dashboard
+- **PDF Executivo** (`pulso_executivo`): capa + KPIs + dimensões + sinais + temas + triangulação + recomendações
+- **PDF Complementar NR-1** (`pulso_complementar_nr1`): mesma base + disclaimer obrigatório destacado ("A Vertho não realiza diagnóstico técnico…") + mapeamento conceitual das 6 dimensões em linguagem organizacional
+- Confirmação no NR-1 antes de gerar (alerta sobre uso correto)
+- PDF é cacheado em `relatorios-pdf/{empresa_id}/...` e o registro fica em `relatorios` (mesmo padrão dos relatórios individuais/gestor/RH)
+- Audit log em `pulse_audit_logs` para cada export
+
+### P10. Repetir T2 (pós-jornada)
+**Admin** · após período da jornada de desenvolvimento → reabrir ciclo → **"Disparar assignments T2"** → repetir P3-P9
+- T2 captura a mesma estrutura de 12 perguntas em linguagem retrospectiva
+- Delta T2-T0 fica disponível em todas as superfícies (dashboard, PDF executivo)
+
+### Tabelas envolvidas
+
+| Tabela | Função |
+|---|---|
+| `pulse_ciclos` | Ciclo de pulso por empresa |
+| `pulse_assignments` | Convite por colab × momento |
+| `pulse_responses` | Resposta a uma pergunta (Likert ou texto) |
+| `pulse_classifications` | Saída Dual-IA (classifier + auditor + final_confidence) |
+| `pulse_triangulations` | Cache do resultado consolidado por grupo |
+| `pulse_audit_logs` | Logs de acesso, envios e bloqueios n<7 |
+| `pulse_mv_aggregates` | MV com médias por grupo × dimensão × momento |
+
+---
+
 ## Sites públicos (paralelos ao Mentor IA)
 
 ### Radar Vertho (`radar.vertho.ai`)
@@ -398,6 +488,12 @@ Versão para o Bett 2026 — tipografia escopada (Plus Jakarta Sans + Fraunces) 
 ---
 
 ## Notas de manutenção
+
+### 2026-05-14 — Pulso de Desenvolvimento + Macaé
+- **Módulo Pulso de Desenvolvimento** entregue em 6 commits (`8468aa8`, `c9203d6`, `3cdcf19`, `54c84d3`, `71c625d`, `b7b072b`): pesquisa T0/T2 com 12 Likert + 1 aberta em 6 dimensões; dashboard agregado com guard n≥7 obrigatório; sinais comportamentais on-demand (sem nova MV/migration além da 097); Dual-IA (Sonnet classifica, Gemini audita) com taxonomia fechada de 12 temas; PDFs Executivo + Complementar NR-1 com disclaimer obrigatório; envio de convites por WhatsApp/email via magic link pessoal. Migrations 096-098.
+- **Migração GAS → Supabase (Macaé)** (commits `e045cad`, `f604f9c`): empresa "Secretaria Municipal de Macaé/RJ" (slug `macae`), 59 colaboradores com DISC, 18 competências, 1 cargo, 51 PDIs migrados via Drive público (folder `PDIs Gerados Template`). Samuel Protetti setado como gestor (`gestor_email`) de todos os 58 colabs ativos. Telefones com prefixo `+` removidos.
+- **Filtro DISC nos Envios** (commit `7fb613d`): filtro "Perfil DISC" (Todos / Com perfil / Sem perfil) em todas as 5 tabs de `/admin/whatsapp` (Magic Link, Email Convites, WhatsApp Convites, Email Relatórios, WhatsApp Relatórios). Aplicado client-side (contagem) e server-side (disparo).
+- **Piloto Macaé pronto**: ciclo "Piloto Macaé — 1º Semestre 2026" criado, 59 assignments T0 criados, ciclo fechado intencionalmente (status `em_jornada`) aguardando autorização para disparo.
 
 ### 2026-05-03 — Bett 2026, votação, perfil externo
 - **Radarbett** (`radarbett.vertho.ai`) shipado para o Bett: tipografia Plus Jakarta Sans + Fraunces escopada, "Agendar conversa" → WhatsApp direto, modo teste com unlock imediato (reverter pós-evento)

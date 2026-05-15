@@ -1,7 +1,7 @@
 # Vertho — Features e Benefícios
 
-> Inventário das features em produção (Mentor IA + Radar + Radar Bett) com o benefício correspondente para o cliente. Base para o site, materiais comerciais e ajuste de comunicação.
-> Última atualização: 13/05/2026 — HEAD `cca9c33`.
+> Inventário das features em produção (Mentor IA + Radar + Radar Bett + Pulso de Desenvolvimento) com o benefício correspondente para o cliente. Base para o site, materiais comerciais e ajuste de comunicação.
+> Última atualização: 14/05/2026 — HEAD `b7b072b`.
 
 ---
 
@@ -9,11 +9,12 @@
 
 A Vertho é uma plataforma SaaS B2B que **transforma diagnóstico de competências em desenvolvimento real**, usando IA conversacional, trilhas guiadas e relatórios automatizados.
 
-Três produtos vivos:
+Quatro produtos vivos:
 
 - **Mentor IA** (principal) — Diagnóstico, plano de desenvolvimento individual e trilha guiada, multi-tenant por empresa. Dois modos de uso:
   - **Programa Regular** — 14 semanas focadas em 1 competência aprofundada (nível-meta 3 / proficiência).
   - **Vertho Onboarding** — 10 semanas em espiral cobrindo 5 competências (nível-meta 2 / autonomia supervisionada), para profissionais recém-formados.
+- **Pulso de Desenvolvimento** *(novo, mai/2026)* — Instrumento leve T0/T2 para entender se o ambiente favorece ou bloqueia o desenvolvimento. Dashboard agregado com guard de anonimato (n≥7), Dual-IA classifica respostas abertas em 12 temas, PDFs executivo + complementar NR-1.
 - **Radar Vertho** ([radar.vertho.ai](https://radar.vertho.ai)) — Inteligência pública nacional sobre escolas, municípios, redes e estados (Saeb, Ideb, ENEM, Censo, FUNDEB) com narrativa por IA.
 - **Radar Bett** ([radarbett.vertho.ai](https://radarbett.vertho.ai)) — Site dedicado ao Bett Brasil 2026 com jornada comercial focada em conversão.
 
@@ -65,7 +66,7 @@ Três produtos vivos:
 | **CRUD de Competências** | Por empresa, importável de uma base padrão (educação/corporativo) + import CSV | Não começa do zero — base pronta, customizável. |
 | **Top 10 + Top 5 + Gabarito** | IA1 sugere top 10 por cargo (com aderência cargo/mercado + motivo), RH escolhe top 5, gera gabarito | Curadoria assistida — IA prepara, RH valida. |
 | **Banco de Cenários** | IA3 gera cenários situacionais + checagem por 2ª IA | Cenários realistas, validados, sem RH inventar caso a caso. |
-| **Envios em massa (WhatsApp + Email)** | Z-API + Resend + QStash (delay incremental 2s), com filtros, anexo PDF, anexo arbitrário, preview e variáveis dinâmicas | Campanha de engajamento em escala, com tracking — sem listinha de WhatsApp manual. |
+| **Envios em massa (WhatsApp + Email)** | Z-API + Resend + QStash (delay incremental 2s), com filtros (cargo · votação · perfil DISC), anexo PDF, anexo arbitrário, preview e variáveis dinâmicas | Campanha de engajamento em escala, com tracking — sem listinha de WhatsApp manual. |
 | **Magic Links em lote** | Envia link de acesso direto (24h) por WhatsApp para um filtro de colaboradores | Onboarding sem fricção — recebe link, abre, está dentro. |
 | **Confirmação preventiva em ações destrutivas** | `window.confirm` explícito em todas as ações em lote/destrutivas (gerar simulação, gerar relatórios, limpar dados, disparar mensagens) | Reduz erro humano — "clique acidental" não derruba programa. |
 
@@ -151,7 +152,50 @@ Três produtos vivos:
 
 ---
 
-## 6. Radar Vertho — Inteligência pública educacional
+## 6. Pulso de Desenvolvimento — Saúde do ambiente que sustenta a evolução
+
+> Instrumento leve para entender se o ambiente favorece ou bloqueia o desenvolvimento das pessoas. **Não** é pesquisa de clima tradicional, **não** promete diagnóstico psicossocial, burnout ou saúde mental. **Não** substitui PGR/PCMSO/SESMT. Conexão com NR-1 é benefício colateral via relatório complementar opcional.
+
+### 6.1 Conceito
+
+Lógica em 4 momentos: **Pulso T0 → Sinais da Jornada → Pulso T2 → Triangulação**. T0 estabelece linha de base declarada antes da jornada de desenvolvimento; sinais comportamentais (uso da MentorIA, profundidade de respostas, completude) são capturados ao longo; T2 mede percepção pós-jornada; triangulação cruza tudo e gera leitura agregada — sem expor pessoa.
+
+### 6.2 Features
+
+| Feature | O que é | Benefício |
+|---|---|---|
+| **Pesquisa T0/T2** | 12 perguntas Likert + 1 aberta em 6 dimensões (clareza, condições, liderança, segurança para aprender, aplicação prática, futuro e permanência) — ~3 min | Linha de base + medida final consistentes, sem reinventar a roda a cada ciclo. |
+| **Coleta multi-canal** | Magic link pessoal por colab via Z-API/email; assignment idempotente; retomada de progresso | Liga o pulso à jornada de cada um — link cai direto na pergunta dele. |
+| **Dashboard agregado com guard n≥7** | Cards principais (índice geral, respondentes, dimensão forte/crítica, delta T0→T2) + gráfico por dimensão + tabela com leitura automática | Gestor/RH vê o time, nunca a pessoa — anonimato preservado por construção. |
+| **Sinais da jornada** | Métricas comportamentais derivadas de uso da MentorIA, respostas e completude — normalizadas 1-5, mapeadas pras dimensões | Cruza o "que dizem" com o "que fazem" — captura desejabilidade social. |
+| **Dual-IA classifica texto aberto** | Sonnet 4.6 classifica em taxonomia fechada de 12 temas (falta de tempo, falta de apoio, sobrecarga, ausência de feedback, evolução percebida, reconhecimento, etc.) + Gemini Flash audita e rebaixa confidence | Insight do texto aberto sem expor texto bruto — só temas agregados. |
+| **Triangulação agregada** | Cruza declarado × comportamental × temas para gerar: aceleradores, bloqueadores, alertas, divergências, recomendações | Discurso pronto pra RH apresentar, calibrado por dados. |
+| **Linguagem cautelosa por design** | "Há sinais de…", "Os dados sugerem…", "Recomenda-se investigar" — nunca "isso prova que…", "esse gestor é o problema…", "há assédio…" | Reduz risco jurídico e mau uso — fala em desenvolvimento, não em diagnóstico. |
+| **Recortes por área/cargo** | Apenas grupos com 7+ respondentes aparecem | Mantém anonimato mesmo em empresas grandes — não vira ferramenta de caça às bruxas. |
+| **PDF Executivo** | Capa Vertho + KPIs + dimensões + sinais + temas + triangulação + recomendações | Apresentação pronta para liderança/board. |
+| **PDF Complementar NR-1** | Versão com disclaimer obrigatório + mapeamento conceitual das 6 dimensões em linguagem organizacional | Insumo qualitativo complementar a profissionais técnicos — sem substituí-los. |
+| **Audit log de acessos** | `pulse_audit_logs` registra cada view de dashboard, export de PDF, envio de convite, bloqueio por n<7 | LGPD by design — quem viu o quê e quando, rastreável. |
+| **Stage por empresa** | `sys_config.pulse_stage`: experimental / calibrating / production. Em calibrating, admin Vertho revisa antes de exibir | Permite pilotar com cuidado sem expor cliente a leituras imaturas. |
+
+### 6.3 Mensagens-chave do Pulso (síntese pra copy)
+
+1. **"Não é pesquisa de clima. É leitura do ambiente que sustenta o desenvolvimento."**
+2. **"Anonimato por construção — nada com menos de 7 respostas aparece."**
+3. **"Cruza o que a equipe diz com o que ela faz — Dual-IA audita a leitura."**
+4. **"Da resposta aberta ao tema dominante — sem expor o que ninguém escreveu."**
+5. **"Não diagnosticamos burnout. Mostramos onde o ambiente está limitando a evolução."**
+6. **"Complementar a NR-1 — não substitui análise técnica, mas oferece insumo qualitativo agregado."**
+
+### 6.4 O que NÃO falar sobre Pulso
+
+- ❌ "Pesquisa de clima organizacional" → ✅ "Pulso de desenvolvimento — ambiente que sustenta evolução"
+- ❌ "Diagnóstico psicossocial / NR-1 compliance" → ✅ "Insumo qualitativo complementar a especialistas técnicos"
+- ❌ "Identifica burnout / saúde mental" → ✅ "Sinaliza dimensões do ambiente que podem requerer atenção"
+- ❌ "Ranking de gestores / líderes" → ✅ "Leitura agregada por dimensão, com n≥7 obrigatório"
+
+---
+
+## 7. Radar Vertho — Inteligência pública educacional
 
 Site público em [radar.vertho.ai](https://radar.vertho.ai).
 
@@ -173,7 +217,7 @@ Site público em [radar.vertho.ai](https://radar.vertho.ai).
 
 ---
 
-## 7. Radar Bett — Site Bett Brasil 2026
+## 8. Radar Bett — Site Bett Brasil 2026
 
 Site público em [radarbett.vertho.ai](https://radarbett.vertho.ai).
 
@@ -189,7 +233,7 @@ Site público em [radarbett.vertho.ai](https://radarbett.vertho.ai).
 
 ---
 
-## 8. Operação e suporte
+## 9. Operação e suporte
 
 | Feature | O que é | Benefício |
 |---|---|---|
@@ -202,22 +246,23 @@ Site público em [radarbett.vertho.ai](https://radarbett.vertho.ai).
 
 ---
 
-## 9. Mensagens-chave (síntese pra copy)
+## 10. Mensagens-chave (síntese pra copy)
 
 Para usar diretamente em hero, manchetes e materiais comerciais:
 
 1. **"Diagnóstico que conversa, não interroga."** — Avaliação por chat com IA, não questionário.
 2. **"De diagnóstico a desenvolvimento, em 14 semanas."** — Plataforma fecha o loop, não só mede.
 3. **"A IA fala como sua empresa fala."** — RAG per-tenant com valores e cultura.
-4. **"Cada decisão validada por duas IAs."** — Dual-IA em avaliações críticas.
+4. **"Cada decisão validada por duas IAs."** — Dual-IA em avaliações críticas e no Pulso.
 5. **"Plataforma que veste sua empresa, do login ao PDF."** — Multi-tenant com branding completo.
 6. **"Líder chega na conversa com documento, não com achismo."** — PDF individual + Plenária da equipe.
 7. **"Granularidade 0.1 — capta evolução real, não só salto."**
-8. **"LGPD por design: PII nunca toca a IA."**
+8. **"LGPD por design: PII nunca toca a IA. Pulso tem guard n≥7 obrigatório."**
+9. **"Pulso de Desenvolvimento — leitura do ambiente que sustenta a evolução, com anonimato por construção."**
 
 ---
 
-## 10. O que NÃO falar (positioning trap)
+## 11. O que NÃO falar (positioning trap)
 
 Para a comunicação não soar genérica ou marketeira demais:
 
@@ -229,4 +274,4 @@ Para a comunicação não soar genérica ou marketeira demais:
 
 ---
 
-*Inventário gerado a partir do código-fonte em 13/05/2026. Sempre que entrar feature nova, atualizar aqui antes de virar copy de site.*
+*Inventário gerado a partir do código-fonte em 14/05/2026 (HEAD `b7b072b`). Sempre que entrar feature nova, atualizar aqui antes de virar copy de site.*
