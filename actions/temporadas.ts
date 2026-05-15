@@ -9,6 +9,7 @@ import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada
 import { getProgramaConfig } from '@/lib/season-engine/programa-config';
 import type { AIConfig } from './ai-client';
 import { requireAdminAction, requireUserAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 
 interface GerarTemporadaParams {
   colaboradorId?: string;
@@ -37,9 +38,8 @@ export async function loadTemporadaPorEmail(email: string) {
  */
 export async function gerarTemporada({ colaboradorId, competencia, aiConfig }: GerarTemporadaParams = {}) {
   try {
-    await requireAdminAction();
+    const sbRaw = await requireAdminSupabase();
     if (!colaboradorId) return { error: 'colaboradorId obrigatório' };
-    const sbRaw = createSupabaseAdmin();
 
     // Busca raw porque colaboradores é root de tenancy (descobre o tenant aqui).
     const { data: colab } = await sbRaw.from('colaboradores')
@@ -373,9 +373,8 @@ function inferirContexto(segmento?: string | null): string {
  */
 export async function gerarTemporadasLote(empresaId: string, aiConfig?: AIConfig) {
   try {
-    await requireAdminAction();
+    const sb = await requireAdminSupabase();
     if (!empresaId) return { error: 'empresaId obrigatório' };
-    const sb = createSupabaseAdmin();
     const { data: colabs } = await sb.from('colaboradores')
       .select('id, nome_completo').eq('empresa_id', empresaId);
     if (!colabs?.length) return { error: 'Sem colaboradores' };
@@ -405,8 +404,7 @@ export async function gerarTemporadasLote(empresaId: string, aiConfig?: AIConfig
  */
 export async function pausarRetomarTemporada(trilhaId: string) {
   try {
-    await requireAdminAction();
-    const sb = createSupabaseAdmin();
+    const sb = await requireAdminSupabase();
     const { data: t } = await sb.from('trilhas').select('status').eq('id', trilhaId).maybeSingle();
     if (!t) return { success: false, error: 'Trilha não encontrada' };
     const novo = t.status === 'pausada' ? 'ativa' : 'pausada';
@@ -420,8 +418,7 @@ export async function pausarRetomarTemporada(trilhaId: string) {
 
 export async function arquivarTemporada(trilhaId: string) {
   try {
-    await requireAdminAction();
-    const sb = createSupabaseAdmin();
+    const sb = await requireAdminSupabase();
     const { error } = await sb.from('trilhas').update({ status: 'arquivada' }).eq('id', trilhaId);
     if (error) return { success: false, error: error.message };
     return { success: true, message: 'Arquivada' };
@@ -436,8 +433,7 @@ export async function arquivarTemporada(trilhaId: string) {
  */
 export async function regerarSemana(trilhaId: string, semana: number, aiConfig: AIConfig = {}) {
   try {
-    await requireAdminAction();
-    const sb = createSupabaseAdmin();
+    const sb = await requireAdminSupabase();
     const { data: trilha } = await sb.from('trilhas')
       .select('id, colaborador_id, empresa_id, competencia_foco, temporada_plano, descritores_selecionados')
       .eq('id', trilhaId).maybeSingle();
@@ -577,8 +573,7 @@ export async function marcarConteudoConsumido(trilhaId: string, semana: number) 
  */
 export async function loadProgressoDetalhado(trilhaId: string) {
   try {
-    await requireAdminAction();
-    const sb = createSupabaseAdmin();
+    const sb = await requireAdminSupabase();
     const { data: trilha } = await sb.from('trilhas')
       .select('id, colaborador_id, competencia_foco, temporada_plano, evolution_report')
       .eq('id', trilhaId).maybeSingle();

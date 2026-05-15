@@ -1,8 +1,7 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
-import { requireAdminAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 import {
   montarOPQ32Profile,
   extrairMetadadosOPQ32,
@@ -18,8 +17,7 @@ const MAX_BYTES = 5 * 1024 * 1024;
 export async function getEmpresaFonteExterna(empresaId: string): Promise<{
   fonte: 'opq32' | 'hogan' | 'mbti' | 'big5' | null;
 }> {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data } = await sb
     .from('empresas')
     .select('sys_config')
@@ -33,8 +31,7 @@ export async function setEmpresaFonteExterna(
   empresaId: string,
   fonte: 'opq32' | 'hogan' | 'mbti' | 'big5' | null,
 ): Promise<{ success: boolean; error?: string }> {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data: emp } = await sb
     .from('empresas')
     .select('sys_config')
@@ -75,8 +72,7 @@ export async function listarPerfisExternos(empresaId: string): Promise<{
   colaboradores: ColaboradorPerfilExterno[];
   fonte: string | null;
 }> {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const tdb = tenantDb(empresaId);
 
   const { data: emp } = await sb
@@ -137,7 +133,7 @@ export async function uploadPerfilPdf(
   empresaId: string,
   formData: FormData,
 ): Promise<{ success: boolean; error?: string; path?: string }> {
-  await requireAdminAction();
+  const sb = await requireAdminSupabase();
   const colabId = String(formData.get('colab_id') || '');
   const fonte = String(formData.get('fonte') || 'opq32') as 'opq32';
   const file = formData.get('file') as File | null;
@@ -152,7 +148,6 @@ export async function uploadPerfilPdf(
     return { success: false, error: `Fonte desconhecida: ${fonte}` };
   }
 
-  const sb = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
 
   // Confirma que colaborador existe e pertence à empresa
@@ -197,8 +192,7 @@ export async function extrairPerfilExterno(
   empresaId: string,
   colabId: string,
 ): Promise<{ success: boolean; error?: string; profile?: OPQ32Profile }> {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const tdb = tenantDb(empresaId);
 
   const { data: colab } = await tdb
@@ -296,8 +290,7 @@ export async function getPerfilPdfUrl(
   empresaId: string,
   colabId: string,
 ): Promise<{ url?: string; error?: string }> {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const tdb = tenantDb(empresaId);
 
   const { data: colab } = await tdb
@@ -320,8 +313,7 @@ export async function deletarPerfilExterno(
   empresaId: string,
   colabId: string,
 ): Promise<{ success: boolean; error?: string }> {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const tdb = tenantDb(empresaId);
 
   const { data: colab } = await tdb
