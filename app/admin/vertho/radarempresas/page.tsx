@@ -3,12 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft, Loader2, Building2, Filter, Search, TrendingUp, MapPin, Target,
+  ArrowLeft, Loader2, Building2, Filter, Search, TrendingUp, MapPin, Target, Download, List,
 } from 'lucide-react';
 import {
-  loadRadarKpis, listarEmpresas,
-  type RadarKpis, type RadarEmpresaRow, type RadarFiltros,
+  loadRadarKpis, listarEmpresas, loadFunilMercado,
+  type RadarKpis, type RadarEmpresaRow, type RadarFiltros, type FunilEtapa,
 } from '@/actions/radarempresas/busca';
+import { exportarCSV } from '@/actions/radarempresas/listas';
 import { SEGMENTOS_LIST, RADAR_DISCLAIMER } from '@/lib/radarempresas/segmentos';
 
 const UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
@@ -25,13 +26,18 @@ const fmtBrl = (n: number | null) => n == null ? '—' : `R$ ${Math.round(n).toL
 export default function RadarEmpresasPage() {
   const router = useRouter();
   const [kpis, setKpis] = useState<RadarKpis | null>(null);
+  const [funil, setFunil] = useState<FunilEtapa[]>([]);
   const [rows, setRows] = useState<RadarEmpresaRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [buscando, setBuscando] = useState(false);
   const [f, setF] = useState<RadarFiltros>({ uf: 'SP', page: 0, pageSize: 50 });
 
-  useEffect(() => { loadRadarKpis().then(k => { setKpis(k); setLoading(false); }); }, []);
+  useEffect(() => {
+    Promise.all([loadRadarKpis(), loadFunilMercado()]).then(([k, f]) => {
+      setKpis(k); setFunil(f); setLoading(false);
+    });
+  }, []);
 
   async function buscar(reset = true) {
     setBuscando(true);
@@ -43,20 +49,47 @@ export default function RadarEmpresasPage() {
     setBuscando(false);
   }
 
+  const [exportando, setExportando] = useState(false);
+  async function handleExport() {
+    setExportando(true);
+    const r = await exportarCSV({ filtros: f });
+    setExportando(false);
+    if (r.ok === false) { alert(r.error); return; }
+    const blob = new Blob(['﻿' + r.csv], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `radar-empresas-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
   if (loading) return <div className="flex items-center justify-center h-dvh"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
-      <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.push('/admin/dashboard')}
-          className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white">
-          <ArrowLeft size={16} />
-        </button>
-        <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <Target size={20} className="text-cyan-400" /> Radar Empresas
-          </h1>
-          <p className="text-xs text-gray-500">Inteligência comercial B2B · uso interno Vertho</p>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <button onClick={() => router.push('/admin/dashboard')}
+            className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white">
+            <ArrowLeft size={16} />
+          </button>
+          <div>
+            <h1 className="text-xl font-bold text-white flex items-center gap-2">
+              <Target size={20} className="text-cyan-400" /> Radar Empresas
+            </h1>
+            <p className="text-xs text-gray-500">Inteligência comercial B2B · uso interno Vertho</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => router.push('/admin/vertho/radarempresas/listas')}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold text-gray-300 border border-white/10 hover:text-white hover:border-white/30 transition-all">
+            <List size={12} /> Listas
+          </button>
+          <button onClick={handleExport} disabled={exportando}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all disabled:opacity-50">
+            {exportando ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+            Exportar CSV (filtro atual)
+          </button>
         </div>
       </div>
 
@@ -80,6 +113,33 @@ export default function RadarEmpresasPage() {
         <Kpi label="Boa oportunidade" value={kpis?.boa ?? 0} color="#34C5CC" />
         <Kpi label="Último job" value={kpis?.ultimo_job?.status ?? '—'} small />
       </div>
+
+      {/* Funil de mercado endereçável */}
+      {funil.length > 0 && funil[0].quantidade > 0 && (
+        <div className="rounded-xl border border-white/[0.06] p-4 mb-5" style={{ background: '#0F2A4A' }}>
+          <p className="text-xs font-bold text-white flex items-center gap-1.5 mb-3">
+            <Target size={12} className="text-cyan-400" /> Mercado endereçável Vertho
+            <span className="text-[9px] text-gray-500 font-normal">(não confundir TAM bruto com o que é abordável)</span>
+          </p>
+          <div className="space-y-1.5">
+            {funil.map((e, i) => (
+              <div key={e.etapa} className="flex items-center gap-3">
+                <span className="text-[10px] text-gray-400 w-64 shrink-0">{e.etapa}</span>
+                <div className="flex-1 h-5 rounded bg-white/[0.04] overflow-hidden relative">
+                  <div className="h-full transition-all" style={{
+                    width: `${Math.max(e.pct_do_topo, 1)}%`,
+                    background: i === 0 ? '#475569' : `rgba(52,197,204,${0.35 + i * 0.12})`,
+                  }} />
+                  <span className="absolute inset-0 flex items-center px-2 text-[10px] font-bold text-white">
+                    {e.quantidade.toLocaleString('pt-BR')}
+                    <span className="text-gray-400 font-normal ml-1.5">· {e.pct_do_topo}%</span>
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {(kpis?.top_segmentos?.length ?? 0) > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">

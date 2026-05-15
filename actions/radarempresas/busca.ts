@@ -4,6 +4,54 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { getSegmento } from '@/lib/radarempresas/segmentos';
 import { CLASSIFICACAO_LABEL, type Classificacao } from '@/lib/radarempresas/score';
 
+export interface FunilEtapa {
+  etapa: string;
+  quantidade: number;
+  pct_do_topo: number;       // % relativo ao total de ativos
+}
+
+/**
+ * Funil de Mercado Endereçável Vertho (ponto 1 do feedback).
+ * Não basta "estabelecimentos ativos" — mostra o afunilamento até o
+ * que é realmente abordável, evitando ilusão de TAM local inflado.
+ *
+ * Usa as colunas do score v4: priority_rank só é preenchido pra
+ * ELEGÍVEIS (segmento mapeado + não-micro). low_team_probability,
+ * commercial_actionability, score_total.
+ */
+export async function loadFunilMercado(): Promise<FunilEtapa[]> {
+  const sb = await requireAdminSupabase();
+  const T = 'radarempresas_scores';
+  const cnt = async (f: (q: any) => any) => {
+    const { count } = await f(sb.from(T).select('*', { count: 'exact', head: true }));
+    return count || 0;
+  };
+
+  const ativos = await cnt((q: any) => q);
+  const naoMicro = await cnt((q: any) => q.eq('low_team_probability', false));
+  const aderente = await cnt((q: any) =>
+    q.eq('low_team_probability', false).not('score_explanation->>segmento_key', 'is', null));
+  const comContato = await cnt((q: any) =>
+    q.eq('low_team_probability', false).not('score_explanation->>segmento_key', 'is', null)
+      .gte('commercial_actionability', 30));
+  const score60 = await cnt((q: any) =>
+    q.eq('low_team_probability', false).not('score_explanation->>segmento_key', 'is', null)
+      .gte('commercial_actionability', 30).gte('score_total', 60));
+  const priorizados = await cnt((q: any) =>
+    q.eq('low_team_probability', false).not('score_explanation->>segmento_key', 'is', null)
+      .gte('commercial_actionability', 30).gte('score_total', 60).gte('priority_rank', 90));
+
+  const pct = (n: number) => ativos > 0 ? Math.round((n / ativos) * 1000) / 10 : 0;
+  return [
+    { etapa: 'Estabelecimentos ativos', quantidade: ativos, pct_do_topo: 100 },
+    { etapa: 'Excluindo micro sem equipe provável', quantidade: naoMicro, pct_do_topo: pct(naoMicro) },
+    { etapa: 'CNAE aderente à Vertho', quantidade: aderente, pct_do_topo: pct(aderente) },
+    { etapa: 'Com contato disponível', quantidade: comContato, pct_do_topo: pct(comContato) },
+    { etapa: 'Score ≥ 60 (boa+)', quantidade: score60, pct_do_topo: pct(score60) },
+    { etapa: 'Priorizados (top 10% elegíveis)', quantidade: priorizados, pct_do_topo: pct(priorizados) },
+  ];
+}
+
 export interface RadarKpis {
   total_empresas: number;
   total_estabelecimentos: number;
