@@ -56,9 +56,13 @@ export async function rodarScores(
       return { ok: false, error: 'Rode a migration 099 (seed cnae_segmento vazio)' };
     }
 
-    // Contexto v3: taxa de rotatividade REAL = mov CAGED 6m ÷ estoque RAIS
-    // (ajustada por porte), percentil em Jundiaí. Fallback volume CAGED.
+    // Contexto v4: rotatividade real CAGED÷RAIS com travas estatísticas
+    // (piso estoque/mov, suavização bayesiana, cap). Mantido em sincronia
+    // com scripts/radarempresas-score.ts — alterar os dois juntos.
+    const ALPHA = 30, CAP = 1.5, PISO_EST = 30, PISO_MOV = 10;
     const cagedCtx = new Map<string, number>();
+    const ctxConf = new Map<string, 'alta' | 'media' | 'baixa'>();
+    const raisTam = new Map<string, number>();
     {
       const [{ data: cg }, { data: rs }] = await Promise.all([
         sb.from('radarempresas_caged_municipio_cnae_6m')
@@ -68,8 +72,17 @@ export async function rodarScores(
       ]);
       const rais = new Map<string, { estoque: number; tam: number }>();
       for (const r of (rs || []) as any[]) {
-        rais.set(String(r.cnae).replace(/\D/g, ''), { estoque: r.estoque_vinculos || 0, tam: r.tam_medio_estimado || 0 });
+        const k = String(r.cnae).replace(/\D/g, '');
+        rais.set(k, { estoque: r.estoque_vinculos || 0, tam: r.tam_medio_estimado || 0 });
+        if (r.tam_medio_estimado != null) raisTam.set(k, r.tam_medio_estimado);
       }
+      const robustos: number[] = [];
+      for (const c of (cg || []) as any[]) {
+        const rr = rais.get(String(c.cnae).replace(/\D/g, ''));
+        const mov = (c.admissoes_6m || 0) + (c.desligamentos_6m || 0);
+        if (rr && rr.estoque >= PISO_EST && mov >= PISO_MOV) robustos.push(mov / rr.estoque);
+      }
+      const mediaGlobal = robustos.length ? robustos.reduce((a, b) => a + b, 0) / robustos.length : 0.3;
       const raw: { cnae: string; val: number }[] = [];
       for (const c of (cg || []) as any[]) {
         const cnae = String(c.cnae).replace(/\D/g, '');
@@ -77,9 +90,11 @@ export async function rodarScores(
         const rr = rais.get(cnae);
         let val: number;
         if (rr && rr.estoque > 0) {
-          val = mov / rr.estoque;
-          if (rr.tam > 0 && rr.tam < 5) val *= 0.5;
-        } else { val = mov / 1000; }
+          val = Math.min((mov + ALPHA * mediaGlobal) / (rr.estoque + ALPHA), CAP);
+          const robusto = rr.estoque >= PISO_EST && mov >= PISO_MOV;
+          const meio = rr.estoque >= PISO_EST || mov >= PISO_MOV;
+          ctxConf.set(cnae, robusto ? 'alta' : meio ? 'media' : 'baixa');
+        } else { val = Math.min(mov / 1000, CAP); ctxConf.set(cnae, 'baixa'); }
         raw.push({ cnae, val });
       }
       raw.sort((a, b) => a.val - b.val);
@@ -123,21 +138,23 @@ export async function rodarScores(
       }
     }
 
-    let processados = 0, semSegmento = 0, erros = 0;
+    let semSegmento = 0, erros = 0;
     let from = 0;
     const page = 500;
+    const allRows: any[] = [];
+    const elegiveis: { id: string; score: number }[] = [];
 
     for (;;) {
       const { data: estabs, error } = await sb.from('radarempresas_estabelecimentos')
-        .select('id, cnpj_basico, cnpj_completo, is_matriz, cnae_principal, has_email, has_phone, company_age_years')
+        .select('id, cnpj_basico, cnpj_completo, is_matriz, cnae_principal, has_email, has_phone, has_fantasia, company_age_years')
         .range(from, from + page - 1);
       if (error) { erros++; break; }
       if (!estabs?.length) break;
 
-      const rows: any[] = [];
       for (const est of estabs as any[]) {
         const seg = matchSegmento(est.cnae_principal, mapa);
         if (!seg) { semSegmento++; }
+        const cnaeK = String(est.cnae_principal || '').replace(/\D/g, '');
         const emp = empMap.get(est.cnpj_basico) || { capital_social: null, porte_empresa: null };
 
         const input: ScoreInput = {
@@ -147,19 +164,26 @@ export async function rodarScores(
           company_age_years: est.company_age_years,
           has_email: !!est.has_email,
           has_phone: !!est.has_phone,
+          has_fantasia: !!est.has_fantasia,
           qtd_estabelecimentos_grupo: grupoCount.get(est.cnpj_basico) || 1,
           segmento_key: seg?.segmento_key || null,
+          segmento_mapeado: !!seg,
           people_intensity_score: seg?.people_intensity_score ?? 30,
           leadership_complexity_score: seg?.leadership_complexity_score ?? 30,
           onboarding_need_score: seg?.onboarding_need_score ?? 30,
           standardization_need_score: seg?.standardization_need_score ?? 30,
           commercial_fit_score: seg?.commercial_fit_score ?? 25,
           is_priority_cnae: seg?.is_priority ?? false,
-          caged_contexto_score: cagedCtx.get(String(est.cnae_principal || '').replace(/\D/g, '')) ?? null,
+          caged_contexto_score: cagedCtx.get(cnaeK) ?? null,
+          contexto_confianca: ctxConf.get(cnaeK) ?? null,
+          rais_tam_medio_setor: raisTam.get(cnaeK) ?? null,
         };
 
         const r = calcularScore(input);
-        rows.push({
+        if (input.segmento_mapeado && !r.low_team_probability) {
+          elegiveis.push({ id: est.id, score: r.score_total });
+        }
+        allRows.push({
           estabelecimento_id: est.id,
           cnpj_completo: est.cnpj_completo,
           score_total: r.score_total,
@@ -168,21 +192,32 @@ export async function rodarScores(
           score_fit_vertho: r.score_fit_vertho,
           score_contexto_setorial: r.score_contexto_setorial,
           classificacao: r.classificacao,
+          score_confidence: r.score_confidence,
+          commercial_actionability: r.commercial_actionability,
+          low_team_probability: r.low_team_probability,
+          priority_rank: null,
           score_explanation: { ...r.explanation, segmento_key: input.segmento_key },
           scoring_version: version,
           updated_at: new Date().toISOString(),
         });
-        processados++;
       }
-
-      if (rows.length) {
-        const { error: upErr } = await sb.from('radarempresas_scores')
-          .upsert(rows, { onConflict: 'estabelecimento_id' });
-        if (upErr) erros += rows.length;
-      }
-
       if (estabs.length < page) break;
       from += page;
+    }
+
+    // priority_rank: percentil entre elegíveis (segmento + não-micro)
+    elegiveis.sort((a, b) => a.score - b.score);
+    const ne = elegiveis.length;
+    const rankById = new Map<string, number>();
+    elegiveis.forEach((e, idx) => rankById.set(e.id, ne > 1 ? Math.round((idx / (ne - 1)) * 1000) / 10 : 50));
+    for (const row of allRows) row.priority_rank = rankById.get(row.estabelecimento_id) ?? null;
+
+    let processados = 0;
+    for (let i = 0; i < allRows.length; i += 1000) {
+      const lote = allRows.slice(i, i + 1000);
+      const { error: upErr } = await sb.from('radarempresas_scores')
+        .upsert(lote, { onConflict: 'estabelecimento_id' });
+      if (upErr) erros += lote.length; else processados += lote.length;
     }
 
     await finishJob(sb, jobId, 'done', processados, processados - erros, erros, null);

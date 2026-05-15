@@ -11,7 +11,7 @@
  * fora da fórmula (null), sem alterar os pesos das outras 3 dimensões.
  */
 
-export const SCORING_VERSION = 'v3';
+export const SCORING_VERSION = 'v4';
 
 export type Classificacao = 'abordar_agora' | 'boa' | 'nutrir' | 'baixa';
 
@@ -32,11 +32,19 @@ export interface ScoreInput {
   standardization_need_score: number;
   commercial_fit_score: number;
   is_priority_cnae: boolean;
-  // Contexto setorial (v3): taxa de ROTATIVIDADE REAL do CNAE no
-  // município = movimentação CAGED 6m ÷ estoque RAIS, ajustada por porte,
-  // JÁ normalizada 0-100 pelo caller (percentil no recorte). Fallback v2
-  // (volume CAGED puro) quando falta estoque RAIS. null = sem dado.
+  has_fantasia?: boolean;
+  // Contexto setorial: taxa de ROTATIVIDADE REAL do CNAE no município
+  // (mov CAGED 6m ÷ estoque RAIS, suavizada/capada pelo caller),
+  // JÁ normalizada 0-100. null = sem dado.
   caged_contexto_score?: number | null;
+  // v4: confiança do sinal de contexto (vem do caller — pisos de
+  // estoque RAIS / movimentação CAGED). null = sem contexto.
+  contexto_confianca?: 'alta' | 'media' | 'baixa' | null;
+  // v4: porte médio do CNAE×município na RAIS — refina low_team
+  // (setor com equipes grandes não penaliza ME). null = desconhecido.
+  rais_tam_medio_setor?: number | null;
+  // v4: o CNAE casou com um segmento Vertho? (para score_confidence)
+  segmento_mapeado?: boolean;
 }
 
 export interface ScoreExplanationPart {
@@ -50,13 +58,18 @@ export interface ScoreResult {
   score_dor_pessoas: number;
   score_capacidade_compra: number;
   score_fit_vertho: number;
-  score_contexto_setorial: number | null; // null no v1 (SIDRA = Etapa 4)
+  score_contexto_setorial: number | null;
   classificacao: Classificacao;
   scoring_version: string;
+  // v4 — fora do score_total: confiança e acionabilidade
+  score_confidence: 'alta' | 'media' | 'baixa';
+  commercial_actionability: number;        // 0-100 (não entra no total)
+  low_team_probability: boolean;
   explanation: {
     dor_pessoas: ScoreExplanationPart[];
     capacidade_compra: ScoreExplanationPart[];
     fit_vertho: ScoreExplanationPart[];
+    actionability: ScoreExplanationPart[];
     pesos: { dor: number; capacidade: number; fit: number };
   };
 }
@@ -84,23 +97,42 @@ function calcDorPessoas(i: ScoreInput): { score: number; parts: ScoreExplanation
   const prio = i.is_priority_cnae ? 10 : 0;
   parts.push({ parcela: 'cnae_prioritario', valor: prio, detalhe: i.is_priority_cnae ? 'CNAE marcado como prioritário' : 'CNAE não prioritário' });
 
-  const contato = (i.has_email || i.has_phone) ? 5 : 0;
-  parts.push({ parcela: 'contato_operavel', valor: contato, detalhe: (i.has_email || i.has_phone) ? 'tem email/telefone' : 'sem contato' });
-
-  // v2: contexto CAGED — setor que mais movimenta pessoas no município
-  // tem mais provável dor de retenção/onboarding. Máx +15 (0.15×100).
+  // v4: contato saiu daqui (é acionabilidade, não dor).
+  // Contexto = taxa de rotatividade real do setor no município (CAGED÷RAIS).
   let ctx = 0;
   if (i.caged_contexto_score != null) {
-    ctx = round1(0.15 * i.caged_contexto_score);
-    parts.push({ parcela: 'contexto_caged', valor: ctx, detalhe: `0.15 × ${i.caged_contexto_score} (intensidade de movimentação do setor no município — CAGED 6m)` });
+    ctx = round1(0.20 * i.caged_contexto_score);
+    parts.push({ parcela: 'contexto_rotatividade', valor: ctx, detalhe: `0.20 × ${i.caged_contexto_score} (rotatividade real do setor no município — CAGED÷RAIS)` });
   }
 
-  const score = clamp(base + padr + multi + prio + contato + ctx);
+  const score = clamp(base + padr + multi + prio + ctx);
   return { score: round1(score), parts };
 }
 
+// ── Acionabilidade comercial (v4) — NÃO entra no score_total ─────────────
+function calcActionability(i: ScoreInput): { score: number; parts: ScoreExplanationPart[] } {
+  const parts: ScoreExplanationPart[] = [];
+  const email = i.has_email ? 30 : 0;
+  const tel = i.has_phone ? 30 : 0;
+  const fant = i.has_fantasia ? 20 : 0;
+  const matriz = i.is_matriz ? 20 : 0;
+  parts.push({ parcela: 'email', valor: email, detalhe: i.has_email ? 'tem email' : 'sem email' });
+  parts.push({ parcela: 'telefone', valor: tel, detalhe: i.has_phone ? 'tem telefone' : 'sem telefone' });
+  parts.push({ parcela: 'nome_fantasia', valor: fant, detalhe: i.has_fantasia ? 'tem fantasia' : 'sem fantasia' });
+  parts.push({ parcela: 'matriz', valor: matriz, detalhe: i.is_matriz ? 'matriz' : 'filial' });
+  return { score: clamp(email + tel + fant + matriz), parts };
+}
+
+// ── Confiança do score (v4) ──────────────────────────────────────────────
+function resolveConfidence(i: ScoreInput): 'alta' | 'media' | 'baixa' {
+  if (i.segmento_mapeado === false) return 'baixa';   // CNAE genérico
+  const cc = i.contexto_confianca;
+  if (cc == null || cc === 'baixa') return 'media';    // mapeado mas sinal fraco
+  return cc;                                           // 'alta' ou 'media'
+}
+
 // ── Sub-score 2: capacidade de compra (peso 30%) ─────────────────────────
-function calcCapacidade(i: ScoreInput): { score: number; parts: ScoreExplanationPart[] } {
+function calcCapacidade(i: ScoreInput): { score: number; parts: ScoreExplanationPart[]; lowTeam: boolean } {
   const parts: ScoreExplanationPart[] = [];
 
   // porte: 05=demais (médio/grande) alto, 03=EPP médio, 01/00 baixo
@@ -133,18 +165,24 @@ function calcCapacidade(i: ScoreInput): { score: number; parts: ScoreExplanation
   else if (age >= 1) idade = 6;
   parts.push({ parcela: 'idade', valor: idade, detalhe: `${age} ano(s) de atividade` });
 
-  const contato = (i.has_email || i.has_phone) ? 5 : 0;
-  parts.push({ parcela: 'contato_operavel', valor: contato, detalhe: (i.has_email || i.has_phone) ? 'contatável' : 'sem contato' });
-
-  // penalidade proxy-MEI: porte ME + capital irrisório
+  // v4: contato saiu daqui (acionabilidade, não capacidade econômica).
+  // low_team_probability: porte ME + capital irrisório → provável micro
+  // SEM equipe. MAS se o setor (CNAE×município na RAIS) tem porte médio
+  // >= 10 vínculos, o setor tem equipes mesmo em ME → NÃO penaliza
+  // (escola/clínica/franquia pequena é alvo válido).
   let penalidade = 0;
+  let lowTeam = false;
   if ((i.porte_empresa === '01' || i.porte_empresa === '00') && cap < 1_000) {
-    penalidade = -15;
-    parts.push({ parcela: 'proxy_mei', valor: penalidade, detalhe: 'porte ME + capital < R$1k (provável MEI)' });
+    const setorTemEquipe = i.rais_tam_medio_setor != null && i.rais_tam_medio_setor >= 10;
+    if (!setorTemEquipe) {
+      penalidade = -15;
+      lowTeam = true;
+      parts.push({ parcela: 'low_team_probability', valor: penalidade, detalhe: `porte ME + capital < R$1k${i.rais_tam_medio_setor != null ? ` + setor com porte médio ${i.rais_tam_medio_setor}` : ' (sem dado de porte setorial)'} → provável micro sem equipe` });
+    }
   }
 
-  const score = clamp(porte + capScore + matriz + idade + contato + penalidade);
-  return { score: round1(score), parts };
+  const score = clamp(porte + capScore + matriz + idade + penalidade);
+  return { score: round1(score), parts, lowTeam };
 }
 
 // ── Sub-score 3: fit Vertho (peso 30%) ───────────────────────────────────
@@ -183,6 +221,7 @@ export function calcularScore(input: ScoreInput): ScoreResult {
   const dor = calcDorPessoas(input);
   const cap = calcCapacidade(input);
   const fit = calcFit(input);
+  const act = calcActionability(input);
 
   const total = round1(
     PESOS.dor * dor.score + PESOS.capacidade * cap.score + PESOS.fit * fit.score,
@@ -193,13 +232,17 @@ export function calcularScore(input: ScoreInput): ScoreResult {
     score_dor_pessoas: dor.score,
     score_capacidade_compra: cap.score,
     score_fit_vertho: fit.score,
-    score_contexto_setorial: input.caged_contexto_score ?? null, // v2: CAGED
+    score_contexto_setorial: input.caged_contexto_score ?? null,
     classificacao: classificarHelper(total),
     scoring_version: SCORING_VERSION,
+    score_confidence: resolveConfidence(input),
+    commercial_actionability: act.score,
+    low_team_probability: cap.lowTeam,
     explanation: {
       dor_pessoas: dor.parts,
       capacidade_compra: cap.parts,
       fit_vertho: fit.parts,
+      actionability: act.parts,
       pesos: PESOS,
     },
   };

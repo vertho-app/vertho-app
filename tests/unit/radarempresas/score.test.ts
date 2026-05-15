@@ -34,18 +34,43 @@ describe('calcularScore — estrutura', () => {
     expect(Math.abs(r.score_total - recomposto)).toBeLessThan(0.6); // arredondamento
   });
 
-  it('versão é v3; contexto setorial null quando sem CAGED', () => {
+  it('versão é v4; contexto setorial null quando sem CAGED', () => {
     const r = calcularScore(baseInput());
     expect(r.score_contexto_setorial).toBeNull();
-    expect(r.scoring_version).toBe('v3');
+    expect(r.scoring_version).toBe('v4');
   });
 
-  it('explanation tem as 3 dimensões com parcelas auditáveis', () => {
+  it('explanation tem 4 blocos auditáveis (inclui actionability)', () => {
     const r = calcularScore(baseInput());
     expect(r.explanation.dor_pessoas.length).toBeGreaterThan(0);
     expect(r.explanation.capacidade_compra.length).toBeGreaterThan(0);
     expect(r.explanation.fit_vertho.length).toBe(4);
+    expect(r.explanation.actionability.length).toBe(4);
     expect(r.explanation.pesos).toEqual({ dor: 0.40, capacidade: 0.30, fit: 0.30 });
+  });
+
+  it('v4: actionability é campo separado, não entra no score_total', () => {
+    const comContato = calcularScore(baseInput({ has_email: true, has_phone: true, has_fantasia: true }));
+    const semContato = calcularScore(baseInput({ has_email: false, has_phone: false, has_fantasia: false }));
+    // contato NÃO afeta dor nem capacidade (saiu do score_total)
+    expect(comContato.score_dor_pessoas).toBe(semContato.score_dor_pessoas);
+    expect(comContato.score_capacidade_compra).toBe(semContato.score_capacidade_compra);
+    // mas afeta acionabilidade
+    expect(comContato.commercial_actionability).toBeGreaterThan(semContato.commercial_actionability);
+  });
+
+  it('v4: score_confidence baixa quando CNAE sem segmento', () => {
+    expect(calcularScore(baseInput({ segmento_mapeado: false })).score_confidence).toBe('baixa');
+    expect(calcularScore(baseInput({ segmento_mapeado: true, contexto_confianca: 'alta' })).score_confidence).toBe('alta');
+    expect(calcularScore(baseInput({ segmento_mapeado: true, contexto_confianca: 'baixa' })).score_confidence).toBe('media');
+  });
+
+  it('v4: setor com porte RAIS alto não penaliza ME (low_team=false)', () => {
+    const semRais = calcularScore(baseInput({ porte_empresa: '01', capital_social: 0 }));
+    const setorComEquipe = calcularScore(baseInput({ porte_empresa: '01', capital_social: 0, rais_tam_medio_setor: 30 }));
+    expect(semRais.low_team_probability).toBe(true);
+    expect(setorComEquipe.low_team_probability).toBe(false);
+    expect(setorComEquipe.score_capacidade_compra).toBeGreaterThan(semRais.score_capacidade_compra);
   });
 });
 
@@ -56,12 +81,13 @@ describe('calcularScore — comportamento das regras', () => {
     expect(r.classificacao).toBe('abordar_agora');
   });
 
-  it('proxy-MEI (porte ME + capital irrisório) é penalizado', () => {
+  it('low_team_probability (porte ME + capital irrisório) é penalizado', () => {
     const comMei = calcularScore(baseInput({ porte_empresa: '01', capital_social: 0 }));
     const semMei = calcularScore(baseInput({ porte_empresa: '03', capital_social: 100_000 }));
     expect(comMei.score_capacidade_compra).toBeLessThan(semMei.score_capacidade_compra);
-    const tinhaPenalidade = comMei.explanation.capacidade_compra.some(p => p.parcela === 'proxy_mei');
-    expect(tinhaPenalidade).toBe(true);
+    expect(comMei.low_team_probability).toBe(true);
+    const tinha = comMei.explanation.capacidade_compra.some(p => p.parcela === 'low_team_probability');
+    expect(tinha).toBe(true);
   });
 
   it('multiunidade aumenta o sub-score de dor', () => {
@@ -76,17 +102,10 @@ describe('calcularScore — comportamento das regras', () => {
     expect(baixa.score_dor_pessoas).toBeLessThan(alta.score_dor_pessoas);
   });
 
-  it('sem contato (email/telefone) reduz dor e capacidade', () => {
-    const com = calcularScore(baseInput({ has_email: true, has_phone: true }));
-    const sem = calcularScore(baseInput({ has_email: false, has_phone: false }));
-    expect(sem.score_dor_pessoas).toBeLessThan(com.score_dor_pessoas);
-    expect(sem.score_capacidade_compra).toBeLessThan(com.score_capacidade_compra);
-  });
-
-  it('contexto CAGED ausente: comporta como score base', () => {
+  it('contexto CAGED ausente: contexto_setorial null', () => {
     const semCtx = calcularScore(baseInput());
     expect(semCtx.score_contexto_setorial).toBeNull();
-    expect(semCtx.scoring_version).toBe('v3');
+    expect(semCtx.scoring_version).toBe('v4');
   });
 
   it('contexto CAGED alto aumenta dor e preenche score_contexto_setorial', () => {
@@ -94,7 +113,7 @@ describe('calcularScore — comportamento das regras', () => {
     const alto = calcularScore(baseInput({ caged_contexto_score: 100 }));
     expect(alto.score_contexto_setorial).toBe(100);
     expect(alto.score_dor_pessoas).toBeGreaterThanOrEqual(sem.score_dor_pessoas);
-    const tem = alto.explanation.dor_pessoas.some(p => p.parcela === 'contexto_caged');
+    const tem = alto.explanation.dor_pessoas.some(p => p.parcela === 'contexto_rotatividade');
     expect(tem).toBe(true);
   });
 

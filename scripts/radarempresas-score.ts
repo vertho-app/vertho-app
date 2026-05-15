@@ -46,7 +46,15 @@ console.log(`Empresas: ${empMap.size}`);
 // Contexto CAGED: intensidade de movimentação por CNAE em Jundiaí (352590),
 // normalizada por percentil dentro do recorte (0-100). CNAE que mais
 // movimenta pessoas no município → contexto alto → +dor.
+// v4: rotatividade real com travas estatísticas (lei dos pequenos números).
+//  - piso estoque RAIS >= 30 e movimentação CAGED >= 10 p/ confiança alta
+//  - suavização bayesiana: (mov + α·média_global)/(estoque + α), α=30
+//  - cap (winsorização) em 1.5 (150% de rotatividade em 6m é teto)
+//  - normaliza por percentil; guarda confiança por CNAE
+const ALPHA = 30, CAP = 1.5, PISO_EST = 30, PISO_MOV = 10;
 const cagedCtx = new Map<string, number>();
+const ctxConf = new Map<string, 'alta' | 'media' | 'baixa'>();
+const raisTam = new Map<string, number>();
 {
   const [{ data: cg }, { data: rs }] = await Promise.all([
     sb.from('radarempresas_caged_municipio_cnae_6m')
@@ -56,10 +64,20 @@ const cagedCtx = new Map<string, number>();
   ]);
   const rais = new Map<string, { estoque: number; tam: number }>();
   for (const r of (rs || []) as any[]) {
-    rais.set(String(r.cnae).replace(/\D/g, ''), { estoque: r.estoque_vinculos || 0, tam: r.tam_medio_estimado || 0 });
+    const k = String(r.cnae).replace(/\D/g, '');
+    rais.set(k, { estoque: r.estoque_vinculos || 0, tam: r.tam_medio_estimado || 0 });
+    if (r.tam_medio_estimado != null) raisTam.set(k, r.tam_medio_estimado);
   }
-  // Taxa de rotatividade REAL = mov CAGED 6m ÷ estoque RAIS, ajustada por
-  // porte. Fallback v2 (volume CAGED puro) quando falta estoque RAIS.
+  // média global robusta (só CNAEs com estoque e movimentação relevantes)
+  const robustos: number[] = [];
+  for (const c of (cg || []) as any[]) {
+    const rr = rais.get(String(c.cnae).replace(/\D/g, ''));
+    const mov = (c.admissoes_6m || 0) + (c.desligamentos_6m || 0);
+    if (rr && rr.estoque >= PISO_EST && mov >= PISO_MOV) robustos.push(mov / rr.estoque);
+  }
+  const mediaGlobal = robustos.length
+    ? robustos.reduce((a, b) => a + b, 0) / robustos.length : 0.3;
+
   const raw: { cnae: string; val: number }[] = [];
   for (const c of (cg || []) as any[]) {
     const cnae = String(c.cnae).replace(/\D/g, '');
@@ -67,17 +85,21 @@ const cagedCtx = new Map<string, number>();
     const rr = rais.get(cnae);
     let val: number;
     if (rr && rr.estoque > 0) {
-      val = mov / rr.estoque;
-      if (rr.tam > 0 && rr.tam < 5) val *= 0.5;   // setor de micro → menos dor estruturada
+      // bayesiano: encolhe pro prior quando estoque pequeno
+      val = Math.min((mov + ALPHA * mediaGlobal) / (rr.estoque + ALPHA), CAP);
+      const robusto = rr.estoque >= PISO_EST && mov >= PISO_MOV;
+      const meio = rr.estoque >= PISO_EST || mov >= PISO_MOV;
+      ctxConf.set(cnae, robusto ? 'alta' : meio ? 'media' : 'baixa');
     } else {
-      val = mov / 1000;                           // fallback: proxy de volume
+      val = Math.min(mov / 1000, CAP);            // fallback s/ RAIS
+      ctxConf.set(cnae, 'baixa');
     }
     raw.push({ cnae, val });
   }
   raw.sort((a, b) => a.val - b.val);
   const n = raw.length;
   raw.forEach((r, idx) => cagedCtx.set(r.cnae, n > 1 ? Math.round((idx / (n - 1)) * 100) : 50));
-  console.log(`Contexto v3 (rotatividade real) Jundiaí: ${n} CNAEs · ${rais.size} com estoque RAIS`);
+  console.log(`Contexto v4 Jundiaí: ${n} CNAEs · ${rais.size} c/ RAIS · média global ${mediaGlobal.toFixed(3)}`);
 }
 
 // Multiunidade: nº estab por cnpj_basico
@@ -90,17 +112,20 @@ for (let from = 0; ; from += 1000) {
   if (data.length < 1000) break;
 }
 
-let proc = 0, semSeg = 0, err = 0;
+let semSeg = 0, err = 0;
 const t0 = Date.now();
+const allRows: any[] = [];
+const elegiveis: { id: string; score: number }[] = [];
 for (let from = 0; ; from += 500) {
   const { data: ests } = await sb.from('radarempresas_estabelecimentos')
-    .select('id, cnpj_basico, cnpj_completo, is_matriz, cnae_principal, has_email, has_phone, company_age_years')
+    .select('id, cnpj_basico, cnpj_completo, is_matriz, cnae_principal, has_email, has_phone, has_fantasia, company_age_years')
     .range(from, from + 499);
   if (!ests?.length) break;
 
-  const rows = (ests as any[]).map(est => {
+  for (const est of ests as any[]) {
     const seg = matchSegmento(est.cnae_principal, mapa || []);
     if (!seg) semSeg++;
+    const cnaeK = String(est.cnae_principal || '').replace(/\D/g, '');
     const emp = empMap.get(est.cnpj_basico) || {};
     const input: ScoreInput = {
       porte_empresa: emp.porte_empresa ?? null,
@@ -109,31 +134,56 @@ for (let from = 0; ; from += 500) {
       company_age_years: est.company_age_years,
       has_email: !!est.has_email,
       has_phone: !!est.has_phone,
+      has_fantasia: !!est.has_fantasia,
       qtd_estabelecimentos_grupo: grupo.get(est.cnpj_basico) || 1,
       segmento_key: seg?.segmento_key || null,
+      segmento_mapeado: !!seg,
       people_intensity_score: seg?.people_intensity_score ?? 30,
       leadership_complexity_score: seg?.leadership_complexity_score ?? 30,
       onboarding_need_score: seg?.onboarding_need_score ?? 30,
       standardization_need_score: seg?.standardization_need_score ?? 30,
       commercial_fit_score: seg?.commercial_fit_score ?? 25,
       is_priority_cnae: seg?.is_priority ?? false,
-      caged_contexto_score: cagedCtx.get(String(est.cnae_principal || '').replace(/\D/g, '')) ?? null,
+      caged_contexto_score: cagedCtx.get(cnaeK) ?? null,
+      contexto_confianca: ctxConf.get(cnaeK) ?? null,
+      rais_tam_medio_setor: raisTam.get(cnaeK) ?? null,
     };
     const r = calcularScore(input);
-    return {
+    // elegível p/ priority_rank: tem segmento E não é micro sem equipe
+    if (input.segmento_mapeado && !r.low_team_probability) {
+      elegiveis.push({ id: est.id, score: r.score_total });
+    }
+    allRows.push({
       estabelecimento_id: est.id, cnpj_completo: est.cnpj_completo,
       score_total: r.score_total, score_dor_pessoas: r.score_dor_pessoas,
       score_capacidade_compra: r.score_capacidade_compra, score_fit_vertho: r.score_fit_vertho,
       score_contexto_setorial: r.score_contexto_setorial, classificacao: r.classificacao,
+      score_confidence: r.score_confidence,
+      commercial_actionability: r.commercial_actionability,
+      low_team_probability: r.low_team_probability,
+      priority_rank: null,
       score_explanation: { ...r.explanation, segmento_key: input.segmento_key },
       scoring_version: SCORING_VERSION, updated_at: new Date().toISOString(),
-    };
-  });
-
-  const { error } = await sb.from('radarempresas_scores').upsert(rows, { onConflict: 'estabelecimento_id' });
-  if (error) { err += rows.length; console.error(error.message); } else proc += rows.length;
-  if (proc % 10000 === 0) console.log(`  ${proc} scored...`);
+    });
+  }
   if (ests.length < 500) break;
+}
+
+// priority_rank: percentil do score entre os ELEGÍVEIS (segmento + não-micro)
+elegiveis.sort((a, b) => a.score - b.score);
+const ne = elegiveis.length;
+const rankById = new Map<string, number>();
+elegiveis.forEach((e, idx) => rankById.set(e.id, ne > 1 ? Math.round((idx / (ne - 1)) * 1000) / 10 : 50));
+for (const row of allRows) row.priority_rank = rankById.get(row.estabelecimento_id) ?? null;
+console.log(`Priority rank: ${ne} elegíveis de ${allRows.length}`);
+
+// upsert único (priority_rank já embutido)
+let proc = 0;
+for (let i = 0; i < allRows.length; i += 1000) {
+  const lote = allRows.slice(i, i + 1000);
+  const { error } = await sb.from('radarempresas_scores').upsert(lote, { onConflict: 'estabelecimento_id' });
+  if (error) { err += lote.length; console.error(error.message); } else proc += lote.length;
+  if (proc % 10000 === 0) console.log(`  ${proc} gravados...`);
 }
 
 if (jobId) await sb.from('radarempresas_jobs').update({
