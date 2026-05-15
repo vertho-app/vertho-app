@@ -8,7 +8,7 @@ import {
   Plus, Loader2, RefreshCw, Zap, BookMarked, ShieldCheck, ChevronRight,
   Trash2, Video, GraduationCap as GradIcon, BarChart2, FileText, Shield,
   Calculator, LayoutDashboard, Bell, Search, Settings, LogOut, Brain,
-  Activity, CheckCircle2, Filter, Globe, Vote, Sparkles, TrendingUp,
+  Activity, CheckCircle2, Filter, Globe, Vote, Sparkles, TrendingUp, Target,
 } from 'lucide-react';
 import { loadAdminDashboard } from './actions';
 
@@ -71,6 +71,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'custo-ia',         label: 'Custo IA',            sub: 'Catálogo de chamadas',       icon: BarChart2,      hrefFn: () => '/admin/vertho/simulador-custo' },
   { key: 'orcamento',        label: 'Orçamento',           sub: 'Custo / Tabela / Final',     icon: Calculator,     hrefFn: () => '/admin/vertho/orcamento' },
   { key: 'mercado',          label: 'Mercado Potencial',   sub: 'Municípios · Redes · Escolas', icon: TrendingUp,   hrefFn: () => '/admin/vertho/mercado-potencial',          showWhenEmpresa: false },
+  { key: 'radar-empresas',   label: 'Radar Empresas',      sub: 'Inteligência comercial B2B', icon: Target,         hrefFn: () => '/admin/vertho/radarempresas',              showWhenEmpresa: false },
   { key: 'admins',           label: 'Admins',              sub: 'Platform admins',            icon: Shield,         hrefFn: () => '/admin/platform-admins',                    showWhenEmpresa: false },
   { key: 'lixeira',          label: 'Lixeira',             sub: 'Registros excluídos',        icon: Trash2,         hrefFn: () => '/admin/lixeira',                            showWhenEmpresa: false },
 ];
@@ -450,6 +451,8 @@ export default function AdminDashboardPage() {
                         title="Nova empresa" desc="Criar e onboarding de tenant" />
                       <QuickAction onClick={() => router.push('/admin/vertho/mercado-potencial')} icon={<TrendingUp size={16} />} accent="#f97354"
                         title="Mercado Potencial" desc="TAM por município, rede e escola" />
+                      <QuickAction onClick={() => router.push('/admin/vertho/radarempresas')} icon={<Target size={16} />} accent="#34c5cc"
+                        title="Radar Empresas" desc="Prospecção B2B · Receita+CAGED+RAIS" />
                       <QuickAction onClick={() => router.push('/admin/radar')} icon={<BarChart2 size={16} />} accent="#9e4edd"
                         title="Radar (Ingestão)" desc="Subir dados Saeb/ICA/Censo" />
                       <QuickAction onClick={() => router.push('/admin/vertho/orcamento')} icon={<Calculator size={16} />} accent="#f4b740"
