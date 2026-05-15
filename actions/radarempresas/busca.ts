@@ -55,6 +55,7 @@ export interface RadarKpis {
   abordar_agora: number;
   boa: number;
   top_segmentos: { key: string; nome: string; n: number }[];
+  genericos_count: number;   // aderentes sem segmento curado (a classificar)
   top_municipios: { municipio: string; n: number }[];
   ultimo_job: { status: string; finished_at: string | null; source_version: string | null } | null;
 }
@@ -77,10 +78,14 @@ export async function loadRadarKpis(): Promise<RadarKpis> {
   const { data: scoresSample } = await sb.from('radarempresas_scores')
     .select('score_explanation').limit(5000);
   const segCount = new Map<string, number>();
+  let genericos_amostra = 0;
   for (const s of (scoresSample || []) as any[]) {
     const k = s.score_explanation?.segmento_key;
-    if (k) segCount.set(k, (segCount.get(k) || 0) + 1);
+    if (!k) continue;
+    if (k === 'generico') { genericos_amostra++; continue; } // não é segmento de produto
+    segCount.set(k, (segCount.get(k) || 0) + 1);
   }
+  // só segmentos de produto reais (genérico = bucket a curar, fora do ranking)
   const top_segmentos = [...segCount.entries()]
     .sort((a, b) => b[1] - a[1]).slice(0, 6)
     .map(([key, n]) => ({ key, nome: getSegmento(key)?.nome || key, n }));
@@ -97,6 +102,10 @@ export async function loadRadarKpis(): Promise<RadarKpis> {
     .sort((a, b) => b[1] - a[1]).slice(0, 6)
     .map(([municipio, n]) => ({ municipio, n }));
 
+  const { count: genCount } = await sb.from('radarempresas_scores')
+    .select('*', { count: 'exact', head: true })
+    .eq('score_explanation->>segmento_key', 'generico');
+
   const { data: job } = await sb.from('radarempresas_jobs')
     .select('status, finished_at, source_version')
     .order('started_at', { ascending: false }).limit(1).maybeSingle();
@@ -108,6 +117,7 @@ export async function loadRadarKpis(): Promise<RadarKpis> {
     abordar_agora: nAbordar || 0,
     boa: nBoa || 0,
     top_segmentos,
+    genericos_count: genCount || 0,
     top_municipios,
     ultimo_job: (job as any) || null,
   };

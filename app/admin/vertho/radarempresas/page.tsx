@@ -143,8 +143,16 @@ export default function RadarEmpresasPage() {
 
       {(kpis?.top_segmentos?.length ?? 0) > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
-          <MiniList title="Top segmentos" icon={<Target size={12} />}
-            items={kpis!.top_segmentos.map(s => ({ label: s.nome, n: s.n }))} />
+          <div>
+            <MiniList title="Top segmentos (curados)" icon={<Target size={12} />}
+              items={kpis!.top_segmentos.map(s => ({ label: s.nome, n: s.n }))} />
+            {(kpis?.genericos_count ?? 0) > 0 && (
+              <p className="text-[10px] text-gray-500 mt-2 px-1">
+                + <span className="text-amber-400 font-bold">{kpis!.genericos_count.toLocaleString('pt-BR')}</span> aderentes
+                genéricos (CNAE não classificado em segmento — candidatos a curar no mapa, confidence ≤ média)
+              </p>
+            )}
+          </div>
           <MiniList title="Top municípios" icon={<MapPin size={12} />}
             items={kpis!.top_municipios.map(m => ({ label: m.municipio, n: m.n }))} />
         </div>
