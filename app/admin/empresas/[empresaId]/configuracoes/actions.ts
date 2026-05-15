@@ -1,13 +1,11 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
-import { requireAdminAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { addVercelDomain, removeVercelDomain } from '@/lib/vercel-domain';
 
 export async function loadConfig(empresaId) {
-  await requireAdminAction();
+  const sb = await requireAdminSupabase();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
-  const sb = createSupabaseAdmin();
   const { data, error } = await sb.from('empresas')
     .select('id, nome, slug, sys_config, ui_config')
     .eq('id', empresaId).single();
@@ -16,9 +14,8 @@ export async function loadConfig(empresaId) {
 }
 
 export async function salvarConfig(empresaId, sysConfig) {
-  await requireAdminAction();
+  const sb = await requireAdminSupabase();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
-  const sb = createSupabaseAdmin();
   const { error } = await sb.from('empresas')
     .update({ sys_config: sysConfig })
     .eq('id', empresaId);
@@ -27,9 +24,8 @@ export async function salvarConfig(empresaId, sysConfig) {
 }
 
 export async function salvarBranding(empresaId, branding) {
-  await requireAdminAction();
+  const sb = await requireAdminSupabase();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
-  const sb = createSupabaseAdmin();
 
   const { data: current } = await sb.from('empresas')
     .select('ui_config')
@@ -47,9 +43,8 @@ export async function salvarBranding(empresaId, branding) {
 // ── Gerenciar Roles da Equipe ──────────────────────────────────────────────
 
 export async function loadEquipe(empresaId) {
-  await requireAdminAction();
+  const sb = await requireAdminSupabase();
   if (!empresaId) return [];
-  const sb = createSupabaseAdmin();
   const { data } = await sb.from('colaboradores')
     .select('id, nome_completo, email, cargo, role')
     .eq('empresa_id', empresaId)
@@ -58,12 +53,11 @@ export async function loadEquipe(empresaId) {
 }
 
 export async function atualizarRole(colaboradorId, novoRole) {
-  await requireAdminAction();
+  const sb = await requireAdminSupabase();
   if (!colaboradorId || !novoRole) return { success: false, error: 'Dados obrigatorios' };
   const validRoles = ['colaborador', 'gestor', 'rh', 'tutor'];
   if (!validRoles.includes(novoRole)) return { success: false, error: `Role invalido. Use: ${validRoles.join(', ')}` };
 
-  const sb = createSupabaseAdmin();
   const { error } = await sb.from('colaboradores')
     .update({ role: novoRole })
     .eq('id', colaboradorId);
@@ -72,13 +66,11 @@ export async function atualizarRole(colaboradorId, novoRole) {
 }
 
 export async function salvarSlug(empresaId, slug) {
-  await requireAdminAction();
+  const sb = await requireAdminSupabase();
   if (!empresaId || !slug) return { success: false, error: 'empresaId e slug obrigatórios' };
 
   const clean = slug.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '');
   if (!clean || clean.length < 2) return { success: false, error: 'Slug deve ter pelo menos 2 caracteres (letras, números e hífens)' };
-
-  const sb = createSupabaseAdmin();
 
   const { data: existing } = await sb.from('empresas')
     .select('id')
@@ -114,10 +106,9 @@ export async function salvarSlug(empresaId, slug) {
  * /admin/empresas/[id]/configuracoes (aba Branding).
  */
 export async function vincularDominioVercel(empresaId: string) {
-  await requireAdminAction();
+  const sb = await requireAdminSupabase();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
 
-  const sb = createSupabaseAdmin();
   const { data: empresa } = await sb.from('empresas')
     .select('slug, nome').eq('id', empresaId).maybeSingle();
   if (!empresa?.slug) return { success: false, error: 'Empresa sem slug definido' };

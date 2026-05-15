@@ -1,7 +1,6 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
-import { requireAdminAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { derivarArquetipo, derivarTagsExecutivas } from '@/lib/disc-arquetipos';
 
 const SELECT_COLS = `
@@ -17,10 +16,9 @@ const SELECT_COLS = `
 
 export async function loadPerfisComportamentaisEmpresa(empresaId: string) {
   try {
-    await requireAdminAction();
+    const sb = await requireAdminSupabase();
     if (!empresaId) return { error: 'empresaId obrigatório' };
 
-    const sb = createSupabaseAdmin();
     const { data, error } = await sb.from('colaboradores')
       .select(SELECT_COLS)
       .eq('empresa_id', empresaId)

@@ -19,11 +19,15 @@ const ADMIN_ACTIONS = [
   'app/admin/vertho/knowledge-base/actions.ts',
 ];
 
-describe('Admin actions devem ter requireAdminAction()', () => {
+function hasAdminAuthGuard(code: string) {
+  return code.includes('requireAdminAction') || code.includes('requireAdminSupabase');
+}
+
+describe('Admin actions devem ter guard admin server-side', () => {
   for (const f of ADMIN_ACTIONS) {
-    it(`${f} deve ter requireAdminAction`, () => {
+    it(`${f} deve ter requireAdminAction ou requireAdminSupabase`, () => {
       const code = readFileSync(f, 'utf-8');
-      expect(code.includes('requireAdminAction')).toBe(true);
+      expect(hasAdminAuthGuard(code)).toBe(true);
     });
   }
 });
