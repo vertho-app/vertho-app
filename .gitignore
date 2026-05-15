@@ -32,6 +32,12 @@ yarn-error.log*
 /outputs/
 *-dump.json
 
+# radar empresas — dados gerados (Parquet/temp DuckDB nunca vão pro git)
+/data-pipeline/radarempresas/out/
+/data-pipeline/radarempresas/tmp_duck/
+/data-pipeline/**/raw/
+*.parquet
+
 # env files
 .env*.local
 
