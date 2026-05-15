@@ -60,3 +60,7 @@ playwright-report/
 
 # Claude Code local settings (contém preferências pessoais/overrides do dev)
 .claude/settings.local.json
+
+# python bytecode
+__pycache__/
+*.pyc
