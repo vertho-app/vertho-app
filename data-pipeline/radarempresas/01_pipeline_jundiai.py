@@ -14,6 +14,12 @@ Uso:
 """
 import csv, sys, os, glob, datetime
 
+# stdout do PowerShell é cp1252 — força utf-8 pra não quebrar em ✓/acentos
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 csv.field_size_limit(10_000_000)
 
 RECEITA_DIR = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("RECEITA_DIR", "")

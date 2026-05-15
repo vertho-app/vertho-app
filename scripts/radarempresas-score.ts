@@ -1,0 +1,116 @@
+/**
+ * Roda o Score de Oportunidade Vertho em lote (standalone, service role).
+ * Mesma lógica de actions/radarempresas/scoring.ts mas sem
+ * requireAdminSupabase (que exige cookies de admin). Reusa o motor
+ * calcularScore de lib/radarempresas/score.ts — zero divergência.
+ *
+ * Uso: npx tsx scripts/radarempresas-score.ts
+ */
+import { readFileSync } from 'node:fs';
+import { createClient } from '@supabase/supabase-js';
+import { calcularScore, SCORING_VERSION, type ScoreInput } from '../lib/radarempresas/score';
+
+const env = readFileSync('.env.local', 'utf8').split('\n').filter(l => l && !l.startsWith('#'))
+  .reduce((a: any, l) => { const i = l.indexOf('='); if (i > 0) a[l.slice(0, i).trim()] = l.slice(i + 1).trim(); return a; }, {});
+const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+
+function matchSegmento(cnae: string | null, mapa: any[]) {
+  if (!cnae) return null;
+  const c = cnae.replace(/\D/g, '');
+  for (const m of mapa) if (c.startsWith(m.cnae_prefixo)) return m;
+  return null;
+}
+
+async function main() {
+const { data: job } = await sb.from('radarempresas_jobs')
+  .insert({ job_type: 'score', status: 'running', source_version: SCORING_VERSION })
+  .select('id').single();
+const jobId = (job as any)?.id;
+
+const { data: mapa } = await sb.from('radarempresas_cnae_segmento')
+  .select('cnae_prefixo, prefixo_len, segmento_key, people_intensity_score, leadership_complexity_score, onboarding_need_score, standardization_need_score, commercial_fit_score, is_priority')
+  .order('prefixo_len', { ascending: false });
+console.log(`Mapa CNAE→segmento: ${mapa?.length} regras`);
+
+// Empresas (capital/porte) por cnpj_basico
+const empMap = new Map<string, any>();
+for (let from = 0; ; from += 1000) {
+  const { data } = await sb.from('radarempresas_empresas')
+    .select('cnpj_basico, capital_social, porte_empresa').range(from, from + 999);
+  if (!data?.length) break;
+  for (const e of data as any[]) empMap.set(e.cnpj_basico, e);
+  if (data.length < 1000) break;
+}
+console.log(`Empresas: ${empMap.size}`);
+
+// Multiunidade: nº estab por cnpj_basico
+const grupo = new Map<string, number>();
+for (let from = 0; ; from += 1000) {
+  const { data } = await sb.from('radarempresas_estabelecimentos')
+    .select('cnpj_basico').range(from, from + 999);
+  if (!data?.length) break;
+  for (const r of data as any[]) grupo.set(r.cnpj_basico, (grupo.get(r.cnpj_basico) || 0) + 1);
+  if (data.length < 1000) break;
+}
+
+let proc = 0, semSeg = 0, err = 0;
+const t0 = Date.now();
+for (let from = 0; ; from += 500) {
+  const { data: ests } = await sb.from('radarempresas_estabelecimentos')
+    .select('id, cnpj_basico, cnpj_completo, is_matriz, cnae_principal, has_email, has_phone, company_age_years')
+    .range(from, from + 499);
+  if (!ests?.length) break;
+
+  const rows = (ests as any[]).map(est => {
+    const seg = matchSegmento(est.cnae_principal, mapa || []);
+    if (!seg) semSeg++;
+    const emp = empMap.get(est.cnpj_basico) || {};
+    const input: ScoreInput = {
+      porte_empresa: emp.porte_empresa ?? null,
+      capital_social: emp.capital_social ?? null,
+      is_matriz: !!est.is_matriz,
+      company_age_years: est.company_age_years,
+      has_email: !!est.has_email,
+      has_phone: !!est.has_phone,
+      qtd_estabelecimentos_grupo: grupo.get(est.cnpj_basico) || 1,
+      segmento_key: seg?.segmento_key || null,
+      people_intensity_score: seg?.people_intensity_score ?? 30,
+      leadership_complexity_score: seg?.leadership_complexity_score ?? 30,
+      onboarding_need_score: seg?.onboarding_need_score ?? 30,
+      standardization_need_score: seg?.standardization_need_score ?? 30,
+      commercial_fit_score: seg?.commercial_fit_score ?? 25,
+      is_priority_cnae: seg?.is_priority ?? false,
+    };
+    const r = calcularScore(input);
+    return {
+      estabelecimento_id: est.id, cnpj_completo: est.cnpj_completo,
+      score_total: r.score_total, score_dor_pessoas: r.score_dor_pessoas,
+      score_capacidade_compra: r.score_capacidade_compra, score_fit_vertho: r.score_fit_vertho,
+      score_contexto_setorial: r.score_contexto_setorial, classificacao: r.classificacao,
+      score_explanation: { ...r.explanation, segmento_key: input.segmento_key },
+      scoring_version: SCORING_VERSION, updated_at: new Date().toISOString(),
+    };
+  });
+
+  const { error } = await sb.from('radarempresas_scores').upsert(rows, { onConflict: 'estabelecimento_id' });
+  if (error) { err += rows.length; console.error(error.message); } else proc += rows.length;
+  if (proc % 10000 === 0) console.log(`  ${proc} scored...`);
+  if (ests.length < 500) break;
+}
+
+if (jobId) await sb.from('radarempresas_jobs').update({
+  status: 'done', rows_processed: proc, rows_inserted: proc - err, rows_failed: err,
+  finished_at: new Date().toISOString(),
+}).eq('id', jobId);
+
+console.log(`\n[OK] ${proc} scored, ${semSeg} sem segmento, ${err} erros em ${Math.round((Date.now()-t0)/1000)}s`);
+
+// Distribuição
+const { data: dist } = await sb.from('radarempresas_scores')
+  .select('classificacao').limit(100000);
+const d: any = {};
+for (const r of (dist || []) as any[]) d[r.classificacao] = (d[r.classificacao] || 0) + 1;
+console.log('Classificação:', d);
+}
+
+main().then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); });
