@@ -2,6 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
+import { isPerfilComportamentalLiberado } from '@/lib/votacao/status';
 
 /**
  * Carrega a jornada do colaborador — status de cada fase.
@@ -23,9 +24,7 @@ export async function loadJornada() {
   const cfg = (empCfg?.sys_config as any) || {};
   const empresaPerfilExternoFonte = cfg.perfil_externo_fonte ?? null;
   const usaPerfilExterno = !!empresaPerfilExternoFonte;
-  const perfilComportamentalLiberado =
-    cfg.perfil_comportamental_liberado !== false &&
-    !(cfg.votacao_ativa === true && cfg.perfil_comportamental_liberado !== true);
+  const perfilComportamentalLiberado = isPerfilComportamentalLiberado(cfg);
 
   const fases = [];
 

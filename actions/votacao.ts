@@ -5,6 +5,7 @@ import { headers } from 'next/headers';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
+import { isPerfilComportamentalLiberado } from '@/lib/votacao/status';
 
 // Heurística leve pra classificar device a partir do user-agent.
 // Não tenta cobrir 100% dos casos — só os principais. Bots vão pra 'bot'.
@@ -43,12 +44,6 @@ async function captureRequestMetadata() {
 }
 
 // ── Check rápido: votação aberta? já votou? ──────────────────────────────
-
-function isPerfilComportamentalLiberado(config: any) {
-  if (config?.perfil_comportamental_liberado === false) return false;
-  if (config?.votacao_ativa === true && config?.perfil_comportamental_liberado !== true) return false;
-  return true;
-}
 
 export async function checkVotacaoStatus() {
   try {

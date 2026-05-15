@@ -2,6 +2,7 @@
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { calcularMercadoScores } from '@/lib/mercado-potencial/scoring';
 
 /**
  * Mercado potencial — uso interno comercial.
@@ -58,66 +59,6 @@ interface MercadoRowBase {
 
 // ── Scoring helpers ─────────────────────────────────────────────────────────
 
-const DEFAULTS = { precoProf: 100, precoGestor: 100, idadeOnboarding: 29 };
-
-function calcularScores(row: any, filtros: MercadoFilters): Partial<MercadoRowBase> & { qt_jovens_efetivo: number; qt_professores_onboarding: number; qt_professores_total: number } {
-  const precoProf = filtros.precoProf ?? DEFAULTS.precoProf;
-  const precoGestor = filtros.precoGestor ?? DEFAULTS.precoGestor;
-  const idadeCorte = filtros.idadeOnboarding ?? DEFAULTS.idadeOnboarding;
-  const profs = Number(row.qt_professores || 0);
-  // INEP publica idade em faixas fixas — corte 24 usa só 0-24; corte 29
-  // (default) usa 0-24 + 25-29 (= qt_docs_jovens já agregado na MV).
-  // Outros valores caem no fallback 29 (limitação documentada).
-  const jovens = idadeCorte <= 24
-    ? Number(row.qt_docs_0_24 || 0)
-    : Number(row.qt_docs_jovens || 0);
-  const pos = Number(row.qt_docs_pos || 0);
-  const gestores = Number(row.qt_gestores || 0);
-  const inse = row.inse_medio != null ? Number(row.inse_medio) : null;
-
-  const pct_sem_pos = profs > 0 ? Math.max(0, 1 - pos / profs) : 0;
-  const pct_jovens = profs > 0 ? jovens / profs : 0;
-
-  const tam_mensal_mentor_ia = profs * precoProf + gestores * precoGestor;
-  const tam_mensal_onboarding = jovens * precoProf + gestores * precoGestor;
-
-  // fit_pedagogico: maior quando há mais lacuna formativa (sem pós, recém-formados)
-  const fit_pedagogico = Math.min(1, 0.4 + 0.3 * pct_sem_pos + 0.3 * pct_jovens);
-
-  // fit_financeiro: depende da rede principal (público vs privado)
-  // INSE INEP: 1 = nível socioeconômico MAIS BAIXO; 6 = MAIS ALTO.
-  // Normaliza pra inseNorm 0-1 onde 1 = mais rico, 0 = mais pobre.
-  // Privada: INSE alto = mais bolso. Pública: INSE baixo = mais demanda/ROI político.
-  const redeRow = (row.rede || '').toUpperCase();
-  let fit_financeiro: number | null = null;
-  if (inse != null) {
-    const inseNorm = (inse - 1) / 5; // 0 (INSE 1, mais pobre) a 1 (INSE 6, mais rico)
-    if (redeRow === 'PRIVADA') {
-      // Privada com INSE alto (6) → mais bolso
-      fit_financeiro = 0.4 + 0.6 * inseNorm;
-    } else if (redeRow === 'MUNICIPAL' || redeRow === 'ESTADUAL' || redeRow === 'FEDERAL') {
-      // Pública: escolas mais carentes (INSE baixo) geram mais demanda
-      fit_financeiro = 0.5 + 0.4 * (1 - inseNorm);
-    } else {
-      // Município agregado (sem rede): combina ambos
-      fit_financeiro = 0.5;
-    }
-  }
-
-  const score_base = tam_mensal_mentor_ia * fit_pedagogico;
-  const score_completo = fit_financeiro != null ? score_base * fit_financeiro : null;
-
-  return {
-    pct_sem_pos, pct_jovens,
-    tam_mensal_mentor_ia, tam_mensal_onboarding,
-    fit_pedagogico, fit_financeiro,
-    score_base, score_completo,
-    qt_jovens_efetivo: jovens,              // reflete idadeCorte escolhido (24 ou 29)
-    qt_professores_onboarding: jovens,      // público elegível do onboarding no corte selecionado
-    qt_professores_total: profs,
-  };
-}
-
 /**
  * Aplica filtros UF + INSE + busca de cidade na query.
  * INSE: a MV de município/rede tem `inse_medio` (AVG agregado); a MV de escola
@@ -171,7 +112,7 @@ export async function loadMercadoMunicipios(filtros: MercadoFilters = {}) {
     inse_medio: r.inse_medio != null ? Number(r.inse_medio) : null,
     pct_inse_oficial: r.pct_inse_oficial != null ? Number(r.pct_inse_oficial) : null,
     score_conectividade: r.score_conectividade,
-    ...calcularScores(r, filtros),
+    ...calcularMercadoScores(r, filtros),
   }));
 
   rows = ordenarRows(rows, filtros);
@@ -211,7 +152,7 @@ export async function loadMercadoRedes(filtros: MercadoFilters = {}) {
     qt_gestores: Number(r.qt_gestores || 0),
     inse_medio: r.inse_medio != null ? Number(r.inse_medio) : null,
     pct_inse_oficial: r.pct_inse_oficial != null ? Number(r.pct_inse_oficial) : null,
-    ...calcularScores(r, filtros),
+    ...calcularMercadoScores(r, filtros),
   }));
 
   rows = ordenarRows(rows, filtros);
@@ -270,7 +211,7 @@ export async function loadMercadoEscolas(filtros: MercadoFilters = {}) {
       inse_fonte: r.inse_fonte || null,             // 'oficial' | 'inferido'
       inse_grupo_oficial: r.inse_grupo != null ? Number(r.inse_grupo) : null,
       score_conectividade: r.score_conectividade,
-      ...calcularScores(enriched, filtros),
+      ...calcularMercadoScores(enriched, filtros),
     };
   });
 

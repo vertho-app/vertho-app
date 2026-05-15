@@ -5,6 +5,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI } from '@/actions/ai-client';
 import { derivarArquetipo, derivarTagsExecutivas, insightsHardcoded } from '@/lib/disc-arquetipos';
 import { buildInsightsExecutivosPrompt } from '@/lib/prompts/insights-executivos-prompt';
+import { isPerfilComportamentalLiberado } from '@/lib/votacao/status';
 
 const INSIGHTS_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
 
@@ -51,9 +52,7 @@ export async function loadPerfilCIS() {
       .maybeSingle();
     const cfg = (empCfg?.sys_config as any) || {};
     empresaPerfilExternoFonte = cfg.perfil_externo_fonte ?? null;
-    perfilComportamentalLiberado =
-      cfg.perfil_comportamental_liberado !== false &&
-      !(cfg.votacao_ativa === true && cfg.perfil_comportamental_liberado !== true);
+    perfilComportamentalLiberado = isPerfilComportamentalLiberado(cfg);
     empresaPerfilExternoLabel =
       cfg.perfil_externo_label ||
       cfg.perfil_externo_nome ||

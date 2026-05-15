@@ -3,6 +3,7 @@
 import { after } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
+import { isPerfilComportamentalLiberado } from '@/lib/votacao/status';
 
 /**
  * Verifica se o colaborador pode responder o DISC nativo.
@@ -23,9 +24,7 @@ export async function verificarDisponibilidadeMapeamento() {
     .maybeSingle();
   const fonteExterna = (empCfg?.sys_config as any)?.perfil_externo_fonte ?? null;
   const cfg = (empCfg?.sys_config as any) || {};
-  const perfilLiberado =
-    cfg.perfil_comportamental_liberado !== false &&
-    !(cfg.votacao_ativa === true && cfg.perfil_comportamental_liberado !== true);
+  const perfilLiberado = isPerfilComportamentalLiberado(cfg);
   if (fonteExterna) {
     return {
       permitido: false,
@@ -67,9 +66,7 @@ export async function salvarPerfilComportamental(resultados) {
     .maybeSingle();
   const fonteExterna = (empCfg?.sys_config as any)?.perfil_externo_fonte ?? null;
   const cfg = (empCfg?.sys_config as any) || {};
-  const perfilLiberado =
-    cfg.perfil_comportamental_liberado !== false &&
-    !(cfg.votacao_ativa === true && cfg.perfil_comportamental_liberado !== true);
+  const perfilLiberado = isPerfilComportamentalLiberado(cfg);
   if (fonteExterna) {
     return {
       success: false,

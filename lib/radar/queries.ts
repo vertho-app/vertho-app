@@ -448,6 +448,53 @@ export type DispersaoEscolasMunicipal = {
   pontos: { inep: string; nome: string; valor: number }[];
 };
 
+export function calcularDispersaoMunicipalFromRows(
+  escolas: Array<{ codigo_inep: string; nome: string }>,
+  rows: Array<{ codigo_inep: string; ano: number; etapa: string; ideb: number | null }>,
+): DispersaoEscolasMunicipal | null {
+  const escolasMap = new Map<string, string>();
+  for (const e of escolas) escolasMap.set(e.codigo_inep, e.nome);
+  if (!escolasMap.size) return null;
+
+  const rowsComIdeb = rows.filter((r) => r.ideb != null && escolasMap.has(r.codigo_inep));
+  if (!rowsComIdeb.length) return null;
+
+  const anoMax = Math.max(...rowsComIdeb.map((r) => r.ano));
+  const recentes = rowsComIdeb.filter((r) => r.ano === anoMax);
+  const counts: Record<string, number> = {};
+  for (const r of recentes) counts[r.etapa] = (counts[r.etapa] || 0) + 1;
+  const etapa = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
+  if (!etapa) return null;
+
+  const filtrados = recentes.filter((r) => r.etapa === etapa).map((r) => ({
+    inep: r.codigo_inep,
+    nome: escolasMap.get(r.codigo_inep) || '',
+    valor: Number(r.ideb),
+  }));
+  if (filtrados.length < 3) return null;
+
+  const valores = filtrados.map((p) => p.valor).sort((a, b) => a - b);
+  const min = valores[0];
+  const max = valores[valores.length - 1];
+  const media = valores.reduce((a, b) => a + b, 0) / valores.length;
+  const mediana = valores.length % 2
+    ? valores[(valores.length - 1) / 2]
+    : (valores[valores.length / 2 - 1] + valores[valores.length / 2]) / 2;
+  const desvio = Math.sqrt(valores.reduce((s, v) => s + (v - media) ** 2, 0) / valores.length);
+
+  return {
+    etapa,
+    ano: anoMax,
+    totalEscolas: filtrados.length,
+    media,
+    mediana,
+    min,
+    max,
+    desvio,
+    pontos: filtrados.sort((a, b) => a.valor - b.valor),
+  };
+}
+
 /**
  * Calcula a dispersão de Ideb entre as escolas da rede MUNICIPAL de um
  * município. Usa a etapa com mais escolas (geralmente 9_EF). Retorna
@@ -474,42 +521,7 @@ export async function getDispersaoMunicipal(ibge: string): Promise<DispersaoEsco
     .in('codigo_inep', ineps)
     .not('ideb', 'is', null);
   const rows = (idebRes.data || []) as { codigo_inep: string; ano: number; etapa: string; ideb: number }[];
-  if (!rows.length) return null;
-
-  const anoMax = Math.max(...rows.map((r) => r.ano));
-  const recentes = rows.filter((r) => r.ano === anoMax);
-  // Etapa com mais escolas
-  const counts: Record<string, number> = {};
-  for (const r of recentes) counts[r.etapa] = (counts[r.etapa] || 0) + 1;
-  const etapa = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
-  if (!etapa) return null;
-  const filtrados = recentes.filter((r) => r.etapa === etapa).map((r) => ({
-    inep: r.codigo_inep,
-    nome: escolasMap.get(r.codigo_inep) || '',
-    valor: Number(r.ideb),
-  }));
-  if (filtrados.length < 3) return null; // dispersão só faz sentido com volume mínimo
-
-  const valores = filtrados.map((p) => p.valor).sort((a, b) => a - b);
-  const min = valores[0];
-  const max = valores[valores.length - 1];
-  const media = valores.reduce((a, b) => a + b, 0) / valores.length;
-  const mediana = valores.length % 2
-    ? valores[(valores.length - 1) / 2]
-    : (valores[valores.length / 2 - 1] + valores[valores.length / 2]) / 2;
-  const desvio = Math.sqrt(valores.reduce((s, v) => s + (v - media) ** 2, 0) / valores.length);
-
-  return {
-    etapa,
-    ano: anoMax,
-    totalEscolas: filtrados.length,
-    media,
-    mediana,
-    min,
-    max,
-    desvio,
-    pontos: filtrados.sort((a, b) => a.valor - b.valor),
-  };
+  return calcularDispersaoMunicipalFromRows((escolasRes.data || []) as any, rows);
 }
 
 export type EscolaBenchmarkScope = 'escola' | 'microrregiao' | 'estado';
