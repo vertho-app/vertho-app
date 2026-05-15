@@ -1,7 +1,9 @@
 'use server';
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
-import { calcularScore, SCORING_VERSION, type ScoreInput } from '@/lib/radarempresas/score';
+import { calcularScore, classificarHelper, SCORING_VERSION, type ScoreInput } from '@/lib/radarempresas/score';
+
+const TETO_VAL: Record<string, number> = { boa: 79, nutrir: 59, baixa: 39 };
 
 interface CnaeSegMap {
   cnae_prefixo: string;
@@ -73,6 +75,9 @@ export async function rodarScores(
     const { data: denyRaw } = await sb.from('radarempresas_cnae_denylist')
       .select('cnae_prefixo').order('prefixo_len', { ascending: false });
     const deny = (denyRaw || []).map((d: any) => d.cnae_prefixo as string);
+    const { data: segTeto } = await sb.from('radarempresas_segmentos')
+      .select('key, classificacao_teto').not('classificacao_teto', 'is', null);
+    const tetoMap = new Map<string, string>((segTeto || []).map((s: any) => [s.key, s.classificacao_teto]));
 
     // Contexto v4: rotatividade real CAGED÷RAIS com travas estatísticas
     // (piso estoque/mov, suavização bayesiana, cap). Mantido em sincronia
@@ -200,23 +205,32 @@ export async function rodarScores(
         };
 
         const r = calcularScore(input);
+        let scoreFinal = r.score_total;
+        let classifFinal: string = r.classificacao;
+        const teto = input.segmento_key ? tetoMap.get(input.segmento_key) : undefined;
+        const tetoCap = teto ? TETO_VAL[teto] : undefined;
+        const capeado = tetoCap != null && scoreFinal > tetoCap;
+        if (capeado) { scoreFinal = tetoCap!; classifFinal = classificarHelper(scoreFinal); }
         if (input.segmento_mapeado && !r.low_team_probability) {
-          elegiveis.push({ id: est.id, score: r.score_total });
+          elegiveis.push({ id: est.id, score: scoreFinal });
         }
         allRows.push({
           estabelecimento_id: est.id,
           cnpj_completo: est.cnpj_completo,
-          score_total: r.score_total,
+          score_total: scoreFinal,
           score_dor_pessoas: r.score_dor_pessoas,
           score_capacidade_compra: r.score_capacidade_compra,
           score_fit_vertho: r.score_fit_vertho,
           score_contexto_setorial: r.score_contexto_setorial,
-          classificacao: r.classificacao,
+          classificacao: classifFinal,
           score_confidence: r.score_confidence,
           commercial_actionability: r.commercial_actionability,
           low_team_probability: r.low_team_probability,
           priority_rank: null,
-          score_explanation: { ...r.explanation, segmento_key: input.segmento_key },
+          score_explanation: {
+            ...r.explanation, segmento_key: input.segmento_key,
+            ...(capeado ? { teto_comercial: { segmento: input.segmento_key, teto, score_original: r.score_total } } : {}),
+          },
           scoring_version: version,
           updated_at: new Date().toISOString(),
         });
