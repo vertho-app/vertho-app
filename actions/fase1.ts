@@ -1,11 +1,11 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { callAI, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import type { FaseCarreira } from '@/lib/season-engine/programa-config';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 
 // ── IA1: Selecionar top 10 competências por cargo ───────────────────────────
 // Seleciona das competências JÁ CADASTRADAS na empresa (tabela competencias).
@@ -20,9 +20,8 @@ export interface RodarIA1Opts {
 }
 
 export async function rodarIA1(empresaId: string, aiConfig: AIConfig = {}, opts: RodarIA1Opts = {}) {
-  await requireAdminAction();
+  const sbRaw = await requireAdminSupabase();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
-  const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
   try {
     // 1. Buscar empresa (id é tenant — usar raw)
@@ -273,9 +272,8 @@ export async function adicionarTop10(empresaId: string, cargo: string, competenc
 }
 
 export async function removerTop10(id: string) {
-  await requireAdminAction();
   // Não recebe empresaId. Descobre via raw + valida tenant pra defesa em profundidade.
-  const sbRaw = createSupabaseAdmin();
+  const sbRaw = await requireAdminSupabase();
   const { data: row } = await sbRaw.from('top10_cargos').select('empresa_id').eq('id', id).maybeSingle();
   if (!row) return { success: false, error: 'Não encontrado' };
   const tdb = tenantDb(row.empresa_id);
@@ -670,9 +668,8 @@ const SUB_COMPETENCIAS_CIS = [
 ];
 
 export async function rodarIA2(empresaId: string, aiConfig: AIConfig = {}) {
-  await requireAdminAction();
+  const sbRaw = await requireAdminSupabase();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
-  const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
   try {
     // 1. Buscar empresa (id é tenant — raw)
@@ -995,9 +992,8 @@ export async function listarFilaIA3(empresaId: string) {
 
 // Gera cenário para UMA competência (cabe em 60s)
 export async function rodarIA3Uma(empresaId: string, cargoNome: string, competenciaId: string, aiConfig: AIConfig = {}) {
-  await requireAdminAction();
+  const sbRaw = await requireAdminSupabase();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
-  const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
   try {
     // Empresa (id é tenant — raw)
@@ -1132,8 +1128,7 @@ export async function rodarIA3(empresaId: string, aiConfig: AIConfig = {}) {
 
 // Regenerar cenário com base no feedback do check
 export async function regenerarCenario(cenarioId: string, aiConfig: AIConfig = {}) {
-  await requireAdminAction();
-  const sbRaw = createSupabaseAdmin();
+  const sbRaw = await requireAdminSupabase();
   try {
     // banco_cenarios é misto → raw por id
     const { data: cen } = await sbRaw.from('banco_cenarios')
@@ -1254,8 +1249,7 @@ export async function listarFilaCheck(empresaId: string) {
 }
 
 export async function checkCenarioUm(cenarioId: string, empresaId: string | null = null, cargo: string | null = null, competenciaId: string | null = null, modelo: string | null = null) {
-  await requireAdminAction();
-  const sbRaw = createSupabaseAdmin();
+  const sbRaw = await requireAdminSupabase();
   try {
     // banco_cenarios é misto → raw na busca por id ou por empresa+cargo+competencia
     let cen;
@@ -1647,4 +1641,3 @@ para avaliar e auditar. Priorize clareza, discriminância e utilidade — não c
 
   return blocks.join('\n\n');
 }
-
