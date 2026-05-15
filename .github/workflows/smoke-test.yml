@@ -26,7 +26,7 @@ jobs:
         run: sleep 90
 
       - name: Run smoke test
-        run: node scripts/smoke-test.js https://vertho.ai
+        run: node scripts/smoke-test.js https://app.vertho.ai
 
       - name: Report result
         if: failure()
