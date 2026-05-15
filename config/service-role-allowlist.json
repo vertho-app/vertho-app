@@ -6,7 +6,7 @@
     "actions/conteudos-metrics.ts": 1,
     "actions/cron-jobs.ts": 3,
     "actions/dashboard-kpis.ts": 1,
-    "actions/fase5.ts": 12,
+    "actions/fase5.ts": 2,
     "actions/lead-comercial.ts": 2,
     "actions/pulse/classify.ts": 1,
     "actions/pulse/dashboard.ts": 1,
