@@ -56,6 +56,19 @@ export async function rodarScores(
       return { ok: false, error: 'Rode a migration 099 (seed cnae_segmento vazio)' };
     }
 
+    // Contexto CAGED (v2): percentil de movimentação por CNAE em Jundiaí
+    const cagedCtx = new Map<string, number>();
+    {
+      const { data: cg } = await sb.from('radarempresas_caged_municipio_cnae_6m')
+        .select('cnae, taxa_mov_proxy').eq('municipio_ibge', '352590');
+      const arr = (cg || []).filter((r: any) => r.taxa_mov_proxy != null)
+        .sort((a: any, b: any) => a.taxa_mov_proxy - b.taxa_mov_proxy);
+      const n = arr.length;
+      arr.forEach((r: any, idx: number) => {
+        cagedCtx.set(String(r.cnae).replace(/\D/g, ''), n > 1 ? Math.round((idx / (n - 1)) * 100) : 50);
+      });
+    }
+
     // Empresas (capital/porte) em mapa por cnpj_basico
     const empMap = new Map<string, { capital_social: number | null; porte_empresa: string | null }>();
     {
@@ -124,6 +137,7 @@ export async function rodarScores(
           standardization_need_score: seg?.standardization_need_score ?? 30,
           commercial_fit_score: seg?.commercial_fit_score ?? 25,
           is_priority_cnae: seg?.is_priority ?? false,
+          caged_contexto_score: cagedCtx.get(String(est.cnae_principal || '').replace(/\D/g, '')) ?? null,
         };
 
         const r = calcularScore(input);

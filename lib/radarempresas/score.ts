@@ -11,7 +11,7 @@
  * fora da fórmula (null), sem alterar os pesos das outras 3 dimensões.
  */
 
-export const SCORING_VERSION = 'v1';
+export const SCORING_VERSION = 'v2';
 
 export type Classificacao = 'abordar_agora' | 'boa' | 'nutrir' | 'baixa';
 
@@ -32,6 +32,10 @@ export interface ScoreInput {
   standardization_need_score: number;
   commercial_fit_score: number;
   is_priority_cnae: boolean;
+  // Contexto setorial CAGED (v2): intensidade de movimentação de emprego
+  // do CNAE no município, JÁ normalizada 0-100 pelo caller (percentil
+  // dentro do recorte). null = sem dado CAGED (comporta como v1).
+  caged_contexto_score?: number | null;
 }
 
 export interface ScoreExplanationPart {
@@ -82,7 +86,15 @@ function calcDorPessoas(i: ScoreInput): { score: number; parts: ScoreExplanation
   const contato = (i.has_email || i.has_phone) ? 5 : 0;
   parts.push({ parcela: 'contato_operavel', valor: contato, detalhe: (i.has_email || i.has_phone) ? 'tem email/telefone' : 'sem contato' });
 
-  const score = clamp(base + padr + multi + prio + contato);
+  // v2: contexto CAGED — setor que mais movimenta pessoas no município
+  // tem mais provável dor de retenção/onboarding. Máx +15 (0.15×100).
+  let ctx = 0;
+  if (i.caged_contexto_score != null) {
+    ctx = round1(0.15 * i.caged_contexto_score);
+    parts.push({ parcela: 'contexto_caged', valor: ctx, detalhe: `0.15 × ${i.caged_contexto_score} (intensidade de movimentação do setor no município — CAGED 6m)` });
+  }
+
+  const score = clamp(base + padr + multi + prio + contato + ctx);
   return { score: round1(score), parts };
 }
 
@@ -180,7 +192,7 @@ export function calcularScore(input: ScoreInput): ScoreResult {
     score_dor_pessoas: dor.score,
     score_capacidade_compra: cap.score,
     score_fit_vertho: fit.score,
-    score_contexto_setorial: null, // SIDRA — Etapa 4
+    score_contexto_setorial: input.caged_contexto_score ?? null, // v2: CAGED
     classificacao: classificarHelper(total),
     scoring_version: SCORING_VERSION,
     explanation: {

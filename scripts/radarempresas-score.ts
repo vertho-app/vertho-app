@@ -43,6 +43,23 @@ for (let from = 0; ; from += 1000) {
 }
 console.log(`Empresas: ${empMap.size}`);
 
+// Contexto CAGED: intensidade de movimentação por CNAE em Jundiaí (352590),
+// normalizada por percentil dentro do recorte (0-100). CNAE que mais
+// movimenta pessoas no município → contexto alto → +dor.
+const cagedCtx = new Map<string, number>();
+{
+  const { data: cg } = await sb.from('radarempresas_caged_municipio_cnae_6m')
+    .select('cnae, taxa_mov_proxy').eq('municipio_ibge', '352590');
+  const arr = (cg || []).filter((r: any) => r.taxa_mov_proxy != null)
+    .sort((a: any, b: any) => a.taxa_mov_proxy - b.taxa_mov_proxy);
+  const n = arr.length;
+  arr.forEach((r: any, idx: number) => {
+    // percentil 0-100 (CNAE de maior movimentação ≈ 100)
+    cagedCtx.set(String(r.cnae).replace(/\D/g, ''), n > 1 ? Math.round((idx / (n - 1)) * 100) : 50);
+  });
+  console.log(`Contexto CAGED Jundiaí: ${n} CNAEs com movimentação`);
+}
+
 // Multiunidade: nº estab por cnpj_basico
 const grupo = new Map<string, number>();
 for (let from = 0; ; from += 1000) {
@@ -80,6 +97,7 @@ for (let from = 0; ; from += 500) {
       standardization_need_score: seg?.standardization_need_score ?? 30,
       commercial_fit_score: seg?.commercial_fit_score ?? 25,
       is_priority_cnae: seg?.is_priority ?? false,
+      caged_contexto_score: cagedCtx.get(String(est.cnae_principal || '').replace(/\D/g, '')) ?? null,
     };
     const r = calcularScore(input);
     return {

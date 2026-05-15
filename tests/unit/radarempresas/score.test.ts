@@ -34,10 +34,10 @@ describe('calcularScore — estrutura', () => {
     expect(Math.abs(r.score_total - recomposto)).toBeLessThan(0.6); // arredondamento
   });
 
-  it('SIDRA fica null no v1 e versão é v1', () => {
+  it('versão é v2; contexto setorial null quando sem CAGED', () => {
     const r = calcularScore(baseInput());
     expect(r.score_contexto_setorial).toBeNull();
-    expect(r.scoring_version).toBe('v1');
+    expect(r.scoring_version).toBe('v2');
   });
 
   it('explanation tem as 3 dimensões com parcelas auditáveis', () => {
@@ -81,6 +81,21 @@ describe('calcularScore — comportamento das regras', () => {
     const sem = calcularScore(baseInput({ has_email: false, has_phone: false }));
     expect(sem.score_dor_pessoas).toBeLessThan(com.score_dor_pessoas);
     expect(sem.score_capacidade_compra).toBeLessThan(com.score_capacidade_compra);
+  });
+
+  it('contexto CAGED (v2): null = comporta como v1', () => {
+    const semCtx = calcularScore(baseInput());
+    expect(semCtx.score_contexto_setorial).toBeNull();
+    expect(semCtx.scoring_version).toBe('v2');
+  });
+
+  it('contexto CAGED alto aumenta dor e preenche score_contexto_setorial', () => {
+    const sem = calcularScore(baseInput({ caged_contexto_score: null }));
+    const alto = calcularScore(baseInput({ caged_contexto_score: 100 }));
+    expect(alto.score_contexto_setorial).toBe(100);
+    expect(alto.score_dor_pessoas).toBeGreaterThanOrEqual(sem.score_dor_pessoas);
+    const tem = alto.explanation.dor_pessoas.some(p => p.parcela === 'contexto_caged');
+    expect(tem).toBe(true);
   });
 
   it('classificação respeita as faixas', () => {
