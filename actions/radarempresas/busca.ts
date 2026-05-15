@@ -74,16 +74,22 @@ export async function loadRadarKpis(): Promise<RadarKpis> {
     sb.from('radarempresas_scores').select('*', { count: 'exact', head: true }).eq('classificacao', 'boa'),
   ]);
 
-  // Top segmentos (via score_explanation->>segmento_key) — amostra
-  const { data: scoresSample } = await sb.from('radarempresas_scores')
-    .select('score_explanation').limit(5000);
+  // Top segmentos = só PRIORIZADOS (priority_rank >= 90, mesma régua do
+  // funil). Mostra onde estão as oportunidades acionáveis — não o volume
+  // bruto (senão segmento em modo nutrir/teto aparece liderando à toa).
   const segCount = new Map<string, number>();
-  let genericos_amostra = 0;
-  for (const s of (scoresSample || []) as any[]) {
-    const k = s.score_explanation?.segmento_key;
-    if (!k) continue;
-    if (k === 'generico') { genericos_amostra++; continue; } // não é segmento de produto
-    segCount.set(k, (segCount.get(k) || 0) + 1);
+  for (let from = 0; ; from += 1000) {
+    const { data } = await sb.from('radarempresas_scores')
+      .select('score_explanation')
+      .gte('priority_rank', 90)
+      .range(from, from + 999);
+    if (!data?.length) break;
+    for (const s of data as any[]) {
+      const k = s.score_explanation?.segmento_key;
+      if (!k || k === 'generico') continue; // genérico não é segmento de produto
+      segCount.set(k, (segCount.get(k) || 0) + 1);
+    }
+    if (data.length < 1000) break;
   }
   // só segmentos de produto reais (genérico = bucket a curar, fora do ranking)
   const top_segmentos = [...segCount.entries()]

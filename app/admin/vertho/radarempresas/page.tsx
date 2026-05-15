@@ -168,7 +168,7 @@ export default function RadarEmpresasPage() {
       {(kpis?.top_segmentos?.length ?? 0) > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
           <div>
-            <MiniList title="Top segmentos (curados)" icon={<Target size={12} />}
+            <MiniList title="Top segmentos (priorizados)" icon={<Target size={12} />}
               items={kpis!.top_segmentos.map(s => ({ label: s.nome, n: s.n }))} />
             {(kpis?.genericos_count ?? 0) > 0 && (
               <p className="text-[10px] text-gray-500 mt-2 px-1">
