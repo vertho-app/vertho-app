@@ -7,7 +7,6 @@
     "actions/cron-jobs.ts": 3,
     "actions/dashboard-kpis.ts": 1,
     "actions/fase1.ts": 6,
-    "actions/fase3.ts": 4,
     "actions/fase5.ts": 12,
     "actions/lead-comercial.ts": 2,
     "actions/pulse/classify.ts": 1,

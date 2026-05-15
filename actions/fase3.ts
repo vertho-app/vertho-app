@@ -1,11 +1,11 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { callAI, type AIConfig } from './ai-client';
 import { formatPerfilContext } from '@/lib/perfil-comportamental';
 import { extractJSON } from './utils';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 
 // ── IA4: Avaliar respostas (fiel ao GAS — modelo temático) ──────────────────
 
@@ -330,9 +330,8 @@ export async function listarPendentesIA4(empresaId: string) {
 }
 
 export async function rodarIA4Uma(empresaId: string, respostaId: string, aiConfig: AIConfig = {}) {
-  await requireAdminAction();
+  const sbRaw = await requireAdminSupabase();
   if (!empresaId || !respostaId) return { success: false, error: 'empresaId e respostaId obrigatórios' };
-  const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
   try {
     const { data: resp, error: respErr } = await tdb.from('respostas')
@@ -366,9 +365,8 @@ export async function rodarIA4Uma(empresaId: string, respostaId: string, aiConfi
 }
 
 export async function rodarIA4(empresaId: string, aiConfig: AIConfig = {}) {
-  await requireAdminAction();
+  const sbRaw = await requireAdminSupabase();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
-  const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
   try {
     // Buscar respostas pendentes
@@ -508,8 +506,7 @@ REGRAS DO JSON:
 - mudancas_relevantes e pontos_preservados: obrigatórios (podem ser arrays vazios)`;
 
 export async function reavaliarResposta(respostaId: string, aiConfig: AIConfig = {}) {
-  await requireAdminAction();
-  const sbRaw = createSupabaseAdmin();
+  const sbRaw = await requireAdminSupabase();
   try {
     const { data: resp } = await sbRaw.from('respostas')
       .select('id, empresa_id, colaborador_id, competencia_id, cenario_id, r1, r2, r3, r4, avaliacao_ia, payload_ia4')
@@ -725,9 +722,8 @@ export async function verFilaIA4(empresaId: string) {
 // ── Carregar respostas com avaliação ─────────────────────────────────────────
 
 export async function loadRespostasAvaliadas(empresaId: string) {
-  await requireAdminAction();
+  const sbRaw = await requireAdminSupabase();
   if (!empresaId) return [];
-  const sbRaw = createSupabaseAdmin();
   const tdb = tenantDb(empresaId);
   const { data, error } = await tdb.from('respostas')
     .select('id, colaborador_id, competencia_id, cenario_id, r1, r2, r3, r4, nivel_simulado, avaliacao_ia, nivel_ia4, nota_ia4, status_ia4, payload_ia4, pontos_fortes, pontos_atencao, feedback_ia4, created_at')
