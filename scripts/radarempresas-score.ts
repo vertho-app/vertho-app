@@ -1,45 +1,24 @@
 /**
  * Roda o Score de Oportunidade Vertho em lote (standalone, service role).
- * Mesma lógica de actions/radarempresas/scoring.ts mas sem
- * requireAdminSupabase (que exige cookies de admin). Reusa o motor
- * calcularScore de lib/radarempresas/score.ts — zero divergência.
+ * A lógica de resolução (CNAE 3-vias, nome bloqueado, ScoreInput, teto)
+ * vive em lib/radarempresas/score-resolve.ts — FONTE ÚNICA, compartilhada
+ * com o pipeline BR (data-pipeline/radarempresas/br). Zero divergência.
+ *
+ * Este script só faz o IO Supabase + o contexto setorial de Jundiaí
+ * (CAGED÷RAIS bayesiano) e o priority_rank (percentil entre elegíveis).
  *
  * Uso: npx tsx scripts/radarempresas-score.ts
  */
 import { readFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
-import { calcularScore, classificarHelper, SCORING_VERSION, type ScoreInput } from '../lib/radarempresas/score';
-
-// Teto de classificação por segmento (override comercial reversível).
-const TETO_VAL: Record<string, number> = { boa: 79, nutrir: 59, baixa: 39 };
+import { SCORING_VERSION } from '../lib/radarempresas/score';
+import {
+  scoreEstab, type CnaeRegra, type ContextoLookup,
+} from '../lib/radarempresas/score-resolve';
 
 const env = readFileSync('.env.local', 'utf8').split('\n').filter(l => l && !l.startsWith('#'))
   .reduce((a: any, l) => { const i = l.indexOf('='); if (i > 0) a[l.slice(0, i).trim()] = l.slice(i + 1).trim(); return a; }, {});
 const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-
-// Pesos do "aderente genérico" (fallback híbrido): medianos.
-const GENERICO = {
-  segmento_key: 'generico', people_intensity_score: 55,
-  leadership_complexity_score: 55, onboarding_need_score: 55,
-  standardization_need_score: 55, commercial_fit_score: 50, is_priority: false,
-};
-
-// Razão social que indica PJ unipessoal / holding (não tem equipe):
-// consultoria ou participações no nome → excluído, independente do CNAE
-// (pega casos disfarçados em CNAE de educação/saúde).
-function nomeBloqueado(razao: string | null | undefined): boolean {
-  const r = (razao || '').toUpperCase();
-  return /\bCONSULTORIA\b/.test(r) || /PARTICIPAC/.test(r);
-}
-
-// 3 vias: allowlist curada → genérico → excluído (denylist).
-function classificarCnae(cnae: string | null, mapa: any[], denySet: { p: string }[]) {
-  if (!cnae) return { tipo: 'excluido' as const, seg: null };
-  const c = cnae.replace(/\D/g, '');
-  for (const m of mapa) if (c.startsWith(m.cnae_prefixo)) return { tipo: 'curado' as const, seg: m };
-  for (const d of denySet) if (c.startsWith(d.p)) return { tipo: 'excluido' as const, seg: null };
-  return { tipo: 'generico' as const, seg: GENERICO };
-}
 
 async function main() {
 const { data: job } = await sb.from('radarempresas_jobs')
@@ -58,7 +37,7 @@ const { data: segTeto } = await sb.from('radarempresas_segmentos')
 const tetoMap = new Map<string, string>((segTeto || []).map((s: any) => [s.key, s.classificacao_teto]));
 console.log(`Allowlist: ${mapa?.length} regras · Denylist: ${denySet.length} prefixos · Tetos: ${tetoMap.size}`);
 
-// Empresas (capital/porte) por cnpj_basico
+// Empresas (capital/porte/razão) por cnpj_basico
 const empMap = new Map<string, any>();
 for (let from = 0; ; from += 1000) {
   const { data } = await sb.from('radarempresas_empresas')
@@ -69,14 +48,10 @@ for (let from = 0; ; from += 1000) {
 }
 console.log(`Empresas: ${empMap.size}`);
 
-// Contexto CAGED: intensidade de movimentação por CNAE em Jundiaí (352590),
-// normalizada por percentil dentro do recorte (0-100). CNAE que mais
-// movimenta pessoas no município → contexto alto → +dor.
-// v4: rotatividade real com travas estatísticas (lei dos pequenos números).
+// Contexto CAGED÷RAIS de Jundiaí (352590), rotatividade real bayesiana:
 //  - piso estoque RAIS >= 30 e movimentação CAGED >= 10 p/ confiança alta
 //  - suavização bayesiana: (mov + α·média_global)/(estoque + α), α=30
-//  - cap (winsorização) em 1.5 (150% de rotatividade em 6m é teto)
-//  - normaliza por percentil; guarda confiança por CNAE
+//  - winsorização em 1.5; normaliza por percentil; guarda confiança
 const ALPHA = 30, CAP = 1.5, PISO_EST = 30, PISO_MOV = 10;
 const cagedCtx = new Map<string, number>();
 const ctxConf = new Map<string, 'alta' | 'media' | 'baixa'>();
@@ -94,7 +69,6 @@ const raisTam = new Map<string, number>();
     rais.set(k, { estoque: r.estoque_vinculos || 0, tam: r.tam_medio_estimado || 0 });
     if (r.tam_medio_estimado != null) raisTam.set(k, r.tam_medio_estimado);
   }
-  // média global robusta (só CNAEs com estoque e movimentação relevantes)
   const robustos: number[] = [];
   for (const c of (cg || []) as any[]) {
     const rr = rais.get(String(c.cnae).replace(/\D/g, ''));
@@ -103,7 +77,6 @@ const raisTam = new Map<string, number>();
   }
   const mediaGlobal = robustos.length
     ? robustos.reduce((a, b) => a + b, 0) / robustos.length : 0.3;
-
   const raw: { cnae: string; val: number }[] = [];
   for (const c of (cg || []) as any[]) {
     const cnae = String(c.cnae).replace(/\D/g, '');
@@ -111,13 +84,12 @@ const raisTam = new Map<string, number>();
     const rr = rais.get(cnae);
     let val: number;
     if (rr && rr.estoque > 0) {
-      // bayesiano: encolhe pro prior quando estoque pequeno
       val = Math.min((mov + ALPHA * mediaGlobal) / (rr.estoque + ALPHA), CAP);
       const robusto = rr.estoque >= PISO_EST && mov >= PISO_MOV;
       const meio = rr.estoque >= PISO_EST || mov >= PISO_MOV;
       ctxConf.set(cnae, robusto ? 'alta' : meio ? 'media' : 'baixa');
     } else {
-      val = Math.min(mov / 1000, CAP);            // fallback s/ RAIS
+      val = Math.min(mov / 1000, CAP);
       ctxConf.set(cnae, 'baixa');
     }
     raw.push({ cnae, val });
@@ -127,6 +99,11 @@ const raisTam = new Map<string, number>();
   raw.forEach((r, idx) => cagedCtx.set(r.cnae, n > 1 ? Math.round((idx / (n - 1)) * 100) : 50));
   console.log(`Contexto v4 Jundiaí: ${n} CNAEs · ${rais.size} c/ RAIS · média global ${mediaGlobal.toFixed(3)}`);
 }
+const ctx: ContextoLookup = (k) => ({
+  caged_contexto_score: cagedCtx.get(k) ?? null,
+  contexto_confianca: ctxConf.get(k) ?? null,
+  rais_tam_medio_setor: raisTam.get(k) ?? null,
+});
 
 // Multiunidade: nº estab por cnpj_basico
 const grupo = new Map<string, number>();
@@ -150,58 +127,35 @@ for (let from = 0; ; from += 500) {
 
   for (const est of ests as any[]) {
     const emp = empMap.get(est.cnpj_basico) || {};
-    let { tipo, seg } = classificarCnae(est.cnae_principal, mapa || [], denySet);
-    if (tipo !== 'excluido' && nomeBloqueado(emp.razao_social)) { tipo = 'excluido'; seg = null; }
-    if (tipo === 'excluido') semSeg++;
-    const cnaeK = String(est.cnae_principal || '').replace(/\D/g, '');
-    const input: ScoreInput = {
-      porte_empresa: emp.porte_empresa ?? null,
-      capital_social: emp.capital_social ?? null,
+    const row = scoreEstab({
+      estabelecimento_id: est.id,
+      cnpj_completo: est.cnpj_completo,
+      cnpj_basico: est.cnpj_basico,
+      cnae_principal: est.cnae_principal,
       is_matriz: !!est.is_matriz,
-      company_age_years: est.company_age_years,
       has_email: !!est.has_email,
       has_phone: !!est.has_phone,
       has_fantasia: !!est.has_fantasia,
+      company_age_years: est.company_age_years,
       qtd_estabelecimentos_grupo: grupo.get(est.cnpj_basico) || 1,
-      segmento_key: seg?.segmento_key || null,
-      segmento_mapeado: tipo !== 'excluido',
-      aderencia_tipo: tipo === 'curado' ? 'curado' : 'generico',
-      people_intensity_score: seg?.people_intensity_score ?? 30,
-      leadership_complexity_score: seg?.leadership_complexity_score ?? 30,
-      onboarding_need_score: seg?.onboarding_need_score ?? 30,
-      standardization_need_score: seg?.standardization_need_score ?? 30,
-      commercial_fit_score: seg?.commercial_fit_score ?? 25,
-      is_priority_cnae: seg?.is_priority ?? false,
-      caged_contexto_score: cagedCtx.get(cnaeK) ?? null,
-      contexto_confianca: ctxConf.get(cnaeK) ?? null,
-      rais_tam_medio_setor: raisTam.get(cnaeK) ?? null,
-    };
-    const r = calcularScore(input);
-    // Teto comercial por segmento (capeia score_total + reclassifica)
-    let scoreFinal = r.score_total;
-    let classifFinal: string = r.classificacao;
-    const teto = input.segmento_key ? tetoMap.get(input.segmento_key) : undefined;
-    const tetoCap = teto ? TETO_VAL[teto] : undefined;
-    const capeado = tetoCap != null && scoreFinal > tetoCap;
-    if (capeado) { scoreFinal = tetoCap!; classifFinal = classificarHelper(scoreFinal); }
-    // elegível p/ priority_rank: tem segmento E não é micro sem equipe
-    if (input.segmento_mapeado && !r.low_team_probability) {
-      elegiveis.push({ id: est.id, score: scoreFinal });
-    }
+      porte_empresa: emp.porte_empresa ?? null,
+      capital_social: emp.capital_social ?? null,
+      razao_social: emp.razao_social ?? null,
+    }, (mapa || []) as CnaeRegra[], denySet, tetoMap, ctx);
+
+    if (row.segmento_key == null) semSeg++;
+    if (row.elegivel) elegiveis.push({ id: est.id, score: row.score_total });
     allRows.push({
-      estabelecimento_id: est.id, cnpj_completo: est.cnpj_completo,
-      score_total: scoreFinal, score_dor_pessoas: r.score_dor_pessoas,
-      score_capacidade_compra: r.score_capacidade_compra, score_fit_vertho: r.score_fit_vertho,
-      score_contexto_setorial: r.score_contexto_setorial, classificacao: classifFinal,
-      score_confidence: r.score_confidence,
-      commercial_actionability: r.commercial_actionability,
-      low_team_probability: r.low_team_probability,
+      estabelecimento_id: row.estabelecimento_id, cnpj_completo: row.cnpj_completo,
+      score_total: row.score_total, score_dor_pessoas: row.score_dor_pessoas,
+      score_capacidade_compra: row.score_capacidade_compra, score_fit_vertho: row.score_fit_vertho,
+      score_contexto_setorial: row.score_contexto_setorial, classificacao: row.classificacao,
+      score_confidence: row.score_confidence,
+      commercial_actionability: row.commercial_actionability,
+      low_team_probability: row.low_team_probability,
       priority_rank: null,
-      score_explanation: {
-        ...r.explanation, segmento_key: input.segmento_key,
-        ...(capeado ? { teto_comercial: { segmento: input.segmento_key, teto, score_original: r.score_total } } : {}),
-      },
-      scoring_version: SCORING_VERSION, updated_at: new Date().toISOString(),
+      score_explanation: row.score_explanation,
+      scoring_version: row.scoring_version, updated_at: new Date().toISOString(),
     });
   }
   if (ests.length < 500) break;
@@ -215,7 +169,6 @@ elegiveis.forEach((e, idx) => rankById.set(e.id, ne > 1 ? Math.round((idx / (ne 
 for (const row of allRows) row.priority_rank = rankById.get(row.estabelecimento_id) ?? null;
 console.log(`Priority rank: ${ne} elegíveis de ${allRows.length}`);
 
-// upsert único (priority_rank já embutido)
 let proc = 0;
 for (let i = 0; i < allRows.length; i += 1000) {
   const lote = allRows.slice(i, i + 1000);
@@ -231,7 +184,6 @@ if (jobId) await sb.from('radarempresas_jobs').update({
 
 console.log(`\n[OK] ${proc} scored, ${semSeg} excluídos (denylist), ${err} erros em ${Math.round((Date.now()-t0)/1000)}s`);
 
-// Distribuição
 const { data: dist } = await sb.from('radarempresas_scores')
   .select('classificacao').limit(100000);
 const d: any = {};
