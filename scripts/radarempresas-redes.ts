@@ -45,29 +45,27 @@ async function main() {
   const fantOrig = new Map<string, Map<string, number>>(); // marca → {fantasia original: freq}
 
   for (let from = 0; ; from += 1000) {
-    const { data: ests } = await sb.from('radarempresas_estabelecimentos')
-      .select('id, cnpj_basico, cnpj_completo, uf, municipio_nome, nome_fantasia')
+    const { data: rows, error } = await sb.from('radarempresas_scores')
+      .select('score_total, score_explanation, radarempresas_estabelecimentos!inner(id, cnpj_basico, cnpj_completo, uf, municipio_nome, nome_fantasia)')
+      .order('estabelecimento_id', { ascending: true })
       .range(from, from + 999);
-    if (!ests?.length) break;
-    const ids = (ests as any[]).map(e => e.id);
-    const { data: scs } = await sb.from('radarempresas_scores')
-      .select('estabelecimento_id, score_total, score_explanation').in('estabelecimento_id', ids);
-    const scMap = new Map((scs || []).map((s: any) => [s.estabelecimento_id, s]));
-    for (const e of ests as any[]) {
+    if (error) throw new Error(error.message);
+    if (!rows?.length) break;
+    for (const r of rows as any[]) {
+      const e = r.radarempresas_estabelecimentos;
       const m = norm(e.nome_fantasia);
       if (!m) continue;
-      const sc = scMap.get(e.id) as any;
       const u: U = {
         id: e.id, cnpj_basico: e.cnpj_basico, cnpj_completo: e.cnpj_completo,
         uf: e.uf, mun: e.municipio_nome, fant: e.nome_fantasia,
-        score: sc?.score_total ?? 0, seg: sc?.score_explanation?.segmento_key ?? null,
+        score: r.score_total ?? 0, seg: r.score_explanation?.segmento_key ?? null,
       };
       if (!porMarca.has(m)) { porMarca.set(m, []); fantOrig.set(m, new Map()); }
       porMarca.get(m)!.push(u);
       const fo = fantOrig.get(m)!;
       fo.set(e.nome_fantasia, (fo.get(e.nome_fantasia) || 0) + 1);
     }
-    if (ests.length < 1000) break;
+    if (rows.length < 1000) break;
   }
 
   const redes: any[] = [];
