@@ -33,7 +33,10 @@ def find(ext):
 
 
 def reader(path):
-    with open(path, encoding="cp1252", newline="") as f:
+    # errors='replace': bytes inválidos em cp1252 (0x81/0x8D/0x8F/0x90/0x9D,
+    # raros e "sujos" nos dados da Receita) viram U+FFFD — preserva a linha,
+    # só corrompe 1 caractere ocasional numa razão social. Não perde empresa.
+    with open(path, encoding="cp1252", errors="replace", newline="") as f:
         yield from csv.reader(f, delimiter=";", quotechar='"')
 
 
