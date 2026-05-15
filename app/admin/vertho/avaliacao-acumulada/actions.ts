@@ -1,13 +1,13 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { gerarAvaliacaoAcumulada } from '@/actions/avaliacao-acumulada';
 
 export async function listarAvaliacoesAcumuladas(filtros: any = {}) {
   await requireAdminAction();
 
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const limit = filtros.limit || 50;
 
   let q = sb.from('temporada_semana_progresso')
@@ -65,7 +65,7 @@ export async function listarAvaliacoesAcumuladas(filtros: any = {}) {
 export async function loadAvaliacaoAcumuladaDetalhe(progressoId) {
   await requireAdminAction();
 
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data, error } = await sb.from('temporada_semana_progresso')
     .select(`
       id, trilha_id, colaborador_id, concluido_em, feedback,

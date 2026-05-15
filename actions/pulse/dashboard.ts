@@ -1,8 +1,9 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { tenantDb } from '@/lib/tenant-db';
-import { requireUserAction, requireAdminAction } from '@/lib/auth/action-context';
+import { requireUserAction } from '@/lib/auth/action-context';
 import { getUserContext } from '@/lib/authz';
 import { DIMENSIONS, type DimensionKey, type PulseMoment } from '@/lib/pulse/template';
 import { PULSE_MIN_N, classifyScore, type GuardedAggregate } from '@/lib/pulse/anonymity';
@@ -190,8 +191,7 @@ export async function loadPulseDashboard(
  * Aciona o refresh da MV de agregados. Admin only.
  */
 export async function refreshPulseAggregates(): Promise<{ ok: boolean; error?: string }> {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { error } = await sb.rpc('refresh_pulse_aggregates');
   if (error) return { ok: false, error: error.message };
   return { ok: true };

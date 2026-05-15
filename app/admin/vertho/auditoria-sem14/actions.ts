@@ -1,6 +1,6 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 
 /**
@@ -13,7 +13,7 @@ import { requireAdminAction } from '@/lib/auth/action-context';
 export async function listarAuditoriasSem14(filtros: any = {}) {
   await requireAdminAction();
 
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const limit = filtros.limit || 50;
 
   // Sem 14 concluída + com auditoria preenchida
@@ -88,7 +88,7 @@ export async function listarAuditoriasSem14(filtros: any = {}) {
 export async function regerarScoringComFeedback(progressoId) {
   await requireAdminAction();
 
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data: prog } = await sb.from('temporada_semana_progresso')
     .select('id, trilha_id, empresa_id, colaborador_id, feedback')
     .eq('id', progressoId).maybeSingle();
@@ -320,7 +320,7 @@ EXPECTATIVA DESTA RODADA:
 export async function loadAuditoriaSem14Detalhe(progressoId) {
   await requireAdminAction();
 
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data, error } = await sb.from('temporada_semana_progresso')
     .select(`
       id, trilha_id, semana, concluido_em, feedback,

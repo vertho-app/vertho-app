@@ -1,6 +1,6 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 
 /**
@@ -11,7 +11,7 @@ import { requireAdminAction } from '@/lib/auth/action-context';
 export async function listarEvidencias(filtros: any = {}) {
   await requireAdminAction();
 
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const limit = filtros.limit || 100;
 
   let q = sb.from('temporada_semana_progresso')
@@ -80,7 +80,7 @@ export async function listarEvidencias(filtros: any = {}) {
 export async function loadEvidenciaDetalhe(progressoId) {
   await requireAdminAction();
 
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data, error } = await sb.from('temporada_semana_progresso')
     .select(`
       id, trilha_id, semana, concluido_em, reflexao,

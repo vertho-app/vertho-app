@@ -1,7 +1,6 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
-import { requireAdminAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { loadPulseDashboard, type GroupType } from './dashboard';
 import { loadPulseSignals } from './signals';
 import { obterTemasCiclo } from './classify';
@@ -34,8 +33,7 @@ export async function exportarRelatorioPulso(
   kind: PulseReportKind,
   opts?: { group_type?: GroupType; group_key?: string },
 ): Promise<{ ok: true; relatorio_id: string } | { ok: false; error: string }> {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
 
   const groupType: GroupType = opts?.group_type || 'company';
   const groupKey: string = opts?.group_key || 'all';

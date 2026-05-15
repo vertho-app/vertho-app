@@ -1,5 +1,6 @@
 'use server';
 
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdminAction, requireUserAction } from '@/lib/auth/action-context';
 import { ingestDoc, deactivateDoc, listDocs } from '@/lib/rag';
@@ -11,7 +12,7 @@ import { seedKnowledgeBase } from '@/lib/rag-seed';
  */
 export async function listarEmpresas() {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data, error } = await sb.from('empresas')
     .select('id, nome, slug')
     .order('nome');

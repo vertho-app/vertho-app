@@ -1,6 +1,6 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { APP_WEBHOOK_URL, EMAIL_FROM_DEFAULT, QSTASH_BASE_URL, ROOT_DOMAIN, tenantUrl } from '@/lib/domain';
 
@@ -45,7 +45,7 @@ async function enviarEmailResendComRetry(emailBody: any, throttle: { lastSentAt:
 
 export async function loadEmpresas() {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data, error } = await sb.from('empresas').select('id, nome').order('nome');
   if (error) return { success: false, error: error.message };
   return { success: true, data };
@@ -53,7 +53,7 @@ export async function loadEmpresas() {
 
 export async function loadWhatsappStatus(empresaId) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     const [enviosRes, relatoriosRes] = await Promise.all([
       sb.from('envios_diagnostico')
@@ -150,7 +150,7 @@ async function deletarAnexoTemporario(sb, path) {
  */
 export async function dispararMensagemCustomizada(empresaId, template, canal, filtros: any = {}, assuntoTemplate = '', comPDF = false, anexoExtra: any = null) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     const { data: empresa } = await sb.from('empresas')
       .select('nome, slug').eq('id', empresaId).single();
@@ -441,7 +441,7 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
 
 export async function enviarMagicLinksWhatsApp(empresaId: string, filtros: any = {}) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     const { data: empresa } = await sb.from('empresas')
       .select('nome, slug').eq('id', empresaId).single();
@@ -530,7 +530,7 @@ ${magicLink}
 
 export async function loadColaboradoresEnvio(empresaId) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   // Tentar com telefone, fallback sem
   let data;
   const { data: d1, error: e1 } = await sb.from('colaboradores')

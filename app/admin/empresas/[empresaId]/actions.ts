@@ -1,13 +1,13 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { removeVercelDomain } from '@/lib/vercel-domain';
 
 export async function loadEmpresaPipeline(empresaId) {
   await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
 
   const { data: empresa, error } = await sb.from('empresas')
     .select('id, nome, segmento, slug, ui_config, sys_config')
@@ -88,7 +88,7 @@ export async function loadEmpresaPipeline(empresaId) {
 
 export async function excluirEmpresa(empresaId) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
 
   const { data: empresa } = await sb.from('empresas')
     .select('slug')
@@ -105,7 +105,7 @@ export async function excluirEmpresa(empresaId) {
 
 export async function limparRegistros(empresaId, tabelas, colaboradorId = null, fields = null, opts: any = {}) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { hardDelete = false } = opts;
   let pdfsRemovidos = 0;
   let movidosLixeira = 0;
@@ -187,7 +187,7 @@ export async function limparRegistros(empresaId, tabelas, colaboradorId = null, 
  */
 export async function listarLixeira(empresaId, opts: any = {}) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   let q = sb.from('trash').select('*').order('deletado_em', { ascending: false });
   if (empresaId) q = q.eq('empresa_id', empresaId);
   if (opts.tabela) q = q.eq('tabela_origem', opts.tabela);
@@ -202,7 +202,7 @@ export async function listarLixeira(empresaId, opts: any = {}) {
  */
 export async function restaurarDaLixeira(trashIds: any[] = []) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   if (!trashIds.length) return { success: false, error: 'Nenhum ID informado' };
 
   const { data: items } = await sb.from('trash').select('*').in('id', trashIds);
@@ -239,7 +239,7 @@ export async function restaurarDaLixeira(trashIds: any[] = []) {
  */
 export async function esvaziarLixeira(empresaId, dias = 30) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const corte = new Date(Date.now() - dias * 86400 * 1000).toISOString();
   let q: any = sb.from('trash').delete().lt('deletado_em', corte);
   if (empresaId) q = q.eq('empresa_id', empresaId);
@@ -250,7 +250,7 @@ export async function esvaziarLixeira(empresaId, dias = 30) {
 
 export async function limparCenariosB(empresaId) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { error, count } = await sb.from('banco_cenarios')
     .delete({ count: 'exact' })
     .eq('empresa_id', empresaId)
@@ -261,7 +261,7 @@ export async function limparCenariosB(empresaId) {
 
 export async function limparReavaliacaoSessoes(empresaId) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { error, count } = await sb.from('reavaliacao_sessoes')
     .delete({ count: 'exact' })
     .eq('empresa_id', empresaId);
@@ -275,7 +275,7 @@ export async function limparReavaliacaoSessoes(empresaId) {
 // respostas de simulação admin bloqueando a retomada do fluxo.
 export async function limparMapeamentoCompetencias(empresaId, colaboradorId = null) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   let q = sb.from('respostas')
     .delete({ count: 'exact' })
     .eq('empresa_id', empresaId);
@@ -291,7 +291,7 @@ export async function limparMapeamentoCompetencias(empresaId, colaboradorId = nu
 // Cria o auth.user se não existir; senão atualiza a senha.
 export async function definirSenhaTesteEmpresa(empresaId) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
 
   const { data: colabs, error: colabErr } = await sb.from('colaboradores')
     .select('email').eq('empresa_id', empresaId);
@@ -347,7 +347,7 @@ export async function definirSenhaTesteEmpresa(empresaId) {
 
 export async function limparMapeamento(empresaId, colaboradorId = null) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
 
   // Antes de limpar: remove PDFs órfãos do Storage
   let pathQuery = sb.from('colaboradores')
@@ -387,7 +387,7 @@ export async function limparMapeamento(empresaId, colaboradorId = null) {
 
 export async function loadColaboradoresLista(empresaId) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data } = await sb.from('colaboradores')
     .select('id, nome_completo, email')
     .eq('empresa_id', empresaId)

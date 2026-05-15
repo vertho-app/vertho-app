@@ -1,19 +1,16 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
-import { requireAdminAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 
 export async function loadEmpresas() {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data, error } = await sb.from('empresas').select('id, nome, segmento').order('nome');
   if (error) return { success: false, error: error.message };
   return { success: true, data };
 }
 
 export async function loadCompetencias(empresaId: string) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     const { data, error } = await sb.from('competencias')
       .select('*')
@@ -29,8 +26,7 @@ export async function loadCompetencias(empresaId: string) {
 }
 
 export async function loadCompetenciasBase(segmento: string | null) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     let query = sb.from('competencias_base').select('*').order('nome');
     if (segmento) query = query.eq('segmento', segmento);
@@ -43,8 +39,7 @@ export async function loadCompetenciasBase(segmento: string | null) {
 }
 
 export async function salvarCompetencia(empresaId: string, comp: any) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     const registro = {
       empresa_id: empresaId,
@@ -76,8 +71,7 @@ export async function salvarCompetencia(empresaId: string, comp: any) {
 }
 
 export async function excluirCompetencia(id: string) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     const { error } = await sb.from('competencias').delete().eq('id', id);
     if (error) return { success: false, error: error.message };
@@ -88,8 +82,7 @@ export async function excluirCompetencia(id: string) {
 }
 
 export async function importarCompetenciasCSV(empresaId: string, comps: any[]) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data: existentes } = await sb.from('competencias')
     .select('cod_comp, cod_desc, nome_curto, nome, cargo').eq('empresa_id', empresaId);
   // Dedup por cod_comp+cod_desc (ou cod_comp+nome_curto se cod_desc vazio)
@@ -135,8 +128,7 @@ export async function importarCompetenciasCSV(empresaId: string, comps: any[]) {
 }
 
 export async function copiarBaseParaEmpresa(empresaId: string, baseId: string, cargo: string | null = null) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     const { data: base, error: errBase } = await sb.from('competencias_base')
       .select('*').eq('id', baseId).single();
@@ -160,8 +152,7 @@ export async function copiarBaseParaEmpresa(empresaId: string, baseId: string, c
 }
 
 export async function loadCargosEmpresa(empresaId: string) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   // Fonte única: cargos_empresa.nome (cargos formais cadastrados na empresa).
   // Strings legadas em colaboradores.cargo e competencias.cargo são ignoradas
   // — quem ainda usa esses campos como string livre é considerado dado a migrar.

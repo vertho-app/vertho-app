@@ -1,19 +1,16 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
-import { requireAdminAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 
 export async function loadEmpresas() {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data, error } = await sb.from('empresas').select('id, nome').order('nome');
   if (error) return { success: false, error: error.message };
   return { success: true, data };
 }
 
 export async function loadCargos(empresaId: string) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     // 1. cargos_empresa (com top5 quando coluna existe)
     let cargosEmpresa: any[] | null = null;
@@ -108,10 +105,9 @@ export async function loadCargos(empresaId: string) {
  * ao cargo oficial em cargos_empresa.
  */
 export async function renomearTop10Cargo(empresaId: string, deNome: string, paraNome: string) {
-  await requireAdminAction();
+  const sb = await requireAdminSupabase();
   if (!deNome || !paraNome) return { success: false, error: 'Nomes obrigatórios' };
   if (deNome === paraNome) return { success: true, message: 'Sem alteração' };
-  const sb = createSupabaseAdmin();
   try {
     const { error } = await sb.from('top10_cargos')
       .update({ cargo: paraNome })
@@ -125,8 +121,7 @@ export async function renomearTop10Cargo(empresaId: string, deNome: string, para
 }
 
 export async function salvarTop5(cargoId: string, top5: any) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     // Se cargoId é UUID, atualiza cargos_empresa; senão ignora
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;
@@ -143,8 +138,7 @@ export async function salvarTop5(cargoId: string, top5: any) {
 }
 
 export async function salvarEhLideranca(cargoId: string, ehLideranca: boolean) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;
     if (!uuidRegex.test(cargoId)) return { success: false, error: 'Cargo precisa estar em cargos_empresa' };

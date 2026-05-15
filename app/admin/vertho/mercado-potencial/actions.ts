@@ -1,6 +1,6 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 
 /**
@@ -139,7 +139,7 @@ function aplicarFiltrosBase(query: any, filtros: MercadoFilters, inseCol: 'inse_
 
 export async function loadMercadoMunicipios(filtros: MercadoFilters = {}) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   // ~5.570 municípios no Brasil — default cobre o universo inteiro.
   const limit = Math.min(filtros.limit ?? 6000, 10000);
 
@@ -182,7 +182,7 @@ export async function loadMercadoMunicipios(filtros: MercadoFilters = {}) {
 
 export async function loadMercadoRedes(filtros: MercadoFilters = {}) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   // (5.570 municípios × 4 redes) = ~22k combinações no pior caso — default
   // 8000 cobre maioria; use filtros pra reduzir mais.
   const limit = Math.min(filtros.limit ?? 8000, 25000);
@@ -222,7 +222,7 @@ export async function loadMercadoRedes(filtros: MercadoFilters = {}) {
 
 export async function loadMercadoEscolas(filtros: MercadoFilters = {}) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   // ~180k escolas no Brasil — default conservador 1000, force user a filtrar
   // por UF/rede/INSE pra ver mais. Cap 10000 protege o browser.
   const limit = Math.min(filtros.limit ?? 1000, 10000);
@@ -296,7 +296,7 @@ function ordenarRows(rows: any[], filtros: MercadoFilters): any[] {
 
 export async function refreshMercadoPotencial() {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { error } = await sb.rpc('refresh_mv_mercado_potencial');
   if (error) return { error: error.message };
   return { ok: true, message: 'MVs atualizadas' };

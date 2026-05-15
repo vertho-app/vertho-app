@@ -1,7 +1,8 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { requireAdminAction, requireUserAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireUserAction } from '@/lib/auth/action-context';
 import {
   classifyOpenText, auditClassification, resolveFinalConfidence,
   applyAuditCorrections,
@@ -22,8 +23,7 @@ export async function classificarRespostasAbertas(
   cicloId: string,
   opts?: { maxRespostas?: number; pulando?: boolean },
 ): Promise<{ ok: true; processadas: number; erros: number; ja_classificadas: number } | { ok: false; error: string }> {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const cap = opts?.maxRespostas || 50;
 
   const { data: ciclo } = await sb.from('pulse_ciclos')

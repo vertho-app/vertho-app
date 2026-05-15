@@ -1,6 +1,6 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { importarSaebXlsx } from '@/lib/radar/saeb-importer';
 import { importarIcaCsv, importarIcaXlsx } from '@/lib/radar/ica-importer';
@@ -14,7 +14,7 @@ import { importarFundebReceitaXlsx } from '@/lib/radar/fundeb-receita-importer';
 import { loadRadarCountStats } from '@/lib/radar/stats';
 
 async function startIngestRun(fonte: string, escopo: any, arquivoOrigem?: string) {
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data, error } = await sb
     .from('diag_ingest_runs')
     .insert({ fonte, escopo, status: 'rodando', arquivo_origem: arquivoOrigem || null })
@@ -25,7 +25,7 @@ async function startIngestRun(fonte: string, escopo: any, arquivoOrigem?: string
 }
 
 async function finishIngestRun(id: string, result: any, status: 'sucesso' | 'erro' | 'parcial') {
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   await sb
     .from('diag_ingest_runs')
     .update({
@@ -48,7 +48,7 @@ async function finishIngestRun(id: string, result: any, status: 'sucesso' | 'err
 
 export async function loadRadarStats() {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const [counts, runs] = await Promise.all([
     loadRadarCountStats(sb),
     sb.from('diag_ingest_runs').select('id, fonte, status, total_sucesso, total_falha, total_skipped, iniciado_em, finalizado_em, arquivo_origem, erros')
@@ -74,7 +74,7 @@ export async function loadRadarStats() {
 
 export async function refreshRadarMaterializedViews() {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { error } = await sb.rpc('refresh_diag_mvs');
   if (error) return { success: false, error: error.message };
   return { success: true };
@@ -82,7 +82,7 @@ export async function refreshRadarMaterializedViews() {
 
 export async function markStaleIngestRuns(maxAgeHours = 12) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const cutoff = new Date(Date.now() - Math.max(1, maxAgeHours) * 60 * 60 * 1000).toISOString();
   const msg = `Marcado como interrompido pelo admin após ${maxAgeHours}h sem finalização.`;
   const { data, error } = await sb
@@ -102,7 +102,7 @@ export async function markStaleIngestRuns(maxAgeHours = 12) {
 export async function interruptIngestRun(runId: string) {
   await requireAdminAction();
   if (!/^[0-9a-f-]{36}$/i.test(runId)) return { success: false, error: 'runId inválido' };
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { error } = await sb
     .from('diag_ingest_runs')
     .update({
@@ -269,7 +269,7 @@ export async function ingestPddeFromUpload(textoCsv: string, arquivoNome: string
 
 export async function deleteIngestRun(runId: string) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { error } = await sb.from('diag_ingest_runs').delete().eq('id', runId);
   if (error) return { success: false, error: error.message };
   return { success: true };

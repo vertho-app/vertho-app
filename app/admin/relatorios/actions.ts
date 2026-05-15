@@ -1,19 +1,16 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
-import { requireAdminAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 
 export async function loadEmpresas() {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data, error } = await sb.from('empresas').select('id, nome').order('nome');
   if (error) return { success: false, error: error.message };
   return { success: true, data };
 }
 
 export async function loadRelatorios(empresaId: string) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     const { data, error } = await sb.from('relatorios')
       .select('id, colaborador_id, tipo, created_at, colaboradores(nome_completo)')

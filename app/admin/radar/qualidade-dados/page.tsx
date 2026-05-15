@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ArrowLeft, Database, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
-import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 
 export const dynamic = 'force-dynamic';
@@ -102,7 +102,7 @@ async function loadStatsTabela(sb: any, spec: TabelaSpec, totaisEscopo: { escola
 
 async function loadQualidadeDados() {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
 
   // Universos
   const [{ count: escolasTotal }, distMunicipiosRes, ingestRunsRes] = await Promise.all([

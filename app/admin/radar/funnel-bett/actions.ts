@@ -1,6 +1,6 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 
 /**
@@ -47,7 +47,7 @@ export type BettFunnelData = {
 
 export async function loadFunnelBett(dias: number = 30): Promise<BettFunnelData> {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
 
   const ate = new Date();
   const de = new Date(ate.getTime() - dias * 24 * 3600 * 1000);

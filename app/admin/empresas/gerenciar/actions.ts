@@ -1,6 +1,6 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 
 const VALID_ROLES = ['colaborador', 'gestor', 'rh'];
@@ -56,14 +56,14 @@ function buildImportMessage(importados: number, duplicados: number, erros: any[]
 
 export async function loadEmpresas() {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data } = await sb.from('empresas').select('id, nome, segmento').order('nome');
   return data || [];
 }
 
 export async function loadResumoEmpresa(empresaId: any) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { count: colabs } = await sb.from('colaboradores')
     .select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId);
   const { data: comps } = await sb.from('competencias')
@@ -74,7 +74,7 @@ export async function loadResumoEmpresa(empresaId: any) {
 export async function importarColaboradoresLote(empresaId: any, colabs: any) {
   await requireAdminAction();
 
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data: existentes } = await sb.from('colaboradores')
     .select('email').eq('empresa_id', empresaId);
   const emailsExistentes = new Set((existentes || []).map((c: any) => c.email?.toLowerCase()).filter(Boolean));
@@ -141,7 +141,7 @@ export async function importarColaboradoresLote(empresaId: any, colabs: any) {
 export async function loadColaboradores(empresaId: any) {
   await requireAdminAction();
 
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data: d1, error: e1 } = await sb.from('colaboradores')
     .select('id, nome_completo, email, cargo, role, area_depto, telefone, gestor_nome, gestor_email, gestor_whatsapp, mapeamento_em')
     .eq('empresa_id', empresaId)
@@ -160,7 +160,7 @@ export async function criarColaborador(empresaId: any, campos: any) {
   const email = normalizeEmail(campos?.email);
   if (!isValidEmail(email)) return { success: false, error: 'email inválido' };
 
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const telefone = normalizePhone(campos.telefone);
   if (hasValue(campos.telefone) && !telefone) return { success: false, error: 'telefone/celular inválido. Use DDD, ex.: 11999998888 ou 5511999998888' };
   const gestorEmail = normalizeEmail(campos.gestor_email);
@@ -192,7 +192,7 @@ export async function criarColaborador(empresaId: any, campos: any) {
 
 export async function atualizarColaborador(id: any, campos: any) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
 
   const { data: existente } = await sb.from('colaboradores').select('empresa_id').eq('id', id).maybeSingle();
   if (!existente) return { success: false, error: 'colab não encontrado' };
@@ -231,7 +231,7 @@ export async function atualizarColaborador(id: any, campos: any) {
 
 export async function excluirColaborador(id: any) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
 
   const { data: existente } = await sb.from('colaboradores').select('empresa_id').eq('id', id).maybeSingle();
   if (!existente) return { success: false, error: 'colab não encontrado' };
@@ -245,7 +245,7 @@ export async function excluirColaborador(id: any) {
 
 export async function loadCargos(empresaId: any) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data, error } = await sb.from('cargos_empresa')
     .select('*')
     .eq('empresa_id', empresaId)
@@ -257,7 +257,7 @@ export async function loadCargos(empresaId: any) {
 export async function salvarCargo(empresaId: any, cargo: any) {
   await requireAdminAction();
 
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const registro = {
     empresa_id: empresaId,
     nome: cargo.nome?.trim(),
@@ -288,7 +288,7 @@ export async function salvarCargo(empresaId: any, cargo: any) {
 
 export async function excluirCargo(id: any) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
 
   const { data: existe } = await sb.from('cargos_empresa').select('empresa_id').eq('id', id).maybeSingle();
   if (!existe) return { success: false, error: 'cargo não encontrado' };
@@ -301,7 +301,7 @@ export async function excluirCargo(id: any) {
 export async function sincronizarCargosDeColaboradores(empresaId: any) {
   await requireAdminAction();
 
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data: colabs } = await sb.from('colaboradores')
     .select('cargo, area_depto')
     .eq('empresa_id', empresaId)
@@ -337,7 +337,7 @@ export async function importarCargosLote(empresaId: any, cargos: any[]) {
   await requireAdminAction();
   if (!empresaId || !cargos?.length) return { success: false, error: 'Dados incompletos' };
 
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data: existentes } = await sb.from('cargos_empresa')
     .select('nome').eq('empresa_id', empresaId);
   const existSet = new Set((existentes || []).map((c: any) => c.nome.toLowerCase().trim()));
@@ -382,7 +382,7 @@ export async function derivarGestorEmailPorNome(empresaId: string): Promise<{
 }> {
   await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório', vinculados: 0, naoEncontrados: [], ambiguos: [] };
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
 
   // 1. Pega todos os colabs com gestor_nome mas sem gestor_email
   const { data: pendentes } = await sb.from('colaboradores')

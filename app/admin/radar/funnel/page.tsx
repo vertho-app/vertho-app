@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ArrowLeft, BarChart3 } from 'lucide-react';
-import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +14,7 @@ type EtapaFunil = {
 
 async function loadFunilData(diasParam: number) {
   await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const dias = Math.min(Math.max(diasParam || 30, 1), 365);
 
   // Resumo de eventos via RPC

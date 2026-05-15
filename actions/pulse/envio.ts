@@ -1,7 +1,6 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
-import { requireAdminAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { tenantUrl } from '@/lib/domain';
 
 export interface EnvioStats {
@@ -36,8 +35,7 @@ export async function enviarConvitesPulso(
     apenas_status?: 'pending' | 'started';
   },
 ): Promise<{ ok: true; stats: EnvioStats } | { ok: false; error: string }> {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
 
   const { data: empresa } = await sb.from('empresas')
     .select('id, nome, slug').eq('id', empresaId).single();
@@ -218,8 +216,7 @@ export async function statusEnviosCiclo(
   cicloId: string,
   pulseMoment: 'T0' | 'T2',
 ): Promise<{ total: number; enviados_wa: number; enviados_email: number; completos: number; pending: number }> {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
 
   const [{ data: assignments }, { data: logs }] = await Promise.all([
     sb.from('pulse_assignments')
