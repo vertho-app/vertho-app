@@ -6,6 +6,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
 import { isPerfilComportamentalLiberado } from '@/lib/votacao/status';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 
 // Heurística leve pra classificar device a partir do user-agent.
 // Não tenta cobrir 100% dos casos — só os principais. Bots vão pra 'bot'.
@@ -162,10 +163,7 @@ export async function salvarVoto(competencias: string[], sugestaoNova?: string) 
 // ── Admin: abrir/fechar votação ───────────────────────────────────────────
 
 export async function toggleVotacao(empresaId: string, ativa: boolean) {
-  const { requireAdminAction } = await import('@/lib/auth/action-context');
-  await requireAdminAction();
-
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data: empresa } = await sb.from('empresas')
     .select('sys_config').eq('id', empresaId).maybeSingle();
 
@@ -183,10 +181,7 @@ export async function toggleVotacao(empresaId: string, ativa: boolean) {
 }
 
 export async function togglePerfilComportamental(empresaId: string, liberado: boolean) {
-  const { requireAdminAction } = await import('@/lib/auth/action-context');
-  await requireAdminAction();
-
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data: empresa } = await sb.from('empresas')
     .select('sys_config').eq('id', empresaId).maybeSingle();
 
@@ -210,10 +205,7 @@ export async function togglePerfilComportamental(empresaId: string, liberado: bo
 // ── Admin: carregar resultados da votação ─────────────────────────────────
 
 export async function loadResultadosVotacao(empresaId: string) {
-  const { requireAdminAction } = await import('@/lib/auth/action-context');
-  await requireAdminAction();
-
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const tdb = tenantDb(empresaId);
 
   // Verificar status

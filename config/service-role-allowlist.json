@@ -42,7 +42,7 @@
     "actions/tutor-evidencia.ts": 1,
     "actions/video-analytics.ts": 4,
     "actions/video-tracking.ts": 2,
-    "actions/votacao.ts": 5,
+    "actions/votacao.ts": 2,
     "actions/whatsapp-lote.ts": 2,
     "app/actions/beto.ts": 1,
     "app/actions/manutencao.ts": 2,
