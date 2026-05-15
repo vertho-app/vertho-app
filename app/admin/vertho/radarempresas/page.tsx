@@ -137,8 +137,8 @@ export default function RadarEmpresasPage() {
         <Kpi label="Empresas" value={kpis?.total_empresas ?? 0} icon={<Building2 size={14} />} />
         <Kpi label="Estabelecimentos" value={kpis?.total_estabelecimentos ?? 0} icon={<Building2 size={14} />} />
         <Kpi label="Com score" value={kpis?.com_score ?? 0} icon={<TrendingUp size={14} />} />
-        <Kpi label="Abordar agora" value={kpis?.abordar_agora ?? 0} color="#2ECC71" />
-        <Kpi label="Boa oportunidade" value={kpis?.boa ?? 0} color="#34C5CC" />
+        <Kpi label="Abordar (acionável)" value={kpis?.abordar_agora ?? 0} color="#2ECC71" />
+        <Kpi label="Boa (acionável)" value={kpis?.boa ?? 0} color="#34C5CC" />
       </div>
 
       {/* Funil de mercado endereçável */}

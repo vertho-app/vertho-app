@@ -101,9 +101,16 @@ export async function loadRadarKpis(): Promise<RadarKpis> {
     sb.from('radarempresas_scores').select('*', { count: 'exact', head: true }),
   ]);
 
+  // Mesma régua de endereçabilidade do funil: sem unidades de rede
+  // (entram como leads consolidados, não N soltos), sem micro/low_team,
+  // só com segmento aderente. Senão o card contradiz o funil logo abaixo.
+  const enderecavel = (q: any) => q
+    .is('rede_marca', null)
+    .eq('low_team_probability', false)
+    .not('score_explanation->>segmento_key', 'is', null);
   const [{ count: nAbordar }, { count: nBoa }] = await Promise.all([
-    sb.from('radarempresas_scores').select('*', { count: 'exact', head: true }).eq('classificacao', 'abordar_agora'),
-    sb.from('radarempresas_scores').select('*', { count: 'exact', head: true }).eq('classificacao', 'boa'),
+    enderecavel(sb.from('radarempresas_scores').select('*', { count: 'exact', head: true }).eq('classificacao', 'abordar_agora')),
+    enderecavel(sb.from('radarempresas_scores').select('*', { count: 'exact', head: true }).eq('classificacao', 'boa')),
   ]);
 
   // Top segmentos = só PRIORIZADOS (priority_rank >= 90, mesma régua do
