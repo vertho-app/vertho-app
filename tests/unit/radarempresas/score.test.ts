@@ -37,7 +37,7 @@ describe('calcularScore — estrutura', () => {
   it('versão é v4; contexto setorial null quando sem CAGED', () => {
     const r = calcularScore(baseInput());
     expect(r.score_contexto_setorial).toBeNull();
-    expect(r.scoring_version).toBe('v4');
+    expect(r.scoring_version).toBe('v5');
   });
 
   it('explanation tem 4 blocos auditáveis (inclui actionability)', () => {
@@ -63,6 +63,15 @@ describe('calcularScore — estrutura', () => {
     expect(calcularScore(baseInput({ segmento_mapeado: false })).score_confidence).toBe('baixa');
     expect(calcularScore(baseInput({ segmento_mapeado: true, contexto_confianca: 'alta' })).score_confidence).toBe('alta');
     expect(calcularScore(baseInput({ segmento_mapeado: true, contexto_confianca: 'baixa' })).score_confidence).toBe('media');
+  });
+
+  it('v5 híbrido: aderente genérico nunca atinge confidence alta', () => {
+    const curado = calcularScore(baseInput({ segmento_mapeado: true, aderencia_tipo: 'curado', contexto_confianca: 'alta' }));
+    const generico = calcularScore(baseInput({ segmento_mapeado: true, aderencia_tipo: 'generico', contexto_confianca: 'alta' }));
+    expect(curado.score_confidence).toBe('alta');
+    expect(generico.score_confidence).toBe('media'); // teto
+    // genérico continua elegível (segmento_mapeado=true)
+    expect(generico.score_total).toBeGreaterThan(0);
   });
 
   it('v4: setor com porte RAIS alto não penaliza ME (low_team=false)', () => {
@@ -105,7 +114,7 @@ describe('calcularScore — comportamento das regras', () => {
   it('contexto CAGED ausente: contexto_setorial null', () => {
     const semCtx = calcularScore(baseInput());
     expect(semCtx.score_contexto_setorial).toBeNull();
-    expect(semCtx.scoring_version).toBe('v4');
+    expect(semCtx.scoring_version).toBe('v5');
   });
 
   it('contexto CAGED alto aumenta dor e preenche score_contexto_setorial', () => {

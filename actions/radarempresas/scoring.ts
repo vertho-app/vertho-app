@@ -20,13 +20,21 @@ interface CnaeSegMap {
  * o de maior prefixo_len cujo cnae_prefixo prefixa o cnae do estabelecimento.
  * Mapa já vem ordenado por prefixo_len DESC.
  */
-function matchSegmento(cnae: string | null, mapa: CnaeSegMap[]): CnaeSegMap | null {
-  if (!cnae) return null;
+const GENERICO: CnaeSegMap = {
+  cnae_prefixo: '', prefixo_len: 0, segmento_key: 'generico',
+  people_intensity_score: 55, leadership_complexity_score: 55,
+  onboarding_need_score: 55, standardization_need_score: 55,
+  commercial_fit_score: 50, is_priority: false,
+};
+
+// Híbrido 3 vias: allowlist curada → genérico → excluído (denylist).
+// Mantido em sincronia com scripts/radarempresas-score.ts.
+function classificarCnae(cnae: string | null, mapa: CnaeSegMap[], deny: string[]) {
+  if (!cnae) return { tipo: 'excluido' as const, seg: null as CnaeSegMap | null };
   const c = cnae.replace(/\D/g, '');
-  for (const m of mapa) {
-    if (c.startsWith(m.cnae_prefixo)) return m;
-  }
-  return null;
+  for (const m of mapa) if (c.startsWith(m.cnae_prefixo)) return { tipo: 'curado' as const, seg: m };
+  for (const d of deny) if (c.startsWith(d)) return { tipo: 'excluido' as const, seg: null };
+  return { tipo: 'generico' as const, seg: GENERICO };
 }
 
 /**
@@ -55,6 +63,9 @@ export async function rodarScores(
       await finishJob(sb, jobId, 'failed', 0, 0, 1, 'mapa CNAE→segmento vazio');
       return { ok: false, error: 'Rode a migration 099 (seed cnae_segmento vazio)' };
     }
+    const { data: denyRaw } = await sb.from('radarempresas_cnae_denylist')
+      .select('cnae_prefixo').order('prefixo_len', { ascending: false });
+    const deny = (denyRaw || []).map((d: any) => d.cnae_prefixo as string);
 
     // Contexto v4: rotatividade real CAGED÷RAIS com travas estatísticas
     // (piso estoque/mov, suavização bayesiana, cap). Mantido em sincronia
@@ -152,8 +163,8 @@ export async function rodarScores(
       if (!estabs?.length) break;
 
       for (const est of estabs as any[]) {
-        const seg = matchSegmento(est.cnae_principal, mapa);
-        if (!seg) { semSegmento++; }
+        const { tipo, seg } = classificarCnae(est.cnae_principal, mapa, deny);
+        if (tipo === 'excluido') { semSegmento++; }
         const cnaeK = String(est.cnae_principal || '').replace(/\D/g, '');
         const emp = empMap.get(est.cnpj_basico) || { capital_social: null, porte_empresa: null };
 
@@ -167,7 +178,8 @@ export async function rodarScores(
           has_fantasia: !!est.has_fantasia,
           qtd_estabelecimentos_grupo: grupoCount.get(est.cnpj_basico) || 1,
           segmento_key: seg?.segmento_key || null,
-          segmento_mapeado: !!seg,
+          segmento_mapeado: tipo !== 'excluido',
+          aderencia_tipo: tipo === 'curado' ? 'curado' : 'generico',
           people_intensity_score: seg?.people_intensity_score ?? 30,
           leadership_complexity_score: seg?.leadership_complexity_score ?? 30,
           onboarding_need_score: seg?.onboarding_need_score ?? 30,

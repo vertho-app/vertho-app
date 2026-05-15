@@ -14,11 +14,20 @@ const env = readFileSync('.env.local', 'utf8').split('\n').filter(l => l && !l.s
   .reduce((a: any, l) => { const i = l.indexOf('='); if (i > 0) a[l.slice(0, i).trim()] = l.slice(i + 1).trim(); return a; }, {});
 const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
-function matchSegmento(cnae: string | null, mapa: any[]) {
-  if (!cnae) return null;
+// Pesos do "aderente genérico" (fallback híbrido): medianos.
+const GENERICO = {
+  segmento_key: 'generico', people_intensity_score: 55,
+  leadership_complexity_score: 55, onboarding_need_score: 55,
+  standardization_need_score: 55, commercial_fit_score: 50, is_priority: false,
+};
+
+// 3 vias: allowlist curada → genérico → excluído (denylist).
+function classificarCnae(cnae: string | null, mapa: any[], denySet: { p: string }[]) {
+  if (!cnae) return { tipo: 'excluido' as const, seg: null };
   const c = cnae.replace(/\D/g, '');
-  for (const m of mapa) if (c.startsWith(m.cnae_prefixo)) return m;
-  return null;
+  for (const m of mapa) if (c.startsWith(m.cnae_prefixo)) return { tipo: 'curado' as const, seg: m };
+  for (const d of denySet) if (c.startsWith(d.p)) return { tipo: 'excluido' as const, seg: null };
+  return { tipo: 'generico' as const, seg: GENERICO };
 }
 
 async function main() {
@@ -30,7 +39,10 @@ const jobId = (job as any)?.id;
 const { data: mapa } = await sb.from('radarempresas_cnae_segmento')
   .select('cnae_prefixo, prefixo_len, segmento_key, people_intensity_score, leadership_complexity_score, onboarding_need_score, standardization_need_score, commercial_fit_score, is_priority')
   .order('prefixo_len', { ascending: false });
-console.log(`Mapa CNAE→segmento: ${mapa?.length} regras`);
+const { data: denyRaw } = await sb.from('radarempresas_cnae_denylist')
+  .select('cnae_prefixo').order('prefixo_len', { ascending: false });
+const denySet = (denyRaw || []).map((d: any) => ({ p: d.cnae_prefixo }));
+console.log(`Allowlist: ${mapa?.length} regras · Denylist: ${denySet.length} prefixos`);
 
 // Empresas (capital/porte) por cnpj_basico
 const empMap = new Map<string, any>();
@@ -123,8 +135,8 @@ for (let from = 0; ; from += 500) {
   if (!ests?.length) break;
 
   for (const est of ests as any[]) {
-    const seg = matchSegmento(est.cnae_principal, mapa || []);
-    if (!seg) semSeg++;
+    const { tipo, seg } = classificarCnae(est.cnae_principal, mapa || [], denySet);
+    if (tipo === 'excluido') semSeg++;
     const cnaeK = String(est.cnae_principal || '').replace(/\D/g, '');
     const emp = empMap.get(est.cnpj_basico) || {};
     const input: ScoreInput = {
@@ -137,7 +149,8 @@ for (let from = 0; ; from += 500) {
       has_fantasia: !!est.has_fantasia,
       qtd_estabelecimentos_grupo: grupo.get(est.cnpj_basico) || 1,
       segmento_key: seg?.segmento_key || null,
-      segmento_mapeado: !!seg,
+      segmento_mapeado: tipo !== 'excluido',
+      aderencia_tipo: tipo === 'curado' ? 'curado' : 'generico',
       people_intensity_score: seg?.people_intensity_score ?? 30,
       leadership_complexity_score: seg?.leadership_complexity_score ?? 30,
       onboarding_need_score: seg?.onboarding_need_score ?? 30,
@@ -191,7 +204,7 @@ if (jobId) await sb.from('radarempresas_jobs').update({
   finished_at: new Date().toISOString(),
 }).eq('id', jobId);
 
-console.log(`\n[OK] ${proc} scored, ${semSeg} sem segmento, ${err} erros em ${Math.round((Date.now()-t0)/1000)}s`);
+console.log(`\n[OK] ${proc} scored, ${semSeg} excluídos (denylist), ${err} erros em ${Math.round((Date.now()-t0)/1000)}s`);
 
 // Distribuição
 const { data: dist } = await sb.from('radarempresas_scores')

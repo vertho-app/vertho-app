@@ -11,7 +11,7 @@
  * fora da fórmula (null), sem alterar os pesos das outras 3 dimensões.
  */
 
-export const SCORING_VERSION = 'v4';
+export const SCORING_VERSION = 'v5';
 
 export type Classificacao = 'abordar_agora' | 'boa' | 'nutrir' | 'baixa';
 
@@ -43,8 +43,13 @@ export interface ScoreInput {
   // v4: porte médio do CNAE×município na RAIS — refina low_team
   // (setor com equipes grandes não penaliza ME). null = desconhecido.
   rais_tam_medio_setor?: number | null;
-  // v4: o CNAE casou com um segmento Vertho? (para score_confidence)
+  // v4: o CNAE é elegível? (allowlist curada OU fallback genérico).
+  // false = excluído (denylist) ou sem match → não-elegível.
   segmento_mapeado?: boolean;
+  // v5 (híbrido): 'curado' = match na allowlist (sinal rico, pode ter
+  // confidence alta); 'generico' = fallback aderente (pesos medianos,
+  // confidence teto 'media'). Ignorado se segmento_mapeado=false.
+  aderencia_tipo?: 'curado' | 'generico';
 }
 
 export interface ScoreExplanationPart {
@@ -125,10 +130,13 @@ function calcActionability(i: ScoreInput): { score: number; parts: ScoreExplanat
 
 // ── Confiança do score (v4) ──────────────────────────────────────────────
 function resolveConfidence(i: ScoreInput): 'alta' | 'media' | 'baixa' {
-  if (i.segmento_mapeado === false) return 'baixa';   // CNAE genérico
+  if (i.segmento_mapeado === false) return 'baixa';    // excluído / sem match
   const cc = i.contexto_confianca;
-  if (cc == null || cc === 'baixa') return 'media';    // mapeado mas sinal fraco
-  return cc;                                           // 'alta' ou 'media'
+  const base = (cc == null || cc === 'baixa') ? 'media' : cc; // 'alta'|'media'
+  // v5: aderente genérico nunca atinge 'alta' — é hipótese mais rasa,
+  // o time deve validar. Curado pode chegar a 'alta'.
+  if (i.aderencia_tipo === 'generico') return base === 'alta' ? 'media' : base;
+  return base;
 }
 
 // ── Sub-score 2: capacidade de compra (peso 30%) ─────────────────────────
