@@ -1,8 +1,8 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 
 // ── Load competências da empresa ────────────────────────────────────────────
 
@@ -67,7 +67,7 @@ export async function excluirCompetencia(id: string) {
   await requireAdminAction();
   // Não recebe empresaId — descobre via raw + valida tenant pra defesa em profundidade.
   try {
-    const sbRaw = createSupabaseAdmin();
+    const sbRaw = await requireAdminSupabase();
     const { data: row } = await sbRaw.from('competencias').select('empresa_id').eq('id', id).maybeSingle();
     if (!row) return { success: false, error: 'Não encontrada' };
     const tdb = tenantDb(row.empresa_id);
