@@ -1,15 +1,14 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI, type AIConfig } from './ai-client';
 import { extractJSON } from './utils';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 
 // ── Gerar PDIs (Planos de Desenvolvimento Individual) ───────────────────────
 
 export async function gerarPDIs(empresaId: string, aiConfig: AIConfig = {}) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     const { data: empresa } = await sb.from('empresas')
       .select('nome, segmento')
@@ -74,8 +73,7 @@ Gere o PDI:
 // ── Gerar PDIs com descritores ──────────────────────────────────────────────
 
 export async function gerarPDIsDescritores(empresaId: string) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     const { data: pdis } = await sb.from('pdis')
       .select('*, colaboradores!inner(nome_completo, cargo)')
@@ -117,8 +115,7 @@ export async function gerarPDIsDescritores(empresaId: string) {
 // ── Salvar competência foco por cargo ───────────────────────────────────────
 
 export async function salvarCompetenciaFoco(empresaId: string, cargo: string, competenciaFoco: string) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     const { error } = await sb.from('cargos_empresa')
       .update({ competencia_foco: competenciaFoco })
@@ -134,8 +131,7 @@ export async function salvarCompetenciaFoco(empresaId: string, cargo: string, co
 // ── Carregar competências foco por cargo ────────────────────────────────────
 
 export async function loadCompetenciasFoco(empresaId: string) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     const { data: cargos } = await sb.from('cargos_empresa')
       .select('nome, competencia_foco, top5_workshop')
@@ -162,8 +158,7 @@ export async function loadCompetenciasFoco(empresaId: string) {
  * Usado pelo client pra orquestrar geração 1 por 1 (evita timeout serverless).
  */
 export async function listarColabsParaTrilha(empresaId: string) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data: colabs } = await sb.from('colaboradores')
     .select('id, nome_completo, cargo')
     .eq('empresa_id', empresaId)
@@ -187,8 +182,7 @@ export async function montarTrilhasLote(empresaId: string) {
 // Função antiga preservada como fallback caso queira a lógica simples
 // de dump-tudo (sem alocação por slot/descritor).
 export async function _montarTrilhasLote_legacy(empresaId: string) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     // Buscar respostas avaliadas (gaps identificados pela IA4)
     const { data: respostas } = await sb.from('respostas')

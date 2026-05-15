@@ -1,15 +1,13 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { APP_WEBHOOK_URL, EMAIL_FROM_DEFAULT, QSTASH_BASE_URL, tenantUrl } from '@/lib/domain';
 import crypto from 'crypto';
-import { requireAdminAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 
 // ── Disparar convites (email + WhatsApp unificado) ──────────────────────────
 
 export async function dispararEmails(empresaId: string) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     const { data: empresa } = await sb.from('empresas')
       .select('nome, slug')
@@ -143,8 +141,7 @@ export async function dispararEmails(empresaId: string) {
 // ── Ver status dos envios (com sync automático de respostas) ────────────────
 
 export async function verStatusEnvios(empresaId: string) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     // Auto-sync: marcar como respondido se sessão concluída
     const { data: enviados } = await sb.from('envios_diagnostico')
