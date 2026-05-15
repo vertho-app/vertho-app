@@ -54,11 +54,24 @@ O `run.ps1` chama o DuckDB com `01_pipeline_jundiai.sql`, que:
 
 Não modifica os arquivos originais. Idempotente — pode rodar quantas vezes.
 
-## Próxima etapa (após Parquet gerado)
+## Etapa 1.5 — Carga no Postgres (após Parquet gerado)
 
-`04_load_to_postgres.mjs` lê o Parquet e faz INSERT batched nas tabelas
-`radarempresas_*` do Supabase (criadas pela migration 099). Documentado
-quando o Parquet estiver validado.
+```powershell
+# valida sem escrever (gera os NDJSON em out/)
+node 04_load_to_postgres.mjs --dry
+
+# carga real (upsert idempotente em radarempresas_empresas + _estabelecimentos)
+node 04_load_to_postgres.mjs
+```
+
+`04_load_to_postgres.mjs` usa o DuckDB pra exportar o recorte em NDJSON
+(robusto pra qualquer volume), separa empresas (dedupe por cnpj_basico)
+de estabelecimentos (1 por cnpj_completo) e faz upsert batched no
+Supabase via service role. Grava um job em `radarempresas_jobs`.
+
+Depois da carga: rodar `rodarScores()` (action admin) pra calcular o
+Score de Oportunidade. Daí a UI `/admin/vertho/radarempresas` acende
+com dados reais.
 
 ## Notas
 
