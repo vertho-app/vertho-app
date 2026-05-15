@@ -49,20 +49,20 @@ export async function loadFunilMercado(): Promise<FunilEtapa[]> {
     { etapa: 'CNAE aderente à Vertho', quantidade: aderente, pct_do_topo: pct(aderente) },
     { etapa: 'Score ≥ 60 (boa+)', quantidade: score60, pct_do_topo: pct(score60) },
     { etapa: 'Priorizados individuais (top 10%)', quantidade: priorizados, pct_do_topo: pct(priorizados) },
-    { etapa: '+ Redes consolidadas (1 lead = franqueadora)', quantidade: nRedes || 0, pct_do_topo: pct(nRedes || 0) },
+    { etapa: '+ Redes consolidadas (franquia + grupo, 1 lead = a sede)', quantidade: nRedes || 0, pct_do_topo: pct(nRedes || 0) },
   ];
 }
 
 export interface RadarRede {
-  marca_norm: string; nome_exibicao: string; n_unidades: number; n_donos: number;
-  segmento_nome: string | null; score_medio: number | null; classificacao: string | null;
-  municipios: string[]; confianca_rede: string;
+  marca_norm: string; nome_exibicao: string; tipo: 'franquia' | 'grupo'; n_unidades: number;
+  n_donos: number; segmento_nome: string | null; score_medio: number | null;
+  classificacao: string | null; municipios: string[]; confianca_rede: string;
 }
 
 export async function loadRedes(): Promise<RadarRede[]> {
   const sb = await requireAdminSupabase();
   const { data } = await sb.from('radarempresas_redes')
-    .select('marca_norm, nome_exibicao, n_unidades, n_donos, segmento_nome, score_medio, classificacao, municipios, confianca_rede')
+    .select('marca_norm, nome_exibicao, tipo, n_unidades, n_donos, segmento_nome, score_medio, classificacao, municipios, confianca_rede')
     .order('score_medio', { ascending: false }).limit(500);
   return (data || []) as RadarRede[];
 }

@@ -34,15 +34,17 @@ export default function RadarRedesPage() {
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
             <Network size={20} className="text-cyan-400" /> Redes & Franquias
           </h1>
-          <p className="text-xs text-gray-500">1 lead = a rede (negociação na franqueadora, não na unidade)</p>
+          <p className="text-xs text-gray-500">1 lead = a rede (negociação na sede: franqueadora ou matriz, não na unidade)</p>
         </div>
       </div>
 
       <div className="mb-4 p-3 rounded-xl border border-amber-400/20 bg-amber-400/[0.05]">
         <p className="text-[11px] text-amber-300 leading-relaxed">
-          Detecção heurística: mesmo nome fantasia em 3+ donos distintos = provável rede.
-          A franqueadora normalmente está <span className="font-bold">fora do recorte</span> —
-          o decisor é a matriz da marca, não a unidade local. Validar antes de abordar.
+          <span className="font-bold">Franquia</span>: mesma fantasia em 3+ donos distintos.
+          {' '}<span className="font-bold">Grupo</span>: mesma empresa (CNPJ-base) com 3+ filiais.
+          {' '}Nos dois, a sede (franqueadora/matriz) normalmente está
+          {' '}<span className="font-bold">fora do recorte</span> — o decisor não é a unidade
+          {' '}local. Validar antes de abordar.
         </p>
       </div>
 
@@ -58,11 +60,18 @@ export default function RadarRedesPage() {
               <button onClick={() => toggle(r.marca_norm)}
                 className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/[0.02]">
                 <div>
-                  <p className="text-sm font-bold text-white">{r.nome_exibicao}
+                  <p className="text-sm font-bold text-white">
+                    <span className={`mr-2 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase align-middle ${
+                      r.tipo === 'grupo' ? 'bg-violet-400/15 text-violet-300' : 'bg-cyan-400/15 text-cyan-300'}`}>
+                      {r.tipo === 'grupo' ? 'Grupo' : 'Franquia'}
+                    </span>
+                    {r.nome_exibicao}
                     <span className="ml-2 text-[9px] font-normal text-gray-500 uppercase">{r.confianca_rede} confiança</span>
                   </p>
                   <p className="text-[10px] text-gray-500">
-                    {r.n_unidades} unidades · {r.n_donos} donos · {r.segmento_nome || 'sem segmento'} ·
+                    {r.tipo === 'grupo'
+                      ? `${r.n_unidades} filiais · mesma empresa`
+                      : `${r.n_unidades} unidades · ${r.n_donos} donos`} · {r.segmento_nome || 'sem segmento'} ·
                     {' '}{(r.municipios || []).slice(0, 3).join(', ')}{(r.municipios || []).length > 3 ? '…' : ''}
                   </p>
                 </div>
