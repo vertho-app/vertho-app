@@ -34,10 +34,10 @@ describe('calcularScore — estrutura', () => {
     expect(Math.abs(r.score_total - recomposto)).toBeLessThan(0.6); // arredondamento
   });
 
-  it('versão é v2; contexto setorial null quando sem CAGED', () => {
+  it('versão é v3; contexto setorial null quando sem CAGED', () => {
     const r = calcularScore(baseInput());
     expect(r.score_contexto_setorial).toBeNull();
-    expect(r.scoring_version).toBe('v2');
+    expect(r.scoring_version).toBe('v3');
   });
 
   it('explanation tem as 3 dimensões com parcelas auditáveis', () => {
@@ -83,10 +83,10 @@ describe('calcularScore — comportamento das regras', () => {
     expect(sem.score_capacidade_compra).toBeLessThan(com.score_capacidade_compra);
   });
 
-  it('contexto CAGED (v2): null = comporta como v1', () => {
+  it('contexto CAGED ausente: comporta como score base', () => {
     const semCtx = calcularScore(baseInput());
     expect(semCtx.score_contexto_setorial).toBeNull();
-    expect(semCtx.scoring_version).toBe('v2');
+    expect(semCtx.scoring_version).toBe('v3');
   });
 
   it('contexto CAGED alto aumenta dor e preenche score_contexto_setorial', () => {

@@ -56,17 +56,35 @@ export async function rodarScores(
       return { ok: false, error: 'Rode a migration 099 (seed cnae_segmento vazio)' };
     }
 
-    // Contexto CAGED (v2): percentil de movimentação por CNAE em Jundiaí
+    // Contexto v3: taxa de rotatividade REAL = mov CAGED 6m ÷ estoque RAIS
+    // (ajustada por porte), percentil em Jundiaí. Fallback volume CAGED.
     const cagedCtx = new Map<string, number>();
     {
-      const { data: cg } = await sb.from('radarempresas_caged_municipio_cnae_6m')
-        .select('cnae, taxa_mov_proxy').eq('municipio_ibge', '352590');
-      const arr = (cg || []).filter((r: any) => r.taxa_mov_proxy != null)
-        .sort((a: any, b: any) => a.taxa_mov_proxy - b.taxa_mov_proxy);
-      const n = arr.length;
-      arr.forEach((r: any, idx: number) => {
-        cagedCtx.set(String(r.cnae).replace(/\D/g, ''), n > 1 ? Math.round((idx / (n - 1)) * 100) : 50);
-      });
+      const [{ data: cg }, { data: rs }] = await Promise.all([
+        sb.from('radarempresas_caged_municipio_cnae_6m')
+          .select('cnae, admissoes_6m, desligamentos_6m').eq('municipio_ibge', '352590'),
+        sb.from('radarempresas_rais_estab_municipio_cnae')
+          .select('cnae, estoque_vinculos, tam_medio_estimado').eq('municipio_ibge', '352590'),
+      ]);
+      const rais = new Map<string, { estoque: number; tam: number }>();
+      for (const r of (rs || []) as any[]) {
+        rais.set(String(r.cnae).replace(/\D/g, ''), { estoque: r.estoque_vinculos || 0, tam: r.tam_medio_estimado || 0 });
+      }
+      const raw: { cnae: string; val: number }[] = [];
+      for (const c of (cg || []) as any[]) {
+        const cnae = String(c.cnae).replace(/\D/g, '');
+        const mov = (c.admissoes_6m || 0) + (c.desligamentos_6m || 0);
+        const rr = rais.get(cnae);
+        let val: number;
+        if (rr && rr.estoque > 0) {
+          val = mov / rr.estoque;
+          if (rr.tam > 0 && rr.tam < 5) val *= 0.5;
+        } else { val = mov / 1000; }
+        raw.push({ cnae, val });
+      }
+      raw.sort((a, b) => a.val - b.val);
+      const n = raw.length;
+      raw.forEach((r, idx) => cagedCtx.set(r.cnae, n > 1 ? Math.round((idx / (n - 1)) * 100) : 50));
     }
 
     // Empresas (capital/porte) em mapa por cnpj_basico

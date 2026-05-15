@@ -11,7 +11,7 @@
  * fora da fórmula (null), sem alterar os pesos das outras 3 dimensões.
  */
 
-export const SCORING_VERSION = 'v2';
+export const SCORING_VERSION = 'v3';
 
 export type Classificacao = 'abordar_agora' | 'boa' | 'nutrir' | 'baixa';
 
@@ -32,9 +32,10 @@ export interface ScoreInput {
   standardization_need_score: number;
   commercial_fit_score: number;
   is_priority_cnae: boolean;
-  // Contexto setorial CAGED (v2): intensidade de movimentação de emprego
-  // do CNAE no município, JÁ normalizada 0-100 pelo caller (percentil
-  // dentro do recorte). null = sem dado CAGED (comporta como v1).
+  // Contexto setorial (v3): taxa de ROTATIVIDADE REAL do CNAE no
+  // município = movimentação CAGED 6m ÷ estoque RAIS, ajustada por porte,
+  // JÁ normalizada 0-100 pelo caller (percentil no recorte). Fallback v2
+  // (volume CAGED puro) quando falta estoque RAIS. null = sem dado.
   caged_contexto_score?: number | null;
 }
 
