@@ -1,11 +1,10 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 
 export async function limparSessoesAntigas(dias: number = 30) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const cutoff = new Date(Date.now() - dias * 86400000).toISOString();
   const { count, error } = await sb.from('envios_diagnostico')
     .delete({ count: 'exact' })
@@ -16,8 +15,7 @@ export async function limparSessoesAntigas(dias: number = 30) {
 }
 
 export async function limparSessoesTeste() {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { count, error } = await sb.from('envios_diagnostico')
     .delete({ count: 'exact' })
     .ilike('email', '%@teste%');

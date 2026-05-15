@@ -1,13 +1,11 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
-import { requireAdminAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 
 // ── Limpar sessões antigas ──────────────────────────────────────────────────
 
 export async function limparSessoesAntigas(dias: number = 30) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     const cutoff = new Date(Date.now() - dias * 86400000).toISOString();
     const { count, error } = await sb.from('envios_diagnostico')
@@ -25,8 +23,7 @@ export async function limparSessoesAntigas(dias: number = 30) {
 // ── Limpar sessões de teste ─────────────────────────────────────────────────
 
 export async function limparSessoesTeste() {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     const { count, error } = await sb.from('envios_diagnostico')
       .delete({ count: 'exact' })
@@ -42,8 +39,7 @@ export async function limparSessoesTeste() {
 // ── Estatísticas do banco ───────────────────────────────────────────────────
 
 export async function estatisticasBanco() {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     const tabelas = [
       'empresas',

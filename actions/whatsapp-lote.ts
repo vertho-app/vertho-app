@@ -1,8 +1,7 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { templateWhatsAppCIS } from '@/lib/notifications';
-import { requireAdminAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { APP_WEBHOOK_URL, QSTASH_BASE_URL, tenantUrl } from '@/lib/domain';
 
 const DELAY_BETWEEN_MS = 2000; // 2s entre cada mensagem
@@ -44,8 +43,7 @@ async function publishToQStash(payload: any, delaySec = 0) {
 // ── Disparar links CIS em lote via QStash ──────────────────────────────────
 
 export async function dispararLinksCIS(empresaId: string) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     const { data: empresa } = await sb.from('empresas')
       .select('nome, slug')
@@ -98,8 +96,7 @@ export async function dispararLinksCIS(empresaId: string) {
 // ── Disparar relatórios em lote via QStash ────────────────────────────────
 
 export async function dispararRelatoriosLote(empresaId: string) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   try {
     const { data: empresa } = await sb.from('empresas')
       .select('nome, slug')
