@@ -24,9 +24,9 @@
     "smoke": "node scripts/smoke-test.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.81.0",
+    "@anthropic-ai/sdk": "^0.96.0",
     "@react-pdf/renderer": "^4.4.0",
-    "@sentry/nextjs": "^10.47.0",
+    "@sentry/nextjs": "^10.53.1",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.49.4",
     "@upstash/qstash": "^2.10.1",
@@ -53,5 +53,8 @@
     "tailwindcss": "^4.0.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.4"
+  },
+  "overrides": {
+    "postcss": "8.5.14"
   }
 }
