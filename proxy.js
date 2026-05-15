@@ -63,7 +63,7 @@ const ROOT_DOMAINS = [
  * Extrai o slug do tenant a partir do hostname.
  * Retorna null se não houver subdomínio de tenant.
  */
-function extractTenantSlug(hostname) {
+export function extractTenantSlug(hostname) {
   // Remove porta (localhost:3000 → localhost)
   const host = hostname.split(':')[0];
 
@@ -91,7 +91,7 @@ function extractTenantSlug(hostname) {
 }
 
 // Detecta se o host é um subdomínio público com rewrite (ex: radar.vertho.ai)
-function detectRewriteSubdomain(hostname) {
+export function detectRewriteSubdomain(hostname) {
   const host = hostname.split(':')[0];
   for (const [sub, basePath] of Object.entries(REWRITE_SUBDOMAINS)) {
     for (const root of ROOT_DOMAINS) {
