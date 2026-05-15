@@ -1,8 +1,7 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
-import { requireAdminAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 
 function tryParseJSON(s: any) {
   if (!s || typeof s !== 'string') return null;
@@ -59,8 +58,7 @@ function extractCenario(cen: any): { cenText: string; cenPerg: string } {
 }
 
 export async function loadTrilhas(empresaId: string) {
-  await requireAdminAction();
-  const sb = createSupabaseAdmin();
+  const sb = await requireAdminSupabase();
   const { data } = await sb.from('trilhas')
     .select('*')
     .eq('empresa_id', empresaId)

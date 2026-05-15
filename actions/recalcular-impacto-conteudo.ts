@@ -1,8 +1,6 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
-import { getUserContext } from '@/lib/authz';
-import { requireAdminAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 
 /**
  * Recalcula `impacto_medio_delta` e `impacto_amostras` de cada micro_conteudo.
@@ -19,11 +17,8 @@ import { requireAdminAction } from '@/lib/auth/action-context';
  * Admin-only. Chamar via botão ou cron mensal.
  */
 export async function recalcularImpactoConteudo(email: string) {
-  await requireAdminAction();
-  const ctx = await getUserContext(email);
-  if (!ctx?.isPlatformAdmin) return { error: 'Acesso restrito à Vertho' };
-
-  const sb = createSupabaseAdmin();
+  void email;
+  const sb = await requireAdminSupabase();
 
   // 1. Todas as trilhas concluídas com evolution_report + temporada_plano
   const { data: trilhas } = await sb.from('trilhas')
