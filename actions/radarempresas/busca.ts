@@ -27,25 +27,57 @@ export async function loadFunilMercado(): Promise<FunilEtapa[]> {
     return count || 0;
   };
 
+  // unidades de rede saem do funil individual (lead = a franqueadora)
+  const semRede = (q: any) => q.is('rede_marca', null);
   const ativos = await cnt((q: any) => q);
-  const naoMicro = await cnt((q: any) => q.eq('low_team_probability', false));
+  const naoMicro = await cnt((q: any) => semRede(q).eq('low_team_probability', false));
   const aderente = await cnt((q: any) =>
-    q.eq('low_team_probability', false).not('score_explanation->>segmento_key', 'is', null));
+    semRede(q).eq('low_team_probability', false).not('score_explanation->>segmento_key', 'is', null));
   const score60 = await cnt((q: any) =>
-    q.eq('low_team_probability', false).not('score_explanation->>segmento_key', 'is', null)
+    semRede(q).eq('low_team_probability', false).not('score_explanation->>segmento_key', 'is', null)
       .gte('score_total', 60));
   const priorizados = await cnt((q: any) =>
-    q.eq('low_team_probability', false).not('score_explanation->>segmento_key', 'is', null)
+    semRede(q).eq('low_team_probability', false).not('score_explanation->>segmento_key', 'is', null)
       .gte('score_total', 60).gte('priority_rank', 90));
+  const { count: nRedes } = await sb.from('radarempresas_redes')
+    .select('*', { count: 'exact', head: true });
 
   const pct = (n: number) => ativos > 0 ? Math.round((n / ativos) * 1000) / 10 : 0;
   return [
     { etapa: 'Estabelecimentos ativos', quantidade: ativos, pct_do_topo: 100 },
-    { etapa: 'Excluindo micro sem equipe provável', quantidade: naoMicro, pct_do_topo: pct(naoMicro) },
+    { etapa: 'Excluindo micro + unidades de rede', quantidade: naoMicro, pct_do_topo: pct(naoMicro) },
     { etapa: 'CNAE aderente à Vertho', quantidade: aderente, pct_do_topo: pct(aderente) },
     { etapa: 'Score ≥ 60 (boa+)', quantidade: score60, pct_do_topo: pct(score60) },
-    { etapa: 'Priorizados (top 10% elegíveis)', quantidade: priorizados, pct_do_topo: pct(priorizados) },
+    { etapa: 'Priorizados individuais (top 10%)', quantidade: priorizados, pct_do_topo: pct(priorizados) },
+    { etapa: '+ Redes consolidadas (1 lead = franqueadora)', quantidade: nRedes || 0, pct_do_topo: pct(nRedes || 0) },
   ];
+}
+
+export interface RadarRede {
+  marca_norm: string; nome_exibicao: string; n_unidades: number; n_donos: number;
+  segmento_nome: string | null; score_medio: number | null; classificacao: string | null;
+  municipios: string[]; confianca_rede: string;
+}
+
+export async function loadRedes(): Promise<RadarRede[]> {
+  const sb = await requireAdminSupabase();
+  const { data } = await sb.from('radarempresas_redes')
+    .select('marca_norm, nome_exibicao, n_unidades, n_donos, segmento_nome, score_medio, classificacao, municipios, confianca_rede')
+    .order('score_medio', { ascending: false }).limit(500);
+  return (data || []) as RadarRede[];
+}
+
+export async function listarUnidadesRede(marcaNorm: string) {
+  const sb = await requireAdminSupabase();
+  const { data: scs } = await sb.from('radarempresas_scores')
+    .select('cnpj_completo, score_total, classificacao, radarempresas_estabelecimentos!inner(nome_fantasia, municipio_nome, uf, cnpj_basico)')
+    .eq('rede_marca', marcaNorm).order('score_total', { ascending: false }).limit(500);
+  return (scs || []).map((s: any) => ({
+    cnpj_completo: s.cnpj_completo, score_total: s.score_total, classificacao: s.classificacao,
+    nome_fantasia: s.radarempresas_estabelecimentos?.nome_fantasia,
+    municipio_nome: s.radarempresas_estabelecimentos?.municipio_nome,
+    uf: s.radarempresas_estabelecimentos?.uf,
+  }));
 }
 
 export interface RadarKpis {
@@ -176,6 +208,7 @@ export async function listarEmpresas(
       { count: 'exact' },
     );
 
+  q = q.is('rede_marca', null); // unidades de rede saem da lista individual (lead = a rede)
   if (f.classificacao) q = q.eq('classificacao', f.classificacao);
   if (f.score_min != null) q = q.gte('score_total', f.score_min);
   if (f.segmento_key) q = q.eq('score_explanation->>segmento_key', f.segmento_key);

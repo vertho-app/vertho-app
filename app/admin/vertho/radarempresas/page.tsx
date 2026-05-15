@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft, Loader2, Building2, Filter, Search, TrendingUp, MapPin, Target, Download, List,
+  ArrowLeft, Loader2, Building2, Filter, Search, TrendingUp, MapPin, Target, Download, List, Network,
 } from 'lucide-react';
 import {
   loadRadarKpis, listarEmpresas, loadFunilMercado,
@@ -100,6 +100,10 @@ export default function RadarEmpresasPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => router.push('/admin/vertho/radarempresas/redes')}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold text-gray-300 border border-white/10 hover:text-white hover:border-white/30 transition-all">
+            <Network size={12} /> Redes
+          </button>
           <button onClick={() => router.push('/admin/vertho/radarempresas/listas')}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold text-gray-300 border border-white/10 hover:text-white hover:border-white/30 transition-all">
             <List size={12} /> Listas
