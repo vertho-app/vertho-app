@@ -1,6 +1,5 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { callAI, callAIChat } from './ai-client';
 import {
@@ -10,8 +9,7 @@ import {
 import { promptSocratic } from '@/lib/season-engine/prompts/socratic';
 import { promptMissaoFeedback } from '@/lib/season-engine/prompts/missao-feedback';
 import { promptEvolutionQualitative, promptEvolutionQualitativeExtract, validateEvolutionExtract } from '@/lib/season-engine/prompts/evolution-qualitative';
-import { getUserContext } from '@/lib/authz';
-import { requireAdminAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
 
 const SIM_EXTRACTOR_SYSTEM = `Você é um extrator de dados estruturados da Vertho.
 
@@ -72,11 +70,8 @@ interface SimUmaSemanaParams {
 }
 
 export async function simularUmaSemanaSimulacao(email: string, { trilhaId, semana, perfilEvolucao = 'evolucao_parcial' }: SimUmaSemanaParams) {
-  await requireAdminAction();
-  const ctx = await getUserContext(email);
-  if (!ctx?.isPlatformAdmin) return { error: 'Acesso restrito à Vertho' };
-
-  const sbRaw = createSupabaseAdmin();
+  void email;
+  const sbRaw = await requireAdminSupabase();
   const { data: trilha } = await sbRaw.from('trilhas')
     .select('id, empresa_id, colaborador_id, competencia_foco, temporada_plano, descritores_selecionados')
     .eq('id', trilhaId).maybeSingle();
@@ -115,11 +110,8 @@ export async function simularUmaSemanaSimulacao(email: string, { trilhaId, seman
 }
 
 export async function simularTemporadaCompleta(email: string, { trilhaId, perfilEvolucao = 'evolucao_parcial' }: { trilhaId: string; perfilEvolucao?: string }) {
-  await requireAdminAction();
-  const ctx = await getUserContext(email);
-  if (!ctx?.isPlatformAdmin) return { error: 'Acesso restrito à Vertho' };
-
-  const sbRaw = createSupabaseAdmin();
+  void email;
+  const sbRaw = await requireAdminSupabase();
   const { data: trilha } = await sbRaw.from('trilhas')
     .select('id, empresa_id, colaborador_id, competencia_foco, temporada_plano, descritores_selecionados')
     .eq('id', trilhaId).maybeSingle();

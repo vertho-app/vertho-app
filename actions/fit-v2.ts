@@ -1,27 +1,28 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { calcularFit, converterGabaritoParaPerfil, extrairPerfilReal } from '@/lib/fit-v2/engine';
 import { gerarRanking, gerarDistribuicao } from '@/lib/fit-v2/ranking';
 import { buildFitExecutivePrompt } from '@/lib/prompts/fit-executive-prompt';
 import { callAI } from '@/actions/ai-client';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { requireAdminSupabase } from '@/lib/admin-supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 const LEITURA_AI_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
 
 // Helper interno: descobre empresa_id de um cargo pra escopar tdb.
-async function tenantDoCargo(cargoId: string) {
-  const sb = createSupabaseAdmin();
-  const { data } = await sb.from('cargos_empresa').select('empresa_id').eq('id', cargoId).maybeSingle();
+async function tenantDoCargo(cargoId: string, sb?: SupabaseClient) {
+  const admin = sb || await requireAdminSupabase();
+  const { data } = await admin.from('cargos_empresa').select('empresa_id').eq('id', cargoId).maybeSingle();
   return data?.empresa_id || null;
 }
 
 // ── Salvar/carregar perfil ideal ────────────────────────────────────────────
 
 export async function salvarPerfilIdeal(cargoId: string, perfilIdeal: any) {
-  await requireAdminAction();
-  const empresaId = await tenantDoCargo(cargoId);
+  const sbRaw = await requireAdminSupabase();
+  const empresaId = await tenantDoCargo(cargoId, sbRaw);
   if (!empresaId) return { success: false, error: 'Cargo não encontrado' };
   const tdb = tenantDb(empresaId);
   const { error } = await tdb.from('cargos_empresa')
@@ -33,8 +34,8 @@ export async function salvarPerfilIdeal(cargoId: string, perfilIdeal: any) {
 }
 
 export async function loadPerfilIdeal(cargoId: string) {
-  await requireAdminAction();
-  const empresaId = await tenantDoCargo(cargoId);
+  const sbRaw = await requireAdminSupabase();
+  const empresaId = await tenantDoCargo(cargoId, sbRaw);
   if (!empresaId) return null;
   const tdb = tenantDb(empresaId);
   const { data } = await tdb.from('cargos_empresa')
@@ -238,9 +239,8 @@ export async function loadRankingCargo(empresaId: string, cargoNome: string) {
 // ── Buscar fit individual ───────────────────────────────────────────────────
 
 export async function loadFitIndividual(colaboradorId: string) {
-  await requireAdminAction();
   // Descobre tenant via colaborador (raw — colaboradores é root de tenancy)
-  const sbRaw = createSupabaseAdmin();
+  const sbRaw = await requireAdminSupabase();
   const { data: colab } = await sbRaw.from('colaboradores')
     .select('empresa_id').eq('id', colaboradorId).maybeSingle();
   if (!colab?.empresa_id) return null;
