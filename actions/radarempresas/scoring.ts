@@ -37,6 +37,13 @@ function classificarCnae(cnae: string | null, mapa: CnaeSegMap[], deny: string[]
   return { tipo: 'generico' as const, seg: GENERICO };
 }
 
+// Razão social de PJ unipessoal/holding → excluído (pega disfarçados
+// em CNAE de educação/saúde). Sincronizado com scripts/radarempresas-score.ts.
+function nomeBloqueado(razao: string | null | undefined): boolean {
+  const r = (razao || '').toUpperCase();
+  return /\bCONSULTORIA\b/.test(r) || /PARTICIPAC/.test(r);
+}
+
 /**
  * Calcula o Score de Oportunidade Vertho pra todos os estabelecimentos
  * carregados e faz upsert em radarempresas_scores. Idempotente.
@@ -114,17 +121,17 @@ export async function rodarScores(
     }
 
     // Empresas (capital/porte) em mapa por cnpj_basico
-    const empMap = new Map<string, { capital_social: number | null; porte_empresa: string | null }>();
+    const empMap = new Map<string, { capital_social: number | null; porte_empresa: string | null; razao_social: string | null }>();
     {
       let from = 0;
       const page = 1000;
       for (;;) {
         const { data } = await sb.from('radarempresas_empresas')
-          .select('cnpj_basico, capital_social, porte_empresa')
+          .select('cnpj_basico, capital_social, porte_empresa, razao_social')
           .range(from, from + page - 1);
         if (!data?.length) break;
         for (const e of data as any[]) {
-          empMap.set(e.cnpj_basico, { capital_social: e.capital_social, porte_empresa: e.porte_empresa });
+          empMap.set(e.cnpj_basico, { capital_social: e.capital_social, porte_empresa: e.porte_empresa, razao_social: e.razao_social });
         }
         if (data.length < page) break;
         from += page;
@@ -163,10 +170,11 @@ export async function rodarScores(
       if (!estabs?.length) break;
 
       for (const est of estabs as any[]) {
-        const { tipo, seg } = classificarCnae(est.cnae_principal, mapa, deny);
+        const emp = empMap.get(est.cnpj_basico) || { capital_social: null, porte_empresa: null, razao_social: null };
+        let { tipo, seg } = classificarCnae(est.cnae_principal, mapa, deny);
+        if (tipo !== 'excluido' && nomeBloqueado(emp.razao_social)) { tipo = 'excluido'; seg = null; }
         if (tipo === 'excluido') { semSegmento++; }
         const cnaeK = String(est.cnae_principal || '').replace(/\D/g, '');
-        const emp = empMap.get(est.cnpj_basico) || { capital_social: null, porte_empresa: null };
 
         const input: ScoreInput = {
           porte_empresa: emp.porte_empresa,

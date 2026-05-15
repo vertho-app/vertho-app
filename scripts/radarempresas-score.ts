@@ -21,6 +21,14 @@ const GENERICO = {
   standardization_need_score: 55, commercial_fit_score: 50, is_priority: false,
 };
 
+// Razão social que indica PJ unipessoal / holding (não tem equipe):
+// consultoria ou participações no nome → excluído, independente do CNAE
+// (pega casos disfarçados em CNAE de educação/saúde).
+function nomeBloqueado(razao: string | null | undefined): boolean {
+  const r = (razao || '').toUpperCase();
+  return /\bCONSULTORIA\b/.test(r) || /PARTICIPAC/.test(r);
+}
+
 // 3 vias: allowlist curada → genérico → excluído (denylist).
 function classificarCnae(cnae: string | null, mapa: any[], denySet: { p: string }[]) {
   if (!cnae) return { tipo: 'excluido' as const, seg: null };
@@ -48,7 +56,7 @@ console.log(`Allowlist: ${mapa?.length} regras · Denylist: ${denySet.length} pr
 const empMap = new Map<string, any>();
 for (let from = 0; ; from += 1000) {
   const { data } = await sb.from('radarempresas_empresas')
-    .select('cnpj_basico, capital_social, porte_empresa').range(from, from + 999);
+    .select('cnpj_basico, capital_social, porte_empresa, razao_social').range(from, from + 999);
   if (!data?.length) break;
   for (const e of data as any[]) empMap.set(e.cnpj_basico, e);
   if (data.length < 1000) break;
@@ -135,10 +143,11 @@ for (let from = 0; ; from += 500) {
   if (!ests?.length) break;
 
   for (const est of ests as any[]) {
-    const { tipo, seg } = classificarCnae(est.cnae_principal, mapa || [], denySet);
+    const emp = empMap.get(est.cnpj_basico) || {};
+    let { tipo, seg } = classificarCnae(est.cnae_principal, mapa || [], denySet);
+    if (tipo !== 'excluido' && nomeBloqueado(emp.razao_social)) { tipo = 'excluido'; seg = null; }
     if (tipo === 'excluido') semSeg++;
     const cnaeK = String(est.cnae_principal || '').replace(/\D/g, '');
-    const emp = empMap.get(est.cnpj_basico) || {};
     const input: ScoreInput = {
       porte_empresa: emp.porte_empresa ?? null,
       capital_social: emp.capital_social ?? null,
