@@ -29,16 +29,19 @@ export async function loadFunilMercado(): Promise<FunilEtapa[]> {
 
   // unidades de rede saem do funil individual (lead = a franqueadora)
   const semRede = (q: any) => q.is('rede_marca', null);
+  // franquia solta (segmento franquias_multiunidade fora de rede) segue a
+  // regra de consultoria: não é lead individual — a negociação é na
+  // franqueadora. A rede consolidada continua (aba Redes). Aqui o segmento
+  // já é não-nulo, então neq basta.
+  const SEM_FRANQUIA = 'franquias_multiunidade';
+  const enderecavel = (q: any) => semRede(q).eq('low_team_probability', false)
+    .not('score_explanation->>segmento_key', 'is', null)
+    .neq('score_explanation->>segmento_key', SEM_FRANQUIA);
   const ativos = await cnt((q: any) => q);
   const naoMicro = await cnt((q: any) => semRede(q).eq('low_team_probability', false));
-  const aderente = await cnt((q: any) =>
-    semRede(q).eq('low_team_probability', false).not('score_explanation->>segmento_key', 'is', null));
-  const score60 = await cnt((q: any) =>
-    semRede(q).eq('low_team_probability', false).not('score_explanation->>segmento_key', 'is', null)
-      .gte('score_total', 60));
-  const priorizados = await cnt((q: any) =>
-    semRede(q).eq('low_team_probability', false).not('score_explanation->>segmento_key', 'is', null)
-      .gte('score_total', 60).gte('priority_rank', 90));
+  const aderente = await cnt((q: any) => enderecavel(q));
+  const score60 = await cnt((q: any) => enderecavel(q).gte('score_total', 60));
+  const priorizados = await cnt((q: any) => enderecavel(q).gte('score_total', 60).gte('priority_rank', 90));
   const { count: nRedes } = await sb.from('radarempresas_redes')
     .select('*', { count: 'exact', head: true });
 
@@ -46,7 +49,7 @@ export async function loadFunilMercado(): Promise<FunilEtapa[]> {
   return [
     { etapa: 'Estabelecimentos ativos', quantidade: ativos, pct_do_topo: 100 },
     { etapa: 'Excluindo micro + unidades de rede', quantidade: naoMicro, pct_do_topo: pct(naoMicro) },
-    { etapa: 'CNAE aderente à Vertho', quantidade: aderente, pct_do_topo: pct(aderente) },
+    { etapa: 'CNAE aderente (sem consultoria/franquia solta)', quantidade: aderente, pct_do_topo: pct(aderente) },
     { etapa: 'Score ≥ 60 (boa+)', quantidade: score60, pct_do_topo: pct(score60) },
     { etapa: 'Priorizados individuais (top 10%)', quantidade: priorizados, pct_do_topo: pct(priorizados) },
     { etapa: '+ Redes consolidadas (franquia + grupo, 1 lead = a sede)', quantidade: nRedes || 0, pct_do_topo: pct(nRedes || 0) },
@@ -107,7 +110,8 @@ export async function loadRadarKpis(): Promise<RadarKpis> {
   const enderecavel = (q: any) => q
     .is('rede_marca', null)
     .eq('low_team_probability', false)
-    .not('score_explanation->>segmento_key', 'is', null);
+    .not('score_explanation->>segmento_key', 'is', null)
+    .neq('score_explanation->>segmento_key', 'franquias_multiunidade'); // franquia solta = regra consultoria
   const [{ count: nAbordar }, { count: nBoa }] = await Promise.all([
     enderecavel(sb.from('radarempresas_scores').select('*', { count: 'exact', head: true }).eq('classificacao', 'abordar_agora')),
     enderecavel(sb.from('radarempresas_scores').select('*', { count: 'exact', head: true }).eq('classificacao', 'boa')),
@@ -125,7 +129,7 @@ export async function loadRadarKpis(): Promise<RadarKpis> {
     if (!data?.length) break;
     for (const s of data as any[]) {
       const k = s.score_explanation?.segmento_key;
-      if (!k || k === 'generico') continue; // genérico não é segmento de produto
+      if (!k || k === 'generico' || k === 'franquias_multiunidade') continue; // genérico/franquia solta fora do ranking individual
       segCount.set(k, (segCount.get(k) || 0) + 1);
     }
     if (data.length < 1000) break;
@@ -216,6 +220,9 @@ export async function listarEmpresas(
     );
 
   q = q.is('rede_marca', null); // unidades de rede saem da lista individual (lead = a rede)
+  // franquia solta segue regra de consultoria: fora da lista individual
+  // (negociação é na franqueadora). or() preserva null/genérico.
+  q = q.or('score_explanation->>segmento_key.is.null,score_explanation->>segmento_key.neq.franquias_multiunidade');
   if (f.classificacao) q = q.eq('classificacao', f.classificacao);
   if (f.score_min != null) q = q.gte('score_total', f.score_min);
   if (f.segmento_key) q = q.eq('score_explanation->>segmento_key', f.segmento_key);
