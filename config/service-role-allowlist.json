@@ -21,7 +21,7 @@
     "actions/temporada-concluida.ts": 1,
     "actions/temporadas.ts": 8,
     "actions/tutor-evidencia.ts": 1,
-    "actions/video-analytics.ts": 4,
+    "actions/video-analytics.ts": 2,
     "actions/video-tracking.ts": 2,
     "actions/votacao.ts": 2,
     "app/actions/beto.ts": 1,
