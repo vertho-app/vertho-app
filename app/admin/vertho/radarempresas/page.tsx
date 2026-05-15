@@ -1,0 +1,213 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  ArrowLeft, Loader2, Building2, Filter, Search, TrendingUp, MapPin, Target,
+} from 'lucide-react';
+import {
+  loadRadarKpis, listarEmpresas,
+  type RadarKpis, type RadarEmpresaRow, type RadarFiltros,
+} from '@/actions/radarempresas/busca';
+import { SEGMENTOS_LIST, RADAR_DISCLAIMER } from '@/lib/radarempresas/segmentos';
+
+const UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+const PORTES: Record<string, string> = { '01': 'ME', '03': 'EPP', '05': 'Demais', '00': 'NA' };
+const CLASSIF = [
+  { v: 'abordar_agora', l: 'Abordar agora' },
+  { v: 'boa', l: 'Boa oportunidade' },
+  { v: 'nutrir', l: 'Nutrir' },
+  { v: 'baixa', l: 'Baixa prioridade' },
+];
+
+const fmtBrl = (n: number | null) => n == null ? '—' : `R$ ${Math.round(n).toLocaleString('pt-BR')}`;
+
+export default function RadarEmpresasPage() {
+  const router = useRouter();
+  const [kpis, setKpis] = useState<RadarKpis | null>(null);
+  const [rows, setRows] = useState<RadarEmpresaRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [buscando, setBuscando] = useState(false);
+  const [f, setF] = useState<RadarFiltros>({ uf: 'SP', page: 0, pageSize: 50 });
+
+  useEffect(() => { loadRadarKpis().then(k => { setKpis(k); setLoading(false); }); }, []);
+
+  async function buscar(reset = true) {
+    setBuscando(true);
+    const filtros = reset ? { ...f, page: 0 } : f;
+    if (reset) setF(filtros);
+    const r = await listarEmpresas(filtros);
+    setRows(r.rows);
+    setTotal(r.total);
+    setBuscando(false);
+  }
+
+  if (loading) return <div className="flex items-center justify-center h-dvh"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
+
+  return (
+    <div className="max-w-[1200px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
+      <div className="flex items-center gap-3 mb-6">
+        <button onClick={() => router.push('/admin/dashboard')}
+          className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white">
+          <ArrowLeft size={16} />
+        </button>
+        <div>
+          <h1 className="text-xl font-bold text-white flex items-center gap-2">
+            <Target size={20} className="text-cyan-400" /> Radar Empresas
+          </h1>
+          <p className="text-xs text-gray-500">Inteligência comercial B2B · uso interno Vertho</p>
+        </div>
+      </div>
+
+      {/* Estado dos dados */}
+      {kpis && kpis.total_estabelecimentos === 0 && (
+        <div className="mb-5 p-4 rounded-xl border border-amber-400/20 bg-amber-400/[0.05]">
+          <p className="text-xs font-bold text-amber-300 mb-1">Sem dados carregados ainda</p>
+          <p className="text-[11px] text-gray-400 leading-relaxed">
+            Schema e segmentos prontos. Aguardando o pipeline da Receita (recorte Jundiaí/SP)
+            gerar o Parquet e carregar as tabelas. A busca abaixo fica funcional assim que houver dados.
+          </p>
+        </div>
+      )}
+
+      {/* KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-5">
+        <Kpi label="Empresas" value={kpis?.total_empresas ?? 0} icon={<Building2 size={14} />} />
+        <Kpi label="Estabelecimentos" value={kpis?.total_estabelecimentos ?? 0} icon={<Building2 size={14} />} />
+        <Kpi label="Com score" value={kpis?.com_score ?? 0} icon={<TrendingUp size={14} />} />
+        <Kpi label="Abordar agora" value={kpis?.abordar_agora ?? 0} color="#2ECC71" />
+        <Kpi label="Boa oportunidade" value={kpis?.boa ?? 0} color="#34C5CC" />
+        <Kpi label="Último job" value={kpis?.ultimo_job?.status ?? '—'} small />
+      </div>
+
+      {(kpis?.top_segmentos?.length ?? 0) > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+          <MiniList title="Top segmentos" icon={<Target size={12} />}
+            items={kpis!.top_segmentos.map(s => ({ label: s.nome, n: s.n }))} />
+          <MiniList title="Top municípios" icon={<MapPin size={12} />}
+            items={kpis!.top_municipios.map(m => ({ label: m.municipio, n: m.n }))} />
+        </div>
+      )}
+
+      {/* Filtros */}
+      <div className="rounded-xl border border-white/[0.06] p-4 mb-4" style={{ background: '#0F2A4A' }}>
+        <p className="text-xs font-bold text-white flex items-center gap-1.5 mb-3"><Filter size={12} /> Busca</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-3">
+          <Sel label="UF" value={f.uf || ''} onChange={v => setF({ ...f, uf: v || undefined })}
+            opts={[['', 'Todas'], ...UFS.map(u => [u, u] as [string,string])]} />
+          <Inp label="Município" value={f.municipio || ''} onChange={v => setF({ ...f, municipio: v || undefined })} />
+          <Sel label="Segmento" value={f.segmento_key || ''} onChange={v => setF({ ...f, segmento_key: v || undefined })}
+            opts={[['', 'Todos'], ...SEGMENTOS_LIST.map(s => [s.key, s.nome] as [string,string])]} />
+          <Sel label="Porte" value={f.porte || ''} onChange={v => setF({ ...f, porte: v || undefined })}
+            opts={[['', 'Todos'], ...Object.entries(PORTES)]} />
+          <Sel label="Classificação" value={f.classificacao || ''} onChange={v => setF({ ...f, classificacao: (v || undefined) as any })}
+            opts={[['', 'Todas'], ...CLASSIF.map(c => [c.v, c.l] as [string,string])]} />
+          <Inp label="Score mín." value={String(f.score_min ?? '')} type="number"
+            onChange={v => setF({ ...f, score_min: v ? Number(v) : undefined })} />
+        </div>
+        <div className="flex items-center gap-2">
+          <input value={f.busca || ''} onChange={e => setF({ ...f, busca: e.target.value || undefined })}
+            placeholder="Nome fantasia..." onKeyDown={e => e.key === 'Enter' && buscar()}
+            className="flex-1 rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 focus:outline-none focus:border-cyan-400/50" />
+          <button onClick={() => buscar()} disabled={buscando}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-[#0F2B54] bg-cyan-400 hover:brightness-110 disabled:opacity-50">
+            {buscando ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />} Buscar
+          </button>
+        </div>
+      </div>
+
+      {/* Tabela */}
+      {rows.length > 0 ? (
+        <div className="overflow-x-auto rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="text-[9px] font-bold text-gray-500 uppercase tracking-widest border-b border-white/[0.06]">
+                <th className="px-3 py-2.5">Empresa</th>
+                <th className="px-3 py-2.5">Cidade/UF</th>
+                <th className="px-3 py-2.5">Segmento</th>
+                <th className="px-3 py-2.5">Porte</th>
+                <th className="px-3 py-2.5 text-right">Capital</th>
+                <th className="px-3 py-2.5 text-right">Score</th>
+                <th className="px-3 py-2.5">Classif.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r => (
+                <tr key={r.estabelecimento_id}
+                  onClick={() => router.push(`/admin/vertho/radarempresas/empresa/${r.cnpj_completo}`)}
+                  className="border-t border-white/[0.04] hover:bg-white/[0.03] cursor-pointer">
+                  <td className="px-3 py-2.5">
+                    <p className="text-white font-semibold">{r.nome_fantasia || r.razao_social || '—'}</p>
+                    <p className="text-[10px] text-gray-500">{r.cnpj_completo}</p>
+                  </td>
+                  <td className="px-3 py-2.5 text-gray-400">{r.municipio_nome || '—'}/{r.uf || '—'}</td>
+                  <td className="px-3 py-2.5 text-gray-400">{r.segmento_nome || '—'}</td>
+                  <td className="px-3 py-2.5 text-gray-400">{r.porte_empresa ? PORTES[r.porte_empresa] : '—'}</td>
+                  <td className="px-3 py-2.5 text-right text-gray-400">{fmtBrl(r.capital_social)}</td>
+                  <td className="px-3 py-2.5 text-right font-bold text-cyan-300">{r.score_total == null ? '—' : Math.round(r.score_total)}</td>
+                  <td className="px-3 py-2.5 text-[10px] text-gray-400">{r.classificacao_label || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="text-center text-xs text-gray-500 py-10">
+          {buscando ? 'Buscando...' : 'Sem resultados. Ajuste os filtros ou aguarde a carga de dados.'}
+        </p>
+      )}
+      {total > 0 && <p className="text-[10px] text-gray-600 mt-2">{rows.length} de {total} (página {((f.page ?? 0) + 1)})</p>}
+
+      <p className="text-[9px] text-gray-600 mt-6 leading-relaxed border-t border-white/[0.04] pt-3">{RADAR_DISCLAIMER}</p>
+    </div>
+  );
+}
+
+function Kpi({ label, value, icon, color, small }: any) {
+  return (
+    <div className="p-3 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
+      <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1 flex items-center gap-1">{icon}{label}</p>
+      <p className={`font-bold ${small ? 'text-sm' : 'text-2xl'}`} style={{ color: color || '#fff' }}>
+        {typeof value === 'number' ? value.toLocaleString('pt-BR') : value}
+      </p>
+    </div>
+  );
+}
+
+function MiniList({ title, icon, items }: any) {
+  return (
+    <div className="p-4 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
+      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">{icon}{title}</p>
+      {items.length === 0 ? <p className="text-[11px] text-gray-600">—</p> :
+        items.map((it: any, i: number) => (
+          <div key={i} className="flex justify-between text-[11px] py-1 border-b border-white/[0.03]">
+            <span className="text-gray-300 truncate">{it.label}</span>
+            <span className="text-cyan-400 font-bold">{it.n}</span>
+          </div>
+        ))}
+    </div>
+  );
+}
+
+function Sel({ label, value, onChange, opts }: any) {
+  return (
+    <div>
+      <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{label}</p>
+      <select value={value} onChange={e => onChange(e.target.value)}
+        className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
+        {opts.map(([v, l]: [string, string]) => <option key={v} value={v}>{l}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function Inp({ label, value, onChange, type = 'text' }: any) {
+  return (
+    <div>
+      <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{label}</p>
+      <input type={type} value={value} onChange={e => onChange(e.target.value)}
+        className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }} />
+    </div>
+  );
+}
