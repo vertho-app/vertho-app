@@ -9,7 +9,7 @@ import {
   loadRadarKpis, listarEmpresas, loadFunilMercado,
   type RadarKpis, type RadarEmpresaRow, type RadarFiltros, type FunilEtapa,
 } from '@/actions/radarempresas/busca';
-import { exportarCSV } from '@/actions/radarempresas/listas';
+import { exportarCSV, exportarXLSX } from '@/actions/radarempresas/listas';
 import { SEGMENTOS_LIST, RADAR_DISCLAIMER } from '@/lib/radarempresas/segmentos';
 
 const UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
@@ -49,18 +49,37 @@ export default function RadarEmpresasPage() {
     setBuscando(false);
   }
 
-  const [exportando, setExportando] = useState(false);
-  async function handleExport() {
-    setExportando(true);
-    const r = await exportarCSV({ filtros: f });
-    setExportando(false);
-    if (r.ok === false) { alert(r.error); return; }
-    const blob = new Blob(['﻿' + r.csv], { type: 'text/csv;charset=utf-8' });
+  const [exportando, setExportando] = useState<'csv' | 'xlsx' | null>(null);
+  function baixar(blob: Blob, ext: string) {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `radar-empresas-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `radar-empresas-${new Date().toISOString().slice(0, 10)}.${ext}`;
     a.click();
     URL.revokeObjectURL(a.href);
+  }
+  async function handleExportCSV() {
+    setExportando('csv');
+    const r = await exportarCSV({ filtros: f });
+    setExportando(null);
+    if (r.ok === false) { alert(r.error); return; }
+    baixar(new Blob(['﻿' + r.csv], { type: 'text/csv;charset=utf-8' }), 'csv');
+  }
+  async function handleExportXLSX() {
+    setExportando('xlsx');
+    const r = await exportarXLSX({ filtros: f });
+    setExportando(null);
+    if (r.ok === false) { alert(r.error); return; }
+    const bytes = Uint8Array.from(atob(r.base64), c => c.charCodeAt(0));
+    baixar(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'xlsx');
+  }
+  async function irPagina(delta: number) {
+    const novo = Math.max(0, (f.page ?? 0) + delta);
+    const filtros = { ...f, page: novo };
+    setF(filtros);
+    setBuscando(true);
+    const r = await listarEmpresas(filtros);
+    setRows(r.rows); setTotal(r.total);
+    setBuscando(false);
   }
 
   if (loading) return <div className="flex items-center justify-center h-dvh"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
@@ -85,10 +104,15 @@ export default function RadarEmpresasPage() {
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold text-gray-300 border border-white/10 hover:text-white hover:border-white/30 transition-all">
             <List size={12} /> Listas
           </button>
-          <button onClick={handleExport} disabled={exportando}
+          <button onClick={handleExportXLSX} disabled={exportando !== null}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold text-green-400 border border-green-400/30 hover:bg-green-400/10 transition-all disabled:opacity-50">
+            {exportando === 'xlsx' ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+            Exportar XLSX
+          </button>
+          <button onClick={handleExportCSV} disabled={exportando !== null}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all disabled:opacity-50">
-            {exportando ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
-            Exportar CSV (filtro atual)
+            {exportando === 'csv' ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+            CSV
           </button>
         </div>
       </div>
@@ -225,7 +249,30 @@ export default function RadarEmpresasPage() {
           {buscando ? 'Buscando...' : 'Sem resultados. Ajuste os filtros ou aguarde a carga de dados.'}
         </p>
       )}
-      {total > 0 && <p className="text-[10px] text-gray-600 mt-2">{rows.length} de {total} (página {((f.page ?? 0) + 1)})</p>}
+      {total > 0 && (() => {
+        const ps = f.pageSize ?? 50;
+        const pg = f.page ?? 0;
+        const totalPages = Math.ceil(total / ps);
+        const ini = pg * ps + 1;
+        const fim = Math.min(pg * ps + rows.length, total);
+        return (
+          <div className="flex items-center justify-between mt-3">
+            <p className="text-[10px] text-gray-500">
+              {ini.toLocaleString('pt-BR')}–{fim.toLocaleString('pt-BR')} de {total.toLocaleString('pt-BR')} · pág. {pg + 1}/{totalPages.toLocaleString('pt-BR')}
+            </p>
+            <div className="flex items-center gap-2">
+              <button onClick={() => irPagina(-1)} disabled={pg === 0 || buscando}
+                className="px-3 py-1.5 rounded-lg text-[10px] font-bold text-gray-300 border border-white/10 hover:border-cyan-400/40 hover:text-cyan-300 disabled:opacity-30 transition-all">
+                ← Anterior
+              </button>
+              <button onClick={() => irPagina(1)} disabled={pg + 1 >= totalPages || buscando}
+                className="px-3 py-1.5 rounded-lg text-[10px] font-bold text-gray-300 border border-white/10 hover:border-cyan-400/40 hover:text-cyan-300 disabled:opacity-30 transition-all">
+                Próxima →
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       <p className="text-[9px] text-gray-600 mt-6 leading-relaxed border-t border-white/[0.04] pt-3">{RADAR_DISCLAIMER}</p>
     </div>

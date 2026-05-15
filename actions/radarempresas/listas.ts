@@ -77,16 +77,11 @@ function toCsvLine(vals: any[]): string {
   }).join(';');
 }
 
-/**
- * Exporta CSV ordenado por priority_rank. Fonte: uma lista (listaId) OU
- * o recorte filtrado da busca (filtros). Registra audit log.
- * Retorna a string CSV — o client faz o download.
- */
-export async function exportarCSV(
-  src: { listaId?: string; filtros?: RadarFiltros },
-): Promise<{ ok: true; csv: string; n: number } | { ok: false; error: string }> {
-  const sb = await requireAdminSupabase();
-
+// Monta as linhas de export (arrays na ordem de CSV_HEADER), ordenadas
+// por priority_rank. Fonte: lista (listaId) OU filtro da busca.
+async function montarExport(
+  sb: any, src: { listaId?: string; filtros?: RadarFiltros },
+): Promise<{ ok: true; rows: any[][]; n: number } | { ok: false; error: string }> {
   let estIds: string[] | null = null;
   let statusMap = new Map<string, string>();
   if (src.listaId) {
@@ -97,7 +92,6 @@ export async function exportarCSV(
     statusMap = new Map((itens as any[]).map(i => [i.estabelecimento_id, i.status]));
   }
 
-  // Junta estab + empresa + score
   let q = sb.from('radarempresas_estabelecimentos')
     .select('id, cnpj_completo, nome_fantasia, municipio_nome, uf, cnae_principal, cnpj_basico');
   if (estIds) q = q.in('id', estIds);
@@ -105,55 +99,95 @@ export async function exportarCSV(
     const f = src.filtros || {};
     if (f.uf) q = q.eq('uf', f.uf);
     if (f.municipio) q = q.ilike('municipio_nome', `%${f.municipio}%`);
-    q = q.limit(5000); // teto de export por filtro
+    q = q.limit(20000); // teto de export por filtro
   }
   const { data: ests } = await q;
   if (!ests?.length) return { ok: false, error: 'Sem registros' };
 
-  const ids = (ests as any[]).map(e => e.id);
-  const basicos = [...new Set((ests as any[]).map(e => e.cnpj_basico))];
+  const ids = (ests as any[]).map((e: any) => e.id);
+  const basicos = [...new Set((ests as any[]).map((e: any) => e.cnpj_basico))];
   const [{ data: scores }, { data: emps }] = await Promise.all([
     sb.from('radarempresas_scores').select('estabelecimento_id, score_total, classificacao, priority_rank, score_confidence, commercial_actionability, score_explanation').in('estabelecimento_id', ids),
     sb.from('radarempresas_empresas').select('cnpj_basico, razao_social, porte_empresa, capital_social').in('cnpj_basico', basicos),
   ]);
   const scMap = new Map((scores || []).map((s: any) => [s.estabelecimento_id, s]));
   const empMap = new Map((emps || []).map((e: any) => [e.cnpj_basico, e]));
+  const f = src.filtros || {};
 
-  let linhas = (ests as any[]).map(e => {
-    const sc = scMap.get(e.id); const emp = empMap.get(e.cnpj_basico);
+  const rows = (ests as any[]).map((e: any) => {
+    const sc = scMap.get(e.id) as any; const emp = empMap.get(e.cnpj_basico) as any;
     const segKey = sc?.score_explanation?.segmento_key;
-    const f = src.filtros || {};
     return {
-      e, emp, sc, segKey,
       _ord: sc?.priority_rank ?? -1,
       _passa: (!f.segmento_key || segKey === f.segmento_key)
         && (!f.classificacao || sc?.classificacao === f.classificacao)
-        && (f.score_min == null || (sc?.score_total ?? -1) >= f.score_min),
+        && (f.score_min == null || (sc?.score_total ?? -1) >= f.score_min)
+        && (!f.porte || emp?.porte_empresa === f.porte),
+      v: [
+        e.cnpj_completo, emp?.razao_social || '', e.nome_fantasia || '',
+        e.municipio_nome || '', e.uf || '', e.cnae_principal || '',
+        segKey ? (getSegmento(segKey)?.nome || segKey) : '',
+        sc?.score_explanation?.subsegmento || '', emp?.porte_empresa || '',
+        emp?.capital_social ?? '', sc?.score_total ?? '',
+        sc?.classificacao ? CLASSIFICACAO_LABEL[sc.classificacao as Classificacao] : '',
+        sc?.priority_rank ?? '', sc?.score_confidence || '',
+        sc?.commercial_actionability ?? '', '', '',
+        src.listaId ? (statusMap.get(e.id) || 'new') : '',
+      ],
     };
-  }).filter(r => src.listaId || r._passa)
-    .sort((a, b) => b._ord - a._ord);
+  }).filter((r: any) => src.listaId || r._passa)
+    .sort((a: any, b: any) => b._ord - a._ord)
+    .map((r: any) => r.v);
 
-  const body = linhas.map(({ e, emp, sc, segKey }) => toCsvLine([
-    e.cnpj_completo, emp?.razao_social, e.nome_fantasia, e.municipio_nome, e.uf,
-    e.cnae_principal, segKey ? (getSegmento(segKey)?.nome || segKey) : '',
-    sc?.score_explanation?.subsegmento || '', emp?.porte_empresa,
-    emp?.capital_social, sc?.score_total,
-    sc?.classificacao ? CLASSIFICACAO_LABEL[sc.classificacao as Classificacao] : '',
-    sc?.priority_rank, sc?.score_confidence, sc?.commercial_actionability,
-    '', '', src.listaId ? (statusMap.get(e.id) || 'new') : '',
-  ]));
+  return { ok: true, rows, n: rows.length };
+}
 
+async function auditExport(sb: any, kind: string, src: any, n: number) {
+  await sb.from('radarempresas_audit_logs').insert({
+    actor_email: (await getAuthenticatedEmailFromAction()) || 'admin',
+    action_type: kind,
+    metadata_json: { fonte: src.listaId ? 'lista' : 'filtro', n },
+  });
+}
+
+/** Export CSV (string). Client faz o download. */
+export async function exportarCSV(
+  src: { listaId?: string; filtros?: RadarFiltros },
+): Promise<{ ok: true; csv: string; n: number } | { ok: false; error: string }> {
+  const sb = await requireAdminSupabase();
+  const r = await montarExport(sb, src);
+  if (r.ok === false) return r;
   const csv = [
     `# ${RADAR_DISCLAIMER}`,
     CSV_HEADER.join(';'),
-    ...body,
+    ...r.rows.map(v => toCsvLine(v)),
   ].join('\n');
+  await auditExport(sb, 'export_csv', src, r.n);
+  return { ok: true, csv, n: r.n };
+}
 
-  await sb.from('radarempresas_audit_logs').insert({
-    actor_email: (await getAuthenticatedEmailFromAction()) || 'admin',
-    action_type: 'export_csv',
-    metadata_json: { fonte: src.listaId ? 'lista' : 'filtro', n: body.length },
-  });
+/** Export XLSX (base64). Client decodifica → Blob → download. */
+export async function exportarXLSX(
+  src: { listaId?: string; filtros?: RadarFiltros },
+): Promise<{ ok: true; base64: string; n: number } | { ok: false; error: string }> {
+  const sb = await requireAdminSupabase();
+  const r = await montarExport(sb, src);
+  if (r.ok === false) return r;
 
-  return { ok: true, csv, n: body.length };
+  const ExcelJS = (await import('exceljs')).default;
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Radar Empresas');
+  ws.addRow([RADAR_DISCLAIMER]);
+  ws.mergeCells(1, 1, 1, CSV_HEADER.length);
+  ws.getRow(1).font = { italic: true, size: 9, color: { argb: 'FF888888' } };
+  const head = ws.addRow(CSV_HEADER);
+  head.font = { bold: true };
+  head.eachCell((c: any) => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F2B54' } }; c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; });
+  for (const v of r.rows) ws.addRow(v);
+  ws.views = [{ state: 'frozen', ySplit: 2 }];
+  ws.columns.forEach((col: any, i: number) => { col.width = [18, 34, 28, 16, 6, 10, 22, 20, 8, 14, 8, 16, 8, 10, 8, 16, 16, 12][i] || 14; });
+
+  const buf = await wb.xlsx.writeBuffer();
+  await auditExport(sb, 'export_xlsx', src, r.n);
+  return { ok: true, base64: Buffer.from(buf as any).toString('base64'), n: r.n };
 }
