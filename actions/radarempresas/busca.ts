@@ -160,61 +160,61 @@ export async function listarEmpresas(
   const page = f.page ?? 0;
   const pageSize = Math.min(f.pageSize ?? 50, 200);
 
-  let q = sb.from('radarempresas_estabelecimentos')
-    .select('id, cnpj_completo, nome_fantasia, municipio_nome, uf, cnae_principal, cnae_principal_desc, cnpj_basico', { count: 'exact' });
+  // Query base = SCORES (onde vivem classificação/score/segmento), com
+  // inner join em estabelecimentos pra UF/município/busca. Filtros e
+  // ordenação por score VÃO PRO BANCO — paginação correta + count real.
+  let q = sb.from('radarempresas_scores')
+    .select(
+      'estabelecimento_id, cnpj_completo, score_total, classificacao, priority_rank, score_confidence, score_explanation, ' +
+      'radarempresas_estabelecimentos!inner(nome_fantasia, municipio_nome, uf, cnae_principal, cnae_principal_desc, cnpj_basico)',
+      { count: 'exact' },
+    );
 
-  if (f.uf) q = q.eq('uf', f.uf);
-  if (f.municipio) q = q.ilike('municipio_nome', `%${f.municipio}%`);
-  if (f.busca) q = q.ilike('nome_fantasia', `%${f.busca}%`);
+  if (f.classificacao) q = q.eq('classificacao', f.classificacao);
+  if (f.score_min != null) q = q.gte('score_total', f.score_min);
+  if (f.segmento_key) q = q.eq('score_explanation->>segmento_key', f.segmento_key);
+  if (f.uf) q = q.eq('radarempresas_estabelecimentos.uf', f.uf);
+  if (f.municipio) q = q.ilike('radarempresas_estabelecimentos.municipio_nome', `%${f.municipio}%`);
+  if (f.busca) q = q.ilike('radarempresas_estabelecimentos.nome_fantasia', `%${f.busca}%`);
 
-  const { data: estabs, count, error } = await q
-    .order('cnpj_completo')
+  const { data, count, error } = await q
+    .order('score_total', { ascending: false })
     .range(page * pageSize, page * pageSize + pageSize - 1);
-  if (error || !estabs?.length) return { rows: [], total: count || 0 };
+  if (error || !data?.length) return { rows: [], total: count || 0 };
 
-  const ids = (estabs as any[]).map(e => e.id);
-  const basicos = [...new Set((estabs as any[]).map(e => e.cnpj_basico))];
-
-  const [{ data: scores }, { data: empresas }] = await Promise.all([
-    sb.from('radarempresas_scores')
-      .select('estabelecimento_id, score_total, classificacao, score_explanation').in('estabelecimento_id', ids),
-    sb.from('radarempresas_empresas')
-      .select('cnpj_basico, razao_social, porte_empresa, capital_social').in('cnpj_basico', basicos),
-  ]);
-
-  const scoreMap = new Map((scores || []).map((s: any) => [s.estabelecimento_id, s]));
+  const basicos = [...new Set((data as any[]).map(s => s.radarempresas_estabelecimentos?.cnpj_basico).filter(Boolean))];
+  const { data: empresas } = await sb.from('radarempresas_empresas')
+    .select('cnpj_basico, razao_social, porte_empresa, capital_social').in('cnpj_basico', basicos);
   const empMap = new Map((empresas || []).map((e: any) => [e.cnpj_basico, e]));
 
-  let rows: RadarEmpresaRow[] = (estabs as any[]).map(e => {
-    const sc = scoreMap.get(e.id);
+  let rows: RadarEmpresaRow[] = (data as any[]).map(s => {
+    const e = s.radarempresas_estabelecimentos || {};
     const emp = empMap.get(e.cnpj_basico);
-    const segKey = sc?.score_explanation?.segmento_key || null;
+    const segKey = s.score_explanation?.segmento_key || null;
     return {
-      estabelecimento_id: e.id,
-      cnpj_completo: e.cnpj_completo,
+      estabelecimento_id: s.estabelecimento_id,
+      cnpj_completo: s.cnpj_completo,
       razao_social: emp?.razao_social ?? null,
-      nome_fantasia: e.nome_fantasia,
-      municipio_nome: e.municipio_nome,
-      uf: e.uf,
-      cnae_principal: e.cnae_principal,
-      cnae_principal_desc: e.cnae_principal_desc,
+      nome_fantasia: e.nome_fantasia ?? null,
+      municipio_nome: e.municipio_nome ?? null,
+      uf: e.uf ?? null,
+      cnae_principal: e.cnae_principal ?? null,
+      cnae_principal_desc: e.cnae_principal_desc ?? null,
       porte_empresa: emp?.porte_empresa ?? null,
       capital_social: emp?.capital_social ?? null,
       segmento_key: segKey,
       segmento_nome: segKey ? (getSegmento(segKey)?.nome || segKey) : null,
-      score_total: sc?.score_total ?? null,
-      classificacao: sc?.classificacao ?? null,
-      classificacao_label: sc?.classificacao ? CLASSIFICACAO_LABEL[sc.classificacao as Classificacao] : null,
+      score_total: s.score_total ?? null,
+      classificacao: s.classificacao ?? null,
+      classificacao_label: s.classificacao ? CLASSIFICACAO_LABEL[s.classificacao as Classificacao] : null,
     };
   });
 
-  // Filtros pós-join (segmento/score/classificação/porte vivem em scores/empresa)
-  if (f.segmento_key) rows = rows.filter(r => r.segmento_key === f.segmento_key);
+  // Porte vem de radarempresas_empresas (sem FK p/ embedding) — único
+  // filtro pós-página. Secundário: refina dentro da página já ordenada
+  // por score. Os filtros que importam (classificação/score/segmento/
+  // UF/município/busca) já foram resolvidos no banco.
   if (f.porte) rows = rows.filter(r => r.porte_empresa === f.porte);
-  if (f.classificacao) rows = rows.filter(r => r.classificacao === f.classificacao);
-  if (f.score_min != null) rows = rows.filter(r => (r.score_total ?? -1) >= f.score_min!);
-
-  rows.sort((a, b) => (b.score_total ?? -1) - (a.score_total ?? -1));
 
   return { rows, total: count || 0 };
 }
