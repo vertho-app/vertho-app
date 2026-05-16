@@ -25,6 +25,9 @@ CREATE OR REPLACE TEMP TABLE est AS
 SELECT
   s.cnpj_completo, s.cnpj_basico, s.score_total, s.classificacao,
   s.low_team_probability, s.elegivel, s.segmento_key, s.score_confidence,
+  -- sub-scores carregados p/ o XLSX comercial (Stage 5b) usar
+  s.score_dor_pessoas, s.score_capacidade_compra, s.score_fit_vertho,
+  s.score_contexto_setorial, s.commercial_actionability,
   b.nome_fantasia, b.razao_social, b.uf, b.municipio_nome, b.municipio_ibge,
   b.municipio_cod,
   trim(regexp_replace(regexp_replace(
