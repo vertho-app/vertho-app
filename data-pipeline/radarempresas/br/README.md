@@ -10,7 +10,10 @@ grátis). A tela mostra consolidado por cidade; o detalhe é exportável.
 
 - **Base Receita BR** extraída localmente: `.EMPRECSV .ESTABELE .CNAECSV
   .MUNICCSV` (do Google Drive, ref 2026-05). Sócios fora (LGPD).
-- **CAGED** nacional 6m: `CAGEDMOV*.txt` num diretório.
+- **CAGED** nacional 6m: `<CagedRoot>\<YYYYMM>\CAGEDMOV<YYYYMM>.7z`
+  pros 6 meses (ex. 202510..202603). O pipeline extrai e agrega
+  (janela 6m = a da calibração validada). Meses faltando = aviso +
+  contexto mais fraco.
 - **RAIS_VINC** nacional: os `RAIS_VINC_PUB_*.7z` regionais num diretório
   (SP, MG_ES_RJ, Sul, Nordeste, Norte, Centro-Oeste). O pipeline extrai
   e agrega VINC→município×CNAE (estoque=vínculos ativos 31/12, porte=
@@ -25,7 +28,7 @@ grátis). A tela mostra consolidado por cidade; o detalhe é exportável.
 ## Rodar (snapshot mensal, full rebuild idempotente)
 
 ```powershell
-.\run_br.ps1 -ReceitaDir "X:\Receita" -CagedDir "X:\CAGED" `
+.\run_br.ps1 -ReceitaDir "X:\Receita" -CagedRoot "C:\Users\rdnav" `
              -RaisVincDir "C:\Users\rdnav\2025" -RefDate 2026-05-15
 ```
 
@@ -38,7 +41,7 @@ Resume por estágio: `-FromStage 4`. Pular CEMPRE: `-SkipCempre`
 |---|---|---|---|
 | 1 | `10_transcode_utf8.py` | cp1252→utf8 streaming | fixtures |
 | 2 | `11_ingest.sql` | join+filtro+derive, **is_matriz corrigido**, particiona UF | layout Receita |
-| 3a | `../caged/caged_agg.sql` + `../rais/run_rais_vinc.ps1`+`rais_vinc_agg.sql` | agregados nacionais (RAIS via VINC) | região Norte real ✓ |
+| 3a | `../caged/run_caged_br.ps1` + `../rais/run_rais_vinc.ps1` | agregados nacionais (CAGED 6m + RAIS via VINC, extraem .7z) | CAGED 6m + RAIS Norte reais ✓ |
 | 2.5 | `15_cempre_sidra.ts` | CEMPRE via SIDRA (corroboração), cache | API live |
 | 3 | `14_contexto.sql` | contexto bayesiano/percentil por município + corrobora CEMPRE | Jundiaí 1:1 |
 | ref | `19_dump_ref.ts` | allowlist/denylist/tetos → out/ref | — |

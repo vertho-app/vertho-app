@@ -11,7 +11,8 @@
 #   3 contexto · ref dump · 4 score · 5 rank/redes · 5b xlsx · 6 load.
 param(
   [Parameter(Mandatory=$true)][string]$ReceitaDir,
-  [Parameter(Mandatory=$true)][string]$CagedDir,
+  # raiz com <YYYYMM>\CAGEDMOV<YYYYMM>.7z dos 6 meses (extrai+agrega)
+  [Parameter(Mandatory=$true)][string]$CagedRoot,
   # diretório com os RAIS_VINC_PUB_*.7z regionais (extrai+agrega)
   [Parameter(Mandatory=$true)][string]$RaisVincDir,
   [string]$RefDate = "2026-05-15",
@@ -40,21 +41,17 @@ if ($FromStage -le 1) {
 if ($FromStage -le 2) {
   Step "2" "Ingest Receita -> base parquet (particionado por UF)"
   $env:UTF8_DIR = "$OUT/utf8"
-  duckdb ":memory:" -c ".read $here\11_ingest.sql"
+  Get-Content "$here\11_ingest.sql" -Raw | duckdb ":memory:"
   if ($LASTEXITCODE -ne 0) { Die "Stage 2 falhou" }
 }
 if ($FromStage -le 3) {
-  Step "3a-CAGED" "Agregado CAGED nacional"
-  # caged_agg.sql grava 'out/<nome>.parquet' relativo ao cwd. Rodando
-  # com cwd=$here (a pasta 'br'), './out' == $OUT → cai onde Stage 3 lê.
-  Push-Location $here
-  $env:CAGED_TXT_DIR = $CagedDir
-  duckdb ":memory:" -c ".read $here\..\caged\caged_agg.sql"
-  if ($LASTEXITCODE -ne 0) { Pop-Location; Die "CAGED agg falhou" }
-  Pop-Location
+  $outAbs = (Join-Path $repo $OUT)
+  Step "3a-CAGED" "Agregado CAGED nacional (extrai 6 meses .7z + agrega)"
+  & "$here\..\caged\run_caged_br.ps1" -CagedRoot $CagedRoot -OutDir $outAbs
+  if ($LASTEXITCODE -ne 0) { Die "CAGED agg falhou" }
 
   Step "3a-RAIS" "Agregado RAIS_VINC nacional (extrai .7z + agrega)"
-  & "$here\..\rais\run_rais_vinc.ps1" -RaisVincDir $RaisVincDir -OutDir (Join-Path $repo $OUT)
+  & "$here\..\rais\run_rais_vinc.ps1" -RaisVincDir $RaisVincDir -OutDir $outAbs
   if ($LASTEXITCODE -ne 0) { Die "RAIS_VINC agg falhou" }
   # Saídas: caged_municipio_cnae_6m.parquet + rais_estab_municipio_cnae
   # .parquet (nome mantido p/ Stage 3 dropar direto).
@@ -70,7 +67,7 @@ if ($FromStage -le 4) {
     duckdb ":memory:" -c "COPY (SELECT ''::VARCHAR municipio_ibge, ''::VARCHAR cnae, 0.0::DOUBLE cempre_n_empresas, 0.0::DOUBLE cempre_pessoal_assal WHERE 1=0) TO '$OUT/cempre_sidra.parquet' (FORMAT PARQUET);"
   }
   Step "3" "Contexto setorial (bayesiano por município + corroboração)"
-  duckdb ":memory:" -c ".read $here\14_contexto.sql"
+  Get-Content "$here\14_contexto.sql" -Raw | duckdb ":memory:"
   if ($LASTEXITCODE -ne 0) { Die "Stage 3 falhou" }
 }
 if ($FromStage -le 4) {
@@ -82,7 +79,7 @@ if ($FromStage -le 4) {
 }
 if ($FromStage -le 5) {
   Step "5" "priority_rank nacional + redes + agregados"
-  duckdb ":memory:" -c ".read $here\13_rank_redes.sql"
+  Get-Content "$here\13_rank_redes.sql" -Raw | duckdb ":memory:"
   if ($LASTEXITCODE -ne 0) { Die "Stage 5 falhou" }
   Step "5b" "XLSX por município"
   npx tsx "$here\16_export_xlsx.ts"

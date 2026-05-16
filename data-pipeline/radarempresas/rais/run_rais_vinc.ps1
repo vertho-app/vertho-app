@@ -44,7 +44,8 @@ Write-Output "Extraídos: $($comt.Count) .COMT ($([math]::Round((($comt | Measur
 Set-Location $repo
 $env:RAIS_VINC_DIR = $work
 $env:OUT_DIR = $OutDir
-duckdb ":memory:" -c ".read $here\rais_vinc_agg.sql"
+# .read quebra em caminhos com espaço ("Vertho App") — passa via stdin
+Get-Content "$here\rais_vinc_agg.sql" -Raw | duckdb ":memory:"
 if ($LASTEXITCODE -ne 0) { Write-Error "rais_vinc_agg.sql falhou"; exit 1 }
 
 if (-not $KeepComt) {
