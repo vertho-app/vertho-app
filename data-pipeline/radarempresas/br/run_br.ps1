@@ -97,9 +97,18 @@ if ($FromStage -le 4) {
   if ($LASTEXITCODE -ne 0) { Die "Stage 4 falhou" }
 }
 if ($FromStage -le 5) {
+  # Idempotência: COPY PARTITION_BY (OVERWRITE_OR_IGNORE) NÃO limpa
+  # partições antigas e bate lock em arquivo stale no Windows. Apaga os
+  # regeneráveis do Stage 5 antes (mantém scored.parquet do Stage 4).
+  foreach ($x in @('priorizados','scored_final.parquet','redes.parquet',
+                    'cidades_agg.parquet','funil_agg.parquet','xlsx')) {
+    $p = Join-Path $OUT $x
+    if (Test-Path $p) { Remove-Item -Recurse -Force $p -EA SilentlyContinue }
+  }
   Step "5" "priority_rank nacional + redes + agregados"
   Get-Content "$here\13_rank_redes.sql" -Raw | duckdb ":memory:"
   NeedParquet "$OUT/scored_final.parquet" "Stage 5"
+  NeedParquet "$OUT/priorizados" "Stage 5 priorizados"
   Step "5b" "XLSX por município"
   npx tsx "$here\16_export_xlsx.ts"
   if ($LASTEXITCODE -ne 0) { Die "Stage 5b falhou" }
