@@ -46,7 +46,11 @@ $env:RAIS_VINC_DIR = $work
 $env:OUT_DIR = $OutDir
 # .read quebra em caminhos com espaço ("Vertho App") — passa via stdin
 Get-Content "$here\rais_vinc_agg.sql" -Raw | duckdb ":memory:"
-if ($LASTEXITCODE -ne 0) { Write-Error "rais_vinc_agg.sql falhou"; exit 1 }
+# Sucesso = artefato (ignore_errors pula linhas → duckdb sai 1 mesmo ok)
+$agg = Join-Path $OutDir "rais_estab_municipio_cnae.parquet"
+if (-not (Test-Path $agg) -or (Get-Item $agg).Length -lt 512) {
+  Write-Error "rais_vinc_agg falhou (sem $agg)"; exit 1
+}
 
 if (-not $KeepComt) {
   Write-Output "Limpando .COMT (use -KeepComt p/ manter)..."

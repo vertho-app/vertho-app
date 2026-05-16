@@ -111,9 +111,11 @@ async function main() {
     if (buf.length >= 50000) flush();
   }
   flush();
+  rmSync(NDJ_IN, { force: true }); // consumido — libera ~metade do pico de disco (BR ~12GB)
 
   duck(`COPY (SELECT * FROM read_json_auto('${NDJ_OUT}', maximum_object_size=20000000))
          TO '${OUT}/scored.parquet' (FORMAT PARQUET);`);
+  rmSync(NDJ_OUT, { force: true }); // já virou scored.parquet
   console.log(`[OK] ${n} scored · ${semSeg} excluídos (denylist) · `
     + `${Math.round((Date.now() - t0) / 1000)}s → ${OUT}/scored.parquet`);
   console.log('Próximo: Stage 5 (13_rank_redes.sql)');

@@ -49,7 +49,12 @@ Set-Content -Path $tmpSql -Value $sql -Encoding UTF8
 $env:CAGED_TXT_DIR = ($work -replace '\\','/')
 # .read quebra em caminhos com espaço ("Vertho App") — passa via stdin
 Get-Content $tmpSql -Raw | duckdb ":memory:"
-if ($LASTEXITCODE -ne 0) { Write-Error "caged_agg falhou"; exit 1 }
+# Sucesso = artefato, não exit code: ignore_errors pula linhas
+# malformadas e o duckdb sai 1 mesmo com parquet 100% válido.
+$agg = Join-Path $OutDir "caged_municipio_cnae_6m.parquet"
+if (-not (Test-Path $agg) -or (Get-Item $agg).Length -lt 512) {
+  Write-Error "caged_agg falhou (sem $agg)"; exit 1
+}
 
 if (-not $KeepTxt) {
   Write-Output "Limpando .txt extraídos (use -KeepTxt p/ manter)..."

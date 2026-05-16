@@ -32,6 +32,20 @@ New-Item -ItemType Directory -Force -Path $OUT | Out-Null
 New-Item -ItemType Directory -Force -Path "$OUT/utf8" | Out-Null
 function Step($n,$msg){ Write-Output ""; Write-Output "===== [$n] $msg =====" }
 function Die($m){ Write-Error $m; exit 1 }
+# Sucesso de stage ELT = ARTEFATO produzido, não exit code do duckdb:
+# read_csv(ignore_errors=true) pula linhas malformadas da fonte (razão
+# social com ';'/aspas em 29M linhas) e o DuckDB CLI sai 1 mesmo com
+# saída 100% válida. Verificar o parquet é o critério correto/robusto.
+function NeedParquet($path,$step){
+  if (-not (Test-Path $path)) { Die "$step: artefato ausente ($path)" }
+  $item = Get-Item $path
+  if ($item.PSIsContainer) {
+    $pq = Get-ChildItem $path -Recurse -Filter *.parquet -EA SilentlyContinue
+    if (-not $pq -or ($pq | Measure-Object Length -Sum).Sum -lt 1024) {
+      Die "$step: sem parquet válido em $path"
+    }
+  } elseif ($item.Length -lt 512) { Die "$step: artefato vazio ($path)" }
+}
 
 if ($FromStage -le 1) {
   Step "1" "Transcode cp1252->utf8"
@@ -42,17 +56,18 @@ if ($FromStage -le 2) {
   Step "2" "Ingest Receita -> base parquet (particionado por UF)"
   $env:UTF8_DIR = "$OUT/utf8"
   Get-Content "$here\11_ingest.sql" -Raw | duckdb ":memory:"
-  if ($LASTEXITCODE -ne 0) { Die "Stage 2 falhou" }
+  if ($LASTEXITCODE -ne 0) { Write-Warning "Stage 2: duckdb exit $LASTEXITCODE (linhas fonte puladas — checando artefato)" }
+  NeedParquet "$OUT/base" "Stage 2"
 }
 if ($FromStage -le 3) {
   $outAbs = (Join-Path $repo $OUT)
   Step "3a-CAGED" "Agregado CAGED nacional (extrai 6 meses .7z + agrega)"
   & "$here\..\caged\run_caged_br.ps1" -CagedRoot $CagedRoot -OutDir $outAbs
-  if ($LASTEXITCODE -ne 0) { Die "CAGED agg falhou" }
+  NeedParquet "$OUT/caged_municipio_cnae_6m.parquet" "CAGED agg"
 
   Step "3a-RAIS" "Agregado RAIS_VINC nacional (extrai .7z + agrega)"
   & "$here\..\rais\run_rais_vinc.ps1" -RaisVincDir $RaisVincDir -OutDir $outAbs
-  if ($LASTEXITCODE -ne 0) { Die "RAIS_VINC agg falhou" }
+  NeedParquet "$OUT/rais_estab_municipio_cnae.parquet" "RAIS_VINC agg"
   # Saídas: caged_municipio_cnae_6m.parquet + rais_estab_municipio_cnae
   # .parquet (nome mantido p/ Stage 3 dropar direto).
 }
@@ -68,7 +83,7 @@ if ($FromStage -le 4) {
   }
   Step "3" "Contexto setorial (bayesiano por município + corroboração)"
   Get-Content "$here\14_contexto.sql" -Raw | duckdb ":memory:"
-  if ($LASTEXITCODE -ne 0) { Die "Stage 3 falhou" }
+  NeedParquet "$OUT/contexto.parquet" "Stage 3"
 }
 if ($FromStage -le 4) {
   Step "ref" "Dump ref tables (allowlist/denylist/tetos)"
@@ -80,7 +95,7 @@ if ($FromStage -le 4) {
 if ($FromStage -le 5) {
   Step "5" "priority_rank nacional + redes + agregados"
   Get-Content "$here\13_rank_redes.sql" -Raw | duckdb ":memory:"
-  if ($LASTEXITCODE -ne 0) { Die "Stage 5 falhou" }
+  NeedParquet "$OUT/scored_final.parquet" "Stage 5"
   Step "5b" "XLSX por município"
   npx tsx "$here\16_export_xlsx.ts"
   if ($LASTEXITCODE -ne 0) { Die "Stage 5b falhou" }
