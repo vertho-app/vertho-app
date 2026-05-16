@@ -97,6 +97,10 @@ async function main() {
       rais_tam_medio_setor: r.rais_tam_medio_setor ?? null,
     }));
     if (row.segmento_key == null) semSeg++;
+    // score_explanation OMITIDO de propósito: ~2KB/linha → 58GB em 29M
+    // (estourou disco). Não é usado por Stage 5/XLSX/carga Supabase, e
+    // a Estratégia C já exclui o explanation por-linha do Supabase. Os
+    // sub-scores (usados no XLSX) ficam.
     buf.push(JSON.stringify({
       cnpj_completo: row.cnpj_completo, cnpj_basico: r.cnpj_basico,
       score_total: row.score_total, score_dor_pessoas: row.score_dor_pessoas,
@@ -104,8 +108,7 @@ async function main() {
       score_contexto_setorial: row.score_contexto_setorial, classificacao: row.classificacao,
       score_confidence: row.score_confidence, commercial_actionability: row.commercial_actionability,
       low_team_probability: row.low_team_probability, elegivel: row.elegivel,
-      segmento_key: row.segmento_key, score_explanation: row.score_explanation,
-      scoring_version: row.scoring_version,
+      segmento_key: row.segmento_key, scoring_version: row.scoring_version,
     }));
     n++;
     if (buf.length >= 50000) flush();
