@@ -64,3 +64,5 @@ playwright-report/
 # python bytecode
 __pycache__/
 *.pyc
+
+data-pipeline/radarempresas/br/out/
