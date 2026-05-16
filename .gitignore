@@ -66,3 +66,6 @@ __pycache__/
 *.pyc
 
 data-pipeline/radarempresas/br/out/
+
+data-pipeline/radarempresas/**/_vt/
+*.COMT

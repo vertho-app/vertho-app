@@ -12,7 +12,8 @@
 param(
   [Parameter(Mandatory=$true)][string]$ReceitaDir,
   [Parameter(Mandatory=$true)][string]$CagedDir,
-  [Parameter(Mandatory=$true)][string]$RaisFile,
+  # diretório com os RAIS_VINC_PUB_*.7z regionais (extrai+agrega)
+  [Parameter(Mandatory=$true)][string]$RaisVincDir,
   [string]$RefDate = "2026-05-15",
   [int]$FromStage = 1,
   [switch]$SkipCempre
@@ -43,19 +44,20 @@ if ($FromStage -le 2) {
   if ($LASTEXITCODE -ne 0) { Die "Stage 2 falhou" }
 }
 if ($FromStage -le 3) {
-  Step "3a" "Agregados CAGED + RAIS (nacionais, scripts existentes)"
-  # caged_agg/rais_estab_agg gravam 'out/<nome>.parquet' relativo ao cwd.
-  # Rodamos com cwd=$OUT p/ os parquets caírem onde o Stage 3 lê.
-  Push-Location $OUT
+  Step "3a-CAGED" "Agregado CAGED nacional"
+  # caged_agg.sql grava 'out/<nome>.parquet' relativo ao cwd. Rodando
+  # com cwd=$here (a pasta 'br'), './out' == $OUT → cai onde Stage 3 lê.
+  Push-Location $here
   $env:CAGED_TXT_DIR = $CagedDir
   duckdb ":memory:" -c ".read $here\..\caged\caged_agg.sql"
   if ($LASTEXITCODE -ne 0) { Pop-Location; Die "CAGED agg falhou" }
-  $env:RAIS_ESTAB_FILE = $RaisFile
-  duckdb ":memory:" -c ".read $here\..\rais\rais_estab_agg.sql"
-  if ($LASTEXITCODE -ne 0) { Pop-Location; Die "RAIS agg falhou" }
   Pop-Location
-  # caged_agg gera 'caged_municipio_cnae_6m.parquet' e rais
-  # 'rais_estab_municipio_cnae.parquet' — nomes que o Stage 3 espera.
+
+  Step "3a-RAIS" "Agregado RAIS_VINC nacional (extrai .7z + agrega)"
+  & "$here\..\rais\run_rais_vinc.ps1" -RaisVincDir $RaisVincDir -OutDir (Join-Path $repo $OUT)
+  if ($LASTEXITCODE -ne 0) { Die "RAIS_VINC agg falhou" }
+  # Saídas: caged_municipio_cnae_6m.parquet + rais_estab_municipio_cnae
+  # .parquet (nome mantido p/ Stage 3 dropar direto).
 }
 if ($FromStage -le 4) {
   if (-not $SkipCempre) {

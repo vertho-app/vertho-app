@@ -11,7 +11,11 @@ grátis). A tela mostra consolidado por cidade; o detalhe é exportável.
 - **Base Receita BR** extraída localmente: `.EMPRECSV .ESTABELE .CNAECSV
   .MUNICCSV` (do Google Drive, ref 2026-05). Sócios fora (LGPD).
 - **CAGED** nacional 6m: `CAGEDMOV*.txt` num diretório.
-- **RAIS_ESTAB** nacional: arquivo `RAIS_ESTAB_PUB.COMT`.
+- **RAIS_VINC** nacional: os `RAIS_VINC_PUB_*.7z` regionais num diretório
+  (SP, MG_ES_RJ, Sul, Nordeste, Norte, Centro-Oeste). O pipeline extrai
+  e agrega VINC→município×CNAE (estoque=vínculos ativos 31/12, porte=
+  Tamanho Estabelecimento) — mesmo schema do antigo RAIS_ESTAB.
+  Arquivos .7z vazios/corrompidos são pulados com aviso.
 - DuckDB CLI no PATH (winget `DuckDB.cli`), Python 3, Node/npx.
 - `.env.local` com `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`
   (a carga usa supabase-js — **não precisa de connection string**: o DB
@@ -22,7 +26,7 @@ grátis). A tela mostra consolidado por cidade; o detalhe é exportável.
 
 ```powershell
 .\run_br.ps1 -ReceitaDir "X:\Receita" -CagedDir "X:\CAGED" `
-             -RaisFile "X:\RAIS\RAIS_ESTAB_PUB.COMT" -RefDate 2026-05-15
+             -RaisVincDir "C:\Users\rdnav\2025" -RefDate 2026-05-15
 ```
 
 Resume por estágio: `-FromStage 4`. Pular CEMPRE: `-SkipCempre`
@@ -34,7 +38,7 @@ Resume por estágio: `-FromStage 4`. Pular CEMPRE: `-SkipCempre`
 |---|---|---|---|
 | 1 | `10_transcode_utf8.py` | cp1252→utf8 streaming | fixtures |
 | 2 | `11_ingest.sql` | join+filtro+derive, **is_matriz corrigido**, particiona UF | layout Receita |
-| 3a | `../caged/caged_agg.sql` + `../rais/rais_estab_agg.sql` | agregados nacionais (já existiam) | proven |
+| 3a | `../caged/caged_agg.sql` + `../rais/run_rais_vinc.ps1`+`rais_vinc_agg.sql` | agregados nacionais (RAIS via VINC) | região Norte real ✓ |
 | 2.5 | `15_cempre_sidra.ts` | CEMPRE via SIDRA (corroboração), cache | API live |
 | 3 | `14_contexto.sql` | contexto bayesiano/percentil por município + corrobora CEMPRE | Jundiaí 1:1 |
 | ref | `19_dump_ref.ts` | allowlist/denylist/tetos → out/ref | — |
