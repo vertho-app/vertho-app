@@ -7,15 +7,19 @@
  * já produz, pela chave municipio_ibge. Zero mudança nos engines.
  *
  *  - Empresas: radarempresas_cidades_agg  (snapshot mensal; ibge 6 díg)
- *  - Escolas : loadMercadoMunicipios()    (MV live; ibge 7 díg)
+ *  - Escolas : diag_mv_mercado_municipio   (MV live; ibge 7 díg)
+ *              + calcularMercadoScores (MESMO lib do tool de escolas —
+ *              sem drift). Não uso loadMercadoMunicipios porque ela é
+ *              limitada a 1000 linhas pelo cap do Supabase.
  *
- * Chave: radarempresas usa IBGE 6 díg (ex. 355030), escolas 7 díg
- * (3550308). 7→6 = LEFT(...,6) (dígito verificador). Scores ficam
- * LADO A LADO — não há score combinado (unidades/modelos distintos).
+ * Chave: radarempresas 6 díg (355030), escolas 7 díg (3550308). 7→6 =
+ * slice(0,6) (dígito verificador). Ambas as fontes paginadas via
+ * .range() (o cap 1000 do Supabase quebrava o merge). Scores LADO A
+ * LADO — não há score combinado (unidades/modelos distintos).
  */
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
-import { loadMercadoMunicipios } from '@/app/admin/vertho/mercado-potencial/actions';
+import { calcularMercadoScores } from '@/lib/mercado-potencial/scoring';
 
 export interface PotencialFiltros {
   uf?: string;
@@ -48,71 +52,88 @@ export interface PotencialCidadeRow {
 const cap = (s: string) =>
   s.toLowerCase().replace(/(^|\s|-)\p{L}/gu, (m) => m.toUpperCase());
 
+// paginação .range() — contorna o cap de 1000 linhas do Supabase
+async function fetchAll(makeQuery: (from: number, to: number) => any): Promise<any[]> {
+  const out: any[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await makeQuery(from, from + 999);
+    if (error) throw new Error(error.message);
+    if (!data?.length) break;
+    out.push(...data);
+    if (data.length < 1000) break;
+  }
+  return out;
+}
+
 export async function loadPotencialCidades(
   f: PotencialFiltros = {},
 ): Promise<{ ok: true; rows: PotencialCidadeRow[]; total: number } | { error: string }> {
   await requireAdminAction();
   const sb = await requireAdminSupabase();
+  const busca = f.municipioBusca?.trim();
 
-  // ── Empresas (radarempresas_cidades_agg, ibge 6 díg) ───────────────────
-  let qe = sb.from('radarempresas_cidades_agg')
-    .select('municipio_ibge, municipio_nome, uf, total_ativos, n_priorizados, n_abordar, n_redes, score_medio, xlsx_path')
-    .limit(6000);
-  if (f.uf) qe = qe.eq('uf', f.uf);
-  if (f.municipioBusca?.trim()) qe = qe.ilike('municipio_nome', `%${f.municipioBusca.trim()}%`);
-  const { data: emp, error: ee } = await qe;
-  if (ee) return { error: `empresas: ${ee.message}` };
-
-  const empMap = new Map<string, any>();
-  for (const r of emp || []) empMap.set(String(r.municipio_ibge), r);
-
-  // ── Escolas (reusa loadMercadoMunicipios — scoring consistente) ────────
-  const esc = await loadMercadoMunicipios({
-    uf: f.uf ? [f.uf] : undefined,
-    municipioBusca: f.municipioBusca,
-    precoProf: f.precoProf,
-    precoGestor: f.precoGestor,
-  });
-  if ('error' in esc) return { error: `escolas: ${esc.error}` };
-
-  const escMap = new Map<string, any>();
-  for (const r of esc.rows as any[]) {
-    const k6 = String(r.id).slice(0, 6); // 7→6 díg
-    escMap.set(k6, r);
-  }
-
-  // ── Merge (união das chaves) ───────────────────────────────────────────
-  const keys = new Set<string>([...empMap.keys(), ...escMap.keys()]);
-  const rows: PotencialCidadeRow[] = [];
-  for (const k of keys) {
-    const e = empMap.get(k);
-    const s = escMap.get(k);
-    rows.push({
-      municipio_ibge: k,
-      municipio: s ? cap(String(s.nome)) : cap(String(e?.municipio_nome || '')),
-      uf: e?.uf || s?.uf || '',
-      emp: e ? {
-        n_priorizados: Number(e.n_priorizados || 0),
-        n_abordar: Number(e.n_abordar || 0),
-        n_redes: Number(e.n_redes || 0),
-        score_medio: e.score_medio != null ? Number(e.score_medio) : null,
-        total_ativos: Number(e.total_ativos || 0),
-        xlsx_path: e.xlsx_path || null,
-      } : null,
-      esc: s ? {
-        qt_escolas: Number(s.qt_escolas || 0),
-        qt_professores: Number(s.qt_professores || 0),
-        qt_gestores: Number(s.qt_gestores || 0),
-        tam_mensal: Number(s.tam_mensal_mentor_ia || 0) + Number(s.tam_mensal_onboarding || 0),
-        score: s.score_completo ?? s.score_base ?? null,
-      } : null,
+  try {
+    // ── Empresas (radarempresas_cidades_agg, ibge 6 díg) — paginado ──────
+    const emp = await fetchAll((from, to) => {
+      let q = sb.from('radarempresas_cidades_agg')
+        .select('municipio_ibge, municipio_nome, uf, total_ativos, n_priorizados, n_abordar, n_redes, score_medio, xlsx_path')
+        .order('municipio_ibge', { ascending: true }).range(from, to);
+      if (f.uf) q = q.eq('uf', f.uf);
+      if (busca) q = q.ilike('municipio_nome', `%${busca}%`);
+      return q;
     });
+    const empMap = new Map<string, any>();
+    for (const r of emp) empMap.set(String(r.municipio_ibge), r);
+
+    // ── Escolas (diag_mv_mercado_municipio, ibge 7 díg) — paginado ───────
+    const esc = await fetchAll((from, to) => {
+      let q = sb.from('diag_mv_mercado_municipio')
+        .select('municipio_ibge, municipio, uf, qt_escolas, qt_professores, qt_docs_0_24, qt_docs_jovens, qt_docs_pos, qt_gestores, inse_medio, pct_inse_oficial')
+        .order('municipio_ibge', { ascending: true }).range(from, to);
+      if (f.uf) q = q.eq('uf', f.uf);
+      if (busca) q = q.ilike('municipio', `%${busca}%`);
+      return q;
+    });
+    const escMap = new Map<string, any>();
+    for (const r of esc) {
+      const sc = calcularMercadoScores(r, f as any); // MESMO lib do tool
+      escMap.set(String(r.municipio_ibge).slice(0, 6), { ...r, ...sc });
+    }
+
+    // ── Merge (união das chaves) ──────────────────────────────────────────
+    const keys = new Set<string>([...empMap.keys(), ...escMap.keys()]);
+    const rows: PotencialCidadeRow[] = [];
+    for (const k of keys) {
+      const e = empMap.get(k);
+      const s = escMap.get(k);
+      rows.push({
+        municipio_ibge: k,
+        municipio: s ? cap(String(s.municipio)) : cap(String(e?.municipio_nome || '')),
+        uf: e?.uf || s?.uf || '',
+        emp: e ? {
+          n_priorizados: Number(e.n_priorizados || 0),
+          n_abordar: Number(e.n_abordar || 0),
+          n_redes: Number(e.n_redes || 0),
+          score_medio: e.score_medio != null ? Number(e.score_medio) : null,
+          total_ativos: Number(e.total_ativos || 0),
+          xlsx_path: e.xlsx_path || null,
+        } : null,
+        esc: s ? {
+          qt_escolas: Number(s.qt_escolas || 0),
+          qt_professores: Number(s.qt_professores || 0),
+          qt_gestores: Number(s.qt_gestores || 0),
+          tam_mensal: Number(s.tam_mensal_mentor_ia || 0) + Number(s.tam_mensal_onboarding || 0),
+          score: s.score_completo ?? s.score_base ?? null,
+        } : null,
+      });
+    }
+
+    rows.sort((a, b) =>
+      (b.emp?.n_priorizados ?? -1) - (a.emp?.n_priorizados ?? -1)
+      || (b.esc?.score ?? -1) - (a.esc?.score ?? -1));
+
+    return { ok: true, rows, total: rows.length };
+  } catch (e: any) {
+    return { error: e.message };
   }
-
-  // default: maior potencial de empresas primeiro, depois escolas
-  rows.sort((a, b) =>
-    (b.emp?.n_priorizados ?? -1) - (a.emp?.n_priorizados ?? -1)
-    || (b.esc?.score ?? -1) - (a.esc?.score ?? -1));
-
-  return { ok: true, rows, total: rows.length };
 }
