@@ -72,6 +72,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'orcamento',        label: 'Orçamento',           sub: 'Custo / Tabela / Final',     icon: Calculator,     hrefFn: () => '/admin/vertho/orcamento' },
   { key: 'mercado',          label: 'Mercado Potencial',   sub: 'Municípios · Redes · Escolas', icon: TrendingUp,   hrefFn: () => '/admin/vertho/mercado-potencial',          showWhenEmpresa: false },
   { key: 'radar-empresas',   label: 'Radar Empresas',      sub: 'Inteligência comercial B2B', icon: Target,         hrefFn: () => '/admin/vertho/radarempresas',              showWhenEmpresa: false },
+  { key: 'potencial-cidades', label: 'Potencial por Cidade', sub: 'Empresas + Escolas unificado', icon: Globe,         hrefFn: () => '/admin/vertho/potencial-cidades',          showWhenEmpresa: false },
   { key: 'admins',           label: 'Admins',              sub: 'Platform admins',            icon: Shield,         hrefFn: () => '/admin/platform-admins',                    showWhenEmpresa: false },
   { key: 'lixeira',          label: 'Lixeira',             sub: 'Registros excluídos',        icon: Trash2,         hrefFn: () => '/admin/lixeira',                            showWhenEmpresa: false },
 ];
@@ -453,6 +454,8 @@ export default function AdminDashboardPage() {
                         title="Mercado Potencial" desc="TAM por município, rede e escola" />
                       <QuickAction onClick={() => router.push('/admin/vertho/radarempresas')} icon={<Target size={16} />} accent="#34c5cc"
                         title="Radar Empresas" desc="Prospecção B2B · Receita+CAGED+RAIS" />
+                      <QuickAction onClick={() => router.push('/admin/vertho/potencial-cidades')} icon={<Globe size={16} />} accent="#9e7bff"
+                        title="Potencial por Cidade" desc="Empresas + Escolas unificado" />
                       <QuickAction onClick={() => router.push('/admin/radar')} icon={<BarChart2 size={16} />} accent="#9e4edd"
                         title="Radar (Ingestão)" desc="Subir dados Saeb/ICA/Censo" />
                       <QuickAction onClick={() => router.push('/admin/vertho/orcamento')} icon={<Calculator size={16} />} accent="#f4b740"
