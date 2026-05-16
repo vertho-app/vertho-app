@@ -12,7 +12,11 @@
 -- Env: OUT_DIR.
 -- ─────────────────────────────────────────────────────────────────────────
 
-SET memory_limit = '8GB';
+-- 24GB: máquina tem ~32GB. Stage 5 é o mais pesado (29M scored⋈base +
+-- window priority_rank + detecção redes + COPY particionado em ~5,5k
+-- municípios). 8GB OOM'd no scale BR; 24GB cabe em RAM (evita spill —
+-- disco está apertado). Demais SQLs passaram a 8GB, ficam como estão.
+SET memory_limit = '24GB';
 SET temp_directory = './tmp_duck';
 SET preserve_insertion_order = false;
 

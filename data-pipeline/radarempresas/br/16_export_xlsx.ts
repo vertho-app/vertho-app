@@ -3,8 +3,8 @@
  *
  * O lead-a-lead NÃO vai pro DB Supabase (custo). Vira arquivo no
  * Storage: a tela mostra consolidado por cidade e oferece "baixar XLSX
- * desta cidade". Lê out/priorizados/municipio_ibge=*/*.parquet (Stage 5),
- * gera out/xlsx/{ibge}.xlsx via exceljs streaming (memória constante).
+ * desta cidade". Lê as partições priorizados/municipio_ibge=... (Stage
+ * 5), gera out/xlsx/{ibge}.xlsx via exceljs streaming (mem constante).
  *
  * npx tsx data-pipeline/radarempresas/br/16_export_xlsx.ts
  */
