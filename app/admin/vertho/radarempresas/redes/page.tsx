@@ -70,8 +70,8 @@ export default function RadarRedesPage() {
                   </p>
                   <p className="text-[10px] text-gray-500">
                     {r.tipo === 'grupo'
-                      ? `${r.n_unidades} filiais · mesma empresa`
-                      : `${r.n_unidades} unidades · ${r.n_donos} donos`} · {r.segmento_nome || 'sem segmento'} ·
+                      ? `${r.n_unidades.toLocaleString('pt-BR')} filiais · mesma empresa`
+                      : `${r.n_unidades.toLocaleString('pt-BR')} unidades · ${r.n_donos.toLocaleString('pt-BR')} donos`} · {r.segmento_nome || 'sem segmento'} ·
                     {' '}{(r.municipios || []).slice(0, 3).join(', ')}{(r.municipios || []).length > 3 ? '…' : ''}
                   </p>
                 </div>

@@ -22,6 +22,7 @@ const CLASSIF = [
 ];
 
 const fmtBrl = (n: number | null) => n == null ? '—' : `R$ ${Math.round(n).toLocaleString('pt-BR')}`;
+const fmt = (n: number | null | undefined) => n == null ? '—' : Number(n).toLocaleString('pt-BR');
 
 export default function RadarEmpresasPage() {
   const router = useRouter();
@@ -175,12 +176,12 @@ export default function RadarEmpresasPage() {
               {lista.slice(0, 1000).map(c => (
                 <tr key={c.municipio_ibge} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
                   <td className="px-3 py-2 text-white">{c.municipio_nome}<span className="text-gray-600">/{c.uf}</span></td>
-                  <td className="px-3 py-2 text-right text-cyan-300 font-semibold">{c.n_priorizados.toLocaleString('pt-BR')}</td>
-                  <td className="px-3 py-2 text-right text-gray-400">{c.n_abordar} / {c.n_boa}</td>
+                  <td className="px-3 py-2 text-right text-cyan-300 font-semibold">{fmt(c.n_priorizados)}</td>
+                  <td className="px-3 py-2 text-right text-gray-400">{fmt(c.n_abordar)} / {fmt(c.n_boa)}</td>
                   <td className="px-3 py-2 text-right text-gray-400">{c.score_medio == null ? '—' : Math.round(c.score_medio)}</td>
                   <td className="px-3 py-2 text-gray-500">{c.seg_top || '—'}</td>
-                  <td className="px-3 py-2 text-right text-gray-400">{c.n_redes}</td>
-                  <td className="px-3 py-2 text-right text-gray-600">{c.total_ativos.toLocaleString('pt-BR')}</td>
+                  <td className="px-3 py-2 text-right text-gray-400">{fmt(c.n_redes)}</td>
+                  <td className="px-3 py-2 text-right text-gray-600">{fmt(c.total_ativos)}</td>
                   <td className="px-3 py-2 text-right">
                     <button onClick={() => baixarCidade(c)} disabled={!c.xlsx_path || baixandoCid === c.municipio_ibge}
                       className="inline-flex items-center gap-1 px-2 py-1 rounded border border-white/10 text-[10px] text-cyan-300 hover:bg-white/[0.04] disabled:opacity-40">
