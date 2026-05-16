@@ -1,12 +1,21 @@
+import { cache } from 'react';
 import { createSupabaseAdmin } from './supabase';
 
 /**
- * Cache em memória para evitar query a cada request.
- * TTL de 5 minutos — suficiente para não bater no banco a cada page view,
- * curto o bastante para refletir mudanças de ui_config.
+ * Resolução de tenant. Memoização via React cache(): dedupe DENTRO de
+ * um único render/request (login page + layout + authz no mesmo
+ * request batem o banco 1x só), mas SEM persistir entre requests —
+ * cada novo request relê do banco, então salvar branding/slug reflete
+ * na hora ("salvo e atualiza").
+ *
+ * Histórico: era um Map em memória com TTL 5min — quebrado em
+ * serverless (Map é por-instância: salvar numa lambda não limpava o
+ * cache da que serve /login → branding velho por muito tempo). O cache
+ * do Next (unstable_cache/revalidateTag) resolveria cross-instance mas
+ * adiciona churn da nova API de cache do Next 16; o lookup é um
+ * indexado de 1 linha (~ms), então per-request cache é o trade-off
+ * correto: correção garantida, custo desprezível.
  */
-const CACHE_TTL_MS = 5 * 60 * 1000;
-
 export interface Tenant {
   id: string;
   nome: string;
@@ -14,47 +23,27 @@ export interface Tenant {
   ui_config: any;
 }
 
-interface CacheEntry {
-  data: Tenant | null;
-  ts: number;
-}
-
-const cache = new Map<string, CacheEntry>();
-
-/**
- * Resolve um slug de tenant para os dados da empresa.
- */
-export async function resolveTenant(slug: string | null | undefined): Promise<Tenant | null> {
-  if (!slug) return null;
-
-  const key = slug.toLowerCase();
-
-  // Verifica cache
-  const cached = cache.get(key);
-  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
-    return cached.data;
-  }
-
+const fetchTenant = cache(async (key: string): Promise<Tenant | null> => {
   const sb = createSupabaseAdmin();
   const { data, error } = await sb
     .from('empresas')
     .select('id, nome, slug, ui_config')
     .eq('slug', key)
     .single();
-
-  if (error || !data) {
-    // Cache negativo para evitar spam de slugs inválidos (TTL curto: 60s)
-    cache.set(key, { data: null, ts: Date.now() - CACHE_TTL_MS + 60_000 });
-    return null;
-  }
-
-  cache.set(key, { data: data as Tenant, ts: Date.now() });
+  if (error || !data) return null;
   return data as Tenant;
+});
+
+/**
+ * Resolve um slug de tenant para os dados da empresa.
+ */
+export async function resolveTenant(slug: string | null | undefined): Promise<Tenant | null> {
+  if (!slug) return null;
+  return fetchTenant(slug.toLowerCase());
 }
 
 /**
  * Extrai o slug do tenant a partir dos headers da request (server-side).
- * Usado em Server Components e API Routes.
  */
 export function getTenantSlug(headersOrRequest: Request | Headers): string | null {
   const h = headersOrRequest instanceof Request
