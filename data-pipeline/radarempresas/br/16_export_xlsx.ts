@@ -37,11 +37,12 @@ async function main() {
   let n = 0;
   for (const part of parts) {
     const ibge = part.split('=')[1];
+    // list() é agregado → ordenar DENTRO (list(... ORDER BY)), não fora
     const rowsJson = duck(
       `SELECT to_json(list(struct_pack(`
       + COLS.map(([c]) => `${c} := ${c}`).join(', ')
-      + `))) FROM read_parquet('${PRIO}/${part}/*.parquet') `
-      + `ORDER BY score_total DESC;`,
+      + `) ORDER BY score_total DESC)) `
+      + `FROM read_parquet('${PRIO}/${part}/*.parquet');`,
     );
     // duckdb -csv-ish: a saída vem como uma linha JSON; parse robusto
     const m = rowsJson.match(/\[.*\]/s);
