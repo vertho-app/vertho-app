@@ -24,8 +24,11 @@ import { calcularMercadoScores } from '@/lib/mercado-potencial/scoring';
 export interface PotencialFiltros {
   uf?: string;
   municipioBusca?: string;
-  precoProf?: number;
+  precoProf?: number;       // escolas (passa pro lib de scoring)
   precoGestor?: number;
+  // empresas: TAM = head_estimado_b2b × pctEscopo × precoPessoa
+  pctEscopo?: number;       // % do quadro em desenvolvimento (default 0.15)
+  precoPessoa?: number;     // R$/pessoa/mês (default 300)
 }
 
 export interface PotencialCidadeRow {
@@ -33,11 +36,12 @@ export interface PotencialCidadeRow {
   municipio: string;
   uf: string;
   emp: {
-    n_priorizados: number;
+    n_priorizados: number;         // excl. educacao_privada (não dup. escola)
     n_abordar: number;
     n_redes: number;
     score_medio: number | null;
     total_ativos: number;
+    tam_empresas: number | null;   // R$/mês estimado (head_b2b×escopo×preço)
     xlsx_path: string | null;
   } | null;
   esc: {
@@ -47,6 +51,7 @@ export interface PotencialCidadeRow {
     tam_mensal: number;            // mentor_ia + onboarding
     score: number | null;          // score_completo ?? score_base
   } | null;
+  tam_total: number | null;        // tam_empresas + tam_escolas (somável)
 }
 
 const cap = (s: string) =>
@@ -71,12 +76,14 @@ export async function loadPotencialCidades(
   await requireAdminAction();
   const sb = await requireAdminSupabase();
   const busca = f.municipioBusca?.trim();
+  const pctEscopo = f.pctEscopo ?? 0.15;   // 15% do quadro em desenvolvimento
+  const precoPessoa = f.precoPessoa ?? 300; // R$/pessoa/mês
 
   try {
     // ── Empresas (radarempresas_cidades_agg, ibge 6 díg) — paginado ──────
     const emp = await fetchAll((from, to) => {
       let q = sb.from('radarempresas_cidades_agg')
-        .select('municipio_ibge, municipio_nome, uf, total_ativos, n_priorizados, n_abordar, n_redes, score_medio, xlsx_path')
+        .select('municipio_ibge, municipio_nome, uf, total_ativos, n_priorizados, n_priorizados_b2b, head_estimado_b2b, n_abordar, n_redes, score_medio, xlsx_path')
         .order('municipio_ibge', { ascending: true }).range(from, to);
       if (f.uf) q = q.eq('uf', f.uf);
       if (busca) q = q.ilike('municipio_nome', `%${busca}%`);
@@ -106,31 +113,40 @@ export async function loadPotencialCidades(
     for (const k of keys) {
       const e = empMap.get(k);
       const s = escMap.get(k);
+      // empresas exclui educacao_privada (não dup. escola); cai pro total
+      // antigo se o pipeline ainda não emitiu *_b2b (graceful).
+      const headB2b = e?.head_estimado_b2b != null ? Number(e.head_estimado_b2b) : null;
+      const tamEmp = headB2b != null ? Math.round(headB2b * pctEscopo * precoPessoa) : null;
+      const tamEsc = s ? Number(s.tam_mensal_mentor_ia || 0) + Number(s.tam_mensal_onboarding || 0) : 0;
       rows.push({
         municipio_ibge: k,
         municipio: s ? cap(String(s.municipio)) : cap(String(e?.municipio_nome || '')),
         uf: e?.uf || s?.uf || '',
         emp: e ? {
-          n_priorizados: Number(e.n_priorizados || 0),
+          n_priorizados: Number(e.n_priorizados_b2b ?? e.n_priorizados ?? 0),
           n_abordar: Number(e.n_abordar || 0),
           n_redes: Number(e.n_redes || 0),
           score_medio: e.score_medio != null ? Number(e.score_medio) : null,
           total_ativos: Number(e.total_ativos || 0),
+          tam_empresas: tamEmp,
           xlsx_path: e.xlsx_path || null,
         } : null,
         esc: s ? {
           qt_escolas: Number(s.qt_escolas || 0),
           qt_professores: Number(s.qt_professores || 0),
           qt_gestores: Number(s.qt_gestores || 0),
-          tam_mensal: Number(s.tam_mensal_mentor_ia || 0) + Number(s.tam_mensal_onboarding || 0),
+          tam_mensal: tamEsc,
           score: s.score_completo ?? s.score_base ?? null,
         } : null,
+        tam_total: (tamEmp != null || s)
+          ? (tamEmp ?? 0) + tamEsc
+          : null,
       });
     }
 
     rows.sort((a, b) =>
-      (b.emp?.n_priorizados ?? -1) - (a.emp?.n_priorizados ?? -1)
-      || (b.esc?.score ?? -1) - (a.esc?.score ?? -1));
+      (b.tam_total ?? -1) - (a.tam_total ?? -1)
+      || (b.emp?.n_priorizados ?? -1) - (a.emp?.n_priorizados ?? -1));
 
     return { ok: true, rows, total: rows.length };
   } catch (e: any) {

@@ -29,7 +29,7 @@ SELECT
   s.score_dor_pessoas, s.score_capacidade_compra, s.score_fit_vertho,
   s.score_contexto_setorial, s.commercial_actionability,
   b.nome_fantasia, b.razao_social, b.uf, b.municipio_nome, b.municipio_ibge,
-  b.municipio_cod,
+  b.municipio_cod, b.cnae_principal, b.porte_empresa,
   trim(regexp_replace(regexp_replace(
     upper(strip_accents(coalesce(b.nome_fantasia, ''))),
     '[^A-Z0-9 ]', ' ', 'g'), ' +', ' ', 'g'))            AS fant_norm,
@@ -179,14 +179,34 @@ COPY (
            any_value(uf) AS uf, COUNT(*) AS total_ativos
     FROM read_parquet(getenv('OUT_DIR') || '/base/**/*.parquet')
     GROUP BY municipio_ibge
+  ), prio_hc AS (
+    -- headcount estimado por priorizado: híbrido RAIS→porte. RAIS
+    -- tam_medio do setor×município (contexto) quando há; senão ponto
+    -- médio da faixa de porte Receita (01 ME / 03 EPP / 05 Demais).
+    -- Premissas absorvidas pelos knobs %escopo/preço na tela.
+    SELECT pr.municipio_ibge, pr.classificacao, pr.score_total,
+      pr.segmento_key,
+      coalesce(c.rais_tam_medio_setor,
+        CASE pr.porte_empresa WHEN '05' THEN 150 WHEN '03' THEN 25
+                              WHEN '01' THEN 7 ELSE 3 END) AS head_est
+    FROM prio pr
+    LEFT JOIN read_parquet(getenv('OUT_DIR') || '/contexto.parquet') c
+      ON c.municipio_ibge = pr.municipio_ibge
+     AND c.cnae = regexp_replace(pr.cnae_principal, '\D', '', 'g')
   ), p AS (
     SELECT municipio_ibge,
       COUNT(*) AS n_priorizados,
       SUM(CASE WHEN classificacao='abordar_agora' THEN 1 ELSE 0 END) AS n_abordar,
       SUM(CASE WHEN classificacao='boa' THEN 1 ELSE 0 END)           AS n_boa,
       round(avg(score_total), 1) AS score_medio,
-      mode(segmento_key) AS seg_top
-    FROM prio GROUP BY municipio_ibge
+      mode(segmento_key) AS seg_top,
+      -- *_b2b: exclui educacao_privada (Escolas é a fonte autoritativa
+      -- desse vertical — evita dupla-contagem no TAM somado)
+      COUNT(*) FILTER (WHERE segmento_key <> 'educacao_privada')
+                                                      AS n_priorizados_b2b,
+      round(SUM(head_est) FILTER (WHERE segmento_key <> 'educacao_privada'))
+                                                      AS head_estimado_b2b
+    FROM prio_hc GROUP BY municipio_ibge
   ), r AS (
     SELECT e.municipio_ibge, COUNT(DISTINCT rm.marca_norm) AS n_redes
     FROM rede_marca rm JOIN est e ON e.cnpj_completo = rm.cnpj_completo
@@ -195,7 +215,9 @@ COPY (
   SELECT a.municipio_ibge, a.municipio_nome, a.uf, a.total_ativos,
     coalesce(p.n_priorizados,0) AS n_priorizados,
     coalesce(p.n_abordar,0) AS n_abordar, coalesce(p.n_boa,0) AS n_boa,
-    p.score_medio, p.seg_top, coalesce(r.n_redes,0) AS n_redes
+    p.score_medio, p.seg_top, coalesce(r.n_redes,0) AS n_redes,
+    coalesce(p.n_priorizados_b2b,0) AS n_priorizados_b2b,
+    coalesce(p.head_estimado_b2b,0) AS head_estimado_b2b
   FROM ativ a LEFT JOIN p ON p.municipio_ibge=a.municipio_ibge
               LEFT JOIN r ON r.municipio_ibge=a.municipio_ibge
   WHERE coalesce(p.n_priorizados,0) > 0 OR coalesce(r.n_redes,0) > 0

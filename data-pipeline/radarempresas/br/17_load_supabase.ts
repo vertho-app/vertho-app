@@ -68,6 +68,8 @@ async function main() {
     total_ativos: c.total_ativos, n_priorizados: c.n_priorizados,
     n_abordar: c.n_abordar, n_boa: c.n_boa, score_medio: c.score_medio,
     seg_top: c.seg_top, n_redes: c.n_redes,
+    n_priorizados_b2b: c.n_priorizados_b2b ?? null,
+    head_estimado_b2b: c.head_estimado_b2b ?? null,
     xlsx_path: xlsxPath.get(String(c.municipio_ibge)) ?? null,
     updated_at: new Date().toISOString(),
   }));

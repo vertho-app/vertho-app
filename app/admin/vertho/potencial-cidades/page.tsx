@@ -17,11 +17,16 @@ export default function PotencialCidadesPage() {
   const [buscando, setBuscando] = useState(false);
   const [uf, setUf] = useState('');
   const [busca, setBusca] = useState('');
+  const [pctEscopo, setPctEscopo] = useState(15);   // % do quadro
+  const [precoPessoa, setPrecoPessoa] = useState(300); // R$/pessoa/mês
   const [baixando, setBaixando] = useState<string | null>(null);
 
   async function carregar() {
     setBuscando(true);
-    const r = await loadPotencialCidades({ uf: uf || undefined, municipioBusca: busca || undefined });
+    const r = await loadPotencialCidades({
+      uf: uf || undefined, municipioBusca: busca || undefined,
+      pctEscopo: pctEscopo / 100, precoPessoa,
+    });
     if ('ok' in r) setRows(r.rows);
     setBuscando(false); setLoading(false);
   }
@@ -55,12 +60,14 @@ export default function PotencialCidadesPage() {
       </div>
 
       <div className="mb-4 p-3 rounded-xl border border-white/[0.06] bg-white/[0.02] text-[11px] text-gray-400 leading-relaxed">
-        Dois sinais distintos, <span className="text-gray-300 font-semibold">não somados</span>:
-        <span className="text-cyan-300"> Empresas</span> = oportunidade B2B (Receita/CAGED/RAIS, snapshot mensal).
-        <span className="text-violet-300"> Escolas</span> = TAM × fit pedagógico/financeiro (INEP/Censo, dados live).
+        <span className="text-gray-300 font-semibold">Scores não somam</span> (modelos distintos, lado a lado).
+        <span className="text-gray-300 font-semibold"> TAM soma</span> (R$/mês): TAM Total = Empresas + Escolas.
+        <span className="text-cyan-300"> Empresas</span> = Receita/CAGED/RAIS, snapshot mensal,
+        <span className="text-amber-300/90"> TAM estimado</span> (headcount híbrido RAIS→porte, <span className="text-amber-300/90">excl. educação</span> p/ não duplicar escola).
+        <span className="text-violet-300"> Escolas</span> = INEP/Censo, headcount real, dados live.
       </div>
 
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex flex-wrap items-center gap-2 mb-3">
         <select value={uf} onChange={e => setUf(e.target.value)}
           className="rounded-lg border border-white/10 bg-[#091D35] text-white text-xs px-2 py-1.5">
           <option value="">Todas UFs</option>
@@ -68,27 +75,41 @@ export default function PotencialCidadesPage() {
         </select>
         <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Município..."
           onKeyDown={e => e.key === 'Enter' && carregar()}
-          className="flex-1 rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-1.5 focus:outline-none focus:border-cyan-400/50" />
+          className="flex-1 min-w-[160px] rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-1.5 focus:outline-none focus:border-cyan-400/50" />
+        <label className="flex items-center gap-1 text-[11px] text-gray-400">
+          % escopo
+          <input type="number" min={1} max={100} value={pctEscopo}
+            onChange={e => setPctEscopo(Math.max(1, Math.min(100, Number(e.target.value) || 0)))}
+            className="w-14 rounded-lg border border-white/10 bg-[#091D35] text-white text-xs px-2 py-1.5" />
+        </label>
+        <label className="flex items-center gap-1 text-[11px] text-gray-400">
+          R$/pessoa
+          <input type="number" min={0} value={precoPessoa}
+            onChange={e => setPrecoPessoa(Math.max(0, Number(e.target.value) || 0))}
+            className="w-16 rounded-lg border border-white/10 bg-[#091D35] text-white text-xs px-2 py-1.5" />
+        </label>
         <button onClick={carregar} disabled={buscando}
           className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold text-[#0F2B54] bg-cyan-400 hover:brightness-110 disabled:opacity-50">
-          {buscando ? <Loader2 size={13} className="animate-spin" /> : 'Filtrar'}
+          {buscando ? <Loader2 size={13} className="animate-spin" /> : 'Aplicar'}
         </button>
         <span className="text-[11px] text-gray-500">{fmt(rows.length)} cidades</span>
       </div>
 
       <div className="rounded-xl border border-white/[0.06] overflow-x-auto" style={{ background: '#0F2A4A' }}>
-        <table className="w-full text-[11px] min-w-[900px]">
+        <table className="w-full text-[11px] min-w-[1040px]">
           <thead>
             <tr className="text-gray-500 border-b border-white/[0.06]">
               <th className="px-3 py-2 text-left" rowSpan={2}>Município</th>
-              <th className="px-3 py-1 text-center border-l border-white/[0.06] text-cyan-300" colSpan={5}>Empresas (B2B)</th>
+              <th className="px-3 py-1 text-center border-l border-white/[0.06] text-cyan-300" colSpan={6}>Empresas (B2B, excl. educação)</th>
               <th className="px-3 py-1 text-center border-l border-white/[0.06] text-violet-300" colSpan={4}>Escolas</th>
+              <th className="px-3 py-2 text-right border-l border-white/[0.06] text-emerald-300" rowSpan={2}>TAM Total/mês</th>
             </tr>
             <tr className="text-gray-600 border-b border-white/[0.06] text-[10px]">
               <th className="px-3 py-1 text-right border-l border-white/[0.06]">Prioriz.</th>
               <th className="px-3 py-1 text-right">Abordar</th>
               <th className="px-3 py-1 text-right">Redes</th>
               <th className="px-3 py-1 text-right">Score</th>
+              <th className="px-3 py-1 text-right">TAM est./mês</th>
               <th className="px-3 py-1 text-center">XLSX</th>
               <th className="px-3 py-1 text-right border-l border-white/[0.06]">Escolas</th>
               <th className="px-3 py-1 text-right">Profs.</th>
@@ -104,6 +125,7 @@ export default function PotencialCidadesPage() {
                 <td className="px-3 py-2 text-right text-gray-400">{c.emp ? fmt(c.emp.n_abordar) : '—'}</td>
                 <td className="px-3 py-2 text-right text-gray-400">{c.emp ? fmt(c.emp.n_redes) : '—'}</td>
                 <td className="px-3 py-2 text-right text-gray-400">{c.emp?.score_medio == null ? '—' : Math.round(c.emp.score_medio)}</td>
+                <td className="px-3 py-2 text-right text-amber-300/80">{c.emp?.tam_empresas == null ? '—' : fmtBrl(c.emp.tam_empresas)}</td>
                 <td className="px-3 py-2 text-center">
                   {c.emp?.xlsx_path ? (
                     <button onClick={() => baixarXlsx(c)} disabled={baixando === c.municipio_ibge}
@@ -116,6 +138,7 @@ export default function PotencialCidadesPage() {
                 <td className="px-3 py-2 text-right text-gray-400">{c.esc ? fmt(c.esc.qt_professores) : '—'}</td>
                 <td className="px-3 py-2 text-right text-gray-400">{c.esc ? fmtBrl(c.esc.tam_mensal) : '—'}</td>
                 <td className="px-3 py-2 text-right text-gray-400">{c.esc?.score == null ? '—' : fmt(Math.round(c.esc.score))}</td>
+                <td className="px-3 py-2 text-right text-emerald-300 font-semibold border-l border-white/[0.04]">{c.tam_total == null ? '—' : fmtBrl(c.tam_total)}</td>
               </tr>
             ))}
           </tbody>
