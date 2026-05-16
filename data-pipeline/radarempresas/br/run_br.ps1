@@ -37,14 +37,14 @@ function Die($m){ Write-Error $m; exit 1 }
 # social com ';'/aspas em 29M linhas) e o DuckDB CLI sai 1 mesmo com
 # saída 100% válida. Verificar o parquet é o critério correto/robusto.
 function NeedParquet($path,$step){
-  if (-not (Test-Path $path)) { Die "$step: artefato ausente ($path)" }
+  if (-not (Test-Path $path)) { Die "${step}: artefato ausente ($path)" }
   $item = Get-Item $path
   if ($item.PSIsContainer) {
     $pq = Get-ChildItem $path -Recurse -Filter *.parquet -EA SilentlyContinue
     if (-not $pq -or ($pq | Measure-Object Length -Sum).Sum -lt 1024) {
-      Die "$step: sem parquet válido em $path"
+      Die "${step}: sem parquet válido em $path"
     }
-  } elseif ($item.Length -lt 512) { Die "$step: artefato vazio ($path)" }
+  } elseif ($item.Length -lt 512) { Die "${step}: artefato vazio ($path)" }
 }
 
 if ($FromStage -le 1) {
