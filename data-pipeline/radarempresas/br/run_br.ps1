@@ -53,6 +53,10 @@ if ($FromStage -le 1) {
   if ($LASTEXITCODE -ne 0) { Die "Stage 1 falhou" }
 }
 if ($FromStage -le 2) {
+  Step "2-xwalk" "Crosswalk Receita<->IBGE (API IBGE localidades)"
+  npx tsx "$here\18_crosswalk_ibge.ts"
+  NeedParquet "$OUT/crosswalk_ibge.parquet" "Crosswalk IBGE"
+
   Step "2" "Ingest Receita -> base parquet (particionado por UF)"
   $env:UTF8_DIR = "$OUT/utf8"
   Get-Content "$here\11_ingest.sql" -Raw | duckdb ":memory:"

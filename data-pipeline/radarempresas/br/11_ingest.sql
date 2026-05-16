@@ -100,6 +100,7 @@ COPY (
     e.uf,
     e.municipio_cod,
     m.nome                                                AS municipio_nome,
+    cw.municipio_ibge,   -- ponte Receita→IBGE 6díg (CAGED/RAIS/contexto)
     e.bairro, e.cep, e.email, e.telefone_1, e.telefone_2,
     (e.email IS NOT NULL)                                 AS has_email,
     (e.telefone_1 IS NOT NULL)                            AS has_phone,
@@ -124,6 +125,12 @@ COPY (
   JOIN grp g      ON g.cnpj_basico   = e.cnpj_basico
   LEFT JOIN cnae c ON c.codigo       = e.cnae_principal
   LEFT JOIN munic m ON m.codigo      = e.municipio_cod
+  -- crosswalk por (UF, nome normalizado canônico) → municipio_ibge
+  LEFT JOIN read_parquet(getenv('OUT_DIR') || '/crosswalk_ibge.parquet') cw
+    ON cw.uf = e.uf
+   AND cw.nome_norm = trim(regexp_replace(regexp_replace(
+         upper(strip_accents(coalesce(m.nome,''))),
+         '[^A-Z0-9 ]', ' ', 'g'), ' +', ' ', 'g'))
 ) TO (getenv('OUT_DIR') || '/base') (FORMAT PARQUET, PARTITION_BY (uf),
                  OVERWRITE_OR_IGNORE true, FILENAME_PATTERN 'estab_{i}');
 
