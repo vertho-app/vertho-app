@@ -43,6 +43,7 @@
     ".next",
     "playwright-report",
     "test-results",
-    "public"
+    "public",
+    "data-pipeline"
   ]
 }

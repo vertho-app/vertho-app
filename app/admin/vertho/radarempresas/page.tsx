@@ -6,8 +6,8 @@ import {
   ArrowLeft, Loader2, Building2, Filter, Search, TrendingUp, MapPin, Target, Download, List, Network,
 } from 'lucide-react';
 import {
-  loadRadarKpis, listarEmpresas, loadFunilMercado,
-  type RadarKpis, type RadarEmpresaRow, type RadarFiltros, type FunilEtapa,
+  loadRadarKpis, listarEmpresas, loadFunilMercado, loadModoBR, getCidadeXlsxUrl,
+  type RadarKpis, type RadarEmpresaRow, type RadarFiltros, type FunilEtapa, type CidadeAgg,
 } from '@/actions/radarempresas/busca';
 import { exportarCSV, exportarXLSX } from '@/actions/radarempresas/listas';
 import { SEGMENTOS_LIST, RADAR_DISCLAIMER } from '@/lib/radarempresas/segmentos';
@@ -32,12 +32,34 @@ export default function RadarEmpresasPage() {
   const [loading, setLoading] = useState(true);
   const [buscando, setBuscando] = useState(false);
   const [f, setF] = useState<RadarFiltros>({ uf: 'SP', page: 0, pageSize: 50 });
+  const [brMode, setBrMode] = useState<boolean | null>(null);
+  const [cidades, setCidades] = useState<CidadeAgg[]>([]);
+  const [ufFiltro, setUfFiltro] = useState('');
+  const [baixandoCid, setBaixandoCid] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([loadRadarKpis(), loadFunilMercado()]).then(([k, f]) => {
-      setKpis(k); setFunil(f); setLoading(false);
+    // Modo BR só ativa quando o pipeline nacional carregou cidades_agg.
+    // Vazio/ausente → fallback pro modo Jundiaí atual (zero quebra).
+    loadModoBR().then((br) => {
+      if (br.brMode) {
+        setBrMode(true); setCidades(br.cidades); setFunil(br.funil); setLoading(false);
+      } else {
+        setBrMode(false);
+        Promise.all([loadRadarKpis(), loadFunilMercado()]).then(([k, fu]) => {
+          setKpis(k); setFunil(fu); setLoading(false);
+        });
+      }
     });
   }, []);
+
+  async function baixarCidade(c: CidadeAgg) {
+    if (!c.xlsx_path) { alert('Sem XLSX para esta cidade ainda.'); return; }
+    setBaixandoCid(c.municipio_ibge);
+    const url = await getCidadeXlsxUrl(c.xlsx_path);
+    setBaixandoCid(null);
+    if (!url) { alert('Não foi possível gerar o link.'); return; }
+    window.open(url, '_blank');
+  }
 
   async function buscar(reset = true) {
     setBuscando(true);
@@ -83,6 +105,98 @@ export default function RadarEmpresasPage() {
   }
 
   if (loading) return <div className="flex items-center justify-center h-dvh"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
+
+  // ── MODO BR: painel consolidado por município (lead-a-lead = XLSX) ──────
+  if (brMode) {
+    const ufs = [...new Set(cidades.map(c => c.uf).filter(Boolean))].sort() as string[];
+    const lista = ufFiltro ? cidades.filter(c => c.uf === ufFiltro) : cidades;
+    return (
+      <div className="max-w-[1200px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <button onClick={() => router.push('/admin/dashboard')}
+              className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white">
+              <ArrowLeft size={16} />
+            </button>
+            <div>
+              <h1 className="text-xl font-bold text-white flex items-center gap-2">
+                <Target size={20} className="text-cyan-400" /> Radar Empresas — Brasil
+              </h1>
+              <p className="text-xs text-gray-500">{cidades.length.toLocaleString('pt-BR')} municípios com priorizados · lead-a-lead via XLSX por cidade</p>
+            </div>
+          </div>
+          <button onClick={() => router.push('/admin/vertho/radarempresas/redes')}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-white/10 text-xs text-gray-300 hover:text-white">
+            <Network size={13} /> Redes
+          </button>
+        </div>
+
+        {funil.length > 0 && (
+          <div className="rounded-xl border border-white/[0.06] p-4 mb-5" style={{ background: '#0F2A4A' }}>
+            <p className="text-xs font-bold text-white flex items-center gap-1.5 mb-3">
+              <Target size={12} className="text-cyan-400" /> Mercado endereçável Vertho — Brasil
+            </p>
+            {funil.map((e, i) => (
+              <div key={i} className="flex items-center gap-2 mb-1.5 text-[11px]">
+                <span className="w-56 text-gray-400 shrink-0">{e.etapa}</span>
+                <div className="flex-1 bg-white/[0.04] rounded h-4 overflow-hidden">
+                  <div className="h-full bg-cyan-500/40" style={{ width: `${Math.max(e.pct_do_topo, 0.5)}%` }} />
+                </div>
+                <span className="w-32 text-right text-white font-semibold">{e.quantidade.toLocaleString('pt-BR')} · {e.pct_do_topo}%</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 mb-3">
+          <select value={ufFiltro} onChange={e => setUfFiltro(e.target.value)}
+            className="rounded-lg border border-white/10 bg-[#091D35] text-white text-xs px-2 py-1.5">
+            <option value="">Todas UFs</option>
+            {ufs.map(u => <option key={u} value={u}>{u}</option>)}
+          </select>
+          <span className="text-[11px] text-gray-500">{lista.length.toLocaleString('pt-BR')} cidades</span>
+        </div>
+
+        <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
+          <table className="w-full text-[11px]">
+            <thead>
+              <tr className="text-gray-500 border-b border-white/[0.06]">
+                <th className="px-3 py-2 text-left">Município</th>
+                <th className="px-3 py-2 text-right">Priorizados</th>
+                <th className="px-3 py-2 text-right">Abordar / Boa</th>
+                <th className="px-3 py-2 text-right">Score méd.</th>
+                <th className="px-3 py-2 text-left">Segmento top</th>
+                <th className="px-3 py-2 text-right">Redes</th>
+                <th className="px-3 py-2 text-right">Ativos (TAM)</th>
+                <th className="px-3 py-2 text-right">XLSX</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lista.slice(0, 1000).map(c => (
+                <tr key={c.municipio_ibge} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
+                  <td className="px-3 py-2 text-white">{c.municipio_nome}<span className="text-gray-600">/{c.uf}</span></td>
+                  <td className="px-3 py-2 text-right text-cyan-300 font-semibold">{c.n_priorizados.toLocaleString('pt-BR')}</td>
+                  <td className="px-3 py-2 text-right text-gray-400">{c.n_abordar} / {c.n_boa}</td>
+                  <td className="px-3 py-2 text-right text-gray-400">{c.score_medio == null ? '—' : Math.round(c.score_medio)}</td>
+                  <td className="px-3 py-2 text-gray-500">{c.seg_top || '—'}</td>
+                  <td className="px-3 py-2 text-right text-gray-400">{c.n_redes}</td>
+                  <td className="px-3 py-2 text-right text-gray-600">{c.total_ativos.toLocaleString('pt-BR')}</td>
+                  <td className="px-3 py-2 text-right">
+                    <button onClick={() => baixarCidade(c)} disabled={!c.xlsx_path || baixandoCid === c.municipio_ibge}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded border border-white/10 text-[10px] text-cyan-300 hover:bg-white/[0.04] disabled:opacity-40">
+                      {baixandoCid === c.municipio_ibge ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {lista.length > 1000 && <p className="text-[10px] text-gray-600 mt-2">Mostrando 1000 de {lista.length.toLocaleString('pt-BR')} — filtre por UF.</p>}
+        <p className="text-[9px] text-gray-600 mt-6 leading-relaxed border-t border-white/[0.04] pt-3">{RADAR_DISCLAIMER}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>

@@ -56,6 +56,53 @@ export async function loadFunilMercado(): Promise<FunilEtapa[]> {
   ];
 }
 
+// ── Modo BR (escala nacional): tela consolidada por município ────────────
+// A tabela radarempresas_cidades_agg só existe/popula quando o pipeline
+// BR roda. Vazia/ausente → modo Jundiaí atual (fallback gracioso, zero
+// quebra em produção). Cheia → painel de cidades + XLSX no Storage.
+export interface CidadeAgg {
+  municipio_ibge: string; municipio_nome: string | null; uf: string | null;
+  total_ativos: number; n_priorizados: number; n_abordar: number; n_boa: number;
+  score_medio: number | null; seg_top: string | null; n_redes: number;
+  xlsx_path: string | null;
+}
+
+export async function loadModoBR(): Promise<{
+  brMode: boolean;
+  cidades: CidadeAgg[];
+  funil: FunilEtapa[];
+}> {
+  const sb = await requireAdminSupabase();
+  const { data, error } = await sb.from('radarempresas_cidades_agg')
+    .select('municipio_ibge, municipio_nome, uf, total_ativos, n_priorizados, n_abordar, n_boa, score_medio, seg_top, n_redes, xlsx_path')
+    .order('n_priorizados', { ascending: false }).limit(6000);
+  // tabela inexistente (migration não aplicada) ou vazia → modo Jundiaí
+  if (error || !data || data.length === 0) return { brMode: false, cidades: [], funil: [] };
+
+  const { data: fa } = await sb.from('radarempresas_funil_agg')
+    .select('etapa, n, ordem').order('ordem', { ascending: true });
+  const LABEL: Record<string, string> = {
+    ativos: 'Estabelecimentos ativos', nao_micro: 'Excluindo micro + rede',
+    aderente: 'CNAE aderente (s/ consultoria/franquia)', score60: 'Score ≥ 60 (boa+)',
+    priorizados: 'Priorizados (top 10%)', redes: '+ Redes consolidadas',
+  };
+  const topo = (fa || []).find((x: any) => x.etapa === 'ativos')?.n || 1;
+  const funil: FunilEtapa[] = (fa || []).map((x: any) => ({
+    etapa: LABEL[x.etapa] || x.etapa, quantidade: Number(x.n),
+    pct_do_topo: Math.round((Number(x.n) / Number(topo)) * 1000) / 10,
+  }));
+  return { brMode: true, cidades: data as CidadeAgg[], funil };
+}
+
+/** URL assinada (10 min) do XLSX de priorizados de um município. */
+export async function getCidadeXlsxUrl(xlsxPath: string): Promise<string | null> {
+  if (!xlsxPath) return null;
+  const sb = await requireAdminSupabase();
+  const { data } = await sb.storage.from('radarempresas-priorizados')
+    .createSignedUrl(xlsxPath, 600);
+  return data?.signedUrl ?? null;
+}
+
 export interface RadarRede {
   marca_norm: string; nome_exibicao: string; tipo: 'franquia' | 'grupo'; n_unidades: number;
   n_donos: number; segmento_nome: string | null; score_medio: number | null;
