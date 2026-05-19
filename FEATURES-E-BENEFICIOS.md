@@ -12,7 +12,7 @@ A Vertho é uma plataforma SaaS B2B que **transforma diagnóstico de competênci
 Quatro produtos vivos:
 
 - **Mentor IA** (principal) — Diagnóstico, plano de desenvolvimento individual e trilha guiada, multi-tenant por empresa. Dois modos de uso:
-  - **Programa Regular** — 14 semanas focadas em 1 competência aprofundada (nível-meta 3 / proficiência).
+  - **Programa Regular (DUO)** — 14 semanas desenvolvendo 2 competências em paralelo, em profundidade (nível-meta 3 / proficiência). É o modo default. *(Single-comp segue disponível como configuração pontual.)*
   - **Vertho Onboarding** — 10 semanas em espiral cobrindo 5 competências (nível-meta 2 / autonomia supervisionada), para profissionais recém-formados.
 - **Pulso de Desenvolvimento** *(novo, mai/2026)* — Instrumento leve T0/T2 para entender se o ambiente favorece ou bloqueia o desenvolvimento. Dashboard agregado com guard de anonimato (n≥7), Dual-IA classifica respostas abertas em 12 temas, PDFs executivo + complementar NR-1.
 - **Radar Vertho** ([radar.vertho.ai](https://radar.vertho.ai)) — Inteligência pública nacional sobre escolas, municípios, redes e estados (Saeb, Ideb, ENEM, Censo, FUNDEB) com narrativa por IA.
@@ -30,7 +30,7 @@ Quatro produtos vivos:
 | **Diagnóstico Conversacional** | Avaliação por chat com IA (Sonnet 4.6) em 6 turnos com extração socrática de evidências | Acaba o "questionário Likert chato": o colaborador conversa em linguagem natural e a IA capta sinais reais. |
 | **Votação de Competências** | Colaborador vota nas competências mais importantes do próprio cargo | Voz ativa no programa — quem é desenvolvido participa do diagnóstico. |
 | **PDI Personalizado** | Plano de Desenvolvimento Individual gerado por IA: resumo, plano 30 dias (foco + ações), estudo recomendado | Plano concreto e curto, não "encheção de relatório" — focado em 30 dias. |
-| **Trilha de 14 semanas** | Cadência semanal automática: 9 semanas de conteúdo, 3 de prática, 2 de avaliação | Desenvolvimento consistente sem sobrecarga — 1 atividade por semana, gated por calendário. |
+| **Trilha de 14 semanas (DUO)** | Cadência semanal automática: 9 semanas de conteúdo, 3 de prática, 2 de avaliação — cobrindo **2 competências em blocos paralelos**, com missões integradoras das duas | Evolui em duas frentes ao mesmo tempo, sem perder profundidade — 1 atividade por semana, gated por calendário. |
 | **Microconteúdos multi-formato** | Por semana: vídeo (Bunny), texto, podcast, case study, desafio | Aprende no formato que prefere — mesmo conteúdo, várias entradas. |
 | **Tira-Dúvidas (chat reativo)** | Chat com Haiku 4.5, com grounding nos valores e cultura da empresa (RAG) | Resposta na hora, contextualizada à empresa do colaborador — não genérica. |
 | **Evidências Socráticas** | Conversa de 6 turnos por descritor com DISC + anti-alucinação + grounding | Treina pensamento crítico — IA não dá respostas, faz perguntas que provocam reflexão. |
@@ -118,12 +118,12 @@ Quatro produtos vivos:
 
 ### 5.1 Como difere do programa Regular
 
-| Dimensão | Programa Regular | Vertho Onboarding |
+| Dimensão | Programa Regular (DUO, default) | Vertho Onboarding |
 |---|---|---|
 | Duração | 14 semanas | **10 semanas** |
-| Competências | 1 aprofundada | **5 em espiral** |
+| Competências | 2 em paralelo, aprofundadas *(1 no modo single-comp)* | **5 em espiral** |
 | Meta de proficiência | Nível 3 (proficiente) | **Nível 2 (autonomia supervisionada)** |
-| Cadência | Conteúdo→prática→reflexão | **Calibragem → fundamentos pareados → 3 missões integradoras** |
+| Cadência | Blocos paralelos por comp → missões 4/8/12 integradoras das duas → avaliação | **Calibragem → fundamentos pareados → 3 missões integradoras** |
 | Acompanhamento | Gestor (equipe inteira) | **Tutor** (1-N tutorados específicos) |
 | Pricing previsto | Por seat anual | Por contratado/onboardeado (a definir) |
 

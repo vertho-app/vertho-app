@@ -52,7 +52,7 @@ npm test
 - Radar: paginas publicas de escola, municipio, rede, estado, comparacao, metodologia e Bett.
 - Radar Bett: home comercial, busca avancada, paginas de escola/municipio, comparacao, jornada, metodologia, tracking de funil e CTA WhatsApp.
 - Admin Radar: ingestao, qualidade de dados, funnel geral e funnel Bett.
-- Mentor IA: dashboards colaborador/gestor/RH, temporadas 14 semanas, votacao por cargo, perfil comportamental, PDI, relatorios e RAG per-tenant.
+- Mentor IA: dashboards colaborador/gestor/RH, temporadas 14 semanas (default Regular DUO: 2 competencias em blocos paralelos, missoes integradoras; single-comp via programa_modo=regular_single), votacao por cargo, perfil comportamental, PDI, relatorios e RAG per-tenant.
 - **Pulso de Desenvolvimento (novo, mai/2026)**: pesquisa T0/T2 + sinais comportamentais + Dual-IA classifica texto aberto + triangulacao + PDFs Executivo + Complementar NR-1. Multi-tenant. Piloto Macae preparado (59 assignments T0 criados, ciclo fechado).
 - **Cliente Macae**: migracao GAS->Supabase concluida (59 colabs, 18 competencias, 51 PDIs migrados via Drive). Samuel Protetti setado como gestor de todos. Telefones limpos sem `+`.
 

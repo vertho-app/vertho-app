@@ -324,8 +324,9 @@ nextjs-app/
 │   ├── avatar-presets.ts
 │   ├── preferencias-config.ts
 │   ├── season-engine/            # Motor de Temporadas
+│   │   ├── programa-config.ts    # PROGRAMA_REGULAR_DUO (default) + REGULAR + ONBOARDING
 │   │   ├── build-season.ts       # buildSeason(): 14 semanas (missao+cenario em paralelo)
-│   │   ├── select-descriptors.ts # selectDescriptors(): 9 slots por gap
+│   │   ├── select-descriptors.ts # selectDescriptors / selectDescriptorsDuo / *Multi
 │   │   ├── week-gating.ts        # Gate calendario + anterior concluida
 │   │   └── prompts/              # 16 prompts (todos .ts)
 │   │       ├── socratic.ts       # Evidencias: 6 turnos, DISC, anti-alucinacao (c/ grounding)
@@ -632,8 +633,10 @@ Tabelas: sessoes_avaliacao, mensagens_chat, competencias, banco_cenarios
 ### Fluxo C: Motor de Temporadas Completo (14 semanas)
 ```
 1. Admin gera temporadas (buildSeason): 14 semanas
+   - Default global = Regular DUO: 2 competencias em blocos paralelos
+     (selectDescriptorsDuo aloca [1-3]=Comp A, [5-7]=Comp B, [9-11]=reforco)
    - Conteudo (9 slots): micro_conteudos + desafio
-   - Pratica (sem 4/8/12): missao + cenario em paralelo
+   - Pratica (sem 4/8/12): missao + cenario em paralelo (DUO: integradoras das 2 comps)
    - Avaliacao (sem 13/14): reservadas
    - data_inicio definida → week gating por calendario
 
@@ -940,36 +943,38 @@ Z-API: WhatsApp gateway
 
 ---
 
-## 17. Modo Onboarding (caso de uso da engine)
+## 17. Modos da engine (Regular DUO · Regular single · Onboarding)
 
-> Modo do programa para profissionais recém-formados (foco inicial: professor recém-formado em escolas). **Não é produto novo** — é configuração da mesma engine de trilha. Ativado por empresa via `sys_config.programa_modo = 'onboarding'`.
+> A mesma engine de trilha serve três modos, resolvidos por empresa via `sys_config.programa_modo`. **Não são produtos diferentes** — só configuração (`getProgramaConfig`). **Default global = Regular DUO** (2 competências em blocos paralelos). Single-comp virou escape hatch (`regular_single`). Onboarding (recém-formados) inalterado.
 
-### 17.1 Como difere do programa Regular
+### 17.1 Como diferem
 
-| Dimensão | Regular | Onboarding |
-|---|---|---|
-| Duração | 14 semanas | **10 semanas** |
-| Competências por trilha | 1 (aprofundada) | **5 (em espiral)** |
-| Nível-meta na régua | 3 (proficiente) | **2 (autonomia supervisionada)** |
-| Missões | Sem 4, 8, 12 (uni-competência) | **Sem 4, 7, 9 (multi-competência integradora)** |
-| Avaliação Acumulada | Sem 13 (auto-trigger) | **Embutida nas missões 4/7/9 (parcial cumulativa)** |
-| Cenário B (wizard final) | Sem 14 | **Sem 10** |
-| Slots de conteúdo | `[1,2,3,5,6,7,9,10,11]` | `[2,3,5,6,8]` — sem 1 = calibragem |
-| Acompanhamento | Gestor (por `gestor_email`) | **Tutor** (por `tutorados_ids[]`) |
-| Push automatizado | — | **WhatsApp pro tutor nas sems 4 e 7** (sugestão de pauta) |
+| Dimensão | **Regular DUO** *(default)* | Regular single *(`regular_single`)* | Onboarding *(`onboarding`)* |
+|---|---|---|---|
+| Duração | 14 semanas | 14 semanas | **10 semanas** |
+| Competências por trilha | **2 (em blocos paralelos)** | 1 (aprofundada) | **5 (em espiral)** |
+| Nível-meta na régua | 3 (proficiente) | 3 (proficiente) | **2 (autonomia supervisionada)** |
+| Missões | Sem 4, 8, 12 (**integradoras das 2 comps**) | Sem 4, 8, 12 (uni-competência) | **Sem 4, 7, 9 (multi-competência integradora)** |
+| Avaliação Acumulada | Sem 13 (auto-trigger, **por competência**) | Sem 13 (auto-trigger) | **Embutida nas missões 4/7/9 (parcial cumulativa)** |
+| Cenário B (wizard final) | Sem 14 | Sem 14 | **Sem 10** |
+| Slots de conteúdo | `[1,2,3,5,6,7,9,10,11]` (3 blocos de 3) | `[1,2,3,5,6,7,9,10,11]` | `[2,3,5,6,8]` — sem 1 = calibragem |
+| Acompanhamento | Gestor (por `gestor_email`) | Gestor | **Tutor** (por `tutorados_ids[]`) |
+| Push automatizado | — | — | **WhatsApp pro tutor nas sems 4 e 7** (sugestão de pauta) |
+
+> Trilhas já persistidas (single-comp) **não são regeradas** — o plano salvo é servido como está; só nova geração usa DUO. Detalhe do DUO em **17.11**.
 
 ### 17.2 Arquivos-chave
 
 ```
-lib/season-engine/programa-config.ts   # PROGRAMA_REGULAR + PROGRAMA_ONBOARDING + getProgramaConfig
-lib/season-engine/build-season.ts      # buildSeason recebe programaConfig + competencias[]
-lib/season-engine/select-descriptors.ts # selectDescriptors (regular) + selectDescriptorsMulti (onboarding)
+lib/season-engine/programa-config.ts   # PROGRAMA_REGULAR_DUO (default) + REGULAR + ONBOARDING + getProgramaConfig
+lib/season-engine/build-season.ts      # buildSeason recebe programaConfig + competencias[] (isMulti = DUO|Onboarding)
+lib/season-engine/select-descriptors.ts # selectDescriptors (single) + selectDescriptorsDuo (Regular DUO, profundo) + selectDescriptorsMulti (onboarding, raso)
 lib/season-engine/prompts/scenario.ts  # aceita cenarioTipo='integrador' + competenciasIntegradas[]
 lib/season-engine/prompts/missao.ts    # aceita missaoTipo='integradora' + competenciasIntegradas[]
 lib/season-engine/prompts/acumulado.ts # aceita nivelMetaAlvo: 2|3 (régua condicional)
 lib/notify-tutor.ts                    # notifyTutorMissaoConcluida (Z-API push)
-actions/temporadas.ts                  # gerarTemporada (regular) + gerarTemporadaOnboarding (multi)
-actions/avaliacao-acumulada.ts         # gerarAvaliacaoAcumulada (completo) + gerarAvaliacaoAcumuladaParcial (Onboarding)
+actions/temporadas.ts                  # gerarTemporada (single) + gerarTemporadaRegularDuo (2 comps) + gerarTemporadaOnboarding (multi)
+actions/avaliacao-acumulada.ts         # gerarAvaliacaoAcumulada (single + multi-comp DUO via avaliarCompAcumulada) + gerarAvaliacaoAcumuladaParcial (Onboarding)
 app/api/temporada/reflection/route.ts  # auto-trigger acumulada parcial + notify tutor ao concluir missão
 app/admin/empresas/[id]/configuracoes  # tab "Programa" (toggle modo + fase_carreira)
 lib/authz.ts                           # isTutor, getTutorados, canTutorAccess
@@ -979,13 +984,14 @@ lib/authz.ts                           # isTutor, getTutorados, canTutorAccess
 
 ```jsonc
 {
-  "programa_modo": "regular" | "onboarding",          // default regular
+  "programa_modo": "onboarding" | "regular_single",    // ausente/outro = Regular DUO (default global)
+  "competencias_regular_duo": ["CompA", "CompB"],      // override das 2 comps do DUO (senão top-2 do cargo, âncora 1º)
   "fase_carreira_default": "junior" | "pleno" | "senior", // viés da IA1
   "nivel_meta_alvo": 2 | 3,                            // default 3
   "duracao_semanas": 10 | 14,                          // futuro override
   "num_competencias_trilha": 1 | 5,
   "cadencia_template": "linear" | "espiral",
-  "competencias_onboarding": ["Comp1", ..., "Comp5"]   // override do top 5 do cargo
+  "competencias_onboarding": ["Comp1", ..., "Comp5"]   // override do top 5 do cargo (modo onboarding)
 }
 ```
 
@@ -1023,7 +1029,7 @@ Comportamento defensivo: sem tutor vinculado → skip silencioso; tutor sem tele
 
 ### 17.8 Testes
 
-- **Unit (Vitest)** — `tests/unit/onboarding/programa-config.test.ts`: 24 testes cobrindo estrutura dos templates, `getProgramaConfig`, `descritoresCobertosNaMissao`, `selectDescriptorsMulti`.
+- **Unit (Vitest)** — `tests/unit/onboarding/programa-config.test.ts`: 33 testes cobrindo estrutura dos templates (incl. `PROGRAMA_REGULAR_DUO`), `getProgramaConfig` (default global DUO + escape hatch `regular_single`), `descritoresCobertosNaMissao`, `selectDescriptorsMulti`, `selectDescriptorsDuo` (blocos paralelos, reforço por gap, `.competencia` preenchida).
 - **E2E (Playwright)** — `tests/onboarding-config-ui.spec.js`: tab Programa, toggle modo, banner ativo, dropdown fase_carreira, role Tutor no dropdown da Equipe.
 
 ### 17.9 Pendências (fora do escopo Fases 1-4)
@@ -1042,6 +1048,25 @@ Comportamento defensivo: sem tutor vinculado → skip silencioso; tutor sem tele
 | `1ccd877` | Auto-trigger acumulada parcial + dashboard tutor com escopo |
 | `777a726` | Push WhatsApp pro tutor ao concluir missões 4 e 7 |
 | `cca9c33` | Testes Vitest + Playwright + cleanup UI |
+| `f148e9b` | **Regular DUO — 2 competências em blocos paralelos vira o default global** |
+
+### 17.11 Regular DUO (default global)
+
+> A partir de `f148e9b`, **toda empresa sem `programa_modo`** gera trilha cobrindo **2 competências em paralelo**, mantendo a profundidade do Regular (14 sem, nível-meta 3). Single-comp continua disponível como escape hatch (`programa_modo = 'regular_single'`) — rollback por cliente sem mexer em código.
+
+**Resolução das 2 competências** (`gerarTemporadaRegularDuo`):
+1. `sys_config.competencias_regular_duo` (override explícito), OU
+2. top-2 do cargo via `top10_cargos`, com a **competência âncora** (trilha/cargo existente) em 1º para continuidade.
+
+**Alocação profunda** (`selectDescriptorsDuo`): os 9 slots viram 3 blocos contíguos de 3 — `[1,2,3]` → Comp A, `[5,6,7]` → Comp B, `[9,10,11]` → reforço da comp de **maior gap agregado** (empate → âncora). Blocos de 3 preservam a contiguidade do `selectDescriptors` (descritor de 2 semanas nunca cruza fronteira de bloco → nunca atravessa missão 4/8/12). Cada `SelectedDescriptor` sai com `.competencia` preenchida → `buildSeason` roteia a semana de conteúdo pra comp certa.
+
+**Missões integradoras**: `competenciasNaMissao = { 4:[-1], 8:[-1], 12:[-1] }` (`-1` = todas as comps da trilha), complexidade crescente via `complexidadeMap` (simples → intermediário → completo).
+
+**Avaliação acumulada** (`gerarAvaliacaoAcumulada`): trilha multi-comp → loop por competência (núcleo `avaliarCompAcumulada` compartilhado com o caminho single, sem drift), cada uma com sua régua. Payload ganha `{ multi:true, competencias, por_competencia[] }`. Single-comp mantém o shape antigo inalterado.
+
+**Fallback sem viés**: cargo não resolve 2 comps, ou 2ª comp sem `descriptor_assessments` → cai pro fluxo single-comp (a comp âncora segue estrita, não preenche com default). UI da temporada exibe `"Comp A + Comp B"` quando multi (`trilhas.competencias_foco`).
+
+**Persistência**: `competencia_foco` = âncora (compat), `competencias_foco TEXT[]` = as 2 comps (migration 091). `gerarTemporada` single agora também grava `competencias_foco: [comp]` pra uniformizar a leitura.
 
 ---
 

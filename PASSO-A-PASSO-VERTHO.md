@@ -93,8 +93,9 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 
 ### 12. Competências Foco
 **Admin** · Fase 2 · **Competências Foco**
-- Sistema calcula qual competência cada colab vai desenvolver (menor fit × maior gap)
-- Salvo em `trilhas.competencia_foco`
+- Sistema calcula a competência **âncora** de cada colab (menor fit × maior gap)
+- No default **Regular DUO**, uma 2ª competência é resolvida (`sys_config.competencias_regular_duo` ou top-2 do cargo via `top10_cargos`, âncora em 1º)
+- Salvo em `trilhas.competencia_foco` (âncora, compat) + `trilhas.competencias_foco TEXT[]` (as 2 comps)
 
 ### 13. Assessment inicial de descritores
 **Admin** · `/admin/assessment-descritores?empresa={id}`
@@ -132,13 +133,16 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 **Admin** · `/admin/empresas/{id}` → **Fase 3 · Temporadas · Gerar Temporadas**
 - Roda lote para todos os colabs da empresa
 - Para cada colab:
-  1. Busca competência foco (passo 12)
-  2. Busca descritores cadastrados (passo 13)
-  3. `selectDescriptors` aloca nos 9 slots (sem 1-3, 5-7, 9-11) por gap decrescente; 2 semanas se nota<=1.5
+  1. Busca as competências da trilha (passo 12) — 2 no default DUO, 1 no `regular_single`
+  2. Busca descritores cadastrados (passo 13) — assessment por competência
+  3. **Seleção de descritores nos 9 slots** (sem 1-3, 5-7, 9-11), por gap decrescente, 2 semanas se nota<=1.5:
+     - **DUO** (`selectDescriptorsDuo`): 3 blocos de 3 → `[1,2,3]` Comp A, `[5,6,7]` Comp B, `[9,10,11]` reforço da comp de maior gap; cada descritor sai com `.competencia`
+     - **single** (`selectDescriptors`): tudo na competência foco
+     - Fallback sem viés: cargo sem 2 comps ou 2ª comp sem assessment → cai pro single
   4. `buildSeason` monta 14 semanas:
-     - Conteúdo (9 slots): resolve formato_core conforme prioridade do colab + taxa_conclusao
-     - Prática (sem 4, 8, 12): gera missão + cenário em paralelo via Claude
-     - Avaliação (sem 13, 14): reservadas
+     - Conteúdo (9 slots): resolve formato_core conforme prioridade do colab + taxa_conclusao; no DUO a semana roteia pra comp do descritor
+     - Prática (sem 4, 8, 12): gera missão + cenário em paralelo via Claude — no DUO, **integradoras das 2 comps** (complexidade crescente)
+     - Avaliação (sem 13, 14): reservadas; acumulada (sem 13) avalia **por competência** no DUO
   5. Salva em `trilhas.temporada_plano` (JSONB)
   6. Admin define `trilhas.data_inicio` (DATE) para controlar liberação por calendário
 
