@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Upload, Loader2, Users, Pencil, Trash2, X, Check, Briefcase, RefreshCw, Plus, Save, Link2 } from 'lucide-react';
+import { ArrowLeft, Upload, Loader2, Users, Pencil, Trash2, X, Check, Briefcase, RefreshCw, Plus, Save, Link2, Download } from 'lucide-react';
 import { parseSpreadsheet } from '@/lib/parse-spreadsheet';
 import {
   loadEmpresas, loadResumoEmpresa, importarColaboradoresLote, loadColaboradores, atualizarColaborador, excluirColaborador,
-  criarColaborador,
+  criarColaborador, exportarColaboradoresXLSX,
   loadCargos, salvarCargo, excluirCargo, sincronizarCargosDeColaboradores, importarCargosLote,
   derivarGestorEmailPorNome,
 } from './actions';
@@ -50,6 +50,7 @@ export default function GerenciarPage() {
   const [editId, setEditId] = useState(null);
   const [editData, setEditData] = useState<any>({});
   const [saving, setSaving] = useState(false);
+  const [exportando, setExportando] = useState(false);
 
   // Cargos state
   const [cargos, setCargos] = useState([]);
@@ -186,6 +187,23 @@ export default function GerenciarPage() {
     }
   }
 
+  async function handleExportXLSX() {
+    if (!tenantId) return;
+    setExportando(true);
+    const r = await exportarColaboradoresXLSX(tenantId);
+    setExportando(false);
+    if (r.ok === false) { setMsg('Erro: ' + r.error); return; }
+    const bytes = Uint8Array.from(atob(r.base64), c => c.charCodeAt(0));
+    const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    const slug = (empresaNome || 'empresa').toLowerCase().normalize('NFD').replace(new RegExp('[\\u0300-\\u036f]', 'g'), '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    a.download = `colaboradores-${slug}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    setMsg(`${r.n} colaborador${r.n === 1 ? '' : 'es'} exportado${r.n === 1 ? '' : 's'}`);
+  }
+
   async function handleDelete(id, nome) {
     if (!confirm(`Excluir "${nome || 'colaborador'}"? Esta ação não pode ser desfeita.`)) return;
     const r = await excluirColaborador(id);
@@ -300,6 +318,12 @@ export default function GerenciarPage() {
                 <button onClick={startCreate}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-green-400/30 hover:text-green-400 transition-all">
                   <Plus size={12} /> Adicionar colaborador
+                </button>
+                <button onClick={handleExportXLSX} disabled={exportando || colabs.length === 0}
+                  title="Baixar todos os colaboradores desta empresa em planilha .xlsx"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-cyan-400/30 hover:text-cyan-400 transition-all disabled:opacity-40">
+                  {exportando ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                  Exportar XLSX
                 </button>
               </>
             )}

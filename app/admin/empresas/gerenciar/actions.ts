@@ -154,6 +154,63 @@ export async function loadColaboradores(empresaId: any) {
   return (d2 || []).map((c: any) => ({ ...c, telefone: null, gestor_nome: null, gestor_email: null, gestor_whatsapp: null }));
 }
 
+/** Export XLSX da base de colaboradores da empresa (base64). Client decodifica → Blob → download. */
+export async function exportarColaboradoresXLSX(empresaId: any): Promise<
+  { ok: true; base64: string; n: number } | { ok: false; error: string }
+> {
+  await requireAdminAction();
+  if (!empresaId) return { ok: false, error: 'empresa obrigatória' };
+
+  const sb = await requireAdminSupabase();
+  const [{ data: emp }, colabs] = await Promise.all([
+    sb.from('empresas').select('nome').eq('id', empresaId).single(),
+    loadColaboradores(empresaId),
+  ]);
+  if (!colabs.length) return { ok: false, error: 'Nenhum colaborador para exportar' };
+
+  const COLS = [
+    { h: 'Nome', k: 'nome_completo', w: 28 },
+    { h: 'Email', k: 'email', w: 30 },
+    { h: 'Cargo', k: 'cargo', w: 22 },
+    { h: 'Área / Depto', k: 'area_depto', w: 20 },
+    { h: 'Role', k: 'role', w: 12 },
+    { h: 'WhatsApp', k: 'telefone', w: 16 },
+    { h: 'Gestor', k: 'gestor_nome', w: 24 },
+    { h: 'Gestor (email)', k: 'gestor_email', w: 28 },
+    { h: 'Gestor (WhatsApp)', k: 'gestor_whatsapp', w: 18 },
+    { h: 'Mapeado em', k: 'mapeamento_em', w: 18 },
+  ];
+
+  const fmtData = (v: any) => {
+    if (!v) return '';
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? String(v) : d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+  };
+
+  const ExcelJS = (await import('exceljs')).default;
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Colaboradores');
+
+  const titulo = `Colaboradores — ${emp?.nome || 'empresa'} — exportado em ${new Date().toLocaleDateString('pt-BR')} (${colabs.length})`;
+  ws.addRow([titulo]);
+  ws.mergeCells(1, 1, 1, COLS.length);
+  ws.getRow(1).font = { italic: true, size: 9, color: { argb: 'FF888888' } };
+
+  const head = ws.addRow(COLS.map(c => c.h));
+  head.font = { bold: true };
+  head.eachCell((c: any) => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F2B54' } }; c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; });
+
+  for (const colab of colabs as any[]) {
+    ws.addRow(COLS.map(c => c.k === 'mapeamento_em' ? fmtData(colab[c.k]) : (colab[c.k] ?? '')));
+  }
+
+  ws.views = [{ state: 'frozen', ySplit: 2 }];
+  ws.columns.forEach((col: any, i: number) => { col.width = COLS[i]?.w || 14; });
+
+  const buf = await wb.xlsx.writeBuffer();
+  return { ok: true, base64: Buffer.from(buf as any).toString('base64'), n: colabs.length };
+}
+
 export async function criarColaborador(empresaId: any, campos: any) {
   await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresa obrigatória' };
