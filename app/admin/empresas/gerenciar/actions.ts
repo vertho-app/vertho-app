@@ -2,6 +2,8 @@
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { validateWhatsAppBR } from '@/lib/phone';
+import { proxyEmailFromPhone } from '@/lib/phone-otp';
 
 const VALID_ROLES = ['colaborador', 'gestor', 'rh'];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
@@ -86,22 +88,32 @@ export async function importarColaboradoresLote(empresaId: any, colabs: any) {
   const novos = (colabs || []).reduce((acc: any[], c: any, index: number) => {
     const linha = index + 2;
     const nome = normalizeText(c.nome);
-    const email = normalizeEmail(c.email);
-    if (!isValidEmail(email)) {
-      erros.push({ linha, nome, campo: 'email', valor: c.email, motivo: 'e-mail inválido; linha não importada' });
+    let email = normalizeEmail(c.email);
+    const wa = validateWhatsAppBR(c.telefone);
+    let loginPorWhatsapp = false;
+    let telefone: string | null;
+
+    if (isValidEmail(email)) {
+      telefone = normalizePhone(c.telefone);
+      if (hasValue(c.telefone) && !telefone) {
+        avisos.push({ linha, nome, campo: 'telefone/celular', valor: c.telefone, motivo: 'formato inválido; campo não salvo' });
+      }
+    } else if (wa.valid === true) {
+      // Sem e-mail → login por WhatsApp (email-proxy interno determinístico).
+      email = proxyEmailFromPhone(empresaId, wa.e164);
+      telefone = wa.e164;
+      loginPorWhatsapp = true;
+    } else {
+      erros.push({ linha, nome, campo: 'email', valor: c.email, motivo: 'sem e-mail válido e sem WhatsApp válido (DDD + 9 + 8 dígitos); linha não importada' });
       return acc;
     }
 
+    // Dedup pelo e-mail efetivo (real ou proxy) — cobre telefone repetido.
     if (emailsExistentes.has(email!) || emailsArquivo.has(email!)) {
       duplicados += 1;
       return acc;
     }
     emailsArquivo.add(email!);
-
-    const telefone = normalizePhone(c.telefone);
-    if (hasValue(c.telefone) && !telefone) {
-      avisos.push({ linha, nome, campo: 'telefone/celular', valor: c.telefone, motivo: 'formato inválido; campo não salvo' });
-    }
 
     const gestorEmail = normalizeEmail(c.gestor_email);
     if (hasValue(c.gestor_email) && !isValidEmail(gestorEmail)) {
@@ -125,6 +137,7 @@ export async function importarColaboradoresLote(empresaId: any, colabs: any) {
       gestor_nome: normalizeText(c.gestor_nome),
       gestor_email: isValidEmail(gestorEmail) ? gestorEmail : null,
       gestor_whatsapp: gestorWhatsapp,
+      login_por_whatsapp: loginPorWhatsapp,
     });
     return acc;
   }, []);
@@ -143,7 +156,7 @@ export async function loadColaboradores(empresaId: any) {
 
   const sb = await requireAdminSupabase();
   const { data: d1, error: e1 } = await sb.from('colaboradores')
-    .select('id, nome_completo, email, cargo, role, area_depto, telefone, gestor_nome, gestor_email, gestor_whatsapp, mapeamento_em')
+    .select('id, nome_completo, email, cargo, role, area_depto, telefone, gestor_nome, gestor_email, gestor_whatsapp, mapeamento_em, login_por_whatsapp')
     .eq('empresa_id', empresaId)
     .order('nome_completo');
   if (!e1) return d1 || [];
@@ -151,7 +164,7 @@ export async function loadColaboradores(empresaId: any) {
     .select('id, nome_completo, email, cargo, role, area_depto, mapeamento_em')
     .eq('empresa_id', empresaId)
     .order('nome_completo');
-  return (d2 || []).map((c: any) => ({ ...c, telefone: null, gestor_nome: null, gestor_email: null, gestor_whatsapp: null }));
+  return (d2 || []).map((c: any) => ({ ...c, telefone: null, gestor_nome: null, gestor_email: null, gestor_whatsapp: null, login_por_whatsapp: false }));
 }
 
 /** Export XLSX da base de colaboradores da empresa (base64). Client decodifica → Blob → download. */
@@ -201,7 +214,11 @@ export async function exportarColaboradoresXLSX(empresaId: any): Promise<
   head.eachCell((c: any) => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F2B54' } }; c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; });
 
   for (const colab of colabs as any[]) {
-    ws.addRow(COLS.map(c => c.k === 'mapeamento_em' ? fmtData(colab[c.k]) : (colab[c.k] ?? '')));
+    ws.addRow(COLS.map(c => {
+      if (c.k === 'mapeamento_em') return fmtData(colab[c.k]);
+      if (c.k === 'email') return colab.login_por_whatsapp ? '(login por WhatsApp)' : (colab.email ?? '');
+      return colab[c.k] ?? '';
+    }));
   }
 
   ws.views = [{ state: 'frozen', ySplit: 2 }];
@@ -214,12 +231,24 @@ export async function exportarColaboradoresXLSX(empresaId: any): Promise<
 export async function criarColaborador(empresaId: any, campos: any) {
   await requireAdminAction();
   if (!empresaId) return { success: false, error: 'empresa obrigatória' };
-  const email = normalizeEmail(campos?.email);
-  if (!isValidEmail(email)) return { success: false, error: 'email inválido' };
-
   const sb = await requireAdminSupabase();
-  const telefone = normalizePhone(campos.telefone);
-  if (hasValue(campos.telefone) && !telefone) return { success: false, error: 'telefone/celular inválido. Use DDD, ex.: 11999998888 ou 5511999998888' };
+  let email = normalizeEmail(campos?.email);
+  const wa = validateWhatsAppBR(campos?.telefone);
+  let loginPorWhatsapp = false;
+  let telefone: string | null;
+
+  if (isValidEmail(email)) {
+    telefone = normalizePhone(campos.telefone);
+    if (hasValue(campos.telefone) && !telefone) return { success: false, error: 'telefone/celular inválido. Use DDD, ex.: 11999998888 ou 5511999998888' };
+  } else if (wa.valid === true) {
+    // Sem e-mail → login por WhatsApp (email-proxy interno determinístico).
+    email = proxyEmailFromPhone(empresaId, wa.e164);
+    telefone = wa.e164;
+    loginPorWhatsapp = true;
+  } else {
+    return { success: false, error: 'informe um e-mail válido OU um WhatsApp válido (DDD + 9 + 8 dígitos)' };
+  }
+
   const gestorEmail = normalizeEmail(campos.gestor_email);
   if (hasValue(campos.gestor_email) && !isValidEmail(gestorEmail)) return { success: false, error: 'email do gestor inválido' };
   const gestorWhatsapp = normalizePhone(campos.gestor_whatsapp);
@@ -227,7 +256,7 @@ export async function criarColaborador(empresaId: any, campos: any) {
 
   const { data: existente } = await sb.from('colaboradores')
     .select('id').eq('empresa_id', empresaId).eq('email', email).maybeSingle();
-  if (existente) return { success: false, error: 'já existe colaborador com este email nesta empresa' };
+  if (existente) return { success: false, error: loginPorWhatsapp ? 'já existe colaborador com este WhatsApp nesta empresa' : 'já existe colaborador com este email nesta empresa' };
 
   const payload = {
     empresa_id: empresaId,
@@ -240,6 +269,7 @@ export async function criarColaborador(empresaId: any, campos: any) {
     gestor_email: gestorEmail,
     gestor_whatsapp: gestorWhatsapp,
     role: VALID_ROLES.includes(campos.role) ? campos.role : 'colaborador',
+    login_por_whatsapp: loginPorWhatsapp,
   };
 
   const { data, error } = await sb.from('colaboradores').insert(payload).select('id').single();

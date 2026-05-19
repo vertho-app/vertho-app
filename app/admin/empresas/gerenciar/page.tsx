@@ -408,8 +408,8 @@ export default function GerenciarPage() {
                           </td>
                           <td className="px-4 py-2 text-center">
                             <div className="flex items-center justify-center gap-1">
-                              <button onClick={saveEdit} disabled={saving || !editData.email?.trim()}
-                                title="Adicionar"
+                              <button onClick={saveEdit} disabled={saving || (!editData.email?.trim() && !editData.telefone?.trim())}
+                                title="Adicionar (e-mail OU WhatsApp obrigatório)"
                                 className="text-green-400 hover:text-green-300 disabled:opacity-40">
                                 {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                               </button>
@@ -476,7 +476,11 @@ export default function GerenciarPage() {
                           ) : (
                             <>
                               <td className="px-4 py-2 text-white font-semibold">{c.nome_completo || '—'}</td>
-                              <td className="px-4 py-2 text-gray-400 text-xs">{c.email}</td>
+                              <td className="px-4 py-2 text-gray-400 text-xs">
+                                {c.login_por_whatsapp
+                                  ? <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-400/10 text-green-400">WhatsApp · sem e-mail</span>
+                                  : (c.email || '—')}
+                              </td>
                               <td className="px-4 py-2 text-gray-400 text-xs">{c.cargo || '—'}</td>
                               <td className="px-4 py-2 text-gray-400 text-xs">{c.area_depto || '—'}</td>
                               <td className="px-4 py-2">
@@ -636,11 +640,11 @@ export default function GerenciarPage() {
                       <th className="py-1 text-left font-bold text-white">Exemplo</th>
                     </tr></thead>
                     <tbody>
-                      <tr><td className="pr-4 py-0.5 text-cyan-400 font-semibold">email</td><td className="pr-4">Sim</td><td>maria@empresa.com</td></tr>
+                      <tr><td className="pr-4 py-0.5 text-cyan-400 font-semibold">email</td><td className="pr-4">Sim*</td><td>maria@empresa.com</td></tr>
                       <tr><td className="pr-4 py-0.5">nome / nome_completo</td><td className="pr-4">Não</td><td>Maria Silva</td></tr>
                       <tr><td className="pr-4 py-0.5">cargo</td><td className="pr-4">Não</td><td>Coordenadora</td></tr>
                       <tr><td className="pr-4 py-0.5">role / papel</td><td className="pr-4">Não</td><td>colaborador / gestor / rh</td></tr>
-                      <tr><td className="pr-4 py-0.5">telefone / whatsapp / celular</td><td className="pr-4">Não</td><td>5511999998888</td></tr>
+                      <tr><td className="pr-4 py-0.5 text-cyan-400 font-semibold">telefone / whatsapp / celular</td><td className="pr-4">Sim*</td><td>5511999998888</td></tr>
                       <tr><td className="pr-4 py-0.5">gestor_nome / gestor</td><td className="pr-4">Não</td><td>João Souza</td></tr>
                       <tr><td className="pr-4 py-0.5">gestor_email</td><td className="pr-4">Não</td><td>joao@empresa.com</td></tr>
                       <tr><td className="pr-4 py-0.5">gestor_whatsapp / gestor_telefone</td><td className="pr-4">Não</td><td>5511988887777</td></tr>
@@ -648,7 +652,7 @@ export default function GerenciarPage() {
                   </table>
                 </div>
                 <p className="text-[10px] text-gray-600 mt-2">Se <span className="text-gray-400">role</span> vier vazio, o padrão é <span className="text-cyan-400">colaborador</span>. Duplicatas por email são ignoradas.</p>
-                <p className="text-[10px] text-amber-300/80 mt-1">E-mails inválidos bloqueiam a linha. Celular/WhatsApp deve ter DDD; aceitamos 11999998888 ou 5511999998888. Telefones inválidos aparecem como aviso e não são salvos.</p>
+                <p className="text-[10px] text-amber-300/80 mt-1">* <span className="text-gray-300">e-mail OU WhatsApp</span> é obrigatório: sem e-mail válido, o colaborador entra pelo <span className="text-gray-300">WhatsApp</span> (precisa ser celular com DDD + 9 + 8 dígitos, ex.: 11999998888). Com e-mail válido, o WhatsApp é opcional. Linha sem nenhum dos dois é bloqueada.</p>
               </div>
 
               <label className="flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold text-white cursor-pointer"

@@ -8,7 +8,10 @@ import SignupModal from './signup-modal';
 export default function LoginForm({ branding }: { branding: any }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [mode, setMode] = useState<'otp' | 'password'>('otp');
+  const [mode, setMode] = useState<'otp' | 'password' | 'whatsapp'>('otp');
+  const [phone, setPhone] = useState('');
+  const [code, setCode] = useState('');
+  const [waStep, setWaStep] = useState<'phone' | 'code'>('phone');
   const [status, setStatus] = useState<'idle' | 'loading' | 'sent' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const [showSignup, setShowSignup] = useState(false);
@@ -138,6 +141,83 @@ export default function LoginForm({ branding }: { branding: any }) {
     }
   }
 
+  async function handleWhatsappRequest(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 10) {
+      setErrorMsg('Digite seu WhatsApp com DDD.');
+      setStatus('error');
+      return;
+    }
+    setStatus('loading');
+    setErrorMsg('');
+    try {
+      const res = await fetch('/api/auth/phone-otp/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telefone: digits }),
+      });
+      const data = await res.json();
+      if (!res.ok || data?.error) {
+        setErrorMsg(data?.error || 'Não foi possível enviar o código.');
+        setStatus('error');
+        return;
+      }
+      setWaStep('code');
+      setStatus('idle');
+    } catch (err: any) {
+      setErrorMsg(`Erro de rede: ${err.message}`);
+      setStatus('error');
+    }
+  }
+
+  async function handleWhatsappVerify(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const codeClean = code.replace(/\D/g, '');
+    if (codeClean.length !== 6) {
+      setErrorMsg('Digite o código de 6 dígitos.');
+      setStatus('error');
+      return;
+    }
+    setStatus('loading');
+    setErrorMsg('');
+    try {
+      const res = await fetch('/api/auth/phone-otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          telefone: phone.replace(/\D/g, ''),
+          code: codeClean,
+          redirectTo: `${window.location.origin}${redirectTo}`,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data?.error || !data?.callbackUrl) {
+        setErrorMsg(data?.error || 'Código inválido.');
+        setStatus('error');
+        return;
+      }
+      // /auth/callback estabelece a sessão Supabase (mesmo caminho do magic-link).
+      window.location.href = data.callbackUrl;
+    } catch (err: any) {
+      setErrorMsg(`Erro de rede: ${err.message}`);
+      setStatus('error');
+    }
+  }
+
+  function switchToWhatsapp() {
+    setMode('whatsapp');
+    setWaStep('phone');
+    setStatus('idle');
+    setErrorMsg('');
+  }
+
+  function switchToEmail() {
+    setMode('otp');
+    setStatus('idle');
+    setErrorMsg('');
+  }
+
   return (
     <div
       className="min-h-dvh flex items-center justify-center px-6"
@@ -164,10 +244,74 @@ export default function LoginForm({ branding }: { branding: any }) {
           {subtitle}
         </p>
         <p className="text-sm mb-7" style={{ color: fontColorSecondary || '#FFFFFF99' }}>
-          Digite seu e-mail para acessar
+          {mode === 'whatsapp'
+            ? (waStep === 'phone' ? 'Digite seu WhatsApp para receber o código' : 'Digite o código que enviamos no seu WhatsApp')
+            : 'Digite seu e-mail para acessar'}
         </p>
 
-        {status === 'sent' ? (
+        {mode === 'whatsapp' ? (
+          /* ── Login por WhatsApp (OTP) ── */
+          waStep === 'phone' ? (
+            <form onSubmit={handleWhatsappRequest}>
+              <input
+                type="tel"
+                inputMode="numeric"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                placeholder="DDD + número (ex: 11912345678)"
+                autoComplete="tel"
+                className="w-full py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-white text-base text-center outline-none placeholder:text-white/40 transition-colors"
+                onFocus={e => ((e.target as HTMLInputElement).style.borderColor = accentColor)}
+                onBlur={e => ((e.target as HTMLInputElement).style.borderColor = '')}
+              />
+              <button
+                type="submit"
+                disabled={status === 'loading'}
+                className="w-full mt-4 py-3.5 rounded-xl border-none text-white text-base font-bold tracking-wide cursor-pointer transition-opacity disabled:opacity-60"
+                style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColorEnd})` }}
+              >
+                {status === 'loading' ? 'Enviando...' : 'Enviar código'}
+              </button>
+              <button type="button" onClick={switchToEmail}
+                className="mt-3 text-xs hover:underline" style={{ color: accentColor }}>
+                Entrar com e-mail
+              </button>
+              {status === 'error' && errorMsg && (
+                <p className="text-danger text-sm mt-3">{errorMsg}</p>
+              )}
+            </form>
+          ) : (
+            <form onSubmit={handleWhatsappVerify}>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={code}
+                onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="000000"
+                autoComplete="one-time-code"
+                className="w-full py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-white text-2xl text-center tracking-[0.5em] outline-none placeholder:text-white/30 transition-colors"
+                onFocus={e => ((e.target as HTMLInputElement).style.borderColor = accentColor)}
+                onBlur={e => ((e.target as HTMLInputElement).style.borderColor = '')}
+              />
+              <button
+                type="submit"
+                disabled={status === 'loading'}
+                className="w-full mt-4 py-3.5 rounded-xl border-none text-white text-base font-bold tracking-wide cursor-pointer transition-opacity disabled:opacity-60"
+                style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColorEnd})` }}
+              >
+                {status === 'loading' ? 'Entrando...' : 'Entrar'}
+              </button>
+              <button type="button" onClick={() => { setWaStep('phone'); setCode(''); setStatus('idle'); setErrorMsg(''); }}
+                className="mt-3 text-xs hover:underline" style={{ color: accentColor }}>
+                Reenviar / trocar número
+              </button>
+              {status === 'error' && errorMsg && (
+                <p className="text-danger text-sm mt-3">{errorMsg}</p>
+              )}
+            </form>
+          )
+        ) : status === 'sent' ? (
           /* ── Link enviado ── */
           <div className="bg-white/10 rounded-xl p-6 border border-white/15">
             <div className="text-3xl mb-3">🔐</div>
@@ -218,10 +362,16 @@ export default function LoginForm({ branding }: { branding: any }) {
               {status === 'loading' ? 'Verificando...' : mode === 'password' ? 'Entrar com senha' : 'Entrar'}
             </button>
 
-            <button type="button" onClick={() => setMode(mode === 'otp' ? 'password' : 'otp')}
-              className="mt-3 text-xs hover:underline" style={{ color: accentColor }}>
-              {mode === 'otp' ? 'Entrar com senha' : 'Entrar com Magic Link'}
-            </button>
+            <div className="mt-3 flex flex-col items-center gap-1.5">
+              <button type="button" onClick={() => setMode(mode === 'otp' ? 'password' : 'otp')}
+                className="text-xs hover:underline" style={{ color: accentColor }}>
+                {mode === 'otp' ? 'Entrar com senha' : 'Entrar com Magic Link'}
+              </button>
+              <button type="button" onClick={switchToWhatsapp}
+                className="text-xs hover:underline" style={{ color: accentColor }}>
+                Não tenho e-mail · entrar com WhatsApp
+              </button>
+            </div>
 
             {status === 'error' && errorMsg && (
               <p className="text-danger text-sm mt-3">{errorMsg}</p>
