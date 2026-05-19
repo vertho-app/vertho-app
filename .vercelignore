@@ -1,8 +1,14 @@
 # Pastas grandes que NÃO devem ir pro deploy Vercel
 # (afetam tamanho do upload — limite é 1GB)
 
+# ETL local — roda via `npx tsx`, NUNCA executa na Vercel.
+# tsconfig já exclui da compilação; web app não importa nada daqui.
+# É o grosso do upload (~9GB: parquet/ndjson/logs do radarempresas).
+data-pipeline/
+
 # Microdados temporários (importação local)
 .tmp_*
+/.tmp_enem_2024/
 .cache/
 outputs/
 

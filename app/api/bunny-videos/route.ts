@@ -1,8 +1,11 @@
 // Lista os vídeos da library do Bunny Stream para popular o carrossel
-// "Capacitação Recomendada" da home. Cache de 5 minutos pra não bater na
-// API a cada navegação.
-
-export const revalidate = 300;
+// "Capacitação Recomendada" da home. O cache de 5 min vive no fetch
+// interno (next.revalidate: 300) — não bate na API a cada navegação.
+//
+// force-dynamic (não `revalidate` no nível da rota): sem isso o Next
+// pré-renderiza este route handler como estático e não emite lambda, o
+// que quebra o `vercel build` (prebuilt) com "Unable to find lambda".
+export const dynamic = 'force-dynamic';
 
 function cleanTitle(raw) {
   if (!raw) return 'Vídeo';
