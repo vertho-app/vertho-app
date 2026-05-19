@@ -3,7 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
-import { selectDescriptors, selectDescriptorsMulti, type AssessmentPorCompetencia } from '@/lib/season-engine/select-descriptors';
+import { selectDescriptors, selectDescriptorsMulti, selectDescriptorsDuo, type AssessmentPorCompetencia } from '@/lib/season-engine/select-descriptors';
 import { buildSeason } from '@/lib/season-engine/build-season';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { getProgramaConfig } from '@/lib/season-engine/programa-config';
@@ -84,6 +84,18 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig }: G
       });
     }
 
+    // ── Regular DUO (default global): 2 competências em blocos paralelos ──
+    // Tenta a trilha de 2 comps; se o cargo não resolve 2 ou a 2ª comp não
+    // tem assessment, faz fallback pro fluxo single-comp abaixo (não bloqueia
+    // nem enviesa — comp âncora segue estrita).
+    if ((programaConfig.numCompetencias || 1) >= 2) {
+      const duo = await gerarTemporadaRegularDuo({
+        colab, empresa, tdb, sbRaw, contexto, programaConfig, aiConfig, competenciaAncora: competenciaAlvo,
+      });
+      if (duo?.ok || duo?.error) return duo; // sucesso ou erro definitivo
+      console.warn(`[gerarTemporada] DUO indisponível → fallback single (${competenciaAlvo}):`, duo?.motivo);
+    }
+
     // 3) Prioridade de formatos — derivada das colunas pref_* em colaboradores
     const prioridadeFormatos = derivarPrioridadeFormatos(colab);
 
@@ -158,6 +170,7 @@ export async function gerarTemporada({ colaboradorId, competencia, aiConfig }: G
     const payload = {
       colaborador_id: colaboradorId,
       competencia_foco: competenciaAlvo,
+      competencias_foco: [competenciaAlvo], // uniformiza com DUO (Fase 3 lê sempre o array)
       numero_temporada: numeroTemporada,
       temporada_plano: semanas,
       descritores_selecionados: descritoresSelecionados,
@@ -342,6 +355,145 @@ async function gerarTemporadaOnboarding(args: {
     descritores: descritoresSelecionados.length,
     semanas: semanas.length,
     modo: 'onboarding',
+  };
+}
+
+/**
+ * Regular DUO: trilha de 14 semanas (profundidade nível-meta 3) cobrindo
+ * 2 competências em blocos paralelos, missões 4/8/12 integradoras.
+ *
+ * Resolve as 2 comps por: (a) sys_config.competencias_regular_duo (override)
+ * OU (b) top-2 do cargo em top10_cargos, com a competência âncora (trilha/
+ * cargo existente) em 1º pra continuidade.
+ *
+ * Retorna `{ _fallbackSingle: true, motivo }` quando não dá pra rodar DUO
+ * (cargo sem 2 comps, ou 2ª comp sem assessment) — o caller cai no fluxo
+ * single-comp. `{ error }` = falha definitiva. `{ ok }` = trilha gerada.
+ */
+async function gerarTemporadaRegularDuo(args: {
+  colab: any; empresa: any; tdb: any; sbRaw: any; contexto: string;
+  programaConfig: any; aiConfig?: AIConfig; competenciaAncora?: string;
+}): Promise<any> {
+  const { colab, empresa, tdb, contexto, programaConfig, aiConfig, competenciaAncora } = args;
+
+  // 1) Resolve 2 competências
+  let comps: string[] = Array.isArray(empresa?.sys_config?.competencias_regular_duo)
+    ? empresa.sys_config.competencias_regular_duo.slice(0, 2)
+    : [];
+  if (comps.length < 2) {
+    const { data: top10 } = await tdb.from('top10_cargos')
+      .select('competencia_id, posicao')
+      .eq('cargo', colab.cargo || '')
+      .order('posicao')
+      .limit(10);
+    if (top10?.length) {
+      const ids = top10.map((t: any) => t.competencia_id);
+      const { data: cc } = await tdb.from('competencias').select('id, nome').in('id', ids);
+      const mapa = Object.fromEntries((cc || []).map((c: any) => [c.id, c.nome]));
+      const nomesTop = top10.map((t: any) => mapa[t.competencia_id]).filter(Boolean);
+      // Âncora primeiro (continuidade com trilha existente), depois top do cargo
+      const ordered = [competenciaAncora, ...nomesTop].filter(Boolean) as string[];
+      comps = [...new Set<string>(ordered)].slice(0, 2);
+    } else if (competenciaAncora) {
+      comps = [competenciaAncora];
+    }
+  }
+
+  if (comps.length < 2) {
+    return { _fallbackSingle: true, motivo: 'cargo sem 2 competências resolvíveis' };
+  }
+
+  // 2) Assessment por competência (anti-viés: SEM default 1.5 — exige avaliação)
+  const assessmentPorComp: Record<string, any[]> = {};
+  for (const c of comps) {
+    const { data } = await tdb.from('descriptor_assessments')
+      .select('descritor, nota')
+      .eq('colaborador_id', colab.id)
+      .eq('competencia', c);
+    assessmentPorComp[c] = data || [];
+  }
+  if ((assessmentPorComp[comps[0]] || []).length === 0) {
+    // Nem a âncora tem assessment → erro padrão de mapeamento (single trata).
+    return { _fallbackSingle: true, motivo: `sem assessment pra ${comps[0]}` };
+  }
+  const semAssessment = comps.filter(c => (assessmentPorComp[c] || []).length === 0);
+  if (semAssessment.length > 0) {
+    // 2ª comp sem assessment → degrada pra single (não bloqueia, não enviesa)
+    return { _fallbackSingle: true, degradou: true, motivo: `sem assessment pra ${semAssessment.join(', ')} — rode o mapeamento dessa competência` };
+  }
+
+  // 3) Seleção PROFUNDA de descritores para as 2 comps (blocos paralelos)
+  const descritoresSelecionados = selectDescriptorsDuo(
+    comps[0], assessmentPorComp[comps[0]],
+    comps[1], assessmentPorComp[comps[1]],
+    programaConfig.slotsConteudo,
+  );
+  if (descritoresSelecionados.length === 0) {
+    return { _fallbackSingle: true, motivo: 'nenhum descritor selecionado nas 2 comps' };
+  }
+
+  // 4) Monta o plano (missões integradoras via competenciasNaMissao)
+  const prioridadeFormatos = derivarPrioridadeFormatos(colab);
+  const semanas = await buildSeason({
+    descritoresSelecionados,
+    competencia: comps[0],   // âncora
+    competencias: comps,     // multi → buildSeason.isMulti = true
+    cargo: colab.cargo,
+    contexto,
+    prioridadeFormatos,
+    empresaId: colab.empresa_id,
+    aiConfig,
+    programaConfig,
+  });
+
+  // 5) Persiste (UPDATE se existir, INSERT senão)
+  const { data: existente } = await tdb.from('trilhas')
+    .select('id, numero_temporada')
+    .eq('colaborador_id', colab.id)
+    .order('criado_em', { ascending: false }).limit(1).maybeSingle();
+  const numeroTemporada = existente?.numero_temporada || 1;
+  const { nextMondayISO } = await import('@/lib/season-engine/week-gating');
+  const payload = {
+    colaborador_id: colab.id,
+    competencia_foco: comps[0],       // compat — âncora
+    competencias_foco: comps,         // multi (migration 091)
+    numero_temporada: numeroTemporada,
+    temporada_plano: semanas,
+    descritores_selecionados: descritoresSelecionados,
+    status: 'ativa',
+    data_inicio: nextMondayISO(),
+    cursos: [],
+  };
+  let trilhaId: string;
+  if (existente) {
+    const { error } = await tdb.from('trilhas').update(payload).eq('id', existente.id);
+    if (error) return { error: error.message };
+    trilhaId = existente.id;
+  } else {
+    const { data: nova, error } = await tdb.from('trilhas').insert(payload).select('id').maybeSingle();
+    if (error) return { error: error.message };
+    trilhaId = nova.id;
+  }
+
+  const progressos = semanas.map((s: any) => ({
+    trilha_id: trilhaId,
+    colaborador_id: colab.id,
+    semana: s.semana,
+    tipo: s.tipo,
+    status: s.semana === 1 ? 'em_andamento' : 'pendente',
+  }));
+  await tdb.from('temporada_semana_progresso').delete().eq('trilha_id', trilhaId);
+  await tdb.from('temporada_semana_progresso').insert(progressos);
+
+  return {
+    ok: true,
+    trilhaId,
+    numeroTemporada,
+    competencia: comps[0],
+    competencias: comps,
+    descritores: descritoresSelecionados.length,
+    semanas: semanas.length,
+    modo: 'regular_duo',
   };
 }
 

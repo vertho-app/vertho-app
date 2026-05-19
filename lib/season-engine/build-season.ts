@@ -131,7 +131,10 @@ export async function buildSeason({
   programaConfig = PROGRAMA_REGULAR,
 }: BuildSeasonInput): Promise<SemanaPlan[]> {
   const semanas: SemanaPlan[] = [];
-  const isMulti = !!programaConfig.semanaParaCompetenciaIdx && Array.isArray(competencias) && competencias.length > 1;
+  // Multi-comp dispara quando há mapa semana→comp (Onboarding espiral) OU
+  // missões integradoras configuradas (Regular DUO) — sempre com >1 comp.
+  const isMulti = (!!programaConfig.semanaParaCompetenciaIdx || !!programaConfig.competenciasNaMissao)
+    && Array.isArray(competencias) && competencias.length > 1;
   const compsArray: string[] = isMulti ? competencias! : [competencia];
 
   // Mapeia semana → descritor (a partir de descritoresSelecionados)

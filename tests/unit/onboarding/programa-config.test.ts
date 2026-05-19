@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   PROGRAMA_REGULAR,
+  PROGRAMA_REGULAR_DUO,
   PROGRAMA_ONBOARDING,
   getProgramaConfig,
   descritoresCobertosNaMissao,
@@ -8,6 +9,7 @@ import {
 import {
   selectDescriptors,
   selectDescriptorsMulti,
+  selectDescriptorsDuo,
   type AssessmentPorCompetencia,
 } from '@/lib/season-engine/select-descriptors';
 
@@ -18,7 +20,7 @@ import {
  * Estes testes pegam regressão se alguém mexer nos números sem querer.
  */
 describe('Onboarding — programa-config', () => {
-  describe('PROGRAMA_REGULAR (default)', () => {
+  describe('PROGRAMA_REGULAR (single — escape hatch regular_single)', () => {
     it('tem 14 semanas com missões 4/8/12 e avaliação 13/14', () => {
       expect(PROGRAMA_REGULAR.semanas).toBe(14);
       expect(PROGRAMA_REGULAR.semanasMissao).toEqual([4, 8, 12]);
@@ -36,9 +38,31 @@ describe('Onboarding — programa-config', () => {
     it('blocosCobertos cumulativos: 3 → 6 → todos', () => {
       expect(PROGRAMA_REGULAR.blocosCobertos).toEqual({ 4: 3, 8: 6, 12: -1 });
     });
-    it('NÃO tem mapping multi-competência (regular)', () => {
+    it('NÃO tem mapping multi-competência (single)', () => {
       expect(PROGRAMA_REGULAR.semanaParaCompetenciaIdx).toBeUndefined();
       expect(PROGRAMA_REGULAR.competenciasNaMissao).toBeUndefined();
+    });
+  });
+
+  describe('PROGRAMA_REGULAR_DUO (default GLOBAL)', () => {
+    it('mantém o esqueleto Regular: 14 sem, missões 4/8/12, avaliação 13/14', () => {
+      expect(PROGRAMA_REGULAR_DUO.semanas).toBe(14);
+      expect(PROGRAMA_REGULAR_DUO.semanasMissao).toEqual([4, 8, 12]);
+      expect(PROGRAMA_REGULAR_DUO.semanasAvaliacao).toEqual([13, 14]);
+      expect(PROGRAMA_REGULAR_DUO.semanaCenarioB).toBe(14);
+      expect(PROGRAMA_REGULAR_DUO.semanaAcumulada).toBe(13);
+      expect(PROGRAMA_REGULAR_DUO.slotsConteudo).toEqual([1, 2, 3, 5, 6, 7, 9, 10, 11]);
+    });
+    it('aloca 2 competências mantendo nível-meta 3 (profundidade Regular)', () => {
+      expect(PROGRAMA_REGULAR_DUO.numCompetencias).toBe(2);
+      expect(PROGRAMA_REGULAR_DUO.nivelMetaAlvo).toBe(3);
+      expect(PROGRAMA_REGULAR_DUO.modo).toBe('regular');
+    });
+    it('todas as missões são integradoras das 2 comps (-1 = todas)', () => {
+      expect(PROGRAMA_REGULAR_DUO.competenciasNaMissao).toEqual({ 4: [-1], 8: [-1], 12: [-1] });
+    });
+    it('NÃO usa semanaParaCompetenciaIdx (a comp vem do descritor)', () => {
+      expect(PROGRAMA_REGULAR_DUO.semanaParaCompetenciaIdx).toBeUndefined();
     });
   });
 
@@ -73,23 +97,28 @@ describe('Onboarding — programa-config', () => {
   });
 
   describe('getProgramaConfig(sys_config)', () => {
-    it('default (sys_config null) → REGULAR', () => {
-      expect(getProgramaConfig(null).modo).toBe('regular');
-      expect(getProgramaConfig(undefined).modo).toBe('regular');
+    it('default GLOBAL (sys_config null/vazio) → REGULAR DUO (2 comps)', () => {
+      expect(getProgramaConfig(null).numCompetencias).toBe(2);
+      expect(getProgramaConfig(undefined).numCompetencias).toBe(2);
+      expect(getProgramaConfig({}).numCompetencias).toBe(2);
       expect(getProgramaConfig({}).modo).toBe('regular');
     });
-    it('programa_modo="regular" → REGULAR', () => {
-      const c = getProgramaConfig({ programa_modo: 'regular' });
-      expect(c.modo).toBe('regular');
+    it('programa_modo ausente/desconhecido → DUO (fail-safe pro novo default)', () => {
+      const c = getProgramaConfig({ programa_modo: 'xyz' as any });
+      expect(c.numCompetencias).toBe(2);
       expect(c.semanas).toBe(14);
+    });
+    it('programa_modo="regular_single" → REGULAR single (escape hatch)', () => {
+      const c = getProgramaConfig({ programa_modo: 'regular_single' });
+      expect(c.numCompetencias).toBe(1);
+      expect(c.semanas).toBe(14);
+      expect(c.semanaParaCompetenciaIdx).toBeUndefined();
     });
     it('programa_modo="onboarding" → ONBOARDING', () => {
       const c = getProgramaConfig({ programa_modo: 'onboarding' });
       expect(c.modo).toBe('onboarding');
       expect(c.semanas).toBe(10);
-    });
-    it('valor inválido → fallback REGULAR (fail-safe)', () => {
-      expect(getProgramaConfig({ programa_modo: 'xyz' as any }).modo).toBe('regular');
+      expect(c.numCompetencias).toBe(5);
     });
   });
 
@@ -183,5 +212,52 @@ describe('Onboarding — selectDescriptorsMulti', () => {
     expect(x1.semanas_alocadas).toBeGreaterThanOrEqual(2);
     // Slots contíguos: X1 deve ocupar sems 1+2 ou similar no mesmo bloco.
     expect(x1.semanas_ids[0]).toBe(1);
+  });
+});
+
+describe('Regular DUO — selectDescriptorsDuo', () => {
+  const assessmentA = [
+    { descritor: 'A1', nota: 1.5 }, // gap profundo → 2 semanas
+    { descritor: 'A2', nota: 2.5 }, // gap raso → 1 semana
+  ];
+  const assessmentB = [{ descritor: 'B1', nota: 2.8 }];
+
+  it('separa os blocos: Comp A em [1,2,3], Comp B em [5,6,7]', () => {
+    const r = selectDescriptorsDuo('Comp A', assessmentA, 'Comp B', assessmentB);
+    const semA = r.filter(d => d.competencia === 'Comp A').flatMap(d => d.semanas_ids);
+    const semB = r.filter(d => d.competencia === 'Comp B').flatMap(d => d.semanas_ids);
+    // B só nos slots do bloco 2
+    expect(semB.every(s => [5, 6, 7].includes(s))).toBe(true);
+    // A no bloco 1 (+ reforço [9,10,11] pois A tem maior gap agregado)
+    expect(semA.every(s => [1, 2, 3, 9, 10, 11].includes(s))).toBe(true);
+    expect(semA).toContain(1);
+  });
+
+  it('preenche .competencia em todos os descritores', () => {
+    const r = selectDescriptorsDuo('Comp A', assessmentA, 'Comp B', assessmentB);
+    expect(r.length).toBe(3); // A1, A2, B1
+    expect(r.every(d => d.competencia === 'Comp A' || d.competencia === 'Comp B')).toBe(true);
+  });
+
+  it('mantém profundidade Regular: gap < 2.0 vira 2+ semanas contíguas', () => {
+    const r = selectDescriptorsDuo('Comp A', assessmentA, 'Comp B', assessmentB);
+    const a1 = r.find(d => d.descritor === 'A1')!;
+    expect(a1.semanas_alocadas).toBeGreaterThanOrEqual(2);
+    expect(a1.semanas_ids.slice(0, 2)).toEqual([1, 2]); // contíguo no bloco 1
+  });
+
+  it('bloco de reforço vai pra competência de MAIOR gap agregado', () => {
+    // Agora B tem gap muito maior que A → reforço [9,10,11] vai pra B
+    const aRaso = [{ descritor: 'A1', nota: 2.9 }];
+    const bFundo = [{ descritor: 'B1', nota: 1.0 }, { descritor: 'B2', nota: 1.2 }];
+    const r = selectDescriptorsDuo('Comp A', aRaso, 'Comp B', bFundo);
+    const semB = r.filter(d => d.competencia === 'Comp B').flatMap(d => d.semanas_ids);
+    expect(semB.some(s => [9, 10, 11].includes(s))).toBe(true);
+  });
+
+  it('assessment de B vazio → só descritores de A (guard de geração trata o resto)', () => {
+    const r = selectDescriptorsDuo('Comp A', assessmentA, 'Comp B', []);
+    expect(r.length).toBeGreaterThan(0);
+    expect(r.every(d => d.competencia === 'Comp A')).toBe(true);
   });
 });

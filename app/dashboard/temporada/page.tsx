@@ -71,7 +71,9 @@ export default function TemporadaPage() {
       <PageContainer>
         <PageHero
           eyebrow={`Temporada ${trilha.numero_temporada}`}
-          title={trilha.competencia_foco}
+          title={Array.isArray(trilha.competencias_foco) && trilha.competencias_foco.length > 1
+            ? trilha.competencias_foco.join(' + ')
+            : trilha.competencia_foco}
           // ✅ subtítulo com ênfase serif em "evoluir" e "próximo nível"
           subtitle={
             <span>

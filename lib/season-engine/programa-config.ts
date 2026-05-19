@@ -111,12 +111,56 @@ export const PROGRAMA_ONBOARDING: ProgramaConfig = Object.freeze({
 }) as ProgramaConfig;
 
 /**
+ * Regular DUO: mesma profundidade do Regular (14 semanas, nível-meta 3,
+ * alocação profunda de descritores) cobrindo 2 competências em paralelo.
+ *
+ * Modelo "blocos paralelos": os 9 slots de conteúdo são divididos entre as
+ * 2 competências (selectDescriptorsDuo aloca profundo por comp, com blocos
+ * de 2 semanas pra gaps grandes); as missões 4/8/12 são INTEGRADORAS das
+ * duas (complexidade crescente: simples → intermediário → completo).
+ *
+ * Estrutura idêntica ao Regular (slots/missões/avaliação) — só a alocação
+ * de descritores e as missões viram multi-competência. Isso mantém intactos
+ * week-gating, progresso, dashboard week-view e Cenário B (sem 14).
+ *
+ * Default GLOBAL: toda empresa sem `programa_modo` cai aqui. Trilhas já
+ * persistidas (single-comp) não são regeradas — o plano salvo é servido
+ * como está; só nova geração usa DUO.
+ */
+export const PROGRAMA_REGULAR_DUO: ProgramaConfig = Object.freeze({
+  modo: 'regular',
+  semanas: 14,
+  semanasMissao: [4, 8, 12],
+  semanasAvaliacao: [13, 14],
+  semanaCenarioB: 14,
+  semanaAcumulada: 13,
+  slotsConteudo: [1, 2, 3, 5, 6, 7, 9, 10, 11],
+  blocosCobertos: { 4: 3, 8: 6, 12: -1 },
+  complexidadeMap: { 4: 'simples', 8: 'intermediario', 12: 'completo' },
+  nivelMetaAlvo: 3,
+  numCompetencias: 2,
+  // 2 comps ativas desde o início → toda missão integra as duas.
+  // (-1 = todas as comps da trilha; complexidade cresce via complexidadeMap.)
+  competenciasNaMissao: { 4: [-1], 8: [-1], 12: [-1] },
+  // SEM semanaParaCompetenciaIdx: a competência de cada semana de conteúdo
+  // vem do descritor (selectDescriptorsDuo grava .competencia). O mapa
+  // semana→comp é exclusivo do onboarding (espiral raso).
+}) as ProgramaConfig;
+
+/**
  * Resolve a config a partir do `sys_config` JSONB de uma empresa.
- * Lê `sys_config.programa_modo`; default = regular.
+ *
+ * Default GLOBAL = Regular DUO (2 competências). Escape hatches por
+ * `sys_config.programa_modo`:
+ *   - 'onboarding'      → PROGRAMA_ONBOARDING (10 sem, 5 comps, espiral)
+ *   - 'regular_single'  → PROGRAMA_REGULAR (1 comp aprofundada — rollback
+ *                         sem mexer em código, caso um cliente precise)
+ *   - ausente / outro   → PROGRAMA_REGULAR_DUO
  */
 export function getProgramaConfig(sysConfig?: { programa_modo?: string } | null): ProgramaConfig {
   if (sysConfig?.programa_modo === 'onboarding') return PROGRAMA_ONBOARDING;
-  return PROGRAMA_REGULAR;
+  if (sysConfig?.programa_modo === 'regular_single') return PROGRAMA_REGULAR;
+  return PROGRAMA_REGULAR_DUO;
 }
 
 /**

@@ -20,7 +20,7 @@ export async function gerarAvaliacaoAcumulada(trilhaId: string) {
   // Descobre tenant via trilha (raw — query inicial sem tenant conhecido).
   const sbRaw = await requireAdminSupabase();
   const { data: trilha } = await sbRaw.from('trilhas')
-    .select('id, empresa_id, colaborador_id, competencia_foco, descritores_selecionados, temporada_plano')
+    .select('id, empresa_id, colaborador_id, competencia_foco, competencias_foco, descritores_selecionados, temporada_plano')
     .eq('id', trilhaId).maybeSingle();
   if (!trilha) return { error: 'trilha não encontrada' };
 
@@ -35,74 +35,56 @@ export async function gerarAvaliacaoAcumulada(trilhaId: string) {
 
   const { data: colab } = await tdb.from('colaboradores')
     .select('nome_completo, cargo').eq('id', trilha.colaborador_id).maybeSingle();
-  const nome = (colab?.nome_completo || '').split(' ')[0] || 'colab';
 
   const descritores = Array.isArray(trilha.descritores_selecionados) ? trilha.descritores_selecionados : [];
   if (!descritores.length) return { error: 'sem descritores_selecionados' };
 
-  // Enriquece com régua + nota_pre fresh
-  const descritoresComRegua = await enriquecerComRegua(tdb, sbRaw, trilha.competencia_foco, descritores);
-  const descritoresFresh = await atualizarNotaAtualFresh(tdb, trilha.colaborador_id, trilha.competencia_foco, descritoresComRegua);
+  // Competências da trilha: array (DUO/onboarding/single novo) com fallback
+  // pro singular legado. >1 → avalia POR competência (régua correta por comp).
+  const compsTrilha: string[] = Array.isArray(trilha.competencias_foco) && trilha.competencias_foco.length > 0
+    ? trilha.competencias_foco
+    : [trilha.competencia_foco];
+  const isMultiComp = compsTrilha.length > 1;
 
-  // Agrega evidências até a semana de acumulada (regular=13)
-  const evidenciasAcumuladas = await agregarEvidencias(tdb, trilhaId, descritoresFresh, trilha.temporada_plano, semanaAcumulada);
+  let payload: any;
+  let primariaRet: any = null;
+  let auditoriaRet: any = null;
 
-  // PII masking pro prompt externo (Claude). Nome do colab vira alias;
-  // evidências (transcripts literais) passam pelo sanitizador.
-  const { masked: colabMasked, map: piiMap } = maskColaborador(colab);
-  const evidenciasMasked = maskTextPII(evidenciasAcumuladas, piiMap);
-
-  // 1ª IA — avaliação primária
-  let primaria = null;
-  try {
-    const { system, user } = promptAvaliacaoAcumulada({
-      competencia: trilha.competencia_foco,
-      descritores: descritoresFresh,
-      evidenciasAcumuladas: evidenciasMasked,
-      nomeColab: colabMasked.nome,
-      nivelMetaAlvo,
-    });
-    const r = await callAI(system, user, {}, 8000);
-    let cleaned = r.trim();
-    if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
-    primaria = validateAvaliacaoAcumulada(JSON.parse(cleaned));
-    if (primaria?.resumo_geral) primaria.resumo_geral = unmaskPII(primaria.resumo_geral, piiMap);
-    if (Array.isArray(primaria?.avaliacao_acumulada)) {
-      primaria.avaliacao_acumulada = primaria.avaliacao_acumulada.map((d: any) => ({
-        ...d, justificativa: unmaskPII(d.justificativa, piiMap),
-      }));
+  if (!isMultiComp) {
+    // ── Single-comp (Regular legado / regular_single): shape inalterado ──
+    const r = await avaliarCompAcumulada(
+      tdb, sbRaw, trilha, colab, trilha.competencia_foco, descritores, semanaAcumulada, nivelMetaAlvo,
+    );
+    if (r.error) return { error: r.error };
+    primariaRet = r.primaria;
+    auditoriaRet = r.auditoria;
+    payload = { gerado_em: new Date().toISOString(), primaria: r.primaria, auditoria: r.auditoria };
+  } else {
+    // ── Multi-comp (Regular DUO): loop por competência ──
+    const porCompetencia: any[] = [];
+    for (const comp of compsTrilha) {
+      const descsComp = descritores.filter((d: any) => d.competencia === comp);
+      if (!descsComp.length) {
+        porCompetencia.push({ competencia: comp, error: 'sem descritores desta competência' });
+        continue;
+      }
+      const r = await avaliarCompAcumulada(
+        tdb, sbRaw, trilha, colab, comp, descsComp, semanaAcumulada, nivelMetaAlvo,
+      );
+      porCompetencia.push(r.error
+        ? { competencia: comp, error: r.error }
+        : { competencia: comp, primaria: r.primaria, auditoria: r.auditoria });
     }
-  } catch (err) {
-    console.error('[acumulado primária]', err);
-    return { error: 'Falha na 1ª IA: ' + err.message };
+    if (porCompetencia.every(p => p.error)) {
+      return { error: 'Falha na avaliação acumulada de todas as competências' };
+    }
+    payload = {
+      gerado_em: new Date().toISOString(),
+      multi: true,
+      competencias: compsTrilha,
+      por_competencia: porCompetencia,
+    };
   }
-
-  // 2ª IA — check (mask também na primária que vai pro prompt)
-  let auditoria = null;
-  try {
-    const primariaMask = JSON.parse(maskTextPII(JSON.stringify(primaria), piiMap));
-    const { system, user } = promptAvaliacaoAcumuladaCheck({
-      competencia: trilha.competencia_foco,
-      descritores: descritoresFresh,
-      evidenciasAcumuladas: evidenciasMasked,
-      avaliacaoPrimaria: primariaMask,
-    });
-    const r = await callAI(system, user, {}, 6000);
-    let cleanedCheck = r.trim();
-    if (cleanedCheck.startsWith('```')) cleanedCheck = cleanedCheck.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
-    auditoria = validateAvaliacaoAcumuladaCheck(JSON.parse(cleanedCheck));
-    if (auditoria?.resumo_auditoria) auditoria.resumo_auditoria = unmaskPII(auditoria.resumo_auditoria, piiMap);
-  } catch (err) {
-    console.error('[acumulado check]', err);
-    // Não falha — grava primária sem auditoria
-  }
-
-  // Persiste em sem da acumulada (regular=13) feedback.acumulado (ou cria linha se não houver)
-  const payload = {
-    gerado_em: new Date().toISOString(),
-    primaria,
-    auditoria,
-  };
 
   const { data: progSemAcumulada } = await tdb.from('temporada_semana_progresso')
     .select('id, feedback').eq('trilha_id', trilhaId).eq('semana', semanaAcumulada).maybeSingle();
@@ -120,7 +102,76 @@ export async function gerarAvaliacaoAcumulada(trilhaId: string) {
     });
   }
 
-  return { ok: true, primaria, auditoria };
+  if (payload.multi) return { ok: true, multi: true, por_competencia: payload.por_competencia };
+  return { ok: true, primaria: primariaRet, auditoria: auditoriaRet };
+}
+
+/**
+ * Avalia UMA competência (1ª IA + check 2ª IA) sobre seu subconjunto de
+ * descritores. Núcleo compartilhado entre a acumulada single e a por-comp
+ * (DUO) — fonte única, sem drift entre os caminhos.
+ */
+async function avaliarCompAcumulada(
+  tdb: any, sbRaw: any, trilha: any, colab: any,
+  competencia: string, descritores: any[], semanaAcumulada: number, nivelMetaAlvo: 2 | 3,
+): Promise<{ primaria?: any; auditoria?: any; error?: string }> {
+  // Enriquece com régua + nota_atual fresh (por competência → régua correta)
+  const descritoresComRegua = await enriquecerComRegua(tdb, sbRaw, competencia, descritores);
+  const descritoresFresh = await atualizarNotaAtualFresh(tdb, trilha.colaborador_id, competencia, descritoresComRegua);
+
+  // Agrega evidências até a semana de acumulada (regular=13)
+  const evidenciasAcumuladas = await agregarEvidencias(tdb, trilha.id, descritoresFresh, trilha.temporada_plano, semanaAcumulada);
+
+  // PII masking pro prompt externo (Claude).
+  const { masked: colabMasked, map: piiMap } = maskColaborador(colab);
+  const evidenciasMasked = maskTextPII(evidenciasAcumuladas, piiMap);
+
+  // 1ª IA — avaliação primária
+  let primaria = null;
+  try {
+    const { system, user } = promptAvaliacaoAcumulada({
+      competencia,
+      descritores: descritoresFresh,
+      evidenciasAcumuladas: evidenciasMasked,
+      nomeColab: colabMasked.nome,
+      nivelMetaAlvo,
+    });
+    const r = await callAI(system, user, {}, 8000);
+    let cleaned = r.trim();
+    if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
+    primaria = validateAvaliacaoAcumulada(JSON.parse(cleaned));
+    if (primaria?.resumo_geral) primaria.resumo_geral = unmaskPII(primaria.resumo_geral, piiMap);
+    if (Array.isArray(primaria?.avaliacao_acumulada)) {
+      primaria.avaliacao_acumulada = primaria.avaliacao_acumulada.map((d: any) => ({
+        ...d, justificativa: unmaskPII(d.justificativa, piiMap),
+      }));
+    }
+  } catch (err: any) {
+    console.error(`[acumulado primária ${competencia}]`, err);
+    return { error: 'Falha na 1ª IA: ' + err.message };
+  }
+
+  // 2ª IA — check (mask também na primária que vai pro prompt)
+  let auditoria = null;
+  try {
+    const primariaMask = JSON.parse(maskTextPII(JSON.stringify(primaria), piiMap));
+    const { system, user } = promptAvaliacaoAcumuladaCheck({
+      competencia,
+      descritores: descritoresFresh,
+      evidenciasAcumuladas: evidenciasMasked,
+      avaliacaoPrimaria: primariaMask,
+    });
+    const r = await callAI(system, user, {}, 6000);
+    let cleanedCheck = r.trim();
+    if (cleanedCheck.startsWith('```')) cleanedCheck = cleanedCheck.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
+    auditoria = validateAvaliacaoAcumuladaCheck(JSON.parse(cleanedCheck));
+    if (auditoria?.resumo_auditoria) auditoria.resumo_auditoria = unmaskPII(auditoria.resumo_auditoria, piiMap);
+  } catch (err) {
+    console.error(`[acumulado check ${competencia}]`, err);
+    // Não falha — retorna primária sem auditoria
+  }
+
+  return { primaria, auditoria };
 }
 
 /**
