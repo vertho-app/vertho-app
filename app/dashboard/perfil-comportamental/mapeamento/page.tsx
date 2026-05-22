@@ -101,6 +101,52 @@ function InstructionCard({ numero, titulo, descricao }) {
   );
 }
 
+function BlockContextHeader({ isNatural, etapa }) {
+  const block = isNatural
+    ? {
+        numero: '1',
+        titulo: 'Perfil Natural',
+        cor: '#2DD4BF',
+        resumo: '8 rankings + 6 pares rápidos respondidos pensando em como você é quando está à vontade, fora do trabalho.',
+        reforco: 'É o seu jeito natural, sem ajustes.',
+      }
+    : {
+        numero: '2',
+        titulo: 'Perfil Adaptado',
+        cor: '#FCD34D',
+        resumo: 'As mesmas perguntas do bloco 1, mas pensando em como você age no trabalho.',
+        reforco: 'Revela o quanto você se ajusta ao contexto profissional.',
+      };
+
+  const etapaTexto = etapa === 'ranking'
+    ? 'Nesta tela, ordene os itens do mais parecido com você ao menos parecido.'
+    : 'Nesta tela, escolha a frase que descreve melhor você de forma instintiva.';
+
+  return (
+    <section className="mb-5 rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-4 shadow-[0_18px_45px_rgba(0,0,0,0.12)]">
+      <div className="flex gap-3">
+        <div
+          className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-black"
+          style={{ background: 'rgba(0,180,216,0.14)', color: block.cor }}
+        >
+          {block.numero}
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-base font-black leading-snug text-white">
+            Bloco {block.numero} — <span style={{ color: block.cor }}>{block.titulo}</span>
+          </h2>
+          <p className="mt-1 text-sm leading-relaxed text-slate-300">
+            {block.resumo} <span className="text-slate-400">{block.reforco}</span>
+          </p>
+          <p className="mt-2 text-xs font-bold uppercase tracking-[1.6px]" style={{ color: block.cor }}>
+            {etapaTexto}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ───────────────── SCORING ───────────────── */
 
 function scoreRankings(rankings) {
@@ -538,12 +584,14 @@ export default function MapeamentoPage() {
     };
 
     return (
-      <div className="max-w-[480px] mx-auto px-4 py-6">
+      <div className="max-w-[560px] mx-auto px-4 py-6">
         {/* Progress header */}
         <div className="flex justify-between text-[11px] text-gray-500 font-medium mb-4">
           <span>{label} — Rankings</span>
           <span>{progressPct}%</span>
         </div>
+
+        <BlockContextHeader isNatural={isNatural} etapa="ranking" />
 
         {/* Phase tag + title */}
         <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-cyan-400 mb-1">{label}</p>
@@ -623,7 +671,7 @@ export default function MapeamentoPage() {
     const label = isNatural ? 'Natural' : 'Adaptado';
 
     return (
-      <div className="max-w-[480px] mx-auto px-4 py-6">
+      <div className="max-w-[560px] mx-auto px-4 py-6">
         {/* Progress header */}
         <div className="flex justify-between items-center text-[11px] text-gray-500 font-medium mb-1">
           <span>{label} — Pares</span>
@@ -632,6 +680,8 @@ export default function MapeamentoPage() {
         <div className="h-[3px] rounded-full overflow-hidden mb-6" style={{ background: 'rgba(255,255,255,0.05)' }}>
           <div className="h-full rounded-full transition-all" style={{ width: `${progressPct}%`, background: 'linear-gradient(90deg, #2DD4BF, #FCD34D)' }} />
         </div>
+
+        <BlockContextHeader isNatural={isNatural} etapa="pares" />
 
         {/* Phase tag + title */}
         <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-cyan-400 mb-1">{label} — ESCOLHA RÁPIDA</p>
