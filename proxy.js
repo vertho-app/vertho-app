@@ -20,8 +20,11 @@ import { NextResponse } from 'next/server';
  *
  * Subdomínios públicos com rewrite:
  *   - radar.vertho.ai → /radar/<path>
- *   - radarbett.vertho.ai → /radarbett/<path>
  *   - imprensa.vertho.ai → /imprensa/<path>
+ *
+ * radarbett.vertho.ai foi DESCONTINUADO (redirect 301 — ver
+ * resolveRadarbettRedirect): deep-links com equivalente vão pro radar,
+ * o resto vai pra home institucional (vertho.ai).
  *
  * Os demais seguem o fluxo normal sem injeção de tenant.
  */
@@ -42,13 +45,17 @@ const RESERVED_SUBDOMAINS = new Set([
 
 // Subdomínios públicos que rewriteam para um path interno do app
 // (radar.vertho.ai/<path>      →  /radar/<path>)
-// (radarbett.vertho.ai/<path>  →  /radarbett/<path>)
 // (imprensa.vertho.ai/<path>   →  /imprensa/<path>)
+// radarbett saiu daqui: agora é redirect 301 (resolveRadarbettRedirect).
 const REWRITE_SUBDOMAINS = {
   radar: '/radar',
-  radarbett: '/radarbett',
   imprensa: '/imprensa',
 };
+
+// radarbett.vertho.ai foi descontinuado. Deep-links que têm equivalente no
+// radar são preservados (SEO/link equity); o resto vai pra home institucional.
+const RADARBETT_EQUIVALENT_PREFIXES = ['/escola', '/municipio', '/comparar', '/metodologia'];
+const RADARBETT_HOME_TARGET = 'https://vertho.ai';
 
 // Domínios raiz (sem subdomínio = sem tenant). vertho.com.br fica
 // no final como legacy — manter por compat até DNS expirar.
@@ -101,8 +108,32 @@ export function detectRewriteSubdomain(hostname) {
   return null;
 }
 
+/**
+ * radarbett.vertho.ai (descontinuado) → URL absoluta de destino, ou null.
+ * Deep-links com equivalente no radar são preservados; o resto vai pra home.
+ */
+export function resolveRadarbettRedirect(hostname, pathname) {
+  const host = hostname.split(':')[0];
+  const isRadarbett = ROOT_DOMAINS.some((root) => host === `radarbett.${root}`);
+  if (!isRadarbett) return null;
+
+  const hasEquivalent = RADARBETT_EQUIVALENT_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+  return hasEquivalent ? `https://radar.vertho.ai${pathname}` : RADARBETT_HOME_TARGET;
+}
+
 export function proxy(request) {
   const hostname = request.headers.get('host') || '';
+
+  // 0) radarbett descontinuado → redirect 301 permanente
+  const radarbettTarget = resolveRadarbettRedirect(hostname, request.nextUrl.pathname);
+  if (radarbettTarget) {
+    const target = new URL(radarbettTarget);
+    // Preserva querystring só nos deep-links que viram página equivalente no radar
+    if (target.hostname === 'radar.vertho.ai') target.search = request.nextUrl.search;
+    return NextResponse.redirect(target, 301);
+  }
 
   // 1) Subdomínio público (radar): rewrite pra /radar/<path>
   const rewriteBase = detectRewriteSubdomain(hostname);
