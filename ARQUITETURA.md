@@ -1,7 +1,7 @@
 # Vertho Mentor IA — Arquitetura do Sistema
 
 > Documento oficial de arquitetura — SaaS B2B de desenvolvimento de competencias por IA.
-> Ultima atualizacao: 14/05/2026 (HEAD `b7b072b` — Pulso de Desenvolvimento + envio de convites)
+> Ultima atualizacao: 25/05/2026 (HEAD `2730cd7` — RadarEmpresas + i18n + auditoria/permissoes + OTP WhatsApp + hardening RLS)
 > Revisado contra o codigo-fonte local e estado atual do workspace
 > Metodo: auditoria automatizada + revisao manual
 
@@ -44,27 +44,33 @@
 | **Error Tracking** | Sentry | — | 🔑 |
 | **TypeScript** | tsc --noEmit (strict: false) | 5.9 | ✅ |
 | **Testes** | Playwright + smoke-test.js | — | ✅ |
+| **i18n** | next-intl (pt-BR / pt-PT / es-ES) | — | ✅ |
 | **Hospedagem** | Vercel (Serverless) | — | ✅ |
 | **DNS/CDN** | Cloudflare (Full Strict SSL) | — | ✅ |
-| **Dominio** | vertho.ai (raiz) + app.vertho.ai (auth/admin) + *.vertho.ai (tenants) + radar.vertho.ai + radarbett.vertho.ai. vertho.com.br legado, mantido no middleware so por compat de DNS antigo. | — | ✅ |
+| **Dominio** | vertho.ai (apex no Gamma) + app.vertho.ai (auth/admin) + *.vertho.ai (tenants) + radar.vertho.ai + imprensa.vertho.ai. **radarbett.vertho.ai DESCONTINUADO** (301 → radar/vertho.ai). vertho.com.br legado, mantido no proxy so por compat de DNS antigo. | — | ✅ |
+| **Pipeline de dados** | DuckDB + Parquet + Python (RadarEmpresas, local) | — | ✅ |
 | **CI/CD** | GitHub Actions (smoke test no push) | — | ✅ |
 
 **Config Next.js**: `experimental.serverActions.bodySizeLimit = '50mb'` (Next 16 compat).
 
 ---
 
-## 1.1 Estado de Retomada (14/05/2026)
+## 1.1 Estado de Retomada (25/05/2026)
 
 Contexto rapido para reinicializacao da maquina:
 
-- Branch atual: `master`, HEAD `b7b072b`. **Modulo Pulso de Desenvolvimento** completo (Etapas 1-5 + envio de convites). Detalhes na seção 18. Migrations 090-098 aplicadas em prod.
-- Arquivos rastreados: pendentes no momento desta revisao — `supabase/config.toml` (drift local) e os 4 docs (`ARQUITETURA.md`, `FEATURES-E-BENEFICIOS.md`, `PASSO-A-PASSO-VERTHO.md`, `RESUMO.md`).
-- Nao versionados presentes no workspace: `.tmp_enem_2024/`, `outputs/`, `public/Logo sem texto.png`.
-- Ultimas frentes visiveis (semana 2026-05-13 → 14):
-  - **Modulo Pulso de Desenvolvimento** (commits `8468aa8`, `c9203d6`, `3cdcf19`, `54c84d3`, `71c625d`, `b7b072b`): pesquisa T0/T2 de 12 Likert + 1 aberta em 6 dimensoes, MV agregada com guard n>=7, sinais comportamentais on-demand, triangulacao por regras, Dual-IA (Sonnet classifica + Gemini audita) com taxonomia fechada de 12 temas, PDFs Executivo + Complementar NR-1, envio de convites via Z-API com magic link pessoal. 6 etapas em 1 dia (~10 dias-pessoa colapsados).
-  - **Migracao GAS -> Macae** (commits `e045cad`, `f604f9c`): 59 colabs, 18 competencias, 1 cargo, respostas com remapeamento por nome_comp, 51 PDIs migrados via Drive publico (`PDIs Gerados Template` folder). Samuel Protetti (samuel@vertho.ai) setado como gestor de todos os 58. Telefones com `+` removidos.
-  - **Filtro DISC nos Envios** (commit `7fb613d`): filtro "Perfil comportamental (sim/nao)" em todas as tabs de `/admin/whatsapp`. Client + server.
-  - **Mercado Potencial** (commits anteriores): pagina interna `/admin/vertho/mercado-potencial` cruzando Censo + INSE + Saeb/Ideb/VAAR. Migrations 093-095.
+- Branch atual: `master`, HEAD `2730cd7`. Migrations 022-117 aplicadas em prod. ~100 commits desde a revisao anterior (14/05).
+- Working tree limpo. `.gitignore` agora ignora `*.log`, `.tmp_*/`, `/backups/` (PII) e `/.agents/skills/` (vendorado via `skills-lock.json`).
+- Nao versionados intencionalmente: `.tmp_enem_2024/` (2,2 GB microdados ENEM), `data-pipeline/radarempresas/**/out/` e Parquets (calculo pesado fica local).
+- Frentes desde 14/05:
+  - **RadarEmpresas** (~50 commits, migrations 099-111) — modulo INTERNO de inteligencia comercial B2B. Receita Federal + CAGED + RAIS + CEMPRE/SIDRA, pipeline DuckDB local, Score de Oportunidade v5, deteccao de redes/franquias, funil enderecavel, "Potencial por Cidade" (TAM Empresas+Escolas). Detalhes na **secao 19**.
+  - **i18n** (commit `50a5b9b`, migration 114) — next-intl com pt-BR/pt-PT/es-ES. Locale em `empresas.default_locale` + `colaboradores.locale`. Detalhes na **secao 20**.
+  - **Auditoria + Matriz de Permissoes** (commits `2b5a63c`, `7443380`, `5bd44e2`, `e1a1638`, migrations 116-117) — `admin_audit_log` + `/admin/auditoria`; matriz papel×permissao (`lib/permissions.ts`) + overrides auditaveis + `/admin/permissoes`. Detalhes na **secao 21**.
+  - **Login OTP WhatsApp** (commit `32ddf15`, migration 112) — colaborador sem email entra por codigo no WhatsApp, via email-proxy deterministico. Detalhes na **secao 22**.
+  - **Hardening de seguranca** (~15 commits + migration 113) — guard centralizado `requireAdminSupabase()`, AdminGuard movido pra server layout, RLS real fechada em tabelas sensiveis (alerta Supabase "Table publicly accessible"). Detalhes em **3.3** e **secao 11**.
+  - **radarbett descontinuado** (commit `b04e3ee`) — 301 redirect; frentes "Onde a Vertho pode ajudar" migradas pro Radar (commit `0c57c19`). Codigo dormant.
+  - **Radar — matriculas Censo** (commits `8561f40`, `3b6f195`, `d697118`, migration 115) — coluna `matriculas` (QT_MAT_BAS) na ficha da escola.
+  - **Regular DUO vira default global** (commit `f148e9b`) — ver secao 17.11.
 - Para retomar localmente: entrar em `C:\GAS\Vertho App\nextjs-app`, rodar `npm run dev` e acessar `http://localhost:3000`.
 
 ---
@@ -387,16 +393,21 @@ nextjs-app/
 
 ## 3. Arquitetura Multi-Tenant e Fronteira de Tenant
 
-### 3.1 Roteamento por Subdominio
+### 3.1 Roteamento por Subdominio (`proxy.js`)
+> O roteamento foi migrado de `middleware.js` para o Next Proxy (`proxy.js`, export `proxy()`) — commits `38a8b71` + `4bac514`. Comportamento equivalente, API nova do Next 16.
 ```
 {slug}.vertho.ai/login
-  → middleware.js extrai slug do hostname (suporta .ai e .com.br)
-  → Injeta header x-tenant-slug + cookie vertho-tenant-slug
+  → proxy.js extrai slug do hostname (extractTenantSlug, suporta .ai e .com.br)
+  → Rejeita RESERVED_SUBDOMAINS (www, app, api, admin, radar, radarbett, imprensa, ...)
+  → Injeta header x-tenant-slug + cookie vertho-tenant-slug (httpOnly, p/ server actions)
   → Server Components resolvem tenant via lib/tenant-resolver.ts (cache 5min)
   → radar.vertho.ai     → reescreve para /radar/<path>     (site publico Radar)
-  → radarbett.vertho.ai → reescreve para /radarbett/<path> (site publico Bett 2026)
+  → imprensa.vertho.ai  → reescreve para /imprensa/<path>   (NOVO: pagina institucional nativa)
+  → radarbett.vertho.ai → 301 redirect (deep-links equivalentes → radar; resto → vertho.ai)  [DESCONTINUADO]
   → app.vertho.ai       → app principal (auth/admin)
 ```
+
+**Apex `vertho.ai`**: hospedado no Gamma (home institucional). `next.config.mjs` tem rewrite condicional via `GAMMA_HOME_URL` caso o apex migre pro Vercel. `imprensa.vertho.ai` ja e nativa da Next (`app/imprensa/page.tsx`).
 
 **Vincular subdominio ao Vercel**: a partir de 2026-04, o registro NAO eh mais automatico em `criarNovaEmpresa`. Existe botao **"Vincular ao Vercel"** em `/admin/empresas/{id}/configuracoes` (aba Branding) — usa `lib/vercel-domain.ts`. Razao: cliente Ibipeba falhou silenciosamente no auto-registro.
 
@@ -415,21 +426,25 @@ lib/tenant-resolver.js:
 **Camada 1 — Schema (FK)**
 - Todas as tabelas transacionais possuem `empresa_id` (FK para `empresas.id`)
 
-**Camada 2 — RLS (Row Level Security)**
-- RLS habilitado nas tabelas principais, porém com policies permissivas (`USING (true)`) — não atua como barreira real enquanto queries usam service_role
-- Migration 037: RLS habilitado em `competencias`, `competencias_base`, `platform_admins`, `reavaliacao_sessoes`, `videos_watched`
-- **Status real**: RLS está ativo mas não funciona como defense-in-depth porque todas as queries usam `createSupabaseAdmin()` (service_role bypassa RLS)
+**Camada 2 — RLS (Row Level Security)** — *reforçada na migration 113 (25/05)*
+- Tabelas com leitura direta do browser autenticado ganharam policies **reais por tenant** (não mais `USING (true)`): `empresas`, `colaboradores`, `sessoes_avaliacao`, `mensagens_chat` — via funções SECURITY DEFINER `current_empresa_id()` / `current_colaborador_id()` / `can_read_sessao_avaliacao()`.
+- Tabelas exclusivamente server-side (`colab_otp`, `tutor_log`, `platform_admins`, `reavaliacao_sessoes`, `videos_watched`, `ia_usage_log`, `fase4_progresso`, ...) ficam **sem policy** = anon/authenticated bloqueados; `service_role` continua com bypass.
+- "Cinto e suspensório": qualquer tabela `public` ainda sem RLS é fechada por um `DO $$` final. Verificação da migration retorna **0 tabelas public sem RLS**.
+- Fecha o alerta Supabase "Table publicly accessible". Confirmado aplicado em prod (5/5 policies + 3/3 funções presentes).
+- **Status real**: as queries server-side continuam usando `createSupabaseAdmin()` (service_role bypassa RLS), mas agora o cliente browser autenticado (anon key) só enxerga o próprio tenant — defense-in-depth real para leituras client-side.
 
 **Camada 3 — Codigo (Server Actions + API Routes)**
 - Server actions usam `createSupabaseAdmin()` com filtro EXPLICITO de `empresa_id`
 - API routes: `/api/colaboradores` exige `empresa_id` no request
 
-**Camada 4 — Auth Action Context (auth audit P1+P2, 2026-04)**
-- `lib/auth/action-context.ts` provê três guardas para server actions:
+**Camada 4 — Auth Action Context + Guard centralizado (hardening 05/2026)**
+- `lib/auth/action-context.ts` provê as guardas de server action:
   - `requireAdminAction()` — exige platform admin
   - `requireUserAction()` — exige usuário autenticado (qualquer role)
   - `requireAdminOrCronAction()` — admin OU chamada do cron QStash assinada
-- Aplicado em ~120 server actions (votação, fase1-5, temporadas, ppp, conteudos, etc.)
+  - `requirePermissionAction()` — exige permissão específica da matriz (ver seção 21)
+- **`lib/admin-supabase.ts::requireAdminSupabase()`** (NOVO) — colapsa `requireAdminAction()` + `createSupabaseAdmin()` em 1 chamada. ~15 commits migraram as server actions admin pra este padrão. `createSupabaseAdmin()` cru só é permitido na allowlist (`config/service-role-allowlist.json`); CI falha se vazar.
+- **AdminGuard movido pra server layout** (`app/admin/layout.tsx`, commit `c604c7c`): identidade 100% server-side via cookie SSR (`checkAdminAccess` → `isPlatformAdmin`), sem confiar em input do client.
 - Migration 081: RLS restrita em `diag_analises_ia`
 
 ### 3.4 Branding por Tenant
@@ -443,7 +458,10 @@ Coluna `sys_config JSONB`: ai_model, cadencia, envios.
 ## 4. RBAC (Controle de Acesso Baseado em Papeis)
 
 ### 4.1 Papeis por Tenant
-Coluna `role` em `colaboradores`: `colaborador` | `gestor` | `rh`
+Coluna `role` em `colaboradores`: `colaborador` | `gestor` | `rh` | `tutor` (ver 17.5).
+
+### 4.1.1 Matriz de Papeis × Permissoes (NOVO — seção 21)
+A partir de `e1a1638`, RBAC deixou de ser binário (admin/não-admin) e passou a ter uma **matriz declarativa** em `lib/permissions.ts`: 5 papéis de sistema (`platform_admin`, `rh`, `gestor`, `tutor`, `colaborador`) × 31 permissões nomeadas (`companies.*`, `users.*`, `assessments.*`, `reports.*`, `radar_empresas.access`, `audit.view`, ...). Overrides auditáveis por papel ou por usuário vivem em `permission_overrides` (migration 117). Console em `/admin/permissoes`. Detalhes na seção 21.
 
 ### 4.2 Admin da Plataforma
 Tabela `platform_admins` — admins globais. RLS habilitado.
@@ -685,7 +703,7 @@ Tabelas: trilhas, colaboradores, temporada_semana_progresso
 
 ---
 
-## 8. Modelagem de Dados (70 arquivos SQL — 022 a 089)
+## 8. Modelagem de Dados (98 arquivos SQL — 022 a 117)
 
 ### Migrations 022-051 (core Mentor IA)
 Multi-tenant + Fit v2 + Temporadas + Tira-Duvidas + RAG (knowledge_base, pgvector 1024d) + Capacitacao + Relatorios.
@@ -731,6 +749,30 @@ Multi-tenant + Fit v2 + Temporadas + Tira-Duvidas + RAG (knowledge_base, pgvecto
 - **096** — `pulse_ciclos`, `pulse_assignments`, `pulse_responses`, `pulse_audit_logs` (RLS permissiva)
 - **097** — MV `pulse_mv_aggregates` (company/area/cargo × dimensao × T0/T2 + linha `_geral`) + funcao `refresh_pulse_aggregates()`
 - **098** — `pulse_classifications` (saida Dual-IA: classifier_themes/sentiment + auditor_agrees/divergences + final_confidence) + `pulse_triangulations` (cache do resultado por ciclo+grupo)
+
+### Migrations 099-111 (RadarEmpresas — inteligencia comercial B2B INTERNA)
+> Modulo Vertho-interno (nao multi-tenant). Guard `requireAdminSupabase()`. Detalhes na seção 19.
+- **099** — schema core: `radarempresas_empresas`/`_estabelecimentos`, `_segmentos`, mapa `cnae_segmento`, `_scores`, `_listas`/`_lista_itens`, `_jobs`, `_audit_logs`
+- **100** — agregados CAGED 6m (municipio×CNAE, ×CBO, nacionais) — contexto setorial
+- **101** — agregados RAIS_ESTAB (estoque/porte municipio×CNAE) — base da taxa de rotatividade real
+- **102** — score v4: `score_confidence`, `commercial_actionability`, `priority_rank`, `low_team_probability`
+- **103** — expansao curada CNAE→segmento (prefixos 2/3/5/7 digitos)
+- **104** — denylist CNAE (consultoria, participacoes, entidades publicas)
+- **105** — denylist especifica consultoria (CNAE 6202 + razao social)
+- **106** — `classificacao_teto` por segmento (override comercial reversivel: boa→79, nutrir→59, baixa→39)
+- **107** — `saude_clinicas` rebaixada pra teto `nutrir`
+- **108** — deteccao de redes (mesmo nome_fantasia em 3+ cnpj_basico) + `radarempresas_redes` + coluna `rede_marca`
+- **109** — tipo de rede: `franquia` (multi-dono) vs `grupo` (1 dono, N filiais)
+- **110** — tabelas serving BR: `radarempresas_cidades_agg`, `radarempresas_funil_agg` (agregados < 100 MB)
+- **111** — colunas TAM em `cidades_agg` (base do "Potencial por Cidade")
+
+### Migrations 112-117 (auth, RLS, i18n, Radar, auditoria, permissoes)
+- **112** — login WhatsApp OTP: `colaboradores.login_por_whatsapp` + tabela `colab_otp` (code hash, TTL 10min, attempts). Seção 22.
+- **113** — fecha RLS public (alerta Supabase): policies reais por tenant + funcoes SECURITY DEFINER + tranca residual. Ver 3.3.
+- **114** — i18n: `empresas.default_locale` (default pt-BR, CHECK) + `colaboradores.locale` (nullable). Seção 20.
+- **115** — `diag_censo_infra.matriculas` (QT_MAT_BAS) — total de matriculas na ficha da escola do Radar
+- **116** — `admin_audit_log` (admin_email, acao, empresa_id, alvo, detalhes JSONB, resultado, ip, user_agent). Seção 21.
+- **117** — `permission_overrides` (scope role|user, effect allow|deny, reason auditavel). Seção 21.
 
 ### Dados Transacionais
 ```
@@ -815,10 +857,13 @@ npm run test:ui
 
 ## 11. Seguranca
 
-- RBAC explicito: coluna `role` + tabela `platform_admins`
-- Admin guard server-side
+- RBAC explicito: coluna `role` + tabela `platform_admins` + **matriz papel×permissao** (`lib/permissions.ts`) com overrides auditaveis (`permission_overrides`, migration 117)
+- Admin guard 100% server-side (server layout `app/admin/layout.tsx`, cookie SSR)
+- Guard centralizado `requireAdminSupabase()` + allowlist de `createSupabaseAdmin()` enforced no CI
+- **Auditoria**: `logAdminAction()` grava disparos e mutacoes admin em `admin_audit_log` (migration 116), best-effort, com IP + user-agent
 - API colaboradores: empresa_id obrigatorio
-- RLS habilitado nas tabelas principais (5 adicionais via migration 037), porém policies permissivas — proteção real vem da camada de app
+- **RLS real por tenant** (migration 113) nas tabelas de leitura client-side (`empresas`, `colaboradores`, `sessoes_avaliacao`, `mensagens_chat`); demais tabelas sensiveis sem policy = bloqueadas pra anon/authenticated. Zero tabelas `public` sem RLS.
+- Login OTP WhatsApp: codigo em hash (sha256 + pepper), TTL 10min, max 5 tentativas, rate-limit + anti-enumeracao (seção 22)
 - Nenhuma NEXT_PUBLIC sensivel
 - Sentry para error tracking
 - **npm audit: 0 vulnerabilities** (xlsx removido, Next.js patched para 16.2.4, resend instalado)
@@ -907,12 +952,13 @@ Task Scheduler Windows → scripts/auto-backup-diario.ps1 (todo dia 20h)
 GitHub: vertho-app/vertho-app (publico)
 Vercel: vertho-app (deploy via git push)
 Cloudflare: DNS + CDN (CNAME @ e * → cname.vercel-dns.com, SSL Full Strict)
-  - vertho.ai (raiz)
+  - vertho.ai (apex — home institucional no Gamma)
   - app.vertho.ai (auth/admin/dashboard)
   - *.vertho.ai (tenants — vincular manualmente em /admin/empresas/{id}/configuracoes)
   - radar.vertho.ai (Radar publico nacional)
-  - radarbett.vertho.ai (site Bett 2026)
-  - vertho.com.br (legacy — middleware aceita por compat de DNS antigo; sera removido)
+  - imprensa.vertho.ai (pagina institucional nativa Next)
+  - radarbett.vertho.ai (DESCONTINUADO — 301 redirect pra radar/vertho.ai)
+  - vertho.com.br (legacy — proxy aceita por compat de DNS antigo; sera removido)
 Supabase: PostgreSQL + Auth + Storage + RLS (pgvector 1024d)
 Upstash: QStash (filas async WhatsApp + Radar PDF worker)
 Resend: Email transacional
@@ -940,6 +986,8 @@ Z-API: WhatsApp gateway
 - `migrate:legacy` npm script — removido
 - `relatorio-arquitetura-vertho.md` — removido
 - Compatibilidade legada removida: perfil_disc fallback, typeof string checks em PDFs, resumo_avaliacao_detalhado
+- `radarbett.vertho.ai` — **DESCONTINUADO** (commit `b04e3ee`): 301 redirect (deep-links → radar.vertho.ai, resto → vertho.ai). Frentes "Onde a Vertho pode ajudar" migradas pro Radar (`0c57c19`). Código `app/radarbett/` segue no repo, dormant.
+- `middleware.js` → `proxy.js` (Next 16 proxy API, commits `38a8b71` + `4bac514`)
 
 ---
 
@@ -1220,6 +1268,129 @@ Em `production`:
 
 ---
 
-*Documento validado contra o codigo-fonte local em 14/05/2026.*
-*~395 arquivos TS/TSX + ~60 JS/MJS | ~79 arquivos SQL (022-098) | 28+ arquivos de teste | 22+ env vars | vertho.ai*
-*Revisao: 14/05/2026 (HEAD `b7b072b` — Módulo Pulso de Desenvolvimento completo + envio)*
+## 19. RadarEmpresas — Inteligência Comercial B2B (interno)
+
+> Módulo **Vertho-interno** (não multi-tenant, não exposto a clientes). Mapeia empresas brasileiras a partir de dados públicos e ranqueia oportunidades comerciais por um Score de Oportunidade próprio. Guard `requireAdminSupabase()`. Migrations 099-111.
+
+### 19.1 Telas (`app/admin/vertho/`)
+
+| Rota | Função |
+|---|---|
+| `radarempresas/page.tsx` | Painel dual-mode. **Jundiaí** (MVP): busca filtrável (UF, município, segmento, porte, classificação) + paginação, KPIs, funil endereçável, top segmentos/municípios, export CSV/XLSX. **BR** (quando `radarempresas_cidades_agg` populado): consolidado por município, download XLSX de priorizados por cidade. |
+| `radarempresas/listas/page.tsx` | Listas de prospecção nomeadas; status por item (`new → reviewed → approved → contacted → meeting_scheduled → discarded`); export. |
+| `radarempresas/redes/page.tsx` | Redes/franquias consolidadas (1 linha por marca, expansível pras unidades). |
+| `radarempresas/empresa/[cnpj]/page.tsx` | Ficha por CNPJ: identificação, contato, segmento (pain hypotheses), score com breakdown auditável. |
+| `potencial-cidades/page.tsx` | TAM somável por município cruzando **2 verticais**: Empresas B2B (priorizadas + redes) e Escolas privadas (n_professores × R$/mês). |
+
+### 19.2 Pipeline de dados (`data-pipeline/radarempresas/`)
+
+Princípio: **todo cálculo pesado roda local** (DuckDB + Parquet); o Supabase recebe só agregados (< 100 MB) e os XLSX lead-a-lead vão pro Storage. Microdados brutos nunca sobem.
+
+| Fonte | Uso |
+|---|---|
+| **Receita Federal** | base principal (CSV `.EMPRECSV`/`.ESTABELE`/`.CNAECSV`, cp1252 → utf8) |
+| **CAGED** | movimentação 6m (admissões/desligamentos/saldo) → contexto setorial |
+| **RAIS** (VINC/ESTAB) | estoque/porte de emprego formal → taxa de rotatividade real (CAGED÷RAIS) |
+| **CEMPRE / SIDRA** (tabela 6449) | corroboração via API + cache |
+
+Estágios BR (orquestrador `run_br.ps1`): `10_transcode` (encoding) → `11_ingest` (DuckDB, particiona por UF) → CAGED/RAIS aggregates → `15_cempre_sidra` → `14_contexto` (bayesiano CAGED÷RAIS) → `12_score` (aplica `scoreEstab` linha a linha) → `13_rank_redes` (priority_rank percentil + detecção de redes) → `16_export_xlsx` (1 XLSX/município) → `17_load_supabase` (agregados + Storage).
+
+### 19.3 Score de Oportunidade (v5)
+
+**Fonte única** em `lib/radarempresas/score-resolve.ts` (`scoreEstab`) + `lib/radarempresas/score.ts` (`calcularScore`). O pipeline BR reusa exatamente o mesmo código (zero drift; validado reproduzindo a distribuição de Jundiaí).
+
+```
+score_total = 0.40·dor_pessoas + 0.30·capacidade_compra + 0.30·fit_vertho   (cada sub-score 0-100)
+
+dor_pessoas       = 0.55·people_intensity + 0.20·standardization + multiunidade[0/10/20/25]
+                    + CNAE prioritário[+10] + 0.20·contexto_setorial(CAGED÷RAIS)
+capacidade_compra = porte[8-40] + capital_social_log[0-30] + matriz[+4/+10] + idade(sweet spot 3-25a)
+                    − penalidade low_team[-15]
+fit_vertho        = leadership_complexity + onboarding_need + business_skills (pesos por segmento)
+
+classificação:  abordar_agora ≥80 · boa 60-79 · nutrir 40-59 · baixa <40  (com teto comercial por segmento)
+confidence:     curado+contexto alto → alta · curado → media · genérico → ≤media · excluído → baixa
+actionability:  email/tel/fantasia/matriz (0-100, NÃO entra no total — desempate operacional)
+low_team_probability: ME + capital <R$1k E setor RAIS <10 vínculos → filtra MEI sem equipe
+```
+
+Segmentação proprietária em `lib/radarempresas/segmentos.ts` (10 segmentos com pain hypotheses + ofertas). CNAE→segmento por allowlist curada (`cnae_segmento`) + denylist (consultoria/participações).
+
+### 19.4 Redes/franquias e funil endereçável
+
+- **Redes** (`13_rank_redes.sql` + migrations 108-109): **franquia** = mesmo `nome_fantasia` normalizado em 3+ `cnpj_basico` distintos (donos diferentes); **grupo** = 1 `cnpj_basico` com 3+ filiais. Cada rede vira **1 lead** (negociação é com a franqueadora, não por unidade) e suas unidades saem da lista individual.
+- **Funil endereçável** (UI): ativos → fora de rede → sem `low_team` → CNAE aderente → score ≥ 60 → priorizados (top 10% por `priority_rank`) → redes consolidadas. Mostra quão apertado é o funil real de leads operacionais.
+
+### 19.5 Server actions / lib
+
+```
+actions/radarempresas/busca.ts     # loadModoBR, loadRadarKpis, loadFunilMercado, loadRedes, listarEmpresas, getFichaEmpresa
+actions/radarempresas/scoring.ts   # rodarScores (lote, upsert idempotente + registra job)
+actions/radarempresas/listas.ts    # CRUD listas de prospecção + export CSV/XLSX
+lib/radarempresas/score-resolve.ts # scoreEstab (fonte única, compartilhada com pipeline BR)
+lib/radarempresas/score.ts         # calcularScore (fórmula pura) + classificação + confidence
+lib/radarempresas/segmentos.ts     # 10 segmentos Vertho (pain hypotheses, ofertas)
+```
+
+---
+
+## 20. Internacionalização (next-intl)
+
+> 3 locales: **pt-BR** (default), **pt-PT**, **es-ES**. Migration 114. Commit `50a5b9b`.
+
+### 20.1 Arquivos-chave
+```
+i18n/routing.ts            # locales + defaultLocale 'pt-BR'
+i18n/request.ts            # getRequestConfig: resolve locale por precedência (abaixo)
+lib/i18n.ts                # normalizeAppLocale, resolveAppLocale, cookie 'vertho-locale'
+lib/i18n-server.ts         # getTenantDefaultLocaleBySlug (empresas.default_locale), getLocaleForEmail
+lib/i18n-auth-templates.ts # templates de OTP/auth (WhatsApp + email) nos 3 locales
+messages/{pt-BR,pt-PT,es-ES}.json
+next.config.mjs            # wrapped com createNextIntlPlugin()
+```
+
+### 20.2 Precedência de resolução do locale
+`requestLocale (URL)` → cookie `vertho-locale` → header `x-vertho-locale` → `empresas.default_locale` (do tenant) → `accept-language` → `pt-BR`.
+
+### 20.3 Migration 114
+- `empresas.default_locale TEXT NOT NULL DEFAULT 'pt-BR'` (CHECK em pt-BR/pt-PT/es-ES)
+- `colaboradores.locale TEXT` nullable (CHECK idem) — sobrescreve o default da empresa
+- Fallback de leitura: `colaborador.locale → empresa.default_locale → pt-BR`
+
+---
+
+## 21. Auditoria de Admin + Matriz de Permissões
+
+### 21.1 Auditoria (`admin_audit_log` — migration 116)
+- `lib/audit.ts::logAdminAction({ acao, empresa_id, alvo, detalhes, resultado })` — chamada de 1 linha em disparos e mutações sensíveis. **Best-effort**: nunca lança (falha de auditoria não derruba a ação). Grava via service-role; captura `ip` (x-forwarded-for) e `user_agent`.
+- Campos: `admin_email`, `admin_user_id`, `acao`, `empresa_id`/`empresa_slug`, `alvo`, `detalhes` (JSONB), `resultado` (ok/parcial/erro), `ip`, `user_agent`, `criado_em`. Append-only, cross-tenant (empresa_id nullable pra ações de plataforma).
+- Tela `/admin/auditoria` (`page.tsx` + `actions.ts::loadAuditLog`): tabela filtrável (ação, empresa, admin), resultado colorido, detalhes JSON, últimas 2000 linhas pras facetas.
+
+### 21.2 Matriz de Permissões (`lib/permissions.ts` + `permission_overrides` — migration 117)
+- **5 papéis de sistema**: `platform_admin` (tudo), `rh` (admin do tenant, ~15 permissões), `gestor` (~5), `tutor` (~3), `colaborador` (~3).
+- **31 permissões** nomeadas por domínio (Admin, Governança, Empresas, Usuários, Configurações, Avaliações, Relatórios, Jornada, Conteúdo, IA, Radar, Radar Empresas, Dados) — cada uma com `label` PT-BR, `description` e `risk` (low/medium/high/critical).
+- **Matriz base** fixa em código (`BASE_ROLE_PERMISSIONS`). **Overrides** em `permission_overrides` (scope `role`|`user`, `effect` allow|deny, `reason` obrigatório ≥5 chars, auditável; UNIQUE por scope+permission).
+- Funções: `getSystemRole(ctx)`, `hasBasePermission(role, perm)`, `loadPermissionOverrides()`, `getEffectivePermissionKeys(ctx)` (= base + allow − deny), `can(ctx, perm)` (async). Guard de action: `requirePermissionAction(perm)`.
+- Console `/admin/permissoes`: matriz clicável (permissões × papéis), diagnóstico por usuário (papel efetivo + allowed/denied), lista de overrides ativos, modal de save com motivo.
+
+---
+
+## 22. Login por OTP via WhatsApp
+
+> Para colaborador **sem email** (ex.: Macaé). Telefone vira identidade. Commit `32ddf15`, migration 112.
+
+### 22.1 Schema (migration 112)
+- `colaboradores.login_por_whatsapp BOOLEAN DEFAULT FALSE` + `UNIQUE INDEX (empresa_id, telefone) WHERE login_por_whatsapp`
+- `colab_otp` — `empresa_id`, `telefone` (E.164), `code_hash` (sha256+pepper), `expires_at` (10min), `attempts` (max 5), `consumed_at`
+
+### 22.2 Fluxo
+1. **Request** (`/api/auth/phone-otp/request`): valida móvel BR (`validateWhatsAppBR`), resolve tenant via `x-tenant-slug`, busca colab `login_por_whatsapp=true`, `issueOtp()` (rate-limit 3/15min + 30s, código de 6 dígitos cripto, só o **hash** persiste), envia via Z-API (mensagem locale-aware). Resposta genérica `{ok:true}` mesmo se o número não existe (**anti-enumeração**).
+2. **Verify** (`/api/auth/phone-otp/verify`): `checkOtp()` (expiração, attempts, `timingSafeEqual`), marca `consumed_at`. Gera **email-proxy determinístico** `wa.<empresaId>.<e164>@nao-email.vertho.ai`, cria/reusa o usuário no Supabase Auth (`createUser` idempotente) e devolve `callbackUrl` reaproveitando o fluxo de magic-link (`/auth/callback?token_hash=...`).
+
+Helpers em `lib/phone-otp.ts` (`proxyEmailFromPhone`, `isProxyEmail`, `issueOtp`, `checkOtp`, pepper `OTP_PEPPER`) e `lib/phone.ts` (`normalizePhoneBR`, `validateWhatsAppBR`).
+
+---
+
+*Documento validado contra o codigo-fonte local em 25/05/2026.*
+*~420 arquivos TS/TSX + ~70 JS/MJS/Python | 98 arquivos SQL (022-117) | 28+ arquivos de teste | vertho.ai*
+*Revisao: 25/05/2026 (HEAD `2730cd7` — RadarEmpresas + i18n + auditoria/permissões + OTP WhatsApp + hardening RLS)*

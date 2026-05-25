@@ -1,7 +1,7 @@
 # Vertho — Features e Benefícios
 
-> Inventário das features em produção (Mentor IA + Radar + Radar Bett + Pulso de Desenvolvimento) com o benefício correspondente para o cliente. Base para o site, materiais comerciais e ajuste de comunicação.
-> Última atualização: 14/05/2026 — HEAD `b7b072b`.
+> Inventário das features em produção (Mentor IA + Pulso de Desenvolvimento + Radar) com o benefício correspondente para o cliente. Base para o site, materiais comerciais e ajuste de comunicação.
+> Última atualização: 25/05/2026 — HEAD `2730cd7`.
 
 ---
 
@@ -9,14 +9,19 @@
 
 A Vertho é uma plataforma SaaS B2B que **transforma diagnóstico de competências em desenvolvimento real**, usando IA conversacional, trilhas guiadas e relatórios automatizados.
 
-Quatro produtos vivos:
+Produtos vivos voltados ao cliente:
 
 - **Mentor IA** (principal) — Diagnóstico, plano de desenvolvimento individual e trilha guiada, multi-tenant por empresa. Dois modos de uso:
   - **Programa Regular (DUO)** — 14 semanas desenvolvendo 2 competências em paralelo, em profundidade (nível-meta 3 / proficiência). É o modo default. *(Single-comp segue disponível como configuração pontual.)*
   - **Vertho Onboarding** — 10 semanas em espiral cobrindo 5 competências (nível-meta 2 / autonomia supervisionada), para profissionais recém-formados.
-- **Pulso de Desenvolvimento** *(novo, mai/2026)* — Instrumento leve T0/T2 para entender se o ambiente favorece ou bloqueia o desenvolvimento. Dashboard agregado com guard de anonimato (n≥7), Dual-IA classifica respostas abertas em 12 temas, PDFs executivo + complementar NR-1.
+- **Pulso de Desenvolvimento** *(mai/2026)* — Instrumento leve T0/T2 para entender se o ambiente favorece ou bloqueia o desenvolvimento. Dashboard agregado com guard de anonimato (n≥7), Dual-IA classifica respostas abertas em 12 temas, PDFs executivo + complementar NR-1.
 - **Radar Vertho** ([radar.vertho.ai](https://radar.vertho.ai)) — Inteligência pública nacional sobre escolas, municípios, redes e estados (Saeb, Ideb, ENEM, Censo, FUNDEB) com narrativa por IA.
-- **Radar Bett** ([radarbett.vertho.ai](https://radarbett.vertho.ai)) — Site dedicado ao Bett Brasil 2026 com jornada comercial focada em conversão.
+
+A plataforma agora é **trilíngue** (pt-BR / pt-PT / es-ES) e aceita **login por WhatsApp** para colaboradores sem email — ampliando o público alcançável (operação, chão de fábrica, recém-formados).
+
+> **Ferramenta interna (não comercializada):** *RadarEmpresas* — inteligência comercial B2B que ranqueia empresas brasileiras por oportunidade (Receita Federal + CAGED + RAIS), usada pelo próprio time de vendas da Vertho. Detalhada na seção 12. Não é feature de cliente.
+>
+> **Descontinuado:** *Radar Bett* (`radarbett.vertho.ai`) — site do Bett Brasil 2026 foi encerrado pós-evento; agora redireciona (301) pro Radar/site institucional. As frentes "Onde a Vertho pode ajudar" migraram pro Radar Vertho.
 
 ---
 
@@ -25,6 +30,8 @@ Quatro produtos vivos:
 | Feature | O que é | Benefício |
 |---|---|---|
 | **Login sem senha** | Magic Link via email + senha tradicional opcional, Supabase Auth | "Acesso em 1 clique. Sem mais um login pra esquecer." |
+| **Login por WhatsApp (OTP)** | Colaborador **sem email** entra com código de 6 dígitos enviado no WhatsApp (código em hash, expira em 10 min, anti-fraude) | Alcança quem não tem/não usa email corporativo — operação, chão de fábrica, recém-formados. Ninguém fica de fora. |
+| **Plataforma trilíngue** | Interface em pt-BR, pt-PT e es-ES; idioma definido por empresa e ajustável por colaborador (next-intl) | Mesma plataforma atende Brasil, Portugal e mercados hispânicos — sem versão paralela. |
 | **Dashboard personalizado** | Hero + próximo passo + acesso rápido + KPIs pessoais | Foco no que importa hoje, sem se perder em menus. |
 | **Mapeamento Comportamental (DISC)** | Instrumento DISC completo em 29 passos com relatório detalhado | Autoconhecimento profundo do estilo comportamental, gratuito como entrada no programa. |
 | **Diagnóstico Conversacional** | Avaliação por chat com IA (Sonnet 4.6) em 6 turnos com extração socrática de evidências | Acaba o "questionário Likert chato": o colaborador conversa em linguagem natural e a IA capta sinais reais. |
@@ -86,6 +93,8 @@ Quatro produtos vivos:
 | **Dossiê do Gestor** | Documento agregado por gestor para conversa com o RH | Cada gestor entrega contexto pronto da equipe. |
 | **Knowledge Base (RAG)** | Upload PDF/DOCX/TXT/MD (até 4MB) + seed inicial + preview de busca FTS/vector/hybrid | A IA fala "como sua empresa fala" — usa valores, manuais, políticas internas. |
 | **Audit trail de prompts** | Tabela `prompt_versions` com hash SHA-256 | Rastreabilidade total das decisões da IA — quem mudou o quê, quando. |
+| **Log de auditoria de admin** | `admin_audit_log` registra disparos e mutações sensíveis (quem, o quê, qual empresa, resultado, IP) + tela `/admin/auditoria` filtrável | Governança real — toda ação de admin fica rastreável, sem depender de log de servidor. |
+| **Matriz de papéis e permissões** | Console `/admin/permissoes`: 5 papéis × 31 permissões nomeadas + overrides auditáveis por papel ou usuário (com motivo obrigatório) | Controle de acesso granular e explícito — dá pra liberar/bloquear capacidade específica sem mexer em código. |
 | **Lixeira** | Restore de registros excluídos por 30 dias | Errou? Volta. Sem chamado pro suporte. |
 | **Painéis Admin Vertho (internos)** | Evidências, Avaliação Acumulada, Auditoria Sem 14, Simulador de Custo | Time Vertho consegue auditar/regerar qualquer avaliação, com feedback contextual. |
 | **System Health no dashboard admin** | KPIs operacionais em tempo real | Operação transparente — você vê o que está rodando. |
@@ -96,7 +105,8 @@ Quatro produtos vivos:
 
 | Feature | O que é | Benefício |
 |---|---|---|
-| **Multi-tenant nativo** | Isolamento por `empresa_id` + RLS + Auth Action Context em ~120 server actions | Segurança de dados auditável — dados de uma empresa nunca tocam outra. |
+| **Multi-tenant nativo** | Isolamento por `empresa_id` + **RLS real por tenant** (policies que limitam o cliente ao próprio tenant) + guard de admin centralizado server-side + auditoria | Segurança de dados auditável e em profundidade — dados de uma empresa nunca tocam outra, nem via browser. |
+| **Trilíngue (i18n)** | next-intl com pt-BR / pt-PT / es-ES; locale por empresa + por colaborador | Pronta pra Brasil, Portugal e mercados hispânicos — sem fork de produto. |
 | **Dual-IA (validação cruzada)** | Avaliações críticas passam por 1ª IA (geração) + 2ª IA (auditoria) — Sonnet + Gemini | Decisão de IA não é unilateral — sempre validada por modelo independente. |
 | **Extended Thinking** | Claude Sonnet com budget 32k/65k tokens em fases de avaliação e auditoria | Análise profunda — IA "pensa antes de responder" em decisões importantes. |
 | **Granularidade 0.1 nas notas** | Notas de descritor 1.0 a 4.0 em passos de 0.1 (não 0.5) | Sensibilidade real pra capturar evolução pequena mas consistente. |
@@ -217,9 +227,11 @@ Site público em [radar.vertho.ai](https://radar.vertho.ai).
 
 ---
 
-## 8. Radar Bett — Site Bett Brasil 2026
+## 8. Radar Bett — Site Bett Brasil 2026 *(DESCONTINUADO)*
 
-Site público em [radarbett.vertho.ai](https://radarbett.vertho.ai).
+> ⚠️ **Encerrado pós-evento.** `radarbett.vertho.ai` agora redireciona (301): deep-links equivalentes → Radar Vertho, resto → vertho.ai. As frentes "Onde a Vertho pode ajudar" migraram pro Radar Vertho. O código segue dormant no repo. Mantido aqui como registro histórico — **não usar em material comercial novo.**
+
+Era um site público em radarbett.vertho.ai (jornada comercial focada no Bett Brasil 2026):
 
 | Feature | O que é | Benefício |
 |---|---|---|
@@ -274,4 +286,23 @@ Para a comunicação não soar genérica ou marketeira demais:
 
 ---
 
-*Inventário gerado a partir do código-fonte em 14/05/2026 (HEAD `b7b072b`). Sempre que entrar feature nova, atualizar aqui antes de virar copy de site.*
+## 12. RadarEmpresas — Inteligência comercial B2B *(ferramenta interna)*
+
+> **Uso interno do time de vendas da Vertho — não é produto de cliente, não vai pro site.** Documentado aqui para o time comercial entender a capacidade que sustenta a prospecção.
+
+Mapeia empresas brasileiras a partir de dados públicos (Receita Federal + CAGED + RAIS + CEMPRE/SIDRA) e as ranqueia por um **Score de Oportunidade Vertho** (40% dor de pessoas + 30% capacidade de compra + 30% fit Vertho), classificando em *abordar agora / boa / nutrir / baixa*.
+
+| Capacidade | O que entrega |
+|---|---|
+| **Funil endereçável** | De "todas as empresas ativas" até "priorizados top 10%", mostrando o universo real de leads operacionais por filtro. |
+| **Score auditável** | Cada empresa tem breakdown explicável (por que pontuou X), com confiança e sinais setoriais reais (rotatividade = CAGED÷RAIS). |
+| **Detecção de redes/franquias** | Franquias e grupos viram **1 lead** (negociação com a franqueadora, não unidade a unidade). |
+| **Potencial por Cidade (TAM)** | Tamanho de mercado somável por município, cruzando empresas B2B + escolas privadas. |
+| **Listas de prospecção** | Pipeline de status por lead (`new → reviewed → approved → contacted → meeting_scheduled`) + export CSV/XLSX. |
+| **Pipeline nacional** | Processamento pesado local (DuckDB/Parquet); só agregados sobem ao Supabase. Escala dos ~20M de estabelecimentos do país. |
+
+Disclaimer de uso (proprietário): os sinais são **hipóteses comerciais**, não afirmações — comunicação deve usar "sinais sugerem", "empresas desse perfil costumam".
+
+---
+
+*Inventário gerado a partir do código-fonte em 25/05/2026 (HEAD `2730cd7`). Sempre que entrar feature nova, atualizar aqui antes de virar copy de site.*
