@@ -64,6 +64,7 @@ export type Escola = {
 export type CensoInfra = {
   codigo_inep: string;
   ano: number;
+  matriculas: number | null;   // QT_MAT_BAS — total de alunos na educação básica
   zona_localizacao: string | null;
   latitude: number | null;
   longitude: number | null;

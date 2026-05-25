@@ -324,10 +324,14 @@ async function main() {
       if (v != null) quantidades[name] = v;
     }
     const scores = calcularScores(indicadores);
+    // Total de matrículas (microdados ed_básica). Catálogo-only não tem a
+    // coluna → fica null (matrícula desconhecida, não zero).
+    const matriculas = quantidades.QT_MAT_BAS ?? null;
 
     batchCenso.push({
       codigo_inep: codigoInep,
       ano,
+      matriculas,
       situacao_funcionamento: parseSituacao(cells[idx.SIT]),
       zona_localizacao: parseLocalizacao(cells[idx.LOC]),
       zona_diferenciada: cells[idx.LOC_DIF] || null,

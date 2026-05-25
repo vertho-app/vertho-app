@@ -211,6 +211,9 @@ export async function importarCensoCsv(
     }
 
     const scores = calcularScores(indicadores);
+    // Total de matrículas (microdados ed_básica). Catálogo-only não tem a
+    // coluna → fica null (matrícula desconhecida, não zero).
+    const matriculas = quantidades.QT_MAT_BAS ?? null;
     const nome = I_NOME >= 0 ? String(cells[I_NOME] || '').trim() : '';
     const muniNome = I_MUNI_NOME >= 0 ? String(cells[I_MUNI_NOME] || '').trim() : '';
     const ufNome = I_UF >= 0 ? String(cells[I_UF] || '').trim().toUpperCase() : '';
@@ -218,6 +221,7 @@ export async function importarCensoCsv(
     rowsToInsert.push({
       codigo_inep: codigoInep,
       ano,
+      matriculas,
       situacao_funcionamento: parseSituacao(cells[I_SIT]),
       zona_localizacao: parseLocalizacao(cells[I_LOC]),
       zona_diferenciada: cells[I_LOC_DIF] || null,
