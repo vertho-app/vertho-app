@@ -1,6 +1,8 @@
 'use server';
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
+import { logAdminAction } from '@/lib/audit';
 import { addVercelDomain, removeVercelDomain } from '@/lib/vercel-domain';
 
 export async function loadConfig(empresaId) {
@@ -27,6 +29,11 @@ export async function salvarConfig(empresaId, sysConfig) {
     .update({ sys_config: sysConfig })
     .eq('id', empresaId);
   if (error) return { success: false, error: error.message };
+  await logAdminAction({
+    adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
+    acao: 'empresa.editar', empresaId, alvo: 'sys_config',
+    detalhes: { campo: 'sys_config', chaves: Object.keys(sysConfig || {}) },
+  });
   return { success: true, message: 'Configurações salvas' };
 }
 
@@ -42,6 +49,11 @@ export async function salvarLocaleEmpresa(empresaId, defaultLocale) {
     .update({ default_locale: defaultLocale })
     .eq('id', empresaId);
   if (error) return { success: false, error: error.message };
+  await logAdminAction({
+    adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
+    acao: 'empresa.editar', empresaId, alvo: 'default_locale',
+    detalhes: { campo: 'default_locale', valor: defaultLocale },
+  });
   return { success: true, message: 'Idioma padrão salvo' };
 }
 
@@ -59,6 +71,11 @@ export async function salvarBranding(empresaId, branding) {
     .update({ ui_config: merged })
     .eq('id', empresaId);
   if (error) return { success: false, error: error.message };
+  await logAdminAction({
+    adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
+    acao: 'empresa.editar', empresaId, alvo: 'branding',
+    detalhes: { campo: 'ui_config', chaves: Object.keys(branding || {}) },
+  });
   return { success: true, message: 'Branding salvo' };
 }
 
@@ -118,6 +135,12 @@ export async function salvarSlug(empresaId, slug) {
   if (slugAnterior && slugAnterior !== clean) {
     removeVercelDomain(slugAnterior).catch(() => {});
   }
+
+  await logAdminAction({
+    adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
+    acao: 'empresa.editar', empresaId, empresaSlug: clean, alvo: 'slug (subdomínio)',
+    detalhes: { campo: 'slug', de: slugAnterior, para: clean },
+  });
 
   return { success: true, message: `Slug atualizado para "${clean}". Lembre de vincular o novo subdomínio ao Vercel.`, slug: clean };
 }

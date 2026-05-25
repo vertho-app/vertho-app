@@ -1,6 +1,8 @@
 'use server';
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
+import { logAdminAction } from '@/lib/audit';
 
 export async function criarNovaEmpresa(dados) {
   const sb = await requireAdminSupabase();
@@ -14,5 +16,10 @@ export async function criarNovaEmpresa(dados) {
     .select('id, nome, segmento, slug')
     .single();
   if (error) return { success: false, error: error.message };
+  await logAdminAction({
+    adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
+    acao: 'empresa.criar', empresaId: data.id, empresaSlug: data.slug,
+    alvo: data.nome, detalhes: { segmento: data.segmento, slug: data.slug },
+  });
   return { success: true, empresa: data };
 }

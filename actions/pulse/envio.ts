@@ -1,6 +1,8 @@
 'use server';
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
+import { logAdminAction } from '@/lib/audit';
 import { tenantUrl } from '@/lib/domain';
 
 export interface EnvioStats {
@@ -204,6 +206,14 @@ export async function enviarConvitesPulso(
       }
     }
   }
+
+  await logAdminAction({
+    adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
+    acao: 'pulse.envio', empresaId, empresaSlug: empresa.slug,
+    alvo: `${stats.total_candidatos} convites · ${ciclo.nome} ${opts.pulse_moment}`,
+    detalhes: { cicloId, pulse_moment: opts.pulse_moment, canal: opts.canal, ...stats },
+    resultado: stats.enviados === 0 ? 'erro' : stats.erros > 0 ? 'parcial' : 'ok',
+  });
 
   return { ok: true, stats };
 }
