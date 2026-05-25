@@ -318,6 +318,7 @@
         "companyRadar": "Radar Empresas",
         "cityPotential": "Potencial por Cidade",
         "admins": "Admins",
+        "permissions": "Permissões",
         "audit": "Auditoria",
         "trash": "Lixeira"
       },
@@ -344,6 +345,7 @@
         "b2bIntelligence": "Inteligência comercial B2B",
         "companiesSchoolsUnified": "Empresas + Escolas unificado",
         "platformAdmins": "Platform admins",
+        "rolesPermissions": "Papéis e poderes",
         "adminTraces": "Rastros de ações de admin",
         "deletedRecords": "Registros excluídos"
       }

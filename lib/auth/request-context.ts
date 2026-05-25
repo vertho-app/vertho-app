@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getUserContext } from '@/lib/authz';
+import { can, type PermissionKey } from '@/lib/permissions';
 import type { UserContext, Role } from '@/types';
 
 /**
@@ -87,6 +88,19 @@ export async function requireAdmin(req: Request): Promise<AuthenticatedContext |
     return NextResponse.json({ error: 'apenas platform admin' }, { status: 403 });
   }
   return auth;
+}
+
+export async function requirePermission(
+  req: Request,
+  permission: PermissionKey,
+): Promise<AuthenticatedContext | Response> {
+  const auth = await requireUser(req);
+  if (auth instanceof Response) return auth;
+  if (await can(auth, permission)) return auth;
+  return NextResponse.json(
+    { error: `permissão necessária: ${permission}` },
+    { status: 403 },
+  );
 }
 
 type AllowedRole = Role | 'admin';

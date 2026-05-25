@@ -3,6 +3,7 @@
 import { cookies, headers } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { getUserContext } from '@/lib/authz';
+import { can, type PermissionKey } from '@/lib/permissions';
 import type { AuthenticatedContext } from './request-context';
 
 /**
@@ -55,6 +56,13 @@ export async function requireUserAction(): Promise<AuthenticatedContext> {
 export async function requireAdminAction(): Promise<AuthenticatedContext> {
   const ctx = await requireUserAction();
   if (!ctx.isPlatformAdmin) throw new Error('FORBIDDEN: apenas platform admin');
+  return ctx;
+}
+
+export async function requirePermissionAction(permission: PermissionKey): Promise<AuthenticatedContext> {
+  const ctx = await requireUserAction();
+  const ok = await can(ctx, permission);
+  if (!ok) throw new Error(`FORBIDDEN: permissão necessária ${permission}`);
   return ctx;
 }
 

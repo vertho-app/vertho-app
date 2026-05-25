@@ -1,8 +1,10 @@
 'use server';
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requirePermissionAction } from '@/lib/auth/action-context';
 
 export async function loadPlatformAdmins() {
+  await requirePermissionAction('platform_admins.manage');
   const sb = await requireAdminSupabase();
   const { data } = await sb.from('platform_admins')
     .select('id, email, nome, created_at')
@@ -11,6 +13,7 @@ export async function loadPlatformAdmins() {
 }
 
 export async function adicionarAdmin(email: any, nome: any) {
+  await requirePermissionAction('platform_admins.manage');
   const sb = await requireAdminSupabase();
   if (!email?.trim()) return { success: false, error: 'Email obrigatorio' };
 
@@ -27,6 +30,7 @@ export async function adicionarAdmin(email: any, nome: any) {
 }
 
 export async function removerAdmin(id: any) {
+  await requirePermissionAction('platform_admins.manage');
   const sb = await requireAdminSupabase();
   if (!id) return { success: false, error: 'ID obrigatorio' };
   const { error } = await sb.from('platform_admins').delete().eq('id', id);
