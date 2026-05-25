@@ -97,10 +97,18 @@ export async function atualizarRole(colaboradorId, novoRole) {
   const validRoles = ['colaborador', 'gestor', 'rh', 'tutor'];
   if (!validRoles.includes(novoRole)) return { success: false, error: `Role invalido. Use: ${validRoles.join(', ')}` };
 
-  const { error } = await sb.from('colaboradores')
+  const { data: upd, error } = await sb.from('colaboradores')
     .update({ role: novoRole })
-    .eq('id', colaboradorId);
+    .eq('id', colaboradorId)
+    .select('empresa_id, nome_completo')
+    .maybeSingle();
   if (error) return { success: false, error: error.message };
+  await logAdminAction({
+    adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
+    acao: 'equipe.editar_role', empresaId: upd?.empresa_id,
+    alvo: upd?.nome_completo || colaboradorId,
+    detalhes: { colaboradorId, novoRole },
+  });
   return { success: true, message: `Role atualizado para ${novoRole}` };
 }
 

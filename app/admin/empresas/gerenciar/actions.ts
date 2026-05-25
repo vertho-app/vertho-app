@@ -351,7 +351,7 @@ export async function loadCargos(empresaId: any) {
 }
 
 export async function salvarCargo(empresaId: any, cargo: any) {
-  await requireAdminAction();
+  const ctx = await requireAdminAction();
 
   const sb = await requireAdminSupabase();
   const registro = {
@@ -379,18 +379,27 @@ export async function salvarCargo(empresaId: any, cargo: any) {
     result = await sb.from('cargos_empresa').insert(registro).select().single();
   }
   if (result.error) return { success: false, error: result.error.message };
+  await logAdminAction({
+    adminEmail: ctx.email, acao: 'cargo.salvar', empresaId,
+    alvo: registro.nome,
+    detalhes: { modo: cargo.id ? 'editar' : 'criar', cargoId: result.data?.id ?? cargo.id, eh_lideranca: registro.eh_lideranca },
+  });
   return { success: true, data: result.data };
 }
 
 export async function excluirCargo(id: any) {
-  await requireAdminAction();
+  const ctx = await requireAdminAction();
   const sb = await requireAdminSupabase();
 
-  const { data: existe } = await sb.from('cargos_empresa').select('empresa_id').eq('id', id).maybeSingle();
+  const { data: existe } = await sb.from('cargos_empresa').select('empresa_id, nome').eq('id', id).maybeSingle();
   if (!existe) return { success: false, error: 'cargo não encontrado' };
 
   const { error } = await sb.from('cargos_empresa').delete().eq('id', id);
   if (error) return { success: false, error: error.message };
+  await logAdminAction({
+    adminEmail: ctx.email, acao: 'cargo.excluir', empresaId: (existe as any).empresa_id,
+    alvo: (existe as any).nome || id, detalhes: { cargoId: id },
+  });
   return { success: true };
 }
 
