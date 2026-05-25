@@ -67,6 +67,23 @@ export function InfraSection({ censo }: { censo: CensoInfra }) {
         )}
       </p>
 
+      {censo.matriculas != null && (
+        <div className="flex items-center gap-4 rounded-2xl px-6 py-4 mb-6 border border-white/[0.08]"
+          style={{ background: 'rgba(52,197,204,0.08)' }}>
+          <p className="text-white shrink-0"
+            style={{
+              fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+              fontSize: 'clamp(28px, 4vw, 40px)', fontWeight: 600, lineHeight: 1,
+            }}>
+            {censo.matriculas.toLocaleString('pt-BR')}
+          </p>
+          <p className="text-white/65 leading-snug" style={{ fontSize: 14 }}>
+            alunos matriculados na educação básica
+            <span className="text-white/40"> · total declarado no Censo Escolar {censo.ano}</span>
+          </p>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {scores.map(({ k, v }) => {
           const cls = scoreClassificacao(v);
