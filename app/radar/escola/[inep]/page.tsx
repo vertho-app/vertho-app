@@ -23,6 +23,7 @@ import { AlfabetizacaoSaebCard } from '../../_components/alfabetizacao-saeb-card
 import { IdebTimelineChart } from '../../_components/ideb-timeline-chart';
 import { SaebHistoryChart } from '../../_components/saeb-history-chart';
 import { DestaquesAtencao } from '../../_components/destaques-atencao';
+import { AtuacaoVertho } from '../../_components/atuacao-vertho';
 import { FaleConosco } from '../../_components/fale-conosco';
 
 export const dynamic = 'force-dynamic';
@@ -217,6 +218,16 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
             <p className="text-sm text-white/55">Ainda não há resultados Saeb publicados nesta plataforma para esta escola.</p>
           </section>
         )}
+
+        {/* Onde a Vertho pode ajudar — frentes derivadas dos dados */}
+        <AtuacaoVertho
+          escolaNome={escola.nome}
+          saeb={saeb}
+          ideb={ideb}
+          enem={enemElegivel}
+          censo={censo}
+          quadrante={infraSaeb.resumo?.quadrante ?? null}
+        />
 
         {/* CTA Lead */}
         <section className="text-center py-12 mb-10 rounded-2xl border border-cyan-400/20"

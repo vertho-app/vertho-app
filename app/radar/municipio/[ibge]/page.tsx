@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { ArrowLeft } from 'lucide-react';
 
-import { getMunicipio, getMunicipioBenchmarks, getMunicipioVariabilidade } from '@/lib/radar/queries';
+import { getMunicipio, getMunicipioBenchmarks, getMunicipioVariabilidade, getDispersaoMunicipal } from '@/lib/radar/queries';
 import { estimarVaar } from '@/lib/radar/vaar-estimativa';
 import { calcularCondIIDerivadoMunicipio, getStatusICMSEducacional } from '@/lib/radar/vaar-derivado';
 import { leituraIcaMunicipio } from '@/lib/radar/leitura-deterministica';
@@ -18,6 +18,7 @@ import { VaarSection } from '../../_components/vaar-section';
 import { BenchmarkTable } from '../../_components/benchmark-table';
 import { VariabilidadeCard } from '../../_components/variabilidade-card';
 import { HeroMunicipio } from '../../_components/hero-municipio';
+import { AtuacaoVerthoMunicipio } from '../../_components/atuacao-vertho';
 import { FaleConosco } from '../../_components/fale-conosco';
 
 export const dynamic = 'force-dynamic';
@@ -43,9 +44,10 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
 
   registrarEvento('view_municipio', { scopeType: 'municipio', scopeId: ibge }).catch(() => {});
 
-  const [benchmarks, variabilidade] = await Promise.all([
+  const [benchmarks, variabilidade, dispersao] = await Promise.all([
     getMunicipioBenchmarks(ibge),
     getMunicipioVariabilidade(ibge),
+    getDispersaoMunicipal(ibge),
   ]);
 
   // Estimativa VAAR — só calcula quando município não é beneficiário
@@ -212,6 +214,19 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
             </div>
           </section>
         )}
+
+        {/* Onde a Vertho pode ajudar — frentes derivadas dos dados da rede */}
+        <AtuacaoVerthoMunicipio
+          ica={m.ica}
+          ideb={m.ideb}
+          enem={m.enem}
+          vaar={m.vaar}
+          redes={m.redes}
+          dispersao={dispersao}
+          benchmarks={benchmarks}
+          uf={m.uf}
+          nome={m.nome}
+        />
 
         {/* CTA */}
         <section className="text-center py-12 mb-10 rounded-2xl border border-cyan-400/20"
