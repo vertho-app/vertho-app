@@ -2,8 +2,10 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { ArrowLeft, DollarSign, Users, School, FileText, Building2 } from 'lucide-react';
 import { CALLS, MODELS, MODEL_IDS, PRESETS, SCALE_LABEL, calcCost } from '@/lib/ia-cost-catalog';
+import type { AppLocale } from '@/i18n/routing';
 
 type ScaleType = 'colab' | 'pagina_radar' | 'lead_radar' | 'empresa';
 
@@ -11,6 +13,8 @@ const PRESET_KEYS = ['atual', 'premium', 'balanced', 'cheap'] as const;
 
 export default function SimuladorCustoPage() {
   const router = useRouter();
+  const locale = useLocale() as AppLocale;
+  const t = useTranslations('AdminCostSimulator');
   const [units, setUnits] = useState<Record<ScaleType, number>>({
     colab: 1,
     pagina_radar: 100,
@@ -70,30 +74,30 @@ export default function SimuladorCustoPage() {
         </button>
         <div className="flex-1">
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <DollarSign size={20} className="text-emerald-400" /> Simulador de Custo — IA
+            <DollarSign size={20} className="text-emerald-400" /> {t('title')}
           </h1>
-          <p className="text-xs text-gray-500">Estimativa de gasto com chamadas de IA por unidade de escala (colab, escola Radar, lead, empresa). Preços mai/2026.</p>
+          <p className="text-xs text-gray-500">{t('subtitle')}</p>
         </div>
       </div>
 
       {/* Inputs de escala */}
       <div className="grid gap-3 mb-4 grid-cols-2 sm:grid-cols-4">
-        <ScaleInput icon={<Users size={14} />} label="Colaboradores" sub="ciclo Mentor IA" value={units.colab} onChange={v => setUnit('colab', v)} />
-        <ScaleInput icon={<School size={14} />} label="Páginas Radar" sub="escolas/municípios únicos" value={units.pagina_radar} onChange={v => setUnit('pagina_radar', v)} />
-        <ScaleInput icon={<FileText size={14} />} label="Leads Radar" sub="PDFs gerados" value={units.lead_radar} onChange={v => setUnit('lead_radar', v)} />
-        <ScaleInput icon={<Building2 size={14} />} label="Empresas (setup)" sub="one-time" value={units.empresa} onChange={v => setUnit('empresa', v)} />
+        <ScaleInput icon={<Users size={14} />} label={t('scale.colab.label')} sub={t('scale.colab.sub')} value={units.colab} onChange={v => setUnit('colab', v)} />
+        <ScaleInput icon={<School size={14} />} label={t('scale.pagina_radar.label')} sub={t('scale.pagina_radar.sub')} value={units.pagina_radar} onChange={v => setUnit('pagina_radar', v)} />
+        <ScaleInput icon={<FileText size={14} />} label={t('scale.lead_radar.label')} sub={t('scale.lead_radar.sub')} value={units.lead_radar} onChange={v => setUnit('lead_radar', v)} />
+        <ScaleInput icon={<Building2 size={14} />} label={t('scale.empresa.label')} sub={t('scale.empresa.sub')} value={units.empresa} onChange={v => setUnit('empresa', v)} />
       </div>
 
       {/* Preset */}
       <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 mb-6">
-        <label className="block text-[10px] uppercase tracking-widest text-gray-500 mb-1">Preset</label>
+        <label className="block text-[10px] uppercase tracking-widest text-gray-500 mb-1">{t('preset.label')}</label>
         <div className="flex gap-2 flex-wrap">
           {PRESET_KEYS.map(k => (
             <button key={k} onClick={() => aplicarPreset(k)}
               className={`px-3 py-1.5 rounded-full text-xs font-bold border ${
                 preset === k ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-300' : 'border-white/10 text-gray-400 hover:text-white'
               }`}>
-              {k === 'atual' ? 'Config atual' : PRESETS[k as keyof typeof PRESETS]?.label}
+              {k === 'atual' ? t('preset.current') : PRESETS[k as keyof typeof PRESETS]?.label}
             </button>
           ))}
         </div>
@@ -106,24 +110,22 @@ export default function SimuladorCustoPage() {
       <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 mb-6">
         <div className="flex items-baseline justify-between flex-wrap gap-3">
           <div>
-            <p className="text-[10px] uppercase tracking-widest text-emerald-400">Custo estimado</p>
+            <p className="text-[10px] uppercase tracking-widest text-emerald-400">{t('totals.estimatedCost')}</p>
             <p className="text-4xl font-extrabold text-emerald-300">
               USD {totais.usd.toFixed(2)}
             </p>
             {nColabs > 0 && (
               <p className="text-xs text-gray-400">
-                {nColabs} colab{nColabs > 1 ? 's' : ''} · ~USD {(totais.porScale.colab.usd / Math.max(1, nColabs)).toFixed(2)} por colab (Mentor IA)
+                {t('totals.perCollaborator', { count: nColabs, value: (totais.porScale.colab.usd / Math.max(1, nColabs)).toFixed(2) })}
               </p>
             )}
           </div>
           <div className="text-right">
             <p className="text-xs text-gray-400">
-              {(totais.inTok / 1_000_000).toFixed(2)}M tokens input
-              {' + '}
-              {(totais.outTok / 1_000_000).toFixed(2)}M output
+              {t('totals.tokens', { input: (totais.inTok / 1_000_000).toFixed(2), output: (totais.outTok / 1_000_000).toFixed(2) })}
             </p>
             <p className="text-[10px] text-gray-500">
-              = {((totais.inTok + totais.outTok) / 1_000_000).toFixed(2)}M total
+              {t('totals.totalTokens', { total: ((totais.inTok + totais.outTok) / 1_000_000).toFixed(2) })}
             </p>
           </div>
         </div>
@@ -134,7 +136,7 @@ export default function SimuladorCustoPage() {
             <div key={s} className="rounded-lg bg-white/[0.03] px-3 py-2">
               <p className="text-[9px] uppercase text-gray-500">{SCALE_LABEL[s]}</p>
               <p className="text-sm font-bold text-white">USD {totais.porScale[s].usd.toFixed(2)}</p>
-              <p className="text-[10px] text-gray-500">× {units[s]} unid.</p>
+              <p className="text-[10px] text-gray-500">{t('totals.units', { count: units[s] })}</p>
             </div>
           ))}
         </div>
@@ -145,7 +147,7 @@ export default function SimuladorCustoPage() {
             <div key={fase} className="rounded-lg bg-white/[0.03] px-3 py-2">
               <p className="text-[9px] uppercase text-gray-500">{fase}</p>
               <p className="text-sm font-bold text-white">USD {d.usd.toFixed(2)}</p>
-              <p className="text-[10px] text-gray-500">{d.exec} chamadas</p>
+              <p className="text-[10px] text-gray-500">{t('totals.calls', { count: d.exec })}</p>
             </div>
           ))}
         </div>
@@ -153,7 +155,7 @@ export default function SimuladorCustoPage() {
 
       {/* Tabela detalhada */}
       <div className="space-y-2">
-        <h2 className="text-xs uppercase tracking-widest text-gray-400 mb-2">Catálogo</h2>
+        <h2 className="text-xs uppercase tracking-widest text-gray-400 mb-2">{t('catalog.title')}</h2>
         {CALLS.map(call => {
           const u = units[call.scaleType as ScaleType] ?? 0;
           const c = calcCost(call, models[call.id], u);
@@ -166,15 +168,19 @@ export default function SimuladorCustoPage() {
                     <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.04] text-gray-400">{call.fase}</span>
                     <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-300">{SCALE_LABEL[call.scaleType as ScaleType]}</span>
                     {call.critical && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-300">crítica</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-300">{t('catalog.critical')}</span>
                     )}
                     {call.opcional && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-500/10 text-gray-400">opcional</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-500/10 text-gray-400">{t('catalog.optional')}</span>
                     )}
                   </div>
                   <p className="text-[11px] text-gray-500 mt-0.5">{call.descricao}</p>
                   <p className="text-[10px] text-gray-600 mt-1">
-                    ~{call.inTokens} tok in + {call.outTokens} tok out · × {call.exec} execuções/unid.
+                    {t('catalog.tokenEstimate', {
+                      input: call.inTokens.toLocaleString(locale),
+                      output: call.outTokens.toLocaleString(locale),
+                      executions: call.exec.toLocaleString(locale),
+                    })}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -203,22 +209,11 @@ export default function SimuladorCustoPage() {
       </div>
 
       <div className="mt-6 p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-xs text-gray-300 space-y-2">
-        <p className="font-bold text-amber-300">Notas:</p>
+        <p className="font-bold text-amber-300">{t('notes.title')}</p>
         <ul className="list-disc pl-5 space-y-1">
-          <li>Estimativas aproximadas (±30%). Uso real varia conforme tamanho de histórico, qualidade da régua, respostas do colab.</li>
-          <li><b>Escalas distintas</b>: Mentor IA escala por colab; Radar escala por escola/município único analisado (cache por dadosHash) e por lead PDF; Setup é one-time por empresa. Use os 4 inputs no topo pra simular cada cenário.</li>
-          <li><b>Grounding RAG</b> (Voyage embeddings + kb_search_hybrid) está incluso nos <b>inTokens</b> das chamadas afetadas (Tira-Dúvidas, Evidências socrático, Missão feedback): +800 tok/call de contexto da knowledge_base. Se a base estiver vazia, não há grounding — subtraia ~$0.30/colab/ciclo.</li>
-          <li><b>Embedding Voyage</b> (fase RAG) roda ~138 queries por colab × 100 tokens × $0.18/1M ≈ $0.0025/colab. Custo irrisório mas registrado pra completude.</li>
-          <li><b>Tira-Dúvidas</b> é opcional e a estimativa (3 perguntas/semana × 12 sems) pode ser muito maior ou menor.</li>
-          <li><b>PDI</b> e <b>Relatório Individual</b> marcados como "opcional" — só rodam se admin clicar; tela Temporada Concluída + PDF já cobrem o caso padrão.</li>
-          <li><b>Evolution Report</b> (fim sem 14) é consolidação programática dos JSONs — não usa IA, fora do catálogo.</li>
-          <li><b>Relatório Gestor</b> e <b>Relatório RH</b> (fase 5) usam IA + grounding, mas rodam 1×/gestor e 1×/empresa — fora do modelo per-colab. Estimativa: ~$0.10/gestor e ~$0.20/empresa/ciclo.</li>
-          <li><b>Setup Empresa</b> (IA1/IA2/IA3/Cenários B/PPP/Tagging) roda one-time — multiplique pelo nº de empresas que vão entrar no ciclo, não por colab.</li>
-          <li><b>Radar narrativa</b> tem cache forte por <code>dadosHash</code> — uma escola/município gera 1 análise até os dados oficiais mudarem. Bot crawlers nunca disparam IA (só leem cache).</li>
-          <li><b>Radar proposta PDF</b> roda 1× por lead via worker QStash. Cache reutiliza se o mesmo escopo já foi analisado.</li>
-          <li>Scorer sem 14 e check ficaram caros depois da triangulação (cenário + régua + acumulada estruturada + evidências brutas = ~8k tokens in).</li>
-          <li>Preços de modelos atualizados em <b>mai/2026</b>. Consulte fornecedor pra valores vigentes.</li>
-          <li>Simulador de Temporada (teste) custa extra: ~200 chamadas (Haiku pra colab simulado, Sonnet pro mentor) ≈ USD 1-2 por rodada.</li>
+          {t.raw('notes.items').map((item: string, index: number) => (
+            <li key={index}>{item}</li>
+          ))}
         </ul>
       </div>
     </div>

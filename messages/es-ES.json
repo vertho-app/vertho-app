@@ -1,0 +1,3409 @@
+{
+  "Metadata": {
+    "title": "Vertho",
+    "description": "Tu itinerario de desarrollo"
+  },
+  "Home": {
+    "eyebrow": "Vertho Mentor IA",
+    "title": "Desarrollo humano con inteligencia aplicada.",
+    "description": "Plataforma para mapear competencias, orientar itinerarios de aprendizaje y apoyar a responsables con datos accionables.",
+    "accessPlatform": "Acceder a la plataforma",
+    "viewRadar": "Ver Radar"
+  },
+  "Common": {
+    "locales": {
+      "pt-BR": "Portugués (BR)",
+      "pt-PT": "Portugués (PT)",
+      "es-ES": "Español"
+    },
+    "actions": {
+      "back": "Volver",
+      "enter": "Entrar",
+      "close": "Cerrar"
+    }
+  },
+  "Login": {
+    "defaultSubtitle": "Tu itinerario de desarrollo",
+    "emailPrompt": "Introduce tu correo para acceder",
+    "whatsappPhonePrompt": "Introduce tu WhatsApp para recibir el código",
+    "whatsappCodePrompt": "Introduce el código que enviamos a tu WhatsApp",
+    "emailPlaceholder": "tu@email.com",
+    "passwordPlaceholder": "Contraseña",
+    "phonePlaceholder": "Prefijo + número (ej: 11912345678)",
+    "codePlaceholder": "000000",
+    "sendCode": "Enviar código",
+    "sending": "Enviando...",
+    "entering": "Entrando...",
+    "checking": "Verificando...",
+    "enterWithEmail": "Entrar con correo",
+    "enterWithPassword": "Entrar con contraseña",
+    "enterWithMagicLink": "Entrar con Magic Link",
+    "enterWithWhatsapp": "No tengo correo · entrar con WhatsApp",
+    "resendOrChangePhone": "Reenviar / cambiar número",
+    "linkSentTitle": "¡Enlace enviado!",
+    "linkSentDescription": "Haz clic en el enlace enviado a tu <email>correo</email> o <whatsapp>WhatsApp</whatsapp> para acceder a tu entorno de desarrollo.",
+    "useAnotherEmail": "Usar otro correo",
+    "errors": {
+      "invalidEmail": "Introduce un correo válido.",
+      "checkEmail": "Error al verificar el correo.",
+      "emailNotRegistered": "Correo no registrado. Contacta con el administrador de la empresa.",
+      "network": "Error de red: {message}",
+      "sendLink": "No fue posible enviar el enlace. Inténtalo de nuevo.",
+      "invalidWhatsapp": "Introduce tu WhatsApp con prefijo.",
+      "sendCode": "No fue posible enviar el código.",
+      "invalidCodeLength": "Introduce el código de 6 dígitos.",
+      "invalidCode": "Código inválido."
+    },
+    "signup": {
+      "eyebrow": "{tenantName} · registro",
+      "title": "¡Bienvenido!",
+      "description": "Aún no tienes registro. Completa los datos para crear tu acceso.",
+      "email": "Correo",
+      "fullName": "Nombre completo",
+      "fullNamePlaceholder": "Cómo quieres que te llamemos",
+      "whatsapp": "WhatsApp",
+      "phonePlaceholder": "(11) 91234-5678",
+      "phoneHintEmpty": "Para recibir el enlace de acceso",
+      "phoneHintCount": "{count}/11 dígitos",
+      "phoneHintDone": "✓ 11 dígitos",
+      "phoneHintMax": "{count} dígitos (máx. 11)",
+      "role": "Cargo",
+      "loading": "Cargando…",
+      "optional": "Opcional",
+      "select": "Selecciona",
+      "selectPlaceholder": "— selecciona —",
+      "rolePlaceholder": "Ej: Director pedagógico",
+      "creating": "Creando acceso...",
+      "submit": "Crear acceso y enviar enlace",
+      "consent": "Al registrarte, aceptas recibir el enlace de acceso por correo y WhatsApp.",
+      "errors": {
+        "fullName": "Introduce tu nombre completo.",
+        "phoneLength": "WhatsApp debe tener 11 dígitos (prefijo + 9 + número). Has introducido {count}.",
+        "invalidDdd": "Prefijo inválido.",
+        "mobileStartsWithNine": "El móvil de WhatsApp debe empezar con 9 después del prefijo.",
+        "create": "No fue posible crear el registro.",
+        "network": "Error de red: {message}"
+      }
+    }
+  },
+  "DashboardShell": {
+    "nav": {
+      "home": "Inicio",
+      "team": "Equipo",
+      "journey": "Itinerario",
+      "season": "Temporada",
+      "evolution": "Evolución",
+      "profile": "Perfil"
+    },
+    "logout": "Salir"
+  },
+  "NotFound": {
+    "title": "Página no encontrada",
+    "description": "La página que buscas no existe, fue movida o puede que no tengas permiso para acceder.",
+    "back": "Volver",
+    "goDashboard": "Ir al dashboard"
+  },
+  "DashboardHome": {
+    "contentFormats": {
+      "video": "Vídeo",
+      "audio": "Audio",
+      "text": "Artículo",
+      "case": "Caso",
+      "pdf": "PDF",
+      "content": "Contenido"
+    },
+    "missingCollaborator": "Colaborador no encontrado.",
+    "fallbackFirstName": "ti",
+    "fallbackPhaseTitle": "Diagnóstico",
+    "phaseDescriptions": {
+      "1": "Responde a los escenarios para mapear tu nivel actual.",
+      "2": "Tu itinerario de desarrollo se está configurando.",
+      "3": "Sigue tu temporada de 14 semanas y evoluciona.",
+      "4": "Practica y registra evidencias de tu progreso.",
+      "5": "Etapa final de reevaluación y consolidación.",
+      "fallback": "Continúa tu itinerario de desarrollo."
+    },
+    "phaseLabels": {
+      "externalProfile": "Perfil",
+      "disc": "DISC",
+      "assessment": "Eval",
+      "pdi": "PDI",
+      "season": "Temp",
+      "evolution": "Evol"
+    },
+    "mainCta": {
+      "today": "Iniciar actividad de hoy",
+      "vote": "Votar antes del perfil comportamental",
+      "waitingProfile": "Esperando liberación del perfil comportamental",
+      "behavioral": "Hacer diagnóstico comportamental",
+      "continueAssessment": "Continuar evaluación",
+      "startAssessment": "Iniciar evaluación"
+    },
+    "header": {
+      "hello": "Hola, {name}",
+      "titlePrefix": "Tu próximo",
+      "titleEmphasis": "avance",
+      "titleSuffix": "empieza hoy"
+    },
+    "journey": {
+      "label": "Tu itinerario",
+      "phaseOf": "FASE {phase}\\nDE 05",
+      "currentPhase": "Fase actual · {title}",
+      "nextCompetency": "Avanzar en {competency}",
+      "completeDiagnosis": "Completar diagnóstico",
+      "deadline": "PLAZO",
+      "days": "{days} DÍAS",
+      "today": "HOY"
+    },
+    "voting": {
+      "new": "Nuevo",
+      "open": "Votación abierta",
+      "title": "Elige las 5 competencias más importantes",
+      "description": "¡Tu opinión cuenta! Selecciona y ordena las competencias que consideras prioritarias para tu cargo.",
+      "cta": "Votar ahora →",
+      "doneTitle": "Votación concluida",
+      "doneDescription": "Tu voto fue registrado. ¡Gracias!"
+    },
+    "weeklyFocus": "Foco de la semana",
+    "preparation": "Preparación",
+    "cards": {
+      "pill": "Píldora · Semana {week}",
+      "dailyInsight": "Insight del día",
+      "fallbackPillTitle": "Nuevas técnicas de liderazgo",
+      "pillDone": "Concluida ✓ — Mira tu progreso",
+      "pillOpen": "Haz clic para acceder al contenido de la semana",
+      "dailyInsightDescription": "Un pequeño avance puede aumentar mucho tu impacto.",
+      "mentor": "Mentor IA",
+      "mentorTitle": "Resuelve dudas sobre tu actividad",
+      "mentorDescription": "Beto puede explicar conceptos, sugerir ejemplos y ayudarte a avanzar."
+    },
+    "recommended": {
+      "title": "Capacitación recomendada",
+      "viewAll": "Ver todo"
+    },
+    "continue": {
+      "title": "Continuar donde lo dejaste",
+      "video": "Vídeo",
+      "done": "Concluido ✓",
+      "watched": "{pct}% visto"
+    },
+    "manager": {
+      "teamEvolution": "Ver evolución del equipo"
+    }
+  },
+  "DashboardJourney": {
+    "cta": {
+      "1": "Hacer diagnóstico comportamental",
+      "2": "Iniciar evaluación",
+      "3": "Ver mi PDI",
+      "4": "Ver mi temporada",
+      "5": "Ver mi evolución",
+      "externalProfile": "Ver perfil comportamental",
+      "waiting": "Esperando liberación",
+      "fallback": "Ver mi evolución"
+    },
+    "phaseDescriptions": {
+      "1": "Mapeo de tu perfil comportamental.",
+      "2": "Evaluación de competencias mediante escenarios situacionales.",
+      "3": "Tu plan de desarrollo individual basado en los resultados.",
+      "4": "Temporada de 14 semanas con contenido, práctica y reflexión.",
+      "5": "Medición de evolución postcapacitación y consolidación de avances.",
+      "externalProfile": "Tu empresa usa un mapeo comportamental propio. No necesitas responder DISC en Vertho.",
+      "waitingProfile": "El perfil comportamental será liberado por RR. HH. después de finalizar la votación de competencias.",
+      "fallback": "Continúa tu itinerario de desarrollo."
+    },
+    "header": {
+      "eyebrow": "Tu itinerario",
+      "current": "Estás en la",
+      "phaseTitle": "Fase {phase} — {title}",
+      "done": "Itinerario concluido 🎉",
+      "progress": "{done} de {total} fases concluidas · {name}"
+    },
+    "hero": {
+      "currentPhase": "Fase actual",
+      "allDone": "Todas concluidas",
+      "generalProgress": "Progreso general",
+      "currentStatus": "Estado actual",
+      "inProgress": "En curso",
+      "done": "Concluida",
+      "companyHandled": "Etapa ya tratada por la empresa"
+    },
+    "timeline": {
+      "title": "Fases del itinerario",
+      "subtitle": "Acompaña tu camino hasta aquí",
+      "steps": "{total} ETAPAS",
+      "phase": "Fase {phase} — {title}",
+      "completed": "concluida",
+      "current": "en curso",
+      "locked": "bloqueada"
+    },
+    "next": {
+      "eyebrow": "Próximo paso",
+      "finish": "Concluir {title}",
+      "followEvolution": "Acompañar tu evolución",
+      "external": "Tu próxima etapa ocurre en la evaluación de competencias de Vertho.",
+      "default": "Finaliza esta fase para avanzar en tu itinerario de desarrollo.",
+      "done": "Visualiza tu informe consolidado de evolución y próximos pasos."
+    }
+  },
+  "Profile": {
+    "heroEyebrow": "MI PERFIL",
+    "roles": {
+      "colaborador": "Colaborador",
+      "gestor": "Gestor",
+      "rh": "RR. HH."
+    },
+    "photoAlt": "Foto",
+    "changeAvatar": "Cambiar foto/avatar",
+    "addAvatar": "Añadir foto o avatar",
+    "pickerTitle": "Elige un avatar o sube una foto",
+    "uploadPhoto": "Subir foto (máx. 2 MB)",
+    "remove": "Eliminar",
+    "chooseAvatar": "O elige un avatar:",
+    "photoTooLarge": "Foto mayor que 2 MB",
+    "fields": {
+      "email": "Correo",
+      "role": "Cargo",
+      "department": "Área / Departamento",
+      "company": "Empresa",
+      "language": "Idioma"
+    },
+    "logout": "Salir de la cuenta"
+  },
+  "AdminAccess": {
+    "title": "Acceso restringido",
+    "description": "No tienes permiso para acceder a esta área.",
+    "backDashboard": "Volver al Dashboard"
+  },
+  "AdminDashboard": {
+    "sidebar": {
+      "panel": "Panel",
+      "context": "Contexto",
+      "expand": "Expandir",
+      "collapse": "Contraer",
+      "logout": "Salir"
+    },
+    "header": {
+      "title": "Panel <em>Admin</em>",
+      "refresh": "Actualizar",
+      "notifications": "Notificaciones",
+      "settings": "Configuración"
+    },
+    "companyFilter": {
+      "all": "Todas las empresas",
+      "search": "Buscar empresa…",
+      "empty": "No se encontró ninguna empresa."
+    },
+    "nav": {
+      "labels": {
+        "dashboard": "Dashboard",
+        "companies": "Empresas",
+        "companyPipeline": "Pipeline de la empresa",
+        "voting": "Votación",
+        "behavioralProfiles": "Perfiles Conductuales",
+        "simulator": "Simulador",
+        "evidence": "Evidencias",
+        "accumulatedAssessment": "Ev. Acumulada",
+        "week14": "Sem 14",
+        "competencies": "Competencias",
+        "contents": "Contenidos",
+        "videos": "Vídeos",
+        "knowledgeBase": "Knowledge Base",
+        "preferences": "Preferencias",
+        "radarIngestion": "Radar (Ingestión)",
+        "dataQuality": "Calidad de Datos",
+        "aiCost": "Costo IA",
+        "budget": "Presupuesto",
+        "potentialMarket": "Mercado Potencial",
+        "companyRadar": "Radar Empresas",
+        "cityPotential": "Potencial por Ciudad",
+        "admins": "Admins",
+        "audit": "Auditoría",
+        "trash": "Papelera"
+      },
+      "subs": {
+        "overview": "Visión general",
+        "tenantsPipeline": "Tenants y pipeline",
+        "phase0to5": "Fase 0 → Fase 5",
+        "top5Collaborators": "Top 5 por colaboradores",
+        "discCollaborators": "DISC de colaboradores",
+        "flowTest": "Prueba de flujo",
+        "socraticSessions": "Sesiones socráticas",
+        "week13Audit": "Auditoría sem 13",
+        "finalAudit": "Auditoría final",
+        "baseByRole": "Base y por cargo",
+        "learningBank": "Banco de aprendizaje",
+        "bunnyLibrary": "Biblioteca Bunny",
+        "ragTenant": "RAG per-tenant",
+        "learning": "Aprendizaje",
+        "saebIcaCensus": "Saeb / ICA / Censo",
+        "radarQuality": "Calidad Radar",
+        "callCatalog": "Catálogo de llamadas",
+        "costTableFinal": "Costo / Tabla / Final",
+        "citiesNetworksSchools": "Municipios · Redes · Escuelas",
+        "b2bIntelligence": "Inteligencia comercial B2B",
+        "companiesSchoolsUnified": "Empresas + Escuelas unificado",
+        "platformAdmins": "Platform admins",
+        "adminTraces": "Rastros de acciones de admin",
+        "deletedRecords": "Registros eliminados"
+      }
+    },
+    "kpis": {
+      "companies": "Empresas",
+      "activeCompanies": "{count} activas",
+      "collaborators": "Colaboradores",
+      "assessments": "Evaluaciones",
+      "activePdis": "PDIs activos"
+    },
+    "activity": {
+      "subtitle": "Últimos 7 días en todas las empresas",
+      "viewFunnel": "Ver embudo →",
+      "empty": "Sin actividad reciente"
+    },
+    "companies": {
+      "title": "Empresas activas",
+      "subtitle": "Top 5 por colaboradores",
+      "viewAll": "Ver todas →",
+      "empty": "No hay empresas registradas.",
+      "new": "Nueva",
+      "filterBy": "Filtrar panel por la empresa {name}"
+    },
+    "health": {
+      "title": "Salud del sistema",
+      "subtitle": "Conexiones y tablas",
+      "databaseOperational": "Base de datos operativa",
+      "connected": "Conectado"
+    },
+    "quickActions": {
+      "title": "Acciones rápidas",
+      "companyContext": "Contextual a la empresa {name}",
+      "globalContext": "Tareas administrativas globales",
+      "pipeline": {
+        "title": "Pipeline",
+        "descCompany": "Fase 0 → 5 de {name}"
+      },
+      "voting": {
+        "title": "Votación",
+        "desc": "Resultados por cargo"
+      },
+      "disc": {
+        "title": "Perfiles DISC",
+        "desc": "Mapeos completos"
+      },
+      "simulator": {
+        "title": "Ejecutar simulador",
+        "desc": "Probar flujo conversacional"
+      },
+      "newCompany": {
+        "title": "Nueva empresa",
+        "desc": "Crear y onboarding de tenant"
+      },
+      "market": {
+        "title": "Mercado Potencial",
+        "desc": "TAM por municipio, red y escuela"
+      },
+      "companyRadar": {
+        "title": "Radar Empresas",
+        "desc": "Prospección B2B · Receita+CAGED+RAIS"
+      },
+      "cityPotential": {
+        "title": "Potencial por Ciudad",
+        "desc": "Empresas + Escuelas unificado"
+      },
+      "radar": {
+        "title": "Radar (Ingestión)",
+        "desc": "Subir datos Saeb/ICA/Censo"
+      },
+      "budget": {
+        "title": "Presupuesto",
+        "desc": "Costo IA, tabla, valor final"
+      },
+      "knowledge": {
+        "title": "Knowledge Base",
+        "desc": "RAG per-tenant"
+      }
+    }
+  },
+  "AdminNewCompany": {
+    "title": "Nueva Empresa",
+    "back": "Volver",
+    "fields": {
+      "name": "Nombre",
+      "segment": "Segmento"
+    },
+    "placeholders": {
+      "name": "Nombre de la empresa"
+    },
+    "segments": {
+      "corporate": "Corporativo",
+      "education": "Educación"
+    },
+    "errors": {
+      "requiredName": "Nombre obligatorio"
+    },
+    "creating": "Creando...",
+    "create": "Crear Empresa"
+  },
+  "BehavioralMapping": {
+    "back": "Volver",
+    "next": "AVANZAR",
+    "progress": "Progreso",
+    "errors": {
+      "save": "Error al guardar"
+    },
+    "labels": {
+      "natural": "Natural",
+      "adapted": "Adaptado"
+    },
+    "blocks": {
+      "block": "Bloque {number}",
+      "natural": {
+        "title": "Perfil Natural",
+        "summary": "8 rankings + 6 pares rápidos respondidos pensando en cómo eres cuando estás cómodo, fuera del trabajo.",
+        "reinforcement": "Es tu forma natural, sin ajustes."
+      },
+      "adapted": {
+        "title": "Perfil Adaptado",
+        "summary": "Las mismas preguntas del bloque 1, pero pensando en cómo actúas en el trabajo.",
+        "reinforcement": "Revela cuánto te ajustas al contexto profesional."
+      },
+      "rankingInstruction": "En esta pantalla, ordena los elementos del más parecido a ti al menos parecido.",
+      "pairsInstruction": "En esta pantalla, elige la frase que mejor te describe de forma instintiva."
+    },
+    "onboarding": {
+      "title": "Mapeo Conductual",
+      "subtitle": "Toma ~8 minutos. Responderás en <strong>2 bloques</strong>: Natural y Adaptado.",
+      "chips": {
+        "discProfile": "Perfil DISC",
+        "leadershipStyle": "Estilo de liderazgo",
+        "learningPreferences": "Preferencias de aprendizaje"
+      },
+      "naturalDescription": "8 rankings + 6 pares rápidos respondidos pensando en <strong>cómo eres cuando estás cómodo, fuera del trabajo</strong>. Es tu forma natural, sin ajustes.",
+      "adaptedDescription": "Las mismas preguntas del bloque 1, pero pensando en <strong>cómo actúas en el trabajo</strong>. Revela cuánto te ajustas al contexto profesional.",
+      "learningTitle": "Preferencias de aprendizaje",
+      "learningDescription": "Marca los formatos de contenido que <strong>funcionan mejor para ti</strong> al aprender (vídeo, texto, audio, caso, etc.). Ayuda a personalizar tu jornada.",
+      "howQuestionsWork": "Cómo funcionan las preguntas",
+      "rankingHelp": "• <strong>Rankings:</strong> arrastra los 4 adjetivos del <most>más parecido</most> (arriba) al <least>menos parecido</least> (abajo).",
+      "pairsHelp": "• <strong>Pares rápidos:</strong> haz clic en la frase que mejor te describe. Responde instintivamente.",
+      "tip": "💡 <strong>Consejo:</strong> sé sincero. Este mapeo no es una prueba — es un retrato de tu estilo para montar una jornada que tenga sentido para ti.",
+      "start": "COMENZAR MAPEO"
+    },
+    "welcome": {
+      "title": "¡Bienvenido(a)!",
+      "subtitle": "Confirma tus datos para iniciar.",
+      "fullName": "Nombre completo",
+      "email": "E-mail",
+      "gender": "Género",
+      "select": "Selecciona...",
+      "masculine": "Masculino",
+      "feminine": "Femenino",
+      "other": "Otro / Prefiero no informar",
+      "start": "INICIAR MAPEO"
+    },
+    "ranking": {
+      "group": "Grupo {number}",
+      "mostSimilar": "👍 MÁS PARECIDO",
+      "leastSimilar": "👎 MENOS PARECIDO",
+      "words": {
+        "driver": "Orientador(a)",
+        "captivating": "Cautivador(a)",
+        "careful": "Criterioso(a)",
+        "constant": "Constante",
+        "welcoming": "Acogedor(a)",
+        "articulate": "Articulado(a)",
+        "incisive": "Incisivo(a)",
+        "meticulous": "Minucioso(a)",
+        "rational": "Racional",
+        "animated": "Animado(a)",
+        "tolerant": "Tolerante",
+        "firm": "Firme",
+        "motivator": "Motivador(a)",
+        "methodical": "Metódico(a)",
+        "achiever": "Realizador(a)",
+        "resilient": "Resiliente",
+        "objective": "Objetivo(a)",
+        "adaptable": "Adaptable",
+        "balanced": "Equilibrado(a)",
+        "rigorous": "Riguroso(a)",
+        "structured": "Estructurado(a)",
+        "calm": "Sereno(a)",
+        "proactive": "Proactivo(a)",
+        "vibrant": "Vibrante",
+        "communicative": "Comunicativo(a)",
+        "analytical": "Analítico(a)",
+        "collaborative": "Colaborativo(a)",
+        "decisive": "Decidido(a)",
+        "fearless": "Intrépido(a)",
+        "cautious": "Cauteloso(a)",
+        "engaging": "Envolvente",
+        "persevering": "Perseverante"
+      }
+    },
+    "pairs": {
+      "quickChoice": "ELECCIÓN RÁPIDA",
+      "pair": "Par {current}/{total}",
+      "question": "¿Cuál te describe mejor?",
+      "or": "O",
+      "options": {
+        "actFast": "Prefiero actuar rápido y resolver",
+        "involvePeople": "Prefiero involucrar a las personas antes de actuar",
+        "changeBroken": "Me gusta cambiar lo que no funciona",
+        "keepWorking": "Prefiero mantener lo que ya funciona",
+        "decideAvailable": "Tomo decisiones con lo que tengo disponible",
+        "analyzeAll": "Analizo todos los datos antes de decidir",
+        "meetPeople": "Me gusta conocer personas nuevas",
+        "deepenRelations": "Prefiero profundizar relaciones que ya tengo",
+        "improvise": "Improviso bien cuando el plan cambia",
+        "routine": "Me siento mejor con una rutina definida",
+        "teamWellbeing": "Priorizo el bienestar del equipo",
+        "deliveryQuality": "Priorizo la calidad de la entrega"
+      }
+    },
+    "learning": {
+      "progressTitle": "Preferencias de Aprendizaje",
+      "lastStep": "Última Etapa",
+      "title": "¿Cómo aprendes mejor?",
+      "subtitle": "Da de 1 a 5 estrellas para cada formato:",
+      "viewProfile": "VER MI PERFIL →",
+      "formats": {
+        "video_short": "Vídeo corto (≤5 min)",
+        "video_long": "Vídeo largo (clase/charla)",
+        "text": "Texto / artículo",
+        "audio": "Audio / podcast",
+        "infographic": "Infográfico / visual",
+        "exercise": "Ejercicio práctico / simulación",
+        "mentor": "Conversación con mentor (chat IA)",
+        "case": "Estudio de caso"
+      }
+    },
+    "calculating": {
+      "title": "Calculando tu perfil...",
+      "subtitle": "Analizando tus respuestas y generando competencias."
+    }
+  },
+  "BehavioralProfile": {
+    "fallbackProfessional": "Profesional",
+    "profileFallback": "Perfil",
+    "dominantProfile": "{profile} dominante",
+    "dominant": "Dominante",
+    "actionableInsights": "Insights accionables",
+    "labels": {
+      "natural": "Natural",
+      "adapted": "Adaptado"
+    },
+    "external": {
+      "receivedTitle": "Perfil conductual recibido",
+      "handledTitle": "Perfil conductual gestionado por la empresa",
+      "defaultSource": "mapeo conductual propio",
+      "subtitle": "Tu empresa utiliza {source}. No hay diagnóstico conductual que responder en Vertho.",
+      "receivedDescription": "Tu perfil conductual ya fue recibido y será usado por Vertho para personalizar análisis, recomendaciones y rutas cuando corresponda.",
+      "pendingDescription": "Cuando RR. HH. disponibilice la información del mapeo, Vertho la integrará a los flujos internos de la jornada.",
+      "availableHighlights": "Destacados disponibles",
+      "scale": "Escala"
+    },
+    "blocked": {
+      "title": "Próxima etapa aún bloqueada",
+      "subtitle": "El perfil conductual será liberado por RR. HH. después de finalizar la votación de competencias.",
+      "description": "Puedes registrar tu voto primero. Cuando la empresa cierre la votación y libere el siguiente paso, el mapeo DISC estará disponible aquí."
+    },
+    "notMapped": {
+      "title": "Mapeo aún no realizado",
+      "subtitle": "Tu perfil conductual aún no fue mapeado. Toma cerca de 8 minutos.",
+      "description": "El mapeo identifica tu perfil DISC, estilo de liderazgo y preferencias de aprendizaje.",
+      "start": "Iniciar Mapeo"
+    },
+    "hero": {
+      "eyebrow": "TU PERFIL CONDUCTUAL",
+      "title": "Resumen Ejecutivo"
+    },
+    "download": {
+      "button": "Descargar PDF",
+      "preparing": "Preparando..."
+    },
+    "sections": {
+      "narrative": "Análisis narrativo",
+      "detailed": "Análisis detallado",
+      "strengths": "Fortalezas",
+      "development": "Desarrollo",
+      "adaptedDisc": "DISC Adaptado",
+      "adaptedDiscSubtitle": "Cómo las personas esperan que seas",
+      "leadership": "Liderazgo",
+      "competencies": "Competencias"
+    },
+    "narrative": {
+      "profileSynthesis": "Síntesis del perfil",
+      "naturalWhoYouAre": "Natural — quién eres",
+      "adaptedEnvironment": "Adaptado — exigencia del entorno",
+      "howYouWork": "Cómo Funcionas",
+      "topStrengths": "5 mayores fortalezas",
+      "topOpportunities": "5 oportunidades",
+      "leadershipStyle": "Estilo de Liderazgo",
+      "opportunities": "Oportunidades",
+      "pressurePoints": "Puntos a desarrollar bajo presión",
+      "pressureSubtitle": "Comportamientos que perfiles {profile} pueden presentar en momentos de estrés"
+    },
+    "quadrants": {
+      "challenges": "Cómo lidia con desafíos",
+      "people": "Cómo lidia con personas",
+      "pace": "Cómo marca el ritmo",
+      "rules": "Cómo lidia con reglas"
+    }
+  },
+  "SeasonFinal": {
+    "back": "← Volver",
+    "backToSeason": "Volver a la temporada",
+    "context": "Contexto",
+    "startAssessment": "Iniciar evaluación",
+    "errors": {
+      "noTrack": "Sin ruta",
+      "startWeek": "Error al iniciar la semana {week}"
+    },
+    "alerts": {
+      "allQuestions": "Las 4 preguntas deben responderse con al menos {min} caracteres.",
+      "error": "Error: {error}",
+      "sendFailure": "Error al enviar"
+    },
+    "progress": {
+      "done": "Evaluación concluida",
+      "weekCompetency": "Semana {week} · {competency}"
+    },
+    "question": {
+      "counter": "Pregunta {current} de {total}",
+      "voiceTip": "<strong>Consejo:</strong> Haz clic en <strong>Grabar por voz</strong> y habla naturalmente en español — el texto aparecerá en el campo mientras hablas. Permite el acceso al micrófono la primera vez.",
+      "placeholder": "Describe tu respuesta con detalle...",
+      "minChars": "{count} / mín. {min} caracteres",
+      "previous": "← Anterior",
+      "next": "Siguiente →",
+      "minAlert": "Mínimo {min} caracteres.",
+      "processing": "Procesando...",
+      "finish": "Finalizar evaluación"
+    },
+    "done": {
+      "title": "Evaluación concluida",
+      "pre": "Pre",
+      "post": "Post",
+      "viewReport": "Ver informe completo →"
+    }
+  },
+  "SeasonWeek": {
+    "backToSeason": "Volver a la temporada",
+    "thinking": "pensando...",
+    "context": "Contexto",
+    "common": {
+      "yes": "Sí",
+      "no": "No"
+    },
+    "errors": {
+      "seasonNotFound": "Temporada no encontrada",
+      "invalidWeek": "Semana inválida"
+    },
+    "header": {
+      "weekOf": "Semana {week} de {total}"
+    },
+    "type": {
+      "practice": "Práctica",
+      "assessment": "Evaluación",
+      "episode": "Episodio"
+    },
+    "content": {
+      "openBeforeComplete": "Abre el contenido antes de marcarlo como realizado",
+      "markDone": "Marcar como realizado",
+      "done": "Contenido realizado",
+      "availableIn": "Disponible en:",
+      "preparingFormats": "Estamos preparando más formatos para este episodio. Enfócate en el desafío y la reflexión de abajo.",
+      "openContent": "Abrir contenido →"
+    },
+    "challenge": {
+      "title": "Desafío de la semana",
+      "observe": "Qué observar",
+      "execution": "Cómo saber que lo hiciste"
+    },
+    "mission": {
+      "title": "Misión de la Semana",
+      "commitmentPrompt": "¿Qué situación de tu rutina usarás para aplicar esto? (1-2 frases)",
+      "commitmentPlaceholder": "Ej.: la reunión del miércoles con el cliente X...",
+      "accept": "Acepto la misión",
+      "yourCommitment": "Tu compromiso",
+      "didYouExecute": "¿Pudiste ejecutar la misión esta semana?"
+    },
+    "qualitative": {
+      "title": "Cierre cualitativo",
+      "description": "Llegó el momento de mirar atrás. Vamos a conversar sobre qué cambió en ti durante estas 12 semanas, recorriendo cada descriptor."
+    },
+    "finalScenario": {
+      "title": "Escenario final",
+      "description": "Un escenario completo para aplicar todo lo que desarrollaste. Haz clic en <action>Ver escenario final</action> abajo para comenzar."
+    },
+    "qa": {
+      "title": "Preguntas",
+      "scope": "solo responde sobre {descriptor}",
+      "markContentFirst": "Marca el contenido como realizado antes de hacer preguntas",
+      "ask": "Hacer una pregunta sobre la semana",
+      "unlockAfterContent": "Se libera después de marcar el contenido como realizado",
+      "empty": "Pregunta lo que quieras sobre <strong>{descriptor}</strong>.",
+      "placeholder": "Tu pregunta... (Shift+Enter para nueva línea)"
+    },
+    "evidence": {
+      "title": "Evidencias",
+      "closingConversation": "Conversación de cierre",
+      "finalScenario": "Escenario + evaluación final",
+      "missionReport": "Relato de la Misión",
+      "feedback": "Feedback (Evidencias)",
+      "clickYes": "Haz clic en <action>Sí, lo logré — relatar ejecución</action> arriba para comenzar.",
+      "chooseMissionFirst": "Define cómo vas a ejecutar la misión primero",
+      "startClosing": "Iniciar conversación de cierre",
+      "viewFinalScenario": "Ver escenario final",
+      "sendAnswer": "Enviar mi respuesta",
+      "start": "Levantar evidencias",
+      "placeholderPractice": "Relata lo que ocurrió... (Shift+Enter para nueva línea)",
+      "placeholderScenario": "Describe cómo lo conducirías... (Shift+Enter para nueva línea)",
+      "placeholderDefault": "Tu respuesta... (Shift+Enter para nueva línea)",
+      "doneSeason": "✓ Conversación concluida · Temporada finalizada",
+      "doneNextWeek": "✓ Conversación concluida · Próxima semana se libera el {date}"
+    }
+  },
+  "SeasonDone": {
+    "back": "← Volver",
+    "backToSeason": "Volver a la temporada",
+    "downloadPdf": "Descargar PDF",
+    "pdfError": "Error al generar el PDF",
+    "weekShort": "Sem",
+    "before": "Antes:",
+    "after": "Después:",
+    "hero": {
+      "eyebrow": "Temporada {number} concluida",
+      "title": "{name}, mira qué cambió en ti",
+      "subtitle": "14 semanas dedicadas a <strong>{competency}</strong>."
+    },
+    "stats": {
+      "confirmed": "Confirmadas",
+      "partial": "Parciales",
+      "stagnated": "Estancadas",
+      "regressions": "Regresiones"
+    },
+    "classification": {
+      "confirmed": "Evolución confirmada",
+      "partial": "Evolución parcial",
+      "stagnation": "Estancamiento",
+      "regression": "Regresión"
+    },
+    "sections": {
+      "descriptor": "Descriptor por descriptor",
+      "insights": "Momentos de insight",
+      "missions": "Misiones que ejecutaste",
+      "finalAssessment": "Evaluación final",
+      "nextSteps": "Siguientes pasos"
+    },
+    "mission": {
+      "real": "Misión real",
+      "written": "Escenario escrito",
+      "commitment": "Compromiso:",
+      "synthesis": "Síntesis:"
+    },
+    "final": {
+      "cardTitle": "Escenario B · Respuesta y devolución",
+      "viewScenario": "Ver el escenario presentado",
+      "viewAnswer": "Ver tu respuesta",
+      "feedback": "Devolución",
+      "postAverage": "Nota media post-temporada:"
+    }
+  },
+  "Voting": {
+    "back": "Volver",
+    "backDashboard": "Volver al dashboard",
+    "eyebrow": "Votación de competencias",
+    "title": "{name}, elige tus 5 prioridades",
+    "role": "Cargo",
+    "subtitle": "Selecciona y ordena por prioridad",
+    "selectedTitle": "Tus 5 elegidas en orden de importancia ({count}/5)",
+    "selectedHelp": "1 = más importante. Arrastra o usa las flechas para reordenar.",
+    "emptySelected": "Haz clic en las competencias de abajo para seleccionar",
+    "availableTitle": "Competencias del cargo ({count} disponibles)",
+    "suggestionTitle": "Sugerir nueva competencia (opcional)",
+    "suggestionPlaceholder": "Ej.: Gestión de conflictos interculturales",
+    "suggestionLabel": "Sugerencia:",
+    "saving": "Guardando...",
+    "savedButton": "Voto registrado ✓",
+    "submit": "Enviar mi voto ({count}/5)",
+    "toast": {
+      "max": "Máximo 5 competencias",
+      "exactly": "Selecciona exactamente 5 competencias",
+      "saved": "Voto registrado!"
+    },
+    "alreadyVoted": {
+      "title": "Voto registrado!",
+      "savedAt": "Tu voto se guardó el {date}."
+    }
+  },
+  "Season": {
+    "empty": {
+      "title": "Tu temporada aún no se ha generado",
+      "subtitle": "Espera a que RR. HH. o tu gestor la libere."
+    },
+    "hero": {
+      "eyebrow": "Temporada {number}",
+      "subtitle": "{weeks} semanas para <evolve>evolucionar</evolve> 1 competencia al <level>siguiente nivel</level>"
+    },
+    "paused": "Tu temporada está pausada por el gestor. Podrás continuar cuando se reanude.",
+    "viewFullReport": "Ver informe completo de la temporada →",
+    "progress": {
+      "title": "Progreso",
+      "weeks": "semanas"
+    },
+    "locked": {
+      "releaseAt": "Se libera el {date}",
+      "completePrevious": "Completa la semana anterior"
+    },
+    "weekShort": "Sem {number}",
+    "type": {
+      "episode": "Episodio",
+      "practice": "Práctica",
+      "assessment": "Evaluación"
+    },
+    "report": {
+      "title": "Evolution Report",
+      "nextStep": "Siguiente paso:"
+    }
+  },
+  "Pdi": {
+    "eyebrowShort": "MI PDI",
+    "eyebrowFull": "PLAN DE DESARROLLO INDIVIDUAL",
+    "generatedAt": "Generado el {date}",
+    "priority": "Prioridad",
+    "level": {
+      "excellent": "Excelente",
+      "good": "Bueno",
+      "developing": "En desarrollo",
+      "attention": "Atención"
+    },
+    "download": {
+      "button": "Descargar PDF",
+      "preparing": "Preparando...",
+      "error": "Error al descargar"
+    },
+    "empty": {
+      "preparingTitle": "PDI en preparación",
+      "assessmentTitle": "Evaluación en curso",
+      "preparingSubtitle": "Ya completaste todas las evaluaciones. Tu Plan de Desarrollo Individual será generado pronto por el equipo.",
+      "progressSubtitle": "Ya respondiste {done}/{total} competencias. Complétalas todas para que se genere tu PDI.",
+      "notStartedSubtitle": "Tu Plan de Desarrollo Individual se creará después de completar la evaluación de competencias.",
+      "backDashboard": "Volver al dashboard",
+      "continueAssessment": "Continuar evaluación →",
+      "goAssessment": "Ir a Evaluación"
+    },
+    "sections": {
+      "developingDescriptors": "Descriptores en Desarrollo",
+      "didWell": "Lo Hizo Bien",
+      "canImprove": "Puede Mejorar",
+      "analysis": "Análisis",
+      "thirtyDayPlan": "Plan de Desarrollo — 30 Días",
+      "developmentTips": "Consejos de Desarrollo",
+      "recommendedStudy": "Estudio Recomendado",
+      "tacticalChecklist": "Checklist Táctico",
+      "generalSummary": "Resumen General",
+      "behavioralProfile": "Perfil Conductual",
+      "strengths": "Fortalezas",
+      "attentionPoints": "Puntos de Atención",
+      "performanceSummary": "Resumen de Desempeño",
+      "competencyPlan": "Plan por Competencia",
+      "finalMessage": "Mensaje Final"
+    }
+  },
+  "Evolution": {
+    "eyebrow": "Tu evolución",
+    "title": "Informe de Evolución",
+    "fallbackCompetency": "Competencia",
+    "season": "Temporada {number}",
+    "heroSubtitle": "Mira dónde hubo avance, dónde aún existe brecha y qué señales merecen atención.",
+    "downloadFull": "Descargar informe completo",
+    "viewSeasonReport": "Ver informe completo de la temporada",
+    "descriptorFallback": "Descriptor {number}",
+    "empty": {
+      "title": "Aún no hay datos de evolución",
+      "subtitle": "Tus datos aparecerán aquí después de completar las evaluaciones.",
+      "card": "Completa las evaluaciones de competencias para seguir tu evolución."
+    },
+    "classification": {
+      "confirmed": "Evolución confirmada",
+      "partial": "Evolución parcial",
+      "regression": "Regresión",
+      "stable": "Estable"
+    },
+    "metrics": {
+      "competenciesShort": "{count} comp.",
+      "confirmed": "Confirmadas",
+      "partial": "Parciales",
+      "attention": "Atención"
+    },
+    "sections": {
+      "descriptorComparison": "Comparativo por descriptor",
+      "prePost": "Pre x Post temporada",
+      "byCompetency": "Por competencia",
+      "initialCurrent": "Notas inicial x actual",
+      "finalAssessment": "Evaluación final",
+      "cycleSynthesis": "Síntesis del ciclo"
+    },
+    "summary": {
+      "biggestAdvance": "Mayor avance",
+      "mainAttentionPoint": "Principal punto de atención",
+      "currentAverage": "Nota media actual",
+      "averageOutOf": "{value} de 4.0"
+    }
+  },
+  "AssessmentChat": {
+    "fallbackTitle": "Evaluación",
+    "confidence": "Confianza",
+    "statusDone": "Concluida",
+    "inputPlaceholder": "Describe cómo actuarías...",
+    "phase": {
+      "scenario": "Escenario",
+      "deepening": "Profundización",
+      "counterexample": "Contraejemplo",
+      "closing": "Cierre",
+      "done": "Concluida"
+    },
+    "errors": {
+      "unauthenticated": "No autenticado",
+      "collaboratorNotFound": "Colaborador no encontrado",
+      "missingCompetency": "competencia no informada en la URL",
+      "api": "Error en la API"
+    },
+    "empty": {
+      "title": "Envía un mensaje para iniciar la evaluación.",
+      "subtitle": "Describe cómo actuarías en el escenario presentado."
+    },
+    "final": {
+      "title": "Evaluación Concluida",
+      "level": "Nivel",
+      "score": "Nota",
+      "gap": "Brecha",
+      "strengths": "Fortalezas",
+      "improvements": "Puntos de Mejora"
+    }
+  },
+  "AdminBehaviorProfiles": {
+    "title": "Perfiles Conductuales",
+    "subtitle": "DISC de los colaboradores que concluyeron el mapeo",
+    "stats": {
+      "total": "Total",
+      "complete": "Completos",
+      "pending": "Pendientes",
+      "withPdf": "Con PDF generado"
+    },
+    "filters": {
+      "todos": "Todos",
+      "completos": "Completos",
+      "pendentes": "Pendientes"
+    },
+    "searchPlaceholder": "Buscar nombre, puesto, área…",
+    "empty": "No se encontró ningún colaborador con este filtro.",
+    "badges": {
+      "complete": "Completo",
+      "pending": "Pendiente"
+    },
+    "discNatural": "DISC Natural",
+    "downloadPdf": "Descargar PDF",
+    "mappedAt": "Mapeo: {date}",
+    "llmTextsAt": "Textos LLM: {date}",
+    "notCompleted": "El colaborador aún no concluyó el mapeo conductual.",
+    "executiveInsights": "Insights Ejecutivos"
+  },
+  "AdminPulse": {
+    "title": "Pulso de Desarrollo",
+    "subtitle": "Ciclos de pulso T0/T2 de la empresa",
+    "newCycle": "Nuevo ciclo",
+    "form": {
+      "title": "Nuevo ciclo",
+      "namePlaceholder": "Nombre del ciclo (ej.: 1º Semestre 2026)",
+      "descriptionPlaceholder": "Descripción (opcional)",
+      "creating": "Creando...",
+      "create": "Crear ciclo"
+    },
+    "empty": "Aún no hay ciclos creados.",
+    "cycleStatus": "Estado: {status}",
+    "links": {
+      "send": "Enviar →",
+      "dashboard": "Dashboard →",
+      "details": "Detalles"
+    },
+    "moments": {
+      "t0": "T0 — Línea base",
+      "t2": "T2 — Posjornada",
+      "dispatch": "Crear assignments",
+      "close": "Cerrar momento",
+      "closed": "Cerrado"
+    },
+    "modal": {
+      "title": "Assignments del ciclo",
+      "empty": "Aún no hay assignments."
+    },
+    "confirm": {
+      "createAssignments": "¿Crear assignments de {moment} para TODOS los colaboradores activos de la empresa?\n\nCada colaborador recibirá un enlace para responder ~3 min. Esto no envía el enlace automáticamente — usa la pantalla de Envíos después para disparar por email/WhatsApp.",
+      "closeMoment": "¿Cerrar momento {moment}? Después de cerrado, no se aceptarán nuevas respuestas."
+    },
+    "messages": {
+      "assignmentsCreated": "✓ {count} assignments creados."
+    },
+    "dashboard": {
+      "subtitle": "Dashboard agregado · estado: {status}",
+      "actions": {
+        "back": "Volver",
+        "recalculate": "Recalcular agregados",
+        "updating": "Actualizando...",
+        "classify": "Clasificar texto IA",
+        "classifying": "Clasificando...",
+        "executivePdf": "PDF Ejecutivo",
+        "nr1Pdf": "Complementario NR-1",
+        "refresh": "Actualizar"
+      },
+      "confirm": {
+        "nr1Report": "El informe complementario para factores psicosociales incluye un disclaimer obligatorio: Vertho NO realiza diagnóstico técnico ni sustituye PGR/PCMSO/SESMT/informes técnicos. Los datos son un insumo cualitativo complementario.\n\n¿Generar de todos modos?"
+      },
+      "messages": {
+        "classified": "✓ Clasificadas: {processed} · ya existentes: {existing} · errores: {errors}"
+      },
+      "filters": {
+        "title": "Recorte",
+        "company": "Toda la empresa",
+        "area": "Área",
+        "role": "Puesto",
+        "hint": "Solo se listan recortes con 7+ respondientes (preserva el anonimato)."
+      },
+      "cards": {
+        "overallIndex": "Índice General",
+        "respondentsT0": "Respondientes T0",
+        "respondentsT2": "Respondientes T2",
+        "completion": "{rate}% conclusión",
+        "generalDelta": "Δ General",
+        "strongest": "Más fuerte",
+        "critical": "Más crítica"
+      },
+      "sections": {
+        "dimensionAverages": "Promedios por dimensión",
+        "dimensionReading": "Lectura por dimensión"
+      }
+    },
+    "sendPage": {
+      "title": "Enviar invitaciones de Pulso",
+      "subtitle": "{name} · estado: {status}",
+      "notFound": "Ciclo no encontrado.",
+      "defaultMessage": "Hola, {{nome}}! 👋\n\nHas sido invitado(a) a responder el *Pulso de Desarrollo* de {{empresa}}.\nSon cerca de 3 minutos — 12 preguntas + 1 abierta.\n\nAccede por el enlace personal abajo (válido por 24h):\n{{link_pulso}}\n\nTu respuesta individual es privada. RR. HH. y gestores ven solo análisis agregados, sin identificación.\n\n— Equipo Vertho",
+      "confirm": {
+        "send": "¿Disparar invitaciones de {moment} vía {channel}?\n\nLos mensajes no se pueden \"desenviar\"."
+      },
+      "actions": {
+        "refresh": "Actualizar",
+        "sending": "Enviando...",
+        "sendPending": "Disparar para hasta {count} pendientes"
+      },
+      "warning": {
+        "title": "El momento {moment} no está abierto.",
+        "body": "El ciclo está con estado <strong>{status}</strong>. Para reabrir y aceptar respuestas, vuelve a la página de gestión de ciclos. Todavía puedes enviar las invitaciones — los colaboradores que hagan clic encontrarán el pulso no disponible hasta que el momento sea reabierto."
+      },
+      "form": {
+        "moment": "Momento",
+        "channel": "Canal"
+      },
+      "moments": {
+        "t0": "T0 — Línea base",
+        "t2": "T2 — Posjornada"
+      },
+      "channels": {
+        "whatsapp": "WhatsApp",
+        "email": "Email (magic link)",
+        "both": "Ambos"
+      },
+      "channelHint": "Email usa el magic link nativo de Supabase. El mensaje personalizado solo se entrega por WhatsApp por ahora.",
+      "message": {
+        "title": "Mensaje (WhatsApp)",
+        "variables": "Variables disponibles:"
+      },
+      "forceResend": "Reenviar a quienes ya recibieron (default: salta quienes ya tienen audit log)",
+      "result": {
+        "title": "Disparo concluido",
+        "sent": "Enviados",
+        "alreadySent": "Ya enviados antes",
+        "noPhone": "Sin teléfono",
+        "noEmail": "Sin email",
+        "errors": "Errores"
+      },
+      "status": {
+        "title": "Estado de {moment}",
+        "total": "Total assignments",
+        "completed": "Ya respondieron",
+        "whatsappSent": "WhatsApp enviados",
+        "emailSent": "Email enviados",
+        "pending": "Pendientes"
+      },
+      "howItWorks": {
+        "title": "Cómo funciona",
+        "magicLink": "El sistema genera un magic link personal para cada colaborador apuntando directo a su pulso",
+        "validity": "Enlace válido por 24h (configuración default Supabase)",
+        "whatsapp": "Z-API hace el envío de WhatsApp · throttle de 1.2s entre mensajes",
+        "audit": "Audit log registra cada envío en pulse_audit_logs",
+        "idempotent": "Idempotente — no reenvía si ya tiene log, excepto con la flag de arriba"
+      }
+    }
+  },
+  "AdminExternalProfile": {
+    "title": "Perfil Conductual Externo",
+    "subtitle": "Carga de informes OPQ32 (SHL) por colaborador",
+    "source": {
+      "opqActive": "OPQ32 (SHL) activo",
+      "discActive": "Usando DISC nativo",
+      "opqDescription": "El pipeline IA usará los datos OPQ32 de los colaboradores con PDF extraído. Los colaboradores sin PDF vuelven a DISC.",
+      "discDescription": "El pipeline IA usa el mapeo DISC nativo. Activa OPQ32 abajo si la empresa usa SHL.",
+      "useDisc": "Volver a usar DISC",
+      "activateOpq": "Activar OPQ32 para esta empresa"
+    },
+    "stats": {
+      "collaborators": "Colaboradores",
+      "withPdf": "Con PDF",
+      "extracted": "Extraídos"
+    },
+    "warning": {
+      "title": "Atención al archivo correcto:",
+      "body": "el sistema solo acepta <strong>\"OPQ32 Perfil\"</strong> (informe de ~3 páginas con tabla de Stens 1-10). Los archivos con <code>OPQ32Profile</code> en el nombre son los correctos. Otros informes SHL (<mutedCode>DevReport</mutedCode>, <mutedCode>UCF</mutedCode>, etc.) no funcionan — son narrativos, sin los scores estructurados que necesita el pipeline IA."
+    },
+    "row": {
+      "summary": "{high} altas, {low} bajas, CNS {cns}",
+      "uploadPdf": "Cargar OPQ32 (PDF)",
+      "replacePdf": "Sustituir PDF",
+      "upload": "Cargar",
+      "replace": "Sustituir",
+      "reextract": "Reextraer",
+      "viewPdf": "Ver PDF",
+      "remove": "Eliminar"
+    },
+    "badges": {
+      "noPdf": "sin PDF",
+      "pdfLoaded": "PDF (sin extracción)",
+      "extracted": "extraído",
+      "error": "error"
+    },
+    "empty": {
+      "title": "No se encontró ningún colaborador",
+      "description": "Importa colaboradores en la fase 0 antes de subir PDFs OPQ32."
+    },
+    "confirm": {
+      "disableSource": "Desactivar la fuente externa hará que la empresa vuelva a usar DISC en las próximas generaciones de IA. Los PDFs y datos extraídos NO se borran. ¿Continuar?",
+      "removePdf": "¿Eliminar PDF y datos extraídos de {name}?"
+    },
+    "messages": {
+      "opqEnabled": "OPQ32 activado para esta empresa",
+      "discEnabled": "Volvió a usar DISC nativo",
+      "uploadExtracting": "Carga OK · extrayendo...",
+      "extractedSuccess": "PDF extraído con éxito",
+      "extracted": "Extraído",
+      "removed": "Eliminado",
+      "error": "Error: {error}",
+      "extractionFailed": "La extracción falló: {error}"
+    }
+  },
+  "AdminReports": {
+    "title": "Informes",
+    "subtitle": "Descarga de informes individuales",
+    "selectCompany": "Selecciona una empresa...",
+    "empty": "No se encontró ningún informe individual",
+    "tableTitle": "{count, plural, one {# informe individual} other {# informes individuales}}",
+    "table": {
+      "collaborator": "Colaborador",
+      "date": "Fecha",
+      "action": "Acción"
+    },
+    "fallbackCollaborator": "Colaborador"
+  },
+  "AdminPhase4": {
+    "title": "Fase 4 — Reevaluación",
+    "subtitle": "Escenarios B, Reevaluación y Evolución",
+    "model": {
+      "generation": "Generación",
+      "validation": "Validación"
+    },
+    "messages": {
+      "rechecking": "Rechecando...",
+      "regenerating": "Regenerando...",
+      "regenerated": "Regenerado. {message}",
+      "regeneratedCheckError": "Regenerado. Error check: {error}",
+      "noneToRegenerate": "No hay ningún escenario para regenerar",
+      "processing": "Procesando {count} escenarios...",
+      "error": "Error: {error}"
+    },
+    "confirm": {
+      "regenerateBatch": "¿Regenerar + rechecar {count} escenarios (revisar + salvedades)?"
+    },
+    "stats": {
+      "scenariosB": "Escenarios B",
+      "scenarios": "{count} escenarios",
+      "approved": "{count} aprobados",
+      "withNotes": "{count} salvedades",
+      "review": "{count} revisar",
+      "pending": "{count} pendientes"
+    },
+    "actions": {
+      "regenerateReviewBatch": "Regenerar + Rechecar revisar/salvedades ({count})",
+      "validate": "Validar",
+      "regenerateAndRecheck": "Regenerar + Rechecar",
+      "recheckOnly": "Solo Rechecar",
+      "regenerate": "Regenerar"
+    },
+    "empty": "No se encontró ningún escenario B. Ejecuta \"Generar Escenarios B\" en el pipeline.",
+    "fallbackScenarioTitle": "Escenario B",
+    "details": {
+      "evaluatedFacet": "Faceta Evaluada",
+      "differenceVsA": "Diferencia vs Escenario A",
+      "tradeoff": "Trade-off",
+      "genericTrap": "Trampa anti-genérico",
+      "confidence": "Confianza",
+      "ethicalDilemma": "Dilema Ético",
+      "value": "Valor",
+      "easyPath": "Camino fácil",
+      "ethicalPath": "Camino ético",
+      "evaluationReference": "Referencia de Evaluación",
+      "geminiValidation": "Validación Gemini",
+      "check": "Check",
+      "suggestion": "Sugerencia",
+      "vsScenarioA": "vs Escenario A",
+      "triangulationRisks": "Riesgos triangulación",
+      "noCoverage": "Sin cobertura"
+    },
+    "status": {
+      "approved": "Aprobado",
+      "approvedWithNotes": "Aprobado c/ Salvedades",
+      "review": "Revisar",
+      "rejected": "Reprobado"
+    }
+  },
+  "AdminPhase1": {
+    "title": "Fase 1 — Parametrización",
+    "subtitle": "Top 10, Top 5, Perfil de Puesto Ideal y Escenarios",
+    "tabs": {
+      "top10": "Top 10",
+      "top5": "Top 5",
+      "idealRoleProfile": "Perfil de Puesto Ideal",
+      "scenarios": "Escenarios"
+    },
+    "actions": {
+      "add": "Añadir",
+      "save": "Guardar",
+      "reviewAll": "Revisar todos ({count})",
+      "validateAll": "Validar todos ({count})",
+      "regenerateWithFeedback": "Regenerar con feedback",
+      "validate": "Validar"
+    },
+    "labels": {
+      "role": "Puesto",
+      "market": "Mercado",
+      "selectedOf": "{selected} de {total} seleccionadas",
+      "unsaved": "no guardado",
+      "confidenceShort": "conf"
+    },
+    "empty": {
+      "top10": "Ninguna selección. Ejecuta IA1 en el pipeline.",
+      "noneAvailable": "Ninguna disponible",
+      "noRoles": "No se encontró ningún puesto. Importa colaboradores y ejecuta IA1 primero.",
+      "top10ForRole": "Top 10 vacío. Ejecuta IA1 en el pipeline primero.",
+      "idealProfile": "Ningún gabarito. Ejecuta IA2 en el pipeline.",
+      "scenarios": "Ningún escenario. Ejecuta IA3 en el pipeline."
+    },
+    "modal": {
+      "addTitle": "Añadir — {role}"
+    },
+    "searchPlaceholder": "Buscar...",
+    "workshop": {
+      "title": "Workshop presencial",
+      "beforeQuantity": "selecciona las competencias elegidas en el workshop entre las Top 10 del puesto. Puedes elegir",
+      "anyQuantity": "cualquier cantidad",
+      "afterQuantity": " (≥ 1) — ya no está limitado a 5. Alternativamente, usa la",
+      "voting": "Votación de los colaboradores"
+    },
+    "sections": {
+      "profileCharacteristics": "Características del Perfil",
+      "cisSubcompetencies": "Subcompetencias CIS",
+      "leadershipStyles": "Estilos de Liderazgo",
+      "idealDiscRanges": "Rangos DISC Ideales",
+      "aiReasoning": "Razonamiento de la IA"
+    },
+    "leadership": {
+      "executor": "Ejecutor",
+      "motivator": "Motivador",
+      "methodical": "Metódico",
+      "systematic": "Sistemático"
+    },
+    "reasoning": {
+      "signals": "Señales",
+      "hypothesis": "Hipótesis",
+      "reading": "Lectura",
+      "uncertainties": "Incertidumbres",
+      "differentials": "Diferenciales"
+    },
+    "stats": {
+      "scenarios": "{count} escenarios",
+      "approved": "{count} aprobados",
+      "withNotes": "{count} salvedades",
+      "review": "{count} revisar",
+      "pending": "{count} pendientes"
+    },
+    "progress": {
+      "reviewing": "Revisando {current}/{total}"
+    },
+    "fallbackScenarioTitle": "Escenario",
+    "fallbackScenarioWithIndex": "Escenario {index}",
+    "details": {
+      "facet": "Faceta",
+      "tradeoff": "Trade-off",
+      "descriptors": "Descriptores",
+      "antiGeneric": "Anti-genérico",
+      "check": "Check",
+      "justification": "Justificación",
+      "suggestion": "Sugerencia",
+      "strongPoint": "Punto fuerte",
+      "weakPoint": "Punto débil",
+      "descriptorsNoCoverage": "Descriptores sin cobertura"
+    },
+    "status": {
+      "approved": "Aprobado",
+      "approvedWithNotes": "Aprobado con salvedades",
+      "review": "Revisar",
+      "approvedLower": "aprobado",
+      "reviewLower": "revisar"
+    },
+    "messages": {
+      "removed": "Eliminada",
+      "added": "Añadida",
+      "roleNeedsCatalog": "El puesto debe estar en cargos_empresa para guardar",
+      "savedCount": "{role}: {count} guardadas",
+      "reviewedBatch": "{ok} revisados{unchecked, plural, =0 {} other { · # sin validación (haz clic en 'Validar todos')}}",
+      "validatedBatch": "{ok} validados{errors, plural, =0 {} other { · # con error}}",
+      "recheckResult": "Re-check: {score}pts ({status})",
+      "error": "Error: {error}"
+    }
+  },
+  "AdminPhase2": {
+    "title": "Fase 2 — Diagnóstico",
+    "subtitle": "Respuestas, evaluaciones IA4 y check",
+    "tabs": {
+      "diagnostic": "Diagnóstico",
+      "trails": "Rutas ({count})"
+    },
+    "stats": {
+      "total": "Total",
+      "evaluated": "Evaluadas",
+      "approved": "{count} aprobadas",
+      "withAdjustments": "{count} con ajustes",
+      "review": "{count} revisar",
+      "pending": "{count} pendientes"
+    },
+    "actions": {
+      "reevaluateAll": "Reevaluar todos ({count})",
+      "reevaluateAndRecheck": "Reevaluar + Rechecar",
+      "validate": "Validar",
+      "editApprove": "Editar/Aprobar"
+    },
+    "progress": {
+      "reevaluating": "Reevaluando {current} de {total}...",
+      "ok": "{count} ok",
+      "errors": "{count} errores",
+      "percentDone": "{percent}% concluido"
+    },
+    "filters": {
+      "allRoles": "Todos los puestos",
+      "allCollaborators": "Todos los colaboradores",
+      "allStatuses": "Todos los estados"
+    },
+    "status": {
+      "pending": "Pendiente",
+      "evaluated": "Evaluado",
+      "approved": "Aprobado",
+      "approvedWithAdjustments": "Aprobado c/ ajustes",
+      "withAdjustments": "Con ajustes",
+      "review": "Revisar"
+    },
+    "labels": {
+      "answersCount": "{count, plural, one {# respuesta} other {# respuestas}}",
+      "simulated": "Simulado",
+      "check": "Check",
+      "focus": "Foco",
+      "coursesCount": "{count, plural, one {# curso} other {# cursos}}",
+      "weekShort": "SEM",
+      "covers": "Cubre",
+      "focusDescriptor": "DESCRIPTOR FOCO",
+      "score": "nota",
+      "andMore": "... y {count} más"
+    },
+    "sections": {
+      "auditCheck": "Check (Auditoría)",
+      "learnMore": "Saber más",
+      "learnMoreOptional": "Saber más ({count, plural, one {# opcional} other {# opcionales}})"
+    },
+    "empty": {
+      "answers": "No se encontró ninguna respuesta. Ejecuta \"Simular Respuestas\" primero.",
+      "trails": "No se encontró ninguna ruta. Ejecuta \"Montar Rutas\" en el pipeline primero.",
+      "noCourseForFocus": "No hay ningún curso disponible en el catálogo para \"{focus}\"",
+      "noRecommendedCourse": "Ningún curso recomendado"
+    },
+    "messages": {
+      "noneToReview": "No hay ninguna evaluación para revisar",
+      "reevaluatedBatch": "{ok} reevaluadas{errors, plural, =0 {} other {, # errores}}",
+      "reevaluating": "Reevaluando...",
+      "rechecking": "Rechecando...",
+      "checking": "Chequeando...",
+      "error": "Error: {error}"
+    }
+  },
+  "AdminRoles": {
+    "title": "Gestión de Puestos",
+    "subtitle": "Selecciona Top 5 competencias por puesto",
+    "selectCompany": "Selecciona una empresa...",
+    "empty": "No se encontró ningún puesto para esta empresa",
+    "emptyTop10": "Aún no se generó ninguna competencia Top 10 por IA.",
+    "linkFirst": "Vincula este puesto primero",
+    "summary": "Top 10 de la IA · {total} ítems · {selected, plural, one {# seleccionada} other {# seleccionadas}}",
+    "orphanHint": "La IA generó Top 10 con este nombre de puesto, pero no está registrado en <strong>cargos_empresa</strong> ni aparece en los colaboradores. Usa el botón \"Vincular\" para apuntar al puesto correcto de la empresa (renombra en <code>top10_cargos</code> sin pérdida de datos).",
+    "workshop": {
+      "title": "Workshop presencial",
+      "beforeQuantity": "selecciona las competencias elegidas en el workshop entre las Top 10 del puesto. Puedes elegir",
+      "anyQuantity": "cualquier cantidad",
+      "afterQuantity": " (≥ 1). Alternativamente, usa la",
+      "voting": "Votación de los colaboradores"
+    },
+    "badges": {
+      "notLinked": "no vinculado",
+      "nonLeader": "no líder"
+    },
+    "actions": {
+      "linkCorrectRole": "Vincular al puesto correcto",
+      "save": "Guardar",
+      "cancel": "Cancelar",
+      "link": "Vincular"
+    },
+    "modal": {
+      "title": "Vincular puesto del Top 10",
+      "description": "La IA generó Top 10 con el nombre <strong>\"{role}\"</strong>. Selecciona abajo el puesto oficial de la empresa para vincular:",
+      "chooseRole": "Elige un puesto..."
+    },
+    "messages": {
+      "top5Saved": "Top 5 guardado!",
+      "error": "Error: {error}"
+    }
+  },
+  "AdminCompetencies": {
+    "title": "Competencias",
+    "subtitle": "CRUD de competencias por empresa",
+    "selectCompany": "Selecciona una empresa...",
+    "actions": {
+      "hideBase": "Ocultar Base",
+      "showBase": "Ver Base",
+      "new": "Nueva",
+      "copy": "Copiar",
+      "cancel": "Cancelar",
+      "save": "Guardar"
+    },
+    "import": {
+      "title": "Importar Competencias (CSV o Excel)",
+      "acceptedColumns": "Columnas aceptadas (1ª línea = encabezado):",
+      "requiredHint": "* obligatorios: <strong>nome, descricao, n1_gap, n2_desenvolvimento, n4_referencia</strong>. Los demás son opcionales. Dedup por cod_comp+cod_desc.",
+      "importing": "Importando...",
+      "selectFile": "Seleccionar archivo (CSV o XLSX)"
+    },
+    "filters": {
+      "allRoles": "Todos los puestos"
+    },
+    "empty": "No hay ninguna competencia registrada",
+    "summary": "{competencies} competencias · {descriptors} descriptores",
+    "descriptorCount": "{count, plural, one {# descriptor} other {# descriptores}}",
+    "rubricEmpty": "Rúbrica no completada",
+    "base": {
+      "title": "Competencias Base ({segment})",
+      "global": "Global",
+      "copyToRole": "¿Copiar competencia para qué puesto/función?",
+      "selectRole": "Selecciona un puesto...",
+      "noRoles": "No se encontró ningún puesto. Importa colaboradores con puesto primero."
+    },
+    "modal": {
+      "edit": "Editar Competencia",
+      "new": "Nueva Competencia"
+    },
+    "fields": {
+      "name": "Nombre",
+      "namePlaceholder": "Nombre de la competencia",
+      "code": "Código",
+      "codePlaceholder": "Ej.: COMP-01",
+      "pillar": "Pilar",
+      "pillarPlaceholder": "Ej.: Liderazgo",
+      "role": "Puesto",
+      "rolePlaceholder": "Ej.: Gerente",
+      "description": "Descripción",
+      "descriptionPlaceholder": "Descripción de la competencia..."
+    },
+    "confirm": {
+      "delete": "¿Eliminar esta competencia?",
+      "deleteWithDescriptors": "¿Eliminar \"{name}\" y todos sus descriptores?",
+      "copyBase": "¿Copiar \"{name}\" de la base al puesto \"{role}\"?\n\nLa competencia (y sus descriptores) se añadirá a la empresa. Si ya existe, puede generar duplicados."
+    },
+    "messages": {
+      "deleted": "Eliminada",
+      "competencyDeleted": "Competencia eliminada",
+      "noValidRows": "No hay ninguna línea válida. Verifica la columna \"nome\".",
+      "invalidRows": "{count} línea(s) sin obligatorios ({fields}). Líneas ignoradas.",
+      "error": "Error: {error}"
+    }
+  },
+  "AdminAssessmentDescriptors": {
+    "title": "Assessment Inicial de Descriptores",
+    "subtitle": "Notas 1-4 por colaborador · usado por el motor de temporadas para asignar semanas",
+    "missingCompany": "Pasa ?empresa={id} en la URL",
+    "loadError": "Error al cargar",
+    "legend": {
+      "gap": "Brecha",
+      "developing": "En desarrollo",
+      "goal": "Meta (competente)",
+      "reference": "Referencia"
+    },
+    "empty": "No hay ningún descriptor registrado para \"{competency}\". Importa vía CSV en /admin/competencias.",
+    "table": {
+      "collaborator": "Colaborador"
+    },
+    "tip": "Consejo: escribe 1-4 (acepta decimales 1.5, 2.5, 3.5) y haz clic fuera de la celda para guardar. Déjalo vacío para eliminar.",
+    "messages": {
+      "invalidScore": "La nota debe estar entre 1 y 4",
+      "cleared": "limpio"
+    }
+  },
+  "AdminVideos": {
+    "title": "Métricas de Videos",
+    "company": "Empresa",
+    "globalView": "Vista global — todas las empresas",
+    "actions": {
+      "viewGlobal": "Ver global",
+      "watch": "Ver"
+    },
+    "tabs": {
+      "content": "Contenido ({count})",
+      "engagement": "Engagement ({count})",
+      "alerts": "Alertas ({count})"
+    },
+    "cards": {
+      "activeVideos": "Videos activos",
+      "totalViews": "Views totales",
+      "watchedHours": "Horas vistas",
+      "avgCompletion": "Tasa media de conclusión",
+      "activeCollaborators": "Colabs activos",
+      "totalRegistered": "Total registrados",
+      "totalConsumed": "Total consumido",
+      "completedVideos": "Videos concluidos"
+    },
+    "sections": {
+      "viewsByDay": "Views por día (últimos {days} días)",
+      "viewsRanking": "Ranking por views",
+      "heatmapHint": "Haz clic en un video para ver el heatmap",
+      "videoRetention": "Retención por momento del video",
+      "engagementRanking": "Ranking de engagement",
+      "sortHint": "Haz clic en los encabezados para ordenar"
+    },
+    "table": {
+      "title": "Título",
+      "duration": "Duración",
+      "avgTime": "T. medio",
+      "completion": "Conclusión",
+      "collaborator": "Colaborador",
+      "role": "Puesto",
+      "videos": "Videos",
+      "completed": "Concluidos",
+      "minutes": "Minutos",
+      "lastAccess": "Último acceso",
+      "roleArea": "Puesto / Área",
+      "lastView": "Última view"
+    },
+    "empty": {
+      "noVideos": "Aún no hay videos.",
+      "noEngagement": "Aún no hay datos de engagement."
+    },
+    "heatmap": {
+      "empty": "Sin datos de heatmap (muy pocas views)."
+    },
+    "alerts": {
+      "title": "Colaboradores inactivos hace {days}+ días",
+      "description": "Lista de quienes concluyeron el mapeo pero no vieron ninguna píldora recientemente (o nunca). Considera un nudge por WhatsApp o email.",
+      "noneTitle": "Nadie inactivo",
+      "noneDescription": "Todos los colabs con mapeo están activos en los últimos {days} días.",
+      "neverWatched": "Nunca vio",
+      "daysWithoutWatching": "{days}d sin ver"
+    }
+  },
+  "AdminContent": {
+    "title": "Banco de Microcontenidos",
+    "subtitle": "Videos (Bunny), audios, textos y casos etiquetados para el Motor de Temporadas",
+    "loading": "Cargando...",
+    "empty": "Ningún contenido. Haz clic en \"Importar de Bunny\" para empezar.",
+    "actions": {
+      "addManual": "Añadir manual",
+      "generateAi": "Generar con IA",
+      "importBunny": "Importar de Bunny",
+      "suggestAi": "Sugerir tags con IA",
+      "edit": "Editar",
+      "delete": "Eliminar",
+      "save": "Guardar",
+      "cancel": "Cancelar",
+      "apply": "Aplicar",
+      "close": "Cerrar",
+      "sending": "Enviando...",
+      "generatingCount": "Generando {count}...",
+      "generateCount": "Generar {count, plural, one {# contenido} other {# contenidos}}",
+      "copied": "¡Copiado!",
+      "copyText": "Copiar texto"
+    },
+    "stats": {
+      "total": "Total",
+      "unclassified": "No clasificados",
+      "active": "Activos"
+    },
+    "filters": {
+      "allFormats": "Todos los formatos",
+      "onlyUnclassified": "Solo no clasificados"
+    },
+    "formats": {
+      "video": "Video",
+      "audio": "Audio"
+    },
+    "table": {
+      "format": "Formato",
+      "title": "Título",
+      "competency": "Competencia",
+      "descriptor": "Descriptor",
+      "level": "Nivel",
+      "role": "Puesto",
+      "rate": "Tasa",
+      "actions": "Acciones"
+    },
+    "modal": {
+      "editTitle": "Editar contenido",
+      "aiSuggestion": "Sugerencia de la IA",
+      "addManual": "Añadir contenido manual",
+      "generateAi": "Generar contenido con IA",
+      "generatedContent": "Contenido generado · {format}"
+    },
+    "fields": {
+      "title": "Título",
+      "competency": "Competencia",
+      "descriptor": "Descriptor",
+      "levelMin": "Nivel mín",
+      "levelMax": "Nivel máx",
+      "context": "Contexto",
+      "role": "Puesto",
+      "sector": "Sector",
+      "type": "Tipo",
+      "active": "Activo",
+      "confidence": "confianza",
+      "selectPlaceholder": "— selecciona —",
+      "format": "Formato",
+      "file": "Archivo",
+      "contentMarkdown": "Contenido (markdown)",
+      "targetRole": "Puesto objetivo",
+      "duration": "Duración (min:seg)"
+    },
+    "generate": {
+      "formats": {
+        "text": "Artículo (texto)",
+        "case": "Estudio de caso",
+        "video": "Guion de video",
+        "audio": "Guion de podcast"
+      },
+      "notes": {
+        "ready": "Listo para consumir",
+        "recordLater": "Necesita grabación posterior"
+      },
+      "descriptorOptional": "Descriptor (opcional · vacío = todos los {count})",
+      "allDescriptors": "— Todos los descriptores ({count}) —",
+      "wordEstimate": "(~{count} palabras)",
+      "tip": "Textos y casos quedan listos para consumo inmediato. Los guiones de video/audio deben grabarse después — el contenido queda inactivo hasta que actualices la URL en la edición.",
+      "recordingWarning": "Guion listo para grabación. El contenido se guardó como <strong>inactivo</strong> — edita y pega la URL final de Bunny/Storage después de grabar para activarlo."
+    },
+    "confirm": {
+      "delete": "¿Eliminar \"{title}\"?"
+    },
+    "logs": {
+      "importingBunny": "Importando videos de Bunny Stream...",
+      "importedBunny": "{imported} nuevos / {total} en total",
+      "askingAi": "Pidiendo IA para clasificar: {title}",
+      "aiSuggested": "IA sugirió: {competency} (confianza {confidence})",
+      "tagsApplied": "Tags aplicadas",
+      "updated": "Actualizado",
+      "deleted": "Eliminado",
+      "generatingSingle": "Generando {format} para \"{descriptor}\"...",
+      "noDescriptors": "Ningún descriptor para \"{competency}\"",
+      "batchWillGenerate": "Se generarán {count} {format}(s) para \"{competency}\"",
+      "batchDone": "Lote concluido: {ok}/{total}{errors}",
+      "errorCount": " ({count} errores)",
+      "unexpectedError": "Error inesperado: {error}"
+    }
+  },
+  "AdminEvolution": {
+    "title": "Evolución — Temporadas Concluidas",
+    "subtitle": "{count, plural, one {# colaborador con Evolution Report} other {# colaboradores con Evolution Report}}",
+    "loading": "Cargando...",
+    "missingCompanyParam": "Pasa ?empresa={id} en la URL",
+    "empty": {
+      "title": "Aún no hay ninguna temporada concluida en esta empresa.",
+      "description": "Espera a que los colaboradores finalicen las semanas 13-14."
+    },
+    "evaluatedCollaborators": "Colaboradores evaluados ({count})",
+    "descriptorSummary": "{descriptors, plural, one {# descriptor} other {# descriptores}} · {evaluations, plural, one {# evaluación} other {# evaluaciones}}",
+    "average": "Media",
+    "statuses": {
+      "evolucao_confirmada": "Confirmada",
+      "evolucao_parcial": "Parcial",
+      "estagnacao": "Estancamiento",
+      "regressao": "Regresión"
+    }
+  },
+  "AdminFit": {
+    "title": "Modelo de Fit v2",
+    "subtitle": "Ajuste colaborador × puesto",
+    "missingCompany": "Accede desde el pipeline de la empresa.",
+    "rankingTitle": "Ranking — {role}",
+    "emptyRanking": "Ningún fit calculado. Haz clic en \"Calcular Fit\" en el puesto.",
+    "emptyGaps": "Ninguna brecha relevante — el colaborador está dentro de los rangos ideales.",
+    "emptyStrengths": "Sin fortalezas destacadas por ahora.",
+    "loadingReading": "Generando análisis personalizado...",
+    "fitBands": {
+      "excelente": "Excelente",
+      "alta": "Alta",
+      "razoavel": "Razonable",
+      "baixa": "Baja",
+      "critica": "Crítica"
+    },
+    "cards": {
+      "calculatedFits": "{count, plural, one {# fit calculado} other {# fits calculados}}",
+      "noIdealProfile": "Sin perfil ideal"
+    },
+    "actions": {
+      "calculateFit": "Calcular Fit",
+      "recalculateAll": "Recalcular todos",
+      "downloadBehaviorReport": "Descargar informe conductual",
+      "close": "Cerrar"
+    },
+    "table": {
+      "collaborator": "Colaborador",
+      "mapping": "Mapeo",
+      "competencies": "Competencias",
+      "leadership": "Liderazgo",
+      "classification": "Clasificación"
+    },
+    "legend": {
+      "title": "Qué significa cada columna",
+      "fit": "índice final 0-100 que combina los 4 bloques. Cuanto más alto, mayor ajuste al puesto.",
+      "mapping": "ajuste DISC Natural vs perfil ideal del puesto (cuánto el colaborador es así \"naturalmente\").",
+      "competencies": "media de las 16 competencias conductuales comparadas con el perfil ideal (score ponderado por relevancia del puesto).",
+      "leadership": "ajuste del estilo de liderazgo (Ejecutivo/Motivador/Metódico/Sistemático) al modelo esperado del puesto.",
+      "disc": "ajuste DISC Adaptado (cómo se comporta en el trabajo) vs perfil esperado. La diferencia entre Mapeo y DISC revela nivel de ajuste/desgaste.",
+      "classification": "rango cualitativo del Fit: Excelente (≥85) · Alta (70-84) · Razonable (50-69) · Baja (30-49) · Crítica (<30)."
+    },
+    "labels": {
+      "average": "Media",
+      "current": "Actual",
+      "ideal": "Ideal",
+      "fitImpact": "Impacto en el fit",
+      "weight": "peso",
+      "modelRecommendation": "Recomendación del modelo"
+    },
+    "sections": {
+      "topGaps": "Top brechas — prioridad PDI",
+      "strengths": "Principales fortalezas",
+      "excessAlerts": "Alertas de exceso",
+      "executiveReading": "Lectura ejecutiva"
+    },
+    "messages": {
+      "error": "Error: {error}",
+      "generateReadingFailed": "fallo al generar la lectura",
+      "unexpectedError": "Error inesperado: {error}",
+      "batchErrors": "{count, plural, one {# colaborador con error} other {# colaboradores con error}}:\n\n{summary}{remaining}",
+      "moreErrors": "\n\n... y {count} más"
+    }
+  },
+  "AdminPPP": {
+    "title": "Extracción de PPPs",
+    "missingCompany": "Selecciona una empresa en el pipeline para acceder a la extracción de PPPs.",
+    "backDashboard": "Volver al Dashboard",
+    "templateHint": "Pide a la empresa que complete el PDF (campos editables en cualquier lector) y lo suba aquí.",
+    "schoolEmptyHint": "Si está vacío, se usa el nombre de la empresa. <strong>Repetir el mismo nombre sobrescribe el PPP anterior.</strong>",
+    "urlHint": "El contenido de los sitios se combina con los archivos para la extracción mediante IA",
+    "empty": "Ningún PPP extraído para esta empresa",
+    "listTitle": "PPPs ({count})",
+    "valuesCount": "{count, plural, one {# valor} other {# valores}}",
+    "actions": {
+      "back": "Volver",
+      "newExtraction": "Nueva extracción",
+      "close": "Cerrar",
+      "downloadPdfForm": "Descargar formulario PDF",
+      "addUrl": "+ Añadir URL",
+      "extractAi": "Extraer con IA",
+      "extracting": "Extrayendo..."
+    },
+    "fields": {
+      "schoolName": "Nombre de la escuela / unidad",
+      "schoolNameHint": "(se usa para distinguir múltiples PPPs de la misma empresa)",
+      "files": "Archivos",
+      "urls": "URLs de sitios (opcional)",
+      "pasteContent": "Pega el contenido del documento",
+      "aiModel": "Modelo de IA",
+      "enrichWeb": "Enriquecer vía web",
+      "enrichWebHint": "(busca datos públicos para completar vacíos — solo corporativo)"
+    },
+    "placeholders": {
+      "schoolName": "Ej.: Creche Alvorada, EMEF Joaquim Nabuco",
+      "pasteContent": "Pega aquí el contenido del PPP, documento institucional o texto extraído..."
+    },
+    "tabs": {
+      "files": "Archivos + Sitio",
+      "text": "Importar texto"
+    },
+    "upload": {
+      "click": "Haz clic para subir archivos",
+      "formats": "PDF, TXT, DOC, DOCX, PPT, PPTX — múltiples archivos",
+      "pages": "✓ {count} pág.",
+      "docx": "✓ docx",
+      "txt": "✓ txt",
+      "limitedParser": "⚠ parser limitado",
+      "emptyContent": "Contenido vacío",
+      "readError": "[Error al leer {file}: {error}]"
+    },
+    "viewer": {
+      "notDeclared": "No declarado",
+      "notIdentified": "No identificado",
+      "noExtractionData": "Datos de la extracción no disponibles",
+      "confidence": {
+        "alta": "alta",
+        "media": "media",
+        "baixa": "baja"
+      },
+      "origins": {
+        "internalDocument": "Doc. interno",
+        "website": "Sitio",
+        "news": "Noticia",
+        "notAvailable": "N/D"
+      },
+      "sections": {
+        "organizationalProfile": "Perfil organizacional",
+        "marketStakeholders": "Mercado y stakeholders",
+        "identityCulture": "Identidad y cultura",
+        "operationsProcesses": "Operación y procesos",
+        "peopleModel": "Modelo de personas",
+        "governanceDecision": "Gobernanza y decisión",
+        "technologyResources": "Tecnología y recursos",
+        "challengesStrategy": "Desafíos y estrategia",
+        "corporateVocabulary": "Vocabulario corporativo",
+        "institutionProfile": "Perfil de la institución",
+        "communityContext": "Comunidad y contexto",
+        "identity": "Identidad",
+        "describedPractices": "Prácticas descritas",
+        "inclusionDiversity": "Inclusión y diversidad",
+        "managementParticipation": "Gestión y participación",
+        "infrastructureResources": "Infraestructura y recursos",
+        "challengesGoals": "Desafíos y metas",
+        "vocabulary": "Vocabulario",
+        "prioritizedCompetencies": "Competencias priorizadas"
+      },
+      "labels": {
+        "clients": "Clientes",
+        "competition": "Competencia",
+        "mission": "Misión",
+        "vision": "Visión",
+        "managementModel": "Modelo de gestión",
+        "culture": "Cultura",
+        "development": "Desarrollo",
+        "evaluation": "Evaluación",
+        "career": "Carrera",
+        "structure": "Estructura",
+        "decisionMaking": "Toma de decisiones",
+        "tools": "Herramientas",
+        "capabilities": "Capacidades",
+        "limitations": "Limitaciones",
+        "challenges": "Desafíos",
+        "goals": "Metas",
+        "transformations": "Transformaciones",
+        "principles": "Principios",
+        "spaces": "Espacios",
+        "technology": "Tecnología",
+        "values": "Valores",
+        "source": "Fuente",
+        "date": "Fecha"
+      },
+      "metadata": {
+        "gaps": "Brechas",
+        "controlledHypotheses": "Hipótesis controladas",
+        "validateWithHr": "Validar con RR. HH./gestor",
+        "enrichedWeb": "Enriquecidas vía web"
+      }
+    },
+    "status": {
+      "extracted": "Extraído",
+      "error": "Error",
+      "pending": "Pendiente"
+    },
+    "fallback": {
+      "source": "Extracción"
+    },
+    "messages": {
+      "requireInput": "Indica al menos una URL, texto o archivo.",
+      "extractionDone": "Extracción concluida",
+      "deleted": "PPP eliminado",
+      "error": "Error: {error}"
+    },
+    "confirm": {
+      "delete": "¿Eliminar PPP \"{name}\"?"
+    }
+  },
+  "AdminTop10": {
+    "title": "Top 10 Competencias",
+    "subtitle": "Validación de las competencias seleccionadas por la IA por puesto",
+    "missingCompany": "Accede desde el pipeline de la empresa.",
+    "actions": {
+      "back": "Volver",
+      "add": "Añadir"
+    },
+    "filters": {
+      "allRoles": "Todos los puestos"
+    },
+    "empty": {
+      "title": "No se encontró ninguna selección",
+      "description": "Ejecuta IA1 (Top Competencias) primero en el pipeline de la empresa",
+      "noCompetencySelected": "Ninguna competencia seleccionada"
+    },
+    "labels": {
+      "role": "Puesto",
+      "market": "Mercado"
+    },
+    "ia": {
+      "roleReading": "Lectura del puesto",
+      "selectionRisks": "Riesgos de la selección",
+      "coverage": "Cobertura",
+      "almostIn": "Casi entraron"
+    },
+    "modal": {
+      "addCompetency": "Añadir competencia — {role}",
+      "searchPlaceholder": "Buscar competencia...",
+      "noAvailableCompetency": "Ninguna competencia disponible"
+    },
+    "messages": {
+      "removed": "Eliminada",
+      "added": "Añadida",
+      "error": "Error: {error}"
+    }
+  },
+  "AdminPlatformAdmins": {
+    "title": "Admins de la Plataforma",
+    "subtitle": "Usuarios con acceso al panel /admin",
+    "addTitle": "Añadir Admin",
+    "activeTitle": "Admins Activos ({count})",
+    "empty": "Ningún admin registrado",
+    "actions": {
+      "back": "Volver",
+      "add": "Añadir"
+    },
+    "placeholders": {
+      "name": "Nombre (opcional)"
+    },
+    "confirm": {
+      "remove": "¿Eliminar {email} como admin de la plataforma?"
+    }
+  },
+  "AdminLearningPreferences": {
+    "title": "Preferencias de Aprendizaje",
+    "subtitle": "Consolidado de las respuestas del mapeo conductual — todas las empresas",
+    "byCompany": "Por empresa",
+    "empty": "Ninguna empresa con colaboradores que hayan completado las preferencias todavía.",
+    "respondentsCount": "{count, plural, one {# respondente} other {# respondentes}}",
+    "stats": {
+      "companiesWithData": "Empresas (con datos)",
+      "of": "de {total}",
+      "respondents": "Total de respondentes",
+      "leadingPreference": "Preferencia líder",
+      "average": "media {value}"
+    },
+    "ranking": {
+      "title": "Ranking global",
+      "subtitle": "Media (escala 1-5) considerando todos los colaboradores de todas las empresas que concluyeron el mapeo."
+    },
+    "errors": {
+      "load": "Error al cargar"
+    }
+  },
+  "AdminSimulator": {
+    "title": "Simulador IA",
+    "subtitle": "Sandbox de chat sin persistencia",
+    "actions": {
+      "config": "Config",
+      "clear": "Limpiar"
+    },
+    "fields": {
+      "systemPrompt": "System Prompt",
+      "model": "Modelo",
+      "currentModel": "Modelo actual: {model}"
+    },
+    "empty": {
+      "title": "Envía un mensaje para empezar"
+    },
+    "inputPlaceholder": "Escribe tu mensaje...",
+    "messages": {
+      "errorResponse": "[Error] {error}",
+      "callFailed": "Fallo en la llamada"
+    }
+  },
+  "AdminTrash": {
+    "title": "Papelera",
+    "records": "{count, plural, one {# registro} other {# registros}}",
+    "selected": "{count, plural, one {# seleccionado} other {# seleccionados}}",
+    "empty": "Papelera vacía",
+    "warning": "Los elementos con más de 30 días pueden eliminarse permanentemente con el botón \"Vaciar >30d\".",
+    "scope": {
+      "company": "Empresa específica",
+      "all": "Todas las empresas"
+    },
+    "actions": {
+      "emptyOld": "Vaciar >30d",
+      "selectAll": "Seleccionar todos",
+      "unselectAll": "Desmarcar todos",
+      "restoreSelected": "Restaurar seleccionados"
+    },
+    "backups": {
+      "button": "Backups ({count})",
+      "title": "Backups diarios (gzip, 7 días)",
+      "generating": "Generando...",
+      "now": "Backup ahora",
+      "empty": "Aún no hay backups. El cron diario se ejecuta a las 4h UTC.",
+      "restoreHint": "Para restaurar desde un backup específico en desastre: descarga el .json.gz del bucket Supabase (Settings → Storage → backups), descomprímelo y reaplícalo manualmente."
+    },
+    "filters": {
+      "allTables": "Todas las tablas ({count})"
+    },
+    "table": {
+      "origin": "Tabla",
+      "context": "Contexto",
+      "deletedAt": "Eliminado el"
+    },
+    "confirm": {
+      "restore": "¿Restaurar {count, plural, one {# registro} other {# registros}} a sus tablas originales?",
+      "empty": "¿Eliminar permanentemente los elementos con más de 30 días en la papelera?"
+    }
+  },
+  "AdminVoting": {
+    "title": "Votación de Competencias",
+    "subtitle": "Consolidación de los votos de los colaboradores",
+    "actions": {
+      "closeBeforeUnlock": "Cierra la votación antes de liberar el siguiente paso",
+      "lockProfile": "Bloquear perfil",
+      "unlockProfile": "Liberar perfil",
+      "closeVoting": "Cerrar votación",
+      "openVoting": "Abrir votación",
+      "approveSelected": "Aprobar {count, plural, =0 {seleccionadas} one {# seleccionada} other {# seleccionadas}}"
+    },
+    "status": {
+      "votingOpen": "Votación abierta — los colaboradores pueden votar",
+      "votingClosed": "Votación cerrada",
+      "votedCount": "<strong>{voted}</strong> de {total} votaron"
+    },
+    "profile": {
+      "unlocked": "Perfil conductual liberado — los colaboradores pueden avanzar",
+      "locked": "Perfil conductual bloqueado — espera a finalizar la votación",
+      "availableAfterClose": "Liberación disponible después de cerrar la votación",
+      "useUnlockButton": "Usa el botón “Liberar perfil” cuando el ranking esté cerrado"
+    },
+    "hint": {
+      "title": "Cómo definir el Top final del puesto:",
+      "bodyBeforeLink": "(1) <strong>Votación de colaboradores</strong> — esta pantalla. Marca las competencias del ranking de abajo y aprueba. (2) <strong>Workshop presencial</strong> — ve a",
+      "bodyAfterLink": "y selecciona manualmente. Puedes elegir cualquier cantidad (≥ 1)."
+    },
+    "empty": {
+      "noCollaborators": "No se encontró ningún colaborador. Importa colaboradores primero.",
+      "noVotes": "Aún no se recibió ningún voto"
+    },
+    "role": {
+      "votedCount": "<strong>{voted}</strong> de {total} votaron",
+      "missing": "Faltan: {names}"
+    },
+    "ranking": {
+      "points": "{count} pts",
+      "votes": "{count, plural, one {# voto} other {# votos}}"
+    },
+    "suggestions": {
+      "title": "Sugerencias de nuevas competencias"
+    },
+    "messages": {
+      "selectAtLeastOne": "Marca al menos 1 competencia para {role}"
+    }
+  },
+  "AdminSeasons": {
+    "title": "Temporadas Generadas",
+    "scope": {
+      "company": "Empresa específica",
+      "allCompanies": "Todas las empresas"
+    },
+    "filters": {
+      "active": "Activas",
+      "paused": "Pausadas",
+      "completed": "Concluidas",
+      "archived": "Archivadas",
+      "all": "Todas"
+    },
+    "status": {
+      "ativa": "Activa",
+      "pausada": "Pausada",
+      "arquivada": "Archivada",
+      "concluida": "Concluida"
+    },
+    "progressStatus": {
+      "pendente": "Pendiente",
+      "em_andamento": "En curso",
+      "concluido": "Concluido"
+    },
+    "types": {
+      "conteudo": "Contenido",
+      "aplicacao": "Aplicación",
+      "avaliacao": "Evaluación"
+    },
+    "loading": "Cargando...",
+    "empty": {
+      "withStatus": "Ninguna temporada con estado \"{status}\".",
+      "generated": "Ninguna temporada generada."
+    },
+    "fallback": {
+      "collaborator": "colab"
+    },
+    "confirm": {
+      "archive": "¿Archivar la temporada de {name}? Se ocultará pero no se eliminará.",
+      "regenerateWeek": "¿Regenerar semana {week}? Esto borrará el progreso de esa semana."
+    },
+    "simulation": {
+      "prompt": "¿SIMULAR TEMPORADA de {name}?\n\nProcesa sems 1-14 una por vez (evita timeout). Cada semana tarda 30-90s.\n\nElige el perfil:\n  1 = evolucao_confirmada\n  2 = evolucao_parcial (default)\n  3 = estagnacao\n  4 = regressao\n\nEscribe 1-4 o cancela:",
+      "confirmProfile": "¿Simular con perfil \"{profile}\"? Borra el progreso existente de las 14 semanas.",
+      "weekError": "Sem {week}: {error}",
+      "finishedWithErrors": "La simulación terminó con {count} error(es):\n\n{errors}",
+      "finished": "Simulación concluida con éxito (14 semanas).",
+      "progressTitle": "Simulando temporada",
+      "progressWeek": "Sem <strong>{week}</strong> de {total}",
+      "errorCount": "{count} error(es)"
+    },
+    "card": {
+      "meta": "{role} · Temporada {season} · Foco: {focus}",
+      "viewProgress": "Ver progreso detallado",
+      "simulateTitle": "Simular temporada completa (pruebas Vertho)",
+      "simulateShort": "SIM",
+      "resume": "Retomar",
+      "pause": "Pausar",
+      "archive": "Archivar",
+      "selectedDescriptors": "Descriptores seleccionados",
+      "descriptorMeta": "nota {score} · brecha {gap} · {weeks} sem",
+      "planTitle": "Plan de 14 semanas",
+      "fallbackSuffix": " (fallback)",
+      "regenerateWeek": "Regenerar semana {week}",
+      "weekOneChallenge": "Desafío semana 1"
+    },
+    "week": {
+      "short": "Sem {week}"
+    },
+    "detail": {
+      "finalEvaluation": "Evaluación final",
+      "challenge": "🎯 Desafío",
+      "actionLabel": "Acción:",
+      "criteriaLabel": "Criterio:",
+      "mission": "🎯 Misión",
+      "scenario": "🎭 Escenario",
+      "tradeoffLabel": "Trade-off:",
+      "trapLabel": "Trampa:",
+      "week14Scenario": "🎭 Escenario (sem 14)",
+      "challengeLabel": "Desafío:",
+      "qualityLabel": "calidad:",
+      "signals": {
+        "example": "ejemplo",
+        "selfPerception": "autopercepción",
+        "commitment": "compromiso"
+      },
+      "insight": "💡 Insight",
+      "commitment": "📝 Compromiso",
+      "reflectionConversation": "Conversación de reflexión",
+      "scenarioAnswer": "✏️ Respuesta al escenario",
+      "descriptorEvaluation": "Evaluación por descriptor",
+      "blockSummary": "📊 Síntesis del bloque",
+      "feedbackConversation": "Conversación de feedback",
+      "messages": "{count, plural, one {# mensaje} other {# mensajes}}"
+    }
+  },
+  "AdminCompanyPipeline": {
+    "top": {
+      "backDashboard": "Admin Dashboard",
+      "pipeline": "PIPELINE DE EMPRESA",
+      "refresh": "Actualizar"
+    },
+    "meta": {
+      "collaborators": "{count, plural, one {# colaborador} other {# colaboradores}}",
+      "activePhase": "Fase {phase} activa"
+    },
+    "kpis": {
+      "responses": "Respuestas"
+    },
+    "status": {
+      "pendente": "Pendiente",
+      "andamento": "En curso",
+      "concluido": "Concluido"
+    },
+    "phases": {
+      "0": "Base de la empresa",
+      "1": "Perfil ideal",
+      "2": "Diagnóstico",
+      "3": "Temporadas",
+      "4": "Evolución"
+    },
+    "groups": {
+      "registration": "Registro",
+      "content": "Contenido",
+      "system": "Sistema",
+      "diagnosis": "Diagnóstico",
+      "trails": "Rutas",
+      "reports": "Informes",
+      "send": "Enviar",
+      "seasons": "Temporadas",
+      "reevaluation": "Reevaluación",
+      "verthoAudit": "Auditoría Vertho (interna)",
+      "evolution": "Evolución"
+    },
+    "actions": {
+      "gerenciar": "Colaboradores y Puestos",
+      "competencias": "Competencias",
+      "ppp": "Extraer PPPs",
+      "preferencias": "Preferencias",
+      "knowledge-base": "Knowledge Base (RAG)",
+      "videos": "Vídeos (Bunny)",
+      "config": "Configuración",
+      "ia1": "IA1 — Top 10",
+      "votacao": "Votación Colaboradores",
+      "cargos-top5": "Top 5",
+      "perfil-ext": "Perfil Externo (OPQ32)",
+      "ia2": "IA2 — Perfil Ideal",
+      "ia3": "IA3 — Escenarios + Check",
+      "fit": "Fit Puesto Ideal",
+      "simular-disc": "Simular Mapeo DISC",
+      "perfis-disc": "Perfiles Conductuales",
+      "envios": "Envíos",
+      "simular": "Simular Respuestas",
+      "ia4": "IA4 — Evaluar + Check",
+      "foco": "Competencias Foco",
+      "rel-ind": "Generar PDI",
+      "rel-gestor": "Gestor",
+      "rel-rh": "RR. HH.",
+      "envios-rel": "Enviar Informes",
+      "assessment": "Descriptores de Assessment",
+      "temporadas": "Generar Temporadas",
+      "temporadas-ver": "Ver Temporadas",
+      "cenarios-b": "Escenarios B + Check",
+      "vertho-evidencias": "Evidencias Semanales",
+      "vertho-acumulada": "Evaluación Acumulada",
+      "vertho-sem14": "Auditoría Sem 14",
+      "evolucao-temp": "Evolution Report (Temporadas)",
+      "evolucao": "Evolución (Fusión 3 Fuentes)",
+      "plenaria": "Plenaria de Evolución",
+      "processing": "Procesando..."
+    },
+    "phaseExtras": {
+      "competenciesShort": "{count} comp",
+      "answerKeys": "{count} plantillas",
+      "viewDetails": "Ver detalles →",
+      "invitesTotal": "Invitaciones: Total",
+      "pending": "Pendiente",
+      "sent": "Enviado",
+      "answered": "Respondido",
+      "diagnosis": "Diagnóstico →",
+      "trails": "Rutas →",
+      "reports": "Informes →",
+      "scenariosB": "Escenarios B →"
+    },
+    "focus": {
+      "title": "Competencia Foco por Puesto",
+      "description": "La ruta priorizará esta competencia si el colaborador tiene brecha.",
+      "noFocus": "— Sin foco (mayor brecha) —",
+      "badge": "FOCO"
+    },
+    "side": {
+      "statusTitle": "Estado de la empresa",
+      "responses": "Respuestas",
+      "ia4Reviews": "Evaluaciones IA4",
+      "seasons": "Temporadas"
+    },
+    "danger": {
+      "advancedSettings": "Configuración avanzada",
+      "testTools": "Herramientas de Prueba",
+      "confirmTestPassword": "¿Definir la contraseña \"teste123\" para todos?",
+      "setTestPassword": "Definir contraseña \"teste123\"",
+      "zone": "Zona de Peligro",
+      "allCollaborators": "Todos los colaboradores",
+      "allScope": "todos",
+      "collaboratorFallback": "colaborador",
+      "confirmClear": "¿{item} ({scope})? Esta acción no se puede deshacer.",
+      "individual": "(individual)",
+      "confirmDeleteCompany": "ELIMINAR la empresa \"{name}\" y TODOS los datos?\n\nIRREVERSIBLE.",
+      "deleteCompany": "Eliminar Empresa",
+      "items": {
+        "behaviorMapping": "Mapeo Conductual",
+        "competencyMapping": "Mapeo de Competencias",
+        "selectedTop10": "Top 10 seleccionadas",
+        "idealRoleProfile": "Perfil de Puesto Ideal",
+        "scenarios": "Escenarios",
+        "scenariosB": "Escenarios B",
+        "reevaluationSessions": "Sesiones de Reevaluación",
+        "simulatedAnswers": "Respuestas simuladas",
+        "ia4Reviews": "Evaluaciones IA4",
+        "reports": "Informes",
+        "sends": "Envíos",
+        "companyCompetencies": "Competencias de la empresa",
+        "collaborators": "Colaboradores",
+        "clearAll": "BORRAR TODO"
+      }
+    },
+    "modelPicker": {
+      "selectEachStep": "Selecciona un modelo para cada etapa",
+      "generation": "Generación",
+      "validation": "Validación",
+      "run": "Ejecutar",
+      "selectModel": "Selecciona el modelo de IA",
+      "cancel": "Cancelar"
+    }
+  },
+  "AdminCollaborators": {
+    "title": "Gestionar Colaboradores",
+    "back": "Volver",
+    "selectCompany": "Selecciona una empresa",
+    "summary": {
+      "collaborators": "{count, plural, one {# colaborador} other {# colaboradores}}",
+      "competencies": "{count, plural, one {# competencia} other {# competencias}}"
+    },
+    "tabs": {
+      "collaborators": "Colaboradores ({count})",
+      "roles": "Puestos ({count})",
+      "importCsv": "Importar CSV"
+    },
+    "actions": {
+      "linkManagers": "Vincular gestores",
+      "linkManagersTitle": "Para colaboradores con gestor_nome pero sin gestor_email, busca el gestor por nombre en la empresa y completa el e-mail automáticamente.",
+      "addCollaborator": "Añadir colaborador",
+      "exportXlsx": "Exportar XLSX",
+      "exportTitle": "Descargar todos los colaboradores de esta empresa en una hoja .xlsx",
+      "registerRole": "Registrar puesto →",
+      "addRequiresContact": "Añadir (e-mail O WhatsApp obligatorio)",
+      "cancel": "Cancelar",
+      "syncRoles": "Sincronizar desde Colaboradores",
+      "newRole": "Nuevo Puesto",
+      "save": "Guardar",
+      "importing": "Importando...",
+      "importCollaboratorsCsv": "Importar Colaboradores CSV",
+      "importRolesCsv": "Importar Puestos CSV"
+    },
+    "empty": {
+      "collaborators": "No hay colaboradores registrados",
+      "addManually": "Añadir manualmente",
+      "importCsv": "Importar CSV",
+      "roles": "No hay puestos registrados",
+      "syncRolesHint": "Haz clic en \"Sincronizar desde Colaboradores\" para importar los puestos existentes"
+    },
+    "table": {
+      "name": "Nombre",
+      "email": "Email",
+      "role": "Puesto",
+      "area": "Área",
+      "access": "Rol",
+      "manager": "Gestor",
+      "actions": "Acciones"
+    },
+    "fields": {
+      "fullName": "Nombre completo",
+      "select": "Selecciona...",
+      "areaAuto": "Área (auto del puesto)",
+      "managerName": "Nombre del gestor",
+      "outsideCatalog": "{role} (fuera del catálogo)",
+      "roleNameRequired": "Nombre del Puesto *",
+      "roleNamePlaceholder": "Ej.: Consultor de Ventas",
+      "areaDept": "Área / Depto",
+      "areaPlaceholder": "Ej.: Comercial",
+      "leadershipRole": "Puesto de liderazgo",
+      "leadershipRoleHint": "(si se desmarca, el bloque \"Liderazgo\" del Fit se excluye)"
+    },
+    "roles": {
+      "collaborator": "Colaborador",
+      "manager": "Gestor"
+    },
+    "badges": {
+      "whatsappOnly": "WhatsApp · sin e-mail",
+      "filled": "● Completo",
+      "pending": "○ Pendiente"
+    },
+    "modal": {
+      "editRole": "Editar Puesto",
+      "newRole": "Nuevo Puesto"
+    },
+    "cargoFields": {
+      "descricao": {
+        "label": "Descripción del Puesto",
+        "placeholder": "Responsabilidades principales..."
+      },
+      "principais_entregas": {
+        "label": "Principales Entregas Esperadas",
+        "placeholder": "Resultados esperados del puesto..."
+      },
+      "stakeholders": {
+        "label": "Stakeholders",
+        "placeholder": "Con quién interactúa: pares, superiores, clientes..."
+      },
+      "decisoes_recorrentes": {
+        "label": "Decisiones Recurrentes",
+        "placeholder": "Decisiones típicas que el puesto necesita tomar..."
+      },
+      "tensoes_comuns": {
+        "label": "Tensiones y Situaciones Difíciles",
+        "placeholder": "Conflictos recurrentes, dilemas, presiones..."
+      },
+      "contexto_cultural": {
+        "label": "Contexto Cultural (opcional)",
+        "placeholder": "Aspectos culturales específicos del puesto en la empresa..."
+      }
+    },
+    "import": {
+      "collaboratorsTitle": "Formato del CSV",
+      "collaboratorsDescription": "El archivo debe tener encabezado en la primera línea. Separador: coma o punto y coma (detectado automáticamente).",
+      "rolesTitle": "Importar Puestos por CSV",
+      "rolesDescription": "Crea puestos en lote en la tabla `cargos_empresa`. Los duplicados por nombre se ignoran.",
+      "column": "Columna",
+      "required": "Obligatoria",
+      "example": "Ejemplo",
+      "yes": "Sí",
+      "yesStar": "Sí*",
+      "no": "No",
+      "leadershipExample": "sí / no (default: sí)",
+      "defaultRoleHint": "Si <role>role</role> viene vacío, el valor por defecto es <collaborator>colaborador</collaborator>. Los duplicados por email se ignoran.",
+      "contactRequiredHint": "* <strong>e-mail O WhatsApp</strong> es obligatorio: sin e-mail válido, el colaborador entra por <strong>WhatsApp</strong> (debe ser móvil con código de área + 9 + 8 dígitos, ej.: 11999998888). Con e-mail válido, WhatsApp es opcional. La línea sin ninguno de los dos se bloquea."
+    },
+    "messages": {
+      "noRows": "No se encontró ninguna línea en el archivo.",
+      "noValidRoles": "Ningún puesto válido. Verifica la columna \"nome\" o \"cargo\".",
+      "collaboratorAdded": "Colaborador añadido",
+      "collaboratorUpdated": "Colaborador actualizado",
+      "collaboratorDeleted": "Colaborador eliminado",
+      "roleSaved": "Puesto guardado",
+      "roleDeleted": "Puesto eliminado",
+      "error": "Error: {error}",
+      "exported": "{count, plural, one {# colaborador exportado} other {# colaboradores exportados}}",
+      "linkedManagers": "{count, plural, one {# vinculado} other {# vinculados}}",
+      "managersNoMatch": "{count} sin coincidencia ({names})",
+      "managersAmbiguous": "{count} con múltiples coincidencias — completar manualmente",
+      "separator": " · "
+    },
+    "confirm": {
+      "deleteCollaborator": "¿Eliminar \"{name}\"? Esta acción no se puede deshacer.",
+      "deleteRole": "¿Eliminar el puesto \"{name}\"?"
+    },
+    "fallback": {
+      "collaborator": "colaborador"
+    }
+  },
+  "AdminCostSimulator": {
+    "title": "Simulador de Coste — IA",
+    "subtitle": "Estimación de gasto con llamadas de IA por unidad de escala (colaborador, escuela Radar, lead, empresa). Precios may/2026.",
+    "scale": {
+      "colab": {
+        "label": "Colaboradores",
+        "sub": "ciclo Mentor IA"
+      },
+      "pagina_radar": {
+        "label": "Páginas Radar",
+        "sub": "escuelas/municipios únicos"
+      },
+      "lead_radar": {
+        "label": "Leads Radar",
+        "sub": "PDF generados"
+      },
+      "empresa": {
+        "label": "Empresas (setup)",
+        "sub": "one-time"
+      }
+    },
+    "preset": {
+      "label": "Preset",
+      "current": "Config. actual"
+    },
+    "totals": {
+      "estimatedCost": "Coste estimado",
+      "perCollaborator": "{count} colab{count, plural, one {} other {s}} · ~USD {value} por colab (Mentor IA)",
+      "tokens": "{input}M tokens input + {output}M output",
+      "totalTokens": "= {total}M total",
+      "units": "× {count} unid.",
+      "calls": "{count} llamadas"
+    },
+    "catalog": {
+      "title": "Catálogo",
+      "critical": "crítica",
+      "optional": "opcional",
+      "tokenEstimate": "~{input} tok in + {output} tok out · × {executions} ejecuciones/unid."
+    },
+    "notes": {
+      "title": "Notas:",
+      "items": [
+        "Estimaciones aproximadas (±30%). El uso real varía según el tamaño del histórico, la calidad de la rúbrica y las respuestas del colaborador.",
+        "Escalas distintas: Mentor IA escala por colaborador; Radar escala por escuela/municipio único analizado (cache por datosHash) y por lead PDF; Setup es one-time por empresa.",
+        "Grounding RAG está incluido en los inTokens de las llamadas afectadas. Si la base está vacía, no hay grounding.",
+        "Embedding Voyage tiene coste mínimo, pero queda registrado para completitud.",
+        "Tira-Dudas es opcional y la estimación puede variar bastante.",
+        "PDI e Informe Individual son opcionales y solo se ejecutan si el admin hace clic.",
+        "Evolution Report es consolidación programática de los JSON, sin IA.",
+        "Informe Gestor e Informe RR. HH. usan IA + grounding, pero se ejecutan por gestor/empresa, fuera del modelo por colaborador.",
+        "Setup Empresa se ejecuta one-time. Multiplique por el número de empresas que entran en el ciclo.",
+        "Radar narrativa usa cache por datosHash. Los bot crawlers no disparan IA.",
+        "Radar propuesta PDF se ejecuta una vez por lead vía worker QStash.",
+        "Scorer sem 14 y check se encarecieron después de la triangulación.",
+        "Precios de modelos actualizados en may/2026. Consulte al proveedor para valores vigentes.",
+        "Simulador de Temporada cuesta extra por ronda de prueba."
+      ]
+    }
+  },
+  "Assessment": {
+    "emptyServer": "Respuesta vacía del servidor",
+    "loadError": "Error al cargar",
+    "back": "Volver",
+    "progress": "{done} de {total} competencias completadas",
+    "explanation": {
+      "title": "¿Cómo funciona?",
+      "subtitle": "Lee antes de empezar",
+      "paceTitle": "A tu ritmo",
+      "paceText": "~10 min por competencia",
+      "questionsTitle": "4 preguntas",
+      "questionsText": "escenario real, responde cómo actuarías",
+      "confidentialTitle": "Confidencial",
+      "confidentialText": "RR. HH. ve solo datos agregados",
+      "authenticTitle": "Sé auténtico(a)",
+      "authenticText": "sin respuesta correcta o incorrecta",
+      "start": "Comenzar evaluación →"
+    },
+    "intro": {
+      "context": "Contexto",
+      "start": "▶ Iniciar evaluación"
+    },
+    "questions": {
+      "counter": "Pregunta {current} de {total}",
+      "minToast": "Mínimo 20 caracteres.",
+      "voiceTipPrefix": "Consejo:",
+      "voiceTip": "Haz clic en <strong>Grabar por voz</strong> y habla con naturalidad — el texto aparece en el campo mientras hablas. Haz clic de nuevo para parar y edita si lo necesitas. Permite el acceso al micrófono la primera vez.",
+      "placeholder": "Describe tu respuesta con detalle…",
+      "minChars": "{count} / mín. 20 caracteres",
+      "previous": "← Anterior",
+      "next": "Siguiente →",
+      "representativity": "Representatividad →"
+    },
+    "representativity": {
+      "prompt": "En una escala de 1 a 10, ¿qué grado de representatividad tiene esta situación en tu día a día?",
+      "low": "1 — Raramente",
+      "high": "10 — Muy frecuente",
+      "chooseToast": "Elige la representatividad (1 a 10).",
+      "sending": "Enviando...",
+      "submit": "Enviar evaluación ✓"
+    },
+    "confirm": {
+      "title": "¡Respuesta guardada!",
+      "description": "Tu evaluación fue registrada con éxito.",
+      "nextCompetency": "Siguiente competencia →",
+      "dashboard": "Volver al dashboard"
+    },
+    "today": {
+      "title": "¡Evaluación del día concluida!",
+      "description": "Vuelve mañana para continuar tu itinerario."
+    },
+    "done": {
+      "title": "¡Felicidades, {name}!",
+      "description": "Has completado todas las evaluaciones de competencias.<br></br>Pronto recibirás tu informe personalizado."
+    }
+  },
+  "AdminRadarFunnel": {
+    "back": "Admin Dashboard",
+    "eyebrow": "RADAR · FUNNEL",
+    "ingestion": "Ingestão →",
+    "title": "Funil — últimos {days} dias",
+    "periodShort": "{days}d",
+    "previousStepRate": "{value}% da etapa anterior",
+    "steps": {
+      "visits": {
+        "label": "Visitas (humanos)",
+        "desc": "{total} totais incluindo bots"
+      },
+      "cta": {
+        "label": "Cliques no CTA \"Receber PDF\"",
+        "desc": "usuários humanos"
+      },
+      "leads": {
+        "label": "Leads capturados",
+        "desc": "modal LGPD enviado"
+      },
+      "pdfs": {
+        "label": "PDFs prontos",
+        "desc": "gerados e disponíveis"
+      },
+      "contacts": {
+        "label": "Contatos feitos",
+        "desc": "equipe Vertho fez contato"
+      },
+      "converted": {
+        "label": "Convertidos",
+        "desc": "virou conversa comercial"
+      }
+    },
+    "cost": {
+      "total": "Custo IA acumulado",
+      "analyses": "{count} análises geradas",
+      "average": "Custo médio/análise",
+      "cacheHint": "cache hit reduz proporcionalmente"
+    },
+    "events": {
+      "title": "Eventos por tipo",
+      "type": "Tipo",
+      "total": "Total",
+      "humans": "Humanos",
+      "uniqueIps": "IPs únicos 24h"
+    },
+    "top": {
+      "title": "Top {count} mais visitados"
+    }
+  },
+  "AdminRadarBettFunnel": {
+    "title": "Funnel · radarbett.vertho.ai",
+    "subtitle": "Conversão da landing comercial Bett 2026",
+    "days": "{count} dias",
+    "summary": {
+      "visitors": "Visitantes",
+      "leads": "Leads",
+      "conversion": "Conversão"
+    },
+    "sections": {
+      "steps": "Etapas do funil",
+      "secondaryClicks": "Cliques secundários",
+      "topSearches": "Top buscados"
+    },
+    "conversionShort": "{value}% conv.",
+    "secondary": {
+      "persona": "Persona clicada",
+      "example": "Exemplo aberto",
+      "publicCta": "CTA Rede pública",
+      "sticky": "Sticky CTA mobile",
+      "schedule": "Agendar"
+    },
+    "empty": {
+      "searches": "Sem buscas no período."
+    },
+    "scope": {
+      "schoolShort": "esc",
+      "cityShort": "mun"
+    },
+    "footer": "Período: últimos {days} dias. Eventos contados apenas humanos (is_bot = false). Conversão = lead_submit ÷ home_view."
+  },
+  "AdminRadarDataQuality": {
+    "back": "Admin Dashboard",
+    "eyebrow": "RADAR · QUALIDADE DOS DADOS",
+    "ingestion": "Ingestão →",
+    "title": "Qualidade dos dados",
+    "fallback": {
+      "empty": "—"
+    },
+    "relative": {
+      "today": "hoje",
+      "yesterday": "ontem",
+      "daysAgo": "{count}d atrás",
+      "monthsAgo": "{count}m atrás",
+      "yearsAgo": "{count}a atrás"
+    },
+    "health": {
+      "ok": "ok",
+      "error": "erro",
+      "empty": "vazia",
+      "lowCoverage": "baixa cobertura",
+      "outdated": "desatualizada"
+    },
+    "summary": {
+      "schools": "Escolas no cadastro",
+      "cities": "Municípios distintos",
+      "citySnapshots": "dos snapshots municipais",
+      "totalRows": "Linhas totais",
+      "tablesMonitored": "{count} tabelas monitoradas",
+      "overallHealth": "Saúde geral",
+      "errorCount": "{count} erro",
+      "warningCount": "{count} aviso",
+      "emptyCount": "{count} vazia(s)",
+      "populated": "tudo populado"
+    },
+    "coverage": {
+      "title": "Cobertura por fonte",
+      "hint": "% = chaves distintas no último ano / universo",
+      "inYear": "{count} em {year}"
+    },
+    "table": {
+      "source": "Fonte",
+      "scope": "Escopo",
+      "rows": "Linhas",
+      "years": "Anos",
+      "coverage": "Cobertura",
+      "updated": "Atualizado",
+      "health": "Saúde"
+    },
+    "scope": {
+      "school": "escola",
+      "city": "município",
+      "mixed": "misto"
+    },
+    "errors": {
+      "title": "Erros"
+    },
+    "ingestions": {
+      "title": "Últimas ingestões",
+      "empty": "Nenhuma ingestão registrada"
+    },
+    "footer": "Versão simples · cobertura calculada via RPC <code>diag_qualidade_distinct_chave</code>. Se uma fonte aparecer com cobertura \"—\", rode a migration 082."
+  },
+  "AdminBudget": {
+    "title": "Orçamento — Vertho Mentor IA",
+    "subtitle": "Calcula custo de IA, valor de tabela, desconto e valor final em BRL.",
+    "scope": {
+      "title": "Escopo",
+      "clusters": {
+        "label": "Clusters de escola",
+        "sub": "grupos com mesmo PPP/Top 5"
+      },
+      "profiles": {
+        "label": "Perfis por cluster",
+        "sub": "cargos distintos"
+      },
+      "collaborators": {
+        "label": "Colaboradores",
+        "sub": "total no ciclo"
+      },
+      "mapping": "Mapeamento"
+    },
+    "methods": {
+      "vote": "Votação",
+      "voteHint": "fluxo IA completo",
+      "workshopHint": "sem IA1/IA2 + custo workshop"
+    },
+    "preset": "Preset IA (afeta custo)",
+    "pricing": {
+      "title": "Tabela de preços (editável)",
+      "exchange": "Cotação USD→BRL",
+      "perUsd": "{value} por USD",
+      "generalSetup": "R$ setup geral",
+      "fixed": "{value} (fixo)",
+      "mentorPerColab": "R$ Mentor IA/colab",
+      "perColabMonth": "{value} / colab / mês",
+      "perCluster": "R$ por cluster",
+      "setupValue": "{value} setup",
+      "perProfile": "R$ por perfil",
+      "perRole": "{value} / cargo",
+      "workshopPerCluster": "R$ workshop/cluster",
+      "ifWorkshop": "{value} (se workshop)",
+      "maintenancePerColab": "R$ manutenção/colab",
+      "supportPerColabMonth": "{value} / colab / mês (suporte)",
+      "discount": "Desconto %",
+      "discountTotal": "{value}% no total"
+    },
+    "financial": {
+      "month1": "Mês 1 — Setup + 1ª mensalidade",
+      "month2": "Mês 2+ — Mensalidade recorrente",
+      "table": "Tabela",
+      "discountPct": "Desconto ({value}%)",
+      "includes": "Inclui Mentor IA + manutenção",
+      "perMonth": "/ mês"
+    },
+    "kpis": {
+      "total12m": "Total 12 meses",
+      "aiCost": "Custo IA total",
+      "marginValue": "Margem 12m (R$)",
+      "marginPct": "Margem 12m %"
+    },
+    "breakdown": {
+      "tableValue": "Composição do valor de tabela",
+      "oneTime": "One-time (Mês 1)",
+      "generalSetup": "Setup geral",
+      "clusterLine": "{count} cluster{count, plural, one {} other {s}} × {value}",
+      "profilesLine": "{count} perfis × {value}",
+      "oneTimeSubtotal": "Subtotal one-time",
+      "recurring": "Recorrente (mensal)",
+      "maintenance": "Manutenção",
+      "monthlyTotal": "Mensalidade total",
+      "month1Table": "Mês 1 (one-time + 1ª mens.)",
+      "month1Final": "Mês 1 final",
+      "month2Recurring": "Mês 2+ (mensalidade)",
+      "aiCost": "Composição do custo IA"
+    },
+    "ai": {
+      "setupLine": "Setup × {clusters} cluster{clusters, plural, one {} other {s}} ({profiles} perfis cada, {method})",
+      "tagging": "Tagging conteúdos (1× total)",
+      "mentorLine": "Mentor IA × {count} colab{count, plural, one {} other {s}} (USD {value} cada)",
+      "totalUsd": "Total USD",
+      "exchangeLine": "× {value} (cotação)"
+    },
+    "notes": {
+      "title": "Notas:",
+      "items": [
+        "Modelo de cobrança: Mês 1 = setup (one-time) + 1ª mensalidade. Mês 2 em diante = só mensalidade recorrente.",
+        "Mensalidade por colab = Mentor IA (uso da plataforma) + Manutenção (suporte/hosting).",
+        "Setup geral = taxa fixa de implantação inicial, independente de clusters/colabs.",
+        "Cluster = grupo de escolas com o mesmo Top 5 / PPP / cenários.",
+        "Perfis = número de cargos distintos no cluster.",
+        "Votação roda fluxo IA completo. Workshop pula IA1+IA2 e adiciona consultoria por cluster.",
+        "Tagging conteúdos roda uma vez por orçamento.",
+        "Custo IA usa o preset escolhido.",
+        "Margem 12m compara o total de 12 meses com o custo IA convertido em BRL.",
+        "Adicional workshop é apenas no preço de tabela.",
+        "Tabela de preços é estimativa. Ajuste os valores antes de fechar uma proposta."
+      ]
+    }
+  },
+  "AdminRadarIngestion": {
+    "back": "Admin Dashboard",
+    "eyebrow": "RADAR · INGESTÃO",
+    "links": {
+      "quality": "Qualidade →",
+      "funnel": "Funnel →"
+    },
+    "actions": {
+      "cleanOldTitle": "Marcar runs rodando antigos como interrompidos",
+      "cleanOld": "Limpar antigos",
+      "marking": "Marcando...",
+      "refreshMvsTitle": "Atualizar materialized views do Radar",
+      "refreshing": "Atualizando...",
+      "reloadTitle": "Recarregar painel"
+    },
+    "confirm": {
+      "deleteRun": "Excluir este run?",
+      "interruptRun": "Marcar este run como interrompido? Isso não encerra processo local ainda em execução.",
+      "markStale": "Marcar runs \"rodando\" com mais de 12h como interrompidos?"
+    },
+    "logs": {
+      "uploadBlocked": "Upload bloqueado: {file} tem {size}MB; use CLI para arquivos acima de 25MB",
+      "runInterrupted": "Run marcado como interrompido",
+      "interruptFailed": "Falha ao interromper run: {error}",
+      "mvsRefreshed": "Materialized views atualizadas",
+      "mvsFailed": "Refresh MVs falhou: {error}",
+      "staleMarked": "Runs antigos marcados: {count}",
+      "staleFailed": "Falha ao marcar runs antigos: {error}"
+    },
+    "stats": {
+      "schools": "Escolas cadastradas",
+      "cities": "Municípios",
+      "saeb": "Snapshots Saeb",
+      "ica": "Snapshots ICA",
+      "ideb": "Snapshots Ideb",
+      "censoInfra": "Censo Infra",
+      "censoTeachers": "Censo Docentes",
+      "vaar": "VAAR (entes)",
+      "vaarBeneficiaries": "VAAR beneficiários"
+    },
+    "cli": {
+      "title": "Imports via CLI (bases nacionais)",
+      "runLocal": "Rodar local (sem timeout do server action)",
+      "description": "Bases grandes (Saeb, Censo ~165MB, Ideb, SARESP) são importadas por scripts CLI que rodam direto contra o Supabase com service role e refrescam as materialized views ao final. Cada run aparece em <code>diag_ingest_runs</code>."
+    },
+    "webUpload": {
+      "title": "Upload via web (arquivos pequenos)",
+      "processing": "Processando...",
+      "ica": {
+        "title": "ICA (XLSX ou CSV INEP)",
+        "desc": "Indicador Criança Alfabetizada. Aceita o XLSX oficial INEP ou CSV com colunas CO_MUNICIPIO, PC_ALUNO_ALFABETIZADO, NO_TP_REDE, ANO.",
+        "button": "Selecionar arquivo ICA"
+      },
+      "fundeb": {
+        "title": "FUNDEB (CSV Tesouro)",
+        "desc": "CSV mensal por município. Agregamos automaticamente ano por ano.",
+        "button": "Selecionar CSV FUNDEB"
+      },
+      "pdde": {
+        "title": "PDDE (CSV FNDE)",
+        "desc": "Detecta automaticamente: se CSV tem CO_ESCOLA, usa por escola; senão agrega por município.",
+        "auto": "Auto",
+        "forceCity": "Forçar municipal"
+      },
+      "vaar": {
+        "title": "VAAR (XLSX FNDE)",
+        "desc": "Lista anual de entes habilitados ou não a receber a complementação-resultado do FUNDEB. Detecta o ano pelo nome do arquivo.",
+        "button": "Selecionar XLSX VAAR"
+      },
+      "fundebRevenue": {
+        "title": "FUNDEB Receita Prevista (XLSX)",
+        "desc": "Portaria Interministerial anual com receita prevista do FUNDEB por município, decomposta em contribuição estadual/municipal + complementações VAAF, VAAT e VAAR.",
+        "button": "Selecionar XLSX Receita"
+      }
+    },
+    "sessionLog": "Log da sessão",
+    "runs": {
+      "title": "Runs recentes",
+      "empty": "Nenhum run ainda. Faça o primeiro upload acima.",
+      "when": "Quando",
+      "source": "Fonte",
+      "file": "Arquivo",
+      "successFailSkip": "Sucesso/Falha/Skip",
+      "markInterrupted": "Marcar como interrompido"
+    },
+    "fallback": {
+      "empty": "—"
+    }
+  },
+  "AdminCityPotential": {
+    "title": "Potencial por Cidade",
+    "subtitle": "Visão unificada · Empresas e Escolas lado a lado (2 motores, mesma cidade)",
+    "explanation": "Scores não somam (modelos distintos, lado a lado). TAM soma (R$/mês): TAM Total = Empresas + Escolas. Empresas = Receita/CAGED/RAIS, snapshot mensal, TAM estimado com headcount híbrido RAIS→porte, excluindo educação para não duplicar escola. Escolas = INEP/Censo, headcount real, dados live.",
+    "filters": {
+      "allStates": "Todas UFs",
+      "cityPlaceholder": "Município...",
+      "scopePct": "% escopo",
+      "pricePerPerson": "R$/pessoa",
+      "apply": "Aplicar",
+      "cityCount": "{count} cidades"
+    },
+    "table": {
+      "city": "Município",
+      "companies": "Empresas (B2B, excl. educação)",
+      "schools": "Escolas",
+      "totalTam": "TAM Total/mês",
+      "prioritized": "Prioriz.",
+      "approach": "Abordar",
+      "networks": "Redes",
+      "estimatedTam": "TAM est./mês",
+      "schoolsShort": "Escolas",
+      "teachers": "Profs."
+    },
+    "messages": {
+      "linkUnavailable": "Link indisponível."
+    },
+    "showingLimit": "Mostrando 1.000 de {total} — filtre por UF/município.",
+    "actions": {
+      "openCompanyRadar": "Abrir Radar Empresas",
+      "openSchoolMarket": "Abrir Mercado Potencial (Escolas)"
+    }
+  },
+  "AdminKnowledgeBase": {
+    "title": "Base de Conhecimento por Empresa",
+    "subtitle": "Documentos consultados pela IA (Tira-Dúvidas e futuros prompts) para grounding.",
+    "actions": {
+      "upload": "Upload PDF/DOCX",
+      "newDoc": "Novo doc",
+      "cancel": "Cancelar",
+      "save": "Salvar"
+    },
+    "fields": {
+      "company": "Empresa"
+    },
+    "search": {
+      "title": "Testar busca (preview do que a IA receberia)",
+      "placeholder": "ex: como funciona o banco de horas?",
+      "button": "Buscar",
+      "empty": "Nenhum resultado — IA responderia sem grounding."
+    },
+    "empty": {
+      "title": "Nenhum doc ainda.",
+      "seed": "Popular base inicial (template Vertho)",
+      "seedHint": "Cria 6 docs base: como funciona temporada, evidências, tira-dúvidas, régua de níveis, modos de missão, política de privacidade."
+    },
+    "doc": {
+      "updated": "Atualizado {date}",
+      "source": "fonte"
+    },
+    "editor": {
+      "edit": "Editar doc",
+      "new": "Novo doc",
+      "titleLabel": "Título *",
+      "category": "Categoria",
+      "contentLabel": "Conteúdo *",
+      "sourceUrl": "URL da fonte (opcional)"
+    },
+    "messages": {
+      "requiredTitleContent": "Título e conteúdo são obrigatórios"
+    },
+    "confirm": {
+      "deactivate": "Desativar esse documento? Ele some das buscas (soft delete)."
+    }
+  },
+  "AdminEvidence": {
+    "title": "Evidências Semanais — Interna Vertho",
+    "subtitle": "Conversas socráticas das semanas 1-12 + extração estruturada por IA.",
+    "summary": {
+      "total": "Total",
+      "highQuality": "Qualidade Alta",
+      "challengeYes": "Desafio Sim",
+      "challengeNo": "Desafio Não"
+    },
+    "filters": {
+      "all": "Todas",
+      "quality": "Qualidade {quality}"
+    },
+    "empty": "Nenhuma evidência pra esse filtro.",
+    "weekShort": "Sem",
+    "labels": {
+      "quality": "Qualidade",
+      "challenge": "Desafio"
+    },
+    "modal": {
+      "title": "Evidência · Sem {week}",
+      "context": "Contexto",
+      "descriptor": "descritor",
+      "weekChallenge": "Desafio da Semana",
+      "extraction": "Extração Estruturada",
+      "reflectionQuality": "Qualidade da reflexão",
+      "transcript": "Transcript da Conversa ({count} mensagens)",
+      "collaboratorShort": "Colab"
+    }
+  },
+  "AdminWhatsapp": {
+    "title": "Envios",
+    "selectCompany": "Selecione uma empresa...",
+    "sending": "Enviando...",
+    "sendButton": "Disparar para {count} destinatário(s)",
+    "tabs": {
+      "magicLink": "Magic Link WhatsApp",
+      "emailInvites": "Email Convites",
+      "whatsappInvites": "WhatsApp Convites",
+      "emailReports": "Email Relatórios",
+      "whatsappReports": "WhatsApp Relatórios"
+    },
+    "subjects": {
+      "assessment": "[{{empresa}}] Avaliação de Competências",
+      "report": "[{{empresa}}] Seu Relatório de Competências"
+    },
+    "defaultMessages": {
+      "email": "Olá {{nome}}!\n\nVocê foi convidado(a) para participar da avaliação de competências da *{{empresa}}*.\n\nAcesse pelo link abaixo:\n{{link}}",
+      "whatsapp": "Olá {{nome}}!\n\nVocê foi convidado(a) para a avaliação de competências da *{{empresa}}*.\n\nAcesse: {{link}}",
+      "reportEmail": "Olá {{nome}}!\n\nSeu relatório individual de competências da *{{empresa}}* está disponível.\n\nAcesse pelo link abaixo para visualizar:\n{{link}}",
+      "reportWhatsapp": "Olá {{nome}}!\n\nSeu relatório de competências da *{{empresa}}* está pronto.\n\nAcesse: {{link}}"
+    },
+    "confirm": {
+      "send": "Disparar {channel} para {total} destinatário(s) agora?\n\nMensagens não podem ser \"desenviadas\". Confirme a mensagem e os filtros antes de continuar.",
+      "magicLink": "Enviar Magic Link por WHATSAPP para {total} colaborador(es)?\n\nCada link expira em 24h. Mensagens não podem ser \"desenviadas\".\n\nConfirma?"
+    },
+    "alerts": {
+      "fileTooLarge": "Arquivo muito grande. Máximo {max} MB."
+    },
+    "magic": {
+      "title": "Enviar Magic Link por WhatsApp",
+      "description": "Gera um link de acesso direto (sem senha) para cada colaborador e envia por WhatsApp. O link expira em 24h e é pessoal.",
+      "eligible": "{count} colaborador(es) com telefone + email",
+      "send": "Enviar Magic Links"
+    },
+    "filters": {
+      "title": "Filtros de Destinatários",
+      "role": "Cargo",
+      "allRoles": "Todos os cargos",
+      "voting": "Votação",
+      "all": "Todos",
+      "notVoted": "Não votaram",
+      "voted": "Já votaram",
+      "disc": "Perfil DISC",
+      "withProfile": "Com perfil",
+      "withoutProfile": "Sem perfil",
+      "emailRecipients": "{count} destinatário(s) com email",
+      "whatsappRecipients": "{count} destinatário(s) com WhatsApp"
+    },
+    "attachments": {
+      "attachPdf": "Anexar PDF do relatório individual",
+      "additional": "Anexo adicional",
+      "remove": "Remover anexo",
+      "selectFile": "Selecionar arquivo...",
+      "hint": "Máx {max} MB. Tipos aceitos: PDF, DOC(X), XLS(X), PPT(X), JPG, PNG, ZIP. Vídeos não são suportados nesta versão."
+    },
+    "editor": {
+      "subject": "Assunto do Email",
+      "message": "Mensagem",
+      "placeholder": "Olá {{nome}}! ...",
+      "formatHint": "*negrito* → <strong>negrito</strong> · _itálico_ → <em>itálico</em>",
+      "chars": "{count} caracteres"
+    },
+    "preview": {
+      "title": "Preview da Mensagem",
+      "empty": "A mensagem aparecerá aqui..."
+    },
+    "variables": {
+      "available": "Variáveis Disponíveis"
+    },
+    "tips": {
+      "title": "Dicas",
+      "bold": "• Use *texto* para negrito",
+      "italic": "• Use _texto_ para itálico",
+      "interval": "• Intervalo de 1s entre envios para evitar bloqueio",
+      "emailIncluded": "• Todos os colaboradores com email serão incluídos",
+      "whatsappIncluded": "• Apenas colaboradores com WhatsApp cadastrado serão incluídos",
+      "firstName": "• O primeiro nome é usado automaticamente no {{nome}}"
+    }
+  },
+  "AdminCompanyRadarLists": {
+    "title": "Listas de prospecção",
+    "subtitle": "Recortes salvos · export ordenado por priority_rank",
+    "newList": "Nova lista",
+    "namePlaceholder": "Nome (ex: Saúde Jundiaí — Q3)",
+    "descriptionPlaceholder": "Descrição (opcional)",
+    "creating": "Criando...",
+    "create": "Criar",
+    "createHint": "Adicione empresas pela busca (botão \"+ lista\" na ficha — em breve) ou exporte direto da busca com filtro.",
+    "empty": "Nenhuma lista ainda. Crie uma ou exporte direto da busca.",
+    "items": "{count} item(s)",
+    "noItems": "sem itens"
+  },
+  "AdminCompanyRadarNetworks": {
+    "title": "Redes & Franquias",
+    "subtitle": "1 lead = a rede (negociação na sede: franqueadora ou matriz, não na unidade)",
+    "warning": "<strong>Franquia</strong>: mesma fantasia em 3+ donos distintos. <strong>Grupo</strong>: mesma empresa (CNPJ-base) com 3+ filiais. Nos dois, a sede (franqueadora/matriz) normalmente está <strong>fora do recorte</strong> — o decisor não é a unidade local. Validar antes de abordar.",
+    "empty": "Nenhuma rede detectada ainda. Rode o script de detecção.",
+    "types": {
+      "group": "Grupo",
+      "franchise": "Franquia"
+    },
+    "confidence": "{value} confiança",
+    "summary": {
+      "group": "{units} filiais · mesma empresa",
+      "franchise": "{units} unidades · {owners} donos"
+    },
+    "noSegment": "sem segmento",
+    "loadingUnits": "Carregando unidades..."
+  },
+  "AdminCompanyRadarCompany": {
+    "back": "Voltar",
+    "sections": {
+      "identification": "Identificação",
+      "contact": "Contato",
+      "segment": "Segmento Vertho"
+    },
+    "fields": {
+      "legalName": "Razão social",
+      "tradeName": "Nome fantasia",
+      "branch": "Matriz/Filial",
+      "size": "Porte",
+      "capital": "Capital social",
+      "age": "Idade",
+      "cnae": "CNAE principal",
+      "status": "Situação",
+      "phone1": "Telefone 1",
+      "phone2": "Telefone 2",
+      "neighborhood": "Bairro"
+    },
+    "values": {
+      "headquarters": "Matriz",
+      "branch": "Filial",
+      "years": "{count} anos",
+      "active": "Ativa"
+    },
+    "painHypotheses": "Hipóteses de dor (a validar):",
+    "scoreMissing": "Score ainda não calculado para esta empresa.",
+    "scoreExplanation": "Como o score foi calculado (auditável)",
+    "commercialInsight": "Insight comercial (IA)",
+    "insightPlaceholder": "Geração de hipótese de dor / oferta / abordagem por IA entra na Etapa 5 (on-demand, cacheado)."
+  },
+  "AdminCompanyRadar": {
+    "title": "Radar Empresas",
+    "subtitle": "Inteligência comercial B2B · uso interno Vertho",
+    "br": {
+      "title": "Radar Empresas — Brasil",
+      "subtitle": "{count} municípios com priorizados · lead-a-lead via XLSX por cidade"
+    },
+    "nav": {
+      "networks": "Redes",
+      "lists": "Listas"
+    },
+    "actions": {
+      "exportXlsx": "Exportar XLSX"
+    },
+    "alerts": {
+      "noCityXlsx": "Sem XLSX para esta cidade ainda.",
+      "linkFailed": "Não foi possível gerar o link."
+    },
+    "marketBrazil": "Mercado endereçável Vertho — Brasil",
+    "market": "Mercado endereçável Vertho",
+    "marketHint": "(não confundir TAM bruto com o que é abordável)",
+    "filters": {
+      "allStates": "Todas UFs",
+      "cityCount": "{count} cidades",
+      "all": "Todas",
+      "allMasculine": "Todos",
+      "segment": "Segmento",
+      "classification": "Classificação",
+      "minScore": "Score mín.",
+      "prioritizedOnly": "Só priorizados (top 10%)",
+      "tradeNamePlaceholder": "Nome fantasia..."
+    },
+    "table": {
+      "city": "Município",
+      "prioritized": "Priorizados",
+      "approachGood": "Abordar / Boa",
+      "topSegment": "Segmento top",
+      "assetsTam": "Ativos (TAM)",
+      "company": "Empresa",
+      "cityUf": "Cidade/UF",
+      "classif": "Classif."
+    },
+    "showingLimitUf": "Mostrando 1000 de {total} — filtre por UF.",
+    "noData": {
+      "title": "Sem dados carregados ainda",
+      "description": "Schema e segmentos prontos. Aguardando o pipeline da Receita gerar o Parquet e carregar as tabelas. A busca abaixo fica funcional assim que houver dados."
+    },
+    "kpis": {
+      "companies": "Empresas",
+      "establishments": "Estabelecimentos",
+      "withScore": "Com score",
+      "approach": "Abordar (acionável)",
+      "good": "Boa (acionável)"
+    },
+    "topSegments": "Top segmentos (priorizados)",
+    "topCities": "Top municípios",
+    "genericAdherent": "aderentes",
+    "genericHint": "genéricos (CNAE não classificado em segmento — candidatos a curar no mapa, confidence ≤ média)",
+    "search": {
+      "title": "Busca",
+      "button": "Buscar",
+      "searching": "Buscando...",
+      "empty": "Sem resultados. Ajuste os filtros ou aguarde a carga de dados."
+    },
+    "pagination": {
+      "summary": "{start}–{end} de {total} · pág. {page}/{pages}",
+      "previous": "← Anterior",
+      "next": "Próxima →"
+    }
+  },
+  "AdminAccumulatedEvaluation": {
+    "title": "Avaliação Acumulada — Interna Vertho",
+    "subtitle": "Nota por descritor gerada pela 1ª IA ao fim da sem 13, auditada pela 2ª.",
+    "summary": {
+      "total": "Total",
+      "approved": "Aprovadas",
+      "review": "Revisar",
+      "noAudit": "Sem auditoria",
+      "notGenerated": "Não gerado"
+    },
+    "filters": {
+      "all": "Todos"
+    },
+    "status": {
+      "aprovado": "Aprovado",
+      "revisar": "Revisar",
+      "sem_auditoria": "Sem auditoria",
+      "nao_gerado": "Não gerado"
+    },
+    "empty": "Nenhuma avaliação pra esse filtro.",
+    "actions": {
+      "regenerate": "Regerar"
+    },
+    "modal": {
+      "title": "Avaliação Acumulada",
+      "context": "Contexto",
+      "generatedAt": "Gerado em {date}",
+      "notGenerated": "Ainda não gerada. Clique em Regerar.",
+      "primary": "1ª IA — Nota Acumulada por Descritor",
+      "audit": "2ª IA — Auditoria",
+      "alerts": "Alertas:",
+      "adjustments": "Ajustes sugeridos:",
+      "auditMissing": "Avaliação primária gerada, mas auditoria não (falha na 2ª IA ou rodada antes do check)."
+    }
+  },
+  "AdminWeek14Audit": {
+    "title": "Auditoria Sem 14 — Interna Vertho",
+    "subtitle": "Revisão de avaliações finais de temporada feitas pela 2ª IA.",
+    "backToAdmin": "← Voltar ao admin",
+    "summary": {
+      "total": "Total",
+      "approved": "Aprovadas",
+      "review": "Revisar",
+      "noAudit": "Sem auditoria"
+    },
+    "filters": {
+      "all": "Todos"
+    },
+    "status": {
+      "aprovado": "Aprovado",
+      "revisar": "Revisar",
+      "sem_auditoria": "Sem auditoria"
+    },
+    "empty": "Nenhuma auditoria pra esse filtro.",
+    "confirm": {
+      "regenerate": "Regerar scoring com os feedbacks da auditoria? A IA vai corrigir os problemas apontados."
+    },
+    "errorPrefix": "Erro: {error}",
+    "regenerated": "Regenerado! Nova nota de auditoria: {score}/100 ({status})",
+    "regenerating": "Regenerando...",
+    "regenerateWithFeedback": "Regerar com feedback da auditoria",
+    "modal": {
+      "title": "Detalhe da Auditoria",
+      "context": "Contexto",
+      "competency": "Competência",
+      "notMapped": "não mapeado",
+      "primary": "Avaliação Primária",
+      "scenario": "Cenário",
+      "audit": "Auditoria 2ª IA",
+      "collaboratorAnswer": "Resposta do Colaborador"
+    }
+  },
+  "AdminMarketPotential": {
+    "back": "Admin Dashboard",
+    "eyebrow": "Mercado potencial · uso interno",
+    "refresh": "Atualizar datos",
+    "alerts": {
+      "error": "Error: {message}",
+      "updated": "MVs actualizadas. Recargando..."
+    },
+    "actions": {
+      "clear": "limpiar"
+    },
+    "age": {
+      "until24": "hasta 24",
+      "until29": "hasta 29",
+      "until24Years": "Hasta 24 años",
+      "until29YearsDefault": "Hasta 29 años (default)"
+    },
+    "filters": {
+      "title": "Filtros",
+      "ufCount": "{count} UF",
+      "networkCount": "{count} red",
+      "none": "sin filtros"
+    },
+    "inputs": {
+      "teacherPrice": "R$/Profesor/mes",
+      "managerPrice": "R$/Gestor/mes",
+      "onboardingAge": "Edad de corte Onboarding",
+      "ageHint": "INEP solo publica franjas fijas — corte 24 o 29.",
+      "limit": "Límite (default {default})",
+      "uf": "UF (multi-select)",
+      "allUfs": "Todas las UFs",
+      "ufSelected": "{count} UFs seleccionadas",
+      "city": "Ciudad (búsqueda por nombre)",
+      "cityPlaceholder": "ej.: São Paulo, Salvador...",
+      "network": "Red administrativa",
+      "inseMin": "INSE mínimo (1=bajo, 6=alto)",
+      "inseMax": "INSE máximo"
+    },
+    "tabs": {
+      "city": "Municipio",
+      "network": "Red",
+      "school": "Escuela"
+    },
+    "kpis": {
+      "rows": "Filas",
+      "schools": "Escuelas",
+      "teachers": "Profesores {age}",
+      "share": "Participación en el total",
+      "shareValue": "{total} total · {pct}",
+      "managers": "Gestores",
+      "mentorTam": "TAM Mentor IA/mes",
+      "onboardingTam": "TAM Onboarding/mes"
+    },
+    "empty": {
+      "title": "Ningún resultado con estos filtros.",
+      "hint": "Intenta reducir los filtros o hacer clic en \"Actualizar datos\"."
+    },
+    "table": {
+      "identification": "Identificación",
+      "network": "Red",
+      "schools": "Escuelas",
+      "teachers": "Profs {age}",
+      "managersShort": "Gest.",
+      "youngPct": "% jóvenes",
+      "noPostgradPct": "% sin posgrado",
+      "inferredInseTitle": "INSE inferido a partir del Censo Escolar (proxy). Privadas sin cobertura Saeb oficial."
+    },
+    "limitReached": "{limit} primeros resultados (límite alcanzado). Aumenta el \"Límite\" en el header o filtra por UF/red para refinar.",
+    "footerNote": "TAM = (profs + gestores) × R$/mes configurado. Fit pedagógico = 0.4 + 0.3×(%sin posgrado) + 0.3×(%jóvenes). Score = TAM × Fit Ped × Fit Fin (dependiente de INSE). INSE INEP: 1=más bajo, 6=más alto. Privadas puntúan alto con INSE alto (mayor capacidad de pago); públicas puntúan alto con INSE bajo (mayor demanda). Valores INSE con <tilde>~</tilde> son <strong>inferidos</strong> vía Censo Escolar (proxy) para privadas sin cobertura Saeb oficial."
+  }
+}

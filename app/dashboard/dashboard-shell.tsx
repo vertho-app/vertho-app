@@ -2,28 +2,31 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
+import { localeCookieName } from '@/lib/i18n';
 import { Home, Clock, Play, TrendingUp, User, LogOut, Users2 } from 'lucide-react';
 import BetoChat from '@/components/beto-chat';
 import { UserAvatar } from '@/components/user-avatar';
 
-type NavItem = { href: string; label: string; icon: any; gestorOnly?: boolean };
+type NavItem = { href: string; labelKey: string; icon: any; gestorOnly?: boolean };
 
 const NAV_ITEMS: NavItem[] = [
-  { href: '/dashboard', label: 'Início', icon: Home },
-  { href: '/dashboard/gestor', label: 'Equipe', icon: Users2, gestorOnly: true },
-  { href: '/dashboard/jornada', label: 'Jornada', icon: Clock },
-  { href: '/dashboard/temporada', label: 'Temporada', icon: Play },
-  { href: '/dashboard/evolucao', label: 'Evolução', icon: TrendingUp },
-  { href: '/dashboard/perfil', label: 'Perfil', icon: User },
+  { href: '/dashboard', labelKey: 'home', icon: Home },
+  { href: '/dashboard/gestor', labelKey: 'team', icon: Users2, gestorOnly: true },
+  { href: '/dashboard/jornada', labelKey: 'journey', icon: Clock },
+  { href: '/dashboard/temporada', labelKey: 'season', icon: Play },
+  { href: '/dashboard/evolucao', labelKey: 'evolution', icon: TrendingUp },
+  { href: '/dashboard/perfil', labelKey: 'profile', icon: User },
 ];
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
+  const t = useTranslations('DashboardShell');
   const router = useRouter();
   const pathname = usePathname();
   const supabase = getSupabase();
   const [user, setUser] = useState<any>(null);
-  const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string } | null>(null);
+  const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string; locale?: string } | null>(null);
   const isGestorOuRH = colaborador?.role === 'gestor' || colaborador?.role === 'rh';
   const navItems = NAV_ITEMS.filter((it) => !it.gestorOnly || isGestorOuRH);
 
@@ -34,7 +37,10 @@ export default function DashboardShell({ children }: { children: React.ReactNode
 
       fetch('/api/me')
         .then(r => r.json())
-        .then(d => { if (d?.nome_completo) setColaborador(d); })
+        .then(d => {
+          if (d?.locale) document.cookie = `${localeCookieName}=${d.locale}; path=/; max-age=31536000; samesite=lax`;
+          if (d?.nome_completo) setColaborador(d);
+        })
         .catch(() => {});
     });
 
@@ -75,11 +81,12 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           {navItems.map(item => {
             const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
             const Icon = item.icon;
+            const label = t(`nav.${item.labelKey}`);
             return (
               <div key={item.href} className="relative group">
                 <button
                   onClick={() => router.push(item.href)}
-                  title={item.label}
+                  title={label}
                   className={`transition-all duration-300 block ${
                     isActive
                       ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(0,180,216,0.45)] scale-110'
@@ -89,14 +96,14 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                   <Icon size={22} />
                 </button>
                 <span className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1 rounded-md bg-slate-800/95 text-white text-xs font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-white/10 shadow-lg z-50">
-                  {item.label}
+                  {label}
                 </span>
               </div>
             );
           })}
         </nav>
 
-        <button onClick={handleLogout} title="Sair" className="text-gray-500 hover:text-red-400 transition-colors">
+        <button onClick={handleLogout} title={t('logout')} className="text-gray-500 hover:text-red-400 transition-colors">
           <LogOut size={20} />
         </button>
       </aside>
@@ -116,7 +123,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
             size={32}
             onClick={() => router.push('/dashboard/perfil')}
           />
-          <button onClick={handleLogout} className="text-gray-500 hover:text-white transition-colors" title="Sair">
+          <button onClick={handleLogout} className="text-gray-500 hover:text-white transition-colors" title={t('logout')}>
             <LogOut size={18} />
           </button>
         </div>
@@ -135,6 +142,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         {navItems.map(item => {
           const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
           const Icon = item.icon;
+          const label = t(`nav.${item.labelKey}`);
           return (
             <button
               key={item.href}
@@ -142,7 +150,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
               className={`flex flex-col items-center gap-0.5 py-1 px-3 transition-colors ${isActive ? 'text-cyan-400' : 'text-gray-500'}`}
             >
               <Icon size={20} />
-              <span className="text-[10px] font-semibold">{item.label}</span>
+              <span className="text-[10px] font-semibold">{label}</span>
             </button>
           );
         })}

@@ -1,8 +1,10 @@
 import { withSentryConfig } from '@sentry/nextjs';
+import createNextIntlPlugin from 'next-intl/plugin';
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
 const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
+const withNextIntl = createNextIntlPlugin();
 
 // Build number = short SHA do commit deployado (muda a cada deploy)
 let sha = '0000000';
@@ -77,7 +79,7 @@ const nextConfig = {
   },
 };
 
-export default withSentryConfig(nextConfig, {
+export default withSentryConfig(withNextIntl(nextConfig), {
   // Silencia logs do Sentry no build
   silent: true,
 

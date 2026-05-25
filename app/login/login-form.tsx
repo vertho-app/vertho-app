@@ -2,10 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
+import { localeCookieName } from '@/lib/i18n';
 import SignupModal from './signup-modal';
 
 export default function LoginForm({ branding }: { branding: any }) {
+  const t = useTranslations('Login');
+  const common = useTranslations('Common');
+  const locale = useLocale();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mode, setMode] = useState<'otp' | 'password' | 'whatsapp'>('otp');
@@ -40,6 +45,11 @@ export default function LoginForm({ branding }: { branding: any }) {
     if (redir && redir.startsWith('/')) setRedirectTo(redir);
   }, []);
 
+  function handleLocaleChange(nextLocale: string) {
+    document.cookie = `${localeCookieName}=${nextLocale}; path=/; max-age=31536000; samesite=lax`;
+    window.location.reload();
+  }
+
   // Se já está logado, redireciona
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -62,7 +72,7 @@ export default function LoginForm({ branding }: { branding: any }) {
     const trimmed = email.trim().toLowerCase();
 
     if (!trimmed || !trimmed.includes('@')) {
-      setErrorMsg('Digite um e-mail válido.');
+      setErrorMsg(t('errors.invalidEmail'));
       setStatus('error');
       return;
     }
@@ -94,7 +104,7 @@ export default function LoginForm({ branding }: { branding: any }) {
       });
       const check = await checkRes.json();
       if (!checkRes.ok) {
-        setErrorMsg(check?.error || 'Erro ao verificar email.');
+        setErrorMsg(check?.error || t('errors.checkEmail'));
         setStatus('error');
         return;
       }
@@ -104,13 +114,13 @@ export default function LoginForm({ branding }: { branding: any }) {
         return;
       }
       if (!check.exists && !check.allowSignup) {
-        setErrorMsg('Email não cadastrado. Procure o administrador da empresa.');
+        setErrorMsg(t('errors.emailNotRegistered'));
         setStatus('error');
         return;
       }
       // exists === true → segue fluxo magic-link tradicional
     } catch (e: any) {
-      setErrorMsg(`Erro de rede: ${e.message}`);
+      setErrorMsg(t('errors.network', { message: e.message }));
       setStatus('error');
       return;
     }
@@ -123,7 +133,7 @@ export default function LoginForm({ branding }: { branding: any }) {
       const res = await fetch('/api/auth/magic-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmed, redirectTo: `${window.location.origin}${redirectTo}` }),
+        body: JSON.stringify({ email: trimmed, redirectTo: `${window.location.origin}${redirectTo}`, locale }),
       });
       const data = await res.json();
       if (data?.error) {
@@ -132,11 +142,11 @@ export default function LoginForm({ branding }: { branding: any }) {
       } else if (data?.success) {
         setStatus('sent');
       } else {
-        setErrorMsg('Não foi possível enviar o link. Tente novamente.');
+        setErrorMsg(t('errors.sendLink'));
         setStatus('error');
       }
     } catch (e: any) {
-      setErrorMsg(`Erro de rede: ${e.message}`);
+      setErrorMsg(t('errors.network', { message: e.message }));
       setStatus('error');
     }
   }
@@ -145,7 +155,7 @@ export default function LoginForm({ branding }: { branding: any }) {
     e.preventDefault();
     const digits = phone.replace(/\D/g, '');
     if (digits.length < 10) {
-      setErrorMsg('Digite seu WhatsApp com DDD.');
+      setErrorMsg(t('errors.invalidWhatsapp'));
       setStatus('error');
       return;
     }
@@ -155,18 +165,18 @@ export default function LoginForm({ branding }: { branding: any }) {
       const res = await fetch('/api/auth/phone-otp/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ telefone: digits }),
+        body: JSON.stringify({ telefone: digits, locale }),
       });
       const data = await res.json();
       if (!res.ok || data?.error) {
-        setErrorMsg(data?.error || 'Não foi possível enviar o código.');
+        setErrorMsg(data?.error || t('errors.sendCode'));
         setStatus('error');
         return;
       }
       setWaStep('code');
       setStatus('idle');
     } catch (err: any) {
-      setErrorMsg(`Erro de rede: ${err.message}`);
+      setErrorMsg(t('errors.network', { message: err.message }));
       setStatus('error');
     }
   }
@@ -175,7 +185,7 @@ export default function LoginForm({ branding }: { branding: any }) {
     e.preventDefault();
     const codeClean = code.replace(/\D/g, '');
     if (codeClean.length !== 6) {
-      setErrorMsg('Digite o código de 6 dígitos.');
+      setErrorMsg(t('errors.invalidCodeLength'));
       setStatus('error');
       return;
     }
@@ -193,14 +203,14 @@ export default function LoginForm({ branding }: { branding: any }) {
       });
       const data = await res.json();
       if (!res.ok || data?.error || !data?.callbackUrl) {
-        setErrorMsg(data?.error || 'Código inválido.');
+        setErrorMsg(data?.error || t('errors.invalidCode'));
         setStatus('error');
         return;
       }
       // /auth/callback estabelece a sessão Supabase (mesmo caminho do magic-link).
       window.location.href = data.callbackUrl;
     } catch (err: any) {
-      setErrorMsg(`Erro de rede: ${err.message}`);
+      setErrorMsg(t('errors.network', { message: err.message }));
       setStatus('error');
     }
   }
@@ -223,6 +233,22 @@ export default function LoginForm({ branding }: { branding: any }) {
       className="min-h-dvh flex items-center justify-center px-6"
       style={{ background: `linear-gradient(180deg, ${bgGradientStart} 0%, ${bgGradientEnd} 100%)` }}
     >
+      <div className="absolute right-4 top-4">
+        <select
+          value={locale}
+          onChange={(e) => handleLocaleChange(e.target.value)}
+          aria-label="Idioma"
+          className="rounded-lg border border-white/10 bg-white/[0.08] px-2 py-1 text-xs text-white outline-none"
+          style={{ colorScheme: 'dark' }}
+        >
+          {['pt-BR', 'pt-PT', 'es-ES'].map((item) => (
+            <option key={item} value={item} style={{ background: '#091D35' }}>
+              {common(`locales.${item}`)}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="w-full max-w-[360px] text-center">
         {/* Logo — imagem custom ou texto */}
         {logoUrl ? (
@@ -245,8 +271,8 @@ export default function LoginForm({ branding }: { branding: any }) {
         </p>
         <p className="text-sm mb-7" style={{ color: fontColorSecondary || '#FFFFFF99' }}>
           {mode === 'whatsapp'
-            ? (waStep === 'phone' ? 'Digite seu WhatsApp para receber o código' : 'Digite o código que enviamos no seu WhatsApp')
-            : 'Digite seu e-mail para acessar'}
+            ? (waStep === 'phone' ? t('whatsappPhonePrompt') : t('whatsappCodePrompt'))
+            : t('emailPrompt')}
         </p>
 
         {mode === 'whatsapp' ? (
@@ -258,7 +284,7 @@ export default function LoginForm({ branding }: { branding: any }) {
                 inputMode="numeric"
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
-                placeholder="DDD + número (ex: 11912345678)"
+                placeholder={t('phonePlaceholder')}
                 autoComplete="tel"
                 className="w-full py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-white text-base text-center outline-none placeholder:text-white/40 transition-colors"
                 onFocus={e => ((e.target as HTMLInputElement).style.borderColor = accentColor)}
@@ -270,11 +296,11 @@ export default function LoginForm({ branding }: { branding: any }) {
                 className="w-full mt-4 py-3.5 rounded-xl border-none text-white text-base font-bold tracking-wide cursor-pointer transition-opacity disabled:opacity-60"
                 style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColorEnd})` }}
               >
-                {status === 'loading' ? 'Enviando...' : 'Enviar código'}
+                {status === 'loading' ? t('sending') : t('sendCode')}
               </button>
               <button type="button" onClick={switchToEmail}
                 className="mt-3 text-xs hover:underline" style={{ color: accentColor }}>
-                Entrar com e-mail
+                {t('enterWithEmail')}
               </button>
               {status === 'error' && errorMsg && (
                 <p className="text-danger text-sm mt-3">{errorMsg}</p>
@@ -288,7 +314,7 @@ export default function LoginForm({ branding }: { branding: any }) {
                 maxLength={6}
                 value={code}
                 onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="000000"
+                placeholder={t('codePlaceholder')}
                 autoComplete="one-time-code"
                 className="w-full py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-white text-2xl text-center tracking-[0.5em] outline-none placeholder:text-white/30 transition-colors"
                 onFocus={e => ((e.target as HTMLInputElement).style.borderColor = accentColor)}
@@ -300,11 +326,11 @@ export default function LoginForm({ branding }: { branding: any }) {
                 className="w-full mt-4 py-3.5 rounded-xl border-none text-white text-base font-bold tracking-wide cursor-pointer transition-opacity disabled:opacity-60"
                 style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColorEnd})` }}
               >
-                {status === 'loading' ? 'Entrando...' : 'Entrar'}
+                {status === 'loading' ? t('entering') : common('actions.enter')}
               </button>
               <button type="button" onClick={() => { setWaStep('phone'); setCode(''); setStatus('idle'); setErrorMsg(''); }}
                 className="mt-3 text-xs hover:underline" style={{ color: accentColor }}>
-                Reenviar / trocar número
+                {t('resendOrChangePhone')}
               </button>
               {status === 'error' && errorMsg && (
                 <p className="text-danger text-sm mt-3">{errorMsg}</p>
@@ -315,16 +341,19 @@ export default function LoginForm({ branding }: { branding: any }) {
           /* ── Link enviado ── */
           <div className="bg-white/10 rounded-xl p-6 border border-white/15">
             <div className="text-3xl mb-3">🔐</div>
-            <p className="font-semibold mb-1" style={{ color: fontColor || '#FFFFFF' }}>Link enviado!</p>
+            <p className="font-semibold mb-1" style={{ color: fontColor || '#FFFFFF' }}>{t('linkSentTitle')}</p>
             <p className="text-sm" style={{ color: fontColorSecondary || '#FFFFFF99' }}>
-              Clique no link enviado no seu <strong>e-mail</strong> ou <strong>WhatsApp</strong> para acessar seu ambiente de desenvolvimento.
+              {t.rich('linkSentDescription', {
+                email: (chunks) => <strong>{chunks}</strong>,
+                whatsapp: (chunks) => <strong>{chunks}</strong>,
+              })}
             </p>
             <button
               onClick={() => setStatus('idle')}
               className="mt-4 text-sm font-medium hover:underline"
               style={{ color: accentColor }}
             >
-              Usar outro e-mail
+              {t('useAnotherEmail')}
             </button>
           </div>
         ) : (
@@ -334,7 +363,7 @@ export default function LoginForm({ branding }: { branding: any }) {
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="seu@email.com"
+              placeholder={t('emailPlaceholder')}
               autoComplete="email"
               className="w-full py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-white text-base text-center outline-none placeholder:text-white/40 transition-colors"
               style={{ ['--tw-ring-color' as any]: accentColor }}
@@ -346,7 +375,7 @@ export default function LoginForm({ branding }: { branding: any }) {
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                placeholder="Senha"
+                placeholder={t('passwordPlaceholder')}
                 autoComplete="current-password"
                 className="w-full mt-3 py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-white text-base text-center outline-none placeholder:text-white/40 transition-colors"
                 onFocus={e => ((e.target as HTMLInputElement).style.borderColor = accentColor)}
@@ -359,17 +388,17 @@ export default function LoginForm({ branding }: { branding: any }) {
               className="w-full mt-4 py-3.5 rounded-xl border-none text-white text-base font-bold tracking-wide cursor-pointer transition-opacity disabled:opacity-60"
               style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColorEnd})` }}
             >
-              {status === 'loading' ? 'Verificando...' : mode === 'password' ? 'Entrar com senha' : 'Entrar'}
+              {status === 'loading' ? t('checking') : mode === 'password' ? t('enterWithPassword') : common('actions.enter')}
             </button>
 
             <div className="mt-3 flex flex-col items-center gap-1.5">
               <button type="button" onClick={() => setMode(mode === 'otp' ? 'password' : 'otp')}
                 className="text-xs hover:underline" style={{ color: accentColor }}>
-                {mode === 'otp' ? 'Entrar com senha' : 'Entrar com Magic Link'}
+                {mode === 'otp' ? t('enterWithPassword') : t('enterWithMagicLink')}
               </button>
               <button type="button" onClick={switchToWhatsapp}
                 className="text-xs hover:underline" style={{ color: accentColor }}>
-                Não tenho e-mail · entrar com WhatsApp
+                {t('enterWithWhatsapp')}
               </button>
             </div>
 

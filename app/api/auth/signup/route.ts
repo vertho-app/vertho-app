@@ -4,6 +4,8 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { getTenantSlug } from '@/lib/tenant-resolver';
 import { APP_URL, EMAIL_FROM_DEFAULT } from '@/lib/domain';
 import { validateWhatsAppBR } from '@/lib/phone';
+import { resolveAppLocale } from '@/lib/i18n';
+import { signupEmail, signupWhatsapp } from '@/lib/i18n-auth-templates';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +58,7 @@ export async function POST(req: NextRequest) {
     const cargo = body?.cargo ? String(body.cargo).trim() : null;
     const telefoneRaw = body?.telefone ? String(body.telefone).trim() : '';
     const redirectTo = typeof body?.redirectTo === 'string' ? body.redirectTo : '';
+    const locale = resolveAppLocale(body?.locale, req.cookies.get('vertho-locale')?.value);
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: 'Email inválido' }, { status: 400 });
@@ -163,11 +166,12 @@ export async function POST(req: NextRequest) {
           : actionLink;
 
         const resend = new Resend(process.env.RESEND_API_KEY);
+        const emailTemplate = signupEmail(locale, { nome, empresaNome, link: linkPraEmail });
         const sendResult = await resend.emails.send({
           from: EMAIL_FROM_DEFAULT,
           to: email,
-          subject: `${empresaNome} — bem-vindo!`,
-          html: emailHtml({ nome, empresaNome, link: linkPraEmail }),
+          subject: emailTemplate.subject,
+          html: emailTemplate.html,
         });
         results.email = !((sendResult as any)?.error);
       } catch (e: any) {
@@ -181,7 +185,7 @@ export async function POST(req: NextRequest) {
     if (zapiInstance && zapiToken && telefoneE164 && tokenHash && origin) {
       try {
         const whatsappLink = `${origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(nextPath)}`;
-        const msg = `Olá, ${nome}! Bem-vindo à *${empresaNome}*! 🎉\n\nSeu link de acesso:\n${whatsappLink}\n\nClique para entrar direto, sem senha.\nEste link expira em 24h.`;
+        const msg = signupWhatsapp(locale, { nome, empresaNome, link: whatsappLink });
 
         const res = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-text`, {
           method: 'POST',

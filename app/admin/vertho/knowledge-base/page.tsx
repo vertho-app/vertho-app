@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import {
   ArrowLeft, Loader2, BookOpen, Plus, Search, Trash2, Pencil, X, Save, Upload,
@@ -22,6 +23,8 @@ const CATEGORIAS = [
 
 export default function KnowledgeBasePage() {
   const router = useRouter();
+  const locale = useLocale();
+  const t = useTranslations('AdminKnowledgeBase');
   const sb = getSupabase();
   const [user, setUser] = useState(null);
   const [empresas, setEmpresas] = useState([]);
@@ -85,7 +88,7 @@ export default function KnowledgeBasePage() {
 
   async function salvar() {
     if (!editor.titulo.trim() || !editor.conteudo.trim()) {
-      setError('Título e conteúdo são obrigatórios');
+      setError(t('messages.requiredTitleContent'));
       return;
     }
     setSaving(true);
@@ -107,7 +110,7 @@ export default function KnowledgeBasePage() {
   }
 
   async function desativar(docId) {
-    if (!confirm('Desativar esse documento? Ele some das buscas (soft delete).')) return;
+    if (!confirm(t('confirm.deactivate'))) return;
     const r = await desativarDocKB(empresaId, docId);
     if (r.error) { setError(r.error); return; }
     carregar();
@@ -152,9 +155,9 @@ export default function KnowledgeBasePage() {
         </button>
         <div className="flex-1">
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <BookOpen size={20} className="text-cyan-400" /> Base de Conhecimento por Empresa
+            <BookOpen size={20} className="text-cyan-400" /> {t('title')}
           </h1>
-          <p className="text-xs text-gray-500">Documentos consultados pela IA (Tira-Dúvidas e futuros prompts) pra grounding.</p>
+          <p className="text-xs text-gray-500">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <select value={uploadCategoria} onChange={e => setUploadCategoria(e.target.value)}
@@ -167,20 +170,20 @@ export default function KnowledgeBasePage() {
               : 'bg-purple-500/20 border-purple-400/40 text-purple-300 hover:bg-purple-500/30'
           }`}>
             {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-            Upload PDF/DOCX
+            {t('actions.upload')}
             <input type="file" accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
               onChange={uploadArquivo} disabled={uploading} className="hidden" />
           </label>
           <button onClick={() => abrirEditor(null)}
             className="px-3 py-2 rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 hover:bg-cyan-500/30 text-xs font-bold flex items-center gap-1.5">
-            <Plus size={14} /> Novo doc
+            <Plus size={14} /> {t('actions.newDoc')}
           </button>
         </div>
       </div>
 
       <div className="flex gap-3 mb-6 flex-wrap items-end">
         <div className="flex-1 min-w-[200px]">
-          <label className="text-[10px] uppercase tracking-widest text-gray-500 mb-1 block">Empresa</label>
+          <label className="text-[10px] uppercase tracking-widest text-gray-500 mb-1 block">{t('fields.company')}</label>
           <select value={empresaId} onChange={e => setEmpresaId(e.target.value)}
             className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white">
             {empresas.map(e => <option key={e.id} value={e.id} className="bg-[#0d1426] text-white">{e.nome}</option>)}
@@ -190,22 +193,22 @@ export default function KnowledgeBasePage() {
 
       <section className="mb-8 rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
         <p className="text-[10px] uppercase tracking-widest text-purple-300 mb-2 flex items-center gap-1.5">
-          <Search size={11} /> Testar busca (preview do que a IA receberia)
+          <Search size={11} /> {t('search.title')}
         </p>
         <div className="flex gap-2">
           <input value={busca} onChange={e => setBusca(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && testar()}
-            placeholder="ex: como funciona o banco de horas?"
+            placeholder={t('search.placeholder')}
             className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white" />
           <button onClick={testar}
             className="px-4 py-2 rounded-lg bg-purple-500/20 border border-purple-400/40 text-purple-300 hover:bg-purple-500/30 text-xs font-bold">
-            Buscar
+            {t('search.button')}
           </button>
         </div>
         {resultadosBusca && (
           <div className="mt-3 space-y-2">
             {resultadosBusca.length === 0 ? (
-              <p className="text-xs text-gray-500">Nenhum resultado — IA responderia sem grounding.</p>
+              <p className="text-xs text-gray-500">{t('search.empty')}</p>
             ) : resultadosBusca.map(r => (
               <div key={r.id} className="rounded-lg border border-white/10 bg-white/[0.02] p-3">
                 <div className="flex items-center justify-between mb-1">
@@ -223,7 +226,7 @@ export default function KnowledgeBasePage() {
         <div className="flex items-center justify-center py-12"><Loader2 size={28} className="animate-spin text-cyan-400" /></div>
       ) : docs.length === 0 ? (
         <div className="text-center py-12 space-y-3">
-          <p className="text-sm text-gray-500">Nenhum doc ainda.</p>
+          <p className="text-sm text-gray-500">{t('empty.title')}</p>
           <button onClick={async () => {
             setError('');
             const r = await seedKB(empresaId);
@@ -231,9 +234,9 @@ export default function KnowledgeBasePage() {
             carregar();
           }}
             className="px-4 py-2 rounded-lg bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 hover:bg-emerald-500/30 text-xs font-bold">
-            Popular base inicial (template Vertho)
+            {t('empty.seed')}
           </button>
-          <p className="text-[11px] text-gray-600">Cria 6 docs base: como funciona temporada, evidências, tira-dúvidas, régua de níveis, modos de missão, política de privacidade.</p>
+          <p className="text-[11px] text-gray-600">{t('empty.seedHint')}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -249,8 +252,8 @@ export default function KnowledgeBasePage() {
                   )}
                 </div>
                 <p className="text-[10px] text-gray-500 mt-0.5">
-                  Atualizado {new Date(d.atualizado_em).toLocaleDateString('pt-BR')}
-                  {d.source_url && <> · <a href={d.source_url} target="_blank" rel="noreferrer" className="text-cyan-400 hover:underline">fonte</a></>}
+                  {t('doc.updated', { date: new Date(d.atualizado_em).toLocaleDateString(locale) })}
+                  {d.source_url && <> · <a href={d.source_url} target="_blank" rel="noreferrer" className="text-cyan-400 hover:underline">{t('doc.source')}</a></>}
                 </p>
               </div>
               <button onClick={() => abrirEditor(d.id)}
@@ -275,36 +278,37 @@ export default function KnowledgeBasePage() {
           onClose={() => setEditor(null)}
           onSalvar={salvar}
           saving={saving}
+          t={t}
         />
       )}
     </div>
   );
 }
 
-function Editor({ editor, setEditor, onClose, onSalvar, saving }) {
+function Editor({ editor, setEditor, onClose, onSalvar, saving, t }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto" onClick={onClose}>
       <div className="max-w-3xl w-full bg-[#0a0e1a] border border-white/10 rounded-2xl my-8" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 flex items-center justify-between p-4 border-b border-white/10 bg-[#0a0e1a] rounded-t-2xl">
-          <h2 className="text-sm font-bold text-white">{editor.id ? 'Editar doc' : 'Novo doc'}</h2>
+          <h2 className="text-sm font-bold text-white">{editor.id ? t('editor.edit') : t('editor.new')}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white"><X size={18} /></button>
         </div>
         <div className="p-5 space-y-4">
           <div>
-            <label className="text-[10px] uppercase tracking-widest text-gray-500 mb-1 block">Título *</label>
+            <label className="text-[10px] uppercase tracking-widest text-gray-500 mb-1 block">{t('editor.titleLabel')}</label>
             <input value={editor.titulo} onChange={e => setEditor({ ...editor, titulo: e.target.value })}
               maxLength={200}
               className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white" />
           </div>
           <div>
-            <label className="text-[10px] uppercase tracking-widest text-gray-500 mb-1 block">Categoria</label>
+            <label className="text-[10px] uppercase tracking-widest text-gray-500 mb-1 block">{t('editor.category')}</label>
             <select value={editor.categoria} onChange={e => setEditor({ ...editor, categoria: e.target.value })}
               className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white">
               {CATEGORIAS.map(c => <option key={c.id} value={c.id} className="bg-[#0d1426] text-white">{c.label}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-[10px] uppercase tracking-widest text-gray-500 mb-1 block">Conteúdo *</label>
+            <label className="text-[10px] uppercase tracking-widest text-gray-500 mb-1 block">{t('editor.contentLabel')}</label>
             <textarea value={editor.conteudo} onChange={e => setEditor({ ...editor, conteudo: e.target.value })}
               maxLength={20000}
               rows={12}
@@ -312,7 +316,7 @@ function Editor({ editor, setEditor, onClose, onSalvar, saving }) {
             <p className="text-[10px] text-gray-500 mt-1">{editor.conteudo.length}/20000 chars</p>
           </div>
           <div>
-            <label className="text-[10px] uppercase tracking-widest text-gray-500 mb-1 block">URL da fonte (opcional)</label>
+            <label className="text-[10px] uppercase tracking-widest text-gray-500 mb-1 block">{t('editor.sourceUrl')}</label>
             <input value={editor.sourceUrl} onChange={e => setEditor({ ...editor, sourceUrl: e.target.value })}
               placeholder="https://..."
               className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white" />
@@ -321,12 +325,12 @@ function Editor({ editor, setEditor, onClose, onSalvar, saving }) {
         <div className="sticky bottom-0 flex items-center justify-end gap-2 p-4 border-t border-white/10 bg-[#0a0e1a] rounded-b-2xl">
           <button onClick={onClose}
             className="px-4 py-2 rounded-lg border border-white/10 text-gray-400 hover:text-white text-xs font-bold">
-            Cancelar
+            {t('actions.cancel')}
           </button>
           <button onClick={onSalvar} disabled={saving}
             className="px-4 py-2 rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 hover:bg-cyan-500/30 text-xs font-bold flex items-center gap-1.5 disabled:opacity-50">
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-            Salvar
+            {t('actions.save')}
           </button>
         </div>
       </div>

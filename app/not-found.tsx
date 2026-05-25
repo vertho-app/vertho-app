@@ -1,9 +1,11 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Home, ArrowLeft } from 'lucide-react';
 
 export default function NotFound() {
+  const t = useTranslations('NotFound');
   const router = useRouter();
   return (
     <div className="min-h-dvh flex items-center justify-center px-6"
@@ -18,19 +20,19 @@ export default function NotFound() {
           }}>
           404
         </p>
-        <h1 className="text-xl md:text-2xl font-extrabold text-white mb-2">Página não encontrada</h1>
+        <h1 className="text-xl md:text-2xl font-extrabold text-white mb-2">{t('title')}</h1>
         <p className="text-sm text-gray-400 mb-6 leading-relaxed">
-          A página que você procura não existe, foi movida ou você pode não ter permissão pra acessá-la.
+          {t('description')}
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <button onClick={() => router.back()}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold text-gray-300 border border-white/10 hover:bg-white/5 transition-all">
-            <ArrowLeft size={14} /> Voltar
+            <ArrowLeft size={14} /> {t('back')}
           </button>
           <button onClick={() => router.push('/dashboard')}
             className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-extrabold text-white"
             style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)', boxShadow: '0 0 24px rgba(0,180,216,0.25)' }}>
-            <Home size={16} /> Ir ao dashboard
+            <Home size={16} /> {t('goDashboard')}
           </button>
         </div>
       </div>

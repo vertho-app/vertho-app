@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { loadAssessmentGrid, salvarNotaAssessment, deletarNotaAssessment } from '@/actions/assessment-descritores';
 
@@ -14,6 +15,7 @@ const NIVEL_COR = {
 
 export default function AssessmentDescritoresPage() {
   const router = useRouter();
+  const t = useTranslations('AdminAssessmentDescriptors');
   const [empresaId, setEmpresaId] = useState(null);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,7 +41,7 @@ export default function AssessmentDescritoresPage() {
   async function handleCellChange(colab, descritor, novoValor) {
     const nota = novoValor === '' ? null : Number(novoValor);
     if (nota !== null && (nota < 1 || nota > 4 || Number.isNaN(nota))) {
-      setLog('❌ Nota deve ser entre 1 e 4');
+      setLog(`❌ ${t('messages.invalidScore')}`);
       return;
     }
     const key = `${colab.id}::${competenciaSel}::${descritor}`;
@@ -57,16 +59,16 @@ export default function AssessmentDescritoresPage() {
       const copia = { ...data.notas };
       if (nota === null) delete copia[key]; else copia[key] = nota;
       setData({ ...data, notas: copia });
-      setLog(`✅ ${colab.nome_completo} / ${descritor} · ${nota ?? 'limpo'}`);
+      setLog(`✅ ${colab.nome_completo} / ${descritor} · ${nota ?? t('messages.cleared')}`);
     } else {
       setLog(`❌ ${r.error}`);
     }
     setSavingCell(null);
   }
 
-  if (!empresaId) return <Center>Passe ?empresa={'{id}'} na URL</Center>;
+  if (!empresaId) return <Center>{t('missingCompany')}</Center>;
   if (loading) return <Center><Loader2 className="animate-spin text-cyan-400" /></Center>;
-  if (!data?.success) return <Center>Erro ao carregar</Center>;
+  if (!data?.success) return <Center>{t('loadError')}</Center>;
 
   const compAtual = data.competencias.find(c => c.nome === competenciaSel);
   const descritores = compAtual?.descritores || [];
@@ -79,8 +81,8 @@ export default function AssessmentDescritoresPage() {
             <ArrowLeft size={18} />
           </button>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold">Assessment Inicial de Descritores</h1>
-            <p className="text-xs text-gray-400">Notas 1-4 por colaborador · usado pelo motor de temporadas para alocar semanas</p>
+            <h1 className="text-2xl font-bold">{t('title')}</h1>
+            <p className="text-xs text-gray-400">{t('subtitle')}</p>
           </div>
           <select value={competenciaSel} onChange={e => setCompetenciaSel(e.target.value)}
             className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
@@ -90,24 +92,24 @@ export default function AssessmentDescritoresPage() {
 
         {/* Legenda */}
         <div className="flex items-center gap-3 mb-4 text-[11px]">
-          <LegendBadge nivel={1} label="Lacuna" />
-          <LegendBadge nivel={2} label="Em desenvolvimento" />
-          <LegendBadge nivel={3} label="Meta (proficiente)" />
-          <LegendBadge nivel={4} label="Referência" />
+          <LegendBadge nivel={1} label={t('legend.gap')} />
+          <LegendBadge nivel={2} label={t('legend.developing')} />
+          <LegendBadge nivel={3} label={t('legend.goal')} />
+          <LegendBadge nivel={4} label={t('legend.reference')} />
           <span className="text-gray-500 ml-auto">{log}</span>
         </div>
 
         {/* Grid */}
         {descritores.length === 0 ? (
           <div className="text-center py-12 text-gray-500 text-sm">
-            Nenhum descritor cadastrado para "{competenciaSel}". Importe via CSV em /admin/competencias.
+            {t('empty', { competency: competenciaSel })}
           </div>
         ) : (
           <div className="rounded-xl bg-white/[0.03] border border-white/10 overflow-auto">
             <table className="w-full text-xs">
               <thead className="bg-white/[0.05] sticky top-0">
                 <tr>
-                  <th className="px-3 py-2 text-left text-[10px] uppercase text-gray-500 sticky left-0 bg-[#0f1a33] min-w-[180px]">Colaborador</th>
+                  <th className="px-3 py-2 text-left text-[10px] uppercase text-gray-500 sticky left-0 bg-[#0f1a33] min-w-[180px]">{t('table.collaborator')}</th>
                   {descritores.map(d => (
                     <th key={d} className="px-2 py-2 text-center text-[10px] uppercase text-gray-500 min-w-[90px] max-w-[140px]" title={d}>
                       <div className="truncate">{d}</div>
@@ -151,7 +153,7 @@ export default function AssessmentDescritoresPage() {
         )}
 
         <p className="text-[10px] text-gray-500 mt-3">
-          💡 Dica: digite 1-4 (aceita decimais 1.5, 2.5, 3.5) e clique fora da célula para salvar. Deixe vazio para remover.
+          {t('tip')}
         </p>
       </div>
     </div>

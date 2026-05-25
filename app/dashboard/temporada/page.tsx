@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, BookOpen, Target, Sparkles, Lock, Check, Play, Video, FileText, Headphones, Award } from 'lucide-react';
 import { loadTemporadaPorEmail } from '@/actions/temporadas';
@@ -9,7 +10,7 @@ import { PageContainer, PageHero, GlassCard } from '@/components/page-shell';
 import { semanaLiberadaPorData, formatarLiberacao } from '@/lib/season-engine/week-gating';
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen };
-const TIPO_LABEL = { conteudo: 'Episódio', aplicacao: 'Prática', avaliacao: 'Avaliação' };
+const TIPO_LABEL_KEY = { conteudo: 'episode', aplicacao: 'practice', avaliacao: 'assessment' };
 const TIPO_COR = { conteudo: '#06B6D4', aplicacao: '#F59E0B', avaliacao: '#A78BFA' };
 
 // Fase 4 = Temporada — disciplinado
@@ -27,6 +28,7 @@ const serifStyle: React.CSSProperties = {
 };
 
 export default function TemporadaPage() {
+  const t = useTranslations('Season');
   const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -47,8 +49,8 @@ export default function TemporadaPage() {
   if (error || !data?.trilha) return (
     <Center>
       <div className="text-center">
-        <p className="text-gray-400 mb-2">{error || 'Sua temporada ainda não foi gerada'}</p>
-        <p className="text-xs text-gray-500">Aguarde o RH/gestor liberar.</p>
+        <p className="text-gray-400 mb-2">{error || t('empty.title')}</p>
+        <p className="text-xs text-gray-500">{t('empty.subtitle')}</p>
       </div>
     </Center>
   );
@@ -70,37 +72,38 @@ export default function TemporadaPage() {
     <div data-phase={String(PHASE_NUM)} style={PHASE_VARS}>
       <PageContainer>
         <PageHero
-          eyebrow={`Temporada ${trilha.numero_temporada}`}
+          eyebrow={t('hero.eyebrow', { number: trilha.numero_temporada })}
           title={Array.isArray(trilha.competencias_foco) && trilha.competencias_foco.length > 1
             ? trilha.competencias_foco.join(' + ')
             : trilha.competencia_foco}
           // ✅ subtítulo com ênfase serif em "evoluir" e "próximo nível"
           subtitle={
             <span>
-              {totalSemanas} semanas para{' '}
-              <em style={{ ...serifStyle, color: 'var(--phase-accent)', fontSize: 'inherit' }}>evoluir</em>{' '}
-              1 competência ao{' '}
-              <em style={{ ...serifStyle, color: 'var(--phase-accent)', fontSize: 'inherit' }}>próximo nível</em>
+              {t.rich('hero.subtitle', {
+                weeks: totalSemanas,
+                evolve: (chunks) => <em style={{ ...serifStyle, color: 'var(--phase-accent)', fontSize: 'inherit' }}>{chunks}</em>,
+                level: (chunks) => <em style={{ ...serifStyle, color: 'var(--phase-accent)', fontSize: 'inherit' }}>{chunks}</em>,
+              })}
             </span>
           }
         />
 
         {pausada && (
           <GlassCard className="mb-4 border-amber-500/30 bg-amber-500/5">
-            <div className="text-xs text-amber-300">⏸ Sua temporada está pausada pelo gestor. Você poderá continuar quando for retomada.</div>
+            <div className="text-xs text-amber-300">{t('paused')}</div>
           </GlassCard>
         )}
 
         {trilha.status === 'concluida' && trilha.evolution_report && (
           <>
-            <EvolutionReportCard report={trilha.evolution_report} />
+            <EvolutionReportCard report={trilha.evolution_report} t={t} />
             <div className="mb-6">
               <button
                 onClick={() => router.push('/dashboard/temporada/concluida')}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.98]"
                 style={{ background: 'var(--phase-accent)', color: '#062032' }}
               >
-                Ver relatório completo da temporada →
+                {t('viewFullReport')}
               </button>
             </div>
           </>
@@ -110,11 +113,11 @@ export default function TemporadaPage() {
         <GlassCard className="mb-6" style={{ borderColor: 'color-mix(in oklab, var(--phase-accent) 22%, transparent)' }}>
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.45)', fontFamily: 'var(--font-mono, monospace)', letterSpacing: '.2em' }}>
-              Progresso
+              {t('progress.title')}
             </span>
             {/* ✅ "X/N semanas" em serif itálico na cor da fase */}
             <span style={{ ...serifStyle, fontSize: 16, color: 'var(--phase-accent)', letterSpacing: '-.01em' }}>
-              {concluidas}<span style={{ opacity: 0.5, fontStyle: 'normal', fontSize: 13 }}>/{totalSemanas}</span> semanas
+              {concluidas}<span style={{ opacity: 0.5, fontStyle: 'normal', fontSize: 13 }}>/{totalSemanas}</span> {t('progress.weeks')}
             </span>
           </div>
           <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
@@ -138,8 +141,8 @@ export default function TemporadaPage() {
             const liberada = concluida || (liberadaPorData && (emAndamento || anteriorConcluida));
             const motivoBloqueio = !liberada
               ? (!liberadaPorData
-                  ? `Libera ${formatarLiberacao(trilha.data_inicio, s.semana)}`
-                  : 'Conclua a semana anterior')
+                  ? t('locked.releaseAt', { date: formatarLiberacao(trilha.data_inicio, s.semana) })
+                  : t('locked.completePrevious'))
               : '';
 
             const Icon = s.tipo === 'aplicacao' ? Target : s.tipo === 'avaliacao' ? Sparkles : (FORMAT_ICON[s.conteudo?.formato_core] || BookOpen);
@@ -166,7 +169,7 @@ export default function TemporadaPage() {
                 } : undefined}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] text-gray-400">Sem {s.semana}</span>
+                  <span className="text-[10px] text-gray-400">{t('weekShort', { number: s.semana })}</span>
                   {concluida ? (
                     <Check size={14} className="text-emerald-400" />
                   ) : !liberada ? (
@@ -178,10 +181,10 @@ export default function TemporadaPage() {
                 {/* ✅ Semana em andamento ganha nome em serif */}
                 <div
                   className="text-[11px] font-bold text-white truncate"
-                  title={s.descritor || TIPO_LABEL[s.tipo]}
+                  title={s.descritor || t(`type.${TIPO_LABEL_KEY[s.tipo] || 'episode'}`)}
                   style={emAndamento ? { ...serifStyle, fontSize: 12, fontWeight: 400 } : undefined}
                 >
-                  {s.descritor || TIPO_LABEL[s.tipo]}
+                  {s.descritor || t(`type.${TIPO_LABEL_KEY[s.tipo] || 'episode'}`)}
                 </div>
                 {s.conteudo?.formato_core && liberada && (
                   <div className="text-[9px] text-gray-500 mt-0.5">{s.conteudo.formato_core}</div>
@@ -214,13 +217,13 @@ const CONVERGENCIA: Record<string, { label: string; cor: string; icon: string }>
   regressao:           { label: 'Regressão',           cor: 'red',     icon: '🔻' },
 };
 
-function EvolutionReportCard({ report }: { report: any }) {
+function EvolutionReportCard({ report, t }: { report: any; t: any }) {
   const descritores = report?.descritores || [];
   return (
     <GlassCard className="mb-6 border-cyan-500/30 bg-gradient-to-br from-cyan-500/5 to-emerald-500/5">
       <div className="flex items-center gap-2 mb-3">
         <Sparkles size={18} className="text-cyan-400" />
-        <h2 className="text-sm uppercase font-bold text-cyan-400">Evolution Report</h2>
+        <h2 className="text-sm uppercase font-bold text-cyan-400">{t('report.title')}</h2>
       </div>
       {report.insight_geral && (
         <p className="text-sm text-gray-200 italic mb-4">"{report.insight_geral}"</p>
@@ -244,7 +247,7 @@ function EvolutionReportCard({ report }: { report: any }) {
       </div>
       {report.proximo_passo && (
         <div className="text-xs text-gray-300 mt-4 pt-3 border-t border-white/10">
-          <strong className="text-cyan-400">Próximo passo: </strong>{report.proximo_passo}
+          <strong className="text-cyan-400">{t('report.nextStep')} </strong>{report.proximo_passo}
         </div>
       )}
     </GlassCard>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { ArrowLeft, CircleStop, Loader2, Upload, RefreshCw, FileText, FileSpreadsheet, Trash2, Terminal } from 'lucide-react';
 import {
   loadRadarStats,
@@ -25,7 +26,7 @@ const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
 
 const MAX_WEB_UPLOAD_BYTES = 25 * 1024 * 1024;
 
-function fmt(n: any) { return Number(n ?? 0).toLocaleString('pt-BR'); }
+function fmt(n: any, locale: string) { return Number(n ?? 0).toLocaleString(locale); }
 
 /**
  * Converte ArrayBuffer em base64 sem estourar argument limit do JS engine
@@ -48,6 +49,8 @@ function arrayBufferToBase64(buffer: ArrayBuffer): Promise<string> {
 
 export default function AdminRadarPage() {
   const router = useRouter();
+  const locale = useLocale();
+  const t = useTranslations('AdminRadarIngestion');
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [uploadingIca, setUploadingIca] = useState(false);
@@ -60,12 +63,12 @@ export default function AdminRadarPage() {
   const [logs, setLogs] = useState<string[]>([]);
 
   function addLog(msg: string) {
-    setLogs((prev) => [`${new Date().toLocaleTimeString('pt-BR')} · ${msg}`, ...prev].slice(0, 20));
+    setLogs((prev) => [`${new Date().toLocaleTimeString(locale)} · ${msg}`, ...prev].slice(0, 20));
   }
 
   function canUploadViaWeb(file: File) {
     if (file.size <= MAX_WEB_UPLOAD_BYTES) return true;
-    addLog(`Upload bloqueado: ${file.name} tem ${(file.size / 1024 / 1024).toFixed(1)}MB; use CLI para arquivos acima de 25MB`);
+    addLog(t('logs.uploadBlocked', { file: file.name, size: (file.size / 1024 / 1024).toFixed(1) }));
     return false;
   }
 
@@ -186,31 +189,31 @@ export default function AdminRadarPage() {
   }
 
   async function handleDeleteRun(id: string) {
-    if (!confirm('Excluir este run?')) return;
+    if (!confirm(t('confirm.deleteRun'))) return;
     await deleteIngestRun(id);
     refresh();
   }
 
   async function handleInterruptRun(id: string) {
-    if (!confirm('Marcar este run como interrompido? Isso não encerra processo local ainda em execução.')) return;
+    if (!confirm(t('confirm.interruptRun'))) return;
     const r = await interruptIngestRun(id);
-    addLog(r.success ? 'Run marcado como interrompido' : `Falha ao interromper run: ${r.error}`);
+    addLog(r.success ? t('logs.runInterrupted') : t('logs.interruptFailed', { error: r.error }));
     refresh();
   }
 
   async function handleRefreshMvs() {
     setRefreshingMvs(true);
     const r = await refreshRadarMaterializedViews();
-    addLog(r.success ? 'Materialized views atualizadas' : `Refresh MVs falhou: ${r.error}`);
+    addLog(r.success ? t('logs.mvsRefreshed') : t('logs.mvsFailed', { error: r.error }));
     setRefreshingMvs(false);
     refresh();
   }
 
   async function handleMarkStale() {
-    if (!confirm('Marcar runs "rodando" com mais de 12h como interrompidos?')) return;
+    if (!confirm(t('confirm.markStale'))) return;
     setMarkingStale(true);
     const r = await markStaleIngestRuns(12);
-    addLog(r.success ? `Runs antigos marcados: ${r.count || 0}` : `Falha ao marcar runs antigos: ${r.error}`);
+    addLog(r.success ? t('logs.staleMarked', { count: r.count || 0 }) : t('logs.staleFailed', { error: r.error }));
     setMarkingStale(false);
     refresh();
   }
@@ -224,30 +227,30 @@ export default function AdminRadarPage() {
         <div className="flex items-center justify-between gap-4 pb-5 mb-5 border-b border-white/[0.08]">
           <button onClick={() => router.push('/admin/dashboard')}
             className="flex items-center gap-1.5 text-xs font-medium text-white/50 hover:text-white">
-            <ArrowLeft size={14} /> Admin Dashboard
+            <ArrowLeft size={14} /> {t('back')}
           </button>
           <span className="text-[10px] tracking-[0.2em] text-white/30 uppercase font-mono">
-            RADAR · INGESTÃO
+            {t('eyebrow')}
           </span>
           <a href="/admin/radar/qualidade-dados" className="text-xs text-cyan-400 hover:text-cyan-300 mr-3">
-            Qualidade →
+            {t('links.quality')}
           </a>
           <a href="/admin/radar/funnel" className="text-xs text-cyan-400 hover:text-cyan-300 mr-3">
-            Funnel →
+            {t('links.funnel')}
           </a>
           <div className="flex items-center gap-2">
             <button onClick={handleMarkStale} disabled={markingStale}
-              title="Marcar runs rodando antigos como interrompidos"
+              title={t('actions.cleanOldTitle')}
               className="h-8 px-3 rounded-lg border border-amber-400/20 text-[10px] font-bold uppercase tracking-wider text-amber-200/80 hover:text-amber-100 disabled:opacity-50">
-              {markingStale ? 'Marcando...' : 'Limpar antigos'}
+              {markingStale ? t('actions.marking') : t('actions.cleanOld')}
             </button>
             <button onClick={handleRefreshMvs} disabled={refreshingMvs}
-              title="Atualizar materialized views do Radar"
+              title={t('actions.refreshMvsTitle')}
               className="h-8 px-3 rounded-lg border border-cyan-400/20 text-[10px] font-bold uppercase tracking-wider text-cyan-200/80 hover:text-cyan-100 disabled:opacity-50">
-              {refreshingMvs ? 'Atualizando...' : 'Refresh MVs'}
+              {refreshingMvs ? t('actions.refreshing') : 'Refresh MVs'}
             </button>
             <button onClick={refresh} disabled={loading}
-              title="Recarregar painel"
+              title={t('actions.reloadTitle')}
               className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/10 text-white/40">
               <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
             </button>
@@ -257,24 +260,24 @@ export default function AdminRadarPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           {[
-            { label: 'Escolas cadastradas', val: stats?.escolas },
-            { label: 'Municípios', val: stats?.municipios },
-            { label: 'Snapshots Saeb', val: stats?.snapshots },
-            { label: 'Snapshots ICA', val: stats?.ica },
-            { label: 'Snapshots Ideb', val: stats?.ideb },
-            { label: 'Censo Infra', val: stats?.censoInfra },
-            { label: 'Censo Docentes', val: stats?.censoDocentes },
+            { label: t('stats.schools'), val: stats?.escolas },
+            { label: t('stats.cities'), val: stats?.municipios },
+            { label: t('stats.saeb'), val: stats?.snapshots },
+            { label: t('stats.ica'), val: stats?.ica },
+            { label: t('stats.ideb'), val: stats?.ideb },
+            { label: t('stats.censoInfra'), val: stats?.censoInfra },
+            { label: t('stats.censoTeachers'), val: stats?.censoDocentes },
             { label: 'SARESP', val: stats?.saresp },
             { label: 'FUNDEB', val: stats?.fundeb },
             { label: 'PDDE', val: stats?.pdde },
-            { label: 'VAAR (entes)', val: stats?.vaar },
-            { label: 'VAAR beneficiários', val: stats?.vaarBeneficiarios },
+            { label: t('stats.vaar'), val: stats?.vaar },
+            { label: t('stats.vaarBeneficiaries'), val: stats?.vaarBeneficiarios },
           ].map((s) => (
             <div key={s.label} className="rounded-2xl p-4 border border-white/[0.06]"
               style={{ background: 'rgba(255,255,255,0.03)' }}>
               <p className="text-[9px] tracking-[0.2em] text-white/40 uppercase font-mono mb-1">{s.label}</p>
               <p className="text-2xl font-bold text-white" style={{ fontFamily: 'var(--font-mono, monospace)' }}>
-                {fmt(s.val)}
+                {fmt(s.val, locale)}
               </p>
             </div>
           ))}
@@ -282,18 +285,16 @@ export default function AdminRadarPage() {
 
         {/* Imports via CLI (bases nacionais grandes) */}
         <p className="text-[10px] tracking-[0.2em] text-white/40 uppercase font-mono mb-3">
-          Imports via CLI (bases nacionais)
+          {t('cli.title')}
         </p>
         <div className="rounded-2xl p-5 border border-white/[0.06] mb-6"
           style={{ background: 'rgba(255,255,255,0.03)' }}>
           <div className="flex items-center gap-2 mb-3">
             <Terminal size={16} className="text-cyan-400" />
-            <h3 className="text-sm font-bold text-white">Rodar local (sem timeout do server action)</h3>
+            <h3 className="text-sm font-bold text-white">{t('cli.runLocal')}</h3>
           </div>
           <p className="text-xs text-white/50 mb-4 leading-relaxed">
-            Bases grandes (Saeb, Censo ~165MB, Ideb, SARESP) são importadas por scripts
-            CLI que rodam direto contra o Supabase com service role e refrescam as
-            materialized views ao final. Cada run aparece em <code className="text-cyan-300">diag_ingest_runs</code>.
+            {t.rich('cli.description', { code: chunks => <code className="text-cyan-300">{chunks}</code> })}
           </p>
           <div className="space-y-3">
             {[
@@ -338,24 +339,22 @@ export default function AdminRadarPage() {
 
         {/* Uploaders (cargas pequenas via UI) */}
         <p className="text-[10px] tracking-[0.2em] text-white/40 uppercase font-mono mb-3">
-          Upload via web (arquivos pequenos)
+          {t('webUpload.title')}
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
           <div className="rounded-2xl p-5 border border-white/[0.06]"
             style={{ background: 'rgba(255,255,255,0.03)' }}>
             <div className="flex items-center gap-2 mb-3">
               <FileText size={16} className="text-cyan-400" />
-              <h3 className="text-sm font-bold text-white">ICA (XLSX ou CSV INEP)</h3>
+              <h3 className="text-sm font-bold text-white">{t('webUpload.ica.title')}</h3>
             </div>
             <p className="text-xs text-white/50 mb-4">
-              Indicador Criança Alfabetizada. Aceita o XLSX oficial INEP
-              (resultados_e_metas_municipios.xlsx) ou CSV com colunas CO_MUNICIPIO,
-              PC_ALUNO_ALFABETIZADO, NO_TP_REDE, ANO.
+              {t('webUpload.ica.desc')}
             </p>
             <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white cursor-pointer"
               style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
               {uploadingIca ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-              {uploadingIca ? 'Processando...' : 'Selecionar arquivo ICA'}
+              {uploadingIca ? t('webUpload.processing') : t('webUpload.ica.button')}
               <input type="file" accept=".xlsx,.csv,.txt" className="hidden" disabled={uploadingIca}
                 onChange={(e) => e.target.files?.[0] && handleIcaUpload(e.target.files[0])} />
             </label>
@@ -365,16 +364,15 @@ export default function AdminRadarPage() {
             style={{ background: 'rgba(255,255,255,0.03)' }}>
             <div className="flex items-center gap-2 mb-3">
               <FileText size={16} className="text-cyan-400" />
-              <h3 className="text-sm font-bold text-white">FUNDEB (CSV Tesouro)</h3>
+              <h3 className="text-sm font-bold text-white">{t('webUpload.fundeb.title')}</h3>
             </div>
             <p className="text-xs text-white/50 mb-4">
-              CSV mensal por município. Agregamos automaticamente ano por ano.
-              Colunas: cod_municipio, ano_mes, valor_repasse_bruto, complementacao_uniao.
+              {t('webUpload.fundeb.desc')}
             </p>
             <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white cursor-pointer"
               style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
               {uploadingFundeb ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-              {uploadingFundeb ? 'Processando...' : 'Selecionar CSV FUNDEB'}
+              {uploadingFundeb ? t('webUpload.processing') : t('webUpload.fundeb.button')}
               <input type="file" accept=".csv,.txt" className="hidden" disabled={uploadingFundeb}
                 onChange={(e) => e.target.files?.[0] && handleFundebUpload(e.target.files[0])} />
             </label>
@@ -384,24 +382,23 @@ export default function AdminRadarPage() {
             style={{ background: 'rgba(255,255,255,0.03)' }}>
             <div className="flex items-center gap-2 mb-3">
               <FileText size={16} className="text-cyan-400" />
-              <h3 className="text-sm font-bold text-white">PDDE (CSV FNDE)</h3>
+              <h3 className="text-sm font-bold text-white">{t('webUpload.pdde.title')}</h3>
             </div>
             <p className="text-xs text-white/50 mb-3">
-              Detecta automaticamente: se CSV tem CO_ESCOLA, usa por escola; senão
-              agrega por município. Aceita VALOR_RECEBIDO, SALDO_ATUAL, STATUS_PC.
+              {t('webUpload.pdde.desc')}
             </p>
             <div className="grid grid-cols-2 gap-2">
               <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold text-white cursor-pointer"
                 style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
                 {uploadingPdde ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-                Auto
+                {t('webUpload.pdde.auto')}
                 <input type="file" accept=".csv,.txt" className="hidden" disabled={uploadingPdde}
                   onChange={(e) => e.target.files?.[0] && handlePddeUpload(e.target.files[0], false)} />
               </label>
               <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold text-white cursor-pointer border border-white/10"
                 style={{ background: 'rgba(255,255,255,0.04)' }}>
                 {uploadingPdde ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-                Forçar municipal
+                {t('webUpload.pdde.forceCity')}
                 <input type="file" accept=".csv,.txt" className="hidden" disabled={uploadingPdde}
                   onChange={(e) => e.target.files?.[0] && handlePddeUpload(e.target.files[0], true)} />
               </label>
@@ -412,16 +409,15 @@ export default function AdminRadarPage() {
             style={{ background: 'rgba(255,255,255,0.03)' }}>
             <div className="flex items-center gap-2 mb-3">
               <FileSpreadsheet size={16} className="text-cyan-400" />
-              <h3 className="text-sm font-bold text-white">VAAR (XLSX FNDE)</h3>
+              <h3 className="text-sm font-bold text-white">{t('webUpload.vaar.title')}</h3>
             </div>
             <p className="text-xs text-white/50 mb-4">
-              Lista anual de entes habilitados ou não a receber a complementação-resultado
-              do FUNDEB (Lei 14.113/2020). Detecta o ano pelo nome do arquivo.
+              {t('webUpload.vaar.desc')}
             </p>
             <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white cursor-pointer"
               style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
               {uploadingVaar ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-              {uploadingVaar ? 'Processando...' : 'Selecionar XLSX VAAR'}
+              {uploadingVaar ? t('webUpload.processing') : t('webUpload.vaar.button')}
               <input type="file" accept=".xlsx" className="hidden" disabled={uploadingVaar}
                 onChange={(e) => e.target.files?.[0] && handleVaarUpload(e.target.files[0])} />
             </label>
@@ -431,16 +427,15 @@ export default function AdminRadarPage() {
             style={{ background: 'rgba(255,255,255,0.03)' }}>
             <div className="flex items-center gap-2 mb-3">
               <FileSpreadsheet size={16} className="text-cyan-400" />
-              <h3 className="text-sm font-bold text-white">FUNDEB Receita Prevista (XLSX)</h3>
+              <h3 className="text-sm font-bold text-white">{t('webUpload.fundebRevenue.title')}</h3>
             </div>
             <p className="text-xs text-white/50 mb-4">
-              Portaria Interministerial anual com receita prevista do FUNDEB por município,
-              decomposta em contribuição estadual/municipal + complementações VAAF, VAAT e VAAR.
+              {t('webUpload.fundebRevenue.desc')}
             </p>
             <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white cursor-pointer"
               style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
               {uploadingFundebRec ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-              {uploadingFundebRec ? 'Processando...' : 'Selecionar XLSX Receita'}
+              {uploadingFundebRec ? t('webUpload.processing') : t('webUpload.fundebRevenue.button')}
               <input type="file" accept=".xlsx" className="hidden" disabled={uploadingFundebRec}
                 onChange={(e) => e.target.files?.[0] && handleFundebReceitaUpload(e.target.files[0])} />
             </label>
@@ -451,7 +446,7 @@ export default function AdminRadarPage() {
         {logs.length > 0 && (
           <div className="rounded-2xl border border-white/[0.06] mb-6 overflow-hidden">
             <div className="px-4 py-3 border-b border-white/[0.06]">
-              <p className="text-xs font-bold text-white">Log da sessão</p>
+              <p className="text-xs font-bold text-white">{t('sessionLog')}</p>
             </div>
             <div className="max-h-[180px] overflow-y-auto">
               {logs.map((l, i) => (
@@ -465,20 +460,20 @@ export default function AdminRadarPage() {
         <div className="rounded-2xl border border-white/[0.06] overflow-hidden"
           style={{ background: '#0b1d36' }}>
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
-            <p className="text-sm font-bold text-white">Runs recentes</p>
+            <p className="text-sm font-bold text-white">{t('runs.title')}</p>
             <span className="text-[10px] text-white/30 font-mono">{stats?.runs?.length || 0}</span>
           </div>
           {(stats?.runs || []).length === 0 ? (
-            <p className="px-4 py-6 text-xs text-white/40 text-center">Nenhum run ainda. Faça o primeiro upload acima.</p>
+            <p className="px-4 py-6 text-xs text-white/40 text-center">{t('runs.empty')}</p>
           ) : (
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-left text-[10px] text-white/40 uppercase tracking-wider">
-                  <th className="px-4 py-2">Quando</th>
-                  <th className="px-4 py-2">Fonte</th>
-                  <th className="px-4 py-2">Arquivo</th>
+                  <th className="px-4 py-2">{t('runs.when')}</th>
+                  <th className="px-4 py-2">{t('runs.source')}</th>
+                  <th className="px-4 py-2">{t('runs.file')}</th>
                   <th className="px-4 py-2">Status</th>
-                  <th className="px-4 py-2">Sucesso/Falha/Skip</th>
+                  <th className="px-4 py-2">{t('runs.successFailSkip')}</th>
                   <th className="px-4 py-2"></th>
                 </tr>
               </thead>
@@ -488,10 +483,10 @@ export default function AdminRadarPage() {
                   return (
                     <tr key={r.id} className="border-t border-white/[0.04]">
                       <td className="px-4 py-2 text-white/60 font-mono">
-                        {new Date(r.iniciado_em).toLocaleString('pt-BR', { hour12: false })}
+                        {new Date(r.iniciado_em).toLocaleString(locale, { hour12: false })}
                       </td>
                       <td className="px-4 py-2 text-white/80 font-bold uppercase text-[10px]">{r.fonte}</td>
-                      <td className="px-4 py-2 text-white/50 truncate max-w-[200px]">{r.arquivo_origem || '—'}</td>
+                      <td className="px-4 py-2 text-white/50 truncate max-w-[200px]">{r.arquivo_origem || t('fallback.empty')}</td>
                       <td className="px-4 py-2">
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold"
                           style={{ background: cfg.bg, color: cfg.color }}>
@@ -507,7 +502,7 @@ export default function AdminRadarPage() {
                       </td>
                       <td className="px-4 py-2">
                         {r.status === 'rodando' && (
-                          <button onClick={() => handleInterruptRun(r.id)} className="text-white/30 hover:text-amber-300 mr-3" title="Marcar como interrompido">
+                          <button onClick={() => handleInterruptRun(r.id)} className="text-white/30 hover:text-amber-300 mr-3" title={t('runs.markInterrupted')}>
                             <CircleStop size={12} />
                           </button>
                         )}

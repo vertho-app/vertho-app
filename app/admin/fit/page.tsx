@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   ArrowLeft, Loader2, BarChart3, Trophy, Target, Users, Zap, ChevronDown,
   AlertTriangle, CheckCircle, TrendingUp, TrendingDown, RefreshCw,
@@ -14,11 +15,11 @@ import {
 import { baixarRelatorioComportamentalPdfPorId } from '@/app/dashboard/perfil-comportamental/relatorio/relatorio-actions';
 
 const FAIXA_COLORS = {
-  excelente: { bg: 'bg-green-400/15', text: 'text-green-400', label: 'Excelente' },
-  alta: { bg: 'bg-cyan-400/15', text: 'text-cyan-400', label: 'Alta' },
-  razoavel: { bg: 'bg-amber-400/15', text: 'text-amber-400', label: 'Razoável' },
-  baixa: { bg: 'bg-orange-400/15', text: 'text-orange-400', label: 'Baixa' },
-  critica: { bg: 'bg-red-400/15', text: 'text-red-400', label: 'Crítica' },
+  excelente: { bg: 'bg-green-400/15', text: 'text-green-400' },
+  alta: { bg: 'bg-cyan-400/15', text: 'text-cyan-400' },
+  razoavel: { bg: 'bg-amber-400/15', text: 'text-amber-400' },
+  baixa: { bg: 'bg-orange-400/15', text: 'text-orange-400' },
+  critica: { bg: 'bg-red-400/15', text: 'text-red-400' },
 };
 
 function getFaixa(fit) {
@@ -69,6 +70,7 @@ function GapBar({ valorReal, faixa, markerColor = '#22D3EE' }) {
 }
 
 function GapItem({ g }) {
+  const t = useTranslations('AdminFit');
   const sev = g.distancia > 20 ? 'bg-red-400/15 text-red-400 border-red-400/30'
     : g.distancia > 10 ? 'bg-amber-400/15 text-amber-400 border-amber-400/30'
     : 'bg-emerald-400/15 text-emerald-400 border-emerald-400/30';
@@ -89,9 +91,9 @@ function GapItem({ g }) {
         </div>
       )}
       <div className="flex items-center justify-between text-[9px] text-gray-500">
-        <span>Atual: <strong className="text-gray-300">{g.valorReal ?? '—'}</strong> · Ideal: <strong className="text-cyan-400">{g.faixa || '—'}</strong></span>
+        <span>{t('labels.current')}: <strong className="text-gray-300">{g.valorReal ?? '—'}</strong> · {t('labels.ideal')}: <strong className="text-cyan-400">{g.faixa || '—'}</strong></span>
         {g.impacto != null && (
-          <span>Impacto no fit: <strong className="text-amber-400">+{Number(g.impacto).toFixed(1)}</strong></span>
+          <span>{t('labels.fitImpact')}: <strong className="text-amber-400">+{Number(g.impacto).toFixed(1)}</strong></span>
         )}
       </div>
     </div>
@@ -114,6 +116,7 @@ function ForcaItem({ f }) {
 
 export default function FitPage() {
   const router = useRouter();
+  const t = useTranslations('AdminFit');
   const searchParams = useSearchParams();
   const empresaId = searchParams.get('empresa');
 
@@ -145,7 +148,7 @@ export default function FitPage() {
     const r = await gerarLeituraExecutivaFit(empresaId, detailColab.colaborador.id, cargoSel, { force });
     setLeituraLoading(false);
     if (r.success) setLeituraAi(r.texto);
-    else flash('Erro: ' + (r.error || 'falha ao gerar leitura'));
+    else flash(t('messages.error', { error: r.error || t('messages.generateReadingFailed') }));
   }
 
   // Dispara a leitura IA automaticamente ao abrir o drill-down
@@ -161,7 +164,7 @@ export default function FitPage() {
     setBaixandoRel(true);
     const r = await baixarRelatorioComportamentalPdfPorId(detailColab.colaborador.id);
     setBaixandoRel(false);
-    if (r.error) { flash('Erro: ' + r.error); return; }
+    if (r.error) { flash(t('messages.error', { error: r.error })); return; }
     const a = document.createElement('a');
     a.href = r.url;
     a.download = r.filename;
@@ -188,14 +191,18 @@ export default function FitPage() {
     setCalculating(true);
     try {
       const r = await calcularFitLote(empresaId, cargoNome, { forcar });
-      if (!r.success) { flash('Erro: ' + r.error); return; }
+      if (!r.success) { flash(t('messages.error', { error: r.error })); return; }
       flash(r.message);
       if (r.erros_detalhados?.length) {
-        const resumo = r.erros_detalhados.slice(0, 5).map(e => `• ${e.nome}: ${e.erro}`).join('\n');
+        const resumo = r.erros_detalhados.slice(0, 5).map(e => `- ${e.nome}: ${e.erro}`).join('\n');
         console.group('[Fit lote] Erros:');
         r.erros_detalhados.forEach(e => console.error(e.nome, '→', e.erro));
         console.groupEnd();
-        alert(`${r.erros_detalhados.length} colaborador(es) com erro:\n\n${resumo}${r.erros_detalhados.length > 5 ? `\n\n... e mais ${r.erros_detalhados.length - 5}` : ''}`);
+        alert(t('messages.batchErrors', {
+          count: r.erros_detalhados.length,
+          summary: resumo,
+          remaining: r.erros_detalhados.length > 5 ? t('messages.moreErrors', { count: r.erros_detalhados.length - 5 }) : '',
+        }));
       }
       // Recarrega a lista de cargos e ranking
       await Promise.all([
@@ -203,14 +210,14 @@ export default function FitPage() {
         handleSelectCargo(cargoNome),
       ]);
     } catch (err) {
-      flash('Erro inesperado: ' + err.message);
+      flash(t('messages.unexpectedError', { error: err.message }));
       console.error('[handleCalcular]', err);
     } finally {
       setCalculating(false);
     }
   }
 
-  if (!empresaId) return <div className="max-w-[1100px] mx-auto px-4 py-6 text-center"><p className="text-gray-400">Acesse via pipeline da empresa.</p></div>;
+  if (!empresaId) return <div className="max-w-[1100px] mx-auto px-4 py-6 text-center"><p className="text-gray-400">{t('missingCompany')}</p></div>;
   if (loading) return <div className="flex items-center justify-center h-dvh"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
 
   return (
@@ -223,8 +230,8 @@ export default function FitPage() {
           <ArrowLeft size={16} />
         </button>
         <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2"><BarChart3 size={20} className="text-cyan-400" /> Modelo de Fit v2</h1>
-          <p className="text-xs text-gray-500">Aderência colaborador × cargo</p>
+          <h1 className="text-xl font-bold text-white flex items-center gap-2"><BarChart3 size={20} className="text-cyan-400" /> {t('title')}</h1>
+          <p className="text-xs text-gray-500">{t('subtitle')}</p>
         </div>
       </div>
 
@@ -240,19 +247,19 @@ export default function FitPage() {
               {c.temPerfilIdeal && <CheckCircle size={12} className="text-green-400" />}
             </div>
             <div className="flex items-center gap-3 text-[10px]">
-              <span className="text-gray-500">{c.totalFits} fits calculados</span>
-              {c.mediaFit != null && <span className={`font-bold ${getFaixa(c.mediaFit) === 'excelente' || getFaixa(c.mediaFit) === 'alta' ? 'text-green-400' : getFaixa(c.mediaFit) === 'razoavel' ? 'text-amber-400' : 'text-red-400'}`}>Média: {c.mediaFit}</span>}
+              <span className="text-gray-500">{t('cards.calculatedFits', { count: c.totalFits })}</span>
+              {c.mediaFit != null && <span className={`font-bold ${getFaixa(c.mediaFit) === 'excelente' || getFaixa(c.mediaFit) === 'alta' ? 'text-green-400' : getFaixa(c.mediaFit) === 'razoavel' ? 'text-amber-400' : 'text-red-400'}`}>{t('labels.average')}: {c.mediaFit}</span>}
             </div>
             <div className="mt-2 flex items-center gap-3">
               <button onClick={(e) => { e.stopPropagation(); handleCalcular(c.nome); }} disabled={calculating || !c.temPerfilIdeal}
                 className="flex items-center gap-1 text-[10px] font-semibold text-cyan-400 hover:text-cyan-300 disabled:text-gray-600 disabled:cursor-not-allowed">
                 {calculating ? <Loader2 size={10} className="animate-spin" /> : <Zap size={10} />}
-                {c.temPerfilIdeal ? 'Calcular Fit' : 'Sem perfil ideal'}
+                {c.temPerfilIdeal ? t('actions.calculateFit') : t('cards.noIdealProfile')}
               </button>
               {c.totalFits > 0 && c.temPerfilIdeal && (
                 <button onClick={(e) => { e.stopPropagation(); handleCalcular(c.nome, true); }} disabled={calculating}
                   className="flex items-center gap-1 text-[10px] font-semibold text-amber-400 hover:text-amber-300 disabled:text-gray-600">
-                  <Loader2 size={10} className={calculating ? 'animate-spin' : 'hidden'} /> Recalcular todos
+                  <Loader2 size={10} className={calculating ? 'animate-spin' : 'hidden'} /> {t('actions.recalculateAll')}
                 </button>
               )}
             </div>
@@ -264,11 +271,11 @@ export default function FitPage() {
       {cargoSel && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-bold text-white">Ranking — {cargoSel}</h2>
+            <h2 className="text-sm font-bold text-white">{t('rankingTitle', { role: cargoSel })}</h2>
             <div className="flex items-center gap-2">
               {Object.entries(distribuicao).map(([faixa, count]: [string, any]) => count > 0 && (
                 <span key={faixa} className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${FAIXA_COLORS[faixa]?.bg} ${FAIXA_COLORS[faixa]?.text}`}>
-                  {FAIXA_COLORS[faixa]?.label}: {count}
+                  {t(`fitBands.${faixa}`)}: {count}
                 </span>
               ))}
             </div>
@@ -277,7 +284,7 @@ export default function FitPage() {
           {loadingRanking ? (
             <div className="flex justify-center py-8"><Loader2 size={24} className="animate-spin text-cyan-400" /></div>
           ) : ranking.length === 0 ? (
-            <div className="text-center py-8 text-sm text-gray-500">Nenhum fit calculado. Clique em "Calcular Fit" no cargo.</div>
+            <div className="text-center py-8 text-sm text-gray-500">{t('emptyRanking')}</div>
           ) : (
             <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
               {(() => {
@@ -314,13 +321,13 @@ export default function FitPage() {
                 <thead>
                   <tr className="border-b border-white/[0.06] text-[9px] font-bold text-gray-500 uppercase tracking-widest">
                     <th className="px-4 py-2 text-center w-10">#</th>
-                    <SortHeader col="nome" label="Colaborador" align="left" />
+                    <SortHeader col="nome" label={t('table.collaborator')} align="left" />
                     <SortHeader col="fit" label="Fit" />
-                    <SortHeader col="mapeamento" label="Mapeamento" />
-                    <SortHeader col="competencias" label="Competências" />
-                    <SortHeader col="lideranca" label="Liderança" />
+                    <SortHeader col="mapeamento" label={t('table.mapping')} />
+                    <SortHeader col="competencias" label={t('table.competencies')} />
+                    <SortHeader col="lideranca" label={t('table.leadership')} />
                     <SortHeader col="disc" label="DISC" />
-                    <SortHeader col="classificacao" label="Classificação" align="left" />
+                    <SortHeader col="classificacao" label={t('table.classification')} align="left" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.03]">
@@ -339,7 +346,7 @@ export default function FitPage() {
                         <td className="px-4 py-2.5 text-center text-xs text-gray-400">{r.blocos.disc?.score?.toFixed(0) ?? '—'}</td>
                         <td className="px-4 py-2.5">
                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${FAIXA_COLORS[faixa]?.bg} ${FAIXA_COLORS[faixa]?.text}`}>
-                            {r.classificacao}
+                            {t(`fitBands.${faixa}`)}
                           </span>
                         </td>
                       </tr>
@@ -355,13 +362,13 @@ export default function FitPage() {
           {/* Legenda das colunas */}
           {ranking.length > 0 && (
             <div className="mt-4 rounded-xl border border-white/[0.06] p-4 text-[11px] text-gray-400 leading-relaxed space-y-1.5" style={{ background: 'rgba(15,42,74,0.5)' }}>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-400 mb-2">O que cada coluna significa</p>
-              <p><span className="text-white font-bold">Fit</span> — índice final 0-100 combinando os 4 blocos. Quanto maior, mais aderente ao cargo.</p>
-              <p><span className="text-white font-bold">Mapeamento</span> — aderência DISC Natural vs perfil ideal do cargo (quanto o colab é "naturalmente" assim).</p>
-              <p><span className="text-white font-bold">Competências</span> — média das 16 competências comportamentais comparadas ao perfil ideal (score ponderado por relevância do cargo).</p>
-              <p><span className="text-white font-bold">Liderança</span> — aderência do estilo de liderança (Executivo/Motivador/Metódico/Sistemático) ao modelo esperado do cargo.</p>
-              <p><span className="text-white font-bold">DISC</span> — aderência DISC Adaptado (como se comporta no trabalho) vs perfil esperado. Diferença entre Mapeamento e DISC revela nível de ajuste/desgaste.</p>
-              <p><span className="text-white font-bold">Classificação</span> — faixa qualitativa do Fit: Excelente (≥85) · Alta (70-84) · Razoável (50-69) · Baixa (30-49) · Crítica (&lt;30).</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-400 mb-2">{t('legend.title')}</p>
+              <p><span className="text-white font-bold">Fit</span> — {t('legend.fit')}</p>
+              <p><span className="text-white font-bold">{t('table.mapping')}</span> — {t('legend.mapping')}</p>
+              <p><span className="text-white font-bold">{t('table.competencies')}</span> — {t('legend.competencies')}</p>
+              <p><span className="text-white font-bold">{t('table.leadership')}</span> — {t('legend.leadership')}</p>
+              <p><span className="text-white font-bold">DISC</span> — {t('legend.disc')}</p>
+              <p><span className="text-white font-bold">{t('table.classification')}</span> — {t('legend.classification')}</p>
             </div>
           )}
         </div>
@@ -382,7 +389,7 @@ export default function FitPage() {
               <div className="text-right">
                 <div className={`text-3xl font-bold ${FAIXA_COLORS[getFaixa(detailColab.fit_final)]?.text}`}>{detailColab.fit_final}</div>
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${FAIXA_COLORS[getFaixa(detailColab.fit_final)]?.bg} ${FAIXA_COLORS[getFaixa(detailColab.fit_final)]?.text}`}>
-                  {detailColab.classificacao}
+                  {t(`fitBands.${getFaixa(detailColab.fit_final)}`)}
                 </span>
               </div>
             </div>
@@ -390,9 +397,9 @@ export default function FitPage() {
             {/* 4 Blocos */}
             <div className="grid grid-cols-4 gap-2 mb-4">
               {[
-                { key: 'mapeamento', label: 'Mapeamento', color: '#06B6D4' },
-                { key: 'competencias', label: 'Competências', color: '#F59E0B' },
-                { key: 'lideranca', label: 'Liderança', color: '#22C55E' },
+                { key: 'mapeamento', label: t('table.mapping'), color: '#06B6D4' },
+                { key: 'competencias', label: t('table.competencies'), color: '#F59E0B' },
+                { key: 'lideranca', label: t('table.leadership'), color: '#22C55E' },
                 { key: 'disc', label: 'DISC', color: '#8B5CF6' },
               ].map(b => {
                 const score = detailColab.blocos[b.key]?.score ?? 0;
@@ -401,7 +408,7 @@ export default function FitPage() {
                   <div key={b.key} className="text-center p-3 rounded-lg" style={{ background: '#091D35' }}>
                     <div className="text-2xl font-bold" style={{ color: b.color }}>{score.toFixed(0)}</div>
                     <div className="text-[9px] text-gray-500 mt-1">{b.label}</div>
-                    {peso != null && <div className="text-[8px] text-gray-600 mt-0.5">peso {Math.round(peso * 100)}%</div>}
+                    {peso != null && <div className="text-[8px] text-gray-600 mt-0.5">{t('labels.weight')} {Math.round(peso * 100)}%</div>}
                   </div>
                 );
               })}
@@ -409,7 +416,7 @@ export default function FitPage() {
 
             {/* Recomendação */}
             <div className="flex items-center gap-2 mb-5 p-3 rounded-lg" style={{ background: '#091D35' }}>
-              <span className="text-[10px] text-gray-500">Recomendação do modelo:</span>
+              <span className="text-[10px] text-gray-500">{t('labels.modelRecommendation')}:</span>
               <span className="text-xs font-bold text-white">{detailColab.recomendacao}</span>
             </div>
 
@@ -419,7 +426,7 @@ export default function FitPage() {
                 {/* Gaps */}
                 <div>
                   <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                    <TrendingDown size={12} /> Top Gaps — prioridade PDI
+                    <TrendingDown size={12} /> {t('sections.topGaps')}
                   </p>
                   {detailColab.gap_analysis.top_gaps?.length > 0 ? (
                     <div className="space-y-2">
@@ -428,14 +435,14 @@ export default function FitPage() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-[11px] text-gray-500 italic">Nenhum gap relevante — colaborador dentro das faixas ideais.</p>
+                    <p className="text-[11px] text-gray-500 italic">{t('emptyGaps')}</p>
                   )}
                 </div>
 
                 {/* Forças */}
                 <div>
                   <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                    <TrendingUp size={12} /> Principais forças
+                    <TrendingUp size={12} /> {t('sections.strengths')}
                   </p>
                   {detailColab.gap_analysis.top_forcas?.length > 0 ? (
                     <div className="space-y-2">
@@ -444,14 +451,14 @@ export default function FitPage() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-[11px] text-gray-500 italic">Sem forças destacadas no momento.</p>
+                    <p className="text-[11px] text-gray-500 italic">{t('emptyStrengths')}</p>
                   )}
 
                   {/* Alertas de excesso */}
                   {detailColab.gap_analysis.alertas_excesso?.length > 0 && (
                     <div className="mt-4">
                       <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                        <AlertTriangle size={12} /> Alertas de excesso
+                        <AlertTriangle size={12} /> {t('sections.excessAlerts')}
                       </p>
                       <div className="space-y-1">
                         {detailColab.gap_analysis.alertas_excesso.map((a, i) => (
@@ -469,12 +476,12 @@ export default function FitPage() {
             {/* Leitura executiva — gerada automaticamente ao abrir */}
             <div className="rounded-lg p-4 border border-cyan-400/20 mb-5" style={{ background: 'rgba(6,182,212,0.04)' }}>
               <p className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-400 flex items-center gap-1.5 mb-2">
-                <Sparkles size={12} /> Leitura executiva
+                <Sparkles size={12} /> {t('sections.executiveReading')}
               </p>
               {leituraLoading && !leituraAi ? (
                 <div className="flex items-center gap-2 text-xs text-gray-400 py-2">
                   <Loader2 size={12} className="animate-spin text-cyan-400" />
-                  Gerando análise personalizada...
+                  {t('loadingReading')}
                 </div>
               ) : leituraAi ? (
                 <p className="text-xs text-gray-200 leading-relaxed">{leituraAi}</p>
@@ -489,11 +496,11 @@ export default function FitPage() {
                 className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-bold text-white disabled:opacity-50"
                 style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
                 {baixandoRel ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
-                Baixar relatório comportamental
+                {t('actions.downloadBehaviorReport')}
               </button>
               <button onClick={() => setDetailColab(null)}
                 className="px-4 py-2.5 rounded-lg text-xs font-semibold text-gray-400 border border-white/10 hover:text-white transition-colors">
-                Fechar
+                {t('actions.close')}
               </button>
             </div>
           </div>

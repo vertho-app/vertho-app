@@ -3,6 +3,8 @@ import { Resend } from 'resend';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
 import { APP_URL, EMAIL_FROM_DEFAULT } from '@/lib/domain';
+import { resolveAppLocale } from '@/lib/i18n';
+import { magicLinkEmail, magicLinkWhatsapp } from '@/lib/i18n-auth-templates';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,7 +46,8 @@ function emailHtml({ nome, empresaNome, link }: { nome: string; empresaNome: str
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, redirectTo } = await req.json();
+    const { email, redirectTo, locale: bodyLocale } = await req.json();
+    const locale = resolveAppLocale(bodyLocale, req.cookies.get('vertho-locale')?.value);
     if (!email) return NextResponse.json({ error: 'Email obrigatório' }, { status: 400 });
 
     const trimmed = email.trim().toLowerCase();
@@ -118,11 +121,12 @@ export async function POST(req: NextRequest) {
           : actionLink;
 
         const resend = new Resend(process.env.RESEND_API_KEY);
+        const email = magicLinkEmail(locale, { nome, empresaNome, link: linkPraEmail });
         const sendResult = await resend.emails.send({
           from: EMAIL_FROM_DEFAULT,
           to: trimmed,
-          subject: `${empresaNome} — seu link de acesso`,
-          html: emailHtml({ nome, empresaNome, link: linkPraEmail }),
+          subject: email.subject,
+          html: email.html,
         });
         if ((sendResult as any)?.error) {
           console.error('[magic-link] Resend retornou erro:', JSON.stringify((sendResult as any).error).slice(0, 300));
@@ -148,7 +152,7 @@ export async function POST(req: NextRequest) {
         if (phone.length <= 11) phone = `55${phone}`;
 
         const whatsappLink = `${origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(nextPath)}`;
-        const msg = `Olá, ${nome}! 🔐\n\nSeu link de acesso à *${empresaNome}*:\n${whatsappLink}\n\nClique para entrar direto, sem senha.\nEste link expira em 24h.`;
+        const msg = magicLinkWhatsapp(locale, { nome, empresaNome, link: whatsappLink });
 
         const res = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-text`, {
           method: 'POST',

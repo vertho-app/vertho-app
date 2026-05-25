@@ -3,6 +3,8 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { getTenantSlug } from '@/lib/tenant-resolver';
 import { validateWhatsAppBR } from '@/lib/phone';
 import { issueOtp } from '@/lib/phone-otp';
+import { resolveAppLocale } from '@/lib/i18n';
+import { otpWhatsapp } from '@/lib/i18n-auth-templates';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +18,8 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(req: NextRequest) {
   try {
-    const { telefone } = await req.json();
+    const { telefone, locale: bodyLocale } = await req.json();
+    const locale = resolveAppLocale(bodyLocale, req.cookies.get('vertho-locale')?.value);
 
     const check = validateWhatsAppBR(telefone);
     if (check.valid === false) {
@@ -61,7 +64,7 @@ export async function POST(req: NextRequest) {
     const zapiToken = process.env.ZAPI_TOKEN;
     if (zapiInstance && zapiToken) {
       const empresaNome = empresa.nome || 'Vertho';
-      const msg = `*${empresaNome}* — seu código de acesso:\n\n*${issued.code}*\n\nDigite esse código no app para entrar. Ele expira em 10 minutos.\nSe você não solicitou, ignore esta mensagem.`;
+      const msg = otpWhatsapp(locale, { empresaNome, code: issued.code });
       try {
         const res = await fetch(
           `https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-text`,

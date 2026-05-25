@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import {
   ArrowRight, Play, Loader2, Check,
@@ -18,7 +19,7 @@ import { ContentThumb } from '@/components/content-thumb';
 const BUNNY_LIBRARY = 636615;
 
 const FORMATO_LABEL: Record<string, string> = {
-  video: 'Vídeo', audio: 'Áudio', texto: 'Artigo', case: 'Case', pdf: 'PDF',
+  video: 'video', audio: 'audio', texto: 'text', case: 'case', pdf: 'pdf',
 };
 
 const PHASE_TOKENS: Record<number, { accent: string; deep: string; glow: string }> = {
@@ -64,6 +65,7 @@ function ProgressRing({ fase, pct }: { fase: number; pct: number }) {
 }
 
 export default function DashboardHomePage() {
+  const t = useTranslations('DashboardHome');
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeVideo, setActiveVideo] = useState<any>(null);
@@ -118,23 +120,23 @@ export default function DashboardHomePage() {
   );
 
   if (!data?.colaborador) return (
-    <div className="p-6 text-center text-gray-400">Colaborador não encontrado.</div>
+    <div className="p-6 text-center text-gray-400">{t('missingCollaborator')}</div>
   );
 
   const { colaborador } = data;
-  const firstName = (colaborador.nome_completo || '').split(' ')[0] || 'você';
+  const firstName = (colaborador.nome_completo || '').split(' ')[0] || t('fallbackFirstName');
   const faseNum: number = kpis?.fase?.numero || 1;
-  const faseTitulo = kpis?.fase?.titulo || 'Diagnóstico';
+  const faseTitulo = kpis?.fase?.titulo || t('fallbackPhaseTitle');
   const pct = kpis?.fase?.concluida ? 100 : Math.round(((faseNum - 1) / 5) * 100 + (kpis?.pilula?.semana ? (kpis.pilula.semana / 14) * 20 : 0));
   const competencia = data.competenciaFoco;
   const phaseTokens = PHASE_TOKENS[faseNum] ?? PHASE_TOKENS[2];
 
   const faseDescricoes: Record<number, string> = {
-    1: 'Responda os cenários para mapear seu nível atual.',
-    2: 'Sua trilha de desenvolvimento está sendo montada.',
-    3: 'Siga sua temporada de 14 semanas e evolua.',
-    4: 'Pratique e registre evidências do seu progresso.',
-    5: 'Etapa final de reavaliação e consolidação.',
+    1: t('phaseDescriptions.1'),
+    2: t('phaseDescriptions.2'),
+    3: t('phaseDescriptions.3'),
+    4: t('phaseDescriptions.4'),
+    5: t('phaseDescriptions.5'),
   };
 
   // Empresa com fonte externa (OPQ32, Hogan...) NÃO usa DISC nativo:
@@ -146,11 +148,11 @@ export default function DashboardHomePage() {
   const perfilComportamentalBloqueado = !usaFonteExterna && !colaborador.perfil_dominante && !perfilComportamentalLiberado;
   const precisaMapeamentoDISC = !usaFonteExterna && !colaborador.perfil_dominante && perfilComportamentalLiberado;
   const phaseLabels = [
-    data?.empresaPerfilExternoFonte === 'opq32' ? 'OPQ' : usaFonteExterna ? 'Perfil' : 'DISC',
-    'Aval',
-    'PDI',
-    'Temp',
-    'Evol',
+    data?.empresaPerfilExternoFonte === 'opq32' ? 'OPQ' : usaFonteExterna ? t('phaseLabels.externalProfile') : t('phaseLabels.disc'),
+    t('phaseLabels.assessment'),
+    t('phaseLabels.pdi'),
+    t('phaseLabels.season'),
+    t('phaseLabels.evolution'),
   ] as const;
 
   function handleMainCTA() {
@@ -164,13 +166,13 @@ export default function DashboardHomePage() {
   }
 
   function mainCTALabel() {
-    if (competencia) return 'Iniciar atividade de hoje';
+    if (competencia) return t('mainCta.today');
     if (perfilComportamentalBloqueado) {
-      if (votacaoAberta?.votacaoAtiva && !votacaoAberta.jaVotou) return 'Votar antes do perfil comportamental';
-      return 'Aguardando liberação do perfil comportamental';
+      if (votacaoAberta?.votacaoAtiva && !votacaoAberta.jaVotou) return t('mainCta.vote');
+      return t('mainCta.waitingProfile');
     }
-    if (precisaMapeamentoDISC) return 'Fazer diagnóstico comportamental';
-    return (colaborador.respondidas || 0) > 0 ? 'Continuar avaliação' : 'Iniciar avaliação';
+    if (precisaMapeamentoDISC) return t('mainCta.behavioral');
+    return (colaborador.respondidas || 0) > 0 ? t('mainCta.continueAssessment') : t('mainCta.startAssessment');
   }
 
   const pillColors: Record<string, string> = {
@@ -191,7 +193,7 @@ export default function DashboardHomePage() {
     >
       {/* Header */}
       <header className="px-5 pt-6 pb-4">
-        <p className="text-sm text-white/60 mb-1">Olá, {firstName}</p>
+        <p className="text-sm text-white/60 mb-1">{t('header.hello', { name: firstName })}</p>
         {/* ✅ h1 em Instrument Serif — momento editorial */}
         <h1 style={{
           ...serifStyle,
@@ -200,9 +202,9 @@ export default function DashboardHomePage() {
           letterSpacing: '-0.02em',
           color: '#fff',
         }}>
-          Seu próximo{' '}
-          <em style={{ color: 'var(--phase-accent)' }}>avanço</em>{' '}
-          começa hoje
+          {t('header.titlePrefix')}{' '}
+          <em style={{ color: 'var(--phase-accent)' }}>{t('header.titleEmphasis')}</em>{' '}
+          {t('header.titleSuffix')}
         </h1>
       </header>
 
@@ -222,7 +224,7 @@ export default function DashboardHomePage() {
             <div>
               <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-1"
                 style={{ color: 'var(--phase-accent)' }}>
-                Sua jornada
+                {t('journey.label')}
               </p>
               {/* Percentual grande em serif */}
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
@@ -233,7 +235,9 @@ export default function DashboardHomePage() {
               </div>
             </div>
             <div className="text-right" style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 11, color: 'rgba(255,255,255,0.4)', letterSpacing: '.12em', lineHeight: 1.7 }}>
-              FASE {String(faseNum).padStart(2,'0')}<br/>DE 05
+              {t('journey.phaseOf', { phase: String(faseNum).padStart(2,'0') }).split('\\n').map((line, index) => (
+                <span key={line}>{line}{index === 0 && <br />}</span>
+              ))}
             </div>
           </div>
 
@@ -300,16 +304,16 @@ export default function DashboardHomePage() {
           >
             <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-1.5"
               style={{ color: 'var(--phase-accent)' }}>
-              Fase atual · {faseTitulo}
+              {t('journey.currentPhase', { title: faseTitulo })}
             </p>
             <p className="text-[13px] font-semibold text-white leading-snug mb-1">
-              {kpis?.proximoMarco?.label || (competencia ? `Avançar em ${competencia}` : 'Completar diagnóstico')}
+              {kpis?.proximoMarco?.label || (competencia ? t('journey.nextCompetency', { competency: competencia }) : t('journey.completeDiagnosis'))}
             </p>
             <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'var(--font-mono, monospace)', letterSpacing: '.1em' }}>
-              PRAZO ·{' '}
+              {t('journey.deadline')} ·{' '}
               {kpis?.proximoMarco?.diasAte != null
-                ? `${String(kpis.proximoMarco.diasAte).padStart(2,'0')} DIAS`
-                : 'HOJE'}
+                ? t('journey.days', { days: String(kpis.proximoMarco.diasAte).padStart(2,'0') })
+                : t('journey.today')}
             </p>
           </div>
         </section>
@@ -325,20 +329,20 @@ export default function DashboardHomePage() {
                 boxShadow: '0 0 24px rgba(52,197,204,0.1)',
               }}>
               <div className="absolute top-2 right-3 px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/30 text-[9px] font-bold text-amber-400 uppercase tracking-wider">
-                Novo
+                {t('voting.new')}
               </div>
               <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-1" style={{ color: 'var(--phase-accent)' }}>
-                Votação aberta
+                {t('voting.open')}
               </p>
               <h4 className="text-base font-bold text-white mb-1">
-                Escolha as 5 competências mais importantes
+                {t('voting.title')}
               </h4>
               <p className="text-sm text-white/55 leading-relaxed">
-                Sua opinião conta! Selecione e ordene as competências que você considera prioritárias para o seu cargo.
+                {t('voting.description')}
               </p>
               <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold"
                 style={{ background: 'var(--phase-accent)', color: '#062032' }}>
-                Votar agora →
+                {t('voting.cta')}
               </div>
             </button>
           </section>
@@ -352,8 +356,8 @@ export default function DashboardHomePage() {
                 <Check size={18} className="text-green-400" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-white">Votação concluída</p>
-                <p className="text-xs text-gray-500">Seu voto foi registrado. Obrigado!</p>
+                <p className="text-sm font-semibold text-white">{t('voting.doneTitle')}</p>
+                <p className="text-xs text-gray-500">{t('voting.doneDescription')}</p>
               </div>
             </div>
           </section>
@@ -374,10 +378,10 @@ export default function DashboardHomePage() {
               <div>
                 <span className="block mb-2 text-[10px] font-bold tracking-[0.2em] uppercase"
                   style={{ color: 'var(--phase-accent)' }}>
-                  Foco da semana
+                  {t('weeklyFocus')}
                 </span>
                 <h2 style={{ ...serifStyle, fontSize: 'clamp(26px, 5vw, 38px)', lineHeight: 1.05, letterSpacing: '-0.02em' }}>
-                  {competencia || <em>Preparação</em>}
+                  {competencia || <em>{t('preparation')}</em>}
                 </h2>
               </div>
               <span className="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold"
@@ -393,7 +397,7 @@ export default function DashboardHomePage() {
               </span>
             </div>
             <p className="text-sm text-white/65 mb-5 leading-relaxed">
-              {faseDescricoes[faseNum] || 'Continue sua jornada de desenvolvimento.'}
+              {faseDescricoes[faseNum] || t('phaseDescriptions.fallback')}
             </p>
             <button onClick={handleMainCTA}
               disabled={perfilComportamentalBloqueado && !(votacaoAberta?.votacaoAtiva && !votacaoAberta.jaVotou)}
@@ -422,16 +426,16 @@ export default function DashboardHomePage() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-1" style={{ color: 'var(--phase-accent)' }}>
-                {kpis?.pilula ? `Pílula · Semana ${kpis.pilula.semana}` : 'Insight do dia'}
+                {kpis?.pilula ? t('cards.pill', { week: kpis.pilula.semana }) : t('cards.dailyInsight')}
               </p>
               {/* ✅ título da pílula em serif */}
               <h4 className="mb-1 line-clamp-1" style={{ ...serifStyle, fontSize: 17, color: '#fff' }}>
-                {kpis?.pilula?.titulo || 'Novas técnicas de liderança'}
+                {kpis?.pilula?.titulo || t('cards.fallbackPillTitle')}
               </h4>
               <p className="text-sm text-white/55 leading-relaxed line-clamp-2">
                 {kpis?.pilula
-                  ? (kpis.pilula.status === 'concluida' ? 'Concluída ✓ — Veja seu progresso' : 'Clique para acessar o conteúdo da semana')
-                  : 'Um pequeno avanço pode aumentar muito seu impacto.'}
+                  ? (kpis.pilula.status === 'concluida' ? t('cards.pillDone') : t('cards.pillOpen'))
+                  : t('cards.dailyInsightDescription')}
               </p>
             </div>
           </button>
@@ -447,10 +451,10 @@ export default function DashboardHomePage() {
               <MessageCircle size={18} style={{ color: 'var(--phase-accent)' }} />
             </div>
             <div className="flex-1">
-              <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-1" style={{ color: 'var(--phase-accent)' }}>Mentor IA</p>
-              <h4 className="mb-1" style={{ ...serifStyle, fontSize: 17, color: '#fff' }}>Tire dúvidas sobre sua atividade</h4>
+              <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-1" style={{ color: 'var(--phase-accent)' }}>{t('cards.mentor')}</p>
+              <h4 className="mb-1" style={{ ...serifStyle, fontSize: 17, color: '#fff' }}>{t('cards.mentorTitle')}</h4>
               <p className="text-sm text-white/55 leading-relaxed">
-                O Beto pode explicar conceitos, sugerir exemplos e ajudar você a avançar.
+                {t('cards.mentorDescription')}
               </p>
             </div>
           </button>
@@ -461,17 +465,18 @@ export default function DashboardHomePage() {
           <section className="pt-1">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-[11px] font-bold tracking-[0.18em] uppercase" style={{ color: 'var(--phase-accent)' }}>
-                Capacitação recomendada
+                {t('recommended.title')}
               </h3>
               <button onClick={() => router.push('/dashboard/temporada')}
                 className="text-sm font-semibold" style={{ color: 'var(--phase-accent)' }}>
-                Ver tudo
+                {t('recommended.viewAll')}
               </button>
             </div>
             <div className="grid grid-cols-2 gap-4">
               {capacitacoes.slice(0, 4).map(item => {
                 const isVideo = item.formato === 'video' && item.bunny_video_id;
-                const label = FORMATO_LABEL[item.formato] || 'Conteúdo';
+                const labelKey = FORMATO_LABEL[item.formato] || 'content';
+                const label = t(`contentFormats.${labelKey}`);
                 return (
                   <article key={item.id}
                     className="rounded-[22px] overflow-hidden cursor-pointer transition-all active:scale-[0.98]"
@@ -505,12 +510,12 @@ export default function DashboardHomePage() {
         {ultimosVideos.length > 0 && (
           <section className="pt-1">
             <h3 className="text-[11px] font-bold tracking-[0.18em] uppercase mb-3" style={{ color: 'var(--phase-accent)' }}>
-              Continuar de onde parou
+              {t('continue.title')}
             </h3>
             <div className="space-y-2">
               {ultimosVideos.map(v => {
                 const meta = capacitacoes.find((c: any) => c.bunny_video_id === v.videoId);
-                const titulo = meta?.titulo || 'Vídeo';
+                const titulo = meta?.titulo || t('continue.video');
                 return (
                   <button key={v.videoId}
                     onClick={() => setActiveVideo({ videoId: v.videoId, titulo })}
@@ -528,7 +533,7 @@ export default function DashboardHomePage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-white truncate">{titulo}</p>
                       <p className="text-[10px] text-white/45 mt-0.5">
-                        {v.concluido ? 'Concluído ✓' : `${v.pct}% assistido`}
+                        {v.concluido ? t('continue.done') : t('continue.watched', { pct: v.pct })}
                       </p>
                       <div className="mt-1.5 h-[3px] rounded-full overflow-hidden bg-white/[0.06]">
                         <div className="h-full rounded-full"
@@ -550,7 +555,7 @@ export default function DashboardHomePage() {
               borderColor: `color-mix(in oklab, var(--phase-accent) 28%, transparent)`,
               background: `color-mix(in oklab, var(--phase-accent) 5%, transparent)`,
             }}>
-            Ver evolução da equipe
+            {t('manager.teamEvolution')}
           </button>
         )}
       </main>

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
+import { useLocale } from 'next-intl';
 
 type Branding = {
   tenantName: string;
@@ -26,6 +28,8 @@ export default function SignupModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const t = useTranslations('Login.signup');
+  const locale = useLocale();
   const [nome, setNome] = useState('');
   const [cargo, setCargo] = useState('');
   const [telefone, setTelefone] = useState('');
@@ -78,23 +82,23 @@ export default function SignupModal({
     const telefoneDigits = telefone.replace(/\D/g, '');
 
     if (nomeTrimmed.length < 2) {
-      setErrorMsg('Digite seu nome completo.');
+      setErrorMsg(t('errors.fullName'));
       setStatus('error');
       return;
     }
     if (telefoneDigits.length !== 11) {
-      setErrorMsg(`WhatsApp deve ter 11 dígitos (DDD + 9 + número). Você digitou ${telefoneDigits.length}.`);
+      setErrorMsg(t('errors.phoneLength', { count: telefoneDigits.length }));
       setStatus('error');
       return;
     }
     const dddOK = parseInt(telefoneDigits.slice(0, 2), 10);
     if (isNaN(dddOK) || dddOK < 11 || dddOK > 99) {
-      setErrorMsg('DDD inválido.');
+      setErrorMsg(t('errors.invalidDdd'));
       setStatus('error');
       return;
     }
     if (telefoneDigits[2] !== '9') {
-      setErrorMsg('WhatsApp móvel deve começar com 9 após o DDD.');
+      setErrorMsg(t('errors.mobileStartsWithNine'));
       setStatus('error');
       return;
     }
@@ -110,17 +114,18 @@ export default function SignupModal({
           cargo: cargo.trim() || null,
           telefone: telefoneDigits,
           redirectTo,
+          locale,
         }),
       });
       const data = await res.json();
       if (!res.ok || data?.error) {
-        setErrorMsg(data?.error || 'Não foi possível criar o cadastro.');
+        setErrorMsg(data?.error || t('errors.create'));
         setStatus('error');
         return;
       }
       onSuccess();
     } catch (err: any) {
-      setErrorMsg(`Erro de rede: ${err.message}`);
+      setErrorMsg(t('errors.network', { message: err.message }));
       setStatus('error');
     }
   }
@@ -142,7 +147,7 @@ export default function SignupModal({
       >
         <div className="flex items-start justify-between mb-1">
           <p className="text-[10px] tracking-[0.22em] uppercase font-bold" style={{ color: accentColor }}>
-            {tenantName} · cadastro
+            {t('eyebrow', { tenantName })}
           </p>
           <button
             type="button"
@@ -155,14 +160,14 @@ export default function SignupModal({
         </div>
 
         <h2 className="text-[20px] font-bold mb-1" style={{ color: fontColor || '#FFFFFF' }}>
-          Bem-vindo!
+          {t('title')}
         </h2>
         <p className="text-[13px] mb-5" style={{ color: fontColorSecondary || '#FFFFFF99' }}>
-          Você ainda não tem cadastro. Preencha para criar seu acesso.
+          {t('description')}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-3">
-          <Field label="E-mail" required>
+          <Field label={t('email')} required>
             <input
               type="email"
               value={email}
@@ -172,12 +177,12 @@ export default function SignupModal({
             />
           </Field>
 
-          <Field label="Nome completo" required>
+          <Field label={t('fullName')} required>
             <input
               type="text"
               value={nome}
               onChange={(e) => setNome(e.target.value)}
-              placeholder="Como você quer ser chamado(a)"
+              placeholder={t('fullNamePlaceholder')}
               autoComplete="name"
               autoFocus
               className="w-full py-2.5 px-3 rounded-lg border-2 border-white/10 bg-white/[0.06] text-white text-[14px] outline-none placeholder:text-white/30 transition-colors"
@@ -187,21 +192,21 @@ export default function SignupModal({
           </Field>
 
           <Field
-            label="WhatsApp"
+            label={t('whatsapp')}
             required
             hint={(() => {
               const n = telefone.replace(/\D/g, '').length;
-              if (n === 0) return 'Para receber o link de acesso';
-              if (n < 11) return `${n}/11 dígitos`;
-              if (n === 11) return '✓ 11 dígitos';
-              return `${n} dígitos (máx 11)`;
+              if (n === 0) return t('phoneHintEmpty');
+              if (n < 11) return t('phoneHintCount', { count: n });
+              if (n === 11) return t('phoneHintDone');
+              return t('phoneHintMax', { count: n });
             })()}
           >
             <input
               type="tel"
               value={telefone}
               onChange={(e) => setTelefone(formatPhone(e.target.value))}
-              placeholder="(11) 91234-5678"
+              placeholder={t('phonePlaceholder')}
               autoComplete="tel"
               inputMode="numeric"
               maxLength={16}
@@ -212,8 +217,8 @@ export default function SignupModal({
           </Field>
 
           <Field
-            label="Cargo"
-            hint={!cargosLoaded ? 'Carregando…' : cargos.length === 0 ? 'Opcional' : 'Selecione'}
+            label={t('role')}
+            hint={!cargosLoaded ? t('loading') : cargos.length === 0 ? t('optional') : t('select')}
           >
             {cargos.length > 0 ? (
               <div className="relative">
@@ -226,7 +231,7 @@ export default function SignupModal({
                   onBlur={(e) => ((e.target as HTMLSelectElement).style.borderColor = '')}
                 >
                   <option value="" style={{ background: '#0f1d33' }}>
-                    {cargosLoaded ? '— selecione —' : 'Carregando…'}
+                    {cargosLoaded ? t('selectPlaceholder') : t('loading')}
                   </option>
                   {cargos.map((c) => (
                     <option key={c.id} value={c.nome} style={{ background: '#0f1d33' }}>
@@ -247,7 +252,7 @@ export default function SignupModal({
                 type="text"
                 value={cargo}
                 onChange={(e) => setCargo(e.target.value)}
-                placeholder="Ex: Diretor pedagógico"
+                placeholder={t('rolePlaceholder')}
                 autoComplete="organization-title"
                 disabled={!cargosLoaded}
                 className="w-full py-2.5 px-3 rounded-lg border-2 border-white/10 bg-white/[0.06] text-white text-[14px] outline-none placeholder:text-white/30 transition-colors"
@@ -263,7 +268,7 @@ export default function SignupModal({
             className="w-full mt-2 py-3 rounded-xl border-none text-white text-[14px] font-bold tracking-wide cursor-pointer transition-opacity disabled:opacity-60"
             style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColorEnd})` }}
           >
-            {status === 'loading' ? 'Criando acesso...' : 'Criar acesso e enviar link'}
+            {status === 'loading' ? t('creating') : t('submit')}
           </button>
 
           {status === 'error' && errorMsg && (
@@ -271,7 +276,7 @@ export default function SignupModal({
           )}
 
           <p className="text-[11px] text-center mt-3" style={{ color: fontColorSecondary || '#FFFFFF66' }}>
-            Ao se cadastrar, você concorda em receber o link de acesso por e-mail e WhatsApp.
+            {t('consent')}
           </p>
         </form>
       </div>

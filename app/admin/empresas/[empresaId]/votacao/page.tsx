@@ -2,12 +2,14 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { ArrowLeft, Loader2, Users, BarChart3, CheckCircle, AlertCircle, MessageCircle, Trophy, Lock, Unlock } from 'lucide-react';
 import { loadResultadosVotacao, toggleVotacao, aprovarTop5Votacao, togglePerfilComportamental } from '@/actions/votacao';
 
 const MEDAL = ['🥇', '🥈', '🥉', '4º', '5º'];
 
 export default function VotacaoAdminPage({ params }: { params: Promise<{ empresaId: string }> }) {
+  const t = useTranslations('AdminVoting');
   const { empresaId } = use(params);
   const router = useRouter();
 
@@ -68,7 +70,7 @@ export default function VotacaoAdminPage({ params }: { params: Promise<{ empresa
     const sel = selecaoPorCargo[cargo] || new Set();
     // Mantém a ordem do ranking pra os marcados
     const escolhidas = ranking.map((r: any) => r.nome).filter((n: string) => sel.has(n));
-    if (escolhidas.length < 1) { flash(`Marque ao menos 1 competência para ${cargo}`); return; }
+    if (escolhidas.length < 1) { flash(t('messages.selectAtLeastOne', { role: cargo })); return; }
     setAprovando(cargo);
     const r = await aprovarTop5Votacao(empresaId, cargo, escolhidas);
     setAprovando(null);
@@ -97,21 +99,21 @@ export default function VotacaoAdminPage({ params }: { params: Promise<{ empresa
           </button>
           <div>
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
-              <BarChart3 size={20} className="text-cyan-400" /> Votação de Competências
+              <BarChart3 size={20} className="text-cyan-400" /> {t('title')}
             </h1>
-            <p className="text-xs text-gray-500">Consolidação dos votos dos colaboradores</p>
+            <p className="text-xs text-gray-500">{t('subtitle')}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={handleTogglePerfil} disabled={togglingPerfil || data?.votacaoAtiva}
-            title={data?.votacaoAtiva ? 'Feche a votação antes de liberar o próximo passo' : undefined}
+            title={data?.votacaoAtiva ? t('actions.closeBeforeUnlock') : undefined}
             className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-1.5 ${
               data?.perfilComportamentalLiberado
                 ? 'bg-cyan-400/15 text-cyan-300 border border-cyan-400/30 hover:bg-cyan-400/25'
                 : 'bg-amber-400/15 text-amber-300 border border-amber-400/30 hover:bg-amber-400/25'
             } disabled:opacity-50 disabled:cursor-not-allowed`}>
             {togglingPerfil ? <Loader2 size={14} className="animate-spin" /> : data?.perfilComportamentalLiberado ? <Unlock size={14} /> : <Lock size={14} />}
-            {data?.perfilComportamentalLiberado ? 'Bloquear perfil' : 'Liberar perfil'}
+            {data?.perfilComportamentalLiberado ? t('actions.lockProfile') : t('actions.unlockProfile')}
           </button>
           <button onClick={handleToggle} disabled={toggling}
             className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
@@ -120,7 +122,7 @@ export default function VotacaoAdminPage({ params }: { params: Promise<{ empresa
                 : 'bg-green-400/15 text-green-400 border border-green-400/30 hover:bg-green-400/25'
             }`}>
             {toggling ? <Loader2 size={14} className="animate-spin inline mr-1" /> : null}
-            {data?.votacaoAtiva ? 'Fechar votação' : 'Abrir votação'}
+            {data?.votacaoAtiva ? t('actions.closeVoting') : t('actions.openVoting')}
           </button>
         </div>
       </div>
@@ -131,13 +133,17 @@ export default function VotacaoAdminPage({ params }: { params: Promise<{ empresa
           <div className="flex items-center gap-2">
             {data?.votacaoAtiva ? <CheckCircle size={16} className="text-green-400" /> : <AlertCircle size={16} className="text-gray-500" />}
             <span className={`text-sm font-bold ${data?.votacaoAtiva ? 'text-green-400' : 'text-gray-500'}`}>
-              {data?.votacaoAtiva ? 'Votação aberta — colaboradores podem votar' : 'Votação fechada'}
+              {data?.votacaoAtiva ? t('status.votingOpen') : t('status.votingClosed')}
             </span>
           </div>
           {totalColabs > 0 && (
             <div className="text-xs text-gray-400 flex items-center gap-2">
               <Users size={12} className="text-cyan-400" />
-              <span><span className="text-cyan-400 font-bold">{totalVotaram}</span> de {totalColabs} votaram</span>
+              <span>{t.rich('status.votedCount', {
+                voted: totalVotaram,
+                total: totalColabs,
+                strong: chunks => <span className="text-cyan-400 font-bold">{chunks}</span>,
+              })}</span>
               <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
                 pctTotal >= 75 ? 'bg-green-400/15 text-green-400'
                 : pctTotal >= 40 ? 'bg-amber-400/15 text-amber-400'
@@ -154,36 +160,37 @@ export default function VotacaoAdminPage({ params }: { params: Promise<{ empresa
             {data?.perfilComportamentalLiberado ? <Unlock size={16} className="text-cyan-300" /> : <Lock size={16} className="text-amber-300" />}
             <span className={`text-sm font-bold ${data?.perfilComportamentalLiberado ? 'text-cyan-300' : 'text-amber-300'}`}>
               {data?.perfilComportamentalLiberado
-                ? 'Perfil comportamental liberado — colaboradores podem avançar'
-                : 'Perfil comportamental bloqueado — aguarde finalizar a votação'}
+                ? t('profile.unlocked')
+                : t('profile.locked')}
             </span>
           </div>
           <span className="text-xs text-gray-400">
             {data?.votacaoAtiva
-              ? 'Liberação disponível após fechar a votação'
-              : 'Use o botão “Liberar perfil” quando o ranking estiver fechado'}
+              ? t('profile.availableAfterClose')
+              : t('profile.useUnlockButton')}
           </span>
         </div>
       </div>
 
       {/* Dica: 2 caminhos */}
       <div className="rounded-xl p-3 mb-6 border border-cyan-400/15 bg-cyan-400/[0.04] text-[11px] text-cyan-100/85 leading-relaxed">
-        <strong className="text-cyan-300">Como definir o Top final do cargo:</strong>{' '}
+        <strong className="text-cyan-300">{t('hint.title')}</strong>{' '}
         <span className="text-cyan-100/70">
-          (1) <strong>Votação dos colaboradores</strong> — esta tela. Marque as competências do
-          ranking abaixo e aprove. (2) <strong>Workshop presencial</strong> — vá em{' '}
+          {t.rich('hint.bodyBeforeLink', {
+            strong: chunks => <strong>{chunks}</strong>,
+          })}{' '}
         </span>
         <button onClick={() => router.push(`/admin/empresas/${empresaId}/fase1?tab=top5`)}
           className="underline text-cyan-300 hover:text-cyan-200">
           Fase 1 → Top 5
         </button>
-        <span className="text-cyan-100/70"> e selecione manualmente. Pode escolher qualquer quantidade (≥ 1).</span>
+        <span className="text-cyan-100/70"> {t('hint.bodyAfterLink')}</span>
       </div>
 
       {cargos.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
           <Users size={32} className="mx-auto mb-3 text-gray-600" />
-          <p className="text-sm">Nenhum colaborador encontrado. Importe colaboradores primeiro.</p>
+          <p className="text-sm">{t('empty.noCollaborators')}</p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -205,9 +212,13 @@ export default function VotacaoAdminPage({ params }: { params: Promise<{ empresa
                     )}
                   </h2>
                   <p className="text-[10px] text-gray-500">
-                    <span className="text-cyan-400 font-bold">{dados.votaram}</span> de {dados.total} votaram
+                    {t.rich('role.votedCount', {
+                      voted: dados.votaram,
+                      total: dados.total,
+                      strong: chunks => <span className="text-cyan-400 font-bold">{chunks}</span>,
+                    })}
                     {dados.faltam.length > 0 && (
-                      <span className="text-gray-600"> · Faltam: {dados.faltam.join(', ')}</span>
+                      <span className="text-gray-600"> · {t('role.missing', { names: dados.faltam.join(', ') })}</span>
                     )}
                   </p>
                 </div>
@@ -219,7 +230,7 @@ export default function VotacaoAdminPage({ params }: { params: Promise<{ empresa
                         disabled={aprovando === cargo || selCount === 0}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-green-400 border border-green-400/30 hover:bg-green-400/10 disabled:opacity-50">
                         {aprovando === cargo ? <Loader2 size={11} className="animate-spin" /> : <Trophy size={11} />}
-                        Aprovar {selCount > 0 ? selCount : ''} selecionada{selCount === 1 ? '' : 's'}
+                        {t('actions.approveSelected', { count: selCount })}
                       </button>
                     );
                   })()}
@@ -228,7 +239,7 @@ export default function VotacaoAdminPage({ params }: { params: Promise<{ empresa
 
               {/* Ranking */}
               {dados.ranking.length === 0 ? (
-                <div className="px-4 py-6 text-center text-sm text-gray-500">Nenhum voto recebido ainda</div>
+                <div className="px-4 py-6 text-center text-sm text-gray-500">{t('empty.noVotes')}</div>
               ) : (
                 <div className="px-4 py-3 space-y-1.5">
                   {dados.ranking.map((r: any, idx: number) => {
@@ -255,8 +266,8 @@ export default function VotacaoAdminPage({ params }: { params: Promise<{ empresa
                         </span>
                         <span className={`flex-1 text-sm ${marcado ? 'font-bold text-white' : 'text-gray-400'}`}>{r.nome}</span>
                         <div className="flex items-center gap-3 shrink-0 text-[10px]">
-                          <span className="text-cyan-400 font-bold">{r.pontos} pts</span>
-                          <span className="text-gray-500">{r.votos} voto{r.votos !== 1 ? 's' : ''}</span>
+                          <span className="text-cyan-400 font-bold">{t('ranking.points', { count: r.pontos })}</span>
+                          <span className="text-gray-500">{t('ranking.votes', { count: r.votos })}</span>
                         </div>
                         {marcado && (
                           <div className="w-24 h-1.5 rounded-full overflow-hidden bg-white/5 shrink-0">
@@ -273,7 +284,7 @@ export default function VotacaoAdminPage({ params }: { params: Promise<{ empresa
               {dados.sugestoes.length > 0 && (
                 <div className="px-4 py-3 border-t border-white/[0.04]">
                   <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-2 flex items-center gap-1">
-                    <MessageCircle size={10} /> Sugestões de novas competências
+                    <MessageCircle size={10} /> {t('suggestions.title')}
                   </p>
                   {dados.sugestoes.map((s: any, i: number) => (
                     <div key={i} className="flex items-start gap-2 text-xs mb-1">

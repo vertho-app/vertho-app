@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   ArrowLeft, Loader2, Trophy, Trash2, Plus, X, Search, ChevronDown,
   Briefcase, FileText, Target, Brain, RefreshCw, CheckCircle, AlertTriangle
@@ -17,6 +18,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
   const { empresaId } = use(params);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const tr = useTranslations('AdminPhase1');
   const initialTab = searchParams.get('tab');
 
   const [tab, setTab] = useState(
@@ -132,19 +134,19 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
         </button>
         <div>
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <Brain size={20} className="text-blue-400" /> Fase 1 — Parametrização
+            <Brain size={20} className="text-blue-400" /> {tr('title')}
           </h1>
-          <p className="text-xs text-gray-500">Top 10, Top 5, Perfil de Cargo Ideal e Cenários</p>
+          <p className="text-xs text-gray-500">{tr('subtitle')}</p>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1 mb-5 p-1 rounded-xl border border-white/[0.06]" style={{ background: '#091D35' }}>
         {[
-          { key: 'top10', label: 'Top 10', icon: Trophy, color: 'text-amber-400', count: top10.length },
-          { key: 'top5', label: 'Top 5', icon: Target, color: 'text-orange-400', count: cargosData.filter(c => c.top5_workshop?.length).length },
-          { key: 'gabarito', label: 'Perfil de Cargo Ideal', icon: Target, color: 'text-purple-400', count: gabaritos.length },
-          { key: 'cenarios', label: 'Cenários', icon: FileText, color: 'text-green-400', count: cenarios.length },
+          { key: 'top10', label: tr('tabs.top10'), icon: Trophy, color: 'text-amber-400', count: top10.length },
+          { key: 'top5', label: tr('tabs.top5'), icon: Target, color: 'text-orange-400', count: cargosData.filter(c => c.top5_workshop?.length).length },
+          { key: 'gabarito', label: tr('tabs.idealRoleProfile'), icon: Target, color: 'text-purple-400', count: gabaritos.length },
+          { key: 'cenarios', label: tr('tabs.scenarios'), icon: FileText, color: 'text-green-400', count: cenarios.length },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all ${
@@ -161,7 +163,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
       {tab === 'top10' && (
         <div>
           {top10.length === 0 ? (
-            <Empty icon={Trophy} text="Nenhuma seleção. Rode IA1 no pipeline." />
+            <Empty icon={Trophy} text={tr('empty.top10')} />
           ) : cargosTop10.map(cargo => {
             const items = top10.filter(t => t.cargo === cargo);
             return (
@@ -172,7 +174,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                     <Badge count={items.length} max={10} />
                     <button onClick={() => { setShowAdd(cargo); setAddSearch(''); }}
                       className="text-[10px] font-semibold text-green-400 hover:text-green-300 flex items-center gap-0.5">
-                      <Plus size={10} /> Adicionar
+                      <Plus size={10} /> {tr('actions.add')}
                     </button>
                   </div>
                 </div>
@@ -190,7 +192,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                           <div className="flex items-center gap-4 mt-1.5">
                             {t.aderencia_cargo != null && (
                               <div className="flex items-center gap-1.5 flex-1">
-                                <span className="text-[9px] text-gray-500 shrink-0 w-10">Cargo</span>
+                                <span className="text-[9px] text-gray-500 shrink-0 w-10">{tr('labels.role')}</span>
                                 <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
                                   <div className="h-full rounded-full bg-cyan-400" style={{ width: `${Math.round(t.aderencia_cargo * 100)}%` }} />
                                 </div>
@@ -199,7 +201,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                             )}
                             {t.aderencia_mercado != null && (
                               <div className="flex items-center gap-1.5 flex-1">
-                                <span className="text-[9px] text-gray-500 shrink-0 w-14">Mercado</span>
+                                <span className="text-[9px] text-gray-500 shrink-0 w-14">{tr('labels.market')}</span>
                                 <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
                                   <div className="h-full rounded-full bg-purple-400" style={{ width: `${Math.round(t.aderencia_mercado * 100)}%` }} />
                                 </div>
@@ -209,7 +211,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                           </div>
                         )}
                       </div>
-                      <button onClick={async () => { const r = await removerTop10(t.id); if (r.success) { flash('Removida'); refresh(); } }}
+                      <button onClick={async () => { const r = await removerTop10(t.id); if (r.success) { flash(tr('messages.removed')); refresh(); } }}
                         className="text-gray-600 hover:text-red-400 shrink-0"><Trash2 size={13} /></button>
                     </div>
                   ))}
@@ -220,19 +222,19 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
 
           {/* Modal adicionar */}
           {showAdd && (
-            <Modal onClose={() => setShowAdd(null)} title={`Adicionar — ${showAdd}`}>
+            <Modal onClose={() => setShowAdd(null)} title={tr('modal.addTitle', { role: showAdd })}>
               <div className="relative mb-2">
                 <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                <input value={addSearch} onChange={e => setAddSearch(e.target.value)} placeholder="Buscar..."
+                <input value={addSearch} onChange={e => setAddSearch(e.target.value)} placeholder={tr('searchPlaceholder')}
                   className="w-full pl-8 pr-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none focus:border-cyan-400/50" style={{ background: '#091D35' }} />
               </div>
               <div className="max-h-[400px] overflow-y-auto space-y-0.5">
                 {availComps.length === 0 ? (
-                  <p className="text-[10px] text-gray-500 text-center py-4">Nenhuma disponível</p>
+                  <p className="text-[10px] text-gray-500 text-center py-4">{tr('empty.noneAvailable')}</p>
                 ) : availComps.map(c => (
                   <button key={c.id} onClick={async () => {
                     const r = await adicionarTop10(empresaId, showAdd, c.id);
-                    if (r.success) { flash('Adicionada'); refresh(); }
+                    if (r.success) { flash(tr('messages.added')); refresh(); }
                   }} className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-left hover:bg-white/[0.04] transition-colors">
                     <Plus size={10} className="text-green-400 shrink-0" />
                     <span className="text-[11px] text-white font-medium">{c.nome}</span>
@@ -249,21 +251,21 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
       {tab === 'top5' && (
         <div>
           <div className="rounded-xl p-3 mb-4 border border-cyan-400/15 bg-cyan-400/[0.04] text-[11px] text-cyan-100/85 leading-relaxed">
-            <strong className="text-cyan-300">Workshop presencial:</strong>{' '}
+            <strong className="text-cyan-300">{tr('workshop.title')}:</strong>{' '}
             <span className="text-cyan-100/70">
-              selecione as competências escolhidas no workshop entre as Top 10 do cargo. Pode escolher{' '}
-              <strong className="text-cyan-100/90">qualquer quantidade</strong> (≥ 1) — não está mais limitado a 5.
-              Alternativamente, use a{' '}
+              {tr('workshop.beforeQuantity')}{' '}
+              <strong className="text-cyan-100/90">{tr('workshop.anyQuantity')}</strong>
+              {tr('workshop.afterQuantity')}{' '}
             </span>
             <button onClick={() => router.push(`/admin/empresas/${empresaId}/votacao`)}
               className="underline text-cyan-300 hover:text-cyan-200">
-              Votação dos colaboradores
+              {tr('workshop.voting')}
             </button>
             <span className="text-cyan-100/70">.</span>
           </div>
 
           {cargosData.length === 0 ? (
-            <Empty icon={Target} text="Nenhum cargo encontrado. Importe colaboradores e rode IA1 primeiro." />
+            <Empty icon={Target} text={tr('empty.noRoles')} />
           ) : cargosData.map(cargo => {
             const top10 = cargo.competencias_top10 || [];
             const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(cargo.id);
@@ -279,12 +281,12 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
             };
 
             const salvar = async () => {
-              if (!isUuid) { flash('Cargo precisa estar em cargos_empresa pra salvar'); return; }
+              if (!isUuid) { flash(tr('messages.roleNeedsCatalog')); return; }
               setSavingTop5((prev) => ({ ...prev, [cargo.id]: true }));
               const r = await salvarTop5(cargo.id, selected);
               setSavingTop5((prev) => ({ ...prev, [cargo.id]: false }));
-              if (r.success) { flash(`${cargo.nome}: ${selected.length} salvas`); refresh(); }
-              else flash('Erro: ' + r.error);
+              if (r.success) { flash(tr('messages.savedCount', { role: cargo.nome, count: selected.length })); refresh(); }
+              else flash(tr('messages.error', { error: r.error }));
             };
 
             return (
@@ -293,8 +295,8 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                   <div className="flex-1 min-w-0">
                     <h3 className="text-sm font-bold text-white">{cargo.nome}</h3>
                     <p className="text-[10px] text-gray-500">
-                      {selected.length} de {top10.length} selecionadas
-                      {dirty && <span className="text-amber-400 ml-2">· não salvo</span>}
+                      {tr('labels.selectedOf', { selected: selected.length, total: top10.length })}
+                      {dirty && <span className="text-amber-400 ml-2">· {tr('labels.unsaved')}</span>}
                     </p>
                   </div>
                   {top10.length > 0 && (
@@ -303,14 +305,14 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                       disabled={!dirty || isSaving || !isUuid}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 disabled:opacity-40 disabled:cursor-not-allowed">
                       {isSaving ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle size={11} />}
-                      Salvar
+                      {tr('actions.save')}
                     </button>
                   )}
                 </div>
 
                 <div className="p-4">
                   {top10.length === 0 ? (
-                    <p className="text-[11px] text-gray-500 italic">Top 10 vazio. Rode IA1 no pipeline primeiro.</p>
+                    <p className="text-[11px] text-gray-500 italic">{tr('empty.top10ForRole')}</p>
                   ) : (
                     <div className="space-y-1.5">
                       {top10.map((comp, i) => {
@@ -348,7 +350,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
       {tab === 'gabarito' && (
         <div>
           {gabaritos.length === 0 ? (
-            <Empty icon={Target} text="Nenhum gabarito. Rode IA2 no pipeline." />
+            <Empty icon={Target} text={tr('empty.idealProfile')} />
           ) : gabaritos.map(g => {
             const gab = parseJSON(g.gabarito);
             const rac = parseJSON(g.raciocinio_ia2);
@@ -392,8 +394,8 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                     {t1Items.length > 0 && (
                       <div className="pt-3">
                         <div className="flex items-center gap-2 mb-2">
-                          <SectionTitle color="cyan">Características do Perfil</SectionTitle>
-                          {t1Conf != null && <span className="text-[9px] text-gray-500">conf: {Math.round(t1Conf * 100)}%</span>}
+                          <SectionTitle color="cyan">{tr('sections.profileCharacteristics')}</SectionTitle>
+                          {t1Conf != null && <span className="text-[9px] text-gray-500">{tr('labels.confidenceShort')}: {Math.round(t1Conf * 100)}%</span>}
                         </div>
                         <div className="flex flex-wrap gap-1.5">
                           {t1Items.map((c: any, i: number) => {
@@ -420,8 +422,8 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                     {t2Items.length > 0 && (
                       <div>
                         <div className="flex items-center gap-2 mb-2">
-                          <SectionTitle color="amber">Sub-competências CIS</SectionTitle>
-                          {t2Conf != null && <span className="text-[9px] text-gray-500">conf: {Math.round(t2Conf * 100)}%</span>}
+                          <SectionTitle color="amber">{tr('sections.cisSubcompetencies')}</SectionTitle>
+                          {t2Conf != null && <span className="text-[9px] text-gray-500">{tr('labels.confidenceShort')}: {Math.round(t2Conf * 100)}%</span>}
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                           {t2Items.map((s: any, i: number) => (
@@ -443,16 +445,16 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                     {t3.executor != null && (
                       <div>
                         <div className="flex items-center gap-2 mb-2">
-                          <SectionTitle color="green">Estilos de Liderança</SectionTitle>
+                          <SectionTitle color="green">{tr('sections.leadershipStyles')}</SectionTitle>
                           {t3.estilo_predominante && <span className="text-[10px] text-green-300/70">{t3.estilo_predominante}</span>}
-                          {t3Conf != null && <span className="text-[9px] text-gray-500">conf: {Math.round(t3Conf * 100)}%</span>}
+                          {t3Conf != null && <span className="text-[9px] text-gray-500">{tr('labels.confidenceShort')}: {Math.round(t3Conf * 100)}%</span>}
                         </div>
                         <div className="grid grid-cols-4 gap-2">
                           {[
-                            { key: 'executor', label: 'Executor', color: '#EF4444' },
-                            { key: 'motivador', label: 'Motivador', color: '#F59E0B' },
-                            { key: 'metodico', label: 'Metódico', color: '#22C55E' },
-                            { key: 'sistematico', label: 'Sistemático', color: '#3B82F6' },
+                            { key: 'executor', label: tr('leadership.executor'), color: '#EF4444' },
+                            { key: 'motivador', label: tr('leadership.motivator'), color: '#F59E0B' },
+                            { key: 'metodico', label: tr('leadership.methodical'), color: '#22C55E' },
+                            { key: 'sistematico', label: tr('leadership.systematic'), color: '#3B82F6' },
                           ].map(e => (
                             <div key={e.key} className="text-center p-3 rounded-lg" style={{ background: '#091D35' }}>
                               <div className="text-2xl font-bold" style={{ color: e.color }}>{t3[e.key]}%</div>
@@ -467,8 +469,8 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                     {(t4.D || t4.I || t4.S || t4.C) && (
                       <div>
                         <div className="flex items-center gap-2 mb-2">
-                          <SectionTitle color="red">Faixas DISC Ideais</SectionTitle>
-                          {t4Conf != null && <span className="text-[9px] text-gray-500">conf: {Math.round(t4Conf * 100)}%</span>}
+                          <SectionTitle color="red">{tr('sections.idealDiscRanges')}</SectionTitle>
+                          {t4Conf != null && <span className="text-[9px] text-gray-500">{tr('labels.confidenceShort')}: {Math.round(t4Conf * 100)}%</span>}
                         </div>
                         <div className="grid grid-cols-4 gap-2">
                           {['D', 'I', 'S', 'C'].map(dim => {
@@ -488,12 +490,12 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                     {/* Raciocínio */}
                     {rac && (
                       <div className="pt-2 border-t border-white/[0.04]">
-                        <SectionTitle color="gray">Raciocínio da IA</SectionTitle>
-                        {rac.sinais_do_caso?.length > 0 && <p className="text-[11px] text-gray-400 mb-1"><span className="text-gray-500 font-semibold">Sinais:</span> {rac.sinais_do_caso.join('; ')}</p>}
-                        {rac.hipotese_base && <p className="text-[11px] text-gray-400 mb-1"><span className="text-gray-500 font-semibold">Hipótese:</span> {rac.hipotese_base}</p>}
-                        {rac.leitura_principal && <p className="text-[11px] text-gray-400 mb-1"><span className="text-gray-500 font-semibold">Leitura:</span> {rac.leitura_principal}</p>}
-                        {rac.incertezas && <p className="text-[11px] text-amber-300/60 mb-1"><span className="text-amber-400/80 font-semibold">Incertezas:</span> {rac.incertezas}</p>}
-                        {rac.diferenciais_vs_outros_cargos && <p className="text-[11px] text-gray-400"><span className="text-gray-500 font-semibold">Diferenciais:</span> {typeof rac.diferenciais_vs_outros_cargos === 'string' ? rac.diferenciais_vs_outros_cargos : (Array.isArray(rac.diferenciais_vs_outros_cargos) ? rac.diferenciais_vs_outros_cargos.join('; ') : '')}</p>}
+                        <SectionTitle color="gray">{tr('sections.aiReasoning')}</SectionTitle>
+                        {rac.sinais_do_caso?.length > 0 && <p className="text-[11px] text-gray-400 mb-1"><span className="text-gray-500 font-semibold">{tr('reasoning.signals')}:</span> {rac.sinais_do_caso.join('; ')}</p>}
+                        {rac.hipotese_base && <p className="text-[11px] text-gray-400 mb-1"><span className="text-gray-500 font-semibold">{tr('reasoning.hypothesis')}:</span> {rac.hipotese_base}</p>}
+                        {rac.leitura_principal && <p className="text-[11px] text-gray-400 mb-1"><span className="text-gray-500 font-semibold">{tr('reasoning.reading')}:</span> {rac.leitura_principal}</p>}
+                        {rac.incertezas && <p className="text-[11px] text-amber-300/60 mb-1"><span className="text-amber-400/80 font-semibold">{tr('reasoning.uncertainties')}:</span> {rac.incertezas}</p>}
+                        {rac.diferenciais_vs_outros_cargos && <p className="text-[11px] text-gray-400"><span className="text-gray-500 font-semibold">{tr('reasoning.differentials')}:</span> {typeof rac.diferenciais_vs_outros_cargos === 'string' ? rac.diferenciais_vs_outros_cargos : (Array.isArray(rac.diferenciais_vs_outros_cargos) ? rac.diferenciais_vs_outros_cargos.join('; ') : '')}</p>}
                       </div>
                     )}
                   </div>
@@ -508,7 +510,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
       {tab === 'cenarios' && (
         <div>
           {cenarios.length === 0 ? (
-            <Empty icon={FileText} text="Nenhum cenário. Rode IA3 no pipeline." />
+            <Empty icon={FileText} text={tr('empty.scenarios')} />
           ) : (<>
           {Object.entries(cenariosPorCargo).map(([cargo, cens]: [string, any]) => {
             const aprovados = cens.filter(c => c.status_check === 'aprovado').length;
@@ -519,11 +521,11 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
               <div key={cargo} className="mb-6">
                 <div className="flex items-center gap-3 mb-2 flex-wrap">
                   <h2 className="text-sm font-bold text-white">{cargo}</h2>
-                  <span className="text-[10px] text-gray-500">{cens.length} cenários</span>
-                  {aprovados > 0 && <span className="text-[9px] bg-green-400/15 text-green-400 px-1.5 py-0.5 rounded">{aprovados} aprovados</span>}
-                  {ressalvas > 0 && <span className="text-[9px] bg-cyan-400/15 text-cyan-400 px-1.5 py-0.5 rounded">{ressalvas} ressalvas</span>}
-                  {revisar > 0 && <span className="text-[9px] bg-amber-400/15 text-amber-400 px-1.5 py-0.5 rounded">{revisar} revisar</span>}
-                  {pendentes > 0 && <span className="text-[9px] bg-gray-400/15 text-gray-400 px-1.5 py-0.5 rounded">{pendentes} pendentes</span>}
+                  <span className="text-[10px] text-gray-500">{tr('stats.scenarios', { count: cens.length })}</span>
+                  {aprovados > 0 && <span className="text-[9px] bg-green-400/15 text-green-400 px-1.5 py-0.5 rounded">{tr('stats.approved', { count: aprovados })}</span>}
+                  {ressalvas > 0 && <span className="text-[9px] bg-cyan-400/15 text-cyan-400 px-1.5 py-0.5 rounded">{tr('stats.withNotes', { count: ressalvas })}</span>}
+                  {revisar > 0 && <span className="text-[9px] bg-amber-400/15 text-amber-400 px-1.5 py-0.5 rounded">{tr('stats.review', { count: revisar })}</span>}
+                  {pendentes > 0 && <span className="text-[9px] bg-gray-400/15 text-gray-400 px-1.5 py-0.5 rounded">{tr('stats.pending', { count: pendentes })}</span>}
                   {(revisar > 0 || ressalvas > 0) && (
                     <button
                       disabled={!!cenAction}
@@ -533,7 +535,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                         for (let idx = 0; idx < paraRevisar.length; idx++) {
                           const c = paraRevisar[idx];
                           setCenAction({ id: c.id, type: 'regen' });
-                          setCenProgress({ current: idx + 1, total: paraRevisar.length, label: c.titulo || `Cenário ${idx + 1}`, cargo });
+                          setCenProgress({ current: idx + 1, total: paraRevisar.length, label: c.titulo || tr('fallbackScenarioWithIndex', { index: idx + 1 }), cargo });
                           try {
                             const r = await regenerarCenario(c.id);
                             if (r.success) {
@@ -547,11 +549,11 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                         }
                         setCenAction(null);
                         setCenProgress(null);
-                        flash(`${ok} revisados${semCheck ? ` · ${semCheck} sem validação (clique 'Validar todos')` : ''}`);
+                        flash(tr('messages.reviewedBatch', { ok, unchecked: semCheck }));
                         refresh();
                       }}
                       className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold text-amber-300 border border-amber-400/40 hover:bg-amber-400/10 transition-all disabled:opacity-50 ml-auto">
-                      <RefreshCw size={10} /> Revisar todos ({revisar + ressalvas})
+                      <RefreshCw size={10} /> {tr('actions.reviewAll', { count: revisar + ressalvas })}
                     </button>
                   )}
                   {pendentes > 0 && (
@@ -568,18 +570,18 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                           } catch (e) { console.warn('check lote:', e.message); erro++; }
                         }
                         setCenAction(null);
-                        flash(`${ok} validados${erro ? ` · ${erro} com erro` : ''}`);
+                        flash(tr('messages.validatedBatch', { ok, errors: erro }));
                         refresh();
                       }}
                       className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold text-cyan-300 border border-cyan-400/40 hover:bg-cyan-400/10 transition-all disabled:opacity-50">
-                      <CheckCircle size={10} /> Validar todos ({pendentes})
+                      <CheckCircle size={10} /> {tr('actions.validateAll', { count: pendentes })}
                     </button>
                   )}
                 </div>
                 {cenProgress && cenProgress.cargo === cargo && (
                   <div className="mb-3 rounded-lg border border-amber-400/20 bg-amber-400/5 px-4 py-3">
                     <div className="flex items-center justify-between text-[11px] mb-1.5">
-                      <span className="text-amber-400 font-bold">Revisando {cenProgress.current}/{cenProgress.total}</span>
+                      <span className="text-amber-400 font-bold">{tr('progress.reviewing', { current: cenProgress.current, total: cenProgress.total })}</span>
                       <span className="text-gray-400 truncate ml-3 max-w-[300px]">{cenProgress.label}</span>
                     </div>
                     <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
@@ -609,7 +611,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                             {c.status_check === 'aprovado' && <CheckCircle size={14} className="text-green-400 shrink-0" />}
                             {c.status_check === 'aprovado_com_ressalvas' && <CheckCircle size={14} className="text-cyan-400 shrink-0" />}
                             {c.status_check === 'revisar' && <AlertTriangle size={14} className="text-amber-400 shrink-0" />}
-                            <span className="text-xs font-bold text-white">{c.titulo || 'Cenário'}</span>
+                            <span className="text-xs font-bold text-white">{c.titulo || tr('fallbackScenarioTitle')}</span>
                             {c.competencia_nome && <span className="text-[10px] text-cyan-400">{c.competencia_nome}</span>}
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
@@ -637,12 +639,12 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                                 <div className="flex flex-wrap gap-2 mb-3">
                                   {alt.faceta_testada_principal && (
                                     <span className="text-[9px] px-2 py-1 rounded-full bg-purple-400/10 text-purple-300 border border-purple-400/15">
-                                      Faceta: {alt.faceta_testada_principal}
+                                      {tr('details.facet')}: {alt.faceta_testada_principal}
                                     </span>
                                   )}
                                   {alt.tradeoff_testado && (
                                     <span className="text-[9px] px-2 py-1 rounded-full bg-cyan-400/10 text-cyan-300 border border-cyan-400/15">
-                                      Trade-off: {alt.tradeoff_testado}
+                                      {tr('details.tradeoff')}: {alt.tradeoff_testado}
                                     </span>
                                   )}
                                 </div>
@@ -658,7 +660,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                                       P{p.numero || i + 1}: {p.texto || (typeof p === 'string' ? p : JSON.stringify(p))}
                                     </p>
                                     {p.descritores_primarios && (
-                                      <p className="text-[9px] text-cyan-400/60">Descritores: {Array.isArray(p.descritores_primarios) ? p.descritores_primarios.map(d => `D${d}`).join(', ') : p.descritores_primarios}</p>
+                                      <p className="text-[9px] text-cyan-400/60">{tr('details.descriptors')}: {Array.isArray(p.descritores_primarios) ? p.descritores_primarios.map(d => `D${d}`).join(', ') : p.descritores_primarios}</p>
                                     )}
                                     {p.o_que_diferencia_niveis && (
                                       <p className="text-[10px] text-gray-500 mt-1">{p.o_que_diferencia_niveis}</p>
@@ -667,7 +669,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                                       <p className="text-[9px] text-purple-300/60 mt-1">🎯 {p.objetivo_diagnostico}</p>
                                     )}
                                     {p.resposta_generica_falha_porque && (
-                                      <p className="text-[9px] text-amber-300/60 mt-1">⚡ Anti-genérico: {p.resposta_generica_falha_porque}</p>
+                                      <p className="text-[9px] text-amber-300/60 mt-1">⚡ {tr('details.antiGeneric')}: {p.resposta_generica_falha_porque}</p>
                                     )}
                                   </div>
                                 ))}
@@ -686,9 +688,9 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                                     c.status_check === 'aprovado' ? 'text-green-400' :
                                     c.status_check === 'aprovado_com_ressalvas' ? 'text-cyan-400' : 'text-amber-400'
                                   }`}>
-                                    Check: {c.nota_check}pts — {
-                                      c.status_check === 'aprovado' ? 'Aprovado' :
-                                      c.status_check === 'aprovado_com_ressalvas' ? 'Aprovado com ressalvas' : 'Revisar'
+                                    {tr('details.check')}: {c.nota_check}pts — {
+                                      c.status_check === 'aprovado' ? tr('status.approved') :
+                                      c.status_check === 'aprovado_com_ressalvas' ? tr('status.approvedWithNotes') : tr('status.review')
                                     }
                                   </span>
                                 </div>
@@ -711,10 +713,10 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                                   </div>
                                 )}
                                 {c.justificativa_check && (
-                                  <p className="text-[10px] text-gray-400 mb-1"><span className="font-semibold text-gray-500">Justificativa:</span> {c.justificativa_check}</p>
+                                  <p className="text-[10px] text-gray-400 mb-1"><span className="font-semibold text-gray-500">{tr('details.justification')}:</span> {c.justificativa_check}</p>
                                 )}
                                 {c.sugestao_check && (
-                                  <p className="text-[10px] text-gray-400"><span className="font-semibold text-amber-400/80">Sugestão:</span> {c.sugestao_check}</p>
+                                  <p className="text-[10px] text-gray-400"><span className="font-semibold text-amber-400/80">{tr('details.suggestion')}:</span> {c.sugestao_check}</p>
                                 )}
                                 {/* Campos enriquecidos do check */}
                                 {(() => {
@@ -722,13 +724,13 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                                   return (
                                     <>
                                       {al.ponto_mais_forte && (
-                                        <p className="text-[10px] text-green-300/80 mt-1">✦ Ponto forte: {al.ponto_mais_forte}</p>
+                                        <p className="text-[10px] text-green-300/80 mt-1">✦ {tr('details.strongPoint')}: {al.ponto_mais_forte}</p>
                                       )}
                                       {al.ponto_mais_fraco && (
-                                        <p className="text-[10px] text-amber-300/80 mt-1">⚠ Ponto fraco: {al.ponto_mais_fraco}</p>
+                                        <p className="text-[10px] text-amber-300/80 mt-1">⚠ {tr('details.weakPoint')}: {al.ponto_mais_fraco}</p>
                                       )}
                                       {Array.isArray(al.descritores_sem_cobertura) && al.descritores_sem_cobertura.length > 0 && (
-                                        <p className="text-[10px] text-red-300/80 mt-1">✗ Descritores sem cobertura: {al.descritores_sem_cobertura.join(', ')}</p>
+                                        <p className="text-[10px] text-red-300/80 mt-1">✗ {tr('details.descriptorsNoCoverage')}: {al.descritores_sem_cobertura.join(', ')}</p>
                                       )}
                                       {Array.isArray(al.perguntas_com_risco) && al.perguntas_com_risco.length > 0 && (
                                         <div className="mt-2 space-y-1">
@@ -752,17 +754,17 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                                   setCenAction({ id: c.id, type: 'regen' });
                                   // 1. Regenerar
                                   const r = await regenerarCenario(c.id);
-                                  if (!r.success) { setCenAction(null); flash('Erro: ' + r.error); return; }
+                                  if (!r.success) { setCenAction(null); flash(tr('messages.error', { error: r.error })); return; }
                                   flash(r.message);
                                   // 2. Re-checar automaticamente
                                   const r2 = await checkCenarioUm(c.id);
                                   setCenAction(null);
-                                  if (r2.success) flash(`Re-check: ${r2.nota}pts (${r2.nota >= 90 ? 'aprovado' : 'revisar'})`);
+                                  if (r2.success) flash(tr('messages.recheckResult', { score: r2.nota, status: r2.nota >= 90 ? tr('status.approvedLower') : tr('status.reviewLower') }));
                                   refresh();
                                 }}
                                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 transition-all disabled:opacity-50">
                                   {isActing && cenAction.type === 'regen' ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
-                                  Regenerar com feedback
+                                  {tr('actions.regenerateWithFeedback')}
                                 </button>
                               )}
                               {!c.nota_check && (
@@ -771,11 +773,11 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                                   const r = await checkCenarioUm(c.id);
                                   setCenAction(null);
                                   if (r.success) { flash(`${c.titulo}: ${r.nota}pts`); refresh(); }
-                                  else flash('Erro: ' + r.error);
+                                  else flash(tr('messages.error', { error: r.error }));
                                 }}
                                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all disabled:opacity-50">
                                   {isActing && cenAction.type === 'check' ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle size={11} />}
-                                  Validar
+                                  {tr('actions.validate')}
                                 </button>
                               )}
                             </div>
@@ -834,3 +836,4 @@ function SectionTitle({ color, children }) {
 function discColor(dim) {
   return dim === 'D' ? 'text-red-400' : dim === 'I' ? 'text-yellow-400' : dim === 'S' ? 'text-green-400' : 'text-blue-400';
 }
+

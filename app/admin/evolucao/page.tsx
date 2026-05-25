@@ -2,18 +2,20 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { ArrowLeft, TrendingUp, ChevronDown, ChevronRight } from 'lucide-react';
 import { loadEvolutionReportsEmpresa } from '@/actions/evolution-report';
 
 const CONV = {
-  evolucao_confirmada: { label: 'Confirmada', cor: 'emerald' },
-  evolucao_parcial: { label: 'Parcial', cor: 'amber' },
-  estagnacao: { label: 'Estagnação', cor: 'gray' },
-  regressao: { label: 'Regressão', cor: 'red' },
+  evolucao_confirmada: { cor: 'emerald' },
+  evolucao_parcial: { cor: 'amber' },
+  estagnacao: { cor: 'gray' },
+  regressao: { cor: 'red' },
 };
 
 export default function EvolucaoAdminPage() {
   const router = useRouter();
+  const t = useTranslations('AdminEvolution');
   const [empresaId, setEmpresaId] = useState(null);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -33,15 +35,15 @@ export default function EvolucaoAdminPage() {
     })();
   }, [empresaId]);
 
-  if (loading) return <Center>Carregando...</Center>;
-  if (!empresaId) return <Center>Passe ?empresa={'{id}'} na URL</Center>;
+  if (loading) return <Center>{t('loading')}</Center>;
+  if (!empresaId) return <Center>{t('missingCompanyParam')}</Center>;
   if (!data?.success || data.total === 0) {
     return (
       <Wrapper>
         <Header router={router} total={0} />
         <div className="text-center py-16 text-gray-500 text-sm">
-          Nenhuma temporada concluída nessa empresa ainda.<br />
-          Aguarde os colaboradores finalizarem as semanas 13-14.
+          {t('empty.title')}<br />
+          {t('empty.description')}
         </div>
       </Wrapper>
     );
@@ -69,7 +71,7 @@ export default function EvolucaoAdminPage() {
 
       {/* Lista de colabs */}
       <div className="mt-8">
-        <h2 className="text-sm uppercase text-gray-400 mb-3">Colaboradores avaliados ({data.trilhas.length})</h2>
+      <h2 className="text-sm uppercase text-gray-400 mb-3">{t('evaluatedCollaborators', { count: data.trilhas.length })}</h2>
         <div className="grid md:grid-cols-2 gap-3">
           {data.trilhas.map(t => (
             <ColabRow key={t.id} t={t} />
@@ -93,6 +95,7 @@ function Center({ children }) {
 }
 
 function Header({ router, total }) {
+  const t = useTranslations('AdminEvolution');
   return (
     <div className="flex items-center gap-3 mb-6">
       <button onClick={() => router.back()} className="p-2 rounded-lg bg-white/5 hover:bg-white/10">
@@ -101,15 +104,16 @@ function Header({ router, total }) {
       <div className="flex-1">
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <TrendingUp size={22} className="text-cyan-400" />
-          Evolução — Temporadas Concluídas
+          {t('title')}
         </h1>
-        <p className="text-xs text-gray-400">{total} colaboradores com Evolution Report</p>
+        <p className="text-xs text-gray-400">{t('subtitle', { count: total })}</p>
       </div>
     </div>
   );
 }
 
 function ResumoGeral({ porCompetencia }: { porCompetencia: any }) {
+  const t = useTranslations('AdminEvolution');
   const stats: Record<string, number> = { evolucao_confirmada: 0, evolucao_parcial: 0, estagnacao: 0, regressao: 0 };
   for (const comp of Object.values(porCompetencia) as any[]) {
     for (const d of Object.values(comp) as any[]) {
@@ -123,7 +127,7 @@ function ResumoGeral({ porCompetencia }: { porCompetencia: any }) {
       {Object.entries(CONV).map(([k, c]: [string, any]) => (
         <div key={k} className={`rounded-xl p-4 bg-${c.cor}-500/10 border border-${c.cor}-500/20`}>
           <div className={`text-2xl font-bold text-${c.cor}-400`}>{stats[k]}</div>
-          <div className="text-xs text-gray-400 mt-1">{c.label}</div>
+          <div className="text-xs text-gray-400 mt-1">{t(`statuses.${k}`)}</div>
           <div className="text-[10px] text-gray-500">{Math.round(stats[k] / total * 100)}%</div>
         </div>
       ))}
@@ -132,6 +136,7 @@ function ResumoGeral({ porCompetencia }: { porCompetencia: any }) {
 }
 
 function CompetenciaCard({ nome, descritores, expanded, onToggle }: { nome?: any; descritores: any; expanded?: any; onToggle?: any }) {
+  const t = useTranslations('AdminEvolution');
   const descs = Object.entries(descritores) as [string, any][];
   const totalAvaliacoes = descs.reduce((sum: number, [, d]: [string, any]) => sum + (d.evolucao_confirmada + d.evolucao_parcial + d.estagnacao + d.regressao), 0);
 
@@ -141,7 +146,7 @@ function CompetenciaCard({ nome, descritores, expanded, onToggle }: { nome?: any
         {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
         <div className="flex-1 text-left">
           <div className="text-sm font-bold text-cyan-400">{nome}</div>
-          <div className="text-[11px] text-gray-500">{descs.length} descritores · {totalAvaliacoes} avaliações</div>
+          <div className="text-[11px] text-gray-500">{t('descriptorSummary', { descriptors: descs.length, evaluations: totalAvaliacoes })}</div>
         </div>
       </button>
 
@@ -155,19 +160,19 @@ function CompetenciaCard({ nome, descritores, expanded, onToggle }: { nome?: any
                   <span className="text-xs font-bold text-white">{desc}</span>
                   {d.media_pre != null && d.media_pos != null && (
                     <span className="text-[10px] text-gray-400">
-                      Média: {d.media_pre.toFixed(1)} → <span className="text-cyan-400 font-bold">{d.media_pos.toFixed(1)}</span>
+                      {t('average')}: {d.media_pre.toFixed(1)} → <span className="text-cyan-400 font-bold">{d.media_pos.toFixed(1)}</span>
                     </span>
                   )}
                 </div>
                 <div className="flex h-2 rounded-full overflow-hidden bg-white/5">
                   {Object.entries(CONV).map(([k, c]: [string, any]) => {
                     const pct = total > 0 ? (d[k] / total * 100) : 0;
-                    return <div key={k} className={`bg-${c.cor}-500`} style={{ width: `${pct}%` }} title={`${c.label}: ${d[k]}`} />;
+                    return <div key={k} className={`bg-${c.cor}-500`} style={{ width: `${pct}%` }} title={`${t(`statuses.${k}`)}: ${d[k]}`} />;
                   })}
                 </div>
                 <div className="flex justify-between mt-1 text-[10px] text-gray-500">
                   {Object.entries(CONV).map(([k, c]: [string, any]) => (
-                    <span key={k} className={`text-${c.cor}-400`}>{c.label}: {d[k]}</span>
+                    <span key={k} className={`text-${c.cor}-400`}>{t(`statuses.${k}`)}: {d[k]}</span>
                   ))}
                 </div>
               </div>
@@ -180,12 +185,13 @@ function CompetenciaCard({ nome, descritores, expanded, onToggle }: { nome?: any
 }
 
 function ColabRow({ t }) {
+  const locale = useLocale();
   const resumo = t.evolution_report?.resumo || {};
   return (
     <div className="p-3 rounded-lg bg-white/5 border border-white/10">
       <div className="flex items-center justify-between mb-1">
         <div className="text-sm font-bold text-white">{t.colab?.nome_completo || '—'}</div>
-        <span className="text-[10px] text-gray-500">{new Date(t.evolution_generated_at).toLocaleDateString('pt-BR')}</span>
+        <span className="text-[10px] text-gray-500">{new Date(t.evolution_generated_at).toLocaleDateString(locale)}</span>
       </div>
       <div className="text-[11px] text-gray-400 mb-2">{t.colab?.cargo} · {t.competencia_foco}</div>
       <div className="flex gap-2 text-[10px]">

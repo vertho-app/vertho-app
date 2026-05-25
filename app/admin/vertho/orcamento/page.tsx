@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { ArrowLeft, Calculator, School, Users, Briefcase, Vote, Building2 } from 'lucide-react';
 import { CALLS, PRESETS, calcCost } from '@/lib/ia-cost-catalog';
 
@@ -21,8 +22,8 @@ const PRECOS_DEFAULT = {
   descontoPct: 0,
 };
 
-function moneyBRL(v: number) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 2 }).format(v);
+function moneyBRL(v: number, locale: string) {
+  return new Intl.NumberFormat(locale, { style: 'currency', currency: 'BRL', maximumFractionDigits: 2 }).format(v);
 }
 
 /**
@@ -88,6 +89,9 @@ function custoIAPorColab(presetFn: (call: any) => string): number {
 
 export default function OrcamentoPage() {
   const router = useRouter();
+  const locale = useLocale();
+  const t = useTranslations('AdminBudget');
+  const money = (v: number) => moneyBRL(v, locale);
 
   // Inputs do escopo
   const [nClusters, setNClusters] = useState(1);
@@ -185,25 +189,25 @@ export default function OrcamentoPage() {
         </button>
         <div className="flex-1">
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <Calculator size={20} className="text-cyan-400" /> Orçamento — Vertho Mentor IA
+            <Calculator size={20} className="text-cyan-400" /> {t('title')}
           </h1>
-          <p className="text-xs text-gray-500">Calcula custo de IA, valor de tabela, desconto e valor final em BRL.</p>
+          <p className="text-xs text-gray-500">{t('subtitle')}</p>
         </div>
       </div>
 
       {/* Escopo do orçamento */}
       <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 mb-6">
-        <p className="text-xs uppercase tracking-widest text-cyan-300 mb-3">Escopo</p>
+        <p className="text-xs uppercase tracking-widest text-cyan-300 mb-3">{t('scope.title')}</p>
         <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
-          <FieldNumber icon={<School size={14} />} label="Clusters de escola" sub="grupos com mesmo PPP/Top 5"
+          <FieldNumber locale={locale} icon={<School size={14} />} label={t('scope.clusters.label')} sub={t('scope.clusters.sub')}
             value={nClusters} onChange={setNClusters} min={1} />
-          <FieldNumber icon={<Briefcase size={14} />} label="Perfis por cluster" sub="cargos distintos"
+          <FieldNumber locale={locale} icon={<Briefcase size={14} />} label={t('scope.profiles.label')} sub={t('scope.profiles.sub')}
             value={nPerfis} onChange={setNPerfis} min={1} />
-          <FieldNumber icon={<Users size={14} />} label="Colaboradores" sub="total no ciclo"
+          <FieldNumber locale={locale} icon={<Users size={14} />} label={t('scope.collaborators.label')} sub={t('scope.collaborators.sub')}
             value={nColabs} onChange={setNColabs} min={0} />
           <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
             <label className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-gray-500 mb-1">
-              <Vote size={14} /> Mapeamento
+              <Vote size={14} /> {t('scope.mapping')}
             </label>
             <div className="flex gap-1.5">
               {(['votacao', 'workshop'] as Metodo[]).map((m) => (
@@ -211,19 +215,19 @@ export default function OrcamentoPage() {
                   className={`flex-1 px-2 py-1.5 rounded text-xs font-bold border ${
                     metodo === m ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-300' : 'border-white/10 text-gray-400 hover:text-white'
                   }`}>
-                  {m === 'votacao' ? 'Votação' : 'Workshop'}
+                  {m === 'votacao' ? t('methods.vote') : 'Workshop'}
                 </button>
               ))}
             </div>
             <p className="text-[9px] text-gray-600 mt-1">
-              {metodo === 'votacao' ? 'fluxo IA completo' : 'sem IA1/IA2 + custo workshop'}
+              {metodo === 'votacao' ? t('methods.voteHint') : t('methods.workshopHint')}
             </p>
           </div>
         </div>
 
         {/* Preset IA */}
         <div className="mt-3">
-          <label className="block text-[10px] uppercase tracking-widest text-gray-500 mb-1">Preset IA (afeta custo)</label>
+          <label className="block text-[10px] uppercase tracking-widest text-gray-500 mb-1">{t('preset')}</label>
           <div className="flex gap-2 flex-wrap">
             {PRESET_KEYS.map((k) => (
               <button key={k} onClick={() => setPreset(k)}
@@ -239,16 +243,16 @@ export default function OrcamentoPage() {
 
       {/* Tabela de preços */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 mb-6">
-        <p className="text-xs uppercase tracking-widest text-gray-400 mb-3">Tabela de preços (editável)</p>
+        <p className="text-xs uppercase tracking-widest text-gray-400 mb-3">{t('pricing.title')}</p>
         <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
-          <FieldNumber label="Cotação USD→BRL" sub={`${moneyBRL(pricing.cotacao)} por USD`} value={pricing.cotacao} onChange={(v) => setPricingField('cotacao', v)} allowDecimals min={0} />
-          <FieldNumber label="R$ setup geral" sub={`${moneyBRL(pricing.precoSetupGeral)} (fixo)`} value={pricing.precoSetupGeral} onChange={(v) => setPricingField('precoSetupGeral', v)} min={0} />
-          <FieldNumber label="R$ Mentor IA/colab" sub={`${moneyBRL(pricing.precoColab)} / colab / mês`} value={pricing.precoColab} onChange={(v) => setPricingField('precoColab', v)} min={0} />
-          <FieldNumber label="R$ por cluster" sub={`${moneyBRL(pricing.precoCluster)} setup`} value={pricing.precoCluster} onChange={(v) => setPricingField('precoCluster', v)} min={0} />
-          <FieldNumber label="R$ por perfil" sub={`${moneyBRL(pricing.precoPerfil)} / cargo`} value={pricing.precoPerfil} onChange={(v) => setPricingField('precoPerfil', v)} min={0} />
-          <FieldNumber label="R$ workshop/cluster" sub={`${moneyBRL(pricing.adicionalWorkshop)} (se workshop)`} value={pricing.adicionalWorkshop} onChange={(v) => setPricingField('adicionalWorkshop', v)} min={0} />
-          <FieldNumber label="R$ manutenção/colab" sub={`${moneyBRL(pricing.manutencaoMensalColab)} / colab / mês (suporte)`} value={pricing.manutencaoMensalColab} onChange={(v) => setPricingField('manutencaoMensalColab', v)} min={0} />
-          <FieldNumber label="Desconto %" sub={`${pricing.descontoPct.toLocaleString('pt-BR')}% no total`} value={pricing.descontoPct} onChange={(v) => setPricingField('descontoPct', v)} min={0} allowDecimals />
+          <FieldNumber locale={locale} label={t('pricing.exchange')} sub={t('pricing.perUsd', { value: money(pricing.cotacao) })} value={pricing.cotacao} onChange={(v) => setPricingField('cotacao', v)} allowDecimals min={0} />
+          <FieldNumber locale={locale} label={t('pricing.generalSetup')} sub={t('pricing.fixed', { value: money(pricing.precoSetupGeral) })} value={pricing.precoSetupGeral} onChange={(v) => setPricingField('precoSetupGeral', v)} min={0} />
+          <FieldNumber locale={locale} label={t('pricing.mentorPerColab')} sub={t('pricing.perColabMonth', { value: money(pricing.precoColab) })} value={pricing.precoColab} onChange={(v) => setPricingField('precoColab', v)} min={0} />
+          <FieldNumber locale={locale} label={t('pricing.perCluster')} sub={t('pricing.setupValue', { value: money(pricing.precoCluster) })} value={pricing.precoCluster} onChange={(v) => setPricingField('precoCluster', v)} min={0} />
+          <FieldNumber locale={locale} label={t('pricing.perProfile')} sub={t('pricing.perRole', { value: money(pricing.precoPerfil) })} value={pricing.precoPerfil} onChange={(v) => setPricingField('precoPerfil', v)} min={0} />
+          <FieldNumber locale={locale} label={t('pricing.workshopPerCluster')} sub={t('pricing.ifWorkshop', { value: money(pricing.adicionalWorkshop) })} value={pricing.adicionalWorkshop} onChange={(v) => setPricingField('adicionalWorkshop', v)} min={0} />
+          <FieldNumber locale={locale} label={t('pricing.maintenancePerColab')} sub={t('pricing.supportPerColabMonth', { value: money(pricing.manutencaoMensalColab) })} value={pricing.manutencaoMensalColab} onChange={(v) => setPricingField('manutencaoMensalColab', v)} min={0} />
+          <FieldNumber locale={locale} label={t('pricing.discount')} sub={t('pricing.discountTotal', { value: pricing.descontoPct.toLocaleString(locale) })} value={pricing.descontoPct} onChange={(v) => setPricingField('descontoPct', v)} min={0} allowDecimals />
         </div>
       </div>
 
@@ -256,34 +260,34 @@ export default function OrcamentoPage() {
       <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 mb-6">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="rounded-xl bg-white/[0.04] p-4 border border-emerald-400/20">
-            <p className="text-[10px] uppercase tracking-widest text-emerald-300">Mês 1 — Setup + 1ª mensalidade</p>
-            <p className="text-3xl font-extrabold text-emerald-200 mt-1">{moneyBRL(calc.mes1Final)}</p>
+            <p className="text-[10px] uppercase tracking-widest text-emerald-300">{t('financial.month1')}</p>
+            <p className="text-3xl font-extrabold text-emerald-200 mt-1">{money(calc.mes1Final)}</p>
             <div className="mt-2 space-y-0.5 text-[11px] text-gray-400">
-              <div className="flex justify-between"><span>Tabela</span><span>{moneyBRL(calc.mes1Tabela)}</span></div>
+              <div className="flex justify-between"><span>{t('financial.table')}</span><span>{money(calc.mes1Tabela)}</span></div>
               {calc.mes1Desc > 0 && (
-                <div className="flex justify-between text-amber-300"><span>Desconto ({pricing.descontoPct.toLocaleString('pt-BR')}%)</span><span>- {moneyBRL(calc.mes1Desc)}</span></div>
+                <div className="flex justify-between text-amber-300"><span>{t('financial.discountPct', { value: pricing.descontoPct.toLocaleString(locale) })}</span><span>- {money(calc.mes1Desc)}</span></div>
               )}
             </div>
           </div>
           <div className="rounded-xl bg-white/[0.04] p-4 border border-cyan-400/20">
-            <p className="text-[10px] uppercase tracking-widest text-cyan-300">Mês 2+ — Mensalidade recorrente</p>
-            <p className="text-3xl font-extrabold text-cyan-200 mt-1">{moneyBRL(calc.mesRecFinal)}<span className="text-base text-gray-400 font-normal"> / mês</span></p>
+            <p className="text-[10px] uppercase tracking-widest text-cyan-300">{t('financial.month2')}</p>
+            <p className="text-3xl font-extrabold text-cyan-200 mt-1">{money(calc.mesRecFinal)}<span className="text-base text-gray-400 font-normal"> {t('financial.perMonth')}</span></p>
             <div className="mt-2 space-y-0.5 text-[11px] text-gray-400">
-              <div className="flex justify-between"><span>Tabela</span><span>{moneyBRL(calc.mesRecTabela)}</span></div>
+              <div className="flex justify-between"><span>{t('financial.table')}</span><span>{money(calc.mesRecTabela)}</span></div>
               {calc.mesRecDesc > 0 && (
-                <div className="flex justify-between text-amber-300"><span>Desconto ({pricing.descontoPct.toLocaleString('pt-BR')}%)</span><span>- {moneyBRL(calc.mesRecDesc)}</span></div>
+                <div className="flex justify-between text-amber-300"><span>{t('financial.discountPct', { value: pricing.descontoPct.toLocaleString(locale) })}</span><span>- {money(calc.mesRecDesc)}</span></div>
               )}
-              <div className="flex justify-between text-gray-500 pt-0.5"><span>Inclui Mentor IA + manutenção</span><span>{nColabs.toLocaleString('pt-BR')} × {moneyBRL(pricing.precoColab + pricing.manutencaoMensalColab)}</span></div>
+              <div className="flex justify-between text-gray-500 pt-0.5"><span>{t('financial.includes')}</span><span>{nColabs.toLocaleString(locale)} × {money(pricing.precoColab + pricing.manutencaoMensalColab)}</span></div>
             </div>
           </div>
         </div>
 
         {/* Sub-stats */}
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <KpiBox label="Total 12 meses" value={moneyBRL(calc.anualFinal)} tone="white" />
-          <KpiBox label="Custo IA total" value={moneyBRL(calc.custoIABrl)} sub={`USD ${calc.custoIAUsd.toFixed(2)} × ${pricing.cotacao}`} tone="gray" />
-          <KpiBox label="Margem 12m (R$)" value={moneyBRL(calc.margemAbs)} tone={calc.margemPct < 50 ? 'amber' : 'emerald'} />
-          <KpiBox label="Margem 12m %" value={`${calc.margemPct.toFixed(1)}%`} tone={calc.margemPct < 50 ? 'amber' : 'emerald'} />
+          <KpiBox label={t('kpis.total12m')} value={money(calc.anualFinal)} tone="white" />
+          <KpiBox label={t('kpis.aiCost')} value={money(calc.custoIABrl)} sub={`USD ${calc.custoIAUsd.toFixed(2)} × ${pricing.cotacao}`} tone="gray" />
+          <KpiBox label={t('kpis.marginValue')} value={money(calc.margemAbs)} tone={calc.margemPct < 50 ? 'amber' : 'emerald'} />
+          <KpiBox label={t('kpis.marginPct')} value={`${calc.margemPct.toFixed(1)}%`} tone={calc.margemPct < 50 ? 'amber' : 'emerald'} />
         </div>
       </div>
 
@@ -292,38 +296,38 @@ export default function OrcamentoPage() {
         {/* Tabela */}
         <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
           <h3 className="text-xs uppercase tracking-widest text-cyan-300 mb-3 flex items-center gap-1.5">
-            <Building2 size={14} /> Composição do valor de tabela
+            <Building2 size={14} /> {t('breakdown.tableValue')}
           </h3>
           <div className="space-y-1.5 text-sm">
-            <p className="text-[10px] uppercase text-gray-500 mb-1">One-time (Mês 1)</p>
-            <Row label="Setup geral" value={moneyBRL(calc.tabelaSetupGeral)} />
-            <Row label={`${nClusters} cluster${nClusters > 1 ? 's' : ''} × ${moneyBRL(pricing.precoCluster)}`} value={moneyBRL(calc.tabelaClusters)} />
-            <Row label={`${nClusters * nPerfis} perfis × ${moneyBRL(pricing.precoPerfil)}`} value={moneyBRL(calc.tabelaPerfis)} />
+            <p className="text-[10px] uppercase text-gray-500 mb-1">{t('breakdown.oneTime')}</p>
+            <Row label={t('breakdown.generalSetup')} value={money(calc.tabelaSetupGeral)} />
+            <Row label={t('breakdown.clusterLine', { count: nClusters, value: money(pricing.precoCluster) })} value={money(calc.tabelaClusters)} />
+            <Row label={t('breakdown.profilesLine', { count: nClusters * nPerfis, value: money(pricing.precoPerfil) })} value={money(calc.tabelaPerfis)} />
             {metodo === 'workshop' && (
-              <Row label={`Workshop: ${nClusters} × ${moneyBRL(pricing.adicionalWorkshop)}`} value={moneyBRL(calc.tabelaWorkshop)} />
+              <Row label={`Workshop: ${nClusters} × ${money(pricing.adicionalWorkshop)}`} value={money(calc.tabelaWorkshop)} />
             )}
             <div className="pt-1.5 border-t border-white/5">
-              <Row label="Subtotal one-time" value={moneyBRL(calc.oneTimeTabela)} bold />
+              <Row label={t('breakdown.oneTimeSubtotal')} value={money(calc.oneTimeTabela)} bold />
             </div>
 
-            <p className="text-[10px] uppercase text-gray-500 mb-1 mt-3">Recorrente (mensal)</p>
-            <Row label={`Mentor IA: ${nColabs.toLocaleString('pt-BR')} × ${moneyBRL(pricing.precoColab)}`} value={moneyBRL(calc.tabelaColabsMes)} />
-            <Row label={`Manutenção: ${nColabs.toLocaleString('pt-BR')} × ${moneyBRL(pricing.manutencaoMensalColab)}`} value={moneyBRL(calc.tabelaManutMes)} />
+            <p className="text-[10px] uppercase text-gray-500 mb-1 mt-3">{t('breakdown.recurring')}</p>
+            <Row label={`Mentor IA: ${nColabs.toLocaleString(locale)} × ${money(pricing.precoColab)}`} value={money(calc.tabelaColabsMes)} />
+            <Row label={`${t('breakdown.maintenance')}: ${nColabs.toLocaleString(locale)} × ${money(pricing.manutencaoMensalColab)}`} value={money(calc.tabelaManutMes)} />
             <div className="pt-1.5 border-t border-white/5">
-              <Row label="Mensalidade total" value={moneyBRL(calc.tabelaMensalidade)} bold />
+              <Row label={t('breakdown.monthlyTotal')} value={money(calc.tabelaMensalidade)} bold />
             </div>
 
             <div className="pt-1.5 border-t border-white/5 mt-2">
-              <Row label="Mês 1 (one-time + 1ª mens.)" value={moneyBRL(calc.mes1Tabela)} bold />
+              <Row label={t('breakdown.month1Table')} value={money(calc.mes1Tabela)} bold />
             </div>
-            {calc.mes1Desc > 0 && <Row label={`Desconto (${pricing.descontoPct.toLocaleString('pt-BR')}%)`} value={`- ${moneyBRL(calc.mes1Desc)}`} muted />}
-            <Row label="Mês 1 final" value={moneyBRL(calc.mes1Final)} bold tone="emerald" />
+            {calc.mes1Desc > 0 && <Row label={t('financial.discountPct', { value: pricing.descontoPct.toLocaleString(locale) })} value={`- ${money(calc.mes1Desc)}`} muted />}
+            <Row label={t('breakdown.month1Final')} value={money(calc.mes1Final)} bold tone="emerald" />
 
             <div className="pt-1.5 border-t border-white/5 mt-2">
-              <Row label={`Mês 2+ (mensalidade)`} value={`${moneyBRL(calc.mesRecFinal)} / mês`} bold tone="emerald" />
+              <Row label={t('breakdown.month2Recurring')} value={`${money(calc.mesRecFinal)} ${t('financial.perMonth')}`} bold tone="emerald" />
             </div>
             <div className="pt-1.5 border-t border-white/5 mt-2">
-              <Row label="Total 12 meses" value={moneyBRL(calc.anualFinal)} bold />
+              <Row label={t('kpis.total12m')} value={money(calc.anualFinal)} bold />
             </div>
           </div>
         </div>
@@ -331,36 +335,26 @@ export default function OrcamentoPage() {
         {/* Custo IA */}
         <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
           <h3 className="text-xs uppercase tracking-widest text-amber-300 mb-3 flex items-center gap-1.5">
-            <Calculator size={14} /> Composição do custo IA
+            <Calculator size={14} /> {t('breakdown.aiCost')}
           </h3>
           <p className="text-[10px] text-gray-500 mb-2">Preset: {PRESETS[preset].label}</p>
           <div className="space-y-1.5 text-sm">
-            <Row label={`Setup × ${nClusters} cluster${nClusters > 1 ? 's' : ''} (${nPerfis} perfis cada, ${metodo})`} value={`USD ${(nClusters * calc.custoSetupPorCluster).toFixed(2)}`} />
-            <Row label="Tagging conteúdos (1× total)" value={`USD ${calc.custoTaggingTotal.toFixed(2)}`} />
-            <Row label={`Mentor IA × ${nColabs} colab${nColabs !== 1 ? 's' : ''} (USD ${calc.custoPorColab.toFixed(2)} cada)`} value={`USD ${calc.custoColabsTotal.toFixed(2)}`} />
+            <Row label={t('ai.setupLine', { clusters: nClusters, profiles: nPerfis, method: metodo })} value={`USD ${(nClusters * calc.custoSetupPorCluster).toFixed(2)}`} />
+            <Row label={t('ai.tagging')} value={`USD ${calc.custoTaggingTotal.toFixed(2)}`} />
+            <Row label={t('ai.mentorLine', { count: nColabs, value: calc.custoPorColab.toFixed(2) })} value={`USD ${calc.custoColabsTotal.toFixed(2)}`} />
             <div className="pt-1.5 border-t border-white/5">
-              <Row label="Total USD" value={`USD ${calc.custoIAUsd.toFixed(2)}`} bold />
+              <Row label={t('ai.totalUsd')} value={`USD ${calc.custoIAUsd.toFixed(2)}`} bold />
             </div>
-            <Row label={`× ${pricing.cotacao} (cotação)`} value={moneyBRL(calc.custoIABrl)} bold tone="amber" />
+            <Row label={t('ai.exchangeLine', { value: pricing.cotacao })} value={money(calc.custoIABrl)} bold tone="amber" />
           </div>
         </div>
       </div>
 
       {/* Notas */}
       <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-xs text-gray-300 space-y-2">
-        <p className="font-bold text-amber-300">Notas:</p>
+        <p className="font-bold text-amber-300">{t('notes.title')}</p>
         <ul className="list-disc pl-5 space-y-1">
-          <li><b>Modelo de cobrança</b>: <b>Mês 1</b> = setup (one-time) + 1ª mensalidade. <b>Mês 2 em diante</b> = só mensalidade recorrente.</li>
-          <li><b>Mensalidade por colab</b> = Mentor IA (uso da plataforma) + Manutenção (suporte/hosting). Soma os dois inputs por colab por mês — atualmente {`R$ ${(pricing.precoColab + pricing.manutencaoMensalColab).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/colab/mês`}.</li>
-          <li><b>Setup geral</b> = taxa fixa de implantação inicial (one-time, independente de clusters/colabs). Cobre onboarding, kick-off, configuração do tenant Vertho, ajuste de branding.</li>
-          <li><b>Cluster</b> = grupo de escolas com o MESMO Top 5 / PPP / cenários. Cada cluster paga 1× setup (PPP + IA3 + Cenários B; IA1/IA2 só se método=votação).</li>
-          <li><b>Perfis</b> = nº de cargos distintos no cluster (ex: Coordenador + Diretor + Professor = 3). IA1 escala por perfil; IA2/IA3/Cenários B escalam por perfil × 5 (Top 5).</li>
-          <li><b>Votação</b> roda fluxo IA completo. <b>Workshop</b> pula IA1+IA2 (humanos definem Top 5) mas adiciona o adicional de consultoria por cluster no preço de tabela.</li>
-          <li><b>Tagging conteúdos</b> roda 1× por orçamento (banco de conteúdos compartilhado entre clusters). Estimativa: 50 conteúdos × {`Sonnet/Gemini`}.</li>
-          <li><b>Custo IA</b> usa o preset escolhido (premium/balanced/cheap). Detalhes por chamada em <a href="/admin/vertho/simulador-custo" className="text-cyan-400 hover:underline">Simulador de Custo</a>.</li>
-          <li><b>Margem 12m</b> compara o total de 12 meses (Mês 1 + 11 mensalidades, com desconto) com o custo IA convertido em BRL — não inclui custos operacionais (suporte, hosting, salários, consultoria humana do workshop).</li>
-          <li><b>Adicional workshop</b> é apenas no preço de tabela. Se houver custo de consultor a ser repassado, considere refletir no preço por cluster ou criar campo separado.</li>
-          <li>Tabela de preços é só estimativa — ajuste os valores antes de fechar uma proposta.</li>
+          {t.raw('notes.items').map((item: string, index: number) => <li key={index}>{item}</li>)}
         </ul>
       </div>
     </div>
@@ -371,6 +365,7 @@ export default function OrcamentoPage() {
 
 function FieldNumber({
   icon, label, sub, value, onChange, min = 0, allowDecimals = false,
+  locale,
 }: {
   icon?: React.ReactNode;
   label: string;
@@ -379,9 +374,10 @@ function FieldNumber({
   onChange: (v: number) => void;
   min?: number;
   allowDecimals?: boolean;
+  locale: string;
 }) {
   const fmt = (n: number) =>
-    n.toLocaleString('pt-BR', {
+    n.toLocaleString(locale, {
       minimumFractionDigits: 0,
       maximumFractionDigits: allowDecimals ? 2 : 0,
     });

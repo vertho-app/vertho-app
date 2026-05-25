@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { ArrowLeft, BarChart3 } from 'lucide-react';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
@@ -12,7 +13,7 @@ type EtapaFunil = {
   desc: string;
 };
 
-async function loadFunilData(diasParam: number) {
+async function loadFunilData(diasParam: number, t: Awaited<ReturnType<typeof getTranslations>>) {
   await requireAdminAction();
   const sb = await requireAdminSupabase();
   const dias = Math.min(Math.max(diasParam || 30, 1), 365);
@@ -57,12 +58,12 @@ async function loadFunilData(diasParam: number) {
   const ctaClicks = evMap.get('cta_lead_click');
 
   const funil: EtapaFunil[] = [
-    { label: 'Visitas (humanos)', total: viewsTotalHumanos, desc: `${viewsTotal} totais incluindo bots` },
-    { label: 'Cliques no CTA "Receber PDF"', total: Number(ctaClicks?.total_humanos || 0), desc: 'usuários humanos' },
-    { label: 'Leads capturados', total: leadsTotal.count || 0, desc: 'modal LGPD enviado' },
-    { label: 'PDFs prontos', total: leadsPdfPronto.count || 0, desc: 'gerados e disponíveis' },
-    { label: 'Contatos feitos', total: leadsContatado.count || 0, desc: 'equipe Vertho fez contato' },
-    { label: 'Convertidos', total: leadsConvertido.count || 0, desc: 'virou conversa comercial' },
+    { label: t('steps.visits.label'), total: viewsTotalHumanos, desc: t('steps.visits.desc', { total: viewsTotal }) },
+    { label: t('steps.cta.label'), total: Number(ctaClicks?.total_humanos || 0), desc: t('steps.cta.desc') },
+    { label: t('steps.leads.label'), total: leadsTotal.count || 0, desc: t('steps.leads.desc') },
+    { label: t('steps.pdfs.label'), total: leadsPdfPronto.count || 0, desc: t('steps.pdfs.desc') },
+    { label: t('steps.contacts.label'), total: leadsContatado.count || 0, desc: t('steps.contacts.desc') },
+    { label: t('steps.converted.label'), total: leadsConvertido.count || 0, desc: t('steps.converted.desc') },
   ];
 
   return {
@@ -78,7 +79,9 @@ async function loadFunilData(diasParam: number) {
 export default async function FunnelPage({ searchParams }: { searchParams: Promise<{ dias?: string }> }) {
   const sp = await searchParams;
   const dias = Number(sp.dias) || 30;
-  const data = await loadFunilData(dias);
+  const locale = await getLocale();
+  const t = await getTranslations('AdminRadarFunnel');
+  const data = await loadFunilData(dias, t);
 
   // Conversão entre etapas
   const taxa = (atual: number, anterior: number) => {
@@ -92,26 +95,26 @@ export default async function FunnelPage({ searchParams }: { searchParams: Promi
       <div className="max-w-[1100px] mx-auto px-5 py-6">
         <div className="flex items-center justify-between gap-4 pb-5 mb-5 border-b border-white/[0.08]">
           <Link href="/admin/dashboard" className="flex items-center gap-1.5 text-xs font-medium text-white/50 hover:text-white">
-            <ArrowLeft size={14} /> Admin Dashboard
+            <ArrowLeft size={14} /> {t('back')}
           </Link>
           <span className="text-[10px] tracking-[0.2em] text-white/30 uppercase font-mono">
-            RADAR · FUNNEL
+            {t('eyebrow')}
           </span>
           <Link href={`/admin/radar`} className="text-xs text-white/50 hover:text-white">
-            Ingestão →
+            {t('ingestion')}
           </Link>
         </div>
 
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <BarChart3 size={20} style={{ color: '#34c5cc' }} />
-            <h1 className="text-xl font-bold text-white">Funil — últimos {data.dias} dias</h1>
+            <h1 className="text-xl font-bold text-white">{t('title', { days: data.dias })}</h1>
           </div>
           <div className="flex items-center gap-2 text-xs">
             {[7, 30, 90].map((d) => (
               <Link key={d} href={`/admin/radar/funnel?dias=${d}`}
                 className={`px-3 py-1 rounded-full border ${data.dias === d ? 'border-cyan-400/40 text-cyan-400 bg-cyan-400/10' : 'border-white/10 text-white/45 hover:text-white'}`}>
-                {d}d
+                {t('periodShort', { days: d })}
               </Link>
             ))}
           </div>
@@ -132,10 +135,10 @@ export default async function FunnelPage({ searchParams }: { searchParams: Promi
                     <p className="text-[11px] text-white/45">{etapa.desc}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-white font-mono">{etapa.total.toLocaleString('pt-BR')}</p>
+                    <p className="text-2xl font-bold text-white font-mono">{etapa.total.toLocaleString(locale)}</p>
                     {taxaConv != null && (
                       <p className="text-[10px] text-white/45 font-mono">
-                        {taxaConv.toFixed(1)}% da etapa anterior
+                        {t('previousStepRate', { value: taxaConv.toFixed(1) })}
                       </p>
                     )}
                   </div>
@@ -153,19 +156,19 @@ export default async function FunnelPage({ searchParams }: { searchParams: Promi
         <div className="grid grid-cols-2 gap-3 mb-8">
           <div className="rounded-2xl p-4 border border-white/[0.06]"
             style={{ background: 'rgba(255,255,255,0.03)' }}>
-            <p className="text-[9px] tracking-[0.2em] uppercase font-mono text-white/40 mb-1">Custo IA acumulado</p>
+            <p className="text-[9px] tracking-[0.2em] uppercase font-mono text-white/40 mb-1">{t('cost.total')}</p>
             <p className="text-2xl font-bold text-white font-mono">
               ${data.custoTotal.toFixed(2)}
             </p>
-            <p className="text-[10px] text-white/45 mt-1">{data.totalAnalises} análises geradas</p>
+            <p className="text-[10px] text-white/45 mt-1">{t('cost.analyses', { count: data.totalAnalises })}</p>
           </div>
           <div className="rounded-2xl p-4 border border-white/[0.06]"
             style={{ background: 'rgba(255,255,255,0.03)' }}>
-            <p className="text-[9px] tracking-[0.2em] uppercase font-mono text-white/40 mb-1">Custo médio/análise</p>
+            <p className="text-[9px] tracking-[0.2em] uppercase font-mono text-white/40 mb-1">{t('cost.average')}</p>
             <p className="text-2xl font-bold text-white font-mono">
               ${data.totalAnalises > 0 ? (data.custoTotal / data.totalAnalises).toFixed(4) : '0.0000'}
             </p>
-            <p className="text-[10px] text-white/45 mt-1">cache hit reduz proporcionalmente</p>
+            <p className="text-[10px] text-white/45 mt-1">{t('cost.cacheHint')}</p>
           </div>
         </div>
 
@@ -174,24 +177,24 @@ export default async function FunnelPage({ searchParams }: { searchParams: Promi
           <div className="rounded-2xl border border-white/[0.06] overflow-hidden mb-8"
             style={{ background: '#0b1d36' }}>
             <div className="px-5 py-3 border-b border-white/[0.06]">
-              <p className="text-sm font-bold text-white">Eventos por tipo</p>
+              <p className="text-sm font-bold text-white">{t('events.title')}</p>
             </div>
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-left text-[9px] text-white/40 uppercase tracking-widest">
-                  <th className="px-4 py-2">Tipo</th>
-                  <th className="px-4 py-2 text-right">Total</th>
-                  <th className="px-4 py-2 text-right">Humanos</th>
-                  <th className="px-4 py-2 text-right">IPs únicos 24h</th>
+                  <th className="px-4 py-2">{t('events.type')}</th>
+                  <th className="px-4 py-2 text-right">{t('events.total')}</th>
+                  <th className="px-4 py-2 text-right">{t('events.humans')}</th>
+                  <th className="px-4 py-2 text-right">{t('events.uniqueIps')}</th>
                 </tr>
               </thead>
               <tbody>
                 {data.eventosBreakdown.map((e: any) => (
                   <tr key={e.tipo} className="border-t border-white/[0.04]">
                     <td className="px-4 py-2 text-white/80 font-mono">{e.tipo}</td>
-                    <td className="px-4 py-2 text-right text-white font-mono">{Number(e.total).toLocaleString('pt-BR')}</td>
-                    <td className="px-4 py-2 text-right text-emerald-400 font-mono">{Number(e.total_humanos).toLocaleString('pt-BR')}</td>
-                    <td className="px-4 py-2 text-right text-cyan-400 font-mono">{Number(e.unicos_ip_24h).toLocaleString('pt-BR')}</td>
+                    <td className="px-4 py-2 text-right text-white font-mono">{Number(e.total).toLocaleString(locale)}</td>
+                    <td className="px-4 py-2 text-right text-emerald-400 font-mono">{Number(e.total_humanos).toLocaleString(locale)}</td>
+                    <td className="px-4 py-2 text-right text-cyan-400 font-mono">{Number(e.unicos_ip_24h).toLocaleString(locale)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -204,15 +207,15 @@ export default async function FunnelPage({ searchParams }: { searchParams: Promi
           <div className="rounded-2xl border border-white/[0.06] overflow-hidden"
             style={{ background: '#0b1d36' }}>
             <div className="px-5 py-3 border-b border-white/[0.06]">
-              <p className="text-sm font-bold text-white">Top {data.top.length} mais visitados</p>
+              <p className="text-sm font-bold text-white">{t('top.title', { count: data.top.length })}</p>
             </div>
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-left text-[9px] text-white/40 uppercase tracking-widest">
-                  <th className="px-4 py-2">Tipo</th>
+                  <th className="px-4 py-2">{t('events.type')}</th>
                   <th className="px-4 py-2">ID</th>
-                  <th className="px-4 py-2 text-right">Total</th>
-                  <th className="px-4 py-2 text-right">Humanos</th>
+                  <th className="px-4 py-2 text-right">{t('events.total')}</th>
+                  <th className="px-4 py-2 text-right">{t('events.humans')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -233,8 +236,8 @@ export default async function FunnelPage({ searchParams }: { searchParams: Promi
                           <span className="text-white/65 font-mono">{t.scope_id}</span>
                         )}
                       </td>
-                      <td className="px-4 py-2 text-right text-white font-mono">{Number(t.total_views).toLocaleString('pt-BR')}</td>
-                      <td className="px-4 py-2 text-right text-emerald-400 font-mono">{Number(t.views_humanos).toLocaleString('pt-BR')}</td>
+                      <td className="px-4 py-2 text-right text-white font-mono">{Number(t.total_views).toLocaleString(locale)}</td>
+                      <td className="px-4 py-2 text-right text-emerald-400 font-mono">{Number(t.views_humanos).toLocaleString(locale)}</td>
                     </tr>
                   );
                 })}

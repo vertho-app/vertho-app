@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, Check, ArrowRight, Clock } from 'lucide-react';
 import { loadJornada } from './jornada-actions';
@@ -12,22 +13,6 @@ const FASE_HREF: Record<number, string> = {
   3: '/dashboard/pdi',
   4: '/dashboard/temporada',
   5: '/dashboard/evolucao',
-};
-
-const CTA_LABEL: Record<number, string> = {
-  1: 'Fazer diagnóstico comportamental',
-  2: 'Iniciar avaliação',
-  3: 'Ver meu PDI',
-  4: 'Ver minha temporada',
-  5: 'Ver minha evolução',
-};
-
-const FASE_DESC: Record<number, string> = {
-  1: 'Mapeamento do seu perfil comportamental.',
-  2: 'Avaliação de competências por cenários situacionais.',
-  3: 'Seu plano de desenvolvimento individual baseado nos resultados.',
-  4: 'Temporada de 14 semanas com conteúdo, prática e reflexão.',
-  5: 'Medição de evolução pós-capacitação e consolidação dos avanços.',
 };
 
 const PHASE_TOKENS: Record<number, { accent: string; deep: string; glow: string }> = {
@@ -48,6 +33,7 @@ const serifStyle: React.CSSProperties = {
 };
 
 export default function JornadaPage() {
+  const t = useTranslations('DashboardJourney');
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -89,19 +75,20 @@ export default function JornadaPage() {
   }
 
   function faseDesc(fase: any) {
+    if (!fase?.fase) return t('phaseDescriptions.fallback');
     if (fase?.fase === 1 && usaPerfilExterno) {
-      return 'Sua empresa usa mapeamento comportamental próprio. Você não precisa responder DISC na Vertho.';
+      return t('phaseDescriptions.externalProfile');
     }
     if (fase?.fase === 1 && !perfilComportamentalLiberado && !colaborador.perfil_dominante) {
-      return 'O perfil comportamental será liberado pelo RH depois que a votação de competências for finalizada.';
+      return t('phaseDescriptions.waitingProfile');
     }
-    return FASE_DESC[fase?.fase] || 'Continue sua jornada de desenvolvimento.';
+    return t(`phaseDescriptions.${fase?.fase}`) || t('phaseDescriptions.fallback');
   }
 
   function ctaLabel(fase: any) {
-    if (fase?.fase === 1 && usaPerfilExterno) return 'Ver perfil comportamental';
-    if (fase?.fase === 1 && !perfilComportamentalLiberado && !colaborador.perfil_dominante) return 'Aguardando liberação';
-    return CTA_LABEL[fase?.fase] || 'Ver minha evolução';
+    if (fase?.fase === 1 && usaPerfilExterno) return t('cta.externalProfile');
+    if (fase?.fase === 1 && !perfilComportamentalLiberado && !colaborador.perfil_dominante) return t('cta.waiting');
+    return t(`cta.${fase?.fase}`) || t('cta.fallback');
   }
 
   const enriched = fases.map((f: any, i: number) => ({
@@ -123,7 +110,7 @@ export default function JornadaPage() {
       <header className="px-5 pt-6 pb-4">
         <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-2"
           style={{ color: 'var(--phase-accent)' }}>
-          Sua jornada
+          {t('header.eyebrow')}
         </p>
         {/* ✅ h1 em Instrument Serif */}
         <h1 style={{
@@ -135,17 +122,17 @@ export default function JornadaPage() {
           color: '#fff',
         }}>
           {faseAtual ? (
-            <>Você está na{' '}
+            <>{t('header.current')}{' '}
               <em style={{ color: 'var(--phase-accent)' }}>
-                Fase {faseNum} — {faseAtual.titulo}
+                {t('header.phaseTitle', { phase: faseNum, title: faseAtual.titulo })}
               </em>
             </>
           ) : (
-            <em style={{ color: 'var(--phase-accent)' }}>Jornada concluída 🎉</em>
+            <em style={{ color: 'var(--phase-accent)' }}>{t('header.done')}</em>
           )}
         </h1>
         <p className="text-sm text-white/55">
-          {concluidas} de {total} fases concluídas · {firstName || colaborador.nome_completo}
+          {t('header.progress', { done: concluidas, total, name: firstName || colaborador.nome_completo })}
         </p>
       </header>
 
@@ -162,7 +149,7 @@ export default function JornadaPage() {
             <div>
               <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-2"
                 style={{ color: 'var(--phase-accent)' }}>
-                Fase atual
+                {t('hero.currentPhase')}
               </p>
               {/* ✅ título da fase em serif */}
               <h2 style={{
@@ -171,7 +158,7 @@ export default function JornadaPage() {
                 lineHeight: 1.05,
                 letterSpacing: '-0.02em',
               }}>
-                {faseAtual?.titulo || <em style={{ color: 'var(--phase-accent)' }}>Todas concluídas</em>}
+                {faseAtual?.titulo || <em style={{ color: 'var(--phase-accent)' }}>{t('hero.allDone')}</em>}
               </h2>
             </div>
             <span
@@ -193,13 +180,13 @@ export default function JornadaPage() {
           </p>
           <div className="grid grid-cols-2 gap-3 mb-5">
             <div className="rounded-2xl bg-white/[0.04] border border-white/[0.08] p-4">
-              <p className="text-[11px] text-white/50 mb-1 uppercase tracking-wider">Progresso geral</p>
+              <p className="text-[11px] text-white/50 mb-1 uppercase tracking-wider">{t('hero.generalProgress')}</p>
               <p style={{ ...serifStyle, fontSize: 26, color: 'var(--phase-accent)' }}>{pct}%</p>
             </div>
             <div className="rounded-2xl bg-white/[0.04] border border-white/[0.08] p-4">
-              <p className="text-[11px] text-white/50 mb-1 uppercase tracking-wider">Status atual</p>
+              <p className="text-[11px] text-white/50 mb-1 uppercase tracking-wider">{t('hero.currentStatus')}</p>
               <p style={{ ...serifStyle, fontSize: 20, color: 'var(--phase-accent)' }}>
-                {faseAtual ? 'Em curso' : 'Concluída'}
+                {faseAtual ? t('hero.inProgress') : t('hero.done')}
               </p>
             </div>
           </div>
@@ -216,7 +203,7 @@ export default function JornadaPage() {
               boxShadow: '0 10px 24px var(--phase-glow)',
               opacity: faseHref(faseAtual) ? 1 : 0.65,
             }}>
-            {faseHref(faseAtual) ? ctaLabel(faseAtual) : 'Etapa já tratada pela empresa'}
+            {faseHref(faseAtual) ? ctaLabel(faseAtual) : t('hero.companyHandled')}
             {faseHref(faseAtual) && <ArrowRight size={18} />}
           </button>
         </section>
@@ -232,12 +219,12 @@ export default function JornadaPage() {
             <div>
               {/* ✅ título da seção em serif */}
               <h3 style={{ ...serifStyle, fontSize: 22, color: '#fff', marginBottom: 2 }}>
-                Fases da jornada
+                {t('timeline.title')}
               </h3>
-              <p className="text-sm text-white/50">Acompanhe seu caminho até aqui</p>
+              <p className="text-sm text-white/50">{t('timeline.subtitle')}</p>
             </div>
             <span className="text-[11px] font-semibold" style={{ color: 'var(--phase-accent)', fontFamily: 'var(--font-mono, monospace)', letterSpacing: '.14em' }}>
-              {total} ETAPAS
+              {t('timeline.steps', { total })}
             </span>
           </div>
 
@@ -290,7 +277,7 @@ export default function JornadaPage() {
                         color: isCurrent ? '#fff' : 'rgba(255,255,255,0.75)',
                         marginBottom: 2,
                       }}>
-                        Fase {f.fase} — {f.titulo}
+                        {t('timeline.phase', { phase: f.fase, title: f.titulo })}
                       </h4>
                       {/* status em serif itálico pequeno */}
                       <p style={{
@@ -298,7 +285,7 @@ export default function JornadaPage() {
                         fontSize: 13,
                         color: isDone || isCurrent ? tk.accent : 'rgba(255,255,255,0.3)',
                       }}>
-                        {isDone ? 'concluída' : isCurrent ? 'em curso' : 'bloqueada'}
+                        {isDone ? t('timeline.completed') : isCurrent ? t('timeline.current') : t('timeline.locked')}
                       </p>
                       {isCurrent && (
                         <p className="text-sm text-white/55 mt-1.5 leading-relaxed">
@@ -330,17 +317,17 @@ export default function JornadaPage() {
           <div>
             <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-1"
               style={{ color: 'var(--phase-accent)' }}>
-              Próximo passo
+              {t('next.eyebrow')}
             </p>
             <h4 style={{ ...serifStyle, fontSize: 17, color: '#fff', marginBottom: 4 }}>
-              {faseAtual ? `Concluir ${faseAtual.titulo.toLowerCase()}` : 'Acompanhar sua evolução'}
+              {faseAtual ? t('next.finish', { title: faseAtual.titulo.toLowerCase() }) : t('next.followEvolution')}
             </h4>
             <p className="text-sm text-white/55 leading-relaxed">
               {faseAtual
                 ? faseAtual.fase === 1 && usaPerfilExterno
-                  ? 'Sua próxima etapa acontece na avaliação de competências da Vertho.'
-                  : 'Finalize esta fase para avançar na sua jornada de desenvolvimento.'
-                : 'Visualize seu relatório consolidado de evolução e próximos passos.'}
+                  ? t('next.external')
+                  : t('next.default')
+                : t('next.done')}
             </p>
           </div>
         </section>

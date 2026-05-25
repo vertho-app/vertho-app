@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import ReactMarkdown from 'react-markdown';
 import {
   ArrowLeft, Loader2, Bot, ChevronDown, CheckCircle, AlertTriangle,
@@ -181,6 +182,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
   const { empresaId } = use(params);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const tr = useTranslations('AdminPhase2');
 
   const [tab, setTab] = useState(searchParams.get('tab') || 'diagnostico');
   const [respostas, setRespostas] = useState([]);
@@ -199,7 +201,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
 
   async function handleRevisarTodos() {
     const paraRevisar = respostas.filter(r => r.status_ia4 === 'revisar' || r.status_ia4 === 'aprovado_com_ajustes');
-    if (!paraRevisar.length) { flash('Nenhuma avaliação para revisar'); return; }
+    if (!paraRevisar.length) { flash(tr('messages.noneToReview')); return; }
     setBatchRunning(true);
     setBatchProgress({ current: 0, total: paraRevisar.length, ok: 0, erros: 0 });
     let ok = 0, erros = 0;
@@ -213,7 +215,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
       setBatchProgress(p => ({ ...p, ok, erros }));
     }
     setBatchRunning(false);
-    flash(`${ok} re-avaliadas${erros ? `, ${erros} erros` : ''}`);
+    flash(tr('messages.reevaluatedBatch', { ok, errors: erros }));
     refresh();
   }
 
@@ -282,17 +284,17 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
         </button>
         <div>
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <Bot size={20} className="text-red-400" /> Fase 2 — Diagnóstico
+            <Bot size={20} className="text-red-400" /> {tr('title')}
           </h1>
-          <p className="text-xs text-gray-500">Respostas, avaliações IA4 e check</p>
+          <p className="text-xs text-gray-500">{tr('subtitle')}</p>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex items-center gap-1 mb-5 border-b border-white/[0.06]">
         {[
-          { id: 'diagnostico', label: 'Diagnóstico', icon: <Bot size={14} /> },
-          { id: 'trilhas', label: `Trilhas (${trilhas.length})`, icon: <BookOpen size={14} /> },
+          { id: 'diagnostico', label: tr('tabs.diagnostic'), icon: <Bot size={14} /> },
+          { id: 'trilhas', label: tr('tabs.trails', { count: trilhas.length }), icon: <BookOpen size={14} /> },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold transition-all border-b-2 -mb-px ${
@@ -306,17 +308,17 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
       {tab === 'diagnostico' && <>
       {/* Stats */}
       <div className="flex items-center gap-3 mb-4 flex-wrap text-[10px]">
-        <span className="text-gray-400">Total: <span className="text-white font-bold">{stats.total}</span></span>
-        <span className="text-gray-400">Avaliadas: <span className="text-cyan-400 font-bold">{stats.avaliadas}</span></span>
-        {stats.aprovadas > 0 && <span className="bg-green-400/15 text-green-400 px-1.5 py-0.5 rounded font-bold">{stats.aprovadas} aprovadas</span>}
-        {stats.com_ajustes > 0 && <span className="bg-cyan-400/15 text-cyan-400 px-1.5 py-0.5 rounded font-bold">{stats.com_ajustes} com ajustes</span>}
-        {stats.revisar > 0 && <span className="bg-amber-400/15 text-amber-400 px-1.5 py-0.5 rounded font-bold">{stats.revisar} revisar</span>}
-        {stats.pendentes > 0 && <span className="bg-gray-400/15 text-gray-400 px-1.5 py-0.5 rounded font-bold">{stats.pendentes} pendentes</span>}
+        <span className="text-gray-400">{tr('stats.total')}: <span className="text-white font-bold">{stats.total}</span></span>
+        <span className="text-gray-400">{tr('stats.evaluated')}: <span className="text-cyan-400 font-bold">{stats.avaliadas}</span></span>
+        {stats.aprovadas > 0 && <span className="bg-green-400/15 text-green-400 px-1.5 py-0.5 rounded font-bold">{tr('stats.approved', { count: stats.aprovadas })}</span>}
+        {stats.com_ajustes > 0 && <span className="bg-cyan-400/15 text-cyan-400 px-1.5 py-0.5 rounded font-bold">{tr('stats.withAdjustments', { count: stats.com_ajustes })}</span>}
+        {stats.revisar > 0 && <span className="bg-amber-400/15 text-amber-400 px-1.5 py-0.5 rounded font-bold">{tr('stats.review', { count: stats.revisar })}</span>}
+        {stats.pendentes > 0 && <span className="bg-gray-400/15 text-gray-400 px-1.5 py-0.5 rounded font-bold">{tr('stats.pending', { count: stats.pendentes })}</span>}
         {(stats.revisar > 0 || stats.com_ajustes > 0) && (
           <button onClick={handleRevisarTodos} disabled={batchRunning}
             className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 transition-all disabled:opacity-50">
             {batchRunning ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
-            Re-avaliar todos ({stats.revisar + stats.com_ajustes})
+            {tr('actions.reevaluateAll', { count: stats.revisar + stats.com_ajustes })}
           </button>
         )}
       </div>
@@ -326,11 +328,11 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
         <div className="mb-4 rounded-xl p-3 border border-amber-400/20" style={{ background: '#0F2A4A' }}>
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[10px] font-bold text-amber-400">
-              Re-avaliando {batchProgress.current} de {batchProgress.total}...
+              {tr('progress.reevaluating', { current: batchProgress.current, total: batchProgress.total })}
             </span>
             <span className="text-[10px] text-gray-500">
-              {batchProgress.ok > 0 && <span className="text-green-400">{batchProgress.ok} ok</span>}
-              {batchProgress.erros > 0 && <span className="text-red-400 ml-2">{batchProgress.erros} erros</span>}
+              {batchProgress.ok > 0 && <span className="text-green-400">{tr('progress.ok', { count: batchProgress.ok })}</span>}
+              {batchProgress.erros > 0 && <span className="text-red-400 ml-2">{tr('progress.errors', { count: batchProgress.erros })}</span>}
             </span>
           </div>
           <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
@@ -340,7 +342,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
             />
           </div>
           <p className="text-[9px] text-gray-600 mt-1">
-            {Math.round((batchProgress.current / batchProgress.total) * 100)}% concluído
+            {tr('progress.percentDone', { percent: Math.round((batchProgress.current / batchProgress.total) * 100) })}
           </p>
         </div>
       )}
@@ -350,22 +352,22 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
         <Filter size={14} className="text-gray-500" />
         <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
           className="px-3 py-1.5 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
-          <option value="">Todos os cargos</option>
+          <option value="">{tr('filters.allRoles')}</option>
           {cargos.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
         <select value={filtroColab} onChange={e => setFiltroColab(e.target.value)}
           className="px-3 py-1.5 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
-          <option value="">Todos os colaboradores</option>
+          <option value="">{tr('filters.allCollaborators')}</option>
           {colaboradores.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
         <select value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)}
           className="px-3 py-1.5 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
-          <option value="">Todos os status</option>
-          <option value="pendente">Pendente</option>
-          <option value="avaliado">Avaliado</option>
-          <option value="aprovado">Aprovado</option>
-          <option value="aprovado_com_ajustes">Com ajustes</option>
-          <option value="revisar">Revisar</option>
+          <option value="">{tr('filters.allStatuses')}</option>
+          <option value="pendente">{tr('status.pending')}</option>
+          <option value="avaliado">{tr('status.evaluated')}</option>
+          <option value="aprovado">{tr('status.approved')}</option>
+          <option value="aprovado_com_ajustes">{tr('status.withAdjustments')}</option>
+          <option value="revisar">{tr('status.review')}</option>
         </select>
       </div>
 
@@ -373,14 +375,14 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
       {respostas.length === 0 ? (
         <div className="text-center py-12">
           <FileText size={32} className="text-gray-600 mx-auto mb-3" />
-          <p className="text-sm text-gray-500">Nenhuma resposta encontrada. Rode "Simular Respostas" primeiro.</p>
+          <p className="text-sm text-gray-500">{tr('empty.answers')}</p>
         </div>
       ) : Object.entries(porColab).map(([nome, _v]: [string, any]) => { const { cargo, items } = _v; return (
         <div key={nome} className="mb-6">
           <div className="flex items-center gap-2 mb-2">
             <User size={14} className="text-cyan-400" />
             <h2 className="text-sm font-bold text-white">{nome}</h2>
-            <span className="text-[10px] text-gray-500">{cargo} · {items.length} respostas</span>
+            <span className="text-[10px] text-gray-500">{cargo} · {tr('labels.answersCount', { count: items.length })}</span>
           </div>
 
           <div className="space-y-2">
@@ -407,7 +409,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                       {r.status_ia4 === 'revisar' && <AlertTriangle size={14} className="text-amber-400 shrink-0" />}
                       <span className="text-xs font-bold text-white">{r.competencia_nome}</span>
                       {r.competencia_cod && <span className="text-[9px] font-mono text-cyan-400/60">{r.competencia_cod}</span>}
-                      {r.nivel_simulado && <span className="text-[9px] text-gray-500">Simulado N{r.nivel_simulado}</span>}
+                      {r.nivel_simulado && <span className="text-[9px] text-gray-500">{tr('labels.simulated')} N{r.nivel_simulado}</span>}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {avaliacao && (
@@ -427,7 +429,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                           check.nota >= 90 ? 'bg-green-400/15 text-green-400' :
                           check.nota >= 80 ? 'bg-cyan-400/15 text-cyan-400' :
                           'bg-amber-400/15 text-amber-400'
-                        }`}>Check {check.nota}pts</span>
+                        }`}>{tr('labels.check')} {check.nota}pts</span>
                       )}
                       {!avaliacao && <span className="text-[9px] text-gray-600">Pendente</span>}
                       <ChevronDown size={14} className={`text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
@@ -696,7 +698,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                       {/* Check */}
                       {check && (
                         <div>
-                          <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest mb-2">Check (Auditoria)</p>
+                          <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest mb-2">{tr('sections.auditCheck')}</p>
                           <div className={`p-3 rounded-lg border ${
                             check.nota >= 90 ? 'border-green-400/20 bg-green-400/5' :
                             check.nota >= 80 ? 'border-cyan-400/20 bg-cyan-400/5' :
@@ -708,7 +710,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                                 check.nota >= 80 ? 'text-cyan-400' :
                                 'text-amber-400'
                               }`}>
-                                {check.nota}pts — {check.nota >= 90 ? 'Aprovado' : check.nota >= 80 ? 'Aprovado c/ ajustes' : 'Revisar'}
+                                {check.nota}pts — {check.nota >= 90 ? tr('status.approved') : check.nota >= 80 ? tr('status.approvedWithAdjustments') : tr('status.review')}
                               </span>
                             </div>
                             {check.dimensoes && (
@@ -725,9 +727,9 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                               </div>
                             )}
                             {check.justificativa && <p className="text-[10px] text-gray-400 mb-1">{safeText(check.justificativa)}</p>}
-                            {check.revisao && <p className="text-[10px] text-amber-300"><span className="font-bold">Revisar:</span> {safeText(check.revisao)}</p>}
+                            {check.revisao && <p className="text-[10px] text-amber-300"><span className="font-bold">{tr('status.review')}:</span> {safeText(check.revisao)}</p>}
                             {!check.revisao && Array.isArray(check.mudancas_sugeridas) && check.mudancas_sugeridas.length > 0 && (
-                              <p className="text-[10px] text-amber-300"><span className="font-bold">Revisar:</span> {check.mudancas_sugeridas.map(safeText).join('; ')}</p>
+                              <p className="text-[10px] text-amber-300"><span className="font-bold">{tr('status.review')}:</span> {check.mudancas_sugeridas.map(safeText).join('; ')}</p>
                             )}
                             {check.ponto_mais_confiavel && (
                               <p className="text-[10px] text-green-300/80 mt-1">✦ Ponto forte: {safeText(check.ponto_mais_confiavel)}</p>
@@ -758,33 +760,33 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                         {(r.status_ia4 === 'revisar' || r.status_ia4 === 'aprovado_com_ajustes') && (
                           <button disabled={actionId === r.id} onClick={async () => {
                             setActionId(r.id);
-                            flash('Re-avaliando...');
+                            flash(tr('messages.reevaluating'));
                             const r1 = await reavaliarResposta(r.id);
                             if (r1.success) {
-                              flash('Re-checando...');
+                              flash(tr('messages.rechecking'));
                               await rechecarResposta(r.id);
                             }
                             setActionId(null);
-                            flash(r1.success ? r1.message : 'Erro: ' + r1.error);
+                            flash(r1.success ? r1.message : tr('messages.error', { error: r1.error }));
                             refresh();
                           }}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 transition-all disabled:opacity-50">
                             {actionId === r.id ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
-                            Re-avaliar + Re-checar
+                            {tr('actions.reevaluateAndRecheck')}
                           </button>
                         )}
                         {r.avaliacao_ia && !r.status_ia4 && (
                           <button disabled={actionId === r.id} onClick={async () => {
                             setActionId(r.id);
-                            flash('Checando...');
+                            flash(tr('messages.checking'));
                             const r1 = await rechecarResposta(r.id);
                             setActionId(null);
-                            flash(r1.success ? r1.message : 'Erro: ' + r1.error);
+                            flash(r1.success ? r1.message : tr('messages.error', { error: r1.error }));
                             refresh();
                           }}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all disabled:opacity-50">
                             {actionId === r.id ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle size={11} />}
-                            Validar
+                            {tr('actions.validate')}
                           </button>
                         )}
                       </div>
@@ -803,7 +805,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
         trilhas.length === 0 ? (
           <div className="text-center py-12">
             <BookOpen size={32} className="text-gray-600 mx-auto mb-3" />
-            <p className="text-sm text-gray-500">Nenhuma trilha encontrada. Rode "Montar Trilhas" na pipeline primeiro.</p>
+            <p className="text-sm text-gray-500">{tr('empty.trails')}</p>
           </div>
         ) : (
           <div className="space-y-6">
@@ -821,7 +823,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                       <span className="text-[10px] text-gray-500">{t.colaborador_cargo}</span>
                       {t.competencia_foco && (
                         <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-amber-400/15 text-amber-400">
-                          Foco: {t.competencia_foco}
+                          {tr('labels.focus')}: {t.competencia_foco}
                         </span>
                       )}
                       {(t.foco_nivel || t.foco_nota) && (
@@ -831,7 +833,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                       )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-[10px] text-gray-500">{cursos.length} {cursos.length === 1 ? 'curso' : 'cursos'}</span>
+                      <span className="text-[10px] text-gray-500">{tr('labels.coursesCount', { count: cursos.length })}</span>
                       <span className={`text-[9px] font-bold px-2 py-0.5 rounded ${
                         t.status === 'pendente' ? 'bg-amber-400/15 text-amber-400' :
                         t.status === 'em_andamento' ? 'bg-cyan-400/15 text-cyan-400' :
@@ -840,7 +842,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                       }`}>{t.status}</span>
                       <button onClick={() => router.push(`/admin/temporadas?empresa=${empresaId}`)}
                         className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 underline">
-                        Editar/Aprovar
+                        {tr('actions.editApprove')}
                       </button>
                     </div>
                   </div>
@@ -853,7 +855,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                         const cenarioFmt = formatPracticeScenario(c.cenario);
                         return (
                           <div key={i} className="flex items-start gap-3 px-3 py-2 rounded-lg border border-purple-400/20" style={{ background: '#1a1240' }}>
-                            <span className="text-[10px] font-bold text-purple-300 shrink-0 mt-0.5 w-12">SEM {String(c.semana).padStart(2, '0')}</span>
+                            <span className="text-[10px] font-bold text-purple-300 shrink-0 mt-0.5 w-12">{tr('labels.weekShort')} {String(c.semana).padStart(2, '0')}</span>
                             <span className="text-purple-300 shrink-0 mt-0.5">⚙</span>
                             <div className="flex-1 min-w-0">
                               <p className="text-xs text-purple-200 font-bold">{c.nome}</p>
@@ -866,7 +868,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                                 <p className="text-[11px] text-purple-300/80 mt-1 italic">{safeText(c.pergunta || cenarioFmt.pergunta)}</p>
                               )}
                               {Array.isArray(c.descritores_cobertos) && c.descritores_cobertos.length > 0 && (
-                                <p className="text-[9px] text-gray-500 mt-1">Cobre: {c.descritores_cobertos.join(' · ')}</p>
+                                <p className="text-[9px] text-gray-500 mt-1">{tr('labels.covers')}: {c.descritores_cobertos.join(' · ')}</p>
                               )}
                             </div>
                           </div>
@@ -875,7 +877,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                       if (tipo === 'avaliacao') {
                         return (
                           <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-amber-400/20" style={{ background: '#2a1f08' }}>
-                            <span className="text-[10px] font-bold text-amber-300 shrink-0 w-12">SEM {String(c.semana).padStart(2, '0')}</span>
+                            <span className="text-[10px] font-bold text-amber-300 shrink-0 w-12">{tr('labels.weekShort')} {String(c.semana).padStart(2, '0')}</span>
                             <span className="text-amber-300">★</span>
                             <span className="text-xs text-amber-200 font-bold">{c.nome}</span>
                           </div>
@@ -886,7 +888,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                         <div key={i} className="rounded-lg" style={{ background: '#091D35' }}>
                           <div className="flex items-start gap-3 px-3 py-2">
                             {c.semana && (
-                              <span className="text-[10px] font-bold text-amber-400 shrink-0 mt-0.5 w-12">SEM {String(c.semana).padStart(2, '0')}</span>
+                              <span className="text-[10px] font-bold text-amber-400 shrink-0 mt-0.5 w-12">{tr('labels.weekShort')} {String(c.semana).padStart(2, '0')}</span>
                             )}
                             {(() => {
                               const Ico = FORMATO_ICON[c.formato] || BookOpen;
@@ -916,10 +918,10 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                               })()}
                               {c.descritor && (
                                 <p className="text-[10px] mt-0.5 flex items-center gap-2 flex-wrap">
-                                  <span className="font-bold text-cyan-200">DESCRITOR FOCO:</span>
+                                  <span className="font-bold text-cyan-200">{tr('labels.focusDescriptor')}:</span>
                                   <span className="text-gray-200">{c.descritor}</span>
                                   {c.nota_descritor != null && (
-                                    <span className="font-bold text-amber-400">nota {Number(c.nota_descritor).toFixed(1)}</span>
+                                    <span className="font-bold text-amber-400">{tr('labels.score')} {Number(c.nota_descritor).toFixed(1)}</span>
                                   )}
                                   {c.formato && <span className="text-gray-600 uppercase">· {c.formato}</span>}
                                 </p>
@@ -936,7 +938,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                           </div>
                           {Array.isArray(c.saiba_mais) && c.saiba_mais.length > 0 && (
                             <div className="px-3 pb-2 pt-1 border-t border-white/[0.04] mt-1 ml-12 space-y-0.5">
-                              <p className="text-[8px] font-bold text-amber-400/70 uppercase tracking-wider mb-0.5">Saiba mais</p>
+                              <p className="text-[8px] font-bold text-amber-400/70 uppercase tracking-wider mb-0.5">{tr('sections.learnMore')}</p>
                               {c.saiba_mais.map((s, j) => (
                                 <div key={j} className="flex items-center gap-2 text-[10px]">
                                   <span className="text-amber-400/40">›</span>
@@ -959,8 +961,8 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                     {cursos.length === 0 && (
                       <p className="text-xs text-gray-500 italic">
                         {t.competencia_foco
-                          ? `Nenhum curso disponível no catálogo para "${t.competencia_foco}"`
-                          : 'Nenhum curso recomendado'}
+                          ? tr('empty.noCourseForFocus', { focus: t.competencia_foco })
+                          : tr('empty.noRecommendedCourse')}
                       </p>
                     )}
 
@@ -968,7 +970,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                     {Array.isArray(t.saiba_mais) && t.saiba_mais.length > 0 && (
                       <div className="mt-3 pt-3 border-t border-white/[0.05]">
                         <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest mb-1.5">
-                          Saiba mais ({t.saiba_mais.length} opciona{t.saiba_mais.length > 1 ? 'is' : 'l'})
+                          {tr('sections.learnMoreOptional', { count: t.saiba_mais.length })}
                         </p>
                         <div className="space-y-1">
                           {t.saiba_mais.slice(0, 8).map((c, i) => (
@@ -992,7 +994,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                             </div>
                           ))}
                           {t.saiba_mais.length > 8 && (
-                            <p className="text-[10px] text-gray-500 italic px-3">... e mais {t.saiba_mais.length - 8}</p>
+                            <p className="text-[10px] text-gray-500 italic px-3">{tr('labels.andMore', { count: t.saiba_mais.length - 8 })}</p>
                           )}
                         </div>
                       </div>

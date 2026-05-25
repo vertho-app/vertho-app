@@ -6,7 +6,7 @@ import {
   ArrowLeft, Save, Loader2, CheckCircle, AlertTriangle, X,
   Brain, Clock, Mail, Eye, EyeOff, Palette, Upload, Trash2, Globe, Users, GraduationCap
 } from 'lucide-react';
-import { loadConfig, salvarConfig, salvarBranding, salvarSlug, loadEquipe, atualizarRole, vincularDominioVercel } from './actions';
+import { loadConfig, salvarConfig, salvarBranding, salvarSlug, loadEquipe, atualizarRole, vincularDominioVercel, salvarLocaleEmpresa } from './actions';
 import { limparSessoesAntigas, limparSessoesTeste } from '@/app/actions/manutencao';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { ROOT_DOMAIN } from '@/lib/domain';
@@ -36,6 +36,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
   const [showKeys, setShowKeys] = useState({});
   const [vinculando, setVinculando] = useState(false);
   const [vincularMsg, setVincularMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [defaultLocale, setDefaultLocale] = useState('pt-BR');
 
   // Branding state
   const DEFAULT_BRANDING = {
@@ -60,6 +61,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
       if (r.success) {
         setEmpresa(r.empresa);
         setConfig({ ...DEFAULT_CONFIG, ...(r.empresa.sys_config || {}) });
+        setDefaultLocale(r.empresa.default_locale || 'pt-BR');
         const ui = r.empresa.ui_config || {};
         setBranding(prev => ({ ...prev, ...ui }));
         setSlug(r.empresa.slug || '');
@@ -96,6 +98,11 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
       if (!rSlug.success) { setError((rSlug as any).error); return; }
       if ((rSlug as any).slug) setSlug((rSlug as any).slug);
       setSuccess('Branding salvo!'); setTimeout(() => setSuccess(''), 3000);
+    } else if (tab === 'idioma') {
+      const r = await salvarLocaleEmpresa(empresaId, defaultLocale);
+      setSaving(false);
+      if (r.success) { setSuccess('Idioma salvo!'); setTimeout(() => setSuccess(''), 3000); }
+      else setError(r.error);
     } else {
       const r = await salvarConfig(empresaId, config);
       setSaving(false);
@@ -159,6 +166,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
         {[
           { id: 'equipe', label: 'Equipe', icon: Users },
           { id: 'programa', label: 'Programa', icon: GraduationCap },
+          { id: 'idioma', label: 'Idioma', icon: Globe },
           { id: 'branding', label: 'Branding', icon: Palette },
           { id: 'ai', label: 'Inteligência Artificial', icon: Brain },
           { id: 'cadencia', label: 'Automações', icon: Clock },
@@ -262,6 +270,30 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
             </select>
             <p className="text-[10px] text-gray-600 mt-2">
               No Modo Onboarding o default sensato é <b>junior</b>. Modo Regular geralmente fica em branco.
+            </p>
+          </Panel>
+        </div>
+      )}
+
+      {/* ═══ Tab: Idioma ═══ */}
+      {tab === 'idioma' && (
+        <div className="space-y-4">
+          <Panel title="Idioma padrão da empresa">
+            <p className="text-[10px] text-gray-500 mb-3">
+              Define o idioma padrão para usuários desta empresa. A preferência individual do colaborador, quando existir, tem prioridade.
+            </p>
+            <select
+              value={defaultLocale}
+              onChange={e => setDefaultLocale(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40"
+              style={{ background: '#091D35' }}
+            >
+              <option value="pt-BR">Português do Brasil</option>
+              <option value="pt-PT">Português de Portugal</option>
+              <option value="es-ES">Espanhol da Espanha</option>
+            </select>
+            <p className="text-[10px] text-gray-600 mt-2">
+              Fallback global: pt-BR. Conteúdos ainda sem tradução continuam usando o texto original até a Sprint de conteúdo multilíngue.
             </p>
           </Panel>
         </div>

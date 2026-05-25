@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { getLocaleForEmail } from '@/lib/i18n-server';
+import { localeCookieName } from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,6 +57,16 @@ export async function GET(req: NextRequest) {
     loginUrl.searchParams.set('error', error);
     if (next && next !== '/dashboard') loginUrl.searchParams.set('redirect', next);
     return NextResponse.redirect(loginUrl);
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const locale = await getLocaleForEmail(user?.email);
+  if (locale) {
+    store.set(localeCookieName, locale, {
+      path: '/',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 365,
+    });
   }
 
   return NextResponse.redirect(redirectTo);

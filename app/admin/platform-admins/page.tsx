@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { ArrowLeft, Plus, Trash2, Loader2, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { loadPlatformAdmins, adicionarAdmin, removerAdmin } from './actions';
 
 export default function PlatformAdminsPage() {
   const router = useRouter();
+  const locale = useLocale();
+  const t = useTranslations('AdminPlatformAdmins');
   const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState('');
@@ -34,7 +37,7 @@ export default function PlatformAdminsPage() {
   }
 
   async function handleRemove(id: any, adminEmail: any) {
-    if (!confirm(`Remover ${adminEmail} como admin da plataforma?`)) return;
+    if (!confirm(t('confirm.remove', { email: adminEmail }))) return;
     setRemoving(id);
     const r = await removerAdmin(id);
     if (r.success) {
@@ -53,13 +56,13 @@ export default function PlatformAdminsPage() {
         <div className="flex items-center gap-3">
           <ShieldCheck size={24} className="text-cyan-400" />
           <div>
-            <h1 className="text-lg font-bold text-white">Admins da Plataforma</h1>
-            <p className="text-xs text-gray-500">Usuarios com acesso ao painel /admin</p>
+            <h1 className="text-lg font-bold text-white">{t('title')}</h1>
+            <p className="text-xs text-gray-500">{t('subtitle')}</p>
           </div>
         </div>
         <button onClick={() => router.push('/admin/dashboard')}
           className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-white transition-colors">
-          <ArrowLeft size={16} /> Voltar
+          <ArrowLeft size={16} /> {t('actions.back')}
         </button>
       </div>
 
@@ -80,7 +83,7 @@ export default function PlatformAdminsPage() {
 
       {/* Add form */}
       <form onSubmit={handleAdd} className="rounded-xl border border-white/[0.06] p-4 mb-6" style={{ background: '#0F2A4A' }}>
-        <p className="text-sm font-semibold text-gray-300 mb-3">Adicionar Admin</p>
+        <p className="text-sm font-semibold text-gray-300 mb-3">{t('addTitle')}</p>
         <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2">
           <input
             value={email}
@@ -94,7 +97,7 @@ export default function PlatformAdminsPage() {
           <input
             value={nome}
             onChange={e => setNome(e.target.value)}
-            placeholder="Nome (opcional)"
+            placeholder={t('placeholders.name')}
             className="px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40"
             style={{ background: '#091D35' }}
           />
@@ -102,7 +105,7 @@ export default function PlatformAdminsPage() {
             className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-bold text-white disabled:opacity-40"
             style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
             {adding ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-            Adicionar
+            {t('actions.add')}
           </button>
         </div>
       </form>
@@ -110,7 +113,7 @@ export default function PlatformAdminsPage() {
       {/* List */}
       <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
         <div className="px-4 py-3 border-b border-white/[0.06]">
-          <p className="text-sm font-semibold text-gray-300">Admins Ativos ({admins.length})</p>
+          <p className="text-sm font-semibold text-gray-300">{t('activeTitle', { count: admins.length })}</p>
         </div>
         <div className="divide-y divide-white/[0.03]">
           {admins.map(admin => (
@@ -123,7 +126,7 @@ export default function PlatformAdminsPage() {
                 <p className="text-[10px] text-gray-500 truncate">{admin.email}</p>
               </div>
               <p className="text-[10px] text-gray-600 shrink-0">
-                {new Date(admin.created_at).toLocaleDateString('pt-BR')}
+                {new Date(admin.created_at).toLocaleDateString(locale)}
               </p>
               <button onClick={() => handleRemove(admin.id, admin.email)}
                 disabled={removing === admin.id}
@@ -134,7 +137,7 @@ export default function PlatformAdminsPage() {
           ))}
           {admins.length === 0 && (
             <div className="px-4 py-8 text-center">
-              <p className="text-sm text-gray-500">Nenhum admin cadastrado</p>
+              <p className="text-sm text-gray-500">{t('empty')}</p>
             </div>
           )}
         </div>

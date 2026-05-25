@@ -21,7 +21,9 @@
     "test:ui": "npx playwright test --ui",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
-    "smoke": "node scripts/smoke-test.js"
+    "smoke": "node scripts/smoke-test.js",
+    "i18n:audit": "node scripts/i18n-audit.mjs",
+    "i18n:check": "node scripts/i18n-check-keys.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",
@@ -34,6 +36,7 @@
     "lucide-react": "^1.7.0",
     "mammoth": "^1.12.0",
     "next": "^16.2.4",
+    "next-intl": "^4.12.0",
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^5.6.205",

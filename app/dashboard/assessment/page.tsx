@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, CheckCircle, ArrowLeft, ArrowRight, Target, Calendar, FileText, Trophy } from 'lucide-react';
 import { getDiagnosticoDoDia, salvarRespostaDiagnostico } from './assessment-actions';
@@ -27,6 +28,7 @@ const PROMPT_P = [
 ];
 
 export default function AssessmentPage() {
+  const t = useTranslations('Assessment');
   const router = useRouter();
   const supabase = getSupabase();
 
@@ -47,7 +49,7 @@ export default function AssessmentPage() {
     (async () => {
       try {
         const r: any = await getDiagnosticoDoDia();
-        if (!r) { setError('Resposta vazia do servidor'); setPhase(PHASE.ERROR); return; }
+        if (!r) { setError(t('emptyServer')); setPhase(PHASE.ERROR); return; }
         if (r.error) { setError(r.error); setPhase(PHASE.ERROR); return; }
         setData(r);
         if (r.concluiuTudo) setPhase(PHASE.CONCLUIDO);
@@ -55,7 +57,7 @@ export default function AssessmentPage() {
         else setPhase(PHASE.EXPLICACAO);
       } catch (e) {
         console.error('[assessment init]', e);
-        setError(e?.message || 'Erro ao carregar');
+        setError(e?.message || t('loadError'));
         setPhase(PHASE.ERROR);
       }
     })();
@@ -68,7 +70,7 @@ export default function AssessmentPage() {
   }
 
   function avancarPergunta() {
-    if (currentR.trim().length < 20) { flash('Mínimo 20 caracteres.'); return; }
+    if (currentR.trim().length < 20) { flash(t('questions.minToast')); return; }
     if (pergIdx === 3) { setPhase(PHASE.REPR); return; }
     setPergIdx(i => i + 1);
   }
@@ -79,7 +81,7 @@ export default function AssessmentPage() {
   }
 
   async function enviarResposta() {
-    if (!repr) { flash('Escolha a representatividade (1 a 10).'); return; }
+    if (!repr) { flash(t('representativity.chooseToast')); return; }
     setSaving(true);
     const cen = data.cenarioDoDia;
     const r: any = await salvarRespostaDiagnostico(cen.cenarioId, cen.compId, cen.compNome, {
@@ -107,7 +109,7 @@ export default function AssessmentPage() {
     return (
       <div className="max-w-[600px] mx-auto px-4 py-6">
         <button onClick={() => router.back()} className="flex items-center gap-1 text-sm text-gray-400 hover:text-white mb-4">
-          <ArrowLeft size={16} /> Voltar
+          <ArrowLeft size={16} /> {t('back')}
         </button>
         <div className="rounded-xl p-6 border border-white/[0.06] text-center" style={{ background: '#0F2A4A' }}>
           <p className="text-base text-gray-300">{error}</p>
@@ -125,7 +127,7 @@ export default function AssessmentPage() {
       )}
 
       <button onClick={() => router.back()} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors">
-        <ArrowLeft size={16} /> Voltar
+        <ArrowLeft size={16} /> {t('back')}
       </button>
 
       {/* Header com progresso */}
@@ -141,7 +143,7 @@ export default function AssessmentPage() {
           <div className="h-2 rounded-full overflow-hidden mt-3" style={{ background: 'rgba(255,255,255,0.05)' }}>
             <div className="h-full rounded-full bg-cyan-400 transition-all" style={{ width: `${data.progresso.pct}%` }} />
           </div>
-          <p className="text-[10px] text-gray-500 mt-1.5">{data.progresso.respondidas} de {data.progresso.total} competências completadas</p>
+          <p className="text-[10px] text-gray-500 mt-1.5">{t('progress', { done: data.progresso.respondidas, total: data.progresso.total })}</p>
         </div>
       )}
 
@@ -149,29 +151,29 @@ export default function AssessmentPage() {
       {phase === PHASE.EXPLICACAO && (
         <div className="rounded-2xl p-6 border border-white/[0.06] text-center" style={{ background: '#0F2A4A' }}>
           <div className="text-4xl mb-2">📋</div>
-          <p className="text-lg font-extrabold text-white mb-1">Como funciona?</p>
-          <p className="text-xs text-gray-500 mb-5">Leia antes de começar</p>
+          <p className="text-lg font-extrabold text-white mb-1">{t('explanation.title')}</p>
+          <p className="text-xs text-gray-500 mb-5">{t('explanation.subtitle')}</p>
           <div className="space-y-3 text-left mb-6">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-cyan-400/15 flex items-center justify-center shrink-0"><Calendar size={16} className="text-cyan-400" /></div>
-              <div className="text-sm text-gray-300"><span className="font-bold text-white">No seu ritmo</span> · ~10 min por competência</div>
+              <div className="text-sm text-gray-300"><span className="font-bold text-white">{t('explanation.paceTitle')}</span> · {t('explanation.paceText')}</div>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-purple-400/15 flex items-center justify-center shrink-0"><FileText size={16} className="text-purple-400" /></div>
-              <div className="text-sm text-gray-300"><span className="font-bold text-white">4 perguntas</span> · cenário real, responda como você agiria</div>
+              <div className="text-sm text-gray-300"><span className="font-bold text-white">{t('explanation.questionsTitle')}</span> · {t('explanation.questionsText')}</div>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-green-400/15 flex items-center justify-center shrink-0"><CheckCircle size={16} className="text-green-400" /></div>
-              <div className="text-sm text-gray-300"><span className="font-bold text-white">Confidencial</span> · RH vê apenas dados agregados</div>
+              <div className="text-sm text-gray-300"><span className="font-bold text-white">{t('explanation.confidentialTitle')}</span> · {t('explanation.confidentialText')}</div>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-amber-400/15 flex items-center justify-center shrink-0"><Target size={16} className="text-amber-400" /></div>
-              <div className="text-sm text-gray-300"><span className="font-bold text-white">Seja autêntico(a)</span> · sem resposta certa ou errada</div>
+              <div className="text-sm text-gray-300"><span className="font-bold text-white">{t('explanation.authenticTitle')}</span> · {t('explanation.authenticText')}</div>
             </div>
           </div>
           <button onClick={() => setPhase(PHASE.INTRO)}
             className="w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-cyan-400 to-cyan-600 hover:brightness-110 transition">
-            Começar avaliação →
+            {t('explanation.start')}
           </button>
         </div>
       )}
@@ -179,11 +181,11 @@ export default function AssessmentPage() {
       {/* ─── INTRO DO CENÁRIO ─── */}
       {phase === PHASE.INTRO && data?.cenarioDoDia && (
         <div className="rounded-2xl p-5 border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
-          <p className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-400 mb-2">Contexto</p>
+          <p className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-400 mb-2">{t('intro.context')}</p>
           <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap mb-5">{data.cenarioDoDia.contexto}</p>
           <button onClick={() => { setPergIdx(0); setPhase(PHASE.PERGUNTAS); }}
             className="w-full py-3 rounded-xl font-bold text-white bg-gradient-to-br from-[#0F2B54] to-[#1a3a70] hover:brightness-110 transition">
-            ▶ Iniciar avaliação
+            {t('intro.start')}
           </button>
         </div>
       )}
@@ -197,7 +199,7 @@ export default function AssessmentPage() {
           <div className="rounded-2xl p-5 border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] font-bold tracking-widest text-cyan-400 uppercase">
-                Pergunta {pergIdx + 1} de {enunciados.length}
+                {t('questions.counter', { current: pergIdx + 1, total: enunciados.length })}
               </span>
               <div className="flex gap-1">
                 {enunciados.map((_, i) => (
@@ -216,10 +218,10 @@ export default function AssessmentPage() {
                 quando o browser não suporta Web Speech API (alguns Safari). */}
             <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2 md:gap-3 mb-2">
               <p className="text-[10px] text-gray-500 leading-relaxed flex-1 md:max-w-md">
-                <span className="font-semibold text-gray-400">Dica:</span>{' '}
-                Clique em <span className="text-cyan-400 font-semibold">Gravar por voz</span> e
-                fale naturalmente em português — o texto aparece no campo enquanto você fala.
-                Clique de novo para parar e edite se precisar. Permita o acesso ao microfone na primeira vez.
+                <span className="font-semibold text-gray-400">{t('questions.voiceTipPrefix')}</span>{' '}
+                {t.rich('questions.voiceTip', {
+                  strong: (chunks) => <span className="text-cyan-400 font-semibold">{chunks}</span>,
+                })}
               </p>
               <div className="self-start md:self-auto">
                 <MicInput value={currentR} onChange={setCurrentR} />
@@ -228,19 +230,19 @@ export default function AssessmentPage() {
             <textarea
               value={currentR}
               onChange={e => setCurrentR(e.target.value)}
-              placeholder="Descreva com detalhes sua resposta…"
+              placeholder={t('questions.placeholder')}
               rows={6}
               className="w-full p-3 rounded-xl border-2 border-white/10 bg-[#091D35] text-white text-sm outline-none focus:border-cyan-400 transition-colors placeholder:text-gray-500"
             />
-            <p className={`text-right text-[11px] mt-1 ${len < 20 ? 'text-red-400' : 'text-gray-500'}`}>{len} / mín. 20 caracteres</p>
+            <p className={`text-right text-[11px] mt-1 ${len < 20 ? 'text-red-400' : 'text-gray-500'}`}>{t('questions.minChars', { count: len })}</p>
             <div className="flex gap-2 mt-4">
               <button onClick={voltarPergunta}
                 className="flex-1 py-2.5 rounded-xl text-xs font-bold text-gray-300 border border-white/10 hover:bg-white/5 transition">
-                ← Anterior
+                {t('questions.previous')}
               </button>
               <button onClick={avancarPergunta}
                 className="flex-1 py-2.5 rounded-xl text-xs font-bold text-[#0C1829] bg-gradient-to-br from-cyan-400 to-cyan-600 hover:brightness-110 transition">
-                {pergIdx === 3 ? 'Representatividade →' : 'Próxima →'}
+                {pergIdx === 3 ? t('questions.representativity') : t('questions.next')}
               </button>
             </div>
           </div>
@@ -251,7 +253,7 @@ export default function AssessmentPage() {
       {phase === PHASE.REPR && (
         <div className="rounded-2xl p-5 border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
           <p className="text-sm font-semibold text-white leading-snug mb-5">
-            Em uma escala de 1 a 10, qual o grau de representatividade desta situação no seu cotidiano?
+            {t('representativity.prompt')}
           </p>
           <div className="flex justify-center gap-1.5 flex-wrap mb-2">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
@@ -266,20 +268,20 @@ export default function AssessmentPage() {
             ))}
           </div>
           <div className="flex justify-between text-[10px] text-gray-500 mb-5">
-            <span>1 — Raramente</span>
-            <span>10 — Muita frequência</span>
+            <span>{t('representativity.low')}</span>
+            <span>{t('representativity.high')}</span>
           </div>
           <div className="flex gap-2">
             <button onClick={() => { setPhase(PHASE.PERGUNTAS); setPergIdx(3); }}
               disabled={saving}
               className="flex-1 py-2.5 rounded-xl text-xs font-bold text-gray-300 border border-white/10 hover:bg-white/5 transition disabled:opacity-50">
-              ← Anterior
+              {t('questions.previous')}
             </button>
             <button onClick={enviarResposta}
               disabled={saving}
               className="flex-1 py-2.5 rounded-xl text-xs font-bold text-[#0C1829] bg-gradient-to-br from-cyan-400 to-cyan-600 hover:brightness-110 transition disabled:opacity-50 flex items-center justify-center gap-1.5">
               {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
-              {saving ? 'Enviando...' : 'Enviar avaliação ✓'}
+              {saving ? t('representativity.sending') : t('representativity.submit')}
             </button>
           </div>
         </div>
@@ -289,8 +291,8 @@ export default function AssessmentPage() {
       {phase === PHASE.CONFIRM && (
         <div className="rounded-2xl p-6 border border-green-400/30 text-center" style={{ background: 'rgba(16,185,129,0.08)' }}>
           <CheckCircle size={48} className="text-green-400 mx-auto mb-3" />
-          <p className="text-lg font-extrabold text-green-400 mb-1">Resposta salva!</p>
-          <p className="text-sm text-gray-300 mb-5">Sua avaliação foi registrada com sucesso.</p>
+          <p className="text-lg font-extrabold text-green-400 mb-1">{t('confirm.title')}</p>
+          <p className="text-sm text-gray-300 mb-5">{t('confirm.description')}</p>
           <div className="flex flex-col gap-2">
             {saveResult?.proximaCompetencia && (
               <button onClick={async () => {
@@ -307,12 +309,12 @@ export default function AssessmentPage() {
                 else setPhase(PHASE.INTRO);
               }}
                 className="w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-cyan-400 to-cyan-600 hover:brightness-110 transition">
-                Próxima competência →
+                {t('confirm.nextCompetency')}
               </button>
             )}
             <button onClick={() => router.push('/dashboard')}
               className="w-full py-3 rounded-xl font-bold text-gray-300 border border-white/10 hover:bg-white/5 transition">
-              Voltar ao dashboard
+              {t('confirm.dashboard')}
             </button>
           </div>
         </div>
@@ -322,11 +324,11 @@ export default function AssessmentPage() {
       {phase === PHASE.HOJE && (
         <div className="rounded-2xl p-6 border border-white/[0.06] text-center" style={{ background: '#0F2A4A' }}>
           <div className="text-5xl mb-3">✅</div>
-          <p className="text-lg font-extrabold text-white mb-1">Avaliação do dia concluída!</p>
-          <p className="text-sm text-gray-400 mb-5">Volte amanhã para continuar sua jornada.</p>
+          <p className="text-lg font-extrabold text-white mb-1">{t('today.title')}</p>
+          <p className="text-sm text-gray-400 mb-5">{t('today.description')}</p>
           <button onClick={() => router.push('/dashboard')}
             className="w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-cyan-400 to-cyan-600 hover:brightness-110 transition">
-            Voltar ao dashboard
+            {t('confirm.dashboard')}
           </button>
         </div>
       )}
@@ -335,14 +337,13 @@ export default function AssessmentPage() {
       {phase === PHASE.CONCLUIDO && (
         <div className="rounded-2xl p-6 border border-cyan-400/30 text-center" style={{ background: 'linear-gradient(135deg, rgba(45,212,191,0.08), rgba(252,211,77,0.05))' }}>
           <Trophy size={56} className="text-amber-400 mx-auto mb-3" />
-          <p className="text-xl font-black text-white mb-1">Parabéns, {data?.colaborador?.nome?.split(' ')[0] || ''}!</p>
+          <p className="text-xl font-black text-white mb-1">{t('done.title', { name: data?.colaborador?.nome?.split(' ')[0] || '' })}</p>
           <p className="text-sm text-gray-300 mb-5">
-            Você completou todas as avaliações de competências.<br />
-            Em breve você receberá seu relatório personalizado.
+            {t.rich('done.description', { br: () => <br /> })}
           </p>
           <button onClick={() => router.push('/dashboard')}
             className="w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-cyan-400 to-cyan-600 hover:brightness-110 transition">
-            Voltar ao dashboard
+            {t('confirm.dashboard')}
           </button>
         </div>
       )}

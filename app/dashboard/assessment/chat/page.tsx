@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Send, Loader2, CheckCircle, AlertTriangle, ArrowLeft, Shield } from 'lucide-react';
 import { getColabByEmail } from '@/app/dashboard/colab-action';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 
 export default function ChatPage() {
+  const t = useTranslations('AssessmentChat');
   const searchParams = useSearchParams();
   const competenciaId = searchParams.get('competencia');
   const supabase = getSupabase();
@@ -36,14 +38,14 @@ export default function ChatPage() {
   useEffect(() => {
     async function init() {
       const { data: { user: u } } = await supabase.auth.getUser();
-      if (!u) { setError('Não autenticado'); setInitLoading(false); return; }
+      if (!u) { setError(t('errors.unauthenticated')); setInitLoading(false); return; }
       setUser(u);
 
       const c = await getColabByEmail('id, nome_completo, empresa_id');
-      if (!c) { setError('Colaborador não encontrado'); setInitLoading(false); return; }
+      if (!c) { setError(t('errors.collaboratorNotFound')); setInitLoading(false); return; }
       setColab(c);
 
-      if (!competenciaId) { setError('competencia não informada na URL'); setInitLoading(false); return; }
+      if (!competenciaId) { setError(t('errors.missingCompetency')); setInitLoading(false); return; }
 
       // Nome da competência
       const { data: comp } = await supabase.from('competencias')
@@ -105,7 +107,7 @@ export default function ChatPage() {
       const data = await res.json();
 
       if (!data.ok) {
-        setError(data.error || 'Erro na API');
+        setError(data.error || t('errors.api'));
         setLoading(false);
         return;
       }
@@ -146,11 +148,11 @@ export default function ChatPage() {
   }
 
   const faseLabel = {
-    cenario: 'Cenário',
-    aprofundamento: 'Aprofundamento',
-    contraexemplo: 'Contraexemplo',
-    encerramento: 'Encerramento',
-    concluida: 'Concluída',
+    cenario: t('phase.scenario'),
+    aprofundamento: t('phase.deepening'),
+    contraexemplo: t('phase.counterexample'),
+    encerramento: t('phase.closing'),
+    concluida: t('phase.done'),
   };
 
   return (
@@ -162,19 +164,19 @@ export default function ChatPage() {
             <ArrowLeft size={18} />
           </a>
           <div className="text-center flex-1 px-3">
-            <p className="text-sm font-bold text-white truncate">{compNome || 'Avaliação'}</p>
+            <p className="text-sm font-bold text-white truncate">{compNome || t('fallbackTitle')}</p>
             <div className="flex items-center justify-center gap-3 mt-1">
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cyan-400/15 text-cyan-400">
                 {faseLabel[fase] || fase}
               </span>
               {status === 'em_andamento' && (
                 <span className="text-[10px] text-gray-500">
-                  Confiança: <span className="text-cyan-400 font-bold">{confianca}%</span>
+                  {t('confidence')}: <span className="text-cyan-400 font-bold">{confianca}%</span>
                 </span>
               )}
               {status === 'concluido' && (
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-400/15 text-green-400">
-                  Concluída
+                  {t('statusDone')}
                 </span>
               )}
             </div>
@@ -187,8 +189,8 @@ export default function ChatPage() {
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 && !loading && (
           <div className="text-center py-8">
-            <p className="text-sm text-gray-500">Envie uma mensagem para iniciar a avaliação.</p>
-            <p className="text-xs text-gray-600 mt-1">Descreva como você agiria no cenário apresentado.</p>
+            <p className="text-sm text-gray-500">{t('empty.title')}</p>
+            <p className="text-xs text-gray-600 mt-1">{t('empty.subtitle')}</p>
           </div>
         )}
 
@@ -218,22 +220,22 @@ export default function ChatPage() {
         <div className="shrink-0 mx-4 mb-3 rounded-xl border border-green-400/20 overflow-hidden" style={{ background: '#0F2A4A' }}>
           <div className="px-4 py-2.5 border-b border-green-400/10 flex items-center gap-2">
             <CheckCircle size={14} className="text-green-400" />
-            <span className="text-xs font-bold text-green-400">Avaliação Concluída</span>
+            <span className="text-xs font-bold text-green-400">{t('final.title')}</span>
           </div>
           <div className="p-4 space-y-3">
             {/* KPIs */}
             <div className="grid grid-cols-3 gap-2">
               <div className="text-center p-2 rounded-lg" style={{ background: '#091D35' }}>
                 <p className="text-lg font-bold text-white">N{avaliacao.nivel}</p>
-                <p className="text-[9px] text-gray-500 uppercase">Nível</p>
+                <p className="text-[9px] text-gray-500 uppercase">{t('final.level')}</p>
               </div>
               <div className="text-center p-2 rounded-lg" style={{ background: '#091D35' }}>
                 <p className="text-lg font-bold text-cyan-400">{avaliacao.nota_decimal}</p>
-                <p className="text-[9px] text-gray-500 uppercase">Nota</p>
+                <p className="text-[9px] text-gray-500 uppercase">{t('final.score')}</p>
               </div>
               <div className="text-center p-2 rounded-lg" style={{ background: '#091D35' }}>
                 <p className="text-lg font-bold text-amber-400">{avaliacao.lacuna}</p>
-                <p className="text-[9px] text-gray-500 uppercase">Lacuna</p>
+                <p className="text-[9px] text-gray-500 uppercase">{t('final.gap')}</p>
               </div>
             </div>
 
@@ -242,7 +244,7 @@ export default function ChatPage() {
               <div className="space-y-2">
                 {avaliacao.feedback.pontos_fortes?.length > 0 && (
                   <div>
-                    <p className="text-[10px] font-bold text-green-400 uppercase tracking-widest mb-1">Pontos Fortes</p>
+                    <p className="text-[10px] font-bold text-green-400 uppercase tracking-widest mb-1">{t('final.strengths')}</p>
                     {avaliacao.feedback.pontos_fortes.map((p, i) => (
                       <p key={i} className="text-xs text-gray-400 pl-3 border-l-2 border-green-400/30 mb-1">{p}</p>
                     ))}
@@ -250,7 +252,7 @@ export default function ChatPage() {
                 )}
                 {avaliacao.feedback.pontos_melhoria?.length > 0 && (
                   <div>
-                    <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-1">Pontos de Melhoria</p>
+                    <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-1">{t('final.improvements')}</p>
                     {avaliacao.feedback.pontos_melhoria.map((p, i) => (
                       <p key={i} className="text-xs text-gray-400 pl-3 border-l-2 border-amber-400/30 mb-1">{p}</p>
                     ))}
@@ -273,7 +275,7 @@ export default function ChatPage() {
           <input
             value={input}
             onChange={e => setInput(e.target.value)}
-            placeholder="Descreva como você agiria..."
+            placeholder={t('inputPlaceholder')}
             disabled={loading}
             className="flex-1 px-4 py-3 rounded-xl border border-white/10 bg-white/[0.05] text-sm text-white outline-none placeholder:text-white/30 focus:border-cyan-400/40 disabled:opacity-50"
           />

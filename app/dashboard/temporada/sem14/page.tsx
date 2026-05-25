@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, ArrowLeft, Play, CheckCircle2, AlertTriangle, Mic, MicOff } from 'lucide-react';
 import { loadTemporadaPorEmail } from '@/actions/temporadas';
@@ -19,6 +20,7 @@ const MIN_CHARS = 20;
  * `tipo: 'avaliacao'`) — a rota continua sendo `/sem14` por compatibilidade.
  */
 export default function Sem14Page() {
+  const t = useTranslations('SeasonFinal');
   const router = useRouter();
   const sb = getSupabase();
   const micRef = useRef(null);
@@ -41,7 +43,7 @@ export default function Sem14Page() {
       const { data: { user } } = await sb.auth.getUser();
       if (!user) { router.replace('/login'); return; }
       const r = await loadTemporadaPorEmail(user.email);
-      if (r.error || !r.trilha) { setError(r.error || 'Sem trilha'); return; }
+      if (r.error || !r.trilha) { setError(r.error || t('errors.noTrack')); return; }
       setTrilhaId(r.trilha.id);
       setCompetencia(r.trilha.competencia_foco);
       setColabNome(r.colaborador?.nome_completo || '');
@@ -88,7 +90,7 @@ export default function Sem14Page() {
         });
         if (!initResp.ok) {
           const err = await initResp.json();
-          setError(err.error || `Erro ao iniciar semana ${semCB}`);
+          setError(err.error || t('errors.startWeek', { week: semCB }));
           return;
         }
         const data = await initResp.json();
@@ -105,7 +107,7 @@ export default function Sem14Page() {
 
   async function finalizar() {
     if (respostas.some(r => r.trim().length < MIN_CHARS)) {
-      alert('Todas as 4 perguntas precisam ser respondidas com pelo menos ' + MIN_CHARS + ' caracteres.');
+      alert(t('alerts.allQuestions', { min: MIN_CHARS }));
       return;
     }
     setBusy(true);
@@ -119,7 +121,7 @@ export default function Sem14Page() {
       });
       if (!r.ok) {
         const err = await r.json();
-        alert('Erro: ' + (err.error || 'Falha ao enviar'));
+        alert(t('alerts.error', { error: err.error || t('alerts.sendFailure') }));
         setBusy(false); return;
       }
       if (i === respostas.length - 1) {
@@ -136,7 +138,7 @@ export default function Sem14Page() {
       <div className="text-center">
         <AlertTriangle size={32} className="text-red-400 mx-auto mb-2" />
         <p className="text-sm text-red-400">{error}</p>
-        <button onClick={() => router.push('/dashboard/temporada')} className="text-xs text-cyan-400 mt-3 hover:underline">← Voltar</button>
+        <button onClick={() => router.push('/dashboard/temporada')} className="text-xs text-cyan-400 mt-3 hover:underline">{t('back')}</button>
       </div>
     </div>
   );
@@ -146,7 +148,7 @@ export default function Sem14Page() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
       <button onClick={() => router.push('/dashboard/temporada')} className="flex items-center gap-2 text-xs text-gray-400 hover:text-cyan-400 mb-4">
-        <ArrowLeft size={14} /> Voltar à temporada
+        <ArrowLeft size={14} /> {t('backToSeason')}
       </button>
 
       {/* Card de progresso do colab */}
@@ -165,20 +167,20 @@ export default function Sem14Page() {
             style={{ width: step === 6 ? '100%' : step > 0 ? `${((step - 1) / 4) * 100}%` : '0%' }} />
         </div>
         <p className="text-[10px] text-gray-500 mt-2">
-          {step === 6 ? 'Avaliação concluída' : `Semana ${semCenarioB} · ${competencia}`}
+          {step === 6 ? t('progress.done') : t('progress.weekCompetency', { week: semCenarioB, competency: competencia })}
         </p>
       </div>
 
       {/* STEP 0 — Cenário */}
       {step === 0 && (
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-          <p className="text-xs uppercase tracking-widest text-cyan-400 font-bold mb-3">Contexto</p>
+          <p className="text-xs uppercase tracking-widest text-cyan-400 font-bold mb-3">{t('context')}</p>
           <div className="prose prose-invert prose-sm max-w-none text-gray-200 mb-5">
             <ReactMarkdown>{cenario}</ReactMarkdown>
           </div>
           <button onClick={() => setStep(1)}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-[#091D35] font-bold text-sm">
-            <Play size={14} fill="currentColor" /> Iniciar avaliação
+            <Play size={14} fill="currentColor" /> {t('startAssessment')}
           </button>
         </div>
       )}
@@ -188,7 +190,7 @@ export default function Sem14Page() {
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
           <div className="flex items-center justify-between mb-4">
             <p className="text-xs uppercase tracking-widest text-cyan-400 font-bold">
-              Pergunta {step} de 4
+              {t('question.counter', { current: step, total: 4 })}
             </p>
             <div className="flex gap-1">
               {[1, 2, 3, 4].map(i => (
@@ -206,7 +208,7 @@ export default function Sem14Page() {
 
           <div className="flex items-start justify-between gap-2 mb-2">
             <p className="text-[11px] text-gray-500 flex-1">
-              <b className="text-cyan-400">Dica:</b> Clique em <b className="text-cyan-400">Gravar por voz</b> e fale naturalmente em português — o texto aparece no campo enquanto você fala. Permita acesso ao microfone na primeira vez.
+              {t.rich('question.voiceTip', { strong: (chunks) => <b className="text-cyan-400">{chunks}</b> })}
             </p>
             <MicInput ref={micRef} value={respostas[step - 1]}
               onChange={val => setResposta(step - 1, val)} disabled={busy} />
@@ -214,34 +216,34 @@ export default function Sem14Page() {
 
           <textarea value={respostas[step - 1]}
             onChange={e => setResposta(step - 1, e.target.value)}
-            placeholder="Descreva com detalhes sua resposta..."
+            placeholder={t('question.placeholder')}
             rows={6}
             disabled={busy}
             className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500 resize-vertical" />
 
           <div className="flex items-center justify-between mt-2 mb-4">
             <span className={`text-[11px] ${respostas[step - 1].trim().length >= MIN_CHARS ? 'text-emerald-400' : 'text-red-400'}`}>
-              {respostas[step - 1].length} / mín. {MIN_CHARS} caracteres
+              {t('question.minChars', { count: respostas[step - 1].length, min: MIN_CHARS })}
             </span>
           </div>
 
           <div className="flex items-center gap-2">
             <button onClick={() => { micRef.current?.stop(); setStep(step - 1); }} disabled={busy}
               className="flex-1 py-3 rounded-xl border border-white/10 hover:border-white/30 text-sm text-gray-300 disabled:opacity-50">
-              ← Anterior
+              {t('question.previous')}
             </button>
             {step < 4 ? (
               <button onClick={() => {
-                if (respostas[step - 1].trim().length < MIN_CHARS) { alert(`Mínimo ${MIN_CHARS} caracteres.`); return; }
+                if (respostas[step - 1].trim().length < MIN_CHARS) { alert(t('question.minAlert', { min: MIN_CHARS })); return; }
                 micRef.current?.stop(); setStep(step + 1);
               }} disabled={busy}
                 className="flex-1 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-[#091D35] font-bold text-sm disabled:opacity-50">
-                Próxima →
+                {t('question.next')}
               </button>
             ) : (
               <button onClick={() => { micRef.current?.stop(); finalizar(); }} disabled={busy}
                 className="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#091D35] font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2">
-                {busy ? <><Loader2 size={14} className="animate-spin" /> Processando...</> : <>Finalizar avaliação</>}
+                {busy ? <><Loader2 size={14} className="animate-spin" /> {t('question.processing')}</> : <>{t('question.finish')}</>}
               </button>
             )}
           </div>
@@ -253,16 +255,16 @@ export default function Sem14Page() {
         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.05] p-5">
           <div className="flex items-center gap-2 mb-4">
             <CheckCircle2 size={20} className="text-emerald-400" />
-            <p className="text-base font-bold text-white">Avaliação concluída</p>
+            <p className="text-base font-bold text-white">{t('done.title')}</p>
           </div>
           <div className="grid grid-cols-3 gap-2 mb-4">
             <div className="text-center rounded-lg bg-white/[0.05] p-3">
               <p className="text-xl font-bold text-white">{avaliacao.nota_media_pre}</p>
-              <p className="text-[10px] text-gray-500 uppercase">Pré</p>
+              <p className="text-[10px] text-gray-500 uppercase">{t('done.pre')}</p>
             </div>
             <div className="text-center rounded-lg bg-white/[0.05] p-3">
               <p className="text-xl font-bold text-cyan-400">{avaliacao.nota_media_pos}</p>
-              <p className="text-[10px] text-gray-500 uppercase">Pós</p>
+              <p className="text-[10px] text-gray-500 uppercase">{t('done.post')}</p>
             </div>
             <div className="text-center rounded-lg bg-white/[0.05] p-3">
               <p className={`text-xl font-bold ${Number(avaliacao.delta_medio) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -278,7 +280,7 @@ export default function Sem14Page() {
           )}
           <button onClick={() => router.push('/dashboard/temporada/concluida')}
             className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-emerald-600 hover:opacity-90 text-sm font-bold text-white">
-            Ver relatório completo →
+            {t('done.viewReport')}
           </button>
         </div>
       )}

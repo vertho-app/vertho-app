@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
 
 const MARKETING_HOSTS = new Set([
   'vertho.ai',
@@ -16,6 +17,7 @@ function normalizeHost(host: string | null): string {
 
 export default async function Home() {
   const host = normalizeHost((await headers()).get('host'));
+  const t = await getTranslations('Home');
 
   if (!MARKETING_HOSTS.has(host)) {
     redirect('/login');
@@ -35,13 +37,13 @@ export default async function Home() {
           />
 
           <p className="mb-4 text-sm font-semibold uppercase tracking-[0.24em] text-cyan-300">
-            Vertho Mentor IA
+            {t('eyebrow')}
           </p>
           <h1 className="mb-6 max-w-2xl text-5xl font-semibold leading-tight text-white md:text-7xl">
-            Desenvolvimento humano com inteligência aplicada.
+            {t('title')}
           </h1>
           <p className="mb-10 max-w-xl text-lg leading-8 text-slate-300">
-            Plataforma para mapear competências, orientar jornadas de aprendizagem e apoiar gestores com dados acionáveis.
+            {t('description')}
           </p>
 
           <div className="flex flex-wrap gap-3">
@@ -49,13 +51,13 @@ export default async function Home() {
               href="https://app.vertho.ai/login"
               className="rounded-lg bg-cyan-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200"
             >
-              Acessar plataforma
+              {t('accessPlatform')}
             </Link>
             <Link
               href="https://radar.vertho.ai"
               className="rounded-lg border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:border-cyan-300/70 hover:text-cyan-200"
             >
-              Ver Radar
+              {t('viewRadar')}
             </Link>
           </div>
         </div>

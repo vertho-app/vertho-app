@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   ArrowLeft, Loader2, Send, ChevronDown, CheckCircle, AlertCircle,
   Mail, MessageCircle, FileBarChart, Filter, Eye, Tag, Users,
@@ -13,11 +14,11 @@ import { dispararEmails } from '@/actions/fase2';
 import { Key } from 'lucide-react';
 
 const TABS = [
-  { key: 'magic-link', label: 'Magic Link WhatsApp', icon: Key, color: 'text-teal-400' },
-  { key: 'email', label: 'Email Convites', icon: Mail, color: 'text-blue-400' },
-  { key: 'whatsapp', label: 'WhatsApp Convites', icon: MessageCircle, color: 'text-green-400' },
-  { key: 'relatorios-email', label: 'Email Relatórios', icon: Mail, color: 'text-purple-400' },
-  { key: 'relatorios-whatsapp', label: 'WhatsApp Relatórios', icon: MessageCircle, color: 'text-purple-400' },
+  { key: 'magic-link', labelKey: 'tabs.magicLink', icon: Key, color: 'text-teal-400' },
+  { key: 'email', labelKey: 'tabs.emailInvites', icon: Mail, color: 'text-blue-400' },
+  { key: 'whatsapp', labelKey: 'tabs.whatsappInvites', icon: MessageCircle, color: 'text-green-400' },
+  { key: 'relatorios-email', labelKey: 'tabs.emailReports', icon: Mail, color: 'text-purple-400' },
+  { key: 'relatorios-whatsapp', labelKey: 'tabs.whatsappReports', icon: MessageCircle, color: 'text-purple-400' },
 ];
 
 const VARIAVEIS = [
@@ -56,7 +57,14 @@ Acesse: {{link}}`,
 export default function EnviosPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const t = useTranslations('AdminWhatsapp');
   const empresaParam = searchParams.get('empresa');
+  const defaultMsgs = {
+    email: t('defaultMessages.email'),
+    whatsapp: t('defaultMessages.whatsapp'),
+    'relatorios-email': t('defaultMessages.reportEmail'),
+    'relatorios-whatsapp': t('defaultMessages.reportWhatsapp'),
+  };
 
   const [empresas, setEmpresas] = useState([]);
   const [empresaId, setEmpresaId] = useState(empresaParam || '');
@@ -71,8 +79,8 @@ export default function EnviosPage() {
   const [anexoExtra, setAnexoExtra] = useState(null); // { name, size, mime, base64 }
   const ANEXO_MAX_MB = 10;
   const ANEXO_EXTS = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.zip';
-  const [assunto, setAssunto] = useState('[{{empresa}}] Avaliação de Competências');
-  const [mensagem, setMensagem] = useState(DEFAULT_MSGS.email);
+  const [assunto, setAssunto] = useState(t('subjects.assessment'));
+  const [mensagem, setMensagem] = useState(defaultMsgs.email);
   const [filtroCargo, setFiltroCargo] = useState('');
   // Filtro por status de voto na votação de competências.
   // 'todos' = sem filtro · 'nao_votou' = só quem ainda não votou (lembretes)
@@ -103,8 +111,8 @@ export default function EnviosPage() {
   }, []);
 
   useEffect(() => {
-    setMensagem(DEFAULT_MSGS[tab] || '');
-    setAssunto(tab === 'email' ? '[{{empresa}}] Avaliação de Competências' : tab === 'relatorios-email' ? '[{{empresa}}] Seu Relatório de Competências' : '');
+    setMensagem(defaultMsgs[tab] || '');
+    setAssunto(tab === 'email' ? t('subjects.assessment') : tab === 'relatorios-email' ? t('subjects.report') : '');
     setResult(null);
   }, [tab]);
 
@@ -191,7 +199,7 @@ export default function EnviosPage() {
     e.target.value = ''; // permite re-selecionar o mesmo arquivo
     if (!file) return;
     if (file.size > ANEXO_MAX_MB * 1024 * 1024) {
-      alert(`Arquivo muito grande. Máximo ${ANEXO_MAX_MB} MB.`);
+      alert(t('alerts.fileTooLarge', { max: ANEXO_MAX_MB }));
       return;
     }
     const base64 = await new Promise((resolve, reject) => {
@@ -214,10 +222,7 @@ export default function EnviosPage() {
     const canal = (tab === 'email' || tab === 'relatorios-email') ? 'email' : 'whatsapp';
     const total = destinatarios.length;
     const canalLabel = canal === 'email' ? 'EMAIL' : 'WHATSAPP';
-    if (!window.confirm(
-      `Disparar ${canalLabel} pra ${total} destinatário(s) agora?\n\n` +
-      `Mensagens não podem ser "desenviadas". Confirme a mensagem e os filtros antes de continuar.`
-    )) return;
+    if (!window.confirm(t('confirm.send', { channel: canalLabel, total }))) return;
 
     setSending(true);
     setResult(null);
@@ -247,7 +252,7 @@ export default function EnviosPage() {
             <ArrowLeft size={16} />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-white flex items-center gap-2"><Send size={20} className="text-cyan-400" /> Envios</h1>
+            <h1 className="text-xl font-bold text-white flex items-center gap-2"><Send size={20} className="text-cyan-400" /> {t('title')}</h1>
             {empresaNome && <p className="text-xs text-gray-500">{empresaNome}</p>}
           </div>
         </div>
@@ -258,7 +263,7 @@ export default function EnviosPage() {
         <div className="mb-6">
           <select value={empresaId} onChange={e => handleSelectEmpresa(e.target.value)}
             className="w-full max-w-sm appearance-none rounded-lg border border-white/10 bg-[#0F2A4A] text-white text-sm px-4 py-2.5 focus:outline-none focus:border-cyan-400/50">
-            <option value="">Selecione uma empresa...</option>
+            <option value="">{t('selectCompany')}</option>
             {empresas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
           </select>
         </div>
@@ -270,13 +275,13 @@ export default function EnviosPage() {
         <>
           {/* Tabs */}
           <div className="flex gap-1 mb-5 p-1 rounded-xl border border-white/[0.06]" style={{ background: '#091D35' }}>
-            {TABS.map(t => (
-              <button key={t.key} onClick={() => setTab(t.key)}
+            {TABS.map(item => (
+              <button key={item.key} onClick={() => setTab(item.key)}
                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all ${
-                  tab === t.key ? 'bg-white/[0.06] text-white' : 'text-gray-500 hover:text-gray-300'
+                  tab === item.key ? 'bg-white/[0.06] text-white' : 'text-gray-500 hover:text-gray-300'
                 }`}>
-                <t.icon size={14} className={tab === t.key ? t.color : ''} />
-                {t.label}
+                <item.icon size={14} className={tab === item.key ? item.color : ''} />
+                {t(item.labelKey)}
               </button>
             ))}
           </div>
@@ -285,52 +290,46 @@ export default function EnviosPage() {
           {tab === 'magic-link' && (
             <div className="rounded-xl border border-teal-400/20 p-5" style={{ background: '#0F2A4A' }}>
               <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
-                <Key size={14} className="text-teal-400" /> Enviar Magic Link por WhatsApp
+                <Key size={14} className="text-teal-400" /> {t('magic.title')}
               </h3>
-              <p className="text-xs text-gray-400 mb-4">
-                Gera um link de acesso direto (sem senha) para cada colaborador e envia por WhatsApp.
-                O link expira em 24h e é pessoal.
-              </p>
+              <p className="text-xs text-gray-400 mb-4">{t('magic.description')}</p>
               <div className="grid grid-cols-3 gap-2 mb-3">
                 <div>
-                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Cargo</p>
+                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('filters.role')}</p>
                   <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
-                    <option value="">Todos os cargos</option>
+                    <option value="">{t('filters.allRoles')}</option>
                     {cargos.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
-                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Votação</p>
+                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('filters.voting')}</p>
                   <select value={filtroVoto} onChange={e => setFiltroVoto(e.target.value as any)}
                     className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
-                    <option value="todos">Todos</option>
-                    <option value="nao_votou">Não votaram</option>
-                    <option value="votou">Já votaram</option>
+                    <option value="todos">{t('filters.all')}</option>
+                    <option value="nao_votou">{t('filters.notVoted')}</option>
+                    <option value="votou">{t('filters.voted')}</option>
                   </select>
                 </div>
                 <div>
-                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Perfil DISC</p>
+                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('filters.disc')}</p>
                   <select value={filtroDisc} onChange={e => setFiltroDisc(e.target.value as any)}
                     className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
-                    <option value="todos">Todos</option>
-                    <option value="sim">Com perfil</option>
-                    <option value="nao">Sem perfil</option>
+                    <option value="todos">{t('filters.all')}</option>
+                    <option value="sim">{t('filters.withProfile')}</option>
+                    <option value="nao">{t('filters.withoutProfile')}</option>
                   </select>
                 </div>
               </div>
               <div className="flex items-center gap-1.5 text-[10px] text-teal-400 font-semibold mb-4">
                 <Users size={12} />
-                {destinatarios.filter((c: any) => c.telefone && c.email).length} colaborador(es) com telefone + email
+                {t('magic.eligible', { count: destinatarios.filter((c: any) => c.telefone && c.email).length })}
               </div>
               <button
                 disabled={sending || !empresaId}
                 onClick={async () => {
                   const totalElegivel = destinatarios.filter((c: any) => c.telefone && c.email).length;
-                  if (!window.confirm(
-                    `Enviar Magic Link por WHATSAPP pra ${totalElegivel} colaborador(es)?\n\n` +
-                    `Cada link expira em 24h. Mensagens não podem ser "desenviadas".\n\nConfirma?`
-                  )) return;
+                  if (!window.confirm(t('confirm.magicLink', { total: totalElegivel }))) return;
                   setSending(true); setResult(null);
                   const filtros: any = {};
     if (filtroCargo) filtros.cargo = filtroCargo;
@@ -341,7 +340,7 @@ export default function EnviosPage() {
                 }}
                 className="w-full py-3 rounded-xl text-sm font-bold text-[#0C1829] bg-gradient-to-r from-teal-400 to-teal-500 hover:brightness-110 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
                 {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                {sending ? 'Enviando...' : 'Enviar Magic Links'}
+                {sending ? t('sending') : t('magic.send')}
               </button>
               {result && (
                 <div className={`mt-3 p-3 rounded-lg text-xs ${result.success ? 'bg-green-400/10 text-green-400' : 'bg-red-400/10 text-red-400'}`}>
@@ -357,44 +356,44 @@ export default function EnviosPage() {
             <div className="space-y-4">
               {/* Filtros */}
               <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
-                <p className="text-xs font-bold text-white flex items-center gap-1.5 mb-3"><Filter size={12} /> Filtros de Destinatários</p>
+                <p className="text-xs font-bold text-white flex items-center gap-1.5 mb-3"><Filter size={12} /> {t('filters.title')}</p>
                 <div className="grid grid-cols-3 gap-2 mb-3">
                   <div>
-                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Cargo</p>
+                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('filters.role')}</p>
                     <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
                       className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
-                      <option value="">Todos os cargos</option>
+                      <option value="">{t('filters.allRoles')}</option>
                       {cargos.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                   <div>
-                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Votação</p>
+                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('filters.voting')}</p>
                     <select value={filtroVoto} onChange={e => setFiltroVoto(e.target.value as any)}
                       className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
-                      <option value="todos">Todos</option>
-                      <option value="nao_votou">Não votaram</option>
-                      <option value="votou">Já votaram</option>
+                      <option value="todos">{t('filters.all')}</option>
+                      <option value="nao_votou">{t('filters.notVoted')}</option>
+                      <option value="votou">{t('filters.voted')}</option>
                     </select>
                   </div>
                   <div>
-                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Perfil DISC</p>
+                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('filters.disc')}</p>
                     <select value={filtroDisc} onChange={e => setFiltroDisc(e.target.value as any)}
                       className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
-                      <option value="todos">Todos</option>
-                      <option value="sim">Com perfil</option>
-                      <option value="nao">Sem perfil</option>
+                      <option value="todos">{t('filters.all')}</option>
+                      <option value="sim">{t('filters.withProfile')}</option>
+                      <option value="nao">{t('filters.withoutProfile')}</option>
                     </select>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 text-[10px] text-cyan-400 font-semibold">
                   <Users size={12} />
-                  {destinatarios.length} destinatário(s) {(tab === 'email' || tab === 'relatorios-email') ? 'com email' : 'com WhatsApp'}
+                  {t((tab === 'email' || tab === 'relatorios-email') ? 'filters.emailRecipients' : 'filters.whatsappRecipients', { count: destinatarios.length })}
                 </div>
                 {(tab === 'relatorios-email' || tab === 'relatorios-whatsapp') && (
                   <label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
                     <input type="checkbox" checked={anexarPDF} onChange={e => setAnexarPDF(e.target.checked)}
                       className="w-4 h-4 rounded border border-white/20 bg-[#091D35] accent-purple-400" />
-                    <span className="text-[10px] text-purple-400">Anexar PDF do relatório individual</span>
+                    <span className="text-[10px] text-purple-400">{t('attachments.attachPdf')}</span>
                   </label>
                 )}
 
@@ -402,7 +401,7 @@ export default function EnviosPage() {
                 <div className="mt-3 pt-3 border-t border-white/[0.04]">
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <Paperclip size={11} className="text-gray-400" />
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Anexo adicional</span>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('attachments.additional')}</span>
                   </div>
                   {anexoExtra ? (
                     <div className="flex items-center gap-2 p-2 rounded-lg border border-cyan-400/20" style={{ background: 'rgba(6,182,212,0.06)' }}>
@@ -411,7 +410,7 @@ export default function EnviosPage() {
                         <p className="text-xs font-semibold text-white truncate">{anexoExtra.name}</p>
                         <p className="text-[9px] text-gray-500">{(anexoExtra.size / 1024 / 1024).toFixed(2)} MB</p>
                       </div>
-                      <button onClick={() => setAnexoExtra(null)} title="Remover anexo" className="text-gray-500 hover:text-red-400 shrink-0">
+                      <button onClick={() => setAnexoExtra(null)} title={t('attachments.remove')} className="text-gray-500 hover:text-red-400 shrink-0">
                         <X size={12} />
                       </button>
                     </div>
@@ -419,12 +418,11 @@ export default function EnviosPage() {
                     <>
                       <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 text-[11px] font-semibold text-gray-300 hover:border-cyan-400/30 hover:text-cyan-400 transition-all cursor-pointer" style={{ background: '#091D35' }}>
                         <Paperclip size={11} />
-                        Selecionar arquivo...
+                        {t('attachments.selectFile')}
                         <input type="file" className="hidden" accept={ANEXO_EXTS} onChange={handleAnexoChange} />
                       </label>
                       <p className="text-[9px] text-gray-500 mt-1.5 leading-relaxed">
-                        Máx {ANEXO_MAX_MB} MB. Tipos aceitos: PDF, DOC(X), XLS(X), PPT(X), JPG, PNG, ZIP.
-                        {' '}Vídeos não são suportados nesta versão.
+                        {t('attachments.hint', { max: ANEXO_MAX_MB })}
                       </p>
                     </>
                   )}
@@ -436,14 +434,14 @@ export default function EnviosPage() {
                 {/* Assunto (só email) */}
                 {(tab === 'email' || tab === 'relatorios-email') && (
                   <div className="mb-3">
-                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Assunto do Email</p>
+                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('editor.subject')}</p>
                     <input value={assunto} onChange={e => setAssunto(e.target.value)}
-                      placeholder="[{{empresa}}] Avaliação de Competências"
+                      placeholder={t('subjects.assessment')}
                       className="w-full rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 focus:outline-none focus:border-cyan-400/50" />
                   </div>
                 )}
 
-                <p className="text-xs font-bold text-white flex items-center gap-1.5 mb-3"><MessageCircle size={12} /> Mensagem</p>
+                <p className="text-xs font-bold text-white flex items-center gap-1.5 mb-3"><MessageCircle size={12} /> {t('editor.message')}</p>
 
                 {/* Variáveis */}
                 <div className="flex flex-wrap gap-1.5 mb-3">
@@ -462,12 +460,12 @@ export default function EnviosPage() {
                   onChange={e => setMensagem(e.target.value)}
                   rows={8}
                   className="w-full rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 focus:outline-none focus:border-cyan-400/50 resize-none font-mono"
-                  placeholder="Olá {{nome}}! ..."
+                  placeholder={t('editor.placeholder')}
                 />
 
                 <div className="flex items-center justify-between mt-2 text-[9px] text-gray-600">
-                  <span>*negrito* → <strong className="text-gray-400">negrito</strong> · _itálico_ → <em className="text-gray-400">itálico</em></span>
-                  <span>{mensagem.length} caracteres</span>
+                  <span>{t.rich('editor.formatHint', { strong: chunks => <strong className="text-gray-400">{chunks}</strong>, em: chunks => <em className="text-gray-400">{chunks}</em> })}</span>
+                  <span>{t('editor.chars', { count: mensagem.length })}</span>
                 </div>
               </div>
 
@@ -476,7 +474,7 @@ export default function EnviosPage() {
                 className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-colors"
                 style={{ background: sending ? '#374151' : 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
                 {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                {sending ? 'Enviando...' : `Disparar para ${destinatarios.length} destinatário(s)`}
+                {sending ? t('sending') : t('sendButton', { count: destinatarios.length })}
               </button>
 
               {result && (
@@ -493,17 +491,17 @@ export default function EnviosPage() {
             <div className="space-y-4">
               {/* Preview */}
               <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
-                <p className="text-xs font-bold text-white flex items-center gap-1.5 mb-3"><Eye size={12} /> Preview da Mensagem</p>
+                <p className="text-xs font-bold text-white flex items-center gap-1.5 mb-3"><Eye size={12} /> {t('preview.title')}</p>
                 <div className="rounded-lg p-4 text-sm text-gray-300 leading-relaxed whitespace-pre-wrap" style={{ background: '#091D35' }}>
                   {previewMsg
                     ? renderWaMarkdown(previewMsg)
-                    : <span className="text-gray-600 italic">A mensagem aparecerá aqui...</span>}
+                    : <span className="text-gray-600 italic">{t('preview.empty')}</span>}
                 </div>
               </div>
 
               {/* Variáveis disponíveis */}
               <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
-                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2">Variáveis Disponíveis</p>
+                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2">{t('variables.available')}</p>
                 <div className="space-y-1.5">
                   {VARIAVEIS.map(v => (
                     <div key={v.tag} className="flex items-center justify-between text-[11px]">
@@ -516,13 +514,13 @@ export default function EnviosPage() {
 
               {/* Dicas */}
               <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
-                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2">Dicas</p>
+                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2">{t('tips.title')}</p>
                 <ul className="space-y-1 text-[10px] text-gray-400">
-                  <li>• Use <span className="text-white font-mono">*texto*</span> para <strong className="text-white">negrito</strong></li>
-                  <li>• Use <span className="text-white font-mono">_texto_</span> para <em className="text-white">itálico</em></li>
-                  <li>• Intervalo de 1s entre envios para evitar bloqueio</li>
-                  <li>• {tab === 'email' ? 'Todos os colaboradores com email serão incluídos' : 'Apenas colaboradores com WhatsApp cadastrado serão incluídos'}</li>
-                  <li>• O primeiro nome é usado automaticamente no {'{{nome}}'}</li>
+                  <li>{t('tips.bold')}</li>
+                  <li>{t('tips.italic')}</li>
+                  <li>{t('tips.interval')}</li>
+                  <li>{tab === 'email' ? t('tips.emailIncluded') : t('tips.whatsappIncluded')}</li>
+                  <li>{t('tips.firstName')}</li>
                 </ul>
               </div>
             </div>

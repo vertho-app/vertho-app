@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   ArrowLeft, Loader2, FileText, User, Users, Building2, ChevronDown,
   Target, AlertTriangle, CheckCircle, TrendingUp, Download
@@ -41,6 +42,7 @@ function getResumoGeralParts(v: any) {
 }
 
 function ResumoGeral({ value }: { value: any }) {
+  const t = useTranslations('AdminReports');
   const parts = getResumoGeralParts(value);
   if (!parts) return <p className="text-xs text-gray-300 leading-relaxed">{s(value)}</p>;
 
@@ -54,7 +56,7 @@ function ResumoGeral({ value }: { value: any }) {
           ))}
         </div>
       )}
-      {parts.pontoAtencao && <p className="text-[10px] text-amber-400">Ponto de atenção: {s(parts.pontoAtencao)}</p>}
+      {parts.pontoAtencao && <p className="text-[10px] text-amber-400">{t('labels.attentionPoint')}: {s(parts.pontoAtencao)}</p>}
     </div>
   );
 }
@@ -70,14 +72,15 @@ function getResumoExecutivoParts(v: any) {
 }
 
 function ResumoExecutivo({ value }: { value: any }) {
+  const t = useTranslations('AdminReports');
   const parts = getResumoExecutivoParts(value);
   if (!parts) return <p className="text-xs text-gray-300 leading-relaxed">{s(value)}</p>;
 
   return (
     <div className="space-y-2">
       {parts.leitura && <p className="text-xs text-gray-300 leading-relaxed">{s(parts.leitura)}</p>}
-      {parts.principalAvanco && <p className="text-[10px] text-green-400">Avanço: {s(parts.principalAvanco)}</p>}
-      {parts.principalPontoAtencao && <p className="text-[10px] text-amber-400">Ponto de atenção: {s(parts.principalPontoAtencao)}</p>}
+      {parts.principalAvanco && <p className="text-[10px] text-green-400">{t('labels.advance')}: {s(parts.principalAvanco)}</p>}
+      {parts.principalPontoAtencao && <p className="text-[10px] text-amber-400">{t('labels.attentionPoint')}: {s(parts.principalPontoAtencao)}</p>}
     </div>
   );
 }
@@ -134,6 +137,7 @@ function ActionHorizon({
 export default function RelatoriosPage({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = use(params);
   const router = useRouter();
+  const t = useTranslations('AdminReports');
 
   const [data, setData] = useState({ individuais: [], gestores: [], gestor: null, rh: null });
   const [loading, setLoading] = useState(true);
@@ -149,8 +153,8 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
 
   const TABS = [
     { key: 'individual', label: `PDI (${data.individuais.length})`, icon: User },
-    { key: 'gestor', label: `Gestor${(data.gestores?.length || 0) > 1 ? ` (${data.gestores.length})` : ''}`, icon: Users, has: (data.gestores?.length || 0) > 0 },
-    { key: 'rh', label: 'RH', icon: Building2, has: !!data.rh },
+    { key: 'gestor', label: `${t('tabs.manager')}${(data.gestores?.length || 0) > 1 ? ` (${data.gestores.length})` : ''}`, icon: Users, has: (data.gestores?.length || 0) > 0 },
+    { key: 'rh', label: t('tabs.hr'), icon: Building2, has: !!data.rh },
   ];
 
   return (
@@ -163,9 +167,9 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
         </button>
         <div>
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <FileText size={20} className="text-cyan-400" /> Relatórios
+            <FileText size={20} className="text-cyan-400" /> {t('title')}
           </h1>
-          <p className="text-xs text-gray-500">Individual, Gestor e RH</p>
+          <p className="text-xs text-gray-500">{t('subtitle')}</p>
         </div>
       </div>
 
@@ -187,7 +191,7 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
       {tab === 'individual' && (
         <div>
           {data.individuais.length === 0 ? (
-            <Empty text="Nenhum relatório individual. Rode 'PDI' no pipeline." />
+            <Empty text={t('empty.individual')} />
           ) : data.individuais.map(rel => {
             const c = rel.conteudo;
             const isOpen = openId === rel.id;
@@ -203,7 +207,7 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                   <div className="flex items-center gap-2">
                     <a href={`/api/relatorios/pdf?id=${rel.id}`} target="_blank" onClick={e => e.stopPropagation()}
                       className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all">
-                      <Download size={10} /> PDF
+                      <Download size={10} /> {t('actions.pdf')}
                     </a>
                     <span className="text-[9px] text-gray-600">{new Date(rel.gerado_em).toLocaleDateString('pt-BR')}</span>
                     <ChevronDown size={14} className={`text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
@@ -217,7 +221,7 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                     {/* Resumo */}
                     {c.resumo_geral && (
                       <div>
-                        <SectionTitle>Resumo Geral</SectionTitle>
+                        <SectionTitle>{t('sections.generalSummary')}</SectionTitle>
                         <ResumoGeral value={c.resumo_geral} />
                       </div>
                     )}
@@ -225,7 +229,7 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                     {/* Perfil */}
                     {c.perfil_comportamental && (
                       <div>
-                        <SectionTitle color="purple">Perfil Comportamental</SectionTitle>
+                        <SectionTitle color="purple">{t('sections.behaviorProfile')}</SectionTitle>
                         <p className="text-xs text-gray-300 leading-relaxed mb-2">{s(c.perfil_comportamental.descricao || c.perfil_disc?.descricao)}</p>
                         {(c.perfil_comportamental.pontos_forca || c.perfil_disc?.pontos_forca)?.map((p, i) => (
                           <p key={i} className="text-[10px] text-green-400">+ {s(p)}</p>
@@ -239,21 +243,21 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                     {/* Competências */}
                     {c.competencias?.length > 0 && (
                       <div>
-                        <SectionTitle color="cyan">Competências</SectionTitle>
+                        <SectionTitle color="cyan">{t('sections.competencies')}</SectionTitle>
                         <div className="space-y-2">
                           {c.competencias.map((comp, i) => (
                             <div key={i} className="p-3 rounded-lg" style={{ background: '#091D35' }}>
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="text-xs font-bold text-white">{comp.nome}</span>
                                 <span className={`text-sm font-bold ${NIVEL_COLORS[comp.nivel || comp.nivel_atual] || 'text-gray-400'}`}>
-                                  N{comp.nivel || comp.nivel_atual || '?'}
+                                  {t('labels.levelShort')}{comp.nivel || comp.nivel_atual || '?'}
                                 </span>
                                 {comp.nota_decimal && <span className="text-[10px] text-gray-500">({Number(comp.nota_decimal).toFixed(2)})</span>}
                                 {comp.evolucao && <span className={`text-[9px] ${comp.evolucao === 'subiu' ? 'text-green-400' : comp.evolucao === 'desceu' ? 'text-red-400' : 'text-gray-500'}`}>{comp.evolucao}</span>}
                               </div>
                               {comp.analise && <p className="text-[10px] text-gray-400 mb-1">{s(comp.analise)}</p>}
                               {comp.evidencias_destaque?.map((e, j) => <p key={j} className="text-[10px] text-gray-500">• {s(e)}</p>)}
-                              {comp.lacuna_principal && <p className="text-[10px] text-amber-400 mt-1">Gap: {s(comp.lacuna_principal)}</p>}
+                              {comp.lacuna_principal && <p className="text-[10px] text-amber-400 mt-1">{t('labels.gap')}: {s(comp.lacuna_principal)}</p>}
                               {comp.acao_pratica && <p className="text-[10px] text-cyan-400 mt-1">{s(comp.acao_pratica)}</p>}
                               {comp.script_pratico && <p className="text-[10px] text-cyan-400">{s(comp.script_pratico)}</p>}
                               {comp.recomendacao && <p className="text-[10px] text-gray-400 mt-1">{s(comp.recomendacao)}</p>}
@@ -266,7 +270,7 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                     {/* Próximos passos */}
                     {c.proximos_passos && (
                       <div>
-                        <SectionTitle color="green">Próximos Passos</SectionTitle>
+                        <SectionTitle color="green">{t('sections.nextSteps')}</SectionTitle>
                         {(Array.isArray(c.proximos_passos) ? c.proximos_passos : Object.values(c.proximos_passos)).map((p, i) => (
                           <div key={i} className="p-2 rounded-lg mb-1" style={{ background: '#091D35' }}>
                             <p className="text-[10px] text-white font-bold">{s(p.competencia)}</p>
@@ -291,7 +295,7 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
       {tab === 'gestor' && (
         <div>
           {(!data.gestores || data.gestores.length === 0) ? (
-            <Empty text="Relatório gestor não gerado. Rode 'Gestor' no pipeline." />
+            <Empty text={t('empty.manager')} />
           ) : (() => {
             const ativo = data.gestores[Math.min(gestorIdx, data.gestores.length - 1)];
             const c = ativo.conteudo;
@@ -300,40 +304,40 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
               <div className="space-y-4">
                 {data.gestores.length > 1 && (
                   <div className="flex items-center gap-2 flex-wrap p-3 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
-                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Gestor:</span>
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{t('labels.manager')}:</span>
                     {data.gestores.map((g, i) => (
                       <button key={g.id} onClick={() => setGestorIdx(i)}
                         className={`text-[11px] font-bold px-3 py-1.5 rounded-lg border transition-all ${
                           i === gestorIdx ? 'bg-cyan-400/15 text-cyan-300 border-cyan-400/40' : 'text-gray-400 border-white/[0.08] hover:border-white/[0.2]'
                         }`}>
-                        {g.gestor_nome}{g.equipe_size ? ` · ${g.equipe_size} colabs` : ''}
+                        {g.gestor_nome}{g.equipe_size ? ` · ${t('labels.collaboratorsShort', { count: g.equipe_size })}` : ''}
                       </button>
                     ))}
                   </div>
                 )}
                 <div className="flex justify-end mb-3">
                   <a href={gestorPdfLink} target="_blank" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all">
-                    <Download size={11} /> Download PDF
+                    <Download size={11} /> {t('actions.downloadPdf')}
                   </a>
                 </div>
 
                 {c.resumo_executivo && (
                   <div className="p-4 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
-                    <SectionTitle>Resumo Executivo</SectionTitle>
+                    <SectionTitle>{t('sections.executiveSummary')}</SectionTitle>
                     <ResumoExecutivo value={c.resumo_executivo} />
                   </div>
                 )}
 
                 {c.destaques_evolucao?.length > 0 && (
                   <div className="p-4 rounded-xl border border-green-400/10" style={{ background: '#0F2A4A' }}>
-                    <SectionTitle color="green">Destaques de Evolução</SectionTitle>
+                    <SectionTitle color="green">{t('sections.evolutionHighlights')}</SectionTitle>
                     {c.destaques_evolucao.map((d, i) => {
                       const item = getDestaqueItem(d);
                       if (!item) return <p key={i} className="text-[10px] text-green-400">+ {s(d)}</p>;
                       return (
                         <div key={i} className="mb-2">
                           <p className="text-[10px] text-green-400 font-semibold">
-                            + {item.nome}{item.competencia ? ` — ${item.competencia}` : ''}{item.nivel != null ? ` (N${item.nivel})` : ''}
+                            + {item.nome}{item.competencia ? ` — ${item.competencia}` : ''}{item.nivel != null ? ` (${t('labels.levelShort')}${item.nivel})` : ''}
                           </p>
                           {item.motivo && <p className="text-[10px] text-gray-400">{s(item.motivo)}</p>}
                         </div>
@@ -344,12 +348,12 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
 
                 {c.ranking_atencao?.length > 0 && (
                   <div className="p-4 rounded-xl border border-amber-400/10" style={{ background: '#0F2A4A' }}>
-                    <SectionTitle color="amber">Ranking de Atenção</SectionTitle>
+                    <SectionTitle color="amber">{t('sections.attentionRanking')}</SectionTitle>
                     {c.ranking_atencao.map((r, i) => (
                       <div key={i} className="flex items-center gap-2 py-1 text-[10px]">
                         <span className={`font-bold px-1.5 py-0.5 rounded ${urgenciaLabel(r.urgencia) === 'URGENTE' ? 'bg-red-400/15 text-red-400' : urgenciaLabel(r.urgencia) === 'IMPORTANTE' ? 'bg-amber-400/15 text-amber-400' : 'bg-gray-400/15 text-gray-400'}`}>{urgenciaLabel(r.urgencia)}</span>
                         <span className="text-white font-medium">{s(r.nome)}</span>
-                        <span className="text-gray-500">{s(r.competencia)} — N{r.nivel || r.nivel_fase3}</span>
+                        <span className="text-gray-500">{s(r.competencia)} — {t('labels.levelShort')}{r.nivel || r.nivel_fase3}</span>
                         <span className="text-gray-600 truncate">{s(r.motivo || r.motivo_curto)}</span>
                       </div>
                     ))}
@@ -358,12 +362,12 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
 
                 {c.analise_por_competencia?.length > 0 && (
                   <div className="p-4 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
-                    <SectionTitle color="cyan">Análise por Competência</SectionTitle>
+                    <SectionTitle color="cyan">{t('sections.competencyAnalysis')}</SectionTitle>
                     {c.analise_por_competencia.map((a, i) => (
                       <div key={i} className="mb-3 p-3 rounded-lg" style={{ background: '#091D35' }}>
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-xs font-bold text-white">{s(a.competencia)}</span>
-                          <span className="text-[10px] text-gray-500">Média: {s(a.media_nivel || a.media)}</span>
+                          <span className="text-[10px] text-gray-500">{t('labels.average')}: {s(a.media_nivel || a.media)}</span>
                         </div>
                         <p className="text-[10px] text-gray-400">{s(a.padrao_observado)}</p>
                         {a.acao_gestor && <p className="text-[10px] text-cyan-400 mt-1">{s(a.acao_gestor)}</p>}
@@ -374,10 +378,10 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
 
                 {c.acoes && (
                   <div className="p-4 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
-                    <SectionTitle color="green">Ações</SectionTitle>
-                    <ActionHorizon label="Esta semana" value={c.acoes.esta_semana} />
-                    <ActionHorizon label="Próximas semanas" value={c.acoes.proximas_semanas} />
-                    <ActionHorizon label="Médio prazo" value={c.acoes.medio_prazo} />
+                    <SectionTitle color="green">{t('sections.actions')}</SectionTitle>
+                    <ActionHorizon label={t('horizons.thisWeek')} value={c.acoes.esta_semana} />
+                    <ActionHorizon label={t('horizons.nextWeeks')} value={c.acoes.proximas_semanas} />
+                    <ActionHorizon label={t('horizons.mediumTerm')} value={c.acoes.medio_prazo} />
                   </div>
                 )}
 
@@ -392,7 +396,7 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
       {tab === 'rh' && (
         <div>
           {!data.rh ? (
-            <Empty text="Relatório RH não gerado. Rode 'RH' no pipeline." />
+            <Empty text={t('empty.hr')} />
           ) : (() => {
             const c = data.rh.conteudo;
             const rhPdfLink = `/api/relatorios/pdf?id=${data.rh.id}`;
@@ -400,13 +404,13 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
               <div className="space-y-4">
                 <div className="flex justify-end mb-3">
                   <a href={rhPdfLink} target="_blank" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all">
-                    <Download size={11} /> Download PDF
+                    <Download size={11} /> {t('actions.downloadPdf')}
                   </a>
                 </div>
 
                 {c.resumo_executivo && (
                   <div className="p-4 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
-                    <SectionTitle>Resumo Executivo</SectionTitle>
+                    <SectionTitle>{t('sections.executiveSummary')}</SectionTitle>
                     <ResumoExecutivo value={c.resumo_executivo} />
                   </div>
                 )}
@@ -414,8 +418,8 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                 {c.indicadores && (
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {[
-                      { label: 'Avaliados', value: s(c.indicadores.total_avaliados), color: 'text-white' },
-                      { label: 'Média', value: s(c.indicadores.media_geral), color: 'text-cyan-400' },
+                      { label: t('indicators.evaluated'), value: s(c.indicadores.total_avaliados), color: 'text-white' },
+                      { label: t('indicators.average'), value: s(c.indicadores.media_geral), color: 'text-cyan-400' },
                       { label: 'N1-N2', value: `${(c.indicadores.pct_nivel_1 || 0) + (c.indicadores.pct_nivel_2 || 0)}%`, color: 'text-amber-400' },
                       { label: 'N3-N4', value: `${(c.indicadores.pct_nivel_3 || 0) + (c.indicadores.pct_nivel_4 || 0)}%`, color: 'text-green-400' },
                     ].map((ind, i) => (
@@ -429,7 +433,7 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
 
                 {c.competencias_criticas?.length > 0 && (
                   <div className="p-4 rounded-xl border border-red-400/10" style={{ background: '#0F2A4A' }}>
-                    <SectionTitle color="red">Competências Críticas</SectionTitle>
+                    <SectionTitle color="red">{t('sections.criticalCompetencies')}</SectionTitle>
                     {c.competencias_criticas.map((comp, i) => (
                       <div key={i} className="mb-2 flex items-start gap-2">
                         <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
@@ -446,7 +450,7 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
 
                 {c.treinamentos_sugeridos?.length > 0 && (
                   <div className="p-4 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
-                    <SectionTitle color="cyan">Treinamentos Sugeridos</SectionTitle>
+                    <SectionTitle color="cyan">{t('sections.suggestedTrainings')}</SectionTitle>
                     {c.treinamentos_sugeridos.map((t, i) => (
                       <div key={i} className="mb-2 p-3 rounded-lg" style={{ background: '#091D35' }}>
                         <div className="flex items-center gap-2 mb-1">
@@ -465,7 +469,7 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
 
                 {c.decisoes_chave?.length > 0 && (
                   <div className="p-4 rounded-xl border border-red-400/10" style={{ background: '#0F2A4A' }}>
-                    <SectionTitle color="red">Decisões-Chave</SectionTitle>
+                    <SectionTitle color="red">{t('sections.keyDecisions')}</SectionTitle>
                     {c.decisoes_chave.map((d, i) => (
                       <div key={i} className="mb-2 p-3 rounded-lg" style={{ background: '#091D35' }}>
                         <p className="text-xs text-white font-bold">{s(d.colaborador)}</p>
@@ -478,10 +482,10 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
 
                 {c.plano_acao && (
                   <div className="p-4 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
-                    <SectionTitle color="green">Plano de Ação RH</SectionTitle>
-                    <ActionHorizon label="Curto prazo" value={c.plano_acao.curto_prazo} />
-                    <ActionHorizon label="Médio prazo" value={c.plano_acao.medio_prazo} />
-                    <ActionHorizon label="Longo prazo" value={c.plano_acao.longo_prazo} />
+                    <SectionTitle color="green">{t('sections.hrActionPlan')}</SectionTitle>
+                    <ActionHorizon label={t('horizons.shortTerm')} value={c.plano_acao.curto_prazo} />
+                    <ActionHorizon label={t('horizons.mediumTerm')} value={c.plano_acao.medio_prazo} />
+                    <ActionHorizon label={t('horizons.longTerm')} value={c.plano_acao.longo_prazo} />
                   </div>
                 )}
 

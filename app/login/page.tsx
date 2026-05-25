@@ -1,12 +1,14 @@
 import { headers } from 'next/headers';
 import { connection } from 'next/server';
 import { resolveTenant, getTenantSlug } from '@/lib/tenant-resolver';
+import { getTranslations } from 'next-intl/server';
 import LoginForm from './login-form';
 
 export default async function LoginPage() {
   await connection();
 
   const h = await headers();
+  const t = await getTranslations('Login');
   const slug = getTenantSlug(h);
   const tenant = slug ? await resolveTenant(slug) : null;
 
@@ -22,7 +24,7 @@ export default async function LoginPage() {
     accentColor: uiConfig.accent_color || '#00B4D8',
     bgGradientStart: uiConfig.bg_gradient_start || '#091D35',
     bgGradientEnd: uiConfig.bg_gradient_end || '#0F2A4A',
-    subtitle: uiConfig.login_subtitle || 'Sua jornada de desenvolvimento',
+    subtitle: uiConfig.login_subtitle || t('defaultSubtitle'),
   };
 
   return <LoginForm branding={branding} />;

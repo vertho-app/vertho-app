@@ -3,6 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
 import { AVATAR_PRESETS } from '@/lib/avatar-presets';
+import { localeCookieName, normalizeAppLocale } from '@/lib/i18n';
 
 /**
  * Carrega dados do perfil do colaborador.
@@ -19,15 +20,68 @@ export async function loadPerfil() {
   if (!colab) return { error: 'Colaborador nao encontrado' };
 
   const sb = createSupabaseAdmin();
+  let locale: string | null = null;
+  try {
+    const { data: localeData } = await sb.from('colaboradores')
+      .select('locale')
+      .eq('id', colab.id)
+      .maybeSingle();
+    locale = normalizeAppLocale((localeData as any)?.locale);
+  } catch {}
+
   const { data: empresa } = await sb.from('empresas')
-    .select('nome')
+    .select('nome, default_locale')
     .eq('id', colab.empresa_id)
     .maybeSingle();
 
   return {
-    colaborador: colab,
+    colaborador: { ...colab, locale: locale || normalizeAppLocale((empresa as any)?.default_locale) || 'pt-BR' },
     empresaNome: empresa?.nome || '',
   };
+}
+
+/**
+ * Salva a preferência de idioma do colaborador.
+ * O cookie garante efeito imediato; a coluna `locale` mantém a preferência persistida.
+ */
+export async function salvarLocalePerfil(localeValue) {
+  try {
+    const locale = normalizeAppLocale(localeValue);
+    if (!locale) return { error: 'Idioma inválido' };
+
+    const { cookies } = await import('next/headers');
+    const cookieStore = await cookies();
+    cookieStore.set(localeCookieName, locale, {
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: 'lax',
+    });
+
+    const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+    const email = await getAuthenticatedEmailFromAction();
+    if (!email) return { success: true, locale, persisted: false };
+
+    const colab: any = await findColabByEmail(email, 'id');
+    if (!colab) return { success: true, locale, persisted: false };
+
+    const sb = createSupabaseAdmin();
+    const { error } = await sb.from('colaboradores')
+      .update({ locale })
+      .eq('id', colab.id);
+
+    if (error) {
+      const msg = error.message || '';
+      if (/locale|schema cache|column/i.test(msg)) {
+        return { success: true, locale, persisted: false };
+      }
+      return { error: msg };
+    }
+
+    return { success: true, locale, persisted: true };
+  } catch (err) {
+    console.error('[salvarLocalePerfil]', err);
+    return { error: err?.message || 'Erro ao salvar idioma' };
+  }
 }
 
 /**

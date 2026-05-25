@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, use } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { ArrowLeft, Loader2, Brain, Search, Download, FileText, CheckCircle2, Clock, Users, Sparkles } from 'lucide-react';
 import { loadPerfisComportamentaisEmpresa } from '@/actions/admin-perfis';
 import { baixarRelatorioComportamentalPdfPorId } from '@/app/dashboard/perfil-comportamental/relatorio/relatorio-actions';
@@ -17,6 +18,7 @@ function fmtDate(iso: string | null) {
 }
 
 export default function PerfisComportamentaisPage({ params }: { params: Promise<{ empresaId: string }> }) {
+  const t = useTranslations('AdminBehaviorProfiles');
   const { empresaId } = use(params);
   const router = useRouter();
 
@@ -83,18 +85,18 @@ export default function PerfisComportamentaisPage({ params }: { params: Promise<
         </button>
         <div className="flex-1">
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <Brain size={20} className="text-purple-400" /> Perfis Comportamentais
+            <Brain size={20} className="text-purple-400" /> {t('title')}
           </h1>
-          <p className="text-xs text-gray-500">DISC dos colaboradores que concluíram o mapeamento</p>
+          <p className="text-xs text-gray-500">{t('subtitle')}</p>
         </div>
       </div>
 
       {/* Stats */}
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 mb-6">
-        <StatCard icon={<Users size={14} />} label="Total" value={stats.total} tone="white" />
-        <StatCard icon={<CheckCircle2 size={14} />} label="Completos" value={`${stats.completos} (${stats.pctCompletos}%)`} tone="emerald" />
-        <StatCard icon={<Clock size={14} />} label="Pendentes" value={stats.pendentes} tone="amber" />
-        <StatCard icon={<FileText size={14} />} label="Com PDF gerado" value={stats.comPdf} tone="cyan" />
+        <StatCard icon={<Users size={14} />} label={t('stats.total')} value={stats.total} tone="white" />
+        <StatCard icon={<CheckCircle2 size={14} />} label={t('stats.complete')} value={`${stats.completos} (${stats.pctCompletos}%)`} tone="emerald" />
+        <StatCard icon={<Clock size={14} />} label={t('stats.pending')} value={stats.pendentes} tone="amber" />
+        <StatCard icon={<FileText size={14} />} label={t('stats.withPdf')} value={stats.comPdf} tone="cyan" />
       </div>
 
       {/* Filtros */}
@@ -104,7 +106,7 @@ export default function PerfisComportamentaisPage({ params }: { params: Promise<
             className={`px-3 py-1.5 rounded-full text-xs font-bold border ${
               filtro === f ? 'bg-purple-500/20 border-purple-400/50 text-purple-300' : 'border-white/10 text-gray-400 hover:text-white'
             }`}>
-            {f === 'todos' ? 'Todos' : f === 'completos' ? 'Completos' : 'Pendentes'}
+            {t(`filters.${f}`)}
           </button>
         ))}
         <div className="flex-1" />
@@ -113,7 +115,7 @@ export default function PerfisComportamentaisPage({ params }: { params: Promise<
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar nome, cargo, área…"
+            placeholder={t('searchPlaceholder')}
             className="pl-8 pr-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs text-white placeholder:text-gray-500 outline-none focus:border-purple-500 w-[260px]"
           />
         </div>
@@ -123,7 +125,7 @@ export default function PerfisComportamentaisPage({ params }: { params: Promise<
       {filtrados.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
           <Brain size={32} className="mx-auto mb-3 text-gray-600" />
-          <p className="text-sm">Nenhum colaborador encontrado com este filtro.</p>
+          <p className="text-sm">{t('empty')}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -149,6 +151,7 @@ function StatCard({ icon, label, value, tone }: { icon: React.ReactNode; label: 
 }
 
 function PerfilCard({ p, onBaixar, baixando }: { p: any; onBaixar: (id: string) => void; baixando: boolean }) {
+  const t = useTranslations('AdminBehaviorProfiles');
   return (
     <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -157,9 +160,9 @@ function PerfilCard({ p, onBaixar, baixando }: { p: any; onBaixar: (id: string) 
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-bold text-white">{p.nome}</p>
             {p.hasDisc ? (
-              <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-bold">Completo</span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-bold">{t('badges.complete')}</span>
             ) : (
-              <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 font-bold">Pendente</span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 font-bold">{t('badges.pending')}</span>
             )}
             {p.role !== 'colaborador' && (
               <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.05] text-gray-400 uppercase tracking-widest">{p.role}</span>
@@ -193,7 +196,7 @@ function PerfilCard({ p, onBaixar, baixando }: { p: any; onBaixar: (id: string) 
 
             {/* Mini DISC bars (Natural) */}
             <div className="min-w-[200px]">
-              <p className="text-[9px] uppercase tracking-widest text-gray-500 mb-1">DISC Natural</p>
+              <p className="text-[9px] uppercase tracking-widest text-gray-500 mb-1">{t('discNatural')}</p>
               <div className="grid grid-cols-4 gap-1.5">
                 {(['D', 'I', 'S', 'C'] as const).map((k) => {
                   const v = (p.disc.natural as any)[k.toLowerCase()] || 0;
@@ -218,17 +221,17 @@ function PerfilCard({ p, onBaixar, baixando }: { p: any; onBaixar: (id: string) 
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-cyan-300 border border-cyan-400/30 hover:bg-cyan-400/10 disabled:opacity-50"
               >
                 {baixando ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
-                Baixar PDF
+                {t('downloadPdf')}
               </button>
-              <p className="text-[9px] text-gray-600 mt-1">Mapeamento: {fmtDate(p.mapeamentoEm)}</p>
+              <p className="text-[9px] text-gray-600 mt-1">{t('mappedAt', { date: fmtDate(p.mapeamentoEm) })}</p>
               {p.relatorioCacheEm && (
-                <p className="text-[9px] text-gray-600">Textos LLM: {fmtDate(p.relatorioCacheEm)}</p>
+                <p className="text-[9px] text-gray-600">{t('llmTextsAt', { date: fmtDate(p.relatorioCacheEm) })}</p>
               )}
             </div>
           </>
         ) : (
           <div className="flex-1 text-right">
-            <p className="text-xs text-gray-500">Colaborador ainda não concluiu o mapeamento comportamental.</p>
+            <p className="text-xs text-gray-500">{t('notCompleted')}</p>
           </div>
         )}
       </div>
@@ -237,7 +240,7 @@ function PerfilCard({ p, onBaixar, baixando }: { p: any; onBaixar: (id: string) 
       {p.hasInsights && (
         <div className="mt-3 pt-3 border-t border-white/[0.05]">
           <p className="text-[10px] uppercase tracking-widest text-purple-300 mb-1.5 flex items-center gap-1">
-            <Sparkles size={10} /> Insights Executivos
+            <Sparkles size={10} /> {t('executiveInsights')}
           </p>
           <ul className="space-y-0.5">
             {p.insights.slice(0, 3).map((ins: string, i: number) => (

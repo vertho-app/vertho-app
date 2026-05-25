@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter, Instrument_Serif, Manrope, Plus_Jakarta_Sans, Fraunces } from "next/font/google";
+import { NextIntlClientProvider } from 'next-intl';
+import { getLocale, getMessages, getTranslations } from 'next-intl/server';
 import "./globals.css";
 
 const inter = Inter({
@@ -38,16 +40,25 @@ const fraunces = Fraunces({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "Vertho",
-  description: "Sua jornada de desenvolvimento",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('Metadata');
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return {
+    title: t('title'),
+    description: t('description'),
+  };
+}
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
-    <html lang="pt-BR" className={`${inter.variable} ${manrope.variable} ${instrumentSerif.variable} ${jakarta.variable} ${fraunces.variable}`}>
+    <html lang={locale} className={`${inter.variable} ${manrope.variable} ${instrumentSerif.variable} ${jakarta.variable} ${fraunces.variable}`}>
       <body className="font-[var(--font-inter)]">
-        {children}
+        <NextIntlClientProvider messages={messages}>
+          {children}
+        </NextIntlClientProvider>
       </body>
     </html>
   );

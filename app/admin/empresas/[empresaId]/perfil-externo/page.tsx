@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   ArrowLeft, Loader2, Upload, RefreshCw, FileText, Eye, Trash2, X,
   CheckCircle, AlertTriangle, FileQuestion,
@@ -18,6 +19,7 @@ import {
 } from '@/actions/perfil-externo';
 
 export default function PerfilExternoPage({ params }: { params: Promise<{ empresaId: string }> }) {
+  const t = useTranslations('AdminExternalProfile');
   const { empresaId } = use(params);
   const router = useRouter();
 
@@ -44,16 +46,16 @@ export default function PerfilExternoPage({ params }: { params: Promise<{ empres
     setAcao({ id: '_global', tipo: 'fonte' });
     const r = await setEmpresaFonteExterna(empresaId, 'opq32');
     setAcao(null);
-    flash(r.success ? 'OPQ32 ativado para esta empresa' : `Erro: ${r.error}`);
+    flash(r.success ? t('messages.opqEnabled') : t('messages.error', { error: r.error }));
     refresh();
   }
 
   async function desativarFonte() {
-    if (!confirm('Desativar a fonte externa fará a empresa voltar a usar DISC nas próximas gerações de IA. Os PDFs e dados extraídos NÃO são apagados. Continuar?')) return;
+    if (!confirm(t('confirm.disableSource'))) return;
     setAcao({ id: '_global', tipo: 'fonte' });
     const r = await setEmpresaFonteExterna(empresaId, null);
     setAcao(null);
-    flash(r.success ? 'Voltou a usar DISC nativo' : `Erro: ${r.error}`);
+    flash(r.success ? t('messages.discEnabled') : t('messages.error', { error: r.error }));
     refresh();
   }
 
@@ -64,13 +66,13 @@ export default function PerfilExternoPage({ params }: { params: Promise<{ empres
     fd.set('fonte', 'opq32');
     fd.set('file', file);
     const r = await uploadPerfilPdf(empresaId, fd);
-    if (!r.success) { setAcao(null); flash(`Erro: ${r.error}`, 5000); return; }
-    flash('Upload OK · extraindo...');
+    if (!r.success) { setAcao(null); flash(t('messages.error', { error: r.error }), 5000); return; }
+    flash(t('messages.uploadExtracting'));
 
     // Encadeia extração
     const ex = await extrairPerfilExterno(empresaId, colabId);
     setAcao(null);
-    flash(ex.success ? 'PDF extraído com sucesso' : `Extração falhou: ${ex.error}`, 5000);
+    flash(ex.success ? t('messages.extractedSuccess') : t('messages.extractionFailed', { error: ex.error }), 5000);
     refresh();
   }
 
@@ -78,16 +80,16 @@ export default function PerfilExternoPage({ params }: { params: Promise<{ empres
     setAcao({ id: colabId, tipo: 'extrair' });
     const r = await extrairPerfilExterno(empresaId, colabId);
     setAcao(null);
-    flash(r.success ? 'Extraído' : `Erro: ${r.error}`, 5000);
+    flash(r.success ? t('messages.extracted') : t('messages.error', { error: r.error }), 5000);
     refresh();
   }
 
   async function handleDelete(colab: ColaboradorPerfilExterno) {
-    if (!confirm(`Remover PDF e dados extraídos de ${colab.nome_completo}?`)) return;
+    if (!confirm(t('confirm.removePdf', { name: colab.nome_completo }))) return;
     setAcao({ id: colab.id, tipo: 'delete' });
     const r = await deletarPerfilExterno(empresaId, colab.id);
     setAcao(null);
-    flash(r.success ? 'Removido' : `Erro: ${r.error}`);
+    flash(r.success ? t('messages.removed') : t('messages.error', { error: r.error }));
     refresh();
   }
 
@@ -95,7 +97,7 @@ export default function PerfilExternoPage({ params }: { params: Promise<{ empres
     setAcao({ id: colab.id, tipo: 'preview' });
     const r = await getPerfilPdfUrl(empresaId, colab.id);
     setAcao(null);
-    if (r.error || !r.url) { flash(`Erro: ${r.error}`); return; }
+    if (r.error || !r.url) { flash(t('messages.error', { error: r.error })); return; }
     setPdfPreview({ colab, url: r.url });
   }
 
@@ -129,9 +131,9 @@ export default function PerfilExternoPage({ params }: { params: Promise<{ empres
         </button>
         <div>
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <FileText size={20} className="text-cyan-400" /> Perfil Comportamental Externo
+            <FileText size={20} className="text-cyan-400" /> {t('title')}
           </h1>
-          <p className="text-xs text-gray-500">Upload de relatórios OPQ32 (SHL) por colaborador</p>
+          <p className="text-xs text-gray-500">{t('subtitle')}</p>
         </div>
       </div>
 
@@ -140,23 +142,23 @@ export default function PerfilExternoPage({ params }: { params: Promise<{ empres
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <p className="text-xs font-bold text-white">
-              {fonte === 'opq32' ? 'OPQ32 (SHL) ativo' : 'Usando DISC nativo'}
+              {fonte === 'opq32' ? t('source.opqActive') : t('source.discActive')}
             </p>
             <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
               {fonte === 'opq32'
-                ? 'O pipeline IA usará os dados OPQ32 dos colaboradores que tiverem PDF extraído. Colaboradores sem PDF caem no DISC.'
-                : 'Pipeline IA usa o mapeamento DISC nativo. Ative OPQ32 abaixo se a empresa usa SHL.'}
+                ? t('source.opqDescription')
+                : t('source.discDescription')}
             </p>
           </div>
           {fonte === 'opq32' ? (
             <button onClick={desativarFonte} disabled={!!acao}
               className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-amber-300 border border-amber-400/30 hover:bg-amber-400/10 disabled:opacity-40">
-              Voltar a usar DISC
+              {t('source.useDisc')}
             </button>
           ) : (
             <button onClick={ativarFonte} disabled={!!acao}
               className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-cyan-300 border border-cyan-400/30 hover:bg-cyan-400/10 disabled:opacity-40">
-              Ativar OPQ32 para esta empresa
+              {t('source.activateOpq')}
             </button>
           )}
         </div>
@@ -164,20 +166,20 @@ export default function PerfilExternoPage({ params }: { params: Promise<{ empres
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3 mb-4">
-        <Stat label="Colaboradores" valor={total} />
-        <Stat label="Com PDF" valor={comPdf} acento={comPdf > 0 ? 'cyan' : undefined} />
-        <Stat label="Extraídos" valor={extraidos} acento={extraidos > 0 ? 'green' : undefined} />
+        <Stat label={t('stats.collaborators')} valor={total} />
+        <Stat label={t('stats.withPdf')} valor={comPdf} acento={comPdf > 0 ? 'cyan' : undefined} />
+        <Stat label={t('stats.extracted')} valor={extraidos} acento={extraidos > 0 ? 'green' : undefined} />
       </div>
 
       {/* Aviso sobre tipo de relatório */}
       <div className="rounded-xl p-3 mb-6 border border-amber-400/20 bg-amber-400/[0.04] text-[11px] text-amber-100/85 leading-relaxed">
-        <strong className="text-amber-300">Atenção ao arquivo certo:</strong>{' '}
+        <strong className="text-amber-300">{t('warning.title')}</strong>{' '}
         <span className="text-amber-100/70">
-          o sistema só aceita o <strong className="text-amber-100">"OPQ32 Perfil"</strong> (relatório de
-          ~3 páginas com tabela de Stens 1-10). Os arquivos com{' '}
-          <code className="text-amber-200">OPQ32Profile</code> no nome são os corretos. Outros relatórios SHL
-          (<code className="text-amber-100/60">DevReport</code>, <code className="text-amber-100/60">UCF</code>, etc.)
-          não funcionam — são narrativos, sem os scores estruturados que o pipeline IA precisa.
+          {t.rich('warning.body', {
+            strong: chunks => <strong className="text-amber-100">{chunks}</strong>,
+            code: chunks => <code className="text-amber-200">{chunks}</code>,
+            mutedCode: chunks => <code className="text-amber-100/60">{chunks}</code>,
+          })}
         </span>
       </div>
 
@@ -199,27 +201,27 @@ export default function PerfilExternoPage({ params }: { params: Promise<{ empres
                     {c.cargo || '—'} · {c.email}
                     {c.resumo && (
                       <span className="text-cyan-400/70 ml-2">
-                        · {c.resumo.altas} altas, {c.resumo.baixas} baixas, CNS {c.resumo.cns ?? '—'}
+                        · {t('row.summary', { high: c.resumo.altas, low: c.resumo.baixas, cns: c.resumo.cns ?? '—' })}
                       </span>
                     )}
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <FileInputButton onSelect={(f) => handleUpload(c.id, f)} disabled={acaoAtiva}
-                    title={c.status === 'sem_pdf' ? 'Upload OPQ32 (PDF)' : 'Substituir PDF'}>
+                    title={c.status === 'sem_pdf' ? t('row.uploadPdf') : t('row.replacePdf')}>
                     {acaoAtiva && acao?.tipo === 'upload' ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-                    {c.status === 'sem_pdf' ? 'Upload' : 'Substituir'}
+                    {c.status === 'sem_pdf' ? t('row.upload') : t('row.replace')}
                   </FileInputButton>
 
                   {c.status !== 'sem_pdf' && (
                     <>
-                      <IconBtn title="Re-extrair" onClick={() => handleExtrair(c.id)} disabled={acaoAtiva}>
+                      <IconBtn title={t('row.reextract')} onClick={() => handleExtrair(c.id)} disabled={acaoAtiva}>
                         {acaoAtiva && acao?.tipo === 'extrair' ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
                       </IconBtn>
-                      <IconBtn title="Ver PDF" onClick={() => handleVerPdf(c)} disabled={acaoAtiva}>
+                      <IconBtn title={t('row.viewPdf')} onClick={() => handleVerPdf(c)} disabled={acaoAtiva}>
                         {acaoAtiva && acao?.tipo === 'preview' ? <Loader2 size={12} className="animate-spin" /> : <Eye size={12} />}
                       </IconBtn>
-                      <IconBtn title="Remover" onClick={() => handleDelete(c)} disabled={acaoAtiva} variant="danger">
+                      <IconBtn title={t('row.remove')} onClick={() => handleDelete(c)} disabled={acaoAtiva} variant="danger">
                         <Trash2 size={12} />
                       </IconBtn>
                     </>
@@ -258,11 +260,12 @@ function Stat({ label, valor, acento }: { label: string; valor: number; acento?:
 }
 
 function StatusBadge({ status }: { status: ColaboradorPerfilExterno['status'] }) {
+  const t = useTranslations('AdminExternalProfile');
   const cfg = {
-    sem_pdf:        { label: 'sem PDF',     icon: FileQuestion,  color: '#9ca3af', bg: 'rgba(156,163,175,0.1)', border: 'rgba(156,163,175,0.25)' },
-    pdf_carregado:  { label: 'PDF (sem extração)', icon: AlertTriangle, color: '#fbbf24', bg: 'rgba(251,191,36,0.12)', border: 'rgba(251,191,36,0.3)' },
-    extraido:       { label: 'extraído',    icon: CheckCircle,   color: '#34d399', bg: 'rgba(52,211,153,0.12)', border: 'rgba(52,211,153,0.3)' },
-    erro_extracao:  { label: 'erro',        icon: AlertTriangle, color: '#f87171', bg: 'rgba(248,113,113,0.12)', border: 'rgba(248,113,113,0.3)' },
+    sem_pdf:        { label: t('badges.noPdf'),     icon: FileQuestion,  color: '#9ca3af', bg: 'rgba(156,163,175,0.1)', border: 'rgba(156,163,175,0.25)' },
+    pdf_carregado:  { label: t('badges.pdfLoaded'), icon: AlertTriangle, color: '#fbbf24', bg: 'rgba(251,191,36,0.12)', border: 'rgba(251,191,36,0.3)' },
+    extraido:       { label: t('badges.extracted'),    icon: CheckCircle,   color: '#34d399', bg: 'rgba(52,211,153,0.12)', border: 'rgba(52,211,153,0.3)' },
+    erro_extracao:  { label: t('badges.error'),        icon: AlertTriangle, color: '#f87171', bg: 'rgba(248,113,113,0.12)', border: 'rgba(248,113,113,0.3)' },
   }[status];
   const Icon = cfg.icon;
   return (
@@ -320,11 +323,12 @@ function IconBtn({
 }
 
 function Empty() {
+  const t = useTranslations('AdminExternalProfile');
   return (
     <div className="rounded-xl border border-white/[0.06] p-12 text-center" style={{ background: '#0F2A4A' }}>
       <FileQuestion size={32} className="mx-auto mb-3 text-gray-600" />
-      <p className="text-sm text-gray-400">Nenhum colaborador encontrado</p>
-      <p className="text-[11px] text-gray-500 mt-1">Importe colaboradores na fase 0 antes de subir PDFs OPQ32.</p>
+      <p className="text-sm text-gray-400">{t('empty.title')}</p>
+      <p className="text-[11px] text-gray-500 mt-1">{t('empty.description')}</p>
     </div>
   );
 }

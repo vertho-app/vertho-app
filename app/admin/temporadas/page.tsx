@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import ReactMarkdown from 'react-markdown';
 import { ArrowLeft, ChevronRight, ChevronDown, BookOpen, Target, Sparkles, Video, FileText, Headphones, FileType, Pause, Play, Archive, RefreshCw, Eye, X } from 'lucide-react';
 import { listarTemporadasEmpresa, pausarRetomarTemporada, arquivarTemporada, regerarSemana, loadProgressoDetalhado } from '@/actions/temporadas';
@@ -19,9 +20,8 @@ const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: Bo
 const FORMAT_COLOR = { video: '#06B6D4', audio: '#A78BFA', texto: '#10B981', case: '#F59E0B', pdf: '#94A3B8' };
 
 const TIPO_COLOR = { conteudo: '#3B82F6', aplicacao: '#F59E0B', avaliacao: '#A78BFA' };
-const TIPO_LABEL = { conteudo: 'Conteúdo', aplicacao: 'Aplicação', avaliacao: 'Avaliação' };
-
 export default function TemporadasAdminPage() {
+  const t = useTranslations('AdminSeasons');
   const router = useRouter();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -53,7 +53,7 @@ export default function TemporadasAdminPage() {
   }
 
   async function handleArquivar(trilhaId, nome) {
-    if (!confirm(`Arquivar temporada de ${nome}? Ela será ocultada mas não deletada.`)) return;
+    if (!confirm(t('confirm.archive', { name: nome || t('fallback.collaborator') }))) return;
     setBusy(true);
     await arquivarTemporada(trilhaId);
     await recarregar();
@@ -61,7 +61,7 @@ export default function TemporadasAdminPage() {
   }
 
   async function handleRegerar(trilhaId, semana) {
-    if (!confirm(`Regerar semana ${semana}? Isso apagará o progresso dessa semana.`)) return;
+    if (!confirm(t('confirm.regenerateWeek', { week: semana }))) return;
     setBusy(true);
     const r = await regerarSemana(trilhaId, semana);
     if (!r.success) alert(r.error);
@@ -71,15 +71,15 @@ export default function TemporadasAdminPage() {
 
   const [simProgress, setSimProgress] = useState(null); // { semana, total, erros }
 
-  async function handleSimular(trilhaId, nome) {
+  async function handleSimular(trilhaId: any, nome: string) {
     const perfil = prompt(
-      `SIMULAR TEMPORADA de ${nome}?\n\nProcessa sems 1-14 uma por vez (evita timeout). Cada semana leva 30-90s.\n\nEscolha o perfil:\n  1 = evolucao_confirmada\n  2 = evolucao_parcial (default)\n  3 = estagnacao\n  4 = regressao\n\nDigite 1-4 ou cancele:`,
+      t('simulation.prompt', { name: nome }),
       '2'
     );
     if (!perfil) return;
     const mapa = { 1: 'evolucao_confirmada', 2: 'evolucao_parcial', 3: 'estagnacao', 4: 'regressao' };
     const perfilEvolucao = mapa[perfil.trim()] || 'evolucao_parcial';
-    if (!confirm(`Simular com perfil "${perfilEvolucao}"? Apaga progresso existente das 14 semanas.`)) return;
+    if (!confirm(t('simulation.confirmProfile', { profile: perfilEvolucao }))) return;
 
     setBusy(true);
     const sb = getSupabase();
@@ -90,14 +90,14 @@ export default function TemporadasAdminPage() {
     for (let sem = 1; sem <= 14; sem++) {
       setSimProgress({ semana: sem, total: 14, erros: [...erros] });
       const r = await simularUmaSemanaSimulacao(user.email, { trilhaId, semana: sem, perfilEvolucao });
-      if (r?.error) erros.push(`Sem ${sem}: ${r.error}`);
+      if (r?.error) erros.push(t('simulation.weekError', { week: sem, error: r.error }));
     }
 
     setSimProgress(null);
     setBusy(false);
     await recarregar();
-    if (erros.length) alert(`Simulação terminou com ${erros.length} erro(s):\n\n${erros.join('\n')}`);
-    else alert(`Simulação concluída com sucesso (14 semanas).`);
+    if (erros.length) alert(t('simulation.finishedWithErrors', { count: erros.length, errors: erros.join('\n') }));
+    else alert(t('simulation.finished'));
   }
 
   useEffect(() => {
@@ -119,24 +119,24 @@ export default function TemporadasAdminPage() {
             <ArrowLeft size={18} />
           </button>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold">Temporadas Geradas</h1>
-            <p className="text-xs text-gray-400">{empresaId ? 'Empresa específica' : 'Todas as empresas'} · {itemsFiltrados.length}/{items.length}</p>
+            <h1 className="text-2xl font-bold">{t('title')}</h1>
+            <p className="text-xs text-gray-400">{empresaId ? t('scope.company') : t('scope.allCompanies')} · {itemsFiltrados.length}/{items.length}</p>
           </div>
           <select value={statusFiltro} onChange={e => setStatusFiltro(e.target.value)}
             className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white">
-            <option value="ativa" className="bg-[#0d1426]">Ativas</option>
-            <option value="pausada" className="bg-[#0d1426]">Pausadas</option>
-            <option value="concluida" className="bg-[#0d1426]">Concluídas</option>
-            <option value="arquivada" className="bg-[#0d1426]">Arquivadas</option>
-            <option value="todas" className="bg-[#0d1426]">Todas</option>
+            <option value="ativa" className="bg-[#0d1426]">{t('filters.active')}</option>
+            <option value="pausada" className="bg-[#0d1426]">{t('filters.paused')}</option>
+            <option value="concluida" className="bg-[#0d1426]">{t('filters.completed')}</option>
+            <option value="arquivada" className="bg-[#0d1426]">{t('filters.archived')}</option>
+            <option value="todas" className="bg-[#0d1426]">{t('filters.all')}</option>
           </select>
         </div>
 
         {loading ? (
-          <div className="text-center py-12 text-gray-500 text-sm">Carregando...</div>
+          <div className="text-center py-12 text-gray-500 text-sm">{t('loading')}</div>
         ) : itemsFiltrados.length === 0 ? (
           <div className="text-center py-12 text-gray-500 text-sm">
-            Nenhuma temporada {statusFiltro !== 'todas' ? `com status "${statusFiltro}"` : 'gerada'}.
+            {statusFiltro !== 'todas' ? t('empty.withStatus', { status: t(`status.${statusFiltro}`) }) : t('empty.generated')}
           </div>
         ) : (
           <div className="space-y-3">
@@ -147,7 +147,7 @@ export default function TemporadasAdminPage() {
                 onPausar={() => handlePausar(t.id)}
                 onArquivar={() => handleArquivar(t.id, t.colab?.nome_completo)}
                 onRegerar={(semana) => handleRegerar(t.id, semana)}
-                onSimular={() => handleSimular(t.id, t.colab?.nome_completo || 'colab')}
+                onSimular={() => handleSimular(t.id, t.colab?.nome_completo || t('fallback.collaborator'))}
                 onVerDetalhe={() => handleVerDetalhe(t.id)}
                 busy={busy} />
             ))}
@@ -159,15 +159,19 @@ export default function TemporadasAdminPage() {
 
       {simProgress && (
         <div className="fixed bottom-4 right-4 z-40 rounded-xl border border-purple-500/30 bg-[#0a0e1a]/95 backdrop-blur p-4 shadow-xl min-w-[260px]">
-          <p className="text-xs font-bold text-purple-300 mb-2">Simulando temporada</p>
+          <p className="text-xs font-bold text-purple-300 mb-2">{t('simulation.progressTitle')}</p>
           <p className="text-sm text-white">
-            Sem <span className="text-purple-300 font-bold">{simProgress.semana}</span> de {simProgress.total}
+            {t.rich('simulation.progressWeek', {
+              week: simProgress.semana,
+              total: simProgress.total,
+              strong: chunks => <span className="text-purple-300 font-bold">{chunks}</span>,
+            })}
           </p>
           <div className="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden">
             <div className="h-full bg-purple-400 transition-all" style={{ width: `${(simProgress.semana / simProgress.total) * 100}%` }} />
           </div>
           {simProgress.erros.length > 0 && (
-            <p className="text-[10px] text-red-300 mt-2">⚠ {simProgress.erros.length} erro(s)</p>
+            <p className="text-[10px] text-red-300 mt-2">⚠ {t('simulation.errorCount', { count: simProgress.erros.length })}</p>
           )}
         </div>
       )}
@@ -176,6 +180,7 @@ export default function TemporadasAdminPage() {
 }
 
 function TemporadaCard({ t, expanded, onToggle, onPausar, onArquivar, onRegerar, onSimular, onVerDetalhe, busy }) {
+  const tr = useTranslations('AdminSeasons');
   const colab = t.colab || {};
   const semanas = Array.isArray(t.temporada_plano) ? t.temporada_plano : [];
   const descritores = Array.isArray(t.descritores_selecionados) ? t.descritores_selecionados : [];
@@ -189,25 +194,25 @@ function TemporadaCard({ t, expanded, onToggle, onPausar, onArquivar, onRegerar,
           {expanded ? <ChevronDown size={16} className="text-gray-500" /> : <ChevronRight size={16} className="text-gray-500" />}
           <div className="flex-1">
             <div className="text-sm font-bold text-white">{colab.nome_completo || '—'}</div>
-            <div className="text-[11px] text-gray-400">{colab.cargo || '—'} · Temporada {t.numero_temporada} · Foco: <span className="text-cyan-400">{t.competencia_foco}</span></div>
+            <div className="text-[11px] text-gray-400">{tr('card.meta', { role: colab.cargo || '—', season: t.numero_temporada, focus: t.competencia_foco })}</div>
           </div>
-          <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded border ${statusCls}`}>{statusKey}</span>
+          <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded border ${statusCls}`}>{tr(`status.${statusKey}`)}</span>
         </button>
-        <button onClick={onVerDetalhe} disabled={busy} title="Ver progresso detalhado"
+        <button onClick={onVerDetalhe} disabled={busy} title={tr('card.viewProgress')}
           className="p-1.5 rounded hover:bg-white/10 text-cyan-400 disabled:opacity-50">
           <Eye size={14} />
         </button>
-        <button onClick={onSimular} disabled={busy} title="Simular temporada completa (testes Vertho)"
+        <button onClick={onSimular} disabled={busy} title={tr('card.simulateTitle')}
           className="p-1.5 rounded hover:bg-white/10 text-purple-400 disabled:opacity-50 text-[10px] font-bold">
-          SIM
+          {tr('card.simulateShort')}
         </button>
         {statusKey !== 'arquivada' && (
           <>
-            <button onClick={onPausar} disabled={busy} title={statusKey === 'pausada' ? 'Retomar' : 'Pausar'}
+            <button onClick={onPausar} disabled={busy} title={statusKey === 'pausada' ? tr('card.resume') : tr('card.pause')}
               className="p-1.5 rounded hover:bg-white/10 text-amber-400 disabled:opacity-50">
               {statusKey === 'pausada' ? <Play size={14} /> : <Pause size={14} />}
             </button>
-            <button onClick={onArquivar} disabled={busy} title="Arquivar"
+            <button onClick={onArquivar} disabled={busy} title={tr('card.archive')}
               className="p-1.5 rounded hover:bg-white/10 text-gray-400 disabled:opacity-50">
               <Archive size={14} />
             </button>
@@ -219,12 +224,12 @@ function TemporadaCard({ t, expanded, onToggle, onPausar, onArquivar, onRegerar,
         <div className="px-4 pb-4 pt-2 border-t border-white/5 space-y-4">
           {/* Descritores */}
           <div>
-            <div className="text-[10px] uppercase text-gray-500 mb-2">Descritores selecionados</div>
+            <div className="text-[10px] uppercase text-gray-500 mb-2">{tr('card.selectedDescriptors')}</div>
             <div className="flex flex-wrap gap-2">
               {descritores.map((d, i) => (
                 <div key={i} className="text-[11px] px-2 py-1 rounded bg-white/5 border border-white/10">
                   <span className="text-white font-semibold">{d.descritor}</span>
-                  <span className="text-gray-400 ml-2">nota {d.nota_atual} · gap {d.gap?.toFixed(1)} · {d.semanas_alocadas} sem</span>
+                  <span className="text-gray-400 ml-2">{tr('card.descriptorMeta', { score: d.nota_atual, gap: d.gap?.toFixed(1), weeks: d.semanas_alocadas })}</span>
                 </div>
               ))}
             </div>
@@ -232,7 +237,7 @@ function TemporadaCard({ t, expanded, onToggle, onPausar, onArquivar, onRegerar,
 
           {/* Timeline 14 semanas */}
           <div>
-            <div className="text-[10px] uppercase text-gray-500 mb-2">Plano de 14 semanas</div>
+            <div className="text-[10px] uppercase text-gray-500 mb-2">{tr('card.planTitle')}</div>
             <div className="grid grid-cols-7 gap-2">
               {semanas.map(s => {
                 const Icon = s.tipo === 'aplicacao' ? Target : s.tipo === 'avaliacao' ? Sparkles : (FORMAT_ICON[s.conteudo?.formato_core] || BookOpen);
@@ -240,21 +245,21 @@ function TemporadaCard({ t, expanded, onToggle, onPausar, onArquivar, onRegerar,
                 return (
                   <div key={s.semana} className="rounded-lg bg-white/5 border border-white/10 p-2">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] text-gray-400">Sem {s.semana}</span>
+                      <span className="text-[10px] text-gray-400">{tr('week.short', { week: s.semana })}</span>
                       <Icon size={12} style={{ color: cor }} />
                     </div>
-                    <div className="text-[10px] text-white font-semibold truncate" title={s.descritor || TIPO_LABEL[s.tipo]}>
-                      {s.descritor || TIPO_LABEL[s.tipo]}
+                    <div className="text-[10px] text-white font-semibold truncate" title={s.descritor || tr(`types.${s.tipo}`)}>
+                      {s.descritor || tr(`types.${s.tipo}`)}
                     </div>
                     <div className="flex items-center justify-between">
                       {s.conteudo?.formato_core && (
                         <div className="text-[9px] text-gray-500 mt-0.5">
-                          {s.conteudo.formato_core}{s.conteudo.fallback_gerado ? ' (fallback)' : ''}
+                          {s.conteudo.formato_core}{s.conteudo.fallback_gerado ? tr('card.fallbackSuffix') : ''}
                         </div>
                       )}
                       {s.tipo !== 'avaliacao' && (
                         <button onClick={(e) => { e.stopPropagation(); onRegerar(s.semana); }} disabled={busy}
-                          title={`Regerar semana ${s.semana}`}
+                          title={tr('card.regenerateWeek', { week: s.semana })}
                           className="p-0.5 rounded hover:bg-white/10 text-purple-400 disabled:opacity-50 ml-auto">
                           <RefreshCw size={10} />
                         </button>
@@ -269,7 +274,7 @@ function TemporadaCard({ t, expanded, onToggle, onPausar, onArquivar, onRegerar,
           {/* Sample do desafio da semana 1 */}
           {semanas[0]?.conteudo?.desafio_texto && (
             <div className="rounded-lg bg-cyan-500/5 border border-cyan-500/20 p-3">
-              <div className="text-[10px] uppercase text-cyan-400 mb-1">Desafio semana 1</div>
+              <div className="text-[10px] uppercase text-cyan-400 mb-1">{tr('card.weekOneChallenge')}</div>
               <div className="text-xs text-gray-300 italic">"{semanas[0].conteudo.desafio_texto}"</div>
             </div>
           )}
@@ -305,10 +310,10 @@ function DetalheModal({ detalhe, onClose }) {
   );
 }
 
-const STATUS_LABEL = { pendente: 'Pendente', em_andamento: 'Em andamento', concluido: 'Concluído' };
 const STATUS_COR = { pendente: 'gray', em_andamento: 'amber', concluido: 'emerald' };
 
 function SemanaDetalhe({ semana, progresso }) {
+  const t = useTranslations('AdminSeasons');
   const [open, setOpen] = useState(false);
   const p = progresso || {};
   const statusKey = p.status || 'pendente';
@@ -322,82 +327,82 @@ function SemanaDetalhe({ semana, progresso }) {
     <div className="rounded-lg border border-white/10 bg-white/[0.02] overflow-hidden">
       <button onClick={() => setOpen(!open)} className="w-full px-3 py-2 flex items-center gap-3 hover:bg-white/[0.03]">
         {open ? <ChevronDown size={14} className="text-gray-500" /> : <ChevronRight size={14} className="text-gray-500" />}
-        <span className="text-[10px] text-gray-500 w-12">Sem {semana.semana}</span>
-        <span className="text-[10px] uppercase text-gray-400 w-20">{semana.tipo}</span>
-        <span className="flex-1 text-xs text-white text-left truncate">{semana.descritor || (temAvaliacao ? 'Avaliação final' : '—')}</span>
-        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-${cor}-500/20 text-${cor}-400`}>{STATUS_LABEL[statusKey]}</span>
+        <span className="text-[10px] text-gray-500 w-12">{t('week.short', { week: semana.semana })}</span>
+        <span className="text-[10px] uppercase text-gray-400 w-20">{t(`types.${semana.tipo}`)}</span>
+        <span className="flex-1 text-xs text-white text-left truncate">{semana.descritor || (temAvaliacao ? t('detail.finalEvaluation') : '—')}</span>
+        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-${cor}-500/20 text-${cor}-400`}>{t(`progressStatus.${statusKey}`)}</span>
       </button>
 
       {open && (
         <div className="px-4 pb-4 pt-1 border-t border-white/5 space-y-3 text-xs">
           {temConteudo && semana.conteudo && (
             <>
-              <Block titulo="🎯 Desafio" content={semana.conteudo.desafio_texto} />
+              <Block titulo={t('detail.challenge')} content={semana.conteudo.desafio_texto} />
               {semana.conteudo.acao_observavel && (
                 <div className="ml-4 space-y-1 text-[10px]">
-                  <div><span className="text-cyan-400/60 uppercase font-semibold">Ação: </span><span className="text-gray-400">{semana.conteudo.acao_observavel}</span></div>
-                  {semana.conteudo.criterio_de_execucao && <div><span className="text-cyan-400/60 uppercase font-semibold">Critério: </span><span className="text-gray-400">{semana.conteudo.criterio_de_execucao}</span></div>}
+                  <div><span className="text-cyan-400/60 uppercase font-semibold">{t('detail.actionLabel')} </span><span className="text-gray-400">{semana.conteudo.acao_observavel}</span></div>
+                  {semana.conteudo.criterio_de_execucao && <div><span className="text-cyan-400/60 uppercase font-semibold">{t('detail.criteriaLabel')} </span><span className="text-gray-400">{semana.conteudo.criterio_de_execucao}</span></div>}
                 </div>
               )}
             </>
           )}
           {temAplicacao && semana.missao && (
             <>
-              <Block titulo="🎯 Missão" markdown={semana.missao.texto} />
+              <Block titulo={t('detail.mission')} markdown={semana.missao.texto} />
               {semana.missao.acao_principal && (
                 <div className="ml-4 space-y-1 text-[10px]">
-                  <div><span className="text-amber-400/60 uppercase font-semibold">Ação: </span><span className="text-gray-400">{semana.missao.acao_principal}</span></div>
-                  {semana.missao.criterio_de_execucao && <div><span className="text-amber-400/60 uppercase font-semibold">Critério: </span><span className="text-gray-400">{semana.missao.criterio_de_execucao}</span></div>}
+                  <div><span className="text-amber-400/60 uppercase font-semibold">{t('detail.actionLabel')} </span><span className="text-gray-400">{semana.missao.acao_principal}</span></div>
+                  {semana.missao.criterio_de_execucao && <div><span className="text-amber-400/60 uppercase font-semibold">{t('detail.criteriaLabel')} </span><span className="text-gray-400">{semana.missao.criterio_de_execucao}</span></div>}
                 </div>
               )}
             </>
           )}
           {temAplicacao && semana.cenario && (
             <>
-              <Block titulo="🎭 Cenário" markdown={semana.cenario.texto} />
+              <Block titulo={t('detail.scenario')} markdown={semana.cenario.texto} />
               {semana.cenario.tradeoff_testado && (
                 <div className="ml-4 space-y-1 text-[10px]">
-                  <div><span className="text-purple-400/60 uppercase font-semibold">Trade-off: </span><span className="text-gray-400">{semana.cenario.tradeoff_testado}</span></div>
-                  {semana.cenario.armadilha_resposta_generica && <div><span className="text-purple-400/60 uppercase font-semibold">Armadilha: </span><span className="text-gray-400">{semana.cenario.armadilha_resposta_generica}</span></div>}
+                  <div><span className="text-purple-400/60 uppercase font-semibold">{t('detail.tradeoffLabel')} </span><span className="text-gray-400">{semana.cenario.tradeoff_testado}</span></div>
+                  {semana.cenario.armadilha_resposta_generica && <div><span className="text-purple-400/60 uppercase font-semibold">{t('detail.trapLabel')} </span><span className="text-gray-400">{semana.cenario.armadilha_resposta_generica}</span></div>}
                 </div>
               )}
             </>
           )}
           {temAvaliacao && p.reflexao?.cenario && (
-            <Block titulo="🎭 Cenário (sem 14)" markdown={p.reflexao.cenario} />
+            <Block titulo={t('detail.week14Scenario')} markdown={p.reflexao.cenario} />
           )}
 
           {p.reflexao && (
             <>
               {p.reflexao.desafio_realizado && (
                 <div className="flex flex-wrap gap-2 text-[11px]">
-                  <span className="text-gray-500">Desafio:</span>
+                  <span className="text-gray-500">{t('detail.challengeLabel')}</span>
                   <span className="text-white font-bold">{p.reflexao.desafio_realizado}</span>
-                  {p.reflexao.qualidade_reflexao && <span className="text-gray-500">· qualidade: <span className="text-cyan-400">{p.reflexao.qualidade_reflexao}</span></span>}
+                  {p.reflexao.qualidade_reflexao && <span className="text-gray-500">· {t('detail.qualityLabel')} <span className="text-cyan-400">{p.reflexao.qualidade_reflexao}</span></span>}
                   {p.reflexao.sinais_extraidos && (
                     <span className="text-gray-500">·
-                      {p.reflexao.sinais_extraidos.exemplo_concreto && <span className="text-emerald-400 ml-1">exemplo</span>}
-                      {p.reflexao.sinais_extraidos.autopercepcao && <span className="text-emerald-400 ml-1">autopercepção</span>}
-                      {p.reflexao.sinais_extraidos.compromisso_especifico && <span className="text-emerald-400 ml-1">compromisso</span>}
+                      {p.reflexao.sinais_extraidos.exemplo_concreto && <span className="text-emerald-400 ml-1">{t('detail.signals.example')}</span>}
+                      {p.reflexao.sinais_extraidos.autopercepcao && <span className="text-emerald-400 ml-1">{t('detail.signals.selfPerception')}</span>}
+                      {p.reflexao.sinais_extraidos.compromisso_especifico && <span className="text-emerald-400 ml-1">{t('detail.signals.commitment')}</span>}
                     </span>
                   )}
                 </div>
               )}
-              {p.reflexao.insight_principal && <Block titulo="💡 Insight" content={p.reflexao.insight_principal} />}
-              {p.reflexao.compromisso_proxima && <Block titulo="📝 Compromisso" content={p.reflexao.compromisso_proxima} />}
+              {p.reflexao.insight_principal && <Block titulo={t('detail.insight')} content={p.reflexao.insight_principal} />}
+              {p.reflexao.compromisso_proxima && <Block titulo={t('detail.commitment')} content={p.reflexao.compromisso_proxima} />}
               {p.reflexao.limites_da_conversa?.length > 0 && (
                 <div className="text-[10px] text-amber-400/70">{p.reflexao.limites_da_conversa.join(' · ')}</div>
               )}
-              {p.reflexao.transcript_completo?.length > 0 && <Transcript title="Conversa de reflexão" items={p.reflexao.transcript_completo} />}
+              {p.reflexao.transcript_completo?.length > 0 && <Transcript title={t('detail.reflectionConversation')} items={p.reflexao.transcript_completo} />}
             </>
           )}
 
           {p.feedback && (
             <>
-              {p.feedback.cenario_resposta && <Block titulo="✏️ Resposta ao cenário" content={p.feedback.cenario_resposta} />}
+              {p.feedback.cenario_resposta && <Block titulo={t('detail.scenarioAnswer')} content={p.feedback.cenario_resposta} />}
               {Array.isArray(p.feedback.avaliacao_por_descritor) && (
                 <div>
-                  <div className="text-[10px] uppercase text-gray-500 mb-1">Avaliação por descritor</div>
+                  <div className="text-[10px] uppercase text-gray-500 mb-1">{t('detail.descriptorEvaluation')}</div>
                   <div className="space-y-1">
                     {p.feedback.avaliacao_por_descritor.map((a, i) => (
                       <div key={i} className="flex items-center gap-2 text-[11px] p-1.5 rounded bg-white/5">
@@ -417,8 +422,8 @@ function SemanaDetalhe({ semana, progresso }) {
               {p.feedback.alertas_metodologicos?.length > 0 && (
                 <div className="text-[10px] text-amber-400/70">{p.feedback.alertas_metodologicos.join(' · ')}</div>
               )}
-              {p.feedback.sintese_bloco && <Block titulo="📊 Síntese do bloco" content={p.feedback.sintese_bloco} />}
-              {p.feedback.transcript_completo?.length > 0 && <Transcript title="Conversa de feedback" items={p.feedback.transcript_completo} />}
+              {p.feedback.sintese_bloco && <Block titulo={t('detail.blockSummary')} content={p.feedback.sintese_bloco} />}
+              {p.feedback.transcript_completo?.length > 0 && <Transcript title={t('detail.feedbackConversation')} items={p.feedback.transcript_completo} />}
             </>
           )}
         </div>
@@ -439,12 +444,13 @@ function Block({ titulo, content, markdown }: { titulo?: any; content?: any; mar
 }
 
 function Transcript({ title, items }) {
+  const t = useTranslations('AdminSeasons');
   const [open, setOpen] = useState(false);
   return (
     <div>
       <button onClick={() => setOpen(!open)} className="text-[10px] uppercase text-gray-500 hover:text-cyan-400 flex items-center gap-1">
         {open ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
-        {title} ({items.length} mensagens)
+        {title} ({t('detail.messages', { count: items.length })})
       </button>
       {open && (
         <div className="mt-2 space-y-2 max-h-96 overflow-auto">

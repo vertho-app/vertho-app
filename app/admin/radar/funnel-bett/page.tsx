@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { ArrowLeft, BarChart3, Loader2, TrendingDown, TrendingUp, Search, ExternalLink } from 'lucide-react';
 import { loadFunnelBett, type BettFunnelData } from './actions';
 
@@ -9,6 +10,8 @@ const DIAS_OPTIONS = [7, 30, 90];
 
 export default function FunnelBettPage() {
   const router = useRouter();
+  const locale = useLocale();
+  const t = useTranslations('AdminRadarBettFunnel');
   const [dias, setDias] = useState(30);
   const [data, setData] = useState<BettFunnelData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -29,9 +32,9 @@ export default function FunnelBettPage() {
           </button>
           <div>
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
-              <BarChart3 size={20} className="text-cyan-400" /> Funnel · radarbett.vertho.ai
+              <BarChart3 size={20} className="text-cyan-400" /> {t('title')}
             </h1>
-            <p className="text-xs text-gray-500">Conversão da landing comercial Bett 2026</p>
+            <p className="text-xs text-gray-500">{t('subtitle')}</p>
           </div>
         </div>
         <div className="flex gap-1 p-1 rounded-xl border border-white/[0.06]" style={{ background: '#091D35' }}>
@@ -40,7 +43,7 @@ export default function FunnelBettPage() {
               className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${
                 dias === d ? 'bg-cyan-400/15 text-cyan-300' : 'text-white/55 hover:text-white'
               }`}>
-              {d} dias
+              {t('days', { count: d })}
             </button>
           ))}
         </div>
@@ -56,10 +59,10 @@ export default function FunnelBettPage() {
         <>
           {/* Resumo */}
           <div className="grid grid-cols-3 gap-3 mb-6">
-            <ResumoCard label="Visitantes" valor={data.resumo.visitantes.toLocaleString('pt-BR')} />
-            <ResumoCard label="Leads" valor={data.resumo.leads.toLocaleString('pt-BR')} acento="cyan" />
+            <ResumoCard label={t('summary.visitors')} valor={data.resumo.visitantes.toLocaleString(locale)} />
+            <ResumoCard label={t('summary.leads')} valor={data.resumo.leads.toLocaleString(locale)} acento="cyan" />
             <ResumoCard
-              label="Conversão"
+              label={t('summary.conversion')}
               valor={`${data.resumo.conversao_pct.toFixed(2)}%`}
               acento={data.resumo.conversao_pct >= 5 ? 'green' : 'amber'}
             />
@@ -67,7 +70,7 @@ export default function FunnelBettPage() {
 
           {/* Etapas do funil */}
           <section className="mb-8">
-            <h2 className="text-white text-sm font-bold mb-3">Etapas do funil</h2>
+            <h2 className="text-white text-sm font-bold mb-3">{t('sections.steps')}</h2>
             <div className="rounded-xl border border-white/[0.06] overflow-hidden"
               style={{ background: '#0F2A4A' }}>
               {data.etapas.map((etapa, i) => {
@@ -81,10 +84,10 @@ export default function FunnelBettPage() {
                         {etapa.label}
                       </p>
                       <div className="flex items-center gap-3 shrink-0 text-[11px]">
-                        <span className="text-white/85 font-mono font-bold tabular-nums">{etapa.valor.toLocaleString('pt-BR')}</span>
+                        <span className="text-white/85 font-mono font-bold tabular-nums">{etapa.valor.toLocaleString(locale)}</span>
                         {etapa.taxa_conversao != null && (
                           <span className={`font-mono ${etapa.taxa_conversao >= 50 ? 'text-emerald-300' : etapa.taxa_conversao >= 25 ? 'text-amber-300' : 'text-red-300'}`}>
-                            {etapa.taxa_conversao.toFixed(1)}% conv.
+                            {t('conversionShort', { value: etapa.taxa_conversao.toFixed(1) })}
                           </span>
                         )}
                       </div>
@@ -104,24 +107,24 @@ export default function FunnelBettPage() {
 
           {/* Cliques secundários */}
           <section className="mb-8">
-            <h2 className="text-white text-sm font-bold mb-3">Cliques secundários</h2>
+            <h2 className="text-white text-sm font-bold mb-3">{t('sections.secondaryClicks')}</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <SecundarioCard label="Persona clicada" valor={data.cliques_secundarios.persona_click} />
-              <SecundarioCard label="Exemplo aberto" valor={data.cliques_secundarios.example_click} />
-              <SecundarioCard label="CTA Rede pública" valor={data.cliques_secundarios.public_cta} />
-              <SecundarioCard label="Sticky CTA mobile" valor={data.cliques_secundarios.sticky_click} />
-              <SecundarioCard label="Agendar" valor={data.cliques_secundarios.schedule} />
-              <SecundarioCard label="WhatsApp" valor={data.cliques_secundarios.whatsapp} />
+              <SecundarioCard label={t('secondary.persona')} valor={data.cliques_secundarios.persona_click} locale={locale} />
+              <SecundarioCard label={t('secondary.example')} valor={data.cliques_secundarios.example_click} locale={locale} />
+              <SecundarioCard label={t('secondary.publicCta')} valor={data.cliques_secundarios.public_cta} locale={locale} />
+              <SecundarioCard label={t('secondary.sticky')} valor={data.cliques_secundarios.sticky_click} locale={locale} />
+              <SecundarioCard label={t('secondary.schedule')} valor={data.cliques_secundarios.schedule} locale={locale} />
+              <SecundarioCard label="WhatsApp" valor={data.cliques_secundarios.whatsapp} locale={locale} />
             </div>
           </section>
 
           {/* Top buscados */}
           <section className="mb-8">
             <h2 className="text-white text-sm font-bold mb-3 flex items-center gap-2">
-              <Search size={14} /> Top buscados
+              <Search size={14} /> {t('sections.topSearches')}
             </h2>
             {data.top_buscados.length === 0 ? (
-              <p className="text-[12px] text-white/45">Sem buscas no período.</p>
+              <p className="text-[12px] text-white/45">{t('empty.searches')}</p>
             ) : (
               <div className="rounded-xl border border-white/[0.06] overflow-hidden"
                 style={{ background: '#0F2A4A' }}>
@@ -135,7 +138,7 @@ export default function FunnelBettPage() {
                   >
                     <span className="text-[10px] font-mono text-white/35 w-5 text-right">{i + 1}</span>
                     <span className="text-[10px] uppercase tracking-[0.18em] font-mono text-cyan-300/70 px-1.5 py-0.5 rounded bg-cyan-400/[0.06]">
-                      {b.scope === 'escola' ? 'esc' : 'mun'}
+                      {b.scope === 'escola' ? t('scope.schoolShort') : t('scope.cityShort')}
                     </span>
                     <span className="text-[12px] text-white/75 font-mono truncate flex-1">{b.scopeId}</span>
                     <span className="text-[12px] text-white/85 font-bold tabular-nums">{b.total}</span>
@@ -147,8 +150,7 @@ export default function FunnelBettPage() {
           </section>
 
           <p className="text-[10px] text-white/35 leading-relaxed">
-            Período: últimos {data.periodo.dias} dias. Eventos contados apenas humanos (is_bot = false).
-            Conversão = lead_submit ÷ home_view.
+            {t('footer', { days: data.periodo.dias })}
           </p>
         </>
       )}
@@ -166,12 +168,12 @@ function ResumoCard({ label, valor, acento }: { label: string; valor: string; ac
   );
 }
 
-function SecundarioCard({ label, valor }: { label: string; valor: number }) {
+function SecundarioCard({ label, valor, locale }: { label: string; valor: number; locale: string }) {
   return (
     <div className="rounded-xl border border-white/[0.06] px-3 py-2.5"
       style={{ background: 'rgba(255,255,255,0.025)' }}>
       <p className="text-[10px] tracking-[0.16em] uppercase font-mono text-white/40 mb-0.5">{label}</p>
-      <p className="text-lg font-bold tabular-nums text-white">{valor.toLocaleString('pt-BR')}</p>
+      <p className="text-lg font-bold tabular-nums text-white">{valor.toLocaleString(locale)}</p>
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { salvarPerfilComportamental, verificarDisponibilidadeMapeamento } from './mapeamento-actions';
 import { getColabByEmail } from '@/app/dashboard/colab-action';
@@ -11,34 +12,34 @@ import Image from 'next/image';
 /* ───────────────────── DATA ───────────────────── */
 
 const RANKING_GROUPS = [
-  [{ l: 'Direcionador(a)', d: 'D' }, { l: 'Cativante', d: 'I' }, { l: 'Criterioso(a)', d: 'C' }, { l: 'Constante', d: 'S' }],
-  [{ l: 'Acolhedor(a)', d: 'S' }, { l: 'Articulado(a)', d: 'I' }, { l: 'Incisivo(a)', d: 'D' }, { l: 'Minucioso(a)', d: 'C' }],
-  [{ l: 'Racional', d: 'C' }, { l: 'Animado(a)', d: 'I' }, { l: 'Tolerante', d: 'S' }, { l: 'Firme', d: 'D' }],
-  [{ l: 'Motivador(a)', d: 'I' }, { l: 'Metódico(a)', d: 'C' }, { l: 'Realizador(a)', d: 'D' }, { l: 'Resiliente', d: 'S' }],
-  [{ l: 'Objetivo(a)', d: 'D' }, { l: 'Adaptável', d: 'I' }, { l: 'Equilibrado(a)', d: 'S' }, { l: 'Rigoroso(a)', d: 'C' }],
-  [{ l: 'Estruturado(a)', d: 'C' }, { l: 'Sereno(a)', d: 'S' }, { l: 'Proativo(a)', d: 'D' }, { l: 'Vibrante', d: 'I' }],
-  [{ l: 'Comunicativo(a)', d: 'I' }, { l: 'Analítico(a)', d: 'C' }, { l: 'Colaborativo(a)', d: 'S' }, { l: 'Decidido(a)', d: 'D' }],
-  [{ l: 'Destemido(a)', d: 'D' }, { l: 'Cauteloso(a)', d: 'C' }, { l: 'Envolvente', d: 'I' }, { l: 'Perseverante', d: 'S' }],
+  [{ k: 'driver', d: 'D' }, { k: 'captivating', d: 'I' }, { k: 'careful', d: 'C' }, { k: 'constant', d: 'S' }],
+  [{ k: 'welcoming', d: 'S' }, { k: 'articulate', d: 'I' }, { k: 'incisive', d: 'D' }, { k: 'meticulous', d: 'C' }],
+  [{ k: 'rational', d: 'C' }, { k: 'animated', d: 'I' }, { k: 'tolerant', d: 'S' }, { k: 'firm', d: 'D' }],
+  [{ k: 'motivator', d: 'I' }, { k: 'methodical', d: 'C' }, { k: 'achiever', d: 'D' }, { k: 'resilient', d: 'S' }],
+  [{ k: 'objective', d: 'D' }, { k: 'adaptable', d: 'I' }, { k: 'balanced', d: 'S' }, { k: 'rigorous', d: 'C' }],
+  [{ k: 'structured', d: 'C' }, { k: 'calm', d: 'S' }, { k: 'proactive', d: 'D' }, { k: 'vibrant', d: 'I' }],
+  [{ k: 'communicative', d: 'I' }, { k: 'analytical', d: 'C' }, { k: 'collaborative', d: 'S' }, { k: 'decisive', d: 'D' }],
+  [{ k: 'fearless', d: 'D' }, { k: 'cautious', d: 'C' }, { k: 'engaging', d: 'I' }, { k: 'persevering', d: 'S' }],
 ];
 
 const FORCED_PAIRS = [
-  { a: 'Prefiro agir rápido e resolver', fa: 'D', b: 'Prefiro envolver as pessoas antes de agir', fb: 'I' },
-  { a: 'Gosto de mudar o que não funciona', fa: 'D', b: 'Prefiro manter o que já está funcionando', fb: 'S' },
-  { a: 'Tomo decisões com o que tenho disponível', fa: 'D', b: 'Analiso todos os dados antes de decidir', fb: 'C' },
-  { a: 'Gosto de conhecer pessoas novas', fa: 'I', b: 'Prefiro aprofundar relações que já tenho', fb: 'S' },
-  { a: 'Improviso bem quando o plano muda', fa: 'I', b: 'Me sinto melhor com uma rotina definida', fb: 'C' },
-  { a: 'Priorizo o bem-estar da equipe', fa: 'S', b: 'Priorizo a qualidade da entrega', fb: 'C' },
+  { a: 'actFast', fa: 'D', b: 'involvePeople', fb: 'I' },
+  { a: 'changeBroken', fa: 'D', b: 'keepWorking', fb: 'S' },
+  { a: 'decideAvailable', fa: 'D', b: 'analyzeAll', fb: 'C' },
+  { a: 'meetPeople', fa: 'I', b: 'deepenRelations', fb: 'S' },
+  { a: 'improvise', fa: 'I', b: 'routine', fb: 'C' },
+  { a: 'teamWellbeing', fa: 'S', b: 'deliveryQuality', fb: 'C' },
 ];
 
 const FORMATS = [
-  { id: 'video_short', label: 'Vídeo curto (≤5 min)', icon: '🎬' },
-  { id: 'video_long', label: 'Vídeo longo (aula/palestra)', icon: '🎥' },
-  { id: 'text', label: 'Texto / artigo', icon: '📄' },
-  { id: 'audio', label: 'Áudio / podcast', icon: '🎧' },
-  { id: 'infographic', label: 'Infográfico / visual', icon: '📊' },
-  { id: 'exercise', label: 'Exercício prático / simulação', icon: '🎯' },
-  { id: 'mentor', label: 'Conversa com mentor (chat IA)', icon: '🤖' },
-  { id: 'case', label: 'Estudo de caso', icon: '📋' },
+  { id: 'video_short', icon: '🎬' },
+  { id: 'video_long', icon: '🎥' },
+  { id: 'text', icon: '📄' },
+  { id: 'audio', icon: '🎧' },
+  { id: 'infographic', icon: '📊' },
+  { id: 'exercise', icon: '🎯' },
+  { id: 'mentor', icon: '🤖' },
+  { id: 'case', icon: '📋' },
 ];
 
 const RANK_WEIGHTS = [10, 6, 3, 1];
@@ -101,26 +102,26 @@ function InstructionCard({ numero, titulo, descricao }) {
   );
 }
 
-function BlockContextHeader({ isNatural, etapa }) {
+function BlockContextHeader({ isNatural, etapa, t }) {
   const block = isNatural
     ? {
         numero: '1',
-        titulo: 'Perfil Natural',
+        titulo: t('blocks.natural.title'),
         cor: '#2DD4BF',
-        resumo: '8 rankings + 6 pares rápidos respondidos pensando em como você é quando está à vontade, fora do trabalho.',
-        reforco: 'É o seu jeito natural, sem ajustes.',
+        resumo: t('blocks.natural.summary'),
+        reforco: t('blocks.natural.reinforcement'),
       }
     : {
         numero: '2',
-        titulo: 'Perfil Adaptado',
+        titulo: t('blocks.adapted.title'),
         cor: '#FCD34D',
-        resumo: 'As mesmas perguntas do bloco 1, mas pensando em como você age no trabalho.',
-        reforco: 'Revela o quanto você se ajusta ao contexto profissional.',
+        resumo: t('blocks.adapted.summary'),
+        reforco: t('blocks.adapted.reinforcement'),
       };
 
   const etapaTexto = etapa === 'ranking'
-    ? 'Nesta tela, ordene os itens do mais parecido com você ao menos parecido.'
-    : 'Nesta tela, escolha a frase que descreve melhor você de forma instintiva.';
+    ? t('blocks.rankingInstruction')
+    : t('blocks.pairsInstruction');
 
   return (
     <section className="mb-5 rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-4 shadow-[0_18px_45px_rgba(0,0,0,0.12)]">
@@ -133,7 +134,7 @@ function BlockContextHeader({ isNatural, etapa }) {
         </div>
         <div className="min-w-0">
           <h2 className="text-base font-black leading-snug text-white">
-            Bloco {block.numero} — <span style={{ color: block.cor }}>{block.titulo}</span>
+            {t('blocks.block', { number: block.numero })} — <span style={{ color: block.cor }}>{block.titulo}</span>
           </h2>
           <p className="mt-1 text-sm leading-relaxed text-slate-300">
             {block.resumo} <span className="text-slate-400">{block.reforco}</span>
@@ -228,6 +229,7 @@ const PHASE = {
 /* ───────────────── COMPONENT ───────────────── */
 
 export default function MapeamentoPage() {
+  const t = useTranslations('BehavioralMapping');
   const router = useRouter();
   const supabase = getSupabase();
 
@@ -354,7 +356,7 @@ export default function MapeamentoPage() {
     setSaving(true);
     try {
       const res = await salvarPerfilComportamental(resultData);
-      if (!res.success) setSaveError(res.error || 'Erro ao salvar');
+      if (!res.success) setSaveError(res.error || t('errors.save'));
     } catch (e) {
       setSaveError(e.message);
     }
@@ -363,7 +365,7 @@ export default function MapeamentoPage() {
     // Pequeno delay pra garantir que a gravação terminou de propagar, então
     // REDIRECIONA pra tela consolidada. replace evita voltar pra essa tela.
     setTimeout(() => router.replace('/dashboard/perfil-comportamental'), 800);
-  }, [rank1, rank2, pairs1, pairs2, learnPrefs, formName, formGender, router]);
+  }, [rank1, rank2, pairs1, pairs2, learnPrefs, formName, formGender, router, t]);
 
   /* ─── Navigation helpers ─── */
   const nextRankGroup = (phaseKey) => {
@@ -410,18 +412,18 @@ export default function MapeamentoPage() {
       <div className="max-w-[560px] mx-auto px-4 py-8">
         <button onClick={() => router.push('/dashboard/perfil-comportamental')}
           className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors mb-6">
-          <ArrowLeft size={16} /> Voltar
+          <ArrowLeft size={16} /> {t('back')}
         </button>
 
         <Image src="/logo-vertho.png" alt="Vertho" width={120} height={40} className="mb-5" />
 
-        <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Mapeamento Comportamental</h1>
-        <p className="text-sm text-gray-400 mb-6">Leva ~8 minutos. Você vai responder em <b>2 blocos</b>: Natural e Adaptado.</p>
+        <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">{t('onboarding.title')}</h1>
+        <p className="text-sm text-gray-400 mb-6">{t.rich('onboarding.subtitle', { strong: (chunks) => <b>{chunks}</b> })}</p>
 
         <div className="flex flex-wrap gap-2 mb-8">
-          {['Perfil DISC', 'Estilo de liderança', 'Preferências de aprendizagem'].map(chip => (
+          {['discProfile', 'leadershipStyle', 'learningPreferences'].map(chip => (
             <span key={chip} className="text-xs font-medium px-3 py-1.5 rounded-full bg-cyan-400/10 text-cyan-400 border border-cyan-400/20">
-              {chip}
+              {t(`onboarding.chips.${chip}`)}
             </span>
           ))}
         </div>
@@ -429,39 +431,32 @@ export default function MapeamentoPage() {
         <div className="space-y-4 mb-8">
           <InstructionCard
             numero={1}
-            titulo={<>Bloco 1 — <span className="text-teal-400">Perfil Natural</span></>}
-            descricao={<>
-              8 rankings + 6 pares rápidos respondidos pensando em <b>como você é quando está à vontade, fora do trabalho</b>.
-              É o seu jeito natural, sem ajustes.
-            </>}
+            titulo={<>{t('blocks.block', { number: 1 })} — <span className="text-teal-400">{t('blocks.natural.title')}</span></>}
+            descricao={t.rich('onboarding.naturalDescription', { strong: (chunks) => <b>{chunks}</b> })}
           />
           <InstructionCard
             numero={2}
-            titulo={<>Bloco 2 — <span className="text-amber-400">Perfil Adaptado</span></>}
-            descricao={<>
-              As mesmas perguntas do bloco 1, mas pensando em <b>como você age no trabalho</b>. Revela o quanto você se ajusta pro contexto profissional.
-            </>}
+            titulo={<>{t('blocks.block', { number: 2 })} — <span className="text-amber-400">{t('blocks.adapted.title')}</span></>}
+            descricao={t.rich('onboarding.adaptedDescription', { strong: (chunks) => <b>{chunks}</b> })}
           />
           <InstructionCard
             numero={3}
-            titulo="Preferências de aprendizagem"
-            descricao={<>
-              Marque os formatos de conteúdo que <b>funcionam melhor pra você</b> aprender (vídeo, texto, áudio, case, etc.). Ajuda a personalizar sua jornada.
-            </>}
+            titulo={t('onboarding.learningTitle')}
+            descricao={t.rich('onboarding.learningDescription', { strong: (chunks) => <b>{chunks}</b> })}
           />
         </div>
 
         <div className="rounded-xl bg-white/[0.03] border border-white/10 p-4 mb-4">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-cyan-400 mb-2">Como funcionam as perguntas</p>
+          <p className="text-[11px] font-bold uppercase tracking-widest text-cyan-400 mb-2">{t('onboarding.howQuestionsWork')}</p>
           <div className="space-y-2 text-xs text-gray-300 leading-relaxed">
-            <p>• <b>Rankings:</b> arraste os 4 adjetivos do <span className="text-emerald-400 font-bold">mais parecido</span> (topo) ao <span className="text-red-400 font-bold">menos parecido</span> (base).</p>
-            <p>• <b>Pares rápidos:</b> clique na frase que descreve melhor você. Responda instintivamente.</p>
+            <p>{t.rich('onboarding.rankingHelp', { strong: (chunks) => <b>{chunks}</b>, most: (chunks) => <span className="text-emerald-400 font-bold">{chunks}</span>, least: (chunks) => <span className="text-red-400 font-bold">{chunks}</span> })}</p>
+            <p>{t.rich('onboarding.pairsHelp', { strong: (chunks) => <b>{chunks}</b> })}</p>
           </div>
         </div>
 
         <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-3 mb-6">
           <p className="text-xs text-amber-200 leading-relaxed">
-            💡 <b>Dica:</b> seja sincero. Esse mapeamento não é teste — é um retrato do seu estilo pra montar uma jornada que faça sentido pra você.
+            {t.rich('onboarding.tip', { strong: (chunks) => <b>{chunks}</b> })}
           </p>
         </div>
 
@@ -470,7 +465,7 @@ export default function MapeamentoPage() {
           className="w-full py-3 rounded-xl font-bold text-white text-sm tracking-wide transition-all hover:opacity-90 active:scale-[0.99]"
           style={{ background: 'linear-gradient(135deg, #00B4D8, #0D9488)' }}
         >
-          COMEÇAR MAPEAMENTO
+          {t('onboarding.start')}
         </button>
       </div>
     );
@@ -482,14 +477,14 @@ export default function MapeamentoPage() {
     return (
       <div className="max-w-[440px] mx-auto px-4 py-8">
         <button onClick={() => setPhase(PHASE.ONBOARDING)} className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors mb-6">
-          <ArrowLeft size={16} /> Voltar
+          <ArrowLeft size={16} /> {t('back')}
         </button>
-        <h2 className="text-xl font-bold text-white mb-1">Bem-vindo(a)!</h2>
-        <p className="text-sm text-gray-400 mb-6">Confirme seus dados para iniciar.</p>
+        <h2 className="text-xl font-bold text-white mb-1">{t('welcome.title')}</h2>
+        <p className="text-sm text-gray-400 mb-6">{t('welcome.subtitle')}</p>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Nome completo</label>
+            <label className="block text-xs font-medium text-gray-400 mb-1">{t('welcome.fullName')}</label>
             <input
               type="text"
               value={formName}
@@ -498,7 +493,7 @@ export default function MapeamentoPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">E-mail</label>
+            <label className="block text-xs font-medium text-gray-400 mb-1">{t('welcome.email')}</label>
             <input
               type="email"
               value={formEmail}
@@ -508,16 +503,16 @@ export default function MapeamentoPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Gênero</label>
+            <label className="block text-xs font-medium text-gray-400 mb-1">{t('welcome.gender')}</label>
             <select
               value={formGender}
               onChange={e => setFormGender(e.target.value)}
               className="w-full px-3 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-cyan-400/50 appearance-none"
             >
-              <option value="" className="bg-[#091D35]">Selecione...</option>
-              <option value="M" className="bg-[#091D35]">Masculino</option>
-              <option value="F" className="bg-[#091D35]">Feminino</option>
-              <option value="O" className="bg-[#091D35]">Outro / Prefiro não informar</option>
+              <option value="" className="bg-[#091D35]">{t('welcome.select')}</option>
+              <option value="M" className="bg-[#091D35]">{t('welcome.masculine')}</option>
+              <option value="F" className="bg-[#091D35]">{t('welcome.feminine')}</option>
+              <option value="O" className="bg-[#091D35]">{t('welcome.other')}</option>
             </select>
           </div>
         </div>
@@ -528,7 +523,7 @@ export default function MapeamentoPage() {
           className="mt-8 w-full py-3 rounded-xl font-bold text-white text-sm tracking-wide transition-all disabled:opacity-40"
           style={{ background: canStart ? 'linear-gradient(135deg, #00B4D8, #0D9488)' : '#374151' }}
         >
-          INICIAR MAPEAMENTO
+          {t('welcome.start')}
         </button>
       </div>
     );
@@ -538,7 +533,7 @@ export default function MapeamentoPage() {
   const ProgressBar = () => (
     <div className="mb-4">
       <div className="flex items-center justify-between text-[10px] text-gray-500 mb-1">
-        <span>Progresso</span>
+        <span>{t('progress')}</span>
         <span>{currentStep}/{TOTAL_STEPS}</span>
       </div>
       <div className="h-1.5 rounded-full overflow-hidden bg-white/5">
@@ -572,7 +567,7 @@ export default function MapeamentoPage() {
     const phaseKey = isNatural ? 'rank1' : 'rank2';
     const currentRank = isNatural ? rank1 : rank2;
     const group = currentRank[groupIdx];
-    const label = isNatural ? 'Natural' : 'Adaptado';
+    const label = isNatural ? t('labels.natural') : t('labels.adapted');
 
     // Drag state
     const handleDragStart = (e, idx) => { e.dataTransfer.setData('text/plain', idx); };
@@ -591,11 +586,11 @@ export default function MapeamentoPage() {
           <span>{progressPct}%</span>
         </div>
 
-        <BlockContextHeader isNatural={isNatural} etapa="ranking" />
+        <BlockContextHeader isNatural={isNatural} etapa="ranking" t={t} />
 
         {/* Phase tag + title */}
         <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-cyan-400 mb-1">{label}</p>
-        <h1 className="text-[26px] font-black text-white leading-tight mb-2">Grupo {String(groupIdx + 1).padStart(2, '0')}</h1>
+        <h1 className="text-[26px] font-black text-white leading-tight mb-2">{t('ranking.group', { number: String(groupIdx + 1).padStart(2, '0') })}</h1>
 
         {/* Dots */}
         <div className="flex gap-1 mb-6">
@@ -605,13 +600,13 @@ export default function MapeamentoPage() {
         </div>
 
         {/* Top label */}
-        <p className="text-center text-[15px] font-semibold text-green-400 mb-3">👍 MAIS PARECIDO</p>
+        <p className="text-center text-[15px] font-semibold text-green-400 mb-3">{t('ranking.mostSimilar')}</p>
 
         {/* Ranking cards */}
         <div className="space-y-2 mb-3">
           {group.map((item, idx) => (
             <div
-              key={item.l + idx}
+              key={item.k + idx}
               draggable
               onDragStart={(e) => handleDragStart(e, idx)}
               onDragOver={handleDragOver}
@@ -623,7 +618,7 @@ export default function MapeamentoPage() {
                 style={{ background: 'rgba(45,212,191,0.12)', color: '#2DD4BF' }}>
                 {idx + 1}
               </span>
-              <span className="flex-1 text-[16px] text-white font-semibold">{item.l}</span>
+              <span className="flex-1 text-[16px] text-white font-semibold">{t(`ranking.words.${item.k}`)}</span>
               <div className="flex gap-1">
                 <button
                   disabled={idx === 0}
@@ -647,7 +642,7 @@ export default function MapeamentoPage() {
         </div>
 
         {/* Bottom label */}
-        <p className="text-center text-[15px] font-semibold text-amber-400 mb-6">👎 MENOS PARECIDO</p>
+        <p className="text-center text-[15px] font-semibold text-amber-400 mb-6">{t('ranking.leastSimilar')}</p>
 
         {/* Advance button */}
         <button
@@ -655,7 +650,7 @@ export default function MapeamentoPage() {
           className="w-full py-4 rounded-xl font-bold text-[#0C1829] text-sm tracking-wider uppercase"
           style={{ background: 'linear-gradient(135deg, #2DD4BF, #14B8A6)' }}
         >
-          AVANÇAR
+          {t('next')}
         </button>
       </div>
     );
@@ -668,7 +663,7 @@ export default function MapeamentoPage() {
     const currentPairs = isNatural ? pairs1 : pairs2;
     const pair = FORCED_PAIRS[pairIdx];
     const selected = currentPairs[pairIdx];
-    const label = isNatural ? 'Natural' : 'Adaptado';
+    const label = isNatural ? t('labels.natural') : t('labels.adapted');
 
     return (
       <div className="max-w-[560px] mx-auto px-4 py-6">
@@ -681,11 +676,11 @@ export default function MapeamentoPage() {
           <div className="h-full rounded-full transition-all" style={{ width: `${progressPct}%`, background: 'linear-gradient(90deg, #2DD4BF, #FCD34D)' }} />
         </div>
 
-        <BlockContextHeader isNatural={isNatural} etapa="pares" />
+        <BlockContextHeader isNatural={isNatural} etapa="pares" t={t} />
 
         {/* Phase tag + title */}
-        <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-cyan-400 mb-1">{label} — ESCOLHA RÁPIDA</p>
-        <h1 className="text-[26px] font-black text-white leading-tight mb-2">Par {pairIdx + 1}/6</h1>
+        <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-cyan-400 mb-1">{label} — {t('pairs.quickChoice')}</p>
+        <h1 className="text-[26px] font-black text-white leading-tight mb-2">{t('pairs.pair', { current: pairIdx + 1, total: 6 })}</h1>
 
         {/* Dots */}
         <div className="flex gap-1 mb-6">
@@ -695,7 +690,7 @@ export default function MapeamentoPage() {
         </div>
 
         {/* Question */}
-        <p className="text-center text-[15px] font-semibold text-gray-300 mb-4">Qual te descreve melhor?</p>
+        <p className="text-center text-[15px] font-semibold text-gray-300 mb-4">{t('pairs.question')}</p>
 
         {/* Option A */}
         <button
@@ -707,11 +702,11 @@ export default function MapeamentoPage() {
             boxShadow: selected === pair.fa ? '0 0 16px rgba(45,212,191,0.15)' : 'none',
           }}
         >
-          <span className="text-[16px] font-semibold text-white leading-relaxed">{pair.a}</span>
+          <span className="text-[16px] font-semibold text-white leading-relaxed">{t(`pairs.options.${pair.a}`)}</span>
         </button>
 
         {/* OU */}
-        <p className="text-center text-[13px] font-extrabold text-gray-500 tracking-[2px] py-1.5">OU</p>
+        <p className="text-center text-[13px] font-extrabold text-gray-500 tracking-[2px] py-1.5">{t('pairs.or')}</p>
 
         {/* Option B */}
         <button
@@ -723,7 +718,7 @@ export default function MapeamentoPage() {
             boxShadow: selected === pair.fb ? '0 0 16px rgba(45,212,191,0.15)' : 'none',
           }}
         >
-          <span className="text-[16px] font-semibold text-white leading-relaxed">{pair.b}</span>
+          <span className="text-[16px] font-semibold text-white leading-relaxed">{t(`pairs.options.${pair.b}`)}</span>
         </button>
 
         {/* Advance */}
@@ -733,7 +728,7 @@ export default function MapeamentoPage() {
           className="mt-5 w-full py-4 rounded-xl font-bold text-[#0C1829] text-sm tracking-wider uppercase disabled:opacity-30 transition-all"
           style={{ background: 'linear-gradient(135deg, #2DD4BF, #14B8A6)' }}
         >
-          AVANÇAR
+          {t('next')}
         </button>
       </div>
     );
@@ -746,7 +741,7 @@ export default function MapeamentoPage() {
       <div className="max-w-[480px] mx-auto px-4 py-6">
         {/* Progress header */}
         <div className="flex justify-between items-center text-[11px] text-gray-500 font-medium mb-1">
-          <span>Preferências de Aprendizagem</span>
+          <span>{t('learning.progressTitle')}</span>
           <span>{progressPct}%</span>
         </div>
         <div className="h-[3px] rounded-full overflow-hidden mb-6" style={{ background: 'rgba(255,255,255,0.05)' }}>
@@ -754,16 +749,16 @@ export default function MapeamentoPage() {
         </div>
 
         {/* Tag + title */}
-        <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-cyan-400 mb-1">Última Etapa</p>
-        <h1 className="text-[26px] font-black text-white leading-tight mb-1" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>Como você aprende melhor?</h1>
-        <p className="text-[14px] text-gray-400 mb-5">Dê de 1 a 5 estrelas para cada formato:</p>
+        <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-cyan-400 mb-1">{t('learning.lastStep')}</p>
+        <h1 className="text-[26px] font-black text-white leading-tight mb-1" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>{t('learning.title')}</h1>
+        <p className="text-[14px] text-gray-400 mb-5">{t('learning.subtitle')}</p>
 
         {/* Format rows */}
         <div className="space-y-2">
           {FORMATS.map(fmt => (
             <div key={fmt.id} className="flex items-center gap-3 px-3 py-3 rounded-xl" style={{ background: '#182B48' }}>
               <span className="text-[18px] shrink-0">{fmt.icon}</span>
-              <span className="flex-1 text-[14px] font-semibold text-white leading-snug">{fmt.label}</span>
+              <span className="flex-1 text-[14px] font-semibold text-white leading-snug">{t(`learning.formats.${fmt.id}`)}</span>
               <div className="flex gap-0.5">
                 {[1, 2, 3, 4, 5].map(star => (
                   <button
@@ -789,7 +784,7 @@ export default function MapeamentoPage() {
           className="mt-5 w-full py-4 rounded-xl font-bold text-[#0C1829] text-sm tracking-wider uppercase disabled:opacity-30 transition-all"
           style={{ background: 'linear-gradient(135deg, #2DD4BF, #14B8A6)' }}
         >
-          VER MEU PERFIL →
+          {t('learning.viewProfile')}
         </button>
       </div>
     );
@@ -800,8 +795,8 @@ export default function MapeamentoPage() {
     return (
       <div className="flex flex-col items-center justify-center h-[70dvh] text-center px-4">
         <Loader2 size={48} className="animate-spin text-cyan-400 mb-4" />
-        <h2 className="text-lg font-bold text-white mb-1">Calculando seu perfil...</h2>
-        <p className="text-sm text-gray-400">Analisando suas respostas e gerando competências.</p>
+        <h2 className="text-lg font-bold text-white mb-1">{t('calculating.title')}</h2>
+        <p className="text-sm text-gray-400">{t('calculating.subtitle')}</p>
       </div>
     );
   }

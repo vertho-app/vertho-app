@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, AlertCircle, Download, Zap, Users, Anchor, ListChecks, Sparkles } from 'lucide-react';
 import { loadPerfilCIS, gerarInsightsExecutivos } from './perfil-comportamental-actions';
@@ -106,7 +107,7 @@ function DiscBars({ scores, mutedColor }: { scores: any; mutedColor?: any }) {
   );
 }
 
-function QuadrantCard({ letter, title, n, a, traco, descricao, adaptacao }) {
+function QuadrantCard({ letter, title, n, a, traco, descricao, adaptacao, t }) {
   const q = DISC_QUAD[letter];
   return (
     <div className="rounded-xl p-4 border" style={{ background: q.bg, borderColor: 'rgba(255,255,255,0.08)', borderLeft: `4px solid ${q.bar}` }}>
@@ -116,21 +117,21 @@ function QuadrantCard({ letter, title, n, a, traco, descricao, adaptacao }) {
           <p className="text-base font-extrabold text-white mt-0.5">{traco || '—'}</p>
         </div>
         <div className="text-right shrink-0 ml-3">
-          <p className="text-[9px] text-gray-500">Natural</p>
+          <p className="text-[9px] text-gray-500">{t('labels.natural')}</p>
           <p className="text-xl font-black" style={{ color: q.text }}>{Math.round(n)}</p>
         </div>
       </div>
       <p className="text-xs text-gray-300 leading-relaxed">{descricao}</p>
       {adaptacao && (
         <p className="text-[10px] text-gray-400 italic mt-2 pt-2 border-t border-white/10">
-          Adaptado {Math.round(a)} — {adaptacao}
+          {t('labels.adapted')} {Math.round(a)} — {adaptacao}
         </p>
       )}
     </div>
   );
 }
 
-function AnaliseNarrativa({ data }) {
+function AnaliseNarrativa({ data, t }) {
   if (!data) return null;
   const { raw, texts } = data;
   if (!raw || !texts) return null;
@@ -139,7 +140,7 @@ function AnaliseNarrativa({ data }) {
     <div className="space-y-5">
       {/* Síntese */}
       <div className="rounded-2xl p-5 border border-cyan-400/20" style={{ background: 'rgba(13,148,136,0.08)' }}>
-        <p className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-400 mb-2">Síntese do perfil</p>
+        <p className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-400 mb-2">{t('narrative.profileSynthesis')}</p>
         <p className="text-sm text-gray-200 leading-relaxed">{texts.sintese_perfil}</p>
       </div>
 
@@ -148,13 +149,13 @@ function AnaliseNarrativa({ data }) {
         style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
         <div>
           <p className="text-[10px] font-extrabold uppercase tracking-widest text-gray-400 mb-3 text-center">
-            Natural — quem você é
+            {t('narrative.naturalWhoYouAre')}
           </p>
           <DiscBars scores={raw.disc_natural} />
         </div>
         <div>
           <p className="text-[10px] font-extrabold uppercase tracking-widest text-gray-400 mb-3 text-center">
-            Adaptado — exigência do ambiente
+            {t('narrative.adaptedEnvironment')}
           </p>
           <DiscBars scores={raw.disc_adaptado} mutedColor="#94A3B8" />
         </div>
@@ -162,27 +163,27 @@ function AnaliseNarrativa({ data }) {
 
       {/* 4 quadrantes DISC */}
       <div>
-        <h2 className="text-base font-extrabold text-white mb-3">Como Você Funciona</h2>
+        <h2 className="text-base font-extrabold text-white mb-3">{t('narrative.howYouWork')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <QuadrantCard letter="D" title="Como lida com desafios"
+          <QuadrantCard letter="D" title={t('quadrants.challenges')}
             n={raw.disc_natural.D} a={raw.disc_adaptado.D}
-            traco={texts.quadrante_D?.titulo_traco} descricao={texts.quadrante_D?.descricao} adaptacao={texts.quadrante_D?.adaptacao} />
-          <QuadrantCard letter="I" title="Como lida com pessoas"
+            traco={texts.quadrante_D?.titulo_traco} descricao={texts.quadrante_D?.descricao} adaptacao={texts.quadrante_D?.adaptacao} t={t} />
+          <QuadrantCard letter="I" title={t('quadrants.people')}
             n={raw.disc_natural.I} a={raw.disc_adaptado.I}
-            traco={texts.quadrante_I?.titulo_traco} descricao={texts.quadrante_I?.descricao} adaptacao={texts.quadrante_I?.adaptacao} />
-          <QuadrantCard letter="S" title="Como dita o ritmo"
+            traco={texts.quadrante_I?.titulo_traco} descricao={texts.quadrante_I?.descricao} adaptacao={texts.quadrante_I?.adaptacao} t={t} />
+          <QuadrantCard letter="S" title={t('quadrants.pace')}
             n={raw.disc_natural.S} a={raw.disc_adaptado.S}
-            traco={texts.quadrante_S?.titulo_traco} descricao={texts.quadrante_S?.descricao} adaptacao={texts.quadrante_S?.adaptacao} />
-          <QuadrantCard letter="C" title="Como lida com regras"
+            traco={texts.quadrante_S?.titulo_traco} descricao={texts.quadrante_S?.descricao} adaptacao={texts.quadrante_S?.adaptacao} t={t} />
+          <QuadrantCard letter="C" title={t('quadrants.rules')}
             n={raw.disc_natural.C} a={raw.disc_adaptado.C}
-            traco={texts.quadrante_C?.titulo_traco} descricao={texts.quadrante_C?.descricao} adaptacao={texts.quadrante_C?.adaptacao} />
+            traco={texts.quadrante_C?.titulo_traco} descricao={texts.quadrante_C?.descricao} adaptacao={texts.quadrante_C?.adaptacao} t={t} />
         </div>
       </div>
 
       {/* Top 5 forças/desenvolver */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="rounded-2xl p-4 border border-white/[0.06]" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
-          <p className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-400 mb-3">5 maiores forças</p>
+          <p className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-400 mb-3">{t('narrative.topStrengths')}</p>
           <div className="space-y-2">
             {(texts.top5_forcas || []).map((f, i) => {
               const comp = raw.competencias.find(c => c.nome === f.competencia);
@@ -201,7 +202,7 @@ function AnaliseNarrativa({ data }) {
           </div>
         </div>
         <div className="rounded-2xl p-4 border border-white/[0.06]" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
-          <p className="text-[10px] font-extrabold uppercase tracking-widest text-amber-400 mb-3">5 oportunidades</p>
+          <p className="text-[10px] font-extrabold uppercase tracking-widest text-amber-400 mb-3">{t('narrative.topOpportunities')}</p>
           <div className="space-y-2">
             {(texts.top5_desenvolver || []).map((d, i) => {
               const comp = raw.competencias.find(c => c.nome === d.competencia);
@@ -223,19 +224,19 @@ function AnaliseNarrativa({ data }) {
 
       {/* Liderança narrativa */}
       <div className="rounded-2xl p-5 border border-white/[0.06]" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
-        <h2 className="text-sm font-extrabold text-white mb-3">Estilo de Liderança</h2>
+        <h2 className="text-sm font-extrabold text-white mb-3">{t('narrative.leadershipStyle')}</h2>
         <p className="text-sm text-gray-300 leading-relaxed mb-3">{texts.lideranca_sintese}</p>
         <div className="rounded-lg p-3 border-l-2 border-amber-400" style={{ background: 'rgba(245,158,11,0.08)' }}>
-          <p className="text-[10px] font-extrabold uppercase tracking-widest text-amber-400 mb-1">Oportunidades</p>
+          <p className="text-[10px] font-extrabold uppercase tracking-widest text-amber-400 mb-1">{t('narrative.opportunities')}</p>
           <p className="text-xs text-gray-300">{texts.lideranca_trabalhar}</p>
         </div>
       </div>
 
       {/* Pontos sob pressão */}
       <div className="rounded-2xl p-5 border border-white/[0.06]" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
-        <h2 className="text-sm font-extrabold text-white mb-1">Pontos a desenvolver sob pressão</h2>
+        <h2 className="text-sm font-extrabold text-white mb-1">{t('narrative.pressurePoints')}</h2>
         <p className="text-[10px] text-gray-500 mb-3">
-          Comportamentos que perfis {raw.perfil_dominante} podem apresentar em momentos de estresse
+          {t('narrative.pressureSubtitle', { profile: raw.perfil_dominante })}
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {(texts.pontos_desenvolver_pressao || []).map((p, i) => (
@@ -272,7 +273,7 @@ function InsightText({ text }) {
   );
 }
 
-function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCached }) {
+function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCached, t }) {
   const router = useRouter();
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [insightsLocal, setInsightsLocal] = useState(insights);
@@ -315,10 +316,10 @@ function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCa
         <div className="relative">
           <h2 className="font-extrabold text-xl md:text-2xl text-white">{c.nome_completo}</h2>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <span className="text-cyan-400 font-bold text-base">{arquetipo?.nome || 'Profissional'}</span>
+            <span className="text-cyan-400 font-bold text-base">{arquetipo?.nome || t('fallbackProfessional')}</span>
             <span className="h-1 w-1 rounded-full bg-gray-600" />
             <span className="text-gray-400 font-bold text-xs tracking-widest uppercase">
-              {DISC_LABELS_FULL[letraDominante] || 'Perfil'} dominante
+              {t('dominantProfile', { profile: DISC_LABELS_FULL[letraDominante] || t('profileFallback') })}
             </span>
           </div>
           {arquetipo?.desc && (
@@ -348,7 +349,7 @@ function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCa
                 {letraDominante}
               </span>
               <span className="text-[8px] uppercase font-bold text-gray-400 tracking-[0.18em] -mt-1">
-                Dominante
+                {t('dominant')}
               </span>
             </div>
           </div>
@@ -379,7 +380,7 @@ function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCa
       <div className="rounded-2xl p-5 md:p-6 border border-white/[0.06] space-y-4"
         style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
         <div className="flex items-center justify-between">
-          <h3 className="font-extrabold text-lg text-white">Insights acionáveis</h3>
+          <h3 className="font-extrabold text-lg text-white">{t('actionableInsights')}</h3>
           {!insightsCached && insightsLoading && (
             <Loader2 size={14} className="animate-spin text-cyan-400" />
           )}
@@ -402,6 +403,7 @@ function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCa
 }
 
 export default function PerfilComportamentalPage() {
+  const t = useTranslations('BehavioralProfile');
   const [data, setData] = useState(null);
   const [narrativa, setNarrativa] = useState(null); // { raw, texts } do loadBehavioralReport
   const [loading, setLoading] = useState(true);
@@ -461,8 +463,8 @@ export default function PerfilComportamentalPage() {
       <PageContainer>
         <PageHero
           eyebrow="PERFIL COMPORTAMENTAL"
-          title={temPerfilExterno ? 'Perfil comportamental recebido' : 'Perfil comportamental tratado pela empresa'}
-          subtitle={`Sua empresa utiliza ${empresaPerfilExternoLabel || 'mapeamento comportamental próprio'}. Não há diagnóstico comportamental para responder na Vertho.`}
+          title={temPerfilExterno ? t('external.receivedTitle') : t('external.handledTitle')}
+          subtitle={t('external.subtitle', { source: empresaPerfilExternoLabel || t('external.defaultSource') })}
         />
         <div className="flex justify-center">
           <div className="rounded-2xl border border-white/[0.06] p-8 text-center max-w-[520px] w-full"
@@ -470,16 +472,16 @@ export default function PerfilComportamentalPage() {
             <AlertCircle size={40} className="text-cyan-400 mx-auto mb-3" />
             <p className="text-sm text-gray-400 leading-relaxed mb-4">
               {temPerfilExterno
-                ? 'Seu perfil comportamental já foi recebido e será usado pela Vertho para personalizar análises, recomendações e trilhas quando aplicável.'
-                : 'Quando o RH disponibilizar as informações do mapeamento, elas serão integradas pela Vertho aos fluxos internos da jornada.'}
+                ? t('external.receivedDescription')
+                : t('external.pendingDescription')}
             </p>
             {altas.length > 0 && (
               <div className="rounded-xl border border-white/[0.06] p-4 text-left" style={{ background: 'rgba(255,255,255,0.03)' }}>
-                <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-2">Destaques disponíveis</p>
+                <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-2">{t('external.availableHighlights')}</p>
                 <div className="space-y-1">
                   {altas.map((a: any, i: number) => (
                     <p key={i} className="text-xs text-gray-300">
-                      {a.nome || 'Escala'}{a.sten ? ` · sten ${a.sten}` : ''}
+                      {a.nome || t('external.scale')}{a.sten ? ` · sten ${a.sten}` : ''}
                     </p>
                   ))}
                 </div>
@@ -498,15 +500,15 @@ export default function PerfilComportamentalPage() {
         <PageContainer>
           <PageHero
             eyebrow="PERFIL COMPORTAMENTAL"
-            title="Próxima etapa ainda bloqueada"
-            subtitle="O perfil comportamental será liberado pelo RH depois que a votação de competências for finalizada."
+            title={t('blocked.title')}
+            subtitle={t('blocked.subtitle')}
           />
           <div className="flex justify-center">
             <div className="rounded-2xl border border-amber-400/20 p-8 text-center max-w-[520px] w-full"
               style={{ background: 'rgba(245,158,11,0.06)', backdropFilter: 'blur(12px)' }}>
               <AlertCircle size={40} className="text-amber-300 mx-auto mb-3" />
               <p className="text-sm text-gray-300 leading-relaxed">
-                Seu voto pode ser registrado primeiro. Assim que a empresa fechar a votação e liberar o próximo passo, o mapeamento DISC ficará disponível aqui.
+                {t('blocked.description')}
               </p>
             </div>
           </div>
@@ -518,20 +520,20 @@ export default function PerfilComportamentalPage() {
       <PageContainer>
         <PageHero
           eyebrow="PERFIL COMPORTAMENTAL"
-          title="Mapeamento ainda não realizado"
-          subtitle="Seu perfil comportamental ainda não foi mapeado. Leva cerca de 8 minutos."
+          title={t('notMapped.title')}
+          subtitle={t('notMapped.subtitle')}
         />
         <div className="flex justify-center">
           <div className="rounded-2xl border border-white/[0.06] p-8 text-center max-w-[520px] w-full"
             style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
             <AlertCircle size={40} className="text-cyan-400 mx-auto mb-3" />
             <p className="text-sm text-gray-400 mb-5">
-              O mapeamento identifica seu perfil DISC, estilo de liderança e preferências de aprendizagem.
+              {t('notMapped.description')}
             </p>
             <button onClick={() => router.push('/dashboard/perfil-comportamental/mapeamento')}
               className="px-6 py-3 rounded-full text-sm font-bold text-white"
               style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
-              Iniciar Mapeamento
+              {t('notMapped.start')}
             </button>
           </div>
         </div>
@@ -565,14 +567,14 @@ export default function PerfilComportamentalPage() {
   return (
     <PageContainer className="space-y-5">
       <PageHero
-        eyebrow="SEU PERFIL COMPORTAMENTAL"
-        title="Resumo Executivo"
+        eyebrow={t('hero.eyebrow')}
+        title={t('hero.title')}
         actions={narrativa ? (
           <button onClick={handleDownloadPdf} disabled={downloading}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-extrabold text-white transition disabled:opacity-50"
             style={{ background: 'linear-gradient(135deg, #00B4D8, #0D9488)', boxShadow: '0 0 20px rgba(0,180,216,0.25)' }}>
             {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-            {downloading ? 'Preparando...' : 'Baixar PDF'}
+            {downloading ? t('download.preparing') : t('download.button')}
           </button>
         ) : null}
       />
@@ -583,20 +585,21 @@ export default function PerfilComportamentalPage() {
         tags={tags}
         insights={insights}
         insightsCached={data.insightsCached}
+        t={t}
       />
 
       {/* Análise narrativa (quadrantes DISC, top5 forças/gaps, liderança, pressão) */}
       {narrativa && (
         <>
           <p className="text-[10px] font-bold tracking-[0.2em] text-gray-500 uppercase mt-8 mb-1">
-            Análise narrativa
+            {t('sections.narrative')}
           </p>
-          <AnaliseNarrativa data={narrativa} />
+          <AnaliseNarrativa data={narrativa} t={t} />
         </>
       )}
 
       <p className="text-[10px] font-bold tracking-[0.2em] text-gray-500 uppercase mt-8">
-        Análise detalhada
+        {t('sections.detailed')}
       </p>
 
       {/* ── Radar DISC ── */}
@@ -623,21 +626,21 @@ export default function PerfilComportamentalPage() {
           <text x="5" y="105" textAnchor="end" fill="#CBD5E1" fontSize="13" fontWeight="700">C</text>
         </svg>
         <div className="flex justify-center gap-5 mt-3">
-          <span className="text-xs font-bold text-gray-300"><span className="inline-block w-2.5 h-2.5 rounded-full bg-[#2DD4BF] mr-1.5" />Natural</span>
-          <span className="text-xs font-bold text-gray-300"><span className="inline-block w-2.5 h-2.5 rounded-full bg-[#FCD34D] mr-1.5" />Adaptado</span>
+          <span className="text-xs font-bold text-gray-300"><span className="inline-block w-2.5 h-2.5 rounded-full bg-[#2DD4BF] mr-1.5" />{t('labels.natural')}</span>
+          <span className="text-xs font-bold text-gray-300"><span className="inline-block w-2.5 h-2.5 rounded-full bg-[#FCD34D] mr-1.5" />{t('labels.adapted')}</span>
         </div>
       </div>
 
       {/* ── Forças / Desenvolvimento ── */}
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl p-5 border border-white/[0.04] text-center" style={{ background: 'rgba(17,31,54,0.85)' }}>
-          <p className="text-xs font-extrabold uppercase tracking-[1.5px] text-green-400 mb-3">Forças</p>
+          <p className="text-xs font-extrabold uppercase tracking-[1.5px] text-green-400 mb-3">{t('sections.strengths')}</p>
           {strengths.map(s => (
             <p key={s.name} className="text-sm font-bold text-white mt-1.5">{s.name} <span className="text-green-400">{Math.round(s.value)}</span></p>
           ))}
         </div>
         <div className="rounded-2xl p-5 border border-white/[0.04] text-center" style={{ background: 'rgba(17,31,54,0.85)' }}>
-          <p className="text-xs font-extrabold uppercase tracking-[1.5px] text-amber-400 mb-3">Desenvolvimento</p>
+          <p className="text-xs font-extrabold uppercase tracking-[1.5px] text-amber-400 mb-3">{t('sections.development')}</p>
           {gaps.map(g => (
             <p key={g.name} className="text-sm font-bold text-white mt-1.5">{g.name} <span className="text-amber-400">{Math.round(g.value)}</span></p>
           ))}
@@ -654,8 +657,8 @@ export default function PerfilComportamentalPage() {
 
       {/* ── DISC Adaptado ── */}
       <div className="rounded-2xl p-5 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
-        <p className="text-xs font-extrabold uppercase tracking-[2px] text-amber-400 mb-1">DISC Adaptado</p>
-        <p className="text-xs text-gray-400 mb-4">Como as pessoas esperam que você seja</p>
+        <p className="text-xs font-extrabold uppercase tracking-[2px] text-amber-400 mb-1">{t('sections.adaptedDisc')}</p>
+        <p className="text-xs text-gray-400 mb-4">{t('sections.adaptedDiscSubtitle')}</p>
         {[['Dominância', dA.D, DISC_COLORS.D], ['Influência', dA.I, DISC_COLORS.I], ['Estabilidade', dA.S, DISC_COLORS.S], ['Conformidade', dA.C, DISC_COLORS.C]].map(([l, v, col]) => (
           <Bar key={l} label={l} value={v} max={100} color={col} />
         ))}
@@ -663,7 +666,7 @@ export default function PerfilComportamentalPage() {
 
       {/* ── Liderança ── */}
       <div className="rounded-2xl p-5 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
-        <p className="text-xs font-extrabold uppercase tracking-[2px] text-cyan-400 mb-4">Liderança</p>
+        <p className="text-xs font-extrabold uppercase tracking-[2px] text-cyan-400 mb-4">{t('sections.leadership')}</p>
         {lead.map(l => (
           <Bar key={l.label} label={l.label} value={l.value} max={50} color={l.color} />
         ))}
@@ -673,7 +676,7 @@ export default function PerfilComportamentalPage() {
       {Object.entries(COMP_GROUPS).map(([dim, comps]) => (
         <div key={dim} className="rounded-2xl p-5 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
           <p className="text-xs font-extrabold uppercase tracking-[2px] mb-4" style={{ color: DISC_COLORS[dim] }}>
-            Competências — {DISC_LABELS[dim]}
+            {t('sections.competencies')} — {DISC_LABELS[dim]}
           </p>
           {comps.map(({ label, key }) => (
             <Bar key={key} label={label} value={c[key] || 0} max={100} color={DISC_COLORS[dim]} />

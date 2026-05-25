@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { ArrowLeft, Loader2, Trophy, Trash2, Plus, X, ChevronDown, Filter } from 'lucide-react';
 import { loadTop10TodosCargos, adicionarTop10, removerTop10 } from '@/actions/fase1';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import { getSupabase } from '@/lib/supabase-browser';
 export default function Top10Page() {
   const router = useRouter();
+  const t = useTranslations('AdminTop10');
   const searchParams = useSearchParams();
   const empresaId = searchParams.get('empresa');
 
@@ -78,22 +80,22 @@ export default function Top10Page() {
 
   async function handleRemove(id) {
     const r = await removerTop10(id);
-    if (r.success) { flash('Removida'); refresh(); }
-    else flash('Erro: ' + r.error);
+    if (r.success) { flash(t('messages.removed')); refresh(); }
+    else flash(t('messages.error', { error: r.error }));
   }
 
   async function handleAdd(compId) {
     if (!showAdd || !empresaId) return;
     const r = await adicionarTop10(empresaId, showAdd, compId);
-    if (r.success) { flash('Adicionada'); refresh(); }
-    else flash('Erro: ' + r.error);
+    if (r.success) { flash(t('messages.added')); refresh(); }
+    else flash(t('messages.error', { error: r.error }));
   }
 
   if (!empresaId) {
     return (
       <div className="max-w-[1100px] mx-auto px-4 py-6 text-center">
-        <p className="text-gray-400">Acesse via pipeline da empresa.</p>
-        <button onClick={() => router.push('/admin/dashboard')} className="mt-4 text-cyan-400 text-sm hover:underline">Voltar</button>
+        <p className="text-gray-400">{t('missingCompany')}</p>
+        <button onClick={() => router.push('/admin/dashboard')} className="mt-4 text-cyan-400 text-sm hover:underline">{t('actions.back')}</button>
       </div>
     );
   }
@@ -111,8 +113,8 @@ export default function Top10Page() {
             <ArrowLeft size={16} />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-white flex items-center gap-2"><Trophy size={20} className="text-amber-400" /> Top 10 Competências</h1>
-            <p className="text-xs text-gray-500">Validação das competências selecionadas pela IA por cargo</p>
+            <h1 className="text-xl font-bold text-white flex items-center gap-2"><Trophy size={20} className="text-amber-400" /> {t('title')}</h1>
+            <p className="text-xs text-gray-500">{t('subtitle')}</p>
           </div>
         </div>
       </div>
@@ -123,7 +125,7 @@ export default function Top10Page() {
           <Filter size={14} className="text-gray-400" />
           <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
             className="px-3 py-1.5 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
-            <option value="">Todos os cargos</option>
+            <option value="">{t('filters.allRoles')}</option>
             {cargos.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
@@ -133,8 +135,8 @@ export default function Top10Page() {
       {top10.length === 0 && (
         <div className="text-center py-12">
           <Trophy size={32} className="text-gray-600 mx-auto mb-3" />
-          <p className="text-sm text-gray-500">Nenhuma seleção encontrada</p>
-          <p className="text-xs text-gray-600 mt-1">Rode a IA1 (Top Competências) no pipeline da empresa primeiro</p>
+          <p className="text-sm text-gray-500">{t('empty.title')}</p>
+          <p className="text-xs text-gray-600 mt-1">{t('empty.description')}</p>
         </div>
       )}
 
@@ -152,7 +154,7 @@ export default function Top10Page() {
               </div>
               <button onClick={() => { setShowAdd(cargo); setAddSearch(''); }}
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-green-400 border border-green-400/30 hover:bg-green-400/10 transition-all">
-                <Plus size={12} /> Adicionar
+                <Plus size={12} /> {t('actions.add')}
               </button>
             </div>
 
@@ -173,7 +175,7 @@ export default function Top10Page() {
                       <div className="flex items-center gap-4 mt-1.5">
                         {t.aderencia_cargo != null && (
                           <div className="flex items-center gap-1.5 flex-1">
-                            <span className="text-[9px] text-gray-500 shrink-0 w-10">Cargo</span>
+                            <span className="text-[9px] text-gray-500 shrink-0 w-10">{t('labels.role')}</span>
                             <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
                               <div className="h-full rounded-full bg-cyan-400" style={{ width: `${Math.round(t.aderencia_cargo * 100)}%` }} />
                             </div>
@@ -182,7 +184,7 @@ export default function Top10Page() {
                         )}
                         {t.aderencia_mercado != null && (
                           <div className="flex items-center gap-1.5 flex-1">
-                            <span className="text-[9px] text-gray-500 shrink-0 w-14">Mercado</span>
+                            <span className="text-[9px] text-gray-500 shrink-0 w-14">{t('labels.market')}</span>
                             <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
                               <div className="h-full rounded-full bg-purple-400" style={{ width: `${Math.round(t.aderencia_mercado * 100)}%` }} />
                             </div>
@@ -217,7 +219,7 @@ export default function Top10Page() {
                 </div>
               ))}
               {items.length === 0 && (
-                <div className="px-4 py-6 text-center text-xs text-gray-500">Nenhuma competência selecionada</div>
+                <div className="px-4 py-6 text-center text-xs text-gray-500">{t('empty.noCompetencySelected')}</div>
               )}
             </div>
 
@@ -227,17 +229,17 @@ export default function Top10Page() {
                 {/* Resumo executivo */}
                 {ia1Resultados[cargo].resumo_executivo && (
                   <div className="rounded-xl p-3 border border-purple-400/10" style={{ background: 'rgba(158,78,221,0.05)' }}>
-                    <p className="text-[10px] font-bold text-purple-300 uppercase tracking-widest mb-1">Leitura do cargo</p>
+                    <p className="text-[10px] font-bold text-purple-300 uppercase tracking-widest mb-1">{t('ia.roleReading')}</p>
                     <p className="text-xs text-gray-300">{ia1Resultados[cargo].resumo_executivo.leitura_do_cargo}</p>
                     {ia1Resultados[cargo].resumo_executivo.riscos_de_omissao && (
                       <>
-                        <p className="text-[10px] font-bold text-amber-300 uppercase tracking-widest mt-2 mb-1">Riscos da selecao</p>
+                        <p className="text-[10px] font-bold text-amber-300 uppercase tracking-widest mt-2 mb-1">{t('ia.selectionRisks')}</p>
                         <p className="text-xs text-gray-400">{ia1Resultados[cargo].resumo_executivo.riscos_de_omissao}</p>
                       </>
                     )}
                     {ia1Resultados[cargo].resumo_executivo.cobertura_da_selecao && (
                       <>
-                        <p className="text-[10px] font-bold text-cyan-300 uppercase tracking-widest mt-2 mb-1">Cobertura</p>
+                        <p className="text-[10px] font-bold text-cyan-300 uppercase tracking-widest mt-2 mb-1">{t('ia.coverage')}</p>
                         <p className="text-xs text-gray-400">{ia1Resultados[cargo].resumo_executivo.cobertura_da_selecao}</p>
                       </>
                     )}
@@ -246,7 +248,7 @@ export default function Top10Page() {
                 {/* Quase entraram */}
                 {Array.isArray(ia1Resultados[cargo].quase_entrou) && ia1Resultados[cargo].quase_entrou.length > 0 && (
                   <div className="rounded-xl p-3 border border-white/[0.06]" style={{ background: 'rgba(255,255,255,0.02)' }}>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Quase entraram</p>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{t('ia.almostIn')}</p>
                     {ia1Resultados[cargo].quase_entrou.map((q: any, j: number) => (
                       <div key={j} className="flex items-start gap-2 mb-1.5 last:mb-0">
                         <span className="text-[10px] text-amber-400 shrink-0">&#8226;</span>
@@ -271,18 +273,18 @@ export default function Top10Page() {
           <div className="w-full max-w-[550px] rounded-2xl border border-white/[0.08] p-5 mb-10" style={{ background: '#0A1D35' }}
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-bold text-white">Adicionar competência — {showAdd}</h2>
+              <h2 className="text-sm font-bold text-white">{t('modal.addCompetency', { role: showAdd })}</h2>
               <button onClick={() => setShowAdd(null)} className="text-gray-500 hover:text-white"><X size={18} /></button>
             </div>
 
             <input value={addSearch} onChange={e => setAddSearch(e.target.value)}
-              placeholder="Buscar competência..."
+              placeholder={t('modal.searchPlaceholder')}
               className="w-full px-3 py-2 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/50 mb-3"
               style={{ background: '#091D35' }} />
 
             <div className="max-h-[400px] overflow-y-auto space-y-1">
               {availableComps.length === 0 ? (
-                <p className="text-xs text-gray-500 text-center py-4">Nenhuma competência disponível</p>
+                <p className="text-xs text-gray-500 text-center py-4">{t('modal.noAvailableCompetency')}</p>
               ) : (
                 availableComps.map(c => (
                   <button key={c.id} onClick={() => handleAdd(c.id)}

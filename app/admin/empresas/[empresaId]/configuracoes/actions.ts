@@ -7,8 +7,15 @@ export async function loadConfig(empresaId) {
   const sb = await requireAdminSupabase();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const { data, error } = await sb.from('empresas')
-    .select('id, nome, slug, sys_config, ui_config')
+    .select('id, nome, slug, sys_config, ui_config, default_locale')
     .eq('id', empresaId).single();
+  if (error && /default_locale/i.test(error.message || '')) {
+    const fallback = await sb.from('empresas')
+      .select('id, nome, slug, sys_config, ui_config')
+      .eq('id', empresaId).single();
+    if (fallback.error) return { success: false, error: fallback.error.message };
+    return { success: true, empresa: { ...fallback.data, default_locale: 'pt-BR' } };
+  }
   if (error) return { success: false, error: error.message };
   return { success: true, empresa: data };
 }
@@ -21,6 +28,21 @@ export async function salvarConfig(empresaId, sysConfig) {
     .eq('id', empresaId);
   if (error) return { success: false, error: error.message };
   return { success: true, message: 'Configurações salvas' };
+}
+
+export async function salvarLocaleEmpresa(empresaId, defaultLocale) {
+  const sb = await requireAdminSupabase();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const validLocales = ['pt-BR', 'pt-PT', 'es-ES'];
+  if (!validLocales.includes(defaultLocale)) {
+    return { success: false, error: `Locale inválido. Use: ${validLocales.join(', ')}` };
+  }
+
+  const { error } = await sb.from('empresas')
+    .update({ default_locale: defaultLocale })
+    .eq('id', empresaId);
+  if (error) return { success: false, error: error.message };
+  return { success: true, message: 'Idioma padrão salvo' };
 }
 
 export async function salvarBranding(empresaId, branding) {

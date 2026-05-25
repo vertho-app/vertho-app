@@ -2,16 +2,19 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, Mail, Briefcase, Building2, LogOut, Shield, Camera, Palette, Trash2, Check } from 'lucide-react';
-import { loadPerfil, salvarFotoPerfil, salvarAvatarPreset, removerAvatar } from './perfil-actions';
+import { Loader2, Mail, Briefcase, Building2, LogOut, Shield, Camera, Palette, Trash2, Check, Languages } from 'lucide-react';
+import { loadPerfil, salvarFotoPerfil, salvarAvatarPreset, removerAvatar, salvarLocalePerfil } from './perfil-actions';
 import { PageContainer, PageHero, GlassCard } from '@/components/page-shell';
 import { AVATAR_PRESETS, getPreset } from '@/lib/avatar-presets';
+import { localeCookieName } from '@/lib/i18n';
+import { locales } from '@/i18n/routing';
 
 const ROLE_LABELS = {
-  colaborador: { label: 'Colaborador', color: '#6B7280' },
-  gestor: { label: 'Gestor', color: '#F59E0B' },
-  rh: { label: 'RH', color: '#00B4D8' },
+  colaborador: { labelKey: 'colaborador', color: '#6B7280' },
+  gestor: { labelKey: 'gestor', color: '#F59E0B' },
+  rh: { labelKey: 'rh', color: '#00B4D8' },
 };
 
 // ── Avatar render ────────────────────────────────────────────────────────
@@ -47,12 +50,16 @@ function Avatar({ colab, size = 80 }) {
 }
 
 export default function PerfilPage() {
+  const t = useTranslations('Profile');
+  const common = useTranslations('Common');
+  const locale = useLocale();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [userEmail, setUserEmail] = useState(null);
   const [showPicker, setShowPicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savingLocale, setSavingLocale] = useState(false);
   const fileRef = useRef(null);
   const router = useRouter();
   const supabase = getSupabase();
@@ -80,7 +87,7 @@ export default function PerfilPage() {
     if (file) e.target.value = '';
     if (!file || !userEmail) return;
     const MAX = 2 * 1024 * 1024; // 2 MB
-    if (file.size > MAX) { alert('Foto maior que 2 MB'); return; }
+    if (file.size > MAX) { alert(t('photoTooLarge')); return; }
 
     setSaving(true);
     try {
@@ -125,6 +132,19 @@ export default function PerfilPage() {
     }
   }
 
+  async function handleLocaleChange(nextLocale) {
+    document.cookie = `${localeCookieName}=${nextLocale}; path=/; max-age=31536000; samesite=lax`;
+    setData(prev => prev ? ({ ...prev, colaborador: { ...prev.colaborador, locale: nextLocale } }) : prev);
+    setSavingLocale(true);
+    const result = await salvarLocalePerfil(nextLocale);
+    setSavingLocale(false);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    router.refresh();
+  }
+
   if (loading) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
   if (error && !data) return <PageContainer><p className="text-center text-gray-400">{error}</p></PageContainer>;
   if (!data) return null;
@@ -134,7 +154,7 @@ export default function PerfilPage() {
 
   return (
     <PageContainer className="space-y-5 max-w-[720px]">
-      <PageHero eyebrow="MEU PERFIL" title={colaborador.nome_completo} subtitle={colaborador.cargo} />
+      <PageHero eyebrow={t('heroEyebrow')} title={colaborador.nome_completo} subtitle={colaborador.cargo} />
 
       {/* Avatar + role badge + ação de trocar */}
       <div className="flex items-center gap-4">
@@ -142,11 +162,11 @@ export default function PerfilPage() {
         <div className="flex-1 min-w-0">
           <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full inline-flex items-center gap-1"
             style={{ color: role.color, background: role.color + '18' }}>
-            <Shield size={11} /> {role.label}
+            <Shield size={11} /> {t(`roles.${role.labelKey}`)}
           </span>
           <button onClick={() => setShowPicker(v => !v)}
             className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-cyan-400 hover:text-cyan-300">
-            <Camera size={12} /> {colaborador.foto_url || colaborador.avatar_preset ? 'Alterar foto/avatar' : 'Adicionar foto ou avatar'}
+            <Camera size={12} /> {colaborador.foto_url || colaborador.avatar_preset ? t('changeAvatar') : t('addAvatar')}
           </button>
         </div>
       </div>
@@ -156,7 +176,7 @@ export default function PerfilPage() {
         <GlassCard padding="p-5">
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-bold text-white flex items-center gap-2">
-              <Palette size={14} className="text-cyan-400" /> Escolha um avatar ou envie uma foto
+              <Palette size={14} className="text-cyan-400" /> {t('pickerTitle')}
             </p>
             {saving && <Loader2 size={14} className="animate-spin text-cyan-400" />}
           </div>
@@ -168,18 +188,18 @@ export default function PerfilPage() {
               disabled={saving}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-extrabold text-white disabled:opacity-50"
               style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
-              <Camera size={13} /> Enviar foto (máx 2 MB)
+              <Camera size={13} /> {t('uploadPhoto')}
             </button>
             {(colaborador.foto_url || colaborador.avatar_preset) && (
               <button onClick={handleRemoverAvatar} disabled={saving}
                 className="flex items-center gap-1 text-[11px] font-semibold text-red-400 hover:text-red-300 px-2 py-1">
-                <Trash2 size={12} /> Remover
+                <Trash2 size={12} /> {t('remove')}
               </button>
             )}
           </div>
 
           {/* Grid de presets */}
-          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">Ou escolha um avatar:</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">{t('chooseAvatar')}</p>
           <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
             {AVATAR_PRESETS.map(p => {
               const active = colaborador.avatar_preset === p.id && !colaborador.foto_url;
@@ -213,7 +233,7 @@ export default function PerfilPage() {
           <div className="flex items-center gap-3">
             <Mail size={16} className="text-gray-500 shrink-0" />
             <div className="min-w-0">
-              <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Email</p>
+              <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">{t('fields.email')}</p>
               <p className="text-sm text-white truncate">{colaborador.email}</p>
             </div>
           </div>
@@ -221,7 +241,7 @@ export default function PerfilPage() {
             <div className="flex items-center gap-3">
               <Briefcase size={16} className="text-gray-500 shrink-0" />
               <div>
-                <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Cargo</p>
+                <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">{t('fields.role')}</p>
                 <p className="text-sm text-white">{colaborador.cargo}</p>
               </div>
             </div>
@@ -230,7 +250,7 @@ export default function PerfilPage() {
             <div className="flex items-center gap-3">
               <Building2 size={16} className="text-gray-500 shrink-0" />
               <div>
-                <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Área / Departamento</p>
+                <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">{t('fields.department')}</p>
                 <p className="text-sm text-white">{colaborador.area_depto}</p>
               </div>
             </div>
@@ -239,11 +259,32 @@ export default function PerfilPage() {
             <div className="flex items-center gap-3">
               <Building2 size={16} className="text-gray-500 shrink-0" />
               <div>
-                <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Empresa</p>
+                <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">{t('fields.company')}</p>
                 <p className="text-sm text-white">{empresaNome}</p>
               </div>
             </div>
           )}
+          <div className="flex items-center gap-3">
+            <Languages size={16} className="text-gray-500 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">{t('fields.language')}</p>
+              <div className="relative mt-1 max-w-xs">
+                <select
+                  value={colaborador.locale || locale}
+                  onChange={e => handleLocaleChange(e.target.value)}
+                  disabled={savingLocale}
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 pr-9 text-sm text-white outline-none focus:border-cyan-400/60 disabled:opacity-60"
+                >
+                  {locales.map(item => (
+                    <option key={item} value={item} className="bg-[#0d1426] text-white">
+                      {common(`locales.${item}`)}
+                    </option>
+                  ))}
+                </select>
+                {savingLocale && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-cyan-400" />}
+              </div>
+            </div>
+          </div>
         </div>
       </GlassCard>
 
@@ -251,7 +292,7 @@ export default function PerfilPage() {
       <button onClick={handleLogout}
         className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-red-400 border border-red-400/20 hover:border-red-400/40 transition-all"
         style={{ background: 'rgba(239,68,68,0.06)' }}>
-        <LogOut size={16} /> Sair da conta
+        <LogOut size={16} /> {t('logout')}
       </button>
     </PageContainer>
   );

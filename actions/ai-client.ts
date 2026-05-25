@@ -1,6 +1,9 @@
 'use server';
 
 import Anthropic from '@anthropic-ai/sdk';
+import { cookies } from 'next/headers';
+import { AppLocale, defaultLocale } from '@/i18n/routing';
+import { localeCookieName, localeLanguageName, resolveAppLocale } from '@/lib/i18n';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
@@ -12,11 +15,34 @@ export interface AICallOptions {
   temperature?: number;
   thinking?: boolean;
   thinkingBudget?: number;
+  locale?: AppLocale;
 }
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+}
+
+async function resolveAILocale(explicitLocale?: AppLocale): Promise<AppLocale> {
+  if (explicitLocale) return explicitLocale;
+
+  try {
+    const store = await cookies();
+    return resolveAppLocale(store.get(localeCookieName)?.value);
+  } catch {
+    return defaultLocale;
+  }
+}
+
+function withLanguageInstruction(system: string, locale: AppLocale): string {
+  const language = localeLanguageName(locale);
+
+  return `${system}
+
+═══ IDIOMA DA EXPERIÊNCIA ═══
+Use ${language} em todo texto destinado ao usuário final.
+Mantenha nomes de campos JSON, enums técnicos, códigos e identificadores exatamente como especificados no prompt.
+Se o prompt exigir JSON, retorne JSON válido e traduza apenas os valores textuais voltados ao usuário.`;
 }
 
 /**
@@ -30,15 +56,17 @@ export async function callAI(
   options: AICallOptions = {},
 ): Promise<string> {
   const model = aiConfig?.model || DEFAULT_MODEL;
+  const locale = await resolveAILocale(options.locale);
+  const localizedSystem = withLanguageInstruction(system, locale);
 
   try {
     if (model.startsWith('gemini')) {
-      return await callGemini(system, user, model, maxTokens);
+      return await callGemini(localizedSystem, user, model, maxTokens);
     }
     if (model.startsWith('gpt') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4')) {
-      return await callOpenAI(system, user, model, maxTokens);
+      return await callOpenAI(localizedSystem, user, model, maxTokens);
     }
-    return await callClaude(system, user, model, maxTokens, options);
+    return await callClaude(localizedSystem, user, model, maxTokens, options);
   } catch (err: any) {
     console.error(`[callAI] Error with model ${model}:`, err);
     throw new Error(`AI call failed (${model}): ${err?.message ?? err}`);
@@ -56,15 +84,17 @@ export async function callAIChat(
   options: AICallOptions = {},
 ): Promise<string> {
   const model = aiConfig?.model || DEFAULT_MODEL;
+  const locale = await resolveAILocale(options.locale);
+  const localizedSystem = withLanguageInstruction(system, locale);
 
   try {
     if (model.startsWith('gemini')) {
-      return await callGeminiChat(system, messages, model, maxTokens);
+      return await callGeminiChat(localizedSystem, messages, model, maxTokens);
     }
     if (model.startsWith('gpt') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4')) {
-      return await callOpenAIChat(system, messages, model, maxTokens);
+      return await callOpenAIChat(localizedSystem, messages, model, maxTokens);
     }
-    return await callClaudeChat(system, messages, model, maxTokens, options);
+    return await callClaudeChat(localizedSystem, messages, model, maxTokens, options);
   } catch (err: any) {
     console.error(`[callAIChat] Error with model ${model}:`, err);
     throw new Error(`AI chat call failed (${model}): ${err?.message ?? err}`);

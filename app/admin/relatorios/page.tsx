@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { ArrowLeft, Loader2, FileBarChart, Download, ChevronDown, User } from 'lucide-react';
 import { loadEmpresas, loadRelatorios } from './actions';
 
 export default function RelatoriosPage() {
   const router = useRouter();
+  const locale = useLocale();
+  const t = useTranslations('AdminReports');
   const searchParams = useSearchParams();
   const empresaParam = searchParams.get('empresa');
   const [empresas, setEmpresas] = useState<any[]>([]);
@@ -50,11 +53,11 @@ export default function RelatoriosPage() {
           <ArrowLeft size={16} />
         </button>
         <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2"><FileBarChart size={20} className="text-cyan-400" /> Relatorios</h1>
+          <h1 className="text-xl font-bold text-white flex items-center gap-2"><FileBarChart size={20} className="text-cyan-400" /> {t('title')}</h1>
           {empresaParam && empresaNome ? (
             <p className="text-xs text-gray-500">{empresaNome}</p>
           ) : (
-            <p className="text-xs text-gray-500">Download de relatorios individuais</p>
+            <p className="text-xs text-gray-500">{t('subtitle')}</p>
           )}
         </div>
       </div>
@@ -65,7 +68,7 @@ export default function RelatoriosPage() {
           <div className="relative w-full max-w-sm">
             <select value={empresaId} onChange={e => handleSelectEmpresa(e.target.value)}
               className="w-full appearance-none rounded-lg border border-white/10 bg-[#0F2A4A] text-white text-sm px-4 py-2.5 pr-10 focus:outline-none focus:border-cyan-400/50">
-              <option value="">Selecione uma empresa...</option>
+              <option value="">{t('selectCompany')}</option>
               {empresas.map((e: any) => <option key={e.id} value={e.id}>{e.nome}</option>)}
             </select>
             <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
@@ -79,7 +82,7 @@ export default function RelatoriosPage() {
       {!loadingRel && empresaId && relatorios.length === 0 && (
         <div className="text-center py-12">
           <FileBarChart size={32} className="text-gray-600 mx-auto mb-3" />
-          <p className="text-sm text-gray-500">Nenhum relatorio individual encontrado</p>
+          <p className="text-sm text-gray-500">{t('empty')}</p>
         </div>
       )}
 
@@ -88,15 +91,15 @@ export default function RelatoriosPage() {
         <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
           <div className="px-5 py-3 border-b border-white/[0.06] flex items-center gap-2">
             <FileBarChart size={16} className="text-cyan-400" />
-            <span className="text-sm font-bold text-white">Relatorios Individuais ({relatorios.length})</span>
+            <span className="text-sm font-bold text-white">{t('tableTitle', { count: relatorios.length })}</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/[0.06]">
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase">Colaborador</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase">Data</th>
-                  <th className="px-4 py-3 text-right text-xs font-bold text-gray-400 uppercase">Acao</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase">{t('table.collaborator')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase">{t('table.date')}</th>
+                  <th className="px-4 py-3 text-right text-xs font-bold text-gray-400 uppercase">{t('table.action')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.03]">
@@ -107,11 +110,11 @@ export default function RelatoriosPage() {
                         <div className="w-8 h-8 rounded-full bg-cyan-400/10 flex items-center justify-center shrink-0">
                           <User size={14} className="text-cyan-400" />
                         </div>
-                        <span className="text-white font-semibold">{r.colaboradores?.nome_completo || 'Colaborador'}</span>
+                        <span className="text-white font-semibold">{r.colaboradores?.nome_completo || t('fallbackCollaborator')}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-gray-400 text-xs">
-                      {r.created_at ? new Date(r.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}
+                      {r.created_at ? new Date(r.created_at).toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <a href={`/api/relatorios/individual?colaboradorId=${r.colaborador_id}`} target="_blank" rel="noopener noreferrer"

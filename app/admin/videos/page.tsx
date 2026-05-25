@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   ArrowLeft, Loader2, Video, Eye, Clock, TrendingUp, Film, BarChart3,
   Users, AlertTriangle, Trophy, ArrowUpDown, ArrowUp, ArrowDown,
@@ -38,8 +39,9 @@ function formatPct(pct: number) {
 }
 
 function Heatmap({ points, length }: { points?: any[]; length?: number }) {
+  const t = useTranslations('AdminVideos');
   if (!points?.length) {
-    return <p className="text-xs text-gray-500 italic py-4">Sem dados de heatmap (pouquíssimas views).</p>;
+    return <p className="text-xs text-gray-500 italic py-4">{t('heatmap.empty')}</p>;
   }
   const bucketSec = Math.max(1, Math.ceil(length / 40) || 1); // ~40 buckets
   const buckets = {};
@@ -78,6 +80,7 @@ function Heatmap({ points, length }: { points?: any[]; length?: number }) {
 
 export default function AdminVideosPage() {
   const router = useRouter();
+  const t = useTranslations('AdminVideos');
   const [empresaId, setEmpresaId] = useState(null);
   const [empresa, setEmpresa] = useState(null);
   const [stats, setStats] = useState(null);
@@ -167,18 +170,18 @@ export default function AdminVideosPage() {
         </button>
         <div className="flex-1 min-w-0">
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <Film size={20} className="text-cyan-400" /> Métricas de Vídeos
+            <Film size={20} className="text-cyan-400" /> {t('title')}
           </h1>
           <p className="text-xs text-gray-500">
             {empresa
-              ? <>Empresa: <span className="text-cyan-400 font-semibold">{empresa.nome}</span></>
-              : 'Visão global — todas as empresas'}
+              ? <>{t('company')}: <span className="text-cyan-400 font-semibold">{empresa.nome}</span></>
+              : t('globalView')}
           </p>
         </div>
         {empresaId && (
           <button onClick={() => router.push('/admin/videos')}
             className="text-[10px] font-bold text-gray-400 hover:text-cyan-400 uppercase tracking-widest px-3 py-2 rounded-lg border border-white/10">
-            Ver global
+            {t('actions.viewGlobal')}
           </button>
         )}
       </div>
@@ -186,9 +189,9 @@ export default function AdminVideosPage() {
       {/* Tabs */}
       <div className="flex gap-1 mb-5 p-1 rounded-xl border border-white/[0.06]" style={{ background: '#091D35' }}>
         {[
-          { key: 'conteudo', label: `Conteúdo (${stats?.totalVideos || 0})`, icon: Film },
-          { key: 'engajamento', label: `Engajamento (${engajamento?.colabsAtivos || 0})`, icon: Users },
-          { key: 'alertas', label: `Alertas (${alertas?.alertas?.length || 0})`, icon: AlertTriangle, danger: (alertas?.alertas?.length || 0) > 0 },
+          { key: 'conteudo', label: t('tabs.content', { count: stats?.totalVideos || 0 }), icon: Film },
+          { key: 'engajamento', label: t('tabs.engagement', { count: engajamento?.colabsAtivos || 0 }), icon: Users },
+          { key: 'alertas', label: t('tabs.alerts', { count: alertas?.alertas?.length || 0 }), icon: AlertTriangle, danger: (alertas?.alertas?.length || 0) > 0 },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all ${
@@ -208,22 +211,22 @@ export default function AdminVideosPage() {
         <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
           <Video size={18} className="text-cyan-400 mb-2" />
           <p className="text-2xl font-extrabold text-white">{stats?.totalVideos || 0}</p>
-          <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Vídeos ativos</p>
+          <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">{t('cards.activeVideos')}</p>
         </div>
         <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
           <Eye size={18} className="text-cyan-400 mb-2" />
           <p className="text-2xl font-extrabold text-white">{stats?.totalViews || 0}</p>
-          <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Views totais</p>
+          <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">{t('cards.totalViews')}</p>
         </div>
         <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
           <Clock size={18} className="text-cyan-400 mb-2" />
           <p className="text-2xl font-extrabold text-white">{stats?.totalHoras || 0}h</p>
-          <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Horas assistidas</p>
+          <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">{t('cards.watchedHours')}</p>
         </div>
         <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
           <TrendingUp size={18} className="text-cyan-400 mb-2" />
           <p className="text-2xl font-extrabold text-cyan-400">{stats?.mediaTaxaConclusao || 0}%</p>
-          <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Taxa conclusão média</p>
+          <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">{t('cards.avgCompletion')}</p>
         </div>
       </div>
 
@@ -231,7 +234,7 @@ export default function AdminVideosPage() {
       {library?.series?.length > 0 && (
         <div className="rounded-xl border border-white/[0.06] p-5 mb-6" style={{ background: '#0F2A4A' }}>
           <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mb-3 flex items-center gap-2">
-            <BarChart3 size={12} /> Views por dia (últimos {library.series.length} dias)
+            <BarChart3 size={12} /> {t('sections.viewsByDay', { days: library.series.length })}
           </p>
           <div className="flex items-end gap-0.5 h-20">
             {library.series.map((s, i) => {
@@ -254,22 +257,22 @@ export default function AdminVideosPage() {
       {/* Tabela de ranking */}
       <div className="rounded-xl border border-white/[0.06] overflow-hidden mb-6" style={{ background: '#0F2A4A' }}>
         <div className="px-4 py-3 border-b border-white/[0.06]">
-          <p className="text-sm font-bold text-white">Ranking por views</p>
-          <p className="text-[10px] text-gray-500">Clique num vídeo pra ver o heatmap</p>
+          <p className="text-sm font-bold text-white">{t('sections.viewsRanking')}</p>
+          <p className="text-[10px] text-gray-500">{t('sections.heatmapHint')}</p>
         </div>
         {stats?.items?.length === 0 ? (
-          <div className="px-5 py-8 text-center text-sm text-gray-500">Nenhum vídeo ainda.</div>
+          <div className="px-5 py-8 text-center text-sm text-gray-500">{t('empty.noVideos')}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/[0.06] text-[10px] font-bold text-gray-500 uppercase tracking-widest">
                   <th className="px-4 py-2 text-center w-10">#</th>
-                  <th className="px-4 py-2 text-left">Título</th>
-                  <th className="px-4 py-2 text-center">Duração</th>
+                  <th className="px-4 py-2 text-left">{t('table.title')}</th>
+                  <th className="px-4 py-2 text-center">{t('table.duration')}</th>
                   <th className="px-4 py-2 text-center">Views</th>
-                  <th className="px-4 py-2 text-center">T. médio</th>
-                  <th className="px-4 py-2 text-center">Conclusão</th>
+                  <th className="px-4 py-2 text-center">{t('table.avgTime')}</th>
+                  <th className="px-4 py-2 text-center">{t('table.completion')}</th>
                   <th className="px-4 py-2 text-center">Play</th>
                 </tr>
               </thead>
@@ -298,7 +301,7 @@ export default function AdminVideosPage() {
                         <button
                           onClick={e => { e.stopPropagation(); setActiveVideo({ videoId: v.videoId, titulo: v.titulo }); }}
                           className="text-cyan-400 hover:text-cyan-300 text-xs font-bold">
-                          ▶ Ver
+                          ▶ {t('actions.watch')}
                         </button>
                       </td>
                     </tr>
@@ -316,7 +319,7 @@ export default function AdminVideosPage() {
           <div className="flex items-center justify-between mb-3">
             <div>
               <p className="text-sm font-bold text-white truncate">{selected.titulo}</p>
-              <p className="text-[10px] text-gray-500">Retenção por momento do vídeo</p>
+              <p className="text-[10px] text-gray-500">{t('sections.videoRetention')}</p>
             </div>
             <span className="text-[10px] font-bold text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded-full">
               {selected.views} views · {formatSec(selected.length)}
@@ -339,22 +342,22 @@ export default function AdminVideosPage() {
             <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
               <Users size={18} className="text-cyan-400 mb-2" />
               <p className="text-2xl font-extrabold text-white">{engajamento?.colabsAtivos || 0}</p>
-              <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Colabs ativos</p>
+              <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">{t('cards.activeCollaborators')}</p>
             </div>
             <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
               <Users size={18} className="text-gray-500 mb-2" />
               <p className="text-2xl font-extrabold text-white">{engajamento?.totalColabs || 0}</p>
-              <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Total cadastrados</p>
+              <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">{t('cards.totalRegistered')}</p>
             </div>
             <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
               <Clock size={18} className="text-cyan-400 mb-2" />
               <p className="text-2xl font-extrabold text-white">{engajamento?.totalHoras || 0}h</p>
-              <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Total consumido</p>
+              <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">{t('cards.totalConsumed')}</p>
             </div>
             <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
               <Trophy size={18} className="text-emerald-400 mb-2" />
               <p className="text-2xl font-extrabold text-white">{engajamento?.totalConcluidos || 0}</p>
-              <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Vídeos concluídos</p>
+              <p className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">{t('cards.completedVideos')}</p>
             </div>
           </div>
 
@@ -403,23 +406,23 @@ export default function AdminVideosPage() {
             return (
           <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
             <div className="px-4 py-3 border-b border-white/[0.06]">
-              <p className="text-sm font-bold text-white">Ranking de engajamento</p>
-              <p className="text-[10px] text-gray-500">Clique nos cabeçalhos para ordenar</p>
+              <p className="text-sm font-bold text-white">{t('sections.engagementRanking')}</p>
+              <p className="text-[10px] text-gray-500">{t('sections.sortHint')}</p>
             </div>
             {!sortedRanking.length ? (
-              <div className="px-5 py-8 text-center text-sm text-gray-500">Sem dados de engajamento ainda.</div>
+              <div className="px-5 py-8 text-center text-sm text-gray-500">{t('empty.noEngagement')}</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-white/[0.06] text-[10px] font-bold uppercase tracking-widest">
                       <th className="px-4 py-2 text-center w-10 text-gray-500">#</th>
-                      <SortHeader col="nome" label="Colaborador" />
-                      <SortHeader col="cargo" label="Cargo" />
-                      <SortHeader col="videos" label="Vídeos" align="center" />
-                      <SortHeader col="concluidos" label="Concluídos" align="center" />
-                      <SortHeader col="minutos" label="Minutos" align="center" />
-                      <SortHeader col="ultimo" label="Último acesso" align="center" />
+                      <SortHeader col="nome" label={t('table.collaborator')} />
+                      <SortHeader col="cargo" label={t('table.role')} />
+                      <SortHeader col="videos" label={t('table.videos')} align="center" />
+                      <SortHeader col="concluidos" label={t('table.completed')} align="center" />
+                      <SortHeader col="minutos" label={t('table.minutes')} align="center" />
+                      <SortHeader col="ultimo" label={t('table.lastAccess')} align="center" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.03]">
@@ -456,19 +459,18 @@ export default function AdminVideosPage() {
           <div className="rounded-xl border border-amber-400/30 p-4 mb-5"
             style={{ background: 'rgba(245,158,11,0.08)' }}>
             <p className="text-sm font-bold text-amber-400 flex items-center gap-2">
-              <AlertTriangle size={14} /> Colaboradores inativos há {alertas?.dias || 14}+ dias
+              <AlertTriangle size={14} /> {t('alerts.title', { days: alertas?.dias || 14 })}
             </p>
             <p className="text-[11px] text-gray-400 mt-1">
-              Lista de quem concluiu o mapeamento mas não assistiu nenhuma pílula recentemente
-              (ou nunca). Considere um nudge via WhatsApp ou email.
+              {t('alerts.description')}
             </p>
           </div>
 
           {!alertas?.alertas?.length ? (
             <div className="rounded-xl border border-white/[0.06] p-8 text-center" style={{ background: '#0F2A4A' }}>
               <Trophy size={32} className="text-emerald-400 mx-auto mb-2" />
-              <p className="text-sm font-bold text-white">Ninguém inativo 🎉</p>
-              <p className="text-[11px] text-gray-500 mt-1">Todos os colabs com mapeamento estão engajados nos últimos {alertas?.dias || 14} dias.</p>
+              <p className="text-sm font-bold text-white">{t('alerts.noneTitle')}</p>
+              <p className="text-[11px] text-gray-500 mt-1">{t('alerts.noneDescription', { days: alertas?.dias || 14 })}</p>
             </div>
           ) : (
             <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
@@ -476,10 +478,10 @@ export default function AdminVideosPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-white/[0.06] text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                      <th className="px-4 py-2 text-left">Colaborador</th>
-                      <th className="px-4 py-2 text-left">Cargo / Área</th>
+                      <th className="px-4 py-2 text-left">{t('table.collaborator')}</th>
+                      <th className="px-4 py-2 text-left">{t('table.roleArea')}</th>
                       <th className="px-4 py-2 text-center">Status</th>
-                      <th className="px-4 py-2 text-center">Última view</th>
+                      <th className="px-4 py-2 text-center">{t('table.lastView')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.03]">
@@ -492,11 +494,11 @@ export default function AdminVideosPage() {
                         <td className="px-4 py-2.5 text-center">
                           {a.nuncaAssistiu ? (
                             <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-red-400/10 text-red-400">
-                              Nunca assistiu
+                              {t('alerts.neverWatched')}
                             </span>
                           ) : (
                             <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-400">
-                              {a.diasSemAssistir}d sem assistir
+                              {t('alerts.daysWithoutWatching', { days: a.diasSemAssistir })}
                             </span>
                           )}
                         </td>

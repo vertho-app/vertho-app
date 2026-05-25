@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 
 function fmt(n: any) { return (n ?? 0).toLocaleString('pt-BR'); }
 
@@ -139,6 +140,7 @@ const serif: React.CSSProperties = {
 };
 
 export default function EmpresaPipelinePage({ params }: { params: Promise<{ empresaId: string }> }) {
+  const t = useTranslations('AdminCompanyPipeline');
   const { empresaId } = use(params);
   const router = useRouter();
 
@@ -369,6 +371,19 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
   const uiConfig = empresa.ui_config || null;
   const activeFase = fases.find((f: any) => f.status === 'andamento');
   const empGlyph = empresa.nome?.trim()?.[0]?.toUpperCase() ?? '?';
+  const groupLabels: Record<string, string> = {
+    Cadastro: t('groups.registration'),
+    'Conteúdo': t('groups.content'),
+    Sistema: t('groups.system'),
+    Diagnóstico: t('groups.diagnosis'),
+    Trilhas: t('groups.trails'),
+    Relatórios: t('groups.reports'),
+    Enviar: t('groups.send'),
+    Temporadas: t('groups.seasons'),
+    Reavaliação: t('groups.reevaluation'),
+    'Auditoria Vertho (interna)': t('groups.verthoAudit'),
+    'Evolução': t('groups.evolution'),
+  };
 
   return (
     <div className="min-h-dvh"
@@ -390,12 +405,12 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
             onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
             onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,.48)')}
           >
-            <ArrowLeft size={14} /> Admin Dashboard
+            <ArrowLeft size={14} /> {t('top.backDashboard')}
           </button>
           <div className="flex items-center gap-10">
             <img src="/logo-vertho.png" alt="Vertho" style={{ height: 20, opacity: .8 }} />
             <span style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,.3)' }}>
-              EMPRESA PIPELINE
+              {t('top.pipeline')}
             </span>
           </div>
           <button
@@ -403,7 +418,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
             disabled={loading}
             className="w-8 h-8 flex items-center justify-center rounded-lg border transition-colors"
             style={{ borderColor: 'rgba(255,255,255,.1)', color: 'rgba(255,255,255,.4)' }}
-            title="Atualizar"
+            title={t('top.refresh')}
           >
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
           </button>
@@ -451,7 +466,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
               style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 10, color: 'rgba(255,255,255,.45)', letterSpacing: '.06em' }}>
               <span className="flex items-center gap-1.5">
                 <span className="w-[6px] h-[6px] rounded-full" style={{ background: '#2ECC71', boxShadow: '0 0 5px #2ECC71' }}></span>
-                {fmt(totalColab)} colaboradores
+                {t('meta.collaborators', { count: totalColab })}
               </span>
               {empresa.segmento && <span>· {empresa.segmento}</span>}
               {activeFase && (
@@ -460,7 +475,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                   style={{ background: 'rgba(245,158,11,.22)', color: '#FCD34D', border: '1px solid rgba(245,158,11,.32)', fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase' }}
                 >
                   <span className="w-[6px] h-[6px] rounded-full animate-pulse" style={{ background: '#F59E0B' }}></span>
-                  Fase {activeFase.num} ativa
+                  {t('meta.activePhase', { phase: activeFase.num })}
                 </span>
               )}
             </div>
@@ -469,7 +484,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
           {/* KPIs */}
           <div className="flex items-center gap-5 shrink-0">
             {[
-              { val: fases.find((f: any) => f.num === 2)?.metricas?.find((m: any) => m.label === 'Respostas')?.valor ?? '—', lbl: 'Respostas' },
+              { val: fases.find((f: any) => f.num === 2)?.metricas?.find((m: any) => m.label === 'Respostas')?.valor ?? '—', lbl: t('kpis.responses') },
               { val: fases.find((f: any) => f.num === 2)?.metricas?.find((m: any) => m.label?.includes('IA4'))?.valor ?? '—', lbl: 'IA4' },
               { val: fases.find((f: any) => f.num === 2)?.metricas?.find((m: any) => m.label?.includes('PDI'))?.valor ?? '—', lbl: 'PDIs' },
             ].map(k => (
@@ -530,7 +545,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                           F{fase.num}
                         </span>
                         <span className="text-sm font-bold text-white">
-                          {getCustomLabel(`fase${fase.num}-titulo`, fase.titulo, uiConfig)}
+                          {getCustomLabel(`fase${fase.num}-titulo`, t(`phases.${fase.num}`), uiConfig)}
                         </span>
                       </div>
                       {fase.metricas?.length > 0 && (
@@ -557,7 +572,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                       )}
                       <span className="text-[10px] font-bold px-2 py-1 rounded-full"
                         style={{ background: st.bg, color: st.text }}>
-                        {st.label}
+                        {t(`status.${fase.status}`)}
                       </span>
                       {isExpanded
                         ? <ChevronUp size={14} style={{ color: config.color }} />
@@ -577,13 +592,13 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                             {cargosTop10.map(cargo => {
                               const count = top10.filter((t: any) => t.cargo === cargo).length;
                               return <span key={String(cargo)} style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 10, color: 'rgba(255,255,255,.45)' }}>
-                                <b style={{ color: '#fff' }}>{String(cargo)}</b>: {count} comp
+                                <b style={{ color: '#fff' }}>{String(cargo)}</b>: {t('phaseExtras.competenciesShort', { count })}
                               </span>;
                             })}
-                            {gabaritos.length > 0 && <span style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 10, color: '#A78BFA' }}>{gabaritos.length} gabaritos</span>}
+                            {gabaritos.length > 0 && <span style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 10, color: '#A78BFA' }}>{t('phaseExtras.answerKeys', { count: gabaritos.length })}</span>}
                             <button onClick={() => router.push(`/admin/empresas/${empresaId}/fase1`)}
                               className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 ml-auto">
-                              Ver detalhes →
+                              {t('phaseExtras.viewDetails')}
                             </button>
                           </div>
                         ) : null;
@@ -593,10 +608,10 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                         return envioStatus && envioStatus.total > 0 ? (
                           <div className="mb-3 flex items-center gap-4 flex-wrap"
                             style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 10, color: 'rgba(255,255,255,.4)' }}>
-                            <span>Convites: Total <b style={{ color: '#fff' }}>{envioStatus.total}</b></span>
-                            {envioStatus.pendente > 0 && <span>Pendente <b style={{ color: '#F4B740' }}>{envioStatus.pendente}</b></span>}
-                            {envioStatus.enviado > 0 && <span>Enviado <b style={{ color: '#34c5cc' }}>{envioStatus.enviado}</b></span>}
-                            {envioStatus.respondido > 0 && <span>Respondido <b style={{ color: '#2ECC71' }}>{envioStatus.respondido}</b></span>}
+                            <span>{t('phaseExtras.invitesTotal')} <b style={{ color: '#fff' }}>{envioStatus.total}</b></span>
+                            {envioStatus.pendente > 0 && <span>{t('phaseExtras.pending')} <b style={{ color: '#F4B740' }}>{envioStatus.pendente}</b></span>}
+                            {envioStatus.enviado > 0 && <span>{t('phaseExtras.sent')} <b style={{ color: '#34c5cc' }}>{envioStatus.enviado}</b></span>}
+                            {envioStatus.respondido > 0 && <span>{t('phaseExtras.answered')} <b style={{ color: '#2ECC71' }}>{envioStatus.respondido}</b></span>}
                           </div>
                         ) : null;
                       })()}
@@ -604,22 +619,22 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                       {/* Fase 2 quick links */}
                       {fase.num === 2 && (
                         <div className="mb-3 mt-2 flex items-center gap-4 justify-end">
-                          <button onClick={() => router.push(`/admin/empresas/${empresaId}/fase2`)} className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300">Diagnóstico →</button>
-                          <button onClick={() => router.push(`/admin/empresas/${empresaId}/fase2?tab=trilhas`)} className="text-[10px] font-bold text-amber-400 hover:text-amber-300">Trilhas →</button>
-                          <button onClick={() => router.push(`/admin/empresas/${empresaId}/relatorios`)} className="text-[10px] font-bold" style={{ color: '#A78BFA' }}>Relatórios →</button>
+                          <button onClick={() => router.push(`/admin/empresas/${empresaId}/fase2`)} className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300">{t('phaseExtras.diagnosis')}</button>
+                          <button onClick={() => router.push(`/admin/empresas/${empresaId}/fase2?tab=trilhas`)} className="text-[10px] font-bold text-amber-400 hover:text-amber-300">{t('phaseExtras.trails')}</button>
+                          <button onClick={() => router.push(`/admin/empresas/${empresaId}/relatorios`)} className="text-[10px] font-bold" style={{ color: '#A78BFA' }}>{t('phaseExtras.reports')}</button>
                         </div>
                       )}
                       {fase.num === 4 && (
                         <div className="mb-3 mt-2 flex justify-end">
-                          <button onClick={() => router.push(`/admin/empresas/${empresaId}/fase4`)} className="text-[10px] font-bold" style={{ color: '#A78BFA' }}>Cenários B →</button>
+                          <button onClick={() => router.push(`/admin/empresas/${empresaId}/fase4`)} className="text-[10px] font-bold" style={{ color: '#A78BFA' }}>{t('phaseExtras.scenariosB')}</button>
                         </div>
                       )}
 
                       {/* Competência Foco inline */}
                       {fase.num === 2 && focoData && (
                         <div className="mb-4 p-3 rounded-xl" style={{ background: 'rgba(245,158,11,.03)', border: '1px solid rgba(245,158,11,.15)' }}>
-                          <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#F4B740' }}>Competência Foco por Cargo</p>
-                          <p className="text-[9px] text-gray-500 mb-3">A trilha priorizará esta competência se o colaborador tiver gap.</p>
+                          <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#F4B740' }}>{t('focus.title')}</p>
+                          <p className="text-[9px] text-gray-500 mb-3">{t('focus.description')}</p>
                           <div className="space-y-2">
                             {focoData.map((c: any) => (
                               <div key={c.cargo} className="flex items-center gap-2">
@@ -628,10 +643,10 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                                   onChange={async e => { const val = e.target.value || null; await salvarCompetenciaFoco(empresaId, c.cargo, val); setFocoData((prev: any) => prev.map((p: any) => p.cargo === c.cargo ? { ...p, competencia_foco: val } : p)); }}
                                   className="flex-1 px-2 py-1.5 rounded-lg text-[11px] text-white border border-white/10 outline-none"
                                   style={{ background: '#091D35' }}>
-                                  <option value="">— Sem foco (maior gap) —</option>
+                                  <option value="">{t('focus.noFocus')}</option>
                                   {c.top5.map((comp: string) => <option key={comp} value={comp}>{comp}</option>)}
                                 </select>
-                                {c.competencia_foco && <span className="text-[9px] font-bold" style={{ color: '#F4B740' }}>FOCO</span>}
+                                {c.competencia_foco && <span className="text-[9px] font-bold" style={{ color: '#F4B740' }}>{t('focus.badge')}</span>}
                               </div>
                             ))}
                           </div>
@@ -648,14 +663,14 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                               {group.label && (
                                 <p className="text-[9px] font-bold uppercase tracking-widest mb-2"
                                   style={{ fontFamily: 'var(--font-mono, monospace)', color: 'rgba(255,255,255,.3)', letterSpacing: '.22em' }}>
-                                  {group.label}
+                                  {groupLabels[group.label] || group.label}
                                 </p>
                               )}
                               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                 {visible.map((a: any) => (
                                   <ActionBtn key={a.key} action={a} fase={fase} config={config}
                                     pending={pendingAction} isActive={isActive}
-                                    onAction={onActionClick} empresaId={empresaId} uiConfig={uiConfig} />
+                                    onAction={onActionClick} empresaId={empresaId} uiConfig={uiConfig} t={t} />
                                 ))}
                               </div>
                             </div>
@@ -666,7 +681,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                           {((config as any).actions ?? []).filter((a: any) => !isHidden(`btn-fase${fase.num}-${a.key}`, uiConfig)).map((a: any) => (
                             <ActionBtn key={a.key} action={a} fase={fase} config={config}
                               pending={pendingAction} isActive={isActive}
-                              onAction={onActionClick} empresaId={empresaId} uiConfig={uiConfig} />
+                              onAction={onActionClick} empresaId={empresaId} uiConfig={uiConfig} t={t} />
                           ))}
                         </div>
                       )}
@@ -684,14 +699,14 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
             <div className="rounded-2xl overflow-hidden" style={{ background: '#0b1d36', border: '1px solid rgba(255,255,255,.07)' }}>
               <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,.06)' }}>
                 <Target size={12} style={{ color: 'rgba(255,255,255,.45)' }} />
-                <span className="text-xs font-bold text-white">Status da empresa</span>
+                <span className="text-xs font-bold text-white">{t('side.statusTitle')}</span>
               </div>
               <div>
                 {[
-                  { label: 'Respostas',    color: '#2ECC71', val: fases.find((f: any) => f.num === 2)?.metricas?.find((m: any) => m.label === 'Respostas')?.valor, total: totalColab },
-                  { label: 'Avaliações IA4', color: '#34c5cc', val: null },
+                  { label: t('side.responses'),    color: '#2ECC71', val: fases.find((f: any) => f.num === 2)?.metricas?.find((m: any) => m.label === 'Respostas')?.valor, total: totalColab },
+                  { label: t('side.ia4Reviews'), color: '#34c5cc', val: null },
                   { label: 'PDIs',         color: '#F4B740', val: null },
-                  { label: 'Temporadas',   color: 'rgba(255,255,255,.2)', val: null },
+                  { label: t('side.seasons'),   color: 'rgba(255,255,255,.2)', val: null },
                 ].map(row => (
                   <div key={row.label} className="flex items-center gap-2.5 px-4 py-2.5 transition-colors hover:bg-white/[0.025]">
                     <div className="w-2 h-2 rounded-full shrink-0"
@@ -741,17 +756,17 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                 onMouseEnter={e => (e.currentTarget.style.color = '#F97354')}
                 onMouseLeave={e => (e.currentTarget.style.color = showDanger ? '#F97354' : 'rgba(255,255,255,.38)')}
               >
-                <Settings size={12} /> Configurações avançadas
+                <Settings size={12} /> {t('danger.advancedSettings')}
                 <ChevronDown size={12} className="ml-auto" style={{ transform: showDanger ? 'rotate(180deg)' : 'none', transition: '.15s' }} />
               </button>
 
               {showDanger && (
                 <div className="px-3 pb-3 border-t border-white/[0.06]">
                   {/* Senha teste */}
-                  <p className="text-[9px] font-bold uppercase tracking-widest mt-3 mb-2" style={{ fontFamily: 'var(--font-mono, monospace)', color: 'rgba(52,197,204,.7)' }}>Ferramentas de Teste</p>
+                  <p className="text-[9px] font-bold uppercase tracking-widest mt-3 mb-2" style={{ fontFamily: 'var(--font-mono, monospace)', color: 'rgba(52,197,204,.7)' }}>{t('danger.testTools')}</p>
                   <button disabled={dangerLoading}
                     onClick={async () => {
-                      if (!confirm('Definir senha "teste123" para todos?')) return;
+                      if (!confirm(t('danger.confirmTestPassword'))) return;
                       setDangerLoading(true);
                       const r = await definirSenhaTesteEmpresa(empresaId);
                       if (r.success) addLog(`🔑 ${r.message}`, 'success'); else addLog(`❌ ${r.error}`, 'error');
@@ -760,10 +775,10 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                     className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-bold mb-3 transition-all disabled:opacity-30"
                     style={{ color: '#34c5cc', border: '1px solid rgba(52,197,204,.28)', background: 'rgba(52,197,204,.06)' }}>
                     {dangerLoading ? <Loader2 size={13} className="animate-spin" /> : <Settings size={13} />}
-                    Definir senha "teste123"
+                    {t('danger.setTestPassword')}
                   </button>
 
-                  <p className="text-[9px] font-bold uppercase tracking-widest mb-2" style={{ fontFamily: 'var(--font-mono, monospace)', color: 'rgba(239,68,68,.6)' }}>Zona de Perigo</p>
+                  <p className="text-[9px] font-bold uppercase tracking-widest mb-2" style={{ fontFamily: 'var(--font-mono, monospace)', color: 'rgba(239,68,68,.6)' }}>{t('danger.zone')}</p>
 
                   {/* Escopo */}
                   <select value={dangerColabId}
@@ -771,33 +786,33 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                     onFocus={async () => { if (!dangerColabs.length) { const c = await loadColaboradoresLista(empresaId); setDangerColabs(c); } }}
                     className="w-full px-2 py-1.5 rounded-lg text-[11px] text-white border border-white/10 outline-none mb-3"
                     style={{ background: '#091D35' }}>
-                    <option value="">Todos os colaboradores</option>
+                    <option value="">{t('danger.allCollaborators')}</option>
                     {dangerColabs.map((c: any) => <option key={c.id} value={c.id}>{c.nome_completo || c.email}</option>)}
                   </select>
 
                   {/* Danger buttons */}
                   <div className="flex flex-col gap-1.5 mb-3">
                     {[
-                      { label: 'Mapeamento Comportamental', action: 'mapeamento' },
-                      { label: 'Mapeamento de Competências', action: 'mapeamentoComp' },
-                      { label: 'Top 10 selecionadas', tabelas: ['top10_cargos'] },
-                      { label: 'Perfil de Cargo Ideal', tabelas: ['cargos_empresa'], fields: { gabarito: null, raciocinio_ia2: null } },
-                      { label: 'Cenários', tabelas: ['banco_cenarios'] },
-                      { label: 'Cenários B', action: 'cenariosB' },
-                      { label: 'Sessões Reavaliação', action: 'reavSessoes' },
-                      { label: 'Respostas simuladas', tabelas: ['respostas'] },
-                      { label: 'Avaliações IA4', tabelas: ['respostas'], fields: { avaliacao_ia: null, nivel_ia4: null, nota_ia4: null, status_ia4: null, payload_ia4: null } },
-                      { label: 'Relatórios', tabelas: ['relatorios'] },
-                      { label: 'Envios', tabelas: ['envios_diagnostico'] },
-                      { label: 'Competências da empresa', tabelas: ['competencias'] },
-                      { label: 'Colaboradores', tabelas: ['colaboradores'], danger: true },
-                      { label: 'LIMPAR TUDO', tabelas: ['fit_resultados','relatorios','evolucao','evolucao_descritores','sessoes_avaliacao','respostas','envios_diagnostico','banco_cenarios','top10_cargos','competencias','cargos_empresa'], danger: true },
+                      { label: t('danger.items.behaviorMapping'), action: 'mapeamento' },
+                      { label: t('danger.items.competencyMapping'), action: 'mapeamentoComp' },
+                      { label: t('danger.items.selectedTop10'), tabelas: ['top10_cargos'] },
+                      { label: t('danger.items.idealRoleProfile'), tabelas: ['cargos_empresa'], fields: { gabarito: null, raciocinio_ia2: null } },
+                      { label: t('danger.items.scenarios'), tabelas: ['banco_cenarios'] },
+                      { label: t('danger.items.scenariosB'), action: 'cenariosB' },
+                      { label: t('danger.items.reevaluationSessions'), action: 'reavSessoes' },
+                      { label: t('danger.items.simulatedAnswers'), tabelas: ['respostas'] },
+                      { label: t('danger.items.ia4Reviews'), tabelas: ['respostas'], fields: { avaliacao_ia: null, nivel_ia4: null, nota_ia4: null, status_ia4: null, payload_ia4: null } },
+                      { label: t('danger.items.reports'), tabelas: ['relatorios'] },
+                      { label: t('danger.items.sends'), tabelas: ['envios_diagnostico'] },
+                      { label: t('danger.items.companyCompetencies'), tabelas: ['competencias'] },
+                      { label: t('danger.items.collaborators'), tabelas: ['colaboradores'], danger: true },
+                      { label: t('danger.items.clearAll'), tabelas: ['fit_resultados','relatorios','evolucao','evolucao_descritores','sessoes_avaliacao','respostas','envios_diagnostico','banco_cenarios','top10_cargos','competencias','cargos_empresa'], danger: true },
                     ].map((item: any) => {
-                      const scope = dangerColabId ? dangerColabs.find((c: any) => c.id === dangerColabId)?.nome_completo || 'colaborador' : 'todos';
+                      const scope = dangerColabId ? dangerColabs.find((c: any) => c.id === dangerColabId)?.nome_completo || t('danger.collaboratorFallback') : t('danger.allScope');
                       return (
                         <button key={item.label} disabled={dangerLoading}
                           onClick={async () => {
-                            if (!confirm(`${item.label} (${scope})? Esta ação não pode ser desfeita.`)) return;
+                            if (!confirm(t('danger.confirmClear', { item: item.label, scope }))) return;
                             setDangerLoading(true);
                             let r: any;
                             if (item.action === 'mapeamento') r = await limparMapeamento(empresaId, dangerColabId || null);
@@ -817,7 +832,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                           }}
                         >
                           <Trash2 size={11} /> {item.label}
-                          {dangerColabId && <span style={{ fontSize: 9, color: 'rgba(255,255,255,.3)', marginLeft: 'auto' }}>(individual)</span>}
+                          {dangerColabId && <span style={{ fontSize: 9, color: 'rgba(255,255,255,.3)', marginLeft: 'auto' }}>{t('danger.individual')}</span>}
                         </button>
                       );
                     })}
@@ -825,7 +840,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
 
                   <button disabled={dangerLoading}
                     onClick={async () => {
-                      if (!confirm(`EXCLUIR a empresa "${empresa.nome}" e TODOS os dados?\n\nIRREVERSÍVEL.`)) return;
+                      if (!confirm(t('danger.confirmDeleteCompany', { name: empresa.nome }))) return;
                       setDangerLoading(true);
                       const r = await excluirEmpresa(empresaId);
                       if (r.success) router.push('/admin/dashboard');
@@ -834,7 +849,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                     className="w-full flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-30"
                     style={{ color: '#F97354', border: '1px solid rgba(239,68,68,.3)', background: 'rgba(239,68,68,.04)' }}>
                     {dangerLoading ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                    Excluir Empresa
+                    {t('danger.deleteCompany')}
                   </button>
                 </div>
               )}
@@ -851,16 +866,16 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
             <h3 className="text-sm font-bold text-white mb-1">{modelPicker.label}</h3>
             {modelPicker.dual ? (
               <>
-                <p className="text-[10px] text-gray-500 mb-3">Selecione um modelo para cada etapa</p>
+                <p className="text-[10px] text-gray-500 mb-3">{t('modelPicker.selectEachStep')}</p>
                 <div className="mb-3">
-                  <p className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest mb-1">Geração</p>
+                  <p className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest mb-1">{t('modelPicker.generation')}</p>
                   <select value={dualModel1} onChange={e => setDualModel1(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
                     {AI_MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
                   </select>
                 </div>
                 <div className="mb-4">
-                  <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest mb-1">Validação</p>
+                  <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest mb-1">{t('modelPicker.validation')}</p>
                   <select value={dualModel2} onChange={e => setDualModel2(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
                     {AI_MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
@@ -868,12 +883,12 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                 </div>
                 <button onClick={() => { const { actionKey, label } = modelPicker; setModelPicker(null); handleAction(actionKey, label, { model: dualModel1, checkModel: dualModel2 }); }}
                   className="w-full py-2.5 rounded-lg text-xs font-bold text-white mb-2" style={{ background: '#0D9488' }}>
-                  Executar
+                  {t('modelPicker.run')}
                 </button>
               </>
             ) : (
               <>
-                <p className="text-[10px] text-gray-500 mb-4">Selecione o modelo de IA</p>
+                <p className="text-[10px] text-gray-500 mb-4">{t('modelPicker.selectModel')}</p>
                 <div className="space-y-2 mb-4">
                   {AI_MODELS.map(m => (
                     <button key={m.id}
@@ -886,7 +901,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                 </div>
               </>
             )}
-            <button onClick={() => setModelPicker(null)} className="w-full py-2 text-xs font-semibold text-gray-500 hover:text-white">Cancelar</button>
+            <button onClick={() => setModelPicker(null)} className="w-full py-2 text-xs font-semibold text-gray-500 hover:text-white">{t('modelPicker.cancel')}</button>
           </div>
         </div>
       )}
@@ -895,14 +910,14 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
 }
 
 // ── ActionBtn — 3 variantes: nav / ai / cta ──────────────────────────────
-function ActionBtn({ action, fase, config, pending, isActive, onAction, empresaId, uiConfig }: {
+function ActionBtn({ action, fase, config, pending, isActive, onAction, empresaId, uiConfig, t }: {
   action: any; fase: any; config: any; pending: string | null;
-  isActive: boolean; onAction: Function; empresaId: string; uiConfig: any;
+  isActive: boolean; onAction: Function; empresaId: string; uiConfig: any; t: any;
 }) {
   const isPending = pending === action.key;
   const isDisabled = !!pending;
   const AIcon = action.icon;
-  const label = getCustomLabel(`btn-fase${fase.num}-${action.key}`, action.label, uiConfig);
+  const label = getCustomLabel(`btn-fase${fase.num}-${action.key}`, t(`actions.${action.key}`), uiConfig);
 
   // Variant logic
   // nav = has href/hrefFn
@@ -965,7 +980,7 @@ function ActionBtn({ action, fase, config, pending, isActive, onAction, empresaI
       {isPending
         ? <Loader2 size={12} className="animate-spin shrink-0" style={{ color: isCTA ? '#062032' : config.color }} />
         : <AIcon size={12} style={{ color: isCTA ? '#062032' : isDisabled ? 'rgba(255,255,255,.2)' : config.color, flexShrink: 0 }} />}
-      <span className="leading-tight truncate">{isPending ? 'Processando...' : label}</span>
+      <span className="leading-tight truncate">{isPending ? t('actions.processing') : label}</span>
     </button>
   );
 }

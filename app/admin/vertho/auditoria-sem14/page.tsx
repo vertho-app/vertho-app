@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { ArrowLeft, Loader2, ShieldCheck, AlertTriangle, CheckCircle2, ChevronRight, X } from 'lucide-react';
 import { listarAuditoriasSem14, loadAuditoriaSem14Detalhe, regerarScoringComFeedback } from './actions';
@@ -14,6 +15,7 @@ const STATUS_COR = {
 
 export default function AuditoriaSem14Page() {
   const router = useRouter();
+  const t = useTranslations('AdminWeek14Audit');
   const sb = getSupabase();
   const [rows, setRows] = useState([]);
   const [resumo, setResumo] = useState(null);
@@ -57,7 +59,7 @@ export default function AuditoriaSem14Page() {
           <AlertTriangle size={32} className="mx-auto text-red-400 mb-3" />
           <p className="text-red-400">{error}</p>
           <button onClick={() => router.push(empresaId ? `/admin/empresas/${empresaId}?fase=4` : '/admin/dashboard')}
-            className="mt-4 text-xs text-cyan-400 hover:underline">← Voltar ao admin</button>
+            className="mt-4 text-xs text-cyan-400 hover:underline">{t('backToAdmin')}</button>
         </div>
       </div>
     );
@@ -72,18 +74,18 @@ export default function AuditoriaSem14Page() {
         </button>
         <div className="flex-1">
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <ShieldCheck size={20} className="text-purple-400" /> Auditoria Sem 14 — Interna Vertho
+            <ShieldCheck size={20} className="text-purple-400" /> {t('title')}
           </h1>
-          <p className="text-xs text-gray-500">Revisão de avaliações finais de temporada feitas pela 2ª IA.</p>
+          <p className="text-xs text-gray-500">{t('subtitle')}</p>
         </div>
       </div>
 
       {resumo && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-          <Card label="Total" valor={resumo.total} cor="text-white" />
-          <Card label="Aprovadas" valor={resumo.aprovado} cor="text-emerald-300" />
-          <Card label="Revisar" valor={resumo.revisar} cor="text-amber-300" />
-          <Card label="Sem auditoria" valor={resumo.semAuditoria} cor="text-gray-400" />
+          <Card label={t('summary.total')} valor={resumo.total} cor="text-white" />
+          <Card label={t('summary.approved')} valor={resumo.aprovado} cor="text-emerald-300" />
+          <Card label={t('summary.review')} valor={resumo.revisar} cor="text-amber-300" />
+          <Card label={t('summary.noAudit')} valor={resumo.semAuditoria} cor="text-gray-400" />
         </div>
       )}
 
@@ -95,7 +97,7 @@ export default function AuditoriaSem14Page() {
                 ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-300'
                 : 'border-white/10 text-gray-400 hover:text-white'
             }`}>
-            {s === 'todos' ? 'Todos' : STATUS_COR[s]?.label || s}
+            {s === 'todos' ? t('filters.all') : t(`status.${s}`) || STATUS_COR[s]?.label || s}
           </button>
         ))}
       </div>
@@ -105,7 +107,7 @@ export default function AuditoriaSem14Page() {
           <Loader2 size={28} className="animate-spin text-cyan-400" />
         </div>
       ) : rows.length === 0 ? (
-        <p className="text-center py-12 text-sm text-gray-500">Nenhuma auditoria pra esse filtro.</p>
+        <p className="text-center py-12 text-sm text-gray-500">{t('empty')}</p>
       ) : (
         <div className="space-y-2">
           {rows.map(r => {
@@ -147,6 +149,7 @@ export default function AuditoriaSem14Page() {
           loading={loadingDetalhe}
           onClose={() => { setDetalheId(null); setDetalhe(null); }}
           onRevisado={async () => { await carregar(); if (detalheId) await abrirDetalhe(detalheId); }}
+          t={t}
         />
       )}
     </div>
@@ -162,31 +165,31 @@ function Card({ label, valor, cor }) {
   );
 }
 
-function BotaoRegerar({ progressoId, onRevisado }) {
+function BotaoRegerar({ progressoId, onRevisado, t }) {
   const [busy, setBusy] = useState(false);
   return (
     <button onClick={async () => {
-      if (!confirm('Regerar scoring com os feedbacks da auditoria? A IA vai corrigir os problemas apontados.')) return;
+      if (!confirm(t('confirm.regenerate'))) return;
       setBusy(true);
       const r = await regerarScoringComFeedback(progressoId);
       setBusy(false);
-      if (r.error) alert('Erro: ' + r.error);
-      else { alert(`Regenerado! Nova nota de auditoria: ${r.novaNota}/100 (${r.novoStatus})`); onRevisado?.(); }
+      if (r.error) alert(t('errorPrefix', { error: r.error }));
+      else { alert(t('regenerated', { score: r.novaNota, status: r.novoStatus })); onRevisado?.(); }
     }} disabled={busy}
       className="mt-3 w-full py-2 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-sm font-bold flex items-center justify-center gap-2">
-      {busy ? <><Loader2 size={14} className="animate-spin" /> Regenerando...</> : 'Regerar com feedback da auditoria'}
+      {busy ? <><Loader2 size={14} className="animate-spin" /> {t('regenerating')}</> : t('regenerateWithFeedback')}
     </button>
   );
 }
 
-function DetalheModal({ detalhe, loading, onClose, onRevisado }) {
+function DetalheModal({ detalhe, loading, onClose, onRevisado, t }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto"
       onClick={onClose}>
       <div className="max-w-3xl w-full bg-[#0a0e1a] border border-white/10 rounded-2xl my-8"
         onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 flex items-center justify-between p-4 border-b border-white/10 bg-[#0a0e1a] rounded-t-2xl">
-          <h2 className="text-sm font-bold text-white">Detalhe da Auditoria</h2>
+          <h2 className="text-sm font-bold text-white">{t('modal.title')}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white"><X size={18} /></button>
         </div>
 
@@ -197,14 +200,14 @@ function DetalheModal({ detalhe, loading, onClose, onRevisado }) {
         ) : (
           <div className="p-5 space-y-4 text-sm">
             <section>
-              <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Contexto</p>
+              <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">{t('modal.context')}</p>
               <p className="text-white">{detalhe.colaborador} ({detalhe.cargo}) · {detalhe.empresa}</p>
-              <p className="text-xs text-gray-400">Competência: <span className="text-cyan-400">{detalhe.competencia}</span> · Perfil DISC: {detalhe.perfilDominante || 'não mapeado'}</p>
+              <p className="text-xs text-gray-400">{t('modal.competency')}: <span className="text-cyan-400">{detalhe.competencia}</span> · Perfil DISC: {detalhe.perfilDominante || t('modal.notMapped')}</p>
             </section>
 
             {detalhe.avaliacaoPrimaria && (
               <section>
-                <p className="text-[10px] uppercase tracking-widest text-emerald-400 mb-1">Avaliação Primária</p>
+                <p className="text-[10px] uppercase tracking-widest text-emerald-400 mb-1">{t('modal.primary')}</p>
                 <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2">
                   <div className="flex gap-4 text-xs flex-wrap">
                     <span>Pré: <b>{detalhe.avaliacaoPrimaria.nota_media_pre}</b></span>
@@ -213,7 +216,7 @@ function DetalheModal({ detalhe, loading, onClose, onRevisado }) {
                       const notas = acum.map(a => a.nota_acumulada).filter(n => n != null);
                       return notas.length ? (notas.reduce((a,b) => a+b, 0) / notas.length).toFixed(2) : '—';
                     })()}</b></span>
-                    <span>Cenário: <b className="text-amber-300">{detalhe.avaliacaoPrimaria.nota_media_cenario || '—'}</b></span>
+                    <span>{t('modal.scenario')}: <b className="text-amber-300">{detalhe.avaliacaoPrimaria.nota_media_cenario || '—'}</b></span>
                     <span>Final: <b className="text-emerald-300">{detalhe.avaliacaoPrimaria.nota_media_pos}</b></span>
                     <span>Δ: <b className={Number(detalhe.avaliacaoPrimaria.delta_medio) >= 0 ? 'text-emerald-300' : 'text-red-400'}>{detalhe.avaliacaoPrimaria.delta_medio}</b></span>
                   </div>
@@ -257,7 +260,7 @@ function DetalheModal({ detalhe, loading, onClose, onRevisado }) {
 
             {detalhe.auditoria ? (
               <section>
-                <p className="text-[10px] uppercase tracking-widest text-purple-400 mb-1">Auditoria 2ª IA</p>
+                <p className="text-[10px] uppercase tracking-widest text-purple-400 mb-1">{t('modal.audit')}</p>
                 <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3 space-y-2">
                   <p className="text-xs">
                     Nota: <b className="text-purple-300">{detalhe.auditoria.nota_auditoria}/100</b>
@@ -297,7 +300,7 @@ function DetalheModal({ detalhe, loading, onClose, onRevisado }) {
                     </div>
                   )}
                   {(detalhe.auditoria.status === 'revisar' || detalhe.auditoria.status === 'aprovado_com_ajustes') && (
-                    <BotaoRegerar progressoId={detalhe.id} onRevisado={onRevisado} />
+                    <BotaoRegerar progressoId={detalhe.id} onRevisado={onRevisado} t={t} />
                   )}
                   {detalhe.auditoria.regerado_com_feedback && (
                     <p className="text-[10px] text-gray-500 mt-2 italic">Regenerada com feedback da auditoria em {new Date(detalhe.auditoria.regerado_em || '').toLocaleString('pt-BR')}</p>
@@ -309,11 +312,11 @@ function DetalheModal({ detalhe, loading, onClose, onRevisado }) {
             )}
 
             <section>
-              <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Cenário</p>
+              <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">{t('modal.scenario')}</p>
               <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-xs text-gray-300 whitespace-pre-wrap">{detalhe.cenario}</div>
             </section>
             <section>
-              <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Resposta do Colaborador</p>
+              <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">{t('modal.collaboratorAnswer')}</p>
               <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-xs text-gray-300 whitespace-pre-wrap">{detalhe.resposta}</div>
             </section>
 
@@ -323,4 +326,3 @@ function DetalheModal({ detalhe, loading, onClose, onRevisado }) {
     </div>
   );
 }
-

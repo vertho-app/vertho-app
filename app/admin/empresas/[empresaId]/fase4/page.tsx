@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   ArrowLeft, Loader2, TrendingUp, FileText, ChevronDown,
   CheckCircle, AlertTriangle, RefreshCw, Zap,
@@ -39,6 +40,7 @@ const AI_MODELS = [
 export default function Fase4Page({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = use(params);
   const router = useRouter();
+  const t = useTranslations('AdminPhase4');
 
   const [cenariosB, setCenariosB] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -59,23 +61,23 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
 
   async function handleRechecar(id) {
     setActionId(id);
-    flash('Rechecando...');
+    flash(t('messages.rechecking'));
     const r = await checkCenarioBUm(id, checkModel);
     setActionId(null);
-    flash(r.success ? (r as any).message : 'Erro: ' + (r as any).error);
+    flash(r.success ? (r as any).message : t('messages.error', { error: (r as any).error }));
     refresh();
   }
 
   async function handleRegenerar(id: string) {
     setActionId(id);
-    flash('Regenerando...');
+    flash(t('messages.regenerating'));
     const r1 = await regenerarCenarioB(id, { model: genModel });
     if (r1.success) {
-      flash('Rechecando...');
+      flash(t('messages.rechecking'));
       const r2 = await checkCenarioBUm(id, checkModel);
-      flash(r2.success ? `Regenerado. ${(r2 as any).message}` : 'Regenerado. Erro check: ' + (r2 as any).error);
+      flash(r2.success ? t('messages.regenerated', { message: (r2 as any).message }) : t('messages.regeneratedCheckError', { error: (r2 as any).error }));
     } else {
-      flash('Erro: ' + (r1 as any).error);
+      flash(t('messages.error', { error: (r1 as any).error }));
     }
     setActionId(null);
     refresh();
@@ -83,13 +85,13 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
 
   async function handleRegenerarLote() {
     const abaixoDe90 = cenariosB.filter(c => c.status_check === 'revisar' || c.status_check === 'aprovado_com_ressalvas').length;
-    if (!abaixoDe90) { flash('Nenhum cenário para regenerar'); return; }
-    if (!confirm(`Regenerar + rechecar ${abaixoDe90} cenários (revisar + ressalvas)?`)) return;
+    if (!abaixoDe90) { flash(t('messages.noneToRegenerate')); return; }
+    if (!confirm(t('confirm.regenerateBatch', { count: abaixoDe90 }))) return;
     setActionId('lote');
-    flash(`Processando ${abaixoDe90} cenários...`);
+    flash(t('messages.processing', { count: abaixoDe90 }));
     const r = await regenerarERecheckarCenariosBLote(empresaId, { model: genModel, checkModel });
     setActionId(null);
-    flash(r.success ? r.message : 'Erro: ' + r.error);
+    flash(r.success ? r.message : t('messages.error', { error: r.error }));
     refresh();
   }
 
@@ -115,23 +117,23 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
         </button>
         <div>
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <TrendingUp size={20} className="text-purple-400" /> Fase 4 — Reavalia{'\u00e7\u00e3o'}
+            <TrendingUp size={20} className="text-purple-400" /> {t('title')}
           </h1>
-          <p className="text-xs text-gray-500">Cen{'\u00e1'}rios B, Reavalia{'\u00e7\u00e3o'} e Evolu{'\u00e7\u00e3o'}</p>
+          <p className="text-xs text-gray-500">{t('subtitle')}</p>
         </div>
       </div>
 
       {/* Seletor de modelos */}
       <div className="flex items-center gap-3 mb-4 p-3 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
         <div className="flex-1">
-          <p className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest mb-1">Gera{'\u00e7\u00e3o'}</p>
+          <p className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest mb-1">{t('model.generation')}</p>
           <select value={genModel} onChange={e => setGenModel(e.target.value)}
             className="w-full px-2 py-1.5 rounded-lg text-[11px] text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
             {AI_MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
           </select>
         </div>
         <div className="flex-1">
-          <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest mb-1">Valida{'\u00e7\u00e3o'}</p>
+          <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest mb-1">{t('model.validation')}</p>
           <select value={checkModel} onChange={e => setCheckModel(e.target.value)}
             className="w-full px-2 py-1.5 rounded-lg text-[11px] text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
             {AI_MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
@@ -141,25 +143,25 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
 
       {/* Stats */}
       <div className="flex items-center gap-3 mb-3 text-[10px] flex-wrap">
-        <span className="text-gray-400">Cen{'\u00e1'}rios B: <span className="text-white font-bold">{cenariosB.length}</span></span>
+        <span className="text-gray-400">{t('stats.scenariosB')}: <span className="text-white font-bold">{cenariosB.length}</span></span>
         {cenariosB.filter(c => c.status_check === 'aprovado').length > 0 && (
           <span className="bg-green-400/15 text-green-400 px-1.5 py-0.5 rounded font-bold">
-            {cenariosB.filter(c => c.status_check === 'aprovado').length} aprovados
+            {t('stats.approved', { count: cenariosB.filter(c => c.status_check === 'aprovado').length })}
           </span>
         )}
         {cenariosB.filter(c => c.status_check === 'aprovado_com_ressalvas').length > 0 && (
           <span className="bg-cyan-400/15 text-cyan-400 px-1.5 py-0.5 rounded font-bold">
-            {cenariosB.filter(c => c.status_check === 'aprovado_com_ressalvas').length} ressalvas
+            {t('stats.withNotes', { count: cenariosB.filter(c => c.status_check === 'aprovado_com_ressalvas').length })}
           </span>
         )}
         {cenariosB.filter(c => c.status_check === 'revisar').length > 0 && (
           <span className="bg-amber-400/15 text-amber-400 px-1.5 py-0.5 rounded font-bold">
-            {cenariosB.filter(c => c.status_check === 'revisar').length} revisar
+            {t('stats.review', { count: cenariosB.filter(c => c.status_check === 'revisar').length })}
           </span>
         )}
         {cenariosB.filter(c => !c.status_check).length > 0 && (
           <span className="bg-gray-400/15 text-gray-400 px-1.5 py-0.5 rounded font-bold">
-            {cenariosB.filter(c => !c.status_check).length} pendentes
+            {t('stats.pending', { count: cenariosB.filter(c => !c.status_check).length })}
           </span>
         )}
       </div>
@@ -170,7 +172,7 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
           <button disabled={actionId === 'lote'} onClick={handleRegenerarLote}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 transition-all disabled:opacity-50">
             {actionId === 'lote' ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-            Regenerar + Rechecar revisar/ressalvas ({cenariosB.filter(c => c.status_check === 'revisar' || c.status_check === 'aprovado_com_ressalvas').length})
+            {t('actions.regenerateReviewBatch', { count: cenariosB.filter(c => c.status_check === 'revisar' || c.status_check === 'aprovado_com_ressalvas').length })}
           </button>
         </div>
       )}
@@ -179,7 +181,7 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
       {cenariosB.length === 0 ? (
         <div className="text-center py-12">
           <FileText size={32} className="text-gray-600 mx-auto mb-3" />
-          <p className="text-sm text-gray-500">Nenhum cen{'\u00e1'}rio B encontrado. Rode "Gerar Cen{'\u00e1'}rios B" na pipeline.</p>
+          <p className="text-sm text-gray-500">{t('empty')}</p>
         </div>
       ) : (
         Object.entries(porCargo).map(([cargo, cens]: [string, any]) => {
@@ -192,11 +194,11 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
             <div key={cargo} className="mb-6">
               <div className="flex items-center gap-3 mb-2">
                 <h2 className="text-sm font-bold text-white">{cargo}</h2>
-                <span className="text-[10px] text-gray-500">{cens.length} cen{'\u00e1'}rios</span>
-                {aprovados > 0 && <span className="text-[9px] bg-green-400/15 text-green-400 px-1.5 py-0.5 rounded">{aprovados} aprovados</span>}
-                {ressalvas > 0 && <span className="text-[9px] bg-cyan-400/15 text-cyan-400 px-1.5 py-0.5 rounded">{ressalvas} ressalvas</span>}
-                {revisar > 0 && <span className="text-[9px] bg-amber-400/15 text-amber-400 px-1.5 py-0.5 rounded">{revisar} revisar</span>}
-                {pendentes > 0 && <span className="text-[9px] bg-gray-400/15 text-gray-400 px-1.5 py-0.5 rounded">{pendentes} pendentes</span>}
+                <span className="text-[10px] text-gray-500">{t('stats.scenarios', { count: cens.length })}</span>
+                {aprovados > 0 && <span className="text-[9px] bg-green-400/15 text-green-400 px-1.5 py-0.5 rounded">{t('stats.approved', { count: aprovados })}</span>}
+                {ressalvas > 0 && <span className="text-[9px] bg-cyan-400/15 text-cyan-400 px-1.5 py-0.5 rounded">{t('stats.withNotes', { count: ressalvas })}</span>}
+                {revisar > 0 && <span className="text-[9px] bg-amber-400/15 text-amber-400 px-1.5 py-0.5 rounded">{t('stats.review', { count: revisar })}</span>}
+                {pendentes > 0 && <span className="text-[9px] bg-gray-400/15 text-gray-400 px-1.5 py-0.5 rounded">{t('stats.pending', { count: pendentes })}</span>}
               </div>
 
               <div className="space-y-2">
@@ -220,7 +222,7 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                           {c.status_check === 'aprovado' && <CheckCircle size={14} className="text-green-400 shrink-0" />}
                           {c.status_check === 'aprovado_com_ressalvas' && <CheckCircle size={14} className="text-cyan-400 shrink-0" />}
                           {c.status_check === 'revisar' && <AlertTriangle size={14} className="text-amber-400 shrink-0" />}
-                          <span className="text-xs font-bold text-white">{c.titulo || 'Cen\u00e1rio B'}</span>
+                          <span className="text-xs font-bold text-white">{c.titulo || t('fallbackScenarioTitle')}</span>
                           {c.competencia_nome && <span className="text-[10px] text-purple-400">{c.competencia_nome}</span>}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -254,7 +256,7 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                           {/* Faceta avaliada */}
                           {faceta && (
                             <div className="mb-3">
-                              <p className="text-[9px] font-bold text-purple-400 uppercase tracking-widest mb-1">Faceta Avaliada</p>
+                              <p className="text-[9px] font-bold text-purple-400 uppercase tracking-widest mb-1">{t('details.evaluatedFacet')}</p>
                               <p className="text-xs text-gray-300">{faceta}</p>
                             </div>
                           )}
@@ -262,7 +264,7 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                           {/* Novos campos enriquecidos */}
                           {alt.diferenca_estrutural_vs_cenario_a && (
                             <div className="mb-2">
-                              <p className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest mb-0.5">Diferen{'\u00e7'}a vs Cen{'\u00e1'}rio A</p>
+                              <p className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest mb-0.5">{t('details.differenceVsA')}</p>
                               <p className="text-xs text-gray-300">{alt.diferenca_estrutural_vs_cenario_a}</p>
                             </div>
                           )}
@@ -271,13 +273,13 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                           )}
                           {alt.tradeoff_testado && (
                             <div className="mb-2">
-                              <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest mb-0.5">Trade-off</p>
+                              <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest mb-0.5">{t('details.tradeoff')}</p>
                               <p className="text-xs text-gray-300">{alt.tradeoff_testado}</p>
                             </div>
                           )}
                           {alt.armadilha_de_resposta_generica && (
                             <div className="mb-2">
-                              <p className="text-[9px] font-bold text-red-300 uppercase tracking-widest mb-0.5">Armadilha anti-gen{'\u00e9'}rico</p>
+                              <p className="text-[9px] font-bold text-red-300 uppercase tracking-widest mb-0.5">{t('details.genericTrap')}</p>
                               <p className="text-xs text-gray-400">{alt.armadilha_de_resposta_generica}</p>
                             </div>
                           )}
@@ -290,7 +292,7 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                           )}
                           {typeof alt.confianca_cenario === 'number' && (
                             <div className="flex items-center gap-2 mb-2">
-                              <span className="text-[9px] text-gray-500">Confian{'\u00e7'}a:</span>
+                              <span className="text-[9px] text-gray-500">{t('details.confidence')}:</span>
                               <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden max-w-[100px]">
                                 <div className="h-full rounded-full" style={{ width: `${Math.round(alt.confianca_cenario * 100)}%`, background: alt.confianca_cenario >= 0.8 ? '#34D399' : alt.confianca_cenario >= 0.6 ? '#FBBF24' : '#F87171' }} />
                               </div>
@@ -301,17 +303,17 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                           {/* Dilema ético */}
                           {dilema && (
                             <div className="mb-3 p-3 rounded-lg border border-amber-400/20 bg-amber-400/5">
-                              <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest mb-1">Dilema {'\u00c9'}tico</p>
-                              <p className="text-xs text-gray-300">Valor: {dilema.valor_testado}</p>
-                              {dilema.caminho_facil && <p className="text-[10px] text-gray-500 mt-1">Caminho f{'\u00e1'}cil: {dilema.caminho_facil}</p>}
-                              {dilema.caminho_etico && <p className="text-[10px] text-gray-500">{`Caminho \u00e9tico`}: {dilema.caminho_etico}</p>}
+                              <p className="text-[9px] font-bold text-amber-400 uppercase tracking-widest mb-1">{t('details.ethicalDilemma')}</p>
+                              <p className="text-xs text-gray-300">{t('details.value')}: {dilema.valor_testado}</p>
+                              {dilema.caminho_facil && <p className="text-[10px] text-gray-500 mt-1">{t('details.easyPath')}: {dilema.caminho_facil}</p>}
+                              {dilema.caminho_etico && <p className="text-[10px] text-gray-500">{t('details.ethicalPath')}: {dilema.caminho_etico}</p>}
                             </div>
                           )}
 
                           {/* Referência de avaliação */}
                           {refAval && (
                             <div className="mb-3">
-                              <p className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest mb-1">{`Refer\u00eancia de Avalia\u00e7\u00e3o`}</p>
+                              <p className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest mb-1">{t('details.evaluationReference')}</p>
                               {Object.entries(refAval).map(([k, v]: [string, any]) => (
                                 <p key={k} className="text-[10px] text-gray-400"><span className="text-white font-bold">{k}:</span> {v}</p>
                               ))}
@@ -321,7 +323,7 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                           {/* Validação Gemini */}
                           {alt.validacao_gemini && (
                             <div className="mb-3 p-2 rounded-lg bg-cyan-400/5 border border-cyan-400/20">
-                              <p className="text-[9px] font-bold text-cyan-400">Valida{'\u00e7\u00e3o'} Gemini: {alt.validacao_gemini.aprovado ? 'Aprovado' : 'Reprovado'}</p>
+                              <p className="text-[9px] font-bold text-cyan-400">{t('details.geminiValidation')}: {alt.validacao_gemini.aprovado ? t('status.approved') : t('status.rejected')}</p>
                               {alt.validacao_gemini.motivo && <p className="text-[10px] text-gray-400">{alt.validacao_gemini.motivo}</p>}
                             </div>
                           )}
@@ -338,7 +340,7 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                                 c.status_check === 'aprovado_com_ressalvas' ? 'text-cyan-400' :
                                 'text-amber-400'
                               }`}>
-                                Check: {c.nota_check}pts — {c.status_check === 'aprovado' ? 'Aprovado' : c.status_check === 'aprovado_com_ressalvas' ? 'Aprovado c/ Ressalvas' : 'Revisar'}
+                                {t('details.check')}: {c.nota_check}pts — {c.status_check === 'aprovado' ? t('status.approved') : c.status_check === 'aprovado_com_ressalvas' ? t('status.approvedWithNotes') : t('status.review')}
                               </span>
                               {dims && (
                                 <div className="flex flex-wrap gap-2 mt-2">
@@ -355,7 +357,7 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                                 </div>
                               )}
                               {c.justificativa_check && <p className="text-[10px] text-gray-400 mt-2">{c.justificativa_check}</p>}
-                              {c.sugestao_check && <p className="text-[10px] text-amber-300 mt-1">{`Sugest\u00e3o`}: {c.sugestao_check}</p>}
+                              {c.sugestao_check && <p className="text-[10px] text-amber-300 mt-1">{t('details.suggestion')}: {c.sugestao_check}</p>}
                               {(() => {
                                 const al = typeof c.alertas_check === 'object' && !Array.isArray(c.alertas_check) ? c.alertas_check : {};
                                 return (
@@ -363,13 +365,13 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                                     {al.ponto_mais_forte && <p className="text-[10px] text-green-300/80 mt-1">{'\u2726'} {al.ponto_mais_forte}</p>}
                                     {al.ponto_mais_fraco && <p className="text-[10px] text-amber-300/80 mt-1">{'\u26A0'} {al.ponto_mais_fraco}</p>}
                                     {al.problema_principal_vs_cenario_a && (
-                                      <p className="text-[10px] text-purple-300/80 mt-1">↔ vs Cenário A: {al.problema_principal_vs_cenario_a}</p>
+                                      <p className="text-[10px] text-purple-300/80 mt-1">↔ {t('details.vsScenarioA')}: {al.problema_principal_vs_cenario_a}</p>
                                     )}
                                     {Array.isArray(al.riscos_de_triangulacao) && al.riscos_de_triangulacao.length > 0 && (
-                                      <p className="text-[10px] text-red-300/80 mt-1">△ Riscos triangulação: {al.riscos_de_triangulacao.join('; ')}</p>
+                                      <p className="text-[10px] text-red-300/80 mt-1">△ {t('details.triangulationRisks')}: {al.riscos_de_triangulacao.join('; ')}</p>
                                     )}
                                     {Array.isArray(al.descritores_sem_cobertura) && al.descritores_sem_cobertura.length > 0 && (
-                                      <p className="text-[10px] text-red-300/80 mt-1">{'\u2717'} Sem cobertura: {al.descritores_sem_cobertura.join(', ')}</p>
+                                      <p className="text-[10px] text-red-300/80 mt-1">{'\u2717'} {t('details.noCoverage')}: {al.descritores_sem_cobertura.join(', ')}</p>
                                     )}
                                   </>
                                 );
@@ -383,7 +385,7 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                               <button disabled={actionId === c.id} onClick={() => handleRechecar(c.id)}
                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all disabled:opacity-50">
                                 {actionId === c.id ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle size={11} />}
-                                Validar
+                                {t('actions.validate')}
                               </button>
                             )}
                             {c.nota_check != null && (c.status_check === 'revisar' || c.status_check === 'aprovado_com_ressalvas') && (
@@ -391,12 +393,12 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                                 <button disabled={actionId === c.id} onClick={() => handleRegenerar(c.id)}
                                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 transition-all disabled:opacity-50">
                                   {actionId === c.id ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
-                                  Regenerar + Rechecar
+                                  {t('actions.regenerateAndRecheck')}
                                 </button>
                                 <button disabled={actionId === c.id} onClick={() => handleRechecar(c.id)}
                                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all disabled:opacity-50">
                                   {actionId === c.id ? <Loader2 size={11} className="animate-spin" /> : <Zap size={11} />}
-                                  S{'\u00f3'} Rechecar
+                                  {t('actions.recheckOnly')}
                                 </button>
                               </>
                             )}
@@ -404,7 +406,7 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                               <button disabled={actionId === c.id} onClick={() => handleRegenerar(c.id)}
                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-gray-400 border border-white/10 hover:bg-white/5 transition-all disabled:opacity-50">
                                 {actionId === c.id ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
-                                Regenerar
+                                {t('actions.regenerate')}
                               </button>
                             )}
                           </div>

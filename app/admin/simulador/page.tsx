@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { ArrowLeft, Loader2, Zap, Send, Trash2, ChevronDown, Settings } from 'lucide-react';
 
 const MODELS = [
@@ -15,6 +16,7 @@ const DEFAULT_SYSTEM = 'Voce e um assistente util e responde em portugues brasil
 
 export default function SimuladorPage() {
   const router = useRouter();
+  const t = useTranslations('AdminSimulator');
   const [system, setSystem] = useState(DEFAULT_SYSTEM);
   const [model, setModel] = useState(MODELS[0].id);
   const [messages, setMessages] = useState([]);
@@ -46,10 +48,10 @@ export default function SimuladorPage() {
       if (data.ok) {
         setMessages([...newMessages, { role: 'assistant', content: data.mensagem }]);
       } else {
-        setMessages([...newMessages, { role: 'assistant', content: `[Erro] ${data.error || 'Falha na chamada'}` }]);
+        setMessages([...newMessages, { role: 'assistant', content: t('messages.errorResponse', { error: data.error || t('messages.callFailed') }) }]);
       }
     } catch (err) {
-      setMessages([...newMessages, { role: 'assistant', content: `[Erro] ${err.message}` }]);
+      setMessages([...newMessages, { role: 'assistant', content: t('messages.errorResponse', { error: err.message }) }]);
     }
     setSending(false);
   }
@@ -75,18 +77,18 @@ export default function SimuladorPage() {
             <ArrowLeft size={16} />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-white flex items-center gap-2"><Zap size={20} className="text-amber-400" /> Simulador IA</h1>
-            <p className="text-xs text-gray-500">Sandbox de chat sem persistencia</p>
+            <h1 className="text-xl font-bold text-white flex items-center gap-2"><Zap size={20} className="text-amber-400" /> {t('title')}</h1>
+            <p className="text-xs text-gray-500">{t('subtitle')}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setShowSettings(!showSettings)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-amber-400/30 hover:text-amber-400 transition-all">
-            <Settings size={14} /> Config
+            <Settings size={14} /> {t('actions.config')}
           </button>
           <button onClick={handleClear}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-red-400/30 hover:text-red-400 transition-all">
-            <Trash2 size={14} /> Limpar
+            <Trash2 size={14} /> {t('actions.clear')}
           </button>
         </div>
       </div>
@@ -96,13 +98,13 @@ export default function SimuladorPage() {
         <div className="rounded-xl border border-amber-400/20 p-4 mb-4" style={{ background: '#0F2A4A' }}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-amber-400 mb-1">System Prompt</label>
+              <label className="block text-xs font-bold text-amber-400 mb-1">{t('fields.systemPrompt')}</label>
               <textarea value={system} onChange={e => setSystem(e.target.value)}
                 rows={3}
                 className="w-full rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 focus:outline-none focus:border-amber-400/50 resize-none" />
             </div>
             <div>
-              <label className="block text-xs font-bold text-amber-400 mb-1">Modelo</label>
+              <label className="block text-xs font-bold text-amber-400 mb-1">{t('fields.model')}</label>
               <div className="relative">
                 <select value={model} onChange={e => setModel(e.target.value)}
                   className="w-full appearance-none rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 pr-8 focus:outline-none focus:border-amber-400/50">
@@ -110,7 +112,7 @@ export default function SimuladorPage() {
                 </select>
                 <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
               </div>
-              <p className="text-[10px] text-gray-600 mt-1">Modelo atual: {model}</p>
+              <p className="text-[10px] text-gray-600 mt-1">{t('fields.currentModel', { model })}</p>
             </div>
           </div>
         </div>
@@ -123,8 +125,8 @@ export default function SimuladorPage() {
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
                 <Zap size={32} className="text-amber-400/30 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">Envie uma mensagem para comecar</p>
-                <p className="text-xs text-gray-600 mt-1">Modelo: {MODELS.find(m => m.id === model)?.label}</p>
+                <p className="text-sm text-gray-500">{t('empty.title')}</p>
+                <p className="text-xs text-gray-600 mt-1">{t('fields.model')}: {MODELS.find(m => m.id === model)?.label}</p>
               </div>
             </div>
           )}
@@ -153,7 +155,7 @@ export default function SimuladorPage() {
       {/* Input */}
       <div className="flex items-end gap-2">
         <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
-          rows={1} placeholder="Digite sua mensagem..."
+          rows={1} placeholder={t('inputPlaceholder')}
           className="flex-1 rounded-xl border border-white/10 bg-[#0F2A4A] text-white text-sm px-4 py-3 focus:outline-none focus:border-amber-400/50 resize-none"
           style={{ minHeight: '44px', maxHeight: '120px' }} />
         <button onClick={handleSend} disabled={sending || !input.trim()}

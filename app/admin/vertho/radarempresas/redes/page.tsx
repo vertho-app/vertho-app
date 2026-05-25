@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { ArrowLeft, Loader2, Network, ChevronDown } from 'lucide-react';
 import { loadRedes, listarUnidadesRede, type RadarRede } from '@/actions/radarempresas/busca';
 import { RADAR_DISCLAIMER } from '@/lib/radarempresas/segmentos';
 
 export default function RadarRedesPage() {
   const router = useRouter();
+  const locale = useLocale();
+  const t = useTranslations('AdminCompanyRadarNetworks');
   const [redes, setRedes] = useState<RadarRede[]>([]);
   const [loading, setLoading] = useState(true);
   const [aberta, setAberta] = useState<string | null>(null);
@@ -32,26 +35,22 @@ export default function RadarRedesPage() {
         </button>
         <div>
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <Network size={20} className="text-cyan-400" /> Redes & Franquias
+            <Network size={20} className="text-cyan-400" /> {t('title')}
           </h1>
-          <p className="text-xs text-gray-500">1 lead = a rede (negociação na sede: franqueadora ou matriz, não na unidade)</p>
+          <p className="text-xs text-gray-500">{t('subtitle')}</p>
         </div>
       </div>
 
       <div className="mb-4 p-3 rounded-xl border border-amber-400/20 bg-amber-400/[0.05]">
         <p className="text-[11px] text-amber-300 leading-relaxed">
-          <span className="font-bold">Franquia</span>: mesma fantasia em 3+ donos distintos.
-          {' '}<span className="font-bold">Grupo</span>: mesma empresa (CNPJ-base) com 3+ filiais.
-          {' '}Nos dois, a sede (franqueadora/matriz) normalmente está
-          {' '}<span className="font-bold">fora do recorte</span> — o decisor não é a unidade
-          {' '}local. Validar antes de abordar.
+          {t.rich('warning', { strong: chunks => <span className="font-bold">{chunks}</span> })}
         </p>
       </div>
 
       {redes.length === 0 ? (
         <div className="text-center py-16">
           <Network size={28} className="text-gray-600 mx-auto mb-3" />
-          <p className="text-sm text-gray-500">Nenhuma rede detectada ainda. Rode o script de detecção.</p>
+          <p className="text-sm text-gray-500">{t('empty')}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -63,15 +62,15 @@ export default function RadarRedesPage() {
                   <p className="text-sm font-bold text-white">
                     <span className={`mr-2 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase align-middle ${
                       r.tipo === 'grupo' ? 'bg-violet-400/15 text-violet-300' : 'bg-cyan-400/15 text-cyan-300'}`}>
-                      {r.tipo === 'grupo' ? 'Grupo' : 'Franquia'}
+                      {r.tipo === 'grupo' ? t('types.group') : t('types.franchise')}
                     </span>
                     {r.nome_exibicao}
-                    <span className="ml-2 text-[9px] font-normal text-gray-500 uppercase">{r.confianca_rede} confiança</span>
+                    <span className="ml-2 text-[9px] font-normal text-gray-500 uppercase">{t('confidence', { value: r.confianca_rede })}</span>
                   </p>
                   <p className="text-[10px] text-gray-500">
                     {r.tipo === 'grupo'
-                      ? `${r.n_unidades.toLocaleString('pt-BR')} filiais · mesma empresa`
-                      : `${r.n_unidades.toLocaleString('pt-BR')} unidades · ${r.n_donos.toLocaleString('pt-BR')} donos`} · {r.segmento_nome || 'sem segmento'} ·
+                      ? t('summary.group', { units: r.n_unidades.toLocaleString(locale) })
+                      : t('summary.franchise', { units: r.n_unidades.toLocaleString(locale), owners: r.n_donos.toLocaleString(locale) })} · {r.segmento_nome || t('noSegment')} ·
                     {' '}{(r.municipios || []).slice(0, 3).join(', ')}{(r.municipios || []).length > 3 ? '…' : ''}
                   </p>
                 </div>
@@ -84,7 +83,7 @@ export default function RadarRedesPage() {
               {aberta === r.marca_norm && (
                 <div className="px-4 pb-3 border-t border-white/[0.04]">
                   {unidades.length === 0 ? (
-                    <p className="text-[10px] text-gray-600 py-3">Carregando unidades...</p>
+                    <p className="text-[10px] text-gray-600 py-3">{t('loadingUnits')}</p>
                   ) : (
                     <table className="w-full text-[11px] mt-2">
                       <tbody>

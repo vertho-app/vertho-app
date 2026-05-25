@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { ArrowLeft, Database, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
@@ -127,39 +128,41 @@ async function loadQualidadeDados() {
   };
 }
 
-function fmt(n: any) { return Number(n ?? 0).toLocaleString('pt-BR'); }
+function fmt(n: any, locale: string) { return Number(n ?? 0).toLocaleString(locale); }
 
-function formatRel(iso: string | null): string {
-  if (!iso) return '—';
+function formatRel(iso: string | null, t: Awaited<ReturnType<typeof getTranslations>>): string {
+  if (!iso) return t('fallback.empty');
   const d = new Date(iso);
   const diff = Date.now() - d.getTime();
   const dias = Math.floor(diff / 86400000);
-  if (dias === 0) return 'hoje';
-  if (dias === 1) return 'ontem';
-  if (dias < 30) return `${dias}d atrás`;
-  if (dias < 365) return `${Math.floor(dias / 30)}m atrás`;
-  return `${Math.floor(dias / 365)}a atrás`;
+  if (dias === 0) return t('relative.today');
+  if (dias === 1) return t('relative.yesterday');
+  if (dias < 30) return t('relative.daysAgo', { count: dias });
+  if (dias < 365) return t('relative.monthsAgo', { count: Math.floor(dias / 30) });
+  return t('relative.yearsAgo', { count: Math.floor(dias / 365) });
 }
 
-function classificarSaude(s: TabelaStats): { tom: 'ok' | 'aviso' | 'erro'; rotulo: string } {
-  if (s.erro) return { tom: 'erro', rotulo: 'erro' };
-  if (s.total === 0) return { tom: 'erro', rotulo: 'vazia' };
-  if (s.coberturaUltimoAno != null && s.coberturaUltimoAno < 30) return { tom: 'aviso', rotulo: 'baixa cobertura' };
+function classificarSaude(s: TabelaStats, t: Awaited<ReturnType<typeof getTranslations>>): { tom: 'ok' | 'aviso' | 'erro'; rotulo: string } {
+  if (s.erro) return { tom: 'erro', rotulo: t('health.error') };
+  if (s.total === 0) return { tom: 'erro', rotulo: t('health.empty') };
+  if (s.coberturaUltimoAno != null && s.coberturaUltimoAno < 30) return { tom: 'aviso', rotulo: t('health.lowCoverage') };
   if (s.ultimaAtualizacao) {
     const dias = (Date.now() - new Date(s.ultimaAtualizacao).getTime()) / 86400000;
-    if (dias > 365) return { tom: 'aviso', rotulo: 'desatualizada' };
+    if (dias > 365) return { tom: 'aviso', rotulo: t('health.outdated') };
   }
-  return { tom: 'ok', rotulo: 'ok' };
+  return { tom: 'ok', rotulo: t('health.ok') };
 }
 
 export default async function QualidadeDadosPage() {
+  const locale = await getLocale();
+  const t = await getTranslations('AdminRadarDataQuality');
   const data = await loadQualidadeDados();
 
   // Agregados
   const totalLinhas = data.stats.reduce((s, t) => s + t.total, 0);
   const tabelasVazias = data.stats.filter(t => t.total === 0).length;
   const tabelasComErro = data.stats.filter(t => t.erro).length;
-  const tabelasComAviso = data.stats.filter(t => classificarSaude(t).tom === 'aviso').length;
+  const tabelasComAviso = data.stats.filter(item => classificarSaude(item, t).tom === 'aviso').length;
 
   return (
     <div className="min-h-dvh"
@@ -167,30 +170,30 @@ export default async function QualidadeDadosPage() {
       <div className="max-w-[1200px] mx-auto px-5 py-6">
         <div className="flex items-center justify-between gap-4 pb-5 mb-5 border-b border-white/[0.08]">
           <Link href="/admin/dashboard" className="flex items-center gap-1.5 text-xs font-medium text-white/50 hover:text-white">
-            <ArrowLeft size={14} /> Admin Dashboard
+            <ArrowLeft size={14} /> {t('back')}
           </Link>
           <span className="text-[10px] tracking-[0.2em] text-white/30 uppercase font-mono">
-            RADAR · QUALIDADE DOS DADOS
+            {t('eyebrow')}
           </span>
           <Link href="/admin/radar" className="text-xs text-white/50 hover:text-white">
-            Ingestão →
+            {t('ingestion')}
           </Link>
         </div>
 
         <div className="flex items-center gap-3 mb-6">
           <Database size={20} style={{ color: '#34c5cc' }} />
-          <h1 className="text-xl font-bold text-white">Qualidade dos dados</h1>
+          <h1 className="text-xl font-bold text-white">{t('title')}</h1>
         </div>
 
         {/* Resumo */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-          <Resumo titulo="Escolas no cadastro" valor={fmt(data.escolasTotal)} sublabel="diag_escolas" />
-          <Resumo titulo="Municípios distintos" valor={fmt(data.municipiosTotal)} sublabel="dos snapshots municipais" />
-          <Resumo titulo="Linhas totais" valor={fmt(totalLinhas)} sublabel={`${data.stats.length} tabelas monitoradas`} />
+          <Resumo titulo={t('summary.schools')} valor={fmt(data.escolasTotal, locale)} sublabel="diag_escolas" />
+          <Resumo titulo={t('summary.cities')} valor={fmt(data.municipiosTotal, locale)} sublabel={t('summary.citySnapshots')} />
+          <Resumo titulo={t('summary.totalRows')} valor={fmt(totalLinhas, locale)} sublabel={t('summary.tablesMonitored', { count: data.stats.length })} />
           <Resumo
-            titulo="Saúde geral"
-            valor={tabelasComErro > 0 ? `${tabelasComErro} erro` : tabelasComAviso > 0 ? `${tabelasComAviso} aviso` : 'ok'}
-            sublabel={tabelasVazias > 0 ? `${tabelasVazias} vazia(s)` : 'tudo populado'}
+            titulo={t('summary.overallHealth')}
+            valor={tabelasComErro > 0 ? t('summary.errorCount', { count: tabelasComErro }) : tabelasComAviso > 0 ? t('summary.warningCount', { count: tabelasComAviso }) : t('health.ok')}
+            sublabel={tabelasVazias > 0 ? t('summary.emptyCount', { count: tabelasVazias }) : t('summary.populated')}
             tom={tabelasComErro > 0 ? 'erro' : tabelasComAviso > 0 ? 'aviso' : 'ok'}
           />
         </div>
@@ -198,25 +201,25 @@ export default async function QualidadeDadosPage() {
         {/* Tabela principal */}
         <div className="rounded-2xl border border-white/[0.06] overflow-hidden mb-8" style={{ background: '#0b1d36' }}>
           <div className="px-5 py-3 border-b border-white/[0.06] flex items-center justify-between">
-            <p className="text-[10px] tracking-[0.2em] uppercase font-mono text-white/40">Cobertura por fonte</p>
-            <p className="text-[10px] text-white/30 font-mono">% = chaves distintas no último ano / universo</p>
+            <p className="text-[10px] tracking-[0.2em] uppercase font-mono text-white/40">{t('coverage.title')}</p>
+            <p className="text-[10px] text-white/30 font-mono">{t('coverage.hint')}</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[10px] tracking-[0.15em] uppercase text-white/40 font-mono border-b border-white/[0.06]">
-                  <th className="px-4 py-2 text-left">Fonte</th>
-                  <th className="px-4 py-2 text-left">Escopo</th>
-                  <th className="px-4 py-2 text-right">Linhas</th>
-                  <th className="px-4 py-2 text-right">Anos</th>
-                  <th className="px-4 py-2 text-right">Cobertura</th>
-                  <th className="px-4 py-2 text-right">Atualizado</th>
-                  <th className="px-4 py-2 text-center">Saúde</th>
+                  <th className="px-4 py-2 text-left">{t('table.source')}</th>
+                  <th className="px-4 py-2 text-left">{t('table.scope')}</th>
+                  <th className="px-4 py-2 text-right">{t('table.rows')}</th>
+                  <th className="px-4 py-2 text-right">{t('table.years')}</th>
+                  <th className="px-4 py-2 text-right">{t('table.coverage')}</th>
+                  <th className="px-4 py-2 text-right">{t('table.updated')}</th>
+                  <th className="px-4 py-2 text-center">{t('table.health')}</th>
                 </tr>
               </thead>
               <tbody>
                 {data.stats.map((s) => {
-                  const saude = classificarSaude(s);
+                  const saude = classificarSaude(s, t);
                   return (
                     <tr key={s.spec.nome} className="border-b border-white/[0.04] last:border-b-0 hover:bg-white/[0.02]">
                       <td className="px-4 py-3">
@@ -224,9 +227,9 @@ export default async function QualidadeDadosPage() {
                         <p className="text-[10px] text-white/35 font-mono">{s.spec.nome} · {s.spec.fonte}</p>
                       </td>
                       <td className="px-4 py-3 text-white/70 text-xs">
-                        {s.spec.escopo === 'escola' ? 'escola' : s.spec.escopo === 'municipio' ? 'município' : 'misto'}
+                        {s.spec.escopo === 'escola' ? t('scope.school') : s.spec.escopo === 'municipio' ? t('scope.city') : t('scope.mixed')}
                       </td>
-                      <td className="px-4 py-3 text-right font-mono text-white/85">{fmt(s.total)}</td>
+                      <td className="px-4 py-3 text-right font-mono text-white/85">{fmt(s.total, locale)}</td>
                       <td className="px-4 py-3 text-right font-mono text-white/70 text-xs">
                         {s.anoMin && s.anoMax ? (s.anoMin === s.anoMax ? s.anoMax : `${s.anoMin}–${s.anoMax}`) : '—'}
                       </td>
@@ -234,14 +237,14 @@ export default async function QualidadeDadosPage() {
                         {s.coberturaUltimoAno != null ? (
                           <div>
                             <p className="font-mono text-sm text-white/85">{s.coberturaUltimoAno.toFixed(1)}%</p>
-                            <p className="text-[10px] text-white/40 font-mono">{fmt(s.cobertosUltimoAno)} em {s.anoMax}</p>
+                            <p className="text-[10px] text-white/40 font-mono">{t('coverage.inYear', { count: fmt(s.cobertosUltimoAno, locale), year: s.anoMax })}</p>
                           </div>
                         ) : (
-                          <span className="text-white/30 text-xs">—</span>
+                          <span className="text-white/30 text-xs">{t('fallback.empty')}</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right text-xs text-white/60 font-mono" title={s.ultimaAtualizacao || ''}>
-                        {formatRel(s.ultimaAtualizacao)}
+                        {formatRel(s.ultimaAtualizacao, t)}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <SaudeBadge tom={saude.tom} rotulo={saude.rotulo} />
@@ -257,7 +260,7 @@ export default async function QualidadeDadosPage() {
         {/* Erros detalhados */}
         {data.stats.some(s => s.erro) && (
           <div className="rounded-2xl border border-red-500/30 p-4 mb-8" style={{ background: 'rgba(239,68,68,0.06)' }}>
-            <p className="text-[10px] tracking-[0.2em] uppercase font-mono text-red-300/70 mb-2">Erros</p>
+            <p className="text-[10px] tracking-[0.2em] uppercase font-mono text-red-300/70 mb-2">{t('errors.title')}</p>
             <div className="space-y-1">
               {data.stats.filter(s => s.erro).map(s => (
                 <p key={s.spec.nome} className="text-xs text-red-300/80 font-mono">
@@ -271,21 +274,21 @@ export default async function QualidadeDadosPage() {
         {/* Últimas ingestões */}
         <div className="rounded-2xl border border-white/[0.06] overflow-hidden" style={{ background: '#0b1d36' }}>
           <div className="px-5 py-3 border-b border-white/[0.06]">
-            <p className="text-[10px] tracking-[0.2em] uppercase font-mono text-white/40">Últimas ingestões</p>
+            <p className="text-[10px] tracking-[0.2em] uppercase font-mono text-white/40">{t('ingestions.title')}</p>
           </div>
           {data.ingestRunsRecentes.length === 0 ? (
-            <div className="px-5 py-6 text-center text-sm text-white/40">Nenhuma ingestão registrada</div>
+            <div className="px-5 py-6 text-center text-sm text-white/40">{t('ingestions.empty')}</div>
           ) : (
             <div>
               {data.ingestRunsRecentes.map((r: any) => (
                 <div key={r.id} className="px-5 py-3 border-b border-white/[0.04] last:border-b-0 flex items-center justify-between">
                   <div>
                     <p className="text-sm text-white">{r.fonte}</p>
-                    <p className="text-[10px] text-white/40 font-mono">{new Date(r.criado_em).toLocaleString('pt-BR')}</p>
+                    <p className="text-[10px] text-white/40 font-mono">{new Date(r.criado_em).toLocaleString(locale)}</p>
                   </div>
                   <div className="flex items-center gap-3 text-xs">
                     <span className="font-mono text-white/60">
-                      {fmt(r.total_processado)} ✓ {fmt(r.total_falha)} ✗
+                      {fmt(r.total_processado, locale)} ✓ {fmt(r.total_falha, locale)} ✗
                     </span>
                     <SaudeBadge
                       tom={r.status === 'sucesso' ? 'ok' : r.status === 'erro' ? 'erro' : 'aviso'}
@@ -299,8 +302,7 @@ export default async function QualidadeDadosPage() {
         </div>
 
         <p className="text-[10px] text-white/30 text-center mt-6 font-mono">
-          Versão simples · cobertura calculada via RPC <code>diag_qualidade_distinct_chave</code>.
-          Se uma fonte aparecer com cobertura "—", rode a migration 082.
+          {t.rich('footer', { code: chunks => <code>{chunks}</code> })}
         </p>
       </div>
     </div>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useTransition, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   ArrowLeft, Loader2, RefreshCw, Filter, Building2, Users, School,
   TrendingUp, MapPin, AlertTriangle, ChevronDown, ChevronUp, X,
@@ -18,11 +19,11 @@ const UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','P
 const REDES = ['MUNICIPAL','ESTADUAL','FEDERAL','PRIVADA'];
 
 const fmt = {
-  int: (n: number | null) => n == null ? '—' : Math.round(n).toLocaleString('pt-BR'),
-  brl: (n: number | null) => n == null ? '—' : `R$ ${Math.round(n).toLocaleString('pt-BR')}`,
+  int: (n: number | null, locale: string) => n == null ? '—' : Math.round(n).toLocaleString(locale),
+  brl: (n: number | null, locale: string) => n == null ? '—' : new Intl.NumberFormat(locale, { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(Math.round(n)),
   pct: (n: number | null) => n == null ? '—' : `${Math.round(n * 100)}%`,
   inse: (n: number | null) => n == null ? '—' : n.toFixed(1),
-  score: (n: number | null) => n == null ? '—' : Math.round(n).toLocaleString('pt-BR'),
+  score: (n: number | null, locale: string) => n == null ? '—' : Math.round(n).toLocaleString(locale),
 };
 
 const REDE_COR: Record<string, string> = {
@@ -34,6 +35,8 @@ const REDE_COR: Record<string, string> = {
 
 export default function MercadoPotencialPage() {
   const router = useRouter();
+  const locale = useLocale();
+  const t = useTranslations('AdminMarketPotential');
   const [tab, setTab] = useState<Tab>('municipio');
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -98,8 +101,8 @@ export default function MercadoPotencialPage() {
     setRefreshing(true);
     const r = await refreshMercadoPotencial();
     setRefreshing(false);
-    if ((r as any).error) alert('Erro: ' + (r as any).error);
-    else { alert('MVs atualizadas. Recarregando...'); carregar(); }
+    if ((r as any).error) alert(t('alerts.error', { message: (r as any).error }));
+    else { alert(t('alerts.updated')); carregar(); }
   }
 
   function toggleSort(coluna: string) {
@@ -129,7 +132,7 @@ export default function MercadoPotencialPage() {
       tam_mensal_onboarding: rows.reduce((a, r) => a + (r.tam_mensal_onboarding || 0), 0),
     };
   }, [rows]);
-  const idadeLabel = idadeOnboarding <= 24 ? 'até 24' : 'até 29';
+  const idadeLabel = idadeOnboarding <= 24 ? t('age.until24') : t('age.until29');
 
   return (
     <div className="min-h-dvh"
@@ -140,17 +143,17 @@ export default function MercadoPotencialPage() {
         <div className="flex items-center justify-between gap-4 pb-5 mb-5 border-b border-white/[0.08]">
           <button onClick={() => router.push('/admin/dashboard')}
             className="flex items-center gap-1.5 text-xs font-medium text-white/50 hover:text-white">
-            <ArrowLeft size={14} /> Admin Dashboard
+            <ArrowLeft size={14} /> {t('back')}
           </button>
           <div className="flex items-center gap-3">
             <span style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,.3)' }}>
-              MERCADO POTENCIAL · USO INTERNO
+              {t('eyebrow')}
             </span>
           </div>
           <button onClick={refreshMVs} disabled={refreshing}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-white/10 text-white/60 hover:text-white hover:border-white/30 disabled:opacity-40">
             {refreshing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-            Atualizar dados
+            {t('refresh')}
           </button>
         </div>
 
@@ -159,9 +162,9 @@ export default function MercadoPotencialPage() {
           style={{ background: '#0b1d36', border: '1px solid rgba(255,255,255,.07)' }}>
           <button onClick={() => setShowFiltros(!showFiltros)}
             className="w-full flex items-center gap-2 px-4 py-3 text-xs font-semibold text-white/70 hover:text-white">
-            <Filter size={13} /> Filtros
+            <Filter size={13} /> {t('filters.title')}
             <span className="text-[10px] text-white/40 ml-2">
-              {[ufs.length && `${ufs.length} UF`, redes.length && `${redes.length} rede`, (inseMin != null || inseMax != null) && 'INSE'].filter(Boolean).join(' · ') || 'sem filtros'}
+              {[ufs.length && t('filters.ufCount', { count: ufs.length }), redes.length && t('filters.networkCount', { count: redes.length }), (inseMin != null || inseMax != null) && 'INSE'].filter(Boolean).join(' · ') || t('filters.none')}
             </span>
             {showFiltros ? <ChevronUp size={13} className="ml-auto" /> : <ChevronDown size={13} className="ml-auto" />}
           </button>
@@ -169,21 +172,21 @@ export default function MercadoPotencialPage() {
             <div className="px-4 pb-4 border-t border-white/[0.06] space-y-4">
               {/* Preços + idade-corte + limite */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4">
-                <NumInput label="R$/Professor/mês" value={precoProf} onChange={setPrecoProf} />
-                <NumInput label="R$/Gestor/mês" value={precoGestor} onChange={setPrecoGestor} />
+                <NumInput label={t('inputs.teacherPrice')} value={precoProf} onChange={setPrecoProf} />
+                <NumInput label={t('inputs.managerPrice')} value={precoGestor} onChange={setPrecoGestor} />
                 <div>
-                  <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Idade-corte Onboarding</label>
+                  <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-1">{t('inputs.onboardingAge')}</label>
                   <select value={idadeOnboarding}
                     onChange={e => setIdadeOnboarding(Number(e.target.value))}
                     className="w-full px-3 py-2 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40"
                     style={{ background: '#091D35' }}>
-                    <option value={24}>Até 24 anos</option>
-                    <option value={29}>Até 29 anos (default)</option>
+                    <option value={24}>{t('age.until24Years')}</option>
+                    <option value={29}>{t('age.until29YearsDefault')}</option>
                   </select>
-                  <p className="text-[9px] text-gray-600 mt-1">INEP só publica faixas fixas — corte 24 ou 29.</p>
+                  <p className="text-[9px] text-gray-600 mt-1">{t('inputs.ageHint')}</p>
                 </div>
                 <NumInput
-                  label={`Limite (default ${DEFAULT_LIMITE[tab].toLocaleString('pt-BR')})`}
+                  label={t('inputs.limit', { default: DEFAULT_LIMITE[tab].toLocaleString(locale) })}
                   value={limite}
                   onChange={setLimite}
                   allowNull
@@ -192,12 +195,12 @@ export default function MercadoPotencialPage() {
 
               {/* UF (dropdown multi-select) + filtro por cidade */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <UfDropdown selected={ufs} onChange={setUfs} />
+                <UfDropdown selected={ufs} onChange={setUfs} labels={{ title: t('inputs.uf'), all: t('inputs.allUfs'), selected: (count) => t('inputs.ufSelected', { count }), clear: t('actions.clear') }} />
                 <div>
-                  <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Cidade (busca por nome)</label>
+                  <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-1">{t('inputs.city')}</label>
                   <div className="relative">
                     <input value={municipioBusca} onChange={e => setMunicipioBusca(e.target.value)}
-                      placeholder="ex.: São Paulo, Salvador..."
+                      placeholder={t('inputs.cityPlaceholder')}
                       className="w-full px-3 py-2 pr-8 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40"
                       style={{ background: '#091D35' }} />
                     {municipioBusca && (
@@ -213,7 +216,7 @@ export default function MercadoPotencialPage() {
               {/* Redes (multi) — só faz sentido nas tabs rede/escola */}
               {tab !== 'municipio' && (
                 <div>
-                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2">Rede administrativa</p>
+                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2">{t('inputs.network')}</p>
                   <div className="flex flex-wrap gap-1">
                     {REDES.map(r => (
                       <button key={r} onClick={() => toggleRede(r)}
@@ -232,8 +235,8 @@ export default function MercadoPotencialPage() {
 
               {/* INSE range */}
               <div className="grid grid-cols-2 gap-3">
-                <NumInput label="INSE mínimo (1=baixo, 6=alto)" value={inseMin} onChange={setInseMin} allowNull />
-                <NumInput label="INSE máximo" value={inseMax} onChange={setInseMax} allowNull />
+                <NumInput label={t('inputs.inseMin')} value={inseMin} onChange={setInseMin} allowNull />
+                <NumInput label={t('inputs.inseMax')} value={inseMax} onChange={setInseMax} allowNull />
               </div>
             </div>
           )}
@@ -242,9 +245,9 @@ export default function MercadoPotencialPage() {
         {/* Tabs */}
         <div className="flex gap-1 mb-4 p-1 rounded-lg" style={{ background: '#091D35', border: '1px solid rgba(255,255,255,.06)' }}>
           {([
-            { id: 'municipio', label: 'Município', icon: MapPin },
-            { id: 'rede', label: 'Rede', icon: Building2 },
-            { id: 'escola', label: 'Escola', icon: School },
+            { id: 'municipio', label: t('tabs.city'), icon: MapPin },
+            { id: 'rede', label: t('tabs.network'), icon: Building2 },
+            { id: 'escola', label: t('tabs.school'), icon: School },
           ] as { id: Tab; label: string; icon: any }[]).map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-semibold transition-colors ${
@@ -258,13 +261,13 @@ export default function MercadoPotencialPage() {
         {/* Totais */}
         {totais && !loading && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-            <KPI label="Linhas" value={fmt.int(rows.length)} cor="#34c5cc" />
-            <KPI label="Escolas" value={fmt.int(totais.qt_escolas)} cor="#A78BFA" />
-            <KPI label={`Professores ${idadeLabel}`} value={fmt.int(totais.qt_professores_onboarding)} cor="#F4B740" />
-            <KPI label="Participação no total" value={`${fmt.int(totais.qt_professores_total)} total · ${fmt.pct(totais.qt_professores_onboarding / Math.max(1, totais.qt_professores_total))}`} cor="#2ECC71" />
-            <KPI label="Gestores" value={fmt.int(totais.qt_gestores)} cor="#06B6D4" />
-            <KPI label="TAM Mentor IA/mês" value={fmt.brl(totais.tam_mensal_mentor_ia)} cor="#34c5cc" big />
-            <KPI label="TAM Onboarding/mês" value={fmt.brl(totais.tam_mensal_onboarding)} cor="#F97354" big />
+            <KPI label={t('kpis.rows')} value={fmt.int(rows.length, locale)} cor="#34c5cc" />
+            <KPI label={t('kpis.schools')} value={fmt.int(totais.qt_escolas, locale)} cor="#A78BFA" />
+            <KPI label={t('kpis.teachers', { age: idadeLabel })} value={fmt.int(totais.qt_professores_onboarding, locale)} cor="#F4B740" />
+            <KPI label={t('kpis.share')} value={t('kpis.shareValue', { total: fmt.int(totais.qt_professores_total, locale), pct: fmt.pct(totais.qt_professores_onboarding / Math.max(1, totais.qt_professores_total)) })} cor="#2ECC71" />
+            <KPI label={t('kpis.managers')} value={fmt.int(totais.qt_gestores, locale)} cor="#06B6D4" />
+            <KPI label={t('kpis.mentorTam')} value={fmt.brl(totais.tam_mensal_mentor_ia, locale)} cor="#34c5cc" big />
+            <KPI label={t('kpis.onboardingTam')} value={fmt.brl(totais.tam_mensal_onboarding, locale)} cor="#F97354" big />
           </div>
         )}
 
@@ -288,24 +291,24 @@ export default function MercadoPotencialPage() {
           ) : rows.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <Filter size={32} className="text-white/20 mb-3" />
-              <p className="text-sm text-white/60">Nenhum resultado com esses filtros.</p>
-              <p className="text-[11px] text-white/40 mt-1">Tente diminuir os filtros ou clicar em "Atualizar dados".</p>
+              <p className="text-sm text-white/60">{t('empty.title')}</p>
+              <p className="text-[11px] text-white/40 mt-1">{t('empty.hint')}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr style={{ borderBottom: '1px solid rgba(255,255,255,.08)' }}>
-                    <Th label="Identificação" coluna="nome" sticky orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
+                    <Th label={t('table.identification')} coluna="nome" sticky orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
                     {tab !== 'municipio' && (
-                      <Th label="Rede" coluna="rede" orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
+                      <Th label={t('table.network')} coluna="rede" orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
                     )}
                     <Th label="UF" coluna="uf" orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
-                    <Th label="Escolas" coluna="qt_escolas" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
-                    <Th label={`Profs ${idadeLabel}`} coluna="qt_professores_onboarding" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
-                    <Th label="Gest." coluna="qt_gestores" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
-                    <Th label="% jovens" coluna="pct_jovens" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
-                    <Th label="% sem pós" coluna="pct_sem_pos" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
+                    <Th label={t('table.schools')} coluna="qt_escolas" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
+                    <Th label={t('table.teachers', { age: idadeLabel })} coluna="qt_professores_onboarding" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
+                    <Th label={t('table.managersShort')} coluna="qt_gestores" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
+                    <Th label={t('table.youngPct')} coluna="pct_jovens" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
+                    <Th label={t('table.noPostgradPct')} coluna="pct_sem_pos" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
                     <Th label="INSE" coluna="inse_medio" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
                     <Th label="TAM Mentor IA" coluna="tam_mensal_mentor_ia" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
                     <Th label="TAM Onboarding" coluna="tam_mensal_onboarding" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
@@ -332,32 +335,31 @@ export default function MercadoPotencialPage() {
                         </td>
                       )}
                       <td className="px-3 py-2.5 text-white/70">{r.uf}</td>
-                      <td className="px-3 py-2.5 text-right text-white/85">{fmt.int(r.qt_escolas)}</td>
-                      <td className="px-3 py-2.5 text-right text-white">{fmt.int(r.qt_professores_onboarding ?? r.qt_jovens_efetivo)}</td>
-                      <td className="px-3 py-2.5 text-right text-white/85">{fmt.int(r.qt_gestores)}</td>
+                      <td className="px-3 py-2.5 text-right text-white/85">{fmt.int(r.qt_escolas, locale)}</td>
+                      <td className="px-3 py-2.5 text-right text-white">{fmt.int(r.qt_professores_onboarding ?? r.qt_jovens_efetivo, locale)}</td>
+                      <td className="px-3 py-2.5 text-right text-white/85">{fmt.int(r.qt_gestores, locale)}</td>
                       <td className="px-3 py-2.5 text-right text-emerald-300/80">{fmt.pct(r.pct_jovens)}</td>
                       <td className="px-3 py-2.5 text-right text-amber-300/80">{fmt.pct(r.pct_sem_pos)}</td>
                       <td className="px-3 py-2.5 text-right text-white/70">
                         {r.inse_fonte === 'inferido' ? (
-                          <span title="INSE inferido a partir do Censo Escolar (proxy). Privadas sem cobertura Saeb oficial.">
+                          <span title={t('table.inferredInseTitle')}>
                             <span className="text-amber-400/80 mr-0.5">~</span>{fmt.inse(r.inse_medio)}
                           </span>
                         ) : (
                           fmt.inse(r.inse_medio)
                         )}
                       </td>
-                      <td className="px-3 py-2.5 text-right text-cyan-300 font-mono">{fmt.brl(r.tam_mensal_mentor_ia)}</td>
-                      <td className="px-3 py-2.5 text-right text-orange-300/85 font-mono">{fmt.brl(r.tam_mensal_onboarding)}</td>
+                      <td className="px-3 py-2.5 text-right text-cyan-300 font-mono">{fmt.brl(r.tam_mensal_mentor_ia, locale)}</td>
+                      <td className="px-3 py-2.5 text-right text-orange-300/85 font-mono">{fmt.brl(r.tam_mensal_onboarding, locale)}</td>
                       <td className="px-3 py-2.5 text-right text-white/60">{fmt.pct(r.fit_pedagogico)}</td>
-                      <td className="px-3 py-2.5 text-right text-white font-bold font-mono">{fmt.score(r.score_completo)}</td>
+                      <td className="px-3 py-2.5 text-right text-white font-bold font-mono">{fmt.score(r.score_completo, locale)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               {rows.length >= limiteEfetivo && (
                 <p className="text-[10px] text-white/40 text-center py-2 border-t border-white/[0.04]">
-                  {limiteEfetivo.toLocaleString('pt-BR')} primeiros resultados (limite atingido).
-                  {' '}Aumente o "Limite" no header ou filtre por UF/rede pra refinar.
+                  {t('limitReached', { limit: limiteEfetivo.toLocaleString(locale) })}
                 </p>
               )}
             </div>
@@ -366,7 +368,10 @@ export default function MercadoPotencialPage() {
 
         {/* Rodapé com nota */}
         <p className="text-[10px] text-white/30 text-center mt-4">
-          TAM = (profs + gestores) × R$/mês configurado. Fit pedagógico = 0.4 + 0.3×(%sem pós) + 0.3×(%jovens). Score = TAM × Fit Ped × Fit Fin (INSE-dependente). INSE INEP: 1=mais baixo, 6=mais alto. Privadas pontuam alto com INSE alto (mais bolso); públicas pontuam alto com INSE baixo (mais demanda). Valores INSE com <span className="text-amber-400/80">~</span> são <b>inferidos</b> via Censo Escolar (proxy) para privadas sem cobertura Saeb oficial.
+          {t.rich('footerNote', {
+            tilde: (chunks) => <span className="text-amber-400/80">{chunks}</span>,
+            strong: (chunks) => <b>{chunks}</b>,
+          })}
         </p>
       </div>
     </div>
@@ -403,7 +408,7 @@ function KPI({ label, value, cor, big = false }: { label: string; value: string;
   );
 }
 
-function UfDropdown({ selected, onChange }: { selected: string[]; onChange: (ufs: string[]) => void }) {
+function UfDropdown({ selected, onChange, labels }: { selected: string[]; onChange: (ufs: string[]) => void; labels: { title: string; all: string; selected: (count: number) => string; clear: string } }) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [coords, setCoords] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
@@ -449,15 +454,15 @@ function UfDropdown({ selected, onChange }: { selected: string[]; onChange: (ufs
   }
 
   const label = selected.length === 0
-    ? 'Todas as UFs'
+    ? labels.all
     : selected.length <= 3
       ? selected.join(', ')
-      : `${selected.length} UFs selecionadas`;
+      : labels.selected(selected.length);
 
   return (
     <div>
       <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-1">
-        UF (multi-select)
+        {labels.title}
       </label>
       <button ref={triggerRef} onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40 hover:border-white/30 transition-colors"
@@ -467,7 +472,7 @@ function UfDropdown({ selected, onChange }: { selected: string[]; onChange: (ufs
           {selected.length > 0 && (
             <span onClick={e => { e.stopPropagation(); onChange([]); }}
               className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white/60 hover:text-white hover:bg-white/10 cursor-pointer">
-              limpar
+              {labels.clear}
             </span>
           )}
           <ChevronDown size={13} className="text-white/40" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: '.15s' }} />

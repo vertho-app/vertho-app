@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, ArrowLeft, Check, GripVertical, Plus, X, Send } from 'lucide-react';
 import { loadCompetenciasParaVotar, salvarVoto } from '@/actions/votacao';
 
 export default function VotacaoPage() {
+  const t = useTranslations('Voting');
+  const locale = useLocale();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -39,7 +42,7 @@ export default function VotacaoPage() {
     setSaved(false);
     setSelected(prev => {
       if (prev.includes(nome)) return prev.filter(n => n !== nome);
-      if (prev.length >= 5) { setToast('Máximo 5 competências'); setTimeout(() => setToast(''), 2000); return prev; }
+      if (prev.length >= 5) { setToast(t('toast.max')); setTimeout(() => setToast(''), 2000); return prev; }
       return [...prev, nome];
     });
   }
@@ -65,19 +68,19 @@ export default function VotacaoPage() {
   }
 
   async function handleSalvar() {
-    if (selected.length !== 5) { setToast('Selecione exatamente 5 competências'); setTimeout(() => setToast(''), 2000); return; }
+    if (selected.length !== 5) { setToast(t('toast.exactly')); setTimeout(() => setToast(''), 2000); return; }
     setSaving(true);
     const r = await salvarVoto(selected, sugestao);
     setSaving(false);
     if (r.error) { setToast(r.error); setTimeout(() => setToast(''), 3000); }
-    else { setSaved(true); setToast('Voto registrado!'); setTimeout(() => router.push('/dashboard'), 1500); }
+    else { setSaved(true); setToast(t('toast.saved')); setTimeout(() => router.push('/dashboard'), 1500); }
   }
 
   if (loading) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
   if (error) return (
     <div className="max-w-[600px] mx-auto px-5 py-10 text-center">
       <p className="text-gray-400 mb-4">{error}</p>
-      <button onClick={() => router.back()} className="text-cyan-400 text-sm hover:underline">Voltar</button>
+      <button onClick={() => router.back()} className="text-cyan-400 text-sm hover:underline">{t('back')}</button>
     </div>
   );
   if (!data) return null;
@@ -89,13 +92,13 @@ export default function VotacaoPage() {
   if (jaVotou) return (
     <div className="max-w-[640px] mx-auto px-5 py-6">
       <button onClick={() => router.back()} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white mb-4">
-        <ArrowLeft size={16} /> Voltar
+        <ArrowLeft size={16} /> {t('back')}
       </button>
       <div className="rounded-2xl border border-green-400/20 p-6 text-center" style={{ background: 'rgba(16,185,129,0.06)' }}>
         <Check size={48} className="text-green-400 mx-auto mb-3" />
-        <h2 className="text-lg font-bold text-white mb-1">Voto registrado!</h2>
+        <h2 className="text-lg font-bold text-white mb-1">{t('alreadyVoted.title')}</h2>
         <p className="text-sm text-gray-400 mb-5">
-          Seu voto foi salvo em {new Date(data.votoExistente.votado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}.
+          {t('alreadyVoted.savedAt', { date: new Date(data.votoExistente.votado_em).toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) })}
         </p>
         <div className="space-y-2 text-left mb-4">
           {(data.votoExistente.competencias_escolhidas || []).map((nome: string, idx: number) => (
@@ -108,12 +111,12 @@ export default function VotacaoPage() {
           ))}
         </div>
         {data.votoExistente.sugestao_nova && (
-          <p className="text-xs text-gray-500 text-left">Sugestão: <span className="text-amber-300">{data.votoExistente.sugestao_nova}</span></p>
+          <p className="text-xs text-gray-500 text-left">{t('suggestionLabel')} <span className="text-amber-300">{data.votoExistente.sugestao_nova}</span></p>
         )}
       </div>
       <button onClick={() => router.push('/dashboard')}
         className="w-full mt-4 py-3 rounded-xl font-bold text-gray-300 border border-white/10 hover:bg-white/5 transition">
-        Voltar ao dashboard
+        {t('backDashboard')}
       </button>
     </div>
   );
@@ -127,28 +130,28 @@ export default function VotacaoPage() {
       )}
 
       <button onClick={() => router.back()} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white mb-4">
-        <ArrowLeft size={16} /> Voltar
+        <ArrowLeft size={16} /> {t('back')}
       </button>
 
       <header className="mb-6">
-        <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-cyan-400 mb-2">Votação de competências</p>
-        <h1 className="text-2xl font-bold text-white mb-1">{data.colaborador.nome?.split(' ')[0]}, escolha suas 5 prioridades</h1>
+        <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-cyan-400 mb-2">{t('eyebrow')}</p>
+        <h1 className="text-2xl font-bold text-white mb-1">{t('title', { name: data.colaborador.nome?.split(' ')[0] })}</h1>
         <p className="text-sm text-gray-400">
-          Cargo: <span className="text-white font-medium">{data.colaborador.cargo}</span> · Selecione e ordene por prioridade
+          {t('role')}: <span className="text-white font-medium">{data.colaborador.cargo}</span> · {t('subtitle')}
         </p>
       </header>
 
       {/* Selecionadas (ordenáveis com drag & drop) */}
       <section className="mb-6">
         <p className="text-[10px] font-bold tracking-[0.15em] uppercase text-cyan-400 mb-1">
-          Suas 5 escolhidas em ordem de importância ({selected.length}/5)
+          {t('selectedTitle', { count: selected.length })}
         </p>
         <p className="text-[11px] text-gray-500 mb-3">
-          1 = mais importante. Arraste ou use as setas para reordenar.
+          {t('selectedHelp')}
         </p>
         {selected.length === 0 ? (
           <div className="rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-gray-500">
-            Clique nas competências abaixo para selecionar
+            {t('emptySelected')}
           </div>
         ) : (
           <div className="space-y-1.5">
@@ -199,7 +202,7 @@ export default function VotacaoPage() {
       {/* Todas as competências */}
       <section className="mb-6">
         <p className="text-[10px] font-bold tracking-[0.15em] uppercase text-gray-400 mb-2">
-          Competências do cargo ({available.length} disponíveis)
+          {t('availableTitle', { count: available.length })}
         </p>
         <div className="space-y-1">
           {available.map((c: any) => (
@@ -222,13 +225,13 @@ export default function VotacaoPage() {
       {/* Sugestão de nova competência */}
       <section className="mb-6">
         <p className="text-[10px] font-bold tracking-[0.15em] uppercase text-gray-400 mb-2 flex items-center gap-1.5">
-          <Plus size={12} /> Sugerir nova competência (opcional)
+          <Plus size={12} /> {t('suggestionTitle')}
         </p>
         <input
           type="text"
           value={sugestao}
           onChange={e => { setSugestao(e.target.value); setSaved(false); }}
-          placeholder="Ex: Gestão de conflitos interculturais"
+          placeholder={t('suggestionPlaceholder')}
           className="w-full px-4 py-3 rounded-xl border border-white/10 bg-[#091D35] text-white text-sm outline-none focus:border-cyan-400 placeholder:text-gray-600"
         />
       </section>
@@ -241,7 +244,7 @@ export default function VotacaoPage() {
           color: '#062032',
         }}>
         {saving ? <Loader2 size={16} className="animate-spin" /> : saved ? <Check size={16} /> : <Send size={16} />}
-        {saving ? 'Salvando...' : saved ? 'Voto registrado ✓' : `Enviar meu voto (${selected.length}/5)`}
+        {saving ? t('saving') : saved ? t('savedButton') : t('submit', { count: selected.length })}
       </button>
 
     </div>

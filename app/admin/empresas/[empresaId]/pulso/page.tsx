@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { ArrowLeft, Activity, Plus, Send, CheckCircle, Loader2, Users, X } from 'lucide-react';
 import {
   listarCiclos, criarCiclo, dispararPulso, fecharMomento, listarAssignmentsCiclo,
@@ -9,6 +10,7 @@ import {
 } from '@/actions/pulse/admin';
 
 export default function PulsoAdminPage({ params }: { params: Promise<{ empresaId: string }> }) {
+  const t = useTranslations('AdminPulse');
   const { empresaId } = use(params);
   const router = useRouter();
 
@@ -42,20 +44,18 @@ export default function PulsoAdminPage({ params }: { params: Promise<{ empresaId
 
   async function handleDisparar(cicloId: string, momento: 'T0' | 'T2') {
     if (!window.confirm(
-      `Criar assignments de ${momento} para TODOS os colaboradores ativos da empresa?\n\n` +
-      `Cada colaborador receberá um link pra responder ~3 min. Isso não envia o link automaticamente — ` +
-      `use a tela de Envios depois pra disparar via email/WhatsApp.`
+      t('confirm.createAssignments', { moment: momento })
     )) return;
     setBusy(`${cicloId}-${momento}`);
     const r = await dispararPulso(empresaId, cicloId, momento);
     setBusy(null);
     if (r.ok === false) { alert(r.error); return; }
-    alert(`✓ ${r.criados} assignments criados.`);
+    alert(t('messages.assignmentsCreated', { count: r.criados }));
     await reload();
   }
 
   async function handleFechar(cicloId: string, momento: 'T0' | 'T2') {
-    if (!window.confirm(`Fechar momento ${momento}? Após fechado, novas respostas não serão aceitas.`)) return;
+    if (!window.confirm(t('confirm.closeMoment', { moment: momento }))) return;
     setBusy(`${cicloId}-fechar-${momento}`);
     const r = await fecharMomento(empresaId, cicloId, momento);
     setBusy(null);
@@ -82,14 +82,14 @@ export default function PulsoAdminPage({ params }: { params: Promise<{ empresaId
           </button>
           <div>
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
-              <Activity size={20} className="text-cyan-400" /> Pulso de Desenvolvimento
+              <Activity size={20} className="text-cyan-400" /> {t('title')}
             </h1>
-            <p className="text-xs text-gray-500">Ciclos de pulso T0/T2 da empresa</p>
+            <p className="text-xs text-gray-500">{t('subtitle')}</p>
           </div>
         </div>
         <button onClick={() => setCriando(true)}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all">
-          <Plus size={12} /> Novo ciclo
+          <Plus size={12} /> {t('newCycle')}
         </button>
       </div>
 
@@ -97,19 +97,19 @@ export default function PulsoAdminPage({ params }: { params: Promise<{ empresaId
       {criando && (
         <div className="mb-5 p-4 rounded-xl border border-cyan-400/20" style={{ background: '#0F2A4A' }}>
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-bold text-white">Novo ciclo</p>
+            <p className="text-xs font-bold text-white">{t('form.title')}</p>
             <button onClick={() => { setCriando(false); setNovoNome(''); setNovaDesc(''); }}
               className="text-gray-500 hover:text-white"><X size={14} /></button>
           </div>
           <input value={novoNome} onChange={e => setNovoNome(e.target.value)}
-            placeholder="Nome do ciclo (ex: 1º Semestre 2026)"
+            placeholder={t('form.namePlaceholder')}
             className="w-full mb-2 rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 focus:outline-none focus:border-cyan-400/50" />
           <input value={novaDesc} onChange={e => setNovaDesc(e.target.value)}
-            placeholder="Descrição (opcional)"
+            placeholder={t('form.descriptionPlaceholder')}
             className="w-full mb-3 rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 focus:outline-none focus:border-cyan-400/50" />
           <button onClick={handleCriar} disabled={!novoNome.trim() || busy === 'criar'}
             className="w-full py-2.5 rounded-lg text-[11px] font-bold text-[#0F2B54] bg-cyan-400 hover:brightness-110 transition-all disabled:opacity-50">
-            {busy === 'criar' ? 'Criando...' : 'Criar ciclo'}
+            {busy === 'criar' ? t('form.creating') : t('form.create')}
           </button>
         </div>
       )}
@@ -118,7 +118,7 @@ export default function PulsoAdminPage({ params }: { params: Promise<{ empresaId
       {ciclos.length === 0 ? (
         <div className="text-center py-16">
           <Activity size={28} className="text-gray-600 mx-auto mb-3" />
-          <p className="text-sm text-gray-500">Nenhum ciclo criado ainda.</p>
+          <p className="text-sm text-gray-500">{t('empty')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -128,21 +128,21 @@ export default function PulsoAdminPage({ params }: { params: Promise<{ empresaId
                 <div>
                   <p className="text-sm font-bold text-white">{c.nome}</p>
                   {c.descricao && <p className="text-[11px] text-gray-500">{c.descricao}</p>}
-                  <p className="text-[9px] text-gray-600 mt-1 uppercase tracking-widest">Status: {c.status}</p>
+                  <p className="text-[9px] text-gray-600 mt-1 uppercase tracking-widest">{t('cycleStatus', { status: c.status })}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <button onClick={() => router.push(`/admin/empresas/${empresaId}/pulso/${c.id}/enviar`)}
-                    className="text-[10px] font-bold text-purple-400 hover:underline">Enviar →</button>
+                    className="text-[10px] font-bold text-purple-400 hover:underline">{t('links.send')}</button>
                   <button onClick={() => router.push(`/admin/empresas/${empresaId}/pulso/${c.id}/dashboard`)}
-                    className="text-[10px] font-bold text-cyan-400 hover:underline">Dashboard →</button>
+                    className="text-[10px] font-bold text-cyan-400 hover:underline">{t('links.dashboard')}</button>
                   <button onClick={() => abrirDetalhe(c.id)}
-                    className="text-[10px] text-gray-400 hover:underline">Detalhes</button>
+                    className="text-[10px] text-gray-400 hover:underline">{t('links.details')}</button>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <MomentoCard
-                  label="T0 — Linha de base"
+                  label={t('moments.t0')}
                   total={c.t0_total} completos={c.t0_completos}
                   aberto={!!c.t0_aberto_em && !c.t0_fechado_em}
                   encerrado={!!c.t0_fechado_em}
@@ -151,7 +151,7 @@ export default function PulsoAdminPage({ params }: { params: Promise<{ empresaId
                   busy={busy?.startsWith(c.id)}
                 />
                 <MomentoCard
-                  label="T2 — Pós-jornada"
+                  label={t('moments.t2')}
                   total={c.t2_total} completos={c.t2_completos}
                   aberto={!!c.t2_aberto_em && !c.t2_fechado_em}
                   encerrado={!!c.t2_fechado_em}
@@ -170,12 +170,12 @@ export default function PulsoAdminPage({ params }: { params: Promise<{ empresaId
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setDetalheId(null)}>
           <div className="bg-[#0F2B54] rounded-xl border border-white/10 max-w-2xl w-full max-h-[80vh] overflow-auto" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 bg-[#0F2B54] flex items-center justify-between p-4 border-b border-white/10">
-              <p className="text-sm font-bold text-white">Assignments do ciclo</p>
+              <p className="text-sm font-bold text-white">{t('modal.title')}</p>
               <button onClick={() => setDetalheId(null)} className="text-gray-500 hover:text-white"><X size={16} /></button>
             </div>
             <div className="p-4 space-y-1.5">
               {detalhe.length === 0 ? (
-                <p className="text-xs text-gray-500">Nenhum assignment ainda.</p>
+                <p className="text-xs text-gray-500">{t('modal.empty')}</p>
               ) : detalhe.map((a: any) => (
                 <div key={a.id} className="flex items-center justify-between gap-2 text-[11px] py-2 border-b border-white/[0.04]">
                   <span className="text-white truncate flex-1">{a.colaborador?.nome_completo || '—'}</span>
@@ -196,6 +196,7 @@ export default function PulsoAdminPage({ params }: { params: Promise<{ empresaId
 }
 
 function MomentoCard({ label, total, completos, aberto, encerrado, onDisparar, onFechar, busy }: any) {
+  const t = useTranslations('AdminPulse');
   const pct = total > 0 ? Math.round((completos / total) * 100) : 0;
   return (
     <div className="p-3 rounded-lg" style={{ background: '#091D35' }}>
@@ -204,7 +205,7 @@ function MomentoCard({ label, total, completos, aberto, encerrado, onDisparar, o
         <button onClick={onDisparar} disabled={!!busy}
           className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all disabled:opacity-50">
           {busy ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
-          Disparar assignments
+          {t('moments.dispatch')}
         </button>
       ) : (
         <>
@@ -219,12 +220,12 @@ function MomentoCard({ label, total, completos, aberto, encerrado, onDisparar, o
           {aberto && (
             <button onClick={onFechar} disabled={!!busy}
               className="w-full text-[10px] text-amber-400 hover:text-amber-300 py-1">
-              Fechar momento
+              {t('moments.close')}
             </button>
           )}
           {encerrado && (
             <p className="text-[10px] text-green-400 text-center flex items-center justify-center gap-1">
-              <CheckCircle size={10} /> Encerrado
+              <CheckCircle size={10} /> {t('moments.closed')}
             </p>
           )}
         </>

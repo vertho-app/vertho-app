@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { ArrowLeft, Loader2, ShieldCheck, AlertTriangle, CheckCircle2, ChevronRight, X, RefreshCw } from 'lucide-react';
 import { listarAvaliacoesAcumuladas, loadAvaliacaoAcumuladaDetalhe, regerarAvaliacaoAcumulada } from './actions';
@@ -15,6 +16,8 @@ const STATUS_COR = {
 
 export default function AvaliacaoAcumuladaPage() {
   const router = useRouter();
+  const locale = useLocale();
+  const t = useTranslations('AdminAccumulatedEvaluation');
   const sb = getSupabase();
   const [rows, setRows] = useState([]);
   const [resumo, setResumo] = useState(null);
@@ -72,19 +75,19 @@ export default function AvaliacaoAcumuladaPage() {
         </button>
         <div className="flex-1">
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <ShieldCheck size={20} className="text-purple-400" /> Avaliação Acumulada — Interna Vertho
+            <ShieldCheck size={20} className="text-purple-400" /> {t('title')}
           </h1>
-          <p className="text-xs text-gray-500">Nota por descritor gerada pela 1ª IA ao fim da sem 13, auditada pela 2ª.</p>
+          <p className="text-xs text-gray-500">{t('subtitle')}</p>
         </div>
       </div>
 
       {resumo && (
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
-          <Card label="Total" valor={resumo.total} cor="text-white" />
-          <Card label="Aprovadas" valor={resumo.aprovado} cor="text-emerald-300" />
-          <Card label="Revisar" valor={resumo.revisar} cor="text-amber-300" />
-          <Card label="Sem auditoria" valor={resumo.semAuditoria} cor="text-gray-400" />
-          <Card label="Não gerado" valor={resumo.naoGerado} cor="text-blue-400" />
+          <Card label={t('summary.total')} valor={resumo.total} cor="text-white" />
+          <Card label={t('summary.approved')} valor={resumo.aprovado} cor="text-emerald-300" />
+          <Card label={t('summary.review')} valor={resumo.revisar} cor="text-amber-300" />
+          <Card label={t('summary.noAudit')} valor={resumo.semAuditoria} cor="text-gray-400" />
+          <Card label={t('summary.notGenerated')} valor={resumo.naoGerado} cor="text-blue-400" />
         </div>
       )}
 
@@ -94,7 +97,7 @@ export default function AvaliacaoAcumuladaPage() {
             className={`px-3 py-1.5 rounded-full text-xs font-bold border ${
               filtroStatus === s ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-300' : 'border-white/10 text-gray-400 hover:text-white'
             }`}>
-            {s === 'todos' ? 'Todos' : STATUS_COR[s]?.label || s}
+            {s === 'todos' ? t('filters.all') : t(`status.${s}`) || STATUS_COR[s]?.label || s}
           </button>
         ))}
       </div>
@@ -102,7 +105,7 @@ export default function AvaliacaoAcumuladaPage() {
       {loading ? (
         <div className="flex items-center justify-center py-12"><Loader2 size={28} className="animate-spin text-cyan-400" /></div>
       ) : rows.length === 0 ? (
-        <p className="text-center py-12 text-sm text-gray-500">Nenhuma avaliação pra esse filtro.</p>
+        <p className="text-center py-12 text-sm text-gray-500">{t('empty')}</p>
       ) : (
         <div className="space-y-2">
           {rows.map(r => {
@@ -129,7 +132,7 @@ export default function AvaliacaoAcumuladaPage() {
                   </button>
                   <button onClick={() => reger(r.trilhaId)} disabled={regerando === r.trilhaId}
                     className="text-[10px] px-2 py-1 rounded border border-white/10 text-gray-400 hover:text-white disabled:opacity-50">
-                    {regerando === r.trilhaId ? <Loader2 size={10} className="animate-spin" /> : 'Regerar'}
+                    {regerando === r.trilhaId ? <Loader2 size={10} className="animate-spin" /> : t('actions.regenerate')}
                   </button>
                 </div>
               </div>
@@ -139,7 +142,7 @@ export default function AvaliacaoAcumuladaPage() {
       )}
 
       {detalhe && (
-        <DetalheModal detalhe={detalhe} loading={loadingDetalhe} onClose={() => setDetalhe(null)} onRegerar={() => reger(detalhe.trilhaId)} />
+        <DetalheModal detalhe={detalhe} loading={loadingDetalhe} onClose={() => setDetalhe(null)} onRegerar={() => reger(detalhe.trilhaId)} t={t} locale={locale} />
       )}
     </div>
   );
@@ -154,16 +157,16 @@ function Card({ label, valor, cor }) {
   );
 }
 
-function DetalheModal({ detalhe, loading, onClose, onRegerar }) {
+function DetalheModal({ detalhe, loading, onClose, onRegerar, t, locale }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto" onClick={onClose}>
       <div className="max-w-3xl w-full bg-[#0a0e1a] border border-white/10 rounded-2xl my-8" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 flex items-center justify-between p-4 border-b border-white/10 bg-[#0a0e1a] rounded-t-2xl">
-          <h2 className="text-sm font-bold text-white">Avaliação Acumulada</h2>
+          <h2 className="text-sm font-bold text-white">{t('modal.title')}</h2>
           <div className="flex gap-2">
             {detalhe.trilhaId && (
               <button onClick={onRegerar}
-                className="text-[10px] px-2 py-1 rounded border border-white/10 text-gray-400 hover:text-white">Regerar</button>
+                className="text-[10px] px-2 py-1 rounded border border-white/10 text-gray-400 hover:text-white">{t('actions.regenerate')}</button>
             )}
             <button onClick={onClose} className="text-gray-400 hover:text-white"><X size={18} /></button>
           </div>
@@ -174,17 +177,17 @@ function DetalheModal({ detalhe, loading, onClose, onRegerar }) {
         ) : (
           <div className="p-5 space-y-4 text-sm">
             <section>
-              <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Contexto</p>
+              <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">{t('modal.context')}</p>
               <p className="text-white">{detalhe.colaborador} ({detalhe.cargo}) · {detalhe.empresa}</p>
               <p className="text-xs text-gray-400">Competência: <span className="text-cyan-400">{detalhe.competencia}</span> · DISC: {detalhe.perfilDominante || '—'}</p>
-              {detalhe.geradoEm && <p className="text-[10px] text-gray-500 mt-1">Gerado em {new Date(detalhe.geradoEm).toLocaleString('pt-BR')}</p>}
+              {detalhe.geradoEm && <p className="text-[10px] text-gray-500 mt-1">{t('modal.generatedAt', { date: new Date(detalhe.geradoEm).toLocaleString(locale) })}</p>}
             </section>
 
             {!detalhe.primaria ? (
-              <p className="text-xs text-gray-500 italic">Ainda não gerada. Clique em Regerar.</p>
+              <p className="text-xs text-gray-500 italic">{t('modal.notGenerated')}</p>
             ) : (
               <section>
-                <p className="text-[10px] uppercase tracking-widest text-emerald-400 mb-1">1ª IA — Nota Acumulada por Descritor</p>
+                <p className="text-[10px] uppercase tracking-widest text-emerald-400 mb-1">{t('modal.primary')}</p>
                 <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2">
                   <p className="text-xs">Média: <b className="text-emerald-300">{detalhe.primaria.nota_media_acumulada}</b></p>
                   {detalhe.primaria.avaliacao_acumulada?.map((d, i) => {
@@ -212,7 +215,7 @@ function DetalheModal({ detalhe, loading, onClose, onRegerar }) {
 
             {detalhe.auditoria ? (
               <section>
-                <p className="text-[10px] uppercase tracking-widest text-purple-400 mb-1">2ª IA — Auditoria</p>
+                <p className="text-[10px] uppercase tracking-widest text-purple-400 mb-1">{t('modal.audit')}</p>
                 <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3 space-y-2">
                   <p className="text-xs">
                     Nota: <b className="text-purple-300">{detalhe.auditoria.nota_auditoria}/100</b> · Status: <b className={`${detalhe.auditoria.status === 'aprovado' ? 'text-emerald-300' : detalhe.auditoria.status === 'aprovado_com_ajustes' ? 'text-amber-300' : 'text-red-300'}`}>{detalhe.auditoria.status}</b>
@@ -223,7 +226,7 @@ function DetalheModal({ detalhe, loading, onClose, onRegerar }) {
                   {detalhe.auditoria.ponto_mais_fragil && <p className="text-[10px] text-red-400/70">Mais frágil: {detalhe.auditoria.ponto_mais_fragil}</p>}
                   {detalhe.auditoria.alertas?.length > 0 && (
                     <div>
-                      <p className="text-[10px] text-amber-400 font-bold mt-2">Alertas:</p>
+                      <p className="text-[10px] text-amber-400 font-bold mt-2">{t('modal.alerts')}</p>
                       <ul className="text-[11px] text-amber-200 list-disc pl-4 space-y-1">
                         {detalhe.auditoria.alertas.map((a, i) => {
                           if (typeof a === 'string') return <li key={i}>{a}</li>;
@@ -234,7 +237,7 @@ function DetalheModal({ detalhe, loading, onClose, onRegerar }) {
                   )}
                   {detalhe.auditoria.ajustes_sugeridos?.length > 0 && (
                     <div>
-                      <p className="text-[10px] text-amber-400 font-bold mt-2">Ajustes sugeridos:</p>
+                      <p className="text-[10px] text-amber-400 font-bold mt-2">{t('modal.adjustments')}</p>
                       <ul className="text-[11px] text-gray-300 list-disc pl-4">
                         {detalhe.auditoria.ajustes_sugeridos.map((a, i) => <li key={i}>{a.descritor}: {a.nota_acumulada_sugerida} — {a.motivo}</li>)}
                       </ul>
@@ -243,7 +246,7 @@ function DetalheModal({ detalhe, loading, onClose, onRegerar }) {
                 </div>
               </section>
             ) : detalhe.primaria ? (
-              <p className="text-xs text-gray-500 italic">Avaliação primária gerada, mas auditoria não (falha na 2ª IA ou rodada antes do check).</p>
+              <p className="text-xs text-gray-500 italic">{t('modal.auditMissing')}</p>
             ) : null}
           </div>
         )}

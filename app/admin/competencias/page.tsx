@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   ArrowLeft, Loader2, BookMarked, Plus, Pencil, Trash2, Copy, ChevronDown, X, Save, Upload, Filter
 } from 'lucide-react';
@@ -16,6 +17,7 @@ const EMPTY_COMP = { nome: '', descricao: '', cargo: '', cod_comp: '', pilar: ''
 export default function CompetenciasPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const t = useTranslations('AdminCompetencies');
   const empresaParam = searchParams.get('empresa');
   const [empresas, setEmpresas] = useState<any[]>([]);
   const [empresaId, setEmpresaId] = useState(empresaParam || '');
@@ -83,18 +85,18 @@ export default function CompetenciasPage() {
       setShowModal(false);
       handleSelectEmpresa(empresaId);
     } else {
-      flash('Erro: ' + r.error);
+      flash(t('messages.error', { error: r.error }));
     }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Excluir esta competencia?')) return;
+    if (!confirm(t('confirm.delete'))) return;
     const r = await excluirCompetencia(id);
     if (r.success) {
-      flash('Excluida');
+      flash(t('messages.deleted'));
       handleSelectEmpresa(empresaId);
     } else {
-      flash('Erro: ' + r.error);
+      flash(t('messages.error', { error: r.error }));
     }
   }
 
@@ -102,15 +104,14 @@ export default function CompetenciasPage() {
     const base = baselist.find((b: any) => b.id === baseId);
     const nomeBase = base?.nome || 'esta competência';
     if (!window.confirm(
-      `Copiar "${nomeBase}" da base pra o cargo "${cargoParaCopiar}"?\n\n` +
-      `A competência (e seus descritores) será adicionada à empresa. Se já existir, pode gerar duplicatas.`
+      t('confirm.copyBase', { name: nomeBase, role: cargoParaCopiar })
     )) return;
     const r = await copiarBaseParaEmpresa(empresaId, baseId, cargoParaCopiar || null);
     if (r.success) {
       flash(r.message!);
       handleSelectEmpresa(empresaId);
     } else {
-      flash('Erro: ' + r.error);
+      flash(t('messages.error', { error: r.error }));
     }
   }
 
@@ -130,11 +131,11 @@ export default function CompetenciasPage() {
             <ArrowLeft size={16} />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-white flex items-center gap-2"><BookMarked size={20} className="text-cyan-400" /> Competencias</h1>
+            <h1 className="text-xl font-bold text-white flex items-center gap-2"><BookMarked size={20} className="text-cyan-400" /> {t('title')}</h1>
             {empresaParam && empresaNome ? (
               <p className="text-xs text-gray-500">{empresaNome}</p>
             ) : (
-              <p className="text-xs text-gray-500">CRUD de competencias por empresa</p>
+              <p className="text-xs text-gray-500">{t('subtitle')}</p>
             )}
           </div>
         </div>
@@ -142,7 +143,7 @@ export default function CompetenciasPage() {
           <div className="flex items-center gap-2">
             <button onClick={() => setShowBase(!showBase)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-cyan-400/30 hover:text-cyan-400 transition-all">
-              <Copy size={14} /> {showBase ? 'Ocultar Base' : 'Ver Base'}
+              <Copy size={14} /> {showBase ? t('actions.hideBase') : t('actions.showBase')}
             </button>
             <button onClick={() => setShowImport(!showImport)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-cyan-400/30 hover:text-cyan-400 transition-all">
@@ -150,7 +151,7 @@ export default function CompetenciasPage() {
             </button>
             <button onClick={openAdd}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-green-400/30 hover:text-green-400 transition-all">
-              <Plus size={14} /> Nova
+              <Plus size={14} /> {t('actions.new')}
             </button>
           </div>
         )}
@@ -162,7 +163,7 @@ export default function CompetenciasPage() {
           <div className="relative w-full max-w-sm">
             <select value={empresaId} onChange={e => handleSelectEmpresa(e.target.value)}
               className="w-full appearance-none rounded-lg border border-white/10 bg-[#0F2A4A] text-white text-sm px-4 py-2.5 pr-10 focus:outline-none focus:border-cyan-400/50">
-              <option value="">Selecione uma empresa...</option>
+              <option value="">{t('selectCompany')}</option>
               {empresas.map((e: any) => <option key={e.id} value={e.id}>{e.nome}</option>)}
             </select>
             <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
@@ -173,14 +174,14 @@ export default function CompetenciasPage() {
       {/* Import CSV */}
       {showImport && empresaId && (
         <div className="rounded-xl p-4 border border-white/[0.06] mb-4" style={{ background: '#0F2A4A' }}>
-          <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-2">Importar Competências (CSV ou Excel)</p>
-          <p className="text-xs text-gray-400 mb-1">Colunas aceitas (1ª linha = cabeçalho):</p>
+          <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-2">{t('import.title')}</p>
+          <p className="text-xs text-gray-400 mb-1">{t('import.acceptedColumns')}</p>
           <p className="text-[10px] text-cyan-400 font-mono mb-1">cod_comp, <strong>nome</strong>*, pilar, cargo, <strong>descricao</strong>*, cod_desc, nome_curto, descritor_completo, <strong>n1_gap</strong>*, <strong>n2_desenvolvimento</strong>*, n3_meta, <strong>n4_referencia</strong>*, evidencias_esperadas, perguntas_alvo</p>
-          <p className="text-[10px] text-gray-600">* obrigatórios: <strong>nome, descricao, n1_gap, n2_desenvolvimento, n4_referencia</strong>. Demais são opcionais. Dedup por cod_comp+cod_desc.</p>
+          <p className="text-[10px] text-gray-600">{t.rich('import.requiredHint', { strong: chunks => <strong>{chunks}</strong> })}</p>
           <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white cursor-pointer"
             style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
             {importing ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-            {importing ? 'Importando...' : 'Selecionar arquivo (CSV ou XLSX)'}
+            {importing ? t('import.importing') : t('import.selectFile')}
             <input type="file" accept=".csv,.xlsx,.xls" className="hidden" disabled={importing} onChange={async e => {
               const file = e.target.files?.[0];
               if (!file) return;
@@ -207,19 +208,19 @@ export default function CompetenciasPage() {
               }
 
               const parsed = rows;
-              if (!parsed.length) { flash('Nenhuma linha válida. Verifique coluna "nome".'); setImporting(false); e.target.value = ''; return; }
+              if (!parsed.length) { flash(t('messages.noValidRows')); setImporting(false); e.target.value = ''; return; }
 
               // Validação de obrigatórios (após forward-fill)
               const OBRIG = ['nome', 'descricao', 'n1_gap', 'n2_desenvolvimento', 'n4_referencia'];
               const invalidos = parsed.filter((c: any) => OBRIG.some(k => !c[k]?.trim()));
               if (invalidos.length > 0) {
-                flash(`${invalidos.length} linha(s) sem obrigatórios (${OBRIG.join(', ')}). Linhas ignoradas.`);
+                flash(t('messages.invalidRows', { count: invalidos.length, fields: OBRIG.join(', ') }));
                 const validos = parsed.filter((c: any) => OBRIG.every(k => c[k]?.trim()));
                 if (validos.length === 0) { setImporting(false); e.target.value = ''; return; }
                 parsed.length = 0; parsed.push(...validos);
               }
               const r = await importarCompetenciasCSV(empresaId, parsed);
-              flash(r.success ? r.message! : 'Erro: ' + r.error);
+              flash(r.success ? r.message! : t('messages.error', { error: r.error }));
               setImporting(false);
               e.target.value = '';
               if (r.success) handleSelectEmpresa(empresaId);
@@ -240,7 +241,7 @@ export default function CompetenciasPage() {
           <Filter size={14} className="text-gray-400" />
           <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
             className="px-3 py-1.5 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
-            <option value="">Todos os cargos</option>
+            <option value="">{t('filters.allRoles')}</option>
             {cargosEmpresa.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
@@ -250,7 +251,7 @@ export default function CompetenciasPage() {
       {!loadingComps && empresaId && comps.length === 0 && (
         <div className="text-center py-12">
           <BookMarked size={32} className="text-gray-600 mx-auto mb-3" />
-          <p className="text-sm text-gray-500">Nenhuma competencia cadastrada</p>
+          <p className="text-sm text-gray-500">{t('empty')}</p>
         </div>
       )}
 
@@ -275,7 +276,7 @@ export default function CompetenciasPage() {
 
         return (
         <div className="mb-6">
-          <p className="text-[10px] text-gray-500 mb-2">{compCount} competências · {descCount} descritores</p>
+          <p className="text-[10px] text-gray-500 mb-2">{t('summary', { competencies: compCount, descriptors: descCount })}</p>
           <div className="space-y-2">
             {uniqueComps.map(({ comp: c, descritores }: any) => (
               <div key={c.cod_comp || c.id} className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
@@ -288,16 +289,16 @@ export default function CompetenciasPage() {
                     </div>
                     <div className="flex items-center gap-2 mt-1">
                       {c.pilar && <span className="text-[10px] text-gray-300">{c.pilar}</span>}
-                      {descritores.length > 0 && <span className="text-[10px] text-gray-500">· {descritores.length} descritores</span>}
+                      {descritores.length > 0 && <span className="text-[10px] text-gray-500">· {t('descriptorCount', { count: descritores.length })}</span>}
                     </div>
                     {c.descricao && <p className="text-[10px] text-gray-400 mt-1 truncate max-w-lg">{c.descricao}</p>}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => openEdit(c)} className="w-7 h-7 flex items-center justify-center rounded text-gray-500 hover:text-cyan-400"><Pencil size={13} /></button>
                     <button onClick={() => {
-                      if (!confirm(`Excluir "${c.nome}" e todos os seus descritores?`)) return;
+                      if (!confirm(t('confirm.deleteWithDescriptors', { name: c.nome }))) return;
                       Promise.all(descritores.map((d: any) => excluirCompetencia(d.id))).then(() => {
-                        flash('Competência excluída');
+                        flash(t('messages.competencyDeleted'));
                         handleSelectEmpresa(empresaId);
                       });
                     }} className="w-7 h-7 flex items-center justify-center rounded text-gray-500 hover:text-red-400"><Trash2 size={13} /></button>
@@ -340,7 +341,7 @@ export default function CompetenciasPage() {
                               {hasN2 && <p><span className="text-amber-400 font-semibold">N2</span> {d.n2_desenvolvimento}</p>}
                               {hasN3 && <p><span className="text-cyan-400 font-semibold">N3</span> {d.n3_meta}</p>}
                               {hasN4 && <p><span className="text-emerald-400 font-semibold">N4</span> {d.n4_referencia}</p>}
-                              {filled === 0 && <p className="text-red-400/60 italic">Régua não preenchida</p>}
+                              {filled === 0 && <p className="text-red-400/60 italic">{t('rubricEmpty')}</p>}
                             </div>
                           </div>
                         );
@@ -360,19 +361,19 @@ export default function CompetenciasPage() {
         <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
           <div className="px-5 py-3 border-b border-white/[0.06] flex items-center gap-2">
             <Copy size={16} className="text-cyan-400" />
-            <span className="text-sm font-bold text-white">Competencias Base {segmento ? `(${segmento})` : '(Global)'}</span>
+            <span className="text-sm font-bold text-white">{t('base.title', { segment: segmento || t('base.global') })}</span>
           </div>
 
           {/* Seletor de cargo destino */}
           <div className="px-5 py-3 border-b border-white/[0.06]" style={{ background: '#091D35' }}>
-            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Copiar competência para qual cargo/função?</p>
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">{t('base.copyToRole')}</p>
             <select value={cargoParaCopiar} onChange={e => setCargoParaCopiar(e.target.value)}
               className="w-full max-w-xs px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#0F2A4A' }}>
-              <option value="">Selecione um cargo...</option>
+              <option value="">{t('base.selectRole')}</option>
               {cargosEmpresa.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
             {cargosEmpresa.length === 0 && (
-              <p className="text-[10px] text-amber-400 mt-1">Nenhum cargo encontrado. Importe colaboradores com cargo primeiro.</p>
+              <p className="text-[10px] text-amber-400 mt-1">{t('base.noRoles')}</p>
             )}
           </div>
 
@@ -386,7 +387,7 @@ export default function CompetenciasPage() {
                 </div>
                 <button onClick={() => handleCopy(b.id)} disabled={!cargoParaCopiar}
                   className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all shrink-0 ${cargoParaCopiar ? 'text-cyan-400 border-cyan-400/30 hover:bg-cyan-400/10' : 'text-gray-600 border-white/5 cursor-not-allowed'}`}>
-                  <Copy size={12} /> {cargoParaCopiar ? `→ ${cargoParaCopiar}` : 'Copiar'}
+                  <Copy size={12} /> {cargoParaCopiar ? `→ ${cargoParaCopiar}` : t('actions.copy')}
                 </button>
               </div>
             ))}
@@ -400,15 +401,15 @@ export default function CompetenciasPage() {
           onMouseDown={e => { if (e.target === e.currentTarget) setShowModal(false); }}>
           <div className="rounded-xl border border-white/10 w-full max-w-lg mx-4 p-6" style={{ background: '#0F2A4A' }}>
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-white">{editComp.id ? 'Editar' : 'Nova'} Competencia</h2>
+              <h2 className="text-lg font-bold text-white">{editComp.id ? t('modal.edit') : t('modal.new')}</h2>
               <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-white"><X size={18} /></button>
             </div>
             <div className="space-y-3">
               {[
-                { key: 'nome', label: 'Nome', placeholder: 'Nome da competencia' },
-                { key: 'cod_comp', label: 'Codigo', placeholder: 'Ex: COMP-01' },
-                { key: 'pilar', label: 'Pilar', placeholder: 'Ex: Lideranca' },
-                { key: 'cargo', label: 'Cargo', placeholder: 'Ex: Gerente' },
+                { key: 'nome', label: t('fields.name'), placeholder: t('fields.namePlaceholder') },
+                { key: 'cod_comp', label: t('fields.code'), placeholder: t('fields.codePlaceholder') },
+                { key: 'pilar', label: t('fields.pillar'), placeholder: t('fields.pillarPlaceholder') },
+                { key: 'cargo', label: t('fields.role'), placeholder: t('fields.rolePlaceholder') },
               ].map(f => (
                 <div key={f.key}>
                   <label className="block text-xs font-bold text-gray-400 mb-1">{f.label}</label>
@@ -418,18 +419,18 @@ export default function CompetenciasPage() {
                 </div>
               ))}
               <div>
-                <label className="block text-xs font-bold text-gray-400 mb-1">Descricao</label>
+                <label className="block text-xs font-bold text-gray-400 mb-1">{t('fields.description')}</label>
                 <textarea value={editComp.descricao || ''} onChange={e => setEditComp((p: any) => ({ ...p, descricao: e.target.value }))}
-                  rows={3} placeholder="Descricao da competencia..."
+                  rows={3} placeholder={t('fields.descriptionPlaceholder')}
                   className="w-full rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 focus:outline-none focus:border-cyan-400/50 resize-none" />
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-5">
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 rounded-lg text-sm text-gray-400 border border-white/10 hover:text-white transition-colors">Cancelar</button>
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 rounded-lg text-sm text-gray-400 border border-white/10 hover:text-white transition-colors">{t('actions.cancel')}</button>
               <button onClick={handleSave} disabled={saving || !editComp.nome.trim()}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold text-white bg-teal-600 hover:bg-teal-500 transition-colors disabled:opacity-50">
                 {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                Salvar
+                {t('actions.save')}
               </button>
             </div>
           </div>
