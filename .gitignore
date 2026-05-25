@@ -69,3 +69,15 @@ data-pipeline/radarempresas/br/out/
 
 data-pipeline/radarempresas/**/_vt/
 *.COMT
+
+# logs de pipeline / execução
+*.log
+
+# microdados/temp pesados (ENEM etc) — nunca vão pro git
+.tmp_*/
+
+# backups locais (podem conter PII de colaboradores)
+/backups/
+
+# agent skills vendoradas (reproduzíveis via skills-lock.json)
+/.agents/skills/
