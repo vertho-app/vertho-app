@@ -3,6 +3,8 @@
 import { enviarPDF } from './whatsapp';
 import { APP_URL } from '@/lib/domain';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
+import { logAdminAction } from '@/lib/audit';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -63,6 +65,14 @@ export async function enviarPDFsLote(empresaId: string) {
       // Rate limit: 1.5s between messages
       await delay(1500);
     }
+
+    await logAdminAction({
+      adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
+      acao: 'envio.pdfs_lote', empresaId, empresaSlug: empresa?.slug,
+      alvo: `${relatorios.length} relatórios`,
+      detalhes: { canal: 'whatsapp', enviados, erros, total: relatorios.length },
+      resultado: enviados === 0 ? 'erro' : erros > 0 ? 'parcial' : 'ok',
+    });
 
     return {
       success: true,

@@ -2,6 +2,7 @@
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { logAdminAction } from '@/lib/audit';
 import { APP_WEBHOOK_URL, EMAIL_FROM_DEFAULT, QSTASH_BASE_URL, ROOT_DOMAIN, tenantUrl } from '@/lib/domain';
 
 const RESEND_MIN_INTERVAL_MS = 250; // 4 req/s, abaixo do limite atual de 5 req/s
@@ -149,7 +150,7 @@ async function deletarAnexoTemporario(sb, path) {
  *   os destinatários, em email (Resend attachments) e WhatsApp (send-document).
  */
 export async function dispararMensagemCustomizada(empresaId, template, canal, filtros: any = {}, assuntoTemplate = '', comPDF = false, anexoExtra: any = null) {
-  await requireAdminAction();
+  const ctx = await requireAdminAction();
   const sb = await requireAdminSupabase();
   try {
     const { data: empresa } = await sb.from('empresas')
@@ -251,6 +252,12 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
       const firstErr = results.find(r => !r.ok)?.err || '';
       const txt = `${ok} WhatsApp agendados via QStash, ${fail} erros${firstErr ? ` — ${firstErr}` : ''}`;
       console.log(`[dispararMensagemCustomizada] paralelo: ${txt}`);
+      await logAdminAction({
+        adminEmail: ctx.email, acao: 'whatsapp.broadcast', empresaId, empresaSlug: empresa.slug,
+        alvo: `${colabs.length} colaboradores`,
+        detalhes: { canal, via: 'qstash_paralelo', filtros, agendados: ok, erros: fail, comPDF, anexo: !!anexoExtra?.base64 },
+        resultado: ok === 0 ? 'erro' : fail > 0 ? 'parcial' : 'ok',
+      });
       return { success: ok > 0, message: txt, error: ok === 0 ? txt : undefined };
     }
 
@@ -433,6 +440,12 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
     }
 
     const msg2 = `${enviados} ${canal === 'email' ? 'emails' : 'WhatsApp'} enviados${erros ? `, ${erros} erros` : ''}${erroDetalhe ? ` — ${erroDetalhe}` : ''}`;
+    await logAdminAction({
+      adminEmail: ctx.email, acao: 'whatsapp.broadcast', empresaId, empresaSlug: empresa.slug,
+      alvo: `${colabs.length} colaboradores`,
+      detalhes: { canal, via: 'direto', filtros, enviados, erros, comPDF, anexo: !!anexoExtra?.base64, erroDetalhe: erroDetalhe || undefined },
+      resultado: enviados === 0 ? 'erro' : erros > 0 ? 'parcial' : 'ok',
+    });
     return { success: enviados > 0, message: msg2, error: enviados === 0 ? msg2 : undefined };
   } catch (err) {
     return { success: false, error: err.message };
@@ -440,7 +453,7 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
 }
 
 export async function enviarMagicLinksWhatsApp(empresaId: string, filtros: any = {}) {
-  await requireAdminAction();
+  const ctx = await requireAdminAction();
   const sb = await requireAdminSupabase();
   try {
     const { data: empresa } = await sb.from('empresas')
@@ -522,6 +535,12 @@ ${magicLink}
     }
 
     const msg2 = `${enviados} magic links enviados por WhatsApp${erros ? `, ${erros} erros` : ''}${ultimoErro ? ` — ${ultimoErro}` : ''}`;
+    await logAdminAction({
+      adminEmail: ctx.email, acao: 'whatsapp.magic_links', empresaId, empresaSlug: empresa.slug,
+      alvo: `${colabs.length} colaboradores`,
+      detalhes: { filtros, enviados, erros, ultimoErro: ultimoErro || undefined },
+      resultado: enviados === 0 ? 'erro' : erros > 0 ? 'parcial' : 'ok',
+    });
     return { success: enviados > 0, message: msg2, error: enviados === 0 ? msg2 : undefined };
   } catch (err: any) {
     return { success: false, error: err.message };

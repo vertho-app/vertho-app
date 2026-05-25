@@ -8,8 +8,9 @@ import { buildSeason } from '@/lib/season-engine/build-season';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { getProgramaConfig } from '@/lib/season-engine/programa-config';
 import type { AIConfig } from './ai-client';
-import { requireAdminAction, requireUserAction } from '@/lib/auth/action-context';
+import { requireAdminAction, requireUserAction, getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { logAdminAction } from '@/lib/audit';
 
 interface GerarTemporadaParams {
   colaboradorId?: string;
@@ -538,6 +539,13 @@ export async function gerarTemporadasLote(empresaId: string, aiConfig?: AIConfig
     }
     const ok = resultados.filter(r => r.ok).length;
     const errosUnicos = [...new Set(resultados.filter(r => !r.ok).map(r => r.error))].slice(0, 3);
+    await logAdminAction({
+      adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
+      acao: 'temporada.gerar_lote', empresaId,
+      alvo: `${colabs.length} colaboradores`,
+      detalhes: { total: colabs.length, gerados: ok, erros: colabs.length - ok, errosUnicos },
+      resultado: ok === 0 ? 'erro' : ok < colabs.length ? 'parcial' : 'ok',
+    });
     return {
       success: true,
       total: colabs.length,

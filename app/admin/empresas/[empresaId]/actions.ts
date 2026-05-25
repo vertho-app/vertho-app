@@ -2,6 +2,7 @@
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { logAdminAction } from '@/lib/audit';
 import { removeVercelDomain } from '@/lib/vercel-domain';
 
 export async function loadEmpresaPipeline(empresaId) {
@@ -87,19 +88,29 @@ export async function loadEmpresaPipeline(empresaId) {
 }
 
 export async function excluirEmpresa(empresaId) {
-  await requireAdminAction();
+  const ctx = await requireAdminAction();
   const sb = await requireAdminSupabase();
 
   const { data: empresa } = await sb.from('empresas')
-    .select('slug')
+    .select('slug, nome')
     .eq('id', empresaId)
     .single();
 
   const { error } = await sb.from('empresas').delete().eq('id', empresaId);
-  if (error) return { success: false, error: error.message };
+  if (error) {
+    await logAdminAction({
+      adminEmail: ctx.email, acao: 'empresa.excluir', empresaId, empresaSlug: empresa?.slug,
+      alvo: empresa?.nome, detalhes: { erro: error.message }, resultado: 'erro',
+    });
+    return { success: false, error: error.message };
+  }
 
   if (empresa?.slug) removeVercelDomain(empresa.slug).catch(() => {});
 
+  await logAdminAction({
+    adminEmail: ctx.email, acao: 'empresa.excluir', empresaId, empresaSlug: empresa?.slug,
+    alvo: empresa?.nome, detalhes: { dominioVercelRemovido: !!empresa?.slug },
+  });
   return { success: true };
 }
 

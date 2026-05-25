@@ -2,6 +2,7 @@
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { logAdminAction } from '@/lib/audit';
 import { validateWhatsAppBR } from '@/lib/phone';
 import { proxyEmailFromPhone } from '@/lib/phone-otp';
 
@@ -171,7 +172,7 @@ export async function loadColaboradores(empresaId: any) {
 export async function exportarColaboradoresXLSX(empresaId: any): Promise<
   { ok: true; base64: string; n: number } | { ok: false; error: string }
 > {
-  await requireAdminAction();
+  const ctx = await requireAdminAction();
   if (!empresaId) return { ok: false, error: 'empresa obrigatória' };
 
   const sb = await requireAdminSupabase();
@@ -225,6 +226,10 @@ export async function exportarColaboradoresXLSX(empresaId: any): Promise<
   ws.columns.forEach((col: any, i: number) => { col.width = COLS[i]?.w || 14; });
 
   const buf = await wb.xlsx.writeBuffer();
+  await logAdminAction({
+    adminEmail: ctx.email, acao: 'colaboradores.export', empresaId, empresaSlug: undefined,
+    alvo: `${colabs.length} colaboradores`, detalhes: { empresa: emp?.nome, formato: 'xlsx', n: colabs.length },
+  });
   return { ok: true, base64: Buffer.from(buf as any).toString('base64'), n: colabs.length };
 }
 
@@ -317,14 +322,18 @@ export async function atualizarColaborador(id: any, campos: any) {
 }
 
 export async function excluirColaborador(id: any) {
-  await requireAdminAction();
+  const ctx = await requireAdminAction();
   const sb = await requireAdminSupabase();
 
-  const { data: existente } = await sb.from('colaboradores').select('empresa_id').eq('id', id).maybeSingle();
+  const { data: existente } = await sb.from('colaboradores').select('empresa_id, nome_completo').eq('id', id).maybeSingle();
   if (!existente) return { success: false, error: 'colab não encontrado' };
 
   const { error } = await sb.from('colaboradores').delete().eq('id', id);
   if (error) return { success: false, error: error.message };
+  await logAdminAction({
+    adminEmail: ctx.email, acao: 'colaborador.excluir', empresaId: existente.empresa_id,
+    alvo: existente.nome_completo || id, detalhes: { colaboradorId: id },
+  });
   return { success: true };
 }
 
