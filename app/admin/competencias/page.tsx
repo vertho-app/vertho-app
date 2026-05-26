@@ -102,7 +102,7 @@ export default function CompetenciasPage() {
 
   async function handleCopy(baseId: string) {
     const base = baselist.find((b: any) => b.id === baseId);
-    const nomeBase = base?.nome || 'esta competência';
+    const nomeBase = base?.nome || t('fallbackCompetency');
     if (!window.confirm(
       t('confirm.copyBase', { name: nomeBase, role: cargoParaCopiar })
     )) return;

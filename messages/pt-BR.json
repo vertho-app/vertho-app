@@ -1659,7 +1659,8 @@
       "noValidRows": "Nenhuma linha válida. Verifique coluna \"nome\".",
       "invalidRows": "{count} linha(s) sem obrigatórios ({fields}). Linhas ignoradas.",
       "error": "Erro: {error}"
-    }
+    },
+    "fallbackCompetency": "esta competência"
   },
   "AdminAssessmentDescriptors": {
     "title": "Assessment Inicial de Descritores",
@@ -1776,7 +1777,10 @@
     },
     "formats": {
       "video": "Vídeo",
-      "audio": "Áudio"
+      "audio": "Áudio",
+      "text": "Texto",
+      "case": "Case",
+      "pdf": "PDF"
     },
     "table": {
       "format": "Formato",
@@ -1847,7 +1851,30 @@
       "batchWillGenerate": "Vai gerar {count} {format}(s) pra \"{competency}\"",
       "batchDone": "Lote concluído: {ok}/{total}{errors}",
       "errorCount": " ({count} erros)",
-      "unexpectedError": "Erro inesperado: {error}"
+      "unexpectedError": "Erro inesperado: {error}",
+      "uploadingContent": "Enviando conteúdo..."
+    },
+    "labels": {
+      "unclassified": "Não classificado"
+    },
+    "fileTypes": {
+      "audio": "mp3/m4a/wav",
+      "pdf": "pdf"
+    },
+    "placeholders": {
+      "caseContent": "# Maria e o Projeto...\n\n**Contexto:**...",
+      "textContent": "# Título...\n\nParágrafo..."
+    },
+    "optionLabels": {
+      "all": "Todos",
+      "generic": "Genérico",
+      "educational": "Educacional",
+      "corporate": "Corporativo",
+      "publicEducation": "Educação pública",
+      "health": "Saúde",
+      "agro": "Agro",
+      "core": "Core",
+      "complementary": "Complementar"
     }
   },
   "AdminEvolution": {

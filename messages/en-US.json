@@ -1659,7 +1659,8 @@
       "noValidRows": "No valid lines. Check \"name\" column.",
       "invalidRows": "{count} line(s) without mandatory ({fields}). Ignored lines.",
       "error": "Error: {error}"
-    }
+    },
+    "fallbackCompetency": "this competency"
   },
   "AdminAssessmentDescriptors": {
     "title": "Initial Descriptor Assessment",
@@ -1776,7 +1777,10 @@
     },
     "formats": {
       "video": "Video",
-      "audio": "Audio"
+      "audio": "Audio",
+      "text": "Text",
+      "case": "Case",
+      "pdf": "PDF"
     },
     "table": {
       "format": "Format",
@@ -1847,7 +1851,30 @@
       "batchWillGenerate": "It will generate {count} {format}(s) for \"{competency}\"",
       "batchDone": "Completed batch: {ok}/{total}{errors}",
       "errorCount": "({count} errors)",
-      "unexpectedError": "Unexpected error: {error}"
+      "unexpectedError": "Unexpected error: {error}",
+      "uploadingContent": "Uploading content..."
+    },
+    "labels": {
+      "unclassified": "Unclassified"
+    },
+    "fileTypes": {
+      "audio": "mp3/m4a/wav",
+      "pdf": "pdf"
+    },
+    "placeholders": {
+      "caseContent": "# Maria and the Project...\n\n**Context:**...",
+      "textContent": "# Title...\n\nParagraph..."
+    },
+    "optionLabels": {
+      "all": "All",
+      "generic": "Generic",
+      "educational": "Educational",
+      "corporate": "Corporate",
+      "publicEducation": "Public education",
+      "health": "Health",
+      "agro": "Agribusiness",
+      "core": "Core",
+      "complementary": "Complementary"
     }
   },
   "AdminEvolution": {

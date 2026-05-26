@@ -16,6 +16,10 @@ const FORMAT_COLORS = {
   video: '#06B6D4', audio: '#A78BFA', texto: '#10B981', case: '#F59E0B', pdf: '#94A3B8',
 };
 
+function isUnclassified(value: any) {
+  return value === 'Não classificado';
+}
+
 export default function ConteudosAdminPage() {
   const router = useRouter();
   const t = useTranslations('AdminContent');
@@ -107,7 +111,7 @@ export default function ConteudosAdminPage() {
     }
   }
 
-  const naoClassificados = items.filter(i => i.competencia === 'Não classificado').length;
+  const naoClassificados = items.filter(i => isUnclassified(i.competencia)).length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0e1a] via-[#0d1426] to-[#0a0e1a] text-white">
@@ -174,8 +178,8 @@ export default function ConteudosAdminPage() {
             <option value="" className="bg-[#0d1426] text-white">{t('filters.allFormats')}</option>
             <option value="video" className="bg-[#0d1426] text-white">{t('formats.video')}</option>
             <option value="audio" className="bg-[#0d1426] text-white">{t('formats.audio')}</option>
-            <option value="texto" className="bg-[#0d1426] text-white">Texto</option>
-            <option value="case" className="bg-[#0d1426] text-white">Case</option>
+            <option value="texto" className="bg-[#0d1426] text-white">{t('formats.text')}</option>
+            <option value="case" className="bg-[#0d1426] text-white">{t('formats.case')}</option>
             <option value="pdf" className="bg-[#0d1426] text-white">PDF</option>
           </select>
           <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
@@ -220,7 +224,7 @@ export default function ConteudosAdminPage() {
               <tbody className="divide-y divide-white/5">
                 {items.map(c => {
                   const Icon = FORMAT_ICONS[c.formato] || FileText;
-                  const naoClass = c.competencia === 'Não classificado';
+                  const naoClass = isUnclassified(c.competencia);
                   return (
                     <tr key={c.id} className="hover:bg-white/[0.02]">
                       <td className="px-3 py-2">
@@ -228,7 +232,7 @@ export default function ConteudosAdminPage() {
                       </td>
                       <td className="px-3 py-2 text-xs text-white max-w-xs truncate">{c.titulo}</td>
                       <td className="px-3 py-2 text-xs">
-                        <span className={naoClass ? 'text-amber-400' : 'text-gray-300'}>{c.competencia}</span>
+                        <span className={naoClass ? 'text-amber-400' : 'text-gray-300'}>{naoClass ? t('labels.unclassified') : c.competencia}</span>
                       </td>
                       <td className="px-3 py-2 text-[11px] text-gray-400">{c.descritor || '—'}</td>
                       <td className="px-3 py-2 text-[11px] text-center text-gray-400">{c.nivel_min}–{c.nivel_max}</td>
@@ -286,7 +290,7 @@ export default function ConteudosAdminPage() {
           onClose={() => setShowUpload(false)}
           onSave={async (fd) => {
             setBusy(true);
-            addLog('Enviando conteúdo...', 'info');
+            addLog(t('logs.uploadingContent'), 'info');
             const r = await uploadConteudo(fd);
             setBusy(false);
             if (r.success) {
@@ -497,6 +501,22 @@ function Field({ label, value, onChange, type = 'text', step, name, required, de
 
 function SelectField({ label, value, onChange, options, disabled, name, defaultValue }: { label?: any; value?: any; onChange?: any; options: any[]; disabled?: any; name?: any; defaultValue?: any }) {
   const t = useTranslations('AdminContent');
+  const optionLabels: Record<string, string> = {
+    todos: t('optionLabels.all'),
+    generico: t('optionLabels.generic'),
+    educacional: t('optionLabels.educational'),
+    corporativo: t('optionLabels.corporate'),
+    educacao_publica: t('optionLabels.publicEducation'),
+    saude: t('optionLabels.health'),
+    agro: t('optionLabels.agro'),
+    core: t('optionLabels.core'),
+    complementar: t('optionLabels.complementary'),
+    audio: t('formats.audio'),
+    texto: t('formats.text'),
+    case: t('formats.case'),
+    pdf: t('formats.pdf'),
+    video: t('formats.video'),
+  };
   const props: any = onChange != null
     ? { value: value ?? '', onChange: (e: any) => onChange(e.target.value) }
     : { defaultValue: defaultValue ?? value ?? options[0] };
@@ -509,7 +529,7 @@ function SelectField({ label, value, onChange, options, disabled, name, defaultV
         disabled={disabled}
         className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {options.map((o: any) => <option key={o} value={o} className="bg-[#0d1426] text-white">{o || t('fields.selectPlaceholder')}</option>)}
+        {options.map((o: any) => <option key={o} value={o} className="bg-[#0d1426] text-white">{o ? (optionLabels[o] || o) : t('fields.selectPlaceholder')}</option>)}
       </select>
     </div>
   );
@@ -562,7 +582,7 @@ function UploadModal({ onClose, onSave, busy }) {
 
           {precisaArquivo ? (
             <div>
-              <label className="block text-[10px] uppercase text-gray-500 mb-1">{t('fields.file')} ({formato === 'audio' ? 'mp3/m4a/wav' : 'pdf'})</label>
+              <label className="block text-[10px] uppercase text-gray-500 mb-1">{t('fields.file')} ({formato === 'audio' ? t('fileTypes.audio') : t('fileTypes.pdf')})</label>
               <input type="file" name="file" accept={formato === 'audio' ? 'audio/*' : 'application/pdf'}
                 className="w-full text-xs text-gray-300 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-cyan-600 file:text-white file:font-bold file:cursor-pointer" required />
             </div>
@@ -571,7 +591,7 @@ function UploadModal({ onClose, onSave, busy }) {
               <label className="block text-[10px] uppercase text-gray-500 mb-1">{t('fields.contentMarkdown')}</label>
               <textarea name="conteudo_inline" rows={10} required
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white font-mono outline-none focus:border-cyan-500"
-                placeholder={formato === 'case' ? '# Maria e o Projeto...\n\n**Contexto:**...' : '# Título...\n\nParágrafo...'} />
+                placeholder={formato === 'case' ? t('placeholders.caseContent') : t('placeholders.textContent')} />
             </div>
           )}
         </div>
