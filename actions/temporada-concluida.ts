@@ -20,7 +20,7 @@ export async function loadTemporadaConcluida(email: string) {
   if (!colab) return { error: 'Colaborador não encontrado' };
 
   const { data: trilha } = await sb.from('trilhas')
-    .select('id, competencia_foco, numero_temporada, status, evolution_report, descritores_selecionados')
+    .select('id, competencia_foco, competencias_foco, numero_temporada, status, evolution_report, descritores_selecionados')
     .eq('colaborador_id', colab.id)
     .order('criado_em', { ascending: false })
     .limit(1).maybeSingle();
@@ -84,7 +84,9 @@ export async function loadTemporadaConcluida(email: string) {
     colab: { nome: colab.nome_completo, cargo: colab.cargo, perfilDominante: colab.perfil_dominante },
     trilha: {
       id: trilha.id,
-      competencia: trilha.competencia_foco,
+      competencia: Array.isArray(trilha.competencias_foco) && trilha.competencias_foco.length > 1
+        ? trilha.competencias_foco.join(' + ')
+        : trilha.competencia_foco,
       numeroTemporada: trilha.numero_temporada,
       totalSemanas: plano.length || 14,
     },

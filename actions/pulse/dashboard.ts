@@ -56,6 +56,14 @@ export async function loadPulseDashboard(
   const ctx = await requireUserAction();
   const canSee = ctx.isPlatformAdmin || ctx.role === 'rh' || ctx.role === 'gestor';
   if (!canSee) return { ok: false, error: 'Sem permissão' };
+  if (ctx.role === 'gestor' && !ctx.isPlatformAdmin) {
+    const area = ctx.colaborador?.area_depto;
+    const cargo = ctx.colaborador?.cargo;
+    const allowed =
+      (groupType === 'area' && !!area && groupKey === area) ||
+      (groupType === 'cargo' && !!cargo && groupKey === cargo);
+    if (!allowed) return { ok: false, error: 'Gestor só pode ver recortes da própria área ou cargo' };
+  }
 
   const sb = createSupabaseAdmin();
 
@@ -83,7 +91,8 @@ export async function loadPulseDashboard(
 
   if (!recorte.length) return { ok: false, error: 'Recorte não tem respondentes' };
 
-  // n efetivo do recorte (max entre T0 e T2 — guard é por momento)
+  // n efetivo do recorte por momento. Cada momento é mascarado de forma
+  // independente para não expor T2 pequeno só porque T0 atingiu o limiar.
   const nT0 = Math.max(...recorte.filter((r: any) => r.pulse_moment === 'T0').map((r: any) => r.respondent_count), 0);
   const nT2 = Math.max(...recorte.filter((r: any) => r.pulse_moment === 'T2').map((r: any) => r.respondent_count), 0);
   const maxN = Math.max(nT0, nT2);
@@ -114,15 +123,17 @@ export async function loadPulseDashboard(
   const dimensions: DimensionRow[] = dimsOrder.map(dk => {
     const t0Row = recorte.find((r: any) => r.dimension_key === dk && r.pulse_moment === 'T0') as any;
     const t2Row = recorte.find((r: any) => r.dimension_key === dk && r.pulse_moment === 'T2') as any;
-    const t0 = t0Row?.avg_score != null ? Number(t0Row.avg_score) : null;
-    const t2 = t2Row?.avg_score != null ? Number(t2Row.avg_score) : null;
+    const t0n = t0Row?.respondent_count || 0;
+    const t2n = t2Row?.respondent_count || 0;
+    const t0 = t0n >= PULSE_MIN_N && t0Row?.avg_score != null ? Number(t0Row.avg_score) : null;
+    const t2 = t2n >= PULSE_MIN_N && t2Row?.avg_score != null ? Number(t2Row.avg_score) : null;
     const delta = (t0 != null && t2 != null) ? Number((t2 - t0).toFixed(2)) : null;
     return {
       dimension_key: dk,
       dimension_name: DIM_NAME_MAP[dk] || String(dk),
       t0, t2, delta,
-      n_t0: t0Row?.respondent_count || 0,
-      n_t2: t2Row?.respondent_count || 0,
+      n_t0: t0n,
+      n_t2: t2n,
     };
   });
 
@@ -164,7 +175,7 @@ export async function loadPulseDashboard(
     }
   }
   const grupos_disponiveis = Array.from(groupMap.values())
-    .filter(g => g.n >= PULSE_MIN_N || g.group_type === 'company')
+    .filter(g => g.n >= PULSE_MIN_N)
     .sort((a, b) => a.group_type.localeCompare(b.group_type) || a.group_key.localeCompare(b.group_key));
 
   // Score atual = T2 se houver, senão T0

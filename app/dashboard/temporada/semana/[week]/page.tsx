@@ -208,7 +208,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
         <div className="text-xs uppercase text-cyan-400 mb-1">
           {t('header.weekOf', { week: semanaNum, total: 14 })} · {isAplicacao ? t('type.practice') : isAvaliacao ? t('type.assessment') : t('type.episode')}
         </div>
-        <h1 className="text-2xl font-bold text-white">{semana.descritor || data.trilha.competencia_foco}</h1>
+        <h1 className="text-2xl font-bold text-white">{semana.descritor || semana.competencia || data.trilha.competencia_foco}</h1>
       </div>
 
       {/* Conteúdo da semana */}

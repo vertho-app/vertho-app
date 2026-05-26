@@ -3,7 +3,33 @@
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
-import { tenantUrl } from '@/lib/domain';
+import { EMAIL_FROM_DEFAULT, tenantUrl } from '@/lib/domain';
+
+const RESEND_MIN_INTERVAL_MS = 250;
+
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function enviarEmailResend(emailBody: any, throttle: { lastSentAt: number }) {
+  let ultimoErro = '';
+  for (let tentativa = 0; tentativa < 4; tentativa++) {
+    const elapsed = Date.now() - throttle.lastSentAt;
+    if (elapsed < RESEND_MIN_INTERVAL_MS) await sleep(RESEND_MIN_INTERVAL_MS - elapsed);
+    throttle.lastSentAt = Date.now();
+
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
+      body: JSON.stringify(emailBody),
+    });
+    if (res.ok) return { ok: true };
+    ultimoErro = await res.text();
+    if (res.status !== 429 || tentativa === 3) break;
+    await sleep(1500 * (tentativa + 1));
+  }
+  return { ok: false, error: ultimoErro || 'Falha ao enviar e-mail' };
+}
 
 export interface EnvioStats {
   total_candidatos: number;
@@ -38,6 +64,7 @@ export async function enviarConvitesPulso(
   },
 ): Promise<{ ok: true; stats: EnvioStats } | { ok: false; error: string }> {
   const sb = await requireAdminSupabase();
+  const adminEmail = (await getAuthenticatedEmailFromAction()) || 'desconhecido';
 
   const { data: empresa } = await sb.from('empresas')
     .select('id, nome, slug').eq('id', empresaId).single();
@@ -80,12 +107,16 @@ export async function enviarConvitesPulso(
   let jaEnviadosSet = new Set<string>();
   if (!opts.force_resend) {
     const { data: logs } = await sb.from('pulse_audit_logs')
-      .select('metadata_json')
+      .select('action_type, metadata_json')
       .eq('ciclo_id', cicloId)
       .in('action_type', ['convite_enviado_whatsapp', 'convite_enviado_email']);
     jaEnviadosSet = new Set(
       (logs || [])
-        .map((l: any) => l.metadata_json?.assignment_id)
+        .map((l: any) => {
+          const aid = l.metadata_json?.assignment_id;
+          if (!aid) return null;
+          return `${aid}:${l.action_type === 'convite_enviado_whatsapp' ? 'whatsapp' : 'email'}`;
+        })
         .filter(Boolean),
     );
   }
@@ -104,9 +135,11 @@ export async function enviarConvitesPulso(
   const enviarEmail = opts.canal === 'email' || opts.canal === 'ambos';
 
   if (enviarWa && !zapiConfigured) return { ok: false, error: 'Z-API não configurado' };
+  if (enviarEmail && !process.env.RESEND_API_KEY) return { ok: false, error: 'RESEND_API_KEY não configurada' };
+
+  const emailThrottle = { lastSentAt: 0 };
 
   for (const a of assignments as any[]) {
-    if (jaEnviadosSet.has(a.id)) { stats.ja_enviados++; continue; }
     const colab = colabMap.get(a.colaborador_id);
     if (!colab) { stats.erros++; continue; }
 
@@ -149,8 +182,11 @@ export async function enviarConvitesPulso(
 
     // ── WhatsApp ──
     if (enviarWa) {
-      if (!colab.telefone) { stats.sem_telefone++; }
-      else {
+      if (jaEnviadosSet.has(`${a.id}:whatsapp`)) {
+        stats.ja_enviados++;
+      } else if (!colab.telefone) {
+        stats.sem_telefone++;
+      } else {
         try {
           if (stats.enviados > 0) await new Promise(r => setTimeout(r, 1200)); // throttle
           let phone = (colab.telefone as string).replace(/\D/g, '');
@@ -166,7 +202,7 @@ export async function enviarConvitesPulso(
           } else {
             stats.enviados++;
             await sb.from('pulse_audit_logs').insert({
-              empresa_id: empresaId, actor_email: 'admin',
+              empresa_id: empresaId, actor_email: adminEmail,
               actor_role: 'admin', action_type: 'convite_enviado_whatsapp',
               ciclo_id: cicloId,
               metadata_json: {
@@ -185,30 +221,47 @@ export async function enviarConvitesPulso(
 
     // ── Email ──
     if (enviarEmail) {
-      if (!colab.email) { stats.sem_email++; }
-      else {
-        // O magic link já é enviado por email automaticamente pelo Supabase Auth
-        // se a configuração do projeto tiver isso. Pra mensagem custom, idealmente
-        // usaria um provider (Resend/SendGrid) — o projeto não tem um setado.
-        // Aqui vou apenas registrar o "envio email" como pendente, pra logging:
+      if (jaEnviadosSet.has(`${a.id}:email`)) {
+        stats.ja_enviados++;
+      } else if (!colab.email) {
+        stats.sem_email++;
+      } else {
+        const subject = opts.pulse_moment === 'T0'
+          ? `Pulso de Desenvolvimento · ${empresa.nome}`
+          : `Pulso Final de Desenvolvimento · ${empresa.nome}`;
+        const res = await enviarEmailResend({
+          from: EMAIL_FROM_DEFAULT,
+          to: colab.email,
+          subject,
+          text: mensagem,
+          html: mensagem
+            .split('\n')
+            .map((line) => line.trim() ? `<p>${line.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>` : '<br />')
+            .join(''),
+        }, emailThrottle);
+        if (!res.ok) {
+          stats.erros++;
+          stats.ultimo_erro = res.error?.slice(0, 150);
+          continue;
+        }
+        stats.enviados++;
         await sb.from('pulse_audit_logs').insert({
-          empresa_id: empresaId, actor_email: 'admin',
+          empresa_id: empresaId, actor_email: adminEmail,
           actor_role: 'admin', action_type: 'convite_enviado_email',
           ciclo_id: cicloId,
           metadata_json: {
             assignment_id: a.id,
             colaborador_id: colab.id,
             pulse_moment: opts.pulse_moment,
-            note: 'magic_link_supabase_default',
+            provider: 'resend',
           },
         } as any);
-        if (opts.canal === 'email') stats.enviados++;
       }
     }
   }
 
   await logAdminAction({
-    adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
+    adminEmail,
     acao: 'pulse.envio', empresaId, empresaSlug: empresa.slug,
     alvo: `${stats.total_candidatos} convites · ${ciclo.nome} ${opts.pulse_moment}`,
     detalhes: { cicloId, pulse_moment: opts.pulse_moment, canal: opts.canal, ...stats },

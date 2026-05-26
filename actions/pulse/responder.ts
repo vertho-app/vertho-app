@@ -13,6 +13,7 @@ export interface AssignmentDetail {
     pulse_moment: PulseMoment;
     status: string;
     completed_at: string | null;
+    due_date: string | null;
   };
   ciclo: { nome: string; descricao: string | null };
   empresa: { nome: string };
@@ -31,12 +32,16 @@ export async function loadAssignment(assignmentId: string): Promise<
   const sb = createSupabaseAdmin();
 
   const { data: a } = await sb.from('pulse_assignments')
-    .select('id, empresa_id, ciclo_id, colaborador_id, pulse_moment, status, completed_at')
+    .select('id, empresa_id, ciclo_id, colaborador_id, pulse_moment, status, completed_at, due_date')
     .eq('id', assignmentId).single();
   if (!a) return { ok: false, error: 'Assignment não encontrado' };
 
   if (!ctx.isPlatformAdmin && ctx.colaborador?.id !== (a as any).colaborador_id) {
     return { ok: false, error: 'Sem acesso a este assignment' };
+  }
+  if ((a as any).status !== 'completed') {
+    const closedReason = await validateAssignmentOpen(sb, a as any);
+    if (closedReason) return { ok: false, error: closedReason };
   }
 
   const { data: ciclo } = await sb.from('pulse_ciclos')
@@ -69,6 +74,33 @@ export async function loadAssignment(assignmentId: string): Promise<
   };
 }
 
+function isPastDue(dueDate?: string | null): boolean {
+  if (!dueDate) return false;
+  const today = new Date().toISOString().slice(0, 10);
+  return dueDate < today;
+}
+
+function expectedOpenStatus(moment: PulseMoment): string {
+  return moment === 'T0' ? 't0_aberto' : 't2_aberto';
+}
+
+async function validateAssignmentOpen(sb: any, assignment: any): Promise<string | null> {
+  if (assignment.status === 'completed') return 'Pulso já finalizado';
+  if (assignment.status === 'expired') return 'Pulso expirado';
+  if (isPastDue(assignment.due_date)) {
+    await sb.from('pulse_assignments').update({ status: 'expired' }).eq('id', assignment.id);
+    return 'Pulso expirado';
+  }
+  const { data: ciclo } = await sb.from('pulse_ciclos')
+    .select('status')
+    .eq('id', assignment.ciclo_id)
+    .maybeSingle();
+  if (!ciclo || (ciclo as any).status !== expectedOpenStatus(assignment.pulse_moment)) {
+    return 'Pulso fechado';
+  }
+  return null;
+}
+
 /**
  * Salva (upsert) uma resposta a uma pergunta.
  * Marca o assignment como 'started' se ainda estiver 'pending'.
@@ -82,12 +114,13 @@ export async function saveResponse(
   const sb = createSupabaseAdmin();
 
   const { data: a } = await sb.from('pulse_assignments')
-    .select('id, empresa_id, ciclo_id, colaborador_id, pulse_moment, status').eq('id', assignmentId).single();
+    .select('id, empresa_id, ciclo_id, colaborador_id, pulse_moment, status, due_date').eq('id', assignmentId).single();
   if (!a) return { ok: false, error: 'Assignment não encontrado' };
   if (!ctx.isPlatformAdmin && ctx.colaborador?.id !== (a as any).colaborador_id) {
     return { ok: false, error: 'Sem acesso' };
   }
-  if ((a as any).status === 'completed') return { ok: false, error: 'Pulso já finalizado' };
+  const closedReason = await validateAssignmentOpen(sb, a as any);
+  if (closedReason) return { ok: false, error: closedReason };
 
   const perguntas = getPulseQuestions((a as any).pulse_moment);
   const pergunta = perguntas.find(p => p.id === questionId);
@@ -135,11 +168,13 @@ export async function finishAssignment(
   const sb = createSupabaseAdmin();
 
   const { data: a } = await sb.from('pulse_assignments')
-    .select('id, empresa_id, colaborador_id, pulse_moment, status').eq('id', assignmentId).single();
+    .select('id, empresa_id, ciclo_id, colaborador_id, pulse_moment, status, due_date').eq('id', assignmentId).single();
   if (!a) return { ok: false, error: 'Assignment não encontrado' };
   if (!ctx.isPlatformAdmin && ctx.colaborador?.id !== (a as any).colaborador_id) {
     return { ok: false, error: 'Sem acesso' };
   }
+  const closedReason = await validateAssignmentOpen(sb, a as any);
+  if (closedReason) return { ok: false, error: closedReason };
 
   const perguntas = getPulseQuestions((a as any).pulse_moment);
   const obrigatorias = perguntas.filter(p => p.is_required).map(p => p.id);
@@ -172,6 +207,7 @@ export async function loadMeusPulsosPendentes() {
     .select('id, pulse_moment, status, due_date, ciclo_id')
     .eq('colaborador_id', ctx.colaborador.id)
     .in('status', ['pending', 'started'])
+    .or(`due_date.is.null,due_date.gte.${new Date().toISOString().slice(0, 10)}`)
     .order('due_date', { ascending: true, nullsFirst: false });
   return data || [];
 }

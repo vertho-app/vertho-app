@@ -33,6 +33,7 @@ interface MicroConteudo {
 interface SemanaConteudo {
   semana: number;
   tipo: 'conteudo';
+  competencia?: string;
   descritor: string | null;
   descritores_cobertos: string[];
   nivel_alvo?: number;
@@ -56,6 +57,7 @@ interface SemanaConteudo {
 interface SemanaAplicacao {
   semana: number;
   tipo: 'aplicacao';
+  competencias_cobertas?: string[];
   descritor: null;
   descritores_cobertos: string[];
   missao?: {
@@ -273,6 +275,7 @@ async function montarSemanaConteudo(
   return {
     semana,
     tipo: 'conteudo',
+    competencia,
     descritor: descritorSel.descritor,
     descritores_cobertos: [descritorSel.descritor],
     nivel_alvo: 3.0,
@@ -381,6 +384,7 @@ async function montarSemanaAplicacao(
   return {
     semana,
     tipo: 'aplicacao',
+    competencias_cobertas: competenciasIntegradas,
     descritor: null,
     descritores_cobertos: cobertos,
     missao: missaoObj,

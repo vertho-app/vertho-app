@@ -512,6 +512,31 @@ function derivarPrioridadeFormatos(colab: any): string[] {
   return ordenado;
 }
 
+function resolveCompetenciasSlot(trilha: any, slot: any): string[] {
+  const descritores = Array.isArray(trilha.descritores_selecionados) ? trilha.descritores_selecionados : [];
+  const byDesc = new Map<string, string>(
+    descritores
+      .map((d: any) => [String(d.descritor), String(d.competencia || '')] as [string, string])
+      .filter(([, c]) => !!c),
+  );
+  const comps = new Set<string>();
+  if (slot?.competencia) comps.add(slot.competencia);
+  if (Array.isArray(slot?.competencias_cobertas)) {
+    for (const comp of slot.competencias_cobertas) if (comp) comps.add(comp);
+  }
+  if (slot?.descritor && byDesc.get(slot.descritor)) comps.add(byDesc.get(slot.descritor)!);
+  for (const desc of slot?.descritores_cobertos || []) {
+    const comp = byDesc.get(desc);
+    if (comp) comps.add(comp);
+  }
+  if (!comps.size) comps.add(trilha.competencia_foco);
+  return Array.from(comps);
+}
+
+function resolveCompetenciaSlot(trilha: any, slot: any): string {
+  return resolveCompetenciasSlot(trilha, slot).join(' + ');
+}
+
 function inferirContexto(segmento?: string | null): string {
   if (!segmento) return 'generico';
   const s = String(segmento).toLowerCase();
@@ -595,7 +620,7 @@ export async function regerarSemana(trilhaId: string, semana: number, aiConfig: 
   try {
     const sb = await requireAdminSupabase();
     const { data: trilha } = await sb.from('trilhas')
-      .select('id, colaborador_id, empresa_id, competencia_foco, temporada_plano, descritores_selecionados')
+      .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, temporada_plano, descritores_selecionados')
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return { success: false, error: 'Trilha não encontrada' };
 
@@ -610,11 +635,12 @@ export async function regerarSemana(trilhaId: string, semana: number, aiConfig: 
 
     const slot = plano[idx];
     const { callAI } = await import('@/actions/ai-client');
+    const competenciaSlot = resolveCompetenciaSlot(trilha, slot);
 
     if (slot.tipo === 'conteudo' && slot.descritor) {
       const { promptDesafio, parseDesafioResponse } = await import('@/lib/season-engine/prompts/challenge');
       const { system, user } = promptDesafio({
-        competencia: trilha.competencia_foco,
+        competencia: competenciaSlot,
         descritor: slot.descritor,
         nivel: slot.nivel_atual || 1.5,
         cargo: colab?.cargo, contexto, semana,
@@ -630,8 +656,24 @@ export async function regerarSemana(trilhaId: string, semana: number, aiConfig: 
       const { promptMissao, parseMissaoResponse, missaoToMarkdown } = await import('@/lib/season-engine/prompts/missao');
       const complexidade = ({ 4: 'simples', 8: 'intermediario', 12: 'completo' } as Record<number, string>)[semana] || 'intermediario';
       const descritores = slot.descritores_cobertos || [];
-      const m = promptMissao({ competencia: trilha.competencia_foco, descritores, cargo: colab?.cargo, contexto });
-      const c = promptCenario({ competencia: trilha.competencia_foco, descritores, cargo: colab?.cargo, contexto, complexidade });
+      const comps = resolveCompetenciasSlot(trilha, slot);
+      const m = promptMissao({
+        competencia: competenciaSlot,
+        descritores,
+        cargo: colab?.cargo,
+        contexto,
+        missaoTipo: comps.length > 1 ? 'integradora' : 'unica',
+        competenciasIntegradas: comps.length > 1 ? comps : undefined,
+      });
+      const c = promptCenario({
+        competencia: competenciaSlot,
+        descritores,
+        cargo: colab?.cargo,
+        contexto,
+        complexidade,
+        cenarioTipo: comps.length > 1 ? 'integrador' : 'unico',
+        competenciasIntegradas: comps.length > 1 ? comps : undefined,
+      });
       const [mResp, cResp] = await Promise.all([
         callAI(m.system, m.user, aiConfig, 600),
         callAI(c.system, c.user, aiConfig, 800),
@@ -675,7 +717,7 @@ export async function listarTemporadasEmpresa(empresaId: string) {
     if (!empresaId) return { error: 'empresaId obrigatório' };
     const tdb = tenantDb(empresaId);
     const { data, error } = await tdb.from('trilhas')
-      .select('id, colaborador_id, competencia_foco, numero_temporada, status, criado_em, descritores_selecionados, temporada_plano')
+      .select('id, colaborador_id, competencia_foco, competencias_foco, numero_temporada, status, criado_em, descritores_selecionados, temporada_plano')
       .not('temporada_plano', 'is', null)
       .order('criado_em', { ascending: false });
     if (error) return { error: error.message };
@@ -735,7 +777,7 @@ export async function loadProgressoDetalhado(trilhaId: string) {
   try {
     const sb = await requireAdminSupabase();
     const { data: trilha } = await sb.from('trilhas')
-      .select('id, colaborador_id, competencia_foco, temporada_plano, evolution_report')
+      .select('id, colaborador_id, competencia_foco, competencias_foco, temporada_plano, evolution_report')
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return { error: 'Trilha não encontrada' };
 

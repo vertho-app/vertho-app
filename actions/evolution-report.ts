@@ -27,7 +27,7 @@ export async function gerarEvolutionReport(trilhaId: string) {
     // Descobre tenant via trilha (raw — query inicial sem tenant conhecido).
     const sbRaw = await requireAdminSupabase();
     const { data: trilha } = await sbRaw.from('trilhas')
-      .select('id, colaborador_id, empresa_id, descritores_selecionados')
+      .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, descritores_selecionados')
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return { success: false, error: 'Trilha não encontrada' };
 
@@ -47,6 +47,7 @@ export async function gerarEvolutionReport(trilhaId: string) {
       const nota_pre = n.nota_pre ?? d.nota_atual ?? 1.5;
       const nota_pos = n.nota_pos ?? q.nivel_percebido ?? nota_pre;
       return {
+        competencia: d.competencia || trilha.competencia_foco,
         descritor: d.descritor,
         nota_pre, nota_pos,
         nivel_percebido: q.nivel_percebido ?? null,
@@ -109,10 +110,10 @@ export async function loadEvolutionReportsEmpresa(empresaId: string) {
     // Agrega por competência → descritor → { confirmadas, parciais, estagnacoes, regressoes }
     const porCompetencia: Record<string, Record<string, any>> = {};
     for (const t of trilhasComColab) {
-      const comp = t.competencia_foco || 'Sem foco';
-      if (!porCompetencia[comp]) porCompetencia[comp] = {};
       const descs = t.evolution_report?.descritores || [];
       for (const d of descs) {
+        const comp = d.competencia || t.competencia_foco || 'Sem foco';
+        if (!porCompetencia[comp]) porCompetencia[comp] = {};
         if (!porCompetencia[comp][d.descritor]) {
           porCompetencia[comp][d.descritor] = {
             evolucao_confirmada: 0, evolucao_parcial: 0, estagnacao: 0, regressao: 0,

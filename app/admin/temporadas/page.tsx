@@ -194,7 +194,7 @@ function TemporadaCard({ t, expanded, onToggle, onPausar, onArquivar, onRegerar,
           {expanded ? <ChevronDown size={16} className="text-gray-500" /> : <ChevronRight size={16} className="text-gray-500" />}
           <div className="flex-1">
             <div className="text-sm font-bold text-white">{colab.nome_completo || '—'}</div>
-            <div className="text-[11px] text-gray-400">{tr('card.meta', { role: colab.cargo || '—', season: t.numero_temporada, focus: t.competencia_foco })}</div>
+            <div className="text-[11px] text-gray-400">{tr('card.meta', { role: colab.cargo || '—', season: t.numero_temporada, focus: formatCompetencias(t) })}</div>
           </div>
           <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded border ${statusCls}`}>{tr(`status.${statusKey}`)}</span>
         </button>
@@ -294,7 +294,7 @@ function DetalheModal({ detalhe, onClose }) {
         <div className="flex items-center justify-between p-5 border-b border-white/10">
           <div>
             <h2 className="text-lg font-bold text-white">{colab?.nome_completo || '—'}</h2>
-            <p className="text-xs text-gray-400">{colab?.cargo} · {trilha.competencia_foco}</p>
+            <p className="text-xs text-gray-400">{colab?.cargo} · {formatCompetencias(trilha)}</p>
           </div>
           <button onClick={onClose} className="p-1 rounded hover:bg-white/10"><X size={18} /></button>
         </div>
@@ -430,6 +430,12 @@ function SemanaDetalhe({ semana, progresso }) {
       )}
     </div>
   );
+}
+
+function formatCompetencias(trilha) {
+  return Array.isArray(trilha?.competencias_foco) && trilha.competencias_foco.length > 1
+    ? trilha.competencias_foco.join(' + ')
+    : trilha?.competencia_foco;
 }
 
 function Block({ titulo, content, markdown }: { titulo?: any; content?: any; markdown?: any }) {

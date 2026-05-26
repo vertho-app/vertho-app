@@ -39,7 +39,7 @@ export async function POST(request) {
     const sb = createSupabaseAdmin();
 
     const { data: trilha } = await sb.from('trilhas')
-      .select('id, colaborador_id, empresa_id, competencia_foco, temporada_plano, data_inicio')
+      .select('id, colaborador_id, empresa_id, competencia_foco, descritores_selecionados, temporada_plano, data_inicio')
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return NextResponse.json({ error: 'trilha não encontrada' }, { status: 404 });
 
@@ -70,6 +70,7 @@ export async function POST(request) {
 
     const semanaPlan = (trilha.temporada_plano || []).find(s => s.semana === Number(semana));
     if (!semanaPlan) return NextResponse.json({ error: 'semana fora do plano' }, { status: 400 });
+    const competenciaSemana = resolveCompetenciaSemana(trilha, semanaPlan);
 
     // Carrega progresso — exige conteudo_consumido.
     const { data: prog } = await sb.from('temporada_semana_progresso')
@@ -122,7 +123,7 @@ export async function POST(request) {
     const { system, messages } = promptTiraDuvidas({
       nomeColab: colabMasked.nome,
       cargo: colab.cargo,
-      competencia: trilha.competencia_foco,
+      competencia: competenciaSemana,
       descritor: semanaPlan.descritor,
       conteudoResumo,
       perfilDominante: colab.perfil_dominante,
@@ -168,4 +169,11 @@ export async function POST(request) {
     console.error('[tira-duvidas]', err);
     return NextResponse.json({ error: err?.message || 'Erro' }, { status: 500 });
   }
+}
+
+function resolveCompetenciaSemana(trilha: any, semanaPlan: any): string {
+  if (semanaPlan.competencia) return semanaPlan.competencia;
+  const descritores = Array.isArray(trilha.descritores_selecionados) ? trilha.descritores_selecionados : [];
+  const match = descritores.find((d: any) => d.descritor === semanaPlan.descritor && d.competencia);
+  return match?.competencia || trilha.competencia_foco;
 }

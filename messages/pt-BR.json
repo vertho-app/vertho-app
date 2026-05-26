@@ -164,6 +164,12 @@
       "doneTitle": "Votação concluída",
       "doneDescription": "Seu voto foi registrado. Obrigado!"
     },
+    "pulse": {
+      "eyebrow": "Pulso pendente",
+      "title": "Responder {moment}",
+      "description": "Leva cerca de 3 minutos e sua resposta individual permanece privada.",
+      "due": "Responder até {date}. Sua resposta individual permanece privada."
+    },
     "weeklyFocus": "Foco da semana",
     "preparation": "Preparação",
     "cards": {

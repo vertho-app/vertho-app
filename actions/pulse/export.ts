@@ -6,6 +6,7 @@ import { loadPulseSignals } from './signals';
 import { obterTemasCiclo } from './classify';
 import { triangulate } from '@/lib/pulse/triangulation';
 import { SIGNAL_LABELS } from '@/lib/pulse/signal-scoring';
+import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 
 export type PulseReportKind = 'pulso_executivo' | 'pulso_complementar_nr1';
 
@@ -34,6 +35,7 @@ export async function exportarRelatorioPulso(
   opts?: { group_type?: GroupType; group_key?: string },
 ): Promise<{ ok: true; relatorio_id: string } | { ok: false; error: string }> {
   const sb = await requireAdminSupabase();
+  const actorEmail = (await getAuthenticatedEmailFromAction()) || 'desconhecido';
 
   const groupType: GroupType = opts?.group_type || 'company';
   const groupKey: string = opts?.group_key || 'all';
@@ -104,14 +106,7 @@ export async function exportarRelatorioPulso(
     updated_at: new Date().toISOString(),
   } as any, { onConflict: 'ciclo_id,group_type,group_key' });
 
-  // Cria registro em `relatorios` — apaga anterior se existir
-  await sb.from('relatorios')
-    .delete()
-    .eq('empresa_id', empresaId)
-    .eq('tipo', kind)
-    .is('colaborador_id', null)
-    .then((r: any) => r);
-
+  // Cria um novo registro em `relatorios`, preservando histórico por ciclo/recorte.
   const { data: rel, error } = await sb.from('relatorios')
     .insert({
       empresa_id: empresaId,
@@ -127,7 +122,7 @@ export async function exportarRelatorioPulso(
   // Audit log
   await sb.from('pulse_audit_logs').insert({
     empresa_id: empresaId,
-    actor_email: 'system',  // o requireAdminAction já validou; o email vem do ctx no caller real
+    actor_email: actorEmail,
     actor_role: 'admin',
     action_type: kind === 'pulso_executivo' ? 'export_executive_pdf' : 'export_nr1_complementary',
     ciclo_id: cicloId,

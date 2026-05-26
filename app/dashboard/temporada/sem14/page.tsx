@@ -45,7 +45,9 @@ export default function Sem14Page() {
       const r = await loadTemporadaPorEmail(user.email);
       if (r.error || !r.trilha) { setError(r.error || t('errors.noTrack')); return; }
       setTrilhaId(r.trilha.id);
-      setCompetencia(r.trilha.competencia_foco);
+      setCompetencia(Array.isArray(r.trilha.competencias_foco) && r.trilha.competencias_foco.length > 1
+        ? r.trilha.competencias_foco.join(' + ')
+        : r.trilha.competencia_foco);
       setColabNome(r.colaborador?.nome_completo || '');
       setCargo(r.colaborador?.cargo || '');
 

@@ -7,11 +7,12 @@ import { getSupabase } from '@/lib/supabase-browser';
 import {
   ArrowRight, Play, Loader2, Check,
   BookOpen, FileText, Headphones, Zap, MessageCircle,
-  Lock,
+  Lock, ShieldCheck,
 } from 'lucide-react';
 import { loadDashboardData } from './dashboard-actions';
 import { loadHomeKpis } from '@/actions/dashboard-kpis';
 import { loadUltimosVideosColab } from '@/actions/video-analytics';
+import { loadMeusPulsosPendentes } from '@/actions/pulse/responder';
 import VideoModal from '@/components/video-modal';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { ContentThumb } from '@/components/content-thumb';
@@ -73,6 +74,7 @@ export default function DashboardHomePage() {
   const [kpis, setKpis] = useState<any>(null);
   const [ultimosVideos, setUltimosVideos] = useState<any[]>([]);
   const [votacaoAberta, setVotacaoAberta] = useState<any>(null);
+  const [pulsosPendentes, setPulsosPendentes] = useState<any[]>([]);
   const router = useRouter();
   const supabase = getSupabase();
 
@@ -80,14 +82,16 @@ export default function DashboardHomePage() {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/login'); return; }
-      const [result, kpisR, histR] = await Promise.all([
+      const [result, kpisR, histR, pulseR] = await Promise.all([
         loadDashboardData(),
         loadHomeKpis(),
         loadUltimosVideosColab(user.email, 3),
+        loadMeusPulsosPendentes(),
       ]);
       if (!result.error) setData(result);
       if (!kpisR?.error) setKpis(kpisR);
       if (!histR?.error) setUltimosVideos(histR?.items || []);
+      setPulsosPendentes(Array.isArray(pulseR) ? pulseR : []);
       // Verifica se há votação aberta
       try {
         const { checkVotacaoStatus } = await import('@/actions/votacao');
@@ -360,6 +364,34 @@ export default function DashboardHomePage() {
                 <p className="text-xs text-gray-500">{t('voting.doneDescription')}</p>
               </div>
             </div>
+          </section>
+        )}
+
+        {pulsosPendentes.length > 0 && (
+          <section>
+            <button
+              onClick={() => router.push(`/dashboard/pulso/${pulsosPendentes[0].id}`)}
+              className="w-full text-left rounded-[22px] p-4 flex items-start gap-4 transition-all active:scale-[0.99]"
+              style={{ background: 'rgba(11,29,50,0.92)', border: '1px solid rgba(52,197,204,0.24)' }}
+            >
+              <div className="w-11 h-11 rounded-2xl bg-cyan-400/10 border border-cyan-400/25 flex items-center justify-center shrink-0">
+                <ShieldCheck size={18} className="text-cyan-300" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-1 text-cyan-300">
+                  {t('pulse.eyebrow')}
+                </p>
+                <h4 className="text-sm font-bold text-white mb-1">
+                  {t('pulse.title', { moment: pulsosPendentes[0].pulse_moment })}
+                </h4>
+                <p className="text-xs text-white/55 leading-relaxed">
+                  {pulsosPendentes[0].due_date
+                    ? t('pulse.due', { date: pulsosPendentes[0].due_date })
+                    : t('pulse.description')}
+                </p>
+              </div>
+              <ArrowRight size={18} className="text-cyan-300 mt-1 shrink-0" />
+            </button>
           </section>
         )}
 

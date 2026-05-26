@@ -82,10 +82,19 @@ export async function dispararPulso(
   const { data: ciclo } = await tdb.from('pulse_ciclos').select('id, status').eq('id', cicloId).single();
   if (!ciclo) return { ok: false, error: 'Ciclo não encontrado' };
 
-  // Colabs ativos
-  let q = tdb.from('colaboradores').select('id, role').neq('role', 'tutor');
+  if (pulseMoment === 'T0' && !['draft', 't0_aberto'].includes((ciclo as any).status)) {
+    return { ok: false, error: 'T0 só pode ser disparado em ciclo rascunho ou T0 aberto' };
+  }
+  if (pulseMoment === 'T2' && !['em_jornada', 't2_aberto'].includes((ciclo as any).status)) {
+    return { ok: false, error: 'T2 só pode ser disparado após o fechamento do T0' };
+  }
+
+  // Colabs elegíveis
+  let q = tdb.from('colaboradores')
+    .select('id, role, cargo')
+    .neq('role', 'tutor');
   const { data: colabs } = await q;
-  if (!colabs?.length) return { ok: false, error: 'Nenhum colaborador ativo' };
+  if (!colabs?.length) return { ok: false, error: 'Nenhum colaborador elegível' };
 
   const filtrados = opts?.cargoFilter
     ? (colabs as any[]).filter(c => c.cargo === opts.cargoFilter)
@@ -103,6 +112,12 @@ export async function dispararPulso(
     status: 'pending',
   }));
 
+  const { count: existentes } = await tdb.from('pulse_assignments')
+    .select('id', { count: 'exact', head: true })
+    .eq('ciclo_id', cicloId)
+    .eq('pulse_moment', pulseMoment)
+    .in('colaborador_id', filtrados.map((c: any) => c.id));
+
   // Insert ignorando conflitos via upsert sem update (manter o existente)
   const { error } = await tdb.from('pulse_assignments').upsert(payload, {
     onConflict: 'ciclo_id,colaborador_id,pulse_moment',
@@ -117,7 +132,7 @@ export async function dispararPulso(
     .update({ status: novoStatus, [campoTs]: new Date().toISOString() })
     .eq('id', cicloId);
 
-  return { ok: true, criados: payload.length, pulados: 0 };
+  return { ok: true, criados: Math.max(0, payload.length - (existentes || 0)), pulados: existentes || 0 };
 }
 
 export async function fecharMomento(
@@ -127,6 +142,15 @@ export async function fecharMomento(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   await requireAdminAction();
   const tdb = tenantDb(empresaId);
+  const { data: ciclo } = await tdb.from('pulse_ciclos')
+    .select('status').eq('id', cicloId).maybeSingle();
+  if (!ciclo) return { ok: false, error: 'Ciclo não encontrado' };
+  if (pulseMoment === 'T0' && (ciclo as any).status !== 't0_aberto') {
+    return { ok: false, error: 'T0 não está aberto' };
+  }
+  if (pulseMoment === 'T2' && (ciclo as any).status !== 't2_aberto') {
+    return { ok: false, error: 'T2 não está aberto' };
+  }
   const campoTs = pulseMoment === 'T0' ? 't0_fechado_em' : 't2_fechado_em';
   const novoStatus = pulseMoment === 'T0' ? 'em_jornada' : 'encerrado';
   const { error } = await tdb.from('pulse_ciclos')

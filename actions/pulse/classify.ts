@@ -129,6 +129,14 @@ export async function obterTemasCiclo(
   const ctx = await requireUserAction();
   const canSee = ctx.isPlatformAdmin || ctx.role === 'rh' || ctx.role === 'gestor';
   if (!canSee) return { ok: false, error: 'Sem permissão' };
+  if (ctx.role === 'gestor' && !ctx.isPlatformAdmin) {
+    const area = ctx.colaborador?.area_depto;
+    const cargo = ctx.colaborador?.cargo;
+    const allowed =
+      (filter?.group_type === 'area' && !!area && filter.group_key === area) ||
+      (filter?.group_type === 'cargo' && !!cargo && filter.group_key === cargo);
+    if (!allowed) return { ok: false, error: 'Gestor só pode ver recortes da própria área ou cargo' };
+  }
 
   const sb = createSupabaseAdmin();
 
@@ -153,7 +161,7 @@ export async function obterTemasCiclo(
   }
 
   if (registros.length === 0) return { ok: 'masked', n: 0, threshold: PULSE_MIN_N };
-  if (registros.length < PULSE_MIN_N && filter?.group_type !== 'company') {
+  if (registros.length < PULSE_MIN_N) {
     return { ok: 'masked', n: registros.length, threshold: PULSE_MIN_N };
   }
 

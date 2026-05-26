@@ -40,7 +40,7 @@ export async function POST(request) {
 
     const sb = createSupabaseAdmin();
     const { data: trilha } = await sb.from('trilhas')
-      .select('id, colaborador_id, empresa_id, competencia_foco, temporada_plano, descritores_selecionados, data_inicio')
+      .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, temporada_plano, descritores_selecionados, data_inicio')
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return NextResponse.json({ error: 'trilha' }, { status: 404 });
 
@@ -82,6 +82,9 @@ export async function POST(request) {
       .select('nome_completo, cargo, perfil_dominante').eq('id', trilha.colaborador_id).maybeSingle();
     const nome = (colab?.nome_completo || '').split(' ')[0] || 'você';
     const descritores = Array.isArray(trilha.descritores_selecionados) ? trilha.descritores_selecionados : [];
+    const competenciasLabel = Array.isArray((trilha as any).competencias_foco) && (trilha as any).competencias_foco.length > 1
+      ? (trilha as any).competencias_foco.join(' + ')
+      : trilha.competencia_foco;
 
     const { data: prog } = await sb.from('temporada_semana_progresso')
       .select('*').eq('trilha_id', trilhaId).eq('semana', semana).maybeSingle();
@@ -112,7 +115,7 @@ export async function POST(request) {
         nomeColab: colabMaskedQ.nome,
         cargo: colab?.cargo,
         perfilDominante: colab?.perfil_dominante,
-        competencia: trilha.competencia_foco,
+        competencia: competenciasLabel,
         descritores,
         insightsAnteriores: insightsAnterioresMask,
         turnIA: proximoTurnIA, totalTurns: TOTAL,
@@ -186,7 +189,7 @@ export async function POST(request) {
 
           if (!cenB?.descricao) {
             return NextResponse.json({
-              error: `Cenário B não cadastrado para ${trilha.competencia_foco} + cargo ${colab?.cargo || 'todos'}.`,
+              error: `Cenário B não cadastrado para ${competenciasLabel} + cargo ${colab?.cargo || 'todos'}.`,
             }, { status: 424 });
           }
           cenario = `## ${cenB.titulo || 'Cenário final'}\n\n${cenB.descricao}`;
@@ -251,7 +254,7 @@ export async function POST(request) {
       // Fallback: evidências textuais agregadas.
       const { data: progAcum } = await sb.from('temporada_semana_progresso')
         .select('feedback').eq('trilha_id', trilhaId).eq('semana', semAcumulada).maybeSingle();
-      const acumuladoPrimaria = progAcum?.feedback?.acumulado?.primaria || null;
+      const acumuladoPrimaria = normalizarAcumuladoPrimaria(progAcum?.feedback?.acumulado);
 
       // Agrega evidências de TODAS as semanas até a acumulada (conteúdo + prática
       // + sem acumulada) pra triangulação. A nota_pos NUNCA sai só do cenário.
@@ -264,7 +267,7 @@ export async function POST(request) {
       const evidenciasMasked = maskTextPII(evidenciasAcumuladas, piiMap);
 
       const { system, user } = promptEvolutionScenarioScore({
-        competencia: trilha.competencia_foco,
+        competencia: competenciasLabel,
         descritores: descritoresComRegua,
         cenario, resposta: respostaMasked, nomeColab: colabMasked.nome,
         perfilDominante: colab?.perfil_dominante,
@@ -293,7 +296,7 @@ export async function POST(request) {
       let auditoria = null;
       try {
         const { system: sCheck, user: uCheck } = promptEvolutionScenarioCheck({
-          competencia: trilha.competencia_foco,
+          competencia: competenciasLabel,
           descritores: descritoresComRegua,
           cenario, resposta: respostaMasked,
           avaliacaoPrimaria: parsed,
@@ -334,6 +337,20 @@ export async function POST(request) {
 }
 
 async function enriquecerComRegua(sb, empresaId, competencia, descritores) {
+  const grupos = new Map();
+  for (const d of descritores) {
+    const comp = d.competencia || competencia;
+    if (!grupos.has(comp)) grupos.set(comp, []);
+    grupos.get(comp).push(d);
+  }
+  if (grupos.size > 1) {
+    const enriquecidos = [];
+    for (const [comp, descs] of grupos.entries()) {
+      enriquecidos.push(...await enriquecerComRegua(sb, empresaId, comp, descs));
+    }
+    return enriquecidos;
+  }
+
   // Tenta competencias (empresa), fallback competencias_base
   const nomesCurtos = descritores.map(d => d.descritor);
   let { data: rows } = await sb.from('competencias')
@@ -357,17 +374,48 @@ async function enriquecerComRegua(sb, empresaId, competencia, descritores) {
  */
 async function enriquecerComReguaENotaPre(sb, empresaId, colaboradorId, competencia, descritores) {
   const base = await enriquecerComRegua(sb, empresaId, competencia, descritores);
-  const nomes = base.map(d => d.descritor);
-  const { data: assessments } = await sb.from('descriptor_assessments')
-    .select('descritor, nota')
-    .eq('colaborador_id', colaboradorId)
-    .eq('competencia', competencia)
-    .in('descritor', nomes);
-  const mapaNota = Object.fromEntries((assessments || []).map(a => [a.descritor, Number(a.nota)]));
+  const mapaNota = new Map();
+  const grupos = new Map();
+  for (const d of base) {
+    const comp = d.competencia || competencia;
+    if (!grupos.has(comp)) grupos.set(comp, []);
+    grupos.get(comp).push(d.descritor);
+  }
+  for (const [comp, nomes] of grupos.entries()) {
+    const { data: assessments } = await sb.from('descriptor_assessments')
+      .select('descritor, nota')
+      .eq('colaborador_id', colaboradorId)
+      .eq('competencia', comp)
+      .in('descritor', nomes);
+    for (const a of assessments || []) mapaNota.set(`${comp}|${a.descritor}`, Number(a.nota));
+  }
   return base.map(d => ({
     ...d,
-    nota_atual: mapaNota[d.descritor] != null ? mapaNota[d.descritor] : d.nota_atual,
+    nota_atual: mapaNota.has(`${d.competencia || competencia}|${d.descritor}`)
+      ? mapaNota.get(`${d.competencia || competencia}|${d.descritor}`)
+      : d.nota_atual,
   }));
+}
+
+function normalizarAcumuladoPrimaria(acumulado) {
+  if (!acumulado) return null;
+  if (acumulado.primaria) return acumulado.primaria;
+  if (!Array.isArray(acumulado.por_competencia)) return null;
+  const avaliacao_acumulada = acumulado.por_competencia.flatMap((item) =>
+    (item.primaria?.avaliacao_acumulada || []).map((d) => ({
+      ...d,
+      competencia: item.competencia,
+    })),
+  );
+  return {
+    multi: true,
+    competencias: acumulado.competencias,
+    avaliacao_acumulada,
+    resumo_geral: acumulado.por_competencia
+      .map((item) => item.primaria?.resumo_geral ? `${item.competencia}: ${item.primaria.resumo_geral}` : null)
+      .filter(Boolean)
+      .join('\n'),
+  };
 }
 
 /**

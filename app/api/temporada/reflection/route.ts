@@ -190,7 +190,7 @@ export async function POST(request) {
     const sb = createSupabaseAdmin();
 
     const { data: trilha } = await sb.from('trilhas')
-      .select('id, colaborador_id, empresa_id, competencia_foco, temporada_plano, data_inicio')
+      .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, descritores_selecionados, temporada_plano, data_inicio')
       .eq('id', trilhaId).maybeSingle();
     if (!trilha) return NextResponse.json({ error: 'trilha não encontrada' }, { status: 404 });
 
@@ -223,6 +223,7 @@ export async function POST(request) {
 
     const semanaPlan = (trilha.temporada_plano || []).find(s => s.semana === Number(semana));
     if (!semanaPlan) return NextResponse.json({ error: 'semana fora do plano' }, { status: 400 });
+    const competenciaSemana = resolveCompetenciaSemana(trilha, semanaPlan);
 
     // Carrega progresso antes pra decidir qual prompt usar em aplicação.
     const { data: prog } = await sb.from('temporada_semana_progresso')
@@ -275,7 +276,7 @@ export async function POST(request) {
     let groundingBlock = '';
     try {
       const queryParts = [
-        trilha.competencia_foco,
+        competenciaSemana.label,
         semanaPlan.descritor || (semanaPlan.descritores_cobertos || []).join(' '),
         ...historico.filter(m => m.role === 'user').slice(-2).map(m => maskTextPII(m.content, piiMap).slice(0, 200)),
       ].filter(Boolean);
@@ -292,7 +293,7 @@ export async function POST(request) {
         nomeColab: colabMasked.nome,
         cargo: colab.cargo,
         perfilDominante: colab.perfil_dominante,
-        competencia: trilha.competencia_foco,
+        competencia: competenciaSemana.label,
         descritor: semanaPlan.descritor,
         desafio: semanaPlan.conteudo?.desafio_texto || '',
         historico: historicoMasked,
@@ -303,7 +304,7 @@ export async function POST(request) {
       promptData = promptMissaoFeedback({
         nomeColab: colabMasked.nome,
         cargo: colab.cargo,
-        competencia: trilha.competencia_foco,
+        competencia: competenciaSemana.label,
         descritoresCobertos: semanaPlan.descritores_cobertos || [],
         missao: semanaPlan.missao?.texto || '',
         compromisso: maskTextPII(prog?.feedback?.compromisso || '', piiMap),
@@ -315,7 +316,7 @@ export async function POST(request) {
       promptData = promptAnalytic({
         nomeColab: colabMasked.nome,
         cargo: colab.cargo,
-        competencia: trilha.competencia_foco,
+        competencia: competenciaSemana.label,
         descritoresCobertos: semanaPlan.descritores_cobertos || [],
         cenario: semanaPlan.cenario?.texto || '',
         historico: historicoMasked,
@@ -434,4 +435,26 @@ export async function POST(request) {
     console.error('[reflection]', err);
     return NextResponse.json({ error: err?.message || 'Erro' }, { status: 500 });
   }
+}
+
+function resolveCompetenciaSemana(trilha: any, semanaPlan: any): { label: string; competencias: string[] } {
+  const descritores = Array.isArray(trilha.descritores_selecionados) ? trilha.descritores_selecionados : [];
+  const byDesc = new Map<string, string>(
+    descritores
+      .map((d: any) => [String(d.descritor), String(d.competencia || '')] as [string, string])
+      .filter(([, c]) => !!c),
+  );
+  const comps = new Set<string>();
+  if (semanaPlan.competencia) comps.add(semanaPlan.competencia);
+  if (semanaPlan.descritor && byDesc.get(semanaPlan.descritor)) comps.add(byDesc.get(semanaPlan.descritor)!);
+  for (const desc of semanaPlan.descritores_cobertos || []) {
+    const comp = byDesc.get(desc);
+    if (comp) comps.add(comp);
+  }
+  if (Array.isArray(semanaPlan.competencias_cobertas)) {
+    for (const comp of semanaPlan.competencias_cobertas) if (comp) comps.add(comp);
+  }
+  if (!comps.size) comps.add(trilha.competencia_foco);
+  const competencias = Array.from(comps);
+  return { competencias, label: competencias.join(' + ') };
 }
