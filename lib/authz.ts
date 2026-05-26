@@ -35,10 +35,30 @@ export async function findColabByEmail(
     if (tenant?.id) tenantEmpresaId = tenant.id;
   }
 
-  let q = sb.from('colaboradores').select(selectCols).eq('email', normalizedEmail);
-  if (tenantEmpresaId) q = q.eq('empresa_id', tenantEmpresaId);
-  const { data } = await q.limit(1);
-  return (data?.[0] as unknown as Colaborador) || null;
+  if (tenantEmpresaId) {
+    // Tenant resolvido → escopo exato, sem ambiguidade.
+    const { data } = await sb.from('colaboradores')
+      .select(selectCols)
+      .eq('email', normalizedEmail)
+      .eq('empresa_id', tenantEmpresaId)
+      .limit(1);
+    return (data?.[0] as unknown as Colaborador) || null;
+  }
+
+  // Sem tenant resolvido (apex, ou slug que não resolve): NÃO escolhemos um
+  // colaborador arbitrário. Se o email existe em >1 empresa, é ambíguo —
+  // resolver para o tenant errado governaria todos os assertTenantAccess.
+  // Fail-closed: só retorna se houver exatamente 1 correspondência.
+  const { data } = await sb.from('colaboradores')
+    .select(selectCols)
+    .eq('email', normalizedEmail)
+    .limit(2);
+  if (!data || data.length === 0) return null;
+  if (data.length > 1) {
+    console.warn('[authz] email ambíguo (multi-tenant) sem tenant resolvido — fail-closed:', normalizedEmail);
+    return null;
+  }
+  return data[0] as unknown as Colaborador;
 }
 
 /**

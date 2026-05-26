@@ -22,13 +22,16 @@ Regras:
  *
  * @param {string} userMessage - Mensagem do usuário
  * @param {Array} history - Últimas 10 mensagens
- * @param {string} email - Email do colaborador (opcional, para contexto)
+ * @param _emailIgnorado - DEPRECATED: ignorado por segurança. O contexto usa
+ *   sempre o email da sessão autenticada (evita IDOR — antes era possível ler
+ *   o contexto de qualquer colaborador passando o email de outra pessoa).
  */
-export async function chatWithBeto(userMessage: string, history: Array<{ role: string; content: string }> = [], email: string | null = null) {
-  await requireUserAction();
+export async function chatWithBeto(userMessage: string, history: Array<{ role: string; content: string }> = [], _emailIgnorado: string | null = null) {
+  const auth = await requireUserAction();
+  const email = auth.email;
   let systemPrompt = SYSTEM_PROMPT_BASE;
 
-  // Se tiver email, buscar contexto da Fase 4 (pílula atual)
+  // Contexto da Fase 4 (pílula atual) sempre escopado ao usuário autenticado.
   if (email) {
     try {
       const ctx = await getBetoContext(email);

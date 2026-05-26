@@ -3,6 +3,32 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUser, requireRole, assertTenantAccess, assertColabAccess } from '@/lib/auth/request-context';
 import { csrfCheck } from '@/lib/csrf';
 
+// Whitelist de colunas editáveis via este CRUD genérico. Sem isso, o body cru
+// era inserido/atualizado direto com service-role — um rh poderia setar role
+// arbitrário ou escrever em qualquer das ~100 colunas (incl. campos de DISC que
+// são populados por fluxos dedicados). Campos comportamentais NÃO entram aqui.
+const EDITABLE_FIELDS = [
+  'nome_completo', 'email', 'cargo', 'area_depto',
+  'telefone', 'whatsapp',
+  'gestor_nome', 'gestor_email', 'gestor_whatsapp',
+  'role', 'locale', 'login_por_whatsapp',
+  'foto_url', 'avatar_preset', 'perfil_dominante',
+] as const;
+
+// platform_admin é tabela separada (platform_admins) — nunca atribuível aqui.
+const ALLOWED_ROLES = new Set(['colaborador', 'gestor', 'rh', 'tutor']);
+
+function pickEditable(body: Record<string, any>): { fields: Record<string, any>; error?: string } {
+  const fields: Record<string, any> = {};
+  for (const k of EDITABLE_FIELDS) {
+    if (body[k] !== undefined) fields[k] = body[k];
+  }
+  if (fields.role !== undefined && !ALLOWED_ROLES.has(fields.role)) {
+    return { fields, error: `role inválido: ${fields.role}` };
+  }
+  return { fields };
+}
+
 // GET lista colabs por empresa. Exige gestor/rh/admin da MESMA empresa.
 export async function GET(req: Request) {
   const auth = await requireRole(req, ['gestor', 'rh', 'admin']);
@@ -46,8 +72,14 @@ export async function POST(req: Request) {
   const guard = assertTenantAccess(auth, body?.empresa_id);
   if (guard) return guard;
 
+  const { fields, error: vErr } = pickEditable(body);
+  if (vErr) return NextResponse.json({ error: vErr }, { status: 400 });
+  if (!fields.email) return NextResponse.json({ error: 'email obrigatório' }, { status: 400 });
+
   const sb = createSupabaseAdmin();
-  const { data, error } = await sb.from('colaboradores').insert(body).select().single();
+  const { data, error } = await sb.from('colaboradores')
+    .insert({ ...fields, empresa_id: body.empresa_id })
+    .select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
 }
@@ -75,7 +107,13 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: 'não é permitido mover colab entre empresas via API' }, { status: 400 });
   }
 
-  const { data, error } = await sb.from('colaboradores').update(updates).eq('id', id).select().single();
+  const { fields, error: vErr } = pickEditable(updates);
+  if (vErr) return NextResponse.json({ error: vErr }, { status: 400 });
+  if (Object.keys(fields).length === 0) {
+    return NextResponse.json({ error: 'nenhum campo editável informado' }, { status: 400 });
+  }
+
+  const { data, error } = await sb.from('colaboradores').update(fields).eq('id', id).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
 }

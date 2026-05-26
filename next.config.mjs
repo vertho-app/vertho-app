@@ -15,6 +15,9 @@ const buildNum = sha;
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Não vaza a versão do framework.
+  poweredByHeader: false,
+
   env: {
     NEXT_PUBLIC_APP_VERSION: pkg.version,
     NEXT_PUBLIC_BUILD_NUM: buildNum,
@@ -63,6 +66,31 @@ const nextConfig = {
    * com ou sem www) — nunca em `app.`, `radar.`, `radarbett.` ou subdomínios
    * de tenants.
    */
+  /**
+   * Security headers aplicados a todas as respostas servidas pela Next.
+   * CSP completo (script-src/style-src) exige auditar inline-scripts da Next +
+   * Sentry + Supabase + Bunny e fica para um passo dedicado; aqui cobrimos o
+   * essencial sem risco de quebrar carregamento de recursos:
+   *  - HSTS (força HTTPS, inclui subdomínios de tenant)
+   *  - frame-ancestors / X-Frame-Options (anti-clickjacking)
+   *  - nosniff, Referrer-Policy, Permissions-Policy
+   */
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'geolocation=(), payment=(), browsing-topics=()' },
+        ],
+      },
+    ];
+  },
+
   async rewrites() {
     const gammaHome = process.env.GAMMA_HOME_URL?.replace(/\/+$/, '') || '';
     if (!gammaHome) return [];
