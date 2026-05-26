@@ -114,7 +114,7 @@ export default function ConteudosAdminPage() {
   const naoClassificados = items.filter(i => isUnclassified(i.competencia)).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a0e1a] via-[#0d1426] to-[#0a0e1a] text-white">
+    <div className="min-h-full bg-gradient-to-br from-[#0a0e1a] via-[#0d1426] to-[#0a0e1a] text-white">
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">

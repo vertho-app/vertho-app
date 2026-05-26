@@ -1,0 +1,50 @@
+'use client';
+
+import { useLocale, useTranslations } from 'next-intl';
+import { RefreshCw, Bell, Settings } from 'lucide-react';
+import { monoStyle as mono, serifStyle as serif } from './nav-items';
+import EmpresaFilter from './EmpresaFilter';
+import { useAdminShell } from './AdminShellContext';
+
+export default function AdminHeader() {
+  const t = useTranslations('AdminDashboard');
+  const locale = useLocale();
+  const { empresas, empresaFiltro, setEmpresaFiltro, triggerRefresh, refreshing } = useAdminShell();
+
+  return (
+    <header
+      className="flex items-center justify-between gap-4 px-5 md:px-8 h-16 shrink-0"
+      style={{ background: 'rgba(7,27,56,.45)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,.05)' }}
+    >
+      <div className="flex items-baseline gap-3 min-w-0">
+        <h1 style={{ ...serif, fontSize: 28, color: '#fff', lineHeight: 1 }}>
+          {t.rich('header.title', { em: (chunks) => <em style={{ color: '#34c5cc' }}>{chunks}</em> })}
+        </h1>
+        <span className="hidden sm:inline shrink-0" style={{ ...mono, fontSize: 10, color: 'rgba(255,255,255,.4)', letterSpacing: '.14em', textTransform: 'uppercase' }}>
+          {new Date().toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })}
+        </span>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <EmpresaFilter
+          empresas={empresas}
+          value={empresaFiltro}
+          onChange={setEmpresaFiltro}
+          t={t}
+          locale={locale}
+        />
+        <button onClick={triggerRefresh} disabled={refreshing} title={t('header.refresh')}
+          className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors"
+          style={{ color: 'rgba(255,255,255,.5)' }}
+        >
+          <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+        </button>
+        <button className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'rgba(255,255,255,.5)' }} title={t('header.notifications')}>
+          <Bell size={14} />
+        </button>
+        <button className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'rgba(255,255,255,.5)' }} title={t('header.settings')}>
+          <Settings size={14} />
+        </button>
+      </div>
+    </header>
+  );
+}

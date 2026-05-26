@@ -1,136 +1,47 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import {
-  Building2, Users, ClipboardCheck, Database, BookOpen,
-  Plus, Loader2, RefreshCw, Zap, BookMarked, ShieldCheck, ChevronRight,
-  Trash2, Video, GraduationCap as GradIcon, BarChart2, FileText, Shield,
-  Calculator, LayoutDashboard, Bell, Search, Settings, LogOut, Brain,
-  Activity, CheckCircle2, Filter, Globe, Vote, Sparkles, TrendingUp, Target,
-  ScrollText, LockKeyhole,
+  Building2, Users, ClipboardCheck, Plus, Loader2, Zap, ShieldCheck,
+  BarChart2, Brain, Activity, CheckCircle2, Globe, Vote,
+  TrendingUp, Target, Calculator,
 } from 'lucide-react';
 import { loadAdminDashboard } from './actions';
+import { useAdminShell } from '../_shell/AdminShellContext';
+import { empresaGlyph, fmtNum as fmt, serifStyle as serif, monoStyle as mono } from '../_shell/nav-items';
 
-function fmt(n: number | null | undefined, locale: string) {
-  return (n ?? 0).toLocaleString(locale);
-}
-
-const serif: React.CSSProperties = {
-  fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
-  fontStyle: 'italic',
-  fontWeight: 400,
-};
-
-const mono: React.CSSProperties = {
-  fontFamily: 'var(--font-mono, ui-monospace, monospace)',
-};
-
-// ── nav items (sidebar) ─────────────────────────────────────────────────────
-// Cada item declara em que contexto aparece:
-//   showWhenAll      → quando "Todas as empresas" está selecionado (admin-wide)
-//   showWhenEmpresa  → quando uma empresa específica está selecionada (tenant-aware)
-// Default: ambos true.
-//
-// `hrefFn(empresaId)` constrói a URL — recebe o ID quando há empresa selecionada,
-// undefined quando "Todas".
-type NavItem = {
-  key: string;
-  labelKey: string;
-  subKey: string;
-  icon: any;
-  hrefFn: (empresaId?: string) => string;
-  showWhenAll?: boolean;
-  showWhenEmpresa?: boolean;
-};
-
-const NAV_ITEMS: NavItem[] = [
-  // Sempre visíveis
-  { key: 'dashboard',  labelKey: 'dashboard',      subKey: 'overview',           icon: LayoutDashboard, hrefFn: () => '/admin/dashboard' },
-  { key: 'empresas',   labelKey: 'companies',       subKey: 'tenantsPipeline',    icon: Building2,       hrefFn: (id) => id ? `/admin/empresas/${id}` : '/admin/empresas/gerenciar' },
-
-  // Tenant-aware (mostra "Todas" → admin global / com empresa → pipeline daquela)
-  { key: 'pipeline',         labelKey: 'companyPipeline', subKey: 'phase0to5',           icon: Activity,        hrefFn: (id) => `/admin/empresas/${id}`,                       showWhenAll: false },
-  { key: 'votacao',          labelKey: 'voting',             subKey: 'top5Collaborators',   icon: Vote,            hrefFn: (id) => `/admin/empresas/${id}/votacao`,               showWhenAll: false },
-  { key: 'perfis-disc',      labelKey: 'behavioralProfiles', subKey: 'discCollaborators',         icon: Brain,           hrefFn: (id) => `/admin/empresas/${id}/perfis-comportamentais`, showWhenAll: false },
-  { key: 'simulador',        labelKey: 'simulator',           subKey: 'flowTest',            icon: Zap,             hrefFn: () => '/admin/simulador',                              showWhenAll: false },
-  { key: 'evidencias',       labelKey: 'evidence',          subKey: 'socraticSessions',        icon: FileText,        hrefFn: (id) => `/admin/vertho/evidencias?empresa=${id}`,       showWhenAll: false },
-  { key: 'acumulada',        labelKey: 'accumulatedAssessment',       subKey: 'week13Audit',          icon: ClipboardCheck,  hrefFn: (id) => `/admin/vertho/avaliacao-acumulada?empresa=${id}`, showWhenAll: false },
-  { key: 'sem14',            labelKey: 'week14',              subKey: 'finalAudit',           icon: ShieldCheck,     hrefFn: (id) => `/admin/vertho/auditoria-sem14?empresa=${id}`,  showWhenAll: false },
-
-  // Sempre visíveis (admin operacional)
-  { key: 'competencias',     labelKey: 'competencies',        subKey: 'baseByRole',           icon: BookMarked,     hrefFn: (id) => id ? `/admin/competencias?empresa=${id}` : '/admin/competencias' },
-  { key: 'conteudos',        labelKey: 'contents',           subKey: 'learningBank',      icon: BookOpen,       hrefFn: (id) => id ? `/admin/conteudos?empresa=${id}` : '/admin/conteudos' },
-  { key: 'videos',           labelKey: 'videos',              subKey: 'bunnyLibrary',           icon: Video,          hrefFn: (id) => id ? `/admin/videos?empresa=${id}` : '/admin/videos' },
-  { key: 'knowledge-base',   labelKey: 'knowledgeBase',      subKey: 'ragTenant',             icon: Database,       hrefFn: (id) => id ? `/admin/vertho/knowledge-base?empresa=${id}` : '/admin/vertho/knowledge-base' },
-  { key: 'preferencias',     labelKey: 'preferences',        subKey: 'learning',               icon: GradIcon,       hrefFn: () => '/admin/preferencias-aprendizagem' },
-
-  // Admin-wide (só "Todas")
-  { key: 'radar',            labelKey: 'radarIngestion',    subKey: 'saebIcaCensus',         icon: BarChart2,      hrefFn: () => '/admin/radar',                              showWhenEmpresa: false },
-  { key: 'qualidade-dados',  labelKey: 'dataQuality',     subKey: 'radarQuality',              icon: Database,       hrefFn: () => '/admin/radar/qualidade-dados',              showWhenEmpresa: false },
-  { key: 'custo-ia',         labelKey: 'aiCost',            subKey: 'callCatalog',       icon: BarChart2,      hrefFn: () => '/admin/vertho/simulador-custo' },
-  { key: 'orcamento',        labelKey: 'budget',           subKey: 'costTableFinal',     icon: Calculator,     hrefFn: () => '/admin/vertho/orcamento' },
-  { key: 'mercado',          labelKey: 'potentialMarket',   subKey: 'citiesNetworksSchools', icon: TrendingUp,   hrefFn: () => '/admin/vertho/mercado-potencial',          showWhenEmpresa: false },
-  { key: 'radar-empresas',   labelKey: 'companyRadar',      subKey: 'b2bIntelligence', icon: Target,         hrefFn: () => '/admin/vertho/radarempresas',              showWhenEmpresa: false },
-  { key: 'potencial-cidades', labelKey: 'cityPotential', subKey: 'companiesSchoolsUnified', icon: Globe,         hrefFn: () => '/admin/vertho/potencial-cidades',          showWhenEmpresa: false },
-  { key: 'admins',           labelKey: 'admins',              subKey: 'platformAdmins',            icon: Shield,         hrefFn: () => '/admin/platform-admins',                    showWhenEmpresa: false },
-  { key: 'permissoes',       labelKey: 'permissions',         subKey: 'rolesPermissions',          icon: LockKeyhole,    hrefFn: () => '/admin/permissoes',                         showWhenEmpresa: false },
-  { key: 'auditoria',        labelKey: 'audit',               subKey: 'adminTraces',          icon: ScrollText,     hrefFn: () => '/admin/auditoria',                          showWhenEmpresa: false },
-  { key: 'lixeira',          labelKey: 'trash',             subKey: 'deletedRecords',        icon: Trash2,         hrefFn: () => '/admin/lixeira',                            showWhenEmpresa: false },
-];
-
-function empresaGlyph(nome: string) {
-  return (nome || '?').trim()[0]?.toUpperCase() ?? '?';
-}
-
+// ─────────────────────────────────────────────────────────────────────────────
+// Apenas o CONTEÚDO do dashboard. A casca (sidebar + header + filtro de empresa +
+// fundo navy) vive no AdminShell, montado em app/admin/layout.tsx e compartilhado
+// por todas as telas admin. O filtro de empresa vem do contexto do shell.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function AdminDashboardPage() {
   const t = useTranslations('AdminDashboard');
   const locale = useLocale();
   const router = useRouter();
+  const { empresaFiltro, setEmpresaFiltro, registerRefresh } = useAdminShell();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
-  const [empresaFiltro, setEmpresaFiltroState] = useState<string>('all'); // 'all' | empresaId
-
-  // Carrega filtro do localStorage no mount
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('vertho-admin-filter-empresa');
-      if (saved) setEmpresaFiltroState(saved);
-    } catch {}
-  }, []);
-
-  // Wrapper persiste no localStorage
-  function setEmpresaFiltro(id: string) {
-    setEmpresaFiltroState(id);
-    try { localStorage.setItem('vertho-admin-filter-empresa', id); } catch {}
-  }
-
-  // Se a empresa salva não existe mais (foi deletada), volta pra 'all'
-  useEffect(() => {
-    if (!data || empresaFiltro === 'all') return;
-    const exists = data.empresas.some((e: any) => e.id === empresaFiltro);
-    if (!exists) setEmpresaFiltro('all');
-  }, [data, empresaFiltro]);
 
   async function load() {
     const r = await loadAdminDashboard();
     setData(r);
     setLoading(false);
-    setRefreshing(false);
   }
   useEffect(() => { load(); }, []);
 
-  function handleRefresh() { setRefreshing(true); load(); }
+  // Liga o botão de refresh do header (shell) ao reload deste dashboard.
+  useEffect(() => {
+    registerRefresh(load);
+    return () => registerRefresh(null);
+  }, [registerRefresh]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-dvh" style={{ background: '#06172c' }}>
+      <div className="flex items-center justify-center py-24">
         <Loader2 size={28} className="animate-spin" style={{ color: '#34c5cc' }} />
       </div>
     );
@@ -141,11 +52,6 @@ export default function AdminDashboardPage() {
 
   const empresaSelecionada = empresaFiltro === 'all' ? null : empresas.find((e: any) => e.id === empresaFiltro);
 
-  const visibleNavItems = NAV_ITEMS.filter((item) => {
-    if (empresaSelecionada) return item.showWhenEmpresa !== false;
-    return item.showWhenAll !== false;
-  });
-
   // Top 5 empresas por engagement (proxy: nº de colaboradores)
   const top5 = [...empresas]
     .sort((a: any, b: any) => (b.totalColab || 0) - (a.totalColab || 0))
@@ -153,482 +59,185 @@ export default function AdminDashboardPage() {
   const maxColab = top5[0]?.totalColab || 1;
 
   return (
-    <div
-      className="min-h-dvh flex"
-      style={{
-        background:
-          'radial-gradient(1100px 500px at 90% -5%, rgba(52,197,204,.07), transparent 55%), ' +
-          'radial-gradient(900px 500px at -5% 30%, rgba(158,78,221,.1), transparent 60%), ' +
-          'linear-gradient(180deg, #06172c 0%, #091d35 50%, #0a1f3a 100%)',
-        color: '#d7e3ff',
-      }}
-    >
-      {/* ── Sidebar ──────────────────────────────────────────────────────── */}
-      <aside
-        className={`${collapsed ? 'w-16' : 'w-64'} shrink-0 flex flex-col transition-all duration-200 hidden md:flex`}
-        style={{
-          background: 'rgba(7,27,56,.65)',
-          backdropFilter: 'blur(12px)',
-          borderRight: '1px solid rgba(255,255,255,.06)',
-        }}
-      >
-        {/* Logo */}
-        <div className="px-4 pt-5 pb-4 flex items-center justify-between gap-2" style={{ borderBottom: '1px solid rgba(255,255,255,.05)' }}>
-          {!collapsed && (
-            <div className="flex items-center gap-2 min-w-0">
-              <img src="/logo-vertho.png" alt="Vertho" style={{ height: 22, opacity: 0.95 }} />
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-widest" style={{ color: 'rgba(255,255,255,.4)', letterSpacing: '.2em' }}>{t('sidebar.panel')}</p>
-              </div>
-            </div>
-          )}
-          <button
-            onClick={() => setCollapsed((c) => !c)}
-            className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/5 transition-colors shrink-0"
-            style={{ color: 'rgba(255,255,255,.4)' }}
-            title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
-          >
-            <ChevronRight size={14} className={collapsed ? '' : 'rotate-180'} />
-          </button>
+    <div className="p-5 md:p-8">
+      <div className="max-w-[1280px] mx-auto space-y-5">
+        {/* KPI cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <KpiCard label={t('kpis.companies')} value={empresas.length} sub={t('kpis.activeCompanies', { count: empresas.length })} accent="#34c5cc" icon={<Building2 size={14} />} locale={locale} />
+          <KpiCard label={t('kpis.collaborators')} value={totalColabs} accent="#2ecc71" icon={<Users size={14} />} locale={locale} />
+          <KpiCard label={t('kpis.assessments')} value={totalAvaliacoes} accent="#f4b740" icon={<CheckCircle2 size={14} />} locale={locale} />
+          <KpiCard label={t('kpis.activePdis')} value={totalPDIs} accent="#9e4edd" icon={<ClipboardCheck size={14} />} locale={locale} />
         </div>
 
-        {/* Contexto de filtro (visível apenas quando alguma empresa está selecionada) */}
-        {!collapsed && empresaSelecionada && (
-          <div className="px-3 pt-3 pb-1">
-            <div className="rounded-lg px-3 py-2 flex items-center gap-2"
-              style={{ background: 'rgba(52,197,204,.08)', border: '1px solid rgba(52,197,204,.25)' }}>
-              <span style={{ ...serif, fontSize: 16, color: '#34c5cc' }}>{empresaGlyph(empresaSelecionada.nome)}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-[9px] uppercase tracking-widest" style={{ color: 'rgba(52,197,204,.7)', letterSpacing: '.18em' }}>{t('sidebar.context')}</p>
-                <p className="text-xs font-bold text-white truncate">{empresaSelecionada.nome}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Nav */}
-        <nav className="flex-1 overflow-y-auto py-3 px-2 flex flex-col gap-0.5">
-          {visibleNavItems.map((item) => {
-            const Icon = item.icon;
-            const active = item.key === 'dashboard';
-            const href = item.hrefFn(empresaSelecionada?.id);
-            return (
-              <button
-                key={item.key}
-                onClick={() => router.push(href)}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all"
-                title={collapsed ? t(`nav.labels.${item.labelKey}`) : undefined}
-                style={{
-                  background: active ? 'rgba(52,197,204,.12)' : 'transparent',
-                  border: active ? '1px solid rgba(52,197,204,.25)' : '1px solid transparent',
-                  color: active ? '#34c5cc' : 'rgba(255,255,255,.7)',
-                }}
-                onMouseEnter={(e) => {
-                  if (!active) {
-                    (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,.04)';
-                    (e.currentTarget as HTMLElement).style.color = '#fff';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!active) {
-                    (e.currentTarget as HTMLElement).style.background = 'transparent';
-                    (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,.7)';
-                  }
-                }}
-              >
-                <Icon size={16} className="shrink-0" />
-                {!collapsed && (
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold truncate">{t(`nav.labels.${item.labelKey}`)}</p>
-                    <p className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,.4)' }}>{t(`nav.subs.${item.subKey}`)}</p>
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* Footer */}
-        {!collapsed && (
-          <div className="px-3 py-3" style={{ borderTop: '1px solid rgba(255,255,255,.05)' }}>
-            <button
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-left transition-colors hover:bg-white/5"
-              style={{ color: 'rgba(255,255,255,.55)' }}
-              onClick={() => router.push('/login')}
-            >
-              <LogOut size={14} />
-              <span>{t('sidebar.logout')}</span>
-            </button>
-          </div>
-        )}
-      </aside>
-
-      {/* ── Main ─────────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header
-          className="flex items-center justify-between gap-4 px-5 md:px-8 h-16 shrink-0"
-          style={{ background: 'rgba(7,27,56,.45)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,.05)' }}
-        >
-          <div className="flex items-baseline gap-3 min-w-0">
-            <h1 style={{ ...serif, fontSize: 28, color: '#fff', lineHeight: 1 }}>
-              {t.rich('header.title', { em: (chunks) => <em style={{ color: '#34c5cc' }}>{chunks}</em> })}
-            </h1>
-            <span className="hidden sm:inline shrink-0" style={{ ...mono, fontSize: 10, color: 'rgba(255,255,255,.4)', letterSpacing: '.14em', textTransform: 'uppercase' }}>
-              {new Date().toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <EmpresaFilter
-              empresas={empresas}
-              value={empresaFiltro}
-              onChange={setEmpresaFiltro}
-              t={t}
-              locale={locale}
-            />
-            <button onClick={handleRefresh} disabled={refreshing} title={t('header.refresh')}
-              className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors"
-              style={{ color: 'rgba(255,255,255,.5)' }}
-            >
-              <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-            </button>
-            <button className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'rgba(255,255,255,.5)' }} title={t('header.notifications')}>
-              <Bell size={14} />
-            </button>
-            <button className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'rgba(255,255,255,.5)' }} title={t('header.settings')}>
-              <Settings size={14} />
-            </button>
-          </div>
-        </header>
-
-        {/* Canvas */}
-        <main className="flex-1 overflow-y-auto p-5 md:p-8">
-          <div className="max-w-[1280px] mx-auto space-y-5">
-            {/* KPI cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <KpiCard label={t('kpis.companies')} value={empresas.length} sub={t('kpis.activeCompanies', { count: empresas.length })} accent="#34c5cc" icon={<Building2 size={14} />} locale={locale} />
-              <KpiCard label={t('kpis.collaborators')} value={totalColabs} accent="#2ecc71" icon={<Users size={14} />} locale={locale} />
-              <KpiCard label={t('kpis.assessments')} value={totalAvaliacoes} accent="#f4b740" icon={<CheckCircle2 size={14} />} locale={locale} />
-              <KpiCard label={t('kpis.activePdis')} value={totalPDIs} accent="#9e4edd" icon={<ClipboardCheck size={14} />} locale={locale} />
-            </div>
-
-            {/* Atividade Recente (span 2) + Empresas Ativas (span 1) */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <Panel className="lg:col-span-2 flex flex-col min-h-[280px]">
-                <div className="flex items-center justify-between mb-1">
-                  <div>
-                    <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                      <Activity size={14} style={{ color: '#34c5cc' }} /> Atividade recente
-                    </h2>
-                    <p className="text-[11px]" style={{ color: 'rgba(255,255,255,.4)' }}>{t('activity.subtitle')}</p>
-                  </div>
-                  <button
-                    onClick={() => router.push('/admin/radar/funnel')}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-all hover:border-cyan-400 hover:text-cyan-300"
-                    style={{ borderColor: 'rgba(255,255,255,.1)', color: 'rgba(255,255,255,.6)' }}
-                  >
-                    {t('activity.viewFunnel')}
-                  </button>
-                </div>
-                <div className="flex-1 flex flex-col items-center justify-center opacity-50 gap-2 mt-4">
-                  <BarChart2 size={32} style={{ color: 'rgba(255,255,255,.3)' }} />
-                  <p className="text-sm" style={{ color: 'rgba(255,255,255,.5)' }}>{t('activity.empty')}</p>
-                </div>
-              </Panel>
-
-              <Panel className="flex flex-col">
-                <div className="flex items-start justify-between gap-2 mb-1">
-                  <div>
-                    <h2 className="text-sm font-bold text-white">{t('companies.title')}</h2>
-                    <p className="text-[11px]" style={{ color: 'rgba(255,255,255,.4)' }}>{t('companies.subtitle')}</p>
-                  </div>
-                  <button
-                    onClick={() => router.push('/admin/empresas/gerenciar')}
-                    className="text-[10px] font-bold hover:text-cyan-300 transition-colors shrink-0"
-                    style={{ color: 'rgba(255,255,255,.55)' }}
-                  >
-                    {t('companies.viewAll')}
-                  </button>
-                </div>
-                {top5.length === 0 ? (
-                  <div className="flex-1 flex flex-col items-center justify-center gap-2 opacity-70 py-4">
-                    <p className="text-sm" style={{ color: 'rgba(255,255,255,.5)' }}>{t('companies.empty')}</p>
-                    <button
-                      onClick={() => router.push('/admin/empresas/nova')}
-                      className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"
-                      style={{ background: 'rgba(52,197,204,.12)', border: '1px solid rgba(52,197,204,.3)', color: '#34c5cc' }}
-                    >
-                      <Plus size={12} /> {t('companies.new')}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-3 flex-1 mt-3">
-                    {top5.map((emp: any, idx: number) => {
-                      const pct = maxColab > 0 ? Math.round((emp.totalColab / maxColab) * 100) : 0;
-                      const color = idx === 0 ? '#34c5cc' : idx === 1 ? '#9e4edd' : idx === 2 ? '#f4b740' : '#2ecc71';
-                      return (
-                        <button
-                          key={emp.id}
-                          onClick={() => setEmpresaFiltro(emp.id)}
-                          className="w-full text-left group"
-                          title={t('companies.filterBy', { name: emp.nome })}
-                        >
-                          <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-sm text-white truncate flex items-center gap-1.5">
-                              <span style={{ ...serif, fontSize: 14, color }}>{empresaGlyph(emp.nome)}</span>
-                              {emp.nome}
-                            </span>
-                            <span style={{ ...mono, fontSize: 10, color: 'rgba(255,255,255,.5)', letterSpacing: '.05em' }}>
-                              {fmt(emp.totalColab, locale)}
-                            </span>
-                          </div>
-                          <div className="w-full rounded-full h-1.5" style={{ background: 'rgba(255,255,255,.06)' }}>
-                            <div
-                              className="h-full rounded-full transition-all"
-                              style={{ width: `${pct}%`, background: color, boxShadow: `0 0 8px ${color}55` }}
-                            />
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </Panel>
-            </div>
-
-            {/* System Health + Quick Actions */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <Panel className="flex flex-col">
+        {/* Atividade Recente (span 2) + Empresas Ativas (span 1) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Panel className="lg:col-span-2 flex flex-col min-h-[280px]">
+            <div className="flex items-center justify-between mb-1">
+              <div>
                 <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                  <ShieldCheck size={14} style={{ color: allHealthOk ? '#2ecc71' : '#f97354' }} />
-                  {t('health.title')}
+                  <Activity size={14} style={{ color: '#34c5cc' }} /> Atividade recente
                 </h2>
-                <p className="text-[11px] mb-4" style={{ color: 'rgba(255,255,255,.4)' }}>{t('health.subtitle')}</p>
+                <p className="text-[11px]" style={{ color: 'rgba(255,255,255,.4)' }}>{t('activity.subtitle')}</p>
+              </div>
+              <button
+                onClick={() => router.push('/admin/radar/funnel')}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-all hover:border-cyan-400 hover:text-cyan-300"
+                style={{ borderColor: 'rgba(255,255,255,.1)', color: 'rgba(255,255,255,.6)' }}
+              >
+                {t('activity.viewFunnel')}
+              </button>
+            </div>
+            <div className="flex-1 flex flex-col items-center justify-center opacity-50 gap-2 mt-4">
+              <BarChart2 size={32} style={{ color: 'rgba(255,255,255,.3)' }} />
+              <p className="text-sm" style={{ color: 'rgba(255,255,255,.5)' }}>{t('activity.empty')}</p>
+            </div>
+          </Panel>
 
-                <div
-                  className="rounded-lg p-3 flex items-center justify-between mb-3"
-                  style={{ background: 'rgba(52,197,204,.05)', border: '1px solid rgba(52,197,204,.18)' }}
+          <Panel className="flex flex-col">
+            <div className="flex items-start justify-between gap-2 mb-1">
+              <div>
+                <h2 className="text-sm font-bold text-white">{t('companies.title')}</h2>
+                <p className="text-[11px]" style={{ color: 'rgba(255,255,255,.4)' }}>{t('companies.subtitle')}</p>
+              </div>
+              <button
+                onClick={() => router.push('/admin/empresas/gerenciar')}
+                className="text-[10px] font-bold hover:text-cyan-300 transition-colors shrink-0"
+                style={{ color: 'rgba(255,255,255,.55)' }}
+              >
+                {t('companies.viewAll')}
+              </button>
+            </div>
+            {top5.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center gap-2 opacity-70 py-4">
+                <p className="text-sm" style={{ color: 'rgba(255,255,255,.5)' }}>{t('companies.empty')}</p>
+                <button
+                  onClick={() => router.push('/admin/empresas/nova')}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"
+                  style={{ background: 'rgba(52,197,204,.12)', border: '1px solid rgba(52,197,204,.3)', color: '#34c5cc' }}
                 >
+                  <Plus size={12} /> {t('companies.new')}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3 flex-1 mt-3">
+                {top5.map((emp: any, idx: number) => {
+                  const pct = maxColab > 0 ? Math.round((emp.totalColab / maxColab) * 100) : 0;
+                  const color = idx === 0 ? '#34c5cc' : idx === 1 ? '#9e4edd' : idx === 2 ? '#f4b740' : '#2ecc71';
+                  return (
+                    <button
+                      key={emp.id}
+                      onClick={() => setEmpresaFiltro(emp.id)}
+                      className="w-full text-left group"
+                      title={t('companies.filterBy', { name: emp.nome })}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-sm text-white truncate flex items-center gap-1.5">
+                          <span style={{ ...serif, fontSize: 14, color }}>{empresaGlyph(emp.nome)}</span>
+                          {emp.nome}
+                        </span>
+                        <span style={{ ...mono, fontSize: 10, color: 'rgba(255,255,255,.5)', letterSpacing: '.05em' }}>
+                          {fmt(emp.totalColab, locale)}
+                        </span>
+                      </div>
+                      <div className="w-full rounded-full h-1.5" style={{ background: 'rgba(255,255,255,.06)' }}>
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{ width: `${pct}%`, background: color, boxShadow: `0 0 8px ${color}55` }}
+                        />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </Panel>
+        </div>
+
+        {/* System Health + Quick Actions */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Panel className="flex flex-col">
+            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              <ShieldCheck size={14} style={{ color: allHealthOk ? '#2ecc71' : '#f97354' }} />
+              {t('health.title')}
+            </h2>
+            <p className="text-[11px] mb-4" style={{ color: 'rgba(255,255,255,.4)' }}>{t('health.subtitle')}</p>
+
+            <div
+              className="rounded-lg p-3 flex items-center justify-between mb-3"
+              style={{ background: 'rgba(52,197,204,.05)', border: '1px solid rgba(52,197,204,.18)' }}
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#34c5cc', boxShadow: '0 0 8px #34c5cc' }} />
+                <div>
+                  <p className="text-sm font-bold text-white">Supabase</p>
+                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,.4)' }}>{t('health.databaseOperational')}</p>
+                </div>
+              </div>
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest"
+                style={{ background: 'rgba(52,197,204,.12)', color: '#34c5cc', border: '1px solid rgba(52,197,204,.3)' }}>
+                {t('health.connected')}
+              </span>
+            </div>
+
+            <div className="space-y-1.5 flex-1">
+              {Object.entries(health).map(([table, status]: [string, any]) => (
+                <div key={table} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#34c5cc', boxShadow: '0 0 8px #34c5cc' }} />
-                    <div>
-                      <p className="text-sm font-bold text-white">Supabase</p>
-                      <p className="text-[10px]" style={{ color: 'rgba(255,255,255,.4)' }}>{t('health.databaseOperational')}</p>
-                    </div>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: status === 'OK' ? '#2ecc71' : '#f97354' }} />
+                    <span style={{ ...mono, fontSize: 11, color: 'rgba(255,255,255,.55)' }}>{table}</span>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest"
-                    style={{ background: 'rgba(52,197,204,.12)', color: '#34c5cc', border: '1px solid rgba(52,197,204,.3)' }}>
-                    {t('health.connected')}
+                  <span style={{ ...mono, fontSize: 9, fontWeight: 700, color: status === 'OK' ? '#2ecc71' : '#f97354', letterSpacing: '.08em' }}>
+                    {status}
                   </span>
                 </div>
-
-                <div className="space-y-1.5 flex-1">
-                  {Object.entries(health).map(([table, status]: [string, any]) => (
-                    <div key={table} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: status === 'OK' ? '#2ecc71' : '#f97354' }} />
-                        <span style={{ ...mono, fontSize: 11, color: 'rgba(255,255,255,.55)' }}>{table}</span>
-                      </div>
-                      <span style={{ ...mono, fontSize: 9, fontWeight: 700, color: status === 'OK' ? '#2ecc71' : '#f97354', letterSpacing: '.08em' }}>
-                        {status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </Panel>
-
-              <Panel className="lg:col-span-2 flex flex-col">
-                <h2 className="text-sm font-bold text-white">{t('quickActions.title')}</h2>
-                <p className="text-[11px] mb-4" style={{ color: 'rgba(255,255,255,.4)' }}>
-                  {empresaSelecionada ? t('quickActions.companyContext', { name: empresaSelecionada.nome }) : t('quickActions.globalContext')}
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
-                  {empresaSelecionada ? (
-                    <>
-                      <QuickAction onClick={() => router.push(`/admin/empresas/${empresaSelecionada.id}`)} icon={<Activity size={16} />} accent="#34c5cc"
-                        title={t('quickActions.pipeline.title')} desc={t('quickActions.pipeline.descCompany', { name: empresaSelecionada.nome })} />
-                      <QuickAction onClick={() => router.push(`/admin/empresas/${empresaSelecionada.id}/votacao`)} icon={<Vote size={16} />} accent="#9e4edd"
-                        title={t('quickActions.voting.title')} desc={t('quickActions.voting.desc')} />
-                      <QuickAction onClick={() => router.push(`/admin/empresas/${empresaSelecionada.id}/perfis-comportamentais`)} icon={<Brain size={16} />} accent="#f4b740"
-                        title={t('quickActions.disc.title')} desc={t('quickActions.disc.desc')} />
-                      <QuickAction onClick={() => router.push('/admin/simulador')} icon={<Zap size={16} />} accent="#2ecc71"
-                        title={t('quickActions.simulator.title')} desc={t('quickActions.simulator.desc')} />
-                    </>
-                  ) : (
-                    <>
-                      <QuickAction onClick={() => router.push('/admin/empresas/nova')} icon={<Plus size={16} />} accent="#34c5cc"
-                        title={t('quickActions.newCompany.title')} desc={t('quickActions.newCompany.desc')} />
-                      <QuickAction onClick={() => router.push('/admin/vertho/mercado-potencial')} icon={<TrendingUp size={16} />} accent="#f97354"
-                        title={t('quickActions.market.title')} desc={t('quickActions.market.desc')} />
-                      <QuickAction onClick={() => router.push('/admin/vertho/radarempresas')} icon={<Target size={16} />} accent="#34c5cc"
-                        title={t('quickActions.companyRadar.title')} desc={t('quickActions.companyRadar.desc')} />
-                      <QuickAction onClick={() => router.push('/admin/vertho/potencial-cidades')} icon={<Globe size={16} />} accent="#9e7bff"
-                        title={t('quickActions.cityPotential.title')} desc={t('quickActions.cityPotential.desc')} />
-                      <QuickAction onClick={() => router.push('/admin/radar')} icon={<BarChart2 size={16} />} accent="#9e4edd"
-                        title={t('quickActions.radar.title')} desc={t('quickActions.radar.desc')} />
-                      <QuickAction onClick={() => router.push('/admin/vertho/orcamento')} icon={<Calculator size={16} />} accent="#f4b740"
-                        title={t('quickActions.budget.title')} desc={t('quickActions.budget.desc')} />
-                      <QuickAction onClick={() => router.push('/admin/vertho/knowledge-base')} icon={<Brain size={16} />} accent="#2ecc71"
-                        title={t('quickActions.knowledge.title')} desc={t('quickActions.knowledge.desc')} />
-                    </>
-                  )}
-                </div>
-              </Panel>
+              ))}
             </div>
-          </div>
-        </main>
+          </Panel>
+
+          <Panel className="lg:col-span-2 flex flex-col">
+            <h2 className="text-sm font-bold text-white">{t('quickActions.title')}</h2>
+            <p className="text-[11px] mb-4" style={{ color: 'rgba(255,255,255,.4)' }}>
+              {empresaSelecionada ? t('quickActions.companyContext', { name: empresaSelecionada.nome }) : t('quickActions.globalContext')}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
+              {empresaSelecionada ? (
+                <>
+                  <QuickAction onClick={() => router.push(`/admin/empresas/${empresaSelecionada.id}`)} icon={<Activity size={16} />} accent="#34c5cc"
+                    title={t('quickActions.pipeline.title')} desc={t('quickActions.pipeline.descCompany', { name: empresaSelecionada.nome })} />
+                  <QuickAction onClick={() => router.push(`/admin/empresas/${empresaSelecionada.id}/votacao`)} icon={<Vote size={16} />} accent="#9e4edd"
+                    title={t('quickActions.voting.title')} desc={t('quickActions.voting.desc')} />
+                  <QuickAction onClick={() => router.push(`/admin/empresas/${empresaSelecionada.id}/perfis-comportamentais`)} icon={<Brain size={16} />} accent="#f4b740"
+                    title={t('quickActions.disc.title')} desc={t('quickActions.disc.desc')} />
+                  <QuickAction onClick={() => router.push('/admin/simulador')} icon={<Zap size={16} />} accent="#2ecc71"
+                    title={t('quickActions.simulator.title')} desc={t('quickActions.simulator.desc')} />
+                </>
+              ) : (
+                <>
+                  <QuickAction onClick={() => router.push('/admin/empresas/nova')} icon={<Plus size={16} />} accent="#34c5cc"
+                    title={t('quickActions.newCompany.title')} desc={t('quickActions.newCompany.desc')} />
+                  <QuickAction onClick={() => router.push('/admin/vertho/mercado-potencial')} icon={<TrendingUp size={16} />} accent="#f97354"
+                    title={t('quickActions.market.title')} desc={t('quickActions.market.desc')} />
+                  <QuickAction onClick={() => router.push('/admin/vertho/radarempresas')} icon={<Target size={16} />} accent="#34c5cc"
+                    title={t('quickActions.companyRadar.title')} desc={t('quickActions.companyRadar.desc')} />
+                  <QuickAction onClick={() => router.push('/admin/vertho/potencial-cidades')} icon={<Globe size={16} />} accent="#9e7bff"
+                    title={t('quickActions.cityPotential.title')} desc={t('quickActions.cityPotential.desc')} />
+                  <QuickAction onClick={() => router.push('/admin/radar')} icon={<BarChart2 size={16} />} accent="#9e4edd"
+                    title={t('quickActions.radar.title')} desc={t('quickActions.radar.desc')} />
+                  <QuickAction onClick={() => router.push('/admin/vertho/orcamento')} icon={<Calculator size={16} />} accent="#f4b740"
+                    title={t('quickActions.budget.title')} desc={t('quickActions.budget.desc')} />
+                  <QuickAction onClick={() => router.push('/admin/vertho/knowledge-base')} icon={<Brain size={16} />} accent="#2ecc71"
+                    title={t('quickActions.knowledge.title')} desc={t('quickActions.knowledge.desc')} />
+                </>
+              )}
+            </div>
+          </Panel>
+        </div>
       </div>
     </div>
   );
 }
 
 // ─── Subcomponents ──────────────────────────────────────────────────────────
-
-function EmpresaFilter({ empresas, value, onChange, t, locale }: { empresas: any[]; value: string; onChange: (v: string) => void; t: any; locale: string }) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const [mounted, setMounted] = useState(false);
-  const [coords, setCoords] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => { setMounted(true); }, []);
-
-  // Calcula posição do dropdown baseado no trigger (e reajusta em scroll/resize)
-  useEffect(() => {
-    if (!open) return;
-    function updateCoords() {
-      const el = triggerRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      setCoords({
-        top: rect.bottom + 8,
-        right: Math.max(8, window.innerWidth - rect.right),
-      });
-    }
-    updateCoords();
-    window.addEventListener('resize', updateCoords);
-    window.addEventListener('scroll', updateCoords, true);
-    return () => {
-      window.removeEventListener('resize', updateCoords);
-      window.removeEventListener('scroll', updateCoords, true);
-    };
-  }, [open]);
-
-  // Click outside fecha
-  useEffect(() => {
-    if (!open) return;
-    function onDocClick(e: MouseEvent) {
-      const target = e.target as Node;
-      if (
-        triggerRef.current && !triggerRef.current.contains(target) &&
-        dropdownRef.current && !dropdownRef.current.contains(target)
-      ) {
-        setOpen(false);
-        setSearch('');
-      }
-    }
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, [open]);
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return empresas;
-    return empresas.filter((e: any) => (e.nome || '').toLowerCase().includes(q));
-  }, [empresas, search]);
-
-  const empresaAtual = empresas.find((e: any) => e.id === value);
-  const label = empresaAtual?.nome || t('companyFilter.all');
-  const isAll = value === 'all';
-
-  return (
-    <>
-      <button
-        ref={triggerRef}
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-all"
-        style={{
-          background: isAll ? 'rgba(255,255,255,.04)' : 'rgba(52,197,204,.1)',
-          border: `1px solid ${isAll ? 'rgba(255,255,255,.1)' : 'rgba(52,197,204,.3)'}`,
-          color: isAll ? 'rgba(255,255,255,.85)' : '#34c5cc',
-          minWidth: 200,
-        }}
-      >
-        {isAll ? <Globe size={13} /> : <Filter size={13} />}
-        <span className="flex-1 text-left truncate font-bold">{label}</span>
-        <ChevronRight size={13} className={`transition-transform ${open ? 'rotate-90' : ''}`} />
-      </button>
-
-      {mounted && open && createPortal(
-        <div
-          ref={dropdownRef}
-          className="rounded-xl shadow-2xl"
-          style={{
-            position: 'fixed',
-            top: coords.top,
-            right: coords.right,
-            width: 280,
-            zIndex: 1000,
-            background: 'rgba(9,29,56,.98)',
-            border: '1px solid rgba(255,255,255,.1)',
-            backdropFilter: 'blur(16px)',
-          }}
-        >
-          <div className="p-2" style={{ borderBottom: '1px solid rgba(255,255,255,.05)' }}>
-            <div className="relative">
-              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: 'rgba(255,255,255,.4)' }} />
-              <input
-                autoFocus
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={t('companyFilter.search')}
-                className="w-full pl-8 pr-3 py-1.5 rounded-lg text-sm outline-none"
-                style={{ background: 'rgba(0,0,0,.3)', border: '1px solid rgba(255,255,255,.08)', color: '#fff' }}
-              />
-            </div>
-          </div>
-
-          <div className="max-h-[320px] overflow-y-auto py-1">
-            <button
-              onClick={() => { onChange('all'); setOpen(false); setSearch(''); }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors hover:bg-white/5"
-              style={{ color: isAll ? '#34c5cc' : 'rgba(255,255,255,.85)' }}
-            >
-              <Globe size={14} />
-              <span className="flex-1 font-bold">{t('companyFilter.all')}</span>
-              {isAll && <CheckCircle2 size={13} />}
-            </button>
-
-            {filtered.length === 0 ? (
-              <p className="px-3 py-3 text-[11px] text-center" style={{ color: 'rgba(255,255,255,.4)' }}>{t('companyFilter.empty')}</p>
-            ) : (
-              filtered.map((emp: any) => {
-                const selected = emp.id === value;
-                return (
-                  <button
-                    key={emp.id}
-                    onClick={() => { onChange(emp.id); setOpen(false); setSearch(''); }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors hover:bg-white/5"
-                    style={{ color: selected ? '#34c5cc' : 'rgba(255,255,255,.85)' }}
-                  >
-                    <span style={{ ...serif, fontSize: 14, color: selected ? '#34c5cc' : 'rgba(255,255,255,.55)' }}>
-                      {empresaGlyph(emp.nome)}
-                    </span>
-                    <span className="flex-1 truncate">{emp.nome}</span>
-                    <span style={{ ...mono, fontSize: 9, color: 'rgba(255,255,255,.4)' }}>{fmt(emp.totalColab, locale)}</span>
-                    {selected && <CheckCircle2 size={13} />}
-                  </button>
-                );
-              })
-            )}
-          </div>
-        </div>,
-        document.body
-      )}
-    </>
-  );
-}
 
 function KpiCard({ label, value, sub, accent, icon, locale }: { label: string; value: number; sub?: string; accent: string; icon: React.ReactNode; locale: string }) {
   return (

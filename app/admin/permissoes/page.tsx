@@ -115,14 +115,14 @@ export default function PermissionsPage() {
 
   if (loading || !data) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-[#06172c] text-cyan-300">
+      <div className="flex min-h-full items-center justify-center bg-[#06172c] text-cyan-300">
         <SlidersHorizontal className="animate-pulse" size={28} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-dvh bg-[#06172c] px-4 py-6 text-slate-100 sm:px-6">
+    <div className="min-h-full bg-[#06172c] px-4 py-6 text-slate-100 sm:px-6">
       <div className="mx-auto max-w-[1500px]">
         <header className="mb-6 flex flex-col gap-4 border-b border-white/10 pb-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">

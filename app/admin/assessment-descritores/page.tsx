@@ -74,7 +74,7 @@ export default function AssessmentDescritoresPage() {
   const descritores = compAtual?.descritores || [];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a0e1a] via-[#0d1426] to-[#0a0e1a] text-white">
+    <div className="min-h-full bg-gradient-to-br from-[#0a0e1a] via-[#0d1426] to-[#0a0e1a] text-white">
       <div className="max-w-[1600px] mx-auto p-6">
         <div className="flex items-center gap-3 mb-4">
           <button onClick={() => router.back()} className="p-2 rounded-lg bg-white/5 hover:bg-white/10">
@@ -161,7 +161,7 @@ export default function AssessmentDescritoresPage() {
 }
 
 function Center({ children }) {
-  return <div className="min-h-screen flex items-center justify-center bg-[#0a0e1a] text-white">{children}</div>;
+  return <div className="min-h-full flex items-center justify-center bg-[#0a0e1a] text-white">{children}</div>;
 }
 
 function LegendBadge({ nivel, label }) {

@@ -135,7 +135,7 @@ export default function MercadoPotencialPage() {
   const idadeLabel = idadeOnboarding <= 24 ? t('age.until24') : t('age.until29');
 
   return (
-    <div className="min-h-dvh"
+    <div className="min-h-full"
       style={{ background: 'linear-gradient(180deg,#06172C 0%,#091D35 50%,#0a1f3a 100%)' }}>
       <div className="max-w-[1400px] mx-auto px-5 py-6">
 

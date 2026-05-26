@@ -358,7 +358,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
   };
 
   return (
-    <div className="min-h-dvh"
+    <div className="min-h-full"
       style={{
         background:
           'radial-gradient(1100px 500px at 88% -5%, rgba(52,197,204,.07), transparent 55%),' +

@@ -84,7 +84,7 @@ export default function EvolucaoAdminPage() {
 
 function Wrapper({ children }) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a0e1a] via-[#0d1426] to-[#0a0e1a] text-white">
+    <div className="min-h-full bg-gradient-to-br from-[#0a0e1a] via-[#0d1426] to-[#0a0e1a] text-white">
       <div className="max-w-6xl mx-auto p-6">{children}</div>
     </div>
   );

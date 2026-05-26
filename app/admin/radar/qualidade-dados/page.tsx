@@ -165,7 +165,7 @@ export default async function QualidadeDadosPage() {
   const tabelasComAviso = data.stats.filter(item => classificarSaude(item, t).tom === 'aviso').length;
 
   return (
-    <div className="min-h-dvh"
+    <div className="min-h-full"
       style={{ background: 'linear-gradient(180deg,#06172C 0%,#091D35 50%,#0a1f3a 100%)' }}>
       <div className="max-w-[1200px] mx-auto px-5 py-6">
         <div className="flex items-center justify-between gap-4 pb-5 mb-5 border-b border-white/[0.08]">

@@ -219,7 +219,7 @@ export default function AdminRadarPage() {
   }
 
   return (
-    <div className="min-h-dvh"
+    <div className="min-h-full"
       style={{
         background: 'linear-gradient(180deg,#06172C 0%,#091D35 50%,#0a1f3a 100%)',
       }}>

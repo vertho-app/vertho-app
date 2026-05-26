@@ -33,7 +33,7 @@ export default async function AuditoriaPage({
   });
 
   return (
-    <div className="min-h-dvh bg-[#07162a] px-6 py-8 text-white">
+    <div className="min-h-full bg-[#07162a] px-6 py-8 text-white">
       <div className="max-w-[1300px] mx-auto">
         <h1 className="text-2xl font-bold mb-1">{t('title')}</h1>
         <p className="text-sm text-white/55 mb-6">
