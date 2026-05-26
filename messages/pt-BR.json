@@ -3811,5 +3811,63 @@
     "unknown": "Erro desconhecido",
     "back": "Voltar",
     "retry": "Tentar novamente"
+  },
+  "AdminPermissions": {
+    "eyebrow": "Governança",
+    "title": "Papéis e Permissões",
+    "subtitle": "Matriz real usada pelo backend, com overrides auditáveis.",
+    "searchPlaceholder": "Buscar permissão, domínio ou descrição",
+    "actions": {
+      "backToAdmin": "Voltar ao admin",
+      "view": "Ver",
+      "cancel": "Cancelar",
+      "saveOverride": "Salvar override"
+    },
+    "counts": {
+      "permissions": "{count, plural, one {# permissão} other {# permissões}}",
+      "roles": "{count, plural, one {# papel} other {# papéis}}",
+      "roleOverrides": "{count, plural, one {# override por papel} other {# overrides por papel}}"
+    },
+    "diagnostic": {
+      "title": "Diagnóstico por usuário",
+      "emailPlaceholder": "email@empresa.com",
+      "effectiveRole": "Papel efetivo",
+      "allowed": "Permitidas",
+      "denied": "Negadas"
+    },
+    "table": {
+      "permission": "Permissão"
+    },
+    "risk": {
+      "low": "baixo",
+      "medium": "médio",
+      "high": "alto",
+      "critical": "crítico"
+    },
+    "labels": {
+      "override": "override"
+    },
+    "tooltips": {
+      "override": "Override: {effect}",
+      "basePermission": "Permissão base"
+    },
+    "activeOverrides": {
+      "title": "Overrides ativos",
+      "empty": "Nenhum override por papel. A matriz está usando apenas a base fixa do código."
+    },
+    "modal": {
+      "title": "Salvar override",
+      "reasonLabel": "Motivo obrigatório",
+      "reasonPlaceholder": "Ex.: liberação temporária para auditoria, exceção aprovada pelo time..."
+    },
+    "confirm": {
+      "removeOverride": "Remover este override?"
+    },
+    "messages": {
+      "saveFailed": "Não foi possível salvar.",
+      "removeFailed": "Não foi possível remover.",
+      "overrideSaved": "Override salvo.",
+      "overrideRemoved": "Override removido."
+    }
   }
 }

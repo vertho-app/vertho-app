@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   ArrowLeft, Check, LockKeyhole, Search, ShieldAlert, ShieldCheck,
   SlidersHorizontal, Trash2, UserRound, X,
@@ -25,6 +26,7 @@ type ConsoleData = Awaited<ReturnType<typeof loadPermissionsConsole>>;
 
 export default function PermissionsPage() {
   const router = useRouter();
+  const t = useTranslations('AdminPermissions');
   const [data, setData] = useState<ConsoleData | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -91,23 +93,23 @@ export default function PermissionsPage() {
     if (!editing) return;
     const result = await savePermissionOverride({ ...editing, reason });
     if (!result.success) {
-      setMessage(result.error || 'Não foi possível salvar.');
+      setMessage(result.error || t('messages.saveFailed'));
       return;
     }
-    setMessage('Override salvo.');
+    setMessage(t('messages.overrideSaved'));
     setEditing(null);
     setReason('');
     await refresh();
   }
 
   async function removeOverride(id: string) {
-    if (!confirm('Remover este override?')) return;
+    if (!confirm(t('confirm.removeOverride'))) return;
     const result = await removePermissionOverride(id);
     if (!result.success) {
-      setMessage(result.error || 'Não foi possível remover.');
+      setMessage(result.error || t('messages.removeFailed'));
       return;
     }
-    setMessage('Override removido.');
+    setMessage(t('messages.overrideRemoved'));
     await refresh();
   }
 
@@ -128,16 +130,16 @@ export default function PermissionsPage() {
               <LockKeyhole size={20} />
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300/70">Governança</p>
-              <h1 className="text-xl font-bold text-white">Papéis e Permissões</h1>
-              <p className="text-xs text-slate-400">Matriz real usada pelo backend, com overrides auditáveis.</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300/70">{t('eyebrow')}</p>
+              <h1 className="text-xl font-bold text-white">{t('title')}</h1>
+              <p className="text-xs text-slate-400">{t('subtitle')}</p>
             </div>
           </div>
           <button
             onClick={() => router.push('/admin/dashboard')}
             className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-slate-400 hover:text-white"
           >
-            <ArrowLeft size={15} /> Voltar ao admin
+            <ArrowLeft size={15} /> {t('actions.backToAdmin')}
           </button>
         </header>
 
@@ -154,27 +156,27 @@ export default function PermissionsPage() {
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Buscar permissão, domínio ou descrição"
+                placeholder={t('searchPlaceholder')}
                 className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-600"
               />
             </div>
             <div className="flex flex-wrap gap-2 text-[11px] text-slate-400">
-              <span className="rounded border border-white/10 px-2 py-1">{data.permissions.length} permissões</span>
-              <span className="rounded border border-white/10 px-2 py-1">{data.roles.length} papéis</span>
-              <span className="rounded border border-white/10 px-2 py-1">{data.roleOverrides.length} overrides por papel</span>
+              <span className="rounded border border-white/10 px-2 py-1">{t('counts.permissions', { count: data.permissions.length })}</span>
+              <span className="rounded border border-white/10 px-2 py-1">{t('counts.roles', { count: data.roles.length })}</span>
+              <span className="rounded border border-white/10 px-2 py-1">{t('counts.roleOverrides', { count: data.roleOverrides.length })}</span>
             </div>
           </div>
 
           <div className="rounded-lg border border-white/10 bg-[#0b1d36] p-4">
             <div className="mb-3 flex items-center gap-2">
               <UserRound size={15} className="text-cyan-300" />
-              <p className="text-sm font-semibold text-white">Diagnóstico por usuário</p>
+              <p className="text-sm font-semibold text-white">{t('diagnostic.title')}</p>
             </div>
             <div className="flex gap-2">
               <input
                 value={diagnosticEmail}
                 onChange={(event) => setDiagnosticEmail(event.target.value)}
-                placeholder="email@empresa.com"
+                placeholder={t('diagnostic.emailPlaceholder')}
                 className="min-w-0 flex-1 rounded-lg border border-white/10 bg-[#091d35] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/40"
               />
               <button
@@ -182,7 +184,7 @@ export default function PermissionsPage() {
                 disabled={isPending}
                 className="rounded-lg bg-cyan-500 px-3 py-2 text-xs font-bold text-[#06172c] disabled:opacity-50"
               >
-                Ver
+                {t('actions.view')}
               </button>
             </div>
             {diagnostic && (
@@ -192,8 +194,8 @@ export default function PermissionsPage() {
                 ) : (
                   <div className="space-y-2">
                     <p className="font-semibold text-white">{diagnostic.user.nome || diagnostic.user.email}</p>
-                    <p className="text-slate-400">Papel efetivo: <span className="text-cyan-300">{diagnostic.user.role}</span></p>
-                    <p className="text-slate-400">Permitidas: <span className="text-emerald-300">{diagnostic.allowed.length}</span> · Negadas: <span className="text-red-300">{diagnostic.denied.length}</span></p>
+                    <p className="text-slate-400">{t('diagnostic.effectiveRole')}: <span className="text-cyan-300">{diagnostic.user.role}</span></p>
+                    <p className="text-slate-400">{t('diagnostic.allowed')}: <span className="text-emerald-300">{diagnostic.allowed.length}</span> · {t('diagnostic.denied')}: <span className="text-red-300">{diagnostic.denied.length}</span></p>
                   </div>
                 )}
               </div>
@@ -205,7 +207,7 @@ export default function PermissionsPage() {
           <table className="w-full min-w-[1050px] border-collapse text-xs">
             <thead>
               <tr className="border-b border-white/10 text-left text-[10px] uppercase tracking-widest text-slate-500">
-                <th className="sticky left-0 z-10 bg-[#0b1d36] px-4 py-3">Permissão</th>
+                <th className="sticky left-0 z-10 bg-[#0b1d36] px-4 py-3">{t('table.permission')}</th>
                 {data.roles.map((role) => (
                   <th key={role.key} className="px-3 py-3 text-center">{role.label}</th>
                 ))}
@@ -224,7 +226,7 @@ export default function PermissionsPage() {
                       <td className="sticky left-0 z-10 max-w-[380px] bg-[#0b1d36] px-4 py-3">
                         <div className="flex items-start gap-2">
                           <span className={`mt-0.5 rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase ${riskClass[permission.risk]}`}>
-                            {permission.risk}
+                            {t(`risk.${permission.risk}`)}
                           </span>
                           <div>
                             <p className="font-semibold text-white">{permission.label}</p>
@@ -255,7 +257,7 @@ export default function PermissionsPage() {
                                     ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-300'
                                     : 'border-red-400/20 bg-red-400/10 text-red-300'
                                 } disabled:cursor-default disabled:opacity-80`}
-                                title={override ? `Override: ${override.effect}` : 'Permissão base'}
+                                title={override ? t('tooltips.override', { effect: override.effect }) : t('tooltips.basePermission')}
                               >
                                 {allowed ? <Check size={15} /> : <X size={15} />}
                               </button>
@@ -266,7 +268,7 @@ export default function PermissionsPage() {
                                   className="inline-flex items-center gap-1 text-[10px] text-amber-300 hover:text-amber-100 disabled:opacity-50"
                                   title={override.reason || undefined}
                                 >
-                                  override <Trash2 size={10} />
+                                  {t('labels.override')} <Trash2 size={10} />
                                 </button>
                               )}
                             </div>
@@ -284,10 +286,10 @@ export default function PermissionsPage() {
         <section className="mt-5 rounded-lg border border-white/10 bg-[#0b1d36] p-4">
           <div className="mb-3 flex items-center gap-2">
             <ShieldCheck size={16} className="text-cyan-300" />
-            <p className="text-sm font-semibold text-white">Overrides ativos</p>
+            <p className="text-sm font-semibold text-white">{t('activeOverrides.title')}</p>
           </div>
           {data.roleOverrides.length === 0 ? (
-            <p className="text-xs text-slate-500">Nenhum override por papel. A matriz está usando apenas a base fixa do código.</p>
+            <p className="text-xs text-slate-500">{t('activeOverrides.empty')}</p>
           ) : (
             <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
               {data.roleOverrides.map((override) => (
@@ -314,24 +316,24 @@ export default function PermissionsPage() {
             <div className="mb-4 flex items-center gap-2">
               <ShieldAlert size={18} className={editing.effect === 'allow' ? 'text-emerald-300' : 'text-red-300'} />
               <div>
-                <h2 className="text-base font-bold text-white">Salvar override</h2>
+                <h2 className="text-base font-bold text-white">{t('modal.title')}</h2>
                 <p className="text-xs text-slate-500">{editing.scopeValue} · {editing.permissionKey} · {editing.effect}</p>
               </div>
             </div>
-            <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-500">Motivo obrigatório</label>
+            <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-500">{t('modal.reasonLabel')}</label>
             <textarea
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               rows={4}
               className="w-full rounded-lg border border-white/10 bg-[#091d35] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/40"
-              placeholder="Ex.: liberação temporária para auditoria, exceção aprovada pelo time..."
+              placeholder={t('modal.reasonPlaceholder')}
             />
             <div className="mt-4 flex justify-end gap-2">
               <button onClick={() => setEditing(null)} className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-slate-400 hover:text-white">
-                Cancelar
+                {t('actions.cancel')}
               </button>
               <button onClick={() => startTransition(submitOverride)} disabled={isPending} className="rounded-lg bg-cyan-500 px-3 py-2 text-xs font-bold text-[#06172c] disabled:opacity-50">
-                Salvar override
+                {t('actions.saveOverride')}
               </button>
             </div>
           </div>

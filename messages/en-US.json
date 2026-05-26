@@ -3811,5 +3811,63 @@
     "unknown": "Unknown error",
     "back": "Back",
     "retry": "Try again"
+  },
+  "AdminPermissions": {
+    "eyebrow": "Governance",
+    "title": "Roles and Permissions",
+    "subtitle": "The real matrix used by the backend, with auditable overrides.",
+    "searchPlaceholder": "Search permission, domain, or description",
+    "actions": {
+      "backToAdmin": "Back to admin",
+      "view": "View",
+      "cancel": "Cancel",
+      "saveOverride": "Save override"
+    },
+    "counts": {
+      "permissions": "{count, plural, one {# permission} other {# permissions}}",
+      "roles": "{count, plural, one {# role} other {# roles}}",
+      "roleOverrides": "{count, plural, one {# role override} other {# role overrides}}"
+    },
+    "diagnostic": {
+      "title": "User diagnostic",
+      "emailPlaceholder": "email@company.com",
+      "effectiveRole": "Effective role",
+      "allowed": "Allowed",
+      "denied": "Denied"
+    },
+    "table": {
+      "permission": "Permission"
+    },
+    "risk": {
+      "low": "low",
+      "medium": "medium",
+      "high": "high",
+      "critical": "critical"
+    },
+    "labels": {
+      "override": "override"
+    },
+    "tooltips": {
+      "override": "Override: {effect}",
+      "basePermission": "Base permission"
+    },
+    "activeOverrides": {
+      "title": "Active overrides",
+      "empty": "No role overrides. The matrix is using only the fixed code baseline."
+    },
+    "modal": {
+      "title": "Save override",
+      "reasonLabel": "Required reason",
+      "reasonPlaceholder": "Example: temporary audit access, team-approved exception..."
+    },
+    "confirm": {
+      "removeOverride": "Remove this override?"
+    },
+    "messages": {
+      "saveFailed": "Could not save.",
+      "removeFailed": "Could not remove.",
+      "overrideSaved": "Override saved.",
+      "overrideRemoved": "Override removed."
+    }
   }
 }
