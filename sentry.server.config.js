@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/nextjs';
-import { scrubPII } from './lib/sentry-scrub-pii.js';
+import { scrubPII } from './lib/sentry-scrub-pii';
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,

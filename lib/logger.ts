@@ -18,11 +18,28 @@ function log(level: LogLevel, domain: string, message: string, context: LogConte
 
   if (level === 'error') {
     console.error(`[VERTHO] [${level.toUpperCase()}] [${domain}] ${message}`, context);
+    // Encaminha ao Sentry (antes só ia pro console do Vercel, sem agrupamento
+    // nem alertas). Best-effort: import dinâmico e nunca quebra o fluxo.
+    reportToSentry(domain, message, context);
   } else {
     console.log(`[VERTHO] [${level.toUpperCase()}] [${domain}] ${message}`, Object.keys(context).length ? context : '');
   }
 
   return entry;
+}
+
+function reportToSentry(domain: string, message: string, context: LogContext) {
+  try {
+    const err = context?.error ?? context?.err ?? context?.exception;
+    import('@sentry/nextjs').then((Sentry) => {
+      const scope = { tags: { domain }, extra: context };
+      if (err instanceof Error) {
+        Sentry.captureException(err, scope as any);
+      } else {
+        Sentry.captureMessage(`[${domain}] ${message}`, { level: 'error', ...scope } as any);
+      }
+    }).catch(() => { /* telemetria nunca quebra o fluxo */ });
+  } catch { /* idem */ }
 }
 
 export const logger = {
