@@ -8,8 +8,17 @@ import { localeCookieName } from '@/lib/i18n';
 import { Home, Clock, Play, TrendingUp, User, LogOut, Users2 } from 'lucide-react';
 import BetoChat from '@/components/beto-chat';
 import { UserAvatar } from '@/components/user-avatar';
+import type { TenantTheme } from '@/lib/ui-resolver';
 
 type NavItem = { href: string; labelKey: string; icon: any; gestorOnly?: boolean };
+
+// Fallback = tema Vertho atual (usado se o layout não passar theme).
+const DEFAULT_THEME: TenantTheme = {
+  bgStart: '#091D35',
+  bgEnd: '#0F2A4A',
+  accent: '#22d3ee',
+  logoUrl: '/logo-vertho.png',
+};
 
 const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', labelKey: 'home', icon: Home },
@@ -20,7 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard/perfil', labelKey: 'profile', icon: User },
 ];
 
-export default function DashboardShell({ children }: { children: React.ReactNode }) {
+export default function DashboardShell({ children, theme = DEFAULT_THEME }: { children: React.ReactNode; theme?: TenantTheme }) {
   const t = useTranslations('DashboardShell');
   const router = useRouter();
   const pathname = usePathname();
@@ -61,12 +70,12 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   if (!user) return null;
 
   return (
-    <div className="min-h-dvh flex flex-col" style={{ background: 'linear-gradient(180deg, #091D35 0%, #0F2A4A 100%)' }}>
+    <div className="min-h-dvh flex flex-col" style={{ background: `linear-gradient(180deg, ${theme.bgStart} 0%, ${theme.bgEnd} 100%)` }}>
 
       {/* Sidebar (desktop) */}
       <aside
         className="hidden md:flex fixed left-0 top-0 h-full w-20 border-r border-white/[0.08] flex-col items-center py-6 gap-8 z-40"
-        style={{ background: 'rgba(9,29,53,0.95)', backdropFilter: 'blur(12px)' }}
+        style={{ background: theme.bgStart, backdropFilter: 'blur(12px)' }}
       >
         {/* ✅ UserAvatar substitui o botão com initials hardcoded */}
         <UserAvatar
@@ -89,9 +98,10 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                   title={label}
                   className={`transition-all duration-300 block ${
                     isActive
-                      ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(0,180,216,0.45)] scale-110'
+                      ? 'scale-110'
                       : 'text-gray-500 hover:text-white hover:scale-110 active:scale-95'
                   }`}
+                  style={isActive ? { color: theme.accent, filter: `drop-shadow(0 0 8px ${theme.accent})` } : undefined}
                 >
                   <Icon size={22} />
                 </button>
@@ -113,7 +123,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         className="md:hidden flex items-center justify-between px-4 shrink-0"
         style={{ height: 'var(--header-height)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
       >
-        <img src="/logo-vertho.png" alt="Vertho" style={{ height: '22px' }} />
+        <img src={theme.logoUrl} alt="Logo" style={{ height: '22px' }} />
         <div className="flex items-center gap-3">
           {/* ✅ Avatar no header mobile também */}
           <UserAvatar
@@ -137,7 +147,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
       {/* Bottom Nav mobile */}
       <nav
         className="md:hidden fixed bottom-0 left-0 right-0 flex items-center justify-around border-t border-white/[0.06] z-40"
-        style={{ height: 'var(--nav-height)', background: '#091D35' }}
+        style={{ height: 'var(--nav-height)', background: theme.bgStart }}
       >
         {navItems.map(item => {
           const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
@@ -147,7 +157,8 @@ export default function DashboardShell({ children }: { children: React.ReactNode
             <button
               key={item.href}
               onClick={() => router.push(item.href)}
-              className={`flex flex-col items-center gap-0.5 py-1 px-3 transition-colors ${isActive ? 'text-cyan-400' : 'text-gray-500'}`}
+              className={`flex flex-col items-center gap-0.5 py-1 px-3 transition-colors ${isActive ? '' : 'text-gray-500'}`}
+              style={isActive ? { color: theme.accent } : undefined}
             >
               <Icon size={20} />
               <span className="text-[10px] font-semibold">{label}</span>
