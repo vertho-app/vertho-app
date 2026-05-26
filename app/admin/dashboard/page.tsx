@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   Building2, Users, ClipboardCheck, Database, BookOpen,
   Plus, Loader2, RefreshCw, Zap, BookMarked, ShieldCheck, ChevronRight,
@@ -14,8 +14,8 @@ import {
 } from 'lucide-react';
 import { loadAdminDashboard } from './actions';
 
-function fmt(n: number | null | undefined) {
-  return (n ?? 0).toLocaleString('pt-BR');
+function fmt(n: number | null | undefined, locale: string) {
+  return (n ?? 0).toLocaleString(locale);
 }
 
 const serif: React.CSSProperties = {
@@ -89,6 +89,7 @@ function empresaGlyph(nome: string) {
 
 export default function AdminDashboardPage() {
   const t = useTranslations('AdminDashboard');
+  const locale = useLocale();
   const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -274,7 +275,7 @@ export default function AdminDashboardPage() {
               {t.rich('header.title', { em: (chunks) => <em style={{ color: '#34c5cc' }}>{chunks}</em> })}
             </h1>
             <span className="hidden sm:inline shrink-0" style={{ ...mono, fontSize: 10, color: 'rgba(255,255,255,.4)', letterSpacing: '.14em', textTransform: 'uppercase' }}>
-              {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+              {new Date().toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })}
             </span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -283,6 +284,7 @@ export default function AdminDashboardPage() {
               value={empresaFiltro}
               onChange={setEmpresaFiltro}
               t={t}
+              locale={locale}
             />
             <button onClick={handleRefresh} disabled={refreshing} title={t('header.refresh')}
               className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors"
@@ -304,10 +306,10 @@ export default function AdminDashboardPage() {
           <div className="max-w-[1280px] mx-auto space-y-5">
             {/* KPI cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <KpiCard label={t('kpis.companies')} value={empresas.length} sub={t('kpis.activeCompanies', { count: empresas.length })} accent="#34c5cc" icon={<Building2 size={14} />} />
-              <KpiCard label={t('kpis.collaborators')} value={totalColabs} accent="#2ecc71" icon={<Users size={14} />} />
-              <KpiCard label={t('kpis.assessments')} value={totalAvaliacoes} accent="#f4b740" icon={<CheckCircle2 size={14} />} />
-              <KpiCard label={t('kpis.activePdis')} value={totalPDIs} accent="#9e4edd" icon={<ClipboardCheck size={14} />} />
+              <KpiCard label={t('kpis.companies')} value={empresas.length} sub={t('kpis.activeCompanies', { count: empresas.length })} accent="#34c5cc" icon={<Building2 size={14} />} locale={locale} />
+              <KpiCard label={t('kpis.collaborators')} value={totalColabs} accent="#2ecc71" icon={<Users size={14} />} locale={locale} />
+              <KpiCard label={t('kpis.assessments')} value={totalAvaliacoes} accent="#f4b740" icon={<CheckCircle2 size={14} />} locale={locale} />
+              <KpiCard label={t('kpis.activePdis')} value={totalPDIs} accent="#9e4edd" icon={<ClipboardCheck size={14} />} locale={locale} />
             </div>
 
             {/* Atividade Recente (span 2) + Empresas Ativas (span 1) */}
@@ -377,7 +379,7 @@ export default function AdminDashboardPage() {
                               {emp.nome}
                             </span>
                             <span style={{ ...mono, fontSize: 10, color: 'rgba(255,255,255,.5)', letterSpacing: '.05em' }}>
-                              {fmt(emp.totalColab)}
+                              {fmt(emp.totalColab, locale)}
                             </span>
                           </div>
                           <div className="w-full rounded-full h-1.5" style={{ background: 'rgba(255,255,255,.06)' }}>
@@ -482,7 +484,7 @@ export default function AdminDashboardPage() {
 
 // ─── Subcomponents ──────────────────────────────────────────────────────────
 
-function EmpresaFilter({ empresas, value, onChange, t }: { empresas: any[]; value: string; onChange: (v: string) => void; t: any }) {
+function EmpresaFilter({ empresas, value, onChange, t, locale }: { empresas: any[]; value: string; onChange: (v: string) => void; t: any; locale: string }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [mounted, setMounted] = useState(false);
@@ -614,7 +616,7 @@ function EmpresaFilter({ empresas, value, onChange, t }: { empresas: any[]; valu
                       {empresaGlyph(emp.nome)}
                     </span>
                     <span className="flex-1 truncate">{emp.nome}</span>
-                    <span style={{ ...mono, fontSize: 9, color: 'rgba(255,255,255,.4)' }}>{fmt(emp.totalColab)}</span>
+                    <span style={{ ...mono, fontSize: 9, color: 'rgba(255,255,255,.4)' }}>{fmt(emp.totalColab, locale)}</span>
                     {selected && <CheckCircle2 size={13} />}
                   </button>
                 );
@@ -628,7 +630,7 @@ function EmpresaFilter({ empresas, value, onChange, t }: { empresas: any[]; valu
   );
 }
 
-function KpiCard({ label, value, sub, accent, icon }: { label: string; value: number; sub?: string; accent: string; icon: React.ReactNode }) {
+function KpiCard({ label, value, sub, accent, icon, locale }: { label: string; value: number; sub?: string; accent: string; icon: React.ReactNode; locale: string }) {
   return (
     <div
       className="relative rounded-xl p-4 overflow-hidden"
@@ -642,7 +644,7 @@ function KpiCard({ label, value, sub, accent, icon }: { label: string; value: nu
         <span style={{ color: 'rgba(255,255,255,.4)' }}>{icon}</span>
       </div>
       <div style={{ ...mono, fontSize: 28, fontWeight: 700, color: '#fff', lineHeight: 1, letterSpacing: '-.02em' }}>
-        {fmt(value)}
+        {fmt(value, locale)}
       </div>
       {sub && <p className="text-[10px] mt-1" style={{ color: accent }}>{sub}</p>}
       <div className="absolute bottom-0 left-0 right-0 h-[3px]" style={{ background: accent, opacity: .6, boxShadow: `0 0 10px ${accent}` }} />

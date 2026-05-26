@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   Users, AlertTriangle, ChevronRight, Loader2, ArrowRight,
   Calendar, TrendingUp, Activity, ClipboardCheck,
@@ -11,6 +12,7 @@ import { getGestorHomeData, type GestorHomeData, type CheckpointPendenteDetalhad
 import { salvarCheckpointGestor } from './equipe-evolucao/actions';
 
 export default function GestorHomePage() {
+  const t = useTranslations('ManagerDashboard');
   const router = useRouter();
   const [data, setData] = useState<GestorHomeData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,7 +59,7 @@ export default function GestorHomePage() {
     return (
       <PageContainer>
         <GlassCard>
-          <p className="text-red-400">{data?.error || 'Erro ao carregar'}</p>
+          <p className="text-red-400">{data?.error || t('loadError')}</p>
         </GlassCard>
       </PageContainer>
     );
@@ -74,15 +76,15 @@ export default function GestorHomePage() {
       <div className="flex items-baseline justify-between gap-3 mb-5 flex-wrap">
         <div>
           <p className="text-[10px] tracking-[0.2em] uppercase font-mono text-brand-300/80 mb-1">
-            {data.scope === 'rh' ? 'RH · empresa toda' : data.scope === 'tutor' ? 'Tutor · seus tutorados' : 'Gestor · sua área'}
+            {data.scope === 'rh' ? t('scopes.rh') : data.scope === 'tutor' ? t('scopes.tutor') : t('scopes.manager')}
           </p>
           <h1 className="text-white text-2xl font-bold flex items-center gap-2">
-            <Users size={22} className="text-brand-400" /> {data.scope === 'tutor' ? 'Meus tutorados' : 'Minha equipe'}
+            <Users size={22} className="text-brand-400" /> {data.scope === 'tutor' ? t('titles.tutor') : t('titles.team')}
           </h1>
         </div>
         <button onClick={() => router.push('/dashboard/gestor/equipe-evolucao')}
           className="text-[11px] font-bold text-brand-300 hover:text-brand-200 flex items-center gap-1">
-          Ver evolução completa <ArrowRight size={11} />
+          {t('titles.fullEvolution')} <ArrowRight size={11} />
         </button>
       </div>
 
@@ -94,14 +96,13 @@ export default function GestorHomePage() {
             <AlertTriangle size={16} className="text-amber-400 mt-0.5 shrink-0" />
             <div>
               <p className="text-[12px] font-bold text-amber-200 mb-1">
-                Você ainda não tem liderados vinculados
+                {t('noReports.title')}
               </p>
               <p className="text-[11px] text-amber-100/75 leading-relaxed">
-                O vínculo gestor → liderado é feito via campo <code className="text-amber-200">gestor_email</code>{' '}
-                em cada colaborador. Peça ao admin da empresa pra preencher esse campo com seu
-                e-mail nos colaboradores que você lidera (na importação ou em <em>Gerenciar colaboradores</em>).
-                Enquanto não houver vínculo, esta tela aparece zerada por segurança — gestores não
-                veem dados de quem não é seu liderado direto.
+                {t.rich('noReports.body', {
+                  code: (chunks) => <code className="text-amber-200">{chunks}</code>,
+                  em: (chunks) => <em>{chunks}</em>,
+                })}
               </p>
             </div>
           </div>
@@ -112,33 +113,33 @@ export default function GestorHomePage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <KpiCard
           icon={Users}
-          label="Liderados"
+          label={t('kpis.led')}
           valor={k.liderados.total}
-          subtitulo={`${k.liderados.em_trilha} em trilha · ${k.liderados.sem_trilha} sem trilha`}
+          subtitulo={t('kpis.inTrack', { count: k.liderados.em_trilha, without: k.liderados.sem_trilha })}
         />
         <KpiCard
           icon={TrendingUp}
-          label="Em andamento"
+          label={t('kpis.inProgress')}
           valor={k.em_andamento.count}
           subtitulo={k.em_andamento.semana_media != null
-            ? `semana média ${k.em_andamento.semana_media} de 14`
-            : 'sem trilha ativa'}
+            ? t('kpis.averageWeek', { week: k.em_andamento.semana_media })
+            : t('kpis.noActiveTrack')}
         />
         <KpiCard
           icon={ClipboardCheck}
-          label="Checkpoints"
+          label={t('kpis.checkpoints')}
           valor={k.checkpoints.pendentes}
-          subtitulo={`${k.checkpoints.respondidos} já respondido${k.checkpoints.respondidos === 1 ? '' : 's'}`}
+          subtitulo={t('kpis.answered', { count: k.checkpoints.respondidos, plural: k.checkpoints.respondidos === 1 ? '' : 's' })}
           acento={k.checkpoints.pendentes > 0 ? 'amber' : 'gray'}
-          sufixo={k.checkpoints.pendentes > 0 ? 'pendentes' : ''}
+          sufixo={k.checkpoints.pendentes > 0 ? t('kpis.pending') : ''}
         />
         <KpiCard
           icon={Activity}
-          label="Atividade na semana"
+          label={t('kpis.weeklyActivity')}
           valor={k.atividade_semana.ativos}
-          subtitulo={`de ${k.atividade_semana.total} ativos nos últ. 7 dias`}
+          subtitulo={t('kpis.activeLastDays', { total: k.atividade_semana.total })}
           acento={k.atividade_semana.ativos > 0 ? 'cyan' : 'gray'}
-          sufixo={`de ${k.atividade_semana.total}`}
+          sufixo={t('kpis.ofTotal', { total: k.atividade_semana.total })}
         />
       </div>
 
@@ -149,7 +150,7 @@ export default function GestorHomePage() {
           <div className="px-4 py-2.5 border-b border-amber-400/15 flex items-center gap-2">
             <AlertTriangle size={13} className="text-amber-400" />
             <p className="text-[10px] tracking-[0.2em] uppercase font-mono text-amber-300">
-              Sinais de atenção · {alertas.length}
+              {t('titles.attentionSignals', { count: alertas.length })}
             </p>
           </div>
           <ul className="px-4 py-2 space-y-1.5">
@@ -167,16 +168,15 @@ export default function GestorHomePage() {
       <section className="mb-6">
         <div className="flex items-baseline justify-between mb-2">
           <h2 className="text-white text-base font-bold flex items-center gap-2">
-            <ClipboardCheck size={16} className="text-brand-400" /> Ação esta semana
+            <ClipboardCheck size={16} className="text-brand-400" /> {t('titles.weeklyAction')}
           </h2>
-          {cps.length > 0 && <span className="text-[11px] text-white/50">{cps.length} pendente{cps.length === 1 ? '' : 's'}</span>}
+          {cps.length > 0 && <span className="text-[11px] text-white/50">{t('pendingCount', { count: cps.length, plural: cps.length === 1 ? '' : 's' })}</span>}
         </div>
 
         {cps.length === 0 ? (
           <GlassCard>
             <p className="text-[12px] text-white/55 leading-relaxed text-center py-3">
-              Nada pendente neste momento. Quando os liderados chegarem nas semanas 5 e 10 das trilhas,
-              checkpoints aparecerão aqui pra avaliação.
+              {t('emptyAction')}
             </p>
           </GlassCard>
         ) : (
@@ -207,27 +207,24 @@ export default function GestorHomePage() {
             style={{ background: '#0A1D35' }} onClick={(e) => e.stopPropagation()}>
             <div className="mb-4">
               <p className="text-[10px] tracking-[0.2em] uppercase font-mono text-brand-300 mb-1">
-                Checkpoint semana {modal.cp.semana} · avaliação
+                {t('modal.eyebrow', { week: modal.cp.semana })}
               </p>
               <h3 className="text-white text-base font-bold">{modal.cp.colab}</h3>
               <p className="text-[11px] text-white/55 mt-0.5">
-                {modal.cp.competenciaFoco || 'sem competência foco'}
+                {modal.cp.competenciaFoco || t('modal.noFocus')}
               </p>
               <p className="text-[11px] mt-3" style={{
                 color: modal.avaliacao === 'evoluindo' ? '#34D399'
                   : modal.avaliacao === 'estagnado' ? '#FCD34D' : '#F87171',
               }}>
-                Avaliação: <strong>{
-                  modal.avaliacao === 'evoluindo' ? 'Evoluindo'
-                  : modal.avaliacao === 'estagnado' ? 'Estagnado' : 'Regredindo'
-                }</strong>
+                {t('modal.evaluation')} <strong>{t(`evaluation.${modal.avaliacao}`)}</strong>
               </p>
             </div>
 
             <textarea
               value={observacao}
               onChange={(e) => setObservacao(e.target.value)}
-              placeholder={modal.avaliacao === 'evoluindo' ? 'Observação (opcional)' : 'O que observou? (opcional, mas ajuda)'}
+              placeholder={modal.avaliacao === 'evoluindo' ? t('modal.observation') : t('modal.observationHelp')}
               rows={3}
               className="w-full rounded-lg border border-white/[0.08] px-3 py-2 text-[12px] text-white placeholder:text-white/30 focus:outline-none focus:border-brand-400/40"
               style={{ background: '#091D35' }}
@@ -236,12 +233,12 @@ export default function GestorHomePage() {
             <div className="flex justify-end gap-2 mt-4">
               <button onClick={() => { setModal(null); setObservacao(''); }}
                 className="px-3 py-1.5 rounded-lg text-[11px] text-white/60 hover:text-white">
-                Cancelar
+                {t('modal.cancel')}
               </button>
               <button onClick={aplicarAvaliacao} disabled={!!avaliando}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-brand-400/15 text-brand-300 border border-brand-400/30 hover:bg-brand-400/25 disabled:opacity-50">
                 {avaliando ? <Loader2 size={11} className="animate-spin" /> : <ClipboardCheck size={11} />}
-                Confirmar avaliação
+                {t('modal.confirm')}
               </button>
             </div>
           </div>
@@ -289,6 +286,7 @@ function CheckpointCard({
   onAvaliar: (av: 'evoluindo' | 'estagnado' | 'regredindo') => void;
   avaliando: boolean;
 }) {
+  const t = useTranslations('ManagerDashboard');
   const inicial = cp.colab.split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('');
   const corDias = cp.diasPendente >= 7 ? 'rgba(248,113,113,0.18)'
     : cp.diasPendente >= 3 ? 'rgba(252,211,77,0.18)'
@@ -308,16 +306,16 @@ function CheckpointCard({
         <div className="flex items-center gap-2">
           <p className="text-sm font-bold text-white truncate">{cp.colab}</p>
           <span className="text-[9px] font-mono text-brand-400/70 bg-brand-400/10 px-1.5 py-0.5 rounded">
-            sem {cp.semana}
+            {t('checkpoint.weekShort', { week: cp.semana })}
           </span>
         </div>
         <p className="text-[11px] text-white/55 truncate">
-          {cp.cargo || 'sem cargo'} {cp.competenciaFoco && <>· <span className="text-brand-300/70">{cp.competenciaFoco}</span></>}
+          {cp.cargo || t('checkpoint.noRole')} {cp.competenciaFoco && <>· <span className="text-brand-300/70">{cp.competenciaFoco}</span></>}
         </p>
       </div>
       <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full shrink-0 ${textoDias}`}
         style={{ background: corDias }}>
-        {cp.diasPendente === 0 ? 'hoje' : `${cp.diasPendente}d`}
+        {cp.diasPendente === 0 ? t('checkpoint.today') : `${cp.diasPendente}d`}
       </span>
       <div className="flex items-center gap-1 shrink-0">
         <AvaliarBtn av="evoluindo" onClick={() => onAvaliar('evoluindo')} disabled={avaliando} />
@@ -335,6 +333,7 @@ function AvaliarBtn({
   onClick: () => void;
   disabled?: boolean;
 }) {
+  const t = useTranslations('ManagerDashboard');
   const cfg = av === 'evoluindo'
     ? { color: '#34D399', bg: 'rgba(52,211,153,0.1)', border: 'rgba(52,211,153,0.3)', label: '↑' }
     : av === 'estagnado'
@@ -342,7 +341,7 @@ function AvaliarBtn({
     : { color: '#F87171', bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.3)', label: '↓' };
   return (
     <button onClick={onClick} disabled={disabled}
-      title={av === 'evoluindo' ? 'Evoluindo' : av === 'estagnado' ? 'Estagnado' : 'Regredindo'}
+      title={t(`evaluation.${av}`)}
       className="w-7 h-7 rounded-lg border text-xs font-bold transition-colors disabled:opacity-40"
       style={{ background: cfg.bg, color: cfg.color, borderColor: cfg.border }}>
       {cfg.label}
@@ -353,6 +352,7 @@ function AvaliarBtn({
 // ════════════════ Etapa 2 — Equipe em trilha ════════════════
 
 function EquipeSection({ equipe }: { equipe: any[] }) {
+  const t = useTranslations('ManagerDashboard');
   const router = useRouter();
   const [filtro, setFiltro] = useState<'todos' | 'em_andamento' | 'sem_trilha' | 'concluida'>('todos');
   const filtrados = filtro === 'todos' ? equipe : equipe.filter((e) => e.status === filtro);
@@ -360,14 +360,14 @@ function EquipeSection({ equipe }: { equipe: any[] }) {
   return (
     <section className="mb-6">
       <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
-        <h2 className="text-white text-base font-bold">Equipe em trilha</h2>
+        <h2 className="text-white text-base font-bold">{t('titles.teamTrack')}</h2>
         <div className="flex gap-1 p-1 rounded-lg border border-white/[0.06]" style={{ background: '#091D35' }}>
           {(['todos', 'em_andamento', 'sem_trilha', 'concluida'] as const).map((f) => (
             <button key={f} onClick={() => setFiltro(f)}
               className={`px-2.5 py-1 rounded text-[10px] font-bold transition-colors ${
                 filtro === f ? 'bg-brand-400/15 text-brand-300' : 'text-white/55 hover:text-white'
               }`}>
-              {f === 'todos' ? 'Todos' : f === 'em_andamento' ? 'Em andamento' : f === 'sem_trilha' ? 'Sem trilha' : 'Concluídas'}
+              {f === 'todos' ? t('filters.all') : f === 'em_andamento' ? t('filters.inProgress') : f === 'sem_trilha' ? t('filters.noTrack') : t('filters.completed')}
             </button>
           ))}
         </div>
@@ -392,7 +392,7 @@ function EquipeSection({ equipe }: { equipe: any[] }) {
               <StatusPill status={e.status} />
               {e.semana != null && (
                 <div className="hidden sm:block w-20">
-                  <div className="text-[9px] text-white/45 mb-0.5 text-right">sem {e.semana}/14</div>
+                  <div className="text-[9px] text-white/45 mb-0.5 text-right">{t('team.weekProgress', { week: e.semana })}</div>
                   <div className="h-1 rounded-full overflow-hidden bg-white/[0.06]">
                     <div className="h-full rounded-full" style={{ width: `${(e.semana / 14) * 100}%`, background: '#34c5cc' }} />
                   </div>
@@ -413,12 +413,13 @@ function EquipeSection({ equipe }: { equipe: any[] }) {
 }
 
 function StatusPill({ status }: { status: string }) {
+  const t = useTranslations('ManagerDashboard');
   const cfg = {
-    em_andamento: { label: 'em andamento', color: '#34c5cc', bg: 'rgba(52,197,204,0.12)' },
-    pausada:      { label: 'pausada',      color: '#FCD34D', bg: 'rgba(252,211,77,0.12)' },
-    concluida:    { label: 'concluída',    color: '#34D399', bg: 'rgba(52,211,153,0.12)' },
-    sem_trilha:   { label: 'sem trilha',   color: '#9ca3af', bg: 'rgba(156,163,175,0.10)' },
-    arquivada:    { label: 'arquivada',    color: '#9ca3af', bg: 'rgba(156,163,175,0.10)' },
+    em_andamento: { label: t('status.em_andamento'), color: '#34c5cc', bg: 'rgba(52,197,204,0.12)' },
+    pausada:      { label: t('status.pausada'),      color: '#FCD34D', bg: 'rgba(252,211,77,0.12)' },
+    concluida:    { label: t('status.concluida'),    color: '#34D399', bg: 'rgba(52,211,153,0.12)' },
+    sem_trilha:   { label: t('status.sem_trilha'),   color: '#9ca3af', bg: 'rgba(156,163,175,0.10)' },
+    arquivada:    { label: t('status.arquivada'),    color: '#9ca3af', bg: 'rgba(156,163,175,0.10)' },
   }[status] || { label: status, color: '#9ca3af', bg: 'rgba(156,163,175,0.10)' };
   return (
     <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-[0.05em]"
@@ -431,11 +432,12 @@ function StatusPill({ status }: { status: string }) {
 // ════════════════ Etapa 3 — Mapa de perfis ════════════════
 
 function PerfisSection({ perfis, fonteExterna }: { perfis: any[]; fonteExterna?: string | null }) {
+  const t = useTranslations('ManagerDashboard');
   if (perfis.length === 0) return null;
   return (
     <section className="mb-6">
       <h2 className="text-white text-base font-bold mb-3">
-        Mapa de perfis {fonteExterna === 'opq32' ? 'OPQ32' : 'comportamentais'}
+        {t('titles.profileMap', { type: fonteExterna === 'opq32' ? 'OPQ32' : t('profiles.behavioral') })}
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {perfis.map((p) => (
@@ -444,14 +446,14 @@ function PerfisSection({ perfis, fonteExterna }: { perfis: any[]; fonteExterna?:
             <p className="text-[12px] text-white font-bold truncate">{p.colab}</p>
             <p className="text-[10px] text-white/45 truncate mb-2">{p.cargo || '—'}</p>
             {p.fonte === 'sem_perfil' && (
-              <p className="text-[10px] text-white/35 italic">Sem perfil mapeado</p>
+              <p className="text-[10px] text-white/35 italic">{t('profiles.noProfile')}</p>
             )}
             {p.fonte === 'disc' && (
               <div className="flex items-center gap-2">
                 <span className="text-2xl font-bold tabular-nums" style={{ color: '#34c5cc', fontFamily: 'var(--font-serif, "Instrument Serif", serif)' }}>
                   {p.letraDom || '—'}
                 </span>
-                <span className="text-[10px] text-white/45">DISC dominante</span>
+                <span className="text-[10px] text-white/45">{t('profiles.discDominant')}</span>
               </div>
             )}
             {p.fonte === 'opq32' && (
@@ -480,10 +482,12 @@ function PerfisSection({ perfis, fonteExterna }: { perfis: any[]; fonteExterna?:
 // ════════════════ Etapa 4 — Timeline ════════════════
 
 function TimelineSection({ timeline }: { timeline: any[] }) {
+  const t = useTranslations('ManagerDashboard');
+  const locale = useLocale();
   if (timeline.length === 0) return null;
   return (
     <section className="mb-6">
-      <h2 className="text-white text-base font-bold mb-3">Próximas 4 semanas</h2>
+      <h2 className="text-white text-base font-bold mb-3">{t('titles.nextWeeks')}</h2>
       <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
         {timeline.map((t, i) => {
           const dt = new Date(t.data);
@@ -492,7 +496,7 @@ function TimelineSection({ timeline }: { timeline: any[] }) {
             <div key={i} className={`flex items-center gap-3 px-4 py-2.5 ${i > 0 ? 'border-t border-white/[0.04]' : ''}`}>
               <div className="text-center shrink-0 w-12">
                 <div className="text-[10px] text-white/45 uppercase">
-                  {dt.toLocaleDateString('pt-BR', { month: 'short' })}
+                  {dt.toLocaleDateString(locale, { month: 'short' })}
                 </div>
                 <div className="text-base font-bold text-white tabular-nums">
                   {dt.getDate()}
@@ -503,7 +507,7 @@ function TimelineSection({ timeline }: { timeline: any[] }) {
                 <div className="text-[10px] text-white/55 truncate">{t.detalhe}</div>
               </div>
               <span className="text-[10px] text-white/55 font-mono shrink-0">
-                em {dias === 0 ? 'hoje' : dias === 1 ? '1d' : `${dias}d`}
+                {t('timeline.inDays', { value: dias === 0 ? t('timeline.today') : dias === 1 ? t('timeline.oneDay') : `${dias}d` })}
               </span>
             </div>
           );

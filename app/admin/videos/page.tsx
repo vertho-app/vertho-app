@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   ArrowLeft, Loader2, Video, Eye, Clock, TrendingUp, Film, BarChart3,
   Users, AlertTriangle, Trophy, ArrowUpDown, ArrowUp, ArrowDown,
@@ -81,6 +81,7 @@ function Heatmap({ points, length }: { points?: any[]; length?: number }) {
 export default function AdminVideosPage() {
   const router = useRouter();
   const t = useTranslations('AdminVideos');
+  const locale = useLocale();
   const [empresaId, setEmpresaId] = useState(null);
   const [empresa, setEmpresa] = useState(null);
   const [stats, setStats] = useState(null);
@@ -440,7 +441,7 @@ export default function AdminVideosPage() {
                         <td className="px-4 py-2.5 text-center text-xs text-emerald-400 font-bold">{r.videosConcluidos}</td>
                         <td className="px-4 py-2.5 text-center text-sm text-cyan-400 font-bold">{(() => { const s = Number(r.totalSegundos) || 0; const m = Math.floor(s / 60); const ss = s % 60; return `${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`; })()}</td>
                         <td className="px-4 py-2.5 text-center text-[10px] text-gray-500">
-                          {r.ultimoAcesso ? new Date(r.ultimoAcesso).toLocaleDateString('pt-BR') : '—'}
+                          {r.ultimoAcesso ? new Date(r.ultimoAcesso).toLocaleDateString(locale) : '—'}
                         </td>
                       </tr>
                     ))}
@@ -503,7 +504,7 @@ export default function AdminVideosPage() {
                           )}
                         </td>
                         <td className="px-4 py-2.5 text-center text-[10px] text-gray-500">
-                          {a.ultimaView ? new Date(a.ultimaView).toLocaleDateString('pt-BR') : '—'}
+                          {a.ultimaView ? new Date(a.ultimaView).toLocaleDateString(locale) : '—'}
                         </td>
                       </tr>
                     ))}

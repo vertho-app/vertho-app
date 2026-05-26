@@ -5,6 +5,7 @@ import { requireAdminAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 import { validateWhatsAppBR } from '@/lib/phone';
 import { proxyEmailFromPhone } from '@/lib/phone-otp';
+import { getLocale } from 'next-intl/server';
 
 const VALID_ROLES = ['colaborador', 'gestor', 'rh'];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
@@ -174,6 +175,7 @@ export async function exportarColaboradoresXLSX(empresaId: any): Promise<
 > {
   const ctx = await requireAdminAction();
   if (!empresaId) return { ok: false, error: 'empresa obrigatória' };
+  const locale = await getLocale();
 
   const sb = await requireAdminSupabase();
   const [{ data: emp }, colabs] = await Promise.all([
@@ -198,14 +200,14 @@ export async function exportarColaboradoresXLSX(empresaId: any): Promise<
   const fmtData = (v: any) => {
     if (!v) return '';
     const d = new Date(v);
-    return isNaN(d.getTime()) ? String(v) : d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+    return isNaN(d.getTime()) ? String(v) : d.toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' });
   };
 
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Colaboradores');
 
-  const titulo = `Colaboradores — ${emp?.nome || 'empresa'} — exportado em ${new Date().toLocaleDateString('pt-BR')} (${colabs.length})`;
+  const titulo = `Colaboradores — ${emp?.nome || 'empresa'} — exportado em ${new Date().toLocaleDateString(locale)} (${colabs.length})`;
   ws.addRow([titulo]);
   ws.mergeCells(1, 1, 1, COLS.length);
   ws.getRow(1).font = { italic: true, size: 9, color: { argb: 'FF888888' } };

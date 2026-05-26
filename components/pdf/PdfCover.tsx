@@ -110,6 +110,7 @@ interface PdfCoverProps {
   data?: string | Date;
   tipo?: string;
   ciclo?: string;
+  locale?: string;
 }
 
 export default function PdfCover({
@@ -120,10 +121,11 @@ export default function PdfCover({
   data,
   tipo = 'Plano de Desenvolvimento Individual',
   ciclo = '30 dias',
+  locale = 'pt-BR',
 }: PdfCoverProps) {
   const dataFormatada = data
-    ? new Date(data).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
-    : new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+    ? new Date(data).toLocaleDateString(locale, { day: '2-digit', month: 'long', year: 'numeric' })
+    : new Date().toLocaleDateString(locale, { day: '2-digit', month: 'long', year: 'numeric' });
 
   const cargoLine = [cargo, empresa].filter(Boolean).join(' · ');
   const primeiroNome = (nome || '').split(' ')[0] || nome;

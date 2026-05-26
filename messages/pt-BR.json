@@ -387,17 +387,50 @@
       "title": "Ações rápidas",
       "companyContext": "Contextual à empresa {name}",
       "globalContext": "Tarefas administrativas globais",
-      "pipeline": { "title": "Pipeline", "descCompany": "Fase 0 → 5 de {name}" },
-      "voting": { "title": "Votação", "desc": "Resultados por cargo" },
-      "disc": { "title": "Perfis DISC", "desc": "Mapeamentos completos" },
-      "simulator": { "title": "Rodar simulador", "desc": "Testar fluxo conversacional" },
-      "newCompany": { "title": "Nova empresa", "desc": "Criar e onboarding de tenant" },
-      "market": { "title": "Mercado Potencial", "desc": "TAM por município, rede e escola" },
-      "companyRadar": { "title": "Radar Empresas", "desc": "Prospecção B2B · Receita+CAGED+RAIS" },
-      "cityPotential": { "title": "Potencial por Cidade", "desc": "Empresas + Escolas unificado" },
-      "radar": { "title": "Radar (Ingestão)", "desc": "Subir dados Saeb/ICA/Censo" },
-      "budget": { "title": "Orçamento", "desc": "Custo IA, tabela, valor final" },
-      "knowledge": { "title": "Knowledge Base", "desc": "RAG per-tenant" }
+      "pipeline": {
+        "title": "Pipeline",
+        "descCompany": "Fase 0 → 5 de {name}"
+      },
+      "voting": {
+        "title": "Votação",
+        "desc": "Resultados por cargo"
+      },
+      "disc": {
+        "title": "Perfis DISC",
+        "desc": "Mapeamentos completos"
+      },
+      "simulator": {
+        "title": "Rodar simulador",
+        "desc": "Testar fluxo conversacional"
+      },
+      "newCompany": {
+        "title": "Nova empresa",
+        "desc": "Criar e onboarding de tenant"
+      },
+      "market": {
+        "title": "Mercado Potencial",
+        "desc": "TAM por município, rede e escola"
+      },
+      "companyRadar": {
+        "title": "Radar Empresas",
+        "desc": "Prospecção B2B · Receita+CAGED+RAIS"
+      },
+      "cityPotential": {
+        "title": "Potencial por Cidade",
+        "desc": "Empresas + Escolas unificado"
+      },
+      "radar": {
+        "title": "Radar (Ingestão)",
+        "desc": "Subir dados Saeb/ICA/Censo"
+      },
+      "budget": {
+        "title": "Orçamento",
+        "desc": "Custo IA, tabela, valor final"
+      },
+      "knowledge": {
+        "title": "Knowledge Base",
+        "desc": "RAG per-tenant"
+      }
     }
   },
   "AdminNewCompany": {
@@ -1178,55 +1211,16 @@
   },
   "AdminReports": {
     "title": "Relatórios",
-    "subtitle": "Individual, Gestor e RH",
-    "tabs": {
-      "manager": "Gestor",
-      "hr": "RH"
+    "subtitle": "Download de relatórios individuais",
+    "selectCompany": "Selecione uma empresa...",
+    "empty": "Nenhum relatório individual encontrado",
+    "tableTitle": "{count, plural, one {# relatório individual} other {# relatórios individuais}}",
+    "table": {
+      "collaborator": "Colaborador",
+      "date": "Data",
+      "action": "Ação"
     },
-    "actions": {
-      "pdf": "PDF",
-      "downloadPdf": "Download PDF"
-    },
-    "empty": {
-      "individual": "Nenhum relatório individual. Rode 'PDI' no pipeline.",
-      "manager": "Relatório gestor não gerado. Rode 'Gestor' no pipeline.",
-      "hr": "Relatório RH não gerado. Rode 'RH' no pipeline."
-    },
-    "sections": {
-      "generalSummary": "Resumo Geral",
-      "behaviorProfile": "Perfil Comportamental",
-      "competencies": "Competências",
-      "nextSteps": "Próximos Passos",
-      "executiveSummary": "Resumo Executivo",
-      "evolutionHighlights": "Destaques de Evolução",
-      "attentionRanking": "Ranking de Atenção",
-      "competencyAnalysis": "Análise por Competência",
-      "actions": "Ações",
-      "criticalCompetencies": "Competências Críticas",
-      "suggestedTrainings": "Treinamentos Sugeridos",
-      "keyDecisions": "Decisões-Chave",
-      "hrActionPlan": "Plano de Ação RH"
-    },
-    "labels": {
-      "attentionPoint": "Ponto de atenção",
-      "advance": "Avanço",
-      "levelShort": "N",
-      "gap": "Gap",
-      "manager": "Gestor",
-      "collaboratorsShort": "{count} colabs",
-      "average": "Média"
-    },
-    "horizons": {
-      "thisWeek": "Esta semana",
-      "nextWeeks": "Próximas semanas",
-      "shortTerm": "Curto prazo",
-      "mediumTerm": "Médio prazo",
-      "longTerm": "Longo prazo"
-    },
-    "indicators": {
-      "evaluated": "Avaliados",
-      "average": "Média"
-    }
+    "fallbackCollaborator": "Colaborador"
   },
   "AdminPhase4": {
     "title": "Fase 4 — Reavaliação",
@@ -1752,19 +1746,6 @@
       "errorCount": " ({count} erros)",
       "unexpectedError": "Erro inesperado: {error}"
     }
-  },
-  "AdminReports": {
-    "title": "Relatórios",
-    "subtitle": "Download de relatórios individuais",
-    "selectCompany": "Selecione uma empresa...",
-    "empty": "Nenhum relatório individual encontrado",
-    "tableTitle": "{count, plural, one {# relatório individual} other {# relatórios individuais}}",
-    "table": {
-      "collaborator": "Colaborador",
-      "date": "Data",
-      "action": "Ação"
-    },
-    "fallbackCollaborator": "Colaborador"
   },
   "AdminEvolution": {
     "title": "Evolução — Temporadas Concluídas",
@@ -2628,12 +2609,30 @@
     "periodShort": "{days}d",
     "previousStepRate": "{value}% da etapa anterior",
     "steps": {
-      "visits": { "label": "Visitas (humanos)", "desc": "{total} totais incluindo bots" },
-      "cta": { "label": "Cliques no CTA \"Receber PDF\"", "desc": "usuários humanos" },
-      "leads": { "label": "Leads capturados", "desc": "modal LGPD enviado" },
-      "pdfs": { "label": "PDFs prontos", "desc": "gerados e disponíveis" },
-      "contacts": { "label": "Contatos feitos", "desc": "equipe Vertho fez contato" },
-      "converted": { "label": "Convertidos", "desc": "virou conversa comercial" }
+      "visits": {
+        "label": "Visitas (humanos)",
+        "desc": "{total} totais incluindo bots"
+      },
+      "cta": {
+        "label": "Cliques no CTA \"Receber PDF\"",
+        "desc": "usuários humanos"
+      },
+      "leads": {
+        "label": "Leads capturados",
+        "desc": "modal LGPD enviado"
+      },
+      "pdfs": {
+        "label": "PDFs prontos",
+        "desc": "gerados e disponíveis"
+      },
+      "contacts": {
+        "label": "Contatos feitos",
+        "desc": "equipe Vertho fez contato"
+      },
+      "converted": {
+        "label": "Convertidos",
+        "desc": "virou conversa comercial"
+      }
     },
     "cost": {
       "total": "Custo IA acumulado",
@@ -2750,9 +2749,18 @@
     "subtitle": "Calcula custo de IA, valor de tabela, desconto e valor final em BRL.",
     "scope": {
       "title": "Escopo",
-      "clusters": { "label": "Clusters de escola", "sub": "grupos com mesmo PPP/Top 5" },
-      "profiles": { "label": "Perfis por cluster", "sub": "cargos distintos" },
-      "collaborators": { "label": "Colaboradores", "sub": "total no ciclo" },
+      "clusters": {
+        "label": "Clusters de escola",
+        "sub": "grupos com mesmo PPP/Top 5"
+      },
+      "profiles": {
+        "label": "Perfis por cluster",
+        "sub": "cargos distintos"
+      },
+      "collaborators": {
+        "label": "Colaboradores",
+        "sub": "total no ciclo"
+      },
       "mapping": "Mapeamento"
     },
     "methods": {
@@ -3405,6 +3413,88 @@
     "done": {
       "title": "Parabéns, {name}!",
       "description": "Você completou todas as avaliações de competências.<br></br>Em breve você receberá seu relatório personalizado."
+    }
+  },
+  "ManagerDashboard": {
+    "loadError": "Erro ao carregar",
+    "scopes": {
+      "rh": "RH · empresa toda",
+      "tutor": "Tutor · seus tutorados",
+      "manager": "Gestor · sua área"
+    },
+    "titles": {
+      "tutor": "Meus tutorados",
+      "team": "Minha equipe",
+      "fullEvolution": "Ver evolução completa",
+      "attentionSignals": "Sinais de atenção · {count}",
+      "weeklyAction": "Ação esta semana",
+      "teamTrack": "Equipe em trilha",
+      "profileMap": "Mapa de perfis {type}",
+      "nextWeeks": "Próximas 4 semanas"
+    },
+    "noReports": {
+      "title": "Você ainda não tem liderados vinculados",
+      "body": "O vínculo gestor → liderado é feito via campo <code>gestor_email</code> em cada colaborador. Peça ao admin da empresa pra preencher esse campo com seu e-mail nos colaboradores que você lidera (na importação ou em <em>Gerenciar colaboradores</em>). Enquanto não houver vínculo, esta tela aparece zerada por segurança — gestores não veem dados de quem não é seu liderado direto."
+    },
+    "kpis": {
+      "led": "Liderados",
+      "inTrack": "{count} em trilha · {without} sem trilha",
+      "inProgress": "Em andamento",
+      "averageWeek": "semana média {week} de 14",
+      "noActiveTrack": "sem trilha ativa",
+      "checkpoints": "Checkpoints",
+      "answered": "{count} já respondido{plural}",
+      "pending": "pendentes",
+      "weeklyActivity": "Atividade na semana",
+      "activeLastDays": "de {total} ativos nos últ. 7 dias",
+      "ofTotal": "de {total}"
+    },
+    "pendingCount": "{count} pendente{plural}",
+    "emptyAction": "Nada pendente neste momento. Quando os liderados chegarem nas semanas 5 e 10 das trilhas, checkpoints aparecerão aqui pra avaliação.",
+    "modal": {
+      "eyebrow": "Checkpoint semana {week} · avaliação",
+      "noFocus": "sem competência foco",
+      "evaluation": "Avaliação:",
+      "observation": "Observação (opcional)",
+      "observationHelp": "O que observou? (opcional, mas ajuda)",
+      "cancel": "Cancelar",
+      "confirm": "Confirmar avaliação"
+    },
+    "evaluation": {
+      "evoluindo": "Evoluindo",
+      "estagnado": "Estagnado",
+      "regredindo": "Regredindo"
+    },
+    "checkpoint": {
+      "weekShort": "sem {week}",
+      "noRole": "sem cargo",
+      "today": "hoje"
+    },
+    "filters": {
+      "all": "Todos",
+      "inProgress": "Em andamento",
+      "noTrack": "Sem trilha",
+      "completed": "Concluídas"
+    },
+    "status": {
+      "em_andamento": "em andamento",
+      "pausada": "pausada",
+      "concluida": "concluída",
+      "sem_trilha": "sem trilha",
+      "arquivada": "arquivada"
+    },
+    "team": {
+      "weekProgress": "sem {week}/14"
+    },
+    "profiles": {
+      "behavioral": "comportamentais",
+      "noProfile": "Sem perfil mapeado",
+      "discDominant": "DISC dominante"
+    },
+    "timeline": {
+      "inDays": "em {value}",
+      "today": "hoje",
+      "oneDay": "1d"
     }
   }
 }

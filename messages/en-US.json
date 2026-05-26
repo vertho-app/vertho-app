@@ -3414,5 +3414,87 @@
       "title": "Congratulations, {name}!",
       "description": "You have completed all competency assessments.<br></br>You will soon receive your personalized report."
     }
+  },
+  "ManagerDashboard": {
+    "loadError": "Error loading",
+    "scopes": {
+      "rh": "HR · whole company",
+      "tutor": "Tutor · your learners",
+      "manager": "Manager · your area"
+    },
+    "titles": {
+      "tutor": "My learners",
+      "team": "My team",
+      "fullEvolution": "View full evolution",
+      "attentionSignals": "Attention signals · {count}",
+      "weeklyAction": "Action this week",
+      "teamTrack": "Team in track",
+      "profileMap": "{type} profile map",
+      "nextWeeks": "Next 4 weeks"
+    },
+    "noReports": {
+      "title": "You do not have direct reports linked yet",
+      "body": "The manager → direct report link is set through the <code>gestor_email</code> field on each team member. Ask the company admin to fill this field with your email for the team members you lead (during import or in <em>Manage team members</em>). Until there is a link, this screen remains empty for security — managers do not see data from people who are not their direct reports."
+    },
+    "kpis": {
+      "led": "Direct reports",
+      "inTrack": "{count} in track · {without} without track",
+      "inProgress": "In progress",
+      "averageWeek": "average week {week} of 14",
+      "noActiveTrack": "no active track",
+      "checkpoints": "Checkpoints",
+      "answered": "{count} already answered",
+      "pending": "pending",
+      "weeklyActivity": "Weekly activity",
+      "activeLastDays": "of {total} active in the last 7 days",
+      "ofTotal": "of {total}"
+    },
+    "pendingCount": "{count} pending",
+    "emptyAction": "Nothing pending right now. When direct reports reach weeks 5 and 10 of their tracks, checkpoints will appear here for evaluation.",
+    "modal": {
+      "eyebrow": "Week {week} checkpoint · evaluation",
+      "noFocus": "no focus competency",
+      "evaluation": "Evaluation:",
+      "observation": "Observation (optional)",
+      "observationHelp": "What did you observe? (optional, but helpful)",
+      "cancel": "Cancel",
+      "confirm": "Confirm evaluation"
+    },
+    "evaluation": {
+      "evoluindo": "Evolving",
+      "estagnado": "Stagnated",
+      "regredindo": "Regressing"
+    },
+    "checkpoint": {
+      "weekShort": "wk {week}",
+      "noRole": "no role",
+      "today": "today"
+    },
+    "filters": {
+      "all": "All",
+      "inProgress": "In progress",
+      "noTrack": "No track",
+      "completed": "Completed"
+    },
+    "status": {
+      "em_andamento": "in progress",
+      "pausada": "paused",
+      "concluida": "completed",
+      "sem_trilha": "no track",
+      "arquivada": "archived"
+    },
+    "team": {
+      "weekProgress": "wk {week}/14"
+    },
+    "profiles": {
+      "behavioral": "behavioral",
+      "noProfile": "No profile mapped",
+      "discDominant": "Dominant DISC"
+    },
+    "timeline": {
+      "inDays": "in {value}",
+      "today": "today",
+      "oneDay": "1d"
+    }
   }
 }

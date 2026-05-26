@@ -3414,5 +3414,87 @@
     },
     "limitReached": "{limit} primeros resultados (límite alcanzado). Aumenta el \"Límite\" en el header o filtra por UF/red para refinar.",
     "footerNote": "TAM = (profs + gestores) × R$/mes configurado. Fit pedagógico = 0.4 + 0.3×(%sin posgrado) + 0.3×(%jóvenes). Score = TAM × Fit Ped × Fit Fin (dependiente de INSE). INSE INEP: 1=más bajo, 6=más alto. Privadas puntúan alto con INSE alto (mayor capacidad de pago); públicas puntúan alto con INSE bajo (mayor demanda). Valores INSE con <tilde>~</tilde> son <strong>inferidos</strong> vía Censo Escolar (proxy) para privadas sin cobertura Saeb oficial."
+  },
+  "ManagerDashboard": {
+    "loadError": "Error al cargar",
+    "scopes": {
+      "rh": "RR. HH. · toda la empresa",
+      "tutor": "Tutor · sus tutorados",
+      "manager": "Gestor · su área"
+    },
+    "titles": {
+      "tutor": "Mis tutorados",
+      "team": "Mi equipo",
+      "fullEvolution": "Ver evolución completa",
+      "attentionSignals": "Señales de atención · {count}",
+      "weeklyAction": "Acción de esta semana",
+      "teamTrack": "Equipo en ruta",
+      "profileMap": "Mapa de perfiles {type}",
+      "nextWeeks": "Próximas 4 semanas"
+    },
+    "noReports": {
+      "title": "Aún no tienes liderados vinculados",
+      "body": "El vínculo gestor → liderado se realiza mediante el campo <code>gestor_email</code> en cada colaborador. Pide al administrador de la empresa que complete ese campo con tu e-mail en los colaboradores que lideras (en la importación o en <em>Gestionar colaboradores</em>). Mientras no exista vínculo, esta pantalla aparece en cero por seguridad: los gestores no ven datos de quienes no son sus liderados directos."
+    },
+    "kpis": {
+      "led": "Liderados",
+      "inTrack": "{count} en ruta · {without} sin ruta",
+      "inProgress": "En curso",
+      "averageWeek": "semana media {week} de 14",
+      "noActiveTrack": "sin ruta activa",
+      "checkpoints": "Checkpoints",
+      "answered": "{count} ya respondido{plural}",
+      "pending": "pendientes",
+      "weeklyActivity": "Actividad semanal",
+      "activeLastDays": "de {total} activos en los últimos 7 días",
+      "ofTotal": "de {total}"
+    },
+    "pendingCount": "{count} pendiente{plural}",
+    "emptyAction": "Nada pendiente en este momento. Cuando los liderados lleguen a las semanas 5 y 10 de sus rutas, los checkpoints aparecerán aquí para evaluación.",
+    "modal": {
+      "eyebrow": "Checkpoint semana {week} · evaluación",
+      "noFocus": "sin competencia foco",
+      "evaluation": "Evaluación:",
+      "observation": "Observación (opcional)",
+      "observationHelp": "¿Qué observaste? (opcional, pero ayuda)",
+      "cancel": "Cancelar",
+      "confirm": "Confirmar evaluación"
+    },
+    "evaluation": {
+      "evoluindo": "Evolucionando",
+      "estagnado": "Estancado",
+      "regredindo": "Retrocediendo"
+    },
+    "checkpoint": {
+      "weekShort": "sem {week}",
+      "noRole": "sin cargo",
+      "today": "hoy"
+    },
+    "filters": {
+      "all": "Todos",
+      "inProgress": "En curso",
+      "noTrack": "Sin ruta",
+      "completed": "Completadas"
+    },
+    "status": {
+      "em_andamento": "en curso",
+      "pausada": "pausada",
+      "concluida": "completada",
+      "sem_trilha": "sin ruta",
+      "arquivada": "archivada"
+    },
+    "team": {
+      "weekProgress": "sem {week}/14"
+    },
+    "profiles": {
+      "behavioral": "conductuales",
+      "noProfile": "Sin perfil mapeado",
+      "discDominant": "DISC dominante"
+    },
+    "timeline": {
+      "inDays": "en {value}",
+      "today": "hoy",
+      "oneDay": "1d"
+    }
   }
 }

@@ -1,4 +1,5 @@
 import { loadAuditLog } from './actions';
+import { getLocale } from 'next-intl/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,9 +21,9 @@ const RESULTADO_COR: Record<string, string> = {
   erro: '#f87171',
 };
 
-function fmtData(iso: string) {
+function fmtData(iso: string, locale: string) {
   try {
-    return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'medium' });
+    return new Date(iso).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'medium' });
   } catch {
     return iso;
   }
@@ -34,6 +35,7 @@ export default async function AuditoriaPage({
   searchParams: Promise<{ acao?: string; empresa?: string; admin?: string }>;
 }) {
   const sp = await searchParams;
+  const locale = await getLocale();
   const { rows, acoes, empresas, error } = await loadAuditLog({
     acao: sp.acao,
     empresaId: sp.empresa,
@@ -111,7 +113,7 @@ export default async function AuditoriaPage({
               )}
               {rows.map((r) => (
                 <tr key={r.id} className="border-b border-white/[0.05] align-top hover:bg-white/[0.02]">
-                  <td className="px-3 py-2.5 whitespace-nowrap font-mono text-[12px] text-white/70">{fmtData(r.criado_em)}</td>
+                  <td className="px-3 py-2.5 whitespace-nowrap font-mono text-[12px] text-white/70">{fmtData(r.criado_em, locale)}</td>
                   <td className="px-3 py-2.5 text-white/85">{r.admin_email}</td>
                   <td className="px-3 py-2.5 whitespace-nowrap">{ACAO_LABEL[r.acao] || r.acao}</td>
                   <td className="px-3 py-2.5 text-white/70">{r.empresa_slug || (r.empresa_id ? r.empresa_id.slice(0, 8) : '—')}</td>

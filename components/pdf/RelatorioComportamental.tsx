@@ -175,7 +175,7 @@ function LeadershipPie({ data }: { data: any }) {
 // ============================================================
 // PAGE 1 — Capa + DISC intro + snapshot + síntese
 // ============================================================
-function Page1({ raw, texts }: { raw: any; texts: any }) {
+function Page1({ raw, texts, locale }: { raw: any; texts: any; locale: string }) {
   const discDesc = [
     { letter: 'D', title: 'Dominância', sub: 'Como lida com desafios', desc: 'Resultados, ação e ousadia' },
     { letter: 'I', title: 'Influência', sub: 'Como lida com pessoas', desc: 'Comunicação, entusiasmo e persuasão' },
@@ -192,7 +192,7 @@ function Page1({ raw, texts }: { raw: any; texts: any }) {
         </Text>
         <Text style={{ fontSize: 18, fontWeight: 700, color: NAVY, marginBottom: 2 }}>{raw.nome}</Text>
         <Text style={{ fontSize: 8, color: TXT_LIGHT }}>
-          Realizado em {new Date(raw.data_realizacao).toLocaleDateString('pt-BR')}
+          Realizado em {new Date(raw.data_realizacao).toLocaleDateString(locale)}
         </Text>
       </View>
 
@@ -516,13 +516,13 @@ function Page5({ raw, texts }: { raw: any; texts: any }) {
 // ============================================================
 // MAIN
 // ============================================================
-export default function RelatorioComportamentalPDF({ data }: { data: any }) {
+export default function RelatorioComportamentalPDF({ data, locale = 'pt-BR' }: { data: any; locale?: string }) {
   if (!data?.raw || !data?.texts) return null;
   const { raw, texts, arquetipo, tags, insights } = data;
   return (
     <Document title={`Relatório Comportamental — ${raw.nome}`}>
-      <PageResumoExecutivo raw={raw} arquetipo={arquetipo} tags={tags} insights={insights} />
-      <Page1 raw={raw} texts={texts} />
+      <PageResumoExecutivo raw={raw} arquetipo={arquetipo} tags={tags} insights={insights} locale={locale} />
+      <Page1 raw={raw} texts={texts} locale={locale} />
       <Page2 raw={raw} texts={texts} />
       <PageCompetenciasCompletas raw={raw} />
       <Page3 raw={raw} texts={texts} />
@@ -535,7 +535,7 @@ export default function RelatorioComportamentalPDF({ data }: { data: any }) {
 // ============================================================
 // NOVA PAGE 0 — Resumo Executivo (arquétipo + tags + insights LLM)
 // ============================================================
-function PageResumoExecutivo({ raw, arquetipo, tags, insights }: { raw: any; arquetipo?: any; tags?: any; insights?: any }) {
+function PageResumoExecutivo({ raw, arquetipo, tags, insights, locale }: { raw: any; arquetipo?: any; tags?: any; insights?: any; locale: string }) {
   return (
     <PageFrame>
       {/* Header */}
@@ -545,7 +545,7 @@ function PageResumoExecutivo({ raw, arquetipo, tags, insights }: { raw: any; arq
         </Text>
         <Text style={{ fontSize: 22, fontWeight: 700, color: NAVY, marginBottom: 2 }}>{raw.nome}</Text>
         <Text style={{ fontSize: 9, color: TXT_LIGHT }}>
-          Realizado em {new Date(raw.data_realizacao).toLocaleDateString('pt-BR')}
+          Realizado em {new Date(raw.data_realizacao).toLocaleDateString(locale)}
         </Text>
       </View>
 

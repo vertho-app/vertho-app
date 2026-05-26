@@ -202,17 +202,22 @@ function ScoreBar({ label, value }: { label: string; value: number | null }) {
   );
 }
 
-const fmtBRL = (v: number | null | undefined) =>
-  v != null ? v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }) : '—';
+const fmtBRL = (v: number | null | undefined, locale = 'pt-BR') =>
+  v != null ? v.toLocaleString(locale, { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }) : '—';
+
+const fmtNum = (v: number | null | undefined, locale = 'pt-BR') =>
+  v != null ? v.toLocaleString(locale) : '—';
 
 export default function RadarPropostaPDF({
   payload,
   logoBase64,
   destinatario,
+  locale = 'pt-BR',
 }: {
   payload: PropostaPayload;
   logoBase64?: string;
   destinatario?: { nome?: string; organizacao?: string; cargo?: string };
+  locale?: string;
 }) {
   const {
     conteudo, scopeLabel, scopeType, municipio, uf, escola,
@@ -222,7 +227,7 @@ export default function RadarPropostaPDF({
     infraSaeb, paresInse, variabilidade,
   } = payload;
   const headerLabel = `${scopeType === 'escola' ? 'Diagnóstico Escola' : 'Diagnóstico Município'} · ${scopeLabel}`;
-  const dataHoje = new Date(payload.geradoEm).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const dataHoje = new Date(payload.geradoEm).toLocaleDateString(locale, { day: '2-digit', month: 'long', year: 'numeric' });
 
   const saebTop = (saeb || []).slice(0, 8);
   const enemEscolaTop = (enemEscola || []).slice(0, 4);
@@ -326,7 +331,7 @@ export default function RadarPropostaPDF({
                 return (
                   <View key={row.ano} style={rowStyle}>
                     <Text style={{ ...s.tableCell, flex: 0.7 }}>{row.ano}</Text>
-                    <Text style={{ ...s.tableCell, flex: 1, textAlign: 'right' }}>{row.participantes_total.toLocaleString('pt-BR')}</Text>
+                    <Text style={{ ...s.tableCell, flex: 1, textAlign: 'right' }}>{fmtNum(row.participantes_total, locale)}</Text>
                     <Text style={{ ...s.tableCell, flex: 1, textAlign: 'right', fontWeight: 700, color: colors.navy }}>{row.media_geral != null ? row.media_geral.toFixed(1) : '—'}</Text>
                     <Text style={{ ...s.tableCell, flex: 1, textAlign: 'right' }}>{row.media_objetiva != null ? row.media_objetiva.toFixed(1) : '—'}</Text>
                     <Text style={{ ...s.tableCell, flex: 1, textAlign: 'right' }}>{row.media_redacao != null ? row.media_redacao.toFixed(1) : '—'}</Text>
@@ -525,7 +530,7 @@ export default function RadarPropostaPDF({
                       {row.proficiencia_media != null ? row.proficiencia_media.toFixed(0) : '—'}
                     </Text>
                     <Text style={{ ...s.tableCell, flex: 1, textAlign: 'right' }}>
-                      {row.total_alunos != null ? row.total_alunos.toLocaleString('pt-BR') : '—'}
+                      {fmtNum(row.total_alunos, locale)}
                     </Text>
                   </View>
                 );
@@ -641,8 +646,8 @@ export default function RadarPropostaPDF({
                   return (
                     <View key={row.ano} style={rowStyle}>
                       <Text style={{ ...s.tableCell, flex: 0.7 }}>{row.ano}</Text>
-                      <Text style={{ ...s.tableCell, flex: 1 }}>{row.escolasCom10.toLocaleString('pt-BR')}</Text>
-                      <Text style={{ ...s.tableCell, flex: 1, textAlign: 'right' }}>{row.participantesTotalCom10.toLocaleString('pt-BR')}</Text>
+                      <Text style={{ ...s.tableCell, flex: 1 }}>{fmtNum(row.escolasCom10, locale)}</Text>
+                      <Text style={{ ...s.tableCell, flex: 1, textAlign: 'right' }}>{fmtNum(row.participantesTotalCom10, locale)}</Text>
                       <Text style={{ ...s.tableCell, flex: 1, textAlign: 'right', fontWeight: 700, color: colors.navy }}>{row.mediaGeralPonderada != null ? row.mediaGeralPonderada.toFixed(1) : '—'}</Text>
                       <Text style={{ ...s.tableCell, flex: 1, textAlign: 'right' }}>{row.mediaRedacaoPonderada != null ? row.mediaRedacaoPonderada.toFixed(1) : '—'}</Text>
                     </View>
@@ -688,10 +693,10 @@ export default function RadarPropostaPDF({
                     <View key={row.ano} style={rowStyle}>
                       <Text style={{ ...s.tableCell, flex: 0.7 }}>{row.ano}</Text>
                       <Text style={{ ...s.tableCell, flex: 1.5, textAlign: 'right', fontWeight: 700, color: colors.navy }}>
-                        {fmtBRL(row.total_repasse_bruto)}
+                        {fmtBRL(row.total_repasse_bruto, locale)}
                       </Text>
                       <Text style={{ ...s.tableCell, flex: 1.2, textAlign: 'right' }}>
-                        {row.valor_aluno_ano != null ? fmtBRL(row.valor_aluno_ano) : '—'}
+                        {fmtBRL(row.valor_aluno_ano, locale)}
                       </Text>
                     </View>
                   );
@@ -711,7 +716,7 @@ export default function RadarPropostaPDF({
                   ? 'A rede atende aos critérios da União para receber a parcela do FUNDEB vinculada a resultados pedagógicos.'
                   : 'A rede ainda não atende aos critérios para a parcela vinculada a resultados; oportunidade de mobilização pedagógica.'}
                 {receitaPrevista?.total_receita_prevista != null && (
-                  <> Receita FUNDEB prevista para {receitaPrevista.ano}: {fmtBRL(receitaPrevista.total_receita_prevista)}.</>
+                  <> Receita FUNDEB prevista para {receitaPrevista.ano}: {fmtBRL(receitaPrevista.total_receita_prevista, locale)}.</>
                 )}
               </Text>
             </View>
@@ -732,10 +737,10 @@ export default function RadarPropostaPDF({
                     <View key={row.ano} style={rowStyle}>
                       <Text style={{ ...s.tableCell, flex: 0.7 }}>{row.ano}</Text>
                       <Text style={{ ...s.tableCell, flex: 1.5, textAlign: 'right', fontWeight: 700, color: colors.navy }}>
-                        {fmtBRL(row.valor_recebido)}
+                        {fmtBRL(row.valor_recebido, locale)}
                       </Text>
                       <Text style={{ ...s.tableCell, flex: 1.5, textAlign: 'right' }}>
-                        {fmtBRL(row.saldo_atual)}
+                        {fmtBRL(row.saldo_atual, locale)}
                       </Text>
                     </View>
                   );
@@ -759,10 +764,10 @@ export default function RadarPropostaPDF({
                     <View key={row.ano} style={rowStyle}>
                       <Text style={{ ...s.tableCell, flex: 0.7 }}>{row.ano}</Text>
                       <Text style={{ ...s.tableCell, flex: 1.5, textAlign: 'right', fontWeight: 700, color: colors.navy }}>
-                        {fmtBRL(row.total_repasse)}
+                        {fmtBRL(row.total_repasse, locale)}
                       </Text>
                       <Text style={{ ...s.tableCell, flex: 1.5, textAlign: 'right' }}>
-                        {row.total_escolas_atendidas != null ? row.total_escolas_atendidas.toLocaleString('pt-BR') : '—'}
+                        {fmtNum(row.total_escolas_atendidas, locale)}
                       </Text>
                     </View>
                   );

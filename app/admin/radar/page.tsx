@@ -158,7 +158,7 @@ export default function AdminRadarPage() {
         const res: any = r.result;
         addLog(`FUNDEB Receita OK: ${res.totalSucesso} entes (ano ${res.ano}), ${res.totalFalha} erros, ${res.totalSkipped} skipped`);
         if (typeof res.totalVaar === 'number' && res.totalVaar > 0) {
-          addLog(`  ↳ total VAAR distribuído: R$ ${res.totalVaar.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`);
+          addLog(`  ↳ total VAAR distribuído: R$ ${res.totalVaar.toLocaleString(locale, { maximumFractionDigits: 0 })}`);
         }
         for (const err of (res.erros || []).slice(0, 3)) addLog(`  ↳ ${err.key}: ${err.msg}`);
       } else addLog(`FUNDEB Receita ERRO: ${r.error}`);

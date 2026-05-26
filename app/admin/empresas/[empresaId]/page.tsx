@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 
-function fmt(n: any) { return (n ?? 0).toLocaleString('pt-BR'); }
+function fmt(n: any, locale: string) { return (n ?? 0).toLocaleString(locale); }
 
 import { getCustomLabel, isHidden } from '@/lib/ui-resolver';
 import {
@@ -141,6 +141,7 @@ const serif: React.CSSProperties = {
 
 export default function EmpresaPipelinePage({ params }: { params: Promise<{ empresaId: string }> }) {
   const t = useTranslations('AdminCompanyPipeline');
+  const locale = useLocale();
   const { empresaId } = use(params);
   const router = useRouter();
 
@@ -490,7 +491,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
             ].map(k => (
               <div key={k.lbl} className="text-right">
                 <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 20, fontWeight: 700, color: '#fff', lineHeight: 1, letterSpacing: '-.02em' }}>
-                  {fmt(k.val)}
+                  {fmt(k.val, locale)}
                 </div>
                 <div style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,.35)', marginTop: 3 }}>
                   {k.lbl}
@@ -552,8 +553,8 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                         <div className="flex items-center gap-3">
                           {fase.metricas.map((m: any, i: number) => (
                             <span key={i} style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 10, color: 'rgba(255,255,255,.38)' }}>
-                              {m.label}: <b style={{ color: 'rgba(255,255,255,.72)', fontWeight: 600 }}>{fmt(m.valor)}</b>
-                              {m.total !== undefined && <span style={{ color: 'rgba(255,255,255,.25)' }}>/{fmt(m.total)}</span>}
+                              {m.label}: <b style={{ color: 'rgba(255,255,255,.72)', fontWeight: 600 }}>{fmt(m.valor, locale)}</b>
+                              {m.total !== undefined && <span style={{ color: 'rgba(255,255,255,.25)' }}>/{fmt(m.total, locale)}</span>}
                             </span>
                           ))}
                         </div>
@@ -713,7 +714,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                       style={{ background: row.color, boxShadow: row.color !== 'rgba(255,255,255,.2)' ? `0 0 5px ${row.color}` : 'none' }} />
                     <span className="text-[12.5px] font-medium text-white flex-1">{row.label}</span>
                     <span style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 11.5, color: 'rgba(255,255,255,.5)' }}>
-                      {row.val != null ? <><b style={{ color: '#fff' }}>{fmt(row.val)}</b>{row.total ? ` / ${fmt(row.total)}` : ''}</> : '—'}
+                      {row.val != null ? <><b style={{ color: '#fff' }}>{fmt(row.val, locale)}</b>{row.total ? ` / ${fmt(row.total, locale)}` : ''}</> : '—'}
                     </span>
                   </div>
                 ))}
@@ -735,7 +736,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                   {logs.map((l: any) => (
                     <div key={l.id || l.ts} className="flex gap-2 px-3 py-1.5 border-b border-white/[0.03]">
                       <span style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 9.5, color: 'rgba(255,255,255,.3)', flexShrink: 0, paddingTop: 1 }}>
-                        {new Date(l.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        {new Date(l.ts).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                       </span>
                       <span style={{
                         fontFamily: 'var(--font-mono, monospace)', fontSize: 11,

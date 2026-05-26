@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import ReactMarkdown from 'react-markdown';
 import {
   ArrowLeft, Loader2, Bot, ChevronDown, CheckCircle, AlertTriangle,
@@ -183,6 +183,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
   const router = useRouter();
   const searchParams = useSearchParams();
   const tr = useTranslations('AdminPhase2');
+  const locale = useLocale();
 
   const [tab, setTab] = useState(searchParams.get('tab') || 'diagnostico');
   const [respostas, setRespostas] = useState([]);
@@ -689,7 +690,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                               </div>
                             )}
                             <p className="text-[9px] text-gray-600 pt-1">
-                              Revisado em {new Date(avaliacao._revisao.revisado_em).toLocaleDateString('pt-BR')}
+                              Revisado em {new Date(avaliacao._revisao.revisado_em).toLocaleDateString(locale)}
                             </p>
                           </div>
                         </div>

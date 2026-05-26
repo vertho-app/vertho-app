@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { ArrowLeft, Loader2, Brain, Search, Download, FileText, CheckCircle2, Clock, Users, Sparkles } from 'lucide-react';
 import { loadPerfisComportamentaisEmpresa } from '@/actions/admin-perfis';
 import { baixarRelatorioComportamentalPdfPorId } from '@/app/dashboard/perfil-comportamental/relatorio/relatorio-actions';
@@ -12,13 +12,14 @@ type Filtro = 'todos' | 'completos' | 'pendentes';
 const DISC_COLORS: Record<string, string> = { D: '#EAB308', I: '#94A3B8', S: '#10B981', C: '#3B82F6' };
 const DISC_LABELS: Record<string, string> = { D: 'Dominância', I: 'Influência', S: 'Estabilidade', C: 'Conformidade' };
 
-function fmtDate(iso: string | null) {
+function fmtDate(iso: string | null, locale: string) {
   if (!iso) return '—';
-  try { return new Date(iso).toLocaleDateString('pt-BR'); } catch { return iso; }
+  try { return new Date(iso).toLocaleDateString(locale); } catch { return iso; }
 }
 
 export default function PerfisComportamentaisPage({ params }: { params: Promise<{ empresaId: string }> }) {
   const t = useTranslations('AdminBehaviorProfiles');
+  const locale = useLocale();
   const { empresaId } = use(params);
   const router = useRouter();
 
@@ -130,7 +131,7 @@ export default function PerfisComportamentaisPage({ params }: { params: Promise<
       ) : (
         <div className="space-y-2">
           {filtrados.map((p) => (
-            <PerfilCard key={p.id} p={p} onBaixar={handleBaixarPdf} baixando={baixando === p.id} />
+            <PerfilCard key={p.id} p={p} onBaixar={handleBaixarPdf} baixando={baixando === p.id} locale={locale} />
           ))}
         </div>
       )}
@@ -150,7 +151,7 @@ function StatCard({ icon, label, value, tone }: { icon: React.ReactNode; label: 
   );
 }
 
-function PerfilCard({ p, onBaixar, baixando }: { p: any; onBaixar: (id: string) => void; baixando: boolean }) {
+function PerfilCard({ p, onBaixar, baixando, locale }: { p: any; onBaixar: (id: string) => void; baixando: boolean; locale: string }) {
   const t = useTranslations('AdminBehaviorProfiles');
   return (
     <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
@@ -223,9 +224,9 @@ function PerfilCard({ p, onBaixar, baixando }: { p: any; onBaixar: (id: string) 
                 {baixando ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
                 {t('downloadPdf')}
               </button>
-              <p className="text-[9px] text-gray-600 mt-1">{t('mappedAt', { date: fmtDate(p.mapeamentoEm) })}</p>
+              <p className="text-[9px] text-gray-600 mt-1">{t('mappedAt', { date: fmtDate(p.mapeamentoEm, locale) })}</p>
               {p.relatorioCacheEm && (
-                <p className="text-[9px] text-gray-600">{t('llmTextsAt', { date: fmtDate(p.relatorioCacheEm) })}</p>
+                <p className="text-[9px] text-gray-600">{t('llmTextsAt', { date: fmtDate(p.relatorioCacheEm, locale) })}</p>
               )}
             </div>
           </>

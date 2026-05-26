@@ -10,8 +10,8 @@ import { pageStyles, colors } from './styles';
  * @param {string} [props.title] - Optional document title (metadata)
  * @param {React.ReactNode} props.children - Page content
  */
-export default function RelatorioTemplate({ title, children }: { title?: string; children: React.ReactNode }) {
-  const today = new Date().toLocaleDateString('pt-BR', {
+export default function RelatorioTemplate({ title, children, locale = 'pt-BR' }: { title?: string; children: React.ReactNode; locale?: string }) {
+  const today = new Date().toLocaleDateString(locale, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',

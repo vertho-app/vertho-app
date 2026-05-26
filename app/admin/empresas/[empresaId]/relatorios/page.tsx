@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   ArrowLeft, Loader2, FileText, User, Users, Building2, ChevronDown,
   Target, AlertTriangle, CheckCircle, TrendingUp, Download
@@ -138,6 +138,7 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
   const { empresaId } = use(params);
   const router = useRouter();
   const t = useTranslations('AdminReports');
+  const locale = useLocale();
 
   const [data, setData] = useState({ individuais: [], gestores: [], gestor: null, rh: null });
   const [loading, setLoading] = useState(true);
@@ -209,7 +210,7 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                       className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all">
                       <Download size={10} /> {t('actions.pdf')}
                     </a>
-                    <span className="text-[9px] text-gray-600">{new Date(rel.gerado_em).toLocaleDateString('pt-BR')}</span>
+                    <span className="text-[9px] text-gray-600">{new Date(rel.gerado_em).toLocaleDateString(locale)}</span>
                     <ChevronDown size={14} className={`text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                   </div>
                 </button>

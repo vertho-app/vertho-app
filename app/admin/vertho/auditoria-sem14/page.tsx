@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { ArrowLeft, Loader2, ShieldCheck, AlertTriangle, CheckCircle2, ChevronRight, X } from 'lucide-react';
 import { listarAuditoriasSem14, loadAuditoriaSem14Detalhe, regerarScoringComFeedback } from './actions';
@@ -16,6 +16,7 @@ const STATUS_COR = {
 export default function AuditoriaSem14Page() {
   const router = useRouter();
   const t = useTranslations('AdminWeek14Audit');
+  const locale = useLocale();
   const sb = getSupabase();
   const [rows, setRows] = useState([]);
   const [resumo, setResumo] = useState(null);
@@ -150,6 +151,7 @@ export default function AuditoriaSem14Page() {
           onClose={() => { setDetalheId(null); setDetalhe(null); }}
           onRevisado={async () => { await carregar(); if (detalheId) await abrirDetalhe(detalheId); }}
           t={t}
+          locale={locale}
         />
       )}
     </div>
@@ -182,7 +184,7 @@ function BotaoRegerar({ progressoId, onRevisado, t }) {
   );
 }
 
-function DetalheModal({ detalhe, loading, onClose, onRevisado, t }) {
+function DetalheModal({ detalhe, loading, onClose, onRevisado, t, locale }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto"
       onClick={onClose}>
@@ -303,7 +305,7 @@ function DetalheModal({ detalhe, loading, onClose, onRevisado, t }) {
                     <BotaoRegerar progressoId={detalhe.id} onRevisado={onRevisado} t={t} />
                   )}
                   {detalhe.auditoria.regerado_com_feedback && (
-                    <p className="text-[10px] text-gray-500 mt-2 italic">Regenerada com feedback da auditoria em {new Date(detalhe.auditoria.regerado_em || '').toLocaleString('pt-BR')}</p>
+                    <p className="text-[10px] text-gray-500 mt-2 italic">Regenerada com feedback da auditoria em {new Date(detalhe.auditoria.regerado_em || '').toLocaleString(locale)}</p>
                   )}
                 </div>
               </section>
