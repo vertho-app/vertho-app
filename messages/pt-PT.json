@@ -2336,7 +2336,8 @@
       "statusTitle": "Status da empresa",
       "responses": "Respostas",
       "ia4Reviews": "Avaliações IA4",
-      "seasons": "Temporadas"
+      "seasons": "Temporadas",
+      "pdis": "PDIs"
     },
     "danger": {
       "advancedSettings": "Configurações avançadas",
@@ -2375,6 +2376,32 @@
       "run": "Executar",
       "selectModel": "Selecione o modelo de IA",
       "cancel": "Cancelar"
+    },
+    "feedback": {
+      "back": "Voltar",
+      "actionNotFound": "Ação \"{action}\" não encontrada",
+      "completed": "{label} concluído",
+      "unknownError": "Erro desconhecido",
+      "cancelLog": "Cancelado",
+      "sidePdis": "PDIs",
+      "existingTracksConfirm": "Já existem {count} trilha(s). Regenerar? Continuar?",
+      "focusLoaded": "Competências foco carregadas ({count} cargos)",
+      "focusLoadError": "Erro ao carregar",
+      "reportsQueue": "{count} relatórios para gerar",
+      "generatingReport": "[{current}/{total}] A gerar relatório...",
+      "reportsDone": "Relatórios: {ok} gerados{errors}",
+      "noPendingReports": "Nenhum relatório pendente",
+      "confirms": {
+        "simular-disc": "Simular Mapeamento DISC vai PREENCHER todos os colaboradores que ainda não têm perfil com dados aleatórios.\n\nOs perfis simulados podem ser identificados depois (origem=\"simulado\"), mas isto bloqueia o mapeamento real até serem limpos manualmente.\n\nEsta ação só deve ser usada em ambientes de teste/demo. Confirma?",
+        "simular": "Simular Respostas vai GERAR respostas falsas (com IA) para todos os cenários pendentes de todos os colaboradores.\n\nIsto polui o diagnóstico real e consome créditos de IA. Use só em ambiente de teste/demo.\n\nConfirma?",
+        "temporadas": "Gerar Temporadas vai criar 14 SEMANAS de conteúdo para TODOS os colaboradores da empresa.\n\nOperação cara (IA) e demorada. Se já houver trilhos, serão regenerados. Confirma?",
+        "rel-ind": "Gerar PDI vai produzir relatórios individuais para TODOS os colaboradores pendentes.\n\nOperação cara (IA), demorada e sobrescreve relatórios anteriores. Confirma?",
+        "cenarios-b": "Cenários B + Check vai GERAR a 2.ª rodada de cenários para TODOS os colaboradores.\n\nOperação cara (IA), demorada e sobrescreve cenários B anteriores. Confirma?",
+        "evolucao": "Evolução vai GERAR relatórios de fusão (3 fontes) para TODOS os colaboradores.\n\nOperação cara (IA) e sobrescreve relatórios anteriores. Confirma?",
+        "plenaria": "Plenária Evolução vai GERAR o relatório agregado para a empresa toda.\n\nOperação cara (IA) e sobrescreve a plenária anterior. Confirma?",
+        "rh-links": "Enviar Links de Perfil vai DISPARAR mensagens (WhatsApp/email) para todos os colaboradores que ainda não acederam ao perfil externo.\n\nAs mensagens não podem ser anuladas. Confirma?",
+        "rh-dossie": "Gerar Dossiê do Gestor vai PRODUZIR um documento agregado para a empresa toda.\n\nOperação cara (IA) e sobrescreve o dossiê anterior. Confirma?"
+      }
     }
   },
   "AdminCollaborators": {

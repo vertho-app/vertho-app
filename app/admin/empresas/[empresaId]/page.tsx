@@ -209,36 +209,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
   // ── handleAction — INALTERADO ──────────────────────────────────────────
   async function handleAction(actionKey: string, label: string, aiConfig?: any) {
     // Confirmação extra pra ações destrutivas / massivas em lote
-    const DANGEROUS_CONFIRMS: Record<string, string> = {
-      'simular-disc':
-        'Simular Mapeamento DISC vai POPULAR todos os colaboradores que ainda não têm perfil com dados aleatórios.\n\n' +
-        'Os perfis simulados podem ser identificados depois (origem="simulado"), mas isso bloqueia o mapeamento real até serem zerados manualmente.\n\n' +
-        'Esta ação só deve ser usada em ambientes de teste/demo. Confirma?',
-      'simular':
-        'Simular Respostas vai GERAR respostas fake (com IA) pra todos os cenários pendentes de todos os colaboradores.\n\n' +
-        'Isso polui o diagnóstico real e consome créditos de IA. Use só em ambiente de teste/demo.\n\nConfirma?',
-      'temporadas':
-        'Gerar Temporadas vai criar 14 SEMANAS de conteúdo pra TODOS os colaboradores da empresa.\n\n' +
-        'Operação cara (IA) e demorada. Se já houver trilhas, serão regeneradas. Confirma?',
-      'rel-ind':
-        'Gerar PDI vai produzir relatórios individuais pra TODOS os colaboradores pendentes.\n\n' +
-        'Operação cara (IA), demorada e sobrescreve relatórios anteriores. Confirma?',
-      'cenarios-b':
-        'Cenários B + Check vai GERAR a 2ª rodada de cenários pra TODOS os colaboradores.\n\n' +
-        'Operação cara (IA), demorada e sobrescreve cenários B anteriores. Confirma?',
-      'evolucao':
-        'Evolução vai GERAR relatórios de fusão (3 fontes) pra TODOS os colaboradores.\n\n' +
-        'Operação cara (IA) e sobrescreve relatórios anteriores. Confirma?',
-      'plenaria':
-        'Plenária Evolução vai GERAR o relatório agregado pra empresa toda.\n\n' +
-        'Operação cara (IA) e sobrescreve a plenária anterior. Confirma?',
-      'rh-links':
-        'Enviar Links de Perfil vai DISPARAR mensagens (WhatsApp/email) pra todos os colaboradores que ainda não acessaram o perfil externo.\n\n' +
-        'Mensagens não podem ser "desenviadas". Confirma?',
-      'rh-dossie':
-        'Gerar Dossiê do Gestor vai PRODUZIR um documento agregado pra empresa toda.\n\n' +
-        'Operação cara (IA) e sobrescreve o dossiê anterior. Confirma?',
-    };
+    const DANGEROUS_CONFIRMS = t.raw('feedback.confirms') as Record<string, string>;
     if (DANGEROUS_CONFIRMS[actionKey]) {
       if (!window.confirm(DANGEROUS_CONFIRMS[actionKey])) return;
     }
@@ -250,21 +221,21 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
     try {
       if (actionKey === 'foco') {
         const r = await loadCompetenciasFoco(empresaId);
-        if (r.success) { setFocoData(r.data || []); addLog(`Competências foco carregadas (${(r.data || []).length} cargos)`, 'info'); }
-        else addLog(`❌ ${r.error || 'Erro ao carregar'}`, 'error');
+        if (r.success) { setFocoData(r.data || []); addLog(t('feedback.focusLoaded', { count: (r.data || []).length }), 'info'); }
+        else addLog(`❌ ${r.error || t('feedback.focusLoadError')}`, 'error');
         setPendingAction(null); return;
       }
       if (actionKey === 'rel-ind') {
         const fila = await gerarRelatoriosIndividuaisLote(empresaId);
-        if (!fila?.success || !fila.data?.length) { addLog(`${fila?.message || fila?.error || 'Nenhum relatório pendente'}`, fila?.success ? 'success' : 'error'); setPendingAction(null); return; }
-        addLog(`📋 ${fila.data.length} relatórios para gerar`, 'info');
+        if (!fila?.success || !fila.data?.length) { addLog(`${fila?.message || fila?.error || t('feedback.noPendingReports')}`, fila?.success ? 'success' : 'error'); setPendingAction(null); return; }
+        addLog(`📋 ${t('feedback.reportsQueue', { count: fila.data.length })}`, 'info');
         let ok = 0, erros = 0;
         for (let i = 0; i < fila.data.length; i++) {
-          addLog(`⏳ [${i + 1}/${fila.data.length}] Gerando relatório...`, 'info');
+          addLog(`⏳ ${t('feedback.generatingReport', { current: i + 1, total: fila.data.length })}`, 'info');
           const r = await gerarRelatorioIndividual(empresaId, fila.data[i], aiConfig || undefined);
           if (r.success) { ok++; addLog(`✅ ${r.message}`, 'success'); } else { erros++; addLog(`⚠ ${r.error}`, 'error'); }
         }
-        addLog(`✅ Relatórios: ${ok} gerados${erros ? `, ${erros} erros` : ''}`, 'success');
+        addLog(`✅ ${t('feedback.reportsDone', { ok, errors: erros ? `, ${erros} erros` : '' })}`, 'success');
         setPendingAction(null); return;
       }
       if (actionKey === 'ia4') {
@@ -326,7 +297,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         const r = await listarColabsParaTrilha(empresaId);
         const colabs = r?.colabs || [];
         if (!colabs.length) { addLog('Nenhum colaborador encontrado', 'error'); setPendingAction(null); return; }
-        if (r?.trilhasExistentes > 0 && !window.confirm(`Já existem ${r.trilhasExistentes} trilha(s). Regenerar? Continuar?`)) { addLog('Cancelado', 'info'); setPendingAction(null); return; }
+        if (r?.trilhasExistentes > 0 && !window.confirm(t('feedback.existingTracksConfirm', { count: r.trilhasExistentes }))) { addLog(t('feedback.cancelLog'), 'info'); setPendingAction(null); return; }
         addLog(`📋 Gerando temporada para ${colabs.length} colab(s)`, 'info');
         let ok = 0, erros = 0;
         for (let i = 0; i < colabs.length; i++) {
@@ -338,10 +309,10 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         addLog(`🎉 Lote: ${ok}/${colabs.length}${erros ? ` (${erros} erros)` : ''}`, ok === colabs.length ? 'success' : 'info');
         loadData(); setPendingAction(null); return;
       }
-      if (!fn) { addLog(`Ação "${actionKey}" não encontrada`, 'error'); setPendingAction(null); return; }
+      if (!fn) { addLog(t('feedback.actionNotFound', { action: actionKey }), 'error'); setPendingAction(null); return; }
       const result = await fn(empresaId, aiConfig || undefined);
-      if (result?.success) { addLog(`✅ ${result.message || label + ' concluído'}`, 'success'); loadData(); if (actionKey === 'ia1' || actionKey === 'ia2') refreshTop10(); }
-      else addLog(`❌ ${result?.error || 'Erro desconhecido'}`, 'error');
+      if (result?.success) { addLog(`✅ ${result.message || t('feedback.completed', { label })}`, 'success'); loadData(); if (actionKey === 'ia1' || actionKey === 'ia2') refreshTop10(); }
+      else addLog(`❌ ${result?.error || t('feedback.unknownError')}`, 'error');
     } catch (e: any) { addLog(`❌ ${e.message}`, 'error'); }
     setPendingAction(null);
   }
@@ -363,7 +334,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
       <div className="text-center">
         <AlertTriangle size={36} className="text-red-400 mx-auto mb-3" />
         <p className="text-sm text-red-400">{error}</p>
-        <button onClick={() => router.push('/admin/dashboard')} className="mt-4 text-xs text-cyan-400 hover:underline">Voltar</button>
+        <button onClick={() => router.push('/admin/dashboard')} className="mt-4 text-xs text-cyan-400 hover:underline">{t('feedback.back')}</button>
       </div>
     </div>
   );
@@ -706,7 +677,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                 {[
                   { label: t('side.responses'),    color: '#2ECC71', val: fases.find((f: any) => f.num === 2)?.metricas?.find((m: any) => m.label === 'Respostas')?.valor, total: totalColab },
                   { label: t('side.ia4Reviews'), color: '#34c5cc', val: null },
-                  { label: 'PDIs',         color: '#F4B740', val: null },
+                  { label: t('side.pdis'), color: '#F4B740', val: null },
                   { label: t('side.seasons'),   color: 'rgba(255,255,255,.2)', val: null },
                 ].map(row => (
                   <div key={row.label} className="flex items-center gap-2.5 px-4 py-2.5 transition-colors hover:bg-white/[0.025]">

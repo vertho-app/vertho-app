@@ -2336,7 +2336,8 @@
       "statusTitle": "Company status",
       "responses": "Answers",
       "ia4Reviews": "IA4 Reviews",
-      "seasons": "Seasons"
+      "seasons": "Seasons",
+      "pdis": "PDIs"
     },
     "danger": {
       "advancedSettings": "Advanced Settings",
@@ -2375,6 +2376,32 @@
       "run": "Run",
       "selectModel": "Select AI model",
       "cancel": "Cancel"
+    },
+    "feedback": {
+      "back": "Back",
+      "actionNotFound": "Action \"{action}\" not found",
+      "completed": "{label} completed",
+      "unknownError": "Unknown error",
+      "cancelLog": "Canceled",
+      "sidePdis": "PDIs",
+      "existingTracksConfirm": "{count} track(s) already exist. Regenerate? Continue?",
+      "focusLoaded": "Focus competencies loaded ({count} roles)",
+      "focusLoadError": "Error loading",
+      "reportsQueue": "{count} reports to generate",
+      "generatingReport": "[{current}/{total}] Generating report...",
+      "reportsDone": "Reports: {ok} generated{errors}",
+      "noPendingReports": "No pending reports",
+      "confirms": {
+        "simular-disc": "Simulate DISC Mapping will POPULATE every collaborator that does not yet have a profile with random data.\n\nSimulated profiles can be identified later (source=\"simulado\"), but this blocks the real mapping until they are manually cleared.\n\nUse this only in test/demo environments. Confirm?",
+        "simular": "Simulate Answers will GENERATE fake AI answers for every pending scenario of every collaborator.\n\nThis pollutes the real diagnosis and consumes AI credits. Use only in test/demo.\n\nConfirm?",
+        "temporadas": "Generate Seasons will create 14 WEEKS of content for EVERY company collaborator.\n\nExpensive (AI) and slow operation. Existing tracks will be regenerated. Confirm?",
+        "rel-ind": "Generate PDI will produce individual reports for EVERY pending collaborator.\n\nExpensive (AI), slow operation and overwrites previous reports. Confirm?",
+        "cenarios-b": "Scenarios B + Check will GENERATE the second scenario round for EVERY collaborator.\n\nExpensive (AI), slow operation and overwrites previous B scenarios. Confirm?",
+        "evolucao": "Evolution will GENERATE 3-source fusion reports for EVERY collaborator.\n\nExpensive (AI) operation and overwrites previous reports. Confirm?",
+        "plenaria": "Evolution Plenary will GENERATE the aggregated report for the whole company.\n\nExpensive (AI) operation and overwrites the previous plenary. Confirm?",
+        "rh-links": "Send Profile Links will SEND messages (WhatsApp/email) to every collaborator who has not accessed the external profile yet.\n\nMessages cannot be unsent. Confirm?",
+        "rh-dossie": "Generate Manager Dossier will PRODUCE an aggregated document for the whole company.\n\nExpensive (AI) operation and overwrites the previous dossier. Confirm?"
+      }
     }
   },
   "AdminCollaborators": {
