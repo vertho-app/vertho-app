@@ -5,6 +5,7 @@ import { validateWhatsAppBR } from '@/lib/phone';
 import { issueOtp } from '@/lib/phone-otp';
 import { resolveAppLocale } from '@/lib/i18n';
 import { otpWhatsapp } from '@/lib/i18n-auth-templates';
+import { authLimiter } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,11 @@ export const dynamic = 'force-dynamic';
  * (anti-enumeração). Só erros de rate-limit/validação são surfaçados.
  */
 export async function POST(req: NextRequest) {
+  // Rate limit por IP — complementa o limite por-telefone do banco (que um
+  // atacante contornaria variando o número), barrando flood de SMS/WhatsApp.
+  const limited = authLimiter.check(req);
+  if (limited) return limited;
+
   try {
     const { telefone, locale: bodyLocale } = await req.json();
     const locale = resolveAppLocale(bodyLocale, req.cookies.get('vertho-locale')?.value);

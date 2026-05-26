@@ -11,7 +11,11 @@ async function verifyQStashSignature(req, body) {
   const nextKey = process.env.QSTASH_NEXT_SIGNING_KEY;
 
   if (!currentKey || !nextKey) {
-    console.warn('[qstash/whatsapp-cis] Signing keys não configuradas, pulando verificação');
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[qstash/whatsapp-cis] FAIL-CLOSED: signing keys ausentes em produção');
+      return false;
+    }
+    console.warn('[qstash/whatsapp-cis] dev/preview sem signing keys — pulando verificação');
     return true;
   }
 
@@ -56,9 +60,9 @@ export async function POST(req) {
     let phone = telefone.replace(/\D/g, '');
     if (phone.length <= 11) phone = `55${phone}`;
 
-    // Log de diagnóstico: shape das envs (sem expor valores)
+    // Log de diagnóstico: shape das envs (sem expor valores nem PII completa)
     console.log(
-      `[qstash/whatsapp-cis] phone=${phone} inst.len=${instanceId.length} tok.len=${token.length} cli.len=${clientToken.length}`,
+      `[qstash/whatsapp-cis] phone=***${phone.slice(-4)} inst.len=${instanceId.length} tok.len=${token.length} cli.len=${clientToken.length}`,
     );
 
     const res = await fetch(`https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`, {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getTenantSlug } from '@/lib/tenant-resolver';
+import { authLimiter } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,10 @@ export const dynamic = 'force-dynamic';
  * em subdomínios de tenant (ex: bett.vertho.ai).
  */
 export async function POST(req: NextRequest) {
+  // Rate limit por IP — endpoint que revela existência de email (enumeração).
+  const limited = authLimiter.check(req);
+  if (limited) return limited;
+
   try {
     const { email } = await req.json();
     if (!email || typeof email !== 'string') {

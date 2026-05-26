@@ -1,6 +1,14 @@
 {
   "description": "Arquivos autorizados a usar createSupabaseAdmin(). Inclui contagem esperada por arquivo. Qualquer uso novo fora desta lista falha no CI.",
   "allowlist": {
+    "app/admin/auditoria/actions.ts": 1,
+    "app/admin/permissoes/actions.ts": 2,
+    "app/api/auth/phone-otp/request/route.ts": 1,
+    "app/api/auth/phone-otp/verify/route.ts": 1,
+    "app/api/me/route.ts": 1,
+    "lib/audit.ts": 1,
+    "lib/i18n-server.ts": 2,
+    "lib/permissions.ts": 1,
     "actions/avaliacao-acumulada.ts": 1,
     "actions/backup.ts": 1,
     "actions/conteudos-metrics.ts": 1,
@@ -47,7 +55,7 @@
     "app/dashboard/gestor/equipe-evolucao/actions.ts": 4,
     "app/dashboard/jornada/jornada-actions.ts": 1,
     "app/dashboard/pdi/pdi-actions.ts": 2,
-    "app/dashboard/perfil/perfil-actions.ts": 4,
+    "app/dashboard/perfil/perfil-actions.ts": 5,
     "app/dashboard/perfil-comportamental/mapeamento/mapeamento-actions.ts": 2,
     "app/dashboard/perfil-comportamental/perfil-comportamental-actions.ts": 2,
     "app/dashboard/perfil-comportamental/relatorio/relatorio-actions.ts": 5,

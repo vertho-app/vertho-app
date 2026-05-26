@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { getTenantSlug } from '@/lib/tenant-resolver';
 import { validateWhatsAppBR } from '@/lib/phone';
 import { checkOtp, proxyEmailFromPhone, isProxyEmail } from '@/lib/phone-otp';
+import { authLimiter } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,11 @@ export const dynamic = 'force-dynamic';
  * Body: { telefone, code, redirectTo } — tenant via header x-tenant-slug.
  */
 export async function POST(req: NextRequest) {
+  // Rate limit por IP — barra brute-force do código OTP (complementa o limite
+  // de 5 tentativas por código no banco).
+  const limited = authLimiter.check(req);
+  if (limited) return limited;
+
   try {
     const { telefone, code, redirectTo } = await req.json();
 

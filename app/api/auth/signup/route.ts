@@ -6,6 +6,7 @@ import { APP_URL, EMAIL_FROM_DEFAULT } from '@/lib/domain';
 import { validateWhatsAppBR } from '@/lib/phone';
 import { resolveAppLocale } from '@/lib/i18n';
 import { signupEmail, signupWhatsapp } from '@/lib/i18n-auth-templates';
+import { authLimiter } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,6 +52,10 @@ function emailHtml({ nome, empresaNome, link }: { nome: string; empresaNome: str
  * (WhatsApp) — mesma lógica do /api/auth/magic-link.
  */
 export async function POST(req: NextRequest) {
+  // Rate limit por IP — cria colaborador e dispara email/WhatsApp (custo + abuso).
+  const limited = authLimiter.check(req);
+  if (limited) return limited;
+
   try {
     const body = await req.json();
     const email = String(body?.email || '').trim().toLowerCase();

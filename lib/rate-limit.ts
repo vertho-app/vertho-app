@@ -104,3 +104,11 @@ export const heavyLimiter = createRateLimiter({ maxRequests: 5, windowMs: 60_000
 
 /** Rotas de leitura normal: 60 req/min por user */
 export const readLimiter = createRateLimiter({ maxRequests: 60, windowMs: 60_000 });
+
+/**
+ * Rotas de autenticação (não autenticadas, disparam email/WhatsApp/SMS = custo):
+ * 8 req/min por IP. Protege contra enumeração e abuso de envio (Resend/Z-API).
+ * Como é por-instância (in-memory), é um teto grosseiro — o ideal é migrar para
+ * @upstash/ratelimit + Redis para limite distribuído real.
+ */
+export const authLimiter = createRateLimiter({ maxRequests: 8, windowMs: 60_000 });

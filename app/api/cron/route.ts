@@ -21,6 +21,11 @@ export async function GET(req) {
     if (token !== cronSecret) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+  } else if (process.env.NODE_ENV === 'production') {
+    // FAIL-CLOSED: sem CRON_SECRET em produção, o endpoint dispararia backups e
+    // envios em massa para qualquer um. Recusa em vez de ficar aberto.
+    console.error('[cron] FAIL-CLOSED: CRON_SECRET ausente em produção');
+    return NextResponse.json({ error: 'Cron não configurado' }, { status: 503 });
   }
 
   const { searchParams } = new URL(req.url);

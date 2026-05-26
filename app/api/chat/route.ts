@@ -201,8 +201,12 @@ export async function POST(req) {
     // ── 7. Decidir próxima fase ─────────────────────────────────────────────
 
     const confianca = meta?.confianca ?? sessao.confianca;
-    const evidencias = meta?.evidencias
-      ? [...(sessao.evidencias || []), ...meta.evidencias]
+    // O bloco [META] traz `evidencias_coletadas` como visão CUMULATIVA da conversa
+    // (a IA enxerga todo o histórico), e é assim que decidirFase a consome (:410).
+    // Por isso substituímos pela leitura mais recente; concatenar duplicaria.
+    // Fallback: preserva a última lista válida se um turno vier sem META.
+    const evidencias = Array.isArray(meta?.evidencias_coletadas) && meta.evidencias_coletadas.length > 0
+      ? meta.evidencias_coletadas
       : sessao.evidencias || [];
 
     const nextFase = decidirFase(sessao.fase, sessao.aprofundamentos, confianca, totalTurnos, meta);

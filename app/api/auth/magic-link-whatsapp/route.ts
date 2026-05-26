@@ -1,19 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { getTenantSlug } from '@/lib/tenant-resolver';
+import { authLimiter } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
+  // Rate limit por IP — dispara WhatsApp (custo Z-API).
+  const limited = authLimiter.check(req);
+  if (limited) return limited;
+
   try {
     const { email, redirectTo } = await req.json();
     if (!email) return NextResponse.json({ error: 'Email obrigatório' }, { status: 400 });
 
     const sb = createSupabaseAdmin();
 
-    const { data: colab } = await sb.from('colaboradores')
+    // Escopo de tenant: com subdomínio, só atende colaborador da própria empresa.
+    const slug = getTenantSlug(req);
+    let colabQuery = sb.from('colaboradores')
       .select('nome_completo, telefone, empresa_id')
-      .eq('email', email.trim().toLowerCase())
-      .maybeSingle();
+      .eq('email', email.trim().toLowerCase());
+    if (slug) {
+      const { data: emp } = await sb.from('empresas').select('id').eq('slug', slug).maybeSingle();
+      if (!emp) return NextResponse.json({ sent: false });
+      colabQuery = colabQuery.eq('empresa_id', emp.id);
+    }
+    const { data: colab } = await colabQuery.maybeSingle();
 
     if (!colab?.telefone) return NextResponse.json({ sent: false });
 
@@ -63,7 +76,7 @@ Este link expira em 24h.`;
       return NextResponse.json({ sent: false, error: txt.slice(0, 120) });
     }
 
-    console.log('[magic-link-whatsapp] sent to', phone);
+    console.log('[magic-link-whatsapp] sent to', `***${phone.slice(-4)}`);
     return NextResponse.json({ sent: true });
   } catch (err: any) {
     console.error('[magic-link-whatsapp]', err.message);

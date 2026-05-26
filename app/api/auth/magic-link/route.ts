@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
+import { getTenantSlug } from '@/lib/tenant-resolver';
+import { authLimiter } from '@/lib/rate-limit';
 import { APP_URL, EMAIL_FROM_DEFAULT } from '@/lib/domain';
 import { resolveAppLocale } from '@/lib/i18n';
 import { magicLinkEmail, magicLinkWhatsapp } from '@/lib/i18n-auth-templates';
@@ -45,6 +47,10 @@ function emailHtml({ nome, empresaNome, link }: { nome: string; empresaNome: str
 }
 
 export async function POST(req: NextRequest) {
+  // Rate limit por IP — rota não autenticada que dispara email/WhatsApp (custo).
+  const limited = authLimiter.check(req);
+  if (limited) return limited;
+
   try {
     const { email, redirectTo, locale: bodyLocale } = await req.json();
     const locale = resolveAppLocale(bodyLocale, req.cookies.get('vertho-locale')?.value);
@@ -52,6 +58,34 @@ export async function POST(req: NextRequest) {
 
     const trimmed = email.trim().toLowerCase();
     const sb = createSupabaseAdmin();
+
+    // ── Escopo de tenant + anti-relay ──────────────────────────────────────
+    // Só geramos/enviamos link para quem é colaborador. Com subdomínio (tenant
+    // resolvido), exigimos que o email pertença ÀQUELA empresa — fecha o
+    // open-relay e o vazamento cross-tenant. Sem tenant (apex), resolvemos pelo
+    // contexto do cookie. Se não for colaborador → sucesso genérico sem enviar
+    // (anti-enumeração), nunca o scan cross-tenant via ilike global de antes.
+    const slug = getTenantSlug(req);
+    let colab: { nome_completo: string | null; telefone: string | null; empresa_id: string } | null = null;
+    if (slug) {
+      const { data: empresa } = await sb.from('empresas').select('id').eq('slug', slug).maybeSingle();
+      if (empresa) {
+        const { data } = await sb.from('colaboradores')
+          .select('nome_completo, telefone, empresa_id')
+          .eq('email', trimmed)
+          .eq('empresa_id', empresa.id)
+          .limit(1)
+          .maybeSingle();
+        colab = data as typeof colab;
+      }
+    } else {
+      colab = await findColabByEmail(trimmed, 'nome_completo, telefone, empresa_id') as typeof colab;
+    }
+
+    if (!colab) {
+      return NextResponse.json({ success: true });
+    }
+
     let safeRedirectTo: string | undefined;
     let nextPath = '/dashboard';
     let origin = '';
@@ -67,7 +101,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Gera magic link via admin API (sem rate limit)
+    // Gera magic link via admin API (sem rate limit do Supabase)
     const { data: linkData, error: linkErr } = await sb.auth.admin.generateLink({
       type: 'magiclink',
       email: trimmed,
@@ -82,29 +116,12 @@ export async function POST(req: NextRequest) {
     const tokenHash = linkData.properties.hashed_token;
     const actionLink = linkData.properties.action_link;
 
-    // Busca colaborador para WhatsApp
-    const colab = await findColabByEmail(trimmed, 'id, nome_completo, telefone, empresa_id');
-    let telefone = colab?.telefone;
-    let nomeCompleto = colab?.nome_completo;
-    let empresaId = colab?.empresa_id;
-
-    if (!colab) {
-      const { data: rows } = await sb.from('colaboradores')
-        .select('nome_completo, telefone, empresa_id')
-        .ilike('email', trimmed)
-        .limit(1);
-      if (rows?.[0]) {
-        telefone = rows[0].telefone;
-        nomeCompleto = rows[0].nome_completo;
-        empresaId = rows[0].empresa_id;
-      }
-    }
-
-    const empresa = empresaId
-      ? (await sb.from('empresas').select('nome').eq('id', empresaId).maybeSingle()).data
+    const telefone = colab.telefone;
+    const empresa = colab.empresa_id
+      ? (await sb.from('empresas').select('nome').eq('id', colab.empresa_id).maybeSingle()).data
       : null;
 
-    const nome = nomeCompleto?.split(' ')[0] || '';
+    const nome = colab.nome_completo?.split(' ')[0] || '';
     const empresaNome = empresa?.nome || 'Vertho';
     const results = { email: false, whatsapp: false };
 

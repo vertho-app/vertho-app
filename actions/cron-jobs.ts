@@ -49,6 +49,9 @@ export async function cleanupSessoes() {
         nivel: null,
         nota_decimal: null,
         lacuna: null,
+        // Avança updated_at: sem isso a sessão continuaria < cutoff e seria
+        // re-resetada a cada execução do cron (loop diário que apaga o chat).
+        updated_at: new Date().toISOString(),
       })
       .eq('id', sessao.id);
 
@@ -182,10 +185,12 @@ export async function triggerQuinta() {
   for (const empresa of empresas) {
     const tdb = tenantDb(empresa.id);
     const { data: envios } = await tdb.from('fase4_envios')
-      .select('id, colaborador_id, semana_atual, sequencia, status, ultimo_envio, colaboradores!inner(nome_completo, email, whatsapp)')
+      .select('id, colaborador_id, semana_atual, sequencia, status, ultimo_envio, ultima_evidencia_em, colaboradores!inner(nome_completo, email, whatsapp)')
       .eq('status', 'ativo');
 
     if (!envios?.length) continue;
+
+    const hojeUTC = new Date().toISOString().slice(0, 10);
 
     for (const envio of (envios as any[])) {
       const semana = envio.semana_atual || 1;
@@ -193,6 +198,14 @@ export async function triggerQuinta() {
       const telefone = envio.colaboradores.whatsapp;
 
       if (semana > TOTAL_SEMANAS) continue;
+
+      // Idempotência: se já processamos a quinta deste envio hoje (retry da
+      // Vercel, replay de mensagem ou disparo manual), não reenvia nem avança
+      // a semana de novo — evita pular conteúdo. Migration 120.
+      if (envio.ultima_evidencia_em &&
+          new Date(envio.ultima_evidencia_em).toISOString().slice(0, 10) === hojeUTC) {
+        continue;
+      }
 
       // Verificar inatividade (2+ semanas sem envio)
       if (envio.ultimo_envio) {
@@ -207,6 +220,10 @@ export async function triggerQuinta() {
               nudges++;
             } catch {}
           }
+          // Marca processamento do dia (idempotência) sem avançar semana.
+          await tdb.from('fase4_envios')
+            .update({ ultima_evidencia_em: new Date().toISOString() })
+            .eq('id', envio.id);
           continue;
         }
       }
@@ -220,9 +237,9 @@ export async function triggerQuinta() {
         } catch { totalErros++; }
       }
 
-      // Avançar semana
+      // Avançar semana + marcar processamento do dia (idempotência, migration 120)
       await tdb.from('fase4_envios')
-        .update({ semana_atual: semana + 1 })
+        .update({ semana_atual: semana + 1, ultima_evidencia_em: new Date().toISOString() })
         .eq('id', envio.id);
     }
   }
