@@ -58,8 +58,10 @@ playwright-report/
 # MCP server config (contém API keys)
 .mcp.json
 
-# Claude Code local settings (contém preferências pessoais/overrides do dev)
-.claude/settings.local.json
+# Agent / assistant local state (contém preferências pessoais, logs e artefatos locais)
+/.agents/
+/.claude/
+/.codex/
 
 # python bytecode
 __pycache__/
@@ -79,5 +81,3 @@ data-pipeline/radarempresas/**/_vt/
 # backups locais (podem conter PII de colaboradores)
 /backups/
 
-# agent skills vendoradas (reproduzíveis via skills-lock.json)
-/.agents/skills/

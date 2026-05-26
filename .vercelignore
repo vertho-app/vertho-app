@@ -20,6 +20,11 @@ outputs/
 *.log
 npm-debug.log*
 
+# Agent / assistant local state
+.agents/
+.claude/
+.codex/
+
 # Backups e dumps
 *.dump
 *.bak
@@ -27,6 +32,7 @@ npm-debug.log*
 *.tar
 *.gz
 **/backups/
+backups/
 
 # Editor / IDE
 .idea/
@@ -37,3 +43,4 @@ npm-debug.log*
 /coverage/
 /playwright-report/
 /test-results/
+test-results/
