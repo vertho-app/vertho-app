@@ -3496,5 +3496,119 @@
       "today": "today",
       "oneDay": "1d"
     }
+  },
+  "AdminCompanySettings": {
+    "title": "Settings",
+    "back": "Back",
+    "save": "Save settings",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "brandingSaved": "Branding saved",
+    "localeSaved": "Language saved",
+    "logoUploaded": "Logo uploaded",
+    "uploadFailed": "Failed",
+    "tabs": {
+      "team": "Team",
+      "program": "Program",
+      "language": "Language",
+      "branding": "Branding",
+      "ai": "Artificial intelligence",
+      "cadence": "Automations",
+      "sends": "Sends"
+    },
+    "days": [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday"
+    ],
+    "team": {
+      "title": "Collaborators ({count})",
+      "desc": "Change each collaborator role. The role defines what they see in the dashboard.",
+      "empty": "No collaborators registered",
+      "roles": {
+        "colaborador": "Collaborator",
+        "tutor": "Tutor (Onboarding)",
+        "gestor": "Manager",
+        "rh": "HR / Director"
+      }
+    },
+    "program": {
+      "title": "Program mode",
+      "desc": "Regular = 14-week track, 1 deeply developed competency. Onboarding = 10 spiral weeks covering 5 competencies (new graduates / supervised autonomy).",
+      "regular": "Regular (14 weeks)",
+      "regularDesc": "1 competency · target level 3",
+      "onboarding": "Onboarding (10 weeks)",
+      "onboardingDesc": "5 competencies · target level 2",
+      "onboardingNote": "Onboarding mode is active. Configure <code>sys_config.competencias_onboarding</code> (array of 5 names) or run IA1 for the role; the engine uses the top 5 from <code>top10_cargos</code> as fallback. The tutor receives an automatic push at the end of missions 4 and 7.",
+      "careerTitle": "Career stage (IA1 bias)",
+      "careerDesc": "When set, IA1 biases the Top 10 ranking: <b>junior</b> prioritizes operational/basic competencies; <b>senior</b> prioritizes strategic/relational ones; <b>pleno</b> = no bias.",
+      "noBias": "— No bias (default) —",
+      "junior": "Junior (new graduate)",
+      "pleno": "Mid-level (no explicit bias)",
+      "senior": "Senior",
+      "careerHint": "In Onboarding mode, <b>junior</b> is the sensible default. Regular mode usually stays blank."
+    },
+    "language": {
+      "title": "Company default language",
+      "desc": "Defines the default language for users in this company. The collaborator individual preference, when set, takes priority.",
+      "ptBR": "Brazilian Portuguese",
+      "ptPT": "European Portuguese",
+      "esES": "Spanish (Spain)",
+      "enUS": "English (United States)",
+      "hint": "Global fallback: pt-BR. Content that has not been translated yet keeps using the original text until the multilingual content sprint."
+    },
+    "branding": {
+      "subdomain": "Subdomain",
+      "loginUrl": "Login: {slug}.{root}/login",
+      "vercelTitle": "Link to Vercel",
+      "vercelDesc": "Required to issue SSL and activate the subdomain in production.",
+      "linking": "Linking...",
+      "linkVercel": "Link to Vercel",
+      "logoTitle": "Company logo",
+      "noLogo": "No logo",
+      "uploading": "Uploading...",
+      "uploadLogo": "Upload logo",
+      "removeLogo": "Remove logo",
+      "logoHint": "PNG, JPG, SVG or WebP. Max 2MB.",
+      "colorsTitle": "Login colors",
+      "subtitle": "Login subtitle",
+      "subtitlePlaceholder": "Your development journey",
+      "previewTitle": "Login preview",
+      "previewSubtitle": "Enter your email to access",
+      "previewEmail": "your@email.com",
+      "previewButton": "Enter",
+      "labels": {
+        "font_color": "Font color",
+        "font_color_secondary": "Secondary font",
+        "primary_color": "Button color (start)",
+        "primary_color_end": "Button color (end)",
+        "accent_color": "Accent color",
+        "bg_gradient_start": "Background (top)",
+        "bg_gradient_end": "Background (bottom)"
+      }
+    },
+    "ai": {
+      "defaultModel": "Default model",
+      "defaultModelDesc": "Used for every task that does not have a specific model configured below",
+      "taskModels": "Models by task",
+      "taskModelsDesc": "Override the default model for specific tasks. Leave \"Use default\" to inherit.",
+      "useDefault": "Use default ({model})",
+      "apiKeys": "Client API keys (optional)",
+      "apiKeysDesc": "When filled, client keys are used instead of global keys"
+    },
+    "cadence": {
+      "title": "Phase 4 — Weekly cadence",
+      "pillDay": "Pill day",
+      "evidenceDay": "Evidence day"
+    },
+    "sends": {
+      "title": "Sender email",
+      "email": "Email",
+      "alias": "Name (alias)"
+    }
   }
 }

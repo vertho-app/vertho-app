@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   ArrowLeft, Save, Loader2, CheckCircle, AlertTriangle, X,
   Brain, Clock, Mail, Eye, EyeOff, Palette, Upload, Trash2, Globe, Users, GraduationCap
@@ -11,7 +12,6 @@ import { limparSessoesAntigas, limparSessoesTeste } from '@/app/actions/manutenc
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { ROOT_DOMAIN } from '@/lib/domain';
 
-const DIAS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 import { AI_TASKS, MODELOS_DISPONIVEIS } from '@/lib/ai-tasks';
 const MODELOS = MODELOS_DISPONIVEIS;
 
@@ -24,8 +24,10 @@ const DEFAULT_CONFIG = {
 };
 
 export default function ConfigPage({ params }: { params: Promise<{ empresaId: string }> }) {
+  const t = useTranslations('AdminCompanySettings');
   const { empresaId } = use(params);
   const router = useRouter();
+  const dias = t.raw('days') as string[];
   const [empresa, setEmpresa] = useState(null);
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [tab, setTab] = useState('equipe');
@@ -97,16 +99,16 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
       if (!rBranding.success) { setError((rBranding as any).error); return; }
       if (!rSlug.success) { setError((rSlug as any).error); return; }
       if ((rSlug as any).slug) setSlug((rSlug as any).slug);
-      setSuccess('Branding salvo!'); setTimeout(() => setSuccess(''), 3000);
+      setSuccess(t('brandingSaved')); setTimeout(() => setSuccess(''), 3000);
     } else if (tab === 'idioma') {
       const r = await salvarLocaleEmpresa(empresaId, defaultLocale);
       setSaving(false);
-      if (r.success) { setSuccess('Idioma salvo!'); setTimeout(() => setSuccess(''), 3000); }
+      if (r.success) { setSuccess(t('localeSaved')); setTimeout(() => setSuccess(''), 3000); }
       else setError(r.error);
     } else {
       const r = await salvarConfig(empresaId, config);
       setSaving(false);
-      if (r.success) { setSuccess('Salvo!'); setTimeout(() => setSuccess(''), 3000); }
+      if (r.success) { setSuccess(t('saved')); setTimeout(() => setSuccess(''), 3000); }
       else setError(r.error);
     }
   }
@@ -123,7 +125,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
       const json = await res.json();
       if (json.success) {
         setBranding(prev => ({ ...prev, logo_url: json.url }));
-        setSuccess('Logo enviado!'); setTimeout(() => setSuccess(''), 3000);
+        setSuccess(t('logoUploaded')); setTimeout(() => setSuccess(''), 3000);
       } else { setError(json.error); }
     } catch (err) { setError(err.message); }
     setUploading(false);
@@ -137,12 +139,12 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
       <div className="flex items-center justify-between mb-6">
         <img src="/logo-vertho.png" alt="Vertho" style={{ height: '26px' }} className="shrink-0" />
         <div className="text-center flex-1 px-4">
-          <h1 className="text-lg font-bold text-white">Configurações</h1>
+          <h1 className="text-lg font-bold text-white">{t('title')}</h1>
           <p className="text-xs text-gray-500">{empresa?.nome}</p>
         </div>
         <button onClick={() => router.push(`/admin/empresas/${empresaId}`)}
           className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-white transition-colors shrink-0">
-          <ArrowLeft size={16} /> Voltar
+          <ArrowLeft size={16} /> {t('back')}
         </button>
       </div>
 
@@ -164,13 +166,13 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
       {/* Tabs */}
       <div className="flex gap-1 mb-6 p-1 rounded-lg border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
         {[
-          { id: 'equipe', label: 'Equipe', icon: Users },
-          { id: 'programa', label: 'Programa', icon: GraduationCap },
-          { id: 'idioma', label: 'Idioma', icon: Globe },
-          { id: 'branding', label: 'Branding', icon: Palette },
-          { id: 'ai', label: 'Inteligência Artificial', icon: Brain },
-          { id: 'cadencia', label: 'Automações', icon: Clock },
-          { id: 'envios', label: 'Envios', icon: Mail },
+          { id: 'equipe', label: t('tabs.team'), icon: Users },
+          { id: 'programa', label: t('tabs.program'), icon: GraduationCap },
+          { id: 'idioma', label: t('tabs.language'), icon: Globe },
+          { id: 'branding', label: t('tabs.branding'), icon: Palette },
+          { id: 'ai', label: t('tabs.ai'), icon: Brain },
+          { id: 'cadencia', label: t('tabs.cadence'), icon: Clock },
+          { id: 'envios', label: t('tabs.sends'), icon: Mail },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-md text-xs font-semibold transition-colors ${
@@ -184,10 +186,10 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
       {/* ═══ Tab: Equipe ═══ */}
       {tab === 'equipe' && (
         <div className="space-y-4">
-          <Panel title={`Colaboradores (${equipe.length})`}>
-            <p className="text-[10px] text-gray-500 mb-3">Altere o papel de cada colaborador. O papel define o que ele ve no dashboard.</p>
+          <Panel title={t('team.title', { count: equipe.length })}>
+            <p className="text-[10px] text-gray-500 mb-3">{t('team.desc')}</p>
             {equipe.length === 0 ? (
-              <p className="text-xs text-gray-500 text-center py-4">Nenhum colaborador cadastrado</p>
+              <p className="text-xs text-gray-500 text-center py-4">{t('team.empty')}</p>
             ) : (
               <div className="space-y-2">
                 {equipe.map(c => (
@@ -206,10 +208,10 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
                         'border-white/10 text-gray-400 bg-white/[0.03]'
                       }`}
                       style={{ minWidth: '120px' }}>
-                      <option value="colaborador">Colaborador</option>
-                      <option value="tutor">Tutor (Onboarding)</option>
-                      <option value="gestor">Gestor</option>
-                      <option value="rh">RH / Diretor</option>
+                      <option value="colaborador">{t('team.roles.colaborador')}</option>
+                      <option value="tutor">{t('team.roles.tutor')}</option>
+                      <option value="gestor">{t('team.roles.gestor')}</option>
+                      <option value="rh">{t('team.roles.rh')}</option>
                     </select>
                     {roleUpdating === c.id && <Loader2 size={14} className="animate-spin text-cyan-400 shrink-0" />}
                   </div>
@@ -223,14 +225,14 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
       {/* ═══ Tab: Programa ═══ */}
       {tab === 'programa' && (
         <div className="space-y-4">
-          <Panel title="Modo do programa">
+          <Panel title={t('program.title')}>
             <p className="text-[10px] text-gray-500 mb-3">
-              Regular = trilha de 14 semanas, 1 competência aprofundada. Onboarding = 10 semanas em espiral cobrindo 5 competências (recém-formados / autonomia supervisionada).
+              {t('program.desc')}
             </p>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { id: 'regular', label: 'Regular (14 semanas)', desc: '1 competência · nível-meta 3' },
-                { id: 'onboarding', label: 'Onboarding (10 semanas)', desc: '5 competências · nível-meta 2' },
+                { id: 'regular', label: t('program.regular'), desc: t('program.regularDesc') },
+                { id: 'onboarding', label: t('program.onboarding'), desc: t('program.onboardingDesc') },
               ].map(opt => (
                 <button key={opt.id}
                   onClick={() => setConfig(prev => ({ ...prev, programa_modo: opt.id as any }))}
@@ -249,27 +251,29 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
               <div className="flex items-start gap-2 mt-3 p-3 rounded-lg border border-cyan-400/20" style={{ background: 'rgba(6,182,212,0.06)' }}>
                 <CheckCircle size={13} className="text-cyan-400 shrink-0 mt-0.5" />
                 <p className="text-[11px] text-cyan-300/85 leading-relaxed">
-                  Modo Onboarding ativo. Configure <code className="text-cyan-200">sys_config.competencias_onboarding</code> (array de 5 nomes) ou rode IA1 pro cargo — engine usa o top 5 do <code className="text-cyan-200">top10_cargos</code> como fallback. Tutor recebe push automático ao final das missões 4 e 7.
+                  {t.rich('program.onboardingNote', {
+                    code: (chunks) => <code className="text-cyan-200">{chunks}</code>,
+                  })}
                 </p>
               </div>
             )}
           </Panel>
 
-          <Panel title="Fase de carreira (viés do IA1)">
+          <Panel title={t('program.careerTitle')}>
             <p className="text-[10px] text-gray-500 mb-3">
-              Quando setada, o IA1 vieza o ranking Top 10: <b>junior</b> prioriza competências operacionais/básicas; <b>senior</b> prioriza estratégicas/relacionais; <b>pleno</b> = sem viés.
+              {t.rich('program.careerDesc', { b: (chunks) => <b>{chunks}</b> })}
             </p>
             <select value={config.fase_carreira_default || ''}
               onChange={e => setConfig(prev => ({ ...prev, fase_carreira_default: (e.target.value || null) as any }))}
               className="w-full px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40"
               style={{ background: '#091D35' }}>
-              <option value="">— Sem viés (default) —</option>
-              <option value="junior">Junior (recém-formado)</option>
-              <option value="pleno">Pleno (sem viés explícito)</option>
-              <option value="senior">Senior</option>
+              <option value="">{t('program.noBias')}</option>
+              <option value="junior">{t('program.junior')}</option>
+              <option value="pleno">{t('program.pleno')}</option>
+              <option value="senior">{t('program.senior')}</option>
             </select>
             <p className="text-[10px] text-gray-600 mt-2">
-              No Modo Onboarding o default sensato é <b>junior</b>. Modo Regular geralmente fica em branco.
+              {t.rich('program.careerHint', { b: (chunks) => <b>{chunks}</b> })}
             </p>
           </Panel>
         </div>
@@ -278,9 +282,9 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
       {/* ═══ Tab: Idioma ═══ */}
       {tab === 'idioma' && (
         <div className="space-y-4">
-          <Panel title="Idioma padrão da empresa">
+          <Panel title={t('language.title')}>
             <p className="text-[10px] text-gray-500 mb-3">
-              Define o idioma padrão para usuários desta empresa. A preferência individual do colaborador, quando existir, tem prioridade.
+              {t('language.desc')}
             </p>
             <select
               value={defaultLocale}
@@ -288,13 +292,13 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
               className="w-full px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40"
               style={{ background: '#091D35' }}
             >
-              <option value="pt-BR">Português do Brasil</option>
-              <option value="pt-PT">Português de Portugal</option>
-              <option value="es-ES">Espanhol da Espanha</option>
-              <option value="en-US">Inglês dos Estados Unidos</option>
+              <option value="pt-BR">{t('language.ptBR')}</option>
+              <option value="pt-PT">{t('language.ptPT')}</option>
+              <option value="es-ES">{t('language.esES')}</option>
+              <option value="en-US">{t('language.enUS')}</option>
             </select>
             <p className="text-[10px] text-gray-600 mt-2">
-              Fallback global: pt-BR. Conteúdos ainda sem tradução continuam usando o texto original até a Sprint de conteúdo multilíngue.
+              {t('language.hint')}
             </p>
           </Panel>
         </div>
@@ -303,7 +307,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
       {/* ═══ Tab: Branding ═══ */}
       {tab === 'branding' && (
         <div className="space-y-4">
-          <Panel title="Subdomínio">
+          <Panel title={t('branding.subdomain')}>
             <div className="flex items-center gap-2">
               <Globe size={14} className="text-cyan-400 shrink-0" />
               <div className="flex items-center flex-1 gap-0 rounded-lg border border-white/10 overflow-hidden" style={{ background: '#091D35' }}>
@@ -312,14 +316,14 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
                 <span className="px-3 py-2.5 text-sm text-gray-500 border-l border-white/10 whitespace-nowrap">.{ROOT_DOMAIN}</span>
               </div>
             </div>
-            {slug && <p className="text-[10px] text-gray-500 mt-2">Login: <span className="text-cyan-400">{slug}.{ROOT_DOMAIN}/login</span></p>}
+            {slug && <p className="text-[10px] text-gray-500 mt-2"><span className="text-cyan-400">{t('branding.loginUrl', { slug, root: ROOT_DOMAIN })}</span></p>}
 
             {/* Vincular ao Vercel — emite SSL e habilita o subdomínio em prod */}
             <div className="mt-4 pt-4 border-t border-white/[0.06]">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div>
-                  <p className="text-[12px] text-white/85 font-medium">Vincular ao Vercel</p>
-                  <p className="text-[10px] text-gray-500 mt-0.5">Necessário pra emitir SSL e ativar o subdomínio em produção.</p>
+                  <p className="text-[12px] text-white/85 font-medium">{t('branding.vercelTitle')}</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">{t('branding.vercelDesc')}</p>
                 </div>
                 <button
                   type="button"
@@ -328,13 +332,13 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
                     setVinculando(true);
                     setVincularMsg(null);
                     const r = await vincularDominioVercel(empresaId);
-                    setVincularMsg({ ok: !!r.success, text: r.success ? r.message : (r.error || 'Falha') });
+                    setVincularMsg({ ok: !!r.success, text: r.success ? r.message : (r.error || t('uploadFailed')) });
                     setVinculando(false);
                   }}
                   className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-bold border border-cyan-400/30 text-cyan-300 hover:bg-cyan-400/10 disabled:opacity-50 transition-colors"
                 >
                   {vinculando ? <Loader2 size={12} className="animate-spin" /> : <Globe size={12} />}
-                  {vinculando ? 'Vinculando...' : 'Vincular ao Vercel'}
+                  {vinculando ? t('branding.linking') : t('branding.linkVercel')}
                 </button>
               </div>
               {vincularMsg && (
@@ -345,35 +349,35 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
             </div>
           </Panel>
 
-          <Panel title="Logo da Empresa">
+          <Panel title={t('branding.logoTitle')}>
             <div className="flex items-start gap-4">
               <div className="w-20 h-20 rounded-xl border border-white/10 flex items-center justify-center shrink-0 overflow-hidden" style={{ background: '#091D35' }}>
-                {branding.logo_url ? <img src={branding.logo_url} alt="Logo" className="w-full h-full object-contain p-1" /> : <span className="text-[10px] text-gray-600">Sem logo</span>}
+                {branding.logo_url ? <img src={branding.logo_url} alt="Logo" className="w-full h-full object-contain p-1" /> : <span className="text-[10px] text-gray-600">{t('branding.noLogo')}</span>}
               </div>
               <div className="flex-1 space-y-2">
                 <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-medium border border-white/[0.06] text-gray-300 hover:border-cyan-400/30 hover:bg-cyan-400/5 transition-all cursor-pointer" style={{ background: '#091D35' }}>
                   {uploading ? <Loader2 size={14} className="animate-spin text-cyan-400" /> : <Upload size={14} className="text-cyan-400" />}
-                  {uploading ? 'Enviando...' : 'Upload Logo'}
+                  {uploading ? t('branding.uploading') : t('branding.uploadLogo')}
                   <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" onChange={handleLogoUpload} className="hidden" disabled={uploading} />
                 </label>
                 {branding.logo_url && (
-                  <button onClick={() => updateBranding('logo_url', null)} className="flex items-center gap-1.5 text-[10px] text-red-400/70 hover:text-red-400"><Trash2 size={10} /> Remover logo</button>
+                  <button onClick={() => updateBranding('logo_url', null)} className="flex items-center gap-1.5 text-[10px] text-red-400/70 hover:text-red-400"><Trash2 size={10} /> {t('branding.removeLogo')}</button>
                 )}
-                <p className="text-[10px] text-gray-600">PNG, JPG, SVG ou WebP. Max 2MB.</p>
+                <p className="text-[10px] text-gray-600">{t('branding.logoHint')}</p>
               </div>
             </div>
           </Panel>
 
-          <Panel title="Cores do Login">
+          <Panel title={t('branding.colorsTitle')}>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { key: 'font_color', label: 'Cor da Fonte' },
-                { key: 'font_color_secondary', label: 'Fonte Secundária' },
-                { key: 'primary_color', label: 'Cor do Botão (inicio)' },
-                { key: 'primary_color_end', label: 'Cor do Botão (fim)' },
-                { key: 'accent_color', label: 'Cor de Destaque' },
-                { key: 'bg_gradient_start', label: 'Fundo (topo)' },
-                { key: 'bg_gradient_end', label: 'Fundo (base)' },
+                { key: 'font_color', label: t('branding.labels.font_color') },
+                { key: 'font_color_secondary', label: t('branding.labels.font_color_secondary') },
+                { key: 'primary_color', label: t('branding.labels.primary_color') },
+                { key: 'primary_color_end', label: t('branding.labels.primary_color_end') },
+                { key: 'accent_color', label: t('branding.labels.accent_color') },
+                { key: 'bg_gradient_start', label: t('branding.labels.bg_gradient_start') },
+                { key: 'bg_gradient_end', label: t('branding.labels.bg_gradient_end') },
               ].map(item => (
                 <div key={item.key}>
                   <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">{item.label}</label>
@@ -387,23 +391,23 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
               ))}
             </div>
             <div className="mt-4">
-              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Subtítulo do Login</label>
+              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">{t('branding.subtitle')}</label>
               <input value={branding.login_subtitle || ''} onChange={e => updateBranding('login_subtitle', e.target.value)}
-                placeholder="Sua jornada de desenvolvimento" className="w-full px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40" style={{ background: '#091D35' }} />
+                placeholder={t('branding.subtitlePlaceholder')} className="w-full px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40" style={{ background: '#091D35' }} />
             </div>
           </Panel>
 
-          <Panel title="Preview do Login">
+          <Panel title={t('branding.previewTitle')}>
             <div className="rounded-xl overflow-hidden border border-white/10" style={{ background: `linear-gradient(180deg, ${branding.bg_gradient_start} 0%, ${branding.bg_gradient_end} 100%)`, minHeight: '200px' }}>
               <div className="flex flex-col items-center justify-center py-8 px-6">
                 {branding.logo_url ? <img src={branding.logo_url} alt="Preview" className="h-10 object-contain mb-3" />
                   : <span className="text-2xl font-bold mb-2" style={{ color: branding.accent_color }}>{empresa?.nome || 'Empresa'}</span>}
-                <p className="text-sm font-semibold mb-1" style={{ color: branding.font_color || '#FFFFFF' }}>{branding.login_subtitle || 'Sua jornada de desenvolvimento'}</p>
-                <p className="text-[10px] mb-4" style={{ color: branding.font_color_secondary || '#FFFFFF99' }}>Digite seu e-mail para acessar</p>
+                <p className="text-sm font-semibold mb-1" style={{ color: branding.font_color || '#FFFFFF' }}>{branding.login_subtitle || t('branding.subtitlePlaceholder')}</p>
+                <p className="text-[10px] mb-4" style={{ color: branding.font_color_secondary || '#FFFFFF99' }}>{t('branding.previewSubtitle')}</p>
                 <div className="w-full max-w-[240px]">
-                  <div className="w-full py-2.5 px-3 rounded-lg border border-white/15 bg-white/[0.08] text-white/40 text-xs text-center">seu@email.com</div>
+                  <div className="w-full py-2.5 px-3 rounded-lg border border-white/15 bg-white/[0.08] text-white/40 text-xs text-center">{t('branding.previewEmail')}</div>
                   <div className="w-full mt-2 py-2.5 rounded-lg text-white text-xs font-bold text-center"
-                    style={{ background: `linear-gradient(135deg, ${branding.primary_color}, ${branding.primary_color_end})` }}>Entrar</div>
+                    style={{ background: `linear-gradient(135deg, ${branding.primary_color}, ${branding.primary_color_end})` }}>{t('branding.previewButton')}</div>
                 </div>
               </div>
             </div>
@@ -414,16 +418,16 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
       {/* ═══ Tab: IA ═══ */}
       {tab === 'ai' && (
         <div className="space-y-4">
-          <Panel title="Modelo Padrão">
-            <p className="text-[11px] text-gray-500 mb-3">Usado em todas as tarefas que não têm um modelo específico configurado abaixo</p>
+          <Panel title={t('ai.defaultModel')}>
+            <p className="text-[11px] text-gray-500 mb-3">{t('ai.defaultModelDesc')}</p>
             <select value={config.ai.modelo_padrao} onChange={e => updateAI('modelo_padrao', e.target.value)}
               className="w-full px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40" style={{ background: '#091D35' }}>
               {MODELOS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
             </select>
           </Panel>
 
-          <Panel title="Modelos por Tarefa">
-            <p className="text-[11px] text-gray-500 mb-3">Sobrescreva o modelo padrão em tarefas específicas. Deixe "Usar padrão" para herdar.</p>
+          <Panel title={t('ai.taskModels')}>
+            <p className="text-[11px] text-gray-500 mb-3">{t('ai.taskModelsDesc')}</p>
             {(() => {
               const porFase = AI_TASKS.reduce((acc: any, t: any) => {
                 (acc[t.fase] = acc[t.fase] || []).push(t);
@@ -447,7 +451,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
                             }}
                             className="px-2 py-1 rounded text-[11px] text-white border border-white/10 outline-none focus:border-cyan-400/40"
                             style={{ background: '#091D35', minWidth: 180 }}>
-                            <option value="">Usar padrão ({MODELOS.find(m => m.id === config.ai.modelo_padrao)?.label || 'default'})</option>
+                            <option value="">{t('ai.useDefault', { model: MODELOS.find(m => m.id === config.ai.modelo_padrao)?.label || 'default' })}</option>
                             {MODELOS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
                           </select>
                         </div>
@@ -458,8 +462,8 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
               ));
             })()}
           </Panel>
-          <Panel title="API Keys do Cliente (opcional)">
-            <p className="text-[10px] text-gray-500 mb-3">Se preenchido, usa as chaves do cliente em vez das globais</p>
+          <Panel title={t('ai.apiKeys')}>
+            <p className="text-[10px] text-gray-500 mb-3">{t('ai.apiKeysDesc')}</p>
             {[
               { key: 'anthropic_key', label: 'Anthropic (Claude)', placeholder: 'sk-ant-...' },
               { key: 'gemini_key', label: 'Google (Gemini)', placeholder: 'AIzaSy...' },
@@ -482,20 +486,20 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
 
       {/* ═══ Tab: Cadência ═══ */}
       {tab === 'cadencia' && (
-        <Panel title="Fase 4 — Cadência Semanal">
+        <Panel title={t('cadence.title')}>
           <div className="grid grid-cols-2 gap-3 mb-3">
             <div>
-              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Dia da Pílula</label>
+              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">{t('cadence.pillDay')}</label>
               <select value={config.cadencia.fase4_dia_pilula} onChange={e => updateCadencia('fase4_dia_pilula', parseInt(e.target.value))}
                 className="w-full px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
-                {DIAS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                {dias.map((d, i) => <option key={i} value={i}>{d}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Dia da Evidência</label>
+              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">{t('cadence.evidenceDay')}</label>
               <select value={config.cadencia.fase4_dia_evidencia} onChange={e => updateCadencia('fase4_dia_evidencia', parseInt(e.target.value))}
                 className="w-full px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
-                {DIAS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                {dias.map((d, i) => <option key={i} value={i}>{d}</option>)}
               </select>
             </div>
           </div>
@@ -504,14 +508,14 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
 
       {/* ═══ Tab: Envios ═══ */}
       {tab === 'envios' && (
-        <Panel title="E-mail Remetente">
+        <Panel title={t('sends.title')}>
           <div className="mb-3">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">E-mail</label>
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">{t('sends.email')}</label>
             <input value={config.envios.email_remetente || ''} onChange={e => updateEnvios('email_remetente', e.target.value || null)}
               placeholder="diagnostico@vertho.ai" className="w-full px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40" style={{ background: '#091D35' }} />
           </div>
           <div>
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Nome (alias)</label>
+            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">{t('sends.alias')}</label>
             <input value={config.envios.email_alias || ''} onChange={e => updateEnvios('email_alias', e.target.value || null)}
               placeholder="Vertho Mentor IA" className="w-full px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40" style={{ background: '#091D35' }} />
           </div>
@@ -523,7 +527,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
         className="w-full mt-6 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold text-white disabled:opacity-40"
         style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
         {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-        {saving ? 'Salvando...' : 'Salvar Configurações'}
+        {saving ? t('saving') : t('save')}
       </button>
     </div>
   );

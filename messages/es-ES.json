@@ -3496,5 +3496,119 @@
       "today": "hoy",
       "oneDay": "1d"
     }
+  },
+  "AdminCompanySettings": {
+    "title": "Configuración",
+    "back": "Volver",
+    "save": "Guardar configuración",
+    "saving": "Guardando...",
+    "saved": "Guardado",
+    "brandingSaved": "Branding guardado",
+    "localeSaved": "Idioma guardado",
+    "logoUploaded": "Logo subido",
+    "uploadFailed": "Error",
+    "tabs": {
+      "team": "Equipo",
+      "program": "Programa",
+      "language": "Idioma",
+      "branding": "Branding",
+      "ai": "Inteligencia artificial",
+      "cadence": "Automatizaciones",
+      "sends": "Envíos"
+    },
+    "days": [
+      "Domingo",
+      "Lunes",
+      "Martes",
+      "Miércoles",
+      "Jueves",
+      "Viernes",
+      "Sábado"
+    ],
+    "team": {
+      "title": "Colaboradores ({count})",
+      "desc": "Cambia el rol de cada colaborador. El rol define lo que ve en el dashboard.",
+      "empty": "No hay colaboradores registrados",
+      "roles": {
+        "colaborador": "Colaborador",
+        "tutor": "Tutor (Onboarding)",
+        "gestor": "Gestor",
+        "rh": "RR. HH. / Director"
+      }
+    },
+    "program": {
+      "title": "Modo del programa",
+      "desc": "Regular = ruta de 14 semanas, 1 competencia en profundidad. Onboarding = 10 semanas en espiral cubriendo 5 competencias (recién graduados / autonomía supervisada).",
+      "regular": "Regular (14 semanas)",
+      "regularDesc": "1 competencia · nivel objetivo 3",
+      "onboarding": "Onboarding (10 semanas)",
+      "onboardingDesc": "5 competencias · nivel objetivo 2",
+      "onboardingNote": "Modo Onboarding activo. Configura <code>sys_config.competencias_onboarding</code> (array de 5 nombres) o ejecuta IA1 para el cargo; la engine usa el top 5 de <code>top10_cargos</code> como fallback. El tutor recibe push automático al final de las misiones 4 y 7.",
+      "careerTitle": "Etapa profesional (sesgo de IA1)",
+      "careerDesc": "Cuando se define, IA1 ajusta el ranking Top 10: <b>junior</b> prioriza competencias operativas/básicas; <b>senior</b> prioriza estratégicas/relacionales; <b>pleno</b> = sin sesgo.",
+      "noBias": "— Sin sesgo (default) —",
+      "junior": "Junior (recién graduado)",
+      "pleno": "Pleno (sin sesgo explícito)",
+      "senior": "Senior",
+      "careerHint": "En modo Onboarding el default razonable es <b>junior</b>. En modo Regular normalmente queda vacío."
+    },
+    "language": {
+      "title": "Idioma predeterminado de la empresa",
+      "desc": "Define el idioma predeterminado para los usuarios de esta empresa. La preferencia individual del colaborador, si existe, tiene prioridad.",
+      "ptBR": "Portugués de Brasil",
+      "ptPT": "Portugués de Portugal",
+      "esES": "Español de España",
+      "enUS": "Inglés de Estados Unidos",
+      "hint": "Fallback global: pt-BR. Los contenidos sin traducción siguen usando el texto original hasta la sprint de contenido multilingüe."
+    },
+    "branding": {
+      "subdomain": "Subdominio",
+      "loginUrl": "Login: {slug}.{root}/login",
+      "vercelTitle": "Vincular a Vercel",
+      "vercelDesc": "Necesario para emitir SSL y activar el subdominio en producción.",
+      "linking": "Vinculando...",
+      "linkVercel": "Vincular a Vercel",
+      "logoTitle": "Logo de la empresa",
+      "noLogo": "Sin logo",
+      "uploading": "Subiendo...",
+      "uploadLogo": "Subir logo",
+      "removeLogo": "Quitar logo",
+      "logoHint": "PNG, JPG, SVG o WebP. Máx. 2 MB.",
+      "colorsTitle": "Colores del login",
+      "subtitle": "Subtítulo del login",
+      "subtitlePlaceholder": "Tu jornada de desarrollo",
+      "previewTitle": "Preview del login",
+      "previewSubtitle": "Introduce tu email para acceder",
+      "previewEmail": "tu@email.com",
+      "previewButton": "Entrar",
+      "labels": {
+        "font_color": "Color de fuente",
+        "font_color_secondary": "Fuente secundaria",
+        "primary_color": "Color del botón (inicio)",
+        "primary_color_end": "Color del botón (fin)",
+        "accent_color": "Color de destaque",
+        "bg_gradient_start": "Fondo (arriba)",
+        "bg_gradient_end": "Fondo (abajo)"
+      }
+    },
+    "ai": {
+      "defaultModel": "Modelo predeterminado",
+      "defaultModelDesc": "Usado en todas las tareas que no tienen un modelo específico configurado abajo",
+      "taskModels": "Modelos por tarea",
+      "taskModelsDesc": "Sobrescribe el modelo predeterminado en tareas específicas. Deja \"Usar predeterminado\" para heredar.",
+      "useDefault": "Usar predeterminado ({model})",
+      "apiKeys": "API keys del cliente (opcional)",
+      "apiKeysDesc": "Si se completan, usa las claves del cliente en lugar de las globales"
+    },
+    "cadence": {
+      "title": "Fase 4 — Cadencia semanal",
+      "pillDay": "Día de la píldora",
+      "evidenceDay": "Día de la evidencia"
+    },
+    "sends": {
+      "title": "Email remitente",
+      "email": "Email",
+      "alias": "Nombre (alias)"
+    }
   }
 }
