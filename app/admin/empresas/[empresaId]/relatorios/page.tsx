@@ -96,13 +96,11 @@ function getDestaqueItem(v: any) {
   };
 }
 
-function urgenciaLabel(v: any): string {
+function urgenciaKey(v: any): 'urgent' | 'important' | 'followUp' {
   const raw = String(v || '').trim().toLowerCase();
-  if (!raw) return 'ATENCAO';
-  if (raw === 'urgente' || raw === 'alta') return 'URGENTE';
-  if (raw === 'importante' || raw === 'media' || raw === 'média') return 'IMPORTANTE';
-  if (raw === 'baixa' || raw === 'baixo') return 'ACOMPANHAR';
-  return String(v).toUpperCase();
+  if (raw === 'urgente' || raw === 'alta') return 'urgent';
+  if (raw === 'importante' || raw === 'media' || raw === 'média') return 'important';
+  return 'followUp';
 }
 
 function ActionHorizon({
@@ -192,7 +190,7 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
       {tab === 'individual' && (
         <div>
           {data.individuais.length === 0 ? (
-            <Empty text={t('empty.individual')} />
+            <Empty text={t('emptyStates.individual')} />
           ) : data.individuais.map(rel => {
             const c = rel.conteudo;
             const isOpen = openId === rel.id;
@@ -296,7 +294,7 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
       {tab === 'gestor' && (
         <div>
           {(!data.gestores || data.gestores.length === 0) ? (
-            <Empty text={t('empty.manager')} />
+            <Empty text={t('emptyStates.manager')} />
           ) : (() => {
             const ativo = data.gestores[Math.min(gestorIdx, data.gestores.length - 1)];
             const c = ativo.conteudo;
@@ -352,7 +350,7 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                     <SectionTitle color="amber">{t('sections.attentionRanking')}</SectionTitle>
                     {c.ranking_atencao.map((r, i) => (
                       <div key={i} className="flex items-center gap-2 py-1 text-[10px]">
-                        <span className={`font-bold px-1.5 py-0.5 rounded ${urgenciaLabel(r.urgencia) === 'URGENTE' ? 'bg-red-400/15 text-red-400' : urgenciaLabel(r.urgencia) === 'IMPORTANTE' ? 'bg-amber-400/15 text-amber-400' : 'bg-gray-400/15 text-gray-400'}`}>{urgenciaLabel(r.urgencia)}</span>
+                        <span className={`font-bold px-1.5 py-0.5 rounded ${urgenciaKey(r.urgencia) === 'urgent' ? 'bg-red-400/15 text-red-400' : urgenciaKey(r.urgencia) === 'important' ? 'bg-amber-400/15 text-amber-400' : 'bg-gray-400/15 text-gray-400'}`}>{t(`urgency.${urgenciaKey(r.urgencia)}`)}</span>
                         <span className="text-white font-medium">{s(r.nome)}</span>
                         <span className="text-gray-500">{s(r.competencia)} — {t('labels.levelShort')}{r.nivel || r.nivel_fase3}</span>
                         <span className="text-gray-600 truncate">{s(r.motivo || r.motivo_curto)}</span>
@@ -397,7 +395,7 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
       {tab === 'rh' && (
         <div>
           {!data.rh ? (
-            <Empty text={t('empty.hr')} />
+            <Empty text={t('emptyStates.hr')} />
           ) : (() => {
             const c = data.rh.conteudo;
             const rhPdfLink = `/api/relatorios/pdf?id=${data.rh.id}`;

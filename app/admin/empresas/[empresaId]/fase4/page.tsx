@@ -20,12 +20,23 @@ const CHECK_DIM_MAX: Record<string, number> = {
   // Legacy
   aderencia: 20, realismo: 20, contencao: 20, decisao: 20, discriminante: 20,
 };
-const CHECK_DIM_LABELS: Record<string, string> = {
-  aderencia_competencia: 'Aderência', diferenca_estrutural_vs_a: 'Diferença vs A', complementaridade: 'Complementar.',
-  realismo_contextual: 'Realismo', clareza_tradeoff: 'Trade-off', poder_discriminante: 'Discriminante',
-  adequacao_sem14: 'Sem14', utilidade_triangulacao: 'Triangulação',
-  cobertura_descritores: 'Cobertura', contencao_sobriedade: 'Contenção', auditabilidade: 'Auditab.',
-  aderencia: 'Aderência', realismo: 'Realismo', contencao: 'Contenção', decisao: 'Decisão', discriminante: 'Discriminante',
+const CHECK_DIM_LABEL_KEYS: Record<string, string> = {
+  aderencia_competencia: 'adherence',
+  diferenca_estrutural_vs_a: 'differenceVsA',
+  complementaridade: 'complementarity',
+  realismo_contextual: 'realism',
+  clareza_tradeoff: 'tradeoffClarity',
+  poder_discriminante: 'discriminatingPower',
+  adequacao_sem14: 'week14Fit',
+  utilidade_triangulacao: 'triangulation',
+  cobertura_descritores: 'coverage',
+  contencao_sobriedade: 'restraint',
+  auditabilidade: 'auditability',
+  aderencia: 'adherence',
+  realismo: 'realism',
+  contencao: 'restraint',
+  decisao: 'decision',
+  discriminante: 'discriminatingPower',
 };
 
 const AI_MODELS = [
@@ -231,7 +242,7 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                               c.status_check === 'aprovado' ? 'bg-green-400/15 text-green-400' :
                               c.status_check === 'aprovado_com_ressalvas' ? 'bg-cyan-400/15 text-cyan-400' :
                               'bg-amber-400/15 text-amber-400'
-                            }`}>{c.nota_check}pts</span>
+                            }`}>{t('details.points', { value: c.nota_check })}</span>
                           )}
                           <ChevronDown size={14} className={`text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                         </div>
@@ -340,14 +351,15 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                                 c.status_check === 'aprovado_com_ressalvas' ? 'text-cyan-400' :
                                 'text-amber-400'
                               }`}>
-                                {t('details.check')}: {c.nota_check}pts — {c.status_check === 'aprovado' ? t('status.approved') : c.status_check === 'aprovado_com_ressalvas' ? t('status.approvedWithNotes') : t('status.review')}
+                                {t('details.check')}: {t('details.points', { value: c.nota_check })} — {c.status_check === 'aprovado' ? t('status.approved') : c.status_check === 'aprovado_com_ressalvas' ? t('status.approvedWithNotes') : t('status.review')}
                               </span>
                               {dims && (
                                 <div className="flex flex-wrap gap-2 mt-2">
                                   {Object.entries(dims).map(([k, v]: [string, any]) => {
                                     const mx = CHECK_DIM_MAX[k] || 20;
                                     const pct = (v / mx) * 100;
-                                    const label = CHECK_DIM_LABELS[k] || k;
+                                    const labelKey = CHECK_DIM_LABEL_KEYS[k];
+                                    const label = labelKey ? t(`checkDimensions.${labelKey}`) : k;
                                     return (
                                       <span key={k} className={`text-[9px] px-1.5 py-0.5 rounded ${pct >= 90 ? 'bg-green-400/10 text-green-400' : pct >= 70 ? 'bg-amber-400/10 text-amber-400' : 'bg-red-400/10 text-red-400'}`}>
                                         {label}: {v}/{mx}

@@ -1220,7 +1220,67 @@
       "date": "Date",
       "action": "Action"
     },
-    "fallbackCollaborator": "Team member"
+    "fallbackCollaborator": "Team member",
+    "tabs": {
+      "manager": "Manager",
+      "hr": "HR"
+    },
+    "actions": {
+      "pdf": "PDF",
+      "downloadPdf": "Download PDF",
+      "download": "Download"
+    },
+    "labels": {
+      "attentionPoint": "Attention point",
+      "advance": "Progress",
+      "levelShort": "L",
+      "gap": "Gap",
+      "manager": "Manager",
+      "collaboratorsShort": "{count} team",
+      "average": "Average"
+    },
+    "sections": {
+      "generalSummary": "General summary",
+      "behaviorProfile": "Behavioral profile",
+      "competencies": "Competencies",
+      "nextSteps": "Next steps",
+      "executiveSummary": "Executive summary",
+      "evolutionHighlights": "Growth highlights",
+      "attentionRanking": "Attention ranking",
+      "competencyAnalysis": "Competency analysis",
+      "actions": "Actions",
+      "criticalCompetencies": "Critical competencies",
+      "suggestedTrainings": "Suggested trainings",
+      "keyDecisions": "Key decisions",
+      "hrActionPlan": "HR action plan"
+    },
+    "horizons": {
+      "thisWeek": "This week",
+      "nextWeeks": "Next weeks",
+      "mediumTerm": "Medium term",
+      "shortTerm": "Short term",
+      "longTerm": "Long term"
+    },
+    "indicators": {
+      "evaluated": "Evaluated",
+      "average": "Overall average"
+    },
+    "urgency": {
+      "urgent": "URGENT",
+      "important": "IMPORTANT",
+      "followUp": "FOLLOW UP"
+    },
+    "error": {
+      "title": "Error loading reports",
+      "unknown": "Unknown error",
+      "back": "Back",
+      "retry": "Try again"
+    },
+    "emptyStates": {
+      "individual": "No individual reports found",
+      "manager": "No manager report found",
+      "hr": "No HR report found"
+    }
   },
   "AdminPhase4": {
     "title": "Phase 4 — Reassessment",
@@ -1274,13 +1334,28 @@
       "suggestion": "Suggestion",
       "vsScenarioA": "vs Scenario A",
       "triangulationRisks": "Triangulation risks",
-      "noCoverage": "No coverage"
+      "noCoverage": "No coverage",
+      "points": "{value} pts"
     },
     "status": {
       "approved": "Approved",
       "approvedWithNotes": "Approved with reservations",
       "review": "Review",
       "rejected": "Failed"
+    },
+    "checkDimensions": {
+      "adherence": "Adherence",
+      "differenceVsA": "Difference vs A",
+      "complementarity": "Complement.",
+      "realism": "Realism",
+      "tradeoffClarity": "Trade-off",
+      "discriminatingPower": "Discriminating",
+      "week14Fit": "Week 14",
+      "triangulation": "Triangulation",
+      "coverage": "Coverage",
+      "restraint": "Restraint",
+      "auditability": "Auditable",
+      "decision": "Decision"
     }
   },
   "AdminPhase1": {

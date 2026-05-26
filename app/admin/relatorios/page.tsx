@@ -119,7 +119,7 @@ export default function RelatoriosPage() {
                     <td className="px-4 py-3 text-right">
                       <a href={`/api/relatorios/individual?colaboradorId=${r.colaborador_id}`} target="_blank" rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-teal-600 hover:bg-teal-500 transition-colors">
-                        <Download size={12} /> Download
+                        <Download size={12} /> {t('actions.download')}
                       </a>
                     </td>
                   </tr>

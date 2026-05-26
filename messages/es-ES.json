@@ -1220,7 +1220,67 @@
       "date": "Fecha",
       "action": "Acción"
     },
-    "fallbackCollaborator": "Colaborador"
+    "fallbackCollaborator": "Colaborador",
+    "tabs": {
+      "manager": "Gestor",
+      "hr": "RR. HH."
+    },
+    "actions": {
+      "pdf": "PDF",
+      "downloadPdf": "Descargar PDF",
+      "download": "Descargar"
+    },
+    "labels": {
+      "attentionPoint": "Punto de atención",
+      "advance": "Avance",
+      "levelShort": "N",
+      "gap": "Brecha",
+      "manager": "Gestor",
+      "collaboratorsShort": "{count} colab.",
+      "average": "Promedio"
+    },
+    "sections": {
+      "generalSummary": "Resumen general",
+      "behaviorProfile": "Perfil conductual",
+      "competencies": "Competencias",
+      "nextSteps": "Próximos pasos",
+      "executiveSummary": "Resumen ejecutivo",
+      "evolutionHighlights": "Destacados de evolución",
+      "attentionRanking": "Ranking de atención",
+      "competencyAnalysis": "Análisis por competencia",
+      "actions": "Acciones",
+      "criticalCompetencies": "Competencias críticas",
+      "suggestedTrainings": "Capacitaciones sugeridas",
+      "keyDecisions": "Decisiones clave",
+      "hrActionPlan": "Plan de acción de RR. HH."
+    },
+    "horizons": {
+      "thisWeek": "Esta semana",
+      "nextWeeks": "Próximas semanas",
+      "mediumTerm": "Medio plazo",
+      "shortTerm": "Corto plazo",
+      "longTerm": "Largo plazo"
+    },
+    "indicators": {
+      "evaluated": "Evaluados",
+      "average": "Promedio general"
+    },
+    "urgency": {
+      "urgent": "URGENTE",
+      "important": "IMPORTANTE",
+      "followUp": "ACOMPAÑAR"
+    },
+    "error": {
+      "title": "Error al cargar informes",
+      "unknown": "Error desconocido",
+      "back": "Volver",
+      "retry": "Intentar de nuevo"
+    },
+    "emptyStates": {
+      "individual": "No se encontró ningún informe individual",
+      "manager": "No se encontró ningún informe de gestor",
+      "hr": "No se encontró ningún informe de RR. HH."
+    }
   },
   "AdminPhase4": {
     "title": "Fase 4 — Reevaluación",
@@ -1274,13 +1334,28 @@
       "suggestion": "Sugerencia",
       "vsScenarioA": "vs Escenario A",
       "triangulationRisks": "Riesgos triangulación",
-      "noCoverage": "Sin cobertura"
+      "noCoverage": "Sin cobertura",
+      "points": "{value} pts"
     },
     "status": {
       "approved": "Aprobado",
       "approvedWithNotes": "Aprobado c/ Salvedades",
       "review": "Revisar",
       "rejected": "Reprobado"
+    },
+    "checkDimensions": {
+      "adherence": "Adherencia",
+      "differenceVsA": "Diferencia vs A",
+      "complementarity": "Complementar.",
+      "realism": "Realismo",
+      "tradeoffClarity": "Trade-off",
+      "discriminatingPower": "Discriminante",
+      "week14Fit": "Sem14",
+      "triangulation": "Triangulación",
+      "coverage": "Cobertura",
+      "restraint": "Contención",
+      "auditability": "Auditab.",
+      "decision": "Decisión"
     }
   },
   "AdminPhase1": {

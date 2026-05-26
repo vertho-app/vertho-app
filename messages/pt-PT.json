@@ -1220,7 +1220,67 @@
       "date": "Data",
       "action": "Ação"
     },
-    "fallbackCollaborator": "Colaborador"
+    "fallbackCollaborator": "Colaborador",
+    "tabs": {
+      "manager": "Gestor",
+      "hr": "RH"
+    },
+    "actions": {
+      "pdf": "PDF",
+      "downloadPdf": "Transferir PDF",
+      "download": "Transferir"
+    },
+    "labels": {
+      "attentionPoint": "Ponto de atenção",
+      "advance": "Avanço",
+      "levelShort": "N",
+      "gap": "Lacuna",
+      "manager": "Gestor",
+      "collaboratorsShort": "{count} colab.",
+      "average": "Média"
+    },
+    "sections": {
+      "generalSummary": "Resumo Geral",
+      "behaviorProfile": "Perfil Comportamental",
+      "competencies": "Competências",
+      "nextSteps": "Próximos passos",
+      "executiveSummary": "Resumo Executivo",
+      "evolutionHighlights": "Destaques de evolução",
+      "attentionRanking": "Ranking de atenção",
+      "competencyAnalysis": "Análise por competência",
+      "actions": "Ações",
+      "criticalCompetencies": "Competências críticas",
+      "suggestedTrainings": "Formações sugeridas",
+      "keyDecisions": "Decisões-chave",
+      "hrActionPlan": "Plano de ação RH"
+    },
+    "horizons": {
+      "thisWeek": "Esta semana",
+      "nextWeeks": "Próximas semanas",
+      "mediumTerm": "Médio prazo",
+      "shortTerm": "Curto prazo",
+      "longTerm": "Longo prazo"
+    },
+    "indicators": {
+      "evaluated": "Avaliados",
+      "average": "Média geral"
+    },
+    "urgency": {
+      "urgent": "URGENTE",
+      "important": "IMPORTANTE",
+      "followUp": "ACOMPANHAR"
+    },
+    "error": {
+      "title": "Erro ao carregar relatórios",
+      "unknown": "Erro desconhecido",
+      "back": "Voltar",
+      "retry": "Tentar novamente"
+    },
+    "emptyStates": {
+      "individual": "Nenhum relatório individual encontrado",
+      "manager": "Nenhum relatório de gestor encontrado",
+      "hr": "Nenhum relatório de RH encontrado"
+    }
   },
   "AdminPhase4": {
     "title": "Fase 4 — Reavaliação",
@@ -1274,13 +1334,28 @@
       "suggestion": "Sugestão",
       "vsScenarioA": "vs Cenário A",
       "triangulationRisks": "Riscos triangulação",
-      "noCoverage": "Sem cobertura"
+      "noCoverage": "Sem cobertura",
+      "points": "{value}pts"
     },
     "status": {
       "approved": "Aprovado",
       "approvedWithNotes": "Aprovado c/ Ressalvas",
       "review": "Revisar",
       "rejected": "Reprovado"
+    },
+    "checkDimensions": {
+      "adherence": "Aderência",
+      "differenceVsA": "Diferença vs A",
+      "complementarity": "Complementar.",
+      "realism": "Realismo",
+      "tradeoffClarity": "Trade-off",
+      "discriminatingPower": "Discriminante",
+      "week14Fit": "Sem14",
+      "triangulation": "Triangulação",
+      "coverage": "Cobertura",
+      "restraint": "Contenção",
+      "auditability": "Auditab.",
+      "decision": "Decisão"
     }
   },
   "AdminPhase1": {
