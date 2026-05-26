@@ -1,5 +1,21 @@
 @import "tailwindcss";
 
+/* Ramp de marca (white-label). `inline` faz os utilitários (bg-brand-400,
+   text-brand-300, from-brand-400 to-brand-600…) referenciarem a CSS var
+   diretamente, então sobrescrever --brand-N em runtime (no root do dashboard,
+   por tenant) re-tinge tudo. Os fallbacks são as tonalidades EXATAS do cyan do
+   Tailwind → Vertho e tenants sem branding ficam pixel-idênticos. Modificadores
+   de opacidade (brand-400/15) funcionam via color-mix do Tailwind v4. */
+@theme inline {
+  --color-brand-100: var(--brand-100, #cffafe);
+  --color-brand-200: var(--brand-200, #a5f3fc);
+  --color-brand-300: var(--brand-300, #67e8f9);
+  --color-brand-400: var(--brand-400, #22d3ee);
+  --color-brand-500: var(--brand-500, #06b6d4);
+  --color-brand-600: var(--brand-600, #0891b2);
+  --color-brand-700: var(--brand-700, #0e7490);
+}
+
 :root {
   --header-height: 56px;
   --nav-height: 64px;

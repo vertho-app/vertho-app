@@ -220,10 +220,10 @@ const CONVERGENCIA: Record<string, { label: string; cor: string; icon: string }>
 function EvolutionReportCard({ report, t }: { report: any; t: any }) {
   const descritores = report?.descritores || [];
   return (
-    <GlassCard className="mb-6 border-cyan-500/30 bg-gradient-to-br from-cyan-500/5 to-emerald-500/5">
+    <GlassCard className="mb-6 border-brand-500/30 bg-gradient-to-br from-brand-500/5 to-emerald-500/5">
       <div className="flex items-center gap-2 mb-3">
-        <Sparkles size={18} className="text-cyan-400" />
-        <h2 className="text-sm uppercase font-bold text-cyan-400">{t('report.title')}</h2>
+        <Sparkles size={18} className="text-brand-400" />
+        <h2 className="text-sm uppercase font-bold text-brand-400">{t('report.title')}</h2>
       </div>
       {report.insight_geral && (
         <p className="text-sm text-gray-200 italic mb-4">"{report.insight_geral}"</p>
@@ -247,7 +247,7 @@ function EvolutionReportCard({ report, t }: { report: any; t: any }) {
       </div>
       {report.proximo_passo && (
         <div className="text-xs text-gray-300 mt-4 pt-3 border-t border-white/10">
-          <strong className="text-cyan-400">{t('report.nextStep')} </strong>{report.proximo_passo}
+          <strong className="text-brand-400">{t('report.nextStep')} </strong>{report.proximo_passo}
         </div>
       )}
     </GlassCard>

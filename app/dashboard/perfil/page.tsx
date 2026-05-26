@@ -145,7 +145,7 @@ export default function PerfilPage() {
     router.refresh();
   }
 
-  if (loading) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-brand-400" /></div>;
   if (error && !data) return <PageContainer><p className="text-center text-gray-400">{error}</p></PageContainer>;
   if (!data) return null;
 
@@ -165,7 +165,7 @@ export default function PerfilPage() {
             <Shield size={11} /> {t(`roles.${role.labelKey}`)}
           </span>
           <button onClick={() => setShowPicker(v => !v)}
-            className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-cyan-400 hover:text-cyan-300">
+            className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-brand-400 hover:text-brand-300">
             <Camera size={12} /> {colaborador.foto_url || colaborador.avatar_preset ? t('changeAvatar') : t('addAvatar')}
           </button>
         </div>
@@ -176,9 +176,9 @@ export default function PerfilPage() {
         <GlassCard padding="p-5">
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-bold text-white flex items-center gap-2">
-              <Palette size={14} className="text-cyan-400" /> {t('pickerTitle')}
+              <Palette size={14} className="text-brand-400" /> {t('pickerTitle')}
             </p>
-            {saving && <Loader2 size={14} className="animate-spin text-cyan-400" />}
+            {saving && <Loader2 size={14} className="animate-spin text-brand-400" />}
           </div>
 
           {/* Upload */}
@@ -206,13 +206,13 @@ export default function PerfilPage() {
               return (
                 <button key={p.id} onClick={() => handleSelectPreset(p.id)} disabled={saving}
                   className={`relative w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-all hover:scale-110 active:scale-95 ${
-                    active ? 'ring-2 ring-cyan-400 ring-offset-2 ring-offset-[#0A1D35]' : 'ring-1 ring-white/10'
+                    active ? 'ring-2 ring-brand-400 ring-offset-2 ring-offset-[#0A1D35]' : 'ring-1 ring-white/10'
                   }`}
                   style={{ background: p.bg }}
                   title={p.id}>
                   <span>{p.emoji}</span>
                   {active && (
-                    <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-cyan-400 flex items-center justify-center ring-2 ring-[#0A1D35]">
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-brand-400 flex items-center justify-center ring-2 ring-[#0A1D35]">
                       <Check size={11} className="text-slate-900" strokeWidth={3} />
                     </div>
                   )}
@@ -273,7 +273,7 @@ export default function PerfilPage() {
                   value={colaborador.locale || locale}
                   onChange={e => handleLocaleChange(e.target.value)}
                   disabled={savingLocale}
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 pr-9 text-sm text-white outline-none focus:border-cyan-400/60 disabled:opacity-60"
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 pr-9 text-sm text-white outline-none focus:border-brand-400/60 disabled:opacity-60"
                 >
                   {locales.map(item => (
                     <option key={item} value={item} className="bg-[#0d1426] text-white">
@@ -281,7 +281,7 @@ export default function PerfilPage() {
                     </option>
                   ))}
                 </select>
-                {savingLocale && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-cyan-400" />}
+                {savingLocale && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-brand-400" />}
               </div>
             </div>
           </div>

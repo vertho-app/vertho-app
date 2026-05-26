@@ -35,8 +35,8 @@ export default function TemporadaConcluidaPage() {
     })();
   }, [router, sb]);
 
-  if (loading) return <Center><Loader2 className="animate-spin text-cyan-400" /></Center>;
-  if (error) return <Center><div className="text-center"><p className="text-gray-400">{error}</p><button onClick={() => router.push('/dashboard/temporada')} className="text-cyan-400 text-xs mt-3">{t('back')}</button></div></Center>;
+  if (loading) return <Center><Loader2 className="animate-spin text-brand-400" /></Center>;
+  if (error) return <Center><div className="text-center"><p className="text-gray-400">{error}</p><button onClick={() => router.push('/dashboard/temporada')} className="text-brand-400 text-xs mt-3">{t('back')}</button></div></Center>;
 
   const { colab, trilha, evolutionReport, momentos, missoes, sem14 } = data;
   const firstName = (colab.nome || '').split(' ')[0];
@@ -46,7 +46,7 @@ export default function TemporadaConcluidaPage() {
   return (
     <PageContainer>
       <div className="flex items-center justify-between mb-4">
-        <button onClick={() => router.push('/dashboard/temporada')} className="flex items-center gap-2 text-xs text-gray-400 hover:text-cyan-400">
+        <button onClick={() => router.push('/dashboard/temporada')} className="flex items-center gap-2 text-xs text-gray-400 hover:text-brand-400">
           <ArrowLeft size={14} /> {t('backToSeason')}
         </button>
         <button onClick={async () => {
@@ -62,7 +62,7 @@ export default function TemporadaConcluidaPage() {
           a.download = `temporada-${data.trilha.numeroTemporada}.pdf`;
           a.click();
           URL.revokeObjectURL(url);
-        }} className="flex items-center gap-2 text-xs text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 rounded-full px-3 py-1.5">
+        }} className="flex items-center gap-2 text-xs text-brand-400 border border-brand-400/30 hover:bg-brand-400/10 rounded-full px-3 py-1.5">
           <Download size={12} /> {t('downloadPdf')}
         </button>
       </div>
@@ -77,12 +77,12 @@ export default function TemporadaConcluidaPage() {
           {t('hero.title', { name: firstName })}
         </h1>
         <p className="text-sm text-gray-400">
-          {t.rich('hero.subtitle', { competency: trilha.competencia, strong: (chunks) => <span className="text-cyan-400">{chunks}</span> })}
+          {t.rich('hero.subtitle', { competency: trilha.competencia, strong: (chunks) => <span className="text-brand-400">{chunks}</span> })}
         </p>
       </div>
 
       {/* Resumo numérico */}
-      <GlassCard className="mb-6 border-cyan-500/20 bg-cyan-500/[0.03]">
+      <GlassCard className="mb-6 border-brand-500/20 bg-brand-500/[0.03]">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
           <Stat label={t('stats.confirmed')} valor={resumo.confirmadas || 0} cor="text-emerald-400" />
           <Stat label={t('stats.partial')} valor={resumo.parciais || 0} cor="text-amber-400" />
@@ -90,7 +90,7 @@ export default function TemporadaConcluidaPage() {
           <Stat label={t('stats.regressions')} valor={resumo.regressoes || 0} cor="text-red-400" />
         </div>
         {evolutionReport?.insight_geral && (
-          <p className="text-sm text-gray-200 italic border-l-2 border-cyan-500/50 pl-3">
+          <p className="text-sm text-gray-200 italic border-l-2 border-brand-500/50 pl-3">
             "{evolutionReport.insight_geral}"
           </p>
         )}
@@ -123,7 +123,7 @@ export default function TemporadaConcluidaPage() {
                     {d.antes && d.depois && (
                       <div className="mt-2 text-xs space-y-0.5">
                         <p className="text-gray-500"><span className="text-gray-400">{t('before')}</span> {d.antes}</p>
-                        <p className="text-gray-200"><span className="text-cyan-400">{t('after')}</span> {d.depois}</p>
+                        <p className="text-gray-200"><span className="text-brand-400">{t('after')}</span> {d.depois}</p>
                       </div>
                     )}
                   </div>
@@ -140,11 +140,11 @@ export default function TemporadaConcluidaPage() {
           <h2 className="text-xs uppercase tracking-widest text-gray-400 mb-3">{t('sections.insights')}</h2>
           <div className="space-y-2">
             {momentos.map((m, i) => (
-              <GlassCard key={i} className="border-cyan-500/15">
+              <GlassCard key={i} className="border-brand-500/15">
                 <div className="flex items-start gap-3">
                   <div className="w-12 shrink-0 text-center">
                     <p className="text-[9px] uppercase text-gray-500">{t('weekShort')}</p>
-                    <p className="text-lg font-extrabold text-cyan-300">{m.semana}</p>
+                    <p className="text-lg font-extrabold text-brand-300">{m.semana}</p>
                   </div>
                   <div className="flex-1">
                     <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">{m.descritor}</p>
@@ -198,7 +198,7 @@ export default function TemporadaConcluidaPage() {
             </div>
             {sem14.cenario && (
               <details className="mb-3">
-                <summary className="text-xs text-cyan-400 cursor-pointer">{t('final.viewScenario')}</summary>
+                <summary className="text-xs text-brand-400 cursor-pointer">{t('final.viewScenario')}</summary>
                 <div className="prose prose-invert prose-sm max-w-none mt-2 text-xs text-gray-300">
                   <ReactMarkdown>{sem14.cenario}</ReactMarkdown>
                 </div>
@@ -206,8 +206,8 @@ export default function TemporadaConcluidaPage() {
             )}
             {sem14.resposta && (
               <details className="mb-3">
-                <summary className="text-xs text-cyan-400 cursor-pointer">{t('final.viewAnswer')}</summary>
-                <p className="text-xs text-gray-300 mt-2 whitespace-pre-wrap border-l-2 border-cyan-500/30 pl-3">{sem14.resposta}</p>
+                <summary className="text-xs text-brand-400 cursor-pointer">{t('final.viewAnswer')}</summary>
+                <p className="text-xs text-gray-300 mt-2 whitespace-pre-wrap border-l-2 border-brand-500/30 pl-3">{sem14.resposta}</p>
               </details>
             )}
             {sem14.resumo_avaliacao?.mensagem_geral && (

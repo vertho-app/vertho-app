@@ -28,6 +28,9 @@ export function resolveTheme(uiConfig) {
     bgStart: c.bg_gradient_start || '#091D35',
     bgEnd: c.bg_gradient_end || '#0F2A4A',
     accent: c.accent_color || '#22d3ee', // cyan-400 (cor atual do nav ativo)
+    // Accent cru (null se o tenant NÃO configurou) — usado para só sobrescrever
+    // o token --brand-accent quando há branding real, mantendo Vertho idêntico.
+    accentRaw: c.accent_color || null,
     logoUrl: c.logo_url || '/logo-vertho.png',
   };
 }

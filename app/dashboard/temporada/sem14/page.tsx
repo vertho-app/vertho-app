@@ -140,16 +140,16 @@ export default function Sem14Page() {
       <div className="text-center">
         <AlertTriangle size={32} className="text-red-400 mx-auto mb-2" />
         <p className="text-sm text-red-400">{error}</p>
-        <button onClick={() => router.push('/dashboard/temporada')} className="text-xs text-cyan-400 mt-3 hover:underline">{t('back')}</button>
+        <button onClick={() => router.push('/dashboard/temporada')} className="text-xs text-brand-400 mt-3 hover:underline">{t('back')}</button>
       </div>
     </div>
   );
 
-  if (step < 0) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
+  if (step < 0) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-brand-400" /></div>;
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
-      <button onClick={() => router.push('/dashboard/temporada')} className="flex items-center gap-2 text-xs text-gray-400 hover:text-cyan-400 mb-4">
+      <button onClick={() => router.push('/dashboard/temporada')} className="flex items-center gap-2 text-xs text-gray-400 hover:text-brand-400 mb-4">
         <ArrowLeft size={14} /> {t('backToSeason')}
       </button>
 
@@ -160,12 +160,12 @@ export default function Sem14Page() {
             <p className="text-base font-bold text-white">{colabNome}</p>
             <p className="text-xs text-gray-400">{cargo}</p>
           </div>
-          <p className="text-xs font-bold text-cyan-400">
+          <p className="text-xs font-bold text-brand-400">
             {step <= 0 ? '0%' : step === 6 ? '100%' : `${Math.round(((step - 1) / 4) * 100)}%`}
           </p>
         </div>
         <div className="mt-3 h-1.5 rounded-full bg-white/5 overflow-hidden">
-          <div className="h-full bg-gradient-to-r from-cyan-500 to-emerald-500 transition-all"
+          <div className="h-full bg-gradient-to-r from-brand-500 to-emerald-500 transition-all"
             style={{ width: step === 6 ? '100%' : step > 0 ? `${((step - 1) / 4) * 100}%` : '0%' }} />
         </div>
         <p className="text-[10px] text-gray-500 mt-2">
@@ -176,12 +176,12 @@ export default function Sem14Page() {
       {/* STEP 0 — Cenário */}
       {step === 0 && (
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-          <p className="text-xs uppercase tracking-widest text-cyan-400 font-bold mb-3">{t('context')}</p>
+          <p className="text-xs uppercase tracking-widest text-brand-400 font-bold mb-3">{t('context')}</p>
           <div className="prose prose-invert prose-sm max-w-none text-gray-200 mb-5">
             <ReactMarkdown>{cenario}</ReactMarkdown>
           </div>
           <button onClick={() => setStep(1)}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-[#091D35] font-bold text-sm">
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-brand-500 hover:bg-brand-400 text-[#091D35] font-bold text-sm">
             <Play size={14} fill="currentColor" /> {t('startAssessment')}
           </button>
         </div>
@@ -191,26 +191,26 @@ export default function Sem14Page() {
       {step >= 1 && step <= 4 && perguntas[step - 1] && (
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
           <div className="flex items-center justify-between mb-4">
-            <p className="text-xs uppercase tracking-widest text-cyan-400 font-bold">
+            <p className="text-xs uppercase tracking-widest text-brand-400 font-bold">
               {t('question.counter', { current: step, total: 4 })}
             </p>
             <div className="flex gap-1">
               {[1, 2, 3, 4].map(i => (
                 <div key={i} className={`h-1 w-12 rounded-full transition-all ${
-                  i <= step ? 'bg-cyan-400' : 'bg-white/10'
+                  i <= step ? 'bg-brand-400' : 'bg-white/10'
                 }`} />
               ))}
             </div>
           </div>
 
-          <div className="rounded-xl bg-cyan-500/5 border-l-4 border-cyan-500 p-4 mb-3">
-            <p className="text-[10px] uppercase tracking-widest text-cyan-400 font-bold mb-1">{perguntas[step - 1].dimensao}</p>
+          <div className="rounded-xl bg-brand-500/5 border-l-4 border-brand-500 p-4 mb-3">
+            <p className="text-[10px] uppercase tracking-widest text-brand-400 font-bold mb-1">{perguntas[step - 1].dimensao}</p>
             <p className="text-sm text-white font-semibold leading-relaxed">{perguntas[step - 1].texto}</p>
           </div>
 
           <div className="flex items-start justify-between gap-2 mb-2">
             <p className="text-[11px] text-gray-500 flex-1">
-              {t.rich('question.voiceTip', { strong: (chunks) => <b className="text-cyan-400">{chunks}</b> })}
+              {t.rich('question.voiceTip', { strong: (chunks) => <b className="text-brand-400">{chunks}</b> })}
             </p>
             <MicInput ref={micRef} value={respostas[step - 1]}
               onChange={val => setResposta(step - 1, val)} disabled={busy} />
@@ -221,7 +221,7 @@ export default function Sem14Page() {
             placeholder={t('question.placeholder')}
             rows={6}
             disabled={busy}
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500 resize-vertical" />
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-brand-500 resize-vertical" />
 
           <div className="flex items-center justify-between mt-2 mb-4">
             <span className={`text-[11px] ${respostas[step - 1].trim().length >= MIN_CHARS ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -239,7 +239,7 @@ export default function Sem14Page() {
                 if (respostas[step - 1].trim().length < MIN_CHARS) { alert(t('question.minAlert', { min: MIN_CHARS })); return; }
                 micRef.current?.stop(); setStep(step + 1);
               }} disabled={busy}
-                className="flex-1 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-[#091D35] font-bold text-sm disabled:opacity-50">
+                className="flex-1 py-3 rounded-xl bg-brand-500 hover:bg-brand-400 text-[#091D35] font-bold text-sm disabled:opacity-50">
                 {t('question.next')}
               </button>
             ) : (
@@ -265,7 +265,7 @@ export default function Sem14Page() {
               <p className="text-[10px] text-gray-500 uppercase">{t('done.pre')}</p>
             </div>
             <div className="text-center rounded-lg bg-white/[0.05] p-3">
-              <p className="text-xl font-bold text-cyan-400">{avaliacao.nota_media_pos}</p>
+              <p className="text-xl font-bold text-brand-400">{avaliacao.nota_media_pos}</p>
               <p className="text-[10px] text-gray-500 uppercase">{t('done.post')}</p>
             </div>
             <div className="text-center rounded-lg bg-white/[0.05] p-3">
@@ -281,7 +281,7 @@ export default function Sem14Page() {
             </div>
           )}
           <button onClick={() => router.push('/dashboard/temporada/concluida')}
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-emerald-600 hover:opacity-90 text-sm font-bold text-white">
+            className="w-full py-3 rounded-xl bg-gradient-to-r from-brand-600 to-emerald-600 hover:opacity-90 text-sm font-bold text-white">
             {t('done.viewReport')}
           </button>
         </div>

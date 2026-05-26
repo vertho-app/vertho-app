@@ -131,7 +131,7 @@ export default function ChatPage() {
   if (initLoading) {
     return (
       <div className="flex items-center justify-center h-[60dvh]">
-        <Loader2 size={32} className="animate-spin text-cyan-400" />
+        <Loader2 size={32} className="animate-spin text-brand-400" />
       </div>
     );
   }
@@ -166,12 +166,12 @@ export default function ChatPage() {
           <div className="text-center flex-1 px-3">
             <p className="text-sm font-bold text-white truncate">{compNome || t('fallbackTitle')}</p>
             <div className="flex items-center justify-center gap-3 mt-1">
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cyan-400/15 text-cyan-400">
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-brand-400/15 text-brand-400">
                 {faseLabel[fase] || fase}
               </span>
               {status === 'em_andamento' && (
                 <span className="text-[10px] text-gray-500">
-                  {t('confidence')}: <span className="text-cyan-400 font-bold">{confianca}%</span>
+                  {t('confidence')}: <span className="text-brand-400 font-bold">{confianca}%</span>
                 </span>
               )}
               {status === 'concluido' && (
@@ -198,7 +198,7 @@ export default function ChatPage() {
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
               m.role === 'user'
-                ? 'bg-cyan-500/15 text-cyan-100 rounded-br-md'
+                ? 'bg-brand-500/15 text-brand-100 rounded-br-md'
                 : 'bg-white/[0.06] text-gray-300 rounded-bl-md'
             }`}>
               {m.content}
@@ -230,7 +230,7 @@ export default function ChatPage() {
                 <p className="text-[9px] text-gray-500 uppercase">{t('final.level')}</p>
               </div>
               <div className="text-center p-2 rounded-lg" style={{ background: '#091D35' }}>
-                <p className="text-lg font-bold text-cyan-400">{avaliacao.nota_decimal}</p>
+                <p className="text-lg font-bold text-brand-400">{avaliacao.nota_decimal}</p>
                 <p className="text-[9px] text-gray-500 uppercase">{t('final.score')}</p>
               </div>
               <div className="text-center p-2 rounded-lg" style={{ background: '#091D35' }}>
@@ -277,7 +277,7 @@ export default function ChatPage() {
             onChange={e => setInput(e.target.value)}
             placeholder={t('inputPlaceholder')}
             disabled={loading}
-            className="flex-1 px-4 py-3 rounded-xl border border-white/10 bg-white/[0.05] text-sm text-white outline-none placeholder:text-white/30 focus:border-cyan-400/40 disabled:opacity-50"
+            className="flex-1 px-4 py-3 rounded-xl border border-white/10 bg-white/[0.05] text-sm text-white outline-none placeholder:text-white/30 focus:border-brand-400/40 disabled:opacity-50"
           />
           <button type="submit" disabled={loading || !input.trim()}
             className="w-11 h-11 rounded-xl flex items-center justify-center disabled:opacity-30"

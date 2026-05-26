@@ -398,7 +398,7 @@ export default function MapeamentoPage() {
   if (!authReady) {
     return (
       <div className="flex items-center justify-center h-[60dvh]">
-        <Loader2 size={32} className="animate-spin text-cyan-400" />
+        <Loader2 size={32} className="animate-spin text-brand-400" />
       </div>
     );
   }
@@ -422,7 +422,7 @@ export default function MapeamentoPage() {
 
         <div className="flex flex-wrap gap-2 mb-8">
           {['discProfile', 'leadershipStyle', 'learningPreferences'].map(chip => (
-            <span key={chip} className="text-xs font-medium px-3 py-1.5 rounded-full bg-cyan-400/10 text-cyan-400 border border-cyan-400/20">
+            <span key={chip} className="text-xs font-medium px-3 py-1.5 rounded-full bg-brand-400/10 text-brand-400 border border-brand-400/20">
               {t(`onboarding.chips.${chip}`)}
             </span>
           ))}
@@ -447,7 +447,7 @@ export default function MapeamentoPage() {
         </div>
 
         <div className="rounded-xl bg-white/[0.03] border border-white/10 p-4 mb-4">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-cyan-400 mb-2">{t('onboarding.howQuestionsWork')}</p>
+          <p className="text-[11px] font-bold uppercase tracking-widest text-brand-400 mb-2">{t('onboarding.howQuestionsWork')}</p>
           <div className="space-y-2 text-xs text-gray-300 leading-relaxed">
             <p>{t.rich('onboarding.rankingHelp', { strong: (chunks) => <b>{chunks}</b>, most: (chunks) => <span className="text-emerald-400 font-bold">{chunks}</span>, least: (chunks) => <span className="text-red-400 font-bold">{chunks}</span> })}</p>
             <p>{t.rich('onboarding.pairsHelp', { strong: (chunks) => <b>{chunks}</b> })}</p>
@@ -489,7 +489,7 @@ export default function MapeamentoPage() {
               type="text"
               value={formName}
               onChange={e => setFormName(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-cyan-400/50"
+              className="w-full px-3 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-brand-400/50"
             />
           </div>
           <div>
@@ -498,7 +498,7 @@ export default function MapeamentoPage() {
               type="email"
               value={formEmail}
               onChange={e => setFormEmail(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-cyan-400/50"
+              className="w-full px-3 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-brand-400/50"
               readOnly
             />
           </div>
@@ -507,7 +507,7 @@ export default function MapeamentoPage() {
             <select
               value={formGender}
               onChange={e => setFormGender(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-cyan-400/50 appearance-none"
+              className="w-full px-3 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-brand-400/50 appearance-none"
             >
               <option value="" className="bg-[#091D35]">{t('welcome.select')}</option>
               <option value="M" className="bg-[#091D35]">{t('welcome.masculine')}</option>
@@ -589,13 +589,13 @@ export default function MapeamentoPage() {
         <BlockContextHeader isNatural={isNatural} etapa="ranking" t={t} />
 
         {/* Phase tag + title */}
-        <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-cyan-400 mb-1">{label}</p>
+        <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-brand-400 mb-1">{label}</p>
         <h1 className="text-[26px] font-black text-white leading-tight mb-2">{t('ranking.group', { number: String(groupIdx + 1).padStart(2, '0') })}</h1>
 
         {/* Dots */}
         <div className="flex gap-1 mb-6">
           {Array.from({ length: 8 }, (_, i) => (
-            <div key={i} className={`w-[7px] h-[7px] rounded-full transition-all ${i < groupIdx ? 'bg-teal-500' : i === groupIdx ? 'bg-cyan-400 shadow-[0_0_8px_rgba(0,180,216,0.5)]' : 'bg-white/[0.08]'}`} />
+            <div key={i} className={`w-[7px] h-[7px] rounded-full transition-all ${i < groupIdx ? 'bg-teal-500' : i === groupIdx ? 'bg-brand-400 shadow-[0_0_8px_rgba(0,180,216,0.5)]' : 'bg-white/[0.08]'}`} />
           ))}
         </div>
 
@@ -611,7 +611,7 @@ export default function MapeamentoPage() {
               onDragStart={(e) => handleDragStart(e, idx)}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, idx)}
-              className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-white/[0.04] cursor-grab active:cursor-grabbing active:border-cyan-400/40 active:scale-[1.02] transition-all"
+              className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-white/[0.04] cursor-grab active:cursor-grabbing active:border-brand-400/40 active:scale-[1.02] transition-all"
               style={{ background: '#182B48' }}
             >
               <span className="w-7 h-7 rounded-lg flex items-center justify-center text-[12px] font-extrabold flex-shrink-0"
@@ -623,7 +623,7 @@ export default function MapeamentoPage() {
                 <button
                   disabled={idx === 0}
                   onClick={() => moveItem(phaseKey, groupIdx, idx, -1)}
-                  className="w-[38px] h-[38px] rounded-lg flex items-center justify-center text-gray-400 hover:bg-cyan-400 hover:text-[#0C1829] disabled:opacity-[0.15] transition-all active:scale-90"
+                  className="w-[38px] h-[38px] rounded-lg flex items-center justify-center text-gray-400 hover:bg-brand-400 hover:text-[#0C1829] disabled:opacity-[0.15] transition-all active:scale-90"
                   style={{ background: 'rgba(255,255,255,0.04)' }}
                 >
                   <ChevronUp size={16} strokeWidth={3} />
@@ -631,7 +631,7 @@ export default function MapeamentoPage() {
                 <button
                   disabled={idx === 3}
                   onClick={() => moveItem(phaseKey, groupIdx, idx, 1)}
-                  className="w-[38px] h-[38px] rounded-lg flex items-center justify-center text-gray-400 hover:bg-cyan-400 hover:text-[#0C1829] disabled:opacity-[0.15] transition-all active:scale-90"
+                  className="w-[38px] h-[38px] rounded-lg flex items-center justify-center text-gray-400 hover:bg-brand-400 hover:text-[#0C1829] disabled:opacity-[0.15] transition-all active:scale-90"
                   style={{ background: 'rgba(255,255,255,0.04)' }}
                 >
                   <ChevronDown size={16} strokeWidth={3} />
@@ -679,13 +679,13 @@ export default function MapeamentoPage() {
         <BlockContextHeader isNatural={isNatural} etapa="pares" t={t} />
 
         {/* Phase tag + title */}
-        <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-cyan-400 mb-1">{label} — {t('pairs.quickChoice')}</p>
+        <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-brand-400 mb-1">{label} — {t('pairs.quickChoice')}</p>
         <h1 className="text-[26px] font-black text-white leading-tight mb-2">{t('pairs.pair', { current: pairIdx + 1, total: 6 })}</h1>
 
         {/* Dots */}
         <div className="flex gap-1 mb-6">
           {Array.from({ length: 6 }, (_, i) => (
-            <div key={i} className={`w-[7px] h-[7px] rounded-full transition-all ${i < pairIdx ? 'bg-teal-500' : i === pairIdx ? 'bg-cyan-400 shadow-[0_0_8px_rgba(0,180,216,0.5)]' : 'bg-white/[0.08]'}`} />
+            <div key={i} className={`w-[7px] h-[7px] rounded-full transition-all ${i < pairIdx ? 'bg-teal-500' : i === pairIdx ? 'bg-brand-400 shadow-[0_0_8px_rgba(0,180,216,0.5)]' : 'bg-white/[0.08]'}`} />
           ))}
         </div>
 
@@ -749,7 +749,7 @@ export default function MapeamentoPage() {
         </div>
 
         {/* Tag + title */}
-        <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-cyan-400 mb-1">{t('learning.lastStep')}</p>
+        <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-brand-400 mb-1">{t('learning.lastStep')}</p>
         <h1 className="text-[26px] font-black text-white leading-tight mb-1" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>{t('learning.title')}</h1>
         <p className="text-[14px] text-gray-400 mb-5">{t('learning.subtitle')}</p>
 
@@ -794,7 +794,7 @@ export default function MapeamentoPage() {
   if (phase === PHASE.CALCULATING) {
     return (
       <div className="flex flex-col items-center justify-center h-[70dvh] text-center px-4">
-        <Loader2 size={48} className="animate-spin text-cyan-400 mb-4" />
+        <Loader2 size={48} className="animate-spin text-brand-400 mb-4" />
         <h2 className="text-lg font-bold text-white mb-1">{t('calculating.title')}</h2>
         <p className="text-sm text-gray-400">{t('calculating.subtitle')}</p>
       </div>

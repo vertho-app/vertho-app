@@ -100,7 +100,7 @@ export default function AssessmentPage() {
   if (phase === PHASE.LOADING) {
     return (
       <div className="flex items-center justify-center h-[60dvh]">
-        <Loader2 size={32} className="animate-spin text-cyan-400" />
+        <Loader2 size={32} className="animate-spin text-brand-400" />
       </div>
     );
   }
@@ -138,10 +138,10 @@ export default function AssessmentPage() {
               <p className="text-sm font-bold text-white">{data.colaborador.nome}</p>
               <p className="text-xs text-gray-400">{data.colaborador.cargo}</p>
             </div>
-            <span className="text-xs font-extrabold text-cyan-400">{data.progresso.pct}%</span>
+            <span className="text-xs font-extrabold text-brand-400">{data.progresso.pct}%</span>
           </div>
           <div className="h-2 rounded-full overflow-hidden mt-3" style={{ background: 'rgba(255,255,255,0.05)' }}>
-            <div className="h-full rounded-full bg-cyan-400 transition-all" style={{ width: `${data.progresso.pct}%` }} />
+            <div className="h-full rounded-full bg-brand-400 transition-all" style={{ width: `${data.progresso.pct}%` }} />
           </div>
           <p className="text-[10px] text-gray-500 mt-1.5">{t('progress', { done: data.progresso.respondidas, total: data.progresso.total })}</p>
         </div>
@@ -155,7 +155,7 @@ export default function AssessmentPage() {
           <p className="text-xs text-gray-500 mb-5">{t('explanation.subtitle')}</p>
           <div className="space-y-3 text-left mb-6">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-cyan-400/15 flex items-center justify-center shrink-0"><Calendar size={16} className="text-cyan-400" /></div>
+              <div className="w-8 h-8 rounded-lg bg-brand-400/15 flex items-center justify-center shrink-0"><Calendar size={16} className="text-brand-400" /></div>
               <div className="text-sm text-gray-300"><span className="font-bold text-white">{t('explanation.paceTitle')}</span> · {t('explanation.paceText')}</div>
             </div>
             <div className="flex items-center gap-3">
@@ -172,7 +172,7 @@ export default function AssessmentPage() {
             </div>
           </div>
           <button onClick={() => setPhase(PHASE.INTRO)}
-            className="w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-cyan-400 to-cyan-600 hover:brightness-110 transition">
+            className="w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-brand-400 to-brand-600 hover:brightness-110 transition">
             {t('explanation.start')}
           </button>
         </div>
@@ -181,7 +181,7 @@ export default function AssessmentPage() {
       {/* ─── INTRO DO CENÁRIO ─── */}
       {phase === PHASE.INTRO && data?.cenarioDoDia && (
         <div className="rounded-2xl p-5 border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
-          <p className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-400 mb-2">{t('intro.context')}</p>
+          <p className="text-[10px] font-extrabold uppercase tracking-widest text-brand-400 mb-2">{t('intro.context')}</p>
           <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap mb-5">{data.cenarioDoDia.contexto}</p>
           <button onClick={() => { setPergIdx(0); setPhase(PHASE.PERGUNTAS); }}
             className="w-full py-3 rounded-xl font-bold text-white bg-gradient-to-br from-[#0F2B54] to-[#1a3a70] hover:brightness-110 transition">
@@ -198,20 +198,20 @@ export default function AssessmentPage() {
         return (
           <div className="rounded-2xl p-5 border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold tracking-widest text-cyan-400 uppercase">
+              <span className="text-[10px] font-bold tracking-widest text-brand-400 uppercase">
                 {t('questions.counter', { current: pergIdx + 1, total: enunciados.length })}
               </span>
               <div className="flex gap-1">
                 {enunciados.map((_, i) => (
                   <span key={i} className={`h-1.5 w-6 rounded-full transition-colors ${
-                    i < pergIdx ? 'bg-cyan-400'
-                    : i === pergIdx ? 'bg-cyan-400/60'
+                    i < pergIdx ? 'bg-brand-400'
+                    : i === pergIdx ? 'bg-brand-400/60'
                     : 'bg-white/10'
                   }`} />
                 ))}
               </div>
             </div>
-            <div className="rounded-xl p-3 mb-3 border-l-4 border-cyan-400" style={{ background: 'rgba(45,212,191,0.05)' }}>
+            <div className="rounded-xl p-3 mb-3 border-l-4 border-brand-400" style={{ background: 'rgba(45,212,191,0.05)' }}>
               <p className="text-sm font-semibold text-white leading-snug">{enunciados[pergIdx]}</p>
             </div>
             {/* Gravador por voz — dica + botão. O MicInput já mostra "Indisponível"
@@ -220,7 +220,7 @@ export default function AssessmentPage() {
               <p className="text-[10px] text-gray-500 leading-relaxed flex-1 md:max-w-md">
                 <span className="font-semibold text-gray-400">{t('questions.voiceTipPrefix')}</span>{' '}
                 {t.rich('questions.voiceTip', {
-                  strong: (chunks) => <span className="text-cyan-400 font-semibold">{chunks}</span>,
+                  strong: (chunks) => <span className="text-brand-400 font-semibold">{chunks}</span>,
                 })}
               </p>
               <div className="self-start md:self-auto">
@@ -232,7 +232,7 @@ export default function AssessmentPage() {
               onChange={e => setCurrentR(e.target.value)}
               placeholder={t('questions.placeholder')}
               rows={6}
-              className="w-full p-3 rounded-xl border-2 border-white/10 bg-[#091D35] text-white text-sm outline-none focus:border-cyan-400 transition-colors placeholder:text-gray-500"
+              className="w-full p-3 rounded-xl border-2 border-white/10 bg-[#091D35] text-white text-sm outline-none focus:border-brand-400 transition-colors placeholder:text-gray-500"
             />
             <p className={`text-right text-[11px] mt-1 ${len < 20 ? 'text-red-400' : 'text-gray-500'}`}>{t('questions.minChars', { count: len })}</p>
             <div className="flex gap-2 mt-4">
@@ -241,7 +241,7 @@ export default function AssessmentPage() {
                 {t('questions.previous')}
               </button>
               <button onClick={avancarPergunta}
-                className="flex-1 py-2.5 rounded-xl text-xs font-bold text-[#0C1829] bg-gradient-to-br from-cyan-400 to-cyan-600 hover:brightness-110 transition">
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold text-[#0C1829] bg-gradient-to-br from-brand-400 to-brand-600 hover:brightness-110 transition">
                 {pergIdx === 3 ? t('questions.representativity') : t('questions.next')}
               </button>
             </div>
@@ -260,8 +260,8 @@ export default function AssessmentPage() {
               <button key={n} onClick={() => setRepr(n)}
                 className={`w-10 h-10 rounded-lg border-2 text-sm font-extrabold transition-all ${
                   repr === n
-                    ? 'bg-cyan-400 border-cyan-400 text-[#0C1829] scale-110'
-                    : 'bg-white/[0.02] border-white/10 text-gray-400 hover:border-cyan-400 hover:text-cyan-400'
+                    ? 'bg-brand-400 border-brand-400 text-[#0C1829] scale-110'
+                    : 'bg-white/[0.02] border-white/10 text-gray-400 hover:border-brand-400 hover:text-brand-400'
                 }`}>
                 {n}
               </button>
@@ -279,7 +279,7 @@ export default function AssessmentPage() {
             </button>
             <button onClick={enviarResposta}
               disabled={saving}
-              className="flex-1 py-2.5 rounded-xl text-xs font-bold text-[#0C1829] bg-gradient-to-br from-cyan-400 to-cyan-600 hover:brightness-110 transition disabled:opacity-50 flex items-center justify-center gap-1.5">
+              className="flex-1 py-2.5 rounded-xl text-xs font-bold text-[#0C1829] bg-gradient-to-br from-brand-400 to-brand-600 hover:brightness-110 transition disabled:opacity-50 flex items-center justify-center gap-1.5">
               {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
               {saving ? t('representativity.sending') : t('representativity.submit')}
             </button>
@@ -308,7 +308,7 @@ export default function AssessmentPage() {
                 if (r.concluiuTudo) setPhase(PHASE.CONCLUIDO);
                 else setPhase(PHASE.INTRO);
               }}
-                className="w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-cyan-400 to-cyan-600 hover:brightness-110 transition">
+                className="w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-brand-400 to-brand-600 hover:brightness-110 transition">
                 {t('confirm.nextCompetency')}
               </button>
             )}
@@ -327,7 +327,7 @@ export default function AssessmentPage() {
           <p className="text-lg font-extrabold text-white mb-1">{t('today.title')}</p>
           <p className="text-sm text-gray-400 mb-5">{t('today.description')}</p>
           <button onClick={() => router.push('/dashboard')}
-            className="w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-cyan-400 to-cyan-600 hover:brightness-110 transition">
+            className="w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-brand-400 to-brand-600 hover:brightness-110 transition">
             {t('confirm.dashboard')}
           </button>
         </div>
@@ -335,14 +335,14 @@ export default function AssessmentPage() {
 
       {/* ─── CONCLUIU TUDO ─── */}
       {phase === PHASE.CONCLUIDO && (
-        <div className="rounded-2xl p-6 border border-cyan-400/30 text-center" style={{ background: 'linear-gradient(135deg, rgba(45,212,191,0.08), rgba(252,211,77,0.05))' }}>
+        <div className="rounded-2xl p-6 border border-brand-400/30 text-center" style={{ background: 'linear-gradient(135deg, rgba(45,212,191,0.08), rgba(252,211,77,0.05))' }}>
           <Trophy size={56} className="text-amber-400 mx-auto mb-3" />
           <p className="text-xl font-black text-white mb-1">{t('done.title', { name: data?.colaborador?.nome?.split(' ')[0] || '' })}</p>
           <p className="text-sm text-gray-300 mb-5">
             {t.rich('done.description', { br: () => <br /> })}
           </p>
           <button onClick={() => router.push('/dashboard')}
-            className="w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-cyan-400 to-cyan-600 hover:brightness-110 transition">
+            className="w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-brand-400 to-brand-600 hover:brightness-110 transition">
             {t('confirm.dashboard')}
           </button>
         </div>

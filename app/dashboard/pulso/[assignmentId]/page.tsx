@@ -93,8 +93,8 @@ export default function PulsoPage({ params }: { params: Promise<{ assignmentId: 
     return (
       <div className="max-w-md mx-auto px-5 py-8" style={{ minHeight: '100dvh' }}>
         <div className="mb-6 flex items-center gap-2">
-          <Activity size={20} className="text-cyan-400" />
-          <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">
+          <Activity size={20} className="text-brand-400" />
+          <span className="text-[10px] font-bold text-brand-400 uppercase tracking-widest">
             Pulso de Desenvolvimento
           </span>
         </div>
@@ -111,7 +111,7 @@ export default function PulsoPage({ params }: { params: Promise<{ assignmentId: 
         </div>
         <button
           onClick={() => setStep('questions')}
-          className="w-full py-3.5 rounded-xl text-sm font-bold text-[#0F2B54] bg-cyan-400 hover:brightness-110 transition-all"
+          className="w-full py-3.5 rounded-xl text-sm font-bold text-[#0F2B54] bg-brand-400 hover:brightness-110 transition-all"
         >
           Começar
         </button>
@@ -127,7 +127,7 @@ export default function PulsoPage({ params }: { params: Promise<{ assignmentId: 
       </div>
 
       <div className="rounded-2xl border border-white/[0.06] p-5 mb-5" style={{ background: '#0F2B54' }}>
-        <p className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest mb-3">
+        <p className="text-[9px] font-bold text-brand-400 uppercase tracking-widest mb-3">
           {atual.dimension_name}
         </p>
         <p className="text-base text-white leading-relaxed mb-6">{atual.question_text}</p>
@@ -167,7 +167,7 @@ export default function PulsoPage({ params }: { params: Promise<{ assignmentId: 
           <button
             onClick={() => setIdx(idx + 1)}
             disabled={atual.is_required && respostaAtual.numeric_answer == null}
-            className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[11px] font-bold text-[#0F2B54] bg-cyan-400 hover:brightness-110 transition-all disabled:opacity-40"
+            className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[11px] font-bold text-[#0F2B54] bg-brand-400 hover:brightness-110 transition-all disabled:opacity-40"
           >
             Continuar <ArrowRight size={14} />
           </button>
@@ -175,7 +175,7 @@ export default function PulsoPage({ params }: { params: Promise<{ assignmentId: 
           <button
             onClick={handleFinish}
             disabled={finalizando}
-            className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[11px] font-bold text-[#0F2B54] bg-cyan-400 hover:brightness-110 transition-all disabled:opacity-50"
+            className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[11px] font-bold text-[#0F2B54] bg-brand-400 hover:brightness-110 transition-all disabled:opacity-50"
           >
             {finalizando ? <Loader2 size={14} className="animate-spin" /> : 'Finalizar'}
           </button>
@@ -188,7 +188,7 @@ export default function PulsoPage({ params }: { params: Promise<{ assignmentId: 
 function Loader() {
   return (
     <div className="flex items-center justify-center" style={{ minHeight: '100dvh' }}>
-      <Loader2 size={32} className="animate-spin text-cyan-400" />
+      <Loader2 size={32} className="animate-spin text-brand-400" />
     </div>
   );
 }

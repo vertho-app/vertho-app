@@ -99,8 +99,8 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   }, [router, sb, semanaNum]);
 
   // Sem 14 tem UI própria (idêntica ao mapeamento)
-  if (semanaNum === 14) { router.replace('/dashboard/temporada/sem14'); return <Center><Loader2 className="animate-spin text-cyan-400" /></Center>; }
-  if (loading) return <Center><Loader2 className="animate-spin text-cyan-400" /></Center>;
+  if (semanaNum === 14) { router.replace('/dashboard/temporada/sem14'); return <Center><Loader2 className="animate-spin text-brand-400" /></Center>; }
+  if (loading) return <Center><Loader2 className="animate-spin text-brand-400" /></Center>;
   if (!data?.trilha) return <Center><p className="text-gray-400">{t('errors.seasonNotFound')}</p></Center>;
 
   const semana = (data.trilha.temporada_plano || []).find(s => s.semana === semanaNum);
@@ -199,13 +199,13 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
 
   return (
     <PageContainer>
-      <button onClick={() => router.push('/dashboard/temporada')} className="flex items-center gap-2 text-xs text-gray-400 hover:text-cyan-400 mb-4">
+      <button onClick={() => router.push('/dashboard/temporada')} className="flex items-center gap-2 text-xs text-gray-400 hover:text-brand-400 mb-4">
         <ArrowLeft size={14} /> {t('backToSeason')}
       </button>
 
       {/* Header */}
       <div className="mb-6">
-        <div className="text-xs uppercase text-cyan-400 mb-1">
+        <div className="text-xs uppercase text-brand-400 mb-1">
           {t('header.weekOf', { week: semanaNum, total: 14 })} · {isAplicacao ? t('type.practice') : isAvaliacao ? t('type.assessment') : t('type.episode')}
         </div>
         <h1 className="text-2xl font-bold text-white">{semana.descritor || semana.competencia || data.trilha.competencia_foco}</h1>
@@ -233,21 +233,21 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
             )}
           </GlassCard>
 
-          <GlassCard className="mb-4 border-cyan-500/30 bg-cyan-500/5">
+          <GlassCard className="mb-4 border-brand-500/30 bg-brand-500/5">
             <div className="flex items-center gap-2 mb-2">
-              <Target size={16} className="text-cyan-400" />
-              <span className="text-xs uppercase text-cyan-400 font-bold">{t('challenge.title')}</span>
+              <Target size={16} className="text-brand-400" />
+              <span className="text-xs uppercase text-brand-400 font-bold">{t('challenge.title')}</span>
             </div>
             <p className="text-sm text-gray-200">{conteudo.desafio_texto}</p>
             {conteudo.acao_observavel && (
-              <div className="mt-3 space-y-2 border-t border-cyan-500/20 pt-3">
+              <div className="mt-3 space-y-2 border-t border-brand-500/20 pt-3">
                 <div>
-                  <span className="text-[10px] uppercase text-cyan-400/70 font-semibold">{t('challenge.observe')}</span>
+                  <span className="text-[10px] uppercase text-brand-400/70 font-semibold">{t('challenge.observe')}</span>
                   <p className="text-xs text-gray-300">{conteudo.acao_observavel}</p>
                 </div>
                 {conteudo.criterio_de_execucao && (
                   <div>
-                    <span className="text-[10px] uppercase text-cyan-400/70 font-semibold">{t('challenge.execution')}</span>
+                    <span className="text-[10px] uppercase text-brand-400/70 font-semibold">{t('challenge.execution')}</span>
                     <p className="text-xs text-gray-300">{conteudo.criterio_de_execucao}</p>
                   </div>
                 )}
@@ -389,8 +389,8 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
       {!isAplicacao && !isAvaliacao && (
         <GlassCard className="mb-4">
           <div className="flex items-center gap-2 mb-3">
-            <HelpCircle size={16} className="text-cyan-400" />
-            <span className="text-xs uppercase text-cyan-400 font-bold">{t('qa.title')}</span>
+            <HelpCircle size={16} className="text-brand-400" />
+            <span className="text-xs uppercase text-brand-400 font-bold">{t('qa.title')}</span>
             <span className="text-[10px] text-gray-500">· {t('qa.scope', { descriptor: semana.descritor })}</span>
           </div>
 
@@ -398,7 +398,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
             <button onClick={() => setTdOpen(true)}
               disabled={!conteudoConsumido}
               title={!conteudoConsumido ? t('qa.markContentFirst') : ''}
-              className="w-full px-4 py-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold">
+              className="w-full px-4 py-3 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold">
               {conteudoConsumido ? t('qa.ask') : t('qa.unlockAfterContent')}
             </button>
           ) : (
@@ -406,13 +406,13 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
               <div className="space-y-3 max-h-80 overflow-y-auto mb-3">
                 {tdHistory.length === 0 && (
                   <p className="text-xs text-gray-500 italic text-center py-4">
-                    {t.rich('qa.empty', { descriptor: semana.descritor, strong: (chunks) => <span className="text-cyan-400">{chunks}</span> })}
+                    {t.rich('qa.empty', { descriptor: semana.descritor, strong: (chunks) => <span className="text-brand-400">{chunks}</span> })}
                   </p>
                 )}
                 {tdHistory.map((m, i) => (
                   <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
-                      m.role === 'user' ? 'bg-cyan-600 text-white' : 'bg-white/5 text-gray-200 border border-white/10'
+                      m.role === 'user' ? 'bg-brand-600 text-white' : 'bg-white/5 text-gray-200 border border-white/10'
                     }`}>
                       <ReactMarkdown>{m.content}</ReactMarkdown>
                     </div>
@@ -433,10 +433,10 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
                     onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTiraDuvida(); } }}
                     placeholder={t('qa.placeholder')}
                     rows={2}
-                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500 resize-none"
+                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-brand-500 resize-none"
                     disabled={tdBusy} />
                   <button onClick={sendTiraDuvida} disabled={tdBusy || !tdInput.trim()}
-                    className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50">
+                    className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50">
                     <Send size={16} />
                   </button>
                 </div>
@@ -497,7 +497,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
                 {chatHistory.map((m, i) => (
                   <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
-                      m.role === 'user' ? 'bg-cyan-600 text-white' : 'bg-white/5 text-gray-200 border border-white/10'
+                      m.role === 'user' ? 'bg-brand-600 text-white' : 'bg-white/5 text-gray-200 border border-white/10'
                     }`}>
                       <ReactMarkdown>{m.content}</ReactMarkdown>
                     </div>
@@ -527,10 +527,10 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
                           : t('evidence.placeholderDefault')
                       }
                       rows={2}
-                      className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500 resize-none"
+                      className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-brand-500 resize-none"
                       disabled={chatBusy}
                     />
-                    <button onClick={sendMessage} disabled={chatBusy || !chatInput.trim()} className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50">
+                    <button onClick={sendMessage} disabled={chatBusy || !chatInput.trim()} className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50">
                       <Send size={16} />
                     </button>
                   </div>
@@ -604,7 +604,7 @@ function ConteudoViewer({ conteudo, formatoAtivo, setFormatoAtivo, onAutoConsumi
             const ativ = f === ativo;
             return (
               <button key={f} onClick={() => setFormatoAtivo(f)} className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] ${
-                ativ ? 'bg-cyan-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                ativ ? 'bg-brand-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
               }`}>
                 <Icon size={12} /> {f}
               </button>
@@ -631,7 +631,7 @@ function ConteudoViewer({ conteudo, formatoAtivo, setFormatoAtivo, onAutoConsumi
         <div className="prose prose-invert prose-sm max-w-none">
           <a href={item.url} target="_blank" rel="noopener"
             onClick={() => onAbrirConteudo?.()}
-            className="text-cyan-400">{t('content.openContent')}</a>
+            className="text-brand-400">{t('content.openContent')}</a>
         </div>
       )}
     </div>

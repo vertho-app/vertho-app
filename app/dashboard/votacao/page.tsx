@@ -76,11 +76,11 @@ export default function VotacaoPage() {
     else { setSaved(true); setToast(t('toast.saved')); setTimeout(() => router.push('/dashboard'), 1500); }
   }
 
-  if (loading) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-brand-400" /></div>;
   if (error) return (
     <div className="max-w-[600px] mx-auto px-5 py-10 text-center">
       <p className="text-gray-400 mb-4">{error}</p>
-      <button onClick={() => router.back()} className="text-cyan-400 text-sm hover:underline">{t('back')}</button>
+      <button onClick={() => router.back()} className="text-brand-400 text-sm hover:underline">{t('back')}</button>
     </div>
   );
   if (!data) return null;
@@ -104,7 +104,7 @@ export default function VotacaoPage() {
           {(data.votoExistente.competencias_escolhidas || []).map((nome: string, idx: number) => (
             <div key={nome} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
               <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-bold shrink-0 ${
-                idx === 0 ? 'bg-amber-400/20 text-amber-400' : 'bg-cyan-400/15 text-cyan-400'
+                idx === 0 ? 'bg-amber-400/20 text-amber-400' : 'bg-brand-400/15 text-brand-400'
               }`}>{idx + 1}</span>
               <span className="text-sm font-medium text-white">{nome}</span>
             </div>
@@ -134,7 +134,7 @@ export default function VotacaoPage() {
       </button>
 
       <header className="mb-6">
-        <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-cyan-400 mb-2">{t('eyebrow')}</p>
+        <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-brand-400 mb-2">{t('eyebrow')}</p>
         <h1 className="text-2xl font-bold text-white mb-1">{t('title', { name: data.colaborador.nome?.split(' ')[0] })}</h1>
         <p className="text-sm text-gray-400">
           {t('role')}: <span className="text-white font-medium">{data.colaborador.cargo}</span> · {t('subtitle')}
@@ -143,7 +143,7 @@ export default function VotacaoPage() {
 
       {/* Selecionadas (ordenáveis com drag & drop) */}
       <section className="mb-6">
-        <p className="text-[10px] font-bold tracking-[0.15em] uppercase text-cyan-400 mb-1">
+        <p className="text-[10px] font-bold tracking-[0.15em] uppercase text-brand-400 mb-1">
           {t('selectedTitle', { count: selected.length })}
         </p>
         <p className="text-[11px] text-gray-500 mb-3">
@@ -173,12 +173,12 @@ export default function VotacaoPage() {
                   setDragOverIdx(null);
                 }}
                 className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all cursor-grab active:cursor-grabbing ${
-                  dragOverIdx === idx && dragIdx !== idx ? 'border-cyan-400 bg-cyan-400/10' : 'border-cyan-400/20'
+                  dragOverIdx === idx && dragIdx !== idx ? 'border-brand-400 bg-brand-400/10' : 'border-brand-400/20'
                 } ${dragIdx === idx ? 'opacity-40' : ''}`}
                 style={{ background: dragOverIdx === idx && dragIdx !== idx ? undefined : '#0F2A4A' }}>
                 <GripVertical size={14} className="text-gray-600 shrink-0" />
                 <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-bold shrink-0 ${
-                  idx === 0 ? 'bg-amber-400/20 text-amber-400' : 'bg-cyan-400/15 text-cyan-400'
+                  idx === 0 ? 'bg-amber-400/20 text-amber-400' : 'bg-brand-400/15 text-brand-400'
                 }`}>
                   {idx + 1}
                 </span>
@@ -207,10 +207,10 @@ export default function VotacaoPage() {
         <div className="space-y-1">
           {available.map((c: any) => (
             <button key={c.nome} onClick={() => toggleComp(c.nome)}
-              className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl border border-white/[0.06] hover:border-cyan-400/30 hover:bg-white/[0.02] transition-all"
+              className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl border border-white/[0.06] hover:border-brand-400/30 hover:bg-white/[0.02] transition-all"
               style={{ background: '#091D35' }}>
               <div className="w-5 h-5 rounded border border-white/15 flex items-center justify-center shrink-0">
-                {selected.includes(c.nome) && <Check size={12} className="text-cyan-400" />}
+                {selected.includes(c.nome) && <Check size={12} className="text-brand-400" />}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white">{c.nome}</p>
@@ -232,7 +232,7 @@ export default function VotacaoPage() {
           value={sugestao}
           onChange={e => { setSugestao(e.target.value); setSaved(false); }}
           placeholder={t('suggestionPlaceholder')}
-          className="w-full px-4 py-3 rounded-xl border border-white/10 bg-[#091D35] text-white text-sm outline-none focus:border-cyan-400 placeholder:text-gray-600"
+          className="w-full px-4 py-3 rounded-xl border border-white/10 bg-[#091D35] text-white text-sm outline-none focus:border-brand-400 placeholder:text-gray-600"
         />
       </section>
 

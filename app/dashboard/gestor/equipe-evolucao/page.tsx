@@ -79,7 +79,7 @@ export default function EquipeEvolucaoPage() {
   return (
     <PageContainer>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <button onClick={() => router.push('/dashboard')} className="flex items-center gap-2 text-xs text-gray-400 hover:text-cyan-400">
+        <button onClick={() => router.push('/dashboard')} className="flex items-center gap-2 text-xs text-gray-400 hover:text-brand-400">
           <ArrowLeft size={14} /> Dashboard
         </button>
         <button onClick={async () => {
@@ -95,14 +95,14 @@ export default function EquipeEvolucaoPage() {
           a.download = 'plenaria-equipe.pdf';
           a.click();
           URL.revokeObjectURL(url);
-        }} className="flex items-center gap-2 text-xs text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 rounded-full px-3 py-1.5">
+        }} className="flex items-center gap-2 text-xs text-brand-400 border border-brand-400/30 hover:bg-brand-400/10 rounded-full px-3 py-1.5">
           <FileDown size={12} /> Plenária PDF
         </button>
       </div>
 
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-1">
-          <Users size={20} className="text-cyan-400" />
+          <Users size={20} className="text-brand-400" />
           <h1 className="text-2xl font-bold text-white">Evolução da equipe</h1>
         </div>
         <p className="text-sm text-gray-400">Visão consolidada do desenvolvimento dos liderados.</p>
@@ -111,7 +111,7 @@ export default function EquipeEvolucaoPage() {
       {resumo && (
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 mb-6">
           <Card label="Total" valor={resumo.total} cor="text-white" />
-          <Card label="Em andamento" valor={resumo.emAndamento} cor="text-cyan-300" />
+          <Card label="Em andamento" valor={resumo.emAndamento} cor="text-brand-300" />
           <Card label="Confirmadas" valor={resumo.evolucaoConfirmada} cor="text-emerald-300" />
           <Card label="Parciais" valor={resumo.evolucaoParcial} cor="text-amber-300" />
           <Card label="Estagnação" valor={resumo.estagnacao} cor="text-gray-400" />
@@ -162,7 +162,7 @@ export default function EquipeEvolucaoPage() {
       </div>
 
       {loading ? (
-        <Center><Loader2 size={28} className="animate-spin text-cyan-400" /></Center>
+        <Center><Loader2 size={28} className="animate-spin text-brand-400" /></Center>
       ) : filtrados.length === 0 ? (
         <p className="text-center py-12 text-sm text-gray-500">Nenhum liderado encontrado.</p>
       ) : (
@@ -251,7 +251,7 @@ function DetalheModal({ data, loading, onClose, sb }) {
           <div className="flex gap-2">
             {data?.colab && (
               <button onClick={baixarPdf}
-                className="flex items-center gap-1 text-[10px] text-cyan-400 border border-cyan-400/30 rounded-full px-2 py-1 hover:bg-cyan-400/10">
+                className="flex items-center gap-1 text-[10px] text-brand-400 border border-brand-400/30 rounded-full px-2 py-1 hover:bg-brand-400/10">
                 <Download size={10} /> PDF
               </button>
             )}
@@ -259,18 +259,18 @@ function DetalheModal({ data, loading, onClose, sb }) {
           </div>
         </div>
         {loading || !data?.colab ? (
-          <div className="py-12 flex justify-center"><Loader2 size={24} className="animate-spin text-cyan-400" /></div>
+          <div className="py-12 flex justify-center"><Loader2 size={24} className="animate-spin text-brand-400" /></div>
         ) : (
           <div className="p-5 space-y-4 text-sm">
             <section>
               <p className="text-[10px] uppercase tracking-widest text-gray-500">Contexto</p>
               <p className="text-white">{data.colab.nome} ({data.colab.cargo})</p>
-              <p className="text-xs text-gray-400">Competência: <span className="text-cyan-400">{data.trilha.competencia}</span> · Temporada {data.trilha.numeroTemporada}</p>
+              <p className="text-xs text-gray-400">Competência: <span className="text-brand-400">{data.trilha.competencia}</span> · Temporada {data.trilha.numeroTemporada}</p>
             </section>
             {report?.insight_geral && (
               <section>
-                <p className="text-[10px] uppercase tracking-widest text-cyan-400 mb-1">Insight geral</p>
-                <p className="text-xs text-gray-200 italic border-l-2 border-cyan-500/40 pl-3">{report.insight_geral}</p>
+                <p className="text-[10px] uppercase tracking-widest text-brand-400 mb-1">Insight geral</p>
+                <p className="text-xs text-gray-200 italic border-l-2 border-brand-500/40 pl-3">{report.insight_geral}</p>
               </section>
             )}
             <section>

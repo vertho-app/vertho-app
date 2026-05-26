@@ -51,7 +51,7 @@ export default function EvidenciaPage() {
     }
   }
 
-  if (loading) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-brand-400" /></div>;
   if (error && !data) return <div className="p-6 text-center text-gray-400">{error}</div>;
 
   if (success) {
@@ -103,7 +103,7 @@ export default function EvidenciaPage() {
             onChange={(e) => setTexto(e.target.value)}
             placeholder="Descreva aqui suas acoes, aprendizados e resultados..."
             rows={6}
-            className="w-full rounded-xl p-4 text-sm text-white placeholder-gray-500 border border-white/[0.06] focus:border-cyan-400/50 focus:outline-none resize-none transition-colors"
+            className="w-full rounded-xl p-4 text-sm text-white placeholder-gray-500 border border-white/[0.06] focus:border-brand-400/50 focus:outline-none resize-none transition-colors"
             style={{ background: '#0F2A4A' }}
           />
         </div>

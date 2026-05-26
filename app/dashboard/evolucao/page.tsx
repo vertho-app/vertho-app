@@ -35,7 +35,7 @@ export default function EvolucaoPage() {
     init();
   }, []);
 
-  if (loading) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-brand-400" /></div>;
   if (error) return <div className="px-5 pt-10 text-center text-gray-400">{error}</div>;
   if (!data) return null;
 

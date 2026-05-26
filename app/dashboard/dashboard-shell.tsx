@@ -17,8 +17,24 @@ const DEFAULT_THEME: TenantTheme = {
   bgStart: '#091D35',
   bgEnd: '#0F2A4A',
   accent: '#22d3ee',
+  accentRaw: null,
   logoUrl: '/logo-vertho.png',
 };
+
+/** Deriva o ramp brand-100..700 a partir do accent do tenant (clarear/escurecer). */
+function brandRampVars(accent: string): Record<string, string> {
+  const lighten = (pct: number) => `color-mix(in oklab, ${accent} ${pct}%, white)`;
+  const darken = (pct: number) => `color-mix(in oklab, ${accent} ${pct}%, black)`;
+  return {
+    '--brand-100': lighten(25),
+    '--brand-200': lighten(45),
+    '--brand-300': lighten(70),
+    '--brand-400': accent,
+    '--brand-500': darken(85),
+    '--brand-600': darken(70),
+    '--brand-700': darken(55),
+  };
+}
 
 const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', labelKey: 'home', icon: Home },
@@ -70,7 +86,17 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
   if (!user) return null;
 
   return (
-    <div className="min-h-dvh flex flex-col" style={{ background: `linear-gradient(180deg, ${theme.bgStart} 0%, ${theme.bgEnd} 100%)` }}>
+    <div
+      className="min-h-dvh flex flex-col"
+      style={{
+        background: `linear-gradient(180deg, ${theme.bgStart} 0%, ${theme.bgEnd} 100%)`,
+        // White-label do ramp de marca: só sobrescreve quando o tenant configurou
+        // um accent (senão cai nos fallbacks = cyan exato = Vertho). brand-400 é o
+        // accent; as demais tonalidades são derivadas (clarear p/ 100-300, escurecer
+        // p/ 500-700) via color-mix, dando um ramp coerente a partir de 1 cor.
+        ...(theme.accentRaw ? brandRampVars(theme.accentRaw) : {}),
+      }}
+    >
 
       {/* Sidebar (desktop) */}
       <aside

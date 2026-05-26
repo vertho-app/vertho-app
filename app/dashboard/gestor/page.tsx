@@ -47,7 +47,7 @@ export default function GestorHomePage() {
     return (
       <PageContainer>
         <div className="flex items-center justify-center py-20">
-          <Loader2 size={28} className="animate-spin text-cyan-400" />
+          <Loader2 size={28} className="animate-spin text-brand-400" />
         </div>
       </PageContainer>
     );
@@ -73,15 +73,15 @@ export default function GestorHomePage() {
       {/* Header */}
       <div className="flex items-baseline justify-between gap-3 mb-5 flex-wrap">
         <div>
-          <p className="text-[10px] tracking-[0.2em] uppercase font-mono text-cyan-300/80 mb-1">
+          <p className="text-[10px] tracking-[0.2em] uppercase font-mono text-brand-300/80 mb-1">
             {data.scope === 'rh' ? 'RH · empresa toda' : data.scope === 'tutor' ? 'Tutor · seus tutorados' : 'Gestor · sua área'}
           </p>
           <h1 className="text-white text-2xl font-bold flex items-center gap-2">
-            <Users size={22} className="text-cyan-400" /> {data.scope === 'tutor' ? 'Meus tutorados' : 'Minha equipe'}
+            <Users size={22} className="text-brand-400" /> {data.scope === 'tutor' ? 'Meus tutorados' : 'Minha equipe'}
           </h1>
         </div>
         <button onClick={() => router.push('/dashboard/gestor/equipe-evolucao')}
-          className="text-[11px] font-bold text-cyan-300 hover:text-cyan-200 flex items-center gap-1">
+          className="text-[11px] font-bold text-brand-300 hover:text-brand-200 flex items-center gap-1">
           Ver evolução completa <ArrowRight size={11} />
         </button>
       </div>
@@ -167,7 +167,7 @@ export default function GestorHomePage() {
       <section className="mb-6">
         <div className="flex items-baseline justify-between mb-2">
           <h2 className="text-white text-base font-bold flex items-center gap-2">
-            <ClipboardCheck size={16} className="text-cyan-400" /> Ação esta semana
+            <ClipboardCheck size={16} className="text-brand-400" /> Ação esta semana
           </h2>
           {cps.length > 0 && <span className="text-[11px] text-white/50">{cps.length} pendente{cps.length === 1 ? '' : 's'}</span>}
         </div>
@@ -206,7 +206,7 @@ export default function GestorHomePage() {
           <div className="w-full max-w-[480px] rounded-2xl border border-white/[0.08] p-5"
             style={{ background: '#0A1D35' }} onClick={(e) => e.stopPropagation()}>
             <div className="mb-4">
-              <p className="text-[10px] tracking-[0.2em] uppercase font-mono text-cyan-300 mb-1">
+              <p className="text-[10px] tracking-[0.2em] uppercase font-mono text-brand-300 mb-1">
                 Checkpoint semana {modal.cp.semana} · avaliação
               </p>
               <h3 className="text-white text-base font-bold">{modal.cp.colab}</h3>
@@ -229,7 +229,7 @@ export default function GestorHomePage() {
               onChange={(e) => setObservacao(e.target.value)}
               placeholder={modal.avaliacao === 'evoluindo' ? 'Observação (opcional)' : 'O que observou? (opcional, mas ajuda)'}
               rows={3}
-              className="w-full rounded-lg border border-white/[0.08] px-3 py-2 text-[12px] text-white placeholder:text-white/30 focus:outline-none focus:border-cyan-400/40"
+              className="w-full rounded-lg border border-white/[0.08] px-3 py-2 text-[12px] text-white placeholder:text-white/30 focus:outline-none focus:border-brand-400/40"
               style={{ background: '#091D35' }}
             />
 
@@ -239,7 +239,7 @@ export default function GestorHomePage() {
                 Cancelar
               </button>
               <button onClick={aplicarAvaliacao} disabled={!!avaliando}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-cyan-400/15 text-cyan-300 border border-cyan-400/30 hover:bg-cyan-400/25 disabled:opacity-50">
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-brand-400/15 text-brand-300 border border-brand-400/30 hover:bg-brand-400/25 disabled:opacity-50">
                 {avaliando ? <Loader2 size={11} className="animate-spin" /> : <ClipboardCheck size={11} />}
                 Confirmar avaliação
               </button>
@@ -307,12 +307,12 @@ function CheckpointCard({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <p className="text-sm font-bold text-white truncate">{cp.colab}</p>
-          <span className="text-[9px] font-mono text-cyan-400/70 bg-cyan-400/10 px-1.5 py-0.5 rounded">
+          <span className="text-[9px] font-mono text-brand-400/70 bg-brand-400/10 px-1.5 py-0.5 rounded">
             sem {cp.semana}
           </span>
         </div>
         <p className="text-[11px] text-white/55 truncate">
-          {cp.cargo || 'sem cargo'} {cp.competenciaFoco && <>· <span className="text-cyan-300/70">{cp.competenciaFoco}</span></>}
+          {cp.cargo || 'sem cargo'} {cp.competenciaFoco && <>· <span className="text-brand-300/70">{cp.competenciaFoco}</span></>}
         </p>
       </div>
       <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full shrink-0 ${textoDias}`}
@@ -365,7 +365,7 @@ function EquipeSection({ equipe }: { equipe: any[] }) {
           {(['todos', 'em_andamento', 'sem_trilha', 'concluida'] as const).map((f) => (
             <button key={f} onClick={() => setFiltro(f)}
               className={`px-2.5 py-1 rounded text-[10px] font-bold transition-colors ${
-                filtro === f ? 'bg-cyan-400/15 text-cyan-300' : 'text-white/55 hover:text-white'
+                filtro === f ? 'bg-brand-400/15 text-brand-300' : 'text-white/55 hover:text-white'
               }`}>
               {f === 'todos' ? 'Todos' : f === 'em_andamento' ? 'Em andamento' : f === 'sem_trilha' ? 'Sem trilha' : 'Concluídas'}
             </button>
@@ -385,7 +385,7 @@ function EquipeSection({ equipe }: { equipe: any[] }) {
               <div className="text-[13px] text-white font-bold truncate">{e.colab}</div>
               <div className="text-[10px] text-white/45 truncate">
                 {e.cargo || '—'}
-                {e.competenciaFoco && <> · <span className="text-cyan-300/70">{e.competenciaFoco}</span></>}
+                {e.competenciaFoco && <> · <span className="text-brand-300/70">{e.competenciaFoco}</span></>}
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">

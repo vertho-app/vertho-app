@@ -113,7 +113,7 @@ function CompetencyBlock({ comp, idx, t }: { comp?: any; idx?: any; t: any }) {
                         {i + 1}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-cyan-400 mb-1">{sem.foco}</p>
+                        <p className="text-xs font-bold text-brand-400 mb-1">{sem.foco}</p>
                         {sem.acoes?.map((a, j) => (
                           <p key={j} className="text-[11px] text-gray-300 leading-relaxed">• {a}</p>
                         ))}
@@ -205,7 +205,7 @@ export default function PDIPage() {
     }
   }
 
-  if (loading) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-brand-400" /></div>;
   if (error) return <div className="p-6 text-center text-gray-400">{error}</div>;
   if (!data) return null;
 
@@ -277,7 +277,7 @@ export default function PDIPage() {
 
       {/* Acolhimento */}
       {c.acolhimento && (
-        <div className="rounded-xl p-4 border border-cyan-400/20" style={{ background: 'rgba(6,182,212,0.05)' }}>
+        <div className="rounded-xl p-4 border border-brand-400/20" style={{ background: 'rgba(6,182,212,0.05)' }}>
           <p className="text-sm text-gray-200 italic leading-relaxed">{c.acolhimento}</p>
         </div>
       )}
@@ -361,7 +361,7 @@ export default function PDIPage() {
 
       {/* Mensagem Final */}
       {c.mensagem_final && (
-        <div className="rounded-xl p-5 border border-cyan-400/20 mt-6" style={{ background: 'rgba(6,182,212,0.05)' }}>
+        <div className="rounded-xl p-5 border border-brand-400/20 mt-6" style={{ background: 'rgba(6,182,212,0.05)' }}>
           <SectionTitle color="#06B6D4">{t('sections.finalMessage')}</SectionTitle>
           <p className="text-sm text-gray-200 leading-relaxed italic">{c.mensagem_final}</p>
         </div>

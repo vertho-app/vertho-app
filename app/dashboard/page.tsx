@@ -374,11 +374,11 @@ export default function DashboardHomePage() {
               className="w-full text-left rounded-[22px] p-4 flex items-start gap-4 transition-all active:scale-[0.99]"
               style={{ background: 'rgba(11,29,50,0.92)', border: '1px solid rgba(52,197,204,0.24)' }}
             >
-              <div className="w-11 h-11 rounded-2xl bg-cyan-400/10 border border-cyan-400/25 flex items-center justify-center shrink-0">
-                <ShieldCheck size={18} className="text-cyan-300" />
+              <div className="w-11 h-11 rounded-2xl bg-brand-400/10 border border-brand-400/25 flex items-center justify-center shrink-0">
+                <ShieldCheck size={18} className="text-brand-300" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-1 text-cyan-300">
+                <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-1 text-brand-300">
                   {t('pulse.eyebrow')}
                 </p>
                 <h4 className="text-sm font-bold text-white mb-1">
@@ -390,7 +390,7 @@ export default function DashboardHomePage() {
                     : t('pulse.description')}
                 </p>
               </div>
-              <ArrowRight size={18} className="text-cyan-300 mt-1 shrink-0" />
+              <ArrowRight size={18} className="text-brand-300 mt-1 shrink-0" />
             </button>
           </section>
         )}
