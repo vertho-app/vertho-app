@@ -3610,5 +3610,49 @@
       "email": "Email",
       "alias": "Nombre (alias)"
     }
+  },
+  "AdminAudit": {
+    "title": "Auditoría de admin",
+    "subtitle": "Rastros de acciones sensibles (envíos + cambios): quién hizo qué, en qué empresa y con qué resultado.",
+    "loadError": "No fue posible cargar el log:",
+    "migrationHint": "Si la tabla todavía no existe, aplica la migration <code>116-admin-audit-log.sql</code> en Supabase Studio.",
+    "filters": {
+      "action": "Acción",
+      "company": "Empresa",
+      "admin": "Admin (email)",
+      "all": "Todas",
+      "adminPlaceholder": "contiene...",
+      "submit": "Filtrar",
+      "clear": "limpiar"
+    },
+    "rowsSummary": "{count} registro(s) — mostrando los más recientes.",
+    "headers": {
+      "when": "Cuándo",
+      "admin": "Admin",
+      "action": "Acción",
+      "company": "Empresa",
+      "target": "Objetivo",
+      "result": "Resultado",
+      "details": "Detalles",
+      "ip": "IP"
+    },
+    "empty": "Todavía no hay registros.",
+    "actions": {
+      "whatsapp.broadcast": "WhatsApp/Email — mensaje en lote",
+      "whatsapp.magic_links": "WhatsApp — magic links de acceso",
+      "envio.pdfs_lote": "WhatsApp — PDFs en lote",
+      "pulse.envio": "Pulso — envío",
+      "empresa.excluir": "Empresa — eliminación",
+      "empresa.criar": "Empresa — creación",
+      "temporada.gerar_lote": "Temporadas — generación en lote",
+      "colaboradores.export": "Colaboradores — exportación",
+      "colaborador.excluir": "Colaborador — eliminación"
+    }
+  },
+  "AdminPhase2Error": {
+    "loadTitle": "Error al cargar Fase 2",
+    "unknown": "Error desconocido",
+    "back": "Volver",
+    "retry": "Intentar de nuevo"
   }
 }

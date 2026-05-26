@@ -3610,5 +3610,49 @@
       "email": "Email",
       "alias": "Name (alias)"
     }
+  },
+  "AdminAudit": {
+    "title": "Admin audit",
+    "subtitle": "Trace of sensitive actions (sends + mutations): who did what, in which company, and with what result.",
+    "loadError": "Could not load the log:",
+    "migrationHint": "If the table does not exist yet, apply migration <code>116-admin-audit-log.sql</code> in Supabase Studio.",
+    "filters": {
+      "action": "Action",
+      "company": "Company",
+      "admin": "Admin (email)",
+      "all": "All",
+      "adminPlaceholder": "contains...",
+      "submit": "Filter",
+      "clear": "clear"
+    },
+    "rowsSummary": "{count} record(s) — showing the most recent.",
+    "headers": {
+      "when": "When",
+      "admin": "Admin",
+      "action": "Action",
+      "company": "Company",
+      "target": "Target",
+      "result": "Result",
+      "details": "Details",
+      "ip": "IP"
+    },
+    "empty": "No records yet.",
+    "actions": {
+      "whatsapp.broadcast": "WhatsApp/Email — batch message",
+      "whatsapp.magic_links": "WhatsApp — access magic links",
+      "envio.pdfs_lote": "WhatsApp — batch PDFs",
+      "pulse.envio": "Pulse — send",
+      "empresa.excluir": "Company — delete",
+      "empresa.criar": "Company — create",
+      "temporada.gerar_lote": "Seasons — batch generation",
+      "colaboradores.export": "Collaborators — export",
+      "colaborador.excluir": "Collaborator — delete"
+    }
+  },
+  "AdminPhase2Error": {
+    "loadTitle": "Error loading Phase 2",
+    "unknown": "Unknown error",
+    "back": "Back",
+    "retry": "Try again"
   }
 }
