@@ -2141,7 +2141,8 @@
       "add": "Adicionar"
     },
     "placeholders": {
-      "name": "Nome (opcional)"
+      "name": "Nome (opcional)",
+      "email": "email@exemplo.com"
     },
     "confirm": {
       "remove": "Remover {email} como admin da plataforma?"

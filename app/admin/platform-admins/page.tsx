@@ -88,7 +88,7 @@ export default function PlatformAdminsPage() {
           <input
             value={email}
             onChange={e => setEmail(e.target.value)}
-            placeholder="email@exemplo.com"
+            placeholder={t('placeholders.email')}
             type="email"
             required
             className="px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40"
