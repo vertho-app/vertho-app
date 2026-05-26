@@ -1,7 +1,7 @@
 {
   "Metadata": {
     "title": "Vertho",
-    "description": "Sua jornada de desenvolvimento"
+    "description": "Your development journey"
   },
   "Home": {
     "eyebrow": "Vertho Mentor IA",
@@ -12,97 +12,97 @@
   },
   "Common": {
     "locales": {
-      "pt-BR": "Português (BR)",
-      "pt-PT": "Português (PT)",
-      "es-ES": "Español",
-      "en-US": "Inglês (EUA)"
+      "pt-BR": "Portuguese (Brazil)",
+      "pt-PT": "Portuguese (Portugal)",
+      "es-ES": "Spanish (Spain)",
+      "en-US": "English (US)"
     },
     "actions": {
-      "back": "Voltar",
-      "enter": "Entrar",
-      "close": "Fechar"
+      "back": "Back",
+      "enter": "Enter",
+      "close": "Close"
     }
   },
   "Login": {
-    "defaultSubtitle": "Sua jornada de desenvolvimento",
-    "emailPrompt": "Digite seu e-mail para acessar",
-    "whatsappPhonePrompt": "Digite seu WhatsApp para receber o código",
-    "whatsappCodePrompt": "Digite o código que enviamos no seu WhatsApp",
-    "emailPlaceholder": "seu@email.com",
-    "passwordPlaceholder": "Senha",
-    "phonePlaceholder": "DDD + número (ex: 11912345678)",
+    "defaultSubtitle": "Your development journey",
+    "emailPrompt": "Enter your email to sign in",
+    "whatsappPhonePrompt": "Enter your WhatsApp number to receive the code",
+    "whatsappCodePrompt": "Enter the code we sent to your WhatsApp",
+    "emailPlaceholder": "you@example.com",
+    "passwordPlaceholder": "Password",
+    "phonePlaceholder": "Area code + number (ex: 11912345678)",
     "codePlaceholder": "000000",
-    "sendCode": "Enviar código",
-    "sending": "Enviando...",
-    "entering": "Entrando...",
-    "checking": "Verificando...",
-    "enterWithEmail": "Entrar com e-mail",
-    "enterWithPassword": "Entrar com senha",
-    "enterWithMagicLink": "Entrar com Magic Link",
-    "enterWithWhatsapp": "Não tenho e-mail · entrar com WhatsApp",
-    "resendOrChangePhone": "Reenviar / trocar número",
-    "linkSentTitle": "Link enviado!",
-    "linkSentDescription": "Clique no link enviado no seu <email>e-mail</email> ou <whatsapp>WhatsApp</whatsapp> para acessar seu ambiente de desenvolvimento.",
-    "useAnotherEmail": "Usar outro e-mail",
+    "sendCode": "Send code",
+    "sending": "Sending...",
+    "entering": "Signing in...",
+    "checking": "Checking...",
+    "enterWithEmail": "Sign in with email",
+    "enterWithPassword": "Sign in with password",
+    "enterWithMagicLink": "Sign in with Magic Link",
+    "enterWithWhatsapp": "No email? Sign in with WhatsApp",
+    "resendOrChangePhone": "Resend / change number",
+    "linkSentTitle": "Link sent!",
+    "linkSentDescription": "Click the link sent to your <email>email</email> or <whatsapp>WhatsApp</whatsapp> to access your development environment.",
+    "useAnotherEmail": "Use another email",
     "errors": {
-      "invalidEmail": "Digite um e-mail válido.",
-      "checkEmail": "Erro ao verificar email.",
-      "emailNotRegistered": "Email não cadastrado. Procure o administrador da empresa.",
-      "network": "Erro de rede: {message}",
-      "sendLink": "Não foi possível enviar o link. Tente novamente.",
-      "invalidWhatsapp": "Digite seu WhatsApp com DDD.",
-      "sendCode": "Não foi possível enviar o código.",
-      "invalidCodeLength": "Digite o código de 6 dígitos.",
-      "invalidCode": "Código inválido."
+      "invalidEmail": "Enter a valid email address.",
+      "checkEmail": "Error checking email.",
+      "emailNotRegistered": "Email not registered. Contact your company administrator.",
+      "network": "Network error: {message}",
+      "sendLink": "Could not send the link. Please try again.",
+      "invalidWhatsapp": "Enter your WhatsApp number with area code.",
+      "sendCode": "Could not send the code.",
+      "invalidCodeLength": "Enter the 6-digit code.",
+      "invalidCode": "Invalid code."
     },
     "signup": {
-      "eyebrow": "{tenantName} · cadastro",
-      "title": "Bem-vindo!",
-      "description": "Você ainda não tem cadastro. Preencha para criar seu acesso.",
-      "email": "E-mail",
-      "fullName": "Nome completo",
-      "fullNamePlaceholder": "Como você quer ser chamado(a)",
+      "eyebrow": "{tenantName} · sign up",
+      "title": "Welcome!",
+      "description": "You do not have an account yet. Fill in the form to create your access.",
+      "email": "Email",
+      "fullName": "Full name",
+      "fullNamePlaceholder": "How you would like to be called",
       "whatsapp": "WhatsApp",
       "phonePlaceholder": "(11) 91234-5678",
-      "phoneHintEmpty": "Para receber o link de acesso",
-      "phoneHintCount": "{count}/11 dígitos",
-      "phoneHintDone": "✓ 11 dígitos",
-      "phoneHintMax": "{count} dígitos (máx 11)",
-      "role": "Cargo",
-      "loading": "Carregando…",
-      "optional": "Opcional",
-      "select": "Selecione",
-      "selectPlaceholder": "— selecione —",
-      "rolePlaceholder": "Ex: Diretor pedagógico",
-      "creating": "Criando acesso...",
-      "submit": "Criar acesso e enviar link",
-      "consent": "Ao se cadastrar, você concorda em receber o link de acesso por e-mail e WhatsApp.",
+      "phoneHintEmpty": "To receive the access link",
+      "phoneHintCount": "{count}/11 digits",
+      "phoneHintDone": "✓ 11 digits",
+      "phoneHintMax": "{count} digits (max 11)",
+      "role": "Role",
+      "loading": "Loading...",
+      "optional": "Optional",
+      "select": "Select",
+      "selectPlaceholder": "- select -",
+      "rolePlaceholder": "Ex: Academic director",
+      "creating": "Creating access...",
+      "submit": "Create access and send link",
+      "consent": "By signing up, you agree to receive the access link by email and WhatsApp.",
       "errors": {
-        "fullName": "Digite seu nome completo.",
-        "phoneLength": "WhatsApp deve ter 11 dígitos (DDD + 9 + número). Você digitou {count}.",
-        "invalidDdd": "DDD inválido.",
-        "mobileStartsWithNine": "WhatsApp móvel deve começar com 9 após o DDD.",
-        "create": "Não foi possível criar o cadastro.",
-        "network": "Erro de rede: {message}"
+        "fullName": "Enter your full name.",
+        "phoneLength": "WhatsApp must have 11 digits (area code + 9 + number). You entered {count}.",
+        "invalidDdd": "Invalid area code.",
+        "mobileStartsWithNine": "Mobile WhatsApp must start with 9 after the area code.",
+        "create": "Could not create the account.",
+        "network": "Network error: {message}"
       }
     }
   },
   "DashboardShell": {
     "nav": {
-      "home": "Início",
-      "team": "Equipe",
-      "journey": "Jornada",
-      "season": "Temporada",
-      "evolution": "Evolução",
-      "profile": "Perfil"
+      "home": "Home",
+      "team": "Team",
+      "journey": "Journey",
+      "season": "Season",
+      "evolution": "Evolution",
+      "profile": "Profile"
     },
-    "logout": "Sair"
+    "logout": "Sign out"
   },
   "NotFound": {
-    "title": "Página não encontrada",
-    "description": "A página que você procura não existe, foi movida ou você pode não ter permissão pra acessá-la.",
-    "back": "Voltar",
-    "goDashboard": "Ir ao dashboard"
+    "title": "Page not found",
+    "description": "The page you are looking for does not exist, was moved, or you may not have permission to access it.",
+    "back": "Back",
+    "goDashboard": "Go to dashboard"
   },
   "DashboardHome": {
     "contentFormats": {
@@ -254,33 +254,33 @@
     }
   },
   "Profile": {
-    "heroEyebrow": "MEU PERFIL",
+    "heroEyebrow": "MY PROFILE",
     "roles": {
-      "colaborador": "Colaborador",
-      "gestor": "Gestor",
-      "rh": "RH"
+      "colaborador": "User",
+      "gestor": "Manager",
+      "rh": "HR"
     },
-    "photoAlt": "Foto",
-    "changeAvatar": "Alterar foto/avatar",
-    "addAvatar": "Adicionar foto ou avatar",
-    "pickerTitle": "Escolha um avatar ou envie uma foto",
-    "uploadPhoto": "Enviar foto (máx 2 MB)",
-    "remove": "Remover",
-    "chooseAvatar": "Ou escolha um avatar:",
-    "photoTooLarge": "Foto maior que 2 MB",
+    "photoAlt": "Photo",
+    "changeAvatar": "Change photo/avatar",
+    "addAvatar": "Add photo or avatar",
+    "pickerTitle": "Choose an avatar or upload a photo",
+    "uploadPhoto": "Upload photo (max 2 MB)",
+    "remove": "Remove",
+    "chooseAvatar": "Or choose an avatar:",
+    "photoTooLarge": "Photo larger than 2 MB",
     "fields": {
       "email": "Email",
-      "role": "Cargo",
-      "department": "Área / Departamento",
-      "company": "Empresa",
-      "language": "Idioma"
+      "role": "Role",
+      "department": "Area / Department",
+      "company": "Company",
+      "language": "Language"
     },
-    "logout": "Sair da conta"
+    "logout": "Sign out"
   },
   "AdminAccess": {
-    "title": "Acesso restrito",
-    "description": "Você não tem permissão para acessar esta área.",
-    "backDashboard": "Voltar ao Dashboard"
+    "title": "Restricted access",
+    "description": "You do not have permission to access this area.",
+    "backDashboard": "Back to Dashboard"
   },
   "AdminDashboard": {
     "sidebar": {
@@ -387,17 +387,50 @@
       "title": "Ações rápidas",
       "companyContext": "Contextual à empresa {name}",
       "globalContext": "Tarefas administrativas globais",
-      "pipeline": { "title": "Pipeline", "descCompany": "Fase 0 → 5 de {name}" },
-      "voting": { "title": "Votação", "desc": "Resultados por cargo" },
-      "disc": { "title": "Perfis DISC", "desc": "Mapeamentos completos" },
-      "simulator": { "title": "Rodar simulador", "desc": "Testar fluxo conversacional" },
-      "newCompany": { "title": "Nova empresa", "desc": "Criar e onboarding de tenant" },
-      "market": { "title": "Mercado Potencial", "desc": "TAM por município, rede e escola" },
-      "companyRadar": { "title": "Radar Empresas", "desc": "Prospecção B2B · Receita+CAGED+RAIS" },
-      "cityPotential": { "title": "Potencial por Cidade", "desc": "Empresas + Escolas unificado" },
-      "radar": { "title": "Radar (Ingestão)", "desc": "Subir dados Saeb/ICA/Censo" },
-      "budget": { "title": "Orçamento", "desc": "Custo IA, tabela, valor final" },
-      "knowledge": { "title": "Knowledge Base", "desc": "RAG per-tenant" }
+      "pipeline": {
+        "title": "Pipeline",
+        "descCompany": "Fase 0 → 5 de {name}"
+      },
+      "voting": {
+        "title": "Votação",
+        "desc": "Resultados por cargo"
+      },
+      "disc": {
+        "title": "Perfis DISC",
+        "desc": "Mapeamentos completos"
+      },
+      "simulator": {
+        "title": "Rodar simulador",
+        "desc": "Testar fluxo conversacional"
+      },
+      "newCompany": {
+        "title": "Nova empresa",
+        "desc": "Criar e onboarding de tenant"
+      },
+      "market": {
+        "title": "Mercado Potencial",
+        "desc": "TAM por município, rede e escola"
+      },
+      "companyRadar": {
+        "title": "Radar Empresas",
+        "desc": "Prospecção B2B · Receita+CAGED+RAIS"
+      },
+      "cityPotential": {
+        "title": "Potencial por Cidade",
+        "desc": "Empresas + Escolas unificado"
+      },
+      "radar": {
+        "title": "Radar (Ingestão)",
+        "desc": "Subir dados Saeb/ICA/Censo"
+      },
+      "budget": {
+        "title": "Orçamento",
+        "desc": "Custo IA, tabela, valor final"
+      },
+      "knowledge": {
+        "title": "Knowledge Base",
+        "desc": "RAG per-tenant"
+      }
     }
   },
   "AdminNewCompany": {
@@ -1178,55 +1211,16 @@
   },
   "AdminReports": {
     "title": "Relatórios",
-    "subtitle": "Individual, Gestor e RH",
-    "tabs": {
-      "manager": "Gestor",
-      "hr": "RH"
+    "subtitle": "Download de relatórios individuais",
+    "selectCompany": "Selecione uma empresa...",
+    "empty": "Nenhum relatório individual encontrado",
+    "tableTitle": "{count, plural, one {# relatório individual} other {# relatórios individuais}}",
+    "table": {
+      "collaborator": "Colaborador",
+      "date": "Data",
+      "action": "Ação"
     },
-    "actions": {
-      "pdf": "PDF",
-      "downloadPdf": "Download PDF"
-    },
-    "empty": {
-      "individual": "Nenhum relatório individual. Rode 'PDI' no pipeline.",
-      "manager": "Relatório gestor não gerado. Rode 'Gestor' no pipeline.",
-      "hr": "Relatório RH não gerado. Rode 'RH' no pipeline."
-    },
-    "sections": {
-      "generalSummary": "Resumo Geral",
-      "behaviorProfile": "Perfil Comportamental",
-      "competencies": "Competências",
-      "nextSteps": "Próximos Passos",
-      "executiveSummary": "Resumo Executivo",
-      "evolutionHighlights": "Destaques de Evolução",
-      "attentionRanking": "Ranking de Atenção",
-      "competencyAnalysis": "Análise por Competência",
-      "actions": "Ações",
-      "criticalCompetencies": "Competências Críticas",
-      "suggestedTrainings": "Treinamentos Sugeridos",
-      "keyDecisions": "Decisões-Chave",
-      "hrActionPlan": "Plano de Ação RH"
-    },
-    "labels": {
-      "attentionPoint": "Ponto de atenção",
-      "advance": "Avanço",
-      "levelShort": "N",
-      "gap": "Gap",
-      "manager": "Gestor",
-      "collaboratorsShort": "{count} colabs",
-      "average": "Média"
-    },
-    "horizons": {
-      "thisWeek": "Esta semana",
-      "nextWeeks": "Próximas semanas",
-      "shortTerm": "Curto prazo",
-      "mediumTerm": "Médio prazo",
-      "longTerm": "Longo prazo"
-    },
-    "indicators": {
-      "evaluated": "Avaliados",
-      "average": "Média"
-    }
+    "fallbackCollaborator": "Colaborador"
   },
   "AdminPhase4": {
     "title": "Fase 4 — Reavaliação",
@@ -1752,19 +1746,6 @@
       "errorCount": " ({count} erros)",
       "unexpectedError": "Erro inesperado: {error}"
     }
-  },
-  "AdminReports": {
-    "title": "Relatórios",
-    "subtitle": "Download de relatórios individuais",
-    "selectCompany": "Selecione uma empresa...",
-    "empty": "Nenhum relatório individual encontrado",
-    "tableTitle": "{count, plural, one {# relatório individual} other {# relatórios individuais}}",
-    "table": {
-      "collaborator": "Colaborador",
-      "date": "Data",
-      "action": "Ação"
-    },
-    "fallbackCollaborator": "Colaborador"
   },
   "AdminEvolution": {
     "title": "Evolução — Temporadas Concluídas",
@@ -2628,12 +2609,30 @@
     "periodShort": "{days}d",
     "previousStepRate": "{value}% da etapa anterior",
     "steps": {
-      "visits": { "label": "Visitas (humanos)", "desc": "{total} totais incluindo bots" },
-      "cta": { "label": "Cliques no CTA \"Receber PDF\"", "desc": "usuários humanos" },
-      "leads": { "label": "Leads capturados", "desc": "modal LGPD enviado" },
-      "pdfs": { "label": "PDFs prontos", "desc": "gerados e disponíveis" },
-      "contacts": { "label": "Contatos feitos", "desc": "equipe Vertho fez contato" },
-      "converted": { "label": "Convertidos", "desc": "virou conversa comercial" }
+      "visits": {
+        "label": "Visitas (humanos)",
+        "desc": "{total} totais incluindo bots"
+      },
+      "cta": {
+        "label": "Cliques no CTA \"Receber PDF\"",
+        "desc": "usuários humanos"
+      },
+      "leads": {
+        "label": "Leads capturados",
+        "desc": "modal LGPD enviado"
+      },
+      "pdfs": {
+        "label": "PDFs prontos",
+        "desc": "gerados e disponíveis"
+      },
+      "contacts": {
+        "label": "Contatos feitos",
+        "desc": "equipe Vertho fez contato"
+      },
+      "converted": {
+        "label": "Convertidos",
+        "desc": "virou conversa comercial"
+      }
     },
     "cost": {
       "total": "Custo IA acumulado",
@@ -2750,9 +2749,18 @@
     "subtitle": "Calcula custo de IA, valor de tabela, desconto e valor final em BRL.",
     "scope": {
       "title": "Escopo",
-      "clusters": { "label": "Clusters de escola", "sub": "grupos com mesmo PPP/Top 5" },
-      "profiles": { "label": "Perfis por cluster", "sub": "cargos distintos" },
-      "collaborators": { "label": "Colaboradores", "sub": "total no ciclo" },
+      "clusters": {
+        "label": "Clusters de escola",
+        "sub": "grupos com mesmo PPP/Top 5"
+      },
+      "profiles": {
+        "label": "Perfis por cluster",
+        "sub": "cargos distintos"
+      },
+      "collaborators": {
+        "label": "Colaboradores",
+        "sub": "total no ciclo"
+      },
       "mapping": "Mapeamento"
     },
     "methods": {

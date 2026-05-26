@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { localeCookieName } from '@/lib/i18n';
+import { locales } from '@/i18n/routing';
 import SignupModal from './signup-modal';
 
 export default function LoginForm({ branding }: { branding: any }) {
@@ -241,7 +242,7 @@ export default function LoginForm({ branding }: { branding: any }) {
           className="rounded-lg border border-white/10 bg-white/[0.08] px-2 py-1 text-xs text-white outline-none"
           style={{ colorScheme: 'dark' }}
         >
-          {['pt-BR', 'pt-PT', 'es-ES'].map((item) => (
+          {locales.map((item) => (
             <option key={item} value={item} style={{ background: '#091D35' }}>
               {common(`locales.${item}`)}
             </option>

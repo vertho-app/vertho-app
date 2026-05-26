@@ -14,7 +14,8 @@
     "locales": {
       "pt-BR": "Portugués (BR)",
       "pt-PT": "Portugués (PT)",
-      "es-ES": "Español"
+      "es-ES": "Español",
+      "en-US": "Inglés (EE. UU.)"
     },
     "actions": {
       "back": "Volver",

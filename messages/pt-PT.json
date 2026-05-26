@@ -14,7 +14,8 @@
     "locales": {
       "pt-BR": "Português (BR)",
       "pt-PT": "Português (PT)",
-      "es-ES": "Espanhol"
+      "es-ES": "Espanhol",
+      "en-US": "Inglês (EUA)"
     },
     "actions": {
       "back": "Voltar",

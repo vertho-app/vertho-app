@@ -12,6 +12,7 @@ export function normalizeAppLocale(value: string | null | undefined): AppLocale 
   if (lower === 'pt' || lower === 'pt-br') return 'pt-BR';
   if (lower === 'pt-pt') return 'pt-PT';
   if (lower === 'es' || lower === 'es-es') return 'es-ES';
+  if (lower === 'en' || lower === 'en-us') return 'en-US';
 
   return null;
 }
@@ -31,6 +32,8 @@ export function localeLanguageName(locale: AppLocale): string {
       return 'português de Portugal';
     case 'es-ES':
       return 'espanhol da Espanha';
+    case 'en-US':
+      return 'inglês dos Estados Unidos';
     case 'pt-BR':
     default:
       return 'português do Brasil';

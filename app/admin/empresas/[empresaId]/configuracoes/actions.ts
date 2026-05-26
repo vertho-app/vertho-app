@@ -4,6 +4,7 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 import { addVercelDomain, removeVercelDomain } from '@/lib/vercel-domain';
+import { isAppLocale, locales } from '@/i18n/routing';
 
 export async function loadConfig(empresaId) {
   const sb = await requireAdminSupabase();
@@ -40,9 +41,8 @@ export async function salvarConfig(empresaId, sysConfig) {
 export async function salvarLocaleEmpresa(empresaId, defaultLocale) {
   const sb = await requireAdminSupabase();
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
-  const validLocales = ['pt-BR', 'pt-PT', 'es-ES'];
-  if (!validLocales.includes(defaultLocale)) {
-    return { success: false, error: `Locale inválido. Use: ${validLocales.join(', ')}` };
+  if (!isAppLocale(defaultLocale)) {
+    return { success: false, error: `Locale inválido. Use: ${locales.join(', ')}` };
   }
 
   const { error } = await sb.from('empresas')

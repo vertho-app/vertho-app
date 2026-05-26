@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const locales = ['pt-BR', 'pt-PT', 'es-ES'];
+const locales = ['pt-BR', 'pt-PT', 'es-ES', 'en-US'];
 const root = process.cwd();
 
 function flatten(obj, prefix = '', out = new Set()) {

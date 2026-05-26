@@ -291,6 +291,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
               <option value="pt-BR">Português do Brasil</option>
               <option value="pt-PT">Português de Portugal</option>
               <option value="es-ES">Espanhol da Espanha</option>
+              <option value="en-US">Inglês dos Estados Unidos</option>
             </select>
             <p className="text-[10px] text-gray-600 mt-2">
               Fallback global: pt-BR. Conteúdos ainda sem tradução continuam usando o texto original até a Sprint de conteúdo multilíngue.

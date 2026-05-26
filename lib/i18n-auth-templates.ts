@@ -54,6 +54,22 @@ const copy = {
     whatsappWelcome: (name: string, company: string, link: string) => `Hola, ${name}! ¡Bienvenido a *${company}*! 🎉\n\nTu enlace de acceso:\n${link}\n\nHaz clic para entrar directamente, sin contraseña.\nEste enlace caduca en 24h.`,
     otp: (company: string, code: string) => `*${company}* — tu código de acceso:\n\n*${code}*\n\nIntroduce este código en la app para entrar. Caduca en 10 minutos.\nSi no lo solicitaste, ignora este mensaje.`,
   },
+  'en-US': {
+    hello: (name: string) => name ? `Hi, ${escapeHtml(name)}!` : 'Hi!',
+    accessTitle: 'Your access link',
+    accessSubject: (company: string) => `${company} — your access link`,
+    accessBody: 'Click the button below to sign in without a password. This link expires in 24 hours.',
+    cta: 'Sign in now',
+    fallback: 'If the button does not work, copy the link below into your browser:',
+    ignore: 'If you did not request this email, you can ignore it. No action will be taken without your click.',
+    footer: 'This is an automated email. Please do not reply.',
+    welcomeTitle: 'Welcome!',
+    welcomeSubject: (company: string) => `${company} — welcome!`,
+    welcomeBody: 'Your account has been created. Click the button below to sign in without a password. This link expires in 24 hours.',
+    whatsappAccess: (name: string, company: string, link: string) => `Hi, ${name}! 🔐\n\nYour access link for *${company}*:\n${link}\n\nTap to sign in directly, no password needed.\nThis link expires in 24h.`,
+    whatsappWelcome: (name: string, company: string, link: string) => `Hi, ${name}! Welcome to *${company}*! 🎉\n\nYour access link:\n${link}\n\nTap to sign in directly, no password needed.\nThis link expires in 24h.`,
+    otp: (company: string, code: string) => `*${company}* — your access code:\n\n*${code}*\n\nEnter this code in the app to sign in. It expires in 10 minutes.\nIf you did not request it, ignore this message.`,
+  },
 } satisfies Record<AppLocale, any>;
 
 function baseEmailHtml({ eyebrow, title, greeting, body, link, footer }: {
