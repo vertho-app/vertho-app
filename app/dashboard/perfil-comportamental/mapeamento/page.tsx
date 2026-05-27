@@ -6,8 +6,9 @@ import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { salvarPerfilComportamental, verificarDisponibilidadeMapeamento } from './mapeamento-actions';
 import { getColabByEmail } from '@/app/dashboard/colab-action';
-import { ArrowLeft, ChevronUp, ChevronDown, Loader2, Check, Star } from 'lucide-react';
+import { ArrowLeft, ChevronUp, ChevronDown, Loader2, Check, Star, Play } from 'lucide-react';
 import Image from 'next/image';
+import VideoModal from '@/components/video-modal';
 
 /* ───────────────────── DATA ───────────────────── */
 
@@ -77,6 +78,10 @@ const LEAD_LABELS = { Executivo: 'D', Motivador: 'I', Metódico: 'S', Sistemáti
 
 // Total steps for progress: 8 rank groups * 2 + 6 pairs * 2 + 1 learning = 29
 const TOTAL_STEPS = 29;
+
+// Vídeo de instruções do mapeamento (Bunny Stream, library 636615).
+const BUNNY_LIBRARY = 636615;
+const INSTRUCTIONS_VIDEO_ID = 'e235d703-1a4b-40c0-ae6d-44bbb09445c5';
 
 function shuffle(arr) {
   const a = [...arr];
@@ -236,7 +241,11 @@ export default function MapeamentoPage() {
   // Auth
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
+  const [colabId, setColabId] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState(false);
+
+  // Vídeo de instruções (capa clicável → modal com tracking)
+  const [showVideo, setShowVideo] = useState(false);
 
   // Flow — começa na tela de instruções (ONBOARDING)
   const [phase, setPhase] = useState(PHASE.ONBOARDING);
@@ -276,11 +285,12 @@ export default function MapeamentoPage() {
       }
       setUserEmail(user.email || '');
       setFormEmail(user.email || '');
-      // Buscar nome do colaborador via server action (tenant-aware)
-      const colab = await getColabByEmail('nome_completo');
+      // Buscar nome + id do colaborador via server action (tenant-aware)
+      const colab = await getColabByEmail('id, nome_completo');
       const name = colab?.nome_completo || user.user_metadata?.name || '';
       setUserName(name);
       setFormName(name);
+      setColabId(colab?.id || null);
       setAuthReady(true);
     })();
   }, []);
@@ -428,6 +438,30 @@ export default function MapeamentoPage() {
           ))}
         </div>
 
+        {/* Vídeo de instruções — capa clicável → modal (com tracking de view) */}
+        <button
+          onClick={() => setShowVideo(true)}
+          className="group relative block w-full aspect-video rounded-2xl overflow-hidden border border-white/10 mb-8 active:scale-[0.99] transition-transform"
+          aria-label={t('onboarding.watchVideo')}
+        >
+          <img
+            src={`/api/bunny-thumb/${INSTRUCTIONS_VIDEO_ID}`}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+            onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/10" />
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+            <span className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform group-hover:scale-110"
+              style={{ background: 'rgba(0,180,216,0.92)' }}>
+              <Play size={24} className="text-white translate-x-0.5" fill="currentColor" />
+            </span>
+          </div>
+          <span className="absolute bottom-3 left-4 right-4 text-left text-sm font-semibold text-white drop-shadow">
+            {t('onboarding.watchVideo')}
+          </span>
+        </button>
+
         <div className="space-y-4 mb-8">
           <InstructionCard
             numero={1}
@@ -467,6 +501,16 @@ export default function MapeamentoPage() {
         >
           {t('onboarding.start')}
         </button>
+
+        {showVideo && (
+          <VideoModal
+            libraryId={BUNNY_LIBRARY}
+            videoId={INSTRUCTIONS_VIDEO_ID}
+            title={t('onboarding.watchVideo')}
+            colaboradorId={colabId}
+            onClose={() => setShowVideo(false)}
+          />
+        )}
       </div>
     );
   }
