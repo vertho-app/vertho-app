@@ -68,12 +68,11 @@ export default function EmpresaFilter({ empresas, value, onChange, t, locale }: 
       <button
         ref={triggerRef}
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-all"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-all min-w-0 max-w-[48vw] sm:max-w-none sm:min-w-[200px]"
         style={{
           background: isAll ? 'rgba(255,255,255,.04)' : 'rgba(52,197,204,.1)',
           border: `1px solid ${isAll ? 'rgba(255,255,255,.1)' : 'rgba(52,197,204,.3)'}`,
           color: isAll ? 'rgba(255,255,255,.85)' : '#34c5cc',
-          minWidth: 200,
         }}
       >
         {isAll ? <Globe size={13} /> : <Filter size={13} />}
