@@ -84,6 +84,37 @@ export async function loadPerfilCIS() {
 }
 
 /**
+ * Extrai os insights da resposta crua do modelo de forma tolerante. Tenta, em
+ * ordem: (1) JSON do texto limpo, (2) primeiro objeto {...} embutido (caso o
+ * modelo adicione preâmbulo), (3) primeiro array [...] cru. Aceita tanto
+ * `{ insights: [...] }` quanto um array direto. Retorna até 3 strings ou null.
+ */
+function extractInsights(raw: string | null | undefined): string[] | null {
+  const text = String(raw || '').replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+  if (!text) return null;
+
+  const candidates = [text];
+  const objMatch = text.match(/\{[\s\S]*\}/);
+  if (objMatch) candidates.push(objMatch[0]);
+  const arrMatch = text.match(/\[[\s\S]*\]/);
+  if (arrMatch) candidates.push(arrMatch[0]);
+
+  for (const cand of candidates) {
+    try {
+      const parsed = JSON.parse(cand);
+      const arr = Array.isArray(parsed) ? parsed : parsed?.insights;
+      if (Array.isArray(arr)) {
+        const insights = arr.filter((s: any) => typeof s === 'string' && s.trim()).slice(0, 3);
+        if (insights.length >= 1) return insights;
+      }
+    } catch {
+      // tenta o próximo candidato
+    }
+  }
+  return null;
+}
+
+/**
  * Gera 3 insights executivos via LLM, salva em colaboradores.insights_executivos
  * com timestamp. Reusa cache se < 30 dias e `force` for false.
  */
@@ -111,20 +142,21 @@ export async function gerarInsightsExecutivos(opts: any = {}) {
 
     const { getModelForTask } = await import('@/lib/ai-tasks');
     const model = await getModelForTask(colab.empresa_id, 'insights_executivos');
-    const raw = await callAI(system, prompt, { model }, 800);
-    const cleaned = String(raw || '').replace(/```json\s*/gi, '').replace(/```/g, '').trim();
 
-    let parsed;
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch (e) {
-      console.error('[gerarInsightsExecutivos] parse error:', cleaned.slice(0, 300));
-      return { error: 'Erro ao interpretar resposta do modelo' };
+    // Geração tolerante a falhas: extração de JSON robusta + 1 retry. Antes,
+    // qualquer preâmbulo/markdown/truncamento derrubava o JSON.parse e os
+    // insights ficavam null silenciosamente, sem nova tentativa. Tokens 800 →
+    // 1500 evita truncar os 3 insights no meio (o que invalidava o JSON).
+    let insights: string[] | null = null;
+    for (let attempt = 1; attempt <= 2 && !insights; attempt++) {
+      try {
+        const raw = await callAI(system, prompt, { model }, 1500);
+        insights = extractInsights(raw);
+        if (!insights) console.warn(`[gerarInsightsExecutivos] tentativa ${attempt}: resposta sem JSON de insights válido`);
+      } catch (e: any) {
+        console.warn(`[gerarInsightsExecutivos] tentativa ${attempt} falhou:`, e?.message);
+      }
     }
-
-    const insights = Array.isArray(parsed?.insights)
-      ? parsed.insights.filter(s => typeof s === 'string' && s.trim()).slice(0, 3)
-      : null;
 
     if (!insights || insights.length < 1) {
       return { error: 'Nenhum insight retornado pelo modelo' };
