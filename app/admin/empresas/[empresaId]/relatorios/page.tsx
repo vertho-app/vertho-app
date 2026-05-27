@@ -4,9 +4,10 @@ import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import {
-  ArrowLeft, Loader2, FileText, User, Users, Building2, ChevronDown,
+  Loader2, FileText, User, Users, Building2, ChevronDown,
   Target, AlertTriangle, CheckCircle, TrendingUp, Download
 } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import { loadRelatoriosEmpresa } from '@/actions/relatorios-load';
 
 const NIVEL_COLORS = { 1: 'text-red-400', 2: 'text-amber-400', 3: 'text-cyan-400', 4: 'text-green-400' };
@@ -159,11 +160,8 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
   return (
     <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
       {/* Header */}
+      <BackButton onClick={() => router.push(`/admin/empresas/${empresaId}`)} />
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.push(`/admin/empresas/${empresaId}`)}
-          className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors">
-          <ArrowLeft size={16} />
-        </button>
         <div>
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
             <FileText size={20} className="text-cyan-400" /> {t('title')}

@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { ArrowLeft, Loader2, Briefcase, Check, Save, ChevronDown, AlertTriangle, Link2, X } from 'lucide-react';
+import { Loader2, Briefcase, Check, Save, ChevronDown, AlertTriangle, Link2, X } from 'lucide-react';
 import { loadEmpresas, loadCargos, salvarTop5, salvarEhLideranca, renomearTop10Cargo } from './actions';
+import BackButton from '@/components/back-button';
 
 export default function CargosPage() {
   const router = useRouter();
@@ -99,11 +100,9 @@ export default function CargosPage() {
 
   return (
     <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
+      <BackButton onClick={() => router.push(empresaParam ? `/admin/empresas/${empresaParam}` : '/admin/dashboard')} />
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.push(empresaParam ? `/admin/empresas/${empresaParam}` : '/admin/dashboard')} className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors">
-          <ArrowLeft size={16} />
-        </button>
         <div>
           <h1 className="text-xl font-bold text-white flex items-center gap-2"><Briefcase size={20} className="text-cyan-400" /> {t('title')}</h1>
           {empresaParam && empresaNome ? (

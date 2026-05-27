@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { ArrowLeft, Calculator, School, Users, Briefcase, Vote, Building2 } from 'lucide-react';
+import { Calculator, School, Users, Briefcase, Vote, Building2 } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import { CALLS, PRESETS, calcCost } from '@/lib/ia-cost-catalog';
 
 type Metodo = 'votacao' | 'workshop';
@@ -88,7 +88,6 @@ function custoIAPorColab(presetFn: (call: any) => string): number {
 }
 
 export default function OrcamentoPage() {
-  const router = useRouter();
   const locale = useLocale();
   const t = useTranslations('AdminBudget');
   const money = (v: number) => moneyBRL(v, locale);
@@ -182,11 +181,8 @@ export default function OrcamentoPage() {
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 py-6 sm:px-6 min-h-full">
+      <BackButton href="/admin/dashboard" />
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.push('/admin/dashboard')}
-          className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white">
-          <ArrowLeft size={16} />
-        </button>
         <div className="flex-1">
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
             <Calculator size={20} className="text-cyan-400" /> {t('title')}

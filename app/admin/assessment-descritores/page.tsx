@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { ArrowLeft, Save, Loader2 } from 'lucide-react';
+import { Save, Loader2 } from 'lucide-react';
 import { loadAssessmentGrid, salvarNotaAssessment, deletarNotaAssessment } from '@/actions/assessment-descritores';
+import BackButton from '@/components/back-button';
 
 const NIVEL_COR = {
   1: 'bg-red-500/10 border-red-500/30 text-red-400',
@@ -14,7 +14,6 @@ const NIVEL_COR = {
 };
 
 export default function AssessmentDescritoresPage() {
-  const router = useRouter();
   const t = useTranslations('AdminAssessmentDescriptors');
   const [empresaId, setEmpresaId] = useState(null);
   const [data, setData] = useState(null);
@@ -76,10 +75,8 @@ export default function AssessmentDescritoresPage() {
   return (
     <div className="min-h-full bg-gradient-to-br from-[#0a0e1a] via-[#0d1426] to-[#0a0e1a] text-white">
       <div className="max-w-[1600px] mx-auto p-6">
+        <BackButton />
         <div className="flex items-center gap-3 mb-4">
-          <button onClick={() => router.back()} className="p-2 rounded-lg bg-white/5 hover:bg-white/10">
-            <ArrowLeft size={18} />
-          </button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold">{t('title')}</h1>
             <p className="text-xs text-gray-400">{t('subtitle')}</p>

@@ -1,12 +1,12 @@
 'use client';
 
 import { Fragment, useEffect, useMemo, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
-  ArrowLeft, Check, LockKeyhole, Search, ShieldAlert, ShieldCheck,
+  Check, LockKeyhole, Search, ShieldAlert, ShieldCheck,
   SlidersHorizontal, Trash2, UserRound, X,
 } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import {
   diagnoseUserPermissions,
   loadPermissionsConsole,
@@ -25,7 +25,6 @@ const riskClass: Record<PermissionRisk, string> = {
 type ConsoleData = Awaited<ReturnType<typeof loadPermissionsConsole>>;
 
 export default function PermissionsPage() {
-  const router = useRouter();
   const t = useTranslations('AdminPermissions');
   const [data, setData] = useState<ConsoleData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -124,6 +123,7 @@ export default function PermissionsPage() {
   return (
     <div className="min-h-full bg-[#06172c] px-4 py-6 text-slate-100 sm:px-6">
       <div className="mx-auto max-w-[1500px]">
+        <BackButton />
         <header className="mb-6 flex flex-col gap-4 border-b border-white/10 pb-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-cyan-400/20 bg-cyan-400/10 text-cyan-300">
@@ -135,12 +135,6 @@ export default function PermissionsPage() {
               <p className="text-xs text-slate-400">{t('subtitle')}</p>
             </div>
           </div>
-          <button
-            onClick={() => router.push('/admin/dashboard')}
-            className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-slate-400 hover:text-white"
-          >
-            <ArrowLeft size={15} /> {t('actions.backToAdmin')}
-          </button>
         </header>
 
         {message && (

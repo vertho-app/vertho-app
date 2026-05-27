@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
-import { ArrowLeft, Loader2, ShieldCheck, AlertTriangle, CheckCircle2, ChevronRight, X } from 'lucide-react';
+import { Loader2, ShieldCheck, AlertTriangle, CheckCircle2, ChevronRight, X } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import { listarAuditoriasSem14, loadAuditoriaSem14Detalhe, regerarScoringComFeedback } from './actions';
 
 const STATUS_COR = {
@@ -68,11 +69,8 @@ export default function AuditoriaSem14Page() {
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 py-6 sm:px-6 min-h-full">
+      <BackButton onClick={() => router.push(empresaId ? `/admin/empresas/${empresaId}?fase=4` : '/admin/dashboard')} />
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.push(empresaId ? `/admin/empresas/${empresaId}?fase=4` : '/admin/dashboard')}
-          className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white">
-          <ArrowLeft size={16} />
-        </button>
         <div className="flex-1">
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
             <ShieldCheck size={20} className="text-purple-400" /> {t('title')}

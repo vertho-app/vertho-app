@@ -4,9 +4,10 @@ import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
-  ArrowLeft, Save, Loader2, CheckCircle, AlertTriangle, X,
+  Save, Loader2, CheckCircle, AlertTriangle, X,
   Brain, Clock, Mail, Eye, EyeOff, Palette, Upload, Trash2, Globe, Users, GraduationCap
 } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import { loadConfig, salvarConfig, salvarBranding, salvarSlug, loadEquipe, atualizarRole, vincularDominioVercel, salvarLocaleEmpresa } from './actions';
 import { limparSessoesAntigas, limparSessoesTeste } from '@/app/actions/manutencao';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
@@ -136,16 +137,13 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
   return (
     <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6">
       {/* Header */}
+      <BackButton onClick={() => router.push(`/admin/empresas/${empresaId}`)} />
       <div className="flex items-center justify-between mb-6">
         <img src="/logo-vertho.png" alt="Vertho" style={{ height: '26px' }} className="shrink-0" />
         <div className="text-center flex-1 px-4">
           <h1 className="text-lg font-bold text-white">{t('title')}</h1>
           <p className="text-xs text-gray-500">{empresa?.nome}</p>
         </div>
-        <button onClick={() => router.push(`/admin/empresas/${empresaId}`)}
-          className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-white transition-colors shrink-0">
-          <ArrowLeft size={16} /> {t('back')}
-        </button>
       </div>
 
       {/* Feedback */}

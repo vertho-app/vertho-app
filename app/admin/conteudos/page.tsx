@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { ArrowLeft, Download, Sparkles, Edit2, Trash2, Check, X, Filter, Video, FileText, Headphones, BookOpen, FileType, Wand2, Copy, Plus, Upload } from 'lucide-react';
+import { Download, Sparkles, Edit2, Trash2, Check, X, Filter, Video, FileText, Headphones, BookOpen, FileType, Wand2, Copy, Plus, Upload } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import {
   importarVideosBunny, listarConteudos, atualizarConteudo,
   deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA, loadOpcoesGerar, uploadConteudo,
@@ -21,7 +21,6 @@ function isUnclassified(value: any) {
 }
 
 export default function ConteudosAdminPage() {
-  const router = useRouter();
   const t = useTranslations('AdminContent');
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -116,11 +115,9 @@ export default function ConteudosAdminPage() {
   return (
     <div className="min-h-full bg-gradient-to-br from-[#0a0e1a] via-[#0d1426] to-[#0a0e1a] text-white">
       <div className="max-w-7xl mx-auto p-6">
+        <BackButton />
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <button onClick={() => router.back()} className="p-2 rounded-lg bg-white/5 hover:bg-white/10">
-            <ArrowLeft size={18} />
-          </button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold">{t('title')}</h1>
             <p className="text-xs text-gray-400">{t('subtitle')}</p>

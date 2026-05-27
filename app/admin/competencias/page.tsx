@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
-  ArrowLeft, Loader2, BookMarked, Plus, Pencil, Trash2, Copy, ChevronDown, X, Save, Upload, Filter
+  Loader2, BookMarked, Plus, Pencil, Trash2, Copy, ChevronDown, X, Save, Upload, Filter
 } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import {
   loadEmpresas, loadCompetencias, loadCompetenciasBase,
   salvarCompetencia, excluirCompetencia, copiarBaseParaEmpresa, importarCompetenciasCSV, loadCargosEmpresa
@@ -124,12 +125,10 @@ export default function CompetenciasPage() {
         <div className="fixed top-4 right-4 z-50 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold shadow-lg">{toast}</div>
       )}
 
+      <BackButton onClick={() => router.push(empresaParam ? `/admin/empresas/${empresaParam}` : '/admin/dashboard')} />
       {/* Header */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push(empresaParam ? `/admin/empresas/${empresaParam}` : '/admin/dashboard')} className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors">
-            <ArrowLeft size={16} />
-          </button>
           <div>
             <h1 className="text-xl font-bold text-white flex items-center gap-2"><BookMarked size={20} className="text-cyan-400" /> {t('title')}</h1>
             {empresaParam && empresaNome ? (

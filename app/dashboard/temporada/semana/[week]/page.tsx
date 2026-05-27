@@ -6,7 +6,8 @@ import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { formatarLiberacao } from '@/lib/season-engine/week-gating';
 import ReactMarkdown from 'react-markdown';
-import { Loader2, ArrowLeft, Video, FileText, Headphones, BookOpen, Send, Sparkles, Target, Check, HelpCircle } from 'lucide-react';
+import { Loader2, Video, FileText, Headphones, BookOpen, Send, Sparkles, Target, Check, HelpCircle } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import { loadTemporadaPorEmail, marcarConteudoConsumido } from '@/actions/temporadas';
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import MicInput from '@/components/mic-input';
@@ -199,9 +200,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
 
   return (
     <PageContainer>
-      <button onClick={() => router.push('/dashboard/temporada')} className="flex items-center gap-2 text-xs text-gray-400 hover:text-brand-400 mb-4">
-        <ArrowLeft size={14} /> {t('backToSeason')}
-      </button>
+      <BackButton href="/dashboard/temporada" />
 
       {/* Header */}
       <div className="mb-6">

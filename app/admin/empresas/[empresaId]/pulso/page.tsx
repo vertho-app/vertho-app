@@ -3,7 +3,8 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { ArrowLeft, Activity, Plus, Send, CheckCircle, Loader2, Users, X } from 'lucide-react';
+import { Activity, Plus, Send, CheckCircle, Loader2, Users, X } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import {
   listarCiclos, criarCiclo, dispararPulso, fecharMomento, listarAssignmentsCiclo,
   type PulseCicloStatus,
@@ -74,12 +75,9 @@ export default function PulsoAdminPage({ params }: { params: Promise<{ empresaId
   return (
     <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
       {/* Header */}
+      <BackButton onClick={() => router.push(`/admin/empresas/${empresaId}`)} />
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push(`/admin/empresas/${empresaId}`)}
-            className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors">
-            <ArrowLeft size={16} />
-          </button>
           <div>
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
               <Activity size={20} className="text-cyan-400" /> {t('title')}

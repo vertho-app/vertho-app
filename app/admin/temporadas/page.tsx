@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import ReactMarkdown from 'react-markdown';
-import { ArrowLeft, ChevronRight, ChevronDown, BookOpen, Target, Sparkles, Video, FileText, Headphones, FileType, Pause, Play, Archive, RefreshCw, Eye, X } from 'lucide-react';
+import { ChevronRight, ChevronDown, BookOpen, Target, Sparkles, Video, FileText, Headphones, FileType, Pause, Play, Archive, RefreshCw, Eye, X } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import { listarTemporadasEmpresa, pausarRetomarTemporada, arquivarTemporada, regerarSemana, loadProgressoDetalhado } from '@/actions/temporadas';
 import { simularUmaSemanaSimulacao } from '@/actions/simulador-temporada';
 import { getSupabase } from '@/lib/supabase-browser';
@@ -22,7 +22,6 @@ const FORMAT_COLOR = { video: '#06B6D4', audio: '#A78BFA', texto: '#10B981', cas
 const TIPO_COLOR = { conteudo: '#3B82F6', aplicacao: '#F59E0B', avaliacao: '#A78BFA' };
 export default function TemporadasAdminPage() {
   const t = useTranslations('AdminSeasons');
-  const router = useRouter();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [empresaId, setEmpresaId] = useState(null);
@@ -114,10 +113,8 @@ export default function TemporadasAdminPage() {
   return (
     <div className="min-h-full bg-gradient-to-br from-[#0a0e1a] via-[#0d1426] to-[#0a0e1a] text-white">
       <div className="max-w-6xl mx-auto p-6">
+        <BackButton />
         <div className="flex items-center gap-3 mb-6">
-          <button onClick={() => router.back()} className="p-2 rounded-lg bg-white/5 hover:bg-white/10">
-            <ArrowLeft size={18} />
-          </button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold">{t('title')}</h1>
             <p className="text-xs text-gray-400">{empresaId ? t('scope.company') : t('scope.allCompanies')} · {itemsFiltrados.length}/{items.length}</p>

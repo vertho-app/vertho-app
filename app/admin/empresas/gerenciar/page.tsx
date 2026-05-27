@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { ArrowLeft, Upload, Loader2, Users, Pencil, Trash2, X, Check, Briefcase, RefreshCw, Plus, Save, Link2, Download } from 'lucide-react';
+import { Upload, Loader2, Users, Pencil, Trash2, X, Check, Briefcase, RefreshCw, Plus, Save, Link2, Download } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import { parseSpreadsheet } from '@/lib/parse-spreadsheet';
 import {
   loadEmpresas, loadResumoEmpresa, importarColaboradoresLote, loadColaboradores, atualizarColaborador, excluirColaborador,
@@ -268,15 +269,12 @@ export default function GerenciarPage() {
   return (
     <div className="max-w-[1100px] mx-auto px-4 py-6" style={{ minHeight: '100dvh' }}>
       {/* Header */}
+      <BackButton onClick={() => router.push(empresaParam ? `/admin/empresas/${empresaParam}` : '/admin/dashboard')} />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-lg font-bold text-white">{t('title')}</h1>
           {empresaParam && empresaNome && <p className="text-xs text-gray-500">{empresaNome}</p>}
         </div>
-        <button onClick={() => router.push(empresaParam ? `/admin/empresas/${empresaParam}` : '/admin/dashboard')}
-          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-white">
-          <ArrowLeft size={16} /> {t('back')}
-        </button>
       </div>
 
       {!empresaParam && (

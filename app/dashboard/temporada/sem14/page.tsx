@@ -4,7 +4,8 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, ArrowLeft, Play, CheckCircle2, AlertTriangle, Mic, MicOff } from 'lucide-react';
+import { Loader2, Play, CheckCircle2, AlertTriangle, Mic, MicOff } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import { loadTemporadaPorEmail } from '@/actions/temporadas';
 import ReactMarkdown from 'react-markdown';
 import MicInput from '@/components/mic-input';
@@ -149,9 +150,7 @@ export default function Sem14Page() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
-      <button onClick={() => router.push('/dashboard/temporada')} className="flex items-center gap-2 text-xs text-gray-400 hover:text-brand-400 mb-4">
-        <ArrowLeft size={14} /> {t('backToSeason')}
-      </button>
+      <BackButton href="/dashboard/temporada" />
 
       {/* Card de progresso do colab */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 mb-4">

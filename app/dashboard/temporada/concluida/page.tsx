@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, ArrowLeft, Sparkles, Trophy, Target, MessageSquare, CheckCircle2, TrendingUp, TrendingDown, Minus, Download } from 'lucide-react';
+import { Loader2, Sparkles, Trophy, Target, MessageSquare, CheckCircle2, TrendingUp, TrendingDown, Minus, Download } from 'lucide-react';
 import { PageContainer, GlassCard } from '@/components/page-shell';
+import BackButton from '@/components/back-button';
 import ReactMarkdown from 'react-markdown';
 import { loadTemporadaConcluida } from '@/actions/temporada-concluida';
 
@@ -45,10 +46,8 @@ export default function TemporadaConcluidaPage() {
 
   return (
     <PageContainer>
-      <div className="flex items-center justify-between mb-4">
-        <button onClick={() => router.push('/dashboard/temporada')} className="flex items-center gap-2 text-xs text-gray-400 hover:text-brand-400">
-          <ArrowLeft size={14} /> {t('backToSeason')}
-        </button>
+      <BackButton href="/dashboard/temporada" />
+      <div className="flex items-center justify-end mb-4">
         <button onClick={async () => {
           const { data: { session } } = await sb.auth.getSession();
           const res = await fetch('/api/temporada/concluida/pdf', {

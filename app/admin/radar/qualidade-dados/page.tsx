@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getLocale, getTranslations } from 'next-intl/server';
-import { ArrowLeft, Database, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
+import { Database, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 
@@ -168,10 +169,8 @@ export default async function QualidadeDadosPage() {
     <div className="min-h-full"
       style={{ background: 'linear-gradient(180deg,#06172C 0%,#091D35 50%,#0a1f3a 100%)' }}>
       <div className="max-w-[1200px] mx-auto px-5 py-6">
+        <BackButton href="/admin/dashboard" />
         <div className="flex items-center justify-between gap-4 pb-5 mb-5 border-b border-white/[0.08]">
-          <Link href="/admin/dashboard" className="flex items-center gap-1.5 text-xs font-medium text-white/50 hover:text-white">
-            <ArrowLeft size={14} /> {t('back')}
-          </Link>
           <span className="text-[10px] tracking-[0.2em] text-white/30 uppercase font-mono">
             {t('eyebrow')}
           </span>

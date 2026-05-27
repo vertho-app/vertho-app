@@ -4,11 +4,12 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
-  ArrowLeft, Loader2, Send, ChevronDown, CheckCircle, AlertCircle,
+  Loader2, Send, ChevronDown, CheckCircle, AlertCircle,
   Mail, MessageCircle, FileBarChart, Filter, Eye, Tag, Users,
   Paperclip, FileText, X,
 } from 'lucide-react';
 import { loadEmpresas, loadWhatsappStatus, loadColaboradoresEnvio, dispararMensagemCustomizada, enviarMagicLinksWhatsApp } from './actions';
+import BackButton from '@/components/back-button';
 import { dispararLinksCIS, dispararRelatoriosLote } from '@/actions/whatsapp-lote';
 import { dispararEmails } from '@/actions/fase2';
 import { Key } from 'lucide-react';
@@ -244,13 +245,10 @@ export default function EnviosPage() {
 
   return (
     <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
+      <BackButton onClick={() => router.push(empresaParam ? `/admin/empresas/${empresaParam}` : '/admin/dashboard')} />
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push(empresaParam ? `/admin/empresas/${empresaParam}` : '/admin/dashboard')}
-            className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors">
-            <ArrowLeft size={16} />
-          </button>
           <div>
             <h1 className="text-xl font-bold text-white flex items-center gap-2"><Send size={20} className="text-cyan-400" /> {t('title')}</h1>
             {empresaNome && <p className="text-xs text-gray-500">{empresaNome}</p>}

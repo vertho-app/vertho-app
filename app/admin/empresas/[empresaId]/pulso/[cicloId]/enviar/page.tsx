@@ -4,9 +4,10 @@ import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
-  ArrowLeft, Send, Loader2, MessageCircle, Mail, Activity,
+  Send, Loader2, MessageCircle, Mail, Activity,
   Users, AlertCircle, CheckCircle, RefreshCw,
 } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import { enviarConvitesPulso, statusEnviosCiclo, type EnvioStats } from '@/actions/pulse/envio';
 import { listarCiclos } from '@/actions/pulse/admin';
 
@@ -68,12 +69,9 @@ export default function EnviarPulsoPage({
 
   return (
     <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
+      <BackButton onClick={() => router.push(`/admin/empresas/${empresaId}/pulso`)} />
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push(`/admin/empresas/${empresaId}/pulso`)}
-            className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white">
-            <ArrowLeft size={16} />
-          </button>
           <div>
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
               <Send size={20} className="text-cyan-400" /> {t('title')}

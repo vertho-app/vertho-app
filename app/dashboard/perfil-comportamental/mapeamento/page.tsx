@@ -6,9 +6,10 @@ import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { salvarPerfilComportamental, verificarDisponibilidadeMapeamento } from './mapeamento-actions';
 import { getColabByEmail } from '@/app/dashboard/colab-action';
-import { ArrowLeft, ChevronUp, ChevronDown, Loader2, Check, Star, Play } from 'lucide-react';
+import { ChevronUp, ChevronDown, Loader2, Check, Star, Play } from 'lucide-react';
 import Image from 'next/image';
 import VideoModal from '@/components/video-modal';
+import BackButton from '@/components/back-button';
 
 /* ───────────────────── DATA ───────────────────── */
 
@@ -422,10 +423,7 @@ export default function MapeamentoPage() {
     const irPra = pularWelcome ? PHASE.RANK1 : PHASE.WELCOME;
     return (
       <div className="max-w-[560px] mx-auto px-4 py-8">
-        <button onClick={() => router.push('/dashboard/perfil-comportamental')}
-          className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors mb-6">
-          <ArrowLeft size={16} /> {t('back')}
-        </button>
+        <BackButton href="/dashboard/perfil-comportamental" className="mb-6" />
 
         <Image src="/logo-vertho.png" alt="Vertho" width={120} height={40} className="mb-5" />
 
@@ -522,9 +520,7 @@ export default function MapeamentoPage() {
     const canStart = formName.trim() && formEmail.trim() && formGender;
     return (
       <div className="max-w-[440px] mx-auto px-4 py-8">
-        <button onClick={() => setPhase(PHASE.ONBOARDING)} className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors mb-6">
-          <ArrowLeft size={16} /> {t('back')}
-        </button>
+        <BackButton onClick={() => setPhase(PHASE.ONBOARDING)} className="mb-6" />
         <h2 className="text-xl font-bold text-white mb-1">{t('welcome.title')}</h2>
         <p className="text-sm text-gray-400 mb-6">{t('welcome.subtitle')}</p>
 

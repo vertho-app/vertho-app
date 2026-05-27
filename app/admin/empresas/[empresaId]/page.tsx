@@ -8,11 +8,12 @@ function fmt(n: any, locale: string) { return (n ?? 0).toLocaleString(locale); }
 
 import { getCustomLabel, isHidden } from '@/lib/ui-resolver';
 import {
-  ArrowLeft, Building2, Users, Brain, Mail, Bot, GraduationCap, TrendingUp,
+  Building2, Users, Brain, Mail, Bot, GraduationCap, TrendingUp,
   Zap, Database, FileText, Send, ClipboardCheck, BarChart3, Target, Clock,
   Play, BookOpen, Layers, MessageSquare, FileBarChart, CheckCircle,
   Loader2, AlertTriangle, X, ChevronDown, ChevronUp, Trash2, Settings, Trophy, Plus, Filter, Search, RefreshCw, Film, Sparkles
 } from 'lucide-react';
+import BackButton from '@/components/back-button';
 
 import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, checkCenarioUm } from '@/actions/fase1';
 import { listarPendentesSimulacao, simularUmaResposta } from '@/actions/simulador-conversas';
@@ -369,16 +370,8 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
       <div className="max-w-[1200px] mx-auto px-5 py-6">
 
         {/* ── TOP BAR ─────────────────────────────────────── */}
+        <BackButton onClick={() => router.push('/admin/dashboard')} />
         <div className="flex items-center justify-between gap-4 pb-5 mb-5 border-b border-white/[0.08]">
-          <button
-            onClick={() => router.push('/admin/dashboard')}
-            className="flex items-center gap-1.5 text-xs font-medium transition-colors"
-            style={{ color: 'rgba(255,255,255,.48)' }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,.48)')}
-          >
-            <ArrowLeft size={14} /> {t('top.backDashboard')}
-          </button>
           <div className="flex items-center gap-10">
             <img src="/logo-vertho.png" alt="Vertho" style={{ height: 20, opacity: .8 }} />
             <span style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,.3)' }}>

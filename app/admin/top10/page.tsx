@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { ArrowLeft, Loader2, Trophy, Trash2, Plus, X, ChevronDown, Filter } from 'lucide-react';
+import { Loader2, Trophy, Trash2, Plus, X, ChevronDown, Filter } from 'lucide-react';
 import { loadTop10TodosCargos, adicionarTop10, removerTop10 } from '@/actions/fase1';
+import BackButton from '@/components/back-button';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import { getSupabase } from '@/lib/supabase-browser';
 export default function Top10Page() {
@@ -106,12 +107,10 @@ export default function Top10Page() {
     <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
       {toast && <div className="fixed top-4 right-4 z-50 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold shadow-lg">{toast}</div>}
 
+      <BackButton onClick={() => router.push(`/admin/empresas/${empresaId}`)} />
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push(`/admin/empresas/${empresaId}`)} className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors">
-            <ArrowLeft size={16} />
-          </button>
           <div>
             <h1 className="text-xl font-bold text-white flex items-center gap-2"><Trophy size={20} className="text-amber-400" /> {t('title')}</h1>
             <p className="text-xs text-gray-500">{t('subtitle')}</p>

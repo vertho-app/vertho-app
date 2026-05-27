@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
-import { ArrowLeft, Loader2, Users, TrendingUp, TrendingDown, Minus, ChevronRight, Clock, X, FileDown, Download } from 'lucide-react';
+import { Loader2, Users, TrendingUp, TrendingDown, Minus, ChevronRight, Clock, X, FileDown, Download } from 'lucide-react';
 import { PageContainer, GlassCard } from '@/components/page-shell';
+import BackButton from '@/components/back-button';
 import { listarEquipeEvolucao, loadLideradoConcluida, listarCheckpointsPendentes, salvarCheckpointGestor } from './actions';
 
 const STATUS_CFG = {
@@ -18,7 +18,6 @@ const STATUS_CFG = {
 };
 
 export default function EquipeEvolucaoPage() {
-  const router = useRouter();
   const sb = getSupabase();
   const [rows, setRows] = useState([]);
   const [resumo, setResumo] = useState(null);
@@ -78,10 +77,8 @@ export default function EquipeEvolucaoPage() {
 
   return (
     <PageContainer>
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <button onClick={() => router.push('/dashboard')} className="flex items-center gap-2 text-xs text-gray-400 hover:text-brand-400">
-          <ArrowLeft size={14} /> Dashboard
-        </button>
+      <BackButton href="/dashboard" />
+      <div className="flex items-center justify-end mb-4 flex-wrap gap-2">
         <button onClick={async () => {
           const { data: { session } } = await sb.auth.getSession();
           const res = await fetch('/api/gestor/plenaria/pdf', {

@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { ArrowLeft, Loader2, Brain, Search, Download, FileText, CheckCircle2, Clock, Users, Sparkles } from 'lucide-react';
+import { Loader2, Brain, Search, Download, FileText, CheckCircle2, Clock, Users, Sparkles } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import { loadPerfisComportamentaisEmpresa } from '@/actions/admin-perfis';
 import { baixarRelatorioComportamentalPdfPorId } from '@/app/dashboard/perfil-comportamental/relatorio/relatorio-actions';
 
@@ -79,11 +80,8 @@ export default function PerfisComportamentaisPage({ params }: { params: Promise<
       {toast && <div className="fixed top-4 right-4 z-50 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold shadow-lg">{toast}</div>}
 
       {/* Header */}
+      <BackButton onClick={() => router.push(`/admin/empresas/${empresaId}`)} />
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.push(`/admin/empresas/${empresaId}`)}
-          className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white">
-          <ArrowLeft size={16} />
-        </button>
         <div className="flex-1">
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
             <Brain size={20} className="text-purple-400" /> {t('title')}

@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { ArrowLeft, Loader2, Network, ChevronDown } from 'lucide-react';
+import { Loader2, Network, ChevronDown } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import { loadRedes, listarUnidadesRede, type RadarRede } from '@/actions/radarempresas/busca';
 import { RADAR_DISCLAIMER } from '@/lib/radarempresas/segmentos';
 
 export default function RadarRedesPage() {
-  const router = useRouter();
   const locale = useLocale();
   const t = useTranslations('AdminCompanyRadarNetworks');
   const [redes, setRedes] = useState<RadarRede[]>([]);
@@ -28,11 +27,8 @@ export default function RadarRedesPage() {
 
   return (
     <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
+      <BackButton href="/admin/vertho/radarempresas" />
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.push('/admin/vertho/radarempresas')}
-          className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white">
-          <ArrowLeft size={16} />
-        </button>
         <div>
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
             <Network size={20} className="text-cyan-400" /> {t('title')}

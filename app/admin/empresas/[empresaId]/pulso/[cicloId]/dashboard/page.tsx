@@ -3,7 +3,8 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { ArrowLeft, Activity, Users, TrendingUp, RefreshCw, Loader2, Filter, Sparkles, Download, FileText } from 'lucide-react';
+import { Activity, Users, TrendingUp, RefreshCw, Loader2, Filter, Sparkles, Download, FileText } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import { loadPulseDashboard, refreshPulseAggregates, type GroupType, type PulseDashboardData } from '@/actions/pulse/dashboard';
 import { loadPulseSignals } from '@/actions/pulse/signals';
 import { classificarRespostasAbertas, obterTemasCiclo, type ThemeAggregate } from '@/actions/pulse/classify';
@@ -117,8 +118,7 @@ export default function PulseDashboardPage({
   if (state.tag === 'masked') {
     return (
       <div className="max-w-md mx-auto px-5 py-10">
-        <button onClick={() => router.push(`/admin/empresas/${empresaId}/pulso`)}
-          className="text-[10px] text-cyan-400 hover:underline mb-4">← {t('actions.back')}</button>
+        <BackButton onClick={() => router.push(`/admin/empresas/${empresaId}/pulso`)} />
         <AnonymityGuardMessage n={state.n} threshold={state.threshold} />
       </div>
     );
@@ -129,12 +129,9 @@ export default function PulseDashboardPage({
   return (
     <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
       {/* Header */}
+      <BackButton onClick={() => router.push(`/admin/empresas/${empresaId}/pulso`)} />
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push(`/admin/empresas/${empresaId}/pulso`)}
-            className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors">
-            <ArrowLeft size={16} />
-          </button>
           <div>
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
               <Activity size={20} className="text-cyan-400" /> {d.ciclo.nome}

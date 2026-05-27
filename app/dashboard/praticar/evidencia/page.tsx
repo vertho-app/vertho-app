@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, ArrowLeft, CheckCircle2, Send } from 'lucide-react';
+import { Loader2, CheckCircle2, Send } from 'lucide-react';
 import { loadTrilhaAtual, registrarEvidencia } from '../praticar-actions';
+import BackButton from '@/components/back-button';
 
 export default function EvidenciaPage() {
   const [data, setData] = useState(null);
@@ -73,11 +74,7 @@ export default function EvidenciaPage() {
 
   return (
     <div className="max-w-[600px] mx-auto px-4 py-6 space-y-4">
-      {/* Back */}
-      <button onClick={() => router.push('/dashboard/praticar')}
-        className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors">
-        <ArrowLeft size={16} /> Voltar
-      </button>
+      <BackButton href="/dashboard/praticar" />
 
       {/* Header */}
       <div>

@@ -3,7 +3,8 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { ArrowLeft, Loader2, Building2, MapPin, Phone, Mail, Target, AlertTriangle } from 'lucide-react';
+import { Loader2, Building2, MapPin, Phone, Mail, Target, AlertTriangle } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import { getFichaEmpresa } from '@/actions/radarempresas/busca';
 import { RadarScoreCard } from '@/components/radarempresas/RadarScoreCard';
 import { RADAR_DISCLAIMER } from '@/lib/radarempresas/segmentos';
@@ -38,11 +39,8 @@ export default function FichaEmpresaPage({ params }: { params: Promise<{ cnpj: s
 
   return (
     <div className="max-w-[1000px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
+      <BackButton href="/admin/vertho/radarempresas" />
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.push('/admin/vertho/radarempresas')}
-          className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white">
-          <ArrowLeft size={16} />
-        </button>
         <div>
           <h1 className="text-xl font-bold text-white">{e.nome_fantasia || emp?.razao_social || '—'}</h1>
           <p className="text-xs text-gray-500">{e.cnpj_completo} · {e.municipio_nome}/{e.uf}</p>

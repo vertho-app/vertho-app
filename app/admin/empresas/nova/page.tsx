@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { ArrowLeft, Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import { criarNovaEmpresa } from './actions';
 
 export default function NovaEmpresaPage() {
@@ -29,12 +30,9 @@ export default function NovaEmpresaPage() {
 
   return (
     <div className="max-w-[500px] mx-auto px-4 py-6" style={{ minHeight: '100dvh', background: 'linear-gradient(180deg, #091D35 0%, #0F2A4A 100%)' }}>
+      <BackButton href="/admin/dashboard" />
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-lg font-bold text-white">{t('title')}</h1>
-        <button onClick={() => router.push('/admin/dashboard')}
-          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-white">
-          <ArrowLeft size={16} /> {t('back')}
-        </button>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">

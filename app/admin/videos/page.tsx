@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import {
-  ArrowLeft, Loader2, Video, Eye, Clock, TrendingUp, Film, BarChart3,
+  Loader2, Video, Eye, Clock, TrendingUp, Film, BarChart3,
   Users, AlertTriangle, Trophy, ArrowUpDown, ArrowUp, ArrowDown, Link2, Check,
 } from 'lucide-react';
 import { loadBunnyVideosStats, loadBunnyHeatmap, loadBunnyLibraryStats } from '@/actions/bunny-stats';
+import BackButton from '@/components/back-button';
 import { loadEngajamentoEmpresa, loadAlertasInatividade, loadEmpresaInfo } from '@/actions/video-analytics';
 import VideoModal from '@/components/video-modal';
 
@@ -183,12 +184,9 @@ export default function AdminVideosPage() {
 
   return (
     <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
+      <BackButton onClick={() => router.push(empresaId ? `/admin/empresas/${empresaId}` : '/admin/dashboard')} />
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.push(empresaId ? `/admin/empresas/${empresaId}` : '/admin/dashboard')}
-          className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors">
-          <ArrowLeft size={16} />
-        </button>
         <div className="flex-1 min-w-0">
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
             <Film size={20} className="text-cyan-400" /> {t('title')}

@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, ArrowLeft, Check, GripVertical, Plus, X, Send } from 'lucide-react';
+import { Loader2, Check, GripVertical, Plus, X, Send } from 'lucide-react';
 import { loadCompetenciasParaVotar, salvarVoto } from '@/actions/votacao';
+import BackButton from '@/components/back-button';
 
 export default function VotacaoPage() {
   const t = useTranslations('Voting');
@@ -91,9 +92,7 @@ export default function VotacaoPage() {
   // Tela read-only se já votou
   if (jaVotou) return (
     <div className="max-w-[640px] mx-auto px-5 py-6">
-      <button onClick={() => router.back()} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white mb-4">
-        <ArrowLeft size={16} /> {t('back')}
-      </button>
+      <BackButton />
       <div className="rounded-2xl border border-green-400/20 p-6 text-center" style={{ background: 'rgba(16,185,129,0.06)' }}>
         <Check size={48} className="text-green-400 mx-auto mb-3" />
         <h2 className="text-lg font-bold text-white mb-1">{t('alreadyVoted.title')}</h2>
@@ -129,9 +128,7 @@ export default function VotacaoPage() {
         </div>
       )}
 
-      <button onClick={() => router.back()} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white mb-4">
-        <ArrowLeft size={16} /> {t('back')}
-      </button>
+      <BackButton />
 
       <header className="mb-6">
         <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-brand-400 mb-2">{t('eyebrow')}</p>

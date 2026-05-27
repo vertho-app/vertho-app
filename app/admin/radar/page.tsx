@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { ArrowLeft, CircleStop, Loader2, Upload, RefreshCw, FileText, FileSpreadsheet, Trash2, Terminal } from 'lucide-react';
+import { CircleStop, Loader2, Upload, RefreshCw, FileText, FileSpreadsheet, Trash2, Terminal } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import {
   loadRadarStats,
   ingestIcaFromUpload,
@@ -48,7 +48,6 @@ function arrayBufferToBase64(buffer: ArrayBuffer): Promise<string> {
 }
 
 export default function AdminRadarPage() {
-  const router = useRouter();
   const locale = useLocale();
   const t = useTranslations('AdminRadarIngestion');
   const [stats, setStats] = useState<any>(null);
@@ -224,11 +223,8 @@ export default function AdminRadarPage() {
         background: 'linear-gradient(180deg,#06172C 0%,#091D35 50%,#0a1f3a 100%)',
       }}>
       <div className="max-w-[1100px] mx-auto px-5 py-6">
+        <BackButton href="/admin/dashboard" />
         <div className="flex items-center justify-between gap-4 pb-5 mb-5 border-b border-white/[0.08]">
-          <button onClick={() => router.push('/admin/dashboard')}
-            className="flex items-center gap-1.5 text-xs font-medium text-white/50 hover:text-white">
-            <ArrowLeft size={14} /> {t('back')}
-          </button>
           <span className="text-[10px] tracking-[0.2em] text-white/30 uppercase font-mono">
             {t('eyebrow')}
           </span>

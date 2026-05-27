@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { ArrowLeft, Loader2, FileText, Link2, Plus, Sparkles, Upload, Eye, Trash2, RefreshCw } from 'lucide-react';
+import { Loader2, FileText, Link2, Plus, Sparkles, Upload, Eye, Trash2, RefreshCw } from 'lucide-react';
 import { loadEmpresa, loadPPPs, excluirPPP } from './actions';
 import { extrairPPP } from '@/actions/ppp';
+import BackButton from '@/components/back-button';
 // Mapa de nomes de form fields do template Vertho → seções legíveis
 const FIELD_LABELS: Record<string, string> = {
   'desafios_estrat_gicos_atuais__desafios': 'DESAFIOS ESTRATÉGICOS ATUAIS',
@@ -195,6 +196,7 @@ export default function PPPPage() {
     <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
       {toast && <div className="fixed top-4 right-4 z-50 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold shadow-lg">{toast}</div>}
 
+      <BackButton onClick={() => router.push(`/admin/empresas/${empresaIdParam}`)} />
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <img src="/logo-vertho.png" alt="Vertho" style={{ height: '26px' }} className="shrink-0" />
@@ -202,10 +204,6 @@ export default function PPPPage() {
           <h1 className="text-lg font-bold text-white">{t('title')}</h1>
           <p className="text-xs text-gray-500">{empresa.nome}</p>
         </div>
-        <button onClick={() => router.push(`/admin/empresas/${empresaIdParam}`)}
-          className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-white transition-colors">
-          <ArrowLeft size={16} /> {t('actions.back')}
-        </button>
       </div>
 
       {/* Nova Extração + Template */}

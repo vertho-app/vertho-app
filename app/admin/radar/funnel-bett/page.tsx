@@ -1,15 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { ArrowLeft, BarChart3, Loader2, TrendingDown, TrendingUp, Search, ExternalLink } from 'lucide-react';
+import { BarChart3, Loader2, TrendingDown, TrendingUp, Search, ExternalLink } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import { loadFunnelBett, type BettFunnelData } from './actions';
 
 const DIAS_OPTIONS = [7, 30, 90];
 
 export default function FunnelBettPage() {
-  const router = useRouter();
   const locale = useLocale();
   const t = useTranslations('AdminRadarBettFunnel');
   const [dias, setDias] = useState(30);
@@ -23,13 +22,10 @@ export default function FunnelBettPage() {
 
   return (
     <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
+      <BackButton href="/admin/radar" />
       {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push('/admin/radar')}
-            className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white">
-            <ArrowLeft size={16} />
-          </button>
           <div>
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
               <BarChart3 size={20} className="text-cyan-400" /> {t('title')}

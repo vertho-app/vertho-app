@@ -1,14 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { ArrowLeft, Trash2, RotateCcw, Loader2, AlertTriangle } from 'lucide-react';
+import { Trash2, RotateCcw, Loader2, AlertTriangle } from 'lucide-react';
 import { listarLixeira, restaurarDaLixeira, esvaziarLixeira } from '@/app/admin/empresas/[empresaId]/actions';
 import { listarBackups, executarBackupDiario } from '@/actions/backup';
+import BackButton from '@/components/back-button';
 
 export default function LixeiraPage() {
-  const router = useRouter();
   const locale = useLocale();
   const t = useTranslations('AdminTrash');
   const [empresaId, setEmpresaId] = useState(null);
@@ -76,10 +75,8 @@ export default function LixeiraPage() {
   return (
     <div className="min-h-full bg-gradient-to-br from-[#0a0e1a] via-[#0d1426] to-[#0a0e1a] text-white">
       <div className="max-w-5xl mx-auto p-6">
+        <BackButton />
         <div className="flex items-center gap-3 mb-6">
-          <button onClick={() => router.back()} className="p-2 rounded-lg bg-white/5 hover:bg-white/10">
-            <ArrowLeft size={18} />
-          </button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Trash2 size={22} className="text-red-400" /> {t('title')}

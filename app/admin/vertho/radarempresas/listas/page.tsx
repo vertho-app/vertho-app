@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { ArrowLeft, Loader2, Plus, Download, List, X } from 'lucide-react';
+import { Loader2, Plus, Download, List, X } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import { listarListas, criarLista, exportarCSV } from '@/actions/radarempresas/listas';
 
 export default function RadarListasPage() {
-  const router = useRouter();
   const t = useTranslations('AdminCompanyRadarLists');
   const [listas, setListas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,12 +49,9 @@ export default function RadarListasPage() {
 
   return (
     <div className="max-w-[1000px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
+      <BackButton href="/admin/vertho/radarempresas" />
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push('/admin/vertho/radarempresas')}
-            className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white">
-            <ArrowLeft size={16} />
-          </button>
           <div>
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
               <List size={20} className="text-cyan-400" /> {t('title')}

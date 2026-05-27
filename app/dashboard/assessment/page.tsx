@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, CheckCircle, ArrowLeft, ArrowRight, Target, Calendar, FileText, Trophy } from 'lucide-react';
+import { Loader2, CheckCircle, ArrowRight, Target, Calendar, FileText, Trophy } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import { getDiagnosticoDoDia, salvarRespostaDiagnostico } from './assessment-actions';
 import MicInput from '@/components/mic-input';
 
@@ -108,9 +109,7 @@ export default function AssessmentPage() {
   if (phase === PHASE.ERROR) {
     return (
       <div className="max-w-[600px] mx-auto px-4 py-6">
-        <button onClick={() => router.back()} className="flex items-center gap-1 text-sm text-gray-400 hover:text-white mb-4">
-          <ArrowLeft size={16} /> {t('back')}
-        </button>
+        <BackButton />
         <div className="rounded-xl p-6 border border-white/[0.06] text-center" style={{ background: '#0F2A4A' }}>
           <p className="text-base text-gray-300">{error}</p>
         </div>
@@ -126,9 +125,7 @@ export default function AssessmentPage() {
         </div>
       )}
 
-      <button onClick={() => router.back()} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors">
-        <ArrowLeft size={16} /> {t('back')}
-      </button>
+      <BackButton />
 
       {/* Header com progresso */}
       {data?.progresso && phase !== PHASE.CONCLUIDO && (

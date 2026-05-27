@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import {
-  ArrowLeft, Loader2, BookOpen, Plus, Search, Trash2, Pencil, X, Save, Upload,
+  Loader2, BookOpen, Plus, Search, Trash2, Pencil, X, Save, Upload,
 } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import {
   listarEmpresas, listarDocsKB, carregarDocKB,
   criarDocKB, atualizarDocKB, desativarDocKB, testarBuscaKB, uploadDocsArquivo, seedKB,
@@ -148,11 +149,8 @@ export default function KnowledgeBasePage() {
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 py-6 sm:px-6 min-h-full">
+      <BackButton href="/admin/dashboard" />
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.push('/admin/dashboard')}
-          className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white">
-          <ArrowLeft size={16} />
-        </button>
         <div className="flex-1">
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
             <BookOpen size={20} className="text-cyan-400" /> {t('title')}

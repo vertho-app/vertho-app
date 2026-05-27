@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useTransition, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import {
-  ArrowLeft, Loader2, RefreshCw, Filter, Building2, Users, School,
+  Loader2, RefreshCw, Filter, Building2, Users, School,
   TrendingUp, MapPin, AlertTriangle, ChevronDown, ChevronUp, X,
 } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import {
   loadMercadoMunicipios, loadMercadoRedes, loadMercadoEscolas,
   refreshMercadoPotencial, type MercadoFilters,
@@ -34,7 +34,6 @@ const REDE_COR: Record<string, string> = {
 };
 
 export default function MercadoPotencialPage() {
-  const router = useRouter();
   const locale = useLocale();
   const t = useTranslations('AdminMarketPotential');
   const [tab, setTab] = useState<Tab>('municipio');
@@ -139,12 +138,9 @@ export default function MercadoPotencialPage() {
       style={{ background: 'linear-gradient(180deg,#06172C 0%,#091D35 50%,#0a1f3a 100%)' }}>
       <div className="max-w-[1400px] mx-auto px-5 py-6">
 
+        <BackButton href="/admin/dashboard" />
         {/* Header */}
         <div className="flex items-center justify-between gap-4 pb-5 mb-5 border-b border-white/[0.08]">
-          <button onClick={() => router.push('/admin/dashboard')}
-            className="flex items-center gap-1.5 text-xs font-medium text-white/50 hover:text-white">
-            <ArrowLeft size={14} /> {t('back')}
-          </button>
           <div className="flex items-center gap-3">
             <span style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,.3)' }}>
               {t('eyebrow')}

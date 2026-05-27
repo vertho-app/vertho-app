@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { ArrowLeft, DollarSign, Users, School, FileText, Building2 } from 'lucide-react';
+import { DollarSign, Users, School, FileText, Building2 } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import { CALLS, MODELS, MODEL_IDS, PRESETS, SCALE_LABEL, calcCost } from '@/lib/ia-cost-catalog';
 import type { AppLocale } from '@/i18n/routing';
 
@@ -12,7 +12,6 @@ type ScaleType = 'colab' | 'pagina_radar' | 'lead_radar' | 'empresa';
 const PRESET_KEYS = ['atual', 'premium', 'balanced', 'cheap'] as const;
 
 export default function SimuladorCustoPage() {
-  const router = useRouter();
   const locale = useLocale() as AppLocale;
   const t = useTranslations('AdminCostSimulator');
   const [units, setUnits] = useState<Record<ScaleType, number>>({
@@ -67,11 +66,8 @@ export default function SimuladorCustoPage() {
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 py-6 sm:px-6 min-h-full">
+      <BackButton href="/admin/dashboard" />
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.push('/admin/dashboard')}
-          className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white">
-          <ArrowLeft size={16} />
-        </button>
         <div className="flex-1">
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
             <DollarSign size={20} className="text-emerald-400" /> {t('title')}

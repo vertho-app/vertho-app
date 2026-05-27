@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
-  ArrowLeft, Loader2, BarChart3, Trophy, Target, Users, Zap, ChevronDown,
+  Loader2, BarChart3, Trophy, Target, Users, Zap, ChevronDown,
   AlertTriangle, CheckCircle, TrendingUp, TrendingDown, RefreshCw,
   Sparkles, Download, FileText,
 } from 'lucide-react';
+import BackButton from '@/components/back-button';
 import {
   loadCargosComFit, calcularFitLote, loadRankingCargo, loadFitIndividual,
   gerarLeituraExecutivaFit,
@@ -115,7 +116,6 @@ function ForcaItem({ f }) {
 }
 
 export default function FitPage() {
-  const router = useRouter();
   const t = useTranslations('AdminFit');
   const searchParams = useSearchParams();
   const empresaId = searchParams.get('empresa');
@@ -224,11 +224,9 @@ export default function FitPage() {
     <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
       {toast && <div className="fixed top-4 right-4 z-50 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold shadow-lg">{toast}</div>}
 
+      <BackButton />
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.back()} className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors">
-          <ArrowLeft size={16} />
-        </button>
         <div>
           <h1 className="text-xl font-bold text-white flex items-center gap-2"><BarChart3 size={20} className="text-cyan-400" /> {t('title')}</h1>
           <p className="text-xs text-gray-500">{t('subtitle')}</p>

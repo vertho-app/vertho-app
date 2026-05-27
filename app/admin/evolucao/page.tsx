@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { ArrowLeft, TrendingUp, ChevronDown, ChevronRight } from 'lucide-react';
+import { TrendingUp, ChevronDown, ChevronRight } from 'lucide-react';
 import { loadEvolutionReportsEmpresa } from '@/actions/evolution-report';
+import BackButton from '@/components/back-button';
 
 const CONV = {
   evolucao_confirmada: { cor: 'emerald' },
@@ -14,7 +14,6 @@ const CONV = {
 };
 
 export default function EvolucaoAdminPage() {
-  const router = useRouter();
   const t = useTranslations('AdminEvolution');
   const [empresaId, setEmpresaId] = useState(null);
   const [data, setData] = useState(null);
@@ -40,7 +39,7 @@ export default function EvolucaoAdminPage() {
   if (!data?.success || data.total === 0) {
     return (
       <Wrapper>
-        <Header router={router} total={0} />
+        <Header total={0} />
         <div className="text-center py-16 text-gray-500 text-sm">
           {t('empty.title')}<br />
           {t('empty.description')}
@@ -53,7 +52,7 @@ export default function EvolucaoAdminPage() {
 
   return (
     <Wrapper>
-      <Header router={router} total={data.total} />
+      <Header total={data.total} />
 
       {/* Resumo geral (agregado) */}
       <ResumoGeral porCompetencia={data.por_competencia} />
@@ -94,13 +93,12 @@ function Center({ children }) {
   return <Wrapper><div className="text-center py-16 text-gray-400 text-sm">{children}</div></Wrapper>;
 }
 
-function Header({ router, total }) {
+function Header({ total }) {
   const t = useTranslations('AdminEvolution');
   return (
+    <>
+    <BackButton />
     <div className="flex items-center gap-3 mb-6">
-      <button onClick={() => router.back()} className="p-2 rounded-lg bg-white/5 hover:bg-white/10">
-        <ArrowLeft size={18} />
-      </button>
       <div className="flex-1">
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <TrendingUp size={22} className="text-cyan-400" />
@@ -109,6 +107,7 @@ function Header({ router, total }) {
         <p className="text-xs text-gray-400">{t('subtitle', { count: total })}</p>
       </div>
     </div>
+    </>
   );
 }
 

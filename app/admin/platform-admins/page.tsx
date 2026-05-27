@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { ArrowLeft, Plus, Trash2, Loader2, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Loader2, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { loadPlatformAdmins, adicionarAdmin, removerAdmin } from './actions';
+import BackButton from '@/components/back-button';
 
 export default function PlatformAdminsPage() {
-  const router = useRouter();
   const locale = useLocale();
   const t = useTranslations('AdminPlatformAdmins');
   const [admins, setAdmins] = useState([]);
@@ -51,6 +50,7 @@ export default function PlatformAdminsPage() {
 
   return (
     <div className="max-w-[700px] mx-auto px-4 py-6 sm:px-6">
+      <BackButton />
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -60,10 +60,6 @@ export default function PlatformAdminsPage() {
             <p className="text-xs text-gray-500">{t('subtitle')}</p>
           </div>
         </div>
-        <button onClick={() => router.push('/admin/dashboard')}
-          className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-white transition-colors">
-          <ArrowLeft size={16} /> {t('actions.back')}
-        </button>
       </div>
 
       {/* Feedback */}
