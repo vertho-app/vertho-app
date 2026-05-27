@@ -4,6 +4,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { RefreshCw, Bell, Settings } from 'lucide-react';
 import { monoStyle as mono, serifStyle as serif } from './nav-items';
 import EmpresaFilter from './EmpresaFilter';
+import AdminMobileNav from './AdminMobileNav';
 import { useAdminShell } from './AdminShellContext';
 
 export default function AdminHeader() {
@@ -16,7 +17,8 @@ export default function AdminHeader() {
       className="flex items-center justify-between gap-2 md:gap-4 px-4 md:px-8 h-16 shrink-0"
       style={{ background: 'rgba(7,27,56,.45)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,.05)' }}
     >
-      <div className="flex items-baseline gap-3 min-w-0 overflow-hidden">
+      <div className="flex items-center gap-2 md:gap-3 min-w-0 overflow-hidden">
+        <AdminMobileNav />
         <h1 className="text-[19px] md:text-[28px] whitespace-nowrap" style={{ ...serif, color: '#fff', lineHeight: 1 }}>
           {t.rich('header.title', { em: (chunks) => <em style={{ color: '#34c5cc' }}>{chunks}</em> })}
         </h1>

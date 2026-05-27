@@ -11,9 +11,10 @@ import {
   Building2, Users, Brain, Mail, Bot, GraduationCap, TrendingUp,
   Zap, Database, FileText, Send, ClipboardCheck, BarChart3, Target, Clock,
   Play, BookOpen, Layers, MessageSquare, FileBarChart, CheckCircle,
-  Loader2, AlertTriangle, X, ChevronDown, ChevronUp, Trash2, Settings, Trophy, Plus, Filter, Search, RefreshCw, Film, Sparkles
+  Loader2, AlertTriangle, X, ChevronDown, ChevronUp, Trash2, Settings, Trophy, Plus, Filter, Search, Film, Sparkles
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
+import { useAdminShell } from '@/app/admin/_shell/AdminShellContext';
 
 import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, checkCenarioUm } from '@/actions/fase1';
 import { listarPendentesSimulacao, simularUmaResposta } from '@/actions/simulador-conversas';
@@ -145,6 +146,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
   const locale = useLocale();
   const { empresaId } = use(params);
   const router = useRouter();
+  const { registerRefresh } = useAdminShell();
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -206,6 +208,13 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
   }, [empresaId]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Liga o refresh desta página ao botão de refresh do header do shell (evita
+  // um segundo botão de refresh / top-bar redundante na página).
+  useEffect(() => {
+    registerRefresh(loadData);
+    return () => registerRefresh(null);
+  }, [registerRefresh, loadData]);
 
   // ── handleAction — INALTERADO ──────────────────────────────────────────
   async function handleAction(actionKey: string, label: string, aiConfig?: any) {
@@ -369,25 +378,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
     >
       <div className="max-w-[1200px] mx-auto px-5 py-6">
 
-        {/* ── TOP BAR ─────────────────────────────────────── */}
         <BackButton onClick={() => router.push('/admin/dashboard')} />
-        <div className="flex items-center justify-between gap-4 pb-5 mb-5 border-b border-white/[0.08]">
-          <div className="flex items-center gap-10">
-            <img src="/logo-vertho.png" alt="Vertho" style={{ height: 20, opacity: .8 }} />
-            <span style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,.3)' }}>
-              {t('top.pipeline')}
-            </span>
-          </div>
-          <button
-            onClick={loadData}
-            disabled={loading}
-            className="w-8 h-8 flex items-center justify-center rounded-lg border transition-colors"
-            style={{ borderColor: 'rgba(255,255,255,.1)', color: 'rgba(255,255,255,.4)' }}
-            title={t('top.refresh')}
-          >
-            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-          </button>
-        </div>
 
         {/* ── EMPRESA HEADER ──────────────────────────────── */}
         <div
