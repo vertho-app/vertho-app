@@ -82,6 +82,8 @@ const TOTAL_STEPS = 29;
 // Vídeo de instruções do mapeamento (Bunny Stream, library 636615).
 const BUNNY_LIBRARY = 636615;
 const INSTRUCTIONS_VIDEO_ID = 'e235d703-1a4b-40c0-ae6d-44bbb09445c5';
+// Bump quando trocar o thumbnail no Bunny (busta o cache de edge da capa).
+const INSTRUCTIONS_THUMB_V = '2';
 
 function shuffle(arr) {
   const a = [...arr];
@@ -445,7 +447,7 @@ export default function MapeamentoPage() {
           aria-label={t('onboarding.watchVideo')}
         >
           <img
-            src={`/api/bunny-thumb/${INSTRUCTIONS_VIDEO_ID}`}
+            src={`/api/bunny-thumb/${INSTRUCTIONS_VIDEO_ID}?v=${INSTRUCTIONS_THUMB_V}`}
             alt=""
             className="absolute inset-0 w-full h-full object-cover"
             onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}

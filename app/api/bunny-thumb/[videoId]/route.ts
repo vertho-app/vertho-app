@@ -38,8 +38,9 @@ export async function GET(_req, { params }) {
       status: 200,
       headers: {
         'Content-Type': res.headers.get('content-type') || 'image/jpeg',
-        // 24h no browser + 24h no edge da Vercel; SWR de 1 dia
-        'Cache-Control': 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=86400',
+        // 1h no browser/edge + SWR de 1 dia: thumbnails podem ser trocados no
+        // Bunny, então mantemos a janela curta pra a troca propagar sozinha.
+        'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400',
       },
     });
   } catch (err) {
