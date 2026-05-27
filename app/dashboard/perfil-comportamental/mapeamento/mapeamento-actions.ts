@@ -165,12 +165,17 @@ export async function salvarPerfilComportamental(resultados) {
   // Pós-resposta: gera textos LLM + PDF em background para que, quando o
   // colab clicar em "Relatório Completo", já esteja pronto. `after()` do
   // Next 16 garante que o trabalho seja concluído mesmo em serverless.
+  //
+  // IMPORTANTE: passamos `colabId` explicitamente. Dentro do `after()` (pós-
+  // resposta) a sessão não está disponível, então `gerarEsalvarRelatorioComportamental({})`
+  // não conseguia re-resolver o colab pelo email e falhava silenciosamente —
+  // por isso os mapeamentos novos não saíam com o PDF pré-gerado.
   after(async () => {
     try {
       const { gerarEsalvarRelatorioComportamental } = await import(
         '@/app/dashboard/perfil-comportamental/relatorio/relatorio-actions'
       );
-      const result = await gerarEsalvarRelatorioComportamental({});
+      const result = await gerarEsalvarRelatorioComportamental({ colabId: colab.id });
       if (result?.error) {
         console.warn('[salvarPerfilComportamental] pré-geração falhou:', result.error);
       }
