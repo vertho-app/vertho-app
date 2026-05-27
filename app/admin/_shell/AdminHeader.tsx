@@ -1,7 +1,8 @@
 'use client';
 
 import { useLocale, useTranslations } from 'next-intl';
-import { RefreshCw, Bell, Settings } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { RefreshCw, Settings } from 'lucide-react';
 import { monoStyle as mono, serifStyle as serif } from './nav-items';
 import EmpresaFilter from './EmpresaFilter';
 import AdminMobileNav from './AdminMobileNav';
@@ -10,7 +11,8 @@ import { useAdminShell } from './AdminShellContext';
 export default function AdminHeader() {
   const t = useTranslations('AdminDashboard');
   const locale = useLocale();
-  const { empresas, empresaFiltro, setEmpresaFiltro, triggerRefresh, refreshing } = useAdminShell();
+  const router = useRouter();
+  const { empresas, empresaFiltro, setEmpresaFiltro, empresaSelecionada, triggerRefresh, refreshing } = useAdminShell();
 
   return (
     <header
@@ -40,12 +42,16 @@ export default function AdminHeader() {
         >
           <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
         </button>
-        <button className="w-9 h-9 hidden sm:flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'rgba(255,255,255,.5)' }} title={t('header.notifications')}>
-          <Bell size={14} />
-        </button>
-        <button className="w-9 h-9 hidden sm:flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'rgba(255,255,255,.5)' }} title={t('header.settings')}>
-          <Settings size={14} />
-        </button>
+        {empresaSelecionada && (
+          <button
+            onClick={() => router.push(`/admin/empresas/${empresaSelecionada.id}/configuracoes`)}
+            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors"
+            style={{ color: 'rgba(255,255,255,.5)' }}
+            title={t('header.settings')}
+          >
+            <Settings size={14} />
+          </button>
+        )}
       </div>
     </header>
   );
