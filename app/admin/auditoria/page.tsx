@@ -25,7 +25,10 @@ export default async function AuditoriaPage({
   const sp = await searchParams;
   const locale = await getLocale();
   const t = await getTranslations('AdminAudit');
-  const acaoLabel = t.raw('actions') as Record<string, string>;
+  const acaoLabelRaw = t.raw('actions') as Record<string, string>;
+  // As ações no banco usam ponto (ex.: "whatsapp.broadcast"), mas next-intl não
+  // aceita "." em chave de mensagem — as chaves no JSON usam "_". Normaliza aqui.
+  const acaoLabel = (a: string) => acaoLabelRaw[(a || '').replace(/\./g, '_')] || a;
   const { rows, acoes, empresas, error } = await loadAuditLog({
     acao: sp.acao,
     empresaId: sp.empresa,
@@ -57,7 +60,7 @@ export default async function AuditoriaPage({
             <select name="acao" defaultValue={sp.acao || ''}
               className="bg-white/[0.05] border border-white/10 rounded-lg px-3 py-2 text-sm text-white min-w-[200px]">
               <option value="">{t('filters.all')}</option>
-              {acoes.map((a) => <option key={a} value={a}>{acaoLabel[a] || a}</option>)}
+              {acoes.map((a) => <option key={a} value={a}>{acaoLabel(a)}</option>)}
             </select>
           </label>
           <label className="flex flex-col gap-1 text-[11px] uppercase tracking-wide text-white/45">
@@ -105,7 +108,7 @@ export default async function AuditoriaPage({
                 <tr key={r.id} className="border-b border-white/[0.05] align-top hover:bg-white/[0.02]">
                   <td className="px-3 py-2.5 whitespace-nowrap font-mono text-[12px] text-white/70">{fmtData(r.criado_em, locale)}</td>
                   <td className="px-3 py-2.5 text-white/85">{r.admin_email}</td>
-                  <td className="px-3 py-2.5 whitespace-nowrap">{acaoLabel[r.acao] || r.acao}</td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">{acaoLabel(r.acao)}</td>
                   <td className="px-3 py-2.5 text-white/70">{r.empresa_slug || (r.empresa_id ? r.empresa_id.slice(0, 8) : '—')}</td>
                   <td className="px-3 py-2.5 text-white/70">{r.alvo || '—'}</td>
                   <td className="px-3 py-2.5">

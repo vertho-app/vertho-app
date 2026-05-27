@@ -3799,15 +3799,15 @@
     },
     "empty": "Nenhum registro ainda.",
     "actions": {
-      "whatsapp.broadcast": "WhatsApp/Email — mensagem em lote",
-      "whatsapp.magic_links": "WhatsApp — magic-links de acesso",
-      "envio.pdfs_lote": "WhatsApp — PDFs em lote",
-      "pulse.envio": "Pulso — envio",
-      "empresa.excluir": "Empresa — exclusão",
-      "empresa.criar": "Empresa — criação",
-      "temporada.gerar_lote": "Temporadas — geração em lote",
-      "colaboradores.export": "Colaboradores — exportação",
-      "colaborador.excluir": "Colaborador — exclusão"
+      "whatsapp_broadcast": "WhatsApp/Email — mensagem em lote",
+      "whatsapp_magic_links": "WhatsApp — magic-links de acesso",
+      "envio_pdfs_lote": "WhatsApp — PDFs em lote",
+      "pulse_envio": "Pulso — envio",
+      "empresa_excluir": "Empresa — exclusão",
+      "empresa_criar": "Empresa — criação",
+      "temporada_gerar_lote": "Temporadas — geração em lote",
+      "colaboradores_export": "Colaboradores — exportação",
+      "colaborador_excluir": "Colaborador — exclusão"
     }
   },
   "AdminPhase2Error": {
