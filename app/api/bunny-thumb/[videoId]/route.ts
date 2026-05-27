@@ -9,6 +9,28 @@ import { ROOT_DOMAIN } from '@/lib/domain';
 const REFERER = `https://www.${ROOT_DOMAIN}/`;
 const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// O nome do arquivo de thumbnail varia: o frame auto-gerado é `thumbnail.jpg`,
+// mas thumbnails customizados (upload manual no Bunny) recebem um nome com
+// hash, ex. `thumbnail_47b9900c.jpg`. O nome real fica em `thumbnailFileName`
+// nos metadados do vídeo. Consultamos a API pra servir o arquivo certo;
+// fallback pro `thumbnail.jpg` se a API não responder.
+async function resolveThumbFileName(videoId: string): Promise<string> {
+  const lib = process.env.BUNNY_LIBRARY_ID;
+  const key = process.env.BUNNY_STREAM_API_KEY;
+  if (!lib || !key) return 'thumbnail.jpg';
+  try {
+    const res = await fetch(`https://video.bunnycdn.com/library/${lib}/videos/${videoId}`, {
+      headers: { AccessKey: key, Accept: 'application/json' },
+      next: { revalidate: 3600 },
+    } as any);
+    if (!res.ok) return 'thumbnail.jpg';
+    const v = await res.json();
+    return v?.thumbnailFileName || 'thumbnail.jpg';
+  } catch {
+    return 'thumbnail.jpg';
+  }
+}
+
 export async function GET(_req, { params }) {
   const { videoId } = await params;
 
@@ -21,7 +43,8 @@ export async function GET(_req, { params }) {
     return new Response('BUNNY_PULL_ZONE not configured', { status: 500 });
   }
 
-  const url = `https://${pullZone}/${videoId}/thumbnail.jpg`;
+  const fileName = await resolveThumbFileName(videoId);
+  const url = `https://${pullZone}/${videoId}/${fileName}`;
 
   try {
     const res = await fetch(url, {

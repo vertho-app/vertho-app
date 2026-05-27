@@ -83,7 +83,7 @@ const TOTAL_STEPS = 29;
 const BUNNY_LIBRARY = 636615;
 const INSTRUCTIONS_VIDEO_ID = 'e235d703-1a4b-40c0-ae6d-44bbb09445c5';
 // Bump quando trocar o thumbnail no Bunny (busta o cache de edge da capa).
-const INSTRUCTIONS_THUMB_V = '2';
+const INSTRUCTIONS_THUMB_V = '3';
 
 function shuffle(arr) {
   const a = [...arr];
