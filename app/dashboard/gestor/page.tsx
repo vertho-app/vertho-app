@@ -489,8 +489,8 @@ function TimelineSection({ timeline }: { timeline: any[] }) {
     <section className="mb-6">
       <h2 className="text-white text-base font-bold mb-3">{t('titles.nextWeeks')}</h2>
       <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
-        {timeline.map((t, i) => {
-          const dt = new Date(t.data);
+        {timeline.map((ev, i) => {
+          const dt = new Date(ev.data);
           const dias = Math.ceil((dt.getTime() - Date.now()) / (24 * 3600 * 1000));
           return (
             <div key={i} className={`flex items-center gap-3 px-4 py-2.5 ${i > 0 ? 'border-t border-white/[0.04]' : ''}`}>
@@ -503,8 +503,8 @@ function TimelineSection({ timeline }: { timeline: any[] }) {
                 </div>
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-[12px] text-white font-bold truncate">{t.colab}</div>
-                <div className="text-[10px] text-white/55 truncate">{t.detalhe}</div>
+                <div className="text-[12px] text-white font-bold truncate">{ev.colab}</div>
+                <div className="text-[10px] text-white/55 truncate">{ev.detalhe}</div>
               </div>
               <span className="text-[10px] text-white/55 font-mono shrink-0">
                 {t('timeline.inDays', { value: dias === 0 ? t('timeline.today') : dias === 1 ? t('timeline.oneDay') : `${dias}d` })}
