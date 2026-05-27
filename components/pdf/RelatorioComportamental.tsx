@@ -636,7 +636,7 @@ function PageCompetenciasCompletas({ raw }: { raw: any }) {
     D: { label: 'Dominância (D)', keys: ['Ousadia', 'Comando', 'Objetividade', 'Assertividade'] },
     I: { label: 'Influência (I)', keys: ['Persuasão', 'Extroversão', 'Entusiasmo', 'Sociabilidade'] },
     S: { label: 'Estabilidade (S)', keys: ['Empatia', 'Paciência', 'Persistência', 'Planejamento'] },
-    C: { label: 'Conformidade (C)', keys: ['Organização', 'Detalhismo', 'Cautela', 'Reflexão'] },
+    C: { label: 'Conformidade (C)', keys: ['Organização', 'Detalhismo', 'Prudência', 'Concentração'] },
   };
   const compMap: Record<string, number> = Object.fromEntries((raw.competencias || []).map((c: any) => [c.nome, c.natural]));
 
