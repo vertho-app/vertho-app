@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import {
   ArrowLeft, Loader2, Video, Eye, Clock, TrendingUp, Film, BarChart3,
-  Users, AlertTriangle, Trophy, ArrowUpDown, ArrowUp, ArrowDown,
+  Users, AlertTriangle, Trophy, ArrowUpDown, ArrowUp, ArrowDown, Link2, Check,
 } from 'lucide-react';
 import { loadBunnyVideosStats, loadBunnyHeatmap, loadBunnyLibraryStats } from '@/actions/bunny-stats';
 import { loadEngajamentoEmpresa, loadAlertasInatividade, loadEmpresaInfo } from '@/actions/video-analytics';
@@ -99,6 +99,26 @@ export default function AdminVideosPage() {
 
   // Modal de play
   const [activeVideo, setActiveVideo] = useState(null);
+
+  // Feedback do "copiar link de compartilhamento"
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Link branded /v/<id> no subdomínio do tenant (ex. ibipeba.vertho.ai/v/...).
+  // Sem empresa selecionada (visão global), cai no domínio atual.
+  function shareUrl(videoId: string) {
+    const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'vertho.ai';
+    const slug = (empresa as any)?.slug;
+    const origin = slug ? `https://${slug}.${root}` : (typeof window !== 'undefined' ? window.location.origin : '');
+    return `${origin}/v/${videoId}`;
+  }
+
+  async function handleCopyLink(videoId: string) {
+    try {
+      await navigator.clipboard.writeText(shareUrl(videoId));
+      setCopiedId(videoId);
+      setTimeout(() => setCopiedId((c) => (c === videoId ? null : c)), 1800);
+    } catch {}
+  }
 
   // Ordenação do ranking de engajamento
   const [sortBy, setSortBy] = useState('minutos'); // nome|cargo|videos|concluidos|minutos|ultimo
@@ -298,12 +318,21 @@ export default function AdminVideosPage() {
                       <td className={`px-4 py-2.5 text-center text-sm font-bold ${taxaColor}`}>
                         {formatPct(v.taxaConclusao)}
                       </td>
-                      <td className="px-4 py-2.5 text-center">
-                        <button
-                          onClick={e => { e.stopPropagation(); setActiveVideo({ videoId: v.videoId, titulo: v.titulo }); }}
-                          className="text-cyan-400 hover:text-cyan-300 text-xs font-bold">
-                          ▶ {t('actions.watch')}
-                        </button>
+                      <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                        <div className="inline-flex items-center gap-2">
+                          <button
+                            onClick={e => { e.stopPropagation(); setActiveVideo({ videoId: v.videoId, titulo: v.titulo }); }}
+                            className="text-cyan-400 hover:text-cyan-300 text-xs font-bold">
+                            ▶ {t('actions.watch')}
+                          </button>
+                          <button
+                            onClick={e => { e.stopPropagation(); handleCopyLink(v.videoId); }}
+                            title={shareUrl(v.videoId)}
+                            className={`inline-flex items-center gap-1 text-[11px] font-bold transition-colors ${copiedId === v.videoId ? 'text-emerald-400' : 'text-gray-400 hover:text-cyan-300'}`}>
+                            {copiedId === v.videoId ? <Check size={12} /> : <Link2 size={12} />}
+                            {copiedId === v.videoId ? t('actions.copied') : t('actions.copyLink')}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

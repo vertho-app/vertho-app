@@ -1689,7 +1689,9 @@
     "globalView": "Vista global — todas las empresas",
     "actions": {
       "viewGlobal": "Ver global",
-      "watch": "Ver"
+      "watch": "Ver",
+      "copyLink": "Copiar enlace",
+      "copied": "¡Copiado!"
     },
     "tabs": {
       "content": "Contenido ({count})",

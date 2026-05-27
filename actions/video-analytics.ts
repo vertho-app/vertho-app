@@ -15,7 +15,7 @@ export async function loadEmpresaInfo(empresaId: string | null | undefined) {
     await requireUserAction();
     if (!empresaId) return null;
     const sb = createSupabaseAdmin();
-    const { data } = await sb.from('empresas').select('id, nome').eq('id', empresaId).maybeSingle();
+    const { data } = await sb.from('empresas').select('id, nome, slug').eq('id', empresaId).maybeSingle();
     return data || null;
   } catch {
     return null;
