@@ -15,7 +15,8 @@ const COLS = `
   titulo, finalidade, contexto_pedagogico, tags, preferido, status, versao,
   substitui_modulo_id, conteudo_central, conteudo_aplicavel, guarda_corpos,
   adaptacao_por_formato, created_by, created_at, updated_at,
-  reviewed_by, reviewed_at, published_by, published_at
+  reviewed_by, reviewed_at, published_by, published_at,
+  auditoria_ia, auditado_em, auditado_por_modelo, auditado_em_versao
 `;
 
 const NIVEIS: Nivel[] = ['N1', 'N2', 'N3', 'N4'];
@@ -186,26 +187,49 @@ export async function submeterRevisao(id: string) {
   const sb = createSupabaseAdmin();
   const { data } = await sb.from('modulos_base_conteudo').select('status, conteudo_central, conteudo_aplicavel, guarda_corpos, adaptacao_por_formato').eq('id', id).maybeSingle();
   if (!data) return { error: 'Módulo não encontrado' };
-  if (data.status !== 'rascunho') return { error: `Status atual é ${data.status} — só é possível submeter rascunho` };
+  if (data.status !== 'rascunho' && data.status !== 'revisao') {
+    return { error: `Status atual é ${data.status} — só é possível submeter rascunho ou re-submeter em revisão` };
+  }
 
   const erros = validarCorpo(data);
-  if (erros.length) return { error: 'Validação falhou', detalhes: erros };
+  if (erros.length) return { error: 'Validação estrutural falhou', detalhes: erros };
 
-  const { error } = await sb.from('modulos_base_conteudo').update({ status: 'revisao' }).eq('id', id);
-  if (error) return { error: error.message };
-  return { ok: true };
+  const { error: errStatus } = await sb.from('modulos_base_conteudo').update({ status: 'revisao' }).eq('id', id);
+  if (errStatus) return { error: errStatus.message };
+
+  // Padrão Dual-IA: ao submeter, dispara automaticamente a IA-auditora.
+  // O veredito gate a publicação (em vez de revisão humana cruzada).
+  const auditResult = await auditarModuloBase(id);
+  if ('error' in auditResult && auditResult.error) {
+    // Auditoria falhou — módulo continua em revisão, mas sem veredito.
+    // Humano pode tentar "Reauditar" manualmente depois.
+    return { ok: true, aviso_auditoria: auditResult.error };
+  }
+  return { ok: true, auditoria: (auditResult as any).auditoria };
 }
 
 export async function aprovarPublicar(id: string) {
   const ctx = await requireAdminAction();
   const sb = createSupabaseAdmin();
-  const { data } = await sb.from('modulos_base_conteudo').select('status, created_by').eq('id', id).maybeSingle();
+  const { data } = await sb.from('modulos_base_conteudo')
+    .select('status, versao, auditoria_ia, auditado_em_versao')
+    .eq('id', id).maybeSingle();
   if (!data) return { error: 'Módulo não encontrado' };
   if (data.status !== 'revisao') return { error: `Status atual é ${data.status} — só é possível publicar em revisão` };
 
-  // BLOQUEIO: criador ≠ aprovador (revisão cruzada forçada).
-  if (data.created_by === ctx.email) {
-    return { error: 'Quem criou o módulo não pode aprová-lo. Outro admin Vertho precisa revisar.' };
+  // Dual-IA: a publicação exige aprovação da IA-auditora pra ESTA versão.
+  if (!data.auditoria_ia) {
+    return { error: 'Auditoria da IA pendente. Submeta pra revisão (dispara a auditoria) ou clique em "Reauditar".' };
+  }
+  if (data.auditado_em_versao !== data.versao) {
+    return { error: 'Módulo foi editado após a última auditoria. Reauditar antes de publicar.' };
+  }
+  const veredito = (data.auditoria_ia as any)?.veredito;
+  if (veredito === 'reprovado') {
+    return { error: 'IA-auditora reprovou. Corrija os problemas listados e submeta novamente pra reauditar.' };
+  }
+  if (veredito !== 'aprovado' && veredito !== 'aprovado_com_ressalvas') {
+    return { error: 'Veredito da auditoria inválido — reauditar.' };
   }
 
   const { error } = await sb.from('modulos_base_conteudo')
@@ -605,4 +629,109 @@ export async function importarModuloDocx(opts: {
   const { data, error } = await sb.from('modulos_base_conteudo').insert(insertRow).select('id, grupo_id').single();
   if (error) return { error: error.message };
   return { id: data.id, grupo_id: data.grupo_id, avisos: erros, textoExtraidoChars: texto.length };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// IA-auditora — valida o módulo contra spec e seus próprios guarda-corpos
+// (padrão Dual-IA — substitui revisão humana cruzada)
+// ════════════════════════════════════════════════════════════════════════════
+
+const SYSTEM_AUDITOR = `Você é IA-auditora de Módulos-Base de Conteúdo da Vertho. Sua tarefa é validar RIGOROSAMENTE um módulo gerado pela IA-autora contra a spec oficial e os próprios guarda-corpos do módulo. NÃO suavize: marque qualquer problema real.
+
+CRITÉRIOS DE AUDITORIA (verifique TODOS):
+1. ESTRUTURA — 4 blocos presentes? conteudo_central com ideia/explicação/≥5 princípios/síntese? conteudo_aplicavel com ≥4 situações/exemplos universais (5 chaves)/≥4 erros/repertório (6 categorias)/≥4 boas práticas? guarda_corpos com preservar/evitar/cuidados? adaptacao_por_formato com texto/podcast_roteiro/video_roteiro?
+2. NÃO É RÉGUA DE MATURIDADE — o conteúdo descreve conhecimento aplicável, não comportamentos observáveis por nível. Repetir a régua de maturidade é problema GRAVE.
+3. NÃO É AULA FINAL — o módulo é matéria-prima pedagógica pra IA gerar conteúdo depois, não é texto pronto pra colaborador ler.
+4. EXEMPLOS UNIVERSAIS — sem cargo específico (salvo se módulo é declaradamente exclusivo de um contexto); sem nomes próprios reais; sem situações ultra-específicas.
+5. NADA INVENTADO — leis, normas, estatísticas, citações fabricadas. Gravidade alta.
+6. SEM DIAGNÓSTICO PSICOLÓGICO. SEM DISC determinista. Linguagem evita rotular pessoa.
+7. AUTO-CONSISTÊNCIA — exemplos e linguagem respeitam os guarda_corpos do PRÓPRIO módulo (não contradizem).
+8. PROFUNDIDADE — explicação expandida tem substância (não é stub); princípios têm implicação prática (não genéricos); situações têm risco_comum E boa_abordagem distintos.
+9. LINGUAGEM CLARA — sem jargão excessivo; tom profissional aplicado.
+
+RETORNE APENAS JSON válido:
+{
+  "veredito": "aprovado" | "aprovado_com_ressalvas" | "reprovado",
+  "problemas": [
+    {
+      "categoria": "estrutura" | "regua-vs-base" | "aula-vs-base" | "exemplos" | "invencao" | "etica" | "auto-consistencia" | "profundidade" | "linguagem",
+      "descricao": "explica concretamente o problema (cite trecho se útil)",
+      "gravidade": "alta" | "media" | "baixa",
+      "campo_afetado": "ex.: conteudo_central.principios[2]"
+    }
+  ],
+  "recomendacoes": ["sugestões de correção, 1-3 itens"],
+  "confianca": 0.0 a 1.0
+}
+
+REGRA DE VEREDITO:
+- "reprovado" se houver ≥1 problema de gravidade ALTA.
+- "aprovado_com_ressalvas" se só problemas de gravidade média/baixa.
+- "aprovado" se nada relevante.
+- "confianca" = sua certeza no próprio veredito (0-1).`;
+
+export async function auditarModuloBase(id: string) {
+  await requireAdminAction();
+  const sb = createSupabaseAdmin();
+  const { data: m } = await sb.from('modulos_base_conteudo').select(COLS).eq('id', id).maybeSingle();
+  if (!m) return { error: 'Módulo não encontrado' };
+
+  const comp = await carregarCompetenciaBase(m.competencia_base_id);
+
+  const userPrompt = `## CONTEXTO
+- Competência: ${comp?.nome || '—'} (${comp?.segmento || '—'})
+- Descritor: ${comp?.descritor_completo || '—'}
+- Transição: ${m.nivel_entrada} → ${m.nivel_destino}
+- Locale: ${m.locale}
+- Contexto pedagógico: ${m.contexto_pedagogico || 'transversal'}
+- Título: ${m.titulo}
+- Finalidade: ${m.finalidade}
+
+## MÓDULO A AUDITAR (JSON completo dos 4 blocos):
+${JSON.stringify({
+  conteudo_central: m.conteudo_central,
+  conteudo_aplicavel: m.conteudo_aplicavel,
+  guarda_corpos: m.guarda_corpos,
+  adaptacao_por_formato: m.adaptacao_por_formato,
+}, null, 2)}
+
+Responda APENAS com o JSON do veredito.`;
+
+  const model = await getModelForTask(null as any, 'modulo_base_auditor');
+  let auditoria: any = null;
+  for (let tentativa = 1; tentativa <= 2 && !auditoria; tentativa++) {
+    try {
+      const raw = await callAI(SYSTEM_AUDITOR, userPrompt, { model }, 3000);
+      const cleaned = String(raw || '').replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+      const candidatos = [cleaned];
+      const objMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (objMatch) candidatos.push(objMatch[0]);
+      for (const c of candidatos) {
+        try {
+          const p = JSON.parse(c);
+          if (p && ['aprovado', 'aprovado_com_ressalvas', 'reprovado'].includes(p.veredito)) {
+            auditoria = p; break;
+          }
+        } catch { /* tenta próximo */ }
+      }
+    } catch (e: any) {
+      console.warn(`[auditarModuloBase] tentativa ${tentativa} falhou:`, e?.message);
+    }
+  }
+  if (!auditoria) return { error: 'IA-auditora não conseguiu emitir veredito válido' };
+
+  // Normaliza campos
+  auditoria.problemas = Array.isArray(auditoria.problemas) ? auditoria.problemas : [];
+  auditoria.recomendacoes = Array.isArray(auditoria.recomendacoes) ? auditoria.recomendacoes : [];
+  auditoria.confianca = typeof auditoria.confianca === 'number' ? auditoria.confianca : 0.5;
+
+  const { error } = await sb.from('modulos_base_conteudo').update({
+    auditoria_ia: auditoria,
+    auditado_em: new Date().toISOString(),
+    auditado_por_modelo: model,
+    auditado_em_versao: m.versao,
+  }).eq('id', id);
+  if (error) return { error: error.message };
+
+  return { ok: true, auditoria };
 }

@@ -1622,14 +1622,37 @@
 - **Output**: JSON com `{ conteudo_central, conteudo_aplicavel, guarda_corpos, adaptacao_por_formato }`.
 - **Robustez**: parsing tolerante (`extractCorpo` — texto limpo → primeiro `{...}` embutido) + **1 retry**.
 - **Validação**: `validarCorpo` verifica campos obrigatórios e mínimos (ideia, explicação, ≥3 princípios, ≥3 situações, preservar+evitar presentes). Avisos são persistidos pra revisão humana — não bloqueiam o INSERT.
-- **Workflow**: output sempre vira `status='rascunho'`. Publicação exige revisão cruzada (criador ≠ aprovador, bloqueio no server action).
+- **Workflow**: output sempre vira `status='rascunho'`. Publicação exige aprovação da IA-auditora (15.2) — padrão Dual-IA, não mais revisão humana cruzada.
 - **Consumido por**: tabela `modulos_base_conteudo` (platform-level, sem `empresa_id`).
+
+### 15.2 IA-Auditora de Módulo-Base (padrão Dual-IA)
+> `ATIVO` desde 2026-05-28 · Substitui a regra de revisão humana cruzada (criador-vs-aprovador).
+
+- **Arquivo**: `actions/modulos-base.ts::auditarModuloBase`. Disparada automaticamente por `submeterRevisao` e pelo botão "Reauditar" no admin.
+- **Modelo**: Via `getModelForTask(null, 'modulo_base_auditor')` — default `claude-sonnet-4-6`, configurável (pode setar Gemini Flash via sys_config pra reduzir custo e ter perspectiva diferente da autora, como fazemos em IA4/Pulso).
+- **Max tokens**: 3000.
+- **System prompt** (resumo editorial):
+  "Você é IA-auditora de Módulos-Base. Valide RIGOROSAMENTE contra spec e guarda-corpos. NÃO suavize. 9 critérios:
+  1. ESTRUTURA — 4 blocos completos, mínimos de princípios/situações/erros/boas práticas
+  2. NÃO É RÉGUA de maturidade (problema grave se for)
+  3. NÃO É AULA final pro colaborador (matéria-prima, não conteúdo)
+  4. EXEMPLOS UNIVERSAIS (sem cargo específico, sem nomes próprios)
+  5. NADA INVENTADO (leis, normas, estatísticas)
+  6. SEM diagnóstico psicológico; SEM DISC determinista
+  7. AUTO-CONSISTÊNCIA com os guarda_corpos do próprio módulo
+  8. PROFUNDIDADE adequada (não stubs)
+  9. LINGUAGEM clara e aplicada
+  Veredito: REPROVADO se ≥1 problema alta; APROVADO_COM_RESSALVAS se só média/baixa; APROVADO se nada."
+- **User prompt**: contexto da competência canônica + descritor + transição + locale + título + finalidade + JSON completo dos 4 blocos do módulo a auditar.
+- **Output**: JSON `{ veredito, problemas: [{categoria,descricao,gravidade,campo_afetado}], recomendacoes: [], confianca }`. 9 categorias possíveis de problema (estrutura/regua-vs-base/aula-vs-base/exemplos/invencao/etica/auto-consistencia/profundidade/linguagem).
+- **Robustez**: parsing tolerante + 1 retry; valida `veredito ∈ {aprovado, aprovado_com_ressalvas, reprovado}`.
+- **Persistência**: `modulos_base_conteudo.auditoria_ia` JSONB + `auditado_em` + `auditado_por_modelo` + `auditado_em_versao`. Gate da publicação: módulo só pode ir pra `publicado` se veredito é aprovado/aprovado_com_ressalvas E `auditado_em_versao = versao atual` (edição após auditoria invalida).
 
 ---
 
 ## Resumo Estatístico
 
-**Total de prompts catalogados: 60**
+**Total de prompts catalogados: 61**
 
 Por status:
 

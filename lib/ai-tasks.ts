@@ -47,7 +47,8 @@ export const AI_TASKS = [
   { key: 'pulse_audit',    label: 'Pulso — Auditor (verifica classificação)', fase: 'Pulso' },
 
   // ── Vertho Master Content (módulos-base) ─────────────────
-  { key: 'modulo_base_autor', label: 'Módulo-Base — Rascunho assistido / Import docx', fase: 'Vertho' },
+  { key: 'modulo_base_autor',   label: 'Módulo-Base — Rascunho assistido / Import docx', fase: 'Vertho' },
+  { key: 'modulo_base_auditor', label: 'Módulo-Base — Auditor (valida o que a autora gerou)', fase: 'Vertho' },
 ];
 
 export const MODELOS_DISPONIVEIS = [

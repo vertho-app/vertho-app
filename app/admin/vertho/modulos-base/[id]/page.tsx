@@ -2,11 +2,12 @@
 
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Save, Send, CheckCircle2, Archive, Languages, AlertTriangle } from 'lucide-react';
+import { Loader2, Save, Send, CheckCircle2, Archive, Languages, AlertTriangle, ShieldCheck, ShieldAlert, Sparkles, RotateCcw } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import {
   obterModulo, listarCompetenciasBase, salvarModulo,
   submeterRevisao, aprovarPublicar, marcarObsoleto, criarTraducao, obterGrupo,
+  auditarModuloBase,
 } from '@/actions/modulos-base';
 
 const NIVEIS = ['N1', 'N2', 'N3', 'N4'];
@@ -100,6 +101,14 @@ export default function ModuloBaseEditPage({ params }: { params: Promise<{ id: s
     setSaving(false);
   }
 
+  async function reauditar() {
+    setErro(''); setAviso(''); setSaving(true);
+    const r = await auditarModuloBase(id);
+    setSaving(false);
+    if ('error' in r && r.error) setErro(r.error);
+    else { setAviso('Auditoria atualizada'); carregar(); }
+  }
+
   async function acao(fn: () => Promise<any>, nome: string) {
     setErro(''); setAviso(''); setSaving(true);
     const r = await fn();
@@ -145,6 +154,12 @@ export default function ModuloBaseEditPage({ params }: { params: Promise<{ id: s
                 <Send size={14} /> Submeter pra revisão
               </button>
             )}
+            {m.status === 'revisao' && !isNovo && (
+              <button onClick={reauditar} disabled={saving}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-cyan-300/40 text-cyan-200 hover:bg-cyan-400/10">
+                <RotateCcw size={14} /> Reauditar
+              </button>
+            )}
             {m.status === 'revisao' && (
               <button onClick={() => acao(() => aprovarPublicar(id), 'Publicado')} disabled={saving}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-emerald-300/40 text-emerald-200 hover:bg-emerald-400/10">
@@ -183,6 +198,9 @@ export default function ModuloBaseEditPage({ params }: { params: Promise<{ id: s
             </div>
           </div>
         )}
+
+        {/* Auditoria IA (Dual-IA — substitui revisão humana cruzada) */}
+        {!isNovo && <AuditoriaCard m={m} />}
 
         {/* Identificação */}
         <Card titulo="Identificação">
@@ -274,6 +292,90 @@ function Field({ label, children, className = '' }: { label: string; children: R
     <div className={`flex flex-col gap-1 ${className}`}>
       <label className="text-[10px] uppercase tracking-wide text-white/45">{label}</label>
       {children}
+    </div>
+  );
+}
+
+function AuditoriaCard({ m }: { m: any }) {
+  const a = m.auditoria_ia;
+  const versaoOk = m.auditado_em_versao === m.versao;
+  const veredito = a?.veredito;
+  const conf = a?.confianca ? Math.round(a.confianca * 100) : 0;
+
+  if (!a) {
+    return (
+      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 mb-4 flex items-center gap-2 text-xs text-white/55">
+        <Sparkles size={13} className="text-cyan-300" />
+        <span>Sem auditoria ainda. {m.status === 'rascunho' ? 'Submeta pra revisão pra disparar a IA-auditora.' : 'Clique em "Reauditar" pra rodar agora.'}</span>
+      </div>
+    );
+  }
+
+  const cor = veredito === 'aprovado' ? 'emerald'
+    : veredito === 'aprovado_com_ressalvas' ? 'amber'
+    : 'red';
+  const palette: Record<string, { border: string; bg: string; text: string; icon: any }> = {
+    emerald: { border: 'border-emerald-400/30', bg: 'bg-emerald-400/[0.06]', text: 'text-emerald-200', icon: ShieldCheck },
+    amber:   { border: 'border-amber-400/30',   bg: 'bg-amber-400/[0.06]',   text: 'text-amber-200',   icon: ShieldCheck },
+    red:     { border: 'border-red-400/30',     bg: 'bg-red-400/[0.06]',     text: 'text-red-200',     icon: ShieldAlert },
+  };
+  const p = palette[cor];
+  const Icon = p.icon;
+  const verdLabel = veredito === 'aprovado' ? 'Aprovado'
+    : veredito === 'aprovado_com_ressalvas' ? 'Aprovado com ressalvas'
+    : 'Reprovado';
+
+  return (
+    <div className={`rounded-xl border ${p.border} ${p.bg} p-4 mb-4`}>
+      <div className="flex items-baseline justify-between gap-3 mb-3">
+        <div className="flex items-center gap-2">
+          <Icon size={16} className={p.text} />
+          <h2 className={`text-sm font-bold ${p.text}`}>Auditoria IA · {verdLabel}</h2>
+          {conf > 0 && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white/70">{conf}% confiança</span>
+          )}
+        </div>
+        <p className="text-[10px] text-white/45 font-mono">
+          {m.auditado_por_modelo || '—'} · v{m.auditado_em_versao} {!versaoOk && '(módulo editado depois — reauditar)'}
+        </p>
+      </div>
+
+      {Array.isArray(a.problemas) && a.problemas.length > 0 && (
+        <div className="mb-2">
+          <p className="text-[10px] uppercase tracking-widest text-white/45 mb-1">Problemas encontrados ({a.problemas.length})</p>
+          <ul className="space-y-1.5">
+            {a.problemas.map((pr: any, i: number) => (
+              <li key={i} className="text-[12px] text-white/85 flex items-start gap-2">
+                <span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded mt-0.5 shrink-0 ${
+                  pr.gravidade === 'alta' ? 'bg-red-400/20 text-red-200'
+                  : pr.gravidade === 'media' ? 'bg-amber-400/20 text-amber-200'
+                  : 'bg-white/10 text-white/55'
+                }`}>{pr.gravidade}</span>
+                <div>
+                  <span className="text-white/55 text-[10px] font-mono">[{pr.categoria}]</span>{' '}
+                  {pr.descricao}
+                  {pr.campo_afetado && <span className="text-white/40 text-[10px] font-mono"> · {pr.campo_afetado}</span>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {Array.isArray(a.recomendacoes) && a.recomendacoes.length > 0 && (
+        <div className="mt-3 pt-2 border-t border-white/[0.08]">
+          <p className="text-[10px] uppercase tracking-widest text-white/45 mb-1">Recomendações</p>
+          <ul className="space-y-0.5">
+            {a.recomendacoes.map((rec: string, i: number) => (
+              <li key={i} className="text-[12px] text-white/75">• {rec}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {(!a.problemas || a.problemas.length === 0) && veredito === 'aprovado' && (
+        <p className="text-[12px] text-white/60">Nenhum problema apontado. Módulo está pronto pra publicação.</p>
+      )}
     </div>
   );
 }
