@@ -61,24 +61,45 @@ export const MODELOS_DISPONIVEIS = [
 ];
 
 /**
+ * Defaults por task quando não há config explícita no sys_config da empresa
+ * (ou quando a task é platform-level, sem empresa associada).
+ *
+ * Padrão Dual-IA: a autora e a auditora usam modelos DIFERENTES de propósito,
+ * pra ganhar perspectiva cruzada (mesmo padrão de IA4 + Check IA4 que usa
+ * Gemini Flash auditando Claude, e do Pulso classifier + auditor).
+ */
+export const DEFAULT_TASK_MODELS: Record<string, string> = {
+  // Módulos-Base — Dual-IA: autora Claude Sonnet, auditora GPT-5.4
+  modulo_base_autor:   'claude-sonnet-4-6',
+  modulo_base_auditor: 'gpt-5.4',
+};
+
+const FALLBACK_GLOBAL = 'claude-sonnet-4-6';
+
+/**
  * Resolve o modelo configurado para uma tarefa:
- *   1. sys_config.ai.modelos[taskKey] (específico)
- *   2. sys_config.ai.modelo_padrao (fallback empresa)
- *   3. 'claude-sonnet-4-6' (default absoluto)
+ *   1. sys_config.ai.modelos[taskKey] (específico, configurável por empresa)
+ *   2. sys_config.ai.modelo_padrao (fallback da empresa)
+ *   3. DEFAULT_TASK_MODELS[taskKey] (default por task)
+ *   4. 'claude-sonnet-4-6' (default absoluto)
  */
 export function resolveTaskModel(sysConfig, taskKey) {
   const ai = sysConfig?.ai || {};
   const especifico = ai.modelos?.[taskKey];
   if (especifico) return especifico;
-  return ai.modelo_padrao || 'claude-sonnet-4-6';
+  if (ai.modelo_padrao) return ai.modelo_padrao;
+  return DEFAULT_TASK_MODELS[taskKey] || FALLBACK_GLOBAL;
 }
 
 /**
  * Helper server-side: busca sys_config da empresa e retorna o modelo
  * configurado pra uma tarefa específica. Use em server actions.
+ *
+ * empresaId null/undefined → usa o default da task (DEFAULT_TASK_MODELS) ou
+ * o fallback global. Necessário pra tasks platform-level (módulos-base).
  */
 export async function getModelForTask(empresaId, taskKey) {
-  if (!empresaId) return 'claude-sonnet-4-6';
+  if (!empresaId) return DEFAULT_TASK_MODELS[taskKey] || FALLBACK_GLOBAL;
   try {
     const { createSupabaseAdmin } = await import('@/lib/supabase');
     const sb = createSupabaseAdmin();
@@ -86,6 +107,6 @@ export async function getModelForTask(empresaId, taskKey) {
       .select('sys_config').eq('id', empresaId).maybeSingle();
     return resolveTaskModel(data?.sys_config, taskKey);
   } catch {
-    return 'claude-sonnet-4-6';
+    return DEFAULT_TASK_MODELS[taskKey] || FALLBACK_GLOBAL;
   }
 }

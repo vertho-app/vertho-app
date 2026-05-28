@@ -2,12 +2,12 @@
 
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Save, Send, CheckCircle2, Archive, Languages, AlertTriangle, ShieldCheck, ShieldAlert, Sparkles, RotateCcw } from 'lucide-react';
+import { Loader2, Save, Send, CheckCircle2, Archive, Languages, AlertTriangle, ShieldCheck, ShieldAlert, Sparkles, RotateCcw, Wand2 } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import {
   obterModulo, listarCompetenciasBase, salvarModulo,
   submeterRevisao, aprovarPublicar, marcarObsoleto, criarTraducao, obterGrupo,
-  auditarModuloBase,
+  auditarModuloBase, refinarComFeedback,
 } from '@/actions/modulos-base';
 
 const NIVEIS = ['N1', 'N2', 'N3', 'N4'];
@@ -109,6 +109,18 @@ export default function ModuloBaseEditPage({ params }: { params: Promise<{ id: s
     else { setAviso('Auditoria atualizada'); carregar(); }
   }
 
+  async function refinar() {
+    setErro(''); setAviso(''); setSaving(true);
+    const r = await refinarComFeedback(id);
+    setSaving(false);
+    if ('error' in r && r.error) { setErro(r.error); return; }
+    const vAnt = (r as any).versaoAnterior;
+    const vNov = (r as any).versaoNova;
+    const novoVer = (r as any).auditoria?.veredito;
+    setAviso(`v${vAnt} → v${vNov}${novoVer ? ` · auditora agora: ${novoVer.replace(/_/g, ' ')}` : ''}`);
+    carregar();
+  }
+
   async function acao(fn: () => Promise<any>, nome: string) {
     setErro(''); setAviso(''); setSaving(true);
     const r = await fn();
@@ -154,9 +166,17 @@ export default function ModuloBaseEditPage({ params }: { params: Promise<{ id: s
                 <Send size={14} /> Submeter pra revisão
               </button>
             )}
+            {m.status === 'revisao' && !isNovo && m.auditoria_ia && (m.auditoria_ia as any)?.veredito !== 'aprovado' && (
+              <button onClick={refinar} disabled={saving}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-cyan-300/40 text-cyan-200 hover:bg-cyan-400/10"
+                title="Autora regera consumindo o feedback estruturado da auditora (loop Dual-IA)">
+                <Wand2 size={14} /> Refinar com IA
+              </button>
+            )}
             {m.status === 'revisao' && !isNovo && (
               <button onClick={reauditar} disabled={saving}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-cyan-300/40 text-cyan-200 hover:bg-cyan-400/10">
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/15 text-white/70 hover:bg-white/5"
+                title="Re-roda só a auditora sobre o conteúdo atual (sem regerar). Útil quando você editou manualmente.">
                 <RotateCcw size={14} /> Reauditar
               </button>
             )}

@@ -1629,8 +1629,8 @@
 ### 15.2 IA-Auditora de Módulo-Base (padrão Dual-IA)
 > `ATIVO` desde 2026-05-28 · Substitui a regra de revisão humana cruzada (criador-vs-aprovador).
 
-- **Arquivo**: `actions/modulos-base.ts::auditarModuloBase`. Disparada automaticamente por `submeterRevisao` e pelo botão "Reauditar" no admin.
-- **Modelo**: Via `getModelForTask(null, 'modulo_base_auditor')` — default `claude-sonnet-4-6`, configurável (pode setar Gemini Flash via sys_config pra reduzir custo e ter perspectiva diferente da autora, como fazemos em IA4/Pulso).
+- **Arquivo**: `actions/modulos-base.ts::auditarModuloBase`. Disparada automaticamente por `submeterRevisao`; pelo botão "Reauditar"; e dentro de `refinarComFeedback` após a autora regerar.
+- **Modelo**: Via `getModelForTask(null, 'modulo_base_auditor')` — default **`gpt-5.4`** (configurado em `lib/ai-tasks::DEFAULT_TASK_MODELS`). Configurável por sys_config global Vertho. Modelo diferente da autora (Claude Sonnet) **de propósito** — Dual-IA com perspectivas distintas, mesmo padrão de IA4+Check (Claude+Gemini Flash) e Pulso classifier+auditor.
 - **Max tokens**: 16000 (output) — confortável pra veredito + lista detalhada de problemas com gravidade.
 - **System prompt** (resumo editorial):
   "Você é IA-auditora de Módulos-Base. Valide RIGOROSAMENTE contra spec e guarda-corpos. NÃO suavize. 9 critérios:
@@ -1649,11 +1649,26 @@
 - **Robustez**: parsing tolerante + 1 retry; valida `veredito ∈ {aprovado, aprovado_com_ressalvas, reprovado}`.
 - **Persistência**: `modulos_base_conteudo.auditoria_ia` JSONB + `auditado_em` + `auditado_por_modelo` + `auditado_em_versao`. Gate da publicação: módulo só pode ir pra `publicado` se veredito é aprovado/aprovado_com_ressalvas E `auditado_em_versao = versao atual` (edição após auditoria invalida).
 
+### 15.3 Refinador (autora consome feedback da auditora — fecha o loop Dual-IA)
+> `ATIVO` desde 2026-05-28 · Loop manual disparado pelo autor humano (decisão B — controle do humano sobre quantas iterações).
+
+- **Arquivo**: `actions/modulos-base.ts::refinarComFeedback` (helper `montarPromptRefinador`).
+- **Modelo**: a **MESMA IA-autora** (15.1) — `getModelForTask(null, 'modulo_base_autor')`, default Claude Sonnet 4.6. Consistência de estilo entre versões.
+- **Max tokens**: 64000 (mesmos do autor original).
+- **System prompt**: reutiliza o `SYSTEM_AUTOR` (15.1).
+- **User prompt** (`montarPromptRefinador`):
+  - Contexto da competência canônica + descritor + transição N→N (com textos n_entrada e n_destino da régua).
+  - JSON completo dos 4 blocos da versão atual (rejeitada/com ressalvas).
+  - **Feedback estruturado da auditora**: problemas **ordenados por gravidade** (alta → média → baixa) + lista de recomendações.
+  - Instruções de refinamento: corrigir ALTA (obrigatório); ajustar média/baixa (recomendado); **preservar o que não foi apontado** (não regerar do zero); manter consistência conceitual; respeitar mínimos do spec.
+- **Pós-processamento**: persiste os 4 blocos refinados, **incrementa `versao`**, e dispara `auditarModuloBase` (15.2) automaticamente sobre a nova versão. Retorna nova auditoria pra UI.
+- **Fluxo end-to-end**: humano clica "Refinar com IA" → autora regera com feedback → auditora avalia versão nova → veredito mostrado. Humano decide se publica, refina de novo, ou edita manualmente.
+
 ---
 
 ## Resumo Estatístico
 
-**Total de prompts catalogados: 61**
+**Total de prompts catalogados: 62**
 
 Por status:
 

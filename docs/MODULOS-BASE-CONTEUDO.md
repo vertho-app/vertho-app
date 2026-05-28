@@ -188,10 +188,12 @@ rascunho ──(submit)──→ revisao ──(IA-auditora aprova + humano publ
 
 - **Rascunho** pode ser criado pela IA-autora (`rascunharModuloBase`, `importarModuloDocx`) ou direto por humano.
 - **Submeter pra revisão** dispara **automaticamente** a `auditarModuloBase` (IA-auditora, padrão Dual-IA já usado em IA4/Pulso/Cenários do projeto). Não há revisão humana cruzada obrigatória.
+- **Modelos do par Dual-IA (default)**: **autora = Claude Sonnet 4.6**, **auditora = GPT-5.4**. Perspectivas diferentes, mesmo padrão de IA4+Check IA4 (Claude+Gemini) e Pulso classifier+auditor.
 - A IA-auditora retorna `veredito ∈ {aprovado, aprovado_com_ressalvas, reprovado}` + lista de problemas (gravidade alta/média/baixa) + recomendações + confiança. Persistido em `auditoria_ia` JSONB + `auditado_em` + `auditado_por_modelo` + `auditado_em_versao`.
+- **Refinar com IA (loop manual, padrão B)**: quando reprovado/ressalvas, o autor humano clica em **"Refinar com IA"** no header → `refinarComFeedback` chama a **autora** de novo com um user prompt enriquecido com o feedback estruturado da auditora (problemas ordenados por gravidade + recomendações + JSON da versão atual). A autora corrige pontualmente, persiste a nova versão (versão+1) e a auditora roda automaticamente sobre o novo conteúdo. Loop dirigido pelo humano — quantas vezes ele quiser. Decisão B (manual) em vez de loop automático A pra dar controle ao autor e economizar IA quando o resultado já tá bom.
+- **Reauditar (sem regerar)**: botão secundário pra re-rodar **só a auditora** sobre o conteúdo atual. Útil quando o autor editou os blocos manualmente e quer revalidar.
 - **Publicar** exige: `veredito ∈ {aprovado, aprovado_com_ressalvas}` E `auditado_em_versao = versao atual` (módulo não pode ter sido editado depois da auditoria). Qualquer admin Vertho pode publicar (não há regra de criador-vs-aprovador).
-- **Reprovado**: módulo continua em `revisao` com a lista de problemas exposta na UI; autor corrige e re-submete pra reauditar.
-- **Reauditar manualmente**: botão na UI dispara nova auditoria (custo: 1 chamada de IA).
+- **Reprovado**: módulo continua em `revisao` com a lista de problemas exposta na UI. Autor pode "Refinar com IA" (loop) ou editar manualmente e "Reauditar".
 - **Obsoleto** sai do consumo mas fica no histórico; `substitui_modulo_id` aponta pro sucessor.
 
 > **Por que Dual-IA e não revisão humana cruzada?** O projeto já segue esse padrão em fluxos que precisam de validação rápida e consistente (IA4 + Check IA4, classificador + auditor do Pulso, Cenários + Check Cenário). Substituir revisor humano por IA auditora torna o ciclo mais rápido e elimina o gargalo de "preciso achar outro admin Vertho disponível". A confiança vem de prompts de auditoria rigorosos (preserva, evita, critérios de gravidade) e da humanidade publicando — a IA só gate, não decide.
