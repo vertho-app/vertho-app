@@ -359,6 +359,12 @@ export async function loadOpcoesGerar(empresaId?: string | null) {
 }
 
 function extrairTitulo(texto: string, fallback: string, formato: string) {
+  // Podcast TTS: linha "TÍTULO: ..." no topo
+  const tituloMatch = texto.match(/^\s*T[ÍI]TULO:\s*(.+)$/im);
+  if (tituloMatch) {
+    const tt = tituloMatch[1].trim().replace(/^["“]|["”]$/g, '').substring(0, 200);
+    if (tt.length > 3) return formato === 'video' ? `🎥 ${tt}` : formato === 'audio' ? `🎧 ${tt}` : tt;
+  }
   // Texto/case: primeira linha # Título
   const match = texto.match(/^#\s+(.+)$/m);
   if (match) return match[1].trim().substring(0, 200);

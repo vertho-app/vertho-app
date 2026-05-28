@@ -1,6 +1,9 @@
 /**
  * Gera roteiro de podcast/áudio (3-5 min) para narração (ElevenLabs voice clone).
  * Linguagem íntima, storytelling, otimizada para consumo sem tela.
+ *
+ * Saída pronta para TTS em DOIS formatos: (1) texto limpo para narração e
+ * (2) texto com marcações de pausa (<break time="Xs" />) e ênfase (*palavra*).
  */
 interface PromptPodcastScriptParams {
   competencia: string;
@@ -37,10 +40,13 @@ PRINCÍPIOS INEGOCIÁVEIS:
 3. Use "eu" e "você". Nunca "nós" ou "a gente".
 4. Storytelling > explicação seca.
 5. Frases curtas e com boa respiração.
-6. Nada de markdown.
-7. Nada de emojis.
-8. Nada de indicação de câmera, cena ou edição.
-9. O texto deve sair pronto para narração.
+6. Nada de emojis.
+7. Nada de indicação de câmera, cena ou edição.
+8. O texto deve sair PRONTO PARA TTS (narração por voz sintética).
+
+VOZ DESEJADA (para calibrar ritmo e escrita):
+Adulta, brasileira, acolhedora, segura. Sem exagero publicitário, sem tom
+teatral. Ritmo moderado, com pausas reflexivas.
 
 DIFERENÇA DO VÍDEO:
 Áudio é pra quem está caminhando, dirigindo, entre atividades. Sem visual. Mais narrativo, mais reflexivo. Mais intimidade.
@@ -97,12 +103,36 @@ Fechar com pergunta, provocação ou convite mental curto.
 Conexão com ação prática da semana.
 Curta e memorável.
 
-REGRAS FINAIS:
+REGRAS DE ESCRITA DO ROTEIRO:
 - Texto corrido, sem seções numeradas, sem bullets, sem títulos técnicos
 - Os 4 blocos devem fluir naturalmente sem quebras artificiais
-- Pronto para narração / gravação
+- Frases curtas; evite frases longas demais (boas para respiração na narração)
 
-Retorne APENAS o texto do roteiro, sem prefixo nem comentário.`;
+═══ SAÍDA PRONTA PARA TTS (OBRIGATÓRIA) ═══
+
+Entregue EXATAMENTE nesta estrutura, com estas três partes e nada mais:
+
+TÍTULO: <um título curto e instigante, sem aspas, em uma linha>
+
+=== NARRAÇÃO (TEXTO LIMPO) ===
+<O roteiro completo em texto corrido, linguagem oral, frases curtas.
+Pausas naturais com reticências (...) com moderação. SEM markdown, SEM
+asteriscos, SEM tags. Este bloco vai direto para a voz sintética.>
+
+=== NARRAÇÃO (COM MARCAÇÕES) ===
+<O MESMO roteiro, idêntico em conteúdo, agora com marcações para a voz:
+- Pausas: use <break time="0.5s" />, <break time="0.8s" /> ou <break time="1.2s" />
+  nos pontos de respiração (entre blocos use pausas um pouco maiores).
+- Ênfase: envolva a palavra/expressão a destacar em *asteriscos* (com parcimônia,
+  só o que realmente importa).
+- Não invente conteúdo novo: o texto deve ser o mesmo do bloco limpo, só anotado.>
+
+REGRAS DA SAÍDA:
+- Não escreva mais nada antes do TÍTULO nem depois do segundo bloco.
+- Não use markdown (#, **, listas). As únicas marcações permitidas são as
+  reticências (...), as tags <break .../> e os *asteriscos* de ênfase (apenas
+  no segundo bloco).
+- O conteúdo principal dos dois blocos deve ser idêntico — muda só a anotação.`;
 
   return { system, user };
 }
