@@ -45,9 +45,13 @@ const s = StyleSheet.create({
     position: 'absolute', right: 12, top: '42%', width: 145, height: 145,
     borderWidth: 10, borderColor: colors.cyan, borderRadius: 72,
   },
-  // Fundo full-bleed gerado por GPT Image + scrim navy à esquerda (legibilidade)
+  // Fundo full-bleed gerado por GPT Image + degradê navy (3 camadas) à esquerda.
+  // Sem gradiente nativo no @react-pdf: 3 retângulos da esquerda, opacidade
+  // decrescente = fade suave. Esquerda escura (texto legível), direita revela a imagem.
   coverImage: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' },
-  coverScrim: { position: 'absolute', top: 0, left: 0, bottom: 0, width: '66%', backgroundColor: 'rgba(15,28,57,0.66)' },
+  coverScrim1: { position: 'absolute', top: 0, left: 0, bottom: 0, width: '48%', backgroundColor: 'rgba(15,28,57,0.42)' },
+  coverScrim2: { position: 'absolute', top: 0, left: 0, bottom: 0, width: '60%', backgroundColor: 'rgba(15,28,57,0.22)' },
+  coverScrim3: { position: 'absolute', top: 0, left: 0, bottom: 0, width: '72%', backgroundColor: 'rgba(15,28,57,0.12)' },
   coverTop: { paddingHorizontal: 50, paddingTop: 50 },
   coverLogo: { height: 28, width: 118 },
   coverMiddle: { flex: 1, paddingHorizontal: 50, justifyContent: 'center' },
@@ -202,7 +206,9 @@ export function ConteudoFinalPDF({ titulo, conteudoMd, competencia, descritor, e
       coverBase64
         ? React.createElement(React.Fragment, null,
             React.createElement(Image, { src: coverBase64, style: s.coverImage, fixed: true }),
-            React.createElement(View, { style: s.coverScrim, fixed: true }),
+            React.createElement(View, { style: s.coverScrim3, fixed: true }),
+            React.createElement(View, { style: s.coverScrim2, fixed: true }),
+            React.createElement(View, { style: s.coverScrim1, fixed: true }),
           )
         : React.createElement(React.Fragment, null,
             React.createElement(View, { style: s.coverAccent1, fixed: true }),

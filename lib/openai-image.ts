@@ -7,7 +7,7 @@
  */
 
 const IMAGE_API = 'https://api.openai.com/v1/images/generations';
-const MODEL = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1';
+const MODEL = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2';
 
 /**
  * Prompt de fundo de capa. Mantém a metade esquerda como negative space
