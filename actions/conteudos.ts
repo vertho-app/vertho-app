@@ -508,6 +508,60 @@ export async function atualizarConteudo(id: string, patch: any) {
   }
 }
 
+/**
+ * Gera o "conteúdo final" entregável: renderiza o PDF premium branded a partir
+ * do conteudo_inline (texto/case), sobe pro Storage e linka em url/storage_path.
+ * Reusa a paleta/logo oficiais via lib/conteudo-final-pdf. Texto preservado
+ * integralmente — o markdown é a fonte única.
+ */
+export async function gerarConteudoFinal(id: string) {
+  try {
+    const sb = await requireAdminSupabase();
+    if (!id) return { success: false, error: 'id obrigatório' };
+
+    const { data: c } = await sb
+      .from('micro_conteudos')
+      .select('*, empresa:empresas(nome)')
+      .eq('id', id)
+      .maybeSingle();
+    if (!c) return { success: false, error: 'Conteúdo não encontrado' };
+    if (c.formato !== 'texto' && c.formato !== 'case') {
+      return { success: false, error: 'PDF final disponível apenas para texto e case' };
+    }
+    if (!c.conteudo_inline?.trim()) {
+      return { success: false, error: 'Conteúdo sem texto inline para gerar o PDF' };
+    }
+
+    const { renderConteudoFinalPDF } = await import('@/lib/conteudo-final-pdf');
+    const buffer = await renderConteudoFinalPDF({
+      titulo: c.titulo,
+      conteudoMd: c.conteudo_inline,
+      competencia: c.competencia,
+      descritor: c.descritor,
+      formato: c.formato,
+      empresaNome: c.empresa?.nome || null,
+    });
+
+    const slug = String(c.competencia || 'geral').replace(/[^a-zA-Z0-9]/g, '_');
+    const path = `final/${slug}/${c.id}-${Date.now()}.pdf`;
+    const { error: upErr } = await sb.storage.from('conteudos').upload(path, Buffer.from(buffer), {
+      contentType: 'application/pdf', upsert: true,
+    });
+    if (upErr) return { success: false, error: `Upload falhou: ${upErr.message}` };
+
+    const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(path);
+    const { error: updErr } = await sb.from('micro_conteudos')
+      .update({ url: publicUrl, storage_path: path })
+      .eq('id', id);
+    if (updErr) return { success: false, error: updErr.message };
+
+    return { success: true, url: publicUrl, message: `PDF final gerado para "${c.titulo}"` };
+  } catch (err) {
+    console.error('[gerarConteudoFinal]', err);
+    return { success: false, error: err?.message || 'Erro' };
+  }
+}
+
 export async function deletarConteudo(id: string) {
   try {
     const sb = await requireAdminSupabase();

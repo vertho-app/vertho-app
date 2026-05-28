@@ -2,11 +2,11 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
-import { Download, Sparkles, Edit2, Trash2, Check, X, Filter, Video, FileText, Headphones, BookOpen, FileType, Wand2, Copy, Plus, Upload } from 'lucide-react';
+import { Download, Sparkles, Edit2, Trash2, Check, X, Filter, Video, FileText, Headphones, BookOpen, FileType, Wand2, Copy, Plus, Upload, FileDown } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import {
   importarVideosBunny, listarConteudos, atualizarConteudo,
-  deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA, loadOpcoesGerar, uploadConteudo,
+  deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA, loadOpcoesGerar, uploadConteudo, gerarConteudoFinal,
 } from '@/actions/conteudos';
 import { useAdminShell } from '@/app/admin/_shell/AdminShellContext';
 
@@ -100,6 +100,20 @@ export default function ConteudosAdminPage() {
     } else {
       addLog(`❌ ${r.error}`, 'error');
     }
+  }
+
+  async function handleGerarFinal(c) {
+    setBusy(true);
+    addLog(t('logs.generatingFinal', { title: c.titulo }), 'info');
+    const r = await gerarConteudoFinal(c.id);
+    if (r.success) {
+      addLog(`✅ ${r.message}`, 'success');
+      if (r.url) window.open(r.url, '_blank', 'noopener');
+      await carregar();
+    } else {
+      addLog(`❌ ${r.error}`, 'error');
+    }
+    setBusy(false);
   }
 
   async function handleDeletar(c) {
@@ -268,6 +282,16 @@ export default function ConteudosAdminPage() {
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex items-center justify-center gap-1">
+                          {(c.formato === 'texto' || c.formato === 'case') && (
+                            <button
+                              onClick={() => handleGerarFinal(c)}
+                              disabled={busy || !c.conteudo_inline}
+                              className="p-1.5 rounded hover:bg-emerald-500/20 text-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed"
+                              title={t('actions.generateFinal')}
+                            >
+                              <FileDown size={14} />
+                            </button>
+                          )}
                           <button
                             onClick={() => handleSugerirIA(c)}
                             disabled={busy}
