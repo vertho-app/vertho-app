@@ -36,6 +36,10 @@ async function carregarCompetenciaBase(id: string) {
 }
 
 // ── Parsing tolerante do JSON do corpo ────────────────────────────────────────
+// Aceita JSON parcial (mesmo que falte 1 dos 4 blocos — o ausente vira {} e
+// a revisão humana / IA-auditora pega depois). Antes, qualquer ausência
+// rejeitava a resposta inteira, derrubando o import quando o output era
+// grande demais e a IA truncava no fim.
 function extractCorpo(raw: string | null | undefined): any | null {
   const text = String(raw || '').replace(/```json\s*/gi, '').replace(/```/g, '').trim();
   if (!text) return null;
@@ -45,10 +49,17 @@ function extractCorpo(raw: string | null | undefined): any | null {
   for (const c of candidatos) {
     try {
       const parsed = JSON.parse(c);
-      if (parsed && typeof parsed === 'object'
-        && parsed.conteudo_central && parsed.conteudo_aplicavel
-        && parsed.guarda_corpos && parsed.adaptacao_por_formato) {
-        return parsed;
+      if (parsed && typeof parsed === 'object') {
+        // Pelo menos UM bloco precisa estar presente pra valer a pena salvar.
+        const temAlgo = parsed.conteudo_central || parsed.conteudo_aplicavel
+          || parsed.guarda_corpos || parsed.adaptacao_por_formato;
+        if (!temAlgo) continue;
+        return {
+          conteudo_central: parsed.conteudo_central || {},
+          conteudo_aplicavel: parsed.conteudo_aplicavel || {},
+          guarda_corpos: parsed.guarda_corpos || {},
+          adaptacao_por_formato: parsed.adaptacao_por_formato || {},
+        };
       }
     } catch { /* tenta próximo */ }
   }
@@ -335,7 +346,7 @@ function montarUserPrompt(comp: any, nivel_entrada: Nivel, nivel_destino: Nivel,
     : '';
 
   const blocoDocx = docxTexto
-    ? `\n\n## TEXTO EXTRAÍDO DO DOCX (estruture-o no JSON do módulo — adapte o que estiver fora do padrão):\n${docxTexto.slice(0, 12000)}`
+    ? `\n\n## TEXTO EXTRAÍDO DO DOCX (estruture-o no JSON do módulo — adapte o que estiver fora do padrão):\n${docxTexto.slice(0, 60000)}`
     : '';
 
   return `## COMPETÊNCIA CANÔNICA
@@ -402,13 +413,20 @@ ${blocoDocx}
 Mínimo: 5 princípios, 4 situações típicas, 4 erros comuns, 4 boas práticas. Responda APENAS com o JSON.`;
 }
 
-async function chamarIAComRetry(systemPrompt: string, userPrompt: string, model: string) {
+async function chamarIAComRetry(systemPrompt: string, userPrompt: string, model: string, maxTokens = 64000) {
   let corpo: any = null;
   for (let tentativa = 1; tentativa <= 2 && !corpo; tentativa++) {
     try {
-      const raw = await callAI(systemPrompt, userPrompt, { model }, 6000);
+      const raw = await callAI(systemPrompt, userPrompt, { model }, maxTokens);
       corpo = extractCorpo(raw);
-      if (!corpo) console.warn(`[modulo_base_autor] tentativa ${tentativa}: JSON inválido`);
+      if (!corpo) {
+        const txt = String(raw || '');
+        console.warn(
+          `[modulo_base_autor] tentativa ${tentativa}: JSON inválido. ` +
+          `raw=${txt.length}chars · início="${txt.slice(0, 200).replace(/\n/g, ' ')}" · ` +
+          `fim="${txt.slice(-200).replace(/\n/g, ' ')}"`,
+        );
+      }
     } catch (e: any) {
       console.warn(`[modulo_base_autor] tentativa ${tentativa} falhou:`, e?.message);
     }
@@ -701,7 +719,7 @@ Responda APENAS com o JSON do veredito.`;
   let auditoria: any = null;
   for (let tentativa = 1; tentativa <= 2 && !auditoria; tentativa++) {
     try {
-      const raw = await callAI(SYSTEM_AUDITOR, userPrompt, { model }, 3000);
+      const raw = await callAI(SYSTEM_AUDITOR, userPrompt, { model }, 16000);
       const cleaned = String(raw || '').replace(/```json\s*/gi, '').replace(/```/g, '').trim();
       const candidatos = [cleaned];
       const objMatch = cleaned.match(/\{[\s\S]*\}/);

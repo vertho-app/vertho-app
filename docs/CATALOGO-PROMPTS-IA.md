@@ -1610,7 +1610,8 @@
 
 - **Arquivo**: `actions/modulos-base.ts::rascunharModuloBase` (e `importarModuloDocx` — mesmo system + user prompt).
 - **Modelo**: Via `getModelForTask(null, 'modulo_base_autor')` — default `claude-sonnet-4-6`, configurável.
-- **Max tokens**: 6000 (cobre 4 blocos JSONB com folga).
+- **Max tokens**: 64000 (output). Sonnet 4.6/4.7 aguenta — necessário porque docs do template podem ter conteúdo expandido em todos os 4 blocos. Antes era 6000 e truncava no fim do JSON em docs grandes.
+- **Slice do docx no input**: 60000 chars (~15k tokens) — bem dentro do 1M context.
 - **System prompt** (resumo editorial):
   "Você é um designer instrucional sênior da Vertho. Preencha um Módulo-Base seguindo o template oficial. Regras intransponíveis:
   1. É matéria-prima pedagógica, NÃO roteiro final, NÃO régua, NÃO aula
@@ -1630,7 +1631,7 @@
 
 - **Arquivo**: `actions/modulos-base.ts::auditarModuloBase`. Disparada automaticamente por `submeterRevisao` e pelo botão "Reauditar" no admin.
 - **Modelo**: Via `getModelForTask(null, 'modulo_base_auditor')` — default `claude-sonnet-4-6`, configurável (pode setar Gemini Flash via sys_config pra reduzir custo e ter perspectiva diferente da autora, como fazemos em IA4/Pulso).
-- **Max tokens**: 3000.
+- **Max tokens**: 16000 (output) — confortável pra veredito + lista detalhada de problemas com gravidade.
 - **System prompt** (resumo editorial):
   "Você é IA-auditora de Módulos-Base. Valide RIGOROSAMENTE contra spec e guarda-corpos. NÃO suavize. 9 critérios:
   1. ESTRUTURA — 4 blocos completos, mínimos de princípios/situações/erros/boas práticas
