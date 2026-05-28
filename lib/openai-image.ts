@@ -10,22 +10,22 @@ const IMAGE_API = 'https://api.openai.com/v1/images/generations';
 const MODEL = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2';
 
 /**
- * Prompt de fundo de capa. Mantém a metade esquerda como negative space
- * calmo (navy) pra o título ficar legível; interesse visual à direita.
- * @param tema dica temática sutil (ex.: competência) — opcional.
+ * Prompt de fundo de capa: ILUSTRAÇÃO editorial conceitual que evoca o tema
+ * do conteúdo (metáfora visual), não apenas formas abstratas. Mantém a coluna
+ * esquerda como navy calmo pro título ficar legível; a cena vive à direita.
+ * @param tema competência + descritor do conteúdo (guia a metáfora).
  */
 export function buildCoverPrompt(tema?: string | null): string {
-  const motif = tema
-    ? `Subtle abstract motifs that gently evoke "${tema}" (kept minimal, never literal, never with any symbols that look like letters). `
-    : '';
+  const conceito = tema
+    ? `Create a single, elegant conceptual METAPHOR that evokes the theme "${tema}" (for example, for strategy: a chess piece, a winding path toward a horizon, a compass, branching routes, an unfolding landscape — pick ONE idea that best fits the theme and render it tastefully, never literal symbols that look like letters or numbers).`
+    : 'Create a single elegant conceptual metaphor about professional growth and clarity (e.g., a path toward a horizon, an unfolding landscape).';
   return [
-    'Premium editorial A4 vertical cover BACKGROUND for an institutional educational development guide by Vertho.',
-    'Deep navy (#142F57) dominant background.',
-    'The LEFT 60% MUST be a calm, almost-solid deep navy area with no busy elements — clean negative space reserved for text.',
-    'Place ALL visual interest on the RIGHT side and lower-right: elegant abstract concentric rings, soft curved lines and translucent panels in cyan (#34C5CC) and light cyan (#9AE2E6), subtle abstract strategy/data motifs, soft cinematic glow.',
-    motif,
-    'Style: sophisticated, modern, institutional, premium, minimal, flat vector-like aesthetic with soft gradients.',
-    'STRICTLY NO text, NO letters, NO numbers, NO words, NO logo, NO people, NO cartoon, NO clipart, NO childish elements, NO stock-photo look.',
+    'Premium EDITORIAL ILLUSTRATION for the A4 vertical cover of an institutional professional-development guide by Vertho.',
+    'Deep navy (#142F57) dominant palette with cyan (#34C5CC) and light cyan (#9AE2E6) accents; sophisticated, modern, cinematic lighting with soft glow.',
+    conceito,
+    'Composition: keep the LEFT ~45% as calm, almost-solid deep navy negative space (reserved for a title); place the illustrated scene on the RIGHT and lower-right, flowing gently toward the center.',
+    'Style: refined modern editorial illustration / subtle 3D, premium and minimal, depth and atmosphere, tasteful — NOT a flat icon, NOT a busy collage.',
+    'STRICTLY NO text, NO letters, NO numbers, NO words, NO logo, NO people, NO faces, NO cartoon, NO clipart, NO childish elements, NO stock-photo watermark look.',
   ].filter(Boolean).join(' ');
 }
 
