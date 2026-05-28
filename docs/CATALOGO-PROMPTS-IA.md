@@ -1645,7 +1645,14 @@
   9. LINGUAGEM clara e aplicada
   Veredito: REPROVADO se ≥1 problema alta; APROVADO_COM_RESSALVAS se só média/baixa; APROVADO se nada."
 - **User prompt**: contexto da competência canônica + descritor + transição + locale + título + finalidade + JSON completo dos 4 blocos do módulo a auditar.
-- **Output**: JSON `{ veredito, problemas: [{categoria,descricao,gravidade,campo_afetado}], recomendacoes: [], confianca }`. 9 categorias possíveis de problema (estrutura/regua-vs-base/aula-vs-base/exemplos/invencao/etica/auto-consistencia/profundidade/linguagem).
+- **Output**: JSON `{ nota: 0.0-10.0 (1 casa decimal), veredito, problemas: [{categoria,descricao,gravidade,campo_afetado}], recomendacoes: [], confianca }`. 9 categorias possíveis de problema (estrutura/regua-vs-base/aula-vs-base/exemplos/invencao/etica/auto-consistencia/profundidade/linguagem).
+- **Escala de nota** (alinhada ao padrão de cenários A/B do projeto, com 1 casa decimal):
+  - **9.0-10**: modelar (sem problemas relevantes).
+  - **7.0-8.9**: bom com ajustes menores (só média/baixa).
+  - **5.0-6.9**: limítrofe (vários ajustes ou 1-2 problemas altos pontuais).
+  - **3.0-4.9**: insuficiente (múltiplos problemas altos ou bloco essencial fraco).
+  - **0.0-2.9**: inservível (falhas estruturais graves ou conceito incorreto).
+- Nota é clampada a 0-10 e arredondada a 1 casa no servidor (`Math.round(x*10)/10`).
 - **Robustez**: parsing tolerante + 1 retry; valida `veredito ∈ {aprovado, aprovado_com_ressalvas, reprovado}`.
 - **Persistência**: `modulos_base_conteudo.auditoria_ia` JSONB + `auditado_em` + `auditado_por_modelo` + `auditado_em_versao`. Gate da publicação: módulo só pode ir pra `publicado` se veredito é aprovado/aprovado_com_ressalvas E `auditado_em_versao = versao atual` (edição após auditoria invalida).
 

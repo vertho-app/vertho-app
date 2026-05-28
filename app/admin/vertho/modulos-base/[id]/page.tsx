@@ -404,12 +404,27 @@ function AuditoriaCard({ m }: { m: any }) {
     : veredito === 'aprovado_com_ressalvas' ? 'Aprovado com ressalvas'
     : 'Reprovado';
 
+  const nota = typeof a.nota === 'number' ? a.nota : null;
+  const notaCor = nota == null ? 'text-white/55'
+    : nota >= 9 ? 'text-emerald-300'
+    : nota >= 7 ? 'text-amber-300'
+    : nota >= 5 ? 'text-orange-300'
+    : 'text-red-300';
+
   return (
     <div className={`rounded-xl border ${p.border} ${p.bg} p-4 mb-4`}>
       <div className="flex items-baseline justify-between gap-3 mb-3">
-        <div className="flex items-center gap-2">
-          <Icon size={16} className={p.text} />
-          <h2 className={`text-sm font-bold ${p.text}`}>Auditoria IA · {verdLabel}</h2>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Icon size={16} className={p.text} />
+            <h2 className={`text-sm font-bold ${p.text}`}>Auditoria IA · {verdLabel}</h2>
+          </div>
+          {nota != null && (
+            <div className="flex items-baseline gap-1">
+              <span className={`text-2xl font-bold leading-none ${notaCor}`}>{nota.toFixed(1)}</span>
+              <span className="text-[10px] text-white/55">/10</span>
+            </div>
+          )}
           {conf > 0 && (
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white/70">{conf}% confiança</span>
           )}

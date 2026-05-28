@@ -685,6 +685,7 @@ CRITÉRIOS DE AUDITORIA (verifique TODOS):
 
 RETORNE APENAS JSON válido:
 {
+  "nota": 0 a 10 (com 1 casa decimal — 0.0 inservível, 10.0 perfeito),
   "veredito": "aprovado" | "aprovado_com_ressalvas" | "reprovado",
   "problemas": [
     {
@@ -698,10 +699,17 @@ RETORNE APENAS JSON válido:
   "confianca": 0.0 a 1.0
 }
 
-REGRA DE VEREDITO:
-- "reprovado" se houver ≥1 problema de gravidade ALTA.
-- "aprovado_com_ressalvas" se só problemas de gravidade média/baixa.
-- "aprovado" se nada relevante.
+ESCALA DE NOTA (0-10, com 1 casa decimal):
+- 9.0-10: módulo modelar — estrutura completa, sem problemas relevantes, exemplos universais, linguagem precisa.
+- 7.0-8.9: bom com ajustes menores — só problemas de gravidade média/baixa.
+- 5.0-6.9: limítrofe — vários ajustes médios ou 1-2 problemas altos pontuais.
+- 3.0-4.9: insuficiente — múltiplos problemas altos ou bloco essencial fraco.
+- 0.0-2.9: inservível — falhas estruturais graves ou conceito incorreto.
+
+REGRA DE VEREDITO (deve casar com a nota):
+- "reprovado" se houver ≥1 problema de gravidade ALTA OU nota < 5.0.
+- "aprovado_com_ressalvas" se nota entre 5.0 e 8.9 (só problemas média/baixa).
+- "aprovado" se nota ≥ 9.0 e nenhum problema apontado.
 - "confianca" = sua certeza no próprio veredito (0-1).`;
 
 export async function auditarModuloBase(id: string) {
@@ -758,6 +766,9 @@ Responda APENAS com o JSON do veredito.`;
   auditoria.problemas = Array.isArray(auditoria.problemas) ? auditoria.problemas : [];
   auditoria.recomendacoes = Array.isArray(auditoria.recomendacoes) ? auditoria.recomendacoes : [];
   auditoria.confianca = typeof auditoria.confianca === 'number' ? auditoria.confianca : 0.5;
+  auditoria.nota = typeof auditoria.nota === 'number'
+    ? Math.round(Math.max(0, Math.min(10, auditoria.nota)) * 10) / 10
+    : null;
 
   const { error } = await sb.from('modulos_base_conteudo').update({
     auditoria_ia: auditoria,
