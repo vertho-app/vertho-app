@@ -1795,6 +1795,7 @@
       "level": "Nivel",
       "role": "Puesto",
       "rate": "Tasa",
+      "company": "Empresa",
       "actions": "Acciones"
     },
     "modal": {
@@ -1860,7 +1861,8 @@
       "uploadingContent": "Enviando contenido..."
     },
     "labels": {
-      "unclassified": "No clasificado"
+      "unclassified": "No clasificado",
+      "global": "Global"
     },
     "fileTypes": {
       "audio": "mp3/m4a/wav",

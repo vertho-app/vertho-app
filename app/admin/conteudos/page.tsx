@@ -217,6 +217,7 @@ export default function ConteudosAdminPage() {
                   <th className="px-3 py-2">{t('table.descriptor')}</th>
                   <th className="px-3 py-2 text-center">{t('table.level')}</th>
                   <th className="px-3 py-2">{t('table.role')}</th>
+                  <th className="px-3 py-2">{t('table.company')}</th>
                   <th className="px-3 py-2 text-center">{t('table.rate')}</th>
                   <th className="px-3 py-2 text-center">{t('table.actions')}</th>
                 </tr>
@@ -251,6 +252,11 @@ export default function ConteudosAdminPage() {
                       <td className="px-3 py-2 text-[11px] text-gray-400">{c.descritor || '—'}</td>
                       <td className="px-3 py-2 text-[11px] text-center text-gray-400">{c.nivel_min}–{c.nivel_max}</td>
                       <td className="px-3 py-2 text-[11px] text-gray-400">{c.cargo}</td>
+                      <td className="px-3 py-2 text-[11px]">
+                        {c.empresa?.nome
+                          ? <span className="text-gray-300">{c.empresa.nome}</span>
+                          : <span className="text-white/30 italic">{t('labels.global')}</span>}
+                      </td>
                       <td className="px-3 py-2 text-center">
                         {c.taxa_conclusao != null ? (
                           <span className={`text-[11px] font-bold ${c.taxa_conclusao >= 70 ? 'text-emerald-400' : c.taxa_conclusao >= 40 ? 'text-amber-400' : 'text-red-400'}`}>

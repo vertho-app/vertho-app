@@ -472,7 +472,7 @@ export async function listarConteudos({ formato, competencia, semClassificacao, 
       ]);
     }
 
-    let q = sb.from('micro_conteudos').select('*').order('created_at', { ascending: false }).limit(limit);
+    let q = sb.from('micro_conteudos').select('*, empresa:empresas(id, nome, slug)').order('created_at', { ascending: false }).limit(limit);
     if (empresaUuid) q = q.or(`empresa_id.eq.${empresaUuid},empresa_id.is.null`);
     if (formato) q = q.eq('formato', formato);
     if (competencia) q = q.eq('competencia', competencia);
