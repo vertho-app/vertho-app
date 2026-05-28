@@ -56,6 +56,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'permissoes',       labelKey: 'permissions',         subKey: 'rolesPermissions',          icon: LockKeyhole,    hrefFn: () => '/admin/permissoes',                         showWhenEmpresa: false },
   { key: 'auditoria',        labelKey: 'audit',               subKey: 'adminTraces',          icon: ScrollText,     hrefFn: () => '/admin/auditoria',                          showWhenEmpresa: false },
   { key: 'lixeira',          labelKey: 'trash',             subKey: 'deletedRecords',        icon: Trash2,         hrefFn: () => '/admin/lixeira',                            showWhenEmpresa: false },
+  { key: 'modulos-base',     labelKey: 'contentModules',     subKey: 'masterContent',         icon: BookOpen,       hrefFn: () => '/admin/vertho/modulos-base',                showWhenEmpresa: false },
 ];
 
 export function empresaGlyph(nome: string) {

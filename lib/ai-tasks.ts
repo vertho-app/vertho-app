@@ -45,6 +45,9 @@ export const AI_TASKS = [
   // ── Pulso de Desenvolvimento (Dual-IA) ───────────────────
   { key: 'pulse_classify', label: 'Pulso — Classificador de texto aberto', fase: 'Pulso' },
   { key: 'pulse_audit',    label: 'Pulso — Auditor (verifica classificação)', fase: 'Pulso' },
+
+  // ── Vertho Master Content (módulos-base) ─────────────────
+  { key: 'modulo_base_autor', label: 'Módulo-Base — Rascunho assistido / Import docx', fase: 'Vertho' },
 ];
 
 export const MODELOS_DISPONIVEIS = [

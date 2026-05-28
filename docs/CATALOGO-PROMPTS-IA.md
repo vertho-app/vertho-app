@@ -1603,9 +1603,33 @@
 
 ---
 
+## Módulos-Base de Conteúdo (Vertho Master)
+
+### 15.1 Rascunhar Módulo-Base (autor assistido + import docx)
+> `ATIVO` desde 2026-05-28 · Frente 2/3 dos Módulos-Base (ver `docs/MODULOS-BASE-CONTEUDO.md`).
+
+- **Arquivo**: `actions/modulos-base.ts::rascunharModuloBase` (e `importarModuloDocx` — mesmo system + user prompt).
+- **Modelo**: Via `getModelForTask(null, 'modulo_base_autor')` — default `claude-sonnet-4-6`, configurável.
+- **Max tokens**: 6000 (cobre 4 blocos JSONB com folga).
+- **System prompt** (resumo editorial):
+  "Você é um designer instrucional sênior da Vertho. Preencha um Módulo-Base seguindo o template oficial. Regras intransponíveis:
+  1. É matéria-prima pedagógica, NÃO roteiro final, NÃO régua, NÃO aula
+  2. Sem nomes próprios reais. Sem leis/normas/estatísticas inventadas. Sem diagnóstico psicológico. Sem DISC determinista
+  3. Exemplos universais (sem cargo específico salvo contexto exclusivo)
+  4. Linguagem clara, aplicada, profissional. Sem jargão excessivo
+  Formato de saída: APENAS JSON válido, sem markdown."
+- **User prompt** (`montarUserPrompt`): nome+pilar+segmento da competência canônica + descritor completo + textos N_entrada/N_destino da régua (n1_gap/n2_desenvolvimento/n3_meta/n4_referencia) + contexto pedagógico + evidências esperadas + (opcional) módulo de referência (caso de tradução) + (opcional) texto extraído do docx via `mammoth` (até 12k chars) + schema JSON exigido inline com mínimos (5 princípios, 4 situações, 4 erros, 4 boas práticas).
+- **Output**: JSON com `{ conteudo_central, conteudo_aplicavel, guarda_corpos, adaptacao_por_formato }`.
+- **Robustez**: parsing tolerante (`extractCorpo` — texto limpo → primeiro `{...}` embutido) + **1 retry**.
+- **Validação**: `validarCorpo` verifica campos obrigatórios e mínimos (ideia, explicação, ≥3 princípios, ≥3 situações, preservar+evitar presentes). Avisos são persistidos pra revisão humana — não bloqueiam o INSERT.
+- **Workflow**: output sempre vira `status='rascunho'`. Publicação exige revisão cruzada (criador ≠ aprovador, bloqueio no server action).
+- **Consumido por**: tabela `modulos_base_conteudo` (platform-level, sem `empresa_id`).
+
+---
+
 ## Resumo Estatístico
 
-**Total de prompts catalogados: 59**
+**Total de prompts catalogados: 60**
 
 Por status:
 

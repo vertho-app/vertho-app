@@ -327,7 +327,8 @@
         "admins": "Admins",
         "permissions": "Permisos",
         "audit": "Auditoría",
-        "trash": "Papelera"
+        "trash": "Papelera",
+        "contentModules": "Módulos Base"
       },
       "subs": {
         "overview": "Visión general",
@@ -354,7 +355,8 @@
         "platformAdmins": "Platform admins",
         "rolesPermissions": "Roles y poderes",
         "adminTraces": "Rastros de acciones de admin",
-        "deletedRecords": "Registros eliminados"
+        "deletedRecords": "Registros eliminados",
+        "masterContent": "Contenido canónico Vertho"
       }
     },
     "kpis": {

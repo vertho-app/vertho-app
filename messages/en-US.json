@@ -327,7 +327,8 @@
         "admins": "Admins",
         "permissions": "Permissions",
         "audit": "Audit",
-        "trash": "Trash"
+        "trash": "Trash",
+        "contentModules": "Content Modules"
       },
       "subs": {
         "overview": "Overview",
@@ -354,7 +355,8 @@
         "platformAdmins": "Platform admins",
         "rolesPermissions": "Roles and powers",
         "adminTraces": "Admin action traces",
-        "deletedRecords": "Deleted records"
+        "deletedRecords": "Deleted records",
+        "masterContent": "Vertho master content"
       }
     },
     "kpis": {
