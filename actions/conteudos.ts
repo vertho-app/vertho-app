@@ -654,6 +654,69 @@ export async function gerarPodcastAudio(id: string) {
 }
 
 /**
+ * Inicia o render de VÍDEO IA (microlearning premium): gera o PLANO via Gemini
+ * (voice-over + cenas/prompts Veo), sobe o plano no Storage e dispara o Cloud
+ * Run Job que monta o MP4 (Veo + TTS Charon + FFmpeg). É ASSÍNCRONO: a action
+ * retorna assim que o Job é disparado; o Job atualiza url/status ao concluir.
+ * Saída: 16:9 1280x720, voice-over Charon, sem legendas/lip-sync.
+ */
+export async function gerarVideo(id: string) {
+  try {
+    const sb = await requireAdminSupabase();
+    if (!id) return { success: false, error: 'id obrigatório' };
+
+    const { data: c } = await sb
+      .from('micro_conteudos')
+      .select('*, empresa:empresas(nome)')
+      .eq('id', id)
+      .maybeSingle();
+    if (!c) return { success: false, error: 'Conteúdo não encontrado' };
+    if (c.formato !== 'video') {
+      return { success: false, error: 'Render de vídeo disponível apenas para o formato vídeo' };
+    }
+    if (!c.conteudo_inline?.trim()) {
+      return { success: false, error: 'Conteúdo sem roteiro inline para gerar o vídeo' };
+    }
+
+    const { gerarVideoPlano } = await import('@/lib/video-plan');
+    const { triggerVideoRenderJob } = await import('@/lib/gcp-run');
+
+    const plano = await gerarVideoPlano(c.conteudo_inline, c.titulo);
+
+    const slug = String(c.competencia || 'geral').replace(/[^a-zA-Z0-9]/g, '_');
+    const planoPath = `final/video/${slug}/${c.id}-plano.json`;
+    const { error: upErr } = await sb.storage.from('conteudos').upload(
+      planoPath,
+      Buffer.from(JSON.stringify(plano, null, 2), 'utf8'),
+      { contentType: 'application/json', upsert: true },
+    );
+    if (upErr) return { success: false, error: `Upload do plano falhou: ${upErr.message}` };
+
+    // Marca processando ANTES de disparar (UI mostra estado; Job seta done/error).
+    await sb.from('micro_conteudos')
+      .update({ video_render_status: 'processing', video_render_error: null })
+      .eq('id', id);
+
+    await triggerVideoRenderJob(c.id);
+
+    return {
+      success: true,
+      message: `Render de vídeo iniciado para "${c.titulo}" (${plano.scenes.length} cenas). Acompanhe o status.`,
+    };
+  } catch (err) {
+    console.error('[gerarVideo]', err);
+    // Reverte o estado pra não travar em "processando" se o disparo falhou.
+    try {
+      const sb = await requireAdminSupabase();
+      await sb.from('micro_conteudos')
+        .update({ video_render_status: 'error', video_render_error: String(err?.message || err).slice(0, 500) })
+        .eq('id', id);
+    } catch {}
+    return { success: false, error: err?.message || 'Erro' };
+  }
+}
+
+/**
  * Exclui SÓ o PDF final gerado (e a capa GPT Image) do Storage e limpa
  * url/storage_path na linha — sem apagar o conteúdo/roteiro. Permite regerar
  * do zero (próxima geração cria capa nova). Guard: só mexe em paths sob
@@ -665,7 +728,7 @@ export async function excluirConteudoFinal(id: string) {
     if (!id) return { success: false, error: 'id obrigatório' };
 
     const { data: c } = await sb.from('micro_conteudos')
-      .select('id, storage_path, url').eq('id', id).maybeSingle();
+      .select('id, storage_path, url, competencia').eq('id', id).maybeSingle();
     if (!c) return { success: false, error: 'Conteúdo não encontrado' };
 
     // Prefixos de artefatos gerados pela plataforma (PDF final premium + PDFs
@@ -673,20 +736,26 @@ export async function excluirConteudoFinal(id: string) {
     const prefixosGerados = ['final/', 'texto/', 'case/'];
     const ehGerado = (p?: string | null) => !!p && prefixosGerados.some(pre => p.startsWith(pre));
 
+    const slug = String(c.competencia || 'geral').replace(/[^a-zA-Z0-9]/g, '_');
     const aRemover: string[] = [];
     if (ehGerado(c.storage_path)) aRemover.push(c.storage_path!);
     aRemover.push(`final/covers/${id}.png`); // capa (idempotente se não existir)
+    aRemover.push(`final/video/${slug}/${id}-plano.json`); // plano de vídeo (idempotente)
 
     const { error: rmErr } = await sb.storage.from('conteudos').remove(aRemover);
     if (rmErr) console.warn('[excluirConteudoFinal] remove storage:', rmErr.message);
 
     if (ehGerado(c.storage_path)) {
       const { error: updErr } = await sb.from('micro_conteudos')
-        .update({ url: null, storage_path: null }).eq('id', id);
+        .update({ url: null, storage_path: null, video_render_status: null, video_render_error: null }).eq('id', id);
       if (updErr) return { success: false, error: updErr.message };
+    } else {
+      // Pode ter ficado um render travado em "processing/error" sem MP4 ainda.
+      await sb.from('micro_conteudos')
+        .update({ video_render_status: null, video_render_error: null }).eq('id', id);
     }
 
-    return { success: true, message: 'PDF final excluído' };
+    return { success: true, message: 'Entregável final excluído' };
   } catch (err) {
     console.error('[excluirConteudoFinal]', err);
     return { success: false, error: err?.message || 'Erro' };

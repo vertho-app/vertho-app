@@ -2,11 +2,11 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
-import { Download, Sparkles, Edit2, Trash2, Check, X, Filter, Video, FileText, Headphones, BookOpen, FileType, Wand2, Copy, Plus, Upload, FileDown, ExternalLink, FileX } from 'lucide-react';
+import { Download, Sparkles, Edit2, Trash2, Check, X, Filter, Video, FileText, Headphones, BookOpen, FileType, Wand2, Copy, Plus, Upload, FileDown, ExternalLink, FileX, Loader2, Clapperboard } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import {
   importarVideosBunny, listarConteudos, atualizarConteudo,
-  deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA, loadOpcoesGerar, uploadConteudo, gerarConteudoFinal, excluirConteudoFinal, gerarPodcastAudio,
+  deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA, loadOpcoesGerar, uploadConteudo, gerarConteudoFinal, excluirConteudoFinal, gerarPodcastAudio, gerarVideo,
 } from '@/actions/conteudos';
 import { useAdminShell } from '@/app/admin/_shell/AdminShellContext';
 
@@ -124,6 +124,19 @@ export default function ConteudosAdminPage() {
     if (r.success) {
       addLog(`✅ ${r.message}`, 'success');
       if (r.url) window.open(r.url, '_blank', 'noopener');
+      await carregar();
+    } else {
+      addLog(`❌ ${r.error}`, 'error');
+    }
+    setBusy(false);
+  }
+
+  async function handleGerarVideo(c) {
+    setBusy(true);
+    addLog(t('logs.generatingVideo', { title: c.titulo }), 'info');
+    const r = await gerarVideo(c.id);
+    if (r.success) {
+      addLog(`✅ ${r.message}`, 'success');
       await carregar();
     } else {
       addLog(`❌ ${r.error}`, 'error');
@@ -383,6 +396,51 @@ export default function ConteudosAdminPage() {
                                 title={t('actions.generateAudio')}
                               >
                                 <Headphones size={14} />
+                              </button>
+                            )
+                          )}
+                          {c.formato === 'video' && (
+                            c.video_render_status === 'processing' ? (
+                              <span
+                                className="p-1.5 rounded text-cyan-400 inline-flex"
+                                title={t('actions.videoProcessing')}
+                              >
+                                <Loader2 size={14} className="animate-spin" />
+                              </span>
+                            ) : c.url ? (
+                              <>
+                                <a
+                                  href={c.url} target="_blank" rel="noopener noreferrer"
+                                  className="p-1.5 rounded hover:bg-emerald-500/20 text-emerald-400"
+                                  title={t('actions.openVideo')}
+                                >
+                                  <ExternalLink size={14} />
+                                </a>
+                                <button
+                                  onClick={() => handleGerarVideo(c)}
+                                  disabled={busy || !c.conteudo_inline}
+                                  className="p-1.5 rounded hover:bg-cyan-500/20 text-cyan-400 disabled:opacity-30 disabled:cursor-not-allowed"
+                                  title={t('actions.regenerateVideo')}
+                                >
+                                  <Clapperboard size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleExcluirFinal(c)}
+                                  disabled={busy}
+                                  className="p-1.5 rounded hover:bg-red-500/20 text-red-400 disabled:opacity-30"
+                                  title={t('actions.deleteVideo')}
+                                >
+                                  <FileX size={14} />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => handleGerarVideo(c)}
+                                disabled={busy || !c.conteudo_inline}
+                                className={`p-1.5 rounded disabled:opacity-30 disabled:cursor-not-allowed ${c.video_render_status === 'error' ? 'hover:bg-red-500/20 text-red-400' : 'hover:bg-emerald-500/20 text-emerald-400'}`}
+                                title={c.video_render_status === 'error' ? t('actions.retryVideo', { error: c.video_render_error || '—' }) : t('actions.generateVideo')}
+                              >
+                                <Clapperboard size={14} />
                               </button>
                             )
                           )}
