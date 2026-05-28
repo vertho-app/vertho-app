@@ -2,68 +2,88 @@
  * Dispara um Cloud Run Job (execução pontual) a partir do Next.
  *
  * O render de vídeo (Veo + TTS + FFmpeg) é pesado/assíncrono e NÃO cabe em
- * função serverless da Vercel — roda num Cloud Run Job. Aqui só autenticamos
- * com uma service account e chamamos a Run Admin API passando o CONTEUDO_ID
- * como override de env do container. O Job atualiza o Supabase ao concluir.
+ * função serverless da Vercel — roda num Cloud Run Job. Aqui autenticamos via
+ * Workload Identity Federation (SEM chave longa de service account) e chamamos
+ * a Run Admin API passando o CONTEUDO_ID como override de env do container.
+ *
+ * Fluxo de auth (federação):
+ *   1. A Vercel injeta um token OIDC em VERCEL_OIDC_TOKEN (OIDC Federation ON).
+ *   2. Trocamos esse token por um token federado no STS do Google.
+ *   3. Com o token federado, personificamos a service account de trigger
+ *      (generateAccessToken) — ela tem run.developer/run.invoker.
+ *   4. Disparamos o job com o access token da SA.
  *
  * Env necessárias:
- *  - GCP_PROJECT_ID        ex: vertho-prod
+ *  - GCP_PROJECT_ID        ex: corded-photon-496113-j3
+ *  - GCP_PROJECT_NUMBER    ex: 1090527423829
  *  - GCP_REGION            ex: southamerica-east1
  *  - GCP_VIDEO_JOB         nome do Cloud Run Job  ex: vertho-video-render
- *  - GCP_SA_KEY            JSON da service account (string), ou base64 do JSON
+ *  - GCP_WIF_POOL          id do Workload Identity Pool  ex: vercel-pool
+ *  - GCP_WIF_PROVIDER      id do provider OIDC           ex: vercel-oidc
+ *  - GCP_TRIGGER_SA        email da SA de trigger
+ *  - VERCEL_OIDC_TOKEN     injetada pela Vercel em runtime (OIDC Federation)
  */
 
-import crypto from 'node:crypto';
+const STS_URL = 'https://sts.googleapis.com/v1/token';
+const SCOPE = 'https://www.googleapis.com/auth/cloud-platform';
 
-interface SaKey {
-  client_email: string;
-  private_key: string;
-  token_uri?: string;
+function env(name: string): string {
+  const v = process.env[name];
+  if (!v) throw new Error(`${name} não configurada`);
+  return v;
 }
 
-function loadSaKey(): SaKey {
-  const raw = process.env.GCP_SA_KEY;
-  if (!raw) throw new Error('GCP_SA_KEY not set');
-  const json = raw.trim().startsWith('{')
-    ? raw
-    : Buffer.from(raw, 'base64').toString('utf8');
-  const key = JSON.parse(json) as SaKey;
-  if (!key.client_email || !key.private_key) throw new Error('GCP_SA_KEY inválida');
-  return key;
-}
+/** Troca o token OIDC da Vercel por um token federado (STS). */
+async function exchangeOidcForFederated(oidcToken: string): Promise<string> {
+  const projectNumber = env('GCP_PROJECT_NUMBER');
+  const pool = env('GCP_WIF_POOL');
+  const provider = env('GCP_WIF_PROVIDER');
+  const audience =
+    `//iam.googleapis.com/projects/${projectNumber}` +
+    `/locations/global/workloadIdentityPools/${pool}/providers/${provider}`;
 
-function b64url(input: Buffer | string): string {
-  return Buffer.from(input).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-/** Mint de access token OAuth2 via JWT assertion (sem dependência externa). */
-async function getAccessToken(sa: SaKey): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
-  const tokenUri = sa.token_uri || 'https://oauth2.googleapis.com/token';
-  const header = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const claims = b64url(JSON.stringify({
-    iss: sa.client_email,
-    scope: 'https://www.googleapis.com/auth/cloud-platform',
-    aud: tokenUri,
-    iat: now,
-    exp: now + 3600,
-  }));
-  const signingInput = `${header}.${claims}`;
-  const signature = b64url(crypto.sign('RSA-SHA256', Buffer.from(signingInput), sa.private_key));
-  const assertion = `${signingInput}.${signature}`;
-
-  const res = await fetch(tokenUri, {
+  const res = await fetch(STS_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      audience,
+      grantType: 'urn:ietf:params:oauth:grant-type:token-exchange',
+      requestedTokenType: 'urn:ietf:params:oauth:token-type:access_token',
+      scope: SCOPE,
+      subjectTokenType: 'urn:ietf:params:oauth:token-type:jwt',
+      subjectToken: oidcToken,
     }),
   });
-  if (!res.ok) throw new Error(`GCP token ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  if (!res.ok) throw new Error(`STS ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const data = await res.json();
-  if (!data.access_token) throw new Error('GCP token: resposta sem access_token');
+  if (!data.access_token) throw new Error('STS: resposta sem access_token');
   return data.access_token as string;
+}
+
+/** Personifica a service account de trigger e devolve um access token dela. */
+async function impersonateSa(federatedToken: string): Promise<string> {
+  const sa = env('GCP_TRIGGER_SA');
+  const url =
+    `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/` +
+    `${encodeURIComponent(sa)}:generateAccessToken`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${federatedToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scope: [SCOPE], lifetime: '300s' }),
+  });
+  if (!res.ok) throw new Error(`generateAccessToken ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const data = await res.json();
+  if (!data.accessToken) throw new Error('generateAccessToken: resposta sem accessToken');
+  return data.accessToken as string;
+}
+
+/** Token de acesso da SA de trigger via WIF (Vercel OIDC → STS → impersonation). */
+async function getAccessToken(): Promise<string> {
+  const oidcToken = process.env.VERCEL_OIDC_TOKEN;
+  if (!oidcToken) throw new Error('VERCEL_OIDC_TOKEN ausente (habilite OIDC Federation na Vercel)');
+  const federated = await exchangeOidcForFederated(oidcToken);
+  return impersonateSa(federated);
 }
 
 /**
@@ -71,13 +91,11 @@ async function getAccessToken(sa: SaKey): Promise<string> {
  * Retorna o nome da operação/execução. Lança em erro.
  */
 export async function triggerVideoRenderJob(conteudoId: string): Promise<string> {
-  const project = process.env.GCP_PROJECT_ID;
-  const region = process.env.GCP_REGION;
-  const job = process.env.GCP_VIDEO_JOB;
-  if (!project || !region || !job) throw new Error('GCP_PROJECT_ID / GCP_REGION / GCP_VIDEO_JOB não configurados');
+  const project = env('GCP_PROJECT_ID');
+  const region = env('GCP_REGION');
+  const job = env('GCP_VIDEO_JOB');
 
-  const sa = loadSaKey();
-  const token = await getAccessToken(sa);
+  const token = await getAccessToken();
 
   const url = `https://run.googleapis.com/v2/projects/${project}/locations/${region}/jobs/${job}:run`;
   const res = await fetch(url, {
