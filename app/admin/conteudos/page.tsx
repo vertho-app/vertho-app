@@ -6,7 +6,7 @@ import { Download, Sparkles, Edit2, Trash2, Check, X, Filter, Video, FileText, H
 import BackButton from '@/components/back-button';
 import {
   importarVideosBunny, listarConteudos, atualizarConteudo,
-  deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA, loadOpcoesGerar, uploadConteudo, gerarConteudoFinal, excluirConteudoFinal,
+  deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA, loadOpcoesGerar, uploadConteudo, gerarConteudoFinal, excluirConteudoFinal, gerarPodcastAudio,
 } from '@/actions/conteudos';
 import { useAdminShell } from '@/app/admin/_shell/AdminShellContext';
 
@@ -109,6 +109,20 @@ export default function ConteudosAdminPage() {
     if (r.success) {
       addLog(`✅ ${r.message}`, 'success');
       if (!r.coverGerada) addLog(`⚠️ ${t('logs.finalNoCover', { reason: r.coverErro || '—' })}`, 'error');
+      if (r.url) window.open(r.url, '_blank', 'noopener');
+      await carregar();
+    } else {
+      addLog(`❌ ${r.error}`, 'error');
+    }
+    setBusy(false);
+  }
+
+  async function handleGerarAudio(c) {
+    setBusy(true);
+    addLog(t('logs.generatingAudio', { title: c.titulo }), 'info');
+    const r = await gerarPodcastAudio(c.id);
+    if (r.success) {
+      addLog(`✅ ${r.message}`, 'success');
       if (r.url) window.open(r.url, '_blank', 'noopener');
       await carregar();
     } else {
@@ -331,6 +345,44 @@ export default function ConteudosAdminPage() {
                                 title={t('actions.generateFinal')}
                               >
                                 <FileDown size={14} />
+                              </button>
+                            )
+                          )}
+                          {c.formato === 'audio' && (
+                            c.url ? (
+                              <>
+                                <a
+                                  href={c.url} target="_blank" rel="noopener noreferrer"
+                                  className="p-1.5 rounded hover:bg-emerald-500/20 text-emerald-400"
+                                  title={t('actions.openAudio')}
+                                >
+                                  <ExternalLink size={14} />
+                                </a>
+                                <button
+                                  onClick={() => handleGerarAudio(c)}
+                                  disabled={busy || !c.conteudo_inline}
+                                  className="p-1.5 rounded hover:bg-cyan-500/20 text-cyan-400 disabled:opacity-30 disabled:cursor-not-allowed"
+                                  title={t('actions.regenerateAudio')}
+                                >
+                                  <Headphones size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleExcluirFinal(c)}
+                                  disabled={busy}
+                                  className="p-1.5 rounded hover:bg-red-500/20 text-red-400 disabled:opacity-30"
+                                  title={t('actions.deleteAudio')}
+                                >
+                                  <FileX size={14} />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => handleGerarAudio(c)}
+                                disabled={busy || !c.conteudo_inline}
+                                className="p-1.5 rounded hover:bg-emerald-500/20 text-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed"
+                                title={t('actions.generateAudio')}
+                              >
+                                <Headphones size={14} />
                               </button>
                             )
                           )}

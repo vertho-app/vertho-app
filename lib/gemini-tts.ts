@@ -1,0 +1,112 @@
+/**
+ * Geração de áudio (podcast) via Gemini TTS.
+ *
+ * Usado pelo "conteúdo final" de formato áudio: transforma o roteiro de podcast
+ * (bloco de narração limpa) em um WAV narrado. Voz masculina de meia-idade,
+ * pt-BR, acolhedora e segura — calibrada pela voz prebuilt + direção de estilo.
+ *
+ * Gemini TTS retorna PCM 16-bit 24kHz mono (audio/L16); embrulhamos em WAV.
+ */
+
+const MODEL = process.env.GEMINI_TTS_MODEL || 'gemini-3.1-flash-tts-preview';
+const VOICE = process.env.GEMINI_TTS_VOICE || 'Charon'; // masculina, grave/madura
+
+/** Extrai o bloco de NARRAÇÃO LIMPA do roteiro TTS; remove título, headers e tags. */
+export function extractNarration(roteiro: string): string {
+  if (!roteiro) return '';
+  let txt = roteiro;
+
+  // Pega o trecho entre "=== NARRAÇÃO (TEXTO LIMPO) ===" e o próximo "===".
+  const limpoMatch = roteiro.match(/=+\s*NARRA[ÇC][ÃA]O\s*\(TEXTO LIMPO\)\s*=+([\s\S]*?)(?:\n=+\s*NARRA|$)/i);
+  if (limpoMatch) {
+    txt = limpoMatch[1];
+  } else {
+    // Sem marcadores: remove a linha TÍTULO e quaisquer headers "=== ... ===".
+    txt = roteiro.replace(/^\s*T[ÍI]TULO:.*$/im, '').replace(/^=+.*=+\s*$/gim, '');
+  }
+
+  return txt
+    .replace(/<break[^>]*\/?>/gi, '') // tags de pausa (não usadas pelo Gemini)
+    .replace(/\*([^*]+)\*/g, '$1')    // ênfase em asteriscos
+    .replace(/[#>*_`]/g, '')           // resíduos de markdown
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function pcmToWav(pcm: Buffer, sampleRate = 24000, channels = 1, bits = 16): Buffer {
+  const blockAlign = (channels * bits) / 8;
+  const byteRate = sampleRate * blockAlign;
+  const h = Buffer.alloc(44);
+  h.write('RIFF', 0);
+  h.writeUInt32LE(36 + pcm.length, 4);
+  h.write('WAVE', 8);
+  h.write('fmt ', 12);
+  h.writeUInt32LE(16, 16);
+  h.writeUInt16LE(1, 20); // PCM
+  h.writeUInt16LE(channels, 22);
+  h.writeUInt32LE(sampleRate, 24);
+  h.writeUInt32LE(byteRate, 28);
+  h.writeUInt16LE(blockAlign, 32);
+  h.writeUInt16LE(bits, 34);
+  h.write('data', 36);
+  h.writeUInt32LE(pcm.length, 40);
+  return Buffer.concat([h, pcm]);
+}
+
+/** Lê "audio/L16;rate=24000" e devolve o sampleRate (default 24000). */
+function rateFromMime(mime?: string): number {
+  const m = mime?.match(/rate=(\d+)/i);
+  return m ? parseInt(m[1], 10) : 24000;
+}
+
+/**
+ * Narra o texto e devolve um WAV (Buffer). Lança em erro/sem chave — o caller
+ * decide o fallback. `texto` deve ser a narração limpa (use extractNarration).
+ */
+export async function generatePodcastAudio(texto: string): Promise<Buffer> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY not set');
+  if (!texto?.trim()) throw new Error('texto de narração vazio');
+
+  // Direção de estilo (não é falada — orienta a entrega da voz prebuilt).
+  const styled = `Narre em português do Brasil, com voz masculina de meia-idade, tom acolhedor, seguro e íntimo, ritmo moderado e pausas reflexivas naturais:\n\n${texto}`;
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
+  const body = {
+    contents: [{ parts: [{ text: styled }] }],
+    generationConfig: {
+      responseModalities: ['AUDIO'],
+      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: VOICE } } },
+    },
+  };
+
+  // TTS de roteiro longo pode levar dezenas de segundos. Aborta limpo em 170s.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 170_000);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+  } catch (e: any) {
+    if (e?.name === 'AbortError') throw new Error('Gemini TTS: timeout (170s)');
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`Gemini TTS ${res.status}: ${detail.slice(0, 300)}`);
+  }
+
+  const data = await res.json();
+  const part = data?.candidates?.[0]?.content?.parts?.find((p: any) => p?.inlineData?.data);
+  const b64 = part?.inlineData?.data;
+  if (!b64) throw new Error('Gemini TTS: resposta sem áudio');
+  const pcm = Buffer.from(b64, 'base64');
+  return pcmToWav(pcm, rateFromMime(part.inlineData.mimeType));
+}

@@ -603,6 +603,57 @@ export async function gerarConteudoFinal(id: string) {
 }
 
 /**
+ * Gera o "conteúdo final" entregável de ÁUDIO: narra o roteiro de podcast via
+ * Gemini TTS (voz masculina pt-BR), sobe o WAV pro Storage e linka url/storage_path.
+ * Mesmo fluxo do PDF; a narração usa o bloco de TEXTO LIMPO do roteiro.
+ */
+export async function gerarPodcastAudio(id: string) {
+  try {
+    const sb = await requireAdminSupabase();
+    if (!id) return { success: false, error: 'id obrigatório' };
+
+    const { data: c } = await sb
+      .from('micro_conteudos')
+      .select('*, empresa:empresas(nome)')
+      .eq('id', id)
+      .maybeSingle();
+    if (!c) return { success: false, error: 'Conteúdo não encontrado' };
+    if (c.formato !== 'audio') {
+      return { success: false, error: 'Áudio TTS disponível apenas para o formato áudio' };
+    }
+    if (!c.conteudo_inline?.trim()) {
+      return { success: false, error: 'Conteúdo sem roteiro inline para narrar' };
+    }
+
+    const { extractNarration, generatePodcastAudio } = await import('@/lib/gemini-tts');
+    const narracao = extractNarration(c.conteudo_inline);
+    if (!narracao || narracao.length < 20) {
+      return { success: false, error: 'Não foi possível extrair a narração do roteiro' };
+    }
+
+    const wav = await generatePodcastAudio(narracao);
+
+    const slug = String(c.competencia || 'geral').replace(/[^a-zA-Z0-9]/g, '_');
+    const path = `final/audio/${slug}/${c.id}-${Date.now()}.wav`;
+    const { error: upErr } = await sb.storage.from('conteudos').upload(path, wav, {
+      contentType: 'audio/wav', upsert: true,
+    });
+    if (upErr) return { success: false, error: `Upload falhou: ${upErr.message}` };
+
+    const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(path);
+    const { error: updErr } = await sb.from('micro_conteudos')
+      .update({ url: publicUrl, storage_path: path })
+      .eq('id', id);
+    if (updErr) return { success: false, error: updErr.message };
+
+    return { success: true, url: publicUrl, message: `Áudio gerado para "${c.titulo}"` };
+  } catch (err) {
+    console.error('[gerarPodcastAudio]', err);
+    return { success: false, error: err?.message || 'Erro' };
+  }
+}
+
+/**
  * Exclui SÓ o PDF final gerado (e a capa GPT Image) do Storage e limpa
  * url/storage_path na linha — sem apagar o conteúdo/roteiro. Permite regerar
  * do zero (próxima geração cria capa nova). Guard: só mexe em paths sob
