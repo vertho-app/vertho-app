@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState, useRef, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Save, Send, CheckCircle2, Archive, Languages, AlertTriangle, ShieldCheck, ShieldAlert, Sparkles, RotateCcw, Wand2, Trash2 } from 'lucide-react';
 import BackButton from '@/components/back-button';
@@ -118,16 +118,40 @@ export default function ModuloBaseEditPage({ params }: { params: Promise<{ id: s
     else router.replace('/admin/vertho/modulos-base');
   }
 
+  const [refinando, setRefinando] = useState(false);
+  const [refinarSeg, setRefinarSeg] = useState(0);
+  const refIntervalRef = useRef<any>(null);
+
   async function refinar() {
-    setErro(''); setAviso(''); setSaving(true);
-    const r = await refinarComFeedback(id);
-    setSaving(false);
-    if ('error' in r && r.error) { setErro(r.error); return; }
-    const vAnt = (r as any).versaoAnterior;
-    const vNov = (r as any).versaoNova;
-    const novoVer = (r as any).auditoria?.veredito;
-    setAviso(`v${vAnt} → v${vNov}${novoVer ? ` · auditora agora: ${novoVer.replace(/_/g, ' ')}` : ''}`);
-    carregar();
+    setErro(''); setAviso('');
+    setRefinando(true); setRefinarSeg(0);
+    const t0 = Date.now();
+    refIntervalRef.current = setInterval(() => setRefinarSeg(Math.floor((Date.now() - t0) / 1000)), 1000);
+    try {
+      const r = await refinarComFeedback(id);
+      if ('error' in r && r.error) { setErro(r.error); return; }
+      const vAnt = (r as any).versaoAnterior;
+      const vNov = (r as any).versaoNova;
+      const novoVer = (r as any).auditoria?.veredito;
+      setAviso(`v${vAnt} → v${vNov}${novoVer ? ` · auditora agora: ${novoVer.replace(/_/g, ' ')}` : ''}`);
+      carregar();
+    } finally {
+      if (refIntervalRef.current) clearInterval(refIntervalRef.current);
+      setRefinando(false);
+    }
+  }
+
+  useEffect(() => () => { if (refIntervalRef.current) clearInterval(refIntervalRef.current); }, []);
+
+  function refinarEtapa(s: number): { txt: string; tom: 'normal' | 'lento' | 'alerta' } {
+    if (s < 3) return { txt: 'Carregando feedback da auditora e contexto da competência…', tom: 'normal' };
+    if (s < 25) return { txt: 'Autora (Claude Sonnet) regerando os 4 blocos com as correções…', tom: 'normal' };
+    if (s < 60) return { txt: 'Autora ainda processando — refinamento de docs grandes pode levar até 1 min…', tom: 'normal' };
+    if (s < 90) return { txt: 'Continuando — autora finalizando a versão refinada…', tom: 'normal' };
+    if (s < 130) return { txt: 'Versão refinada pronta. Auditora (GPT-5.4) avaliando…', tom: 'normal' };
+    if (s < 180) return { txt: 'Auditora ainda processando — não feche a tela…', tom: 'lento' };
+    if (s < 240) return { txt: 'Demora acima do esperado — pode ser conteúdo extenso. Aguarde…', tom: 'lento' };
+    return { txt: 'Mais de 4 min — pode ter travado. Considere recarregar a página e tentar de novo.', tom: 'alerta' };
   }
 
   async function acao(fn: () => Promise<any>, nome: string) {
@@ -176,15 +200,15 @@ export default function ModuloBaseEditPage({ params }: { params: Promise<{ id: s
               </button>
             )}
             {m.status === 'revisao' && !isNovo && m.auditoria_ia && (m.auditoria_ia as any)?.veredito !== 'aprovado' && (
-              <button onClick={refinar} disabled={saving}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-cyan-300/40 text-cyan-200 hover:bg-cyan-400/10"
+              <button onClick={refinar} disabled={saving || refinando}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-cyan-300/40 text-cyan-200 hover:bg-cyan-400/10 disabled:opacity-50"
                 title="Autora regera consumindo o feedback estruturado da auditora (loop Dual-IA)">
-                <Wand2 size={14} /> Refinar com IA
+                {refinando ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />} {refinando ? 'Refinando…' : 'Refinar com IA'}
               </button>
             )}
             {m.status === 'revisao' && !isNovo && (
-              <button onClick={reauditar} disabled={saving}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/15 text-white/70 hover:bg-white/5"
+              <button onClick={reauditar} disabled={saving || refinando}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/15 text-white/70 hover:bg-white/5 disabled:opacity-50"
                 title="Re-roda só a auditora sobre o conteúdo atual (sem regerar). Útil quando você editou manualmente.">
                 <RotateCcw size={14} /> Reauditar
               </button>
@@ -237,6 +261,25 @@ export default function ModuloBaseEditPage({ params }: { params: Promise<{ id: s
 
         {/* Auditoria IA (Dual-IA — substitui revisão humana cruzada) */}
         {!isNovo && <AuditoriaCard m={m} />}
+
+        {/* Progresso do refino com IA (loop autora ↔ auditora) */}
+        {refinando && (() => {
+          const { txt, tom } = refinarEtapa(refinarSeg);
+          const cor = tom === 'alerta' ? 'border-red-400/30 bg-red-400/[0.06] text-red-200'
+            : tom === 'lento' ? 'border-amber-400/30 bg-amber-400/[0.06] text-amber-200'
+            : 'border-cyan-400/25 bg-cyan-400/[0.06] text-cyan-100';
+          const mm = String(Math.floor(refinarSeg / 60)).padStart(2, '0');
+          const ss = String(refinarSeg % 60).padStart(2, '0');
+          return (
+            <div className={`rounded-xl border ${cor} p-3 mb-4 flex items-center gap-2.5`}>
+              <Loader2 size={16} className="animate-spin shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium">{txt}</p>
+                <p className="text-[10px] opacity-70 font-mono mt-0.5">refinando · tempo: {mm}:{ss}</p>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Identificação */}
         <Card titulo="Identificação">
