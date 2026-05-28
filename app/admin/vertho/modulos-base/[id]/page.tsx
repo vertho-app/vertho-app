@@ -212,7 +212,7 @@ export default function ModuloBaseEditPage({ params }: { params: Promise<{ id: s
                 {competencias.map(c => <option key={c.id} value={c.id}>{c.nome} ({c.segmento})</option>)}
               </select>
             </Field>
-            <Field label="Locale*">
+            <Field label="Idioma*">
               <select disabled={!isNovo} value={m.locale} onChange={e => setM({ ...m, locale: e.target.value })} className="input">
                 {LOCALES.map(l => <option key={l} value={l}>{l}</option>)}
               </select>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Plus, Sparkles, Upload, FileText, Star } from 'lucide-react';
 import BackButton from '@/components/back-button';
@@ -81,7 +81,7 @@ export default function ModulosBaseListPage() {
         {/* Filtros */}
         <div className="flex flex-wrap items-end gap-3 mb-6">
           <Select label="Status" value={filtroStatus} onChange={setFiltroStatus} options={STATUS} />
-          <Select label="Locale" value={filtroLocale} onChange={setFiltroLocale} options={LOCALES} />
+          <Select label="Idioma" value={filtroLocale} onChange={setFiltroLocale} options={LOCALES} />
           <div className="flex flex-col gap-1 text-[11px] uppercase tracking-wide text-white/45">
             Competência
             <select value={filtroComp} onChange={e => setFiltroComp(e.target.value)}
@@ -122,7 +122,7 @@ export default function ModulosBaseListPage() {
                   <th className="px-3 py-2.5 text-left">Título</th>
                   <th className="px-3 py-2.5 text-left">Competência</th>
                   <th className="px-3 py-2.5">N→N</th>
-                  <th className="px-3 py-2.5">Locale</th>
+                  <th className="px-3 py-2.5">Idioma</th>
                   <th className="px-3 py-2.5">Status</th>
                   <th className="px-3 py-2.5">Atualizado</th>
                   <th className="px-3 py-2.5">Autor</th>
@@ -233,6 +233,8 @@ function ModalDocx({ competencias, onClose, onCriou }: { competencias: any[]; on
   const [detectando, setDetectando] = useState(false);
   const [detectado, setDetectado] = useState<any>(null);
   const [importando, setImportando] = useState(false);
+  const [importSegundos, setImportSegundos] = useState(0);
+  const intervalRef = useRef<any>(null);
   const [erro, setErro] = useState('');
 
   // Upload → auto-detecta metadados via IA. Sem detecção, sem campos.
@@ -264,15 +266,37 @@ function ModalDocx({ competencias, onClose, onCriou }: { competencias: any[]; on
     if (!arquivoB64) { setErro('Selecione um .docx'); return; }
     if (!comp) { setErro('Selecione a competência'); return; }
     setImportando(true);
-    const r = await importarModuloDocx({
-      arquivoBase64: arquivoB64,
-      competencia_base_id: comp,
-      nivel_entrada: ne as any, nivel_destino: nd as any,
-      locale: locale as any, contexto_pedagogico: contexto || undefined,
-    });
-    setImportando(false);
-    if ('error' in r && r.error) setErro(r.error);
-    else if ('id' in r) onCriou(r.id);
+    setImportSegundos(0);
+    const t0 = Date.now();
+    intervalRef.current = setInterval(() => {
+      setImportSegundos(Math.floor((Date.now() - t0) / 1000));
+    }, 1000);
+    try {
+      const r = await importarModuloDocx({
+        arquivoBase64: arquivoB64,
+        competencia_base_id: comp,
+        nivel_entrada: ne as any, nivel_destino: nd as any,
+        locale: locale as any, contexto_pedagogico: contexto || undefined,
+      });
+      if ('error' in r && r.error) setErro(r.error);
+      else if ('id' in r) onCriou(r.id);
+    } finally {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      setImportando(false);
+    }
+  }
+
+  // Limpa interval se o modal fechar enquanto importa
+  useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current); }, []);
+
+  // Mensagem por estágio baseada no tempo decorrido
+  function etapaMsg(s: number): { txt: string; tom: 'normal' | 'lento' | 'alerta' } {
+    if (s < 3) return { txt: 'Conectando com a IA…', tom: 'normal' };
+    if (s < 15) return { txt: 'IA estruturando os 4 blocos do módulo…', tom: 'normal' };
+    if (s < 45) return { txt: 'Aguardando resposta da IA (docs grandes podem levar até 1 min)…', tom: 'normal' };
+    if (s < 90) return { txt: 'Continuando — não feche a tela. IA ainda processando…', tom: 'lento' };
+    if (s < 180) return { txt: 'Demora acima do esperado. Pode ser conteúdo muito extenso — aguarde mais um pouco…', tom: 'lento' };
+    return { txt: 'Mais de 3 min. Pode ter travado — considere cancelar e tentar de novo.', tom: 'alerta' };
   }
 
   const conf = detectado?.confianca ? Math.round(detectado.confianca * 100) : 0;
@@ -350,6 +374,24 @@ function ModalDocx({ competencias, onClose, onCriou }: { competencias: any[]; on
             style={{ background: 'linear-gradient(135deg,#34c5cc,#0D9488)' }}>
             {importando ? 'Processando…' : 'Importar e estruturar'}
           </button>
+
+          {importando && (() => {
+            const { txt, tom } = etapaMsg(importSegundos);
+            const cor = tom === 'alerta' ? 'border-red-400/30 bg-red-400/[0.06] text-red-200'
+              : tom === 'lento' ? 'border-amber-400/30 bg-amber-400/[0.06] text-amber-200'
+              : 'border-cyan-400/25 bg-cyan-400/[0.06] text-cyan-100';
+            const mm = String(Math.floor(importSegundos / 60)).padStart(2, '0');
+            const ss = String(importSegundos % 60).padStart(2, '0');
+            return (
+              <div className={`rounded-lg border ${cor} p-3 text-[12px] flex items-center gap-2.5`}>
+                <Loader2 size={14} className="animate-spin shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium">{txt}</p>
+                  <p className="text-[10px] opacity-70 font-mono mt-0.5">tempo: {mm}:{ss}</p>
+                </div>
+              </div>
+            );
+          })()}
         </>
       )}
     </Modal>
@@ -406,7 +448,7 @@ function FieldNiveis({ ne, nd, onNe, onNd }: { ne: string; nd: string; onNe: (v:
 function FieldLocale({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-[11px] uppercase tracking-wide text-white/45">Locale*</label>
+      <label className="text-[11px] uppercase tracking-wide text-white/45">Idioma*</label>
       <select value={value} onChange={e => onChange(e.target.value)}
         className="bg-white/[0.05] border border-white/10 rounded-lg px-3 py-2 text-sm text-white">
         {LOCALES.map(l => <option key={l} value={l}>{l}</option>)}
