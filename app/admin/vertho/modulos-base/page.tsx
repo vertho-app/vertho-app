@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Plus, Sparkles, Upload, FileText, Star } from 'lucide-react';
+import { Loader2, Plus, Sparkles, Upload, FileText, Star, X } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { listarModulos, listarCompetenciasBase, rascunharModuloBase, importarModuloDocx, detectarMetadadosDocx, setPreferido } from '@/actions/modulos-base';
 
@@ -207,7 +207,7 @@ function ModalIA({ competencias, onClose, onCriou }: { competencias: any[]; onCl
   }
 
   return (
-    <Modal title="Rascunhar com IA" onClose={onClose}>
+    <Modal title="Rascunhar com IA" onClose={onClose} bloqueado={loading}>
       <FieldCompetencia value={comp} onChange={setComp} options={competencias} />
       <FieldNiveis ne={ne} nd={nd} onNe={setNe} onNd={setNd} />
       <FieldLocale value={locale} onChange={setLocale} />
@@ -303,7 +303,7 @@ function ModalDocx({ competencias, onClose, onCriou }: { competencias: any[]; on
   const camposVisiveis = detectado !== null; // só aparecem após detecção (ou erro recuperável)
 
   return (
-    <Modal title="Importar .docx" onClose={onClose}>
+    <Modal title="Importar .docx" onClose={onClose} bloqueado={detectando || importando}>
       <div className="flex flex-col gap-1">
         <label className="text-[11px] uppercase tracking-wide text-white/45">Arquivo .docx</label>
         <input type="file" accept=".docx" disabled={detectando || importando}
@@ -398,13 +398,32 @@ function ModalDocx({ competencias, onClose, onCriou }: { competencias: any[]; on
   );
 }
 
-function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
+function Modal({ title, children, onClose, bloqueado }: { title: string; children: React.ReactNode; onClose: () => void; bloqueado?: boolean }) {
+  // Quando bloqueado=true (processando IA), clique fora e ESC NÃO fecham — evita
+  // perder uma chamada cara/longa de IA por click acidental no overlay.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape' && !bloqueado) onClose();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [bloqueado, onClose]);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.7)' }}
+      onClick={() => { if (!bloqueado) onClose(); }}>
       <div onClick={e => e.stopPropagation()}
-        className="w-full max-w-[480px] rounded-2xl border border-white/10 p-5 space-y-3"
+        className="w-full max-w-[480px] rounded-2xl border border-white/10 p-5 space-y-3 relative"
         style={{ background: '#0f1a33' }}>
-        <h2 className="text-base font-bold text-white">{title}</h2>
+        <div className="flex items-start justify-between gap-2">
+          <h2 className="text-base font-bold text-white">{title}</h2>
+          <button onClick={onClose} disabled={bloqueado}
+            className="w-7 h-7 rounded-md flex items-center justify-center text-white/45 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+            title={bloqueado ? 'Aguarde o processamento terminar' : 'Fechar (Esc)'}>
+            <X size={16} />
+          </button>
+        </div>
         {children}
       </div>
     </div>
