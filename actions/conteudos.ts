@@ -444,18 +444,46 @@ interface ListarConteudosParams {
   competencia?: string;
   semClassificacao?: boolean;
   limit?: number;
+  /**
+   * Filtra micro_conteudos por empresa: aceita uuid (mostra conteúdos da
+   * empresa + globais sem `empresa_id`) ou 'all'/null (mostra tudo).
+   * Quando uuid, também filtra pra que `competencia` esteja entre as
+   * cadastradas pela empresa OU no catálogo Vertho (`competencias_base`),
+   * mantendo "Não classificado" sempre visível pra triagem.
+   */
+  empresaId?: string | null;
 }
 
-export async function listarConteudos({ formato, competencia, semClassificacao, limit = 100 }: ListarConteudosParams = {}) {
+export async function listarConteudos({ formato, competencia, semClassificacao, limit = 100, empresaId }: ListarConteudosParams = {}) {
   try {
     const sb = await requireAdminSupabase();
+    const empresaUuid = empresaId && empresaId !== 'all' ? empresaId : null;
+
+    // Quando há empresa: prepara whitelist de nomes de competência válidos
+    // (competencias da empresa + competencias_base catálogo + 'Não classificado').
+    let nomesValidos: Set<string> | null = null;
+    if (empresaUuid) {
+      const { data: compEmp } = await sb.from('competencias').select('nome').eq('empresa_id', empresaUuid);
+      const { data: compBase } = await sb.from('competencias_base').select('nome');
+      nomesValidos = new Set<string>([
+        ...((compEmp || []).map((c: any) => c.nome).filter(Boolean) as string[]),
+        ...((compBase || []).map((c: any) => c.nome).filter(Boolean) as string[]),
+        'Não classificado',
+      ]);
+    }
+
     let q = sb.from('micro_conteudos').select('*').order('created_at', { ascending: false }).limit(limit);
+    if (empresaUuid) q = q.or(`empresa_id.eq.${empresaUuid},empresa_id.is.null`);
     if (formato) q = q.eq('formato', formato);
     if (competencia) q = q.eq('competencia', competencia);
     if (semClassificacao) q = q.eq('competencia', 'Não classificado');
     const { data, error } = await q;
     if (error) return { error: error.message };
-    return { items: data || [] };
+
+    let items = data || [];
+    if (nomesValidos) items = items.filter((c: any) => nomesValidos!.has(c.competencia || 'Não classificado'));
+
+    return { items };
   } catch (err) {
     return { error: err?.message || 'Erro' };
   }

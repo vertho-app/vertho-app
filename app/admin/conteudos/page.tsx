@@ -45,10 +45,11 @@ export default function ConteudosAdminPage() {
     const r = await listarConteudos({
       formato: filterFormato || undefined,
       semClassificacao: filterSemClass || undefined,
+      empresaId: empresaFiltro,
     });
     setItems(r.items || []);
     setLoading(false);
-  }, [filterFormato, filterSemClass]);
+  }, [filterFormato, filterSemClass, empresaFiltro]);
 
   useEffect(() => { carregar(); }, [carregar]);
 
