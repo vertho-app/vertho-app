@@ -1,7 +1,7 @@
 {
   "description": "Arquivos autorizados a usar createSupabaseAdmin(). Inclui contagem esperada por arquivo. Qualquer uso novo fora desta lista falha no CI.",
   "allowlist": {
-    "actions/modulos-base.ts": 14,
+    "actions/modulos-base.ts": 15,
     "app/admin/auditoria/actions.ts": 1,
     "app/admin/permissoes/actions.ts": 2,
     "app/api/auth/phone-otp/request/route.ts": 1,

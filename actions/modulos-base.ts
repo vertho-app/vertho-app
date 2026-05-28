@@ -452,6 +452,98 @@ export async function rascunharModuloBase(opts: {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// Detectar metadados do cabeçalho do .docx (sem persistir nada)
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Faz uma chamada curta à IA pra extrair Competência/Descritor/Nível/Locale/
+ * Título/Finalidade do CABEÇALHO do template oficial Vertho dentro do .docx,
+ * e tenta fazer match contra `competencias_base` pelo nome. Retorna sugestões
+ * pra o frontend pré-preencher o modal antes do import definitivo.
+ *
+ * NÃO persiste nada. Usuário revisa e corrige antes de chamar `importarModuloDocx`.
+ */
+export async function detectarMetadadosDocx(opts: { arquivoBase64: string }) {
+  await requireAdminAction();
+  if (!opts?.arquivoBase64) return { error: 'arquivoBase64 obrigatório' };
+
+  let texto: string;
+  try {
+    const mammoth: any = await import('mammoth');
+    const buffer = Buffer.from(opts.arquivoBase64, 'base64');
+    const out = await mammoth.extractRawText({ buffer });
+    texto = String(out?.value || '').trim();
+    if (!texto) return { error: 'Não foi possível extrair texto do .docx' };
+  } catch (e: any) {
+    console.error('[detectarMetadadosDocx] mammoth:', e?.message);
+    return { error: 'Falha ao processar o .docx' };
+  }
+
+  const sb = createSupabaseAdmin();
+  const { data: comps } = await sb.from('competencias_base')
+    .select('id, nome, segmento')
+    .order('nome');
+
+  const system = `Você analisa o cabeçalho de um template oficial Vertho de Módulo-Base de Conteúdo e extrai metadados.
+
+Retorne APENAS JSON válido com a estrutura:
+{
+  "competencia_nome_detectado": "string ou null (nome exato que aparece no docx)",
+  "competencia_match": { "id": "uuid ou null", "nome": "...", "confianca": 0.0 a 1.0 },
+  "nivel_entrada": "N1|N2|N3|null",
+  "nivel_destino": "N2|N3|N4|null",
+  "locale": "pt-BR|pt-PT|es-ES|en-US|null",
+  "titulo": "string ou null",
+  "finalidade": "string ou null",
+  "contexto_pedagogico": "string ou null"
+}
+
+REGRAS:
+- "competencia_match.id" = id da lista oficial que bate semanticamente. Confiança <0.5 → use null.
+- Se o docx só diz "Nível 1" (sem destino), assuma N1→N2; "Nível 2" → N2→N3; "Nível 3" → N3→N4.
+- Locale: detecte pela língua do conteúdo; null se ambíguo.
+- Não invente. Use null quando o campo não estiver claro.`;
+
+  const compsListagem = (comps || []).slice(0, 200).map((c: any) => `- ${c.id} :: ${c.nome} (${c.segmento})`).join('\n');
+  const user = `LISTA OFICIAL DE COMPETÊNCIAS (catálogo Vertho — escolha 1 ou null):
+${compsListagem}
+
+CABEÇALHO DO DOCX (primeiros 4000 chars):
+${texto.slice(0, 4000)}`;
+
+  const model = await getModelForTask(null as any, 'modulo_base_autor');
+  const raw = await callAI(system, user, { model }, 800).catch((e: any) => { console.warn('[detectarMetadados] callAI:', e?.message); return ''; });
+  if (!raw) return { error: 'Detecção falhou (sem resposta da IA)' };
+
+  let det: any = null;
+  const cleaned = String(raw).replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+  const candidatos = [cleaned];
+  const m = cleaned.match(/\{[\s\S]*\}/);
+  if (m) candidatos.push(m[0]);
+  for (const c of candidatos) {
+    try { const p = JSON.parse(c); if (p && typeof p === 'object') { det = p; break; } } catch { /* tenta próximo */ }
+  }
+  if (!det) return { error: 'Resposta inválida da IA' };
+
+  return {
+    ok: true,
+    texto_chars: texto.length,
+    sugestoes: {
+      competencia_nome_detectado: det.competencia_nome_detectado || null,
+      competencia_base_id: det.competencia_match?.id || null,
+      competencia_nome_match: det.competencia_match?.nome || null,
+      confianca: typeof det.competencia_match?.confianca === 'number' ? det.competencia_match.confianca : 0,
+      nivel_entrada: det.nivel_entrada || null,
+      nivel_destino: det.nivel_destino || null,
+      locale: det.locale || null,
+      titulo: det.titulo || null,
+      finalidade: det.finalidade || null,
+      contexto_pedagogico: det.contexto_pedagogico || null,
+    },
+  };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // Import de .docx → IA estrutura
 // ════════════════════════════════════════════════════════════════════════════
 
