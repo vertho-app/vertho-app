@@ -1217,7 +1217,7 @@
 
 - **Arquivo**: `app/dashboard/perfil-comportamental/perfil-comportamental-actions.ts::gerarInsightsExecutivos` (prompt em `lib/prompts/insights-executivos-prompt.js`)
 - **Modelo**: Via `getModelForTask(empresaId, 'insights_executivos')`
-- **Max tokens**: 800
+- **Max tokens**: 1500 (era 800 até 2026-05-27 — subido para não truncar os 3 insights e invalidar o JSON)
 - **System prompt** (resumo editorial do prompt real em `lib/prompts/insights-executivos-prompt.js`):
   "Você é um consultor sênior de desenvolvimento humano da Vertho." Gera 3 insights executivos curtos e úteis. Princípios-chave:
   1. DISC é tendência, não sentença. Nunca linguagem determinista
@@ -1230,8 +1230,9 @@
   8. Os insights devem ser tão específicos ao perfil que não funcionariam para outro perfil
 
 - **Output**: JSON `{ "insights": ["frase 1", "frase 2", "frase 3"] }`.
+- **Robustez (2026-05-27)**: parsing tolerante (`extractInsights` — tenta JSON do texto limpo, depois o primeiro `{...}` embutido, depois array cru; aceita `{insights:[...]}` ou array direto) + **1 retry** em falha de parse/chamada. Antes, qualquer preâmbulo/markdown/JSON truncado derrubava o `JSON.parse` e os insights ficavam `null` silenciosamente.
 - **Inputs user**: Output de `buildInsightsExecutivosPrompt({ colab, arquetipo, tags })` — nome, arquétipo, perfil dominante, tags, DISC natural (D/I/S/C), liderança (4 estilos %).
-- **Consumido por**: `colaboradores.insights_executivos` (cache 30 dias).
+- **Consumido por**: `colaboradores.insights_executivos` (cache 30 dias). Geração disparada lazy ao abrir `/dashboard/perfil-comportamental` (email da sessão) **e** na pré-geração pós-mapeamento (via `colabId`).
 
 ---
 

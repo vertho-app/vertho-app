@@ -81,6 +81,7 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 **Colaborador** · link recebido por WhatsApp/email → `/dashboard/assessment`
 - Responde cenários da IA3 (chat com simulação)
 - Mapeamento comportamental (DISC): `/dashboard/perfil-comportamental/mapeamento`
+  - A tela de instruções abre com um **vídeo de instruções** (capa clicável → player com tracking de view). Ao concluir o mapeamento, o colab é levado à tela de resultado, que gera relatório + insights e pré-gera o PDF (16 competências) em background.
 
 ---
 

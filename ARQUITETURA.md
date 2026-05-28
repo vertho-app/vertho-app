@@ -55,11 +55,17 @@
 
 ---
 
-## 1.1 Estado de Retomada (25/05/2026)
+## 1.1 Estado de Retomada (27/05/2026)
 
 Contexto rapido para reinicializacao da maquina:
 
-- Branch atual: `master`, HEAD `2730cd7`. Migrations 022-117 aplicadas em prod. ~100 commits desde a revisao anterior (14/05).
+- Branch atual: `master`, HEAD `7108803`. Migrations 022-117 aplicadas em prod.
+- **Frentes 27/05** (sessao de UX + qualidade):
+  - **Video de instrucoes no mapeamento** — capa clicavel (thumbnail Bunny) na tela de instrucoes do DISC abre o `VideoModal` (lib 636615, guid `e235d703-…`) com tracking de view por colaborador. Endpoint `/api/bunny-thumb` passou a resolver `thumbnailFileName` (thumbnails customizados ganham nome com hash, nao `thumbnail.jpg`).
+  - **Botao "Voltar" padronizado** — `components/back-button.tsx` no topo-direito, substituindo botoes inline inconsistentes em ~55 telas (dashboard + admin).
+  - **Admin mobile** — `AdminHeader` responsivo (titulo/filtro encolhem) + `AdminMobileNav` (drawer hamburguer `md:hidden`, a sidebar e `hidden md:flex`); sino removido (placeholder), engrenagem abre config da empresa selecionada. Pagina de pipeline da empresa deixou de ter top-bar redundante (refresh ligado ao `registerRefresh` do shell).
+  - **Fixes** — crash da home do gestor/RH (shadowing de `t` no `.map` da timeline); PDF comportamental mostrava 14/16 competencias (grupo C usava chaves erradas); cache de PDF invalidado p/ regerar com 16; pre-geracao do PDF passa `colabId` (nao dependia da sessao no `after()`); chaves de `AdminAudit.actions` sem ponto (next-intl INVALID_KEY); insights executivos com geracao tolerante a falha.
+  - **Diagnostico E2E** — ver secao 10.
 - Working tree limpo. `.gitignore` agora ignora `*.log`, `.tmp_*/`, `/backups/` (PII) e `/.agents/skills/` (vendorado via `skills-lock.json`).
 - Nao versionados intencionalmente: `.tmp_enem_2024/` (2,2 GB microdados ENEM), `data-pipeline/radarempresas/**/out/` e Parquets (calculo pesado fica local).
 - Frentes desde 14/05:
@@ -621,6 +627,8 @@ Status: ✅
 
 ### 6.6 Bunny Stream
 Import, thumbnails, embed, analytics, webhook. Status: ✅
+- **Thumbnails** via proxy `/api/bunny-thumb/[videoId]` (Hotlink Protection → passa Referer do dominio raiz; cache 1h). Resolve o `thumbnailFileName` real do video na API (thumbnails customizados ganham nome com hash, ex. `thumbnail_47b9900c.jpg`; o `thumbnail.jpg` e o frame auto-gerado).
+- **Player com tracking**: `components/video-modal.tsx` usa player.js (CDN Embedly) pra registrar `play_started`/`play_finished` em `videos_watched` por colaborador. Usado no dashboard, no link branded `/v/[id]` e na tela de instrucoes do mapeamento (video lib 636615).
 
 ---
 
@@ -841,17 +849,26 @@ cis_referencia, cis_ia_referencia
 ## 10. Testes
 
 ### Smoke Test (HTTP)
-`node scripts/smoke-test.js https://vertho.ai` — 29 rotas, CI-ready.
+`node scripts/smoke-test.js https://vertho.ai` — rotas via HTTP, sem browser, CI-ready.
 
-### Playwright E2E + Vitest (27 arquivos de teste)
+### Playwright E2E + Vitest
 ```
-npm test
-$env:SMOKE_EMAIL="x"; $env:SMOKE_PASS="y"; npm test
+npm run test:unit                       # vitest (guards de seguranca, isolamento, etc.)
+$env:SMOKE_EMAIL="x"; $env:SMOKE_PASS="y"; npm test    # Playwright (login por senha)
 npm run test:ui
 ```
+Auth nos E2E: o `/login` tem "Entrar com senha" (Supabase email+senha); os specs logam com `SMOKE_EMAIL`/`SMOKE_PASS` (helper `tests/helpers/auth.js`).
+
+### Diagnostico E2E (2026-05-27)
+Tres niveis, todos **read-only / sem custo** (nao clicam acoes de IA, envio, exclusao):
+- **Nivel 1 — crawler** (`tests/diagnostico.spec.js`): varre ~65 rotas (dashboard+admin), captura erros de console, excecoes JS, HTTP>=400, error-boundary e screenshot; relatorio em `test-results/diagnostico/`.
+- **Nivel 3 — fluxos criticos** (`tests/fluxos-criticos.spec.js`): jornadas headline (colaborador / gestor / admin pipeline) como guardas de regressao.
+- **Nivel 3 — por pagina** (`tests/nivel3/*.spec.js`): ~60 testes (1 por pagina) = carrega + exercita filtros + revalida saude.
+- **Auth compartilhada**: `tests/auth.setup.js` (projeto `setup`) loga **uma vez** e salva `storageState`; o projeto `nivel3` reusa (evita ~60 logins). O projeto `nivel3` so e incluido quando ha `SMOKE_EMAIL` (nao quebra CI). `playwright/.auth/` e gitignorado (token de sessao).
+- Rodar nivel 3 contra o sandbox: `SMOKE_EMAIL=… SMOKE_PASS=… PLAYWRIGHT_BASE_URL=https://teste-piloto.vertho.ai DIAG_EMPRESA_ID=<uuid> npx playwright test --project=nivel3`.
 
 ### CI/CD
-`.github/workflows/smoke-test.yml` — smoke test em cada push.
+`.github/workflows/smoke-test.yml` — smoke test em cada push. `typecheck.yml` — tsc + vitest (inclui guard de service-role).
 
 ---
 
@@ -918,8 +935,9 @@ Todos com filtro `?empresa=` e back button context-aware. Dados via `lib/ia-cost
 
 ### Deploy
 ```
-git push origin master → Vercel build automatico → producao
+git push origin master → integracao Git da Vercel → build automatico → producao
 ```
+A integracao GitHub da Vercel deploya **automaticamente** a cada push no `master` (deploy com autor `vertho-app`). **NAO rodar `vercel --prod` por cima** — gera um segundo deploy de producao do mesmo commit (autor da CLI), duplicando. CLI so como fallback se a integracao cair.
 
 ### Backup automatico
 ```

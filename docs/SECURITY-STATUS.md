@@ -1,6 +1,6 @@
 # Estado atual de seguranca — Vertho Mentor IA
 
-> Ultima revisao: 2026-04-17
+> Ultima revisao: 2026-04-17 (coberturas de teste atualizadas 2026-05-27)
 
 ## Camadas de protecao implementadas
 
@@ -107,6 +107,7 @@ Prerequisito para migracao real: RLS policies por tabela + testes de enforcement
 - Guard de service_role: 3 testes (allowlist + stale + contagem)
 - **Testes de isolamento cross-tenant**: 9 cenarios (tenant A nao acessa B, acesso legitimo permitido, colab access)
 - **Testes anti-identity-by-parameter**: 123 cenarios (22 actions + 8 pages verificadas)
+- **Diagnostico E2E (Playwright, 2026-05-27)**: crawler de ~65 rotas + ~60 testes nivel 3 por pagina, todos read-only (nao clicam acoes de IA/envio/exclusao). Rodam contra o sandbox `teste-piloto` com usuario de teste efemero (criado e removido por run). Auth por sessao compartilhada (`storageState` gitignorado). Util como guarda de regressao de "pagina quebrou"; **nao** substitui os testes de isolamento cross-tenant (esses seguem em vitest). Achado nesta frente: crash da home do gestor/RH (corrigido).
 
 ### Endurecimento de dashboard actions (completo 2026-04-17)
 **Primeira onda (10 actions):** loadDashboardData, loadHomeKpis, loadJornada,

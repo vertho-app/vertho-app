@@ -1,14 +1,15 @@
 # Resumo de Retomada — Vertho App
 
-> Atualizado em 14/05/2026 para reinicializacao do PC.
+> Atualizado em 27/05/2026.
 
 ## Onde esta o projeto
 
 - Workspace: `C:\GAS\Vertho App\nextjs-app`
 - Branch Git: `master`
-- HEAD atual: `b7b072b` — `feat(pulso): envio de convites por WhatsApp/email`
+- HEAD atual: `7108803` — `test(e2e): nível 3 — uma jornada por página`
 - Stack: Next.js 16.2.4, React 19.2.4, Supabase/Postgres, Tailwind 4, Anthropic/Gemini/Voyage, Vercel.
-- Documento detalhado: `ARQUITETURA.md`
+- Documento detalhado: `ARQUITETURA.md` (ver secao 1.1 para o estado mais recente).
+- **Deploy**: `git push origin master` ja deploya em producao (integracao Git da Vercel). NAO rodar `vercel --prod` por cima (duplica).
 
 ## Estado do Git antes do reboot
 
@@ -43,7 +44,16 @@ npm run typecheck
 npm run test:unit
 npm run smoke
 npm test
+# Diagnostico E2E nivel 3 (sandbox, sem custo):
+$env:SMOKE_EMAIL="..."; $env:SMOKE_PASS="..."; $env:PLAYWRIGHT_BASE_URL="https://teste-piloto.vertho.ai"; $env:DIAG_EMPRESA_ID="<uuid>"; npx playwright test --project=nivel3
 ```
+
+## Frentes recentes (27/05/2026)
+
+- **Video de instrucoes no mapeamento DISC** (capa clicavel → VideoModal com tracking) + `/api/bunny-thumb` resolvendo `thumbnailFileName`.
+- **Botao "Voltar" padronizado** (`components/back-button.tsx`, topo-direito) em ~55 telas; **admin mobile** (drawer `AdminMobileNav` + header responsivo; engrenagem → config da empresa, sino removido).
+- **Fixes**: crash da home do gestor/RH (shadowing no `.map` da timeline); PDF comportamental 14→16 competencias; pre-geracao do PDF via `colabId`; chaves `AdminAudit.actions` sem ponto; insights executivos tolerantes a falha.
+- **Diagnostico E2E** (read-only, sem custo): crawler de ~65 rotas (`tests/diagnostico.spec.js`) + fluxos criticos + ~60 testes nivel 3 por pagina (`tests/nivel3/`), com auth compartilhada via `storageState`.
 
 ## Frente atual do produto
 
@@ -59,7 +69,7 @@ npm test
 
 ## Banco e migrations
 
-- Migrations atuais: `022` ate `116`.
+- Migrations atuais: `022` ate `117` (117 = matriz de permissoes).
 - Ultimas frentes:
   - `090-092`: Modo Onboarding (sys_config, multi-competencia, tutorados_ids).
   - `093-095`: Mercado Potencial (MVs, INSE proxy, idade-corte flexivel).
