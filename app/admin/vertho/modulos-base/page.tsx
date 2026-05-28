@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Plus, Sparkles, Upload, FileText, Star, X } from 'lucide-react';
+import { Loader2, Plus, Sparkles, Upload, FileText, Star, X, Trash2 } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { listarModulos, listarCompetenciasBase, rascunharModuloBase, importarModuloDocx, detectarMetadadosDocx, setPreferido } from '@/actions/modulos-base';
+import { listarModulos, listarCompetenciasBase, rascunharModuloBase, importarModuloDocx, detectarMetadadosDocx, setPreferido, excluirModulo } from '@/actions/modulos-base';
 
 type Modulo = any;
 
@@ -150,10 +150,25 @@ export default function ModulosBaseListPage() {
                     </td>
                     <td className="px-3 py-2.5 text-white/55 truncate max-w-[160px]">{m.created_by}</td>
                     <td className="px-3 py-2.5 text-right">
-                      <button onClick={e => { e.stopPropagation(); setPreferido(m.id, !m.preferido).then(carregar); }}
-                        className="text-[11px] text-cyan-300 hover:underline">
-                        {m.preferido ? 'remover preferido' : 'tornar preferido'}
-                      </button>
+                      <div className="flex items-center justify-end gap-3">
+                        <button onClick={e => { e.stopPropagation(); setPreferido(m.id, !m.preferido).then(carregar); }}
+                          className="text-[11px] text-cyan-300 hover:underline">
+                          {m.preferido ? 'remover preferido' : 'tornar preferido'}
+                        </button>
+                        <button onClick={async e => {
+                          e.stopPropagation();
+                          const ok = window.confirm(`Excluir "${m.titulo}"? Esta ação não pode ser desfeita.`);
+                          if (!ok) return;
+                          const r = await excluirModulo(m.id);
+                          if ('error' in r && r.error) alert(r.error);
+                          else carregar();
+                        }}
+                          title="Excluir módulo"
+                          disabled={m.status === 'publicado'}
+                          className="text-red-300/70 hover:text-red-200 disabled:opacity-30 disabled:cursor-not-allowed">
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

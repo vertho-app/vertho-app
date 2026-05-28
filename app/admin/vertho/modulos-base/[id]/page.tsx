@@ -2,12 +2,12 @@
 
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Save, Send, CheckCircle2, Archive, Languages, AlertTriangle, ShieldCheck, ShieldAlert, Sparkles, RotateCcw, Wand2 } from 'lucide-react';
+import { Loader2, Save, Send, CheckCircle2, Archive, Languages, AlertTriangle, ShieldCheck, ShieldAlert, Sparkles, RotateCcw, Wand2, Trash2 } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import {
   obterModulo, listarCompetenciasBase, salvarModulo,
   submeterRevisao, aprovarPublicar, marcarObsoleto, criarTraducao, obterGrupo,
-  auditarModuloBase, refinarComFeedback,
+  auditarModuloBase, refinarComFeedback, excluirModulo,
 } from '@/actions/modulos-base';
 
 const NIVEIS = ['N1', 'N2', 'N3', 'N4'];
@@ -109,6 +109,15 @@ export default function ModuloBaseEditPage({ params }: { params: Promise<{ id: s
     else { setAviso('Auditoria atualizada'); carregar(); }
   }
 
+  async function excluir() {
+    if (!window.confirm(`Excluir o módulo "${m?.titulo || ''}"? Esta ação não pode ser desfeita.`)) return;
+    setErro(''); setAviso(''); setSaving(true);
+    const r = await excluirModulo(id);
+    setSaving(false);
+    if ('error' in r && r.error) setErro(r.error);
+    else router.replace('/admin/vertho/modulos-base');
+  }
+
   async function refinar() {
     setErro(''); setAviso(''); setSaving(true);
     const r = await refinarComFeedback(id);
@@ -190,6 +199,13 @@ export default function ModuloBaseEditPage({ params }: { params: Promise<{ id: s
               <button onClick={() => acao(() => marcarObsoleto(id), 'Marcado obsoleto')} disabled={saving}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/15 hover:bg-white/5">
                 <Archive size={14} /> Marcar obsoleto
+              </button>
+            )}
+            {!isNovo && m.status !== 'publicado' && (
+              <button onClick={excluir} disabled={saving}
+                title="Excluir definitivamente (publicado precisa virar obsoleto primeiro)"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-red-400/30 text-red-300 hover:bg-red-400/10">
+                <Trash2 size={14} /> Excluir
               </button>
             )}
           </div>

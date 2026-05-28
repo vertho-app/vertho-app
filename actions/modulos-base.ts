@@ -260,6 +260,22 @@ export async function marcarObsoleto(id: string, substitui_por?: string) {
   return { ok: true };
 }
 
+export async function excluirModulo(id: string) {
+  await requireAdminAction();
+  if (!id) return { error: 'id obrigatório' };
+  const sb = createSupabaseAdmin();
+  const { data } = await sb.from('modulos_base_conteudo').select('status, titulo').eq('id', id).maybeSingle();
+  if (!data) return { error: 'Módulo não encontrado' };
+  if (data.status === 'publicado') {
+    return { error: 'Marque como obsoleto primeiro antes de excluir um módulo publicado (proteção contra apagar conteúdo em uso pelo engine).' };
+  }
+  // FK substitui_modulo_id já tem ON DELETE SET NULL — não trava se outro
+  // módulo apontar pra este (a cadeia de versão fica órfã, mas íntegra).
+  const { error } = await sb.from('modulos_base_conteudo').delete().eq('id', id);
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
 export async function setPreferido(id: string, preferido: boolean) {
   await requireAdminAction();
   const sb = createSupabaseAdmin();
