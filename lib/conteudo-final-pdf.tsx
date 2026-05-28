@@ -45,14 +45,17 @@ const s = StyleSheet.create({
     position: 'absolute', right: 12, top: '42%', width: 145, height: 145,
     borderWidth: 10, borderColor: colors.cyan, borderRadius: 72,
   },
+  // Fundo full-bleed gerado por GPT Image + scrim navy à esquerda (legibilidade)
+  coverImage: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' },
+  coverScrim: { position: 'absolute', top: 0, left: 0, bottom: 0, width: '66%', backgroundColor: 'rgba(15,28,57,0.66)' },
   coverTop: { paddingHorizontal: 50, paddingTop: 50 },
   coverLogo: { height: 28, width: 118 },
   coverMiddle: { flex: 1, paddingHorizontal: 50, justifyContent: 'center' },
   coverEyebrow: {
     fontSize: 8.5, fontWeight: 600, color: colors.cyan, letterSpacing: 2.2,
-    textTransform: 'uppercase', marginBottom: 14,
+    textTransform: 'uppercase', marginBottom: 14, maxWidth: 320,
   },
-  coverTitle: { fontSize: 34, fontWeight: 800, color: colors.white, lineHeight: 1.15, marginBottom: 22 },
+  coverTitle: { fontSize: 32, fontWeight: 800, color: colors.white, lineHeight: 1.15, marginBottom: 22, maxWidth: 320 },
   coverDivider: { width: 56, height: 2.2, backgroundColor: colors.cyan, marginBottom: 26 },
   coverMetaRow: { flexDirection: 'row' },
   coverMetaItem: { marginRight: 32 },
@@ -180,9 +183,11 @@ interface Params {
   formato?: string | null;
   empresaNome?: string | null;
   locale?: string;
+  /** Fundo de capa gerado por GPT Image (data URI). Sem ele, cai no fundo vetorial. */
+  coverBase64?: string | null;
 }
 
-export function ConteudoFinalPDF({ titulo, conteudoMd, competencia, descritor, empresaNome, locale = 'pt-BR' }: Params) {
+export function ConteudoFinalPDF({ titulo, conteudoMd, competencia, descritor, empresaNome, locale = 'pt-BR', coverBase64 }: Params) {
   const logo = getLogoCoverBase64();
   const blocks = parse(conteudoMd, { skipFirstH1: Boolean(titulo) });
   const eyebrow = [competencia, descritor].filter(Boolean).join('  ›  ') || 'Conteúdo de desenvolvimento';
@@ -191,8 +196,18 @@ export function ConteudoFinalPDF({ titulo, conteudoMd, competencia, descritor, e
   return React.createElement(Document, { title: titulo, author: 'Vertho' },
     // Capa
     React.createElement(Page, { size: 'A4', style: s.cover },
-      React.createElement(View, { style: s.coverAccent1, fixed: true }),
-      React.createElement(View, { style: s.coverAccent2, fixed: true }),
+      // Fundo: imagem GPT Image full-bleed + scrim navy à esquerda. Sem imagem,
+      // usa os anéis vetoriais à direita (fallback). Em ambos, o texto fica numa
+      // coluna esquerda com maxWidth, então nunca colide com o visual à direita.
+      coverBase64
+        ? React.createElement(React.Fragment, null,
+            React.createElement(Image, { src: coverBase64, style: s.coverImage, fixed: true }),
+            React.createElement(View, { style: s.coverScrim, fixed: true }),
+          )
+        : React.createElement(React.Fragment, null,
+            React.createElement(View, { style: s.coverAccent1, fixed: true }),
+            React.createElement(View, { style: s.coverAccent2, fixed: true }),
+          ),
       React.createElement(View, { style: s.coverTop },
         logo ? React.createElement(Image, { src: logo, style: s.coverLogo }) : null,
       ),
@@ -269,3 +284,5 @@ export async function renderConteudoFinalPDF(params: Params): Promise<Uint8Array
   const { renderToBuffer } = await import('@react-pdf/renderer');
   return renderToBuffer(ConteudoFinalPDF(params));
 }
+
+export type { Params as ConteudoFinalPDFParams };

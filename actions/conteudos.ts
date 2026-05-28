@@ -532,6 +532,30 @@ export async function gerarConteudoFinal(id: string) {
       return { success: false, error: 'Conteúdo sem texto inline para gerar o PDF' };
     }
 
+    // Capa: fundo gerado por GPT Image, reusado se já existir (evita regerar
+    // a cada clique). Falha NUNCA quebra o PDF — cai no fundo vetorial.
+    let coverBase64: string | null = null;
+    const coverPath = `final/covers/${c.id}.png`;
+    try {
+      const { data: existente } = await sb.storage.from('conteudos').download(coverPath);
+      if (existente) {
+        const buf = Buffer.from(await existente.arrayBuffer());
+        coverBase64 = `data:image/png;base64,${buf.toString('base64')}`;
+      } else {
+        throw new Error('cover ausente');
+      }
+    } catch {
+      try {
+        const { generateCoverImage } = await import('@/lib/openai-image');
+        const tema = [c.competencia, c.descritor].filter(Boolean).join(' — ') || null;
+        const imgBuf = await generateCoverImage(tema);
+        await sb.storage.from('conteudos').upload(coverPath, imgBuf, { contentType: 'image/png', upsert: true });
+        coverBase64 = `data:image/png;base64,${imgBuf.toString('base64')}`;
+      } catch (e: any) {
+        console.warn('[gerarConteudoFinal] capa GPT Image falhou (usando fallback vetorial):', e?.message);
+      }
+    }
+
     const { renderConteudoFinalPDF } = await import('@/lib/conteudo-final-pdf');
     const buffer = await renderConteudoFinalPDF({
       titulo: c.titulo,
@@ -540,6 +564,7 @@ export async function gerarConteudoFinal(id: string) {
       descritor: c.descritor,
       formato: c.formato,
       empresaNome: c.empresa?.nome || null,
+      coverBase64,
     });
 
     const slug = String(c.competencia || 'geral').replace(/[^a-zA-Z0-9]/g, '_');
