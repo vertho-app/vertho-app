@@ -235,17 +235,17 @@ function ModalDocx({ competencias, onClose, onCriou }: { competencias: any[]; on
   const [importando, setImportando] = useState(false);
   const [erro, setErro] = useState('');
 
-  async function lerArquivo(file: File) {
+  // Upload → auto-detecta metadados via IA. Sem detecção, sem campos.
+  async function onArquivoEscolhido(file: File) {
+    setErro(''); setDetectado(null); setArquivo(file);
+    setComp(''); setContexto(''); setNe('N1'); setNd('N2'); setLocale('pt-BR');
+
     const buf = await file.arrayBuffer();
     const b64 = Buffer.from(buf).toString('base64');
     setArquivoB64(b64);
-    setDetectado(null);
-  }
 
-  async function detectar() {
-    if (!arquivoB64) { setErro('Selecione um .docx primeiro'); return; }
-    setErro(''); setDetectando(true);
-    const r = await detectarMetadadosDocx({ arquivoBase64: arquivoB64 });
+    setDetectando(true);
+    const r = await detectarMetadadosDocx({ arquivoBase64: b64 });
     setDetectando(false);
     if ('error' in r && r.error) { setErro(r.error); return; }
     if ('sugestoes' in r) {
@@ -261,7 +261,7 @@ function ModalDocx({ competencias, onClose, onCriou }: { competencias: any[]; on
 
   async function importar() {
     setErro('');
-    if (!arquivoB64) { setErro('Selecione um arquivo .docx'); return; }
+    if (!arquivoB64) { setErro('Selecione um .docx'); return; }
     if (!comp) { setErro('Selecione a competência'); return; }
     setImportando(true);
     const r = await importarModuloDocx({
@@ -276,24 +276,26 @@ function ModalDocx({ competencias, onClose, onCriou }: { competencias: any[]; on
   }
 
   const conf = detectado?.confianca ? Math.round(detectado.confianca * 100) : 0;
+  const camposVisiveis = detectado !== null; // só aparecem após detecção (ou erro recuperável)
 
   return (
     <Modal title="Importar .docx" onClose={onClose}>
       <div className="flex flex-col gap-1">
         <label className="text-[11px] uppercase tracking-wide text-white/45">Arquivo .docx</label>
-        <input type="file" accept=".docx" onChange={e => {
-          const f = e.target.files?.[0] || null;
-          setArquivo(f);
-          if (f) lerArquivo(f);
-        }}
-          className="text-sm text-white file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-cyan-400/15 file:text-cyan-200 file:text-xs file:font-semibold" />
+        <input type="file" accept=".docx" disabled={detectando || importando}
+          onChange={e => { const f = e.target.files?.[0]; if (f) onArquivoEscolhido(f); }}
+          className="text-sm text-white file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-cyan-400/15 file:text-cyan-200 file:text-xs file:font-semibold disabled:opacity-50" />
+        <p className="text-[11px] text-white/45 mt-1">
+          <Sparkles size={11} className="inline mr-1 -mt-0.5 text-cyan-300" />
+          A IA detecta competência, níveis, locale e contexto a partir do cabeçalho do template.
+        </p>
       </div>
 
-      {arquivo && (
-        <button onClick={detectar} disabled={detectando || importando}
-          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-cyan-400/30 text-cyan-300 hover:bg-cyan-400/10 disabled:opacity-40">
-          <Sparkles size={13} /> {detectando ? 'Detectando…' : 'Detectar metadados do arquivo'}
-        </button>
+      {detectando && (
+        <div className="rounded-lg border border-cyan-400/20 bg-cyan-400/[0.04] p-4 flex items-center justify-center gap-2 text-sm text-cyan-200">
+          <Loader2 size={16} className="animate-spin" />
+          Detectando metadados do arquivo…
+        </div>
       )}
 
       {detectado && (
@@ -315,28 +317,41 @@ function ModalDocx({ competencias, onClose, onCriou }: { competencias: any[]; on
           {!detectado.competencia_base_id && (
             <p className="text-amber-200">⚠️ Nenhum match seguro no catálogo — selecione manualmente abaixo.</p>
           )}
-          {(detectado.nivel_entrada || detectado.nivel_destino) && (
-            <p>• Transição: <span className="font-mono">{detectado.nivel_entrada || '?'}→{detectado.nivel_destino || '?'}</span></p>
-          )}
-          {detectado.locale && <p>• Locale: <span className="font-mono">{detectado.locale}</span></p>}
-          {detectado.contexto_pedagogico && <p>• Contexto: <span className="font-mono">{detectado.contexto_pedagogico}</span></p>}
           <p className="text-[10px] text-cyan-200/70 pt-1 border-t border-cyan-400/15 mt-2">Confira/ajuste os campos abaixo antes de importar.</p>
         </div>
       )}
 
-      <FieldCompetencia value={comp} onChange={setComp} options={competencias} />
-      <FieldNiveis ne={ne} nd={nd} onNe={setNe} onNd={setNd} />
-      <FieldLocale value={locale} onChange={setLocale} />
-      <FieldContexto value={contexto} onChange={setContexto} />
-      {erro && <p className="text-amber-300 text-xs">{erro}</p>}
-      <p className="text-[11px] text-white/45 leading-relaxed">
-        <FileText size={11} className="inline mr-1 -mt-0.5" /> Texto extraído via <code className="text-cyan-300">mammoth</code> e estruturado pela IA conforme o spec. Vira <strong>rascunho</strong> pra revisão.
-      </p>
-      <button disabled={importando || detectando || !arquivo || !comp} onClick={importar}
-        className="w-full py-2.5 rounded-xl font-bold text-sm text-[#06172C] disabled:opacity-40"
-        style={{ background: 'linear-gradient(135deg,#34c5cc,#0D9488)' }}>
-        {importando ? 'Processando…' : 'Importar e estruturar'}
-      </button>
+      {camposVisiveis && (
+        <>
+          <FieldCompetencia value={comp} onChange={setComp} options={competencias} />
+          <FieldNiveis ne={ne} nd={nd} onNe={setNe} onNd={setNd} />
+          <FieldLocale value={locale} onChange={setLocale} />
+          <FieldContexto value={contexto} onChange={setContexto} />
+        </>
+      )}
+
+      {erro && (
+        <div className="text-amber-300 text-xs space-y-1">
+          <p>{erro}</p>
+          {!detectado && arquivoB64 && (
+            <button onClick={() => arquivo && onArquivoEscolhido(arquivo)}
+              className="text-cyan-300 hover:underline">Tentar detectar de novo</button>
+          )}
+        </div>
+      )}
+
+      {camposVisiveis && (
+        <>
+          <p className="text-[11px] text-white/45 leading-relaxed">
+            <FileText size={11} className="inline mr-1 -mt-0.5" /> Texto extraído via <code className="text-cyan-300">mammoth</code> e estruturado pela IA conforme o spec. Vira <strong>rascunho</strong> pra revisão e auditoria.
+          </p>
+          <button disabled={importando || detectando || !comp} onClick={importar}
+            className="w-full py-2.5 rounded-xl font-bold text-sm text-[#06172C] disabled:opacity-40"
+            style={{ background: 'linear-gradient(135deg,#34c5cc,#0D9488)' }}>
+            {importando ? 'Processando…' : 'Importar e estruturar'}
+          </button>
+        </>
+      )}
     </Modal>
   );
 }
