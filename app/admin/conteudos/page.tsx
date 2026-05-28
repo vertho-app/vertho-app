@@ -8,6 +8,7 @@ import {
   importarVideosBunny, listarConteudos, atualizarConteudo,
   deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA, loadOpcoesGerar, uploadConteudo,
 } from '@/actions/conteudos';
+import { useAdminShell } from '@/app/admin/_shell/AdminShellContext';
 
 const FORMAT_ICONS = {
   video: Video, audio: Headphones, texto: FileText, case: BookOpen, pdf: FileType,
@@ -22,6 +23,7 @@ function isUnclassified(value: any) {
 
 export default function ConteudosAdminPage() {
   const t = useTranslations('AdminContent');
+  const { empresaFiltro } = useAdminShell();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterFormato, setFilterFormato] = useState('');
@@ -323,7 +325,7 @@ export default function ConteudosAdminPage() {
                 }
               } else {
                 // lote no client: descobre descritores e itera 1 por 1
-                const opcoes = await loadOpcoesGerar();
+                const opcoes = await loadOpcoesGerar(empresaFiltro);
                 const comp = opcoes.competencias.find(c => c.nome === params.competencia);
                 const descritores = comp?.descritores || [];
                 if (descritores.length === 0) {
@@ -386,7 +388,8 @@ function EditModal({ conteudo, onClose, onSave }) {
   });
   const [opcoes, setOpcoes] = useState({ competencias: [], cargos: [] });
 
-  useEffect(() => { loadOpcoesGerar().then(setOpcoes); }, []);
+  const { empresaFiltro } = useAdminShell();
+  useEffect(() => { loadOpcoesGerar(empresaFiltro).then(setOpcoes); }, [empresaFiltro]);
 
   const compSel = opcoes.competencias.find(c => c.nome === form.competencia);
   const descritoresDisp = compSel?.descritores || [];
@@ -538,7 +541,8 @@ function UploadModal({ onClose, onSave, busy }) {
   const [opcoes, setOpcoes] = useState({ competencias: [], cargos: [] });
   const [competencia, setCompetencia] = useState('');
 
-  useEffect(() => { loadOpcoesGerar().then(setOpcoes); }, []);
+  const { empresaFiltro } = useAdminShell();
+  useEffect(() => { loadOpcoesGerar(empresaFiltro).then(setOpcoes); }, [empresaFiltro]);
 
   const precisaArquivo = formato === 'audio' || formato === 'pdf';
   const descritoresDisp = opcoes.competencias.find(c => c.nome === competencia)?.descritores || [];

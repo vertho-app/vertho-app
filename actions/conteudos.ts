@@ -315,13 +315,22 @@ export async function gerarConteudoLote({
 /**
  * Lista competências disponíveis (com descritores cadastrados) e cargos distintos
  * — usado para popular dropdowns no modal de geração.
+ *
+ * @param empresaId Filtra `competencias` por empresa (cargos também). Quando
+ * null/undefined/'all' mostra tudo (visão global). `competencias_base` é o
+ * catálogo canônico Vertho — sempre incluído, não filtrado.
  */
-export async function loadOpcoesGerar() {
+export async function loadOpcoesGerar(empresaId?: string | null) {
   try {
     const sb = await requireAdminSupabase();
-    const { data: comps } = await sb.from('competencias')
+    const empresaUuid = empresaId && empresaId !== 'all' ? empresaId : null;
+
+    let compsQuery = sb.from('competencias')
       .select('nome, nome_curto, cargo')
       .not('nome_curto', 'is', null);
+    if (empresaUuid) compsQuery = compsQuery.eq('empresa_id', empresaUuid);
+    const { data: comps } = await compsQuery;
+
     const { data: baseComps } = await sb.from('competencias_base')
       .select('nome, nome_curto')
       .not('nome_curto', 'is', null);
@@ -339,6 +348,8 @@ export async function loadOpcoesGerar() {
       descritores: ([...mapa[nome]] as string[]).sort(),
     }));
 
+    // Cargos distintos — só da empresa filtrada (competencias_base não tem cargo
+    // associado a empresa real, então não entram aqui pra evitar confusão).
     const cargos = [...new Set((comps || []).map(c => c.cargo).filter(Boolean))].sort();
 
     return { competencias, cargos };
