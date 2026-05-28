@@ -541,14 +541,16 @@ export async function gerarConteudoFinal(id: string) {
     // Capa: fundo gerado por GPT Image, reusado se já existir (evita regerar
     // a cada clique). Falha NUNCA quebra o PDF — cai no fundo vetorial.
     let coverBase64: string | null = null;
+    let coverErro: string | null = null;
     const coverPath = `final/covers/${c.id}.png`;
     try {
       const { data: existente } = await sb.storage.from('conteudos').download(coverPath);
-      if (existente) {
-        const buf = Buffer.from(await existente.arrayBuffer());
+      const buf = existente ? Buffer.from(await existente.arrayBuffer()) : null;
+      // Só reusa cache se for um PNG válido (não-vazio); senão regenera.
+      if (buf && buf.length > 1024) {
         coverBase64 = `data:image/png;base64,${buf.toString('base64')}`;
       } else {
-        throw new Error('cover ausente');
+        throw new Error('cover ausente ou vazio');
       }
     } catch {
       try {
@@ -558,7 +560,8 @@ export async function gerarConteudoFinal(id: string) {
         await sb.storage.from('conteudos').upload(coverPath, imgBuf, { contentType: 'image/png', upsert: true });
         coverBase64 = `data:image/png;base64,${imgBuf.toString('base64')}`;
       } catch (e: any) {
-        console.warn('[gerarConteudoFinal] capa GPT Image falhou (usando fallback vetorial):', e?.message);
+        coverErro = e?.message || 'erro desconhecido';
+        console.warn('[gerarConteudoFinal] capa GPT Image falhou (usando fallback vetorial):', coverErro);
       }
     }
 
@@ -586,9 +589,55 @@ export async function gerarConteudoFinal(id: string) {
       .eq('id', id);
     if (updErr) return { success: false, error: updErr.message };
 
-    return { success: true, url: publicUrl, message: `PDF final gerado para "${c.titulo}"` };
+    return {
+      success: true,
+      url: publicUrl,
+      message: `PDF final gerado para "${c.titulo}"`,
+      coverGerada: Boolean(coverBase64),
+      coverErro,
+    };
   } catch (err) {
     console.error('[gerarConteudoFinal]', err);
+    return { success: false, error: err?.message || 'Erro' };
+  }
+}
+
+/**
+ * Exclui SÓ o PDF final gerado (e a capa GPT Image) do Storage e limpa
+ * url/storage_path na linha — sem apagar o conteúdo/roteiro. Permite regerar
+ * do zero (próxima geração cria capa nova). Guard: só mexe em paths sob
+ * `final/` pra nunca apagar uploads manuais (formato pdf/áudio).
+ */
+export async function excluirConteudoFinal(id: string) {
+  try {
+    const sb = await requireAdminSupabase();
+    if (!id) return { success: false, error: 'id obrigatório' };
+
+    const { data: c } = await sb.from('micro_conteudos')
+      .select('id, storage_path, url').eq('id', id).maybeSingle();
+    if (!c) return { success: false, error: 'Conteúdo não encontrado' };
+
+    // Prefixos de artefatos gerados pela plataforma (PDF final premium + PDFs
+    // auto-gerados de texto/case). NUNCA toca em uploads manuais (pdf/, audio/).
+    const prefixosGerados = ['final/', 'texto/', 'case/'];
+    const ehGerado = (p?: string | null) => !!p && prefixosGerados.some(pre => p.startsWith(pre));
+
+    const aRemover: string[] = [];
+    if (ehGerado(c.storage_path)) aRemover.push(c.storage_path!);
+    aRemover.push(`final/covers/${id}.png`); // capa (idempotente se não existir)
+
+    const { error: rmErr } = await sb.storage.from('conteudos').remove(aRemover);
+    if (rmErr) console.warn('[excluirConteudoFinal] remove storage:', rmErr.message);
+
+    if (ehGerado(c.storage_path)) {
+      const { error: updErr } = await sb.from('micro_conteudos')
+        .update({ url: null, storage_path: null }).eq('id', id);
+      if (updErr) return { success: false, error: updErr.message };
+    }
+
+    return { success: true, message: 'PDF final excluído' };
+  } catch (err) {
+    console.error('[excluirConteudoFinal]', err);
     return { success: false, error: err?.message || 'Erro' };
   }
 }

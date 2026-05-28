@@ -37,17 +37,30 @@ export async function generateCoverImage(tema?: string | null): Promise<Buffer> 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error('OPENAI_API_KEY not set');
 
-  const res = await fetch(IMAGE_API, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: MODEL,
-      prompt: buildCoverPrompt(tema),
-      size: '1024x1536', // retrato ~2:3 (próximo de A4)
-      quality: 'medium',
-      n: 1,
-    }),
-  });
+  // gpt-image-1 (quality medium) costuma levar 20-60s. Aborta limpo em 110s
+  // pra dar uma mensagem de erro clara em vez de a função serverless ser morta.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 110_000);
+  let res: Response;
+  try {
+    res = await fetch(IMAGE_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: MODEL,
+        prompt: buildCoverPrompt(tema),
+        size: '1024x1536', // retrato ~2:3 (próximo de A4)
+        quality: 'medium',
+        n: 1,
+      }),
+      signal: ctrl.signal,
+    });
+  } catch (e: any) {
+    if (e?.name === 'AbortError') throw new Error('OpenAI image: timeout (110s)');
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (!res.ok) {
     const detail = await res.text();

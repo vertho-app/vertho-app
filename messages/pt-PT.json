@@ -1760,6 +1760,9 @@
       "importBunny": "Importar do Bunny",
       "suggestAi": "Sugerir tags com IA",
       "generateFinal": "Gerar PDF final",
+      "openFinal": "Abrir PDF final",
+      "regenerateFinal": "Regerar PDF final",
+      "deleteFinal": "Eliminar PDF final",
       "edit": "Editar",
       "delete": "Deletar",
       "save": "Guardar",
@@ -1843,7 +1846,8 @@
       "recordingWarning": "Roteiro pronto para gravação. Conteúdo foi guardado como <strong>inativo</strong> — edite e cole o URL final do Bunny/Storage depois de gravar para ativar."
     },
     "confirm": {
-      "delete": "Deletar \"{title}\"?"
+      "delete": "Deletar \"{title}\"?",
+      "deleteFinal": "Eliminar o PDF final de \"{title}\"? O conteúdo/guião é mantido — pode regerar depois."
     },
     "logs": {
       "importingBunny": "A importar vídeos do Bunny Stream...",
@@ -1854,6 +1858,8 @@
       "updated": "Atualizado",
       "deleted": "Deletado",
       "generatingFinal": "A gerar PDF final de \"{title}\"...",
+      "finalDeleted": "PDF final eliminado",
+      "finalNoCover": "PDF gerado, mas SEM capa de IA (usou fundo vetorial). Motivo: {reason}. Tente regerar.",
       "generatingSingle": "A gerar {format} para \"{descriptor}\"...",
       "noDescriptors": "Nenhum descritor para \"{competency}\"",
       "batchWillGenerate": "Vai gerar {count} {format}(s) para \"{competency}\"",

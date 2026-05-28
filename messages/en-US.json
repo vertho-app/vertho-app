@@ -1760,6 +1760,9 @@
       "importBunny": "Import from Bunny",
       "suggestAi": "Suggest tags with AI",
       "generateFinal": "Generate final PDF",
+      "openFinal": "Open final PDF",
+      "regenerateFinal": "Regenerate final PDF",
+      "deleteFinal": "Delete final PDF",
       "edit": "Edit",
       "delete": "Delete",
       "save": "Save",
@@ -1843,7 +1846,8 @@
       "recordingWarning": "Script ready for recording. Content was saved as <strong>inactive</strong> — edit and paste the final Bunny/Storage URL after saving to activate."
     },
     "confirm": {
-      "delete": "Delete \"{title}\"?"
+      "delete": "Delete \"{title}\"?",
+      "deleteFinal": "Delete the final PDF for \"{title}\"? The content/script is kept — you can regenerate it later."
     },
     "logs": {
       "importingBunny": "Importing videos from Bunny Stream...",
@@ -1854,6 +1858,8 @@
       "updated": "Updated",
       "deleted": "Deleted",
       "generatingFinal": "Generating final PDF for \"{title}\"...",
+      "finalDeleted": "Final PDF deleted",
+      "finalNoCover": "PDF generated, but WITHOUT AI cover (used vector background). Reason: {reason}. Try regenerating.",
       "generatingSingle": "Generating {format} to \"{descriptor}\"...",
       "noDescriptors": "No descriptor for \"{competency}\"",
       "batchWillGenerate": "It will generate {count} {format}(s) for \"{competency}\"",
