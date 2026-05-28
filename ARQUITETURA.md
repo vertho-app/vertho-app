@@ -59,7 +59,7 @@
 
 Contexto rapido para reinicializacao da maquina:
 
-- Branch atual: `master`, HEAD `7108803`. Migrations 022-117 aplicadas em prod.
+- Branch atual: `master`, HEAD `c182d23`. Migrations 022-121 aplicadas em prod (103 arquivos com gaps de numeração).
 - **Frentes 27/05** (sessao de UX + qualidade):
   - **Video de instrucoes no mapeamento** — capa clicavel (thumbnail Bunny) na tela de instrucoes do DISC abre o `VideoModal` (lib 636615, guid `e235d703-…`) com tracking de view por colaborador. Endpoint `/api/bunny-thumb` passou a resolver `thumbnailFileName` (thumbnails customizados ganham nome com hash, nao `thumbnail.jpg`).
   - **Botao "Voltar" padronizado** — `components/back-button.tsx` no topo-direito, substituindo botoes inline inconsistentes em ~55 telas (dashboard + admin).
@@ -81,7 +81,7 @@ Contexto rapido para reinicializacao da maquina:
 
 ---
 
-## 2. Estrutura de Pastas (~378 arquivos TS/TSX + ~58 .js/.mjs em scripts, tests e configs)
+## 2. Estrutura de Pastas (~429 arquivos TS/TSX + ~72 .js/.mjs em scripts, tests e configs)
 
 ```
 nextjs-app/
@@ -711,7 +711,7 @@ Tabelas: trilhas, colaboradores, temporada_semana_progresso
 
 ---
 
-## 8. Modelagem de Dados (98 arquivos SQL — 022 a 117)
+## 8. Modelagem de Dados (103 arquivos SQL — 022 a 121, com gaps)
 
 ### Migrations 022-051 (core Mentor IA)
 Multi-tenant + Fit v2 + Temporadas + Tira-Duvidas + RAG (knowledge_base, pgvector 1024d) + Capacitacao + Relatorios.
@@ -774,13 +774,17 @@ Multi-tenant + Fit v2 + Temporadas + Tira-Duvidas + RAG (knowledge_base, pgvecto
 - **110** — tabelas serving BR: `radarempresas_cidades_agg`, `radarempresas_funil_agg` (agregados < 100 MB)
 - **111** — colunas TAM em `cidades_agg` (base do "Potencial por Cidade")
 
-### Migrations 112-117 (auth, RLS, i18n, Radar, auditoria, permissoes)
+### Migrations 112-121 (auth, RLS, i18n, auditoria, permissoes, pulse RLS, en-US, idempotencia, FKs)
 - **112** — login WhatsApp OTP: `colaboradores.login_por_whatsapp` + tabela `colab_otp` (code hash, TTL 10min, attempts). Seção 22.
 - **113** — fecha RLS public (alerta Supabase): policies reais por tenant + funcoes SECURITY DEFINER + tranca residual. Ver 3.3.
 - **114** — i18n: `empresas.default_locale` (default pt-BR, CHECK) + `colaboradores.locale` (nullable). Seção 20.
 - **115** — `diag_censo_infra.matriculas` (QT_MAT_BAS) — total de matriculas na ficha da escola do Radar
 - **116** — `admin_audit_log` (admin_email, acao, empresa_id, alvo, detalhes JSONB, resultado, ip, user_agent). Seção 21.
 - **117** — `permission_overrides` (scope role|user, effect allow|deny, reason auditavel). Seção 21.
+- **118** — `pulse-lock-rls`: trava RLS das tabelas do Pulso.
+- **119** — `i18n-en-us`: habilita en-US como locale suportado.
+- **120** — `fase4_envios.ultima_evidencia_em`: idempotencia do `triggerQuinta` (lote 1 da auditoria 25/05).
+- **121** — FKs faltantes em `votacao_competencias`.
 
 ### Dados Transacionais
 ```
@@ -1410,5 +1414,5 @@ Helpers em `lib/phone-otp.ts` (`proxyEmailFromPhone`, `isProxyEmail`, `issueOtp`
 ---
 
 *Documento validado contra o codigo-fonte local em 25/05/2026.*
-*~420 arquivos TS/TSX + ~70 JS/MJS/Python | 98 arquivos SQL (022-117) | 28+ arquivos de teste | vertho.ai*
+*~429 arquivos TS/TSX + ~72 JS/MJS | 103 arquivos SQL (022-121) | 38 arquivos de teste (21 vitest + 17 playwright) | vertho.ai*
 *Revisao: 25/05/2026 (HEAD `2730cd7` — RadarEmpresas + i18n + auditoria/permissões + OTP WhatsApp + hardening RLS)*

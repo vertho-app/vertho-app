@@ -69,7 +69,7 @@ $env:SMOKE_EMAIL="..."; $env:SMOKE_PASS="..."; $env:PLAYWRIGHT_BASE_URL="https:/
 
 ## Banco e migrations
 
-- Migrations atuais: `022` ate `117` (117 = matriz de permissoes).
+- Migrations atuais: `022` ate `121` (103 arquivos com gaps; ultimas: 118 pulse-lock-rls, 119 i18n-en-us, 120 fase4 idempotencia, 121 FKs votacao).
 - Ultimas frentes:
   - `090-092`: Modo Onboarding (sys_config, multi-competencia, tutorados_ids).
   - `093-095`: Mercado Potencial (MVs, INSE proxy, idade-corte flexivel).

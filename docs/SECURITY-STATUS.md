@@ -41,7 +41,7 @@
 - Mascaramento de PII aplicado nos fluxos de chat (reflection, evaluation, tira-duvidas) e relatorios (gestor, acumulada, sem14 scorer). Nao auditado exaustivamente em todas as chamadas IA — fluxos batch (fase1, fase5, conteudos, simuladores) nao passam por PII masking
 
 ### CI guard (P2)
-- `config/service-role-allowlist.json`: 88 arquivos com contagem
+- `config/service-role-allowlist.json`: 91 arquivos com contagem (168 usos esperados)
 - Testes vitest bloqueiam:
   - Arquivo novo com createSupabaseAdmin fora da allowlist
   - Contagem aumentada em arquivo ja permitido
@@ -55,7 +55,8 @@
 - `migrations-legacy/` removido (37 arquivos SQL de migracoes antigas)
 - Script npm `migrate:legacy` removido
 
-### service_role (88 arquivos de codigo + 10 arquivos de teste)
+### service_role (91 arquivos allowlistados — 168 usos esperados)
+- Breakdown abaixo (34 + 29 + ~17 = 80) e' do snapshot de 2026-04-17; a allowlist cresceu para 91 desde entao (Pulso, RadarEmpresas, frentes recentes). Os percentuais devem se manter na mesma ordem; quando passar pela proxima auditoria, atualizar.
 - **34** usos aceitaveis (infra, jobs, webhooks, admin protegido)
 - **29** candidatos a migracao para user-scoped (quando RLS estiver pronta)
 - **~17** complexos demais pra migrar sem RLS policies completas + testes
@@ -97,10 +98,10 @@ Prerequisito para migracao real: RLS policies por tabela + testes de enforcement
 - `capacitacao`: formalizado via migration 049 (codigo tratava ausencia com try/catch)
 - Divergencias conhecidas e aceitas: colaborador_id nullable, FKs ausentes, indice duplicado
 - Processo anti-drift: `docs/SCHEMA-PROCESS.md`
-- Total: 30 migrations (022-051)
+- Total na epoca desta secao (2026-04-17): 30 migrations (022-051). **Atualmente: 103 (022-121, com gaps)** — ver `ARQUITETURA.md` secao 8.
 
 ### Cobertura de testes
-- **243 testes vitest** (17 arquivos)
+- **297 testes vitest** (21 arquivos) + 17 specs Playwright (E2E)
 - Mix de comportamental (handlers reais mockados) e estrutural (presenca de guards no codigo)
 - Testes comportamentais: ~20 (rotas + actions)
 - Testes estruturais: ~85 (string matching — complementares, nao substituem comportamental)
