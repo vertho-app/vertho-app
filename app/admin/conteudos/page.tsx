@@ -227,7 +227,21 @@ export default function ConteudosAdminPage() {
                   return (
                     <tr key={c.id} className="hover:bg-white/[0.02]">
                       <td className="px-3 py-2">
-                        <Icon size={16} style={{ color: FORMAT_COLORS[c.formato] }} />
+                        <button
+                          onClick={() => {
+                            if (!c.conteudo_inline) return;
+                            setRoteiroGerado({
+                              titulo: c.titulo,
+                              formato: c.formato,
+                              roteiro: c.conteudo_inline,
+                              precisaGravar: c.formato === 'video' || c.formato === 'audio',
+                            });
+                          }}
+                          disabled={!c.conteudo_inline}
+                          title={c.conteudo_inline ? 'Visualizar conteúdo' : 'Sem texto inline pra visualizar'}
+                          className="p-1 rounded hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                          <Icon size={16} style={{ color: FORMAT_COLORS[c.formato] }} />
+                        </button>
                       </td>
                       <td className="px-3 py-2 text-xs text-white max-w-xs truncate">{c.titulo}</td>
                       <td className="px-3 py-2 text-xs">
