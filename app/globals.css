@@ -150,6 +150,14 @@ body {
   --radius-lg:  24px;
 }
 
+/* Dropdown <option> em selects: o browser ignora bg/color do <select> nos
+   <option> e usa branco padrão do OS. Forçamos tema escuro consistente
+   (alinhado ao fundo navy do app). */
+select option {
+  background-color: #0f1a33;
+  color: #ffffff;
+}
+
 /* Phase accent overrides */
 [data-phase="1"] { --phase-accent:#9ae2e6; --phase-deep:#0a1a33; --phase-glow:rgba(154,226,230,0.22); }
 [data-phase="2"] { --phase-accent:#34c5cc; --phase-deep:#06202a; --phase-glow:rgba(52,197,204,0.24); }
