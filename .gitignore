@@ -11,6 +11,12 @@
 # testing
 /coverage
 
+# GCP service-account keys (NUNCA comitar)
+trigger-key.json
+scripts/trigger-key.json
+*-sa-key.json
+gcp-*.json
+
 # next.js
 /.next/
 /out/
