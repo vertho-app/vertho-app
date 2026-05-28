@@ -1,8 +1,12 @@
 # Módulos-Base de Conteúdo — Spec
 
-> Status: **proposta consolidada** (frente 1 de 3 — frente 2: schema + admin; frente 3: integração com o engine).
+> Status: **3 frentes entregues** (1 spec, 2 schema+admin, 3 integração engine).
 >
 > Última revisão: 2026-05-28.
+>
+> - Frente 1 (spec): `ce653ee`. Template copy-fill: `0634873`.
+> - Frente 2 (schema migration 122 + admin Vertho + IA-as-autor + import docx): `cb921d0`.
+> - Frente 3 (engine consome via `lib/season-engine/modulo-base-integration.ts`): este arquivo.
 
 ## Pra que serve
 
@@ -265,7 +269,8 @@ Pra cada conteúdo a gerar `(colab, semana, competencia_foco, formato, locale)`:
 
 ---
 
-## Próximas frentes (depois deste spec)
+## Frentes entregues
 
-- **Frente 2 — schema + admin**: tabela `modulos_base_conteudo` (platform-level) + CRUD em `/admin/vertho/modulos-base` + action `rascunharModuloBase`.
-- **Frente 3 — integração com o engine**: modificar prompts em `lib/season-engine/prompts/` pra consumir módulo-base quando existir (com fallback ao comportamento atual).
+- **Frente 1** — spec consolidada (este arquivo) + template copy-fill (`TEMPLATE-MODULO-BASE.md`).
+- **Frente 2** — migration 122 (`modulos_base_conteudo`, ENUMs, índices, RLS), admin Vertho-only (`/admin/vertho/modulos-base` lista+form, modais "Rascunhar com IA" e "Importar .docx" via `mammoth`), `actions/modulos-base.ts` (CRUD + workflow com bloqueio criador≠aprovador + i18n + `rascunharModuloBase` + `importarModuloDocx`), task `modulo_base_autor` no `ai-tasks`.
+- **Frente 3** — integração com o engine via `lib/season-engine/modulo-base-integration.ts`: `actions/conteudos.ts::gerarConteudoIA` resolve módulo publicado em `(competência canônica, transição N→N derivada de nivelMin, locale)` e enriquece system+user com seções canônicas (ideia, princípios, guarda-corpos, exemplos, repertório, situações, boas práticas, adaptação por formato). Fallback transparente: sem módulo OU erro no resolver, o engine cai pro comportamento anterior. Telemetria logada com critério da escolha (`preferido`, `contexto-match`, `fallback-locale`, `desempate-em-N`).

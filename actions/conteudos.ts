@@ -6,6 +6,7 @@ import { promptPodcastScript } from '@/lib/season-engine/prompts/podcast-script'
 import { promptTextContent } from '@/lib/season-engine/prompts/text-content';
 import { promptCaseStudy } from '@/lib/season-engine/prompts/case-study';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { resolverModuloBaseParaConteudo, enriquecerPromptComModuloBase } from '@/lib/season-engine/modulo-base-integration';
 
 /**
  * Gera conteúdo (roteiro ou texto) via IA e salva em micro_conteudos.
@@ -55,7 +56,31 @@ export async function gerarConteudoIA({
     const build = builders[formato];
     if (!build) return { success: false, error: `formato ${formato} não suportado` };
 
-    const { system, user } = build(args);
+    let { system, user } = build(args);
+
+    // ── Integração Módulos-Base (frente 3) ──────────────────────────────────
+    // Resolve módulo-base publicado pra (competência, transição de nível, locale).
+    // Se existir, enriquece system+user com seções canônicas (ideia/princípios/
+    // guarda-corpos/exemplos/repertório). Sem módulo → fallback transparente
+    // pro comportamento atual.
+    let moduloUsado: any = null;
+    try {
+      const escolhido = await resolverModuloBaseParaConteudo(sb, {
+        competenciaNome: competencia,
+        nivelMin,
+        locale: (aiConfig as any)?.locale,
+        contexto_pedagogico: contexto,
+      });
+      if (escolhido) {
+        ({ system, user } = enriquecerPromptComModuloBase({ system, user }, escolhido.modulo, formato));
+        moduloUsado = { id: escolhido.modulo.id, grupo_id: escolhido.modulo.grupo_id, locale: escolhido.modulo.locale, criterio: escolhido.criterio };
+        console.log(`[gerarConteudoIA] módulo-base aplicado: ${moduloUsado.id} (${moduloUsado.locale}) · critério: ${moduloUsado.criterio}`);
+      }
+    } catch (e: any) {
+      // Falha do enrichment NUNCA quebra a geração — só loga e segue sem módulo.
+      console.warn('[gerarConteudoIA] enrichment falhou (seguindo sem módulo-base):', e?.message);
+    }
+
     // Usa modelo configurado por tarefa (fallback: modelo padrão da empresa → default)
     const { getModelForTask } = await import('@/lib/ai-tasks');
     const taskKey = formato === 'video' ? 'conteudo_video'
@@ -121,12 +146,13 @@ export async function gerarConteudoIA({
 
     return {
       success: true,
-      message: `${formato} gerado: "${novo.titulo}"${pdfUrl ? ' (PDF criado)' : ''}`,
+      message: `${formato} gerado: "${novo.titulo}"${pdfUrl ? ' (PDF criado)' : ''}${moduloUsado ? ' · módulo-base aplicado' : ''}`,
       conteudoId: novo.id,
       titulo: novo.titulo,
       roteiro: conteudoGerado,
       pdfUrl,
       precisaGravar: formato === 'video' || formato === 'audio',
+      moduloBase: moduloUsado,
     };
   } catch (err) {
     console.error('[gerarConteudoIA]', err);
