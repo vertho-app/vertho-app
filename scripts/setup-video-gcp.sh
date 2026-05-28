@@ -63,8 +63,12 @@ gcloud artifacts repositories create "$REPO" \
   --repository-format=docker --location="$REGION" \
   --description="Vertho video render" 2>/dev/null || echo "    (repo já existe)"
 
-echo "==> Build da imagem ($IMG)..."
-gcloud builds submit --tag "$IMG" "$BUILD_CTX"
+if [ "${SKIP_BUILD:-0}" = "1" ]; then
+  echo "==> SKIP_BUILD=1: pulando build (assumindo que $IMG já foi enviada)."
+else
+  echo "==> Build da imagem ($IMG)..."
+  gcloud builds submit --tag "$IMG" "$BUILD_CTX"
+fi
 
 # ─── 3. Segredos ─────────────────────────────────────────────────────────────
 put_secret() {
