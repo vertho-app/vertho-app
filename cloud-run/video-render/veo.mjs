@@ -23,6 +23,7 @@
 const META = 'http://metadata.google.internal/computeMetadata/v1';
 const MODEL = process.env.VEO_MODEL || 'veo-3.1-fast-generate-001';
 const REGION = process.env.VEO_REGION || 'us-central1';
+const IMAGEN_MODEL = process.env.IMAGEN_MODEL || 'imagen-4.0-generate-001';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -69,12 +70,51 @@ function findVideoB64(obj) {
 }
 
 /**
+ * Gera um retrato de referência da personagem (Imagen na Vertex), p/ ancorar a
+ * identidade nos clipes Veo. Mesma auth (SA via metadata) e cobrança em créditos.
+ * personGeneration:'allow_adult' permite o profissional adulto mas bloqueia menores.
+ * @param {string} prompt prompt do retrato (inglês)
+ * @param {object} opts { aspectRatio }
+ * @returns {Promise<{bytesBase64Encoded:string, mimeType:string}>}
+ */
+export async function generateReferenceImage(prompt, opts = {}) {
+  const { aspectRatio = '3:4' } = opts;
+  if (!prompt?.trim()) throw new Error('imagen prompt vazio');
+
+  const project = await getProjectId();
+  const token = await getAccessToken();
+  const url =
+    `https://${REGION}-aiplatform.googleapis.com/v1/projects/${project}` +
+    `/locations/${REGION}/publishers/google/models/${IMAGEN_MODEL}:predict`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      instances: [{ prompt }],
+      parameters: { sampleCount: 1, aspectRatio, personGeneration: 'allow_adult' },
+    }),
+  });
+  if (!res.ok) throw new Error(`Imagen ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const d = await res.json();
+  const pred = d?.predictions?.[0];
+  const b64 = pred?.bytesBase64Encoded;
+  if (!b64) {
+    if (pred?.raiFilteredReason) throw new Error(`Imagen RAI: ${pred.raiFilteredReason}`);
+    throw new Error('Imagen: resposta sem imagem');
+  }
+  return { bytesBase64Encoded: b64, mimeType: pred?.mimeType || 'image/png' };
+}
+
+/**
  * Gera um clipe Veo (Vertex) e devolve o MP4 como Buffer.
  * @param {string} prompt veo_prompt (inglês)
- * @param {object} opts { aspectRatio, durationSeconds }
+ * @param {object} opts { aspectRatio, durationSeconds, referenceImages }
+ *   referenceImages: array de { bytesBase64Encoded, mimeType } — subject refs
+ *   (até 3) p/ manter a MESMA personagem entre os clipes.
  */
 export async function generateVeoClip(prompt, opts = {}) {
-  const { aspectRatio = '16:9', durationSeconds } = opts;
+  const { aspectRatio = '16:9', durationSeconds, referenceImages } = opts;
   if (!prompt?.trim()) throw new Error('veo prompt vazio');
 
   const project = await getProjectId();
@@ -95,10 +135,20 @@ export async function generateVeoClip(prompt, opts = {}) {
     generateAudio: false,
   };
 
+  // Subject references (até 3) ancoram a MESMA personagem entre clipes —
+  // o Veo não tem memória, então só texto não garante o mesmo rosto.
+  const instance = { prompt };
+  if (Array.isArray(referenceImages) && referenceImages.length) {
+    instance.referenceImages = referenceImages.slice(0, 3).map((r) => ({
+      image: { bytesBase64Encoded: r.bytesBase64Encoded, mimeType: r.mimeType || 'image/png' },
+      referenceType: 'asset',
+    }));
+  }
+
   const startRes = await fetch(`${base}:predictLongRunning`, {
     method: 'POST',
     headers: authHeaders,
-    body: JSON.stringify({ instances: [{ prompt }], parameters }),
+    body: JSON.stringify({ instances: [instance], parameters }),
   });
   if (!startRes.ok) throw new Error(`Veo start ${startRes.status}: ${(await startRes.text()).slice(0, 300)}`);
   const op = await startRes.json();

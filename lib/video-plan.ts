@@ -44,6 +44,7 @@ export interface VideoPlan {
     subtitles: true;
   };
   style_bible: string;
+  character_reference_prompt: string;
   tts: {
     model: string;
     voice: 'Charon';
@@ -89,6 +90,9 @@ O Veo gera cada clipe ISOLADAMENTE, sem memória entre cenas. A continuidade vem
 - Cinematography: realista, premium, editorial. Soft natural light, shallow depth of field, slow stable camera, discreet push-ins/travelling, ritmo calmo e reflexivo.
 - Continuity note: feche reforçando que toda cena pertence ao MESMO vídeo — mesma personagem, mesmo figurino, mesma escola, mesma paleta, mesma luz e mesmo padrão cinematográfico; usar match cuts e transições naturais.
 
+RETRATO DE REFERÊNCIA (character_reference_prompt) — IDENTIDADE FIXA
+Além da bíblia, escreva em INGLÊS um prompt curto para gerar UM retrato fotográfico da personagem principal (Imagen), usado como imagem de referência em TODOS os clipes p/ travar o MESMO rosto/figurino. Descreva: plano meio-corpo (head and shoulders), o profissional adulto da educação (~40-50 anos), o FIGURINO EXATO da bíblia, expressão calma e confiável, luz natural suave, fundo de escola desfocado e neutro, fotográfico realista premium. APENAS essa pessoa adulta sozinha — sem crianças, sem menores, sem outras pessoas, sem texto, sem logo.
+
 CENAS (veo_prompt) — SOMENTE A AÇÃO
 Cada veo_prompt descreve APENAS a ação específica da cena (em INGLÊS): enquadramento/movimento de câmera + o que a MESMA personagem e os objetos recorrentes fazem. NÃO repita figurino, paleta, luz nem restrições (a bíblia já cobre). Referencie "the same director" e os objetos da bíblia. Encadeie as cenas com continuidade (mesmo dia, progressão natural, match cut). 1-2 frases por cena.
 Exemplo: "Medium shot slowly pushing in to a discreet close-up: the director sits at her office desk reviewing printed reports and a laptop with abstract graphics, then makes a small note in her notebook, reflecting before a decision."
@@ -109,6 +113,7 @@ Responda SOMENTE com JSON válido (sem markdown, sem comentários) exatamente ne
   "target_audience": string,
   "format": { "aspect_ratio": "16:9", "resolution": "1280x720", "estimated_duration_seconds": number, "clip_count": number, "clip_length_seconds": number, "voice_over": true, "subtitles": true },
   "style_bible": string (bíblia visual em INGLÊS — personagem fixa, escola, objetos recorrentes, paleta Vertho, cinematografia, nota de continuidade),
+  "character_reference_prompt": string (prompt em INGLÊS p/ o retrato fotográfico da personagem principal — head and shoulders, figurino fixo, fundo de escola desfocado, só o adulto, sem crianças/texto/logo),
   "tts": { "model": "gemini-3.1-flash-tts-preview", "voice": "Charon", "language": "pt-BR", "style_prompt": string, "voiceover_script": string },
   "scenes": [ { "scene_number": number, "duration_seconds": number, "narrative_function": string, "voiceover_excerpt": string, "visual_description": string, "veo_prompt": string, "negative_prompt": "${VEO_NEGATIVE_PROMPT}", "post_production_notes": string } ],
   "editing_instructions": { "remove_veo_audio": true, "main_audio": "Gemini TTS voice-over Charon", "music": string, "transitions": string, "logo_usage": string, "color_grading": string },

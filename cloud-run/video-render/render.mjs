@@ -23,7 +23,7 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { generateVeoClip } from './veo.mjs';
+import { generateVeoClip, generateReferenceImage } from './veo.mjs';
 import { generateVoiceOver } from './tts.mjs';
 
 const BUCKET = 'conteudos';
@@ -193,6 +193,20 @@ async function main() {
 
   const dir = await mkdtemp(join(tmpdir(), 'vrender-'));
   try {
+    // 0) Retrato de referência da personagem (Imagen): subject ref injetado em
+    // TODO clipe p/ travar o mesmo rosto/figurino (Veo não tem memória). Falha
+    // graciosamente — se o Imagen quebrar, segue só com a bíblia em texto.
+    let refImages = null;
+    const refPrompt = (plano.character_reference_prompt || '').trim();
+    if (refPrompt) {
+      try {
+        console.log('[imagen] gerando retrato de referência da personagem...');
+        refImages = [await generateReferenceImage(refPrompt, { aspectRatio: '3:4' })];
+      } catch (e) {
+        console.warn('[imagen] falhou, seguindo sem referência:', String(e?.message).slice(0, 200));
+      }
+    }
+
     // 1) Clipes Veo (sequencial p/ limitar custo/concorrência) + normalização.
     // Resiliência ao RAI: se o filtro de conteúdo bloquear um clipe, tenta um
     // fallback b-roll SEM pessoas (o RAI é agressivo com humanos em escola por
@@ -214,7 +228,7 @@ async function main() {
 
       let clip = null;
       try {
-        clip = await generateVeoClip(prompt, { aspectRatio: '16:9', durationSeconds: s.duration_seconds });
+        clip = await generateVeoClip(prompt, { aspectRatio: '16:9', durationSeconds: s.duration_seconds, referenceImages: refImages });
       } catch (e) {
         if (!/RAI/i.test(String(e?.message))) throw e;
         // Fallback sem crianças: o RAI bloqueia b-roll escolar por causa de
@@ -229,7 +243,7 @@ async function main() {
         safeParts.push(`Avoid: ${s.negative_prompt || ''} No children, no minors, no students, no teenagers, no babies.`);
         const safePrompt = safeParts.join('\n\n');
         try {
-          clip = await generateVeoClip(safePrompt, { aspectRatio: '16:9', durationSeconds: s.duration_seconds });
+          clip = await generateVeoClip(safePrompt, { aspectRatio: '16:9', durationSeconds: s.duration_seconds, referenceImages: refImages });
         } catch (e2) {
           if (!/RAI/i.test(String(e2?.message))) throw e2;
           console.warn(`[veo] cena ${n} bloqueada de novo; pulando`);
