@@ -14,14 +14,14 @@
  * pode rodar em southamerica-east1 e chamar a Vertex em us-central1 (cross-region).
  *
  * Env:
- *   VEO_MODEL       default veo-3.1-fast-generate-preview (Vertex; não tem "lite")
+ *   VEO_MODEL       default veo-3.1-fast-generate-001 (Vertex GA; preview exige allowlist)
  *   VEO_REGION      default us-central1 (região da Vertex p/ Veo)
  *   VEO_RESOLUTION  default 720p
  *   GCP_PROJECT_ID  opcional (senão lê do metadata server)
  */
 
 const META = 'http://metadata.google.internal/computeMetadata/v1';
-const MODEL = process.env.VEO_MODEL || 'veo-3.1-fast-generate-preview';
+const MODEL = process.env.VEO_MODEL || 'veo-3.1-fast-generate-001';
 const REGION = process.env.VEO_REGION || 'us-central1';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
