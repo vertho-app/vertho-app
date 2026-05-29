@@ -79,6 +79,9 @@ async function main() {
   const plano = JSON.parse(Buffer.from(await planoFile.arrayBuffer()).toString('utf8'));
   const scenes = plano.scenes || [];
   if (!scenes.length) throw new Error('plano sem cenas');
+  // Bíblia visual do vídeo: injetada LITERAL em todo clipe p/ dar continuidade
+  // (mesma personagem/cenário/paleta/câmera) — o Veo não tem memória entre clipes.
+  const bible = (plano.style_bible || '').trim();
 
   const dir = await mkdtemp(join(tmpdir(), 'vrender-'));
   try {
@@ -87,10 +90,13 @@ async function main() {
     for (const s of scenes) {
       const n = String(s.scene_number).padStart(2, '0');
       console.log(`[veo] cena ${n}/${scenes.length}: ${s.narrative_function || ''}`);
-      // O modelo preview não aceita negativePrompt; embutimos como "Avoid:".
-      const prompt = s.negative_prompt
-        ? `${s.veo_prompt}\n\nAvoid: ${s.negative_prompt}`
-        : s.veo_prompt;
+      // Prompt = bíblia visual + ação da cena + continuidade (literal) + restrições.
+      const parts = [];
+      if (bible) parts.push(bible);
+      parts.push(`Shot for this scene: ${s.veo_prompt}`);
+      parts.push('Continuity: same character, same wardrobe, same school, same day, same color palette and the same cinematographic standard as every other shot in this video. It must read as one continuous film, not disconnected clips.');
+      if (s.negative_prompt) parts.push(`Avoid: ${s.negative_prompt}`);
+      const prompt = parts.join('\n\n');
       const clip = await generateVeoClip(prompt, {
         aspectRatio: '16:9',
         durationSeconds: s.duration_seconds,
