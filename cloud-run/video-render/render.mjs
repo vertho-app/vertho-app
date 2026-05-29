@@ -287,7 +287,8 @@ async function main() {
     const out = join(dir, 'out.mp4');
     const fadeOutV = Math.max(0, voDur - 1.0);
     const fadeOutA = Math.max(0, voDur - 1.2);
-    // Estende o vídeo (clona último frame) até cobrir o voice-over; -shortest corta no áudio.
+    // Estende o vídeo (clona último frame) até cobrir o voice-over; o corte
+    // exato vem do -t voDur na saída (-shortest é não-confiável com filter_complex).
     // Legenda ANTES dos fades p/ desaparecer junto na abertura/fechamento.
     let vChain = `[0:v]tpad=stop_mode=clone:stop_duration=600${subsFilter},fade=t=in:st=0:d=0.8,fade=t=out:st=${fadeOutV.toFixed(2)}:d=1.0[vb]`;
     const aChain = `[1:a]afade=t=in:st=0:d=0.6,afade=t=out:st=${fadeOutA.toFixed(2)}:d=1.2[a]`;
@@ -301,7 +302,7 @@ async function main() {
     }
     const filter = `${vChain};${aChain}`;
     args.push('-filter_complex', filter, '-map', lastV, '-map', '[a]',
-      '-shortest', '-r', String(FPS), '-c:v', 'libx264', '-preset', 'medium', '-crf', '20',
+      '-t', voDur.toFixed(2), '-r', String(FPS), '-c:v', 'libx264', '-preset', 'medium', '-crf', '20',
       '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', out);
     console.log('[ffmpeg] montagem final...');
     await run('ffmpeg', args);
