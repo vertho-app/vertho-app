@@ -16,6 +16,14 @@ const MODEL = process.env.VEO_MODEL || 'veo-3.1-lite-generate-preview';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** Veo 3.1 só aceita durationSeconds "4" | "6" | "8" (string). Arredonda. */
+function clampDuration(sec) {
+  const n = Number(sec) || 6;
+  const allowed = [4, 6, 8];
+  const best = allowed.reduce((a, b) => (Math.abs(b - n) < Math.abs(a - n) ? b : a));
+  return String(best);
+}
+
 /** Procura recursivamente por uma URI de vídeo (campo .uri) ou bytes base64. */
 function findVideo(obj) {
   if (!obj || typeof obj !== 'object') return null;
@@ -46,10 +54,14 @@ export async function generateVeoClip(apiKey, prompt, opts = {}) {
   if (!apiKey) throw new Error('GEMINI_API_KEY not set');
   if (!prompt?.trim()) throw new Error('veo prompt vazio');
 
-  // personGeneration: 'allow_adult' dá 400 nesse preview — omitimos (usa default).
-  const parameters = { aspectRatio };
-  if (durationSeconds) parameters.durationSeconds = durationSeconds;
-  if (process.env.VEO_RESOLUTION) parameters.resolution = process.env.VEO_RESOLUTION; // ex: "720p"
+  // text-to-video no 3.1/Lite: personGeneration só aceita 'allow_all'.
+  // durationSeconds: string "4" | "6" | "8". resolution default 720p.
+  const parameters = {
+    aspectRatio,
+    personGeneration: 'allow_all',
+    durationSeconds: clampDuration(durationSeconds),
+    resolution: process.env.VEO_RESOLUTION || '720p',
+  };
 
   const startRes = await fetch(`${BASE}/models/${MODEL}:predictLongRunning?key=${apiKey}`, {
     method: 'POST',
