@@ -15,16 +15,30 @@ const MODEL = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2';
  * esquerda como navy calmo pro título ficar legível; a cena vive à direita.
  * @param tema competência + descritor do conteúdo (guia a metáfora).
  */
+/** Famílias de tratamento visual — sorteadas a cada geração p/ forçar variedade
+ *  (mesmo tema/competência não converge sempre pra mesma imagem). */
+const COVER_TREATMENTS = [
+  'abstract architectural forms — arches, layered walls, doorways, staircases — with strong depth and perspective',
+  'a natural landscape element (mountains, ocean, sky, canyon, dunes, forest) interpreted cinematically',
+  'a single symbolic 3D object resting on a clean reflective surface, studio-lit',
+  'flowing light trails, particles and luminous energy across dark negative space',
+  'abstract geometric / network / data-inspired forms — nodes, lattices, waves, fragments',
+  'an atmospheric interior or environment with strong perspective and depth',
+  'organic forms — growth, layers, crystalline or topographic structures',
+];
+
 export function buildCoverPrompt(tema?: string | null): string {
+  const treatment = COVER_TREATMENTS[Math.floor(Math.random() * COVER_TREATMENTS.length)];
   const conceito = tema
-    ? `Create a single, elegant conceptual METAPHOR that evokes the theme "${tema}" (for example, for strategy: a chess piece, a winding path toward a horizon, a compass, branching routes, an unfolding landscape — pick ONE idea that best fits the theme and render it tastefully, never literal symbols that look like letters or numbers).`
-    : 'Create a single elegant conceptual metaphor about professional growth and clarity (e.g., a path toward a horizon, an unfolding landscape).';
+    ? `Invent a SINGLE elegant conceptual metaphor that visually represents the SPECIFIC topic of this content: "${tema}". The image must be driven by this specific topic — two different contents must look clearly DIFFERENT from one another, never a repeated template. Render the metaphor through ${treatment}.`
+    : `Invent a single elegant conceptual metaphor about professional growth and clarity, rendered through ${treatment}.`;
   return [
     'Premium EDITORIAL ILLUSTRATION for the A4 vertical cover of an institutional professional-development guide by Vertho.',
     'Deep navy (#142F57) dominant palette with cyan (#34C5CC) and light cyan (#9AE2E6) accents; sophisticated, modern, cinematic lighting with soft glow.',
     conceito,
     'Composition: keep the LEFT ~45% as calm, almost-solid deep navy negative space (reserved for a title); place the illustrated scene on the RIGHT and lower-right, flowing gently toward the center.',
     'Style: refined modern editorial illustration / subtle 3D, premium and minimal, depth and atmosphere, tasteful — NOT a flat icon, NOT a busy collage.',
+    'AVOID overused clichés — do NOT use a glowing winding road / path / highway leading to a horizon, and do NOT use a lone chess piece, unless absolutely essential to the topic. Prefer a fresh, specific image.',
     'STRICTLY NO text, NO letters, NO numbers, NO words, NO logo, NO people, NO faces, NO cartoon, NO clipart, NO childish elements, NO stock-photo watermark look.',
   ].filter(Boolean).join(' ');
 }
