@@ -1,70 +1,100 @@
 /**
- * Cliente Veo via Gemini API (operação de longa duração).
+ * Cliente Veo via Vertex AI (operação de longa duração).
  *
- * veo-3.1-lite-generate-preview gera 1 clipe por chamada. O fluxo é:
- *   1. POST :predictLongRunning  -> retorna { name: "operations/..." }
- *   2. GET  {operation}          -> poll até done
- *   3. baixa o MP4 da URI do resultado
+ * Roda dentro do Cloud Run Job e autentica com a service account do job
+ * (token do metadata server) — sem API key. A cobrança cai no projeto GCP
+ * (usa créditos), diferente da Gemini API key.
  *
- * Observação: por ser modelo preview, os nomes de campos da resposta podem
- * variar. Fazemos uma busca em profundidade por uma URI/base64 de vídeo pra
- * ser resiliente a pequenas mudanças de schema.
+ * Fluxo:
+ *   1. POST :predictLongRunning  -> { name: "...operations/..." }
+ *   2. POST :fetchPredictOperation { operationName } -> poll até done
+ *   3. vídeo vem em response.videos[0].bytesBase64Encoded (sem storageUri)
+ *
+ * IMPORTANTE: o Veo só está disponível em algumas regiões (us-central1). O job
+ * pode rodar em southamerica-east1 e chamar a Vertex em us-central1 (cross-region).
+ *
+ * Env:
+ *   VEO_MODEL       default veo-3.1-fast-generate-preview (Vertex; não tem "lite")
+ *   VEO_REGION      default us-central1 (região da Vertex p/ Veo)
+ *   VEO_RESOLUTION  default 720p
+ *   GCP_PROJECT_ID  opcional (senão lê do metadata server)
  */
 
-const BASE = 'https://generativelanguage.googleapis.com/v1beta';
-const MODEL = process.env.VEO_MODEL || 'veo-3.1-lite-generate-preview';
+const META = 'http://metadata.google.internal/computeMetadata/v1';
+const MODEL = process.env.VEO_MODEL || 'veo-3.1-fast-generate-preview';
+const REGION = process.env.VEO_REGION || 'us-central1';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** Veo 3.1 só aceita durationSeconds 4 | 6 | 8 (número). Arredonda. */
+/** Veo só aceita durationSeconds 4 | 6 | 8 (número). Arredonda. */
 function clampDuration(sec) {
   const n = Number(sec) || 6;
   const allowed = [4, 6, 8];
   return allowed.reduce((a, b) => (Math.abs(b - n) < Math.abs(a - n) ? b : a));
 }
 
-/** Procura recursivamente por uma URI de vídeo (campo .uri) ou bytes base64. */
-function findVideo(obj) {
+/** Access token da service account do job (metadata server). */
+async function getAccessToken() {
+  const res = await fetch(`${META}/instance/service-accounts/default/token`, {
+    headers: { 'Metadata-Flavor': 'Google' },
+  });
+  if (!res.ok) throw new Error(`metadata token ${res.status}`);
+  const d = await res.json();
+  if (!d.access_token) throw new Error('metadata: sem access_token');
+  return d.access_token;
+}
+
+/** Project ID (env ou metadata server). */
+async function getProjectId() {
+  if (process.env.GCP_PROJECT_ID) return process.env.GCP_PROJECT_ID;
+  const res = await fetch(`${META}/project/project-id`, {
+    headers: { 'Metadata-Flavor': 'Google' },
+  });
+  if (!res.ok) throw new Error(`metadata project-id ${res.status}`);
+  return (await res.text()).trim();
+}
+
+/** Busca recursiva por bytes base64 de vídeo (fallback de schema). */
+function findVideoB64(obj) {
   if (!obj || typeof obj !== 'object') return null;
   for (const [k, v] of Object.entries(obj)) {
     if (typeof v === 'string') {
-      if (/uri$/i.test(k) && /^https?:/i.test(v)) return { uri: v };
-      if ((k === 'bytesBase64Encoded' || k === 'videoBytes' || k === 'data') && v.length > 1000) return { b64: v };
+      if ((k === 'bytesBase64Encoded' || k === 'videoBytes') && v.length > 1000) return v;
     } else if (v && typeof v === 'object') {
-      const found = findVideo(v);
-      if (found) return found;
+      const f = findVideoB64(v);
+      if (f) return f;
     }
   }
   return null;
 }
 
 /**
- * Gera um clipe Veo e devolve o MP4 como Buffer.
- * @param {string} apiKey GEMINI_API_KEY
+ * Gera um clipe Veo (Vertex) e devolve o MP4 como Buffer.
  * @param {string} prompt veo_prompt (inglês)
  * @param {object} opts { aspectRatio, durationSeconds }
- *
- * Nota: veo-3.1-lite-generate-preview NÃO suporta `negativePrompt` (400
- * INVALID_ARGUMENT). As restrições visuais (sem texto/sem personagem falando)
- * vão embutidas no prompt positivo.
  */
-export async function generateVeoClip(apiKey, prompt, opts = {}) {
+export async function generateVeoClip(prompt, opts = {}) {
   const { aspectRatio = '16:9', durationSeconds } = opts;
-  if (!apiKey) throw new Error('GEMINI_API_KEY not set');
   if (!prompt?.trim()) throw new Error('veo prompt vazio');
 
-  // text-to-video no 3.1/Lite: personGeneration só aceita 'allow_all'.
-  // durationSeconds: string "4" | "6" | "8". resolution default 720p.
+  const project = await getProjectId();
+  const token = await getAccessToken();
+  const base =
+    `https://${REGION}-aiplatform.googleapis.com/v1/projects/${project}` +
+    `/locations/${REGION}/publishers/google/models/${MODEL}`;
+  const authHeaders = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+  // Sem storageUri => vídeo volta em base64 na resposta.
   const parameters = {
     aspectRatio,
-    personGeneration: 'allow_all',
+    sampleCount: 1,
     durationSeconds: clampDuration(durationSeconds),
     resolution: process.env.VEO_RESOLUTION || '720p',
   };
 
-  const startRes = await fetch(`${BASE}/models/${MODEL}:predictLongRunning?key=${apiKey}`, {
+  const startRes = await fetch(`${base}:predictLongRunning`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders,
     body: JSON.stringify({ instances: [{ prompt }], parameters }),
   });
   if (!startRes.ok) throw new Error(`Veo start ${startRes.status}: ${(await startRes.text()).slice(0, 300)}`);
@@ -72,13 +102,17 @@ export async function generateVeoClip(apiKey, prompt, opts = {}) {
   const opName = op?.name;
   if (!opName) throw new Error('Veo: operação sem name');
 
-  // Poll: Veo costuma levar 1-3 min por clipe. Teto ~8 min.
+  // Poll via fetchPredictOperation. Veo leva 1-3 min/clipe; teto ~8 min.
   const deadline = Date.now() + 8 * 60_000;
   let done = op.done ? op : null;
   while (!done) {
     if (Date.now() > deadline) throw new Error('Veo: timeout aguardando operação');
     await sleep(10_000);
-    const pollRes = await fetch(`${BASE}/${opName}?key=${apiKey}`);
+    const pollRes = await fetch(`${base}:fetchPredictOperation`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ operationName: opName }),
+    });
     if (!pollRes.ok) throw new Error(`Veo poll ${pollRes.status}: ${(await pollRes.text()).slice(0, 200)}`);
     const cur = await pollRes.json();
     if (cur.error) throw new Error(`Veo op error: ${JSON.stringify(cur.error).slice(0, 300)}`);
@@ -86,30 +120,26 @@ export async function generateVeoClip(apiKey, prompt, opts = {}) {
   }
 
   const resp = done.response || done;
-  // Caminho documentado (REST): response.generateVideoResponse.generatedSamples[0].video.uri
-  const sample =
-    resp?.generateVideoResponse?.generatedSamples?.[0] ||
-    resp?.generatedVideos?.[0] ||
-    resp?.generatedSamples?.[0];
-  let uri = sample?.video?.uri || sample?.video?.videoUri;
-  let b64 = sample?.video?.bytesBase64Encoded || sample?.video?.videoBytes;
-
-  // Fallback: busca em profundidade (resiliente a mudanças de schema).
-  if (!uri && !b64) {
-    const found = findVideo(resp);
-    if (found) { uri = found.uri; b64 = found.b64; }
+  if (resp?.raiMediaFilteredCount > 0) {
+    console.error('[veo] filtrado (RAI):', JSON.stringify(resp.raiMediaFilteredReasons || resp).slice(0, 600));
+    throw new Error('Veo: clipe bloqueado por filtro de conteúdo (RAI)');
   }
 
-  if (!uri && !b64) {
-    // Loga a resposta crua p/ diagnóstico (ex.: filtro de segurança / RAI).
-    console.error('[veo] resposta sem vídeo:', JSON.stringify(resp).slice(0, 1500));
-    throw new Error('Veo: resposta sem vídeo (schema inesperado ou conteúdo filtrado)');
-  }
-
+  const video = resp?.videos?.[0];
+  const b64 = video?.bytesBase64Encoded || findVideoB64(resp);
   if (b64) return Buffer.from(b64, 'base64');
 
-  // Download do arquivo: autentica via header x-goog-api-key (não ?key=).
-  const fileRes = await fetch(uri, { headers: { 'x-goog-api-key': apiKey } });
-  if (!fileRes.ok) throw new Error(`Veo download ${fileRes.status}: ${(await fileRes.text()).slice(0, 200)}`);
-  return Buffer.from(await fileRes.arrayBuffer());
+  // Fallback: se vier gcsUri (caso storageUri tenha sido setado), baixa do GCS.
+  const gcsUri = video?.gcsUri;
+  if (gcsUri?.startsWith('gs://')) {
+    const [, bucket, ...rest] = gcsUri.replace('gs://', '').match(/^([^/]+)\/(.+)$/) || [];
+    const obj = encodeURIComponent(rest.join('/'));
+    const dl = `https://storage.googleapis.com/storage/v1/b/${bucket}/o/${obj}?alt=media`;
+    const fileRes = await fetch(dl, { headers: { Authorization: `Bearer ${token}` } });
+    if (!fileRes.ok) throw new Error(`Veo GCS download ${fileRes.status}`);
+    return Buffer.from(await fileRes.arrayBuffer());
+  }
+
+  console.error('[veo] resposta sem vídeo:', JSON.stringify(resp).slice(0, 1500));
+  throw new Error('Veo: resposta sem vídeo (schema inesperado)');
 }

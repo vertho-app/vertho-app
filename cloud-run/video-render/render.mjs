@@ -91,7 +91,7 @@ async function main() {
       const prompt = s.negative_prompt
         ? `${s.veo_prompt}\n\nAvoid: ${s.negative_prompt}`
         : s.veo_prompt;
-      const clip = await generateVeoClip(apiKey, prompt, {
+      const clip = await generateVeoClip(prompt, {
         aspectRatio: '16:9',
         durationSeconds: s.duration_seconds,
       });
