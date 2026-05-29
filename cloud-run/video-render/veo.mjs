@@ -85,11 +85,14 @@ export async function generateVeoClip(prompt, opts = {}) {
   const authHeaders = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
   // Sem storageUri => vídeo volta em base64 na resposta.
+  // generateAudio:false — os clipes Veo são b-roll mudo (o FFmpeg descarta o
+  // áudio com -an); gerar áudio só encareceria o clipe (~US$0,15/s vs 0,10/s).
   const parameters = {
     aspectRatio,
     sampleCount: 1,
     durationSeconds: clampDuration(durationSeconds),
     resolution: process.env.VEO_RESOLUTION || '720p',
+    generateAudio: false,
   };
 
   const startRes = await fetch(`${base}:predictLongRunning`, {
