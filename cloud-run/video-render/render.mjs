@@ -87,8 +87,11 @@ async function main() {
     for (const s of scenes) {
       const n = String(s.scene_number).padStart(2, '0');
       console.log(`[veo] cena ${n}/${scenes.length}: ${s.narrative_function || ''}`);
-      const clip = await generateVeoClip(apiKey, s.veo_prompt, {
-        negativePrompt: s.negative_prompt,
+      // O modelo preview não aceita negativePrompt; embutimos como "Avoid:".
+      const prompt = s.negative_prompt
+        ? `${s.veo_prompt}\n\nAvoid: ${s.negative_prompt}`
+        : s.veo_prompt;
+      const clip = await generateVeoClip(apiKey, prompt, {
         aspectRatio: '16:9',
         durationSeconds: s.duration_seconds,
       });

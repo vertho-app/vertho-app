@@ -35,15 +35,18 @@ function findVideo(obj) {
  * Gera um clipe Veo e devolve o MP4 como Buffer.
  * @param {string} apiKey GEMINI_API_KEY
  * @param {string} prompt veo_prompt (inglês)
- * @param {object} opts { negativePrompt, aspectRatio, durationSeconds }
+ * @param {object} opts { aspectRatio, durationSeconds }
+ *
+ * Nota: veo-3.1-lite-generate-preview NÃO suporta `negativePrompt` (400
+ * INVALID_ARGUMENT). As restrições visuais (sem texto/sem personagem falando)
+ * vão embutidas no prompt positivo.
  */
 export async function generateVeoClip(apiKey, prompt, opts = {}) {
-  const { negativePrompt = '', aspectRatio = '16:9', durationSeconds } = opts;
+  const { aspectRatio = '16:9', durationSeconds } = opts;
   if (!apiKey) throw new Error('GEMINI_API_KEY not set');
   if (!prompt?.trim()) throw new Error('veo prompt vazio');
 
   const parameters = { aspectRatio, personGeneration: 'allow_adult' };
-  if (negativePrompt) parameters.negativePrompt = negativePrompt;
   if (durationSeconds) parameters.durationSeconds = durationSeconds;
   if (process.env.VEO_RESOLUTION) parameters.resolution = process.env.VEO_RESOLUTION; // ex: "720p"
 
