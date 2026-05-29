@@ -8,6 +8,34 @@ import { promptCaseStudy } from '@/lib/season-engine/prompts/case-study';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { resolverModuloBaseParaConteudo, enriquecerPromptComModuloBase } from '@/lib/season-engine/modulo-base-integration';
 
+/** Mínimo de caracteres para conteúdo que vira PDF (texto/case): leitura de
+ *  ~5-8 min. Aplicado tanto na geração do conteúdo quanto na hora do PDF.
+ *  NÃO exportar: este é um módulo "use server", onde todo export precisa ser
+ *  uma função async. */
+const MIN_PDF_CHARS = 8000;
+
+/**
+ * Garante o mínimo de caracteres num markdown de texto/case: se vier curto,
+ * faz UMA expansão mantendo estilo/estrutura. Nunca lança — devolve o original
+ * em qualquer falha. `system` orienta a expansão (o caller passa o seu prompt).
+ */
+async function garantirMinimoPdf(
+  conteudoMd: string,
+  system: string,
+  aiConfig: AIConfig | undefined,
+  model: string | undefined,
+): Promise<string> {
+  if (conteudoMd.length >= MIN_PDF_CHARS) return conteudoMd;
+  try {
+    const user = `O texto em markdown abaixo tem ${conteudoMd.length} caracteres, abaixo do mínimo de ${MIN_PDF_CHARS}. Reescreva-o EXPANDINDO o conteúdo (mais exemplos, mais nuance, mais profundidade aplicada ao cargo/contexto) para ter NO MÍNIMO ${MIN_PDF_CHARS} caracteres, mantendo EXATAMENTE o mesmo estilo, tom, estrutura e formatação markdown. Não adicione enchimento repetitivo. Retorne APENAS o markdown final.\n\n---\n\n${conteudoMd}`;
+    const expandido = (await callAI(system, user, { ...(aiConfig || {}), model }, MIN_PDF_CHARS)).trim();
+    return expandido.length > conteudoMd.length ? expandido : conteudoMd;
+  } catch (e: any) {
+    console.warn('[garantirMinimoPdf] expansão p/ mínimo de caracteres falhou:', e?.message);
+    return conteudoMd;
+  }
+}
+
 /**
  * Gera conteúdo (roteiro ou texto) via IA e salva em micro_conteudos.
  *
@@ -95,15 +123,8 @@ export async function gerarConteudoIA({
 
     // Garante o mínimo de 8.000 caracteres nos PDFs (texto/case): se vier curto,
     // faz UMA expansão mantendo estilo/estrutura. Falha não quebra a geração.
-    const MIN_PDF_CHARS = 8000;
-    if ((formato === 'texto' || formato === 'case') && conteudoGerado.length < MIN_PDF_CHARS) {
-      try {
-        const expandUser = `O texto em markdown abaixo tem ${conteudoGerado.length} caracteres, abaixo do mínimo de ${MIN_PDF_CHARS}. Reescreva-o EXPANDINDO o conteúdo (mais exemplos, mais nuance, mais profundidade aplicada ao cargo/contexto) para ter NO MÍNIMO ${MIN_PDF_CHARS} caracteres, mantendo EXATAMENTE o mesmo estilo, tom, estrutura e formatação markdown. Não adicione enchimento repetitivo. Retorne APENAS o markdown final.\n\n---\n\n${conteudoGerado}`;
-        const expandido = (await callAI(system, expandUser, { ...aiConfig, model: model || aiConfig?.model }, maxTokens)).trim();
-        if (expandido.length > conteudoGerado.length) conteudoGerado = expandido;
-      } catch (e: any) {
-        console.warn('[gerarConteudoIA] expansão p/ mínimo de caracteres falhou:', e?.message);
-      }
+    if (formato === 'texto' || formato === 'case') {
+      conteudoGerado = await garantirMinimoPdf(conteudoGerado, system, aiConfig, model || aiConfig?.model);
     }
 
     const titulo = extrairTitulo(conteudoGerado, descritor, formato);
@@ -554,6 +575,22 @@ export async function gerarConteudoFinal(id: string) {
       return { success: false, error: 'Conteúdo sem texto inline para gerar o PDF' };
     }
 
+    // Mínimo de caracteres: conteúdos criados antes da regra (ou importados)
+    // podem vir curtos; expande UMA vez aqui e PERSISTE em conteudo_inline, p/ o
+    // PDF respeitar o mínimo sem exigir regenerar a fonte do zero.
+    let conteudoMd = c.conteudo_inline as string;
+    if (conteudoMd.length < MIN_PDF_CHARS) {
+      const { getModelForTask } = await import('@/lib/ai-tasks');
+      const taskKey = c.formato === 'case' ? 'conteudo_case' : 'conteudo_texto';
+      const model = c.empresa_id ? await getModelForTask(c.empresa_id, taskKey) : undefined;
+      const system = 'Você é um editor sênior de materiais de desenvolvimento profissional. Expande textos em markdown preservando estilo, tom, estrutura e formatação, aprofundando com exemplos e nuance aplicada ao contexto — nunca com enchimento repetitivo. Markdown válido, sem cercas de código.';
+      const expandido = await garantirMinimoPdf(conteudoMd, system, undefined, model);
+      if (expandido.length > conteudoMd.length) {
+        conteudoMd = expandido;
+        await sb.from('micro_conteudos').update({ conteudo_inline: conteudoMd }).eq('id', id);
+      }
+    }
+
     // Capa: fundo gerado por GPT Image, reusado se já existir (evita regerar
     // a cada clique). Falha NUNCA quebra o PDF — cai no fundo vetorial.
     let coverBase64: string | null = null;
@@ -586,7 +623,7 @@ export async function gerarConteudoFinal(id: string) {
     const { renderConteudoFinalPDF } = await import('@/lib/conteudo-final-pdf');
     const buffer = await renderConteudoFinalPDF({
       titulo: c.titulo,
-      conteudoMd: c.conteudo_inline,
+      conteudoMd,
       competencia: c.competencia,
       descritor: c.descritor,
       formato: c.formato,
