@@ -16,12 +16,11 @@ const MODEL = process.env.VEO_MODEL || 'veo-3.1-lite-generate-preview';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** Veo 3.1 só aceita durationSeconds "4" | "6" | "8" (string). Arredonda. */
+/** Veo 3.1 só aceita durationSeconds 4 | 6 | 8 (número). Arredonda. */
 function clampDuration(sec) {
   const n = Number(sec) || 6;
   const allowed = [4, 6, 8];
-  const best = allowed.reduce((a, b) => (Math.abs(b - n) < Math.abs(a - n) ? b : a));
-  return String(best);
+  return allowed.reduce((a, b) => (Math.abs(b - n) < Math.abs(a - n) ? b : a));
 }
 
 /** Procura recursivamente por uma URI de vídeo (campo .uri) ou bytes base64. */
