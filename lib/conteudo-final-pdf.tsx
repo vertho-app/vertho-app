@@ -127,6 +127,10 @@ const s = StyleSheet.create({
   cmpLabel: { fontSize: 8, fontWeight: 700, color: colors.white, backgroundColor: colors.navy, letterSpacing: 1.2, textTransform: 'uppercase', paddingVertical: 3, paddingHorizontal: 9, borderRadius: 4, marginBottom: 8, alignSelf: 'flex-start' },
   cmpText: { fontSize: 9.5, color: colors.textPrimary, lineHeight: 1.45, marginBottom: 5 },
 
+  caseCard: { marginVertical: 12, padding: 14, backgroundColor: colors.white, borderWidth: 0.8, borderColor: colors.border, borderLeftWidth: 3, borderLeftColor: colors.navy, borderRadius: 8 },
+  caseLabel: { fontSize: 7.5, fontWeight: 700, color: colors.navy, letterSpacing: 1.8, textTransform: 'uppercase', marginBottom: 6 },
+  caseText: { color: colors.textPrimary, lineHeight: 1.5, marginBottom: 4 },
+
   closing: { marginTop: 36, alignItems: 'center' },
   closingDivider: { width: 40, height: 2, backgroundColor: colors.cyan, marginBottom: 18 },
   closingLogo: { height: 24, width: 100 },
@@ -149,6 +153,8 @@ const ROLE_LABEL: Record<PageRole, string> = {
   comparativo: 'Comparativo',
   ferramenta: 'Ferramenta',
   aplicacao: 'Aplicação',
+  cuidados: 'Cuidados',
+  sintese: 'Síntese',
   reflexao: 'Para refletir',
   corpo: '',
 };
@@ -218,6 +224,17 @@ function reflectionNodes(items: string[], key: string): React.ReactNode[] {
   );
 }
 
+function caseCardNodes(b: RawBlock, key: string): React.ReactNode[] {
+  const body = b.kind === 'ul' || b.kind === 'ol'
+    ? (b as any).items.map((it: string, j: number) =>
+        e(Text, { key: `${key}-${j}`, style: s.caseText }, inline(it)))
+    : [e(Text, { key: `${key}-t`, style: s.caseText }, inline((b as any).text))];
+  return [e(View, { key, style: s.caseCard, wrap: false },
+    e(Text, { style: s.caseLabel }, 'Na prática'),
+    ...body,
+  )];
+}
+
 function comparisonNodes(
   left: { label?: string; refs: number[] }, right: { label?: string; refs: number[] },
   byId: Map<number, RawBlock>, key: string,
@@ -262,6 +279,7 @@ function renderItem(item: PlanItem, byId: Map<number, RawBlock>, key: string): R
     case 'flow': return items ? flowNodes(items, key) : [e(Text, { key, style: s.paragraph }, inline(blockText(b)))];
     case 'checklist': return items ? checklistNodes(items, key) : [e(Text, { key, style: s.paragraph }, inline(blockText(b)))];
     case 'reflectionCards': return items ? reflectionNodes(items, key) : [e(Text, { key, style: s.paragraph }, inline(blockText(b)))];
+    case 'caseCard': return caseCardNodes(b, key);
     case 'paragraph':
     default:
       return [e(Text, { key, style: s.paragraph }, inline(blockText(b)))];

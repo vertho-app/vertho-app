@@ -1316,18 +1316,16 @@
 - **Arquivo**: `lib/season-engine/prompts/text-content.ts::promptTextContent`
 - **Caller**: Mesmo, formato='texto'
 - **System prompt** (resumo editorial do prompt real em `lib/season-engine/prompts/text-content.ts`):
-  "Você é autor de artigos práticos de desenvolvimento profissional da Vertho." Princípios-chave:
-  1. Prosa com respiro, não lista de bullets. Parágrafos curtos (3-4 linhas)
-  2. Markdown limpo. No máximo 5 trechos em negrito
-  3. Linguagem brasileira profissional, mas acessível
-  4. Clareza e aplicabilidade valem mais que sofisticação
-  5. Nada de academicismo desnecessário
-  6. Nada de texto genérico que serviria para qualquer descritor
-  7. Sem tom professoral, sem exagero motivacional, sem repetição de ideias
-  8. Sem subtítulos genéricos ("Introdução", "Conclusão"), sem linhas separadoras "---"
+  "Você é autor sênior de conteúdos de desenvolvimento profissional da Vertho, especializado em textos fáceis de transformar em publicação editorial premium." Princípios-chave:
+  1. O conteúdo será usado num PDF visual → precisa de ÂNCORAS EDITORIAIS (frases fortes, exemplos nomeáveis, perguntas, ferramentas, contrastes)
+  2. Linguagem brasileira profissional, clara e humana; parágrafos curtos com respiro
+  3. Markdown limpo. No máximo 5 trechos em negrito
+  4. Densidade prática > teoria; específico ao cargo/contexto/descritor
+  5. Não inventar estatísticas, leis, normas ou evidências
+  6. Sem jargão excessivo, sem tom infantil/professoral/publicitário, sem "---"
 
-- **Output**: Markdown 800-1200 palavras. Funciona em tela e PDF. Sem cercas de código.
-- **Inputs user**: Competência, descritor, nível (FUNDAMENTOS/REFINAMENTO/MAESTRIA), cargo, contexto. Estrutura obrigatória (sem usar nomes das seções como headers): TITULO (# provocativo) / SITUACAO (1 paragrafo, cena reconhecível) / CONCEITO (2-3 paragrafos, 1-2 exemplos, **negrito** max 5) / FRAMEWORK (1 modelo mental, 3-5 passos numerados) / Para refletir (## com 2-3 perguntas em bullets).
+- **Output**: Markdown ≥8.000 caracteres (~1.400-1.800 palavras). Funciona em tela e PDF. Sem cercas de código.
+- **Inputs user**: Competência, descritor, nível (FUNDAMENTOS/REFINAMENTO/MAESTRIA), cargo, contexto. Estrutura obrigatória COM headers de seção (ajudam o planner editorial 11.6 a identificar funções): `# Título` provocativo / `## Contexto` (cena reconhecível) / `## Conceito` (o que é / o que NÃO é / por que importa / problema que resolve / 1 frase de pull quote) / `## Exemplo aplicado` (problema→risco→leitura→ação→consequência, personagem fictício) / `## Ferramenta prática` (3-6 passos em lista numerada) / `## Aplicação no cotidiano` (cuidados, riscos, ação da semana + 1 frase de destaque) / `## Para refletir` (3-5 perguntas em bullets). Âncoras mínimas: ≥2 frases para pull quote, ≥1 exemplo, ≥1 ferramenta numerada, ≥1 comparação implícita.
 - **Consumido por**: `micro_conteudos.conteudo_inline` + PDF via `renderConteudoFinalPDF` (passando antes pelo planejador editorial 11.6).
 
 ### 11.4 Case Study (Estudo de Caso)
@@ -1383,7 +1381,7 @@
   "Você é um DIRETOR DE ARTE EDITORIAL sênior da Vertho." Transforma o conteúdo já escrito numa publicação editorial premium (A4 vertical, 5-8 páginas, cada página com uma função editorial distinta). Princípios-chave:
   1. **REGRA ABSOLUTA**: nunca reescreve, resume, inventa ou remove texto — apenas classifica e organiza, referenciando blocos por `id`
   2. Cada página tem um papel (`contexto`, `conceito`, `exemplo`, `comparativo`, `ferramenta`, `aplicacao`, `reflexao`, `corpo`)
-  3. Tratamentos visuais por bloco: heading, paragraph, pullquote, synthesis, bullets, numberedCards, flow, checklist, reflectionCards + comparison (lado a lado)
+  3. Tratamentos visuais por bloco: heading, paragraph, pullquote, synthesis, bullets, numberedCards, flow, checklist, caseCard (card de caso/exemplo), reflectionCards + comparison (lado a lado). Roles: contexto/conceito/exemplo/comparativo/ferramenta/aplicacao/cuidados/sintese/reflexao/corpo
   4. `pullquoteText`: trecho VERBATIM (substring normalizada ≥12 chars) destacado de um parágrafo, de forma aditiva (não remove o original)
   5. **COBERTURA**: todo bloco deve aparecer em ≥1 item estrutural (o `sanitize()` reanexa blocos esquecidos)
   6. `heroImage` em EXATAMENTE uma página (dispara a imagem conceitual de seção)
@@ -1399,9 +1397,9 @@
 - **Caller**: `gerarConteudoIA` (após gerar texto/case) e `gerarConteudoFinal` (antes de planejar/renderizar).
 - **Modelo**: reusa o mesmo modelo/aiConfig do conteúdo original (texto ou case).
 - **Max tokens**: `MIN_PDF_CHARS` (8000).
-- **System prompt**: reusa o `system` do prompt-autor original (11.3 texto ou 11.4 case) — mantém estilo/tom.
-- **User prompt** (transcrito): "O texto em markdown abaixo tem N caracteres, abaixo do mínimo de 8000. Reescreva-o EXPANDINDO o conteúdo (mais exemplos, mais nuance, mais profundidade aplicada ao cargo/contexto) para ter NO MÍNIMO 8000 caracteres, mantendo EXATAMENTE o mesmo estilo, tom, estrutura e formatação markdown. Não adicione enchimento repetitivo. Retorne APENAS o markdown final."
-- **Output**: markdown expandido (≥8000 chars). Só substitui se o resultado for maior que o original; em erro retorna o original (não-fatal).
+- **System prompt**: reusa o `system` do prompt-autor original (11.3 texto ou 11.4 case) — mantém estilo/tom/formato.
+- **User prompt** (resumo): expansão por **VALOR editorial, não por volume**. Cada parágrafo novo deve acrescentar nuance/exemplo/aplicação/risco/cuidado/comparação/pergunta; se não acrescentar, não escrever. PRESERVA tema, público, tom, estrutura de seções e markdown (não cria seções novas — o helper não conhece o formato, então não impõe estrutura que quebraria um estudo de caso). Meta ≥8000 chars **quando o tema justificar sem repetição**; senão prioriza qualidade. Sem inventar dados/leis/estatísticas.
+- **Output**: markdown enriquecido (alvo ≥8000 chars). Só substitui se o resultado for maior que o original; em erro retorna o original (não-fatal).
 - **Inputs user**: o markdown curto + contagem de caracteres.
 - **Consumido por**: pipeline do PDF (garante volume mínimo para uma publicação de várias páginas antes do planejador 11.6).
 

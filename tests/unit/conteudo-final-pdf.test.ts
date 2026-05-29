@@ -91,6 +91,32 @@ describe('renderConteudoFinalPDF', () => {
     expect(buf.length).toBeGreaterThan(2000);
   });
 
+  it('renderiza caseCard e roles novos (sintese/cuidados)', async () => {
+    const blocks = parseBlocks(md, { skipFirstH1: true });
+    const ps = blocks.filter(b => b.kind === 'p').map(b => b.id);
+    const ols = blocks.filter(b => b.kind === 'ol').map(b => b.id);
+
+    const plan: LayoutPlan = {
+      summary: 'Teste de caseCard',
+      pages: [
+        { role: 'exemplo', items: [{ as: 'caseCard', ref: ps[0] }] as PlanItem[] },
+        { role: 'sintese', items: [{ as: 'synthesis', ref: ps[1] }] as PlanItem[] },
+        { role: 'cuidados', items: [{ as: 'caseCard', ref: ols[0] }, { as: 'paragraph', ref: ps[2] }] as PlanItem[] },
+      ],
+    };
+
+    const buf = await renderConteudoFinalPDF({
+      titulo: 'Título Principal de Teste',
+      conteudoMd: md,
+      competencia: 'Pensamento Estratégico',
+      formato: 'texto',
+      coverBase64: null,
+      plan,
+      sectionImageBase64: null,
+    });
+    expect(buf.length).toBeGreaterThan(2000);
+  });
+
   it('renderiza no modo flat (sem plano)', async () => {
     const buf = await renderConteudoFinalPDF({
       titulo: 'Título Principal de Teste',

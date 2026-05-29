@@ -27,7 +27,17 @@ async function garantirMinimoPdf(
 ): Promise<string> {
   if (conteudoMd.length >= MIN_PDF_CHARS) return conteudoMd;
   try {
-    const user = `O texto em markdown abaixo tem ${conteudoMd.length} caracteres, abaixo do mínimo de ${MIN_PDF_CHARS}. Reescreva-o EXPANDINDO o conteúdo (mais exemplos, mais nuance, mais profundidade aplicada ao cargo/contexto) para ter NO MÍNIMO ${MIN_PDF_CHARS} caracteres, mantendo EXATAMENTE o mesmo estilo, tom, estrutura e formatação markdown. Não adicione enchimento repetitivo. Retorne APENAS o markdown final.\n\n---\n\n${conteudoMd}`;
+    const user = `O texto em markdown abaixo tem ${conteudoMd.length} caracteres — curto demais para sustentar uma publicação editorial rica. Expanda-o por VALOR, não por volume.
+
+Objetivo: dar matéria-prima suficiente para um PDF visual de 6 a 10 páginas, mantendo EXATAMENTE o mesmo tema, público-alvo, tom, estilo, estrutura de seções e formatação markdown do original. NÃO crie novas seções nem mude a estrutura — aprofunde as que já existem.
+
+Cada parágrafo novo deve ACRESCENTAR algo concreto: uma nuance, um exemplo, uma aplicação ao cargo/contexto, um risco, um cuidado, uma comparação útil ou uma pergunta relevante. Se um parágrafo não acrescentar valor, não o escreva.
+
+NÃO faça: enchimento repetitivo, alongar só para bater tamanho, tom acadêmico/professoral/motivacional, inventar dados/leis/normas/estatísticas, conteúdo genérico.
+
+Meta de tamanho: chegue a NO MÍNIMO ${MIN_PDF_CHARS} caracteres QUANDO o tema justificar sem repetição. Se não justificar, priorize qualidade e densidade aplicada — entregue o melhor texto possível, mais rico que o original.
+
+Retorne APENAS o markdown final, sem comentários e sem cercas de código.\n\n---\n\n${conteudoMd}`;
     const expandido = (await callAI(system, user, { ...(aiConfig || {}), model }, MIN_PDF_CHARS)).trim();
     return expandido.length > conteudoMd.length ? expandido : conteudoMd;
   } catch (e: any) {
