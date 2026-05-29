@@ -9,10 +9,13 @@
  *   4. FFmpeg: normaliza 1280x720, remove áudio dos clipes, concatena, casa a
  *      duração com o voice-over, queima legendas (SRT derivado do voice-over),
  *      aplica fade-in/out e logo (se houver), exporta MP4 H.264/AAC.
- *   5. Sobe o MP4 no Storage e atualiza url/storage_path/status no Supabase.
+ *   5. Sobe o MP4 (Bunny Stream se houver credencial; senão Supabase Storage),
+ *      remove a versão anterior pra não acumular, e atualiza
+ *      url/storage_path/bunny_video_id/status no Supabase.
  *
  * Env: CONTEUDO_ID, GEMINI_API_KEY, SUPABASE_URL (ou NEXT_PUBLIC_SUPABASE_URL),
- *      SUPABASE_SERVICE_ROLE_KEY, [LOGO_URL], [MUSIC_URL].
+ *      SUPABASE_SERVICE_ROLE_KEY, [BUNNY_LIBRARY_ID], [BUNNY_STREAM_API_KEY],
+ *      [LOGO_URL], [MUSIC_URL].
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -27,6 +30,40 @@ const BUCKET = 'conteudos';
 const W = 1280, H = 720, FPS = 30;
 
 const env = (k, fallback) => process.env[k] || fallback;
+
+const BUNNY_LIB = process.env.BUNNY_LIBRARY_ID;
+const BUNNY_KEY = process.env.BUNNY_STREAM_API_KEY;
+const bunnyOn = () => !!(BUNNY_LIB && BUNNY_KEY);
+
+/** Cria o vídeo no Bunny Stream e sobe os bytes; devolve o guid. */
+async function bunnyUpload(title, mp4) {
+  const headers = { AccessKey: BUNNY_KEY, Accept: 'application/json' };
+  const create = await fetch(`https://video.bunnycdn.com/library/${BUNNY_LIB}/videos`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: (title || 'Vertho vídeo').slice(0, 200) }),
+  });
+  if (!create.ok) throw new Error(`Bunny create ${create.status}: ${(await create.text()).slice(0, 200)}`);
+  const { guid } = await create.json();
+  if (!guid) throw new Error('Bunny: create sem guid');
+  const put = await fetch(`https://video.bunnycdn.com/library/${BUNNY_LIB}/videos/${guid}`, {
+    method: 'PUT',
+    headers: { ...headers, 'Content-Type': 'application/octet-stream' },
+    body: mp4,
+  });
+  if (!put.ok) throw new Error(`Bunny upload ${put.status}: ${(await put.text()).slice(0, 200)}`);
+  return guid;
+}
+
+/** Apaga um vídeo do Bunny (limpeza da versão anterior). Best-effort. */
+async function bunnyDelete(guid) {
+  if (!guid || !bunnyOn()) return;
+  try {
+    await fetch(`https://video.bunnycdn.com/library/${BUNNY_LIB}/videos/${guid}`, {
+      method: 'DELETE', headers: { AccessKey: BUNNY_KEY, Accept: 'application/json' },
+    });
+  } catch { /* ignora */ }
+}
 
 function sb() {
   const url = env('SUPABASE_URL') || env('NEXT_PUBLIC_SUPABASE_URL');
@@ -138,7 +175,7 @@ async function main() {
   const db = sb();
 
   const { data: c, error } = await db.from('micro_conteudos')
-    .select('id, titulo, competencia, formato').eq('id', id).maybeSingle();
+    .select('id, titulo, competencia, formato, url, storage_path, bunny_video_id').eq('id', id).maybeSingle();
   if (error) throw new Error(error.message);
   if (!c) throw new Error('conteúdo não encontrado');
   if (c.formato !== 'video') throw new Error('conteúdo não é vídeo');
@@ -238,20 +275,39 @@ async function main() {
     console.log('[ffmpeg] montagem final...');
     await run('ffmpeg', args);
 
-    // 7) Upload + update.
-    const outPath = `final/video/${slug}/${id}-${Date.now()}.mp4`;
+    // 7) Upload do MP4 + limpeza da versão anterior + update.
+    // Prefere Bunny Stream (CDN de vídeo); cai pro Supabase Storage se não houver
+    // credencial Bunny. Em ambos os casos remove o artefato anterior pra não acumular.
     const mp4 = await readFile(out);
-    const { error: upErr } = await db.storage.from(BUCKET).upload(outPath, mp4, {
-      contentType: 'video/mp4', upsert: true,
-    });
-    if (upErr) throw new Error(`upload falhou: ${upErr.message}`);
-    const { data: { publicUrl } } = db.storage.from(BUCKET).getPublicUrl(outPath);
+    const prevBunny = c.bunny_video_id || null;
+    const prevStorage = c.storage_path || null;
+
+    let url, storagePath = null, bunnyId = null;
+    if (bunnyOn()) {
+      console.log('[bunny] enviando MP4 pro Bunny Stream...');
+      bunnyId = await bunnyUpload(c.titulo, mp4);
+      url = `https://iframe.mediadelivery.net/embed/${BUNNY_LIB}/${bunnyId}`;
+      if (prevBunny && prevBunny !== bunnyId) await bunnyDelete(prevBunny);
+      if (prevStorage) await db.storage.from(BUCKET).remove([prevStorage]).catch(() => {});
+    } else {
+      const outPath = `final/video/${slug}/${id}-${Date.now()}.mp4`;
+      const { error: upErr } = await db.storage.from(BUCKET).upload(outPath, mp4, {
+        contentType: 'video/mp4', upsert: true,
+      });
+      if (upErr) throw new Error(`upload falhou: ${upErr.message}`);
+      url = db.storage.from(BUCKET).getPublicUrl(outPath).data.publicUrl;
+      storagePath = outPath;
+      if (prevStorage && prevStorage !== outPath) {
+        await db.storage.from(BUCKET).remove([prevStorage]).catch(() => {});
+      }
+    }
 
     await db.from('micro_conteudos').update({
-      url: publicUrl, storage_path: outPath, video_render_status: 'done', video_render_error: null,
+      url, storage_path: storagePath, bunny_video_id: bunnyId,
+      video_render_status: 'done', video_render_error: null,
     }).eq('id', id);
 
-    console.log(`[ok] vídeo pronto: ${publicUrl}`);
+    console.log(`[ok] vídeo pronto: ${url}`);
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => {});
   }
