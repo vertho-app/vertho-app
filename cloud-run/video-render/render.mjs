@@ -194,7 +194,13 @@ async function main() {
   const dir = await mkdtemp(join(tmpdir(), 'vrender-'));
   try {
     // 1) Clipes Veo (sequencial p/ limitar custo/concorrência) + normalização.
+    // Resiliência ao RAI: se o filtro de conteúdo bloquear um clipe, tenta um
+    // fallback b-roll SEM pessoas (o RAI é agressivo com humanos em escola por
+    // causa de menores) e, se ainda falhar, PULA a cena. Só aborta se nenhum
+    // clipe vingar — o vídeo é casado ao voice-over por tpad, então pular uma
+    // cena não quebra a duração final, só reduz a variedade visual.
     const normed = [];
+    let raiSkips = 0;
     for (const s of scenes) {
       const n = String(s.scene_number).padStart(2, '0');
       console.log(`[veo] cena ${n}/${scenes.length}: ${s.narrative_function || ''}`);
@@ -205,10 +211,30 @@ async function main() {
       parts.push('Continuity: same character, same wardrobe, same school, same day, same color palette and the same cinematographic standard as every other shot in this video. It must read as one continuous film, not disconnected clips.');
       if (s.negative_prompt) parts.push(`Avoid: ${s.negative_prompt}`);
       const prompt = parts.join('\n\n');
-      const clip = await generateVeoClip(prompt, {
-        aspectRatio: '16:9',
-        durationSeconds: s.duration_seconds,
-      });
+
+      let clip = null;
+      try {
+        clip = await generateVeoClip(prompt, { aspectRatio: '16:9', durationSeconds: s.duration_seconds });
+      } catch (e) {
+        if (!/RAI/i.test(String(e?.message))) throw e;
+        // Fallback person-free: b-roll de ambiente/objetos, muito menos sujeito ao RAI.
+        console.warn(`[veo] cena ${n} bloqueada (RAI); tentando fallback sem pessoas`);
+        const safePrompt = [
+          'Cinematic institutional b-roll, premium editorial style. Brazilian contemporary school interior, empty room, absolutely no people, no human figures, no faces.',
+          'Focus on environment and recurring objects only: navy folder, a laptop showing abstract graphics with NO readable text, printed reports, a pen and a notebook on a desk.',
+          'Soft natural light, shallow depth of field, slow stable camera, discreet push-in. Color palette: navy, cyan and light-blue accents, light grey, white.',
+          'Avoid: any person, any human, any face, text on screen, captions, logos, dialogue.',
+        ].join('\n\n');
+        try {
+          clip = await generateVeoClip(safePrompt, { aspectRatio: '16:9', durationSeconds: s.duration_seconds });
+        } catch (e2) {
+          if (!/RAI/i.test(String(e2?.message))) throw e2;
+          console.warn(`[veo] cena ${n} bloqueada de novo; pulando`);
+          raiSkips++;
+          continue;
+        }
+      }
+
       const raw = join(dir, `raw_${n}.mp4`);
       const norm = join(dir, `norm_${n}.mp4`);
       await writeFile(raw, clip);
@@ -218,6 +244,8 @@ async function main() {
         '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p', norm]);
       normed.push(norm);
     }
+    if (!normed.length) throw new Error('Veo: todos os clipes bloqueados pelo filtro de conteúdo (RAI)');
+    if (raiSkips) console.warn(`[veo] ${raiSkips} cena(s) pulada(s) por RAI; segue com ${normed.length} clipe(s)`);
 
     // 2) Voice-over Charon.
     console.log('[tts] gerando voice-over Charon...');
