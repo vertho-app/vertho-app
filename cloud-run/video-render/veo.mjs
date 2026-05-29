@@ -24,6 +24,7 @@ const META = 'http://metadata.google.internal/computeMetadata/v1';
 const MODEL = process.env.VEO_MODEL || 'veo-3.1-fast-generate-001';
 const REGION = process.env.VEO_REGION || 'us-central1';
 const IMAGEN_MODEL = process.env.IMAGEN_MODEL || 'imagen-4.0-generate-001';
+const IMAGEN_CAP_MODEL = process.env.IMAGEN_CAPABILITY_MODEL || 'imagen-3.0-capability-001';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -103,6 +104,52 @@ export async function generateReferenceImage(prompt, opts = {}) {
     if (pred?.raiFilteredReason) throw new Error(`Imagen RAI: ${pred.raiFilteredReason}`);
     throw new Error('Imagen: resposta sem imagem');
   }
+  return { bytesBase64Encoded: b64, mimeType: pred?.mimeType || 'image/png' };
+}
+
+/**
+ * Gera uma variação da MESMA pessoa (subject customization do Imagen) a partir
+ * de um retrato base — usado p/ ter 2-3 ângulos da mesma identidade (frente,
+ * 3/4, perfil) e dar ao Veo referências mais ricas do mesmo personagem.
+ * Gerar retratos independentes daria PESSOAS diferentes; aqui o `referenceImage`
+ * ancora na identidade do base. O prompt referencia o sujeito com o marcador [1].
+ * @param {string} baseBytesB64 base64 do retrato base
+ * @param {string} prompt prompt da variação (inglês, com "[1]")
+ * @param {object} opts { subjectDescription }
+ * @returns {Promise<{bytesBase64Encoded:string, mimeType:string}>}
+ */
+export async function generateSubjectVariation(baseBytesB64, prompt, opts = {}) {
+  const { subjectDescription = 'the same adult professional, same face and wardrobe' } = opts;
+  if (!baseBytesB64) throw new Error('subject base vazio');
+  if (!prompt?.trim()) throw new Error('subject prompt vazio');
+
+  const project = await getProjectId();
+  const token = await getAccessToken();
+  const url =
+    `https://${REGION}-aiplatform.googleapis.com/v1/projects/${project}` +
+    `/locations/${REGION}/publishers/google/models/${IMAGEN_CAP_MODEL}:predict`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      instances: [{
+        prompt,
+        referenceImages: [{
+          referenceType: 'REFERENCE_TYPE_SUBJECT',
+          referenceId: 1,
+          referenceImage: { bytesBase64Encoded: baseBytesB64 },
+          subjectImageConfig: { subjectType: 'SUBJECT_TYPE_PERSON', subjectDescription },
+        }],
+      }],
+      parameters: { sampleCount: 1 },
+    }),
+  });
+  if (!res.ok) throw new Error(`Imagen subject ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const d = await res.json();
+  const pred = d?.predictions?.[0];
+  const b64 = pred?.bytesBase64Encoded;
+  if (!b64) throw new Error('Imagen subject: resposta sem imagem');
   return { bytesBase64Encoded: b64, mimeType: pred?.mimeType || 'image/png' };
 }
 

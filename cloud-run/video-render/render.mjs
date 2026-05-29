@@ -23,7 +23,7 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { generateVeoClip, generateReferenceImage } from './veo.mjs';
+import { generateVeoClip, generateReferenceImage, generateSubjectVariation } from './veo.mjs';
 import { generateVoiceOver } from './tts.mjs';
 
 const BUCKET = 'conteudos';
@@ -193,17 +193,35 @@ async function main() {
 
   const dir = await mkdtemp(join(tmpdir(), 'vrender-'));
   try {
-    // 0) Retrato de referência da personagem (Imagen): subject ref injetado em
-    // TODO clipe p/ travar o mesmo rosto/figurino (Veo não tem memória). Falha
-    // graciosamente — se o Imagen quebrar, segue só com a bíblia em texto.
+    // 0) Referências da personagem (Imagen): subject refs injetadas em TODO clipe
+    // p/ travar o mesmo rosto/figurino (Veo não tem memória). Gera 1 retrato base
+    // e deriva +2 ângulos da MESMA pessoa via subject customization (3 refs > 1).
+    // Tudo falha graciosamente — sem refs, segue só com a bíblia em texto.
     let refImages = null;
     const refPrompt = (plano.character_reference_prompt || '').trim();
     if (refPrompt) {
       try {
-        console.log('[imagen] gerando retrato de referência da personagem...');
-        refImages = [await generateReferenceImage(refPrompt, { aspectRatio: '3:4' })];
+        console.log('[imagen] retrato base da personagem...');
+        const base = await generateReferenceImage(refPrompt, { aspectRatio: '3:4' });
+        refImages = [base];
+        // +2 ângulos da MESMA identidade (subject customization). Independentes
+        // dariam pessoas diferentes — por isso ancoram no retrato base.
+        const angles = [
+          'A photo of the same person [1], three-quarter view, head and shoulders, exactly the same face, hair and wardrobe, soft natural light, neutral blurred school background, photographic realistic. No other people, no children.',
+          'A photo of the same person [1], near-profile side view, head and shoulders, exactly the same face, hair and wardrobe, soft natural light, neutral blurred school background, photographic realistic. No other people, no children.',
+        ];
+        for (const ap of angles) {
+          try {
+            refImages.push(await generateSubjectVariation(base.bytesBase64Encoded, ap, {
+              subjectDescription: 'the same adult education professional, same face, same hair, same wardrobe',
+            }));
+          } catch (e) {
+            console.warn('[imagen] variação de ângulo falhou (segue):', String(e?.message).slice(0, 150));
+          }
+        }
+        console.log(`[imagen] ${refImages.length} referência(s) da personagem`);
       } catch (e) {
-        console.warn('[imagen] falhou, seguindo sem referência:', String(e?.message).slice(0, 200));
+        console.warn('[imagen] retrato base falhou, seguindo sem referência:', String(e?.message).slice(0, 200));
       }
     }
 
