@@ -3,30 +3,35 @@
  * markdown de micro_conteudos.conteudo_inline.
  *
  * Reusa a infra premium dos relatórios (paleta Vertho + NotoSans/Unicode +
- * padrão de capa do PdfCover) em vez do markdown-to-pdf.ts cru (Helvetica,
- * sem marca, que removia acentos). Texto preservado integralmente — o
- * markdown é a fonte única, nada é reescrito.
+ * padrão de capa do PdfCover). Texto preservado integralmente — o markdown é a
+ * fonte única, nada é reescrito.
  *
- * Layout: capa navy (logo + eyebrow competência›descritor + título) →
- * corpo editorial (H1/H2/H3, parágrafos, listas → cards numerados / bullets,
- * blockquotes `>` → pull quotes) → contracapa com logo.
+ * Dois modos de corpo:
+ *  1) PLANO EDITORIAL (lib/conteudo-layout-plan): se um `plan` é fornecido,
+ *     renderiza páginas com função distinta (contexto, conceito, exemplo,
+ *     comparativo, ferramenta, aplicação, reflexão) e tratamentos visuais
+ *     ricos (pull quote, cards numerados, fluxo, checklist, box de síntese,
+ *     comparativo lado a lado, cards de reflexão). O texto vem dos blocos por
+ *     id — a IA só decide layout.
+ *  2) FALLBACK FLAT: sem plano, corre o markdown numa página única (H1/H2/H3,
+ *     parágrafos, listas → cards/bullets, blockquotes → pull quotes).
  */
 
 import React from 'react';
 import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
 import '@/components/pdf/styles'; // registra a fonte NotoSans (efeito colateral)
-import { getLogoCoverBase64 } from '@/lib/pdf-assets';
+import { getLogoCoverBase64, getLogoDarkBase64 } from '@/lib/pdf-assets';
+import { parseBlocks } from '@/lib/conteudo-layout-plan';
+import type { RawBlock, LayoutPlan, PlanItem, PageRole } from '@/lib/conteudo-layout-plan';
 
 // ── Brand book oficial Vertho ────────────────────────────────────────────────
-// Hexes exatos do brand book (não os do mockup PDI). Logo oficial via
-// getLogoCoverBase64 (Logo Vertho H claro — alta visibilidade sobre o navy).
 const colors = {
-  navy: '#142F57',          // azul escuro institucional
-  cyan: '#34C5CC',          // ciano/turquesa principal
-  cyanLight: '#9AE2E6',     // azul claro suave
-  grayBg: '#F4F7FA',        // cinza claro elegante
+  navy: '#142F57',
+  cyan: '#34C5CC',
+  cyanLight: '#9AE2E6',
+  grayBg: '#F4F7FA',
   textPrimary: '#142F57',
-  textSecondary: '#5F6B7A', // cinza texto secundário
+  textSecondary: '#5F6B7A',
   white: '#FFFFFF',
   border: '#E2E8F0',
   gray400: '#94A3B8',
@@ -37,17 +42,8 @@ const colors = {
 const s = StyleSheet.create({
   // Capa
   cover: { flexDirection: 'column', backgroundColor: colors.navy, fontFamily: 'NotoSans', position: 'relative' },
-  coverAccent1: {
-    position: 'absolute', right: -60, top: '36%', width: 230, height: 230,
-    borderWidth: 18, borderColor: colors.cyanLight, borderRadius: 115,
-  },
-  coverAccent2: {
-    position: 'absolute', right: 12, top: '42%', width: 145, height: 145,
-    borderWidth: 10, borderColor: colors.cyan, borderRadius: 72,
-  },
-  // Fundo full-bleed gerado por GPT Image + degradê navy (3 camadas) à esquerda.
-  // Sem gradiente nativo no @react-pdf: 3 retângulos da esquerda, opacidade
-  // decrescente = fade suave. Esquerda escura (texto legível), direita revela a imagem.
+  coverAccent1: { position: 'absolute', right: -60, top: '36%', width: 230, height: 230, borderWidth: 18, borderColor: colors.cyanLight, borderRadius: 115 },
+  coverAccent2: { position: 'absolute', right: 12, top: '42%', width: 145, height: 145, borderWidth: 10, borderColor: colors.cyan, borderRadius: 72 },
   coverImage: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' },
   coverScrim1: { position: 'absolute', top: 0, left: 0, bottom: 0, width: '48%', backgroundColor: 'rgba(15,28,57,0.42)' },
   coverScrim2: { position: 'absolute', top: 0, left: 0, bottom: 0, width: '60%', backgroundColor: 'rgba(15,28,57,0.22)' },
@@ -55,48 +51,21 @@ const s = StyleSheet.create({
   coverTop: { paddingHorizontal: 50, paddingTop: 50 },
   coverLogo: { height: 28, width: 118 },
   coverMiddle: { flex: 1, paddingHorizontal: 50, justifyContent: 'center' },
-  coverCompetencia: {
-    fontSize: 11, fontWeight: 700, color: colors.cyan, letterSpacing: 2.2,
-    textTransform: 'uppercase', marginBottom: 5, maxWidth: 340,
-  },
-  coverDescritor: {
-    fontSize: 8.5, fontWeight: 600, color: colors.cyanLight, letterSpacing: 2,
-    textTransform: 'uppercase', marginBottom: 14, maxWidth: 320,
-  },
+  coverCompetencia: { fontSize: 11, fontWeight: 700, color: colors.cyan, letterSpacing: 2.2, textTransform: 'uppercase', marginBottom: 5, maxWidth: 340 },
+  coverDescritor: { fontSize: 8.5, fontWeight: 600, color: colors.cyanLight, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 14, maxWidth: 320 },
   coverTitle: { fontSize: 32, fontWeight: 800, color: colors.white, lineHeight: 1.15, marginBottom: 22, maxWidth: 320 },
   coverDivider: { width: 56, height: 2.2, backgroundColor: colors.cyan, marginBottom: 26 },
   coverMetaRow: { flexDirection: 'row' },
   coverMetaItem: { marginRight: 32 },
-  coverMetaLabel: {
-    fontSize: 7.5, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase',
-    letterSpacing: 1, fontWeight: 500, marginBottom: 3,
-  },
+  coverMetaLabel: { fontSize: 7.5, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 500, marginBottom: 3 },
   coverMetaValue: { fontSize: 10, color: 'rgba(255,255,255,0.85)', fontWeight: 600 },
-  coverBottom: {
-    paddingHorizontal: 50, paddingVertical: 28, borderTopWidth: 0.5,
-    borderTopColor: 'rgba(255,255,255,0.1)', flexDirection: 'row', justifyContent: 'space-between',
-  },
-  coverBottomText: {
-    fontSize: 7.5, color: 'rgba(255,255,255,0.35)', letterSpacing: 1,
-    textTransform: 'uppercase', fontWeight: 500,
-  },
+  coverBottom: { paddingHorizontal: 50, paddingVertical: 28, borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.1)', flexDirection: 'row', justifyContent: 'space-between' },
+  coverBottomText: { fontSize: 7.5, color: 'rgba(255,255,255,0.35)', letterSpacing: 1, textTransform: 'uppercase', fontWeight: 500 },
 
   // Corpo
-  page: {
-    backgroundColor: colors.white, fontFamily: 'NotoSans',
-    paddingTop: 64, paddingBottom: 48, paddingHorizontal: 48,
-    fontSize: 10.5, color: colors.textPrimary, lineHeight: 1.55,
-  },
-  topMeta: {
-    position: 'absolute', top: 30, left: 48, right: 48,
-    flexDirection: 'row', justifyContent: 'space-between',
-    fontSize: 7, color: colors.gray400, textTransform: 'uppercase', letterSpacing: 1,
-  },
-  footer: {
-    position: 'absolute', bottom: 22, left: 48, right: 48,
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    borderTopWidth: 0.5, borderTopColor: colors.border, paddingTop: 6,
-  },
+  page: { backgroundColor: colors.white, fontFamily: 'NotoSans', paddingTop: 64, paddingBottom: 48, paddingHorizontal: 48, fontSize: 10.5, color: colors.textPrimary, lineHeight: 1.55 },
+  topMeta: { position: 'absolute', top: 30, left: 48, right: 48, flexDirection: 'row', justifyContent: 'space-between', fontSize: 7, color: colors.gray400, textTransform: 'uppercase', letterSpacing: 1 },
+  footer: { position: 'absolute', bottom: 22, left: 48, right: 48, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 0.5, borderTopColor: colors.border, paddingTop: 6 },
   footerText: { fontSize: 7, color: colors.gray500, letterSpacing: 0.4 },
 
   h1: { fontSize: 18, fontWeight: 800, color: colors.navy, marginTop: 6, marginBottom: 10 },
@@ -109,69 +78,60 @@ const s = StyleSheet.create({
   bulletDot: { color: colors.cyan, fontWeight: 700, marginRight: 8, fontSize: 11 },
   bulletText: { flex: 1, color: colors.textPrimary },
 
-  numCard: {
-    flexDirection: 'row', marginBottom: 8, padding: 10,
-    backgroundColor: colors.grayBg, borderRadius: 6,
-    borderLeftWidth: 3, borderLeftColor: colors.cyan,
-  },
-  numBadge: {
-    width: 20, height: 20, borderRadius: 10, backgroundColor: colors.navy,
-    color: colors.white, fontSize: 9.5, fontWeight: 700,
-    textAlign: 'center', paddingTop: 4, marginRight: 10,
-  },
+  numCard: { flexDirection: 'row', marginBottom: 8, padding: 10, backgroundColor: colors.grayBg, borderRadius: 6, borderLeftWidth: 3, borderLeftColor: colors.cyan },
+  numBadge: { width: 20, height: 20, borderRadius: 10, backgroundColor: colors.navy, color: colors.white, fontSize: 9.5, fontWeight: 700, textAlign: 'center', paddingTop: 4, marginRight: 10 },
   numText: { flex: 1, color: colors.textPrimary, paddingTop: 2 },
 
-  quote: {
-    marginVertical: 12, paddingVertical: 12, paddingHorizontal: 16,
-    backgroundColor: colors.grayBg, borderLeftWidth: 3, borderLeftColor: colors.cyan, borderRadius: 4,
-  },
+  quote: { marginVertical: 12, paddingVertical: 12, paddingHorizontal: 16, backgroundColor: colors.grayBg, borderLeftWidth: 3, borderLeftColor: colors.cyan, borderRadius: 4 },
   quoteText: { fontSize: 12.5, fontStyle: 'italic', color: colors.navy, fontWeight: 600, lineHeight: 1.45 },
 
   bold: { fontWeight: 700 },
+
+  // ── Plano editorial ──────────────────────────────────────────────────────
+  roleHeader: { marginBottom: 16 },
+  roleEyebrow: { fontSize: 8.5, fontWeight: 700, color: colors.cyan, letterSpacing: 2.4, textTransform: 'uppercase' },
+  roleRule: { width: 34, height: 2, backgroundColor: colors.cyan, marginTop: 6 },
+
+  hero: { marginHorizontal: -48, marginTop: -64, marginBottom: 22, height: 230, position: 'relative' },
+  heroImg: { width: '100%', height: '100%', objectFit: 'cover' },
+  heroScrim: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(15,28,57,0.5)' },
+  heroTextWrap: { position: 'absolute', left: 48, right: 48, bottom: 20 },
+  heroEyebrow: { fontSize: 9, fontWeight: 700, color: colors.cyanLight, letterSpacing: 2.2, textTransform: 'uppercase', marginBottom: 5 },
+
+  pullBig: { marginVertical: 16, paddingLeft: 18, borderLeftWidth: 3, borderLeftColor: colors.cyan },
+  pullBigText: { fontSize: 15.5, fontWeight: 700, fontStyle: 'italic', color: colors.navy, lineHeight: 1.38 },
+
+  synthBox: { marginVertical: 12, padding: 14, backgroundColor: colors.grayBg, borderRadius: 8, borderWidth: 0.8, borderColor: colors.cyanLight },
+  synthLabel: { fontSize: 7.5, fontWeight: 700, color: colors.cyan, letterSpacing: 1.8, textTransform: 'uppercase', marginBottom: 5 },
+  synthText: { color: colors.textPrimary, lineHeight: 1.5 },
+
+  checkRow: { flexDirection: 'row', marginBottom: 8, alignItems: 'flex-start' },
+  checkBox: { width: 11, height: 11, borderWidth: 1.4, borderColor: colors.cyan, borderRadius: 2.5, marginRight: 10, marginTop: 2.5 },
+  checkText: { flex: 1, color: colors.textPrimary },
+
+  flowStep: { flexDirection: 'row' },
+  flowRail: { width: 20, alignItems: 'center' },
+  flowBadge: { width: 20, height: 20, borderRadius: 10, backgroundColor: colors.navy, color: colors.white, fontSize: 9.5, fontWeight: 700, textAlign: 'center', paddingTop: 4 },
+  flowLine: { width: 1.4, flexGrow: 1, backgroundColor: colors.cyanLight, marginVertical: 3 },
+  flowBody: { flex: 1, paddingLeft: 12, paddingBottom: 14 },
+  flowText: { color: colors.textPrimary, lineHeight: 1.5 },
+
+  reflectCard: { marginBottom: 12, padding: 16, backgroundColor: colors.grayBg, borderRadius: 8, borderLeftWidth: 3, borderLeftColor: colors.cyan },
+  reflectMark: { fontSize: 15, color: colors.cyan, fontWeight: 800, marginBottom: 4 },
+  reflectText: { color: colors.navy, fontSize: 11.5, lineHeight: 1.5 },
+
+  cmpRow: { flexDirection: 'row', marginVertical: 12 },
+  cmpCol: { flex: 1, padding: 12, backgroundColor: colors.grayBg, borderRadius: 8 },
+  cmpColLeft: { marginRight: 6 },
+  cmpColRight: { marginLeft: 6 },
+  cmpLabel: { fontSize: 8, fontWeight: 700, color: colors.white, backgroundColor: colors.navy, letterSpacing: 1.2, textTransform: 'uppercase', paddingVertical: 3, paddingHorizontal: 9, borderRadius: 4, marginBottom: 8, alignSelf: 'flex-start' },
+  cmpText: { fontSize: 9.5, color: colors.textPrimary, lineHeight: 1.45, marginBottom: 5 },
+
+  closing: { marginTop: 36, alignItems: 'center' },
+  closingDivider: { width: 40, height: 2, backgroundColor: colors.cyan, marginBottom: 18 },
+  closingLogo: { height: 24, width: 100 },
+  closingTagline: { fontSize: 7.5, color: colors.gray400, letterSpacing: 1.6, textTransform: 'uppercase', marginTop: 10 },
 });
-
-// ── Parser markdown ──────────────────────────────────────────────────────────
-type Block =
-  | { type: 'h1' | 'h2' | 'h3' | 'p' | 'quote'; text: string }
-  | { type: 'ul'; items: string[] }
-  | { type: 'ol'; items: string[] };
-
-function parse(md: string, { skipFirstH1 = false }: { skipFirstH1?: boolean } = {}): Block[] {
-  const lines = String(md || '').split('\n');
-  const blocks: Block[] = [];
-  let para: string[] = [];
-  let ul: string[] = [];
-  let ol: string[] = [];
-  let firstH1Skipped = !skipFirstH1;
-
-  const flushPara = () => { if (para.length) { blocks.push({ type: 'p', text: para.join(' ') }); para = []; } };
-  const flushUl = () => { if (ul.length) { blocks.push({ type: 'ul', items: ul }); ul = []; } };
-  const flushOl = () => { if (ol.length) { blocks.push({ type: 'ol', items: ol }); ol = []; } };
-  const flushAll = () => { flushPara(); flushUl(); flushOl(); };
-
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (!line) { flushAll(); continue; }
-    if (/^([-*_])\1{2,}$/.test(line)) { flushAll(); continue; } // hr
-
-    if (line.startsWith('### ')) { flushAll(); blocks.push({ type: 'h3', text: line.slice(4) }); continue; }
-    if (line.startsWith('## ')) { flushAll(); blocks.push({ type: 'h2', text: line.slice(3) }); continue; }
-    if (line.startsWith('# ')) {
-      flushAll();
-      if (!firstH1Skipped) { firstH1Skipped = true; continue; }
-      blocks.push({ type: 'h1', text: line.slice(2) });
-      continue;
-    }
-    if (line.startsWith('> ')) { flushPara(); flushUl(); flushOl(); blocks.push({ type: 'quote', text: line.slice(2) }); continue; }
-    if (/^[-*]\s+/.test(line)) { flushPara(); flushOl(); ul.push(line.replace(/^[-*]\s+/, '')); continue; }
-    if (/^\d+\.\s+/.test(line)) { flushPara(); flushUl(); ol.push(line.replace(/^\d+\.\s+/, '')); continue; }
-
-    flushUl(); flushOl();
-    para.push(line);
-  }
-  flushAll();
-  return blocks;
-}
 
 // Renderiza **negrito** inline
 function inline(text: string): React.ReactNode[] {
@@ -179,6 +139,200 @@ function inline(text: string): React.ReactNode[] {
     part.startsWith('**') && part.endsWith('**')
       ? React.createElement(Text, { key: i, style: s.bold }, part.slice(2, -2))
       : part
+  );
+}
+
+const ROLE_LABEL: Record<PageRole, string> = {
+  contexto: 'Contexto',
+  conceito: 'Conceito',
+  exemplo: 'Na prática',
+  comparativo: 'Comparativo',
+  ferramenta: 'Ferramenta',
+  aplicacao: 'Aplicação',
+  reflexao: 'Para refletir',
+  corpo: '',
+};
+
+// ── Renderização de blocos por tratamento ─────────────────────────────────────
+const e = React.createElement;
+
+function headingNodes(b: RawBlock, key: string): React.ReactNode[] {
+  if (b.kind === 'h1') {
+    return [e(Text, { key, style: s.h1 }, (b as any).text), e(View, { key: `${key}r`, style: s.h1Rule })];
+  }
+  if (b.kind === 'h2') return [e(Text, { key, style: s.h2 }, (b as any).text)];
+  if (b.kind === 'h3') return [e(Text, { key, style: s.h3 }, (b as any).text)];
+  // não é heading → trata como parágrafo
+  return [e(Text, { key, style: s.paragraph }, inline(blockText(b)))];
+}
+
+function blockText(b: RawBlock): string {
+  return b.kind === 'ul' || b.kind === 'ol' ? (b as any).items.join(' ') : (b as any).text;
+}
+
+function bulletsNodes(items: string[], key: string): React.ReactNode[] {
+  return items.map((it, j) =>
+    e(View, { key: `${key}-${j}`, style: s.bulletRow, wrap: false },
+      e(Text, { style: s.bulletDot }, '•'),
+      e(Text, { style: s.bulletText }, inline(it)),
+    )
+  );
+}
+
+function numberedNodes(items: string[], key: string): React.ReactNode[] {
+  return items.map((it, j) =>
+    e(View, { key: `${key}-${j}`, style: s.numCard, wrap: false },
+      e(Text, { style: s.numBadge }, String(j + 1)),
+      e(Text, { style: s.numText }, inline(it)),
+    )
+  );
+}
+
+function flowNodes(items: string[], key: string): React.ReactNode[] {
+  return items.map((it, j) =>
+    e(View, { key: `${key}-${j}`, style: s.flowStep, wrap: false },
+      e(View, { style: s.flowRail },
+        e(Text, { style: s.flowBadge }, String(j + 1)),
+        j < items.length - 1 ? e(View, { style: s.flowLine }) : null,
+      ),
+      e(View, { style: s.flowBody }, e(Text, { style: s.flowText }, inline(it))),
+    )
+  );
+}
+
+function checklistNodes(items: string[], key: string): React.ReactNode[] {
+  return items.map((it, j) =>
+    e(View, { key: `${key}-${j}`, style: s.checkRow, wrap: false },
+      e(View, { style: s.checkBox }),
+      e(Text, { style: s.checkText }, inline(it)),
+    )
+  );
+}
+
+function reflectionNodes(items: string[], key: string): React.ReactNode[] {
+  return items.map((it, j) =>
+    e(View, { key: `${key}-${j}`, style: s.reflectCard, wrap: false },
+      e(Text, { style: s.reflectMark }, '?'),
+      e(Text, { style: s.reflectText }, inline(it)),
+    )
+  );
+}
+
+function comparisonNodes(
+  left: { label?: string; refs: number[] }, right: { label?: string; refs: number[] },
+  byId: Map<number, RawBlock>, key: string,
+): React.ReactNode {
+  const col = (side: { label?: string; refs: number[] }, extraStyle: any, ck: string) =>
+    e(View, { key: ck, style: [s.cmpCol, extraStyle] },
+      side.label ? e(Text, { style: s.cmpLabel }, side.label) : null,
+      ...side.refs.flatMap((r, ri) => {
+        const b = byId.get(r);
+        if (!b) return [];
+        if (b.kind === 'ul' || b.kind === 'ol') {
+          return (b as any).items.map((it: string, ii: number) =>
+            e(Text, { key: `${ck}-${ri}-${ii}`, style: s.cmpText }, inline(`• ${it}`)));
+        }
+        return [e(Text, { key: `${ck}-${ri}`, style: s.cmpText }, inline((b as any).text))];
+      }),
+    );
+  return e(View, { key, style: s.cmpRow, wrap: false },
+    col(left, s.cmpColLeft, `${key}-l`),
+    col(right, s.cmpColRight, `${key}-r`),
+  );
+}
+
+function renderItem(item: PlanItem, byId: Map<number, RawBlock>, key: string): React.ReactNode[] {
+  if (item.as === 'comparison') return [comparisonNodes(item.left, item.right, byId, key)];
+  if (item.as === 'pullquoteText') {
+    return [e(View, { key, style: s.pullBig, wrap: false }, e(Text, { style: s.pullBigText }, inline(item.text)))];
+  }
+  const b = byId.get(item.ref);
+  if (!b) return [];
+  const items = b.kind === 'ul' || b.kind === 'ol' ? (b as any).items as string[] : null;
+  switch (item.as) {
+    case 'heading': return headingNodes(b, key);
+    case 'pullquote':
+      return [e(View, { key, style: s.pullBig, wrap: false }, e(Text, { style: s.pullBigText }, inline(blockText(b))))];
+    case 'synthesis':
+      return [e(View, { key, style: s.synthBox, wrap: false },
+        e(Text, { style: s.synthLabel }, 'Síntese'),
+        e(Text, { style: s.synthText }, inline(blockText(b))))];
+    case 'bullets': return items ? bulletsNodes(items, key) : [e(Text, { key, style: s.paragraph }, inline(blockText(b)))];
+    case 'numberedCards': return items ? numberedNodes(items, key) : [e(Text, { key, style: s.paragraph }, inline(blockText(b)))];
+    case 'flow': return items ? flowNodes(items, key) : [e(Text, { key, style: s.paragraph }, inline(blockText(b)))];
+    case 'checklist': return items ? checklistNodes(items, key) : [e(Text, { key, style: s.paragraph }, inline(blockText(b)))];
+    case 'reflectionCards': return items ? reflectionNodes(items, key) : [e(Text, { key, style: s.paragraph }, inline(blockText(b)))];
+    case 'paragraph':
+    default:
+      return [e(Text, { key, style: s.paragraph }, inline(blockText(b)))];
+  }
+}
+
+// ── Página do plano editorial ─────────────────────────────────────────────────
+function planPage(
+  pg: LayoutPlan['pages'][number], pageIdx: number, byId: Map<number, RawBlock>,
+  eyebrow: string, sectionImageBase64: string | null,
+): React.ReactNode {
+  const roleLabel = ROLE_LABEL[pg.role] || '';
+  const hero = pg.heroImage && sectionImageBase64;
+  const isReflexao = pg.role === 'reflexao';
+  const logoDark = isReflexao ? getLogoDarkBase64() : null;
+
+  return e(Page, { key: `pg-${pageIdx}`, size: 'A4', style: s.page },
+    e(View, { style: s.topMeta, fixed: true },
+      e(Text, null, eyebrow),
+      e(Text, { render: ({ pageNumber }: any) => String(pageNumber) }),
+    ),
+    // Cabeçalho da seção: banda com imagem (hero) ou eyebrow simples.
+    hero
+      ? e(View, { style: s.hero },
+          e(Image, { src: sectionImageBase64 as string, style: s.heroImg }),
+          e(View, { style: s.heroScrim }),
+          roleLabel ? e(View, { style: s.heroTextWrap }, e(Text, { style: s.heroEyebrow }, roleLabel)) : null,
+        )
+      : roleLabel
+        ? e(View, { style: s.roleHeader },
+            e(Text, { style: s.roleEyebrow }, roleLabel),
+            e(View, { style: s.roleRule }),
+          )
+        : null,
+    ...pg.items.flatMap((it, i) => renderItem(it, byId, `p${pageIdx}-i${i}`)),
+    // Fechamento na página de reflexão.
+    isReflexao
+      ? e(View, { style: s.closing },
+          e(View, { style: s.closingDivider }),
+          logoDark ? e(Image, { src: logoDark, style: s.closingLogo }) : null,
+          e(Text, { style: s.closingTagline }, 'vertho.ai'),
+        )
+      : null,
+    e(View, { style: s.footer, fixed: true },
+      e(Text, { style: s.footerText }, 'Vertho Mentor IA'),
+      e(Text, { style: s.footerText }, 'vertho.ai'),
+    ),
+  );
+}
+
+// ── Corpo flat (fallback) ─────────────────────────────────────────────────────
+function flatBody(blocks: RawBlock[], eyebrow: string): React.ReactNode {
+  return e(Page, { size: 'A4', style: s.page },
+    e(View, { style: s.topMeta, fixed: true },
+      e(Text, null, eyebrow),
+      e(Text, { render: ({ pageNumber }: any) => String(pageNumber) }),
+    ),
+    ...blocks.flatMap((b, i) => {
+      const key = `f${i}`;
+      if (b.kind === 'h1' || b.kind === 'h2' || b.kind === 'h3') return headingNodes(b, key);
+      if (b.kind === 'quote') {
+        return [e(View, { key, style: s.quote, wrap: false }, e(Text, { style: s.quoteText }, inline((b as any).text)))];
+      }
+      if (b.kind === 'ul') return bulletsNodes((b as any).items, key);
+      if (b.kind === 'ol') return numberedNodes((b as any).items, key);
+      return [e(Text, { key, style: s.paragraph }, inline((b as any).text))];
+    }),
+    e(View, { style: s.footer, fixed: true },
+      e(Text, { style: s.footerText }, 'Vertho Mentor IA'),
+      e(Text, { style: s.footerText }, 'vertho.ai'),
+    ),
   );
 }
 
@@ -193,98 +347,57 @@ interface Params {
   locale?: string;
   /** Fundo de capa gerado por GPT Image (data URI). Sem ele, cai no fundo vetorial. */
   coverBase64?: string | null;
+  /** Plano editorial (IA). Sem ele, usa o corpo flat. */
+  plan?: LayoutPlan | null;
+  /** Imagem conceitual de seção (data URI) usada na página marcada com heroImage. */
+  sectionImageBase64?: string | null;
 }
 
-export function ConteudoFinalPDF({ titulo, conteudoMd, competencia, descritor, empresaNome, coverBase64 }: Params) {
+export function ConteudoFinalPDF({ titulo, conteudoMd, competencia, descritor, empresaNome, coverBase64, plan, sectionImageBase64 }: Params) {
   const logo = getLogoCoverBase64();
-  const blocks = parse(conteudoMd, { skipFirstH1: Boolean(titulo) });
+  const blocks = parseBlocks(conteudoMd, { skipFirstH1: Boolean(titulo) });
+  const byId = new Map(blocks.map(b => [b.id, b]));
   const eyebrow = [competencia, descritor].filter(Boolean).join('  ›  ') || 'Conteúdo de desenvolvimento';
   const coverComp = competencia || 'Conteúdo de desenvolvimento';
 
-  return React.createElement(Document, { title: titulo, author: 'Vertho' },
-    // Capa
-    React.createElement(Page, { size: 'A4', style: s.cover },
-      // Fundo: imagem GPT Image full-bleed + scrim navy à esquerda. Sem imagem,
-      // usa os anéis vetoriais à direita (fallback). Em ambos, o texto fica numa
-      // coluna esquerda com maxWidth, então nunca colide com o visual à direita.
-      coverBase64
-        ? React.createElement(React.Fragment, null,
-            React.createElement(Image, { src: coverBase64, style: s.coverImage, fixed: true }),
-            React.createElement(View, { style: s.coverScrim3, fixed: true }),
-            React.createElement(View, { style: s.coverScrim2, fixed: true }),
-            React.createElement(View, { style: s.coverScrim1, fixed: true }),
+  const cover = e(Page, { size: 'A4', style: s.cover },
+    coverBase64
+      ? e(React.Fragment, null,
+          e(Image, { src: coverBase64, style: s.coverImage, fixed: true }),
+          e(View, { style: s.coverScrim3, fixed: true }),
+          e(View, { style: s.coverScrim2, fixed: true }),
+          e(View, { style: s.coverScrim1, fixed: true }),
+        )
+      : e(React.Fragment, null,
+          e(View, { style: s.coverAccent1, fixed: true }),
+          e(View, { style: s.coverAccent2, fixed: true }),
+        ),
+    e(View, { style: s.coverTop }, logo ? e(Image, { src: logo, style: s.coverLogo }) : null),
+    e(View, { style: s.coverMiddle },
+      e(Text, { style: s.coverCompetencia }, coverComp),
+      descritor ? e(Text, { style: s.coverDescritor }, descritor) : null,
+      e(Text, { style: s.coverTitle }, titulo),
+      e(View, { style: s.coverDivider }),
+      empresaNome
+        ? e(View, { style: s.coverMetaRow },
+            e(View, { style: s.coverMetaItem },
+              e(Text, { style: s.coverMetaLabel }, 'Organização'),
+              e(Text, { style: s.coverMetaValue }, empresaNome),
+            ),
           )
-        : React.createElement(React.Fragment, null,
-            React.createElement(View, { style: s.coverAccent1, fixed: true }),
-            React.createElement(View, { style: s.coverAccent2, fixed: true }),
-          ),
-      React.createElement(View, { style: s.coverTop },
-        logo ? React.createElement(Image, { src: logo, style: s.coverLogo }) : null,
-      ),
-      React.createElement(View, { style: s.coverMiddle },
-        React.createElement(Text, { style: s.coverCompetencia }, coverComp),
-        descritor ? React.createElement(Text, { style: s.coverDescritor }, descritor) : null,
-        React.createElement(Text, { style: s.coverTitle }, titulo),
-        React.createElement(View, { style: s.coverDivider }),
-        empresaNome
-          ? React.createElement(View, { style: s.coverMetaRow },
-              React.createElement(View, { style: s.coverMetaItem },
-                React.createElement(Text, { style: s.coverMetaLabel }, 'Organização'),
-                React.createElement(Text, { style: s.coverMetaValue }, empresaNome),
-              ),
-            )
-          : null,
-      ),
-      React.createElement(View, { style: s.coverBottom },
-        React.createElement(Text, { style: s.coverBottomText }, 'Material de desenvolvimento'),
-        React.createElement(Text, { style: s.coverBottomText }, 'vertho.ai'),
-      ),
+        : null,
     ),
-
-    // Corpo
-    React.createElement(Page, { size: 'A4', style: s.page },
-      React.createElement(View, { style: s.topMeta, fixed: true },
-        React.createElement(Text, null, eyebrow),
-        React.createElement(Text, { render: ({ pageNumber }: any) => String(pageNumber) }),
-      ),
-      ...blocks.flatMap((b, i) => {
-        if (b.type === 'h1') {
-          return [
-            React.createElement(Text, { key: i, style: s.h1 }, b.text),
-            React.createElement(View, { key: `${i}r`, style: s.h1Rule }),
-          ];
-        }
-        if (b.type === 'h2') return [React.createElement(Text, { key: i, style: s.h2 }, b.text)];
-        if (b.type === 'h3') return [React.createElement(Text, { key: i, style: s.h3 }, b.text)];
-        if (b.type === 'quote') {
-          return [React.createElement(View, { key: i, style: s.quote, wrap: false },
-            React.createElement(Text, { style: s.quoteText }, inline(b.text)),
-          )];
-        }
-        if (b.type === 'ul') {
-          return b.items.map((it, j) =>
-            React.createElement(View, { key: `${i}-${j}`, style: s.bulletRow, wrap: false },
-              React.createElement(Text, { style: s.bulletDot }, '•'),
-              React.createElement(Text, { style: s.bulletText }, inline(it)),
-            )
-          );
-        }
-        if (b.type === 'ol') {
-          return b.items.map((it, j) =>
-            React.createElement(View, { key: `${i}-${j}`, style: s.numCard, wrap: false },
-              React.createElement(Text, { style: s.numBadge }, String(j + 1)),
-              React.createElement(Text, { style: s.numText }, inline(it)),
-            )
-          );
-        }
-        return [React.createElement(Text, { key: i, style: s.paragraph }, inline(b.text))];
-      }),
-      React.createElement(View, { style: s.footer, fixed: true },
-        React.createElement(Text, { style: s.footerText }, 'Vertho Mentor IA'),
-        React.createElement(Text, { style: s.footerText }, 'vertho.ai'),
-      ),
+    e(View, { style: s.coverBottom },
+      e(Text, { style: s.coverBottomText }, 'Material de desenvolvimento'),
+      e(Text, { style: s.coverBottomText }, 'vertho.ai'),
     ),
   );
+
+  const body = plan && plan.pages.length
+    ? plan.pages.map((pg, i) => planPage(pg, i, byId, eyebrow, sectionImageBase64 || null))
+    : [flatBody(blocks, eyebrow)];
+
+  return e(Document, { title: titulo, author: 'Vertho' }, cover, ...body);
 }
 
 export async function renderConteudoFinalPDF(params: Params): Promise<Uint8Array> {

@@ -620,6 +620,47 @@ export async function gerarConteudoFinal(id: string) {
       }
     }
 
+    // Plano editorial (IA): diagrama o conteúdo em páginas com função distinta e
+    // tratamentos visuais ricos. A IA só classifica/organiza — o texto vem dos
+    // blocos verbatim. Falha NUNCA quebra o PDF — cai no corpo flat.
+    let plan = null;
+    let sectionBase64: string | null = null;
+    try {
+      const { parseBlocks, planLayout } = await import('@/lib/conteudo-layout-plan');
+      const { getModelForTask } = await import('@/lib/ai-tasks');
+      const taskKey = c.formato === 'case' ? 'conteudo_case' : 'conteudo_texto';
+      const planModel = c.empresa_id ? await getModelForTask(c.empresa_id, taskKey) : undefined;
+      const blocks = parseBlocks(conteudoMd, { skipFirstH1: Boolean(c.titulo) });
+      plan = await planLayout(blocks, {
+        titulo: c.titulo, competencia: c.competencia, descritor: c.descritor, formato: c.formato,
+      }, planModel);
+    } catch (e: any) {
+      console.warn('[gerarConteudoFinal] plano editorial falhou (usando flat):', e?.message);
+    }
+
+    // Imagem conceitual de seção: só gera se o plano marcou uma página heroImage.
+    // Cacheada igual à capa; falha nunca quebra o PDF.
+    if (plan && plan.pages.some((p: any) => p.heroImage)) {
+      const sectionPath = `final/sections/${c.id}.png`;
+      try {
+        const { data: existente } = await sb.storage.from('conteudos').download(sectionPath);
+        const buf = existente ? Buffer.from(await existente.arrayBuffer()) : null;
+        if (buf && buf.length > 1024) {
+          sectionBase64 = `data:image/png;base64,${buf.toString('base64')}`;
+        } else { throw new Error('section ausente ou vazio'); }
+      } catch {
+        try {
+          const { generateSectionImage } = await import('@/lib/openai-image');
+          const tema = [c.titulo, c.competencia, c.descritor].filter(Boolean).join(' — ') || null;
+          const imgBuf = await generateSectionImage(tema);
+          await sb.storage.from('conteudos').upload(sectionPath, imgBuf, { contentType: 'image/png', upsert: true });
+          sectionBase64 = `data:image/png;base64,${imgBuf.toString('base64')}`;
+        } catch (e: any) {
+          console.warn('[gerarConteudoFinal] imagem de seção falhou:', e?.message);
+        }
+      }
+    }
+
     const { renderConteudoFinalPDF } = await import('@/lib/conteudo-final-pdf');
     const buffer = await renderConteudoFinalPDF({
       titulo: c.titulo,
@@ -629,6 +670,8 @@ export async function gerarConteudoFinal(id: string) {
       formato: c.formato,
       empresaNome: c.empresa?.nome || null,
       coverBase64,
+      plan,
+      sectionImageBase64: sectionBase64,
     });
 
     const slug = String(c.competencia || 'geral').replace(/[^a-zA-Z0-9]/g, '_');
@@ -644,12 +687,17 @@ export async function gerarConteudoFinal(id: string) {
       .eq('id', id);
     if (updErr) return { success: false, error: updErr.message };
 
+    const layoutMsg = plan
+      ? ` — layout editorial: ${plan.pages.length} páginas${plan.summary ? ` (${plan.summary})` : ''}`
+      : ' — layout simples (corpo único)';
     return {
       success: true,
       url: publicUrl,
-      message: `PDF final gerado para "${c.titulo}"`,
+      message: `PDF final gerado para "${c.titulo}"${layoutMsg}`,
       coverGerada: Boolean(coverBase64),
       coverErro,
+      layoutPlanejado: Boolean(plan),
+      paginas: plan ? plan.pages.length : null,
     };
   } catch (err) {
     console.error('[gerarConteudoFinal]', err);

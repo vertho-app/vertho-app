@@ -24,3 +24,24 @@ export function getLogoCoverBase64(): string | null {
   }
   return cachedLogoCover;
 }
+
+let cachedLogoDark: string | null = null;
+let cachedLogoDarkTried = false;
+
+/**
+ * Retorna o logo ESCURO (Vertho assinatura escura) usado em páginas de fundo
+ * claro/branco — ex.: rodapé da página de reflexão final do conteúdo premium,
+ * onde o logo claro sumiria. Carregado uma vez por cold start.
+ */
+export function getLogoDarkBase64(): string | null {
+  if (cachedLogoDarkTried) return cachedLogoDark;
+  cachedLogoDarkTried = true;
+  try {
+    const logoPath = join(process.cwd(), 'public', 'logo-vertho-ac-escuro.png');
+    const buffer = readFileSync(logoPath);
+    cachedLogoDark = `data:image/png;base64,${buffer.toString('base64')}`;
+  } catch {
+    cachedLogoDark = null;
+  }
+  return cachedLogoDark;
+}
