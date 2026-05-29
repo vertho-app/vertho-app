@@ -217,14 +217,17 @@ async function main() {
         clip = await generateVeoClip(prompt, { aspectRatio: '16:9', durationSeconds: s.duration_seconds });
       } catch (e) {
         if (!/RAI/i.test(String(e?.message))) throw e;
-        // Fallback person-free: b-roll de ambiente/objetos, muito menos sujeito ao RAI.
-        console.warn(`[veo] cena ${n} bloqueada (RAI); tentando fallback sem pessoas`);
-        const safePrompt = [
-          'Cinematic institutional b-roll, premium editorial style. Brazilian contemporary school interior, empty room, absolutely no people, no human figures, no faces.',
-          'Focus on environment and recurring objects only: navy folder, a laptop showing abstract graphics with NO readable text, printed reports, a pen and a notebook on a desk.',
-          'Soft natural light, shallow depth of field, slow stable camera, discreet push-in. Color palette: navy, cyan and light-blue accents, light grey, white.',
-          'Avoid: any person, any human, any face, text on screen, captions, logos, dialogue.',
-        ].join('\n\n');
+        // Fallback sem crianças: o RAI bloqueia b-roll escolar por causa de
+        // menores. Mantém a MESMA personagem adulta (continuidade) e o ambiente,
+        // mas exige cena só com o profissional adulto — sem crianças/estudantes.
+        console.warn(`[veo] cena ${n} bloqueada (RAI); tentando fallback sem crianças`);
+        const safeParts = [];
+        if (bible) safeParts.push(bible);
+        safeParts.push(`Shot for this scene: ${s.veo_prompt}`);
+        safeParts.push('HARD CONSTRAINT: absolutely no children, no minors, no students, no teenagers, no babies anywhere in the frame. Only the same adult education professional (the director, ~40-50 years old) alone, plus the recurring objects (navy folder, laptop with abstract graphics and no readable text, printed reports, pen, notebook). Empty of any other people.');
+        safeParts.push('Same character, same wardrobe, same school, same color palette and the same cinematography as the rest of the video.');
+        safeParts.push(`Avoid: ${s.negative_prompt || ''} No children, no minors, no students, no teenagers, no babies.`);
+        const safePrompt = safeParts.join('\n\n');
         try {
           clip = await generateVeoClip(safePrompt, { aspectRatio: '16:9', durationSeconds: s.duration_seconds });
         } catch (e2) {

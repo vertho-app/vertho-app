@@ -18,7 +18,7 @@ const PLAN_MODEL = process.env.VIDEO_PLAN_MODEL || 'gemini-3-flash-preview';
 
 /** Negative prompt padrão aplicado a TODA cena Veo. */
 export const VEO_NEGATIVE_PROMPT =
-  'No text on screen, no captions, no subtitles, no logos, no dialogue, no lip-sync, no person talking to camera, no cartoon or illustration, no clipart, no mascot, no childish elements, no whiteboard cliché, children not the main focus, no readable charts or spreadsheets, no exaggerated expressions, no generic stock-photo look.';
+  'No text on screen, no captions, no subtitles, no logos, no dialogue, no lip-sync, no person talking to camera, no cartoon or illustration, no clipart, no mascot, no childish elements, no whiteboard cliché, no children, no minors, no students, no teenagers, no babies in frame, no readable charts or spreadsheets, no exaggerated expressions, no generic stock-photo look.';
 
 export interface VideoScene {
   scene_number: number;
@@ -95,10 +95,12 @@ Exemplo: "Medium shot slowly pushing in to a discreet close-up: the director sit
 
 CONTEXTO DA ESCOLA (opcional)
 Pode vir um bloco "CONTEXTO DA ESCOLA" com características reais da instituição (etapas, rede, contexto, ambientes, identidade do PPP, tom). Quando vier, ANCORE nele:
-- a bíblia visual (sub-ambientes, faixa etária retratada no b-roll, "cara" da escola, clima) deve refletir esses ambientes e esse contexto reais;
+- a bíblia visual (sub-ambientes, "cara" da escola, clima) deve refletir esses ambientes e esse contexto reais;
 - a persona principal e o figurino devem ser coerentes com a rede e o perfil;
 - o style_prompt e o voiceover_script devem incorporar o TOM e os valores da identidade.
-NUNCA traga para a tela nomes próprios, marcas, logos ou texto legível, mesmo que estejam no contexto — as travas visuais continuam valendo. Sem contexto, siga uma escola brasileira contemporânea premium genérica.
+NUNCA traga para a tela nomes próprios, marcas, logos ou texto legível, mesmo que estejam no contexto — as travas visuais continuam valendo.
+TRAVA DE PESSOAS: o b-roll NUNCA mostra crianças, menores, estudantes, adolescentes ou bebês — nem quando a escola atende essas faixas etárias. Os clipes Veo retratam SOMENTE o profissional adulto da educação (a personagem fixa) e os ambientes/objetos; a faixa etária dos alunos aparece só no voice-over, jamais na imagem. (Filtro de conteúdo do Veo bloqueia menores.)
+Sem contexto, siga uma escola brasileira contemporânea premium genérica.
 
 SAÍDA
 Responda SOMENTE com JSON válido (sem markdown, sem comentários) exatamente neste schema:
