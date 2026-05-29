@@ -7,7 +7,7 @@
  * a Run Admin API passando o CONTEUDO_ID como override de env do container.
  *
  * Fluxo de auth (federação):
- *   1. A Vercel injeta um token OIDC em VERCEL_OIDC_TOKEN (OIDC Federation ON).
+ *   1. getVercelOidcToken() lê o token OIDC do contexto de request (OIDC ON).
  *   2. Trocamos esse token por um token federado no STS do Google.
  *   3. Com o token federado, personificamos a service account de trigger
  *      (generateAccessToken) — ela tem run.developer/run.invoker.
@@ -23,6 +23,8 @@
  *  - GCP_TRIGGER_SA        email da SA de trigger
  *  - VERCEL_OIDC_TOKEN     injetada pela Vercel em runtime (OIDC Federation)
  */
+
+import { getVercelOidcToken } from '@vercel/functions/oidc';
 
 const STS_URL = 'https://sts.googleapis.com/v1/token';
 const SCOPE = 'https://www.googleapis.com/auth/cloud-platform';
@@ -80,8 +82,13 @@ async function impersonateSa(federatedToken: string): Promise<string> {
 
 /** Token de acesso da SA de trigger via WIF (Vercel OIDC → STS → impersonation). */
 async function getAccessToken(): Promise<string> {
-  const oidcToken = process.env.VERCEL_OIDC_TOKEN;
-  if (!oidcToken) throw new Error('VERCEL_OIDC_TOKEN ausente (habilite OIDC Federation na Vercel)');
+  let oidcToken: string | undefined;
+  try {
+    oidcToken = await getVercelOidcToken();
+  } catch {
+    oidcToken = process.env.VERCEL_OIDC_TOKEN;
+  }
+  if (!oidcToken) throw new Error('Token OIDC ausente (habilite OIDC Federation na Vercel)');
   const federated = await exchangeOidcForFederated(oidcToken);
   return impersonateSa(federated);
 }
