@@ -55,8 +55,12 @@ const s = StyleSheet.create({
   coverTop: { paddingHorizontal: 50, paddingTop: 50 },
   coverLogo: { height: 28, width: 118 },
   coverMiddle: { flex: 1, paddingHorizontal: 50, justifyContent: 'center' },
-  coverEyebrow: {
-    fontSize: 8.5, fontWeight: 600, color: colors.cyan, letterSpacing: 2.2,
+  coverCompetencia: {
+    fontSize: 11, fontWeight: 700, color: colors.cyan, letterSpacing: 2.2,
+    textTransform: 'uppercase', marginBottom: 5, maxWidth: 340,
+  },
+  coverDescritor: {
+    fontSize: 8.5, fontWeight: 600, color: colors.cyanLight, letterSpacing: 2,
     textTransform: 'uppercase', marginBottom: 14, maxWidth: 320,
   },
   coverTitle: { fontSize: 32, fontWeight: 800, color: colors.white, lineHeight: 1.15, marginBottom: 22, maxWidth: 320 },
@@ -191,11 +195,11 @@ interface Params {
   coverBase64?: string | null;
 }
 
-export function ConteudoFinalPDF({ titulo, conteudoMd, competencia, descritor, empresaNome, locale = 'pt-BR', coverBase64 }: Params) {
+export function ConteudoFinalPDF({ titulo, conteudoMd, competencia, descritor, empresaNome, coverBase64 }: Params) {
   const logo = getLogoCoverBase64();
   const blocks = parse(conteudoMd, { skipFirstH1: Boolean(titulo) });
   const eyebrow = [competencia, descritor].filter(Boolean).join('  ›  ') || 'Conteúdo de desenvolvimento';
-  const dataFmt = new Date().toLocaleDateString(locale, { day: '2-digit', month: 'long', year: 'numeric' });
+  const coverComp = competencia || 'Conteúdo de desenvolvimento';
 
   return React.createElement(Document, { title: titulo, author: 'Vertho' },
     // Capa
@@ -218,21 +222,18 @@ export function ConteudoFinalPDF({ titulo, conteudoMd, competencia, descritor, e
         logo ? React.createElement(Image, { src: logo, style: s.coverLogo }) : null,
       ),
       React.createElement(View, { style: s.coverMiddle },
-        React.createElement(Text, { style: s.coverEyebrow }, eyebrow),
+        React.createElement(Text, { style: s.coverCompetencia }, coverComp),
+        descritor ? React.createElement(Text, { style: s.coverDescritor }, descritor) : null,
         React.createElement(Text, { style: s.coverTitle }, titulo),
         React.createElement(View, { style: s.coverDivider }),
-        React.createElement(View, { style: s.coverMetaRow },
-          empresaNome
-            ? React.createElement(View, { style: s.coverMetaItem },
+        empresaNome
+          ? React.createElement(View, { style: s.coverMetaRow },
+              React.createElement(View, { style: s.coverMetaItem },
                 React.createElement(Text, { style: s.coverMetaLabel }, 'Organização'),
                 React.createElement(Text, { style: s.coverMetaValue }, empresaNome),
-              )
-            : null,
-          React.createElement(View, { style: s.coverMetaItem },
-            React.createElement(Text, { style: s.coverMetaLabel }, 'Data'),
-            React.createElement(Text, { style: s.coverMetaValue }, dataFmt),
-          ),
-        ),
+              ),
+            )
+          : null,
       ),
       React.createElement(View, { style: s.coverBottom },
         React.createElement(Text, { style: s.coverBottomText }, 'Material de desenvolvimento'),
