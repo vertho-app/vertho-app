@@ -85,14 +85,31 @@ export async function generateVeoClip(apiKey, prompt, opts = {}) {
     if (cur.done) done = cur;
   }
 
-  const vid = findVideo(done.response || done);
-  if (!vid) throw new Error('Veo: resposta sem vídeo (schema inesperado)');
+  const resp = done.response || done;
+  // Caminho documentado (REST): response.generateVideoResponse.generatedSamples[0].video.uri
+  const sample =
+    resp?.generateVideoResponse?.generatedSamples?.[0] ||
+    resp?.generatedVideos?.[0] ||
+    resp?.generatedSamples?.[0];
+  let uri = sample?.video?.uri || sample?.video?.videoUri;
+  let b64 = sample?.video?.bytesBase64Encoded || sample?.video?.videoBytes;
 
-  if (vid.b64) return Buffer.from(vid.b64, 'base64');
+  // Fallback: busca em profundidade (resiliente a mudanças de schema).
+  if (!uri && !b64) {
+    const found = findVideo(resp);
+    if (found) { uri = found.uri; b64 = found.b64; }
+  }
 
-  // URI do arquivo: precisa da API key pra baixar.
-  const dlUrl = vid.uri.includes('key=') ? vid.uri : `${vid.uri}${vid.uri.includes('?') ? '&' : '?'}key=${apiKey}`;
-  const fileRes = await fetch(dlUrl);
+  if (!uri && !b64) {
+    // Loga a resposta crua p/ diagnóstico (ex.: filtro de segurança / RAI).
+    console.error('[veo] resposta sem vídeo:', JSON.stringify(resp).slice(0, 1500));
+    throw new Error('Veo: resposta sem vídeo (schema inesperado ou conteúdo filtrado)');
+  }
+
+  if (b64) return Buffer.from(b64, 'base64');
+
+  // Download do arquivo: autentica via header x-goog-api-key (não ?key=).
+  const fileRes = await fetch(uri, { headers: { 'x-goog-api-key': apiKey } });
   if (!fileRes.ok) throw new Error(`Veo download ${fileRes.status}: ${(await fileRes.text()).slice(0, 200)}`);
   return Buffer.from(await fileRes.arrayBuffer());
 }
