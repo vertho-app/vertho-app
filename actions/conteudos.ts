@@ -555,7 +555,9 @@ export async function gerarConteudoFinal(id: string) {
     } catch {
       try {
         const { generateCoverImage } = await import('@/lib/openai-image');
-        const tema = [c.competencia, c.descritor].filter(Boolean).join(' — ') || null;
+        // Inclui o TÍTULO (tópico real do conteúdo) p/ a metáfora ser específica
+        // — sem ele, conteúdos da mesma competência geravam capas idênticas.
+        const tema = [c.titulo, c.competencia, c.descritor].filter(Boolean).join(' — ') || null;
         const imgBuf = await generateCoverImage(tema);
         await sb.storage.from('conteudos').upload(coverPath, imgBuf, { contentType: 'image/png', upsert: true });
         coverBase64 = `data:image/png;base64,${imgBuf.toString('base64')}`;
