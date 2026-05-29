@@ -46,7 +46,8 @@ export async function generateVeoClip(apiKey, prompt, opts = {}) {
   if (!apiKey) throw new Error('GEMINI_API_KEY not set');
   if (!prompt?.trim()) throw new Error('veo prompt vazio');
 
-  const parameters = { aspectRatio, personGeneration: 'allow_adult' };
+  // personGeneration: 'allow_adult' dá 400 nesse preview — omitimos (usa default).
+  const parameters = { aspectRatio };
   if (durationSeconds) parameters.durationSeconds = durationSeconds;
   if (process.env.VEO_RESOLUTION) parameters.resolution = process.env.VEO_RESOLUTION; // ex: "720p"
 
