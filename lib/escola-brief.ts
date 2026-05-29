@@ -84,6 +84,46 @@ export async function resumirPPP(ppp: string): Promise<EscolaBrief> {
   return brief;
 }
 
+/**
+ * Converte a extração estruturada do PPP (ppp_escolas.extracao, formato
+ * educacional do actions/ppp.ts) num texto legível para alimentar resumirPPP.
+ * Cai pro JSON cru se o formato não bater.
+ */
+export function extracaoParaTexto(raw: any): string {
+  let d: any;
+  try { d = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { return String(raw || ''); }
+  if (!d || typeof d !== 'object') return String(raw || '');
+
+  const partes: string[] = [];
+  const p = d.perfil_instituicao;
+  if (p) partes.push(`Instituição: ${[p.nome, p.tipo, p.segmento, p.porte, p.localizacao].filter(Boolean).join(' — ')}`);
+  if (d.comunidade_contexto) partes.push(`Comunidade/contexto: ${d.comunidade_contexto}`);
+  const id = d.identidade;
+  if (id) {
+    const linhas = [id.missao && `Missão: ${id.missao}`, id.visao && `Visão: ${id.visao}`,
+      Array.isArray(id.principios) && id.principios.length && `Princípios: ${id.principios.join('; ')}`,
+      id.concepcao && `Concepção: ${id.concepcao}`].filter(Boolean);
+    if (linhas.length) partes.push(`Identidade:\n${linhas.join('\n')}`);
+  }
+  if (Array.isArray(d.praticas_descritas) && d.praticas_descritas.length) {
+    partes.push(`Práticas: ${d.praticas_descritas.map((x: any) => x?.nome || x?.descricao).filter(Boolean).join('; ')}`);
+  }
+  if (d.inclusao_diversidade) partes.push(`Inclusão/diversidade: ${d.inclusao_diversidade}`);
+  if (d.gestao_participacao) partes.push(`Gestão/participação: ${d.gestao_participacao}`);
+  const inf = d.infraestrutura_recursos;
+  if (inf) {
+    const linhas = [Array.isArray(inf.espacos) && inf.espacos.length && `Espaços: ${inf.espacos.join(', ')}`,
+      Array.isArray(inf.tecnologia) && inf.tecnologia.length && `Tecnologia: ${inf.tecnologia.join(', ')}`].filter(Boolean);
+    if (linhas.length) partes.push(`Infraestrutura:\n${linhas.join('\n')}`);
+  }
+  const vals = Array.isArray(d.valores_institucionais) ? d.valores_institucionais
+    : (d.valores_institucionais?.conteudo || []);
+  if (Array.isArray(vals) && vals.length) partes.push(`Valores: ${vals.join(', ')}`);
+
+  const texto = partes.join('\n\n').trim();
+  return texto || JSON.stringify(d);
+}
+
 /** True se o brief tem ao menos um campo preenchido (vale a pena injetar). */
 export function briefPreenchido(b?: Partial<EscolaBrief> | null): boolean {
   return !!b && Object.values(b).some((v) => typeof v === 'string' && v.trim());

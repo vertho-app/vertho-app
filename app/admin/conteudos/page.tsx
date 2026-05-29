@@ -6,7 +6,7 @@ import { Download, Sparkles, Edit2, Trash2, Check, X, Filter, Video, FileText, H
 import BackButton from '@/components/back-button';
 import {
   importarVideosBunny, listarConteudos, atualizarConteudo,
-  deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA, loadOpcoesGerar, uploadConteudo, gerarConteudoFinal, excluirConteudoFinal, gerarPodcastAudio, gerarVideo,
+  deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA, loadOpcoesGerar, uploadConteudo, gerarConteudoFinal, excluirConteudoFinal, gerarPodcastAudio, gerarVideo, listarPPPEscolasConteudo,
 } from '@/actions/conteudos';
 import { useAdminShell } from '@/app/admin/_shell/AdminShellContext';
 
@@ -35,6 +35,8 @@ export default function ConteudosAdminPage() {
   const [showGerar, setShowGerar] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [roteiroGerado, setRoteiroGerado] = useState(null);
+  // Seletor de escola (PPP) no momento de gerar vídeo
+  const [escolaPicker, setEscolaPicker] = useState<{ conteudo: any; escolas: any[]; sel: string } | null>(null);
 
   const addLog = (msg, type = 'info') => {
     setLogs(prev => [{ msg, type, ts: Date.now() }, ...prev].slice(0, 10));
@@ -132,9 +134,25 @@ export default function ConteudosAdminPage() {
   }
 
   async function handleGerarVideo(c) {
+    // Se a empresa tem PPP extraído, deixa o admin escolher a escola antes de gerar.
+    const empresaId = c.empresa?.id;
+    if (empresaId) {
+      setBusy(true);
+      const escolas = await listarPPPEscolasConteudo(empresaId);
+      setBusy(false);
+      if (escolas.length > 0) {
+        setEscolaPicker({ conteudo: c, escolas, sel: escolas[0].id });
+        return;
+      }
+    }
+    await executarGerarVideo(c);
+  }
+
+  async function executarGerarVideo(c, pppEscolaId?: string) {
+    setEscolaPicker(null);
     setBusy(true);
     addLog(t('logs.generatingVideo', { title: c.titulo }), 'info');
-    const r = await gerarVideo(c.id);
+    const r = await gerarVideo(c.id, pppEscolaId);
     if (r.success) {
       addLog(`✅ ${r.message}`, 'success');
       await carregar();
@@ -479,6 +497,54 @@ export default function ConteudosAdminPage() {
 
       {/* Modal de edição */}
       {editing && <EditModal conteudo={editing} onClose={() => setEditing(null)} onSave={handleSalvarEdicao} />}
+
+      {/* Seletor de escola (PPP) antes de gerar o vídeo */}
+      {escolaPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={() => !busy && setEscolaPicker(null)}>
+          <div className="w-full max-w-md rounded-2xl border border-white/10 overflow-hidden" style={{ background: '#0F2A4A' }} onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-white/[0.06] flex items-center gap-2">
+              <Clapperboard size={16} className="text-cyan-400" />
+              <h3 className="text-sm font-bold text-white flex-1">Gerar vídeo — escolher escola</h3>
+              <button onClick={() => !busy && setEscolaPicker(null)} className="text-gray-500 hover:text-gray-300"><X size={16} /></button>
+            </div>
+            <div className="p-5">
+              <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
+                A IA resume o PPP da escola escolhida para ancorar a estética e o tom do vídeo. Escolha a escola ou gere sem PPP específico (usa o brief salvo na empresa).
+              </p>
+              <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                {escolaPicker.escolas.map(e => (
+                  <label key={e.id} className={`flex items-center gap-2.5 p-3 rounded-lg border cursor-pointer transition-colors ${
+                    escolaPicker.sel === e.id ? 'border-cyan-400/50 bg-cyan-400/10' : 'border-white/10 hover:border-white/30'
+                  }`} style={{ background: escolaPicker.sel === e.id ? undefined : '#091D35' }}>
+                    <input type="radio" name="escola-ppp" checked={escolaPicker.sel === e.id}
+                      onChange={() => setEscolaPicker(p => p && ({ ...p, sel: e.id }))} className="accent-cyan-400" />
+                    <span className="text-sm text-white flex-1 truncate">{e.escola}</span>
+                  </label>
+                ))}
+                <label className={`flex items-center gap-2.5 p-3 rounded-lg border cursor-pointer transition-colors ${
+                  escolaPicker.sel === '' ? 'border-cyan-400/50 bg-cyan-400/10' : 'border-white/10 hover:border-white/30'
+                }`} style={{ background: escolaPicker.sel === '' ? undefined : '#091D35' }}>
+                  <input type="radio" name="escola-ppp" checked={escolaPicker.sel === ''}
+                    onChange={() => setEscolaPicker(p => p && ({ ...p, sel: '' }))} className="accent-cyan-400" />
+                  <span className="text-sm text-gray-400 flex-1">Sem PPP específico (brief salvo)</span>
+                </label>
+              </div>
+              <div className="flex items-center justify-end gap-2 mt-5">
+                <button onClick={() => setEscolaPicker(null)} disabled={busy}
+                  className="px-3 py-2 rounded-lg text-xs font-semibold text-gray-400 hover:text-gray-200 disabled:opacity-50">
+                  Cancelar
+                </button>
+                <button onClick={() => executarGerarVideo(escolaPicker.conteudo, escolaPicker.sel || undefined)} disabled={busy}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-white disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+                  {busy ? <Loader2 size={13} className="animate-spin" /> : <Clapperboard size={13} />}
+                  Gerar vídeo
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal upload manual */}
       {showUpload && (

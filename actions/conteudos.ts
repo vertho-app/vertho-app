@@ -660,14 +660,29 @@ export async function gerarPodcastAudio(id: string) {
  * retorna assim que o Job é disparado; o Job atualiza url/status ao concluir.
  * Saída: 16:9 1280x720, voice-over Charon, sem legendas/lip-sync.
  */
-export async function gerarVideo(id: string) {
+/**
+ * Lista os PPPs já extraídos de uma empresa, para o seletor de escola no
+ * momento de gerar o vídeo (admin/conteudos). Só retorna os 'extraido'.
+ */
+export async function listarPPPEscolasConteudo(empresaId: string) {
+  if (!empresaId) return [];
+  const sb = await requireAdminSupabase();
+  const { data } = await sb.from('ppp_escolas')
+    .select('id, escola, status, extracted_at')
+    .eq('empresa_id', empresaId)
+    .eq('status', 'extraido')
+    .order('extracted_at', { ascending: false, nullsFirst: false });
+  return data || [];
+}
+
+export async function gerarVideo(id: string, pppEscolaId?: string) {
   try {
     const sb = await requireAdminSupabase();
     if (!id) return { success: false, error: 'id obrigatório' };
 
     const { data: c } = await sb
       .from('micro_conteudos')
-      .select('*, empresa:empresas(nome, sys_config)')
+      .select('*, empresa:empresas(id, nome, sys_config)')
       .eq('id', id)
       .maybeSingle();
     if (!c) return { success: false, error: 'Conteúdo não encontrado' };
@@ -682,7 +697,18 @@ export async function gerarVideo(id: string) {
     const { triggerVideoRenderJob } = await import('@/lib/gcp-run');
 
     // Brief da escola (PPP resumido) p/ ancorar bíblia visual + tom da narração.
-    const escolaBrief = (c.empresa?.sys_config as any)?.video_escola || null;
+    // Se o admin escolheu uma escola (pppEscolaId), resume aquele PPP na hora;
+    // senão usa o brief salvo na empresa (sys_config.video_escola).
+    let escolaBrief = (c.empresa?.sys_config as any)?.video_escola || null;
+    if (pppEscolaId && c.empresa?.id) {
+      const { data: ppp } = await sb.from('ppp_escolas')
+        .select('extracao').eq('id', pppEscolaId).eq('empresa_id', c.empresa.id).maybeSingle();
+      if (ppp?.extracao) {
+        const { resumirPPP, extracaoParaTexto } = await import('@/lib/escola-brief');
+        const fonte = extracaoParaTexto(ppp.extracao);
+        if (fonte.trim()) escolaBrief = await resumirPPP(fonte);
+      }
+    }
     const plano = await gerarVideoPlano(c.conteudo_inline, c.titulo, escolaBrief);
 
     const slug = String(c.competencia || 'geral').replace(/[^a-zA-Z0-9]/g, '_');

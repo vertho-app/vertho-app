@@ -127,48 +127,6 @@ export async function listarPPPEscolas(empresaId: string) {
 }
 
 /**
- * Converte a extração estruturada do PPP (ppp_escolas.extracao, formato
- * educacional do actions/ppp.ts) num texto legível para alimentar resumirPPP.
- * Cai pro JSON cru se o formato não bater.
- */
-function extracaoParaTexto(raw: any): string {
-  let d: any;
-  try { d = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { return String(raw || ''); }
-  if (!d || typeof d !== 'object') return String(raw || '');
-
-  const partes: string[] = [];
-  const p = d.perfil_instituicao;
-  if (p) {
-    partes.push(`Instituição: ${[p.nome, p.tipo, p.segmento, p.porte, p.localizacao].filter(Boolean).join(' — ')}`);
-  }
-  if (d.comunidade_contexto) partes.push(`Comunidade/contexto: ${d.comunidade_contexto}`);
-  const id = d.identidade;
-  if (id) {
-    const linhas = [id.missao && `Missão: ${id.missao}`, id.visao && `Visão: ${id.visao}`,
-      Array.isArray(id.principios) && id.principios.length && `Princípios: ${id.principios.join('; ')}`,
-      id.concepcao && `Concepção: ${id.concepcao}`].filter(Boolean);
-    if (linhas.length) partes.push(`Identidade:\n${linhas.join('\n')}`);
-  }
-  if (Array.isArray(d.praticas_descritas) && d.praticas_descritas.length) {
-    partes.push(`Práticas: ${d.praticas_descritas.map((x: any) => x?.nome || x?.descricao).filter(Boolean).join('; ')}`);
-  }
-  if (d.inclusao_diversidade) partes.push(`Inclusão/diversidade: ${d.inclusao_diversidade}`);
-  if (d.gestao_participacao) partes.push(`Gestão/participação: ${d.gestao_participacao}`);
-  const inf = d.infraestrutura_recursos;
-  if (inf) {
-    const linhas = [Array.isArray(inf.espacos) && inf.espacos.length && `Espaços: ${inf.espacos.join(', ')}`,
-      Array.isArray(inf.tecnologia) && inf.tecnologia.length && `Tecnologia: ${inf.tecnologia.join(', ')}`].filter(Boolean);
-    if (linhas.length) partes.push(`Infraestrutura:\n${linhas.join('\n')}`);
-  }
-  const vals = Array.isArray(d.valores_institucionais) ? d.valores_institucionais
-    : (d.valores_institucionais?.conteudo || []);
-  if (Array.isArray(vals) && vals.length) partes.push(`Valores: ${vals.join(', ')}`);
-
-  const texto = partes.join('\n\n').trim();
-  return texto || JSON.stringify(d);
-}
-
-/**
  * Pré-preenche o brief de vídeo a partir de um PPP já extraído (ppp_escolas).
  * O admin seleciona a escola e a IA resume o PPP existente direto pro
  * sys_config.video_escola — sem precisar colar o texto de novo.
@@ -189,10 +147,10 @@ export async function gerarBriefDoPPP(empresaId: string, pppEscolaId?: string) {
   if (!data?.extracao) return { success: false, error: 'Nenhum PPP extraído encontrado para esta escola' };
 
   try {
+    const { resumirPPP, extracaoParaTexto } = await import('@/lib/escola-brief');
     const fonte = extracaoParaTexto(data.extracao);
     if (!fonte.trim()) return { success: false, error: 'PPP extraído está vazio' };
 
-    const { resumirPPP } = await import('@/lib/escola-brief');
     const brief = await resumirPPP(fonte);
 
     const { data: current } = await sb.from('empresas')
