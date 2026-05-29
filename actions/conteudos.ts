@@ -718,19 +718,34 @@ export async function gerarVideo(id: string, pppEscolaId?: string) {
     // Brief da escola (PPP resumido) p/ ancorar bíblia visual + tom da narração.
     // Se o admin escolheu uma escola (pppEscolaId), resume aquele PPP na hora;
     // senão usa o brief salvo na empresa (sys_config.video_escola).
+    const { briefPreenchido } = await import('@/lib/escola-brief');
     let escolaBrief = (c.empresa?.sys_config as any)?.video_escola || null;
+    let briefFonte = briefPreenchido(escolaBrief) ? 'empresa' : 'nenhuma';
     if (pppEscolaId) {
       // Busca o PPP pelo id (já escopado pelo seletor no client). Vale também
       // para conteúdo global (empresa_id null), que não tem brief salvo.
       const { data: ppp } = await sb.from('ppp_escolas')
-        .select('extracao').eq('id', pppEscolaId).maybeSingle();
+        .select('escola, extracao').eq('id', pppEscolaId).maybeSingle();
       if (ppp?.extracao) {
         const { resumirPPP, extracaoParaTexto } = await import('@/lib/escola-brief');
         const fonte = extracaoParaTexto(ppp.extracao);
-        if (fonte.trim()) escolaBrief = await resumirPPP(fonte);
+        if (fonte.trim()) {
+          const resumo = await resumirPPP(fonte);
+          if (briefPreenchido(resumo)) {
+            escolaBrief = resumo;
+            briefFonte = `PPP: ${ppp.escola || pppEscolaId}`;
+          }
+        }
       }
     }
+    if (!briefPreenchido(escolaBrief)) {
+      escolaBrief = null;
+      briefFonte = 'nenhuma';
+    }
+    console.log(`[gerarVideo] brief fonte=${briefFonte}`, escolaBrief || '(sem contexto de escola)');
     const plano = await gerarVideoPlano(c.conteudo_inline, c.titulo, escolaBrief);
+    // Guarda no plano qual contexto de escola foi aplicado (auditoria/verificação).
+    (plano as any)._escola_brief = { fonte: briefFonte, brief: escolaBrief };
 
     const slug = String(c.competencia || 'geral').replace(/[^a-zA-Z0-9]/g, '_');
     const planoPath = `final/video/${slug}/${c.id}-plano.json`;
@@ -748,9 +763,12 @@ export async function gerarVideo(id: string, pppEscolaId?: string) {
 
     await triggerVideoRenderJob(c.id);
 
+    const contextoMsg = briefFonte === 'nenhuma'
+      ? 'sem contexto de escola (PPP)'
+      : `contexto: ${briefFonte}`;
     return {
       success: true,
-      message: `Render de vídeo iniciado para "${c.titulo}" (${plano.scenes.length} cenas). Acompanhe o status.`,
+      message: `Render de vídeo iniciado para "${c.titulo}" (${plano.scenes.length} cenas, ${contextoMsg}). Acompanhe o status.`,
     };
   } catch (err) {
     console.error('[gerarVideo]', err);
