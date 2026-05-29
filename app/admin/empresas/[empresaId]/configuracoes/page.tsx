@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
   Save, Loader2, CheckCircle, AlertTriangle, X,
-  Brain, Clock, Mail, Eye, EyeOff, Palette, Upload, Trash2, Globe, Users, GraduationCap
+  Brain, Clock, Mail, Eye, EyeOff, Palette, Upload, Trash2, Globe, Users, GraduationCap, Film, Sparkles
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { loadConfig, salvarConfig, salvarBranding, salvarSlug, loadEquipe, atualizarRole, vincularDominioVercel, salvarLocaleEmpresa } from './actions';
+import { loadConfig, salvarConfig, salvarBranding, salvarSlug, loadEquipe, atualizarRole, vincularDominioVercel, salvarLocaleEmpresa, resumirPPPEscola } from './actions';
 import { limparSessoesAntigas, limparSessoesTeste } from '@/app/actions/manutencao';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { ROOT_DOMAIN } from '@/lib/domain';
@@ -58,6 +58,8 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
   const [uploading, setUploading] = useState(false);
   const [equipe, setEquipe] = useState([]);
   const [roleUpdating, setRoleUpdating] = useState(null);
+  const [ppp, setPpp] = useState('');
+  const [resumindo, setResumindo] = useState(false);
 
   useEffect(() => {
     loadConfig(empresaId).then(r => {
@@ -88,6 +90,19 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
   function updateCadencia(field, value) { setConfig(prev => ({ ...prev, cadencia: { ...prev.cadencia, [field]: value } })); }
   function updateEnvios(field, value) { setConfig(prev => ({ ...prev, envios: { ...prev.envios, [field]: value } })); }
   function updateBranding(field, value) { setBranding(prev => ({ ...prev, [field]: value })); }
+  function updateBriefEscola(field, value) {
+    setConfig(prev => ({ ...prev, video_escola: { ...(prev as any).video_escola, [field]: value } }));
+  }
+
+  async function handleResumirPPP() {
+    setResumindo(true); setError('');
+    const r = await resumirPPPEscola(empresaId, ppp);
+    setResumindo(false);
+    if (r.success) {
+      setConfig(prev => ({ ...prev, video_escola: (r as any).brief }));
+      setSuccess('PPP resumido e salvo'); setTimeout(() => setSuccess(''), 3000);
+    } else { setError((r as any).error); }
+  }
 
   async function handleSave() {
     setSaving(true); setError('');
@@ -166,6 +181,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
         {[
           { id: 'equipe', label: t('tabs.team'), icon: Users },
           { id: 'programa', label: t('tabs.program'), icon: GraduationCap },
+          { id: 'video', label: 'Vídeo', icon: Film },
           { id: 'idioma', label: t('tabs.language'), icon: Globe },
           { id: 'branding', label: t('tabs.branding'), icon: Palette },
           { id: 'ai', label: t('tabs.ai'), icon: Brain },
@@ -276,6 +292,66 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
           </Panel>
         </div>
       )}
+
+      {/* ═══ Tab: Vídeo ═══ */}
+      {tab === 'video' && (() => {
+        const brief = (config as any).video_escola || {};
+        const campos = [
+          { key: 'etapas', label: 'Etapas / segmentos', ph: 'Educação Infantil e Fundamental I' },
+          { key: 'rede', label: 'Rede / natureza', ph: 'Privada confessional / Pública municipal' },
+          { key: 'contexto', label: 'Contexto', ph: 'Urbana, classe média, região metropolitana de SP' },
+          { key: 'ambientes', label: 'Ambientes reais', ph: 'Pátio arborizado, biblioteca ampla, laboratório maker, quadra coberta' },
+          { key: 'identidade', label: 'Identidade (PPP)', ph: 'Missão, abordagem pedagógica e valores em 2-3 linhas' },
+          { key: 'tom', label: 'Tom da narração', ph: 'Acolhedor, sóbrio, foco em protagonismo estudantil' },
+        ];
+        return (
+          <div className="space-y-4">
+            <Panel title="Brief da escola para o vídeo">
+              <p className="text-[11px] text-gray-500 mb-3 leading-relaxed">
+                Cole o PPP (ou uma descrição livre) e clique em <b className="text-cyan-400">Resumir com IA</b>. O resumo ancora a bíblia visual (ambientes, persona) e o tom do voice-over nos vídeos de microlearning desta escola. Nomes próprios, logos e texto na tela continuam bloqueados.
+              </p>
+              <textarea
+                value={ppp}
+                onChange={e => setPpp(e.target.value)}
+                placeholder="Cole aqui o Projeto Político-Pedagógico ou uma descrição da escola..."
+                rows={8}
+                className="w-full px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40 resize-y"
+                style={{ background: '#091D35' }}
+              />
+              <button
+                type="button"
+                disabled={resumindo || !ppp.trim()}
+                onClick={handleResumirPPP}
+                className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-bold border border-cyan-400/30 text-cyan-300 hover:bg-cyan-400/10 disabled:opacity-50 transition-colors"
+              >
+                {resumindo ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                {resumindo ? 'Resumindo...' : 'Resumir com IA'}
+              </button>
+            </Panel>
+
+            <Panel title="Brief estruturado (editável)">
+              <p className="text-[10px] text-gray-500 mb-3">
+                Gerado pela IA e ajustável. Clique em <b>Salvar</b> abaixo para persistir as edições.
+              </p>
+              <div className="space-y-3">
+                {campos.map(c => (
+                  <div key={c.key}>
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">{c.label}</label>
+                    <textarea
+                      value={brief[c.key] || ''}
+                      onChange={e => updateBriefEscola(c.key, e.target.value)}
+                      placeholder={c.ph}
+                      rows={2}
+                      className="w-full px-3 py-2 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40 resize-y"
+                      style={{ background: '#091D35' }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          </div>
+        );
+      })()}
 
       {/* ═══ Tab: Idioma ═══ */}
       {tab === 'idioma' && (

@@ -6,11 +6,13 @@
  * Veo em inglês + instruções de pós/FFmpeg). O Cloud Run Job consome esse
  * plano para gerar os clipes Veo, o voice-over (Charon) e montar o MP4 final.
  *
- * Saída: 16:9 horizontal 1280x720, voice-over Charon pt-BR, sem legendas,
- * sem personagens falando, sem lip-sync, sem texto na tela.
+ * Saída: 16:9 horizontal 1280x720, voice-over Charon pt-BR, legendas queimadas
+ * em pós (a partir do voice-over), sem personagens falando, sem lip-sync, sem
+ * texto gerado pelo Veo na tela.
  */
 
 import { callAI } from '@/actions/ai-client';
+import { EscolaBrief, briefPreenchido, briefParaPrompt } from '@/lib/escola-brief';
 
 const PLAN_MODEL = process.env.VIDEO_PLAN_MODEL || 'gemini-3-flash-preview';
 
@@ -39,7 +41,7 @@ export interface VideoPlan {
     clip_count: number;
     clip_length_seconds: number;
     voice_over: true;
-    subtitles: false;
+    subtitles: true;
   };
   style_bible: string;
   tts: {
@@ -67,7 +69,7 @@ OBJETIVO
 Microlearning premium de ~3 minutos (≈180s), voice-over com a voz Charon, clipes b-roll gerados por Veo. O vídeo deve parecer UMA ÚNICA PEÇA AUDIOVISUAL CONTÍNUA — mesma personagem, mesma escola, mesma paleta, mesmo clima e mesmo padrão cinematográfico — NUNCA uma colagem de microvídeos desconexos. Estética adulta, editorial, institucional, sofisticada. Nunca infantil nem "banco de imagem genérico".
 
 REGRAS DURAS
-- Voice-over conduz TODA a história. Sem legendas. Sem texto na tela. Personagens NÃO falam (sem lip-sync). Clipes Veo são b-roll; o áudio deles será removido.
+- Voice-over conduz TODA a história. As legendas são QUEIMADAS em pós-produção a partir do voiceover_script (não é trabalho seu descrevê-las). Os clipes Veo NÃO têm texto na tela. Personagens NÃO falam (sem lip-sync). Clipes Veo são b-roll; o áudio deles será removido.
 - 20 a 25 cenas de 6 a 8 segundos. A soma das durações deve ficar ≈180s.
 - Saída de vídeo: 16:9 horizontal, 1280x720.
 
@@ -91,12 +93,19 @@ CENAS (veo_prompt) — SOMENTE A AÇÃO
 Cada veo_prompt descreve APENAS a ação específica da cena (em INGLÊS): enquadramento/movimento de câmera + o que a MESMA personagem e os objetos recorrentes fazem. NÃO repita figurino, paleta, luz nem restrições (a bíblia já cobre). Referencie "the same director" e os objetos da bíblia. Encadeie as cenas com continuidade (mesmo dia, progressão natural, match cut). 1-2 frases por cena.
 Exemplo: "Medium shot slowly pushing in to a discreet close-up: the director sits at her office desk reviewing printed reports and a laptop with abstract graphics, then makes a small note in her notebook, reflecting before a decision."
 
+CONTEXTO DA ESCOLA (opcional)
+Pode vir um bloco "CONTEXTO DA ESCOLA" com características reais da instituição (etapas, rede, contexto, ambientes, identidade do PPP, tom). Quando vier, ANCORE nele:
+- a bíblia visual (sub-ambientes, faixa etária retratada no b-roll, "cara" da escola, clima) deve refletir esses ambientes e esse contexto reais;
+- a persona principal e o figurino devem ser coerentes com a rede e o perfil;
+- o style_prompt e o voiceover_script devem incorporar o TOM e os valores da identidade.
+NUNCA traga para a tela nomes próprios, marcas, logos ou texto legível, mesmo que estejam no contexto — as travas visuais continuam valendo. Sem contexto, siga uma escola brasileira contemporânea premium genérica.
+
 SAÍDA
 Responda SOMENTE com JSON válido (sem markdown, sem comentários) exatamente neste schema:
 {
   "video_title": string,
   "target_audience": string,
-  "format": { "aspect_ratio": "16:9", "resolution": "1280x720", "estimated_duration_seconds": number, "clip_count": number, "clip_length_seconds": number, "voice_over": true, "subtitles": false },
+  "format": { "aspect_ratio": "16:9", "resolution": "1280x720", "estimated_duration_seconds": number, "clip_count": number, "clip_length_seconds": number, "voice_over": true, "subtitles": true },
   "style_bible": string (bíblia visual em INGLÊS — personagem fixa, escola, objetos recorrentes, paleta Vertho, cinematografia, nota de continuidade),
   "tts": { "model": "gemini-3.1-flash-tts-preview", "voice": "Charon", "language": "pt-BR", "style_prompt": string, "voiceover_script": string },
   "scenes": [ { "scene_number": number, "duration_seconds": number, "narrative_function": string, "voiceover_excerpt": string, "visual_description": string, "veo_prompt": string, "negative_prompt": "${VEO_NEGATIVE_PROMPT}", "post_production_notes": string } ],
@@ -121,9 +130,18 @@ function parseJson(raw: string): VideoPlan {
  * @param roteiro texto/roteiro do micro-conteúdo (conteudo_inline).
  * @param titulo título do conteúdo (dá foco ao plano).
  */
-export async function gerarVideoPlano(roteiro: string, titulo?: string): Promise<VideoPlan> {
+export async function gerarVideoPlano(
+  roteiro: string,
+  titulo?: string,
+  escolaBrief?: EscolaBrief | null,
+): Promise<VideoPlan> {
   if (!roteiro?.trim()) throw new Error('roteiro vazio');
-  const user = `TÍTULO: ${titulo || '(sem título)'}\n\nROTEIRO-BASE:\n${roteiro}`;
+  const partes = [`TÍTULO: ${titulo || '(sem título)'}`];
+  if (briefPreenchido(escolaBrief)) {
+    partes.push(`CONTEXTO DA ESCOLA:\n${briefParaPrompt(escolaBrief as EscolaBrief)}`);
+  }
+  partes.push(`ROTEIRO-BASE:\n${roteiro}`);
+  const user = partes.join('\n\n');
   const raw = await callAI(SYSTEM, user, { model: PLAN_MODEL }, 16000, { temperature: 0.7 });
   const plan = parseJson(raw);
   if (!Array.isArray(plan.scenes) || plan.scenes.length < 8) {

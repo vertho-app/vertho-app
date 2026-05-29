@@ -79,6 +79,39 @@ export async function salvarBranding(empresaId, branding) {
   return { success: true, message: 'Branding salvo' };
 }
 
+/**
+ * Resume o PPP (ou descrição livre) da escola num brief estruturado e o salva
+ * em sys_config.video_escola. O brief ancora a bíblia visual e o tom do
+ * voice-over no render de vídeo IA (ver lib/escola-brief + lib/video-plan).
+ */
+export async function resumirPPPEscola(empresaId, ppp) {
+  const sb = await requireAdminSupabase();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  if (!ppp?.trim()) return { success: false, error: 'Cole o PPP ou uma descrição da escola' };
+
+  try {
+    const { resumirPPP } = await import('@/lib/escola-brief');
+    const brief = await resumirPPP(ppp);
+
+    const { data: current } = await sb.from('empresas')
+      .select('sys_config').eq('id', empresaId).single();
+    const merged = { ...(current?.sys_config || {}), video_escola: brief };
+
+    const { error } = await sb.from('empresas')
+      .update({ sys_config: merged }).eq('id', empresaId);
+    if (error) return { success: false, error: error.message };
+
+    await logAdminAction({
+      adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
+      acao: 'empresa.editar', empresaId, alvo: 'video_escola (PPP)',
+      detalhes: { campo: 'sys_config.video_escola', fonte_chars: ppp.length },
+    });
+    return { success: true, message: 'PPP resumido e salvo', brief };
+  } catch (err) {
+    return { success: false, error: err?.message || 'Falha ao resumir o PPP' };
+  }
+}
+
 // ── Gerenciar Roles da Equipe ──────────────────────────────────────────────
 
 export async function loadEquipe(empresaId) {

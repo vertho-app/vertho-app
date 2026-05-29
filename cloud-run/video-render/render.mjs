@@ -7,8 +7,8 @@
  *   2. Gera um clipe Veo por cena (b-roll, 16:9).
  *   3. Gera o voice-over Charon (Gemini TTS) a partir do voiceover_script.
  *   4. FFmpeg: normaliza 1280x720, remove áudio dos clipes, concatena, casa a
- *      duração com o voice-over, aplica fade-in/out e logo (se houver), exporta
- *      MP4 H.264/AAC.
+ *      duração com o voice-over, queima legendas (SRT derivado do voice-over),
+ *      aplica fade-in/out e logo (se houver), exporta MP4 H.264/AAC.
  *   5. Sobe o MP4 no Storage e atualiza url/storage_path/status no Supabase.
  *
  * Env: CONTEUDO_ID, GEMINI_API_KEY, SUPABASE_URL (ou NEXT_PUBLIC_SUPABASE_URL),
@@ -57,6 +57,77 @@ async function download(url) {
   const r = await fetch(url);
   if (!r.ok) throw new Error(`download ${r.status}: ${url}`);
   return Buffer.from(await r.arrayBuffer());
+}
+
+// ── Legendas (SRT queimado) ────────────────────────────────────────────────
+// Veo não gera texto na tela (proibido); a legenda é overlay de pós, derivada
+// do voice-over. Não temos timestamps por palavra, então distribuímos a
+// duração REAL do voice-over (voDur) entre as cenas, proporcional ao tamanho
+// do voiceover_excerpt — fala em ritmo ~constante, então o sync fica bom.
+
+function fmtSrtTime(sec) {
+  const ms = Math.max(0, Math.round(sec * 1000));
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  const milli = ms % 1000;
+  const p = (n, w = 2) => String(n).padStart(w, '0');
+  return `${p(h)}:${p(m)}:${p(s)},${p(milli, 3)}`;
+}
+
+/** Quebra um texto em "cues" curtos (<= maxChars) em fronteira de palavra. */
+function splitCues(text, maxChars = 84) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  const cues = [];
+  let cur = '';
+  for (const w of words) {
+    if (cur && cur.length + 1 + w.length > maxChars) { cues.push(cur); cur = w; }
+    else cur = cur ? `${cur} ${w}` : w;
+  }
+  if (cur) cues.push(cur);
+  return cues;
+}
+
+/** Quebra um cue em até 2 linhas (~width chars) pra leitura confortável. */
+function wrap2(text, width = 42) {
+  if (text.length <= width) return text;
+  const words = text.split(' ');
+  const lines = [];
+  let line = '';
+  for (const w of words) {
+    if (line && line.length + 1 + w.length > width) { lines.push(line); line = w; }
+    else line = line ? `${line} ${w}` : w;
+  }
+  if (line) lines.push(line);
+  return lines.slice(0, 2).join('\n');
+}
+
+/** Monta o SRT cobrindo [0, totalDur] a partir dos voiceover_excerpt das cenas. */
+function buildSrt(scenes, totalDur) {
+  const items = scenes
+    .map((s) => (s.voiceover_excerpt || '').replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+  if (!items.length || !(totalDur > 0)) return '';
+  const totalChars = items.reduce((a, t) => a + Math.max(t.length, 1), 0);
+
+  const out = [];
+  let idx = 1;
+  let t = 0;
+  for (const text of items) {
+    const sceneDur = totalDur * (Math.max(text.length, 1) / totalChars);
+    const cues = splitCues(text);
+    const cueChars = cues.reduce((a, c) => a + c.length, 0) || 1;
+    let ct = t;
+    for (const c of cues) {
+      const dur = sceneDur * (c.length / cueChars);
+      const start = ct;
+      const end = Math.min(ct + dur, totalDur);
+      out.push(`${idx++}\n${fmtSrtTime(start)} --> ${fmtSrtTime(end)}\n${wrap2(c)}\n`);
+      ct = end;
+    }
+    t += sceneDur;
+  }
+  return out.join('\n');
 }
 
 async function main() {
@@ -131,12 +202,26 @@ async function main() {
       await writeFile(logo, await download(env('LOGO_URL')));
     }
 
-    // 5) Montagem final: casa vídeo ao voice-over, fades, logo, export.
+    // 5) Legendas queimadas: SRT derivado do voice-over, casado com voDur.
+    let subsFilter = '';
+    const srt = buildSrt(scenes, voDur);
+    if (srt) {
+      const srtPath = join(dir, 'subs.srt');
+      await writeFile(srtPath, srt);
+      // BorderStyle=1 = contorno + sombra discreta; branco com contorno escuro,
+      // posição inferior-central. force_style entre aspas simples protege as
+      // vírgulas no grafo de filtros (spawn passa o arg literal, sem shell).
+      const style = "Fontname=DejaVu Sans,Fontsize=20,PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,BorderStyle=1,Outline=2,Shadow=1,MarginV=46,Alignment=2";
+      subsFilter = `,subtitles=${srtPath}:force_style='${style}'`;
+    }
+
+    // 6) Montagem final: casa vídeo ao voice-over, fades, logo, export.
     const out = join(dir, 'out.mp4');
     const fadeOutV = Math.max(0, voDur - 1.0);
     const fadeOutA = Math.max(0, voDur - 1.2);
     // Estende o vídeo (clona último frame) até cobrir o voice-over; -shortest corta no áudio.
-    let vChain = `[0:v]tpad=stop_mode=clone:stop_duration=600,fade=t=in:st=0:d=0.8,fade=t=out:st=${fadeOutV.toFixed(2)}:d=1.0[vb]`;
+    // Legenda ANTES dos fades p/ desaparecer junto na abertura/fechamento.
+    let vChain = `[0:v]tpad=stop_mode=clone:stop_duration=600${subsFilter},fade=t=in:st=0:d=0.8,fade=t=out:st=${fadeOutV.toFixed(2)}:d=1.0[vb]`;
     const aChain = `[1:a]afade=t=in:st=0:d=0.6,afade=t=out:st=${fadeOutA.toFixed(2)}:d=1.2[a]`;
     const args = ['-y', '-i', concat, '-i', vo];
     let lastV = '[vb]';
@@ -153,7 +238,7 @@ async function main() {
     console.log('[ffmpeg] montagem final...');
     await run('ffmpeg', args);
 
-    // 6) Upload + update.
+    // 7) Upload + update.
     const outPath = `final/video/${slug}/${id}-${Date.now()}.mp4`;
     const mp4 = await readFile(out);
     const { error: upErr } = await db.storage.from(BUCKET).upload(outPath, mp4, {

@@ -667,7 +667,7 @@ export async function gerarVideo(id: string) {
 
     const { data: c } = await sb
       .from('micro_conteudos')
-      .select('*, empresa:empresas(nome)')
+      .select('*, empresa:empresas(nome, sys_config)')
       .eq('id', id)
       .maybeSingle();
     if (!c) return { success: false, error: 'Conteúdo não encontrado' };
@@ -681,7 +681,9 @@ export async function gerarVideo(id: string) {
     const { gerarVideoPlano } = await import('@/lib/video-plan');
     const { triggerVideoRenderJob } = await import('@/lib/gcp-run');
 
-    const plano = await gerarVideoPlano(c.conteudo_inline, c.titulo);
+    // Brief da escola (PPP resumido) p/ ancorar bíblia visual + tom da narração.
+    const escolaBrief = (c.empresa?.sys_config as any)?.video_escola || null;
+    const plano = await gerarVideoPlano(c.conteudo_inline, c.titulo, escolaBrief);
 
     const slug = String(c.competencia || 'geral').replace(/[^a-zA-Z0-9]/g, '_');
     const planoPath = `final/video/${slug}/${c.id}-plano.json`;
