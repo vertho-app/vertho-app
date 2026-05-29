@@ -8,7 +8,7 @@ import {
   Brain, Clock, Mail, Eye, EyeOff, Palette, Upload, Trash2, Globe, Users, GraduationCap, Film, Sparkles
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { loadConfig, salvarConfig, salvarBranding, salvarSlug, loadEquipe, atualizarRole, vincularDominioVercel, salvarLocaleEmpresa, resumirPPPEscola } from './actions';
+import { loadConfig, salvarConfig, salvarBranding, salvarSlug, loadEquipe, atualizarRole, vincularDominioVercel, salvarLocaleEmpresa, resumirPPPEscola, listarPPPEscolas, gerarBriefDoPPP } from './actions';
 import { limparSessoesAntigas, limparSessoesTeste } from '@/app/actions/manutencao';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { ROOT_DOMAIN } from '@/lib/domain';
@@ -60,6 +60,9 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
   const [roleUpdating, setRoleUpdating] = useState(null);
   const [ppp, setPpp] = useState('');
   const [resumindo, setResumindo] = useState(false);
+  const [pppEscolas, setPppEscolas] = useState<any[]>([]);
+  const [pppEscolaSel, setPppEscolaSel] = useState('');
+  const [gerandoPpp, setGerandoPpp] = useState(false);
 
   useEffect(() => {
     loadConfig(empresaId).then(r => {
@@ -74,6 +77,10 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
       setLoading(false);
     });
     loadEquipe(empresaId).then(setEquipe);
+    listarPPPEscolas(empresaId).then(list => {
+      setPppEscolas(list);
+      if (list.length) setPppEscolaSel(list[0].id);
+    });
   }, [empresaId]);
 
   async function handleRoleChange(colaboradorId, novoRole) {
@@ -101,6 +108,16 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
     if (r.success) {
       setConfig(prev => ({ ...prev, video_escola: (r as any).brief }));
       setSuccess('PPP resumido e salvo'); setTimeout(() => setSuccess(''), 3000);
+    } else { setError((r as any).error); }
+  }
+
+  async function handleGerarDoPPP() {
+    setGerandoPpp(true); setError('');
+    const r = await gerarBriefDoPPP(empresaId, pppEscolaSel || undefined);
+    setGerandoPpp(false);
+    if (r.success) {
+      setConfig(prev => ({ ...prev, video_escola: (r as any).brief }));
+      setSuccess((r as any).message || 'Brief gerado do PPP'); setTimeout(() => setSuccess(''), 3000);
     } else { setError((r as any).error); }
   }
 
@@ -306,6 +323,39 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
         ];
         return (
           <div className="space-y-4">
+            {pppEscolas.length > 0 && (
+              <Panel title="Gerar a partir do PPP existente">
+                <p className="text-[11px] text-gray-500 mb-3 leading-relaxed">
+                  Esta empresa já tem PPP extraído. Selecione a escola e a IA gera o brief do vídeo direto do PPP — sem precisar colar o texto.
+                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {pppEscolas.length > 1 && (
+                    <select
+                      value={pppEscolaSel}
+                      onChange={e => setPppEscolaSel(e.target.value)}
+                      className="flex-1 min-w-[180px] px-3 py-2 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40"
+                      style={{ background: '#091D35' }}
+                    >
+                      {pppEscolas.map(p => (
+                        <option key={p.id} value={p.id} disabled={p.status !== 'extraido'}>
+                          {p.escola}{p.status !== 'extraido' ? ` (${p.status})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <button
+                    type="button"
+                    disabled={gerandoPpp || !pppEscolaSel}
+                    onClick={handleGerarDoPPP}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-bold border border-cyan-400/30 text-cyan-300 hover:bg-cyan-400/10 disabled:opacity-50 transition-colors"
+                  >
+                    {gerandoPpp ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                    {gerandoPpp ? 'Gerando...' : 'Gerar do PPP existente'}
+                  </button>
+                </div>
+              </Panel>
+            )}
+
             <Panel title="Brief da escola para o vídeo">
               <p className="text-[11px] text-gray-500 mb-3 leading-relaxed">
                 Cole o PPP (ou uma descrição livre) e clique em <b className="text-cyan-400">Resumir com IA</b>. O resumo ancora a bíblia visual (ambientes, persona) e o tom do voice-over nos vídeos de microlearning desta escola. Nomes próprios, logos e texto na tela continuam bloqueados.

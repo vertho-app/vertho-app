@@ -112,6 +112,108 @@ export async function resumirPPPEscola(empresaId, ppp) {
   }
 }
 
+/**
+ * Lista os PPPs já extraídos da empresa (tabela ppp_escolas) para o seletor
+ * de escola na aba Vídeo. Uma empresa pode ter vários PPPs (um por escola).
+ */
+export async function listarPPPEscolas(empresaId: string) {
+  const sb = await requireAdminSupabase();
+  if (!empresaId) return [];
+  const { data } = await sb.from('ppp_escolas')
+    .select('id, escola, status, extracted_at')
+    .eq('empresa_id', empresaId)
+    .order('extracted_at', { ascending: false, nullsFirst: false });
+  return data || [];
+}
+
+/**
+ * Converte a extração estruturada do PPP (ppp_escolas.extracao, formato
+ * educacional do actions/ppp.ts) num texto legível para alimentar resumirPPP.
+ * Cai pro JSON cru se o formato não bater.
+ */
+function extracaoParaTexto(raw: any): string {
+  let d: any;
+  try { d = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { return String(raw || ''); }
+  if (!d || typeof d !== 'object') return String(raw || '');
+
+  const partes: string[] = [];
+  const p = d.perfil_instituicao;
+  if (p) {
+    partes.push(`Instituição: ${[p.nome, p.tipo, p.segmento, p.porte, p.localizacao].filter(Boolean).join(' — ')}`);
+  }
+  if (d.comunidade_contexto) partes.push(`Comunidade/contexto: ${d.comunidade_contexto}`);
+  const id = d.identidade;
+  if (id) {
+    const linhas = [id.missao && `Missão: ${id.missao}`, id.visao && `Visão: ${id.visao}`,
+      Array.isArray(id.principios) && id.principios.length && `Princípios: ${id.principios.join('; ')}`,
+      id.concepcao && `Concepção: ${id.concepcao}`].filter(Boolean);
+    if (linhas.length) partes.push(`Identidade:\n${linhas.join('\n')}`);
+  }
+  if (Array.isArray(d.praticas_descritas) && d.praticas_descritas.length) {
+    partes.push(`Práticas: ${d.praticas_descritas.map((x: any) => x?.nome || x?.descricao).filter(Boolean).join('; ')}`);
+  }
+  if (d.inclusao_diversidade) partes.push(`Inclusão/diversidade: ${d.inclusao_diversidade}`);
+  if (d.gestao_participacao) partes.push(`Gestão/participação: ${d.gestao_participacao}`);
+  const inf = d.infraestrutura_recursos;
+  if (inf) {
+    const linhas = [Array.isArray(inf.espacos) && inf.espacos.length && `Espaços: ${inf.espacos.join(', ')}`,
+      Array.isArray(inf.tecnologia) && inf.tecnologia.length && `Tecnologia: ${inf.tecnologia.join(', ')}`].filter(Boolean);
+    if (linhas.length) partes.push(`Infraestrutura:\n${linhas.join('\n')}`);
+  }
+  const vals = Array.isArray(d.valores_institucionais) ? d.valores_institucionais
+    : (d.valores_institucionais?.conteudo || []);
+  if (Array.isArray(vals) && vals.length) partes.push(`Valores: ${vals.join(', ')}`);
+
+  const texto = partes.join('\n\n').trim();
+  return texto || JSON.stringify(d);
+}
+
+/**
+ * Pré-preenche o brief de vídeo a partir de um PPP já extraído (ppp_escolas).
+ * O admin seleciona a escola e a IA resume o PPP existente direto pro
+ * sys_config.video_escola — sem precisar colar o texto de novo.
+ */
+export async function gerarBriefDoPPP(empresaId: string, pppEscolaId?: string) {
+  const sb = await requireAdminSupabase();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+
+  let q = sb.from('ppp_escolas')
+    .select('id, escola, extracao, status')
+    .eq('empresa_id', empresaId);
+  q = pppEscolaId
+    ? q.eq('id', pppEscolaId)
+    : q.eq('status', 'extraido').order('extracted_at', { ascending: false, nullsFirst: false }).limit(1);
+
+  const { data, error } = await q.maybeSingle();
+  if (error) return { success: false, error: error.message };
+  if (!data?.extracao) return { success: false, error: 'Nenhum PPP extraído encontrado para esta escola' };
+
+  try {
+    const fonte = extracaoParaTexto(data.extracao);
+    if (!fonte.trim()) return { success: false, error: 'PPP extraído está vazio' };
+
+    const { resumirPPP } = await import('@/lib/escola-brief');
+    const brief = await resumirPPP(fonte);
+
+    const { data: current } = await sb.from('empresas')
+      .select('sys_config').eq('id', empresaId).single();
+    const merged = { ...(current?.sys_config || {}), video_escola: brief };
+
+    const { error: upErr } = await sb.from('empresas')
+      .update({ sys_config: merged }).eq('id', empresaId);
+    if (upErr) return { success: false, error: upErr.message };
+
+    await logAdminAction({
+      adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
+      acao: 'empresa.editar', empresaId, alvo: `video_escola (PPP: ${data.escola})`,
+      detalhes: { campo: 'sys_config.video_escola', ppp_escola_id: data.id, escola: data.escola },
+    });
+    return { success: true, message: `Brief gerado a partir do PPP de "${data.escola}"`, brief, escola: data.escola };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Falha ao gerar o brief do PPP' };
+  }
+}
+
 // ── Gerenciar Roles da Equipe ──────────────────────────────────────────────
 
 export async function loadEquipe(empresaId) {
