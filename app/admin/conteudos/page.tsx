@@ -134,16 +134,16 @@ export default function ConteudosAdminPage() {
   }
 
   async function handleGerarVideo(c) {
-    // Se a empresa tem PPP extraído, deixa o admin escolher a escola antes de gerar.
-    const empresaId = c.empresa?.id;
-    if (empresaId) {
-      setBusy(true);
-      const escolas = await listarPPPEscolasConteudo(empresaId);
-      setBusy(false);
-      if (escolas.length > 0) {
-        setEscolaPicker({ conteudo: c, escolas, sel: escolas[0].id });
-        return;
-      }
+    // Deixa o admin escolher a escola (PPP) antes de gerar. Usa a empresa do
+    // conteúdo ou, se global, a empresa do filtro do admin; sem filtro, lista
+    // todos os PPPs extraídos.
+    const empresaId = c.empresa?.id || empresaFiltro || undefined;
+    setBusy(true);
+    const escolas = await listarPPPEscolasConteudo(empresaId);
+    setBusy(false);
+    if (escolas.length > 0) {
+      setEscolaPicker({ conteudo: c, escolas, sel: escolas[0].id });
+      return;
     }
     await executarGerarVideo(c);
   }

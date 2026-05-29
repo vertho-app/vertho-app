@@ -661,17 +661,18 @@ export async function gerarPodcastAudio(id: string) {
  * Saída: 16:9 1280x720, voice-over Charon, sem legendas/lip-sync.
  */
 /**
- * Lista os PPPs já extraídos de uma empresa, para o seletor de escola no
- * momento de gerar o vídeo (admin/conteudos). Só retorna os 'extraido'.
+ * Lista os PPPs já extraídos, para o seletor de escola ao gerar vídeo
+ * (admin/conteudos). Se empresaId vier, escopa por empresa; senão (conteúdo
+ * global, sem empresa) retorna todos os extraídos pro admin escolher.
  */
-export async function listarPPPEscolasConteudo(empresaId: string) {
-  if (!empresaId) return [];
+export async function listarPPPEscolasConteudo(empresaId?: string) {
   const sb = await requireAdminSupabase();
-  const { data } = await sb.from('ppp_escolas')
+  let q = sb.from('ppp_escolas')
     .select('id, escola, status, extracted_at')
-    .eq('empresa_id', empresaId)
     .eq('status', 'extraido')
     .order('extracted_at', { ascending: false, nullsFirst: false });
+  if (empresaId) q = q.eq('empresa_id', empresaId);
+  const { data } = await q;
   return data || [];
 }
 
@@ -700,9 +701,11 @@ export async function gerarVideo(id: string, pppEscolaId?: string) {
     // Se o admin escolheu uma escola (pppEscolaId), resume aquele PPP na hora;
     // senão usa o brief salvo na empresa (sys_config.video_escola).
     let escolaBrief = (c.empresa?.sys_config as any)?.video_escola || null;
-    if (pppEscolaId && c.empresa?.id) {
+    if (pppEscolaId) {
+      // Busca o PPP pelo id (já escopado pelo seletor no client). Vale também
+      // para conteúdo global (empresa_id null), que não tem brief salvo.
       const { data: ppp } = await sb.from('ppp_escolas')
-        .select('extracao').eq('id', pppEscolaId).eq('empresa_id', c.empresa.id).maybeSingle();
+        .select('extracao').eq('id', pppEscolaId).maybeSingle();
       if (ppp?.extracao) {
         const { resumirPPP, extracaoParaTexto } = await import('@/lib/escola-brief');
         const fonte = extracaoParaTexto(ppp.extracao);
