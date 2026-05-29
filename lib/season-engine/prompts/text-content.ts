@@ -1,5 +1,5 @@
 /**
- * Gera artigo markdown (800-1200 palavras) para leitura ativa.
+ * Gera artigo markdown (mín. 8.000 caracteres, ~1.400-1.800 palavras) para leitura ativa.
  */
 interface PromptTextContentParams {
   competencia: string;
@@ -49,7 +49,7 @@ REGRAS DE ESTILO:
 - Sem linhas separadoras "---"
 - Fluxo natural entre seções`;
 
-  const user = `Crie 1 artigo de 800-1200 palavras em markdown.
+  const user = `Crie 1 artigo de leitura ativa em markdown, com NO MÍNIMO 8.000 caracteres (contando espaços) — aproximadamente 1.400 a 1.800 palavras, leitura de 5 a 8 minutos. Não entregue um texto mais curto: desenvolva cada seção com profundidade (mais exemplos, mais nuance, mais aplicação ao cargo) em vez de encher com repetição.
 
 CONTEXTO:
 - Competência: ${competencia}
@@ -92,6 +92,7 @@ REGRAS FINAIS:
 - Markdown válido (títulos com #, ## / listas com - ou 1. / negrito com **)
 - NÃO use cercas de código \`\`\`md
 - O texto deve funcionar bem em tela e PDF
+- COMPRIMENTO: mínimo de 8.000 caracteres (~1.400-1.800 palavras). Aprofunde com exemplos e nuance, nunca com enchimento repetitivo
 
 Retorne APENAS o markdown, sem comentários extras.`;
 

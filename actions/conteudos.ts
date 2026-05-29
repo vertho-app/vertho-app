@@ -88,7 +88,23 @@ export async function gerarConteudoIA({
       : formato === 'texto' ? 'conteudo_texto'
       : formato === 'case' ? 'conteudo_case' : null;
     const model = taskKey && empresaId ? await getModelForTask(empresaId, taskKey) : aiConfig?.model;
-    const conteudoGerado = (await callAI(system, user, { ...aiConfig, model: model || aiConfig?.model }, 4096)).trim();
+    // texto/case viram PDF e exigem mín. 8.000 caracteres — precisam de mais
+    // tokens de saída p/ não truncar antes de atingir o comprimento mínimo.
+    const maxTokens = formato === 'texto' || formato === 'case' ? 8000 : 4096;
+    let conteudoGerado = (await callAI(system, user, { ...aiConfig, model: model || aiConfig?.model }, maxTokens)).trim();
+
+    // Garante o mínimo de 8.000 caracteres nos PDFs (texto/case): se vier curto,
+    // faz UMA expansão mantendo estilo/estrutura. Falha não quebra a geração.
+    const MIN_PDF_CHARS = 8000;
+    if ((formato === 'texto' || formato === 'case') && conteudoGerado.length < MIN_PDF_CHARS) {
+      try {
+        const expandUser = `O texto em markdown abaixo tem ${conteudoGerado.length} caracteres, abaixo do mínimo de ${MIN_PDF_CHARS}. Reescreva-o EXPANDINDO o conteúdo (mais exemplos, mais nuance, mais profundidade aplicada ao cargo/contexto) para ter NO MÍNIMO ${MIN_PDF_CHARS} caracteres, mantendo EXATAMENTE o mesmo estilo, tom, estrutura e formatação markdown. Não adicione enchimento repetitivo. Retorne APENAS o markdown final.\n\n---\n\n${conteudoGerado}`;
+        const expandido = (await callAI(system, expandUser, { ...aiConfig, model: model || aiConfig?.model }, maxTokens)).trim();
+        if (expandido.length > conteudoGerado.length) conteudoGerado = expandido;
+      } catch (e: any) {
+        console.warn('[gerarConteudoIA] expansão p/ mínimo de caracteres falhou:', e?.message);
+      }
+    }
 
     const titulo = extrairTitulo(conteudoGerado, descritor, formato);
     const duracaoEstimada = duracaoSegundos

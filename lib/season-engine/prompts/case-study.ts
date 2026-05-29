@@ -1,5 +1,5 @@
 /**
- * Gera estudo de caso narrativo (600-1000 palavras) — experiencial, não explicativo.
+ * Gera estudo de caso narrativo (mín. 8.000 caracteres, ~1.400-1.800 palavras) — experiencial, não explicativo.
  */
 interface PromptCaseStudyParams {
   competencia: string;
@@ -54,7 +54,7 @@ REGRAS DE QUALIDADE:
 - As perguntas devem abrir pensamento, não fechar
 - O texto deve funcionar bem em tela e PDF`;
 
-  const user = `Crie 1 estudo de caso de 600-1000 palavras em markdown.
+  const user = `Crie 1 estudo de caso narrativo em markdown, com NO MÍNIMO 8.000 caracteres (contando espaços) — aproximadamente 1.400 a 1.800 palavras, leitura de 5 a 8 minutos. Não entregue um caso mais curto: desenvolva a cena, os personagens, as fricções e as decisões com mais profundidade narrativa, sem encher de repetição.
 
 CONTEXTO:
 - Competência: ${competencia}
@@ -95,6 +95,7 @@ REGRAS FINAIS:
 - O DESCRITOR NUNCA É MENCIONADO pelo nome no texto
 - Narrativa com tensão dramática (nem tudo dá certo)
 - Markdown válido, sem cercas \`\`\`
+- COMPRIMENTO: mínimo de 8.000 caracteres (~1.400-1.800 palavras). Aprofunde a narrativa, nunca com enchimento repetitivo
 
 Retorne APENAS o markdown, sem comentários extras.`;
 
