@@ -25,6 +25,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { generateVeoClip, generateReferenceImage, generateSubjectVariation } from './veo.mjs';
 import { generateVoiceOver } from './tts.mjs';
+import { alignCues } from './align.mjs';
 
 const BUCKET = 'conteudos';
 const W = 1280, H = 720, FPS = 30;
@@ -167,6 +168,28 @@ function buildSrt(scenes, totalDur) {
   return out.join('\n');
 }
 
+/** Converte cues alinhados pelo áudio ([{start,end,text}]) em SRT. */
+function cuesToSrt(cues) {
+  const out = [];
+  let idx = 1;
+  for (const c of cues) {
+    // Cada cue pode ser longo demais p/ uma linha; re-quebra em cues de leitura,
+    // distribuindo o intervalo [start,end] proporcional ao tamanho de cada parte.
+    const parts = splitCues(c.text);
+    const totalChars = parts.reduce((a, p) => a + p.length, 0) || 1;
+    let ct = c.start;
+    const span = Math.max(0, c.end - c.start);
+    for (const p of parts) {
+      const dur = span * (p.length / totalChars);
+      const start = ct;
+      const end = Math.min(ct + dur, c.end);
+      out.push(`${idx++}\n${fmtSrtTime(start)} --> ${fmtSrtTime(end)}\n${wrap2(p)}\n`);
+      ct = end;
+    }
+  }
+  return out.join('\n');
+}
+
 async function main() {
   const id = env('CONTEUDO_ID');
   if (!id) throw new Error('CONTEUDO_ID não informado');
@@ -302,9 +325,21 @@ async function main() {
       await writeFile(logo, await download(env('LOGO_URL')));
     }
 
-    // 5) Legendas queimadas: SRT derivado do voice-over, casado com voDur.
+    // 5) Legendas queimadas. Primeiro tenta alinhar pelo ÁUDIO REAL (Gemini
+    // forced-alignment do WAV + voiceover_script); se falhar, cai na estimativa
+    // proporcional por caracteres (buildSrt) — evita drift acumulado nos ~3min.
     let subsFilter = '';
-    const srt = buildSrt(scenes, voDur);
+    const voiceScript = (plano?.tts?.voiceover_script || '').trim();
+    let srt = '';
+    const wavBuf = await readFile(vo);
+    const cues = await alignCues(apiKey, wavBuf, voiceScript, voDur);
+    if (cues) {
+      srt = cuesToSrt(cues);
+      console.log('[subs] legendas alinhadas pelo áudio');
+    } else {
+      srt = buildSrt(scenes, voDur);
+      console.log('[subs] legendas por estimativa de caracteres (fallback)');
+    }
     if (srt) {
       const srtPath = join(dir, 'subs.srt');
       await writeFile(srtPath, srt);
