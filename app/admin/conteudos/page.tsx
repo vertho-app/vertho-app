@@ -119,6 +119,39 @@ export default function ConteudosAdminPage() {
     setBusy(false);
   }
 
+  // Baixa o arquivo gerado (PDF/áudio) forçando o save com nome a partir do
+  // título. Fetch+blob contorna o atributo `download` ser ignorado cross-origin
+  // (Storage do Supabase); se falhar (CORS), cai pra abrir em nova aba.
+  async function handleDownload(c) {
+    const isVideo = c.formato === 'video';
+    if (!isVideo && !c.url) return;
+    if (isVideo && !c.bunny_video_id) return;
+    const ext = isVideo ? 'mp4' : c.formato === 'audio' ? 'mp3' : 'pdf';
+    const base = (c.titulo || 'conteudo')
+      .replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'conteudo';
+    // Vídeo: a URL é a página de embed do Bunny, não um arquivo. Baixamos o MP4
+    // via proxy server-side (resolve o melhor fallback + passa o Hotlink Referer).
+    const src = isVideo
+      ? `/api/video-download/${c.bunny_video_id}?name=${encodeURIComponent(base)}`
+      : c.url;
+    try {
+      const res = await fetch(src);
+      if (!res.ok) throw new Error(String(res.status));
+      const blob = await res.blob();
+      const objUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objUrl;
+      a.download = `${base}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(objUrl), 2000);
+    } catch {
+      addLog(`⚠️ ${t('actions.downloadError')}`, 'info');
+      window.open(c.url, '_blank', 'noopener');
+    }
+  }
+
   async function handleGerarAudio(c) {
     setBusy(true);
     addLog(t('logs.generatingAudio', { title: c.titulo }), 'info');
@@ -352,6 +385,13 @@ export default function ConteudosAdminPage() {
                                   <ExternalLink size={14} />
                                 </a>
                                 <button
+                                  onClick={() => handleDownload(c)}
+                                  className="p-1.5 rounded hover:bg-sky-500/20 text-sky-400"
+                                  title={t('actions.download')}
+                                >
+                                  <Download size={14} />
+                                </button>
+                                <button
                                   onClick={() => handleGerarFinal(c)}
                                   disabled={busy || !c.conteudo_inline}
                                   className="p-1.5 rounded hover:bg-cyan-500/20 text-cyan-400 disabled:opacity-30 disabled:cursor-not-allowed"
@@ -389,6 +429,13 @@ export default function ConteudosAdminPage() {
                                 >
                                   <ExternalLink size={14} />
                                 </a>
+                                <button
+                                  onClick={() => handleDownload(c)}
+                                  className="p-1.5 rounded hover:bg-sky-500/20 text-sky-400"
+                                  title={t('actions.download')}
+                                >
+                                  <Download size={14} />
+                                </button>
                                 <button
                                   onClick={() => handleGerarAudio(c)}
                                   disabled={busy || !c.conteudo_inline}
@@ -434,6 +481,15 @@ export default function ConteudosAdminPage() {
                                 >
                                   <ExternalLink size={14} />
                                 </a>
+                                {c.bunny_video_id && (
+                                  <button
+                                    onClick={() => handleDownload(c)}
+                                    className="p-1.5 rounded hover:bg-sky-500/20 text-sky-400"
+                                    title={t('actions.download')}
+                                  >
+                                    <Download size={14} />
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => handleGerarVideo(c)}
                                   disabled={busy || !c.conteudo_inline}

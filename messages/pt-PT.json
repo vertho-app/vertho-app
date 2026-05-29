@@ -1772,6 +1772,8 @@
       "regenerateVideo": "Regerar vídeo",
       "deleteVideo": "Eliminar vídeo",
       "videoProcessing": "A renderizar vídeo...",
+      "download": "Transferir ficheiro",
+      "downloadError": "Não foi possível transferir; a abrir em novo separador.",
       "retryVideo": "Falhou: {error}. Clique para tentar novamente.",
       "edit": "Editar",
       "delete": "Deletar",

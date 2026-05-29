@@ -1772,6 +1772,8 @@
       "regenerateVideo": "Regenerate video",
       "deleteVideo": "Delete video",
       "videoProcessing": "Rendering video...",
+      "download": "Download file",
+      "downloadError": "Couldn't download; opening in a new tab.",
       "retryVideo": "Failed: {error}. Click to retry.",
       "edit": "Edit",
       "delete": "Delete",

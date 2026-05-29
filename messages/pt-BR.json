@@ -1772,6 +1772,8 @@
       "regenerateVideo": "Regerar vídeo",
       "deleteVideo": "Excluir vídeo",
       "videoProcessing": "Renderizando vídeo...",
+      "download": "Baixar arquivo",
+      "downloadError": "Não foi possível baixar; abrindo em nova aba.",
       "retryVideo": "Falhou: {error}. Clique para tentar de novo.",
       "edit": "Editar",
       "delete": "Deletar",
