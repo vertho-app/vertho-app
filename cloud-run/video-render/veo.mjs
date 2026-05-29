@@ -124,21 +124,24 @@ export async function generateVeoClip(prompt, opts = {}) {
     `/locations/${REGION}/publishers/google/models/${MODEL}`;
   const authHeaders = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
+  // Subject references (até 3) ancoram a MESMA personagem entre clipes —
+  // o Veo não tem memória, então só texto não garante o mesmo rosto.
+  const hasRefs = Array.isArray(referenceImages) && referenceImages.length > 0;
+
   // Sem storageUri => vídeo volta em base64 na resposta.
   // generateAudio:false — os clipes Veo são b-roll mudo (o FFmpeg descarta o
   // áudio com -an); gerar áudio só encareceria o clipe (~US$0,15/s vs 0,10/s).
+  // reference_to_video só aceita durationSeconds=8 (força 8 quando há refs).
   const parameters = {
     aspectRatio,
     sampleCount: 1,
-    durationSeconds: clampDuration(durationSeconds),
+    durationSeconds: hasRefs ? 8 : clampDuration(durationSeconds),
     resolution: process.env.VEO_RESOLUTION || '720p',
     generateAudio: false,
   };
 
-  // Subject references (até 3) ancoram a MESMA personagem entre clipes —
-  // o Veo não tem memória, então só texto não garante o mesmo rosto.
   const instance = { prompt };
-  if (Array.isArray(referenceImages) && referenceImages.length) {
+  if (hasRefs) {
     instance.referenceImages = referenceImages.slice(0, 3).map((r) => ({
       image: { bytesBase64Encoded: r.bytesBase64Encoded, mimeType: r.mimeType || 'image/png' },
       referenceType: 'asset',
