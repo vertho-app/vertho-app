@@ -1,6 +1,6 @@
 # Catálogo de Prompts da IA — Vertho Mentor IA
 
-> Revisão: 2026-04-17 | Total: 59 prompts catalogados (45 ativos + 5 wrappers/reusos + 5 legados + 4 auxiliares)
+> Revisão: 2026-05-29 | Total: 64 prompts catalogados (47 ativos + 3 wrappers/reusos + 3 legados + 5 auxiliares + demais appendix/mistos)
 >
 > Roteador universal: `actions/ai-client.ts` (`callAI` single-turn + `callAIChat` multi-turn). Default = `claude-sonnet-4-6`.
 > Prompt caching automático: `system` > 4000 chars → `cache_control: ephemeral`.
@@ -1328,7 +1328,7 @@
 
 - **Output**: Markdown 800-1200 palavras. Funciona em tela e PDF. Sem cercas de código.
 - **Inputs user**: Competência, descritor, nível (FUNDAMENTOS/REFINAMENTO/MAESTRIA), cargo, contexto. Estrutura obrigatória (sem usar nomes das seções como headers): TITULO (# provocativo) / SITUACAO (1 paragrafo, cena reconhecível) / CONCEITO (2-3 paragrafos, 1-2 exemplos, **negrito** max 5) / FRAMEWORK (1 modelo mental, 3-5 passos numerados) / Para refletir (## com 2-3 perguntas em bullets).
-- **Consumido por**: `micro_conteudos.conteudo_inline` + PDF via `renderMarkdownPDF`.
+- **Consumido por**: `micro_conteudos.conteudo_inline` + PDF via `renderConteudoFinalPDF` (passando antes pelo planejador editorial 11.6).
 
 ### 11.4 Case Study (Estudo de Caso)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
@@ -1370,6 +1370,40 @@
 - **Output**: JSON `{ competencia, descritor, nivel_min, nivel_max, contexto, cargo, setor, tipo_conteudo, confianca:"alta|media|baixa", raciocinio }`.
 - **Inputs user**: Título, descrição, formato, duração, lista de competências disponíveis com descritores (controlled vocabulary, até 30 competências com até 5 descritores cada).
 - **Consumido por**: Sugestão para admin aprovar/aplicar via `aplicarTagsIA`.
+
+### 11.6 PDF Editorial Layout Planner (Diretor de arte)
+> `ATIVO` desde 2026-05-29 · Prompt documentado como: `resumo_editorial`
+
+- **Arquivo**: `lib/conteudo-layout-plan.ts::PLAN_SYSTEM` (planejador `planLayout`).
+- **Caller**: `actions/conteudos.ts::gerarConteudoFinal` (PDF premium do "conteúdo final").
+- **Modelo**: Via `getModelForTask(empresaId, taskKey)` — `conteudo_case` (formato=case) ou `conteudo_texto` (demais). Sem empresa → default `claude-sonnet-4-6`.
+- **Max tokens**: 8000
+- **Temperatura**: 0.3 (única chamada que passa `options.temperature`).
+- **System prompt** (resumo editorial do prompt real em `lib/conteudo-layout-plan.ts`):
+  "Você é um DIRETOR DE ARTE EDITORIAL sênior da Vertho." Transforma o conteúdo já escrito numa publicação editorial premium (A4 vertical, 5-8 páginas, cada página com uma função editorial distinta). Princípios-chave:
+  1. **REGRA ABSOLUTA**: nunca reescreve, resume, inventa ou remove texto — apenas classifica e organiza, referenciando blocos por `id`
+  2. Cada página tem um papel (`contexto`, `conceito`, `exemplo`, `comparativo`, `ferramenta`, `aplicacao`, `reflexao`, `corpo`)
+  3. Tratamentos visuais por bloco: heading, paragraph, pullquote, synthesis, bullets, numberedCards, flow, checklist, reflectionCards + comparison (lado a lado)
+  4. `pullquoteText`: trecho VERBATIM (substring normalizada ≥12 chars) destacado de um parágrafo, de forma aditiva (não remove o original)
+  5. **COBERTURA**: todo bloco deve aparecer em ≥1 item estrutural (o `sanitize()` reanexa blocos esquecidos)
+  6. `heroImage` em EXATAMENTE uma página (dispara a imagem conceitual de seção)
+  7. **Nenhuma página interna só de texto**: cada página interna precisa de ≥1 recurso visual (pull quote, synthesis, cards, flow, checklist, reflectionCards, comparison ou heroImage); páginas fracas se fundem, páginas densas se quebram (alvo 5-8 págs); ferramenta prática = página mais visual
+- **Output**: JSON `LayoutPlan` `{ summary, pages:[{ role, heroImage?, items:[{ as, ref|refs|left|right, text? }] }] }`. Pós-processado por `sanitize()`: valida refs no range, deduplica refs estruturais, valida `pullquoteText` como substring, reanexa blocos esquecidos, mantém só o primeiro `heroImage`. Nunca lança — retorna `null` → fallback flat.
+- **Inputs user**: título, competência, descritor, formato + blocos atômicos serializados (id + kind + texto) extraídos por `parseBlocks` (integridade por id: a IA escolhe só o layout, o texto é puxado verbatim pelo renderer).
+- **Consumido por**: `renderConteudoFinalPDF` (`lib/conteudo-final-pdf.tsx`) — renderiza cada `PagePlan` puxando o texto verbatim por id do `byId` Map.
+
+### 11.7 Expansão mínima de PDF (garantirMinimoPdf)
+> `ATIVO` desde 2026-05-29 · Prompt documentado como: `transcrito`
+
+- **Arquivo**: `actions/conteudos.ts::garantirMinimoPdf` (helper interno; `MIN_PDF_CHARS = 8000`).
+- **Caller**: `gerarConteudoIA` (após gerar texto/case) e `gerarConteudoFinal` (antes de planejar/renderizar).
+- **Modelo**: reusa o mesmo modelo/aiConfig do conteúdo original (texto ou case).
+- **Max tokens**: `MIN_PDF_CHARS` (8000).
+- **System prompt**: reusa o `system` do prompt-autor original (11.3 texto ou 11.4 case) — mantém estilo/tom.
+- **User prompt** (transcrito): "O texto em markdown abaixo tem N caracteres, abaixo do mínimo de 8000. Reescreva-o EXPANDINDO o conteúdo (mais exemplos, mais nuance, mais profundidade aplicada ao cargo/contexto) para ter NO MÍNIMO 8000 caracteres, mantendo EXATAMENTE o mesmo estilo, tom, estrutura e formatação markdown. Não adicione enchimento repetitivo. Retorne APENAS o markdown final."
+- **Output**: markdown expandido (≥8000 chars). Só substitui se o resultado for maior que o original; em erro retorna o original (não-fatal).
+- **Inputs user**: o markdown curto + contagem de caracteres.
+- **Consumido por**: pipeline do PDF (garante volume mínimo para uma publicação de várias páginas antes do planejador 11.6).
 
 ---
 
@@ -1675,13 +1709,13 @@
 
 ## Resumo Estatístico
 
-**Total de prompts catalogados: 62**
+**Total de prompts catalogados: 64**
 
 Por status:
 
 | Status | Qtd | Itens |
 |--------|-----|-------|
-| `ATIVO` | 45 | Prompts em uso na produção |
+| `ATIVO` | 47 | Prompts em uso na produção |
 | `WRAPPER` | 3 | Reusos: 1.4, 2.2, 5.2 |
 | `LEGADO` | 3 | Mantidos: 13.1, 14.1, 14.3 |
 | `AUXILIAR` | 5 | Simulação/teste: 3.4, 12.1–12.4 |
@@ -1702,7 +1736,7 @@ Por categoria:
 | PPP | 3 | educacional, corporativo, enriquecimento web |
 | Dashboard Perfil | 2 | comportamental, insights |
 | FIT v2 | 1 | leitura executiva |
-| Conteúdos/Tagging | 5 | vídeo, podcast, texto, case, tags |
+| Conteúdos/Tagging | 7 | vídeo, podcast, texto, case, tags, planner editorial PDF, expansão mínima PDF |
 | Simuladores | 4 | respostas, colab temporada, compromisso, extração sim |
 | Fase 4 | 1 | PDI legado |
 | Outros | 5 | cenárioB legado, evolução granular, tutor evidência, regerar sem14, check sem14 com feedback |
