@@ -117,6 +117,35 @@ describe('renderConteudoFinalPDF', () => {
     expect(buf.length).toBeGreaterThan(2000);
   });
 
+  it('renderiza o diagram "o que é / o que não é"', async () => {
+    const blocks = parseBlocks(md, { skipFirstH1: true });
+    const ps = blocks.filter(b => b.kind === 'p').map(b => b.id);
+    const uls = blocks.filter(b => b.kind === 'ul').map(b => b.id);
+
+    const plan: LayoutPlan = {
+      summary: 'Teste de diagram',
+      pages: [
+        {
+          role: 'conceito',
+          items: [
+            { as: 'diagram', affirm: { refs: [ps[0], uls[0]] }, negate: { refs: [ps[1]] } },
+          ] as PlanItem[],
+        },
+      ],
+    };
+
+    const buf = await renderConteudoFinalPDF({
+      titulo: 'Título Principal de Teste',
+      conteudoMd: md,
+      competencia: 'Pensamento Estratégico',
+      formato: 'texto',
+      coverBase64: null,
+      plan,
+      sectionImageBase64: null,
+    });
+    expect(buf.length).toBeGreaterThan(2000);
+  });
+
   it('renderiza no modo flat (sem plano)', async () => {
     const buf = await renderConteudoFinalPDF({
       titulo: 'Título Principal de Teste',

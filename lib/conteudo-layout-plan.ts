@@ -86,6 +86,7 @@ export type PageRole =
 export type PlanItem =
   | { as: Treatment; ref: number }
   | { as: 'comparison'; left: { label?: string; refs: number[] }; right: { label?: string; refs: number[] } }
+  | { as: 'diagram'; affirm: { refs: number[] }; negate: { refs: number[] } }
   | { as: 'pullquoteText'; ref: number; text: string };
 
 export type PagePlan = { role: PageRole; heroImage?: boolean; items: PlanItem[] };
@@ -113,7 +114,8 @@ Analise os blocos e localize: (1) título; (2) contexto/cena inicial; (3) concei
 - Lista numerada, sequência de passos, método, roteiro ou percurso → "flow" (etapas com conector) ou "numberedCards". Nunca deixe lista importante como texto.
 - Itens acionáveis ou ferramenta imprimível → "checklist".
 - Exemplo prático (um caso/situação concreta) → "caseCard" (card de caso). Se o exemplo tiver dois lados (o que fez / o que faltou), use "comparison".
-- Comparação, mesmo implícita (antes/depois, reativo/preventivo, feeling/dados, sem X / com X, "o que é / o que não é") → "comparison" lado a lado, com "label" curto em cada lado.
+- Definição por contraste — o conteúdo diz o que algo É e o que NÃO é (ex.: "não é cobrança, é direção", "questionar não é reclamar, é propor", "o que é / o que não é") → "diagram": duas colunas com ✓ (o que é) e ✗ (o que não é). Use quando o eixo for afirmar/negar a NATUREZA de um conceito.
+- Comparação entre dois estados ou abordagens (antes/depois, reativo/preventivo, feeling/dados, sem X / com X) → "comparison" lado a lado, com "label" curto em cada lado. Use quando o eixo NÃO for definicional (afirmar/negar), e sim dois cenários comparáveis.
 - Frase forte ou citação → "pullquote" (bloco inteiro) ou "pullquoteText" (trecho VERBATIM, substring literal de um parágrafo, ≥12 caracteres).
 - Conceito central → "synthesis" (box de síntese).
 - Perguntas finais ou de reflexão → "reflectionCards" (NUNCA "bullets"). A última página é de reflexão (role "reflexao"), limpa e contemplativa.
@@ -145,7 +147,8 @@ TRATAMENTOS (campo "as"):
 - "checklist": checklist imprimível (kind ul ou ol — itens acionáveis).
 - "caseCard": card de caso/exemplo (kind p, ul ou ol) — destaca uma situação concreta como peça visual.
 - "reflectionCards": cada item vira um card de reflexão (kind ul — perguntas).
-- "comparison": layout lado a lado. Forneça left/right, cada um com "refs" (ids dos blocos daquele lado) e "label" curto (ex.: "Antes", "Depois", "O que é", "O que não é"). Use SOMENTE quando houver comparação real ou implícita no conteúdo.
+- "comparison": layout lado a lado. Forneça left/right, cada um com "refs" (ids dos blocos daquele lado) e "label" curto (ex.: "Antes", "Depois", "Sem dados", "Com dados"). Use SOMENTE quando houver comparação real ou implícita entre dois cenários/abordagens (não definicional).
+- "diagram": contraste definicional "o que é / o que não é". Forneça "affirm" e "negate", cada um com "refs" (ids dos blocos daquele lado). NÃO use label (as colunas já são rotuladas "O que é" / "O que não é"). Use quando o conteúdo definir um conceito afirmando o que ele é e negando o que ele não é.
 
 COBERTURA: todo bloco de conteúdo deve aparecer em ALGUM item estrutural (qualquer "as" exceto "pullquoteText") exatamente uma vez. Pull quotes não substituem a presença estrutural do conteúdo.
 
@@ -212,6 +215,15 @@ function sanitize(plan: any, blocks: RawBlock[]): LayoutPlan | null {
           left: { label: typeof it.left?.label === 'string' ? it.left.label.slice(0, 40) : undefined, refs: left },
           right: { label: typeof it.right?.label === 'string' ? it.right.label.slice(0, 40) : undefined, refs: right },
         });
+        continue;
+      }
+      if (as === 'diagram') {
+        const affirm = (it.affirm?.refs || []).filter(validRef).filter((r: number) => !usedStructural.has(r));
+        const negate = (it.negate?.refs || []).filter(validRef).filter((r: number) => !usedStructural.has(r));
+        if (!affirm.length && !negate.length) continue;
+        affirm.forEach((r: number) => usedStructural.add(r));
+        negate.forEach((r: number) => usedStructural.add(r));
+        items.push({ as: 'diagram', affirm: { refs: affirm }, negate: { refs: negate } });
         continue;
       }
       if (as === 'pullquoteText') {

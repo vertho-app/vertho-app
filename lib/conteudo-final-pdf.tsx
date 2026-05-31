@@ -18,7 +18,7 @@
  */
 
 import React from 'react';
-import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, View, Text, Image, StyleSheet, Svg, Path } from '@react-pdf/renderer';
 import '@/components/pdf/styles'; // registra a fonte NotoSans (efeito colateral)
 import { getLogoCoverBase64, getLogoDarkBase64 } from '@/lib/pdf-assets';
 import { parseBlocks } from '@/lib/conteudo-layout-plan';
@@ -36,6 +36,13 @@ const colors = {
   border: '#E2E8F0',
   gray400: '#94A3B8',
   gray500: '#5F6B7A',
+  // Contraste definicional "o que é / o que não é" (diagram)
+  affirmBg: '#EAF8F9',
+  affirmBorder: '#9AE2E6',
+  negateBg: '#F7EEED',
+  negateBorder: '#E8C5C1',
+  negateText: '#B5564E',
+  negateMark: '#CD5C52',
 };
 
 // ── Estilos ──────────────────────────────────────────────────────────────────
@@ -127,6 +134,21 @@ const s = StyleSheet.create({
   cmpColRight: { marginLeft: 6 },
   cmpLabel: { fontSize: 8, fontWeight: 700, color: colors.white, backgroundColor: colors.navy, letterSpacing: 1.2, textTransform: 'uppercase', paddingVertical: 3, paddingHorizontal: 9, borderRadius: 4, marginBottom: 8, alignSelf: 'flex-start' },
   cmpText: { fontSize: 9.5, color: colors.textPrimary, lineHeight: 1.45, marginBottom: 5 },
+
+  // Contraste definicional "o que é / o que não é" — colunas com ✓ / ✗
+  diagRow: { flexDirection: 'row', marginVertical: 12 },
+  diagCol: { flex: 1, padding: 12, borderRadius: 8, borderWidth: 0.8 },
+  diagColAffirm: { marginRight: 6, backgroundColor: colors.affirmBg, borderColor: colors.affirmBorder },
+  diagColNegate: { marginLeft: 6, backgroundColor: colors.negateBg, borderColor: colors.negateBorder },
+  diagHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 9, paddingBottom: 7, borderBottomWidth: 0.8 },
+  diagHeaderAffirm: { borderBottomColor: colors.affirmBorder },
+  diagHeaderNegate: { borderBottomColor: colors.negateBorder },
+  diagLabel: { fontSize: 8.5, fontWeight: 700, letterSpacing: 1.4, textTransform: 'uppercase', marginLeft: 6 },
+  diagLabelAffirm: { color: colors.navy },
+  diagLabelNegate: { color: colors.negateText },
+  diagItem: { flexDirection: 'row', marginBottom: 5, alignItems: 'flex-start' },
+  diagItemMark: { marginRight: 6, marginTop: 1.5 },
+  diagText: { flex: 1, fontSize: 9.5, lineHeight: 1.45, color: colors.textPrimary },
 
   caseCard: { marginVertical: 12, padding: 14, backgroundColor: colors.white, borderWidth: 0.8, borderColor: colors.border, borderLeftWidth: 3, borderLeftColor: colors.navy, borderRadius: 8 },
   caseLabel: { fontSize: 7.5, fontWeight: 700, color: colors.navy, letterSpacing: 1.8, textTransform: 'uppercase', marginBottom: 6 },
@@ -259,7 +281,51 @@ function comparisonNodes(
   );
 }
 
+// Marcador ✓ / ✗ desenhado em SVG (não depende de glifo da fonte — NotoSans
+// pode não ter U+2713/U+2717; desenhar garante render e nitidez vetorial).
+function markSvg(kind: 'check' | 'cross', color: string, size = 11, key?: string): React.ReactNode {
+  const d = kind === 'check' ? 'M5 13l4 4L19 7' : 'M6 6l12 12M18 6L6 18';
+  return e(Svg, { key, width: size, height: size, viewBox: '0 0 24 24' },
+    e(Path, { d, stroke: color, strokeWidth: 3, fill: 'none', strokeLinecap: 'round', strokeLinejoin: 'round' }),
+  );
+}
+
+// Contraste definicional "o que é / o que não é": duas colunas com ✓ (afirma,
+// cyan) e ✗ (nega, vermelho suave). Cada lado lista os blocos referenciados;
+// listas viram itens com marcador, parágrafos viram um item único.
+function diagramNodes(
+  affirm: { refs: number[] }, negate: { refs: number[] },
+  byId: Map<number, RawBlock>, key: string,
+): React.ReactNode {
+  const col = (
+    side: { refs: number[] }, label: string, kind: 'check' | 'cross',
+    markColor: string, colStyle: any, headStyle: any, labelStyle: any, ck: string,
+  ) =>
+    e(View, { key: ck, style: [s.diagCol, colStyle] },
+      e(View, { style: [s.diagHeader, headStyle] },
+        markSvg(kind, markColor, 13),
+        e(Text, { style: [s.diagLabel, labelStyle] }, label),
+      ),
+      ...side.refs.flatMap((r, ri) => {
+        const b = byId.get(r);
+        if (!b) return [];
+        const lines = b.kind === 'ul' || b.kind === 'ol' ? (b as any).items as string[] : [(b as any).text as string];
+        return lines.map((ln, li) =>
+          e(View, { key: `${ck}-${ri}-${li}`, style: s.diagItem, wrap: false },
+            e(View, { style: s.diagItemMark }, markSvg(kind, markColor, 10)),
+            e(Text, { style: s.diagText }, inline(ln)),
+          ),
+        );
+      }),
+    );
+  return e(View, { key, style: s.diagRow, wrap: false },
+    col(affirm, 'O que é', 'check', colors.cyan, s.diagColAffirm, s.diagHeaderAffirm, s.diagLabelAffirm, `${key}-a`),
+    col(negate, 'O que não é', 'cross', colors.negateMark, s.diagColNegate, s.diagHeaderNegate, s.diagLabelNegate, `${key}-n`),
+  );
+}
+
 function renderItem(item: PlanItem, byId: Map<number, RawBlock>, key: string): React.ReactNode[] {
+  if (item.as === 'diagram') return [diagramNodes(item.affirm, item.negate, byId, key)];
   if (item.as === 'comparison') return [comparisonNodes(item.left, item.right, byId, key)];
   if (item.as === 'pullquoteText') {
     return [e(View, { key, style: s.pullBig, wrap: false }, e(Text, { style: s.pullBigText }, inline(item.text)))];
