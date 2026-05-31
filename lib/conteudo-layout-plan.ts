@@ -77,6 +77,7 @@ export type Treatment =
   | 'flow'
   | 'checklist'
   | 'caseCard'
+  | 'script'
   | 'reflectionCards';
 
 export type PageRole =
@@ -93,7 +94,7 @@ export type PagePlan = { role: PageRole; heroImage?: boolean; items: PlanItem[] 
 export type LayoutPlan = { summary: string; pages: PagePlan[] };
 
 const ROLES: PageRole[] = ['contexto', 'conceito', 'exemplo', 'comparativo', 'ferramenta', 'aplicacao', 'cuidados', 'sintese', 'reflexao', 'corpo'];
-const TREATMENTS: Treatment[] = ['heading', 'paragraph', 'pullquote', 'synthesis', 'bullets', 'numberedCards', 'flow', 'checklist', 'caseCard', 'reflectionCards'];
+const TREATMENTS: Treatment[] = ['heading', 'paragraph', 'pullquote', 'synthesis', 'bullets', 'numberedCards', 'flow', 'checklist', 'caseCard', 'script', 'reflectionCards'];
 
 const PLAN_SYSTEM = `Você é o DIRETOR DE ARTE EDITORIAL sênior da Vertho. Você transforma um conteúdo JÁ ESCRITO num plano de publicação editorial premium para PDF A4 vertical — NÃO um Word decorado, NÃO uma apostila, NÃO um artigo longo diagramado.
 
@@ -114,6 +115,7 @@ Analise os blocos e localize: (1) título; (2) contexto/cena inicial; (3) concei
 - Lista numerada, sequência de passos, método, roteiro ou percurso → "flow" (etapas com conector) ou "numberedCards". Nunca deixe lista importante como texto.
 - Itens acionáveis ou ferramenta imprimível → "checklist".
 - Exemplo prático (um caso/situação concreta) → "caseCard" (card de caso). Se o exemplo tiver dois lados (o que fez / o que faltou), use "comparison".
+- Fala sugerida / roteiro de conversa — o que a pessoa pode DIZER numa situação ("diga: '…'", "experimente perguntar: '…'", frases-modelo para um diálogo) → "script": callout recuado em itálico, uma "cola de bolso" do que falar. NÃO use para conceito ou instrução genérica — só para falas/diálogos literais que o leitor poderia repetir.
 - Definição por contraste — o conteúdo diz o que algo É e o que NÃO é (ex.: "não é cobrança, é direção", "questionar não é reclamar, é propor", "o que é / o que não é") → "diagram": duas colunas com ✓ (o que é) e ✗ (o que não é). Use quando o eixo for afirmar/negar a NATUREZA de um conceito.
 - Comparação entre dois estados ou abordagens (antes/depois, reativo/preventivo, feeling/dados, sem X / com X) → "comparison" lado a lado, com "label" curto em cada lado. Use quando o eixo NÃO for definicional (afirmar/negar), e sim dois cenários comparáveis.
 - Frase forte ou citação → "pullquote" (bloco inteiro) ou "pullquoteText" (trecho VERBATIM, substring literal de um parágrafo, ≥12 caracteres).
@@ -146,8 +148,9 @@ TRATAMENTOS (campo "as"):
 - "flow": passos em fluxo/processo com conectores (kind ol — sequência de etapas).
 - "checklist": checklist imprimível (kind ul ou ol — itens acionáveis).
 - "caseCard": card de caso/exemplo (kind p, ul ou ol) — destaca uma situação concreta como peça visual.
+- "script": fala sugerida / roteiro de conversa (kind p, ul ou ol) — callout recuado em itálico com balão, "cola de bolso" do que dizer. Só para diálogos/frases literais que o leitor repetiria, nunca para conceito.
 - "reflectionCards": cada item vira um card de reflexão (kind ul — perguntas).
-- "comparison": layout lado a lado. Forneça left/right, cada um com "refs" (ids dos blocos daquele lado) e "label" curto (ex.: "Antes", "Depois", "Sem dados", "Com dados"). Use SOMENTE quando houver comparação real ou implícita entre dois cenários/abordagens (não definicional).
+- "comparison": layout lado a lado. Forneça left/right, cada um com "refs" (ids dos blocos daquele lado) e "label" curto (ex.: "Antes", "Depois", "Sem dados", "Com dados"). Use SOMENTE quando houver comparação real ou implícita entre dois cenários/abordagens (não definicional). DICA: se os dois lados forem listas com o MESMO número de itens, o render vira um grid de leitura rápida (linha a linha alinhada) — quando o conteúdo tiver pontos paralelos, prefira refs que produzam o mesmo número de linhas dos dois lados.
 - "diagram": contraste definicional "o que é / o que não é". Forneça "affirm" e "negate", cada um com "refs" (ids dos blocos daquele lado). NÃO use label (as colunas já são rotuladas "O que é" / "O que não é"). Use quando o conteúdo definir um conceito afirmando o que ele é e negando o que ele não é.
 
 COBERTURA: todo bloco de conteúdo deve aparecer em ALGUM item estrutural (qualquer "as" exceto "pullquoteText") exatamente uma vez. Pull quotes não substituem a presença estrutural do conteúdo.

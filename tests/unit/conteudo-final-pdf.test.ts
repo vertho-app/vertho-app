@@ -146,6 +146,52 @@ describe('renderConteudoFinalPDF', () => {
     expect(buf.length).toBeGreaterThan(2000);
   });
 
+  it('renderiza comparison como grid (listas paralelas) e script', async () => {
+    const gridMd = `# T
+## Reativo vs Antecipativo
+### Reativo
+- Espera o problema estourar
+- Decide no susto, sob pressão
+- Custo alto e moral abalada
+### Antecipativo
+- Lê os sinais antes
+- Decide com calma e dados
+- Custo menor e equipe confiante
+## Roteiro
+- Posso te fazer uma pergunta sobre isso?
+- O que você faria diferente numa próxima vez?
+`;
+    const blocks = parseBlocks(gridMd, { skipFirstH1: true });
+    const uls = blocks.filter(b => b.kind === 'ul').map(b => b.id);
+    const h2s = blocks.filter(b => b.kind === 'h2').map(b => b.id);
+
+    const plan: LayoutPlan = {
+      summary: 'grid + script',
+      pages: [
+        {
+          role: 'comparativo',
+          items: [
+            { as: 'heading', ref: h2s[0] },
+            { as: 'comparison', left: { label: 'Reativo', refs: [uls[0]] }, right: { label: 'Antecipativo', refs: [uls[1]] } },
+          ] as PlanItem[],
+        },
+        {
+          role: 'ferramenta',
+          items: [
+            { as: 'heading', ref: h2s[1] },
+            { as: 'script', ref: uls[2] },
+          ] as PlanItem[],
+        },
+      ],
+    };
+
+    const buf = await renderConteudoFinalPDF({
+      titulo: 'T', conteudoMd: gridMd, competencia: 'Pensamento Estratégico',
+      formato: 'texto', coverBase64: null, plan, sectionImageBase64: null,
+    });
+    expect(buf.length).toBeGreaterThan(2000);
+  });
+
   it('renderiza no modo flat (sem plano)', async () => {
     const buf = await renderConteudoFinalPDF({
       titulo: 'Título Principal de Teste',

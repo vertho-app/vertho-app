@@ -137,6 +137,18 @@ const s = StyleSheet.create({
   cmpLabel: { fontSize: 8, fontWeight: 700, color: colors.white, backgroundColor: colors.navy, letterSpacing: 1.2, textTransform: 'uppercase', paddingVertical: 3, paddingHorizontal: 9, borderRadius: 4, marginBottom: 8, alignSelf: 'flex-start' },
   cmpText: { fontSize: 9.5, color: colors.textPrimary, lineHeight: 1.45, marginBottom: 5 },
 
+  // Grid de contraste (comparison com linhas alinhadas — leitura rápida)
+  cmpGrid: { marginVertical: 12, borderWidth: 0.8, borderColor: colors.border, borderRadius: 8 },
+  cmpGridHead: { flexDirection: 'row' },
+  cmpGridHeadCell: { flex: 1, backgroundColor: colors.navy, paddingVertical: 6, paddingHorizontal: 10 },
+  cmpGridDivH: { borderLeftWidth: 0.8, borderLeftColor: 'rgba(255,255,255,0.22)' },
+  cmpGridHeadText: { fontSize: 8, fontWeight: 700, color: colors.white, letterSpacing: 1, textTransform: 'uppercase' },
+  cmpGridRow: { flexDirection: 'row', borderTopWidth: 0.8, borderTopColor: colors.border },
+  cmpGridRowAlt: { backgroundColor: colors.grayBg },
+  cmpGridCell: { flex: 1, paddingVertical: 8, paddingHorizontal: 10 },
+  cmpGridDivV: { borderLeftWidth: 0.8, borderLeftColor: colors.border },
+  cmpGridText: { fontSize: 9.5, color: colors.textPrimary, lineHeight: 1.4 },
+
   // Contraste definicional "o que é / o que não é" — colunas com ✓ / ✗
   diagRow: { flexDirection: 'row', marginVertical: 12 },
   diagCol: { flex: 1, padding: 12, borderRadius: 8, borderWidth: 0.8 },
@@ -155,6 +167,12 @@ const s = StyleSheet.create({
   caseCard: { marginVertical: 12, padding: 14, backgroundColor: colors.white, borderWidth: 0.8, borderColor: colors.border, borderLeftWidth: 3, borderLeftColor: colors.navy, borderRadius: 8 },
   caseLabel: { fontSize: 7.5, fontWeight: 700, color: colors.navy, letterSpacing: 1.8, textTransform: 'uppercase', marginBottom: 6 },
   caseText: { color: colors.textPrimary, lineHeight: 1.5, marginBottom: 4 },
+
+  // Script / fala sugerida ("cola de bolso") — callout recuado com balão
+  scriptCard: { marginVertical: 12, padding: 14, backgroundColor: '#EEF9FA', borderLeftWidth: 3, borderLeftColor: colors.cyan, borderRadius: 8 },
+  scriptHead: { flexDirection: 'row', alignItems: 'center', marginBottom: 7 },
+  scriptLabel: { fontSize: 7.5, fontWeight: 700, color: colors.navy, letterSpacing: 1.6, textTransform: 'uppercase', marginLeft: 6 },
+  scriptText: { fontSize: 10.5, color: colors.navy, fontStyle: 'italic', lineHeight: 1.5, marginBottom: 4 },
 
   closing: { marginTop: 36, alignItems: 'center' },
   closingDivider: { width: 40, height: 2, backgroundColor: colors.cyan, marginBottom: 18 },
@@ -262,10 +280,50 @@ function caseCardNodes(b: RawBlock, key: string, label: string | null = 'Na prá
   )];
 }
 
+// Achata os refs de um lado em "linhas" (itens de lista contam 1 cada;
+// parágrafo conta 1). Usado para decidir se o comparativo vira grid alinhado.
+function sideLines(refs: number[], byId: Map<number, RawBlock>): string[] {
+  const out: string[] = [];
+  for (const r of refs) {
+    const b = byId.get(r);
+    if (!b) continue;
+    if (b.kind === 'ul' || b.kind === 'ol') out.push(...(b as any).items);
+    else out.push((b as any).text);
+  }
+  return out;
+}
+
+// Grid de leitura rápida: cabeçalho com os dois rótulos + linhas alinhadas
+// (linha i da esquerda ao lado da linha i da direita), com filetes.
+function comparisonGridNodes(
+  left: { label?: string; refs: number[] }, right: { label?: string; refs: number[] },
+  leftLines: string[], rightLines: string[], key: string,
+): React.ReactNode {
+  return e(View, { key, style: s.cmpGrid, wrap: false },
+    e(View, { style: s.cmpGridHead },
+      e(View, { style: s.cmpGridHeadCell }, e(Text, { style: s.cmpGridHeadText }, left.label || 'De um lado')),
+      e(View, { style: [s.cmpGridHeadCell, s.cmpGridDivH] }, e(Text, { style: s.cmpGridHeadText }, right.label || 'Do outro')),
+    ),
+    ...leftLines.map((ln, i) =>
+      e(View, { key: `${key}-r${i}`, style: i % 2 ? [s.cmpGridRow, s.cmpGridRowAlt] : s.cmpGridRow },
+        e(View, { style: s.cmpGridCell }, e(Text, { style: s.cmpGridText }, inline(ln))),
+        e(View, { style: [s.cmpGridCell, s.cmpGridDivV] }, e(Text, { style: s.cmpGridText }, inline(rightLines[i]))),
+      ),
+    ),
+  );
+}
+
 function comparisonNodes(
   left: { label?: string; refs: number[] }, right: { label?: string; refs: number[] },
   byId: Map<number, RawBlock>, key: string,
 ): React.ReactNode {
+  // Se os dois lados têm o MESMO número de linhas (≥2), vira grid alinhado
+  // (tabela escaneável). Senão, colunas empilhadas (parágrafos livres).
+  const leftLines = sideLines(left.refs, byId);
+  const rightLines = sideLines(right.refs, byId);
+  if (leftLines.length >= 2 && leftLines.length === rightLines.length) {
+    return comparisonGridNodes(left, right, leftLines, rightLines, key);
+  }
   const col = (side: { label?: string; refs: number[] }, extraStyle: any, ck: string) =>
     e(View, { key: ck, style: [s.cmpCol, extraStyle] },
       side.label ? e(Text, { style: s.cmpLabel }, side.label) : null,
@@ -328,6 +386,26 @@ function diagramNodes(
   );
 }
 
+// Balão de fala desenhado em SVG (sem depender de glifo de fonte).
+function bubbleSvg(color: string, size = 12): React.ReactNode {
+  return e(Svg, { width: size, height: size, viewBox: '0 0 24 24' },
+    e(Path, { d: 'M3 4 L21 4 L21 16 L9 16 L5 20 L5 16 L3 16 Z', fill: color }),
+  );
+}
+
+// Fala sugerida / roteiro de conversa: callout recuado, texto em itálico,
+// como uma "cola de bolso" do que dizer. Lista → cada fala uma linha.
+function scriptNodes(b: RawBlock, key: string): React.ReactNode[] {
+  const lines = b.kind === 'ul' || b.kind === 'ol' ? (b as any).items as string[] : [(b as any).text as string];
+  return [e(View, { key, style: s.scriptCard, wrap: false },
+    e(View, { style: s.scriptHead },
+      bubbleSvg(colors.cyan, 12),
+      e(Text, { style: s.scriptLabel }, 'Para dizer'),
+    ),
+    ...lines.map((ln, i) => e(Text, { key: `${key}-${i}`, style: s.scriptText }, inline(ln))),
+  )];
+}
+
 function renderItem(item: PlanItem, byId: Map<number, RawBlock>, key: string, caseLabel: string | null = 'Na prática'): React.ReactNode[] {
   if (item.as === 'diagram') return [diagramNodes(item.affirm, item.negate, byId, key)];
   if (item.as === 'comparison') return [comparisonNodes(item.left, item.right, byId, key)];
@@ -351,6 +429,7 @@ function renderItem(item: PlanItem, byId: Map<number, RawBlock>, key: string, ca
     case 'checklist': return items ? checklistNodes(items, key) : [e(Text, { key, style: s.paragraph }, inline(blockText(b)))];
     case 'reflectionCards': return items ? reflectionNodes(items, key) : [e(Text, { key, style: s.paragraph }, inline(blockText(b)))];
     case 'caseCard': return caseCardNodes(b, key, caseLabel);
+    case 'script': return scriptNodes(b, key);
     case 'paragraph':
     default:
       return [e(Text, { key, style: s.paragraph }, inline(blockText(b)))];
