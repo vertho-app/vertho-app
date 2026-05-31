@@ -28,10 +28,10 @@ const COVER_TREATMENTS = [
 ];
 
 export function buildCoverPrompt(tema?: string | null): string {
-  const treatment = COVER_TREATMENTS[Math.floor(Math.random() * COVER_TREATMENTS.length)];
+  const palette = COVER_TREATMENTS.join('; ');
   const conceito = tema
-    ? `Invent a SINGLE elegant conceptual metaphor that visually represents the SPECIFIC topic of this content: "${tema}". The image must be driven by this specific topic — two different contents must look clearly DIFFERENT from one another, never a repeated template. Render the metaphor through ${treatment}.`
-    : `Invent a single elegant conceptual metaphor about professional growth and clarity, rendered through ${treatment}.`;
+    ? `Create ONE specific, elegant conceptual metaphor that a viewer would IMMEDIATELY associate with this exact topic: "${tema}". Relevance to the topic comes FIRST — the image must read as being about this topic at a glance, never generic abstract decoration that could belong to any subject. Pick the visual language that best expresses THIS topic from: ${palette}. Two different topics must yield clearly different images.`
+    : `Create a single elegant conceptual metaphor about professional growth and clarity, choosing the best-fitting visual language from: ${palette}.`;
   return [
     'Premium EDITORIAL ILLUSTRATION for the A4 vertical cover of an institutional professional-development guide by Vertho.',
     'Deep navy (#142F57) dominant palette with cyan (#34C5CC) and light cyan (#9AE2E6) accents; sophisticated, modern, cinematic lighting with soft glow.',
@@ -50,10 +50,10 @@ export function buildCoverPrompt(tema?: string | null): string {
  * editorial coerente com o tema. Sem coluna reservada.
  */
 export function buildSectionPrompt(tema?: string | null): string {
-  const treatment = COVER_TREATMENTS[Math.floor(Math.random() * COVER_TREATMENTS.length)];
+  const palette = COVER_TREATMENTS.join('; ');
   const conceito = tema
-    ? `Evoke the SPECIFIC topic of this content: "${tema}", through ${treatment}. The image must feel connected to this topic, sophisticated and editorial.`
-    : `Evoke professional growth, clarity and human development through ${treatment}.`;
+    ? `Evoke the SPECIFIC topic of this content: "${tema}" with a metaphor a viewer would clearly connect to this exact topic — relevance first, never generic decoration. Pick the visual language that best fits THIS topic from: ${palette}. Sophisticated and editorial.`
+    : `Evoke professional growth, clarity and human development, choosing the best-fitting visual language from: ${palette}.`;
   return [
     'Premium EDITORIAL ILLUSTRATION to be used as a wide horizontal section band inside an institutional professional-development guide by Vertho.',
     'Deep navy (#142F57) dominant palette with cyan (#34C5CC) and light cyan (#9AE2E6) accents; sophisticated, modern, cinematic lighting with soft glow and depth.',

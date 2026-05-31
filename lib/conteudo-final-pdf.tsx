@@ -126,9 +126,9 @@ const s = StyleSheet.create({
   flowBody: { flex: 1, paddingLeft: 12, paddingBottom: 14 },
   flowText: { color: colors.textPrimary, lineHeight: 1.5 },
 
-  reflectCard: { marginBottom: 12, padding: 16, backgroundColor: colors.grayBg, borderRadius: 8, borderLeftWidth: 3, borderLeftColor: colors.cyan },
-  reflectMark: { fontSize: 15, color: colors.cyan, fontWeight: 800, marginBottom: 4 },
-  reflectText: { color: colors.navy, fontSize: 11.5, lineHeight: 1.5 },
+  reflectCard: { marginBottom: 9, padding: 13, backgroundColor: colors.grayBg, borderRadius: 8, borderLeftWidth: 3, borderLeftColor: colors.cyan },
+  reflectMark: { fontSize: 14, color: colors.cyan, fontWeight: 800, marginBottom: 3 },
+  reflectText: { color: colors.navy, fontSize: 11, lineHeight: 1.45 },
 
   cmpRow: { flexDirection: 'row', marginVertical: 12 },
   cmpCol: { flex: 1, padding: 12, backgroundColor: colors.grayBg, borderRadius: 8 },
@@ -174,10 +174,12 @@ const s = StyleSheet.create({
   scriptLabel: { fontSize: 7.5, fontWeight: 700, color: colors.navy, letterSpacing: 1.6, textTransform: 'uppercase', marginLeft: 6 },
   scriptText: { fontSize: 10.5, color: colors.navy, fontStyle: 'italic', lineHeight: 1.5, marginBottom: 4 },
 
-  closing: { marginTop: 36, alignItems: 'center' },
-  closingDivider: { width: 40, height: 2, backgroundColor: colors.cyan, marginBottom: 18 },
-  closingLogo: { height: 24, width: 100 },
-  closingTagline: { fontSize: 7.5, color: colors.gray400, letterSpacing: 1.6, textTransform: 'uppercase', marginTop: 10 },
+  closing: { marginTop: 22, alignItems: 'center' },
+  closingDivider: { width: 40, height: 2, backgroundColor: colors.cyan, marginBottom: 12 },
+  // Assinatura escura é quase quadrada (ratio ~1.06: marca sobre o texto).
+  // Forçar 100x24 esmagava o logo — manter a proporção natural.
+  closingLogo: { height: 44, width: 47 },
+  closingTagline: { fontSize: 7.5, color: colors.gray400, letterSpacing: 1.6, textTransform: 'uppercase', marginTop: 8 },
 });
 
 // Renderiza **negrito** inline
@@ -479,7 +481,7 @@ function planPage(
     })(),
     // Fechamento na página de reflexão.
     isReflexao
-      ? e(View, { style: s.closing },
+      ? e(View, { style: s.closing, wrap: false },
           e(View, { style: s.closingDivider }),
           logoDark ? e(Image, { src: logoDark, style: s.closingLogo }) : null,
           e(Text, { style: s.closingTagline }, 'vertho.ai'),

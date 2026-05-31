@@ -130,6 +130,8 @@ Se houver método, roteiro, checklist ou conjunto de perguntas, essa é a págin
 contexto → conceito → exemplo/comparativo → ferramenta → aplicação → cuidados/tensões → síntese/reflexão.
 
 # CONTRA PÁGINAS FRACAS OU DENSAS
+- DENSIDADE: cada página interna deve preencher boa parte da altura útil (mire ~60%+). Uma página com só 1-2 itens curtos (um caseCard sozinho, dois parágrafos, um pull quote solto) deixa metade da folha em branco — NÃO faça isso. Junte itens suficientes por página ou funda com a vizinha. Prefira MENOS páginas bem cheias a MAIS páginas ralas.
+- Não fatie um mesmo exemplo/assunto em duas páginas seguidas com o mesmo role (dois "exemplo" magros) — consolide num só.
 - Página fraca (1-2 parágrafos, nada visual, ou igual à anterior): funda com a anterior, vire "synthesis"/cards, ou crie um respiro com pull quote forte.
 - Página densa (muitos parágrafos longos): quebre com pull quotes, "synthesis" e divisão entre páginas. NÃO esprema texto para caber em menos páginas — se precisar, AUMENTE o número de páginas.
 - Dois blocos/exemplos do mesmo tipo com o MESMO título ou função: não os repita iguais — diferencie a função de cada um ou transforme o par em "comparison".
@@ -217,9 +219,14 @@ function sanitize(plan: any, blocks: RawBlock[]): LayoutPlan | null {
     for (const it of (Array.isArray(p?.items) ? p.items : [])) {
       const as = it?.as;
       if (as === 'comparison') {
+        // Dedup SEQUENCIAL: o lado direito exclui o que já entrou no esquerdo
+        // (senão a IA pode pôr o MESMO bloco nos dois lados → texto idêntico).
         const left = (it.left?.refs || []).filter(validRef).filter((r: number) => !usedStructural.has(r));
-        const right = (it.right?.refs || []).filter(validRef).filter((r: number) => !usedStructural.has(r));
-        if (!left.length && !right.length) continue;
+        const inLeft = new Set<number>(left);
+        const right = (it.right?.refs || []).filter(validRef).filter((r: number) => !usedStructural.has(r) && !inLeft.has(r));
+        // Comparativo exige OS DOIS lados; sem contraste real, descarta (os
+        // blocos seguem livres p/ reanexação, não viram um layout pela metade).
+        if (!left.length || !right.length) continue;
         left.forEach((r: number) => usedStructural.add(r));
         right.forEach((r: number) => usedStructural.add(r));
         items.push({
@@ -231,8 +238,10 @@ function sanitize(plan: any, blocks: RawBlock[]): LayoutPlan | null {
       }
       if (as === 'diagram') {
         const affirm = (it.affirm?.refs || []).filter(validRef).filter((r: number) => !usedStructural.has(r));
-        const negate = (it.negate?.refs || []).filter(validRef).filter((r: number) => !usedStructural.has(r));
-        if (!affirm.length && !negate.length) continue;
+        const inAffirm = new Set<number>(affirm);
+        const negate = (it.negate?.refs || []).filter(validRef).filter((r: number) => !usedStructural.has(r) && !inAffirm.has(r));
+        // diagram exige afirmação E negação distintas; sem isso, descarta.
+        if (!affirm.length || !negate.length) continue;
         affirm.forEach((r: number) => usedStructural.add(r));
         negate.forEach((r: number) => usedStructural.add(r));
         items.push({ as: 'diagram', affirm: { refs: affirm }, negate: { refs: negate } });
