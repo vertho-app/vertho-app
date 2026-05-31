@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
-import { Download, Sparkles, Edit2, Trash2, Check, X, Filter, Video, FileText, Headphones, BookOpen, FileType, Wand2, Copy, Plus, Upload, FileDown, ExternalLink, FileX, Loader2, Clapperboard } from 'lucide-react';
+import { Download, Sparkles, Edit2, Trash2, Check, X, Filter, Video, FileText, Headphones, BookOpen, FileType, Wand2, Copy, Plus, Upload, FileDown, ExternalLink, FileX, Loader2, Clapperboard, User, Users } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import {
   importarVideosBunny, listarConteudos, atualizarConteudo,
@@ -1047,17 +1047,21 @@ function GerarModal({ onClose, onGenerate, busy }) {
               <label className="block text-[10px] uppercase text-gray-500 mb-2">{t('fields.podcastFormat')}</label>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { v: 'solo', label: t('generate.podcastFormats.solo'), nota: t('generate.podcastFormatNotes.solo') },
-                  { v: 'mentor_campo', label: t('generate.podcastFormats.mentorField'), nota: t('generate.podcastFormatNotes.mentorField') },
+                  { v: 'solo', label: t('generate.podcastFormats.solo'), nota: t('generate.podcastFormatNotes.solo'), icon: User },
+                  { v: 'mentor_campo', label: t('generate.podcastFormats.mentorField'), nota: t('generate.podcastFormatNotes.mentorField'), icon: Users },
                 ].map(opt => {
+                  const Icon = opt.icon;
                   const ativo = form.podcastFormato === opt.v;
                   return (
                     <button key={opt.v} type="button" onClick={() => setForm({ ...form, podcastFormato: opt.v })}
-                      className={`p-3 rounded-lg border text-left ${
+                      className={`flex items-start gap-2.5 p-3 rounded-lg border text-left ${
                         ativo ? 'border-purple-400 bg-purple-500/10' : 'border-white/10 bg-white/5 hover:border-white/20'
                       }`}>
-                      <div className="text-xs font-bold text-white">{opt.label}</div>
-                      <div className="text-[10px] text-gray-500">{opt.nota}</div>
+                      <Icon size={16} className="mt-0.5 shrink-0" style={{ color: ativo ? '#C084FC' : '#A78BFA' }} />
+                      <div>
+                        <div className="text-xs font-bold text-white">{opt.label}</div>
+                        <div className="text-[10px] text-gray-500">{opt.nota}</div>
+                      </div>
                     </button>
                   );
                 })}
