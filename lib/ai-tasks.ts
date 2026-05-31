@@ -36,6 +36,7 @@ export const AI_TASKS = [
   { key: 'conteudo_podcast', label: 'Gerar roteiro de podcast', fase: 'Conteúdos' },
   { key: 'conteudo_texto', label: 'Gerar artigo (markdown)', fase: 'Conteúdos' },
   { key: 'conteudo_case', label: 'Gerar estudo de caso', fase: 'Conteúdos' },
+  { key: 'conteudo_personalizacao', label: 'Personalizar PDF (DISC + PPP)', fase: 'Conteúdos' },
   { key: 'conteudo_tags', label: 'Sugerir tags (auto-classificação)', fase: 'Conteúdos' },
 
   // ── Fase 5 — Reavaliação ─────────────────────────────────

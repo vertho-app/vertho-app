@@ -13,6 +13,7 @@
     "actions/avaliacao-acumulada.ts": 1,
     "actions/backup.ts": 1,
     "actions/conteudos-metrics.ts": 1,
+    "actions/conteudos.ts": 1,
     "actions/cron-jobs.ts": 3,
     "actions/dashboard-kpis.ts": 1,
     "actions/fase5.ts": 2,

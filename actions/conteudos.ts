@@ -6,7 +6,13 @@ import { promptPodcastScript } from '@/lib/season-engine/prompts/podcast-script'
 import { promptTextContent } from '@/lib/season-engine/prompts/text-content';
 import { promptCaseStudy } from '@/lib/season-engine/prompts/case-study';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { createSupabaseAdmin } from '@/lib/supabase';
+import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { resolverModuloBaseParaConteudo, enriquecerPromptComModuloBase } from '@/lib/season-engine/modulo-base-integration';
+import { getModelForTask } from '@/lib/ai-tasks';
+import { derivarArquetipo } from '@/lib/disc-arquetipos';
+import { resumirPPP, extracaoParaTexto, briefPreenchido, type EscolaBrief } from '@/lib/escola-brief';
+import { buildPersonalizacaoPrompt } from '@/lib/season-engine/prompts/personalizacao';
 
 /** Mínimo de caracteres para conteúdo que vira PDF (texto/case): leitura de
  *  ~5-8 min. Aplicado tanto na geração do conteúdo quanto na hora do PDF.
@@ -564,6 +570,58 @@ export async function atualizarConteudo(id: string, patch: any) {
 }
 
 /**
+ * Resolve a capa (fundo GPT Image), cache em `final/covers/<id>.png`. NÃO é
+ * personalizada — cacheada por-conteúdo e reusada por todas as variantes
+ * (genérica e personalizadas). Falha nunca quebra o PDF (base64 null → fundo vetorial).
+ */
+async function resolveCoverBase64(sb: any, c: any): Promise<{ base64: string | null; erro: string | null }> {
+  const coverPath = `final/covers/${c.id}.png`;
+  try {
+    const { data: existente } = await sb.storage.from('conteudos').download(coverPath);
+    const buf = existente ? Buffer.from(await existente.arrayBuffer()) : null;
+    if (buf && buf.length > 1024) return { base64: `data:image/png;base64,${buf.toString('base64')}`, erro: null };
+    throw new Error('cover ausente ou vazio');
+  } catch {
+    try {
+      const { generateCoverImage } = await import('@/lib/openai-image');
+      const tema = [c.titulo, c.competencia, c.descritor].filter(Boolean).join(' — ') || null;
+      const imgBuf = await generateCoverImage(tema);
+      await sb.storage.from('conteudos').upload(coverPath, imgBuf, { contentType: 'image/png', upsert: true });
+      return { base64: `data:image/png;base64,${imgBuf.toString('base64')}`, erro: null };
+    } catch (e: any) {
+      const erro = e?.message || 'erro desconhecido';
+      console.warn('[resolveCoverBase64] capa GPT Image falhou (usando fallback vetorial):', erro);
+      return { base64: null, erro };
+    }
+  }
+}
+
+/**
+ * Resolve a imagem de seção (hero), cache em `final/sections/<id>.png`. Chame só
+ * quando o plano tiver uma página heroImage. Falha nunca quebra o PDF.
+ */
+async function resolveSectionBase64(sb: any, c: any): Promise<string | null> {
+  const sectionPath = `final/sections/${c.id}.png`;
+  try {
+    const { data: existente } = await sb.storage.from('conteudos').download(sectionPath);
+    const buf = existente ? Buffer.from(await existente.arrayBuffer()) : null;
+    if (buf && buf.length > 1024) return `data:image/png;base64,${buf.toString('base64')}`;
+    throw new Error('section ausente ou vazio');
+  } catch {
+    try {
+      const { generateSectionImage } = await import('@/lib/openai-image');
+      const tema = [c.titulo, c.competencia, c.descritor].filter(Boolean).join(' — ') || null;
+      const imgBuf = await generateSectionImage(tema);
+      await sb.storage.from('conteudos').upload(sectionPath, imgBuf, { contentType: 'image/png', upsert: true });
+      return `data:image/png;base64,${imgBuf.toString('base64')}`;
+    } catch (e: any) {
+      console.warn('[resolveSectionBase64] imagem de seção falhou:', e?.message);
+      return null;
+    }
+  }
+}
+
+/**
  * Gera o "conteúdo final" entregável: renderiza o PDF premium branded a partir
  * do conteudo_inline (texto/case), sobe pro Storage e linka em url/storage_path.
  * Reusa a paleta/logo oficiais via lib/conteudo-final-pdf. Texto preservado
@@ -603,34 +661,8 @@ export async function gerarConteudoFinal(id: string) {
       }
     }
 
-    // Capa: fundo gerado por GPT Image, reusado se já existir (evita regerar
-    // a cada clique). Falha NUNCA quebra o PDF — cai no fundo vetorial.
-    let coverBase64: string | null = null;
-    let coverErro: string | null = null;
-    const coverPath = `final/covers/${c.id}.png`;
-    try {
-      const { data: existente } = await sb.storage.from('conteudos').download(coverPath);
-      const buf = existente ? Buffer.from(await existente.arrayBuffer()) : null;
-      // Só reusa cache se for um PNG válido (não-vazio); senão regenera.
-      if (buf && buf.length > 1024) {
-        coverBase64 = `data:image/png;base64,${buf.toString('base64')}`;
-      } else {
-        throw new Error('cover ausente ou vazio');
-      }
-    } catch {
-      try {
-        const { generateCoverImage } = await import('@/lib/openai-image');
-        // Inclui o TÍTULO (tópico real do conteúdo) p/ a metáfora ser específica
-        // — sem ele, conteúdos da mesma competência geravam capas idênticas.
-        const tema = [c.titulo, c.competencia, c.descritor].filter(Boolean).join(' — ') || null;
-        const imgBuf = await generateCoverImage(tema);
-        await sb.storage.from('conteudos').upload(coverPath, imgBuf, { contentType: 'image/png', upsert: true });
-        coverBase64 = `data:image/png;base64,${imgBuf.toString('base64')}`;
-      } catch (e: any) {
-        coverErro = e?.message || 'erro desconhecido';
-        console.warn('[gerarConteudoFinal] capa GPT Image falhou (usando fallback vetorial):', coverErro);
-      }
-    }
+    // Capa (fundo GPT Image), cacheada por-conteúdo. Falha cai no fundo vetorial.
+    const { base64: coverBase64, erro: coverErro } = await resolveCoverBase64(sb, c);
 
     // Plano editorial (IA): diagrama o conteúdo em páginas com função distinta e
     // tratamentos visuais ricos. A IA só classifica/organiza — o texto vem dos
@@ -650,27 +682,9 @@ export async function gerarConteudoFinal(id: string) {
       console.warn('[gerarConteudoFinal] plano editorial falhou (usando flat):', e?.message);
     }
 
-    // Imagem conceitual de seção: só gera se o plano marcou uma página heroImage.
-    // Cacheada igual à capa; falha nunca quebra o PDF.
+    // Imagem de seção: só se o plano marcou uma página heroImage. Cacheada por-conteúdo.
     if (plan && plan.pages.some((p: any) => p.heroImage)) {
-      const sectionPath = `final/sections/${c.id}.png`;
-      try {
-        const { data: existente } = await sb.storage.from('conteudos').download(sectionPath);
-        const buf = existente ? Buffer.from(await existente.arrayBuffer()) : null;
-        if (buf && buf.length > 1024) {
-          sectionBase64 = `data:image/png;base64,${buf.toString('base64')}`;
-        } else { throw new Error('section ausente ou vazio'); }
-      } catch {
-        try {
-          const { generateSectionImage } = await import('@/lib/openai-image');
-          const tema = [c.titulo, c.competencia, c.descritor].filter(Boolean).join(' — ') || null;
-          const imgBuf = await generateSectionImage(tema);
-          await sb.storage.from('conteudos').upload(sectionPath, imgBuf, { contentType: 'image/png', upsert: true });
-          sectionBase64 = `data:image/png;base64,${imgBuf.toString('base64')}`;
-        } catch (e: any) {
-          console.warn('[gerarConteudoFinal] imagem de seção falhou:', e?.message);
-        }
-      }
+      sectionBase64 = await resolveSectionBase64(sb, c);
     }
 
     const { renderConteudoFinalPDF } = await import('@/lib/conteudo-final-pdf');
@@ -714,6 +728,128 @@ export async function gerarConteudoFinal(id: string) {
   } catch (err) {
     console.error('[gerarConteudoFinal]', err);
     return { success: false, error: err?.message || 'Erro' };
+  }
+}
+
+/**
+ * Gera (ou serve do cache) a versão PERSONALIZADA do PDF de conteúdo final para
+ * um colaborador: núcleo curricular intacto + camada com 2 seções novas —
+ * "Para o seu perfil <arquétipo DISC>" e "No contexto da sua escola" (PPP).
+ *
+ * Granularidade: por (conteúdo, empresa, arquétipo) — cacheado em
+ * `final/perso/<id>/<empresa>/<arquetipo>.pdf`. Gerado sob demanda (1º acesso).
+ * Capa/seção reusam o cache por-conteúdo (sem custo de imagem extra).
+ * Qualquer falha → retorna a URL genérica (nunca quebra a entrega).
+ */
+export async function gerarConteudoFinalPersonalizado({ contentId }: { contentId: string }) {
+  let generico: string | null = null;
+  try {
+    // Service-role direto: quem abre o conteúdo é o COLABORADOR (não admin).
+    // A identidade vem da SESSÃO (não de parâmetro) — sem IDOR.
+    const sb = createSupabaseAdmin();
+    if (!contentId) return { success: false, error: 'contentId obrigatório' };
+
+    const { data: c } = await sb
+      .from('micro_conteudos')
+      .select('*, empresa:empresas(nome)')
+      .eq('id', contentId)
+      .maybeSingle();
+    if (!c) return { success: false, error: 'Conteúdo não encontrado' };
+    generico = c.url || null;
+    if ((c.formato !== 'texto' && c.formato !== 'case') || !c.conteudo_inline?.trim()) {
+      return { success: true, url: generico, personalized: false };
+    }
+
+    const email = await getAuthenticatedEmailFromAction();
+    if (!email) return { success: true, url: generico, personalized: false };
+
+    // Colaborador (DISC + tenant)
+    const { findColabByEmail } = await import('@/lib/authz');
+    const colab: any = await findColabByEmail(
+      email,
+      'perfil_dominante, d_natural, i_natural, s_natural, c_natural, tp_introvertido_extrovertido, tp_sensor_intuitivo, empresa_id',
+    );
+    const empresaId: string | null = colab?.empresa_id || null;
+    const arq = derivarArquetipo(colab?.perfil_dominante);
+    const arquetipoSlug = String(colab?.perfil_dominante || '').trim().toUpperCase().replace(/[^A-Z]/g, '') || 'NA';
+
+    // Brief da escola (PPP) — mesmo padrão de gerarVideo
+    let escolaBrief: EscolaBrief | null = null;
+    if (empresaId) {
+      try {
+        const { data: emp } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
+        const salvo = (emp?.sys_config as any)?.video_escola || null;
+        if (briefPreenchido(salvo)) {
+          escolaBrief = salvo;
+        } else {
+          const { data: ppp } = await sb.from('ppp_escolas')
+            .select('extracao').eq('empresa_id', empresaId).eq('status', 'extraido')
+            .order('extracted_at', { ascending: false }).limit(1).maybeSingle();
+          if (ppp?.extracao) {
+            const resumo = await resumirPPP(extracaoParaTexto(ppp.extracao));
+            if (briefPreenchido(resumo)) escolaBrief = resumo;
+          }
+        }
+      } catch (e: any) {
+        console.warn('[gerarConteudoFinalPersonalizado] brief da escola falhou:', e?.message);
+      }
+    }
+
+    // Sem DISC e sem PPP → nada a personalizar: serve a versão genérica.
+    const temDisc = Boolean(colab?.perfil_dominante);
+    if (!temDisc && !briefPreenchido(escolaBrief)) {
+      return { success: true, url: generico, personalized: false };
+    }
+
+    // Cache por (conteúdo, empresa, arquétipo)
+    const cachePath = `final/perso/${contentId}/${empresaId || 'global'}/${arquetipoSlug}.pdf`;
+    try {
+      const { data: cached } = await sb.storage.from('conteudos').download(cachePath);
+      const buf = cached ? Buffer.from(await cached.arrayBuffer()) : null;
+      if (buf && buf.length > 1024) {
+        const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(cachePath);
+        return { success: true, url: publicUrl, personalized: true, cached: true };
+      }
+    } catch { /* sem cache → gera */ }
+
+    // Camada de personalização (IA)
+    const model = await getModelForTask(empresaId, 'conteudo_personalizacao');
+    const { system, user } = buildPersonalizacaoPrompt({
+      competencia: c.competencia, descritor: c.descritor, conteudoCore: c.conteudo_inline,
+      arquetipoNome: arq.nome, arquetipoDesc: arq.desc, escolaBrief,
+    });
+    const layer = (await callAI(system, user, { model }, 2000, { temperature: 0.5 })).trim();
+    if (!layer) return { success: true, url: generico, personalized: false };
+    const full = `${c.conteudo_inline}\n\n${layer}`;
+
+    // Pipeline de render (reusa capa/seção por-conteúdo + planner + renderer)
+    const { parseBlocks, planLayout } = await import('@/lib/conteudo-layout-plan');
+    const { renderConteudoFinalPDF } = await import('@/lib/conteudo-final-pdf');
+    const planModel = await getModelForTask(empresaId, c.formato === 'case' ? 'conteudo_case' : 'conteudo_texto');
+    const blocks = parseBlocks(full, { skipFirstH1: Boolean(c.titulo) });
+    let plan = null;
+    try {
+      plan = await planLayout(blocks, { titulo: c.titulo, competencia: c.competencia, descritor: c.descritor, formato: c.formato }, planModel);
+    } catch (e: any) {
+      console.warn('[gerarConteudoFinalPersonalizado] plano falhou (flat):', e?.message);
+    }
+    const { base64: coverBase64 } = await resolveCoverBase64(sb, c);
+    const sectionBase64 = plan && plan.pages.some((p: any) => p.heroImage) ? await resolveSectionBase64(sb, c) : null;
+
+    const buffer = await renderConteudoFinalPDF({
+      titulo: c.titulo, conteudoMd: full, competencia: c.competencia, descritor: c.descritor,
+      formato: c.formato, empresaNome: c.empresa?.nome || null, coverBase64, plan, sectionImageBase64: sectionBase64,
+    });
+
+    const { error: upErr } = await sb.storage.from('conteudos').upload(cachePath, Buffer.from(buffer), {
+      contentType: 'application/pdf', upsert: true,
+    });
+    if (upErr) return { success: true, url: generico, personalized: false, error: upErr.message };
+    const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(cachePath);
+    return { success: true, url: publicUrl, personalized: true, arquetipo: arq.nome, paginas: plan?.pages.length ?? null };
+  } catch (err: any) {
+    console.error('[gerarConteudoFinalPersonalizado]', err);
+    return { success: true, url: generico, personalized: false, error: err?.message || 'Erro' };
   }
 }
 

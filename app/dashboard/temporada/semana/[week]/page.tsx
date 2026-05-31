@@ -628,7 +628,9 @@ function ConteudoViewer({ conteudo, formatoAtivo, setFormatoAtivo, onAutoConsumi
       )}
       {item?.url && (ativo === 'texto' || ativo === 'case') && (
         <div className="prose prose-invert prose-sm max-w-none">
-          <a href={item.url} target="_blank" rel="noopener"
+          {/* PDF personalizado (DISC + PPP), gerado lazy pela rota; fallback p/ a URL genérica */}
+          <a href={(item.id || conteudo.core_id) ? `/api/conteudo/${item.id || conteudo.core_id}/pdf` : item.url}
+            target="_blank" rel="noopener"
             onClick={() => onAbrirConteudo?.()}
             className="text-brand-400">{t('content.openContent')}</a>
         </div>
