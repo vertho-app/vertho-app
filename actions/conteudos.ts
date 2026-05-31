@@ -897,7 +897,7 @@ export async function gerarPodcastAudio(id: string) {
       .eq('id', id);
     if (updErr) return { success: false, error: updErr.message };
 
-    return { success: true, url: publicUrl, message: `Áudio gerado para "${c.titulo}"` };
+    return { success: true, url: publicUrl, message: `Áudio com vinheta gerado para "${c.titulo}"` };
   } catch (err) {
     console.error('[gerarPodcastAudio]', err);
     return { success: false, error: err?.message || 'Erro' };

@@ -12,7 +12,6 @@ const MODEL = process.env.GEMINI_TTS_MODEL || 'gemini-3.1-flash-tts-preview';
 const VOICE = process.env.GEMINI_TTS_VOICE || 'Charon'; // masculina, grave/madura
 const MENTOR_VOICE = process.env.GEMINI_TTS_MENTOR_VOICE || 'Charon';
 const CAMPO_VOICE = process.env.GEMINI_TTS_CAMPO_VOICE || 'Kore';
-const BRAND_STING_ENABLED = process.env.PODCAST_BRAND_STING !== 'false';
 
 /** Extrai o bloco de NARRAÇÃO LIMPA do roteiro TTS; remove título, headers e tags. */
 export function extractNarration(roteiro: string): string {
@@ -82,13 +81,13 @@ function silencePcm(seconds: number, sampleRate: number): Buffer {
 }
 
 function brandStingPcm(sampleRate: number, variant: 'intro' | 'outro'): Buffer {
-  const seconds = variant === 'intro' ? 3.0 : 2.4;
+  const seconds = variant === 'intro' ? 3.2 : 2.6;
   const samples = Math.round(seconds * sampleRate);
   const pcm = Buffer.alloc(samples * 2);
-  const baseGain = variant === 'intro' ? 0.34 : 0.26;
+  const baseGain = variant === 'intro' ? 0.52 : 0.42;
   const freqs = variant === 'intro'
-    ? [329.63, 415.3, 493.88, 659.25]
-    : [493.88, 415.3, 329.63];
+    ? [293.66, 369.99, 440, 554.37, 659.25]
+    : [554.37, 440, 369.99, 293.66];
 
   for (let i = 0; i < samples; i++) {
     const t = i / sampleRate;
@@ -96,16 +95,18 @@ function brandStingPcm(sampleRate: number, variant: 'intro' | 'outro'): Buffer {
     const fadeIn = Math.min(1, progress / 0.18);
     const fadeOut = Math.min(1, (1 - progress) / 0.42);
     const envelope = Math.max(0, Math.min(fadeIn, fadeOut));
-    const shimmer = Math.sin(2 * Math.PI * 7 * t) * 0.025;
-    const pulse = Math.sin(2 * Math.PI * 110 * t) * Math.max(0, Math.sin(2 * Math.PI * 2.4 * t)) * 0.035;
+    const shimmer = Math.sin(2 * Math.PI * 7 * t) * 0.03;
+    const pulse = Math.sin(2 * Math.PI * 110 * t) * Math.max(0, Math.sin(2 * Math.PI * 2.2 * t)) * 0.045;
+    const sweepFreq = variant === 'intro' ? 740 + (180 * progress) : 920 - (260 * progress);
+    const sweep = Math.sin(2 * Math.PI * sweepFreq * t) * Math.exp(-t * 1.7) * 0.18;
     const tone = freqs.reduce((sum, freq, idx) => {
-      const delay = idx * 0.2;
+      const delay = idx * 0.16;
       const local = Math.max(0, t - delay);
-      const decay = Math.exp(-local * (variant === 'intro' ? 0.85 : 1.25));
-      const harmonic = Math.sin(2 * Math.PI * freq * 2 * t) * 0.22;
+      const decay = Math.exp(-local * (variant === 'intro' ? 0.7 : 1.0));
+      const harmonic = Math.sin(2 * Math.PI * freq * 2 * t) * 0.28;
       return sum + (Math.sin(2 * Math.PI * freq * t) + harmonic) * decay / freqs.length;
     }, 0);
-    const value = Math.max(-1, Math.min(1, (tone + shimmer + pulse) * envelope * baseGain));
+    const value = Math.max(-1, Math.min(1, (tone + sweep + shimmer + pulse) * envelope * baseGain));
     pcm.writeInt16LE(Math.round(value * 32767), i * 2);
   }
 
@@ -113,7 +114,6 @@ function brandStingPcm(sampleRate: number, variant: 'intro' | 'outro'): Buffer {
 }
 
 export function addPodcastBrandSting(pcm: Buffer, sampleRate: number): Buffer {
-  if (!BRAND_STING_ENABLED) return pcm;
   return Buffer.concat([
     brandStingPcm(sampleRate, 'intro'),
     silencePcm(0.25, sampleRate),

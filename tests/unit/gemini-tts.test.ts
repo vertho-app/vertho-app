@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { addPodcastBrandSting, extractNarration } from '@/lib/gemini-tts';
 
+function maxAbsSample(pcm: Buffer): number {
+  let max = 0;
+  for (let offset = 0; offset + 1 < pcm.length; offset += 2) {
+    max = Math.max(max, Math.abs(pcm.readInt16LE(offset)));
+  }
+  return max;
+}
+
 describe('extractNarration', () => {
   it('preserva speakers do roteiro mentor + campo para TTS multi-speaker', () => {
     const roteiro = `TÍTULO: Conversa difícil
@@ -57,5 +65,7 @@ Este é o MentorIA na prática.`;
     expect(withSting.length).toBeGreaterThan(oneSecondPcm.length + sampleRate * 2 * 4);
     expect(withSting.subarray(0, sampleRate * 2).some((byte) => byte !== 0)).toBe(true);
     expect(withSting.subarray(-sampleRate * 2).some((byte) => byte !== 0)).toBe(true);
+    expect(maxAbsSample(withSting.subarray(0, sampleRate * 2))).toBeGreaterThan(3000);
+    expect(maxAbsSample(withSting.subarray(-(sampleRate * 2 * 2)))).toBeGreaterThan(3000);
   });
 });
