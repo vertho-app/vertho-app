@@ -8,10 +8,14 @@
  * Gemini TTS retorna PCM 16-bit 24kHz mono (audio/L16); embrulhamos em WAV.
  */
 
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
 const MODEL = process.env.GEMINI_TTS_MODEL || 'gemini-3.1-flash-tts-preview';
 const VOICE = process.env.GEMINI_TTS_VOICE || 'Charon'; // masculina, grave/madura
 const MENTOR_VOICE = process.env.GEMINI_TTS_MENTOR_VOICE || 'Charon';
 const CAMPO_VOICE = process.env.GEMINI_TTS_CAMPO_VOICE || 'Kore';
+const brandStingCache = new Map<string, Buffer>();
 
 /** Extrai o bloco de NARRAÇÃO LIMPA do roteiro TTS; remove título, headers e tags. */
 export function extractNarration(roteiro: string): string {
@@ -80,36 +84,85 @@ function silencePcm(seconds: number, sampleRate: number): Buffer {
   return Buffer.alloc(Math.max(0, Math.round(seconds * sampleRate)) * 2);
 }
 
-function brandStingPcm(sampleRate: number, variant: 'intro' | 'outro'): Buffer {
-  const seconds = variant === 'intro' ? 3.2 : 2.6;
-  const samples = Math.round(seconds * sampleRate);
-  const pcm = Buffer.alloc(samples * 2);
-  const baseGain = variant === 'intro' ? 0.52 : 0.42;
-  const freqs = variant === 'intro'
-    ? [293.66, 369.99, 440, 554.37, 659.25]
-    : [554.37, 440, 369.99, 293.66];
-
-  for (let i = 0; i < samples; i++) {
-    const t = i / sampleRate;
-    const progress = i / Math.max(1, samples - 1);
-    const fadeIn = Math.min(1, progress / 0.18);
-    const fadeOut = Math.min(1, (1 - progress) / 0.42);
-    const envelope = Math.max(0, Math.min(fadeIn, fadeOut));
-    const shimmer = Math.sin(2 * Math.PI * 7 * t) * 0.03;
-    const pulse = Math.sin(2 * Math.PI * 110 * t) * Math.max(0, Math.sin(2 * Math.PI * 2.2 * t)) * 0.045;
-    const sweepFreq = variant === 'intro' ? 740 + (180 * progress) : 920 - (260 * progress);
-    const sweep = Math.sin(2 * Math.PI * sweepFreq * t) * Math.exp(-t * 1.7) * 0.18;
-    const tone = freqs.reduce((sum, freq, idx) => {
-      const delay = idx * 0.16;
-      const local = Math.max(0, t - delay);
-      const decay = Math.exp(-local * (variant === 'intro' ? 0.7 : 1.0));
-      const harmonic = Math.sin(2 * Math.PI * freq * 2 * t) * 0.28;
-      return sum + (Math.sin(2 * Math.PI * freq * t) + harmonic) * decay / freqs.length;
-    }, 0);
-    const value = Math.max(-1, Math.min(1, (tone + sweep + shimmer + pulse) * envelope * baseGain));
-    pcm.writeInt16LE(Math.round(value * 32767), i * 2);
+function parsePcm16Wav(wav: Buffer): { channels: number; sampleRate: number; pcm: Buffer } {
+  if (wav.toString('ascii', 0, 4) !== 'RIFF' || wav.toString('ascii', 8, 12) !== 'WAVE') {
+    throw new Error('Vinheta WAV inválida');
   }
 
+  let offset = 12;
+  let channels = 0;
+  let sampleRate = 0;
+  let bitsPerSample = 0;
+  let audioFormat = 0;
+  let pcm: Buffer | null = null;
+
+  while (offset + 8 <= wav.length) {
+    const id = wav.toString('ascii', offset, offset + 4);
+    const size = wav.readUInt32LE(offset + 4);
+    const start = offset + 8;
+    const end = start + size;
+
+    if (id === 'fmt ') {
+      audioFormat = wav.readUInt16LE(start);
+      channels = wav.readUInt16LE(start + 2);
+      sampleRate = wav.readUInt32LE(start + 4);
+      bitsPerSample = wav.readUInt16LE(start + 14);
+    } else if (id === 'data') {
+      pcm = wav.subarray(start, end);
+    }
+
+    offset = end + (size % 2);
+  }
+
+  if (audioFormat !== 1 || bitsPerSample !== 16 || !channels || !sampleRate || !pcm) {
+    throw new Error('Vinheta WAV precisa ser PCM 16-bit');
+  }
+
+  return { channels, sampleRate, pcm };
+}
+
+function sampleAt(pcm: Buffer, frame: number, channel: number, channels: number): number {
+  const offset = (frame * channels + channel) * 2;
+  return offset + 1 < pcm.length ? pcm.readInt16LE(offset) : 0;
+}
+
+function wavToMonoPcm16AtRate(wav: Buffer, targetRate: number): Buffer {
+  const source = parsePcm16Wav(wav);
+  const sourceFrames = Math.floor(source.pcm.length / (source.channels * 2));
+  const targetFrames = Math.max(1, Math.round(sourceFrames * targetRate / source.sampleRate));
+  const out = Buffer.alloc(targetFrames * 2);
+
+  for (let i = 0; i < targetFrames; i++) {
+    const sourcePos = i * source.sampleRate / targetRate;
+    const leftFrame = Math.min(sourceFrames - 1, Math.floor(sourcePos));
+    const rightFrame = Math.min(sourceFrames - 1, leftFrame + 1);
+    const ratio = sourcePos - leftFrame;
+    let mixed = 0;
+
+    for (let ch = 0; ch < source.channels; ch++) {
+      const left = sampleAt(source.pcm, leftFrame, ch, source.channels);
+      const right = sampleAt(source.pcm, rightFrame, ch, source.channels);
+      mixed += left + (right - left) * ratio;
+    }
+
+    const mono = Math.max(-32768, Math.min(32767, Math.round(mixed / source.channels)));
+    out.writeInt16LE(mono, i * 2);
+  }
+
+  return out;
+}
+
+function brandStingPcm(sampleRate: number, variant: 'intro' | 'outro'): Buffer {
+  const cacheKey = `${variant}:${sampleRate}`;
+  const cached = brandStingCache.get(cacheKey);
+  if (cached) return cached;
+
+  const assetPath = variant === 'intro'
+    ? path.join(process.cwd(), 'public', 'audio', 'podcast', 'mentorIA-abertura.wav')
+    : path.join(process.cwd(), 'public', 'audio', 'podcast', 'mentorIA-encerramento.wav');
+  const wav = readFileSync(assetPath);
+  const pcm = wavToMonoPcm16AtRate(wav, sampleRate);
+  brandStingCache.set(cacheKey, pcm);
   return pcm;
 }
 

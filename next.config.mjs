@@ -28,7 +28,13 @@ const nextConfig = {
   // routes sejam incluídos no bundle serverless na Vercel.
   outputFileTracingIncludes: {
     '/api/relatorios/**': ['./public/logo-vertho.png', './public/logo-vertho-cover.png', './public/template-fundo-relatorios.png'],
-    '/**': ['./public/logo-vertho.png', './public/logo-vertho-cover.png', './public/template-fundo-relatorios.png'],
+    '/**': [
+      './public/logo-vertho.png',
+      './public/logo-vertho-cover.png',
+      './public/template-fundo-relatorios.png',
+      './public/audio/podcast/mentorIA-abertura.wav',
+      './public/audio/podcast/mentorIA-encerramento.wav',
+    ],
   },
 
   // Server actions: default Next 16 é 1MB. 15MB cobre a maioria dos

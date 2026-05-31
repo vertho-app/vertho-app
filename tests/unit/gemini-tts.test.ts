@@ -62,7 +62,7 @@ Este é o MentorIA na prática.`;
     const oneSecondPcm = Buffer.alloc(sampleRate * 2);
     const withSting = addPodcastBrandSting(oneSecondPcm, sampleRate);
 
-    expect(withSting.length).toBeGreaterThan(oneSecondPcm.length + sampleRate * 2 * 4);
+    expect(withSting.length).toBeGreaterThan(oneSecondPcm.length + sampleRate * 2 * 10);
     expect(withSting.subarray(0, sampleRate * 2).some((byte) => byte !== 0)).toBe(true);
     expect(withSting.subarray(-sampleRate * 2).some((byte) => byte !== 0)).toBe(true);
     expect(maxAbsSample(withSting.subarray(0, sampleRate * 2))).toBeGreaterThan(3000);
