@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractNarration } from '@/lib/gemini-tts';
+import { addPodcastBrandSting, extractNarration } from '@/lib/gemini-tts';
 
 describe('extractNarration', () => {
   it('preserva speakers do roteiro mentor + campo para TTS multi-speaker', () => {
@@ -47,5 +47,15 @@ Este é o MentorIA na prática.`;
     expect(extractNarration(roteiro)).toBe(
       'Este é o MentorIA na prática: uma conversa curta sobre desenvolvimento profissional aplicável no seu dia a dia.\nDar retorno difícil exige clareza.',
     );
+  });
+
+  it('insere vinheta sonora no PCM final do podcast', () => {
+    const sampleRate = 24000;
+    const oneSecondPcm = Buffer.alloc(sampleRate * 2);
+    const withSting = addPodcastBrandSting(oneSecondPcm, sampleRate);
+
+    expect(withSting.length).toBeGreaterThan(oneSecondPcm.length + sampleRate * 2 * 4);
+    expect(withSting.subarray(0, sampleRate * 2).some((byte) => byte !== 0)).toBe(true);
+    expect(withSting.subarray(-sampleRate * 2).some((byte) => byte !== 0)).toBe(true);
   });
 });

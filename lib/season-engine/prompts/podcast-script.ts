@@ -229,9 +229,10 @@ Entregue EXATAMENTE nesta estrutura, com estas quatro partes e nada mais:
 
 TÍTULO: <um título curto e instigante, sem aspas, em uma linha>
 
-DIREÇÃO DE PRODUÇÃO:
-ABERTURA: Vinheta instrumental discreta de 2 a 3 segundos, moderna, calma e institucional. Fade out sob a frase de assinatura.
-FECHAMENTO: Retomar o mesmo tema sonoro por 2 segundos, em fade out. Não usar música contínua durante o episódio.
+=== VINHETAS E PRODUÇÃO ===
+[VINHETA DE ABERTURA: instrumental discreta de 2 a 3 segundos, moderna, calma e institucional. Fade out sob a frase de assinatura.]
+[VINHETA DE FECHAMENTO: retomar o mesmo tema sonoro por 2 segundos, em fade out.]
+[NÃO usar música contínua durante o episódio.]
 
 === NARRAÇÃO (TEXTO LIMPO) ===
 <O roteiro completo em texto corrido, linguagem oral, frases curtas.
@@ -248,6 +249,7 @@ asteriscos, SEM tags, SEM rubricas de som ou vinheta. Este bloco vai direto para
 
 REGRAS DA SAÍDA:
 - Não escreva mais nada antes do TÍTULO nem depois do bloco "NARRAÇÃO (COM MARCAÇÕES)".
+- As vinhetas devem aparecer apenas no bloco "VINHETAS E PRODUÇÃO", nunca dentro dos blocos de narração.
 - Não use markdown (#, **, listas). As únicas marcações permitidas são as
   reticências (...), as tags <break .../> e os *asteriscos* de ênfase (apenas
   no segundo bloco).

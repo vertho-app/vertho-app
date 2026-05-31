@@ -82,35 +82,37 @@ function silencePcm(seconds: number, sampleRate: number): Buffer {
 }
 
 function brandStingPcm(sampleRate: number, variant: 'intro' | 'outro'): Buffer {
-  const seconds = variant === 'intro' ? 2.4 : 1.9;
+  const seconds = variant === 'intro' ? 3.0 : 2.4;
   const samples = Math.round(seconds * sampleRate);
   const pcm = Buffer.alloc(samples * 2);
-  const baseGain = variant === 'intro' ? 0.18 : 0.14;
+  const baseGain = variant === 'intro' ? 0.34 : 0.26;
   const freqs = variant === 'intro'
-    ? [392.0, 493.88, 587.33, 783.99]
-    : [587.33, 493.88, 392.0];
+    ? [329.63, 415.3, 493.88, 659.25]
+    : [493.88, 415.3, 329.63];
 
   for (let i = 0; i < samples; i++) {
     const t = i / sampleRate;
     const progress = i / Math.max(1, samples - 1);
     const fadeIn = Math.min(1, progress / 0.18);
-    const fadeOut = Math.min(1, (1 - progress) / 0.32);
+    const fadeOut = Math.min(1, (1 - progress) / 0.42);
     const envelope = Math.max(0, Math.min(fadeIn, fadeOut));
-    const shimmer = Math.sin(2 * Math.PI * 9 * t) * 0.015;
+    const shimmer = Math.sin(2 * Math.PI * 7 * t) * 0.025;
+    const pulse = Math.sin(2 * Math.PI * 110 * t) * Math.max(0, Math.sin(2 * Math.PI * 2.4 * t)) * 0.035;
     const tone = freqs.reduce((sum, freq, idx) => {
-      const delay = idx * 0.16;
+      const delay = idx * 0.2;
       const local = Math.max(0, t - delay);
-      const decay = Math.exp(-local * (variant === 'intro' ? 1.35 : 1.8));
-      return sum + Math.sin(2 * Math.PI * freq * t) * decay / freqs.length;
+      const decay = Math.exp(-local * (variant === 'intro' ? 0.85 : 1.25));
+      const harmonic = Math.sin(2 * Math.PI * freq * 2 * t) * 0.22;
+      return sum + (Math.sin(2 * Math.PI * freq * t) + harmonic) * decay / freqs.length;
     }, 0);
-    const value = Math.max(-1, Math.min(1, (tone + shimmer) * envelope * baseGain));
+    const value = Math.max(-1, Math.min(1, (tone + shimmer + pulse) * envelope * baseGain));
     pcm.writeInt16LE(Math.round(value * 32767), i * 2);
   }
 
   return pcm;
 }
 
-function addBrandSting(pcm: Buffer, sampleRate: number): Buffer {
+export function addPodcastBrandSting(pcm: Buffer, sampleRate: number): Buffer {
   if (!BRAND_STING_ENABLED) return pcm;
   return Buffer.concat([
     brandStingPcm(sampleRate, 'intro'),
@@ -190,5 +192,5 @@ export async function generatePodcastAudio(texto: string): Promise<Buffer> {
   if (!b64) throw new Error('Gemini TTS: resposta sem áudio');
   const pcm = Buffer.from(b64, 'base64');
   const sampleRate = rateFromMime(part.inlineData.mimeType);
-  return pcmToWav(addBrandSting(pcm, sampleRate), sampleRate);
+  return pcmToWav(addPodcastBrandSting(pcm, sampleRate), sampleRate);
 }
