@@ -152,7 +152,16 @@ TRATAMENTOS (campo "as"):
 
 COBERTURA: todo bloco de conteúdo deve aparecer em ALGUM item estrutural (qualquer "as" exceto "pullquoteText") exatamente uma vez. Pull quotes não substituem a presença estrutural do conteúdo.
 
-REVISÃO ANTES DE EMITIR — valide internamente, página a página: todo bloco aparece ≥1 vez; no máximo uma heroImage; cada página tem função editorial clara; cada página interna tem ≥1 recurso visual; listas importantes não ficaram como texto; exemplos foram tratados visualmente; perguntas finais viraram cards; nenhuma página é só continuação de texto; nenhuma página está visualmente vazia; páginas internas não são todas iguais; nenhuma pull quote foi inventada. Se algo falhar, REDESENHE antes de responder. NÃO emita o raciocínio — apenas o JSON final.
+# CONTROLE EDITORIAL ANTIAUTOMAÇÃO (revise o plano ANTES de emitir)
+O PDF não pode ter cara de geração automática. Aplique estas travas — todas dentro da regra de conteúdo (você só referencia ids, NUNCA reescreve nem inventa título):
+1. RÓTULOS REPETIDOS NA MESMA PÁGINA: vários tratamentos têm rótulo fixo no render — "caseCard" mostra "Na prática", "synthesis" mostra "Síntese", a página role "exemplo" já tem o eyebrow "Na prática". NÃO empilhe na mesma página dois itens que produzam o MESMO rótulo (dois caseCard, dois synthesis, ou um caseCard numa página role "exemplo"). Como você não pode renomear, a saída é VARIAR: trate só um bloco como caseCard/synthesis e o(s) outro(s) como paragraph/pullquote, OU distribua-os em páginas com função diferente. Nunca dois rótulos iguais lado a lado.
+2. CONTRASTE REAL em "diagram" e "comparison": os dois lados devem referenciar blocos DIFERENTES cujo conteúdo realmente se opõe. "diagram" exige um bloco que AFIRMA (o que é) e um bloco distinto que NEGA (o que não é: confusões, exageros, riscos, leituras equivocadas). Se NÃO houver um lado de negação real nos blocos, NÃO use diagram — use "synthesis". Idem comparison: nunca os dois lados com o mesmo sentido, o mesmo rótulo ou o mesmo bloco. Sem contraste genuíno, não force a estrutura.
+3. FERRAMENTA é a página mais visual: todo método/roteiro/checklist/conjunto de perguntas vira "flow", "numberedCards" ou "checklist" — nunca "paragraph" ou "bullets". Se o conteúdo tem passos, eles são a peça central de uma página role "ferramenta".
+4. FUNÇÃO POR PÁGINA: toda página interna recebe um role REAL (contexto/conceito/exemplo/comparativo/ferramenta/aplicacao/cuidados/sintese/reflexao). NUNCA use o role "corpo" para uma página interna — ele é só fallback de segurança, não um plano aceitável.
+5. PÁGINA FINAL com valor: a última página é "reflexao" com os "reflectionCards" das perguntas. Não deixe uma página final fraca ou sobrando: se sobrar uma página com 1 item fraco, funda-a com a anterior. Se o conteúdo tiver passos de próxima ação ("escolha um sinal, reserve 15 min, converse com alguém..."), trate-os como "checklist"/"numberedCards" (em aplicação ou no fechamento), não como parágrafo.
+6. REFLEXÃO LIMPA: na página "reflexao", DEPOIS dos "reflectionCards" não coloque parágrafos conceituais novos. Conteúdo conceitual solto vai para uma página anterior (conceito/aplicação). A última página é contemplativa: só as perguntas (no máximo um "synthesis" curto de fechamento antes dos cards).
+
+REVISÃO ANTES DE EMITIR — valide internamente, página a página: todo bloco aparece ≥1 vez; no máximo uma heroImage; cada página tem função editorial clara (nenhuma com role "corpo"); cada página interna tem ≥1 recurso visual; listas importantes não ficaram como texto; exemplos foram tratados visualmente; perguntas finais viraram cards; nenhuma página é só continuação de texto; nenhuma página está visualmente vazia ou sobrando; páginas internas não são todas iguais; nenhum rótulo fixo se repete na mesma página (dois "Na prática", dois "Síntese"); diagram/comparison só com contraste real entre blocos distintos; nenhum parágrafo conceitual depois dos reflectionCards; nenhuma pull quote foi inventada. Se algo falhar, REDESENHE antes de responder. NÃO emita o raciocínio — apenas o JSON final.
 
 SAÍDA: responda APENAS com JSON válido (sem cercas de código, sem comentários), no formato:
 {"summary":"1-2 frases descrevendo a estrutura visual criada, citando a função e o recurso visual principal de cada página","pages":[{"role":"contexto","heroImage":true,"items":[{"as":"heading","ref":0},{"as":"synthesis","ref":1},{"as":"pullquoteText","ref":1,"text":"trecho verbatim"}]}]}`;
@@ -261,7 +270,11 @@ function sanitize(plan: any, blocks: RawBlock[]): LayoutPlan | null {
         : b.kind === 'ul' ? 'bullets'
         : b.kind === 'ol' ? 'numberedCards'
         : 'paragraph';
-    pages[pages.length - 1].items.push(...missing.map(b => ({ as: naturalAs(b), ref: b.id } as PlanItem)));
+    // NÃO jogar conteúdo solto na página de reflexão (deve ficar contemplativa,
+    // só perguntas). Reanexa na última página que NÃO seja reflexão.
+    let target = pages.length - 1;
+    while (target > 0 && pages[target].role === 'reflexao') target--;
+    pages[target].items.push(...missing.map(b => ({ as: naturalAs(b), ref: b.id } as PlanItem)));
   }
 
   const summary = typeof plan.summary === 'string' ? plan.summary.trim().slice(0, 600) : '';

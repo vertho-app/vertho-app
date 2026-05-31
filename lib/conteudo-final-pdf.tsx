@@ -72,6 +72,8 @@ const s = StyleSheet.create({
   // Corpo
   page: { backgroundColor: colors.white, fontFamily: 'NotoSans', paddingTop: 64, paddingBottom: 48, paddingHorizontal: 48, fontSize: 10.5, color: colors.textPrimary, lineHeight: 1.55 },
   topMeta: { position: 'absolute', top: 30, left: 48, right: 48, flexDirection: 'row', justifyContent: 'space-between', fontSize: 7, color: colors.gray400, textTransform: 'uppercase', letterSpacing: 1 },
+  // Número da página SEM tracking — senão "10" sai como "1 0" (herda o letterSpacing do topMeta).
+  pageNum: { letterSpacing: 0 },
   footer: { position: 'absolute', bottom: 22, left: 48, right: 48, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 0.5, borderTopColor: colors.border, paddingTop: 6 },
   footerText: { fontSize: 7, color: colors.gray500, letterSpacing: 0.4 },
 
@@ -247,13 +249,15 @@ function reflectionNodes(items: string[], key: string): React.ReactNode[] {
   );
 }
 
-function caseCardNodes(b: RawBlock, key: string): React.ReactNode[] {
+// label === null → sem rótulo (evita repetir "Na prática" quando o eyebrow da
+// página já diz isso, ou quando há mais de um caseCard na mesma página).
+function caseCardNodes(b: RawBlock, key: string, label: string | null = 'Na prática'): React.ReactNode[] {
   const body = b.kind === 'ul' || b.kind === 'ol'
     ? (b as any).items.map((it: string, j: number) =>
         e(Text, { key: `${key}-${j}`, style: s.caseText }, inline(it)))
     : [e(Text, { key: `${key}-t`, style: s.caseText }, inline((b as any).text))];
   return [e(View, { key, style: s.caseCard, wrap: false },
-    e(Text, { style: s.caseLabel }, 'Na prática'),
+    label ? e(Text, { style: s.caseLabel }, label) : null,
     ...body,
   )];
 }
@@ -324,7 +328,7 @@ function diagramNodes(
   );
 }
 
-function renderItem(item: PlanItem, byId: Map<number, RawBlock>, key: string): React.ReactNode[] {
+function renderItem(item: PlanItem, byId: Map<number, RawBlock>, key: string, caseLabel: string | null = 'Na prática'): React.ReactNode[] {
   if (item.as === 'diagram') return [diagramNodes(item.affirm, item.negate, byId, key)];
   if (item.as === 'comparison') return [comparisonNodes(item.left, item.right, byId, key)];
   if (item.as === 'pullquoteText') {
@@ -346,7 +350,7 @@ function renderItem(item: PlanItem, byId: Map<number, RawBlock>, key: string): R
     case 'flow': return items ? flowNodes(items, key) : [e(Text, { key, style: s.paragraph }, inline(blockText(b)))];
     case 'checklist': return items ? checklistNodes(items, key) : [e(Text, { key, style: s.paragraph }, inline(blockText(b)))];
     case 'reflectionCards': return items ? reflectionNodes(items, key) : [e(Text, { key, style: s.paragraph }, inline(blockText(b)))];
-    case 'caseCard': return caseCardNodes(b, key);
+    case 'caseCard': return caseCardNodes(b, key, caseLabel);
     case 'paragraph':
     default:
       return [e(Text, { key, style: s.paragraph }, inline(blockText(b)))];
@@ -366,7 +370,7 @@ function planPage(
   return e(Page, { key: `pg-${pageIdx}`, size: 'A4', style: s.page },
     e(View, { style: s.topMeta, fixed: true },
       e(Text, null, eyebrow),
-      e(Text, { render: ({ pageNumber }: any) => String(pageNumber) }),
+      e(Text, { style: s.pageNum, render: ({ pageNumber }: any) => String(pageNumber) }),
     ),
     // Cabeçalho da seção: banda com imagem (hero) ou eyebrow simples.
     hero
@@ -381,7 +385,19 @@ function planPage(
             e(View, { style: s.roleRule }),
           )
         : null,
-    ...pg.items.flatMap((it, i) => renderItem(it, byId, `p${pageIdx}-i${i}`)),
+    ...(() => {
+      // Rótulo do caseCard só no PRIMEIRO da página e quando o eyebrow não for
+      // o mesmo "Na prática" (role exemplo) — evita rótulos repetidos.
+      let caseSeen = 0;
+      return pg.items.flatMap((it, i) => {
+        let caseLabel: string | null = 'Na prática';
+        if (it.as === 'caseCard') {
+          caseLabel = caseSeen === 0 && roleLabel !== ROLE_LABEL.exemplo ? 'Na prática' : null;
+          caseSeen++;
+        }
+        return renderItem(it, byId, `p${pageIdx}-i${i}`, caseLabel);
+      });
+    })(),
     // Fechamento na página de reflexão.
     isReflexao
       ? e(View, { style: s.closing },
@@ -402,7 +418,7 @@ function flatBody(blocks: RawBlock[], eyebrow: string): React.ReactNode {
   return e(Page, { size: 'A4', style: s.page },
     e(View, { style: s.topMeta, fixed: true },
       e(Text, null, eyebrow),
-      e(Text, { render: ({ pageNumber }: any) => String(pageNumber) }),
+      e(Text, { style: s.pageNum, render: ({ pageNumber }: any) => String(pageNumber) }),
     ),
     ...blocks.flatMap((b, i) => {
       const key = `f${i}`;
