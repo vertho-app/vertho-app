@@ -757,13 +757,48 @@ export async function gerarPodcastAudio(id: string) {
 
     const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(path);
     const { error: updErr } = await sb.from('micro_conteudos')
-      .update({ url: publicUrl, storage_path: path })
+      .update({ url: publicUrl, storage_path: path, ativo: true })
       .eq('id', id);
     if (updErr) return { success: false, error: updErr.message };
 
     return { success: true, url: publicUrl, message: `Áudio gerado para "${c.titulo}"` };
   } catch (err) {
     console.error('[gerarPodcastAudio]', err);
+    return { success: false, error: err?.message || 'Erro' };
+  }
+}
+
+/**
+ * Etapa editorial do podcast: salva o roteiro revisado pelo admin e, em seguida,
+ * gera o áudio final. Usado pelo modal pós-geração de roteiro.
+ */
+export async function aprovarRoteiroPodcastEGerarAudio(id: string, roteiro: string) {
+  try {
+    const sb = await requireAdminSupabase();
+    if (!id) return { success: false, error: 'id obrigatório' };
+    if (!roteiro?.trim() || roteiro.trim().length < 20) {
+      return { success: false, error: 'Roteiro muito curto para gerar áudio' };
+    }
+
+    const { data: c } = await sb
+      .from('micro_conteudos')
+      .select('id, formato')
+      .eq('id', id)
+      .maybeSingle();
+    if (!c) return { success: false, error: 'Conteúdo não encontrado' };
+    if (c.formato !== 'audio') {
+      return { success: false, error: 'Aprovação de roteiro disponível apenas para podcast' };
+    }
+
+    const { error: updErr } = await sb
+      .from('micro_conteudos')
+      .update({ conteudo_inline: roteiro.trim() })
+      .eq('id', id);
+    if (updErr) return { success: false, error: updErr.message };
+
+    return await gerarPodcastAudio(id);
+  } catch (err) {
+    console.error('[aprovarRoteiroPodcastEGerarAudio]', err);
     return { success: false, error: err?.message || 'Erro' };
   }
 }

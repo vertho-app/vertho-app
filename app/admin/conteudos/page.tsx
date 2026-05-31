@@ -6,7 +6,7 @@ import { Download, Sparkles, Edit2, Trash2, Check, X, Filter, Video, FileText, H
 import BackButton from '@/components/back-button';
 import {
   importarVideosBunny, listarConteudos, atualizarConteudo,
-  deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA, loadOpcoesGerar, uploadConteudo, gerarConteudoFinal, excluirConteudoFinal, gerarPodcastAudio, gerarVideo, listarPPPEscolasConteudo,
+  deletarConteudo, sugerirTagsIA, aplicarTagsIA, gerarConteudoIA, loadOpcoesGerar, uploadConteudo, gerarConteudoFinal, excluirConteudoFinal, gerarPodcastAudio, aprovarRoteiroPodcastEGerarAudio, gerarVideo, listarPPPEscolasConteudo,
 } from '@/actions/conteudos';
 import { useAdminShell } from '@/app/admin/_shell/AdminShellContext';
 
@@ -696,7 +696,29 @@ export default function ConteudosAdminPage() {
       )}
 
       {/* Modal roteiro gerado (copiar) */}
-      {roteiroGerado && <RoteiroModal item={roteiroGerado} onClose={() => setRoteiroGerado(null)} />}
+      {roteiroGerado && (
+        <RoteiroModal
+          item={roteiroGerado}
+          onClose={() => setRoteiroGerado(null)}
+          onApproveAudio={async (roteiroEditado) => {
+            if (!roteiroGerado.conteudoId) {
+              addLog('❌ Conteúdo sem ID para aprovar roteiro', 'error');
+              return { success: false, error: 'Conteúdo sem ID para aprovar roteiro' };
+            }
+            addLog(`Gerando áudio aprovado de "${roteiroGerado.titulo}"...`, 'info');
+            const r = await aprovarRoteiroPodcastEGerarAudio(roteiroGerado.conteudoId, roteiroEditado);
+            if (r.success) {
+              addLog(`✅ ${r.message}`, 'success');
+              setRoteiroGerado(null);
+              if (r.url) window.open(r.url, '_blank', 'noopener');
+              await carregar();
+            } else {
+              addLog(`❌ ${r.error}`, 'error');
+            }
+            return r;
+          }}
+        />
+      )}
 
       {/* Modal de sugestão IA */}
       {iaSugestao && (
@@ -1107,11 +1129,20 @@ function GerarModal({ onClose, onGenerate, busy }) {
   );
 }
 
-function RoteiroModal({ item, onClose }) {
+function RoteiroModal({ item, onClose, onApproveAudio }) {
   const t = useTranslations('AdminContent');
+  const [roteiro, setRoteiro] = useState(item.roteiro || '');
   const [copiado, setCopiado] = useState(false);
+  const [aprovando, setAprovando] = useState(false);
+  const isPodcast = item.formato === 'audio';
   async function copiar() {
-    try { await navigator.clipboard.writeText(item.roteiro); setCopiado(true); setTimeout(() => setCopiado(false), 2000); } catch {}
+    try { await navigator.clipboard.writeText(roteiro); setCopiado(true); setTimeout(() => setCopiado(false), 2000); } catch {}
+  }
+  async function aprovar() {
+    if (!isPodcast || !onApproveAudio) return;
+    setAprovando(true);
+    const r = await onApproveAudio(roteiro);
+    if (!r?.success) setAprovando(false);
   }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
@@ -1124,18 +1155,32 @@ function RoteiroModal({ item, onClose }) {
           <button onClick={onClose} className="p-1 rounded hover:bg-white/10"><X size={18} /></button>
         </div>
         <div className="text-xs text-gray-400 mb-3">{item.titulo}</div>
-        {item.precisaGravar && (
+        {isPodcast ? (
+          <div className="mb-3 p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-[11px] text-cyan-200">
+            Revise o roteiro abaixo. Ao aprovar, o texto editado será salvo e o podcast será gerado automaticamente.
+          </div>
+        ) : item.precisaGravar && (
           <div className="mb-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300">
             {t.rich('generate.recordingWarning', { strong: (chunks) => <strong>{chunks}</strong> })}
           </div>
         )}
-        <pre className="flex-1 overflow-auto p-4 rounded-lg bg-black/40 border border-white/10 text-xs text-gray-200 whitespace-pre-wrap font-mono leading-relaxed">
-          {item.roteiro}
-        </pre>
+        <textarea
+          value={roteiro}
+          onChange={e => setRoteiro(e.target.value)}
+          readOnly={!isPodcast}
+          className="flex-1 min-h-[420px] overflow-auto p-4 rounded-lg bg-black/40 border border-white/10 text-xs text-gray-200 whitespace-pre-wrap font-mono leading-relaxed outline-none focus:border-cyan-400/40 disabled:opacity-70"
+        />
         <div className="flex gap-2 mt-4">
           <button onClick={copiar} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-sm font-bold">
             <Copy size={14} /> {copiado ? t('actions.copied') : t('actions.copyText')}
           </button>
+          {isPodcast && (
+            <button onClick={aprovar} disabled={aprovando || roteiro.trim().length < 20}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-sm font-bold">
+              {aprovando ? <Loader2 size={14} className="animate-spin" /> : <Headphones size={14} />}
+              {aprovando ? 'Gerando áudio...' : 'Aprovar e gerar podcast'}
+            </button>
+          )}
           <button onClick={onClose} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm">{t('actions.close')}</button>
         </div>
       </div>
