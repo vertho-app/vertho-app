@@ -69,6 +69,7 @@ interface GerarConteudoParams {
   cargo?: string;
   contexto?: string;
   duracaoSegundos?: number | null;
+  podcastFormato?: 'solo' | 'mentor_campo';
   empresaId?: string | null;
   aiConfig?: AIConfig;
 }
@@ -76,6 +77,7 @@ interface GerarConteudoParams {
 export async function gerarConteudoIA({
   formato, competencia, descritor, nivelMin = 1.0, nivelMax = 2.0,
   cargo = 'todos', contexto = 'generico', duracaoSegundos = null,
+  podcastFormato = 'solo',
   empresaId = null, aiConfig = {},
 }: GerarConteudoParams) {
   try {
@@ -84,7 +86,7 @@ export async function gerarConteudoIA({
       return { success: false, error: 'formato, competencia e descritor obrigatórios' };
     }
 
-    const args = { competencia, descritor, nivelMin, nivelMax, cargo, contexto, duracaoSegundos };
+    const args = { competencia, descritor, nivelMin, nivelMax, cargo, contexto, duracaoSegundos, podcastFormato };
     const builders = {
       video: promptVideoScript,
       audio: promptPodcastScript,

@@ -940,6 +940,7 @@ function GerarModal({ onClose, onGenerate, busy }) {
     contexto: 'generico',
     duracaoMin: 3,
     duracaoSeg: 0,
+    podcastFormato: 'solo',
   });
   const [opcoes, setOpcoes] = useState({ competencias: [], cargos: [] });
 
@@ -962,8 +963,8 @@ function GerarModal({ onClose, onGenerate, busy }) {
 
   function handleSubmit() {
     const duracaoSegundos = precisaDuracao ? (Number(form.duracaoMin) * 60 + Number(form.duracaoSeg)) : null;
-    const { duracaoMin, duracaoSeg, ...rest } = form;
-    onGenerate({ ...rest, duracaoSegundos });
+    const { duracaoMin, duracaoSeg, podcastFormato, ...rest } = form;
+    onGenerate({ ...rest, duracaoSegundos, ...(rest.formato === 'audio' ? { podcastFormato } : {}) });
   }
 
   return (
@@ -1038,6 +1039,28 @@ function GerarModal({ onClose, onGenerate, busy }) {
                   onChange={e => setForm({ ...form, duracaoSeg: Number(e.target.value) })}
                   className="w-20 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none text-center" />
                 <span className="text-[10px] text-gray-500">{t('generate.wordEstimate', { count: Math.round((form.duracaoMin * 60 + Number(form.duracaoSeg)) * 2.5) })}</span>
+              </div>
+            </div>
+          )}
+          {form.formato === 'audio' && (
+            <div>
+              <label className="block text-[10px] uppercase text-gray-500 mb-2">{t('fields.podcastFormat')}</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { v: 'solo', label: t('generate.podcastFormats.solo'), nota: t('generate.podcastFormatNotes.solo') },
+                  { v: 'mentor_campo', label: t('generate.podcastFormats.mentorField'), nota: t('generate.podcastFormatNotes.mentorField') },
+                ].map(opt => {
+                  const ativo = form.podcastFormato === opt.v;
+                  return (
+                    <button key={opt.v} type="button" onClick={() => setForm({ ...form, podcastFormato: opt.v })}
+                      className={`p-3 rounded-lg border text-left ${
+                        ativo ? 'border-purple-400 bg-purple-500/10' : 'border-white/10 bg-white/5 hover:border-white/20'
+                      }`}>
+                      <div className="text-xs font-bold text-white">{opt.label}</div>
+                      <div className="text-[10px] text-gray-500">{opt.nota}</div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}

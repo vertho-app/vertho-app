@@ -13,9 +13,10 @@ interface PromptPodcastScriptParams {
   cargo?: string;
   contexto?: string;
   duracaoSegundos?: number | null;
+  podcastFormato?: 'solo' | 'mentor_campo';
 }
 
-export function promptPodcastScript({ competencia, descritor, nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico', duracaoSegundos = null }: PromptPodcastScriptParams) {
+export function promptPodcastScript({ competencia, descritor, nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico', duracaoSegundos = null, podcastFormato = 'solo' }: PromptPodcastScriptParams) {
   const duracao = duracaoSegundos ? `${Math.floor(duracaoSegundos/60)}:${String(duracaoSegundos%60).padStart(2,'0')}` : '4:00';
   const palavrasAlvo = duracaoSegundos ? Math.round(duracaoSegundos * 2.3) : 500;
   const focoPorNivel = nivelMin <= 1.5
@@ -23,6 +24,87 @@ export function promptPodcastScript({ competencia, descritor, nivelMin = 1.0, ni
     : nivelMin <= 2.5
     ? 'REFINAMENTO — nuances, dilemas, casos ambíguos'
     : 'MAESTRIA — casos complexos, erros caros, decisões difíceis';
+
+  if (podcastFormato === 'mentor_campo') {
+    const system = `Você é roteirista sênior de podcasts educacionais da Vertho.
+
+Sua tarefa é transformar conteúdo-base em um roteiro de micro-podcast em dupla, com aproximadamente 3 minutos.
+
+FORMATO:
+- Voz 1: Mentor Vertho — calmo, consultivo, experiente, claro.
+- Voz 2: Profissional em campo — representa dúvidas reais do público, traz situações concretas e objeções naturais.
+
+O roteiro deve parecer uma conversa inteligente e editada, não uma entrevista longa nem uma aula.
+
+REGRAS:
+- português brasileiro;
+- tom adulto, profissional e próximo;
+- sem linguagem infantil;
+- sem excesso de entusiasmo;
+- sem jargão acadêmico;
+- sem piadas;
+- sem frases motivacionais genéricas;
+- sem "olá, seja bem-vindo";
+- começar direto com uma dor ou situação real;
+- preservar a ideia central do conteúdo-base;
+- incluir um exemplo prático;
+- terminar com uma pergunta ou ação para a semana;
+- falas curtas e naturais;
+- alternância equilibrada entre as vozes.
+
+ESTRUTURA:
+1. Abertura com dor real — Voz 2
+2. Conceito central — Voz 1
+3. Dúvida ou objeção — Voz 2
+4. Exemplo aplicado — alternância das duas vozes
+5. Síntese — Voz 1
+6. Pergunta final — Voz 2 pergunta, Voz 1 fecha`;
+
+    const user = `Crie 1 roteiro de micro-podcast em dupla de ~${duracao} min (~${palavrasAlvo} palavras).
+
+CONTEÚDO-BASE:
+- Competência: ${competencia}
+- Descritor: ${descritor}
+- Nível: ${nivelMin}-${nivelMax} → ${focoPorNivel}
+- Cargo alvo: ${cargo}
+- Contexto: ${contexto}
+
+Entregue EXATAMENTE nesta estrutura e nada mais:
+
+TÍTULO: <título curto do episódio>
+
+OBJETIVO PEDAGÓGICO: <uma frase clara sobre o que o ouvinte deve compreender ou praticar>
+
+DIREÇÃO DE VOZ:
+VOZ 1: Mentor Vertho — calmo, consultivo, experiente, claro.
+VOZ 2: Profissional em campo — concreto, direto, com dúvidas e objeções reais.
+
+=== ROTEIRO COM FALAS ===
+VOZ 2: <abertura com dor real, sem saudação>
+VOZ 1: <conceito central>
+VOZ 2: <dúvida ou objeção>
+VOZ 1: <exemplo aplicado, parte 1>
+VOZ 2: <exemplo aplicado, parte 2>
+VOZ 1: <síntese>
+VOZ 2: <pergunta final ou ação para a semana>
+VOZ 1: <fechamento curto>
+
+=== TTS MULTI-SPEAKER (LIMPO) ===
+Campo: <a mesma fala inicial da VOZ 2, sem rubricas, sem markdown, sem tags>
+Mentor: <a mesma resposta da VOZ 1, sem rubricas, sem markdown, sem tags>
+Campo: <a mesma dúvida ou objeção da VOZ 2>
+Mentor: <a mesma fala de exemplo ou síntese da VOZ 1>
+
+REGRAS DA SAÍDA:
+- No bloco ROTEIRO COM FALAS, identifique cada fala como VOZ 1 ou VOZ 2.
+- No bloco TTS MULTI-SPEAKER, use apenas os speakers Mentor e Campo.
+- No bloco TTS MULTI-SPEAKER, repita fala por fala na mesma ordem do roteiro. Não agrupe todas as falas de uma voz.
+- Preserve o mesmo conteúdo das falas nos dois blocos.
+- Não use bullets no roteiro.
+- Não escreva comentários antes do TÍTULO nem depois do bloco TTS MULTI-SPEAKER.`;
+
+    return { system, user };
+  }
 
   const system = `Você é roteirista de podcast de desenvolvimento profissional da Vertho.
 

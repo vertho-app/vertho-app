@@ -1838,7 +1838,8 @@
       "file": "Archivo",
       "contentMarkdown": "Contenido (markdown)",
       "targetRole": "Puesto objetivo",
-      "duration": "Duración (min:seg)"
+      "duration": "Duración (min:seg)",
+      "podcastFormat": "Formato del podcast"
     },
     "generate": {
       "formats": {
@@ -1850,6 +1851,14 @@
       "notes": {
         "ready": "Listo para consumir",
         "recordLater": "Necesita grabación posterior"
+      },
+      "podcastFormats": {
+        "solo": "Narrador único",
+        "mentorField": "Mentor + campo"
+      },
+      "podcastFormatNotes": {
+        "solo": "Guion íntimo en una voz",
+        "mentorField": "Conversación corta en dos voces"
       },
       "descriptorOptional": "Descriptor (opcional · vacío = todos los {count})",
       "allDescriptors": "— Todos los descriptores ({count}) —",

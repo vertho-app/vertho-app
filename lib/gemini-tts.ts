@@ -10,11 +10,19 @@
 
 const MODEL = process.env.GEMINI_TTS_MODEL || 'gemini-3.1-flash-tts-preview';
 const VOICE = process.env.GEMINI_TTS_VOICE || 'Charon'; // masculina, grave/madura
+const MENTOR_VOICE = process.env.GEMINI_TTS_MENTOR_VOICE || 'Charon';
+const CAMPO_VOICE = process.env.GEMINI_TTS_CAMPO_VOICE || 'Kore';
 
 /** Extrai o bloco de NARRAÇÃO LIMPA do roteiro TTS; remove título, headers e tags. */
 export function extractNarration(roteiro: string): string {
   if (!roteiro) return '';
   let txt = roteiro;
+
+  // Roteiros em dupla usam este bloco para preservar speaker labels no TTS.
+  const multiSpeakerMatch = roteiro.match(/=+\s*TTS MULTI-SPEAKER\s*\(LIMPO\)\s*=+([\s\S]*?)$/i);
+  if (multiSpeakerMatch) {
+    return cleanNarrationText(multiSpeakerMatch[1], { keepSpeakerLabels: true });
+  }
 
   // Pega o trecho entre "=== NARRAÇÃO (TEXTO LIMPO) ===" e o próximo "===".
   const limpoMatch = roteiro.match(/=+\s*NARRA[ÇC][ÃA]O\s*\(TEXTO LIMPO\)\s*=+([\s\S]*?)(?:\n=+\s*NARRA|$)/i);
@@ -25,12 +33,26 @@ export function extractNarration(roteiro: string): string {
     txt = roteiro.replace(/^\s*T[ÍI]TULO:.*$/im, '').replace(/^=+.*=+\s*$/gim, '');
   }
 
-  return txt
+  return cleanNarrationText(txt);
+}
+
+function cleanNarrationText(txt: string, opts: { keepSpeakerLabels?: boolean } = {}): string {
+  let cleaned = txt
     .replace(/<break[^>]*\/?>/gi, '') // tags de pausa (não usadas pelo Gemini)
     .replace(/\*([^*]+)\*/g, '$1')    // ênfase em asteriscos
     .replace(/[#>*_`]/g, '')           // resíduos de markdown
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+  if (opts.keepSpeakerLabels) {
+    cleaned = cleaned
+      .replace(/^VOZ\s*1\s*:/gim, 'Mentor:')
+      .replace(/^VOZ\s*2\s*:/gim, 'Campo:');
+  }
+  return cleaned;
+}
+
+function isMultiSpeakerText(texto: string): boolean {
+  return /^\s*Mentor\s*:/im.test(texto) && /^\s*Campo\s*:/im.test(texto);
 }
 
 function pcmToWav(pcm: Buffer, sampleRate = 24000, channels = 1, bits = 16): Buffer {
@@ -68,15 +90,28 @@ export async function generatePodcastAudio(texto: string): Promise<Buffer> {
   if (!apiKey) throw new Error('GEMINI_API_KEY not set');
   if (!texto?.trim()) throw new Error('texto de narração vazio');
 
+  const multiSpeaker = isMultiSpeakerText(texto);
   // Direção de estilo (não é falada — orienta a entrega da voz prebuilt).
-  const styled = `Narre em português do Brasil, com voz masculina de meia-idade, tom acolhedor, seguro e íntimo, ritmo moderado e pausas reflexivas naturais:\n\n${texto}`;
+  const styled = multiSpeaker
+    ? `TTS the following conversation in Brazilian Portuguese. Speaker Mentor is calm, consultative, experienced and clear. Speaker Campo is practical, direct and grounded in field reality. Keep a professional, adult tone and natural turn-taking:\n\n${texto}`
+    : `Narre em português do Brasil, com voz masculina de meia-idade, tom acolhedor, seguro e íntimo, ritmo moderado e pausas reflexivas naturais:\n\n${texto}`;
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
   const body = {
     contents: [{ parts: [{ text: styled }] }],
     generationConfig: {
       responseModalities: ['AUDIO'],
-      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: VOICE } } },
+      speechConfig: multiSpeaker
+        ? {
+            languageCode: 'pt-BR',
+            multiSpeakerVoiceConfig: {
+              speakerVoiceConfigs: [
+                { speaker: 'Mentor', voiceConfig: { prebuiltVoiceConfig: { voiceName: MENTOR_VOICE } } },
+                { speaker: 'Campo', voiceConfig: { prebuiltVoiceConfig: { voiceName: CAMPO_VOICE } } },
+              ],
+            },
+          }
+        : { languageCode: 'pt-BR', voiceConfig: { prebuiltVoiceConfig: { voiceName: VOICE } } },
     },
   };
 
