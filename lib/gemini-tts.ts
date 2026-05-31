@@ -12,6 +12,7 @@ const MODEL = process.env.GEMINI_TTS_MODEL || 'gemini-3.1-flash-tts-preview';
 const VOICE = process.env.GEMINI_TTS_VOICE || 'Charon'; // masculina, grave/madura
 const MENTOR_VOICE = process.env.GEMINI_TTS_MENTOR_VOICE || 'Charon';
 const CAMPO_VOICE = process.env.GEMINI_TTS_CAMPO_VOICE || 'Kore';
+const BRAND_STING_ENABLED = process.env.PODCAST_BRAND_STING !== 'false';
 
 /** Extrai o bloco de NARRAÇÃO LIMPA do roteiro TTS; remove título, headers e tags. */
 export function extractNarration(roteiro: string): string {
@@ -74,6 +75,50 @@ function pcmToWav(pcm: Buffer, sampleRate = 24000, channels = 1, bits = 16): Buf
   h.write('data', 36);
   h.writeUInt32LE(pcm.length, 40);
   return Buffer.concat([h, pcm]);
+}
+
+function silencePcm(seconds: number, sampleRate: number): Buffer {
+  return Buffer.alloc(Math.max(0, Math.round(seconds * sampleRate)) * 2);
+}
+
+function brandStingPcm(sampleRate: number, variant: 'intro' | 'outro'): Buffer {
+  const seconds = variant === 'intro' ? 2.4 : 1.9;
+  const samples = Math.round(seconds * sampleRate);
+  const pcm = Buffer.alloc(samples * 2);
+  const baseGain = variant === 'intro' ? 0.18 : 0.14;
+  const freqs = variant === 'intro'
+    ? [392.0, 493.88, 587.33, 783.99]
+    : [587.33, 493.88, 392.0];
+
+  for (let i = 0; i < samples; i++) {
+    const t = i / sampleRate;
+    const progress = i / Math.max(1, samples - 1);
+    const fadeIn = Math.min(1, progress / 0.18);
+    const fadeOut = Math.min(1, (1 - progress) / 0.32);
+    const envelope = Math.max(0, Math.min(fadeIn, fadeOut));
+    const shimmer = Math.sin(2 * Math.PI * 9 * t) * 0.015;
+    const tone = freqs.reduce((sum, freq, idx) => {
+      const delay = idx * 0.16;
+      const local = Math.max(0, t - delay);
+      const decay = Math.exp(-local * (variant === 'intro' ? 1.35 : 1.8));
+      return sum + Math.sin(2 * Math.PI * freq * t) * decay / freqs.length;
+    }, 0);
+    const value = Math.max(-1, Math.min(1, (tone + shimmer) * envelope * baseGain));
+    pcm.writeInt16LE(Math.round(value * 32767), i * 2);
+  }
+
+  return pcm;
+}
+
+function addBrandSting(pcm: Buffer, sampleRate: number): Buffer {
+  if (!BRAND_STING_ENABLED) return pcm;
+  return Buffer.concat([
+    brandStingPcm(sampleRate, 'intro'),
+    silencePcm(0.25, sampleRate),
+    pcm,
+    silencePcm(0.2, sampleRate),
+    brandStingPcm(sampleRate, 'outro'),
+  ]);
 }
 
 /** Lê "audio/L16;rate=24000" e devolve o sampleRate (default 24000). */
@@ -144,5 +189,6 @@ export async function generatePodcastAudio(texto: string): Promise<Buffer> {
   const b64 = part?.inlineData?.data;
   if (!b64) throw new Error('Gemini TTS: resposta sem áudio');
   const pcm = Buffer.from(b64, 'base64');
-  return pcmToWav(pcm, rateFromMime(part.inlineData.mimeType));
+  const sampleRate = rateFromMime(part.inlineData.mimeType);
+  return pcmToWav(addBrandSting(pcm, sampleRate), sampleRate);
 }
