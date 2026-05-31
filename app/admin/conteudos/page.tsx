@@ -17,6 +17,27 @@ const FORMAT_COLORS = {
   video: '#06B6D4', audio: '#A78BFA', texto: '#10B981', case: '#F59E0B', pdf: '#94A3B8',
 };
 
+function isPodcastDupla(c: any) {
+  return c?.formato === 'audio' && /TTS MULTI-SPEAKER/i.test(c?.conteudo_inline || '');
+}
+
+function getFormatIcon(c: any) {
+  if (c?.formato === 'audio') return isPodcastDupla(c) ? Users : User;
+  return FORMAT_ICONS[c?.formato] || FileText;
+}
+
+function getFormatColor(c: any) {
+  if (c?.formato === 'audio' && isPodcastDupla(c)) return '#67E8F9';
+  return FORMAT_COLORS[c?.formato] || '#94A3B8';
+}
+
+function getFormatTitle(c: any, fallback: string) {
+  if (c?.formato === 'audio') {
+    return isPodcastDupla(c) ? 'Podcast em dupla' : 'Podcast solo';
+  }
+  return fallback;
+}
+
 function isUnclassified(value: any) {
   return value === 'Não classificado';
 }
@@ -330,7 +351,7 @@ export default function ConteudosAdminPage() {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {items.map(c => {
-                  const Icon = FORMAT_ICONS[c.formato] || FileText;
+                  const Icon = getFormatIcon(c);
                   const naoClass = isUnclassified(c.competencia);
                   return (
                     <tr key={c.id} className="hover:bg-white/[0.02]">
@@ -346,9 +367,9 @@ export default function ConteudosAdminPage() {
                             });
                           }}
                           disabled={!c.conteudo_inline}
-                          title={c.conteudo_inline ? 'Visualizar conteúdo' : 'Sem texto inline pra visualizar'}
+                          title={c.conteudo_inline ? getFormatTitle(c, 'Visualizar conteúdo') : 'Sem texto inline pra visualizar'}
                           className="p-1 rounded hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                          <Icon size={16} style={{ color: FORMAT_COLORS[c.formato] }} />
+                          <Icon size={16} style={{ color: getFormatColor(c) }} />
                         </button>
                       </td>
                       <td className="px-3 py-2 text-xs text-white max-w-xs truncate">{c.titulo}</td>
