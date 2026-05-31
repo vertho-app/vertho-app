@@ -24,6 +24,9 @@ export function promptPodcastScript({ competencia, descritor, nivelMin = 1.0, ni
     : nivelMin <= 2.5
     ? 'REFINAMENTO — nuances, dilemas, casos ambíguos'
     : 'MAESTRIA — casos complexos, erros caros, decisões difíceis';
+  const marcaPodcast = 'MentorIA na prática';
+  const assinaturaPodcast = 'Este é o MentorIA na prática: uma conversa curta sobre desenvolvimento profissional aplicável no seu dia a dia.';
+  const fechamentoPodcast = 'Na Vertho, desenvolvimento profissional não é conceito solto. É prática observável, uma semana de cada vez.';
 
   if (podcastFormato === 'mentor_campo') {
     const system = `Você é roteirista sênior de podcasts educacionais da Vertho.
@@ -33,6 +36,14 @@ Sua tarefa é transformar conteúdo-base em um roteiro de micro-podcast em dupla
 FORMATO:
 - Voz 1: Mentor Vertho — calmo, consultivo, experiente, claro.
 - Voz 2: Profissional em campo — representa dúvidas reais do público, traz situações concretas e objeções naturais.
+
+MARCA EDITORIAL:
+- Nome do podcast: ${marcaPodcast}.
+- A frase de assinatura deve entrar após a primeira dor real, dita pela VOZ 1:
+"${assinaturaPodcast}"
+- O fechamento padrão deve ser curto e prático. Use esta ideia, sem soar como slogan:
+"${fechamentoPodcast}"
+- Inclua direção de vinheta curta no roteiro, mas nunca no bloco limpo para TTS.
 
 O roteiro deve parecer uma conversa inteligente e editada, não uma entrevista longa nem uma aula.
 
@@ -54,11 +65,12 @@ REGRAS:
 
 ESTRUTURA:
 1. Abertura com dor real — Voz 2
-2. Conceito central — Voz 1
-3. Dúvida ou objeção — Voz 2
-4. Exemplo aplicado — alternância das duas vozes
-5. Síntese — Voz 1
-6. Pergunta final — Voz 2 pergunta, Voz 1 fecha`;
+2. Assinatura do podcast — Voz 1
+3. Conceito central — Voz 1
+4. Dúvida ou objeção — Voz 2
+5. Exemplo aplicado — alternância das duas vozes
+6. Síntese — Voz 1
+7. Pergunta final — Voz 2 pergunta, Voz 1 fecha com fechamento padrão`;
 
     const user = `Crie 1 roteiro de micro-podcast em dupla de ~${duracao} min (~${palavrasAlvo} palavras).
 
@@ -79,19 +91,27 @@ DIREÇÃO DE VOZ:
 VOZ 1: Mentor Vertho — calmo, consultivo, experiente, claro.
 VOZ 2: Profissional em campo — concreto, direto, com dúvidas e objeções reais.
 
+DIREÇÃO DE PRODUÇÃO:
+ABERTURA: Vinheta instrumental discreta de 2 a 3 segundos, moderna, calma e institucional. Fade out sob a frase de assinatura.
+FECHAMENTO: Retomar o mesmo tema sonoro por 2 segundos, em fade out. Não usar música contínua durante o episódio.
+
 === ROTEIRO COM FALAS ===
+[VINHETA DE ABERTURA: 2 a 3 segundos, moderna, calma, institucional]
 VOZ 2: <abertura com dor real, sem saudação>
+VOZ 1: ${assinaturaPodcast}
 VOZ 1: <conceito central>
 VOZ 2: <dúvida ou objeção>
 VOZ 1: <exemplo aplicado, parte 1>
 VOZ 2: <exemplo aplicado, parte 2>
 VOZ 1: <síntese>
 VOZ 2: <pergunta final ou ação para a semana>
-VOZ 1: <fechamento curto>
+VOZ 1: <fechamento curto usando a ideia: "${fechamentoPodcast}">
+[VINHETA DE FECHAMENTO: 2 segundos, mesmo tema, fade out]
 
 === TTS MULTI-SPEAKER (LIMPO) ===
 Campo: <a mesma fala inicial da VOZ 2, sem rubricas, sem markdown, sem tags>
-Mentor: <a mesma resposta da VOZ 1, sem rubricas, sem markdown, sem tags>
+Mentor: ${assinaturaPodcast}
+Mentor: <a mesma explicação do conceito central da VOZ 1>
 Campo: <a mesma dúvida ou objeção da VOZ 2>
 Mentor: <a mesma fala de exemplo ou síntese da VOZ 1>
 
@@ -100,6 +120,7 @@ REGRAS DA SAÍDA:
 - No bloco TTS MULTI-SPEAKER, use apenas os speakers Mentor e Campo.
 - No bloco TTS MULTI-SPEAKER, repita fala por fala na mesma ordem do roteiro. Não agrupe todas as falas de uma voz.
 - Preserve o mesmo conteúdo das falas nos dois blocos.
+- O bloco TTS MULTI-SPEAKER não pode conter vinheta, som, rubrica, colchetes ou instruções de produção.
 - Não use bullets no roteiro.
 - Não escreva comentários antes do TÍTULO nem depois do bloco TTS MULTI-SPEAKER.`;
 
@@ -125,6 +146,14 @@ PRINCÍPIOS INEGOCIÁVEIS:
 6. Nada de emojis.
 7. Nada de indicação de câmera, cena ou edição.
 8. O texto deve sair PRONTO PARA TTS (narração por voz sintética).
+
+MARCA EDITORIAL:
+- Nome do podcast: ${marcaPodcast}.
+- A frase de assinatura deve entrar após a primeira dor real, sem saudação:
+"${assinaturaPodcast}"
+- O fechamento padrão deve ser curto e prático, usando esta ideia sem soar como slogan:
+"${fechamentoPodcast}"
+- Inclua direção de vinheta curta no roteiro, mas nunca no bloco limpo para TTS.
 
 VOZ DESEJADA (para calibrar ritmo e escrita):
 Adulta, brasileira, acolhedora, segura. Sem exagero publicitário, sem tom
@@ -161,14 +190,16 @@ CONTEXTO:
 - Cargo alvo: ${cargo}
 - Contexto: ${contexto}
 
-ESTRUTURA OBRIGATÓRIA (4 blocos naturais):
+ESTRUTURA OBRIGATÓRIA (5 blocos naturais):
 
 ABERTURA (~60 palavras):
 Começar com dor, pergunta, imagem mental, situação reconhecível ou mini-história em primeira pessoa.
 Sem clichê. Sem saudação.
 NUNCA cite o nome do descritor na abertura — prenda primeiro, explique depois.
+Depois dessa dor inicial, inserir a assinatura do podcast em uma frase própria:
+"${assinaturaPodcast}"
 
-CONCEITO (~180 palavras):
+CONCEITO (~150 palavras):
 Explicar o descritor como insight, não como definição travada.
 Simples, aplicado, com naturalidade.
 Mostrar por que isso importa na prática.
@@ -184,6 +215,8 @@ Fechar com pergunta, provocação ou convite mental curto.
 "E você, quando foi a última vez que...?"
 Conexão com ação prática da semana.
 Curta e memorável.
+Encerrar com uma variação curta desta ideia:
+"${fechamentoPodcast}"
 
 REGRAS DE ESCRITA DO ROTEIRO:
 - Texto corrido, sem seções numeradas, sem bullets, sem títulos técnicos
@@ -192,14 +225,18 @@ REGRAS DE ESCRITA DO ROTEIRO:
 
 ═══ SAÍDA PRONTA PARA TTS (OBRIGATÓRIA) ═══
 
-Entregue EXATAMENTE nesta estrutura, com estas três partes e nada mais:
+Entregue EXATAMENTE nesta estrutura, com estas quatro partes e nada mais:
 
 TÍTULO: <um título curto e instigante, sem aspas, em uma linha>
+
+DIREÇÃO DE PRODUÇÃO:
+ABERTURA: Vinheta instrumental discreta de 2 a 3 segundos, moderna, calma e institucional. Fade out sob a frase de assinatura.
+FECHAMENTO: Retomar o mesmo tema sonoro por 2 segundos, em fade out. Não usar música contínua durante o episódio.
 
 === NARRAÇÃO (TEXTO LIMPO) ===
 <O roteiro completo em texto corrido, linguagem oral, frases curtas.
 Pausas naturais com reticências (...) com moderação. SEM markdown, SEM
-asteriscos, SEM tags. Este bloco vai direto para a voz sintética.>
+asteriscos, SEM tags, SEM rubricas de som ou vinheta. Este bloco vai direto para a voz sintética.>
 
 === NARRAÇÃO (COM MARCAÇÕES) ===
 <O MESMO roteiro, idêntico em conteúdo, agora com marcações para a voz:
@@ -210,7 +247,7 @@ asteriscos, SEM tags. Este bloco vai direto para a voz sintética.>
 - Não invente conteúdo novo: o texto deve ser o mesmo do bloco limpo, só anotado.>
 
 REGRAS DA SAÍDA:
-- Não escreva mais nada antes do TÍTULO nem depois do segundo bloco.
+- Não escreva mais nada antes do TÍTULO nem depois do bloco "NARRAÇÃO (COM MARCAÇÕES)".
 - Não use markdown (#, **, listas). As únicas marcações permitidas são as
   reticências (...), as tags <break .../> e os *asteriscos* de ênfase (apenas
   no segundo bloco).

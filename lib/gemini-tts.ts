@@ -41,6 +41,7 @@ function cleanNarrationText(txt: string, opts: { keepSpeakerLabels?: boolean } =
     .replace(/<break[^>]*\/?>/gi, '') // tags de pausa (não usadas pelo Gemini)
     .replace(/\*([^*]+)\*/g, '$1')    // ênfase em asteriscos
     .replace(/[#>*_`]/g, '')           // resíduos de markdown
+    .replace(/^\s*[\[(].*(vinheta|som|m[úu]sica|fade|produção).*[)\]]\s*$/gim, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
   if (opts.keepSpeakerLabels) {
