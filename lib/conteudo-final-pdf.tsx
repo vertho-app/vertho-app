@@ -79,7 +79,8 @@ const s = StyleSheet.create({
   bulletText: { flex: 1, color: colors.textPrimary },
 
   numCard: { flexDirection: 'row', marginBottom: 8, padding: 10, backgroundColor: colors.grayBg, borderRadius: 6, borderLeftWidth: 3, borderLeftColor: colors.cyan },
-  numBadge: { width: 20, height: 20, borderRadius: 10, backgroundColor: colors.navy, color: colors.white, fontSize: 9.5, fontWeight: 700, textAlign: 'center', paddingTop: 4, marginRight: 10 },
+  numBadge: { width: 20, height: 20, borderRadius: 10, backgroundColor: colors.navy, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  badgeText: { color: colors.white, fontSize: 9.5, fontWeight: 700, lineHeight: 1 },
   numText: { flex: 1, color: colors.textPrimary, paddingTop: 2 },
 
   quote: { marginVertical: 12, paddingVertical: 12, paddingHorizontal: 16, backgroundColor: colors.grayBg, borderLeftWidth: 3, borderLeftColor: colors.cyan, borderRadius: 4 },
@@ -111,7 +112,7 @@ const s = StyleSheet.create({
 
   flowStep: { flexDirection: 'row' },
   flowRail: { width: 20, alignItems: 'center' },
-  flowBadge: { width: 20, height: 20, borderRadius: 10, backgroundColor: colors.navy, color: colors.white, fontSize: 9.5, fontWeight: 700, textAlign: 'center', paddingTop: 4 },
+  flowBadge: { width: 20, height: 20, borderRadius: 10, backgroundColor: colors.navy, alignItems: 'center', justifyContent: 'center' },
   flowLine: { width: 1.4, flexGrow: 1, backgroundColor: colors.cyanLight, marginVertical: 3 },
   flowBody: { flex: 1, paddingLeft: 12, paddingBottom: 14 },
   flowText: { color: colors.textPrimary, lineHeight: 1.5 },
@@ -188,7 +189,7 @@ function bulletsNodes(items: string[], key: string): React.ReactNode[] {
 function numberedNodes(items: string[], key: string): React.ReactNode[] {
   return items.map((it, j) =>
     e(View, { key: `${key}-${j}`, style: s.numCard, wrap: false },
-      e(Text, { style: s.numBadge }, String(j + 1)),
+      e(View, { style: s.numBadge }, e(Text, { style: s.badgeText }, String(j + 1))),
       e(Text, { style: s.numText }, inline(it)),
     )
   );
@@ -198,7 +199,7 @@ function flowNodes(items: string[], key: string): React.ReactNode[] {
   return items.map((it, j) =>
     e(View, { key: `${key}-${j}`, style: s.flowStep, wrap: false },
       e(View, { style: s.flowRail },
-        e(Text, { style: s.flowBadge }, String(j + 1)),
+        e(View, { style: s.flowBadge }, e(Text, { style: s.badgeText }, String(j + 1))),
         j < items.length - 1 ? e(View, { style: s.flowLine }) : null,
       ),
       e(View, { style: s.flowBody }, e(Text, { style: s.flowText }, inline(it))),

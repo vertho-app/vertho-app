@@ -40,7 +40,11 @@ export function parseBlocks(md: string, { skipFirstH1 = false }: { skipFirstH1?:
 
   for (const raw of lines) {
     const line = raw.trim();
-    if (!line) { flushAll(); continue; }
+    // Linha em branco encerra parágrafo, mas NÃO encerra uma lista: itens
+    // separados por linha em branco ("loose list", markdown comum) continuam a
+    // MESMA lista. Sem isto, `1. a\n\n2. b` virava duas listas de 1 item — o que
+    // quebrava fluxos/cards numerados (cada passo isolado, sem conector).
+    if (!line) { flushPara(); continue; }
     if (/^([-*_])\1{2,}$/.test(line)) { flushAll(); continue; } // hr
 
     if (line.startsWith('### ')) { flushAll(); blocks.push({ id: id++, kind: 'h3', text: line.slice(4) }); continue; }
