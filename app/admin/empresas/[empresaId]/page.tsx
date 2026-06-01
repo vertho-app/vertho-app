@@ -286,14 +286,15 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         let gerados = 0, aprovados = 0, revisar = 0, erros = 0;
         for (let i = 0; i < items.length; i++) {
           const item = items[i];
-          addLog(`⏳ [${i + 1}/${items.length}] Gerando: ${item.nome} (${item.cargo})`, 'info');
-          const r = await rodarIA3Uma(empresaId, item.cargo, item.competencia_id, aiConfig || undefined);
+          const escolaLbl = item.escola_nome ? ` · ${item.escola_nome}` : '';
+          addLog(`⏳ [${i + 1}/${items.length}] Gerando: ${item.nome} (${item.cargo}${escolaLbl})`, 'info');
+          const r = await rodarIA3Uma(empresaId, item.cargo, item.competencia_id, item.escola_id ?? null, aiConfig || undefined);
           if (!r.success) { erros++; addLog(`⚠ ${item.nome}: ${r.error}`, 'error'); continue; }
           gerados++;
           if (checkModel) {
-            addLog(`🔍 [${i + 1}/${items.length}] Validando: ${item.nome} [${checkModel}]`, 'info');
+            addLog(`🔍 [${i + 1}/${items.length}] Validando: ${item.nome}${escolaLbl} [${checkModel}]`, 'info');
             try {
-              const cr = await checkCenarioUm(null, empresaId, item.cargo, item.competencia_id, checkModel);
+              const cr = await checkCenarioUm(r.cenarioId || null, empresaId, item.cargo, item.competencia_id, checkModel);
               if (cr.success) { if (cr.nota >= 90) { aprovados++; addLog(`✅ ${item.nome}: ${cr.nota}pts`, 'success'); } else { revisar++; addLog(`⚠ ${item.nome}: ${cr.nota}pts`, 'info'); } }
               else addLog(`⚠ Check ${item.nome}: ${cr.error}`, 'error');
             } catch (ce: any) { addLog(`⚠ Check erro: ${ce.message}`, 'error'); }

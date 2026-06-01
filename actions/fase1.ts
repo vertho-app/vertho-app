@@ -393,15 +393,28 @@ async function getTop5PorCargo(tdb) {
 
 // ── Helpers IA1 ─────────────────────────────────────────────────────────────
 
-async function buscarContextoPPP(tdb, empresaNome) {
+async function buscarContextoPPP(tdb, empresaNome, escolaId = undefined) {
   try {
-    // Buscar extração do PPP salva (recebe tdb tenant-scoped)
-    const { data: ppp } = await tdb.from('ppp_escolas')
-      .select('extracao')
-      .eq('status', 'extraido')
-      .order('extracted_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // PPP por ESCOLA quando escolaId é uma string:
+    //  - escola COM PPP → usa o PPP daquela escola.
+    //  - escola SEM PPP → '' (cenário genérico; NÃO pega o PPP de outra escola).
+    // escolaId undefined (IA1/IA2) ou null (cenário de rede no IA3) → PPP mais
+    // recente extraído (proxy de rede, comportamento histórico).
+    let ppp: { extracao: any } | null = null;
+    if (typeof escolaId === 'string' && escolaId) {
+      const { data: esc } = await tdb.from('escolas').select('ppp_escola_id').eq('id', escolaId).maybeSingle();
+      if (!esc?.ppp_escola_id) return '';
+      const { data } = await tdb.from('ppp_escolas').select('extracao').eq('id', esc.ppp_escola_id).maybeSingle();
+      ppp = data;
+    } else {
+      const { data } = await tdb.from('ppp_escolas')
+        .select('extracao')
+        .eq('status', 'extraido')
+        .order('extracted_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      ppp = data;
+    }
 
     if (!ppp?.extracao) return '';
 
@@ -969,21 +982,37 @@ export async function listarFilaIA3(empresaId: string) {
       .select('id, nome, cod_comp, cargo, cod_desc');
     const compById = new Map<string, any>((comps || []).map((c: any) => [c.id, c]));
 
-    // Já gerados: indexa por competencia_id::cargo E por cod_comp::cargo (o id
-    // pode divergir entre top10 e a resolução por competencias — cod_comp é estável).
+    // Escolas com colaboradores POR CARGO: cada cargo gera 1 cenário por escola
+    // que tenha colaborador dele (com o PPP da escola). Colaborador sem escola
+    // (central/rede) → escola_id null = cenário de rede. Escola sem PPP → genérico.
+    const { data: escolas } = await tdb.from('escolas').select('id, nome, is_central');
+    const escolaNome = new Map<string, string>((escolas || []).map((e: any) => [e.id, e.nome]));
+    const { data: colabsEsc } = await tdb.from('colaboradores').select('cargo, escola_id');
+    const cargoEscolas = new Map<string, Set<string | null>>();
+    for (const c of (colabsEsc || []) as any[]) {
+      if (!c.cargo) continue;
+      if (!cargoEscolas.has(c.cargo)) cargoEscolas.set(c.cargo, new Set());
+      cargoEscolas.get(c.cargo)!.add(c.escola_id || null);
+    }
+
+    // Já gerados: indexa por (competencia|cod_comp)::cargo::escola (escola null = 'rede').
     const { data: existentes } = await tdb.from('banco_cenarios')
-      .select('competencia_id, cargo');
+      .select('competencia_id, cargo, escola_id');
     const existSet = new Set<string>();
     for (const e of existentes || []) {
-      existSet.add(`${e.competencia_id}::${e.cargo}`);
+      const esc = e.escola_id || 'rede';
+      existSet.add(`${e.competencia_id}::${e.cargo}::${esc}`);
       const cc = compById.get(e.competencia_id)?.cod_comp;
-      if (cc) existSet.add(`cc:${cc}::${e.cargo}`);
+      if (cc) existSet.add(`cc:${cc}::${e.cargo}::${esc}`);
     }
 
     const fila: any[] = [];
     const seen = new Set<string>();
     const semCompetencia: string[] = [];
     for (const [cargo, nomes] of Object.entries(top5PorCargo)) {
+      // Escolas-alvo deste cargo (ao menos a rede, se não houver colaborador mapeado).
+      const escolasAlvo = Array.from(cargoEscolas.get(cargo) || new Set<string | null>([null]));
+      if (!escolasAlvo.length) escolasAlvo.push(null);
       for (const nome of (nomes as string[])) {
         let competencia_id: string | undefined;
         let cod_comp = '';
@@ -998,11 +1027,18 @@ export async function listarFilaIA3(empresaId: string) {
           competencia_id = rep.id;
           cod_comp = rep.cod_comp || '';
         }
-        const key = `${competencia_id}::${cargo}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        const jaGerado = existSet.has(key) || (cod_comp && existSet.has(`cc:${cod_comp}::${cargo}`));
-        fila.push({ cargo, competencia_id, nome, cod_comp, jaGerado });
+        for (const escolaId of escolasAlvo) {
+          const escKey = escolaId || 'rede';
+          const key = `${competencia_id}::${cargo}::${escKey}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          const jaGerado = existSet.has(key) || (cod_comp ? existSet.has(`cc:${cod_comp}::${cargo}::${escKey}`) : false);
+          fila.push({
+            cargo, competencia_id, nome, cod_comp, jaGerado,
+            escola_id: escolaId,
+            escola_nome: escolaId ? (escolaNome.get(escolaId) || 'Escola') : 'Rede',
+          });
+        }
       }
     }
 
@@ -1016,7 +1052,7 @@ export async function listarFilaIA3(empresaId: string) {
 }
 
 // Gera cenário para UMA competência (cabe em 60s)
-export async function rodarIA3Uma(empresaId: string, cargoNome: string, competenciaId: string, aiConfig: AIConfig = {}) {
+export async function rodarIA3Uma(empresaId: string, cargoNome: string, competenciaId: string, escolaId: string | null = null, aiConfig: AIConfig = {}) {
   const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
@@ -1040,8 +1076,8 @@ export async function rodarIA3Uma(empresaId: string, cargoNome: string, competen
       .eq('cod_comp', comp.cod_comp)
       .not('cod_desc', 'is', null);
 
-    // PPP, valores
-    const contextoPPP = await buscarContextoPPP(tdb, empresa.nome);
+    // PPP da ESCOLA (escolaId null = rede), valores
+    const contextoPPP = await buscarContextoPPP(tdb, empresa.nome, escolaId);
     const valores = await buscarValores(tdb, empresa.nome);
 
     // Dados do cargo + gabarito CIS
@@ -1124,22 +1160,23 @@ export async function rodarIA3Uma(empresaId: string, cargoNome: string, competen
       mapa_cobertura_descritores: resultado.mapa_cobertura_descritores || null,
     };
 
-    // Salvar (limpa anterior). empresa_id é injetado pelo tdb.delete/insert
-    await tdb.from('banco_cenarios')
-      .delete()
+    // Salvar (limpa o anterior DESTA escola — não apaga as outras escolas).
+    const delQuery = tdb.from('banco_cenarios').delete()
       .eq('competencia_id', comp.id)
       .eq('cargo', cargoNome);
+    await (escolaId ? delQuery.eq('escola_id', escolaId) : delQuery.is('escola_id', null));
 
-    const { error: insertErr } = await tdb.from('banco_cenarios').insert({
+    const { data: inserted, error: insertErr } = await tdb.from('banco_cenarios').insert({
       competencia_id: comp.id,
       cargo: cargoNome,
+      escola_id: escolaId || null,
       titulo: cen.titulo || titulo,
       descricao: cen.contexto || contexto,
       alternativas: alternativasEnriquecidas,
-    });
+    }).select('id').maybeSingle();
 
     if (insertErr) return { success: false, error: `Erro ao salvar: ${insertErr.message}` };
-    return { success: true, message: `Cenário gerado: ${comp.nome}` };
+    return { success: true, message: `Cenário gerado: ${comp.nome}`, cenarioId: inserted?.id || null };
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -1157,7 +1194,7 @@ export async function regenerarCenario(cenarioId: string, aiConfig: AIConfig = {
   try {
     // banco_cenarios é misto → raw por id
     const { data: cen } = await sbRaw.from('banco_cenarios')
-      .select('empresa_id, competencia_id, cargo, sugestao_check, justificativa_check, alertas_check')
+      .select('empresa_id, competencia_id, cargo, escola_id, sugestao_check, justificativa_check, alertas_check')
       .eq('id', cenarioId).single();
     if (!cen) return { success: false, error: 'Cenário não encontrado' };
     if (!cen.empresa_id) return { success: false, error: 'Cenário sem empresa_id (catálogo nacional)' };
@@ -1193,7 +1230,7 @@ export async function regenerarCenario(cenarioId: string, aiConfig: AIConfig = {
       .select('cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
       .eq('cod_comp', comp.cod_comp).not('cod_desc', 'is', null);
 
-    const contextoPPP = await buscarContextoPPP(tdb, empresa.nome);
+    const contextoPPP = await buscarContextoPPP(tdb, empresa.nome, cen.escola_id);
     const valores = await buscarValores(tdb, empresa.nome);
 
     const { data: cargoEmp } = await tdb.from('cargos_empresa')
