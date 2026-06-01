@@ -221,7 +221,7 @@ function brandStingPcm(sampleRate: number, variant: 'intro' | 'outro'): Buffer {
 export function addPodcastBrandSting(pcm: Buffer, sampleRate: number): Buffer {
   const intro = fadePcm16(brandStingPcm(sampleRate, 'intro'), sampleRate, 0, 0.75);
   const narration = fadePcm16(pcm, sampleRate, 0.12, 0.08);
-  const outro = fadePcm16(brandStingPcm(sampleRate, 'outro'), sampleRate, 0.3, 0.8);
+  const outro = fadePcm16(brandStingPcm(sampleRate, 'outro'), sampleRate, 0.3, 0);
 
   return Buffer.concat([
     intro,
