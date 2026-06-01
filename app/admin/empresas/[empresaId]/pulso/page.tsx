@@ -3,10 +3,10 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Activity, Plus, Send, CheckCircle, Loader2, Users, X } from 'lucide-react';
+import { Activity, Plus, Send, CheckCircle, Loader2, Pencil, Trash2, X } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import {
-  listarCiclos, criarCiclo, dispararPulso, fecharMomento, listarAssignmentsCiclo,
+  listarCiclos, criarCiclo, editarCiclo, excluirCiclo, dispararPulso, fecharMomento, listarAssignmentsCiclo,
   type PulseCicloStatus,
 } from '@/actions/pulse/admin';
 
@@ -23,6 +23,9 @@ export default function PulsoAdminPage({ params }: { params: Promise<{ empresaId
   const [busy, setBusy] = useState<string | null>(null);
   const [detalheId, setDetalheId] = useState<string | null>(null);
   const [detalhe, setDetalhe] = useState<any[]>([]);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [editNome, setEditNome] = useState('');
+  const [editDesc, setEditDesc] = useState('');
 
   async function reload() {
     setLoading(true);
@@ -40,6 +43,43 @@ export default function PulsoAdminPage({ params }: { params: Promise<{ empresaId
     setBusy(null);
     if (r.ok === false) { alert(r.error); return; }
     setNovoNome(''); setNovaDesc(''); setCriando(false);
+    await reload();
+  }
+
+  function iniciarEdicao(ciclo: PulseCicloStatus) {
+    setEditandoId(ciclo.id);
+    setEditNome(ciclo.nome);
+    setEditDesc(ciclo.descricao || '');
+  }
+
+  function cancelarEdicao() {
+    setEditandoId(null);
+    setEditNome('');
+    setEditDesc('');
+  }
+
+  async function handleEditar(cicloId: string) {
+    if (!editNome.trim()) return;
+    setBusy(`${cicloId}-editar`);
+    const r = await editarCiclo(empresaId, cicloId, { nome: editNome, descricao: editDesc || null });
+    setBusy(null);
+    if (r.ok === false) { alert(r.error); return; }
+    cancelarEdicao();
+    await reload();
+  }
+
+  async function handleExcluir(ciclo: PulseCicloStatus) {
+    if (!window.confirm(
+      t('confirm.deleteCycle', {
+        name: ciclo.nome,
+        total: ciclo.t0_total + ciclo.t2_total,
+      })
+    )) return;
+    setBusy(`${ciclo.id}-excluir`);
+    const r = await excluirCiclo(empresaId, ciclo.id);
+    setBusy(null);
+    if (r.ok === false) { alert(r.error); return; }
+    if (detalheId === ciclo.id) setDetalheId(null);
     await reload();
   }
 
@@ -135,8 +175,47 @@ export default function PulsoAdminPage({ params }: { params: Promise<{ empresaId
                     className="text-[10px] font-bold text-cyan-400 hover:underline">{t('links.dashboard')}</button>
                   <button onClick={() => abrirDetalhe(c.id)}
                     className="text-[10px] text-gray-400 hover:underline">{t('links.details')}</button>
+                  <button onClick={() => iniciarEdicao(c)}
+                    disabled={!!busy}
+                    className="inline-flex items-center gap-1 text-[10px] text-amber-300 hover:underline disabled:opacity-40">
+                    <Pencil size={10} /> {t('links.edit')}
+                  </button>
+                  <button onClick={() => handleExcluir(c)}
+                    disabled={!!busy}
+                    className="inline-flex items-center gap-1 text-[10px] text-red-300 hover:underline disabled:opacity-40">
+                    <Trash2 size={10} /> {t('links.delete')}
+                  </button>
                 </div>
               </div>
+
+              {editandoId === c.id && (
+                <div className="mb-3 p-3 rounded-lg border border-amber-300/20" style={{ background: '#091D35' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] font-bold text-amber-200 uppercase tracking-widest">{t('form.editTitle')}</p>
+                    <button onClick={cancelarEdicao} disabled={!!busy}
+                      className="text-gray-500 hover:text-white disabled:opacity-40">
+                      <X size={14} />
+                    </button>
+                  </div>
+                  <input value={editNome} onChange={e => setEditNome(e.target.value)}
+                    placeholder={t('form.namePlaceholder')}
+                    className="w-full mb-2 rounded-lg border border-white/10 bg-[#06172B] text-white text-sm px-3 py-2 focus:outline-none focus:border-amber-300/50" />
+                  <input value={editDesc} onChange={e => setEditDesc(e.target.value)}
+                    placeholder={t('form.descriptionPlaceholder')}
+                    className="w-full mb-3 rounded-lg border border-white/10 bg-[#06172B] text-white text-sm px-3 py-2 focus:outline-none focus:border-amber-300/50" />
+                  <div className="flex justify-end gap-2">
+                    <button onClick={cancelarEdicao} disabled={!!busy}
+                      className="px-3 py-2 rounded-lg text-[10px] font-bold text-gray-400 border border-white/10 hover:text-white disabled:opacity-40">
+                      {t('form.cancel')}
+                    </button>
+                    <button onClick={() => handleEditar(c.id)} disabled={!editNome.trim() || !!busy}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-bold text-[#0F2B54] bg-amber-300 hover:brightness-110 disabled:opacity-40">
+                      {busy === `${c.id}-editar` && <Loader2 size={11} className="animate-spin" />}
+                      {busy === `${c.id}-editar` ? t('form.saving') : t('form.saveChanges')}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-2">
                 <MomentoCard

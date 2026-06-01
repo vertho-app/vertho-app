@@ -63,6 +63,44 @@ export async function criarCiclo(
   return { ok: true, id: (data as any).id };
 }
 
+export async function editarCiclo(
+  empresaId: string,
+  cicloId: string,
+  input: { nome: string; descricao?: string | null },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAdminAction('assessments.dispatch');
+  const tdb = tenantDb(empresaId);
+  const nome = input.nome?.trim();
+  if (!nome) return { ok: false, error: 'Nome obrigatório' };
+
+  const { data: ciclo } = await tdb.from('pulse_ciclos')
+    .select('id').eq('id', cicloId).maybeSingle();
+  if (!ciclo) return { ok: false, error: 'Ciclo não encontrado' };
+
+  const { error } = await tdb.from('pulse_ciclos')
+    .update({ nome, descricao: input.descricao?.trim() || null })
+    .eq('id', cicloId);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function excluirCiclo(
+  empresaId: string,
+  cicloId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAdminAction('assessments.dispatch');
+  const tdb = tenantDb(empresaId);
+
+  const { data: ciclo } = await tdb.from('pulse_ciclos')
+    .select('id').eq('id', cicloId).maybeSingle();
+  if (!ciclo) return { ok: false, error: 'Ciclo não encontrado' };
+
+  const { error } = await tdb.from('pulse_ciclos')
+    .delete().eq('id', cicloId);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
 /**
  * Cria assignments de T0 ou T2 pra TODOS os colaboradores ativos da empresa
  * (excluindo platform admins externos). Idempotente — usa UK pra ignorar

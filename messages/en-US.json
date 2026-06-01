@@ -1033,17 +1033,23 @@
     "newCycle": "New cycle",
     "form": {
       "title": "New cycle",
+      "editTitle": "Edit cycle",
       "namePlaceholder": "Name of the cycle (ex: 1st Semester 2026)",
       "descriptionPlaceholder": "Description (optional)",
       "creating": "Creating...",
-      "create": "Create cycle"
+      "create": "Create cycle",
+      "saving": "Saving...",
+      "saveChanges": "Save changes",
+      "cancel": "Cancel"
     },
     "empty": "No cycles created yet.",
     "cycleStatus": "Status: {status}",
     "links": {
       "send": "Send →",
       "dashboard": "Dashboard →",
-      "details": "Details"
+      "details": "Details",
+      "edit": "Edit",
+      "delete": "Delete"
     },
     "moments": {
       "t0": "T0 — Baseline",
@@ -1058,7 +1064,8 @@
     },
     "confirm": {
       "createAssignments": "Create {moment} assignments for ALL active employees in the company?\n\nEach team member will receive a link to respond ~3 min. This does not send the link automatically — use the Sending screen later to send it via email/WhatsApp.",
-      "closeMoment": "Close moment {moment}? Once closed, new responses will not be accepted."
+      "closeMoment": "Close moment {moment}? Once closed, new responses will not be accepted.",
+      "deleteCycle": "Delete cycle \"{name}\"?\n\nThis removes the cycle and its linked assignments, responses, classifications, and triangulations ({total} assignments). This action cannot be undone."
     },
     "messages": {
       "assignmentsCreated": "✓ {count} assignments created."

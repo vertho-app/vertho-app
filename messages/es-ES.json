@@ -1033,17 +1033,23 @@
     "newCycle": "Nuevo ciclo",
     "form": {
       "title": "Nuevo ciclo",
+      "editTitle": "Editar ciclo",
       "namePlaceholder": "Nombre del ciclo (ej.: 1º Semestre 2026)",
       "descriptionPlaceholder": "Descripción (opcional)",
       "creating": "Creando...",
-      "create": "Crear ciclo"
+      "create": "Crear ciclo",
+      "saving": "Guardando...",
+      "saveChanges": "Guardar cambios",
+      "cancel": "Cancelar"
     },
     "empty": "Aún no hay ciclos creados.",
     "cycleStatus": "Estado: {status}",
     "links": {
       "send": "Enviar →",
       "dashboard": "Dashboard →",
-      "details": "Detalles"
+      "details": "Detalles",
+      "edit": "Editar",
+      "delete": "Eliminar"
     },
     "moments": {
       "t0": "T0 — Línea base",
@@ -1058,7 +1064,8 @@
     },
     "confirm": {
       "createAssignments": "¿Crear assignments de {moment} para TODOS los colaboradores activos de la empresa?\n\nCada colaborador recibirá un enlace para responder ~3 min. Esto no envía el enlace automáticamente — usa la pantalla de Envíos después para disparar por email/WhatsApp.",
-      "closeMoment": "¿Cerrar momento {moment}? Después de cerrado, no se aceptarán nuevas respuestas."
+      "closeMoment": "¿Cerrar momento {moment}? Después de cerrado, no se aceptarán nuevas respuestas.",
+      "deleteCycle": "¿Eliminar el ciclo \"{name}\"?\n\nEsto elimina el ciclo y también sus assignments, respuestas, clasificaciones y triangulaciones vinculadas ({total} assignments). Esta acción no se puede deshacer."
     },
     "messages": {
       "assignmentsCreated": "✓ {count} assignments creados."
