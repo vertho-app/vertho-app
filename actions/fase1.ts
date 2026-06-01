@@ -954,37 +954,62 @@ export async function listarFilaIA3(empresaId: string) {
       return { success: false, error: 'Nenhum Top 5 selecionado. Selecione na tela de Cargos & Top 5.' };
     }
 
-    // Buscar top10 e filtrar apenas as que estão no Top 5
+    // top10 (IA1) é só uma FONTE de id representativo — NÃO é mais filtro.
+    // Toda competência aprovada na votação (top5_workshop) deve gerar cenário,
+    // mesmo que NÃO esteja no Top 10. Quando estiver no top10, reusamos o
+    // competencia_id que o IA1 escolheu (estabilidade); senão, resolvemos pela
+    // tabela `competencias` por (nome, cargo), preferindo a linha-competência
+    // (cod_desc null) sobre as linhas de descritor.
     const { data: top10All } = await tdb.from('top10_cargos')
       .select('cargo, competencia_id, competencia:competencias(id, nome, cod_comp)')
       .order('cargo')
       .order('posicao');
 
-    if (!top10All?.length) return { success: false, error: 'Nenhuma Top 10 selecionada. Rode IA1 primeiro.' };
+    const { data: comps } = await tdb.from('competencias')
+      .select('id, nome, cod_comp, cargo, cod_desc');
+    const compById = new Map<string, any>((comps || []).map((c: any) => [c.id, c]));
 
-    // Filtrar apenas competências do Top 5
-    const filtradas = top10All.filter(t => {
-      const top5 = top5PorCargo[t.cargo];
-      if (!top5?.length) return false;
-      return top5.includes(t.competencia?.nome);
-    });
-
-    if (!filtradas.length) return { success: false, error: 'Nenhuma competência no Top 5. Selecione na tela de Cargos & Top 5.' };
-
-    // Verificar quais já têm cenário
+    // Já gerados: indexa por competencia_id::cargo E por cod_comp::cargo (o id
+    // pode divergir entre top10 e a resolução por competencias — cod_comp é estável).
     const { data: existentes } = await tdb.from('banco_cenarios')
       .select('competencia_id, cargo');
-    const existSet = new Set((existentes || []).map(e => `${e.competencia_id}::${e.cargo}`));
+    const existSet = new Set<string>();
+    for (const e of existentes || []) {
+      existSet.add(`${e.competencia_id}::${e.cargo}`);
+      const cc = compById.get(e.competencia_id)?.cod_comp;
+      if (cc) existSet.add(`cc:${cc}::${e.cargo}`);
+    }
 
-    const fila = filtradas.map(t => ({
-      cargo: t.cargo,
-      competencia_id: t.competencia_id,
-      nome: t.competencia?.nome || '—',
-      cod_comp: t.competencia?.cod_comp || '',
-      jaGerado: existSet.has(`${t.competencia_id}::${t.cargo}`),
-    }));
+    const fila: any[] = [];
+    const seen = new Set<string>();
+    const semCompetencia: string[] = [];
+    for (const [cargo, nomes] of Object.entries(top5PorCargo)) {
+      for (const nome of (nomes as string[])) {
+        let competencia_id: string | undefined;
+        let cod_comp = '';
+        const t10 = (top10All || []).find((t: any) => t.cargo === cargo && t.competencia?.nome === nome);
+        if (t10) {
+          competencia_id = t10.competencia_id;
+          cod_comp = t10.competencia?.cod_comp || '';
+        } else {
+          const matches = (comps || []).filter((c: any) => c.cargo === cargo && c.nome === nome);
+          if (!matches.length) { semCompetencia.push(`${cargo} › ${nome}`); continue; }
+          const rep = matches.find((c: any) => !c.cod_desc) || matches[0];
+          competencia_id = rep.id;
+          cod_comp = rep.cod_comp || '';
+        }
+        const key = `${competencia_id}::${cargo}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const jaGerado = existSet.has(key) || (cod_comp && existSet.has(`cc:${cod_comp}::${cargo}`));
+        fila.push({ cargo, competencia_id, nome, cod_comp, jaGerado });
+      }
+    }
 
-    return { success: true, data: fila };
+    if (!fila.length) {
+      return { success: false, error: 'Nenhuma competência aprovada (Top 5) encontrada. Aprove competências na votação ou em Cargos & Top 5.' };
+    }
+    return { success: true, data: fila, semCompetencia };
   } catch (err) {
     return { success: false, error: err.message };
   }
