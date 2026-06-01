@@ -1,7 +1,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import type { Role, UserContext } from '@/types';
 
-export type SystemRole = 'platform_admin' | Role;
+export type SystemRole = 'platform_admin' | 'socio' | Role;
 
 export type PermissionKey =
   | 'admin.access'
@@ -42,6 +42,7 @@ export type PermissionDefinition = {
 
 export const SYSTEM_ROLES: { key: SystemRole; label: string; description: string }[] = [
   { key: 'platform_admin', label: 'Admin Master', description: 'Acesso global Vertho e operações internas.' },
+  { key: 'socio', label: 'Admin Sócio', description: 'Admin com visão ampla; sem ações destrutivas ou geradoras.' },
   { key: 'rh', label: 'Admin da empresa', description: 'Admin/RH do tenant, com visão ampla da empresa.' },
   { key: 'gestor', label: 'Gestor', description: 'Liderança com acesso à própria equipe/área.' },
   { key: 'tutor', label: 'Tutor', description: 'Acompanha colaboradores explicitamente tutorados.' },
@@ -78,6 +79,25 @@ export const PERMISSIONS: PermissionDefinition[] = [
 
 export const BASE_ROLE_PERMISSIONS: Record<SystemRole, PermissionKey[]> = {
   platform_admin: PERMISSIONS.map((p) => p.key),
+  // Admin Sócio: vê tudo (acesso + *.view + auditoria + custos IA), pode exportar,
+  // ver Radar Empresas e configurar idioma — mas NENHUMA ação destrutiva ou
+  // geradora (sem *.manage de governança/empresa/usuário/conteúdo, sem disparar
+  // avaliações, regenerar IA, admin do Radar ou mexer na lixeira).
+  socio: [
+    'admin.access',
+    'permissions.view',
+    'audit.view',
+    'companies.view',
+    'users.view',
+    'reports.aggregate.view',
+    'reports.individual.view',
+    'journey.own.view',
+    'journey.team.view',
+    'ai.costs.view',
+    'exports.run',
+    'radar_empresas.access',
+    'settings.locale.manage',
+  ],
   rh: [
     'users.view',
     'users.manage',
@@ -123,8 +143,8 @@ export type PermissionOverride = {
   created_at?: string | null;
 };
 
-export function getSystemRole(ctx: Pick<UserContext, 'role' | 'isPlatformAdmin'> | null | undefined): SystemRole {
-  if (ctx?.isPlatformAdmin) return 'platform_admin';
+export function getSystemRole(ctx: Pick<UserContext, 'role' | 'isPlatformAdmin' | 'platformAdminRole'> | null | undefined): SystemRole {
+  if (ctx?.isPlatformAdmin) return ctx?.platformAdminRole === 'socio' ? 'socio' : 'platform_admin';
   return (ctx?.role || 'colaborador') as SystemRole;
 }
 

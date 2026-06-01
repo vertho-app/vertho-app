@@ -28,6 +28,9 @@ export interface UserContext {
   role: Role;
   empresaId: string | null;
   isPlatformAdmin: boolean;
+  /** Tier do platform admin: 'master' (acesso total) ou 'socio' (admin restrito,
+   * leitura ampla sem ações destrutivas/geradoras). null quando não é admin. */
+  platformAdminRole?: 'master' | 'socio' | null;
 }
 
 export interface Trilha {

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { Plus, Trash2, Loader2, ShieldCheck, AlertTriangle } from 'lucide-react';
-import { loadPlatformAdmins, adicionarAdmin, removerAdmin } from './actions';
+import { loadPlatformAdmins, adicionarAdmin, removerAdmin, definirRoleAdmin } from './actions';
 import BackButton from '@/components/back-button';
 
 export default function PlatformAdminsPage() {
@@ -13,8 +13,10 @@ export default function PlatformAdminsPage() {
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState('');
   const [nome, setNome] = useState('');
+  const [role, setRole] = useState('master');
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState(null);
+  const [savingRole, setSavingRole] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -26,13 +28,23 @@ export default function PlatformAdminsPage() {
     e.preventDefault();
     if (!email.trim()) return;
     setAdding(true); setError('');
-    const r = await adicionarAdmin(email, nome);
+    const r = await adicionarAdmin(email, nome, role);
     if (r.success) {
       setSuccess(r.message); setTimeout(() => setSuccess(''), 3000);
-      setEmail(''); setNome('');
+      setEmail(''); setNome(''); setRole('master');
       loadPlatformAdmins().then(setAdmins);
     } else { setError(r.error); }
     setAdding(false);
+  }
+
+  async function handleRole(id: any, novo: string) {
+    setSavingRole(id); setError('');
+    const r = await definirRoleAdmin(id, novo);
+    if (r.success) {
+      setAdmins(prev => prev.map(a => a.id === id ? { ...a, role: novo } : a));
+      setSuccess(r.message); setTimeout(() => setSuccess(''), 3000);
+    } else { setError(r.error); }
+    setSavingRole(null);
   }
 
   async function handleRemove(id: any, adminEmail: any) {
@@ -80,7 +92,7 @@ export default function PlatformAdminsPage() {
       {/* Add form */}
       <form onSubmit={handleAdd} className="rounded-xl border border-white/[0.06] p-4 mb-6" style={{ background: '#0F2A4A' }}>
         <p className="text-sm font-semibold text-gray-300 mb-3">{t('addTitle')}</p>
-        <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto] gap-2">
           <input
             value={email}
             onChange={e => setEmail(e.target.value)}
@@ -97,6 +109,16 @@ export default function PlatformAdminsPage() {
             className="px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40"
             style={{ background: '#091D35' }}
           />
+          <select
+            value={role}
+            onChange={e => setRole(e.target.value)}
+            title="Papel do admin"
+            className="px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40"
+            style={{ background: '#091D35' }}
+          >
+            <option value="master" className="bg-[#091D35]">Admin Master</option>
+            <option value="socio" className="bg-[#091D35]">Admin Sócio</option>
+          </select>
           <button type="submit" disabled={adding}
             className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-bold text-white disabled:opacity-40"
             style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
@@ -121,6 +143,17 @@ export default function PlatformAdminsPage() {
                 <p className="text-sm font-semibold text-white truncate">{admin.nome || '—'}</p>
                 <p className="text-[10px] text-gray-500 truncate">{admin.email}</p>
               </div>
+              <select
+                value={admin.role === 'socio' ? 'socio' : 'master'}
+                onChange={e => handleRole(admin.id, e.target.value)}
+                disabled={savingRole === admin.id}
+                title="Papel"
+                className="text-[10px] font-semibold rounded-md px-2 py-1 border border-white/10 outline-none shrink-0 disabled:opacity-40"
+                style={{ background: '#091D35', color: admin.role === 'socio' ? '#A78BFA' : '#34C5CC' }}
+              >
+                <option value="master" className="bg-[#091D35] text-white">Master</option>
+                <option value="socio" className="bg-[#091D35] text-white">Sócio</option>
+              </select>
               <p className="text-[10px] text-gray-600 shrink-0">
                 {new Date(admin.created_at).toLocaleDateString(locale)}
               </p>

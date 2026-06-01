@@ -82,7 +82,7 @@ export async function getUserContext(email: string | null | undefined): Promise<
   const colab = await findColabByEmail(email);
 
   const { data: admin } = await sb.from('platform_admins')
-    .select('id')
+    .select('id, role')
     .eq('email', normalizedEmail)
     .maybeSingle();
 
@@ -91,6 +91,8 @@ export async function getUserContext(email: string | null | undefined): Promise<
     role: (colab?.role as Role) || 'colaborador',
     empresaId: colab?.empresa_id || null,
     isPlatformAdmin: !!admin,
+    // 'socio' só quando a coluna disser; qualquer outro valor (ou null) = master.
+    platformAdminRole: admin ? ((admin as any).role === 'socio' ? 'socio' : 'master') : null,
   };
 }
 

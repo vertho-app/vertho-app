@@ -53,9 +53,15 @@ export async function requireUserAction(): Promise<AuthenticatedContext> {
   return { ...ctx, email };
 }
 
-export async function requireAdminAction(): Promise<AuthenticatedContext> {
+export async function requireAdminAction(permission?: PermissionKey): Promise<AuthenticatedContext> {
   const ctx = await requireUserAction();
   if (!ctx.isPlatformAdmin) throw new Error('FORBIDDEN: apenas platform admin');
+  // Sem permissão explícita → qualquer admin (master ou sócio) em LEITURA.
+  // Com permissão → checagem granular (escrita/destrutiva bloqueada p/ sócio).
+  if (permission) {
+    const ok = await can(ctx, permission);
+    if (!ok) throw new Error(`FORBIDDEN: permissão necessária ${permission}`);
+  }
   return ctx;
 }
 
