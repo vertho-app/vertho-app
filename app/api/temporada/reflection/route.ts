@@ -295,7 +295,11 @@ export async function POST(request) {
         perfilDominante: colab.perfil_dominante,
         competencia: competenciaSemana.label,
         descritor: semanaPlan.descritor,
-        desafio: semanaPlan.conteudo?.desafio_texto || '',
+        desafio: Array.isArray(semanaPlan.conteudos_dia) && semanaPlan.conteudos_dia.length > 0
+          ? semanaPlan.conteudos_dia
+              .map((e: any) => [e.label, e.competencia, e.descritor, e.conteudo?.desafio_texto].filter(Boolean).join(' — '))
+              .join('\n')
+          : (semanaPlan.conteudo?.desafio_texto || ''),
         historico: historicoMasked,
         turnIA: proximoTurnIA,
         groundingContext: groundingBlock,

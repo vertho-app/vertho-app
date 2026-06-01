@@ -111,13 +111,13 @@ export const PROGRAMA_ONBOARDING: ProgramaConfig = Object.freeze({
 }) as ProgramaConfig;
 
 /**
- * Regular DUO: mesma profundidade do Regular (14 semanas, nível-meta 3,
- * alocação profunda de descritores) cobrindo 2 competências em paralelo.
+ * Regular DUO: mesma profundidade do Regular (14 semanas, nível-meta 3),
+ * com 2 competências em paralelo nas semanas de conteúdo.
  *
- * Modelo "blocos paralelos": os 9 slots de conteúdo são divididos entre as
- * 2 competências (selectDescriptorsDuo aloca profundo por comp, com blocos
- * de 2 semanas pra gaps grandes); as missões 4/8/12 são INTEGRADORAS das
- * duas (complexidade crescente: simples → intermediário → completo).
+ * Modelo "entrega dupla": cada semana de conteúdo recebe duas entregas
+ * (segunda e terça), uma por competência. As missões 4/8/12 são
+ * INTEGRADORAS das duas (complexidade crescente: simples → intermediário
+ * → completo).
  *
  * Estrutura idêntica ao Regular (slots/missões/avaliação) — só a alocação
  * de descritores e as missões viram multi-competência. Isso mantém intactos

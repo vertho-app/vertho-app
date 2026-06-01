@@ -97,10 +97,14 @@ export async function POST(request) {
     historico.push({ role: 'user', content: message, timestamp: new Date().toISOString() });
 
     // Resumo do conteúdo: concatena desafio + descrição se houver
-    const conteudoResumo = [
-      semanaPlan.conteudo?.desafio_texto,
-      semanaPlan.conteudo?.core_titulo,
-    ].filter(Boolean).join('\n');
+    const conteudoResumo = Array.isArray(semanaPlan.conteudos_dia) && semanaPlan.conteudos_dia.length > 0
+      ? semanaPlan.conteudos_dia
+          .map((e: any) => [e.label, e.competencia, e.descritor, e.conteudo?.core_titulo, e.conteudo?.desafio_texto].filter(Boolean).join(' — '))
+          .join('\n')
+      : [
+          semanaPlan.conteudo?.desafio_texto,
+          semanaPlan.conteudo?.core_titulo,
+        ].filter(Boolean).join('\n');
 
     // RAG/grounding: busca top-5 trechos relevantes na base do tenant.
     // Query = última pergunta do colab. Sem pesquisa = sem contexto (OK).

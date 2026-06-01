@@ -110,6 +110,9 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   const isAplicacao = semana.tipo === 'aplicacao';
   const isAvaliacao = semana.tipo === 'avaliacao';
   const conteudo = semana.conteudo;
+  const entregasConteudo = Array.isArray(semana.conteudos_dia) && semana.conteudos_dia.length > 0
+    ? semana.conteudos_dia.filter(e => e?.conteudo)
+    : (conteudo ? [{ dia: 'semana', label: t('type.episode'), competencia: semana.competencia, descritor: semana.descritor, conteudo }] : []);
   const cenario = semana.cenario;
   const progressoSemana = (data.progresso || []).find(p => p.semana === semanaNum);
   const conteudoConsumido = progressoSemana?.conteudo_consumido;
@@ -211,13 +214,28 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
       </div>
 
       {/* Conteúdo da semana */}
-      {!isAplicacao && !isAvaliacao && conteudo && (
+      {!isAplicacao && !isAvaliacao && entregasConteudo.length > 0 && (
         <>
-          <GlassCard className="mb-4">
-            <ConteudoViewer conteudo={conteudo} formatoAtivo={formatoAtivo} setFormatoAtivo={setFormatoAtivo}
-              trilhaId={data.trilha.id} semana={semanaNum}
-              onAbrirConteudo={() => setAbriuConteudo(true)}
-              onAutoConsumido={() => !conteudoConsumido && handleConsumido()} t={t} />
+          <GlassCard className="mb-4 space-y-5">
+            {entregasConteudo.map((entrega, idx) => (
+              <div key={`${entrega.dia}-${entrega.competencia || idx}`} className={idx > 0 ? 'border-t border-white/10 pt-5' : ''}>
+                <div className="mb-3">
+                  <p className="text-[10px] uppercase tracking-widest text-brand-400 font-bold">{entrega.label}</p>
+                  <h2 className="text-sm font-bold text-white">{entrega.competencia || semana.competencia}</h2>
+                  {entrega.descritor && <p className="text-xs text-gray-400">{entrega.descritor}</p>}
+                </div>
+                <ConteudoViewer
+                  conteudo={entrega.conteudo}
+                  formatoAtivo={typeof formatoAtivo === 'object' && formatoAtivo !== null ? formatoAtivo[idx] : (idx === 0 ? formatoAtivo : null)}
+                  setFormatoAtivo={(formato) => setFormatoAtivo(prev => ({ ...(typeof prev === 'object' && prev !== null ? prev : {}), [idx]: formato }))}
+                  trilhaId={data.trilha.id}
+                  semana={semanaNum}
+                  onAbrirConteudo={() => setAbriuConteudo(true)}
+                  onAutoConsumido={() => !conteudoConsumido && handleConsumido()}
+                  t={t}
+                />
+              </div>
+            ))}
             {!conteudoConsumido && (
               <button onClick={handleConsumido} disabled={!abriuConteudo}
                 title={!abriuConteudo ? t('content.openBeforeComplete') : ''}
@@ -237,21 +255,28 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
               <Target size={16} className="text-brand-400" />
               <span className="text-xs uppercase text-brand-400 font-bold">{t('challenge.title')}</span>
             </div>
-            <p className="text-sm text-gray-200">{conteudo.desafio_texto}</p>
-            {conteudo.acao_observavel && (
-              <div className="mt-3 space-y-2 border-t border-brand-500/20 pt-3">
-                <div>
-                  <span className="text-[10px] uppercase text-brand-400/70 font-semibold">{t('challenge.observe')}</span>
-                  <p className="text-xs text-gray-300">{conteudo.acao_observavel}</p>
+            <div className="space-y-4">
+              {entregasConteudo.map((entrega, idx) => (
+                <div key={`${entrega.dia}-challenge-${idx}`} className={idx > 0 ? 'border-t border-brand-500/20 pt-4' : ''}>
+                  <p className="text-[10px] uppercase tracking-widest text-brand-400/70 font-semibold mb-1">{entrega.label}</p>
+                  <p className="text-sm text-gray-200">{entrega.conteudo?.desafio_texto}</p>
+                  {entrega.conteudo?.acao_observavel && (
+                    <div className="mt-3 space-y-2">
+                      <div>
+                        <span className="text-[10px] uppercase text-brand-400/70 font-semibold">{t('challenge.observe')}</span>
+                        <p className="text-xs text-gray-300">{entrega.conteudo.acao_observavel}</p>
+                      </div>
+                      {entrega.conteudo.criterio_de_execucao && (
+                        <div>
+                          <span className="text-[10px] uppercase text-brand-400/70 font-semibold">{t('challenge.execution')}</span>
+                          <p className="text-xs text-gray-300">{entrega.conteudo.criterio_de_execucao}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                {conteudo.criterio_de_execucao && (
-                  <div>
-                    <span className="text-[10px] uppercase text-brand-400/70 font-semibold">{t('challenge.execution')}</span>
-                    <p className="text-xs text-gray-300">{conteudo.criterio_de_execucao}</p>
-                  </div>
-                )}
-              </div>
-            )}
+              ))}
+            </div>
           </GlassCard>
         </>
       )}

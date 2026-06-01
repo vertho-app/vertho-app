@@ -222,20 +222,18 @@ describe('Regular DUO — selectDescriptorsDuo', () => {
   ];
   const assessmentB = [{ descritor: 'B1', nota: 2.8 }];
 
-  it('separa os blocos: Comp A em [1,2,3], Comp B em [5,6,7]', () => {
+  it('aloca as duas competências nos mesmos slots de conteúdo para entrega paralela', () => {
     const r = selectDescriptorsDuo('Comp A', assessmentA, 'Comp B', assessmentB);
     const semA = r.filter(d => d.competencia === 'Comp A').flatMap(d => d.semanas_ids);
     const semB = r.filter(d => d.competencia === 'Comp B').flatMap(d => d.semanas_ids);
-    // B só nos slots do bloco 2
-    expect(semB.every(s => [5, 6, 7].includes(s))).toBe(true);
-    // A no bloco 1 (+ reforço [9,10,11] pois A tem maior gap agregado)
-    expect(semA.every(s => [1, 2, 3, 9, 10, 11].includes(s))).toBe(true);
-    expect(semA).toContain(1);
+    const slots = [1, 2, 3, 5, 6, 7, 9, 10, 11];
+    expect(new Set(semA)).toEqual(new Set(slots));
+    expect(new Set(semB)).toEqual(new Set(slots));
   });
 
   it('preenche .competencia em todos os descritores', () => {
     const r = selectDescriptorsDuo('Comp A', assessmentA, 'Comp B', assessmentB);
-    expect(r.length).toBe(3); // A1, A2, B1
+    expect(r.length).toBe(3); // A1, A2, B1 — com semanas extras como reforço
     expect(r.every(d => d.competencia === 'Comp A' || d.competencia === 'Comp B')).toBe(true);
   });
 
@@ -246,13 +244,15 @@ describe('Regular DUO — selectDescriptorsDuo', () => {
     expect(a1.semanas_ids.slice(0, 2)).toEqual([1, 2]); // contíguo no bloco 1
   });
 
-  it('bloco de reforço vai pra competência de MAIOR gap agregado', () => {
-    // Agora B tem gap muito maior que A → reforço [9,10,11] vai pra B
+  it('reforço acontece dentro de cada competência até preencher todos os slots', () => {
     const aRaso = [{ descritor: 'A1', nota: 2.9 }];
     const bFundo = [{ descritor: 'B1', nota: 1.0 }, { descritor: 'B2', nota: 1.2 }];
     const r = selectDescriptorsDuo('Comp A', aRaso, 'Comp B', bFundo);
+    const semA = r.filter(d => d.competencia === 'Comp A').flatMap(d => d.semanas_ids);
     const semB = r.filter(d => d.competencia === 'Comp B').flatMap(d => d.semanas_ids);
-    expect(semB.some(s => [9, 10, 11].includes(s))).toBe(true);
+    const slots = [1, 2, 3, 5, 6, 7, 9, 10, 11];
+    expect(new Set(semA)).toEqual(new Set(slots));
+    expect(new Set(semB)).toEqual(new Set(slots));
   });
 
   it('assessment de B vazio → só descritores de A (guard de geração trata o resto)', () => {

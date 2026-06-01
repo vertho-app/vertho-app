@@ -24,10 +24,15 @@ export async function recalcularTaxaConclusao() {
     for (const t of (trilhas || [])) {
       const plano = Array.isArray(t.temporada_plano) ? t.temporada_plano : [];
       for (const s of plano) {
-        const contentId = s?.conteudo?.core_id;
-        if (!contentId) continue;
-        if (!atribuicoes[contentId]) atribuicoes[contentId] = [];
-        atribuicoes[contentId].push({ trilhaId: t.id, semana: s.semana });
+        const conteudos = Array.isArray(s?.conteudos_dia) && s.conteudos_dia.length > 0
+          ? s.conteudos_dia.map((e: any) => e?.conteudo).filter(Boolean)
+          : [s?.conteudo].filter(Boolean);
+        for (const conteudo of conteudos) {
+          const contentId = conteudo?.core_id;
+          if (!contentId) continue;
+          if (!atribuicoes[contentId]) atribuicoes[contentId] = [];
+          atribuicoes[contentId].push({ trilhaId: t.id, semana: s.semana });
+        }
       }
     }
 

@@ -51,6 +51,15 @@ interface SemanaConteudo {
     formatos_disponiveis: Record<string, { id: string; url: string | null | undefined; titulo: string }>;
     fallback_gerado: boolean;
   };
+  conteudos_dia?: Array<{
+    dia: 'segunda' | 'terca';
+    label: string;
+    competencia?: string;
+    descritor: string | null;
+    nivel_alvo?: number;
+    nivel_atual?: number;
+    conteudo?: SemanaConteudo['conteudo'];
+  }>;
   status: 'disponivel' | 'bloqueada';
 }
 
@@ -140,10 +149,11 @@ export async function buildSeason({
   const compsArray: string[] = isMulti ? competencias! : [competencia];
 
   // Mapeia semana → descritor (a partir de descritoresSelecionados)
-  const semanaParaDescritor: Record<number, SelectedDescriptor> = {};
+  const semanaParaDescritores: Record<number, SelectedDescriptor[]> = {};
   for (const d of descritoresSelecionados) {
     for (const s of d.semanas_ids) {
-      semanaParaDescritor[s] = d;
+      if (!semanaParaDescritores[s]) semanaParaDescritores[s] = [];
+      semanaParaDescritores[s].push(d);
     }
   }
 
@@ -161,8 +171,8 @@ export async function buildSeason({
         status: 'bloqueada',
       };
     } else {
-      const d = semanaParaDescritor[semana];
-      if (!d) {
+      const descritoresDaSemana = semanaParaDescritores[semana] || [];
+      if (descritoresDaSemana.length === 0) {
         plan = {
           semana,
           tipo: 'conteudo',
@@ -170,8 +180,43 @@ export async function buildSeason({
           descritores_cobertos: [],
           status: 'bloqueada',
         };
+      } else if (isRegularDuoContentWeek(programaConfig, compsArray, descritoresDaSemana)) {
+        const ordenados = [...descritoresDaSemana]
+          .sort((a, b) => compsArray.indexOf(a.competencia || '') - compsArray.indexOf(b.competencia || ''))
+          .slice(0, 2);
+        const entregas: NonNullable<SemanaConteudo['conteudos_dia']> = [];
+
+        for (const [idx, d] of ordenados.entries()) {
+          const compDaEntrega = d.competencia || competencia;
+          const entrega = await montarSemanaConteudo(semana, d, compDaEntrega, cargo, contexto, prioridadeFormatos, empresaId, aiConfig, idsJaUsados);
+          if (entrega.conteudo?.core_id) idsJaUsados.add(entrega.conteudo.core_id);
+          entregas.push({
+            dia: idx === 0 ? 'segunda' : 'terca',
+            label: idx === 0 ? 'Segunda-feira' : 'Terça-feira',
+            competencia: compDaEntrega,
+            descritor: entrega.descritor,
+            nivel_alvo: entrega.nivel_alvo,
+            nivel_atual: entrega.nivel_atual,
+            conteudo: entrega.conteudo,
+          });
+        }
+
+        const primeiro = entregas[0];
+        plan = {
+          semana,
+          tipo: 'conteudo',
+          competencia: compsArray.join(' + '),
+          descritor: primeiro?.descritor || null,
+          descritores_cobertos: entregas.map(e => e.descritor).filter(Boolean) as string[],
+          nivel_alvo: 3.0,
+          nivel_atual: primeiro?.nivel_atual,
+          conteudo: primeiro?.conteudo,
+          conteudos_dia: entregas,
+          status: 'bloqueada',
+        };
       } else {
         // Em multi-competência, cada descritor pertence a uma competência específica
+        const d = descritoresDaSemana[0];
         const compDaSemana = d.competencia || competencia;
         plan = await montarSemanaConteudo(semana, d, compDaSemana, cargo, contexto, prioridadeFormatos, empresaId, aiConfig, idsJaUsados);
         if (plan.tipo === 'conteudo' && plan.conteudo?.core_id) idsJaUsados.add(plan.conteudo.core_id);
@@ -182,6 +227,17 @@ export async function buildSeason({
   }
 
   return semanas;
+}
+
+function isRegularDuoContentWeek(
+  programaConfig: ProgramaConfig,
+  competencias: string[],
+  descritoresDaSemana: SelectedDescriptor[],
+): boolean {
+  return !programaConfig.semanaParaCompetenciaIdx
+    && !!programaConfig.competenciasNaMissao
+    && competencias.length === 2
+    && new Set(descritoresDaSemana.map(d => d.competencia).filter(Boolean)).size >= 2;
 }
 
 async function montarSemanaConteudo(

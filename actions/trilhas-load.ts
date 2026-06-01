@@ -114,19 +114,27 @@ export async function loadTrilhas(empresaId: string) {
       const idsUsados = new Set();
       for (const sem of plano) {
         if (sem.tipo === 'conteudo' && sem.conteudo) {
-          const cid = sem.conteudo.core_id;
-          if (cid) idsUsados.add(cid);
-          obrigatorios.push({
-            tipo: 'conteudo',
-            semana: sem.semana,
-            descritor: sem.descritor,
-            nota_descritor: notaPorDescritor[sem.descritor] ?? sem.nivel_atual ?? null,
-            formato: sem.conteudo.formato_core,
-            nome: sem.conteudo.core_titulo || sem.descritor,
-            url: sem.conteudo.core_url,
-            desafio: sem.conteudo.desafio_texto,
-            nivel: sem.nivel_atual,
-          });
+          const entregas = Array.isArray(sem.conteudos_dia) && sem.conteudos_dia.length > 0
+            ? sem.conteudos_dia
+            : [{ label: null, descritor: sem.descritor, nivel_atual: sem.nivel_atual, conteudo: sem.conteudo }];
+          for (const entrega of entregas) {
+            const ctd = entrega.conteudo;
+            const cid = ctd?.core_id;
+            if (cid) idsUsados.add(cid);
+            obrigatorios.push({
+              tipo: 'conteudo',
+              semana: sem.semana,
+              dia: entrega.label,
+              competencia: entrega.competencia || sem.competencia,
+              descritor: entrega.descritor,
+              nota_descritor: notaPorDescritor[entrega.descritor] ?? entrega.nivel_atual ?? sem.nivel_atual ?? null,
+              formato: ctd?.formato_core,
+              nome: ctd?.core_titulo || entrega.descritor,
+              url: ctd?.core_url,
+              desafio: ctd?.desafio_texto,
+              nivel: entrega.nivel_atual ?? sem.nivel_atual,
+            });
+          }
         } else if (sem.tipo === 'aplicacao') {
           const cen = sem.cenario || {};
           const { cenText, cenPerg } = extractCenario(cen);

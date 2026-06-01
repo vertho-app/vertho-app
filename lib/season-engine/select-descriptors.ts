@@ -166,17 +166,10 @@ export function selectDescriptorsMulti(
  * proficientes, reforço) — diferente do `selectDescriptorsMulti`
  * (Onboarding, 1 descritor raso por competência por semana).
  *
- * Divide os 9 slots em 3 blocos contíguos de 3 ([1,2,3] [5,6,7] [9,10,11]):
- *   - bloco 1 → Comp A  (selectDescriptors profundo sobre o assessment de A)
- *   - bloco 2 → Comp B  (idem para B)
- *   - bloco 3 → reforço da competência de MAIOR gap agregado (anexado aos
- *               slots dela e re-alocado pela mesma lógica profunda)
- *
- * Blocos de 3 preservam a contiguidade do `selectDescriptors`: como ele
- * conta blocos por índice (`slotIdx % 3`), um descritor de 2 semanas nunca
- * cruza a fronteira de um bloco — logo nunca atravessa uma semana de missão
- * (4/8/12). Cada SelectedDescriptor sai com `.competencia` preenchida →
- * buildSeason roteia a semana de conteúdo pra competência certa.
+ * Cada competência recebe a grade completa de slots de conteúdo. Assim, toda
+ * semana de conteúdo do DUO pode ter duas entregas: uma da competência A e
+ * outra da competência B (ex.: segunda e terça), preservando a profundidade
+ * do Regular em ambas.
  */
 export function selectDescriptorsDuo(
   competenciaA: string,
@@ -185,23 +178,9 @@ export function selectDescriptorsDuo(
   assessmentB: DescriptorAssessment[] = [],
   slots: number[] = DEFAULT_SLOTS,
 ): SelectedDescriptor[] {
-  const blocoA = slots.slice(0, 3);
-  const blocoB = slots.slice(3, 6);
-  const blocoReforco = slots.slice(6, 9);
-
-  const gapTotal = (a: DescriptorAssessment[] = []) =>
-    a.reduce((s, d) => s + Math.max(0, 3.0 - Number(d.nota)), 0);
-
-  // Bloco de reforço vai pra competência de maior gap agregado.
-  // Empate → Comp A (âncora — competencias_foco[0]).
-  const reforcoParaA = gapTotal(assessmentA) >= gapTotal(assessmentB);
-
-  const slotsA = reforcoParaA ? [...blocoA, ...blocoReforco] : blocoA;
-  const slotsB = reforcoParaA ? blocoB : [...blocoB, ...blocoReforco];
-
-  const selA = selectDescriptors(assessmentA, slotsA)
+  const selA = selectDescriptors(assessmentA, slots)
     .map(d => ({ ...d, competencia: competenciaA }));
-  const selB = selectDescriptors(assessmentB, slotsB)
+  const selB = selectDescriptors(assessmentB, slots)
     .map(d => ({ ...d, competencia: competenciaB }));
 
   return [...selA, ...selB];

@@ -37,14 +37,19 @@ export async function recalcularImpactoConteudo(email: string) {
     const descritoresReport = report.descritores || [];
     for (const semana of plano) {
       if (semana.tipo !== 'conteudo') continue;
-      const coreId = semana.conteudo?.core_id;
-      if (!coreId) continue;
-      const descRep = (descritoresReport as any[]).find((d: any) => d.descritor === semana.descritor);
-      if (!descRep || descRep.nota_pos == null || descRep.nota_pre == null) continue;
-      const delta = Number(descRep.nota_pos) - Number(descRep.nota_pre);
-      if (isNaN(delta)) continue;
-      if (!conteudoStats[coreId]) conteudoStats[coreId] = { deltas: [] };
-      conteudoStats[coreId].deltas.push(delta);
+      const entregas = Array.isArray(semana.conteudos_dia) && semana.conteudos_dia.length > 0
+        ? semana.conteudos_dia
+        : [{ descritor: semana.descritor, conteudo: semana.conteudo }];
+      for (const entrega of entregas) {
+        const coreId = entrega?.conteudo?.core_id;
+        if (!coreId) continue;
+        const descRep = (descritoresReport as any[]).find((d: any) => d.descritor === entrega.descritor);
+        if (!descRep || descRep.nota_pos == null || descRep.nota_pre == null) continue;
+        const delta = Number(descRep.nota_pos) - Number(descRep.nota_pre);
+        if (isNaN(delta)) continue;
+        if (!conteudoStats[coreId]) conteudoStats[coreId] = { deltas: [] };
+        conteudoStats[coreId].deltas.push(delta);
+      }
     }
   }
 
