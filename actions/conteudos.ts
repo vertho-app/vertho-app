@@ -581,12 +581,30 @@ export async function atualizarConteudo(id: string, patch: any) {
 }
 
 /**
- * Resolve a capa (fundo GPT Image), cache em `final/covers/<id>.png`. NÃO é
- * personalizada — cacheada por-conteúdo e reusada por todas as variantes
- * (genérica e personalizadas). Falha nunca quebra o PDF (base64 null → fundo vetorial).
+ * Chave de cache das imagens (capa/seção): COMPETÊNCIA + DESCRITOR — não o id do
+ * conteúdo. Assim, todos os conteúdos da mesma competência/descritor REUSAM a
+ * mesma imagem (sem regenerar no GPT a cada conteúdo). Sem comp/descritor, cai
+ * no id (isolado). O tema da imagem usa só comp/descritor (não o título), já que
+ * a imagem é compartilhada entre títulos diferentes da mesma comp/descritor.
+ */
+function imagemCacheSlug(c: any): string {
+  const base = [c?.competencia, c?.descritor].map((x: any) => String(x || '').trim()).filter(Boolean).join('__');
+  const slug = base.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 120).toLowerCase();
+  return slug || `id_${c?.id}`;
+}
+
+function imagemTema(c: any): string | null {
+  return [c?.competencia, c?.descritor].filter(Boolean).join(' — ') || null;
+}
+
+/**
+ * Resolve a capa (fundo GPT Image), cache em `final/covers/cd/<comp__descritor>.png`.
+ * NÃO é personalizada — cacheada por COMPETÊNCIA/DESCRITOR e reusada por todos os
+ * conteúdos dessa comp/descritor (genérica e personalizadas). Falha nunca quebra
+ * o PDF (base64 null → fundo vetorial).
  */
 async function resolveCoverBase64(sb: any, c: any): Promise<{ base64: string | null; erro: string | null }> {
-  const coverPath = `final/covers/${c.id}.png`;
+  const coverPath = `final/covers/cd/${imagemCacheSlug(c)}.png`;
   try {
     const { data: existente } = await sb.storage.from('conteudos').download(coverPath);
     const buf = existente ? Buffer.from(await existente.arrayBuffer()) : null;
@@ -595,8 +613,7 @@ async function resolveCoverBase64(sb: any, c: any): Promise<{ base64: string | n
   } catch {
     try {
       const { generateCoverImage } = await import('@/lib/openai-image');
-      const tema = [c.titulo, c.competencia, c.descritor].filter(Boolean).join(' — ') || null;
-      const imgBuf = await generateCoverImage(tema);
+      const imgBuf = await generateCoverImage(imagemTema(c));
       await sb.storage.from('conteudos').upload(coverPath, imgBuf, { contentType: 'image/png', upsert: true });
       return { base64: `data:image/png;base64,${imgBuf.toString('base64')}`, erro: null };
     } catch (e: any) {
@@ -608,11 +625,12 @@ async function resolveCoverBase64(sb: any, c: any): Promise<{ base64: string | n
 }
 
 /**
- * Resolve a imagem de seção (hero), cache em `final/sections/<id>.png`. Chame só
- * quando o plano tiver uma página heroImage. Falha nunca quebra o PDF.
+ * Resolve a imagem de seção (hero), cache em `final/sections/cd/<comp__descritor>.png`.
+ * Mesma chave de comp/descritor da capa. Chame só quando o plano tiver uma página
+ * heroImage. Falha nunca quebra o PDF.
  */
 async function resolveSectionBase64(sb: any, c: any): Promise<string | null> {
-  const sectionPath = `final/sections/${c.id}.png`;
+  const sectionPath = `final/sections/cd/${imagemCacheSlug(c)}.png`;
   try {
     const { data: existente } = await sb.storage.from('conteudos').download(sectionPath);
     const buf = existente ? Buffer.from(await existente.arrayBuffer()) : null;
@@ -621,8 +639,7 @@ async function resolveSectionBase64(sb: any, c: any): Promise<string | null> {
   } catch {
     try {
       const { generateSectionImage } = await import('@/lib/openai-image');
-      const tema = [c.titulo, c.competencia, c.descritor].filter(Boolean).join(' — ') || null;
-      const imgBuf = await generateSectionImage(tema);
+      const imgBuf = await generateSectionImage(imagemTema(c));
       await sb.storage.from('conteudos').upload(sectionPath, imgBuf, { contentType: 'image/png', upsert: true });
       return `data:image/png;base64,${imgBuf.toString('base64')}`;
     } catch (e: any) {
