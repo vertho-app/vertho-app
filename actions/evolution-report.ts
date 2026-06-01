@@ -25,7 +25,7 @@ function classificarConvergencia({ nota_pre, nota_pos, nivel_percebido }: { nota
 export async function gerarEvolutionReport(trilhaId: string) {
   try {
     // Descobre tenant via trilha (raw — query inicial sem tenant conhecido).
-    const sbRaw = await requireAdminSupabase();
+    const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
     const { data: trilha } = await sbRaw.from('trilhas')
       .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, descritores_selecionados')
       .eq('id', trilhaId).maybeSingle();

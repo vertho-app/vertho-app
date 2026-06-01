@@ -87,7 +87,7 @@ export async function gerarConteudoIA({
   empresaId = null, aiConfig = {},
 }: GerarConteudoParams) {
   try {
-    const sb = await requireAdminSupabase();
+    const sb = await requireAdminSupabase('content.manage');
     if (!formato || !competencia || !descritor) {
       return { success: false, error: 'formato, competencia e descritor obrigatórios' };
     }
@@ -233,7 +233,7 @@ export async function gerarConteudoIA({
  */
 export async function uploadConteudo(formData: any) {
   try {
-    const sb = await requireAdminSupabase();
+    const sb = await requireAdminSupabase('content.manage');
     const formato = formData.get('formato');
     const titulo = formData.get('titulo');
     const competencia = formData.get('competencia');
@@ -325,7 +325,7 @@ export async function gerarConteudoLote({
   empresaId = null, aiConfig = {},
 }: GerarConteudoLoteParams) {
   try {
-    const sb = await requireAdminSupabase();
+    const sb = await requireAdminSupabase('content.manage');
     if (!formato || !competencia) {
       return { success: false, error: 'formato e competencia obrigatórios' };
     }
@@ -450,7 +450,7 @@ function extrairTitulo(texto: string, fallback: string, formato: string) {
  */
 export async function importarVideosBunny() {
   try {
-    const sb = await requireAdminSupabase();
+    const sb = await requireAdminSupabase('content.manage');
     const lib = process.env.BUNNY_LIBRARY_ID;
     const key = process.env.BUNNY_STREAM_API_KEY;
     if (!lib || !key) return { error: 'BUNNY_LIBRARY_ID/BUNNY_STREAM_API_KEY ausentes' };
@@ -566,7 +566,7 @@ export async function listarConteudos({ formato, competencia, semClassificacao, 
  */
 export async function atualizarConteudo(id: string, patch: any) {
   try {
-    const sb = await requireAdminSupabase();
+    const sb = await requireAdminSupabase('content.manage');
     if (!id) return { error: 'id obrigatório' };
     const allowed = ['titulo','descricao','competencia','descritor','nivel_min','nivel_max',
                      'tipo_conteudo','contexto','cargo','setor','apresentador','ativo','duracao_min'];
@@ -657,7 +657,7 @@ async function resolveSectionBase64(sb: any, c: any): Promise<string | null> {
  */
 export async function gerarConteudoFinal(id: string) {
   try {
-    const sb = await requireAdminSupabase();
+    const sb = await requireAdminSupabase('content.manage');
     if (!id) return { success: false, error: 'id obrigatório' };
 
     const { data: c } = await sb
@@ -888,7 +888,7 @@ export async function gerarConteudoFinalPersonalizado({ contentId }: { contentId
  */
 export async function gerarPodcastAudio(id: string) {
   try {
-    const sb = await requireAdminSupabase();
+    const sb = await requireAdminSupabase('content.manage');
     if (!id) return { success: false, error: 'id obrigatório' };
 
     const { data: c } = await sb
@@ -938,7 +938,7 @@ export async function gerarPodcastAudio(id: string) {
  */
 export async function aprovarRoteiroPodcastEGerarAudio(id: string, roteiro: string) {
   try {
-    const sb = await requireAdminSupabase();
+    const sb = await requireAdminSupabase('content.manage');
     if (!id) return { success: false, error: 'id obrigatório' };
     if (!roteiro?.trim() || roteiro.trim().length < 20) {
       return { success: false, error: 'Roteiro muito curto para gerar áudio' };
@@ -992,7 +992,7 @@ export async function listarPPPEscolasConteudo(empresaId?: string) {
 
 export async function gerarVideo(id: string, pppEscolaId?: string) {
   try {
-    const sb = await requireAdminSupabase();
+    const sb = await requireAdminSupabase('content.manage');
     if (!id) return { success: false, error: 'id obrigatório' };
 
     const { data: c } = await sb
@@ -1070,7 +1070,7 @@ export async function gerarVideo(id: string, pppEscolaId?: string) {
     console.error('[gerarVideo]', err);
     // Reverte o estado pra não travar em "processando" se o disparo falhou.
     try {
-      const sb = await requireAdminSupabase();
+      const sb = await requireAdminSupabase('content.manage');
       await sb.from('micro_conteudos')
         .update({ video_render_status: 'error', video_render_error: String(err?.message || err).slice(0, 500) })
         .eq('id', id);
@@ -1087,7 +1087,7 @@ export async function gerarVideo(id: string, pppEscolaId?: string) {
  */
 export async function excluirConteudoFinal(id: string) {
   try {
-    const sb = await requireAdminSupabase();
+    const sb = await requireAdminSupabase('content.manage');
     if (!id) return { success: false, error: 'id obrigatório' };
 
     const { data: c } = await sb.from('micro_conteudos')
@@ -1127,7 +1127,7 @@ export async function excluirConteudoFinal(id: string) {
 
 export async function deletarConteudo(id: string) {
   try {
-    const sb = await requireAdminSupabase();
+    const sb = await requireAdminSupabase('content.manage');
     const { error } = await sb.from('micro_conteudos').delete().eq('id', id);
     if (error) return { error: error.message };
     return { ok: true };
@@ -1142,7 +1142,7 @@ export async function deletarConteudo(id: string) {
  */
 export async function sugerirTagsIA(conteudoId: string, aiConfig?: AIConfig) {
   try {
-    const sb = await requireAdminSupabase();
+    const sb = await requireAdminSupabase('ai.audit.regenerate');
     const { data: c } = await sb.from('micro_conteudos').select('*').eq('id', conteudoId).maybeSingle();
     if (!c) return { error: 'Conteúdo não encontrado' };
 

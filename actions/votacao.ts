@@ -163,7 +163,7 @@ export async function salvarVoto(competencias: string[], sugestaoNova?: string) 
 // ── Admin: abrir/fechar votação ───────────────────────────────────────────
 
 export async function toggleVotacao(empresaId: string, ativa: boolean) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('settings.company.manage');
   const { data: empresa } = await sb.from('empresas')
     .select('sys_config').eq('id', empresaId).maybeSingle();
 
@@ -181,7 +181,7 @@ export async function toggleVotacao(empresaId: string, ativa: boolean) {
 }
 
 export async function togglePerfilComportamental(empresaId: string, liberado: boolean) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('settings.company.manage');
   const { data: empresa } = await sb.from('empresas')
     .select('sys_config').eq('id', empresaId).maybeSingle();
 
@@ -275,7 +275,7 @@ export async function loadResultadosVotacao(empresaId: string) {
 
 export async function aprovarTop5Votacao(empresaId: string, cargo: string, top: string[]) {
   const { requireAdminAction } = await import('@/lib/auth/action-context');
-  await requireAdminAction();
+  await requireAdminAction('content.manage');
 
   if (!Array.isArray(top) || top.length < 1) {
     return { success: false, error: 'Selecione ao menos 1 competência' };

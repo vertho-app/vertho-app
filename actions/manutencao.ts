@@ -5,7 +5,7 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 // ── Limpar sessões antigas ──────────────────────────────────────────────────
 
 export async function limparSessoesAntigas(dias: number = 30) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('trash.manage');
   try {
     const cutoff = new Date(Date.now() - dias * 86400000).toISOString();
     const { count, error } = await sb.from('envios_diagnostico')
@@ -23,7 +23,7 @@ export async function limparSessoesAntigas(dias: number = 30) {
 // ── Limpar sessões de teste ─────────────────────────────────────────────────
 
 export async function limparSessoesTeste() {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('trash.manage');
   try {
     const { count, error } = await sb.from('envios_diagnostico')
       .delete({ count: 'exact' })

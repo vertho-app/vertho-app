@@ -55,7 +55,7 @@ export async function listarPendentesSimulacao(empresaId: string) {
 }
 
 export async function simularUmaResposta(empresaId: string, colaboradorId: string, cenarioId: string, aiConfig: AIConfig = {}) {
-  const sbRaw = await requireAdminSupabase();
+  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {

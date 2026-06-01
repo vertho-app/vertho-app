@@ -18,7 +18,7 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
  */
 export async function gerarAvaliacaoAcumulada(trilhaId: string) {
   // Descobre tenant via trilha (raw — query inicial sem tenant conhecido).
-  const sbRaw = await requireAdminSupabase();
+  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   const { data: trilha } = await sbRaw.from('trilhas')
     .select('id, empresa_id, colaborador_id, competencia_foco, competencias_foco, descritores_selecionados, temporada_plano')
     .eq('id', trilhaId).maybeSingle();
@@ -188,7 +188,7 @@ async function avaliarCompAcumulada(
  * pula `requireAdminAction`. Esse path é restrito a callers no servidor.
  */
 export async function gerarAvaliacaoAcumuladaParcial(trilhaId: string, competenciasFiltro: string[], semFim: number, internal: boolean = false) {
-  if (!internal) await requireAdminAction();
+  if (!internal) await requireAdminAction('ai.audit.regenerate');
   if (!Array.isArray(competenciasFiltro) || competenciasFiltro.length === 0) {
     return { error: 'competenciasFiltro obrigatório' };
   }

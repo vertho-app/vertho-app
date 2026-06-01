@@ -31,7 +31,7 @@ function formatPhone(telefone: string) {
  */
 export async function enviarWhatsApp(telefone: string, mensagem: string, internal: boolean = false) {
   try {
-    if (!internal) await requireAdminAction();
+    if (!internal) await requireAdminAction('assessments.dispatch');
     const baseUrl = getBaseUrl();
     const phone = formatPhone(telefone);
 
@@ -60,7 +60,7 @@ export async function enviarWhatsApp(telefone: string, mensagem: string, interna
 
 export async function enviarPDF(telefone: string, pdfBase64: string, filename: string) {
   try {
-    await requireAdminAction();
+    await requireAdminAction('assessments.dispatch');
     const baseUrl = getBaseUrl();
     const phone = formatPhone(telefone);
 
@@ -90,7 +90,7 @@ export async function enviarPDF(telefone: string, pdfBase64: string, filename: s
 
 export async function enviarLink(telefone: string, url: string, titulo: string) {
   try {
-    await requireAdminAction();
+    await requireAdminAction('assessments.dispatch');
     const baseUrl = getBaseUrl();
     const phone = formatPhone(telefone);
 

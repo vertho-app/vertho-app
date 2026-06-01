@@ -7,7 +7,7 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 // ── Disparar convites (email + WhatsApp unificado) ──────────────────────────
 
 export async function dispararEmails(empresaId: string) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('assessments.dispatch');
   try {
     const { data: empresa } = await sb.from('empresas')
       .select('nome, slug')

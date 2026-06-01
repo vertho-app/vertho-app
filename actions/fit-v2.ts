@@ -21,7 +21,7 @@ async function tenantDoCargo(cargoId: string, sb?: SupabaseClient) {
 // ── Salvar/carregar perfil ideal ────────────────────────────────────────────
 
 export async function salvarPerfilIdeal(cargoId: string, perfilIdeal: any) {
-  const sbRaw = await requireAdminSupabase();
+  const sbRaw = await requireAdminSupabase('companies.manage');
   const empresaId = await tenantDoCargo(cargoId, sbRaw);
   if (!empresaId) return { success: false, error: 'Cargo não encontrado' };
   const tdb = tenantDb(empresaId);
@@ -47,7 +47,7 @@ export async function loadPerfilIdeal(cargoId: string) {
 // ── Calcular Fit individual ─────────────────────────────────────────────────
 
 export async function calcularFitIndividual(empresaId: string, cargoNome: string, colaboradorId: string): Promise<any> {
-  await requireAdminAction();
+  await requireAdminAction('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
 
@@ -123,7 +123,7 @@ export async function calcularFitIndividual(empresaId: string, cargoNome: string
 // ── Calcular Fit em lote (todos do cargo) ───────────────────────────────────
 
 export async function calcularFitLote(empresaId: string, cargoNome: string, opts: { forcar?: boolean } = {}) {
-  await requireAdminAction();
+  await requireAdminAction('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   const { forcar = false } = opts;
@@ -268,7 +268,7 @@ export async function loadFitIndividual(colaboradorId: string) {
  * opts.force = true força regeneração mesmo se houver cache válido.
  */
 export async function gerarLeituraExecutivaFit(empresaId: string, colaboradorId: string, cargoNome: string, opts: { force?: boolean } = {}) {
-  await requireAdminAction();
+  await requireAdminAction('ai.audit.regenerate');
   try {
     if (!empresaId || !colaboradorId || !cargoNome) {
       return { success: false, error: 'Parâmetros obrigatórios ausentes' };

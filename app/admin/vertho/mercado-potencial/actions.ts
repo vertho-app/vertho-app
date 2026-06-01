@@ -236,7 +236,7 @@ function ordenarRows(rows: any[], filtros: MercadoFilters): any[] {
 // ── Refresh manual das MVs (admin Vertho only) ─────────────────────────────
 
 export async function refreshMercadoPotencial() {
-  await requireAdminAction();
+  await requireAdminAction('radar.admin.access');
   const sb = await requireAdminSupabase();
   const { error } = await sb.rpc('refresh_mv_mercado_potencial');
   if (error) return { error: error.message };

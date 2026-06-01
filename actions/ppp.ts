@@ -15,7 +15,7 @@ interface ExtrairPPPOpts {
 }
 
 export async function extrairPPP(empresaId: string, { urls = [], textos = [], model, enriquecerWeb = false, nomeEscola }: ExtrairPPPOpts = {}) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('content.manage');
   try {
     const { data: empresa } = await sb.from('empresas')
       .select('nome, segmento')

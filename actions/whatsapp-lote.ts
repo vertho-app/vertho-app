@@ -43,7 +43,7 @@ async function publishToQStash(payload: any, delaySec = 0) {
 // ── Disparar links CIS em lote via QStash ──────────────────────────────────
 
 export async function dispararLinksCIS(empresaId: string) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('assessments.dispatch');
   try {
     const { data: empresa } = await sb.from('empresas')
       .select('nome, slug')
@@ -96,7 +96,7 @@ export async function dispararLinksCIS(empresaId: string) {
 // ── Disparar relatórios em lote via QStash ────────────────────────────────
 
 export async function dispararRelatoriosLote(empresaId: string) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('assessments.dispatch');
   try {
     const { data: empresa } = await sb.from('empresas')
       .select('nome, slug')

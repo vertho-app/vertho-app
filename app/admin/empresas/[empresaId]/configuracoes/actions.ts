@@ -24,7 +24,7 @@ export async function loadConfig(empresaId) {
 }
 
 export async function salvarConfig(empresaId, sysConfig) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('settings.company.manage');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const { error } = await sb.from('empresas')
     .update({ sys_config: sysConfig })
@@ -39,7 +39,7 @@ export async function salvarConfig(empresaId, sysConfig) {
 }
 
 export async function salvarLocaleEmpresa(empresaId, defaultLocale) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('settings.locale.manage');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   if (!isAppLocale(defaultLocale)) {
     return { success: false, error: `Locale inválido. Use: ${locales.join(', ')}` };
@@ -58,7 +58,7 @@ export async function salvarLocaleEmpresa(empresaId, defaultLocale) {
 }
 
 export async function salvarBranding(empresaId, branding) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('companies.manage');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
 
   const { data: current } = await sb.from('empresas')
@@ -85,7 +85,7 @@ export async function salvarBranding(empresaId, branding) {
  * voice-over no render de vídeo IA (ver lib/escola-brief + lib/video-plan).
  */
 export async function resumirPPPEscola(empresaId, ppp) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   if (!ppp?.trim()) return { success: false, error: 'Cole o PPP ou uma descrição da escola' };
 
@@ -132,7 +132,7 @@ export async function listarPPPEscolas(empresaId: string) {
  * sys_config.video_escola — sem precisar colar o texto de novo.
  */
 export async function gerarBriefDoPPP(empresaId: string, pppEscolaId?: string) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
 
   let q = sb.from('ppp_escolas')
@@ -185,7 +185,7 @@ export async function loadEquipe(empresaId) {
 }
 
 export async function atualizarRole(colaboradorId, novoRole) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('users.manage');
   if (!colaboradorId || !novoRole) return { success: false, error: 'Dados obrigatorios' };
   const validRoles = ['colaborador', 'gestor', 'rh', 'tutor'];
   if (!validRoles.includes(novoRole)) return { success: false, error: `Role invalido. Use: ${validRoles.join(', ')}` };
@@ -206,7 +206,7 @@ export async function atualizarRole(colaboradorId, novoRole) {
 }
 
 export async function salvarSlug(empresaId, slug) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('companies.manage');
   if (!empresaId || !slug) return { success: false, error: 'empresaId e slug obrigatórios' };
 
   const clean = slug.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '');
@@ -252,7 +252,7 @@ export async function salvarSlug(empresaId, slug) {
  * /admin/empresas/[id]/configuracoes (aba Branding).
  */
 export async function vincularDominioVercel(empresaId: string) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('companies.manage');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
 
   const { data: empresa } = await sb.from('empresas')

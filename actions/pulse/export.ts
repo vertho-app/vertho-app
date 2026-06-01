@@ -34,7 +34,7 @@ export async function exportarRelatorioPulso(
   kind: PulseReportKind,
   opts?: { group_type?: GroupType; group_key?: string },
 ): Promise<{ ok: true; relatorio_id: string } | { ok: false; error: string }> {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('ai.audit.regenerate');
   const actorEmail = (await getAuthenticatedEmailFromAction()) || 'desconhecido';
 
   const groupType: GroupType = opts?.group_type || 'company';

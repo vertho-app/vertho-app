@@ -8,7 +8,7 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 // ── Gerar PDIs (Planos de Desenvolvimento Individual) ───────────────────────
 
 export async function gerarPDIs(empresaId: string, aiConfig: AIConfig = {}) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('ai.audit.regenerate');
   try {
     const { data: empresa } = await sb.from('empresas')
       .select('nome, segmento')
@@ -73,7 +73,7 @@ Gere o PDI:
 // ── Gerar PDIs com descritores ──────────────────────────────────────────────
 
 export async function gerarPDIsDescritores(empresaId: string) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('ai.audit.regenerate');
   try {
     const { data: pdis } = await sb.from('pdis')
       .select('*, colaboradores!inner(nome_completo, cargo)')
@@ -115,7 +115,7 @@ export async function gerarPDIsDescritores(empresaId: string) {
 // ── Salvar competência foco por cargo ───────────────────────────────────────
 
 export async function salvarCompetenciaFoco(empresaId: string, cargo: string, competenciaFoco: string) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('companies.manage');
   try {
     const { error } = await sb.from('cargos_empresa')
       .update({ competencia_foco: competenciaFoco })
@@ -174,7 +174,7 @@ export async function listarColabsParaTrilha(empresaId: string) {
  * Mantido pra compatibilidade.
  */
 export async function montarTrilhasLote(empresaId: string) {
-  await requireAdminAction();
+  await requireAdminAction('content.manage');
   const { gerarTemporadasLote } = await import('@/actions/temporadas');
   return gerarTemporadasLote(empresaId);
 }
@@ -182,7 +182,7 @@ export async function montarTrilhasLote(empresaId: string) {
 // Função antiga preservada como fallback caso queira a lógica simples
 // de dump-tudo (sem alocação por slot/descritor).
 export async function _montarTrilhasLote_legacy(empresaId: string) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('content.manage');
   try {
     // Buscar respostas avaliadas (gaps identificados pela IA4)
     const { data: respostas } = await sb.from('respostas')

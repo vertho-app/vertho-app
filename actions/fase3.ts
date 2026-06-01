@@ -330,7 +330,7 @@ export async function listarPendentesIA4(empresaId: string) {
 }
 
 export async function rodarIA4Uma(empresaId: string, respostaId: string, aiConfig: AIConfig = {}) {
-  const sbRaw = await requireAdminSupabase();
+  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   if (!empresaId || !respostaId) return { success: false, error: 'empresaId e respostaId obrigatórios' };
   const tdb = tenantDb(empresaId);
   try {
@@ -365,7 +365,7 @@ export async function rodarIA4Uma(empresaId: string, respostaId: string, aiConfi
 }
 
 export async function rodarIA4(empresaId: string, aiConfig: AIConfig = {}) {
-  const sbRaw = await requireAdminSupabase();
+  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
@@ -506,7 +506,7 @@ REGRAS DO JSON:
 - mudancas_relevantes e pontos_preservados: obrigatórios (podem ser arrays vazios)`;
 
 export async function reavaliarResposta(respostaId: string, aiConfig: AIConfig = {}) {
-  const sbRaw = await requireAdminSupabase();
+  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   try {
     const { data: resp } = await sbRaw.from('respostas')
       .select('id, empresa_id, colaborador_id, competencia_id, cenario_id, r1, r2, r3, r4, avaliacao_ia, payload_ia4')

@@ -11,7 +11,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 // ── Enviar PDFs em lote via WhatsApp ────────────────────────────────────────
 
 export async function enviarPDFsLote(empresaId: string) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('assessments.dispatch');
   try {
     const { data: empresa } = await sb.from('empresas')
       .select('nome, slug')

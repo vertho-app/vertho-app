@@ -23,7 +23,7 @@ export async function loadCompetenciasBase(segmento: string | null) {
 // ── Salvar competência base ─────────────────────────────────────────────────
 
 export async function salvarCompetenciaBase(comp: any) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('content.manage');
   try {
     const registro = {
       nome: comp.nome,
@@ -57,7 +57,7 @@ export async function salvarCompetenciaBase(comp: any) {
 // ── Excluir competência base ────────────────────────────────────────────────
 
 export async function excluirCompetenciaBase(id: string) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('content.manage');
   try {
     const { error } = await sb.from('competencias_base').delete().eq('id', id);
     if (error) return { success: false, error: error.message };

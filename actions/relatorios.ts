@@ -200,7 +200,7 @@ export async function gerarRelatorioIndividual(
   colaboradorId: string,
   aiConfig: AIConfig = {},
 ): Promise<ServerResult> {
-  const sbRaw = await requireAdminSupabase();
+  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
@@ -469,7 +469,7 @@ export async function gerarRelatorioGestor(
   empresaId: string,
   aiConfig: AIConfig = {},
 ): Promise<ServerResult> {
-  const sbRaw = await requireAdminSupabase();
+  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
@@ -702,7 +702,7 @@ export async function gerarRelatorioRH(
   empresaId: string,
   aiConfig: AIConfig = {},
 ): Promise<ServerResult> {
-  const sbRaw = await requireAdminSupabase();
+  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
@@ -829,7 +829,7 @@ export async function gerarRelatoriosIndividuaisLote(
   empresaId: string,
   _aiConfig: AIConfig = {},
 ): Promise<ServerResult<string[]>> {
-  await requireAdminAction();
+  await requireAdminAction('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {

@@ -76,7 +76,7 @@ export async function loadResumoEmpresa(empresaId: any) {
 }
 
 export async function importarColaboradoresLote(empresaId: any, colabs: any) {
-  await requireAdminAction();
+  await requireAdminAction('users.manage');
 
   const sb = await requireAdminSupabase();
   const { data: existentes } = await sb.from('colaboradores')
@@ -173,7 +173,7 @@ export async function loadColaboradores(empresaId: any) {
 export async function exportarColaboradoresXLSX(empresaId: any): Promise<
   { ok: true; base64: string; n: number } | { ok: false; error: string }
 > {
-  const ctx = await requireAdminAction();
+  const ctx = await requireAdminAction('exports.run');
   if (!empresaId) return { ok: false, error: 'empresa obrigatória' };
   const locale = await getLocale();
 
@@ -236,7 +236,7 @@ export async function exportarColaboradoresXLSX(empresaId: any): Promise<
 }
 
 export async function criarColaborador(empresaId: any, campos: any) {
-  await requireAdminAction();
+  await requireAdminAction('users.manage');
   if (!empresaId) return { success: false, error: 'empresa obrigatória' };
   const sb = await requireAdminSupabase();
   let email = normalizeEmail(campos?.email);
@@ -285,7 +285,7 @@ export async function criarColaborador(empresaId: any, campos: any) {
 }
 
 export async function atualizarColaborador(id: any, campos: any) {
-  await requireAdminAction();
+  await requireAdminAction('users.manage');
   const sb = await requireAdminSupabase();
 
   const { data: existente } = await sb.from('colaboradores').select('empresa_id').eq('id', id).maybeSingle();
@@ -324,7 +324,7 @@ export async function atualizarColaborador(id: any, campos: any) {
 }
 
 export async function excluirColaborador(id: any) {
-  const ctx = await requireAdminAction();
+  const ctx = await requireAdminAction('users.manage');
   const sb = await requireAdminSupabase();
 
   const { data: existente } = await sb.from('colaboradores').select('empresa_id, nome_completo').eq('id', id).maybeSingle();
@@ -353,7 +353,7 @@ export async function loadCargos(empresaId: any) {
 }
 
 export async function salvarCargo(empresaId: any, cargo: any) {
-  const ctx = await requireAdminAction();
+  const ctx = await requireAdminAction('companies.manage');
 
   const sb = await requireAdminSupabase();
   const registro = {
@@ -390,7 +390,7 @@ export async function salvarCargo(empresaId: any, cargo: any) {
 }
 
 export async function excluirCargo(id: any) {
-  const ctx = await requireAdminAction();
+  const ctx = await requireAdminAction('companies.manage');
   const sb = await requireAdminSupabase();
 
   const { data: existe } = await sb.from('cargos_empresa').select('empresa_id, nome').eq('id', id).maybeSingle();
@@ -406,7 +406,7 @@ export async function excluirCargo(id: any) {
 }
 
 export async function sincronizarCargosDeColaboradores(empresaId: any) {
-  await requireAdminAction();
+  await requireAdminAction('companies.manage');
 
   const sb = await requireAdminSupabase();
   const { data: colabs } = await sb.from('colaboradores')
@@ -441,7 +441,7 @@ export async function sincronizarCargosDeColaboradores(empresaId: any) {
 }
 
 export async function importarCargosLote(empresaId: any, cargos: any[]) {
-  await requireAdminAction();
+  await requireAdminAction('companies.manage');
   if (!empresaId || !cargos?.length) return { success: false, error: 'Dados incompletos' };
 
   const sb = await requireAdminSupabase();
@@ -487,7 +487,7 @@ export async function derivarGestorEmailPorNome(empresaId: string): Promise<{
   naoEncontrados: { colab: string; gestor_nome: string }[];
   ambiguos: { colab: string; gestor_nome: string; matches: number }[];
 }> {
-  await requireAdminAction();
+  await requireAdminAction('users.manage');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório', vinculados: 0, naoEncontrados: [], ambiguos: [] };
   const sb = await requireAdminSupabase();
 

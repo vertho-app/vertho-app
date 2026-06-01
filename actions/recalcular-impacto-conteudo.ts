@@ -18,7 +18,7 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
  */
 export async function recalcularImpactoConteudo(email: string) {
   void email;
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('ai.audit.regenerate');
 
   // 1. Todas as trilhas concluídas com evolution_report + temporada_plano
   const { data: trilhas } = await sb.from('trilhas')

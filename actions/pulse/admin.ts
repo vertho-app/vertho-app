@@ -53,7 +53,7 @@ export async function criarCiclo(
   empresaId: string,
   input: { nome: string; descricao?: string | null },
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
-  await requireAdminAction();
+  await requireAdminAction('assessments.dispatch');
   const tdb = tenantDb(empresaId);
   if (!input.nome?.trim()) return { ok: false, error: 'Nome obrigatório' };
   const { data, error } = await tdb.from('pulse_ciclos')
@@ -76,7 +76,7 @@ export async function dispararPulso(
   pulseMoment: PulseMoment,
   opts?: { dueDays?: number; cargoFilter?: string },
 ): Promise<{ ok: true; criados: number; pulados: number } | { ok: false; error: string }> {
-  await requireAdminAction();
+  await requireAdminAction('assessments.dispatch');
   const tdb = tenantDb(empresaId);
 
   const { data: ciclo } = await tdb.from('pulse_ciclos').select('id, status').eq('id', cicloId).single();
@@ -140,7 +140,7 @@ export async function fecharMomento(
   cicloId: string,
   pulseMoment: PulseMoment,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  await requireAdminAction();
+  await requireAdminAction('assessments.dispatch');
   const tdb = tenantDb(empresaId);
   const { data: ciclo } = await tdb.from('pulse_ciclos')
     .select('status').eq('id', cicloId).maybeSingle();

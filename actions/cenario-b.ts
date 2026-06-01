@@ -15,7 +15,7 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
  * @returns {{ success: boolean, cenario?: object, error?: string }}
  */
 export async function gerarCenarioB(sessaoId: string, aiConfig: AIConfig = {}) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('ai.audit.regenerate');
 
   try {
     // 1. Load sessao_avaliacao

@@ -138,7 +138,7 @@ function processCheckResult(check: any): { status: string; check: any } {
 }
 
 export async function checkAvaliacoes(empresaId: string, aiConfig: AIConfig = {}) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('ai.audit.regenerate');
 
   try {
     const { data: respostas, error: qErr } = await sb.from('respostas')
@@ -227,7 +227,7 @@ export async function checkAvaliacoes(empresaId: string, aiConfig: AIConfig = {}
 }
 
 export async function checarUmaResposta(respostaId: string, aiConfig: AIConfig = {}) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('ai.audit.regenerate');
   try {
     const { data: resp } = await sb.from('respostas')
       .select('id, empresa_id, colaborador_id, competencia_id, cenario_id, r1, r2, r3, r4, avaliacao_ia, nivel_ia4')

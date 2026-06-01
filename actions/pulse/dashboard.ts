@@ -202,7 +202,7 @@ export async function loadPulseDashboard(
  * Aciona o refresh da MV de agregados. Admin only.
  */
 export async function refreshPulseAggregates(): Promise<{ ok: boolean; error?: string }> {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('ai.audit.regenerate');
   const { error } = await sb.rpc('refresh_pulse_aggregates');
   if (error) return { ok: false, error: error.message };
   return { ok: true };

@@ -5,7 +5,7 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 // ── Criar nova empresa com auto-slug ────────────────────────────────────────
 
 export async function criarNovaEmpresa(dados: any) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('companies.manage');
   try {
     // Generate slug from name
     let slug = dados.nome
@@ -53,7 +53,7 @@ export async function criarNovaEmpresa(dados: any) {
 // ── Importar colaboradores em lote (dedup por email) ────────────────────────
 
 export async function importarColaboradoresLote(empresaId: string, colaboradores: any[]) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('users.manage');
   try {
     if (!Array.isArray(colaboradores) || !colaboradores.length) {
       return { success: false, error: 'Lista de colaboradores vazia' };
@@ -105,7 +105,7 @@ export async function importarColaboradoresLote(empresaId: string, colaboradores
 // ── Configurar competências iniciais ────────────────────────────────────────
 
 export async function configurarCompetencias(empresaId: string, competencias: any[]) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('content.manage');
   try {
     if (!Array.isArray(competencias) || !competencias.length) {
       return { success: false, error: 'Lista de competências vazia' };

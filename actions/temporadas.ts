@@ -39,7 +39,7 @@ export async function loadTemporadaPorEmail(email: string) {
  */
 export async function gerarTemporada({ colaboradorId, competencia, aiConfig }: GerarTemporadaParams = {}) {
   try {
-    const sbRaw = await requireAdminSupabase();
+    const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
     if (!colaboradorId) return { error: 'colaboradorId obrigatório' };
 
     // Busca raw porque colaboradores é root de tenancy (descobre o tenant aqui).
@@ -551,7 +551,7 @@ function inferirContexto(segmento?: string | null): string {
  */
 export async function gerarTemporadasLote(empresaId: string, aiConfig?: AIConfig) {
   try {
-    const sb = await requireAdminSupabase();
+    const sb = await requireAdminSupabase('ai.audit.regenerate');
     if (!empresaId) return { error: 'empresaId obrigatório' };
     const { data: colabs } = await sb.from('colaboradores')
       .select('id, nome_completo').eq('empresa_id', empresaId);
@@ -589,7 +589,7 @@ export async function gerarTemporadasLote(empresaId: string, aiConfig?: AIConfig
  */
 export async function pausarRetomarTemporada(trilhaId: string) {
   try {
-    const sb = await requireAdminSupabase();
+    const sb = await requireAdminSupabase('content.manage');
     const { data: t } = await sb.from('trilhas').select('status').eq('id', trilhaId).maybeSingle();
     if (!t) return { success: false, error: 'Trilha não encontrada' };
     const novo = t.status === 'pausada' ? 'ativa' : 'pausada';
@@ -603,7 +603,7 @@ export async function pausarRetomarTemporada(trilhaId: string) {
 
 export async function arquivarTemporada(trilhaId: string) {
   try {
-    const sb = await requireAdminSupabase();
+    const sb = await requireAdminSupabase('content.manage');
     const { error } = await sb.from('trilhas').update({ status: 'arquivada' }).eq('id', trilhaId);
     if (error) return { success: false, error: error.message };
     return { success: true, message: 'Arquivada' };
@@ -618,7 +618,7 @@ export async function arquivarTemporada(trilhaId: string) {
  */
 export async function regerarSemana(trilhaId: string, semana: number, aiConfig: AIConfig = {}) {
   try {
-    const sb = await requireAdminSupabase();
+    const sb = await requireAdminSupabase('ai.audit.regenerate');
     const { data: trilha } = await sb.from('trilhas')
       .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, temporada_plano, descritores_selecionados')
       .eq('id', trilhaId).maybeSingle();

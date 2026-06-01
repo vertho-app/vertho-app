@@ -72,7 +72,7 @@ interface SalvarNotaParams {
 }
 
 export async function salvarNotaAssessment({ empresaId, colaboradorId, competencia, descritor, nota, cargo }: SalvarNotaParams) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('users.manage');
   try {
     const { error } = await sb.from('descriptor_assessments').upsert({
       empresa_id: empresaId,
@@ -95,7 +95,7 @@ export async function salvarNotaAssessment({ empresaId, colaboradorId, competenc
  * Apaga um assessment (ex: ao limpar uma célula).
  */
 export async function deletarNotaAssessment({ colaboradorId, competencia, descritor }: { colaboradorId: string; competencia: string; descritor: string }) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('users.manage');
   try {
     const { error } = await sb.from('descriptor_assessments').delete()
       .eq('colaborador_id', colaboradorId)

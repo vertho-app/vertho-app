@@ -4,7 +4,7 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 
 export async function limparSessoesAntigas(dias: number = 30) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('trash.manage');
   const cutoff = new Date(Date.now() - dias * 86400000).toISOString();
   const { count, error } = await sb.from('envios_diagnostico')
     .delete({ count: 'exact' })
@@ -15,7 +15,7 @@ export async function limparSessoesAntigas(dias: number = 30) {
 }
 
 export async function limparSessoesTeste() {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('trash.manage');
   const { count, error } = await sb.from('envios_diagnostico')
     .delete({ count: 'exact' })
     .ilike('email', '%@teste%');

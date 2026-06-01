@@ -105,7 +105,7 @@ export async function loadCargos(empresaId: string) {
  * ao cargo oficial em cargos_empresa.
  */
 export async function renomearTop10Cargo(empresaId: string, deNome: string, paraNome: string) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('companies.manage');
   if (!deNome || !paraNome) return { success: false, error: 'Nomes obrigatórios' };
   if (deNome === paraNome) return { success: true, message: 'Sem alteração' };
   try {
@@ -121,7 +121,7 @@ export async function renomearTop10Cargo(empresaId: string, deNome: string, para
 }
 
 export async function salvarTop5(cargoId: string, top5: any) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('companies.manage');
   try {
     // Se cargoId é UUID, atualiza cargos_empresa; senão ignora
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;
@@ -138,7 +138,7 @@ export async function salvarTop5(cargoId: string, top5: any) {
 }
 
 export async function salvarEhLideranca(cargoId: string, ehLideranca: boolean) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('companies.manage');
   try {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;
     if (!uuidRegex.test(cargoId)) return { success: false, error: 'Cargo precisa estar em cargos_empresa' };

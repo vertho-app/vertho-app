@@ -150,8 +150,8 @@ async function deletarAnexoTemporario(sb, path) {
  *   os destinatários, em email (Resend attachments) e WhatsApp (send-document).
  */
 export async function dispararMensagemCustomizada(empresaId, template, canal, filtros: any = {}, assuntoTemplate = '', comPDF = false, anexoExtra: any = null) {
-  const ctx = await requireAdminAction();
-  const sb = await requireAdminSupabase();
+  const ctx = await requireAdminAction('assessments.dispatch');
+  const sb = await requireAdminSupabase('assessments.dispatch');
   try {
     const { data: empresa } = await sb.from('empresas')
       .select('nome, slug').eq('id', empresaId).single();
@@ -453,8 +453,8 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
 }
 
 export async function enviarMagicLinksWhatsApp(empresaId: string, filtros: any = {}) {
-  const ctx = await requireAdminAction();
-  const sb = await requireAdminSupabase();
+  const ctx = await requireAdminAction('assessments.dispatch');
+  const sb = await requireAdminSupabase('assessments.dispatch');
   try {
     const { data: empresa } = await sb.from('empresas')
       .select('nome, slug').eq('id', empresaId).single();

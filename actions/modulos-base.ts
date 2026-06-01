@@ -142,7 +142,7 @@ export async function listarCompetenciasBase() {
 // ════════════════════════════════════════════════════════════════════════════
 
 export async function salvarModulo(payload: any) {
-  const ctx = await requireAdminAction();
+  const ctx = await requireAdminAction('content.manage');
   if (!payload?.competencia_base_id) return { error: 'competencia_base_id obrigatório' };
   if (!payload?.nivel_entrada || !payload?.nivel_destino) return { error: 'níveis obrigatórios' };
   if (!nivelGreater(payload.nivel_destino, payload.nivel_entrada)) {
@@ -194,7 +194,7 @@ export async function salvarModulo(payload: any) {
 // ════════════════════════════════════════════════════════════════════════════
 
 export async function submeterRevisao(id: string) {
-  await requireAdminAction();
+  await requireAdminAction('content.manage');
   const sb = createSupabaseAdmin();
   const { data } = await sb.from('modulos_base_conteudo').select('status, conteudo_central, conteudo_aplicavel, guarda_corpos, adaptacao_por_formato').eq('id', id).maybeSingle();
   if (!data) return { error: 'Módulo não encontrado' };
@@ -220,7 +220,7 @@ export async function submeterRevisao(id: string) {
 }
 
 export async function aprovarPublicar(id: string) {
-  const ctx = await requireAdminAction();
+  const ctx = await requireAdminAction('content.manage');
   const sb = createSupabaseAdmin();
   const { data } = await sb.from('modulos_base_conteudo')
     .select('status, versao, auditoria_ia, auditado_em_versao')
@@ -251,7 +251,7 @@ export async function aprovarPublicar(id: string) {
 }
 
 export async function marcarObsoleto(id: string, substitui_por?: string) {
-  await requireAdminAction();
+  await requireAdminAction('content.manage');
   const sb = createSupabaseAdmin();
   const update: any = { status: 'obsoleto' };
   if (substitui_por) update.substitui_modulo_id = substitui_por;
@@ -261,7 +261,7 @@ export async function marcarObsoleto(id: string, substitui_por?: string) {
 }
 
 export async function excluirModulo(id: string) {
-  await requireAdminAction();
+  await requireAdminAction('content.manage');
   if (!id) return { error: 'id obrigatório' };
   const sb = createSupabaseAdmin();
   const { data } = await sb.from('modulos_base_conteudo').select('status, titulo').eq('id', id).maybeSingle();
@@ -277,7 +277,7 @@ export async function excluirModulo(id: string) {
 }
 
 export async function setPreferido(id: string, preferido: boolean) {
-  await requireAdminAction();
+  await requireAdminAction('content.manage');
   const sb = createSupabaseAdmin();
   // Se setando true, primeiro zera os demais do mesmo grupo (índice partial garante consistência)
   if (preferido) {
@@ -296,7 +296,7 @@ export async function setPreferido(id: string, preferido: boolean) {
 // ════════════════════════════════════════════════════════════════════════════
 
 export async function criarTraducao(modulo_origem_id: string, novo_locale: Locale) {
-  const ctx = await requireAdminAction();
+  const ctx = await requireAdminAction('content.manage');
   const sb = createSupabaseAdmin();
   const { data: origem } = await sb.from('modulos_base_conteudo').select(COLS).eq('id', modulo_origem_id).maybeSingle();
   if (!origem) return { error: 'Módulo de origem não encontrado' };
@@ -458,7 +458,7 @@ export async function rascunharModuloBase(opts: {
   contexto_pedagogico?: string;
   modulo_referencia_id?: string;
 }) {
-  const ctx = await requireAdminAction();
+  const ctx = await requireAdminAction('ai.audit.regenerate');
   if (!opts.competencia_base_id) return { error: 'competencia_base_id obrigatório' };
   if (!nivelGreater(opts.nivel_destino, opts.nivel_entrada)) {
     return { error: 'nivel_destino deve ser maior que nivel_entrada' };
@@ -522,7 +522,7 @@ export async function rascunharModuloBase(opts: {
  * NÃO persiste nada. Usuário revisa e corrige antes de chamar `importarModuloDocx`.
  */
 export async function detectarMetadadosDocx(opts: { arquivoBase64: string }) {
-  await requireAdminAction();
+  await requireAdminAction('ai.audit.regenerate');
   if (!opts?.arquivoBase64) return { error: 'arquivoBase64 obrigatório' };
 
   let texto: string;
@@ -613,7 +613,7 @@ export async function importarModuloDocx(opts: {
   locale: Locale;
   contexto_pedagogico?: string;
 }) {
-  const ctx = await requireAdminAction();
+  const ctx = await requireAdminAction('content.manage');
   if (!opts.arquivoBase64) return { error: 'arquivoBase64 obrigatório' };
   if (!opts.competencia_base_id) return { error: 'competencia_base_id obrigatório' };
   if (!nivelGreater(opts.nivel_destino, opts.nivel_entrada)) {
@@ -713,7 +713,7 @@ REGRA DE VEREDITO (deve casar com a nota):
 - "confianca" = sua certeza no próprio veredito (0-1).`;
 
 export async function auditarModuloBase(id: string) {
-  await requireAdminAction();
+  await requireAdminAction('ai.audit.regenerate');
   const sb = createSupabaseAdmin();
   const { data: m } = await sb.from('modulos_base_conteudo').select(COLS).eq('id', id).maybeSingle();
   if (!m) return { error: 'Módulo não encontrado' };
@@ -847,7 +847,7 @@ Retorne APENAS JSON válido com a estrutura completa dos 4 blocos. Sem markdown,
 }
 
 export async function refinarComFeedback(id: string) {
-  await requireAdminAction();
+  await requireAdminAction('ai.audit.regenerate');
   const sb = createSupabaseAdmin();
   const { data: m } = await sb.from('modulos_base_conteudo').select(COLS).eq('id', id).maybeSingle();
   if (!m) return { error: 'Módulo não encontrado' };

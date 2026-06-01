@@ -86,7 +86,7 @@ export async function listarAuditoriasSem14(filtros: any = {}) {
  * Depois roda check de novo.
  */
 export async function regerarScoringComFeedback(progressoId) {
-  await requireAdminAction();
+  await requireAdminAction('ai.audit.regenerate');
 
   const sb = await requireAdminSupabase();
   const { data: prog } = await sb.from('temporada_semana_progresso')

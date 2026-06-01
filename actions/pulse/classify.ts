@@ -23,7 +23,7 @@ export async function classificarRespostasAbertas(
   cicloId: string,
   opts?: { maxRespostas?: number; pulando?: boolean },
 ): Promise<{ ok: true; processadas: number; erros: number; ja_classificadas: number } | { ok: false; error: string }> {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('ai.audit.regenerate');
   const cap = opts?.maxRespostas || 50;
 
   const { data: ciclo } = await sb.from('pulse_ciclos')

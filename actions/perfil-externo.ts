@@ -31,7 +31,7 @@ export async function setEmpresaFonteExterna(
   empresaId: string,
   fonte: 'opq32' | 'hogan' | 'mbti' | 'big5' | null,
 ): Promise<{ success: boolean; error?: string }> {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('settings.company.manage');
   const { data: emp } = await sb
     .from('empresas')
     .select('sys_config')
@@ -133,7 +133,7 @@ export async function uploadPerfilPdf(
   empresaId: string,
   formData: FormData,
 ): Promise<{ success: boolean; error?: string; path?: string }> {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('content.manage');
   const colabId = String(formData.get('colab_id') || '');
   const fonte = String(formData.get('fonte') || 'opq32') as 'opq32';
   const file = formData.get('file') as File | null;
@@ -192,7 +192,7 @@ export async function extrairPerfilExterno(
   empresaId: string,
   colabId: string,
 ): Promise<{ success: boolean; error?: string; profile?: OPQ32Profile }> {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('ai.audit.regenerate');
   const tdb = tenantDb(empresaId);
 
   const { data: colab } = await tdb
@@ -313,7 +313,7 @@ export async function deletarPerfilExterno(
   empresaId: string,
   colabId: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('trash.manage');
   const tdb = tenantDb(empresaId);
 
   const { data: colab } = await tdb

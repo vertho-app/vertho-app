@@ -54,7 +54,7 @@ function nomeBloqueado(razao: string | null | undefined): boolean {
 export async function rodarScores(
   opts?: { scoringVersion?: string },
 ): Promise<{ ok: true; processados: number; sem_segmento: number; erros: number; job_id: string } | { ok: false; error: string }> {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('ai.audit.regenerate');
   const version = opts?.scoringVersion || SCORING_VERSION;
 
   const { data: job } = await sb.from('radarempresas_jobs')

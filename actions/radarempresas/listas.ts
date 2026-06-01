@@ -31,7 +31,7 @@ export async function listarListas() {
 }
 
 export async function criarLista(input: { nome: string; descricao?: string; filtros?: RadarFiltros }) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('radar_empresas.access');
   if (!input.nome?.trim()) return { ok: false as const, error: 'Nome obrigatório' };
   const email = await audit(sb, 'criar_lista', { nome: input.nome });
   const { data, error } = await sb.from('radarempresas_listas')
@@ -44,7 +44,7 @@ export async function criarLista(input: { nome: string; descricao?: string; filt
 
 /** Adiciona estabelecimentos a uma lista (idempotente via UK). */
 export async function adicionarItens(listaId: string, estabelecimentoIds: string[]) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('radar_empresas.access');
   if (!estabelecimentoIds.length) return { ok: false as const, error: 'Nenhum item' };
   const rows = estabelecimentoIds.map(id => ({
     lista_id: listaId, estabelecimento_id: id, status: 'new',
@@ -57,7 +57,7 @@ export async function adicionarItens(listaId: string, estabelecimentoIds: string
 }
 
 export async function atualizarStatusItem(itemId: string, status: string) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('radar_empresas.access');
   const { error } = await sb.from('radarempresas_lista_itens')
     .update({ status, updated_at: new Date().toISOString() }).eq('id', itemId);
   return error ? { ok: false as const, error: error.message } : { ok: true as const };
@@ -155,7 +155,7 @@ async function auditExport(sb: any, kind: string, src: any, n: number) {
 export async function exportarCSV(
   src: { listaId?: string; filtros?: RadarFiltros },
 ): Promise<{ ok: true; csv: string; n: number } | { ok: false; error: string }> {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('exports.run');
   const r = await montarExport(sb, src);
   if (r.ok === false) return r;
   const csv = [
@@ -171,7 +171,7 @@ export async function exportarCSV(
 export async function exportarXLSX(
   src: { listaId?: string; filtros?: RadarFiltros },
 ): Promise<{ ok: true; base64: string; n: number } | { ok: false; error: string }> {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('exports.run');
   const r = await montarExport(sb, src);
   if (r.ok === false) return r;
 

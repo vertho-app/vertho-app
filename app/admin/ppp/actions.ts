@@ -18,7 +18,7 @@ export async function loadPPPs(empresaId) {
 }
 
 export async function excluirPPP(id) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('content.manage');
   const { error } = await sb.from('ppp_escolas').delete().eq('id', id);
   if (error) return { success: false, error: error.message };
   return { success: true };

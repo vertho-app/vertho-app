@@ -5,7 +5,7 @@ import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 
 export async function criarNovaEmpresa(dados) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('companies.manage');
   const slug = dados.nome.trim().toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');

@@ -115,6 +115,6 @@ export async function loadAvaliacaoAcumuladaDetalhe(progressoId) {
  * havido ajuste de régua, novas evidências, etc).
  */
 export async function regerarAvaliacaoAcumulada(trilhaId) {
-  await requireAdminAction();
+  await requireAdminAction('ai.audit.regenerate');
   return gerarAvaliacaoAcumulada(trilhaId);
 }

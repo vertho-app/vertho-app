@@ -73,7 +73,7 @@ export async function loadRadarStats() {
 }
 
 export async function refreshRadarMaterializedViews() {
-  await requireAdminAction();
+  await requireAdminAction('radar.admin.access');
   const sb = await requireAdminSupabase();
   const { error } = await sb.rpc('refresh_diag_mvs');
   if (error) return { success: false, error: error.message };
@@ -81,7 +81,7 @@ export async function refreshRadarMaterializedViews() {
 }
 
 export async function markStaleIngestRuns(maxAgeHours = 12) {
-  await requireAdminAction();
+  await requireAdminAction('radar.admin.access');
   const sb = await requireAdminSupabase();
   const cutoff = new Date(Date.now() - Math.max(1, maxAgeHours) * 60 * 60 * 1000).toISOString();
   const msg = `Marcado como interrompido pelo admin após ${maxAgeHours}h sem finalização.`;
@@ -100,7 +100,7 @@ export async function markStaleIngestRuns(maxAgeHours = 12) {
 }
 
 export async function interruptIngestRun(runId: string) {
-  await requireAdminAction();
+  await requireAdminAction('radar.admin.access');
   if (!/^[0-9a-f-]{36}$/i.test(runId)) return { success: false, error: 'runId inválido' };
   const sb = await requireAdminSupabase();
   const { error } = await sb
@@ -117,7 +117,7 @@ export async function interruptIngestRun(runId: string) {
 }
 
 export async function ingestSaebFromUpload(arquivoBase64: string, arquivoNome: string) {
-  await requireAdminAction();
+  await requireAdminAction('radar.admin.access');
   const buffer = Buffer.from(arquivoBase64, 'base64');
 
   const runId = await startIngestRun('saeb', { escopo: 'nacional' }, arquivoNome);
@@ -137,7 +137,7 @@ export async function ingestIcaFromUpload(
   payload: { format: 'csv'; texto: string } | { format: 'xlsx'; arquivoBase64: string },
   arquivoNome: string,
 ) {
-  await requireAdminAction();
+  await requireAdminAction('radar.admin.access');
 
   const runId = await startIngestRun('ica', { escopo: 'nacional', formato: payload.format }, arquivoNome);
 
@@ -155,7 +155,7 @@ export async function ingestIcaFromUpload(
 }
 
 export async function ingestCensoFromUpload(textoCsv: string, arquivoNome: string) {
-  await requireAdminAction();
+  await requireAdminAction('radar.admin.access');
 
   const runId = await startIngestRun(
     'censo',
@@ -176,7 +176,7 @@ export async function ingestCensoFromUpload(textoCsv: string, arquivoNome: strin
 
 // ── Ideb (XLSX INEP) ────────────────────────────────────────────────
 export async function ingestIdebFromUpload(arquivoBase64: string, arquivoNome: string) {
-  await requireAdminAction();
+  await requireAdminAction('radar.admin.access');
   const buffer = Buffer.from(arquivoBase64, 'base64');
   const runId = await startIngestRun('ideb', { fonte: 'XLSX INEP' }, arquivoNome);
   try {
@@ -192,7 +192,7 @@ export async function ingestIdebFromUpload(arquivoBase64: string, arquivoNome: s
 
 // ── SARESP (CSV SP) ─────────────────────────────────────────────────
 export async function ingestSarespFromUpload(textoCsv: string, arquivoNome: string) {
-  await requireAdminAction();
+  await requireAdminAction('radar.admin.access');
   const runId = await startIngestRun('saresp', { fonte: 'CSV SP' }, arquivoNome);
   try {
     const result = await importarSarespCsv(textoCsv, { ingestRunId: runId, arquivoNome });
@@ -207,7 +207,7 @@ export async function ingestSarespFromUpload(textoCsv: string, arquivoNome: stri
 
 // ── FUNDEB (CSV Tesouro) ────────────────────────────────────────────
 export async function ingestFundebFromUpload(textoCsv: string, arquivoNome: string) {
-  await requireAdminAction();
+  await requireAdminAction('radar.admin.access');
   const runId = await startIngestRun('fundeb', { fonte: 'CSV Tesouro' }, arquivoNome);
   try {
     const result = await importarFundebCsv(textoCsv, { ingestRunId: runId });
@@ -222,7 +222,7 @@ export async function ingestFundebFromUpload(textoCsv: string, arquivoNome: stri
 
 // ── FUNDEB Receita Prevista (XLSX Portaria Interministerial) ────────
 export async function ingestFundebReceitaFromUpload(arquivoBase64: string, arquivoNome: string) {
-  await requireAdminAction();
+  await requireAdminAction('radar.admin.access');
   const buffer = Buffer.from(arquivoBase64, 'base64');
   const runId = await startIngestRun('fundeb_receita', { fonte: 'XLSX Portaria Interministerial' }, arquivoNome);
   try {
@@ -238,7 +238,7 @@ export async function ingestFundebReceitaFromUpload(arquivoBase64: string, arqui
 
 // ── VAAR (XLSX FNDE — habilitação para complementação-resultado) ────
 export async function ingestVaarFromUpload(arquivoBase64: string, arquivoNome: string) {
-  await requireAdminAction();
+  await requireAdminAction('radar.admin.access');
   const buffer = Buffer.from(arquivoBase64, 'base64');
   const runId = await startIngestRun('vaar', { fonte: 'XLSX FNDE' }, arquivoNome);
   try {
@@ -254,7 +254,7 @@ export async function ingestVaarFromUpload(arquivoBase64: string, arquivoNome: s
 
 // ── PDDE (CSV FNDE — escola ou municipal) ───────────────────────────
 export async function ingestPddeFromUpload(textoCsv: string, arquivoNome: string, preferMunicipal = false) {
-  await requireAdminAction();
+  await requireAdminAction('radar.admin.access');
   const runId = await startIngestRun('pdde', { fonte: 'CSV FNDE', preferMunicipal }, arquivoNome);
   try {
     const result = await importarPddeCsv(textoCsv, { ingestRunId: runId, preferMunicipal });
@@ -268,7 +268,7 @@ export async function ingestPddeFromUpload(textoCsv: string, arquivoNome: string
 }
 
 export async function deleteIngestRun(runId: string) {
-  await requireAdminAction();
+  await requireAdminAction('radar.admin.access');
   const sb = await requireAdminSupabase();
   const { error } = await sb.from('diag_ingest_runs').delete().eq('id', runId);
   if (error) return { success: false, error: error.message };

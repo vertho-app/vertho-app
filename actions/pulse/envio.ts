@@ -63,7 +63,7 @@ export async function enviarConvitesPulso(
     apenas_status?: 'pending' | 'started';
   },
 ): Promise<{ ok: true; stats: EnvioStats } | { ok: false; error: string }> {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('assessments.dispatch');
   const adminEmail = (await getAuthenticatedEmailFromAction()) || 'desconhecido';
 
   const { data: empresa } = await sb.from('empresas')

@@ -26,7 +26,7 @@ export async function loadCompetencias(empresaId: string) {
 // ── Salvar (criar ou atualizar) competência ─────────────────────────────────
 
 export async function salvarCompetencia(empresaId: string, comp: any) {
-  await requireAdminAction();
+  await requireAdminAction('content.manage');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   try {
     const tdb = tenantDb(empresaId);
@@ -64,10 +64,10 @@ export async function salvarCompetencia(empresaId: string, comp: any) {
 // ── Excluir competência ─────────────────────────────────────────────────────
 
 export async function excluirCompetencia(id: string) {
-  await requireAdminAction();
+  await requireAdminAction('content.manage');
   // Não recebe empresaId — descobre via raw + valida tenant pra defesa em profundidade.
   try {
-    const sbRaw = await requireAdminSupabase();
+    const sbRaw = await requireAdminSupabase('content.manage');
     const { data: row } = await sbRaw.from('competencias').select('empresa_id').eq('id', id).maybeSingle();
     if (!row) return { success: false, error: 'Não encontrada' };
     const tdb = tenantDb(row.empresa_id);

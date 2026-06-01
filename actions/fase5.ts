@@ -324,7 +324,7 @@ async function runCheckOnCenB(sb: any, cen: any, comp: any, descritoresTexto: st
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Config = {}) {
-  const sbRaw = await requireAdminSupabase();
+  const sbRaw = await requireAdminSupabase('content.manage');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
@@ -467,7 +467,7 @@ export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Confi
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function checkCenarioBUm(cenarioId: string, modelo: string | null = null) {
-  const sbRaw = await requireAdminSupabase();
+  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   try {
     // banco_cenarios é misto → raw por id
     const { data: cen } = await sbRaw.from('banco_cenarios')
@@ -504,7 +504,7 @@ export async function checkCenarioBUm(cenarioId: string, modelo: string | null =
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = {}) {
-  const sbRaw = await requireAdminSupabase();
+  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   try {
     // banco_cenarios é misto → raw por id
     const { data: cen } = await sbRaw.from('banco_cenarios')
@@ -608,7 +608,7 @@ export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = 
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function iniciarReavaliacaoLote(empresaId: string, aiConfig: AIConfig = {}) {
-  await requireAdminAction();
+  await requireAdminAction('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
@@ -1111,7 +1111,7 @@ REGRAS:
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function gerarEvolucaoFusao(empresaId: string, aiConfig: AIConfig = {}) {
-  const sbRaw = await requireAdminSupabase();
+  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
@@ -1377,7 +1377,7 @@ REGRAS:
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function gerarPlenariaEvolucao(empresaId: string, aiConfig: AIConfig = {}) {
-  const sbRaw = await requireAdminSupabase();
+  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
@@ -1522,12 +1522,12 @@ Descritores que subiram: ${totalDescUp} de ${totalDesc} (${totalDesc ? Math.roun
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function gerarRelatoriosEvolucaoLote(empresaId: string, aiConfig: AIConfig = {}) {
-  await requireAdminAction();
+  await requireAdminAction('ai.audit.regenerate');
   return gerarEvolucaoFusao(empresaId, aiConfig);
 }
 
 export async function gerarRelatorioRHManual(empresaId: string, aiConfig: AIConfig = {}) {
-  const sbRaw = await requireAdminSupabase();
+  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
@@ -1644,7 +1644,7 @@ REGRAS:
 }
 
 export async function gerarRelatorioPlenaria(empresaId: string, aiConfig: AIConfig = {}) {
-  const sbRaw = await requireAdminSupabase();
+  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
@@ -1737,7 +1737,7 @@ REGRAS:
 }
 
 export async function enviarLinksPerfil(empresaId: string) {
-  const sbRaw = await requireAdminSupabase();
+  const sbRaw = await requireAdminSupabase('assessments.dispatch');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
@@ -1763,7 +1763,7 @@ export async function enviarLinksPerfil(empresaId: string) {
 }
 
 export async function gerarDossieGestor(empresaId: string, aiConfig: AIConfig = {}) {
-  const sbRaw = await requireAdminSupabase();
+  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
@@ -1865,7 +1865,7 @@ REGRAS:
 }
 
 export async function checkCenarios(empresaId: string, aiConfig: AIConfig = {}) {
-  await requireAdminAction();
+  await requireAdminAction('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
@@ -2032,7 +2032,7 @@ export async function loadCenariosB(empresaId: string) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function checkCenariosBLote(empresaId: string, aiConfig: Fase5Config = {}) {
-  const sbRaw = await requireAdminSupabase();
+  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
@@ -2078,7 +2078,7 @@ export async function checkCenariosBLote(empresaId: string, aiConfig: Fase5Confi
 // ══════════════════════════════════════════════════════════════════════════════
 
 export async function regenerarERecheckarCenariosBLote(empresaId: string, aiConfig: Fase5Config = {}) {
-  await requireAdminAction();
+  await requireAdminAction('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {

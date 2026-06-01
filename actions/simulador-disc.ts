@@ -11,7 +11,7 @@ import { requireAdminAction } from '@/lib/auth/action-context';
  * Útil pra testes e demos — NÃO substitui o mapeamento real.
  */
 export async function simularMapeamentoDISCLote(empresaId: string) {
-  await requireAdminAction();
+  await requireAdminAction('ai.audit.regenerate');
   try {
     if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
     const tdb = tenantDb(empresaId);

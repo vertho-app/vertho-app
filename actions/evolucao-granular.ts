@@ -16,7 +16,7 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
  * @returns {{ success: boolean, descritores?: array, error?: string }}
  */
 export async function gerarEvolucaoDescritores(empresaId: string, colaboradorId: string, aiConfig: AIConfig = {}) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('ai.audit.regenerate');
 
   try {
     // 1. Load colaborador with DISC profile
@@ -201,7 +201,7 @@ REGRAS:
  * @returns {{ success: boolean, analise?: object, error?: string }}
  */
 export async function gerarConvergenciaCIS(empresaId: string, colaboradorId: string) {
-  const sb = await requireAdminSupabase();
+  const sb = await requireAdminSupabase('ai.audit.regenerate');
 
   try {
     // 1. Load colaborador DISC scores

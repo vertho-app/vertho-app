@@ -71,7 +71,7 @@ interface SimUmaSemanaParams {
 
 export async function simularUmaSemanaSimulacao(email: string, { trilhaId, semana, perfilEvolucao = 'evolucao_parcial' }: SimUmaSemanaParams) {
   void email;
-  const sbRaw = await requireAdminSupabase();
+  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   const { data: trilha } = await sbRaw.from('trilhas')
     .select('id, empresa_id, colaborador_id, competencia_foco, temporada_plano, descritores_selecionados')
     .eq('id', trilhaId).maybeSingle();
@@ -111,7 +111,7 @@ export async function simularUmaSemanaSimulacao(email: string, { trilhaId, seman
 
 export async function simularTemporadaCompleta(email: string, { trilhaId, perfilEvolucao = 'evolucao_parcial' }: { trilhaId: string; perfilEvolucao?: string }) {
   void email;
-  const sbRaw = await requireAdminSupabase();
+  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   const { data: trilha } = await sbRaw.from('trilhas')
     .select('id, empresa_id, colaborador_id, competencia_foco, temporada_plano, descritores_selecionados')
     .eq('id', trilhaId).maybeSingle();
