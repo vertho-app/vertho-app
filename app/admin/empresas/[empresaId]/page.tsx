@@ -8,7 +8,7 @@ function fmt(n: any, locale: string) { return (n ?? 0).toLocaleString(locale); }
 
 import { getCustomLabel, isHidden } from '@/lib/ui-resolver';
 import {
-  Building2, Users, Brain, Mail, Bot, GraduationCap, TrendingUp,
+  Building2, Users, Brain, Mail, Bot, GraduationCap, TrendingUp, Activity,
   Zap, Database, FileText, Send, ClipboardCheck, BarChart3, Target, Clock,
   Play, BookOpen, Layers, MessageSquare, FileBarChart, CheckCircle,
   Loader2, AlertTriangle, X, ChevronDown, ChevronUp, Trash2, Settings, Trophy, Plus, Filter, Search, Film, Sparkles
@@ -81,6 +81,7 @@ const PHASE_CONFIG = [
     { key: 'simular-disc',label: 'Simular Mapeamento DISC',     icon: MessageSquare,ai: false },
     { key: 'perfis-disc', label: 'Perfis Comportamentais',      icon: Brain,        hrefFn: (id: string) => `/admin/empresas/${id}/perfis-comportamentais` },
     { key: 'envios',      label: 'Envios',                      icon: Send,         href: '/admin/whatsapp' },
+    { key: 'pulso',       label: 'Pulso de Desenvolvimento',    icon: Activity,     hrefFn: (id: string) => `/admin/empresas/${id}/pulso` },
   ]},
   { num: 2, icon: Bot, color: '#EF4444', groups: [
     { label: 'Diagnóstico', actions: [
