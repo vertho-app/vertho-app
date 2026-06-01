@@ -155,7 +155,7 @@ TRATAMENTOS (campo "as"):
 - "heading": título de seção (bloco kind h1/h2/h3).
 - "paragraph": parágrafo de corpo (use com parcimônia — não deixe a página virar texto corrido).
 - "pullquote": destaca o bloco inteiro como citação editorial (blocos kind "quote" ou parágrafos curtos e fortes).
-- "pullquoteText": extrai UMA frase forte de dentro de um bloco. "text" DEVE ser cópia EXATA (verbatim) de um trecho contínuo do bloco "ref". É ADITIVO (o bloco original continua em outro item).
+- "pullquoteText": extrai UMA frase forte de dentro de um bloco. "text" DEVE ser cópia EXATA (verbatim) de um trecho contínuo do bloco "ref" e AUTOSSUFICIENTE — uma frase ou oração COMPLETA que começa no INÍCIO de uma frase (primeira letra maiúscula) e faz sentido sozinha. NUNCA um fragmento cortado no meio (não comece com minúscula nem com conectores soltos como "o de", "que", "e", "mas", "porque"). É ADITIVO (o bloco original continua em outro item) — então NÃO o coloque na mesma página, logo ao lado do bloco de origem (repetiria o que o leitor acabou de ler); use-o numa página onde o bloco de origem NÃO aparece, ou escolha "pullquote" de um bloco quote próprio.
 - "synthesis": box de síntese para um conceito central (parágrafo). Bom para "o que é / por que importa".
 - "bullets": lista de marcadores (kind ul) — caso raro.
 - "numberedCards": cards numerados (kind ol).
@@ -262,8 +262,15 @@ function sanitize(plan: any, blocks: RawBlock[]): LayoutPlan | null {
       if (as === 'pullquoteText') {
         if (!validRef(it.ref) || typeof it.text !== 'string') continue;
         const src = blockText(byId.get(it.ref)!);
-        if (!norm(src).includes(norm(it.text)) || norm(it.text).length < 12) continue;
-        items.push({ as: 'pullquoteText', ref: it.ref, text: it.text.trim() });
+        const ptext = it.text.trim();
+        if (!norm(src).includes(norm(ptext)) || norm(ptext).length < 12) continue;
+        // Autossuficiência: a pull quote precisa começar no INÍCIO de uma frase
+        // (maiúscula/dígito/aspas) — não um fragmento cortado no meio como
+        // "o de usar dados..." (começa minúsculo), que fica confuso. Descarta
+        // sem perda: o bloco de origem segue presente estruturalmente.
+        const firstChar = ptext.replace(/^["“«'']+/, '').charAt(0);
+        if (firstChar && firstChar.toLowerCase() === firstChar && firstChar.toUpperCase() !== firstChar) continue;
+        items.push({ as: 'pullquoteText', ref: it.ref, text: ptext });
         continue;
       }
       if (TREATMENTS.includes(as)) {

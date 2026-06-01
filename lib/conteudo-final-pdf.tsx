@@ -89,7 +89,9 @@ const s = StyleSheet.create({
 
   numCard: { flexDirection: 'row', marginBottom: 8, padding: 10, backgroundColor: colors.grayBg, borderRadius: 6, borderLeftWidth: 3, borderLeftColor: colors.cyan },
   numBadge: { width: 20, height: 20, borderRadius: 10, backgroundColor: colors.navy, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  badgeText: { color: colors.white, fontSize: 9.5, fontWeight: 700, lineHeight: 1 },
+  // paddingTop compensa o baseline do NotoSans (o glyph fica alto na caixa de
+  // linha) — centraliza o número verticalmente no círculo. Validado a 4x.
+  badgeText: { color: colors.white, fontSize: 9.5, fontWeight: 700, lineHeight: 1, paddingTop: 1, textAlign: 'center' },
   numText: { flex: 1, color: colors.textPrimary, paddingTop: 2 },
 
   quote: { marginVertical: 12, paddingVertical: 12, paddingHorizontal: 16, backgroundColor: colors.grayBg, borderLeftWidth: 3, borderLeftColor: colors.cyan, borderRadius: 4 },
