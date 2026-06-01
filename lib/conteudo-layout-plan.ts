@@ -306,20 +306,28 @@ interface PlanMeta {
  */
 export async function planLayout(blocks: RawBlock[], meta: PlanMeta, model?: string): Promise<LayoutPlan | null> {
   if (!blocks.length) return null;
-  try {
-    const ctx = [
-      `TÍTULO: ${meta.titulo}`,
-      meta.competencia ? `COMPETÊNCIA/TEMA: ${meta.competencia}` : null,
-      meta.descritor ? `DESCRITOR: ${meta.descritor}` : null,
-      meta.formato ? `FORMATO: ${meta.formato}` : null,
-    ].filter(Boolean).join('\n');
-    const user = `${ctx}\n\nBLOCOS (id, kind, conteúdo):\n${serializeBlocks(blocks)}\n\nProduza o plano de paginação em JSON.`;
-    const raw = await callAI(PLAN_SYSTEM, user, { model }, 8000, { temperature: 0.3 });
-    const plan = sanitize(extractJson(raw), blocks);
-    if (!plan) console.warn('[planLayout] plano inválido — usando fallback flat');
-    return plan;
-  } catch (e: any) {
-    console.warn('[planLayout] falhou:', e?.message);
-    return null;
+  const ctx = [
+    `TÍTULO: ${meta.titulo}`,
+    meta.competencia ? `COMPETÊNCIA/TEMA: ${meta.competencia}` : null,
+    meta.descritor ? `DESCRITOR: ${meta.descritor}` : null,
+    meta.formato ? `FORMATO: ${meta.formato}` : null,
+  ].filter(Boolean).join('\n');
+  const user = `${ctx}\n\nBLOCOS (id, kind, conteúdo):\n${serializeBlocks(blocks)}\n\nProduza o plano de paginação em JSON.`;
+
+  // Duas tentativas: o planner pode devolver JSON malformado/truncado num pico
+  // transiente. Em vez de cair direto no flat (que VIRA TEXTO CORRIDO e some com
+  // toda a diagramação), tenta de novo. O fallback flat é o último recurso e é
+  // logado como error (visível no Vercel), não warn silencioso.
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const raw = await callAI(PLAN_SYSTEM, user, { model }, 8000, { temperature: 0.3 });
+      const plan = sanitize(extractJson(raw), blocks);
+      if (plan) return plan;
+      console.error(`[planLayout] plano inválido (tentativa ${attempt}/2) — raw[0..200]: ${String(raw).slice(0, 200)}`);
+    } catch (e: any) {
+      console.error(`[planLayout] callAI falhou (tentativa ${attempt}/2):`, e?.message);
+    }
   }
+  console.error('[planLayout] esgotou as tentativas — caindo no fallback flat (PDF sai como texto corrido)');
+  return null;
 }

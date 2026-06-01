@@ -22,7 +22,7 @@ import { Document, Page, View, Text, Image, StyleSheet, Svg, Path } from '@react
 import '@/components/pdf/styles'; // registra a fonte NotoSans (efeito colateral)
 import { getLogoCoverBase64, getLogoDarkBase64 } from '@/lib/pdf-assets';
 import { parseBlocks } from '@/lib/conteudo-layout-plan';
-import type { RawBlock, LayoutPlan, PlanItem, PageRole } from '@/lib/conteudo-layout-plan';
+import type { RawBlock, LayoutPlan, PlanItem, PageRole, PagePlan } from '@/lib/conteudo-layout-plan';
 
 // ── Brand book oficial Vertho ────────────────────────────────────────────────
 const colors = {
@@ -101,6 +101,12 @@ const s = StyleSheet.create({
   roleHeader: { marginBottom: 16 },
   roleEyebrow: { fontSize: 8.5, fontWeight: 700, color: colors.cyan, letterSpacing: 2.4, textTransform: 'uppercase' },
   roleRule: { width: 34, height: 2, backgroundColor: colors.cyan, marginTop: 6 },
+  // Cabeçalho de uma seção que NÃO é a primeira no fluxo: mesmo eyebrow, com um
+  // respiro maior no topo para separar visualmente da seção anterior.
+  sectionLead: { marginTop: 30, marginBottom: 16 },
+  // Imagem conceitual quando a seção hero não é a primeira do fluxo (sem bleed).
+  figureWrap: { marginTop: 8, marginBottom: 4 },
+  figureImg: { width: '100%', height: 190, objectFit: 'cover', borderRadius: 8, marginBottom: 16 },
 
   hero: { marginHorizontal: -48, marginTop: -64, marginBottom: 22, height: 230, position: 'relative' },
   heroImg: { width: '100%', height: '100%', objectFit: 'cover' },
@@ -438,55 +444,79 @@ function renderItem(item: PlanItem, byId: Map<number, RawBlock>, key: string, ca
   }
 }
 
-// ── Página do plano editorial ─────────────────────────────────────────────────
-function planPage(
-  pg: LayoutPlan['pages'][number], pageIdx: number, byId: Map<number, RawBlock>,
-  eyebrow: string, sectionImageBase64: string | null,
+// ── Corpo editorial (fluxo contínuo, folhas cheias) ──────────────────────────
+// Cada página do plano é uma SEÇÃO com seu role (eyebrow) e seus tratamentos
+// visuais. As seções fluem numa ÚNICA <Page>; o react-pdf preenche cada folha
+// até o fim antes de quebrar (topMeta/footer são `fixed`, repetem em toda folha).
+// Assim não sobra folha meia-vazia — antes cada página do plano virava uma folha
+// A4, e planos ralos deixavam metade da folha em branco. A estrutura editorial
+// (role + boxes) é preservada como seções; a reflexão recebe `break` para abrir
+// em folha própria e contemplativa.
+function editorialBody(
+  pages: PagePlan[], byId: Map<number, RawBlock>, eyebrow: string, sectionImageBase64: string | null,
 ): React.ReactNode {
-  const roleLabel = ROLE_LABEL[pg.role] || '';
-  const hero = pg.heroImage && sectionImageBase64;
-  const isReflexao = pg.role === 'reflexao';
-  const logoDark = isReflexao ? getLogoDarkBase64() : null;
+  const heroIdx = pages.findIndex(p => p.heroImage);
 
-  return e(Page, { key: `pg-${pageIdx}`, size: 'A4', style: s.page },
-    e(View, { style: s.topMeta, fixed: true },
-      e(Text, null, eyebrow),
-      e(Text, { style: s.pageNum, render: ({ pageNumber }: any) => String(pageNumber) }),
-    ),
-    // Cabeçalho da seção: banda com imagem (hero) ou eyebrow simples.
-    hero
-      ? e(View, { style: s.hero },
-          e(Image, { src: sectionImageBase64 as string, style: s.heroImg }),
-          e(View, { style: s.heroScrim }),
-          roleLabel ? e(View, { style: s.heroTextWrap }, e(Text, { style: s.heroEyebrow }, roleLabel)) : null,
-        )
-      : roleLabel
-        ? e(View, { style: s.roleHeader },
-            e(Text, { style: s.roleEyebrow }, roleLabel),
-            e(View, { style: s.roleRule }),
-          )
-        : null,
-    ...(() => {
-      // Rótulo do caseCard só no PRIMEIRO da página e quando o eyebrow não for
-      // o mesmo "Na prática" (role exemplo) — evita rótulos repetidos.
-      let caseSeen = 0;
-      return pg.items.flatMap((it, i) => {
-        let caseLabel: string | null = 'Na prática';
-        if (it.as === 'caseCard') {
-          caseLabel = caseSeen === 0 && roleLabel !== ROLE_LABEL.exemplo ? 'Na prática' : null;
-          caseSeen++;
-        }
-        return renderItem(it, byId, `p${pageIdx}-i${i}`, caseLabel);
-      });
-    })(),
-    // Fechamento na página de reflexão.
-    isReflexao
-      ? e(View, { style: s.closing, wrap: false },
+  const sections = pages.map((pg, si) => {
+    const roleLabel = ROLE_LABEL[pg.role] || '';
+    const isReflexao = pg.role === 'reflexao';
+    const isFirst = si === 0;
+    const hasHeroImg = si === heroIdx && Boolean(sectionImageBase64);
+    const logoDark = isReflexao ? getLogoDarkBase64() : null;
+
+    // Cabeçalho da seção. Hero com bleed só funciona no TOPO da folha (margens
+    // negativas) — se a seção hero não for a primeira, vira figura inline.
+    let header: React.ReactNode = null;
+    if (hasHeroImg && isFirst) {
+      header = e(View, { style: s.hero },
+        e(Image, { src: sectionImageBase64 as string, style: s.heroImg }),
+        e(View, { style: s.heroScrim }),
+        roleLabel ? e(View, { style: s.heroTextWrap }, e(Text, { style: s.heroEyebrow }, roleLabel)) : null,
+      );
+    } else if (hasHeroImg) {
+      header = e(View, { style: s.figureWrap, wrap: false, minPresenceAhead: 120 },
+        e(Image, { src: sectionImageBase64 as string, style: s.figureImg }),
+        roleLabel ? e(View, { style: s.roleHeader }, e(Text, { style: s.roleEyebrow }, roleLabel), e(View, { style: s.roleRule })) : null,
+      );
+    } else if (roleLabel) {
+      header = e(View, { style: isFirst ? s.roleHeader : s.sectionLead, wrap: false, minPresenceAhead: 84 },
+        e(Text, { style: s.roleEyebrow }, roleLabel),
+        e(View, { style: s.roleRule }),
+      );
+    }
+
+    // Rótulo "Na prática" do caseCard só no 1º da seção e quando o eyebrow não
+    // for o mesmo (role exemplo) — evita rótulos repetidos.
+    let caseSeen = 0;
+    const items = pg.items.flatMap((it, i) => {
+      let caseLabel: string | null = 'Na prática';
+      if (it.as === 'caseCard') {
+        caseLabel = caseSeen === 0 && roleLabel !== ROLE_LABEL.exemplo ? 'Na prática' : null;
+        caseSeen++;
+      }
+      return renderItem(it, byId, `s${si}-i${i}`, caseLabel);
+    });
+
+    const closing = isReflexao
+      ? e(View, { key: `clo-${si}`, style: s.closing, wrap: false },
           e(View, { style: s.closingDivider }),
           logoDark ? e(Image, { src: logoDark, style: s.closingLogo }) : null,
           e(Text, { style: s.closingTagline }, 'vertho.ai'),
         )
-      : null,
+      : null;
+
+    // `break` na reflexão (quando não é a única seção) → abre folha nova.
+    return e(View, { key: `sec-${si}`, break: isReflexao && si > 0 ? true : undefined },
+      header, ...items, closing,
+    );
+  });
+
+  return e(Page, { size: 'A4', style: s.page },
+    e(View, { style: s.topMeta, fixed: true },
+      e(Text, null, eyebrow),
+      e(Text, { style: s.pageNum, render: ({ pageNumber }: any) => String(pageNumber) }),
+    ),
+    ...sections,
     e(View, { style: s.footer, fixed: true },
       e(Text, { style: s.footerText }, 'Vertho Mentor IA'),
       e(Text, { style: s.footerText }, 'vertho.ai'),
@@ -576,7 +606,7 @@ export function ConteudoFinalPDF({ titulo, conteudoMd, competencia, descritor, e
   );
 
   const body = plan && plan.pages.length
-    ? plan.pages.map((pg, i) => planPage(pg, i, byId, eyebrow, sectionImageBase64 || null))
+    ? [editorialBody(plan.pages, byId, eyebrow, sectionImageBase64 || null)]
     : [flatBody(blocks, eyebrow)];
 
   return e(Document, { title: titulo, author: 'Vertho' }, cover, ...body);
