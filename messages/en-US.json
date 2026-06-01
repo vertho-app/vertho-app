@@ -1,4 +1,11 @@
 {
+  "Beto": {
+    "greeting": "Hi! I'm Beto, your development mentor. How can I help?",
+    "placeholder": "Ask Beto...",
+    "fabTitle": "Talk to Beto",
+    "subtitle": "AI Mentor",
+    "error": "Sorry, I ran into a problem. Please try again."
+  },
   "Metadata": {
     "title": "Vertho",
     "description": "Your development journey"

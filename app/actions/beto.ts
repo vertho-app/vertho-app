@@ -1,10 +1,8 @@
 'use server';
 
-import Anthropic from '@anthropic-ai/sdk';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUserAction } from '@/lib/auth/action-context';
-
-const client = new Anthropic();
+import { callAIChat, type ChatMessage } from '@/actions/ai-client';
 
 const SYSTEM_PROMPT_BASE = `Você é o BETO (Business Evolution & Talent Optimizer), um mentor de desenvolvimento profissional acolhedor e empático da plataforma Vertho Mentor IA.
 
@@ -52,20 +50,15 @@ ${ctx.competenciaFoco ? `\nCOMPETÊNCIA EM FOCO: ${ctx.competenciaFoco}` : ''}`;
     }
   }
 
-  const messages = [
-    ...history.slice(-10).map(m => ({ role: m.role, content: m.content })),
+  const messages: ChatMessage[] = [
+    ...history.slice(-10).map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content } as ChatMessage)),
     { role: 'user', content: userMessage },
   ];
 
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 500,
-    system: systemPrompt,
-    messages: messages as any,
-  });
-
-  const first = response.content[0] as any;
-  return first.text as string;
+  // callAIChat injeta a instrução de idioma conforme o locale do usuário (cookie
+  // vertho-locale) — sem isto o Beto respondia sempre em PT, ignorando a língua
+  // selecionada no painel.
+  return callAIChat(systemPrompt, messages, { model: 'claude-sonnet-4-6' }, 500);
 }
 
 /**

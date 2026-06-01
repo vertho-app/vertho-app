@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { X, Send, Loader2 } from 'lucide-react';
 import { chatWithBeto } from '@/app/actions/beto';
 import { getSupabase } from '@/lib/supabase-browser';
@@ -168,9 +169,10 @@ function renderInline(text: string) {
 
 // ─── Main component ────────────────────────────────────────────────────────
 export default function BetoChat() {
+  const t = useTranslations('Beto');
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([
-    { role: 'assistant', content: 'Oi! Sou o Beto, seu mentor de desenvolvimento. Como posso ajudar?' },
+    { role: 'assistant', content: t('greeting') },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -198,7 +200,7 @@ export default function BetoChat() {
       const reply = await chatWithBeto(userMsg, messages.slice(-10), userEmail);
       setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Desculpe, tive um problema. Tente novamente.' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: t('error') }]);
     }
     setLoading(false);
   }
@@ -215,7 +217,7 @@ export default function BetoChat() {
       <button
         onClick={() => setOpen(true)}
         data-beto-trigger
-        title="Falar com Beto"
+        title={t('fabTitle')}
         className="fixed bottom-[calc(var(--nav-height)+12px)] right-3 sm:right-4 z-40 flex items-center gap-2.5 pl-1 pr-4 py-1 rounded-full transition-all active:scale-95"
         style={{
           background: `linear-gradient(135deg, ${BETO.bg}, ${BETO.mid})`,
@@ -258,7 +260,7 @@ export default function BetoChat() {
             </p>
             <p className="text-[10px] font-semibold tracking-widest uppercase"
               style={{ color: BETO.light, opacity: 0.7 }}>
-              Mentor IA
+              {t('subtitle')}
             </p>
           </div>
         </div>
@@ -310,7 +312,7 @@ export default function BetoChat() {
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
-          placeholder="Pergunte ao Beto..."
+          placeholder={t('placeholder')}
           className="flex-1 px-3 py-2 rounded-xl text-sm text-white outline-none placeholder:text-white/30"
           style={{
             background: 'rgba(255,255,255,0.05)',
