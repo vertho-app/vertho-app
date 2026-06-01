@@ -75,7 +75,7 @@ function isMultiSpeakerText(texto: string): boolean {
 }
 
 export function ensurePodcastBrandNarration(texto: string): string {
-  const clean = stripPodcastOpeningNarration(texto.trim());
+  const clean = stripPodcastClosingNarration(stripPodcastOpeningNarration(texto.trim()));
   const hasClosing = /desenvolvimento profissional n[ãa]o [ée] conceito solto/i.test(clean)
     || /pr[áa]tica observ[áa]vel/i.test(clean);
 
@@ -99,6 +99,17 @@ function stripPodcastOpeningNarration(texto: string): string {
     .replace(/^\s*(?:Mentor\s*:\s*)?Este é o MentorIA na prática:.*(?:\r?\n)+/i, '')
     .replace(new RegExp(`(^|\\r?\\n)\\s*(?:Mentor\\s*:\\s*)?${openingLine}\\s*(?=\\r?\\n|$)`, 'gi'), '$1')
     .replace(/(^|\r?\n)\s*(?:Mentor\s*:\s*)?Este é o MentorIA na prática:.*(?=\r?\n|$)/gi, '$1')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function stripPodcastClosingNarration(texto: string): string {
+  const closingLine = escapeRegExp(BRAND_CLOSING_LINE);
+  return texto
+    .replace(new RegExp(`(^|\\r?\\n)\\s*(?:Mentor\\s*:\\s*)?${closingLine}\\s*(?=\\r?\\n|$)`, 'gi'), '$1')
+    .replace(/(^|\r?\n)\s*(?:Mentor\s*:\s*)?Na Vertho, desenvolvimento profissional.*uma semana de cada vez\.?\s*(?=\r?\n|$)/gi, '$1')
+    .replace(/\s*Na Vertho, desenvolvimento profissional n[ãa]o [ée] conceito solto\.?\s*[ÉE] pr[áa]tica observ[áa]vel,\s+uma semana de cada vez\.?/gi, '')
+    .replace(/\s*[ÉE] pr[áa]tica observ[áa]vel,\s+uma semana de cada vez\.?/gi, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }

@@ -40,8 +40,7 @@ FORMATO:
 MARCA EDITORIAL:
 - Nome do podcast: ${marcaPodcast}.
 - A vinheta de abertura já contém a assinatura do podcast. Não escreva a frase "${assinaturaPodcast}" como fala da VOZ 1 nem no bloco limpo de TTS.
-- O fechamento padrão deve ser curto e prático. Use esta ideia, sem soar como slogan:
-"${fechamentoPodcast}"
+- A vinheta/áudio final já contém o fechamento de marca. Não escreva a frase "${fechamentoPodcast}" nem variações como "uma semana de cada vez" nas falas.
 - Inclua direção de vinheta curta no roteiro, mas nunca no bloco limpo para TTS.
 
 O roteiro deve parecer uma conversa inteligente e editada, não uma entrevista longa nem uma aula.
@@ -68,7 +67,7 @@ ESTRUTURA:
 3. Dúvida ou objeção — Voz 2
 4. Exemplo aplicado — alternância das duas vozes
 5. Síntese — Voz 1
-6. Pergunta final — Voz 2 pergunta, Voz 1 fecha com fechamento padrão`;
+6. Pergunta final — Voz 2 pergunta, Voz 1 fecha com uma ação prática curta, sem fechamento de marca`;
 
     const user = `Crie 1 roteiro de micro-podcast em dupla de ~${duracao} min (~${palavrasAlvo} palavras).
 
@@ -102,7 +101,7 @@ VOZ 1: <exemplo aplicado, parte 1>
 VOZ 2: <exemplo aplicado, parte 2>
 VOZ 1: <síntese>
 VOZ 2: <pergunta final ou ação para a semana>
-VOZ 1: <fechamento curto usando a ideia: "${fechamentoPodcast}">
+VOZ 1: <ação prática curta para a semana, sem fechamento de marca>
 [VINHETA DE FECHAMENTO: 2 segundos, mesmo tema, fade out]
 
 === TTS MULTI-SPEAKER (LIMPO) ===
@@ -116,6 +115,7 @@ REGRAS DA SAÍDA:
 - No bloco TTS MULTI-SPEAKER, use apenas os speakers Mentor e Campo.
 - No bloco TTS MULTI-SPEAKER, repita fala por fala na mesma ordem do roteiro. Não agrupe todas as falas de uma voz.
 - Não inclua a frase "${assinaturaPodcast}" em nenhum bloco de fala; ela pertence apenas à vinheta de abertura.
+- Não inclua a frase "${fechamentoPodcast}" nem "uma semana de cada vez" em nenhum bloco de fala; esse fechamento pertence apenas ao áudio final.
 - Preserve o mesmo conteúdo das falas nos dois blocos.
 - O bloco TTS MULTI-SPEAKER não pode conter vinheta, som, rubrica, colchetes ou instruções de produção.
 - Não use bullets no roteiro.
@@ -147,8 +147,7 @@ PRINCÍPIOS INEGOCIÁVEIS:
 MARCA EDITORIAL:
 - Nome do podcast: ${marcaPodcast}.
 - A vinheta de abertura já contém a assinatura do podcast. Não escreva a frase "${assinaturaPodcast}" dentro da narração.
-- O fechamento padrão deve ser curto e prático, usando esta ideia sem soar como slogan:
-"${fechamentoPodcast}"
+- A vinheta/áudio final já contém o fechamento de marca. Não escreva a frase "${fechamentoPodcast}" nem variações como "uma semana de cada vez" dentro da narração.
 - Inclua direção de vinheta curta no roteiro, mas nunca no bloco limpo para TTS.
 
 VOZ DESEJADA (para calibrar ritmo e escrita):
@@ -210,8 +209,7 @@ Fechar com pergunta, provocação ou convite mental curto.
 "E você, quando foi a última vez que...?"
 Conexão com ação prática da semana.
 Curta e memorável.
-Encerrar com uma variação curta desta ideia:
-"${fechamentoPodcast}"
+Não encerrar com fechamento de marca; a camada de áudio final já faz esse encerramento.
 
 REGRAS DE ESCRITA DO ROTEIRO:
 - Texto corrido, sem seções numeradas, sem bullets, sem títulos técnicos
@@ -246,6 +244,7 @@ REGRAS DA SAÍDA:
 - Não escreva mais nada antes do TÍTULO nem depois do bloco "NARRAÇÃO (COM MARCAÇÕES)".
 - As vinhetas devem aparecer apenas no bloco "VINHETAS E PRODUÇÃO", nunca dentro dos blocos de narração.
 - A frase "${assinaturaPodcast}" não deve aparecer nos blocos de narração.
+- A frase "${fechamentoPodcast}" e variações como "uma semana de cada vez" não devem aparecer nos blocos de narração.
 - Não use markdown (#, **, listas). As únicas marcações permitidas são as
   reticências (...), as tags <break .../> e os *asteriscos* de ênfase (apenas
   no segundo bloco).
