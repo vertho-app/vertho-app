@@ -152,15 +152,26 @@ export async function gerarConteudoIA({
          ? Math.min(5, Math.max(3, Math.round(conteudoGerado.split(/\s+/).length / 150)))
          : null);
 
-    // Para texto/case: renderiza PDF + uploa pro Storage e linka no url
+    // Para texto/case: renderiza o PDF PREMIUM (planner editorial + diagramação)
+    // já na criação e linka no url. Antes usava renderMarkdownPDF (Helvetica,
+    // texto corrido, sem capa) — um rascunho pobre que era o que o usuário
+    // baixava até clicar "Gerar PDF final". Agora o url nasce premium. Sem
+    // imagem GPT aqui (capa vetorial); "Gerar PDF final" reforça com capa/seção.
     let pdfUrl = null, pdfPath = null;
     if (formato === 'texto' || formato === 'case') {
       try {
-        const { renderMarkdownPDF } = await import('@/lib/markdown-to-pdf');
-        const buffer = await renderMarkdownPDF({
-          titulo,
-          conteudoMd: conteudoGerado,
-          meta: `${competencia} › ${descritor} · gerado por IA`,
+        const { parseBlocks, planLayout } = await import('@/lib/conteudo-layout-plan');
+        const { renderConteudoFinalPDF } = await import('@/lib/conteudo-final-pdf');
+        const blocks = parseBlocks(conteudoGerado, { skipFirstH1: Boolean(titulo) });
+        let plan = null;
+        try {
+          plan = await planLayout(blocks, { titulo, competencia, descritor, formato }, model || aiConfig?.model);
+        } catch (e: any) {
+          console.warn('[gerarConteudoIA] plano editorial falhou (flat):', e?.message);
+        }
+        const buffer = await renderConteudoFinalPDF({
+          titulo, conteudoMd: conteudoGerado, competencia, descritor, formato,
+          empresaNome: null, coverBase64: null, plan, sectionImageBase64: null,
         });
         const path = `texto/${competencia.replace(/[^a-zA-Z0-9]/g, '_')}/${Date.now()}.pdf`;
         const { error: upErr } = await sb.storage.from('conteudos').upload(path, Buffer.from(buffer), {
@@ -171,8 +182,8 @@ export async function gerarConteudoIA({
           pdfUrl = publicUrl;
           pdfPath = path;
         }
-      } catch (e) {
-        console.warn('[gerarConteudoIA] PDF render falhou:', e.message);
+      } catch (e: any) {
+        console.warn('[gerarConteudoIA] PDF render falhou:', e?.message);
       }
     }
 
