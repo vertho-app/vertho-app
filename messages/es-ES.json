@@ -3741,9 +3741,9 @@
     },
     "program": {
       "title": "Modo del programa",
-      "desc": "Regular = ruta de 14 semanas, 1 competencia en profundidad. Onboarding = 10 semanas en espiral cubriendo 5 competencias (recién graduados / autonomía supervisada).",
+      "desc": "Regular = ruta de 14 semanas con hasta 2 competencias en profundidad. Onboarding = 10 semanas en espiral cubriendo hasta 5 competencias (recién graduados / autonomía supervisada).",
       "regular": "Regular (14 semanas)",
-      "regularDesc": "1 competencia · nivel objetivo 3",
+      "regularDesc": "Hasta 2 competencias · nivel objetivo 3",
       "onboarding": "Onboarding (10 semanas)",
       "onboardingDesc": "5 competencias · nivel objetivo 2",
       "onboardingNote": "Modo Onboarding activo. Configura <code>sys_config.competencias_onboarding</code> (array de 5 nombres) o ejecuta IA1 para el cargo; la engine usa el top 5 de <code>top10_cargos</code> como fallback. El tutor recibe push automático al final de las misiones 4 y 7.",

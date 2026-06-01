@@ -3741,9 +3741,9 @@
     },
     "program": {
       "title": "Program mode",
-      "desc": "Regular = 14-week track, 1 deeply developed competency. Onboarding = 10 spiral weeks covering 5 competencies (new graduates / supervised autonomy).",
+      "desc": "Regular = 14-week track with up to 2 deeply developed competencies. Onboarding = 10 spiral weeks covering up to 5 competencies (new graduates / supervised autonomy).",
       "regular": "Regular (14 weeks)",
-      "regularDesc": "1 competency · target level 3",
+      "regularDesc": "Up to 2 competencies · target level 3",
       "onboarding": "Onboarding (10 weeks)",
       "onboardingDesc": "5 competencies · target level 2",
       "onboardingNote": "Onboarding mode is active. Configure <code>sys_config.competencias_onboarding</code> (array of 5 names) or run IA1 for the role; the engine uses the top 5 from <code>top10_cargos</code> as fallback. The tutor receives an automatic push at the end of missions 4 and 7.",

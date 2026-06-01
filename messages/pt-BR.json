@@ -3741,9 +3741,9 @@
     },
     "program": {
       "title": "Modo do programa",
-      "desc": "Regular = trilha de 14 semanas, 1 competência aprofundada. Onboarding = 10 semanas em espiral cobrindo 5 competências (recém-formados / autonomia supervisionada).",
+      "desc": "Regular = trilha de 14 semanas com até 2 competências em profundidade. Onboarding = 10 semanas em espiral cobrindo até 5 competências (recém-formados / autonomia supervisionada).",
       "regular": "Regular (14 semanas)",
-      "regularDesc": "1 competência · nível-meta 3",
+      "regularDesc": "Até 2 competências · nível-meta 3",
       "onboarding": "Onboarding (10 semanas)",
       "onboardingDesc": "5 competências · nível-meta 2",
       "onboardingNote": "Modo Onboarding ativo. Configure <code>sys_config.competencias_onboarding</code> (array de 5 nomes) ou rode IA1 pro cargo — engine usa o top 5 do <code>top10_cargos</code> como fallback. Tutor recebe push automático ao final das missões 4 e 7.",
