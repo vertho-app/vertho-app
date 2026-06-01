@@ -69,27 +69,29 @@ Este é o MentorIA na prática.`;
     expect(maxAbsSample(withSting.subarray(-(sampleRate * 2 * 2)))).toBeGreaterThan(3000);
   });
 
-  it('garante locução padrão de abertura e fechamento mesmo em roteiros antigos', () => {
+  it('garante locução padrão de fechamento sem reinserir a abertura falada', () => {
     const texto = ensurePodcastBrandNarration('Dar retorno difícil exige clareza.');
 
-    expect(texto).toContain('Este é o MentorIA na prática');
+    expect(texto).not.toContain('Este é o MentorIA na prática');
     expect(texto).toContain('Dar retorno difícil exige clareza.');
     expect(texto).toContain('Na Vertho, desenvolvimento profissional não é conceito solto.');
   });
 
-  it('não duplica locução padrão quando o roteiro já contém marca', () => {
+  it('remove a abertura falada quando o roteiro já contém marca', () => {
     const texto = ensurePodcastBrandNarration(
       'Este é o MentorIA na prática: uma conversa curta sobre desenvolvimento profissional aplicável no seu dia a dia.\n\nConteúdo.\n\nNa Vertho, desenvolvimento profissional não é conceito solto. É prática observável, uma semana de cada vez.',
     );
 
-    expect(texto.match(/Este é o MentorIA na prática/g)).toHaveLength(1);
+    expect(texto).not.toContain('Este é o MentorIA na prática');
+    expect(texto).toContain('Conteúdo.');
     expect(texto.match(/Na Vertho, desenvolvimento profissional não é conceito solto/g)).toHaveLength(1);
   });
 
-  it('usa a voz do Mentor para locução padrão em roteiro multi-speaker', () => {
+  it('usa a voz do Mentor apenas para a locução padrão de fechamento em roteiro multi-speaker', () => {
     const texto = ensurePodcastBrandNarration('Campo: Isso acontece na reunião.\nMentor: O ponto é separar fato e interpretação.');
 
-    expect(texto).toMatch(/^Mentor: Este é o MentorIA na prática/);
+    expect(texto).toMatch(/^Campo: Isso acontece na reunião\./);
+    expect(texto).not.toContain('Este é o MentorIA na prática');
     expect(texto).toMatch(/Mentor: Na Vertho, desenvolvimento profissional não é conceito solto\./);
   });
 });

@@ -63,25 +63,33 @@ function isMultiSpeakerText(texto: string): boolean {
 }
 
 export function ensurePodcastBrandNarration(texto: string): string {
-  const clean = texto.trim();
-  const hasOpening = /MentorIA\s+na\s+pr[áa]tica/i.test(clean)
-    || /conversa curta sobre desenvolvimento profissional aplic[áa]vel/i.test(clean);
+  const clean = stripPodcastOpeningNarration(texto.trim());
   const hasClosing = /desenvolvimento profissional n[ãa]o [ée] conceito solto/i.test(clean)
     || /pr[áa]tica observ[áa]vel/i.test(clean);
 
   if (isMultiSpeakerText(clean)) {
     return [
-      hasOpening ? null : `Mentor: ${BRAND_OPENING_LINE}`,
       clean,
       hasClosing ? null : `Mentor: ${BRAND_CLOSING_LINE}`,
     ].filter(Boolean).join('\n');
   }
 
   return [
-    hasOpening ? null : BRAND_OPENING_LINE,
     clean,
     hasClosing ? null : BRAND_CLOSING_LINE,
   ].filter(Boolean).join('\n\n');
+}
+
+function stripPodcastOpeningNarration(texto: string): string {
+  const openingLine = escapeRegExp(BRAND_OPENING_LINE);
+  return texto
+    .replace(new RegExp(`^\\s*(?:Mentor\\s*:\\s*)?${openingLine}\\s*(?:\\r?\\n)+`, 'i'), '')
+    .replace(/^\s*(?:Mentor\s*:\s*)?Este é o MentorIA na prática:.*(?:\r?\n)+/i, '')
+    .trim();
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function pcmToWav(pcm: Buffer, sampleRate = 24000, channels = 1, bits = 16): Buffer {
@@ -106,6 +114,26 @@ function pcmToWav(pcm: Buffer, sampleRate = 24000, channels = 1, bits = 16): Buf
 
 function silencePcm(seconds: number, sampleRate: number): Buffer {
   return Buffer.alloc(Math.max(0, Math.round(seconds * sampleRate)) * 2);
+}
+
+function fadePcm16(pcm: Buffer, sampleRate: number, fadeInSeconds: number, fadeOutSeconds: number): Buffer {
+  const out = Buffer.from(pcm);
+  const frames = Math.floor(out.length / 2);
+  const fadeInFrames = Math.min(frames, Math.max(0, Math.round(fadeInSeconds * sampleRate)));
+  const fadeOutFrames = Math.min(frames, Math.max(0, Math.round(fadeOutSeconds * sampleRate)));
+
+  for (let i = 0; i < fadeInFrames; i++) {
+    const gain = i / Math.max(1, fadeInFrames);
+    out.writeInt16LE(Math.round(out.readInt16LE(i * 2) * gain), i * 2);
+  }
+
+  for (let i = 0; i < fadeOutFrames; i++) {
+    const frame = frames - fadeOutFrames + i;
+    const gain = 1 - (i / Math.max(1, fadeOutFrames));
+    out.writeInt16LE(Math.round(out.readInt16LE(frame * 2) * gain), frame * 2);
+  }
+
+  return out;
 }
 
 function parsePcm16Wav(wav: Buffer): { channels: number; sampleRate: number; pcm: Buffer } {
@@ -191,12 +219,16 @@ function brandStingPcm(sampleRate: number, variant: 'intro' | 'outro'): Buffer {
 }
 
 export function addPodcastBrandSting(pcm: Buffer, sampleRate: number): Buffer {
+  const intro = fadePcm16(brandStingPcm(sampleRate, 'intro'), sampleRate, 0, 0.75);
+  const narration = fadePcm16(pcm, sampleRate, 0.12, 0.08);
+  const outro = fadePcm16(brandStingPcm(sampleRate, 'outro'), sampleRate, 0.3, 0.8);
+
   return Buffer.concat([
-    brandStingPcm(sampleRate, 'intro'),
-    silencePcm(0.25, sampleRate),
-    pcm,
-    silencePcm(0.2, sampleRate),
-    brandStingPcm(sampleRate, 'outro'),
+    intro,
+    silencePcm(0.55, sampleRate),
+    narration,
+    silencePcm(0.35, sampleRate),
+    outro,
   ]);
 }
 
