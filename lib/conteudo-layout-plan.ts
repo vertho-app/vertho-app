@@ -37,6 +37,7 @@ export function parseBlocks(md: string, { skipFirstH1 = false }: { skipFirstH1?:
   const flushUl = () => { if (ul.length) { blocks.push({ id: id++, kind: 'ul', items: ul }); ul = []; } };
   const flushOl = () => { if (ol.length) { blocks.push({ id: id++, kind: 'ol', items: ol }); ol = []; } };
   const flushAll = () => { flushPara(); flushUl(); flushOl(); };
+  let prevBlank = true; // controla continuação de item de lista (ver abaixo)
 
   for (const raw of lines) {
     const line = raw.trim();
@@ -44,7 +45,9 @@ export function parseBlocks(md: string, { skipFirstH1 = false }: { skipFirstH1?:
     // separados por linha em branco ("loose list", markdown comum) continuam a
     // MESMA lista. Sem isto, `1. a\n\n2. b` virava duas listas de 1 item — o que
     // quebrava fluxos/cards numerados (cada passo isolado, sem conector).
-    if (!line) { flushPara(); continue; }
+    if (!line) { flushPara(); prevBlank = true; continue; }
+    const wasBlank = prevBlank;
+    prevBlank = false;
     if (/^([-*_])\1{2,}$/.test(line)) { flushAll(); continue; } // hr
 
     if (line.startsWith('### ')) { flushAll(); blocks.push({ id: id++, kind: 'h3', text: line.slice(4) }); continue; }
@@ -58,6 +61,15 @@ export function parseBlocks(md: string, { skipFirstH1 = false }: { skipFirstH1?:
     if (line.startsWith('> ')) { flushAll(); blocks.push({ id: id++, kind: 'quote', text: line.slice(2) }); continue; }
     if (/^[-*]\s+/.test(line)) { flushPara(); flushOl(); ul.push(line.replace(/^[-*]\s+/, '')); continue; }
     if (/^\d+\.\s+/.test(line)) { flushPara(); flushUl(); ol.push(line.replace(/^\d+\.\s+/, '')); continue; }
+
+    // Continuação de item de lista: uma linha de texto LOGO após um item (sem
+    // linha em branco no meio) pertence ao item — padrão "1. **Título**\nDescrição".
+    // Sem isto, a descrição flushava a lista e cada item virava uma lista de 1
+    // (a numeração saía toda "1"). Linha em branco antes encerra a continuação.
+    if (!wasBlank && para.length === 0) {
+      if (ol.length) { ol[ol.length - 1] += ' ' + line; continue; }
+      if (ul.length) { ul[ul.length - 1] += ' ' + line; continue; }
+    }
 
     flushUl(); flushOl();
     para.push(line);

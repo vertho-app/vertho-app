@@ -96,6 +96,7 @@ const s = StyleSheet.create({
   quoteText: { fontSize: 12.5, fontStyle: 'italic', color: colors.navy, fontWeight: 600, lineHeight: 1.45 },
 
   bold: { fontWeight: 700 },
+  italic: { fontStyle: 'italic' },
 
   // ── Plano editorial ──────────────────────────────────────────────────────
   roleHeader: { marginBottom: 16 },
@@ -188,13 +189,14 @@ const s = StyleSheet.create({
   closingTagline: { fontSize: 7.5, color: colors.gray400, letterSpacing: 1.6, textTransform: 'uppercase', marginTop: 8 },
 });
 
-// Renderiza **negrito** inline
+// Renderiza **negrito** e *itálico* inline (negrito tem prioridade). Sem isto,
+// frases-âncora escritas como *...* no markdown saíam com os asteriscos crus.
 function inline(text: string): React.ReactNode[] {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
-    part.startsWith('**') && part.endsWith('**')
-      ? React.createElement(Text, { key: i, style: s.bold }, part.slice(2, -2))
-      : part
-  );
+  return String(text || '').split(/(\*\*[^*]+\*\*|\*[^*\n]+\*)/g).map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) return e(Text, { key: i, style: s.bold }, part.slice(2, -2));
+    if (part.length > 2 && part.startsWith('*') && part.endsWith('*')) return e(Text, { key: i, style: s.italic }, part.slice(1, -1));
+    return part;
+  });
 }
 
 const ROLE_LABEL: Record<PageRole, string> = {
@@ -450,12 +452,16 @@ function renderItem(item: PlanItem, byId: Map<number, RawBlock>, key: string, ca
 // até o fim antes de quebrar (topMeta/footer são `fixed`, repetem em toda folha).
 // Assim não sobra folha meia-vazia — antes cada página do plano virava uma folha
 // A4, e planos ralos deixavam metade da folha em branco. A estrutura editorial
-// (role + boxes) é preservada como seções; a reflexão recebe `break` para abrir
-// em folha própria e contemplativa.
+// (role + boxes) é preservada como seções. A reflexão flui junto (sem `break`
+// forçado, que deixava a folha anterior quase vazia — reintroduzindo o problema
+// que este refactor resolve).
 function editorialBody(
   pages: PagePlan[], byId: Map<number, RawBlock>, eyebrow: string, sectionImageBase64: string | null,
 ): React.ReactNode {
   const heroIdx = pages.findIndex(p => p.heroImage);
+  // Rótulos de role já aparecem como eyebrow — um heading do conteúdo igual a um
+  // deles (ex.: "## Para refletir") é redundante e duplicaria o eyebrow.
+  const roleLabelSet = new Set(Object.values(ROLE_LABEL).filter(Boolean).map(l => l.toLowerCase()));
 
   const sections = pages.map((pg, si) => {
     const roleLabel = ROLE_LABEL[pg.role] || '';
@@ -489,6 +495,13 @@ function editorialBody(
     // for o mesmo (role exemplo) — evita rótulos repetidos.
     let caseSeen = 0;
     const items = pg.items.flatMap((it, i) => {
+      // Pula um heading do conteúdo que apenas repete um rótulo de role (o
+      // eyebrow já o exibe) — evita "Para refletir" duplicado, etc.
+      if (it.as === 'heading') {
+        const hb = byId.get(it.ref);
+        const t = hb && (hb.kind === 'h1' || hb.kind === 'h2' || hb.kind === 'h3') ? hb.text.trim().toLowerCase() : '';
+        if (t && roleLabelSet.has(t)) return [];
+      }
       let caseLabel: string | null = 'Na prática';
       if (it.as === 'caseCard') {
         caseLabel = caseSeen === 0 && roleLabel !== ROLE_LABEL.exemplo ? 'Na prática' : null;
@@ -505,8 +518,7 @@ function editorialBody(
         )
       : null;
 
-    // `break` na reflexão (quando não é a única seção) → abre folha nova.
-    return e(View, { key: `sec-${si}`, break: isReflexao && si > 0 ? true : undefined },
+    return e(View, { key: `sec-${si}` },
       header, ...items, closing,
     );
   });
