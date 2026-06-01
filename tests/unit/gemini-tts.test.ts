@@ -123,6 +123,16 @@ Este é o MentorIA na prática.`;
     expect(texto.match(/Na Vertho, desenvolvimento profissional não é conceito solto/g)).toHaveLength(1);
   });
 
+  it('remove a abertura falada mesmo quando aparece após a primeira fala do Campo', () => {
+    const texto = ensurePodcastBrandNarration(
+      'Campo: A semana começa com urgências de todos os lados.\n\nMentor: Este é o MentorIA na prática: uma conversa curta sobre desenvolvimento profissional aplicável no seu dia a dia.\n\nMentor: O ponto é transformar rotina em pergunta.',
+    );
+
+    expect(texto).toContain('Campo: A semana começa com urgências de todos os lados.');
+    expect(texto).toContain('Mentor: O ponto é transformar rotina em pergunta.');
+    expect(texto).not.toContain('Este é o MentorIA na prática');
+  });
+
   it('usa a voz do Mentor apenas para a locução padrão de fechamento em roteiro multi-speaker', () => {
     const texto = ensurePodcastBrandNarration('Campo: Isso acontece na reunião.\nMentor: O ponto é separar fato e interpretação.');
 

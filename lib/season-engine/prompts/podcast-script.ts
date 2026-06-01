@@ -39,8 +39,7 @@ FORMATO:
 
 MARCA EDITORIAL:
 - Nome do podcast: ${marcaPodcast}.
-- A frase de assinatura deve entrar após a primeira dor real, dita pela VOZ 1:
-"${assinaturaPodcast}"
+- A vinheta de abertura já contém a assinatura do podcast. Não escreva a frase "${assinaturaPodcast}" como fala da VOZ 1 nem no bloco limpo de TTS.
 - O fechamento padrão deve ser curto e prático. Use esta ideia, sem soar como slogan:
 "${fechamentoPodcast}"
 - Inclua direção de vinheta curta no roteiro, mas nunca no bloco limpo para TTS.
@@ -65,12 +64,11 @@ REGRAS:
 
 ESTRUTURA:
 1. Abertura com dor real — Voz 2
-2. Assinatura do podcast — Voz 1
-3. Conceito central — Voz 1
-4. Dúvida ou objeção — Voz 2
-5. Exemplo aplicado — alternância das duas vozes
-6. Síntese — Voz 1
-7. Pergunta final — Voz 2 pergunta, Voz 1 fecha com fechamento padrão`;
+2. Conceito central — Voz 1
+3. Dúvida ou objeção — Voz 2
+4. Exemplo aplicado — alternância das duas vozes
+5. Síntese — Voz 1
+6. Pergunta final — Voz 2 pergunta, Voz 1 fecha com fechamento padrão`;
 
     const user = `Crie 1 roteiro de micro-podcast em dupla de ~${duracao} min (~${palavrasAlvo} palavras).
 
@@ -92,13 +90,12 @@ VOZ 1: Mentor Vertho — calmo, consultivo, experiente, claro.
 VOZ 2: Profissional em campo — concreto, direto, com dúvidas e objeções reais.
 
 DIREÇÃO DE PRODUÇÃO:
-ABERTURA: Vinheta instrumental discreta de 2 a 3 segundos, moderna, calma e institucional. Fade out sob a frase de assinatura.
+ABERTURA: Vinheta instrumental discreta de 2 a 3 segundos, moderna, calma e institucional. A vinheta já inclui a assinatura do podcast.
 FECHAMENTO: Retomar o mesmo tema sonoro por 2 segundos, em fade out. Não usar música contínua durante o episódio.
 
 === ROTEIRO COM FALAS ===
 [VINHETA DE ABERTURA: 2 a 3 segundos, moderna, calma, institucional]
 VOZ 2: <abertura com dor real, sem saudação>
-VOZ 1: ${assinaturaPodcast}
 VOZ 1: <conceito central>
 VOZ 2: <dúvida ou objeção>
 VOZ 1: <exemplo aplicado, parte 1>
@@ -110,7 +107,6 @@ VOZ 1: <fechamento curto usando a ideia: "${fechamentoPodcast}">
 
 === TTS MULTI-SPEAKER (LIMPO) ===
 Campo: <a mesma fala inicial da VOZ 2, sem rubricas, sem markdown, sem tags>
-Mentor: ${assinaturaPodcast}
 Mentor: <a mesma explicação do conceito central da VOZ 1>
 Campo: <a mesma dúvida ou objeção da VOZ 2>
 Mentor: <a mesma fala de exemplo ou síntese da VOZ 1>
@@ -119,6 +115,7 @@ REGRAS DA SAÍDA:
 - No bloco ROTEIRO COM FALAS, identifique cada fala como VOZ 1 ou VOZ 2.
 - No bloco TTS MULTI-SPEAKER, use apenas os speakers Mentor e Campo.
 - No bloco TTS MULTI-SPEAKER, repita fala por fala na mesma ordem do roteiro. Não agrupe todas as falas de uma voz.
+- Não inclua a frase "${assinaturaPodcast}" em nenhum bloco de fala; ela pertence apenas à vinheta de abertura.
 - Preserve o mesmo conteúdo das falas nos dois blocos.
 - O bloco TTS MULTI-SPEAKER não pode conter vinheta, som, rubrica, colchetes ou instruções de produção.
 - Não use bullets no roteiro.
@@ -149,8 +146,7 @@ PRINCÍPIOS INEGOCIÁVEIS:
 
 MARCA EDITORIAL:
 - Nome do podcast: ${marcaPodcast}.
-- A frase de assinatura deve entrar após a primeira dor real, sem saudação:
-"${assinaturaPodcast}"
+- A vinheta de abertura já contém a assinatura do podcast. Não escreva a frase "${assinaturaPodcast}" dentro da narração.
 - O fechamento padrão deve ser curto e prático, usando esta ideia sem soar como slogan:
 "${fechamentoPodcast}"
 - Inclua direção de vinheta curta no roteiro, mas nunca no bloco limpo para TTS.
@@ -196,8 +192,7 @@ ABERTURA (~60 palavras):
 Começar com dor, pergunta, imagem mental, situação reconhecível ou mini-história em primeira pessoa.
 Sem clichê. Sem saudação.
 NUNCA cite o nome do descritor na abertura — prenda primeiro, explique depois.
-Depois dessa dor inicial, inserir a assinatura do podcast em uma frase própria:
-"${assinaturaPodcast}"
+Não inserir a assinatura falada do podcast; a vinheta de abertura já faz essa função.
 
 CONCEITO (~150 palavras):
 Explicar o descritor como insight, não como definição travada.
@@ -250,6 +245,7 @@ asteriscos, SEM tags, SEM rubricas de som ou vinheta. Este bloco vai direto para
 REGRAS DA SAÍDA:
 - Não escreva mais nada antes do TÍTULO nem depois do bloco "NARRAÇÃO (COM MARCAÇÕES)".
 - As vinhetas devem aparecer apenas no bloco "VINHETAS E PRODUÇÃO", nunca dentro dos blocos de narração.
+- A frase "${assinaturaPodcast}" não deve aparecer nos blocos de narração.
 - Não use markdown (#, **, listas). As únicas marcações permitidas são as
   reticências (...), as tags <break .../> e os *asteriscos* de ênfase (apenas
   no segundo bloco).

@@ -97,6 +97,9 @@ function stripPodcastOpeningNarration(texto: string): string {
   return texto
     .replace(new RegExp(`^\\s*(?:Mentor\\s*:\\s*)?${openingLine}\\s*(?:\\r?\\n)+`, 'i'), '')
     .replace(/^\s*(?:Mentor\s*:\s*)?Este é o MentorIA na prática:.*(?:\r?\n)+/i, '')
+    .replace(new RegExp(`(^|\\r?\\n)\\s*(?:Mentor\\s*:\\s*)?${openingLine}\\s*(?=\\r?\\n|$)`, 'gi'), '$1')
+    .replace(/(^|\r?\n)\s*(?:Mentor\s*:\s*)?Este é o MentorIA na prática:.*(?=\r?\n|$)/gi, '$1')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
