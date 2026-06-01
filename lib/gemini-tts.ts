@@ -15,6 +15,8 @@ const MODEL = process.env.GEMINI_TTS_MODEL || 'gemini-3.1-flash-tts-preview';
 const VOICE = process.env.GEMINI_TTS_VOICE || 'Charon'; // masculina, grave/madura
 const MENTOR_VOICE = process.env.GEMINI_TTS_MENTOR_VOICE || 'Charon';
 const CAMPO_VOICE = process.env.GEMINI_TTS_CAMPO_VOICE || 'Kore';
+const BRAND_OPENING_LINE = 'Este é o MentorIA na prática: uma conversa curta sobre desenvolvimento profissional aplicável no seu dia a dia.';
+const BRAND_CLOSING_LINE = 'Na Vertho, desenvolvimento profissional não é conceito solto. É prática observável, uma semana de cada vez.';
 const brandStingCache = new Map<string, Buffer>();
 
 /** Extrai o bloco de NARRAÇÃO LIMPA do roteiro TTS; remove título, headers e tags. */
@@ -58,6 +60,28 @@ function cleanNarrationText(txt: string, opts: { keepSpeakerLabels?: boolean } =
 
 function isMultiSpeakerText(texto: string): boolean {
   return /^\s*Mentor\s*:/im.test(texto) && /^\s*Campo\s*:/im.test(texto);
+}
+
+export function ensurePodcastBrandNarration(texto: string): string {
+  const clean = texto.trim();
+  const hasOpening = /MentorIA\s+na\s+pr[áa]tica/i.test(clean)
+    || /conversa curta sobre desenvolvimento profissional aplic[áa]vel/i.test(clean);
+  const hasClosing = /desenvolvimento profissional n[ãa]o [ée] conceito solto/i.test(clean)
+    || /pr[áa]tica observ[áa]vel/i.test(clean);
+
+  if (isMultiSpeakerText(clean)) {
+    return [
+      hasOpening ? null : `Mentor: ${BRAND_OPENING_LINE}`,
+      clean,
+      hasClosing ? null : `Mentor: ${BRAND_CLOSING_LINE}`,
+    ].filter(Boolean).join('\n');
+  }
+
+  return [
+    hasOpening ? null : BRAND_OPENING_LINE,
+    clean,
+    hasClosing ? null : BRAND_CLOSING_LINE,
+  ].filter(Boolean).join('\n\n');
 }
 
 function pcmToWav(pcm: Buffer, sampleRate = 24000, channels = 1, bits = 16): Buffer {
@@ -191,11 +215,12 @@ export async function generatePodcastAudio(texto: string): Promise<Buffer> {
   if (!apiKey) throw new Error('GEMINI_API_KEY not set');
   if (!texto?.trim()) throw new Error('texto de narração vazio');
 
-  const multiSpeaker = isMultiSpeakerText(texto);
+  const textoComMarca = ensurePodcastBrandNarration(texto);
+  const multiSpeaker = isMultiSpeakerText(textoComMarca);
   // Direção de estilo (não é falada — orienta a entrega da voz prebuilt).
   const styled = multiSpeaker
-    ? `TTS the following conversation in Brazilian Portuguese. Speaker Mentor is calm, consultative, experienced and clear. Speaker Campo is practical, direct and grounded in field reality. Keep a professional, adult tone and natural turn-taking:\n\n${texto}`
-    : `Narre em português do Brasil, com voz masculina de meia-idade, tom acolhedor, seguro e íntimo, ritmo moderado e pausas reflexivas naturais:\n\n${texto}`;
+    ? `TTS the following conversation in Brazilian Portuguese. Speaker Mentor is calm, consultative, experienced and clear. Speaker Campo is practical, direct and grounded in field reality. Keep a professional, adult tone and natural turn-taking:\n\n${textoComMarca}`
+    : `Narre em português do Brasil, com voz masculina de meia-idade, tom acolhedor, seguro e íntimo, ritmo moderado e pausas reflexivas naturais:\n\n${textoComMarca}`;
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
   const body = {
