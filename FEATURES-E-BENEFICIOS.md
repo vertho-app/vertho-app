@@ -1,7 +1,7 @@
 # Vertho — Features e Benefícios
 
 > Inventário das features em produção (Mentor IA + Pulso de Desenvolvimento + Radar) com o benefício correspondente para o cliente. Base para o site, materiais comerciais e ajuste de comunicação.
-> Última atualização: 25/05/2026 — HEAD `2730cd7`.
+> Última atualização: 01/06/2026 — HEAD `f1fb87c`.
 
 ---
 
@@ -38,14 +38,16 @@ A plataforma agora é **trilíngue** (pt-BR / pt-PT / es-ES) e aceita **login po
 | **Votação de Competências** | Colaborador vota nas competências mais importantes do próprio cargo | Voz ativa no programa — quem é desenvolvido participa do diagnóstico. |
 | **PDI Personalizado** | Plano de Desenvolvimento Individual gerado por IA: resumo, plano 30 dias (foco + ações), estudo recomendado | Plano concreto e curto, não "encheção de relatório" — focado em 30 dias. |
 | **Trilha de 14 semanas (DUO)** | Cadência semanal automática: 9 semanas de conteúdo, 3 de prática, 2 de avaliação — cobrindo **2 competências em blocos paralelos**, com missões integradoras das duas | Evolui em duas frentes ao mesmo tempo, sem perder profundidade — 1 atividade por semana, gated por calendário. |
-| **Microconteúdos multi-formato** | Por semana: vídeo (Bunny), texto, podcast, case study, desafio | Aprende no formato que prefere — mesmo conteúdo, várias entradas. |
+| **Microconteúdos multi-formato** | Por semana: vídeo (Bunny + geração IA Veo/TTS), texto, podcast (áudio gerado por IA, masterizado com vinhetas de marca), case study, desafio | Aprende no formato que prefere — mesmo conteúdo, várias entradas. |
+| **PDF de conteúdo premium** | O conteúdo de texto/case vira uma **publicação editorial em PDF** (capa temática, diagramação por IA com box de síntese, cards, fluxos, comparativos e pull quotes) — sem reescrever o conteúdo, só dando função visual a cada página | Material que parece guia visual de aprendizagem, não apostila — algo que o colaborador quer guardar e reler. |
+| **Conteúdo personalizado (DISC + PPP)** | O mesmo PDF ganha 2 seções extras geradas por IA: "Para o seu perfil" (ancorada no arquétipo DISC do colaborador) e "No contexto da sua escola" (ancorada no PPP/realidade da instituição) — o núcleo curricular fica intacto | O conteúdo fala diretamente com o estilo da pessoa e a realidade da escola dela — relevância em vez de material genérico. |
 | **Tira-Dúvidas (chat reativo)** | Chat com Haiku 4.5, com grounding nos valores e cultura da empresa (RAG) | Resposta na hora, contextualizada à empresa do colaborador — não genérica. |
 | **Evidências Socráticas** | Conversa de 6 turnos por descritor com DISC + anti-alucinação + grounding | Treina pensamento crítico — IA não dá respostas, faz perguntas que provocam reflexão. |
 | **Missão Prática** | Semanas 4, 8, 12: aceita missão → cria compromisso → executa → relata → IA analisa em 10 turnos | Aprendizado aplicado, não teórico — vira tarefa real do dia a dia. |
 | **Avaliação Acumulada** | Após semana 13, 1ª IA pontua descritor por descritor (cega para nota inicial); 2ª IA audita | Avaliação rigorosa por dupla IA, sem viés ancorado na nota anterior. |
 | **Cenário B (Sem 14)** | Wizard de 4 perguntas (situação, ação, raciocínio, autossensibilidade) com cenário do banco da empresa | Avaliação final em situação realista, comparável à inicial. |
 | **Evolution Report** | Consolida semanas 13+14 em 5 blocos (hero, comparativo, insights, missões, avaliação) + PDF | Resultado tangível — colaborador leva pra casa em PDF, mostra evolução. |
-| **BETO (tutor flutuante)** | Chat contextual sempre disponível em qualquer página do dashboard | Mentor permanente — dúvida operacional resolvida sem sair da tela. |
+| **BETO (tutor flutuante)** | Chat contextual sempre disponível em qualquer página do dashboard, **no idioma escolhido pelo colaborador** (pt-BR/pt-PT/es-ES) | Mentor permanente — dúvida operacional resolvida sem sair da tela, na língua da pessoa. |
 | **Perfil + Avatar** | DISC preview + logout simples | Identidade reconhecida desde o primeiro acesso. |
 
 ---
@@ -72,7 +74,9 @@ A plataforma agora é **trilíngue** (pt-BR / pt-PT / es-ES) e aceita **login po
 | **Importação de colaboradores** | CSV/Excel com role + área/depto + ordenação por coluna | Onboarding em massa em minutos, sem cadastro manual. |
 | **CRUD de Competências** | Por empresa, importável de uma base padrão (educação/corporativo) + import CSV | Não começa do zero — base pronta, customizável. |
 | **Top 10 + Top 5 + Gabarito** | IA1 sugere top 10 por cargo (com aderência cargo/mercado + motivo), RH escolhe top 5, gera gabarito | Curadoria assistida — IA prepara, RH valida. |
+| **Votação define o cenário** | A competência aprovada na votação dos colaboradores entra direto na geração de cenário — mesmo que não estivesse no Top 10 do IA | A voz da equipe vira avaliação de verdade, sem ficar presa a um pré-filtro. |
 | **Banco de Cenários** | IA3 gera cenários situacionais + checagem por 2ª IA | Cenários realistas, validados, sem RH inventar caso a caso. |
+| **Cenários por escola (PPP local)** | Em redes com várias unidades, gera **um cenário por escola** — cada um ancorado no PPP/realidade daquela instituição. O colaborador é avaliado no cenário da SUA escola (fallback para um cenário de rede quando a escola não tem PPP) | Avaliação hiper-contextualizada: o gestor de uma escola quilombola/EJA responde a um caso da realidade dele, não a um genérico — sem a rede inteira herdar o contexto de uma escola só. |
 | **Envios em massa (WhatsApp + Email)** | Z-API + Resend + QStash (delay incremental 2s), com filtros (cargo · votação · perfil DISC), anexo PDF, anexo arbitrário, preview e variáveis dinâmicas | Campanha de engajamento em escala, com tracking — sem listinha de WhatsApp manual. |
 | **Magic Links em lote** | Envia link de acesso direto (24h) por WhatsApp para um filtro de colaboradores | Onboarding sem fricção — recebe link, abre, está dentro. |
 | **Confirmação preventiva em ações destrutivas** | `window.confirm` explícito em todas as ações em lote/destrutivas (gerar simulação, gerar relatórios, limpar dados, disparar mensagens) | Reduz erro humano — "clique acidental" não derruba programa. |
@@ -94,7 +98,8 @@ A plataforma agora é **trilíngue** (pt-BR / pt-PT / es-ES) e aceita **login po
 | **Knowledge Base (RAG)** | Upload PDF/DOCX/TXT/MD (até 4MB) + seed inicial + preview de busca FTS/vector/hybrid | A IA fala "como sua empresa fala" — usa valores, manuais, políticas internas. |
 | **Audit trail de prompts** | Tabela `prompt_versions` com hash SHA-256 | Rastreabilidade total das decisões da IA — quem mudou o quê, quando. |
 | **Log de auditoria de admin** | `admin_audit_log` registra disparos e mutações sensíveis (quem, o quê, qual empresa, resultado, IP) + tela `/admin/auditoria` filtrável | Governança real — toda ação de admin fica rastreável, sem depender de log de servidor. |
-| **Matriz de papéis e permissões** | Console `/admin/permissoes`: 5 papéis × 31 permissões nomeadas + overrides auditáveis por papel ou usuário (com motivo obrigatório) | Controle de acesso granular e explícito — dá pra liberar/bloquear capacidade específica sem mexer em código. |
+| **Matriz de papéis e permissões** | Console `/admin/permissoes`: 6 papéis × 25 permissões nomeadas + overrides auditáveis por papel ou usuário (com motivo obrigatório). A matriz é **aplicada de verdade no backend** — cada ação administrativa (criar, editar, apagar, gerar, disparar) checa a permissão específica do domínio | Controle de acesso granular e explícito que o sistema realmente respeita — dá pra liberar/bloquear capacidade específica sem mexer em código. |
+| **Admin Sócio (admin restrito)** | Papel de administrador abaixo do Master: enxerga tudo (empresas, usuários, relatórios, auditoria, custos), pode exportar — mas **não** apaga, gera conteúdo/IA, dispara avaliações nem gerencia empresas/usuários/permissões | Dá pra abrir o painel pra sócios e parceiros sem risco de apagarem ou gerarem o que não devem. |
 | **Lixeira** | Restore de registros excluídos por 30 dias | Errou? Volta. Sem chamado pro suporte. |
 | **Painéis Admin Vertho (internos)** | Evidências, Avaliação Acumulada, Auditoria Sem 14, Simulador de Custo | Time Vertho consegue auditar/regerar qualquer avaliação, com feedback contextual. |
 | **System Health no dashboard admin** | KPIs operacionais em tempo real | Operação transparente — você vê o que está rodando. |
@@ -112,6 +117,7 @@ A plataforma agora é **trilíngue** (pt-BR / pt-PT / es-ES) e aceita **login po
 | **Granularidade 0.1 nas notas** | Notas de descritor 1.0 a 4.0 em passos de 0.1 (não 0.5) | Sensibilidade real pra capturar evolução pequena mas consistente. |
 | **Triangulação na Sem 14** | Nota final = cenário + acumulada + evidências de 13 semanas (ponderação variável) | Avaliação final não cai em "um cenário ruim" — pondera trajetória inteira. |
 | **RAG per-tenant** | Voyage 3-large (1024d) + pgvector + busca híbrida (FTS PT-BR + semântica via RRF) | IA contextualizada à empresa em todas as superfícies (chat, relatórios, missões). |
+| **Contexto por escola/PPP** | Em redes com várias unidades, a geração de cenário e o conteúdo personalizado usam o **PPP da escola específica** do colaborador (com fallback de rede); o assessment entrega o cenário da escola dele | Hiper-contextualização real — cada unidade é avaliada/desenvolvida na própria realidade, não num molde único da rede. |
 | **PII Mascarado** | Nomes, emails, telefones mascarados antes de chegar nas IAs externas (Claude/Gemini/OpenAI) | LGPD by design — dados pessoais não vazam para terceiros. |
 | **Scrub PII no Sentry** | `lib/sentry-scrub-pii.ts` remove PII antes de enviar erros | Observabilidade sem expor PII. |
 | **Versionamento de prompts** | Cada chamada de IA grava hash SHA-256 do prompt | Reprodutibilidade científica das avaliações. |
@@ -271,6 +277,9 @@ Para usar diretamente em hero, manchetes e materiais comerciais:
 7. **"Granularidade 0.1 — capta evolução real, não só salto."**
 8. **"LGPD por design: PII nunca toca a IA. Pulso tem guard n≥7 obrigatório."**
 9. **"Pulso de Desenvolvimento — leitura do ambiente que sustenta a evolução, com anonimato por construção."**
+10. **"Conteúdo que fala com o seu perfil e a sua escola."** — PDF premium personalizado por DISC + PPP, núcleo curricular intacto.
+11. **"Cada escola avaliada na própria realidade."** — Cenários gerados a partir do PPP de cada unidade da rede.
+12. **"Abra o painel pros sócios sem medo."** — Papel Admin Sócio: vê tudo, não apaga nem gera o que não deve.
 
 ---
 
@@ -305,4 +314,6 @@ Disclaimer de uso (proprietário): os sinais são **hipóteses comerciais**, nã
 
 ---
 
-*Inventário gerado a partir do código-fonte em 25/05/2026 (HEAD `2730cd7`). Sempre que entrar feature nova, atualizar aqui antes de virar copy de site.*
+*Inventário gerado a partir do código-fonte; atualizado em 01/06/2026 (HEAD `f1fb87c`). Sempre que entrar feature nova, atualizar aqui antes de virar copy de site.*
+
+> **Novidades 26/05–01/06/2026:** PDF de conteúdo premium (publicação editorial diagramada por IA) + personalização por DISC e PPP; cenários de avaliação por escola (PPP local) com entrega roteada pela escola do colaborador; votação define o cenário (sem pré-filtro Top 10); papel **Admin Sócio** + permissões aplicadas de verdade no backend; Beto no idioma do colaborador; podcast/vídeo de conteúdo gerados por IA com produção de marca.
