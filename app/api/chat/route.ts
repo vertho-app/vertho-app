@@ -92,12 +92,18 @@ export async function POST(req) {
         const { data: comp } = await sb.from('competencias')
           .select('nome').eq('id', competenciaId).single();
 
-        const { data: cenario } = await sb.from('banco_cenarios')
-          .select('id')
+        // Cenário roteado pela escola do colaborador (escola > rede > mais recente).
+        const { data: colabEsc } = await sb.from('colaboradores')
+          .select('escola_id').eq('id', colaboradorId).maybeSingle();
+        const escolaId = colabEsc?.escola_id || null;
+        const { data: cands } = await sb.from('banco_cenarios')
+          .select('id, escola_id')
           .eq('empresa_id', empresaId)
           .eq('competencia_id', competenciaId)
-          .limit(1)
-          .single();
+          .order('created_at', { ascending: false });
+        const cenario = (escolaId && (cands || []).find((c: any) => c.escola_id === escolaId))
+          || (cands || []).find((c: any) => !c.escola_id)
+          || (cands || [])[0] || null;
 
         const { data: nova, error: errCriacao } = await sb.from('sessoes_avaliacao')
           .insert({

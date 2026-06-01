@@ -3,7 +3,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
 
-async function resolverTop5ComCenario(sb: any, empresaId: string, cargo: string, top5: string[]) {
+async function resolverTop5ComCenario(sb: any, empresaId: string, cargo: string, top5: string[], escolaId: string | null = null) {
   const { data: compsDoCargo } = await sb.from('competencias')
     .select('id, nome, cod_desc')
     .eq('empresa_id', empresaId)
@@ -14,18 +14,25 @@ async function resolverTop5ComCenario(sb: any, empresaId: string, cargo: string,
   const cenarioPorNome: Record<string, any> = {};
   if (compIds.length > 0) {
     const { data: cenarios } = await sb.from('banco_cenarios')
-      .select('id, competencia_id, created_at')
+      .select('id, competencia_id, escola_id, created_at')
       .eq('empresa_id', empresaId)
       .eq('cargo', cargo)
       .in('competencia_id', compIds)
       .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b')
       .order('created_at', { ascending: false });
-    (cenarios || []).forEach((cenario: any) => {
-      const comp = compPorId[cenario.competencia_id];
+    // Agrupa por competência e ROTEIA pela escola do colaborador:
+    // escola do colab > cenário de rede (escola_id null) > mais recente.
+    const porComp: Record<string, any[]> = {};
+    (cenarios || []).forEach((c: any) => { (porComp[c.competencia_id] = porComp[c.competencia_id] || []).push(c); });
+    for (const [cid, rows] of Object.entries(porComp)) {
+      const comp = compPorId[cid];
       const key = (comp?.nome || '').toLowerCase();
-      if (!key || cenarioPorNome[key]) return;
-      cenarioPorNome[key] = { ...cenario, compId: comp.id };
-    });
+      if (!key || cenarioPorNome[key]) continue;
+      const escolhido = (escolaId && rows.find((r: any) => r.escola_id === escolaId))
+        || rows.find((r: any) => !r.escola_id)
+        || rows[0];
+      cenarioPorNome[key] = { ...escolhido, compId: comp.id };
+    }
   }
 
   const compPrincipalPorNome: Record<string, any> = {};
@@ -65,7 +72,7 @@ async function _getDiagnosticoDoDia() {
   const email = await getAuthenticatedEmailFromAction();
   if (!email) return { error: 'Não autenticado' };
 
-  const colab = await findColabByEmail(email, 'id, nome_completo, cargo, empresa_id');
+  const colab = await findColabByEmail(email, 'id, nome_completo, cargo, empresa_id, escola_id');
   if (!colab) return { error: 'Colaborador não encontrado' };
 
   const sb = createSupabaseAdmin();
@@ -82,7 +89,7 @@ async function _getDiagnosticoDoDia() {
   // Regra de negócio: cada competência do Top 5 tem um cenário.
   // Como a tabela de competências pode ter linhas de descritores, resolvemos
   // o cenário pelo nome da competência e usamos o id vinculado a esse cenário.
-  const top5ComCenario = await resolverTop5ComCenario(sb, colab.empresa_id, colab.cargo, top5);
+  const top5ComCenario = await resolverTop5ComCenario(sb, colab.empresa_id, colab.cargo, top5, (colab as any).escola_id || null);
 
   // Respostas já dadas pelo colaborador (filtra por competencia_id — mais confiável)
   const { data: respostas } = await sb.from('respostas')
@@ -181,7 +188,7 @@ async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload) 
     return { error: 'Representatividade inválida' };
   }
 
-  const colab = await findColabByEmail(email, 'id, nome_completo, cargo, email, empresa_id');
+  const colab = await findColabByEmail(email, 'id, nome_completo, cargo, email, empresa_id, escola_id');
   if (!colab) return { error: 'Colaborador não encontrado' };
 
   const sb = createSupabaseAdmin();
@@ -212,7 +219,7 @@ async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload) 
     .select('top5_workshop').eq('empresa_id', colab.empresa_id).eq('nome', colab.cargo).maybeSingle();
   const top5 = cargoEmp?.top5_workshop || [];
 
-  const top5ComCenario = await resolverTop5ComCenario(sb, colab.empresa_id, colab.cargo, top5);
+  const top5ComCenario = await resolverTop5ComCenario(sb, colab.empresa_id, colab.cargo, top5, (colab as any).escola_id || null);
 
   const { data: respostas } = await sb.from('respostas')
     .select('competencia_id').eq('colaborador_id', colab.id).eq('empresa_id', colab.empresa_id);

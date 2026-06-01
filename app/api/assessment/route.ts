@@ -12,14 +12,22 @@ export async function GET(req: Request) {
     const sb = createSupabaseAdmin();
 
     const { data: colab } = await sb.from('colaboradores')
-      .select('id, nome_completo, cargo, empresa_id, perfil_dominante')
+      .select('id, nome_completo, cargo, empresa_id, perfil_dominante, escola_id')
       .eq('email', email).single();
     if (!colab) return NextResponse.json({ error: 'Colaborador não encontrado' }, { status: 404 });
 
-    const { data: cenarios } = await sb.from('banco_cenarios')
-      .select('id, competencia_id, titulo, descricao, alternativas, p1, p2, p3, p4')
+    const { data: cenariosRaw } = await sb.from('banco_cenarios')
+      .select('id, competencia_id, escola_id, titulo, descricao, alternativas, p1, p2, p3, p4')
       .eq('empresa_id', colab.empresa_id)
       .order('created_at');
+
+    // Roteia por escola do colaborador: 1 cenário por competência —
+    // escola do colab > rede (escola_id null) > mais recente.
+    const escolaId = (colab as any).escola_id || null;
+    const porComp: Record<string, any[]> = {};
+    (cenariosRaw || []).forEach((c: any) => { (porComp[c.competencia_id] = porComp[c.competencia_id] || []).push(c); });
+    const cenarios = Object.values(porComp).map((rows: any[]) =>
+      (escolaId && rows.find((r) => r.escola_id === escolaId)) || rows.find((r) => !r.escola_id) || rows[0]);
 
     const { data: respostas } = await sb.from('respostas')
       .select('competencia_id')
