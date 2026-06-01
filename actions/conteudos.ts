@@ -855,7 +855,7 @@ export async function gerarConteudoFinalPersonalizado({ contentId }: { contentId
 
 /**
  * Gera o "conteúdo final" entregável de ÁUDIO: narra o roteiro de podcast via
- * Gemini TTS (voz masculina pt-BR), sobe o WAV pro Storage e linka url/storage_path.
+ * Gemini TTS (voz masculina pt-BR), sobe o MP3 final pro Storage e linka url/storage_path.
  * Mesmo fluxo do PDF; a narração usa o bloco de TEXTO LIMPO do roteiro.
  */
 export async function gerarPodcastAudio(id: string) {
@@ -882,12 +882,12 @@ export async function gerarPodcastAudio(id: string) {
       return { success: false, error: 'Não foi possível extrair a narração do roteiro' };
     }
 
-    const wav = await generatePodcastAudio(narracao);
+    const audio = await generatePodcastAudio(narracao);
 
     const slug = String(c.competencia || 'geral').replace(/[^a-zA-Z0-9]/g, '_');
-    const path = `final/audio/${slug}/${c.id}-${Date.now()}.wav`;
-    const { error: upErr } = await sb.storage.from('conteudos').upload(path, wav, {
-      contentType: 'audio/wav', upsert: true,
+    const path = `final/audio/${slug}/${c.id}-${Date.now()}.${audio.extension}`;
+    const { error: upErr } = await sb.storage.from('conteudos').upload(path, audio.buffer, {
+      contentType: audio.contentType, upsert: true,
     });
     if (upErr) return { success: false, error: `Upload falhou: ${upErr.message}` };
 

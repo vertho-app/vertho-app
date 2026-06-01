@@ -2,14 +2,16 @@
  * Geração de áudio (podcast) via Gemini TTS.
  *
  * Usado pelo "conteúdo final" de formato áudio: transforma o roteiro de podcast
- * (bloco de narração limpa) em um WAV narrado. Voz masculina de meia-idade,
+ * (bloco de narração limpa) em um MP3 narrado. Voz masculina de meia-idade,
  * pt-BR, acolhedora e segura — calibrada pela voz prebuilt + direção de estilo.
  *
- * Gemini TTS retorna PCM 16-bit 24kHz mono (audio/L16); embrulhamos em WAV.
+ * Gemini TTS retorna PCM 16-bit 24kHz mono (audio/L16). Mixamos vinhetas,
+ * masterizamos para podcast e exportamos MP3 real 44.1kHz estéreo/192kbps.
  */
 
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import * as lamejs from '@breezystack/lamejs';
 
 const MODEL = process.env.GEMINI_TTS_MODEL || 'gemini-3.1-flash-tts-preview';
 const VOICE = process.env.GEMINI_TTS_VOICE || 'Charon'; // masculina, grave/madura
@@ -18,6 +20,16 @@ const CAMPO_VOICE = process.env.GEMINI_TTS_CAMPO_VOICE || 'Kore';
 const BRAND_OPENING_LINE = 'Este é o MentorIA na prática: uma conversa curta sobre desenvolvimento profissional aplicável no seu dia a dia.';
 const BRAND_CLOSING_LINE = 'Na Vertho, desenvolvimento profissional não é conceito solto. É prática observável, uma semana de cada vez.';
 const brandStingCache = new Map<string, Buffer>();
+const MP3_SAMPLE_RATE = 44100;
+const MP3_BITRATE_KBPS = 192;
+const TARGET_LUFS = -14;
+const TRUE_PEAK_DB = -1.5;
+
+export type PodcastAudioFile = {
+  buffer: Buffer;
+  contentType: 'audio/mpeg';
+  extension: 'mp3';
+};
 
 /** Extrai o bloco de NARRAÇÃO LIMPA do roteiro TTS; remove título, headers e tags. */
 export function extractNarration(roteiro: string): string {
@@ -232,6 +244,90 @@ export function addPodcastBrandSting(pcm: Buffer, sampleRate: number): Buffer {
   ]);
 }
 
+function pcm16Peak(pcm: Buffer): number {
+  let peak = 0;
+  for (let offset = 0; offset + 1 < pcm.length; offset += 2) {
+    peak = Math.max(peak, Math.abs(pcm.readInt16LE(offset)) / 32768);
+  }
+  return peak;
+}
+
+function pcm16Rms(pcm: Buffer): number {
+  let sumSquares = 0;
+  let count = 0;
+  const gate = 10 ** (-70 / 20);
+
+  for (let offset = 0; offset + 1 < pcm.length; offset += 2) {
+    const sample = pcm.readInt16LE(offset) / 32768;
+    if (Math.abs(sample) < gate) continue;
+    sumSquares += sample * sample;
+    count++;
+  }
+
+  return count ? Math.sqrt(sumSquares / count) : 0;
+}
+
+function masterPodcastPcm(pcm: Buffer): Buffer {
+  const peak = pcm16Peak(pcm);
+  const rms = pcm16Rms(pcm);
+  if (!peak || !rms) return pcm;
+
+  const currentLufsApprox = 20 * Math.log10(rms);
+  const loudnessGain = 10 ** ((TARGET_LUFS - currentLufsApprox) / 20);
+  const peakCeiling = 10 ** (TRUE_PEAK_DB / 20);
+  const peakGain = peakCeiling / peak;
+  const gain = Math.min(loudnessGain, peakGain);
+  const out = Buffer.alloc(pcm.length);
+
+  for (let offset = 0; offset + 1 < pcm.length; offset += 2) {
+    const sample = Math.round(pcm.readInt16LE(offset) * gain);
+    out.writeInt16LE(Math.max(-32768, Math.min(32767, sample)), offset);
+  }
+
+  return out;
+}
+
+function resampleMonoPcm16(pcm: Buffer, sourceRate: number, targetRate: number): Int16Array {
+  const sourceFrames = Math.floor(pcm.length / 2);
+  const targetFrames = Math.max(1, Math.round(sourceFrames * targetRate / sourceRate));
+  const out = new Int16Array(targetFrames);
+
+  for (let i = 0; i < targetFrames; i++) {
+    const sourcePos = i * sourceRate / targetRate;
+    const leftFrame = Math.min(sourceFrames - 1, Math.floor(sourcePos));
+    const rightFrame = Math.min(sourceFrames - 1, leftFrame + 1);
+    const ratio = sourcePos - leftFrame;
+    const left = pcm.readInt16LE(leftFrame * 2);
+    const right = pcm.readInt16LE(rightFrame * 2);
+    out[i] = Math.max(-32768, Math.min(32767, Math.round(left + (right - left) * ratio)));
+  }
+
+  return out;
+}
+
+function encodeMp3Stereo(mono: Int16Array): Buffer {
+  const encoder = new lamejs.Mp3Encoder(2, MP3_SAMPLE_RATE, MP3_BITRATE_KBPS);
+  const chunks: Buffer[] = [];
+  const blockSize = 1152;
+
+  for (let i = 0; i < mono.length; i += blockSize) {
+    const left = mono.subarray(i, i + blockSize);
+    const right = mono.subarray(i, i + blockSize);
+    const encoded = encoder.encodeBuffer(left, right);
+    if (encoded.length) chunks.push(Buffer.from(encoded));
+  }
+
+  const end = encoder.flush();
+  if (end.length) chunks.push(Buffer.from(end));
+  return Buffer.concat(chunks);
+}
+
+export function exportPodcastMp3FromPcm(pcm: Buffer, sampleRate: number): Buffer {
+  const mastered = masterPodcastPcm(pcm);
+  const mono441 = resampleMonoPcm16(mastered, sampleRate, MP3_SAMPLE_RATE);
+  return encodeMp3Stereo(mono441);
+}
+
 /** Lê "audio/L16;rate=24000" e devolve o sampleRate (default 24000). */
 function rateFromMime(mime?: string): number {
   const m = mime?.match(/rate=(\d+)/i);
@@ -239,10 +335,10 @@ function rateFromMime(mime?: string): number {
 }
 
 /**
- * Narra o texto e devolve um WAV (Buffer). Lança em erro/sem chave — o caller
+ * Narra o texto e devolve um MP3 pronto para distribuição. Lança em erro/sem chave — o caller
  * decide o fallback. `texto` deve ser a narração limpa (use extractNarration).
  */
-export async function generatePodcastAudio(texto: string): Promise<Buffer> {
+export async function generatePodcastAudio(texto: string): Promise<PodcastAudioFile> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY not set');
   if (!texto?.trim()) throw new Error('texto de narração vazio');
@@ -302,5 +398,10 @@ export async function generatePodcastAudio(texto: string): Promise<Buffer> {
   if (!b64) throw new Error('Gemini TTS: resposta sem áudio');
   const pcm = Buffer.from(b64, 'base64');
   const sampleRate = rateFromMime(part.inlineData.mimeType);
-  return pcmToWav(addPodcastBrandSting(pcm, sampleRate), sampleRate);
+  const mixedPcm = addPodcastBrandSting(pcm, sampleRate);
+  return {
+    buffer: exportPodcastMp3FromPcm(mixedPcm, sampleRate),
+    contentType: 'audio/mpeg',
+    extension: 'mp3',
+  };
 }
