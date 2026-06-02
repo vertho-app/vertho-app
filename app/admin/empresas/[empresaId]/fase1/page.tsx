@@ -10,7 +10,7 @@ import {
 import BackButton from '@/components/back-button';
 import {
   loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, loadCenarios,
-  regenerarCenario, checkCenarioUm, limparCenariosAntigos
+  regenerarCenario, checkCenarioUm, limparCenariosAntigos, excluirCenario
 } from '@/actions/fase1';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import { loadCargos, salvarTop5 } from '@/app/admin/cargos/actions';
@@ -785,6 +785,18 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                                   {tr('actions.validate')}
                                 </button>
                               )}
+                              <button disabled={isActing} onClick={async () => {
+                                if (!confirm(`Excluir o cenário "${c.titulo || 'sem título'}"? Esta ação não pode ser desfeita.`)) return;
+                                setCenAction({ id: c.id, type: 'delete' });
+                                const r = await excluirCenario(c.id);
+                                setCenAction(null);
+                                if (r.success) { flash('Cenário excluído'); refresh(); }
+                                else flash(tr('messages.error', { error: r.error }));
+                              }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-red-400 border border-red-400/30 hover:bg-red-400/10 transition-all disabled:opacity-50 ml-auto">
+                                {isActing && cenAction.type === 'delete' ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                                Excluir
+                              </button>
                             </div>
                           </div>
                         )}

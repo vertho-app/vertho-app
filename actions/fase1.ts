@@ -296,6 +296,17 @@ export async function loadGabaritosCargos(empresaId: string) {
   return data || [];
 }
 
+/** Exclui UM cenário (hard delete). Para remover cenários de rede que sobraram
+ *  da migração por-PPP, ou qualquer um indesejado. Regenerar substitui; este
+ *  apaga de vez. */
+export async function excluirCenario(cenarioId: string) {
+  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
+  if (!cenarioId) return { success: false, error: 'cenarioId obrigatório' };
+  const { error } = await sbRaw.from('banco_cenarios').delete().eq('id', cenarioId);
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
 export async function loadCenarios(empresaId: string) {
   await requireAdminAction();
   if (!empresaId) return [];
