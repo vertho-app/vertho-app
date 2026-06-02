@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
   const sb = createSupabaseAdmin();
   const { data } = await sb.from('banco_cenarios')
-    .select('id, empresa_id, competencia_id, cargo, titulo, descricao, alternativas, competencia:competencias(nome, cod_comp)')
+    .select('id, empresa_id, competencia_id, cargo, ppp_escola_id, titulo, descricao, alternativas, competencia:competencias(nome, cod_comp), ppp:ppp_escolas(escola)')
     .eq('empresa_id', empresaId)
     .order('cargo')
     .order('created_at', { ascending: false });
@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
     ...c,
     competencia_nome: c.competencia?.nome || null,
     competencia_cod: c.competencia?.cod_comp || null,
+    ppp_nome: c.ppp_escola_id ? (c.ppp?.escola || 'PPP') : 'Rede',
   }));
 
   return NextResponse.json(result);

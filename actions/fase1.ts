@@ -302,7 +302,7 @@ export async function loadCenarios(empresaId: string) {
   const tdb = tenantDb(empresaId);
   // Listar colunas explicitamente para garantir que check fields vêm
   const { data, error } = await tdb.from('banco_cenarios')
-    .select('id, empresa_id, competencia_id, cargo, titulo, descricao, alternativas, created_at, nota_check, status_check, dimensoes_check, justificativa_check, sugestao_check, alertas_check, checked_at')
+    .select('id, empresa_id, competencia_id, cargo, ppp_escola_id, titulo, descricao, alternativas, created_at, nota_check, status_check, dimensoes_check, justificativa_check, sugestao_check, alertas_check, checked_at')
     .order('cargo');
 
   if (error || !data?.length) return [];
@@ -314,6 +314,14 @@ export async function loadCenarios(empresaId: string) {
       .select('id, nome, cod_comp')
       .in('id', compIds);
     (comps || []).forEach(c => { compMap[c.id] = c; });
+  }
+
+  // Nome do PPP de cada cenário (null = Rede).
+  const pppMap: Record<string, string> = {};
+  const pppIds = [...new Set(data.map((c: any) => c.ppp_escola_id).filter(Boolean))];
+  if (pppIds.length > 0) {
+    const { data: ppps } = await tdb.from('ppp_escolas').select('id, escola').in('id', pppIds);
+    (ppps || []).forEach((p: any) => { pppMap[p.id] = p.escola; });
   }
 
   return data.map(c => ({
@@ -332,6 +340,8 @@ export async function loadCenarios(empresaId: string) {
     alertas_check: c.alertas_check,
     competencia_nome: compMap[c.competencia_id]?.nome || null,
     competencia_cod: compMap[c.competencia_id]?.cod_comp || null,
+    ppp_escola_id: c.ppp_escola_id || null,
+    ppp_nome: c.ppp_escola_id ? (pppMap[c.ppp_escola_id] || 'PPP') : 'Rede',
   }));
 }
 

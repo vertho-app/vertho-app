@@ -611,6 +611,13 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                             {c.status_check === 'revisar' && <AlertTriangle size={14} className="text-amber-400 shrink-0" />}
                             <span className="text-xs font-bold text-white">{c.titulo || tr('fallbackScenarioTitle')}</span>
                             {c.competencia_nome && <span className="text-[10px] text-cyan-400">{c.competencia_nome}</span>}
+                            {c.ppp_nome && (
+                              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded shrink-0 ${
+                                c.ppp_escola_id ? 'bg-violet-400/15 text-violet-300' : 'bg-white/[0.06] text-gray-400'
+                              }`} title={c.ppp_escola_id ? `PPP: ${c.ppp_nome}` : 'Cenário de rede (sem PPP específico)'}>
+                                {c.ppp_escola_id ? `🏫 ${c.ppp_nome}` : 'Rede'}
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             {c.nota_check != null && (
