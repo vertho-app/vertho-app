@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getTenantSlug } from '@/lib/tenant-resolver';
 import { authLimiter } from '@/lib/rate-limit';
+import { resolveSafeAuthRedirect } from '@/lib/auth/redirect';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,10 +34,12 @@ export async function POST(req: NextRequest) {
     const { data: empresa } = await sb.from('empresas')
       .select('nome').eq('id', colab.empresa_id).maybeSingle();
 
+    const redirect = resolveSafeAuthRedirect(req, redirectTo);
+
     const { data: linkData, error: linkErr } = await sb.auth.admin.generateLink({
       type: 'magiclink',
       email: email.trim().toLowerCase(),
-      options: { redirectTo: redirectTo || undefined },
+      options: { redirectTo: redirect.safeRedirectTo },
     });
 
     if (linkErr || !linkData?.properties?.action_link) {
@@ -54,7 +57,10 @@ export async function POST(req: NextRequest) {
 
     const nome = colab.nome_completo?.split(' ')[0] || '';
     const empresaNome = empresa?.nome || 'Vertho';
-    const magicLink = linkData.properties.action_link;
+    const tokenHash = linkData.properties.hashed_token;
+    const magicLink = tokenHash
+      ? `${redirect.origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(redirect.nextPath)}`
+      : linkData.properties.action_link;
 
     const msg = `Olá, ${nome}! 🔐
 

@@ -7,6 +7,7 @@ import { authLimiter } from '@/lib/rate-limit';
 import { APP_URL, EMAIL_FROM_DEFAULT } from '@/lib/domain';
 import { resolveAppLocale } from '@/lib/i18n';
 import { magicLinkEmail, magicLinkWhatsapp } from '@/lib/i18n-auth-templates';
+import { resolveSafeAuthRedirect } from '@/lib/auth/redirect';
 
 export const dynamic = 'force-dynamic';
 
@@ -86,26 +87,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
-    let safeRedirectTo: string | undefined;
-    let nextPath = '/dashboard';
-    let origin = '';
-    if (typeof redirectTo === 'string' && redirectTo) {
-      try {
-        const parsed = new URL(redirectTo);
-        origin = parsed.origin;
-        // Mantém apenas o path/query/hash do próprio host informado no client.
-        safeRedirectTo = `${parsed.origin}${parsed.pathname}${parsed.search}${parsed.hash}`;
-        nextPath = `${parsed.pathname}${parsed.search}${parsed.hash}` || '/dashboard';
-      } catch {
-        // ignora redirect inválido
-      }
-    }
+    const redirect = resolveSafeAuthRedirect(req, redirectTo);
 
     // Gera magic link via admin API (sem rate limit do Supabase)
     const { data: linkData, error: linkErr } = await sb.auth.admin.generateLink({
       type: 'magiclink',
       email: trimmed,
-      options: { redirectTo: safeRedirectTo || undefined },
+      options: { redirectTo: redirect.safeRedirectTo },
     });
 
     if (linkErr || !linkData?.properties) {
@@ -133,8 +121,8 @@ export async function POST(req: NextRequest) {
         // Se temos um redirectTo confiável, montamos um callback server-side
         // com token_hash (mesma estratégia do WhatsApp) — evita problemas de
         // PKCE quando o usuário abre o e-mail em outro navegador.
-        const linkPraEmail = (origin && tokenHash)
-          ? `${origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(nextPath)}`
+        const linkPraEmail = tokenHash
+          ? `${redirect.origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(redirect.nextPath)}`
           : actionLink;
 
         const resend = new Resend(process.env.RESEND_API_KEY);
@@ -163,12 +151,12 @@ export async function POST(req: NextRequest) {
     // quando o link é aberto pelo app/navegador do WhatsApp.
     const zapiInstance = process.env.ZAPI_INSTANCE_ID;
     const zapiToken = process.env.ZAPI_TOKEN;
-    if (zapiInstance && zapiToken && telefone && tokenHash && origin) {
+    if (zapiInstance && zapiToken && telefone && tokenHash) {
       try {
         let phone = String(telefone).replace(/\D/g, '');
         if (phone.length <= 11) phone = `55${phone}`;
 
-        const whatsappLink = `${origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(nextPath)}`;
+        const whatsappLink = `${redirect.origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(redirect.nextPath)}`;
         const msg = magicLinkWhatsapp(locale, { nome, empresaNome, link: whatsappLink });
 
         const res = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-text`, {

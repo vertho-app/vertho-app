@@ -7,6 +7,7 @@ import { validateWhatsAppBR } from '@/lib/phone';
 import { resolveAppLocale } from '@/lib/i18n';
 import { signupEmail, signupWhatsapp } from '@/lib/i18n-auth-templates';
 import { authLimiter } from '@/lib/rate-limit';
+import { resolveSafeAuthRedirect } from '@/lib/auth/redirect';
 
 export const dynamic = 'force-dynamic';
 
@@ -130,22 +131,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Resolve redirect e gera magic link (mesma lógica do /api/auth/magic-link)
-    let safeRedirectTo: string | undefined;
-    let nextPath = '/dashboard';
-    let origin = '';
-    if (redirectTo) {
-      try {
-        const parsed = new URL(redirectTo);
-        origin = parsed.origin;
-        safeRedirectTo = `${parsed.origin}${parsed.pathname}${parsed.search}${parsed.hash}`;
-        nextPath = `${parsed.pathname}${parsed.search}${parsed.hash}` || '/dashboard';
-      } catch {}
-    }
+    const redirect = resolveSafeAuthRedirect(req, redirectTo);
 
     const { data: linkData, error: linkErr } = await sb.auth.admin.generateLink({
       type: 'magiclink',
       email,
-      options: { redirectTo: safeRedirectTo || undefined },
+      options: { redirectTo: redirect.safeRedirectTo },
     });
 
     if (linkErr || !linkData?.properties) {
@@ -166,8 +157,8 @@ export async function POST(req: NextRequest) {
     // Email via Resend
     if (process.env.RESEND_API_KEY && actionLink) {
       try {
-        const linkPraEmail = (origin && tokenHash)
-          ? `${origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(nextPath)}`
+        const linkPraEmail = tokenHash
+          ? `${redirect.origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(redirect.nextPath)}`
           : actionLink;
 
         const resend = new Resend(process.env.RESEND_API_KEY);
@@ -187,9 +178,9 @@ export async function POST(req: NextRequest) {
     // WhatsApp via Z-API (telefone obrigatório no signup, já em E.164 com 55)
     const zapiInstance = process.env.ZAPI_INSTANCE_ID;
     const zapiToken = process.env.ZAPI_TOKEN;
-    if (zapiInstance && zapiToken && telefoneE164 && tokenHash && origin) {
+    if (zapiInstance && zapiToken && telefoneE164 && tokenHash) {
       try {
-        const whatsappLink = `${origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(nextPath)}`;
+        const whatsappLink = `${redirect.origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(redirect.nextPath)}`;
         const msg = signupWhatsapp(locale, { nome, empresaNome, link: whatsappLink });
 
         const res = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-text`, {

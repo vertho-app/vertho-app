@@ -13,12 +13,21 @@ import { NextResponse } from 'next/server';
  */
 
 // Lista de domínios raiz aceitos (cada um com www e subdomínios).
-const TRUSTED_ROOT_DOMAINS = ['vertho.ai'];
+const TRUSTED_ROOT_DOMAINS = [
+  process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'vertho.ai',
+  'vertho.com.br',
+].filter(Boolean);
+
+const EXTRA_TRUSTED_ORIGINS = (process.env.CSRF_TRUSTED_ORIGINS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 const TRUSTED_ORIGINS = new Set<string>([
   ...TRUSTED_ROOT_DOMAINS.flatMap(d => [`https://${d}`, `https://www.${d}`]),
   'http://localhost:3000',
   'http://localhost:3001',
+  ...EXTRA_TRUSTED_ORIGINS,
 ]);
 
 function isTrustedOrigin(origin: string | null, host: string | null): boolean {
@@ -31,7 +40,6 @@ function isTrustedOrigin(origin: string | null, host: string | null): boolean {
     for (const root of TRUSTED_ROOT_DOMAINS) {
       if (url.hostname.endsWith(`.${root}`)) return true;
     }
-    if (url.hostname.endsWith('.vercel.app')) return true;
     // Same-origin: origin host == request host
     if (host && url.host === host) return true;
   } catch {}
