@@ -1064,10 +1064,12 @@ export async function listarFilaIA3(empresaId: string) {
 
 // Gera cenário para UMA competência (cabe em 60s)
 export async function rodarIA3Uma(empresaId: string, cargoNome: string, competenciaId: string, pppEscolaId: string | null = null, aiConfig: AIConfig = {}) {
-  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
-  const tdb = tenantDb(empresaId);
   try {
+    // Auth DENTRO do try: qualquer falha (permissão, sessão) vira erro legível
+    // em vez de derrubar a server action ("unexpected response from server").
+    const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
+    const tdb = tenantDb(empresaId);
     // Empresa (id é tenant — raw)
     let empresa;
     const { data: emp1 } = await sbRaw.from('empresas')
@@ -1322,8 +1324,8 @@ export async function listarFilaCheck(empresaId: string) {
 }
 
 export async function checkCenarioUm(cenarioId: string, empresaId: string | null = null, cargo: string | null = null, competenciaId: string | null = null, modelo: string | null = null) {
-  const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   try {
+    const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
     // banco_cenarios é misto → raw na busca por id ou por empresa+cargo+competencia
     let cen;
     if (cenarioId) {
