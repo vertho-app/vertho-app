@@ -283,21 +283,32 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         const items = fila.data.filter((f: any) => !f.jaGerado).length > 0 ? fila.data.filter((f: any) => !f.jaGerado) : fila.data;
         const checkModel = aiConfig?.checkModel;
         addLog(`📋 ${items.length} cenários para gerar${checkModel ? ' + validar' : ''}`, 'info');
+        // Retry de blips transitórios (cold start / 502 → "unexpected response").
+        // Converte throw em { success:false } pra o loop tratar uniforme.
+        const tentar = async (fn: () => Promise<any>) => {
+          try { return await fn(); }
+          catch (e: any) {
+            const msg = String(e?.message || e || '');
+            if (/unexpected response|failed to fetch|fetch failed|network|load failed/i.test(msg)) {
+              await new Promise(res => setTimeout(res, 1500));
+              try { return await fn(); } catch (e2: any) { return { success: false, error: e2?.message || msg }; }
+            }
+            return { success: false, error: msg };
+          }
+        };
         let gerados = 0, aprovados = 0, revisar = 0, erros = 0;
         for (let i = 0; i < items.length; i++) {
           const item = items[i];
           const escolaLbl = item.ppp_nome ? ` · ${item.ppp_nome}` : '';
           addLog(`⏳ [${i + 1}/${items.length}] Gerando: ${item.nome} (${item.cargo}${escolaLbl})`, 'info');
-          const r = await rodarIA3Uma(empresaId, item.cargo, item.competencia_id, item.ppp_escola_id ?? null, aiConfig || undefined);
+          const r = await tentar(() => rodarIA3Uma(empresaId, item.cargo, item.competencia_id, item.ppp_escola_id ?? null, aiConfig || undefined));
           if (!r.success) { erros++; addLog(`⚠ ${item.nome}: ${r.error}`, 'error'); continue; }
           gerados++;
           if (checkModel) {
             addLog(`🔍 [${i + 1}/${items.length}] Validando: ${item.nome}${escolaLbl} [${checkModel}]`, 'info');
-            try {
-              const cr = await checkCenarioUm(r.cenarioId || null, empresaId, item.cargo, item.competencia_id, checkModel);
-              if (cr.success) { if (cr.nota >= 90) { aprovados++; addLog(`✅ ${item.nome}: ${cr.nota}pts`, 'success'); } else { revisar++; addLog(`⚠ ${item.nome}: ${cr.nota}pts`, 'info'); } }
-              else addLog(`⚠ Check ${item.nome}: ${cr.error}`, 'error');
-            } catch (ce: any) { addLog(`⚠ Check erro: ${ce.message}`, 'error'); }
+            const cr = await tentar(() => checkCenarioUm(r.cenarioId || null, empresaId, item.cargo, item.competencia_id, checkModel));
+            if (cr.success) { if (cr.nota >= 90) { aprovados++; addLog(`✅ ${item.nome}: ${cr.nota}pts`, 'success'); } else { revisar++; addLog(`⚠ ${item.nome}: ${cr.nota}pts`, 'info'); } }
+            else addLog(`⚠ Check ${item.nome}: ${cr.error}`, 'error');
           }
         }
         addLog(`✅ IA3: ${gerados} gerados${checkModel ? ` | ${aprovados}✓ ${revisar}⚠` : ''}${erros ? ` | ${erros}❌` : ''}`, 'success');
