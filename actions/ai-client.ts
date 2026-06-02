@@ -7,6 +7,12 @@ import { localeCookieName, localeLanguageName, resolveAppLocale } from '@/lib/i1
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
+// Timeout por chamada de IA. Sem isto, uma request que "pendura" (rede/modelo)
+// bloqueia a função até o maxDuration da rota (até 300s), travando lotes
+// inteiros. 120s cobre gerações longas (IA3 ~60-90s) e ainda deixa margem p/
+// retry dentro do limite da rota.
+const AI_TIMEOUT_MS = 120000;
+
 export interface AIConfig {
   model?: string;
 }
@@ -119,7 +125,7 @@ async function callClaude(
   maxTokens: number,
   options: AICallOptions = {},
 ): Promise<string> {
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: AI_TIMEOUT_MS, maxRetries: 1 });
 
   const systemBlock: any = typeof system === 'string' && system.length > 4000
     ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
@@ -165,7 +171,7 @@ async function callClaudeChat(
   maxTokens: number,
   options: AICallOptions = {},
 ): Promise<string> {
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: AI_TIMEOUT_MS, maxRetries: 1 });
 
   // Prompt Caching: se system é grande (>1024 tokens ≈ 4000 chars), marca como
   // cache_control ephemeral. Chamadas subsequentes em 5 min com mesmo system
@@ -230,6 +236,7 @@ async function callGemini(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(AI_TIMEOUT_MS),
   });
 
   if (!res.ok) {
@@ -271,6 +278,7 @@ async function callOpenAI(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(AI_TIMEOUT_MS),
   });
 
   if (!res.ok) {
@@ -310,6 +318,7 @@ async function callGeminiChat(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(AI_TIMEOUT_MS),
   });
 
   if (!res.ok) {
@@ -344,6 +353,7 @@ async function callOpenAIChat(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(AI_TIMEOUT_MS),
   });
 
   if (!res.ok) {
