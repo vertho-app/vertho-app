@@ -393,18 +393,15 @@ async function getTop5PorCargo(tdb) {
 
 // ── Helpers IA1 ─────────────────────────────────────────────────────────────
 
-async function buscarContextoPPP(tdb, empresaNome, escolaId = undefined) {
+async function buscarContextoPPP(tdb, empresaNome, pppEscolaId = undefined) {
   try {
-    // PPP por ESCOLA quando escolaId é uma string:
-    //  - escola COM PPP → usa o PPP daquela escola.
-    //  - escola SEM PPP → '' (cenário genérico; NÃO pega o PPP de outra escola).
-    // escolaId undefined (IA1/IA2) ou null (cenário de rede no IA3) → PPP mais
-    // recente extraído (proxy de rede, comportamento histórico).
+    // Cenário por PPP: pppEscolaId é o id do ppp_escolas a usar.
+    //  - string → usa ESSE PPP.
+    //  - undefined (IA1/IA2) ou null (cenário de rede no IA3) → PPP mais recente
+    //    extraído (proxy de rede, comportamento histórico).
     let ppp: { extracao: any } | null = null;
-    if (typeof escolaId === 'string' && escolaId) {
-      const { data: esc } = await tdb.from('escolas').select('ppp_escola_id').eq('id', escolaId).maybeSingle();
-      if (!esc?.ppp_escola_id) return '';
-      const { data } = await tdb.from('ppp_escolas').select('extracao').eq('id', esc.ppp_escola_id).maybeSingle();
+    if (typeof pppEscolaId === 'string' && pppEscolaId) {
+      const { data } = await tdb.from('ppp_escolas').select('extracao').eq('id', pppEscolaId).maybeSingle();
       ppp = data;
     } else {
       const { data } = await tdb.from('ppp_escolas')
@@ -982,37 +979,41 @@ export async function listarFilaIA3(empresaId: string) {
       .select('id, nome, cod_comp, cargo, cod_desc');
     const compById = new Map<string, any>((comps || []).map((c: any) => [c.id, c]));
 
-    // Escolas com colaboradores POR CARGO: cada cargo gera 1 cenário por escola
-    // que tenha colaborador dele (com o PPP da escola). Colaborador sem escola
-    // (central/rede) → escola_id null = cenário de rede. Escola sem PPP → genérico.
-    const { data: escolas } = await tdb.from('escolas').select('id, nome, is_central');
-    const escolaNome = new Map<string, string>((escolas || []).map((e: any) => [e.id, e.nome]));
+    // PPPs com colaboradores POR CARGO: cada cargo gera 1 cenário por PPP
+    // distinto. Colaborador → escola → escola.ppp_escola_id. Escolas diferentes
+    // com o MESMO PPP compartilham 1 cenário (sem duplicar). Sem escola, escola
+    // sem PPP ou central → ppp null = cenário de rede.
+    const { data: escolas } = await tdb.from('escolas').select('id, ppp_escola_id');
+    const escolaPpp = new Map<string, string | null>((escolas || []).map((e: any) => [e.id, e.ppp_escola_id || null]));
+    const { data: ppps } = await tdb.from('ppp_escolas').select('id, escola');
+    const pppNome = new Map<string, string>((ppps || []).map((p: any) => [p.id, p.escola]));
     const { data: colabsEsc } = await tdb.from('colaboradores').select('cargo, escola_id');
-    const cargoEscolas = new Map<string, Set<string | null>>();
+    const cargoPpps = new Map<string, Set<string | null>>();
     for (const c of (colabsEsc || []) as any[]) {
       if (!c.cargo) continue;
-      if (!cargoEscolas.has(c.cargo)) cargoEscolas.set(c.cargo, new Set());
-      cargoEscolas.get(c.cargo)!.add(c.escola_id || null);
+      const ppp = c.escola_id ? (escolaPpp.get(c.escola_id) || null) : null;
+      if (!cargoPpps.has(c.cargo)) cargoPpps.set(c.cargo, new Set());
+      cargoPpps.get(c.cargo)!.add(ppp);
     }
 
-    // Já gerados: indexa por (competencia|cod_comp)::cargo::escola (escola null = 'rede').
+    // Já gerados: indexa por (competencia|cod_comp)::cargo::ppp (ppp null = 'rede').
     const { data: existentes } = await tdb.from('banco_cenarios')
-      .select('competencia_id, cargo, escola_id');
+      .select('competencia_id, cargo, ppp_escola_id');
     const existSet = new Set<string>();
     for (const e of existentes || []) {
-      const esc = e.escola_id || 'rede';
-      existSet.add(`${e.competencia_id}::${e.cargo}::${esc}`);
+      const ppp = e.ppp_escola_id || 'rede';
+      existSet.add(`${e.competencia_id}::${e.cargo}::${ppp}`);
       const cc = compById.get(e.competencia_id)?.cod_comp;
-      if (cc) existSet.add(`cc:${cc}::${e.cargo}::${esc}`);
+      if (cc) existSet.add(`cc:${cc}::${e.cargo}::${ppp}`);
     }
 
     const fila: any[] = [];
     const seen = new Set<string>();
     const semCompetencia: string[] = [];
     for (const [cargo, nomes] of Object.entries(top5PorCargo)) {
-      // Escolas-alvo deste cargo (ao menos a rede, se não houver colaborador mapeado).
-      const escolasAlvo = Array.from(cargoEscolas.get(cargo) || new Set<string | null>([null]));
-      if (!escolasAlvo.length) escolasAlvo.push(null);
+      // PPPs-alvo deste cargo (ao menos a rede, se não houver colaborador mapeado).
+      const pppsAlvo = Array.from(cargoPpps.get(cargo) || new Set<string | null>([null]));
+      if (!pppsAlvo.length) pppsAlvo.push(null);
       for (const nome of (nomes as string[])) {
         let competencia_id: string | undefined;
         let cod_comp = '';
@@ -1027,16 +1028,16 @@ export async function listarFilaIA3(empresaId: string) {
           competencia_id = rep.id;
           cod_comp = rep.cod_comp || '';
         }
-        for (const escolaId of escolasAlvo) {
-          const escKey = escolaId || 'rede';
-          const key = `${competencia_id}::${cargo}::${escKey}`;
+        for (const pppId of pppsAlvo) {
+          const pppKey = pppId || 'rede';
+          const key = `${competencia_id}::${cargo}::${pppKey}`;
           if (seen.has(key)) continue;
           seen.add(key);
-          const jaGerado = existSet.has(key) || (cod_comp ? existSet.has(`cc:${cod_comp}::${cargo}::${escKey}`) : false);
+          const jaGerado = existSet.has(key) || (cod_comp ? existSet.has(`cc:${cod_comp}::${cargo}::${pppKey}`) : false);
           fila.push({
             cargo, competencia_id, nome, cod_comp, jaGerado,
-            escola_id: escolaId,
-            escola_nome: escolaId ? (escolaNome.get(escolaId) || 'Escola') : 'Rede',
+            ppp_escola_id: pppId,
+            ppp_nome: pppId ? (pppNome.get(pppId) || 'PPP') : 'Rede',
           });
         }
       }
@@ -1052,7 +1053,7 @@ export async function listarFilaIA3(empresaId: string) {
 }
 
 // Gera cenário para UMA competência (cabe em 60s)
-export async function rodarIA3Uma(empresaId: string, cargoNome: string, competenciaId: string, escolaId: string | null = null, aiConfig: AIConfig = {}) {
+export async function rodarIA3Uma(empresaId: string, cargoNome: string, competenciaId: string, pppEscolaId: string | null = null, aiConfig: AIConfig = {}) {
   const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
@@ -1076,8 +1077,8 @@ export async function rodarIA3Uma(empresaId: string, cargoNome: string, competen
       .eq('cod_comp', comp.cod_comp)
       .not('cod_desc', 'is', null);
 
-    // PPP da ESCOLA (escolaId null = rede), valores
-    const contextoPPP = await buscarContextoPPP(tdb, empresa.nome, escolaId);
+    // Contexto do PPP-alvo (pppEscolaId null = rede), valores
+    const contextoPPP = await buscarContextoPPP(tdb, empresa.nome, pppEscolaId);
     const valores = await buscarValores(tdb, empresa.nome);
 
     // Dados do cargo + gabarito CIS
@@ -1160,16 +1161,16 @@ export async function rodarIA3Uma(empresaId: string, cargoNome: string, competen
       mapa_cobertura_descritores: resultado.mapa_cobertura_descritores || null,
     };
 
-    // Salvar (limpa o anterior DESTA escola — não apaga as outras escolas).
+    // Salvar (limpa o anterior DESTE PPP — não apaga os outros PPPs).
     const delQuery = tdb.from('banco_cenarios').delete()
       .eq('competencia_id', comp.id)
       .eq('cargo', cargoNome);
-    await (escolaId ? delQuery.eq('escola_id', escolaId) : delQuery.is('escola_id', null));
+    await (pppEscolaId ? delQuery.eq('ppp_escola_id', pppEscolaId) : delQuery.is('ppp_escola_id', null));
 
     const { data: inserted, error: insertErr } = await tdb.from('banco_cenarios').insert({
       competencia_id: comp.id,
       cargo: cargoNome,
-      escola_id: escolaId || null,
+      ppp_escola_id: pppEscolaId || null,
       titulo: cen.titulo || titulo,
       descricao: cen.contexto || contexto,
       alternativas: alternativasEnriquecidas,
@@ -1194,7 +1195,7 @@ export async function regenerarCenario(cenarioId: string, aiConfig: AIConfig = {
   try {
     // banco_cenarios é misto → raw por id
     const { data: cen } = await sbRaw.from('banco_cenarios')
-      .select('empresa_id, competencia_id, cargo, escola_id, sugestao_check, justificativa_check, alertas_check')
+      .select('empresa_id, competencia_id, cargo, ppp_escola_id, sugestao_check, justificativa_check, alertas_check')
       .eq('id', cenarioId).single();
     if (!cen) return { success: false, error: 'Cenário não encontrado' };
     if (!cen.empresa_id) return { success: false, error: 'Cenário sem empresa_id (catálogo nacional)' };
@@ -1230,7 +1231,7 @@ export async function regenerarCenario(cenarioId: string, aiConfig: AIConfig = {
       .select('cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
       .eq('cod_comp', comp.cod_comp).not('cod_desc', 'is', null);
 
-    const contextoPPP = await buscarContextoPPP(tdb, empresa.nome, cen.escola_id);
+    const contextoPPP = await buscarContextoPPP(tdb, empresa.nome, cen.ppp_escola_id);
     const valores = await buscarValores(tdb, empresa.nome);
 
     const { data: cargoEmp } = await tdb.from('cargos_empresa')

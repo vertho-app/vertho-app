@@ -9,27 +9,35 @@ async function resolverTop5ComCenario(sb: any, empresaId: string, cargo: string,
     .eq('empresa_id', empresaId)
     .eq('cargo', cargo);
 
+  // Roteia por PPP: a escola do colaborador define o PPP-alvo; o cenário é
+  // escolhido por ppp_escola_id (escolas que compartilham o PPP usam o mesmo
+  // cenário). Sem escola/PPP → cenário de rede (ppp_escola_id null).
+  let pppEscolaId: string | null = null;
+  if (escolaId) {
+    const { data: esc } = await sb.from('escolas').select('ppp_escola_id').eq('id', escolaId).maybeSingle();
+    pppEscolaId = esc?.ppp_escola_id || null;
+  }
+
   const compIds = (compsDoCargo || []).map((c: any) => c.id).filter(Boolean);
   const compPorId: Record<string, any> = Object.fromEntries((compsDoCargo || []).map((c: any) => [c.id, c]));
   const cenarioPorNome: Record<string, any> = {};
   if (compIds.length > 0) {
     const { data: cenarios } = await sb.from('banco_cenarios')
-      .select('id, competencia_id, escola_id, created_at')
+      .select('id, competencia_id, ppp_escola_id, created_at')
       .eq('empresa_id', empresaId)
       .eq('cargo', cargo)
       .in('competencia_id', compIds)
       .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b')
       .order('created_at', { ascending: false });
-    // Agrupa por competência e ROTEIA pela escola do colaborador:
-    // escola do colab > cenário de rede (escola_id null) > mais recente.
+    // Agrupa por competência: PPP do colaborador > cenário de rede > mais recente.
     const porComp: Record<string, any[]> = {};
     (cenarios || []).forEach((c: any) => { (porComp[c.competencia_id] = porComp[c.competencia_id] || []).push(c); });
     for (const [cid, rows] of Object.entries(porComp)) {
       const comp = compPorId[cid];
       const key = (comp?.nome || '').toLowerCase();
       if (!key || cenarioPorNome[key]) continue;
-      const escolhido = (escolaId && rows.find((r: any) => r.escola_id === escolaId))
-        || rows.find((r: any) => !r.escola_id)
+      const escolhido = (pppEscolaId && rows.find((r: any) => r.ppp_escola_id === pppEscolaId))
+        || rows.find((r: any) => !r.ppp_escola_id)
         || rows[0];
       cenarioPorNome[key] = { ...escolhido, compId: comp.id };
     }

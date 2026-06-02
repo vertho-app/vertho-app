@@ -286,9 +286,9 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         let gerados = 0, aprovados = 0, revisar = 0, erros = 0;
         for (let i = 0; i < items.length; i++) {
           const item = items[i];
-          const escolaLbl = item.escola_nome ? ` · ${item.escola_nome}` : '';
+          const escolaLbl = item.ppp_nome ? ` · ${item.ppp_nome}` : '';
           addLog(`⏳ [${i + 1}/${items.length}] Gerando: ${item.nome} (${item.cargo}${escolaLbl})`, 'info');
-          const r = await rodarIA3Uma(empresaId, item.cargo, item.competencia_id, item.escola_id ?? null, aiConfig || undefined);
+          const r = await rodarIA3Uma(empresaId, item.cargo, item.competencia_id, item.ppp_escola_id ?? null, aiConfig || undefined);
           if (!r.success) { erros++; addLog(`⚠ ${item.nome}: ${r.error}`, 'error'); continue; }
           gerados++;
           if (checkModel) {

@@ -92,17 +92,21 @@ export async function POST(req) {
         const { data: comp } = await sb.from('competencias')
           .select('nome').eq('id', competenciaId).single();
 
-        // Cenário roteado pela escola do colaborador (escola > rede > mais recente).
+        // Cenário roteado pelo PPP do colaborador (via escola) > rede > mais recente.
         const { data: colabEsc } = await sb.from('colaboradores')
           .select('escola_id').eq('id', colaboradorId).maybeSingle();
-        const escolaId = colabEsc?.escola_id || null;
+        let pppEscolaId: string | null = null;
+        if (colabEsc?.escola_id) {
+          const { data: esc } = await sb.from('escolas').select('ppp_escola_id').eq('id', colabEsc.escola_id).maybeSingle();
+          pppEscolaId = esc?.ppp_escola_id || null;
+        }
         const { data: cands } = await sb.from('banco_cenarios')
-          .select('id, escola_id')
+          .select('id, ppp_escola_id')
           .eq('empresa_id', empresaId)
           .eq('competencia_id', competenciaId)
           .order('created_at', { ascending: false });
-        const cenario = (escolaId && (cands || []).find((c: any) => c.escola_id === escolaId))
-          || (cands || []).find((c: any) => !c.escola_id)
+        const cenario = (pppEscolaId && (cands || []).find((c: any) => c.ppp_escola_id === pppEscolaId))
+          || (cands || []).find((c: any) => !c.ppp_escola_id)
           || (cands || [])[0] || null;
 
         const { data: nova, error: errCriacao } = await sb.from('sessoes_avaliacao')

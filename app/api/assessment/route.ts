@@ -3,13 +3,21 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUser } from '@/lib/auth/request-context';
 import { csrfCheck } from '@/lib/csrf';
 
-function selecionarCenariosElegiveis(cenariosRaw: any[] | null | undefined, escolaId: string | null) {
+// PPP-alvo do colaborador: a escola dele define o PPP (escolas que compartilham
+// o PPP usam o mesmo cenário). Sem escola/PPP → null = rede.
+async function pppDaEscola(sb: any, escolaId: string | null): Promise<string | null> {
+  if (!escolaId) return null;
+  const { data } = await sb.from('escolas').select('ppp_escola_id').eq('id', escolaId).maybeSingle();
+  return data?.ppp_escola_id || null;
+}
+
+function selecionarCenariosElegiveis(cenariosRaw: any[] | null | undefined, pppEscolaId: string | null) {
   const porComp: Record<string, any[]> = {};
   (cenariosRaw || []).forEach((c: any) => {
     (porComp[c.competencia_id] = porComp[c.competencia_id] || []).push(c);
   });
   return Object.values(porComp).map((rows: any[]) =>
-    (escolaId && rows.find((r) => r.escola_id === escolaId)) || rows.find((r) => !r.escola_id) || rows[0]);
+    (pppEscolaId && rows.find((r) => r.ppp_escola_id === pppEscolaId)) || rows.find((r) => !r.ppp_escola_id) || rows[0]);
 }
 
 function validarResposta(valor: any): string | null {
@@ -32,14 +40,14 @@ export async function GET(req: Request) {
     if (!colab) return NextResponse.json({ error: 'Colaborador não encontrado' }, { status: 404 });
 
     const { data: cenariosRaw } = await sb.from('banco_cenarios')
-      .select('id, competencia_id, escola_id, titulo, descricao, alternativas, p1, p2, p3, p4')
+      .select('id, competencia_id, ppp_escola_id, titulo, descricao, alternativas, p1, p2, p3, p4')
       .eq('empresa_id', colab.empresa_id)
       .order('created_at');
 
-    // Roteia por escola do colaborador: 1 cenário por competência —
-    // escola do colab > rede (escola_id null) > mais recente.
-    const escolaId = (colab as any).escola_id || null;
-    const cenarios = selecionarCenariosElegiveis(cenariosRaw, escolaId);
+    // Roteia pelo PPP do colaborador (via escola): 1 cenário por competência —
+    // PPP do colab > rede (ppp_escola_id null) > mais recente.
+    const pppEscolaId = await pppDaEscola(sb, (colab as any).escola_id || null);
+    const cenarios = selecionarCenariosElegiveis(cenariosRaw, pppEscolaId);
 
     const { data: respostas } = await sb.from('respostas')
       .select('competencia_id')
@@ -75,11 +83,12 @@ export async function POST(req: Request) {
     if (!colab) return NextResponse.json({ error: 'Colaborador não encontrado' }, { status: 404 });
 
     const { data: cenariosRaw } = await sb.from('banco_cenarios')
-      .select('id, competencia_id, escola_id')
+      .select('id, competencia_id, ppp_escola_id')
       .eq('empresa_id', colab.empresa_id)
       .order('created_at');
 
-    const elegiveis = selecionarCenariosElegiveis(cenariosRaw, (colab as any).escola_id || null);
+    const pppEscolaId = await pppDaEscola(sb, (colab as any).escola_id || null);
+    const elegiveis = selecionarCenariosElegiveis(cenariosRaw, pppEscolaId);
     const cenario = elegiveis.find((c: any) => c.id === cenario_id);
     if (!cenario || cenario.competencia_id !== competencia_id) {
       return NextResponse.json({ error: 'Cenário não elegível para este colaborador' }, { status: 403 });
