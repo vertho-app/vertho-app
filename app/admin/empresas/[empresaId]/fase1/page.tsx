@@ -48,8 +48,33 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
   const [cenOpen, setCenOpen] = useState(null);
   const [cenAction, setCenAction] = useState(null);
   const [cenProgress, setCenProgress] = useState<{ current: number; total: number; label: string; cargo: string } | null>(null);
+  const [selectedCen, setSelectedCen] = useState<Set<string>>(new Set());
+  function toggleSelCen(id: string) {
+    setSelectedCen(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }
 
   function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 2500); }
+
+  // Regenera (+ re-checa) um conjunto de cenários de um cargo, em lote.
+  async function regenerarLote(cargo: string, lista: any[]) {
+    if (!lista.length || cenAction) return;
+    let ok = 0, semCheck = 0;
+    for (let idx = 0; idx < lista.length; idx++) {
+      const c = lista[idx];
+      setCenAction({ id: c.id, type: 'regen' });
+      setCenProgress({ current: idx + 1, total: lista.length, label: c.titulo || `Cenário ${idx + 1}`, cargo });
+      try {
+        const r = await regenerarCenario(c.id);
+        if (r.success) { const r2 = await checkCenarioUm(c.id); if (r2.success) ok++; else semCheck++; }
+        else semCheck++;
+      } catch (e: any) { console.warn('regen lote:', e?.message); semCheck++; }
+    }
+    setCenAction(null);
+    setCenProgress(null);
+    setSelectedCen(prev => { const n = new Set(prev); lista.forEach(c => n.delete(c.id)); return n; });
+    flash(tr('messages.reviewedBatch', { ok, unchecked: semCheck }));
+    refresh();
+  }
 
   const refresh = useCallback(async () => {
     const [t, c, g] = await Promise.all([
@@ -554,6 +579,15 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                       <RefreshCw size={10} /> {tr('actions.reviewAll', { count: revisar + ressalvas })}
                     </button>
                   )}
+                  {(() => {
+                    const sel = cens.filter((c: any) => selectedCen.has(c.id));
+                    return sel.length > 0 ? (
+                      <button disabled={!!cenAction} onClick={() => regenerarLote(cargo, sel)}
+                        className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold text-violet-300 border border-violet-400/40 hover:bg-violet-400/10 transition-all disabled:opacity-50">
+                        <RefreshCw size={10} /> Regerar selecionados ({sel.length})
+                      </button>
+                    ) : null;
+                  })()}
                   {pendentes > 0 && (
                     <button
                       disabled={!!cenAction}
@@ -603,8 +637,11 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                         c.status_check === 'revisar' ? 'border-amber-400/20' : 'border-white/[0.06]'
                       }`} style={{ background: '#0F2A4A' }}>
                         {/* Header */}
-                        <button onClick={() => setCenOpen(isOpen ? null : c.id)}
-                          className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/[0.02] transition-colors">
+                        <div className="flex items-center">
+                          <input type="checkbox" checked={selectedCen.has(c.id)} onChange={() => toggleSelCen(c.id)}
+                            className="ml-3 shrink-0 w-3.5 h-3.5 accent-violet-400 cursor-pointer" title="Selecionar para regerar em lote" />
+                          <button onClick={() => setCenOpen(isOpen ? null : c.id)}
+                            className="flex-1 min-w-0 flex items-center justify-between px-4 py-3 text-left hover:bg-white/[0.02] transition-colors">
                           <div className="flex-1 min-w-0 flex items-center gap-2">
                             {c.status_check === 'aprovado' && <CheckCircle size={14} className="text-green-400 shrink-0" />}
                             {c.status_check === 'aprovado_com_ressalvas' && <CheckCircle size={14} className="text-cyan-400 shrink-0" />}
@@ -629,7 +666,8 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                             )}
                             <ChevronDown size={14} className={`text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                           </div>
-                        </button>
+                          </button>
+                        </div>
 
                         {isOpen && (
                           <div className="px-4 pb-4 border-t border-white/[0.04]">
