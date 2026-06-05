@@ -286,7 +286,7 @@ async function runCheckOnCenB(sb: any, cen: any, comp: any, descritoresTexto: st
 
   const user = blocks.join('\n\n');
 
-  const resposta = await callAI(CHECK_CEN_B_SYSTEM, user, { model: modelo || 'gemini-3-flash-preview' }, 4096, { temperature: TEMP });
+  const resposta = await callAI(CHECK_CEN_B_SYSTEM, user, { model: modelo || 'gemini-3.1-flash-lite' }, 4096, { temperature: TEMP });
   const resultado = await extractJSON(resposta);
   if (!resultado?.nota) return { success: false, error: 'Check não retornou nota' };
 
@@ -1978,7 +1978,7 @@ REGRAS:
 - não aprovar por benevolência
 - leitura_do_lote obrigatória com padrões agregados`;
 
-    const resultado = await callAI(system, user, { model: aiConfig?.model || 'gemini-3-flash-preview' }, 8192, { temperature: TEMP });
+    const resultado = await callAI(system, user, { model: aiConfig?.model || 'gemini-3.1-flash-lite' }, 8192, { temperature: TEMP });
     const verificacao = await extractJSON(resultado);
     return {
       success: true,
@@ -2045,7 +2045,7 @@ export async function checkCenariosBLote(empresaId: string, aiConfig: Fase5Confi
     const pendentes = cenarios.filter(c => c.nota_check == null);
     if (!pendentes.length) return { success: true, message: `Todos os ${cenarios.length} cenários B já foram checados` };
 
-    const modelo = aiConfig?.checkModel || aiConfig?.model || 'gemini-3-flash-preview';
+    const modelo = aiConfig?.checkModel || aiConfig?.model || 'gemini-3.1-flash-lite';
     const pppResumo = await fetchPppResumo(tdb);
     const compCache = {}, descCache = {};
     let ok = 0, erros = 0;
@@ -2090,7 +2090,7 @@ export async function regenerarERecheckarCenariosBLote(empresaId: string, aiConf
 
     if (!cenarios?.length) return { success: true, message: 'Nenhum cenário B para regenerar' };
 
-    const checkModel = aiConfig?.checkModel || 'gemini-3-flash-preview';
+    const checkModel = aiConfig?.checkModel || 'gemini-3.1-flash-lite';
     let regenerados = 0, aprovados = 0, revisar = 0, erros = 0;
 
     for (const c of cenarios) {

@@ -157,7 +157,7 @@ export async function checkAvaliacoes(empresaId: string, aiConfig: AIConfig = {}
     const colabMap: Record<string, any> = {};
     (colabs || []).forEach((c: any) => { colabMap[c.id] = c; });
 
-    const model = aiConfig?.model || 'gemini-3-flash-preview';
+    const model = aiConfig?.model || 'gemini-3.1-flash-lite';
     let checados = 0, erros = 0, ultimoErro = '';
 
     for (const resp of respostas) {
@@ -241,7 +241,7 @@ export async function checarUmaResposta(respostaId: string, aiConfig: AIConfig =
       .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, perfil_dominante, perfil_externo_fonte, perfil_externo_dados')
       .eq('id', resp.colaborador_id).maybeSingle();
 
-    const model = aiConfig?.model || 'gemini-3-flash-preview';
+    const model = aiConfig?.model || 'gemini-3.1-flash-lite';
 
     let cenarioTexto = '', perguntasTexto = '';
     if (resp.cenario_id) {

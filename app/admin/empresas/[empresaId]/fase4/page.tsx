@@ -43,8 +43,8 @@ const CHECK_DIM_LABEL_KEYS: Record<string, string> = {
 const AI_MODELS = [
   { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
   { id: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
-  { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash' },
-  { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro' },
+  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite' },
+  { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
   { id: 'gpt-5.4', label: 'GPT 5.4' },
   { id: 'gpt-5.4-mini', label: 'GPT 5.4 Mini' },
 ];
@@ -60,7 +60,7 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
   const [toast, setToast] = useState(null);
   const [actionId, setActionId] = useState(null);
   const [genModel, setGenModel] = useState('claude-sonnet-4-6');
-  const [checkModel, setCheckModel] = useState('gemini-3-flash-preview');
+  const [checkModel, setCheckModel] = useState('gemini-3.1-flash-lite');
   function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 3000); }
 
   async function refresh() {

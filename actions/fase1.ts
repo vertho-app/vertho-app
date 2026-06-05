@@ -1421,7 +1421,7 @@ export async function checkCenarioUm(cenarioId: string, empresaId: string | null
     if (pppResumo) user += `\n\n═══ CONTEXTO PPP ═══\n${pppResumo}`;
     user += `\n\n═══ INSTRUÇÃO ═══\nSe o cenário for bem escrito mas metodologicamente fraco, PENALIZE. Prefira rigor metodológico a elegância textual.`;
 
-    const resposta = await callAI(system, user, { model: modelo || 'gemini-3-flash-preview' }, 4096);
+    const resposta = await callAI(system, user, { model: modelo || 'gemini-3.1-flash-lite' }, 4096);
     let resultado = await extractJSON(resposta);
 
     if (!resultado?.nota) return { success: false, error: 'Validação não retornou resultado' };

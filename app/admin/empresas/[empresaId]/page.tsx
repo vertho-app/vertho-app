@@ -35,8 +35,8 @@ import {
 const AI_MODELS = [
   { id: 'claude-sonnet-4-6',      label: 'Claude Sonnet 4.6', provider: 'claude' },
   { id: 'claude-opus-4-6',        label: 'Claude Opus 4.6',   provider: 'claude' },
-  { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash',    provider: 'gemini' },
-  { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro',    provider: 'gemini' },
+  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite',    provider: 'gemini' },
+  { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash',    provider: 'gemini' },
   { id: 'gpt-5.4',                label: 'GPT 5.4',           provider: 'openai' },
   { id: 'gpt-5.4-mini',           label: 'GPT 5.4 Mini',      provider: 'openai' },
 ];
@@ -157,7 +157,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
   const [expandedPhase, setExpandedPhase] = useState<number | null>(null);
   const [modelPicker, setModelPicker] = useState<any>(null);
   const [dualModel1, setDualModel1] = useState('claude-sonnet-4-6');
-  const [dualModel2, setDualModel2] = useState('gemini-3-flash-preview');
+  const [dualModel2, setDualModel2] = useState('gemini-3.1-flash-lite');
   const [showDanger, setShowDanger] = useState(false);
   const [dangerLoading, setDangerLoading] = useState(false);
   const [dangerColabId, setDangerColabId] = useState('');

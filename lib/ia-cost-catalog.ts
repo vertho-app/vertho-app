@@ -18,8 +18,8 @@ export const MODELS = {
   'claude-opus-4-6':            { label: 'Claude Opus 4.6',     inUsd: 15,   outUsd: 75 },
   'claude-sonnet-4-6':          { label: 'Claude Sonnet 4.6',   inUsd: 3,    outUsd: 15 },
   // Google
-  'gemini-3-flash-preview':     { label: 'Gemini 3 Flash',      inUsd: 0.30, outUsd: 1.50 },
-  'gemini-3.1-pro-preview':     { label: 'Gemini 3.1 Pro',      inUsd: 1.50, outUsd: 5 },
+  'gemini-3.1-flash-lite':     { label: 'Gemini 3.1 Flash Lite',      inUsd: 0.30, outUsd: 1.50 },
+  'gemini-3.5-flash':     { label: 'Gemini 3.5 Flash',      inUsd: 1.50, outUsd: 5 },
   // OpenAI
   'gpt-5.5':                    { label: 'GPT 5.5',             inUsd: 12,   outUsd: 36 },
   'gpt-5.4':                    { label: 'GPT 5.4',             inUsd: 10,   outUsd: 30 },
@@ -168,7 +168,7 @@ export const CALLS = [
     inTokens: 2000,
     outTokens: 250,
     exec: 3 * 12,
-    defaultModel: 'gemini-3-flash-preview',
+    defaultModel: 'gemini-3.1-flash-lite',
     critical: false,
   },
 
@@ -491,11 +491,11 @@ function crossLlmCheck(primaryModel) {
     'claude-opus-4-7':         'gpt-5.5',
     'claude-opus-4-6':         'gpt-5.5',
     'claude-sonnet-4-6':       'gpt-5.4',
-    'gemini-3.1-pro-preview':  'gpt-5.5',
-    'gemini-3-flash-preview':  'gpt-5.4-mini',
+    'gemini-3.5-flash':  'gpt-5.5',
+    'gemini-3.1-flash-lite':  'gpt-5.4-mini',
     'gpt-5.5':                 'claude-opus-4-7',
     'gpt-5.4':                 'claude-sonnet-4-6',
-    'gpt-5.4-mini':            'gemini-3-flash-preview',
+    'gpt-5.4-mini':            'gemini-3.1-flash-lite',
   };
   return map[primaryModel] || primaryModel;
 }
@@ -514,8 +514,8 @@ function applyPreset(call, primaryFn) {
  * Presets de modelos por uso. Todos aplicam pareamento cross-LLM nos checks
  * automaticamente — auditor sempre é de família diferente do primário.
  *   - premium: Opus 4.7 em tudo crítico, Sonnet no resto.
- *   - balanced: Sonnet no crítico, Gemini 3 Flash no resto.
- *   - cheap: Gemini 3 Flash em quase tudo, Sonnet só em scorers finais.
+ *   - balanced: Sonnet no crítico, Gemini 3.1 Flash Lite no resto.
+ *   - cheap: Gemini 3.1 Flash Lite em quase tudo, Sonnet só em scorers finais.
  */
 export const PRESETS = {
   premium: {
@@ -530,11 +530,11 @@ export const PRESETS = {
   },
   cheap: {
     label: 'Barata (Gemini Flash + Sonnet onde obrigatório)',
-    desc: 'Gemini 3 Flash em tudo conversacional. Sonnet 4.6 apenas em scorers finais (sem 14, acumulada, IA4, proposta Radar). Checks pareados em GPT 5.4/5.4 Mini. Risco maior de erros pequenos.',
+    desc: 'Gemini 3.1 Flash Lite em tudo conversacional. Sonnet 4.6 apenas em scorers finais (sem 14, acumulada, IA4, proposta Radar). Checks pareados em GPT 5.4/5.4 Mini. Risco maior de erros pequenos.',
     model: (call) => applyPreset(call, (c) => {
       const mustBeSonnet = ['sem14-scorer', 'acumulada-primaria', 'ia4-avaliacao', 'radar-proposta-pdf'];
       if (mustBeSonnet.includes(c.id)) return 'claude-sonnet-4-6';
-      return 'gemini-3-flash-preview';
+      return 'gemini-3.1-flash-lite';
     }),
   },
 };

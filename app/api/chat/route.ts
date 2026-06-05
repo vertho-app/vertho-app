@@ -10,7 +10,7 @@ import { csrfCheck } from '@/lib/csrf';
 // ── Defaults ────────────────────────────────────────────────────────────────
 
 const DEFAULT_AVALIADOR = 'claude-sonnet-4-6';
-const DEFAULT_VALIDADOR = 'gemini-3-flash-preview';
+const DEFAULT_VALIDADOR = 'gemini-3.1-flash-lite';
 const MAX_TURNOS = 10;
 const CONFIANCA_ENCERRAR = 80;
 const MIN_EVIDENCIAS_ENCERRAR = 2;

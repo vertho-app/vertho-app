@@ -11,10 +11,10 @@
  * em qualquer falha/resposta inválida, retorna null e o caller cai no buildSrt.
  *
  * Env:
- *   SUBTITLE_ALIGN_MODEL  default gemini-3-flash-preview (multimodal c/ áudio)
+ *   SUBTITLE_ALIGN_MODEL  default gemini-3.5-flash (multimodal c/ áudio — lite não cobre áudio)
  */
 
-const ALIGN_MODEL = process.env.SUBTITLE_ALIGN_MODEL || 'gemini-3-flash-preview';
+const ALIGN_MODEL = process.env.SUBTITLE_ALIGN_MODEL || 'gemini-3.5-flash';
 
 const PROMPT = `Você recebe um ÁUDIO de narração em português do Brasil e o TRANSCRITO EXATO dessa narração.
 

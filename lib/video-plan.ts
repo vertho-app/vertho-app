@@ -14,7 +14,7 @@
 import { callAI } from '@/actions/ai-client';
 import { EscolaBrief, briefPreenchido, briefParaPrompt } from '@/lib/escola-brief';
 
-const PLAN_MODEL = process.env.VIDEO_PLAN_MODEL || 'gemini-3-flash-preview';
+const PLAN_MODEL = process.env.VIDEO_PLAN_MODEL || 'gemini-3.1-flash-lite';
 
 /** Negative prompt padrão aplicado a TODA cena Veo. */
 export const VEO_NEGATIVE_PROMPT =

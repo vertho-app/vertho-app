@@ -8,7 +8,7 @@ import { csrfCheck } from '@/lib/csrf';
 // arbitrário do client ao provedor (escolha do modelo mais caro = abuso de custo).
 const ALLOWED_MODELS = new Set([
   'claude-sonnet-4-6', 'claude-opus-4-6', 'claude-opus-4-7',
-  'gemini-3.1-pro-preview', 'gemini-3-flash-preview',
+  'gemini-3.5-flash', 'gemini-3.1-flash-lite',
   'gpt-5', 'gpt-5.1', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5',
 ]);
 const MAX_SYSTEM_CHARS = 16000;

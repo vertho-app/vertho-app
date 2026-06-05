@@ -116,7 +116,7 @@ FORMATO DE SAÍDA (JSON único):
 export async function auditClassification(
   originalText: string,
   classification: ClassifyResult,
-  auditorModel: string = 'gemini-3-flash-preview',
+  auditorModel: string = 'gemini-3.1-flash-lite',
 ): Promise<AuditResult> {
   const user = `TEXTO ORIGINAL:
 """${originalText.trim().slice(0, 2000)}"""
