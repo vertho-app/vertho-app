@@ -18,8 +18,8 @@ export const MODELS = {
   'claude-opus-4-6':            { label: 'Claude Opus 4.6',     inUsd: 15,   outUsd: 75 },
   'claude-sonnet-4-6':          { label: 'Claude Sonnet 4.6',   inUsd: 3,    outUsd: 15 },
   // Google
-  'gemini-3.1-flash-lite':     { label: 'Gemini 3.1 Flash Lite',      inUsd: 0.30, outUsd: 1.50 },
-  'gemini-3.5-flash':     { label: 'Gemini 3.5 Flash',      inUsd: 1.50, outUsd: 5 },
+  'gemini-3.1-flash-lite':     { label: 'Gemini 3.1 Flash Lite',      inUsd: 0.25, outUsd: 1.50 },
+  'gemini-3.5-flash':     { label: 'Gemini 3.5 Flash',      inUsd: 1.50, outUsd: 9 },
   // OpenAI
   'gpt-5.5':                    { label: 'GPT 5.5',             inUsd: 12,   outUsd: 36 },
   'gpt-5.4':                    { label: 'GPT 5.4',             inUsd: 10,   outUsd: 30 },
