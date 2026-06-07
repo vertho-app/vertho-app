@@ -511,14 +511,7 @@ export default function ConteudosAdminPage() {
                                     <Download size={14} />
                                   </button>
                                 )}
-                                <button
-                                  onClick={() => handleGerarVideo(c)}
-                                  disabled={busy || !c.conteudo_inline}
-                                  className="p-1.5 rounded hover:bg-cyan-500/20 text-cyan-400 disabled:opacity-30 disabled:cursor-not-allowed"
-                                  title={t('actions.regenerateVideo')}
-                                >
-                                  <Clapperboard size={14} />
-                                </button>
+                                {/* criação de vídeo descontinuada (07/06) — botão regerar oculto; abrir/baixar/excluir mantidos p/ vídeos existentes */}
                                 <button
                                   onClick={() => handleExcluirFinal(c)}
                                   disabled={busy}
@@ -528,16 +521,7 @@ export default function ConteudosAdminPage() {
                                   <FileX size={14} />
                                 </button>
                               </>
-                            ) : (
-                              <button
-                                onClick={() => handleGerarVideo(c)}
-                                disabled={busy || !c.conteudo_inline}
-                                className={`p-1.5 rounded disabled:opacity-30 disabled:cursor-not-allowed ${c.video_render_status === 'error' ? 'hover:bg-red-500/20 text-red-400' : 'hover:bg-emerald-500/20 text-emerald-400'}`}
-                                title={c.video_render_status === 'error' ? t('actions.retryVideo', { error: c.video_render_error || '—' }) : t('actions.generateVideo')}
-                              >
-                                <Clapperboard size={14} />
-                              </button>
-                            )
+                            ) : null
                           )}
                           <button
                             onClick={() => handleSugerirIA(c)}
