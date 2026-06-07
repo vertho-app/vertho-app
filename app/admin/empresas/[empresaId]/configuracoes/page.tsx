@@ -553,24 +553,24 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
           <Panel title={t('ai.taskModels')}>
             <p className="text-[11px] text-gray-500 mb-3">{t('ai.taskModelsDesc')}</p>
             {(() => {
-              const porFase = AI_TASKS.reduce((acc: any, t: any) => {
-                (acc[t.fase] = acc[t.fase] || []).push(t);
+              const porFase = AI_TASKS.reduce((acc: any, task: any) => {
+                (acc[task.fase] = acc[task.fase] || []).push(task);
                 return acc;
               }, {} as any);
               return Object.entries(porFase).map(([fase, tasks]: [string, any]) => (
                 <div key={fase} className="mb-4 last:mb-0">
                   <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-2">{fase}</p>
                   <div className="space-y-1.5">
-                    {tasks.map((t: any) => {
-                      const atual = config.ai.modelos?.[t.key] || '';
+                    {tasks.map((task: any) => {
+                      const atual = config.ai.modelos?.[task.key] || '';
                       return (
-                        <div key={t.key} className="flex items-center gap-2">
-                          <span className="flex-1 text-xs text-gray-300">{t.label}</span>
+                        <div key={task.key} className="flex items-center gap-2">
+                          <span className="flex-1 text-xs text-gray-300">{task.label}</span>
                           <select value={atual}
                             onChange={e => {
                               const novo = { ...(config.ai.modelos || {}) };
-                              if (e.target.value) novo[t.key] = e.target.value;
-                              else delete novo[t.key];
+                              if (e.target.value) novo[task.key] = e.target.value;
+                              else delete novo[task.key];
                               updateAI('modelos', novo);
                             }}
                             className="px-2 py-1 rounded text-[11px] text-white border border-white/10 outline-none focus:border-cyan-400/40"
