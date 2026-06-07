@@ -13,7 +13,7 @@
 import pg from 'pg';
 
 const SLUG = 'cbtd';
-const NOME = 'Vertho — Experiência CBTD';
+const NOME = 'Grupo Meridiano'; // empresa-cliente fictícia (rede varejista) p/ o showcase CBTD
 
 // Cargos de T&D pro dropdown do open signup (cargos_empresa).
 const CARGOS = [
@@ -41,7 +41,7 @@ const UI_CONFIG = {
   bg_gradient_end: '#0F2A4A',
   font_color: '#FFFFFF',
   font_color_secondary: '#FFFFFF99',
-  login_subtitle: 'Experimente a jornada de desenvolvimento da Vertho — CBTD 2026',
+  login_subtitle: 'Desenvolvimento de líderes do Grupo Meridiano — uma experiência Vertho · CBTD 2026',
   labels: {},
   hidden_elements: [],
 };
