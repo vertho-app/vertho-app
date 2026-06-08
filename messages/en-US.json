@@ -1230,7 +1230,8 @@
     "dna": {
       "button": "Organizational DNA",
       "generating": "Generating…",
-      "error": "Could not generate the Organizational DNA."
+      "error": "Could not generate the Organizational DNA.",
+      "open": "Open PDF"
     },
     "title": "Reports",
     "subtitle": "Download individual reports",

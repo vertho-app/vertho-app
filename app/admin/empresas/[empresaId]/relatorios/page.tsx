@@ -147,14 +147,24 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
   const [gestorIdx, setGestorIdx] = useState(0);
   const [dnaBusy, setDnaBusy] = useState(false);
   const [dnaMsg, setDnaMsg] = useState<string | null>(null);
+  const [dnaUrl, setDnaUrl] = useState<string | null>(null);
 
   async function handleGerarDna() {
-    setDnaBusy(true); setDnaMsg(null);
+    setDnaBusy(true); setDnaMsg(null); setDnaUrl(null);
+    // abre a aba JÁ no clique (síncrono) p/ não cair no bloqueio de pop-up;
+    // navega-a quando o PDF estiver pronto. Se o navegador bloquear, cai no link.
+    const win = window.open('about:blank', '_blank');
     try {
       const r = await gerarDnaOrganizacional(empresaId);
-      if (r.success && r.url) window.open(r.url, '_blank', 'noopener');
-      else setDnaMsg(r.error || t('dna.error'));
+      if (r.success && r.url) {
+        setDnaUrl(r.url);
+        if (win && !win.closed) win.location.href = r.url;
+      } else {
+        if (win && !win.closed) win.close();
+        setDnaMsg(r.error || t('dna.error'));
+      }
     } catch (e: any) {
+      if (win && !win.closed) win.close();
       setDnaMsg(e?.message || t('dna.error'));
     } finally {
       setDnaBusy(false);
@@ -191,6 +201,12 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
             {dnaBusy ? t('dna.generating') : t('dna.button')}
           </button>
           {dnaMsg && <span className="text-[10px] text-amber-400 max-w-[220px] text-right">{dnaMsg}</span>}
+          {dnaUrl && (
+            <a href={dnaUrl} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1 text-[11px] font-semibold text-cyan-400 hover:text-cyan-300 underline">
+              <Download size={12} /> {t('dna.open')}
+            </a>
+          )}
         </div>
       </div>
 

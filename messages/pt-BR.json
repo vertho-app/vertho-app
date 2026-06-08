@@ -1230,7 +1230,8 @@
     "dna": {
       "button": "DNA Organizacional",
       "generating": "Gerando…",
-      "error": "Não foi possível gerar o DNA Organizacional."
+      "error": "Não foi possível gerar o DNA Organizacional.",
+      "open": "Abrir PDF"
     },
     "title": "Relatórios",
     "subtitle": "Download de relatórios individuais",
