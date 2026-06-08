@@ -1227,6 +1227,11 @@
     }
   },
   "AdminReports": {
+    "dna": {
+      "button": "DNA Organizacional",
+      "generating": "A gerar…",
+      "error": "Não foi possível gerar o DNA Organizacional."
+    },
     "title": "Relatórios",
     "subtitle": "Download de relatórios individuais",
     "selectCompany": "Selecione uma empresa...",

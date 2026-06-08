@@ -1227,6 +1227,11 @@
     }
   },
   "AdminReports": {
+    "dna": {
+      "button": "Organizational DNA",
+      "generating": "Generating…",
+      "error": "Could not generate the Organizational DNA."
+    },
     "title": "Reports",
     "subtitle": "Download individual reports",
     "selectCompany": "Select a company...",

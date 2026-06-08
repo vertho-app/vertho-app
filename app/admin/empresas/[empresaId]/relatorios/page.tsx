@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import {
   Loader2, FileText, User, Users, Building2, ChevronDown,
-  Target, AlertTriangle, CheckCircle, TrendingUp, Download
+  Target, AlertTriangle, CheckCircle, TrendingUp, Download, Dna
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { loadRelatoriosEmpresa } from '@/actions/relatorios-load';
+import { gerarDnaOrganizacional } from '@/actions/dna-organizacional';
 
 const NIVEL_COLORS = { 1: 'text-red-400', 2: 'text-amber-400', 3: 'text-cyan-400', 4: 'text-green-400' };
 
@@ -144,6 +145,21 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
   const [tab, setTab] = useState('individual');
   const [openId, setOpenId] = useState(null);
   const [gestorIdx, setGestorIdx] = useState(0);
+  const [dnaBusy, setDnaBusy] = useState(false);
+  const [dnaMsg, setDnaMsg] = useState<string | null>(null);
+
+  async function handleGerarDna() {
+    setDnaBusy(true); setDnaMsg(null);
+    try {
+      const r = await gerarDnaOrganizacional(empresaId);
+      if (r.success && r.url) window.open(r.url, '_blank', 'noopener');
+      else setDnaMsg(r.error || t('dna.error'));
+    } catch (e: any) {
+      setDnaMsg(e?.message || t('dna.error'));
+    } finally {
+      setDnaBusy(false);
+    }
+  }
 
   useEffect(() => {
     loadRelatoriosEmpresa(empresaId).then(d => { setData(d); setLoading(false); });
@@ -161,12 +177,20 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
     <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
       {/* Header */}
       <BackButton onClick={() => router.push(`/admin/empresas/${empresaId}`)} />
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-start justify-between gap-3 mb-6">
         <div>
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
             <FileText size={20} className="text-cyan-400" /> {t('title')}
           </h1>
           <p className="text-xs text-gray-500">{t('subtitle')}</p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <button onClick={handleGerarDna} disabled={dnaBusy}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all whitespace-nowrap">
+            {dnaBusy ? <Loader2 size={14} className="animate-spin" /> : <Dna size={14} />}
+            {dnaBusy ? t('dna.generating') : t('dna.button')}
+          </button>
+          {dnaMsg && <span className="text-[10px] text-amber-400 max-w-[220px] text-right">{dnaMsg}</span>}
         </div>
       </div>
 
