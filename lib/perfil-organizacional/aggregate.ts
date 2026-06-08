@@ -88,6 +88,7 @@ export interface PerfilOrg {
   competencias: CompStat[];
   compMais: CompStat[];
   compMenos: CompStat[];
+  temCompAdapt: boolean;
   fatoresAltoBaixo: FatorAltoBaixo[];
   talentos: TalentoStat[];
   destaques: DestaqueBipolar[];
@@ -151,7 +152,7 @@ export async function aggregatePerfilOrg(sb: SupabaseClient, empresaId: string):
   const empty: PerfilOrg = {
     avaliados: 0, natural: { d: 0, i: 0, s: 0, c: 0 }, adaptado: { d: 0, i: 0, s: 0, c: 0 },
     perfilDominante: '', arquetipo: { nome: '', desc: '' }, fatoresOrdem: [], valores: [],
-    lideranca: { nome: '', vinculo: '', pct: 0, dist: [] }, competencias: [], compMais: [], compMenos: [],
+    lideranca: { nome: '', vinculo: '', pct: 0, dist: [] }, competencias: [], compMais: [], compMenos: [], temCompAdapt: false,
     fatoresAltoBaixo: [], talentos: [], destaques: [], pessoas: [], semDados: true,
   };
   if (!rows || !rows.length) return empty;
@@ -213,7 +214,9 @@ export async function aggregatePerfilOrg(sb: SupabaseClient, empresaId: string):
 
   return {
     avaliados: R.length, natural, adaptado, perfilDominante, arquetipo: derivarArquetipo(perfilDominante),
-    fatoresOrdem, valores, lideranca, competencias, compMais, compMenos, fatoresAltoBaixo, talentos,
+    fatoresOrdem, valores, lideranca, competencias, compMais, compMenos,
+    temCompAdapt: competencias.some((c) => c.adaptado > 0),
+    fatoresAltoBaixo, talentos,
     destaques: destaquesBipolares(natural), pessoas, semDados: false,
   };
 }

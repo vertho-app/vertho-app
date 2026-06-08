@@ -1233,6 +1233,10 @@
       "error": "Não foi possível gerar o DNA Organizacional.",
       "open": "Abrir PDF"
     },
+    "po": {
+      "button": "Perfil Organizacional",
+      "generating": "A gerar…"
+    },
     "title": "Relatórios",
     "subtitle": "Download de relatórios individuais",
     "selectCompany": "Selecione uma empresa...",

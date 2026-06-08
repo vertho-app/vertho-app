@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import {
   Loader2, FileText, User, Users, Building2, ChevronDown,
-  Target, AlertTriangle, CheckCircle, TrendingUp, Download, Dna
+  Target, AlertTriangle, CheckCircle, TrendingUp, Download, Dna, Fingerprint
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { loadRelatoriosEmpresa } from '@/actions/relatorios-load';
 import { gerarDnaOrganizacional } from '@/actions/dna-organizacional';
+import { gerarPerfilOrganizacional } from '@/actions/perfil-organizacional';
 
 const NIVEL_COLORS = { 1: 'text-red-400', 2: 'text-amber-400', 3: 'text-cyan-400', 4: 'text-green-400' };
 
@@ -148,28 +149,29 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
   const [dnaBusy, setDnaBusy] = useState(false);
   const [dnaMsg, setDnaMsg] = useState<string | null>(null);
   const [dnaUrl, setDnaUrl] = useState<string | null>(null);
+  const [poBusy, setPoBusy] = useState(false);
+  const [poMsg, setPoMsg] = useState<string | null>(null);
+  const [poUrl, setPoUrl] = useState<string | null>(null);
 
-  async function handleGerarDna() {
-    setDnaBusy(true); setDnaMsg(null); setDnaUrl(null);
-    // abre a aba JÁ no clique (síncrono) p/ não cair no bloqueio de pop-up;
-    // navega-a quando o PDF estiver pronto. Se o navegador bloquear, cai no link.
+  // gera um relatório (DNA de competências ou Perfil DISC), tratando o bloqueio
+  // de pop-up: abre a aba no clique e navega quando pronto; senão mostra link.
+  async function gerarRelatorio(
+    fn: () => Promise<{ success: boolean; url?: string; error?: string }>,
+    setBusy: (v: boolean) => void, setMsg: (v: string | null) => void, setUrl: (v: string | null) => void,
+  ) {
+    setBusy(true); setMsg(null); setUrl(null);
     const win = window.open('about:blank', '_blank');
     try {
-      const r = await gerarDnaOrganizacional(empresaId);
-      if (r.success && r.url) {
-        setDnaUrl(r.url);
-        if (win && !win.closed) win.location.href = r.url;
-      } else {
-        if (win && !win.closed) win.close();
-        setDnaMsg(r.error || t('dna.error'));
-      }
+      const r = await fn();
+      if (r.success && r.url) { setUrl(r.url); if (win && !win.closed) win.location.href = r.url; }
+      else { if (win && !win.closed) win.close(); setMsg(r.error || t('dna.error')); }
     } catch (e: any) {
       if (win && !win.closed) win.close();
-      setDnaMsg(e?.message || t('dna.error'));
-    } finally {
-      setDnaBusy(false);
-    }
+      setMsg(e?.message || t('dna.error'));
+    } finally { setBusy(false); }
   }
+  const handleGerarDna = () => gerarRelatorio(() => gerarDnaOrganizacional(empresaId), setDnaBusy, setDnaMsg, setDnaUrl);
+  const handleGerarPerfilOrg = () => gerarRelatorio(() => gerarPerfilOrganizacional(empresaId), setPoBusy, setPoMsg, setPoUrl);
 
   useEffect(() => {
     loadRelatoriosEmpresa(empresaId).then(d => { setData(d); setLoading(false); });
@@ -194,17 +196,31 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
           </h1>
           <p className="text-xs text-gray-500">{t('subtitle')}</p>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <button onClick={handleGerarDna} disabled={dnaBusy}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all whitespace-nowrap">
-            {dnaBusy ? <Loader2 size={14} className="animate-spin" /> : <Dna size={14} />}
-            {dnaBusy ? t('dna.generating') : t('dna.button')}
-          </button>
-          {dnaMsg && <span className="text-[10px] text-amber-400 max-w-[220px] text-right">{dnaMsg}</span>}
+        <div className="flex flex-col items-end gap-1.5">
+          <div className="flex items-center gap-2">
+            <button onClick={handleGerarPerfilOrg} disabled={poBusy}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all whitespace-nowrap">
+              {poBusy ? <Loader2 size={14} className="animate-spin" /> : <Fingerprint size={14} />}
+              {poBusy ? t('po.generating') : t('po.button')}
+            </button>
+            <button onClick={handleGerarDna} disabled={dnaBusy}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all whitespace-nowrap">
+              {dnaBusy ? <Loader2 size={14} className="animate-spin" /> : <Dna size={14} />}
+              {dnaBusy ? t('dna.generating') : t('dna.button')}
+            </button>
+          </div>
+          {dnaMsg && <span className="text-[10px] text-amber-400 max-w-[260px] text-right">{dnaMsg}</span>}
+          {poMsg && <span className="text-[10px] text-amber-400 max-w-[260px] text-right">{poMsg}</span>}
           {dnaUrl && (
             <a href={dnaUrl} target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-1 text-[11px] font-semibold text-cyan-400 hover:text-cyan-300 underline">
-              <Download size={12} /> {t('dna.open')}
+              <Download size={12} /> {t('dna.open')} — DNA de Competências
+            </a>
+          )}
+          {poUrl && (
+            <a href={poUrl} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1 text-[11px] font-semibold text-purple-400 hover:text-purple-300 underline">
+              <Download size={12} /> {t('dna.open')} — Perfil DISC
             </a>
           )}
         </div>

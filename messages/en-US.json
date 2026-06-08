@@ -1233,6 +1233,10 @@
       "error": "Could not generate the Organizational DNA.",
       "open": "Open PDF"
     },
+    "po": {
+      "button": "Organizational Profile",
+      "generating": "Generating…"
+    },
     "title": "Reports",
     "subtitle": "Download individual reports",
     "selectCompany": "Select a company...",
