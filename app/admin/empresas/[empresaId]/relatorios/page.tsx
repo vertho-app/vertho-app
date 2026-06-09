@@ -219,8 +219,8 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
           )}
           {poUrl && (
             <a href={poUrl} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1 text-[11px] font-semibold text-purple-400 hover:text-purple-300 underline">
-              <Download size={12} /> {t('dna.open')} — Perfil DISC
+              className="flex items-center gap-1.5 text-xs font-semibold text-purple-300 hover:text-purple-200 underline">
+              <Download size={13} /> {t('dna.open')} — Perfil Organizacional
             </a>
           )}
         </div>

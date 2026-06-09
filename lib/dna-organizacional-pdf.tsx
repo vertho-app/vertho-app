@@ -32,7 +32,7 @@ const s = StyleSheet.create({
   hTitle: { color: C.white, fontSize: 26, fontWeight: 700, lineHeight: 1.05, letterSpacing: 0.5 },
   hEmpresa: { color: C.cyan, fontSize: 15, fontWeight: 700, marginTop: 8 },
   hMeta: { color: '#B9C4D4', fontSize: 9, marginTop: 4 },
-  hLogo: { width: 46, height: 46 },
+  hLogo: { width: 84, height: 20 }, // ratio natural ~4.23 (logo-vertho.png 3148x744)
   body: { paddingHorizontal: 36, paddingTop: 18 },
   anon: { fontStyle: 'italic', color: C.sub, fontSize: 8.5, marginBottom: 10 },
   intro: { fontStyle: 'italic', color: '#2A3B55', fontSize: 10, lineHeight: 1.5, marginBottom: 18 },

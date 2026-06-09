@@ -26,7 +26,7 @@ const s = StyleSheet.create({
   page: { fontFamily: 'NotoSans', fontSize: 9, color: C.text, paddingBottom: 44 },
   // capa
   cover: { backgroundColor: C.navy, height: '100%', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
-  coverLogo: { width: 150, height: 150, marginBottom: 8 },
+  coverLogo: { width: 230, height: 54, marginBottom: 8 }, // ratio natural ~4.23 (3148x744)
   coverKicker: { color: '#9FB0C6', fontSize: 16, marginTop: 30 },
   coverTitle: { color: C.white, fontSize: 30, fontWeight: 700, marginTop: 2 },
   coverMeta: { color: C.cyan, fontSize: 11, fontWeight: 700, marginTop: 18, letterSpacing: 0.5 },
@@ -34,7 +34,7 @@ const s = StyleSheet.create({
   // header páginas internas
   header: { paddingHorizontal: 34, paddingTop: 26, paddingBottom: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   hTitle: { color: '#5B7BC4', fontSize: 23, fontWeight: 700 },
-  hLogo: { width: 30, height: 30 },
+  hLogo: { width: 92, height: 22 }, // ratio natural ~4.23
   body: { paddingHorizontal: 34, paddingTop: 6 },
   p: { fontSize: 9.5, color: '#3A4658', lineHeight: 1.5, marginBottom: 8 },
   secBar: { flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 8 },
@@ -127,6 +127,7 @@ function FocoCards({ p }: { p: PerfilOrg }) {
 }
 
 function ValoresBars({ p }: { p: PerfilOrg }) {
+  if (!p.valores.length) return <Text style={[s.grpDesc, { fontSize: 9, fontStyle: 'italic' }]}>Sem dados de valores motivadores para este grupo (mapeamento de valores não realizado).</Text>;
   const max = Math.max(...p.valores.map((v) => v.media), 1);
   let lastClasse = '';
   return (
