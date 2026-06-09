@@ -18,9 +18,6 @@ const C = {
   natural: '#34C5CC', adaptado: '#E5484D',
 };
 const FAT_COLOR: Record<Fator, string> = { D: C.d, I: C.i, S: C.s, C: C.c };
-const VAL_COLOR: Record<string, string> = {
-  Teórico: '#0E3A53', Estético: '#9B4DA0', Social: '#E0588E', Político: '#F0735A', Econômico: '#3B4C99', Religioso: '#F4A81D',
-};
 
 const s = StyleSheet.create({
   page: { fontFamily: 'NotoSans', fontSize: 9, color: C.text, paddingBottom: 44 },
@@ -122,33 +119,6 @@ function FocoCards({ p }: { p: PerfilOrg }) {
           <Text style={[s.focoTema, { color: FAT_COLOR[f.fator] }]}>Indica Foco Em {f.foco}</Text>
         </View>
       ))}
-    </View>
-  );
-}
-
-function ValoresBars({ p }: { p: PerfilOrg }) {
-  if (!p.valores.length) return <Text style={[s.grpDesc, { fontSize: 9, fontStyle: 'italic' }]}>Sem dados de valores motivadores para este grupo (mapeamento de valores não realizado).</Text>;
-  const max = Math.max(...p.valores.map((v) => v.media), 1);
-  let lastClasse = '';
-  return (
-    <View>
-      {p.valores.map((v, idx) => {
-        const showGrp = v.classe !== lastClasse; lastClasse = v.classe;
-        const grpTxt = v.classe === 'significativo' ? ['Significativos', 'Os valores que mais motivam o grupo agora.'] : v.classe === 'circunstancial' ? ['Circunstanciais', 'Importantes, mas secundários no dia a dia.'] : ['Menor peso', 'Pouca força para motivar a ação do grupo.'];
-        return (
-          <View key={v.key}>
-            {showGrp && <><Text style={s.grpLabel}>{grpTxt[0]}</Text><Text style={s.grpDesc}>{grpTxt[1]}</Text></>}
-            <View style={s.valRow}>
-              <Text style={s.valNome}>{idx + 1}º Valor: {v.nome}</Text>
-              <View style={s.valBarBg}>
-                <View style={[s.valBar, { width: `${(v.media / max) * 88}%`, backgroundColor: VAL_COLOR[v.nome] || C.navy }]} />
-                <Text style={s.valNum}>{v.media}</Text>
-              </View>
-              <Text style={s.valMot}>Motivação: {v.motivacao}</Text>
-            </View>
-          </View>
-        );
-      })}
     </View>
   );
 }
@@ -257,18 +227,25 @@ function PerfilOrgDoc({ empresaNome, dataRef, solicitadoPor, p }: Params) {
             <View style={s.col}><DiscChart m={p.natural} label="NATURAL" badge={badge} /></View>
             <View style={s.col}><FocoCards p={p} /></View>
           </View>
-          <View style={[s.twoCol, { marginTop: 12 }]}>
-            <View style={s.col}>
-              <Text style={s.grpLabel}>Média de Valores Motivadores</Text>
-              <ValoresBars p={p} />
-            </View>
+          <View style={[s.twoCol, { marginTop: 16 }]}>
             <View style={s.col}>
               <Text style={s.grpLabel}>Estilo de Liderança Médio</Text>
-              <Text style={{ fontSize: 12, fontWeight: 700, color: C.navy }}>O {p.lideranca.nome}</Text>
-              <Text style={{ fontSize: 9, color: C.sub, marginBottom: 6 }}>{p.lideranca.vinculo}</Text>
+              <Text style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>O {p.lideranca.nome}</Text>
+              <Text style={{ fontSize: 9, color: C.sub, marginBottom: 8 }}>{p.lideranca.vinculo}</Text>
+              {p.lideranca.dist.map((d, i) => (
+                <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
+                  <Text style={{ width: 78, fontSize: 8.5, fontWeight: 700, color: C.navy }}>{d.nome}</Text>
+                  <View style={{ flex: 1, height: 11, backgroundColor: '#E8EDF3', borderRadius: 6 }}>
+                    <View style={{ width: `${d.pct}%`, height: 11, backgroundColor: [C.d, C.i, C.s, C.c][i], borderRadius: 6 }} />
+                  </View>
+                  <Text style={{ width: 36, fontSize: 8.5, fontWeight: 700, color: C.navy, textAlign: 'right' }}>{d.pct}%</Text>
+                </View>
+              ))}
+            </View>
+            <View style={s.col}>
               <Text style={s.grpLabel}>Competências — Mais desenvolvidas</Text>
               {p.compMais.map((c, i) => <Text key={i} style={[s.chip, { backgroundColor: i < 2 ? C.s : C.i }]}>{c.nome}</Text>)}
-              <Text style={s.grpLabel}>Menos desenvolvidas</Text>
+              <Text style={[s.grpLabel, { marginTop: 8 }]}>Menos desenvolvidas</Text>
               {p.compMenos.map((c, i) => <Text key={i} style={[s.chip, { backgroundColor: i === 0 ? C.d : C.c }]}>{c.nome}</Text>)}
             </View>
           </View>
@@ -289,16 +266,6 @@ function PerfilOrgDoc({ empresaNome, dataRef, solicitadoPor, p }: Params) {
             <View style={s.col}><FocoCards p={p} /></View>
             <View style={s.col} />
           </View>
-        </View>
-        <Footer />
-      </Page>
-
-      {/* Valores */}
-      <Page size="A4" style={s.page}>
-        <PageHeader title="Hierarquia de Valores" />
-        <View style={s.body}>
-          <Text style={s.p}>Os valores indicam o que, neste momento, motiva a ação do grupo — funcionando como estímulo para seguir adiante. Esta é a média geral; analise se é coerente com os objetivos pretendidos.</Text>
-          <ValoresBars p={p} />
         </View>
         <Footer />
       </Page>
