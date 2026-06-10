@@ -62,7 +62,8 @@ export async function loadPulseSignals(
 
   const colabIds = [...new Set(assignments.map((a: any) => a.colaborador_id))];
   const { data: colabsRaw } = await sb.from('colaboradores')
-    .select('id, cargo, area_depto').in('id', colabIds);
+    .select('id, cargo, area_depto').in('id', colabIds)
+    .not('email', 'ilike', '%@vertho.ai'); // exclui internos das métricas de pulso
 
   let colabs = (colabsRaw || []) as any[];
   if (filter && filter.group_type === 'area') {

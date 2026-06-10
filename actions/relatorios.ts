@@ -477,9 +477,10 @@ export async function gerarRelatorioGestor(
       .select('nome, segmento').eq('id', empresaId).single();
     if (!empresa) return { success: false, error: 'Empresa não encontrada' };
 
-    // Busca TODOS os colabs e agrupa por gestor_email
+    // Busca TODOS os colabs e agrupa por gestor_email (exclui internos @vertho.ai)
     const { data: todosColabs } = await tdb.from('colaboradores')
-      .select('id, nome_completo, email, cargo, gestor_email, gestor_nome, perfil_dominante, d_natural, i_natural, s_natural, c_natural, role');
+      .select('id, nome_completo, email, cargo, gestor_email, gestor_nome, perfil_dominante, d_natural, i_natural, s_natural, c_natural, role')
+      .not('email', 'ilike', '%@vertho.ai');
 
     const equipesPorGestor: Record<string, any[]> = {};
     for (const c of (todosColabs || [])) {
@@ -710,17 +711,22 @@ export async function gerarRelatorioRH(
       .select('nome, segmento').eq('id', empresaId).single();
     if (!empresa) return { success: false, error: 'Empresa não encontrada' };
 
-    const { data: respostas } = await tdb.from('respostas')
+    const { data: respostasRaw } = await tdb.from('respostas')
       .select('colaborador_id, competencia_id, avaliacao_ia, nivel_ia4, nota_ia4')
       .not('avaliacao_ia', 'is', null);
+    // exclui respostas de colaboradores internos @vertho.ai das estatísticas RH
+    const { data: internosRH } = await tdb.from('colaboradores').select('id').ilike('email', '%@vertho.ai');
+    const internosRHSet = new Set((internosRH || []).map((c: any) => c.id));
+    const respostas = (respostasRaw || []).filter((r: any) => !internosRHSet.has(r.colaborador_id));
 
-    if (!respostas?.length) return { success: false, error: 'Nenhuma avaliação encontrada' };
+    if (!respostas.length) return { success: false, error: 'Nenhuma avaliação encontrada' };
 
     // Colaboradores
     const colabIds = [...new Set(respostas.map((r: any) => r.colaborador_id).filter(Boolean))];
     const { data: colabs } = await tdb.from('colaboradores')
       .select('id, nome_completo, cargo, perfil_dominante')
-      .in('id', colabIds);
+      .in('id', colabIds)
+      .not('email', 'ilike', '%@vertho.ai'); // exclui internos da agregação RH
     const colabMap: Record<string, any> = {};
     (colabs || []).forEach((c: any) => { colabMap[c.id] = c; });
 

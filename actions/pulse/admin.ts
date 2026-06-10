@@ -127,10 +127,11 @@ export async function dispararPulso(
     return { ok: false, error: 'T2 só pode ser disparado após o fechamento do T0' };
   }
 
-  // Colabs elegíveis
+  // Colabs elegíveis (exclui internos @vertho.ai)
   let q = tdb.from('colaboradores')
     .select('id, role, cargo')
-    .neq('role', 'tutor');
+    .neq('role', 'tutor')
+    .not('email', 'ilike', '%@vertho.ai');
   const { data: colabs } = await q;
   if (!colabs?.length) return { ok: false, error: 'Nenhum colaborador elegível' };
 

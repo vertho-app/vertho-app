@@ -3,6 +3,7 @@
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
+import { excludeInternalEmails } from '@/lib/internal-emails';
 import { validateWhatsAppBR } from '@/lib/phone';
 import { proxyEmailFromPhone } from '@/lib/phone-otp';
 import { getLocale } from 'next-intl/server';
@@ -68,8 +69,8 @@ export async function loadEmpresas() {
 export async function loadResumoEmpresa(empresaId: any) {
   await requireAdminAction();
   const sb = await requireAdminSupabase();
-  const { count: colabs } = await sb.from('colaboradores')
-    .select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId);
+  const { count: colabs } = await excludeInternalEmails(sb.from('colaboradores')
+    .select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId)); // exclui internos @vertho.ai
   const { data: comps } = await sb.from('competencias')
     .select('cod_comp').eq('empresa_id', empresaId);
   return { colabs: colabs || 0, competencias: comps?.length || 0 };

@@ -1,13 +1,14 @@
 'use server';
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { excludeInternalEmails } from '@/lib/internal-emails';
 
 export async function loadAdminDashboard() {
   const sb = await requireAdminSupabase();
 
   const [empresasRes, colabsRes, respostasRes, cenariosRes, trilhasRes, capacitacaoRes] = await Promise.all([
     sb.from('empresas').select('id, nome, segmento, slug, created_at').order('nome'),
-    sb.from('colaboradores').select('id, empresa_id', { count: 'exact', head: false }),
+    excludeInternalEmails(sb.from('colaboradores').select('id, empresa_id', { count: 'exact', head: false })), // exclui internos @vertho.ai das estatísticas
     sb.from('respostas').select('id', { count: 'exact', head: true }),
     sb.from('banco_cenarios').select('id', { count: 'exact', head: true }),
     (sb.from('trilhas').select('id', { count: 'exact', head: true }) as any).then((r: any) => r).catch(() => ({ count: 0 })),

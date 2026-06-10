@@ -95,10 +95,14 @@ export async function loadEvolutionReportsEmpresa(empresaId: string) {
   try {
     if (!empresaId) return { error: 'empresaId obrigatório' };
     const tdb = tenantDb(empresaId);
-    const { data: trilhas } = await tdb.from('trilhas')
+    const { data: trilhasRaw } = await tdb.from('trilhas')
       .select('id, colaborador_id, competencia_foco, evolution_report, evolution_generated_at')
       .eq('status', 'concluida')
       .not('evolution_report', 'is', null);
+    // exclui trilhas de colaboradores internos @vertho.ai da agregação
+    const { data: internosEv } = await tdb.from('colaboradores').select('id').ilike('email', '%@vertho.ai');
+    const internosEvSet = new Set((internosEv || []).map((c: any) => c.id));
+    const trilhas = (trilhasRaw || []).filter((t: any) => !internosEvSet.has(t.colaborador_id));
 
     const ids = (trilhas || []).map(t => t.colaborador_id);
     const { data: colabs } = await tdb.from('colaboradores')

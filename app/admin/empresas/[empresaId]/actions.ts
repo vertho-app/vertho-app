@@ -4,6 +4,7 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 import { removeVercelDomain } from '@/lib/vercel-domain';
+import { excludeInternalEmails } from '@/lib/internal-emails';
 
 export async function loadEmpresaPipeline(empresaId) {
   await requireAdminAction();
@@ -16,7 +17,7 @@ export async function loadEmpresaPipeline(empresaId) {
   if (error) return { success: false, error: error.message };
 
   const [colabRes, compRes, cargosRes, cenariosRes, enviosRes, respostasRes, avalRes, pppRes] = await Promise.all([
-    sb.from('colaboradores').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId),
+    excludeInternalEmails(sb.from('colaboradores').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId)), // exclui internos @vertho.ai
     sb.from('competencias').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId),
     (sb.from('cargos').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId) as any).then((r: any) => r).catch(() => ({ count: 0 })),
     sb.from('banco_cenarios').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId),

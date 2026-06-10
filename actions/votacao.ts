@@ -215,9 +215,10 @@ export async function loadResultadosVotacao(empresaId: string) {
   const votacaoAtiva = config.votacao_ativa === true;
   const perfilComportamentalLiberado = isPerfilComportamentalLiberado(config);
 
-  // Todos os colaboradores
+  // Todos os colaboradores (exclui internos @vertho.ai das estatísticas)
   const { data: colabs } = await tdb.from('colaboradores')
-    .select('id, nome_completo, cargo');
+    .select('id, nome_completo, cargo')
+    .not('email', 'ilike', '%@vertho.ai');
 
   // Todos os votos
   const { data: votos } = await (tdb.from('votacao_competencias') as any)
