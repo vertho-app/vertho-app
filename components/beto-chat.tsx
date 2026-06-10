@@ -17,80 +17,50 @@ const BETO = {
   text:   '#EDE9FE',
 };
 
-// ─── Beto Avatar SVG ───────────────────────────────────────────────────────
-// Abstrato, não emoji, não robô. Forma característica com dois "olhos"
-// e uma linha de boca — minimalista, reconhecível.
+// ─── Beto Avatar ───────────────────────────────────────────────────────────
+// Imagem do Beto em recorte circular, com dot de status (online) e um leve
+// pulse quando está "pensando".
 function BetoAvatar({ size = 32, state = 'idle' }: { size?: number; state?: 'idle' | 'thinking' | 'typing' }) {
-  const r = size / 2;
-  const eyeY = r * 0.78;
-  const eyeR = r * 0.14;
-  const eyeOff = r * 0.28;
-  const mouthY = r * 1.18;
-  const mouthW = r * 0.44;
+  const dot = Math.max(8, size * 0.3);
+  const ring = Math.max(1.5, size * 0.055);
 
   return (
-    <svg
-      width={size} height={size}
-      viewBox={`0 0 ${size} ${size}`}
-      fill="none"
+    <span
+      className="relative inline-block shrink-0"
+      style={{ width: size, height: size }}
       aria-label="Beto"
     >
-      {/* Fundo circular com gradiente */}
-      <defs>
-        <radialGradient id={`beto-bg-${size}`} cx="35%" cy="30%" r="70%">
-          <stop offset="0%" stopColor={BETO.mid} />
-          <stop offset="100%" stopColor={BETO.bg} />
-        </radialGradient>
-        {/* Glow externo */}
-        <filter id={`beto-glow-${size}`}>
-          <feGaussianBlur stdDeviation="1.5" result="blur" />
-          <feComposite in="SourceGraphic" in2="blur" operator="over" />
-        </filter>
-      </defs>
-
-      {/* Círculo base */}
-      <circle cx={r} cy={r} r={r} fill={`url(#beto-bg-${size})`} />
-
-      {/* Highlight sutil */}
-      <circle cx={r * 0.68} cy={r * 0.6} r={r * 0.28} fill="rgba(255,255,255,0.12)" />
-
-      {/* Olhos */}
-      <circle
-        cx={r - eyeOff} cy={eyeY} r={eyeR}
-        fill={BETO.light}
-        opacity={state === 'thinking' ? 0.5 : 1}
+      <img
+        src="/beto-avatar.jpg"
+        alt="Beto"
+        width={size}
+        height={size}
+        className="rounded-full object-cover"
+        style={{
+          width: size,
+          height: size,
+          boxShadow: `0 0 0 1px rgba(255,255,255,0.12), 0 2px 8px ${BETO.glow}`,
+          opacity: state === 'thinking' ? 0.85 : 1,
+          animation: state === 'thinking' ? 'beto-pulse 1.4s ease-in-out infinite' : undefined,
+        }}
       />
-      <circle
-        cx={r + eyeOff} cy={eyeY} r={eyeR}
-        fill={BETO.light}
-        opacity={state === 'thinking' ? 0.5 : 1}
-      />
-
-      {/* Pupilas */}
-      <circle cx={r - eyeOff + eyeR * 0.25} cy={eyeY + eyeR * 0.2} r={eyeR * 0.5} fill={BETO.bg} opacity={0.85} />
-      <circle cx={r + eyeOff + eyeR * 0.25} cy={eyeY + eyeR * 0.2} r={eyeR * 0.5} fill={BETO.bg} opacity={0.85} />
-
-      {/* Boca — sorriso sutil ou linha reta (thinking) */}
-      {state === 'thinking' ? (
-        <line
-          x1={r - mouthW} y1={mouthY}
-          x2={r + mouthW} y2={mouthY}
-          stroke={BETO.light} strokeWidth={size * 0.055} strokeLinecap="round"
-          opacity={0.7}
-        />
-      ) : (
-        <path
-          d={`M ${r - mouthW} ${mouthY} Q ${r} ${mouthY + size * 0.1} ${r + mouthW} ${mouthY}`}
-          stroke={BETO.light} strokeWidth={size * 0.055} strokeLinecap="round" fill="none"
-        />
-      )}
-
       {/* Dot de status (online) */}
-      <circle cx={r * 1.72} cy={r * 0.28} r={r * 0.18}
-        fill="#2ECC71"
-        stroke={BETO.bg} strokeWidth={size * 0.055}
+      <span
+        className="absolute rounded-full"
+        style={{
+          width: dot, height: dot,
+          right: -ring * 0.4, bottom: -ring * 0.4,
+          background: '#2ECC71',
+          border: `${ring}px solid ${BETO.bg}`,
+        }}
       />
-    </svg>
+      <style>{`
+        @keyframes beto-pulse {
+          0%, 100% { opacity: 0.85; }
+          50% { opacity: 0.55; }
+        }
+      `}</style>
+    </span>
   );
 }
 
