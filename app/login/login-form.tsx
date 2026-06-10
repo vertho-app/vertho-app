@@ -267,7 +267,7 @@ export default function LoginForm({ branding }: { branding: any }) {
           <img
             src={logoUrl}
             alt={tenantName}
-            className="h-14 mx-auto mb-4 object-contain"
+            className="h-28 mx-auto mb-4 object-contain"
           />
         ) : (
           <h1
