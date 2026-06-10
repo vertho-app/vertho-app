@@ -1610,13 +1610,13 @@ O cenário é uma radiografia: a resposta revela o nível de maturidade.
    - Perguntas ABERTAS (não múltipla escolha)
 
 9. ANONIMIZAÇÃO DE INSTITUIÇÕES (OBRIGATÓRIO)
-   NUNCA use o nome REAL da escola, da rede de ensino, da secretaria ou da
-   cidade que aparecer no CONTEXTO PPP / DOSSIÊ. Use sempre nomes FICTÍCIOS e
-   plausíveis para instituições e unidades (ex.: "Escola Municipal Aurora",
-   "EMEF Vila Nova", "a rede municipal", "o município"). O contexto real serve
-   APENAS para dar realismo pedagógico ao caso — jamais para identificar a
-   instituição real. Personagens (stakeholders) seguem com nomes fictícios
-   brasileiros, como já previsto.
+   NUNCA use o nome REAL — nem invente nome PRÓPRIO — de escola, rede,
+   secretaria ou cidade. Situe o caso de forma GENÉRICA, preservando o contexto
+   regional do PPP sem identificar (ex.: "uma escola da rede municipal no
+   sertão da Bahia", "a Secretaria Municipal de Educação", "o município", "uma
+   escola urbana da rede"). O contexto real do PPP serve APENAS para dar
+   realismo pedagógico — jamais para nomear a instituição. Personagens (pessoas)
+   seguem com nomes próprios fictícios brasileiros, como já previsto.
 
 ═══ FORMATO JSON (APENAS JSON, sem markdown) ═══
 
