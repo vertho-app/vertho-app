@@ -2,6 +2,7 @@
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { derivarArquetipo, derivarTagsExecutivas } from '@/lib/disc-arquetipos';
+import { isInternalEmail } from '@/lib/internal-emails';
 
 const SELECT_COLS = `
   id, nome_completo, email, cargo, area_depto, role,
@@ -26,7 +27,10 @@ export async function loadPerfisComportamentaisEmpresa(empresaId: string) {
 
     if (error) return { error: error.message };
 
-    const perfis = (data || []).map((c: any) => {
+    // exclui contas internas @vertho.ai das estatísticas e da listagem
+    const visiveis = (data || []).filter((c: any) => !isInternalEmail(c.email));
+
+    const perfis = visiveis.map((c: any) => {
       const hasDisc = !!(c.perfil_dominante && (c.d_natural || c.i_natural || c.s_natural || c.c_natural));
       return {
         id: c.id,
