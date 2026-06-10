@@ -33,6 +33,8 @@
   "Login": {
     "defaultSubtitle": "Your development journey",
     "emailPrompt": "Enter your email to sign in",
+    "unifiedPrompt": "Sign in with your email or WhatsApp",
+    "orDivider": "or",
     "whatsappPhonePrompt": "Enter your WhatsApp number to receive the code",
     "whatsappCodePrompt": "Enter the code we sent to your WhatsApp",
     "emailPlaceholder": "you@example.com",
@@ -53,6 +55,7 @@
     "useAnotherEmail": "Use another email",
     "errors": {
       "invalidEmail": "Enter a valid email address.",
+      "emptyIdentifier": "Enter your email or WhatsApp.",
       "checkEmail": "Error checking email.",
       "emailNotRegistered": "Email not registered. Contact your company administrator.",
       "network": "Network error: {message}",

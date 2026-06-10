@@ -33,6 +33,8 @@
   "Login": {
     "defaultSubtitle": "Sua jornada de desenvolvimento",
     "emailPrompt": "Digite seu e-mail para acessar",
+    "unifiedPrompt": "Entre com seu e-mail ou WhatsApp para acessar",
+    "orDivider": "ou",
     "whatsappPhonePrompt": "Digite seu WhatsApp para receber o código",
     "whatsappCodePrompt": "Digite o código que enviamos no seu WhatsApp",
     "emailPlaceholder": "seu@email.com",
@@ -53,6 +55,7 @@
     "useAnotherEmail": "Usar outro e-mail",
     "errors": {
       "invalidEmail": "Digite um e-mail válido.",
+      "emptyIdentifier": "Informe seu e-mail ou WhatsApp.",
       "checkEmail": "Erro ao verificar email.",
       "emailNotRegistered": "Email não cadastrado. Procure o administrador da empresa.",
       "network": "Erro de rede: {message}",

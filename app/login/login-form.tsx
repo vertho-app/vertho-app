@@ -14,10 +14,12 @@ export default function LoginForm({ branding }: { branding: any }) {
   const locale = useLocale();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [mode, setMode] = useState<'otp' | 'password' | 'whatsapp'>('otp');
+  // 'login' = tela unificada (e-mail OU WhatsApp); 'password' = e-mail + senha
+  const [mode, setMode] = useState<'login' | 'password'>('login');
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
-  const [waStep, setWaStep] = useState<'phone' | 'code'>('phone');
+  // true depois que o OTP por WhatsApp foi solicitado → mostra o campo de código
+  const [awaitingCode, setAwaitingCode] = useState(false);
   const [status, setStatus] = useState<'idle' | 'loading' | 'sent' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const [showSignup, setShowSignup] = useState(false);
@@ -68,11 +70,9 @@ export default function LoginForm({ branding }: { branding: any }) {
     return () => subscription.unsubscribe();
   }, [redirectTo]);
 
-  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const trimmed = email.trim().toLowerCase();
-
-    if (!trimmed || !trimmed.includes('@')) {
+  // Fluxo de e-mail: senha (se mode==='password') ou check-email → magic-link/signup.
+  async function submitEmail(trimmed: string) {
+    if (!trimmed.includes('@')) {
       setErrorMsg(t('errors.invalidEmail'));
       setStatus('error');
       return;
@@ -82,10 +82,7 @@ export default function LoginForm({ branding }: { branding: any }) {
     setErrorMsg('');
 
     if (mode === 'password' && password) {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: trimmed,
-        password,
-      });
+      const { error } = await supabase.auth.signInWithPassword({ email: trimmed, password });
       if (error) {
         setErrorMsg(error.message);
         setStatus('error');
@@ -152,9 +149,8 @@ export default function LoginForm({ branding }: { branding: any }) {
     }
   }
 
-  async function handleWhatsappRequest(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const digits = phone.replace(/\D/g, '');
+  // Fluxo de WhatsApp: solicita o OTP e avança pro passo de código.
+  async function submitWhatsapp(digits: string) {
     if (digits.length < 10) {
       setErrorMsg(t('errors.invalidWhatsapp'));
       setStatus('error');
@@ -174,10 +170,32 @@ export default function LoginForm({ branding }: { branding: any }) {
         setStatus('error');
         return;
       }
-      setWaStep('code');
+      setAwaitingCode(true);
       setStatus('idle');
     } catch (err: any) {
       setErrorMsg(t('errors.network', { message: err.message }));
+      setStatus('error');
+    }
+  }
+
+  // Submit unificado: e-mail tem prioridade; senão WhatsApp.
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const trimmedEmail = email.trim().toLowerCase();
+    const digits = phone.replace(/\D/g, '');
+
+    // Modo senha é sempre por e-mail.
+    if (mode === 'password') {
+      await submitEmail(trimmedEmail);
+      return;
+    }
+
+    if (trimmedEmail) {
+      await submitEmail(trimmedEmail); // e-mail vence quando ambos preenchidos
+    } else if (digits) {
+      await submitWhatsapp(digits);
+    } else {
+      setErrorMsg(t('errors.emptyIdentifier'));
       setStatus('error');
     }
   }
@@ -216,18 +234,11 @@ export default function LoginForm({ branding }: { branding: any }) {
     }
   }
 
-  function switchToWhatsapp() {
-    setMode('whatsapp');
-    setWaStep('phone');
-    setStatus('idle');
-    setErrorMsg('');
-  }
-
-  function switchToEmail() {
-    setMode('otp');
-    setStatus('idle');
-    setErrorMsg('');
-  }
+  const promptText = awaitingCode
+    ? t('whatsappCodePrompt')
+    : mode === 'password'
+      ? t('emailPrompt')
+      : t('unifiedPrompt');
 
   return (
     <div
@@ -271,73 +282,40 @@ export default function LoginForm({ branding }: { branding: any }) {
           {subtitle}
         </p>
         <p className="text-sm mb-7" style={{ color: fontColorSecondary || '#FFFFFF99' }}>
-          {mode === 'whatsapp'
-            ? (waStep === 'phone' ? t('whatsappPhonePrompt') : t('whatsappCodePrompt'))
-            : t('emailPrompt')}
+          {promptText}
         </p>
 
-        {mode === 'whatsapp' ? (
-          /* ── Login por WhatsApp (OTP) ── */
-          waStep === 'phone' ? (
-            <form onSubmit={handleWhatsappRequest}>
-              <input
-                type="tel"
-                inputMode="numeric"
-                value={phone}
-                onChange={e => setPhone(e.target.value)}
-                placeholder={t('phonePlaceholder')}
-                autoComplete="tel"
-                className="w-full py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-white text-base text-center outline-none placeholder:text-white/40 transition-colors"
-                onFocus={e => ((e.target as HTMLInputElement).style.borderColor = accentColor)}
-                onBlur={e => ((e.target as HTMLInputElement).style.borderColor = '')}
-              />
-              <button
-                type="submit"
-                disabled={status === 'loading'}
-                className="w-full mt-4 py-3.5 rounded-xl border-none text-white text-base font-bold tracking-wide cursor-pointer transition-opacity disabled:opacity-60"
-                style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColorEnd})` }}
-              >
-                {status === 'loading' ? t('sending') : t('sendCode')}
-              </button>
-              <button type="button" onClick={switchToEmail}
-                className="mt-3 text-xs hover:underline" style={{ color: accentColor }}>
-                {t('enterWithEmail')}
-              </button>
-              {status === 'error' && errorMsg && (
-                <p className="text-danger text-sm mt-3">{errorMsg}</p>
-              )}
-            </form>
-          ) : (
-            <form onSubmit={handleWhatsappVerify}>
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                value={code}
-                onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
-                placeholder={t('codePlaceholder')}
-                autoComplete="one-time-code"
-                className="w-full py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-white text-2xl text-center tracking-[0.5em] outline-none placeholder:text-white/30 transition-colors"
-                onFocus={e => ((e.target as HTMLInputElement).style.borderColor = accentColor)}
-                onBlur={e => ((e.target as HTMLInputElement).style.borderColor = '')}
-              />
-              <button
-                type="submit"
-                disabled={status === 'loading'}
-                className="w-full mt-4 py-3.5 rounded-xl border-none text-white text-base font-bold tracking-wide cursor-pointer transition-opacity disabled:opacity-60"
-                style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColorEnd})` }}
-              >
-                {status === 'loading' ? t('entering') : common('actions.enter')}
-              </button>
-              <button type="button" onClick={() => { setWaStep('phone'); setCode(''); setStatus('idle'); setErrorMsg(''); }}
-                className="mt-3 text-xs hover:underline" style={{ color: accentColor }}>
-                {t('resendOrChangePhone')}
-              </button>
-              {status === 'error' && errorMsg && (
-                <p className="text-danger text-sm mt-3">{errorMsg}</p>
-              )}
-            </form>
-          )
+        {awaitingCode ? (
+          /* ── Passo de código (OTP por WhatsApp) ── */
+          <form onSubmit={handleWhatsappVerify}>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={code}
+              onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
+              placeholder={t('codePlaceholder')}
+              autoComplete="one-time-code"
+              className="w-full py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-white text-2xl text-center tracking-[0.5em] outline-none placeholder:text-white/30 transition-colors"
+              onFocus={e => ((e.target as HTMLInputElement).style.borderColor = accentColor)}
+              onBlur={e => ((e.target as HTMLInputElement).style.borderColor = '')}
+            />
+            <button
+              type="submit"
+              disabled={status === 'loading'}
+              className="w-full mt-4 py-3.5 rounded-xl border-none text-white text-base font-bold tracking-wide cursor-pointer transition-opacity disabled:opacity-60"
+              style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColorEnd})` }}
+            >
+              {status === 'loading' ? t('entering') : common('actions.enter')}
+            </button>
+            <button type="button" onClick={() => { setAwaitingCode(false); setCode(''); setStatus('idle'); setErrorMsg(''); }}
+              className="mt-3 text-xs hover:underline" style={{ color: accentColor }}>
+              {t('resendOrChangePhone')}
+            </button>
+            {status === 'error' && errorMsg && (
+              <p className="text-danger text-sm mt-3">{errorMsg}</p>
+            )}
+          </form>
         ) : status === 'sent' ? (
           /* ── Link enviado ── */
           <div className="bg-white/10 rounded-xl p-6 border border-white/15">
@@ -358,8 +336,8 @@ export default function LoginForm({ branding }: { branding: any }) {
             </button>
           </div>
         ) : (
-          /* ── Formulário ── */
-          <form onSubmit={handleLogin}>
+          /* ── Formulário unificado (e-mail OU WhatsApp) ── */
+          <form onSubmit={handleSubmit}>
             <input
               type="email"
               value={email}
@@ -371,7 +349,8 @@ export default function LoginForm({ branding }: { branding: any }) {
               onFocus={e => ((e.target as HTMLInputElement).style.borderColor = accentColor)}
               onBlur={e => ((e.target as HTMLInputElement).style.borderColor = '')}
             />
-            {mode === 'password' && (
+
+            {mode === 'password' ? (
               <input
                 type="password"
                 value={password}
@@ -382,7 +361,30 @@ export default function LoginForm({ branding }: { branding: any }) {
                 onFocus={e => ((e.target as HTMLInputElement).style.borderColor = accentColor)}
                 onBlur={e => ((e.target as HTMLInputElement).style.borderColor = '')}
               />
+            ) : (
+              <>
+                {/* divisor "ou" */}
+                <div className="flex items-center gap-3 my-3" aria-hidden="true">
+                  <span className="h-px flex-1 bg-white/15" />
+                  <span className="text-xs uppercase tracking-wide" style={{ color: fontColorSecondary || '#FFFFFF99' }}>
+                    {t('orDivider')}
+                  </span>
+                  <span className="h-px flex-1 bg-white/15" />
+                </div>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  placeholder={t('phonePlaceholder')}
+                  autoComplete="tel"
+                  className="w-full py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-white text-base text-center outline-none placeholder:text-white/40 transition-colors"
+                  onFocus={e => ((e.target as HTMLInputElement).style.borderColor = accentColor)}
+                  onBlur={e => ((e.target as HTMLInputElement).style.borderColor = '')}
+                />
+              </>
             )}
+
             <button
               type="submit"
               disabled={status === 'loading'}
@@ -393,13 +395,9 @@ export default function LoginForm({ branding }: { branding: any }) {
             </button>
 
             <div className="mt-3 flex flex-col items-center gap-1.5">
-              <button type="button" onClick={() => setMode(mode === 'otp' ? 'password' : 'otp')}
+              <button type="button" onClick={() => { setMode(mode === 'login' ? 'password' : 'login'); setStatus('idle'); setErrorMsg(''); }}
                 className="text-xs hover:underline" style={{ color: accentColor }}>
-                {mode === 'otp' ? t('enterWithPassword') : t('enterWithMagicLink')}
-              </button>
-              <button type="button" onClick={switchToWhatsapp}
-                className="text-xs hover:underline" style={{ color: accentColor }}>
-                {t('enterWithWhatsapp')}
+                {mode === 'login' ? t('enterWithPassword') : t('enterWithMagicLink')}
               </button>
             </div>
 
