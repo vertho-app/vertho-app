@@ -389,7 +389,6 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
               const isOpen = openId === r.id;
               const avaliacao = typeof r.avaliacao_ia === 'string' ? JSON.parse(r.avaliacao_ia) : r.avaliacao_ia;
               const check = typeof r.payload_ia4 === 'string' ? JSON.parse(r.payload_ia4) : r.payload_ia4;
-              const perguntas = Array.isArray(r.cenario_perguntas) ? r.cenario_perguntas : [];
 
               return (
                 <div key={r.id} className={`rounded-xl border overflow-hidden ${
@@ -443,10 +442,9 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
                         <div className="space-y-2">
                           {[r.r1, r.r2, r.r3, r.r4].map((resp, i) => (
                             <div key={i} className="p-3 rounded-lg" style={{ background: '#091D35' }}>
-                              <p className="text-[9px] font-bold text-gray-500 mb-1">
-                                P{i + 1}: {perguntas[i]?.texto || ''}
+                              <p className="text-xs text-gray-300 leading-relaxed">
+                                <span className="font-bold text-gray-500">R{i + 1}:</span> {resp || '(sem resposta)'}
                               </p>
-                              <p className="text-xs text-gray-300 leading-relaxed">{resp || '(sem resposta)'}</p>
                             </div>
                           ))}
                         </div>
