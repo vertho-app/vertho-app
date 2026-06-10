@@ -1609,6 +1609,15 @@ O cenário é uma radiografia: a resposta revela o nível de maturidade.
    - Cada pergunta: máx 200 caracteres
    - Perguntas ABERTAS (não múltipla escolha)
 
+9. ANONIMIZAÇÃO DE INSTITUIÇÕES (OBRIGATÓRIO)
+   NUNCA use o nome REAL da escola, da rede de ensino, da secretaria ou da
+   cidade que aparecer no CONTEXTO PPP / DOSSIÊ. Use sempre nomes FICTÍCIOS e
+   plausíveis para instituições e unidades (ex.: "Escola Municipal Aurora",
+   "EMEF Vila Nova", "a rede municipal", "o município"). O contexto real serve
+   APENAS para dar realismo pedagógico ao caso — jamais para identificar a
+   instituição real. Personagens (stakeholders) seguem com nomes fictícios
+   brasileiros, como já previsto.
+
 ═══ FORMATO JSON (APENAS JSON, sem markdown) ═══
 
 {
@@ -1720,6 +1729,7 @@ ${comp.descricao ? `Descrição: ${comp.descricao}` : ''}`);
 3. Pense em qual RESPOSTA GENÉRICA precisaria falhar — se ela funciona, o cenário é fraco.
 4. Distribua os ${descritores.length} descritores nas 4 perguntas (cada pergunta ≥2, cobertura total).
 5. Verifique: o cenário tem trade-off REAL? Resposta "boa pra todos" é impossível?
+6. ANONIMIZE: o nome da empresa/escola/rede/cidade acima é só para CONTEXTO — no texto do cenário use nomes FICTÍCIOS de instituições, nunca os reais.
 
 ═══ OBJETIVO ═══
 Gere o cenário como INSTRUMENTO DIAGNÓSTICO que a IA4 e o check vão usar
