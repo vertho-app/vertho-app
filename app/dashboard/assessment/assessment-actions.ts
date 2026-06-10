@@ -145,10 +145,16 @@ async function _getDiagnosticoDoDia() {
   const { data: cen } = await query.maybeSingle();
   if (!cen) return { error: `Cenário para "${proxima.nome}" ainda não foi gerado` };
 
-  const alt = typeof cen.alternativas === 'string' ? JSON.parse(cen.alternativas) : (cen.alternativas || []);
-  const perguntas = Array.isArray(alt)
-    ? alt.sort((a, b) => (a.numero || 0) - (b.numero || 0)).map(p => p.texto || '')
-    : [];
+  // `alternativas` pode vir como array legado [{numero,texto}] OU como objeto
+  // do formato atual { perguntas: [{numero, texto, ...}], ... }. Sem este
+  // fallback, o objeto não é array → perguntas vazias → caía no genérico
+  // ("Descreva a situação."), ignorando o cenário desenhado.
+  const altRaw = typeof cen.alternativas === 'string' ? JSON.parse(cen.alternativas) : (cen.alternativas || []);
+  const lista = Array.isArray(altRaw) ? altRaw : (altRaw?.perguntas || []);
+  const perguntas = (Array.isArray(lista) ? lista : [])
+    .slice()
+    .sort((a: any, b: any) => (a.numero || 0) - (b.numero || 0))
+    .map((p: any) => p.texto || p.pergunta || '');
 
   return {
     colaborador: colaboradorPayload,
