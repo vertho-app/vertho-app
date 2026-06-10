@@ -2,6 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdminOrCronAction } from '@/lib/auth/action-context';
+import { isInternalEmail } from '@/lib/internal-emails';
 
 /**
  * Recalcula taxa_conclusao de todos os micro_conteudos core usados em trilhas.
@@ -16,12 +17,19 @@ export async function recalcularTaxaConclusao() {
     const sb = createSupabaseAdmin();
 
     const { data: trilhas } = await sb.from('trilhas')
-      .select('id, temporada_plano')
+      .select('id, colaborador_id, temporada_plano')
       .not('temporada_plano', 'is', null);
+
+    // exclui trilhas de contas internas @vertho.ai (não contam na taxa)
+    const { data: colabs } = await sb.from('colaboradores').select('id, email');
+    const internalIds = new Set(
+      (colabs || []).filter((c: any) => isInternalEmail(c.email)).map((c: any) => c.id as string),
+    );
 
     // Mapa: content_id → { atribuido: [{trilhaId, semana}] }
     const atribuicoes: Record<string, Array<{ trilhaId: string; semana: number }>> = {};
     for (const t of (trilhas || [])) {
+      if (internalIds.has(t.colaborador_id)) continue;
       const plano = Array.isArray(t.temporada_plano) ? t.temporada_plano : [];
       for (const s of plano) {
         const conteudos = Array.isArray(s?.conteudos_dia) && s.conteudos_dia.length > 0

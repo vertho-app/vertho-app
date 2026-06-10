@@ -7,6 +7,7 @@ import { requireUserAction } from '@/lib/auth/action-context';
 import { getUserContext } from '@/lib/authz';
 import { DIMENSIONS, type DimensionKey, type PulseMoment } from '@/lib/pulse/template';
 import { PULSE_MIN_N, classifyScore, type GuardedAggregate } from '@/lib/pulse/anonymity';
+import { isInternalEmail } from '@/lib/internal-emails';
 
 export type GroupType = 'company' | 'area' | 'cargo';
 
@@ -152,12 +153,19 @@ export async function loadPulseDashboard(
   let taxa_conclusao_t0 = 0;
   let taxa_conclusao_t2 = 0;
   if (groupType === 'company') {
-    const { data: ass } = await sb.from('pulse_assignments')
-      .select('pulse_moment, status').eq('ciclo_id', cicloId);
-    const totalT0 = (ass || []).filter((a: any) => a.pulse_moment === 'T0').length;
-    const compT0 = (ass || []).filter((a: any) => a.pulse_moment === 'T0' && a.status === 'completed').length;
-    const totalT2 = (ass || []).filter((a: any) => a.pulse_moment === 'T2').length;
-    const compT2 = (ass || []).filter((a: any) => a.pulse_moment === 'T2' && a.status === 'completed').length;
+    // exclui contas internas @vertho.ai da taxa (consistente com a MV de agregados)
+    const { data: colabs } = await sb.from('colaboradores')
+      .select('id, email').eq('empresa_id', empresaId);
+    const internalIds = new Set(
+      (colabs || []).filter((c: any) => isInternalEmail(c.email)).map((c: any) => c.id as string),
+    );
+    const { data: assAll } = await sb.from('pulse_assignments')
+      .select('colaborador_id, pulse_moment, status').eq('ciclo_id', cicloId);
+    const ass = (assAll || []).filter((a: any) => !internalIds.has(a.colaborador_id));
+    const totalT0 = ass.filter((a: any) => a.pulse_moment === 'T0').length;
+    const compT0 = ass.filter((a: any) => a.pulse_moment === 'T0' && a.status === 'completed').length;
+    const totalT2 = ass.filter((a: any) => a.pulse_moment === 'T2').length;
+    const compT2 = ass.filter((a: any) => a.pulse_moment === 'T2' && a.status === 'completed').length;
     taxa_conclusao_t0 = totalT0 ? Math.round((compT0 / totalT0) * 100) : 0;
     taxa_conclusao_t2 = totalT2 ? Math.round((compT2 / totalT2) * 100) : 0;
   }

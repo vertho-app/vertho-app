@@ -2,6 +2,13 @@
 
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { isInternalEmail } from '@/lib/internal-emails';
+
+/** IDs de colaboradores internos (@vertho.ai) de uma empresa — excluídos de estatísticas. */
+async function internalColabIds(sb: any, empresaId: string): Promise<Set<string>> {
+  const { data } = await sb.from('colaboradores').select('id, email').eq('empresa_id', empresaId);
+  return new Set((data || []).filter((c: any) => isInternalEmail(c.email)).map((c: any) => c.id as string));
+}
 
 /**
  * Actions que consultam a API do Bunny Stream pra gerar métricas.
@@ -67,12 +74,14 @@ export async function loadBunnyVideosStats(empresaId: string | null = null) {
     // Se empresaId, sobrescreve views/totalWatchTime/taxa pelos dados de
     // videos_watched filtrados pela empresa (atribuição via metaData)
     if (empresaId && sb) {
+      const internalIds = await internalColabIds(sb, empresaId);
       const { data: events } = await sb.from('videos_watched')
-        .select('video_id, seconds_watched, video_length, event_type')
+        .select('video_id, colaborador_id, seconds_watched, video_length, event_type')
         .eq('empresa_id', empresaId);
 
       const porVideo = {};
       for (const e of (events || [])) {
+        if (internalIds.has(e.colaborador_id)) continue; // exclui internos @vertho.ai
         if (!porVideo[e.video_id]) porVideo[e.video_id] = { views: 0, totalSec: 0, totalLen: 0 };
         const s = porVideo[e.video_id];
         s.views += 1;
@@ -143,8 +152,11 @@ export async function loadVideoWatchedPorColab(empresaId: string) {
       .not('colaborador_id', 'is', null);
     if (error) return { error: error.message };
 
+    const internalIds = await internalColabIds(sb, empresaId);
+
     const map = {};
     for (const r of (data || [])) {
+      if (internalIds.has(r.colaborador_id)) continue; // exclui internos @vertho.ai
       const k = r.colaborador_id;
       if (!map[k]) map[k] = { videosDistintos: new Set(), segundos: 0, views: 0 };
       map[k].videosDistintos.add(r.video_id);
