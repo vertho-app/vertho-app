@@ -9,6 +9,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { derivarArquetipo } from '@/lib/disc-arquetipos';
+import { excludeInternalEmails } from '@/lib/internal-emails';
 
 export type Fator = 'D' | 'I' | 'S' | 'C';
 export interface DiscMedia { d: number; i: number; s: number; c: number }
@@ -146,8 +147,9 @@ export async function aggregatePerfilOrg(sb: SupabaseClient, empresaId: string):
     ...Object.keys(LIDERANCA),
     ...COMP_LABEL.map((c) => c.key), ...COMP_LABEL.map((c) => c.key + '_adapt'),
   ].join(', ');
-  const { data: rows } = await sb.from('colaboradores').select(cols)
-    .eq('empresa_id', empresaId).not('d_natural', 'is', null).order('nome_completo');
+  const { data: rows } = await excludeInternalEmails(
+    sb.from('colaboradores').select(cols).eq('empresa_id', empresaId).not('d_natural', 'is', null),
+  ).order('nome_completo'); // exclui contas internas @vertho.ai das estatísticas
 
   const empty: PerfilOrg = {
     avaliados: 0, natural: { d: 0, i: 0, s: 0, c: 0 }, adaptado: { d: 0, i: 0, s: 0, c: 0 },

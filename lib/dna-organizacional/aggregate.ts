@@ -10,6 +10,7 @@
  * (meta), avancado=N4 (referência). Fallback por nota quando nível ausente.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isInternalEmail } from '@/lib/internal-emails';
 
 export type NBucket = 'n1' | 'n2' | 'n3' | 'n4';
 export interface Dist { n1: number; n2: number; n3: number; n4: number }
@@ -65,12 +66,15 @@ function pct(d: Dist): Dist {
 }
 
 export async function aggregateDna(sb: SupabaseClient, empresaId: string): Promise<DnaAggregate> {
-  const { data: rows } = await sb
+  const { data: rawRows } = await sb
     .from('descriptor_assessments')
     .select('colaborador_id, competencia, descritor, nota, nivel, assessment_date')
     .eq('empresa_id', empresaId);
-  const { count: totalColaboradores } = await sb
-    .from('colaboradores').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId);
+  // exclui contas internas @vertho.ai das estatísticas (colab interno → fora)
+  const { data: colabs } = await sb.from('colaboradores').select('id, email').eq('empresa_id', empresaId);
+  const internalIds = new Set((colabs || []).filter((x: any) => isInternalEmail(x.email)).map((x: any) => x.id as string));
+  const totalColaboradores = (colabs || []).length - internalIds.size;
+  const rows = (rawRows || []).filter((r: any) => !internalIds.has(r.colaborador_id));
 
   const empty = (): DnaAggregate => ({
     totalColaboradores: totalColaboradores || 0, avaliados: 0, participacaoPct: 0, totalAvaliacoes: 0,
