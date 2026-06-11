@@ -13,14 +13,14 @@ const PRESET_KEYS: PresetKey[] = ['premium', 'balanced', 'cheap'];
 
 const PRECOS_DEFAULT = {
   cotacao: 5.30,              // USD → BRL
-  precoSetupGeral: 5000,      // R$ taxa fixa de implantação (one-time, independente de clusters/colabs)
-  precoColab: 300,            // R$ por colaborador / mês (Mentor IA — recorrente)
-  precoCluster: 4000,         // R$ por cluster (setup do cluster, one-time)
+  precoSetupGeral: 2000,      // R$ taxa fixa de implantação (one-time, independente de clusters/colabs)
+  precoColab: 100,            // R$ por colaborador / mês (Mentor IA — recorrente)
+  precoCluster: 2000,         // R$ por cluster (setup do cluster, one-time)
   precoPerfil: 500,           // R$ por perfil (cargo) dentro do cluster (one-time)
   adicionalWorkshop: 15000,   // R$ por cluster quando método = workshop (one-time)
-  manutencaoMensalColab: 100, // R$ por colaborador / mês (manutenção/suporte — recorrente)
+  manutencaoMensalColab: 0,   // R$ por colaborador / mês (manutenção/suporte — recorrente)
   custoRenderVideoUsd: 36,    // USD por vídeo: 5 min 1080p × Veo 3.1 Fast ($0,12/s) = 300×0,12
-  reusoConteudo: 1,           // colaboradores que compartilham cada peça (1 = único por colab)
+  reusoConteudo: 5,           // colaboradores que compartilham cada peça (1 = único por colab)
   descontoPct: 0,
 };
 
