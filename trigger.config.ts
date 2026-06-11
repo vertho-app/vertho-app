@@ -1,15 +1,15 @@
 import { defineConfig } from '@trigger.dev/sdk';
 import { ffmpeg } from '@trigger.dev/build/extensions/core';
-import type { BuildContext, BuildExtension } from '@trigger.dev/core/build';
 
 // O postinstall do youtube-dl-exec (que baixaria o binário do yt-dlp) é
 // pulado no build do trigger.dev, então o binário fica ausente (ENOENT).
 // Baixamos o yt-dlp_linux standalone (PyInstaller, self-contained, não
 // precisa de Python) direto na imagem e apontamos o youtube-dl-exec pra ele.
-function installYtDlp(): BuildExtension {
+// Tipos inline (any) — @trigger.dev/core/build não está nas deps do app Next.
+function installYtDlp(): any {
   return {
     name: 'install-yt-dlp',
-    onBuildComplete(context: BuildContext) {
+    onBuildComplete(context: any) {
       context.addLayer({
         id: 'yt-dlp',
         image: {
