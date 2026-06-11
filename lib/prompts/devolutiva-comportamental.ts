@@ -9,11 +9,25 @@
  * Saída no formato esperado por extractNarration (bloco NARRAÇÃO TEXTO LIMPO).
  */
 
+interface CargoInfo {
+  nome?: string | null;
+  area_depto?: string | null;
+  descricao?: string | null;
+  principais_entregas?: string | null;
+  stakeholders?: string | null;
+  decisoes_recorrentes?: string | null;
+  tensoes_comuns?: string | null;
+  contexto_cultural?: string | null;
+  eh_lideranca?: boolean | null;
+}
+
 interface DevolutivaParams {
   primeiroNome: string;
   arquetipo: { nome: string; desc: string };
   raw: any;    // mapSupabaseToCISRawData
   texts: any;  // report_texts (cache do relatório)
+  cargo?: CargoInfo | null;
+  empresaNome?: string | null;
 }
 
 function topNomes(arr: any[], n = 3): string {
@@ -21,7 +35,23 @@ function topNomes(arr: any[], n = 3): string {
   return arr.map((x) => x?.competencia).filter(Boolean).slice(0, n).join(', ');
 }
 
-export function promptDevolutivaComportamental({ primeiroNome, arquetipo, raw, texts }: DevolutivaParams) {
+function blocoCargo(cargo?: CargoInfo | null, empresaNome?: string | null): string {
+  if (!cargo && !empresaNome) return '';
+  const linhas = [
+    empresaNome ? `Instituição: ${empresaNome}` : '',
+    cargo?.nome ? `Cargo: ${cargo.nome}${cargo.area_depto ? ` (${cargo.area_depto})` : ''}${cargo.eh_lideranca ? ' — posição de liderança' : ''}` : '',
+    cargo?.descricao ? `Descrição do cargo: ${cargo.descricao}` : '',
+    cargo?.principais_entregas ? `Principais entregas: ${cargo.principais_entregas}` : '',
+    cargo?.stakeholders ? `Stakeholders: ${cargo.stakeholders}` : '',
+    cargo?.decisoes_recorrentes ? `Decisões recorrentes: ${cargo.decisoes_recorrentes}` : '',
+    cargo?.tensoes_comuns ? `Tensões comuns do cargo: ${cargo.tensoes_comuns}` : '',
+    cargo?.contexto_cultural ? `Contexto cultural: ${cargo.contexto_cultural}` : '',
+  ].filter(Boolean);
+  if (!linhas.length) return '';
+  return `\nCONTEXTO DA FUNÇÃO (use como CENÁRIO dos exemplos — não invente atribuições além destas):\n${linhas.join('\n')}`;
+}
+
+export function promptDevolutivaComportamental({ primeiroNome, arquetipo, raw, texts, cargo, empresaNome }: DevolutivaParams) {
   const d = raw?.disc_natural || {};
   const a = raw?.disc_adaptado || {};
   const tp = raw?.tipo_psicologico || {};
@@ -34,6 +64,7 @@ PRINCÍPIOS INEGOCIÁVEIS:
 - DISC e tipo psicológico são TENDÊNCIA, não sentença. Use "você tende a", "costuma", nunca "você é" ou "sempre".
 - Tom acolhedor, humano, próximo — uma conversa, não um laudo. Fale na 1ª pessoa, dirigindo-se a ${primeiroNome} pelo nome (com moderação).
 - Forças primeiro; pontos a desenvolver como OPORTUNIDADE, nunca defeito.
+- ANCORE no CONTEXTO DA FUNÇÃO de ${primeiroNome} (cargo, entregas, stakeholders, decisões, tensões) e na instituição: dê exemplos concretos do dia a dia daquele cargo. Use o cargo como CENÁRIO de aplicação do perfil — NÃO invente atribuições além das informadas, e NÃO confunda perfil comportamental com competência ou desempenho (o cargo é só contexto, não um julgamento de quão bem ela faz o trabalho).
 - Linguagem simples, sem jargão técnico nem números/scores. Não cite "DISC", "D/I/S/C" nem percentuais — traduza em comportamento.
 - ~500-600 palavras (3-4 min de áudio). Prosa corrida, frases curtas, ritmo de fala.
 - Feche convidando a pessoa a continuar a conversa com você (o Beto) quando quiser.
@@ -55,6 +86,7 @@ ${texts?.sintese_perfil ? `\nSíntese do relatório: ${texts.sintese_perfil}` : 
 ${forcas ? `\nForças naturais: ${forcas}` : ''}
 ${desenvolver ? `\nA desenvolver: ${desenvolver}` : ''}
 ${texts?.lideranca_sintese ? `\nEstilo de liderança: ${texts.lideranca_sintese}` : ''}
+${blocoCargo(cargo, empresaNome)}
 
 Escreva o roteiro da devolutiva em voz seguindo o formato e os princípios.`;
 

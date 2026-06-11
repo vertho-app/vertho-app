@@ -331,13 +331,28 @@ export async function gerarEsalvarDevolutivaComportamental({ colab: inputColab, 
 
     const { raw, texts } = await _ensureTextos(colab);
 
+    // Contexto do cargo (cargos_empresa por nome) + empresa, para ancorar os exemplos.
+    const sbCtx = createSupabaseAdmin();
+    let cargo: any = null;
+    let empresaNome: string | null = null;
+    try {
+      if (colab.cargo) {
+        const { data } = await sbCtx.from('cargos_empresa')
+          .select('nome, area_depto, descricao, principais_entregas, stakeholders, decisoes_recorrentes, tensoes_comuns, contexto_cultural, eh_lideranca')
+          .eq('empresa_id', colab.empresa_id).ilike('nome', colab.cargo).limit(1).maybeSingle();
+        cargo = data || { nome: colab.cargo };
+      }
+      const { data: emp } = await sbCtx.from('empresas').select('nome').eq('id', colab.empresa_id).maybeSingle();
+      empresaNome = emp?.nome || null;
+    } catch { /* contexto é best-effort */ }
+
     // Roteiro da devolutiva
     const { derivarArquetipo } = await import('@/lib/disc-arquetipos');
     const { promptDevolutivaComportamental } = await import('@/lib/prompts/devolutiva-comportamental');
     const { getModelForTask } = await import('@/lib/ai-tasks');
     const arquetipo = derivarArquetipo(colab.perfil_dominante);
     const primeiroNome = String(colab.nome_completo || 'você').split(' ')[0];
-    const { system, user } = promptDevolutivaComportamental({ primeiroNome, arquetipo, raw, texts });
+    const { system, user } = promptDevolutivaComportamental({ primeiroNome, arquetipo, raw, texts, cargo, empresaNome });
     const model = await getModelForTask(colab.empresa_id, 'devolutiva_comportamental');
     const roteiro = await callAI(system, user, { model }, 1500);
     if (!roteiro?.trim()) return { error: 'Roteiro vazio' };
