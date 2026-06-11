@@ -115,7 +115,12 @@ export async function extrairConteudoDeVideo(url: string, opts: { competenciasHi
   const body = {
     systemInstruction: { parts: [{ text: buildSystem(idioma) }] },
     contents: [{ role: 'user', parts: [mediaPart, { text: `Extraia o texto-base deste vídeo.${hint}` }] }],
-    generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 4096, temperature: 0.4 },
+    generationConfig: {
+      responseMimeType: 'application/json',
+      maxOutputTokens: 8192,
+      temperature: 0.4,
+      thinkingConfig: { thinkingBudget: 0 }, // sem thinking: todo o orçamento vai p/ o JSON (evita truncar)
+    },
   };
 
   const res = await fetch(endpoint, {
@@ -129,14 +134,24 @@ export async function extrairConteudoDeVideo(url: string, opts: { competenciasHi
     throw new Error(`Gemini vídeo ${res.status}: ${detail.slice(0, 300)}`);
   }
   const data = await res.json();
-  const txt = data?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text).filter(Boolean).join('') || '';
+  const cand = data?.candidates?.[0];
+  const txt = cand?.content?.parts?.map((p: any) => p?.text).filter(Boolean).join('') || '';
   if (!txt) throw new Error('Gemini não retornou conteúdo (vídeo pode estar privado/indisponível).');
 
+  const clean = txt.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
   let parsed: any;
   try {
-    parsed = JSON.parse(txt.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim());
+    parsed = JSON.parse(clean);
   } catch {
-    throw new Error('Resposta do modelo não veio em JSON válido.');
+    // Tolerante: extrai o maior objeto {...} caso venha texto em volta.
+    const m = clean.match(/\{[\s\S]*\}/);
+    if (m) { try { parsed = JSON.parse(m[0]); } catch { /* segue */ } }
+  }
+  if (!parsed) {
+    const truncado = cand?.finishReason === 'MAX_TOKENS';
+    throw new Error(truncado
+      ? 'O vídeo é muito longo e a resposta foi cortada. Tente um vídeo mais curto.'
+      : 'Resposta do modelo não veio em JSON válido. Tente novamente.');
   }
   return {
     titulo: String(parsed.titulo || 'Conteúdo de vídeo').trim(),
