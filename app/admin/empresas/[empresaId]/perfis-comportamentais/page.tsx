@@ -3,10 +3,10 @@
 import { useState, useEffect, useMemo, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { Loader2, Brain, Search, Download, FileText, CheckCircle2, Clock, Users, Sparkles } from 'lucide-react';
+import { Loader2, Brain, Search, Download, FileText, CheckCircle2, Clock, Users, Sparkles, Volume2, Send } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { loadPerfisComportamentaisEmpresa } from '@/actions/admin-perfis';
-import { baixarRelatorioComportamentalPdfPorId } from '@/app/dashboard/perfil-comportamental/relatorio/relatorio-actions';
+import { baixarRelatorioComportamentalPdfPorId, ouvirDevolutivaPorId, enviarDevolutivaWhatsAppPorId } from '@/app/dashboard/perfil-comportamental/relatorio/relatorio-actions';
 
 type Filtro = 'todos' | 'completos' | 'pendentes';
 
@@ -29,9 +29,27 @@ export default function PerfisComportamentaisPage({ params }: { params: Promise<
   const [filtro, setFiltro] = useState<Filtro>('todos');
   const [search, setSearch] = useState('');
   const [baixando, setBaixando] = useState<string | null>(null);
+  const [gerandoAudio, setGerandoAudio] = useState<string | null>(null);
+  const [enviandoWhats, setEnviandoWhats] = useState<string | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [toast, setToast] = useState('');
 
-  function flash(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
+  function flash(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3500); }
+
+  async function handleOuvir(colabId: string) {
+    setGerandoAudio(colabId);
+    const r = await ouvirDevolutivaPorId(colabId);
+    setGerandoAudio(null);
+    if ((r as any)?.error) { flash((r as any).error); return; }
+    setAudioUrl((r as any).url);
+  }
+
+  async function handleWhats(colabId: string) {
+    setEnviandoWhats(colabId);
+    const r = await enviarDevolutivaWhatsAppPorId(colabId);
+    setEnviandoWhats(null);
+    flash((r as any)?.success ? t('audio.sent') : ((r as any)?.error || t('audio.sendError')));
+  }
 
   useEffect(() => {
     (async () => {
@@ -129,8 +147,18 @@ export default function PerfisComportamentaisPage({ params }: { params: Promise<
       ) : (
         <div className="space-y-2">
           {filtrados.map((p) => (
-            <PerfilCard key={p.id} p={p} onBaixar={handleBaixarPdf} baixando={baixando === p.id} locale={locale} />
+            <PerfilCard key={p.id} p={p} onBaixar={handleBaixarPdf} baixando={baixando === p.id}
+              onOuvir={handleOuvir} onWhats={handleWhats}
+              gerando={gerandoAudio === p.id} enviando={enviandoWhats === p.id} locale={locale} />
           ))}
+        </div>
+      )}
+
+      {audioUrl && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(560px,92vw)] rounded-2xl border border-purple-400/30 bg-[#0A1D35] p-3 shadow-2xl flex items-center gap-3">
+          <Volume2 size={18} className="text-purple-300 shrink-0" />
+          <audio controls autoPlay src={audioUrl} className="w-full h-9" />
+          <button onClick={() => setAudioUrl(null)} className="text-gray-400 hover:text-white text-xs font-bold px-2">✕</button>
         </div>
       )}
     </div>
@@ -149,7 +177,7 @@ function StatCard({ icon, label, value, tone }: { icon: React.ReactNode; label: 
   );
 }
 
-function PerfilCard({ p, onBaixar, baixando, locale }: { p: any; onBaixar: (id: string) => void; baixando: boolean; locale: string }) {
+function PerfilCard({ p, onBaixar, baixando, onOuvir, onWhats, gerando, enviando, locale }: { p: any; onBaixar: (id: string) => void; baixando: boolean; onOuvir: (id: string) => void; onWhats: (id: string) => void; gerando: boolean; enviando: boolean; locale: string }) {
   const t = useTranslations('AdminBehaviorProfiles');
   return (
     <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
@@ -214,14 +242,32 @@ function PerfilCard({ p, onBaixar, baixando, locale }: { p: any; onBaixar: (id: 
 
             {/* Ações */}
             <div className="flex flex-col items-end gap-1 min-w-[160px]">
-              <button
-                onClick={() => onBaixar(p.id)}
-                disabled={baixando}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-cyan-300 border border-cyan-400/30 hover:bg-cyan-400/10 disabled:opacity-50"
-              >
-                {baixando ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
-                {t('downloadPdf')}
-              </button>
+              <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                <button
+                  onClick={() => onOuvir(p.id)}
+                  disabled={gerando}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-purple-300 border border-purple-400/30 hover:bg-purple-400/10 disabled:opacity-50"
+                >
+                  {gerando ? <Loader2 size={12} className="animate-spin" /> : <Volume2 size={12} />}
+                  {gerando ? t('audio.generating') : t('audio.listen')}
+                </button>
+                <button
+                  onClick={() => onWhats(p.id)}
+                  disabled={enviando}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-300 border border-emerald-400/30 hover:bg-emerald-400/10 disabled:opacity-50"
+                >
+                  {enviando ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                  {t('audio.whatsapp')}
+                </button>
+                <button
+                  onClick={() => onBaixar(p.id)}
+                  disabled={baixando}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-cyan-300 border border-cyan-400/30 hover:bg-cyan-400/10 disabled:opacity-50"
+                >
+                  {baixando ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                  {t('downloadPdf')}
+                </button>
+              </div>
               <p className="text-[9px] text-gray-600 mt-1">{t('mappedAt', { date: fmtDate(p.mapeamentoEm, locale) })}</p>
               {p.relatorioCacheEm && (
                 <p className="text-[9px] text-gray-600">{t('llmTextsAt', { date: fmtDate(p.relatorioCacheEm, locale) })}</p>

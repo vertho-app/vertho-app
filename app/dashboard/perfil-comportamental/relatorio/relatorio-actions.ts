@@ -401,6 +401,51 @@ export async function ouvirDevolutivaComportamental() {
   }
 }
 
+// ── Variantes ADMIN (por colabId) ───────────────────────────────────────────
+
+/** Admin: gera/recupera a devolutiva de um colaborador e devolve URL p/ tocar. */
+export async function ouvirDevolutivaPorId(colabId: string) {
+  try {
+    const { requireAdminAction } = await import('@/lib/auth/action-context');
+    await requireAdminAction();
+    if (!colabId) return { error: 'colabId obrigatório' };
+    const colab = await fetchColabPorId(colabId);
+    if (!colab) return { error: 'Colaborador não encontrado' };
+    return await _devolutivaSignedUrl(colab, 600);
+  } catch (err) {
+    console.error('[ouvirDevolutivaPorId]', err);
+    return { error: err?.message || 'Erro ao gerar devolutiva' };
+  }
+}
+
+/** Admin: envia a devolutiva por WhatsApp ao telefone de um colaborador. */
+export async function enviarDevolutivaWhatsAppPorId(colabId: string) {
+  try {
+    const { requireAdminAction } = await import('@/lib/auth/action-context');
+    await requireAdminAction('assessments.dispatch');
+    if (!colabId) return { error: 'colabId obrigatório' };
+    const colab = await fetchColabPorId(colabId);
+    if (!colab) return { error: 'Colaborador não encontrado' };
+
+    const sb = createSupabaseAdmin();
+    const { data: contato } = await sb.from('colaboradores')
+      .select('telefone, whatsapp').eq('id', colabId).maybeSingle();
+    const fone = contato?.telefone || contato?.whatsapp;
+    if (!fone) return { error: 'Telefone não cadastrado para envio por WhatsApp' };
+
+    const r = await _devolutivaSignedUrl(colab, 3600);
+    if (r.error) return { error: r.error };
+
+    const { enviarAudio } = await import('@/actions/whatsapp');
+    const env = await enviarAudio(fone, r.url, true);
+    if (!env.success) return { error: env.error || 'Falha no envio' };
+    return { success: true };
+  } catch (err) {
+    console.error('[enviarDevolutivaWhatsAppPorId]', err);
+    return { error: err?.message || 'Erro ao enviar por WhatsApp' };
+  }
+}
+
 /** Envia a devolutiva em voz por WhatsApp para o telefone do colab da sessão. */
 export async function enviarDevolutivaWhatsApp() {
   try {

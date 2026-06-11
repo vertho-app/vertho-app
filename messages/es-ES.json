@@ -1034,6 +1034,13 @@
     },
     "discNatural": "DISC Natural",
     "downloadPdf": "Descargar PDF",
+    "audio": {
+      "listen": "Escuchar devolución",
+      "generating": "Generando...",
+      "whatsapp": "WhatsApp",
+      "sent": "Devolución enviada por WhatsApp",
+      "sendError": "No se pudo enviar"
+    },
     "mappedAt": "Mapeo: {date}",
     "llmTextsAt": "Textos LLM: {date}",
     "notCompleted": "El colaborador aún no concluyó el mapeo conductual.",

@@ -1034,6 +1034,13 @@
     },
     "discNatural": "DISC Natural",
     "downloadPdf": "Download PDF",
+    "audio": {
+      "listen": "Listen to debrief",
+      "generating": "Generating...",
+      "whatsapp": "WhatsApp",
+      "sent": "Debrief sent via WhatsApp",
+      "sendError": "Couldn't send"
+    },
     "mappedAt": "Mapping: {date}",
     "llmTextsAt": "LLM Texts: {date}",
     "notCompleted": "Team member has not yet completed the behavioral mapping.",

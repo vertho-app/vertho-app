@@ -1034,6 +1034,13 @@
     },
     "discNatural": "DISC Natural",
     "downloadPdf": "Baixar PDF",
+    "audio": {
+      "listen": "Ouvir devolutiva",
+      "generating": "A gerar...",
+      "whatsapp": "WhatsApp",
+      "sent": "Devolutiva enviada por WhatsApp",
+      "sendError": "Não foi possível enviar"
+    },
     "mappedAt": "Mapeamento: {date}",
     "llmTextsAt": "Textos LLM: {date}",
     "notCompleted": "Colaborador ainda não concluiu o mapeamento comportamental.",
