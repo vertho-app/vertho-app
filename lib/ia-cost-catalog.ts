@@ -45,6 +45,7 @@ export const MODEL_IDS = Object.keys(MODELS);
 export const SCALE_LABEL = {
   colab: 'por colaborador',
   conteudo: 'por peça de conteúdo autorada',
+  extracao: 'por vídeo extraído (módulo-base)',
   pagina_radar: 'por escola/município único (Radar)',
   lead_radar: 'por lead PDF (Radar)',
   empresa: 'one-time por empresa',
@@ -542,6 +543,59 @@ export const CALLS = [
     opcional: true,
   },
 
+  // ── EXTRAÇÃO DE VÍDEO → MÓDULO-BASE (matéria-prima canônica, reusada) ──
+  // Escala por VÍDEO extraído. Áudio→texto (Gemini) + detecção + estruturação
+  // dos 4 blocos (Sonnet). Auditoria é opcional (só ao submeter à revisão).
+  {
+    id: 'extracao-audio-texto',
+    fase: 'Extração de Vídeo',
+    scaleType: 'extracao',
+    nome: 'Vídeo → texto-base (Gemini áudio)',
+    descricao: 'yt-dlp/ffmpeg extrai o áudio e o Gemini destila o texto-base. Input ESCALA com a duração (~1.920 tok/min de áudio; base: vídeo de 10 min = 19.200 tok). Output = texto-base (~1.800 tok). Vídeos longos: ver fase de chunking.',
+    inTokens: 19200,
+    outTokens: 1800,
+    exec: 1,
+    defaultModel: 'gemini-3.5-flash',
+    critical: false,
+  },
+  {
+    id: 'extracao-deteccao',
+    fase: 'Extração de Vídeo',
+    scaleType: 'extracao',
+    nome: 'Detecção de competência + níveis',
+    descricao: 'Mapeia o conteúdo ao catálogo canônico (competencias_base) + transição N→N. Input = catálogo (~200 comps) + texto-base; output = JSON curto.',
+    inTokens: 4500,
+    outTokens: 800,
+    exec: 1,
+    defaultModel: 'claude-sonnet-4-6',
+    critical: false,
+  },
+  {
+    id: 'extracao-estrutura',
+    fase: 'Extração de Vídeo',
+    scaleType: 'extracao',
+    nome: 'Estruturação dos 4 blocos (IA-autora)',
+    descricao: 'Estrutura o texto-base no Módulo-Base (conteúdo central + aplicável + guarda-corpos + adaptação por formato). Custo dominante da extração; independe da duração do vídeo.',
+    inTokens: 5000,
+    outTokens: 8000,
+    exec: 1,
+    defaultModel: 'claude-sonnet-4-6',
+    critical: false,
+  },
+  {
+    id: 'extracao-auditor',
+    fase: 'Extração de Vídeo',
+    scaleType: 'extracao',
+    nome: 'Auditoria Dual-IA (ao submeter à revisão)',
+    descricao: 'IA-auditora (GPT-5.4) valida os 4 blocos quando o módulo é submetido à revisão. Opcional — só conta se publicar via workflow.',
+    inTokens: 9000,
+    outTokens: 2000,
+    exec: 1,
+    defaultModel: 'gpt-5.4',
+    critical: false,
+    opcional: true,
+  },
+
   // ── RADAR VERTHO (público radar.vertho.ai) ──
   {
     id: 'radar-narrativa-escola',
@@ -629,7 +683,7 @@ function crossLlmCheck(primaryModel) {
 function applyPreset(call, primaryFn) {
   // RAG (embeddings) e Geração de Conteúdo (TTS/Veo/serviços fixos) têm modelo
   // determinado pelo serviço, não pelo preset de qualidade da avaliação.
-  if (call.fase === 'RAG' || call.fase === 'Geração de Conteúdo') return call.defaultModel;
+  if (call.fase === 'RAG' || call.fase === 'Geração de Conteúdo' || call.fase === 'Extração de Vídeo') return call.defaultModel;
   const primaryId = CHECK_PRIMARIES[call.id];
   if (primaryId) {
     const primaryCall = CALLS.find((c) => c.id === primaryId);

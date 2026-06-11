@@ -117,6 +117,23 @@ function custoIAConteudo(
   return { perColab, total: perColab * nColabs, uVideo, uPodcast, uTexto };
 }
 
+/**
+ * Custo de IA da extração de vídeo → Módulo-Base. One-time por vídeo (matéria-
+ * prima reusada entre colabs/tenants). Áudio→texto (Gemini) + detecção +
+ * estruturação (Sonnet). Auditoria opcional (só ao submeter à revisão). Modelos
+ * são fixos pelo serviço → usa defaultModel (não aplica preset).
+ */
+function custoIAExtracao(nVideos: number, incluirAuditoria: boolean) {
+  let total = 0;
+  for (const call of CALLS) {
+    if (call.scaleType !== 'extracao') continue;
+    if (call.id === 'extracao-auditor' && !incluirAuditoria) continue;
+    const c = calcCost(call, (call as any).defaultModel, Math.max(0, nVideos || 0));
+    if (c) total += c.usd;
+  }
+  return total;
+}
+
 export default function OrcamentoPage() {
   const locale = useLocale();
   const t = useTranslations('AdminBudget');
@@ -135,6 +152,9 @@ export default function OrcamentoPage() {
   function setConteudo<K extends keyof typeof conteudoColab>(k: K, v: number) {
     setConteudoColab((q) => ({ ...q, [k]: v }));
   }
+  // Extração de vídeo → módulo-base (one-time, matéria-prima reusada).
+  const [nVideosExtraidos, setNVideosExtraidos] = useState(0);
+  const [auditarExtracao, setAuditarExtracao] = useState(true);
 
   // Inputs de pricing
   const [pricing, setPricing] = useState(PRECOS_DEFAULT);
@@ -154,13 +174,17 @@ export default function OrcamentoPage() {
     const custoConteudoTotal = conteudo.total;
     const custoConteudoPorColab = conteudo.perColab;
 
+    // Extração de vídeo → módulo-base (one-time, não escala por ciclo).
+    const custoExtracaoTotal = custoIAExtracao(nVideosExtraidos, auditarExtracao);
+    const custoExtracaoPorVideo = custoIAExtracao(1, auditarExtracao);
+
     // Setup + tagging: uma vez (implantação). Mentor IA + Conteúdo: por ciclo —
     // multiplicam por ciclos/ano para alinhar à receita de 12 meses.
     const ciclos = Math.max(1, ciclosPorAno || 1);
     const custoSetupTotal = nClusters * custoSetupPorCluster + custoTaggingTotal;
     const custoColabsTotalAno = nColabs * custoPorColab * ciclos;
     const custoConteudoTotalAno = custoConteudoTotal * ciclos;
-    const custoIAUsd = custoSetupTotal + custoColabsTotalAno + custoConteudoTotalAno;
+    const custoIAUsd = custoSetupTotal + custoColabsTotalAno + custoConteudoTotalAno + custoExtracaoTotal;
     const custoIABrl = custoIAUsd * pricing.cotacao;
 
     // Valor de tabela (BRL)
@@ -193,6 +217,8 @@ export default function OrcamentoPage() {
       custoConteudoTotal,
       custoConteudoTotalAno,
       custoConteudoPorColab,
+      custoExtracaoTotal,
+      custoExtracaoPorVideo,
       custoSetupTotal,
       custoColabsTotalAno,
       ciclos,
@@ -214,7 +240,7 @@ export default function OrcamentoPage() {
       margemAbs,
       margemPct,
     };
-  }, [nClusters, nPerfis, metodo, nColabs, periodoMeses, ciclosPorAno, preset, pricing, conteudoColab]);
+  }, [nClusters, nPerfis, metodo, nColabs, periodoMeses, ciclosPorAno, preset, pricing, conteudoColab, nVideosExtraidos, auditarExtracao]);
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 py-6 sm:px-6 min-h-full">
@@ -312,6 +338,31 @@ export default function OrcamentoPage() {
         </div>
       </div>
 
+      {/* Extração de vídeo → Módulo-Base (one-time, matéria-prima reusada) */}
+      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 mb-6">
+        <p className="text-xs uppercase tracking-widest text-amber-300 mb-1 flex items-center gap-1.5">
+          <Film size={14} /> Extração de vídeo → Módulo-Base
+        </p>
+        <p className="text-[10px] text-gray-500 mb-3">
+          Vídeos da empresa/web viram matéria-prima canônica (módulos-base), reusada entre colaboradores e ciclos. Custo one-time por vídeo: áudio→texto (Gemini) + detecção + estruturação dos 4 blocos (Sonnet). ~70% do custo é fixo por vídeo, independe da duração.
+        </p>
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+          <FieldNumber locale={locale} icon={<Film size={14} />} label="Vídeos a extrair" value={nVideosExtraidos} onChange={setNVideosExtraidos} min={0} />
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 flex flex-col">
+            <label className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Auditoria Dual-IA</label>
+            <button onClick={() => setAuditarExtracao((v) => !v)}
+              className={`mt-1 px-2 py-1.5 rounded text-xs font-bold border ${auditarExtracao ? 'bg-amber-500/20 border-amber-400/50 text-amber-300' : 'border-white/10 text-gray-400'}`}>
+              {auditarExtracao ? 'Incluída (GPT-5.4)' : 'Sem auditoria'}
+            </button>
+            <p className="text-[9px] text-gray-600 mt-0.5">só ao submeter à revisão</p>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-4 text-[11px]">
+          <span className="text-amber-300 font-semibold">Por vídeo (~10 min): USD {calc.custoExtracaoPorVideo.toFixed(2)}</span>
+          <span className="text-amber-200 font-semibold">Total ({nVideosExtraidos.toLocaleString(locale)} vídeos): USD {calc.custoExtracaoTotal.toFixed(2)}</span>
+        </div>
+      </div>
+
       {/* Resumo financeiro — Mensalidade flat (total ÷ período) */}
       <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 mb-6">
         <div className="grid gap-4 sm:grid-cols-2">
@@ -396,6 +447,9 @@ export default function OrcamentoPage() {
             <Row label={`${t('ai.mentorLine', { count: nColabs, value: calc.custoPorColab.toFixed(2) })}${calc.ciclos > 1 ? ` × ${calc.ciclos}` : ''}`} value={`USD ${calc.custoColabsTotalAno.toFixed(2)}`} />
             {calc.custoConteudoTotalAno > 0 && (
               <Row label={`${t('content.title')}${calc.ciclos > 1 ? ` × ${calc.ciclos}` : ''}`} value={`USD ${calc.custoConteudoTotalAno.toFixed(2)}`} />
+            )}
+            {calc.custoExtracaoTotal > 0 && (
+              <Row label={`Extração de vídeo: ${nVideosExtraidos.toLocaleString(locale)} vídeo(s) ${t('ai.oneTimeTag')}`} value={`USD ${calc.custoExtracaoTotal.toFixed(2)}`} />
             )}
             <div className="pt-1.5 border-t border-white/5">
               <Row label={t('ai.totalUsd')} value={`USD ${calc.custoIAUsd.toFixed(2)}`} bold />
