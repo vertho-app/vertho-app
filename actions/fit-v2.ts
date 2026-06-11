@@ -7,6 +7,7 @@ import { buildFitExecutivePrompt } from '@/lib/prompts/fit-executive-prompt';
 import { callAI } from '@/actions/ai-client';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { isInternalEmail, excludeInternalEmails } from '@/lib/internal-emails';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 const LEITURA_AI_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
@@ -16,6 +17,14 @@ async function tenantDoCargo(cargoId: string, sb?: SupabaseClient) {
   const admin = sb || await requireAdminSupabase();
   const { data } = await admin.from('cargos_empresa').select('empresa_id').eq('id', cargoId).maybeSingle();
   return data?.empresa_id || null;
+}
+
+// Helper interno: ids de colaboradores INTERNOS (@vertho.ai) do tenant.
+// O Fit é um diagnóstico agregado → contas internas não devem aparecer
+// no ranking nem nas contagens (ver lib/internal-emails.ts).
+async function internalColabIds(tdb: ReturnType<typeof tenantDb>): Promise<Set<string>> {
+  const { data } = await tdb.from('colaboradores').select('id, email');
+  return new Set((data || []).filter((c: any) => isInternalEmail(c.email)).map((c: any) => c.id));
 }
 
 // ── Salvar/carregar perfil ideal ────────────────────────────────────────────
@@ -128,11 +137,13 @@ export async function calcularFitLote(empresaId: string, cargoNome: string, opts
   const tdb = tenantDb(empresaId);
   const { forcar = false } = opts;
 
-  // Buscar colaboradores do cargo com mapeamento
-  const { data: colabs } = await tdb.from('colaboradores')
-    .select('id, nome_completo, email, cargo')
-    .eq('cargo', cargoNome)
-    .not('mapeamento_em', 'is', null);
+  // Buscar colaboradores do cargo com mapeamento (exclui contas internas @vertho.ai)
+  const { data: colabs } = await excludeInternalEmails(
+    tdb.from('colaboradores')
+      .select('id, nome_completo, email, cargo')
+      .eq('cargo', cargoNome)
+      .not('mapeamento_em', 'is', null)
+  );
 
   if (!colabs?.length) return { success: false, error: 'Nenhum colaborador com mapeamento encontrado para este cargo' };
 
@@ -189,12 +200,17 @@ export async function loadRankingCargo(empresaId: string, cargoNome: string) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
 
-  const { data: resultados } = await tdb.from('fit_resultados')
+  const { data: resultadosRaw } = await tdb.from('fit_resultados')
     .select('*')
     .eq('cargo_nome', cargoNome)
     .order('fit_final', { ascending: false });
 
-  if (!resultados?.length) return { success: true, data: [], distribuicao: {} };
+  if (!resultadosRaw?.length) return { success: true, data: [], distribuicao: {} };
+
+  // Remove contas internas (@vertho.ai) do ranking — pode haver fit já calculado.
+  const internos = await internalColabIds(tdb);
+  const resultados = resultadosRaw.filter(r => !internos.has(r.colaborador_id));
+  if (!resultados.length) return { success: true, data: [], distribuicao: {} };
 
   // Buscar perfil ideal para blocos críticos
   const { data: cargo } = await tdb.from('cargos_empresa')
@@ -337,10 +353,14 @@ export async function loadCargosComFit(empresaId: string) {
   if (!cargos?.length) return [];
 
   const { data: fits } = await tdb.from('fit_resultados')
-    .select('cargo_nome, fit_final');
+    .select('cargo_nome, fit_final, colaborador_id');
+
+  // Não contabiliza contas internas (@vertho.ai) nos totais/médias.
+  const internos = await internalColabIds(tdb);
 
   const fitPorCargo: Record<string, number[]> = {};
   (fits || []).forEach(f => {
+    if (internos.has(f.colaborador_id)) return;
     if (!fitPorCargo[f.cargo_nome]) fitPorCargo[f.cargo_nome] = [];
     fitPorCargo[f.cargo_nome].push(f.fit_final);
   });
