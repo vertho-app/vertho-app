@@ -380,16 +380,57 @@ async function ttsToPcm(prompt: string, voiceName: string): Promise<{ pcm: Buffe
 }
 
 /**
+ * Quebra a narração em trechos de ~maxChars, cortando em fim de frase, para
+ * evitar o "drift" de voz/volume do TTS em textos longos (a voz deriva e parece
+ * outra pessoa no fim quando o input é grande).
+ */
+function splitNarrationForTts(texto: string, maxChars = 600): string[] {
+  const frases = texto.replace(/\s+/g, ' ').trim().match(/[^.!?…]+[.!?…]+|\S+$/g) || [texto];
+  const chunks: string[] = [];
+  let atual = '';
+  for (const f of frases) {
+    const frase = f.trim();
+    if (!frase) continue;
+    if (atual && (atual.length + frase.length + 1) > maxChars) {
+      chunks.push(atual);
+      atual = frase;
+    } else {
+      atual = atual ? `${atual} ${frase}` : frase;
+    }
+  }
+  if (atual) chunks.push(atual);
+  return chunks.length ? chunks : [texto];
+}
+
+/**
  * Narração LIMPA (sem vinheta nem frase de encerramento de podcast). Para usos
  * como a devolutiva comportamental, onde o áudio deve soar como uma mensagem
  * pessoal do mentor, não um episódio. `texto` deve ser a narração limpa.
+ *
+ * Narra em TRECHOS (mesma voz) e concatena o PCM, com uma pausa curta entre
+ * eles — mantém voz e volume consistentes do início ao fim.
  */
 export async function generateNarrationAudio(texto: string, opts: { voice?: string } = {}): Promise<PodcastAudioFile> {
   if (!texto?.trim()) throw new Error('texto de narração vazio');
-  const styled = `Narre em português do Brasil, com voz acolhedora, seguro e íntimo, ritmo moderado e pausas reflexivas naturais, como um mentor falando diretamente com a pessoa:\n\n${texto}`;
-  const { pcm, sampleRate } = await ttsToPcm(styled, opts.voice || VOICE);
+  const voice = opts.voice || VOICE;
+  const trechos = splitNarrationForTts(texto);
+
+  const partes: Buffer[] = [];
+  let sampleRate = 24000;
+  for (const trecho of trechos) {
+    const styled = `Narre em português do Brasil, com voz acolhedora, segura e íntima, ritmo moderado e pausas reflexivas naturais, como um mentor falando diretamente com a pessoa:\n\n${trecho}`;
+    const { pcm, sampleRate: sr } = await ttsToPcm(styled, voice);
+    sampleRate = sr;
+    if (partes.length) {
+      // ~220ms de silêncio entre trechos (PCM 16-bit mono): respiro natural.
+      partes.push(Buffer.alloc(Math.round(sampleRate * 0.22) * 2));
+    }
+    partes.push(pcm);
+  }
+
+  const full = Buffer.concat(partes);
   return {
-    buffer: exportPodcastMp3FromPcm(pcm, sampleRate),
+    buffer: exportPodcastMp3FromPcm(full, sampleRate),
     contentType: 'audio/mpeg',
     extension: 'mp3',
   };
