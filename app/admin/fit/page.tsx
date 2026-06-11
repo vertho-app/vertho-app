@@ -324,7 +324,7 @@ export default function FitPage() {
                     <SortHeader col="mapeamento" label={t('table.mapping')} />
                     <SortHeader col="competencias" label={t('table.competencies')} />
                     <SortHeader col="lideranca" label={t('table.leadership')} />
-                    <SortHeader col="disc" label="DISC" />
+                    <SortHeader col="disc" label={t('table.disc')} />
                     <SortHeader col="classificacao" label={t('table.classification')} align="left" />
                   </tr>
                 </thead>
@@ -365,7 +365,7 @@ export default function FitPage() {
               <p><span className="text-white font-bold">{t('table.mapping')}</span> — {t('legend.mapping')}</p>
               <p><span className="text-white font-bold">{t('table.competencies')}</span> — {t('legend.competencies')}</p>
               <p><span className="text-white font-bold">{t('table.leadership')}</span> — {t('legend.leadership')}</p>
-              <p><span className="text-white font-bold">DISC</span> — {t('legend.disc')}</p>
+              <p><span className="text-white font-bold">{t('table.disc')}</span> — {t('legend.disc')}</p>
               <p><span className="text-white font-bold">{t('table.classification')}</span> — {t('legend.classification')}</p>
             </div>
           )}
@@ -398,7 +398,7 @@ export default function FitPage() {
                 { key: 'mapeamento', label: t('table.mapping'), color: '#06B6D4' },
                 { key: 'competencias', label: t('table.competencies'), color: '#F59E0B' },
                 { key: 'lideranca', label: t('table.leadership'), color: '#22C55E' },
-                { key: 'disc', label: 'DISC', color: '#8B5CF6' },
+                { key: 'disc', label: t('table.disc'), color: '#8B5CF6' },
               ].map(b => {
                 const score = detailColab.blocos[b.key]?.score ?? 0;
                 const peso = detailColab.blocos[b.key]?.peso;

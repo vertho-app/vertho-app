@@ -1989,9 +1989,10 @@
     },
     "table": {
       "collaborator": "Colaborador",
-      "mapping": "Mapeo",
+      "mapping": "Conductual",
       "competencies": "Competencias",
       "leadership": "Liderazgo",
+      "disc": "DISC Adaptado",
       "classification": "Clasificación"
     },
     "legend": {
@@ -2000,7 +2001,7 @@
       "mapping": "ajuste DISC Natural vs perfil ideal del puesto (cuánto el colaborador es así \"naturalmente\").",
       "competencies": "media de las 16 competencias conductuales comparadas con el perfil ideal (score ponderado por relevancia del puesto).",
       "leadership": "ajuste del estilo de liderazgo (Ejecutivo/Motivador/Metódico/Sistemático) al modelo esperado del puesto.",
-      "disc": "ajuste DISC Adaptado (cómo se comporta en el trabajo) vs perfil esperado. La diferencia entre Mapeo y DISC revela nivel de ajuste/desgaste.",
+      "disc": "ajuste DISC Adaptado (cómo se comporta en el trabajo) vs perfil esperado. La diferencia entre Conductual y DISC Adaptado revela nivel de ajuste/desgaste.",
       "classification": "rango cualitativo del Fit: Excelente (≥85) · Alta (70-84) · Razonable (50-69) · Baja (30-49) · Crítica (<30)."
     },
     "labels": {

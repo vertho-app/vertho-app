@@ -1989,9 +1989,10 @@
     },
     "table": {
       "collaborator": "Team member",
-      "mapping": "Mapping",
+      "mapping": "Behavioral",
       "competencies": "Skills",
       "leadership": "Leadership",
+      "disc": "Adapted DISC",
       "classification": "Classification"
     },
     "legend": {
@@ -2000,7 +2001,7 @@
       "mapping": "DISC Natural grip vs ideal job profile (when team member is \"naturally\" like that).",
       "competencies": "average of the 16 behavioral skills compared to the ideal profile (score weighted by job relevance).",
       "leadership": "adherence of the leadership style (Executive/Motivating/Methodical/Systematic) to the model expected of the position.",
-      "disc": "Adapted DISC grip (how it behaves at work) vs expected profile. Difference between Mapping and DISC reveals level of fit/wear.",
+      "disc": "Adapted DISC grip (how it behaves at work) vs expected profile. Difference between Behavioral and Adapted DISC reveals level of fit/wear.",
       "classification": "Qualitative range of Fit: Excellent (≥85) · High (70-84) · Fair (50-69) · Low (30-49) · Critical (<30)."
     },
     "labels": {
