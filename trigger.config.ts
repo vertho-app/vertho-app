@@ -2,9 +2,7 @@ import { defineConfig } from '@trigger.dev/sdk';
 import { ffmpeg } from '@trigger.dev/build/extensions/core';
 
 export default defineConfig({
-  // ⚠️ Troque pelo ref do seu projeto trigger.dev (Dashboard → Project settings),
-  // formato proj_xxxxxxxxxxxx.
-  project: 'proj_REPLACE_WITH_YOUR_REF',
+  project: 'proj_wunoneqnozqrfzlvpqjv',
   runtime: 'node',
   logLevel: 'info',
   maxDuration: 900, // 15 min — cobre vídeos longos
