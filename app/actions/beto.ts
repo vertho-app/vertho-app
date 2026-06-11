@@ -6,6 +6,7 @@ import { callAIChat, type ChatMessage } from '@/actions/ai-client';
 import { CIS_COLUMNS } from '@/lib/supabase/mapCISProfile';
 import { DISC_DOUTRINA, buildPerfilComportamentalBlock } from '@/lib/disc-doutrina';
 import { carregarConhecimentoDescritorPorId, formatBlocoConhecimentoDescritor, carregarModuloBaseParaTutor } from '@/lib/competencia-conhecimento';
+import { carregarCargoInfo, formatBlocoCargo } from '@/lib/cargo-contexto';
 
 const SYSTEM_PROMPT_BASE = `Você é o BETO (Business Evolution & Talent Optimizer), um mentor de desenvolvimento profissional acolhedor e empático da plataforma Vertho Mentor IA.
 
@@ -54,6 +55,9 @@ export async function chatWithBeto(userMessage: string, history: Array<{ role: s
         // Conhecimento curado do descritor em foco (definição + régua + evidências).
         if (ctx.conhecimentoDescritor) systemPrompt += `\n\n${ctx.conhecimentoDescritor}`;
 
+        // Contexto da função (cargos_empresa) — entregas, stakeholders, decisões, tensões.
+        if (ctx.cargoBloco) systemPrompt += `\n\n${ctx.cargoBloco}`;
+
         systemPrompt += `\n\nCONTEXTO DO COLABORADOR:
 Nome: ${ctx.nome}
 Cargo: ${ctx.cargo || 'não informado'}
@@ -97,6 +101,14 @@ async function getBetoContext(email: string): Promise<any> {
 
   if (!colab) return null;
 
+  // Contexto da função (cargos_empresa) + nome da instituição.
+  let cargoBloco = '';
+  try {
+    const { data: emp } = await sb.from('empresas').select('nome').eq('id', colab.empresa_id).maybeSingle();
+    const cargoInfo = await carregarCargoInfo(sb, colab.empresa_id, colab.cargo);
+    cargoBloco = formatBlocoCargo(cargoInfo, emp?.nome || null);
+  } catch { /* best-effort */ }
+
   // Buscar fase4 ativa
   const { data: envio } = await sb.from('fase4_envios')
     .select('semana_atual, sequencia, competencia_id')
@@ -106,7 +118,7 @@ async function getBetoContext(email: string): Promise<any> {
     .limit(1)
     .single();
 
-  if (!envio) return { nome: colab.nome_completo, cargo: colab.cargo, colab };
+  if (!envio) return { nome: colab.nome_completo, cargo: colab.cargo, cargoBloco, colab };
 
   let pilulaAtual = null;
   try {
@@ -138,6 +150,7 @@ async function getBetoContext(email: string): Promise<any> {
     pilulaAtual,
     competenciaFoco,
     conhecimentoDescritor,
+    cargoBloco,
     colab,
   };
 }
