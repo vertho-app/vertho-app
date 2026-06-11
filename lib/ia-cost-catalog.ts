@@ -3,12 +3,20 @@
  *
  * `scaleType` define a unidade de escala da chamada:
  *   - 'colab'         → escala por colaborador no ciclo Mentor IA (14 sems)
+ *   - 'conteudo'      → escala por peça de conteúdo AUTORADA na biblioteca
+ *                       (micro_conteudos é reusada entre colaboradores; gerar é
+ *                       um custo de setup/autoria, não por colaborador)
  *   - 'pagina_radar'  → escala por escola/município único analisado no Radar (cache por dadosHash)
  *   - 'lead_radar'    → escala por lead capturado no Radar (PDF gerado)
  *   - 'empresa'       → setup one-time por empresa (rodada única)
  *
  * Estimativas de tokens são aproximadas (sistema + histórico médio + output).
  * Ajuste conforme uso real for observado.
+ *
+ * Custos de MÍDIA (TTS por caractere, render de vídeo Veo por segundo) não são
+ * tokens: TTS é modelado num "modelo" cujo preço é por 1M de CARACTERES
+ * narrados (campo inTokens carrega os caracteres); o render Veo usa `flatUsd`
+ * (custo fixo em USD por execução), somado em calcCost.
  */
 
 // Preços por 1M tokens (USD) — atualizados em mai/2026.
@@ -27,12 +35,16 @@ export const MODELS = {
   'gpt-5.1':                    { label: 'GPT 5.1 (fallback)',  inUsd: 5,    outUsd: 15 },
   // Embeddings (sem custo de output)
   'voyage-3-large':             { label: 'Voyage-3-large (embed)', inUsd: 0.18, outUsd: 0 },
+  // TTS — preço por 1M de CARACTERES narrados (inTokens carrega os caracteres).
+  // ESTIMATIVA: calibrar com a fatura real do Gemini TTS.
+  'gemini-3.1-flash-tts':       { label: 'Gemini 3.1 Flash TTS (áudio)', inUsd: 10, outUsd: 0 },
 };
 
 export const MODEL_IDS = Object.keys(MODELS);
 
 export const SCALE_LABEL = {
   colab: 'por colaborador',
+  conteudo: 'por peça de conteúdo autorada',
   pagina_radar: 'por escola/município único (Radar)',
   lead_radar: 'por lead PDF (Radar)',
   empresa: 'one-time por empresa',
@@ -164,12 +176,25 @@ export const CALLS = [
     fase: 'Temporada',
     scaleType: 'colab',
     nome: 'Tira-Dúvidas',
-    descricao: 'Chat reativo com colab (média 3 perguntas/sem). Inclui grounding RAG (~5 chunks).',
-    inTokens: 2000,
-    outTokens: 250,
+    descricao: 'Chat reativo com colab (média 3 perguntas/sem). Contexto: definição do descritor + conteúdo recebido na semana (corpo do micro-conteúdo) + Módulo-Base + grounding RAG. Modelo Sonnet 4.6.',
+    inTokens: 4200,
+    outTokens: 400,
     exec: 3 * 12,
-    defaultModel: 'gemini-3.1-flash-lite',
+    defaultModel: 'claude-sonnet-4-6',
     critical: false,
+  },
+  {
+    id: 'beto-mentor',
+    fase: 'Temporada',
+    scaleType: 'colab',
+    nome: 'BETO — mentor (dashboard)',
+    descricao: 'Chat mentor no painel do colab. Contexto: doutrina DISC/Jung + perfil comportamental real + conhecimento da competência em foco + pílula da semana. Modelo Sonnet 4.6. Uso opcional/variável (estimativa ~10 mensagens/ciclo).',
+    inTokens: 4000,
+    outTokens: 300,
+    exec: 10,
+    defaultModel: 'claude-sonnet-4-6',
+    critical: false,
+    opcional: true,
   },
 
   // ── EMBEDDING (grounding RAG) ──
@@ -416,6 +441,107 @@ export const CALLS = [
     critical: false,
   },
 
+  // ── GERAÇÃO DE CONTEÚDO (biblioteca micro_conteudos, reusada entre colabs) ──
+  // Escala por PEÇA autorada. units = nº de conteúdos daquele formato.
+  {
+    id: 'conteudo-texto',
+    fase: 'Geração de Conteúdo',
+    scaleType: 'conteudo',
+    nome: 'Artigo (texto) — geração',
+    descricao: 'Gera artigo markdown (mín. 8.000 caracteres) por competência×descritor×nível. Reusado entre colaboradores.',
+    inTokens: 700,
+    outTokens: 2500,
+    exec: 1,
+    defaultModel: 'claude-sonnet-4-6',
+    critical: false,
+  },
+  {
+    id: 'conteudo-case',
+    fase: 'Geração de Conteúdo',
+    scaleType: 'conteudo',
+    nome: 'Estudo de caso — geração',
+    descricao: 'Gera case narrativo (mín. 8.000 caracteres). Reusado entre colaboradores.',
+    inTokens: 700,
+    outTokens: 2500,
+    exec: 1,
+    defaultModel: 'claude-sonnet-4-6',
+    critical: false,
+  },
+  {
+    id: 'conteudo-podcast-roteiro',
+    fase: 'Geração de Conteúdo',
+    scaleType: 'conteudo',
+    nome: 'Podcast — roteiro (LLM)',
+    descricao: 'Gera roteiro de podcast (3-5 min) com bloco de narração para TTS.',
+    inTokens: 800,
+    outTokens: 1300,
+    exec: 1,
+    defaultModel: 'claude-sonnet-4-6',
+    critical: false,
+  },
+  {
+    id: 'conteudo-podcast-tts',
+    fase: 'Geração de Conteúdo',
+    scaleType: 'conteudo',
+    nome: 'Podcast — síntese de voz (TTS)',
+    descricao: 'Gera o áudio MP3 a partir da narração (~3.000 caracteres). Custo por caractere (Gemini TTS). inTokens = caracteres narrados.',
+    inTokens: 3000,
+    outTokens: 0,
+    exec: 1,
+    defaultModel: 'gemini-3.1-flash-tts',
+    critical: false,
+  },
+  {
+    id: 'conteudo-video-plano',
+    fase: 'Geração de Conteúdo',
+    scaleType: 'conteudo',
+    nome: 'Vídeo — plano de cenas (LLM)',
+    descricao: 'Gera o plano JSON (20-25 cenas, bíblia visual, prompts Veo) a partir do roteiro. Gemini Flash Lite.',
+    inTokens: 6000,
+    outTokens: 8000,
+    exec: 1,
+    defaultModel: 'gemini-3.1-flash-lite',
+    critical: false,
+  },
+  {
+    id: 'conteudo-video-tts',
+    fase: 'Geração de Conteúdo',
+    scaleType: 'conteudo',
+    nome: 'Vídeo — narração (TTS)',
+    descricao: 'Voiceover do vídeo (~2.600 caracteres). Custo por caractere (Gemini TTS).',
+    inTokens: 2600,
+    outTokens: 0,
+    exec: 1,
+    defaultModel: 'gemini-3.1-flash-tts',
+    critical: false,
+  },
+  {
+    id: 'conteudo-video-render',
+    fase: 'Geração de Conteúdo',
+    scaleType: 'conteudo',
+    nome: 'Vídeo — render (Veo + FFmpeg)',
+    descricao: 'Render dos clipes Veo (~150-180s de footage) + montagem FFmpeg no Cloud Run. CUSTO DOMINANTE do vídeo, por segundo de footage. flatUsd = custo fixo por vídeo (ESTIMATIVA — calibrar com fatura Veo/GCP).',
+    inTokens: 0,
+    outTokens: 0,
+    flatUsd: 40,
+    exec: 1,
+    defaultModel: 'gemini-3.1-flash-lite',
+    critical: false,
+  },
+  {
+    id: 'conteudo-personalizacao',
+    fase: 'Geração de Conteúdo',
+    scaleType: 'conteudo',
+    nome: 'Personalização DISC+PPP (PDF)',
+    descricao: 'Camada extra por (conteúdo × arquétipo DISC), anexada ao PDF. Cacheada por arquétipo. exec=4 arquétipos por conteúdo personalizado.',
+    inTokens: 3000,
+    outTokens: 2000,
+    exec: 4,
+    defaultModel: 'claude-sonnet-4-6',
+    critical: false,
+    opcional: true,
+  },
+
   // ── RADAR VERTHO (público radar.vertho.ai) ──
   {
     id: 'radar-narrativa-escola',
@@ -501,7 +627,9 @@ function crossLlmCheck(primaryModel) {
 }
 
 function applyPreset(call, primaryFn) {
-  if (call.fase === 'RAG') return call.defaultModel;
+  // RAG (embeddings) e Geração de Conteúdo (TTS/Veo/serviços fixos) têm modelo
+  // determinado pelo serviço, não pelo preset de qualidade da avaliação.
+  if (call.fase === 'RAG' || call.fase === 'Geração de Conteúdo') return call.defaultModel;
   const primaryId = CHECK_PRIMARIES[call.id];
   if (primaryId) {
     const primaryCall = CALLS.find((c) => c.id === primaryId);
@@ -550,6 +678,8 @@ export function calcCost(call, modelId, units = 1) {
   if (!m) return null;
   const inTok = call.inTokens * call.exec * units;
   const outTok = call.outTokens * call.exec * units;
-  const usd = (inTok / 1_000_000) * m.inUsd + (outTok / 1_000_000) * m.outUsd;
+  // Custo de mídia fixo (ex.: render Veo) — independe de tokens.
+  const flat = (call.flatUsd || 0) * call.exec * units;
+  const usd = (inTok / 1_000_000) * m.inUsd + (outTok / 1_000_000) * m.outUsd + flat;
   return { usd, inTokens: inTok, outTokens: outTok, totalTokens: inTok + outTok };
 }

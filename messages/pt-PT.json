@@ -2754,6 +2754,10 @@
         "label": "Colaboradores",
         "sub": "ciclo Mentor IA"
       },
+      "conteudo": {
+        "label": "Conteúdos",
+        "sub": "peças autoradas (biblioteca)"
+      },
       "pagina_radar": {
         "label": "Páginas Radar",
         "sub": "escolas/municípios únicos"
@@ -3007,6 +3011,18 @@
   "AdminBudget": {
     "title": "Orçamento — Vertho Mentor IA",
     "subtitle": "Calcula custo de IA, valor de tabela, desconto e valor final em BRL.",
+    "content": {
+      "title": "Geração de Conteúdo",
+      "hint": "Biblioteca reutilizada entre colaboradores — indique quantas peças autorar por formato. Vídeo e podcast incluem custo de média (TTS e render).",
+      "text": "Artigos (texto)",
+      "case": "Estudos de caso",
+      "podcast": "Podcasts",
+      "video": "Vídeos",
+      "personalization": "Personalizações DISC+PPP",
+      "videoRenderUsd": "Render vídeo (USD)",
+      "videoRenderHint": "por vídeo (Veo+FFmpeg)",
+      "subtotal": "Subtotal conteúdo"
+    },
     "scope": {
       "title": "Escopo",
       "clusters": {

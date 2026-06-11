@@ -7,7 +7,7 @@ import BackButton from '@/components/back-button';
 import { CALLS, MODELS, MODEL_IDS, PRESETS, SCALE_LABEL, calcCost } from '@/lib/ia-cost-catalog';
 import type { AppLocale } from '@/i18n/routing';
 
-type ScaleType = 'colab' | 'pagina_radar' | 'lead_radar' | 'empresa';
+type ScaleType = 'colab' | 'conteudo' | 'pagina_radar' | 'lead_radar' | 'empresa';
 
 const PRESET_KEYS = ['atual', 'premium', 'balanced', 'cheap'] as const;
 
@@ -16,6 +16,7 @@ export default function SimuladorCustoPage() {
   const t = useTranslations('AdminCostSimulator');
   const [units, setUnits] = useState<Record<ScaleType, number>>({
     colab: 1,
+    conteudo: 10,
     pagina_radar: 100,
     lead_radar: 5,
     empresa: 1,
@@ -43,6 +44,7 @@ export default function SimuladorCustoPage() {
     const porFase: Record<string, { usd: number; exec: number }> = {};
     const porScale: Record<ScaleType, { usd: number }> = {
       colab: { usd: 0 },
+      conteudo: { usd: 0 },
       pagina_radar: { usd: 0 },
       lead_radar: { usd: 0 },
       empresa: { usd: 0 },
@@ -77,8 +79,9 @@ export default function SimuladorCustoPage() {
       </div>
 
       {/* Inputs de escala */}
-      <div className="grid gap-3 mb-4 grid-cols-2 sm:grid-cols-4">
+      <div className="grid gap-3 mb-4 grid-cols-2 sm:grid-cols-5">
         <ScaleInput icon={<Users size={14} />} label={t('scale.colab.label')} sub={t('scale.colab.sub')} value={units.colab} onChange={v => setUnit('colab', v)} />
+        <ScaleInput icon={<FileText size={14} />} label={t('scale.conteudo.label')} sub={t('scale.conteudo.sub')} value={units.conteudo} onChange={v => setUnit('conteudo', v)} />
         <ScaleInput icon={<School size={14} />} label={t('scale.pagina_radar.label')} sub={t('scale.pagina_radar.sub')} value={units.pagina_radar} onChange={v => setUnit('pagina_radar', v)} />
         <ScaleInput icon={<FileText size={14} />} label={t('scale.lead_radar.label')} sub={t('scale.lead_radar.sub')} value={units.lead_radar} onChange={v => setUnit('lead_radar', v)} />
         <ScaleInput icon={<Building2 size={14} />} label={t('scale.empresa.label')} sub={t('scale.empresa.sub')} value={units.empresa} onChange={v => setUnit('empresa', v)} />

@@ -2981,6 +2981,18 @@
   "AdminBudget": {
     "title": "Budget — Vertho AI Mentor",
     "subtitle": "Calculates AI cost, list value, discount and final value in BRL.",
+    "content": {
+      "title": "Content Generation",
+      "hint": "Library reused across team members — enter how many pieces to author per format. Video and podcast include media cost (TTS and render).",
+      "text": "Articles (text)",
+      "case": "Case studies",
+      "podcast": "Podcasts",
+      "video": "Videos",
+      "personalization": "DISC+PPP personalizations",
+      "videoRenderUsd": "Video render (USD)",
+      "videoRenderHint": "per video (Veo+FFmpeg)",
+      "subtotal": "Content subtotal"
+    },
     "scope": {
       "title": "Scope",
       "clusters": {
@@ -3471,6 +3483,10 @@
       "colab": {
         "label": "Team members",
         "sub": "AI Mentor cycle"
+      },
+      "conteudo": {
+        "label": "Content",
+        "sub": "authored pieces (library)"
       },
       "pagina_radar": {
         "label": "Radar Pages",
