@@ -767,10 +767,15 @@ export async function loadRespostasAvaliadas(empresaId: string) {
 }
 
 /**
- * Roster de colaboradores da empresa para o painel de Diagnóstico — usado para
- * calcular % de diagnósticos realizados e listar quem falta. Exclui contas
- * internas (@vertho.ai). O cruzamento com quem já respondeu é feito na tela
- * (via colaborador_id das respostas).
+ * Roster de colaboradores ELEGÍVEIS ao Diagnóstico — usado para calcular % de
+ * diagnósticos/cenários realizados e listar quem falta. Exclui:
+ * - contas internas (@vertho.ai);
+ * - quem ainda NÃO fez o mapeamento comportamental (DISC), pré-requisito das
+ *   próximas etapas. Sem DISC, o colaborador não é cobrado de diagnóstico nem
+ *   de cenários (não infla o denominador).
+ *
+ * O cruzamento com quem já respondeu é feito na tela (via colaborador_id das
+ * respostas).
  */
 export async function loadRosterDiagnostico(empresaId: string) {
   await requireAdminAction();
@@ -778,10 +783,14 @@ export async function loadRosterDiagnostico(empresaId: string) {
   const tdb = tenantDb(empresaId);
   const { data } = await excludeInternalEmails(
     tdb.from('colaboradores')
-      .select('id, nome_completo, cargo')
+      .select('id, nome_completo, cargo, perfil_dominante, d_natural, i_natural, s_natural, c_natural')
       .order('nome_completo')
   );
-  return data || [];
+  // DISC realizado = perfil dominante + ao menos um eixo D/I/S/C preenchido
+  // (mesmo critério usado no Fit e no Relatório Comportamental).
+  return (data || [])
+    .filter((c: any) => c.perfil_dominante && (c.d_natural || c.i_natural || c.s_natural || c.c_natural))
+    .map((c: any) => ({ id: c.id, nome_completo: c.nome_completo, cargo: c.cargo }));
 }
 
 // ── Relatórios ──────────────────────────────────────────────────────────────
