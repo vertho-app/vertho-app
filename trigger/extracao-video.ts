@@ -40,7 +40,9 @@ export const extrairVideoTask = task({
   retry: { maxAttempts: 2 },
   run: async (payload: { microConteudoId: string }) => {
     const id = payload.microConteudoId;
-    const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
+    // Aceita SUPABASE_URL ou NEXT_PUBLIC_SUPABASE_URL (nome sincronizado da Vercel).
+    const supaUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const sb = createClient(supaUrl!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
 
     const fail = async (msg: string): Promise<never> => {
       await sb.from('micro_conteudos').update({
