@@ -1,0 +1,10 @@
+{
+  "name": "vertho-extracao-video",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cloud Run Job: extrai texto-base de vídeos (yt-dlp + ffmpeg + Gemini).",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}

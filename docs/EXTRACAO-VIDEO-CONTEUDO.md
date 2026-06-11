@@ -44,3 +44,33 @@ Reusa `micro_conteudos`:
 - **Direitos**: só vídeos que a empresa pode usar (confirmação no admin).
 - **Custo/limite**: vídeos longos = mais tokens de áudio; serverless tem limite de tempo. Fase 3 move para worker assíncrono.
 - **Aderência**: nem todo vídeo mapeia limpo num descritor — sugestão + revisão humana resolvem.
+
+---
+
+## Fase 3 — Deploy do worker (Cloud Run Job)
+
+Código pronto em `workers/extracao-video/` (Dockerfile + index.mjs). Espelha o
+padrão do render de vídeo: disparado via WIF (`lib/gcp-run.ts::triggerExtracaoJob`).
+
+**1. Build + push da imagem** (no diretório `workers/extracao-video`):
+```bash
+PROJ=corded-photon-496113-j3 ; REGION=southamerica-east1
+gcloud builds submit --tag $REGION-docker.pkg.dev/$PROJ/vertho/extracao-video:latest
+```
+
+**2. Criar o Cloud Run Job** (escala a zero; só roda quando disparado):
+```bash
+gcloud run jobs create vertho-extracao \
+  --image $REGION-docker.pkg.dev/$PROJ/vertho/extracao-video:latest \
+  --region $REGION --task-timeout=900s --memory=2Gi --cpu=2 \
+  --set-env-vars SUPABASE_URL=...,SUPABASE_SERVICE_ROLE_KEY=...,GEMINI_API_KEY=...
+```
+(A SA do job precisa de acesso ao Supabase via service-role key — não usa RLS.)
+
+**3. Permitir o trigger**: a SA `GCP_TRIGGER_SA` precisa de `run.invoker`/`run.developer` no job (já tem para o render).
+
+**4. Env nova na Vercel**: `GCP_EXTRACAO_JOB=vertho-extracao`.
+
+**Atualizar o worker depois**: `gcloud builds submit ...` de novo + `gcloud run jobs update vertho-extracao --image ...`.
+
+> Observação: como não consigo deployar/testar daqui, a 1ª execução real provavelmente pede um ajuste fino (flags do yt-dlp, tamanho de áudio, model id). O worker já marca `extracao_status=error` + `extracao_error` no `micro_conteudos` para diagnóstico.

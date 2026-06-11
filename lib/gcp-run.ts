@@ -94,27 +94,31 @@ async function getAccessToken(): Promise<string> {
 }
 
 /**
- * Dispara uma execução do Cloud Run Job de render passando o CONTEUDO_ID.
+ * Dispara uma execução de um Cloud Run Job com overrides de env.
  * Retorna o nome da operação/execução. Lança em erro.
  */
-export async function triggerVideoRenderJob(conteudoId: string): Promise<string> {
+async function runJob(job: string, envOverrides: { name: string; value: string }[]): Promise<string> {
   const project = env('GCP_PROJECT_ID');
   const region = env('GCP_REGION');
-  const job = env('GCP_VIDEO_JOB');
-
   const token = await getAccessToken();
 
   const url = `https://run.googleapis.com/v2/projects/${project}/locations/${region}/jobs/${job}:run`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      overrides: {
-        containerOverrides: [{ env: [{ name: 'CONTEUDO_ID', value: conteudoId }] }],
-      },
-    }),
+    body: JSON.stringify({ overrides: { containerOverrides: [{ env: envOverrides }] } }),
   });
   if (!res.ok) throw new Error(`Cloud Run jobs:run ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const data = await res.json();
   return data?.name || 'execution-started';
+}
+
+/** Render de vídeo (Veo + TTS + FFmpeg). */
+export async function triggerVideoRenderJob(conteudoId: string): Promise<string> {
+  return runJob(env('GCP_VIDEO_JOB'), [{ name: 'CONTEUDO_ID', value: conteudoId }]);
+}
+
+/** Extração de conteúdo-base de vídeo (yt-dlp + Gemini) — Fase 3. */
+export async function triggerExtracaoJob(microConteudoId: string): Promise<string> {
+  return runJob(env('GCP_EXTRACAO_JOB'), [{ name: 'MICRO_CONTEUDO_ID', value: microConteudoId }]);
 }

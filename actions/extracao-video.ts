@@ -4,6 +4,7 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { callAI } from '@/actions/ai-client';
 import { extrairConteudoDeVideo } from '@/lib/gemini-video';
+import { triggerExtracaoJob } from '@/lib/gcp-run';
 
 // ── 1. Extrair texto-base de um vídeo (não salva ainda) ─────────────────────
 
@@ -37,6 +38,69 @@ export async function extrairVideo(empresaId: string | null, url: string) {
   } catch (err: any) {
     console.error('[extrairVideo]', err);
     return { error: err?.message || 'Falha ao extrair o vídeo' };
+  }
+}
+
+// ── FASE 3: extração ASSÍNCRONA (Vimeo/TED/LMS/longos via worker Cloud Run) ──
+
+/**
+ * Cria um micro_conteudo placeholder (status=processing) e dispara o Cloud Run
+ * Job que extrai o texto-base em background. O admin escolhe competência/
+ * descritor no envio (não vê a extração antes). O worker preenche título +
+ * texto-base e marca done.
+ */
+export async function submeterExtracaoAsync(empresaId: string | null, url: string, competencia: string, descritor: string) {
+  try {
+    const sb = await requireAdminSupabase('content.manage');
+    if (!url?.trim()) return { error: 'Informe a URL do vídeo' };
+    if (!competencia || !descritor) return { error: 'Escolha competência e descritor' };
+
+    const { data: novo, error } = await sb.from('micro_conteudos').insert({
+      empresa_id: empresaId,
+      titulo: 'Processando…',
+      descricao: `Extração em background · ${competencia} › ${descritor}`,
+      formato: 'video',
+      url: url.trim(),
+      competencia, descritor,
+      nivel_min: 1.0, nivel_max: 4.0,
+      tipo_conteudo: 'core',
+      origem: 'empresa_video',
+      versao: 1,
+      ativo: false,
+      extracao_status: 'processing',
+      extracao_em: new Date().toISOString(),
+    }).select('id').maybeSingle();
+    if (error || !novo?.id) return { error: error?.message || 'Falha ao criar registro' };
+
+    try {
+      await triggerExtracaoJob(novo.id);
+    } catch (e: any) {
+      await sb.from('micro_conteudos').update({ extracao_status: 'error', extracao_error: e?.message?.slice(0, 500) }).eq('id', novo.id);
+      return { error: `Não foi possível iniciar o processamento: ${e?.message || 'erro'}` };
+    }
+    return { success: true, id: novo.id };
+  } catch (err: any) {
+    console.error('[submeterExtracaoAsync]', err);
+    return { error: err?.message || 'Falha ao submeter' };
+  }
+}
+
+/** Lista as extrações em background (processando/erro/recém-concluídas) da empresa. */
+export async function listarExtracoesAndamento(empresaId: string | null) {
+  try {
+    await requireAdminAction();
+    if (!empresaId) return { data: [] };
+    const sb = await requireAdminSupabase();
+    const { data } = await sb.from('micro_conteudos')
+      .select('id, titulo, url, competencia, descritor, extracao_status, extracao_error, extracao_em')
+      .eq('empresa_id', empresaId)
+      .not('extracao_status', 'is', null)
+      .order('extracao_em', { ascending: false })
+      .limit(20);
+    return { data: data || [] };
+  } catch (err: any) {
+    console.error('[listarExtracoesAndamento]', err);
+    return { data: [] };
   }
 }
 
