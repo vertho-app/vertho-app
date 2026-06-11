@@ -2,6 +2,13 @@ import { task } from '@trigger.dev/sdk';
 import youtubedl from 'youtube-dl-exec';
 import { readFile, rm } from 'node:fs/promises';
 
+// O binário do yt-dlp é instalado na imagem pelo build (trigger.config.ts);
+// apontamos o youtube-dl-exec pra ele em vez do binário do npm (que não é
+// baixado no build → ENOENT). Em dev local cai no binário do pacote.
+const ytdlp = process.env.YT_DLP_PATH
+  ? youtubedl.create(process.env.YT_DLP_PATH)
+  : youtubedl;
+
 // Acesso ao Supabase via REST (PostgREST) com service-role — evita o
 // @supabase/supabase-js, cujo cliente Realtime (WebSocket) quebra no runtime
 // Node do trigger.dev. Service role ignora RLS.
@@ -81,7 +88,7 @@ export const extrairVideoTask = task({
     // 1) yt-dlp → áudio leve (mono 16kHz 48kbps).
     const out = `/tmp/audio-${id}.mp3`;
     try {
-      await youtubedl(mc.url, {
+      await ytdlp(mc.url, {
         extractAudio: true, audioFormat: 'mp3',
         output: `/tmp/audio-${id}.%(ext)s`,
         noPlaylist: true, noWarnings: true,
