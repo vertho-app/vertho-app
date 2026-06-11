@@ -6,6 +6,7 @@ import { formatPerfilContext } from '@/lib/perfil-comportamental';
 import { extractJSON } from './utils';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { excludeInternalEmails } from '@/lib/internal-emails';
 
 // ── IA4: Avaliar respostas (fiel ao GAS — modelo temático) ──────────────────
 
@@ -763,6 +764,24 @@ export async function loadRespostasAvaliadas(empresaId: string) {
     cenario_titulo: cenMap[r.cenario_id]?.titulo || '—',
     cenario_perguntas: cenMap[r.cenario_id]?.alternativas || [],
   }));
+}
+
+/**
+ * Roster de colaboradores da empresa para o painel de Diagnóstico — usado para
+ * calcular % de diagnósticos realizados e listar quem falta. Exclui contas
+ * internas (@vertho.ai). O cruzamento com quem já respondeu é feito na tela
+ * (via colaborador_id das respostas).
+ */
+export async function loadRosterDiagnostico(empresaId: string) {
+  await requireAdminAction();
+  if (!empresaId) return [];
+  const tdb = tenantDb(empresaId);
+  const { data } = await excludeInternalEmails(
+    tdb.from('colaboradores')
+      .select('id, nome_completo, cargo')
+      .order('nome_completo')
+  );
+  return data || [];
 }
 
 // ── Relatórios ──────────────────────────────────────────────────────────────

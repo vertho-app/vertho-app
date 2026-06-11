@@ -10,7 +10,7 @@ import {
   Play, Headphones, Film,
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { loadRespostasAvaliadas, reavaliarResposta, rechecarResposta } from '@/actions/fase3';
+import { loadRespostasAvaliadas, reavaliarResposta, rechecarResposta, loadRosterDiagnostico } from '@/actions/fase3';
 import { loadTrilhas } from '@/actions/trilhas-load';
 import VideoModal from '@/components/video-modal';
 
@@ -189,6 +189,8 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
   const [tab, setTab] = useState(searchParams.get('tab') || 'diagnostico');
   const [respostas, setRespostas] = useState([]);
   const [trilhas, setTrilhas] = useState([]);
+  const [roster, setRoster] = useState([]);
+  const [showFaltam, setShowFaltam] = useState(false);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState(null);
   const [filtroColab, setFiltroColab] = useState('');
@@ -222,12 +224,14 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
   }
 
   async function refresh() {
-    const [d, t] = await Promise.all([
+    const [d, t, r] = await Promise.all([
       loadRespostasAvaliadas(empresaId),
       loadTrilhas(empresaId),
+      loadRosterDiagnostico(empresaId),
     ]);
     setRespostas(d);
     setTrilhas(t);
+    setRoster(r);
     setLoading(false);
   }
 
@@ -272,6 +276,14 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
     pendentes: respostas.filter(r => !r.avaliacao_ia).length,
   };
 
+  // Progresso de diagnóstico por COLABORADOR: quem já respondeu (tem resposta)
+  // vs o roster completo da empresa. "Falta" = colaborador sem nenhuma resposta.
+  const respondeuIds = new Set(respostas.map((r: any) => r.colaborador_id).filter(Boolean));
+  const realizados = roster.filter((c: any) => respondeuIds.has(c.id));
+  const faltam = roster.filter((c: any) => !respondeuIds.has(c.id));
+  const totalRoster = roster.length;
+  const pctDiag = totalRoster > 0 ? Math.round((realizados.length / totalRoster) * 100) : 0;
+
   if (loading) return <div className="flex items-center justify-center h-dvh"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
 
   return (
@@ -305,6 +317,50 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
       </div>
 
       {tab === 'diagnostico' && <>
+      {/* Progresso de diagnóstico por colaborador */}
+      {totalRoster > 0 && (
+        <div className="mb-5 rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+            <div className="flex items-baseline gap-2">
+              <span className="text-sm font-bold text-white">{tr('diagProgress.title')}</span>
+              <span className="text-[11px] text-gray-400">
+                {tr('diagProgress.summary', { done: realizados.length, total: totalRoster })}
+              </span>
+            </div>
+            <span className={`text-lg font-bold ${pctDiag >= 80 ? 'text-green-400' : pctDiag >= 40 ? 'text-cyan-400' : 'text-amber-400'}`}>
+              {pctDiag}%
+            </span>
+          </div>
+          <div className="h-2.5 rounded-full overflow-hidden mb-1" style={{ background: 'rgba(255,255,255,0.06)' }}>
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${pctDiag >= 80 ? 'bg-green-400' : pctDiag >= 40 ? 'bg-cyan-400' : 'bg-amber-400'}`}
+              style={{ width: `${pctDiag}%` }}
+            />
+          </div>
+          {faltam.length > 0 ? (
+            <button onClick={() => setShowFaltam(v => !v)}
+              className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-amber-400 hover:text-amber-300 transition-colors">
+              <AlertTriangle size={11} />
+              {tr('diagProgress.missingCount', { count: faltam.length })}
+              <ChevronDown size={12} className={`transition-transform ${showFaltam ? 'rotate-180' : ''}`} />
+            </button>
+          ) : (
+            <p className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-green-400">
+              <CheckCircle size={11} /> {tr('diagProgress.allDone')}
+            </p>
+          )}
+          {showFaltam && faltam.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {faltam.map((c: any) => (
+                <span key={c.id} className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-300 border border-amber-400/20">
+                  {c.nome_completo}{c.cargo && c.cargo !== '—' ? <span className="text-amber-400/50"> · {c.cargo}</span> : null}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Stats */}
       <div className="flex items-center gap-3 mb-4 flex-wrap text-[10px]">
         <span className="text-gray-400">{tr('stats.total')}: <span className="text-white font-bold">{stats.total}</span></span>

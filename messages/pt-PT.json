@@ -1496,6 +1496,12 @@
   "AdminPhase2": {
     "title": "Fase 2 — Diagnóstico",
     "subtitle": "Respostas, avaliações IA4 e check",
+    "diagProgress": {
+      "title": "Diagnóstico realizado",
+      "summary": "{done} de {total} colaboradores responderam",
+      "missingCount": "{count} ainda não responderam",
+      "allDone": "Todos os colaboradores responderam o diagnóstico"
+    },
     "tabs": {
       "diagnostic": "Diagnóstico",
       "trails": "Trilhas ({count})"

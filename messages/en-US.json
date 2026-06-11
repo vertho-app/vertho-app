@@ -1496,6 +1496,12 @@
   "AdminPhase2": {
     "title": "Phase 2 — Diagnosis",
     "subtitle": "Answers, IA4 reviews and check",
+    "diagProgress": {
+      "title": "Diagnosis completed",
+      "summary": "{done} of {total} team members responded",
+      "missingCount": "{count} haven't responded yet",
+      "allDone": "All team members completed the diagnosis"
+    },
     "tabs": {
       "diagnostic": "Diagnosis",
       "trails": "Trails ({count})"
