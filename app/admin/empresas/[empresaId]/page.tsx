@@ -65,6 +65,7 @@ const PHASE_CONFIG = [
     ]},
     { label: 'Conteúdo', actions: [
       { key: 'videos', label: 'Vídeos (Bunny)', icon: Film, hrefFn: (id: string) => `/admin/videos?empresa=${id}` },
+      { key: 'extracao-video', label: 'Extração de Vídeo', icon: Sparkles, hrefFn: (id: string) => `/admin/empresas/${id}/extracao-video` },
     ]},
     { label: 'Sistema', actions: [
       { key: 'config', label: 'Configurações', icon: Settings, hrefFn: (id: string) => `/admin/empresas/${id}/configuracoes` },
