@@ -86,6 +86,37 @@ export async function enviarPDF(telefone: string, pdfBase64: string, filename: s
   }
 }
 
+// ── Enviar áudio (voz) via WhatsApp ─────────────────────────────────────────
+
+/**
+ * Envia um áudio (MP3) como mensagem de voz. `audioUrl` deve ser uma URL HTTPS
+ * publicamente acessível pelos servidores da Z-API (ex.: signed URL do Supabase
+ * com TTL suficiente). `internal=true` pula o gate de admin (triggers do server).
+ */
+export async function enviarAudio(telefone: string, audioUrl: string, internal: boolean = false) {
+  try {
+    if (!internal) await requireAdminAction('assessments.dispatch');
+    const baseUrl = getBaseUrl();
+    const phone = formatPhone(telefone);
+
+    const res = await fetch(`${baseUrl}/send-audio`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ phone, audio: audioUrl }),
+    });
+
+    if (!res.ok) {
+      const detail = await res.text();
+      return { success: false, error: `Z-API ${res.status}: ${detail}` };
+    }
+
+    const data = await res.json();
+    return { success: true, message: 'Áudio enviado', data };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 // ── Enviar link via WhatsApp ────────────────────────────────────────────────
 
 export async function enviarLink(telefone: string, url: string, titulo: string) {

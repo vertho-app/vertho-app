@@ -21,6 +21,7 @@ export const AI_TASKS = [
   // ── Perfil Comportamental (DISC) ─────────────────────────
   { key: 'relatorio_comportamental', label: 'Relatório Comportamental (textos LLM)', fase: 'Perfil' },
   { key: 'insights_executivos', label: 'Insights executivos (resumo)', fase: 'Perfil' },
+  { key: 'devolutiva_comportamental', label: 'Devolutiva em voz (roteiro)', fase: 'Perfil' },
 
   // ── Fase 3 — Motor de Temporadas ─────────────────────────
   { key: 'temporada_desafio', label: 'Desafios semanais', fase: 'Temporadas' },

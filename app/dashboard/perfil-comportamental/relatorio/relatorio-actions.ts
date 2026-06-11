@@ -281,3 +281,152 @@ export async function baixarRelatorioComportamentalPdfPorId(colabId) {
     return { error: err?.message || 'Erro ao gerar PDF' };
   }
 }
+
+// ── Devolutiva em voz (áudio) ───────────────────────────────────────────────
+
+const AUDIO_BUCKET = 'relatorios-pdf'; // bucket privado (signed URL), mesmo dos PDFs
+
+/** Garante report_texts (cache 30d ou gera) e devolve { raw, texts }. */
+async function _ensureTextos(colab: any) {
+  const raw = mapSupabaseToCISRawData(colab);
+  let texts = null;
+  if (colab.report_texts && colab.report_generated_at) {
+    const age = Date.now() - new Date(colab.report_generated_at).getTime();
+    if (age < CACHE_MAX_AGE_MS) texts = colab.report_texts;
+  }
+  if (!texts) {
+    texts = await gerarTextosLLM(raw, colab.empresa_id);
+    const sb = createSupabaseAdmin();
+    await sb.from('colaboradores')
+      .update({ report_texts: texts, report_generated_at: new Date().toISOString() })
+      .eq('id', colab.id);
+  }
+  return { raw, texts };
+}
+
+/**
+ * Gera (roteiro IA → TTS Gemini → MP3) e salva a devolutiva em voz no bucket
+ * privado; persiste comportamental_audio_path. Reusa se já houver áudio < 30d
+ * (a menos de force). Aceita colab inteiro, colabId ou cai no email da sessão.
+ */
+export async function gerarEsalvarDevolutivaComportamental({ colab: inputColab, colabId, force }: any = {}) {
+  try {
+    let colab: any = inputColab;
+    if (!colab && !colabId) {
+      const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+      const email = await getAuthenticatedEmailFromAction();
+      if (email) colab = await findColabByEmail(email, CIS_COLUMNS);
+    }
+    if (!colab && colabId) colab = await fetchColabPorId(colabId);
+    if (!colab) return { error: 'Colaborador não encontrado' };
+
+    const hasDISC = colab.perfil_dominante && (colab.d_natural || colab.i_natural || colab.s_natural || colab.c_natural);
+    if (!hasDISC) return { error: 'Mapeamento comportamental ainda não realizado' };
+
+    // Reusa cache de áudio se válido
+    if (!force && colab.comportamental_audio_path && colab.comportamental_audio_at) {
+      const age = Date.now() - new Date(colab.comportamental_audio_at).getTime();
+      if (age < CACHE_MAX_AGE_MS) return { success: true, path: colab.comportamental_audio_path, cached: true };
+    }
+
+    const { raw, texts } = await _ensureTextos(colab);
+
+    // Roteiro da devolutiva
+    const { derivarArquetipo } = await import('@/lib/disc-arquetipos');
+    const { promptDevolutivaComportamental } = await import('@/lib/prompts/devolutiva-comportamental');
+    const { getModelForTask } = await import('@/lib/ai-tasks');
+    const arquetipo = derivarArquetipo(colab.perfil_dominante);
+    const primeiroNome = String(colab.nome_completo || 'você').split(' ')[0];
+    const { system, user } = promptDevolutivaComportamental({ primeiroNome, arquetipo, raw, texts });
+    const model = await getModelForTask(colab.empresa_id, 'devolutiva_comportamental');
+    const roteiro = await callAI(system, user, { model }, 1500);
+    if (!roteiro?.trim()) return { error: 'Roteiro vazio' };
+
+    // TTS → MP3
+    const { extractNarration, generateNarrationAudio } = await import('@/lib/gemini-tts');
+    const narracao = extractNarration(roteiro);
+    const audio = await generateNarrationAudio(narracao);
+
+    // Upload + persiste path
+    const sb = createSupabaseAdmin();
+    const slug = String(colab.nome_completo || 'colab').replace(/\s+/g, '-').toLowerCase();
+    const path = `${colab.empresa_id}/devolutiva-${slug}-${Date.now()}.mp3`;
+    const { error: upErr } = await sb.storage.from(AUDIO_BUCKET)
+      .upload(path, audio.buffer, { contentType: audio.contentType, upsert: true });
+    if (upErr) return { error: `Falha ao salvar áudio: ${upErr.message}` };
+
+    await sb.from('colaboradores')
+      .update({ comportamental_audio_path: path, comportamental_audio_at: new Date().toISOString() })
+      .eq('id', colab.id);
+
+    return { success: true, path };
+  } catch (err) {
+    console.error('[gerarEsalvarDevolutivaComportamental]', err);
+    return { error: err?.message || 'Erro ao gerar devolutiva em voz' };
+  }
+}
+
+/** Garante o áudio e devolve uma signed URL (default 5 min; mais longa p/ WhatsApp). */
+async function _devolutivaSignedUrl(colab: any, ttlSec = 300) {
+  let path = colab.comportamental_audio_path;
+  let stale = true;
+  if (path && colab.comportamental_audio_at) {
+    stale = (Date.now() - new Date(colab.comportamental_audio_at).getTime()) >= CACHE_MAX_AGE_MS;
+  }
+  if (!path || stale) {
+    const r = await gerarEsalvarDevolutivaComportamental({ colab });
+    if (r.error) return { error: r.error };
+    path = r.path;
+  }
+  const sb = createSupabaseAdmin();
+  const slug = String(colab.nome_completo || 'devolutiva').replace(/\s+/g, '-').toLowerCase();
+  const { data: signed, error } = await sb.storage.from(AUDIO_BUCKET)
+    .createSignedUrl(path, ttlSec, { download: `vertho-devolutiva-${slug}.mp3` });
+  if (error) return { error: `Erro ao gerar link: ${error.message}` };
+  return { success: true, url: signed.signedUrl, filename: `vertho-devolutiva-${slug}.mp3` };
+}
+
+/** Gera/recupera a devolutiva e devolve URL para tocar no painel (colab da sessão). */
+export async function ouvirDevolutivaComportamental() {
+  try {
+    const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+    const email = await getAuthenticatedEmailFromAction();
+    if (!email) return { error: 'Não autenticado' };
+    const colab = await findColabByEmail(email, CIS_COLUMNS);
+    if (!colab) return { error: 'Colaborador não encontrado' };
+    return await _devolutivaSignedUrl(colab, 600);
+  } catch (err) {
+    console.error('[ouvirDevolutivaComportamental]', err);
+    return { error: err?.message || 'Erro ao gerar devolutiva' };
+  }
+}
+
+/** Envia a devolutiva em voz por WhatsApp para o telefone do colab da sessão. */
+export async function enviarDevolutivaWhatsApp() {
+  try {
+    const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+    const email = await getAuthenticatedEmailFromAction();
+    if (!email) return { error: 'Não autenticado' };
+    const colab = await findColabByEmail(email, CIS_COLUMNS);
+    if (!colab) return { error: 'Colaborador não encontrado' };
+
+    // Telefone (CIS_COLUMNS não traz telefone) — busca direto.
+    const sb = createSupabaseAdmin();
+    const { data: contato } = await sb.from('colaboradores')
+      .select('telefone, whatsapp').eq('id', colab.id).maybeSingle();
+    const fone = contato?.telefone || contato?.whatsapp;
+    if (!fone) return { error: 'Telefone não cadastrado para envio por WhatsApp' };
+
+    // Signed URL com TTL longo para a Z-API conseguir baixar o arquivo.
+    const r = await _devolutivaSignedUrl(colab, 3600);
+    if (r.error) return { error: r.error };
+
+    const { enviarAudio } = await import('@/actions/whatsapp');
+    const env = await enviarAudio(fone, r.url, true);
+    if (!env.success) return { error: env.error || 'Falha no envio' };
+    return { success: true };
+  } catch (err) {
+    console.error('[enviarDevolutivaWhatsApp]', err);
+    return { error: err?.message || 'Erro ao enviar por WhatsApp' };
+  }
+}

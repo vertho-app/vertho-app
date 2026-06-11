@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, AlertCircle, Download, Zap, Users, Anchor, ListChecks, Sparkles } from 'lucide-react';
+import { Loader2, AlertCircle, Download, Zap, Users, Anchor, ListChecks, Sparkles, Volume2, Send } from 'lucide-react';
 import { loadPerfilCIS, gerarInsightsExecutivos } from './perfil-comportamental-actions';
+import { ouvirDevolutivaComportamental, enviarDevolutivaWhatsApp } from './relatorio/relatorio-actions';
 import {
   loadBehavioralReport,
   baixarRelatorioComportamentalPdf,
@@ -409,8 +410,29 @@ export default function PerfilComportamentalPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [downloading, setDownloading] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [gerandoAudio, setGerandoAudio] = useState(false);
+  const [enviandoWhats, setEnviandoWhats] = useState(false);
+  const [toast, setToast] = useState('');
   const router = useRouter();
   const supabase = getSupabase();
+
+  function flash(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3500); }
+
+  async function handleOuvirDevolutiva() {
+    setGerandoAudio(true);
+    const r = await ouvirDevolutivaComportamental();
+    setGerandoAudio(false);
+    if (r.error) { flash(r.error); return; }
+    setAudioUrl(r.url);
+  }
+
+  async function handleEnviarWhats() {
+    setEnviandoWhats(true);
+    const r = await enviarDevolutivaWhatsApp();
+    setEnviandoWhats(false);
+    flash(r.success ? t('audio.sent') : (r.error || t('audio.sendError')));
+  }
 
   useEffect(() => {
     async function init() {
@@ -570,14 +592,41 @@ export default function PerfilComportamentalPage() {
         eyebrow={t('hero.eyebrow')}
         title={t('hero.title')}
         actions={narrativa ? (
-          <button onClick={handleDownloadPdf} disabled={downloading}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-extrabold text-white transition disabled:opacity-50"
-            style={{ background: 'linear-gradient(135deg, #00B4D8, #0D9488)', boxShadow: '0 0 20px rgba(0,180,216,0.25)' }}>
-            {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-            {downloading ? t('download.preparing') : t('download.button')}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={handleOuvirDevolutiva} disabled={gerandoAudio}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-extrabold text-white transition disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, #8B5CF6, #6D28D9)', boxShadow: '0 0 20px rgba(139,92,246,0.25)' }}>
+              {gerandoAudio ? <Loader2 size={14} className="animate-spin" /> : <Volume2 size={14} />}
+              {gerandoAudio ? t('audio.generating') : t('audio.listen')}
+            </button>
+            <button onClick={handleEnviarWhats} disabled={enviandoWhats}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-extrabold text-white transition disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, #22C55E, #15803D)', boxShadow: '0 0 20px rgba(34,197,94,0.25)' }}>
+              {enviandoWhats ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+              {enviandoWhats ? t('audio.sending') : t('audio.whatsapp')}
+            </button>
+            <button onClick={handleDownloadPdf} disabled={downloading}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-extrabold text-white transition disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, #00B4D8, #0D9488)', boxShadow: '0 0 20px rgba(0,180,216,0.25)' }}>
+              {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              {downloading ? t('download.preparing') : t('download.button')}
+            </button>
+          </div>
         ) : null}
       />
+
+      {toast && (
+        <div className="rounded-xl px-4 py-2.5 text-xs font-semibold text-white" style={{ background: 'rgba(13,148,136,0.85)' }}>{toast}</div>
+      )}
+      {audioUrl && (
+        <div className="rounded-2xl border border-purple-400/20 bg-purple-500/5 p-4 flex items-center gap-3">
+          <Volume2 size={18} className="text-purple-300 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold text-purple-200 mb-1">{t('audio.title')}</p>
+            <audio controls autoPlay src={audioUrl} className="w-full h-9" />
+          </div>
+        </div>
+      )}
 
       <ResumoExecutivo
         colaborador={c}

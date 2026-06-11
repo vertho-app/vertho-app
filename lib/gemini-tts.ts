@@ -348,6 +348,53 @@ function rateFromMime(mime?: string): number {
   return m ? parseInt(m[1], 10) : 24000;
 }
 
+/** Chamada crua ao Gemini TTS: texto+direção de estilo → PCM 16-bit mono. */
+async function ttsToPcm(prompt: string, voiceName: string): Promise<{ pcm: Buffer; sampleRate: number }> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY not set');
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
+  const body = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: {
+      responseModalities: ['AUDIO'],
+      speechConfig: { languageCode: 'pt-BR', voiceConfig: { prebuiltVoiceConfig: { voiceName } } },
+    },
+  };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 170_000);
+  let res: Response;
+  try {
+    res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctrl.signal });
+  } catch (e: any) {
+    if (e?.name === 'AbortError') throw new Error('Gemini TTS: timeout (170s)');
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!res.ok) throw new Error(`Gemini TTS ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const data = await res.json();
+  const part = data?.candidates?.[0]?.content?.parts?.find((p: any) => p?.inlineData?.data);
+  const b64 = part?.inlineData?.data;
+  if (!b64) throw new Error('Gemini TTS: resposta sem áudio');
+  return { pcm: Buffer.from(b64, 'base64'), sampleRate: rateFromMime(part.inlineData.mimeType) };
+}
+
+/**
+ * Narração LIMPA (sem vinheta nem frase de encerramento de podcast). Para usos
+ * como a devolutiva comportamental, onde o áudio deve soar como uma mensagem
+ * pessoal do mentor, não um episódio. `texto` deve ser a narração limpa.
+ */
+export async function generateNarrationAudio(texto: string, opts: { voice?: string } = {}): Promise<PodcastAudioFile> {
+  if (!texto?.trim()) throw new Error('texto de narração vazio');
+  const styled = `Narre em português do Brasil, com voz acolhedora, seguro e íntimo, ritmo moderado e pausas reflexivas naturais, como um mentor falando diretamente com a pessoa:\n\n${texto}`;
+  const { pcm, sampleRate } = await ttsToPcm(styled, opts.voice || VOICE);
+  return {
+    buffer: exportPodcastMp3FromPcm(pcm, sampleRate),
+    contentType: 'audio/mpeg',
+    extension: 'mp3',
+  };
+}
+
 /**
  * Narra o texto e devolve um MP3 pronto para distribuição. Lança em erro/sem chave — o caller
  * decide o fallback. `texto` deve ser a narração limpa (use extractNarration).

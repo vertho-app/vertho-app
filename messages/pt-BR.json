@@ -642,6 +642,15 @@
       "button": "Baixar PDF",
       "preparing": "Preparando..."
     },
+    "audio": {
+      "title": "Devolutiva em voz",
+      "listen": "Ouvir devolutiva",
+      "generating": "Gerando áudio...",
+      "whatsapp": "Enviar no WhatsApp",
+      "sending": "Enviando...",
+      "sent": "Devolutiva enviada no seu WhatsApp",
+      "sendError": "Não foi possível enviar"
+    },
     "sections": {
       "narrative": "Análise narrativa",
       "detailed": "Análise detalhada",

@@ -642,6 +642,15 @@
       "button": "Descargar PDF",
       "preparing": "Preparando..."
     },
+    "audio": {
+      "title": "Devolución en voz",
+      "listen": "Escuchar devolución",
+      "generating": "Generando audio...",
+      "whatsapp": "Enviar por WhatsApp",
+      "sending": "Enviando...",
+      "sent": "Devolución enviada a tu WhatsApp",
+      "sendError": "No se pudo enviar"
+    },
     "sections": {
       "narrative": "Análisis narrativo",
       "detailed": "Análisis detallado",

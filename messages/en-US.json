@@ -642,6 +642,15 @@
       "button": "Download PDF",
       "preparing": "Preparing..."
     },
+    "audio": {
+      "title": "Voice debrief",
+      "listen": "Listen to debrief",
+      "generating": "Generating audio...",
+      "whatsapp": "Send via WhatsApp",
+      "sending": "Sending...",
+      "sent": "Debrief sent to your WhatsApp",
+      "sendError": "Couldn't send"
+    },
     "sections": {
       "narrative": "Narrative analysis",
       "detailed": "Detailed Analysis",
