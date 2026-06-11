@@ -19,7 +19,7 @@ const PRECOS_DEFAULT = {
   precoPerfil: 500,           // R$ por perfil (cargo) dentro do cluster (one-time)
   adicionalWorkshop: 15000,   // R$ por cluster quando método = workshop (one-time)
   manutencaoMensalColab: 100, // R$ por colaborador / mês (manutenção/suporte — recorrente)
-  custoRenderVideoUsd: 40,    // USD por vídeo (render Veo+FFmpeg) — estimativa, calibrar
+  custoRenderVideoUsd: 36,    // USD por vídeo: 5 min 1080p × Veo 3.1 Fast ($0,12/s) = 300×0,12
   descontoPct: 0,
 };
 

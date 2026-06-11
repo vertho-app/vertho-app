@@ -13,10 +13,11 @@
  * Estimativas de tokens são aproximadas (sistema + histórico médio + output).
  * Ajuste conforme uso real for observado.
  *
- * Custos de MÍDIA (TTS por caractere, render de vídeo Veo por segundo) não são
- * tokens: TTS é modelado num "modelo" cujo preço é por 1M de CARACTERES
- * narrados (campo inTokens carrega os caracteres); o render Veo usa `flatUsd`
- * (custo fixo em USD por execução), somado em calcCost.
+ * Custos de MÍDIA:
+ *   - TTS (Gemini): por TOKEN — texto de entrada (inTokens) + tokens de ÁUDIO
+ *     na saída (outTokens), que é o custo dominante. Preço in $1 / out $20 por 1M.
+ *   - Render de vídeo Veo (por segundo de footage): usa `flatUsd` (custo fixo em
+ *     USD por execução), somado em calcCost.
  */
 
 // Preços por 1M tokens (USD) — atualizados em mai/2026.
@@ -35,9 +36,8 @@ export const MODELS = {
   'gpt-5.1':                    { label: 'GPT 5.1 (fallback)',  inUsd: 5,    outUsd: 15 },
   // Embeddings (sem custo de output)
   'voyage-3-large':             { label: 'Voyage-3-large (embed)', inUsd: 0.18, outUsd: 0 },
-  // TTS — preço por 1M de CARACTERES narrados (inTokens carrega os caracteres).
-  // ESTIMATIVA: calibrar com a fatura real do Gemini TTS.
-  'gemini-3.1-flash-tts':       { label: 'Gemini 3.1 Flash TTS (áudio)', inUsd: 10, outUsd: 0 },
+  // TTS — por token. Input = texto; Output = tokens de áudio (custo dominante).
+  'gemini-3.1-flash-tts':       { label: 'Gemini 3.1 Flash TTS (áudio)', inUsd: 1, outUsd: 20 },
 };
 
 export const MODEL_IDS = Object.keys(MODELS);
@@ -484,9 +484,9 @@ export const CALLS = [
     fase: 'Geração de Conteúdo',
     scaleType: 'conteudo',
     nome: 'Podcast — síntese de voz (TTS)',
-    descricao: 'Gera o áudio MP3 a partir da narração (~3.000 caracteres). Custo por caractere (Gemini TTS). inTokens = caracteres narrados.',
-    inTokens: 3000,
-    outTokens: 0,
+    descricao: 'Gera o áudio MP3 da narração (~3-4 min). Gemini TTS por token: input = texto (~750 tok); output = áudio (~5.000 tok ≈ 210s × ~25 tok/s), que domina o custo.',
+    inTokens: 750,
+    outTokens: 5000,
     exec: 1,
     defaultModel: 'gemini-3.1-flash-tts',
     critical: false,
@@ -496,9 +496,9 @@ export const CALLS = [
     fase: 'Geração de Conteúdo',
     scaleType: 'conteudo',
     nome: 'Vídeo — plano de cenas (LLM)',
-    descricao: 'Gera o plano JSON (20-25 cenas, bíblia visual, prompts Veo) a partir do roteiro. Gemini Flash Lite.',
-    inTokens: 6000,
-    outTokens: 8000,
+    descricao: 'Gera o plano JSON (~40-50 cenas para 5 min, bíblia visual, prompts Veo) a partir do roteiro. Gemini Flash Lite.',
+    inTokens: 7000,
+    outTokens: 14000,
     exec: 1,
     defaultModel: 'gemini-3.1-flash-lite',
     critical: false,
@@ -508,9 +508,9 @@ export const CALLS = [
     fase: 'Geração de Conteúdo',
     scaleType: 'conteudo',
     nome: 'Vídeo — narração (TTS)',
-    descricao: 'Voiceover do vídeo (~2.600 caracteres). Custo por caractere (Gemini TTS).',
-    inTokens: 2600,
-    outTokens: 0,
+    descricao: 'Voiceover do vídeo (5 min). Gemini TTS por token: input = texto (~1.100 tok); output = áudio (~7.500 tok ≈ 300s × ~25 tok/s).',
+    inTokens: 1100,
+    outTokens: 7500,
     exec: 1,
     defaultModel: 'gemini-3.1-flash-tts',
     critical: false,
@@ -520,10 +520,10 @@ export const CALLS = [
     fase: 'Geração de Conteúdo',
     scaleType: 'conteudo',
     nome: 'Vídeo — render (Veo + FFmpeg)',
-    descricao: 'Render dos clipes Veo (~150-180s de footage) + montagem FFmpeg no Cloud Run. CUSTO DOMINANTE do vídeo, por segundo de footage. flatUsd = custo fixo por vídeo (ESTIMATIVA — calibrar com fatura Veo/GCP).',
+    descricao: 'Render dos clipes Veo + montagem FFmpeg no Cloud Run. CUSTO DOMINANTE do vídeo, por segundo de footage. Base: vídeo de 5 min (300s) em 1080p. Tabela Veo 3.1/s 1080p: padrão $0,40 (=$120), Fast $0,12 (=$36), Lite $0,08 (=$24). Default = Fast ($36); ajustável na tela de Orçamento.',
     inTokens: 0,
     outTokens: 0,
-    flatUsd: 40,
+    flatUsd: 36,
     exec: 1,
     defaultModel: 'gemini-3.1-flash-lite',
     critical: false,
