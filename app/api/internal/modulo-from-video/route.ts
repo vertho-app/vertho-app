@@ -28,10 +28,10 @@ export async function POST(req: NextRequest) {
 
   const sb = createSupabaseAdmin();
   const { data: ext } = await sb.from('extracoes_video')
-    .select('id, origem_empresa_id, escopo_global').eq('id', extracaoId).maybeSingle();
+    .select('id, escopo_empresa_id').eq('id', extracaoId).maybeSingle();
   if (!ext) return NextResponse.json({ error: 'extração não encontrada' }, { status: 404 });
 
-  const empresaId = ext.escopo_global ? null : ext.origem_empresa_id;
+  const empresaId = ext.escopo_empresa_id || null; // null = módulo global/canônico
   const res = await criarModuloBaseDeTextoExtraido({
     textoBase, tituloVideo: titulo, locale, empresaId, createdBy: 'extracao-video',
   });

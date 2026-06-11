@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Plus, Sparkles, Upload, FileText, Star, X, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Sparkles, Upload, FileText, Star, X, Trash2, Film } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { listarModulos, listarCompetenciasBase, rascunharModuloBase, importarModuloDocx, detectarMetadadosDocx, setPreferido, excluirModulo } from '@/actions/modulos-base';
 
@@ -62,6 +62,10 @@ export default function ModulosBaseListPage() {
             <p className="text-sm text-white/55">Matéria-prima pedagógica canônica. Spec: <code className="text-cyan-300">docs/MODULOS-BASE-CONTEUDO.md</code></p>
           </div>
           <div className="flex gap-2">
+            <button onClick={() => router.push('/admin/vertho/modulos-base/extracao-video')}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-purple-400/30 text-purple-300 hover:bg-purple-400/10">
+              <Film size={14} /> Extrair de vídeo
+            </button>
             <button onClick={() => setModal('docx')}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/15 hover:bg-white/5">
               <Upload size={14} /> Importar .docx
