@@ -44,22 +44,33 @@ function guessMime(url: string, contentType?: string | null): string {
 
 /** Monta a "part" de mídia do Gemini conforme a fonte. Lança em fonte não suportada. */
 async function buildMediaPart(url: string): Promise<any> {
-  // YouTube/Vimeo: o Gemini aceita a URL diretamente como fileData.
-  if (isYouTube(url) || isVimeo(url)) {
+  // YouTube: o Gemini aceita a URL diretamente como fileData (nativo).
+  if (isYouTube(url)) {
     return { fileData: { fileUri: url } };
   }
+  // Páginas de plataformas (TED, Vimeo, LMS...) são HTML, não arquivo de vídeo.
+  const pareceArquivoDireto = /\.(mp4|webm|mov|m4a|mp3)(\?|$)/i.test(url);
   // URL direta de mídia: baixa os bytes e manda inline (cap de tamanho).
   const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
-  if (!res.ok) throw new Error(`Não foi possível baixar o vídeo (${res.status}).`);
+  if (!res.ok) throw new Error(`Não foi possível acessar a URL (${res.status}).`);
+  const ct = res.headers.get('content-type') || '';
+  const ehMidia = /^(video|audio)\//i.test(ct) || pareceArquivoDireto;
+  if (!ehMidia) {
+    throw new Error(
+      isVimeo(url)
+        ? 'Links do Vimeo (página) não são suportados diretamente. Use o link do YouTube do vídeo ou a URL direta do arquivo (.mp4).'
+        : 'Essa URL é uma página web, não um arquivo de vídeo. Use um link do YouTube ou a URL direta de um arquivo de vídeo (.mp4).'
+    );
+  }
   const len = Number(res.headers.get('content-length') || 0);
   if (len && len > MAX_INLINE_BYTES) {
-    throw new Error('Vídeo muito grande para processar agora. Use um link do YouTube/Vimeo ou um arquivo menor.');
+    throw new Error('Vídeo muito grande para processar agora. Use um link do YouTube ou um arquivo menor.');
   }
   const buf = Buffer.from(await res.arrayBuffer());
   if (buf.length > MAX_INLINE_BYTES) {
-    throw new Error('Vídeo muito grande para processar agora. Use um link do YouTube/Vimeo ou um arquivo menor.');
+    throw new Error('Vídeo muito grande para processar agora. Use um link do YouTube ou um arquivo menor.');
   }
-  return { inlineData: { mimeType: guessMime(url, res.headers.get('content-type')), data: buf.toString('base64') } };
+  return { inlineData: { mimeType: guessMime(url, ct), data: buf.toString('base64') } };
 }
 
 const IDIOMA: Record<string, string> = {
