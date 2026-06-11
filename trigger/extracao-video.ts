@@ -88,7 +88,11 @@ export const extrairVideoTask = task({
         postprocessorArgs: 'ffmpeg:-ar 16000 -ac 1 -b:a 48k',
       } as any);
     } catch (e: any) {
-      return fail('yt-dlp: ' + String(e?.stderr || e?.message || e).slice(0, 300));
+      const detail = [
+        e?.shortMessage, e?.stderr, e?.stdout, e?.message,
+        e?.exitCode != null ? `exit ${e.exitCode}` : '', e?.code,
+      ].filter(Boolean).join(' | ');
+      return fail('yt-dlp: ' + (String(detail || e).slice(0, 450) || 'erro sem detalhe'));
     }
 
     let buf: Buffer;
