@@ -3008,9 +3008,13 @@
         "label": "Team members",
         "sub": "total in the cycle"
       },
+      "period": {
+        "label": "Period (months)",
+        "sub": "project duration"
+      },
       "cycles": {
-        "label": "Cycles / year",
-        "sub": "14-week seasons in 12 months"
+        "label": "Cycles",
+        "sub": "14-week seasons in the project"
       },
       "mapping": "Mapping"
     },
@@ -3045,13 +3049,20 @@
       "table": "Table",
       "discountPct": "Discount ({value}%)",
       "includes": "Includes AI Mentor + maintenance",
+      "flatMonthly": "Flat monthly",
+      "flatHint": "total ÷ {months} months",
+      "noSetupSpike": "no setup spike in month 1",
+      "projectTotal": "Project total ({months} months)",
+      "oneTime": "Setup (one-time)",
+      "recurring": "Recurring × {months} months",
       "perMonth": "/ month"
     },
     "kpis": {
       "total12m": "Total 12 months",
+      "projectTotal": "Project total",
       "aiCost": "Total AI cost",
-      "marginValue": "Margin 12m (R$)",
-      "marginPct": "Margin 12m%"
+      "marginValue": "Margin (R$)",
+      "marginPct": "Margin %"
     },
     "breakdown": {
       "tableValue": "Table value composition",
@@ -3063,6 +3074,9 @@
       "recurring": "Recurring (monthly)",
       "maintenance": "Maintenance",
       "monthlyTotal": "Total monthly fee",
+      "recurringPeriod": "Recurring × {months} months",
+      "projectTotalTable": "Project total ({months} months)",
+      "projectTotalFinal": "Project total (final)",
       "month1Table": "Month 1 (one-time + 1st month)",
       "month1Final": "Month 1 end",
       "month2Recurring": "Month 2+ (monthly fee)",

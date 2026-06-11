@@ -127,7 +127,8 @@ export default function OrcamentoPage() {
   const [nPerfis, setNPerfis] = useState(3);
   const [metodo, setMetodo] = useState<Metodo>('votacao');
   const [nColabs, setNColabs] = useState(100);
-  const [ciclosPorAno, setCiclosPorAno] = useState(1); // temporadas de 14 sem em 12 meses
+  const [periodoMeses, setPeriodoMeses] = useState(12); // duração do projeto (meses)
+  const [ciclosPorAno, setCiclosPorAno] = useState(1); // temporadas de 14 sem no projeto
   const [preset, setPreset] = useState<PresetKey>('balanced');
   // Geração de conteúdo — peças que CADA colaborador recebe por formato.
   const [conteudoColab, setConteudoColab] = useState({ video: 9, podcast: 9, texto: 9 });
@@ -171,25 +172,19 @@ export default function OrcamentoPage() {
     const tabelaManutMes = nColabs * pricing.manutencaoMensalColab; // suporte/hosting recorrente
     const tabelaMensalidade = tabelaColabsMes + tabelaManutMes;     // total recorrente / mês
 
+    const periodo = Math.max(1, periodoMeses || 1);
     const oneTimeTabela = tabelaSetupGeral + tabelaClusters + tabelaPerfis + tabelaWorkshop;
-    const mes1Tabela = oneTimeTabela + tabelaMensalidade;
-    const mesRecTabela = tabelaMensalidade;
 
     const fatorDesc = 1 - pricing.descontoPct / 100;
-    const mes1Final = mes1Tabela * fatorDesc;
-    const mesRecFinal = mesRecTabela * fatorDesc;
-    const mes1Desc = mes1Tabela - mes1Final;
-    const mesRecDesc = mesRecTabela - mesRecFinal;
+    // Modelo FLAT: soma tudo (setup one-time + recorrente × período) e divide
+    // pelo período → mensalidade igual todo mês, sem pico de setup no mês 1.
+    const valorTotalTabela = oneTimeTabela + tabelaMensalidade * periodo;
+    const valorTotalFinal = valorTotalTabela * fatorDesc;
+    const descontoTotal = valorTotalTabela - valorTotalFinal;
+    const mensalidadeFlat = valorTotalFinal / periodo;
 
-    // Anual (mês 1 + 11 mensalidades) e total 12 meses para visão de margem
-    const anualFinal = mes1Final + 11 * mesRecFinal;
-    const margemAbs = anualFinal - custoIABrl;
-    const margemPct = anualFinal > 0 ? (margemAbs / anualFinal) * 100 : 0;
-
-    // Manter compat (referenciado em alguns lugares)
-    const valorTabela = oneTimeTabela;
-    const desconto = oneTimeTabela * (pricing.descontoPct / 100);
-    const valorFinal = oneTimeTabela - desconto;
+    const margemAbs = valorTotalFinal - custoIABrl;
+    const margemPct = valorTotalFinal > 0 ? (margemAbs / valorTotalFinal) * 100 : 0;
 
     return {
       custoSetupPorCluster,
@@ -211,20 +206,15 @@ export default function OrcamentoPage() {
       tabelaManutMes,
       tabelaMensalidade,
       oneTimeTabela,
-      mes1Tabela,
-      mesRecTabela,
-      mes1Final,
-      mesRecFinal,
-      mes1Desc,
-      mesRecDesc,
-      anualFinal,
-      valorTabela,
-      desconto,
-      valorFinal,
+      periodo,
+      valorTotalTabela,
+      valorTotalFinal,
+      descontoTotal,
+      mensalidadeFlat,
       margemAbs,
       margemPct,
     };
-  }, [nClusters, nPerfis, metodo, nColabs, ciclosPorAno, preset, pricing, conteudoColab]);
+  }, [nClusters, nPerfis, metodo, nColabs, periodoMeses, ciclosPorAno, preset, pricing, conteudoColab]);
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 py-6 sm:px-6 min-h-full">
@@ -241,13 +231,15 @@ export default function OrcamentoPage() {
       {/* Escopo do orçamento */}
       <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 mb-6">
         <p className="text-xs uppercase tracking-widest text-cyan-300 mb-3">{t('scope.title')}</p>
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
           <FieldNumber locale={locale} icon={<School size={14} />} label={t('scope.clusters.label')} sub={t('scope.clusters.sub')}
             value={nClusters} onChange={setNClusters} min={1} />
           <FieldNumber locale={locale} icon={<Briefcase size={14} />} label={t('scope.profiles.label')} sub={t('scope.profiles.sub')}
             value={nPerfis} onChange={setNPerfis} min={1} />
           <FieldNumber locale={locale} icon={<Users size={14} />} label={t('scope.collaborators.label')} sub={t('scope.collaborators.sub')}
             value={nColabs} onChange={setNColabs} min={0} />
+          <FieldNumber locale={locale} icon={<Calculator size={14} />} label={t('scope.period.label')} sub={t('scope.period.sub')}
+            value={periodoMeses} onChange={setPeriodoMeses} min={1} />
           <FieldNumber locale={locale} icon={<Calculator size={14} />} label={t('scope.cycles.label')} sub={t('scope.cycles.sub')}
             value={ciclosPorAno} onChange={setCiclosPorAno} min={1} />
           <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
@@ -320,35 +312,33 @@ export default function OrcamentoPage() {
         </div>
       </div>
 
-      {/* Resumo financeiro — Mês 1 vs Mês 2+ */}
+      {/* Resumo financeiro — Mensalidade flat (total ÷ período) */}
       <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 mb-6">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="rounded-xl bg-white/[0.04] p-4 border border-emerald-400/20">
-            <p className="text-[10px] uppercase tracking-widest text-emerald-300">{t('financial.month1')}</p>
-            <p className="text-3xl font-extrabold text-emerald-200 mt-1">{money(calc.mes1Final)}</p>
+            <p className="text-[10px] uppercase tracking-widest text-emerald-300">{t('financial.flatMonthly')}</p>
+            <p className="text-3xl font-extrabold text-emerald-200 mt-1">{money(calc.mensalidadeFlat)}<span className="text-base text-gray-400 font-normal"> {t('financial.perMonth')}</span></p>
             <div className="mt-2 space-y-0.5 text-[11px] text-gray-400">
-              <div className="flex justify-between"><span>{t('financial.table')}</span><span>{money(calc.mes1Tabela)}</span></div>
-              {calc.mes1Desc > 0 && (
-                <div className="flex justify-between text-amber-300"><span>{t('financial.discountPct', { value: pricing.descontoPct.toLocaleString(locale) })}</span><span>- {money(calc.mes1Desc)}</span></div>
-              )}
+              <div className="flex justify-between"><span>{t('financial.flatHint', { months: calc.periodo })}</span><span>{money(calc.valorTotalFinal)} ÷ {calc.periodo}</span></div>
+              <div className="flex justify-between text-gray-500"><span>{t('financial.noSetupSpike')}</span><span>—</span></div>
             </div>
           </div>
           <div className="rounded-xl bg-white/[0.04] p-4 border border-cyan-400/20">
-            <p className="text-[10px] uppercase tracking-widest text-cyan-300">{t('financial.month2')}</p>
-            <p className="text-3xl font-extrabold text-cyan-200 mt-1">{money(calc.mesRecFinal)}<span className="text-base text-gray-400 font-normal"> {t('financial.perMonth')}</span></p>
+            <p className="text-[10px] uppercase tracking-widest text-cyan-300">{t('financial.projectTotal', { months: calc.periodo })}</p>
+            <p className="text-3xl font-extrabold text-cyan-200 mt-1">{money(calc.valorTotalFinal)}</p>
             <div className="mt-2 space-y-0.5 text-[11px] text-gray-400">
-              <div className="flex justify-between"><span>{t('financial.table')}</span><span>{money(calc.mesRecTabela)}</span></div>
-              {calc.mesRecDesc > 0 && (
-                <div className="flex justify-between text-amber-300"><span>{t('financial.discountPct', { value: pricing.descontoPct.toLocaleString(locale) })}</span><span>- {money(calc.mesRecDesc)}</span></div>
+              <div className="flex justify-between"><span>{t('financial.oneTime')}</span><span>{money(calc.oneTimeTabela)}</span></div>
+              <div className="flex justify-between"><span>{t('financial.recurring', { months: calc.periodo })}</span><span>{money(calc.tabelaMensalidade * calc.periodo)}</span></div>
+              {calc.descontoTotal > 0 && (
+                <div className="flex justify-between text-amber-300"><span>{t('financial.discountPct', { value: pricing.descontoPct.toLocaleString(locale) })}</span><span>- {money(calc.descontoTotal)}</span></div>
               )}
-              <div className="flex justify-between text-gray-500 pt-0.5"><span>{t('financial.includes')}</span><span>{nColabs.toLocaleString(locale)} × {money(pricing.precoColab + pricing.manutencaoMensalColab)}</span></div>
             </div>
           </div>
         </div>
 
         {/* Sub-stats */}
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <KpiBox label={t('kpis.total12m')} value={money(calc.anualFinal)} tone="white" />
+          <KpiBox label={t('kpis.projectTotal')} value={money(calc.valorTotalFinal)} tone="white" />
           <KpiBox label={t('kpis.aiCost')} value={money(calc.custoIABrl)} sub={`USD ${calc.custoIAUsd.toFixed(2)} × ${pricing.cotacao}`} tone="gray" />
           <KpiBox label={t('kpis.marginValue')} value={money(calc.margemAbs)} tone={calc.margemPct < 50 ? 'amber' : 'emerald'} />
           <KpiBox label={t('kpis.marginPct')} value={`${calc.margemPct.toFixed(1)}%`} tone={calc.margemPct < 50 ? 'amber' : 'emerald'} />
@@ -377,21 +367,18 @@ export default function OrcamentoPage() {
             <p className="text-[10px] uppercase text-gray-500 mb-1 mt-3">{t('breakdown.recurring')}</p>
             <Row label={`Mentor IA: ${nColabs.toLocaleString(locale)} × ${money(pricing.precoColab)}`} value={money(calc.tabelaColabsMes)} />
             <Row label={`${t('breakdown.maintenance')}: ${nColabs.toLocaleString(locale)} × ${money(pricing.manutencaoMensalColab)}`} value={money(calc.tabelaManutMes)} />
+            <Row label={`${t('breakdown.recurringPeriod', { months: calc.periodo })}`} value={money(calc.tabelaMensalidade * calc.periodo)} />
             <div className="pt-1.5 border-t border-white/5">
-              <Row label={t('breakdown.monthlyTotal')} value={money(calc.tabelaMensalidade)} bold />
+              <Row label={t('breakdown.monthlyTotal')} value={`${money(calc.tabelaMensalidade)} ${t('financial.perMonth')}`} bold />
             </div>
 
             <div className="pt-1.5 border-t border-white/5 mt-2">
-              <Row label={t('breakdown.month1Table')} value={money(calc.mes1Tabela)} bold />
+              <Row label={t('breakdown.projectTotalTable', { months: calc.periodo })} value={money(calc.valorTotalTabela)} bold />
             </div>
-            {calc.mes1Desc > 0 && <Row label={t('financial.discountPct', { value: pricing.descontoPct.toLocaleString(locale) })} value={`- ${money(calc.mes1Desc)}`} muted />}
-            <Row label={t('breakdown.month1Final')} value={money(calc.mes1Final)} bold tone="emerald" />
-
+            {calc.descontoTotal > 0 && <Row label={t('financial.discountPct', { value: pricing.descontoPct.toLocaleString(locale) })} value={`- ${money(calc.descontoTotal)}`} muted />}
+            <Row label={t('breakdown.projectTotalFinal')} value={money(calc.valorTotalFinal)} bold tone="emerald" />
             <div className="pt-1.5 border-t border-white/5 mt-2">
-              <Row label={t('breakdown.month2Recurring')} value={`${money(calc.mesRecFinal)} ${t('financial.perMonth')}`} bold tone="emerald" />
-            </div>
-            <div className="pt-1.5 border-t border-white/5 mt-2">
-              <Row label={t('kpis.total12m')} value={money(calc.anualFinal)} bold />
+              <Row label={t('financial.flatMonthly')} value={`${money(calc.mensalidadeFlat)} ${t('financial.perMonth')}`} bold tone="emerald" />
             </div>
           </div>
         </div>

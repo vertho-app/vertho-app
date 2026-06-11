@@ -3038,9 +3038,13 @@
         "label": "Colaboradores",
         "sub": "total no ciclo"
       },
+      "period": {
+        "label": "Período (meses)",
+        "sub": "duración del proyecto"
+      },
       "cycles": {
-        "label": "Ciclos / año",
-        "sub": "temporadas de 14 sem en 12 meses"
+        "label": "Ciclos",
+        "sub": "temporadas de 14 sem en el proyecto"
       },
       "mapping": "Mapeamento"
     },
@@ -3075,13 +3079,20 @@
       "table": "Tabela",
       "discountPct": "Desconto ({value}%)",
       "includes": "Inclui Mentor IA + manutenção",
+      "flatMonthly": "Cuota (flat)",
+      "flatHint": "total ÷ {months} meses",
+      "noSetupSpike": "sin pico de setup en el mes 1",
+      "projectTotal": "Total del proyecto ({months} meses)",
+      "oneTime": "Setup (one-time)",
+      "recurring": "Recurrente × {months} meses",
       "perMonth": "/ mês"
     },
     "kpis": {
       "total12m": "Total 12 meses",
+      "projectTotal": "Total del proyecto",
       "aiCost": "Custo IA total",
-      "marginValue": "Margem 12m (R$)",
-      "marginPct": "Margem 12m %"
+      "marginValue": "Margen (R$)",
+      "marginPct": "Margen %"
     },
     "breakdown": {
       "tableValue": "Composição do valor de tabela",
@@ -3093,6 +3104,9 @@
       "recurring": "Recorrente (mensal)",
       "maintenance": "Manutenção",
       "monthlyTotal": "Mensalidade total",
+      "recurringPeriod": "Recurrente × {months} meses",
+      "projectTotalTable": "Total del proyecto ({months} meses)",
+      "projectTotalFinal": "Total del proyecto (final)",
       "month1Table": "Mês 1 (one-time + 1ª mens.)",
       "month1Final": "Mês 1 final",
       "month2Recurring": "Mês 2+ (mensalidade)",
