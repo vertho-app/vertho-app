@@ -127,6 +127,7 @@ export default function OrcamentoPage() {
   const [nPerfis, setNPerfis] = useState(3);
   const [metodo, setMetodo] = useState<Metodo>('votacao');
   const [nColabs, setNColabs] = useState(100);
+  const [ciclosPorAno, setCiclosPorAno] = useState(1); // temporadas de 14 sem em 12 meses
   const [preset, setPreset] = useState<PresetKey>('balanced');
   // Geração de conteúdo — peças que CADA colaborador recebe por formato.
   const [conteudoColab, setConteudoColab] = useState({ video: 9, podcast: 9, texto: 9 });
@@ -152,9 +153,13 @@ export default function OrcamentoPage() {
     const custoConteudoTotal = conteudo.total;
     const custoConteudoPorColab = conteudo.perColab;
 
+    // Setup + tagging: uma vez (implantação). Mentor IA + Conteúdo: por ciclo —
+    // multiplicam por ciclos/ano para alinhar à receita de 12 meses.
+    const ciclos = Math.max(1, ciclosPorAno || 1);
     const custoSetupTotal = nClusters * custoSetupPorCluster + custoTaggingTotal;
-    const custoColabsTotal = nColabs * custoPorColab;
-    const custoIAUsd = custoSetupTotal + custoColabsTotal + custoConteudoTotal;
+    const custoColabsTotalAno = nColabs * custoPorColab * ciclos;
+    const custoConteudoTotalAno = custoConteudoTotal * ciclos;
+    const custoIAUsd = custoSetupTotal + custoColabsTotalAno + custoConteudoTotalAno;
     const custoIABrl = custoIAUsd * pricing.cotacao;
 
     // Valor de tabela (BRL)
@@ -191,9 +196,11 @@ export default function OrcamentoPage() {
       custoTaggingTotal,
       custoPorColab,
       custoConteudoTotal,
+      custoConteudoTotalAno,
       custoConteudoPorColab,
       custoSetupTotal,
-      custoColabsTotal,
+      custoColabsTotalAno,
+      ciclos,
       custoIAUsd,
       custoIABrl,
       tabelaSetupGeral,
@@ -217,7 +224,7 @@ export default function OrcamentoPage() {
       margemAbs,
       margemPct,
     };
-  }, [nClusters, nPerfis, metodo, nColabs, preset, pricing, conteudoColab]);
+  }, [nClusters, nPerfis, metodo, nColabs, ciclosPorAno, preset, pricing, conteudoColab]);
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 py-6 sm:px-6 min-h-full">
@@ -234,13 +241,15 @@ export default function OrcamentoPage() {
       {/* Escopo do orçamento */}
       <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 mb-6">
         <p className="text-xs uppercase tracking-widest text-cyan-300 mb-3">{t('scope.title')}</p>
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
           <FieldNumber locale={locale} icon={<School size={14} />} label={t('scope.clusters.label')} sub={t('scope.clusters.sub')}
             value={nClusters} onChange={setNClusters} min={1} />
           <FieldNumber locale={locale} icon={<Briefcase size={14} />} label={t('scope.profiles.label')} sub={t('scope.profiles.sub')}
             value={nPerfis} onChange={setNPerfis} min={1} />
           <FieldNumber locale={locale} icon={<Users size={14} />} label={t('scope.collaborators.label')} sub={t('scope.collaborators.sub')}
             value={nColabs} onChange={setNColabs} min={0} />
+          <FieldNumber locale={locale} icon={<Calculator size={14} />} label={t('scope.cycles.label')} sub={t('scope.cycles.sub')}
+            value={ciclosPorAno} onChange={setCiclosPorAno} min={1} />
           <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
             <label className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-gray-500 mb-1">
               <Vote size={14} /> {t('scope.mapping')}
@@ -392,13 +401,14 @@ export default function OrcamentoPage() {
           <h3 className="text-xs uppercase tracking-widest text-amber-300 mb-3 flex items-center gap-1.5">
             <Calculator size={14} /> {t('breakdown.aiCost')}
           </h3>
-          <p className="text-[10px] text-gray-500 mb-2">Preset: {PRESETS[preset].label}</p>
+          <p className="text-[10px] text-gray-500">Preset: {PRESETS[preset].label}</p>
+          <p className="text-[10px] text-amber-300/70 mb-2">{t('ai.basis', { cycles: calc.ciclos })}</p>
           <div className="space-y-1.5 text-sm">
-            <Row label={t('ai.setupLine', { clusters: nClusters, profiles: nPerfis, method: metodo })} value={`USD ${(nClusters * calc.custoSetupPorCluster).toFixed(2)}`} />
-            <Row label={t('ai.tagging')} value={`USD ${calc.custoTaggingTotal.toFixed(2)}`} />
-            <Row label={t('ai.mentorLine', { count: nColabs, value: calc.custoPorColab.toFixed(2) })} value={`USD ${calc.custoColabsTotal.toFixed(2)}`} />
-            {calc.custoConteudoTotal > 0 && (
-              <Row label={t('content.title')} value={`USD ${calc.custoConteudoTotal.toFixed(2)}`} />
+            <Row label={`${t('ai.setupLine', { clusters: nClusters, profiles: nPerfis, method: metodo })} ${t('ai.oneTimeTag')}`} value={`USD ${(nClusters * calc.custoSetupPorCluster).toFixed(2)}`} />
+            <Row label={`${t('ai.tagging')} ${t('ai.oneTimeTag')}`} value={`USD ${calc.custoTaggingTotal.toFixed(2)}`} />
+            <Row label={`${t('ai.mentorLine', { count: nColabs, value: calc.custoPorColab.toFixed(2) })}${calc.ciclos > 1 ? ` × ${calc.ciclos}` : ''}`} value={`USD ${calc.custoColabsTotalAno.toFixed(2)}`} />
+            {calc.custoConteudoTotalAno > 0 && (
+              <Row label={`${t('content.title')}${calc.ciclos > 1 ? ` × ${calc.ciclos}` : ''}`} value={`USD ${calc.custoConteudoTotalAno.toFixed(2)}`} />
             )}
             <div className="pt-1.5 border-t border-white/5">
               <Row label={t('ai.totalUsd')} value={`USD ${calc.custoIAUsd.toFixed(2)}`} bold />

@@ -3038,6 +3038,10 @@
         "label": "Colaboradores",
         "sub": "total no ciclo"
       },
+      "cycles": {
+        "label": "Ciclos / año",
+        "sub": "temporadas de 14 sem en 12 meses"
+      },
       "mapping": "Mapeamento"
     },
     "methods": {
@@ -3097,6 +3101,8 @@
     "ai": {
       "setupLine": "Setup × {clusters} cluster{clusters, plural, one {} other {s}} ({profiles} perfis cada, {method})",
       "tagging": "Tagging conteúdos (1× total)",
+      "oneTimeTag": "(1×)",
+      "basis": "Base: implantación (1×) + {cycles} ciclo(s) de 14 sem · 12 meses",
       "mentorLine": "Mentor IA × {count} colab{count, plural, one {} other {s}} (USD {value} cada)",
       "totalUsd": "Total USD",
       "exchangeLine": "× {value} (cotação)"

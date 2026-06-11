@@ -3008,6 +3008,10 @@
         "label": "Team members",
         "sub": "total in the cycle"
       },
+      "cycles": {
+        "label": "Cycles / year",
+        "sub": "14-week seasons in 12 months"
+      },
       "mapping": "Mapping"
     },
     "methods": {
@@ -3067,6 +3071,8 @@
     "ai": {
       "setupLine": "Setup × {clusters} cluster{clusters, plural, one {} other {s}} ({profiles} profiles each, {method})",
       "tagging": "Tagging content (1× total)",
+      "oneTimeTag": "(1×)",
+      "basis": "Basis: setup (1×) + {cycles} cycle(s) of 14 wks · 12 months",
       "mentorLine": "AI Mentor × {count} team member{count, plural, one {} other {s}} (USD {value} each)",
       "totalUsd": "Total USD",
       "exchangeLine": "× {value} (quote)"
