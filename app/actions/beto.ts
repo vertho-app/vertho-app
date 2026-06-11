@@ -3,6 +3,8 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUserAction } from '@/lib/auth/action-context';
 import { callAIChat, type ChatMessage } from '@/actions/ai-client';
+import { CIS_COLUMNS } from '@/lib/supabase/mapCISProfile';
+import { DISC_DOUTRINA, buildPerfilComportamentalBlock } from '@/lib/disc-doutrina';
 
 const SYSTEM_PROMPT_BASE = `Você é o BETO (Business Evolution & Talent Optimizer), um mentor de desenvolvimento profissional acolhedor e empático da plataforma Vertho Mentor IA.
 
@@ -12,7 +14,12 @@ Regras:
 - Foque em desenvolvimento comportamental e profissional
 - Dê dicas acionáveis quando possível
 - Use linguagem simples e direta
-- Nunca invente dados sobre o colaborador`;
+- Você PODE explicar a teoria DISC e os Tipos Psicológicos (Jung) e PODE responder
+  dúvidas do colaborador sobre o próprio perfil — sempre com base na doutrina e nos
+  dados reais fornecidos abaixo, em linguagem acessível
+- Trate perfil como tendência, nunca como sentença ("tende a", nunca "você é/sempre")
+- Nunca invente dados sobre o colaborador: se um dado não foi fornecido, diga que
+  não tem essa informação em vez de supor`;
 
 /**
  * Chat com BETO — mentor IA contextual.
@@ -27,13 +34,19 @@ Regras:
 export async function chatWithBeto(userMessage: string, history: Array<{ role: string; content: string }> = [], _emailIgnorado: string | null = null) {
   const auth = await requireUserAction();
   const email = auth.email;
-  let systemPrompt = SYSTEM_PROMPT_BASE;
+  // Doutrina teórica (DISC + Jung) sempre disponível: o Beto pode explicar o
+  // framework mesmo para quem ainda não tem mapeamento.
+  let systemPrompt = `${SYSTEM_PROMPT_BASE}\n\n${DISC_DOUTRINA}`;
 
   // Contexto da Fase 4 (pílula atual) sempre escopado ao usuário autenticado.
   if (email) {
     try {
       const ctx = await getBetoContext(email);
       if (ctx) {
+        // Perfil comportamental real do colaborador (mesmos dados/cache do Relatório).
+        const perfilBlock = ctx.colab ? buildPerfilComportamentalBlock(ctx.colab) : null;
+        if (perfilBlock) systemPrompt += `\n\n${perfilBlock}`;
+
         systemPrompt += `\n\nCONTEXTO DO COLABORADOR:
 Nome: ${ctx.nome}
 Cargo: ${ctx.cargo || 'não informado'}
@@ -68,10 +81,12 @@ ${ctx.competenciaFoco ? `\nCOMPETÊNCIA EM FOCO: ${ctx.competenciaFoco}` : ''}`;
 async function getBetoContext(email: string): Promise<any> {
   const sb = createSupabaseAdmin();
 
+  // CIS_COLUMNS traz DISC/liderança/tipo psicológico/competências + report_texts,
+  // necessários para o bloco de perfil comportamental do Beto.
   const { data: colab } = await sb.from('colaboradores')
-    .select('id, nome_completo, cargo, empresa_id')
+    .select(CIS_COLUMNS)
     .eq('email', email.toLowerCase())
-    .single();
+    .single<any>();
 
   if (!colab) return null;
 
@@ -84,7 +99,7 @@ async function getBetoContext(email: string): Promise<any> {
     .limit(1)
     .single();
 
-  if (!envio) return { nome: colab.nome_completo, cargo: colab.cargo };
+  if (!envio) return { nome: colab.nome_completo, cargo: colab.cargo, colab };
 
   let pilulaAtual = null;
   try {
@@ -109,5 +124,6 @@ async function getBetoContext(email: string): Promise<any> {
     semana: envio.semana_atual,
     pilulaAtual,
     competenciaFoco,
+    colab,
   };
 }
