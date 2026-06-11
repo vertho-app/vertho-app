@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, use } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Film, Sparkles, Save, FileText, Headphones, CheckCircle2 } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { extrairVideo, salvarVideoExtraido, gerarComplementoDoVideo } from '@/actions/extracao-video';
+import { extrairVideo, salvarVideoExtraido, gerarComplementoDoVideo, loadCompetenciasDescritores } from '@/actions/extracao-video';
 
 export default function ExtracaoVideoPage({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = use(params);
@@ -19,7 +19,13 @@ export default function ExtracaoVideoPage({ params }: { params: Promise<{ empres
   const [savedId, setSavedId] = useState<string | null>(null);
   const [gerando, setGerando] = useState<string | null>(null);
   const [toast, setToast] = useState('');
-  const [confirma, setConfirma] = useState(false);
+  const [comps, setComps] = useState<{ competencia: string; descritores: string[] }[]>([]);
+
+  useEffect(() => {
+    loadCompetenciasDescritores(empresaId).then((r) => setComps(r.data || []));
+  }, [empresaId]);
+
+  const descritoresDaComp = comps.find((c) => c.competencia === comp)?.descritores || [];
 
   function flash(m: string) { setToast(m); setTimeout(() => setToast(''), 4000); }
 
@@ -30,12 +36,15 @@ export default function ExtracaoVideoPage({ params }: { params: Promise<{ empres
     setExtraindo(false);
     if (r.error) { flash(r.error); return; }
     setBase(r.data);
-    setComp(r.data.competencia_sugerida || '');
-    setDesc(r.data.descritor_sugerido || '');
+    // Pré-seleciona a sugestão da IA se ela casar com uma competência/descritor existente.
+    const sug = comps.find((c) => c.competencia.toLowerCase() === String(r.data.competencia_sugerida || '').toLowerCase());
+    setComp(sug?.competencia || '');
+    const sugDesc = sug?.descritores.find((d) => d.toLowerCase() === String(r.data.descritor_sugerido || '').toLowerCase());
+    setDesc(sugDesc || '');
   }
 
   async function handleSalvar() {
-    if (!confirma) { flash('Confirme que a empresa tem direito de usar este vídeo'); return; }
+    if (!comp || !desc) { flash('Selecione competência e descritor'); return; }
     setSalvando(true);
     const r = await salvarVideoExtraido(empresaId, {
       url: url.trim(), titulo: base.titulo, resumo: base.resumo, texto_base: base.texto_base,
@@ -59,7 +68,7 @@ export default function ExtracaoVideoPage({ params }: { params: Promise<{ empres
     <div className="max-w-[900px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
       {toast && <div className="fixed top-4 right-4 z-50 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold shadow-lg">{toast}</div>}
 
-      <BackButton onClick={() => router.push(`/admin/empresas/${empresaId}`)} />
+      <BackButton onClick={() => router.back()} />
       <div className="mb-6">
         <h1 className="text-xl font-bold text-white flex items-center gap-2"><Film size={20} className="text-purple-400" /> Extração de conteúdo de vídeo</h1>
         <p className="text-xs text-gray-500">Reaproveite vídeos que a empresa já tem: extraímos um texto-base e geramos os micro-conteúdos complementares.</p>
@@ -94,26 +103,30 @@ export default function ExtracaoVideoPage({ params }: { params: Promise<{ empres
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Competência</p>
-              <input value={comp} onChange={(e) => setComp(e.target.value)} placeholder="(sugerida pela IA)"
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none" />
+              <select value={comp} onChange={(e) => { setComp(e.target.value); setDesc(''); }}
+                className="w-full bg-[#091D35] border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none">
+                <option value="">— selecione —</option>
+                {comps.map((c) => <option key={c.competencia} value={c.competencia}>{c.competencia}</option>)}
+              </select>
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Descritor</p>
-              <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="(sugerido pela IA)"
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none" />
+              <select value={desc} onChange={(e) => setDesc(e.target.value)} disabled={!comp}
+                className="w-full bg-[#091D35] border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none disabled:opacity-50">
+                <option value="">{comp ? '— selecione —' : '(escolha a competência)'}</option>
+                {descritoresDaComp.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
             </div>
           </div>
+          {base.competencia_sugerida && (
+            <p className="text-[10px] text-gray-500">Sugestão da IA: {base.competencia_sugerida}{base.descritor_sugerido ? ` › ${base.descritor_sugerido}` : ''}</p>
+          )}
 
           <div>
             <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Texto-base (matéria-prima — editável)</p>
             <textarea value={base.texto_base} onChange={(e) => setBase({ ...base, texto_base: e.target.value })} rows={12}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-gray-200 font-mono outline-none" />
           </div>
-
-          <label className="flex items-center gap-2 text-[11px] text-gray-400">
-            <input type="checkbox" checked={confirma} onChange={(e) => setConfirma(e.target.checked)} />
-            Confirmo que a empresa tem direito de usar este vídeo no programa.
-          </label>
 
           {!savedId ? (
             <button onClick={handleSalvar} disabled={salvando}

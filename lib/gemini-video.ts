@@ -62,9 +62,19 @@ async function buildMediaPart(url: string): Promise<any> {
   return { inlineData: { mimeType: guessMime(url, res.headers.get('content-type')), data: buf.toString('base64') } };
 }
 
-const SYSTEM = `Você é um designer instrucional da Vertho. Recebe um VÍDEO e extrai dele um TEXTO-BASE que servirá de matéria-prima para criar micro-conteúdos de desenvolvimento profissional (texto, podcast, reflexão).
+const IDIOMA: Record<string, string> = {
+  'pt-BR': 'português do Brasil',
+  'pt-PT': 'português de Portugal',
+  'es-ES': 'espanhol',
+  'en-US': 'inglês',
+};
 
-NÃO devolva a transcrição literal: destile o conteúdo em material pedagógico claro e reutilizável. Seja fiel ao vídeo — não invente o que não foi dito. Português do Brasil.
+function buildSystem(idioma: string): string {
+  return `Você é um designer instrucional da Vertho. Recebe um VÍDEO e extrai dele um TEXTO-BASE que servirá de matéria-prima para criar micro-conteúdos de desenvolvimento profissional (texto, podcast, reflexão).
+
+NÃO devolva a transcrição literal: destile o conteúdo em material pedagógico claro e reutilizável. Seja fiel ao vídeo — não invente o que não foi dito.
+
+IDIOMA DA SAÍDA: escreva TODO o conteúdo (título, resumo, texto_base, pontos-chave) em ${idioma}, independentemente do idioma falado no vídeo (traduza/adapte quando necessário).
 
 Responda APENAS com JSON válido (sem markdown, sem comentários) neste formato:
 {
@@ -76,21 +86,23 @@ Responda APENAS com JSON válido (sem markdown, sem comentários) neste formato:
   "descritor_sugerido": "descritor/sub-tema específico, ou null",
   "duracao_min": número aproximado de minutos do vídeo ou null
 }`;
+}
 
 /** Extrai o texto-base de um vídeo a partir da URL. */
-export async function extrairConteudoDeVideo(url: string, opts: { competenciasHint?: string[] } = {}): Promise<VideoBaseExtraido> {
+export async function extrairConteudoDeVideo(url: string, opts: { competenciasHint?: string[]; locale?: string } = {}): Promise<VideoBaseExtraido> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY não configurada');
   if (!url?.trim()) throw new Error('URL do vídeo é obrigatória');
 
   const mediaPart = await buildMediaPart(url.trim());
+  const idioma = IDIOMA[opts.locale || ''] || IDIOMA['pt-BR'];
   const hint = opts.competenciasHint?.length
     ? `\n\nCompetências disponíveis nesta empresa (use uma destas em "competencia_sugerida" quando fizer sentido): ${opts.competenciasHint.join(', ')}.`
     : '';
 
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${VIDEO_MODEL}:generateContent?key=${apiKey}`;
   const body = {
-    systemInstruction: { parts: [{ text: SYSTEM }] },
+    systemInstruction: { parts: [{ text: buildSystem(idioma) }] },
     contents: [{ role: 'user', parts: [mediaPart, { text: `Extraia o texto-base deste vídeo.${hint}` }] }],
     generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 4096, temperature: 0.4 },
   };

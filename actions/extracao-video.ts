@@ -12,21 +12,48 @@ export async function extrairVideo(empresaId: string | null, url: string) {
     await requireAdminAction('content.manage');
     if (!url?.trim()) return { error: 'Informe a URL do vídeo' };
 
-    // Hint de competências da empresa (melhora a sugestão de mapeamento).
+    // Hint de competências + locale da empresa (saída no idioma do programa).
     let competenciasHint: string[] = [];
+    let locale = 'pt-BR';
     if (empresaId) {
       try {
         const sb = await requireAdminSupabase();
         const { data } = await sb.from('competencias').select('nome').eq('empresa_id', empresaId);
         competenciasHint = [...new Set((data || []).map((c: any) => c.nome).filter(Boolean))].slice(0, 40);
-      } catch { /* hint é opcional */ }
+        const { data: emp } = await sb.from('empresas').select('default_locale').eq('id', empresaId).maybeSingle();
+        if (emp?.default_locale) locale = emp.default_locale;
+      } catch { /* opcional */ }
     }
 
-    const base = await extrairConteudoDeVideo(url.trim(), { competenciasHint });
+    const base = await extrairConteudoDeVideo(url.trim(), { competenciasHint, locale });
     return { success: true, data: base };
   } catch (err: any) {
     console.error('[extrairVideo]', err);
     return { error: err?.message || 'Falha ao extrair o vídeo' };
+  }
+}
+
+/** Competências + descritores da empresa, para os dropdowns da tela. */
+export async function loadCompetenciasDescritores(empresaId: string | null) {
+  try {
+    await requireAdminAction();
+    if (!empresaId) return { data: [] };
+    const sb = await requireAdminSupabase();
+    const { data } = await sb.from('competencias')
+      .select('nome, nome_curto')
+      .eq('empresa_id', empresaId)
+      .order('nome');
+    const map = new Map<string, Set<string>>();
+    for (const c of (data || []) as any[]) {
+      if (!c.nome) continue;
+      if (!map.has(c.nome)) map.set(c.nome, new Set());
+      if (c.nome_curto) map.get(c.nome)!.add(c.nome_curto);
+    }
+    const lista = [...map.entries()].map(([competencia, descs]) => ({ competencia, descritores: [...descs].sort() }));
+    return { data: lista };
+  } catch (err: any) {
+    console.error('[loadCompetenciasDescritores]', err);
+    return { data: [] };
   }
 }
 
@@ -90,8 +117,13 @@ export async function gerarComplementoDoVideo(microConteudoId: string, formato: 
 
     const { getModelForTask } = await import('@/lib/ai-tasks');
     const model = await getModelForTask(base.empresa_id, formato === 'audio' ? 'conteudo_podcast' : 'conteudo_texto');
+    let locale: any = undefined;
+    if (base.empresa_id) {
+      const { data: emp } = await sb.from('empresas').select('default_locale').eq('id', base.empresa_id).maybeSingle();
+      if (emp?.default_locale) locale = emp.default_locale;
+    }
     const maxTokens = formato === 'texto' ? 8000 : 4096;
-    const gerado = (await callAI(system, user, { model }, maxTokens)).trim();
+    const gerado = (await callAI(system, user, { model }, maxTokens, locale ? { locale } : {})).trim();
     if (!gerado) return { error: 'Geração vazia' };
 
     const titulo = (gerado.match(/^#?\s*(.+)$/m)?.[1] || `Complemento · ${base.titulo}`).replace(/^TÍTULO:\s*/i, '').slice(0, 120);
