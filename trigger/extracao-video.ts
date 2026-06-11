@@ -1,7 +1,26 @@
 import { task } from '@trigger.dev/sdk';
-import { createClient } from '@supabase/supabase-js';
 import youtubedl from 'youtube-dl-exec';
 import { readFile, rm } from 'node:fs/promises';
+
+// Acesso ao Supabase via REST (PostgREST) com service-role — evita o
+// @supabase/supabase-js, cujo cliente Realtime (WebSocket) quebra no runtime
+// Node do trigger.dev. Service role ignora RLS.
+const SUPA = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const REST_HEADERS = { apikey: KEY, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' };
+
+async function rGetOne(table: string, query: string): Promise<any | null> {
+  const r = await fetch(`${SUPA}/rest/v1/${table}?${query}`, { headers: REST_HEADERS });
+  if (!r.ok) throw new Error(`Supabase GET ${table} ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  const d = await r.json();
+  return Array.isArray(d) ? d[0] || null : null;
+}
+async function rPatch(table: string, query: string, body: any): Promise<void> {
+  const r = await fetch(`${SUPA}/rest/v1/${table}?${query}`, {
+    method: 'PATCH', headers: { ...REST_HEADERS, Prefer: 'return=minimal' }, body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`Supabase PATCH ${table} ${r.status}: ${(await r.text()).slice(0, 200)}`);
+}
 
 /**
  * Task de extração de conteúdo-base de vídeo (substitui o worker Cloud Run).
@@ -40,23 +59,21 @@ export const extrairVideoTask = task({
   retry: { maxAttempts: 2 },
   run: async (payload: { microConteudoId: string }) => {
     const id = payload.microConteudoId;
-    // Aceita SUPABASE_URL ou NEXT_PUBLIC_SUPABASE_URL (nome sincronizado da Vercel).
-    const supaUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const sb = createClient(supaUrl!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
+    if (!SUPA || !KEY) throw new Error('SUPABASE_URL/SERVICE_ROLE_KEY ausentes no ambiente da task');
 
     const fail = async (msg: string): Promise<never> => {
-      await sb.from('micro_conteudos').update({
+      await rPatch('micro_conteudos', `id=eq.${id}`, {
         extracao_status: 'error', extracao_error: String(msg).slice(0, 500), extracao_em: new Date().toISOString(),
-      }).eq('id', id);
+      }).catch(() => {});
       throw new Error(msg);
     };
 
-    const { data: mc } = await sb.from('micro_conteudos').select('id, empresa_id, url').eq('id', id).maybeSingle();
+    const mc = await rGetOne('micro_conteudos', `id=eq.${id}&select=id,empresa_id,url`);
     if (!mc?.url) return fail('micro_conteudo ou URL não encontrado');
 
     let locale = 'pt-BR';
     if (mc.empresa_id) {
-      const { data: emp } = await sb.from('empresas').select('default_locale').eq('id', mc.empresa_id).maybeSingle();
+      const emp = await rGetOne('empresas', `id=eq.${mc.empresa_id}&select=default_locale`);
       if (emp?.default_locale) locale = emp.default_locale;
     }
     const idioma = IDIOMA[locale] || IDIOMA['pt-BR'];
@@ -99,14 +116,14 @@ export const extrairVideoTask = task({
     if (!parsed?.texto_base) return fail('Gemini não retornou JSON com texto_base');
 
     // 3) Salva e marca done.
-    await sb.from('micro_conteudos').update({
+    await rPatch('micro_conteudos', `id=eq.${id}`, {
       titulo: String(parsed.titulo || 'Vídeo da empresa').slice(0, 200),
       descricao: parsed.resumo ? String(parsed.resumo).slice(0, 500) : null,
       conteudo_inline: String(parsed.texto_base),
       duracao_min: Number.isFinite(Number(parsed.duracao_min)) ? Number(parsed.duracao_min) : null,
       extracao_status: 'done', extracao_error: null, extracao_em: new Date().toISOString(),
       ativo: true,
-    }).eq('id', id);
+    });
 
     await rm(out, { force: true }).catch(() => {});
     return { ok: true, id };
