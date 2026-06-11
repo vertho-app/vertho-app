@@ -8,6 +8,7 @@ import { promptTiraDuvidas } from '@/lib/season-engine/prompts/tira-duvidas';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
 import { carregarConhecimentoDescritor, formatBlocoConhecimentoDescritor, carregarModuloBaseParaTutor } from '@/lib/competencia-conhecimento';
+import { carregarCargoInfo, formatBlocoCargo } from '@/lib/cargo-contexto';
 
 /**
  * POST /api/temporada/tira-duvidas
@@ -157,6 +158,15 @@ export async function POST(request) {
       console.warn('[tira-duvidas] conhecimento de competência falhou (seguindo sem):', err?.message);
     }
 
+    // Contexto da função (cargos_empresa) — ancora as orientações no cargo.
+    let cargoContexto = '';
+    try {
+      const cargoInfo = await carregarCargoInfo(sb, trilha.empresa_id, colab.cargo);
+      cargoContexto = formatBlocoCargo(cargoInfo, null);
+    } catch (err) {
+      console.warn('[tira-duvidas] contexto de cargo falhou (seguindo sem):', err?.message);
+    }
+
     // PII masking: substitui nome real por alias opaco antes de mandar pra IA
     const { masked: colabMasked, map: piiMap } = maskColaborador(colab);
     // Sanitiza histórico (substitui PII do texto + nome do colab por alias)
@@ -175,6 +185,7 @@ export async function POST(request) {
       historico: historicoMasked,
       groundingContext: groundingBlock,
       conhecimentoDescritor,
+      cargoContexto,
     });
 
     let respostaIA;

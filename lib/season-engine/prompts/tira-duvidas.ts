@@ -19,6 +19,8 @@ interface PromptTiraDuvidasParams {
   groundingContext?: string;
   /** Conhecimento curado do descritor (definição + régua + evidências + perguntas). */
   conhecimentoDescritor?: string;
+  /** Contexto da função do colaborador (cargos_empresa). */
+  cargoContexto?: string;
 }
 
 function blocoDisc(perfil: string | null | undefined): string {
@@ -40,6 +42,7 @@ export function promptTiraDuvidas({
   historico = [],
   groundingContext = '',
   conhecimentoDescritor = '',
+  cargoContexto = '',
 }: PromptTiraDuvidasParams) {
   const nome = nomeColab || 'o colaborador';
 
@@ -132,7 +135,9 @@ NUNCA:
 - Dar resposta vaga tipo "depende" sem ajudar
 - Assumir detalhes não trazidos pela pergunta
 
-${conhecimentoDescritor ? `${conhecimentoDescritor}
+${cargoContexto ? `${cargoContexto}
+
+` : ''}${conhecimentoDescritor ? `${conhecimentoDescritor}
 
 ` : ''}CONTEÚDO DA SEMANA:
 ${conteudoResumo ? conteudoResumo.slice(0, 1200) : '(sem resumo disponível)'}
