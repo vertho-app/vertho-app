@@ -12,20 +12,27 @@ export async function extrairVideo(empresaId: string | null, url: string) {
     await requireAdminAction('content.manage');
     if (!url?.trim()) return { error: 'Informe a URL do vídeo' };
 
-    // Hint de competências + locale da empresa (saída no idioma do programa).
-    let competenciasHint: string[] = [];
+    // Competências COM descritores + locale da empresa (a IA escolhe o par
+    // competência › descritor de uma lista real, e a saída sai no idioma do programa).
+    let competencias: { competencia: string; descritores: string[] }[] = [];
     let locale = 'pt-BR';
     if (empresaId) {
       try {
         const sb = await requireAdminSupabase();
-        const { data } = await sb.from('competencias').select('nome').eq('empresa_id', empresaId);
-        competenciasHint = [...new Set((data || []).map((c: any) => c.nome).filter(Boolean))].slice(0, 40);
+        const { data } = await sb.from('competencias').select('nome, nome_curto').eq('empresa_id', empresaId).order('nome');
+        const map = new Map<string, Set<string>>();
+        for (const c of (data || []) as any[]) {
+          if (!c.nome) continue;
+          if (!map.has(c.nome)) map.set(c.nome, new Set());
+          if (c.nome_curto) map.get(c.nome)!.add(c.nome_curto);
+        }
+        competencias = [...map.entries()].map(([competencia, descs]) => ({ competencia, descritores: [...descs].sort() }));
         const { data: emp } = await sb.from('empresas').select('default_locale').eq('id', empresaId).maybeSingle();
         if (emp?.default_locale) locale = emp.default_locale;
       } catch { /* opcional */ }
     }
 
-    const base = await extrairConteudoDeVideo(url.trim(), { competenciasHint, locale });
+    const base = await extrairConteudoDeVideo(url.trim(), { competencias, locale });
     return { success: true, data: base };
   } catch (err: any) {
     console.error('[extrairVideo]', err);

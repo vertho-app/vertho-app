@@ -100,15 +100,20 @@ Responda APENAS com JSON válido (sem markdown, sem comentários) neste formato:
 }
 
 /** Extrai o texto-base de um vídeo a partir da URL. */
-export async function extrairConteudoDeVideo(url: string, opts: { competenciasHint?: string[]; locale?: string } = {}): Promise<VideoBaseExtraido> {
+export async function extrairConteudoDeVideo(
+  url: string,
+  opts: { competencias?: { competencia: string; descritores: string[] }[]; locale?: string } = {},
+): Promise<VideoBaseExtraido> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY não configurada');
   if (!url?.trim()) throw new Error('URL do vídeo é obrigatória');
 
   const mediaPart = await buildMediaPart(url.trim());
   const idioma = IDIOMA[opts.locale || ''] || IDIOMA['pt-BR'];
-  const hint = opts.competenciasHint?.length
-    ? `\n\nCompetências disponíveis nesta empresa (use uma destas em "competencia_sugerida" quando fizer sentido): ${opts.competenciasHint.join(', ')}.`
+  const cats = opts.competencias || [];
+  const hint = cats.length
+    ? `\n\nESCOLHA "competencia_sugerida" E "descritor_sugerido" EXATAMENTE de uma das opções abaixo (copie o texto idêntico ao listado; não invente). Escolha o par competência › descritor que melhor representa o vídeo:\n`
+      + cats.map((c) => `• ${c.competencia}: ${c.descritores.length ? c.descritores.join(' | ') : '(sem descritores)'}`).join('\n')
     : '';
 
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${VIDEO_MODEL}:generateContent?key=${apiKey}`;
