@@ -4,7 +4,8 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { callAI } from '@/actions/ai-client';
 import { extrairConteudoDeVideo } from '@/lib/gemini-video';
-import { triggerExtracaoJob } from '@/lib/gcp-run';
+import { tasks } from '@trigger.dev/sdk';
+import type { extrairVideoTask } from '@/trigger/extracao-video';
 
 // ── 1. Extrair texto-base de um vídeo (não salva ainda) ─────────────────────
 
@@ -73,7 +74,7 @@ export async function submeterExtracaoAsync(empresaId: string | null, url: strin
     if (error || !novo?.id) return { error: error?.message || 'Falha ao criar registro' };
 
     try {
-      await triggerExtracaoJob(novo.id);
+      await tasks.trigger<typeof extrairVideoTask>('extrair-video', { microConteudoId: novo.id });
     } catch (e: any) {
       await sb.from('micro_conteudos').update({ extracao_status: 'error', extracao_error: e?.message?.slice(0, 500) }).eq('id', novo.id);
       return { error: `Não foi possível iniciar o processamento: ${e?.message || 'erro'}` };
