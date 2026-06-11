@@ -1498,7 +1498,10 @@
     "subtitle": "Answers, IA4 reviews and check",
     "diagProgress": {
       "title": "Diagnosis completed",
-      "summary": "{done} of {total} team members responded",
+      "collaborators": "Team members",
+      "scenarios": "Scenarios",
+      "summary": "{done} of {total} responded",
+      "scenariosSummary": "{done} of {total} answered",
       "missingCount": "{count} haven't responded yet",
       "allDone": "All team members completed the diagnosis"
     },

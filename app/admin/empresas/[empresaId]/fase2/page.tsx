@@ -276,13 +276,25 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
     pendentes: respostas.filter(r => !r.avaliacao_ia).length,
   };
 
-  // Progresso de diagnóstico por COLABORADOR: quem já respondeu (tem resposta)
-  // vs o roster completo da empresa. "Falta" = colaborador sem nenhuma resposta.
-  const respondeuIds = new Set(respostas.map((r: any) => r.colaborador_id).filter(Boolean));
-  const realizados = roster.filter((c: any) => respondeuIds.has(c.id));
-  const faltam = roster.filter((c: any) => !respondeuIds.has(c.id));
+  // Progresso de diagnóstico:
+  // 1) por COLABORADOR — quem já respondeu (tem ≥1 resposta) vs roster.
+  // 2) por CENÁRIO — cada colaborador responde 2 cenários; mede o total de
+  //    cenários respondidos vs o esperado (roster × 2), com crédito parcial.
+  const CENARIOS_POR_COLAB = 2;
+  const respostasPorColab: Record<string, number> = {};
+  respostas.forEach((r: any) => {
+    if (r.colaborador_id) respostasPorColab[r.colaborador_id] = (respostasPorColab[r.colaborador_id] || 0) + 1;
+  });
+  const realizados = roster.filter((c: any) => (respostasPorColab[c.id] || 0) > 0);
+  const faltam = roster.filter((c: any) => !(respostasPorColab[c.id] > 0));
   const totalRoster = roster.length;
   const pctDiag = totalRoster > 0 ? Math.round((realizados.length / totalRoster) * 100) : 0;
+
+  const cenariosEsperados = totalRoster * CENARIOS_POR_COLAB;
+  const cenariosRespondidos = roster.reduce(
+    (sum: number, c: any) => sum + Math.min(respostasPorColab[c.id] || 0, CENARIOS_POR_COLAB), 0,
+  );
+  const pctCenarios = cenariosEsperados > 0 ? Math.round((cenariosRespondidos / cenariosEsperados) * 100) : 0;
 
   if (loading) return <div className="flex items-center justify-center h-dvh"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
 
@@ -318,24 +330,37 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
 
       {tab === 'diagnostico' && <>
       {/* Progresso de diagnóstico por colaborador */}
-      {totalRoster > 0 && (
+      {totalRoster > 0 && (() => {
+        const barColor = (pct: number) => pct >= 80 ? 'bg-green-400' : pct >= 40 ? 'bg-cyan-400' : 'bg-amber-400';
+        const txtColor = (pct: number) => pct >= 80 ? 'text-green-400' : pct >= 40 ? 'text-cyan-400' : 'text-amber-400';
+        return (
         <div className="mb-5 rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
-          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-            <div className="flex items-baseline gap-2">
-              <span className="text-sm font-bold text-white">{tr('diagProgress.title')}</span>
-              <span className="text-[11px] text-gray-400">
-                {tr('diagProgress.summary', { done: realizados.length, total: totalRoster })}
-              </span>
+          <p className="text-sm font-bold text-white mb-3">{tr('diagProgress.title')}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 mb-1">
+            {/* Colaboradores */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] text-gray-400">
+                  {tr('diagProgress.collaborators')} · {tr('diagProgress.summary', { done: realizados.length, total: totalRoster })}
+                </span>
+                <span className={`text-sm font-bold ${txtColor(pctDiag)}`}>{pctDiag}%</span>
+              </div>
+              <div className="h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                <div className={`h-full rounded-full transition-all duration-500 ${barColor(pctDiag)}`} style={{ width: `${pctDiag}%` }} />
+              </div>
             </div>
-            <span className={`text-lg font-bold ${pctDiag >= 80 ? 'text-green-400' : pctDiag >= 40 ? 'text-cyan-400' : 'text-amber-400'}`}>
-              {pctDiag}%
-            </span>
-          </div>
-          <div className="h-2.5 rounded-full overflow-hidden mb-1" style={{ background: 'rgba(255,255,255,0.06)' }}>
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${pctDiag >= 80 ? 'bg-green-400' : pctDiag >= 40 ? 'bg-cyan-400' : 'bg-amber-400'}`}
-              style={{ width: `${pctDiag}%` }}
-            />
+            {/* Cenários */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] text-gray-400">
+                  {tr('diagProgress.scenarios')} · {tr('diagProgress.scenariosSummary', { done: cenariosRespondidos, total: cenariosEsperados })}
+                </span>
+                <span className={`text-sm font-bold ${txtColor(pctCenarios)}`}>{pctCenarios}%</span>
+              </div>
+              <div className="h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                <div className={`h-full rounded-full transition-all duration-500 ${barColor(pctCenarios)}`} style={{ width: `${pctCenarios}%` }} />
+              </div>
+            </div>
           </div>
           {faltam.length > 0 ? (
             <button onClick={() => setShowFaltam(v => !v)}
@@ -359,7 +384,8 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
             </div>
           )}
         </div>
-      )}
+        );
+      })()}
 
       {/* Stats */}
       <div className="flex items-center gap-3 mb-4 flex-wrap text-[10px]">

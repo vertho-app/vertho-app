@@ -1498,7 +1498,10 @@
     "subtitle": "Respostas, avaliações IA4 e check",
     "diagProgress": {
       "title": "Diagnóstico realizado",
-      "summary": "{done} de {total} colaboradores responderam",
+      "collaborators": "Colaboradores",
+      "scenarios": "Cenários",
+      "summary": "{done} de {total} responderam",
+      "scenariosSummary": "{done} de {total} respondidos",
       "missingCount": "{count} ainda não responderam",
       "allDone": "Todos os colaboradores responderam o diagnóstico"
     },
