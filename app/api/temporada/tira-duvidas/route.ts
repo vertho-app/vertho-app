@@ -7,6 +7,7 @@ import { csrfCheck } from '@/lib/csrf';
 import { promptTiraDuvidas } from '@/lib/season-engine/prompts/tira-duvidas';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
+import { carregarConhecimentoDescritor, formatBlocoConhecimentoDescritor, carregarModuloBaseParaTutor } from '@/lib/competencia-conhecimento';
 
 /**
  * POST /api/temporada/tira-duvidas
@@ -96,15 +97,35 @@ export async function POST(request) {
     const historico = Array.isArray(dados.transcript_completo) ? dados.transcript_completo : [];
     historico.push({ role: 'user', content: message, timestamp: new Date().toISOString() });
 
-    // Resumo do conteúdo: concatena desafio + descrição se houver
-    const conteudoResumo = Array.isArray(semanaPlan.conteudos_dia) && semanaPlan.conteudos_dia.length > 0
+    // Conteúdo que o colaborador RECEBEU nesta semana — o tutor precisa conhecer
+    // para falar a mesma linguagem. Junta o enquadramento da semana + (best-effort)
+    // o corpo real do micro-conteúdo consumido (via core_id).
+    const c = semanaPlan.conteudo || {};
+    const enquadramento = Array.isArray(semanaPlan.conteudos_dia) && semanaPlan.conteudos_dia.length > 0
       ? semanaPlan.conteudos_dia
           .map((e: any) => [e.label, e.competencia, e.descritor, e.conteudo?.core_titulo, e.conteudo?.desafio_texto].filter(Boolean).join(' — '))
           .join('\n')
       : [
-          semanaPlan.conteudo?.desafio_texto,
-          semanaPlan.conteudo?.core_titulo,
+          c.core_titulo && `Título: ${c.core_titulo}`,
+          c.desafio_texto && `Desafio: ${c.desafio_texto}`,
+          c.acao_observavel && `Ação observável: ${c.acao_observavel}`,
+          c.criterio_de_execucao && `Critério de execução: ${c.criterio_de_execucao}`,
+          c.por_que_cabe_na_semana && `Por que importa: ${c.por_que_cabe_na_semana}`,
         ].filter(Boolean).join('\n');
+
+    // Corpo real do conteúdo consumido (texto inline), se existir e couber.
+    let corpoConteudo = '';
+    try {
+      if (c.core_id) {
+        const { data: mc } = await sb.from('micro_conteudos')
+          .select('conteudo_inline').eq('id', c.core_id).maybeSingle();
+        if (mc?.conteudo_inline) corpoConteudo = String(mc.conteudo_inline).slice(0, 2500);
+      }
+    } catch (err) {
+      console.warn('[tira-duvidas] micro_conteudo inline falhou:', err?.message);
+    }
+    const conteudoResumo = [enquadramento, corpoConteudo && `\nCONTEÚDO LIDO PELO COLABORADOR:\n${corpoConteudo}`]
+      .filter(Boolean).join('\n');
 
     // RAG/grounding: busca top-5 trechos relevantes na base do tenant.
     // Query = última pergunta do colab. Sem pesquisa = sem contexto (OK).
@@ -114,6 +135,26 @@ export async function POST(request) {
       groundingBlock = formatGroundingBlock(chunks);
     } catch (err) {
       console.warn('[tira-duvidas] retrieveContext falhou (seguindo sem grounding):', err?.message);
+    }
+
+    // Conhecimento curado do descritor (SÓ a definição — rubrica fica de fora por
+    // segurança) + Módulo-Base pedagógico (quando autorado; hoje fallback vazio).
+    let conhecimentoDescritor = '';
+    try {
+      const conhecimento = await carregarConhecimentoDescritor(
+        sb, trilha.empresa_id, semanaPlan.descritor, competenciaSemana,
+      );
+      const blocoDescritor = formatBlocoConhecimentoDescritor(conhecimento);
+
+      const nivelMin = typeof semanaPlan.nivel_atual === 'number' ? semanaPlan.nivel_atual : 1.5;
+      const blocoModulo = await carregarModuloBaseParaTutor(sb, {
+        competenciaNome: competenciaSemana,
+        nivelMin, // locale default pt-BR; contexto pedagógico resolvido no engine de geração
+      });
+
+      conhecimentoDescritor = [blocoDescritor, blocoModulo].filter(Boolean).join('\n\n');
+    } catch (err) {
+      console.warn('[tira-duvidas] conhecimento de competência falhou (seguindo sem):', err?.message);
     }
 
     // PII masking: substitui nome real por alias opaco antes de mandar pra IA
@@ -133,12 +174,14 @@ export async function POST(request) {
       perfilDominante: colab.perfil_dominante,
       historico: historicoMasked,
       groundingContext: groundingBlock,
+      conhecimentoDescritor,
     });
 
     let respostaIA;
     try {
-      // Haiku 4.5: rápido e barato; o prompt é prescritivo o suficiente.
-      respostaIA = (await callAIChat(system, messages as any, { model: 'claude-haiku-4-5-20251001' }, 1500)).trim();
+      // Sonnet 4.6: mais capaz para ancorar a explicação no conhecimento do
+      // descritor + conteúdo recebido + módulo-base, mantendo o escopo.
+      respostaIA = (await callAIChat(system, messages as any, { model: 'claude-sonnet-4-6' }, 1500)).trim();
     } catch (err) {
       console.error('[tira-duvidas] callAIChat:', err);
       return NextResponse.json({ error: 'Erro na IA' }, { status: 500 });
@@ -162,7 +205,7 @@ export async function POST(request) {
       feature: 'tira_duvidas',
       trilha_id: trilhaId,
       semana: Number(semana),
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-sonnet-4-6',
       // tokens aprox: sistema+histórico médio; valores precisos precisariam parse da response
       input_tokens: Math.round((system.length + JSON.stringify(messages).length) / 4),
       output_tokens: Math.round(respostaIA.length / 4),

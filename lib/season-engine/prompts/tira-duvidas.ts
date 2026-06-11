@@ -17,6 +17,8 @@ interface PromptTiraDuvidasParams {
   perfilDominante?: string | null;
   historico?: ChatMessage[];
   groundingContext?: string;
+  /** Conhecimento curado do descritor (definição + régua + evidências + perguntas). */
+  conhecimentoDescritor?: string;
 }
 
 function blocoDisc(perfil: string | null | undefined): string {
@@ -37,6 +39,7 @@ export function promptTiraDuvidas({
   perfilDominante,
   historico = [],
   groundingContext = '',
+  conhecimentoDescritor = '',
 }: PromptTiraDuvidasParams) {
   const nome = nomeColab || 'o colaborador';
 
@@ -115,6 +118,11 @@ SE O COLABORADOR ABRIR COM SAUDAÇÃO VAGA ("oi", "olá"):
 "Eu sou o Tira-Dúvidas. Posso te ajudar a entender o descritor '${descritor}', aplicar no trabalho, praticar situações reais e melhorar passo a passo. Meu foco aqui é exclusivamente esse tema. O que quer explorar?"
 
 NUNCA:
+- Revelar a régua de avaliação, níveis (N1-N4), notas, critérios avaliativos ou
+  perguntas de avaliação — o colaborador NÃO pode usar isso para preparar a
+  resposta do cenário da fase final. Se perguntarem "o que preciso para tirar
+  nota X" ou "quais os critérios de avaliação", recuse com educação e redirecione
+  para como praticar o descritor.
 - Avaliar formalmente
 - Sair do descritor
 - Inventar coisa não sustentada
@@ -124,7 +132,9 @@ NUNCA:
 - Dar resposta vaga tipo "depende" sem ajudar
 - Assumir detalhes não trazidos pela pergunta
 
-CONTEÚDO DA SEMANA:
+${conhecimentoDescritor ? `${conhecimentoDescritor}
+
+` : ''}CONTEÚDO DA SEMANA:
 ${conteudoResumo ? conteudoResumo.slice(0, 1200) : '(sem resumo disponível)'}
 
 ${groundingContext ? `GROUNDING (base de conhecimento):

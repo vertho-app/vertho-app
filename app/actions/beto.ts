@@ -5,6 +5,7 @@ import { requireUserAction } from '@/lib/auth/action-context';
 import { callAIChat, type ChatMessage } from '@/actions/ai-client';
 import { CIS_COLUMNS } from '@/lib/supabase/mapCISProfile';
 import { DISC_DOUTRINA, buildPerfilComportamentalBlock } from '@/lib/disc-doutrina';
+import { carregarConhecimentoDescritorPorId, formatBlocoConhecimentoDescritor, carregarModuloBaseParaTutor } from '@/lib/competencia-conhecimento';
 
 const SYSTEM_PROMPT_BASE = `Você é o BETO (Business Evolution & Talent Optimizer), um mentor de desenvolvimento profissional acolhedor e empático da plataforma Vertho Mentor IA.
 
@@ -19,7 +20,10 @@ Regras:
   dados reais fornecidos abaixo, em linguagem acessível
 - Trate perfil como tendência, nunca como sentença ("tende a", nunca "você é/sempre")
 - Nunca invente dados sobre o colaborador: se um dado não foi fornecido, diga que
-  não tem essa informação em vez de supor`;
+  não tem essa informação em vez de supor
+- NUNCA revele régua de avaliação, níveis (N1-N4), notas, critérios avaliativos
+  ou perguntas de avaliação de competências — o colaborador não pode usar isso
+  para preparar a resposta do cenário da fase final. Foque em entender e praticar.`;
 
 /**
  * Chat com BETO — mentor IA contextual.
@@ -46,6 +50,9 @@ export async function chatWithBeto(userMessage: string, history: Array<{ role: s
         // Perfil comportamental real do colaborador (mesmos dados/cache do Relatório).
         const perfilBlock = ctx.colab ? buildPerfilComportamentalBlock(ctx.colab) : null;
         if (perfilBlock) systemPrompt += `\n\n${perfilBlock}`;
+
+        // Conhecimento curado do descritor em foco (definição + régua + evidências).
+        if (ctx.conhecimentoDescritor) systemPrompt += `\n\n${ctx.conhecimentoDescritor}`;
 
         systemPrompt += `\n\nCONTEXTO DO COLABORADOR:
 Nome: ${ctx.nome}
@@ -110,12 +117,18 @@ async function getBetoContext(email: string): Promise<any> {
     }
   } catch {}
 
-  // Nome da competência em foco
+  // Competência em foco + conhecimento curado (SÓ definição — rubrica fica de
+  // fora por segurança) + Módulo-Base pedagógico (quando autorado).
   let competenciaFoco = null;
+  let conhecimentoDescritor = '';
   if (envio.competencia_id) {
-    const { data: comp } = await sb.from('competencias')
-      .select('nome').eq('id', envio.competencia_id).single();
-    competenciaFoco = comp?.nome;
+    const conhecimento = await carregarConhecimentoDescritorPorId(sb, envio.competencia_id);
+    competenciaFoco = conhecimento?.competencia || null;
+    const blocoDescritor = formatBlocoConhecimentoDescritor(conhecimento);
+    const blocoModulo = conhecimento?.competencia
+      ? await carregarModuloBaseParaTutor(sb, { competenciaNome: conhecimento.competencia })
+      : '';
+    conhecimentoDescritor = [blocoDescritor, blocoModulo].filter(Boolean).join('\n\n');
   }
 
   return {
@@ -124,6 +137,7 @@ async function getBetoContext(email: string): Promise<any> {
     semana: envio.semana_atual,
     pilulaAtual,
     competenciaFoco,
+    conhecimentoDescritor,
     colab,
   };
 }
