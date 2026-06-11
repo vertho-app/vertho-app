@@ -6,6 +6,7 @@ import { extractJSON } from './utils';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import type { FaseCarreira } from '@/lib/season-engine/programa-config';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { hasDiscMapeado } from '@/lib/disc-status';
 
 // ── IA1: Selecionar top 10 competências por cargo ───────────────────────────
 // Seleciona das competências JÁ CADASTRADAS na empresa (tabela competencias).
@@ -1008,10 +1009,15 @@ export async function listarFilaIA3(empresaId: string) {
     const escolaPpp = new Map<string, string | null>((escolas || []).map((e: any) => [e.id, e.ppp_escola_id || null]));
     const { data: ppps } = await tdb.from('ppp_escolas').select('id, escola');
     const pppNome = new Map<string, string>((ppps || []).map((p: any) => [p.id, p.escola]));
-    const { data: colabsEsc } = await tdb.from('colaboradores').select('cargo, escola_id');
+    // Só colaboradores com DISC mapeado contam para definir os PPPs-alvo de cada
+    // cargo (pré-requisito das próximas etapas). Cargos cujos colaboradores ainda
+    // não fizeram DISC caem no fallback "rede" (ver pppsAlvo abaixo) — nenhum
+    // cargo do Top 5 deixa de ter ao menos o cenário base.
+    const { data: colabsEsc } = await tdb.from('colaboradores')
+      .select('cargo, escola_id, perfil_dominante, d_natural, i_natural, s_natural, c_natural');
     const cargoPpps = new Map<string, Set<string | null>>();
     for (const c of (colabsEsc || []) as any[]) {
-      if (!c.cargo) continue;
+      if (!c.cargo || !hasDiscMapeado(c)) continue;
       const ppp = c.escola_id ? (escolaPpp.get(c.escola_id) || null) : null;
       if (!cargoPpps.has(c.cargo)) cargoPpps.set(c.cargo, new Set());
       cargoPpps.get(c.cargo)!.add(ppp);

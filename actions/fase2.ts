@@ -3,6 +3,7 @@
 import { APP_WEBHOOK_URL, EMAIL_FROM_DEFAULT, QSTASH_BASE_URL, tenantUrl } from '@/lib/domain';
 import crypto from 'crypto';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { hasDiscMapeado } from '@/lib/disc-status';
 
 // ── Disparar convites (email + WhatsApp unificado) ──────────────────────────
 
@@ -14,20 +15,31 @@ export async function dispararEmails(empresaId: string) {
       .eq('id', empresaId).single();
     if (!empresa) return { success: false, error: 'Empresa não encontrada' };
 
-    // Buscar colaboradores (telefone pode não existir no schema)
+    // Buscar colaboradores (telefone pode não existir no schema). Campos DISC
+    // entram para filtrar quem ainda não fez o mapeamento comportamental.
+    const DISC_COLS = 'perfil_dominante, d_natural, i_natural, s_natural, c_natural';
     let colaboradores;
     const { data: c1, error: e1 } = await sb.from('colaboradores')
-      .select('id, nome_completo, email, cargo, telefone')
+      .select(`id, nome_completo, email, cargo, telefone, ${DISC_COLS}`)
       .eq('empresa_id', empresaId);
     if (!e1) {
       colaboradores = c1;
     } else {
       const { data: c2 } = await sb.from('colaboradores')
-        .select('id, nome_completo, email, cargo')
+        .select(`id, nome_completo, email, cargo, ${DISC_COLS}`)
         .eq('empresa_id', empresaId);
       colaboradores = c2;
     }
     if (!colaboradores?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
+
+    // PRÉ-REQUISITO: só despacha o diagnóstico para quem já fez o mapeamento
+    // comportamental (DISC). Quem não fez é desconsiderado (não recebe convite
+    // nem ganha envio_diagnostico criado).
+    const puladosSemDisc = colaboradores.filter(c => !hasDiscMapeado(c)).length;
+    colaboradores = colaboradores.filter(c => hasDiscMapeado(c));
+    if (!colaboradores.length) {
+      return { success: false, error: 'Nenhum colaborador com DISC mapeado. Conclua o mapeamento comportamental antes de disparar o diagnóstico.' };
+    }
 
     // Buscar envios já existentes
     const { data: enviosExistentes } = await sb.from('envios_diagnostico')
@@ -130,6 +142,7 @@ export async function dispararEmails(empresaId: string) {
     if (emailsEnviados) parts.push(`${emailsEnviados} emails`);
     if (whatsEnviados) parts.push(`${whatsEnviados} WhatsApp`);
     if (jaEnviados) parts.push(`${jaEnviados} já enviados`);
+    if (puladosSemDisc) parts.push(`${puladosSemDisc} sem DISC (ignorados)`);
     if (erros) parts.push(`${erros} erros`);
 
     return { success: true, message: `Convites: ${parts.join(' · ')}` };

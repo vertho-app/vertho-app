@@ -7,6 +7,7 @@ import { extractJSON } from './utils';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { excludeInternalEmails } from '@/lib/internal-emails';
+import { hasDiscMapeado } from '@/lib/disc-status';
 
 // ── IA4: Avaliar respostas (fiel ao GAS — modelo temático) ──────────────────
 
@@ -786,10 +787,9 @@ export async function loadRosterDiagnostico(empresaId: string) {
       .select('id, nome_completo, cargo, perfil_dominante, d_natural, i_natural, s_natural, c_natural')
       .order('nome_completo')
   );
-  // DISC realizado = perfil dominante + ao menos um eixo D/I/S/C preenchido
-  // (mesmo critério usado no Fit e no Relatório Comportamental).
+  // DISC realizado = perfil dominante + ao menos um eixo D/I/S/C preenchido.
   return (data || [])
-    .filter((c: any) => c.perfil_dominante && (c.d_natural || c.i_natural || c.s_natural || c.c_natural))
+    .filter((c: any) => hasDiscMapeado(c))
     .map((c: any) => ({ id: c.id, nome_completo: c.nome_completo, cargo: c.cargo }));
 }
 
