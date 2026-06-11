@@ -666,6 +666,122 @@ export async function importarModuloDocx(opts: {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// Extração de vídeo → Módulo-Base (matéria-prima). O texto-base extraído de um
+// vídeo (YouTube/Vimeo/TED/LMS) entra no lugar do texto do .docx: a IA detecta
+// a competência canônica + transição de nível e estrutura os 4 blocos. Resultado
+// é sempre rascunho (passa pelo workflow Dual-IA). Alcance = global (empresa_id
+// null) ou exclusivo de uma empresa.
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Detecta competência canônica (competencias_base) + transição de nível + locale
+ * a partir do texto-base + título do vídeo. Mesma ideia de detectarMetadadosDocx,
+ * mas a fonte é o conteúdo livre extraído (não há cabeçalho de template).
+ */
+async function detectarMetadadosDeTexto(textoBase: string, tituloVideo: string, localeHint?: string) {
+  const sb = createSupabaseAdmin();
+  const { data: comps } = await sb.from('competencias_base').select('id, nome, segmento').order('nome');
+  const compsListagem = (comps || []).slice(0, 200).map((c: any) => `- ${c.id} :: ${c.nome} (${c.segmento})`).join('\n');
+
+  const system = `Você classifica um conteúdo pedagógico (extraído de um vídeo) contra o catálogo canônico de competências Vertho.
+
+Retorne APENAS JSON válido:
+{
+  "competencia_match": { "id": "uuid da lista ou null", "confianca": 0.0 a 1.0 },
+  "nivel_entrada": "N1|N2|N3",
+  "nivel_destino": "N2|N3|N4",
+  "contexto_pedagogico": "string curta ou null",
+  "titulo": "título interno do módulo (não é o título do vídeo) ou null",
+  "finalidade": "1-2 frases: o que este módulo precisa permitir que a IA ensine"
+}
+
+REGRAS:
+- "competencia_match.id" = a competência da lista que melhor representa o conteúdo. Confiança <0.4 → use null.
+- Escolha a transição de nível mais provável que o conteúdo serve (default N1→N2 se incerto).
+- Não invente. Use null quando não estiver claro.`;
+  const user = `CATÁLOGO DE COMPETÊNCIAS (escolha 1 ou null):
+${compsListagem}
+
+TÍTULO DO VÍDEO: ${tituloVideo || '—'}
+
+TEXTO-BASE EXTRAÍDO (primeiros 5000 chars):
+${String(textoBase).slice(0, 5000)}`;
+
+  const model = await getModelForTask(null as any, 'modulo_base_autor');
+  const raw = await callAI(system, user, { model }, 800).catch(() => '');
+  let det: any = null;
+  const cleaned = String(raw || '').replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+  for (const c of [cleaned, cleaned.match(/\{[\s\S]*\}/)?.[0] || '']) {
+    if (!c) continue;
+    try { const p = JSON.parse(c); if (p && typeof p === 'object') { det = p; break; } } catch { /* tenta próximo */ }
+  }
+  const niveisOk = (e: string, d: string) => NIVEIS.includes(e as Nivel) && NIVEIS.includes(d as Nivel) && nivelGreater(d as Nivel, e as Nivel);
+  let nivel_entrada: Nivel = 'N1', nivel_destino: Nivel = 'N2';
+  if (det && niveisOk(det.nivel_entrada, det.nivel_destino)) { nivel_entrada = det.nivel_entrada; nivel_destino = det.nivel_destino; }
+  return {
+    competencia_base_id: det?.competencia_match?.id || null,
+    confianca: typeof det?.competencia_match?.confianca === 'number' ? det.competencia_match.confianca : 0,
+    nivel_entrada, nivel_destino,
+    contexto_pedagogico: det?.contexto_pedagogico || null,
+    locale: (localeHint || 'pt-BR') as Locale,
+    titulo: det?.titulo || null,
+    finalidade: det?.finalidade || null,
+  };
+}
+
+/**
+ * Cria um Módulo-Base rascunho a partir do texto-base extraído de um vídeo.
+ * Compartilhado pelo fluxo síncrono (YouTube, na tela) e assíncrono (worker via
+ * rota interna). `empresaId` null = módulo global/canônico; preenchido = exclusivo.
+ */
+export async function criarModuloBaseDeTextoExtraido(opts: {
+  textoBase: string;
+  tituloVideo?: string;
+  urlOrigem?: string;
+  locale?: string;
+  empresaId?: string | null;
+  createdBy?: string;
+}): Promise<{ id?: string; grupo_id?: string; competencia?: string; nivel_entrada?: Nivel; nivel_destino?: Nivel; avisos?: string[]; error?: string }> {
+  if (!opts?.textoBase?.trim()) return { error: 'texto-base vazio' };
+
+  const meta = await detectarMetadadosDeTexto(opts.textoBase, opts.tituloVideo || '', opts.locale);
+  if (!meta.competencia_base_id) {
+    return { error: 'Não foi possível mapear o vídeo a uma competência canônica com confiança. Mapeie manualmente.' };
+  }
+  const comp = await carregarCompetenciaBase(meta.competencia_base_id);
+  if (!comp) return { error: 'Competência base não encontrada' };
+
+  // Estrutura os 4 blocos tratando o texto-base como matéria-prima (igual ao docx).
+  const userPrompt = montarUserPrompt(comp, meta.nivel_entrada, meta.nivel_destino, meta.contexto_pedagogico || undefined, null, opts.textoBase);
+  const model = await getModelForTask(null as any, 'modulo_base_autor');
+  const corpo = await chamarIAComRetry(SYSTEM_AUTOR, userPrompt, model);
+  if (!corpo) return { error: 'A IA não conseguiu estruturar o conteúdo do vídeo. Tente novamente ou edite manualmente.' };
+
+  const erros = validarCorpo(corpo);
+  const sb = createSupabaseAdmin();
+  const insertRow: any = {
+    empresa_id: opts.empresaId || null,
+    locale: meta.locale,
+    competencia_base_id: meta.competencia_base_id,
+    nivel_entrada: meta.nivel_entrada,
+    nivel_destino: meta.nivel_destino,
+    titulo: (meta.titulo || `[Vídeo] ${comp.nome} ${meta.nivel_entrada}→${meta.nivel_destino}`).slice(0, 120),
+    finalidade: (meta.finalidade || `Matéria-prima pedagógica extraída de vídeo para a transição ${meta.nivel_entrada}→${meta.nivel_destino} em "${comp.nome}".`).slice(0, 400),
+    contexto_pedagogico: meta.contexto_pedagogico || null,
+    tags: opts.urlOrigem ? ['extraido-video', opts.urlOrigem.slice(0, 80)] : ['extraido-video'],
+    conteudo_central: corpo.conteudo_central,
+    conteudo_aplicavel: corpo.conteudo_aplicavel,
+    guarda_corpos: corpo.guarda_corpos,
+    adaptacao_por_formato: corpo.adaptacao_por_formato,
+    created_by: opts.createdBy || 'extracao-video',
+    status: 'rascunho' as Status,
+  };
+  const { data, error } = await sb.from('modulos_base_conteudo').insert(insertRow).select('id, grupo_id').single();
+  if (error) return { error: error.message };
+  return { id: data.id, grupo_id: data.grupo_id, competencia: comp.nome, nivel_entrada: meta.nivel_entrada, nivel_destino: meta.nivel_destino, avisos: erros };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // IA-auditora — valida o módulo contra spec e seus próprios guarda-corpos
 // (padrão Dual-IA — substitui revisão humana cruzada)
 // ════════════════════════════════════════════════════════════════════════════

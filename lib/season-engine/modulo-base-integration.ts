@@ -48,6 +48,7 @@ export async function resolverModuloBaseParaConteudo(
     nivelMin: number;
     locale?: string;
     contexto_pedagogico?: string;
+    empresaId?: string | null;
   },
 ): Promise<ModuloBaseEscolhido | null> {
   // 1) Resolver competencia_base_id pelo nome
@@ -61,15 +62,20 @@ export async function resolverModuloBaseParaConteudo(
   const { entrada, destino } = niveisDoNivelMin(opts.nivelMin);
   const locale = (opts.locale || 'pt-BR') as string;
 
-  // 2) Tenta no locale solicitado; se vazio, faz fallback pra pt-BR
+  // 2) Tenta no locale solicitado; se vazio, faz fallback pra pt-BR.
+  //    Alcance: módulos GLOBAIS (empresa_id NULL) + os EXCLUSIVOS do tenant
+  //    (empresa_id = empresaId), quando um tenant é informado. Sem tenant,
+  //    só globais (mantém o comportamento anterior).
   async function buscar(loc: string) {
-    const { data } = await sb.from('modulos_base_conteudo')
-      .select('id, grupo_id, locale, preferido, contexto_pedagogico, tags, published_at, conteudo_central, conteudo_aplicavel, guarda_corpos, adaptacao_por_formato')
+    let q = sb.from('modulos_base_conteudo')
+      .select('id, grupo_id, locale, preferido, contexto_pedagogico, tags, published_at, empresa_id, conteudo_central, conteudo_aplicavel, guarda_corpos, adaptacao_por_formato')
       .eq('competencia_base_id', competencia_base_id)
       .eq('nivel_entrada', entrada)
       .eq('nivel_destino', destino)
       .eq('locale', loc)
       .eq('status', 'publicado');
+    q = opts.empresaId ? q.or(`empresa_id.is.null,empresa_id.eq.${opts.empresaId}`) : q.is('empresa_id', null);
+    const { data } = await q;
     return data || [];
   }
   let candidatos = await buscar(locale);
@@ -80,8 +86,12 @@ export async function resolverModuloBaseParaConteudo(
   }
   if (candidatos.length === 0) return null;
 
-  // 3) Ordenar: preferido > contexto match > tag match > published_at desc
+  // 3) Ordenar: do-tenant > preferido > contexto match > tag match > recência.
+  //    O módulo exclusivo da empresa vence o global na mesma transição.
   candidatos.sort((a: any, b: any) => {
+    const aEmp = a.empresa_id ? 1 : 0;
+    const bEmp = b.empresa_id ? 1 : 0;
+    if (aEmp !== bEmp) return bEmp - aEmp;
     if (a.preferido !== b.preferido) return a.preferido ? -1 : 1;
     const aCtx = opts.contexto_pedagogico && a.contexto_pedagogico === opts.contexto_pedagogico ? 1 : 0;
     const bCtx = opts.contexto_pedagogico && b.contexto_pedagogico === opts.contexto_pedagogico ? 1 : 0;
@@ -94,6 +104,7 @@ export async function resolverModuloBaseParaConteudo(
 
   const escolhido = candidatos[0];
   const criterio = [
+    escolhido.empresa_id && 'exclusivo-do-tenant',
     escolhido.preferido && 'preferido',
     escolhido.contexto_pedagogico === opts.contexto_pedagogico && 'contexto-match',
     usouFallbackLocale && `fallback-locale(${locale}→pt-BR)`,

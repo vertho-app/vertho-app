@@ -138,7 +138,7 @@ async function getBetoContext(email: string): Promise<any> {
     competenciaFoco = conhecimento?.competencia || null;
     const blocoDescritor = formatBlocoConhecimentoDescritor(conhecimento);
     const blocoModulo = conhecimento?.competencia
-      ? await carregarModuloBaseParaTutor(sb, { competenciaNome: conhecimento.competencia })
+      ? await carregarModuloBaseParaTutor(sb, { competenciaNome: conhecimento.competencia, empresaId: colab?.empresa_id })
       : '';
     conhecimentoDescritor = [blocoDescritor, blocoModulo].filter(Boolean).join('\n\n');
   }

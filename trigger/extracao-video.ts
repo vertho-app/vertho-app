@@ -16,6 +16,10 @@ const SUPA = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL ||
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const REST_HEADERS = { apikey: KEY, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' };
 
+// URL do app para o callback que estrutura o módulo-base (IA-autora + catálogo
+// só existem no runtime do app). Default app.vertho.ai; override por env.
+const APP_URL = process.env.APP_CALLBACK_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.vertho.ai';
+
 async function rGetOne(table: string, query: string): Promise<any | null> {
   const r = await fetch(`${SUPA}/rest/v1/${table}?${query}`, { headers: REST_HEADERS });
   if (!r.ok) throw new Error(`Supabase GET ${table} ${r.status}: ${(await r.text()).slice(0, 200)}`);
@@ -30,14 +34,15 @@ async function rPatch(table: string, query: string, body: any): Promise<void> {
 }
 
 /**
- * Task de extração de conteúdo-base de vídeo (substitui o worker Cloud Run).
+ * Worker de extração de conteúdo-base de vídeo (substitui o Cloud Run).
  *
- * yt-dlp (via youtube-dl-exec) resolve o vídeo de ~1800 plataformas (Vimeo, TED,
- * LMS, YouTube), ffmpeg extrai um áudio leve, o Gemini transcreve + estrutura o
- * texto-base, e gravamos no micro_conteudos (status done/error).
+ * yt-dlp resolve o vídeo de ~1800 plataformas (Vimeo, TED, LMS, YouTube), ffmpeg
+ * extrai um áudio leve, o Gemini destila o TEXTO-BASE, e o callback /api/internal/
+ * modulo-from-video estrutura o Módulo-Base rascunho (matéria-prima canônica).
+ * O rastreamento fica em extracoes_video (status processing/done/error).
  *
  * Env (no projeto trigger.dev): SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
- * GEMINI_API_KEY, GEMINI_VIDEO_MODEL (opcional).
+ * GEMINI_API_KEY, GEMINI_VIDEO_MODEL (opcional), APP_CALLBACK_URL (opcional).
  */
 
 const MODEL = process.env.GEMINI_VIDEO_MODEL || 'gemini-3.5-flash';
@@ -47,71 +52,46 @@ const IDIOMA: Record<string, string> = {
 };
 
 function systemPrompt(idioma: string): string {
-  return `Você é um designer instrucional da Vertho. Recebe o ÁUDIO de um vídeo e extrai um TEXTO-BASE (matéria-prima de micro-conteúdos), NÃO a transcrição literal. Seja fiel — não invente.
+  return `Você é um designer instrucional da Vertho. Recebe o ÁUDIO de um vídeo e extrai um TEXTO-BASE (matéria-prima pedagógica), NÃO a transcrição literal. Seja fiel — não invente.
 
 IDIOMA DA SAÍDA: escreva tudo em ${idioma}, independentemente do idioma do áudio (traduza/adapte).
 
 Responda APENAS JSON válido:
 {
   "titulo": "título curto do tema",
-  "resumo": "2-3 frases",
-  "texto_base": "markdown: ## Ideia central; ## Conceitos-chave; ## Exemplos e aplicações; ## Para refletir (2-3 perguntas). 400-900 palavras.",
-  "competencia_sugerida": "competência que o vídeo mais desenvolve, ou null",
-  "descritor_sugerido": "descritor/sub-tema específico, ou null",
-  "duracao_min": número de minutos aproximado ou null
+  "texto_base": "markdown rico: ## Ideia central; ## Conceitos-chave; ## Princípios; ## Exemplos e aplicações; ## Erros comuns; ## Boas práticas; ## Para refletir. 600-1200 palavras, fiel ao áudio."
 }`;
-}
-
-/** Agrupa competências › descritores da empresa para a IA escolher (igual ao fluxo síncrono). */
-async function carregarCompetencias(empresaId: string | null): Promise<{ competencia: string; descritores: string[] }[]> {
-  if (!empresaId) return [];
-  const rows = await fetch(
-    `${SUPA}/rest/v1/competencias?empresa_id=eq.${empresaId}&select=nome,nome_curto&order=nome`,
-    { headers: REST_HEADERS },
-  ).then((r) => (r.ok ? r.json() : [])).catch(() => []);
-  const map = new Map<string, Set<string>>();
-  for (const c of (rows || []) as any[]) {
-    if (!c?.nome) continue;
-    if (!map.has(c.nome)) map.set(c.nome, new Set());
-    if (c.nome_curto) map.get(c.nome)!.add(c.nome_curto);
-  }
-  return [...map.entries()].map(([competencia, d]) => ({ competencia, descritores: [...d].sort() }));
 }
 
 export const extrairVideoTask = task({
   id: 'extrair-video',
   maxDuration: 900,
   retry: { maxAttempts: 2 },
-  run: async (payload: { microConteudoId: string }) => {
-    const id = payload.microConteudoId;
+  run: async (payload: { extracaoId: string }) => {
+    const id = payload.extracaoId;
     if (!SUPA || !KEY) throw new Error('SUPABASE_URL/SERVICE_ROLE_KEY ausentes no ambiente da task');
 
     const fail = async (msg: string): Promise<never> => {
-      await rPatch('micro_conteudos', `id=eq.${id}`, {
-        extracao_status: 'error', extracao_error: String(msg).slice(0, 500), extracao_em: new Date().toISOString(),
+      await rPatch('extracoes_video', `id=eq.${id}`, {
+        status: 'error', error: String(msg).slice(0, 500), updated_at: new Date().toISOString(),
       }).catch(() => {});
       throw new Error(msg);
     };
 
-    const mc = await rGetOne('micro_conteudos', `id=eq.${id}&select=id,empresa_id,url`);
-    if (!mc?.url) return fail('micro_conteudo ou URL não encontrado');
+    const ext = await rGetOne('extracoes_video', `id=eq.${id}&select=id,origem_empresa_id,url`);
+    if (!ext?.url) return fail('extração ou URL não encontrada');
 
     let locale = 'pt-BR';
-    if (mc.empresa_id) {
-      const emp = await rGetOne('empresas', `id=eq.${mc.empresa_id}&select=default_locale`);
+    if (ext.origem_empresa_id) {
+      const emp = await rGetOne('empresas', `id=eq.${ext.origem_empresa_id}&select=default_locale`);
       if (emp?.default_locale) locale = emp.default_locale;
     }
     const idioma = IDIOMA[locale] || IDIOMA['pt-BR'];
-    const cats = await carregarCompetencias(mc.empresa_id);
-    const hint = cats.length
-      ? `\n\nESCOLHA "competencia_sugerida" E "descritor_sugerido" EXATAMENTE de uma das opções abaixo (copie o texto idêntico; não invente). Escolha o par que melhor representa o vídeo:\n`
-        + cats.map((c) => `• ${c.competencia}: ${c.descritores.length ? c.descritores.join(' | ') : '(sem descritores)'}`).join('\n')
-      : '';
 
     // 1) yt-dlp → áudio leve (mono 16kHz 48kbps).
     const out = `/tmp/audio-${id}.mp3`;
     try {
-      await ytdlp(mc.url, {
+      await ytdlp(ext.url, {
         extractAudio: true, audioFormat: 'mp3',
         output: `/tmp/audio-${id}.%(ext)s`,
         noPlaylist: true, noWarnings: true,
@@ -134,7 +114,7 @@ export const extrairVideoTask = task({
       systemInstruction: { parts: [{ text: systemPrompt(idioma) }] },
       contents: [{ role: 'user', parts: [
         { inlineData: { mimeType: 'audio/mp3', data: buf.toString('base64') } },
-        { text: `Extraia o texto-base deste áudio.${hint}` },
+        { text: 'Extraia o texto-base deste áudio.' },
       ] }],
       generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 8192, temperature: 0.4, thinkingConfig: { thinkingBudget: 0 } },
     };
@@ -149,27 +129,24 @@ export const extrairVideoTask = task({
     catch { const m = txt.match(/\{[\s\S]*\}/); if (m) { try { parsed = JSON.parse(m[0]); } catch { /* */ } } }
     if (!parsed?.texto_base) return fail('Gemini não retornou JSON com texto_base');
 
-    // Casa a sugestão da IA com a lista real (case-insensitive). A competência
-    // › descritor é preenchida pela IA após a extração — o admin não escolhe antes.
-    const sugComp = String(parsed.competencia_sugerida || '').trim().toLowerCase();
-    const sugDesc = String(parsed.descritor_sugerido || '').trim().toLowerCase();
-    const catMatch = cats.find((c) => c.competencia.toLowerCase() === sugComp);
-    const competencia = catMatch?.competencia || (parsed.competencia_sugerida ? String(parsed.competencia_sugerida).slice(0, 200) : null);
-    const descritor = catMatch?.descritores.find((d) => d.toLowerCase() === sugDesc)
-      || (parsed.descritor_sugerido ? String(parsed.descritor_sugerido).slice(0, 200) : null);
-
-    // 3) Salva e marca done.
-    await rPatch('micro_conteudos', `id=eq.${id}`, {
-      titulo: String(parsed.titulo || 'Vídeo da empresa').slice(0, 200),
-      descricao: parsed.resumo ? String(parsed.resumo).slice(0, 500) : null,
-      conteudo_inline: String(parsed.texto_base),
-      competencia, descritor,
-      duracao_min: Number.isFinite(Number(parsed.duracao_min)) ? Number(parsed.duracao_min) : null,
-      extracao_status: 'done', extracao_error: null, extracao_em: new Date().toISOString(),
-      ativo: true,
-    });
-
     await rm(out, { force: true }).catch(() => {});
-    return { ok: true, id };
+
+    // 3) Callback do app: estrutura o Módulo-Base rascunho (IA-autora + catálogo).
+    const cb = await fetch(`${APP_URL}/api/internal/modulo-from-video`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-internal-secret': KEY },
+      body: JSON.stringify({
+        extracaoId: id,
+        textoBase: String(parsed.texto_base),
+        titulo: parsed.titulo ? String(parsed.titulo).slice(0, 200) : null,
+        locale,
+      }),
+    });
+    if (!cb.ok) {
+      const msg = await cb.text().catch(() => '');
+      return fail(`callback módulo ${cb.status}: ${msg.slice(0, 300)}`);
+    }
+    const res: any = await cb.json().catch(() => ({}));
+    return { ok: true, extracaoId: id, moduloId: res?.moduloId };
   },
 });

@@ -116,6 +116,7 @@ export async function gerarConteudoIA({
         nivelMin,
         locale: (aiConfig as any)?.locale,
         contexto_pedagogico: contexto,
+        empresaId,
       });
       if (escolhido) {
         ({ system, user } = enriquecerPromptComModuloBase({ system, user }, escolhido.modulo, formato));

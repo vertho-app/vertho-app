@@ -2,27 +2,27 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Film, Sparkles, Save, FileText, Headphones, CheckCircle2, Clock, AlertCircle, Send } from 'lucide-react';
+import Link from 'next/link';
+import { Loader2, Film, Sparkles, FileText, CheckCircle2, Clock, AlertCircle, Send, Layers, ExternalLink } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { extrairVideo, salvarVideoExtraido, gerarComplementoDoVideo, loadCompetenciasDescritores, submeterExtracaoAsync, listarExtracoesAndamento } from '@/actions/extracao-video';
+import { extrairVideo, gerarModuloBaseDoVideo, submeterExtracaoAsync, listarExtracoesAndamento } from '@/actions/extracao-video';
 
 export default function ExtracaoVideoPage({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = use(params);
   const router = useRouter();
 
+  // Síncrono (YouTube / .mp4): extrai → revisa texto-base → gera módulo-base.
   const [url, setUrl] = useState('');
   const [extraindo, setExtraindo] = useState(false);
   const [base, setBase] = useState<any>(null);
-  const [comp, setComp] = useState('');
-  const [desc, setDesc] = useState('');
-  const [salvando, setSalvando] = useState(false);
-  const [savedId, setSavedId] = useState<string | null>(null);
-  const [gerando, setGerando] = useState<string | null>(null);
+  const [escopoGlobal, setEscopoGlobal] = useState(false); // false = exclusivo desta empresa
+  const [gerando, setGerando] = useState(false);
+  const [modulo, setModulo] = useState<{ id: string; competencia?: string; transicao?: string } | null>(null);
   const [toast, setToast] = useState('');
-  const [comps, setComps] = useState<{ competencia: string; descritores: string[] }[]>([]);
 
-  // Async (background): só a URL — a IA define competência › descritor após extrair.
+  // Assíncrono (Vimeo/TED/LMS/longos): só a URL + alcance.
   const [urlAsync, setUrlAsync] = useState('');
+  const [escopoGlobalAsync, setEscopoGlobalAsync] = useState(false);
   const [submetendo, setSubmetendo] = useState(false);
   const [extracoes, setExtracoes] = useState<any[]>([]);
 
@@ -31,18 +31,39 @@ export default function ExtracaoVideoPage({ params }: { params: Promise<{ empres
   }
 
   useEffect(() => {
-    loadCompetenciasDescritores(empresaId).then((r) => setComps(r.data || []));
     carregarExtracoes();
     const t = setInterval(carregarExtracoes, 15000); // poll de status
     return () => clearInterval(t);
   }, [empresaId]);
 
-  const descritoresDaComp = comps.find((c) => c.competencia === comp)?.descritores || [];
+  function flash(m: string) { setToast(m); setTimeout(() => setToast(''), 4000); }
+
+  async function handleExtrair() {
+    if (!url.trim()) { flash('Informe a URL do vídeo'); return; }
+    setExtraindo(true); setBase(null); setModulo(null);
+    const r = await extrairVideo(empresaId, url.trim());
+    setExtraindo(false);
+    if (r.error) { flash(r.error); return; }
+    setBase(r.data);
+  }
+
+  async function handleGerarModulo() {
+    if (!base?.texto_base) return;
+    setGerando(true);
+    const r = await gerarModuloBaseDoVideo(empresaId, {
+      url: url.trim(), titulo: base.titulo, texto_base: base.texto_base,
+      locale: base.locale, escopoGlobal,
+    });
+    setGerando(false);
+    if (r.error) { flash(r.error); return; }
+    setModulo({ id: r.moduloId!, competencia: r.competencia, transicao: r.transicao });
+    flash('Módulo-base rascunho criado');
+  }
 
   async function handleSubmeterAsync() {
     if (!urlAsync.trim()) { flash('Informe a URL do vídeo'); return; }
     setSubmetendo(true);
-    const r = await submeterExtracaoAsync(empresaId, urlAsync.trim());
+    const r = await submeterExtracaoAsync(empresaId, urlAsync.trim(), escopoGlobalAsync);
     setSubmetendo(false);
     if (r.error) { flash(r.error); return; }
     flash('Extração iniciada em background');
@@ -50,41 +71,20 @@ export default function ExtracaoVideoPage({ params }: { params: Promise<{ empres
     carregarExtracoes();
   }
 
-  function flash(m: string) { setToast(m); setTimeout(() => setToast(''), 4000); }
-
-  async function handleExtrair() {
-    if (!url.trim()) { flash('Informe a URL do vídeo'); return; }
-    setExtraindo(true); setBase(null); setSavedId(null);
-    const r = await extrairVideo(empresaId, url.trim());
-    setExtraindo(false);
-    if (r.error) { flash(r.error); return; }
-    setBase(r.data);
-    // Pré-seleciona a sugestão da IA se ela casar com uma competência/descritor existente.
-    const sug = comps.find((c) => c.competencia.toLowerCase() === String(r.data.competencia_sugerida || '').toLowerCase());
-    setComp(sug?.competencia || '');
-    const sugDesc = sug?.descritores.find((d) => d.toLowerCase() === String(r.data.descritor_sugerido || '').toLowerCase());
-    setDesc(sugDesc || '');
-  }
-
-  async function handleSalvar() {
-    if (!comp || !desc) { flash('Selecione competência e descritor'); return; }
-    setSalvando(true);
-    const r = await salvarVideoExtraido(empresaId, {
-      url: url.trim(), titulo: base.titulo, resumo: base.resumo, texto_base: base.texto_base,
-      competencia: comp.trim() || null, descritor: desc.trim() || null, duracao_min: base.duracao_min,
-    });
-    setSalvando(false);
-    if (r.error) { flash(r.error); return; }
-    setSavedId(r.id);
-    flash('Vídeo salvo na biblioteca');
-  }
-
-  async function handleComplemento(formato: 'texto' | 'audio') {
-    if (!savedId) return;
-    setGerando(formato);
-    const r = await gerarComplementoDoVideo(savedId, formato);
-    setGerando(null);
-    flash(r.error ? r.error : `Complemento (${formato === 'audio' ? 'podcast' : 'texto'}) gerado`);
+  // Seletor de alcance reutilizável.
+  function SeletorAlcance({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+    return (
+      <div className="flex gap-2 mt-2">
+        <button type="button" onClick={() => onChange(false)}
+          className={`flex-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg border ${!value ? 'border-teal-400/50 bg-teal-500/10 text-teal-200' : 'border-white/10 text-gray-400'}`}>
+          Exclusivo desta empresa
+        </button>
+        <button type="button" onClick={() => onChange(true)}
+          className={`flex-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg border ${value ? 'border-teal-400/50 bg-teal-500/10 text-teal-200' : 'border-white/10 text-gray-400'}`}>
+          Global (canônico — todos os tenants)
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -94,7 +94,7 @@ export default function ExtracaoVideoPage({ params }: { params: Promise<{ empres
       <BackButton onClick={() => router.back()} />
       <div className="mb-6">
         <h1 className="text-xl font-bold text-white flex items-center gap-2"><Film size={20} className="text-purple-400" /> Extração de conteúdo de vídeo</h1>
-        <p className="text-xs text-gray-500">Reaproveite vídeos que a empresa já tem: extraímos um texto-base e geramos os micro-conteúdos complementares.</p>
+        <p className="text-xs text-gray-500">Reaproveite vídeos como matéria-prima: extraímos um texto-base e a IA estrutura um <strong className="text-gray-300">Módulo-Base rascunho</strong> (revisado e publicado em Módulos-Base de Conteúdo).</p>
       </div>
 
       {/* URL síncrona (YouTube / .mp4 direto) — extrai na hora */}
@@ -110,17 +110,16 @@ export default function ExtracaoVideoPage({ params }: { params: Promise<{ empres
             {extraindo ? 'Extraindo...' : 'Extrair'}
           </button>
         </div>
-        <p className="text-[10px] text-gray-600 mt-1.5">Você revisa o texto-base antes de salvar. O vídeo não é re-hospedado — guardamos só o link.</p>
+        <p className="text-[10px] text-gray-600 mt-1.5">Você revisa o texto-base antes de gerar o módulo. O vídeo não é re-hospedado — guardamos só o link.</p>
       </div>
 
       {/* Extração em background (Vimeo/TED/LMS ou vídeos longos) */}
       <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 p-4 mb-5">
         <p className="text-[10px] uppercase tracking-widest text-amber-300 mb-1 flex items-center gap-1.5"><Clock size={13} /> Outra plataforma (Vimeo, TED, LMS) ou vídeo longo — processar em background</p>
-        <p className="text-[10px] text-gray-500 mb-2">Só cole a URL: o conteúdo é extraído em segundo plano e a IA define competência › descritor automaticamente (como no YouTube). Aparece pronto na lista abaixo.</p>
-        <div className="flex gap-2">
-          <input value={urlAsync} onChange={(e) => setUrlAsync(e.target.value)} placeholder="https://vimeo.com/... ou ted.com/talks/..."
-            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none" />
-        </div>
+        <p className="text-[10px] text-gray-500 mb-2">Cole a URL e escolha o alcance: o conteúdo é extraído em segundo plano, a IA detecta competência canônica + níveis e cria o módulo-base rascunho. Aparece pronto na lista abaixo.</p>
+        <input value={urlAsync} onChange={(e) => setUrlAsync(e.target.value)} placeholder="https://vimeo.com/... ou ted.com/talks/..."
+          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none" />
+        <SeletorAlcance value={escopoGlobalAsync} onChange={setEscopoGlobalAsync} />
         <button onClick={handleSubmeterAsync} disabled={submetendo}
           className="mt-2 flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-white disabled:opacity-50"
           style={{ background: 'linear-gradient(135deg, #D97706, #B45309)' }}>
@@ -132,20 +131,26 @@ export default function ExtracaoVideoPage({ params }: { params: Promise<{ empres
           <div className="mt-3 space-y-1.5">
             {extracoes.map((e) => (
               <div key={e.id} className="flex items-center gap-2 text-[11px] rounded-lg px-3 py-1.5" style={{ background: '#091D35' }}>
-                {e.extracao_status === 'processing' && <Loader2 size={12} className="animate-spin text-amber-400 shrink-0" />}
-                {e.extracao_status === 'done' && <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />}
-                {e.extracao_status === 'error' && <AlertCircle size={12} className="text-red-400 shrink-0" />}
-                <span className="text-gray-300 truncate flex-1">{e.titulo}{e.competencia ? ` · ${e.competencia} › ${e.descritor}` : ''}</span>
-                <span className={`shrink-0 ${e.extracao_status === 'done' ? 'text-emerald-400' : e.extracao_status === 'error' ? 'text-red-400' : 'text-amber-400'}`}>
-                  {e.extracao_status === 'processing' ? 'processando' : e.extracao_status === 'done' ? 'pronto' : 'erro'}
-                </span>
+                {e.status === 'processing' && <Loader2 size={12} className="animate-spin text-amber-400 shrink-0" />}
+                {e.status === 'done' && <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />}
+                {e.status === 'error' && <AlertCircle size={12} className="text-red-400 shrink-0" />}
+                <span className="text-gray-300 truncate flex-1">{e.titulo || e.url}{e.escopo_global ? ' · global' : ' · empresa'}</span>
+                {e.status === 'done' && e.modulo_base_id ? (
+                  <Link href={`/admin/vertho/modulos-base/${e.modulo_base_id}`} className="shrink-0 text-emerald-300 flex items-center gap-1 hover:underline">
+                    ver módulo <ExternalLink size={11} />
+                  </Link>
+                ) : (
+                  <span className={`shrink-0 ${e.status === 'error' ? 'text-red-400' : 'text-amber-400'}`} title={e.error || ''}>
+                    {e.status === 'processing' ? 'processando' : 'erro'}
+                  </span>
+                )}
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Resultado */}
+      {/* Resultado da extração síncrona */}
       {base && (
         <div className="rounded-2xl border border-purple-400/20 bg-purple-500/5 p-4 space-y-4">
           <div>
@@ -155,54 +160,32 @@ export default function ExtracaoVideoPage({ params }: { params: Promise<{ empres
           </div>
           {base.resumo && <p className="text-xs text-gray-400">{base.resumo}{base.duracao_min ? ` · ~${base.duracao_min} min` : ''}</p>}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Competência</p>
-              <select value={comp} onChange={(e) => { setComp(e.target.value); setDesc(''); }}
-                className="w-full bg-[#091D35] border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none">
-                <option value="">— selecione —</option>
-                {comps.map((c) => <option key={c.competencia} value={c.competencia}>{c.competencia}</option>)}
-              </select>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Descritor</p>
-              <select value={desc} onChange={(e) => setDesc(e.target.value)} disabled={!comp}
-                className="w-full bg-[#091D35] border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none disabled:opacity-50">
-                <option value="">{comp ? '— selecione —' : '(escolha a competência)'}</option>
-                {descritoresDaComp.map((d) => <option key={d} value={d}>{d}</option>)}
-              </select>
-            </div>
-          </div>
-          {base.competencia_sugerida && (
-            <p className="text-[10px] text-gray-500">Sugestão da IA: {base.competencia_sugerida}{base.descritor_sugerido ? ` › ${base.descritor_sugerido}` : ''}</p>
-          )}
-
           <div>
             <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Texto-base (matéria-prima — editável)</p>
             <textarea value={base.texto_base} onChange={(e) => setBase({ ...base, texto_base: e.target.value })} rows={12}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-gray-200 font-mono outline-none" />
           </div>
 
-          {!savedId ? (
-            <button onClick={handleSalvar} disabled={salvando}
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Alcance do módulo-base</p>
+            <SeletorAlcance value={escopoGlobal} onChange={setEscopoGlobal} />
+            <p className="text-[10px] text-gray-600 mt-1.5">A IA detecta a competência canônica e a transição de nível ao estruturar o módulo. Ele nasce como rascunho para revisão.</p>
+          </div>
+
+          {!modulo ? (
+            <button onClick={handleGerarModulo} disabled={gerando}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-white disabled:opacity-50"
               style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
-              {salvando ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-              Salvar na biblioteca
+              {gerando ? <Loader2 size={14} className="animate-spin" /> : <Layers size={14} />}
+              {gerando ? 'Estruturando módulo...' : 'Gerar módulo-base (rascunho)'}
             </button>
           ) : (
             <div className="space-y-2">
-              <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-300"><CheckCircle2 size={14} /> Salvo · gere os complementos:</p>
-              <div className="flex gap-2 flex-wrap">
-                <button onClick={() => handleComplemento('texto')} disabled={gerando !== null}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-cyan-300 border border-cyan-400/30 hover:bg-cyan-400/10 disabled:opacity-50">
-                  {gerando === 'texto' ? <Loader2 size={12} className="animate-spin" /> : <FileText size={12} />} Complemento em texto
-                </button>
-                <button onClick={() => handleComplemento('audio')} disabled={gerando !== null}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-amber-300 border border-amber-400/30 hover:bg-amber-400/10 disabled:opacity-50">
-                  {gerando === 'audio' ? <Loader2 size={12} className="animate-spin" /> : <Headphones size={12} />} Complemento em podcast
-                </button>
-              </div>
+              <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-300"><CheckCircle2 size={14} /> Módulo-base rascunho criado{modulo.competencia ? ` · ${modulo.competencia} ${modulo.transicao || ''}` : ''}</p>
+              <Link href={`/admin/vertho/modulos-base/${modulo.id}`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-cyan-300 border border-cyan-400/30 hover:bg-cyan-400/10">
+                <FileText size={12} /> Abrir módulo para revisar <ExternalLink size={11} />
+              </Link>
             </div>
           )}
         </div>

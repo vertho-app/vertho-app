@@ -134,7 +134,7 @@ export function formatBlocoConhecimentoDescritor(c: DescritorConhecimento | null
  */
 export async function carregarModuloBaseParaTutor(
   sb: SupabaseClient,
-  opts: { competenciaNome?: string | null; nivelMin?: number; locale?: string; contexto_pedagogico?: string | null },
+  opts: { competenciaNome?: string | null; nivelMin?: number; locale?: string; contexto_pedagogico?: string | null; empresaId?: string | null },
 ): Promise<string> {
   if (!opts.competenciaNome) return '';
   try {
@@ -143,6 +143,7 @@ export async function carregarModuloBaseParaTutor(
       nivelMin: typeof opts.nivelMin === 'number' ? opts.nivelMin : 1.5,
       locale: opts.locale,
       contexto_pedagogico: opts.contexto_pedagogico || undefined,
+      empresaId: opts.empresaId || undefined,
     });
     if (!res?.modulo) return '';
     return formatBlocoModuloBaseTutor(res.modulo);

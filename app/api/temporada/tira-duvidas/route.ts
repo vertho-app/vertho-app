@@ -151,6 +151,7 @@ export async function POST(request) {
       const blocoModulo = await carregarModuloBaseParaTutor(sb, {
         competenciaNome: competenciaSemana,
         nivelMin, // locale default pt-BR; contexto pedagógico resolvido no engine de geração
+        empresaId: trilha.empresa_id,
       });
 
       conhecimentoDescritor = [blocoDescritor, blocoModulo].filter(Boolean).join('\n\n');
