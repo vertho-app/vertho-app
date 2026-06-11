@@ -1,6 +1,10 @@
 import { task } from '@trigger.dev/sdk';
 import youtubedl from 'youtube-dl-exec';
-import { readFile, rm } from 'node:fs/promises';
+import { readFile, rm, mkdir, readdir } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const exec = promisify(execFile);
 
 // O binário do yt-dlp é instalado na imagem pelo build (trigger.config.ts);
 // apontamos o youtube-dl-exec pra ele em vez do binário do npm (que não é
@@ -8,6 +12,7 @@ import { readFile, rm } from 'node:fs/promises';
 const ytdlp = process.env.YT_DLP_PATH
   ? youtubedl.create(process.env.YT_DLP_PATH)
   : youtubedl;
+const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
 
 // Acesso ao Supabase via REST (PostgREST) com service-role — evita o
 // @supabase/supabase-js, cujo cliente Realtime (WebSocket) quebra no runtime
@@ -16,9 +21,11 @@ const SUPA = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL ||
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const REST_HEADERS = { apikey: KEY, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' };
 
-// URL do app para o callback que estrutura o módulo-base (IA-autora + catálogo
-// só existem no runtime do app). Default app.vertho.ai; override por env.
+// URL do app para o callback que segmenta + estrutura os módulos-base.
 const APP_URL = process.env.APP_CALLBACK_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.vertho.ai';
+
+const CHUNK_SECONDS = 900; // blocos de 15 min
+const MAX_CHUNKS = 20;     // teto ~5h por vídeo
 
 async function rGetOne(table: string, query: string): Promise<any | null> {
   const r = await fetch(`${SUPA}/rest/v1/${table}?${query}`, { headers: REST_HEADERS });
@@ -33,39 +40,34 @@ async function rPatch(table: string, query: string, body: any): Promise<void> {
   if (!r.ok) throw new Error(`Supabase PATCH ${table} ${r.status}: ${(await r.text()).slice(0, 200)}`);
 }
 
-/**
- * Worker de extração de conteúdo-base de vídeo (substitui o Cloud Run).
- *
- * yt-dlp resolve o vídeo de ~1800 plataformas (Vimeo, TED, LMS, YouTube), ffmpeg
- * extrai um áudio leve, o Gemini destila o TEXTO-BASE, e o callback /api/internal/
- * modulo-from-video estrutura o Módulo-Base rascunho (matéria-prima canônica).
- * O rastreamento fica em extracoes_video (status processing/done/error).
- *
- * Env (no projeto trigger.dev): SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
- * GEMINI_API_KEY, GEMINI_VIDEO_MODEL (opcional), APP_CALLBACK_URL (opcional).
- */
-
 const MODEL = process.env.GEMINI_VIDEO_MODEL || 'gemini-3.5-flash';
 const IDIOMA: Record<string, string> = {
   'pt-BR': 'português do Brasil', 'pt-PT': 'português de Portugal',
   'es-ES': 'espanhol', 'en-US': 'inglês',
 };
 
-function systemPrompt(idioma: string): string {
-  return `Você é um designer instrucional da Vertho. Recebe o ÁUDIO de um vídeo e extrai um TEXTO-BASE (matéria-prima pedagógica), NÃO a transcrição literal. Seja fiel — não invente.
-
-IDIOMA DA SAÍDA: escreva tudo em ${idioma}, independentemente do idioma do áudio (traduza/adapte).
-
-Responda APENAS JSON válido:
-{
-  "titulo": "título curto do tema",
-  "texto_base": "markdown rico: ## Ideia central; ## Conceitos-chave; ## Princípios; ## Exemplos e aplicações; ## Erros comuns; ## Boas práticas; ## Para refletir. 600-1200 palavras, fiel ao áudio."
-}`;
+/** Transcreve UM bloco de áudio (≤15 min) fielmente, no idioma de saída. */
+async function transcreverBloco(buf: Buffer, idioma: string, n: number): Promise<string> {
+  const system = `Você transcreve o ÁUDIO de um trecho de vídeo em texto fiel e legível (corrija só hesitações/ruído; NÃO invente, NÃO resuma). IDIOMA DA SAÍDA: ${idioma} (traduza se o áudio estiver em outra língua). Responda só o texto transcrito, sem comentários.`;
+  const body = {
+    systemInstruction: { parts: [{ text: system }] },
+    contents: [{ role: 'user', parts: [
+      { inlineData: { mimeType: 'audio/mp3', data: buf.toString('base64') } },
+      { text: `Transcreva fielmente este trecho (${n}).` },
+    ] }],
+    generationConfig: { maxOutputTokens: 8192, temperature: 0.2, thinkingConfig: { thinkingBudget: 0 } },
+  };
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error('Gemini ' + r.status + ': ' + (await r.text()).slice(0, 200));
+  const d: any = await r.json();
+  return d?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).filter(Boolean).join('') || '';
 }
 
 export const extrairVideoTask = task({
   id: 'extrair-video',
-  maxDuration: 900,
+  maxDuration: 1800, // 30 min — cobre vídeos longos transcritos em blocos
   retry: { maxAttempts: 2 },
   run: async (payload: { extracaoId: string }) => {
     const id = payload.extracaoId;
@@ -98,55 +100,54 @@ export const extrairVideoTask = task({
         postprocessorArgs: 'ffmpeg:-ar 16000 -ac 1 -b:a 48k',
       } as any);
     } catch (e: any) {
-      const detail = [
-        e?.shortMessage, e?.stderr, e?.stdout, e?.message,
-        e?.exitCode != null ? `exit ${e.exitCode}` : '', e?.code,
-      ].filter(Boolean).join(' | ');
+      const detail = [e?.shortMessage, e?.stderr, e?.stdout, e?.message, e?.exitCode != null ? `exit ${e.exitCode}` : '', e?.code].filter(Boolean).join(' | ');
       return fail('yt-dlp: ' + (String(detail || e).slice(0, 450) || 'erro sem detalhe'));
     }
 
-    let buf: Buffer;
-    try { buf = await readFile(out); } catch { return fail('áudio não gerado'); }
-    if (buf.length > 19 * 1024 * 1024) return fail('Áudio > 19MB (vídeo longo demais para esta versão).');
+    // 2) ffmpeg: fatia em blocos de 15 min (vídeo curto = 1 bloco). Remove o teto
+    //    de duração (cada bloco ~5MB cabe inline no Gemini).
+    const dir = `/tmp/seg-${id}`;
+    await mkdir(dir, { recursive: true }).catch(() => {});
+    let blocos: string[] = [];
+    try {
+      await exec(FFMPEG, ['-hide_banner', '-loglevel', 'error', '-i', out,
+        '-f', 'segment', '-segment_time', String(CHUNK_SECONDS), '-c', 'copy', `${dir}/chunk-%03d.mp3`]);
+      blocos = (await readdir(dir)).filter((f) => f.endsWith('.mp3')).sort().map((f) => `${dir}/${f}`);
+    } catch { /* fallback abaixo */ }
+    if (!blocos.length) blocos = [out]; // sem segmentação → trata o áudio inteiro
+    const truncado = blocos.length > MAX_CHUNKS;
+    blocos = blocos.slice(0, MAX_CHUNKS);
 
-    // 2) Gemini → texto-base.
-    const body = {
-      systemInstruction: { parts: [{ text: systemPrompt(idioma) }] },
-      contents: [{ role: 'user', parts: [
-        { inlineData: { mimeType: 'audio/mp3', data: buf.toString('base64') } },
-        { text: 'Extraia o texto-base deste áudio.' },
-      ] }],
-      generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 8192, temperature: 0.4, thinkingConfig: { thinkingBudget: 0 } },
-    };
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-    });
-    if (!r.ok) return fail('Gemini ' + r.status + ': ' + (await r.text()).slice(0, 300));
-    const d: any = await r.json();
-    const txt = d?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).filter(Boolean).join('') || '';
-    let parsed: any;
-    try { parsed = JSON.parse(txt.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim()); }
-    catch { const m = txt.match(/\{[\s\S]*\}/); if (m) { try { parsed = JSON.parse(m[0]); } catch { /* */ } } }
-    if (!parsed?.texto_base) return fail('Gemini não retornou JSON com texto_base');
-
+    // 3) Transcreve cada bloco (sequencial) e concatena.
+    const partes: string[] = [];
+    for (let i = 0; i < blocos.length; i++) {
+      let b: Buffer;
+      try { b = await readFile(blocos[i]); } catch { continue; }
+      if (b.length > 19 * 1024 * 1024) { partes.push(`\n\n### Trecho ${i + 1}\n\n[bloco grande demais — pulado]`); continue; }
+      try {
+        const t = await transcreverBloco(b, idioma, i + 1);
+        if (t.trim()) partes.push(`### Trecho ${i + 1}\n\n${t.trim()}`);
+      } catch (e: any) {
+        return fail('transcrição bloco ' + (i + 1) + ': ' + String(e?.message || e).slice(0, 300));
+      }
+    }
     await rm(out, { force: true }).catch(() => {});
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
 
-    // 3) Callback do app: estrutura o Módulo-Base rascunho (IA-autora + catálogo).
+    const transcricao = partes.join('\n\n').trim() + (truncado ? '\n\n[transcrição truncada no limite de duração]' : '');
+    if (!transcricao || transcricao.length < 40) return fail('transcrição vazia');
+
+    // 4) Callback do app: segmenta em temas e estrutura N módulos-base rascunho.
     const cb = await fetch(`${APP_URL}/api/internal/modulo-from-video`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-internal-secret': KEY },
-      body: JSON.stringify({
-        extracaoId: id,
-        textoBase: String(parsed.texto_base),
-        titulo: parsed.titulo ? String(parsed.titulo).slice(0, 200) : null,
-        locale,
-      }),
+      body: JSON.stringify({ extracaoId: id, transcricao, titulo: null, locale }),
     });
     if (!cb.ok) {
       const msg = await cb.text().catch(() => '');
       return fail(`callback módulo ${cb.status}: ${msg.slice(0, 300)}`);
     }
     const res: any = await cb.json().catch(() => ({}));
-    return { ok: true, extracaoId: id, moduloId: res?.moduloId };
+    return { ok: true, extracaoId: id, moduloIds: res?.moduloIds, n: res?.n, blocos: blocos.length };
   },
 });

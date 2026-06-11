@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { criarModuloBaseDeTextoExtraido } from '@/actions/modulos-base';
+import { criarModulosDeTranscricao } from '@/actions/modulos-base';
 
 /**
  * Callback interno do worker de extração (trigger.dev). O worker baixa o vídeo,
- * extrai o texto-base e chama esta rota para estruturar o Módulo-Base rascunho
- * (precisa da IA-autora + catálogo, que só existem no runtime do app).
+ * gera a TRANSCRIÇÃO completa (em blocos, para qualquer duração) e chama esta
+ * rota para segmentar em temas e estruturar N Módulos-Base rascunho — a IA-autora
+ * + o catálogo só existem no runtime do app. Vídeo curto → 1 módulo; 1h+ → N.
  *
  * Autenticação: header `x-internal-secret` == SUPABASE_SERVICE_ROLE_KEY (segredo
  * forte que o worker já possui — evita uma env var nova). Não é rota pública.
  *
- * Body: { extracaoId, textoBase, titulo?, locale? }
+ * Body: { extracaoId, transcricao, titulo?, locale? }
  */
 export const runtime = 'nodejs';
-export const maxDuration = 300; // estruturar 4 blocos via IA-autora pode levar minutos
+export const maxDuration = 800; // segmentar + estruturar N módulos via IA pode levar minutos
 
 export async function POST(req: NextRequest) {
   const secret = req.headers.get('x-internal-secret') || '';
@@ -23,30 +24,42 @@ export async function POST(req: NextRequest) {
 
   let body: any;
   try { body = await req.json(); } catch { return NextResponse.json({ error: 'json inválido' }, { status: 400 }); }
-  const { extracaoId, textoBase, titulo, locale } = body || {};
-  if (!extracaoId || !textoBase) return NextResponse.json({ error: 'extracaoId e textoBase obrigatórios' }, { status: 400 });
+  const { extracaoId, transcricao, titulo, locale } = body || {};
+  if (!extracaoId || !transcricao) return NextResponse.json({ error: 'extracaoId e transcricao obrigatórios' }, { status: 400 });
 
   const sb = createSupabaseAdmin();
   const { data: ext } = await sb.from('extracoes_video')
-    .select('id, escopo_empresa_id').eq('id', extracaoId).maybeSingle();
+    .select('id, escopo_empresa_id, url').eq('id', extracaoId).maybeSingle();
   if (!ext) return NextResponse.json({ error: 'extração não encontrada' }, { status: 404 });
 
   const empresaId = ext.escopo_empresa_id || null; // null = módulo global/canônico
-  const res = await criarModuloBaseDeTextoExtraido({
-    textoBase, tituloVideo: titulo, locale, empresaId, createdBy: 'extracao-video',
+  const res = await criarModulosDeTranscricao({
+    transcricao, tituloVideo: titulo, urlOrigem: ext.url, locale, empresaId, createdBy: 'extracao-video',
   });
 
-  if (res.error || !res.id) {
+  // Guarda a transcrição (artefato reusável) mesmo em caso de erro na autoria.
+  if (res.error || !res.modulos.length) {
     await sb.from('extracoes_video').update({
-      status: 'error', error: String(res.error || 'falha ao estruturar módulo').slice(0, 500),
-      titulo: titulo || null, updated_at: new Date().toISOString(),
+      status: 'error', error: String(res.error || 'falha ao estruturar módulos').slice(0, 500),
+      transcricao: String(transcricao).slice(0, 500000), titulo: titulo || null, updated_at: new Date().toISOString(),
     }).eq('id', extracaoId);
     return NextResponse.json({ error: res.error || 'falha ao estruturar' }, { status: 422 });
   }
 
+  const ids = res.modulos.map((m) => m.id);
+  const comps = res.modulos.map((m) => m.competencia).filter(Boolean);
+  const tituloFinal = res.modulos.length > 1
+    ? `${res.modulos.length} módulos: ${comps.slice(0, 2).join(', ')}${comps.length > 2 ? '…' : ''}`
+    : (comps[0] || titulo || 'Vídeo');
   await sb.from('extracoes_video').update({
-    status: 'done', modulo_base_id: res.id, titulo: titulo || res.competencia || null,
-    error: null, updated_at: new Date().toISOString(),
+    status: 'done',
+    modulo_base_id: ids[0],
+    modulo_base_ids: ids,
+    n_modulos: ids.length,
+    transcricao: String(transcricao).slice(0, 500000),
+    titulo: tituloFinal,
+    error: null,
+    updated_at: new Date().toISOString(),
   }).eq('id', extracaoId);
-  return NextResponse.json({ ok: true, moduloId: res.id, competencia: res.competencia });
+  return NextResponse.json({ ok: true, moduloIds: ids, n: ids.length });
 }

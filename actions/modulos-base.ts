@@ -729,30 +729,31 @@ ${String(textoBase).slice(0, 5000)}`;
   };
 }
 
-/**
- * Cria um Módulo-Base rascunho a partir do texto-base extraído de um vídeo.
- * Compartilhado pelo fluxo síncrono (YouTube, na tela) e assíncrono (worker via
- * rota interna). `empresaId` null = módulo global/canônico; preenchido = exclusivo.
- */
-export async function criarModuloBaseDeTextoExtraido(opts: {
-  textoBase: string;
-  tituloVideo?: string;
-  urlOrigem?: string;
-  locale?: string;
-  empresaId?: string | null;
-  createdBy?: string;
-}): Promise<{ id?: string; grupo_id?: string; competencia?: string; nivel_entrada?: Nivel; nivel_destino?: Nivel; avisos?: string[]; error?: string }> {
-  if (!opts?.textoBase?.trim()) return { error: 'texto-base vazio' };
+interface MetaModulo {
+  competencia_base_id: string;
+  nivel_entrada: Nivel;
+  nivel_destino: Nivel;
+  contexto_pedagogico?: string | null;
+  locale: Locale;
+  titulo?: string | null;
+  finalidade?: string | null;
+}
 
-  const meta = await detectarMetadadosDeTexto(opts.textoBase, opts.tituloVideo || '', opts.locale);
-  if (!meta.competencia_base_id) {
-    return { error: 'Não foi possível mapear o vídeo a uma competência canônica com confiança. Mapeie manualmente.' };
-  }
+/**
+ * Estrutura um texto-base nos 4 blocos (IA-autora) e insere o módulo rascunho.
+ * Núcleo compartilhado: a competência canônica + transição já vêm resolvidas
+ * (pela detecção de texto único OU pelo segmentador de transcrição longa).
+ */
+async function estruturarEInserirModulo(
+  meta: MetaModulo,
+  textoBase: string,
+  opts: { empresaId?: string | null; urlOrigem?: string; createdBy?: string },
+): Promise<{ id?: string; grupo_id?: string; competencia?: string; nivel_entrada?: Nivel; nivel_destino?: Nivel; avisos?: string[]; error?: string }> {
   const comp = await carregarCompetenciaBase(meta.competencia_base_id);
   if (!comp) return { error: 'Competência base não encontrada' };
 
   // Estrutura os 4 blocos tratando o texto-base como matéria-prima (igual ao docx).
-  const userPrompt = montarUserPrompt(comp, meta.nivel_entrada, meta.nivel_destino, meta.contexto_pedagogico || undefined, null, opts.textoBase);
+  const userPrompt = montarUserPrompt(comp, meta.nivel_entrada, meta.nivel_destino, meta.contexto_pedagogico || undefined, null, textoBase);
   const model = await getModelForTask(null as any, 'modulo_base_autor');
   const corpo = await chamarIAComRetry(SYSTEM_AUTOR, userPrompt, model);
   if (!corpo) return { error: 'A IA não conseguiu estruturar o conteúdo do vídeo. Tente novamente ou edite manualmente.' };
@@ -779,6 +780,123 @@ export async function criarModuloBaseDeTextoExtraido(opts: {
   const { data, error } = await sb.from('modulos_base_conteudo').insert(insertRow).select('id, grupo_id').single();
   if (error) return { error: error.message };
   return { id: data.id, grupo_id: data.grupo_id, competencia: comp.nome, nivel_entrada: meta.nivel_entrada, nivel_destino: meta.nivel_destino, avisos: erros };
+}
+
+/**
+ * Cria UM Módulo-Base rascunho a partir do texto-base extraído de um vídeo curto
+ * (fluxo síncrono YouTube). Detecta competência+níveis e estrutura. `empresaId`
+ * null = módulo global/canônico; preenchido = exclusivo.
+ */
+export async function criarModuloBaseDeTextoExtraido(opts: {
+  textoBase: string;
+  tituloVideo?: string;
+  urlOrigem?: string;
+  locale?: string;
+  empresaId?: string | null;
+  createdBy?: string;
+}): Promise<{ id?: string; grupo_id?: string; competencia?: string; nivel_entrada?: Nivel; nivel_destino?: Nivel; avisos?: string[]; error?: string }> {
+  if (!opts?.textoBase?.trim()) return { error: 'texto-base vazio' };
+  const meta = await detectarMetadadosDeTexto(opts.textoBase, opts.tituloVideo || '', opts.locale);
+  if (!meta.competencia_base_id) {
+    return { error: 'Não foi possível mapear o vídeo a uma competência canônica com confiança. Mapeie manualmente.' };
+  }
+  return estruturarEInserirModulo(meta as MetaModulo, opts.textoBase, opts);
+}
+
+/**
+ * Segmenta a transcrição completa de um vídeo LONGO em seções temáticas, cada
+ * uma mapeada a uma competência canônica + transição. Vídeos de 1h+ cobrem
+ * vários temas → vários módulos (1 por tema). Retorna seções com texto-base
+ * focado por seção.
+ */
+async function segmentarTranscricao(transcricao: string, tituloVideo: string): Promise<Array<MetaModulo & { texto_base: string }>> {
+  const sb = createSupabaseAdmin();
+  const { data: comps } = await sb.from('competencias_base').select('id, nome, segmento').order('nome');
+  const compsListagem = (comps || []).slice(0, 200).map((c: any) => `- ${c.id} :: ${c.nome} (${c.segmento})`).join('\n');
+
+  const system = `Você é designer instrucional da Vertho. Recebe a TRANSCRIÇÃO de um vídeo longo (aula/palestra/masterclass) e a divide em SEÇÕES TEMÁTICAS coerentes. Cada seção vira matéria-prima de UM módulo-base, mapeado a UMA competência canônica.
+
+REGRAS:
+- Identifique de 1 a 8 seções (use o número que o conteúdo pedir — não force). Um vídeo monotemático pode ter 1 seção.
+- Cada seção: mapeie à competência do catálogo que melhor a representa (id exato) + transição de nível (default N1→N2 se incerto).
+- "texto_base" de cada seção: destile FIELMENTE o conteúdo daquela seção (400-900 palavras, markdown), sem inventar.
+- Não repita a mesma competência em duas seções, salvo se forem transições de nível distintas.
+
+Responda APENAS JSON válido:
+{
+  "secoes": [
+    {
+      "competencia_base_id": "uuid do catálogo",
+      "nivel_entrada": "N1|N2|N3",
+      "nivel_destino": "N2|N3|N4",
+      "contexto_pedagogico": "string curta ou null",
+      "titulo": "título interno da seção",
+      "finalidade": "1-2 frases",
+      "texto_base": "markdown 400-900 palavras, fiel à seção"
+    }
+  ]
+}`;
+  const user = `CATÁLOGO DE COMPETÊNCIAS (escolha de 1):
+${compsListagem}
+
+TÍTULO DO VÍDEO: ${tituloVideo || '—'}
+
+TRANSCRIÇÃO COMPLETA:
+${String(transcricao).slice(0, 120000)}`;
+
+  const model = await getModelForTask(null as any, 'modulo_base_autor');
+  const raw = await callAI(system, user, { model }, 32000).catch(() => '');
+  let parsed: any = null;
+  const cleaned = String(raw || '').replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+  for (const c of [cleaned, cleaned.match(/\{[\s\S]*\}/)?.[0] || '']) {
+    if (!c) continue;
+    try { const p = JSON.parse(c); if (p?.secoes) { parsed = p; break; } } catch { /* tenta próximo */ }
+  }
+  const secoes = Array.isArray(parsed?.secoes) ? parsed.secoes : [];
+  const niveisOk = (e: string, d: string) => NIVEIS.includes(e as Nivel) && NIVEIS.includes(d as Nivel) && nivelGreater(d as Nivel, e as Nivel);
+  return secoes
+    .filter((s: any) => s?.competencia_base_id && s?.texto_base)
+    .map((s: any) => ({
+      competencia_base_id: String(s.competencia_base_id),
+      nivel_entrada: (niveisOk(s.nivel_entrada, s.nivel_destino) ? s.nivel_entrada : 'N1') as Nivel,
+      nivel_destino: (niveisOk(s.nivel_entrada, s.nivel_destino) ? s.nivel_destino : 'N2') as Nivel,
+      contexto_pedagogico: s.contexto_pedagogico || null,
+      titulo: s.titulo || null,
+      finalidade: s.finalidade || null,
+      texto_base: String(s.texto_base),
+    }));
+}
+
+/**
+ * Cria N Módulos-Base rascunho a partir da transcrição completa de um vídeo
+ * longo (1 módulo por seção temática). Usado pelo worker (vídeos >1h via rota
+ * interna). Para vídeos curtos, o segmentador devolve 1 seção → 1 módulo.
+ */
+export async function criarModulosDeTranscricao(opts: {
+  transcricao: string;
+  tituloVideo?: string;
+  urlOrigem?: string;
+  locale?: string;
+  empresaId?: string | null;
+  createdBy?: string;
+}): Promise<{ modulos: { id: string; competencia?: string; nivel_entrada?: Nivel; nivel_destino?: Nivel }[]; error?: string }> {
+  if (!opts?.transcricao?.trim()) return { modulos: [], error: 'transcrição vazia' };
+
+  const secoes = await segmentarTranscricao(opts.transcricao, opts.tituloVideo || '');
+  if (!secoes.length) return { modulos: [], error: 'Não foi possível segmentar a transcrição em competências canônicas.' };
+
+  const locale = (opts.locale || 'pt-BR') as Locale;
+  const modulos: { id: string; competencia?: string; nivel_entrada?: Nivel; nivel_destino?: Nivel }[] = [];
+  for (const s of secoes) {
+    const res = await estruturarEInserirModulo(
+      { ...s, locale } as MetaModulo,
+      s.texto_base,
+      { empresaId: opts.empresaId, urlOrigem: opts.urlOrigem, createdBy: opts.createdBy },
+    );
+    if (res.id) modulos.push({ id: res.id, competencia: res.competencia, nivel_entrada: res.nivel_entrada, nivel_destino: res.nivel_destino });
+  }
+  if (!modulos.length) return { modulos: [], error: 'Nenhum módulo pôde ser estruturado a partir das seções.' };
+  return { modulos };
 }
 
 // ════════════════════════════════════════════════════════════════════════════
