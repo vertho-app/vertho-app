@@ -2982,16 +2982,17 @@
     "title": "Budget — Vertho AI Mentor",
     "subtitle": "Calculates AI cost, list value, discount and final value in BRL.",
     "content": {
-      "title": "Content Generation",
-      "hint": "Library reused across team members — enter how many pieces to author per format. Video and podcast include media cost (TTS and render).",
-      "text": "Articles (text)",
-      "case": "Case studies",
-      "podcast": "Podcasts",
-      "video": "Videos",
-      "personalization": "DISC+PPP personalizations",
+      "title": "Content Generation (per team member)",
+      "hint": "Each team member receives N pieces per format. Reuse divides the cost: how many team members share each piece (1 = unique content per member). Video and podcast include media (TTS and Veo render).",
+      "video": "Videos/member",
+      "podcast": "Podcasts/member",
+      "text": "Texts/member",
+      "reuse": "Reuse (members/piece)",
+      "reuseHint": "1 = unique per member",
       "videoRenderUsd": "Video render (USD)",
       "videoRenderHint": "5 min 1080p · Veo Fast ($36)",
-      "subtotal": "Content subtotal"
+      "perColab": "Per team member",
+      "total": "Content total"
     },
     "scope": {
       "title": "Scope",

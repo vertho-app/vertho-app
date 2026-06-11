@@ -3012,16 +3012,17 @@
     "title": "Orçamento — Vertho Mentor IA",
     "subtitle": "Calcula custo de IA, valor de tabela, desconto e valor final em BRL.",
     "content": {
-      "title": "Geração de Conteúdo",
-      "hint": "Biblioteca reutilizada entre colaboradores — indique quantas peças autorar por formato. Vídeo e podcast incluem custo de média (TTS e render).",
-      "text": "Artigos (texto)",
-      "case": "Estudos de caso",
-      "podcast": "Podcasts",
-      "video": "Vídeos",
-      "personalization": "Personalizações DISC+PPP",
+      "title": "Geração de Conteúdo (por colaborador)",
+      "hint": "Cada colaborador recebe N peças por formato. O reúso divide o custo: nº de colaboradores que partilham cada peça (1 = conteúdo único por colaborador). Vídeo e podcast incluem média (TTS e render Veo).",
+      "video": "Vídeos/colab",
+      "podcast": "Podcasts/colab",
+      "text": "Textos/colab",
+      "reuse": "Reúso (colabs/peça)",
+      "reuseHint": "1 = único por colab",
       "videoRenderUsd": "Render vídeo (USD)",
       "videoRenderHint": "5 min 1080p · Veo Fast ($36)",
-      "subtotal": "Subtotal conteúdo"
+      "perColab": "Por colaborador",
+      "total": "Total conteúdo"
     },
     "scope": {
       "title": "Escopo",

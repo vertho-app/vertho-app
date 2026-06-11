@@ -20,6 +20,7 @@ const PRECOS_DEFAULT = {
   adicionalWorkshop: 15000,   // R$ por cluster quando método = workshop (one-time)
   manutencaoMensalColab: 100, // R$ por colaborador / mês (manutenção/suporte — recorrente)
   custoRenderVideoUsd: 36,    // USD por vídeo: 5 min 1080p × Veo 3.1 Fast ($0,12/s) = 300×0,12
+  reusoConteudo: 1,           // colaboradores que compartilham cada peça (1 = único por colab)
   descontoPct: 0,
 };
 
@@ -89,26 +90,31 @@ function custoIAPorColab(presetFn: (call: any) => string): number {
 }
 
 /**
- * Custo de IA da geração de conteúdo (biblioteca reusada). Escala por nº de
- * peças autoradas por formato. Vídeo e podcast somam mídia (TTS + render Veo).
- * O render Veo usa o custo editável `custoRenderVideoUsd` (override do flatUsd).
+ * Custo de IA da geração de conteúdo, modelado por CONSUMO POR COLABORADOR.
+ * Cada colaborador recebe N peças por formato; o `reuso` (colabs que
+ * compartilham cada peça) divide o custo — reuso=1 significa conteúdo único por
+ * colaborador (custo máximo), reuso alto = biblioteca compartilhada (barato).
+ * Vídeo e podcast somam mídia (TTS + render Veo, este via `custoRenderVideoUsd`).
  */
-function custoIAConteudo(qtd: { texto: number; estudoCaso: number; podcast: number; video: number; personalizacao: number }, custoRenderVideoUsd: number): number {
+function custoIAConteudo(
+  porColab: { video: number; podcast: number; texto: number },
+  nColabs: number,
+  reuso: number,
+  custoRenderVideoUsd: number,
+) {
   const byId = (id: string) => CALLS.find((c) => c.id === id);
-  const cost = (id: string, units: number, overrideFlat?: number) => {
+  const unit = (id: string, overrideFlat?: number) => {
     const call = byId(id);
-    if (!call || !units) return 0;
+    if (!call) return 0;
     const eff = overrideFlat != null ? { ...call, flatUsd: overrideFlat } : call;
-    return calcCost(eff, (eff as any).defaultModel, units)?.usd || 0;
+    return calcCost(eff, (eff as any).defaultModel, 1)?.usd || 0;
   };
-  let total = 0;
-  total += cost('conteudo-texto', qtd.texto);
-  total += cost('conteudo-case', qtd.estudoCaso);
-  total += cost('conteudo-podcast-roteiro', qtd.podcast) + cost('conteudo-podcast-tts', qtd.podcast);
-  total += cost('conteudo-video-plano', qtd.video) + cost('conteudo-video-tts', qtd.video)
-    + cost('conteudo-video-render', qtd.video, custoRenderVideoUsd);
-  total += cost('conteudo-personalizacao', qtd.personalizacao);
-  return total;
+  const uVideo = unit('conteudo-video-plano') + unit('conteudo-video-tts') + unit('conteudo-video-render', custoRenderVideoUsd);
+  const uPodcast = unit('conteudo-podcast-roteiro') + unit('conteudo-podcast-tts');
+  const uTexto = unit('conteudo-texto');
+  const r = Math.max(1, reuso || 1);
+  const perColab = (porColab.video * uVideo + porColab.podcast * uPodcast + porColab.texto * uTexto) / r;
+  return { perColab, total: perColab * nColabs, uVideo, uPodcast, uTexto };
 }
 
 export default function OrcamentoPage() {
@@ -122,10 +128,10 @@ export default function OrcamentoPage() {
   const [metodo, setMetodo] = useState<Metodo>('votacao');
   const [nColabs, setNColabs] = useState(100);
   const [preset, setPreset] = useState<PresetKey>('balanced');
-  // Geração de conteúdo (biblioteca) — default 0 (não afeta orçamentos atuais).
-  const [qtdConteudo, setQtdConteudo] = useState({ texto: 0, estudoCaso: 0, podcast: 0, video: 0, personalizacao: 0 });
-  function setQtd<K extends keyof typeof qtdConteudo>(k: K, v: number) {
-    setQtdConteudo((q) => ({ ...q, [k]: v }));
+  // Geração de conteúdo — peças que CADA colaborador recebe por formato.
+  const [conteudoColab, setConteudoColab] = useState({ video: 9, podcast: 9, texto: 9 });
+  function setConteudo<K extends keyof typeof conteudoColab>(k: K, v: number) {
+    setConteudoColab((q) => ({ ...q, [k]: v }));
   }
 
   // Inputs de pricing
@@ -142,7 +148,9 @@ export default function OrcamentoPage() {
     const custoSetupPorCluster = custoIASetupCluster(nPerfis, metodo, presetFn);
     const custoTaggingTotal = custoIATaggingTotal(presetFn);
     const custoPorColab = custoIAPorColab(presetFn);
-    const custoConteudoTotal = custoIAConteudo(qtdConteudo, pricing.custoRenderVideoUsd);
+    const conteudo = custoIAConteudo(conteudoColab, nColabs, pricing.reusoConteudo, pricing.custoRenderVideoUsd);
+    const custoConteudoTotal = conteudo.total;
+    const custoConteudoPorColab = conteudo.perColab;
 
     const custoSetupTotal = nClusters * custoSetupPorCluster + custoTaggingTotal;
     const custoColabsTotal = nColabs * custoPorColab;
@@ -183,6 +191,7 @@ export default function OrcamentoPage() {
       custoTaggingTotal,
       custoPorColab,
       custoConteudoTotal,
+      custoConteudoPorColab,
       custoSetupTotal,
       custoColabsTotal,
       custoIAUsd,
@@ -208,7 +217,7 @@ export default function OrcamentoPage() {
       margemAbs,
       margemPct,
     };
-  }, [nClusters, nPerfis, metodo, nColabs, preset, pricing, qtdConteudo]);
+  }, [nClusters, nPerfis, metodo, nColabs, preset, pricing, conteudoColab]);
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 py-6 sm:px-6 min-h-full">
@@ -283,23 +292,23 @@ export default function OrcamentoPage() {
         </div>
       </div>
 
-      {/* Geração de conteúdo (biblioteca reusada) */}
+      {/* Geração de conteúdo (por colaborador + reúso) */}
       <div className="rounded-2xl border border-purple-500/20 bg-purple-500/5 p-4 mb-6">
         <p className="text-xs uppercase tracking-widest text-purple-300 mb-1 flex items-center gap-1.5">
           <Film size={14} /> {t('content.title')}
         </p>
         <p className="text-[10px] text-gray-500 mb-3">{t('content.hint')}</p>
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
-          <FieldNumber locale={locale} icon={<FileText size={14} />} label={t('content.text')} value={qtdConteudo.texto} onChange={(v) => setQtd('texto', v)} min={0} />
-          <FieldNumber locale={locale} icon={<FileText size={14} />} label={t('content.case')} value={qtdConteudo.estudoCaso} onChange={(v) => setQtd('estudoCaso', v)} min={0} />
-          <FieldNumber locale={locale} icon={<Headphones size={14} />} label={t('content.podcast')} value={qtdConteudo.podcast} onChange={(v) => setQtd('podcast', v)} min={0} />
-          <FieldNumber locale={locale} icon={<Film size={14} />} label={t('content.video')} value={qtdConteudo.video} onChange={(v) => setQtd('video', v)} min={0} />
-          <FieldNumber locale={locale} label={t('content.personalization')} value={qtdConteudo.personalizacao} onChange={(v) => setQtd('personalizacao', v)} min={0} />
-          <FieldNumber locale={locale} label={t('content.videoRenderUsd')} sub={t('content.videoRenderHint')} value={pricing.custoRenderVideoUsd} onChange={(v) => setPricingField('custoRenderVideoUsd', v)} min={0} allowDecimals />
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+          <FieldNumber locale={locale} icon={<Film size={14} />} label={t('content.video')} value={conteudoColab.video} onChange={(v) => setConteudo('video', v)} min={0} />
+          <FieldNumber locale={locale} icon={<Headphones size={14} />} label={t('content.podcast')} value={conteudoColab.podcast} onChange={(v) => setConteudo('podcast', v)} min={0} />
+          <FieldNumber locale={locale} icon={<FileText size={14} />} label={t('content.text')} value={conteudoColab.texto} onChange={(v) => setConteudo('texto', v)} min={0} />
+          <FieldNumber locale={locale} icon={<Users size={14} />} label={t('content.reuse')} sub={t('content.reuseHint')} value={pricing.reusoConteudo} onChange={(v) => setPricingField('reusoConteudo', v)} min={1} />
+          <FieldNumber locale={locale} icon={<Film size={14} />} label={t('content.videoRenderUsd')} sub={t('content.videoRenderHint')} value={pricing.custoRenderVideoUsd} onChange={(v) => setPricingField('custoRenderVideoUsd', v)} min={0} allowDecimals />
         </div>
-        {calc.custoConteudoTotal > 0 && (
-          <p className="text-[11px] text-purple-300 mt-2 font-semibold">{t('content.subtotal')}: USD {calc.custoConteudoTotal.toFixed(2)}</p>
-        )}
+        <div className="mt-3 flex flex-wrap gap-4 text-[11px]">
+          <span className="text-purple-300 font-semibold">{t('content.perColab')}: USD {calc.custoConteudoPorColab.toFixed(2)}</span>
+          <span className="text-purple-200 font-semibold">{t('content.total')}: USD {calc.custoConteudoTotal.toFixed(2)}</span>
+        </div>
       </div>
 
       {/* Resumo financeiro — Mês 1 vs Mês 2+ */}
