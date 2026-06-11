@@ -50,19 +50,20 @@ export async function extrairVideo(empresaId: string | null, url: string) {
  * descritor no envio (não vê a extração antes). O worker preenche título +
  * texto-base e marca done.
  */
-export async function submeterExtracaoAsync(empresaId: string | null, url: string, competencia: string, descritor: string) {
+export async function submeterExtracaoAsync(empresaId: string | null, url: string) {
   try {
     const sb = await requireAdminSupabase('content.manage');
     if (!url?.trim()) return { error: 'Informe a URL do vídeo' };
-    if (!competencia || !descritor) return { error: 'Escolha competência e descritor' };
 
+    // Competência › descritor são preenchidos pela IA após a extração (igual ao
+    // fluxo do YouTube). O admin só informa a URL.
     const { data: novo, error } = await sb.from('micro_conteudos').insert({
       empresa_id: empresaId,
       titulo: 'Processando…',
-      descricao: `Extração em background · ${competencia} › ${descritor}`,
+      descricao: 'Extração em background — competência definida pela IA',
       formato: 'video',
       url: url.trim(),
-      competencia, descritor,
+      competencia: null, descritor: null,
       nivel_min: 1.0, nivel_max: 4.0,
       tipo_conteudo: 'core',
       origem: 'empresa_video',

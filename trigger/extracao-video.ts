@@ -56,8 +56,26 @@ Responda APENAS JSON válido:
   "titulo": "título curto do tema",
   "resumo": "2-3 frases",
   "texto_base": "markdown: ## Ideia central; ## Conceitos-chave; ## Exemplos e aplicações; ## Para refletir (2-3 perguntas). 400-900 palavras.",
+  "competencia_sugerida": "competência que o vídeo mais desenvolve, ou null",
+  "descritor_sugerido": "descritor/sub-tema específico, ou null",
   "duracao_min": número de minutos aproximado ou null
 }`;
+}
+
+/** Agrupa competências › descritores da empresa para a IA escolher (igual ao fluxo síncrono). */
+async function carregarCompetencias(empresaId: string | null): Promise<{ competencia: string; descritores: string[] }[]> {
+  if (!empresaId) return [];
+  const rows = await fetch(
+    `${SUPA}/rest/v1/competencias?empresa_id=eq.${empresaId}&select=nome,nome_curto&order=nome`,
+    { headers: REST_HEADERS },
+  ).then((r) => (r.ok ? r.json() : [])).catch(() => []);
+  const map = new Map<string, Set<string>>();
+  for (const c of (rows || []) as any[]) {
+    if (!c?.nome) continue;
+    if (!map.has(c.nome)) map.set(c.nome, new Set());
+    if (c.nome_curto) map.get(c.nome)!.add(c.nome_curto);
+  }
+  return [...map.entries()].map(([competencia, d]) => ({ competencia, descritores: [...d].sort() }));
 }
 
 export const extrairVideoTask = task({
@@ -84,6 +102,11 @@ export const extrairVideoTask = task({
       if (emp?.default_locale) locale = emp.default_locale;
     }
     const idioma = IDIOMA[locale] || IDIOMA['pt-BR'];
+    const cats = await carregarCompetencias(mc.empresa_id);
+    const hint = cats.length
+      ? `\n\nESCOLHA "competencia_sugerida" E "descritor_sugerido" EXATAMENTE de uma das opções abaixo (copie o texto idêntico; não invente). Escolha o par que melhor representa o vídeo:\n`
+        + cats.map((c) => `• ${c.competencia}: ${c.descritores.length ? c.descritores.join(' | ') : '(sem descritores)'}`).join('\n')
+      : '';
 
     // 1) yt-dlp → áudio leve (mono 16kHz 48kbps).
     const out = `/tmp/audio-${id}.mp3`;
@@ -111,7 +134,7 @@ export const extrairVideoTask = task({
       systemInstruction: { parts: [{ text: systemPrompt(idioma) }] },
       contents: [{ role: 'user', parts: [
         { inlineData: { mimeType: 'audio/mp3', data: buf.toString('base64') } },
-        { text: 'Extraia o texto-base deste áudio.' },
+        { text: `Extraia o texto-base deste áudio.${hint}` },
       ] }],
       generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 8192, temperature: 0.4, thinkingConfig: { thinkingBudget: 0 } },
     };
@@ -126,11 +149,21 @@ export const extrairVideoTask = task({
     catch { const m = txt.match(/\{[\s\S]*\}/); if (m) { try { parsed = JSON.parse(m[0]); } catch { /* */ } } }
     if (!parsed?.texto_base) return fail('Gemini não retornou JSON com texto_base');
 
+    // Casa a sugestão da IA com a lista real (case-insensitive). A competência
+    // › descritor é preenchida pela IA após a extração — o admin não escolhe antes.
+    const sugComp = String(parsed.competencia_sugerida || '').trim().toLowerCase();
+    const sugDesc = String(parsed.descritor_sugerido || '').trim().toLowerCase();
+    const catMatch = cats.find((c) => c.competencia.toLowerCase() === sugComp);
+    const competencia = catMatch?.competencia || (parsed.competencia_sugerida ? String(parsed.competencia_sugerida).slice(0, 200) : null);
+    const descritor = catMatch?.descritores.find((d) => d.toLowerCase() === sugDesc)
+      || (parsed.descritor_sugerido ? String(parsed.descritor_sugerido).slice(0, 200) : null);
+
     // 3) Salva e marca done.
     await rPatch('micro_conteudos', `id=eq.${id}`, {
       titulo: String(parsed.titulo || 'Vídeo da empresa').slice(0, 200),
       descricao: parsed.resumo ? String(parsed.resumo).slice(0, 500) : null,
       conteudo_inline: String(parsed.texto_base),
+      competencia, descritor,
       duracao_min: Number.isFinite(Number(parsed.duracao_min)) ? Number(parsed.duracao_min) : null,
       extracao_status: 'done', extracao_error: null, extracao_em: new Date().toISOString(),
       ativo: true,

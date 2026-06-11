@@ -21,10 +21,8 @@ export default function ExtracaoVideoPage({ params }: { params: Promise<{ empres
   const [toast, setToast] = useState('');
   const [comps, setComps] = useState<{ competencia: string; descritores: string[] }[]>([]);
 
-  // Async (background): URL/competência/descritor próprios + lista de status.
+  // Async (background): só a URL — a IA define competência › descritor após extrair.
   const [urlAsync, setUrlAsync] = useState('');
-  const [compAsync, setCompAsync] = useState('');
-  const [descAsync, setDescAsync] = useState('');
   const [submetendo, setSubmetendo] = useState(false);
   const [extracoes, setExtracoes] = useState<any[]>([]);
 
@@ -40,17 +38,15 @@ export default function ExtracaoVideoPage({ params }: { params: Promise<{ empres
   }, [empresaId]);
 
   const descritoresDaComp = comps.find((c) => c.competencia === comp)?.descritores || [];
-  const descritoresAsync = comps.find((c) => c.competencia === compAsync)?.descritores || [];
 
   async function handleSubmeterAsync() {
     if (!urlAsync.trim()) { flash('Informe a URL do vídeo'); return; }
-    if (!compAsync || !descAsync) { flash('Escolha competência e descritor'); return; }
     setSubmetendo(true);
-    const r = await submeterExtracaoAsync(empresaId, urlAsync.trim(), compAsync, descAsync);
+    const r = await submeterExtracaoAsync(empresaId, urlAsync.trim());
     setSubmetendo(false);
     if (r.error) { flash(r.error); return; }
     flash('Extração iniciada em background');
-    setUrlAsync(''); setCompAsync(''); setDescAsync('');
+    setUrlAsync('');
     carregarExtracoes();
   }
 
@@ -120,20 +116,10 @@ export default function ExtracaoVideoPage({ params }: { params: Promise<{ empres
       {/* Extração em background (Vimeo/TED/LMS ou vídeos longos) */}
       <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 p-4 mb-5">
         <p className="text-[10px] uppercase tracking-widest text-amber-300 mb-1 flex items-center gap-1.5"><Clock size={13} /> Outra plataforma (Vimeo, TED, LMS) ou vídeo longo — processar em background</p>
-        <p className="text-[10px] text-gray-500 mb-2">Escolha competência e descritor; o conteúdo é extraído em segundo plano e aparece pronto na lista abaixo.</p>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+        <p className="text-[10px] text-gray-500 mb-2">Só cole a URL: o conteúdo é extraído em segundo plano e a IA define competência › descritor automaticamente (como no YouTube). Aparece pronto na lista abaixo.</p>
+        <div className="flex gap-2">
           <input value={urlAsync} onChange={(e) => setUrlAsync(e.target.value)} placeholder="https://vimeo.com/... ou ted.com/talks/..."
-            className="sm:col-span-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none" />
-          <select value={compAsync} onChange={(e) => { setCompAsync(e.target.value); setDescAsync(''); }}
-            className="bg-[#091D35] border border-white/10 rounded-lg px-2 py-2 text-xs text-white outline-none">
-            <option value="">Competência…</option>
-            {comps.map((c) => <option key={c.competencia} value={c.competencia}>{c.competencia}</option>)}
-          </select>
-          <select value={descAsync} onChange={(e) => setDescAsync(e.target.value)} disabled={!compAsync}
-            className="bg-[#091D35] border border-white/10 rounded-lg px-2 py-2 text-xs text-white outline-none disabled:opacity-50">
-            <option value="">Descritor…</option>
-            {descritoresAsync.map((d) => <option key={d} value={d}>{d}</option>)}
-          </select>
+            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none" />
         </div>
         <button onClick={handleSubmeterAsync} disabled={submetendo}
           className="mt-2 flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-white disabled:opacity-50"
@@ -149,7 +135,7 @@ export default function ExtracaoVideoPage({ params }: { params: Promise<{ empres
                 {e.extracao_status === 'processing' && <Loader2 size={12} className="animate-spin text-amber-400 shrink-0" />}
                 {e.extracao_status === 'done' && <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />}
                 {e.extracao_status === 'error' && <AlertCircle size={12} className="text-red-400 shrink-0" />}
-                <span className="text-gray-300 truncate flex-1">{e.titulo} · {e.competencia} › {e.descritor}</span>
+                <span className="text-gray-300 truncate flex-1">{e.titulo}{e.competencia ? ` · ${e.competencia} › ${e.descritor}` : ''}</span>
                 <span className={`shrink-0 ${e.extracao_status === 'done' ? 'text-emerald-400' : e.extracao_status === 'error' ? 'text-red-400' : 'text-amber-400'}`}>
                   {e.extracao_status === 'processing' ? 'processando' : e.extracao_status === 'done' ? 'pronto' : 'erro'}
                 </span>
