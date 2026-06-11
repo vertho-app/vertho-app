@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Download, Sparkles, Edit2, Trash2, Check, X, Filter, Video, FileText, Headphones, BookOpen, FileType, Wand2, Copy, Plus, Upload, FileDown, ExternalLink, FileX, Loader2, Clapperboard, User, Users } from 'lucide-react';
 import BackButton from '@/components/back-button';
@@ -45,6 +46,7 @@ function isUnclassified(value: any) {
 export default function ConteudosAdminPage() {
   const t = useTranslations('AdminContent');
   const { empresaFiltro } = useAdminShell();
+  const router = useRouter();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterFormato, setFilterFormato] = useState('');
@@ -275,6 +277,17 @@ export default function ConteudosAdminPage() {
           >
             <Download size={16} />
             {t('actions.importBunny')}
+          </button>
+          <button
+            onClick={() => {
+              if (!empresaFiltro) { alert('Selecione uma empresa no topo para extrair vídeo.'); return; }
+              router.push(`/admin/empresas/${empresaFiltro}/extracao-video`);
+            }}
+            disabled={busy}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-700 disabled:opacity-50 text-sm font-bold"
+          >
+            <Clapperboard size={16} />
+            Extrair de vídeo
           </button>
         </div>
 
