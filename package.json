@@ -25,9 +25,11 @@
     "i18n:audit": "node scripts/i18n-audit.mjs",
     "i18n:check": "node scripts/i18n-check-keys.mjs",
     "video:probe": "node video-spike/remotion/data/probe-durations.mjs",
-    "video:preview": "npm run video:probe && remotion studio video-spike/remotion/index.ts",
+    "video:captions:v3": "node video-spike/remotion/data/make-provisional-timestamps.ts && node video-spike/remotion/data/build-captions-v3.ts",
+    "video:preview": "npm run video:probe && npm run video:captions:v3 && remotion studio video-spike/remotion/index.ts",
     "video:render": "npm run video:probe && remotion render video-spike/remotion/index.ts VerthoVideoSpike outputs/vertho-video-spike.mp4",
-    "video:render:v2": "npm run video:probe && remotion render video-spike/remotion/index.ts VerthoVideoSpikeV2 outputs/vertho-video-spike-v2.mp4"
+    "video:render:v2": "npm run video:probe && remotion render video-spike/remotion/index.ts VerthoVideoSpikeV2 outputs/vertho-video-spike-v2.mp4",
+    "video:render:v3": "npm run video:probe && npm run video:captions:v3 && remotion render video-spike/remotion/index.ts VerthoVideoSpikeV3 outputs/vertho-video-spike-v3.mp4"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",

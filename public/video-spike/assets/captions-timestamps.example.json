@@ -1,0 +1,42 @@
+{
+  "_comment": "EXEMPLO do formato esperado do export do TTS. Copie para captions-timestamps.json com timestamps REAIS. start/end sao RELATIVOS ao inicio de cada cena (segundos). Se houver 'phrases', elas tem prioridade; 'words' habilita o word-highlight. 'source' deve refletir a origem (ex.: external_tts). NAO usar 'approximation_for_preview' em producao.",
+  "version": "v1",
+  "source": "external_tts",
+  "language": "pt-BR",
+  "scenes": [
+    {
+      "sceneId": "scene-1",
+      "audioType": "avatar",
+      "sourceFile": "/video-spike/assets/avatar-intro.mp4",
+      "text": "Hoje vamos falar sobre uma competencia essencial.",
+      "phrases": [
+        { "text": "Hoje vamos falar sobre", "start": 0.0, "end": 1.6 },
+        { "text": "uma competencia essencial.", "start": 1.6, "end": 3.1 }
+      ],
+      "words": [
+        { "word": "Hoje", "start": 0.0, "end": 0.32 },
+        { "word": "vamos", "start": 0.32, "end": 0.66 },
+        { "word": "falar", "start": 0.66, "end": 1.02 },
+        { "word": "sobre", "start": 1.02, "end": 1.6 },
+        { "word": "uma", "start": 1.6, "end": 1.84 },
+        { "word": "competencia", "start": 1.84, "end": 2.62 },
+        { "word": "essencial.", "start": 2.62, "end": 3.1 }
+      ]
+    },
+    {
+      "sceneId": "scene-2",
+      "audioType": "audio",
+      "sourceFile": "/video-spike/assets/audio-scene-2-concept.mp3",
+      "text": "Antecipar nao significa adivinhar.",
+      "phrases": [
+        { "text": "Antecipar nao significa adivinhar.", "start": 0.0, "end": 2.2 }
+      ],
+      "words": [
+        { "word": "Antecipar", "start": 0.0, "end": 0.7 },
+        { "word": "nao", "start": 0.7, "end": 0.98 },
+        { "word": "significa", "start": 0.98, "end": 1.6 },
+        { "word": "adivinhar.", "start": 1.6, "end": 2.2 }
+      ]
+    }
+  ]
+}

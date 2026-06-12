@@ -1,0 +1,1237 @@
+{
+  "mode": "timestamps",
+  "source": "approximation_for_preview",
+  "fps": 30,
+  "totalFrames": 2813,
+  "captions": [
+    {
+      "id": 1,
+      "sceneId": "scene-1",
+      "startSec": 0,
+      "endSec": 3.022,
+      "startFrame": 0,
+      "endFrame": 91,
+      "text": "Hoje vamos falar sobre",
+      "words": [
+        {
+          "word": "Hoje",
+          "startFrame": 0,
+          "endFrame": 23
+        },
+        {
+          "word": "vamos",
+          "startFrame": 23,
+          "endFrame": 45
+        },
+        {
+          "word": "falar",
+          "startFrame": 45,
+          "endFrame": 68
+        },
+        {
+          "word": "sobre",
+          "startFrame": 68,
+          "endFrame": 91
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "sceneId": "scene-1",
+      "startSec": 3.022,
+      "endSec": 6.044,
+      "startFrame": 91,
+      "endFrame": 181,
+      "text": "uma competência essencial: antecipar",
+      "words": [
+        {
+          "word": "uma",
+          "startFrame": 91,
+          "endFrame": 113
+        },
+        {
+          "word": "competência",
+          "startFrame": 113,
+          "endFrame": 136
+        },
+        {
+          "word": "essencial:",
+          "startFrame": 136,
+          "endFrame": 159
+        },
+        {
+          "word": "antecipar",
+          "startFrame": 159,
+          "endFrame": 181
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "sceneId": "scene-1",
+      "startSec": 6.044,
+      "endSec": 9.067,
+      "startFrame": 181,
+      "endFrame": 272,
+      "text": "cenários antes que pequenos",
+      "words": [
+        {
+          "word": "cenários",
+          "startFrame": 181,
+          "endFrame": 204
+        },
+        {
+          "word": "antes",
+          "startFrame": 204,
+          "endFrame": 227
+        },
+        {
+          "word": "que",
+          "startFrame": 227,
+          "endFrame": 249
+        },
+        {
+          "word": "pequenos",
+          "startFrame": 249,
+          "endFrame": 272
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "sceneId": "scene-1",
+      "startSec": 9.067,
+      "endSec": 12.089,
+      "startFrame": 272,
+      "endFrame": 363,
+      "text": "sinais virem problemas maiores.",
+      "words": [
+        {
+          "word": "sinais",
+          "startFrame": 272,
+          "endFrame": 295
+        },
+        {
+          "word": "virem",
+          "startFrame": 295,
+          "endFrame": 317
+        },
+        {
+          "word": "problemas",
+          "startFrame": 317,
+          "endFrame": 340
+        },
+        {
+          "word": "maiores.",
+          "startFrame": 340,
+          "endFrame": 363
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "sceneId": "scene-1",
+      "startSec": 12.089,
+      "endSec": 15.34,
+      "startFrame": 363,
+      "endFrame": 460,
+      "text": "Antecipar não é prever o futuro.",
+      "words": [
+        {
+          "word": "Antecipar",
+          "startFrame": 363,
+          "endFrame": 379
+        },
+        {
+          "word": "não",
+          "startFrame": 379,
+          "endFrame": 395
+        },
+        {
+          "word": "é",
+          "startFrame": 395,
+          "endFrame": 411
+        },
+        {
+          "word": "prever",
+          "startFrame": 411,
+          "endFrame": 428
+        },
+        {
+          "word": "o",
+          "startFrame": 428,
+          "endFrame": 444
+        },
+        {
+          "word": "futuro.",
+          "startFrame": 444,
+          "endFrame": 460
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "sceneId": "scene-1",
+      "startSec": 15.34,
+      "endSec": 18.337,
+      "startFrame": 460,
+      "endFrame": 550,
+      "text": "É perceber antes, conectar melhor",
+      "words": [
+        {
+          "word": "É",
+          "startFrame": 460,
+          "endFrame": 478
+        },
+        {
+          "word": "perceber",
+          "startFrame": 478,
+          "endFrame": 496
+        },
+        {
+          "word": "antes,",
+          "startFrame": 496,
+          "endFrame": 514
+        },
+        {
+          "word": "conectar",
+          "startFrame": 514,
+          "endFrame": 532
+        },
+        {
+          "word": "melhor",
+          "startFrame": 532,
+          "endFrame": 550
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "sceneId": "scene-1",
+      "startSec": 18.337,
+      "endSec": 21.333,
+      "startFrame": 550,
+      "endFrame": 640,
+      "text": "e agir com mais intenção.",
+      "words": [
+        {
+          "word": "e",
+          "startFrame": 550,
+          "endFrame": 568
+        },
+        {
+          "word": "agir",
+          "startFrame": 568,
+          "endFrame": 586
+        },
+        {
+          "word": "com",
+          "startFrame": 586,
+          "endFrame": 604
+        },
+        {
+          "word": "mais",
+          "startFrame": 604,
+          "endFrame": 622
+        },
+        {
+          "word": "intenção.",
+          "startFrame": 622,
+          "endFrame": 640
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "sceneId": "scene-2",
+      "startSec": 21.333333333333332,
+      "endSec": 24.337333333333333,
+      "startFrame": 640,
+      "endFrame": 730,
+      "text": "Antecipar cenários não significa tentar",
+      "words": [
+        {
+          "word": "Antecipar",
+          "startFrame": 640,
+          "endFrame": 658
+        },
+        {
+          "word": "cenários",
+          "startFrame": 658,
+          "endFrame": 676
+        },
+        {
+          "word": "não",
+          "startFrame": 676,
+          "endFrame": 694
+        },
+        {
+          "word": "significa",
+          "startFrame": 694,
+          "endFrame": 712
+        },
+        {
+          "word": "tentar",
+          "startFrame": 712,
+          "endFrame": 730
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "sceneId": "scene-2",
+      "startSec": 24.337333333333333,
+      "endSec": 27.342333333333332,
+      "startFrame": 730,
+      "endFrame": 820,
+      "text": "adivinhar o que vai acontecer.",
+      "words": [
+        {
+          "word": "adivinhar",
+          "startFrame": 730,
+          "endFrame": 748
+        },
+        {
+          "word": "o",
+          "startFrame": 748,
+          "endFrame": 766
+        },
+        {
+          "word": "que",
+          "startFrame": 766,
+          "endFrame": 784
+        },
+        {
+          "word": "vai",
+          "startFrame": 784,
+          "endFrame": 802
+        },
+        {
+          "word": "acontecer.",
+          "startFrame": 802,
+          "endFrame": 820
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "sceneId": "scene-2",
+      "startSec": 27.342333333333332,
+      "endSec": 30.270333333333333,
+      "startFrame": 820,
+      "endFrame": 908,
+      "text": "Significa observar sinais pequenos, conectar",
+      "words": [
+        {
+          "word": "Significa",
+          "startFrame": 820,
+          "endFrame": 838
+        },
+        {
+          "word": "observar",
+          "startFrame": 838,
+          "endFrame": 855
+        },
+        {
+          "word": "sinais",
+          "startFrame": 855,
+          "endFrame": 873
+        },
+        {
+          "word": "pequenos,",
+          "startFrame": 873,
+          "endFrame": 891
+        },
+        {
+          "word": "conectar",
+          "startFrame": 891,
+          "endFrame": 908
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "sceneId": "scene-2",
+      "startSec": 30.270333333333333,
+      "endSec": 33.19933333333333,
+      "startFrame": 908,
+      "endFrame": 996,
+      "text": "informações que parecem soltas e",
+      "words": [
+        {
+          "word": "informações",
+          "startFrame": 908,
+          "endFrame": 926
+        },
+        {
+          "word": "que",
+          "startFrame": 926,
+          "endFrame": 943
+        },
+        {
+          "word": "parecem",
+          "startFrame": 943,
+          "endFrame": 961
+        },
+        {
+          "word": "soltas",
+          "startFrame": 961,
+          "endFrame": 978
+        },
+        {
+          "word": "e",
+          "startFrame": 978,
+          "endFrame": 996
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "sceneId": "scene-2",
+      "startSec": 33.19933333333333,
+      "endSec": 36.12833333333333,
+      "startFrame": 996,
+      "endFrame": 1084,
+      "text": "agir antes que a situação",
+      "words": [
+        {
+          "word": "agir",
+          "startFrame": 996,
+          "endFrame": 1014
+        },
+        {
+          "word": "antes",
+          "startFrame": 1014,
+          "endFrame": 1031
+        },
+        {
+          "word": "que",
+          "startFrame": 1031,
+          "endFrame": 1049
+        },
+        {
+          "word": "a",
+          "startFrame": 1049,
+          "endFrame": 1066
+        },
+        {
+          "word": "situação",
+          "startFrame": 1066,
+          "endFrame": 1084
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "sceneId": "scene-2",
+      "startSec": 36.12833333333333,
+      "endSec": 37.29933333333333,
+      "startFrame": 1084,
+      "endFrame": 1119,
+      "text": "ganhe força.",
+      "words": [
+        {
+          "word": "ganhe",
+          "startFrame": 1084,
+          "endFrame": 1101
+        },
+        {
+          "word": "força.",
+          "startFrame": 1101,
+          "endFrame": 1119
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "sceneId": "scene-2",
+      "startSec": 37.29933333333333,
+      "endSec": 40.733333333333334,
+      "startFrame": 1119,
+      "endFrame": 1222,
+      "text": "Na prática, é sair da reação automática",
+      "words": [
+        {
+          "word": "Na",
+          "startFrame": 1119,
+          "endFrame": 1134
+        },
+        {
+          "word": "prática,",
+          "startFrame": 1134,
+          "endFrame": 1148
+        },
+        {
+          "word": "é",
+          "startFrame": 1148,
+          "endFrame": 1163
+        },
+        {
+          "word": "sair",
+          "startFrame": 1163,
+          "endFrame": 1178
+        },
+        {
+          "word": "da",
+          "startFrame": 1178,
+          "endFrame": 1193
+        },
+        {
+          "word": "reação",
+          "startFrame": 1193,
+          "endFrame": 1207
+        },
+        {
+          "word": "automática",
+          "startFrame": 1207,
+          "endFrame": 1222
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "sceneId": "scene-2",
+      "startSec": 40.733333333333334,
+      "endSec": 44.16633333333333,
+      "startFrame": 1222,
+      "endFrame": 1325,
+      "text": "e entrar em uma postura mais consciente.",
+      "words": [
+        {
+          "word": "e",
+          "startFrame": 1222,
+          "endFrame": 1237
+        },
+        {
+          "word": "entrar",
+          "startFrame": 1237,
+          "endFrame": 1251
+        },
+        {
+          "word": "em",
+          "startFrame": 1251,
+          "endFrame": 1266
+        },
+        {
+          "word": "uma",
+          "startFrame": 1266,
+          "endFrame": 1281
+        },
+        {
+          "word": "postura",
+          "startFrame": 1281,
+          "endFrame": 1296
+        },
+        {
+          "word": "mais",
+          "startFrame": 1296,
+          "endFrame": 1310
+        },
+        {
+          "word": "consciente.",
+          "startFrame": 1310,
+          "endFrame": 1325
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "sceneId": "scene-3",
+      "startSec": 44.166666666666664,
+      "endSec": 47.513666666666666,
+      "startFrame": 1325,
+      "endFrame": 1425,
+      "text": "Quando apenas reagimos, esperamos a",
+      "words": [
+        {
+          "word": "Quando",
+          "startFrame": 1325,
+          "endFrame": 1345
+        },
+        {
+          "word": "apenas",
+          "startFrame": 1345,
+          "endFrame": 1365
+        },
+        {
+          "word": "reagimos,",
+          "startFrame": 1365,
+          "endFrame": 1385
+        },
+        {
+          "word": "esperamos",
+          "startFrame": 1385,
+          "endFrame": 1405
+        },
+        {
+          "word": "a",
+          "startFrame": 1405,
+          "endFrame": 1425
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "sceneId": "scene-3",
+      "startSec": 47.513666666666666,
+      "endSec": 48.852666666666664,
+      "startFrame": 1425,
+      "endFrame": 1466,
+      "text": "crise aparecer.",
+      "words": [
+        {
+          "word": "crise",
+          "startFrame": 1425,
+          "endFrame": 1445
+        },
+        {
+          "word": "aparecer.",
+          "startFrame": 1445,
+          "endFrame": 1466
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "sceneId": "scene-3",
+      "startSec": 48.852666666666664,
+      "endSec": 52.06766666666667,
+      "startFrame": 1466,
+      "endFrame": 1562,
+      "text": "Corrigimos no improviso, gastamos mais",
+      "words": [
+        {
+          "word": "Corrigimos",
+          "startFrame": 1466,
+          "endFrame": 1485
+        },
+        {
+          "word": "no",
+          "startFrame": 1485,
+          "endFrame": 1504
+        },
+        {
+          "word": "improviso,",
+          "startFrame": 1504,
+          "endFrame": 1523
+        },
+        {
+          "word": "gastamos",
+          "startFrame": 1523,
+          "endFrame": 1543
+        },
+        {
+          "word": "mais",
+          "startFrame": 1543,
+          "endFrame": 1562
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "sceneId": "scene-3",
+      "startSec": 52.06766666666667,
+      "endSec": 55.28366666666666,
+      "startFrame": 1562,
+      "endFrame": 1659,
+      "text": "energia e muitas vezes perdemos",
+      "words": [
+        {
+          "word": "energia",
+          "startFrame": 1562,
+          "endFrame": 1581
+        },
+        {
+          "word": "e",
+          "startFrame": 1581,
+          "endFrame": 1601
+        },
+        {
+          "word": "muitas",
+          "startFrame": 1601,
+          "endFrame": 1620
+        },
+        {
+          "word": "vezes",
+          "startFrame": 1620,
+          "endFrame": 1639
+        },
+        {
+          "word": "perdemos",
+          "startFrame": 1639,
+          "endFrame": 1659
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "sceneId": "scene-3",
+      "startSec": 55.28366666666666,
+      "endSec": 55.92666666666666,
+      "startFrame": 1659,
+      "endFrame": 1678,
+      "text": "tempo.",
+      "words": [
+        {
+          "word": "tempo.",
+          "startFrame": 1659,
+          "endFrame": 1678
+        },
+        {
+          "word": "Quando",
+          "startFrame": 1678,
+          "endFrame": 1697
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "sceneId": "scene-3",
+      "startSec": 55.92666666666666,
+      "endSec": 59.199666666666666,
+      "startFrame": 1678,
+      "endFrame": 1776,
+      "text": "Quando antecipamos, lemos sinais fracos,",
+      "words": [
+        {
+          "word": "Quando",
+          "startFrame": 1678,
+          "endFrame": 1697
+        },
+        {
+          "word": "antecipamos,",
+          "startFrame": 1697,
+          "endFrame": 1717
+        },
+        {
+          "word": "lemos",
+          "startFrame": 1717,
+          "endFrame": 1737
+        },
+        {
+          "word": "sinais",
+          "startFrame": 1737,
+          "endFrame": 1756
+        },
+        {
+          "word": "fracos,",
+          "startFrame": 1756,
+          "endFrame": 1776
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "sceneId": "scene-3",
+      "startSec": 59.199666666666666,
+      "endSec": 62.47266666666667,
+      "startFrame": 1776,
+      "endFrame": 1874,
+      "text": "escolhemos prioridades e reduzimos o",
+      "words": [
+        {
+          "word": "escolhemos",
+          "startFrame": 1776,
+          "endFrame": 1796
+        },
+        {
+          "word": "prioridades",
+          "startFrame": 1796,
+          "endFrame": 1815
+        },
+        {
+          "word": "e",
+          "startFrame": 1815,
+          "endFrame": 1835
+        },
+        {
+          "word": "reduzimos",
+          "startFrame": 1835,
+          "endFrame": 1855
+        },
+        {
+          "word": "o",
+          "startFrame": 1855,
+          "endFrame": 1874
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "sceneId": "scene-3",
+      "startSec": 62.47266666666667,
+      "endSec": 65.74566666666666,
+      "startFrame": 1874,
+      "endFrame": 1972,
+      "text": "impacto antes que o problema",
+      "words": [
+        {
+          "word": "impacto",
+          "startFrame": 1874,
+          "endFrame": 1894
+        },
+        {
+          "word": "antes",
+          "startFrame": 1894,
+          "endFrame": 1913
+        },
+        {
+          "word": "que",
+          "startFrame": 1913,
+          "endFrame": 1933
+        },
+        {
+          "word": "o",
+          "startFrame": 1933,
+          "endFrame": 1953
+        },
+        {
+          "word": "problema",
+          "startFrame": 1953,
+          "endFrame": 1972
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "sceneId": "scene-3",
+      "startSec": 65.74566666666666,
+      "endSec": 66.4,
+      "startFrame": 1972,
+      "endFrame": 1992,
+      "text": "cresça.",
+      "words": [
+        {
+          "word": "cresça.",
+          "startFrame": 1972,
+          "endFrame": 1992
+        }
+      ]
+    },
+    {
+      "id": 25,
+      "sceneId": "scene-4",
+      "startSec": 66.4,
+      "endSec": 69.63000000000001,
+      "startFrame": 1992,
+      "endFrame": 2089,
+      "text": "Três sinais merecem atenção especial: atrasos recorrentes,",
+      "words": [
+        {
+          "word": "Três",
+          "startFrame": 1992,
+          "endFrame": 2006
+        },
+        {
+          "word": "sinais",
+          "startFrame": 2006,
+          "endFrame": 2020
+        },
+        {
+          "word": "merecem",
+          "startFrame": 2020,
+          "endFrame": 2034
+        },
+        {
+          "word": "atenção",
+          "startFrame": 2034,
+          "endFrame": 2047
+        },
+        {
+          "word": "especial:",
+          "startFrame": 2047,
+          "endFrame": 2061
+        },
+        {
+          "word": "atrasos",
+          "startFrame": 2061,
+          "endFrame": 2075
+        },
+        {
+          "word": "recorrentes,",
+          "startFrame": 2075,
+          "endFrame": 2089
+        }
+      ]
+    },
+    {
+      "id": 26,
+      "sceneId": "scene-4",
+      "startSec": 69.63000000000001,
+      "endSec": 72.86,
+      "startFrame": 2089,
+      "endFrame": 2186,
+      "text": "ruídos de comunicação e decisões sendo adiadas.",
+      "words": [
+        {
+          "word": "ruídos",
+          "startFrame": 2089,
+          "endFrame": 2103
+        },
+        {
+          "word": "de",
+          "startFrame": 2103,
+          "endFrame": 2117
+        },
+        {
+          "word": "comunicação",
+          "startFrame": 2117,
+          "endFrame": 2130
+        },
+        {
+          "word": "e",
+          "startFrame": 2130,
+          "endFrame": 2144
+        },
+        {
+          "word": "decisões",
+          "startFrame": 2144,
+          "endFrame": 2158
+        },
+        {
+          "word": "sendo",
+          "startFrame": 2158,
+          "endFrame": 2172
+        },
+        {
+          "word": "adiadas.",
+          "startFrame": 2172,
+          "endFrame": 2186
+        }
+      ]
+    },
+    {
+      "id": 27,
+      "sceneId": "scene-4",
+      "startSec": 72.86,
+      "endSec": 75.17500000000001,
+      "startFrame": 2186,
+      "endFrame": 2255,
+      "text": "Isolados, eles podem parecer pequenos.",
+      "words": [
+        {
+          "word": "Isolados,",
+          "startFrame": 2186,
+          "endFrame": 2200
+        },
+        {
+          "word": "eles",
+          "startFrame": 2200,
+          "endFrame": 2214
+        },
+        {
+          "word": "podem",
+          "startFrame": 2214,
+          "endFrame": 2227
+        },
+        {
+          "word": "parecer",
+          "startFrame": 2227,
+          "endFrame": 2241
+        },
+        {
+          "word": "pequenos.",
+          "startFrame": 2241,
+          "endFrame": 2255
+        }
+      ]
+    },
+    {
+      "id": 28,
+      "sceneId": "scene-4",
+      "startSec": 75.17500000000001,
+      "endSec": 78.28800000000001,
+      "startFrame": 2255,
+      "endFrame": 2349,
+      "text": "Repetidos, eles mostram que algo no sistema precisa",
+      "words": [
+        {
+          "word": "Repetidos,",
+          "startFrame": 2255,
+          "endFrame": 2267
+        },
+        {
+          "word": "eles",
+          "startFrame": 2267,
+          "endFrame": 2279
+        },
+        {
+          "word": "mostram",
+          "startFrame": 2279,
+          "endFrame": 2290
+        },
+        {
+          "word": "que",
+          "startFrame": 2290,
+          "endFrame": 2302
+        },
+        {
+          "word": "algo",
+          "startFrame": 2302,
+          "endFrame": 2314
+        },
+        {
+          "word": "no",
+          "startFrame": 2314,
+          "endFrame": 2325
+        },
+        {
+          "word": "sistema",
+          "startFrame": 2325,
+          "endFrame": 2337
+        },
+        {
+          "word": "precisa",
+          "startFrame": 2337,
+          "endFrame": 2349
+        }
+      ]
+    },
+    {
+      "id": 29,
+      "sceneId": "scene-4",
+      "startSec": 78.28800000000001,
+      "endSec": 80.233,
+      "startFrame": 2349,
+      "endFrame": 2407,
+      "text": "ser observado com mais cuidado.",
+      "words": [
+        {
+          "word": "ser",
+          "startFrame": 2349,
+          "endFrame": 2360
+        },
+        {
+          "word": "observado",
+          "startFrame": 2360,
+          "endFrame": 2372
+        },
+        {
+          "word": "com",
+          "startFrame": 2372,
+          "endFrame": 2384
+        },
+        {
+          "word": "mais",
+          "startFrame": 2384,
+          "endFrame": 2395
+        },
+        {
+          "word": "cuidado.",
+          "startFrame": 2395,
+          "endFrame": 2407
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "sceneId": "scene-5",
+      "startSec": 80.23333333333333,
+      "endSec": 82.90933333333334,
+      "startFrame": 2407,
+      "endFrame": 2487,
+      "text": "Agora leve isso para a sua prática.",
+      "words": [
+        {
+          "word": "Agora",
+          "startFrame": 2407,
+          "endFrame": 2418
+        },
+        {
+          "word": "leve",
+          "startFrame": 2418,
+          "endFrame": 2430
+        },
+        {
+          "word": "isso",
+          "startFrame": 2430,
+          "endFrame": 2441
+        },
+        {
+          "word": "para",
+          "startFrame": 2441,
+          "endFrame": 2453
+        },
+        {
+          "word": "a",
+          "startFrame": 2453,
+          "endFrame": 2464
+        },
+        {
+          "word": "sua",
+          "startFrame": 2464,
+          "endFrame": 2476
+        },
+        {
+          "word": "prática.",
+          "startFrame": 2476,
+          "endFrame": 2487
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "sceneId": "scene-5",
+      "startSec": 82.90933333333334,
+      "endSec": 86.19733333333333,
+      "startFrame": 2487,
+      "endFrame": 2586,
+      "text": "Que sinal pequeno você está ignorando hoje?",
+      "words": [
+        {
+          "word": "Que",
+          "startFrame": 2487,
+          "endFrame": 2501
+        },
+        {
+          "word": "sinal",
+          "startFrame": 2501,
+          "endFrame": 2515
+        },
+        {
+          "word": "pequeno",
+          "startFrame": 2515,
+          "endFrame": 2530
+        },
+        {
+          "word": "você",
+          "startFrame": 2530,
+          "endFrame": 2544
+        },
+        {
+          "word": "está",
+          "startFrame": 2544,
+          "endFrame": 2558
+        },
+        {
+          "word": "ignorando",
+          "startFrame": 2558,
+          "endFrame": 2572
+        },
+        {
+          "word": "hoje?",
+          "startFrame": 2572,
+          "endFrame": 2586
+        }
+      ]
+    },
+    {
+      "id": 32,
+      "sceneId": "scene-5",
+      "startSec": 86.19733333333333,
+      "endSec": 89.31433333333334,
+      "startFrame": 2586,
+      "endFrame": 2679,
+      "text": "E qual ação simples poderia evitar que",
+      "words": [
+        {
+          "word": "E",
+          "startFrame": 2586,
+          "endFrame": 2599
+        },
+        {
+          "word": "qual",
+          "startFrame": 2599,
+          "endFrame": 2613
+        },
+        {
+          "word": "ação",
+          "startFrame": 2613,
+          "endFrame": 2626
+        },
+        {
+          "word": "simples",
+          "startFrame": 2626,
+          "endFrame": 2639
+        },
+        {
+          "word": "poderia",
+          "startFrame": 2639,
+          "endFrame": 2653
+        },
+        {
+          "word": "evitar",
+          "startFrame": 2653,
+          "endFrame": 2666
+        },
+        {
+          "word": "que",
+          "startFrame": 2666,
+          "endFrame": 2679
+        }
+      ]
+    },
+    {
+      "id": 33,
+      "sceneId": "scene-5",
+      "startSec": 89.31433333333334,
+      "endSec": 92.43133333333333,
+      "startFrame": 2679,
+      "endFrame": 2773,
+      "text": "ele se transforme em um problema maior",
+      "words": [
+        {
+          "word": "ele",
+          "startFrame": 2679,
+          "endFrame": 2693
+        },
+        {
+          "word": "se",
+          "startFrame": 2693,
+          "endFrame": 2706
+        },
+        {
+          "word": "transforme",
+          "startFrame": 2706,
+          "endFrame": 2719
+        },
+        {
+          "word": "em",
+          "startFrame": 2719,
+          "endFrame": 2733
+        },
+        {
+          "word": "um",
+          "startFrame": 2733,
+          "endFrame": 2746
+        },
+        {
+          "word": "problema",
+          "startFrame": 2746,
+          "endFrame": 2760
+        },
+        {
+          "word": "maior",
+          "startFrame": 2760,
+          "endFrame": 2773
+        }
+      ]
+    },
+    {
+      "id": 34,
+      "sceneId": "scene-5",
+      "startSec": 92.43133333333333,
+      "endSec": 93.76633333333334,
+      "startFrame": 2773,
+      "endFrame": 2813,
+      "text": "nas próximas semanas?",
+      "words": [
+        {
+          "word": "nas",
+          "startFrame": 2773,
+          "endFrame": 2786
+        },
+        {
+          "word": "próximas",
+          "startFrame": 2786,
+          "endFrame": 2800
+        },
+        {
+          "word": "semanas?",
+          "startFrame": 2800,
+          "endFrame": 2813
+        }
+      ]
+    }
+  ]
+}

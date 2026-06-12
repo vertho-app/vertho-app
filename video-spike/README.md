@@ -48,6 +48,56 @@ Assets em `public/video-spike/assets/` (publicDir do Remotion = `public/video-sp
 ## Notas
 
 - As durações das cenas vêm dos assets reais (vídeo/áudio), não fixas.
-- Legendas: parágrafo por cena fatiado e distribuído no tempo. `cuesToSrt()` já
-  existe para export futuro (quando houver timestamps reais do TTS).
 - Sem imagens de IA — só ícones SVG e o logo da marca.
+- Composições: **VerthoVideoSpike** (V1), **VerthoVideoSpikeV2** (acabamento), **VerthoVideoSpikeV3** (legendas por timestamp).
+
+## V3 — Legendas sincronizadas por timestamps
+
+A V3 mantém o visual da V2 e troca o sistema de legendas: em vez de tempo
+proporcional, usa **timestamps reais por cena**.
+
+### Fonte das legendas
+
+`public/video-spike/assets/captions-timestamps.json` (principal). Formato em
+`captions-timestamps.example.json`. **`start`/`end` são RELATIVOS ao início de
+cada cena** (segundos). Se houver `phrases`, elas têm prioridade; `words`
+habilita o word-highlight. `source` deve indicar a origem (ex.: `external_tts`).
+
+> Para cenas de avatar, use o timing do áudio que gerou o vídeo no HeyGen; para
+> cenas de áudio, o timing do MP3. **Produção não deve depender do fallback
+> proporcional.**
+
+### Modo e fallback (`CAPTION_MODE`)
+
+`timestamps` (default) · `proportional` · `off` — via env `CAPTION_MODE` no
+`video:captions:v3`. Se `captions-timestamps.json` não existir, o build emite
+**warning** e cai no fallback proporcional (só para preview). Se o arquivo tiver
+`source: "approximation_for_preview"`, o build avisa que NÃO é produção.
+
+### Pipeline (fonte única)
+
+`build-captions-v3.ts` (Node) resolve as legendas com o **core puro**
+(`captions/captions-core.ts`) e grava `data/captions-resolved.json` (consumido
+pelo vídeo) **e** `outputs/vertho-video-spike-v3.srt/.vtt` — todos da MESMA
+timeline (`buildVideoTimeline`). Regras: ≤9 palavras, ≤2 linhas, 1.0–3.5s.
+
+### Word-highlight e captions queimadas
+
+`load-scenes-v3.ts`: `CAPTION_WORD_HIGHLIGHT` (default `true`, ciano sutil) e
+`SHOW_BURNED_CAPTIONS` (default `true`).
+
+### Trocar legenda queimada por SRT/VTT externo
+
+1. Coloque o export real do TTS em `captions-timestamps.json` (`source` ≠
+   `approximation_for_preview`).
+2. Rode `npm run video:render:v3` → gera mp4 + `.srt` + `.vtt` (mesma timeline).
+3. Para o player externo legendar (sem queimar no vídeo): em
+   `load-scenes-v3.ts` defina `SHOW_BURNED_CAPTIONS = false` e sirva o `.vtt`/`.srt`
+   junto do mp4 (mesma timeline, então sincroniza).
+
+### Scripts
+
+```bash
+npm run video:captions:v3   # resolve legendas + gera .srt/.vtt
+npm run video:render:v3     # → outputs/vertho-video-spike-v3.mp4 (+ .srt + .vtt)
+```
