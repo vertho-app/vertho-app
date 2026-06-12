@@ -158,7 +158,8 @@ export default function ExtracaoVideoPanel({
             {extraindo ? 'Extraindo...' : 'Extrair'}
           </button>
         </div>
-        <p className="text-[10px] text-gray-600 mt-1.5">Você revisa o texto-base antes de gerar o módulo. O vídeo não é re-hospedado — guardamos só o link.</p>
+        <SeletorAlcance />
+        <p className="text-[10px] text-gray-600 mt-1.5">Você revisa o texto-base antes de gerar o módulo (no alcance escolhido). O vídeo não é re-hospedado — guardamos só o link.</p>
       </div>
 
       {/* Material (PDF/DOCX/TXT) — mesmo pipeline, síncrono */}
@@ -240,11 +241,7 @@ export default function ExtracaoVideoPanel({
               className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-gray-200 font-mono outline-none" />
           </div>
 
-          <div>
-            <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Alcance do módulo-base</p>
-            <SeletorAlcance />
-            <p className="text-[10px] text-gray-600 mt-1.5">A IA detecta a competência canônica e a transição de nível ao estruturar o módulo. Ele nasce como rascunho para revisão.</p>
-          </div>
+          <p className="text-[10px] text-gray-600">A IA detecta a competência canônica e a transição de nível ao estruturar o módulo (alcance: {alcance === 'global' ? 'global' : 'empresa'}). Ele nasce como rascunho para revisão.</p>
 
           {!modulo ? (
             <button onClick={handleGerarModulo} disabled={gerando}
