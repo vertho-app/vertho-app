@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Loader2, Sparkles, FileText, CheckCircle2, Clock, AlertCircle, Send, Layers, ExternalLink } from 'lucide-react';
-import { extrairVideo, gerarModuloBaseDoVideo, submeterExtracaoAsync, listarExtracoesAndamento } from '@/actions/extracao-video';
+import { Loader2, Sparkles, FileText, CheckCircle2, Clock, AlertCircle, Send, Layers, ExternalLink, Upload } from 'lucide-react';
+import { extrairVideo, gerarModuloBaseDoVideo, submeterExtracaoAsync, listarExtracoesAndamento, extrairModulosDeMaterial } from '@/actions/extracao-video';
 
 /**
  * Painel de extração de vídeo → Módulo-Base, compartilhado por:
@@ -42,6 +42,11 @@ export default function ExtracaoVideoPanel({
   const [submetendo, setSubmetendo] = useState(false);
   const [extracoes, setExtracoes] = useState<any[]>([]);
 
+  // Material (PDF/DOCX/TXT) — síncrono, mesmo pipeline.
+  const [matNome, setMatNome] = useState('');
+  const [processandoMat, setProcessandoMat] = useState(false);
+  const [modulosMat, setModulosMat] = useState<any[]>([]);
+
   function carregarExtracoes() {
     listarExtracoesAndamento(origemEmpresaId).then((r) => setExtracoes(r.data || []));
   }
@@ -74,6 +79,21 @@ export default function ExtracaoVideoPanel({
     if (r.error) { flash(r.error); return; }
     setModulo({ id: r.moduloId!, competencia: r.competencia, transicao: r.transicao });
     flash('Módulo-base rascunho criado');
+  }
+
+  async function handleMaterial(file: File) {
+    if (modoVertho && alcance === 'empresa' && !empresaPick) { flash('Escolha a empresa do alcance'); return; }
+    if (file.size > 20 * 1024 * 1024) { flash('Arquivo > 20MB — divida ou comprima'); return; }
+    setProcessandoMat(true); setModulosMat([]); setMatNome(file.name);
+    try {
+      const b64 = Buffer.from(await file.arrayBuffer()).toString('base64');
+      const r = await extrairModulosDeMaterial(escopoEmpresaId, { arquivoBase64: b64, filename: file.name, mime: file.type, locale: undefined });
+      if (r.error) { flash(r.error); return; }
+      setModulosMat(r.modulos || []);
+      flash(`${r.n} módulo(s) criado(s) do material`);
+    } finally {
+      setProcessandoMat(false);
+    }
   }
 
   async function handleSubmeterAsync() {
@@ -139,6 +159,32 @@ export default function ExtracaoVideoPanel({
           </button>
         </div>
         <p className="text-[10px] text-gray-600 mt-1.5">Você revisa o texto-base antes de gerar o módulo. O vídeo não é re-hospedado — guardamos só o link.</p>
+      </div>
+
+      {/* Material (PDF/DOCX/TXT) — mesmo pipeline, síncrono */}
+      <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/5 p-4 mb-5">
+        <p className="text-[10px] uppercase tracking-widest text-cyan-300 mb-1 flex items-center gap-1.5"><Upload size={13} /> Material (PDF, DOCX, TXT) — extrair na hora</p>
+        <p className="text-[10px] text-gray-500 mb-2">Suba um material e o app faz o mesmo que com vídeo: extrai o texto, segmenta em temas e cria N módulos-base rascunho (a IA detecta competência canônica + níveis por tema).</p>
+        <SeletorAlcance />
+        <div className="mt-2 flex items-center gap-2">
+          <input type="file" accept=".pdf,.docx,.txt,.md" disabled={processandoMat}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleMaterial(f); e.currentTarget.value = ''; }}
+            className="text-xs text-gray-300 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-cyan-400/15 file:text-cyan-200 file:text-xs file:font-semibold disabled:opacity-50" />
+          {processandoMat && <span className="flex items-center gap-1.5 text-[11px] text-cyan-200"><Loader2 size={13} className="animate-spin" /> processando {matNome}…</span>}
+        </div>
+        {modulosMat.length > 0 && (
+          <div className="mt-3 space-y-1.5">
+            <p className="text-[11px] font-bold text-emerald-300 flex items-center gap-1.5"><CheckCircle2 size={13} /> {modulosMat.length} módulo(s) rascunho criado(s):</p>
+            {modulosMat.map((m) => (
+              <Link key={m.id} href={`/admin/vertho/modulos-base/${m.id}`}
+                className="flex items-center gap-2 text-[11px] rounded-lg px-3 py-1.5 hover:bg-white/[0.03]" style={{ background: '#091D35' }}>
+                <FileText size={12} className="text-cyan-300 shrink-0" />
+                <span className="text-gray-300 truncate flex-1">{m.competencia || 'módulo'} · {m.nivel_entrada}→{m.nivel_destino}</span>
+                <ExternalLink size={11} className="text-cyan-300 shrink-0" />
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Assíncrona (Vimeo/TED/LMS/longos) */}

@@ -64,7 +64,7 @@ export default function ModulosBaseListPage() {
           <div className="flex gap-2">
             <button onClick={() => router.push('/admin/vertho/modulos-base/extracao-video')}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-purple-400/30 text-purple-300 hover:bg-purple-400/10">
-              <Film size={14} /> Extrair de vídeo
+              <Film size={14} /> Extrair de vídeo/material
             </button>
             <button onClick={() => setModal('docx')}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/15 hover:bg-white/5">

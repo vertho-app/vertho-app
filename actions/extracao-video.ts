@@ -3,7 +3,8 @@
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { extrairConteudoDeVideo } from '@/lib/gemini-video';
-import { criarModuloBaseDeTextoExtraido } from '@/actions/modulos-base';
+import { criarModuloBaseDeTextoExtraido, criarModulosDeTranscricao } from '@/actions/modulos-base';
+import { parseDocument } from '@/lib/rag-ingest';
 import { tasks } from '@trigger.dev/sdk';
 import type { extrairVideoTask } from '@/trigger/extracao-video';
 
@@ -69,6 +70,55 @@ export async function gerarModuloBaseDoVideo(escopoEmpresaId: string | null, dad
   } catch (err: any) {
     console.error('[gerarModuloBaseDoVideo]', err);
     return { error: err?.message || 'Falha ao gerar módulo-base' };
+  }
+}
+
+// ── 2b. Extração de MATERIAL (PDF/DOCX/TXT) — mesmo pipeline, síncrono ──────
+
+/**
+ * Extrai o texto de um material (PDF/DOCX/TXT) e cria N Módulos-Base rascunho
+ * pelo MESMO pipeline do vídeo longo: segmenta em temas → 1 módulo por tema.
+ * Documento já é texto → roda síncrono (sem worker). `escopoEmpresaId` null =
+ * módulo global/canônico; preenchido = exclusivo da empresa.
+ */
+export async function extrairModulosDeMaterial(escopoEmpresaId: string | null, dados: {
+  arquivoBase64: string; filename: string; mime?: string; locale?: string;
+}) {
+  try {
+    const ctx = await requireAdminAction('content.manage');
+    if (!dados?.arquivoBase64) return { error: 'Anexe um arquivo (PDF, DOCX ou TXT)' };
+
+    const buffer = Buffer.from(dados.arquivoBase64, 'base64');
+    let texto = '';
+    try {
+      const parsed = await parseDocument(buffer, { mime: dados.mime, filename: dados.filename });
+      texto = (parsed?.text || '').trim();
+    } catch (e: any) {
+      return { error: e?.message || 'Não foi possível ler o arquivo' };
+    }
+    if (texto.length < 200) return { error: 'Texto extraído muito curto (arquivo vazio, imagem/scan sem OCR, ou protegido).' };
+
+    let locale = dados.locale;
+    if (!locale && escopoEmpresaId) {
+      const sb = await requireAdminSupabase();
+      const { data: emp } = await sb.from('empresas').select('default_locale').eq('id', escopoEmpresaId).maybeSingle();
+      locale = emp?.default_locale || 'pt-BR';
+    }
+
+    const titulo = dados.filename.replace(/\.[^.]+$/, '').slice(0, 120);
+    const res = await criarModulosDeTranscricao({
+      transcricao: texto,
+      tituloVideo: titulo,
+      urlOrigem: `material:${dados.filename}`.slice(0, 80),
+      locale: locale || 'pt-BR',
+      empresaId: escopoEmpresaId,
+      createdBy: (ctx as any)?.email || 'extracao-material',
+    });
+    if (res.error || !res.modulos.length) return { error: res.error || 'Falha ao criar módulos' };
+    return { success: true, modulos: res.modulos, n: res.modulos.length, chars: texto.length };
+  } catch (err: any) {
+    console.error('[extrairModulosDeMaterial]', err);
+    return { error: err?.message || 'Falha ao extrair material' };
   }
 }
 

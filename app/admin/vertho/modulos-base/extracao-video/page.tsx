@@ -17,8 +17,8 @@ export default function ExtracaoVideoVerthoPage() {
     <div className="max-w-[900px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
       <BackButton href="/admin/vertho/modulos-base" />
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-white flex items-center gap-2"><Film size={20} className="text-purple-400" /> Extrair Módulo-Base de vídeo</h1>
-        <p className="text-xs text-gray-500">Transforme um vídeo (YouTube, Vimeo, TED, LMS) em matéria-prima canônica: a IA estrutura um <strong className="text-gray-300">Módulo-Base rascunho</strong>. Padrão <strong className="text-gray-300">global</strong> (todos os tenants); opcionalmente exclusivo de uma empresa.</p>
+        <h1 className="text-xl font-bold text-white flex items-center gap-2"><Film size={20} className="text-purple-400" /> Extrair Módulo-Base de vídeo ou material</h1>
+        <p className="text-xs text-gray-500">Transforme um vídeo (YouTube, Vimeo, TED, LMS) ou um material (PDF, DOCX, TXT) em matéria-prima canônica: a IA estrutura <strong className="text-gray-300">Módulos-Base rascunho</strong> por tema. Padrão <strong className="text-gray-300">global</strong> (todos os tenants); opcionalmente exclusivo de uma empresa.</p>
       </div>
 
       <ExtracaoVideoPanel origemEmpresaId={null} modoVertho empresas={empresas} />
