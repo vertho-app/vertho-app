@@ -1,0 +1,27 @@
+[
+  {
+    "sceneId": "scene-1",
+    "source": "avatar-intro.mp4",
+    "text": "Hoje vamos falar sobre uma competência essencial: antecipar cenários antes que pequenos sinais virem problemas maiores. Antecipar não é prever o futuro. É perceber antes, conectar melhor e agir com mais intenção."
+  },
+  {
+    "sceneId": "scene-2",
+    "source": "audio-scene-2-concept.mp3",
+    "text": "Antecipar cenários não significa tentar adivinhar o que vai acontecer. Significa observar sinais pequenos, conectar informações que parecem soltas e agir antes que a situação ganhe força. Na prática, é sair da reação automática e entrar em uma postura mais consciente."
+  },
+  {
+    "sceneId": "scene-3",
+    "source": "audio-scene-3-comparison.mp3",
+    "text": "Quando apenas reagimos, esperamos a crise aparecer. Corrigimos no improviso, gastamos mais energia e muitas vezes perdemos tempo. Quando antecipamos, lemos sinais fracos, escolhemos prioridades e reduzimos o impacto antes que o problema cresça."
+  },
+  {
+    "sceneId": "scene-4",
+    "source": "audio-scene-4-signals.mp3",
+    "text": "Três sinais merecem atenção especial: atrasos recorrentes, ruídos de comunicação e decisões sendo adiadas. Isolados, eles podem parecer pequenos. Repetidos, eles mostram que algo no sistema precisa ser observado com mais cuidado."
+  },
+  {
+    "sceneId": "scene-5",
+    "source": "avatar-outro.mp4",
+    "text": "Agora leve isso para a sua prática. Que sinal pequeno você está ignorando hoje? E qual ação simples poderia evitar que ele se transforme em um problema maior nas próximas semanas?"
+  }
+]

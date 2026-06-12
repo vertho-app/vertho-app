@@ -97,6 +97,8 @@ export const extrairVideoTask = task({
         extractAudio: true, audioFormat: 'mp3',
         output: `/tmp/audio-${id}.%(ext)s`,
         noPlaylist: true, noWarnings: true,
+        socketTimeout: 60,   // hosts lentos (archive.org/LMS) estouravam o default de 20s
+        retries: 5,          // retries internos do yt-dlp p/ blips de rede
         postprocessorArgs: 'ffmpeg:-ar 16000 -ac 1 -b:a 48k',
       } as any);
     } catch (e: any) {

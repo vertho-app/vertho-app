@@ -10,7 +10,7 @@ const ROW_GAP = 132; // distância vertical entre bullets
 const FIRST_DELAY = 46;
 const STEP = 22;
 
-export const ConceptRevealV2: React.FC<{ scene: ComputedScene; brand: Brand }> = ({ scene, brand }) => {
+export const ConceptRevealV2: React.FC<{ scene: ComputedScene; brand: Brand; audio?: boolean }> = ({ scene, brand, audio = true }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
   const out = fadeInOut(frame, durationInFrames, 16, 20);
@@ -28,7 +28,7 @@ export const ConceptRevealV2: React.FC<{ scene: ComputedScene; brand: Brand }> =
 
   return (
     <AbsoluteFill>
-      {scene.src && <Audio src={scene.src} />}
+      {audio && scene.src && <Audio src={scene.src} />}
       <BackgroundV2 brand={brand} tone="deep" />
 
       <div style={{ position: 'absolute', top: 196, left: 150, width: 1180, opacity: out }}>

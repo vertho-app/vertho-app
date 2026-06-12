@@ -9,7 +9,7 @@ const ICONS = [IconClock, IconChat, IconHourglass];
 const FIRST = 34;
 const STEP = 24;
 
-export const IconStoryV2: React.FC<{ scene: ComputedScene; brand: Brand }> = ({ scene, brand }) => {
+export const IconStoryV2: React.FC<{ scene: ComputedScene; brand: Brand; audio?: boolean }> = ({ scene, brand, audio = true }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const out = fadeInOut(frame, durationInFrames, 16, 20);
@@ -19,7 +19,7 @@ export const IconStoryV2: React.FC<{ scene: ComputedScene; brand: Brand }> = ({ 
 
   return (
     <AbsoluteFill>
-      {scene.src && <Audio src={scene.src} />}
+      {audio && scene.src && <Audio src={scene.src} />}
       <BackgroundV2 brand={brand} tone="soft" />
 
       <div style={{ position: 'absolute', top: 142, left: 0, right: 0, textAlign: 'center', opacity: out }}>

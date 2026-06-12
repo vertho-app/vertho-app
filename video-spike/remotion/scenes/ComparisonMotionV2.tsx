@@ -17,7 +17,7 @@ const Check: React.FC<{ color: string; p: number }> = ({ color, p }) => (
 const LEFT_DELAY = 26;
 const RIGHT_DELAY = 70;
 
-export const ComparisonMotionV2: React.FC<{ scene: ComputedScene; brand: Brand }> = ({ scene, brand }) => {
+export const ComparisonMotionV2: React.FC<{ scene: ComputedScene; brand: Brand; audio?: boolean }> = ({ scene, brand, audio = true }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
   const out = fadeInOut(frame, durationInFrames, 16, 20);
@@ -39,7 +39,7 @@ export const ComparisonMotionV2: React.FC<{ scene: ComputedScene; brand: Brand }
 
   return (
     <AbsoluteFill>
-      {scene.src && <Audio src={scene.src} />}
+      {audio && scene.src && <Audio src={scene.src} />}
       <BackgroundV2 brand={brand} tone="deep" />
 
       <div style={{ position: 'absolute', top: 122, left: 0, right: 0, textAlign: 'center', opacity: out }}>

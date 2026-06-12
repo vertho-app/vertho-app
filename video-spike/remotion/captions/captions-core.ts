@@ -226,26 +226,76 @@ export function buildAbsoluteCaptions(args: {
   return caps;
 }
 
-/** Fallback proporcional (estilo V2): só para PREVIEW quando não há timestamps. */
-export function buildProportionalCaptions(timeline: TimelineScene[], draftByScene: Record<string, string>, fps: number, opts?: CaptionOpts): AbsCaption[] {
+// Janela de fala (relativa ao início da cena, em segundos) — vinda de detecção
+// de silêncio (ffmpeg). Corta o silêncio de lead-in/lead-out, a maior fonte de
+// descasamento das legendas no fallback proporcional.
+export type SpeechWindow = { start: number; end: number };
+
+/**
+ * Fallback proporcional por cena. As legendas ficam SEMPRE dentro da cena e,
+ * quando há `speechWindows`, dentro da janela de FALA (sem o silêncio inicial/
+ * final). Timing aproximado — produção deve usar timestamps reais.
+ */
+export function buildProportionalCaptions(
+  timeline: TimelineScene[],
+  textByScene: Record<string, string>,
+  fps: number,
+  opts?: CaptionOpts,
+  speechWindows?: Record<string, SpeechWindow>,
+): AbsCaption[] {
   const maxWords = opts?.maxWordsPerCaption ?? 9;
+  const maxDur = opts?.maxDurationSec ?? 3.5;
+  const minDur = opts?.minDurationSec ?? 1.0;
   const caps: AbsCaption[] = [];
   let id = 1;
+
   for (const tl of timeline) {
-    const text = draftByScene[tl.sceneId];
-    if (!text) continue;
-    const segs = text.replace(/\s+/g, ' ').trim().match(/[^.!?…]+[.!?…]+|\S[^.!?…]*$/g) || [text];
-    const flat: string[] = [];
-    for (const seg of segs) flat.push(...chunkTextByTime(seg.trim(), 0, 1, maxWords).map((c) => c.text));
-    const totalChars = flat.reduce((a, s) => a + s.length, 0) || 1;
-    let f = tl.startFrame;
-    flat.forEach((txt, i) => {
-      const last = i === flat.length - 1;
-      const segFrames = last ? tl.endFrame - f : Math.max(Math.round(fps * 1.0), Math.round(tl.durationInFrames * (txt.length / totalChars)));
-      const endFrame = Math.min(tl.endFrame, f + segFrames);
-      caps.push({ id: id++, sceneId: tl.sceneId, startSec: f / fps, endSec: endFrame / fps, startFrame: f, endFrame, text: txt });
-      f = endFrame;
+    const text = textByScene[tl.sceneId];
+    if (!text || !text.trim()) continue; // "legendas não podem mentir": sem texto real → sem legenda
+    const win = speechWindows?.[tl.sceneId];
+    const startFrame = tl.startFrame + Math.round(Math.max(0, win?.start ?? 0) * fps);
+    const endFrame = Math.min(tl.endFrame, tl.startFrame + Math.round((win?.end ?? tl.durationSec) * fps));
+    const spanFrames = Math.max(1, endFrame - startFrame);
+
+    // 1) frases por sentença; 2) tempo distribuído por tamanho do texto.
+    const sentences = text.replace(/\s+/g, ' ').trim().match(/[^.!?…]+[.!?…]+|\S[^.!?…]*$/g)?.map((s) => s.trim()) || [text];
+    const totalChars = sentences.reduce((a, s) => a + s.length, 0) || 1;
+
+    let f = startFrame;
+    sentences.forEach((sentence, si) => {
+      const lastSentence = si === sentences.length - 1;
+      const sentFrames = lastSentence ? endFrame - f : Math.round(spanFrames * (sentence.length / totalChars));
+      const sentStart = f;
+      const sentEnd = Math.min(endFrame, f + sentFrames);
+      f = sentEnd;
+
+      // 3) divide a frase para respeitar maxWords E maxDur.
+      const words = sentence.split(/\s+/);
+      const byWords = Math.ceil(words.length / maxWords);
+      const byDur = Math.ceil((sentEnd - sentStart) / (maxDur * fps));
+      const k = Math.max(1, byWords, byDur);
+      const wper = Math.ceil(words.length / k);
+      let g = sentStart;
+      for (let i = 0; i < k; i++) {
+        const chunkWordsArr = words.slice(i * wper, (i + 1) * wper);
+        if (!chunkWordsArr.length) break;
+        const last = i === k - 1 || (i + 1) * wper >= words.length;
+        const cEnd = last ? sentEnd : Math.min(sentEnd, g + Math.round((sentEnd - sentStart) / k));
+        const ef = Math.max(g + Math.round(minDur * fps), cEnd);
+        const efClamped = Math.min(sentEnd, ef);
+        caps.push({ id: id++, sceneId: tl.sceneId, startSec: g / fps, endSec: efClamped / fps, startFrame: g, endFrame: efClamped, text: chunkWordsArr.join(' ') });
+        g = efClamped;
+        if (last) break;
+      }
     });
+  }
+  // Sem sobreposição entre legendas vizinhas.
+  caps.sort((a, b) => a.startFrame - b.startFrame);
+  for (let i = 0; i < caps.length - 1; i++) {
+    if (caps[i].endFrame > caps[i + 1].startFrame) {
+      caps[i].endFrame = caps[i + 1].startFrame;
+      caps[i].endSec = caps[i + 1].startSec;
+    }
   }
   return caps;
 }
@@ -280,33 +330,41 @@ export function makeProvisionalTimestamps(timeline: TimelineScene[], draftByScen
 function round3(n: number): number { return Math.round(n * 1000) / 1000; }
 
 // ── Resolução (modo + fallback) ─────────────────────────────────────────────
+const PROPORTIONAL_WARNING = 'Usando captions proporcionais; produção deve usar timestamps reais do TTS ou forced alignment.';
+
 export function resolveCaptions(args: {
   mode: CaptionMode;
   timestamps: TimestampsFile | null;
   timeline: TimelineScene[];
-  draftByScene: Record<string, string>;
+  textByScene: Record<string, string>;
   fps: number;
   opts?: CaptionOpts;
+  speechWindows?: Record<string, SpeechWindow>;
 }): { captions: AbsCaption[]; source: string; warnings: string[] } {
   const warnings: string[] = [];
   if (args.mode === 'off') return { captions: [], source: 'off', warnings };
 
-  if (args.mode === 'timestamps') {
-    if (args.timestamps && Array.isArray(args.timestamps.scenes) && args.timestamps.scenes.length) {
-      const captions = buildAbsoluteCaptions({ timestamps: args.timestamps, timeline: args.timeline, fps: args.fps, opts: args.opts });
-      if (captions.length) {
-        if (args.timestamps.source === 'approximation_for_preview') {
-          warnings.push('captions-timestamps.json é APROXIMAÇÃO para preview (source=approximation_for_preview). Produção deve usar timestamps reais do TTS.');
-        }
-        return { captions, source: args.timestamps.source || 'timestamps', warnings };
-      }
-    }
-    warnings.push('captions-timestamps.json não encontrado ou vazio; usando fallback proporcional (apenas para preview — NÃO usar em produção).');
-    return { captions: buildProportionalCaptions(args.timeline, args.draftByScene, args.fps, args.opts), source: 'proportional_fallback', warnings };
+  const proportional = () => buildProportionalCaptions(args.timeline, args.textByScene, args.fps, args.opts, args.speechWindows);
+
+  if (args.mode === 'proportional') {
+    warnings.push(PROPORTIONAL_WARNING);
+    return { captions: proportional(), source: 'proportional', warnings };
   }
 
-  // mode === 'proportional'
-  return { captions: buildProportionalCaptions(args.timeline, args.draftByScene, args.fps, args.opts), source: 'proportional', warnings };
+  // mode === 'timestamps' (default): só usa se for timing REAL (não aproximação).
+  const ts = args.timestamps;
+  const isReal = !!ts && Array.isArray(ts.scenes) && ts.scenes.length > 0 && ts.source !== 'approximation_for_preview';
+  if (isReal) {
+    const captions = buildAbsoluteCaptions({ timestamps: ts as TimestampsFile, timeline: args.timeline, fps: args.fps, opts: args.opts });
+    if (captions.length) return { captions, source: ts!.source || 'external_tts', warnings };
+  }
+  if (ts && ts.source === 'approximation_for_preview') {
+    warnings.push('captions-timestamps.json é APROXIMAÇÃO (ignorado como timing real).');
+  } else {
+    warnings.push('captions-timestamps.json real não encontrado.');
+  }
+  warnings.push(PROPORTIONAL_WARNING);
+  return { captions: proportional(), source: 'proportional', warnings };
 }
 
 // ── Export SRT / VTT ─────────────────────────────────────────────────────────
