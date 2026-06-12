@@ -23,7 +23,10 @@
     "test:unit:watch": "vitest",
     "smoke": "node scripts/smoke-test.js",
     "i18n:audit": "node scripts/i18n-audit.mjs",
-    "i18n:check": "node scripts/i18n-check-keys.mjs"
+    "i18n:check": "node scripts/i18n-check-keys.mjs",
+    "video:probe": "node video-spike/remotion/data/probe-durations.mjs",
+    "video:preview": "npm run video:probe && remotion studio video-spike/remotion/index.ts",
+    "video:render": "npm run video:probe && remotion render video-spike/remotion/index.ts VerthoVideoSpike outputs/vertho-video-spike.mp4"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",
@@ -53,12 +56,15 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
+    "@remotion/cli": "^4.0.476",
+    "@remotion/media-parser": "^4.0.476",
     "@tailwindcss/postcss": "^4.0.0",
     "@trigger.dev/build": "4.4.6",
     "@types/node": "^22.19.17",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "pg": "^8.21.0",
+    "remotion": "^4.0.476",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.4"

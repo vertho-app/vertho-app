@@ -44,6 +44,8 @@
     "playwright-report",
     "test-results",
     "public",
-    "data-pipeline"
+    "data-pipeline",
+    "video-spike",
+    "remotion.config.ts"
   ]
 }
