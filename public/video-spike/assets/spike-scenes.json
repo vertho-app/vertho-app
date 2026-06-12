@@ -1,0 +1,82 @@
+﻿{
+  "video": {
+    "title": "Antecipação de cenários",
+    "theme": "Antecipação de cenários",
+    "audience": "professores, coordenadores e profissionais em desenvolvimento",
+    "aspect_ratio": "16:9",
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "brand": {
+      "primary": "#34c5cc",
+      "secondary": "#142f57",
+      "background": "#071A33",
+      "font": "Inter"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene-1",
+      "type": "avatar_intro",
+      "file": "/video-spike/assets/avatar-intro.mp4",
+      "title": "Antecipar cenários",
+      "subtitle": "Perceber antes. Agir melhor.",
+      "durationMode": "from_video"
+    },
+    {
+      "id": "scene-2",
+      "type": "concept_reveal",
+      "audio": "/video-spike/assets/audio-scene-2-concept.mp3",
+      "title": "Não é prever o futuro",
+      "bullets": [
+        "observar sinais",
+        "conectar informações",
+        "agir antes"
+      ],
+      "durationMode": "from_audio"
+    },
+    {
+      "id": "scene-3",
+      "type": "comparison_motion",
+      "audio": "/video-spike/assets/audio-scene-3-comparison.mp3",
+      "title": "Reagir x Antecipar",
+      "left": {
+        "title": "Reagir",
+        "items": [
+          "espera a crise",
+          "corrige no improviso",
+          "perde tempo"
+        ]
+      },
+      "right": {
+        "title": "Antecipar",
+        "items": [
+          "lê sinais fracos",
+          "escolhe prioridades",
+          "reduz impacto"
+        ]
+      },
+      "durationMode": "from_audio"
+    },
+    {
+      "id": "scene-4",
+      "type": "icon_story",
+      "audio": "/video-spike/assets/audio-scene-4-signals.mp3",
+      "title": "Três sinais de atenção",
+      "items": [
+        "atrasos recorrentes",
+        "ruídos de comunicação",
+        "decisões adiadas"
+      ],
+      "durationMode": "from_audio"
+    },
+    {
+      "id": "scene-5",
+      "type": "avatar_outro",
+      "file": "/video-spike/assets/avatar-outro.mp4",
+      "title": "Pergunta prática",
+      "subtitle": "Que sinal pequeno você está ignorando hoje?",
+      "durationMode": "from_video"
+    }
+  ]
+}

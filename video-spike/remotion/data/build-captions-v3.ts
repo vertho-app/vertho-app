@@ -28,6 +28,14 @@ const scenesJson = readJson(path.join(ASSETS, 'spike-scenes.json'));
 const fps = scenesJson.video.fps as number;
 const scenes = scenesJson.scenes as SceneDef[];
 
+// DEBUG: fonte de áudio por cena (1 por cena; avatar = embutido no MP4).
+const base = (p?: string) => (p ? p.split('/').pop() : '') as string;
+scenes.forEach((s, i) => {
+  const isAvatar = String(s.type).startsWith('avatar');
+  const src = isAvatar ? `embedded: ${base((s as any).file)}` : base((s as any).audio);
+  console.log(`Scene ${i + 1} audioSource = ${src}`);
+});
+
 // Texto real por cena (captions-v3.json). Sem texto → sem legenda (não mentir).
 const v3 = readJson(path.join(ASSETS, 'captions-v3.json')) as { sceneId: string; source: string; text: string }[];
 const textByScene: Record<string, string> = Object.fromEntries(v3.map((c) => [c.sceneId, c.text]));
