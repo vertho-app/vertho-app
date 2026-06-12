@@ -887,6 +887,7 @@ export async function criarModulosDeTranscricao(opts: {
 
   const locale = (opts.locale || 'pt-BR') as Locale;
   const modulos: { id: string; competencia?: string; nivel_entrada?: Nivel; nivel_destino?: Nivel }[] = [];
+  const falhas: string[] = [];
   for (const s of secoes) {
     const res = await estruturarEInserirModulo(
       { ...s, locale } as MetaModulo,
@@ -894,8 +895,11 @@ export async function criarModulosDeTranscricao(opts: {
       { empresaId: opts.empresaId, urlOrigem: opts.urlOrigem, createdBy: opts.createdBy },
     );
     if (res.id) modulos.push({ id: res.id, competencia: res.competencia, nivel_entrada: res.nivel_entrada, nivel_destino: res.nivel_destino });
+    else falhas.push(`[${String(s.competencia_base_id).slice(0, 8)}] ${res.error || 'sem id'}`);
   }
-  if (!modulos.length) return { modulos: [], error: 'Nenhum módulo pôde ser estruturado a partir das seções.' };
+  if (!modulos.length) {
+    return { modulos: [], error: `${secoes.length} seções, 0 estruturadas. Motivos: ${falhas.slice(0, 4).join(' · ').slice(0, 380)}` };
+  }
   return { modulos };
 }
 
