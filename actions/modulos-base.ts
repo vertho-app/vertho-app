@@ -803,46 +803,41 @@ export async function criarModuloBaseDeTextoExtraido(opts: {
   return estruturarEInserirModulo(meta as MetaModulo, opts.textoBase, opts);
 }
 
-/**
- * Segmenta a transcrição completa de um vídeo LONGO em seções temáticas, cada
- * uma mapeada a uma competência canônica + transição. Vídeos de 1h+ cobrem
- * vários temas → vários módulos (1 por tema). Retorna seções com texto-base
- * focado por seção.
- */
-async function segmentarTranscricao(
-  transcricao: string, tituloVideo: string,
-): Promise<{ secoes: Array<Omit<MetaModulo, 'locale'> & { texto_base: string }>; diag: string }> {
-  const sb = createSupabaseAdmin();
-  const { data: comps } = await sb.from('competencias_base').select('id, nome, segmento').order('nome');
-  const lista = (comps || []) as { id: string; nome: string; segmento: string }[];
-  const compsListagem = lista.slice(0, 200).map((c) => `- ${c.id} :: ${c.nome} (${c.segmento})`).join('\n');
-  const idSet = new Set(lista.map((c) => c.id));
-  const nomeParaId = new Map(lista.map((c) => [c.nome.trim().toLowerCase(), c.id]));
+type SegSecao = Omit<MetaModulo, 'locale'> & { texto_base: string };
+interface SegCtx {
+  compsListagem: string;
+  idSet: Set<string>;
+  nomeParaId: Map<string, string>;
+  model: string;
+}
 
-  const system = `Você é designer instrucional da Vertho. Recebe a TRANSCRIÇÃO de um vídeo longo (aula/palestra/masterclass) e a divide em SEÇÕES TEMÁTICAS coerentes. Cada seção vira matéria-prima de UM módulo-base, mapeado a UMA competência canônica do catálogo Vertho.
+const SEG_SYSTEM = `Você é designer instrucional da Vertho. Recebe um TRECHO de transcrição/material (aula/palestra/apostila) e o divide em SEÇÕES TEMÁTICAS coerentes. Cada seção vira matéria-prima de UM módulo-base, mapeado a UMA competência canônica do catálogo Vertho.
 
 REGRAS:
-- Identifique de 1 a 8 seções (use o número que o conteúdo pedir; um vídeo monotemático pode ter 1).
+- Identifique de 1 a 8 seções (use o número que o conteúdo pedir; um trecho monotemático pode ter 1).
 - Para CADA seção, escolha SEMPRE a competência do catálogo SEMANTICAMENTE mais próxima — nunca deixe sem competência. Copie o "competencia_base_id" EXATO da lista (e repita o nome em "competencia_nome" para conferência).
 - Transição de nível: default N1→N2 se incerto.
 - "texto_base": destile FIELMENTE o conteúdo da seção (400-900 palavras, markdown), sem inventar.
 
 Responda APENAS JSON válido (sem markdown), no formato:
 {"secoes":[{"competencia_base_id":"<id do catálogo>","competencia_nome":"<nome>","nivel_entrada":"N1","nivel_destino":"N2","contexto_pedagogico":null,"titulo":"...","finalidade":"...","texto_base":"..."}]}`;
+
+const niveisValidos = (e: string, d: string) =>
+  NIVEIS.includes(e as Nivel) && NIVEIS.includes(d as Nivel) && nivelGreater(d as Nivel, e as Nivel);
+
+/** Segmenta UMA janela de texto (≤ ~110k chars) numa chamada (com retry). */
+async function segmentarJanela(texto: string, tituloVideo: string, ctx: SegCtx): Promise<{ secoes: SegSecao[]; diag: string }> {
   const user = `CATÁLOGO DE COMPETÊNCIAS (escolha sempre 1 por seção — id EXATO):
-${compsListagem}
+${ctx.compsListagem}
 
-TÍTULO DO VÍDEO: ${tituloVideo || '—'}
+TÍTULO: ${tituloVideo || '—'}
 
-TRANSCRIÇÃO COMPLETA:
-${String(transcricao).slice(0, 120000)}`;
-
-  const model = await getModelForTask(null as any, 'modulo_base_autor');
-  const niveisOk = (e: string, d: string) => NIVEIS.includes(e as Nivel) && NIVEIS.includes(d as Nivel) && nivelGreater(d as Nivel, e as Nivel);
+TRECHO:
+${texto}`;
 
   let ultimoDiag = 'sem resposta';
   for (let tentativa = 1; tentativa <= 3; tentativa++) {
-    const raw = await callAI(system, user, { model }, 32000).catch((e: any) => { ultimoDiag = 'callAI: ' + (e?.message || e); return ''; });
+    const raw = await callAI(SEG_SYSTEM, user, { model: ctx.model }, 32000).catch((e: any) => { ultimoDiag = 'callAI: ' + (e?.message || e); return ''; });
     const cleaned = String(raw || '').replace(/```json\s*/gi, '').replace(/```/g, '').trim();
     // Parse tolerante: objeto {secoes:[...]}, bare array [...], ou maior bloco {…}/[…].
     let brutas: any[] = [];
@@ -854,30 +849,84 @@ ${String(transcricao).slice(0, 120000)}`;
         if (arr) { brutas = arr; break; }
       } catch { /* tenta próximo candidato */ }
     }
-    if (!brutas.length) { ultimoDiag = `t${tentativa}: raw=${cleaned.length}c, JSON sem secoes (início="${cleaned.slice(0, 80).replace(/\n/g, ' ')}")`; continue; }
+    if (!brutas.length) { ultimoDiag = `t${tentativa}: raw=${cleaned.length}c, JSON sem secoes`; continue; }
 
     // Resolve a competência: id válido do catálogo OU nome casado ao catálogo.
-    const secoes = brutas.map((s: any) => {
+    const secoes: SegSecao[] = brutas.map((s: any) => {
       let id = String(s?.competencia_base_id || '').trim();
-      if (!idSet.has(id)) {
-        const porNome = nomeParaId.get(String(s?.competencia_nome || '').trim().toLowerCase());
-        id = porNome || '';
-      }
+      if (!ctx.idSet.has(id)) id = ctx.nomeParaId.get(String(s?.competencia_nome || '').trim().toLowerCase()) || '';
       return { s, id };
     }).filter((x) => x.id && x.s?.texto_base).map(({ s, id }) => ({
       competencia_base_id: id,
-      nivel_entrada: (niveisOk(s.nivel_entrada, s.nivel_destino) ? s.nivel_entrada : 'N1') as Nivel,
-      nivel_destino: (niveisOk(s.nivel_entrada, s.nivel_destino) ? s.nivel_destino : 'N2') as Nivel,
+      nivel_entrada: (niveisValidos(s.nivel_entrada, s.nivel_destino) ? s.nivel_entrada : 'N1') as Nivel,
+      nivel_destino: (niveisValidos(s.nivel_entrada, s.nivel_destino) ? s.nivel_destino : 'N2') as Nivel,
       contexto_pedagogico: s.contexto_pedagogico || null,
       titulo: s.titulo || null,
       finalidade: s.finalidade || null,
       texto_base: String(s.texto_base),
     }));
 
-    if (secoes.length) return { secoes, diag: `${secoes.length} seções (t${tentativa})` };
-    ultimoDiag = `t${tentativa}: ${brutas.length} brutas, 0 com competência válida/texto`;
+    if (secoes.length) return { secoes, diag: `${secoes.length} (t${tentativa})` };
+    ultimoDiag = `t${tentativa}: ${brutas.length} brutas, 0 válidas`;
   }
   return { secoes: [], diag: ultimoDiag };
+}
+
+/**
+ * Segmenta a transcrição/material completo em seções temáticas → 1 módulo por
+ * tema. Texto pequeno (≤110k chars): 1 chamada. Texto GRANDE: MAP-REDUCE —
+ * fatia em janelas com overlap, segmenta cada uma e deduplica/mescla seções por
+ * (competência × transição), removendo o teto de tamanho (livros, cursos, etc).
+ */
+async function segmentarTranscricao(
+  transcricao: string, tituloVideo: string,
+): Promise<{ secoes: SegSecao[]; diag: string }> {
+  const sb = createSupabaseAdmin();
+  const { data: comps } = await sb.from('competencias_base').select('id, nome, segmento').order('nome');
+  const lista = (comps || []) as { id: string; nome: string; segmento: string }[];
+  const ctx: SegCtx = {
+    compsListagem: lista.slice(0, 200).map((c) => `- ${c.id} :: ${c.nome} (${c.segmento})`).join('\n'),
+    idSet: new Set(lista.map((c) => c.id)),
+    nomeParaId: new Map(lista.map((c) => [c.nome.trim().toLowerCase(), c.id])),
+    model: await getModelForTask(null as any, 'modulo_base_autor'),
+  };
+
+  const full = String(transcricao);
+  const JANELA = 110000, OVERLAP = 6000, MAX_JANELAS = 12, MAX_SECOES = 12, MERGE_CAP = 14000;
+
+  // Caso comum: cabe numa janela → 1 chamada (comportamento anterior).
+  if (full.length <= JANELA) return segmentarJanela(full, tituloVideo, ctx);
+
+  // MAP: janelas com overlap (evita cortar um tema na fronteira).
+  const janelas: string[] = [];
+  for (let i = 0; i < full.length && janelas.length < MAX_JANELAS; i += (JANELA - OVERLAP)) {
+    janelas.push(full.slice(i, i + JANELA));
+  }
+  const truncado = (MAX_JANELAS - 1) * (JANELA - OVERLAP) + JANELA < full.length;
+
+  const todas: SegSecao[] = [];
+  const diags: string[] = [];
+  for (let j = 0; j < janelas.length; j++) {
+    const r = await segmentarJanela(janelas[j], `${tituloVideo} (parte ${j + 1}/${janelas.length})`, ctx);
+    todas.push(...r.secoes);
+    diags.push(`j${j + 1}:${r.secoes.length}`);
+  }
+
+  // REDUCE: dedup/mescla por (competência × transição). Tema que cruza janelas
+  // vira UM módulo com o material combinado (cap), não dois quase-duplicados.
+  const map = new Map<string, SegSecao>();
+  for (const s of todas) {
+    const key = `${s.competencia_base_id}|${s.nivel_entrada}|${s.nivel_destino}`;
+    const ex = map.get(key);
+    if (ex) {
+      if (ex.texto_base.length < MERGE_CAP) ex.texto_base = (ex.texto_base + '\n\n' + s.texto_base).slice(0, MERGE_CAP);
+    } else {
+      map.set(key, { ...s });
+    }
+  }
+  const secoes = [...map.values()].slice(0, MAX_SECOES);
+  const diag = `map-reduce ${janelas.length} janelas → ${todas.length} brutas → ${secoes.length} módulos${truncado ? ' [texto truncado em ' + MAX_JANELAS + ' janelas]' : ''} (${diags.join(' ')})`;
+  return { secoes, diag };
 }
 
 /**
@@ -899,17 +948,22 @@ export async function criarModulosDeTranscricao(opts: {
   if (!secoes.length) return { modulos: [], error: `Não foi possível segmentar a transcrição. ${diag}` };
 
   const locale = (opts.locale || 'pt-BR') as Locale;
-  const modulos: { id: string; competencia?: string; nivel_entrada?: Nivel; nivel_destino?: Nivel }[] = [];
-  const falhas: string[] = [];
-  for (const s of secoes) {
-    const res = await estruturarEInserirModulo(
+  // Estrutura as seções EM PARALELO — N módulos levam ~o tempo de 1, em vez de
+  // N×(tempo de um). Crucial pra não estourar o timeout no fluxo síncrono
+  // (material) e no callback (vídeo) quando há muitos temas.
+  const resultados = await Promise.all(secoes.map((s) =>
+    estruturarEInserirModulo(
       { ...s, locale } as MetaModulo,
       s.texto_base,
       { empresaId: opts.empresaId, urlOrigem: opts.urlOrigem, createdBy: opts.createdBy },
-    );
-    if (res.id) modulos.push({ id: res.id, competencia: res.competencia, nivel_entrada: res.nivel_entrada, nivel_destino: res.nivel_destino });
-    else falhas.push(`[${String(s.competencia_base_id).slice(0, 8)}] ${res.error || 'sem id'}`);
-  }
+    ).catch((e: any) => ({ error: e?.message || 'erro' } as any)),
+  ));
+  const modulos: { id: string; competencia?: string; nivel_entrada?: Nivel; nivel_destino?: Nivel }[] = [];
+  const falhas: string[] = [];
+  resultados.forEach((res, i) => {
+    if (res?.id) modulos.push({ id: res.id, competencia: res.competencia, nivel_entrada: res.nivel_entrada, nivel_destino: res.nivel_destino });
+    else falhas.push(`[${String(secoes[i].competencia_base_id).slice(0, 8)}] ${res?.error || 'sem id'}`);
+  });
   if (!modulos.length) {
     return { modulos: [], error: `${secoes.length} seções, 0 estruturadas. Motivos: ${falhas.slice(0, 4).join(' · ').slice(0, 380)}` };
   }
