@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { Calculator, School, Users, Briefcase, Vote, Building2, Film, FileText, Headphones } from 'lucide-react';
+import { Calculator, School, Users, Briefcase, Vote, Building2, Film, FileText, Headphones, Clapperboard } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { CALLS, PRESETS, calcCost } from '@/lib/ia-cost-catalog';
 
@@ -134,6 +134,22 @@ function custoIAExtracao(nVideos: number, incluirAuditoria: boolean) {
   return total;
 }
 
+/**
+ * Custo de geração de VÍDEO a partir do Módulo-Base (avatar HeyGen + cenas
+ * Remotion + narração TTS). One-time por vídeo. Avatar opcional (sem ele, sai só
+ * cenas animadas e o custo cai ~$0,58). Render no trigger.dev é o dominante (~75%).
+ */
+function custoIAVideoGerado(nVideos: number, comAvatar: boolean) {
+  let total = 0;
+  for (const call of CALLS) {
+    if (call.scaleType !== 'video_gerado') continue;
+    if (call.id === 'video-modulo-avatar' && !comAvatar) continue;
+    const c = calcCost(call, (call as any).defaultModel, Math.max(0, nVideos || 0));
+    if (c) total += c.usd;
+  }
+  return total;
+}
+
 export default function OrcamentoPage() {
   const locale = useLocale();
   const t = useTranslations('AdminBudget');
@@ -155,6 +171,9 @@ export default function OrcamentoPage() {
   // Extração de vídeo → módulo-base (one-time, matéria-prima reusada).
   const [nVideosExtraidos, setNVideosExtraidos] = useState(0);
   const [auditarExtracao, setAuditarExtracao] = useState(true);
+  // Geração de vídeo a partir do módulo-base (one-time por vídeo; avatar opcional).
+  const [nVideosGerados, setNVideosGerados] = useState(0);
+  const [comAvatar, setComAvatar] = useState(true);
 
   // Inputs de pricing
   const [pricing, setPricing] = useState(PRECOS_DEFAULT);
@@ -178,13 +197,17 @@ export default function OrcamentoPage() {
     const custoExtracaoTotal = custoIAExtracao(nVideosExtraidos, auditarExtracao);
     const custoExtracaoPorVideo = custoIAExtracao(1, auditarExtracao);
 
+    // Geração de vídeo a partir do módulo-base (one-time por vídeo).
+    const custoVideoGeradoTotal = custoIAVideoGerado(nVideosGerados, comAvatar);
+    const custoVideoGeradoPorVideo = custoIAVideoGerado(1, comAvatar);
+
     // Setup + tagging: uma vez (implantação). Mentor IA + Conteúdo: por ciclo —
     // multiplicam por ciclos/ano para alinhar à receita de 12 meses.
     const ciclos = Math.max(1, ciclosPorAno || 1);
     const custoSetupTotal = nClusters * custoSetupPorCluster + custoTaggingTotal;
     const custoColabsTotalAno = nColabs * custoPorColab * ciclos;
     const custoConteudoTotalAno = custoConteudoTotal * ciclos;
-    const custoIAUsd = custoSetupTotal + custoColabsTotalAno + custoConteudoTotalAno + custoExtracaoTotal;
+    const custoIAUsd = custoSetupTotal + custoColabsTotalAno + custoConteudoTotalAno + custoExtracaoTotal + custoVideoGeradoTotal;
     const custoIABrl = custoIAUsd * pricing.cotacao;
 
     // Valor de tabela (BRL)
@@ -219,6 +242,8 @@ export default function OrcamentoPage() {
       custoConteudoPorColab,
       custoExtracaoTotal,
       custoExtracaoPorVideo,
+      custoVideoGeradoTotal,
+      custoVideoGeradoPorVideo,
       custoSetupTotal,
       custoColabsTotalAno,
       ciclos,
@@ -240,7 +265,7 @@ export default function OrcamentoPage() {
       margemAbs,
       margemPct,
     };
-  }, [nClusters, nPerfis, metodo, nColabs, periodoMeses, ciclosPorAno, preset, pricing, conteudoColab, nVideosExtraidos, auditarExtracao]);
+  }, [nClusters, nPerfis, metodo, nColabs, periodoMeses, ciclosPorAno, preset, pricing, conteudoColab, nVideosExtraidos, auditarExtracao, nVideosGerados, comAvatar]);
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 py-6 sm:px-6 min-h-full">
@@ -363,6 +388,31 @@ export default function OrcamentoPage() {
         </div>
       </div>
 
+      {/* Geração de vídeo a partir do Módulo-Base (avatar HeyGen + cenas Remotion + narração TTS) */}
+      <div className="rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4 mb-6">
+        <p className="text-xs uppercase tracking-widest text-violet-300 mb-1 flex items-center gap-1.5">
+          <Clapperboard size={14} /> Vídeo gerado do Módulo-Base
+        </p>
+        <p className="text-[10px] text-gray-500 mb-3">
+          Vídeo de ~90s (5 cenas) com avatar falante, cenas animadas e narração própria (voz Kore). One-time por vídeo. O render Remotion no trigger.dev é o dominante (~75% do custo, medido em E2E real). O avatar HeyGen é opcional — sem ele, o custo cai ~USD 0,58.
+        </p>
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+          <FieldNumber locale={locale} icon={<Clapperboard size={14} />} label="Vídeos a gerar" value={nVideosGerados} onChange={setNVideosGerados} min={0} />
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 flex flex-col">
+            <label className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Avatar falante</label>
+            <button onClick={() => setComAvatar((v) => !v)}
+              className={`mt-1 px-2 py-1.5 rounded text-xs font-bold border ${comAvatar ? 'bg-violet-500/20 border-violet-400/50 text-violet-300' : 'border-white/10 text-gray-400'}`}>
+              {comAvatar ? 'Com avatar (HeyGen)' : 'Só cenas animadas'}
+            </button>
+            <p className="text-[9px] text-gray-600 mt-0.5">HeyGen ≈ USD 0,58/vídeo</p>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-4 text-[11px]">
+          <span className="text-violet-300 font-semibold">Por vídeo (~90s): USD {calc.custoVideoGeradoPorVideo.toFixed(2)}</span>
+          <span className="text-violet-200 font-semibold">Total ({nVideosGerados.toLocaleString(locale)} vídeos): USD {calc.custoVideoGeradoTotal.toFixed(2)}</span>
+        </div>
+      </div>
+
       {/* Resumo financeiro — Mensalidade flat (total ÷ período) */}
       <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 mb-6">
         <div className="grid gap-4 sm:grid-cols-2">
@@ -450,6 +500,9 @@ export default function OrcamentoPage() {
             )}
             {calc.custoExtracaoTotal > 0 && (
               <Row label={`Extração de vídeo: ${nVideosExtraidos.toLocaleString(locale)} vídeo(s) ${t('ai.oneTimeTag')}`} value={`USD ${calc.custoExtracaoTotal.toFixed(2)}`} />
+            )}
+            {calc.custoVideoGeradoTotal > 0 && (
+              <Row label={`Vídeo gerado${comAvatar ? ' (c/ avatar)' : ' (s/ avatar)'}: ${nVideosGerados.toLocaleString(locale)} vídeo(s) ${t('ai.oneTimeTag')}`} value={`USD ${calc.custoVideoGeradoTotal.toFixed(2)}`} />
             )}
             <div className="pt-1.5 border-t border-white/5">
               <Row label={t('ai.totalUsd')} value={`USD ${calc.custoIAUsd.toFixed(2)}`} bold />

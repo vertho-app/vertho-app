@@ -46,6 +46,7 @@ export const SCALE_LABEL = {
   colab: 'por colaborador',
   conteudo: 'por peça de conteúdo autorada',
   extracao: 'por vídeo extraído (módulo-base)',
+  video_gerado: 'por vídeo gerado (Módulo-Base → HeyGen+Remotion)',
   pagina_radar: 'por escola/município único (Radar)',
   lead_radar: 'por lead PDF (Radar)',
   empresa: 'one-time por empresa',
@@ -541,6 +542,63 @@ export const CALLS = [
     defaultModel: 'claude-sonnet-4-6',
     critical: false,
     opcional: true,
+  },
+
+  // ── VÍDEO GERADO a partir do MÓDULO-BASE (avatar HeyGen + cenas Remotion + narração TTS própria) ──
+  // Escala por VÍDEO gerado (~90s, 5 cenas). Custo DOMINANTE = render Remotion no
+  // trigger.dev (chunks large-2x). Avatar HeyGen é opcional (toggle com/sem avatar).
+  // Números cravados num E2E real (jun/2026): render $2,07 (API trigger.dev) e
+  // avatar $0,58 (34 créditos × $0,0172/créd. — medido na fatura HeyGen).
+  {
+    id: 'video-modulo-roteiro',
+    fase: 'Vídeo do Módulo-Base',
+    scaleType: 'video_gerado',
+    nome: 'Roteiro de vídeo (LLM)',
+    descricao: 'Transforma o Módulo-Base em roteiro de 5 cenas (JSON). Sonnet 4.6. ~2,5k tok in (módulo) + ~1,8k tok out (roteiro).',
+    inTokens: 2500,
+    outTokens: 1800,
+    exec: 1,
+    defaultModel: 'claude-sonnet-4-6',
+    critical: false,
+  },
+  {
+    id: 'video-modulo-narracao',
+    fase: 'Vídeo do Módulo-Base',
+    scaleType: 'video_gerado',
+    nome: 'Narração das cenas (TTS)',
+    descricao: 'Narração própria (voz Kore) das 5 cenas, ~90s de áudio. Gemini TTS por token: input = texto+direção (~700 tok); output = áudio (~2.300 tok ≈ 90s × ~25 tok/s). Serve tanto às cenas animadas quanto ao lip-sync do avatar.',
+    inTokens: 700,
+    outTokens: 2300,
+    exec: 1,
+    defaultModel: 'gemini-3.1-flash-tts',
+    critical: false,
+  },
+  {
+    id: 'video-modulo-avatar',
+    fase: 'Vídeo do Módulo-Base',
+    scaleType: 'video_gerado',
+    nome: 'Avatar falante (HeyGen)',
+    descricao: 'Clipes de avatar (intro + outro, ~31s) com lip-sync da nossa narração. ~34 créditos × $0,0172/créd. = $0,58 (medido). OPCIONAL: sem avatar, o vídeo usa só cenas animadas e o custo cai ~$0,58.',
+    inTokens: 0,
+    outTokens: 0,
+    flatUsd: 0.58,
+    exec: 1,
+    defaultModel: 'gemini-3.1-flash-lite',
+    critical: false,
+    opcional: true,
+  },
+  {
+    id: 'video-modulo-render',
+    fase: 'Vídeo do Módulo-Base',
+    scaleType: 'video_gerado',
+    nome: 'Render Remotion (trigger.dev)',
+    descricao: 'CUSTO DOMINANTE (~75%). Render do vídeo 1080p/30fps em chunks paralelos large-2x + concat FFmpeg → Bunny. $2,07 medido na API do trigger.dev (8 chunks × ~$0,20–0,35). Alavancas de redução: menos chunks, máquina menor ou 720p.',
+    inTokens: 0,
+    outTokens: 0,
+    flatUsd: 2.07,
+    exec: 1,
+    defaultModel: 'gemini-3.1-flash-lite',
+    critical: false,
   },
 
   // ── EXTRAÇÃO DE VÍDEO → MÓDULO-BASE (matéria-prima canônica, reusada) ──
