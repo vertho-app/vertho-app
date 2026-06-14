@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Save, Send, CheckCircle2, Archive, Languages, AlertTriangle, ShieldCheck, ShieldAlert, Sparkles, RotateCcw, Wand2, Trash2 } from 'lucide-react';
 import BackButton from '@/components/back-button';
+import VideoGeradorCard from './_video-gerador';
 import {
   obterModulo, listarCompetenciasBase, salvarModulo,
   submeterRevisao, aprovarPublicar, marcarObsoleto, criarTraducao, obterGrupo,
@@ -327,6 +328,9 @@ export default function ModuloBaseEditPage({ params }: { params: Promise<{ id: s
             Cabeçalho conceitual só pode ser editado em rascunho. Criado por <strong>{m.created_by}</strong>{m.published_by ? ` · publicado por ${m.published_by}` : ''}.
           </p>
         </Card>
+
+        {/* Geração de vídeo (avatar HeyGen + cenas Remotion + narração TTS própria) */}
+        {!isNovo && <VideoGeradorCard moduloId={id} status={m.status} />}
 
         {/* Blocos JSONB */}
         <Card titulo="Bloco 1 — Conteúdo central"

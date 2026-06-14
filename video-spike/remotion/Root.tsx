@@ -70,6 +70,29 @@ export const RemotionRoot: React.FC = () => {
           };
         }}
       />
+
+      {/* PRODUTO — recebe TUDO via inputProps (URLs remotas + timeline já computada).
+          Não lê assets estáticos: calculateMetadata confia nos props injetados pelo
+          orquestrador (montar-inputprops.ts). defaultProps = V3 só pra abrir o Studio. */}
+      <Composition
+        id="VerthoVideo"
+        component={VideoCompositionV3}
+        durationInFrames={initialV3.totalFrames}
+        fps={initialV3.fps}
+        width={initialV3.width}
+        height={initialV3.height}
+        defaultProps={initialV3 as SpikePropsV3}
+        calculateMetadata={({ props }) => {
+          const p = props as SpikePropsV3;
+          return {
+            durationInFrames: p.totalFrames || initialV3.totalFrames,
+            fps: p.fps || initialV3.fps,
+            width: p.width || initialV3.width,
+            height: p.height || initialV3.height,
+            props: p,
+          };
+        }}
+      />
     </>
   );
 };
