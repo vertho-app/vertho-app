@@ -6,6 +6,10 @@ import { AvatarClipV2 } from './scenes/AvatarClipV2';
 import { ConceptRevealV2 } from './scenes/ConceptRevealV2';
 import { ComparisonMotionV2 } from './scenes/ComparisonMotionV2';
 import { IconStoryV2 } from './scenes/IconStoryV2';
+import { StatHighlightV2 } from './scenes/StatHighlightV2';
+import { QuoteSpotlightV2 } from './scenes/QuoteSpotlightV2';
+import { StepsFlowV2 } from './scenes/StepsFlowV2';
+import { ScenarioCardV2 } from './scenes/ScenarioCardV2';
 import { CaptionsV3 } from './scenes/CaptionsV3';
 import { BRAND } from './theme';
 import { BackgroundV2, BrandMarkV2, ProgressBarV2 } from './theme-v2';
@@ -24,6 +28,14 @@ function renderSceneVisual(scene: ComputedScene, brand: Brand) {
       return <ComparisonMotionV2 scene={scene} brand={brand} audio={false} />;
     case 'icon_story':
       return <IconStoryV2 scene={scene} brand={brand} audio={false} />;
+    case 'stat_highlight':
+      return <StatHighlightV2 scene={scene} brand={brand} />;
+    case 'quote_spotlight':
+      return <QuoteSpotlightV2 scene={scene} brand={brand} />;
+    case 'steps_flow':
+      return <StepsFlowV2 scene={scene} brand={brand} />;
+    case 'scenario_card':
+      return <ScenarioCardV2 scene={scene} brand={brand} />;
     default:
       return null;
   }

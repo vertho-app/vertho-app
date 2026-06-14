@@ -9,6 +9,10 @@ export type SceneType =
   | 'concept_reveal'
   | 'comparison_motion'
   | 'icon_story'
+  | 'stat_highlight'
+  | 'quote_spotlight'
+  | 'steps_flow'
+  | 'scenario_card'
   | 'avatar_outro';
 
 export interface Brand {
@@ -27,6 +31,8 @@ export interface ComputedScene {
   items?: string[];
   left?: { title: string; items: string[] };
   right?: { title: string; items: string[] };
+  stat?: string;
+  quote?: string;
   src?: string;
   seconds: number;
   durationInFrames: number;

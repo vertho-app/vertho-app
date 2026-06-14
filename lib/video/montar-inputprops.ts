@@ -18,6 +18,8 @@ export interface ComputedScene {
   items?: string[];
   left?: { title: string; items: string[] };
   right?: { title: string; items: string[] };
+  stat?: string;
+  quote?: string;
   src?: string;
   seconds: number;
   durationInFrames: number;
@@ -124,6 +126,8 @@ export function montarInputProps(
       items: s.items,
       left: s.left,
       right: s.right,
+      stat: s.stat,
+      quote: s.quote,
       src: asset?.src,
       seconds,
       durationInFrames,
