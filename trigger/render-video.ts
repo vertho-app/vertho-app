@@ -50,15 +50,19 @@ export const renderVideoTask = task({
   id: 'render-video',
   machine: 'medium-1x',
   maxDuration: 3600, // espera os chunks (que podem enfileirar conforme a concorrência)
-  run: async (p: { composition?: string; frames: number; chunks?: number; jobId?: string; inputProps?: any; title?: string }) => {
+  run: async (p: { composition?: string; frames: number; chunks?: number; jobId?: string; inputProps?: any; title?: string; chunkMachine?: string; scale?: number }) => {
     const compId = p.composition || 'VerthoVideoSpikeV3';
     const jobId = p.jobId || `job-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
     const chunks = Math.max(1, p.chunks ?? 6);
     const ranges = splitRanges(p.frames, chunks);
 
-    // 1) fan-out — renderiza as faixas em paralelo.
+    // 1) fan-out — renderiza as faixas em paralelo. `chunkMachine` permite
+    //    override da máquina dos chunks; `scale` faz downscale (ex.: 720p).
     const batch = await renderChunkTask.batchTriggerAndWait(
-      ranges.map((frameRange, index) => ({ payload: { composition: compId, frameRange, jobId, index, inputProps: p.inputProps } })),
+      ranges.map((frameRange, index) => ({
+        payload: { composition: compId, frameRange, jobId, index, inputProps: p.inputProps, scale: p.scale },
+        options: p.chunkMachine ? { machine: p.chunkMachine as any } : undefined,
+      })),
     );
     const parts = batch.runs.map((run: any, i: number) => {
       if (!run.ok) throw new Error(`chunk ${i} falhou: ${JSON.stringify(run.error).slice(0, 200)}`);

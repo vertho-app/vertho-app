@@ -23,7 +23,7 @@ export const renderChunkTask = task({
   id: 'render-chunk',
   machine: 'large-2x',
   maxDuration: 1800,
-  run: async (p: { composition: string; frameRange: [number, number]; jobId: string; index: number; inputProps?: any }) => {
+  run: async (p: { composition: string; frameRange: [number, number]; jobId: string; index: number; inputProps?: any; scale?: number }) => {
     const bundle = await resolveBundle();
     await ensureBrowser();
     const composition = await selectComposition({ serveUrl: bundle, id: p.composition, inputProps: p.inputProps || {} });
@@ -39,6 +39,9 @@ export const renderChunkTask = task({
       timeoutInMilliseconds: 120000,
       frameRange: p.frameRange,
       inputProps: p.inputProps || {},
+      // scale < 1 = downscale do output (ex.: 0.6667 → 1080p design vira 720p).
+      // Mantém o layout (design em 1920x1080) e reduz pixels processados/encode.
+      ...(p.scale && p.scale !== 1 ? { scale: p.scale } : {}),
     });
 
     const buf = await readFile(out);

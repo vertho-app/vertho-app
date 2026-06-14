@@ -547,8 +547,9 @@ export const CALLS = [
   // ── VÍDEO GERADO a partir do MÓDULO-BASE (avatar HeyGen + cenas Remotion + narração TTS própria) ──
   // Escala por VÍDEO gerado (~90s, 5 cenas). Custo DOMINANTE = render Remotion no
   // trigger.dev (chunks large-2x). Avatar HeyGen é opcional (toggle com/sem avatar).
-  // Números cravados num E2E real (jun/2026): render $2,07 (API trigger.dev) e
-  // avatar $0,58 (34 créditos × $0,0172/créd. — medido na fatura HeyGen).
+  // Números cravados em E2E real (jun/2026): render 720p $1,07 (API trigger.dev;
+  // era $2,07 em 1080p — default mudou p/ 720p, -48%) e avatar $0,58 (34 créditos
+  // × $0,0172/créd. — medido na fatura HeyGen).
   {
     id: 'video-modulo-roteiro',
     fase: 'Vídeo do Módulo-Base',
@@ -592,10 +593,10 @@ export const CALLS = [
     fase: 'Vídeo do Módulo-Base',
     scaleType: 'video_gerado',
     nome: 'Render Remotion (trigger.dev)',
-    descricao: 'CUSTO DOMINANTE (~75%). Render do vídeo 1080p/30fps em chunks paralelos large-2x + concat FFmpeg → Bunny. $2,07 medido na API do trigger.dev (8 chunks × ~$0,20–0,35). Alavancas de redução: menos chunks, máquina menor ou 720p.',
+    descricao: 'CUSTO DOMINANTE. Render 720p/30fps (downscale do design 1080p via scale 0.667) em chunks paralelos large-2x + concat FFmpeg → Bunny. $1,07 medido na API do trigger.dev (8 chunks × ~$0,10–0,17). Era $2,07 em 1080p — 720p corta ~48% sem perda real (avatar HeyGen já é nativo 720p). Licença Remotion = free (empresa ≤3 func.).',
     inTokens: 0,
     outTokens: 0,
-    flatUsd: 2.07,
+    flatUsd: 1.07,
     exec: 1,
     defaultModel: 'gemini-3.1-flash-lite',
     critical: false,

@@ -106,7 +106,12 @@ export const gerarVideoModuloTask = task({
       });
 
       // 5) render chunked → Bunny. ~1 chunk por 12s de vídeo (mín. 2, máx. 10).
+      // scale 0.667 = saída 720p (design segue 1080p; downscale no render). Corta
+      // ~48% do custo de render sem perda real (o avatar HeyGen já é nativo 720p).
+      // Máquina = default large-2x do render-chunk (mesmo custo do large-1x em
+      // 720p, porém ~2× mais rápido). Override por env, se preciso.
       const chunks = p.chunks ?? Math.min(10, Math.max(2, Math.ceil(props.totalFrames / (props.fps * 12))));
+      const scale = Number(process.env.VIDEO_RENDER_SCALE) || 720 / 1080;
       const res = await renderVideoTask.triggerAndWait({
         composition: 'VerthoVideo',
         frames: props.totalFrames,
@@ -114,6 +119,7 @@ export const gerarVideoModuloTask = task({
         inputProps: props,
         title: roteiro.title || `Vertho · ${videoId}`,
         jobId: videoId,
+        scale,
       });
       if (!res.ok) throw new Error(`render falhou: ${JSON.stringify((res as any).error).slice(0, 200)}`);
       const out = res.output as { bunnyVideoId: string | null; bunnyLibrary: string | null; bytes: number; frames: number };
