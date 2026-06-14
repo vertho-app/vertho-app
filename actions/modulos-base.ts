@@ -823,6 +823,7 @@ REGRAS:
 - Identifique de 1 a 8 seções (use o número que o conteúdo pedir; um trecho monotemático pode ter 1).
 - Para CADA seção, escolha SEMPRE a competência do catálogo SEMANTICAMENTE mais próxima — nunca deixe sem competência. Copie o "competencia_base_id" EXATO da lista (e repita o nome em "competencia_nome" para conferência).
 - "descritor": o sub-tema ESPECÍFICO da seção dentro da competência (5-10 palavras; mais granular que o nome da competência).
+- PODE haver mais de uma seção para a MESMA competência, desde que sejam DESCRITORES (sub-temas) distintos — cada descritor vira um módulo separado. Não force descritores iguais a se juntarem.
 - Transição de nível: default N1→N2 se incerto.
 - "texto_base": destile FIELMENTE o conteúdo da seção (400-900 palavras, markdown), sem inventar.
 
@@ -920,11 +921,12 @@ async function segmentarTranscricao(
     diags.push(`j${j + 1}:${r.secoes.length}`);
   }
 
-  // REDUCE: dedup/mescla por (competência × transição). Tema que cruza janelas
-  // vira UM módulo com o material combinado (cap), não dois quase-duplicados.
+  // REDUCE: dedup/mescla por (competência × transição × DESCRITOR). Assim, mesma
+  // competência com descritores (sub-temas) DIFERENTES vira módulos SEPARADOS;
+  // só o MESMO descritor que cruza janelas é fundido (material combinado, cap).
   const map = new Map<string, SegSecao>();
   for (const s of todas) {
-    const key = `${s.competencia_base_id}|${s.nivel_entrada}|${s.nivel_destino}`;
+    const key = `${s.competencia_base_id}|${s.nivel_entrada}|${s.nivel_destino}|${String(s.descritor || '').trim().toLowerCase()}`;
     const ex = map.get(key);
     if (ex) {
       if (ex.texto_base.length < MERGE_CAP) ex.texto_base = (ex.texto_base + '\n\n' + s.texto_base).slice(0, MERGE_CAP);

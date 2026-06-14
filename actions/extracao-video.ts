@@ -3,7 +3,7 @@
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { extrairConteudoDeVideo } from '@/lib/gemini-video';
-import { criarModuloBaseDeTextoExtraido, criarModulosDeTranscricao } from '@/actions/modulos-base';
+import { criarModulosDeTranscricao } from '@/actions/modulos-base';
 import { parseDocument } from '@/lib/rag-ingest';
 import { tasks } from '@trigger.dev/sdk';
 import type { extrairVideoTask } from '@/trigger/extracao-video';
@@ -39,9 +39,10 @@ export async function extrairVideo(empresaId: string | null, url: string) {
 // ── 2. Gerar o MÓDULO-BASE rascunho a partir do texto-base (síncrono) ───────
 
 /**
- * Estrutura o texto-base revisado num Módulo-Base rascunho. `escopoEmpresaId`
- * null = módulo global/canônico (todos os tenants); preenchido = exclusivo da
- * empresa. `locale` opcional (default da empresa-escopo ou pt-BR).
+ * Estrutura o texto-base revisado em Módulos-Base rascunho. Usa o segmentador →
+ * pode gerar N módulos (um por tema/competência/descritor distinto), como nos
+ * fluxos de material e vídeo longo. `escopoEmpresaId` null = global; preenchido
+ * = exclusivo da empresa. `locale` opcional (default da empresa-escopo ou pt-BR).
  */
 export async function gerarModuloBaseDoVideo(escopoEmpresaId: string | null, dados: {
   url: string; titulo: string; texto_base: string; locale?: string;
@@ -57,16 +58,16 @@ export async function gerarModuloBaseDoVideo(escopoEmpresaId: string | null, dad
       locale = emp?.default_locale || 'pt-BR';
     }
 
-    const res = await criarModuloBaseDeTextoExtraido({
-      textoBase: dados.texto_base,
+    const res = await criarModulosDeTranscricao({
+      transcricao: dados.texto_base,
       tituloVideo: dados.titulo,
       urlOrigem: dados.url,
       locale: locale || 'pt-BR',
       empresaId: escopoEmpresaId,
       createdBy: (ctx as any)?.email || 'extracao-video',
     });
-    if (res.error || !res.id) return { error: res.error || 'Falha ao criar módulo-base' };
-    return { success: true, moduloId: res.id, competencia: res.competencia, transicao: `${res.nivel_entrada}→${res.nivel_destino}`, avisos: res.avisos };
+    if (res.error || !res.modulos.length) return { error: res.error || 'Falha ao criar módulo-base' };
+    return { success: true, modulos: res.modulos, n: res.modulos.length };
   } catch (err: any) {
     console.error('[gerarModuloBaseDoVideo]', err);
     return { error: err?.message || 'Falha ao gerar módulo-base' };

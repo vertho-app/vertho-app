@@ -34,7 +34,7 @@ export default function ExtracaoVideoPanel({
   const [extraindo, setExtraindo] = useState(false);
   const [base, setBase] = useState<any>(null);
   const [gerando, setGerando] = useState(false);
-  const [modulo, setModulo] = useState<{ id: string; competencia?: string; transicao?: string } | null>(null);
+  const [modulosSync, setModulosSync] = useState<any[]>([]);
   const [toast, setToast] = useState('');
 
   // Assíncrono.
@@ -61,7 +61,7 @@ export default function ExtracaoVideoPanel({
 
   async function handleExtrair() {
     if (!url.trim()) { flash('Informe a URL do vídeo'); return; }
-    setExtraindo(true); setBase(null); setModulo(null);
+    setExtraindo(true); setBase(null); setModulosSync([]);
     const r = await extrairVideo(escopoEmpresaId || origemEmpresaId, url.trim());
     setExtraindo(false);
     if (r.error) { flash(r.error); return; }
@@ -77,8 +77,8 @@ export default function ExtracaoVideoPanel({
     });
     setGerando(false);
     if (r.error) { flash(r.error); return; }
-    setModulo({ id: r.moduloId!, competencia: r.competencia, transicao: r.transicao });
-    flash('Módulo-base rascunho criado');
+    setModulosSync(r.modulos || []);
+    flash(`${r.n} módulo(s) rascunho criado(s)`);
   }
 
   async function handleMaterial(file: File) {
@@ -241,22 +241,26 @@ export default function ExtracaoVideoPanel({
               className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-gray-200 font-mono outline-none" />
           </div>
 
-          <p className="text-[10px] text-gray-600">A IA detecta a competência canônica e a transição de nível ao estruturar o módulo (alcance: {alcance === 'global' ? 'global' : 'empresa'}). Ele nasce como rascunho para revisão.</p>
+          <p className="text-[10px] text-gray-600">A IA detecta a competência canônica + descritor e a transição de nível, e pode gerar <strong className="text-gray-400">mais de um módulo</strong> se o conteúdo cobrir temas distintos (alcance: {alcance === 'global' ? 'global' : 'empresa'}). Nascem como rascunho para revisão.</p>
 
-          {!modulo ? (
+          {modulosSync.length === 0 ? (
             <button onClick={handleGerarModulo} disabled={gerando}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-white disabled:opacity-50"
               style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
               {gerando ? <Loader2 size={14} className="animate-spin" /> : <Layers size={14} />}
-              {gerando ? 'Estruturando módulo...' : 'Gerar módulo-base (rascunho)'}
+              {gerando ? 'Estruturando módulos...' : 'Gerar módulo(s)-base (rascunho)'}
             </button>
           ) : (
-            <div className="space-y-2">
-              <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-300"><CheckCircle2 size={14} /> Módulo-base rascunho criado{modulo.competencia ? ` · ${modulo.competencia} ${modulo.transicao || ''}` : ''}</p>
-              <Link href={`/admin/vertho/modulos-base/${modulo.id}`}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-cyan-300 border border-cyan-400/30 hover:bg-cyan-400/10">
-                <FileText size={12} /> Abrir módulo para revisar <ExternalLink size={11} />
-              </Link>
+            <div className="space-y-1.5">
+              <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-300"><CheckCircle2 size={14} /> {modulosSync.length} módulo(s) rascunho criado(s):</p>
+              {modulosSync.map((m) => (
+                <Link key={m.id} href={`/admin/vertho/modulos-base/${m.id}`}
+                  className="flex items-center gap-2 text-[11px] rounded-lg px-3 py-1.5 hover:bg-white/[0.03]" style={{ background: '#091D35' }}>
+                  <FileText size={12} className="text-cyan-300 shrink-0" />
+                  <span className="text-gray-300 truncate flex-1">{m.competencia || 'módulo'} · {m.nivel_entrada}→{m.nivel_destino}</span>
+                  <ExternalLink size={11} className="text-cyan-300 shrink-0" />
+                </Link>
+              ))}
             </div>
           )}
         </div>
