@@ -1,8 +1,12 @@
 # Gerador de Vídeo a partir de Módulo-Base — Design
 
-> Status: **DESIGN** (não implementado). Decisões: avatar via **HeyGen API**;
-> gatilho **no Módulo-Base**. Reaproveita o spike Remotion (V3), `lib/gemini-tts.ts`,
-> Bunny Stream e o padrão trigger.dev→callback da extração.
+> Status: **DESIGN** (não implementado). Decisões:
+> - Avatar via **HeyGen API**, com **lip-sync do NOSSO áudio TTS** (`voice.type=audio`),
+>   **não** voz do HeyGen → não precisa de `voice_id`. Avatar:
+>   **`Abigail_expressive_2024112501`** (1280x720), o mesmo dos vídeos atuais.
+> - Gatilho **no Módulo-Base**.
+> - Reaproveita o spike Remotion (V3), `lib/gemini-tts.ts` (voz Kore em TODAS as
+>   cenas, inclusive a do avatar), Bunny Stream e o padrão trigger.dev→callback.
 
 ## Objetivo
 
@@ -22,9 +26,14 @@ Módulo-Base (conteudo_central + aplicavel + adaptacao_por_formato.video_roteiro
   │     reusa lib/season-engine/prompts/video-script.ts (HeyGen-style) + spec do spike
   │     saída: { titulo, scenes:[avatar_intro, concept, comparison, icon_story, avatar_outro] }
   │
-  2a) AVATAR (HeyGen API)  →  avatar-intro.mp4 + avatar-outro.mp4 (ASSÍNCRONO ~minutos)
-  2b) NARRAÇÃO (Gemini TTS)  →  audio-2/3/4.mp3 das cenas animadas
-  │     reusa lib/gemini-tts.ts (voz feminina Kore/escolhida)
+  2) NARRAÇÃO (Gemini TTS, voz Kore) — UMA fonte de voz pra TUDO:
+  │     reusa lib/gemini-tts.ts → mp3 das 5 cenas (intro/outro + concept/comparison/signals)
+  │     └─ cada mp3 sobe no Bunny (URL pública) p/ o HeyGen consumir
+  │
+  2b) AVATAR (HeyGen API)  →  avatar-intro.mp4 + avatar-outro.mp4 (ASSÍNCRONO ~minutos)
+  │     character.avatar_id = Abigail_expressive_2024112501
+  │     voice = { type:"audio", audio_url: <mp3 do TTS no Bunny> }   ← lip-sync do NOSSO áudio
+  │     (sem voz HeyGen → voz idêntica à das cenas animadas)
   │
   3) RENDER (trigger.dev task + Remotion renderMedia)  →  mp4 1080p30
   │     ⚠️ peça a validar: Remotion headless no trigger.dev (Chrome + ffmpeg)
@@ -58,15 +67,33 @@ CREATE TABLE videos_gerados (
 micro_conteudo final: `formato='video'`, `origem='video_gerado'`, `url`/campo Bunny
 (seguir o padrão atual de vídeos Bunny), `conteudo_inline` = roteiro/legenda.
 
-## Integração HeyGen (assíncrona)
+## Integração HeyGen (assíncrona) — avatar com lip-sync do NOSSO áudio
 
-1. `POST /v2/video/generate` com avatar_id + voice_id + script (texto da intro/outro).
-2. Recebe `video_id`; **polling** `GET /v1/video_status.get?video_id=` até `completed`.
-3. Baixa o mp4 resultante (URL temporária do HeyGen).
-- Precisa: `HEYGEN_API_KEY`, `HEYGEN_AVATAR_ID` (avatar da mentora), `HEYGEN_VOICE_ID`.
-- Render HeyGen leva ~1-3 min/clip → o job de vídeo é naturalmente assíncrono.
-- Legendas do avatar: HeyGen pode devolver caption/timing; se não, usamos
-  proporcional+janela-de-fala (já temos no `captions-core`).
+Header `X-Api-Key`. Para CADA clip (intro e outro):
+
+```jsonc
+POST https://api.heygen.com/v2/video/generate
+{
+  "title": "avatar-intro",
+  "video_inputs": [{
+    "character": { "type": "avatar", "avatar_id": "Abigail_expressive_2024112501", "avatar_style": "normal" },
+    "voice":     { "type": "audio", "audio_url": "<URL pública do mp3 do TTS (Bunny)>" },
+    "background":{ "type": "color", "value": "#071A33" }
+  }],
+  "dimension": { "width": 1280, "height": 720 }
+}
+```
+
+1. Sobe o mp3 do TTS (intro/outro) no Bunny → URL pública → `voice.audio_url`.
+2. `POST /v2/video/generate` → recebe `video_id`.
+3. **Polling** `GET /v1/video_status.get?video_id=` até `status="completed"` → `video_url`.
+4. Baixa o mp4 do avatar (entra no Remotion como `OffthreadVideo`).
+
+- Precisa só: `HEYGEN_API_KEY` + `HEYGEN_AVATAR_ID` (= `Abigail_expressive_2024112501`).
+  **Sem `voice_id`** — a voz é o nosso TTS (lip-sync), idêntica às cenas animadas.
+- Render HeyGen ~1-3 min/clip → job naturalmente assíncrono (encaixa no trigger.dev).
+- Legendas do avatar: como o áudio é NOSSO (Gemini TTS), reusamos
+  `captions-core` (proporcional + janela-de-fala via ffmpeg) — mesma timeline.
 
 ## Render Remotion no trigger.dev (item de risco)
 
@@ -90,20 +117,43 @@ micro_conteudo final: `formato='video'`, `origem='video_gerado'`, `url`/campo Bu
 ## Custo estimado (por vídeo)
 
 - Roteiro (Claude Sonnet): ~$0,05
-- Narração TTS (3 cenas, Gemini TTS $1/$20 MM): ~$0,10
+- Narração TTS (5 cenas, Gemini TTS $1/$20 MM): ~$0,15
 - **HeyGen avatar** (2 clips ~35s): depende do plano (créditos HeyGen) — **maior custo**
 - Render trigger.dev (compute) + Bunny (storage/stream): centavos
 - **Total ≈ $0,20 + custo HeyGen** por vídeo.
 
-## Fases
+## Fase 1 — estrutura (com as decisões fechadas)
 
-1. **De-risk render** — `renderMedia` headless no trigger.dev com o spike (sem HeyGen).
-2. **Núcleo** — roteiro (Claude) + TTS + render + Bunny + micro_conteudo + UI/status, **avatar mockado** (clip fixo).
-3. **HeyGen** — troca o avatar mockado pela API real (assíncrona) + legendas do avatar.
-4. **Refino** — legendas com forced alignment, personalização DISC/cargo, reuso.
+Gatilho: botão **"Gerar vídeo"** no Módulo-Base → cria `videos_gerados` (status) → task trigger.dev:
+
+```
+módulo → 1) Claude monta o roteiro (cenas)
+       → 2) Gemini TTS gera os 5 mp3 (voz Kore) → sobe no Bunny (URLs públicas)
+       → 3) HeyGen (avatar Abigail + audio_url do TTS) p/ intro e outro → polling → mp4s
+       → 4) Remotion renderMedia (trigger.dev, headless) com inputProps = URLs dos assets
+       → 5) upload do mp4 final no Bunny Stream → micro_conteudo formato=video + SRT/VTT
+       → UI de status (poll) + player
+```
+
+Arquivos novos (espelham a extração): `actions/gerar-video.ts`, `trigger/gerar-video.ts`,
+`app/api/internal/video-*` (callbacks), migration `videos_gerados`, botão no
+`/admin/vertho/modulos-base/[id]`, lib `lib/heygen.ts` + `lib/bunny-upload.ts`,
+e adaptar `video-spike/remotion/data/load-scenes` p/ aceitar **URLs externas**
+(em vez de `staticFile`) via `inputProps`.
+
+### Ordem de execução
+1. **De-risk render** (sem HeyGen, já dá pra começar): provar `renderMedia` headless
+   no trigger.dev renderizando o spike V3 atual → mp4 → Bunny. É o maior risco técnico.
+2. **Núcleo** — roteiro (Claude) + TTS + Bunny + render + micro_conteudo + UI/status,
+   com avatar = clip fixo (os atuais) enquanto o HeyGen não entra.
+3. **HeyGen** — `lib/heygen.ts` (generate + polling) com avatar Abigail + audio_url do TTS.
+4. **Refino** — forced alignment p/ legenda exata, personalização DISC/cargo, reuso.
 
 ## Pendências / o que preciso de você
 
-- `HEYGEN_API_KEY` + `HEYGEN_AVATAR_ID` + `HEYGEN_VOICE_ID` (da mentora Vertho).
-- Confirmar Bunny Stream como destino (vs Storage) — assumido Stream.
+- **`HEYGEN_API_KEY`** (no `.env.local` + Vercel + trigger.dev). Avatar já definido:
+  `HEYGEN_AVATAR_ID = Abigail_expressive_2024112501`. (Sem voice_id — voz é o nosso TTS.)
+- Bunny Stream confirmado como destino (já em uso no app).
 - Plano HeyGen (créditos) p/ estimar o custo real do avatar.
+
+> Posso começar JÁ pela ordem 1 (de-risk render no trigger.dev) — não depende do HeyGen.
