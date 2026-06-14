@@ -49,7 +49,7 @@ function splitRanges(frames: number, chunks: number): [number, number][] {
 export const renderVideoTask = task({
   id: 'render-video',
   machine: 'medium-1x',
-  maxDuration: 1800,
+  maxDuration: 3600, // espera os chunks (que podem enfileirar conforme a concorrência)
   run: async (p: { composition?: string; frames: number; chunks?: number; jobId?: string; inputProps?: any; title?: string }) => {
     const compId = p.composition || 'VerthoVideoSpikeV3';
     const jobId = p.jobId || `job-${Date.now()}-${Math.round(Math.random() * 1e6)}`;
