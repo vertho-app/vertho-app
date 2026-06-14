@@ -88,3 +88,4 @@ data-pipeline/radarempresas/**/_vt/
 # backups locais (podem conter PII de colaboradores)
 /backups/
 
+/spike-bundle/

@@ -95,16 +95,33 @@ POST https://api.heygen.com/v2/video/generate
 - Legendas do avatar: como o áudio é NOSSO (Gemini TTS), reusamos
   `captions-core` (proporcional + janela-de-fala via ffmpeg) — mesma timeline.
 
-## Render Remotion no trigger.dev (item de risco)
+## Render Remotion no trigger.dev — DE-RISK ✅ VALIDADO
 
-- `@remotion/renderer` `renderMedia()` headless. Precisa Chrome Headless Shell +
-  ffmpeg no container → instalar no build (extensão, como fizemos com yt-dlp).
-- O bundle do spike é estático; os **assets variam por vídeo** → a composição
-  recebe as URLs dos assets via `inputProps` (avatar mp4 + mp3 do Bunny/temp),
-  em vez de `staticFile`. Adaptar load-scenes para aceitar URLs externas.
-- Recursos: 1080p30 ~97s ≈ poucos min de CPU. Validar maxDuration/máquina.
-- **De-risk primeiro**: provar `renderMedia` headless no trigger.dev com o spike
-  atual (sem HeyGen) antes de montar o resto.
+`renderMedia()` headless **funciona no trigger.dev**. Provado com a task
+`trigger/render-spike.ts` renderizando o spike V3 (bundle pré-construído incluído
+via `additionalFiles`). Config que funcionou (4 pegadinhas resolvidas):
+
+1. **Compositor nativo Linux**: `additionalPackages(['@remotion/compositor-linux-x64-gnu@4.0.476'])`
+   — instalei o renderer no Windows, então o binário Linux não vinha.
+2. **`@remotion/renderer` como `external`** no build — senão o esbuild do trigger
+   (keepNames) injeta `__name` nas funções serializadas pro browser → `__name is not defined`.
+3. **Libs do Chrome** no build (`installChromeDeps`: libnss3, libgbm1, libasound2…);
+   o binário do Chrome é baixado em runtime por `ensureBrowser()`. `gl: 'swangle'` (software).
+4. **Máquina `large-2x`** (4 vCPU / 8 GB) — a default dá `TASK_PROCESS_OOM_KILLED`.
+
+**Velocidade medida:** ~1,46s/frame (large-2x, concurrency 4), incluindo ~40s de
+overhead (download Chrome + bundle). Marginal ~0,8-1s/frame.
+
+### Implicação → render em CHUNKS paralelos
+Vídeo cheio (~2916 frames @30fps ≈ 97s) num container só = **~40-70 min** → acima do
+maxDuration prático. Produção deve **fatiar em N runs paralelos** (cada um renderiza
+um `frameRange`) e um passo final concatena com ffmpeg — é como o Remotion Lambda
+funciona. Ex.: 6 chunks de ~490 frames ≈ 7-8 min cada, em paralelo → ~8-10 min total.
+
+### Assets por vídeo
+O bundle do spike é estático; os **assets variam por vídeo** → adaptar `load-scenes`
+pra aceitar **URLs externas** (avatar mp4 do HeyGen + mp3 do TTS no Bunny) via
+`inputProps`, em vez de `staticFile`.
 
 ## Reuso
 
