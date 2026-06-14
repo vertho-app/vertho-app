@@ -12,7 +12,7 @@ type Locale = 'pt-BR' | 'pt-PT' | 'es-ES' | 'en-US';
 
 const COLS = `
   id, grupo_id, locale, competencia_base_id, nivel_entrada, nivel_destino,
-  titulo, finalidade, contexto_pedagogico, tags, preferido, status, versao,
+  titulo, descritor, finalidade, contexto_pedagogico, tags, preferido, status, versao,
   substitui_modulo_id, conteudo_central, conteudo_aplicavel, guarda_corpos,
   adaptacao_por_formato, created_by, created_at, updated_at,
   reviewed_by, reviewed_at, published_by, published_at,
@@ -157,6 +157,7 @@ export async function salvarModulo(payload: any) {
     nivel_entrada: payload.nivel_entrada,
     nivel_destino: payload.nivel_destino,
     titulo: payload.titulo,
+    descritor: payload.descritor || null,
     finalidade: payload.finalidade,
     contexto_pedagogico: payload.contexto_pedagogico || null,
     tags: Array.isArray(payload.tags) ? payload.tags : [],
@@ -680,14 +681,15 @@ export async function importarModuloDocx(opts: {
  */
 async function detectarMetadadosDeTexto(textoBase: string, tituloVideo: string, localeHint?: string) {
   const sb = createSupabaseAdmin();
-  const { data: comps } = await sb.from('competencias_base').select('id, nome, segmento').order('nome');
-  const compsListagem = (comps || []).slice(0, 200).map((c: any) => `- ${c.id} :: ${c.nome} (${c.segmento})`).join('\n');
+  const { data: comps } = await sb.from('competencias_base').select('id, nome, segmento, descricao').order('nome');
+  const compsListagem = (comps || []).slice(0, 200).map((c: any) => `- ${c.id} :: ${c.nome} (${c.segmento})${c.descricao ? ' — ' + c.descricao : ''}`).join('\n');
 
   const system = `Você classifica um conteúdo pedagógico (extraído de um vídeo) contra o catálogo canônico de competências Vertho.
 
 Retorne APENAS JSON válido:
 {
   "competencia_match": { "id": "uuid da lista ou null", "confianca": 0.0 a 1.0 },
+  "descritor": "sub-tema ESPECÍFICO que o conteúdo desenvolve dentro da competência (5-10 palavras), ou null",
   "nivel_entrada": "N1|N2|N3",
   "nivel_destino": "N2|N3|N4",
   "contexto_pedagogico": "string curta ou null",
@@ -697,6 +699,7 @@ Retorne APENAS JSON válido:
 
 REGRAS:
 - "competencia_match.id" = a competência da lista que melhor representa o conteúdo. Confiança <0.4 → use null.
+- "descritor" = o foco específico do conteúdo dentro da competência (ex.: "Aversão à perda e vieses na decisão sob risco"). NÃO é o nome da competência; é mais granular.
 - Escolha a transição de nível mais provável que o conteúdo serve (default N1→N2 se incerto).
 - Não invente. Use null quando não estiver claro.`;
   const user = `CATÁLOGO DE COMPETÊNCIAS (escolha 1 ou null):
@@ -725,6 +728,7 @@ ${String(textoBase).slice(0, 5000)}`;
     contexto_pedagogico: det?.contexto_pedagogico || null,
     locale: (localeHint || 'pt-BR') as Locale,
     titulo: det?.titulo || null,
+    descritor: det?.descritor || null,
     finalidade: det?.finalidade || null,
   };
 }
@@ -736,6 +740,7 @@ interface MetaModulo {
   contexto_pedagogico?: string | null;
   locale: Locale;
   titulo?: string | null;
+  descritor?: string | null;
   finalidade?: string | null;
 }
 
@@ -767,6 +772,7 @@ async function estruturarEInserirModulo(
     nivel_entrada: meta.nivel_entrada,
     nivel_destino: meta.nivel_destino,
     titulo: (meta.titulo || `[Vídeo] ${comp.nome} ${meta.nivel_entrada}→${meta.nivel_destino}`).slice(0, 120),
+    descritor: meta.descritor ? String(meta.descritor).slice(0, 200) : null,
     finalidade: (meta.finalidade || `Matéria-prima pedagógica extraída de vídeo para a transição ${meta.nivel_entrada}→${meta.nivel_destino} em "${comp.nome}".`).slice(0, 400),
     contexto_pedagogico: meta.contexto_pedagogico || null,
     tags: opts.urlOrigem ? ['extraido-video', opts.urlOrigem.slice(0, 80)] : ['extraido-video'],
@@ -816,11 +822,12 @@ const SEG_SYSTEM = `Você é designer instrucional da Vertho. Recebe um TRECHO d
 REGRAS:
 - Identifique de 1 a 8 seções (use o número que o conteúdo pedir; um trecho monotemático pode ter 1).
 - Para CADA seção, escolha SEMPRE a competência do catálogo SEMANTICAMENTE mais próxima — nunca deixe sem competência. Copie o "competencia_base_id" EXATO da lista (e repita o nome em "competencia_nome" para conferência).
+- "descritor": o sub-tema ESPECÍFICO da seção dentro da competência (5-10 palavras; mais granular que o nome da competência).
 - Transição de nível: default N1→N2 se incerto.
 - "texto_base": destile FIELMENTE o conteúdo da seção (400-900 palavras, markdown), sem inventar.
 
 Responda APENAS JSON válido (sem markdown), no formato:
-{"secoes":[{"competencia_base_id":"<id do catálogo>","competencia_nome":"<nome>","nivel_entrada":"N1","nivel_destino":"N2","contexto_pedagogico":null,"titulo":"...","finalidade":"...","texto_base":"..."}]}`;
+{"secoes":[{"competencia_base_id":"<id do catálogo>","competencia_nome":"<nome>","descritor":"<sub-tema específico>","nivel_entrada":"N1","nivel_destino":"N2","contexto_pedagogico":null,"titulo":"...","finalidade":"...","texto_base":"..."}]}`;
 
 const niveisValidos = (e: string, d: string) =>
   NIVEIS.includes(e as Nivel) && NIVEIS.includes(d as Nivel) && nivelGreater(d as Nivel, e as Nivel);
@@ -862,6 +869,7 @@ ${texto}`;
       nivel_destino: (niveisValidos(s.nivel_entrada, s.nivel_destino) ? s.nivel_destino : 'N2') as Nivel,
       contexto_pedagogico: s.contexto_pedagogico || null,
       titulo: s.titulo || null,
+      descritor: s.descritor || null,
       finalidade: s.finalidade || null,
       texto_base: String(s.texto_base),
     }));
@@ -882,10 +890,10 @@ async function segmentarTranscricao(
   transcricao: string, tituloVideo: string,
 ): Promise<{ secoes: SegSecao[]; diag: string }> {
   const sb = createSupabaseAdmin();
-  const { data: comps } = await sb.from('competencias_base').select('id, nome, segmento').order('nome');
-  const lista = (comps || []) as { id: string; nome: string; segmento: string }[];
+  const { data: comps } = await sb.from('competencias_base').select('id, nome, segmento, descricao').order('nome');
+  const lista = (comps || []) as { id: string; nome: string; segmento: string; descricao?: string }[];
   const ctx: SegCtx = {
-    compsListagem: lista.slice(0, 200).map((c) => `- ${c.id} :: ${c.nome} (${c.segmento})`).join('\n'),
+    compsListagem: lista.slice(0, 200).map((c) => `- ${c.id} :: ${c.nome} (${c.segmento})${c.descricao ? ' — ' + c.descricao : ''}`).join('\n'),
     idSet: new Set(lista.map((c) => c.id)),
     nomeParaId: new Map(lista.map((c) => [c.nome.trim().toLowerCase(), c.id])),
     model: await getModelForTask(null as any, 'modulo_base_autor'),

@@ -82,6 +82,7 @@ export default function ModuloBaseEditPage({ params }: { params: Promise<{ id: s
         nivel_entrada: m.nivel_entrada,
         nivel_destino: m.nivel_destino,
         titulo: m.titulo,
+        descritor: m.descritor,
         finalidade: m.finalidade,
         contexto_pedagogico: m.contexto_pedagogico,
         tags: m.tags,
@@ -309,7 +310,10 @@ export default function ModuloBaseEditPage({ params }: { params: Promise<{ id: s
             <Field label="Título* (≤120)">
               <input value={m.titulo} maxLength={120} onChange={e => setM({ ...m, titulo: e.target.value })} className="input" />
             </Field>
-            <Field label="Contexto pedagógico (opc.)">
+            <Field label="Descritor (sub-tema específico)">
+              <input value={m.descritor || ''} maxLength={200} onChange={e => setM({ ...m, descritor: e.target.value })} className="input" placeholder="ex.: Aversão à perda e vieses na decisão sob risco" />
+            </Field>
+            <Field label="Contexto pedagógico (opc.)" className="md:col-span-2">
               <input value={m.contexto_pedagogico || ''} maxLength={80} onChange={e => setM({ ...m, contexto_pedagogico: e.target.value })} className="input" placeholder="ex.: educacao-infantil" />
             </Field>
             <Field label="Finalidade* (≤400)" className="md:col-span-2">
