@@ -135,6 +135,23 @@ export async function extrairConteudoDeVideo(
     contents: [{ role: 'user', parts: [mediaPart, { text: `Extraia o texto-base deste vídeo.${hint}` }] }],
     generationConfig: {
       responseMimeType: 'application/json',
+      // responseSchema (structured output nativo): o Gemini gera os campos como
+      // objeto e serializa em JSON SEMPRE válido, escapando aspas/quebras do
+      // texto_base markdown denso. Sem isto, conteúdo cheio de aspas (metáforas
+      // entre aspas, citações) quebrava o JSON.parse de forma intermitente.
+      responseSchema: {
+        type: 'object',
+        properties: {
+          titulo: { type: 'string' },
+          resumo: { type: 'string' },
+          texto_base: { type: 'string' },
+          pontos_chave: { type: 'array', items: { type: 'string' } },
+          competencia_sugerida: { type: 'string' },
+          descritor_sugerido: { type: 'string' },
+          duracao_min: { type: 'integer' },
+        },
+        required: ['titulo', 'resumo', 'texto_base', 'pontos_chave'],
+      },
       maxOutputTokens: 65536, // folga p/ texto-base DENSO + thinking (vídeo de 25-45min → milhares de palavras) sem truncar o JSON
       temperature: 0.4,
       thinkingConfig: { thinkingBudget: -1 }, // dynamic: deixa o modelo planejar a extração completa (a folga de tokens acima evita truncar)
