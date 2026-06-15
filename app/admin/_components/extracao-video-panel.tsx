@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Loader2, Sparkles, FileText, CheckCircle2, Clock, AlertCircle, Send, Layers, ExternalLink, Upload } from 'lucide-react';
-import { extrairVideo, gerarModuloBaseDoVideo, submeterExtracaoAsync, listarExtracoesAndamento, submeterMaterialAsync } from '@/actions/extracao-video';
+import { extrairVideo, gerarModuloBaseDoVideo, submeterExtracaoAsync, listarExtracoesAndamento, submeterMaterialAsync, submeterTextoBaseAsync } from '@/actions/extracao-video';
 
 /**
  * Painel de extração de vídeo → Módulo-Base, compartilhado por:
@@ -37,6 +37,7 @@ export default function ExtracaoVideoPanel({
   const [modulosSync, setModulosSync] = useState<any[]>([]);
   const [toast, setToast] = useState('');
   const [erroSync, setErroSync] = useState('');
+  const [erroGeracao, setErroGeracao] = useState('');
 
   // Assíncrono.
   const [urlAsync, setUrlAsync] = useState('');
@@ -77,6 +78,31 @@ export default function ExtracaoVideoPanel({
     carregarExtracoes();
   }
 
+  async function estruturarTextoBaseEmBackground(motivo?: string) {
+    if (!base?.texto_base?.trim()) return;
+    if (modoVertho && alcance === 'empresa' && !empresaPick) {
+      setErroGeracao('Escolha a empresa do alcance para estruturar em background.');
+      return;
+    }
+    setGerando(true);
+    try {
+      const r = await submeterTextoBaseAsync(escopoEmpresaId, {
+        textoBase: base.texto_base,
+        titulo: base.titulo,
+        url: url.trim(),
+      }, origemEmpresaId);
+      if (r.error) {
+        setErroGeracao(`${motivo ? `${motivo} ` : ''}Não consegui iniciar o background: ${r.error}`);
+        return;
+      }
+      setErroGeracao('');
+      flash('Texto-base enviado — estruturando módulos em background');
+      carregarExtracoes();
+    } finally {
+      setGerando(false);
+    }
+  }
+
   async function handleExtrair() {
     if (!url.trim()) { flash('Informe a URL do vídeo'); return; }
     if (modoVertho && alcance === 'empresa' && !empresaPick) { flash('Escolha a empresa do alcance'); return; }
@@ -109,15 +135,16 @@ export default function ExtracaoVideoPanel({
     if (!base?.texto_base) return;
     if (modoVertho && alcance === 'empresa' && !empresaPick) { flash('Escolha a empresa do alcance'); return; }
     setGerando(true);
+    setErroGeracao('');
     try {
       const r = await gerarModuloBaseDoVideo(escopoEmpresaId, {
         url: url.trim(), titulo: base.titulo, texto_base: base.texto_base, locale: base.locale,
       });
-      if (r.error) { flash(r.error); return; }
+      if (r.error) { setErroGeracao(r.error); return; }
       setModulosSync(r.modulos || []);
       flash(`${r.n} módulo(s) rascunho criado(s)`);
     } catch (e: any) {
-      flash('A estruturação demorou demais (cota de IA?) e caiu. Recarregue e tente de novo.');
+      setErroGeracao('A estruturação demorou demais ou caiu. Envie este texto-base para background para concluir sem perder a extração.');
     } finally {
       setGerando(false);
     }
@@ -291,6 +318,20 @@ export default function ExtracaoVideoPanel({
           </div>
 
           <p className="text-[10px] text-gray-600">A IA detecta a competência canônica + descritor e a transição de nível, e pode gerar <strong className="text-gray-400">mais de um módulo</strong> se o conteúdo cobrir temas distintos (alcance: {alcance === 'global' ? 'global' : 'empresa'}). Nascem como rascunho para revisão.</p>
+
+          {erroGeracao && (
+            <div className="rounded-lg border border-red-400/30 bg-red-400/10 p-3 text-xs text-red-200 flex items-start gap-2">
+              <AlertCircle size={14} className="mt-0.5 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p>{erroGeracao}</p>
+                <button type="button" onClick={() => estruturarTextoBaseEmBackground('Tentativa manual:')} disabled={gerando}
+                  className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-300/30 bg-amber-300/10 text-amber-100 font-semibold disabled:opacity-50">
+                  <Clock size={13} />
+                  Estruturar em background
+                </button>
+              </div>
+            </div>
+          )}
 
           {modulosSync.length === 0 ? (
             <button onClick={handleGerarModulo} disabled={gerando}

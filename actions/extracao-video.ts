@@ -176,6 +176,49 @@ export async function submeterMaterialAsync(
   }
 }
 
+/**
+ * Estruturação ASSÍNCRONA de um texto-base já extraído/revisado. É o plano B
+ * do fluxo síncrono de vídeo: se a etapa "Gerar módulo(s)-base" demorar ou
+ * falhar, preservamos o texto e deixamos o worker estruturar via rota interna.
+ */
+export async function submeterTextoBaseAsync(
+  escopoEmpresaId: string | null,
+  dados: { textoBase: string; titulo?: string; url?: string },
+  origemEmpresaId: string | null = null,
+) {
+  try {
+    const ctx = await requireAdminAction('content.manage');
+    const texto = String(dados?.textoBase || '').trim();
+    if (texto.length < 40) return { error: 'Texto-base muito curto para estruturar' };
+    const sb = await requireAdminSupabase('content.manage');
+
+    const titulo = String(dados?.titulo || 'Texto-base de vídeo').trim().slice(0, 120);
+    const url = String(dados?.url || `texto-base:${titulo}`).trim().slice(0, 200);
+    const { data: novo, error } = await sb.from('extracoes_video').insert({
+      origem_empresa_id: origemEmpresaId,
+      escopo_empresa_id: escopoEmpresaId,
+      escopo_global: !escopoEmpresaId,
+      url,
+      transcricao: texto,
+      titulo,
+      status: 'processing',
+      created_by: (ctx as any)?.email || null,
+    }).select('id').maybeSingle();
+    if (error || !novo?.id) return { error: error?.message || 'Falha ao criar registro' };
+
+    try {
+      await tasks.trigger<typeof estruturarMaterialTask>('estruturar-material', { extracaoId: novo.id });
+    } catch (e: any) {
+      await sb.from('extracoes_video').update({ status: 'error', error: e?.message?.slice(0, 500) }).eq('id', novo.id);
+      return { error: `Não foi possível iniciar o processamento: ${e?.message || 'erro'}` };
+    }
+    return { success: true, id: novo.id, chars: texto.length };
+  } catch (err: any) {
+    console.error('[submeterTextoBaseAsync]', err);
+    return { error: err?.message || 'Falha ao submeter texto-base' };
+  }
+}
+
 // ── 3. Extração ASSÍNCRONA (Vimeo/TED/LMS/longos via worker trigger.dev) ────
 
 /**
