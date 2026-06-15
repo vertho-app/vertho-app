@@ -1,17 +1,19 @@
 # Prompt de geração de roteiro de vídeo
 
 > Documento gerado a partir do código real (`lib/video/roteiro-prompt.ts` → `buildRoteiroPrompt`).
-> Reflete o estado atual do gerador de vídeo do Módulo-Base.
 
 ## Visão geral
 
-- **Função:** `buildRoteiroPrompt(modulo)` em `lib/video/roteiro-prompt.ts` — pura, sem dependência de Next/IA.
-- **Chamador:** `lib/video/gerar-roteiro.ts` → `gerarRoteiroDeModulo()` (via `callAI`, `max_tokens` 8000, 1 retry de parse).
-- **Modelo:** `claude-sonnet-4-6` (resolvido por `getModelForTask('conteudo_video')`).
-- **Papel:** roteirista de micro-aprendizagem + designer instrucional + diretor audiovisual.
+- **Função:** `buildRoteiroPrompt(modulo)` em `lib/video/roteiro-prompt.ts` — pura.
+- **Chamador:** `gerarRoteiroDeModulo()` (via `callAI`, `max_tokens` 8000, 1 retry de parse).
+- **Modelo:** `claude-sonnet-4-6` (por `getModelForTask('conteudo_video')`).
 - **Entrada:** Módulo-Base + contexto opcional da **célula** (cargo, PPP, DISC dominante, transição de nível).
-- **Saída:** JSON `VideoRoteiro` → `title`, `theme`, `scenes[]`. Alimenta narração (TTS) → avatar (HeyGen) → render (Remotion).
+- **Saída:** JSON `VideoRoteiro` → `title`, `theme`, `scenes[]`. Alimenta TTS → HeyGen → Remotion.
 - **Formato-alvo:** **180–300s**, `avatar_intro` + miolo de 6–12 cenas + `avatar_outro`. Avatar só nas pontas; miolo em voice-over.
+
+## Deck vs. Tom (importante)
+
+O **deck visual** (escolha/ordem de template e texto de tela) é dirigido **só** pela densidade do conteúdo + cargo/PPP — **nunca pelo perfil DISC**. O **DISC ajusta apenas o tom da narração**. Isso mantém o visual idêntico entre perfis e prepara o caminho para "render-once + N-áudios" (renderizar o deck uma vez e só trocar a faixa de áudio por perfil).
 
 ## Templates de cena (9)
 
@@ -26,54 +28,54 @@
 | `quote_spotlight` | frase-âncora | quote (≤14 palavras), subtitle |
 | `scenario_card` | situação típica | title, subtitle |
 
-Regra de variedade: nunca o mesmo template em cenas adjacentes; intercalar densas (concept/comparison/steps) com respiros (quote/scenario/icon).
+Variedade: nunca o mesmo template adjacente; intercalar densas (concept/comparison/steps) com respiros (quote/scenario/icon). `normalizarRoteiro` reordena o miolo para garantir isso.
+
+## Técnicas de qualidade no prompt
+
+- **Few-shot de narração** — um gabarito de 2 cenas com a narração no registro certo (copiar o *jeito*, não o conteúdo).
+- **Anti-eco acadêmico** — par ❌/✅ que força transformar a prosa densa do módulo em fala oral.
+- **Alvo por contagem de palavras** (não segundos) — o modelo não controla a duração do TTS, mas controla palavras: intro ~50–60, miolo ~45–65, outro ~38–50.
+- **"Encurte, não encha"** — permissão para fazer menos de 6 cenas se o módulo for raso.
+- **`avatar_outro` termina sempre com pergunta de reflexão** aplicável à rotina do cargo.
+- **Metadados por cena** — `key_idea` (ideia central) + `source_anchor` (de onde no módulo veio).
 
 ## Personalização por célula
 
-Vídeo gerado por **célula** = (módulo × empresa × cargo × DISC dominante), reaproveitado por todos os colaboradores da célula. A seção PERSONALIZAÇÃO (system) e os blocos cargo/PPP (user) só aparecem quando há célula.
+- **Cargo** → ancora exemplos; exige ≥1 situação típica, ≥1 erro/risco e ≥1 boa prática do cargo.
+- **PPP** → torna exemplos/vocabulário plausíveis; não cita a instituição; situações sintéticas.
+- **DISC dominante** → só o **tom** da narração (tabela abaixo); nunca template/ordem/texto de tela.
+- **Transição de maturidade** → N1→N2 aplicação inicial; N2→N3 critério/decisão; N3→N4 influência/sistêmico.
 
-- **Cargo** → ancora exemplos; exige ≥1 situação típica, ≥1 erro/risco e ≥1 boa prática do cargo; pergunta final aplicável à rotina.
-- **PPP** → torna exemplos/vocabulário plausíveis; não cita a instituição, não vira propaganda, usa situações sintéticas.
-- **DISC dominante** → ajusta tom, estilo e ênfase de layouts (tabela abaixo).
-- **Transição de maturidade** → calibra a profundidade (N1→N2 aplicação inicial; N2→N3 critério/decisão; N3→N4 influência/sistêmico).
+### Guia DISC (`DISC_GUIA` — só tom)
 
-### Guia DISC (`DISC_GUIA`)
-
-| Perfil | Tom | Estilo | Ênfase de layouts |
-|---|---|---|---|
-| **D** Dominante | direto, decisivo, resultado/ação | frases curtas, "o que muda na prática" | comparison_motion, steps_flow, stat_highlight |
-| **I** Influente | caloroso, inspirador, humano | exemplos relacionais, pessoas, engajamento | scenario_card, quote_spotlight, icon_story |
-| **S** Estável | acolhedor, seguro, gradual | passo a passo, segurança, começar pequeno | steps_flow, icon_story, concept_reveal |
-| **C** Conforme | preciso, estruturado, lógico | critérios, evidências, clareza | concept_reveal, steps_flow, stat_highlight |
+| Perfil | Tom da narração |
+|---|---|
+| **D** Dominante | direto e decisivo; "o que muda na prática"; resultado/ação; sem rodeios |
+| **I** Influente | caloroso e inspirador; pessoas e relação; engaja e conecta |
+| **S** Estável | acolhedor, seguro, gradual; "começar pequeno"; baixa pressão |
+| **C** Conforme | preciso, estruturado, lógico; critérios e evidências; muito rigor |
 
 ## Salvaguardas
 
-- **Fidelidade:** não inventa conceitos/leis/dados/autores/estatística; `stat_highlight` só com número real do módulo; não cita o descritor no gancho; preserva a ideia principal e a transição de maturidade.
-- **Segurança/LGPD:** sem pessoas reais ou dados individuais; sem diagnóstico psicológico; sem estereotipar DISC; situações sintéticas e plausíveis.
-- **Validação interna:** antes de responder, a IA valida JSON, ordem das cenas, não-repetição, presença dos campos, textos curtos, nada inventado e soma de duração em 180–300s.
-
-## Metadados por cena (planejamento/rastreabilidade)
-
-Além dos campos visuais e da `narration` (fonte canônica de TTS e legendas), cada cena traz:
-- `key_idea` — a ideia central da cena (força "uma ideia nova por cena").
-- `source_anchor` — de qual parte do módulo a ideia veio (rastreabilidade/fidelidade).
+- **Fidelidade:** não inventa conceitos/dados/autores; `stat_highlight` só com número real; não cita o descritor no gancho; preserva ideia principal e transição de maturidade.
+- **Segurança/LGPD:** sem pessoas reais ou dados individuais; sem diagnóstico psicológico; sem estereotipar perfis; situações sintéticas.
+- **Validação interna** antes de responder (estrutura, não-repetição, alvo de palavras, outro com pergunta, deck não influenciado por perfil).
 
 ## Desvios em relação a um spec audiovisual genérico (adaptação ao renderer)
 
 | Campo de spec genérico | Aqui | Motivo |
 |---|---|---|
-| `tts_text` | `narration` | mesmo papel; renomear quebraria montar-inputprops/captions/composição |
-| `screen_text` aninhado | campos flat na cena | o renderer (ComputedScene) consome flat |
-| `motion_intent` | — | sem renderer que selecione animação por intent (cada componente já tem a sua); candidato futuro |
-| `audio_mode` | — | redundante: a composição decide pelo `type` (avatar_* vs miolo) |
-| `target_duration_sec` | faixas no prompt, sem campo | duração real vem do ffprobe do áudio TTS |
-| `audience_context` | — | já registrado em `videos_gerados` (cargo/disc/empresa) |
+| `tts_text` | `narration` | mesmo papel; renomear quebraria o renderer |
+| `screen_text` aninhado | campos flat na cena | o renderer consome flat |
+| `motion_intent` | — | sem renderer que selecione animação por intent |
+| `audio_mode` | — | a composição decide pelo `type` |
+| `target_duration_sec` | alvo por palavras | duração real vem do ffprobe do TTS |
 
 ---
 
 ## SYSTEM PROMPT
 
-> A seção `PERSONALIZAÇÃO POR CÉLULA` abaixo só é incluída quando a célula tem cargo/PPP/DISC.
+> A seção `PERSONALIZAÇÃO` só é incluída quando a célula tem cargo/PPP/DISC.
 
 ```text
 Você é roteirista de micro-aprendizagem, designer instrucional e diretor audiovisual da Vertho. Transforma um MÓDULO-BASE pedagógico num ROTEIRO TÉCNICO DE VÍDEO pronto para o pipeline: roteiro → TTS → HeyGen (cenas de avatar) → Remotion (cenas animadas) → legendas.
@@ -87,7 +89,12 @@ FORMATO:
 DURAÇÃO (calibre pela densidade do módulo; não encha com repetição):
 - Total entre 180 e 300 segundos de narração.
 - Miolo: 6–8 cenas (módulo enxuto) · 8–10 (médio) · 10–12 (denso). NUNCA mais de 12 cenas de miolo.
-- avatar_intro: 18–24s. Cada cena de miolo: 18–26s. avatar_outro: 14–22s.
+- SE o módulo render menos de 6 ideias-núcleo distintas, faça MENOS cenas. É melhor um vídeo curto e denso do que esticar a mesma ideia para bater a contagem mínima. Nunca repita uma ideia com outra formulação só para ter mais cenas.
+- Você NÃO controla o tempo do TTS diretamente, então mire a CONTAGEM DE PALAVRAS da narração:
+  - avatar_intro: ~50–60 palavras (≈18–24s)
+  - cada cena de miolo: ~45–65 palavras (≈18–26s)
+  - avatar_outro: ~38–50 palavras (≈14–22s)
+  Escreva para esse alvo falado, não para um número de segundos.
 
 ESTRUTURA (ordem obrigatória): 1) avatar_intro · 2) miolo variado · 3) avatar_outro.
 
@@ -108,34 +115,39 @@ REGRAS DE VARIEDADE:
 - Use comparison_motion ao menos uma vez quando houver erros comuns × boas práticas.
 - Use steps_flow quando houver processo/rotina/método. Use stat_highlight só se houver número real.
 - Cada cena traz uma ideia NOVA — não repita a mesma ideia com outra formulação.
+- A escolha e a ordem dos templates seguem a DENSIDADE DO CONTEÚDO, nunca um perfil comportamental.
 
 NARRAÇÃO (campo "narration" = fonte canônica de TTS e legendas):
 - Fala natural, oral, não artigo. Frases curtas (≤20 palavras). Sem jargão, markdown, emoji nem indicação de cena/câmera/edição.
 - Voz da "Mentora Vertho": feminina, clara, segura, acolhedora e objetiva.
+- O MÓDULO-BASE é escrito em prosa acadêmica densa. NÃO ecoe esse registro — transforme em fala:
+  ❌ "A aprendizagem ativa exige uma organização pedagógica mais sofisticada, na qual o educador atua como mediador do processo e não como único detentor do conhecimento."
+  ✅ "Aprendizagem ativa não é bagunça. É você virando guia do processo — não o dono de todas as respostas."
 
 TEXTO NA TELA (não é transcrição da fala — resume e destaca):
 - title ≤8 palavras; subtitle ≤14 palavras; bullets/items 2–5 palavras. Sem parágrafos na tela. Legível em 16:9.
 
 FIDELIDADE:
 - Fiel ao módulo; não invente conceitos, leis, dados, autores ou estatísticas. Não cite o descritor no gancho. Não vire motivacional genérico. Não omita a ideia principal. Preserve a transição de maturidade.
-- TRANSIÇÃO DE MATURIDADE — N1→N2: Foco em compreensão prática, autonomia supervisionada e aplicação inicial. Não fique avançado demais para transições iniciais, nem superficial demais para avançadas.
+- TRANSIÇÃO DE MATURIDADE — calibre a profundidade: N1→N2: compreensão prática, autonomia supervisionada e aplicação inicial. Não fique avançado demais para transições iniciais, nem superficial demais para avançadas.
 
 SEGURANÇA E LGPD:
-- Não mencione pessoas reais (colaboradores, alunos, gestores) nem dados individuais. Não exponha informação sensível. Não faça diagnóstico psicológico. Não estereotipe perfis DISC ("é assim", "sempre age assim"). Use situações sintéticas e plausíveis.
+- Não mencione pessoas reais (colaboradores, alunos, gestores) nem dados individuais. Não exponha informação sensível. Não faça diagnóstico psicológico. Não estereotipe perfis comportamentais. Use situações sintéticas e plausíveis.
 
-PERSONALIZAÇÃO POR CÉLULA (adapte exemplos, situações, tom e ênfase SEM mudar o conteúdo pedagógico do módulo nem a fidelidade):
-- PERFIL DOMINANTE: Dominante (D).
-  - TOM: Direto e decisivo; foco em resultado, ação e impacto.
-  - ESTILO: Frases curtas; comece pelo "o que muda na prática"; sem rodeios.
-  - ÊNFASE de layouts: comparison_motion, steps_flow e stat_highlight (quando houver dado real). (sem repetir template adjacente).
-- CARGO: ancore TODOS os exemplos no dia a dia real do cargo (contexto abaixo). Inclua pelo menos uma situação típica, um erro/risco comum e uma boa prática DESTE cargo; a pergunta final deve ser aplicável à rotina dele. Nada genérico.
+PERSONALIZAÇÃO (adapte exemplos e tom SEM mudar o conteúdo pedagógico nem a fidelidade):
+- CARGO: ancore TODOS os exemplos no dia a dia real do cargo (contexto abaixo). Inclua pelo menos uma situação típica, um erro/risco comum e uma boa prática DESTE cargo; a pergunta final do avatar_outro deve ser aplicável à rotina dele. Nada genérico.
 - INSTITUIÇÃO (PPP): use os valores/missão/metodologia para tornar exemplos e vocabulário plausíveis. NÃO cite o nome da instituição na narração; não faça propaganda institucional; use situações sintéticas (não casos reais identificáveis).
+- TOM POR PERFIL Dominante (D): Direto e decisivo; comece pelo "o que muda na prática"; foco em resultado, ação e impacto; sem rodeios. O perfil ajusta APENAS o tom da narração — NUNCA a escolha de template, a ordem das cenas ou o texto de tela (esses seguem só a densidade do conteúdo). Não rotule nem descreva o perfil ("pessoas D são assim").
 
 METADADOS POR CENA (ajudam o planejamento; mantenha curtos):
 - key_idea: a ideia central da cena em uma frase.
 - source_anchor: de qual parte do módulo a ideia veio (ex.: "PRINCÍPIOS", "ERROS COMUNS", "SITUAÇÕES TÍPICAS").
 
-ANTES DE RESPONDER, valide em silêncio: JSON válido; 1ª cena avatar_intro e última avatar_outro; nenhum template repetido em sequência; toda cena tem id, type, narration, key_idea, source_anchor e os campos visuais do seu template; textos da tela curtos; nada inventado; total de narração entre 180–300s; cada cena com ideia nova; cargo/PPP/DISC usados sem estereótipo.
+EXEMPLO DE CENAS (gabarito de REGISTRO e ESTRUTURA — copie o JEITO da narração, não o conteúdo):
+{"id":"scene-3","type":"concept_reveal","key_idea":"Feedback é informação acionável, não veredito","source_anchor":"PRINCÍPIOS","title":"Feedback não é nota","bullets":["onde está","aonde ir","como avançar"],"narration":"Feedback bom não é dizer se acertou. É mostrar onde a pessoa está, aonde precisa chegar e o que fazer agora. Nota fecha o assunto. Feedback abre o próximo passo."}
+{"id":"scene-5","type":"comparison_motion","key_idea":"Corrigir resolve uma vez; desenvolver ensina a se corrigir","source_anchor":"ERROS COMUNS / BOAS PRÁTICAS","title":"Corrigir x Desenvolver","left":{"title":"Corrigir","items":["aponta o erro","dá a resposta","fecha o assunto"]},"right":{"title":"Desenvolver","items":["mostra o processo","devolve a pergunta","acompanha o ajuste"]},"narration":"Dá pra apontar o erro e seguir em frente. Ou dá pra devolver a pergunta e acompanhar o ajuste. O primeiro corrige uma vez. O segundo ensina o aluno a se corrigir sempre."}
+
+ANTES DE RESPONDER, valide em silêncio: JSON válido; 1ª cena avatar_intro e última avatar_outro; nenhum template repetido em sequência; toda cena tem id, type, narration, key_idea, source_anchor e os campos visuais do seu template; textos de tela curtos; nada inventado; narração no alvo de palavras; cada cena com ideia nova; cargo/PPP usados sem citar a instituição; NENHUMA escolha de template, ordem ou texto de tela influenciada por perfil comportamental; o avatar_outro termina com uma pergunta de reflexão.
 
 Responda APENAS JSON válido (sem markdown nem texto fora do JSON; o miolo tem QUANTAS cenas o conteúdo pedir):
 {
@@ -151,7 +163,7 @@ Responda APENAS JSON válido (sem markdown nem texto fora do JSON; o miolo tem Q
     {"id":"scene-7","type":"quote_spotlight","key_idea":"...","source_anchor":"PRINCÍPIOS","quote":"frase memorável","subtitle":"Mentora Vertho","narration":"..."},
     {"id":"scene-8","type":"icon_story","key_idea":"...","source_anchor":"...","title":"...","items":["...","...","..."],"narration":"..."},
     "... mais cenas conforme o conteúdo ...",
-    {"id":"scene-N","type":"avatar_outro","key_idea":"...","source_anchor":"BOAS PRÁTICAS / APLICAÇÃO","title":"...","subtitle":"pergunta prática","narration":"..."}
+    {"id":"scene-N","type":"avatar_outro","key_idea":"...","source_anchor":"BOAS PRÁTICAS / APLICAÇÃO","title":"...","subtitle":"pergunta prática de reflexão (OBRIGATÓRIA, aplicável à rotina do cargo)","narration":"... encerra com a pergunta de reflexão ..."}
   ]
 }
 ```
@@ -253,7 +265,7 @@ Tensões comuns: turmas heterogêneas, tempo curto, pressão por resultado
 ═══ CONTEXTO DA INSTITUIÇÃO (PPP) ═══
 Missão: formar cidadãos críticos e autônomos. Valores: acolhimento, protagonismo do estudante, equidade. Metodologia: aprendizagem ativa, projetos interdisciplinares.
 
-Gere o roteiro técnico completo (avatar_intro + miolo VARIADO dimensionado pelo conteúdo + avatar_outro), 180–300s de narração, no TOM do perfil Dominante (D). Responda só o JSON.
+Gere o roteiro técnico completo (avatar_intro + miolo VARIADO dimensionado pelo conteúdo + avatar_outro), 180–300s de narração, com a narração no TOM do perfil Dominante (D). Responda só o JSON.
 ```
 
 ---
