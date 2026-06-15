@@ -38,10 +38,22 @@ export interface ModuloParaRoteiro {
   conteudo_aplicavel?: any;
   adaptacao_por_formato?: any;
   locale?: string | null;
+  // Personalização por célula (módulo × empresa × cargo × DISC dominante).
+  cargoBloco?: string | null;                  // formatBlocoCargo() — contexto do cargo
+  pppBrief?: string | null;                    // resumo do PPP da escola/empresa
+  discDominante?: 'D' | 'I' | 'S' | 'C' | null; // perfil comportamental dominante
 }
 
 const IDIOMA: Record<string, string> = {
   'pt-BR': 'português do Brasil', 'pt-PT': 'português de Portugal', 'es-ES': 'espanhol', 'en-US': 'inglês',
+};
+
+// Como cada perfil DISC dominante molda o TOM da narração e a ÊNFASE de layouts.
+const DISC_GUIA: Record<string, { rotulo: string; tom: string; layouts: string }> = {
+  D: { rotulo: 'Dominante (D)', tom: 'Direto e decisivo. Foco em resultado, ação e impacto. Frases curtas, sem rodeios. Abra pelo "o que muda na prática".', layouts: 'Favoreça comparison_motion e steps_flow; use stat_highlight para impacto.' },
+  I: { rotulo: 'Influente (I)', tom: 'Caloroso e inspirador. Histórias, exemplos humanos e entusiasmo. Conecte pela emoção e pelo "porquê importa".', layouts: 'Favoreça scenario_card e quote_spotlight (histórias e frases que inspiram).' },
+  S: { rotulo: 'Estável (S)', tom: 'Acolhedor e seguro. Passo a passo, sem pressa nem pressão. Reforce que dá pra começar pequeno.', layouts: 'Favoreça steps_flow e icon_story (sequência clara e prática); ritmo calmo.' },
+  C: { rotulo: 'Conforme (C)', tom: 'Preciso e estruturado. Baseie-se em critérios, lógica e dados. Explique o "porquê" com rigor.', layouts: 'Favoreça stat_highlight e concept_reveal (dados, definições, estrutura).' },
 };
 
 // Tipos de cena do MIOLO (animadas, sem avatar). Repetíveis, mas não adjacentes.
@@ -54,6 +66,17 @@ export function buildRoteiroPrompt(m: ModuloParaRoteiro): { system: string; user
   const cc = m.conteudo_central || {};
   const ca = m.conteudo_aplicavel || {};
   const ap = m.adaptacao_por_formato || {};
+  const disc = m.discDominante ? DISC_GUIA[m.discDominante] : null;
+
+  // Bloco de personalização no system (só quando há cargo/PPP/DISC).
+  const persoSystem = (disc || m.cargoBloco || m.pppBrief) ? `
+
+PERSONALIZAÇÃO (este vídeo é feito sob medida para uma célula de colaboradores — mantenha o conteúdo pedagógico fiel ao módulo, mas adapte exemplos, situações, tom e ênfase):${disc ? `
+- PERFIL COMPORTAMENTAL DOMINANTE: ${disc.rotulo}.
+  - TOM da narração: ${disc.tom}
+  - ÊNFASE de layouts: ${disc.layouts} (sem quebrar a regra de não repetir template adjacente).` : ''}${m.cargoBloco ? `
+- CARGO: ancore TODOS os exemplos, situações e o "scenario_card" no dia a dia real deste cargo (use o contexto abaixo). Nada genérico.` : ''}${m.pppBrief ? `
+- ESCOLA/INSTITUIÇÃO (PPP): alinhe situações e vocabulário à realidade e aos valores da instituição abaixo. Não cite o nome da escola na narração; use o contexto para tornar os exemplos plausíveis e próximos.` : ''}` : '';
 
   const system = `Você é roteirista de micro-aprendizagem da Vertho. Transforma um Módulo-Base (matéria-prima pedagógica) num ROTEIRO DE VÍDEO de 3 a 5 MINUTOS: uma cena de abertura por avatar, um MIOLO de N cenas animadas variadas, e uma cena de encerramento por avatar.
 
@@ -86,7 +109,7 @@ CALIBRE A DURAÇÃO PELO CONTEÚDO (não encha com repetição):
 PRINCÍPIOS DE ESCRITA:
 - A NARRAÇÃO é falada — linguagem oral, frases curtas (≤20 palavras), natural. Sem markdown, sem emoji, sem indicação de cena.
 - Os ELEMENTOS VISUAIS (title, bullets, items, quote, stat) são CURTOS — aparecem na tela. Exceção: subtitle de scenario_card pode ter 1-2 frases curtas.
-- Fiel ao módulo; não invente leis/dados. Sem jargão. O narrador é a "Mentora Vertho" (feminino, acolhedor). NÃO cite o descritor no gancho.
+- Fiel ao módulo; não invente leis/dados. Sem jargão. O narrador é a "Mentora Vertho" (feminino, acolhedor). NÃO cite o descritor no gancho.${persoSystem}
 
 Responda APENAS JSON válido (o miolo tem QUANTAS cenas o conteúdo pedir):
 {
@@ -134,8 +157,8 @@ ${(Array.isArray(ca.situacoes_tipicas) ? ca.situacoes_tipicas : []).slice(0, 8).
 
 ORIENTAÇÃO DE VÍDEO (do módulo):
 ${ap.video_roteiro || '—'}
-
-Gere o roteiro completo (avatar_intro + miolo VARIADO dimensionado pelo conteúdo + avatar_outro), com 3 a 5 min de narração. Responda só o JSON.`;
+${m.cargoBloco ? `\n${m.cargoBloco}\n` : ''}${m.pppBrief ? `\n═══ CONTEXTO DA INSTITUIÇÃO (PPP) ═══\n${m.pppBrief}\n` : ''}
+Gere o roteiro completo (avatar_intro + miolo VARIADO dimensionado pelo conteúdo + avatar_outro), com 3 a 5 min de narração${disc ? `, no TOM do perfil ${disc.rotulo}` : ''}. Responda só o JSON.`;
 
   return { system, user };
 }

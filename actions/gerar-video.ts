@@ -4,69 +4,147 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { gerarRoteiroDeModulo } from '@/lib/video/gerar-roteiro';
 import type { ModuloParaRoteiro } from '@/lib/video/roteiro-prompt';
+import { carregarCargoInfo, formatBlocoCargo } from '@/lib/cargo-contexto';
+import { extracaoParaTexto } from '@/lib/escola-brief';
 import { tasks } from '@trigger.dev/sdk';
 import type { gerarVideoModuloTask } from '@/trigger/gerar-video-modulo';
 
+type Disc = 'D' | 'I' | 'S' | 'C';
+const COLS_MODULO = 'id, locale, competencia_base_id, nivel_entrada, nivel_destino, titulo, descritor, conteudo_central, conteudo_aplicavel, adaptacao_por_formato';
+
+/** Carrega o Módulo-Base e a competência → base do ModuloParaRoteiro. */
+async function carregarModulo(sb: any, moduloBaseId: string): Promise<ModuloParaRoteiro | null> {
+  const { data: m } = await sb.from('modulos_base_conteudo').select(COLS_MODULO).eq('id', moduloBaseId).maybeSingle();
+  if (!m) return null;
+  let competenciaNome: string | null = null;
+  if (m.competencia_base_id) {
+    const { data: c } = await sb.from('competencias_base').select('nome').eq('id', m.competencia_base_id).maybeSingle();
+    competenciaNome = c?.nome || null;
+  }
+  return {
+    titulo: m.titulo, descritor: m.descritor, competenciaNome,
+    nivel_entrada: m.nivel_entrada, nivel_destino: m.nivel_destino,
+    conteudo_central: m.conteudo_central, conteudo_aplicavel: m.conteudo_aplicavel,
+    adaptacao_por_formato: m.adaptacao_por_formato, locale: m.locale,
+  };
+}
+
+/** Contexto de personalização da célula: bloco de cargo + brief do PPP + DISC. */
+async function contextoPersonalizacao(sb: any, empresaId: string | null, cargo: string | null, disc: Disc | null) {
+  const out: Pick<ModuloParaRoteiro, 'cargoBloco' | 'pppBrief' | 'discDominante'> = { discDominante: disc || null };
+  if (!empresaId) return out;
+
+  let empresaNome: string | null = null;
+  const { data: emp } = await sb.from('empresas').select('nome').eq('id', empresaId).maybeSingle();
+  empresaNome = emp?.nome || null;
+
+  if (cargo) {
+    const cargoInfo = await carregarCargoInfo(sb, empresaId, cargo).catch(() => null);
+    out.cargoBloco = formatBlocoCargo(cargoInfo || { nome: cargo }, empresaNome);
+  }
+  // PPP da empresa (mais recente extraído) → texto enxuto para o prompt.
+  const { data: ppp } = await sb.from('ppp_escolas')
+    .select('extracao').eq('empresa_id', empresaId).eq('status', 'extraido')
+    .order('extracted_at', { ascending: false }).limit(1).maybeSingle();
+  if (ppp?.extracao) out.pppBrief = extracaoParaTexto(ppp.extracao).slice(0, 2500);
+  return out;
+}
+
 /**
- * Dispara a geração de um VÍDEO a partir de um Módulo-Base: gera o roteiro (IA,
- * aqui no app), cria o rastreador videos_gerados e enfileira o job trigger.dev
- * que faz narração (TTS) → avatar (HeyGen) → render (Remotion) → Bunny.
- * `escopoEmpresaId` null = vídeo global/canônico; preenchido = da empresa.
+ * Gera o roteiro (personalizado se houver célula), cria o rastreador e dispara o
+ * job. Internamente usado pelo disparo admin e pela resolução lazy do colaborador.
  */
-export async function dispararVideoDeModulo(moduloBaseId: string, escopoEmpresaId: string | null = null) {
+async function criarEDispararVideo(sb: any, args: {
+  moduloBaseId: string; empresaId: string | null; cargo: string | null; disc: Disc | null; createdBy: string | null;
+}) {
+  const base = await carregarModulo(sb, args.moduloBaseId);
+  if (!base) return { error: 'Módulo-base não encontrado' };
+
+  const perso = await contextoPersonalizacao(sb, args.empresaId, args.cargo, args.disc);
+  const { roteiro, error: rotErr } = await gerarRoteiroDeModulo({ ...base, ...perso });
+  if (rotErr || !roteiro) return { error: rotErr || 'A IA não retornou um roteiro válido' };
+
+  const { data: novo, error: insErr } = await sb.from('videos_gerados').insert({
+    modulo_base_id: args.moduloBaseId,
+    empresa_id: args.empresaId,
+    cargo: args.cargo,
+    disc_dominante: args.disc,
+    status: 'processing',
+    etapa: 'roteiro',
+    roteiro,
+    created_by: args.createdBy,
+  }).select('id').maybeSingle();
+  if (insErr || !novo?.id) return { error: insErr?.message || 'Falha ao criar registro do vídeo' };
+
+  try {
+    await tasks.trigger<typeof gerarVideoModuloTask>('gerar-video-modulo', { videoId: novo.id, roteiro });
+  } catch (e: any) {
+    await sb.from('videos_gerados').update({ status: 'error', error: e?.message?.slice(0, 500) }).eq('id', novo.id);
+    return { error: `Não foi possível iniciar o processamento: ${e?.message || 'erro'}` };
+  }
+  return { success: true, id: novo.id, roteiro };
+}
+
+/**
+ * Disparo manual (admin) de um vídeo do módulo. Aceita personalização opcional
+ * (empresa × cargo × DISC); sem ela, gera o vídeo genérico do módulo.
+ */
+export async function dispararVideoDeModulo(moduloBaseId: string, opts: { escopoEmpresaId?: string | null; cargo?: string | null; discDominante?: Disc | null } = {}) {
   try {
     const sb = await requireAdminSupabase('content.manage');
     const ctx = await requireAdminAction('content.manage');
     if (!moduloBaseId) return { error: 'Módulo-base não informado' };
-
-    const { data: m, error } = await sb.from('modulos_base_conteudo')
-      .select('id, locale, competencia_base_id, nivel_entrada, nivel_destino, titulo, descritor, conteudo_central, conteudo_aplicavel, adaptacao_por_formato')
-      .eq('id', moduloBaseId)
-      .maybeSingle();
-    if (error || !m) return { error: error?.message || 'Módulo-base não encontrado' };
-
-    let competenciaNome: string | null = null;
-    if (m.competencia_base_id) {
-      const { data: c } = await sb.from('competencias_base').select('nome').eq('id', m.competencia_base_id).maybeSingle();
-      competenciaNome = c?.nome || null;
-    }
-
-    const moduloParaRoteiro: ModuloParaRoteiro = {
-      titulo: m.titulo,
-      descritor: m.descritor,
-      competenciaNome,
-      nivel_entrada: m.nivel_entrada,
-      nivel_destino: m.nivel_destino,
-      conteudo_central: m.conteudo_central,
-      conteudo_aplicavel: m.conteudo_aplicavel,
-      adaptacao_por_formato: m.adaptacao_por_formato,
-      locale: m.locale,
-    };
-
-    const { roteiro, error: rotErr } = await gerarRoteiroDeModulo(moduloParaRoteiro);
-    if (rotErr || !roteiro) return { error: rotErr || 'A IA não retornou um roteiro válido' };
-
-    const { data: novo, error: insErr } = await sb.from('videos_gerados').insert({
-      modulo_base_id: moduloBaseId,
-      empresa_id: escopoEmpresaId,
-      status: 'processing',
-      etapa: 'roteiro',
-      roteiro,
-      created_by: (ctx as any)?.email || null,
-    }).select('id').maybeSingle();
-    if (insErr || !novo?.id) return { error: insErr?.message || 'Falha ao criar registro do vídeo' };
-
-    try {
-      await tasks.trigger<typeof gerarVideoModuloTask>('gerar-video-modulo', { videoId: novo.id, roteiro });
-    } catch (e: any) {
-      await sb.from('videos_gerados').update({ status: 'error', error: e?.message?.slice(0, 500) }).eq('id', novo.id);
-      return { error: `Não foi possível iniciar o processamento: ${e?.message || 'erro'}` };
-    }
-
-    return { success: true, id: novo.id, roteiro };
+    return await criarEDispararVideo(sb, {
+      moduloBaseId,
+      empresaId: opts.escopoEmpresaId || null,
+      cargo: opts.cargo || null,
+      disc: opts.discDominante || null,
+      createdBy: (ctx as any)?.email || null,
+    });
   } catch (err: any) {
     console.error('[dispararVideoDeModulo]', err);
     return { error: err?.message || 'Falha ao disparar a geração de vídeo' };
+  }
+}
+
+/**
+ * Resolução LAZY de uma célula (módulo × empresa × cargo × DISC): se já existe um
+ * vídeo pronto/processando para a célula, reaproveita; senão, gera sob demanda.
+ * É o ponto de reuso — todos os colaboradores da mesma célula caem aqui.
+ */
+export async function resolverCelulaVideo(moduloBaseId: string, empresaId: string, cargo: string, disc: Disc, createdBy: string | null = null) {
+  const sb = await requireAdminSupabase();
+  const { data: existente } = await sb.from('videos_gerados')
+    .select('id, status, etapa, video_url, bunny_video_id, bunny_library, error')
+    .eq('modulo_base_id', moduloBaseId).eq('empresa_id', empresaId).eq('cargo', cargo).eq('disc_dominante', disc)
+    .neq('status', 'error')
+    .order('created_at', { ascending: false }).limit(1).maybeSingle();
+
+  if (existente) {
+    return { reused: true, id: existente.id, status: existente.status, etapa: existente.etapa, video_url: existente.video_url, bunny_video_id: existente.bunny_video_id, bunny_library: existente.bunny_library };
+  }
+  const r = await criarEDispararVideo(sb, { moduloBaseId, empresaId, cargo, disc, createdBy });
+  if ((r as any).error) return r;
+  return { reused: false, id: (r as any).id, status: 'processing', etapa: 'roteiro' };
+}
+
+/**
+ * Resolve o vídeo para um COLABORADOR específico: deriva a célula (empresa, cargo,
+ * DISC dominante = 1ª letra de perfil_dominante) e reaproveita/gera. Chamado pela
+ * superfície de entrega ao colaborador (lazy).
+ */
+export async function resolverVideoDoColaborador(moduloBaseId: string, colaboradorId: string) {
+  try {
+    const sb = await requireAdminSupabase();
+    const { data: colab } = await sb.from('colaboradores').select('id, empresa_id, cargo, perfil_dominante').eq('id', colaboradorId).maybeSingle();
+    if (!colab) return { error: 'Colaborador não encontrado' };
+    if (!colab.empresa_id || !colab.cargo) return { error: 'Colaborador sem empresa/cargo definido' };
+    const disc = (colab.perfil_dominante || '').trim().charAt(0).toUpperCase();
+    if (!['D', 'I', 'S', 'C'].includes(disc)) return { error: 'Colaborador sem perfil DISC mapeado' };
+    return await resolverCelulaVideo(moduloBaseId, colab.empresa_id, colab.cargo, disc as Disc, `colab:${colab.id}`);
+  } catch (err: any) {
+    console.error('[resolverVideoDoColaborador]', err);
+    return { error: err?.message || 'Falha ao resolver o vídeo do colaborador' };
   }
 }
 
@@ -76,10 +154,10 @@ export async function listarVideosDoModulo(moduloBaseId: string) {
     await requireAdminAction();
     const sb = await requireAdminSupabase();
     const { data } = await sb.from('videos_gerados')
-      .select('id, status, etapa, video_url, bunny_video_id, bunny_library, error, created_at, updated_at')
+      .select('id, status, etapa, cargo, disc_dominante, empresa_id, video_url, bunny_video_id, bunny_library, error, created_at, updated_at')
       .eq('modulo_base_id', moduloBaseId)
       .order('created_at', { ascending: false })
-      .limit(20);
+      .limit(40);
     return { data: data || [] };
   } catch (err: any) {
     console.error('[listarVideosDoModulo]', err);
