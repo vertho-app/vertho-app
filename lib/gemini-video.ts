@@ -112,6 +112,16 @@ Responda APENAS com JSON válido (sem markdown em volta, sem comentários) neste
 }`;
 }
 
+function normalizeModelText(value: any): string {
+  return String(value || '')
+    .trim()
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\n')
+    .replace(/\\t/g, '\t')
+    .replace(/\\"/g, '"');
+}
+
 /** Extrai o texto-base de um vídeo a partir da URL. */
 export async function extrairConteudoDeVideo(
   url: string,
@@ -203,12 +213,12 @@ export async function extrairConteudoDeVideo(
     throw new Error(`A extração não retornou um resultado válido após 3 tentativas (${ultimoMotivo}). Tente novamente.`);
   }
   return {
-    titulo: String(parsed.titulo || 'Conteúdo de vídeo').trim(),
-    resumo: String(parsed.resumo || '').trim(),
-    texto_base: String(parsed.texto_base || '').trim(),
-    pontos_chave: Array.isArray(parsed.pontos_chave) ? parsed.pontos_chave.map((x: any) => String(x)).filter(Boolean) : [],
-    competencia_sugerida: parsed.competencia_sugerida ? String(parsed.competencia_sugerida).trim() : null,
-    descritor_sugerido: parsed.descritor_sugerido ? String(parsed.descritor_sugerido).trim() : null,
+    titulo: normalizeModelText(parsed.titulo || 'Conteúdo de vídeo'),
+    resumo: normalizeModelText(parsed.resumo || ''),
+    texto_base: normalizeModelText(parsed.texto_base || ''),
+    pontos_chave: Array.isArray(parsed.pontos_chave) ? parsed.pontos_chave.map((x: any) => normalizeModelText(x)).filter(Boolean) : [],
+    competencia_sugerida: parsed.competencia_sugerida ? normalizeModelText(parsed.competencia_sugerida) : null,
+    descritor_sugerido: parsed.descritor_sugerido ? normalizeModelText(parsed.descritor_sugerido) : null,
     duracao_min: Number.isFinite(Number(parsed.duracao_min)) ? Number(parsed.duracao_min) : null,
   };
 }
