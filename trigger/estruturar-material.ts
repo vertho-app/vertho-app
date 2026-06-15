@@ -55,11 +55,19 @@ export const estruturarMaterialTask = task({
     }
 
     // Callback do app: segmenta em temas e estrutura N módulos-base rascunho.
-    const cb = await fetch(`${APP_URL}/api/internal/modulo-from-video`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-internal-secret': KEY },
-      body: JSON.stringify({ extracaoId: id, transcricao: ext.transcricao, titulo: ext.titulo || null, locale }),
-    });
+    // try/catch: se a rota for cortada (timeout/queda), o fetch REJEITA antes de
+    // retornar — sem isto, o registro ficaria travado em 'processing' (o fail()
+    // abaixo nunca rodaria). Aqui marcamos error e deixamos o trigger re-tentar.
+    let cb: Response;
+    try {
+      cb = await fetch(`${APP_URL}/api/internal/modulo-from-video`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-internal-secret': KEY },
+        body: JSON.stringify({ extracaoId: id, transcricao: ext.transcricao, titulo: ext.titulo || null, locale }),
+      });
+    } catch (e: any) {
+      return fail(`callback de estruturação falhou (conexão): ${String(e?.message || e).slice(0, 200)}`);
+    }
     if (!cb.ok) {
       const msg = await cb.text().catch(() => '');
       return fail(`callback módulo ${cb.status}: ${msg.slice(0, 300)}`);
