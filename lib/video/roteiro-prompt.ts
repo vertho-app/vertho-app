@@ -65,8 +65,11 @@ export function buildRoteiroPrompt(m: ModuloParaRoteiro): { system: string; user
   const idioma = IDIOMA[m.locale || 'pt-BR'] || IDIOMA['pt-BR'];
   const cc = m.conteudo_central || {};
   const ca = m.conteudo_aplicavel || {};
-  const ap = m.adaptacao_por_formato || {};
   const disc = m.discDominante ? DISC_GUIA[m.discDominante] : null;
+  // NOTA: o campo `adaptacao_por_formato.video_roteiro` do módulo NÃO é injetado:
+  // foi escrito para um formato de vídeo legado (8-12 min, filmagem com câmeras) e
+  // conflita com este formato (3-5 min, avatar + cenas animadas). O system já define
+  // toda a orientação de vídeo necessária.
 
   // Bloco de personalização no system (só quando há cargo/PPP/DISC).
   const persoSystem = (disc || m.cargoBloco || m.pppBrief) ? `
@@ -154,9 +157,6 @@ ${(Array.isArray(ca.boas_praticas) ? ca.boas_praticas : []).slice(0, 8).map((b: 
 
 SITUAÇÕES TÍPICAS:
 ${(Array.isArray(ca.situacoes_tipicas) ? ca.situacoes_tipicas : []).slice(0, 8).map((s: any) => `- ${s.contexto}: ${s.desafio}`).join('\n') || '—'}
-
-ORIENTAÇÃO DE VÍDEO (do módulo):
-${ap.video_roteiro || '—'}
 ${m.cargoBloco ? `\n${m.cargoBloco}\n` : ''}${m.pppBrief ? `\n═══ CONTEXTO DA INSTITUIÇÃO (PPP) ═══\n${m.pppBrief}\n` : ''}
 Gere o roteiro completo (avatar_intro + miolo VARIADO dimensionado pelo conteúdo + avatar_outro), com 3 a 5 min de narração${disc ? `, no TOM do perfil ${disc.rotulo}` : ''}. Responda só o JSON.`;
 
