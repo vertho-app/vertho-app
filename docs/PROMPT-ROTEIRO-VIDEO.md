@@ -5,66 +5,41 @@
 ## Visão geral
 
 - **Função:** `buildRoteiroPrompt(modulo)` — pura. Chamada por `gerarRoteiroDeModulo()` (`max_tokens` 8000).
-- **Modelo:** **`claude-opus-4-8`** (default da task `conteudo_video`) — peça criativa de alta alavancagem, reaproveitada por célula.
+- **Modelo:** **`claude-opus-4-8`** (default da task `conteudo_video`).
 - **Entrada:** Módulo-Base + contexto opcional da célula (cargo, PPP, DISC dominante, transição de nível).
 - **Saída:** JSON `VideoRoteiro`. Alimenta TTS → HeyGen → Remotion.
 - **Formato:** 180–300s, avatar_intro + miolo de 6–12 cenas + avatar_outro. Avatar só nas pontas; miolo em voice-over.
 
 ## Deck invariante vs. Tom
 
-O **deck visual** (template, ordem, texto de tela) é dirigido SÓ por densidade do conteúdo + cargo + PPP + maturidade — **nunca pelo DISC**. O **DISC ajusta apenas a `narration`**. O roteiro declara isso: `deck_invariant: true` + `disc_sensitive_fields: ["narration"]` — preparando "render-once + N-áudios".
-
-## Templates de cena (9)
-
-| Template | Uso | Campos visuais |
-|---|---|---|
-| `avatar_intro` / `avatar_outro` | abertura / fecho (avatar) | title, subtitle |
-| `concept_reveal` | conceito/distinção | title, bullets[3] |
-| `comparison_motion` | prática fraca × desejada | title, left{title,items[3]}, right{title,items[3]} |
-| `icon_story` | 3 sinais/exemplos | title, items[3] |
-| `steps_flow` | processo sequencial | title, items[3–5] |
-| `stat_highlight` | dado numérico (literal no módulo) | stat, title, subtitle |
-| `quote_spotlight` | frase-âncora | quote (≤14 palavras), subtitle |
-| `scenario_card` | situação típica | title, subtitle |
-
-## Técnicas de qualidade
-
-- **Few-shot** de narração (gabarito de registro). **Anti-eco acadêmico** (❌/✅ prosa densa → fala).
-- **Alvo por palavras** (intro ~50–60, miolo ~45–65, outro ~38–50) + campo `estimated_words` por cena (auto-validação).
-- **"Encurte, não encha"** (menos cenas se o módulo for raso). **avatar_outro** termina sempre com pergunta de reflexão.
-- **Cobertura mínima** do módulo (ideia principal + ≥2 princípios + ≥1 erro + ≥1 boa prática + ≥1 situação).
-- **Anti-placeholder**: o schema não traz reticências; regra explícita de gerar só cenas reais.
-- **`source_anchor` padronizado** (enum): `IDEIA_PRINCIPAL`, `PRINCIPIOS:<nome>`, `EXEMPLOS:adequada`, `ERROS_COMUNS`, `BOAS_PRATICAS`, `SITUACOES_TIPICAS`, `CARGO`, `PPP`.
+Deck visual (template, ordem, texto de tela) dirigido SÓ por densidade + cargo + **PPP** + maturidade — nunca pelo DISC. O **DISC ajusta apenas a `narration`** (`deck_invariant: true`, `disc_sensitive_fields: ["narration"]`), preparando "render-once + N-áudios".
 
 ## Personalização por célula
 
 - **Cargo** → ancora exemplos; ≥1 situação/erro/boa prática do cargo; pergunta final aplicável à rotina.
-- **PPP** → exemplos/vocabulário plausíveis; não cita a instituição; situações sintéticas.
-- **DISC dominante** → só o tom da narração (tabela). **Transição de maturidade** → calibra profundidade.
+- **PPP** → reflete ATIVAMENTE valores/missão/prioridades na narração E no texto de tela; ≥1 cena marcada `source_anchor "PPP"`; prioriza traços DISTINTIVOS (público, território, cultura, comunidades) sem citar o nome nem forçar.
+- **DISC dominante** → só o tom da narração. **Maturidade** → calibra profundidade (N1→N2…).
 
-### Guia DISC (`DISC_GUIA` — só tom)
+### Guia DISC (só tom)
 
-| Perfil | Tom da narração |
+| Perfil | Tom |
 |---|---|
-| **D** Dominante | direto, decisivo, resultado/ação; sem rodeios |
-| **I** Influente | caloroso, inspirador, humano; pessoas e engajamento |
-| **S** Estável | acolhedor, seguro, gradual; passo a passo, baixa pressão |
-| **C** Conforme | preciso, estruturado, lógico; critérios e evidências |
+| **D** | direto, decisivo, resultado/ação |
+| **I** | caloroso, inspirador, humano |
+| **S** | acolhedor, seguro, gradual |
+| **C** | preciso, estruturado, lógico |
+
+## Técnicas de qualidade
+
+Few-shot de narração · anti-eco acadêmico (❌/✅) · alvo por palavras + `estimated_words` · "encurte, não encha" · avatar_outro com pergunta de reflexão · cobertura mínima do módulo · anti-placeholder (sem reticências) · `source_anchor` padronizado (enum) · validação interna.
 
 ## Salvaguardas
 
-- **Fidelidade:** não inventa conceitos/dados; stat só com número literal; não cita o descritor; preserva ideia principal e maturidade.
-- **LGPD:** sem pessoas reais ou dados individuais; sem diagnóstico; sem estereótipo de perfil.
-- **Validação interna** antes de responder (estrutura, não-repetição, alvo de palavras, sem placeholder, cobertura, outro com pergunta).
+Fidelidade (não inventa; stat só com número literal) · LGPD (sem pessoas reais, sem diagnóstico, sem estereótipo de perfil).
 
-## Desvios em relação a um spec audiovisual genérico (adaptação ao renderer)
+## Desvios em relação a um spec genérico (adaptação ao renderer)
 
-| Spec genérico | Aqui | Motivo |
-|---|---|---|
-| `tts_text` | `narration` | mesmo papel; renomear quebraria o renderer |
-| `screen_text` aninhado | campos flat | o renderer consome flat |
-| `motion_intent` / `audio_mode` | — | sem consumidor (animação fixa por componente; modo de áudio decorre do `type`) |
-| `target_duration_sec` | alvo por palavras + `estimated_words` | duração real vem do ffprobe do TTS |
+`tts_text`→`narration` · `screen_text` aninhado→flat · `motion_intent`/`audio_mode` fora (sem consumidor) · `target_duration_sec`→alvo por palavras (duração real vem do ffprobe).
 
 ---
 
@@ -134,7 +109,7 @@ SEGURANÇA E LGPD:
 
 PERSONALIZAÇÃO (adapte exemplos e tom SEM mudar o conteúdo pedagógico nem a fidelidade):
 - CARGO: ancore os exemplos práticos no dia a dia real do cargo (contexto abaixo), sem repetir a mesma situação em todas as cenas. Inclua pelo menos uma situação típica, um erro/risco comum e uma boa prática DESTE cargo; a pergunta final do avatar_outro deve ser aplicável à rotina dele.
-- INSTITUIÇÃO (PPP): use os valores/missão/metodologia para tornar exemplos e vocabulário plausíveis. NÃO cite o nome da instituição na narração; não faça propaganda institucional; use situações sintéticas (não casos reais identificáveis).
+- INSTITUIÇÃO (PPP): a instituição tem identidade própria — REFLITA ATIVAMENTE seus valores, missão, metodologia e prioridades, tanto na NARRAÇÃO quanto no TEXTO DE TELA (títulos/bullets/items podem ecoar as prioridades da escola). PELO MENOS UMA cena deve conectar o conteúdo a um valor ou prioridade CONCRETO do PPP (marque-a com source_anchor "PPP"), e o vocabulário deve soar DAQUELA instituição, não de uma escola genérica. Priorize os traços DISTINTIVOS — o que torna a instituição única (público atendido, território, cultura local, comunidades, projetos próprios) — em vez de generalidades; mas só se encaixar com naturalidade no conteúdo (não force). SALVAGUARDAS: não cite o NOME da instituição, não faça propaganda nem exponha pessoas reais; as situações são sintéticas e plausíveis, mas reconhecivelmente alinhadas ao PPP.
 - TOM POR PERFIL Dominante (D): Direto, decisivo, focado em resultado, ação e impacto; frases curtas, foco no que muda na prática, sem rodeios. O perfil ajusta APENAS o tom da narração — NUNCA template, ordem ou texto de tela. Nunca diga "pessoas D são...", não rotule nem estereotipe o colaborador.
 
 SOURCE_ANCHOR (use exatamente um destes formatos): IDEIA_PRINCIPAL · EXPLICACAO_EXPANDIDA:<tópico> · PRINCIPIOS:<nome> · EXEMPLOS:adequada · EXEMPLOS:inadequada · ERROS_COMUNS · BOAS_PRATICAS · SITUACOES_TIPICAS · CARGO · PPP
@@ -145,7 +120,7 @@ EXEMPLO DE CENAS (referência de REGISTRO e ESTRUTURA — NÃO copie o conteúdo
 {"id":"scene-3","type":"concept_reveal","key_idea":"Feedback é informação acionável, não veredito","source_anchor":"PRINCIPIOS:Feedback como instrução","estimated_words":35,"title":"Feedback não é nota","bullets":["onde está","aonde ir","como avançar"],"narration":"Feedback bom não é dizer se acertou. É mostrar onde a pessoa está, aonde precisa chegar e o que fazer agora. Nota fecha o assunto. Feedback abre o próximo passo."}
 {"id":"scene-5","type":"comparison_motion","key_idea":"Corrigir resolve uma vez; desenvolver ensina a se corrigir","source_anchor":"ERROS_COMUNS / BOAS_PRATICAS","estimated_words":41,"title":"Corrigir x Desenvolver","left":{"title":"Corrigir","items":["aponta o erro","dá a resposta","fecha o assunto"]},"right":{"title":"Desenvolver","items":["mostra o processo","devolve a pergunta","acompanha o ajuste"]},"narration":"Dá para apontar o erro e seguir em frente. Ou dá para devolver a pergunta e acompanhar o ajuste. O primeiro corrige uma vez. O segundo ensina o aluno a se corrigir sempre."}
 
-ANTES DE RESPONDER, valide em silêncio: JSON válido; sem markdown/comentários/placeholders; sem reticências como "... mais cenas"; 1ª cena avatar_intro e última avatar_outro; nenhum template repetido em sequência; toda cena tem id, type, narration, key_idea, source_anchor, estimated_words e os campos visuais do template; textos de tela curtos; nada inventado; se houver stat_highlight, o número existe literalmente no módulo; cada cena com ideia nova; cobertura mínima respeitada; cargo/PPP sem citar a instituição; deck NÃO influenciado pelo perfil; narração no alvo de palavras; avatar_outro termina com pergunta de reflexão prática.
+ANTES DE RESPONDER, valide em silêncio: JSON válido; sem markdown/comentários/placeholders; sem reticências como "... mais cenas"; 1ª cena avatar_intro e última avatar_outro; nenhum template repetido em sequência; toda cena tem id, type, narration, key_idea, source_anchor, estimated_words e os campos visuais do template; textos de tela curtos; nada inventado; se houver stat_highlight, o número existe literalmente no módulo; cada cena com ideia nova; cobertura mínima respeitada; cargo ancorado no dia a dia do cargo; se houver PPP, ao menos uma cena (source_anchor "PPP") reflete um valor/prioridade concreto da instituição SEM citar o nome; deck NÃO influenciado pelo perfil; narração no alvo de palavras; avatar_outro termina com pergunta de reflexão prática.
 
 FORMATO DE SAÍDA: responda APENAS JSON válido — sem markdown, comentários ou texto fora do JSON. NÃO inclua placeholders nem linhas como "... mais cenas conforme o conteúdo ...". Gere apenas cenas reais (o miolo tem de 6 a 12 cenas conforme a densidade). Estrutura:
 {
@@ -169,8 +144,6 @@ FORMATO DE SAÍDA: responda APENAS JSON válido — sem markdown, comentários o
 ---
 
 ## USER PROMPT (com célula)
-
-> Exemplo: módulo "Equidade na Prática", célula = cargo Professor(a) + PPP do Colégio Exemplo + perfil **D**.
 
 ```text
 MÓDULO-BASE
@@ -256,19 +229,18 @@ SITUAÇÕES TÍPICAS:
 
 ═══ CONTEXTO DA FUNÇÃO DO COLABORADOR ═══
 Instituição: Colégio Exemplo
-Cargo: Professor(a) do Ensino Fundamental (Regência) — sala de aula
+Cargo: Professor(a) do Ensino Fundamental (Regência)
 Principais entregas: planejar aulas, avaliar aprendizagem, dar feedback aos alunos
-Tensões comuns: turmas heterogêneas, tempo curto, pressão por resultado
 
 ═══ CONTEXTO DA INSTITUIÇÃO (PPP) ═══
-Missão: formar cidadãos críticos e autônomos. Valores: acolhimento, protagonismo do estudante, equidade. Metodologia: aprendizagem ativa, projetos interdisciplinares.
+Missão: formar cidadãos críticos e autônomos. Valores: acolhimento, protagonismo do estudante, equidade. Público: comunidade rural com famílias quilombolas. Metodologia: aprendizagem ativa, projetos interdisciplinares.
 
 Gere o roteiro técnico completo (avatar_intro + miolo VARIADO dimensionado pelo conteúdo + avatar_outro), 180–300s de narração, com a narração no TOM do perfil Dominante (D). Responda só o JSON.
 ```
 
 ---
 
-## USER PROMPT — versão genérica (sem célula)
+## USER PROMPT — genérico (sem célula)
 
 ```text
 MÓDULO-BASE
