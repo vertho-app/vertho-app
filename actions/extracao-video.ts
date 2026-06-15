@@ -7,6 +7,7 @@ import { criarModulosDeTranscricao } from '@/actions/modulos-base';
 import { parseDocument } from '@/lib/rag-ingest';
 import { tasks } from '@trigger.dev/sdk';
 import type { extrairVideoTask } from '@/trigger/extracao-video';
+import type { estruturarMaterialTask } from '@/trigger/estruturar-material';
 
 // O resultado da extração vira um MÓDULO-BASE rascunho (matéria-prima canônica),
 // não um micro_conteudo. Alcance por extração: GLOBAL (todos os tenants) ou
@@ -120,6 +121,58 @@ export async function extrairModulosDeMaterial(escopoEmpresaId: string | null, d
   } catch (err: any) {
     console.error('[extrairModulosDeMaterial]', err);
     return { error: err?.message || 'Falha ao extrair material' };
+  }
+}
+
+/**
+ * Estruturação ASSÍNCRONA de material (PDF/DOCX/TXT). Parseia o texto na hora
+ * (rápido) e enfileira a SEGMENTAÇÃO em background — materiais grandes (livros
+ * de 50k+ palavras) levam minutos e estourariam a rota síncrona de 300s. O
+ * registro (extracoes_video) já guarda o texto; a task só dispara a estruturação.
+ */
+export async function submeterMaterialAsync(
+  escopoEmpresaId: string | null,
+  dados: { arquivoBase64: string; filename: string; mime?: string },
+  origemEmpresaId: string | null = null,
+) {
+  try {
+    const ctx = await requireAdminAction('content.manage');
+    if (!dados?.arquivoBase64) return { error: 'Anexe um arquivo (PDF, DOCX ou TXT)' };
+    const sb = await requireAdminSupabase('content.manage');
+
+    const buffer = Buffer.from(dados.arquivoBase64, 'base64');
+    let texto = '';
+    try {
+      const parsed = await parseDocument(buffer, { mime: dados.mime, filename: dados.filename });
+      texto = (parsed?.text || '').trim();
+    } catch (e: any) {
+      return { error: e?.message || 'Não foi possível ler o arquivo' };
+    }
+    if (texto.length < 200) return { error: 'Texto extraído muito curto (arquivo vazio, imagem/scan sem OCR, ou protegido).' };
+
+    const titulo = dados.filename.replace(/\.[^.]+$/, '').slice(0, 120);
+    const { data: novo, error } = await sb.from('extracoes_video').insert({
+      origem_empresa_id: origemEmpresaId,
+      escopo_empresa_id: escopoEmpresaId,
+      escopo_global: !escopoEmpresaId,
+      url: `material:${dados.filename}`.slice(0, 200),
+      transcricao: texto,
+      titulo,
+      status: 'processing',
+      created_by: (ctx as any)?.email || null,
+    }).select('id').maybeSingle();
+    if (error || !novo?.id) return { error: error?.message || 'Falha ao criar registro' };
+
+    try {
+      await tasks.trigger<typeof estruturarMaterialTask>('estruturar-material', { extracaoId: novo.id });
+    } catch (e: any) {
+      await sb.from('extracoes_video').update({ status: 'error', error: e?.message?.slice(0, 500) }).eq('id', novo.id);
+      return { error: `Não foi possível iniciar o processamento: ${e?.message || 'erro'}` };
+    }
+    return { success: true, id: novo.id, chars: texto.length };
+  } catch (err: any) {
+    console.error('[submeterMaterialAsync]', err);
+    return { error: err?.message || 'Falha ao submeter material' };
   }
 }
 
