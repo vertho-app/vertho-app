@@ -81,18 +81,31 @@ const IDIOMA: Record<string, string> = {
 };
 
 function buildSystem(idioma: string): string {
-  return `Você é um designer instrucional da Vertho. Recebe um VÍDEO e extrai dele um TEXTO-BASE que servirá de matéria-prima para criar micro-conteúdos de desenvolvimento profissional (texto, podcast, reflexão).
+  return `Você é um analista de conteúdo instrucional da Vertho. Recebe um VÍDEO e EXTRAI dele um TEXTO-BASE DENSO E COMPLETO — a matéria-prima de micro-conteúdos (texto, podcast, vídeo) e de Módulos-Base. RIQUEZA e FIDELIDADE são a prioridade: este texto-base NÃO pode perder o conteúdo do vídeo.
 
-NÃO devolva a transcrição literal: destile o conteúdo em material pedagógico claro e reutilizável. Seja fiel ao vídeo — não invente o que não foi dito.
+REGRA CENTRAL — NÃO RESUMA, EXTRAIA. Capture TODO o conteúdo com valor pedagógico, na ORDEM em que aparece no vídeo. Preserve: definições, distinções, argumentos e seu encadeamento, exemplos concretos e casos, dados/números, passos de processos, nuances, ressalvas e contra-exemplos ditos. É MELHOR um texto-base longo e fiel do que um curto e enxuto — não economize. Corte apenas ruído (saudações, vinhetas, repetições vazias, "deixa o like").
+
+DENSIDADE proporcional à duração — deixe o vídeo determinar o tamanho, SEM teto artificial:
+- vídeo de ~5 min → ~600–1.000 palavras
+- ~15 min → ~1.500–2.500 palavras
+- ~25 min → ~2.500–4.000 palavras
+- ~45 min+ → o máximo que couber, fiel e denso
+
+ESTRUTURA do texto_base (markdown), seguindo a progressão do vídeo:
+- ## Ideia central — a tese/proposta do vídeo (1 parágrafo denso).
+- ## Desenvolvimento — uma subseção (### subtítulo) para CADA tópico/bloco do vídeo, na ordem. Em cada uma: o conceito + a explicação detalhada + os exemplos/casos/dados ditos ali. Quantas subseções o vídeo tiver.
+- ## Exemplos e aplicações — todos os exemplos concretos e aplicações práticas mencionados.
+- ## Pontos de atenção — ressalvas, erros comuns e contrapontos ditos no vídeo.
+- ## Para refletir — 4–6 perguntas.
 
 IDIOMA DA SAÍDA: escreva TODO o conteúdo (título, resumo, texto_base, pontos-chave) em ${idioma}, independentemente do idioma falado no vídeo (traduza/adapte quando necessário).
 
-Responda APENAS com JSON válido (sem markdown, sem comentários) neste formato:
+Responda APENAS com JSON válido (sem markdown em volta, sem comentários) neste formato:
 {
   "titulo": "título curto do tema do vídeo",
-  "resumo": "2-3 frases do que o vídeo aborda",
-  "texto_base": "markdown com: ## Ideia central; ## Conceitos-chave (bullets); ## Exemplos e aplicações; ## Para refletir (2-3 perguntas). 400-900 palavras, fiel ao vídeo.",
-  "pontos_chave": ["3-6 pontos-chave curtos"],
+  "resumo": "3-4 frases do que o vídeo aborda",
+  "texto_base": "markdown DENSO conforme a estrutura acima — fiel, completo, proporcional à duração (NÃO resumido)",
+  "pontos_chave": ["5-10 pontos-chave"],
   "competencia_sugerida": "competência comportamental/profissional que o vídeo mais desenvolve, ou null",
   "descritor_sugerido": "descritor/sub-tema específico, ou null",
   "duracao_min": número aproximado de minutos do vídeo ou null
@@ -122,9 +135,9 @@ export async function extrairConteudoDeVideo(
     contents: [{ role: 'user', parts: [mediaPart, { text: `Extraia o texto-base deste vídeo.${hint}` }] }],
     generationConfig: {
       responseMimeType: 'application/json',
-      maxOutputTokens: 8192,
+      maxOutputTokens: 65536, // folga p/ texto-base DENSO + thinking (vídeo de 25-45min → milhares de palavras) sem truncar o JSON
       temperature: 0.4,
-      thinkingConfig: { thinkingBudget: 0 }, // sem thinking: todo o orçamento vai p/ o JSON (evita truncar)
+      thinkingConfig: { thinkingBudget: -1 }, // dynamic: deixa o modelo planejar a extração completa (a folga de tokens acima evita truncar)
     },
   };
 
