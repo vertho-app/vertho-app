@@ -825,7 +825,7 @@ REGRAS:
 - "descritor": o sub-tema ESPECÍFICO da seção dentro da competência (5-10 palavras; mais granular que o nome da competência).
 - PODE haver mais de uma seção para a MESMA competência, desde que sejam DESCRITORES (sub-temas) distintos — cada descritor vira um módulo separado. Não force descritores iguais a se juntarem.
 - Transição de nível: default N1→N2 se incerto.
-- "texto_base": destile FIELMENTE o conteúdo da seção (400-900 palavras, markdown), sem inventar.
+- "texto_base": EXTRAIA densamente o conteúdo da seção — NÃO resuma, NÃO destile. Preserve as definições, distinções, exemplos/casos concretos, dados/números e o ENCADEAMENTO dos argumentos, na ordem em que aparecem no trecho. O tamanho segue o que a seção desenvolve, SEM teto artificial: tipicamente 700–1.600 palavras, e mais quando a seção for rica/longa. É MELHOR um texto-base fiel e completo do que um curto e enxuto. Corte só ruído (saudações, repetição vazia); NÃO invente nada que não esteja no trecho.
 
 Responda APENAS JSON válido (sem markdown), no formato:
 {"secoes":[{"competencia_base_id":"<id do catálogo>","competencia_nome":"<nome>","descritor":"<sub-tema específico>","nivel_entrada":"N1","nivel_destino":"N2","contexto_pedagogico":null,"titulo":"...","finalidade":"...","texto_base":"..."}]}`;
@@ -845,7 +845,7 @@ ${texto}`;
 
   let ultimoDiag = 'sem resposta';
   for (let tentativa = 1; tentativa <= 3; tentativa++) {
-    const raw = await callAI(SEG_SYSTEM, user, { model: ctx.model }, 32000).catch((e: any) => { ultimoDiag = 'callAI: ' + (e?.message || e); return ''; });
+    const raw = await callAI(SEG_SYSTEM, user, { model: ctx.model }, 48000).catch((e: any) => { ultimoDiag = 'callAI: ' + (e?.message || e); return ''; });
     const cleaned = String(raw || '').replace(/```json\s*/gi, '').replace(/```/g, '').trim();
     // Parse tolerante: objeto {secoes:[...]}, bare array [...], ou maior bloco {…}/[…].
     let brutas: any[] = [];
@@ -901,7 +901,7 @@ async function segmentarTranscricao(
   };
 
   const full = String(transcricao);
-  const JANELA = 110000, OVERLAP = 6000, MAX_JANELAS = 12, MAX_SECOES = 12, MERGE_CAP = 14000;
+  const JANELA = 110000, OVERLAP = 6000, MAX_JANELAS = 12, MAX_SECOES = 12, MERGE_CAP = 24000;
 
   // Caso comum: cabe numa janela → 1 chamada (comportamento anterior).
   if (full.length <= JANELA) return segmentarJanela(full, tituloVideo, ctx);
