@@ -72,8 +72,9 @@ export const MODELOS_DISPONIVEIS = [
  * Gemini Flash auditando Claude, e do Pulso classifier + auditor).
  */
 export const DEFAULT_TASK_MODELS: Record<string, string> = {
-  // Módulos-Base — Dual-IA: autora Claude Sonnet, auditora GPT-5.4
-  modulo_base_autor:   'claude-sonnet-4-6',
+  // Módulos-Base — autora temporariamente em Gemini Flash por custo/latência.
+  // Auditora segue GPT-5.4 para manter perspectiva cruzada.
+  modulo_base_autor:   'gemini-3.5-flash',
   modulo_base_auditor: 'gpt-5.4',
   // Roteiro de vídeo — peça criativa de alta alavancagem (reaproveitada por
   // célula): Opus 4.8 pela aderência a muitas regras + fidelidade pedagógica.
