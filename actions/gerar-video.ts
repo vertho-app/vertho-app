@@ -1,11 +1,14 @@
 'use server';
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
-import { requireAdminAction } from '@/lib/auth/action-context';
+import { requireAdminAction, requireUserAction, getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
+import { createSupabaseAdmin } from '@/lib/supabase';
+import { findColabByEmail } from '@/lib/authz';
 import { gerarRoteiroDeModulo } from '@/lib/video/gerar-roteiro';
 import type { ModuloParaRoteiro } from '@/lib/video/roteiro-prompt';
 import { carregarCargoInfo, formatBlocoCargo } from '@/lib/cargo-contexto';
 import { extracaoParaTexto } from '@/lib/escola-brief';
+import { resolverModuloBaseParaConteudo } from '@/lib/season-engine/modulo-base-integration';
 import { tasks } from '@trigger.dev/sdk';
 import type { gerarVideoModuloTask } from '@/trigger/gerar-video-modulo';
 
@@ -112,8 +115,9 @@ export async function dispararVideoDeModulo(moduloBaseId: string, opts: { escopo
  * vídeo pronto/processando para a célula, reaproveita; senão, gera sob demanda.
  * É o ponto de reuso — todos os colaboradores da mesma célula caem aqui.
  */
-export async function resolverCelulaVideo(moduloBaseId: string, empresaId: string, cargo: string, disc: Disc, createdBy: string | null = null) {
-  const sb = await requireAdminSupabase();
+export async function resolverCelulaVideo(moduloBaseId: string, empresaId: string, cargo: string, disc: Disc, createdBy: string | null = null, opts: { sb?: any; gerar?: boolean } = {}) {
+  const sb = opts.sb || await requireAdminSupabase();
+  const gerar = opts.gerar !== false; // default: lazy gera se ausente
   const { data: existente } = await sb.from('videos_gerados')
     .select('id, status, etapa, video_url, bunny_video_id, bunny_library, error')
     .eq('modulo_base_id', moduloBaseId).eq('empresa_id', empresaId).eq('cargo', cargo).eq('disc_dominante', disc)
@@ -123,9 +127,48 @@ export async function resolverCelulaVideo(moduloBaseId: string, empresaId: strin
   if (existente) {
     return { reused: true, id: existente.id, status: existente.status, etapa: existente.etapa, video_url: existente.video_url, bunny_video_id: existente.bunny_video_id, bunny_library: existente.bunny_library };
   }
+  if (!gerar) return { reused: false, status: 'nao_gerado' };
   const r = await criarEDispararVideo(sb, { moduloBaseId, empresaId, cargo, disc, createdBy });
   if ((r as any).error) return r;
   return { reused: false, id: (r as any).id, status: 'processing', etapa: 'roteiro' };
+}
+
+/**
+ * ENTREGA AO COLABORADOR: resolve o vídeo personalizado da competência da semana
+ * para o colaborador LOGADO. Deriva a célula (empresa + cargo + DISC dominante) e o
+ * módulo-base (competência × transição de nível, do assessment do colab), e devolve
+ * o vídeo da célula. `gerar=false` (default) só REUSA prontos/em-andamento — não
+ * dispara geração (controle de custo); a geração é feita pelo admin / pré-aquecimento.
+ */
+export async function resolverVideoDaSemana(competencia: string, descritor: string | null = null, gerar = false) {
+  try {
+    await requireUserAction();
+    const email = await getAuthenticatedEmailFromAction();
+    const cb = email ? await findColabByEmail(email, 'id') : null;
+    if (!cb) return { available: false };
+    const sb = createSupabaseAdmin();
+    const { data: colab } = await sb.from('colaboradores').select('id, empresa_id, cargo, perfil_dominante, locale').eq('id', cb.id).maybeSingle();
+    if (!colab?.empresa_id || !colab.cargo) return { available: false, reason: 'sem-cargo' };
+    const disc = (colab.perfil_dominante || '').trim().charAt(0).toUpperCase();
+    if (!['D', 'I', 'S', 'C'].includes(disc)) return { available: false, reason: 'sem-disc' };
+
+    // nível do colab na competência (média do assessment) → transição N→N
+    let aq = sb.from('descriptor_assessments').select('nota').eq('colaborador_id', colab.id).eq('competencia', competencia);
+    if (descritor) aq = aq.eq('descritor', descritor);
+    const { data: assess } = await aq;
+    const notas = (assess || []).map((a: any) => Number(a.nota)).filter((n: number) => n > 0);
+    const nivelMin = notas.length ? notas.reduce((s: number, n: number) => s + n, 0) / notas.length : 1.5;
+
+    const escolha = await resolverModuloBaseParaConteudo(sb, { competenciaNome: competencia, nivelMin, locale: colab.locale || 'pt-BR', empresaId: colab.empresa_id });
+    if (!escolha?.modulo?.id) return { available: false, reason: 'sem-modulo' };
+
+    const cel = await resolverCelulaVideo(escolha.modulo.id, colab.empresa_id, colab.cargo, disc as Disc, `colab:${colab.id}`, { sb, gerar });
+    if ((cel as any).error) return { available: false, reason: (cel as any).error };
+    return { available: true, moduloId: escolha.modulo.id, ...cel };
+  } catch (err: any) {
+    console.error('[resolverVideoDaSemana]', err);
+    return { available: false };
+  }
 }
 
 /**
