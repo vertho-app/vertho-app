@@ -817,21 +817,68 @@ interface SegCtx {
   model: string;
 }
 
+// Formato de saída em BLOCOS DELIMITADOS (não JSON): o texto_base é markdown
+// denso e longo, e pedir JSON faz o modelo deixar aspas/quebras não escapadas
+// (parse falha) ou serializar o array como string (tool use). Marcadores com o
+// markdown livre entre delimitadores não precisam de escape → parse 100% estável.
 const SEG_SYSTEM = `Você é designer instrucional da Vertho. Recebe um TRECHO de transcrição/material (aula/palestra/apostila) e o divide em SEÇÕES TEMÁTICAS coerentes. Cada seção vira matéria-prima de UM módulo-base, mapeado a UMA competência canônica do catálogo Vertho.
 
 REGRAS:
 - Identifique de 1 a 8 seções (use o número que o conteúdo pedir; um trecho monotemático pode ter 1).
-- Para CADA seção, escolha SEMPRE a competência do catálogo SEMANTICAMENTE mais próxima — nunca deixe sem competência. Copie o "competencia_base_id" EXATO da lista (e repita o nome em "competencia_nome" para conferência).
-- "descritor": o sub-tema ESPECÍFICO da seção dentro da competência (5-10 palavras; mais granular que o nome da competência).
+- Para CADA seção, escolha SEMPRE a competência do catálogo SEMANTICAMENTE mais próxima — nunca deixe sem competência. Copie o competencia_base_id EXATO da lista (e repita o nome em competencia_nome para conferência).
+- descritor: o sub-tema ESPECÍFICO da seção dentro da competência (5-10 palavras; mais granular que o nome da competência).
 - PODE haver mais de uma seção para a MESMA competência, desde que sejam DESCRITORES (sub-temas) distintos — cada descritor vira um módulo separado. Não force descritores iguais a se juntarem.
 - Transição de nível: default N1→N2 se incerto.
-- "texto_base": PRESERVE o conteúdo da seção na ORDEM original — não RESUMA (não corte definições, distinções, exemplos/casos, dados/números nem o encadeamento dos argumentos) e não INFLE (não repita, não floreie, não invente para alongar). O tamanho deve ser PROPORCIONAL ao que o trecho realmente desenvolve do tema: se o material de entrada já vier denso, MANTENHA essa densidade; se vier de fala/transcrição crua, organize em prosa fiel sem perder conteúdo. Markdown. Corte só ruído (saudações, repetição vazia); NÃO inclua nada que não esteja no trecho.
+- texto_base: PRESERVE o conteúdo da seção na ORDEM original — não RESUMA (não corte definições, distinções, exemplos/casos, dados/números nem o encadeamento dos argumentos) e não INFLE (não repita, não floreie, não invente para alongar). O tamanho deve ser PROPORCIONAL ao que o trecho realmente desenvolve do tema: se o material de entrada já vier denso, MANTENHA essa densidade; se vier de fala/transcrição crua, organize em prosa fiel sem perder conteúdo. Markdown. Corte só ruído (saudações, repetição vazia); NÃO inclua nada que não esteja no trecho.
 
-Responda APENAS JSON válido (sem markdown), no formato:
-{"secoes":[{"competencia_base_id":"<id do catálogo>","competencia_nome":"<nome>","descritor":"<sub-tema específico>","nivel_entrada":"N1","nivel_destino":"N2","contexto_pedagogico":null,"titulo":"...","finalidade":"...","texto_base":"..."}]}`;
+FORMATO DA SAÍDA — para CADA seção emita EXATAMENTE este bloco (um bloco por seção; NÃO escreva nada fora dos blocos, sem JSON, sem comentários):
+===SECAO===
+competencia_base_id: <id EXATO da lista do catálogo>
+competencia_nome: <nome>
+descritor: <sub-tema específico, 5-10 palavras>
+nivel_entrada: <N1|N2|N3|N4>
+nivel_destino: <N1|N2|N3|N4>
+contexto_pedagogico: <1 frase ou vazio>
+titulo: <título da seção>
+finalidade: <1 frase>
+---TEXTO---
+<texto_base em markdown, denso e fiel — pode ter várias linhas, ## títulos, aspas, listas; escreva livremente>
+===FIM===`;
 
 const niveisValidos = (e: string, d: string) =>
   NIVEIS.includes(e as Nivel) && NIVEIS.includes(d as Nivel) && nivelGreater(d as Nivel, e as Nivel);
+
+/**
+ * Parser dos blocos delimitados emitidos pelo SEG_SYSTEM:
+ *   ===SECAO=== <campos key: value> ---TEXTO--- <markdown livre> ===FIM===
+ * Robusto por construção: o markdown (com aspas, ##, quebras) fica entre
+ * delimitadores e não precisa de escape — sem os erros de parse de JSON.
+ */
+function parseSecoesBlocos(raw: string): any[] {
+  const out: any[] = [];
+  for (const bloco of String(raw).split('===SECAO===').slice(1)) {
+    const corpo = bloco.split('===FIM===')[0];
+    const idx = corpo.indexOf('---TEXTO---');
+    if (idx < 0) continue;
+    const meta = corpo.slice(0, idx);
+    const texto_base = corpo.slice(idx + '---TEXTO---'.length).trim();
+    const get = (k: string) => (new RegExp('^\\s*' + k + '\\s*:\\s*(.+)$', 'm').exec(meta)?.[1] || '').trim();
+    const competencia_base_id = get('competencia_base_id');
+    if (!competencia_base_id || !texto_base) continue;
+    out.push({
+      competencia_base_id,
+      competencia_nome: get('competencia_nome'),
+      descritor: get('descritor'),
+      nivel_entrada: get('nivel_entrada'),
+      nivel_destino: get('nivel_destino'),
+      contexto_pedagogico: get('contexto_pedagogico') || null,
+      titulo: get('titulo'),
+      finalidade: get('finalidade'),
+      texto_base,
+    });
+  }
+  return out;
+}
 
 /** Segmenta UMA janela de texto (≤ ~110k chars) numa chamada (com retry). */
 async function segmentarJanela(texto: string, tituloVideo: string, ctx: SegCtx): Promise<{ secoes: SegSecao[]; diag: string }> {
@@ -848,19 +895,9 @@ ${texto}`;
   // os 300s da rota síncrona. timeoutMs 150s cobre a geração densa legítima e
   // maxRetries 0 evita o retry do SDK (que dobraria o tempo por chamada).
   for (let tentativa = 1; tentativa <= 2; tentativa++) {
-    const raw = await callAI(SEG_SYSTEM, user, { model: ctx.model }, 48000, { timeoutMs: 150000, maxRetries: 0 }).catch((e: any) => { ultimoDiag = 'callAI: ' + (e?.message || e); return ''; });
-    const cleaned = String(raw || '').replace(/```json\s*/gi, '').replace(/```/g, '').trim();
-    // Parse tolerante: objeto {secoes:[...]}, bare array [...], ou maior bloco {…}/[…].
-    let brutas: any[] = [];
-    for (const c of [cleaned, cleaned.match(/\[[\s\S]*\]/)?.[0] || '', cleaned.match(/\{[\s\S]*\}/)?.[0] || '']) {
-      if (!c) continue;
-      try {
-        const p = JSON.parse(c);
-        const arr = Array.isArray(p) ? p : (Array.isArray(p?.secoes) ? p.secoes : null);
-        if (arr) { brutas = arr; break; }
-      } catch { /* tenta próximo candidato */ }
-    }
-    if (!brutas.length) { ultimoDiag = `t${tentativa}: raw=${cleaned.length}c, JSON sem secoes`; continue; }
+    const raw = await callAI(SEG_SYSTEM, user, { model: ctx.model }, 32000, { timeoutMs: 150000, maxRetries: 0 }).catch((e: any) => { ultimoDiag = 'callAI: ' + (e?.message || e); return ''; });
+    const brutas = parseSecoesBlocos(String(raw || ''));
+    if (!brutas.length) { ultimoDiag = `t${tentativa}: raw=${String(raw || '').length}c, 0 blocos`; continue; }
 
     // Resolve a competência: id válido do catálogo OU nome casado ao catálogo.
     const secoes: SegSecao[] = brutas.map((s: any) => {
