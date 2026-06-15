@@ -261,6 +261,7 @@ nextjs-app/
 │   ├── bunny-stats.ts            # Metricas Bunny
 │   ├── video-analytics.ts        # Analytics por colab
 │   ├── video-tracking.ts         # Registro views
+│   ├── gerar-video.ts            # NOVO: Gerador de video do Modulo-Base (resolucao lazy por celula, secao 23)
 │   ├── whatsapp.ts               # Z-API
 │   ├── whatsapp-lote.ts          # QStash lote
 │   ├── automacao-envios.ts       # PDF + WhatsApp lote
@@ -335,6 +336,13 @@ nextjs-app/
 │   ├── disc-arquetipos.ts
 │   ├── avatar-presets.ts
 │   ├── preferencias-config.ts
+│   ├── gemini-tts.ts             # NOVO: TTS Gemini (voz Kore) p/ narracao do video
+│   ├── video/                    # NOVO: Gerador de video do Modulo-Base (secao 23)
+│   │   ├── roteiro-prompt.ts     # Prompt do roteiro (Opus 4.8)
+│   │   ├── gerar-roteiro.ts      # Roteiro do video (Claude)
+│   │   ├── gerar-narracao.ts     # Narracao TTS (Gemini Kore)
+│   │   ├── heygen.ts             # Avatar HeyGen (lip-sync da narracao, intro/outro)
+│   │   └── montar-inputprops.ts  # Monta inputProps p/ composicao Remotion
 │   ├── season-engine/            # Motor de Temporadas
 │   │   ├── programa-config.ts    # PROGRAMA_REGULAR_DUO (default) + REGULAR + ONBOARDING
 │   │   ├── build-season.ts       # buildSeason(): 14 semanas (missao+cenario em paralelo)
@@ -378,6 +386,14 @@ nextjs-app/
 │   ├── checkpoint.ps1
 │   ├── auto-backup-diario.ps1
 │   └── instalar-backup-automatico.ps1
+├── trigger/                      # NOVO: Jobs trigger.dev (gerador de video — secao 23)
+│   ├── gerar-video-modulo.ts     # Orquestra o pipeline do video do Modulo-Base
+│   ├── render-video.ts           # Render Remotion
+│   └── render-chunk.ts           # Render chunked (large-2x)
+├── worker-hetzner/               # NOVO: Worker de render alternativo (RENDER_BACKEND=hetzner)
+│   └── worker.mjs                # Pull/poll + claim atomico (FOR UPDATE SKIP LOCKED)
+├── video-spike/                  # NOVO: Composicao Remotion VerthoVideo (9 templates de cena)
+│   └── remotion/
 ├── tests/                        # Playwright + Vitest (27 arquivos de teste)
 ├── migrations/                   # 70 arquivos SQL (022 -> 089, inclui 085 v1/v2)
 ├── tsconfig.json                 # TypeScript config (strict:false, allowJs, checkJs:false)
@@ -525,7 +541,8 @@ Modelos: Claude Sonnet 4.6, Claude Opus 4.6, Claude Haiku 4.5, Gemini 3 Flash, G
 | Simulador | `simulador-temporada.ts` | 1 sem/chamada | Haiku | 4 perfis comportamentais |
 | Case Study | `case-study.ts` | — | Sonnet | Geracao de caso |
 | Texto | `text-content.ts` | — | Sonnet | Geracao de artigo |
-| Video Script | `video-script.ts` | — | Sonnet | Roteiro video |
+| Video Script | `video-script.ts` | — | Sonnet | Roteiro video (conteudo) |
+| Roteiro Video (gerador) | `lib/video/roteiro-prompt.ts` | — | Opus 4.8 | Roteiro do video gerado (Modulo-Base) |
 | Podcast Script | `podcast-script.ts` | — | Sonnet | Roteiro podcast |
 | PDI (7.1) | `fase4.ts` | — | Sonnet | JSON: resumo_geral always object, plano_30_dias always {foco, acoes}, estudo_recomendado always objects |
 | Gestor (7.2) | `relatorios.ts` | — | Sonnet | JSON: resumo_executivo always object, risco_se_nao_agir, impacto_se_nao_agir |
@@ -629,6 +646,7 @@ Status: ✅
 Import, thumbnails, embed, analytics, webhook. Status: ✅
 - **Thumbnails** via proxy `/api/bunny-thumb/[videoId]` (Hotlink Protection → passa Referer do dominio raiz; cache 1h). Resolve o `thumbnailFileName` real do video na API (thumbnails customizados ganham nome com hash, ex. `thumbnail_47b9900c.jpg`; o `thumbnail.jpg` e o frame auto-gerado).
 - **Player com tracking**: `components/video-modal.tsx` usa player.js (CDN Embedly) pra registrar `play_started`/`play_finished` em `videos_watched` por colaborador. Usado no dashboard, no link branded `/v/[id]` e na tela de instrucoes do mapeamento (video lib 636615).
+- **Destino do gerador de video**: os videos gerados a partir do Modulo-Base (HeyGen + Remotion) tambem sao publicados no Bunny Stream. Ver **secao 23**. *(O player/analytics acima e camada distinta do gerador — segue ativo e inalterado.)*
 
 ---
 
@@ -1410,6 +1428,48 @@ next.config.mjs            # wrapped com createNextIntlPlugin()
 2. **Verify** (`/api/auth/phone-otp/verify`): `checkOtp()` (expiração, attempts, `timingSafeEqual`), marca `consumed_at`. Gera **email-proxy determinístico** `wa.<empresaId>.<e164>@nao-email.vertho.ai`, cria/reusa o usuário no Supabase Auth (`createUser` idempotente) e devolve `callbackUrl` reaproveitando o fluxo de magic-link (`/auth/callback?token_hash=...`).
 
 Helpers em `lib/phone-otp.ts` (`proxyEmailFromPhone`, `isProxyEmail`, `issueOtp`, `checkOtp`, pepper `OTP_PEPPER`) e `lib/phone.ts` (`normalizePhoneBR`, `validateWhatsAppBR`).
+
+---
+
+## 23. Gerador de Video do Modulo-Base (HeyGen + Remotion)
+
+> Transforma um **Modulo-Base** num video de **3-5min de microlearning**. **SUBSTITUIU o pipeline Veo** (render via GCP/Cloud Run/FFmpeg), removido no commit `db0a929`. O novo render eh narracao propria (Gemini TTS) + avatar lip-sync (HeyGen) + composicao animada (Remotion) → Bunny Stream. *(Player/analytics Bunny — `video-modal`, `video-tracking`, `videos_watched`, `/api/bunny-thumb` — sao outra camada, ativos e inalterados — ver 6.6.)*
+
+### 23.1 Pipeline
+
+```
+Modulo-Base
+  → roteiro          (Claude Opus 4.8; lib/video/roteiro-prompt.ts → lib/video/gerar-roteiro.ts)
+  → narracao TTS     (Gemini, voz Kore; lib/video/gerar-narracao.ts / lib/gemini-tts.ts)
+  → avatar HeyGen    (lib/video/heygen.ts — lip-sync da NOSSA narracao; so nas cenas de abertura/fecho)
+  → montar inputProps (lib/video/montar-inputprops.ts)
+  → render Remotion   (composicao VerthoVideo em video-spike/remotion/;
+                       job trigger.dev trigger/gerar-video-modulo.ts orquestra;
+                       trigger/render-video.ts + trigger/render-chunk.ts renderizam chunked)
+  → Bunny Stream
+```
+
+### 23.2 Estrutura do video
+
+`avatar_intro` + miolo de **6-12 cenas animadas** (voice-over) + `avatar_outro`. 9 templates de cena Remotion:
+`avatar_intro`, `avatar_outro`, `concept_reveal`, `comparison_motion`, `icon_story`, `steps_flow`, `stat_highlight`, `quote_spotlight`, `scenario_card`.
+
+### 23.3 Personalizacao por celula
+
+Cada video e sob medida para **(modulo × empresa × cargo × DISC dominante D/I/S/C)** e reaproveitado por todos os colaboradores da celula.
+- **Cargo + PPP da escola** entram no roteiro.
+- **DISC** ajusta SO o tom da narracao (deck visual identico entre perfis).
+- Resolucao **LAZY** em `actions/gerar-video.ts`: `resolverCelulaVideo`, `resolverVideoDoColaborador`, `dispararVideoDeModulo`.
+
+Tabela `videos_gerados` (migrations 138/139): `status`, `etapa`, `roteiro` (jsonb), `assets` (jsonb), `cargo`, `disc_dominante`, `video_url`, `bunny_video_id`, `srt`, `vtt`.
+
+Modelo do roteiro: `claude-opus-4-8` (default da task `conteudo_video` em `lib/ai-tasks.ts`). Doc do prompt: `docs/PROMPT-ROTEIRO-VIDEO.md`.
+
+### 23.4 Infra de render
+
+- **Hoje**: trigger.dev (maquina `large-2x`, render chunked).
+- **Migracao pronta** pro **worker Hetzner** (`worker-hetzner/`: `worker.mjs` pull/poll + claim atomico `FOR UPDATE SKIP LOCKED`; fila em `videos_gerados` com status `render_queued`/`rendering`, migration 140).
+- Backend selecionado por env `RENDER_BACKEND` (`trigger`|`hetzner`) — a migracao vira **flip de env, sem deploy**.
 
 ---
 

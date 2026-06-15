@@ -1,6 +1,6 @@
 # Catálogo de Prompts da IA — Vertho Mentor IA
 
-> Revisão: 2026-05-29 | Total: 64 prompts catalogados (47 ativos + 3 wrappers/reusos + 3 legados + 5 auxiliares + demais appendix/mistos)
+> Revisão: 2026-06-15 | Total: 65 prompts catalogados (48 ativos + 3 wrappers/reusos + 3 legados + 5 auxiliares + demais appendix/mistos)
 >
 > Roteador universal: `actions/ai-client.ts` (`callAI` single-turn + `callAIChat` multi-turn). Default = `claude-sonnet-4-6`.
 > Prompt caching automático: `system` > 4000 chars → `cache_control: ephemeral`.
@@ -1403,6 +1403,26 @@
 - **Inputs user**: o markdown curto + contagem de caracteres.
 - **Consumido por**: pipeline do PDF (garante volume mínimo para uma publicação de várias páginas antes do planejador 11.6).
 
+### 11.8 Roteiro de vídeo do Módulo-Base (gerador automático HeyGen+Remotion)
+> `ATIVO` · Prompt documentado como: `resumo_editorial`
+
+- **Arquivo**: `lib/video/roteiro-prompt.ts::buildRoteiroPrompt`
+- **Caller**: `lib/video/gerar-roteiro.ts::gerarRoteiroDeModulo` (chamado por `actions/gerar-video.ts`)
+- **Modelo**: `claude-opus-4-8` (default da task `conteudo_video` em `lib/ai-tasks.ts`)
+- **Max tokens**: 8000
+- **O que faz**: transforma um Módulo-Base num ROTEIRO TÉCNICO de vídeo de 3-5 min em JSON. Estrutura: `avatar_intro` + miolo de 6-12 cenas + `avatar_outro`. 9 templates de cena: `avatar_intro`, `avatar_outro`, `concept_reveal`, `comparison_motion`, `icon_story`, `steps_flow`, `stat_highlight`, `quote_spotlight`, `scenario_card`.
+- **Personalização por célula**: recebe **cargo** (bloco de contexto), **PPP** (brief da escola) e **DISC dominante**. O DISC ajusta SÓ o **tom da narração**; o deck visual é **invariante por perfil** (campos `deck_invariant` / `disc_sensitive_fields` na saída).
+- **System prompt** (resumo editorial; prompt completo em `docs/PROMPT-ROTEIRO-VIDEO.md`). Princípios-chave:
+  1. Few-shot de narração (exemplos de fala que viram TTS)
+  2. Anti-eco acadêmico — transforma prosa densa do módulo em fala oral gravável
+  3. Alvo por contagem de palavras por cena (campo `estimated_words`) para casar com a duração
+  4. `source_anchor` padronizado (enum: `IDEIA_PRINCIPAL`, `PRINCIPIOS:<nome>`, `ERROS_COMUNS`, `BOAS_PRATICAS`, `SITUACOES_TIPICAS`, `CARGO`, `PPP`...) — rastreia de onde cada cena saiu
+  5. Cobertura mínima do módulo (todas as partes essenciais entram no roteiro)
+  6. Salvaguardas LGPD (sem nomes/dados reais, sem invenção)
+- **Output**: JSON `VideoRoteiro` `{ title, theme, deck_invariant, scenes[] }`. Cada cena: `type` (1 dos 9 templates) + `narration` + `key_idea` + `source_anchor` + `estimated_words` + campos visuais do template. A `narration` é a **fonte canônica de TTS e legendas**.
+- **Inputs user**: Módulo-Base (4 blocos) + cargo + PPP da escola + DISC dominante + duração-alvo.
+- **Consumido por**: pipeline de vídeo (`lib/video/gerar-narracao.ts` para TTS, `lib/video/montar-inputprops.ts` + Remotion para o deck, HeyGen para o avatar).
+
 ---
 
 ## Simuladores
@@ -1707,13 +1727,13 @@
 
 ## Resumo Estatístico
 
-**Total de prompts catalogados: 64**
+**Total de prompts catalogados: 65**
 
 Por status:
 
 | Status | Qtd | Itens |
 |--------|-----|-------|
-| `ATIVO` | 47 | Prompts em uso na produção |
+| `ATIVO` | 48 | Prompts em uso na produção |
 | `WRAPPER` | 3 | Reusos: 1.4, 2.2, 5.2 |
 | `LEGADO` | 3 | Mantidos: 13.1, 14.1, 14.3 |
 | `AUXILIAR` | 5 | Simulação/teste: 3.4, 12.1–12.4 |
@@ -1734,7 +1754,7 @@ Por categoria:
 | PPP | 3 | educacional, corporativo, enriquecimento web |
 | Dashboard Perfil | 2 | comportamental, insights |
 | FIT v2 | 1 | leitura executiva |
-| Conteúdos/Tagging | 7 | vídeo, podcast, texto, case, tags, planner editorial PDF, expansão mínima PDF |
+| Conteúdos/Tagging | 8 | video script, podcast, texto, case, tags, planner editorial PDF, expansão mínima PDF, roteiro vídeo Módulo-Base |
 | Simuladores | 4 | respostas, colab temporada, compromisso, extração sim |
 | Fase 4 | 1 | PDI legado |
 | Outros | 5 | cenárioB legado, evolução granular, tutor evidência, regerar sem14, check sem14 com feedback |

@@ -48,3 +48,41 @@ body {
 ## Favicon
 
 V cyan (`#34C5CC`) sobre navy (`#0F2B54`) — `app/icon.svg`
+
+---
+
+# Templates de cena de vídeo (Remotion)
+
+> Sub-sistema visual distinto do design system da UI web acima. Aplica-se **apenas** aos vídeos de microlearning (avatar + cenas animadas via Remotion), em `video-spike/remotion/scenes/*.tsx`.
+
+## Tema dos vídeos
+
+Tema/paleta próprios em `video-spike/remotion/theme.tsx` e `theme-v2.tsx`.
+
+| Elemento | Descrição |
+|----------|-----------|
+| Fundo | Escuro azul-marinho com glow ciano/roxo |
+| Tipografia | Inter |
+| Marca | Marca d'água `vertho.ai` |
+| Apoios | Barra de progresso, legendas discretas |
+
+## Regras visuais
+
+| Regra | Descrição |
+|-------|-----------|
+| Resolução | 1920×1080 (renderizado a 720p ou 1080p) |
+| Sequência | Nunca o mesmo template em cenas adjacentes |
+| Ritmo | Intercalar cenas densas com "respiros" |
+
+## Os 9 templates de cena
+
+| Template | Descrição |
+|----------|-----------|
+| `avatar_intro` / `avatar_outro` | Avatar apresentador (HeyGen) com título + subtítulo sobrepostos. Abertura e fecho. |
+| `concept_reveal` | Título grande + 3 bullets que entram em sequência com ícones. |
+| `comparison_motion` | Duas colunas contrastando "prática fraca" × "prática desejada", 3 itens cada. |
+| `icon_story` | 3 cards com ícone (sinais/exemplos/comportamentos). |
+| `steps_flow` | Processo em passos numerados conectados por uma linha que se desenha (1→2→3→4). |
+| `stat_highlight` | Um número/percentual gigante com count-up animado + contexto. |
+| `quote_spotlight` | Frase-âncora memorável em tela limpa, com aspas decorativas. |
+| `scenario_card` | Abre uma situação típica ("Imagine...") com ícone + texto curto. |
