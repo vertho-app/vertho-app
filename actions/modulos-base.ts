@@ -895,7 +895,7 @@ ${texto}`;
   // os 300s da rota síncrona. timeoutMs 150s cobre a geração densa legítima e
   // maxRetries 0 evita o retry do SDK (que dobraria o tempo por chamada).
   for (let tentativa = 1; tentativa <= 2; tentativa++) {
-    const raw = await callAI(SEG_SYSTEM, user, { model: ctx.model }, 32000, { timeoutMs: 150000, maxRetries: 0 }).catch((e: any) => { ultimoDiag = 'callAI: ' + (e?.message || e); return ''; });
+    const raw = await callAI(SEG_SYSTEM, user, { model: ctx.model }, 32000, { timeoutMs: 180000, maxRetries: 0 }).catch((e: any) => { ultimoDiag = 'callAI: ' + (e?.message || e); return ''; });
     const brutas = parseSecoesBlocos(String(raw || ''));
     if (!brutas.length) { ultimoDiag = `t${tentativa}: raw=${String(raw || '').length}c, 0 blocos`; continue; }
 
@@ -941,7 +941,11 @@ async function segmentarTranscricao(
   };
 
   const full = String(transcricao);
-  const JANELA = 110000, OVERLAP = 6000, MAX_JANELAS = 12, MAX_SECOES = 12, MERGE_CAP = 24000;
+  // Janelas MENORES (40k chars ≈ 6-7k palavras): cada chamada gera menos seções
+  // → output curto (~120-160s) que cabe no timeout e nos 800s da rota interna.
+  // Janelas grandes (110k) faziam UMA chamada densa gerar ~30k tokens (~600s),
+  // estourando o tempo num livro. Mais janelas, mas paralelas (CONC) e curtas.
+  const JANELA = 40000, OVERLAP = 5000, MAX_JANELAS = 12, MAX_SECOES = 12, MERGE_CAP = 24000;
 
   // Caso comum: cabe numa janela → 1 chamada (comportamento anterior).
   if (full.length <= JANELA) return segmentarJanela(full, tituloVideo, ctx);
@@ -956,7 +960,7 @@ async function segmentarTranscricao(
   // MAP em PARALELO (lotes de CONC): as janelas são independentes. Sequencial,
   // um material grande (livro = várias janelas × ~2min cada) estouraria o limite
   // de 300s da rota síncrona; em lotes o tempo ~= ceil(janelas/CONC) × 1 chamada.
-  const CONC = 4;
+  const CONC = 5;
   const todas: SegSecao[] = [];
   const diags: string[] = [];
   for (let i = 0; i < janelas.length; i += CONC) {
