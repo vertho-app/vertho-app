@@ -61,23 +61,33 @@ export default function ExtracaoVideoPanel({
   async function handleExtrair() {
     if (!url.trim()) { flash('Informe a URL do vídeo'); return; }
     setExtraindo(true); setBase(null); setModulosSync([]);
-    const r = await extrairVideo(escopoEmpresaId || origemEmpresaId, url.trim());
-    setExtraindo(false);
-    if (r.error) { flash(r.error); return; }
-    setBase(r.data);
+    try {
+      const r = await extrairVideo(escopoEmpresaId || origemEmpresaId, url.trim());
+      if (r.error) { flash(r.error); return; }
+      setBase(r.data);
+    } catch (e: any) {
+      flash('A extração demorou demais ou caiu. Tente novamente.');
+    } finally {
+      setExtraindo(false);
+    }
   }
 
   async function handleGerarModulo() {
     if (!base?.texto_base) return;
     if (modoVertho && alcance === 'empresa' && !empresaPick) { flash('Escolha a empresa do alcance'); return; }
     setGerando(true);
-    const r = await gerarModuloBaseDoVideo(escopoEmpresaId, {
-      url: url.trim(), titulo: base.titulo, texto_base: base.texto_base, locale: base.locale,
-    });
-    setGerando(false);
-    if (r.error) { flash(r.error); return; }
-    setModulosSync(r.modulos || []);
-    flash(`${r.n} módulo(s) rascunho criado(s)`);
+    try {
+      const r = await gerarModuloBaseDoVideo(escopoEmpresaId, {
+        url: url.trim(), titulo: base.titulo, texto_base: base.texto_base, locale: base.locale,
+      });
+      if (r.error) { flash(r.error); return; }
+      setModulosSync(r.modulos || []);
+      flash(`${r.n} módulo(s) rascunho criado(s)`);
+    } catch (e: any) {
+      flash('A estruturação demorou demais (cota de IA?) e caiu. Recarregue e tente de novo.');
+    } finally {
+      setGerando(false);
+    }
   }
 
   async function handleMaterial(file: File) {
@@ -99,12 +109,17 @@ export default function ExtracaoVideoPanel({
     if (!urlAsync.trim()) { flash('Informe a URL do vídeo'); return; }
     if (modoVertho && alcance === 'empresa' && !empresaPick) { flash('Escolha a empresa do alcance'); return; }
     setSubmetendo(true);
-    const r = await submeterExtracaoAsync(origemEmpresaId, urlAsync.trim(), escopoEmpresaId);
-    setSubmetendo(false);
-    if (r.error) { flash(r.error); return; }
-    flash('Extração iniciada em background');
-    setUrlAsync('');
-    carregarExtracoes();
+    try {
+      const r = await submeterExtracaoAsync(origemEmpresaId, urlAsync.trim(), escopoEmpresaId);
+      if (r.error) { flash(r.error); return; }
+      flash('Extração iniciada em background');
+      setUrlAsync('');
+      carregarExtracoes();
+    } catch (e: any) {
+      flash('Não foi possível iniciar. Tente novamente.');
+    } finally {
+      setSubmetendo(false);
+    }
   }
 
   // Seletor de alcance.
