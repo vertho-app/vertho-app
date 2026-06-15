@@ -13,7 +13,7 @@ export async function gerarRoteiroDeModulo(m: ModuloParaRoteiro): Promise<{ rote
   const model = await getModelForTask(null as any, 'conteudo_video').catch(() => 'claude-sonnet-4-6');
   let roteiro: VideoRoteiro | null = null;
   for (let tentativa = 1; tentativa <= 2 && !roteiro; tentativa++) {
-    const raw = await callAI(system, user, { model }, 4000).catch(() => '');
+    const raw = await callAI(system, user, { model }, 8000).catch(() => '');
     roteiro = parseRoteiro(raw);
   }
   if (!roteiro) return { error: 'A IA não retornou um roteiro válido.' };
