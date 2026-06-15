@@ -692,7 +692,7 @@ Retorne APENAS JSON válido:
   "descritor": "sub-tema ESPECÍFICO que o conteúdo desenvolve dentro da competência (5-10 palavras), ou null",
   "nivel_entrada": "N1|N2|N3",
   "nivel_destino": "N2|N3|N4",
-  "contexto_pedagogico": "string curta ou null",
+  "contexto_pedagogico": "rótulo curto slug ou null (máx. 80 chars; ex.: transversal, lideranca, educacao-infantil)",
   "titulo": "título interno do módulo (não é o título do vídeo) ou null",
   "finalidade": "1-2 frases: o que este módulo precisa permitir que a IA ensine"
 }
@@ -744,6 +744,18 @@ interface MetaModulo {
   finalidade?: string | null;
 }
 
+function normalizeContextoPedagogico(value?: string | null): string | null {
+  const clean = String(value || '').trim();
+  if (!clean) return null;
+  return clean
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || null;
+}
+
 /**
  * Estrutura um texto-base nos 4 blocos (IA-autora) e insere o módulo rascunho.
  * Núcleo compartilhado: a competência canônica + transição já vêm resolvidas
@@ -758,7 +770,8 @@ async function estruturarEInserirModulo(
   if (!comp) return { error: 'Competência base não encontrada' };
 
   // Estrutura os 4 blocos tratando o texto-base como matéria-prima (igual ao docx).
-  const userPrompt = montarUserPrompt(comp, meta.nivel_entrada, meta.nivel_destino, meta.contexto_pedagogico || undefined, null, textoBase);
+  const contextoPedagogico = normalizeContextoPedagogico(meta.contexto_pedagogico);
+  const userPrompt = montarUserPrompt(comp, meta.nivel_entrada, meta.nivel_destino, contextoPedagogico || undefined, null, textoBase);
   const model = await getModelForTask(null as any, 'modulo_base_autor');
   const corpo = await chamarIAComRetry(SYSTEM_AUTOR, userPrompt, model);
   if (!corpo) return { error: 'A IA não conseguiu estruturar o conteúdo do vídeo. Tente novamente ou edite manualmente.' };
@@ -774,7 +787,7 @@ async function estruturarEInserirModulo(
     titulo: (meta.titulo || `[Vídeo] ${comp.nome} ${meta.nivel_entrada}→${meta.nivel_destino}`).slice(0, 120),
     descritor: meta.descritor ? String(meta.descritor).slice(0, 200) : null,
     finalidade: (meta.finalidade || `Matéria-prima pedagógica extraída de vídeo para a transição ${meta.nivel_entrada}→${meta.nivel_destino} em "${comp.nome}".`).slice(0, 400),
-    contexto_pedagogico: meta.contexto_pedagogico || null,
+    contexto_pedagogico: contextoPedagogico,
     tags: opts.urlOrigem ? ['extraido-video', opts.urlOrigem.slice(0, 80)] : ['extraido-video'],
     conteudo_central: corpo.conteudo_central,
     conteudo_aplicavel: corpo.conteudo_aplicavel,
@@ -838,7 +851,7 @@ competencia_nome: <nome>
 descritor: <sub-tema específico, 5-10 palavras>
 nivel_entrada: <N1|N2|N3|N4>
 nivel_destino: <N1|N2|N3|N4>
-contexto_pedagogico: <1 frase ou vazio>
+contexto_pedagogico: <rótulo curto slug, máx. 80 chars, ex.: transversal, lideranca, educacao-infantil; ou vazio>
 titulo: <título da seção>
 finalidade: <1 frase>
 ---TEXTO---
