@@ -109,7 +109,10 @@ function custoIAConteudo(
     const eff = overrideFlat != null ? { ...call, flatUsd: overrideFlat } : call;
     return calcCost(eff, (eff as any).defaultModel, 1)?.usd || 0;
   };
-  const uVideo = unit('conteudo-video-plano') + unit('conteudo-video-tts') + unit('conteudo-video-render', custoRenderVideoUsd);
+  // Vídeo de conteúdo via Veo descontinuado → custo zero por colaborador. O vídeo
+  // agora é gerado por Módulo-Base (bloco próprio no orçamento, por vídeo gerado).
+  void custoRenderVideoUsd;
+  const uVideo = 0;
   const uPodcast = unit('conteudo-podcast-roteiro') + unit('conteudo-podcast-tts');
   const uTexto = unit('conteudo-texto');
   const r = Math.max(1, reuso || 1);
