@@ -10,6 +10,7 @@ import { Loader2, Video, FileText, Headphones, BookOpen, Send, Sparkles, Target,
 import BackButton from '@/components/back-button';
 import { loadTemporadaPorEmail, marcarConteudoConsumido } from '@/actions/temporadas';
 import { resolverVideoDaSemana } from '@/actions/gerar-video';
+import { useBunnyTracking } from '@/lib/use-bunny-tracking';
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import MicInput from '@/components/mic-input';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
@@ -585,6 +586,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
  */
 function VideoPersonalizadoCard({ competencia, descritor }) {
   const [st, setSt] = useState(null);
+  const iframeRef = useRef(null);
   useEffect(() => {
     if (!competencia) return;
     let alive = true;
@@ -594,8 +596,11 @@ function VideoPersonalizadoCard({ competencia, descritor }) {
     return () => { alive = false; };
   }, [competencia, descritor]);
 
+  const pronto = !!(st?.status === 'done' && st?.bunny_video_id && st?.bunny_library);
+  // Tracking de view (videos_watched) só quando o vídeo está pronto e em tela.
+  useBunnyTracking(iframeRef, pronto ? st?.colaboradorId : null, pronto ? st?.bunny_video_id : null);
+
   if (!st?.available) return null;
-  const pronto = st.status === 'done' && st.bunny_video_id && st.bunny_library;
   const preparando = ['processing', 'render_queued', 'rendering'].includes(st.status);
   if (!pronto && !preparando) return null;
 
@@ -607,7 +612,8 @@ function VideoPersonalizadoCard({ competencia, descritor }) {
       {pronto ? (
         <div className="aspect-video rounded-lg overflow-hidden bg-black">
           <iframe
-            src={`https://iframe.mediadelivery.net/embed/${st.bunny_library}/${st.bunny_video_id}?autoplay=false`}
+            ref={iframeRef}
+            src={`https://iframe.mediadelivery.net/embed/${st.bunny_library}/${st.bunny_video_id}?autoplay=false&responsive=true`}
             className="w-full h-full" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture" allowFullScreen
           />
         </div>

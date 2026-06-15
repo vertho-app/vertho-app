@@ -1,0 +1,75 @@
+'use client';
+
+import { useEffect } from 'react';
+import type { RefObject } from 'react';
+import { registrarVideoWatched } from '@/actions/video-tracking';
+
+/**
+ * Tracking de play/ended de um iframe Bunny Stream (protocolo player.js da Embedly),
+ * gravando play_started/play_finished em videos_watched. Extraído do VideoModal pra
+ * reuso (ex.: card de vídeo personalizado na tela da semana).
+ *
+ * O iframe deve ser /embed/ do Bunny e ter `ref` ligado ao `iframeRef`. Tracking só
+ * roda quando colaboradorId e videoId estão definidos.
+ */
+const PLAYERJS_CDN = 'https://cdn.embed.ly/player-0.1.0.min.js';
+
+function loadPlayerJs(): Promise<any> {
+  if (typeof window === 'undefined') return Promise.reject(new Error('no window'));
+  if ((window as any).playerjs) return Promise.resolve((window as any).playerjs);
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[src="${PLAYERJS_CDN}"]`);
+    if (existing) {
+      existing.addEventListener('load', () => resolve((window as any).playerjs));
+      existing.addEventListener('error', reject);
+      return;
+    }
+    const s = document.createElement('script');
+    s.src = PLAYERJS_CDN; s.async = true;
+    s.onload = () => resolve((window as any).playerjs);
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+export function useBunnyTracking(iframeRef: RefObject<HTMLIFrameElement | null>, colaboradorId?: string | null, videoId?: string | null) {
+  useEffect(() => {
+    if (!colaboradorId || !videoId || !iframeRef.current) return;
+    let cancelled = false;
+    let player: any = null;
+    let started = false, finished = false, dur = 0, time = 0;
+
+    function setup(pj: any) {
+      if (cancelled || !iframeRef.current) return;
+      try { player = new pj.Player(iframeRef.current); } catch { return; }
+      player.on('ready', () => {
+        player.getDuration((d: any) => { dur = Number(d) || 0; });
+        player.on('play', () => {
+          if (started) return; started = true;
+          registrarVideoWatched({ colaboradorId, videoId, eventType: 'play_started', secondsWatched: Math.round(time), videoLength: Math.round(dur) }).catch(() => {});
+        });
+        player.on('timeupdate', ({ seconds, duration }: { seconds?: number; duration?: number } = {}) => {
+          if (Number.isFinite(seconds)) time = seconds as number;
+          if (Number.isFinite(duration)) dur = duration as number;
+        });
+        player.on('ended', () => {
+          if (finished) return; finished = true;
+          const d = Math.round(dur || time);
+          registrarVideoWatched({ colaboradorId, videoId, eventType: 'play_finished', secondsWatched: d, videoLength: d }).catch(() => {});
+        });
+      });
+    }
+
+    loadPlayerJs().then((pj) => {
+      const iframe = iframeRef.current;
+      if (!iframe) return;
+      if (iframe.contentWindow) setup(pj);
+      else iframe.addEventListener('load', () => setup(pj), { once: true });
+    }).catch(() => {});
+
+    return () => {
+      cancelled = true;
+      if (player) ['play', 'ended', 'timeupdate', 'ready'].forEach((e) => { try { player.off(e); } catch {} });
+    };
+  }, [colaboradorId, videoId]);
+}

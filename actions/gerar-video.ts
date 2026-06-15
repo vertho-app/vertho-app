@@ -164,7 +164,7 @@ export async function resolverVideoDaSemana(competencia: string, descritor: stri
 
     const cel = await resolverCelulaVideo(escolha.modulo.id, colab.empresa_id, colab.cargo, disc as Disc, `colab:${colab.id}`, { sb, gerar });
     if ((cel as any).error) return { available: false, reason: (cel as any).error };
-    return { available: true, moduloId: escolha.modulo.id, ...cel };
+    return { available: true, moduloId: escolha.modulo.id, colaboradorId: colab.id, ...cel };
   } catch (err: any) {
     console.error('[resolverVideoDaSemana]', err);
     return { available: false };
