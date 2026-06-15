@@ -125,6 +125,7 @@ export default function ModulosBaseListPage() {
                 <tr className="bg-white/[0.03] text-white/45 uppercase text-[10px]">
                   <th className="px-3 py-2.5 text-left">Título</th>
                   <th className="px-3 py-2.5 text-left">Competência</th>
+                  <th className="px-3 py-2.5 text-left">Descritor</th>
                   <th className="px-3 py-2.5">N→N</th>
                   <th className="px-3 py-2.5">Idioma</th>
                   <th className="px-3 py-2.5">Status</th>
@@ -145,6 +146,9 @@ export default function ModulosBaseListPage() {
                     </td>
                     <td className="px-3 py-2.5 text-white/70 truncate max-w-[200px]">
                       {compMap[m.competencia_base_id]?.nome || '—'}
+                    </td>
+                    <td className="px-3 py-2.5 text-white/65 truncate max-w-[240px]" title={m.descritor || ''}>
+                      {m.descritor || '—'}
                     </td>
                     <td className="px-3 py-2.5 text-center font-mono">{m.nivel_entrada}→{m.nivel_destino}</td>
                     <td className="px-3 py-2.5 text-center font-mono text-white/70">{m.locale}</td>
