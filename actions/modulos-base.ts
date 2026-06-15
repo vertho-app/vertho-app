@@ -970,10 +970,10 @@ async function segmentarTranscricao(
   }
   const truncado = (MAX_JANELAS - 1) * (JANELA - OVERLAP) + JANELA < full.length;
 
-  // MAP em PARALELO (lotes de CONC): as janelas são independentes. Sequencial,
-  // um material grande (livro = várias janelas × ~2min cada) estouraria o limite
-  // de 300s da rota síncrona; em lotes o tempo ~= ceil(janelas/CONC) × 1 chamada.
-  const CONC = 5;
+  // MAP em PARALELO: as janelas são independentes. Para materiais grandes, 5
+  // janelas por lote ainda criavam 3 ondas de IA e podiam estourar a conexão de
+  // ~300s do callback; até 12 janelas cabem no teto já imposto por MAX_JANELAS.
+  const CONC = 12;
   const todas: SegSecao[] = [];
   const diags: string[] = [];
   for (let i = 0; i < janelas.length; i += CONC) {

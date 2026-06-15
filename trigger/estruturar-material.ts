@@ -30,6 +30,8 @@ async function rPatch(table: string, query: string, body: any): Promise<void> {
   if (!r.ok) throw new Error(`Supabase PATCH ${table} ${r.status}: ${(await r.text()).slice(0, 200)}`);
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export const estruturarMaterialTask = task({
   id: 'estruturar-material',
   maxDuration: 1800, // 30 min — cobre livros (map-reduce de várias janelas)
@@ -63,9 +65,17 @@ export const estruturarMaterialTask = task({
       cb = await fetch(`${APP_URL}/api/internal/modulo-from-video`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-internal-secret': KEY },
-        body: JSON.stringify({ extracaoId: id, transcricao: ext.transcricao, titulo: ext.titulo || null, locale }),
+        body: JSON.stringify({ extracaoId: id, titulo: ext.titulo || null, locale }),
       });
     } catch (e: any) {
+      for (let i = 0; i < 8; i++) {
+        await sleep(15000);
+        const atual = await rGetOne('extracoes_video', `id=eq.${id}&select=status,error,modulo_base_id,n_modulos`).catch(() => null);
+        if (atual?.status === 'done') {
+          return { ok: true, extracaoId: id, n: atual.n_modulos || 1, recoveredAfterDisconnect: true };
+        }
+        if (atual?.status === 'error' && atual.error) return fail(atual.error);
+      }
       return fail(`callback de estruturação falhou (conexão): ${String(e?.message || e).slice(0, 200)}`);
     }
     if (!cb.ok) {

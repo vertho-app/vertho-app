@@ -25,23 +25,26 @@ export async function POST(req: NextRequest) {
   let body: any;
   try { body = await req.json(); } catch { return NextResponse.json({ error: 'json inválido' }, { status: 400 }); }
   const { extracaoId, transcricao, titulo, locale } = body || {};
-  if (!extracaoId || !transcricao) return NextResponse.json({ error: 'extracaoId e transcricao obrigatórios' }, { status: 400 });
+  if (!extracaoId) return NextResponse.json({ error: 'extracaoId obrigatório' }, { status: 400 });
 
   const sb = createSupabaseAdmin();
   const { data: ext } = await sb.from('extracoes_video')
-    .select('id, escopo_empresa_id, url').eq('id', extracaoId).maybeSingle();
+    .select('id, escopo_empresa_id, url, transcricao').eq('id', extracaoId).maybeSingle();
   if (!ext) return NextResponse.json({ error: 'extração não encontrada' }, { status: 404 });
+
+  const texto = String(transcricao || ext.transcricao || '').trim();
+  if (!texto) return NextResponse.json({ error: 'transcricao obrigatória' }, { status: 400 });
 
   const empresaId = ext.escopo_empresa_id || null; // null = módulo global/canônico
   const res = await criarModulosDeTranscricao({
-    transcricao, tituloVideo: titulo, urlOrigem: ext.url, locale, empresaId, createdBy: 'extracao-video',
+    transcricao: texto, tituloVideo: titulo, urlOrigem: ext.url, locale, empresaId, createdBy: 'extracao-video',
   });
 
   // Guarda a transcrição (artefato reusável) mesmo em caso de erro na autoria.
   if (res.error || !res.modulos.length) {
     await sb.from('extracoes_video').update({
       status: 'error', error: String(res.error || 'falha ao estruturar módulos').slice(0, 500),
-      transcricao: String(transcricao).slice(0, 500000), titulo: titulo || null, updated_at: new Date().toISOString(),
+      transcricao: texto.slice(0, 500000), titulo: titulo || null, updated_at: new Date().toISOString(),
     }).eq('id', extracaoId);
     return NextResponse.json({ error: res.error || 'falha ao estruturar' }, { status: 422 });
   }
@@ -56,7 +59,7 @@ export async function POST(req: NextRequest) {
     modulo_base_id: ids[0],
     modulo_base_ids: ids,
     n_modulos: ids.length,
-    transcricao: String(transcricao).slice(0, 500000),
+    transcricao: texto.slice(0, 500000),
     titulo: tituloFinal,
     error: null,
     updated_at: new Date().toISOString(),
