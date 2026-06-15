@@ -55,6 +55,7 @@ export const AI_TASKS = [
 
 export const MODELOS_DISPONIVEIS = [
   { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+  { id: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
   { id: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
   { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite' },
   { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
@@ -74,6 +75,9 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   // Módulos-Base — Dual-IA: autora Claude Sonnet, auditora GPT-5.4
   modulo_base_autor:   'claude-sonnet-4-6',
   modulo_base_auditor: 'gpt-5.4',
+  // Roteiro de vídeo — peça criativa de alta alavancagem (reaproveitada por
+  // célula): Opus 4.8 pela aderência a muitas regras + fidelidade pedagógica.
+  conteudo_video:      'claude-opus-4-8',
 };
 
 const FALLBACK_GLOBAL = 'claude-sonnet-4-6';

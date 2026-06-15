@@ -23,6 +23,7 @@
 // Preços por 1M tokens (USD) — atualizados em mai/2026.
 export const MODELS = {
   // Anthropic
+  'claude-opus-4-8':            { label: 'Claude Opus 4.8',     inUsd: 15,   outUsd: 75 },
   'claude-opus-4-7':            { label: 'Claude Opus 4.7',     inUsd: 15,   outUsd: 75 },
   'claude-opus-4-6':            { label: 'Claude Opus 4.6',     inUsd: 15,   outUsd: 75 },
   'claude-sonnet-4-6':          { label: 'Claude Sonnet 4.6',   inUsd: 3,    outUsd: 15 },
@@ -555,11 +556,11 @@ export const CALLS = [
     fase: 'Vídeo do Módulo-Base',
     scaleType: 'video_gerado',
     nome: 'Roteiro de vídeo (LLM)',
-    descricao: 'Transforma o Módulo-Base em roteiro de 5 cenas (JSON). Sonnet 4.6. ~2,5k tok in (módulo) + ~1,8k tok out (roteiro).',
-    inTokens: 2500,
-    outTokens: 1800,
+    descricao: 'Transforma o Módulo-Base em roteiro de 6–12 cenas (JSON). Opus 4.8 (peça criativa de alta alavancagem, reaproveitada por célula). ~4,5k tok in (módulo+prompt) + ~6k tok out (roteiro+metadados).',
+    inTokens: 4500,
+    outTokens: 6000,
     exec: 1,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-opus-4-8',
     critical: false,
   },
   {

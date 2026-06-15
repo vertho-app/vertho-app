@@ -3,14 +3,14 @@
  * Estrutura FLEXÍVEL: avatar_intro + N cenas de conteúdo (miolo variável) +
  * avatar_outro. A IA calibra a quantidade pela densidade do módulo (alvo 3–5 min).
  *
- * DECK vs TOM: o deck visual (escolha/ordem de template, texto de tela) é dirigido
- * SÓ pela densidade do conteúdo + cargo/PPP — NÃO pelo perfil DISC. O DISC ajusta
- * apenas o TOM da narração. Isso mantém o visual idêntico entre perfis (e prepara o
- * caminho para "render-once + N-áudios" no futuro).
+ * DECK INVARIANTE vs TOM: o deck visual (template, ordem, texto de tela) é dirigido
+ * SÓ por densidade do conteúdo + cargo/PPP/maturidade — NUNCA pelo DISC. O DISC
+ * ajusta apenas o TOM da `narration`. O roteiro declara isso (`deck_invariant` +
+ * `disc_sensitive_fields`), o que prepara "render-once + N-áudios".
  *
- * Compatibilidade do renderer: narração em `narration` (fonte canônica de TTS e
- * legendas); campos visuais flat (não aninhados); `key_idea`/`source_anchor` são
- * metadados ignorados pelo render.
+ * Compatibilidade do renderer: narração em `narration`; campos visuais flat;
+ * `key_idea`/`source_anchor`/`estimated_words` e os campos-raiz de metadados são
+ * ignorados pelo render.
  */
 export interface RoteiroScene {
   id: string;
@@ -29,11 +29,16 @@ export interface RoteiroScene {
   narration: string;
   key_idea?: string;
   source_anchor?: string;
+  estimated_words?: number;
 }
 
 export interface VideoRoteiro {
   title: string;
   theme: string;
+  deck_invariant?: boolean;
+  disc_sensitive_fields?: string[];
+  audience_context?: { cargo?: string | null; disc?: string | null; maturity_transition?: string | null; institution_context_used?: boolean };
+  estimated_total_words?: number;
   scenes: RoteiroScene[];
 }
 
@@ -56,12 +61,12 @@ const IDIOMA: Record<string, string> = {
   'pt-BR': 'português do Brasil', 'pt-PT': 'português de Portugal', 'es-ES': 'espanhol', 'en-US': 'inglês',
 };
 
-// DISC ajusta APENAS o TOM da narração (não o deck visual).
+// DISC ajusta APENAS o TOM/estilo da narração (não o deck visual).
 const DISC_GUIA: Record<string, { rotulo: string; tom: string }> = {
-  D: { rotulo: 'Dominante (D)', tom: 'Direto e decisivo; comece pelo "o que muda na prática"; foco em resultado, ação e impacto; sem rodeios.' },
-  I: { rotulo: 'Influente (I)', tom: 'Caloroso e inspirador; traga pessoas e relação; linguagem que engaja e conecta.' },
-  S: { rotulo: 'Estável (S)', tom: 'Acolhedor, seguro e gradual; "começar pequeno", passo a passo, baixa pressão.' },
-  C: { rotulo: 'Conforme (C)', tom: 'Preciso, estruturado e lógico; critérios, evidências e clareza; pouca emoção, muito rigor.' },
+  D: { rotulo: 'Dominante (D)', tom: 'Direto, decisivo, focado em resultado, ação e impacto; frases curtas, foco no que muda na prática, sem rodeios.' },
+  I: { rotulo: 'Influente (I)', tom: 'Caloroso, inspirador, humano e mobilizador; exemplos relacionais, conexão com pessoas e engajamento.' },
+  S: { rotulo: 'Estável (S)', tom: 'Acolhedor, seguro, gradual, sem pressão; passo a passo, segurança psicológica e consistência.' },
+  C: { rotulo: 'Conforme (C)', tom: 'Preciso, estruturado, lógico e criterioso; critérios, evidências, organização e clareza.' },
 };
 
 function maturidadeGuia(ne?: string | null, nd?: string | null): string {
@@ -88,9 +93,9 @@ export function buildRoteiroPrompt(m: ModuloParaRoteiro): { system: string; user
   const persoSystem = (disc || m.cargoBloco || m.pppBrief) ? `
 
 PERSONALIZAÇÃO (adapte exemplos e tom SEM mudar o conteúdo pedagógico nem a fidelidade):${m.cargoBloco ? `
-- CARGO: ancore TODOS os exemplos no dia a dia real do cargo (contexto abaixo). Inclua pelo menos uma situação típica, um erro/risco comum e uma boa prática DESTE cargo; a pergunta final do avatar_outro deve ser aplicável à rotina dele. Nada genérico.` : ''}${m.pppBrief ? `
+- CARGO: ancore os exemplos práticos no dia a dia real do cargo (contexto abaixo), sem repetir a mesma situação em todas as cenas. Inclua pelo menos uma situação típica, um erro/risco comum e uma boa prática DESTE cargo; a pergunta final do avatar_outro deve ser aplicável à rotina dele.` : ''}${m.pppBrief ? `
 - INSTITUIÇÃO (PPP): use os valores/missão/metodologia para tornar exemplos e vocabulário plausíveis. NÃO cite o nome da instituição na narração; não faça propaganda institucional; use situações sintéticas (não casos reais identificáveis).` : ''}${disc ? `
-- TOM POR PERFIL ${disc.rotulo}: ${disc.tom} O perfil ajusta APENAS o tom da narração — NUNCA a escolha de template, a ordem das cenas ou o texto de tela (esses seguem só a densidade do conteúdo). Não rotule nem descreva o perfil ("pessoas D são assim").` : ''}` : '';
+- TOM POR PERFIL ${disc.rotulo}: ${disc.tom} O perfil ajusta APENAS o tom da narração — NUNCA template, ordem ou texto de tela. Nunca diga "pessoas D são...", não rotule nem estereotipe o colaborador.` : ''}` : '';
 
   const system = `Você é roteirista de micro-aprendizagem, designer instrucional e diretor audiovisual da Vertho. Transforma um MÓDULO-BASE pedagógico num ROTEIRO TÉCNICO DE VÍDEO pronto para o pipeline: roteiro → TTS → HeyGen (cenas de avatar) → Remotion (cenas animadas) → legendas.
 
@@ -98,17 +103,15 @@ IDIOMA: escreva TUDO em ${idioma}.
 
 FORMATO:
 - Cena inicial com avatar (avatar_intro) + miolo de cenas animadas (voice-over) + cena final com avatar (avatar_outro). Avatar SÓ na abertura e no encerramento.
-- NÃO proponha filmagem real, câmera, banco de imagens nem imagens geradas por IA. Use apenas o que os templates Remotion suportam: tipografia em destaque, ícones, cards, colunas, fluxos e formas abstratas.
+- NÃO proponha filmagem real, câmera, banco de imagens nem imagens geradas por IA. Use apenas o que os templates Remotion suportam: tipografia, ícones, cards, colunas, fluxos, formas abstratas e motion typography.
 
 DURAÇÃO (calibre pela densidade do módulo; não encha com repetição):
 - Total entre 180 e 300 segundos de narração.
 - Miolo: 6–8 cenas (módulo enxuto) · 8–10 (médio) · 10–12 (denso). NUNCA mais de 12 cenas de miolo.
-- SE o módulo render menos de 6 ideias-núcleo distintas, faça MENOS cenas. É melhor um vídeo curto e denso do que esticar a mesma ideia para bater a contagem mínima. Nunca repita uma ideia com outra formulação só para ter mais cenas.
-- Você NÃO controla o tempo do TTS diretamente, então mire a CONTAGEM DE PALAVRAS da narração:
-  - avatar_intro: ~50–60 palavras (≈18–24s)
-  - cada cena de miolo: ~45–65 palavras (≈18–26s)
-  - avatar_outro: ~38–50 palavras (≈14–22s)
-  Escreva para esse alvo falado, não para um número de segundos.
+- SE o módulo render menos de 6 ideias-núcleo distintas, faça MENOS cenas. É melhor um vídeo curto e denso do que esticar a mesma ideia. Nunca repita uma ideia com outra formulação só para aumentar duração.
+- Você NÃO controla o tempo do TTS; calibre por CONTAGEM DE PALAVRAS da narração:
+  - avatar_intro: 50–60 palavras. · cada cena de miolo: 45–65 palavras. · avatar_outro: 38–50 palavras.
+  Inclua em cada cena o campo "estimated_words" (contagem aproximada de palavras da narração).
 
 ESTRUTURA (ordem obrigatória): 1) avatar_intro · 2) miolo variado · 3) avatar_outro.
 
@@ -118,23 +121,25 @@ TEMPLATES E SEUS CAMPOS VISUAIS:
 - comparison_motion: contrasta prática fraca×desejada. title ("A x B") + left{title,items[3]} + right{title,items[3]}.
 - icon_story: 3 sinais/exemplos/comportamentos. title + items (EXATAMENTE 3, cada 2–5 palavras).
 - steps_flow: processo/método sequencial. title + items (3–5 passos, cada 2–4 palavras).
-- stat_highlight: um DADO numérico. stat (ex.: "73%", "3x") + title + subtitle. Só use se o número existir no módulo. NUNCA invente estatística.
+- stat_highlight: um DADO numérico. stat + title + subtitle. Só use se houver número EXPLÍCITO no módulo; o valor de "stat" deve aparecer LITERALMENTE no conteúdo de entrada. NUNCA invente estatística.
 - quote_spotlight: frase-âncora. quote (≤14 palavras) + subtitle (atribuição, ex.: "Mentora Vertho").
 - scenario_card: abre uma situação típica. title (ex.: "Imagine") + subtitle (1–2 frases curtas).
 
 REGRAS DE VARIEDADE:
 - NUNCA o mesmo template em duas cenas seguidas.
 - Intercale cenas densas (concept_reveal, comparison_motion, steps_flow) com respiros (quote_spotlight, scenario_card, icon_story).
-- Use scenario_card ao menos uma vez quando houver contexto de cargo.
-- Use comparison_motion ao menos uma vez quando houver erros comuns × boas práticas.
-- Use steps_flow quando houver processo/rotina/método. Use stat_highlight só se houver número real.
+- Use scenario_card ao menos uma vez quando houver contexto de cargo. Use comparison_motion ao menos uma vez quando houver erros×boas práticas. Use steps_flow quando houver processo/rotina/método. Use stat_highlight só se houver número real e explícito.
 - Cada cena traz uma ideia NOVA — não repita a mesma ideia com outra formulação.
-- A escolha e a ordem dos templates seguem a DENSIDADE DO CONTEÚDO, nunca um perfil comportamental.
+
+DECK INVARIANTE (o deck visual é reaproveitado por todos os perfis DISC):
+- Template, ordem das cenas e TODOS os textos de tela (title, subtitle, bullets, items, quote, stat) são dirigidos APENAS por: densidade do conteúdo, cargo, PPP/instituição e transição de maturidade.
+- O perfil DISC ajusta SOMENTE a narração. title/subtitle/bullets/items/quote/stat/template/ordem NÃO podem depender do DISC.
+- Declare no JSON: "deck_invariant": true e "disc_sensitive_fields": ["narration"].
 
 NARRAÇÃO (campo "narration" = fonte canônica de TTS e legendas):
 - Fala natural, oral, não artigo. Frases curtas (≤20 palavras). Sem jargão, markdown, emoji nem indicação de cena/câmera/edição.
 - Voz da "Mentora Vertho": feminina, clara, segura, acolhedora e objetiva.
-- O MÓDULO-BASE é escrito em prosa acadêmica densa. NÃO ecoe esse registro — transforme em fala:
+- O MÓDULO-BASE pode vir em prosa acadêmica densa. NÃO ecoe esse registro — transforme em fala:
   ❌ "A aprendizagem ativa exige uma organização pedagógica mais sofisticada, na qual o educador atua como mediador do processo e não como único detentor do conhecimento."
   ✅ "Aprendizagem ativa não é bagunça. É você virando guia do processo — não o dono de todas as respostas."
 
@@ -142,37 +147,40 @@ TEXTO NA TELA (não é transcrição da fala — resume e destaca):
 - title ≤8 palavras; subtitle ≤14 palavras; bullets/items 2–5 palavras. Sem parágrafos na tela. Legível em 16:9.
 
 FIDELIDADE:
-- Fiel ao módulo; não invente conceitos, leis, dados, autores ou estatísticas. Não cite o descritor no gancho. Não vire motivacional genérico. Não omita a ideia principal. Preserve a transição de maturidade.
-- TRANSIÇÃO DE MATURIDADE — calibre a profundidade: ${maturidadeGuia(m.nivel_entrada, m.nivel_destino)}
+- Fiel ao módulo; não invente conceitos, leis, dados, autores ou estatísticas. Não cite o descritor no gancho. Não vire motivacional genérico. Não omita a ideia principal. Preserve a transição de maturidade. Se usar stat_highlight, o número deve existir literalmente no módulo.
+
+COBERTURA MÍNIMA (quando disponível no módulo; priorize o mais relevante, NÃO cubra tudo superficialmente): a ideia principal; ≥2 princípios; ≥1 erro comum; ≥1 boa prática; ≥1 situação típica (quando houver contexto de cargo).
+
+TRANSIÇÃO DE MATURIDADE — calibre a profundidade: ${maturidadeGuia(m.nivel_entrada, m.nivel_destino)}
 
 SEGURANÇA E LGPD:
 - Não mencione pessoas reais (colaboradores, alunos, gestores) nem dados individuais. Não exponha informação sensível. Não faça diagnóstico psicológico. Não estereotipe perfis comportamentais. Use situações sintéticas e plausíveis.${persoSystem}
 
-METADADOS POR CENA (ajudam o planejamento; mantenha curtos):
-- key_idea: a ideia central da cena em uma frase.
-- source_anchor: de qual parte do módulo a ideia veio (ex.: "PRINCÍPIOS", "ERROS COMUNS", "SITUAÇÕES TÍPICAS").
+SOURCE_ANCHOR (use exatamente um destes formatos): IDEIA_PRINCIPAL · EXPLICACAO_EXPANDIDA:<tópico> · PRINCIPIOS:<nome> · EXEMPLOS:adequada · EXEMPLOS:inadequada · ERROS_COMUNS · BOAS_PRATICAS · SITUACOES_TIPICAS · CARGO · PPP
 
-EXEMPLO DE CENAS (gabarito de REGISTRO e ESTRUTURA — copie o JEITO da narração, não o conteúdo):
-{"id":"scene-3","type":"concept_reveal","key_idea":"Feedback é informação acionável, não veredito","source_anchor":"PRINCÍPIOS","title":"Feedback não é nota","bullets":["onde está","aonde ir","como avançar"],"narration":"Feedback bom não é dizer se acertou. É mostrar onde a pessoa está, aonde precisa chegar e o que fazer agora. Nota fecha o assunto. Feedback abre o próximo passo."}
-{"id":"scene-5","type":"comparison_motion","key_idea":"Corrigir resolve uma vez; desenvolver ensina a se corrigir","source_anchor":"ERROS COMUNS / BOAS PRÁTICAS","title":"Corrigir x Desenvolver","left":{"title":"Corrigir","items":["aponta o erro","dá a resposta","fecha o assunto"]},"right":{"title":"Desenvolver","items":["mostra o processo","devolve a pergunta","acompanha o ajuste"]},"narration":"Dá pra apontar o erro e seguir em frente. Ou dá pra devolver a pergunta e acompanhar o ajuste. O primeiro corrige uma vez. O segundo ensina o aluno a se corrigir sempre."}
+METADADOS POR CENA: id · type · key_idea (frase curta com a ideia central) · source_anchor (de onde a ideia veio) · estimated_words (≈ palavras da narração) · narration · campos visuais do template.
 
-ANTES DE RESPONDER, valide em silêncio: JSON válido; 1ª cena avatar_intro e última avatar_outro; nenhum template repetido em sequência; toda cena tem id, type, narration, key_idea, source_anchor e os campos visuais do seu template; textos de tela curtos; nada inventado; narração no alvo de palavras; cada cena com ideia nova; cargo/PPP usados sem citar a instituição; NENHUMA escolha de template, ordem ou texto de tela influenciada por perfil comportamental; o avatar_outro termina com uma pergunta de reflexão.
+EXEMPLO DE CENAS (referência de REGISTRO e ESTRUTURA — NÃO copie o conteúdo se não pertencer ao módulo):
+{"id":"scene-3","type":"concept_reveal","key_idea":"Feedback é informação acionável, não veredito","source_anchor":"PRINCIPIOS:Feedback como instrução","estimated_words":35,"title":"Feedback não é nota","bullets":["onde está","aonde ir","como avançar"],"narration":"Feedback bom não é dizer se acertou. É mostrar onde a pessoa está, aonde precisa chegar e o que fazer agora. Nota fecha o assunto. Feedback abre o próximo passo."}
+{"id":"scene-5","type":"comparison_motion","key_idea":"Corrigir resolve uma vez; desenvolver ensina a se corrigir","source_anchor":"ERROS_COMUNS / BOAS_PRATICAS","estimated_words":41,"title":"Corrigir x Desenvolver","left":{"title":"Corrigir","items":["aponta o erro","dá a resposta","fecha o assunto"]},"right":{"title":"Desenvolver","items":["mostra o processo","devolve a pergunta","acompanha o ajuste"]},"narration":"Dá para apontar o erro e seguir em frente. Ou dá para devolver a pergunta e acompanhar o ajuste. O primeiro corrige uma vez. O segundo ensina o aluno a se corrigir sempre."}
 
-Responda APENAS JSON válido (sem markdown nem texto fora do JSON; o miolo tem QUANTAS cenas o conteúdo pedir):
+ANTES DE RESPONDER, valide em silêncio: JSON válido; sem markdown/comentários/placeholders; sem reticências como "... mais cenas"; 1ª cena avatar_intro e última avatar_outro; nenhum template repetido em sequência; toda cena tem id, type, narration, key_idea, source_anchor, estimated_words e os campos visuais do template; textos de tela curtos; nada inventado; se houver stat_highlight, o número existe literalmente no módulo; cada cena com ideia nova; cobertura mínima respeitada; cargo/PPP sem citar a instituição; deck NÃO influenciado pelo perfil; narração no alvo de palavras; avatar_outro termina com pergunta de reflexão prática.
+
+FORMATO DE SAÍDA: responda APENAS JSON válido — sem markdown, comentários ou texto fora do JSON. NÃO inclua placeholders nem linhas como "... mais cenas conforme o conteúdo ...". Gere apenas cenas reais (o miolo tem de 6 a 12 cenas conforme a densidade). Estrutura:
 {
   "title": "título do vídeo",
   "theme": "tema curto",
+  "deck_invariant": true,
+  "disc_sensitive_fields": ["narration"],
+  "audience_context": {"cargo": "cargo ou null", "disc": "D/I/S/C ou null", "maturity_transition": "transição ou null", "institution_context_used": true},
+  "estimated_total_words": 520,
   "scenes": [
-    {"id":"scene-1","type":"avatar_intro","key_idea":"...","source_anchor":"IDEIA PRINCIPAL","title":"2-4 palavras","subtitle":"subtítulo curto","narration":"..."},
-    {"id":"scene-2","type":"scenario_card","key_idea":"...","source_anchor":"SITUAÇÕES TÍPICAS","title":"Imagine","subtitle":"situação curta e plausível","narration":"..."},
-    {"id":"scene-3","type":"concept_reveal","key_idea":"...","source_anchor":"PRINCÍPIOS","title":"...","bullets":["...","...","..."],"narration":"..."},
-    {"id":"scene-4","type":"stat_highlight","key_idea":"...","source_anchor":"...","stat":"73%","title":"rótulo","subtitle":"contexto","narration":"..."},
-    {"id":"scene-5","type":"comparison_motion","key_idea":"...","source_anchor":"ERROS COMUNS / BOAS PRÁTICAS","title":"A x B","left":{"title":"...","items":["...","...","..."]},"right":{"title":"...","items":["...","...","..."]},"narration":"..."},
-    {"id":"scene-6","type":"steps_flow","key_idea":"...","source_anchor":"BOAS PRÁTICAS","title":"...","items":["...","...","...","..."],"narration":"..."},
-    {"id":"scene-7","type":"quote_spotlight","key_idea":"...","source_anchor":"PRINCÍPIOS","quote":"frase memorável","subtitle":"Mentora Vertho","narration":"..."},
-    {"id":"scene-8","type":"icon_story","key_idea":"...","source_anchor":"...","title":"...","items":["...","...","..."],"narration":"..."},
-    "... mais cenas conforme o conteúdo ...",
-    {"id":"scene-N","type":"avatar_outro","key_idea":"...","source_anchor":"BOAS PRÁTICAS / APLICAÇÃO","title":"...","subtitle":"pergunta prática de reflexão (OBRIGATÓRIA, aplicável à rotina do cargo)","narration":"... encerra com a pergunta de reflexão ..."}
+    {"id":"scene-1","type":"avatar_intro","key_idea":"...","source_anchor":"IDEIA_PRINCIPAL","estimated_words":55,"title":"2-4 palavras","subtitle":"subtítulo curto","narration":"..."},
+    {"id":"scene-2","type":"scenario_card","key_idea":"...","source_anchor":"SITUACOES_TIPICAS","estimated_words":55,"title":"Imagine","subtitle":"situação curta e plausível","narration":"..."},
+    {"id":"scene-3","type":"concept_reveal","key_idea":"...","source_anchor":"PRINCIPIOS:<nome>","estimated_words":55,"title":"título curto","bullets":["item curto","item curto","item curto"],"narration":"..."},
+    {"id":"scene-4","type":"comparison_motion","key_idea":"...","source_anchor":"ERROS_COMUNS","estimated_words":58,"title":"A x B","left":{"title":"prática fraca","items":["item curto","item curto","item curto"]},"right":{"title":"prática desejada","items":["item curto","item curto","item curto"]},"narration":"..."},
+    {"id":"scene-5","type":"steps_flow","key_idea":"...","source_anchor":"BOAS_PRATICAS","estimated_words":56,"title":"título curto","items":["passo 1","passo 2","passo 3"],"narration":"..."},
+    {"id":"scene-6","type":"avatar_outro","key_idea":"...","source_anchor":"BOAS_PRATICAS","estimated_words":45,"title":"Pergunta prática","subtitle":"pergunta curta e acionável","narration":"... termina com uma pergunta de reflexão prática."}
   ]
 }`;
 
@@ -221,8 +229,8 @@ export function parseRoteiro(raw: string): VideoRoteiro | null {
 
 /**
  * Normaliza a estrutura flexível: garante avatar_intro PRIMEIRO e avatar_outro
- * ÚLTIMO, com o miolo preservado na ordem da IA. Avatares extras no meio são
- * descartados. Quebra repetições adjacentes do mesmo template. Re-IDs scene-1..N.
+ * ÚLTIMO, com o miolo reordenado para evitar templates iguais adjacentes
+ * (greedy, preservando a ordem da IA ao máximo). Re-IDs scene-1..N.
  */
 export function normalizarRoteiro(roteiro: VideoRoteiro): VideoRoteiro {
   const scenes = Array.isArray(roteiro.scenes) ? roteiro.scenes : [];
@@ -230,9 +238,6 @@ export function normalizarRoteiro(roteiro: VideoRoteiro): VideoRoteiro {
   const outro = [...scenes].reverse().find((s) => s.type === 'avatar_outro');
   const restante = scenes.filter((s) => MIOLO_TIPOS.includes(s.type));
 
-  // Reordena o miolo evitando templates iguais adjacentes, preservando ao máximo
-  // a ordem da IA: a cada passo pega a 1ª cena do pool cujo tipo difere da última
-  // já colocada (se todas restantes forem iguais à última, aceita — é inevitável).
   const miolo: RoteiroScene[] = [];
   while (restante.length) {
     let idx = miolo.length ? restante.findIndex((s) => s.type !== miolo[miolo.length - 1].type) : 0;
