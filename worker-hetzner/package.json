@@ -1,0 +1,14 @@
+{
+  "name": "vertho-render-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Worker always-on de render Remotion (pull/poll do Supabase → Bunny). Roda numa Hetzner CX33.",
+  "scripts": {
+    "start": "node worker.mjs"
+  },
+  "dependencies": {
+    "@remotion/renderer": "4.0.476",
+    "pg": "^8.13.0"
+  }
+}

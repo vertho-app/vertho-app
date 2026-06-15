@@ -105,13 +105,21 @@ export const gerarVideoModuloTask = task({
         brand: p.brand, fps: p.fps, width: p.width, height: p.height,
       });
 
-      // 5) render chunked → Bunny. ~1 chunk por 12s de vídeo (mín. 2, máx. 10).
-      // scale 0.667 = saída 720p (design segue 1080p; downscale no render). Corta
-      // ~48% do custo de render sem perda real (o avatar HeyGen já é nativo 720p).
-      // Máquina = default large-2x do render-chunk (mesmo custo do large-1x em
-      // 720p, porém ~2× mais rápido). Override por env, se preciso.
-      const chunks = p.chunks ?? Math.min(10, Math.max(2, Math.ceil(props.totalFrames / (props.fps * 12))));
+      // 5) render. scale 0.667 = saída 720p (downscale do design 1080p; o avatar
+      // HeyGen já é nativo 720p). RENDER_BACKEND decide ONDE renderizar:
+      //   - 'hetzner' → enfileira (status render_queued); o worker always-on puxa,
+      //     renderiza e finaliza (video_url/bunny/done). Ver worker-hetzner/.
+      //   - 'trigger' (default) → render chunked no trigger.dev (renderVideoTask).
       const scale = Number(process.env.VIDEO_RENDER_SCALE) || 720 / 1080;
+      const srt = exportCaptionsToSrt(props.captions);
+      const vtt = exportCaptionsToVtt(props.captions);
+
+      if ((process.env.RENDER_BACKEND || 'trigger') === 'hetzner') {
+        await patchVideo(videoId, { status: 'render_queued', etapa: 'render', assets, render_inputprops: props, render_scale: scale, srt, vtt, error: null });
+        return { ok: true, videoId, queued: 'hetzner', frames: props.totalFrames };
+      }
+
+      const chunks = p.chunks ?? Math.min(10, Math.max(2, Math.ceil(props.totalFrames / (props.fps * 12))));
       const res = await renderVideoTask.triggerAndWait({
         composition: 'VerthoVideo',
         frames: props.totalFrames,
@@ -136,8 +144,8 @@ export const gerarVideoModuloTask = task({
         bunny_video_id: out.bunnyVideoId,
         bunny_library: out.bunnyLibrary,
         video_url: videoUrl,
-        srt: exportCaptionsToSrt(props.captions),
-        vtt: exportCaptionsToVtt(props.captions),
+        srt,
+        vtt,
         error: null,
       });
 
