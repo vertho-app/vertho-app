@@ -36,6 +36,7 @@ export default function ExtracaoVideoPanel({
   const [gerando, setGerando] = useState(false);
   const [modulosSync, setModulosSync] = useState<any[]>([]);
   const [toast, setToast] = useState('');
+  const [erroSync, setErroSync] = useState('');
 
   // Assíncrono.
   const [urlAsync, setUrlAsync] = useState('');
@@ -57,16 +58,48 @@ export default function ExtracaoVideoPanel({
   }, [origemEmpresaId]);
 
   function flash(m: string) { setToast(m); setTimeout(() => setToast(''), 4000); }
+  function isYouTubeUrl(v: string) { return /(?:youtube\.com|youtu\.be)/i.test(v); }
+
+  async function enviarParaBackground(videoUrl: string, motivo?: string) {
+    const alvo = videoUrl.trim();
+    if (!alvo) return;
+    if (modoVertho && alcance === 'empresa' && !empresaPick) {
+      setErroSync('Escolha a empresa do alcance para processar em background.');
+      return;
+    }
+    const r = await submeterExtracaoAsync(origemEmpresaId, alvo, escopoEmpresaId);
+    if (r.error) {
+      setErroSync(`${motivo ? `${motivo} ` : ''}Também não consegui iniciar o background: ${r.error}`);
+      return;
+    }
+    setErroSync('');
+    flash('A extração demorou; enviei para processamento em background');
+    carregarExtracoes();
+  }
 
   async function handleExtrair() {
     if (!url.trim()) { flash('Informe a URL do vídeo'); return; }
+    if (modoVertho && alcance === 'empresa' && !empresaPick) { flash('Escolha a empresa do alcance'); return; }
     setExtraindo(true); setBase(null); setModulosSync([]);
+    setErroSync('');
     try {
       const r = await extrairVideo(escopoEmpresaId || origemEmpresaId, url.trim());
-      if (r.error) { flash(r.error); return; }
+      if (r.error) {
+        if (isYouTubeUrl(url)) {
+          await enviarParaBackground(url, r.error);
+          return;
+        }
+        setErroSync(r.error);
+        return;
+      }
       setBase(r.data);
     } catch (e: any) {
-      flash('A extração demorou demais ou caiu. Tente novamente.');
+      const msg = 'A extração na hora demorou demais ou caiu.';
+      if (isYouTubeUrl(url)) {
+        await enviarParaBackground(url, msg);
+        return;
+      }
+      setErroSync(`${msg} Tente novamente ou use o processamento em background.`);
     } finally {
       setExtraindo(false);
     }
@@ -174,6 +207,21 @@ export default function ExtracaoVideoPanel({
         </div>
         <SeletorAlcance />
         <p className="text-[10px] text-gray-600 mt-1.5">Você revisa o texto-base antes de gerar o módulo (no alcance escolhido). O vídeo não é re-hospedado — guardamos só o link.</p>
+        {erroSync && (
+          <div className="mt-3 rounded-lg border border-red-400/30 bg-red-400/10 p-3 text-xs text-red-200 flex items-start gap-2">
+            <AlertCircle size={14} className="mt-0.5 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p>{erroSync}</p>
+              {url.trim() && (
+                <button type="button" onClick={() => enviarParaBackground(url, 'Tentativa manual:')} disabled={extraindo}
+                  className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-300/30 bg-amber-300/10 text-amber-100 font-semibold disabled:opacity-50">
+                  <Clock size={13} />
+                  Processar este vídeo em background
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Material (PDF/DOCX/TXT) — assíncrono (mesmo pipeline; suporta livros) */}
