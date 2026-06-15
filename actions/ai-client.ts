@@ -22,6 +22,11 @@ export interface AICallOptions {
   thinking?: boolean;
   thinkingBudget?: number;
   locale?: AppLocale;
+  // Override do timeout/maxRetries do SDK (Claude) por chamada. Chamadas densas
+  // legítimas (segmentação/autoria de módulo) precisam de mais que os 120s
+  // default sem disparar o retry do SDK (que dobra o tempo e estoura a rota).
+  timeoutMs?: number;
+  maxRetries?: number;
 }
 
 export interface ChatMessage {
@@ -125,7 +130,11 @@ async function callClaude(
   maxTokens: number,
   options: AICallOptions = {},
 ): Promise<string> {
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: AI_TIMEOUT_MS, maxRetries: 1 });
+  const client = new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
+    timeout: options.timeoutMs ?? AI_TIMEOUT_MS,
+    maxRetries: options.maxRetries ?? 1,
+  });
 
   const systemBlock: any = typeof system === 'string' && system.length > 4000
     ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]

@@ -825,7 +825,7 @@ REGRAS:
 - "descritor": o sub-tema ESPECÍFICO da seção dentro da competência (5-10 palavras; mais granular que o nome da competência).
 - PODE haver mais de uma seção para a MESMA competência, desde que sejam DESCRITORES (sub-temas) distintos — cada descritor vira um módulo separado. Não force descritores iguais a se juntarem.
 - Transição de nível: default N1→N2 se incerto.
-- "texto_base": EXTRAIA densamente o conteúdo da seção — NÃO resuma, NÃO destile. Preserve as definições, distinções, exemplos/casos concretos, dados/números e o ENCADEAMENTO dos argumentos, na ordem em que aparecem no trecho. O tamanho segue o que a seção desenvolve, SEM teto artificial: tipicamente 700–1.600 palavras, e mais quando a seção for rica/longa. É MELHOR um texto-base fiel e completo do que um curto e enxuto. Corte só ruído (saudações, repetição vazia); NÃO invente nada que não esteja no trecho.
+- "texto_base": PRESERVE o conteúdo da seção na ORDEM original — não RESUMA (não corte definições, distinções, exemplos/casos, dados/números nem o encadeamento dos argumentos) e não INFLE (não repita, não floreie, não invente para alongar). O tamanho deve ser PROPORCIONAL ao que o trecho realmente desenvolve do tema: se o material de entrada já vier denso, MANTENHA essa densidade; se vier de fala/transcrição crua, organize em prosa fiel sem perder conteúdo. Markdown. Corte só ruído (saudações, repetição vazia); NÃO inclua nada que não esteja no trecho.
 
 Responda APENAS JSON válido (sem markdown), no formato:
 {"secoes":[{"competencia_base_id":"<id do catálogo>","competencia_nome":"<nome>","descritor":"<sub-tema específico>","nivel_entrada":"N1","nivel_destino":"N2","contexto_pedagogico":null,"titulo":"...","finalidade":"...","texto_base":"..."}]}`;
@@ -844,8 +844,11 @@ TRECHO:
 ${texto}`;
 
   let ultimoDiag = 'sem resposta';
-  for (let tentativa = 1; tentativa <= 3; tentativa++) {
-    const raw = await callAI(SEG_SYSTEM, user, { model: ctx.model }, 48000).catch((e: any) => { ultimoDiag = 'callAI: ' + (e?.message || e); return ''; });
+  // 2 tentativas (não 3): cada chamada densa pode levar ~minutos; 3× estouraria
+  // os 300s da rota síncrona. timeoutMs 150s cobre a geração densa legítima e
+  // maxRetries 0 evita o retry do SDK (que dobraria o tempo por chamada).
+  for (let tentativa = 1; tentativa <= 2; tentativa++) {
+    const raw = await callAI(SEG_SYSTEM, user, { model: ctx.model }, 48000, { timeoutMs: 150000, maxRetries: 0 }).catch((e: any) => { ultimoDiag = 'callAI: ' + (e?.message || e); return ''; });
     const cleaned = String(raw || '').replace(/```json\s*/gi, '').replace(/```/g, '').trim();
     // Parse tolerante: objeto {secoes:[...]}, bare array [...], ou maior bloco {…}/[…].
     let brutas: any[] = [];
