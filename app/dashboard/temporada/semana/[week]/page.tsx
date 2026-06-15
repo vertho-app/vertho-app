@@ -9,6 +9,7 @@ import ReactMarkdown from 'react-markdown';
 import { Loader2, Video, FileText, Headphones, BookOpen, Send, Sparkles, Target, Check, HelpCircle } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { loadTemporadaPorEmail, marcarConteudoConsumido } from '@/actions/temporadas';
+import { resolverVideoDaSemana } from '@/actions/gerar-video';
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import MicInput from '@/components/mic-input';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
@@ -234,6 +235,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
                   onAutoConsumido={() => !conteudoConsumido && handleConsumido()}
                   t={t}
                 />
+                <VideoPersonalizadoCard competencia={entrega.competencia || semana.competencia} descritor={entrega.descritor} />
               </div>
             ))}
             {!conteudoConsumido && (
@@ -572,6 +574,47 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
         </GlassCard>
       )}
     </PageContainer>
+  );
+}
+
+/**
+ * Vídeo personalizado da célula do colaborador (cargo × perfil DISC × PPP), resolvido
+ * pela competência da semana. Aditivo: só aparece se já houver vídeo pronto (ou em
+ * preparo) para a célula — não dispara geração (gerar=false). Reaproveitado entre
+ * todos os colaboradores do mesmo cargo+perfil.
+ */
+function VideoPersonalizadoCard({ competencia, descritor }) {
+  const [st, setSt] = useState(null);
+  useEffect(() => {
+    if (!competencia) return;
+    let alive = true;
+    resolverVideoDaSemana(competencia, descritor || null, false)
+      .then((r) => { if (alive) setSt(r); })
+      .catch(() => { if (alive) setSt({ available: false }); });
+    return () => { alive = false; };
+  }, [competencia, descritor]);
+
+  if (!st?.available) return null;
+  const pronto = st.status === 'done' && st.bunny_video_id && st.bunny_library;
+  const preparando = ['processing', 'render_queued', 'rendering'].includes(st.status);
+  if (!pronto && !preparando) return null;
+
+  return (
+    <div className="mt-4 rounded-lg border border-violet-400/20 bg-violet-500/[0.06] p-3">
+      <p className="text-[10px] uppercase tracking-widest text-violet-300 font-bold mb-2 flex items-center gap-1.5">
+        <Video size={12} /> Seu vídeo — feito pro seu cargo e perfil
+      </p>
+      {pronto ? (
+        <div className="aspect-video rounded-lg overflow-hidden bg-black">
+          <iframe
+            src={`https://iframe.mediadelivery.net/embed/${st.bunny_library}/${st.bunny_video_id}?autoplay=false`}
+            className="w-full h-full" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture" allowFullScreen
+          />
+        </div>
+      ) : (
+        <p className="text-xs text-gray-400 italic">Estamos preparando seu vídeo personalizado — volte em alguns minutos.</p>
+      )}
+    </div>
   );
 }
 
