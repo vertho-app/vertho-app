@@ -953,12 +953,17 @@ async function segmentarTranscricao(
   }
   const truncado = (MAX_JANELAS - 1) * (JANELA - OVERLAP) + JANELA < full.length;
 
+  // MAP em PARALELO (lotes de CONC): as janelas são independentes. Sequencial,
+  // um material grande (livro = várias janelas × ~2min cada) estouraria o limite
+  // de 300s da rota síncrona; em lotes o tempo ~= ceil(janelas/CONC) × 1 chamada.
+  const CONC = 4;
   const todas: SegSecao[] = [];
   const diags: string[] = [];
-  for (let j = 0; j < janelas.length; j++) {
-    const r = await segmentarJanela(janelas[j], `${tituloVideo} (parte ${j + 1}/${janelas.length})`, ctx);
-    todas.push(...r.secoes);
-    diags.push(`j${j + 1}:${r.secoes.length}`);
+  for (let i = 0; i < janelas.length; i += CONC) {
+    const lote = janelas.slice(i, i + CONC);
+    const rs = await Promise.all(lote.map((jan, k) =>
+      segmentarJanela(jan, `${tituloVideo} (parte ${i + k + 1}/${janelas.length})`, ctx)));
+    rs.forEach((r, k) => { todas.push(...r.secoes); diags.push(`j${i + k + 1}:${r.secoes.length}`); });
   }
 
   // REDUCE: dedup/mescla por (competência × transição × DESCRITOR). Assim, mesma

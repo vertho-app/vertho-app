@@ -141,35 +141,49 @@ export async function extrairConteudoDeVideo(
     },
   };
 
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(290_000),
-  });
-  if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`Gemini vídeo ${res.status}: ${detail.slice(0, 300)}`);
-  }
-  const data = await res.json();
-  const cand = data?.candidates?.[0];
-  const txt = cand?.content?.parts?.map((p: any) => p?.text).filter(Boolean).join('') || '';
-  if (!txt) throw new Error('Gemini não retornou conteúdo (vídeo pode estar privado/indisponível).');
+  // Retry (até 3x): o texto_base é markdown DENSO dentro de JSON, e o Gemini às
+  // vezes deixa aspas/quebras não escapadas → JSON.parse falha de forma
+  // intermitente (a extração que "volta sem fazer nada"). Cada tentativa é uma
+  // nova geração; ~1-2 bastam na prática. Erros HTTP 4xx (não-transitórios)
+  // abortam na hora; 5xx e parse inválido re-tentam.
+  let parsed: any = null;
+  let ultimoMotivo = 'sem resposta';
+  for (let tentativa = 1; tentativa <= 3 && !parsed; tentativa++) {
+    let res: Response;
+    try {
+      res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(290_000),
+      });
+    } catch (e: any) {
+      ultimoMotivo = `rede: ${String(e?.message || e).slice(0, 120)}`;
+      continue;
+    }
+    if (!res.ok) {
+      const detail = (await res.text()).slice(0, 300);
+      if (res.status < 500) throw new Error(`Gemini vídeo ${res.status}: ${detail}`);
+      ultimoMotivo = `HTTP ${res.status}`;
+      continue;
+    }
+    const data = await res.json();
+    const cand = data?.candidates?.[0];
+    const txt = cand?.content?.parts?.map((p: any) => p?.text).filter(Boolean).join('') || '';
+    if (!txt) { ultimoMotivo = 'conteúdo vazio (vídeo privado/indisponível?)'; continue; }
 
-  const clean = txt.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
-  let parsed: any;
-  try {
-    parsed = JSON.parse(clean);
-  } catch {
-    // Tolerante: extrai o maior objeto {...} caso venha texto em volta.
-    const m = clean.match(/\{[\s\S]*\}/);
-    if (m) { try { parsed = JSON.parse(m[0]); } catch { /* segue */ } }
+    const clean = txt.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+    try {
+      parsed = JSON.parse(clean);
+    } catch {
+      // Tolerante: extrai o maior objeto {...} caso venha texto em volta.
+      const m = clean.match(/\{[\s\S]*\}/);
+      if (m) { try { parsed = JSON.parse(m[0]); } catch { /* segue */ } }
+    }
+    if (!parsed) ultimoMotivo = cand?.finishReason === 'MAX_TOKENS' ? 'resposta truncada (MAX_TOKENS)' : 'JSON inválido';
   }
   if (!parsed) {
-    const truncado = cand?.finishReason === 'MAX_TOKENS';
-    throw new Error(truncado
-      ? 'O vídeo é muito longo e a resposta foi cortada. Tente um vídeo mais curto.'
-      : 'Resposta do modelo não veio em JSON válido. Tente novamente.');
+    throw new Error(`A extração não retornou um resultado válido após 3 tentativas (${ultimoMotivo}). Tente novamente.`);
   }
   return {
     titulo: String(parsed.titulo || 'Conteúdo de vídeo').trim(),
