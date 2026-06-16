@@ -34,6 +34,14 @@ const pool = new pg.Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthor
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 
+/** Ajusta o scale para que width*scale e height*scale caiam em INTEIROS — o Remotion
+ *  exige dims inteiras no stitch (ex.: 0.6667×1080=720.036 quebra). Snap p/ a razão
+ *  exata targetH/h; em 16:9 ambos os lados ficam inteiros (1920×1080 → 1280×720). */
+function scaleDimsInteiras(scale, w, h) {
+  if (!scale || scale === 1 || !w || !h) return scale;
+  return Math.round(h * scale) / h;
+}
+
 let bundleDir = null;
 async function resolveBundle() {
   if (bundleDir) return bundleDir;
@@ -82,7 +90,8 @@ async function reap() {
 async function renderOne(job) {
   const props = job.render_inputprops;
   if (!props?.scenes?.length) throw new Error('render_inputprops vazio/ inválido');
-  const scale = job.render_scale != null ? Number(job.render_scale) : Number(VIDEO_RENDER_SCALE);
+  const rawScale = job.render_scale != null ? Number(job.render_scale) : Number(VIDEO_RENDER_SCALE);
+  const scale = scaleDimsInteiras(rawScale, props.width, props.height);
   const bundle = await resolveBundle();
   const title = job.roteiro?.title || `Vertho · ${job.id}`;
 
