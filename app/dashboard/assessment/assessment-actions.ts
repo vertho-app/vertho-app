@@ -2,6 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
+import { isMapeamentoCenariosLiberado } from '@/lib/votacao/status';
 
 async function resolverTop5ComCenario(sb: any, empresaId: string, cargo: string, top5: string[], escolaId: string | null = null) {
   const { data: compsDoCargo } = await sb.from('competencias')
@@ -84,6 +85,14 @@ async function _getDiagnosticoDoDia() {
   if (!colab) return { error: 'Colaborador não encontrado' };
 
   const sb = createSupabaseAdmin();
+
+  const { data: empresa } = await sb.from('empresas')
+    .select('sys_config')
+    .eq('id', colab.empresa_id)
+    .maybeSingle();
+  if (!isMapeamentoCenariosLiberado(empresa?.sys_config || {})) {
+    return { error: 'O mapeamento de cenários ainda não foi liberado pela empresa.' };
+  }
 
   // Top 5 do cargo
   const { data: cargoEmp } = await sb.from('cargos_empresa')

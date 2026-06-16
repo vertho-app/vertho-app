@@ -5,7 +5,7 @@ import { headers } from 'next/headers';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
-import { isPerfilComportamentalLiberado } from '@/lib/votacao/status';
+import { isMapeamentoCenariosLiberado, isPerfilComportamentalLiberado } from '@/lib/votacao/status';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 
 // Heurística leve pra classificar device a partir do user-agent.
@@ -61,7 +61,8 @@ export async function checkVotacaoStatus() {
     const config = empresa?.sys_config || {};
     const votacaoAtiva = config.votacao_ativa === true;
     const perfilComportamentalLiberado = isPerfilComportamentalLiberado(config);
-    if (!votacaoAtiva) return { votacaoAtiva: false, jaVotou: false, perfilComportamentalLiberado };
+    const mapeamentoCenariosLiberado = isMapeamentoCenariosLiberado(config);
+    if (!votacaoAtiva) return { votacaoAtiva: false, jaVotou: false, perfilComportamentalLiberado, mapeamentoCenariosLiberado };
 
     const tdb = tenantDb(colab.empresa_id);
     const { data: voto } = await (tdb.from('votacao_competencias') as any)
@@ -69,7 +70,7 @@ export async function checkVotacaoStatus() {
       .eq('colaborador_id', colab.id)
       .maybeSingle();
 
-    return { votacaoAtiva: true, jaVotou: !!voto, perfilComportamentalLiberado };
+    return { votacaoAtiva: true, jaVotou: !!voto, perfilComportamentalLiberado, mapeamentoCenariosLiberado };
   } catch {
     return null;
   }
@@ -171,6 +172,7 @@ export async function toggleVotacao(empresaId: string, ativa: boolean) {
   config.votacao_ativa = ativa;
   if (ativa || config.perfil_comportamental_liberado !== true) {
     config.perfil_comportamental_liberado = false;
+    config.mapeamento_cenarios_liberado = false;
   }
 
   const { error } = await sb.from('empresas')
@@ -191,6 +193,7 @@ export async function togglePerfilComportamental(empresaId: string, liberado: bo
   }
 
   config.perfil_comportamental_liberado = liberado;
+  if (!liberado) config.mapeamento_cenarios_liberado = false;
 
   const { error } = await sb.from('empresas')
     .update({ sys_config: config }).eq('id', empresaId);
@@ -199,6 +202,28 @@ export async function togglePerfilComportamental(empresaId: string, liberado: bo
   return {
     success: true,
     message: liberado ? 'Perfil comportamental liberado' : 'Perfil comportamental bloqueado',
+  };
+}
+
+export async function toggleMapeamentoCenarios(empresaId: string, liberado: boolean) {
+  const sb = await requireAdminSupabase('settings.company.manage');
+  const { data: empresa } = await sb.from('empresas')
+    .select('sys_config').eq('id', empresaId).maybeSingle();
+
+  const config = empresa?.sys_config || {};
+  if (liberado && !isPerfilComportamentalLiberado(config)) {
+    return { success: false, error: 'Libere o perfil comportamental antes de liberar o mapeamento de cenários.' };
+  }
+
+  config.mapeamento_cenarios_liberado = liberado;
+
+  const { error } = await sb.from('empresas')
+    .update({ sys_config: config }).eq('id', empresaId);
+
+  if (error) return { success: false, error: error.message };
+  return {
+    success: true,
+    message: liberado ? 'Mapeamento de cenários liberado' : 'Mapeamento de cenários bloqueado',
   };
 }
 
@@ -214,6 +239,7 @@ export async function loadResultadosVotacao(empresaId: string) {
   const config = empresa?.sys_config || {};
   const votacaoAtiva = config.votacao_ativa === true;
   const perfilComportamentalLiberado = isPerfilComportamentalLiberado(config);
+  const mapeamentoCenariosLiberado = isMapeamentoCenariosLiberado(config);
 
   // Todos os colaboradores (exclui internos @vertho.ai das estatísticas)
   const { data: colabs } = await tdb.from('colaboradores')
@@ -269,7 +295,7 @@ export async function loadResultadosVotacao(empresaId: string) {
     };
   }
 
-  return { votacaoAtiva, perfilComportamentalLiberado, resultado };
+  return { votacaoAtiva, perfilComportamentalLiberado, mapeamentoCenariosLiberado, resultado };
 }
 
 // ── Admin: aprovar Top 5 da votação ───────────────────────────────────────

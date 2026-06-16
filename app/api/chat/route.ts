@@ -6,6 +6,7 @@ import { getOrCreatePromptVersion } from '@/lib/versioning';
 import { requireUser, assertTenantAccess, assertColabAccess } from '@/lib/auth/request-context';
 import { aiLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
+import { isMapeamentoCenariosLiberado } from '@/lib/votacao/status';
 
 // ── Defaults ────────────────────────────────────────────────────────────────
 
@@ -52,6 +53,13 @@ export async function POST(req) {
     }
 
     const sb = createSupabaseAdmin();
+    const { data: empresaGate } = await sb.from('empresas')
+      .select('sys_config')
+      .eq('id', empresaId)
+      .single();
+    if (!isMapeamentoCenariosLiberado(empresaGate?.sys_config || {})) {
+      return NextResponse.json({ ok: false, error: 'O mapeamento de cenários ainda não foi liberado pela empresa.' }, { status: 403 });
+    }
 
     // ── 1. Carregar ou criar sessão ─────────────────────────────────────────
 

@@ -146,6 +146,7 @@
       "today": "Iniciar atividade de hoje",
       "vote": "Votar antes do perfil comportamental",
       "waitingProfile": "Aguardando liberação do perfil comportamental",
+      "waitingScenarios": "Aguardando liberação do mapeamento de cenários",
       "behavioral": "Fazer diagnóstico comportamental",
       "continueAssessment": "Continuar avaliação",
       "startAssessment": "Iniciar avaliação"
@@ -2325,6 +2326,9 @@
       "closeBeforeUnlock": "Feche a votação antes de liberar o próximo passo",
       "lockProfile": "Bloquear perfil",
       "unlockProfile": "Liberar perfil",
+      "unlockProfileBeforeScenarios": "Libere o perfil comportamental antes de liberar cenários",
+      "lockScenarios": "Bloquear cenários",
+      "unlockScenarios": "Liberar cenários",
       "closeVoting": "Fechar votação",
       "openVoting": "Abrir votação",
       "approveSelected": "Aprovar {count, plural, =0 {selecionadas} one {# selecionada} other {# selecionadas}}"
@@ -2339,6 +2343,12 @@
       "locked": "Perfil comportamental bloqueado — aguarde finalizar a votação",
       "availableAfterClose": "Liberação disponível após fechar a votação",
       "useUnlockButton": "Use o botão “Liberar perfil” quando o ranking estiver fechado"
+    },
+    "scenarios": {
+      "unlocked": "Mapeamento de cenários liberado — colaboradores podem responder",
+      "locked": "Mapeamento de cenários bloqueado",
+      "availableAfterProfile": "Liberação disponível após liberar o perfil comportamental",
+      "useUnlockButton": "Use o botão “Liberar cenários” quando o perfil comportamental estiver concluído"
     },
     "hint": {
       "title": "Como definir o Top final do cargo:",

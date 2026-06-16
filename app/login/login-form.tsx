@@ -149,7 +149,7 @@ export default function LoginForm({ branding }: { branding: any }) {
     }
   }
 
-  // Fluxo de WhatsApp: solicita o OTP e avança pro passo de código.
+  // Fluxo de WhatsApp: envia magic link direto pelo WhatsApp.
   async function submitWhatsapp(digits: string) {
     if (digits.length < 10) {
       setErrorMsg(t('errors.invalidWhatsapp'));
@@ -159,19 +159,18 @@ export default function LoginForm({ branding }: { branding: any }) {
     setStatus('loading');
     setErrorMsg('');
     try {
-      const res = await fetch('/api/auth/phone-otp/request', {
+      const res = await fetch('/api/auth/phone-magic-link/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ telefone: digits, locale }),
+        body: JSON.stringify({ telefone: digits, redirectTo: `${window.location.origin}${redirectTo}`, locale }),
       });
       const data = await res.json();
       if (!res.ok || data?.error) {
-        setErrorMsg(data?.error || t('errors.sendCode'));
+        setErrorMsg(data?.error || t('errors.sendLink'));
         setStatus('error');
         return;
       }
-      setAwaitingCode(true);
-      setStatus('idle');
+      setStatus('sent');
     } catch (err: any) {
       setErrorMsg(t('errors.network', { message: err.message }));
       setStatus('error');

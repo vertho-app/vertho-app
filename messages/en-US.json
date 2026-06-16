@@ -146,6 +146,7 @@
       "today": "Start today's activity",
       "vote": "Vote before the behavioral profile",
       "waitingProfile": "Awaiting release of behavioral profile",
+      "waitingScenarios": "Waiting for scenario mapping release",
       "behavioral": "Start behavioral assessment",
       "continueAssessment": "Continue review",
       "startAssessment": "Start assessment"
@@ -2325,6 +2326,9 @@
       "closeBeforeUnlock": "Close the vote before releasing the next step",
       "lockProfile": "Lock profile",
       "unlockProfile": "Release profile",
+      "unlockProfileBeforeScenarios": "Release the behavioral profile before releasing scenarios",
+      "lockScenarios": "Lock scenarios",
+      "unlockScenarios": "Release scenarios",
       "closeVoting": "Close vote",
       "openVoting": "Open vote",
       "approveSelected": "Approve {count, plural, =0 {selecionadas} one {# selecionada} other {# selecionadas}}"
@@ -2339,6 +2343,12 @@
       "locked": "Behavioral profile blocked - wait for voting to finish",
       "availableAfterClose": "Release available after voting closes",
       "useUnlockButton": "Use the “Release profile” button when the ranking is closed"
+    },
+    "scenarios": {
+      "unlocked": "Scenario mapping released — employees can answer",
+      "locked": "Scenario mapping locked",
+      "availableAfterProfile": "Release available after the behavioral profile is released",
+      "useUnlockButton": "Use the “Release scenarios” button when behavioral profile mapping is complete"
     },
     "hint": {
       "title": "How to define the final Top of the position:",

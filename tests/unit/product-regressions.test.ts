@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { calcularMercadoScores } from '@/lib/mercado-potencial/scoring';
 import { calcularDispersaoMunicipalFromRows } from '@/lib/radar/queries';
-import { isPerfilComportamentalLiberado } from '@/lib/votacao/status';
+import { isMapeamentoCenariosLiberado, isPerfilComportamentalLiberado } from '@/lib/votacao/status';
 
 describe('regressoes de produto', () => {
   it('mercado potencial recalcula professores de onboarding pelo corte de idade', () => {
@@ -71,5 +71,13 @@ describe('regressoes de produto', () => {
     expect(isPerfilComportamentalLiberado({ votacao_ativa: true, perfil_comportamental_liberado: false })).toBe(false);
     expect(isPerfilComportamentalLiberado({ votacao_ativa: true, perfil_comportamental_liberado: true })).toBe(true);
     expect(isPerfilComportamentalLiberado({ votacao_ativa: false, perfil_comportamental_liberado: undefined })).toBe(true);
+  });
+
+  it('bloqueia mapeamento de cenarios ate liberacao explicita apos perfil', () => {
+    expect(isMapeamentoCenariosLiberado({})).toBe(false);
+    expect(isMapeamentoCenariosLiberado({ mapeamento_cenarios_liberado: true })).toBe(true);
+    expect(isMapeamentoCenariosLiberado({ perfil_comportamental_liberado: false, mapeamento_cenarios_liberado: true })).toBe(false);
+    expect(isMapeamentoCenariosLiberado({ votacao_ativa: true, mapeamento_cenarios_liberado: true })).toBe(false);
+    expect(isMapeamentoCenariosLiberado({ votacao_ativa: true, perfil_comportamental_liberado: true, mapeamento_cenarios_liberado: true })).toBe(true);
   });
 });

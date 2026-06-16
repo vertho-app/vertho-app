@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUser } from '@/lib/auth/request-context';
 import { csrfCheck } from '@/lib/csrf';
+import { isMapeamentoCenariosLiberado } from '@/lib/votacao/status';
 
 // PPP-alvo do colaborador: a escola dele define o PPP (escolas que compartilham
 // o PPP usam o mesmo cenário). Sem escola/PPP → null = rede.
@@ -38,6 +39,14 @@ export async function GET(req: Request) {
       .select('id, nome_completo, cargo, empresa_id, perfil_dominante, escola_id')
       .eq('email', email).single();
     if (!colab) return NextResponse.json({ error: 'Colaborador não encontrado' }, { status: 404 });
+
+    const { data: empresa } = await sb.from('empresas')
+      .select('sys_config')
+      .eq('id', colab.empresa_id)
+      .maybeSingle();
+    if (!isMapeamentoCenariosLiberado(empresa?.sys_config || {})) {
+      return NextResponse.json({ error: 'O mapeamento de cenários ainda não foi liberado pela empresa.' }, { status: 403 });
+    }
 
     const { data: cenariosRaw } = await sb.from('banco_cenarios')
       .select('id, competencia_id, ppp_escola_id, titulo, descricao, alternativas, p1, p2, p3, p4')
@@ -81,6 +90,14 @@ export async function POST(req: Request) {
     const { data: colab } = await sb.from('colaboradores')
       .select('id, empresa_id, escola_id').eq('email', auth.email).single();
     if (!colab) return NextResponse.json({ error: 'Colaborador não encontrado' }, { status: 404 });
+
+    const { data: empresa } = await sb.from('empresas')
+      .select('sys_config')
+      .eq('id', colab.empresa_id)
+      .maybeSingle();
+    if (!isMapeamentoCenariosLiberado(empresa?.sys_config || {})) {
+      return NextResponse.json({ error: 'O mapeamento de cenários ainda não foi liberado pela empresa.' }, { status: 403 });
+    }
 
     const { data: cenariosRaw } = await sb.from('banco_cenarios')
       .select('id, competencia_id, ppp_escola_id')

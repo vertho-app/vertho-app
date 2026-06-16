@@ -2,7 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getUserContext, getDashboardView, findColabByEmail } from '@/lib/authz';
-import { isPerfilComportamentalLiberado } from '@/lib/votacao/status';
+import { isMapeamentoCenariosLiberado, isPerfilComportamentalLiberado } from '@/lib/votacao/status';
 
 /**
  * Carrega dados do dashboard usando o papel explícito (coluna `role`).
@@ -81,6 +81,7 @@ export async function loadDashboardData() {
   const cfg = (empCfg?.sys_config as any) || {};
   const empresaPerfilExternoFonte = cfg.perfil_externo_fonte ?? null;
   const perfilComportamentalLiberado = isPerfilComportamentalLiberado(cfg);
+  const mapeamentoCenariosLiberado = isMapeamentoCenariosLiberado(cfg);
 
   return {
     colaborador: colab,
@@ -93,6 +94,7 @@ export async function loadDashboardData() {
     teamData,
     empresaPerfilExternoFonte,
     perfilComportamentalLiberado,
+    mapeamentoCenariosLiberado,
   };
 }
 
