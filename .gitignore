@@ -89,3 +89,7 @@ data-pipeline/radarempresas/**/_vt/
 /backups/
 
 /spike-bundle/
+
+# worker de render Hetzner: bundle (artefato) e .env (segredos) nunca vão pro git
+worker-hetzner/spike-bundle/
+worker-hetzner/.env
