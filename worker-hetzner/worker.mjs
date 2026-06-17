@@ -14,8 +14,9 @@
 import pg from 'pg';
 import os from 'node:os';
 import path from 'node:path';
-import { readFile, access } from 'node:fs/promises';
+import { readFile, access, rm } from 'node:fs/promises';
 import { ensureBrowser, selectComposition, renderMedia } from '@remotion/renderer';
+import { personalizar, primeiroNome } from './personalizar.mjs';
 
 const {
   DATABASE_URL,
@@ -73,7 +74,7 @@ async function claim() {
       SELECT id FROM videos_gerados WHERE status='render_queued'
       ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED
     )
-    RETURNING id, render_inputprops, render_scale, roteiro`);
+    RETURNING id, render_inputprops, render_scale, roteiro, empresa_id, cargo, disc_dominante`);
   return rows[0] || null;
 }
 
@@ -85,6 +86,53 @@ async function reap() {
     [REAP_AFTER_MIN],
   );
   if (rowCount) log(`reaper: ${rowCount} job(s) preso(s) devolvido(s) à fila`);
+}
+
+/** Pré-aquece a célula: gera o vídeo PERSONALIZADO (saudação "Olá, {nome}") de
+ *  cada colaborador da célula e sobe no Bunny. Idempotente (pula quem já está
+ *  'done'). Roda na própria box (o deck já está em /tmp). */
+async function personalizeCell(job, deckPath) {
+  if (!process.env.GEMINI_API_KEY) { log(`personalização pulada (sem GEMINI_API_KEY) ${job.id}`); return; }
+  const disc = String(job.disc_dominante || '').trim().charAt(0).toUpperCase();
+  if (!job.empresa_id || !job.cargo || !['D', 'I', 'S', 'C'].includes(disc)) {
+    log(`personalização pulada (célula incompleta) ${job.id}`); return;
+  }
+  const { rows: colabs } = await pool.query(
+    `SELECT id, nome_completo FROM colaboradores
+     WHERE empresa_id=$1 AND cargo=$2 AND upper(left(coalesce(perfil_dominante,''),1))=$3
+       AND coalesce(trim(nome_completo),'') <> ''`,
+    [job.empresa_id, job.cargo, disc]);
+  if (!colabs.length) { log(`célula ${job.cargo}/${disc} sem colaboradores p/ personalizar`); return; }
+  log(`personalizando ${colabs.length} colaborador(es) da célula ${job.cargo}/${disc}…`);
+  let ok = 0, err = 0;
+  for (const c of colabs) {
+    const nome = primeiroNome(c.nome_completo);
+    try {
+      const { rows: ex } = await pool.query('SELECT status FROM videos_personalizados WHERE cell_video_id=$1 AND colaborador_id=$2', [job.id, c.id]);
+      if (ex[0]?.status === 'done') continue;
+      await pool.query(
+        `INSERT INTO videos_personalizados (cell_video_id, colaborador_id, nome_usado, status)
+         VALUES ($1,$2,$3,'processing')
+         ON CONFLICT (cell_video_id, colaborador_id) DO UPDATE SET status='processing', nome_usado=$3, error=null, updated_at=now()`,
+        [job.id, c.id, nome]);
+      const outPath = `/tmp/perso-${job.id}-${c.id}.mp4`;
+      await personalizar(deckPath, c.nome_completo, outPath);
+      const buf = await readFile(outPath);
+      const guid = await uploadToBunny(buf, `${nome} · ${job.id}`);
+      const videoUrl = `https://iframe.mediadelivery.net/play/${BUNNY_LIB}/${guid}`;
+      await pool.query(
+        `UPDATE videos_personalizados SET status='done', video_url=$3, bunny_video_id=$4, bunny_library=$5, error=null, updated_at=now()
+         WHERE cell_video_id=$1 AND colaborador_id=$2`,
+        [job.id, c.id, videoUrl, guid, BUNNY_LIB]);
+      await rm(outPath, { force: true }).catch(() => {});
+      ok++; log(`  ✓ ${nome} → ${guid}`);
+    } catch (e) {
+      err++; log(`  ✗ ${nome} (${c.id}): ${e?.message || e}`);
+      await pool.query('UPDATE videos_personalizados SET status=\'error\', error=$3, updated_at=now() WHERE cell_video_id=$1 AND colaborador_id=$2',
+        [job.id, c.id, String(e?.message || e).slice(0, 300)]).catch(() => {});
+    }
+  }
+  log(`personalização da célula ${job.id}: ${ok} ok, ${err} erro(s)`);
 }
 
 async function renderOne(job) {
@@ -116,6 +164,11 @@ async function renderOne(job) {
     [job.id, videoUrl, guid, BUNNY_LIB],
   );
   log(`DONE ${job.id} → ${videoUrl}`);
+
+  // Personalização nominal (Rota A): prepend "Olá, {nome}" por colaborador da
+  // célula, na própria box (o deck está em `out`). Falha aqui NÃO derruba o
+  // render — o deck genérico já está done e entregável.
+  await personalizeCell(job, out).catch((e) => log(`personalização falhou (deck OK) ${job.id}:`, e?.message || e));
 }
 
 let parando = false;

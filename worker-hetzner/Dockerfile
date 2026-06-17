@@ -17,7 +17,7 @@ COPY package.json package-lock.json* ./
 RUN npm install --omit=dev
 
 # Código + bundle Remotion já compilado (mesma composição do app).
-COPY worker.mjs ./
+COPY worker.mjs personalizar.mjs ./
 COPY spike-bundle ./spike-bundle
 
 # Pré-baixa o Chrome headless do Remotion na imagem (evita baixar a cada boot).
