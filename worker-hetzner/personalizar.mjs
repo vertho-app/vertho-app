@@ -19,7 +19,7 @@ const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
 const FFPROBE = process.env.FFPROBE_PATH || 'ffprobe';
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
 const TTS_MODEL = process.env.GEMINI_TTS_MODEL || 'gemini-3.1-flash-tts-preview';
-const VOICE = process.env.VIDEO_TTS_VOICE || 'Kore';
+const VOICE = process.env.VIDEO_TTS_VOICE || 'Callirrhoe';
 const FONT = process.env.PERSONALIZE_FONT || '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf';
 const BG = process.env.PERSONALIZE_BG || '0x142F57'; // navy da marca
 

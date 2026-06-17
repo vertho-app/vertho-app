@@ -410,15 +410,21 @@ function splitNarrationForTts(texto: string, maxChars = 600): string[] {
  * Narra em TRECHOS (mesma voz) e concatena o PCM, com uma pausa curta entre
  * eles — mantém voz e volume consistentes do início ao fim.
  */
-export async function generateNarrationAudio(texto: string, opts: { voice?: string } = {}): Promise<PodcastAudioFile> {
+// Direção de estilo default (devolutiva comportamental): mensagem pessoal do
+// mentor, ritmo moderado/reflexivo. O caminho de VÍDEO passa `opts.style` com um
+// ritmo mais ágil (ver gerar-narracao.ts).
+const NARRATION_STYLE_DEFAULT = 'Narre em português do Brasil, com voz acolhedora, segura e íntima, ritmo moderado e pausas reflexivas naturais, como um mentor falando diretamente com a pessoa';
+
+export async function generateNarrationAudio(texto: string, opts: { voice?: string; style?: string } = {}): Promise<PodcastAudioFile> {
   if (!texto?.trim()) throw new Error('texto de narração vazio');
   const voice = opts.voice || VOICE;
+  const styleDirective = opts.style || NARRATION_STYLE_DEFAULT;
   const trechos = splitNarrationForTts(texto);
 
   const partes: Buffer[] = [];
   let sampleRate = 24000;
   for (const trecho of trechos) {
-    const styled = `Narre em português do Brasil, com voz acolhedora, segura e íntima, ritmo moderado e pausas reflexivas naturais, como um mentor falando diretamente com a pessoa:\n\n${trecho}`;
+    const styled = `${styleDirective}:\n\n${trecho}`;
     const { pcm, sampleRate: sr } = await ttsToPcm(styled, voice);
     sampleRate = sr;
     if (partes.length) {

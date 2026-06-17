@@ -10,7 +10,10 @@ import type { RoteiroScene } from '@/lib/video/roteiro-prompt';
 const SUPA = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const BUCKET = 'video-assets';
-const VOICE = process.env.VIDEO_TTS_VOICE || 'Kore';
+const VOICE = process.env.VIDEO_TTS_VOICE || 'Callirrhoe';
+// Narração de vídeo: ritmo mais ágil (conversa fluida) que a devolutiva — validado
+// no teste de calibração da Mentora Vertho (voz Callirrhoe).
+const VIDEO_NARRATION_STYLE = 'Narre em ritmo natural e ágil, como uma conversa fluida e acolhedora, sem pressa excessiva, em português do Brasil';
 
 export interface NarracaoCena {
   sceneId: string;
@@ -24,7 +27,7 @@ export async function gerarNarracaoDoRoteiro(scenes: RoteiroScene[], jobId: stri
   const out: NarracaoCena[] = [];
   for (const s of scenes) {
     if (!s.narration?.trim()) continue;
-    const audio = await generateNarrationAudio(s.narration, { voice: VOICE });
+    const audio = await generateNarrationAudio(s.narration, { voice: VOICE, style: VIDEO_NARRATION_STYLE });
     const path = `${jobId}/${s.id}.mp3`;
     const r = await fetch(`${SUPA}/storage/v1/object/${BUCKET}/${path}`, {
       method: 'POST',
