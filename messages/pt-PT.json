@@ -2784,6 +2784,14 @@
         "label": "Conteúdos",
         "sub": "peças autoradas (biblioteca)"
       },
+      "extracao": {
+        "label": "Extrações",
+        "sub": "vídeo → módulo-base"
+      },
+      "video_gerado": {
+        "label": "Vídeos gerados",
+        "sub": "módulo-base → vídeo"
+      },
       "pagina_radar": {
         "label": "Páginas Radar",
         "sub": "escolas/municípios únicos"
@@ -3404,6 +3412,9 @@
       "disc": "Perfil DISC",
       "withProfile": "Com perfil",
       "withoutProfile": "Sem perfil",
+      "mapping": "Mapeamento",
+      "mappingDone": "Concluído",
+      "mappingPending": "Pendente",
       "emailRecipients": "{count} destinatário(s) com email",
       "whatsappRecipients": "{count} destinatário(s) com WhatsApp"
     },

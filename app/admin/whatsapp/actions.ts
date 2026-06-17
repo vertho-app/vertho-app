@@ -185,6 +185,20 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
         : colabs.filter(c => votouSet.has(c.id));
     }
 
+    // Filtrar por mapeamento de competências (diagnóstico Fase 2): 'completo'
+    // (sessão de avaliação concluída) vs 'pendente' (sem sessão concluída).
+    if (filtros.mapeamento === 'completo' || filtros.mapeamento === 'pendente') {
+      const { data: sessoes } = await sb
+        .from('sessoes_avaliacao')
+        .select('colaborador_id')
+        .eq('empresa_id', empresaId)
+        .eq('status', 'concluida');
+      const mapeouSet = new Set((sessoes || []).map((s: any) => s.colaborador_id));
+      colabs = filtros.mapeamento === 'completo'
+        ? colabs.filter(c => mapeouSet.has(c.id))
+        : colabs.filter(c => !mapeouSet.has(c.id));
+    }
+
     // Filtrar por canal
     if (canal === 'whatsapp') colabs = colabs.filter(c => c.telefone);
     else colabs = colabs.filter(c => c.email);
@@ -479,6 +493,17 @@ export async function enviarMagicLinksWhatsApp(empresaId: string, filtros: any =
         ? colabs.filter(c => !votouSet.has(c.id))
         : colabs.filter(c => votouSet.has(c.id));
     }
+    if (filtros.mapeamento === 'completo' || filtros.mapeamento === 'pendente') {
+      const { data: sessoes } = await sb
+        .from('sessoes_avaliacao')
+        .select('colaborador_id')
+        .eq('empresa_id', empresaId)
+        .eq('status', 'concluida');
+      const mapeouSet = new Set((sessoes || []).map((s: any) => s.colaborador_id));
+      colabs = filtros.mapeamento === 'completo'
+        ? colabs.filter(c => mapeouSet.has(c.id))
+        : colabs.filter(c => !mapeouSet.has(c.id));
+    }
     if (!colabs.length) return { success: false, error: 'Nenhum colaborador com telefone e email' };
 
     const zapiInstance = process.env.ZAPI_INSTANCE_ID;
@@ -575,5 +600,14 @@ export async function loadColaboradoresEnvio(empresaId) {
     .eq('empresa_id', empresaId);
   const votouSet = new Set((votos || []).map((v: any) => v.colaborador_id));
 
-  return data.map((c: any) => ({ ...c, votou: votouSet.has(c.id), temDisc: !!c.perfil_dominante }));
+  // Marca quem CONCLUIU o mapeamento (diagnóstico) de competências — sessão de
+  // avaliação com status 'concluida' (mesmo sinal usado por verStatusEnvios).
+  const { data: sessoes } = await sb
+    .from('sessoes_avaliacao')
+    .select('colaborador_id')
+    .eq('empresa_id', empresaId)
+    .eq('status', 'concluida');
+  const mapeouSet = new Set((sessoes || []).map((s: any) => s.colaborador_id));
+
+  return data.map((c: any) => ({ ...c, votou: votouSet.has(c.id), temDisc: !!c.perfil_dominante, temMapeamento: mapeouSet.has(c.id) }));
 }

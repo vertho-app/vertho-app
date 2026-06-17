@@ -90,6 +90,9 @@ export default function EnviosPage() {
   // Filtro por presença de perfil comportamental (DISC).
   // 'todos' = sem filtro · 'sim' = só quem já tem · 'nao' = só quem ainda não tem
   const [filtroDisc, setFiltroDisc] = useState<'todos' | 'sim' | 'nao'>('todos');
+  // Filtro por conclusão do MAPEAMENTO (diagnóstico) de competências — Fase 2.
+  // 'todos' = sem filtro · 'completo' = quem concluiu · 'pendente' = quem ainda não
+  const [filtroMapeamento, setFiltroMapeamento] = useState<'todos' | 'completo' | 'pendente'>('todos');
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState(null);
 
@@ -139,6 +142,8 @@ export default function EnviosPage() {
     if (filtroVoto === 'votou' && !c.votou) return false;
     if (filtroDisc === 'sim' && !c.temDisc) return false;
     if (filtroDisc === 'nao' && c.temDisc) return false;
+    if (filtroMapeamento === 'completo' && !c.temMapeamento) return false;
+    if (filtroMapeamento === 'pendente' && c.temMapeamento) return false;
     if (tab === 'whatsapp' || tab === 'relatorios-whatsapp') return !!c.telefone;
     return !!c.email;
   });
@@ -232,6 +237,7 @@ export default function EnviosPage() {
     if (filtroCargo) filtros.cargo = filtroCargo;
     if (filtroVoto !== 'todos') filtros.voto = filtroVoto;
     if (filtroDisc !== 'todos') filtros.disc = filtroDisc;
+    if (filtroMapeamento !== 'todos') filtros.mapeamento = filtroMapeamento;
     const isRel = tab === 'relatorios-email' || tab === 'relatorios-whatsapp';
     const r = await dispararMensagemCustomizada(empresaId, mensagem, canal, filtros, assunto, isRel && anexarPDF, anexoExtra);
 
@@ -291,7 +297,7 @@ export default function EnviosPage() {
                 <Key size={14} className="text-teal-400" /> {t('magic.title')}
               </h3>
               <p className="text-xs text-gray-400 mb-4">{t('magic.description')}</p>
-              <div className="grid grid-cols-3 gap-2 mb-3">
+              <div className="grid grid-cols-2 gap-2 mb-3">
                 <div>
                   <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('filters.role')}</p>
                   <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
@@ -318,6 +324,15 @@ export default function EnviosPage() {
                     <option value="nao">{t('filters.withoutProfile')}</option>
                   </select>
                 </div>
+                <div>
+                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('filters.mapping')}</p>
+                  <select value={filtroMapeamento} onChange={e => setFiltroMapeamento(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
+                    <option value="todos">{t('filters.all')}</option>
+                    <option value="completo">{t('filters.mappingDone')}</option>
+                    <option value="pendente">{t('filters.mappingPending')}</option>
+                  </select>
+                </div>
               </div>
               <div className="flex items-center gap-1.5 text-[10px] text-teal-400 font-semibold mb-4">
                 <Users size={12} />
@@ -333,6 +348,7 @@ export default function EnviosPage() {
     if (filtroCargo) filtros.cargo = filtroCargo;
     if (filtroVoto !== 'todos') filtros.voto = filtroVoto;
     if (filtroDisc !== 'todos') filtros.disc = filtroDisc;
+    if (filtroMapeamento !== 'todos') filtros.mapeamento = filtroMapeamento;
                   const r = await enviarMagicLinksWhatsApp(empresaId, filtros);
                   setResult(r); setSending(false);
                 }}
@@ -355,7 +371,7 @@ export default function EnviosPage() {
               {/* Filtros */}
               <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
                 <p className="text-xs font-bold text-white flex items-center gap-1.5 mb-3"><Filter size={12} /> {t('filters.title')}</p>
-                <div className="grid grid-cols-3 gap-2 mb-3">
+                <div className="grid grid-cols-2 gap-2 mb-3">
                   <div>
                     <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('filters.role')}</p>
                     <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
@@ -380,6 +396,15 @@ export default function EnviosPage() {
                       <option value="todos">{t('filters.all')}</option>
                       <option value="sim">{t('filters.withProfile')}</option>
                       <option value="nao">{t('filters.withoutProfile')}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('filters.mapping')}</p>
+                    <select value={filtroMapeamento} onChange={e => setFiltroMapeamento(e.target.value as any)}
+                      className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
+                      <option value="todos">{t('filters.all')}</option>
+                      <option value="completo">{t('filters.mappingDone')}</option>
+                      <option value="pendente">{t('filters.mappingPending')}</option>
                     </select>
                   </div>
                 </div>

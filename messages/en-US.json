@@ -3384,6 +3384,9 @@
       "disc": "DISC profile",
       "withProfile": "With profile",
       "withoutProfile": "No profile",
+      "mapping": "Mapping",
+      "mappingDone": "Completed",
+      "mappingPending": "Pending",
       "emailRecipients": "{count} recipient(s) with email",
       "whatsappRecipients": "{count} recipient(s) with WhatsApp"
     },
@@ -3534,6 +3537,14 @@
       "conteudo": {
         "label": "Content",
         "sub": "authored pieces (library)"
+      },
+      "extracao": {
+        "label": "Extractions",
+        "sub": "video → base module"
+      },
+      "video_gerado": {
+        "label": "Generated videos",
+        "sub": "base module → video"
       },
       "pagina_radar": {
         "label": "Radar Pages",
