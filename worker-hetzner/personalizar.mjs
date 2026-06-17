@@ -23,6 +23,10 @@ const VOICE = process.env.VIDEO_TTS_VOICE || 'Kore';
 const FONT = process.env.PERSONALIZE_FONT || '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf';
 const BG = process.env.PERSONALIZE_BG || '0x142F57'; // navy da marca
 
+// Escapa caminho p/ o filtro drawtext (o ':' do drive no Windows e os '\' quebram
+// o parser; no Linux é no-op pois os paths não têm esses caracteres).
+const escDraw = (p) => String(p).replace(/\\/g, '/').replace(/:/g, '\\:');
+
 export function primeiroNome(nome) {
   const first = String(nome || '').trim().split(/\s+/)[0] || '';
   return first ? first.charAt(0).toUpperCase() + first.slice(1).toLowerCase() : '';
@@ -87,7 +91,7 @@ export async function personalizar(deckPath, nomeCompleto, outPath) {
     await exec(FFMPEG, ['-y',
       '-f', 'lavfi', '-i', `color=c=${BG}:s=${width}x${height}:r=${fps}:d=${greetDur.toFixed(2)}`,
       '-i', greetWav,
-      '-vf', `drawtext=fontfile=${FONT}:textfile=${txt}:fontcolor=white:fontsize=${Math.round(height * 0.1)}:x=(w-text_w)/2:y=(h-text_h)/2`,
+      '-vf', `drawtext=fontfile=${escDraw(FONT)}:textfile=${escDraw(txt)}:fontcolor=white:fontsize=${Math.round(height * 0.1)}:x=(w-text_w)/2:y=(h-text_h)/2`,
       '-c:v', 'libx264', '-pix_fmt', pixFmt, '-r', String(fps),
       '-c:a', 'aac', '-ar', '48000', '-ac', '2', '-shortest', '-t', greetDur.toFixed(2), greetMp4]);
 
