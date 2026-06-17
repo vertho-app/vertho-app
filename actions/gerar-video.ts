@@ -115,7 +115,7 @@ export async function dispararVideoDeModulo(moduloBaseId: string, opts: { escopo
  * vídeo pronto/processando para a célula, reaproveita; senão, gera sob demanda.
  * É o ponto de reuso — todos os colaboradores da mesma célula caem aqui.
  */
-export async function resolverCelulaVideo(moduloBaseId: string, empresaId: string, cargo: string, disc: Disc, createdBy: string | null = null, opts: { sb?: any; gerar?: boolean } = {}) {
+export async function resolverCelulaVideo(moduloBaseId: string, empresaId: string, cargo: string, disc: Disc, createdBy: string | null = null, opts: { sb?: any; gerar?: boolean; colaboradorId?: string } = {}) {
   const sb = opts.sb || await requireAdminSupabase();
   const gerar = opts.gerar !== false; // default: lazy gera se ausente
   const { data: existente } = await sb.from('videos_gerados')
@@ -125,7 +125,21 @@ export async function resolverCelulaVideo(moduloBaseId: string, empresaId: strin
     .order('created_at', { ascending: false }).limit(1).maybeSingle();
 
   if (existente) {
-    return { reused: true, id: existente.id, status: existente.status, etapa: existente.etapa, video_url: existente.video_url, bunny_video_id: existente.bunny_video_id, bunny_library: existente.bunny_library };
+    const base = { reused: true, id: existente.id, status: existente.status, etapa: existente.etapa, video_url: existente.video_url, bunny_video_id: existente.bunny_video_id, bunny_library: existente.bunny_library };
+    // Vídeo PERSONALIZADO (saudação nominal "Olá, {nome}") do colaborador: se já
+    // houver um pronto pra esta pessoa nesta célula, entrega ELE no lugar do
+    // genérico. Senão, cai no genérico da célula (fallback transparente).
+    if (opts.colaboradorId) {
+      const { data: perso } = await sb.from('videos_personalizados')
+        .select('status, video_url, bunny_video_id, bunny_library')
+        .eq('cell_video_id', existente.id).eq('colaborador_id', opts.colaboradorId)
+        .order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (perso?.status === 'done' && perso.bunny_video_id) {
+        return { ...base, status: 'done', etapa: 'done', video_url: perso.video_url, bunny_video_id: perso.bunny_video_id, bunny_library: perso.bunny_library, isPersonalizado: true, personalizadoStatus: 'done' };
+      }
+      if (perso) return { ...base, isPersonalizado: false, personalizadoStatus: perso.status };
+    }
+    return base;
   }
   if (!gerar) return { reused: false, status: 'nao_gerado' };
   const r = await criarEDispararVideo(sb, { moduloBaseId, empresaId, cargo, disc, createdBy });
@@ -162,7 +176,7 @@ export async function resolverVideoDaSemana(competencia: string, descritor: stri
     const escolha = await resolverModuloBaseParaConteudo(sb, { competenciaNome: competencia, nivelMin, locale: colab.locale || 'pt-BR', empresaId: colab.empresa_id });
     if (!escolha?.modulo?.id) return { available: false, reason: 'sem-modulo' };
 
-    const cel = await resolverCelulaVideo(escolha.modulo.id, colab.empresa_id, colab.cargo, disc as Disc, `colab:${colab.id}`, { sb, gerar });
+    const cel = await resolverCelulaVideo(escolha.modulo.id, colab.empresa_id, colab.cargo, disc as Disc, `colab:${colab.id}`, { sb, gerar, colaboradorId: colab.id });
     if ((cel as any).error) return { available: false, reason: (cel as any).error };
     return { available: true, moduloId: escolha.modulo.id, colaboradorId: colab.id, ...cel };
   } catch (err: any) {
@@ -184,7 +198,7 @@ export async function resolverVideoDoColaborador(moduloBaseId: string, colaborad
     if (!colab.empresa_id || !colab.cargo) return { error: 'Colaborador sem empresa/cargo definido' };
     const disc = (colab.perfil_dominante || '').trim().charAt(0).toUpperCase();
     if (!['D', 'I', 'S', 'C'].includes(disc)) return { error: 'Colaborador sem perfil DISC mapeado' };
-    return await resolverCelulaVideo(moduloBaseId, colab.empresa_id, colab.cargo, disc as Disc, `colab:${colab.id}`);
+    return await resolverCelulaVideo(moduloBaseId, colab.empresa_id, colab.cargo, disc as Disc, `colab:${colab.id}`, { colaboradorId: colab.id });
   } catch (err: any) {
     console.error('[resolverVideoDoColaborador]', err);
     return { error: err?.message || 'Falha ao resolver o vídeo do colaborador' };

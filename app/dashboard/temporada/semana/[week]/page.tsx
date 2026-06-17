@@ -608,6 +608,7 @@ function VideoPersonalizadoCard({ competencia, descritor }) {
     <div className="mt-4 rounded-lg border border-violet-400/20 bg-violet-500/[0.06] p-3">
       <p className="text-[10px] uppercase tracking-widest text-violet-300 font-bold mb-2 flex items-center gap-1.5">
         <Video size={12} /> Seu vídeo — feito pro seu cargo e perfil
+        {st.isPersonalizado && <span className="ml-1 normal-case tracking-normal text-emerald-400 font-semibold">· com seu nome</span>}
       </p>
       {pronto ? (
         <div className="aspect-video rounded-lg overflow-hidden bg-black">
