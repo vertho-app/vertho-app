@@ -12,7 +12,10 @@ const FFPROBE = process.env.FFPROBE_PATH || 'ffprobe';
 const SUPA = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const BUCKET = 'video-assets';
-const VOICE = process.env.VIDEO_TTS_VOICE || 'Kore';
+const VOICE = process.env.VIDEO_TTS_VOICE || 'Callirrhoe';
+// Narração de vídeo: ritmo ágil (conversa fluida), distinto da devolutiva (moderado).
+// Validado 17/06 com a voz Callirrhoe.
+const VIDEO_NARRATION_STYLE = 'Narre em ritmo natural e ágil, como uma conversa fluida e acolhedora, sem pressa excessiva, em português do Brasil';
 
 function publicUrl(path: string): string {
   return `${SUPA}/storage/v1/object/public/${BUCKET}/${path}`;
@@ -72,11 +75,11 @@ export const gerarVideoModuloTask = task({
     try {
       const assets: AssetMap = {};
 
-      // 1) NARRAÇÃO — uma voz (Kore) em todo o vídeo.
+      // 1) NARRAÇÃO — uma voz (Callirrhoe, ritmo ágil) em todo o vídeo.
       await patchVideo(videoId, { etapa: 'narracao' });
       for (const s of roteiro.scenes) {
         if (!s.narration?.trim()) continue;
-        const audio = await generateNarrationAudio(s.narration, { voice: VOICE });
+        const audio = await generateNarrationAudio(s.narration, { voice: VOICE, style: VIDEO_NARRATION_STYLE });
         const src = await upload(`${videoId}/${s.id}.mp3`, audio.buffer, 'audio/mpeg');
         assets[s.id] = { src, durationSec: 0 };
       }
@@ -106,15 +109,14 @@ export const gerarVideoModuloTask = task({
       });
 
       // 5) render. scale 0.667 = saída 720p (downscale do design 1080p; o avatar
-      // HeyGen já é nativo 720p). RENDER_BACKEND decide ONDE renderizar:
-      //   - 'hetzner' → enfileira (status render_queued); o worker always-on puxa,
-      //     renderiza e finaliza (video_url/bunny/done). Ver worker-hetzner/.
-      //   - 'trigger' (default) → render chunked no trigger.dev (renderVideoTask).
+      // HeyGen já é nativo 720p). Por padrão, produção usa Hetzner: enfileira
+      // (status render_queued) e o worker always-on finaliza (video_url/bunny/done).
+      // Trigger.dev fica só como override explícito para testes pontuais.
       const scale = Number(process.env.VIDEO_RENDER_SCALE) || 720 / 1080;
       const srt = exportCaptionsToSrt(props.captions);
       const vtt = exportCaptionsToVtt(props.captions);
 
-      if ((process.env.RENDER_BACKEND || 'trigger') === 'hetzner') {
+      if ((process.env.RENDER_BACKEND || 'hetzner') === 'hetzner') {
         await patchVideo(videoId, { status: 'render_queued', etapa: 'render', assets, render_inputprops: props, render_scale: scale, srt, vtt, error: null });
         return { ok: true, videoId, queued: 'hetzner', frames: props.totalFrames };
       }

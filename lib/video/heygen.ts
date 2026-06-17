@@ -13,7 +13,9 @@ const AVATAR = process.env.HEYGEN_AVATAR_ID || 'Abigail_expressive_2024112501';
 // um Talking Photo (foto custom, photoreal, mesmo custo ~$0,017/s) no lugar do
 // avatar preset. Sem ele, cai no avatar_id (Abigail). Avatar IV (v3) é ~3× mais
 // caro — não usado.
-const TALKING_PHOTO = process.env.HEYGEN_TALKING_PHOTO_ID || '';
+// Avatar "Mentora Vertho" (Talking Photo aberto, navy) é o DEFAULT — validado
+// 17/06. Env var só sobrescreve (ex.: testar outra foto). Não é segredo (id de asset).
+const TALKING_PHOTO = process.env.HEYGEN_TALKING_PHOTO_ID || 'd160ea51f4124514b94aa1cf8e56eb42';
 const BASE = 'https://api.heygen.com';
 
 export interface ClipAvatar {
