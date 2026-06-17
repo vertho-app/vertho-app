@@ -9,6 +9,11 @@
  */
 const KEY = process.env.HEYGEN_API_KEY || '';
 const AVATAR = process.env.HEYGEN_AVATAR_ID || 'Abigail_expressive_2024112501';
+// Avatar da marca "Mentora Vertho": se HEYGEN_TALKING_PHOTO_ID estiver setado, usa
+// um Talking Photo (foto custom, photoreal, mesmo custo ~$0,017/s) no lugar do
+// avatar preset. Sem ele, cai no avatar_id (Abigail). Avatar IV (v3) é ~3× mais
+// caro — não usado.
+const TALKING_PHOTO = process.env.HEYGEN_TALKING_PHOTO_ID || '';
 const BASE = 'https://api.heygen.com';
 
 export interface ClipAvatar {
@@ -32,7 +37,9 @@ export async function gerarClipHeyGen(audioUrl: string, opts: GerarOpts = {}): P
   const height = opts.height ?? 720;
   const body = {
     video_inputs: [{
-      character: { type: 'avatar', avatar_id: opts.avatarId || AVATAR, avatar_style: opts.avatarStyle || 'normal' },
+      character: (TALKING_PHOTO && !opts.avatarId)
+        ? { type: 'talking_photo', talking_photo_id: TALKING_PHOTO }
+        : { type: 'avatar', avatar_id: opts.avatarId || AVATAR, avatar_style: opts.avatarStyle || 'normal' },
       voice: { type: 'audio', audio_url: audioUrl },
     }],
     dimension: { width, height },
