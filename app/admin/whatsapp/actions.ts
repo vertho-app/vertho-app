@@ -5,6 +5,40 @@ import { requireAdminAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 import { APP_WEBHOOK_URL, EMAIL_FROM_DEFAULT, QSTASH_BASE_URL, ROOT_DOMAIN, tenantUrl } from '@/lib/domain';
 
+/**
+ * Colaboradores que CONCLUÍRAM o mapeamento de competências: responderam TODAS
+ * as competências que têm cenário no seu cargo (mesma regra do assessment —
+ * `pendentes.length === 0`). Esperado por cargo = competências distintas em
+ * banco_cenarios; respondidas = competências distintas em `respostas`.
+ */
+async function colaboradoresMapeamentoCompleto(sb: any, empresaId: string): Promise<Set<string>> {
+  const [{ data: respostas }, { data: cenarios }] = await Promise.all([
+    sb.from('respostas').select('colaborador_id, competencia_id, cargo').eq('empresa_id', empresaId),
+    sb.from('banco_cenarios').select('cargo, competencia_id').eq('empresa_id', empresaId),
+  ]);
+  const esperadoPorCargo = new Map<string, Set<string>>();
+  for (const c of (cenarios || [])) {
+    if (!c.competencia_id) continue;
+    let s = esperadoPorCargo.get(c.cargo); if (!s) esperadoPorCargo.set(c.cargo, s = new Set());
+    s.add(c.competencia_id);
+  }
+  const respByColab = new Map<string, { cargo: string; comps: Set<string> }>();
+  for (const r of (respostas || [])) {
+    if (!r.competencia_id) continue;
+    let o = respByColab.get(r.colaborador_id); if (!o) respByColab.set(r.colaborador_id, o = { cargo: r.cargo, comps: new Set() });
+    o.comps.add(r.competencia_id);
+  }
+  const completos = new Set<string>();
+  for (const [colabId, o] of respByColab) {
+    const esperado = esperadoPorCargo.get(o.cargo);
+    if (!esperado || esperado.size === 0) continue;
+    let todas = true;
+    for (const cid of esperado) if (!o.comps.has(cid)) { todas = false; break; }
+    if (todas) completos.add(colabId);
+  }
+  return completos;
+}
+
 const RESEND_MIN_INTERVAL_MS = 250; // 4 req/s, abaixo do limite atual de 5 req/s
 
 function sleep(ms: number) {
@@ -188,11 +222,7 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
     // Filtrar por mapeamento de competências (diagnóstico Fase 2): 'completo'
     // (sessão de avaliação concluída) vs 'pendente' (sem sessão concluída).
     if (filtros.mapeamento === 'completo' || filtros.mapeamento === 'pendente') {
-      const { data: respostas } = await sb
-        .from('respostas')
-        .select('colaborador_id')
-        .eq('empresa_id', empresaId);
-      const mapeouSet = new Set((respostas || []).map((r: any) => r.colaborador_id));
+      const mapeouSet = await colaboradoresMapeamentoCompleto(sb, empresaId);
       colabs = filtros.mapeamento === 'completo'
         ? colabs.filter(c => mapeouSet.has(c.id))
         : colabs.filter(c => !mapeouSet.has(c.id));
@@ -493,11 +523,7 @@ export async function enviarMagicLinksWhatsApp(empresaId: string, filtros: any =
         : colabs.filter(c => votouSet.has(c.id));
     }
     if (filtros.mapeamento === 'completo' || filtros.mapeamento === 'pendente') {
-      const { data: respostas } = await sb
-        .from('respostas')
-        .select('colaborador_id')
-        .eq('empresa_id', empresaId);
-      const mapeouSet = new Set((respostas || []).map((r: any) => r.colaborador_id));
+      const mapeouSet = await colaboradoresMapeamentoCompleto(sb, empresaId);
       colabs = filtros.mapeamento === 'completo'
         ? colabs.filter(c => mapeouSet.has(c.id))
         : colabs.filter(c => !mapeouSet.has(c.id));
@@ -598,14 +624,9 @@ export async function loadColaboradoresEnvio(empresaId) {
     .eq('empresa_id', empresaId);
   const votouSet = new Set((votos || []).map((v: any) => v.colaborador_id));
 
-  // Marca quem RESPONDEU o mapeamento (diagnóstico) de competências — tem ao
-  // menos uma resposta em `respostas` (mesmo critério da tela Diagnóstico
-  // "X de N responderam"). NÃO usar sessoes_avaliacao (vazia neste fluxo).
-  const { data: respostas } = await sb
-    .from('respostas')
-    .select('colaborador_id')
-    .eq('empresa_id', empresaId);
-  const mapeouSet = new Set((respostas || []).map((r: any) => r.colaborador_id));
+  // "Completou o mapeamento" = respondeu TODAS as competências com cenário do
+  // seu cargo (regra do assessment: pendentes==0).
+  const mapeouSet = await colaboradoresMapeamentoCompleto(sb, empresaId);
 
   return data.map((c: any) => ({ ...c, votou: votouSet.has(c.id), temDisc: !!c.perfil_dominante, temMapeamento: mapeouSet.has(c.id) }));
 }
