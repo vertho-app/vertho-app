@@ -188,12 +188,11 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
     // Filtrar por mapeamento de competências (diagnóstico Fase 2): 'completo'
     // (sessão de avaliação concluída) vs 'pendente' (sem sessão concluída).
     if (filtros.mapeamento === 'completo' || filtros.mapeamento === 'pendente') {
-      const { data: sessoes } = await sb
-        .from('sessoes_avaliacao')
+      const { data: respostas } = await sb
+        .from('respostas')
         .select('colaborador_id')
-        .eq('empresa_id', empresaId)
-        .eq('status', 'concluida');
-      const mapeouSet = new Set((sessoes || []).map((s: any) => s.colaborador_id));
+        .eq('empresa_id', empresaId);
+      const mapeouSet = new Set((respostas || []).map((r: any) => r.colaborador_id));
       colabs = filtros.mapeamento === 'completo'
         ? colabs.filter(c => mapeouSet.has(c.id))
         : colabs.filter(c => !mapeouSet.has(c.id));
@@ -494,12 +493,11 @@ export async function enviarMagicLinksWhatsApp(empresaId: string, filtros: any =
         : colabs.filter(c => votouSet.has(c.id));
     }
     if (filtros.mapeamento === 'completo' || filtros.mapeamento === 'pendente') {
-      const { data: sessoes } = await sb
-        .from('sessoes_avaliacao')
+      const { data: respostas } = await sb
+        .from('respostas')
         .select('colaborador_id')
-        .eq('empresa_id', empresaId)
-        .eq('status', 'concluida');
-      const mapeouSet = new Set((sessoes || []).map((s: any) => s.colaborador_id));
+        .eq('empresa_id', empresaId);
+      const mapeouSet = new Set((respostas || []).map((r: any) => r.colaborador_id));
       colabs = filtros.mapeamento === 'completo'
         ? colabs.filter(c => mapeouSet.has(c.id))
         : colabs.filter(c => !mapeouSet.has(c.id));
@@ -600,14 +598,14 @@ export async function loadColaboradoresEnvio(empresaId) {
     .eq('empresa_id', empresaId);
   const votouSet = new Set((votos || []).map((v: any) => v.colaborador_id));
 
-  // Marca quem CONCLUIU o mapeamento (diagnóstico) de competências — sessão de
-  // avaliação com status 'concluida' (mesmo sinal usado por verStatusEnvios).
-  const { data: sessoes } = await sb
-    .from('sessoes_avaliacao')
+  // Marca quem RESPONDEU o mapeamento (diagnóstico) de competências — tem ao
+  // menos uma resposta em `respostas` (mesmo critério da tela Diagnóstico
+  // "X de N responderam"). NÃO usar sessoes_avaliacao (vazia neste fluxo).
+  const { data: respostas } = await sb
+    .from('respostas')
     .select('colaborador_id')
-    .eq('empresa_id', empresaId)
-    .eq('status', 'concluida');
-  const mapeouSet = new Set((sessoes || []).map((s: any) => s.colaborador_id));
+    .eq('empresa_id', empresaId);
+  const mapeouSet = new Set((respostas || []).map((r: any) => r.colaborador_id));
 
   return data.map((c: any) => ({ ...c, votou: votouSet.has(c.id), temDisc: !!c.perfil_dominante, temMapeamento: mapeouSet.has(c.id) }));
 }
