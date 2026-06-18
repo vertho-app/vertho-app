@@ -1,18 +1,25 @@
 /**
  * Personalização nominal (Rota A) — roda na MESMA box de render.
  *
- * Prepend de uma saudação curta "Olá, {nome}" (card com o nome na tela + voz-over
- * TTS Kore) ao deck genérico da célula. O avatar do deck NÃO fala o nome → o deck
- * continua reutilizável por todos da célula; só esta camada é por pessoa.
+ * Prepend de uma cena de SAUDAÇÃO "Olá, {nome}" ao deck genérico da célula:
+ *   • renderizada via Remotion (composição `AvatarGreeting` do mesmo bundle) →
+ *     mesmo padrão visual do deck (fundo, logo, eyebrow, tipografia);
+ *   • "Olá, {nome}" entra à esquerda + a FOTO da mentora desliza pela direita
+ *     (estática → reuso total, sem lip-sync nem custo HeyGen);
+ *   • voz-over TTS Callirrhoe "Olá, {nome}!".
+ * O deck NÃO fala o nome → continua reutilizável por todos da célula; só esta
+ * cena é por pessoa.
  *
- * Puro Node + ffmpeg (sem Next). ffmpeg, ffprobe e a fonte Liberation já estão na
- * imagem do worker (Dockerfile). Precisa de GEMINI_API_KEY no ambiente.
+ * Node + ffmpeg + @remotion/renderer (já na imagem do worker). Precisa de
+ * GEMINI_API_KEY (TTS) e SUPABASE_URL/SERVICE_ROLE_KEY (hospedar o áudio do
+ * voice-over como URL pública p/ o <Audio> do Remotion).
  */
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { writeFile, readFile, mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { selectComposition, renderMedia, ensureBrowser } from '@remotion/renderer';
 
 const exec = promisify(execFile);
 const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
@@ -20,12 +27,10 @@ const FFPROBE = process.env.FFPROBE_PATH || 'ffprobe';
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
 const TTS_MODEL = process.env.GEMINI_TTS_MODEL || 'gemini-3.1-flash-tts-preview';
 const VOICE = process.env.VIDEO_TTS_VOICE || 'Callirrhoe';
-const FONT = process.env.PERSONALIZE_FONT || '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf';
-const BG = process.env.PERSONALIZE_BG || '0x142F57'; // navy da marca
-
-// Escapa caminho p/ o filtro drawtext (o ':' do drive no Windows e os '\' quebram
-// o parser; no Linux é no-op pois os paths não têm esses caracteres).
-const escDraw = (p) => String(p).replace(/\\/g, '/').replace(/:/g, '\\:');
+const SUPA = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const SRK = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const BUCKET = 'video-assets';
+const DEFAULT_BRAND = { primary: '#6D28D9', secondary: '#0EA5E9', background: '#0B1020', font: 'Inter, system-ui, sans-serif' };
 
 export function primeiroNome(nome) {
   const first = String(nome || '').trim().split(/\s+/)[0] || '';
@@ -40,7 +45,7 @@ function pcmToWav(pcm, rate = 24000, ch = 1, bits = 16) {
   return Buffer.concat([h, pcm]);
 }
 
-/** Gera o áudio "Olá, {nome}!" (Gemini TTS, voz Kore) num WAV. */
+/** Gera o áudio "Olá, {nome}!" (Gemini TTS, voz Callirrhoe) num WAV. */
 async function ttsSaudacao(nome, outWav) {
   if (!GEMINI_KEY) throw new Error('GEMINI_API_KEY ausente');
   const styled = `Diga de forma calorosa e acolhedora, como um cumprimento pessoal em português do Brasil:\n\nOlá, ${nome}!`;
@@ -70,40 +75,50 @@ async function probeVideo(deckPath) {
   return { width: v.width, height: v.height, fps: d ? Math.round(n / d) : 30, pixFmt: v.pix_fmt || 'yuv420p' };
 }
 
+/** Sobe o WAV do voice-over no bucket público → URL p/ o <Audio> do Remotion. */
+async function uploadAudio(buf, key) {
+  if (!SUPA || !SRK) throw new Error('SUPABASE_URL/SERVICE_ROLE_KEY ausentes (áudio do greeting)');
+  const r = await fetch(`${SUPA}/storage/v1/object/${BUCKET}/${key}`, {
+    method: 'POST',
+    headers: { apikey: SRK, Authorization: `Bearer ${SRK}`, 'Content-Type': 'audio/wav', 'x-upsert': 'true' },
+    body: buf,
+  });
+  if (!r.ok) throw new Error(`upload greeting audio ${r.status}: ${(await r.text()).slice(0, 150)}`);
+  return `${SUPA}/storage/v1/object/public/${BUCKET}/${key}`;
+}
+
 /**
- * Personaliza: prepend "Olá, {nome}" (card + TTS) ao deck. Tenta concat por
- * stream-copy (instantâneo, se os params do card baterem com o deck); se falhar,
- * cai pro concat-filter (re-encode). Retorna outPath.
+ * Personaliza: renderiza a cena de SAUDAÇÃO (Remotion `AvatarGreeting`) com o nome
+ * + voz-over Callirrhoe, e prepend ao deck. `opts.bundleDir` (serveUrl do Remotion)
+ * é obrigatório; `opts.brand` casa a marca do deck. Retorna outPath.
  */
-export async function personalizar(deckPath, nomeCompleto, outPath) {
+export async function personalizar(deckPath, nomeCompleto, outPath, opts = {}) {
   const nome = primeiroNome(nomeCompleto) || 'tudo bem';
+  const bundleDir = opts.bundleDir;
+  if (!bundleDir) throw new Error('bundleDir ausente (Remotion AvatarGreeting)');
+  const brand = opts.brand || DEFAULT_BRAND;
   const work = await mkdtemp(path.join(os.tmpdir(), 'perso-'));
   try {
     const greetWav = path.join(work, 'greet.wav');
     await ttsSaudacao(nome, greetWav);
-    const { width, height, fps, pixFmt } = await probeVideo(deckPath);
-    const greetDur = Math.max(2.4, (await dur(greetWav)) + 0.6);
+    const audioDur = await dur(greetWav);
+    const { width, height, fps } = await probeVideo(deckPath);
+    const durationInFrames = Math.ceil((audioDur + 1.4) * fps);
 
-    // Card da saudação: fundo navy + nome na tela (textfile evita escaping) + voz-over.
-    const txt = path.join(work, 'nome.txt');
-    await writeFile(txt, `Olá, ${nome}`);
+    // áudio do voice-over precisa de URL pública (o headless do Remotion faz fetch).
+    const stamp = `${opts.jobId || 'p'}_${opts.colaboradorId || nome}`.replace(/[^A-Za-z0-9_-]/g, '');
+    const audioSrc = await uploadAudio(await readFile(greetWav), `greetings/${stamp}.wav`);
+
+    const props = { nome, audioSrc, brand, durationInFrames, fps, width, height };
+    await ensureBrowser();
+    const comp = await selectComposition({ serveUrl: bundleDir, id: 'AvatarGreeting', inputProps: props });
     const greetMp4 = path.join(work, 'greet.mp4');
-    await exec(FFMPEG, ['-y',
-      '-f', 'lavfi', '-i', `color=c=${BG}:s=${width}x${height}:r=${fps}:d=${greetDur.toFixed(2)}`,
-      '-i', greetWav,
-      '-vf', `drawtext=fontfile=${escDraw(FONT)}:textfile=${escDraw(txt)}:fontcolor=white:fontsize=${Math.round(height * 0.1)}:x=(w-text_w)/2:y=(h-text_h)/2`,
-      '-c:v', 'libx264', '-pix_fmt', pixFmt, '-r', String(fps),
-      '-c:a', 'aac', '-ar', '48000', '-ac', '2', '-shortest', '-t', greetDur.toFixed(2), greetMp4]);
+    await renderMedia({ serveUrl: bundleDir, composition: comp, codec: 'h264', outputLocation: greetMp4, inputProps: props, chromiumOptions: { gl: 'swangle' } });
 
-    const listFile = path.join(work, 'list.txt');
-    await writeFile(listFile, `file '${greetMp4}'\nfile '${deckPath}'\n`);
-    try {
-      await exec(FFMPEG, ['-y', '-f', 'concat', '-safe', '0', '-i', listFile, '-c', 'copy', '-movflags', '+faststart', outPath]);
-    } catch {
-      await exec(FFMPEG, ['-y', '-i', greetMp4, '-i', deckPath, '-filter_complex',
-        '[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]', '-map', '[v]', '-map', '[a]',
-        '-c:v', 'libx264', '-pix_fmt', pixFmt, '-c:a', 'aac', '-movflags', '+faststart', outPath]);
-    }
+    // concat saudação + deck (re-encode — params batem) → faststart.
+    await exec(FFMPEG, ['-y', '-i', greetMp4, '-i', deckPath, '-filter_complex',
+      '[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]', '-map', '[v]', '-map', '[a]',
+      '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-r', String(fps), '-c:a', 'aac', '-ar', '48000', '-movflags', '+faststart', outPath]);
     return outPath;
   } finally {
     await rm(work, { recursive: true, force: true }).catch(() => {});

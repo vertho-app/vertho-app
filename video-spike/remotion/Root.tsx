@@ -5,6 +5,9 @@ import { VideoCompositionV2, type SpikePropsV2 } from './VideoCompositionV2';
 import { VideoCompositionV3 } from './VideoCompositionV3';
 import { loadComputed, type SpikeProps } from './data/load-scenes';
 import { loadComputedV3, type SpikePropsV3 } from './data/load-scenes-v3';
+import { AvatarGreeting, type GreetingProps } from './AvatarGreeting';
+
+const GREETING_BRAND = { primary: '#6D28D9', secondary: '#0EA5E9', background: '#0B1020', font: 'Inter, system-ui, sans-serif' };
 
 // Calcula a partir das durações reais (probe) + offsets. defaultProps cobre o
 // estado inicial; calculateMetadata recomputa (durations.json pode ter mudado).
@@ -91,6 +94,22 @@ export const RemotionRoot: React.FC = () => {
             height: p.height || initialV3.height,
             props: p,
           };
+        }}
+      />
+
+      {/* SAUDAÇÃO nominal (Rota A) — renderizada por pessoa e prependada ao deck.
+          duração vem por props (≈ áudio do nome + folga). */}
+      <Composition
+        id="AvatarGreeting"
+        component={AvatarGreeting}
+        durationInFrames={100}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{ nome: 'Bárbara', brand: GREETING_BRAND } as GreetingProps}
+        calculateMetadata={({ props }) => {
+          const p = props as GreetingProps & { durationInFrames?: number; fps?: number; width?: number; height?: number };
+          return { props, durationInFrames: p.durationInFrames || 100, fps: p.fps || 30, width: p.width || 1920, height: p.height || 1080 };
         }}
       />
     </>

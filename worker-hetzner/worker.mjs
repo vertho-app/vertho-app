@@ -116,7 +116,12 @@ async function personalizeCell(job, deckPath) {
          ON CONFLICT (cell_video_id, colaborador_id) DO UPDATE SET status='processing', nome_usado=$3, error=null, updated_at=now()`,
         [job.id, c.id, nome]);
       const outPath = `/tmp/perso-${job.id}-${c.id}.mp4`;
-      await personalizar(deckPath, c.nome_completo, outPath);
+      await personalizar(deckPath, c.nome_completo, outPath, {
+        bundleDir: await resolveBundle(),
+        brand: job.render_inputprops?.brand,
+        jobId: job.id,
+        colaboradorId: c.id,
+      });
       const buf = await readFile(outPath);
       const guid = await uploadToBunny(buf, `${nome} · ${job.id}`);
       const videoUrl = `https://iframe.mediadelivery.net/play/${BUNNY_LIB}/${guid}`;

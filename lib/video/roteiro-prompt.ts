@@ -17,7 +17,8 @@ export interface RoteiroScene {
   type:
     | 'avatar_intro' | 'avatar_outro'
     | 'concept_reveal' | 'comparison_motion' | 'icon_story'
-    | 'stat_highlight' | 'quote_spotlight' | 'steps_flow' | 'scenario_card';
+    | 'stat_highlight' | 'quote_spotlight' | 'steps_flow' | 'scenario_card'
+    | 'maturity_ladder' | 'myth_truth' | 'definition_card' | 'reflection_prompt';
   title?: string;
   subtitle?: string;
   bullets?: string[];
@@ -26,6 +27,14 @@ export interface RoteiroScene {
   right?: { title: string; items: string[] };
   stat?: string;
   quote?: string;
+  rungs?: string[];
+  target?: number;
+  myth?: string;
+  truth?: string;
+  term?: string;
+  definition?: string;
+  prompt?: string;
+  tag?: string;
   narration: string;
   key_idea?: string;
   source_anchor?: string;
@@ -81,7 +90,106 @@ function maturidadeGuia(ne?: string | null, nd?: string | null): string {
 
 const MIOLO_TIPOS: RoteiroScene['type'][] = [
   'concept_reveal', 'comparison_motion', 'icon_story', 'stat_highlight', 'quote_spotlight', 'steps_flow', 'scenario_card',
+  'maturity_ladder', 'myth_truth', 'definition_card', 'reflection_prompt',
 ];
+
+/** Família visual de cada template — o reordenador evita repetir FAMÍLIA em cenas
+ *  adjacentes (não só o template idêntico), variando o ritmo visual do vídeo. */
+const FAMILIA_VISUAL: Record<string, string> = {
+  concept_reveal: 'decomposicao', icon_story: 'decomposicao',
+  comparison_motion: 'contraste', myth_truth: 'contraste',
+  steps_flow: 'progressao', maturity_ladder: 'progressao',
+  quote_spotlight: 'respiro', scenario_card: 'respiro', stat_highlight: 'respiro',
+  definition_card: 'respiro', reflection_prompt: 'respiro',
+};
+const familiaDe = (t: string): string => FAMILIA_VISUAL[t] || t;
+
+function texto(v: unknown, fallback = ''): string {
+  const s = String(v ?? '').replace(/\s+/g, ' ').trim();
+  return s || fallback;
+}
+
+function lista(v: unknown, fallback: string[], min: number, max: number): string[] {
+  const xs = Array.isArray(v)
+    ? v.map((x) => texto(x)).filter(Boolean)
+    : [];
+  const out = [...xs, ...fallback].filter(Boolean).slice(0, max);
+  while (out.length < min) out.push(fallback[out.length % fallback.length] || 'Aplicar');
+  return out;
+}
+
+function painelComparacao(v: unknown, fallbackTitle: string, fallbackItems: string[]): { title: string; items: string[] } {
+  const p = (v && typeof v === 'object') ? v as { title?: unknown; items?: unknown } : {};
+  return {
+    title: texto(p.title, fallbackTitle),
+    items: lista(p.items, fallbackItems, 3, 3),
+  };
+}
+
+function sanearCena(s: RoteiroScene): RoteiroScene {
+  const keyIdea = texto(s.key_idea, texto(s.title, 'Ideia central'));
+  const narration = texto(s.narration, keyIdea);
+  const base: RoteiroScene = {
+    ...s,
+    title: texto(s.title, keyIdea).slice(0, 90),
+    narration,
+    key_idea: keyIdea,
+    source_anchor: texto(s.source_anchor, 'IDEIA_PRINCIPAL'),
+  };
+
+  switch (base.type) {
+    case 'avatar_intro':
+      return { ...base, title: texto(base.title, 'Comece por aqui'), subtitle: texto(base.subtitle, keyIdea) };
+    case 'avatar_outro':
+      return { ...base, title: texto(base.title, 'Pergunta prática'), subtitle: texto(base.subtitle, 'O que muda na sua próxima ação?') };
+    case 'concept_reveal':
+      return { ...base, bullets: lista(base.bullets, ['entender', 'escolher', 'agir'], 3, 3) };
+    case 'comparison_motion':
+      return {
+        ...base,
+        left: painelComparacao(base.left, 'Prática fraca', ['reage tarde', 'decide no impulso', 'perde clareza']),
+        right: painelComparacao(base.right, 'Prática desejada', ['observa sinais', 'define critério', 'ajusta a rota']),
+      };
+    case 'icon_story':
+      return { ...base, items: lista(base.items, ['sinal claro', 'ação simples', 'ajuste rápido'], 3, 3) };
+    case 'steps_flow':
+      return { ...base, items: lista(base.items, ['observar', 'priorizar', 'agir'], 3, 5) };
+    case 'stat_highlight': {
+      const stat = texto(base.stat);
+      if (/\d/.test(stat)) return { ...base, stat, subtitle: texto(base.subtitle, keyIdea) };
+      return { ...base, type: 'quote_spotlight', quote: texto(base.quote, keyIdea), subtitle: texto(base.subtitle, 'Mentora Vertho') };
+    }
+    case 'quote_spotlight':
+      return { ...base, quote: texto(base.quote, keyIdea), subtitle: texto(base.subtitle, 'Mentora Vertho') };
+    case 'scenario_card':
+      return { ...base, title: texto(base.title, 'Imagine'), subtitle: texto(base.subtitle, keyIdea) };
+    case 'maturity_ladder': {
+      const rungs = lista(base.rungs, ['inicial', 'em prática', 'consistente', 'referência'], 3, 5);
+      const target = Number.isFinite(base.target) ? Number(base.target) : rungs.length - 1;
+      return { ...base, rungs, target: Math.min(rungs.length - 1, Math.max(0, Math.round(target))) };
+    }
+    case 'myth_truth':
+      return {
+        ...base,
+        myth: texto(base.myth, 'Fazer mais resolve'),
+        truth: texto(base.truth, keyIdea),
+      };
+    case 'definition_card':
+      return {
+        ...base,
+        term: texto(base.term, base.title || 'Conceito'),
+        definition: texto(base.definition, keyIdea),
+      };
+    case 'reflection_prompt':
+      return {
+        ...base,
+        prompt: texto(base.prompt, texto(base.subtitle, 'O que isso pede de você agora?')),
+        tag: texto(base.tag, 'Pra pensar'),
+      };
+    default:
+      return base;
+  }
+}
 
 export function buildRoteiroPrompt(m: ModuloParaRoteiro): { system: string; user: string } {
   const idioma = IDIOMA[m.locale || 'pt-BR'] || IDIOMA['pt-BR'];
@@ -110,7 +218,7 @@ DURAÇÃO (calibre pela densidade do módulo; não encha com repetição):
 - Miolo: 6–8 cenas (módulo enxuto) · 8–10 (médio) · 10–12 (denso). NUNCA mais de 12 cenas de miolo.
 - SE o módulo render menos de 6 ideias-núcleo distintas, faça MENOS cenas. É melhor um vídeo curto e denso do que esticar a mesma ideia. Nunca repita uma ideia com outra formulação só para aumentar duração.
 - Você NÃO controla o tempo do TTS; calibre por CONTAGEM DE PALAVRAS da narração:
-  - avatar_intro: 50–60 palavras. · cada cena de miolo: 45–65 palavras. · avatar_outro: 38–50 palavras.
+  - avatar_intro: 26–30 palavras (≈15s). · cada cena de miolo: 45–65 palavras. · avatar_outro: 22–26 palavras (≈14s). [Avatar curto e direto: intro+outro somam ~30s — prenda e feche com punch, sem encher.]
   Inclua em cada cena o campo "estimated_words" (contagem aproximada de palavras da narração).
 
 ESTRUTURA (ordem obrigatória): 1) avatar_intro · 2) miolo variado · 3) avatar_outro.
@@ -124,11 +232,15 @@ TEMPLATES E SEUS CAMPOS VISUAIS:
 - stat_highlight: um DADO numérico. stat + title + subtitle. Só use se houver número EXPLÍCITO no módulo; o valor de "stat" deve aparecer LITERALMENTE no conteúdo de entrada. NUNCA invente estatística.
 - quote_spotlight: frase-âncora. quote (≤14 palavras) + subtitle (atribuição, ex.: "Mentora Vertho").
 - scenario_card: abre uma situação típica. title (ex.: "Imagine") + subtitle (1–2 frases curtas).
+- maturity_ladder: progressão de NÍVEIS DE MATURIDADE (estados, não ações). title + rungs (3–5, cada 2–4 palavras) + target (índice 0-based do degrau-META a destacar). Use quando houver régua/níveis/transição (N1→N4). Difere de steps_flow (que são passos de um método, não estados). ORDEM OBRIGATÓRIA: os degraus são desenhados como barras que CRESCEM da esquerda p/ a direita — rungs[0] é o estado MAIS IMATURO (barra mais baixa) e o ÚLTIMO é o MAIS MADURO (barra mais alta). NUNCA coloque um rótulo de estado inicial (ex.: "inicial", "início", "ponto de partida") fora da posição 0 — isso quebra a escada visual. O target normalmente é o último ou penúltimo degrau.
+- myth_truth: quebra de um equívoco. myth (≤10 palavras, a crença errada) + truth (≤10 palavras, a correção). Use no máximo 1× por vídeo, quando houver ERROS_COMUNS / concepção equivocada a desfazer. Difere de comparison_motion (que contrasta duas práticas válidas, não um erro a corrigir).
+- definition_card: define um termo de forma limpa, antes de aprofundá-lo. term (1–3 palavras) + definition (≤14 palavras). Use cedo no vídeo, no máximo 1–2×, para fixar um termo-chave.
+- reflection_prompt: pergunta de reflexão no MEIO do vídeo, que espelha o conceito na rotina do espectador. prompt (a pergunta, ≤14 palavras) + tag (opcional, ex.: "Pra pensar"). Use no máximo 1×, apenas no TERÇO CENTRAL do miolo — nunca como 1ª ou última cena de miolo. NÃO substitui o avatar_outro (que fecha com a pergunta acionável da semana).
 
 REGRAS DE VARIEDADE:
-- NUNCA o mesmo template em duas cenas seguidas.
-- Intercale cenas densas (concept_reveal, comparison_motion, steps_flow) com respiros (quote_spotlight, scenario_card, icon_story).
-- Use scenario_card ao menos uma vez quando houver contexto de cargo. Use comparison_motion ao menos uma vez quando houver erros×boas práticas. Use steps_flow quando houver processo/rotina/método. Use stat_highlight só se houver número real e explícito.
+- NUNCA o mesmo template em duas cenas seguidas. Evite também a mesma FAMÍLIA visual em cenas adjacentes — famílias: decomposição (concept_reveal, icon_story); contraste (comparison_motion, myth_truth); progressão (steps_flow, maturity_ladder); respiro (quote_spotlight, scenario_card, stat_highlight, definition_card, reflection_prompt). Não coloque maturity_ladder ao lado de steps_flow, nem myth_truth ao lado de comparison_motion.
+- Intercale cenas densas (concept_reveal, comparison_motion, steps_flow, maturity_ladder) com respiros (quote_spotlight, scenario_card, icon_story, myth_truth, definition_card, reflection_prompt).
+- Use scenario_card ao menos uma vez quando houver contexto de cargo. Use comparison_motion ao menos uma vez quando houver erros×boas práticas. Use steps_flow quando houver processo/rotina/método. Use maturity_ladder quando houver régua de níveis ou transição de maturidade. Use myth_truth (máx. 1×) quando houver um erro comum/concepção equivocada a desfazer. Use definition_card (máx. 1–2×, cedo) para fixar um termo-chave. Use reflection_prompt (máx. 1×, no terço central) para reengajar no meio do vídeo. Use stat_highlight só se houver número real e explícito.
 - Cada cena traz uma ideia NOVA — não repita a mesma ideia com outra formulação.
 
 DECK INVARIANTE (o deck visual é reaproveitado por todos os perfis DISC):
@@ -175,12 +287,12 @@ FORMATO DE SAÍDA: responda APENAS JSON válido — sem markdown, comentários o
   "audience_context": {"cargo": "cargo ou null", "disc": "D/I/S/C ou null", "maturity_transition": "transição ou null", "institution_context_used": true},
   "estimated_total_words": 520,
   "scenes": [
-    {"id":"scene-1","type":"avatar_intro","key_idea":"...","source_anchor":"IDEIA_PRINCIPAL","estimated_words":55,"title":"2-4 palavras","subtitle":"subtítulo curto","narration":"..."},
+    {"id":"scene-1","type":"avatar_intro","key_idea":"...","source_anchor":"IDEIA_PRINCIPAL","estimated_words":28,"title":"2-4 palavras","subtitle":"subtítulo curto","narration":"..."},
     {"id":"scene-2","type":"scenario_card","key_idea":"...","source_anchor":"SITUACOES_TIPICAS","estimated_words":55,"title":"Imagine","subtitle":"situação curta e plausível","narration":"..."},
     {"id":"scene-3","type":"concept_reveal","key_idea":"...","source_anchor":"PRINCIPIOS:<nome>","estimated_words":55,"title":"título curto","bullets":["item curto","item curto","item curto"],"narration":"..."},
     {"id":"scene-4","type":"comparison_motion","key_idea":"...","source_anchor":"ERROS_COMUNS","estimated_words":58,"title":"A x B","left":{"title":"prática fraca","items":["item curto","item curto","item curto"]},"right":{"title":"prática desejada","items":["item curto","item curto","item curto"]},"narration":"..."},
     {"id":"scene-5","type":"steps_flow","key_idea":"...","source_anchor":"BOAS_PRATICAS","estimated_words":56,"title":"título curto","items":["passo 1","passo 2","passo 3"],"narration":"..."},
-    {"id":"scene-6","type":"avatar_outro","key_idea":"...","source_anchor":"BOAS_PRATICAS","estimated_words":45,"title":"Pergunta prática","subtitle":"pergunta curta e acionável","narration":"... termina com uma pergunta de reflexão prática."}
+    {"id":"scene-6","type":"avatar_outro","key_idea":"...","source_anchor":"BOAS_PRATICAS","estimated_words":24,"title":"Pergunta prática","subtitle":"pergunta curta e acionável","narration":"... termina com uma pergunta de reflexão prática."}
   ]
 }`;
 
@@ -234,14 +346,22 @@ export function parseRoteiro(raw: string): VideoRoteiro | null {
  */
 export function normalizarRoteiro(roteiro: VideoRoteiro): VideoRoteiro {
   const scenes = Array.isArray(roteiro.scenes) ? roteiro.scenes : [];
-  const intro = scenes.find((s) => s.type === 'avatar_intro');
-  const outro = [...scenes].reverse().find((s) => s.type === 'avatar_outro');
-  const restante = scenes.filter((s) => MIOLO_TIPOS.includes(s.type));
+  const saneadas = scenes.map(sanearCena);
+  const intro = saneadas.find((s) => s.type === 'avatar_intro');
+  const outro = [...saneadas].reverse().find((s) => s.type === 'avatar_outro');
+  const restante = saneadas.filter((s) => MIOLO_TIPOS.includes(s.type));
 
   const miolo: RoteiroScene[] = [];
   while (restante.length) {
-    let idx = miolo.length ? restante.findIndex((s) => s.type !== miolo[miolo.length - 1].type) : 0;
-    if (idx === -1) idx = 0;
+    const prev = miolo.length ? miolo[miolo.length - 1] : null;
+    let idx = 0;
+    if (prev) {
+      // 1ª escolha: família diferente da anterior (preserva ordem da IA ao máximo);
+      // 2ª: ao menos template diferente; senão, o que vier.
+      idx = restante.findIndex((s) => familiaDe(s.type) !== familiaDe(prev.type));
+      if (idx === -1) idx = restante.findIndex((s) => s.type !== prev.type);
+      if (idx === -1) idx = 0;
+    }
     miolo.push(restante.splice(idx, 1)[0]);
   }
 
@@ -251,6 +371,6 @@ export function normalizarRoteiro(roteiro: VideoRoteiro): VideoRoteiro {
     ...(outro ? [outro] : []),
   ];
 
-  roteiro.scenes = (ordenadas.length ? ordenadas : scenes).map((s, i) => ({ ...s, id: `scene-${i + 1}` }));
+  roteiro.scenes = (ordenadas.length ? ordenadas : saneadas).map((s, i) => ({ ...s, id: `scene-${i + 1}` }));
   return roteiro;
 }

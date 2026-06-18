@@ -6,9 +6,12 @@ import { BackgroundV2, EyebrowV2, INK, INK_DIM } from '../theme-v2';
 import type { ComputedScene } from '../data/load-scenes';
 
 // Faixa da direita reservada ao avatar (o resto é coluna de texto à esquerda).
-const AVATAR_W = 0.55;
-// Ajuste fino do enquadramento do rosto (avatar é 16:9; centro costuma pegar o rosto).
-const FACE_POS = 'center 38%';
+// 0.62: faixa mais larga → o vídeo 16:9 sofre menos corte horizontal (cover numa
+// faixa quase quadrada cortava ~45% da largura e comia o lado direito da pessoa).
+const AVATAR_W = 0.62;
+// Enquadramento: a mentora (Talking Photo aberto) fica no centro-direita do quadro
+// 16:9; ancorar o crop à DIREITA mantém o ombro/braço direito dela dentro da cena.
+const FACE_POS = '78% 34%';
 
 /**
  * Avatar V2 com SAFE AREA: o MP4 ocupa só a faixa direita (com áudio próprio);
@@ -32,7 +35,7 @@ export const AvatarClipV2: React.FC<{ scene: ComputedScene; brand: Brand; kicker
           <OffthreadVideo src={scene.src} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: FACE_POS }} />
         )}
         {/* esfumado da borda esquerda → mistura no fundo (sem corte duro) */}
-        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 360, background: `linear-gradient(90deg, ${brand.background} 0%, ${withAlpha(brand.background, 0.5)} 45%, transparent 100%)` }} />
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 480, background: `linear-gradient(90deg, ${brand.background} 0%, ${withAlpha(brand.background, 0.55)} 48%, transparent 100%)` }} />
         {/* respiro inferior p/ a legenda */}
         <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 320, background: `linear-gradient(0deg, ${withAlpha('#04101f', 0.55)} 0%, transparent 100%)` }} />
       </div>
