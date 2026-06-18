@@ -10,6 +10,10 @@ import { StatHighlightV2 } from './scenes/StatHighlightV2';
 import { QuoteSpotlightV2 } from './scenes/QuoteSpotlightV2';
 import { StepsFlowV2 } from './scenes/StepsFlowV2';
 import { ScenarioCardV2 } from './scenes/ScenarioCardV2';
+import { MaturityLadderV2 } from './scenes/MaturityLadderV2';
+import { MythTruthV2 } from './scenes/MythTruthV2';
+import { DefinitionCardV2 } from './scenes/DefinitionCardV2';
+import { ReflectionPromptV2 } from './scenes/ReflectionPromptV2';
 import { CaptionsV3 } from './scenes/CaptionsV3';
 import { BRAND } from './theme';
 import { BackgroundV2, BrandMarkV2, ProgressBarV2 } from './theme-v2';
@@ -36,6 +40,14 @@ function renderSceneVisual(scene: ComputedScene, brand: Brand) {
       return <StepsFlowV2 scene={scene} brand={brand} />;
     case 'scenario_card':
       return <ScenarioCardV2 scene={scene} brand={brand} />;
+    case 'maturity_ladder':
+      return <MaturityLadderV2 scene={scene} brand={brand} />;
+    case 'myth_truth':
+      return <MythTruthV2 scene={scene} brand={brand} />;
+    case 'definition_card':
+      return <DefinitionCardV2 scene={scene} brand={brand} />;
+    case 'reflection_prompt':
+      return <ReflectionPromptV2 scene={scene} brand={brand} />;
     default:
       return null;
   }
@@ -50,9 +62,11 @@ function renderSceneVisual(scene: ComputedScene, brand: Brand) {
  *    áudio (trimAfter) e ainda limitado pela durationInFrames da Sequence.
  */
 const SceneAudio: React.FC<{ scene: ComputedScene; fps: number }> = ({ scene, fps }) => {
-  if (scene.type.startsWith('avatar')) return null;
-  if (!scene.src) return null;
-  return <Audio src={scene.src} trimAfter={Math.max(1, Math.round(scene.seconds * fps))} />;
+  // Avatar: áudio = mp3 da narração (vídeo mp4 entra mutado) → lip-sync preciso,
+  // sem o offset do áudio embutido do OffthreadVideo. Demais cenas: mp3 da cena.
+  const url = scene.type.startsWith('avatar') ? scene.audioSrc : scene.src;
+  if (!url) return null;
+  return <Audio src={url} trimAfter={Math.max(1, Math.round(scene.seconds * fps))} />;
 };
 
 const FilmFade: React.FC<{ brand: Brand }> = ({ brand }) => {

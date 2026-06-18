@@ -126,7 +126,9 @@ export const gerarVideoModuloTask = task({
         const mp4 = Buffer.from(await (await fetch(heygenUrl)).arrayBuffer());
         const norm = await normalizarFps(mp4, VIDEO_FPS); // 25fps→30fps CFR (lip-sync)
         const src = await upload(`${videoId}/${s.id}.mp4`, norm, 'video/mp4');
-        assets[s.id] = { src, durationSec: 0 }; // src passa a ser o mp4 (voz embutida)
+        // Mantém o mp3 da narração como áudio SEPARADO: o vídeo (mp4) entra mutado e
+        // o áudio é tocado alinhado pelo Remotion → lip-sync sem o offset do OffthreadVideo.
+        assets[s.id] = { src, durationSec: 0, audioSrc: audioUrl };
       }
 
       // 3) DURAÇÕES reais → timeline correta.

@@ -20,7 +20,19 @@ export interface ComputedScene {
   right?: { title: string; items: string[] };
   stat?: string;
   quote?: string;
+  rungs?: string[];
+  target?: number;
+  myth?: string;
+  truth?: string;
+  term?: string;
+  definition?: string;
+  prompt?: string;
+  tag?: string;
   src?: string;
+  // Avatar: áudio (mp3 da narração) tocado SEPARADO do vídeo (mp4 mutado) — o
+  // OffthreadVideo introduzia um pequeno offset no áudio embutido; tocar o mp3
+  // alinhado pelo Remotion casa o lip-sync com precisão.
+  audioSrc?: string;
   seconds: number;
   durationInFrames: number;
   fromFrame: number;
@@ -43,8 +55,9 @@ export type SpikePropsV3 = {
   wordHighlight: boolean;
 };
 
-/** Asset (URL + duração real) de cada cena, indexado por sceneId. */
-export type AssetMap = Record<string, { src: string; durationSec: number }>;
+/** Asset (URL + duração real) de cada cena, indexado por sceneId. `audioSrc` =
+ *  áudio separado (avatar: mp3 da narração, p/ lip-sync preciso). */
+export type AssetMap = Record<string, { src: string; durationSec: number; audioSrc?: string }>;
 
 export const BRAND_PADRAO: Brand = {
   primary: '#6D28D9', secondary: '#0EA5E9', background: '#0B1020', font: 'Inter, system-ui, sans-serif',
@@ -128,7 +141,16 @@ export function montarInputProps(
       right: s.right,
       stat: s.stat,
       quote: s.quote,
+      rungs: s.rungs,
+      target: s.target,
+      myth: s.myth,
+      truth: s.truth,
+      term: s.term,
+      definition: s.definition,
+      prompt: s.prompt,
+      tag: s.tag,
       src: asset?.src,
+      audioSrc: asset?.audioSrc,
       seconds,
       durationInFrames,
       fromFrame,

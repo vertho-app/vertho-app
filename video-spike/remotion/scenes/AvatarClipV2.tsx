@@ -32,7 +32,9 @@ export const AvatarClipV2: React.FC<{ scene: ComputedScene; brand: Brand; kicker
       {/* Avatar na faixa direita */}
       <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: `${AVATAR_W * 100}%`, overflow: 'hidden' }}>
         {scene.src && (
-          <OffthreadVideo src={scene.src} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: FACE_POS }} />
+          // muted: o áudio vem do <Audio> (mp3) na composição — alinhado pelo Remotion
+          // (o áudio embutido do OffthreadVideo entrava com um pequeno offset).
+          <OffthreadVideo src={scene.src} muted style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: FACE_POS }} />
         )}
         {/* esfumado da borda esquerda → mistura no fundo (sem corte duro) */}
         <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 480, background: `linear-gradient(90deg, ${brand.background} 0%, ${withAlpha(brand.background, 0.55)} 48%, transparent 100%)` }} />

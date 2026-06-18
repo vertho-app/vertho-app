@@ -13,6 +13,10 @@ export type SceneType =
   | 'quote_spotlight'
   | 'steps_flow'
   | 'scenario_card'
+  | 'maturity_ladder'
+  | 'myth_truth'
+  | 'definition_card'
+  | 'reflection_prompt'
   | 'avatar_outro';
 
 export interface Brand {
@@ -33,7 +37,16 @@ export interface ComputedScene {
   right?: { title: string; items: string[] };
   stat?: string;
   quote?: string;
+  rungs?: string[];
+  target?: number;
+  myth?: string;
+  truth?: string;
+  term?: string;
+  definition?: string;
+  prompt?: string;
+  tag?: string;
   src?: string;
+  audioSrc?: string; // avatar: áudio (mp3) separado do vídeo (mp4 mutado) p/ lip-sync preciso
   seconds: number;
   durationInFrames: number;
   fromFrame: number;
