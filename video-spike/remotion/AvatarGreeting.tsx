@@ -24,7 +24,9 @@ export const AvatarGreeting: React.FC<GreetingProps> = ({ nome, audioSrc, brand 
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
 
-  const out = interpolate(frame, [0, 10, durationInFrames - 10, durationInFrames], [0, 1, 1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  // Só fade-IN da cena; a SAÍDA é feita por crossfade (xfade) com o avatar_intro
+  // na personalização — por isso não há fade-out aqui (evita flash/duplo-fade).
+  const out = interpolate(frame, [0, 10], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   const nameIn = reveal(frame, 4, 22);
   const ruleIn = reveal(frame, 14, 26);
 

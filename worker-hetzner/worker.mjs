@@ -119,6 +119,8 @@ async function personalizeCell(job, deckPath) {
       await personalizar(deckPath, c.nome_completo, outPath, {
         bundleDir: await resolveBundle(),
         brand: job.render_inputprops?.brand,
+        width: job.render_inputprops?.width,   // design (ex. 1920) — saudação casa o avatar_intro
+        height: job.render_inputprops?.height, // design (ex. 1080); o scale deriva do output do deck
         jobId: job.id,
         colaboradorId: c.id,
       });

@@ -105,19 +105,34 @@ export async function personalizar(deckPath, nomeCompleto, outPath, opts = {}) {
     const { width, height, fps } = await probeVideo(deckPath);
     const durationInFrames = Math.ceil((audioDur + 0.6) * fps); // tempo justo (≈ voz + folga curta)
 
+    // A saudação tem de bater PIXEL A PIXEL com o avatar_intro do deck p/ o
+    // crossfade não duplicar logo/texto. O deck é desenhado em 1920×1080 e SAI
+    // escalado (render_scale → ex. 720p). Renderizamos a saudação no MESMO design
+    // (1920×1080) com o MESMO scale → mesma posição de tudo.
+    const designW = opts.width || 1920;
+    const designH = opts.height || 1080;
+    const gScale = opts.scale || (height / designH); // deriva do output do deck (ex. 720/1080)
+
     // áudio do voice-over precisa de URL pública (o headless do Remotion faz fetch).
     const stamp = `${opts.jobId || 'p'}_${opts.colaboradorId || nome}`.replace(/[^A-Za-z0-9_-]/g, '');
     const audioSrc = await uploadAudio(await readFile(greetWav), `greetings/${stamp}.wav`);
 
-    const props = { nome, audioSrc, brand, durationInFrames, fps, width, height };
+    const props = { nome, audioSrc, brand, durationInFrames, fps, width: designW, height: designH };
     await ensureBrowser();
     const comp = await selectComposition({ serveUrl: bundleDir, id: 'AvatarGreeting', inputProps: props });
     const greetMp4 = path.join(work, 'greet.mp4');
-    await renderMedia({ serveUrl: bundleDir, composition: comp, codec: 'h264', outputLocation: greetMp4, inputProps: props, chromiumOptions: { gl: 'swangle' } });
+    await renderMedia({ serveUrl: bundleDir, composition: comp, codec: 'h264', outputLocation: greetMp4, inputProps: props, chromiumOptions: { gl: 'swangle' }, ...(gScale && gScale !== 1 ? { scale: gScale } : {}) });
 
-    // concat saudação + deck (re-encode — params batem) → faststart.
+    // CROSSFADE saudação → avatar_intro: como a saudação usa o mesmo layout do
+    // avatar_intro, o xfade faz "Olá, {nome}" derreter no título + avatar (fade-out
+    // do nome / fade-in do título+mentora) na MESMA tela. O crossfade acontece no
+    // tail da saudação (depois da voz), então a narração entra logo após o nome.
+    const T = 0.6;
+    const greetDur = durationInFrames / fps;
+    const offset = Math.max(0.1, greetDur - T).toFixed(2);
     await exec(FFMPEG, ['-y', '-i', greetMp4, '-i', deckPath, '-filter_complex',
-      '[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]', '-map', '[v]', '-map', '[a]',
+      `[0:v][1:v]xfade=transition=fade:duration=${T}:offset=${offset}[v];[0:a][1:a]acrossfade=d=${T}[a]`,
+      '-map', '[v]', '-map', '[a]',
       '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-r', String(fps), '-c:a', 'aac', '-ar', '48000', '-movflags', '+faststart', outPath]);
     return outPath;
   } finally {
