@@ -103,7 +103,7 @@ export async function personalizar(deckPath, nomeCompleto, outPath, opts = {}) {
     await ttsSaudacao(nome, greetWav);
     const audioDur = await dur(greetWav);
     const { width, height, fps } = await probeVideo(deckPath);
-    const durationInFrames = Math.ceil((audioDur + 1.4) * fps);
+    const durationInFrames = Math.ceil((audioDur + 0.6) * fps); // tempo justo (≈ voz + folga curta)
 
     // áudio do voice-over precisa de URL pública (o headless do Remotion faz fetch).
     const stamp = `${opts.jobId || 'p'}_${opts.colaboradorId || nome}`.replace(/[^A-Za-z0-9_-]/g, '');

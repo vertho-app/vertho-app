@@ -5,11 +5,12 @@ import { reveal, translateUp } from './utils/timing';
 import { BackgroundV2, BrandMarkV2, EyebrowV2, INK } from './theme-v2';
 
 /**
- * Cena de SAUDAÇÃO nominal (Rota A) — renderizada POR PESSOA e prependada ao deck
- * genérico pelo worker. Mostra APENAS o texto "Olá, {nome}" enquanto toca a
- * voz-over (TTS Callirrhoe "Olá, {nome}!"). NÃO tem avatar/foto — o avatar (que
- * fala) entra junto com o título na cena seguinte (avatar_intro). Mesmo padrão
- * visual do deck (fundo, logo, eyebrow, tipografia).
+ * Cena de SAUDAÇÃO nominal (Rota A) — renderizada POR PESSOA e prependada ao deck.
+ * Usa o MESMO layout do avatar_intro (logo + eyebrow + título grande à ESQUERDA),
+ * só que com "Olá, {nome}" no lugar do título e SEM avatar — assim o corte pro
+ * avatar_intro é contínuo (o nome vira título e a mentora entra à direita). A
+ * voz-over (TTS Callirrhoe "Olá, {nome}!") vem por `audioSrc`. Duração justa (a
+ * personalização dimensiona ≈ áudio + folga curta).
  */
 export interface GreetingProps {
   nome: string;
@@ -23,22 +24,23 @@ export const AvatarGreeting: React.FC<GreetingProps> = ({ nome, audioSrc, brand 
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
 
-  const out = interpolate(frame, [0, 12, durationInFrames - 12, durationInFrames], [0, 1, 1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
-  const nameIn = reveal(frame, 6, 26);
-  const ruleIn = reveal(frame, 18, 30);
+  const out = interpolate(frame, [0, 10, durationInFrames - 10, durationInFrames], [0, 1, 1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  const nameIn = reveal(frame, 4, 22);
+  const ruleIn = reveal(frame, 14, 26);
 
   return (
     <AbsoluteFill style={{ backgroundColor: brand.background, opacity: out }}>
       <BackgroundV2 brand={brand} tone="deep" />
       <BrandMarkV2 />
 
-      <AbsoluteFill style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ opacity: nameIn, transform: translateUp(nameIn, 30), textAlign: 'center' }}>
-          <EyebrowV2 brand={brand} center>Mentoria Vertho</EyebrowV2>
-          <h1 style={{ margin: '30px 0 0', color: INK, fontSize: 120, fontWeight: 800, lineHeight: 1.0, letterSpacing: -2.8 }}>Olá, {nome}</h1>
+      {/* Mesma coluna de texto do avatar_intro (esquerda, centralizada na vertical) */}
+      <div style={{ position: 'absolute', left: 132, top: 0, bottom: 0, width: '52%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        <div style={{ opacity: nameIn, transform: translateUp(nameIn, 40) }}>
+          <EyebrowV2 brand={brand}>Mentoria Vertho</EyebrowV2>
+          <h1 style={{ margin: '28px 0 0', color: INK, fontSize: 104, fontWeight: 800, lineHeight: 1.0, letterSpacing: -2.2 }}>Olá, {nome}</h1>
+          <div style={{ height: 4, width: ruleIn * 150, marginTop: 28, borderRadius: 2, background: `linear-gradient(90deg, ${brand.primary}, ${withAlpha(brand.primary, 0)})` }} />
         </div>
-        <div style={{ height: 4, width: ruleIn * 200, marginTop: 34, borderRadius: 2, background: `linear-gradient(90deg, ${withAlpha(brand.primary, 0)}, ${brand.primary}, ${withAlpha(brand.primary, 0)})` }} />
-      </AbsoluteFill>
+      </div>
 
       {audioSrc && <Audio src={audioSrc} />}
     </AbsoluteFill>

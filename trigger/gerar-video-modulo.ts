@@ -1,6 +1,9 @@
 import { task } from '@trigger.dev/sdk';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { writeFile, readFile, mkdtemp, rm } from 'node:fs/promises';
+import os from 'node:os';
+import nodePath from 'node:path';
 import { renderVideoTask } from './render-video';
 import { generateNarrationAudio } from '../lib/gemini-tts';
 import { gerarClipHeyGen, aguardarClipHeyGen } from '../lib/video/heygen';
@@ -9,6 +12,11 @@ import type { VideoRoteiro } from '../lib/video/roteiro-prompt';
 
 const exec = promisify(execFile);
 const FFPROBE = process.env.FFPROBE_PATH || 'ffprobe';
+const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
+// FPS-alvo da composição Remotion. O HeyGen entrega o avatar a 25fps; o
+// OffthreadVideo reamostra 25→30 e DESCASA o lip-sync (A/V). Normalizamos o mp4
+// p/ CFR neste fps antes de montar → mapeamento 1:1 de frame, sync preservado.
+const VIDEO_FPS = Number(process.env.VIDEO_FPS) || 30;
 const SUPA = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const BUCKET = 'video-assets';
@@ -40,6 +48,29 @@ async function patchVideo(videoId: string, fields: Record<string, unknown>): Pro
     body: JSON.stringify({ ...fields, updated_at: new Date().toISOString() }),
   });
   if (!r.ok) throw new Error(`patch video ${videoId}: ${r.status} ${(await r.text()).slice(0, 150)}`);
+}
+
+/**
+ * Re-encoda o mp4 do avatar para CFR no fps-alvo da composição. O HeyGen entrega
+ * 25fps; sem isso o OffthreadVideo (30fps) reamostra e descasa o lip-sync. Mantém
+ * o áudio (voz embutida) alinhado (`-async 1`). Em falha, devolve o buffer original.
+ */
+async function normalizarFps(mp4: Buffer, fps: number): Promise<Buffer> {
+  const dir = await mkdtemp(nodePath.join(os.tmpdir(), 'avfps-'));
+  const inP = nodePath.join(dir, 'in.mp4');
+  const outP = nodePath.join(dir, 'out.mp4');
+  try {
+    await writeFile(inP, mp4);
+    await exec(FFMPEG, ['-y', '-i', inP, '-r', String(fps), '-vsync', 'cfr',
+      '-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p',
+      '-c:a', 'aac', '-ar', '48000', '-async', '1', '-movflags', '+faststart', outP]);
+    return await readFile(outP);
+  } catch (e) {
+    console.warn('normalizarFps falhou, usando mp4 original:', (e as Error)?.message);
+    return mp4;
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
 }
 
 /** Duração (s) de um asset por ffprobe — aceita URL http direto. */
@@ -93,7 +124,8 @@ export const gerarVideoModuloTask = task({
         const heygenId = await gerarClipHeyGen(audioUrl, { width: 1280, height: 720 });
         const heygenUrl = await aguardarClipHeyGen(heygenId);
         const mp4 = Buffer.from(await (await fetch(heygenUrl)).arrayBuffer());
-        const src = await upload(`${videoId}/${s.id}.mp4`, mp4, 'video/mp4');
+        const norm = await normalizarFps(mp4, VIDEO_FPS); // 25fps→30fps CFR (lip-sync)
+        const src = await upload(`${videoId}/${s.id}.mp4`, norm, 'video/mp4');
         assets[s.id] = { src, durationSec: 0 }; // src passa a ser o mp4 (voz embutida)
       }
 
