@@ -164,9 +164,20 @@ function sanearCena(s: RoteiroScene): RoteiroScene {
     case 'scenario_card':
       return { ...base, title: texto(base.title, 'Imagine'), subtitle: texto(base.subtitle, keyIdea) };
     case 'maturity_ladder': {
-      const rungs = lista(base.rungs, ['inicial', 'em prática', 'consistente', 'referência'], 3, 5);
-      const target = Number.isFinite(base.target) ? Number(base.target) : rungs.length - 1;
-      return { ...base, rungs, target: Math.min(rungs.length - 1, Math.max(0, Math.round(target))) };
+      let rungs = lista(base.rungs, ['inicial', 'em prática', 'consistente', 'referência'], 3, 5);
+      let target = Number.isFinite(base.target) ? Math.round(Number(base.target)) : rungs.length - 1;
+      target = Math.min(rungs.length - 1, Math.max(0, target));
+      // Defensivo: a IA às vezes anexa um degrau de estado inicial no FIM (quebra a
+      // escada ascendente — barras crescem da esquerda p/ a direita). Move o estado
+      // inicial p/ a posição 0 e remapeia o target.
+      const baseRe = /^(in[íi]cio|inicial|ponto de partida|come[çc]o|partida|n[íi]vel\s*1|n1)\b/i;
+      const j = rungs.findIndex((r, i) => i > 0 && baseRe.test(r));
+      if (j > 0) {
+        const moved = rungs[j];
+        rungs = [moved, ...rungs.slice(0, j), ...rungs.slice(j + 1)];
+        target = target === j ? 0 : target < j ? target + 1 : target;
+      }
+      return { ...base, rungs, target: Math.min(rungs.length - 1, Math.max(0, target)) };
     }
     case 'myth_truth':
       return {
