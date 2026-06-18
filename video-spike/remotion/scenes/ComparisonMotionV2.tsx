@@ -1,8 +1,9 @@
 import React from 'react';
 import { AbsoluteFill, Audio, interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
 import { Brand, withAlpha } from '../theme';
-import { reveal, fadeInOut, translateUp } from '../utils/timing';
+import { reveal, fadeInOut, translateUp, staggerDelay } from '../utils/timing';
 import { BackgroundV2, INK, INK_DIM, ACCENT_SOFT } from '../theme-v2';
+import { pickVariant } from '../utils/variant';
 import type { ComputedScene } from '../data/load-scenes';
 
 const Dash: React.FC<{ color: string }> = ({ color }) => (
@@ -14,14 +15,14 @@ const Check: React.FC<{ color: string; p: number }> = ({ color, p }) => (
   </svg>
 );
 
-const LEFT_DELAY = 26;
-const RIGHT_DELAY = 70;
-
 export const ComparisonMotionV2: React.FC<{ scene: ComputedScene; brand: Brand; audio?: boolean }> = ({ scene, brand, audio = true }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
   const out = fadeInOut(frame, durationInFrames, 16, 20);
   const title = reveal(frame, 6, 24);
+  // Os dois lados pacem com a fala: "Reagir" cedo, "Antecipar" no meio da cena.
+  const LEFT_DELAY = staggerDelay(durationInFrames, 0, 2, 0.08, 0.5);
+  const RIGHT_DELAY = staggerDelay(durationInFrames, 1, 2, 0.08, 0.5);
 
   const left = scene.left || { title: 'Reagir', items: [] };
   const right = scene.right || { title: 'Antecipar', items: [] };
@@ -36,6 +37,56 @@ export const ComparisonMotionV2: React.FC<{ scene: ComputedScene; brand: Brand; 
   const leftDim = interpolate(positive, [0, 1], [1, 0.4]);
   // Seta de evolução (esquerda → direita) aparece quando "Antecipar" entra.
   const arrow = reveal(frame, RIGHT_DELAY - 6, 24);
+  // 0 = colunas lado a lado (original) · 1 = bandas empilhadas (seta p/ baixo).
+  const variant = pickVariant(`${scene.id}|${scene.title || ''}`, 2);
+
+  // ── Variante 1: BANDAS EMPILHADAS ─────────────────────────────────────────
+  if (variant === 1) {
+    const band = (titulo: string, itens: string[], delay: number, positivo: boolean) => (
+      <div
+        style={{
+          opacity: positivo ? rightEnter : leftEnter * leftDim,
+          transform: `translateY(${(1 - (positivo ? rightEnter : leftEnter)) * (positivo ? 30 : -30)}px)${positivo ? ` scale(${1 + positive * 0.02})` : ''}`,
+          background: positivo ? `linear-gradient(160deg, ${withAlpha(brand.primary, 0.06 + positive * 0.07)}, ${withAlpha('#0a2240', 0.4)})` : withAlpha('#0a2240', 0.42),
+          border: `1.5px solid ${positivo ? withAlpha(brand.primary, 0.3 + positive * 0.5) : withAlpha('#ffffff', 0.07)}`,
+          borderRadius: 26, padding: '34px 48px', display: 'flex', alignItems: 'center', gap: 44,
+          boxShadow: positivo ? `0 26px 64px ${withAlpha(brand.primary, 0.06 + positive * 0.22)}` : 'none',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 340 }}>
+          <div style={{ width: 12, height: 12, borderRadius: 6, background: positivo ? brand.primary : withAlpha('#ffffff', 0.3), boxShadow: positivo ? `0 0 ${10 + positive * 16}px ${withAlpha(brand.primary, 0.7)}` : 'none' }} />
+          <span style={{ color: positivo ? (positive > 0.5 ? ACCENT_SOFT : brand.primary) : INK_DIM, fontSize: 42, fontWeight: 800, letterSpacing: -0.5 }}>{titulo}</span>
+        </div>
+        <div style={{ display: 'flex', gap: 38, flexWrap: 'wrap', flex: 1 }}>
+          {itens.map((it, i) => {
+            const p = reveal(frame, delay + 14 + i * 12, 18);
+            return (
+              <span key={it} style={{ display: 'flex', alignItems: 'center', gap: 16, opacity: p, transform: translateUp(p, 12) }}>
+                {positivo ? <Check color={brand.primary} p={p} /> : <Dash color={withAlpha('#ffffff', 0.45)} />}
+                <span style={{ color: positivo ? INK : INK_DIM, fontSize: 38, fontWeight: positivo ? 600 : 500 }}>{it}</span>
+              </span>
+            );
+          })}
+        </div>
+      </div>
+    );
+    return (
+      <AbsoluteFill>
+        {audio && scene.src && <Audio src={scene.src} />}
+        <BackgroundV2 brand={brand} tone="deep" />
+        <div style={{ position: 'absolute', top: 110, left: 0, right: 0, textAlign: 'center', opacity: out }}>
+          <h1 style={{ color: INK, fontSize: 78, fontWeight: 800, letterSpacing: -1.5, opacity: title, transform: translateUp(title, 30) }}>{scene.title}</h1>
+        </div>
+        <AbsoluteFill style={{ flexDirection: 'column', justifyContent: 'center', gap: 36, padding: '0 150px', marginTop: 60, opacity: out }}>
+          {band(left.title, left.items, LEFT_DELAY, false)}
+          <div style={{ alignSelf: 'center', opacity: arrow * 0.9, transform: `translateY(${(1 - arrow) * -14}px)` }}>
+            <svg width="48" height="56" viewBox="0 0 48 56" fill="none" stroke={brand.primary} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><path d="M24 8v34" /><path d="m11 30 13 14 13-14" /></svg>
+          </div>
+          {band(right.title, right.items, RIGHT_DELAY, true)}
+        </AbsoluteFill>
+      </AbsoluteFill>
+    );
+  }
 
   return (
     <AbsoluteFill>
