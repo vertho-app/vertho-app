@@ -72,15 +72,20 @@ async function ffprobeDuration(url: string): Promise<number> {
   try {
     const { stdout } = await exec(FFPROBE, ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', url]);
     const d = parseFloat(String(stdout).trim());
-    return Number.isFinite(d) && d > 0 ? d : 0;
-  } catch {
+    if (Number.isFinite(d) && d > 0) return d;
+    console.warn(`ffprobe: duração inválida (${stdout}) p/ ${url}`);
+    return 0;
+  } catch (e) {
+    // Falha SILENCIOSA aqui faz montar-inputprops cair no fallback (6/8s) e a
+    // timeline sai errada sem sinal — por isso logamos.
+    console.warn(`ffprobe falhou p/ ${url}:`, (e as Error)?.message);
     return 0;
   }
 }
 
 /**
  * Orquestra a geração de UM vídeo a partir do roteiro de um Módulo-Base:
- *   1) narração (TTS Kore) de cada cena → Storage público
+ *   1) narração (TTS Callirrhoe) de cada cena → Storage público
  *   2) avatar (HeyGen) das cenas intro/outro com lip-sync da NOSSA narração → re-hospeda o mp4
  *   3) durações reais (ffprobe) → montar inputProps
  *   4) render chunked (renderVideoTask) → Bunny
@@ -131,6 +136,10 @@ export const gerarVideoModuloTask = task({
       await mapPool(Object.keys(assets), 6, async (id) => {
         assets[id].durationSec = await ffprobeDuration(assets[id].src);
       });
+      // Guard de timeline: asset com duração 0 cai no fallback de montar-inputprops
+      // (6/8s) e a cena fica fora de sincronia. Sinaliza (não aborta — é recuperável).
+      const semDuracao = Object.keys(assets).filter((id) => !assets[id].durationSec);
+      if (semDuracao.length) console.warn(`${videoId}: ${semDuracao.length} asset(s) sem duração (ffprobe): ${semDuracao.join(', ')}`);
 
       // 4) inputProps (timeline + legendas).
       const props = montarInputProps(roteiro, assets, {
@@ -182,7 +191,11 @@ export const gerarVideoModuloTask = task({
 
       return { ok: true, videoId, bunnyVideoId: out.bunnyVideoId, frames: out.frames, bytes: out.bytes };
     } catch (e: any) {
-      await patchVideo(videoId, { status: 'error', error: String(e?.message || e).slice(0, 500) }).catch(() => {});
+      console.error(`gerar-video-modulo ${videoId} FALHOU:`, e?.message || e);
+      // Se gravar o status=error falhar, o job fica preso em 'processing' sem
+      // sinal no DB — logamos esse caso (em vez de engolir mudo).
+      await patchVideo(videoId, { status: 'error', error: String(e?.message || e).slice(0, 500) })
+        .catch((pe) => console.error(`${videoId}: falha ao gravar status=error:`, pe?.message || pe));
       throw e;
     }
   },

@@ -1,0 +1,192 @@
+/**
+ * DSP de áudio para o pipeline de TTS (puro, sem I/O de rede): conversão WAV↔PCM,
+ * fades, mix de silêncio, masterização (loudness + true-peak) e encode MP3.
+ * Extraído de `lib/gemini-tts.ts` (M1) para isolar a manipulação de áudio do
+ * orquestrador de TTS.
+ */
+import * as lamejs from '@breezystack/lamejs';
+
+const MP3_SAMPLE_RATE = 44100;
+const MP3_BITRATE_KBPS = 192;
+const TARGET_LUFS = -14;
+const TRUE_PEAK_DB = -1.5;
+
+/** Silêncio (PCM 16-bit mono) de `seconds` no sample-rate dado. */
+export function silencePcm(seconds: number, sampleRate: number): Buffer {
+  return Buffer.alloc(Math.max(0, Math.round(seconds * sampleRate)) * 2);
+}
+
+/** Aplica fade-in/out linear (em segundos) sobre PCM 16-bit mono. */
+export function fadePcm16(pcm: Buffer, sampleRate: number, fadeInSeconds: number, fadeOutSeconds: number): Buffer {
+  const out = Buffer.from(pcm);
+  const frames = Math.floor(out.length / 2);
+  const fadeInFrames = Math.min(frames, Math.max(0, Math.round(fadeInSeconds * sampleRate)));
+  const fadeOutFrames = Math.min(frames, Math.max(0, Math.round(fadeOutSeconds * sampleRate)));
+
+  for (let i = 0; i < fadeInFrames; i++) {
+    const gain = i / Math.max(1, fadeInFrames);
+    out.writeInt16LE(Math.round(out.readInt16LE(i * 2) * gain), i * 2);
+  }
+
+  for (let i = 0; i < fadeOutFrames; i++) {
+    const frame = frames - fadeOutFrames + i;
+    const gain = 1 - (i / Math.max(1, fadeOutFrames));
+    out.writeInt16LE(Math.round(out.readInt16LE(frame * 2) * gain), frame * 2);
+  }
+
+  return out;
+}
+
+function parsePcm16Wav(wav: Buffer): { channels: number; sampleRate: number; pcm: Buffer } {
+  if (wav.toString('ascii', 0, 4) !== 'RIFF' || wav.toString('ascii', 8, 12) !== 'WAVE') {
+    throw new Error('Vinheta WAV inválida');
+  }
+
+  let offset = 12;
+  let channels = 0;
+  let sampleRate = 0;
+  let bitsPerSample = 0;
+  let audioFormat = 0;
+  let pcm: Buffer | null = null;
+
+  while (offset + 8 <= wav.length) {
+    const id = wav.toString('ascii', offset, offset + 4);
+    const size = wav.readUInt32LE(offset + 4);
+    const start = offset + 8;
+    const end = start + size;
+
+    if (id === 'fmt ') {
+      audioFormat = wav.readUInt16LE(start);
+      channels = wav.readUInt16LE(start + 2);
+      sampleRate = wav.readUInt32LE(start + 4);
+      bitsPerSample = wav.readUInt16LE(start + 14);
+    } else if (id === 'data') {
+      pcm = wav.subarray(start, end);
+    }
+
+    offset = end + (size % 2);
+  }
+
+  if (audioFormat !== 1 || bitsPerSample !== 16 || !channels || !sampleRate || !pcm) {
+    throw new Error('Vinheta WAV precisa ser PCM 16-bit');
+  }
+
+  return { channels, sampleRate, pcm };
+}
+
+function sampleAt(pcm: Buffer, frame: number, channel: number, channels: number): number {
+  const offset = (frame * channels + channel) * 2;
+  return offset + 1 < pcm.length ? pcm.readInt16LE(offset) : 0;
+}
+
+/** Lê um WAV PCM 16-bit e devolve PCM mono reamostrado p/ `targetRate`. */
+export function wavToMonoPcm16AtRate(wav: Buffer, targetRate: number): Buffer {
+  const source = parsePcm16Wav(wav);
+  const sourceFrames = Math.floor(source.pcm.length / (source.channels * 2));
+  const targetFrames = Math.max(1, Math.round(sourceFrames * targetRate / source.sampleRate));
+  const out = Buffer.alloc(targetFrames * 2);
+
+  for (let i = 0; i < targetFrames; i++) {
+    const sourcePos = i * source.sampleRate / targetRate;
+    const leftFrame = Math.min(sourceFrames - 1, Math.floor(sourcePos));
+    const rightFrame = Math.min(sourceFrames - 1, leftFrame + 1);
+    const ratio = sourcePos - leftFrame;
+    let mixed = 0;
+
+    for (let ch = 0; ch < source.channels; ch++) {
+      const left = sampleAt(source.pcm, leftFrame, ch, source.channels);
+      const right = sampleAt(source.pcm, rightFrame, ch, source.channels);
+      mixed += left + (right - left) * ratio;
+    }
+
+    const mono = Math.max(-32768, Math.min(32767, Math.round(mixed / source.channels)));
+    out.writeInt16LE(mono, i * 2);
+  }
+
+  return out;
+}
+
+function pcm16Peak(pcm: Buffer): number {
+  let peak = 0;
+  for (let offset = 0; offset + 1 < pcm.length; offset += 2) {
+    peak = Math.max(peak, Math.abs(pcm.readInt16LE(offset)) / 32768);
+  }
+  return peak;
+}
+
+function pcm16Rms(pcm: Buffer): number {
+  let sumSquares = 0;
+  let count = 0;
+  const gate = 10 ** (-70 / 20);
+
+  for (let offset = 0; offset + 1 < pcm.length; offset += 2) {
+    const sample = pcm.readInt16LE(offset) / 32768;
+    if (Math.abs(sample) < gate) continue;
+    sumSquares += sample * sample;
+    count++;
+  }
+
+  return count ? Math.sqrt(sumSquares / count) : 0;
+}
+
+function masterPodcastPcm(pcm: Buffer): Buffer {
+  const peak = pcm16Peak(pcm);
+  const rms = pcm16Rms(pcm);
+  if (!peak || !rms) return pcm;
+
+  const currentLufsApprox = 20 * Math.log10(rms);
+  const loudnessGain = 10 ** ((TARGET_LUFS - currentLufsApprox) / 20);
+  const peakCeiling = 10 ** (TRUE_PEAK_DB / 20);
+  const peakGain = peakCeiling / peak;
+  const gain = Math.min(loudnessGain, peakGain);
+  const out = Buffer.alloc(pcm.length);
+
+  for (let offset = 0; offset + 1 < pcm.length; offset += 2) {
+    const sample = Math.round(pcm.readInt16LE(offset) * gain);
+    out.writeInt16LE(Math.max(-32768, Math.min(32767, sample)), offset);
+  }
+
+  return out;
+}
+
+function resampleMonoPcm16(pcm: Buffer, sourceRate: number, targetRate: number): Int16Array {
+  const sourceFrames = Math.floor(pcm.length / 2);
+  const targetFrames = Math.max(1, Math.round(sourceFrames * targetRate / sourceRate));
+  const out = new Int16Array(targetFrames);
+
+  for (let i = 0; i < targetFrames; i++) {
+    const sourcePos = i * sourceRate / targetRate;
+    const leftFrame = Math.min(sourceFrames - 1, Math.floor(sourcePos));
+    const rightFrame = Math.min(sourceFrames - 1, leftFrame + 1);
+    const ratio = sourcePos - leftFrame;
+    const left = pcm.readInt16LE(leftFrame * 2);
+    const right = pcm.readInt16LE(rightFrame * 2);
+    out[i] = Math.max(-32768, Math.min(32767, Math.round(left + (right - left) * ratio)));
+  }
+
+  return out;
+}
+
+function encodeMp3Stereo(mono: Int16Array): Buffer {
+  const encoder = new lamejs.Mp3Encoder(2, MP3_SAMPLE_RATE, MP3_BITRATE_KBPS);
+  const chunks: Buffer[] = [];
+  const blockSize = 1152;
+
+  for (let i = 0; i < mono.length; i += blockSize) {
+    const left = mono.subarray(i, i + blockSize);
+    const right = mono.subarray(i, i + blockSize);
+    const encoded = encoder.encodeBuffer(left, right);
+    if (encoded.length) chunks.push(Buffer.from(encoded));
+  }
+
+  const end = encoder.flush();
+  if (end.length) chunks.push(Buffer.from(end));
+  return Buffer.concat(chunks);
+}
+
+/** Masteriza (loudness/true-peak) + reamostra p/ 44.1k + encoda MP3 estéreo. */
+export function exportPodcastMp3FromPcm(pcm: Buffer, sampleRate: number): Buffer {
+  const mastered = masterPodcastPcm(pcm);
+  const mono441 = resampleMonoPcm16(mastered, sampleRate, MP3_SAMPLE_RATE);
+  return encodeMp3Stereo(mono441);
+}

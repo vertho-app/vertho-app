@@ -198,7 +198,7 @@ async function main() {
       } catch (e) {
         log(`ERRO no job ${job.id}:`, e?.message || e);
         await pool.query(`UPDATE videos_gerados SET status='error', error=$2, updated_at=now() WHERE id=$1`,
-          [job.id, String(e?.message || e).slice(0, 500)]).catch(() => {});
+          [job.id, String(e?.message || e).slice(0, 500)]).catch((pe) => log(`falha ao gravar status=error ${job.id}:`, pe?.message || pe));
       }
     } catch (e) {
       log('erro no loop (segue):', e?.message || e);
