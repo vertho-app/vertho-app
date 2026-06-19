@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction, assertTenantAccessAction } from '@/lib/auth/action-context';
 import { protectedAction } from '@/lib/auth/protected-action';
+import { updateColaboradorInTenant, deleteColaboradorInTenant } from '@/lib/repositories/colaboradores-repo';
 import { logAdminAction } from '@/lib/audit';
 import { excludeInternalEmails } from '@/lib/internal-emails';
 import { validateWhatsAppBR } from '@/lib/phone';
@@ -288,6 +289,7 @@ export async function criarColaborador(empresaId: any, campos: any) {
 }
 
 const AtualizarColaboradorSchema = z.object({
+  empresaId: z.string().uuid(),
   id: z.string().uuid(),
   // forma livre; a normalização/validação SEMÂNTICA (email/telefone) fica no corpo
   campos: z.object({
@@ -303,13 +305,10 @@ const AtualizarColaboradorSchema = z.object({
   }),
 });
 
-const _atualizarColaborador = protectedAction('users.manage', AtualizarColaboradorSchema, async (ctx, { id, campos }) => {
-  const sb = await requireAdminSupabase();
-  const { data: existente } = await sb.from('colaboradores').select('empresa_id').eq('id', id).maybeSingle();
-  if (!existente) throw new Error('colab não encontrado');
-  // Defense-in-depth: hoje o painel é só platform admin (assert é no-op p/ eles),
-  // mas garante isolamento se um dia surgir admin com escopo de tenant.
-  await assertTenantAccessAction(ctx, existente.empresa_id);
+const _atualizarColaborador = protectedAction('users.manage', AtualizarColaboradorSchema, async (ctx, { empresaId, id, campos }) => {
+  // Defense-in-depth: valida que o admin pode operar NESTE tenant (no-op p/ platform
+  // admin). O isolamento REAL agora vem do repo — empresa_id embutido no WHERE.
+  await assertTenantAccessAction(ctx, empresaId);
 
   const update: any = {};
   if (campos.nome_completo !== undefined) update.nome_completo = campos.nome_completo?.trim() || null;
@@ -338,8 +337,8 @@ const _atualizarColaborador = protectedAction('users.manage', AtualizarColaborad
   }
   if (campos.role !== undefined && VALID_ROLES.includes(campos.role as string)) update.role = campos.role;
 
-  const { error } = await sb.from('colaboradores').update(update).eq('id', id);
-  if (error) throw new Error(error.message);
+  const updated = await updateColaboradorInTenant(await requireAdminSupabase(), empresaId, id, update);
+  if (!updated) throw new Error('colaborador não encontrado nesta empresa');
   return { id };
 });
 
@@ -347,19 +346,15 @@ export async function atualizarColaborador(input: z.infer<typeof AtualizarColabo
   return _atualizarColaborador(input);
 }
 
-const ExcluirColaboradorSchema = z.object({ id: z.string().uuid() });
+const ExcluirColaboradorSchema = z.object({ empresaId: z.string().uuid(), id: z.string().uuid() });
 
-const _excluirColaborador = protectedAction('users.manage', ExcluirColaboradorSchema, async (ctx, { id }) => {
-  const sb = await requireAdminSupabase();
-  const { data: existente } = await sb.from('colaboradores').select('empresa_id, nome_completo').eq('id', id).maybeSingle();
-  if (!existente) throw new Error('colab não encontrado');
-  await assertTenantAccessAction(ctx, existente.empresa_id); // defense-in-depth
-
-  const { error } = await sb.from('colaboradores').delete().eq('id', id);
-  if (error) throw new Error(error.message);
+const _excluirColaborador = protectedAction('users.manage', ExcluirColaboradorSchema, async (ctx, { empresaId, id }) => {
+  await assertTenantAccessAction(ctx, empresaId); // defense-in-depth (no-op p/ platform admin)
+  const removido = await deleteColaboradorInTenant(await requireAdminSupabase(), empresaId, id);
+  if (!removido) throw new Error('colaborador não encontrado nesta empresa');
   await logAdminAction({
-    adminEmail: ctx.email, acao: 'colaborador.excluir', empresaId: existente.empresa_id,
-    alvo: existente.nome_completo || id, detalhes: { colaboradorId: id },
+    adminEmail: ctx.email, acao: 'colaborador.excluir', empresaId,
+    alvo: removido.nome_completo || id, detalhes: { colaboradorId: id },
   });
   return { id };
 });
