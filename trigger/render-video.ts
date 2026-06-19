@@ -4,28 +4,11 @@ import { writeFile, readFile, stat, mkdir, rm } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import path from 'node:path';
+import { uploadToBunny, storageGet, storageDelete, BUNNY_LIB, BUNNY_KEY } from '../lib/video/render-helpers';
 
 const exec = promisify(execFile);
 const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
-const SUPA = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const BUCKET = 'video-render-tmp';
-const BUNNY_LIB = process.env.BUNNY_LIBRARY_ID || '';
-const BUNNY_KEY = process.env.BUNNY_STREAM_API_KEY || '';
-
-/** Sobe o mp4 final no Bunny Stream → retorna o GUID do vídeo. */
-async function uploadToBunny(buf: Buffer, title: string): Promise<string> {
-  const cr = await fetch(`https://video.bunnycdn.com/library/${BUNNY_LIB}/videos`, {
-    method: 'POST', headers: { AccessKey: BUNNY_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ title }),
-  });
-  if (!cr.ok) throw new Error(`bunny create ${cr.status}: ${(await cr.text()).slice(0, 200)}`);
-  const { guid } = await cr.json();
-  const up = await fetch(`https://video.bunnycdn.com/library/${BUNNY_LIB}/videos/${guid}`, {
-    method: 'PUT', headers: { AccessKey: BUNNY_KEY }, body: buf as any,
-  });
-  if (!up.ok) throw new Error(`bunny upload ${up.status}: ${(await up.text()).slice(0, 200)}`);
-  return guid;
-}
 
 /** Divide [0, frames) em `chunks` faixas contíguas. */
 function splitRanges(frames: number, chunks: number): [number, number][] {
@@ -74,10 +57,8 @@ export const renderVideoTask = task({
     await mkdir(dir, { recursive: true });
     const localPaths: string[] = [];
     for (const part of parts) {
-      const r = await fetch(`${SUPA}/storage/v1/object/${BUCKET}/${part.path}`, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } });
-      if (!r.ok) throw new Error(`download ${part.path}: ${r.status}`);
       const local = path.join(dir, `part-${String(part.index).padStart(3, '0')}.mp4`);
-      await writeFile(local, Buffer.from(await r.arrayBuffer()));
+      await writeFile(local, await storageGet(BUCKET, part.path));
       localPaths.push(local);
     }
 
@@ -101,8 +82,7 @@ export const renderVideoTask = task({
 
     await rm(dir, { recursive: true, force: true }).catch(() => {});
     // limpa as partes intermediárias do Storage (cada objeto; Storage não apaga "pasta").
-    await Promise.all(parts.map((part) =>
-      fetch(`${SUPA}/storage/v1/object/${BUCKET}/${part.path}`, { method: 'DELETE', headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } }).catch(() => {})));
+    await Promise.all(parts.map((part) => storageDelete(BUCKET, part.path)));
     return { ok: true, jobId, chunks: parts.length, frames: p.frames, bytes: s.size, bunnyVideoId, bunnyLibrary: BUNNY_LIB || null };
   },
 });
