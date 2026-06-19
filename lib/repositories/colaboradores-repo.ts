@@ -71,3 +71,17 @@ export async function createColaboradorInTenant(sb: Sb, empresaId: string, dados
   if (error) throw new Error(error.message);
   return data;
 }
+
+/** Emails já cadastrados no tenant (lowercase) — base de dedup p/ importação em lote. */
+export async function listEmailsInTenant(sb: Sb, empresaId: string): Promise<string[]> {
+  const { data } = await sb.from('colaboradores').select('email').eq('empresa_id', empresaId);
+  return (data || []).map((c: any) => c.email?.toLowerCase()).filter(Boolean);
+}
+
+/** Insere um LOTE sempre no tenant `empresaId` — embute empresa_id em CADA linha. */
+export async function createColaboradoresLoteInTenant(sb: Sb, empresaId: string, linhas: Record<string, any>[]): Promise<void> {
+  if (!linhas.length) return;
+  const rows = linhas.map((d) => ({ ...d, empresa_id: empresaId }));
+  const { error } = await sb.from('colaboradores').insert(rows);
+  if (error) throw new Error(error.message);
+}

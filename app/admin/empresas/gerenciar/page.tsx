@@ -124,8 +124,8 @@ export default function GerenciarPage() {
       setImporting(false); return;
     }
 
-    const r = await importarColaboradoresLote(tenantId, parsed);
-    setMsg(r.success ? r.message : r.error);
+    const r = await importarColaboradoresLote({ empresaId: tenantId, colabs: parsed });
+    setMsg(r.success ? r.data?.message : r.error);
     setImporting(false);
     e.target.value = '';
     if (r.success) refresh();

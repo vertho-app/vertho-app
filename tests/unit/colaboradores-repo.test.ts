@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findColaboradorInTenant, updateColaboradorInTenant, deleteColaboradorInTenant, emailExistsInTenant, createColaboradorInTenant } from '@/lib/repositories/colaboradores-repo';
+import { findColaboradorInTenant, updateColaboradorInTenant, deleteColaboradorInTenant, emailExistsInTenant, createColaboradorInTenant, listEmailsInTenant, createColaboradoresLoteInTenant } from '@/lib/repositories/colaboradores-repo';
 
 // Mock do supabase admin client que registra TODA chamada .eq(col, val) + o insert.
 function makeSb(returnData: any) {
@@ -13,6 +13,7 @@ function makeSb(returnData: any) {
     eq: (col: string, val: any) => { eqCalls.push([col, val]); return qb; },
     maybeSingle: async () => ({ data: returnData, error: null }),
     single: async () => ({ data: returnData, error: null }),
+    then: (resolve: any) => resolve({ data: returnData, error: null }), // awaitable p/ queries sem .single()
   };
   return { sb: { from: () => qb }, eqCalls, getInsert: () => insertArg };
 }
@@ -62,5 +63,20 @@ describe('colaboradores-repo (tenant-safe)', () => {
     const r = await createColaboradorInTenant(sb, 'emp-1', { email: 'a@b.com', empresa_id: 'tenant-malicioso' });
     expect(r).toEqual({ id: 'novo-1' });
     expect(getInsert().empresa_id).toBe('emp-1'); // contexto vence o payload
+  });
+
+  it('listEmails filtra por empresa_id e normaliza p/ lowercase', async () => {
+    const { sb, eqCalls } = makeSb([{ email: 'A@B.com' }, { email: 'c@d.com' }, { email: null }]);
+    const emails = await listEmailsInTenant(sb, 'emp-1');
+    expect(hasEq(eqCalls, 'empresa_id', 'emp-1')).toBe(true);
+    expect(emails).toEqual(['a@b.com', 'c@d.com']);
+  });
+
+  it('createLote EMBUTE empresa_id em CADA linha (vence payload malicioso)', async () => {
+    const { sb, getInsert } = makeSb({ id: 'x' });
+    await createColaboradoresLoteInTenant(sb, 'emp-1', [{ email: 'a@b.com' }, { email: 'c@d.com', empresa_id: 'malicioso' }]);
+    const rows = getInsert();
+    expect(rows).toHaveLength(2);
+    expect(rows.every((r: any) => r.empresa_id === 'emp-1')).toBe(true);
   });
 });

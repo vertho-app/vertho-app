@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction, assertTenantAccessAction } from '@/lib/auth/action-context';
 import { protectedAction } from '@/lib/auth/protected-action';
-import { updateColaboradorInTenant, deleteColaboradorInTenant, emailExistsInTenant, createColaboradorInTenant } from '@/lib/repositories/colaboradores-repo';
+import { updateColaboradorInTenant, deleteColaboradorInTenant, emailExistsInTenant, createColaboradorInTenant, listEmailsInTenant, createColaboradoresLoteInTenant } from '@/lib/repositories/colaboradores-repo';
 import { logAdminAction } from '@/lib/audit';
 import { excludeInternalEmails } from '@/lib/internal-emails';
 import { validateWhatsAppBR } from '@/lib/phone';
@@ -79,19 +79,21 @@ export async function loadResumoEmpresa(empresaId: any) {
   return { colabs: colabs || 0, competencias: comps?.length || 0 };
 }
 
-export async function importarColaboradoresLote(empresaId: any, colabs: any) {
-  await requireAdminAction('users.manage');
+const ImportarLoteSchema = z.object({
+  empresaId: z.string().uuid(),
+  colabs: z.array(z.record(z.string(), z.any())).max(10000),
+});
 
+const _importarColaboradoresLote = protectedAction('users.manage', ImportarLoteSchema, async (ctx, { empresaId, colabs }) => {
+  await assertTenantAccessAction(ctx, empresaId);
   const sb = await requireAdminSupabase();
-  const { data: existentes } = await sb.from('colaboradores')
-    .select('email').eq('empresa_id', empresaId);
-  const emailsExistentes = new Set((existentes || []).map((c: any) => c.email?.toLowerCase()).filter(Boolean));
+  const emailsExistentes = new Set(await listEmailsInTenant(sb, empresaId));
   const emailsArquivo = new Set<string>();
   const erros: any[] = [];
   const avisos: any[] = [];
   let duplicados = 0;
 
-  const novos = (colabs || []).reduce((acc: any[], c: any, index: number) => {
+  const novos = (colabs || []).reduce<Record<string, any>[]>((acc, c: any, index: number) => {
     const linha = index + 2;
     const nome = normalizeText(c.nome);
     let email = normalizeEmail(c.email);
@@ -133,7 +135,6 @@ export async function importarColaboradoresLote(empresaId: any, colabs: any) {
 
     const role = normalizeText(c.role)?.toLowerCase();
     acc.push({
-      empresa_id: empresaId,
       nome_completo: nome,
       email,
       cargo: normalizeText(c.cargo),
@@ -149,12 +150,14 @@ export async function importarColaboradoresLote(empresaId: any, colabs: any) {
   }, []);
 
   if (novos.length === 0) {
-    return { success: true, message: buildImportMessage(0, duplicados, erros, avisos), erros, avisos };
+    return { message: buildImportMessage(0, duplicados, erros, avisos), importados: 0, duplicados, erros, avisos };
   }
+  await createColaboradoresLoteInTenant(sb, empresaId, novos);
+  return { message: buildImportMessage(novos.length, duplicados, erros, avisos), importados: novos.length, duplicados, erros, avisos };
+});
 
-  const { error } = await sb.from('colaboradores').insert(novos);
-  if (error) return { success: false, error: error.message };
-  return { success: true, message: buildImportMessage(novos.length, duplicados, erros, avisos), erros, avisos };
+export async function importarColaboradoresLote(input: z.infer<typeof ImportarLoteSchema>) {
+  return _importarColaboradoresLote(input);
 }
 
 export async function loadColaboradores(empresaId: any) {
