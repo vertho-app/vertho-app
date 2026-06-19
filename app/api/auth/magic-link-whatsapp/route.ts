@@ -3,6 +3,8 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { getTenantSlug } from '@/lib/tenant-resolver';
 import { authLimiter } from '@/lib/rate-limit';
 import { resolveSafeAuthRedirect } from '@/lib/auth/redirect';
+import { resolveAppLocale } from '@/lib/i18n';
+import { sendAccessLink } from '@/lib/notifications/access-link-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,20 +16,24 @@ export async function POST(req: NextRequest) {
   try {
     const { email, redirectTo } = await req.json();
     if (!email) return NextResponse.json({ error: 'Email obrigatório' }, { status: 400 });
-
+    const trimmed = email.trim().toLowerCase();
+    const locale = resolveAppLocale(req.cookies.get('vertho-locale')?.value);
     const sb = createSupabaseAdmin();
 
     // Escopo de tenant: com subdomínio, só atende colaborador da própria empresa.
+    // Sem subdomínio, o link é global por email → pega 1 registro representativo
+    // (limit 1; o maybeSingle anterior quebrava com email duplicado em tenants).
     const slug = getTenantSlug(req);
-    let colabQuery = sb.from('colaboradores')
+    let q = sb.from('colaboradores')
       .select('nome_completo, telefone, empresa_id')
-      .eq('email', email.trim().toLowerCase());
+      .eq('email', trimmed);
     if (slug) {
       const { data: emp } = await sb.from('empresas').select('id').eq('slug', slug).maybeSingle();
       if (!emp) return NextResponse.json({ sent: false });
-      colabQuery = colabQuery.eq('empresa_id', emp.id);
+      q = q.eq('empresa_id', emp.id);
     }
-    const { data: colab } = await colabQuery.maybeSingle();
+    const { data: colabRows } = await q.limit(1);
+    const colab = colabRows?.[0] as { nome_completo: string | null; telefone: string | null; empresa_id: string } | undefined;
 
     if (!colab?.telefone) return NextResponse.json({ sent: false });
 
@@ -38,51 +44,33 @@ export async function POST(req: NextRequest) {
 
     const { data: linkData, error: linkErr } = await sb.auth.admin.generateLink({
       type: 'magiclink',
-      email: email.trim().toLowerCase(),
+      email: trimmed,
       options: { redirectTo: redirect.safeRedirectTo },
     });
-
-    if (linkErr || !linkData?.properties?.action_link) {
+    if (linkErr || !linkData?.properties) {
       console.error('[magic-link-whatsapp]', linkErr?.message);
       return NextResponse.json({ sent: false });
     }
 
-    const zapiInstance = process.env.ZAPI_INSTANCE_ID;
-    const zapiToken = process.env.ZAPI_TOKEN;
-    const zapiClient = process.env.ZAPI_CLIENT_TOKEN || '';
-    if (!zapiInstance || !zapiToken) return NextResponse.json({ sent: false });
-
-    let phone = colab.telefone.replace(/\D/g, '');
-    if (phone.length <= 11) phone = `55${phone}`;
-
-    const nome = colab.nome_completo?.split(' ')[0] || '';
-    const empresaNome = empresa?.nome || 'Vertho';
     const tokenHash = linkData.properties.hashed_token;
-    const magicLink = tokenHash
+    const callbackLink = tokenHash
       ? `${redirect.origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=email&next=${encodeURIComponent(redirect.nextPath)}`
       : linkData.properties.action_link;
 
-    const msg = `Olá, ${nome}! 🔐
-
-Seu link de acesso à *${empresaNome}*:
-${magicLink}
-
-Clique para entrar direto, sem senha.
-Este link expira em 24h.`;
-
-    const zapiRes = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-text`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Client-Token': zapiClient },
-      body: JSON.stringify({ phone, message: msg }),
+    const result = await sendAccessLink({
+      to: trimmed,
+      telefone: colab.telefone,
+      nome: colab.nome_completo?.split(' ')[0] || '',
+      empresaNome: empresa?.nome || 'Vertho',
+      locale,
+      whatsappLink: callbackLink,
+      channels: ['whatsapp'],
     });
 
-    if (!zapiRes.ok) {
-      const txt = await zapiRes.text();
-      console.error('[magic-link-whatsapp] Z-API error:', zapiRes.status, txt.slice(0, 300));
-      return NextResponse.json({ sent: false, error: txt.slice(0, 120) });
+    if (result.whatsapp !== 'sent') {
+      console.error('[magic-link-whatsapp] não enviado:', result.whatsappReason);
+      return NextResponse.json({ sent: false, error: result.whatsappReason });
     }
-
-    console.log('[magic-link-whatsapp] sent to', `***${phone.slice(-4)}`);
     return NextResponse.json({ sent: true });
   } catch (err: any) {
     console.error('[magic-link-whatsapp]', err.message);
