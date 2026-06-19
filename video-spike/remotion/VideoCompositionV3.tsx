@@ -69,6 +69,20 @@ const SceneAudio: React.FC<{ scene: ComputedScene; fps: number }> = ({ scene, fp
   return <Audio src={url} trimAfter={Math.max(1, Math.round(scene.seconds * fps))} />;
 };
 
+// ARCO — a cena de pico (is_peak) "incha" sutilmente ao entrar: a restrição
+// quebra UMA vez (escala maior) pra o pico ler como pico por contraste. Tudo o
+// mais permanece em escala 1. Frame é relativo à Sequence da cena (reseta a 0).
+const PeakScale: React.FC<{ active?: boolean; children: React.ReactNode }> = ({ active, children }) => {
+  const frame = useCurrentFrame();
+  const { durationInFrames } = useVideoConfig();
+  if (!active) return <>{children}</>;
+  const grow = interpolate(frame, [0, Math.min(28, durationInFrames)], [1, 1.06], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+  return <AbsoluteFill style={{ transform: `scale(${grow})`, transformOrigin: 'center center' }}>{children}</AbsoluteFill>;
+};
+
 const FilmFade: React.FC<{ brand: Brand }> = ({ brand }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
@@ -85,8 +99,8 @@ export const VideoCompositionV3: React.FC<SpikePropsV3> = ({ scenes, captions, b
       <BackgroundV2 brand={b} tone="deep" />
 
       {scenes.map((s) => (
-        <Sequence key={s.id} from={s.fromFrame} durationInFrames={s.durationInFrames} name={`${s.id} · ${s.type}`}>
-          {renderSceneVisual(s, b)}
+        <Sequence key={s.id} from={s.fromFrame} durationInFrames={s.durationInFrames} name={`${s.id} · ${s.type}${s.is_peak ? ' · PICO' : ''}`}>
+          <PeakScale active={s.is_peak}>{renderSceneVisual(s, b)}</PeakScale>
           <SceneAudio scene={s} fps={fps} />
         </Sequence>
       ))}

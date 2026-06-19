@@ -54,6 +54,11 @@ export interface ComputedScene {
   // as animações com a voz. Ausente = fallback p/ staggerDelay.
   speechStartFrame?: number;
   speechEndFrame?: number;
+  // ARCO DRAMÁTICO (peak-end) — archetype-level (entram no deck_invariant; nunca
+  // DISC/person-sensitive). 1 tag dramatúrgico orquestra escala + som + ritmo.
+  beat?: 'reconhecimento' | 'virada' | 'transformacao';
+  is_peak?: boolean;      // a ÚNICA cena de pico (~75-80%): escala (e, no som, trilha) crescem
+  hold_silence?: boolean; // respiro/silêncio (tipicamente a cena imediatamente antes do pico)
   seconds: number;
   durationInFrames: number;
   fromFrame: number;
