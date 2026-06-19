@@ -1,7 +1,7 @@
 import { Resend } from 'resend';
 import { EMAIL_FROM_DEFAULT } from '@/lib/domain';
 import type { AppLocale } from '@/i18n/routing';
-import { magicLinkEmail, magicLinkWhatsapp } from '@/lib/i18n-auth-templates';
+import { magicLinkEmail, magicLinkWhatsapp, signupEmail, signupWhatsapp } from '@/lib/i18n-auth-templates';
 
 /**
  * Serviço CENTRAL de envio de link de acesso (magic link) por canal.
@@ -40,6 +40,8 @@ export type SendAccessLinkInput = {
   whatsappLink?: string | null;
   /** canais a tentar; default: ambos */
   channels?: Array<'email' | 'whatsapp'>;
+  /** conjunto de templates: 'magic-link' (login, default) ou 'signup' (boas-vindas) */
+  kind?: 'magic-link' | 'signup';
 };
 
 async function enviarEmail(p: SendAccessLinkInput, out: SendAccessLinkResult): Promise<void> {
@@ -55,7 +57,8 @@ async function enviarEmail(p: SendAccessLinkInput, out: SendAccessLinkResult): P
   }
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
-    const tpl = magicLinkEmail(p.locale, { nome: p.nome, empresaNome: p.empresaNome, link: p.emailLink });
+    const buildEmail = p.kind === 'signup' ? signupEmail : magicLinkEmail;
+    const tpl = buildEmail(p.locale, { nome: p.nome, empresaNome: p.empresaNome, link: p.emailLink });
     const r = await resend.emails.send({ from: EMAIL_FROM_DEFAULT, to: p.to, subject: tpl.subject, html: tpl.html });
     if ((r as any)?.error) {
       out.email = 'failed';
@@ -90,7 +93,8 @@ async function enviarWhatsapp(p: SendAccessLinkInput, out: SendAccessLinkResult)
   try {
     let phone = String(p.telefone).replace(/\D/g, '');
     if (phone.length <= 11) phone = `55${phone}`;
-    const msg = magicLinkWhatsapp(p.locale, { nome: p.nome, empresaNome: p.empresaNome, link: p.whatsappLink });
+    const buildWa = p.kind === 'signup' ? signupWhatsapp : magicLinkWhatsapp;
+    const msg = buildWa(p.locale, { nome: p.nome, empresaNome: p.empresaNome, link: p.whatsappLink });
     const res = await fetch(`https://api.z-api.io/instances/${inst}/token/${tok}/send-text`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Client-Token': process.env.ZAPI_CLIENT_TOKEN || '' },

@@ -6,6 +6,8 @@ vi.mock('resend', () => ({ Resend: class { emails = { send: sendMock }; } }));
 vi.mock('@/lib/i18n-auth-templates', () => ({
   magicLinkEmail: () => ({ subject: 'assunto', html: '<p>x</p>' }),
   magicLinkWhatsapp: () => 'mensagem whatsapp',
+  signupEmail: () => ({ subject: 'bem-vindo', html: '<p>welcome</p>' }),
+  signupWhatsapp: () => 'mensagem signup',
 }));
 vi.mock('@/lib/domain', () => ({ EMAIL_FROM_DEFAULT: 'no-reply@vertho.ai' }));
 
@@ -93,5 +95,12 @@ describe('sendAccessLink (status explícito por canal)', () => {
     const r = await sendAccessLink({ ...base, telefone: '11999998888', channels: ['email'] });
     expect(r.email).toBe('sent');
     expect(r.whatsapp).toBe('skipped');
+  });
+
+  it('kind=signup usa templates de boas-vindas e reporta status', async () => {
+    const r = await sendAccessLink({ ...base, telefone: '11999998888', kind: 'signup' });
+    expect(r.email).toBe('sent');
+    expect(r.whatsapp).toBe('sent');
+    expect(r.anySent).toBe(true);
   });
 });
