@@ -64,8 +64,14 @@ function rateFromMime(mime?: string): number {
   return m ? parseInt(m[1], 10) : 24000;
 }
 
-/** Chamada crua ao Gemini TTS: texto+direção de estilo → PCM 16-bit mono. */
-async function ttsToPcm(prompt: string, voiceName: string): Promise<{ pcm: Buffer; sampleRate: number }> {
+const TTS_MAX_RETRIES = Number(process.env.GEMINI_TTS_RETRIES) || 4;
+
+/**
+ * Chamada crua ao Gemini TTS: texto+direção de estilo → PCM 16-bit mono.
+ * RETRY com backoff exponencial em 429 (rate-limit) e 503 (indisponível) — o TTS
+ * preview tem limites apertados de RPM/RPD; respeita `Retry-After` quando vier.
+ */
+async function ttsToPcm(prompt: string, voiceName: string, attempt = 0): Promise<{ pcm: Buffer; sampleRate: number }> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY not set');
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
@@ -86,6 +92,14 @@ async function ttsToPcm(prompt: string, voiceName: string): Promise<{ pcm: Buffe
     throw e;
   } finally {
     clearTimeout(timer);
+  }
+  if ((res.status === 429 || res.status === 503) && attempt < TTS_MAX_RETRIES) {
+    const retryAfter = Number(res.headers.get('retry-after'));
+    const backoff = Math.min(30_000, 2_000 * 2 ** attempt); // 2s, 4s, 8s, 16s
+    const wait = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : backoff;
+    console.warn(`Gemini TTS ${res.status} — retry em ${Math.round(wait / 1000)}s (tentativa ${attempt + 1}/${TTS_MAX_RETRIES})`);
+    await new Promise((r) => setTimeout(r, wait));
+    return ttsToPcm(prompt, voiceName, attempt + 1);
   }
   if (!res.ok) throw new Error(`Gemini TTS ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const data = await res.json();

@@ -19,8 +19,9 @@ const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
 // OffthreadVideo reamostra 25→30 e DESCASA o lip-sync (A/V). Normalizamos o mp4
 // p/ CFR neste fps antes de montar → mapeamento 1:1 de frame, sync preservado.
 const VIDEO_FPS = Number(process.env.VIDEO_FPS) || 30;
-// Concorrência da narração (Gemini TTS) — paralelo sem estourar rate-limit.
-const NARRACAO_CONCURRENCY = Number(process.env.NARRACAO_CONCURRENCY) || 4;
+// Concorrência da narração (Gemini TTS) — 2: paralelo o suficiente sem estourar o
+// rate-limit por minuto do TTS preview (com backoff no ttsToPcm como rede de segurança).
+const NARRACAO_CONCURRENCY = Number(process.env.NARRACAO_CONCURRENCY) || 2;
 
 /** Roda `fn` sobre todos os items com no máximo `n` simultâneos (pool). */
 async function mapPool<T>(items: T[], n: number, fn: (item: T, i: number) => Promise<void>): Promise<void> {
