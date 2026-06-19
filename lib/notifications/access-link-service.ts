@@ -1,0 +1,136 @@
+import { Resend } from 'resend';
+import { EMAIL_FROM_DEFAULT } from '@/lib/domain';
+import type { AppLocale } from '@/i18n/routing';
+import { magicLinkEmail, magicLinkWhatsapp } from '@/lib/i18n-auth-templates';
+
+/**
+ * Serviço CENTRAL de envio de link de acesso (magic link) por canal.
+ *
+ * Existe para acabar com o "sucesso silencioso": cada canal devolve um status
+ * EXPLÍCITO (`sent` | `skipped` | `failed`) + o motivo quando não envia, e
+ * `anySent` diz se ALGO saiu de fato. O chamador nunca deve reportar sucesso ao
+ * usuário sem checar `anySent`.
+ *
+ * Centraliza o que antes estava reimplementado em ~8 rotas (magic-link, signup,
+ * pulse, whatsapp-lote, …). Não gera o magic link nem resolve tenant — recebe os
+ * links já montados (cada rota monta seu callback com token_hash/redirect).
+ */
+
+export type ChannelStatus = 'sent' | 'skipped' | 'failed';
+
+export type SendAccessLinkResult = {
+  email: ChannelStatus;
+  whatsapp: ChannelStatus;
+  emailReason?: string;
+  whatsappReason?: string;
+  /** true se pelo menos um canal foi realmente enviado */
+  anySent: boolean;
+};
+
+export type SendAccessLinkInput = {
+  /** email de destino */
+  to: string;
+  telefone?: string | null;
+  nome: string;
+  empresaNome: string;
+  locale: AppLocale;
+  /** link já montado para o corpo do email (callback com token_hash ou action_link) */
+  emailLink?: string | null;
+  /** link já montado para o WhatsApp (callback com token_hash) */
+  whatsappLink?: string | null;
+  /** canais a tentar; default: ambos */
+  channels?: Array<'email' | 'whatsapp'>;
+};
+
+async function enviarEmail(p: SendAccessLinkInput, out: SendAccessLinkResult): Promise<void> {
+  if (!process.env.RESEND_API_KEY) {
+    out.email = 'failed';
+    out.emailReason = 'RESEND_API_KEY ausente';
+    return;
+  }
+  if (!p.emailLink) {
+    out.email = 'skipped';
+    out.emailReason = 'link de email não disponível';
+    return;
+  }
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const tpl = magicLinkEmail(p.locale, { nome: p.nome, empresaNome: p.empresaNome, link: p.emailLink });
+    const r = await resend.emails.send({ from: EMAIL_FROM_DEFAULT, to: p.to, subject: tpl.subject, html: tpl.html });
+    if ((r as any)?.error) {
+      out.email = 'failed';
+      out.emailReason = String((r as any).error?.message || (r as any).error).slice(0, 200);
+    } else {
+      out.email = 'sent';
+    }
+  } catch (e: any) {
+    out.email = 'failed';
+    out.emailReason = String(e?.message || e).slice(0, 200);
+  }
+}
+
+async function enviarWhatsapp(p: SendAccessLinkInput, out: SendAccessLinkResult): Promise<void> {
+  const inst = process.env.ZAPI_INSTANCE_ID;
+  const tok = process.env.ZAPI_TOKEN;
+  if (!inst || !tok) {
+    out.whatsapp = 'failed';
+    out.whatsappReason = 'Z-API não configurado';
+    return;
+  }
+  if (!p.telefone) {
+    out.whatsapp = 'skipped';
+    out.whatsappReason = 'colaborador sem telefone';
+    return;
+  }
+  if (!p.whatsappLink) {
+    out.whatsapp = 'skipped';
+    out.whatsappReason = 'link de whatsapp não disponível';
+    return;
+  }
+  try {
+    let phone = String(p.telefone).replace(/\D/g, '');
+    if (phone.length <= 11) phone = `55${phone}`;
+    const msg = magicLinkWhatsapp(p.locale, { nome: p.nome, empresaNome: p.empresaNome, link: p.whatsappLink });
+    const res = await fetch(`https://api.z-api.io/instances/${inst}/token/${tok}/send-text`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Client-Token': process.env.ZAPI_CLIENT_TOKEN || '' },
+      body: JSON.stringify({ phone, message: msg }),
+    });
+    if (res.ok) {
+      out.whatsapp = 'sent';
+    } else {
+      out.whatsapp = 'failed';
+      out.whatsappReason = `Z-API HTTP ${res.status}`;
+    }
+  } catch (e: any) {
+    out.whatsapp = 'failed';
+    out.whatsappReason = String(e?.message || e).slice(0, 200);
+  }
+}
+
+/**
+ * Decide se um email é elegível para receber link e extrai nome/telefone da
+ * mensagem, a partir do resultado dos lookups (colaborador + platform admin).
+ * Função PURA (testável sem DB). Elegível = é colaborador OU platform admin.
+ * Quando nenhum, `eligible:false` → o chamador devolve sucesso genérico SEM
+ * enviar (anti-enumeração) — sem cair no "sucesso silencioso" de quem existe.
+ */
+export function recipientFromLookup(
+  colab: { nome_completo: string | null; telefone: string | null } | null | undefined,
+  platformAdmin: { nome: string | null } | null | undefined,
+): { eligible: boolean; nome: string; telefone: string | null } {
+  if (!colab && !platformAdmin) return { eligible: false, nome: '', telefone: null };
+  const nomeBase = colab?.nome_completo || platformAdmin?.nome || '';
+  return { eligible: true, nome: nomeBase.split(' ')[0] || '', telefone: colab?.telefone ?? null };
+}
+
+export async function sendAccessLink(p: SendAccessLinkInput): Promise<SendAccessLinkResult> {
+  const channels = p.channels ?? ['email', 'whatsapp'];
+  const out: SendAccessLinkResult = { email: 'skipped', whatsapp: 'skipped', anySent: false };
+
+  if (channels.includes('email')) await enviarEmail(p, out);
+  if (channels.includes('whatsapp')) await enviarWhatsapp(p, out);
+
+  out.anySent = out.email === 'sent' || out.whatsapp === 'sent';
+  return out;
+}
