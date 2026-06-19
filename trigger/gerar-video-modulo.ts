@@ -36,9 +36,24 @@ const VOICE = process.env.VIDEO_TTS_VOICE || 'Vindemiatrix';
 // âncoras emocionais → dose com mais respiro/calor (B1); o miolo é voice-over de
 // conteúdo → dose ágil-warm (B2), pra não arrastar a explicação. Mesma voz,
 // estilo dirigido por tipo de cena — o "TTS chapado" vinha de não dirigir.
-const NARRATION_STYLE_AVATAR = 'Narre como uma mentora calorosa e próxima, conversando com uma pessoa, em português do Brasil. Ritmo natural e fluido de conversa, acolhedor, com respiros leves entre as frases e uma micro-pausa antes da ideia principal. Sem pressa, mas sem arrastar.';
+const NARRATION_STYLE_INTRO = 'Narre como uma mentora calorosa e próxima, em português do Brasil, abrindo uma conversa. Tom curioso e acolhedor, energia que prende a atenção, ritmo natural com respiros leves. Engaje sem pressa — mas sem arrastar.';
+const NARRATION_STYLE_OUTRO = 'Narre como uma mentora calorosa e próxima, em português do Brasil, fechando com uma pergunta de reflexão. Ritmo mais pausado, com peso e intimidade; faça uma micro-pausa antes da pergunta final e deixe o ar respirar no fim.';
 const NARRATION_STYLE_MIOLO = 'Narre como uma mentora calorosa e acolhedora, em português do Brasil, num ritmo natural de conversa. Respiração natural entre as frases, tom íntimo e humano. Mantenha a fluidez — não alongue as pausas.';
-const styleForScene = (type: string) => (String(type).startsWith('avatar') ? NARRATION_STYLE_AVATAR : NARRATION_STYLE_MIOLO);
+const styleForScene = (type: string) =>
+  type === 'avatar_intro' ? NARRATION_STYLE_INTRO
+  : type === 'avatar_outro' ? NARRATION_STYLE_OUTRO
+  : NARRATION_STYLE_MIOLO;
+
+// Trava a pronúncia de siglas/jargão que o TTS erra. Aplicado SÓ ao texto do TTS
+// — as legendas usam o texto ORIGINAL (o Whisper dá só o timing). Lista
+// versionada: adicione termos antes de gerar em lote. (DISC ajustável.)
+const PRONUNCIA: Array<[RegExp, string]> = [
+  [/\bVertho\b/gi, 'Vértho'],
+  [/\bPDI\b/g, 'pê-dê-í'],
+  [/\bPPP\b/g, 'pê-pê-pê'],
+  [/\bDISC\b/g, 'dísc'],
+];
+const aplicarPronuncia = (t: string) => PRONUNCIA.reduce((s, [re, sub]) => s.replace(re, sub), t);
 
 /** PATCH no registro videos_gerados via PostgREST (evita o crash do supabase-js no worker). */
 async function patchVideo(videoId: string, fields: Record<string, unknown>): Promise<void> {
@@ -121,7 +136,7 @@ export const gerarVideoModuloTask = task({
       await patchVideo(videoId, { etapa: 'narracao' });
       const comNarracao = roteiro.scenes.filter((s) => s.narration?.trim());
       await mapPool(comNarracao, NARRACAO_CONCURRENCY, async (s) => {
-        const audio = await generateNarrationAudio(s.narration as string, { voice: VOICE, style: styleForScene(s.type) });
+        const audio = await generateNarrationAudio(aplicarPronuncia(s.narration as string), { voice: VOICE, style: styleForScene(s.type) });
         const src = await storagePut('video-assets', `${videoId}/${s.id}.mp3`, audio.buffer, 'audio/mpeg');
         // M4: timing por palavra (Whisper) p/ legendas + animações. null = fallback heurístico.
         const words = await transcribeWords(audio.buffer);
