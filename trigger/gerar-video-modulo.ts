@@ -57,9 +57,12 @@ async function normalizarFps(mp4: Buffer, fps: number): Promise<Buffer> {
   const outP = nodePath.join(dir, 'out.mp4');
   try {
     await writeFile(inP, mp4);
-    await exec(FFMPEG, ['-y', '-i', inP, '-r', String(fps), '-vsync', 'cfr',
+    // timeout duro: se o ffmpeg pendurar, falha rápido (cai no fallback) em vez de
+    // segurar a task por minutos. maxBuffer alto p/ o stderr do libx264.
+    await exec(FFMPEG, ['-y', '-i', inP, '-r', String(fps), '-fps_mode', 'cfr',
       '-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p',
-      '-c:a', 'aac', '-ar', '48000', '-async', '1', '-movflags', '+faststart', outP]);
+      '-c:a', 'aac', '-ar', '48000', '-movflags', '+faststart', outP],
+      { timeout: 180_000, maxBuffer: 64 * 1024 * 1024 });
     return await readFile(outP);
   } catch (e) {
     console.warn('normalizarFps falhou, usando mp4 original:', (e as Error)?.message);
@@ -95,7 +98,9 @@ async function ffprobeDuration(url: string): Promise<number> {
  */
 export const gerarVideoModuloTask = task({
   id: 'gerar-video-modulo',
-  machine: 'small-1x',
+  // large-1x: o passo de avatar faz re-encode ffmpeg (normalizarFps 25→30) que
+  // estrangulava/penduravam a small-1x. CPU/RAM folgadas evitam o hang.
+  machine: 'large-1x',
   maxDuration: 3600,
   run: async (p: {
     videoId: string;
