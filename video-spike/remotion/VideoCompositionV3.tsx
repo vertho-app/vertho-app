@@ -117,8 +117,7 @@ const SoundLayer: React.FC<{ scenes: ComputedScene[]; fps: number }> = ({ scenes
     <>
       {scenes.flatMap((s) => {
         const out: React.ReactNode[] = [];
-        if (s.fromFrame > 0)
-          out.push(<Sequence key={s.id + '-tr'} from={s.fromFrame} durationInFrames={f(0.6)}><Audio src={staticFile(SFX.transicao)} volume={VOL.transicao} /></Sequence>);
+        // (sem whoosh de transição entre cenas — removido a pedido; soava ruim)
         if (s.type === 'avatar_intro')
           out.push(<Sequence key={s.id + '-lg'} from={s.fromFrame} durationInFrames={f(2.31)}><Audio src={staticFile(SFX.logo)} volume={VOL.logo} /></Sequence>);
         if (s.type === 'avatar_outro')
