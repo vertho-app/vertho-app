@@ -9,6 +9,10 @@ import type { RoteiroScene, VideoRoteiro } from './roteiro-prompt';
 
 export interface Brand { primary: string; secondary: string; background: string; font?: string }
 
+// ⚠️ MIRROR — este shape é o CONTRATO do render_inputprops e é espelhado em
+// `video-spike/remotion/data/load-scenes.ts` (ComputedScene). Os dois são projetos
+// TS separados de PROPÓSITO (montar-inputprops roda no trigger; o bundle é
+// standalone) → não há tipo compartilhado. Ao mudar um campo aqui, replique lá.
 export interface ComputedScene {
   id: string;
   type: RoteiroScene['type'];

@@ -412,7 +412,7 @@ function splitNarrationForTts(texto: string, maxChars = 600): string[] {
  */
 // Direção de estilo default (devolutiva comportamental): mensagem pessoal do
 // mentor, ritmo moderado/reflexivo. O caminho de VÍDEO passa `opts.style` com um
-// ritmo mais ágil (ver gerar-narracao.ts).
+// ritmo mais ágil (ver trigger/gerar-video-modulo.ts).
 const NARRATION_STYLE_DEFAULT = 'Narre em português do Brasil, com voz acolhedora, segura e íntima, ritmo moderado e pausas reflexivas naturais, como um mentor falando diretamente com a pessoa';
 
 export async function generateNarrationAudio(texto: string, opts: { voice?: string; style?: string } = {}): Promise<PodcastAudioFile> {

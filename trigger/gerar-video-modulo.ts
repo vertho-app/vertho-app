@@ -17,6 +17,17 @@ const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
 // OffthreadVideo reamostra 25→30 e DESCASA o lip-sync (A/V). Normalizamos o mp4
 // p/ CFR neste fps antes de montar → mapeamento 1:1 de frame, sync preservado.
 const VIDEO_FPS = Number(process.env.VIDEO_FPS) || 30;
+// Concorrência da narração (Gemini TTS) — paralelo sem estourar rate-limit.
+const NARRACAO_CONCURRENCY = Number(process.env.NARRACAO_CONCURRENCY) || 4;
+
+/** Roda `fn` sobre todos os items com no máximo `n` simultâneos (pool). */
+async function mapPool<T>(items: T[], n: number, fn: (item: T, i: number) => Promise<void>): Promise<void> {
+  let idx = 0;
+  const workers = Array.from({ length: Math.max(1, Math.min(n, items.length)) }, async () => {
+    while (idx < items.length) { const i = idx++; await fn(items[i], i); }
+  });
+  await Promise.all(workers);
+}
 const SUPA = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const BUCKET = 'video-assets';
@@ -106,21 +117,22 @@ export const gerarVideoModuloTask = task({
     try {
       const assets: AssetMap = {};
 
-      // 1) NARRAÇÃO — uma voz (Callirrhoe, ritmo ágil) em todo o vídeo.
+      // 1) NARRAÇÃO — uma voz (Callirrhoe, ritmo ágil) em todo o vídeo. Paralela
+      // (pool) — antes era sequencial (~3s × N cenas). Saída idêntica (assets por id).
       await patchVideo(videoId, { etapa: 'narracao' });
-      for (const s of roteiro.scenes) {
-        if (!s.narration?.trim()) continue;
-        const audio = await generateNarrationAudio(s.narration, { voice: VOICE, style: VIDEO_NARRATION_STYLE });
+      const comNarracao = roteiro.scenes.filter((s) => s.narration?.trim());
+      await mapPool(comNarracao, NARRACAO_CONCURRENCY, async (s) => {
+        const audio = await generateNarrationAudio(s.narration as string, { voice: VOICE, style: VIDEO_NARRATION_STYLE });
         const src = await upload(`${videoId}/${s.id}.mp3`, audio.buffer, 'audio/mpeg');
         assets[s.id] = { src, durationSec: 0 };
-      }
+      });
 
-      // 2) AVATAR — HeyGen faz lip-sync do NOSSO mp3; re-hospedamos o mp4 (URL HeyGen expira).
+      // 2) AVATAR — HeyGen faz lip-sync do NOSSO mp3; re-hospedamos o mp4 (URL HeyGen
+      // expira). Cenas de avatar em paralelo (intro + outro).
       await patchVideo(videoId, { etapa: 'avatar' });
-      for (const s of roteiro.scenes) {
-        if (!s.type.startsWith('avatar')) continue;
-        const audioUrl = assets[s.id]?.src;
-        if (!audioUrl) continue;
+      const avatares = roteiro.scenes.filter((s) => s.type.startsWith('avatar') && assets[s.id]?.src);
+      await mapPool(avatares, 2, async (s) => {
+        const audioUrl = assets[s.id].src;
         const heygenId = await gerarClipHeyGen(audioUrl, { width: 1280, height: 720 });
         const heygenUrl = await aguardarClipHeyGen(heygenId);
         const mp4 = Buffer.from(await (await fetch(heygenUrl)).arrayBuffer());
@@ -129,13 +141,13 @@ export const gerarVideoModuloTask = task({
         // Mantém o mp3 da narração como áudio SEPARADO: o vídeo (mp4) entra mutado e
         // o áudio é tocado alinhado pelo Remotion → lip-sync sem o offset do OffthreadVideo.
         assets[s.id] = { src, durationSec: 0, audioSrc: audioUrl };
-      }
+      });
 
-      // 3) DURAÇÕES reais → timeline correta.
+      // 3) DURAÇÕES reais (ffprobe) → timeline correta. Paralelo.
       await patchVideo(videoId, { etapa: 'render' });
-      for (const id of Object.keys(assets)) {
+      await mapPool(Object.keys(assets), 6, async (id) => {
         assets[id].durationSec = await ffprobeDuration(assets[id].src);
-      }
+      });
 
       // 4) inputProps (timeline + legendas).
       const props = montarInputProps(roteiro, assets, {

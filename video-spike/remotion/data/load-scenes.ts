@@ -26,6 +26,9 @@ export interface Brand {
   font?: string;
 }
 
+// ⚠️ MIRROR — shape do render_inputprops, espelhado em
+// `lib/video/montar-inputprops.ts` (ComputedScene). Projetos TS separados de
+// propósito (bundle standalone) → sem tipo compartilhado. Mudou aqui, replique lá.
 export interface ComputedScene {
   id: string;
   type: SceneType;

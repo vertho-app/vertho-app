@@ -1,8 +1,8 @@
 /**
  * HeyGen — gera o mp4 do avatar (Mentora Vertho) fazendo LIP-SYNC da NOSSA
- * narração (TTS Gemini, voz Kore). NÃO usamos a voz do HeyGen: passamos
- * `voice.type = 'audio'` + `audio_url` (a URL pública do mp3 gerado por
- * `gerar-narracao.ts`), garantindo a mesma voz nas cenas de avatar e nas demais.
+ * narração (TTS Gemini, voz Callirrhoe). NÃO usamos a voz do HeyGen: passamos
+ * `voice.type = 'audio'` + `audio_url` (a URL pública do mp3 gerado em
+ * `trigger/gerar-video-modulo.ts`), garantindo a mesma voz nas cenas de avatar e nas demais.
  *
  * Fluxo: generate → poll status → URL do mp4. O mp4 vira input das cenas
  * avatar_intro / avatar_outro do Remotion (OffthreadVideo via inputProps).

@@ -18,7 +18,9 @@ export interface GreetingProps {
   brand: Brand;
 }
 
-const DEFAULT_BRAND: Brand = { primary: '#6D28D9', secondary: '#0EA5E9', background: '#0B1020', font: 'Inter, system-ui, sans-serif' };
+// Brand de PRODUÇÃO do vídeo (o deck passa o mesmo via props no render; este valor
+// é o default de Studio/preview e a fonte única do brand de saudação).
+export const DEFAULT_BRAND: Brand = { primary: '#6D28D9', secondary: '#0EA5E9', background: '#0B1020', font: 'Inter, system-ui, sans-serif' };
 
 export const AvatarGreeting: React.FC<GreetingProps> = ({ nome, audioSrc, brand = DEFAULT_BRAND }) => {
   const frame = useCurrentFrame();
