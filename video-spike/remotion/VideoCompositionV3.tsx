@@ -1,5 +1,5 @@
 import React from 'react';
-import { AbsoluteFill, Audio, interpolate, Loop, Sequence, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
+import { AbsoluteFill, Audio, interpolate, Sequence, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
 import type { ComputedScene, Brand } from './data/load-scenes';
 import type { SpikePropsV3 } from './data/load-scenes-v3';
 import { AvatarClipV2 } from './scenes/AvatarClipV2';
@@ -91,39 +91,50 @@ const FilmFade: React.FC<{ brand: Brand }> = ({ brand }) => {
   return <AbsoluteFill style={{ backgroundColor: brand.background, opacity: o, pointerEvents: 'none' }} />;
 };
 
-// ── CAMADA DE SOM (archetype-level) ────────────────────────────────────────
-// Trilha-base (bed respiro, loop) + bed do pico + logo nas pontas + SFX por
-// template + transição entre cenas. Tudo DUCKADO bem abaixo da voz (a voz é
-// rainha). Assets reais em public/video-spike/audio. Volumes conservadores —
-// mix-alvo ~-14 LUFS com a narração por cima.
-const SFX = { bed: 'audio/bed-respiro.mp3', bedPico: 'audio/bed-pico.mp3', logo: 'audio/logo.mp3', prompt: 'audio/prompt.mp3', tick: 'audio/tick.mp3', entre: 'audio/entre-cenas.mp3' };
-const BED_SECONDS = 9.68;
-const TICK_TYPES = new Set(['concept_reveal', 'steps_flow', 'maturity_ladder', 'icon_story']);
-const PROMPT_TYPES = new Set(['reflection_prompt', 'quote_spotlight']);
-const VOL = { bed: 0.12, bedPico: 0.20, logo: 0.34, entre: 0.26, tick: 0.36, prompt: 0.40 };
+// ── CAMADA DE SOM (archetype-level) — só os SFX por template vivem no Remotion.
+// A TRILHA (beds), o ducking sidechain e o master -14 LUFS rodam no passo de
+// áudio (ffmpeg, lib/video/masterizar-audio), portável p/ a worker Hetzner.
+// SFX = pacote do caderno de produção sonora (sintetizados em D maior).
+const SFX = {
+  logo: 'audio/logo.mp3',
+  tick: 'audio/pack/sfx_sinal_tick.wav',
+  transicao: 'audio/pack/sfx_transicao_suave.wav',
+  countup: 'audio/pack/sfx_stat_countup.wav',
+  mito: 'audio/pack/sfx_mito_risco.wav',
+  verdade: 'audio/pack/sfx_verdade_chime.wav',
+  seta: 'audio/pack/sfx_seta_transformacao.wav',
+  pad: 'audio/pack/sfx_tela_limpa_pad.wav',
+};
+const TICK_TYPES = new Set(['concept_reveal', 'steps_flow', 'maturity_ladder']);
+const PAD_TYPES = new Set(['quote_spotlight', 'scenario_card']);
+const VOL = { logo: 0.5, transicao: 0.4, tick: 0.5, countup: 0.5, mito: 0.5, verdade: 0.55, seta: 0.45, pad: 0.4 };
 
 const SoundLayer: React.FC<{ scenes: ComputedScene[]; fps: number }> = ({ scenes, fps }) => {
   const f = (s: number) => Math.max(1, Math.round(s * fps));
+  // o gatilho do SFX casa com o início da FALA da cena (janela Whisper); senão, o começo.
+  const cue = (s: ComputedScene) => s.fromFrame + Math.max(0, s.speechStartFrame ?? 0);
   return (
     <>
-      {/* trilha-base em loop, bem abaixo da voz */}
-      <Loop durationInFrames={f(BED_SECONDS)} layout="none">
-        <Audio src={staticFile(SFX.bed)} volume={VOL.bed} />
-      </Loop>
       {scenes.flatMap((s) => {
         const out: React.ReactNode[] = [];
         if (s.fromFrame > 0)
-          out.push(<Sequence key={s.id + '-w'} from={s.fromFrame} durationInFrames={f(0.6)}><Audio src={staticFile(SFX.entre)} volume={VOL.entre} /></Sequence>);
+          out.push(<Sequence key={s.id + '-tr'} from={s.fromFrame} durationInFrames={f(0.6)}><Audio src={staticFile(SFX.transicao)} volume={VOL.transicao} /></Sequence>);
         if (s.type === 'avatar_intro')
           out.push(<Sequence key={s.id + '-lg'} from={s.fromFrame} durationInFrames={f(2.31)}><Audio src={staticFile(SFX.logo)} volume={VOL.logo} /></Sequence>);
         if (s.type === 'avatar_outro')
           out.push(<Sequence key={s.id + '-lg'} from={Math.max(s.fromFrame, s.fromFrame + s.durationInFrames - f(2.31))} durationInFrames={f(2.31)}><Audio src={staticFile(SFX.logo)} volume={VOL.logo} /></Sequence>);
         if (TICK_TYPES.has(s.type))
-          out.push(<Sequence key={s.id + '-tk'} from={s.fromFrame + f(0.4)} durationInFrames={f(0.6)}><Audio src={staticFile(SFX.tick)} volume={VOL.tick} /></Sequence>);
-        if (PROMPT_TYPES.has(s.type))
-          out.push(<Sequence key={s.id + '-pr'} from={s.fromFrame + f(0.3)} durationInFrames={f(1)}><Audio src={staticFile(SFX.prompt)} volume={VOL.prompt} /></Sequence>);
-        if (s.is_peak)
-          out.push(<Sequence key={s.id + '-bp'} from={s.fromFrame} durationInFrames={s.durationInFrames}><Audio src={staticFile(SFX.bedPico)} volume={VOL.bedPico} /></Sequence>);
+          out.push(<Sequence key={s.id + '-tk'} from={cue(s) + f(0.2)} durationInFrames={f(0.5)}><Audio src={staticFile(SFX.tick)} volume={VOL.tick} /></Sequence>);
+        if (s.type === 'stat_highlight')
+          out.push(<Sequence key={s.id + '-cu'} from={cue(s)} durationInFrames={f(2)}><Audio src={staticFile(SFX.countup)} volume={VOL.countup} /></Sequence>);
+        if (s.type === 'myth_truth') {
+          out.push(<Sequence key={s.id + '-mi'} from={cue(s)} durationInFrames={f(0.8)}><Audio src={staticFile(SFX.mito)} volume={VOL.mito} /></Sequence>);
+          out.push(<Sequence key={s.id + '-ve'} from={s.fromFrame + Math.round(s.durationInFrames * 0.55)} durationInFrames={f(1.2)}><Audio src={staticFile(SFX.verdade)} volume={VOL.verdade} /></Sequence>);
+        }
+        if (s.type === 'comparison_motion')
+          out.push(<Sequence key={s.id + '-se'} from={cue(s)} durationInFrames={f(1)}><Audio src={staticFile(SFX.seta)} volume={VOL.seta} /></Sequence>);
+        if (PAD_TYPES.has(s.type))
+          out.push(<Sequence key={s.id + '-pd'} from={s.fromFrame} durationInFrames={f(2)}><Audio src={staticFile(SFX.pad)} volume={VOL.pad} /></Sequence>);
         return out;
       })}
     </>
