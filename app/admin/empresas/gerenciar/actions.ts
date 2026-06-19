@@ -287,12 +287,26 @@ export async function criarColaborador(empresaId: any, campos: any) {
   return { success: true, id: data.id };
 }
 
-export async function atualizarColaborador(id: any, campos: any) {
-  const ctx = await requireAdminAction('users.manage');
-  const sb = await requireAdminSupabase();
+const AtualizarColaboradorSchema = z.object({
+  id: z.string().uuid(),
+  // forma livre; a normalização/validação SEMÂNTICA (email/telefone) fica no corpo
+  campos: z.object({
+    nome_completo: z.string().nullish(),
+    email: z.string().nullish(),
+    cargo: z.string().nullish(),
+    area_depto: z.string().nullish(),
+    telefone: z.string().nullish(),
+    gestor_nome: z.string().nullish(),
+    gestor_email: z.string().nullish(),
+    gestor_whatsapp: z.string().nullish(),
+    role: z.string().nullish(),
+  }),
+});
 
+const _atualizarColaborador = protectedAction('users.manage', AtualizarColaboradorSchema, async (ctx, { id, campos }) => {
+  const sb = await requireAdminSupabase();
   const { data: existente } = await sb.from('colaboradores').select('empresa_id').eq('id', id).maybeSingle();
-  if (!existente) return { success: false, error: 'colab não encontrado' };
+  if (!existente) throw new Error('colab não encontrado');
   // Defense-in-depth: hoje o painel é só platform admin (assert é no-op p/ eles),
   // mas garante isolamento se um dia surgir admin com escopo de tenant.
   await assertTenantAccessAction(ctx, existente.empresa_id);
@@ -301,49 +315,57 @@ export async function atualizarColaborador(id: any, campos: any) {
   if (campos.nome_completo !== undefined) update.nome_completo = campos.nome_completo?.trim() || null;
   if (campos.email !== undefined) {
     const email = normalizeEmail(campos.email);
-    if (!isValidEmail(email)) return { success: false, error: 'email inválido' };
+    if (!isValidEmail(email)) throw new Error('email inválido');
     update.email = email;
   }
   if (campos.cargo !== undefined) update.cargo = campos.cargo?.trim() || null;
   if (campos.area_depto !== undefined) update.area_depto = campos.area_depto?.trim() || null;
   if (campos.telefone !== undefined) {
     const telefone = normalizePhone(campos.telefone);
-    if (hasValue(campos.telefone) && !telefone) return { success: false, error: 'telefone/celular inválido. Use DDD, ex.: 11999998888 ou 5511999998888' };
+    if (hasValue(campos.telefone) && !telefone) throw new Error('telefone/celular inválido. Use DDD, ex.: 11999998888 ou 5511999998888');
     update.telefone = telefone;
   }
   if (campos.gestor_nome !== undefined) update.gestor_nome = campos.gestor_nome?.trim() || null;
   if (campos.gestor_email !== undefined) {
     const gestorEmail = normalizeEmail(campos.gestor_email);
-    if (hasValue(campos.gestor_email) && !isValidEmail(gestorEmail)) return { success: false, error: 'email do gestor inválido' };
+    if (hasValue(campos.gestor_email) && !isValidEmail(gestorEmail)) throw new Error('email do gestor inválido');
     update.gestor_email = gestorEmail;
   }
   if (campos.gestor_whatsapp !== undefined) {
     const gestorWhatsapp = normalizePhone(campos.gestor_whatsapp);
-    if (hasValue(campos.gestor_whatsapp) && !gestorWhatsapp) return { success: false, error: 'whatsapp do gestor inválido. Use DDD, ex.: 11999998888 ou 5511999998888' };
+    if (hasValue(campos.gestor_whatsapp) && !gestorWhatsapp) throw new Error('whatsapp do gestor inválido. Use DDD, ex.: 11999998888 ou 5511999998888');
     update.gestor_whatsapp = gestorWhatsapp;
   }
-  if (campos.role !== undefined && VALID_ROLES.includes(campos.role)) update.role = campos.role;
+  if (campos.role !== undefined && VALID_ROLES.includes(campos.role as string)) update.role = campos.role;
 
   const { error } = await sb.from('colaboradores').update(update).eq('id', id);
-  if (error) return { success: false, error: error.message };
-  return { success: true };
+  if (error) throw new Error(error.message);
+  return { id };
+});
+
+export async function atualizarColaborador(input: z.infer<typeof AtualizarColaboradorSchema>) {
+  return _atualizarColaborador(input);
 }
 
-export async function excluirColaborador(id: any) {
-  const ctx = await requireAdminAction('users.manage');
-  const sb = await requireAdminSupabase();
+const ExcluirColaboradorSchema = z.object({ id: z.string().uuid() });
 
+const _excluirColaborador = protectedAction('users.manage', ExcluirColaboradorSchema, async (ctx, { id }) => {
+  const sb = await requireAdminSupabase();
   const { data: existente } = await sb.from('colaboradores').select('empresa_id, nome_completo').eq('id', id).maybeSingle();
-  if (!existente) return { success: false, error: 'colab não encontrado' };
+  if (!existente) throw new Error('colab não encontrado');
   await assertTenantAccessAction(ctx, existente.empresa_id); // defense-in-depth
 
   const { error } = await sb.from('colaboradores').delete().eq('id', id);
-  if (error) return { success: false, error: error.message };
+  if (error) throw new Error(error.message);
   await logAdminAction({
     adminEmail: ctx.email, acao: 'colaborador.excluir', empresaId: existente.empresa_id,
     alvo: existente.nome_completo || id, detalhes: { colaboradorId: id },
   });
-  return { success: true };
+  return { id };
+});
+
+export async function excluirColaborador(input: z.infer<typeof ExcluirColaboradorSchema>) {
+  return _excluirColaborador(input);
 }
 
 // ── Cargos ──────────────────────────────────────────────────────────────────
@@ -417,21 +439,25 @@ export async function salvarCargo(input: SalvarCargoInput) {
   return _salvarCargo(input);
 }
 
-export async function excluirCargo(id: any) {
-  const ctx = await requireAdminAction('companies.manage');
-  const sb = await requireAdminSupabase();
+const ExcluirCargoSchema = z.object({ id: z.string().uuid() });
 
+const _excluirCargo = protectedAction('companies.manage', ExcluirCargoSchema, async (ctx, { id }) => {
+  const sb = await requireAdminSupabase();
   const { data: existe } = await sb.from('cargos_empresa').select('empresa_id, nome').eq('id', id).maybeSingle();
-  if (!existe) return { success: false, error: 'cargo não encontrado' };
+  if (!existe) throw new Error('cargo não encontrado');
   await assertTenantAccessAction(ctx, (existe as any).empresa_id); // defense-in-depth
 
   const { error } = await sb.from('cargos_empresa').delete().eq('id', id);
-  if (error) return { success: false, error: error.message };
+  if (error) throw new Error(error.message);
   await logAdminAction({
     adminEmail: ctx.email, acao: 'cargo.excluir', empresaId: (existe as any).empresa_id,
     alvo: (existe as any).nome || id, detalhes: { cargoId: id },
   });
-  return { success: true };
+  return { id };
+});
+
+export async function excluirCargo(input: z.infer<typeof ExcluirCargoSchema>) {
+  return _excluirCargo(input);
 }
 
 export async function sincronizarCargosDeColaboradores(empresaId: any) {

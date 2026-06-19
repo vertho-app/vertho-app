@@ -179,7 +179,7 @@ export default function GerenciarPage() {
     setSaving(true);
     const r = editId === 'new'
       ? await criarColaborador(tenantId, editData)
-      : await atualizarColaborador(editId, editData);
+      : await atualizarColaborador({ id: editId, campos: editData });
     setSaving(false);
     if (r.success) {
       setEditId(null);
@@ -209,7 +209,7 @@ export default function GerenciarPage() {
 
   async function handleDelete(id, nome) {
     if (!confirm(t('confirm.deleteCollaborator', { name: nome || t('fallback.collaborator') }))) return;
-    const r = await excluirColaborador(id);
+    const r = await excluirColaborador({ id });
     if (r.success) { refresh(); setMsg(t('messages.collaboratorDeleted')); }
     else setMsg(t('messages.error', { error: r.error }));
   }
@@ -259,7 +259,7 @@ export default function GerenciarPage() {
 
   async function handleDeleteCargo(id, nome) {
     if (!confirm(t('confirm.deleteRole', { name: nome }))) return;
-    const r = await excluirCargo(id);
+    const r = await excluirCargo({ id });
     if (r.success) { refreshCargos(); setMsg(t('messages.roleDeleted')); }
     else setMsg(t('messages.error', { error: r.error }));
   }
