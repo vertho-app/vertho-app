@@ -77,8 +77,10 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   modulo_base_autor:   'gemini-3.5-flash',
   modulo_base_auditor: 'gpt-5.4',
   // Roteiro de vídeo — peça criativa de alta alavancagem (reaproveitada por
-  // célula): Opus 4.8 pela aderência a muitas regras + fidelidade pedagógica.
-  conteudo_video:      'claude-opus-4-8',
+  // célula): Opus 4.6 + extended thinking (mesmo preço do 4.8, $5/$25) pela
+  // aderência a muitas regras + fidelidade pedagógica. Thinking é ativado no
+  // callClaudeBatch (lib/video/gerar-roteiro.ts).
+  conteudo_video:      'claude-opus-4-6',
 };
 
 const FALLBACK_GLOBAL = 'claude-sonnet-4-6';

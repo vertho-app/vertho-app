@@ -13,19 +13,20 @@
  * Estimativas de tokens são aproximadas (sistema + histórico médio + output).
  * Ajuste conforme uso real for observado.
  *
- * Custos de MÍDIA:
+ * Custos de MIDIA:
  *   - TTS (Gemini): por TOKEN — texto de entrada (inTokens) + tokens de ÁUDIO
  *     na saída (outTokens), que é o custo dominante. Preço in $1 / out $20 por 1M.
  *   - Render de vídeo Veo (por segundo de footage): usa `flatUsd` (custo fixo em
  *     USD por execução), somado em calcCost.
+ *   - `costMultiplier` aplica desconto operacional conhecido (ex.: batch API).
  */
 
-// Preços por 1M tokens (USD) — atualizados em mai/2026.
+// Preços por 1M tokens (USD) — atualizados em jun/2026.
 export const MODELS = {
   // Anthropic
-  'claude-opus-4-8':            { label: 'Claude Opus 4.8',     inUsd: 15,   outUsd: 75 },
-  'claude-opus-4-7':            { label: 'Claude Opus 4.7',     inUsd: 15,   outUsd: 75 },
-  'claude-opus-4-6':            { label: 'Claude Opus 4.6',     inUsd: 15,   outUsd: 75 },
+  'claude-opus-4-8':            { label: 'Claude Opus 4.8',     inUsd: 5,    outUsd: 25 },
+  'claude-opus-4-7':            { label: 'Claude Opus 4.7',     inUsd: 5,    outUsd: 25 },
+  'claude-opus-4-6':            { label: 'Claude Opus 4.6',     inUsd: 5,    outUsd: 25 },
   'claude-sonnet-4-6':          { label: 'Claude Sonnet 4.6',   inUsd: 3,    outUsd: 15 },
   // Google
   'gemini-3.1-flash-lite':     { label: 'Gemini 3.1 Flash Lite',      inUsd: 0.25, outUsd: 1.50 },
@@ -511,19 +512,19 @@ export const CALLS = [
   },
 
   // ── VÍDEO GERADO a partir do MÓDULO-BASE (avatar HeyGen + cenas Remotion + narração TTS própria) ──
-  // Escala por VÍDEO gerado (~90s, 5 cenas). Custo DOMINANTE = render Remotion no
-  // trigger.dev (chunks large-2x). Avatar HeyGen é opcional (toggle com/sem avatar).
-  // Números cravados em E2E real (jun/2026): render 720p $1,07 (API trigger.dev;
-  // era $2,07 em 1080p — default mudou p/ 720p, -48%) e avatar $0,58 (34 créditos
-  // × $0,0172/créd. — medido na fatura HeyGen).
+  // Escala por VÍDEO gerado (3-5 min). Custo dominante passa a ser o avatar,
+  // porque render em produção usa Hetzner (custo fixo amortizado). O roteiro
+  // Opus entra no custo com Batch API (50% off) + prompt caching/prompting como
+  // upside operacional quando vários roteiros compartilham o mesmo system prompt.
   {
     id: 'video-modulo-roteiro',
     fase: 'Vídeo do Módulo-Base',
     scaleType: 'video_gerado',
     nome: 'Roteiro de vídeo (LLM)',
-    descricao: 'Transforma o Módulo-Base em roteiro de 6–12 cenas (3–5 min, JSON). Opus 4.8 (peça criativa de alta alavancagem, reaproveitada por célula). ~4,5k tok in (módulo+prompt) + ~3,5k tok out (roteiro+metadados; medido ~3,2k).',
+    descricao: 'Transforma o Módulo-Base em roteiro de 6–12 cenas (3–5 min, JSON). Opus 4.8 via Batch API (50% off) + prompt caching quando há lote. ~4,5k tok in + ~3,5k tok out.',
     inTokens: 4500,
     outTokens: 3500,
+    costMultiplier: 0.5,
     exec: 1,
     defaultModel: 'claude-opus-4-8',
     critical: false,
@@ -533,9 +534,10 @@ export const CALLS = [
     fase: 'Vídeo do Módulo-Base',
     scaleType: 'video_gerado',
     nome: 'Narração das cenas (TTS)',
-    descricao: 'Narração própria (voz Kore) das N cenas, ~4 min de áudio. Gemini TTS por token: input = texto+direção (~1,5k tok); output = áudio (~6k tok ≈ 240s × ~25 tok/s). Serve às cenas animadas e ao lip-sync do avatar.',
-    inTokens: 1500,
-    outTokens: 6000,
+    descricao: 'Narração própria (voz Kore) das N cenas, ~4 min de áudio. Valor medido em geração real: ~$0,09 por vídeo. Serve às cenas animadas e ao lip-sync do avatar.',
+    inTokens: 0,
+    outTokens: 0,
+    flatUsd: 0.09,
     exec: 1,
     defaultModel: 'gemini-3.1-flash-tts',
     critical: false,
@@ -545,10 +547,10 @@ export const CALLS = [
     fase: 'Vídeo do Módulo-Base',
     scaleType: 'video_gerado',
     nome: 'Avatar falante (HeyGen)',
-    descricao: 'Clipes de avatar (intro + outro, ~40–55s) com lip-sync da nossa narração. HeyGen cobra ~$0,035/chamada + ~$0,016/s (medido em 3 vídeos): 2 clipes ≈ $0,58–0,94 conforme o tamanho das falas. OPCIONAL: sem avatar, só cenas animadas, e o custo cai todo este valor.',
+    descricao: 'Clipes de avatar (intro + outro, ~30s) com lip-sync da nossa narração. Premissa de custo: Avatar III a ~$0,0167/s, cerca de $0,50 por vídeo. OPCIONAL: sem avatar, só cenas animadas, e o custo cai todo este valor.',
     inTokens: 0,
     outTokens: 0,
-    flatUsd: 0.75,
+    flatUsd: 0.50,
     exec: 1,
     defaultModel: 'gemini-3.1-flash-lite',
     critical: false,
@@ -559,7 +561,7 @@ export const CALLS = [
     fase: 'Vídeo do Módulo-Base',
     scaleType: 'video_gerado',
     nome: 'Render Remotion (Hetzner)',
-    descricao: 'Render Remotion 720p/30fps → Bunny. No worker HETZNER (VPS CX33 ~$9/mês fixa ÷ volume ≈ $0,06/vídeo a 150/mês; ~$0,02 a 500/mês). No trigger.dev seria ~$2,88 (4 min, 720p) — daí a migração: o render deixa de dominar o custo. 1080p é ~grátis no Hetzner (custo fixo). Licença Remotion = free (empresa ≤3 func.).',
+    descricao: 'Render Remotion 720p/30fps → Bunny, sempre em CX33 paralelo+efêmero na Hetzner. Premissa: nós sobem para o job, renderizam chunks e são destruídos; custo unitário ~4 CX33 × 1h mínima ≈ $0,06/vídeo. Trigger.dev fica só como override de teste.',
     inTokens: 0,
     outTokens: 0,
     flatUsd: 0.06,
@@ -708,7 +710,7 @@ function crossLlmCheck(primaryModel) {
 function applyPreset(call, primaryFn) {
   // RAG (embeddings) e Geração de Conteúdo (TTS/Veo/serviços fixos) têm modelo
   // determinado pelo serviço, não pelo preset de qualidade da avaliação.
-  if (call.fase === 'RAG' || call.fase === 'Geração de Conteúdo' || call.fase === 'Extração de Vídeo') return call.defaultModel;
+  if (call.fase === 'RAG' || call.fase === 'Geração de Conteúdo' || call.fase === 'Extração de Vídeo' || call.fase === 'Vídeo do Módulo-Base') return call.defaultModel;
   const primaryId = CHECK_PRIMARIES[call.id];
   if (primaryId) {
     const primaryCall = CALLS.find((c) => c.id === primaryId);
@@ -759,6 +761,7 @@ export function calcCost(call, modelId, units = 1) {
   const outTok = call.outTokens * call.exec * units;
   // Custo de mídia fixo (ex.: render Veo) — independe de tokens.
   const flat = (call.flatUsd || 0) * call.exec * units;
-  const usd = (inTok / 1_000_000) * m.inUsd + (outTok / 1_000_000) * m.outUsd + flat;
+  const tokenUsd = ((inTok / 1_000_000) * m.inUsd + (outTok / 1_000_000) * m.outUsd) * (call.costMultiplier || 1);
+  const usd = tokenUsd + flat;
   return { usd, inTokens: inTok, outTokens: outTok, totalTokens: inTok + outTok };
 }
