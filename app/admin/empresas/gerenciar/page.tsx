@@ -178,7 +178,7 @@ export default function GerenciarPage() {
     if (!editId) return;
     setSaving(true);
     const r = editId === 'new'
-      ? await criarColaborador(tenantId, editData)
+      ? await criarColaborador({ empresaId: tenantId, campos: editData })
       : await atualizarColaborador({ empresaId: tenantId, id: editId, campos: editData });
     setSaving(false);
     if (r.success) {

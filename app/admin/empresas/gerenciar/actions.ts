@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction, assertTenantAccessAction } from '@/lib/auth/action-context';
 import { protectedAction } from '@/lib/auth/protected-action';
-import { updateColaboradorInTenant, deleteColaboradorInTenant } from '@/lib/repositories/colaboradores-repo';
+import { updateColaboradorInTenant, deleteColaboradorInTenant, emailExistsInTenant, createColaboradorInTenant } from '@/lib/repositories/colaboradores-repo';
 import { logAdminAction } from '@/lib/audit';
 import { excludeInternalEmails } from '@/lib/internal-emails';
 import { validateWhatsAppBR } from '@/lib/phone';
@@ -239,10 +239,24 @@ export async function exportarColaboradoresXLSX(empresaId: any): Promise<
   return { ok: true, base64: Buffer.from(buf as any).toString('base64'), n: colabs.length };
 }
 
-export async function criarColaborador(empresaId: any, campos: any) {
-  await requireAdminAction('users.manage');
-  if (!empresaId) return { success: false, error: 'empresa obrigatória' };
-  const sb = await requireAdminSupabase();
+const CriarColaboradorSchema = z.object({
+  empresaId: z.string().uuid(),
+  campos: z.object({
+    nome_completo: z.string().nullish(),
+    email: z.string().nullish(),
+    telefone: z.string().nullish(),
+    cargo: z.string().nullish(),
+    area_depto: z.string().nullish(),
+    gestor_nome: z.string().nullish(),
+    gestor_email: z.string().nullish(),
+    gestor_whatsapp: z.string().nullish(),
+    role: z.string().nullish(),
+  }),
+});
+
+const _criarColaborador = protectedAction('users.manage', CriarColaboradorSchema, async (ctx, { empresaId, campos }) => {
+  await assertTenantAccessAction(ctx, empresaId); // defense-in-depth (no-op p/ platform admin)
+
   let email = normalizeEmail(campos?.email);
   const wa = validateWhatsAppBR(campos?.telefone);
   let loginPorWhatsapp = false;
@@ -250,27 +264,27 @@ export async function criarColaborador(empresaId: any, campos: any) {
 
   if (isValidEmail(email)) {
     telefone = normalizePhone(campos.telefone);
-    if (hasValue(campos.telefone) && !telefone) return { success: false, error: 'telefone/celular inválido. Use DDD, ex.: 11999998888 ou 5511999998888' };
+    if (hasValue(campos.telefone) && !telefone) throw new Error('telefone/celular inválido. Use DDD, ex.: 11999998888 ou 5511999998888');
   } else if (wa.valid === true) {
     // Sem e-mail → login por WhatsApp (email-proxy interno determinístico).
     email = proxyEmailFromPhone(empresaId, wa.e164);
     telefone = wa.e164;
     loginPorWhatsapp = true;
   } else {
-    return { success: false, error: 'informe um e-mail válido OU um WhatsApp válido (DDD + 9 + 8 dígitos)' };
+    throw new Error('informe um e-mail válido OU um WhatsApp válido (DDD + 9 + 8 dígitos)');
   }
 
   const gestorEmail = normalizeEmail(campos.gestor_email);
-  if (hasValue(campos.gestor_email) && !isValidEmail(gestorEmail)) return { success: false, error: 'email do gestor inválido' };
+  if (hasValue(campos.gestor_email) && !isValidEmail(gestorEmail)) throw new Error('email do gestor inválido');
   const gestorWhatsapp = normalizePhone(campos.gestor_whatsapp);
-  if (hasValue(campos.gestor_whatsapp) && !gestorWhatsapp) return { success: false, error: 'whatsapp do gestor inválido. Use DDD, ex.: 11999998888 ou 5511999998888' };
+  if (hasValue(campos.gestor_whatsapp) && !gestorWhatsapp) throw new Error('whatsapp do gestor inválido. Use DDD, ex.: 11999998888 ou 5511999998888');
 
-  const { data: existente } = await sb.from('colaboradores')
-    .select('id').eq('empresa_id', empresaId).eq('email', email).maybeSingle();
-  if (existente) return { success: false, error: loginPorWhatsapp ? 'já existe colaborador com este WhatsApp nesta empresa' : 'já existe colaborador com este email nesta empresa' };
+  const sb = await requireAdminSupabase();
+  if (await emailExistsInTenant(sb, empresaId, email)) {
+    throw new Error(loginPorWhatsapp ? 'já existe colaborador com este WhatsApp nesta empresa' : 'já existe colaborador com este email nesta empresa');
+  }
 
-  const payload = {
-    empresa_id: empresaId,
+  const novo = await createColaboradorInTenant(sb, empresaId, {
     email,
     nome_completo: campos.nome_completo?.trim() || null,
     cargo: campos.cargo?.trim() || null,
@@ -279,13 +293,14 @@ export async function criarColaborador(empresaId: any, campos: any) {
     gestor_nome: campos.gestor_nome?.trim() || null,
     gestor_email: gestorEmail,
     gestor_whatsapp: gestorWhatsapp,
-    role: VALID_ROLES.includes(campos.role) ? campos.role : 'colaborador',
+    role: VALID_ROLES.includes(campos.role as string) ? campos.role : 'colaborador',
     login_por_whatsapp: loginPorWhatsapp,
-  };
+  });
+  return { id: novo.id };
+});
 
-  const { data, error } = await sb.from('colaboradores').insert(payload).select('id').single();
-  if (error) return { success: false, error: error.message };
-  return { success: true, id: data.id };
+export async function criarColaborador(input: z.infer<typeof CriarColaboradorSchema>) {
+  return _criarColaborador(input);
 }
 
 const AtualizarColaboradorSchema = z.object({

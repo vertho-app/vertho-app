@@ -49,3 +49,25 @@ export async function deleteColaboradorInTenant(sb: Sb, empresaId: string, id: s
   if (error) throw new Error(error.message);
   return data || null;
 }
+
+/** Há colaborador com este email DENTRO de `empresaId`? (duplicidade é por tenant.) */
+export async function emailExistsInTenant(sb: Sb, empresaId: string, email: string): Promise<boolean> {
+  const { data } = await sb
+    .from('colaboradores')
+    .select('id')
+    .eq('empresa_id', empresaId)
+    .eq('email', email)
+    .maybeSingle();
+  return !!data;
+}
+
+/** Insere SEMPRE no tenant `empresaId` — o empresa_id é embutido aqui (ignora o que vier em `dados`). */
+export async function createColaboradorInTenant(sb: Sb, empresaId: string, dados: Record<string, any>): Promise<any> {
+  const { data, error } = await sb
+    .from('colaboradores')
+    .insert({ ...dados, empresa_id: empresaId })
+    .select('id')
+    .single();
+  if (error) throw new Error(error.message);
+  return data;
+}
