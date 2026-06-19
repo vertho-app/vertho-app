@@ -2,7 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
-import { isMapeamentoCenariosLiberado } from '@/lib/votacao/status';
+import { canAccessMapeamentoCenarios } from '@/lib/access-gates';
 
 async function resolverTop5ComCenario(sb: any, empresaId: string, cargo: string, top5: string[], escolaId: string | null = null) {
   const { data: compsDoCargo } = await sb.from('competencias')
@@ -90,8 +90,9 @@ async function _getDiagnosticoDoDia() {
     .select('sys_config')
     .eq('id', colab.empresa_id)
     .maybeSingle();
-  if (!isMapeamentoCenariosLiberado(empresa?.sys_config || {})) {
-    return { error: 'O mapeamento de cenários ainda não foi liberado pela empresa.' };
+  const gate = canAccessMapeamentoCenarios(empresa?.sys_config || {});
+  if (!gate.allowed) {
+    return { error: gate.message, code: gate.code, remediation: gate.remediation };
   }
 
   // Top 5 do cargo

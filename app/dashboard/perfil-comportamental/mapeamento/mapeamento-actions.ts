@@ -3,7 +3,7 @@
 import { after } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
-import { isPerfilComportamentalLiberado } from '@/lib/votacao/status';
+import { canAccessPerfilComportamental } from '@/lib/access-gates';
 
 /**
  * Verifica se o colaborador pode responder o DISC nativo.
@@ -24,7 +24,6 @@ export async function verificarDisponibilidadeMapeamento() {
     .maybeSingle();
   const fonteExterna = (empCfg?.sys_config as any)?.perfil_externo_fonte ?? null;
   const cfg = (empCfg?.sys_config as any) || {};
-  const perfilLiberado = isPerfilComportamentalLiberado(cfg);
   if (fonteExterna) {
     return {
       permitido: false,
@@ -32,11 +31,14 @@ export async function verificarDisponibilidadeMapeamento() {
       motivo: 'Sua empresa usa mapeamento comportamental próprio.',
     };
   }
-  if (!perfilLiberado) {
+  const perfil = canAccessPerfilComportamental(cfg);
+  if (!perfil.allowed) {
     return {
       permitido: false,
       redirectTo: '/dashboard/perfil-comportamental',
-      motivo: 'O perfil comportamental ainda não foi liberado pela empresa.',
+      motivo: perfil.message || 'O perfil comportamental ainda não foi liberado pela empresa.',
+      code: perfil.code,
+      remediation: perfil.remediation,
     };
   }
 
@@ -66,17 +68,19 @@ export async function salvarPerfilComportamental(resultados) {
     .maybeSingle();
   const fonteExterna = (empCfg?.sys_config as any)?.perfil_externo_fonte ?? null;
   const cfg = (empCfg?.sys_config as any) || {};
-  const perfilLiberado = isPerfilComportamentalLiberado(cfg);
   if (fonteExterna) {
     return {
       success: false,
       error: 'Esta empresa usa mapeamento comportamental próprio. O DISC nativo não será salvo.',
     };
   }
-  if (!perfilLiberado) {
+  const perfil = canAccessPerfilComportamental(cfg);
+  if (!perfil.allowed) {
     return {
       success: false,
-      error: 'O perfil comportamental ainda não foi liberado pela empresa.',
+      error: perfil.message || 'O perfil comportamental ainda não foi liberado pela empresa.',
+      code: perfil.code,
+      remediation: perfil.remediation,
     };
   }
 
