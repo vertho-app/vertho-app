@@ -1,7 +1,9 @@
 'use server';
 
+import { z } from 'zod';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction, assertTenantAccessAction } from '@/lib/auth/action-context';
+import { protectedAction } from '@/lib/auth/protected-action';
 import { logAdminAction } from '@/lib/audit';
 import { excludeInternalEmails } from '@/lib/internal-emails';
 import { validateWhatsAppBR } from '@/lib/phone';
@@ -357,13 +359,32 @@ export async function loadCargos(empresaId: any) {
   return data || [];
 }
 
-export async function salvarCargo(empresaId: any, cargo: any) {
-  const ctx = await requireAdminAction('companies.manage');
+// PILOTO Fase 2 — primeira action sobre `protectedAction`: a factory força
+// auth (companies.manage) + validação Zod + retorno padronizado {success,...};
+// o corpo só cuida da regra de negócio (e do tenant, via assertTenantAccessAction).
+// O wrapper `export async function` mantém a compat com 'use server'.
+const SalvarCargoSchema = z.object({
+  empresaId: z.string().uuid(),
+  cargo: z.object({
+    id: z.string().uuid().optional(),
+    nome: z.string().trim().min(1, 'Nome do cargo é obrigatório'),
+    area_depto: z.string().nullish(),
+    descricao: z.string().nullish(),
+    principais_entregas: z.string().nullish(),
+    contexto_cultural: z.string().nullish(),
+    stakeholders: z.string().nullish(),
+    decisoes_recorrentes: z.string().nullish(),
+    tensoes_comuns: z.string().nullish(),
+    eh_lideranca: z.boolean().optional(),
+  }),
+});
+type SalvarCargoInput = z.infer<typeof SalvarCargoSchema>;
 
+const _salvarCargo = protectedAction('companies.manage', SalvarCargoSchema, async (ctx, { empresaId, cargo }) => {
   const sb = await requireAdminSupabase();
   const registro = {
     empresa_id: empresaId,
-    nome: cargo.nome?.trim(),
+    nome: cargo.nome.trim(),
     area_depto: cargo.area_depto?.trim() || null,
     descricao: cargo.descricao?.trim() || null,
     principais_entregas: cargo.principais_entregas?.trim() || null,
@@ -374,25 +395,26 @@ export async function salvarCargo(empresaId: any, cargo: any) {
     eh_lideranca: cargo.eh_lideranca !== false,
     updated_at: new Date().toISOString(),
   };
-
-  if (!registro.nome) return { success: false, error: 'Nome do cargo é obrigatório' };
-
   let result;
   if (cargo.id) {
     const { data: existe } = await sb.from('cargos_empresa').select('empresa_id').eq('id', cargo.id).maybeSingle();
-    if (!existe) return { success: false, error: 'cargo não encontrado' };
+    if (!existe) throw new Error('cargo não encontrado');
     await assertTenantAccessAction(ctx, (existe as any).empresa_id); // defense-in-depth
     result = await sb.from('cargos_empresa').update(registro).eq('id', cargo.id).select().single();
   } else {
     result = await sb.from('cargos_empresa').insert(registro).select().single();
   }
-  if (result.error) return { success: false, error: result.error.message };
+  if (result.error) throw new Error(result.error.message);
   await logAdminAction({
     adminEmail: ctx.email, acao: 'cargo.salvar', empresaId,
     alvo: registro.nome,
     detalhes: { modo: cargo.id ? 'editar' : 'criar', cargoId: result.data?.id ?? cargo.id, eh_lideranca: registro.eh_lideranca },
   });
-  return { success: true, data: result.data };
+  return result.data;
+});
+
+export async function salvarCargo(input: SalvarCargoInput) {
+  return _salvarCargo(input);
 }
 
 export async function excluirCargo(id: any) {

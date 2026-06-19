@@ -246,7 +246,7 @@ export default function GerenciarPage() {
   async function handleSaveCargo() {
     if (!editCargo || !tenantId) return;
     setSavingCargo(true);
-    const r = await salvarCargo(tenantId, editCargo);
+    const r = await salvarCargo({ empresaId: tenantId, cargo: editCargo });
     setSavingCargo(false);
     if (r.success) {
       setEditCargo(null);
