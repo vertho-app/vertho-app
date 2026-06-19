@@ -1,7 +1,7 @@
 'use server';
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
-import { requireAdminAction } from '@/lib/auth/action-context';
+import { requireAdminAction, assertTenantAccessAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 import { excludeInternalEmails } from '@/lib/internal-emails';
 import { validateWhatsAppBR } from '@/lib/phone';
@@ -286,11 +286,14 @@ export async function criarColaborador(empresaId: any, campos: any) {
 }
 
 export async function atualizarColaborador(id: any, campos: any) {
-  await requireAdminAction('users.manage');
+  const ctx = await requireAdminAction('users.manage');
   const sb = await requireAdminSupabase();
 
   const { data: existente } = await sb.from('colaboradores').select('empresa_id').eq('id', id).maybeSingle();
   if (!existente) return { success: false, error: 'colab não encontrado' };
+  // Defense-in-depth: hoje o painel é só platform admin (assert é no-op p/ eles),
+  // mas garante isolamento se um dia surgir admin com escopo de tenant.
+  await assertTenantAccessAction(ctx, existente.empresa_id);
 
   const update: any = {};
   if (campos.nome_completo !== undefined) update.nome_completo = campos.nome_completo?.trim() || null;
@@ -330,6 +333,7 @@ export async function excluirColaborador(id: any) {
 
   const { data: existente } = await sb.from('colaboradores').select('empresa_id, nome_completo').eq('id', id).maybeSingle();
   if (!existente) return { success: false, error: 'colab não encontrado' };
+  await assertTenantAccessAction(ctx, existente.empresa_id); // defense-in-depth
 
   const { error } = await sb.from('colaboradores').delete().eq('id', id);
   if (error) return { success: false, error: error.message };
@@ -377,6 +381,7 @@ export async function salvarCargo(empresaId: any, cargo: any) {
   if (cargo.id) {
     const { data: existe } = await sb.from('cargos_empresa').select('empresa_id').eq('id', cargo.id).maybeSingle();
     if (!existe) return { success: false, error: 'cargo não encontrado' };
+    await assertTenantAccessAction(ctx, (existe as any).empresa_id); // defense-in-depth
     result = await sb.from('cargos_empresa').update(registro).eq('id', cargo.id).select().single();
   } else {
     result = await sb.from('cargos_empresa').insert(registro).select().single();
@@ -396,6 +401,7 @@ export async function excluirCargo(id: any) {
 
   const { data: existe } = await sb.from('cargos_empresa').select('empresa_id, nome').eq('id', id).maybeSingle();
   if (!existe) return { success: false, error: 'cargo não encontrado' };
+  await assertTenantAccessAction(ctx, (existe as any).empresa_id); // defense-in-depth
 
   const { error } = await sb.from('cargos_empresa').delete().eq('id', id);
   if (error) return { success: false, error: error.message };
