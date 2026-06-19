@@ -1,7 +1,7 @@
 import React from 'react';
 import { AbsoluteFill, Audio, interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
 import { Brand, IconClock, IconChat, IconHourglass, withAlpha } from '../theme';
-import { reveal, fadeInOut, translateUp, springIn, staggerDelay } from '../utils/timing';
+import { reveal, fadeInOut, translateUp, springIn, cueDelay } from '../utils/timing';
 import { BackgroundV2, EyebrowV2, INK, ACCENT_SOFT } from '../theme-v2';
 import { pickVariant } from '../utils/variant';
 import type { ComputedScene } from '../data/load-scenes';
@@ -15,7 +15,7 @@ export const IconStoryV2: React.FC<{ scene: ComputedScene; brand: Brand; audio?:
   const title = reveal(frame, 6, 24);
   const items = scene.items || [];
   const ni = Math.max(1, items.length);
-  const delayOf = (i: number) => staggerDelay(durationInFrames, i, ni);
+  const delayOf = (i: number) => cueDelay(durationInFrames, i, ni, scene.speechStartFrame, scene.speechEndFrame);
   const activeIdx = items.reduce((acc, _x, i) => (frame >= delayOf(i) + 8 ? i : acc), -1);
   // 0 = 3 cards em linha (original) · 1 = lista vertical de features.
   const variant = pickVariant(`${scene.id}|${scene.title || ''}`, 2);

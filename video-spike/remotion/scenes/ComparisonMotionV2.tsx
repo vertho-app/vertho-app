@@ -20,9 +20,12 @@ export const ComparisonMotionV2: React.FC<{ scene: ComputedScene; brand: Brand; 
   const { durationInFrames } = useVideoConfig();
   const out = fadeInOut(frame, durationInFrames, 16, 20);
   const title = reveal(frame, 6, 24);
-  // Os dois lados pacem com a fala: "Reagir" cedo, "Antecipar" no meio da cena.
-  const LEFT_DELAY = staggerDelay(durationInFrames, 0, 2, 0.08, 0.5);
-  const RIGHT_DELAY = staggerDelay(durationInFrames, 1, 2, 0.08, 0.5);
+  // Os dois lados pacem com a FALA real (Whisper): "Reagir" no início, "Antecipar"
+  // no meio da fala. Sem janela de fala → fração da cena (fallback).
+  const sp = scene.speechStartFrame, se = scene.speechEndFrame;
+  const temFala = typeof sp === 'number' && typeof se === 'number' && se > sp;
+  const LEFT_DELAY = temFala ? (sp as number) : staggerDelay(durationInFrames, 0, 2, 0.08, 0.5);
+  const RIGHT_DELAY = temFala ? Math.round((sp as number) + ((se as number) - (sp as number)) * 0.5) : staggerDelay(durationInFrames, 1, 2, 0.08, 0.5);
 
   const left = scene.left || { title: 'Reagir', items: [] };
   const right = scene.right || { title: 'Antecipar', items: [] };

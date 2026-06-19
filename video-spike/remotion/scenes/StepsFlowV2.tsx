@@ -1,7 +1,7 @@
 import React from 'react';
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
 import { Brand, withAlpha } from '../theme';
-import { reveal, fadeInOut, translateUp, staggerDelay } from '../utils/timing';
+import { reveal, fadeInOut, translateUp, cueDelay } from '../utils/timing';
 import { BackgroundV2, EyebrowV2, INK } from '../theme-v2';
 import { pickVariant } from '../utils/variant';
 import type { ComputedScene } from '../data/load-scenes';
@@ -24,8 +24,9 @@ export const StepsFlowV2: React.FC<{ scene: ComputedScene; brand: Brand }> = ({ 
   // 0 = jornada horizontal · 1 = timeline vertical editorial.
   const variant = pickVariant(`${scene.id}|${scene.title || ''}`, 2);
 
-  const firstD = staggerDelay(durationInFrames, 0, n);
-  const lastD = staggerDelay(durationInFrames, n - 1, n);
+  const cue = (i: number) => cueDelay(durationInFrames, i, n, scene.speechStartFrame, scene.speechEndFrame);
+  const firstD = cue(0);
+  const lastD = cue(n - 1);
   const lineP = interpolate(frame, [firstD, lastD + 22], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
 
   // ── Variante 1: TIMELINE VERTICAL EDITORIAL ───────────────────────────────
@@ -42,7 +43,7 @@ export const StepsFlowV2: React.FC<{ scene: ComputedScene; brand: Brand }> = ({ 
             <div style={{ position: 'absolute', left: 2, top: 10, bottom: 10, width: 2, background: withAlpha('#ffffff', 0.08) }} />
             <div style={{ position: 'absolute', left: 2, top: 10, width: 2, height: `calc((100% - 20px) * ${lineP})`, background: brand.primary, boxShadow: `0 0 12px ${withAlpha(brand.primary, 0.5)}` }} />
             {steps.map((s, i) => {
-              const p = reveal(frame, staggerDelay(durationInFrames, i, n), 22);
+              const p = reveal(frame, cue(i), 22);
               const last = i === steps.length - 1;
               return (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 44, padding: '24px 0 24px 56px', borderBottom: last ? 'none' : `1px solid ${withAlpha('#ffffff', 0.07)}`, opacity: p, transform: `translateX(${(1 - p) * 24}px)` }}>
@@ -72,7 +73,7 @@ export const StepsFlowV2: React.FC<{ scene: ComputedScene; brand: Brand }> = ({ 
           <div style={{ position: 'absolute', top: 46, left: '4%', height: 2, width: `calc(92% * ${lineP})`, background: brand.primary, boxShadow: `0 0 14px ${withAlpha(brand.primary, 0.5)}` }} />
 
           {steps.map((s, i) => {
-            const p = reveal(frame, staggerDelay(durationInFrames, i, n), 22);
+            const p = reveal(frame, cue(i), 22);
             return (
               <div key={i} style={{ position: 'relative', width: `${100 / steps.length}%`, display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: p, transform: `translateY(${(1 - p) * 22}px)` }}>
                 <div style={{ width: 18, height: 18, borderRadius: '50%', background: brand.primary, marginTop: 38, boxShadow: `0 0 22px ${withAlpha(brand.primary, p * 0.7)}` }} />

@@ -1,7 +1,7 @@
 import React from 'react';
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
 import { Brand, withAlpha } from '../theme';
-import { reveal, fadeInOut, translateUp, staggerDelay } from '../utils/timing';
+import { reveal, fadeInOut, translateUp, cueDelay } from '../utils/timing';
 import { BackgroundV2, EyebrowV2, INK, INK_DIM, ACCENT_SOFT } from '../theme-v2';
 import type { ComputedScene } from '../data/load-scenes';
 
@@ -24,8 +24,9 @@ export const MaturityLadderV2: React.FC<{ scene: ComputedScene; brand: Brand }> 
   const target = Math.min(n - 1, Math.max(0, scene.target ?? n - 1));
   const title = reveal(frame, 8, 24);
 
-  const firstD = staggerDelay(durationInFrames, 0, n);
-  const lastD = staggerDelay(durationInFrames, n - 1, n);
+  const cue = (i: number) => cueDelay(durationInFrames, i, n, scene.speechStartFrame, scene.speechEndFrame);
+  const firstD = cue(0);
+  const lastD = cue(n - 1);
   const railP = interpolate(frame, [firstD, lastD + 20], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   const minH = 116, maxH = 336;
   const BARS_H = maxH + 64;          // folga acima do degrau-meta p/ o selo "META"
@@ -47,7 +48,7 @@ export const MaturityLadderV2: React.FC<{ scene: ComputedScene; brand: Brand }> 
           <div style={{ position: 'absolute', left: 0, bottom: 0, height: 3, width: `${railP * 100}%`, background: brand.primary, boxShadow: `0 0 14px ${withAlpha(brand.primary, 0.5)}` }} />
 
           {rungs.map((r, i) => {
-            const d = staggerDelay(durationInFrames, i, n);
+            const d = cue(i);
             const p = reveal(frame, d, 22);
             const h = minH + (maxH - minH) * (n === 1 ? 1 : i / (n - 1));
             const isTarget = i === target;
@@ -78,7 +79,7 @@ export const MaturityLadderV2: React.FC<{ scene: ComputedScene; brand: Brand }> 
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 34 }}>
           {rungs.map((r, i) => {
             const isTarget = i === target;
-            const labelP = reveal(frame, staggerDelay(durationInFrames, i, n) + 8, 16);
+            const labelP = reveal(frame, cue(i) + 8, 16);
             return (
               <div key={i} style={{ width: colW, textAlign: 'center', opacity: labelP }}>
                 <span style={{ color: isTarget ? INK : INK_DIM, fontSize: 31, fontWeight: isTarget ? 700 : 600, lineHeight: 1.18 }}>{r}</span>

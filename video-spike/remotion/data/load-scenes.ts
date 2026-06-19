@@ -50,6 +50,10 @@ export interface ComputedScene {
   tag?: string;
   src?: string;
   audioSrc?: string; // avatar: áudio (mp3) separado do vídeo (mp4 mutado) p/ lip-sync preciso
+  // M4 — janela de FALA real (frames relativos à cena, do Whisper) p/ sincronizar
+  // as animações com a voz. Ausente = fallback p/ staggerDelay.
+  speechStartFrame?: number;
+  speechEndFrame?: number;
   seconds: number;
   durationInFrames: number;
   fromFrame: number;

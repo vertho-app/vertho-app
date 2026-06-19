@@ -10,6 +10,7 @@ import { gerarClipHeyGen, aguardarClipHeyGen } from '../lib/video/heygen';
 import { montarInputProps, exportCaptionsToSrt, exportCaptionsToVtt, type AssetMap } from '../lib/video/montar-inputprops';
 import type { VideoRoteiro } from '../lib/video/roteiro-prompt';
 import { storagePut, SUPA, KEY } from '../lib/video/render-helpers';
+import { transcribeWords } from '../lib/video/whisper-align';
 
 const exec = promisify(execFile);
 const FFPROBE = process.env.FFPROBE_PATH || 'ffprobe';
@@ -112,7 +113,9 @@ export const gerarVideoModuloTask = task({
       await mapPool(comNarracao, NARRACAO_CONCURRENCY, async (s) => {
         const audio = await generateNarrationAudio(s.narration as string, { voice: VOICE, style: VIDEO_NARRATION_STYLE });
         const src = await storagePut('video-assets', `${videoId}/${s.id}.mp3`, audio.buffer, 'audio/mpeg');
-        assets[s.id] = { src, durationSec: 0 };
+        // M4: timing por palavra (Whisper) p/ legendas + animações. null = fallback heurístico.
+        const words = await transcribeWords(audio.buffer);
+        assets[s.id] = { src, durationSec: 0, words: words || undefined };
       });
 
       // 2) AVATAR — HeyGen faz lip-sync do NOSSO mp3; re-hospedamos o mp4 (URL HeyGen
@@ -128,7 +131,8 @@ export const gerarVideoModuloTask = task({
         const src = await storagePut('video-assets', `${videoId}/${s.id}.mp4`, norm, 'video/mp4');
         // Mantém o mp3 da narração como áudio SEPARADO: o vídeo (mp4) entra mutado e
         // o áudio é tocado alinhado pelo Remotion → lip-sync sem o offset do OffthreadVideo.
-        assets[s.id] = { src, durationSec: 0, audioSrc: audioUrl };
+        // Preserva `words` (timing Whisper) capturado no passo da narração.
+        assets[s.id] = { src, durationSec: 0, audioSrc: audioUrl, words: assets[s.id]?.words };
       });
 
       // 3) DURAÇÕES reais (ffprobe) → timeline correta. Paralelo.

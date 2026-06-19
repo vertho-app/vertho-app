@@ -43,3 +43,19 @@ export function staggerDelay(total: number, i: number, n: number, startFrac = 0.
   const end = Math.max(start, total * endFrac);
   return Math.round(start + (i / (n - 1)) * (end - start));
 }
+
+/**
+ * Delay de entrada do item `i` de `n` SINCRONIZADO À FALA real (M4): se a cena
+ * tem janela de fala (speechStart/End, frames do Whisper), distribui as entradas
+ * DENTRO da fala (do 1º som a ~85% dela); senão cai no `staggerDelay` (heurística
+ * por fração da cena). Mantém a mesma assinatura de uso nos templates.
+ */
+export function cueDelay(total: number, i: number, n: number, speechStart?: number, speechEnd?: number): number {
+  if (typeof speechStart === 'number' && typeof speechEnd === 'number' && speechEnd > speechStart) {
+    if (n <= 1) return Math.round(speechStart);
+    const start = speechStart;
+    const end = speechStart + (speechEnd - speechStart) * 0.85;
+    return Math.round(start + (i / (n - 1)) * (end - start));
+  }
+  return staggerDelay(total, i, n);
+}

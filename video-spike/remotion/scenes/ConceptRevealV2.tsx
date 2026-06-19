@@ -1,7 +1,7 @@
 import React from 'react';
 import { AbsoluteFill, Audio, interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
 import { Brand, IconObserve, IconConnect, IconAct, withAlpha } from '../theme';
-import { reveal, fadeInOut, translateUp, staggerDelay } from '../utils/timing';
+import { reveal, fadeInOut, translateUp, cueDelay } from '../utils/timing';
 import { BackgroundV2, EyebrowV2, INK, ACCENT_SOFT } from '../theme-v2';
 import { pickVariant } from '../utils/variant';
 import type { ComputedScene } from '../data/load-scenes';
@@ -17,7 +17,7 @@ export const ConceptRevealV2: React.FC<{ scene: ComputedScene; brand: Brand; aud
   const underline = reveal(frame, 20, 30);
   const bullets = scene.bullets || [];
   const nb = Math.max(1, bullets.length);
-  const delayOf = (i: number) => staggerDelay(durationInFrames, i, nb);
+  const delayOf = (i: number) => cueDelay(durationInFrames, i, nb, scene.speechStartFrame, scene.speechEndFrame);
 
   // Variante de layout DETERMINÍSTICA por conteúdo (anti-fadiga, reprodutível):
   // 0 = lista vertical (original) · 1 = três colunas · 2 = escada diagonal.

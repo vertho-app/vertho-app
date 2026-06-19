@@ -17,10 +17,12 @@ export const MythTruthV2: React.FC<{ scene: ComputedScene; brand: Brand }> = ({ 
   const myth = scene.myth || '';
   const truth = scene.truth || '';
 
-  // Pacear com a fala: o MITO entra cedo; o "vira" (risco→verdade) acontece por
-  // volta da metade da cena, quando a narração pivota.
-  const mythD = Math.round(durationInFrames * 0.06);
-  const pivotD = Math.round(durationInFrames * 0.46);
+  // Pacear com a FALA real (Whisper): o MITO entra no início da fala; o "vira"
+  // (risco→verdade) acontece no MEIO da fala. Sem janela → fração da cena.
+  const sp = scene.speechStartFrame, se = scene.speechEndFrame;
+  const temFala = typeof sp === 'number' && typeof se === 'number' && se > sp;
+  const mythD = temFala ? (sp as number) + 6 : Math.round(durationInFrames * 0.06);
+  const pivotD = temFala ? Math.round((sp as number) + ((se as number) - (sp as number)) * 0.5) : Math.round(durationInFrames * 0.46);
   const mythP = reveal(frame, mythD, 22);
   const strikeP = interpolate(frame, [pivotD - 26, pivotD], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   const truthLabP = reveal(frame, pivotD, 18);

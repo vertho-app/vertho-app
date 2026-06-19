@@ -7,6 +7,7 @@
  */
 import { z } from 'zod';
 import type { RoteiroScene, VideoRoteiro } from './roteiro-prompt';
+import type { WordTime } from './whisper-align';
 
 export interface Brand { primary: string; secondary: string; background: string; font?: string }
 
@@ -76,6 +77,10 @@ export interface ComputedScene {
   // OffthreadVideo introduzia um pequeno offset no áudio embutido; tocar o mp3
   // alinhado pelo Remotion casa o lip-sync com precisão.
   audioSrc?: string;
+  // M4 — janela de FALA real (frames RELATIVOS à cena) a partir do Whisper, p/
+  // pacear as animações pela voz em vez da fração da cena. Ausente = fallback.
+  speechStartFrame?: number;
+  speechEndFrame?: number;
   seconds: number;
   durationInFrames: number;
   fromFrame: number;
@@ -99,8 +104,9 @@ export type SpikePropsV3 = {
 };
 
 /** Asset (URL + duração real) de cada cena, indexado por sceneId. `audioSrc` =
- *  áudio separado (avatar: mp3 da narração, p/ lip-sync preciso). */
-export type AssetMap = Record<string, { src: string; durationSec: number; audioSrc?: string }>;
+ *  áudio separado (avatar: mp3 da narração, p/ lip-sync preciso). `words` = timing
+ *  por palavra (Whisper/M4) p/ legendas e animações sincronizadas. */
+export type AssetMap = Record<string, { src: string; durationSec: number; audioSrc?: string; words?: WordTime[] }>;
 
 export const BRAND_PADRAO: Brand = {
   primary: '#6D28D9', secondary: '#0EA5E9', background: '#0B1020', font: 'Inter, system-ui, sans-serif',
@@ -145,6 +151,36 @@ function captionsDaCena(
   return caps;
 }
 
+/**
+ * Legendas com TIMING REAL (M4): usa o NOSSO texto (grafia correta) com os
+ * timestamps do Whisper. Mapeia índice-de-palavra-nosso → índice-Whisper de forma
+ * proporcional (robusto a divergência de contagem: exato quando bate, degrada a
+ * proporcional quando não). Quebra em linhas por fim-de-frase ou maxWords.
+ */
+function captionsFromWords(
+  sceneId: string, text: string, words: WordTime[], fromFrame: number, fps: number, startId: number,
+  opts: { maxWords: number },
+): AbsCaption[] {
+  const ours = text.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+  const O = ours.length, W = words.length;
+  if (!O || !W) return [];
+  const wIdx = (i: number) => (O <= 1 ? 0 : Math.min(W - 1, Math.max(0, Math.round((i * (W - 1)) / (O - 1)))));
+  const caps: AbsCaption[] = [];
+  let id = startId;
+  let a = 0;
+  for (let i = 0; i < O; i++) {
+    const last = i === O - 1;
+    const endsSentence = /[.!?…]$/.test(ours[i]);
+    if (i - a + 1 >= opts.maxWords || endsSentence || last) {
+      const sf = fromFrame + Math.round(words[wIdx(a)].start * fps);
+      const ef = Math.max(sf + 1, fromFrame + Math.round(words[wIdx(i)].end * fps));
+      caps.push({ id: id++, sceneId, startSec: sf / fps, endSec: ef / fps, startFrame: sf, endFrame: ef, text: ours.slice(a, i + 1).join(' ') });
+      a = i + 1;
+    }
+  }
+  return caps;
+}
+
 /** Roteiro + assets → SpikePropsV3 (timeline + legendas computadas). */
 export function montarInputProps(
   roteiro: VideoRoteiro,
@@ -167,8 +203,19 @@ export function montarInputProps(
     const fromFrame = cursor;
     cursor += durationInFrames;
 
+    // M4: janela de fala real (frames RELATIVOS à cena) p/ as animações.
+    let speechStartFrame: number | undefined;
+    let speechEndFrame: number | undefined;
+    if (asset?.words?.length) {
+      speechStartFrame = Math.max(0, Math.round(asset.words[0].start * fps));
+      speechEndFrame = Math.min(durationInFrames, Math.round(asset.words[asset.words.length - 1].end * fps));
+    }
+
     if (s.narration?.trim()) {
-      const cs = captionsDaCena(s.id, s.narration, fromFrame, fromFrame + durationInFrames, fps, capId, capOpts);
+      // Legendas: timing REAL por palavra (Whisper) quando há `words`; senão heurística.
+      const cs = asset?.words?.length
+        ? captionsFromWords(s.id, s.narration, asset.words, fromFrame, fps, capId, capOpts)
+        : captionsDaCena(s.id, s.narration, fromFrame, fromFrame + durationInFrames, fps, capId, capOpts);
       capId += cs.length;
       captions.push(...cs);
     }
@@ -194,6 +241,8 @@ export function montarInputProps(
       tag: s.tag,
       src: asset?.src,
       audioSrc: asset?.audioSrc,
+      speechStartFrame,
+      speechEndFrame,
       seconds,
       durationInFrames,
       fromFrame,
