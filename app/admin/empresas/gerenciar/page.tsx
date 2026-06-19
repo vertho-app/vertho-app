@@ -259,7 +259,7 @@ export default function GerenciarPage() {
 
   async function handleDeleteCargo(id, nome) {
     if (!confirm(t('confirm.deleteRole', { name: nome }))) return;
-    const r = await excluirCargo({ id });
+    const r = await excluirCargo({ empresaId: tenantId, id });
     if (r.success) { refreshCargos(); setMsg(t('messages.roleDeleted')); }
     else setMsg(t('messages.error', { error: r.error }));
   }

@@ -5,6 +5,7 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction, assertTenantAccessAction } from '@/lib/auth/action-context';
 import { protectedAction } from '@/lib/auth/protected-action';
 import { updateColaboradorInTenant, deleteColaboradorInTenant, emailExistsInTenant, createColaboradorInTenant, listEmailsInTenant, createColaboradoresLoteInTenant } from '@/lib/repositories/colaboradores-repo';
+import { upsertCargoInTenant, deleteCargoInTenant } from '@/lib/repositories/cargos-empresa-repo';
 import { logAdminAction } from '@/lib/audit';
 import { excludeInternalEmails } from '@/lib/internal-emails';
 import { validateWhatsAppBR } from '@/lib/phone';
@@ -416,9 +417,10 @@ const SalvarCargoSchema = z.object({
 type SalvarCargoInput = z.infer<typeof SalvarCargoSchema>;
 
 const _salvarCargo = protectedAction('companies.manage', SalvarCargoSchema, async (ctx, { empresaId, cargo }) => {
+  await assertTenantAccessAction(ctx, empresaId); // defense-in-depth (no-op p/ platform admin)
   const sb = await requireAdminSupabase();
   const registro = {
-    empresa_id: empresaId,
+    ...(cargo.id ? { id: cargo.id } : {}),
     nome: cargo.nome.trim(),
     area_depto: cargo.area_depto?.trim() || null,
     descricao: cargo.descricao?.trim() || null,
@@ -430,41 +432,30 @@ const _salvarCargo = protectedAction('companies.manage', SalvarCargoSchema, asyn
     eh_lideranca: cargo.eh_lideranca !== false,
     updated_at: new Date().toISOString(),
   };
-  let result;
-  if (cargo.id) {
-    const { data: existe } = await sb.from('cargos_empresa').select('empresa_id').eq('id', cargo.id).maybeSingle();
-    if (!existe) throw new Error('cargo não encontrado');
-    await assertTenantAccessAction(ctx, (existe as any).empresa_id); // defense-in-depth
-    result = await sb.from('cargos_empresa').update(registro).eq('id', cargo.id).select().single();
-  } else {
-    result = await sb.from('cargos_empresa').insert(registro).select().single();
-  }
-  if (result.error) throw new Error(result.error.message);
+  const saved = await upsertCargoInTenant(sb, empresaId, registro);
+  if (!saved) throw new Error('cargo não encontrado nesta empresa');
   await logAdminAction({
     adminEmail: ctx.email, acao: 'cargo.salvar', empresaId,
     alvo: registro.nome,
-    detalhes: { modo: cargo.id ? 'editar' : 'criar', cargoId: result.data?.id ?? cargo.id, eh_lideranca: registro.eh_lideranca },
+    detalhes: { modo: cargo.id ? 'editar' : 'criar', cargoId: saved.id ?? cargo.id, eh_lideranca: registro.eh_lideranca },
   });
-  return result.data;
+  return saved;
 });
 
 export async function salvarCargo(input: SalvarCargoInput) {
   return _salvarCargo(input);
 }
 
-const ExcluirCargoSchema = z.object({ id: z.string().uuid() });
+const ExcluirCargoSchema = z.object({ empresaId: z.string().uuid(), id: z.string().uuid() });
 
-const _excluirCargo = protectedAction('companies.manage', ExcluirCargoSchema, async (ctx, { id }) => {
+const _excluirCargo = protectedAction('companies.manage', ExcluirCargoSchema, async (ctx, { empresaId, id }) => {
+  await assertTenantAccessAction(ctx, empresaId); // defense-in-depth (no-op p/ platform admin)
   const sb = await requireAdminSupabase();
-  const { data: existe } = await sb.from('cargos_empresa').select('empresa_id, nome').eq('id', id).maybeSingle();
-  if (!existe) throw new Error('cargo não encontrado');
-  await assertTenantAccessAction(ctx, (existe as any).empresa_id); // defense-in-depth
-
-  const { error } = await sb.from('cargos_empresa').delete().eq('id', id);
-  if (error) throw new Error(error.message);
+  const removido = await deleteCargoInTenant(sb, empresaId, id);
+  if (!removido) throw new Error('cargo não encontrado nesta empresa');
   await logAdminAction({
-    adminEmail: ctx.email, acao: 'cargo.excluir', empresaId: (existe as any).empresa_id,
-    alvo: (existe as any).nome || id, detalhes: { cargoId: id },
+    adminEmail: ctx.email, acao: 'cargo.excluir', empresaId,
+    alvo: removido.nome || id, detalhes: { cargoId: id },
   });
   return { id };
 });
