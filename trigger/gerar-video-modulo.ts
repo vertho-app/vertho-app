@@ -130,7 +130,7 @@ export const gerarVideoModuloTask = task({
       const avatares = roteiro.scenes.filter((s) => s.type.startsWith('avatar') && assets[s.id]?.src);
       await mapPool(avatares, 2, async (s) => {
         const audioUrl = assets[s.id].src;
-        const heygenId = await gerarClipHeyGen(audioUrl, { width: 1280, height: 720 });
+        const heygenId = await gerarClipHeyGen(audioUrl, { width: 1920, height: 1080 });
         const heygenUrl = await aguardarClipHeyGen(heygenId);
         const mp4 = Buffer.from(await (await fetch(heygenUrl)).arrayBuffer());
         const norm = await normalizarFps(mp4, VIDEO_FPS); // 25fps→30fps CFR (lip-sync)
@@ -156,11 +156,12 @@ export const gerarVideoModuloTask = task({
         brand: p.brand, fps: p.fps, width: p.width, height: p.height,
       });
 
-      // 5) render. scale 0.667 = saída 720p (downscale do design 1080p; o avatar
-      // HeyGen já é nativo 720p). Por padrão, produção usa Hetzner: enfileira
-      // (status render_queued) e o worker always-on finaliza (video_url/bunny/done).
-      // Trigger.dev fica só como override explícito para testes pontuais.
-      const scale = Number(process.env.VIDEO_RENDER_SCALE) || 720 / 1080;
+      // 5) render. scale 1.0 = saída Full HD 1080p (design nativo). O avatar HeyGen
+      // agora é gerado em 1920×1080, então não há upscale. VIDEO_RENDER_SCALE permite
+      // baixar (ex.: 0.667 → 720p) para renders mais rápidos/baratos quando necessário.
+      // Por padrão, produção usa Hetzner: enfileira (status render_queued) e o worker
+      // always-on finaliza (video_url/bunny/done). Trigger.dev é override p/ testes.
+      const scale = Number(process.env.VIDEO_RENDER_SCALE) || 1;
       const srt = exportCaptionsToSrt(props.captions);
       const vtt = exportCaptionsToVtt(props.captions);
 
