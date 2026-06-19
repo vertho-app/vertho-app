@@ -1,10 +1,14 @@
+import { canAccessPerfilComportamental, canAccessMapeamentoCenarios } from '@/lib/access-gates';
+
+// Wrappers booleanos (compat com os call-sites existentes). A lógica canônica +
+// o diagnóstico (GateResult: code/message/remediation) vivem em lib/access-gates.
+// Para novos call-sites que precisam mostrar o MOTIVO do bloqueio, use os gates
+// diretamente em vez destes booleanos.
+
 export function isPerfilComportamentalLiberado(config: any): boolean {
-  if (config?.perfil_comportamental_liberado === false) return false;
-  if (config?.votacao_ativa === true && config?.perfil_comportamental_liberado !== true) return false;
-  return true;
+  return canAccessPerfilComportamental(config).allowed;
 }
 
 export function isMapeamentoCenariosLiberado(config: any): boolean {
-  if (!isPerfilComportamentalLiberado(config)) return false;
-  return config?.mapeamento_cenarios_liberado === true;
+  return canAccessMapeamentoCenarios(config).allowed;
 }

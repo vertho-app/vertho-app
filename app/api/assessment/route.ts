@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUser } from '@/lib/auth/request-context';
 import { csrfCheck } from '@/lib/csrf';
-import { isMapeamentoCenariosLiberado } from '@/lib/votacao/status';
+import { canAccessMapeamentoCenarios } from '@/lib/access-gates';
 
 // PPP-alvo do colaborador: a escola dele define o PPP (escolas que compartilham
 // o PPP usam o mesmo cenário). Sem escola/PPP → null = rede.
@@ -44,8 +44,9 @@ export async function GET(req: Request) {
       .select('sys_config')
       .eq('id', colab.empresa_id)
       .maybeSingle();
-    if (!isMapeamentoCenariosLiberado(empresa?.sys_config || {})) {
-      return NextResponse.json({ error: 'O mapeamento de cenários ainda não foi liberado pela empresa.' }, { status: 403 });
+    const gateGet = canAccessMapeamentoCenarios(empresa?.sys_config || {});
+    if (!gateGet.allowed) {
+      return NextResponse.json({ error: gateGet.message, code: gateGet.code, remediation: gateGet.remediation }, { status: 403 });
     }
 
     const { data: cenariosRaw } = await sb.from('banco_cenarios')
@@ -95,8 +96,9 @@ export async function POST(req: Request) {
       .select('sys_config')
       .eq('id', colab.empresa_id)
       .maybeSingle();
-    if (!isMapeamentoCenariosLiberado(empresa?.sys_config || {})) {
-      return NextResponse.json({ error: 'O mapeamento de cenários ainda não foi liberado pela empresa.' }, { status: 403 });
+    const gatePost = canAccessMapeamentoCenarios(empresa?.sys_config || {});
+    if (!gatePost.allowed) {
+      return NextResponse.json({ error: gatePost.message, code: gatePost.code, remediation: gatePost.remediation }, { status: 403 });
     }
 
     const { data: cenariosRaw } = await sb.from('banco_cenarios')
