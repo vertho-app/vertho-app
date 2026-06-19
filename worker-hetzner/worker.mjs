@@ -142,9 +142,36 @@ async function personalizeCell(job, deckPath) {
   log(`personalização da célula ${job.id}: ${ok} ok, ${err} erro(s)`);
 }
 
+/**
+ * Guard do contrato render_inputprops na ENTRADA do worker (M2). JS puro (sem
+ * zod — runtime .mjs separado do trigger; o schema autoritativo zod vive em
+ * lib/video/montar-inputprops.ts, lado produtor). Valida os invariantes que
+ * causam render quebrado e falha cedo com mensagem clara (em vez de estourar
+ * cru no meio do Remotion). Espelha as checagens do produtor.
+ */
+function validarInputProps(props) {
+  const erros = [];
+  if (!props || typeof props !== 'object') erros.push('props ausente/inválido');
+  else {
+    if (!Array.isArray(props.scenes) || !props.scenes.length) erros.push('scenes vazio');
+    for (const [n, v] of [['fps', props.fps], ['width', props.width], ['height', props.height], ['totalFrames', props.totalFrames]]) {
+      if (!(typeof v === 'number' && v > 0)) erros.push(`${n} inválido (${v})`);
+    }
+    let cursor = 0;
+    for (const s of props.scenes || []) {
+      if (!s?.id || !s?.type) erros.push(`cena sem id/type`);
+      if (!(s?.durationInFrames > 0)) erros.push(`cena '${s?.id}' durationInFrames inválido (${s?.durationInFrames})`);
+      if (s?.fromFrame !== cursor) erros.push(`cena '${s?.id}' fromFrame descontínuo (esperado ${cursor}, veio ${s?.fromFrame})`);
+      cursor += Number(s?.durationInFrames) || 0;
+    }
+    if (props.totalFrames != null && cursor !== props.totalFrames) erros.push(`totalFrames (${props.totalFrames}) ≠ soma das cenas (${cursor})`);
+  }
+  if (erros.length) throw new Error(`render_inputprops inválido: ${erros.slice(0, 6).join('; ')}`);
+}
+
 async function renderOne(job) {
   const props = job.render_inputprops;
-  if (!props?.scenes?.length) throw new Error('render_inputprops vazio/ inválido');
+  validarInputProps(props);
   const rawScale = job.render_scale != null ? Number(job.render_scale) : Number(VIDEO_RENDER_SCALE);
   const scale = scaleDimsInteiras(rawScale, props.width, props.height);
   const bundle = await resolveBundle();

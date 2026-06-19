@@ -5,9 +5,48 @@
  * `src` = URL pública (mp4 do avatar / mp3 das demais cenas) e timeline computada
  * a partir das durações reais (ffprobe), com legendas PROPORCIONAIS.
  */
+import { z } from 'zod';
 import type { RoteiroScene, VideoRoteiro } from './roteiro-prompt';
 
 export interface Brand { primary: string; secondary: string; background: string; font?: string }
+
+// ── Schema do CONTRATO render_inputprops (M2) ────────────────────────────────
+// Valida o que o worker vai renderizar ANTES de persistir: campos críticos
+// (durações/frames/dimensões) + continuidade da timeline. Falha cedo e visível
+// em vez de gerar vídeo quebrado ou estourar no Remotion. Usa safeParse só p/
+// validar (retornamos o objeto original — zod não deve "stripar" os campos de
+// conteúdo das cenas).
+const SceneCriticoSchema = z.object({
+  id: z.string().min(1),
+  type: z.string().min(1),
+  seconds: z.number().nonnegative(),
+  durationInFrames: z.number().int().positive(),
+  fromFrame: z.number().int().nonnegative(),
+});
+const PropsCriticoSchema = z.object({
+  scenes: z.array(SceneCriticoSchema).min(1),
+  brand: z.object({ primary: z.string(), secondary: z.string(), background: z.string() }),
+  fps: z.number().positive(),
+  width: z.number().positive(),
+  height: z.number().positive(),
+  totalFrames: z.number().int().positive(),
+});
+
+function validarInputProps(out: SpikePropsV3): void {
+  const r = PropsCriticoSchema.safeParse(out);
+  if (!r.success) {
+    const issues = r.error.issues.slice(0, 6).map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
+    throw new Error(`render_inputprops inválido (schema): ${issues}`);
+  }
+  // Continuidade da timeline (zod não cobre relação entre campos):
+  // totalFrames == soma das durações e fromFrame contíguo.
+  let cursor = 0;
+  for (const s of out.scenes) {
+    if (s.fromFrame !== cursor) throw new Error(`render_inputprops: fromFrame descontínuo em '${s.id}' (esperado ${cursor}, veio ${s.fromFrame})`);
+    cursor += s.durationInFrames;
+  }
+  if (cursor !== out.totalFrames) throw new Error(`render_inputprops: totalFrames (${out.totalFrames}) ≠ soma das cenas (${cursor})`);
+}
 
 // ⚠️ MIRROR — este shape é o CONTRATO do render_inputprops e é espelhado em
 // `video-spike/remotion/data/load-scenes.ts` (ComputedScene). Os dois são projetos
@@ -170,7 +209,7 @@ export function montarInputProps(
     }
   }
 
-  return {
+  const out: SpikePropsV3 = {
     scenes,
     captions,
     brand,
@@ -181,6 +220,8 @@ export function montarInputProps(
     showBurnedCaptions: opts.showBurnedCaptions ?? true,
     wordHighlight: opts.wordHighlight ?? false,
   };
+  validarInputProps(out); // M2 — falha cedo e visível se o contrato quebrar
+  return out;
 }
 
 // ── Sidecars de legenda (mesma timeline do vídeo) ────────────────────────────
