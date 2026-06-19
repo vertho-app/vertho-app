@@ -31,10 +31,14 @@ async function mapPool<T>(items: T[], n: number, fn: (item: T, i: number) => Pro
   });
   await Promise.all(workers);
 }
-const VOICE = process.env.VIDEO_TTS_VOICE || 'Callirrhoe';
-// Narração de vídeo: ritmo ágil (conversa fluida), distinto da devolutiva (moderado).
-// Validado 17/06 com a voz Callirrhoe.
-const VIDEO_NARRATION_STYLE = 'Narre em ritmo natural e ágil, como uma conversa fluida e acolhedora, sem pressa excessiva, em português do Brasil';
+const VOICE = process.env.VIDEO_TTS_VOICE || 'Vindemiatrix';
+// Direção de voz por CONTEXTO (camada-experiência). As pontas de avatar são
+// âncoras emocionais → dose com mais respiro/calor (B1); o miolo é voice-over de
+// conteúdo → dose ágil-warm (B2), pra não arrastar a explicação. Mesma voz,
+// estilo dirigido por tipo de cena — o "TTS chapado" vinha de não dirigir.
+const NARRATION_STYLE_AVATAR = 'Narre como uma mentora calorosa e próxima, conversando com uma pessoa, em português do Brasil. Ritmo natural e fluido de conversa, acolhedor, com respiros leves entre as frases e uma micro-pausa antes da ideia principal. Sem pressa, mas sem arrastar.';
+const NARRATION_STYLE_MIOLO = 'Narre como uma mentora calorosa e acolhedora, em português do Brasil, num ritmo natural de conversa. Respiração natural entre as frases, tom íntimo e humano. Mantenha a fluidez — não alongue as pausas.';
+const styleForScene = (type: string) => (String(type).startsWith('avatar') ? NARRATION_STYLE_AVATAR : NARRATION_STYLE_MIOLO);
 
 /** PATCH no registro videos_gerados via PostgREST (evita o crash do supabase-js no worker). */
 async function patchVideo(videoId: string, fields: Record<string, unknown>): Promise<void> {
@@ -117,7 +121,7 @@ export const gerarVideoModuloTask = task({
       await patchVideo(videoId, { etapa: 'narracao' });
       const comNarracao = roteiro.scenes.filter((s) => s.narration?.trim());
       await mapPool(comNarracao, NARRACAO_CONCURRENCY, async (s) => {
-        const audio = await generateNarrationAudio(s.narration as string, { voice: VOICE, style: VIDEO_NARRATION_STYLE });
+        const audio = await generateNarrationAudio(s.narration as string, { voice: VOICE, style: styleForScene(s.type) });
         const src = await storagePut('video-assets', `${videoId}/${s.id}.mp3`, audio.buffer, 'audio/mpeg');
         // M4: timing por palavra (Whisper) p/ legendas + animações. null = fallback heurístico.
         const words = await transcribeWords(audio.buffer);
