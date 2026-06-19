@@ -1,5 +1,5 @@
 import React from 'react';
-import { AbsoluteFill, Audio, interpolate, Sequence, useCurrentFrame, useVideoConfig } from 'remotion';
+import { AbsoluteFill, Audio, interpolate, Loop, Sequence, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
 import type { ComputedScene, Brand } from './data/load-scenes';
 import type { SpikePropsV3 } from './data/load-scenes-v3';
 import { AvatarClipV2 } from './scenes/AvatarClipV2';
@@ -91,6 +91,45 @@ const FilmFade: React.FC<{ brand: Brand }> = ({ brand }) => {
   return <AbsoluteFill style={{ backgroundColor: brand.background, opacity: o, pointerEvents: 'none' }} />;
 };
 
+// ── CAMADA DE SOM (archetype-level) ────────────────────────────────────────
+// Trilha-base (bed respiro, loop) + bed do pico + logo nas pontas + SFX por
+// template + transição entre cenas. Tudo DUCKADO bem abaixo da voz (a voz é
+// rainha). Assets reais em public/video-spike/audio. Volumes conservadores —
+// mix-alvo ~-14 LUFS com a narração por cima.
+const SFX = { bed: 'audio/bed-respiro.mp3', bedPico: 'audio/bed-pico.mp3', logo: 'audio/logo.mp3', prompt: 'audio/prompt.mp3', tick: 'audio/tick.mp3', entre: 'audio/entre-cenas.mp3' };
+const BED_SECONDS = 9.68;
+const TICK_TYPES = new Set(['concept_reveal', 'steps_flow', 'maturity_ladder', 'icon_story']);
+const PROMPT_TYPES = new Set(['reflection_prompt', 'quote_spotlight']);
+const VOL = { bed: 0.12, bedPico: 0.20, logo: 0.34, entre: 0.26, tick: 0.36, prompt: 0.40 };
+
+const SoundLayer: React.FC<{ scenes: ComputedScene[]; fps: number }> = ({ scenes, fps }) => {
+  const f = (s: number) => Math.max(1, Math.round(s * fps));
+  return (
+    <>
+      {/* trilha-base em loop, bem abaixo da voz */}
+      <Loop durationInFrames={f(BED_SECONDS)} layout="none">
+        <Audio src={staticFile(SFX.bed)} volume={VOL.bed} />
+      </Loop>
+      {scenes.flatMap((s) => {
+        const out: React.ReactNode[] = [];
+        if (s.fromFrame > 0)
+          out.push(<Sequence key={s.id + '-w'} from={s.fromFrame} durationInFrames={f(0.6)}><Audio src={staticFile(SFX.entre)} volume={VOL.entre} /></Sequence>);
+        if (s.type === 'avatar_intro')
+          out.push(<Sequence key={s.id + '-lg'} from={s.fromFrame} durationInFrames={f(2.31)}><Audio src={staticFile(SFX.logo)} volume={VOL.logo} /></Sequence>);
+        if (s.type === 'avatar_outro')
+          out.push(<Sequence key={s.id + '-lg'} from={Math.max(s.fromFrame, s.fromFrame + s.durationInFrames - f(2.31))} durationInFrames={f(2.31)}><Audio src={staticFile(SFX.logo)} volume={VOL.logo} /></Sequence>);
+        if (TICK_TYPES.has(s.type))
+          out.push(<Sequence key={s.id + '-tk'} from={s.fromFrame + f(0.4)} durationInFrames={f(0.6)}><Audio src={staticFile(SFX.tick)} volume={VOL.tick} /></Sequence>);
+        if (PROMPT_TYPES.has(s.type))
+          out.push(<Sequence key={s.id + '-pr'} from={s.fromFrame + f(0.3)} durationInFrames={f(1)}><Audio src={staticFile(SFX.prompt)} volume={VOL.prompt} /></Sequence>);
+        if (s.is_peak)
+          out.push(<Sequence key={s.id + '-bp'} from={s.fromFrame} durationInFrames={s.durationInFrames}><Audio src={staticFile(SFX.bedPico)} volume={VOL.bedPico} /></Sequence>);
+        return out;
+      })}
+    </>
+  );
+};
+
 /** V3 = visual da V2 + legendas sincronizadas por timestamps (CaptionsV3). */
 export const VideoCompositionV3: React.FC<SpikePropsV3> = ({ scenes, captions, brand, fps, showBurnedCaptions, wordHighlight }) => {
   const b: Brand = { ...BRAND, ...brand };
@@ -104,6 +143,8 @@ export const VideoCompositionV3: React.FC<SpikePropsV3> = ({ scenes, captions, b
           <SceneAudio scene={s} fps={fps} />
         </Sequence>
       ))}
+
+      <SoundLayer scenes={scenes} fps={fps} />
 
       {showBurnedCaptions && <CaptionsV3 captions={captions} scenes={scenes} brand={b} wordHighlight={wordHighlight} />}
       <BrandMarkV2 />
