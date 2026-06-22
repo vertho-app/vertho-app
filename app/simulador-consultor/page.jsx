@@ -46,7 +46,7 @@ const PARTNERS = {
 const SEED = [
   {
     id: "c1", nome: "Colégio Horizonte", setor: "Educação · K-12", inicial: "H",
-    evolucao: 72, status: "saudavel", passo: 14,
+    evolucao: 72, status: "saudavel", passo: 16,
     comp: [["Comunicação", 3.1], ["Gestão de sala", 2.8], ["Feedback", 2.4], ["Planejamento", 3.0]],
     pessoas: [
       ["Marina Alves", "Coordenadora Pedagógica", "I", 3.2, "confirmada"],
@@ -67,7 +67,7 @@ const SEED = [
   },
   {
     id: "c3", nome: "TechNova Software", setor: "Corporativo · Tecnologia", inicial: "T",
-    evolucao: 81, status: "saudavel", passo: 16,
+    evolucao: 81, status: "saudavel", passo: 18,
     comp: [["Colaboração", 3.3], ["Autonomia", 3.0], ["Comunicação", 2.9], ["Liderança", 2.6]],
     pessoas: [
       ["Camila Rocha", "Tech Lead", "C", 3.1, "confirmada"],
@@ -121,6 +121,7 @@ const TASKS = [
   { stage: 1, key: "equipe",      label: "Cadastrar a equipe",            quem: "voce",   tempo: "~5 min", detalhe: "Adicione as pessoas e seus cargos." },
   { stage: 1, key: "cargos",      label: "Definir cargos e competências", quem: "voce",   tempo: "~5 min", detalhe: "Importe ou ajuste as competências de cada cargo." },
   { stage: 1, key: "materiais",   label: "Subir materiais da empresa",    quem: "voce",   opcional: true,  detalhe: "PPP, valores e manuais deixam a IA mais precisa." },
+  { stage: 1, key: "preferencias", label: "Preferências de aprendizagem",  quem: "equipe", opcional: true,  detalhe: "Cada pessoa ranqueia os formatos que prefere (vídeo, texto, áudio, case)." },
   { stage: 2, key: "prioridades", label: "Gerar prioridades por cargo",   quem: "ia",     tempo: "~1 min", detalhe: "A IA sugere as 10 competências mais relevantes." },
   { stage: 2, key: "votacao",     label: "Abrir votação da equipe",       quem: "equipe", detalhe: "Cada pessoa vota nas competências do próprio cargo." },
   { stage: 2, key: "top5",        label: "Validar o Top 5",               quem: "voce",   tempo: "~3 min", detalhe: "Você confirma as 5 competências finais por cargo." },
@@ -130,6 +131,8 @@ const TASKS = [
   { stage: 2, key: "mapeamento",  label: "Mapeamento comportamental (DISC)", quem: "equipe", detalhe: "Cada pessoa faz o mapeamento de perfil (vídeo + questionário) — gera o DISC do time." },
   { stage: 3, key: "avaliar",     label: "Avaliar as respostas",          quem: "ia",     tempo: "~2 min", detalhe: "A IA pontua cada competência e valida." },
   { stage: 3, key: "foco",        label: "Definir o foco de cada um",     quem: "ia",     detalhe: "O sistema escolhe a competência âncora e a 2ª." },
+  { stage: 3, key: "assessment",  label: "Avaliar o nível dos descritores", quem: "voce", tempo: "~5 min", detalhe: "Registre o nível inicial 1–4 de cada descritor da competência foco." },
+  { stage: 3, key: "conteudos",   label: "Preparar os conteúdos",         quem: "voce",   detalhe: "Importe, gere ou use a biblioteca pronta de micro-conteúdos e módulos." },
   { stage: 3, key: "trilha",      label: "Gerar a trilha",                quem: "ia",     tempo: "~3 min", detalhe: "Conteúdos personalizados por cargo, perfil e contexto." },
   { stage: 3, key: "revisar",     label: "Revisar a trilha",              quem: "voce",   tempo: "~5 min", detalhe: "Confira e ajuste antes de liberar." },
   { stage: 3, key: "pdi",         label: "Gerar PDIs individuais",        quem: "voce",   opcional: true,  detalhe: "PDF de desenvolvimento por pessoa." },
@@ -137,6 +140,7 @@ const TASKS = [
   { stage: 4, key: "acompanhar",  label: "Acompanhar o engajamento",      quem: "voce",   detalhe: "Veja quem está avançando ao longo das semanas." },
   { stage: 5, key: "final",       label: "Aplicar a avaliação final",     quem: "equipe", detalhe: "Um cenário final mede a evolução de cada pessoa." },
   { stage: 5, key: "relatorios",  label: "Gerar os relatórios",           quem: "voce",   tempo: "~1 min", detalhe: "RH, gestor, Evolution Report e DNA." },
+  { stage: 5, key: "arquivar",    label: "Arquivar e iniciar novo ciclo", quem: "voce",   opcional: true,  detalhe: "Encerre o ciclo concluído e recomece com uma nova competência foco." },
 ];
 const REQ = TASKS.filter((t) => !t.opcional);                       // backbone que avança a jornada
 const firstIdxOfStage = (n) => REQ.findIndex((t) => t.stage === n);
