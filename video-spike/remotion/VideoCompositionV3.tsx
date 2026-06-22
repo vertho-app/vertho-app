@@ -86,7 +86,9 @@ const PeakScale: React.FC<{ active?: boolean; children: React.ReactNode }> = ({ 
 const FilmFade: React.FC<{ brand: Brand }> = ({ brand }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
-  const o = interpolate(frame, [0, 18, durationInFrames - 18, durationInFrames], [1, 0, 0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  // Abertura: fade-in curto (18f). Encerramento: fade-out LONGO (~50f ≈ 1,6s) cobrindo
+  // o respiro do avatar_outro (a fala acabou, a trilha toca e a imagem fecha suave).
+  const o = interpolate(frame, [0, 18, durationInFrames - 50, durationInFrames], [1, 0, 0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   if (o <= 0.001) return null;
   return <AbsoluteFill style={{ backgroundColor: brand.background, opacity: o, pointerEvents: 'none' }} />;
 };
@@ -154,7 +156,9 @@ export const VideoCompositionV3: React.FC<SpikePropsV3> = ({ scenes, captions, b
         </Sequence>
       ))}
 
-      <SoundLayer scenes={scenes} fps={fps} />
+      {/* SFX DESLIGADOS a pedido (22/06): som = só voz + trilha (bed) masterizada.
+          Reativar todos os SFX: descomentar a linha abaixo. */}
+      {/* <SoundLayer scenes={scenes} fps={fps} /> */}
 
       {showBurnedCaptions && <CaptionsV3 captions={captions} scenes={scenes} brand={b} wordHighlight={wordHighlight} />}
       <BrandMarkV2 />

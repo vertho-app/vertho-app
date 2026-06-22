@@ -37,7 +37,7 @@ const VOICE = process.env.VIDEO_TTS_VOICE || 'Vindemiatrix';
 // conteúdo → dose ágil-warm (B2), pra não arrastar a explicação. Mesma voz,
 // estilo dirigido por tipo de cena — o "TTS chapado" vinha de não dirigir.
 const NARRATION_STYLE_INTRO = 'Narre como uma mentora calorosa e próxima, em português do Brasil, abrindo uma conversa. Tom curioso e acolhedor, energia que prende a atenção, ritmo natural com respiros leves. Engaje sem pressa — mas sem arrastar.';
-const NARRATION_STYLE_OUTRO = 'Narre como uma mentora calorosa e próxima, em português do Brasil, fechando com uma pergunta de reflexão. Ritmo mais pausado, com peso e intimidade; faça uma micro-pausa antes da pergunta final e deixe o ar respirar no fim.';
+const NARRATION_STYLE_OUTRO = 'Narre como uma mentora calorosa e próxima, em português do Brasil, fechando com uma pergunta de reflexão. Ritmo natural, com peso e intimidade; uma leve pausa antes da pergunta final e TERMINE com firmeza, sem arrastar nem deixar silêncio no fim.';
 const NARRATION_STYLE_MIOLO = 'Narre como uma mentora calorosa e acolhedora, em português do Brasil, num ritmo natural de conversa. Respiração natural entre as frases, tom íntimo e humano. Mantenha a fluidez — não alongue as pausas.';
 const styleForScene = (type: string) =>
   type === 'avatar_intro' ? NARRATION_STYLE_INTRO
@@ -91,6 +91,33 @@ async function normalizarFps(mp4: Buffer, fps: number): Promise<Buffer> {
   }
 }
 
+/**
+ * Remove o SILÊNCIO no FINAL do mp3 da narração (mantém ~0,2s de respiro). O TTS às
+ * vezes deixa uma cauda muda longa (sobretudo o estilo do outro) que vira "espaço
+ * sem fala" no avatar + faz o Whisper ALUCINAR palavras nesse silêncio. Técnica:
+ * areverse → silenceremove(início) → areverse. Em falha, devolve o buffer original.
+ */
+async function trimTrailingSilence(mp3: Buffer): Promise<Buffer> {
+  const dir = await mkdtemp(nodePath.join(os.tmpdir(), 'trim-'));
+  const inP = nodePath.join(dir, 'in.mp3');
+  const outP = nodePath.join(dir, 'out.mp3');
+  try {
+    await writeFile(inP, mp3);
+    await exec(FFMPEG, ['-y', '-i', inP,
+      // -50dB (não pega a cauda decaindo da última palavra) + mantém 0,6s de respiro no fim.
+      '-af', 'areverse,silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.6,areverse',
+      '-c:a', 'libmp3lame', '-q:a', '4', outP],
+      { timeout: 60_000, maxBuffer: 32 * 1024 * 1024 });
+    const out = await readFile(outP);
+    return out.length > 1000 ? out : mp3;
+  } catch (e) {
+    console.warn('trimTrailingSilence falhou, usando original:', (e as Error)?.message);
+    return mp3;
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 /** Duração (s) de um asset por ffprobe — aceita URL http direto. */
 async function ffprobeDuration(url: string): Promise<number> {
   try {
@@ -137,9 +164,11 @@ export const gerarVideoModuloTask = task({
       const comNarracao = roteiro.scenes.filter((s) => s.narration?.trim());
       await mapPool(comNarracao, NARRACAO_CONCURRENCY, async (s) => {
         const audio = await generateNarrationAudio(aplicarPronuncia(s.narration as string), { voice: VOICE, style: styleForScene(s.type) });
-        const src = await storagePut('video-assets', `${videoId}/${s.id}.mp3`, audio.buffer, 'audio/mpeg');
+        // Corta a cauda muda do TTS → avatar termina junto com a fala + Whisper não alucina no silêncio.
+        const buf = await trimTrailingSilence(audio.buffer);
+        const src = await storagePut('video-assets', `${videoId}/${s.id}.mp3`, buf, 'audio/mpeg');
         // M4: timing por palavra (Whisper) p/ legendas + animações. null = fallback heurístico.
-        const words = await transcribeWords(audio.buffer);
+        const words = await transcribeWords(buf);
         assets[s.id] = { src, durationSec: 0, words: words || undefined };
       });
 

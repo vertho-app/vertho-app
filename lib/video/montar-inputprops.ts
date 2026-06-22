@@ -114,6 +114,8 @@ export const BRAND_PADRAO: Brand = {
 };
 
 const AUDIO_TAIL_SEC = 0.3;
+const OUTRO_TAIL_SEC = 1.8; // respiro no encerramento: após a fala do avatar_outro, segura
+                            // a cena enquanto a trilha (bed) toca e o vídeo faz fade-out.
 
 function isAvatar(type: string): boolean { return type.startsWith('avatar'); }
 
@@ -199,7 +201,7 @@ export function montarInputProps(
   const scenes: ComputedScene[] = roteiro.scenes.map((s) => {
     const asset = assets[s.id];
     const seconds = asset?.durationSec && asset.durationSec > 0 ? asset.durationSec : (isAvatar(s.type) ? 6 : 8);
-    const tail = isAvatar(s.type) ? 0 : AUDIO_TAIL_SEC;
+    const tail = s.type === 'avatar_outro' ? OUTRO_TAIL_SEC : (isAvatar(s.type) ? 0 : AUDIO_TAIL_SEC);
     const durationInFrames = Math.max(1, Math.round((seconds + tail) * fps));
     const fromFrame = cursor;
     cursor += durationInFrames;

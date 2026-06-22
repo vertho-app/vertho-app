@@ -1,43 +1,47 @@
 import React from 'react';
-import {
-  Clock, CalendarClock, Hourglass, MessageCircle, Ear, Mic, Megaphone,
-  Users, User, Handshake, HeartHandshake, TrendingUp, Target, Crosshair,
-  Rocket, Award, Lightbulb, Brain, Eye, Search, Compass, CheckCircle2,
-  ListChecks, Workflow, Settings, BookOpen, GraduationCap, PenLine, FileText,
-  AlertTriangle, ShieldCheck, Star, Heart, Scale, ThumbsUp, Map as MapIcon,
-  Flag, Link, Puzzle, Gauge, Sparkles, RefreshCw, Anchor,
-} from 'lucide-react';
+import { interpolate, Easing } from 'remotion';
+import { ICON_NODES, type IconNode } from './icons-data';
 
-type IconCmp = React.FC<{ size?: number; color?: string; strokeWidth?: number; style?: React.CSSProperties }>;
+/** Nomes válidos do vocabulário (sincronizar com o prompt do roteiro). */
+export const ICON_NAMES = Object.keys(ICON_NODES);
+
+// Curva-assinatura do DESENHO: ease-in-out suave (velocidade ~constante de "caneta").
+// NÃO usar o EASE_OUT do `reveal` (front-loaded demais → parece que só o fim desenha).
+const DRAW_EASE = Easing.inOut(Easing.cubic);
+/** Progresso do stroke-draw (0→1) do ícone do item `i`, em ritmo de caneta. */
+export function drawProgress(frame: number, delay: number, dur = 46): number {
+  return interpolate(frame, [delay, delay + dur], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: DRAW_EASE });
+}
+
+// Fallback (cena sem ícone ou nome inválido): ciclo neutro e variado.
+const FALLBACK = ['ideia', 'meta', 'direcao', 'checklist'];
+
+/** Resolve o iconNode (paths crus) do item `idx` pelo nome semântico, ou fallback. */
+export function iconByName(name: string | undefined, idx: number): IconNode {
+  const key = String(name || '').trim().toLowerCase();
+  return ICON_NODES[key] || ICON_NODES[FALLBACK[idx % FALLBACK.length]];
+}
 
 /**
- * Vocabulário CURADO de ícones (nome semântico em pt → componente lucide). A IA do
- * roteiro escolhe um destes nomes por bullet (campo `scene.icons`), casando com o
- * SENTIDO do item. Nome inválido/ausente → fallback ciclado. Mantenha esta lista e
- * a do prompt (`roteiro-prompt.ts`) em sincronia.
+ * ASSINATURA DE MARCA: o ícone DESENHA o traço na tela (stroke-draw-on) em vez de
+ * só aparecer. Cada elemento é normalizado com `pathLength="1"` e desenhado via
+ * `stroke-dashoffset` 1→0 → traço UNIFORME (independe do comprimento do path).
+ * `draw` (0→1, JÁ na curva-assinatura — passe `reveal(...)`). `pulse` (~0.05) = um
+ * respiro/pulso sutil no ícone ACENTUADO da cena (um-acento/cena). Renderiza os
+ * paths CRUS (icons-data) — NÃO depende do componente lucide em runtime, então
+ * funciona no bundle minificado. Glyph e container inalterados.
  */
-export const ICON_REGISTRY: Record<string, IconCmp> = {
-  relogio: Clock, prazo: CalendarClock, tempo: Hourglass,
-  conversa: MessageCircle, escuta: Ear, voz: Mic, comunicar: Megaphone,
-  equipe: Users, pessoa: User, acordo: Handshake, cuidado: HeartHandshake,
-  crescimento: TrendingUp, meta: Target, foco: Crosshair, avancar: Rocket,
-  reconhecimento: Award, ideia: Lightbulb, pensar: Brain, observar: Eye,
-  analisar: Search, direcao: Compass, feito: CheckCircle2, checklist: ListChecks,
-  processo: Workflow, ajuste: Settings, aprender: BookOpen, ensino: GraduationCap,
-  registrar: PenLine, documento: FileText, risco: AlertTriangle, protecao: ShieldCheck,
-  destaque: Star, valor: Heart, equilibrio: Scale, aprovar: ThumbsUp, plano: MapIcon,
-  prioridade: Flag, conexao: Link, encaixe: Puzzle, medir: Gauge, melhoria: Sparkles,
-  ciclo: RefreshCw, firmeza: Anchor,
+export const DrawIcon: React.FC<{ node: IconNode; size: number; color: string; draw: number; pulse?: number }> = ({ node, size, color, draw, pulse = 0 }) => {
+  const d = Math.max(0, Math.min(1, draw));
+  return (
+    <svg
+      width={size} height={size} viewBox="0 0 24 24"
+      fill="none" stroke={color} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"
+      style={{ overflow: 'visible', ...(pulse ? { transform: `scale(${1 + pulse})`, transformOrigin: 'center' } : null) }}
+    >
+      {node.map(([tag, attrs], i) =>
+        React.createElement(tag, { ...attrs, key: i, pathLength: 1, strokeDasharray: 1, strokeDashoffset: 1 - d }),
+      )}
+    </svg>
+  );
 };
-
-/** Nomes válidos (para o prompt e validação). */
-export const ICON_NAMES = Object.keys(ICON_REGISTRY);
-
-// Fallback quando a cena não trouxe ícone (ou nome inválido): ciclo neutro e variado.
-const FALLBACK: IconCmp[] = [Lightbulb, Target, Compass, ListChecks];
-
-/** Resolve o ícone do item `idx` a partir do nome (semântico) ou cai no fallback. */
-export function iconByName(name: string | undefined, idx: number): IconCmp {
-  const key = String(name || '').trim().toLowerCase();
-  return ICON_REGISTRY[key] || FALLBACK[idx % FALLBACK.length];
-}

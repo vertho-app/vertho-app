@@ -4,7 +4,7 @@ import { Brand, withAlpha } from '../theme';
 import { reveal, fadeInOut, translateUp, springIn, cueDelay } from '../utils/timing';
 import { BackgroundV2, EyebrowV2, INK, ACCENT_SOFT } from '../theme-v2';
 import { pickVariant } from '../utils/variant';
-import { iconByName } from '../icons';
+import { iconByName, DrawIcon, drawProgress } from '../icons';
 import type { ComputedScene } from '../data/load-scenes';
 
 export const IconStoryV2: React.FC<{ scene: ComputedScene; brand: Brand; audio?: boolean }> = ({ scene, brand, audio = true }) => {
@@ -34,11 +34,11 @@ export const IconStoryV2: React.FC<{ scene: ComputedScene; brand: Brand; audio?:
             {items.map((it, i) => {
               const s = springIn(frame, fps, delayOf(i), 16);
               const isActive = i === activeIdx;
-              const Icon = iconByName(scene.icons?.[i], i);
+              const node = iconByName(scene.icons?.[i], i);
               return (
                 <div key={it} style={{ display: 'flex', alignItems: 'center', gap: 36, opacity: Math.min(1, s), transform: `translateX(${(1 - s) * 44}px)`, background: 'linear-gradient(165deg, rgba(22,58,98,0.9) 0%, rgba(13,38,68,0.9) 100%)', border: `2px solid ${withAlpha(brand.primary, isActive ? 0.8 : 0.4)}`, borderRadius: 26, padding: '28px 44px', boxShadow: `0 22px 52px ${withAlpha('#000814', 0.4)}` }}>
                   <div style={{ width: 104, height: 104, borderRadius: '50%', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: withAlpha(brand.primary, isActive ? 0.22 : 0.14), border: `2px solid ${withAlpha(brand.primary, isActive ? 0.8 : 0.5)}` }}>
-                    <Icon size={54} color={isActive ? ACCENT_SOFT : brand.primary} strokeWidth={1.7} />
+                    <DrawIcon node={node} size={54} color={isActive ? ACCENT_SOFT : brand.primary} draw={drawProgress(frame, delayOf(i))} pulse={isActive ? 0.05 * (0.5 + 0.5 * Math.sin(frame / 11)) : 0} />
                   </div>
                   <span style={{ color: brand.primary, fontSize: 22, fontWeight: 800, letterSpacing: 3 }}>{String(i + 1).padStart(2, '0')}</span>
                   <span style={{ color: INK, fontSize: 48, fontWeight: 600 }}>{it}</span>
@@ -68,7 +68,7 @@ export const IconStoryV2: React.FC<{ scene: ComputedScene; brand: Brand; audio?:
           const s = springIn(frame, fps, delayOf(i), 16);
           const isActive = i === activeIdx;
           const glow = isActive ? interpolate(Math.sin(frame / 10), [-1, 1], [0.18, 0.42]) : 0;
-          const Icon = iconByName(scene.icons?.[i], i);
+          const node = iconByName(scene.icons?.[i], i);
           return (
             <div
               key={it}
@@ -91,7 +91,7 @@ export const IconStoryV2: React.FC<{ scene: ComputedScene; brand: Brand; audio?:
               }}
             >
               <div style={{ width: 132, height: 132, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: withAlpha(brand.primary, isActive ? 0.22 : 0.14), border: `2px solid ${withAlpha(brand.primary, isActive ? 0.8 : 0.5)}` }}>
-                <Icon size={66} color={isActive ? ACCENT_SOFT : brand.primary} strokeWidth={1.7} />
+                <DrawIcon node={node} size={66} color={isActive ? ACCENT_SOFT : brand.primary} draw={drawProgress(frame, delayOf(i))} pulse={isActive ? 0.05 * (0.5 + 0.5 * Math.sin(frame / 11)) : 0} />
               </div>
               <span style={{ marginTop: 20, color: brand.primary, fontSize: 24, fontWeight: 800, letterSpacing: 3 }}>{String(i + 1).padStart(2, '0')}</span>
               <span style={{ marginTop: 14, color: INK, fontSize: 44, fontWeight: 600, lineHeight: 1.16 }}>{it}</span>
