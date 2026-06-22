@@ -1,12 +1,12 @@
 import React from 'react';
 import { AbsoluteFill, Audio, interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
-import { Brand, IconObserve, IconConnect, IconAct, withAlpha } from '../theme';
+import { Brand, withAlpha } from '../theme';
 import { reveal, fadeInOut, translateUp, cueDelay } from '../utils/timing';
 import { BackgroundV2, EyebrowV2, INK, ACCENT_SOFT } from '../theme-v2';
 import { pickVariant } from '../utils/variant';
+import { iconByName } from '../icons';
 import type { ComputedScene } from '../data/load-scenes';
 
-const ICONS = [IconObserve, IconConnect, IconAct];
 const ROW_GAP = 132; // distância vertical entre bullets
 
 export const ConceptRevealV2: React.FC<{ scene: ComputedScene; brand: Brand; audio?: boolean }> = ({ scene, brand, audio = true }) => {
@@ -37,7 +37,7 @@ export const ConceptRevealV2: React.FC<{ scene: ComputedScene; brand: Brand; aud
   );
 
   const iconBox = (i: number, p: number, isActive: boolean) => {
-    const Icon = ICONS[i % ICONS.length];
+    const Icon = iconByName(scene.icons?.[i], i);
     const glow = isActive ? interpolate(Math.sin(frame / 9), [-1, 1], [0.25, 0.55]) : 0;
     return (
       <div
@@ -49,7 +49,7 @@ export const ConceptRevealV2: React.FC<{ scene: ComputedScene; brand: Brand; aud
           transform: `scale(${0.72 + p * 0.28})`,
         }}
       >
-        <Icon size={44} color={isActive ? ACCENT_SOFT : brand.primary} />
+        <Icon size={44} color={isActive ? ACCENT_SOFT : brand.primary} strokeWidth={1.7} />
       </div>
     );
   };
