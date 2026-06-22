@@ -12,6 +12,19 @@ export type EmpresaLite = { id: string; nome: string; totalColab: number };
 export async function loadAdminShellEmpresas(): Promise<EmpresaLite[]> {
   const sb = await requireAdminSupabase();
 
+  const empresasComCount = await sb
+    .from('empresas')
+    .select('id, nome, colaboradores(count)')
+    .order('nome');
+
+  if (!empresasComCount.error && empresasComCount.data) {
+    return empresasComCount.data.map((e: any) => ({
+      id: e.id,
+      nome: e.nome,
+      totalColab: Number(e.colaboradores?.[0]?.count || 0),
+    }));
+  }
+
   const [empresasRes, colabsRes] = await Promise.all([
     sb.from('empresas').select('id, nome').order('nome'),
     sb.from('colaboradores').select('empresa_id'),

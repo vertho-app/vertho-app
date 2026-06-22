@@ -392,7 +392,7 @@ nextjs-app/
 │   └── render-chunk.ts           # Render chunked (large-2x)
 ├── worker-hetzner/               # NOVO: Worker de render alternativo (RENDER_BACKEND=hetzner)
 │   └── worker.mjs                # Pull/poll + claim atomico (FOR UPDATE SKIP LOCKED)
-├── video-spike/                  # NOVO: Composicao Remotion VerthoVideo (9 templates de cena)
+├── video-spike/                  # NOVO: Composicao Remotion VerthoVideo (13 templates de cena)
 │   └── remotion/
 ├── tests/                        # Playwright + Vitest (27 arquivos de teste)
 ├── migrations/                   # 70 arquivos SQL (022 -> 089, inclui 085 v1/v2)
@@ -1439,20 +1439,20 @@ Helpers em `lib/phone-otp.ts` (`proxyEmailFromPhone`, `isProxyEmail`, `issueOtp`
 
 ```
 Modulo-Base
-  → roteiro          (Claude Opus 4.8; lib/video/roteiro-prompt.ts → lib/video/gerar-roteiro.ts)
+  → roteiro          (Claude Opus 4.8 via Batch API + prompt caching; lib/video/roteiro-prompt.ts → lib/video/gerar-roteiro.ts)
   → narracao TTS     (Gemini, voz Kore; lib/video/gerar-narracao.ts / lib/gemini-tts.ts)
   → avatar HeyGen    (lib/video/heygen.ts — lip-sync da NOSSA narracao; so nas cenas de abertura/fecho)
   → montar inputProps (lib/video/montar-inputprops.ts)
   → render Remotion   (composicao VerthoVideo em video-spike/remotion/;
-                       job trigger.dev trigger/gerar-video-modulo.ts orquestra;
-                       trigger/render-video.ts + trigger/render-chunk.ts renderizam chunked)
+                       trigger/gerar-video-modulo.ts orquestra;
+                       worker Hetzner renderiza e publica no Bunny)
   → Bunny Stream
 ```
 
 ### 23.2 Estrutura do video
 
-`avatar_intro` + miolo de **6-12 cenas animadas** (voice-over) + `avatar_outro`. 9 templates de cena Remotion:
-`avatar_intro`, `avatar_outro`, `concept_reveal`, `comparison_motion`, `icon_story`, `steps_flow`, `stat_highlight`, `quote_spotlight`, `scenario_card`.
+`avatar_intro` + miolo de **6-12 cenas animadas** (voice-over) + `avatar_outro`. 13 templates de cena Remotion:
+`avatar_intro`, `avatar_outro`, `concept_reveal`, `comparison_motion`, `icon_story`, `steps_flow`, `stat_highlight`, `quote_spotlight`, `scenario_card`, `maturity_ladder`, `myth_truth`, `definition_card`, `reflection_prompt` (4 últimos add 16/06; doc canônico em `docs/templates-video-miolo.md`). Avatar dimensionado p/ ~30s (intro+outro) — custo HeyGen ~$0,51/deck.
 
 ### 23.3 Personalizacao por celula
 
@@ -1463,13 +1463,13 @@ Cada video e sob medida para **(modulo × empresa × cargo × DISC dominante D/I
 
 Tabela `videos_gerados` (migrations 138/139): `status`, `etapa`, `roteiro` (jsonb), `assets` (jsonb), `cargo`, `disc_dominante`, `video_url`, `bunny_video_id`, `srt`, `vtt`.
 
-Modelo do roteiro: `claude-opus-4-8` (default da task `conteudo_video` em `lib/ai-tasks.ts`). Doc do prompt: `docs/PROMPT-ROTEIRO-VIDEO.md`.
+Modelo do roteiro: `claude-opus-4-8` (default da task `conteudo_video` em `lib/ai-tasks.ts`), orçado com Batch API (50% off) + prompt caching/prompting quando há lote. Doc do prompt: `docs/PROMPT-ROTEIRO-VIDEO.md`.
 
 ### 23.4 Infra de render
 
-- **Hoje**: trigger.dev (maquina `large-2x`, render chunked).
-- **Migracao pronta** pro **worker Hetzner** (`worker-hetzner/`: `worker.mjs` pull/poll + claim atomico `FOR UPDATE SKIP LOCKED`; fila em `videos_gerados` com status `render_queued`/`rendering`, migration 140).
-- Backend selecionado por env `RENDER_BACKEND` (`trigger`|`hetzner`) — a migracao vira **flip de env, sem deploy**.
+- **Produção**: worker **Hetzner** (`worker-hetzner/`: `worker.mjs` pull/poll + claim atomico `FOR UPDATE SKIP LOCKED`; fila em `videos_gerados` com status `render_queued`/`rendering`, migration 140).
+- Backend selecionado por env `RENDER_BACKEND` (`hetzner` default; `trigger` apenas override de teste).
+- Render Hetzner é premissa comercial: CX33 paralelo+efêmero por job (~4 CX33 × 1h mínima ≈ $0,06/video), enquanto Trigger.dev volta a tornar o render dominante.
 
 ---
 

@@ -4,6 +4,7 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 import { APP_WEBHOOK_URL, EMAIL_FROM_DEFAULT, QSTASH_BASE_URL, ROOT_DOMAIN, tenantUrl } from '@/lib/domain';
+import { assertZapiConnected, getZapiConfig } from '@/lib/zapi';
 
 /**
  * Colaboradores que CONCLUÍRAM o mapeamento de competências: responderam TODAS
@@ -234,6 +235,23 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
 
     if (!colabs.length) return { success: false, error: `Nenhum destinatário com ${canal === 'whatsapp' ? 'WhatsApp' : 'email'}` };
 
+    if (canal === 'whatsapp') {
+      try {
+        await assertZapiConnected();
+      } catch (e: any) {
+        await logAdminAction({
+          adminEmail: ctx.email, acao: 'whatsapp.broadcast', empresaId, empresaSlug: empresa.slug,
+          alvo: `${colabs.length} colaboradores`,
+          detalhes: { canal, filtros, bloqueado: 'zapi_desconectada', erro: e?.message },
+          resultado: 'erro',
+        });
+        return {
+          success: false,
+          error: `${e?.message || 'Z-API desconectada'}. Reconecte a instância antes de disparar WhatsApp em lote.`,
+        };
+      }
+    }
+
     // Log inicial: ajuda diagnosticar qual branch (direto vs QStash) será usado
     console.log(
       `[dispararMensagemCustomizada] empresa=${empresa.slug} canal=${canal} ` +
@@ -369,10 +387,8 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
       }
 
       if (canal === 'whatsapp' && colab.telefone) {
-        const zapiInstance = process.env.ZAPI_INSTANCE_ID;
-        const zapiToken = process.env.ZAPI_TOKEN;
-        const zapiClient = process.env.ZAPI_CLIENT_TOKEN || '';
-        if (!zapiInstance || !zapiToken) { erroDetalhe = 'Z-API não configurado'; erros++; continue; }
+        const zapi = getZapiConfig();
+        if (!zapi.configured) { erroDetalhe = 'Z-API não configurado'; erros++; continue; }
 
         let phone = colab.telefone.replace(/\D/g, '');
         if (phone.length <= 11) phone = `55${phone}`;
@@ -383,9 +399,9 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
             if (enviados > 0) await new Promise(resolve => setTimeout(resolve, 1000));
 
             // Enviar texto
-            const res = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-text`, {
+            const res = await fetch(`${zapi.baseUrl}/send-text`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Client-Token': zapiClient },
+              headers: { 'Content-Type': 'application/json', 'Client-Token': zapi.clientToken },
               body: JSON.stringify({ phone, message: msg }),
             });
 
@@ -395,9 +411,9 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
               const pdf = await buscarPDFColaborador(sb, empresaId, colab.id);
               if (pdf?.buffer) {
                 await new Promise(resolve => setTimeout(resolve, 500));
-                const rPdf = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-document/pdf`, {
+                const rPdf = await fetch(`${zapi.baseUrl}/send-document/pdf`, {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'Client-Token': zapiClient },
+                  headers: { 'Content-Type': 'application/json', 'Client-Token': zapi.clientToken },
                   body: JSON.stringify({
                     phone,
                     document: `data:application/pdf;base64,${pdf.buffer.toString('base64')}`,
@@ -417,9 +433,9 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
               await new Promise(resolve => setTimeout(resolve, 500));
               const ext = extFromNameOrMime(anexoExtra.name, anexoExtra.mime);
               const mime = anexoExtra.mime || 'application/octet-stream';
-              const rAnx = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-document/${ext}`, {
+              const rAnx = await fetch(`${zapi.baseUrl}/send-document/${ext}`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Client-Token': zapiClient },
+                headers: { 'Content-Type': 'application/json', 'Client-Token': zapi.clientToken },
                 body: JSON.stringify({
                   phone,
                   document: `data:${mime};base64,${anexoExtra.base64}`,
@@ -530,10 +546,19 @@ export async function enviarMagicLinksWhatsApp(empresaId: string, filtros: any =
     }
     if (!colabs.length) return { success: false, error: 'Nenhum colaborador com telefone e email' };
 
-    const zapiInstance = process.env.ZAPI_INSTANCE_ID;
-    const zapiToken = process.env.ZAPI_TOKEN;
-    const zapiClient = process.env.ZAPI_CLIENT_TOKEN || '';
-    if (!zapiInstance || !zapiToken) return { success: false, error: 'Z-API não configurado' };
+    const zapi = getZapiConfig();
+    if (!zapi.configured) return { success: false, error: 'Z-API não configurado' };
+    try {
+      await assertZapiConnected();
+    } catch (e: any) {
+      await logAdminAction({
+        adminEmail: ctx.email, acao: 'whatsapp.magic_links', empresaId, empresaSlug: empresa.slug,
+        alvo: `${colabs.length} colaboradores`,
+        detalhes: { filtros, bloqueado: 'zapi_desconectada', erro: e?.message },
+        resultado: 'erro',
+      });
+      return { success: false, error: `${e?.message || 'Z-API desconectada'}. Reconecte a instância antes de disparar WhatsApp em lote.` };
+    }
 
     const redirectUrl = tenantUrl(empresa.slug, '/dashboard');
     let enviados = 0, erros = 0, ultimoErro = '';
@@ -569,9 +594,9 @@ ${magicLink}
 
 — Equipe Vertho`;
 
-        const res = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-text`, {
+        const res = await fetch(`${zapi.baseUrl}/send-text`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Client-Token': zapiClient },
+          headers: { 'Content-Type': 'application/json', 'Client-Token': zapi.clientToken },
           body: JSON.stringify({ phone, message: msg }),
         });
 

@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import {
-  Building2, Users, ClipboardCheck, Plus, Loader2, Zap, ShieldCheck,
+  Building2, Users, ClipboardCheck, Plus, Zap, ShieldCheck,
   BarChart2, Brain, Activity, CheckCircle2, Globe, Vote,
   TrendingUp, Target, Calculator,
 } from 'lucide-react';
+import { LoadingState, MetricCard, Surface } from '@/components/ui';
 import { loadAdminDashboard } from './actions';
 import { useAdminShell } from '../_shell/AdminShellContext';
 import { empresaGlyph, fmtNum as fmt, serifStyle as serif, monoStyle as mono } from '../_shell/nav-items';
@@ -41,9 +42,7 @@ export default function AdminDashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 size={28} className="animate-spin" style={{ color: '#34c5cc' }} />
-      </div>
+      <LoadingState title="Carregando dashboard" className="py-24" />
     );
   }
 
@@ -63,10 +62,10 @@ export default function AdminDashboardPage() {
       <div className="max-w-[1280px] mx-auto space-y-5">
         {/* KPI cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <KpiCard label={t('kpis.companies')} value={empresas.length} sub={t('kpis.activeCompanies', { count: empresas.length })} accent="#34c5cc" icon={<Building2 size={14} />} locale={locale} />
-          <KpiCard label={t('kpis.collaborators')} value={totalColabs} accent="#2ecc71" icon={<Users size={14} />} locale={locale} />
-          <KpiCard label={t('kpis.assessments')} value={totalAvaliacoes} accent="#f4b740" icon={<CheckCircle2 size={14} />} locale={locale} />
-          <KpiCard label={t('kpis.activePdis')} value={totalPDIs} accent="#9e4edd" icon={<ClipboardCheck size={14} />} locale={locale} />
+          <MetricCard label={t('kpis.companies')} value={fmt(empresas.length, locale)} helper={t('kpis.activeCompanies', { count: empresas.length })} accent="#34c5cc" icon={<Building2 size={14} />} />
+          <MetricCard label={t('kpis.collaborators')} value={fmt(totalColabs, locale)} accent="#2ecc71" icon={<Users size={14} />} />
+          <MetricCard label={t('kpis.assessments')} value={fmt(totalAvaliacoes, locale)} accent="#f4b740" icon={<CheckCircle2 size={14} />} />
+          <MetricCard label={t('kpis.activePdis')} value={fmt(totalPDIs, locale)} accent="#9e4edd" icon={<ClipboardCheck size={14} />} />
         </div>
 
         {/* Atividade Recente (span 2) + Empresas Ativas (span 1) */}
@@ -239,40 +238,11 @@ export default function AdminDashboardPage() {
 
 // ─── Subcomponents ──────────────────────────────────────────────────────────
 
-function KpiCard({ label, value, sub, accent, icon, locale }: { label: string; value: number; sub?: string; accent: string; icon: React.ReactNode; locale: string }) {
-  return (
-    <div
-      className="relative rounded-xl p-4 overflow-hidden"
-      style={{
-        background: 'linear-gradient(140deg, rgba(255,255,255,.04), rgba(255,255,255,.01))',
-        border: '1px solid rgba(255,255,255,.08)',
-      }}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <span className="text-xs" style={{ color: 'rgba(255,255,255,.55)' }}>{label}</span>
-        <span style={{ color: 'rgba(255,255,255,.4)' }}>{icon}</span>
-      </div>
-      <div style={{ ...mono, fontSize: 28, fontWeight: 700, color: '#fff', lineHeight: 1, letterSpacing: '-.02em' }}>
-        {fmt(value, locale)}
-      </div>
-      {sub && <p className="text-[10px] mt-1" style={{ color: accent }}>{sub}</p>}
-      <div className="absolute bottom-0 left-0 right-0 h-[3px]" style={{ background: accent, opacity: .6, boxShadow: `0 0 10px ${accent}` }} />
-    </div>
-  );
-}
-
 function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div
-      className={`rounded-xl p-5 ${className}`}
-      style={{
-        background: 'linear-gradient(140deg, rgba(255,255,255,.035), rgba(255,255,255,.01))',
-        border: '1px solid rgba(255,255,255,.08)',
-        backdropFilter: 'blur(12px)',
-      }}
-    >
+    <Surface className={className}>
       {children}
-    </div>
+    </Surface>
   );
 }
 

@@ -1,0 +1,15 @@
+===== SPIKE BATCH + CACHE — 4 roteiros (opus-4.8) =====
+system compartilhado: 4357 tokens · idêntico entre os 4: true
+user médio: 3543 tok · output médio: 2733 tok
+batch — cache_creation total: 17408 tok · cache_read total: 0 tok
+
+CUSTO TOTAL (4 roteiros)            por roteiro
+1) Síncrono, SEM cache   $0.4313      $0.1078
+2) Síncrono, COM cache   $0.3779      $0.0945
+3) Batch,    SEM cache   $0.2156      $0.0539
+4) Batch,    COM cache*  $0.1890      $0.0472   (*melhor caso teórico)
+5) Batch, MEDIDO de fato $0.2265      $0.0566   (cache real no batch)
+
+Economia batch vs síncrono (sem cache): 50%
+Economia cache vs sem cache (síncrono): 12%
+Batch medido vs síncrono sem cache:     47%

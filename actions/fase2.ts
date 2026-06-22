@@ -4,6 +4,7 @@ import { APP_WEBHOOK_URL, EMAIL_FROM_DEFAULT, QSTASH_BASE_URL, tenantUrl } from 
 import crypto from 'crypto';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { hasDiscMapeado } from '@/lib/disc-status';
+import { assertZapiConnected } from '@/lib/zapi';
 
 // ── Disparar convites (email + WhatsApp unificado) ──────────────────────────
 
@@ -43,44 +44,59 @@ export async function dispararEmails(empresaId: string) {
 
     // Buscar envios já existentes
     const { data: enviosExistentes } = await sb.from('envios_diagnostico')
-      .select('colaborador_id, status')
+      .select('id, colaborador_id, status, token')
       .eq('empresa_id', empresaId);
-    const envioMap: Record<string, string> = {};
-    (enviosExistentes || []).forEach(e => { envioMap[e.colaborador_id] = e.status; });
+    const envioMap: Record<string, { id: string; status: string; token?: string }> = {};
+    (enviosExistentes || []).forEach(e => {
+      envioMap[e.colaborador_id] = { id: e.id, status: e.status, token: e.token };
+    });
 
-    let emailsEnviados = 0, whatsEnviados = 0, jaEnviados = 0, erros = 0;
+    let emailsEnviados = 0, whatsEnviados = 0, jaEnviados = 0, erros = 0, semCanal = 0;
+    let whatsappDisponivel = Boolean(process.env.QSTASH_TOKEN && colaboradores.some(c => c.telefone));
+    if (whatsappDisponivel) {
+      try {
+        await assertZapiConnected();
+      } catch (err: any) {
+        whatsappDisponivel = false;
+        console.warn('[fase2] WhatsApp via QStash bloqueado: Z-API desconectada', err?.message || err);
+      }
+    }
 
     for (const colab of colaboradores) {
       // Pular se já foi enviado ou respondido
-      if (envioMap[colab.id] === 'enviado' || envioMap[colab.id] === 'respondido') {
+      if (envioMap[colab.id]?.status === 'enviado' || envioMap[colab.id]?.status === 'respondido') {
         jaEnviados++;
         continue;
       }
 
       // Gerar token se ainda não tem envio
       let token;
-      if (envioMap[colab.id] === 'pendente') {
-        const { data: envio } = await sb.from('envios_diagnostico')
-          .select('token')
-          .eq('empresa_id', empresaId)
-          .eq('colaborador_id', colab.id)
-          .single();
-        token = envio?.token;
+      let envioId = envioMap[colab.id]?.id;
+      if (envioMap[colab.id]?.status === 'pendente') {
+        token = envioMap[colab.id]?.token;
       }
 
       if (!token) {
         token = crypto.randomUUID();
-        await sb.from('envios_diagnostico').upsert({
+        const { data: envioCriado, error: envioErr } = await sb.from('envios_diagnostico').upsert({
           empresa_id: empresaId,
           colaborador_id: colab.id,
           email: colab.email,
           token,
           status: 'pendente',
           tipo: 'autoavaliacao',
-        }, { onConflict: 'empresa_id,colaborador_id' });
+        }, { onConflict: 'empresa_id,colaborador_id' }).select('id').single();
+        if (envioErr || !envioCriado?.id) {
+          console.error('[fase2] Falha ao criar envio_diagnostico:', envioErr?.message || 'sem id retornado');
+          erros++;
+          continue;
+        }
+        envioId = envioCriado.id;
       }
 
       const link = tenantUrl(empresa.slug, `/avaliacao/${token}`);
+      let emailEntregue = false;
+      let whatsappAgendado = false;
 
       // 1. Enviar email (se tem email e Resend configurado)
       if (colab.email && process.env.RESEND_API_KEY) {
@@ -103,6 +119,7 @@ export async function dispararEmails(empresaId: string) {
             }),
           });
           if (emailRes.ok) {
+            emailEntregue = true;
             emailsEnviados++;
           } else {
             const detail = await emailRes.text();
@@ -113,7 +130,7 @@ export async function dispararEmails(empresaId: string) {
       }
 
       // 2. Enviar WhatsApp (se tem telefone e QStash configurado)
-      if (colab.telefone && process.env.QSTASH_TOKEN) {
+      if (colab.telefone && whatsappDisponivel) {
         try {
           const msg = `Olá${colab.nome_completo ? ` ${colab.nome_completo.split(' ')[0]}` : ''}! Você foi convidado(a) para a avaliação de competências da *${empresa.nome}*.\n\nAcesse: ${link}`;
           const webhookUrl = `${APP_WEBHOOK_URL}/api/webhooks/qstash/whatsapp-cis`;
@@ -124,18 +141,31 @@ export async function dispararEmails(empresaId: string) {
               Authorization: `Bearer ${process.env.QSTASH_TOKEN}`,
               'Upstash-Delay': `${whatsEnviados * 2}s`,
             },
-            body: JSON.stringify({ telefone: colab.telefone, mensagem: msg }),
+            body: JSON.stringify({ telefone: colab.telefone, mensagem: msg, envioId }),
           });
           if (!qstashRes.ok) throw new Error(`QStash ${qstashRes.status}: ${(await qstashRes.text()).slice(0, 200)}`);
+          whatsappAgendado = true;
           whatsEnviados++;
-        } catch { /* WhatsApp é best-effort */ }
+        } catch (err) {
+          console.error('[fase2] WhatsApp QStash erro:', err instanceof Error ? err.message : String(err));
+          erros++;
+        }
       }
 
-      // Marcar como enviado
-      await sb.from('envios_diagnostico')
-        .update({ status: 'enviado', enviado_em: new Date().toISOString() })
-        .eq('empresa_id', empresaId)
-        .eq('colaborador_id', colab.id);
+      if (emailEntregue) {
+        await sb.from('envios_diagnostico')
+          .update({
+            status: 'enviado',
+            enviado_em: new Date().toISOString(),
+            canal: 'email',
+          })
+          .eq('empresa_id', empresaId)
+          .eq('colaborador_id', colab.id);
+      }
+
+      if (!emailEntregue && !whatsappAgendado) {
+        semCanal++;
+      }
     }
 
     const parts = [];
@@ -143,11 +173,20 @@ export async function dispararEmails(empresaId: string) {
     if (whatsEnviados) parts.push(`${whatsEnviados} WhatsApp`);
     if (jaEnviados) parts.push(`${jaEnviados} já enviados`);
     if (puladosSemDisc) parts.push(`${puladosSemDisc} sem DISC (ignorados)`);
+    if (semCanal) parts.push(`${semCanal} sem canal disponível`);
     if (erros) parts.push(`${erros} erros`);
+
+    const acionados = emailsEnviados + whatsEnviados;
+    if (acionados === 0 && jaEnviados === 0) {
+      return {
+        success: false,
+        error: `Nenhum convite enviado ou agendado${parts.length ? ` (${parts.join(' · ')})` : ''}`,
+      };
+    }
 
     return { success: true, message: `Convites: ${parts.join(' · ')}` };
   } catch (err) {
-    return { success: false, error: err.message };
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 

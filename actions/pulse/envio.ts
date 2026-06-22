@@ -4,6 +4,7 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 import { EMAIL_FROM_DEFAULT, tenantUrl } from '@/lib/domain';
+import { assertZapiConnected, getZapiConfig } from '@/lib/zapi';
 
 const RESEND_MIN_INTERVAL_MS = 250;
 
@@ -126,15 +127,18 @@ export async function enviarConvitesPulso(
     enviados: 0, ja_enviados: 0, sem_telefone: 0, sem_email: 0, erros: 0,
   };
 
-  const zapiInstance = process.env.ZAPI_INSTANCE_ID;
-  const zapiToken = process.env.ZAPI_TOKEN;
-  const zapiClient = process.env.ZAPI_CLIENT_TOKEN || '';
-  const zapiConfigured = !!(zapiInstance && zapiToken);
-
   const enviarWa = opts.canal === 'whatsapp' || opts.canal === 'ambos';
   const enviarEmail = opts.canal === 'email' || opts.canal === 'ambos';
+  const zapi = getZapiConfig();
 
-  if (enviarWa && !zapiConfigured) return { ok: false, error: 'Z-API não configurado' };
+  if (enviarWa && !zapi.configured) return { ok: false, error: 'Z-API não configurado' };
+  if (enviarWa) {
+    try {
+      await assertZapiConnected();
+    } catch (e: any) {
+      return { ok: false, error: `${e?.message || 'Z-API desconectada'}. Reconecte a instância antes de disparar WhatsApp em lote.` };
+    }
+  }
   if (enviarEmail && !process.env.RESEND_API_KEY) return { ok: false, error: 'RESEND_API_KEY não configurada' };
 
   const emailThrottle = { lastSentAt: 0 };
@@ -191,9 +195,9 @@ export async function enviarConvitesPulso(
           if (stats.enviados > 0) await new Promise(r => setTimeout(r, 1200)); // throttle
           let phone = (colab.telefone as string).replace(/\D/g, '');
           if (phone.length <= 11) phone = `55${phone}`;
-          const res = await fetch(`https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-text`, {
+          const res = await fetch(`${zapi.baseUrl}/send-text`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Client-Token': zapiClient },
+            headers: { 'Content-Type': 'application/json', 'Client-Token': zapi.clientToken },
             body: JSON.stringify({ phone, message: mensagem }),
           });
           if (!res.ok) {

@@ -1,29 +1,5 @@
-'use server';
-
-import { requireAdminSupabase } from '@/lib/admin-supabase';
-import { requireAdminAction } from '@/lib/auth/action-context';
-
-export async function limparSessoesAntigas(dias: number = 30) {
-  const sb = await requireAdminSupabase('trash.manage');
-  const cutoff = new Date(Date.now() - dias * 86400000).toISOString();
-  const { count, error } = await sb.from('envios_diagnostico')
-    .delete({ count: 'exact' })
-    .lt('created_at', cutoff)
-    .is('respondido_em', null);
-  if (error) return { success: false, error: error.message };
-  return { success: true, message: `${count || 0} sessões antigas removidas` };
-}
-
-export async function limparSessoesTeste() {
-  const sb = await requireAdminSupabase('trash.manage');
-  const { count, error } = await sb.from('envios_diagnostico')
-    .delete({ count: 'exact' })
-    .ilike('email', '%@teste%');
-  if (error) return { success: false, error: error.message };
-  return { success: true, message: `${count || 0} sessões de teste removidas` };
-}
-
-export async function estatisticasBanco() {
-  await requireAdminAction();
-  return { success: true, stats: {} };
-}
+export {
+  estatisticasBanco,
+  limparSessoesAntigas,
+  limparSessoesTeste,
+} from '@/actions/manutencao';

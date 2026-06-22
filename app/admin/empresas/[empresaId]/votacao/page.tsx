@@ -122,8 +122,8 @@ export default function VotacaoAdminPage({ params }: { params: Promise<{ empresa
             {togglingPerfil ? <Loader2 size={14} className="animate-spin" /> : data?.perfilComportamentalLiberado ? <Unlock size={14} /> : <Lock size={14} />}
             {data?.perfilComportamentalLiberado ? t('actions.lockProfile') : t('actions.unlockProfile')}
           </button>
-          <button onClick={handleToggleCenarios} disabled={togglingCenarios || !data?.perfilComportamentalLiberado}
-            title={!data?.perfilComportamentalLiberado ? t('actions.unlockProfileBeforeScenarios') : undefined}
+          <button onClick={handleToggleCenarios} disabled={togglingCenarios || data?.votacaoAtiva}
+            title={data?.votacaoAtiva ? t('actions.closeBeforeUnlock') : undefined}
             className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-1.5 ${
               data?.mapeamentoCenariosLiberado
                 ? 'bg-purple-400/15 text-purple-300 border border-purple-400/30 hover:bg-purple-400/25'
@@ -200,8 +200,8 @@ export default function VotacaoAdminPage({ params }: { params: Promise<{ empresa
             </span>
           </div>
           <span className="text-xs text-gray-400">
-            {!data?.perfilComportamentalLiberado
-              ? t('scenarios.availableAfterProfile')
+            {data?.votacaoAtiva
+              ? t('profile.availableAfterClose')
               : t('scenarios.useUnlockButton')}
           </span>
         </div>

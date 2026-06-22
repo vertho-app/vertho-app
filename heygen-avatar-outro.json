@@ -1,0 +1,25 @@
+﻿{
+    "title":  "avatar-outro",
+    "video_inputs":  [
+                         {
+                             "voice":  {
+                                           "type":  "audio",
+                                           "audio_url":  "https://drive.google.com/uc?export=download\u0026id=1gShKOMWyN22uy7XuRWxyPOrHPWlu6Hz0"
+                                       },
+                             "background":  {
+                                                "value":  "#142F57",
+                                                "type":  "color"
+                                            },
+                             "character":  {
+                                               "avatar_id":  "Abigail_expressive_2024112501",
+                                               "avatar_style":  "normal",
+                                               "type":  "avatar"
+                                           }
+                         }
+                     ],
+    "dimension":  {
+                      "height":  720,
+                      "width":  1280
+                  },
+    "callback_id":  "avatar-outro-155909"
+}

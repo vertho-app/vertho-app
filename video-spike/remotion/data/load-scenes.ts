@@ -36,6 +36,7 @@ export interface ComputedScene {
   subtitle?: string;
   bullets?: string[];
   items?: string[];
+  icons?: string[]; // nomes semânticos (vocabulário em ../icons) por bullet/item
   left?: { title: string; items: string[] };
   right?: { title: string; items: string[] };
   stat?: string;

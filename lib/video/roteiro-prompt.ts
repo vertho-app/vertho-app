@@ -23,6 +23,7 @@ export interface RoteiroScene {
   subtitle?: string;
   bullets?: string[];
   items?: string[];
+  icons?: string[]; // concept_reveal/icon_story: 1 nome de ícone (vocabulário fixo) por bullet/item
   left?: { title: string; items: string[] };
   right?: { title: string; items: string[] };
   stat?: string;
@@ -237,9 +238,9 @@ ESTRUTURA (ordem obrigatória): 1) avatar_intro · 2) miolo variado · 3) avatar
 
 TEMPLATES E SEUS CAMPOS VISUAIS:
 - avatar_intro / avatar_outro: title + subtitle.
-- concept_reveal: explica um conceito/distinção. title + bullets (EXATAMENTE 3, cada 2–5 palavras).
+- concept_reveal: explica um conceito/distinção. title + bullets (EXATAMENTE 3, cada 2–5 palavras) + icons (EXATAMENTE 3, 1 por bullet, nomes do VOCABULÁRIO DE ÍCONES, casando com o SENTIDO do bullet).
 - comparison_motion: contrasta prática fraca×desejada. title ("A x B") + left{title,items[3]} + right{title,items[3]}.
-- icon_story: 3 sinais/exemplos/comportamentos. title + items (EXATAMENTE 3, cada 2–5 palavras).
+- icon_story: 3 sinais/exemplos/comportamentos. title + items (EXATAMENTE 3, cada 2–5 palavras) + icons (EXATAMENTE 3, 1 por item, nomes do VOCABULÁRIO DE ÍCONES, casando com o sentido).
 - steps_flow: processo/método sequencial. title + items (3–5 passos, cada 2–4 palavras).
 - stat_highlight: um DADO numérico. stat + title + subtitle. Só use se houver número EXPLÍCITO no módulo; o valor de "stat" deve aparecer LITERALMENTE no conteúdo de entrada. NUNCA invente estatística.
 - quote_spotlight: frase-âncora. quote (≤14 palavras) + subtitle (atribuição, ex.: "Mentora Vertho").
@@ -248,6 +249,9 @@ TEMPLATES E SEUS CAMPOS VISUAIS:
 - myth_truth: quebra de um equívoco. myth (≤10 palavras, a crença errada) + truth (≤10 palavras, a correção). Use no máximo 1× por vídeo, quando houver ERROS_COMUNS / concepção equivocada a desfazer. Difere de comparison_motion (que contrasta duas práticas válidas, não um erro a corrigir).
 - definition_card: define um termo de forma limpa, antes de aprofundá-lo. term (1–3 palavras) + definition (≤14 palavras). Use cedo no vídeo, no máximo 1–2×, para fixar um termo-chave.
 - reflection_prompt: pergunta de reflexão no MEIO do vídeo, que espelha o conceito na rotina do espectador. prompt (a pergunta, ≤14 palavras) + tag (opcional, ex.: "Pra pensar"). Use no máximo 1×, apenas no TERÇO CENTRAL do miolo — nunca como 1ª ou última cena de miolo. NÃO substitui o avatar_outro (que fecha com a pergunta acionável da semana).
+
+VOCABULÁRIO DE ÍCONES (campo "icons" de concept_reveal e icon_story): use SÓ estes nomes, 1 por bullet/item, escolhendo o que melhor representa o SENTIDO daquele item (se nenhum encaixar bem, use o mais próximo). NÃO invente nomes.
+relogio, prazo, tempo, conversa, escuta, voz, comunicar, equipe, pessoa, acordo, cuidado, crescimento, meta, foco, avancar, reconhecimento, ideia, pensar, observar, analisar, direcao, feito, checklist, processo, ajuste, aprender, ensino, registrar, documento, risco, protecao, destaque, valor, equilibrio, aprovar, plano, prioridade, conexao, encaixe, medir, melhoria, ciclo, firmeza.
 
 REGRAS DE VARIEDADE:
 - NUNCA o mesmo template em duas cenas seguidas. Evite também a mesma FAMÍLIA visual em cenas adjacentes — famílias: decomposição (concept_reveal, icon_story); contraste (comparison_motion, myth_truth); progressão (steps_flow, maturity_ladder); respiro (quote_spotlight, scenario_card, stat_highlight, definition_card, reflection_prompt). Não coloque maturity_ladder ao lado de steps_flow, nem myth_truth ao lado de comparison_motion.

@@ -16,7 +16,7 @@ export async function limparSessoesAntigas(dias: number = 30) {
     if (error) return { success: false, error: error.message };
     return { success: true, message: `${count || 0} sessões antigas removidas (> ${dias} dias)` };
   } catch (err) {
-    return { success: false, error: err.message };
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
@@ -32,7 +32,7 @@ export async function limparSessoesTeste() {
     if (error) return { success: false, error: error.message };
     return { success: true, message: `${count || 0} sessões de teste removidas` };
   } catch (err) {
-    return { success: false, error: err.message };
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
@@ -57,15 +57,19 @@ export async function estatisticasBanco() {
 
     const stats: Record<string, number | string> = {};
 
-    for (const tabela of tabelas) {
-      try {
-        const { count } = await sb.from(tabela)
-          .select('*', { count: 'exact', head: true });
-        stats[tabela] = count || 0;
-      } catch (_) {
-        stats[tabela] = 'N/A';
-      }
-    }
+    const contagens = await Promise.all(
+      tabelas.map(async (tabela) => {
+        try {
+          const { count, error } = await sb.from(tabela)
+            .select('*', { count: 'exact', head: true });
+          return [tabela, error ? 'N/A' : count || 0] as const;
+        } catch {
+          return [tabela, 'N/A'] as const;
+        }
+      }),
+    );
+
+    for (const [tabela, count] of contagens) stats[tabela] = count;
 
     const totalRegistros = Object.values(stats)
       .filter((v): v is number => typeof v === 'number')
@@ -77,6 +81,6 @@ export async function estatisticasBanco() {
       stats,
     };
   } catch (err) {
-    return { success: false, error: err.message };
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
   }
 }

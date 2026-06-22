@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
-import { headers, cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
+import { headers } from 'next/headers';
 import { Lock } from 'lucide-react';
 import { resolveTenantFromHeaders } from '@/lib/tenant-resolver';
 import { resolveTheme } from '@/lib/ui-resolver';
+import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import LoginRedirect from './LoginRedirect';
 
 export const dynamic = 'force-dynamic';
@@ -73,17 +73,7 @@ export async function generateMetadata({ params }: { params: Promise<{ videoId: 
 }
 
 async function getSessionUser() {
-  const store = await cookies();
-  const sb = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => store.getAll(),
-        setAll: () => { /* read-only em RSC */ },
-      },
-    },
-  );
+  const sb = await createSupabaseServerClient();
   const { data: { user } } = await sb.auth.getUser();
   return user;
 }

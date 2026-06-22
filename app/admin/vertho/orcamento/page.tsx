@@ -19,7 +19,7 @@ const PRECOS_DEFAULT = {
   precoPerfil: 500,           // R$ por perfil (cargo) dentro do cluster (one-time)
   adicionalWorkshop: 15000,   // R$ por cluster quando método = workshop (one-time)
   manutencaoMensalColab: 0,   // R$ por colaborador / mês (manutenção/suporte — recorrente)
-  custoRenderVideoUsd: 36,    // USD por vídeo: 5 min 1080p × Veo 3.1 Fast ($0,12/s) = 300×0,12
+  custoRenderVideoUsd: 0,     // legado; vídeo gerado agora usa CALLS video_gerado (Hetzner + HeyGen + TTS + Opus batch)
   reusoConteudo: 5,           // colaboradores que compartilham cada peça (1 = único por colab)
   descontoPct: 0,
 };
@@ -138,9 +138,9 @@ function custoIAExtracao(nVideos: number, incluirAuditoria: boolean) {
 }
 
 /**
- * Custo de geração de VÍDEO a partir do Módulo-Base (avatar HeyGen + cenas
- * Remotion + narração TTS). One-time por vídeo. Avatar opcional (sem ele, sai só
- * cenas animadas e o custo cai ~$0,58). Render no trigger.dev é o dominante (~75%).
+ * Custo de geração de VÍDEO a partir do Módulo-Base (Opus batch + HeyGen +
+ * Remotion Hetzner + narração TTS). One-time por vídeo. Avatar opcional (sem
+ * ele, sai só cenas animadas e o custo cai ~$0,50).
  */
 function custoIAVideoGerado(nVideos: number, comAvatar: boolean) {
   let total = 0;
