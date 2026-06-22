@@ -53,35 +53,39 @@ async function resolveBundle() {
   throw new Error('bundle Remotion não encontrado (esperado em ./spike-bundle)');
 }
 
-/** Resolve o arquivo de TRILHA (bed) p/ a masterização. Locais determinísticos:
- *  env > raiz do worker (COPY do Dockerfile) > /app > dentro do bundle. `null` =
- *  não achou → masterização é pulada (degrada p/ áudio cru; render NÃO falha). */
-let bedPath; // undefined = não resolvido ainda; null = ausente
-async function resolveBed() {
-  if (bedPath !== undefined) return bedPath;
+/** Resolve um asset de áudio (bed) p/ a masterização. Locais determinísticos:
+ *  raiz do worker (COPY do Dockerfile) > /app > dentro do bundle. Cacheado por nome. */
+const audioCache = new Map();
+async function resolveAudio(file) {
+  if (audioCache.has(file)) return audioCache.get(file);
   const cands = [
-    process.env.BED_RESPIRO_PATH,
-    path.join(process.cwd(), 'bed-respiro.mp3'),
-    '/app/bed-respiro.mp3',
-    // fallback: dentro do próprio bundle Remotion (publicDir=public/video-spike → public/audio/).
-    path.join((await resolveBundle().catch(() => '.')) || '.', 'public', 'audio', 'bed-respiro.mp3'),
-  ].filter(Boolean);
-  for (const c of cands) {
-    try { await access(c); bedPath = c; return c; } catch { /* próximo */ }
-  }
-  bedPath = null;
-  return null;
+    path.join(process.cwd(), file),
+    `/app/${file}`,
+    path.join((await resolveBundle().catch(() => '.')) || '.', 'public', 'audio', file),
+  ];
+  let found = null;
+  for (const c of cands) { try { await access(c); found = c; break; } catch { /* próximo */ } }
+  audioCache.set(file, found);
+  return found;
 }
 
-/** Masteriza o áudio do vídeo (trilha + ducking + -14 LUFS) — mesmo passo do
- *  piloto. Em QUALQUER falha (bed ausente, ffmpeg) devolve o arquivo cru: o render
- *  nunca quebra por causa da engenharia de áudio. */
-async function masterizarSeguro(videoIn) {
-  const bed = await resolveBed();
+/** Início do clímax (s) = começo do avatar_outro na timeline. 0 = sem clímax. */
+function climaxFromProps(props) {
+  const fps = props?.fps || 30;
+  const outro = (props?.scenes || []).find((s) => s?.type === 'avatar_outro');
+  return outro?.fromFrame ? outro.fromFrame / fps : 0;
+}
+
+/** Masteriza o áudio (trilha + ducking + -14 LUFS + fade-out + bed-pico no clímax).
+ *  Em QUALQUER falha devolve o arquivo cru: o render nunca quebra pela eng. de áudio. */
+async function masterizarSeguro(videoIn, props) {
+  const bed = await resolveAudio('bed-respiro.mp3');
   if (!bed) { log('masterização pulada (bed-respiro.mp3 não encontrado) — áudio cru'); return videoIn; }
+  const bedPico = await resolveAudio('bed-pico.mp3');
+  const climaxStartSec = climaxFromProps(props);
   const out = videoIn.replace(/\.mp4$/, '') + '-master.mp4';
   try {
-    await masterizarAudio({ videoIn, bedRespiro: bed, videoOut: out });
+    await masterizarAudio({ videoIn, bedRespiro: bed, bedPico, climaxStartSec, videoOut: out });
     return out;
   } catch (e) {
     log('masterização falhou → áudio cru:', e?.message || e);
@@ -233,7 +237,7 @@ async function renderOne(job) {
   // Engenharia de áudio (trilha + ducking + master -14 LUFS) — mesmo passo do
   // piloto. O deck masterizado é o que sobe E o que personalizamos (a porção do
   // deck na saudação preserva a trilha).
-  const final = await masterizarSeguro(out);
+  const final = await masterizarSeguro(out, props);
   const buf = await readFile(final);
   log(`áudio pronto · ${(buf.length / 1e6).toFixed(1)}MB · subindo no Bunny…`);
 

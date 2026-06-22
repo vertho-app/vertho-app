@@ -4,7 +4,7 @@ import { Brand, withAlpha } from '../theme';
 import { reveal, fadeInOut, translateUp, cueDelay } from '../utils/timing';
 import { BackgroundV2, EyebrowV2, INK, ACCENT_SOFT } from '../theme-v2';
 import { pickVariant } from '../utils/variant';
-import { iconByName } from '../icons';
+import { iconByName, DrawIcon, drawProgress } from '../icons';
 import type { ComputedScene } from '../data/load-scenes';
 
 const ROW_GAP = 132; // distância vertical entre bullets
@@ -37,7 +37,7 @@ export const ConceptRevealV2: React.FC<{ scene: ComputedScene; brand: Brand; aud
   );
 
   const iconBox = (i: number, p: number, isActive: boolean) => {
-    const Icon = iconByName(scene.icons?.[i], i);
+    const node = iconByName(scene.icons?.[i], i);
     const glow = isActive ? interpolate(Math.sin(frame / 9), [-1, 1], [0.25, 0.55]) : 0;
     return (
       <div
@@ -49,7 +49,7 @@ export const ConceptRevealV2: React.FC<{ scene: ComputedScene; brand: Brand; aud
           transform: `scale(${0.72 + p * 0.28})`,
         }}
       >
-        <Icon size={44} color={isActive ? ACCENT_SOFT : brand.primary} strokeWidth={1.7} />
+        <DrawIcon node={node} size={44} color={isActive ? ACCENT_SOFT : brand.primary} draw={drawProgress(frame, delayOf(i))} pulse={isActive ? 0.05 * (0.5 + 0.5 * Math.sin(frame / 11)) : 0} />
       </div>
     );
   };

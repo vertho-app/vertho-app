@@ -16,16 +16,13 @@ const BUCKET = 'video-render-tmp';
 
 /** Resolve o arquivo de TRILHA (bed) p/ a masterização. `null` = não achou →
  *  masterização é pulada (degrada p/ áudio cru; o render NÃO quebra). */
-async function resolveBed(): Promise<string | null> {
-  // O bed viaja no bundle (additionalFiles 'spike-bundle/**'); publicDir=public/video-spike
-  // → dentro do bundle vira public/audio/bed-respiro.mp3. resolveBundle acha o bundle
-  // onde quer que esteja (cwd ou /app).
-  const bundleBed = await resolveBundle().then((b) => path.join(b, 'public', 'audio', 'bed-respiro.mp3')).catch(() => null);
+async function resolveAudio(file: string): Promise<string | null> {
+  // Os beds viajam no bundle (additionalFiles 'spike-bundle/**'; publicDir=public/video-spike
+  // → public/audio/<file>). resolveBundle acha o bundle onde quer que esteja.
   const cands = [
-    process.env.BED_RESPIRO_PATH,
-    bundleBed,
-    path.join(process.cwd(), 'public', 'video-spike', 'audio', 'bed-respiro.mp3'),
-    path.join(process.cwd(), 'bed-respiro.mp3'),
+    await resolveBundle().then((b) => path.join(b, 'public', 'audio', file)).catch(() => null),
+    path.join(process.cwd(), 'public', 'video-spike', 'audio', file),
+    path.join(process.cwd(), file),
   ].filter(Boolean) as string[];
   for (const c of cands) {
     try { await access(c); return c; } catch { /* próximo */ }
@@ -33,14 +30,23 @@ async function resolveBed(): Promise<string | null> {
   return null;
 }
 
+/** Início do clímax (s) = começo do avatar_outro na timeline. 0 = sem clímax. */
+function climaxFromProps(inputProps: any): number {
+  const fps = inputProps?.fps || 30;
+  const outro = (inputProps?.scenes || []).find((s: any) => s?.type === 'avatar_outro');
+  return outro?.fromFrame ? outro.fromFrame / fps : 0;
+}
+
 /** Masteriza o áudio (trilha + ducking + -14 LUFS). Em qualquer falha devolve o
  *  arquivo cru — engenharia de áudio nunca derruba o render. */
-async function masterizarSeguro(videoIn: string, jobId: string): Promise<string> {
-  const bed = await resolveBed();
+async function masterizarSeguro(videoIn: string, jobId: string, inputProps?: any): Promise<string> {
+  const bed = await resolveAudio('bed-respiro.mp3');
   if (!bed) { console.warn(`[${jobId}] masterização pulada (bed-respiro.mp3 ausente) — áudio cru`); return videoIn; }
+  const bedPico = await resolveAudio('bed-pico.mp3');           // trilha de pico no encerramento (opcional)
+  const climaxStartSec = climaxFromProps(inputProps);          // início do avatar_outro
   const out = videoIn.replace(/\.mp4$/, '') + '-master.mp4';
   try {
-    await masterizarAudio({ videoIn, bedRespiro: bed, videoOut: out });
+    await masterizarAudio({ videoIn, bedRespiro: bed, bedPico, climaxStartSec, videoOut: out });
     return out;
   } catch (e: any) {
     console.warn(`[${jobId}] masterização falhou → áudio cru:`, e?.message || e);
@@ -185,7 +191,7 @@ export const renderVideoTask = task({
     // 3.5) engenharia de áudio (trilha + ducking + master -14 LUFS) — mesmo passo
     //      do worker Hetzner e do piloto. Degrada p/ áudio cru se o bed não estiver
     //      no runtime (ver resolveBed): o render nunca quebra por isto.
-    const final = await masterizarSeguro(out, jobId);
+    const final = await masterizarSeguro(out, jobId, p.inputProps);
     const s = await stat(final);
 
     // 4) upload pro Bunny Stream (se as credenciais estiverem no ambiente).
