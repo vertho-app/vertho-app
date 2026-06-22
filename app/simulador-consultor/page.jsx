@@ -384,7 +384,7 @@ function Portfolio({ companies, totalColab, evolMedia, alertas, onOpen, onNova, 
   );
 }
 
-function Empresa({ c, tab, setTab, onBack, onAddColab }) {
+function Empresa({ c, tab, setTab, onBack, onAddColab, loading = false }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <Button variant="ghost" icon={ChevronLeft} onClick={onBack} style={{ alignSelf: "flex-start" }}>Portfólio</Button>

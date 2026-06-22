@@ -15,8 +15,8 @@ const toneColor = (t) => TONES[t] || t || TONES.accent;
 /* ----------------------------------------------------------------- *
  * VisuallyHidden — texto só para leitores de tela.
  * ----------------------------------------------------------------- */
-export function VisuallyHidden({ children, as: As = 'span' }) {
-  return <As className="ds-sr-only">{children}</As>;
+export function VisuallyHidden({ children, as: As = 'span', ...rest }) {
+  return <As className="ds-sr-only" {...rest}>{children}</As>;
 }
 
 /* ----------------------------------------------------------------- *
