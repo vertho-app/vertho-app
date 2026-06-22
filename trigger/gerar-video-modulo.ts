@@ -11,6 +11,7 @@ import { montarInputProps, exportCaptionsToSrt, exportCaptionsToVtt, type AssetM
 import type { VideoRoteiro } from '../lib/video/roteiro-prompt';
 import { storagePut, SUPA, KEY } from '../lib/video/render-helpers';
 import { transcribeWords } from '../lib/video/whisper-align';
+import { regionOpts } from '../lib/trigger-region';
 
 const exec = promisify(execFile);
 const FFPROBE = process.env.FFPROBE_PATH || 'ffprobe';
@@ -235,7 +236,7 @@ export const gerarVideoModuloTask = task({
         title: roteiro.title || `Vertho · ${videoId}`,
         jobId: videoId,
         scale,
-      });
+      }, regionOpts());
       if (!res.ok) throw new Error(`render falhou: ${JSON.stringify((res as any).error).slice(0, 200)}`);
       const out = res.output as { bunnyVideoId: string | null; bunnyLibrary: string | null; bytes: number; frames: number };
 

@@ -10,6 +10,7 @@ import { carregarCargoInfo, formatBlocoCargo } from '@/lib/cargo-contexto';
 import { extracaoParaTexto } from '@/lib/escola-brief';
 import { resolverModuloBaseParaConteudo } from '@/lib/season-engine/modulo-base-integration';
 import { tasks } from '@trigger.dev/sdk';
+import { regionOpts } from '@/lib/trigger-region';
 import type { gerarVideoModuloTask } from '@/trigger/gerar-video-modulo';
 
 type Disc = 'D' | 'I' | 'S' | 'C';
@@ -80,7 +81,7 @@ async function criarEDispararVideo(sb: any, args: {
   if (insErr || !novo?.id) return { error: insErr?.message || 'Falha ao criar registro do vídeo' };
 
   try {
-    await tasks.trigger<typeof gerarVideoModuloTask>('gerar-video-modulo', { videoId: novo.id, roteiro });
+    await tasks.trigger<typeof gerarVideoModuloTask>('gerar-video-modulo', { videoId: novo.id, roteiro }, regionOpts());
   } catch (e: any) {
     await sb.from('videos_gerados').update({ status: 'error', error: e?.message?.slice(0, 500) }).eq('id', novo.id);
     return { error: `Não foi possível iniciar o processamento: ${e?.message || 'erro'}` };

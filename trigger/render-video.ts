@@ -1,5 +1,6 @@
 import { task } from '@trigger.dev/sdk';
 import { renderChunkTask } from './render-chunk';
+import { regionOpts } from '../lib/trigger-region';
 import { writeFile, readFile, stat, mkdir, rm, access } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -160,7 +161,7 @@ export const renderVideoTask = task({
     const batch = await renderChunkTask.batchTriggerAndWait(
       ranges.map((frameRange, index) => ({
         payload: { composition: compId, frameRange, jobId, index, inputProps: p.inputProps, scale: p.scale },
-        options: p.chunkMachine ? { machine: p.chunkMachine as any } : undefined,
+        options: { ...(p.chunkMachine ? { machine: p.chunkMachine as any } : {}), ...regionOpts() },
       })),
     );
     const parts = batch.runs.map((run: any, i: number) => {

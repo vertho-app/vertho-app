@@ -6,6 +6,7 @@ import { extrairConteudoDeVideo } from '@/lib/gemini-video';
 import { criarModulosDeTranscricao } from '@/actions/modulos-base';
 import { parseDocument } from '@/lib/rag-ingest';
 import { tasks } from '@trigger.dev/sdk';
+import { regionOpts } from '@/lib/trigger-region';
 import type { extrairVideoTask } from '@/trigger/extracao-video';
 import type { estruturarMaterialTask } from '@/trigger/estruturar-material';
 
@@ -164,7 +165,7 @@ export async function submeterMaterialAsync(
     if (error || !novo?.id) return { error: error?.message || 'Falha ao criar registro' };
 
     try {
-      await tasks.trigger<typeof estruturarMaterialTask>('estruturar-material', { extracaoId: novo.id });
+      await tasks.trigger<typeof estruturarMaterialTask>('estruturar-material', { extracaoId: novo.id }, regionOpts());
     } catch (e: any) {
       await sb.from('extracoes_video').update({ status: 'error', error: e?.message?.slice(0, 500) }).eq('id', novo.id);
       return { error: `Não foi possível iniciar o processamento: ${e?.message || 'erro'}` };
@@ -207,7 +208,7 @@ export async function submeterTextoBaseAsync(
     if (error || !novo?.id) return { error: error?.message || 'Falha ao criar registro' };
 
     try {
-      await tasks.trigger<typeof estruturarMaterialTask>('estruturar-material', { extracaoId: novo.id });
+      await tasks.trigger<typeof estruturarMaterialTask>('estruturar-material', { extracaoId: novo.id }, regionOpts());
     } catch (e: any) {
       await sb.from('extracoes_video').update({ status: 'error', error: e?.message?.slice(0, 500) }).eq('id', novo.id);
       return { error: `Não foi possível iniciar o processamento: ${e?.message || 'erro'}` };
@@ -244,7 +245,7 @@ export async function submeterExtracaoAsync(origemEmpresaId: string | null, url:
     if (error || !novo?.id) return { error: error?.message || 'Falha ao criar registro' };
 
     try {
-      await tasks.trigger<typeof extrairVideoTask>('extrair-video', { extracaoId: novo.id });
+      await tasks.trigger<typeof extrairVideoTask>('extrair-video', { extracaoId: novo.id }, regionOpts());
     } catch (e: any) {
       await sb.from('extracoes_video').update({ status: 'error', error: e?.message?.slice(0, 500) }).eq('id', novo.id);
       return { error: `Não foi possível iniciar o processamento: ${e?.message || 'erro'}` };
