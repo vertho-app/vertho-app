@@ -114,6 +114,30 @@ async function ttsToPcm(prompt: string, voiceName: string, attempt = 0): Promise
 // ritmo mais ágil (ver trigger/gerar-video-modulo.ts).
 const NARRATION_STYLE_DEFAULT = 'Narre em português do Brasil, com voz acolhedora, segura e íntima, ritmo moderado e pausas reflexivas naturais, como um mentor falando diretamente com a pessoa';
 
+// PAUSA DRAMÁTICA determinística após perguntas retóricas. O Gemini TTS NÃO
+// suporta SSML <break>; em vez de depender do modelo, injetamos silêncio EXATO
+// entre os segmentos. Não polui legendas (estas vêm do texto da narração, não do
+// áudio) e o Whisper realinha o timing naturalmente.
+const QUESTION_PAUSE_SEC = Number(process.env.GEMINI_TTS_QUESTION_PAUSE) || 0.7;
+const SEGMENT_PAUSE_SEC = 0.22; // respiro normal entre trechos/segmentos
+
+/** Quebra um trecho após cada pergunta retórica seguida de mais texto (mantém o
+ *  "?" no segmento da esquerda). Marca q=true quando o segmento termina em "?". */
+function segmentarPorPausa(trecho: string): { text: string; q: boolean }[] {
+  const parts: { text: string; q: boolean }[] = [];
+  const re = /([^?]*\?)\s+(?=\S)/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(trecho)) !== null) {
+    const text = trecho.slice(last, m.index + m[1].length).trim();
+    if (text) parts.push({ text, q: true });
+    last = re.lastIndex;
+  }
+  const rest = trecho.slice(last).trim();
+  if (rest) parts.push({ text: rest, q: /\?$/.test(rest) });
+  return parts.length ? parts : [{ text: trecho.trim(), q: /\?$/.test(trecho.trim()) }];
+}
+
 /**
  * Narração LIMPA (sem vinheta nem frase de encerramento de podcast). Para usos
  * como a devolutiva comportamental e a narração de vídeo. `texto` deve ser a
@@ -124,19 +148,23 @@ export async function generateNarrationAudio(texto: string, opts: { voice?: stri
   if (!texto?.trim()) throw new Error('texto de narração vazio');
   const voice = opts.voice || VOICE;
   const styleDirective = opts.style || NARRATION_STYLE_DEFAULT;
-  const trechos = splitNarrationForTts(texto);
+  // Trechos do chunker → segmentos por pausa (corta após perguntas retóricas).
+  const segmentos = splitNarrationForTts(texto).flatMap(segmentarPorPausa);
 
   const partes: Buffer[] = [];
   let sampleRate = 24000;
-  for (const trecho of trechos) {
-    const styled = `${styleDirective}:\n\n${trecho}`;
+  let prevPergunta = false;
+  for (const seg of segmentos) {
+    const styled = `${styleDirective}:\n\n${seg.text}`;
     const { pcm, sampleRate: sr } = await ttsToPcm(styled, voice);
     sampleRate = sr;
     if (partes.length) {
-      // ~220ms de silêncio entre trechos (PCM 16-bit mono): respiro natural.
-      partes.push(Buffer.alloc(Math.round(sampleRate * 0.22) * 2));
+      // Silêncio EXATO: longo após pergunta retórica (pausa dramática), normal senão.
+      const pausa = prevPergunta ? QUESTION_PAUSE_SEC : SEGMENT_PAUSE_SEC;
+      partes.push(silencePcm(pausa, sampleRate));
     }
     partes.push(pcm);
+    prevPergunta = seg.q;
   }
 
   const full = Buffer.concat(partes);

@@ -36,9 +36,13 @@ const VOICE = process.env.VIDEO_TTS_VOICE || 'Vindemiatrix';
 // âncoras emocionais → dose com mais respiro/calor (B1); o miolo é voice-over de
 // conteúdo → dose ágil-warm (B2), pra não arrastar a explicação. Mesma voz,
 // estilo dirigido por tipo de cena — o "TTS chapado" vinha de não dirigir.
-const NARRATION_STYLE_INTRO = 'Narre como uma mentora calorosa e próxima, em português do Brasil, abrindo uma conversa. Tom curioso e acolhedor, energia que prende a atenção, ritmo natural com respiros leves. Engaje sem pressa — mas sem arrastar.';
-const NARRATION_STYLE_OUTRO = 'Narre como uma mentora calorosa e próxima, em português do Brasil, fechando com uma pergunta de reflexão. Ritmo natural, com peso e intimidade; uma leve pausa antes da pergunta final e TERMINE com firmeza, sem arrastar nem deixar silêncio no fim.';
-const NARRATION_STYLE_MIOLO = 'Narre como uma mentora calorosa e acolhedora, em português do Brasil, num ritmo natural de conversa. Respiração natural entre as frases, tom íntimo e humano. Mantenha a fluidez — não alongue as pausas.';
+// Ênfase: o Gemini TTS não tem SSML de emphasis por palavra; a entonação de
+// destaque é dirigida por linguagem natural (a PAUSA após pergunta retórica é
+// injetada de forma determinística no gemini-tts).
+const ENFASE = ' Dê leve ênfase de entonação às palavras de virada e aos termos-chave da frase, sem exagero teatral; antes de perguntas retóricas, deixe a entonação suspender de leve.';
+const NARRATION_STYLE_INTRO = 'Narre como uma mentora calorosa e próxima, em português do Brasil, abrindo uma conversa. Tom curioso e acolhedor, energia que prende a atenção, ritmo natural com respiros leves. Engaje sem pressa — mas sem arrastar.' + ENFASE;
+const NARRATION_STYLE_OUTRO = 'Narre como uma mentora calorosa e próxima, em português do Brasil, fechando com uma pergunta de reflexão. Ritmo natural, com peso e intimidade; uma leve pausa antes da pergunta final e TERMINE com firmeza, sem arrastar nem deixar silêncio no fim.' + ENFASE;
+const NARRATION_STYLE_MIOLO = 'Narre como uma mentora calorosa e acolhedora, em português do Brasil, num ritmo natural de conversa. Respiração natural entre as frases, tom íntimo e humano. Mantenha a fluidez — não alongue as pausas.' + ENFASE;
 const styleForScene = (type: string) =>
   type === 'avatar_intro' ? NARRATION_STYLE_INTRO
   : type === 'avatar_outro' ? NARRATION_STYLE_OUTRO
