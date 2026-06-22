@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   LayoutGrid, Building2, Users, FileText, Palette, CreditCard,
   Plus, Search, ChevronLeft, TrendingUp, AlertTriangle, Upload,
@@ -8,8 +8,13 @@ import {
   Target, ClipboardList, Layers, Film, Mic, CalendarDays, Activity,
   Route, GraduationCap, PlayCircle, Wand2, Clock, Headphones, Video,
   Briefcase, BookOpen, ListChecks, Vote, Send, Star, Gauge, Award,
-  MessageSquare, CheckCircle2, Flag, Brain
+  MessageSquare, CheckCircle2, Flag, Brain, Inbox, SearchX, UserPlus,
 } from "lucide-react";
+import {
+  UIStyles, Button, IconButton, Card, Badge, Meter, KpiCard,
+  Skeleton, SkeletonText, EmptyState, VisuallyHidden,
+  Tabs, TabList, Tab, TabPanel, Dialog, TextField, SelectField,
+} from "./ui";
 
 /* ------------------------------------------------------------------ *
  * Simulador — App do Consultor (parceiro white-label)                 *
@@ -91,6 +96,8 @@ const EVOL = {
   estagnacao: { label: "Estagnação", color: "#E74C3C" },
 };
 const DISC = { D: "#EC6A5C", I: "#F4B740", S: "#34D399", C: "#5BA8F2" };
+const STATUS_TONE = { saudavel: "success", atencao: "warning", critico: "danger" };
+const EVOL_TONE = { confirmada: "success", parcial: "warning", estagnacao: "danger" };
 
 export default function App() {
   const [pkey, setPkey] = useState("aurora");
@@ -101,7 +108,17 @@ export default function App() {
   const [tab, setTab] = useState("visao");
   const [addColab, setAddColab] = useState(false);
   const [novaEmp, setNovaEmp] = useState(false);
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(false);
   const [draft, setDraft] = useState({ accent: partner.accent, sigla: partner.sigla, nome: partner.nome, dominio: partner.dominio });
+
+  // Carregamento simulado ao abrir uma empresa (mostra skeletons).
+  useEffect(() => {
+    if (view !== "empresa") return undefined;
+    setLoading(true);
+    const t = setTimeout(() => setLoading(false), 550);
+    return () => clearTimeout(t);
+  }, [view, selId]);
 
   const sel = companies.find((c) => c.id === selId);
   const totalColab = useMemo(() => companies.reduce((a, c) => a + c.pessoas.length, 0), [companies]);
@@ -128,17 +145,19 @@ export default function App() {
   function openCompany(id) { setSelId(id); setTab("visao"); setView("empresa"); }
 
   return (
-    <div style={{ ...theme, minHeight: "100vh", display: "flex", background:
+    <div className="ds-root ds-shell" style={{ ...theme, background:
       "radial-gradient(1100px 560px at 88% -12%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 60%)," +
       "radial-gradient(820px 460px at -8% 28%, rgba(59,10,109,0.16), transparent 60%)," +
       "linear-gradient(180deg,var(--bg0) 0%,var(--bg1) 36%,var(--bg2) 100%)",
       color: "var(--ink)", fontFamily: "Inter, system-ui, sans-serif" }}>
+      <UIStyles />
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap');
         * { box-sizing: border-box; }
         .serif { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; }
         .nav-item { cursor:pointer; display:flex; align-items:center; gap:11px; padding:10px 13px;
-          border-radius:11px; color:var(--dim); font-size:14px; font-weight:500; transition:.15s; }
+          border-radius:11px; color:var(--dim); font-size:14px; font-weight:500; transition:.15s;
+          border:none; background:transparent; font-family:inherit; width:100%; text-align:left; white-space:nowrap; }
         .nav-item:hover { color:var(--ink); background:rgba(255,255,255,0.04); }
         .nav-item.on { color:var(--bg0); background:var(--accent); font-weight:600; }
         .card { background:var(--card); border:1px solid var(--line); border-radius:16px; }
@@ -166,47 +185,51 @@ export default function App() {
       `}</style>
 
       {/* SIDEBAR */}
-      <aside style={{ width: 232, borderRight: "1px solid var(--line)", padding: "22px 16px",
-        display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
-        <BrandMark partner={partner} draft={view === "marca" ? draft : null} />
-        <div style={{ height: 14 }} />
-        {NAV.map(([k, label, Icon]) => (
-          <div key={k} className={"nav-item" + (view === k ? " on" : "")} onClick={() => setView(k)}
-            tabIndex={0} onKeyDown={(e) => e.key === "Enter" && setView(k)}>
-            <Icon size={17} /> {label}
-          </div>
-        ))}
-        <div style={{ marginTop: "auto", fontSize: 12, color: "var(--faint)", display: "flex", gap: 7, alignItems: "center" }}>
-          <Shield size={13} /> Dados isolados por carteira
+      <nav className="ds-sidebar" aria-label="Navegação principal">
+        <div className="ds-sidebar-brand">
+          <BrandMark partner={partner} draft={view === "marca" ? draft : null} />
         </div>
-      </aside>
+        <div style={{ height: 14 }} aria-hidden="true" />
+        {NAV.map(([k, label, Icon]) => (
+          <button key={k} type="button" className={"nav-item" + (view === k ? " on" : "")}
+            aria-current={view === k ? "page" : undefined} onClick={() => setView(k)}>
+            <Icon size={17} aria-hidden="true" /> {label}
+          </button>
+        ))}
+        <div className="ds-sidebar-foot" style={{ marginTop: "auto", fontSize: 12, color: "var(--faint)", display: "flex", gap: 7, alignItems: "center" }}>
+          <Shield size={13} aria-hidden="true" /> Dados isolados por carteira
+        </div>
+      </nav>
 
       {/* MAIN */}
       <main style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         {/* TOPBAR */}
         <header style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 28px",
-          borderBottom: "1px solid var(--line)" }}>
-          <div style={{ position: "relative", flex: 1, maxWidth: 360 }}>
-            <Search size={15} style={{ position: "absolute", left: 12, top: 11, color: "var(--faint)" }} />
-            <input className="fld" style={{ paddingLeft: 34 }} placeholder="Buscar empresa, pessoa…" />
-          </div>
+          borderBottom: "1px solid var(--line)", flexWrap: "wrap" }}>
+          <form role="search" style={{ position: "relative", flex: 1, minWidth: 200, maxWidth: 360 }}
+            onSubmit={(e) => e.preventDefault()}>
+            <VisuallyHidden as="label" htmlFor="ds-search">Buscar empresa ou pessoa na carteira</VisuallyHidden>
+            <Search size={15} aria-hidden="true" style={{ position: "absolute", left: 12, top: 11, color: "var(--faint)" }} />
+            <input id="ds-search" className="fld" style={{ paddingLeft: 34 }} type="search"
+              placeholder="Buscar empresa, pessoa…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          </form>
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
             {/* demo control: white-label proof */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.04)",
-              border: "1px solid var(--line)", borderRadius: 999, padding: "5px 6px 5px 12px" }}>
-              <span style={{ fontSize: 11, color: "var(--faint)", textTransform: "uppercase", letterSpacing: ".06em" }}>demo · marca</span>
+            <div role="group" aria-label="Marca do parceiro (demo)" style={{ display: "flex", alignItems: "center", gap: 8,
+              background: "rgba(255,255,255,0.04)", border: "1px solid var(--line)", borderRadius: 999, padding: "5px 6px 5px 12px" }}>
+              <span aria-hidden="true" style={{ fontSize: 11, color: "var(--faint)", textTransform: "uppercase", letterSpacing: ".06em" }}>demo · marca</span>
               {Object.entries(PARTNERS).map(([k, p]) => (
-                <button key={k} onClick={() => { setPkey(k); setDraft({ accent: p.accent, sigla: p.sigla, nome: p.nome, dominio: p.dominio }); }}
-                  className="btn" style={{
-                    width: 26, height: 26, borderRadius: 999, background: p.accent,
-                    color: "#06172C", fontWeight: 800, fontSize: 13, justifyContent: "center",
+                <button key={k} type="button" aria-pressed={pkey === k} aria-label={`Usar marca ${p.nome}`}
+                  onClick={() => { setPkey(k); setDraft({ accent: p.accent, sigla: p.sigla, nome: p.nome, dominio: p.dominio }); }}
+                  style={{ cursor: "pointer", border: "none", width: 26, height: 26, borderRadius: 999, background: p.accent,
+                    color: "#06172C", fontWeight: 800, fontSize: 13, display: "grid", placeItems: "center",
                     outline: pkey === k ? "2px solid var(--ink)" : "none", outlineOffset: 1 }}>
                   {p.sigla}
                 </button>
               ))}
             </div>
-            <Bell size={18} style={{ color: "var(--dim)" }} />
-            <div style={{ width: 34, height: 34, borderRadius: 999, background: "rgba(255,255,255,0.08)",
+            <IconButton icon={Bell} label="Notificações" />
+            <div aria-label="Conta: Rodrigo (consultor)" style={{ width: 34, height: 34, borderRadius: 999, background: "rgba(255,255,255,0.08)",
               display: "grid", placeItems: "center", fontSize: 13, fontWeight: 700 }}>RC</div>
           </div>
         </header>
@@ -214,11 +237,11 @@ export default function App() {
         <div style={{ padding: "30px 28px", overflow: "auto" }}>
           {view === "portfolio" && (
             <Portfolio companies={companies} totalColab={totalColab} evolMedia={evolMedia}
-              alertas={alertas} onOpen={openCompany} onNova={() => setNovaEmp(true)} partner={partner} />
+              alertas={alertas} onOpen={openCompany} onNova={() => setNovaEmp(true)} partner={partner} query={query} />
           )}
           {view === "empresa" && sel && (
             <Empresa c={sel} tab={tab} setTab={setTab} onBack={() => setView("portfolio")}
-              onAddColab={() => setAddColab(true)} />
+              onAddColab={() => setAddColab(true)} loading={loading} />
           )}
           {view === "relatorios" && <RelatoriosPortfolio companies={companies} evolMedia={evolMedia} />}
           {view === "marca" && <Marca draft={draft} setDraft={setDraft} partner={partner} />}
@@ -253,86 +276,110 @@ function BrandMark({ partner, draft }) {
   );
 }
 
-function Kpi({ label, value, sub, Icon }) {
-  return (
-    <div className="card" style={{ padding: "18px 20px", flex: 1, minWidth: 0 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", color: "var(--dim)", fontSize: 13 }}>
-        <span>{label}</span><Icon size={16} style={{ color: "var(--accent)" }} />
-      </div>
-      <div className="serif" style={{ fontSize: 38, lineHeight: 1.1, marginTop: 6 }}>{value}</div>
-      {sub && <div style={{ fontSize: 12, color: "var(--faint)", marginTop: 2 }}>{sub}</div>}
-    </div>
-  );
+// Adapter: mantém a assinatura antiga, delega ao KpiCard acessível da lib.
+function Kpi({ label, value, sub, Icon, loading }) {
+  return <KpiCard label={label} value={value} sub={sub} icon={Icon} loading={loading} />;
 }
 
-function Portfolio({ companies, totalColab, evolMedia, alertas, onOpen, onNova, partner }) {
+function Portfolio({ companies, totalColab, evolMedia, alertas, onOpen, onNova, partner, query = "" }) {
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? companies.filter((c) =>
+        c.nome.toLowerCase().includes(q) || c.setor.toLowerCase().includes(q) ||
+        c.pessoas.some((p) => p[0].toLowerCase().includes(q)))
+    : companies;
+  const empty = companies.length === 0;
+  const noResults = !empty && filtered.length === 0;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16 }}>
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase" }}>Carteira</div>
           <h1 className="serif" style={{ fontSize: 34, margin: "4px 0 0" }}>Seu portfólio de clientes</h1>
         </div>
-        <button className="btn btn-primary" onClick={onNova}><Plus size={17} /> Nova empresa</button>
+        <Button variant="primary" icon={Plus} onClick={onNova}>Nova empresa</Button>
       </div>
 
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
         <Kpi label="Empresas ativas" value={companies.length} sub="na sua carteira" Icon={Building2} />
         <Kpi label="Colaboradores" value={totalColab} sub="acompanhados" Icon={Users} />
-        <Kpi label="Evolução média" value={evolMedia + "%"} sub="do portfólio" Icon={TrendingUp} />
+        <Kpi label="Evolução média" value={(empty ? 0 : evolMedia) + "%"} sub="do portfólio" Icon={TrendingUp} />
         <Kpi label="Em atenção" value={alertas.length} sub="empresas com sinal" Icon={AlertTriangle} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 18, alignItems: "start" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(250px,1fr))", gap: 14 }}>
-          {companies.map((c) => {
-            const st = STATUS[c.status];
-            return (
-              <div key={c.id} className="card co-card" style={{ padding: 18 }} onClick={() => onOpen(c.id)}
-                tabIndex={0} onKeyDown={(e) => e.key === "Enter" && onOpen(c.id)}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ width: 42, height: 42, borderRadius: 11, background: "color-mix(in srgb,var(--accent) 18%,transparent)",
-                    color: "var(--accent)", display: "grid", placeItems: "center", fontWeight: 800, fontSize: 18 }}>{c.inicial}</div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{c.nome}</div>
-                    <div style={{ fontSize: 12, color: "var(--faint)" }}>{c.setor}</div>
-                  </div>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "16px 0 7px", fontSize: 12, color: "var(--dim)" }}>
-                  <span>Evolução</span><span style={{ color: "var(--ink)", fontWeight: 600 }}>{c.evolucao}%</span>
-                </div>
-                <div className="bar"><div style={{ width: c.evolucao + "%", height: "100%", background: "var(--accent)" }} /></div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14 }}>
-                  <span className="chip" style={{ background: st.color + "22", color: st.color }}>
-                    <span style={{ width: 6, height: 6, borderRadius: 99, background: st.color }} /> {st.label}
-                  </span>
-                  <span style={{ fontSize: 12, color: "var(--dim)", display: "flex", alignItems: "center", gap: 4 }}>
-                    <Users size={13} /> {c.pessoas.length}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="card" style={{ padding: 18 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
-            <Bell size={15} style={{ color: "var(--accent)" }} /> Precisam de você
+      {empty ? (
+        <Card>
+          <EmptyState icon={Building2} title="Sua carteira está vazia"
+            description="Cadastre a primeira empresa-cliente para começar a diagnosticar competências e montar trilhas."
+            action={<Button variant="primary" icon={Plus} onClick={onNova}>Adicionar primeira empresa</Button>} />
+        </Card>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 320px", gap: 18, alignItems: "start" }} className="ds-grid-portfolio">
+          <div>
+            {noResults ? (
+              <Card>
+                <EmptyState icon={SearchX} compact title={`Nada encontrado para “${query}”`}
+                  description="Tente outro nome de empresa, setor ou colaborador." />
+              </Card>
+            ) : (
+              <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(250px,1fr))", gap: 14 }}>
+                {filtered.map((c) => {
+                  const st = STATUS[c.status];
+                  return (
+                    <li key={c.id}>
+                      <button type="button" className="card co-card" onClick={() => onOpen(c.id)}
+                        aria-label={`Abrir ${c.nome} — ${st.label}, evolução ${c.evolucao}%, ${c.pessoas.length} colaboradores`}
+                        style={{ width: "100%", textAlign: "left", padding: 18, cursor: "pointer", border: "1px solid var(--line)",
+                          background: "var(--card)", color: "var(--ink)", font: "inherit", display: "block" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <div aria-hidden="true" style={{ width: 42, height: 42, borderRadius: 11, background: "color-mix(in srgb,var(--accent) 18%,transparent)",
+                            color: "var(--accent)", display: "grid", placeItems: "center", fontWeight: 800, fontSize: 18 }}>{c.inicial}</div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: 15 }}>{c.nome}</div>
+                            <div style={{ fontSize: 12, color: "var(--faint)" }}>{c.setor}</div>
+                          </div>
+                        </div>
+                        <div style={{ marginTop: 14 }}>
+                          <Meter label="Evolução" value={c.evolucao} tone={STATUS_TONE[c.status]} />
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+                          <Badge tone={STATUS_TONE[c.status]} dot>{st.label}</Badge>
+                          <span style={{ fontSize: 12, color: "var(--dim)", display: "flex", alignItems: "center", gap: 4 }}>
+                            <Users size={13} aria-hidden="true" /> {c.pessoas.length}
+                          </span>
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
-          <div style={{ fontSize: 12, color: "var(--faint)", marginBottom: 12 }}>Sinais agregados — nunca expõem pessoa individual.</div>
-          {alertas.map((c) => (
-            <div key={c.id} onClick={() => onOpen(c.id)} className="row" style={{ cursor: "pointer", padding: "11px 10px",
-              borderRadius: 10, display: "flex", gap: 10, alignItems: "center" }}>
-              <AlertTriangle size={16} style={{ color: STATUS[c.status].color, flexShrink: 0 }} />
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 600 }}>{c.nome}</div>
-                <div style={{ fontSize: 12, color: "var(--faint)" }}>Evolução em {c.evolucao}% · {STATUS[c.status].label}</div>
-              </div>
-              <ArrowUpRight size={15} style={{ color: "var(--dim)" }} />
+
+          <Card as="section" aria-label="Empresas que precisam de atenção" pad={false} style={{ padding: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
+              <Bell size={15} style={{ color: "var(--accent)" }} aria-hidden="true" /> Precisam de você
             </div>
-          ))}
+            <div style={{ fontSize: 12, color: "var(--faint)", marginBottom: 12 }}>Sinais agregados — nunca expõem pessoa individual.</div>
+            {alertas.length === 0 ? (
+              <EmptyState icon={CheckCircle2} compact title="Tudo sob controle" description="Nenhuma empresa em atenção agora." />
+            ) : alertas.map((c) => (
+              <button key={c.id} type="button" onClick={() => onOpen(c.id)} className="row"
+                aria-label={`Abrir ${c.nome} — evolução ${c.evolucao}%, ${STATUS[c.status].label}`}
+                style={{ width: "100%", textAlign: "left", cursor: "pointer", padding: "11px 10px", borderRadius: 10,
+                  display: "flex", gap: 10, alignItems: "center", border: "none", background: "transparent", color: "inherit", font: "inherit" }}>
+                <AlertTriangle size={16} style={{ color: STATUS[c.status].color, flexShrink: 0 }} aria-hidden="true" />
+                <span style={{ minWidth: 0, flex: 1 }}>
+                  <span style={{ display: "block", fontSize: 13, fontWeight: 600 }}>{c.nome}</span>
+                  <span style={{ display: "block", fontSize: 12, color: "var(--faint)" }}>Evolução em {c.evolucao}% · {STATUS[c.status].label}</span>
+                </span>
+                <ArrowUpRight size={15} style={{ color: "var(--dim)" }} aria-hidden="true" />
+              </button>
+            ))}
+          </Card>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -340,52 +387,43 @@ function Portfolio({ companies, totalColab, evolMedia, alertas, onOpen, onNova, 
 function Empresa({ c, tab, setTab, onBack, onAddColab }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <button className="btn btn-ghost" onClick={onBack} style={{ alignSelf: "flex-start" }}>
-        <ChevronLeft size={16} /> Portfólio
-      </button>
-      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-        <div style={{ width: 54, height: 54, borderRadius: 14, background: "color-mix(in srgb,var(--accent) 18%,transparent)",
+      <Button variant="ghost" icon={ChevronLeft} onClick={onBack} style={{ alignSelf: "flex-start" }}>Portfólio</Button>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+        <div aria-hidden="true" style={{ width: 54, height: 54, borderRadius: 14, background: "color-mix(in srgb,var(--accent) 18%,transparent)",
           color: "var(--accent)", display: "grid", placeItems: "center", fontWeight: 800, fontSize: 24 }}>{c.inicial}</div>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0 }}>{c.nome}</h1>
           <div style={{ fontSize: 13, color: "var(--faint)" }}>{c.setor} · {c.pessoas.length} colaboradores</div>
         </div>
-        <span className="chip" style={{ marginLeft: "auto", background: STATUS[c.status].color + "22", color: STATUS[c.status].color }}>
-          {STATUS[c.status].label}
-        </span>
+        <span style={{ marginLeft: "auto" }}><Badge tone={STATUS_TONE[c.status]} dot>{STATUS[c.status].label}</Badge></span>
       </div>
 
-      <div style={{ display: "flex", gap: 20, borderBottom: "1px solid var(--line)", flexWrap: "wrap" }}>
-        {[
-          ["visao", "Visão geral", ""],
-          ["colaboradores", "Colaboradores", "F0"],
-          ["cargos", "Cargos & Comp.", "F0"],
-          ["diagnostico", "Diagnóstico", "F1"],
-          ["avaliacao", "Avaliação & PDI", "F2"],
-          ["conteudo", "Conteúdo", "F3"],
-          ["trilha", "Trilha", "F3"],
-          ["jornada", "Jornada", "F4"],
-          ["relatorios", "Relatórios", "F5"],
-          ["pulso", "Pulso", "•"],
-        ].map(([k, l, fase]) => (
-          <div key={k} className={"tab" + (tab === k ? " on" : "")} onClick={() => setTab(k)}
-            tabIndex={0} onKeyDown={(e) => e.key === "Enter" && setTab(k)}>
-            {l}{fase && <sup style={{ fontSize: 9, marginLeft: 4, color: "var(--faint)", fontWeight: 700, letterSpacing: ".04em" }}>{fase}</sup>}
-          </div>
-        ))}
-      </div>
+      <Tabs value={tab} onValueChange={setTab} label={`Seções de ${c.nome}`}>
+        <TabList>
+          {[
+            ["visao", "Visão geral", ""],
+            ["colaboradores", "Colaboradores", "F0"],
+            ["cargos", "Cargos & Comp.", "F0"],
+            ["diagnostico", "Diagnóstico", "F1"],
+            ["avaliacao", "Avaliação & PDI", "F2"],
+            ["conteudo", "Conteúdo", "F3"],
+            ["trilha", "Trilha", "F3"],
+            ["jornada", "Jornada", "F4"],
+            ["relatorios", "Relatórios", "F5"],
+            ["pulso", "Pulso", "•"],
+          ].map(([k, l, fase]) => (
+            <Tab key={k} value={k} badge={fase || undefined}>{l}</Tab>
+          ))}
+        </TabList>
+        <TabPanel value={tab}>
+          {loading ? <EmpresaSkeleton /> : (<>
 
       {tab === "visao" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div className="ds-grid-2">
           <div className="card" style={{ padding: 22 }}>
             <div style={{ fontSize: 13, color: "var(--dim)", marginBottom: 14, fontWeight: 600 }}>Competências do time</div>
             {c.comp.map(([nome, n]) => (
-              <div key={nome} style={{ marginBottom: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5 }}>
-                  <span>{nome}</span><span style={{ color: "var(--accent)", fontWeight: 700 }}>{n.toFixed(1)}<span style={{ color: "var(--faint)", fontWeight: 400 }}> / 4</span></span>
-                </div>
-                <div className="bar"><div style={{ width: (n / 4 * 100) + "%", height: "100%", background: "var(--accent)" }} /></div>
-              </div>
+              <Meter key={nome} label={nome} value={n} max={4} format={(v) => `${v.toFixed(1)} / 4`} />
             ))}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -399,7 +437,7 @@ function Empresa({ c, tab, setTab, onBack, onAddColab }) {
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {Object.entries(DISC).map(([k, col]) => {
                   const n = c.pessoas.filter((p) => p[2] === k).length;
-                  return <span key={k} className="chip" style={{ background: col + "22", color: col }}>{k} · {n}</span>;
+                  return <Badge key={k} tone={col}>{k} · {n}</Badge>;
                 })}
               </div>
               <div style={{ fontSize: 12, color: "var(--faint)", marginTop: 12 }}>DISC é hipótese contextual — apoia decisão, não rotula a pessoa.</div>
@@ -410,39 +448,42 @@ function Empresa({ c, tab, setTab, onBack, onAddColab }) {
 
       {tab === "colaboradores" && (
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid var(--line)" }}>
-            <div style={{ fontWeight: 700, fontSize: 14 }}>{c.pessoas.length} colaboradores</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "16px 20px", borderBottom: "1px solid var(--line)" }}>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>{c.pessoas.length} colaborador{c.pessoas.length === 1 ? "" : "es"}</div>
             <div style={{ display: "flex", gap: 10 }}>
-              <button className="btn btn-ghost"><Upload size={15} /> Importar CSV</button>
-              <button className="btn btn-primary" onClick={onAddColab}><Plus size={16} /> Adicionar</button>
+              <Button variant="ghost" icon={Upload}>Importar CSV</Button>
+              <Button variant="primary" icon={Plus} onClick={onAddColab}>Adicionar</Button>
             </div>
           </div>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
-            <thead>
-              <tr style={{ color: "var(--faint)", fontSize: 12, textAlign: "left" }}>
-                {["Nome", "Cargo", "Perfil", "Nível médio", "Evolução"].map((h) => (
-                  <th key={h} style={{ padding: "12px 20px", fontWeight: 600 }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {c.pessoas.map((p, i) => (
-                <tr key={i} className="row" style={{ borderTop: "1px solid var(--line)" }}>
-                  <td style={{ padding: "13px 20px", fontWeight: 600 }}>{p[0]}</td>
-                  <td style={{ padding: "13px 20px", color: "var(--dim)" }}>{p[1]}</td>
-                  <td style={{ padding: "13px 20px" }}>
-                    <span className="chip" style={{ background: DISC[p[2]] + "22", color: DISC[p[2]] }}>{p[2]}</span>
-                  </td>
-                  <td style={{ padding: "13px 20px", fontWeight: 600 }}>{p[3].toFixed(1)} <span style={{ color: "var(--faint)", fontWeight: 400 }}>/ 4</span></td>
-                  <td style={{ padding: "13px 20px" }}>
-                    <span style={{ color: EVOL[p[4]].color, fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ width: 7, height: 7, borderRadius: 99, background: EVOL[p[4]].color }} />{EVOL[p[4]].label}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {c.pessoas.length === 0 ? (
+            <EmptyState icon={UserPlus} title="Nenhum colaborador ainda"
+              description="Adicione manualmente ou importe uma planilha para iniciar o diagnóstico."
+              action={<Button variant="primary" icon={Plus} onClick={onAddColab}>Adicionar colaborador</Button>} />
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, minWidth: 520 }}>
+                <caption className="ds-sr-only">Colaboradores de {c.nome}: cargo, perfil DISC, nível médio e status de evolução</caption>
+                <thead>
+                  <tr style={{ color: "var(--faint)", fontSize: 12, textAlign: "left" }}>
+                    {["Nome", "Cargo", "Perfil", "Nível médio", "Evolução"].map((h) => (
+                      <th key={h} scope="col" style={{ padding: "12px 20px", fontWeight: 600 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {c.pessoas.map((p, i) => (
+                    <tr key={i} className="row" style={{ borderTop: "1px solid var(--line)" }}>
+                      <th scope="row" style={{ padding: "13px 20px", fontWeight: 600, textAlign: "left" }}>{p[0]}</th>
+                      <td style={{ padding: "13px 20px", color: "var(--dim)" }}>{p[1]}</td>
+                      <td style={{ padding: "13px 20px" }}><Badge tone={DISC[p[2]]}>{p[2]}</Badge></td>
+                      <td style={{ padding: "13px 20px", fontWeight: 600 }}>{p[3].toFixed(1)} <span style={{ color: "var(--faint)", fontWeight: 400 }}>/ 4</span></td>
+                      <td style={{ padding: "13px 20px" }}><Badge tone={EVOL_TONE[p[4]]} dot>{EVOL[p[4]].label}</Badge></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -478,6 +519,23 @@ function Empresa({ c, tab, setTab, onBack, onAddColab }) {
       {tab === "trilha" && <TabTrilha c={c} />}
       {tab === "jornada" && <TabJornada c={c} />}
       {tab === "pulso" && <TabPulso c={c} />}
+          </>)}
+        </TabPanel>
+      </Tabs>
+    </div>
+  );
+}
+
+// Skeleton mostrado enquanto a empresa "carrega" (placeholder acessível).
+function EmpresaSkeleton() {
+  return (
+    <div className="ds-grid-2" aria-busy="true">
+      <VisuallyHidden as="p" role="status">Carregando dados da empresa…</VisuallyHidden>
+      <div className="card" style={{ padding: 22 }}><SkeletonText lines={5} /></div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className="card" style={{ padding: 22 }}><Skeleton width={120} height={40} /><div style={{ height: 10 }} /><SkeletonText lines={2} /></div>
+        <div className="card" style={{ padding: 22 }}><SkeletonText lines={3} /></div>
+      </div>
     </div>
   );
 }
@@ -494,14 +552,11 @@ function TabHead({ title, sub, children }) {
     </div>
   );
 }
+// Adapter: assinatura antiga (val/max/color) → Meter acessível da lib.
 function SmallBar({ label, val, max = 4, color = "var(--accent)" }) {
   return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5 }}>
-        <span>{label}</span><span style={{ color, fontWeight: 700 }}>{typeof val === "number" ? (max === 4 ? val.toFixed(1) : val + "%") : val}</span>
-      </div>
-      <div className="bar"><div style={{ width: (max === 4 ? (val / 4 * 100) : val) + "%", height: "100%", background: color }} /></div>
-    </div>
+    <Meter label={label} value={typeof val === "number" ? val : 0} max={max} tone={color}
+      format={(v) => (max === 4 ? v.toFixed(1) : `${Math.round(v)}%`)} />
   );
 }
 const FMT = { Texto: FileText, PDF: FileText, Podcast: Headphones, Vídeo: Video, Cases: Layers, Roteiro: ClipboardList };
@@ -553,7 +608,7 @@ function TabDiagnostico({ c }) {
         <button className="btn btn-primary"><Send size={16} /> Disparar envios</button>
       </TabHead>
       <PipelineSteps steps={steps} />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+      <div className="ds-grid-2">
         <div className="card" style={{ padding: 22 }}>
           <div style={{ fontSize: 13, color: "var(--dim)", fontWeight: 600, marginBottom: 6 }}>Respostas do diagnóstico</div>
           <div className="serif" style={{ fontSize: 40 }}>{respondido}/{c.pessoas.length}</div>
@@ -657,7 +712,7 @@ function TabPulso({ c }) {
       <TabHead title="Pulso de clima" sub="Pesquisa T0/T2 + sinais agregados. Complementar à NR-1.">
         <button className="btn btn-primary"><Activity size={16} /> Disparar pulso</button>
       </TabHead>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+      <div className="ds-grid-2">
         <div className="card" style={{ padding: 22 }}>
           <div style={{ fontSize: 13, color: "var(--dim)", fontWeight: 600, marginBottom: 14 }}>Taxa de resposta</div>
           <SmallBar label="T0 (início)" val={88} max={100} color="#5BA8F2" />
@@ -690,7 +745,7 @@ function TabCargos({ c }) {
         <button className="btn btn-ghost"><Upload size={15} /> Importar CSV de competências</button>
         <button className="btn btn-primary"><Plus size={16} /> Novo cargo</button>
       </TabHead>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+      <div className="ds-grid-2">
         <div className="card" style={{ padding: 22 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--dim)", fontWeight: 600, marginBottom: 14 }}>
             <Briefcase size={15} style={{ color: "var(--accent)" }} /> Cargos da empresa
@@ -796,7 +851,7 @@ function TabAvaliacao({ c }) {
           </tbody>
         </table>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+      <div className="ds-grid-2">
         <div className="card" style={{ padding: 22 }}>
           <div style={{ fontSize: 13, color: "var(--dim)", fontWeight: 600, marginBottom: 6 }}>Assessment de descritores</div>
           <div style={{ fontSize: 12, color: "var(--faint)", marginBottom: 14 }}>Grid colab × descritor da competência foco — nota 1–4 (0.1). Vazio usa default 1.5.</div>
@@ -861,7 +916,7 @@ function TabJornada({ c }) {
           ))}
         </div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+      <div className="ds-grid-2">
         <div className="card" style={{ padding: 22 }}>
           <div style={{ fontSize: 13, color: "var(--dim)", fontWeight: 600, marginBottom: 14 }}>Engajamento agregado</div>
           {engaj.map(([l, v, Icon]) => (
@@ -959,7 +1014,7 @@ function Marca({ draft, setDraft, partner }) {
         <h1 className="serif" style={{ fontSize: 32, margin: "4px 0 2px" }}>Sua marca, ponta a ponta</h1>
         <div style={{ fontSize: 13, color: "var(--dim)" }}>O cliente final vê só a sua consultoria. Ajuste e veja o preview ao vivo.</div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, alignItems: "start" }}>
+      <div className="ds-grid-2">
         <div className="card" style={{ padding: 24, display: "flex", flexDirection: "column", gap: 18 }}>
           <Field label="Nome da marca">
             <input className="fld" value={draft.nome} onChange={(e) => setDraft({ ...draft, nome: e.target.value })} />
@@ -1021,7 +1076,7 @@ function Conta({ companies, totalColab, partner }) {
         <h1 className="serif" style={{ fontSize: 32, margin: "4px 0 0" }}>Conta & uso</h1>
         <div style={{ fontSize: 13, color: "var(--dim)" }}>Você revende sob a marca {partner.nome}. Estes são os limites do seu plano.</div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+      <div className="ds-grid-2">
         {meters.map(([label, used, max, Icon]) => {
           const pct = Math.round((used / max) * 100);
           const warn = pct > 80;
@@ -1052,76 +1107,61 @@ function Field({ label, children }) {
   );
 }
 
-function Modal({ title, children, onClose }) {
-  return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(3,10,20,0.66)",
-      backdropFilter: "blur(4px)", display: "grid", placeItems: "center", zIndex: 50, padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: "100%", maxWidth: 440, padding: 26,
-        background: "var(--bg1)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>{title}</h3>
-          <X size={20} style={{ cursor: "pointer", color: "var(--dim)" }} onClick={onClose} />
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
-
 function AddColabModal({ onClose, onSave }) {
   const [f, setF] = useState({ nome: "", cargo: "", disc: "I" });
+  const save = () => f.nome.trim() && onSave([f.nome.trim(), f.cargo.trim() || "—", f.disc, 2.5, "parcial"]);
   return (
-    <Modal title="Adicionar colaborador" onClose={onClose}>
+    <Dialog open onClose={onClose} title="Adicionar colaborador"
+      footer={<>
+        <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+        <Button variant="primary" icon={Check} disabled={!f.nome.trim()} onClick={save}>Salvar colaborador</Button>
+      </>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <Field label="Nome"><input className="fld" value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} autoFocus /></Field>
-        <Field label="Cargo"><input className="fld" value={f.cargo} onChange={(e) => setF({ ...f, cargo: e.target.value })} /></Field>
-        <Field label="Perfil (DISC)">
-          <div style={{ display: "flex", gap: 8 }}>
+        <TextField label="Nome" required data-autofocus value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} />
+        <TextField label="Cargo" value={f.cargo} onChange={(e) => setF({ ...f, cargo: e.target.value })} />
+        <fieldset style={{ border: "none", margin: 0, padding: 0, minWidth: 0 }}>
+          <legend className="ds-label" style={{ padding: 0, marginBottom: 7 }}>Perfil (DISC)</legend>
+          <div role="radiogroup" aria-label="Perfil DISC" style={{ display: "flex", gap: 8 }}>
             {Object.keys(DISC).map((k) => (
-              <button key={k} onClick={() => setF({ ...f, disc: k })} className="btn"
-                style={{ flex: 1, padding: "10px 0", justifyContent: "center", background: f.disc === k ? DISC[k] : "rgba(255,255,255,0.05)",
-                  color: f.disc === k ? "#06172C" : "var(--ink)", border: "1px solid var(--line)" }}>{k}</button>
+              <button key={k} type="button" role="radio" aria-checked={f.disc === k}
+                onClick={() => setF({ ...f, disc: k })}
+                style={{ flex: 1, padding: "10px 0", cursor: "pointer", borderRadius: 10, fontWeight: 700, fontFamily: "inherit",
+                  background: f.disc === k ? DISC[k] : "rgba(255,255,255,0.05)", color: f.disc === k ? "#06172C" : "var(--ink)",
+                  border: "1px solid var(--line)" }}>{k}</button>
             ))}
           </div>
-        </Field>
-        <button className="btn btn-primary" style={{ justifyContent: "center", marginTop: 4 }}
-          disabled={!f.nome}
-          onClick={() => onSave([f.nome || "Sem nome", f.cargo || "—", f.disc, 2.5, "parcial"])}>
-          Salvar colaborador
-        </button>
+        </fieldset>
         <div style={{ fontSize: 12, color: "var(--faint)", textAlign: "center" }}>Ou importe vários de uma vez via CSV.</div>
       </div>
-    </Modal>
+    </Dialog>
   );
 }
 
 function NovaEmpresaModal({ onClose, onSave }) {
   const [f, setF] = useState({ nome: "", setor: "Educação · K-12" });
+  const save = () => f.nome.trim() && onSave({
+    id: "c" + Date.now(), nome: f.nome.trim(), setor: f.setor,
+    inicial: f.nome.trim()[0].toUpperCase(), evolucao: 0, status: "atencao",
+    comp: [["Comunicação", 0], ["Liderança", 0], ["Planejamento", 0], ["Feedback", 0]],
+    pessoas: [],
+  });
   return (
-    <Modal title="Nova empresa-cliente" onClose={onClose}>
+    <Dialog open onClose={onClose} title="Nova empresa-cliente"
+      description="Competências e cargos vêm pré-carregados do template do segmento — você ajusta depois."
+      footer={<>
+        <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+        <Button variant="primary" icon={Plus} disabled={!f.nome.trim()} onClick={save}>Criar empresa</Button>
+      </>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <Field label="Nome da empresa"><input className="fld" value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} autoFocus /></Field>
-        <Field label="Segmento">
-          <select className="fld" value={f.setor} onChange={(e) => setF({ ...f, setor: e.target.value })}>
-            <option>Educação · K-12</option>
-            <option>Educação · Rede municipal</option>
-            <option>Corporativo · Tecnologia</option>
-            <option>Corporativo · Manufatura</option>
-            <option>Corporativo · Serviços</option>
-          </select>
-        </Field>
-        <div style={{ fontSize: 12, color: "var(--faint)" }}>Competências e cargos vêm pré-carregados do template do segmento. Você ajusta depois.</div>
-        <button className="btn btn-primary" style={{ justifyContent: "center", marginTop: 4 }}
-          disabled={!f.nome}
-          onClick={() => onSave({
-            id: "c" + Date.now(), nome: f.nome || "Nova empresa", setor: f.setor,
-            inicial: (f.nome || "N")[0].toUpperCase(), evolucao: 0, status: "atencao",
-            comp: [["Comunicação", 0], ["Liderança", 0], ["Planejamento", 0], ["Feedback", 0]],
-            pessoas: [],
-          })}>
-          Criar empresa
-        </button>
+        <TextField label="Nome da empresa" required data-autofocus value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} />
+        <SelectField label="Segmento" value={f.setor} onChange={(e) => setF({ ...f, setor: e.target.value })}>
+          <option>Educação · K-12</option>
+          <option>Educação · Rede municipal</option>
+          <option>Corporativo · Tecnologia</option>
+          <option>Corporativo · Manufatura</option>
+          <option>Corporativo · Serviços</option>
+        </SelectField>
       </div>
-    </Modal>
+    </Dialog>
   );
 }
