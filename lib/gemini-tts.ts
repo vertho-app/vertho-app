@@ -131,7 +131,8 @@ async function ttsGenerate(body: unknown, attempt = 0): Promise<{ pcm: Buffer; s
 /** Single-speaker: texto+direção de estilo → PCM. */
 function ttsToPcm(prompt: string, voiceName: string): Promise<{ pcm: Buffer; sampleRate: number }> {
   return ttsGenerate({
-    contents: [{ parts: [{ text: prompt }] }],
+    // role:'user' é OBRIGATÓRIO no Vertex (o AI Studio aceita também → compatível).
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
     generationConfig: {
       responseModalities: ['AUDIO'],
       speechConfig: { languageCode: 'pt-BR', voiceConfig: { prebuiltVoiceConfig: { voiceName } } },
@@ -221,7 +222,7 @@ export async function generatePodcastAudio(texto: string): Promise<PodcastAudioF
     : `Narre em português do Brasil, com voz masculina de meia-idade, tom acolhedor, seguro e íntimo, ritmo moderado e pausas reflexivas naturais:\n\n${textoComMarca}`;
 
   const body = {
-    contents: [{ parts: [{ text: styled }] }],
+    contents: [{ role: 'user', parts: [{ text: styled }] }], // role:'user' exigido pelo Vertex
     generationConfig: {
       responseModalities: ['AUDIO'],
       speechConfig: multiSpeaker
