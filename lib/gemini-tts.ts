@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fadePcm16, silencePcm, wavToMonoPcm16AtRate, exportPodcastMp3FromPcm } from './tts/audio-dsp';
 import { extractNarration, ensurePodcastBrandNarration, isMultiSpeakerText, splitNarrationForTts } from './tts/narration-text';
+import { getGoogleAccessToken, vertexProjectId } from './tts/google-token';
 
 // Re-export da API pública (callers continuam importando de '@/lib/gemini-tts').
 export { extractNarration, ensurePodcastBrandNarration } from './tts/narration-text';
@@ -21,6 +22,32 @@ const VOICE = process.env.GEMINI_TTS_VOICE || 'Charon'; // masculina, grave/madu
 const MENTOR_VOICE = process.env.GEMINI_TTS_MENTOR_VOICE || 'Charon';
 const CAMPO_VOICE = process.env.GEMINI_TTS_CAMPO_VOICE || 'Kore';
 const brandStingCache = new Map<string, Buffer>();
+
+// ── BACKEND: AI Studio (API key) × Vertex AI (OAuth de service account) ───────
+// Vertex tem cota MUITO maior (resolve o teto de TPM do AI Studio) — é o caminho
+// de escala. Opt-in por env (default 'aistudio' p/ não quebrar prod). No Vertex,
+// o modelo pode ter ID diferente (GEMINI_TTS_VERTEX_MODEL) e o endpoint é regional
+// (ou 'global' → host sem prefixo de região).
+const TTS_BACKEND = (process.env.TTS_BACKEND || 'aistudio').toLowerCase();
+const VERTEX_LOCATION = process.env.GOOGLE_VERTEX_LOCATION || 'us-central1';
+const VERTEX_MODEL = process.env.GEMINI_TTS_VERTEX_MODEL || MODEL;
+
+/** Endpoint + headers do TTS conforme o backend. */
+async function ttsEndpoint(): Promise<{ url: string; headers: Record<string, string> }> {
+  if (TTS_BACKEND === 'vertex') {
+    const token = await getGoogleAccessToken();
+    const proj = vertexProjectId();
+    const host = VERTEX_LOCATION === 'global' ? 'aiplatform.googleapis.com' : `${VERTEX_LOCATION}-aiplatform.googleapis.com`;
+    const url = `https://${host}/v1/projects/${proj}/locations/${VERTEX_LOCATION}/publishers/google/models/${VERTEX_MODEL}:generateContent`;
+    return { url, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } };
+  }
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY not set');
+  return {
+    url: `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
+    headers: { 'Content-Type': 'application/json' },
+  };
+}
 
 export type PodcastAudioFile = {
   buffer: Buffer;
@@ -67,26 +94,18 @@ function rateFromMime(mime?: string): number {
 const TTS_MAX_RETRIES = Number(process.env.GEMINI_TTS_RETRIES) || 4;
 
 /**
- * Chamada crua ao Gemini TTS: texto+direção de estilo → PCM 16-bit mono.
- * RETRY com backoff exponencial em 429 (rate-limit) e 503 (indisponível) — o TTS
- * preview tem limites apertados de RPM/RPD; respeita `Retry-After` quando vier.
+ * Chamada crua ao TTS (AI Studio OU Vertex, conforme TTS_BACKEND): body → PCM
+ * 16-bit mono. RETRY com backoff exponencial em 429 (rate-limit) e 503; respeita
+ * `Retry-After`. O body (contents/generationConfig/speechConfig) é idêntico nos
+ * dois backends — só o endpoint/auth muda (ttsEndpoint).
  */
-async function ttsToPcm(prompt: string, voiceName: string, attempt = 0): Promise<{ pcm: Buffer; sampleRate: number }> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('GEMINI_API_KEY not set');
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
-  const body = {
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: {
-      responseModalities: ['AUDIO'],
-      speechConfig: { languageCode: 'pt-BR', voiceConfig: { prebuiltVoiceConfig: { voiceName } } },
-    },
-  };
+async function ttsGenerate(body: unknown, attempt = 0): Promise<{ pcm: Buffer; sampleRate: number }> {
+  const { url, headers } = await ttsEndpoint();
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 170_000);
   let res: Response;
   try {
-    res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctrl.signal });
+    res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: ctrl.signal });
   } catch (e: any) {
     if (e?.name === 'AbortError') throw new Error('Gemini TTS: timeout (170s)');
     throw e;
@@ -97,16 +116,27 @@ async function ttsToPcm(prompt: string, voiceName: string, attempt = 0): Promise
     const retryAfter = Number(res.headers.get('retry-after'));
     const backoff = Math.min(30_000, 2_000 * 2 ** attempt); // 2s, 4s, 8s, 16s
     const wait = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : backoff;
-    console.warn(`Gemini TTS ${res.status} — retry em ${Math.round(wait / 1000)}s (tentativa ${attempt + 1}/${TTS_MAX_RETRIES})`);
+    console.warn(`TTS ${res.status} (${TTS_BACKEND}) — retry em ${Math.round(wait / 1000)}s (tentativa ${attempt + 1}/${TTS_MAX_RETRIES})`);
     await new Promise((r) => setTimeout(r, wait));
-    return ttsToPcm(prompt, voiceName, attempt + 1);
+    return ttsGenerate(body, attempt + 1);
   }
-  if (!res.ok) throw new Error(`Gemini TTS ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  if (!res.ok) throw new Error(`TTS ${res.status} (${TTS_BACKEND}): ${(await res.text()).slice(0, 300)}`);
   const data = await res.json();
   const part = data?.candidates?.[0]?.content?.parts?.find((p: any) => p?.inlineData?.data);
   const b64 = part?.inlineData?.data;
-  if (!b64) throw new Error('Gemini TTS: resposta sem áudio');
+  if (!b64) throw new Error('TTS: resposta sem áudio');
   return { pcm: Buffer.from(b64, 'base64'), sampleRate: rateFromMime(part.inlineData.mimeType) };
+}
+
+/** Single-speaker: texto+direção de estilo → PCM. */
+function ttsToPcm(prompt: string, voiceName: string): Promise<{ pcm: Buffer; sampleRate: number }> {
+  return ttsGenerate({
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: {
+      responseModalities: ['AUDIO'],
+      speechConfig: { languageCode: 'pt-BR', voiceConfig: { prebuiltVoiceConfig: { voiceName } } },
+    },
+  });
 }
 
 // Direção de estilo default (devolutiva comportamental): mensagem pessoal do
@@ -181,8 +211,6 @@ export async function generateNarrationAudio(texto: string, opts: { voice?: stri
  * ser a narração limpa (use extractNarration).
  */
 export async function generatePodcastAudio(texto: string): Promise<PodcastAudioFile> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('GEMINI_API_KEY not set');
   if (!texto?.trim()) throw new Error('texto de narração vazio');
 
   const textoComMarca = ensurePodcastBrandNarration(texto);
@@ -192,7 +220,6 @@ export async function generatePodcastAudio(texto: string): Promise<PodcastAudioF
     ? `TTS the following conversation in Brazilian Portuguese. Speaker Mentor is calm, consultative, experienced and clear. Speaker Campo is practical, direct and grounded in field reality. Keep a professional, adult tone and natural turn-taking:\n\n${textoComMarca}`
     : `Narre em português do Brasil, com voz masculina de meia-idade, tom acolhedor, seguro e íntimo, ritmo moderado e pausas reflexivas naturais:\n\n${textoComMarca}`;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
   const body = {
     contents: [{ parts: [{ text: styled }] }],
     generationConfig: {
@@ -211,35 +238,8 @@ export async function generatePodcastAudio(texto: string): Promise<PodcastAudioF
     },
   };
 
-  // TTS de roteiro longo pode levar dezenas de segundos. Aborta limpo em 170s.
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 170_000);
-  let res: Response;
-  try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: ctrl.signal,
-    });
-  } catch (e: any) {
-    if (e?.name === 'AbortError') throw new Error('Gemini TTS: timeout (170s)');
-    throw e;
-  } finally {
-    clearTimeout(timer);
-  }
-
-  if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`Gemini TTS ${res.status}: ${detail.slice(0, 300)}`);
-  }
-
-  const data = await res.json();
-  const part = data?.candidates?.[0]?.content?.parts?.find((p: any) => p?.inlineData?.data);
-  const b64 = part?.inlineData?.data;
-  if (!b64) throw new Error('Gemini TTS: resposta sem áudio');
-  const pcm = Buffer.from(b64, 'base64');
-  const sampleRate = rateFromMime(part.inlineData.mimeType);
+  // Mesmo caminho (AI Studio ou Vertex) com retry — ver ttsGenerate.
+  const { pcm, sampleRate } = await ttsGenerate(body);
   const mixedPcm = addPodcastBrandSting(pcm, sampleRate);
   return {
     buffer: exportPodcastMp3FromPcm(mixedPcm, sampleRate),
