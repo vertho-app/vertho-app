@@ -130,6 +130,14 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 
 **Coluna "Taxa"**: % de conclusão por conteúdo (atualizada automaticamente). Motor prioriza vídeos com taxa maior.
 
+### 15b. Módulos-Base + geração de vídeo
+**Admin** · `/admin/vertho/modulos-base`
+
+- **Módulo-Base** = matéria-prima canônica de um tema (4 blocos), acima dos micro-conteúdos. Origem: importar `.docx` ou **"Extrair de vídeo/material"** (YouTube/Vimeo/TED/PDF/DOCX → IA estrutura → rascunho → workflow Dual-IA). Escopo global (Vertho) ou exclusivo da empresa.
+- **"Gerar vídeo"** no Módulo-Base → vídeo de 3–5 min: **roteiro** (Opus 4.6 + thinking) → **narração** (Gemini TTS, voz `Vindemiatrix`) → **avatar HeyGen** (lip-sync da NOSSA narração, só intro/outro) → **render Remotion** → **masterização de áudio** (trilha `bed-respiro` + ducking sidechain + −14 LUFS + `bed-pico` no clímax + fade-out no encerramento) → Bunny. Fundo chapado + **ícones semânticos que se desenham** (stroke-draw, mesma curva de easing), sem SFX. Doc: `docs/GERADOR-VIDEO-MODULO.md`.
+- **Personalização por CÉLULA** (módulo × empresa × cargo × DISC): o deck é genérico e **reusado por todos da célula**; a **saudação nominal "Olá, {nome}"** é uma camada barata prependada por colaborador (cacheada em `videos_personalizados`). Entregue na semana do colab quando há vídeo pronto para o conteúdo.
+- **Render**: produção em **Hetzner CX33 paralelo + efêmero** (sobe → renderiza o lote → deleta; zero box ocioso). Custo: **~$0,70/deck** (1×/célula, avatar HeyGen $1/min é a maior linha) + **~$0,006/saudação** por pessoa → numa célula de 7, ~$0,11/pessoa. `RENDER_BACKEND=hetzner` em produção (trigger.dev é override de teste). Catálogo: `lib/ia-cost-catalog.ts`.
+
 ### 16. Gerar temporadas para os colaboradores
 **Admin** · `/admin/empresas/{id}` → **Fase 3 · Temporadas · Gerar Temporadas**
 - Roda lote para todos os colabs da empresa
@@ -462,6 +470,8 @@ Versão para o Bett 2026 — tipografia escopada (Plus Jakarta Sans + Fraunces) 
 | Assessment inicial | `descriptor_assessments` | `/admin/assessment-descritores` | — |
 | Fit resultados | `fit_resultados` | `/admin/fit` | `/dashboard/assessment` |
 | Banco de conteúdos | `micro_conteudos` | `/admin/conteudos` | consumido via temporada |
+| Módulos-Base + vídeo | `modulos_base` + `videos_gerados` + `videos_personalizados` | `/admin/vertho/modulos-base` | vídeo da semana (Bunny) |
+| App do Consultor (white-label) | `parceiros` (planejado) | `/simulador-consultor` (mock) | — |
 | Temporadas | `trilhas` + `temporada_semana_progresso` | `/admin/temporadas` | `/dashboard/temporada` |
 | Tira-Dúvidas | `temporada_semana_progresso.tira_duvidas` | — | `/dashboard/temporada/semana/{N}` |
 | Missões Práticas | `temporada_semana_progresso.feedback` | — | `/dashboard/temporada/semana/{4\|8\|12}` |
@@ -493,6 +503,10 @@ Versão para o Bett 2026 — tipografia escopada (Plus Jakarta Sans + Fraunces) 
 ---
 
 ## Notas de manutenção
+
+### 2026-06-22 — Gerador de vídeo do Módulo-Base + App do Consultor (white-label)
+- **Pipeline de vídeo FINALIZADO** (ver passo 15b): deck do Módulo-Base (roteiro Opus 4.6+thinking → narração `Vindemiatrix` → avatar HeyGen com lip-sync da nossa narração → render Remotion → masterização −14 LUFS com `bed-respiro`/ducking/`bed-pico` no clímax/fade-out) + **saudação nominal "Olá, {nome}"** por colaborador, prependada sobre o deck reusado da célula (~$0,006/pessoa, sem regerar o vídeo todo). Acabamento: fundo chapado (lowfx, render −40%), **ícones semânticos que se desenham** (stroke-draw via `pathLength=1` + `iconNodes` hardcoded em `video-spike/remotion/icons-data.ts`), **todos os SFX desligados** (som = só voz + trilha), encerramento com cauda/respiro + fade. Render em **Hetzner CX33-paralelo efêmero** (~$0,70/deck). Custos no `lib/ia-cost-catalog.ts`; doc em `docs/GERADOR-VIDEO-MODULO.md`.
+- **App do Consultor (white-label)** — frente nova 📋: consultorias de RH externas gerenciam uma carteira de empresas-cliente sob a **própria marca**, usando o app Vertho como ferramenta. O consultor = **analista Vertho full** (todas as funcionalidades das Fases 0–5 + Pulso), escopado à carteira via `parceiro_id` (camada ACIMA do tenant; RLS por parceiro + branding em cascata + RBAC `consultor_owner`/`consultor`). Simulador clicável e enriquecido em `/simulador-consultor` (PR #4) cobrindo todo o fluxo do analista. Arquitetura em `docs/ARQUITETURA-CONSULTOR-WHITELABEL.md`. **Status**: design + simulador prontos; Fase 1 de implementação (migrations `parceiros`/`parceiro_membros`, `current_parceiro_id()`, guard `requireConsultorAction`) pendente de aprovação.
 
 ### 2026-05-14 — Pulso de Desenvolvimento + Macaé
 - **Módulo Pulso de Desenvolvimento** entregue em 6 commits (`8468aa8`, `c9203d6`, `3cdcf19`, `54c84d3`, `71c625d`, `b7b072b`): pesquisa T0/T2 com 12 Likert + 1 aberta em 6 dimensões; dashboard agregado com guard n≥7 obrigatório; sinais comportamentais on-demand (sem nova MV/migration além da 097); Dual-IA (Sonnet classifica, Gemini audita) com taxonomia fechada de 12 temas; PDFs Executivo + Complementar NR-1 com disclaimer obrigatório; envio de convites por WhatsApp/email via magic link pessoal. Migrations 096-098.
