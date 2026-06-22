@@ -18,12 +18,14 @@ export interface RoteiroScene {
     | 'avatar_intro' | 'avatar_outro'
     | 'concept_reveal' | 'comparison_motion' | 'icon_story'
     | 'stat_highlight' | 'quote_spotlight' | 'steps_flow' | 'scenario_card'
-    | 'maturity_ladder' | 'myth_truth' | 'definition_card' | 'reflection_prompt';
+    | 'maturity_ladder' | 'myth_truth' | 'definition_card' | 'reflection_prompt'
+    | 'data_diagram';
   title?: string;
   subtitle?: string;
   bullets?: string[];
   items?: string[];
   icons?: string[]; // concept_reveal/icon_story: 1 nome de ícone (vocabulário fixo) por bullet/item
+  cells?: { label: string; caption?: string }[]; // data_diagram: 3–4 dimensões/fatores em cards
   left?: { title: string; items: string[] };
   right?: { title: string; items: string[] };
   stat?: string;
@@ -91,13 +93,13 @@ function maturidadeGuia(ne?: string | null, nd?: string | null): string {
 
 const MIOLO_TIPOS: RoteiroScene['type'][] = [
   'concept_reveal', 'comparison_motion', 'icon_story', 'stat_highlight', 'quote_spotlight', 'steps_flow', 'scenario_card',
-  'maturity_ladder', 'myth_truth', 'definition_card', 'reflection_prompt',
+  'maturity_ladder', 'myth_truth', 'definition_card', 'reflection_prompt', 'data_diagram',
 ];
 
 /** Família visual de cada template — o reordenador evita repetir FAMÍLIA em cenas
  *  adjacentes (não só o template idêntico), variando o ritmo visual do vídeo. */
 const FAMILIA_VISUAL: Record<string, string> = {
-  concept_reveal: 'decomposicao', icon_story: 'decomposicao',
+  concept_reveal: 'decomposicao', icon_story: 'decomposicao', data_diagram: 'decomposicao',
   comparison_motion: 'contraste', myth_truth: 'contraste',
   steps_flow: 'progressao', maturity_ladder: 'progressao',
   quote_spotlight: 'respiro', scenario_card: 'respiro', stat_highlight: 'respiro',
@@ -125,6 +127,20 @@ function painelComparacao(v: unknown, fallbackTitle: string, fallbackItems: stri
     title: texto(p.title, fallbackTitle),
     items: lista(p.items, fallbackItems, 3, 3),
   };
+}
+
+function cellsDiagrama(v: unknown, fallback: { label: string; caption?: string }[]): { label: string; caption?: string }[] {
+  const arr = Array.isArray(v) ? v : [];
+  const out = arr
+    .map((x: any) => {
+      const label = texto(x && typeof x === 'object' ? x.label : x);
+      const caption = x && typeof x === 'object' && x.caption ? texto(x.caption) : undefined;
+      return caption ? { label, caption } : { label };
+    })
+    .filter((c) => c.label);
+  const merged = [...out, ...fallback].slice(0, 4);
+  while (merged.length < 3) merged.push(fallback[merged.length % fallback.length]);
+  return merged;
 }
 
 function sanearCena(s: RoteiroScene): RoteiroScene {
@@ -198,6 +214,11 @@ function sanearCena(s: RoteiroScene): RoteiroScene {
         prompt: texto(base.prompt, texto(base.subtitle, 'O que isso pede de você agora?')),
         tag: texto(base.tag, 'Pra pensar'),
       };
+    case 'data_diagram':
+      return {
+        ...base,
+        cells: cellsDiagrama(base.cells, [{ label: 'sinal claro' }, { label: 'critério' }, { label: 'ajuste rápido' }]),
+      };
     default:
       return base;
   }
@@ -249,6 +270,7 @@ TEMPLATES E SEUS CAMPOS VISUAIS:
 - myth_truth: quebra de um equívoco. myth (≤10 palavras, a crença errada) + truth (≤10 palavras, a correção). Use no máximo 1× por vídeo, quando houver ERROS_COMUNS / concepção equivocada a desfazer. Difere de comparison_motion (que contrasta duas práticas válidas, não um erro a corrigir).
 - definition_card: define um termo de forma limpa, antes de aprofundá-lo. term (1–3 palavras) + definition (≤14 palavras). Use cedo no vídeo, no máximo 1–2×, para fixar um termo-chave.
 - reflection_prompt: pergunta de reflexão no MEIO do vídeo, que espelha o conceito na rotina do espectador. prompt (a pergunta, ≤14 palavras) + tag (opcional, ex.: "Pra pensar"). Use no máximo 1×, apenas no TERÇO CENTRAL do miolo — nunca como 1ª ou última cena de miolo. NÃO substitui o avatar_outro (que fecha com a pergunta acionável da semana).
+- data_diagram: painel geométrico (estilo dashboard) que decompõe um conceito em 3–4 DIMENSÕES/FATORES/SINAIS como CARDS, em vez de uma lista. title + cells (3–4; cada cell: label de 2–4 palavras + caption OPCIONAL de ≤6 palavras). Use quando houver fatores nomeáveis que mereçam virar um painel ("Sinais do gap", "Pilares de X", "Dimensões de Y"). NÃO é gráfico estatístico: NÃO invente números nem porcentagens (as barras são acento visual, não valor). Difere de concept_reveal (bullets curtos + ícone) e de icon_story (3 sinais em linha): aqui são cards maiores em grade, com micro-explicação opcional. Máx. 1× por vídeo.
 
 VOCABULÁRIO DE ÍCONES (campo "icons" de concept_reveal e icon_story): use SÓ estes nomes, 1 por bullet/item, escolhendo o que melhor representa o SENTIDO daquele item (se nenhum encaixar bem, use o mais próximo). NÃO invente nomes.
 relogio, prazo, tempo, conversa, escuta, voz, comunicar, equipe, pessoa, acordo, cuidado, crescimento, meta, foco, avancar, reconhecimento, ideia, pensar, observar, analisar, direcao, feito, checklist, processo, ajuste, aprender, ensino, registrar, documento, risco, protecao, destaque, valor, equilibrio, aprovar, plano, prioridade, conexao, encaixe, medir, melhoria, ciclo, firmeza.
@@ -256,7 +278,7 @@ relogio, prazo, tempo, conversa, escuta, voz, comunicar, equipe, pessoa, acordo,
 REGRAS DE VARIEDADE:
 - NUNCA o mesmo template em duas cenas seguidas. Evite também a mesma FAMÍLIA visual em cenas adjacentes — famílias: decomposição (concept_reveal, icon_story); contraste (comparison_motion, myth_truth); progressão (steps_flow, maturity_ladder); respiro (quote_spotlight, scenario_card, stat_highlight, definition_card, reflection_prompt). Não coloque maturity_ladder ao lado de steps_flow, nem myth_truth ao lado de comparison_motion.
 - Intercale cenas densas (concept_reveal, comparison_motion, steps_flow, maturity_ladder) com respiros (quote_spotlight, scenario_card, icon_story, myth_truth, definition_card, reflection_prompt).
-- Use scenario_card ao menos uma vez quando houver contexto de cargo. Use comparison_motion ao menos uma vez quando houver erros×boas práticas. Use steps_flow quando houver processo/rotina/método. Use maturity_ladder quando houver régua de níveis ou transição de maturidade. Use myth_truth (máx. 1×) quando houver um erro comum/concepção equivocada a desfazer. Use definition_card (máx. 1–2×, cedo) para fixar um termo-chave. Use reflection_prompt (máx. 1×, no terço central) para reengajar no meio do vídeo. Use stat_highlight só se houver número real e explícito.
+- Use scenario_card ao menos uma vez quando houver contexto de cargo. Use comparison_motion ao menos uma vez quando houver erros×boas práticas. Use steps_flow quando houver processo/rotina/método. Use maturity_ladder quando houver régua de níveis ou transição de maturidade. Use myth_truth (máx. 1×) quando houver um erro comum/concepção equivocada a desfazer. Use definition_card (máx. 1–2×, cedo) para fixar um termo-chave. Use reflection_prompt (máx. 1×, no terço central) para reengajar no meio do vídeo. Use stat_highlight só se houver número real e explícito. Use data_diagram (máx. 1×) quando houver 3–4 fatores/dimensões/sinais nomeáveis que mereçam um painel em cards (em vez de bullets).
 - Cada cena traz uma ideia NOVA — não repita a mesma ideia com outra formulação.
 
 DECK INVARIANTE (o deck visual é reaproveitado por todos os perfis DISC):
@@ -273,6 +295,7 @@ NARRAÇÃO (campo "narration" = fonte canônica de TTS e legendas):
 
 TEXTO NA TELA (não é transcrição da fala — resume e destaca):
 - title ≤8 palavras; subtitle ≤14 palavras; bullets/items 2–5 palavras. Sem parágrafos na tela. Legível em 16:9.
+- PROIBIDO texto corrido ou lista em prosa na tela. Toda enumeração vira ESTRUTURA DE BLOCOS/CARDS: bullets de concept_reveal, items de steps_flow/icon_story, colunas de comparison_motion, degraus de maturity_ladder ou cells de data_diagram — NUNCA um parágrafo com vírgulas. Fundo Dark Navy, acentos em Cyan/Teal (já é o tema).
 
 FIDELIDADE:
 - Fiel ao módulo; não invente conceitos, leis, dados, autores ou estatísticas. Não cite o descritor no gancho. Não vire motivacional genérico. Não omita a ideia principal. Preserve a transição de maturidade. Se usar stat_highlight, o número deve existir literalmente no módulo.
@@ -291,6 +314,7 @@ METADADOS POR CENA: id · type · key_idea (frase curta com a ideia central) · 
 EXEMPLO DE CENAS (referência de REGISTRO e ESTRUTURA — NÃO copie o conteúdo se não pertencer ao módulo):
 {"id":"scene-3","type":"concept_reveal","key_idea":"Feedback é informação acionável, não veredito","source_anchor":"PRINCIPIOS:Feedback como instrução","estimated_words":35,"title":"Feedback não é nota","bullets":["onde está","aonde ir","como avançar"],"icons":["observar","direcao","avancar"],"narration":"Feedback bom não é dizer se acertou. É mostrar onde a pessoa está, aonde precisa chegar e o que fazer agora. Nota fecha o assunto. Feedback abre o próximo passo."}
 {"id":"scene-5","type":"comparison_motion","key_idea":"Corrigir resolve uma vez; desenvolver ensina a se corrigir","source_anchor":"ERROS_COMUNS / BOAS_PRATICAS","estimated_words":41,"title":"Corrigir x Desenvolver","left":{"title":"Corrigir","items":["aponta o erro","dá a resposta","fecha o assunto"]},"right":{"title":"Desenvolver","items":["mostra o processo","devolve a pergunta","acompanha o ajuste"]},"narration":"Dá para apontar o erro e seguir em frente. Ou dá para devolver a pergunta e acompanhar o ajuste. O primeiro corrige uma vez. O segundo ensina o aluno a se corrigir sempre."}
+{"id":"scene-6","type":"data_diagram","key_idea":"O gap aparece em sinais observáveis","source_anchor":"PRINCIPIOS:Sinais do gap","estimated_words":48,"title":"Sinais do gap","cells":[{"label":"Retrabalho","caption":"refaz o que já fez"},{"label":"Atraso","caption":"prazo escorrega"},{"label":"Silêncio","caption":"para de perguntar"}],"narration":"O gap raramente é anunciado. Ele aparece em sinais: o retrabalho que volta, o prazo que escorrega e o silêncio de quem parou de perguntar. Aprender a ler esses sinais é meio caminho do ajuste."}
 
 ANTES DE RESPONDER, valide em silêncio: JSON válido; sem markdown/comentários/placeholders; sem reticências como "... mais cenas"; 1ª cena avatar_intro e última avatar_outro; nenhum template repetido em sequência; toda cena tem id, type, narration, key_idea, source_anchor, estimated_words e os campos visuais do template; textos de tela curtos; nada inventado; se houver stat_highlight, o número existe literalmente no módulo; cada cena com ideia nova; cobertura mínima respeitada; cargo ancorado no dia a dia do cargo; se houver PPP, ao menos uma cena (source_anchor "PPP") reflete um valor/prioridade concreto da instituição SEM citar o nome; deck NÃO influenciado pelo perfil; narração no alvo de palavras; avatar_outro termina com pergunta de reflexão prática.
 

@@ -17,6 +17,7 @@ export type SceneType =
   | 'myth_truth'
   | 'definition_card'
   | 'reflection_prompt'
+  | 'data_diagram'
   | 'avatar_outro';
 
 export interface Brand {
@@ -37,6 +38,7 @@ export interface ComputedScene {
   bullets?: string[];
   items?: string[];
   icons?: string[]; // nomes semânticos (vocabulário em ../icons) por bullet/item
+  cells?: { label: string; caption?: string }[]; // data_diagram: 3–4 cards geométricos
   left?: { title: string; items: string[] };
   right?: { title: string; items: string[] };
   stat?: string;

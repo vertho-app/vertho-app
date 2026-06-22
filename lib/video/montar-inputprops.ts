@@ -61,6 +61,7 @@ export interface ComputedScene {
   bullets?: string[];
   items?: string[];
   icons?: string[];
+  cells?: { label: string; caption?: string }[];
   left?: { title: string; items: string[] };
   right?: { title: string; items: string[] };
   stat?: string;
@@ -231,6 +232,7 @@ export function montarInputProps(
       bullets: s.bullets,
       items: s.items,
       icons: s.icons,
+      cells: s.cells,
       left: s.left,
       right: s.right,
       stat: s.stat,

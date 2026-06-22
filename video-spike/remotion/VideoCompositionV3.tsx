@@ -14,6 +14,7 @@ import { MaturityLadderV2 } from './scenes/MaturityLadderV2';
 import { MythTruthV2 } from './scenes/MythTruthV2';
 import { DefinitionCardV2 } from './scenes/DefinitionCardV2';
 import { ReflectionPromptV2 } from './scenes/ReflectionPromptV2';
+import { DataDiagramV2 } from './scenes/DataDiagramV2';
 import { CaptionsV3 } from './scenes/CaptionsV3';
 import { BRAND } from './theme';
 import { BackgroundV2, BrandMarkV2, ProgressBarV2 } from './theme-v2';
@@ -48,6 +49,8 @@ function renderSceneVisual(scene: ComputedScene, brand: Brand) {
       return <DefinitionCardV2 scene={scene} brand={brand} />;
     case 'reflection_prompt':
       return <ReflectionPromptV2 scene={scene} brand={brand} />;
+    case 'data_diagram':
+      return <DataDiagramV2 scene={scene} brand={brand} />;
     default:
       return null;
   }
