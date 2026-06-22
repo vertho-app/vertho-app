@@ -46,7 +46,7 @@ const PARTNERS = {
 const SEED = [
   {
     id: "c1", nome: "Colégio Horizonte", setor: "Educação · K-12", inicial: "H",
-    evolucao: 72, status: "saudavel", passo: 13,
+    evolucao: 72, status: "saudavel", passo: 14,
     comp: [["Comunicação", 3.1], ["Gestão de sala", 2.8], ["Feedback", 2.4], ["Planejamento", 3.0]],
     pessoas: [
       ["Marina Alves", "Coordenadora Pedagógica", "I", 3.2, "confirmada"],
@@ -67,7 +67,7 @@ const SEED = [
   },
   {
     id: "c3", nome: "TechNova Software", setor: "Corporativo · Tecnologia", inicial: "T",
-    evolucao: 81, status: "saudavel", passo: 15,
+    evolucao: 81, status: "saudavel", passo: 16,
     comp: [["Colaboração", 3.3], ["Autonomia", 3.0], ["Comunicação", 2.9], ["Liderança", 2.6]],
     pessoas: [
       ["Camila Rocha", "Tech Lead", "C", 3.1, "confirmada"],
@@ -126,7 +126,8 @@ const TASKS = [
   { stage: 2, key: "top5",        label: "Validar o Top 5",               quem: "voce",   tempo: "~3 min", detalhe: "Você confirma as 5 competências finais por cargo." },
   { stage: 2, key: "diagnostico", label: "Gerar o diagnóstico",           quem: "ia",     tempo: "~2 min", detalhe: "A IA cria os cenários e valida a qualidade." },
   { stage: 2, key: "envios",      label: "Enviar para a equipe",          quem: "voce",   tempo: "~1 min", detalhe: "Dispara o diagnóstico por WhatsApp ou e-mail." },
-  { stage: 2, key: "respostas",   label: "Coletar as respostas",          quem: "equipe", detalhe: "A equipe responde os cenários." },
+  { stage: 2, key: "respostas",   label: "Coletar as respostas",          quem: "equipe", detalhe: "A equipe responde os cenários do diagnóstico." },
+  { stage: 2, key: "mapeamento",  label: "Mapeamento comportamental (DISC)", quem: "equipe", detalhe: "Cada pessoa faz o mapeamento de perfil (vídeo + questionário) — gera o DISC do time." },
   { stage: 3, key: "avaliar",     label: "Avaliar as respostas",          quem: "ia",     tempo: "~2 min", detalhe: "A IA pontua cada competência e valida." },
   { stage: 3, key: "foco",        label: "Definir o foco de cada um",     quem: "ia",     detalhe: "O sistema escolhe a competência âncora e a 2ª." },
   { stage: 3, key: "trilha",      label: "Gerar a trilha",                quem: "ia",     tempo: "~3 min", detalhe: "Conteúdos personalizados por cargo, perfil e contexto." },
@@ -812,6 +813,7 @@ function TabDiagnostico({ c }) {
     { label: "IA3 · Cenários", Icon: ClipboardList, status: "feito", hint: "+ check" },
     { label: "Fit v2", Icon: Gauge, status: "atual", hint: "DISC×comp" },
     { label: "Envios", Icon: Send, status: "pendente" },
+    { label: "Mapeamento DISC", Icon: Brain, status: "pendente", hint: "equipe" },
   ];
   const cargos = [...new Set(c.pessoas.map((p) => p[1]))].slice(0, 4);
   const cenarios = c.comp.slice(0, 5).map(([comp], i) => [cargos[i % Math.max(1, cargos.length)] || "Gestão", comp]);
