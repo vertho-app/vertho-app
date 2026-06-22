@@ -211,8 +211,12 @@ export async function toggleMapeamentoCenarios(empresaId: string, liberado: bool
     .select('sys_config').eq('id', empresaId).maybeSingle();
 
   const config = empresa?.sys_config || {};
-  if (liberado && !isPerfilComportamentalLiberado(config)) {
-    return { success: false, error: 'Libere o perfil comportamental antes de liberar o mapeamento de cenários.' };
+  if (liberado && config.votacao_ativa === true) {
+    return { success: false, error: 'Feche a votação antes de liberar o mapeamento de cenários.' };
+  }
+
+  if (liberado) {
+    config.perfil_comportamental_liberado = true;
   }
 
   config.mapeamento_cenarios_liberado = liberado;

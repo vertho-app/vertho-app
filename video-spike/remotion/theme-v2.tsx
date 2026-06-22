@@ -1,5 +1,5 @@
 import React from 'react';
-import { AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
+import { AbsoluteFill, Img, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
 import { Brand, withAlpha } from './theme';
 
 // Acentos V2: um ciano um pouco mais claro para destaques/ativos (mais "vivo"
@@ -16,29 +16,25 @@ export const FONT = 'Inter, "Segoe UI", system-ui, -apple-system, sans-serif';
  * deriva devagar + grade de pontos fina + vinheta LEVE (não escurece os cards).
  */
 export const BackgroundV2: React.FC<{ brand: Brand; tone?: 'deep' | 'soft' }> = ({ brand, tone = 'deep' }) => {
-  const frame = useCurrentFrame();
-  const { width, height } = useVideoConfig();
-  const t = frame / 110;
-  const gx = interpolate(Math.sin(t), [-1, 1], [width * 0.58, width * 0.86]);
-  const gy = interpolate(Math.cos(t * 0.8), [-1, 1], [height * 0.12, height * 0.4]);
   const topColor = tone === 'soft' ? '#11335c' : '#0a2444';
-  const glow = tone === 'soft' ? 0.26 : 0.18;
-  const vignette = tone === 'soft' ? 0.28 : 0.45;
 
+  // FUNDO CHAPADO (decisão 22/06, A/B aprovado): só o gradiente-base linear. O glow
+  // radial animado, o padrão de pontos mascarado e a vinheta inset-blur de ~594px
+  // foram REMOVIDOS — eram ~40% do custo de render (rasterização software por frame)
+  // e o A/B mostrou perda visual aceitável. Para restaurar, ver o bloco abaixo.
   return (
     <AbsoluteFill style={{ overflow: 'hidden' }}>
       <AbsoluteFill style={{ background: `linear-gradient(165deg, ${topColor} 0%, ${brand.background} 62%)` }} />
-      <AbsoluteFill style={{ background: `radial-gradient(circle at ${gx}px ${gy}px, ${withAlpha(brand.primary, glow)} 0%, transparent 46%)` }} />
-      <AbsoluteFill
-        style={{
-          backgroundImage: `radial-gradient(${withAlpha(brand.primary, 0.05)} 1.1px, transparent 1.1px)`,
-          backgroundSize: '52px 52px',
-          maskImage: 'radial-gradient(ellipse at center, black 40%, transparent 82%)',
-          WebkitMaskImage: 'radial-gradient(ellipse at center, black 40%, transparent 82%)',
-          opacity: 0.6,
-        }}
-      />
-      <AbsoluteFill style={{ boxShadow: `inset 0 0 ${height * 0.55}px ${withAlpha('#000814', vignette)}` }} />
+      {/* RESTAURAR efeitos (custo de render ~+40%):
+        const frame = useCurrentFrame(); const { width, height } = useVideoConfig();
+        const t = frame / 110;
+        const gx = interpolate(Math.sin(t), [-1, 1], [width * 0.58, width * 0.86]);
+        const gy = interpolate(Math.cos(t * 0.8), [-1, 1], [height * 0.12, height * 0.4]);
+        const glow = tone === 'soft' ? 0.26 : 0.18; const vignette = tone === 'soft' ? 0.28 : 0.45;
+        <AbsoluteFill style={{ background: `radial-gradient(circle at ${gx}px ${gy}px, ${withAlpha(brand.primary, glow)} 0%, transparent 46%)` }} />
+        <AbsoluteFill style={{ backgroundImage: `radial-gradient(${withAlpha(brand.primary, 0.05)} 1.1px, transparent 1.1px)`, backgroundSize: '52px 52px', maskImage: 'radial-gradient(ellipse at center, black 40%, transparent 82%)', WebkitMaskImage: 'radial-gradient(ellipse at center, black 40%, transparent 82%)', opacity: 0.6 }} />
+        <AbsoluteFill style={{ boxShadow: `inset 0 0 ${height * 0.55}px ${withAlpha('#000814', vignette)}` }} />
+      */}
     </AbsoluteFill>
   );
 };

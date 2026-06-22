@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
 import { gerarConteudoFinalPersonalizado } from '@/actions/conteudos';
+import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,17 +12,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   try {
-    const store = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => store.getAll(),
-          setAll: (c) => { for (const { name, value, options } of c) { try { store.set(name, value, options); } catch {} } },
-        },
-      },
-    );
+    const supabase = await createSupabaseServerClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user?.email) return NextResponse.json({ error: 'não autenticado' }, { status: 401 });
 

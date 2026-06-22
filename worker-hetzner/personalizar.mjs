@@ -26,7 +26,9 @@ const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
 const FFPROBE = process.env.FFPROBE_PATH || 'ffprobe';
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
 const TTS_MODEL = process.env.GEMINI_TTS_MODEL || 'gemini-3.1-flash-tts-preview';
-const VOICE = process.env.VIDEO_TTS_VOICE || 'Callirrhoe';
+// Default ALINHADO à narração/avatar (gerar-video-modulo.ts usa o mesmo VIDEO_TTS_VOICE
+// || 'Vindemiatrix') p/ a saudação soar como a MESMA mentora. Override por chamada via opts.voice.
+const VOICE = process.env.VIDEO_TTS_VOICE || 'Vindemiatrix';
 const SUPA = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SRK = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const BUCKET = 'video-assets';
@@ -45,14 +47,18 @@ function pcmToWav(pcm, rate = 24000, ch = 1, bits = 16) {
   return Buffer.concat([h, pcm]);
 }
 
-/** Gera o áudio "Olá, {nome}!" (Gemini TTS, voz Callirrhoe) num WAV. */
-async function ttsSaudacao(nome, outWav) {
+/** Gera o áudio "Olá, {nome}!" (Gemini TTS) num WAV. `voice` casa a voz da narração. */
+async function ttsSaudacao(nome, outWav, voice = VOICE) {
   if (!GEMINI_KEY) throw new Error('GEMINI_API_KEY ausente');
-  const styled = `Diga de forma calorosa e acolhedora, como um cumprimento pessoal em português do Brasil:\n\nOlá, ${nome}!`;
+  // Direção ESPELHANDO o estilo da narração do avatar (NARRATION_STYLE_INTRO de
+  // gerar-video-modulo): mesma mentora, "energia que prende a atenção" — nem
+  // festivo (sobreatuava) nem sereno demais (ficava abaixo do avatar). O volume é
+  // casado por loudnorm -14 LUFS (loudnormWav), igual ao deck masterizado.
+  const styled = `Fale como uma mentora calorosa e próxima, em português do Brasil, cumprimentando alguém ao abrir uma conversa. Tom acolhedor e com energia que prende a atenção, ritmo natural com respiros leves — sem pressa e sem arrastar, e sem soar festivo:\n\nOlá, ${nome}. Que bom ter você aqui.`;
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${TTS_MODEL}:generateContent?key=${GEMINI_KEY}`;
   const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
     contents: [{ parts: [{ text: styled }] }],
-    generationConfig: { responseModalities: ['AUDIO'], speechConfig: { languageCode: 'pt-BR', voiceConfig: { prebuiltVoiceConfig: { voiceName: VOICE } } } },
+    generationConfig: { responseModalities: ['AUDIO'], speechConfig: { languageCode: 'pt-BR', voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } },
   }) });
   if (!res.ok) throw new Error(`TTS ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const data = await res.json();
@@ -66,6 +72,13 @@ async function ttsSaudacao(nome, outWav) {
 async function dur(file) {
   const { stdout } = await exec(FFPROBE, ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', file]);
   return parseFloat(String(stdout).trim()) || 0;
+}
+
+/** Normaliza a saudação ao MESMO loudness do deck masterizado (-14 LUFS) p/ a voz
+ *  não ficar mais baixa que o avatar. Single-pass (clipe curto). Falha → cru. */
+async function loudnormWav(inWav, outWav) {
+  await exec(FFMPEG, ['-y', '-i', inWav, '-af', 'loudnorm=I=-14:TP=-1:LRA=11', '-ar', '24000', '-ac', '1', outWav]);
+  return outWav;
 }
 
 async function probeVideo(deckPath) {
@@ -99,11 +112,15 @@ export async function personalizar(deckPath, nomeCompleto, outPath, opts = {}) {
   const brand = opts.brand || DEFAULT_BRAND;
   const work = await mkdtemp(path.join(os.tmpdir(), 'perso-'));
   try {
-    const greetWav = path.join(work, 'greet.wav');
-    await ttsSaudacao(nome, greetWav);
+    const greetRaw = path.join(work, 'greet.wav');
+    await ttsSaudacao(nome, greetRaw, opts.voice || VOICE);
+    // Casa o volume da saudação ao deck masterizado (-14 LUFS). Se falhar, usa o cru.
+    const greetNorm = path.join(work, 'greet-norm.wav');
+    const greetWav = await loudnormWav(greetRaw, greetNorm).then(() => greetNorm).catch(() => greetRaw);
     const audioDur = await dur(greetWav);
     const { width, height, fps } = await probeVideo(deckPath);
-    const durationInFrames = Math.ceil((audioDur + 0.6) * fps); // tempo justo (≈ voz + folga curta)
+    const TAIL = 0.3; // folga após a voz da saudação (era 0.6 → reduzido p/ aproximar do avatar)
+    const durationInFrames = Math.ceil((audioDur + TAIL) * fps);
 
     // A saudação tem de bater PIXEL A PIXEL com o avatar_intro do deck p/ o
     // crossfade não duplicar logo/texto. O deck é desenhado em 1920×1080 e SAI
@@ -127,7 +144,7 @@ export async function personalizar(deckPath, nomeCompleto, outPath, opts = {}) {
     // avatar_intro, o xfade faz "Olá, {nome}" derreter no título + avatar (fade-out
     // do nome / fade-in do título+mentora) na MESMA tela. O crossfade acontece no
     // tail da saudação (depois da voz), então a narração entra logo após o nome.
-    const T = 0.6;
+    const T = 0.3; // crossfade saudação→avatar (era 0.6 → mais curto = menos espaçamento)
     const greetDur = durationInFrames / fps;
     const offset = Math.max(0.1, greetDur - T).toFixed(2);
     await exec(FFMPEG, ['-y', '-i', greetMp4, '-i', deckPath, '-filter_complex',

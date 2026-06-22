@@ -20,21 +20,24 @@ export async function loadDashboardData() {
   const colab: any = ctx.colaborador;
   const view = getDashboardView(ctx);
 
-  // Progresso individual
-  const { count: totalComp } = await sb.from('competencias')
-    .select('id', { count: 'exact', head: true })
-    .eq('empresa_id', colab.empresa_id);
+  const progressoQueries = [
+    sb.from('competencias')
+      .select('id', { count: 'exact', head: true })
+      .eq('empresa_id', colab.empresa_id),
+    sb.from('respostas')
+      .select('id', { count: 'exact', head: true })
+      .eq('colaborador_id', colab.id),
+    sb.from('respostas')
+      .select('id', { count: 'exact', head: true })
+      .eq('colaborador_id', colab.id)
+      .not('nivel_ia4', 'is', null),
+  ] as const;
 
-  // Qualquer resposta conta como "iniciou avaliação" (independente de IA4 ter rodado)
-  const { count: respondidas } = await sb.from('respostas')
-    .select('id', { count: 'exact', head: true })
-    .eq('colaborador_id', colab.id);
-
-  // Avaliadas = com nivel_ia4 (usado por fluxos a jusante)
-  const { count: avaliadas } = await sb.from('respostas')
-    .select('id', { count: 'exact', head: true })
-    .eq('colaborador_id', colab.id)
-    .not('nivel_ia4', 'is', null);
+  const [
+    { count: totalComp },
+    { count: respondidas },
+    { count: avaliadas },
+  ] = await Promise.all(progressoQueries);
 
   colab.totalComp = totalComp || 0;
   colab.respondidas = respondidas || 0;
@@ -53,31 +56,37 @@ export async function loadDashboardData() {
       colabQuery = colabQuery.eq('area_depto', colab.area_depto);
     }
 
-    const { count: totalColabs } = await colabQuery;
-
-    const { count: totalRespostas } = await sb.from('respostas')
-      .select('id', { count: 'exact', head: true })
-      .eq('empresa_id', colab.empresa_id)
-      .not('nivel_ia4', 'is', null);
+    const [{ count: totalColabs }, { count: totalRespostas }] = await Promise.all([
+      colabQuery,
+      sb.from('respostas')
+        .select('id', { count: 'exact', head: true })
+        .eq('empresa_id', colab.empresa_id)
+        .not('nivel_ia4', 'is', null),
+    ]);
 
     teamData = { totalColabs: totalColabs || 0, totalRespostas: totalRespostas || 0 };
   }
 
   // Competência foco da trilha ativa (Motor de Temporadas)
-  const { data: trilhaAtiva } = await sb.from('trilhas')
-    .select('competencia_foco, numero_temporada, status, temporada_plano')
-    .eq('colaborador_id', colab.id)
-    .order('criado_em', { ascending: false })
-    .limit(1).maybeSingle();
+  const [trilhaAtivaRes, empCfgRes] = await Promise.all([
+    sb.from('trilhas')
+      .select('competencia_foco, numero_temporada, status, temporada_plano')
+      .eq('colaborador_id', colab.id)
+      .order('criado_em', { ascending: false })
+      .limit(1).maybeSingle(),
+    sb.from('empresas')
+      .select('sys_config')
+      .eq('id', colab.empresa_id)
+      .maybeSingle(),
+  ]);
+
+  const trilhaAtiva = trilhaAtivaRes.data;
   const competenciaFoco = trilhaAtiva?.competencia_foco || null;
   const temporadaPronta = !!(trilhaAtiva?.temporada_plano && Array.isArray(trilhaAtiva.temporada_plano) && trilhaAtiva.temporada_plano.length > 0 && trilhaAtiva.status !== 'arquivada');
 
   // Fonte externa de perfil (OPQ32, Hogan, etc.) — quando empresa tem
   // configurada, o colaborador não vai fazer mapeamento DISC nativo.
-  const { data: empCfg } = await sb.from('empresas')
-    .select('sys_config')
-    .eq('id', colab.empresa_id)
-    .maybeSingle();
+  const empCfg = empCfgRes.data;
   const cfg = (empCfg?.sys_config as any) || {};
   const empresaPerfilExternoFonte = cfg.perfil_externo_fonte ?? null;
   const perfilComportamentalLiberado = isPerfilComportamentalLiberado(cfg);

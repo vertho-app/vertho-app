@@ -13,12 +13,17 @@ export function reveal(frame: number, delay = 0, dur = 18): number {
   });
 }
 
-/** Opacidade com fade-in no começo e fade-out no fim de um trecho de `total` frames. */
-export function fadeInOut(frame: number, total: number, fin = 12, fout = 14): number {
-  return interpolate(frame, [0, fin, Math.max(fin + 1, total - fout), total], [0, 1, 1, 0], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
+/**
+ * Opacidade da CENA. As transições de cena (fade-in/out que mergulhava no fundo,
+ * estilo "transição de slides") foram DESLIGADAS a pedido → cortes secos entre
+ * cenas. A abertura/fechamento do vídeo inteiro continua suave via `FilmFade`
+ * (global, na composição). Para reativar o fade por cena, restaure o interpolate
+ * comentado abaixo.
+ */
+export function fadeInOut(_frame: number, _total: number, _fin = 12, _fout = 14): number {
+  return 1;
+  // return interpolate(_frame, [0, _fin, Math.max(_fin + 1, _total - _fout), _total], [0, 1, 1, 0],
+  //   { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
 }
 
 /** Spring de entrada (escala/translação) com leve overshoot controlado. */

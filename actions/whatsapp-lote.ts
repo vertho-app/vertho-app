@@ -3,6 +3,7 @@
 import { templateWhatsAppCIS } from '@/lib/notifications';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { APP_WEBHOOK_URL, QSTASH_BASE_URL, tenantUrl } from '@/lib/domain';
+import { assertZapiConnected } from '@/lib/zapi';
 
 const DELAY_BETWEEN_MS = 2000; // 2s entre cada mensagem
 
@@ -57,6 +58,12 @@ export async function dispararLinksCIS(empresaId: string) {
 
     if (!envios?.length) return { success: false, error: 'Nenhum envio pendente com telefone cadastrado' };
 
+    try {
+      await assertZapiConnected();
+    } catch (err: any) {
+      return { success: false, error: `${err?.message || 'Z-API desconectada'}. Reconecte a instância antes de disparar WhatsApp em lote.` };
+    }
+
     // Publicar todas no QStash em paralelo com delay incremental
     const results = await Promise.all(envios.map(async (envio: any, i) => {
       const nome = envio.colaboradores.nome_completo || 'Colaborador';
@@ -66,17 +73,13 @@ export async function dispararLinksCIS(empresaId: string) {
       const delaySec = Math.floor((i * DELAY_BETWEEN_MS) / 1000);
 
       try {
-        await publishToQStash({ telefone, mensagem }, delaySec);
-
-        // Marcar como enviado
-        await sb.from('envios_diagnostico')
-          .update({ status: 'enviado', enviado_em: new Date().toISOString(), canal: 'whatsapp' })
-          .eq('id', envio.id);
+        await publishToQStash({ telefone, mensagem, envioId: envio.id }, delaySec);
 
         return { ok: true };
       } catch (err) {
-        console.error(`[dispararLinksCIS] Erro ${nome}:`, err.message);
-        return { ok: false, error: err.message };
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[dispararLinksCIS] Erro ${nome}:`, message);
+        return { ok: false, error: message };
       }
     }));
 
@@ -89,7 +92,7 @@ export async function dispararLinksCIS(empresaId: string) {
       message: `${agendados} agendados no QStash, ${erros} erros${semWhatsapp > 0 ? `, ${semWhatsapp} sem telefone` : ''}`,
     };
   } catch (err) {
-    return { success: false, error: err.message };
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
@@ -109,6 +112,12 @@ export async function dispararRelatoriosLote(empresaId: string) {
       .not('colaboradores.telefone', 'is', null);
 
     if (!relatorios?.length) return { success: false, error: 'Nenhum relatório com telefone' };
+
+    try {
+      await assertZapiConnected();
+    } catch (err: any) {
+      return { success: false, error: `${err?.message || 'Z-API desconectada'}. Reconecte a instância antes de disparar WhatsApp em lote.` };
+    }
 
     const results = await Promise.all(relatorios.map(async (rel: any, i) => {
       const nome = rel.colaboradores.nome_completo || 'Colaborador';
@@ -130,6 +139,6 @@ export async function dispararRelatoriosLote(empresaId: string) {
 
     return { success: true, message: `Relatórios: ${agendados} agendados, ${erros} erros` };
   } catch (err) {
-    return { success: false, error: err.message };
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
   }
 }

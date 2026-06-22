@@ -32,14 +32,17 @@ export async function loadAdminDashboard() {
   // System health check
   const tables = ['empresas', 'colaboradores', 'respostas', 'banco_cenarios', 'trilhas', 'capacitacao'];
   const health = {};
-  for (const t of tables) {
-    try {
-      const { error } = await sb.from(t).select('id', { count: 'exact', head: true });
-      health[t] = error ? 'ERRO' : 'OK';
-    } catch {
-      health[t] = 'ERRO';
-    }
-  }
+  const healthResults = await Promise.all(
+    tables.map(async (t) => {
+      try {
+        const { error } = await sb.from(t).select('id', { count: 'exact', head: true });
+        return [t, error ? 'ERRO' : 'OK'] as const;
+      } catch {
+        return [t, 'ERRO'] as const;
+      }
+    }),
+  );
+  for (const [table, status] of healthResults) health[table] = status;
 
   return {
     empresas: enriched,

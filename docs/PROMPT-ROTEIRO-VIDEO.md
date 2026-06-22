@@ -5,7 +5,7 @@
 ## Visão geral
 
 - **Função:** `buildRoteiroPrompt(modulo)` — pura. Chamada por `gerarRoteiroDeModulo()` (`max_tokens` 8000).
-- **Modelo:** **`claude-opus-4-8`** (default da task `conteudo_video`).
+- **Modelo:** **`claude-opus-4-6` com extended thinking** (default da task `conteudo_video`; mesmo preço do 4.8 — $5 in / $25 out), operado em lote via Batch API sempre que a geração não for interativa. O custo comercial considera 50% off de batch + prompt caching/prompting quando vários roteiros compartilham o mesmo system prompt.
 - **Entrada:** Módulo-Base + contexto opcional da célula (cargo, PPP, DISC dominante, transição de nível).
 - **Saída:** JSON `VideoRoteiro`. Alimenta TTS → HeyGen → Remotion.
 - **Formato:** 180–300s, avatar_intro + miolo de 6–12 cenas + avatar_outro. Avatar só nas pontas; miolo em voice-over.
@@ -61,7 +61,8 @@ DURAÇÃO (calibre pela densidade do módulo; não encha com repetição):
 - Miolo: 6–8 cenas (módulo enxuto) · 8–10 (médio) · 10–12 (denso). NUNCA mais de 12 cenas de miolo.
 - SE o módulo render menos de 6 ideias-núcleo distintas, faça MENOS cenas. É melhor um vídeo curto e denso do que esticar a mesma ideia. Nunca repita uma ideia com outra formulação só para aumentar duração.
 - Você NÃO controla o tempo do TTS; calibre por CONTAGEM DE PALAVRAS da narração:
-  - avatar_intro: 50–60 palavras. · cada cena de miolo: 45–65 palavras. · avatar_outro: 38–50 palavras.
+  - avatar_intro: 26–30 palavras (≈15s). · cada cena de miolo: 45–65 palavras. · avatar_outro: 22–26 palavras (≈14s). [Avatar curto: intro+outro somam ~30s — controla o custo HeyGen.]
+  - O avatar_intro NÃO começa com cumprimento ("Oi", "Olá", "Bem-vindo", "Tudo bem"): uma saudação nominal personalizada ("Olá, {nome}") pode ser prependada ao vídeo, então abre DIRETO no gancho/pergunta. Cumprimentar de novo soa repetitivo.
   Inclua em cada cena o campo "estimated_words" (contagem aproximada de palavras da narração).
 
 ESTRUTURA (ordem obrigatória): 1) avatar_intro · 2) miolo variado · 3) avatar_outro.
@@ -75,11 +76,15 @@ TEMPLATES E SEUS CAMPOS VISUAIS:
 - stat_highlight: um DADO numérico. stat + title + subtitle. Só use se houver número EXPLÍCITO no módulo; o valor de "stat" deve aparecer LITERALMENTE no conteúdo de entrada. NUNCA invente estatística.
 - quote_spotlight: frase-âncora. quote (≤14 palavras) + subtitle (atribuição, ex.: "Mentora Vertho").
 - scenario_card: abre uma situação típica. title (ex.: "Imagine") + subtitle (1–2 frases curtas).
+- maturity_ladder: progressão de NÍVEIS DE MATURIDADE (estados, não ações). title + rungs (3–5, cada 2–4 palavras, do mais básico ao mais maduro) + target (índice 0-based do degrau-META). Use quando houver régua/níveis/transição (N1→N4). Difere de steps_flow.
+- myth_truth: quebra de um equívoco. myth (≤10 palavras) + truth (≤10 palavras). Máx. 1×, quando houver ERROS_COMUNS/concepção equivocada. Difere de comparison_motion.
+- definition_card: define um termo de forma limpa. term (1–3 palavras) + definition (≤14 palavras). Cedo, máx. 1–2×.
+- reflection_prompt: pergunta de reflexão no MEIO. prompt (≤14 palavras) + tag (opcional). Máx. 1×, só no terço central; NÃO substitui avatar_outro.
 
 REGRAS DE VARIEDADE:
-- NUNCA o mesmo template em duas cenas seguidas.
-- Intercale cenas densas (concept_reveal, comparison_motion, steps_flow) com respiros (quote_spotlight, scenario_card, icon_story).
-- Use scenario_card ao menos uma vez quando houver contexto de cargo. Use comparison_motion ao menos uma vez quando houver erros×boas práticas. Use steps_flow quando houver processo/rotina/método. Use stat_highlight só se houver número real e explícito.
+- NUNCA o mesmo template em duas cenas seguidas. Evite também a mesma FAMÍLIA visual adjacente — famílias: decomposição (concept_reveal, icon_story); contraste (comparison_motion, myth_truth); progressão (steps_flow, maturity_ladder); respiro (quote_spotlight, scenario_card, stat_highlight, definition_card, reflection_prompt).
+- Intercale cenas densas (concept_reveal, comparison_motion, steps_flow, maturity_ladder) com respiros (quote_spotlight, scenario_card, icon_story, myth_truth, definition_card, reflection_prompt).
+- Use scenario_card ao menos uma vez quando houver contexto de cargo. Use comparison_motion ao menos uma vez quando houver erros×boas práticas. Use steps_flow quando houver processo/rotina/método. Use maturity_ladder quando houver régua de níveis. Use myth_truth (máx. 1×) quando houver erro comum. Use definition_card (máx. 1–2×, cedo) para fixar um termo. Use reflection_prompt (máx. 1×, terço central) para reengajar. Use stat_highlight só se houver número real e explícito.
 - Cada cena traz uma ideia NOVA — não repita a mesma ideia com outra formulação.
 
 DECK INVARIANTE (o deck visual é reaproveitado por todos os perfis DISC):

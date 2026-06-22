@@ -74,7 +74,7 @@ Tema/paleta próprios em `video-spike/remotion/theme.tsx` e `theme-v2.tsx`.
 | Sequência | Nunca o mesmo template em cenas adjacentes |
 | Ritmo | Intercalar cenas densas com "respiros" |
 
-## Os 9 templates de cena
+## Os 13 templates de cena
 
 | Template | Descrição |
 |----------|-----------|
@@ -86,3 +86,7 @@ Tema/paleta próprios em `video-spike/remotion/theme.tsx` e `theme-v2.tsx`.
 | `stat_highlight` | Um número/percentual gigante com count-up animado + contexto. |
 | `quote_spotlight` | Frase-âncora memorável em tela limpa, com aspas decorativas. |
 | `scenario_card` | Abre uma situação típica ("Imagine...") com ícone + texto curto. |
+| `maturity_ladder` | Régua de maturidade (N1→N4): degraus ascendentes, degrau-meta aceso com rótulo "META". |
+| `myth_truth` | Quebra de equívoco: o MITO é riscado e a VERDADE (ciano) assume a tela. |
+| `definition_card` | Define um termo em card centralizado (termo grande + definição + hairline). |
+| `reflection_prompt` | Pergunta de reflexão no meio do vídeo, tela limpa com pulso ciano. |

@@ -23,6 +23,7 @@ export interface RoteiroScene {
   subtitle?: string;
   bullets?: string[];
   items?: string[];
+  icons?: string[]; // concept_reveal/icon_story: 1 nome de ícone (vocabulário fixo) por bullet/item
   left?: { title: string; items: string[] };
   right?: { title: string; items: string[] };
   stat?: string;
@@ -230,15 +231,16 @@ DURAÇÃO (calibre pela densidade do módulo; não encha com repetição):
 - SE o módulo render menos de 6 ideias-núcleo distintas, faça MENOS cenas. É melhor um vídeo curto e denso do que esticar a mesma ideia. Nunca repita uma ideia com outra formulação só para aumentar duração.
 - Você NÃO controla o tempo do TTS; calibre por CONTAGEM DE PALAVRAS da narração:
   - avatar_intro: 26–30 palavras (≈15s). · cada cena de miolo: 45–65 palavras. · avatar_outro: 22–26 palavras (≈14s). [Avatar curto e direto: intro+outro somam ~30s — prenda e feche com punch, sem encher.]
+  - O avatar_intro NÃO começa com cumprimento (nada de "Oi", "Olá", "Olá pessoal", "Bem-vindo", "Tudo bem"): uma saudação nominal personalizada ("Olá, {nome}") pode ser prependada ao vídeo, então abra DIRETO no gancho/pergunta. Cumprimentar de novo soa repetitivo.
   Inclua em cada cena o campo "estimated_words" (contagem aproximada de palavras da narração).
 
 ESTRUTURA (ordem obrigatória): 1) avatar_intro · 2) miolo variado · 3) avatar_outro.
 
 TEMPLATES E SEUS CAMPOS VISUAIS:
 - avatar_intro / avatar_outro: title + subtitle.
-- concept_reveal: explica um conceito/distinção. title + bullets (EXATAMENTE 3, cada 2–5 palavras).
+- concept_reveal: explica um conceito/distinção. title + bullets (EXATAMENTE 3, cada 2–5 palavras) + icons (EXATAMENTE 3, 1 por bullet, nomes do VOCABULÁRIO DE ÍCONES, casando com o SENTIDO do bullet).
 - comparison_motion: contrasta prática fraca×desejada. title ("A x B") + left{title,items[3]} + right{title,items[3]}.
-- icon_story: 3 sinais/exemplos/comportamentos. title + items (EXATAMENTE 3, cada 2–5 palavras).
+- icon_story: 3 sinais/exemplos/comportamentos. title + items (EXATAMENTE 3, cada 2–5 palavras) + icons (EXATAMENTE 3, 1 por item, nomes do VOCABULÁRIO DE ÍCONES, casando com o sentido).
 - steps_flow: processo/método sequencial. title + items (3–5 passos, cada 2–4 palavras).
 - stat_highlight: um DADO numérico. stat + title + subtitle. Só use se houver número EXPLÍCITO no módulo; o valor de "stat" deve aparecer LITERALMENTE no conteúdo de entrada. NUNCA invente estatística.
 - quote_spotlight: frase-âncora. quote (≤14 palavras) + subtitle (atribuição, ex.: "Mentora Vertho").
@@ -247,6 +249,9 @@ TEMPLATES E SEUS CAMPOS VISUAIS:
 - myth_truth: quebra de um equívoco. myth (≤10 palavras, a crença errada) + truth (≤10 palavras, a correção). Use no máximo 1× por vídeo, quando houver ERROS_COMUNS / concepção equivocada a desfazer. Difere de comparison_motion (que contrasta duas práticas válidas, não um erro a corrigir).
 - definition_card: define um termo de forma limpa, antes de aprofundá-lo. term (1–3 palavras) + definition (≤14 palavras). Use cedo no vídeo, no máximo 1–2×, para fixar um termo-chave.
 - reflection_prompt: pergunta de reflexão no MEIO do vídeo, que espelha o conceito na rotina do espectador. prompt (a pergunta, ≤14 palavras) + tag (opcional, ex.: "Pra pensar"). Use no máximo 1×, apenas no TERÇO CENTRAL do miolo — nunca como 1ª ou última cena de miolo. NÃO substitui o avatar_outro (que fecha com a pergunta acionável da semana).
+
+VOCABULÁRIO DE ÍCONES (campo "icons" de concept_reveal e icon_story): use SÓ estes nomes, 1 por bullet/item, escolhendo o que melhor representa o SENTIDO daquele item (se nenhum encaixar bem, use o mais próximo). NÃO invente nomes.
+relogio, prazo, tempo, conversa, escuta, voz, comunicar, equipe, pessoa, acordo, cuidado, crescimento, meta, foco, avancar, reconhecimento, ideia, pensar, observar, analisar, direcao, feito, checklist, processo, ajuste, aprender, ensino, registrar, documento, risco, protecao, destaque, valor, equilibrio, aprovar, plano, prioridade, conexao, encaixe, medir, melhoria, ciclo, firmeza.
 
 REGRAS DE VARIEDADE:
 - NUNCA o mesmo template em duas cenas seguidas. Evite também a mesma FAMÍLIA visual em cenas adjacentes — famílias: decomposição (concept_reveal, icon_story); contraste (comparison_motion, myth_truth); progressão (steps_flow, maturity_ladder); respiro (quote_spotlight, scenario_card, stat_highlight, definition_card, reflection_prompt). Não coloque maturity_ladder ao lado de steps_flow, nem myth_truth ao lado de comparison_motion.
@@ -284,7 +289,7 @@ SOURCE_ANCHOR (use exatamente um destes formatos): IDEIA_PRINCIPAL · EXPLICACAO
 METADADOS POR CENA: id · type · key_idea (frase curta com a ideia central) · source_anchor (de onde a ideia veio) · estimated_words (≈ palavras da narração) · narration · campos visuais do template.
 
 EXEMPLO DE CENAS (referência de REGISTRO e ESTRUTURA — NÃO copie o conteúdo se não pertencer ao módulo):
-{"id":"scene-3","type":"concept_reveal","key_idea":"Feedback é informação acionável, não veredito","source_anchor":"PRINCIPIOS:Feedback como instrução","estimated_words":35,"title":"Feedback não é nota","bullets":["onde está","aonde ir","como avançar"],"narration":"Feedback bom não é dizer se acertou. É mostrar onde a pessoa está, aonde precisa chegar e o que fazer agora. Nota fecha o assunto. Feedback abre o próximo passo."}
+{"id":"scene-3","type":"concept_reveal","key_idea":"Feedback é informação acionável, não veredito","source_anchor":"PRINCIPIOS:Feedback como instrução","estimated_words":35,"title":"Feedback não é nota","bullets":["onde está","aonde ir","como avançar"],"icons":["observar","direcao","avancar"],"narration":"Feedback bom não é dizer se acertou. É mostrar onde a pessoa está, aonde precisa chegar e o que fazer agora. Nota fecha o assunto. Feedback abre o próximo passo."}
 {"id":"scene-5","type":"comparison_motion","key_idea":"Corrigir resolve uma vez; desenvolver ensina a se corrigir","source_anchor":"ERROS_COMUNS / BOAS_PRATICAS","estimated_words":41,"title":"Corrigir x Desenvolver","left":{"title":"Corrigir","items":["aponta o erro","dá a resposta","fecha o assunto"]},"right":{"title":"Desenvolver","items":["mostra o processo","devolve a pergunta","acompanha o ajuste"]},"narration":"Dá para apontar o erro e seguir em frente. Ou dá para devolver a pergunta e acompanhar o ajuste. O primeiro corrige uma vez. O segundo ensina o aluno a se corrigir sempre."}
 
 ANTES DE RESPONDER, valide em silêncio: JSON válido; sem markdown/comentários/placeholders; sem reticências como "... mais cenas"; 1ª cena avatar_intro e última avatar_outro; nenhum template repetido em sequência; toda cena tem id, type, narration, key_idea, source_anchor, estimated_words e os campos visuais do template; textos de tela curtos; nada inventado; se houver stat_highlight, o número existe literalmente no módulo; cada cena com ideia nova; cobertura mínima respeitada; cargo ancorado no dia a dia do cargo; se houver PPP, ao menos uma cena (source_anchor "PPP") reflete um valor/prioridade concreto da instituição SEM citar o nome; deck NÃO influenciado pelo perfil; narração no alvo de palavras; avatar_outro termina com pergunta de reflexão prática.
@@ -300,7 +305,7 @@ FORMATO DE SAÍDA: responda APENAS JSON válido — sem markdown, comentários o
   "scenes": [
     {"id":"scene-1","type":"avatar_intro","key_idea":"...","source_anchor":"IDEIA_PRINCIPAL","estimated_words":28,"title":"2-4 palavras","subtitle":"subtítulo curto","narration":"..."},
     {"id":"scene-2","type":"scenario_card","key_idea":"...","source_anchor":"SITUACOES_TIPICAS","estimated_words":55,"title":"Imagine","subtitle":"situação curta e plausível","narration":"..."},
-    {"id":"scene-3","type":"concept_reveal","key_idea":"...","source_anchor":"PRINCIPIOS:<nome>","estimated_words":55,"title":"título curto","bullets":["item curto","item curto","item curto"],"narration":"..."},
+    {"id":"scene-3","type":"concept_reveal","key_idea":"...","source_anchor":"PRINCIPIOS:<nome>","estimated_words":55,"title":"título curto","bullets":["item curto","item curto","item curto"],"icons":["nome_icone","nome_icone","nome_icone"],"narration":"..."},
     {"id":"scene-4","type":"comparison_motion","key_idea":"...","source_anchor":"ERROS_COMUNS","estimated_words":58,"title":"A x B","left":{"title":"prática fraca","items":["item curto","item curto","item curto"]},"right":{"title":"prática desejada","items":["item curto","item curto","item curto"]},"narration":"..."},
     {"id":"scene-5","type":"steps_flow","key_idea":"...","source_anchor":"BOAS_PRATICAS","estimated_words":56,"title":"título curto","items":["passo 1","passo 2","passo 3"],"narration":"..."},
     {"id":"scene-6","type":"avatar_outro","key_idea":"...","source_anchor":"BOAS_PRATICAS","estimated_words":24,"title":"Pergunta prática","subtitle":"pergunta curta e acionável","narration":"... termina com uma pergunta de reflexão prática."}

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { getLocaleForEmail } from '@/lib/i18n-server';
 import { localeCookieName } from '@/lib/i18n';
+import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,20 +15,7 @@ export async function GET(req: NextRequest) {
   if (!next.startsWith('/')) next = '/dashboard';
 
   const store = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => store.getAll(),
-        setAll: (c) => {
-          for (const { name, value, options } of c) {
-            try { store.set(name, value, options); } catch {}
-          }
-        },
-      },
-    },
-  );
+  const supabase = await createSupabaseServerClient();
 
   let error: string | null = null;
   const redirectTo = new URL(next, origin);

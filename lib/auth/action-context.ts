@@ -1,42 +1,14 @@
 'use server';
 
-import { cookies, headers } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
+import { headers } from 'next/headers';
 import { getUserContext } from '@/lib/authz';
 import { can, type PermissionKey } from '@/lib/permissions';
 import type { AuthenticatedContext } from './request-context';
-
-/**
- * Cria um Supabase client server-side que lê/escreve cookies via `next/headers`.
- * Usado exclusivamente em server actions (que têm acesso a cookies() mas não a Request).
- *
- * Depende de `@supabase/ssr` + `lib/supabase-browser.ts` usando `createBrowserClient`
- * (que sincroniza a sessão do browser pra cookies automaticamente).
- */
-function createSupabaseServerAction() {
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        async getAll() {
-          const store = await cookies();
-          return store.getAll();
-        },
-        async setAll(cookiesToSet) {
-          const store = await cookies();
-          for (const { name, value, options } of cookiesToSet) {
-            try { store.set(name, value, options); } catch { /* read-only em render */ }
-          }
-        },
-      },
-    },
-  );
-}
+import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 
 export async function getAuthenticatedEmailFromAction(): Promise<string | null> {
   try {
-    const sb = createSupabaseServerAction();
+    const sb = await createSupabaseServerClient();
     const { data: { user }, error } = await sb.auth.getUser();
     if (error || !user?.email) return null;
     return user.email.trim().toLowerCase();

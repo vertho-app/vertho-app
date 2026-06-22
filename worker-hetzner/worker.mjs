@@ -17,6 +17,7 @@ import path from 'node:path';
 import { readFile, access, rm } from 'node:fs/promises';
 import { ensureBrowser, selectComposition, renderMedia } from '@remotion/renderer';
 import { personalizar, primeiroNome } from './personalizar.mjs';
+import { masterizarAudio } from './masterizar-audio.mjs';
 
 const {
   DATABASE_URL,
@@ -50,6 +51,42 @@ async function resolveBundle() {
     try { await access(path.join(c, 'index.html')); bundleDir = c; return c; } catch { /* próximo */ }
   }
   throw new Error('bundle Remotion não encontrado (esperado em ./spike-bundle)');
+}
+
+/** Resolve o arquivo de TRILHA (bed) p/ a masterização. Locais determinísticos:
+ *  env > raiz do worker (COPY do Dockerfile) > /app > dentro do bundle. `null` =
+ *  não achou → masterização é pulada (degrada p/ áudio cru; render NÃO falha). */
+let bedPath; // undefined = não resolvido ainda; null = ausente
+async function resolveBed() {
+  if (bedPath !== undefined) return bedPath;
+  const cands = [
+    process.env.BED_RESPIRO_PATH,
+    path.join(process.cwd(), 'bed-respiro.mp3'),
+    '/app/bed-respiro.mp3',
+    // fallback: dentro do próprio bundle Remotion (publicDir=public/video-spike → public/audio/).
+    path.join((await resolveBundle().catch(() => '.')) || '.', 'public', 'audio', 'bed-respiro.mp3'),
+  ].filter(Boolean);
+  for (const c of cands) {
+    try { await access(c); bedPath = c; return c; } catch { /* próximo */ }
+  }
+  bedPath = null;
+  return null;
+}
+
+/** Masteriza o áudio do vídeo (trilha + ducking + -14 LUFS) — mesmo passo do
+ *  piloto. Em QUALQUER falha (bed ausente, ffmpeg) devolve o arquivo cru: o render
+ *  nunca quebra por causa da engenharia de áudio. */
+async function masterizarSeguro(videoIn) {
+  const bed = await resolveBed();
+  if (!bed) { log('masterização pulada (bed-respiro.mp3 não encontrado) — áudio cru'); return videoIn; }
+  const out = videoIn.replace(/\.mp4$/, '') + '-master.mp4';
+  try {
+    await masterizarAudio({ videoIn, bedRespiro: bed, videoOut: out });
+    return out;
+  } catch (e) {
+    log('masterização falhou → áudio cru:', e?.message || e);
+    return videoIn;
+  }
 }
 
 /** Sobe o mp4 final no Bunny Stream → retorna o GUID. */
@@ -103,9 +140,12 @@ async function personalizeCell(job, deckPath) {
        AND coalesce(trim(nome_completo),'') <> ''`,
     [job.empresa_id, job.cargo, disc]);
   if (!colabs.length) { log(`célula ${job.cargo}/${disc} sem colaboradores p/ personalizar`); return; }
-  log(`personalizando ${colabs.length} colaborador(es) da célula ${job.cargo}/${disc}…`);
+  // PERSONALIZE_LIMIT (>0) limita quantos personalizar (spikes/testes). 0/ausente = todos.
+  const limit = parseInt(process.env.PERSONALIZE_LIMIT || '0', 10) || 0;
+  const targets = limit > 0 ? colabs.slice(0, limit) : colabs;
+  log(`personalizando ${targets.length}${limit > 0 ? `/${colabs.length} (limit ${limit})` : ''} colaborador(es) da célula ${job.cargo}/${disc}…`);
   let ok = 0, err = 0;
-  for (const c of colabs) {
+  for (const c of targets) {
     const nome = primeiroNome(c.nome_completo);
     try {
       const { rows: ex } = await pool.query('SELECT status FROM videos_personalizados WHERE cell_video_id=$1 AND colaborador_id=$2', [job.id, c.id]);
@@ -188,8 +228,14 @@ async function renderOne(job) {
     concurrency: CONCURRENCY, chromiumOptions: { gl: 'swangle' }, inputProps: props,
     ...(scale && scale !== 1 ? { scale } : {}),
   });
-  const buf = await readFile(out);
-  log(`render ${job.id} OK em ${Math.round((Date.now() - t0) / 1000)}s · ${(buf.length / 1e6).toFixed(1)}MB · subindo no Bunny…`);
+  log(`render ${job.id} OK em ${Math.round((Date.now() - t0) / 1000)}s · masterizando áudio…`);
+
+  // Engenharia de áudio (trilha + ducking + master -14 LUFS) — mesmo passo do
+  // piloto. O deck masterizado é o que sobe E o que personalizamos (a porção do
+  // deck na saudação preserva a trilha).
+  const final = await masterizarSeguro(out);
+  const buf = await readFile(final);
+  log(`áudio pronto · ${(buf.length / 1e6).toFixed(1)}MB · subindo no Bunny…`);
 
   const guid = await uploadToBunny(buf, title);
   const videoUrl = `https://iframe.mediadelivery.net/play/${BUNNY_LIB}/${guid}`;
@@ -200,9 +246,9 @@ async function renderOne(job) {
   log(`DONE ${job.id} → ${videoUrl}`);
 
   // Personalização nominal (Rota A): prepend "Olá, {nome}" por colaborador da
-  // célula, na própria box (o deck está em `out`). Falha aqui NÃO derruba o
-  // render — o deck genérico já está done e entregável.
-  await personalizeCell(job, out).catch((e) => log(`personalização falhou (deck OK) ${job.id}:`, e?.message || e));
+  // célula, na própria box (sobre o deck JÁ masterizado em `final`). Falha aqui
+  // NÃO derruba o render — o deck genérico já está done e entregável.
+  await personalizeCell(job, final).catch((e) => log(`personalização falhou (deck OK) ${job.id}:`, e?.message || e));
 }
 
 let parando = false;
