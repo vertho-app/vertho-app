@@ -9,7 +9,7 @@ import {
   Route, GraduationCap, PlayCircle, Wand2, Clock, Headphones, Video,
   Briefcase, BookOpen, ListChecks, Vote, Send, Star, Gauge, Award,
   MessageSquare, CheckCircle2, Flag, Brain, Inbox, SearchX, UserPlus,
-  Lock, ArrowRight, ChevronRight,
+  Lock, ArrowRight, ChevronRight, Circle,
 } from "lucide-react";
 import {
   UIStyles, Button, IconButton, Card, Badge, Meter, KpiCard,
@@ -46,7 +46,7 @@ const PARTNERS = {
 const SEED = [
   {
     id: "c1", nome: "Colégio Horizonte", setor: "Educação · K-12", inicial: "H",
-    evolucao: 72, status: "saudavel", etapa: 4,
+    evolucao: 72, status: "saudavel", passo: 13,
     comp: [["Comunicação", 3.1], ["Gestão de sala", 2.8], ["Feedback", 2.4], ["Planejamento", 3.0]],
     pessoas: [
       ["Marina Alves", "Coordenadora Pedagógica", "I", 3.2, "confirmada"],
@@ -57,7 +57,7 @@ const SEED = [
   },
   {
     id: "c2", nome: "Rede Aprende+", setor: "Educação · Rede municipal", inicial: "R",
-    evolucao: 58, status: "atencao", etapa: 2,
+    evolucao: 58, status: "atencao", passo: 6,
     comp: [["Liderança", 2.5], ["Mediação", 2.2], ["Dados", 2.0], ["Acolhimento", 3.1]],
     pessoas: [
       ["Patrícia Gomes", "Gestora Escolar", "D", 2.7, "parcial"],
@@ -67,7 +67,7 @@ const SEED = [
   },
   {
     id: "c3", nome: "TechNova Software", setor: "Corporativo · Tecnologia", inicial: "T",
-    evolucao: 81, status: "saudavel", etapa: 5,
+    evolucao: 81, status: "saudavel", passo: 15,
     comp: [["Colaboração", 3.3], ["Autonomia", 3.0], ["Comunicação", 2.9], ["Liderança", 2.6]],
     pessoas: [
       ["Camila Rocha", "Tech Lead", "C", 3.1, "confirmada"],
@@ -77,7 +77,7 @@ const SEED = [
   },
   {
     id: "c4", nome: "Indústria Forte", setor: "Corporativo · Manufatura", inicial: "F",
-    evolucao: 44, status: "critico", etapa: 1,
+    evolucao: 44, status: "critico", passo: 0,
     comp: [["Segurança", 2.1], ["Liderança", 1.9], ["Comunicação", 2.0], ["Processos", 2.4]],
     pessoas: [
       ["João Batista", "Supervisor", "D", 2.0, "estagnacao"],
@@ -100,30 +100,49 @@ const DISC = { D: "#EC6A5C", I: "#F4B740", S: "#34D399", C: "#5BA8F2" };
 const STATUS_TONE = { saudavel: "success", atencao: "warning", critico: "danger" };
 const EVOL_TONE = { confirmada: "success", parcial: "warning", estagnacao: "danger" };
 
-// A jornada do cliente em 5 etapas simples (mapeiam as fases do produto, sem jargão).
+// A jornada em 5 ETAPAS (macro) compostas por PASSOS reais (a checklist guiada).
 const STAGES = [
-  { n: 1, key: "configurar", titulo: "Montar a equipe", icon: Users,
-    resumo: "Cadastre as pessoas e os cargos que vão participar.",
-    porque: "Tudo começa sabendo quem participa e em qual cargo.",
-    acao: "Cadastrar colaboradores", tempo: "~5 min" },
-  { n: 2, key: "diagnosticar", titulo: "Descobrir o que desenvolver", icon: Target,
-    resumo: "A IA monta o diagnóstico e a equipe responde. Você só dispara e acompanha.",
-    porque: "Mede o ponto de partida de cada competência.",
-    acao: "Disparar o diagnóstico", tempo: "~2 min" },
-  { n: 3, key: "planejar", titulo: "Montar a trilha", icon: Route,
-    resumo: "Com o diagnóstico pronto, gere a trilha de desenvolvimento personalizada.",
-    porque: "Define o que cada pessoa vai desenvolver — e como.",
-    acao: "Gerar a trilha", tempo: "~3 min" },
-  { n: 4, key: "desenvolver", titulo: "Acompanhar a jornada", icon: GraduationCap,
-    resumo: "A equipe percorre as semanas de desenvolvimento. Você acompanha o engajamento.",
-    porque: "Garante que as pessoas estão evoluindo de verdade.",
-    acao: "Acompanhar a turma", tempo: "contínuo" },
-  { n: 5, key: "resultados", titulo: "Mostrar resultados", icon: BarChart3,
-    resumo: "Gere os relatórios de evolução para apresentar ao cliente.",
-    porque: "Comprova o valor entregue para o cliente.",
-    acao: "Gerar os relatórios", tempo: "~1 min" },
+  { n: 1, key: "configurar", titulo: "Montar a equipe", icon: Users },
+  { n: 2, key: "diagnosticar", titulo: "Descobrir o foco", icon: Target },
+  { n: 3, key: "planejar", titulo: "Montar a trilha", icon: Route },
+  { n: 4, key: "desenvolver", titulo: "Acompanhar", icon: GraduationCap },
+  { n: 5, key: "resultados", titulo: "Mostrar resultados", icon: BarChart3 },
 ];
-const stageOf = (c) => STAGES[Math.min(5, Math.max(1, c.etapa || 1)) - 1];
+
+// Quem executa cada passo — deixa óbvio se o consultor age ou só aguarda.
+const QUEM = {
+  voce:   { label: "você faz", tone: "accent" },
+  equipe: { label: "a equipe", tone: "info" },
+  ia:     { label: "a IA faz", tone: "#9E4EDD" },
+};
+
+// TODOS os passos da jornada, em ordem. `detalhe` explica em 1 frase; `opcional` não bloqueia.
+const TASKS = [
+  { stage: 1, key: "equipe",      label: "Cadastrar a equipe",            quem: "voce",   tempo: "~5 min", detalhe: "Adicione as pessoas e seus cargos." },
+  { stage: 1, key: "cargos",      label: "Definir cargos e competências", quem: "voce",   tempo: "~5 min", detalhe: "Importe ou ajuste as competências de cada cargo." },
+  { stage: 1, key: "materiais",   label: "Subir materiais da empresa",    quem: "voce",   opcional: true,  detalhe: "PPP, valores e manuais deixam a IA mais precisa." },
+  { stage: 2, key: "prioridades", label: "Gerar prioridades por cargo",   quem: "ia",     tempo: "~1 min", detalhe: "A IA sugere as 10 competências mais relevantes." },
+  { stage: 2, key: "votacao",     label: "Abrir votação da equipe",       quem: "equipe", detalhe: "Cada pessoa vota nas competências do próprio cargo." },
+  { stage: 2, key: "top5",        label: "Validar o Top 5",               quem: "voce",   tempo: "~3 min", detalhe: "Você confirma as 5 competências finais por cargo." },
+  { stage: 2, key: "diagnostico", label: "Gerar o diagnóstico",           quem: "ia",     tempo: "~2 min", detalhe: "A IA cria os cenários e valida a qualidade." },
+  { stage: 2, key: "envios",      label: "Enviar para a equipe",          quem: "voce",   tempo: "~1 min", detalhe: "Dispara o diagnóstico por WhatsApp ou e-mail." },
+  { stage: 2, key: "respostas",   label: "Coletar as respostas",          quem: "equipe", detalhe: "A equipe responde os cenários." },
+  { stage: 3, key: "avaliar",     label: "Avaliar as respostas",          quem: "ia",     tempo: "~2 min", detalhe: "A IA pontua cada competência e valida." },
+  { stage: 3, key: "foco",        label: "Definir o foco de cada um",     quem: "ia",     detalhe: "O sistema escolhe a competência âncora e a 2ª." },
+  { stage: 3, key: "trilha",      label: "Gerar a trilha",                quem: "ia",     tempo: "~3 min", detalhe: "Conteúdos personalizados por cargo, perfil e contexto." },
+  { stage: 3, key: "revisar",     label: "Revisar a trilha",              quem: "voce",   tempo: "~5 min", detalhe: "Confira e ajuste antes de liberar." },
+  { stage: 3, key: "pdi",         label: "Gerar PDIs individuais",        quem: "voce",   opcional: true,  detalhe: "PDF de desenvolvimento por pessoa." },
+  { stage: 4, key: "liberar",     label: "Liberar a trilha",              quem: "voce",   tempo: "~1 min", detalhe: "A equipe começa as 14 semanas de desenvolvimento." },
+  { stage: 4, key: "acompanhar",  label: "Acompanhar o engajamento",      quem: "voce",   detalhe: "Veja quem está avançando ao longo das semanas." },
+  { stage: 5, key: "final",       label: "Aplicar a avaliação final",     quem: "equipe", detalhe: "Um cenário final mede a evolução de cada pessoa." },
+  { stage: 5, key: "relatorios",  label: "Gerar os relatórios",           quem: "voce",   tempo: "~1 min", detalhe: "RH, gestor, Evolution Report e DNA." },
+];
+const REQ = TASKS.filter((t) => !t.opcional);                       // backbone que avança a jornada
+const firstIdxOfStage = (n) => REQ.findIndex((t) => t.stage === n);
+const lastIdxOfStage = (n) => REQ.map((t, i) => (t.stage === n ? i : -1)).filter((i) => i >= 0).pop();
+const stageNumOf = (passo) => (passo >= REQ.length ? 5 : REQ[passo].stage);
+const stageStatus = (n, passo) => (passo > lastIdxOfStage(n) ? "done" : passo >= firstIdxOfStage(n) ? "current" : "locked");
+const nextTaskOf = (c) => { const p = c.passo || 0; return p >= REQ.length ? null : REQ[p]; };
 
 export default function App() {
   const [pkey, setPkey] = useState("aurora");
@@ -169,7 +188,7 @@ export default function App() {
 
   function openCompany(id) { setSelId(id); setView("empresa"); }
   function advanceCompany(id) {
-    setCompanies((cs) => cs.map((c) => c.id === id ? { ...c, etapa: Math.min(5, (c.etapa || 1) + 1) } : c));
+    setCompanies((cs) => cs.map((c) => c.id === id ? { ...c, passo: Math.min(REQ.length, (c.passo || 0) + 1) } : c));
   }
 
   return (
@@ -354,11 +373,13 @@ function Portfolio({ companies, totalColab, evolMedia, alertas, onOpen, onNova, 
               <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(250px,1fr))", gap: 14 }}>
                 {filtered.map((c) => {
                   const st = STATUS[c.status];
-                  const s = stageOf(c);
+                  const sn = stageNumOf(c.passo || 0);
+                  const SI = STAGES[sn - 1].icon;
+                  const nt = nextTaskOf(c);
                   return (
                     <li key={c.id}>
                       <button type="button" className="card co-card" onClick={() => onOpen(c.id)}
-                        aria-label={`Abrir ${c.nome} — etapa ${s.n} de 5, próximo passo: ${s.acao}`}
+                        aria-label={`Abrir ${c.nome} — etapa ${sn} de 5${nt ? `, próximo passo: ${nt.label}` : ", jornada concluída"}`}
                         style={{ width: "100%", textAlign: "left", padding: 18, cursor: "pointer", border: "1px solid var(--line)",
                           background: "var(--card)", color: "var(--ink)", font: "inherit", display: "block" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -370,13 +391,14 @@ function Portfolio({ companies, totalColab, evolMedia, alertas, onOpen, onNova, 
                           </div>
                         </div>
                         <div style={{ marginTop: 14, padding: "10px 12px", borderRadius: 10, background: "color-mix(in srgb,var(--accent) 9%,transparent)" }}>
-                          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--accent)" }}>Próximo passo</div>
+                          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--accent)" }}>{nt ? "Próximo passo" : "Concluído"}</div>
                           <div style={{ fontSize: 13.5, fontWeight: 600, marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
-                            <s.icon size={14} aria-hidden="true" style={{ color: "var(--accent)", flexShrink: 0 }} /> {s.acao}
+                            {nt ? <SI size={14} aria-hidden="true" style={{ color: "var(--accent)", flexShrink: 0 }} /> : <CheckCircle2 size={14} aria-hidden="true" style={{ color: "#2ECC71", flexShrink: 0 }} />}
+                            {nt ? nt.label : "Jornada concluída"}
                           </div>
                         </div>
                         <div style={{ marginTop: 12 }}>
-                          <Meter label={`Etapa ${s.n} de 5`} value={s.n / 5 * 100} showValue={false} tone={STATUS_TONE[c.status]} />
+                          <Meter label={`Etapa ${sn} de 5`} value={(c.passo || 0) / REQ.length * 100} showValue={false} tone={STATUS_TONE[c.status]} />
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
                           <Badge tone={STATUS_TONE[c.status]} dot>{st.label}</Badge>
@@ -400,16 +422,16 @@ function Portfolio({ companies, totalColab, evolMedia, alertas, onOpen, onNova, 
             {alertas.length === 0 ? (
               <EmptyState icon={CheckCircle2} compact title="Tudo sob controle" description="Nenhuma empresa em atenção agora." />
             ) : alertas.map((c) => {
-              const s = stageOf(c);
+              const nt = nextTaskOf(c);
               return (
                 <button key={c.id} type="button" onClick={() => onOpen(c.id)} className="row"
-                  aria-label={`Abrir ${c.nome} — próximo passo: ${s.acao}`}
+                  aria-label={`Abrir ${c.nome} — próximo passo: ${nt ? nt.label : "jornada concluída"}`}
                   style={{ width: "100%", textAlign: "left", cursor: "pointer", padding: "11px 10px", borderRadius: 10,
                     display: "flex", gap: 10, alignItems: "center", border: "none", background: "transparent", color: "inherit", font: "inherit" }}>
                   <AlertTriangle size={16} style={{ color: STATUS[c.status].color, flexShrink: 0 }} aria-hidden="true" />
                   <span style={{ minWidth: 0, flex: 1 }}>
                     <span style={{ display: "block", fontSize: 13, fontWeight: 600 }}>{c.nome}</span>
-                    <span style={{ display: "block", fontSize: 12, color: "var(--faint)" }}>Próximo: {s.acao}</span>
+                    <span style={{ display: "block", fontSize: 12, color: "var(--faint)" }}>Próximo: {nt ? nt.label : "jornada concluída"}</span>
                   </span>
                   <ArrowRight size={15} style={{ color: "var(--dim)" }} aria-hidden="true" />
                 </button>
@@ -423,11 +445,13 @@ function Portfolio({ companies, totalColab, evolMedia, alertas, onOpen, onNova, 
 }
 
 function Empresa({ c, onBack, onAddColab, onAdvance, loading = false }) {
-  const current = Math.min(5, Math.max(1, c.etapa || 1));
-  const [sel, setSel] = useState(current);
-  useEffect(() => { setSel(current); }, [current, c.id]);
-  const stage = STAGES[sel - 1];
-  const stageView = sel < current ? "done" : sel === current ? "current" : "locked";
+  const passo = Math.min(REQ.length, Math.max(0, c.passo || 0));
+  const journeyDone = passo >= REQ.length;
+  const curStage = stageNumOf(passo);
+  const stepperCurrent = journeyDone ? 6 : curStage;
+  const [sel, setSel] = useState(curStage);
+  useEffect(() => { setSel(curStage); }, [curStage, c.id]);
+  const status = stageStatus(sel, passo);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
@@ -445,16 +469,19 @@ function Empresa({ c, onBack, onAddColab, onAdvance, loading = false }) {
 
       {loading ? <EmpresaSkeleton /> : (
         <>
-          <JourneyStepper current={current} sel={sel} onSelect={setSel} />
+          <Meter value={passo / REQ.length * 100}
+            label={journeyDone ? "Jornada concluída" : `Etapa ${curStage} de 5 · ${STAGES[curStage - 1].titulo}`}
+            format={() => journeyDone ? "100%" : `passo ${passo + 1} de ${REQ.length}`} />
+          <JourneyStepper current={stepperCurrent} sel={sel} onSelect={setSel} />
 
-          {stageView === "locked" ? (
+          {status === "locked" ? (
             <Card>
               <EmptyState icon={Lock} title="Ainda não disponível"
-                description={`Conclua a etapa ${current} — “${STAGES[current - 1].titulo}” — para liberar “${stage.titulo}”.`}
-                action={<Button variant="primary" icon={ArrowRight} onClick={() => setSel(current)}>Ir para o passo atual</Button>} />
+                description={`Conclua a etapa ${curStage} para liberar “${STAGES[sel - 1].titulo}”.`}
+                action={<Button variant="primary" icon={ArrowRight} onClick={() => setSel(curStage)}>Ir para o passo atual</Button>} />
             </Card>
           ) : (
-            <StageScreen c={c} stage={stage} done={stageView === "done"}
+            <StageScreen c={c} stageN={sel} passo={passo} journeyDone={journeyDone}
               onAddColab={onAddColab} onAdvance={() => onAdvance(c.id)} />
           )}
 
@@ -490,40 +517,113 @@ function JourneyStepper({ current, sel, onSelect }) {
 }
 
 // Tela de UMA etapa: o próximo passo em destaque + só o que importa agora.
-function StageScreen({ c, stage, done, onAddColab, onAdvance }) {
-  const noPeople = c.pessoas.length === 0;
-  let headline = stage.acao, sub = stage.resumo, cta;
-  if (stage.key === "configurar") {
-    if (noPeople) {
-      headline = "Cadastre o primeiro colaborador";
-      sub = "Adicione as pessoas que vão participar do desenvolvimento.";
-      cta = <Button variant="primary" icon={UserPlus} onClick={onAddColab}>Cadastrar colaborador</Button>;
-    } else {
-      headline = "Avançar para o diagnóstico";
-      sub = `${c.pessoas.length} pessoa${c.pessoas.length === 1 ? "" : "s"} na equipe. Quando o time estiver completo, siga em frente.`;
-      cta = (<>
-        <Button variant="primary" icon={ArrowRight} onClick={onAdvance}>Avançar para o diagnóstico</Button>
-        <Button variant="ghost" icon={Plus} onClick={onAddColab}>Adicionar mais</Button>
-      </>);
-    }
-  } else if (stage.key === "resultados") {
-    cta = <Button variant="primary" icon={FileText} onClick={onAdvance}>Gerar os relatórios</Button>;
-  } else {
-    cta = <Button variant="primary" icon={ArrowRight} onClick={onAdvance}>{stage.acao}</Button>;
+function StageScreen({ c, stageN, passo, journeyDone, onAddColab, onAdvance }) {
+  const status = stageStatus(stageN, passo);
+  const task = REQ[passo];
+  const isCurrent = status === "current" && !journeyDone;
+
+  let hero = null;
+  if (journeyDone && stageN === 5) {
+    hero = <DoneHero />;
+  } else if (isCurrent && task) {
+    const noPeople = task.key === "equipe" && c.pessoas.length === 0;
+    const ctaLabel = task.quem === "ia" ? "Gerar com a IA" : task.quem === "equipe" ? "Confirmar e avançar" : "Concluir e avançar";
+    const cta = noPeople
+      ? <Button variant="primary" icon={UserPlus} onClick={onAddColab}>Cadastrar colaborador</Button>
+      : <Button variant="primary" icon={ArrowRight} onClick={onAdvance}>{ctaLabel}</Button>;
+    const extra = task.key === "equipe" && !noPeople
+      ? <Button variant="ghost" icon={Plus} onClick={onAddColab}>Adicionar mais</Button> : null;
+    hero = <NextStep task={task} cta={cta} extra={extra} />;
+  } else if (status === "done") {
+    hero = <DoneBanner stage={STAGES[stageN - 1]} />;
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      {done
-        ? <DoneBanner stage={stage} />
-        : <NextStep icon={stage.icon} headline={headline} sub={sub} porque={stage.porque} tempo={stage.tempo} cta={cta} />}
-      <StageBody c={c} stage={stage} onAddColab={onAddColab} />
+      {hero}
+      <StageChecklist stageN={stageN} passo={passo} />
+      <StageDetail c={c} stageN={stageN} onAddColab={onAddColab} />
     </div>
   );
 }
 
+// Celebração quando todos os passos foram concluídos.
+function DoneHero() {
+  return (
+    <Card style={{ borderColor: "color-mix(in srgb,#2ECC71 40%,var(--line))",
+      background: "color-mix(in srgb,#2ECC71 9%,var(--card))", padding: 24 }}>
+      <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+        <div aria-hidden="true" style={{ width: 50, height: 50, borderRadius: 14, flexShrink: 0,
+          background: "#2ECC71", color: "#06231a", display: "grid", placeItems: "center" }}><Award size={26} /></div>
+        <div>
+          <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 4px" }}>Jornada concluída 🎉</h2>
+          <p style={{ fontSize: 14, color: "var(--dim)", margin: 0 }}>Todos os passos foram concluídos. Os relatórios estão prontos para apresentar ao cliente.</p>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// Checklist da etapa: mostra TODOS os passos dela, com status e quem faz cada um.
+function StageChecklist({ stageN, passo }) {
+  const tasks = TASKS.filter((t) => t.stage === stageN);
+  const dotStyle = (bg, col, border) => ({ width: 26, height: 26, borderRadius: 999, flexShrink: 0,
+    display: "grid", placeItems: "center", background: bg, color: col, border: border || "none" });
+  return (
+    <Card pad={false} style={{ padding: "6px 20px 12px" }}>
+      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--faint)", padding: "12px 0 4px" }}>Passos desta etapa</div>
+      <ol style={{ listStyle: "none", margin: 0, padding: 0 }}>
+        {tasks.map((t) => {
+          const gi = t.opcional ? -1 : REQ.indexOf(t);
+          const state = t.opcional ? "opcional" : gi < passo ? "done" : gi === passo ? "current" : "todo";
+          const q = QUEM[t.quem];
+          const bullet = state === "done"
+            ? <span style={dotStyle("#2ECC71", "#06231a")}><Check size={15} aria-hidden="true" /></span>
+            : state === "current"
+              ? <span style={dotStyle("var(--accent)", "var(--bg0)")}><ArrowRight size={15} aria-hidden="true" /></span>
+              : <span style={dotStyle("rgba(255,255,255,0.04)", "var(--faint)", "1.5px solid var(--line)")}><Circle size={9} aria-hidden="true" /></span>;
+          return (
+            <li key={t.key} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "11px 0", borderTop: "1px solid var(--line)" }}>
+              {bullet}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontWeight: state === "current" ? 700 : 600, fontSize: 14, color: state === "todo" || state === "opcional" ? "var(--dim)" : "var(--ink)" }}>{t.label}</span>
+                  {state === "current" && <Badge tone="accent">agora</Badge>}
+                  {t.opcional && <Badge tone="neutral">opcional</Badge>}
+                </div>
+                <div style={{ fontSize: 12.5, color: "var(--faint)", marginTop: 2 }}>{t.detalhe}</div>
+              </div>
+              <span style={{ flexShrink: 0 }}><Badge tone={q.tone}>{q.label}</Badge></span>
+            </li>
+          );
+        })}
+      </ol>
+    </Card>
+  );
+}
+
+// Detalhe avançado por etapa — progressive disclosure, fora do caminho principal.
+function StageDetail({ c, stageN, onAddColab }) {
+  if (stageN === 1) return (
+    <Detalhes label="Ver equipe e cargos em detalhe">
+      <ColaboradoresTable c={c} onAddColab={onAddColab} /><div style={{ height: 16 }} /><TabCargos c={c} />
+    </Detalhes>
+  );
+  if (stageN === 2) return <Detalhes label="Ver o diagnóstico em detalhe"><TabDiagnostico c={c} /></Detalhes>;
+  if (stageN === 3) return (
+    <Detalhes label="Ver avaliação, conteúdo e trilha">
+      <TabAvaliacao c={c} /><div style={{ height: 16 }} /><TabConteudo c={c} /><div style={{ height: 16 }} /><TabTrilha c={c} />
+    </Detalhes>
+  );
+  if (stageN === 4) return <Detalhes label="Ver acompanhamento detalhado"><TabJornada c={c} /></Detalhes>;
+  return <Detalhes label="Ver e gerar os relatórios"><RelatoriosGrid /></Detalhes>;
+}
+
 // Hero "PRÓXIMO PASSO" — o elemento mais visível e óbvio da tela.
-function NextStep({ icon: Icon, headline, sub, porque, tempo, cta }) {
+// Hero "PRÓXIMO PASSO" — o passo atual da jornada, em destaque máximo.
+function NextStep({ task, cta, extra }) {
+  const Icon = STAGES[task.stage - 1].icon;
+  const q = QUEM[task.quem];
   return (
     <Card style={{ borderColor: "color-mix(in srgb,var(--accent) 45%,var(--line))",
       background: "linear-gradient(180deg, color-mix(in srgb,var(--accent) 10%,var(--card)), var(--card))", padding: 26 }}>
@@ -534,12 +634,12 @@ function NextStep({ icon: Icon, headline, sub, porque, tempo, cta }) {
         </div>
         <div style={{ flex: 1, minWidth: 220 }}>
           <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--accent)" }}>Próximo passo</div>
-          <h2 style={{ fontSize: 22, fontWeight: 800, margin: "4px 0 6px" }}>{headline}</h2>
-          <p style={{ fontSize: 14, color: "var(--dim)", margin: 0, lineHeight: 1.5 }}>{sub}</p>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 18 }}>{cta}</div>
-          <div style={{ fontSize: 12, color: "var(--faint)", marginTop: 12, display: "flex", gap: 14, flexWrap: "wrap" }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 5 }}><Clock size={12} aria-hidden="true" /> {tempo}</span>
-            <span>Por que: {porque}</span>
+          <h2 style={{ fontSize: 22, fontWeight: 800, margin: "4px 0 6px" }}>{task.label}</h2>
+          <p style={{ fontSize: 14, color: "var(--dim)", margin: 0, lineHeight: 1.5 }}>{task.detalhe}</p>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 18 }}>{cta}{extra}</div>
+          <div style={{ fontSize: 12, color: "var(--faint)", marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <Badge tone={q.tone}>{q.label}</Badge>
+            {task.tempo && <span style={{ display: "flex", alignItems: "center", gap: 5 }}><Clock size={12} aria-hidden="true" /> {task.tempo}</span>}
           </div>
         </div>
       </div>
@@ -560,78 +660,6 @@ function DoneBanner({ stage }) {
       </div>
     </Card>
   );
-}
-
-// Só o que importa AGORA por etapa; o avançado fica num disclosure ("Ver detalhes").
-function StageBody({ c, stage, onAddColab }) {
-  if (stage.key === "configurar") {
-    return (
-      <>
-        <Card>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>{c.pessoas.length} colaborador{c.pessoas.length === 1 ? "" : "es"} na equipe</div>
-            <Button variant="ghost" size="sm" icon={Plus} onClick={onAddColab}>Adicionar</Button>
-          </div>
-          {c.pessoas.length === 0
-            ? <div style={{ fontSize: 13, color: "var(--faint)" }}>Comece adicionando as pessoas que vão participar.</div>
-            : <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-                {Object.keys(DISC).map((k) => {
-                  const n = c.pessoas.filter((p) => p[2] === k).length;
-                  return <Badge key={k} tone={DISC[k]}>{k} · {n}</Badge>;
-                })}
-              </div>}
-        </Card>
-        <Detalhes label="Ver equipe e cargos em detalhe">
-          <ColaboradoresTable c={c} onAddColab={onAddColab} />
-          <div style={{ height: 16 }} />
-          <TabCargos c={c} />
-        </Detalhes>
-      </>
-    );
-  }
-  if (stage.key === "diagnosticar") {
-    const resp = c.pessoas.filter((p) => p[4] !== "estagnacao").length;
-    const pend = c.pessoas.filter((p) => p[4] === "estagnacao");
-    return (
-      <>
-        <Card>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12 }}>Respostas da equipe</div>
-          <Meter label={`${resp} de ${c.pessoas.length} responderam`} value={c.pessoas.length ? resp / c.pessoas.length * 100 : 0} showValue={false} />
-          {pend.length > 0 && <div style={{ fontSize: 12.5, color: "var(--faint)", marginTop: 4 }}>Faltam responder: {pend.map((p) => p[0]).join(", ")}</div>}
-        </Card>
-        <Detalhes label="Ver o diagnóstico em detalhe"><TabDiagnostico c={c} /></Detalhes>
-      </>
-    );
-  }
-  if (stage.key === "planejar") {
-    return (
-      <>
-        <Card>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Foco de desenvolvimento</div>
-          <div style={{ fontSize: 13, color: "var(--dim)", marginBottom: 12 }}>A trilha vai trabalhar as competências com maior lacuna em cada cargo.</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {c.comp.slice(0, 3).map(([n]) => <Badge key={n} tone="accent" icon={Target}>{n}</Badge>)}
-          </div>
-        </Card>
-        <Detalhes label="Ver avaliação, conteúdo e trilha">
-          <TabAvaliacao c={c} /><div style={{ height: 16 }} /><TabConteudo c={c} /><div style={{ height: 16 }} /><TabTrilha c={c} />
-        </Detalhes>
-      </>
-    );
-  }
-  if (stage.key === "desenvolver") {
-    const semana = Math.max(1, Math.round(14 * c.evolucao / 100));
-    return (
-      <>
-        <Card>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12 }}>A turma está na semana ~{semana} de 14</div>
-          <Meter label="Progresso da jornada" value={semana / 14 * 100} tone={STATUS_TONE[c.status]} />
-        </Card>
-        <Detalhes label="Ver acompanhamento detalhado"><TabJornada c={c} /></Detalhes>
-      </>
-    );
-  }
-  return <RelatoriosGrid />; // resultados
 }
 
 // Disclosure acessível (native <details>) — esconde o avançado sem precisar treinar.
@@ -1327,7 +1355,7 @@ function NovaEmpresaModal({ onClose, onSave }) {
   const [f, setF] = useState({ nome: "", setor: "Educação · K-12" });
   const save = () => f.nome.trim() && onSave({
     id: "c" + Date.now(), nome: f.nome.trim(), setor: f.setor,
-    inicial: f.nome.trim()[0].toUpperCase(), evolucao: 0, status: "atencao", etapa: 1,
+    inicial: f.nome.trim()[0].toUpperCase(), evolucao: 0, status: "atencao", passo: 0,
     comp: [["Comunicação", 0], ["Liderança", 0], ["Planejamento", 0], ["Feedback", 0]],
     pessoas: [],
   });
