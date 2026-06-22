@@ -4,7 +4,9 @@ import React, { useState, useMemo } from "react";
 import {
   LayoutGrid, Building2, Users, FileText, Palette, CreditCard,
   Plus, Search, ChevronLeft, TrendingUp, AlertTriangle, Upload,
-  X, Check, ArrowUpRight, Bell, Globe, Sparkles, BarChart3, Shield
+  X, Check, ArrowUpRight, Bell, Globe, Sparkles, BarChart3, Shield,
+  Target, ClipboardList, Layers, Film, Mic, CalendarDays, Activity,
+  Route, GraduationCap, PlayCircle, Wand2, Clock, Headphones, Video
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ *
@@ -352,7 +354,8 @@ function Empresa({ c, tab, setTab, onBack, onAddColab }) {
       </div>
 
       <div style={{ display: "flex", gap: 22, borderBottom: "1px solid var(--line)" }}>
-        {[["visao", "Visão geral"], ["colaboradores", "Colaboradores"], ["relatorios", "Relatórios"]].map(([k, l]) => (
+        {[["visao", "Visão geral"], ["colaboradores", "Colaboradores"], ["diagnostico", "Diagnóstico"],
+          ["conteudo", "Conteúdo"], ["trilha", "Trilha"], ["relatorios", "Relatórios"], ["pulso", "Pulso"]].map(([k, l]) => (
           <div key={k} className={"tab" + (tab === k ? " on" : "")} onClick={() => setTab(k)}
             tabIndex={0} onKeyDown={(e) => e.key === "Enter" && setTab(k)}>{l}</div>
         ))}
@@ -435,8 +438,10 @@ function Empresa({ c, tab, setTab, onBack, onAddColab }) {
             ["Relatório de RH", "Leitura organizacional consolidada, orientada a decisão.", true],
             ["Dossiê do Gestor", "Contexto pronto da equipe por gestor.", true],
             ["Plenária da empresa", "Documento do time inteiro, pronto pro board.", true],
-            ["Pulso de clima", "Pesquisa T0/T2 + sinais + complementar NR-1.", false],
             ["Evolution Report", "Comparativo pré→pós por descritor.", true],
+            ["DNA · Retrato de Competências", "Mapa coletivo de competências por nível.", true],
+            ["DNA · Perfil Organizacional DISC", "Radar/pizza dos perfis do time inteiro.", true],
+            ["Pulso de clima", "Pesquisa T0/T2 + sinais + complementar NR-1.", false],
           ].map(([t, d, ready]) => (
             <div key={t} className="card" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
               <FileText size={18} style={{ color: "var(--accent)" }} />
@@ -451,6 +456,168 @@ function Empresa({ c, tab, setTab, onBack, onAddColab }) {
           ))}
         </div>
       )}
+
+      {tab === "diagnostico" && <TabDiagnostico c={c} />}
+      {tab === "conteudo" && <TabConteudo c={c} />}
+      {tab === "trilha" && <TabTrilha c={c} />}
+      {tab === "pulso" && <TabPulso c={c} />}
+    </div>
+  );
+}
+
+// ── helpers de UI das abas do analista ────────────────────────────────────
+function TabHead({ title, sub, children }) {
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+      <div>
+        <div style={{ fontWeight: 800, fontSize: 18 }}>{title}</div>
+        {sub && <div style={{ fontSize: 12.5, color: "var(--faint)", marginTop: 2 }}>{sub}</div>}
+      </div>
+      <div style={{ display: "flex", gap: 10 }}>{children}</div>
+    </div>
+  );
+}
+function SmallBar({ label, val, max = 4, color = "var(--accent)" }) {
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5 }}>
+        <span>{label}</span><span style={{ color, fontWeight: 700 }}>{typeof val === "number" ? (max === 4 ? val.toFixed(1) : val + "%") : val}</span>
+      </div>
+      <div className="bar"><div style={{ width: (max === 4 ? (val / 4 * 100) : val) + "%", height: "100%", background: color }} /></div>
+    </div>
+  );
+}
+const FMT = { Texto: FileText, PDF: FileText, Podcast: Headphones, Vídeo: Video, Cases: Layers, Roteiro: ClipboardList };
+
+// DIAGNÓSTICO — cenários por cargo×competência + status + mapa de competências (descritores)
+function TabDiagnostico({ c }) {
+  const respondido = c.pessoas.filter((p) => p[4] !== "estagnacao").length;
+  const cenarios = c.comp.flatMap(([comp]) => [
+    [c.pessoas[0]?.[1] || "Gestão", comp, "gerado"],
+  ]).slice(0, 5);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <TabHead title="Diagnóstico de competências" sub="Cenários por cargo × competência, com DISC e nível por descritor.">
+        <button className="btn btn-ghost"><Wand2 size={15} /> Gerar cenários (IA)</button>
+        <button className="btn btn-primary"><Target size={16} /> Disparar diagnóstico</button>
+      </TabHead>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+        <div className="card" style={{ padding: 22 }}>
+          <div style={{ fontSize: 13, color: "var(--dim)", fontWeight: 600, marginBottom: 6 }}>Status do ciclo</div>
+          <div className="serif" style={{ fontSize: 40 }}>{respondido}/{c.pessoas.length}</div>
+          <div style={{ fontSize: 12, color: "var(--faint)", marginBottom: 12 }}>responderam · prazo D-7</div>
+          <div className="bar"><div style={{ width: (c.pessoas.length ? respondido / c.pessoas.length * 100 : 0) + "%", height: "100%", background: "var(--accent)" }} /></div>
+          <div style={{ marginTop: 18, fontSize: 13, color: "var(--dim)", fontWeight: 600, marginBottom: 10 }}>Cenários gerados</div>
+          {cenarios.map(([cargo, comp], i) => (
+            <div key={i} className="row" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 8px", borderRadius: 9 }}>
+              <ClipboardList size={15} style={{ color: "var(--accent)" }} />
+              <span style={{ flex: 1, fontSize: 13 }}>{cargo} <span style={{ color: "var(--faint)" }}>×</span> {comp}</span>
+              <span className="chip" style={{ background: "#2ECC7122", color: "#2ECC71" }}><Check size={12} /> gerado</span>
+            </div>
+          ))}
+        </div>
+        <div className="card" style={{ padding: 22 }}>
+          <div style={{ fontSize: 13, color: "var(--dim)", fontWeight: 600, marginBottom: 14 }}>Mapa de competências (nível médio por descritor)</div>
+          {c.comp.map(([nome, n]) => <SmallBar key={nome} label={nome} val={n} />)}
+          <div style={{ fontSize: 12, color: "var(--faint)", marginTop: 6 }}>Níveis 1–4 (Fundamentos → Maestria). Base pro Evolution Report pré→pós.</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// CONTEÚDO — módulos-base (currículo) + formatos. Consultor = analista full: cria/extrai.
+function TabConteudo({ c }) {
+  const modulos = c.comp.map(([comp], i) => ({
+    comp, trans: ["N1→N2", "N2→N3", "N1→N2", "N3→N4"][i % 4],
+    fmts: [["Texto", "PDF", "Podcast", "Vídeo"], ["Texto", "PDF"], ["Texto", "Vídeo", "Cases"], ["Texto", "PDF", "Roteiro"]][i % 4],
+    status: i === 0 ? "rascunho" : "publicado",
+  }));
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <TabHead title="Conteúdo & currículo" sub="Módulos-Base (matéria-prima canônica) → formatos personalizados por DISC + PPP.">
+        <button className="btn btn-ghost"><Upload size={15} /> Extrair de vídeo/material</button>
+        <button className="btn btn-primary"><Plus size={16} /> Novo módulo</button>
+      </TabHead>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(290px,1fr))", gap: 14 }}>
+        {modulos.map((m, i) => (
+          <div key={i} className="card" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <GraduationCap size={18} style={{ color: "var(--accent)" }} />
+              <span className="chip" style={{ background: m.status === "rascunho" ? "#F4B74022" : "#2ECC7122", color: m.status === "rascunho" ? "#F4B740" : "#2ECC71" }}>{m.status}</span>
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14.5 }}>{m.comp}</div>
+              <div style={{ fontSize: 12, color: "var(--faint)" }}>Transição {m.trans}</div>
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {m.fmts.map((f) => { const I = FMT[f] || FileText; return (
+                <span key={f} className="chip" style={{ background: "rgba(255,255,255,0.05)", color: "var(--dim)" }}><I size={12} /> {f}</span>
+              ); })}
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
+              <button className="btn btn-ghost" style={{ flex: 1, justifyContent: "center", fontSize: 13, padding: "8px 0" }}>Editar</button>
+              <button className="btn" style={{ flex: 1, justifyContent: "center", fontSize: 13, padding: "8px 0", background: "var(--accent)", color: "var(--bg0)" }}><Video size={14} /> Gerar vídeo</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// TRILHA / TEMPORADA — modo da engine + semanas geradas + disparo
+function TabTrilha({ c }) {
+  const semanas = Array.from({ length: 8 }, (_, i) => ({
+    n: i + 1, comp: c.comp[i % c.comp.length][0],
+    fmt: ["Vídeo + caso", "PDF + reflexão", "Podcast", "Cenário prático"][i % 4],
+    status: i < 3 ? "entregue" : i < 5 ? "agendada" : "rascunho",
+  }));
+  const sc = { entregue: "#2ECC71", agendada: "#5BA8F2", rascunho: "#F4B740" };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <TabHead title="Trilha da temporada" sub="Gerada pela engine a partir do diagnóstico + currículo. Personalizada por cargo, DISC e PPP.">
+        <button className="btn btn-ghost"><Route size={15} /> Modo: Regular DUO</button>
+        <button className="btn btn-primary"><Wand2 size={16} /> Gerar temporada</button>
+      </TabHead>
+      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+        {semanas.map((s) => (
+          <div key={s.n} className="row" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 20px", borderTop: s.n > 1 ? "1px solid var(--line)" : "none" }}>
+            <div style={{ width: 34, height: 34, borderRadius: 9, background: "color-mix(in srgb,var(--accent) 16%,transparent)", color: "var(--accent)", display: "grid", placeItems: "center", fontWeight: 800, fontSize: 14, flexShrink: 0 }}>{s.n}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>{s.comp}</div>
+              <div style={{ fontSize: 12, color: "var(--faint)" }}>{s.fmt}</div>
+            </div>
+            <span className="chip" style={{ background: sc[s.status] + "22", color: sc[s.status] }}>{s.status}</span>
+          </div>
+        ))}
+      </div>
+      <button className="btn btn-primary" style={{ alignSelf: "flex-start" }}><PlayCircle size={16} /> Disparar para os colaboradores</button>
+    </div>
+  );
+}
+
+// PULSO — clima T0/T2 + sinais agregados (min-N) + NR-1
+function TabPulso({ c }) {
+  const sinais = [["Carga de trabalho", 62], ["Reconhecimento", 74], ["Clareza de papéis", 81], ["Segurança psicológica", 69]];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <TabHead title="Pulso de clima" sub="Pesquisa T0/T2 + sinais agregados. Complementar à NR-1.">
+        <button className="btn btn-primary"><Activity size={16} /> Disparar pulso</button>
+      </TabHead>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+        <div className="card" style={{ padding: 22 }}>
+          <div style={{ fontSize: 13, color: "var(--dim)", fontWeight: 600, marginBottom: 14 }}>Taxa de resposta</div>
+          <SmallBar label="T0 (início)" val={88} max={100} color="#5BA8F2" />
+          <SmallBar label="T2 (pós-ciclo)" val={71} max={100} color="var(--accent)" />
+          <div style={{ marginTop: 8 }}><span className="chip" style={{ background: "#2ECC7122", color: "#2ECC71" }}><Shield size={12} /> Complementa a NR-1</span></div>
+        </div>
+        <div className="card" style={{ padding: 22 }}>
+          <div style={{ fontSize: 13, color: "var(--dim)", fontWeight: 600, marginBottom: 14 }}>Sinais agregados (mín. 7 respostas)</div>
+          {sinais.map(([l, v]) => <SmallBar key={l} label={l} val={v} max={100} color={v < 65 ? "#F4B740" : "var(--accent)"} />)}
+          <div style={{ fontSize: 12, color: "var(--faint)", marginTop: 6 }}>Nunca expõe resposta individual.</div>
+        </div>
+      </div>
     </div>
   );
 }
