@@ -9,11 +9,12 @@ import {
   Route, GraduationCap, PlayCircle, Wand2, Clock, Headphones, Video,
   Briefcase, BookOpen, ListChecks, Vote, Send, Star, Gauge, Award,
   MessageSquare, CheckCircle2, Flag, Brain, Inbox, SearchX, UserPlus,
+  Lock, ArrowRight, ChevronRight,
 } from "lucide-react";
 import {
   UIStyles, Button, IconButton, Card, Badge, Meter, KpiCard,
   Skeleton, SkeletonText, EmptyState, VisuallyHidden,
-  Tabs, TabList, Tab, TabPanel, Dialog, TextField, SelectField,
+  Dialog, TextField, SelectField,
 } from "./ui";
 
 /* ------------------------------------------------------------------ *
@@ -45,7 +46,7 @@ const PARTNERS = {
 const SEED = [
   {
     id: "c1", nome: "Colégio Horizonte", setor: "Educação · K-12", inicial: "H",
-    evolucao: 72, status: "saudavel",
+    evolucao: 72, status: "saudavel", etapa: 4,
     comp: [["Comunicação", 3.1], ["Gestão de sala", 2.8], ["Feedback", 2.4], ["Planejamento", 3.0]],
     pessoas: [
       ["Marina Alves", "Coordenadora Pedagógica", "I", 3.2, "confirmada"],
@@ -56,7 +57,7 @@ const SEED = [
   },
   {
     id: "c2", nome: "Rede Aprende+", setor: "Educação · Rede municipal", inicial: "R",
-    evolucao: 58, status: "atencao",
+    evolucao: 58, status: "atencao", etapa: 2,
     comp: [["Liderança", 2.5], ["Mediação", 2.2], ["Dados", 2.0], ["Acolhimento", 3.1]],
     pessoas: [
       ["Patrícia Gomes", "Gestora Escolar", "D", 2.7, "parcial"],
@@ -66,7 +67,7 @@ const SEED = [
   },
   {
     id: "c3", nome: "TechNova Software", setor: "Corporativo · Tecnologia", inicial: "T",
-    evolucao: 81, status: "saudavel",
+    evolucao: 81, status: "saudavel", etapa: 5,
     comp: [["Colaboração", 3.3], ["Autonomia", 3.0], ["Comunicação", 2.9], ["Liderança", 2.6]],
     pessoas: [
       ["Camila Rocha", "Tech Lead", "C", 3.1, "confirmada"],
@@ -76,7 +77,7 @@ const SEED = [
   },
   {
     id: "c4", nome: "Indústria Forte", setor: "Corporativo · Manufatura", inicial: "F",
-    evolucao: 44, status: "critico",
+    evolucao: 44, status: "critico", etapa: 1,
     comp: [["Segurança", 2.1], ["Liderança", 1.9], ["Comunicação", 2.0], ["Processos", 2.4]],
     pessoas: [
       ["João Batista", "Supervisor", "D", 2.0, "estagnacao"],
@@ -99,13 +100,37 @@ const DISC = { D: "#EC6A5C", I: "#F4B740", S: "#34D399", C: "#5BA8F2" };
 const STATUS_TONE = { saudavel: "success", atencao: "warning", critico: "danger" };
 const EVOL_TONE = { confirmada: "success", parcial: "warning", estagnacao: "danger" };
 
+// A jornada do cliente em 5 etapas simples (mapeiam as fases do produto, sem jargão).
+const STAGES = [
+  { n: 1, key: "configurar", titulo: "Montar a equipe", icon: Users,
+    resumo: "Cadastre as pessoas e os cargos que vão participar.",
+    porque: "Tudo começa sabendo quem participa e em qual cargo.",
+    acao: "Cadastrar colaboradores", tempo: "~5 min" },
+  { n: 2, key: "diagnosticar", titulo: "Descobrir o que desenvolver", icon: Target,
+    resumo: "A IA monta o diagnóstico e a equipe responde. Você só dispara e acompanha.",
+    porque: "Mede o ponto de partida de cada competência.",
+    acao: "Disparar o diagnóstico", tempo: "~2 min" },
+  { n: 3, key: "planejar", titulo: "Montar a trilha", icon: Route,
+    resumo: "Com o diagnóstico pronto, gere a trilha de desenvolvimento personalizada.",
+    porque: "Define o que cada pessoa vai desenvolver — e como.",
+    acao: "Gerar a trilha", tempo: "~3 min" },
+  { n: 4, key: "desenvolver", titulo: "Acompanhar a jornada", icon: GraduationCap,
+    resumo: "A equipe percorre as semanas de desenvolvimento. Você acompanha o engajamento.",
+    porque: "Garante que as pessoas estão evoluindo de verdade.",
+    acao: "Acompanhar a turma", tempo: "contínuo" },
+  { n: 5, key: "resultados", titulo: "Mostrar resultados", icon: BarChart3,
+    resumo: "Gere os relatórios de evolução para apresentar ao cliente.",
+    porque: "Comprova o valor entregue para o cliente.",
+    acao: "Gerar os relatórios", tempo: "~1 min" },
+];
+const stageOf = (c) => STAGES[Math.min(5, Math.max(1, c.etapa || 1)) - 1];
+
 export default function App() {
   const [pkey, setPkey] = useState("aurora");
   const partner = PARTNERS[pkey];
   const [view, setView] = useState("portfolio");
   const [companies, setCompanies] = useState(SEED);
   const [selId, setSelId] = useState(null);
-  const [tab, setTab] = useState("visao");
   const [addColab, setAddColab] = useState(false);
   const [novaEmp, setNovaEmp] = useState(false);
   const [query, setQuery] = useState("");
@@ -142,7 +167,10 @@ export default function App() {
     ["conta", "Conta & Uso", CreditCard],
   ];
 
-  function openCompany(id) { setSelId(id); setTab("visao"); setView("empresa"); }
+  function openCompany(id) { setSelId(id); setView("empresa"); }
+  function advanceCompany(id) {
+    setCompanies((cs) => cs.map((c) => c.id === id ? { ...c, etapa: Math.min(5, (c.etapa || 1) + 1) } : c));
+  }
 
   return (
     <div className="ds-root ds-shell" style={{ ...theme, background:
@@ -240,8 +268,8 @@ export default function App() {
               alertas={alertas} onOpen={openCompany} onNova={() => setNovaEmp(true)} partner={partner} query={query} />
           )}
           {view === "empresa" && sel && (
-            <Empresa c={sel} tab={tab} setTab={setTab} onBack={() => setView("portfolio")}
-              onAddColab={() => setAddColab(true)} loading={loading} />
+            <Empresa c={sel} onBack={() => setView("portfolio")} onAddColab={() => setAddColab(true)}
+              onAdvance={advanceCompany} loading={loading} />
           )}
           {view === "relatorios" && <RelatoriosPortfolio companies={companies} evolMedia={evolMedia} />}
           {view === "marca" && <Marca draft={draft} setDraft={setDraft} partner={partner} />}
@@ -326,10 +354,11 @@ function Portfolio({ companies, totalColab, evolMedia, alertas, onOpen, onNova, 
               <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(250px,1fr))", gap: 14 }}>
                 {filtered.map((c) => {
                   const st = STATUS[c.status];
+                  const s = stageOf(c);
                   return (
                     <li key={c.id}>
                       <button type="button" className="card co-card" onClick={() => onOpen(c.id)}
-                        aria-label={`Abrir ${c.nome} — ${st.label}, evolução ${c.evolucao}%, ${c.pessoas.length} colaboradores`}
+                        aria-label={`Abrir ${c.nome} — etapa ${s.n} de 5, próximo passo: ${s.acao}`}
                         style={{ width: "100%", textAlign: "left", padding: 18, cursor: "pointer", border: "1px solid var(--line)",
                           background: "var(--card)", color: "var(--ink)", font: "inherit", display: "block" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -340,8 +369,14 @@ function Portfolio({ companies, totalColab, evolMedia, alertas, onOpen, onNova, 
                             <div style={{ fontSize: 12, color: "var(--faint)" }}>{c.setor}</div>
                           </div>
                         </div>
-                        <div style={{ marginTop: 14 }}>
-                          <Meter label="Evolução" value={c.evolucao} tone={STATUS_TONE[c.status]} />
+                        <div style={{ marginTop: 14, padding: "10px 12px", borderRadius: 10, background: "color-mix(in srgb,var(--accent) 9%,transparent)" }}>
+                          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--accent)" }}>Próximo passo</div>
+                          <div style={{ fontSize: 13.5, fontWeight: 600, marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
+                            <s.icon size={14} aria-hidden="true" style={{ color: "var(--accent)", flexShrink: 0 }} /> {s.acao}
+                          </div>
+                        </div>
+                        <div style={{ marginTop: 12 }}>
+                          <Meter label={`Etapa ${s.n} de 5`} value={s.n / 5 * 100} showValue={false} tone={STATUS_TONE[c.status]} />
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
                           <Badge tone={STATUS_TONE[c.status]} dot>{st.label}</Badge>
@@ -359,24 +394,27 @@ function Portfolio({ companies, totalColab, evolMedia, alertas, onOpen, onNova, 
 
           <Card as="section" aria-label="Empresas que precisam de atenção" pad={false} style={{ padding: 18 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
-              <Bell size={15} style={{ color: "var(--accent)" }} aria-hidden="true" /> Precisam de você
+              <Bell size={15} style={{ color: "var(--accent)" }} aria-hidden="true" /> Onde focar agora
             </div>
-            <div style={{ fontSize: 12, color: "var(--faint)", marginBottom: 12 }}>Sinais agregados — nunca expõem pessoa individual.</div>
+            <div style={{ fontSize: 12, color: "var(--faint)", marginBottom: 12 }}>As empresas que mais precisam de você — e o que fazer em cada uma.</div>
             {alertas.length === 0 ? (
               <EmptyState icon={CheckCircle2} compact title="Tudo sob controle" description="Nenhuma empresa em atenção agora." />
-            ) : alertas.map((c) => (
-              <button key={c.id} type="button" onClick={() => onOpen(c.id)} className="row"
-                aria-label={`Abrir ${c.nome} — evolução ${c.evolucao}%, ${STATUS[c.status].label}`}
-                style={{ width: "100%", textAlign: "left", cursor: "pointer", padding: "11px 10px", borderRadius: 10,
-                  display: "flex", gap: 10, alignItems: "center", border: "none", background: "transparent", color: "inherit", font: "inherit" }}>
-                <AlertTriangle size={16} style={{ color: STATUS[c.status].color, flexShrink: 0 }} aria-hidden="true" />
-                <span style={{ minWidth: 0, flex: 1 }}>
-                  <span style={{ display: "block", fontSize: 13, fontWeight: 600 }}>{c.nome}</span>
-                  <span style={{ display: "block", fontSize: 12, color: "var(--faint)" }}>Evolução em {c.evolucao}% · {STATUS[c.status].label}</span>
-                </span>
-                <ArrowUpRight size={15} style={{ color: "var(--dim)" }} aria-hidden="true" />
-              </button>
-            ))}
+            ) : alertas.map((c) => {
+              const s = stageOf(c);
+              return (
+                <button key={c.id} type="button" onClick={() => onOpen(c.id)} className="row"
+                  aria-label={`Abrir ${c.nome} — próximo passo: ${s.acao}`}
+                  style={{ width: "100%", textAlign: "left", cursor: "pointer", padding: "11px 10px", borderRadius: 10,
+                    display: "flex", gap: 10, alignItems: "center", border: "none", background: "transparent", color: "inherit", font: "inherit" }}>
+                  <AlertTriangle size={16} style={{ color: STATUS[c.status].color, flexShrink: 0 }} aria-hidden="true" />
+                  <span style={{ minWidth: 0, flex: 1 }}>
+                    <span style={{ display: "block", fontSize: 13, fontWeight: 600 }}>{c.nome}</span>
+                    <span style={{ display: "block", fontSize: 12, color: "var(--faint)" }}>Próximo: {s.acao}</span>
+                  </span>
+                  <ArrowRight size={15} style={{ color: "var(--dim)" }} aria-hidden="true" />
+                </button>
+              );
+            })}
           </Card>
         </div>
       )}
@@ -384,10 +422,17 @@ function Portfolio({ companies, totalColab, evolMedia, alertas, onOpen, onNova, 
   );
 }
 
-function Empresa({ c, tab, setTab, onBack, onAddColab, loading = false }) {
+function Empresa({ c, onBack, onAddColab, onAdvance, loading = false }) {
+  const current = Math.min(5, Math.max(1, c.etapa || 1));
+  const [sel, setSel] = useState(current);
+  useEffect(() => { setSel(current); }, [current, c.id]);
+  const stage = STAGES[sel - 1];
+  const stageView = sel < current ? "done" : sel === current ? "current" : "locked";
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
       <Button variant="ghost" icon={ChevronLeft} onClick={onBack} style={{ alignSelf: "flex-start" }}>Portfólio</Button>
+
       <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
         <div aria-hidden="true" style={{ width: 54, height: 54, borderRadius: 14, background: "color-mix(in srgb,var(--accent) 18%,transparent)",
           color: "var(--accent)", display: "grid", placeItems: "center", fontWeight: 800, fontSize: 24 }}>{c.inicial}</div>
@@ -398,130 +443,271 @@ function Empresa({ c, tab, setTab, onBack, onAddColab, loading = false }) {
         <span style={{ marginLeft: "auto" }}><Badge tone={STATUS_TONE[c.status]} dot>{STATUS[c.status].label}</Badge></span>
       </div>
 
-      <Tabs value={tab} onValueChange={setTab} label={`Seções de ${c.nome}`}>
-        <TabList>
-          {[
-            ["visao", "Visão geral", ""],
-            ["colaboradores", "Colaboradores", "F0"],
-            ["cargos", "Cargos & Comp.", "F0"],
-            ["diagnostico", "Diagnóstico", "F1"],
-            ["avaliacao", "Avaliação & PDI", "F2"],
-            ["conteudo", "Conteúdo", "F3"],
-            ["trilha", "Trilha", "F3"],
-            ["jornada", "Jornada", "F4"],
-            ["relatorios", "Relatórios", "F5"],
-            ["pulso", "Pulso", "•"],
-          ].map(([k, l, fase]) => (
-            <Tab key={k} value={k} badge={fase || undefined}>{l}</Tab>
-          ))}
-        </TabList>
-        <TabPanel value={tab}>
-          {loading ? <EmpresaSkeleton /> : (<>
+      {loading ? <EmpresaSkeleton /> : (
+        <>
+          <JourneyStepper current={current} sel={sel} onSelect={setSel} />
 
-      {tab === "visao" && (
-        <div className="ds-grid-2">
-          <div className="card" style={{ padding: 22 }}>
-            <div style={{ fontSize: 13, color: "var(--dim)", marginBottom: 14, fontWeight: 600 }}>Competências do time</div>
-            {c.comp.map(([nome, n]) => (
-              <Meter key={nome} label={nome} value={n} max={4} format={(v) => `${v.toFixed(1)} / 4`} />
-            ))}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div className="card" style={{ padding: 22 }}>
-              <div style={{ fontSize: 13, color: "var(--dim)", fontWeight: 600 }}>Evolução do ciclo</div>
-              <div className="serif" style={{ fontSize: 46 }}>{c.evolucao}%</div>
-              <div style={{ fontSize: 12, color: "var(--faint)" }}>colaboradores com evolução confirmada ou parcial</div>
-            </div>
-            <div className="card" style={{ padding: 22 }}>
-              <div style={{ fontSize: 13, color: "var(--dim)", fontWeight: 600, marginBottom: 10 }}>Perfis comportamentais (DISC)</div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {Object.entries(DISC).map(([k, col]) => {
-                  const n = c.pessoas.filter((p) => p[2] === k).length;
-                  return <Badge key={k} tone={col}>{k} · {n}</Badge>;
-                })}
-              </div>
-              <div style={{ fontSize: 12, color: "var(--faint)", marginTop: 12 }}>DISC é hipótese contextual — apoia decisão, não rotula a pessoa.</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {tab === "colaboradores" && (
-        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "16px 20px", borderBottom: "1px solid var(--line)" }}>
-            <div style={{ fontWeight: 700, fontSize: 14 }}>{c.pessoas.length} colaborador{c.pessoas.length === 1 ? "" : "es"}</div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <Button variant="ghost" icon={Upload}>Importar CSV</Button>
-              <Button variant="primary" icon={Plus} onClick={onAddColab}>Adicionar</Button>
-            </div>
-          </div>
-          {c.pessoas.length === 0 ? (
-            <EmptyState icon={UserPlus} title="Nenhum colaborador ainda"
-              description="Adicione manualmente ou importe uma planilha para iniciar o diagnóstico."
-              action={<Button variant="primary" icon={Plus} onClick={onAddColab}>Adicionar colaborador</Button>} />
+          {stageView === "locked" ? (
+            <Card>
+              <EmptyState icon={Lock} title="Ainda não disponível"
+                description={`Conclua a etapa ${current} — “${STAGES[current - 1].titulo}” — para liberar “${stage.titulo}”.`}
+                action={<Button variant="primary" icon={ArrowRight} onClick={() => setSel(current)}>Ir para o passo atual</Button>} />
+            </Card>
           ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, minWidth: 520 }}>
-                <caption className="ds-sr-only">Colaboradores de {c.nome}: cargo, perfil DISC, nível médio e status de evolução</caption>
-                <thead>
-                  <tr style={{ color: "var(--faint)", fontSize: 12, textAlign: "left" }}>
-                    {["Nome", "Cargo", "Perfil", "Nível médio", "Evolução"].map((h) => (
-                      <th key={h} scope="col" style={{ padding: "12px 20px", fontWeight: 600 }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {c.pessoas.map((p, i) => (
-                    <tr key={i} className="row" style={{ borderTop: "1px solid var(--line)" }}>
-                      <th scope="row" style={{ padding: "13px 20px", fontWeight: 600, textAlign: "left" }}>{p[0]}</th>
-                      <td style={{ padding: "13px 20px", color: "var(--dim)" }}>{p[1]}</td>
-                      <td style={{ padding: "13px 20px" }}><Badge tone={DISC[p[2]]}>{p[2]}</Badge></td>
-                      <td style={{ padding: "13px 20px", fontWeight: 600 }}>{p[3].toFixed(1)} <span style={{ color: "var(--faint)", fontWeight: 400 }}>/ 4</span></td>
-                      <td style={{ padding: "13px 20px" }}><Badge tone={EVOL_TONE[p[4]]} dot>{EVOL[p[4]].label}</Badge></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <StageScreen c={c} stage={stage} done={stageView === "done"}
+              onAddColab={onAddColab} onAdvance={() => onAdvance(c.id)} />
           )}
+
+          <Detalhes label="Pesquisa de clima (opcional)" icon={Activity}>
+            <TabPulso c={c} />
+          </Detalhes>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Trilho das 5 etapas — sempre mostra ONDE o consultor está e o que vem depois.
+function JourneyStepper({ current, sel, onSelect }) {
+  return (
+    <nav aria-label="Etapas da jornada do cliente" className="ds-stepper">
+      {STAGES.map((s) => {
+        const state = s.n < current ? "done" : s.n === current ? "current" : "locked";
+        const locked = state === "locked";
+        return (
+          <button key={s.key} type="button" className={"ds-step" + (s.n === sel ? " on" : "")}
+            disabled={locked} aria-current={s.n === current ? "step" : undefined} onClick={() => onSelect(s.n)}
+            aria-label={`Etapa ${s.n} de 5: ${s.titulo}` + (state === "done" ? " (concluída)" : state === "current" ? " (você está aqui)" : " (bloqueada)")}>
+            <span className={"ds-step__dot ds-step__dot--" + state} aria-hidden="true">
+              {state === "done" ? <Check size={16} /> : locked ? <Lock size={13} /> : s.n}
+            </span>
+            <span className="ds-step__label">{s.titulo}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+// Tela de UMA etapa: o próximo passo em destaque + só o que importa agora.
+function StageScreen({ c, stage, done, onAddColab, onAdvance }) {
+  const noPeople = c.pessoas.length === 0;
+  let headline = stage.acao, sub = stage.resumo, cta;
+  if (stage.key === "configurar") {
+    if (noPeople) {
+      headline = "Cadastre o primeiro colaborador";
+      sub = "Adicione as pessoas que vão participar do desenvolvimento.";
+      cta = <Button variant="primary" icon={UserPlus} onClick={onAddColab}>Cadastrar colaborador</Button>;
+    } else {
+      headline = "Avançar para o diagnóstico";
+      sub = `${c.pessoas.length} pessoa${c.pessoas.length === 1 ? "" : "s"} na equipe. Quando o time estiver completo, siga em frente.`;
+      cta = (<>
+        <Button variant="primary" icon={ArrowRight} onClick={onAdvance}>Avançar para o diagnóstico</Button>
+        <Button variant="ghost" icon={Plus} onClick={onAddColab}>Adicionar mais</Button>
+      </>);
+    }
+  } else if (stage.key === "resultados") {
+    cta = <Button variant="primary" icon={FileText} onClick={onAdvance}>Gerar os relatórios</Button>;
+  } else {
+    cta = <Button variant="primary" icon={ArrowRight} onClick={onAdvance}>{stage.acao}</Button>;
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      {done
+        ? <DoneBanner stage={stage} />
+        : <NextStep icon={stage.icon} headline={headline} sub={sub} porque={stage.porque} tempo={stage.tempo} cta={cta} />}
+      <StageBody c={c} stage={stage} onAddColab={onAddColab} />
+    </div>
+  );
+}
+
+// Hero "PRÓXIMO PASSO" — o elemento mais visível e óbvio da tela.
+function NextStep({ icon: Icon, headline, sub, porque, tempo, cta }) {
+  return (
+    <Card style={{ borderColor: "color-mix(in srgb,var(--accent) 45%,var(--line))",
+      background: "linear-gradient(180deg, color-mix(in srgb,var(--accent) 10%,var(--card)), var(--card))", padding: 26 }}>
+      <div style={{ display: "flex", gap: 18, alignItems: "flex-start", flexWrap: "wrap" }}>
+        <div aria-hidden="true" style={{ width: 50, height: 50, borderRadius: 14, flexShrink: 0,
+          background: "var(--accent)", color: "var(--bg0)", display: "grid", placeItems: "center" }}>
+          <Icon size={26} />
+        </div>
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--accent)" }}>Próximo passo</div>
+          <h2 style={{ fontSize: 22, fontWeight: 800, margin: "4px 0 6px" }}>{headline}</h2>
+          <p style={{ fontSize: 14, color: "var(--dim)", margin: 0, lineHeight: 1.5 }}>{sub}</p>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 18 }}>{cta}</div>
+          <div style={{ fontSize: 12, color: "var(--faint)", marginTop: 12, display: "flex", gap: 14, flexWrap: "wrap" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 5 }}><Clock size={12} aria-hidden="true" /> {tempo}</span>
+            <span>Por que: {porque}</span>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function DoneBanner({ stage }) {
+  return (
+    <Card style={{ borderColor: "color-mix(in srgb,#2ECC71 40%,var(--line))",
+      background: "color-mix(in srgb,#2ECC71 8%,var(--card))", padding: 20 }}>
+      <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+        <CheckCircle2 size={24} style={{ color: "#2ECC71", flexShrink: 0 }} aria-hidden="true" />
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{stage.titulo} — concluída</div>
+          <div style={{ fontSize: 13, color: "var(--dim)" }}>Você pode revisar abaixo quando quiser.</div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// Só o que importa AGORA por etapa; o avançado fica num disclosure ("Ver detalhes").
+function StageBody({ c, stage, onAddColab }) {
+  if (stage.key === "configurar") {
+    return (
+      <>
+        <Card>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>{c.pessoas.length} colaborador{c.pessoas.length === 1 ? "" : "es"} na equipe</div>
+            <Button variant="ghost" size="sm" icon={Plus} onClick={onAddColab}>Adicionar</Button>
+          </div>
+          {c.pessoas.length === 0
+            ? <div style={{ fontSize: 13, color: "var(--faint)" }}>Comece adicionando as pessoas que vão participar.</div>
+            : <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                {Object.keys(DISC).map((k) => {
+                  const n = c.pessoas.filter((p) => p[2] === k).length;
+                  return <Badge key={k} tone={DISC[k]}>{k} · {n}</Badge>;
+                })}
+              </div>}
+        </Card>
+        <Detalhes label="Ver equipe e cargos em detalhe">
+          <ColaboradoresTable c={c} onAddColab={onAddColab} />
+          <div style={{ height: 16 }} />
+          <TabCargos c={c} />
+        </Detalhes>
+      </>
+    );
+  }
+  if (stage.key === "diagnosticar") {
+    const resp = c.pessoas.filter((p) => p[4] !== "estagnacao").length;
+    const pend = c.pessoas.filter((p) => p[4] === "estagnacao");
+    return (
+      <>
+        <Card>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12 }}>Respostas da equipe</div>
+          <Meter label={`${resp} de ${c.pessoas.length} responderam`} value={c.pessoas.length ? resp / c.pessoas.length * 100 : 0} showValue={false} />
+          {pend.length > 0 && <div style={{ fontSize: 12.5, color: "var(--faint)", marginTop: 4 }}>Faltam responder: {pend.map((p) => p[0]).join(", ")}</div>}
+        </Card>
+        <Detalhes label="Ver o diagnóstico em detalhe"><TabDiagnostico c={c} /></Detalhes>
+      </>
+    );
+  }
+  if (stage.key === "planejar") {
+    return (
+      <>
+        <Card>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Foco de desenvolvimento</div>
+          <div style={{ fontSize: 13, color: "var(--dim)", marginBottom: 12 }}>A trilha vai trabalhar as competências com maior lacuna em cada cargo.</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {c.comp.slice(0, 3).map(([n]) => <Badge key={n} tone="accent" icon={Target}>{n}</Badge>)}
+          </div>
+        </Card>
+        <Detalhes label="Ver avaliação, conteúdo e trilha">
+          <TabAvaliacao c={c} /><div style={{ height: 16 }} /><TabConteudo c={c} /><div style={{ height: 16 }} /><TabTrilha c={c} />
+        </Detalhes>
+      </>
+    );
+  }
+  if (stage.key === "desenvolver") {
+    const semana = Math.max(1, Math.round(14 * c.evolucao / 100));
+    return (
+      <>
+        <Card>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12 }}>A turma está na semana ~{semana} de 14</div>
+          <Meter label="Progresso da jornada" value={semana / 14 * 100} tone={STATUS_TONE[c.status]} />
+        </Card>
+        <Detalhes label="Ver acompanhamento detalhado"><TabJornada c={c} /></Detalhes>
+      </>
+    );
+  }
+  return <RelatoriosGrid />; // resultados
+}
+
+// Disclosure acessível (native <details>) — esconde o avançado sem precisar treinar.
+function Detalhes({ label = "Ver detalhes completos", icon: Icon = ChevronRight, children }) {
+  return (
+    <details className="ds-details">
+      <summary><Icon size={15} aria-hidden="true" /> {label}</summary>
+      <div style={{ marginTop: 14 }}>{children}</div>
+    </details>
+  );
+}
+
+// Tabela de colaboradores (reusada no detalhe da etapa "Montar a equipe").
+function ColaboradoresTable({ c, onAddColab }) {
+  return (
+    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "16px 20px", borderBottom: "1px solid var(--line)" }}>
+        <div style={{ fontWeight: 700, fontSize: 14 }}>{c.pessoas.length} colaborador{c.pessoas.length === 1 ? "" : "es"}</div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <Button variant="ghost" icon={Upload}>Importar CSV</Button>
+          <Button variant="primary" icon={Plus} onClick={onAddColab}>Adicionar</Button>
+        </div>
+      </div>
+      {c.pessoas.length === 0 ? (
+        <EmptyState icon={UserPlus} title="Nenhum colaborador ainda"
+          description="Adicione manualmente ou importe uma planilha para iniciar o diagnóstico."
+          action={<Button variant="primary" icon={Plus} onClick={onAddColab}>Adicionar colaborador</Button>} />
+      ) : (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, minWidth: 520 }}>
+            <caption className="ds-sr-only">Colaboradores de {c.nome}: cargo, perfil DISC, nível médio e status de evolução</caption>
+            <thead>
+              <tr style={{ color: "var(--faint)", fontSize: 12, textAlign: "left" }}>
+                {["Nome", "Cargo", "Perfil", "Nível médio", "Evolução"].map((h) => (
+                  <th key={h} scope="col" style={{ padding: "12px 20px", fontWeight: 600 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {c.pessoas.map((p, i) => (
+                <tr key={i} className="row" style={{ borderTop: "1px solid var(--line)" }}>
+                  <th scope="row" style={{ padding: "13px 20px", fontWeight: 600, textAlign: "left" }}>{p[0]}</th>
+                  <td style={{ padding: "13px 20px", color: "var(--dim)" }}>{p[1]}</td>
+                  <td style={{ padding: "13px 20px" }}><Badge tone={DISC[p[2]]}>{p[2]}</Badge></td>
+                  <td style={{ padding: "13px 20px", fontWeight: 600 }}>{p[3].toFixed(1)} <span style={{ color: "var(--faint)", fontWeight: 400 }}>/ 4</span></td>
+                  <td style={{ padding: "13px 20px" }}><Badge tone={EVOL_TONE[p[4]]} dot>{EVOL[p[4]].label}</Badge></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
+    </div>
+  );
+}
 
-      {tab === "relatorios" && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 14 }}>
-          {[
-            ["Relatório de RH", "Leitura organizacional consolidada, orientada a decisão.", true],
-            ["Dossiê do Gestor", "Contexto pronto da equipe por gestor.", true],
-            ["Plenária da empresa", "Documento do time inteiro, pronto pro board.", true],
-            ["Evolution Report", "Comparativo pré→pós por descritor.", true],
-            ["DNA · Retrato de Competências", "Mapa coletivo de competências por nível.", true],
-            ["DNA · Perfil Organizacional DISC", "Radar/pizza dos perfis do time inteiro.", true],
-            ["Pulso de clima", "Pesquisa T0/T2 + sinais + complementar NR-1.", false],
-          ].map(([t, d, ready]) => (
-            <div key={t} className="card" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
-              <FileText size={18} style={{ color: "var(--accent)" }} />
-              <div style={{ fontWeight: 700, fontSize: 14 }}>{t}</div>
-              <div style={{ fontSize: 12.5, color: "var(--dim)", flex: 1, lineHeight: 1.5 }}>{d}</div>
-              <button className="btn" style={{ background: ready ? "rgba(255,255,255,0.06)" : "var(--accent)",
-                color: ready ? "var(--ink)" : "var(--bg0)", padding: "9px 14px", fontSize: 13,
-                border: ready ? "1px solid var(--line)" : "none", justifyContent: "center" }}>
-                {ready ? "Ver PDF" : "Gerar"}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {tab === "cargos" && <TabCargos c={c} />}
-      {tab === "diagnostico" && <TabDiagnostico c={c} />}
-      {tab === "avaliacao" && <TabAvaliacao c={c} />}
-      {tab === "conteudo" && <TabConteudo c={c} />}
-      {tab === "trilha" && <TabTrilha c={c} />}
-      {tab === "jornada" && <TabJornada c={c} />}
-      {tab === "pulso" && <TabPulso c={c} />}
-          </>)}
-        </TabPanel>
-      </Tabs>
+// Cartões de relatório (etapa "Mostrar resultados").
+function RelatoriosGrid() {
+  const reports = [
+    ["Relatório de RH", "Leitura organizacional consolidada, orientada a decisão.", true],
+    ["Dossiê do Gestor", "Contexto pronto da equipe por gestor.", true],
+    ["Plenária da empresa", "Documento do time inteiro, pronto pro board.", true],
+    ["Evolution Report", "Comparativo pré→pós por descritor.", true],
+    ["DNA · Retrato de Competências", "Mapa coletivo de competências por nível.", true],
+    ["DNA · Perfil Organizacional DISC", "Radar/pizza dos perfis do time inteiro.", true],
+  ];
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 14 }}>
+      {reports.map(([t, d, ready]) => (
+        <Card key={t} style={{ display: "flex", flexDirection: "column", gap: 10, padding: 18 }}>
+          <FileText size={18} style={{ color: "var(--accent)" }} aria-hidden="true" />
+          <div style={{ fontWeight: 700, fontSize: 14 }}>{t}</div>
+          <div style={{ fontSize: 12.5, color: "var(--dim)", flex: 1, lineHeight: 1.5 }}>{d}</div>
+          <Button variant={ready ? "ghost" : "primary"} size="sm" block>{ready ? "Ver PDF" : "Gerar"}</Button>
+        </Card>
+      ))}
     </div>
   );
 }
@@ -1141,7 +1327,7 @@ function NovaEmpresaModal({ onClose, onSave }) {
   const [f, setF] = useState({ nome: "", setor: "Educação · K-12" });
   const save = () => f.nome.trim() && onSave({
     id: "c" + Date.now(), nome: f.nome.trim(), setor: f.setor,
-    inicial: f.nome.trim()[0].toUpperCase(), evolucao: 0, status: "atencao",
+    inicial: f.nome.trim()[0].toUpperCase(), evolucao: 0, status: "atencao", etapa: 1,
     comp: [["Comunicação", 0], ["Liderança", 0], ["Planejamento", 0], ["Feedback", 0]],
     pessoas: [],
   });

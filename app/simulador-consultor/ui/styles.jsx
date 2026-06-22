@@ -102,6 +102,29 @@ export function UIStyles() {
   border-top-color:currentColor; animation:ds-spin .7s linear infinite; }
 @keyframes ds-spin{ to{ transform:rotate(360deg); } }
 
+/* ---- stepper (jornada guiada) ---- */
+.ds-stepper{ display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; }
+.ds-step{ flex:1 1 0; min-width:118px; display:flex; flex-direction:column; align-items:center; gap:8px;
+  cursor:pointer; background:none; border:none; font-family:inherit; padding:10px 6px; border-radius:12px; color:var(--ds-dim); }
+.ds-step:not(:disabled):hover{ background:rgba(255,255,255,0.04); color:var(--ds-ink); }
+.ds-step:disabled{ cursor:not-allowed; }
+.ds-step.on{ color:var(--ds-ink); }
+.ds-step.on .ds-step__label{ font-weight:700; }
+.ds-step__dot{ width:36px; height:36px; border-radius:999px; display:grid; place-items:center; font-weight:800; font-size:15px;
+  border:1.5px solid var(--ds-line); transition:background .15s; }
+.ds-step__dot--done{ background:var(--ds-success); color:#06231a; border-color:transparent; }
+.ds-step__dot--current{ background:var(--ds-accent); color:var(--ds-accent-ink); border-color:transparent;
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--ds-accent) 22%,transparent); }
+.ds-step__dot--locked{ background:rgba(255,255,255,0.04); color:var(--ds-faint); }
+.ds-step__label{ font-size:12px; text-align:center; line-height:1.25; }
+
+/* ---- disclosure (progressive detail) ---- */
+.ds-details{ border-top:1px solid var(--ds-line); }
+.ds-details > summary{ cursor:pointer; list-style:none; display:inline-flex; align-items:center; gap:7px;
+  font-size:13px; font-weight:600; color:var(--ds-dim); padding:10px 0; }
+.ds-details > summary::-webkit-details-marker{ display:none; }
+.ds-details > summary:hover, .ds-details[open] > summary{ color:var(--ds-ink); }
+
 /* ---- layout helpers ---- */
 .ds-grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start; }
 .ds-shell{ display:flex; min-height:100vh; }
@@ -110,6 +133,10 @@ export function UIStyles() {
 
 @media (max-width:920px){
   .ds-grid-portfolio{ grid-template-columns:1fr !important; }
+}
+@media (max-width:640px){
+  .ds-step__label{ display:none; }
+  .ds-step{ min-width:48px; flex:0 0 auto; }
 }
 @media (max-width:820px){
   .ds-grid-2{ grid-template-columns:1fr; }
