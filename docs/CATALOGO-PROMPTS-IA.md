@@ -1408,9 +1408,9 @@
 
 - **Arquivo**: `lib/video/roteiro-prompt.ts::buildRoteiroPrompt`
 - **Caller**: `lib/video/gerar-roteiro.ts::gerarRoteiroDeModulo` (chamado por `actions/gerar-video.ts`)
-- **Modelo**: `claude-opus-4-8` (default da task `conteudo_video` em `lib/ai-tasks.ts`)
+- **Modelo**: `claude-opus-4-6` com extended thinking (default da task `conteudo_video` em `lib/ai-tasks.ts`; mesmo preço do 4.8 — $5/$25)
 - **Max tokens**: 8000
-- **O que faz**: transforma um Módulo-Base num ROTEIRO TÉCNICO de vídeo de 3-5 min em JSON. Estrutura: `avatar_intro` + miolo de 6-12 cenas + `avatar_outro`. 9 templates de cena: `avatar_intro`, `avatar_outro`, `concept_reveal`, `comparison_motion`, `icon_story`, `steps_flow`, `stat_highlight`, `quote_spotlight`, `scenario_card`.
+- **O que faz**: transforma um Módulo-Base num ROTEIRO TÉCNICO de vídeo de 3-5 min em JSON. Estrutura: `avatar_intro` + miolo de 6-12 cenas + `avatar_outro`. 13 templates de cena: `avatar_intro`, `avatar_outro`, `concept_reveal`, `comparison_motion`, `icon_story`, `steps_flow`, `stat_highlight`, `quote_spotlight`, `scenario_card`, `maturity_ladder`, `myth_truth`, `definition_card`, `reflection_prompt`. Avatar ~30s (intro 26-30 + outro 22-26 palavras) p/ custo HeyGen ~$0,51/deck. O `avatar_intro` **não cumprimenta** (abre direto no gancho) — a saudação nominal "Olá, {nome}" é prependada por pessoa fora do deck. Doc dos templates: `docs/templates-video-miolo.md`; pipeline completo (áudio/master/saudação/render): `docs/GERADOR-VIDEO-MODULO.md`.
 - **Personalização por célula**: recebe **cargo** (bloco de contexto), **PPP** (brief da escola) e **DISC dominante**. O DISC ajusta SÓ o **tom da narração**; o deck visual é **invariante por perfil** (campos `deck_invariant` / `disc_sensitive_fields` na saída).
 - **System prompt** (resumo editorial; prompt completo em `docs/PROMPT-ROTEIRO-VIDEO.md`). Princípios-chave:
   1. Few-shot de narração (exemplos de fala que viram TTS)
@@ -1419,7 +1419,7 @@
   4. `source_anchor` padronizado (enum: `IDEIA_PRINCIPAL`, `PRINCIPIOS:<nome>`, `ERROS_COMUNS`, `BOAS_PRATICAS`, `SITUACOES_TIPICAS`, `CARGO`, `PPP`...) — rastreia de onde cada cena saiu
   5. Cobertura mínima do módulo (todas as partes essenciais entram no roteiro)
   6. Salvaguardas LGPD (sem nomes/dados reais, sem invenção)
-- **Output**: JSON `VideoRoteiro` `{ title, theme, deck_invariant, scenes[] }`. Cada cena: `type` (1 dos 9 templates) + `narration` + `key_idea` + `source_anchor` + `estimated_words` + campos visuais do template. A `narration` é a **fonte canônica de TTS e legendas**.
+- **Output**: JSON `VideoRoteiro` `{ title, theme, deck_invariant, scenes[] }`. Cada cena: `type` (1 dos 13 templates) + `narration` + `key_idea` + `source_anchor` + `estimated_words` + campos visuais do template. A `narration` é a **fonte canônica de TTS e legendas**.
 - **Inputs user**: Módulo-Base (4 blocos) + cargo + PPP da escola + DISC dominante + duração-alvo.
 - **Consumido por**: pipeline de vídeo (`lib/video/gerar-narracao.ts` para TTS, `lib/video/montar-inputprops.ts` + Remotion para o deck, HeyGen para o avatar).
 

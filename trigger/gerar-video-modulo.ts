@@ -180,7 +180,11 @@ export const gerarVideoModuloTask = task({
       // baixar (ex.: 0.667 → 720p) para renders mais rápidos/baratos quando necessário.
       // Por padrão, produção usa Hetzner: enfileira (status render_queued) e o worker
       // always-on finaliza (video_url/bunny/done). Trigger.dev é override p/ testes.
-      const scale = Number(process.env.VIDEO_RENDER_SCALE) || 1;
+      // Snap do scale p/ dims INTEIRAS (o Remotion quebra com não-inteiro: 1080×0.6667
+      // = 720.036). Espelha o scaleDimsInteiras do worker Hetzner. Em 16:9 ambos os
+      // lados ficam inteiros (1920×1080 → 1280×720). scale=1 (1080p) passa direto.
+      const rawScale = Number(process.env.VIDEO_RENDER_SCALE) || 1;
+      const scale = rawScale === 1 || !props.height ? rawScale : Math.round(props.height * rawScale) / props.height;
       const srt = exportCaptionsToSrt(props.captions);
       const vtt = exportCaptionsToVtt(props.captions);
 

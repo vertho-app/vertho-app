@@ -1,4 +1,35 @@
-# Gerador de Vídeo a partir de Módulo-Base — Design
+# Gerador de Vídeo a partir de Módulo-Base
+
+> Status: **IMPLEMENTADO e em produção.** A seção **“Estado atual”** abaixo é
+> autoritativa; o restante do documento é o **design histórico** (mantido por
+> contexto, mas defasado — voz Kore/Sonnet/5 cenas/$0,20 NÃO refletem o sistema atual).
+
+## Estado atual (implementado · jun/2026)
+
+**Gatilho:** botão “Gerar vídeo” no Módulo-Base (`/admin/vertho/modulos-base/[id]`)
+→ `actions/gerar-video.ts::criarEDispararVideo` → task `trigger/gerar-video-modulo`.
+
+**Pipeline (na task `gerar-video-modulo`):**
+1. **Roteiro** — `claude-opus-4-6` + extended thinking (task `conteudo_video`). Estrutura flexível: `avatar_intro` + miolo 6–12 cenas (13 templates) + `avatar_outro`. O `avatar_intro` **NÃO cumprimenta** (a saudação nominal faz isso — ver abaixo).
+2. **Narração** — Gemini TTS, voz **`Vindemiatrix`** (`VIDEO_TTS_VOICE`), 1 mp3/cena, com **direção de estilo por tipo de cena** (intro calorosa/engajante, miolo conversa, outro pausado) + correção de pronúncia de siglas. Whisper alinha palavra-a-palavra (legendas).
+3. **Avatar (HeyGen)** — só nas pontas; lip-sync do NOSSO mp3 (`voice.type=audio`), 1920×1080; mp4 normalizado p/ CFR (25→30fps).
+4. **Render (Remotion, comp `VerthoVideo`)** — recebe tudo via `inputProps` (timeline de `montar-inputprops.ts`). **Dois backends** (`RENDER_BACKEND`):
+   - **`hetzner`** (default/produção): enfileira `render_queued`; a box **CCX33 efêmera** (`worker-hetzner/worker.mjs`, modelo PULL) renderiza. **~$0,18/vídeo**, sobe/deleta por lote.
+   - **`trigger`** (override de teste): render em chunks paralelos no trigger.dev. **~$5-6/vídeo em 1080p** (~42min). Snap de scale p/ dims inteiras (`Math.round(h*scale)/h`) corrige o bug do 0.6667.
+   - Default **1080p** (`VIDEO_RENDER_SCALE` ausente → scale 1); 720p = 0.6667.
+5. **SFX por template** — pacote sonoro (tick/count-up/chime/etc.) embutido na composição (`VideoCompositionV3`), volumes calibrados, gatilho casado com a fala (Whisper). **Sem transição de slides** entre cenas (cortes secos — `fadeInOut` desligado; só a abertura/fechamento do vídeo inteiro tem fade via `FilmFade`).
+6. **Masterização de áudio** (`masterizar-audio.mjs`, ffmpeg, pós-render) — **trilha (bed)** com berço acústico + **ducking sidechain** (a trilha recua sob voz/SFX) + **master −14 LUFS / −1 dBTP** (loudnorm 2-pass). Roda no worker E no trigger (`masterizarSeguro`, degrada p/ áudio cru se o bed faltar).
+7. **Upload** → Bunny Stream (lib 636615) → grava `videos_gerados` (status/etapa/urls/srt/vtt).
+
+**Saudação nominal (Rota A — personalização por pessoa):** o deck é **genérico por célula** (módulo × empresa × cargo × DISC); o nome **não entra no render**. Após o deck, `personalizar.mjs` gera “Olá, {nome}. Que bom ter você aqui.” por colaborador da célula — TTS **Vindemiatrix** (mesma voz do avatar) **normalizado a −14 LUFS** (casa o volume do deck), cena `AvatarGreeting` (Remotion) + **crossfade curto** (0,3s) no deck. Tom alinhado ao avatar (nem festivo nem sereno demais). Grava em `videos_personalizados` (cache por célula×colaborador). `PERSONALIZE_LIMIT` (env, 0=todos) limita a quantidade (usado em testes). Roda tanto no worker (`personalizeCell`, via `pg`) quanto no trigger (`render-video.ts::personalizarCelula`, via PostgREST, reusando o mesmo `personalizar.mjs`).
+
+**Entrega ao colaborador:** `resolverVideoDaSemana`/`resolverCelulaVideo` entregam o personalizado do colaborador se houver (`done`), senão o genérico da célula (fallback transparente).
+
+Detalhes vivos em [[project_current_work]] (memória) e nos arquivos `lib/video/*`, `worker-hetzner/*`, `trigger/gerar-video-modulo.ts`, `trigger/render-video.ts`.
+
+---
+
+## Design histórico (defasado)
 
 > Status: **DESIGN** (não implementado). Decisões:
 > - Avatar via **HeyGen API**, com **lip-sync do NOSSO áudio TTS** (`voice.type=audio`),

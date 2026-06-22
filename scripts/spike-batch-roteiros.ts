@@ -17,7 +17,7 @@ for (const line of readFileSync('.env.local', 'utf8').split('\n')) {
 const ANTHROPIC = env.ANTHROPIC_API_KEY;
 const SUPA = env.NEXT_PUBLIC_SUPABASE_URL;
 const SRK = env.SUPABASE_SERVICE_ROLE_KEY;
-const MODEL = 'claude-opus-4-8';
+const MODEL = 'claude-opus-4-6'; // alinhado ao prod (task conteudo_video). Preço = 4.8 ($5/$25).
 const MAX_TOKENS = 8000;
 const MODULE_IDS = [
   'bbcd7218-faef-4da9-9622-2464f4ab6741',
@@ -26,7 +26,7 @@ const MODULE_IDS = [
   'cca8dc9a-7e21-462a-ab30-26fa416d82ab',
 ];
 
-// preços/token opus-4.8
+// preços/token opus-4.6 (= opus-4.8: $5 in / $25 out)
 const IN = 5e-6, OUT = 25e-6, CW = 6.25e-6 /*1.25× (5min)*/, CR = 0.5e-6 /*0.1×*/;
 const log = (...a: any[]) => console.log(new Date().toISOString(), ...a);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -145,7 +145,7 @@ async function main() {
   const f = (n: number) => '$' + n.toFixed(4);
   const fp = (n: number) => '$' + (n / N).toFixed(4);
   const report = [
-    `===== SPIKE BATCH + CACHE — ${N} roteiros (opus-4.8) =====`,
+    `===== SPIKE BATCH + CACHE — ${N} roteiros (${MODEL}) =====`,
     `system compartilhado: ${S} tokens · idêntico entre os 4: ${sysIguais}`,
     `user médio: ${Math.round(sumUser / N)} tok · output médio: ${Math.round(sumOut / N)} tok`,
     `batch — cache_creation total: ${cacheCreated} tok · cache_read total: ${cacheRead} tok`,

@@ -230,6 +230,7 @@ DURAÇÃO (calibre pela densidade do módulo; não encha com repetição):
 - SE o módulo render menos de 6 ideias-núcleo distintas, faça MENOS cenas. É melhor um vídeo curto e denso do que esticar a mesma ideia. Nunca repita uma ideia com outra formulação só para aumentar duração.
 - Você NÃO controla o tempo do TTS; calibre por CONTAGEM DE PALAVRAS da narração:
   - avatar_intro: 26–30 palavras (≈15s). · cada cena de miolo: 45–65 palavras. · avatar_outro: 22–26 palavras (≈14s). [Avatar curto e direto: intro+outro somam ~30s — prenda e feche com punch, sem encher.]
+  - O avatar_intro NÃO começa com cumprimento (nada de "Oi", "Olá", "Olá pessoal", "Bem-vindo", "Tudo bem"): uma saudação nominal personalizada ("Olá, {nome}") pode ser prependada ao vídeo, então abra DIRETO no gancho/pergunta. Cumprimentar de novo soa repetitivo.
   Inclua em cada cena o campo "estimated_words" (contagem aproximada de palavras da narração).
 
 ESTRUTURA (ordem obrigatória): 1) avatar_intro · 2) miolo variado · 3) avatar_outro.

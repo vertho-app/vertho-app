@@ -49,7 +49,8 @@ export const CaptionsV3: React.FC<{
         borderRadius: 14,
         padding: '12px 26px',
         textAlign: 'center',
-        backdropFilter: 'blur(3px)',
+        // SEM backdrop-filter blur: é caríssimo no software rasterizer (readback+blur
+        // por frame) e fica invisível sob o scrim de 46% → removido (corte de custo).
       }}
     >
       <span style={{ fontSize: 32, lineHeight: 1.34, fontWeight: 500, fontFamily: FONT }}>

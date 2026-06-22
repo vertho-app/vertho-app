@@ -17,7 +17,8 @@ COPY package.json package-lock.json* ./
 RUN npm install --omit=dev
 
 # Código + bundle Remotion já compilado (mesma composição do app).
-COPY worker.mjs personalizar.mjs ./
+# bed-respiro.mp3 = trilha da masterização de áudio (ffmpeg, fora do bundle Remotion).
+COPY worker.mjs personalizar.mjs masterizar-audio.mjs bed-respiro.mp3 ./
 COPY spike-bundle ./spike-bundle
 
 # Pré-baixa o Chrome headless do Remotion na imagem (evita baixar a cada boot).
