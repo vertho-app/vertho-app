@@ -42,17 +42,13 @@ export async function gerarKit({
       return { success: false, error: `disc inválido: ${disc}` };
     }
 
-    // Contexto/PPP da EMPRESA — tecido no core (o kit é por empresa). Mesmo padrão
-    // do roteiro de vídeo: pega o PPP mais recente extraído e usa como lente.
+    // Contexto/PPP da EMPRESA — tecido no core (o kit é por empresa). Consolida
+    // VÁRIOS PPPs (rede/município, ex.: Ibipeba) num contexto MUNICIPAL único, em
+    // vez de pegar o de uma escola qualquer. Ver kit/contexto-empresa.ts.
     let pppBrief: string | null = null;
     if (empresaId) {
-      const { data: ppp } = await sb.from('ppp_escolas')
-        .select('extracao').eq('empresa_id', empresaId).eq('status', 'extraido')
-        .order('extracted_at', { ascending: false }).limit(1).maybeSingle();
-      if (ppp?.extracao) {
-        const { extracaoParaTexto } = await import('@/lib/escola-brief');
-        pppBrief = extracaoParaTexto(ppp.extracao).slice(0, 2500);
-      }
+      const { resolverContextoEmpresa } = await import('@/lib/season-engine/kit/contexto-empresa');
+      pppBrief = await resolverContextoEmpresa(sb, empresaId, aiConfig).catch(() => null);
     }
 
     const baseParams = { competencia, descritor, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, pppBrief };
