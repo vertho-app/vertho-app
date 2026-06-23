@@ -81,16 +81,19 @@ interface GerarConteudoParams {
   // Kit Semanal: quando presente, semeia o prompt com a espinha (núcleo + lente
   // DISC + desafio) e amarra o conteúdo ao kit. Ver docs/KIT-SEMANAL.md.
   kit?: import('@/lib/season-engine/kit/enrich').KitSeed & { kitId: string };
+  // Cliente Supabase já autenticado (service-role). Quando presente, pula a auth
+  // de request — usado pelo job em background (trigger.dev), fora de uma request.
+  sb?: any;
 }
 
 export async function gerarConteudoIA({
   formato, competencia, descritor, nivelMin = 1.0, nivelMax = 2.0,
   cargo = 'todos', contexto = 'generico', duracaoSegundos = null,
   podcastFormato = 'solo',
-  empresaId = null, aiConfig = {}, kit,
+  empresaId = null, aiConfig = {}, kit, sb: sbIn,
 }: GerarConteudoParams) {
   try {
-    const sb = await requireAdminSupabase('content.manage');
+    const sb = sbIn || await requireAdminSupabase('content.manage');
     if (!formato || !competencia || !descritor) {
       return { success: false, error: 'formato, competencia e descritor obrigatórios' };
     }

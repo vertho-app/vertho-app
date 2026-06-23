@@ -12,8 +12,20 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { resolverOuCriarBrief, gerarKitDesafio, type DiscLetter } from '@/lib/season-engine/kit/brief';
 import { gerarConteudoIA } from '@/actions/conteudos';
 import type { AIConfig } from '@/actions/ai-client';
+import { tasks } from '@trigger.dev/sdk';
+import { regionOpts } from '@/lib/trigger-region';
+import type { gerarKitTask } from '@/trigger/gerar-kit';
 
 const FORMATOS_PADRAO = ['video', 'audio', 'texto', 'case'] as const;
+
+/** Resumo enxuto de um resultado de kit para o progresso (polling da tela). */
+function resumoKit(k: any) {
+  return {
+    disc: k?.disc, ok: k?.success, kitId: k?.kitId,
+    desafio: k?.desafio?.desafio_texto || null,
+    conteudos: (k?.conteudos || []).map((c: any) => ({ formato: c.formato, ok: c.ok, titulo: c.titulo, error: c.error })),
+  };
+}
 
 export interface GerarKitParams {
   competencia: string;
@@ -26,15 +38,17 @@ export interface GerarKitParams {
   empresaId?: string | null;
   aiConfig?: AIConfig;
   formatos?: readonly string[];
+  /** Cliente service-role já pronto (job em background pula a auth de request). */
+  sb?: any;
 }
 
 export async function gerarKit({
   competencia, descritor, disc,
   nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico',
-  empresaId = null, aiConfig = {}, formatos = FORMATOS_PADRAO,
+  empresaId = null, aiConfig = {}, formatos = FORMATOS_PADRAO, sb: sbIn,
 }: GerarKitParams) {
   try {
-    const sb = await requireAdminSupabase('content.manage');
+    const sb = sbIn || await requireAdminSupabase('content.manage');
     if (!competencia || !descritor || !disc) {
       return { success: false, error: 'competencia, descritor e disc obrigatórios' };
     }
@@ -70,7 +84,7 @@ export async function gerarKit({
     const seed = { nucleo: brief, disc, desafio, kitId, pppBrief };
     const conteudos: Array<{ formato: string; conteudoId?: string; titulo?: string; ok: boolean; error?: string }> = [];
     for (const formato of formatos) {
-      const r = await gerarConteudoIA({ ...baseParams, formato, kit: seed });
+      const r = await gerarConteudoIA({ ...baseParams, formato, kit: seed, sb });
       conteudos.push({ formato, conteudoId: (r as any).conteudoId, titulo: (r as any).titulo, ok: r.success, error: (r as any).error });
     }
 
@@ -98,6 +112,8 @@ export async function gerarKit({
 export interface GerarKitSemanalParams extends Omit<GerarKitParams, 'disc'> {
   discs?: DiscLetter[];
   renderAudio?: boolean; // dispara o TTS dos podcasts (pesado/lento)
+  /** Callback de progresso (job em background atualiza kit_jobs). */
+  onProgress?: (p: { done: number; total: number; current: string; kits: any[] }) => Promise<void> | void;
 }
 
 /**
@@ -111,12 +127,16 @@ export interface GerarKitSemanalParams extends Omit<GerarKitParams, 'disc'> {
 export async function gerarKitSemanal({
   competencia, descritor, nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico',
   empresaId = null, aiConfig = {}, formatos, discs = ['D', 'I', 'S', 'C'], renderAudio = false,
+  sb, onProgress,
 }: GerarKitSemanalParams) {
   try {
     const kits: Awaited<ReturnType<typeof gerarKit>>[] = [];
+    const total = discs.length;
     for (const disc of discs) {
+      await onProgress?.({ done: kits.length, total, current: `gerando kit ${disc}…`, kits: kits.map(resumoKit) });
       // sequencial: o 1º cria o brief; os demais reusam (resolverOuCriarBrief idempotente).
-      kits.push(await gerarKit({ competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos }));
+      kits.push(await gerarKit({ competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos, sb }));
+      await onProgress?.({ done: kits.length, total, current: `kit ${disc} concluído`, kits: kits.map(resumoKit) });
     }
 
     let audioRendered = 0;
@@ -143,5 +163,61 @@ export async function gerarKitSemanal({
   } catch (err: any) {
     console.error('[gerarKitSemanal]', err);
     return { success: false, error: err?.message || 'Erro' };
+  }
+}
+
+// ── Background job (trigger.dev): enfileira + status p/ polling da tela ──────
+
+export interface EnqueueKitParams {
+  competencia: string;
+  descritor: string;
+  nivelMin?: number;
+  nivelMax?: number;
+  cargo?: string;
+  contexto?: string;
+  empresaId?: string | null;
+  discs?: DiscLetter[];
+  renderAudio?: boolean;
+}
+
+/** Cria o job em kit_jobs e dispara o task gerar-kit. Retorna o jobId p/ polling. */
+export async function enqueueKit(p: EnqueueKitParams) {
+  try {
+    const sb = await requireAdminSupabase('content.manage');
+    if (!p.competencia || !p.descritor) return { success: false as const, error: 'competência e descritor obrigatórios' };
+    const discs = (p.discs?.length ? p.discs : ['D', 'I', 'S', 'C']) as DiscLetter[];
+    const jobParams = {
+      nivelMin: p.nivelMin ?? 1.0, nivelMax: p.nivelMax ?? 2.0,
+      cargo: p.cargo ?? 'todos', contexto: p.contexto ?? 'generico',
+      discs, renderAudio: !!p.renderAudio,
+    };
+    const { data: job, error } = await sb.from('kit_jobs').insert({
+      empresa_id: p.empresaId ?? null, competencia: p.competencia, descritor: p.descritor,
+      params: jobParams, status: 'queued',
+      progress: { done: 0, total: discs.length, current: 'na fila', kits: [] },
+    }).select('id').single();
+    if (error) return { success: false as const, error: error.message };
+    try {
+      await tasks.trigger<typeof gerarKitTask>('gerar-kit', { jobId: job.id }, regionOpts());
+    } catch (e: any) {
+      await sb.from('kit_jobs').update({ status: 'error', error: 'dispatch: ' + (e?.message || e) }).eq('id', job.id);
+      return { success: false as const, error: 'Não foi possível enfileirar: ' + (e?.message || e) };
+    }
+    return { success: true as const, jobId: job.id, total: discs.length };
+  } catch (err: any) {
+    return { success: false as const, error: err?.message || 'Erro' };
+  }
+}
+
+/** Status do job (polling). */
+export async function statusKit(jobId: string) {
+  try {
+    const sb = await requireAdminSupabase('content.manage');
+    const { data } = await sb.from('kit_jobs')
+      .select('id, status, progress, kit_ids, error, competencia, descritor, updated_at')
+      .eq('id', jobId).maybeSingle();
+    return data || null;
+  } catch {
+    return null;
   }
 }
