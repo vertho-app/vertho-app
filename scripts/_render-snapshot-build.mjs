@@ -39,10 +39,11 @@ runcmd:
 async function main() {
   let id = null;
   try {
-    // Builda numa box INTEL (cx43, 8c — mesma família x86 do cx33 de render, sem
-    // dúvida de cross-vendor). Snapshot é global e roda em qualquer x86 depois.
-    // CX só existe em nbg1/hel1 (fsn1 não tem).
-    const buildType = process.env.SNAPSHOT_BUILD_TYPE || 'cx43';
+    // Builda no MENOR tipo alvo (cx33) — o snapshot herda o disco do build, e a
+    // Hetzner só cria servidor com disco ≥ o do snapshot. cx33 (disco menor) cabe
+    // em cx33 E em tipos maiores (cx43/ccx33). Intel x86, sem cross-vendor. CX só
+    // existe em nbg1/hel1 (fsn1 não tem).
+    const buildType = process.env.SNAPSHOT_BUILD_TYPE || 'cx33';
     const buildLoc = process.env.SNAPSHOT_BUILD_LOCATION || 'nbg1';
     log(`provisionando box de build (${buildType}, ${buildLoc})…`);
     const cr = await H('servers', { method: 'POST', body: JSON.stringify({ name: 'vertho-snapshot-build', server_type: buildType, image: 'ubuntu-22.04', location: buildLoc, ssh_keys: [113820480], user_data: cloudInit, labels: { role: 'snapshot-build' } }) });
