@@ -26,7 +26,7 @@ export const gerarKitTask = task({
         competencia: job.competencia, descritor: job.descritor,
         nivelMin: pp.nivelMin, nivelMax: pp.nivelMax, cargo: pp.cargo, contexto: pp.contexto,
         empresaId: job.empresa_id, discs: pp.discs, renderAudio: pp.renderAudio,
-        useBatch: pp.useBatch,
+        useBatch: pp.useBatch, incluirVideo: pp.incluirVideo,
         sb,
         onProgress: async (prog) => { await patch({ progress: prog }); },
       });

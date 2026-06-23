@@ -90,6 +90,7 @@ export default function GerarKitPage() {
         <div className="flex items-center gap-3 mb-1">
           <h1 className="text-2xl font-bold">🎁 Gerar Kit Semanal</h1>
           <Link href="/admin/conteudos" className="text-xs text-cyan-400 hover:underline">← voltar a Conteúdos</Link>
+          <Link href="/admin/conteudos/kit/coorte" className="text-xs text-fuchsia-400 hover:underline">🗓️ por coorte →</Link>
         </div>
         <p className="text-xs text-gray-400 mb-4">1 núcleo → 4 formatos coesos + desafio por DISC. Roda em background; o progresso aparece abaixo. Contexto/PPP da empresa é tecido no conteúdo.</p>
 

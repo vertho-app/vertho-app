@@ -50,13 +50,15 @@ export interface GerarKitParams {
   briefPreResolvido?: { briefId: string; brief: any; moduloBaseId: string | null; reused: boolean };
   /** PPP/contexto da empresa já resolvido (evita reconsultar por DISC). */
   pppBriefPreResolvido?: string | null;
+  /** Pula o disparo do vídeo renderizado (HeyGen/render) — p/ lote de coorte sem custo de GPU. */
+  skipVideo?: boolean;
 }
 
 export async function gerarKit({
   competencia, descritor, disc,
   nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico',
   empresaId = null, aiConfig = {}, formatos = FORMATOS_PADRAO, sb: sbIn,
-  aiRun, briefPreResolvido, pppBriefPreResolvido,
+  aiRun, briefPreResolvido, pppBriefPreResolvido, skipVideo = false,
 }: GerarKitParams) {
   try {
     const sb = sbIn || await requireAdminSupabase('content.manage');
@@ -109,7 +111,9 @@ export async function gerarKit({
     // VÍDEO renderizado (Fase 2b): célula (modulo × empresa × cargo × DISC) com o
     // desafio do DISC no roteiro + PPP municipal, ligada ao kit. Render é async
     // (cx33); aqui só dispara/reusa. Não conta no okAll (é best-effort/assíncrono).
-    if (moduloBaseId) {
+    if (skipVideo) {
+      conteudos.push({ formato: 'video', ok: true, titulo: 'vídeo pulado (skipVideo)' });
+    } else if (moduloBaseId) {
       const { dispararVideoDoKit } = await import('@/actions/gerar-video');
       const v: any = await dispararVideoDoKit(sb, { moduloBaseId, empresaId, cargo, disc, desafioTexto: desafio.desafio_texto, kitId, pppBrief, createdBy: 'kit' }).catch((e: any) => ({ error: e?.message }));
       conteudos.push({ formato: 'video', conteudoId: v.id, titulo: v.reused ? 'vídeo (reusado)' : 'vídeo (renderizando)', ok: !v.error, error: v.error });
@@ -146,6 +150,8 @@ export interface GerarKitSemanalParams extends Omit<GerarKitParams, 'disc'> {
   onProgress?: (p: { done: number; total: number; current: string; kits: any[] }) => Promise<void> | void;
   /** Batch API (−50%): gera os 4 DISC numa tacada (async, ~min). Fallback síncrono. */
   useBatch?: boolean;
+  /** Inclui o vídeo renderizado (default true). false = só conteúdo (lote sem GPU). */
+  incluirVideo?: boolean;
 }
 
 /**
@@ -159,11 +165,12 @@ export interface GerarKitSemanalParams extends Omit<GerarKitParams, 'disc'> {
 export async function gerarKitSemanal({
   competencia, descritor, nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico',
   empresaId = null, aiConfig = {}, formatos, discs = ['D', 'I', 'S', 'C'], renderAudio = false,
-  sb, onProgress, useBatch = false,
+  sb, onProgress, useBatch = false, incluirVideo = true,
 }: GerarKitSemanalParams) {
   try {
     const total = discs.length;
     const sbk = sb || await requireAdminSupabase('content.manage');
+    const skipVideo = !incluirVideo;
     let kits: Awaited<ReturnType<typeof gerarKit>>[] = [];
 
     // ── Caminho LOTE (Batch API −50%) ─────────────────────────────────────────
@@ -190,7 +197,7 @@ export async function gerarKitSemanal({
         kits = await Promise.all(discs.map((disc) =>
           gerarKit({
             competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos, sb: sbk,
-            aiRun: run, briefPreResolvido: brief, pppBriefPreResolvido: pppBrief,
+            aiRun: run, briefPreResolvido: brief, pppBriefPreResolvido: pppBrief, skipVideo,
           }).then(async (k) => {
             done++;
             await onProgress?.({ done, total, current: `kit ${disc} concluído`, kits: [] });
@@ -208,7 +215,7 @@ export async function gerarKitSemanal({
       for (const disc of discs) {
         await onProgress?.({ done: kits.length, total, current: `gerando kit ${disc}…`, kits: kits.map(resumoKit) });
         // sequencial: o 1º cria o brief; os demais reusam (resolverOuCriarBrief idempotente).
-        kits.push(await gerarKit({ competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos, sb: sbk }));
+        kits.push(await gerarKit({ competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos, sb: sbk, skipVideo }));
         await onProgress?.({ done: kits.length, total, current: `kit ${disc} concluído`, kits: kits.map(resumoKit) });
       }
     }
@@ -254,6 +261,8 @@ export interface EnqueueKitParams {
   renderAudio?: boolean;
   /** Batch API (−50%). Default: ligado no lote (≥2 DISC). */
   useBatch?: boolean;
+  /** Inclui o vídeo renderizado (default true). */
+  incluirVideo?: boolean;
 }
 
 /** Cria o job em kit_jobs e dispara o task gerar-kit. Retorna o jobId p/ polling. */
@@ -267,6 +276,7 @@ export async function enqueueKit(p: EnqueueKitParams) {
       cargo: p.cargo ?? 'todos', contexto: p.contexto ?? 'generico',
       discs, renderAudio: !!p.renderAudio,
       useBatch: p.useBatch ?? (discs.length >= 2),
+      incluirVideo: p.incluirVideo ?? true,
     };
     const { data: job, error } = await sb.from('kit_jobs').insert({
       empresa_id: p.empresaId ?? null, competencia: p.competencia, descritor: p.descritor,
@@ -296,5 +306,124 @@ export async function statusKit(jobId: string) {
     return data || null;
   } catch {
     return null;
+  }
+}
+
+// ── Agendador por coorte (manual por empresa) ───────────────────────────────
+// Varre o temporada_plano de TODA a coorte da empresa, deduplica os
+// (competência × descritor × DISC) que a coorte vai demandar, confere o que já
+// existe publicado (empresa OU global) e gera SÓ os faltantes — em lote (Batch).
+// `executar:false` = dry-run (preview do plano). Ver docs/KIT-SEMANAL.md.
+const DISC_OK = ['D', 'I', 'S', 'C'];
+const ckey = (c: string, d: string, k = '') => [c, d, k].filter(Boolean).join(' ::: ');
+
+export interface PlanoCoorteItem {
+  competencia: string; descritor: string;
+  demandadas: string[]; existentes: string[]; faltantes: string[];
+  pessoas: number; jobId?: string | null; jobErro?: string | null;
+}
+
+export async function planejarKitsCoorte(
+  empresaId: string,
+  opts: { executar?: boolean; incluirVideo?: boolean; contexto?: string; nivelMin?: number; nivelMax?: number } = {},
+) {
+  try {
+    const sb = await requireAdminSupabase('content.manage');
+    if (!empresaId) return { error: 'empresaId obrigatório' as const };
+
+    // 1) Colaboradores da empresa + DISC dominante.
+    const { data: colabs } = await sb.from('colaboradores')
+      .select('id, perfil_dominante').eq('empresa_id', empresaId);
+    if (!colabs?.length) return { error: 'Empresa sem colaboradores' as const };
+    const discDe = new Map<string, string>();
+    for (const c of colabs) discDe.set(c.id, String(c.perfil_dominante || '').charAt(0).toUpperCase());
+
+    // 2) Trilha mais recente por colaborador.
+    const { data: trilhas } = await sb.from('trilhas')
+      .select('colaborador_id, competencia_foco, temporada_plano, criado_em')
+      .in('colaborador_id', colabs.map((c) => c.id))
+      .order('criado_em', { ascending: false });
+    const ultima = new Map<string, any>();
+    for (const t of trilhas || []) if (!ultima.has(t.colaborador_id)) ultima.set(t.colaborador_id, t);
+
+    // 3) Demanda: (comp × descritor) → { discs, pessoas }.
+    const demanda = new Map<string, { competencia: string; descritor: string; discs: Set<string>; pessoas: Set<string> }>();
+    const add = (colabId: string, comp: any, desc: any, disc: string) => {
+      if (!comp || !desc || !DISC_OK.includes(disc)) return;
+      const key = ckey(comp, desc);
+      if (!demanda.has(key)) demanda.set(key, { competencia: comp, descritor: desc, discs: new Set(), pessoas: new Set() });
+      const e = demanda.get(key)!;
+      e.discs.add(disc); e.pessoas.add(colabId);
+    };
+    for (const [colabId, t] of ultima) {
+      const disc = discDe.get(colabId) || '';
+      for (const semana of Array.isArray(t.temporada_plano) ? t.temporada_plano : []) {
+        if (semana?.tipo !== 'conteudo') continue;
+        if (Array.isArray(semana.conteudos_dia) && semana.conteudos_dia.length) {
+          for (const cd of semana.conteudos_dia) add(colabId, cd.competencia || t.competencia_foco, cd.descritor, disc);
+        } else {
+          add(colabId, t.competencia_foco, semana.descritor, disc);
+        }
+      }
+    }
+    if (!demanda.size) return { error: 'Nenhuma semana de conteúdo encontrada na coorte' as const };
+
+    // 4) Existentes: kits PUBLICADOS por (comp × descritor × disc) — empresa OU global.
+    const { data: briefs } = await sb.from('kit_briefs')
+      .select('id, competencia, descritor')
+      .or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
+    const briefById = new Map((briefs || []).map((b) => [b.id, b]));
+    const existente = new Set<string>();
+    if (briefs?.length) {
+      const { data: kitsRows } = await sb.from('kits')
+        .select('brief_id, disc, status').in('brief_id', briefs.map((b) => b.id)).eq('status', 'published');
+      for (const k of kitsRows || []) {
+        const b = briefById.get(k.brief_id);
+        if (b) existente.add(ckey(b.competencia, b.descritor, k.disc));
+      }
+    }
+
+    // 5) Monta o plano (faltantes = demandadas − existentes).
+    const plano: PlanoCoorteItem[] = [];
+    for (const e of demanda.values()) {
+      const demandadas = [...e.discs].sort();
+      const existentes = demandadas.filter((d) => existente.has(ckey(e.competencia, e.descritor, d)));
+      const faltantes = demandadas.filter((d) => !existente.has(ckey(e.competencia, e.descritor, d)));
+      plano.push({ competencia: e.competencia, descritor: e.descritor, demandadas, existentes, faltantes, pessoas: e.pessoas.size });
+    }
+    plano.sort((a, b) => b.faltantes.length - a.faltantes.length || b.pessoas - a.pessoas);
+
+    const totalFaltantes = plano.reduce((s, p) => s + p.faltantes.length, 0);
+
+    // 6) Executa: enfileira 1 job por (comp × descritor) com os DISC faltantes.
+    if (opts.executar) {
+      for (const item of plano) {
+        if (!item.faltantes.length) continue;
+        const r = await enqueueKit({
+          competencia: item.competencia, descritor: item.descritor, empresaId,
+          discs: item.faltantes as DiscLetter[],
+          nivelMin: opts.nivelMin ?? 1, nivelMax: opts.nivelMax ?? 2,
+          cargo: 'todos', contexto: opts.contexto || 'educacional',
+          useBatch: item.faltantes.length >= 2,
+          incluirVideo: opts.incluirVideo ?? true,
+        });
+        item.jobId = r.success ? r.jobId : null;
+        item.jobErro = r.success ? null : (r as any).error;
+      }
+    }
+
+    return {
+      ok: true as const,
+      resumo: {
+        colaboradores: colabs.length,
+        combinacoes: plano.length,
+        totalFaltantes,
+        jobsEnfileirados: opts.executar ? plano.filter((p) => p.jobId).length : 0,
+      },
+      plano,
+    };
+  } catch (err: any) {
+    console.error('[planejarKitsCoorte]', err);
+    return { error: String(err?.message || 'Erro') };
   }
 }
