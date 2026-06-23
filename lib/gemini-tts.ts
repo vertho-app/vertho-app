@@ -175,6 +175,32 @@ function segmentarPorPausa(trecho: string): { text: string; q: boolean }[] {
   return parts.length ? parts : [{ text: trecho.trim(), q: /\?$/.test(trecho.trim()) }];
 }
 
+// Mínimo de palavras por segmento de TTS. Fragmentos muito curtos (ex.: cauda de
+// 1-2 palavras após "?") fazem o Gemini TTS ALUCINAR/vocalizar sobras (palavras
+// "fantasmas" no fim, sem legenda — não estão no roteiro). Coalescemos curtos no
+// vizinho, preservando a pausa dramática entre os trechos substanciais.
+const MIN_SEG_WORDS = 4;
+const nWords = (s: string) => s.split(/\s+/).filter(Boolean).length;
+
+function coalesceCurtos(parts: { text: string; q: boolean }[]): { text: string; q: boolean }[] {
+  const out: { text: string; q: boolean }[] = [];
+  for (const p of parts) {
+    if (out.length && nWords(p.text) < MIN_SEG_WORDS) {
+      const prev = out[out.length - 1];
+      prev.text = `${prev.text} ${p.text}`.trim();
+      prev.q = /\?$/.test(prev.text); // o "?" só conta se ficou no FIM do segmento juntado
+    } else {
+      out.push({ ...p });
+    }
+  }
+  // Se o PRIMEIRO segmento ficou curto, junta pra frente (não há "anterior").
+  if (out.length > 1 && nWords(out[0].text) < MIN_SEG_WORDS) {
+    out[1].text = `${out[0].text} ${out[1].text}`.trim();
+    out.shift();
+  }
+  return out;
+}
+
 /**
  * Narração LIMPA (sem vinheta nem frase de encerramento de podcast). Para usos
  * como a devolutiva comportamental e a narração de vídeo. `texto` deve ser a
@@ -185,8 +211,9 @@ export async function generateNarrationAudio(texto: string, opts: { voice?: stri
   if (!texto?.trim()) throw new Error('texto de narração vazio');
   const voice = opts.voice || VOICE;
   const styleDirective = opts.style || NARRATION_STYLE_DEFAULT;
-  // Trechos do chunker → segmentos por pausa (corta após perguntas retóricas).
-  const segmentos = splitNarrationForTts(texto).flatMap(segmentarPorPausa);
+  // Trechos do chunker → segmentos por pausa (corta após perguntas retóricas) →
+  // coalesce de fragmentos curtos (evita "palavras fantasmas" do TTS no fim).
+  const segmentos = coalesceCurtos(splitNarrationForTts(texto).flatMap(segmentarPorPausa));
 
   const partes: Buffer[] = [];
   let sampleRate = 24000;
