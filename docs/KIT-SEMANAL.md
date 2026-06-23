@@ -67,8 +67,17 @@ QUINTA 11:00: IA cobra o desafio (check-in focado) → avalia → rastreia
 - **Fase 3 — Cobrança de quinta**: desafio como foco da semana + prompt de check-in
   + gate por dia (quinta = início + (semana−1)×7 + 3d) + rastreio + estender
   `triggerQuinta` p/ semanas de conteúdo.
-- **Fase 4 — UX**: tela da semana mostra o kit (principal = formato preferido + apoio)
-  com a personalização por formato plugada.
+- **Fase 4 — Entrega** (FEITA): `loadTemporada` faz overlay do kit por
+  (empresa×competência×descritor×DISC) via `lib/season-engine/kit/entrega-semana.ts`
+  (`overlayKitNaSemana`/`resolverKitDaSemana`/`formatoPreferido`). Os
+  `formatos_disponiveis` da semana viram áudio/texto/caso do kit (vídeo segue do
+  pipeline de célula, excluído do overlay), `formato_core` = formato preferido da
+  pessoa (`colaboradores.pref_*`; default texto), desafio = o do kit. Aditivo +
+  best-effort (sem kit → buildSeason permanece); trata DUO (`conteudos_dia`). O
+  viewer da semana NÃO mudou — já lia `formato_core`+`formatos_disponiveis` e serve
+  podcast/PDF por `/api/conteudo/[id]`.
+  RESTA do recurso: agendador semana-anterior por coorte (lote automático);
+  Batch API (−50%); UI "Gerar Kit" na tela de módulo.
 
 ## Arquivos (Fase 1)
 - `migrations/142-kits-semanais.sql`
