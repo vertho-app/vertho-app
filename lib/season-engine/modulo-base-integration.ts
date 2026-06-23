@@ -51,13 +51,21 @@ export async function resolverModuloBaseParaConteudo(
     empresaId?: string | null;
   },
 ): Promise<ModuloBaseEscolhido | null> {
-  // 1) Resolver competencia_base_id pelo nome
+  // 1) Resolver a competência pelo NOME — no catálogo canônico (competencia_base_id)
+  //    E no modelo da EMPRESA (competencia_id). Empresas como Macaé têm pilares
+  //    próprios (Empreendedorismo) fora do canônico; os módulos extraídos no escopo
+  //    da empresa apontam para competencia_id. Casa por qualquer um dos dois.
   const { data: comps } = await sb.from('competencias_base')
-    .select('id, nome')
-    .ilike('nome', opts.competenciaNome)
-    .limit(1);
-  const competencia_base_id = comps?.[0]?.id;
-  if (!competencia_base_id) return null;
+    .select('id').ilike('nome', opts.competenciaNome).limit(1);
+  const competencia_base_id = comps?.[0]?.id || null;
+
+  let competencia_id: string | null = null;
+  if (opts.empresaId) {
+    const { data: ec } = await sb.from('competencias')
+      .select('id').eq('empresa_id', opts.empresaId).ilike('nome', opts.competenciaNome).limit(1);
+    competencia_id = ec?.[0]?.id || null;
+  }
+  if (!competencia_base_id && !competencia_id) return null;
 
   const { entrada, destino } = niveisDoNivelMin(opts.nivelMin);
   const locale = (opts.locale || 'pt-BR') as string;
@@ -69,11 +77,16 @@ export async function resolverModuloBaseParaConteudo(
   async function buscar(loc: string) {
     let q = sb.from('modulos_base_conteudo')
       .select('id, grupo_id, locale, preferido, contexto_pedagogico, tags, published_at, empresa_id, conteudo_central, conteudo_aplicavel, guarda_corpos, adaptacao_por_formato')
-      .eq('competencia_base_id', competencia_base_id)
       .eq('nivel_entrada', entrada)
       .eq('nivel_destino', destino)
       .eq('locale', loc)
       .eq('status', 'publicado');
+    // Competência: canônica (competencia_base_id) OU da empresa (competencia_id).
+    const compOr = [
+      competencia_base_id ? `competencia_base_id.eq.${competencia_base_id}` : null,
+      competencia_id ? `competencia_id.eq.${competencia_id}` : null,
+    ].filter(Boolean).join(',');
+    q = q.or(compOr);
     q = opts.empresaId ? q.or(`empresa_id.is.null,empresa_id.eq.${opts.empresaId}`) : q.is('empresa_id', null);
     const { data } = await q;
     return data || [];
