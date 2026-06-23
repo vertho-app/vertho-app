@@ -12,6 +12,7 @@ import type { VideoRoteiro } from '../lib/video/roteiro-prompt';
 import { storagePut, SUPA, KEY } from '../lib/video/render-helpers';
 import { transcribeWords } from '../lib/video/whisper-align';
 import { regionOpts } from '../lib/trigger-region';
+import { ensureRenderWorker } from '../lib/video/ensure-render-worker';
 
 const exec = promisify(execFile);
 const FFPROBE = process.env.FFPROBE_PATH || 'ffprobe';
@@ -224,7 +225,12 @@ export const gerarVideoModuloTask = task({
 
       if ((process.env.RENDER_BACKEND || 'hetzner') === 'hetzner') {
         await patchVideo(videoId, { status: 'render_queued', etapa: 'render', assets, render_inputprops: props, render_scale: scale, srt, vtt, error: null });
-        return { ok: true, videoId, queued: 'hetzner', frames: props.totalFrames };
+        // Geração por clique: garante UMA box efêmera de render (idempotente — não
+        // sobe outra se já há uma viva). Ela drena a fila e se autodestrói no ócio.
+        // Best-effort: se o provision falhar, o job fica na fila p/ a próxima box.
+        const prov = await ensureRenderWorker().catch((e) => ({ provisioned: false, reason: String(e?.message || e) }));
+        console.log(`${videoId}: ensureRenderWorker → ${prov.provisioned ? 'boxes ' + ((prov as any).created || []).join(',') : 'no-op'} (${prov.reason})`);
+        return { ok: true, videoId, queued: 'hetzner', frames: props.totalFrames, worker: prov };
       }
 
       const chunks = p.chunks ?? Math.min(10, Math.max(2, Math.ceil(props.totalFrames / (props.fps * 12))));

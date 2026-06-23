@@ -28,9 +28,13 @@ const {
   RENDER_CONCURRENCY,
   VIDEO_RENDER_SCALE = '0.6667', // 0.6667 = 720p · 1.0 = 1080p (fallback)
   COMPOSITION_ID = 'VerthoVideo',
+  EPHEMERAL,                     // 'true' = box on-demand: morre quando a fila seca
+  IDLE_SHUTDOWN_MS = '300000',   // 5 min de fila vazia → self-destruct (modo efêmero)
 } = process.env;
 
 const POLL = parseInt(POLL_INTERVAL_MS, 10);
+const IDLE_MS = parseInt(IDLE_SHUTDOWN_MS, 10);
+const EPHEMERAL_MODE = String(EPHEMERAL || '').toLowerCase() === 'true';
 const CONCURRENCY = parseInt(RENDER_CONCURRENCY || String(Math.max(1, os.cpus().length)), 10);
 const pool = new pg.Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 4 });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -255,6 +259,21 @@ async function renderOne(job) {
   await personalizeCell(job, final).catch((e) => log(`personalização falhou (deck OK) ${job.id}:`, e?.message || e));
 }
 
+/** Modo efêmero (box on-demand): apaga a PRÓPRIA box Hetzner quando a fila seca,
+ *  pra não deixar máquina ligada. Descobre o id pelo metadata server da Hetzner. */
+async function selfDestruct() {
+  const token = process.env.HCLOUD_TOKEN;
+  if (!token) { log('self-destruct pulado (sem HCLOUD_TOKEN)'); return false; }
+  try {
+    const id = (await fetch('http://169.254.169.254/hetzner/v1/metadata/instance-id').then((r) => r.text())).trim();
+    if (!/^\d+$/.test(id)) { log('self-destruct: instance-id inválido:', id); return false; }
+    log(`self-destruct: apagando a própria box ${id}…`);
+    const r = await fetch(`https://api.hetzner.cloud/v1/servers/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    log(`self-destruct: DELETE ${r.status}`);
+    return r.ok;
+  } catch (e) { log('self-destruct erro:', e?.message || e); return false; }
+}
+
 let parando = false;
 process.on('SIGTERM', () => { parando = true; log('SIGTERM — encerrando após o job atual'); });
 process.on('SIGINT', () => { parando = true; log('SIGINT — encerrando após o job atual'); });
@@ -264,12 +283,23 @@ async function main() {
     console.error('Faltam env vars: DATABASE_URL, BUNNY_LIBRARY_ID, BUNNY_STREAM_API_KEY');
     process.exit(1);
   }
-  log(`worker iniciado · poll ${POLL}ms · concurrency ${CONCURRENCY} · scale fallback ${VIDEO_RENDER_SCALE}`);
+  log(`worker iniciado · poll ${POLL}ms · concurrency ${CONCURRENCY} · scale fallback ${VIDEO_RENDER_SCALE}` +
+    (EPHEMERAL_MODE ? ` · EFÊMERO (self-destruct após ${Math.round(IDLE_MS / 1000)}s de fila vazia)` : ''));
+  let lastActivity = Date.now();
   while (!parando) {
     try {
       await reap();
       const job = await claim();
-      if (!job) { await sleep(POLL); continue; }
+      if (!job) {
+        // Modo efêmero: fila vazia por IDLE_MS → apaga a própria box e encerra.
+        if (EPHEMERAL_MODE && Date.now() - lastActivity > IDLE_MS) {
+          log(`fila vazia há ${Math.round((Date.now() - lastActivity) / 1000)}s — encerrando box efêmera`);
+          await selfDestruct();
+          break;
+        }
+        await sleep(POLL); continue;
+      }
+      lastActivity = Date.now(); // claim resetou o ócio
       try {
         await renderOne(job);
       } catch (e) {
@@ -277,6 +307,7 @@ async function main() {
         await pool.query(`UPDATE videos_gerados SET status='error', error=$2, updated_at=now() WHERE id=$1`,
           [job.id, String(e?.message || e).slice(0, 500)]).catch((pe) => log(`falha ao gravar status=error ${job.id}:`, pe?.message || pe));
       }
+      lastActivity = Date.now(); // terminou o job; reinicia a janela de ócio
     } catch (e) {
       log('erro no loop (segue):', e?.message || e);
       await sleep(POLL);
