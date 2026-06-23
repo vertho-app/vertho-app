@@ -3,7 +3,8 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { APP_URL, APP_WEBHOOK_URL, QSTASH_BASE_URL } from '@/lib/domain';
-import { templateWhatsAppPilula, templateWhatsAppEvidencia } from '@/lib/notifications';
+import { templateWhatsAppPilula, templateWhatsAppEvidencia, templateWhatsAppDesafioQuinta } from '@/lib/notifications';
+import { resolverDesafioDoKit } from '@/lib/season-engine/kit/desafio-semana';
 import { requireAdminOrCronAction } from '@/lib/auth/action-context';
 import { assertWhatsappAvailable } from '@/lib/whatsapp';
 
@@ -186,7 +187,7 @@ export async function triggerQuinta() {
   for (const empresa of empresas) {
     const tdb = tenantDb(empresa.id);
     const { data: envios } = await tdb.from('fase4_envios')
-      .select('id, colaborador_id, semana_atual, sequencia, status, ultimo_envio, ultima_evidencia_em, colaboradores!inner(nome_completo, email, whatsapp)')
+      .select('id, colaborador_id, semana_atual, sequencia, status, ultimo_envio, ultima_evidencia_em, colaboradores!inner(nome_completo, email, whatsapp, perfil_dominante)')
       .eq('status', 'ativo');
 
     if (!envios?.length) continue;
@@ -229,9 +230,34 @@ export async function triggerQuinta() {
         }
       }
 
-      // Enviar pedido de evidência
+      // Cobra o DESAFIO específico da semana (do KIT, por DISC do colab) quando
+      // resolvível; senão, cai na mensagem genérica de evidência. Fase 3 — fechar
+      // a mensagem de quinta. Best-effort: qualquer falha → genérico.
+      let desafioTexto = '';
       if (telefone) {
-        const mensagem = templateWhatsAppEvidencia(nome, semana);
+        try {
+          const { data: trilha } = await tdb.from('trilhas')
+            .select('temporada_plano, competencia_foco')
+            .eq('colaborador_id', envio.colaborador_id)
+            .order('numero_temporada', { ascending: false }).limit(1).maybeSingle();
+          const plano = (trilha?.temporada_plano || []) as any[];
+          const plan = plano.find((s: any) => Number(s.semana) === Number(semana)) || plano[semana - 1];
+          const disc = String(envio.colaboradores.perfil_dominante || '').trim().charAt(0).toUpperCase();
+          if (plan && plan.tipo !== 'aplicacao' && disc) {
+            if (Array.isArray(plan.conteudos_dia) && plan.conteudos_dia.length) {
+              const linhas = await Promise.all(plan.conteudos_dia.map(async (e: any) => {
+                const k = await resolverDesafioDoKit(sbRaw, { empresaId: empresa.id, competencia: e.competencia, descritor: e.descritor, disc }).catch(() => null);
+                return k?.desafio_texto || e.conteudo?.desafio_texto;
+              }));
+              desafioTexto = linhas.filter(Boolean).join('\n\n');
+            } else {
+              const k = await resolverDesafioDoKit(sbRaw, { empresaId: empresa.id, competencia: trilha?.competencia_foco, descritor: plan.descritor, disc }).catch(() => null);
+              desafioTexto = k?.desafio_texto || plan.conteudo?.desafio_texto || '';
+            }
+          }
+        } catch (e: any) { console.warn('[triggerQuinta] resolver desafio:', e?.message); }
+
+        const mensagem = desafioTexto ? templateWhatsAppDesafioQuinta(nome, desafioTexto) : templateWhatsAppEvidencia(nome, semana);
         try {
           await publishToQStash({ telefone, mensagem }, totalEnviados * 2);
           totalEnviados++;

@@ -136,3 +136,16 @@ Registre suas *evidências de aprendizagem* na plataforma para que possamos acom
 Acesse a plataforma Vertho e registre sua evidência hoje!
 — Equipe Vertho`;
 }
+
+// Quinta: cobra o DESAFIO específico da semana (do kit, por DISC). A pessoa sabe
+// exatamente o que praticar e sobre o que vai conversar com a IA. Ver Fase 3.
+export function templateWhatsAppDesafioQuinta(nome, desafioTexto) {
+  return `Olá, ${nome}! 🎯
+
+É quinta — hora da prática da semana. Seu desafio:
+
+_${desafioTexto}_
+
+Já conseguiu fazer? Conta pra Mentora IA na plataforma como foi (e o que você percebeu). Se ainda não deu, dá tempo até o fim da semana!
+— Equipe Vertho`;
+}
