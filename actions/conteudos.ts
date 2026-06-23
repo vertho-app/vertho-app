@@ -78,13 +78,16 @@ interface GerarConteudoParams {
   podcastFormato?: 'solo' | 'mentor_campo';
   empresaId?: string | null;
   aiConfig?: AIConfig;
+  // Kit Semanal: quando presente, semeia o prompt com a espinha (núcleo + lente
+  // DISC + desafio) e amarra o conteúdo ao kit. Ver docs/KIT-SEMANAL.md.
+  kit?: import('@/lib/season-engine/kit/enrich').KitSeed & { kitId: string };
 }
 
 export async function gerarConteudoIA({
   formato, competencia, descritor, nivelMin = 1.0, nivelMax = 2.0,
   cargo = 'todos', contexto = 'generico', duracaoSegundos = null,
   podcastFormato = 'solo',
-  empresaId = null, aiConfig = {},
+  empresaId = null, aiConfig = {}, kit,
 }: GerarConteudoParams) {
   try {
     const sb = await requireAdminSupabase('content.manage');
@@ -126,6 +129,13 @@ export async function gerarConteudoIA({
     } catch (e: any) {
       // Falha do enrichment NUNCA quebra a geração — só loga e segue sem módulo.
       console.warn('[gerarConteudoIA] enrichment falhou (seguindo sem módulo-base):', e?.message);
+    }
+
+    // ── Kit Semanal: semeia a espinha (núcleo + lente DISC + desafio) ────────
+    // Aplicado APÓS o módulo-base: o kit é a camada de coesão entre os 4 formatos.
+    if (kit) {
+      const { enriquecerPromptComKit } = await import('@/lib/season-engine/kit/enrich');
+      ({ system, user } = enriquecerPromptComKit({ system, user }, kit, formato));
     }
 
     // Usa modelo configurado por tarefa (fallback: modelo padrão da empresa → default)
@@ -207,6 +217,8 @@ export async function gerarConteudoIA({
       origem: 'ia_gerado',
       versao: 1,
       ativo: formato === 'texto' || formato === 'case',
+      kit_id: kit?.kitId ?? null,
+      disc: kit?.disc ?? null,
     }).select('id, titulo').maybeSingle();
 
     if (error) return { success: false, error: error.message };
