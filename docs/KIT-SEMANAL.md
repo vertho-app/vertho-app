@@ -84,7 +84,13 @@ QUINTA 11:00: IA cobra o desafio (check-in focado) → avalia → rastreia
   (2 rodadas: desafios → formatos). Fallback em camadas (batch falho/timeout/
   modelo não-Claude/request vazio → `callAI` síncrono; falha estrutural → sequencial).
   `enqueueKit` liga `useBatch` por default no lote. ⚠️ exige redeploy MANUAL do trigger.
-  RESTA do recurso: agendador semana-anterior por coorte (lote automático).
+- **Agendador por coorte — manual por empresa** (FEITO): `planejarKitsCoorte(empresaId,
+  {executar, incluirVideo})` varre o `temporada_plano` de TODA a coorte, deduplica os
+  (competência × descritor × DISC) demandados, confere os kits publicados (empresa OU
+  global) e gera SÓ os faltantes (1 job por comp×descritor com os DISC que faltam, em
+  Batch). `executar:false` = dry-run. Reuso: N pessoas no mesmo (descritor×DISC) = 1 kit.
+  Toggle `incluirVideo` (controle de GPU). UI: `/admin/conteudos/kit/coorte`.
+  RESTA (futuro): virar isso um CRON semana-anterior (hoje é gatilho manual).
 
 ## Arquivos (Fase 1)
 - `migrations/142-kits-semanais.sql`
