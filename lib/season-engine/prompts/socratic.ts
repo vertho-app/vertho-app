@@ -40,6 +40,8 @@ interface ChatMessage {
   content: string;
 }
 
+interface DesafioItem { competencia: string; desafio_texto: string; }
+
 interface PromptSocraticParams {
   nomeColab: string;
   cargo: string;
@@ -47,17 +49,25 @@ interface PromptSocraticParams {
   competencia: string;
   descritor: string;
   desafio: string;
+  /** DUO: 1 desafio por competência. Quando >1, a cobrança vai em SEQUÊNCIA. */
+  desafios?: DesafioItem[];
   historico: ChatMessage[];
   turnIA: number;
   groundingContext?: string;
 }
 
-export function promptSocratic({ nomeColab, cargo, perfilDominante, competencia, descritor, desafio, historico, turnIA, groundingContext = '' }: PromptSocraticParams) {
+export function promptSocratic({ nomeColab, cargo, perfilDominante, competencia, descritor, desafio, desafios, historico, turnIA, groundingContext = '' }: PromptSocraticParams) {
   const estilo = estiloPorPerfil(perfilDominante);
+  // Lista de desafios (DUO = N por competência). Fallback: o desafio único.
+  const lista = (desafios && desafios.length ? desafios : [{ competencia, desafio_texto: desafio }]).filter((d) => d.desafio_texto?.trim());
+  const multi = lista.length > 1;
+  const desafiosBloco = lista.map((d, i) => `${multi ? `(${i + 1}/${lista.length}) [${d.competencia}] ` : ''}"${d.desafio_texto}"`).join('\n');
   const instrucaoTurn: Record<number, string> = {
     1: `ESTE É O TURN 1 — ABERTURA / CONVITE À REFLEXÃO.
 - Cumprimente ${nomeColab} pelo primeiro nome.
-- Referencie brevemente o desafio da semana: "${desafio}"
+${multi
+  ? `- Diga que a semana teve ${lista.length} focos/desafios e que vocês vão olhar UM DE CADA VEZ. Comece pelo PRIMEIRO: ${lista[0].desafio_texto.slice(0, 140)}`
+  : `- Referencie brevemente o desafio da semana: ${desafiosBloco}`}
 - Faça UMA pergunta aberta que convide a contar como foi (ex: "Como foi pra você?" ou "O que aconteceu quando você tentou?").
 - Máximo 60 palavras. NÃO faça múltiplas perguntas.
 - Se o desafio for novo e ainda não foi tentado, pergunte o que chamou atenção no conteúdo ou o que pareceu mais relevante pro dia a dia.`,
@@ -91,7 +101,9 @@ export function promptSocratic({ nomeColab, cargo, perfilDominante, competencia,
     6: `ESTE É O TURN 6 — FECHAMENTO OBRIGATÓRIO.
 - NÃO faça perguntas. Encerre com esta estrutura EXATA (bullets):
 
-✅ **Desafio**: [realizado | parcial | não realizado — baseado no relato]
+${multi
+  ? lista.map((d) => `✅ **Desafio (${d.competencia})**: [realizado | parcial | não realizado — baseado no relato]`).join('\n')
+  : `✅ **Desafio**: [realizado | parcial | não realizado — baseado no relato]`}
 📝 **Insight**: [1 frase capturando o principal aprendizado que ${nomeColab} demonstrou ao longo da conversa]
 🎯 **Compromisso**: [1 ação concreta e específica pra próxima semana, baseada no que emergiu na conversa — não invente, extraia do que foi dito]
 
@@ -135,7 +147,12 @@ CONTEXTO:
 - Perfil DISC dominante: ${perfilDominante || '(não mapeado)'}
 - Competência: ${competencia}
 - Descritor desta semana: ${descritor}
-- Desafio que ${nomeColab} tinha pra fazer: "${desafio}"
+- ${multi ? `${lista.length} DESAFIOS da semana (um por competência):\n${desafiosBloco}` : `Desafio que ${nomeColab} tinha pra fazer: ${desafiosBloco}`}
+${multi ? `
+SEQUÊNCIA (semana com ${lista.length} desafios):
+- Cobre os desafios UM DE CADA VEZ, na ordem. Explore o primeiro até ter clareza se foi feito e o que a pessoa percebeu; SÓ ENTÃO transicione explicitamente para o próximo ("Agora, sobre o outro foco da semana — [competência]…").
+- Não misture os dois numa pergunta só. Distribua os turnos: a primeira metade da conversa no 1º desafio, a segunda no 2º.
+- No fechamento, dê um veredito SEPARADO para cada desafio.` : ''}
 
 ADAPTAÇÃO DE ESTILO POR DISC:
 - Tom: ${estilo.tom}

@@ -19,6 +19,15 @@ function parseExtracaoResponse(raw: string): any {
 
 function validateExtracaoSocratic(parsed: any): any {
   const validos = ['sim', 'parcial', 'nao'];
+  // DUO: avalia por competência + deriva o overall (pior status p/ retrocompat).
+  if (Array.isArray(parsed.desafios_realizados) && parsed.desafios_realizados.length) {
+    parsed.desafios_realizados = parsed.desafios_realizados
+      .filter((d: any) => d && d.competencia)
+      .map((d: any) => ({ competencia: String(d.competencia), status: validos.includes(d.status) ? d.status : 'parcial' }));
+    const ordem = { nao: 0, parcial: 1, sim: 2 } as Record<string, number>;
+    const pior = parsed.desafios_realizados.reduce((acc: string, d: any) => (ordem[d.status] < ordem[acc] ? d.status : acc), 'sim');
+    parsed.desafio_realizado = parsed.desafios_realizados.length ? pior : (parsed.desafio_realizado || 'parcial');
+  }
   if (!validos.includes(parsed.desafio_realizado)) parsed.desafio_realizado = 'parcial';
   const qualidades = ['alta', 'media', 'baixa'];
   if (!qualidades.includes(parsed.qualidade_reflexao)) parsed.qualidade_reflexao = 'media';
@@ -86,7 +95,15 @@ async function extrairDadosEstruturados(historico, tipoConversa, semanaPlan) {
   const estiloAnalytic = tipoConversa === 'analytic' || tipoConversa === 'missao_feedback';
 
   if (!estiloAnalytic) {
-    const user = `MODO: socratic — conversa semanal de reflexão
+    // DUO: a semana tem N desafios (um por competência) → avalia cada um.
+    const compsDuo: string[] = Array.isArray(semanaPlan?.conteudos_dia)
+      ? semanaPlan.conteudos_dia.map((e: any) => e.competencia).filter(Boolean)
+      : [];
+    const isDuo = compsDuo.length > 1;
+    const desafioField = isDuo
+      ? `"desafios_realizados": [${compsDuo.map((c) => `{"competencia": "${c}", "status": "sim|parcial|nao"}`).join(', ')}],`
+      : `"desafio_realizado": "sim|parcial|nao",`;
+    const user = `MODO: socratic — conversa semanal de reflexão${isDuo ? ` (${compsDuo.length} desafios, um por competência)` : ''}
 Foco: reflexão, insight, compromisso e qualidade da reflexão.
 
 CONVERSA:
@@ -94,7 +111,7 @@ ${transcript}
 
 EXTRAIA com base EXCLUSIVA na conversa:
 {
-  "desafio_realizado": "sim|parcial|nao",
+  ${desafioField}
   "relato_resumo": "síntese curta e fiel do que o colaborador relatou",
   "insight_principal": "principal percepção emergente — só se apareceu de fato",
   "compromisso_proxima": "compromisso plausível assumido — só se foi dito",
@@ -110,7 +127,7 @@ EXTRAIA com base EXCLUSIVA na conversa:
 }
 
 REGRAS:
-- desafio_realizado: "sim" se executou e relatou, "parcial" se tentou mas incompleto, "nao" se não tentou
+- ${isDuo ? 'desafios_realizados: avalie CADA competência SEPARADAMENTE (um status por competência), pelo que a pessoa relatou de cada foco' : 'desafio_realizado'}: "sim" se executou e relatou, "parcial" se tentou mas incompleto, "nao" se não tentou
 - qualidade_reflexao: alta = reflexão profunda com exemplo concreto e insight genuíno; media = reflexão superficial sem detalhe prático; baixa = respostas genéricas ou monossilábicas
 - citacao_chave: trecho curto que melhor sustenta a leitura de qualidade — se a conversa for muito rasa, use null
 - sinais_extraidos: marque true somente se apareceu de forma concreta
@@ -290,17 +307,18 @@ export async function POST(request) {
     // (buildSeason). Fase 3 — a cobrança socrática passa a cobrar o desafio do kit.
     const discColab = String(colab.perfil_dominante || '').trim().charAt(0).toUpperCase();
     const { resolverDesafioDoKit } = await import('@/lib/season-engine/kit/desafio-semana');
-    let desafioTexto: string;
+    let desafiosLista: { competencia: string; desafio_texto: string }[];
     if (Array.isArray(semanaPlan.conteudos_dia) && semanaPlan.conteudos_dia.length > 0) {
-      const linhas = await Promise.all(semanaPlan.conteudos_dia.map(async (e: any) => {
+      desafiosLista = await Promise.all(semanaPlan.conteudos_dia.map(async (e: any) => {
         const k = await resolverDesafioDoKit(sb, { empresaId: trilha.empresa_id, competencia: e.competencia, descritor: e.descritor, disc: discColab }).catch(() => null);
-        return [e.label, e.competencia, e.descritor, k?.desafio_texto || e.conteudo?.desafio_texto].filter(Boolean).join(' — ');
+        return { competencia: e.competencia || competenciaSemana.label, desafio_texto: k?.desafio_texto || e.conteudo?.desafio_texto || '' };
       }));
-      desafioTexto = linhas.join('\n');
     } else {
       const k = await resolverDesafioDoKit(sb, { empresaId: trilha.empresa_id, competencia: competenciaSemana.label, descritor: semanaPlan.descritor, disc: discColab }).catch(() => null);
-      desafioTexto = k?.desafio_texto || semanaPlan.conteudo?.desafio_texto || '';
+      desafiosLista = [{ competencia: competenciaSemana.label, desafio_texto: k?.desafio_texto || semanaPlan.conteudo?.desafio_texto || '' }];
     }
+    desafiosLista = desafiosLista.filter((d) => d.desafio_texto);
+    const desafioTexto = desafiosLista.map((d) => d.desafio_texto).join('\n');
 
     // Monta prompt
     let promptData;
@@ -312,6 +330,7 @@ export async function POST(request) {
         competencia: competenciaSemana.label,
         descritor: semanaPlan.descritor,
         desafio: desafioTexto,
+        desafios: desafiosLista,
         historico: historicoMasked,
         turnIA: proximoTurnIA,
         groundingContext: groundingBlock,
