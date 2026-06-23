@@ -193,6 +193,11 @@ export function montarInputProps(
 ): SpikePropsV3 {
   const fps = opts.fps ?? 30;
   const brand = { ...BRAND_PADRAO, ...opts.brand };
+  // LEAD da entrada do texto: as cenas começam a animar a entrada em
+  // speechStartFrame e levam ~0.9s (reveal EASE_OUT) pra completar → o texto
+  // ficava pronto DEPOIS da fala (entrada "atrasada"). Antecipamos o cue p/ o
+  // texto estar legível QUANDO a fala chega na ideia. Tunável por env.
+  const entryLeadFrames = Math.round((Number(process.env.VIDEO_ENTRY_LEAD_SEC) || 0.4) * fps);
   const capOpts = { maxWords: 9, maxDur: 3.5, minDur: 1.0 };
 
   let cursor = 0;
@@ -211,7 +216,8 @@ export function montarInputProps(
     let speechStartFrame: number | undefined;
     let speechEndFrame: number | undefined;
     if (asset?.words?.length) {
-      speechStartFrame = Math.max(0, Math.round(asset.words[0].start * fps));
+      // Antecipa o cue de entrada (lead) p/ o texto não entrar atrasado vs a fala.
+      speechStartFrame = Math.max(0, Math.round(asset.words[0].start * fps) - entryLeadFrames);
       speechEndFrame = Math.min(durationInFrames, Math.round(asset.words[asset.words.length - 1].end * fps));
     }
 
