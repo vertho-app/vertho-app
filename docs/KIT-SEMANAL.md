@@ -76,8 +76,15 @@ QUINTA 11:00: IA cobra o desafio (check-in focado) → avalia → rastreia
   best-effort (sem kit → buildSeason permanece); trata DUO (`conteudos_dia`). O
   viewer da semana NÃO mudou — já lia `formato_core`+`formatos_disponiveis` e serve
   podcast/PDF por `/api/conteudo/[id]`.
-  RESTA do recurso: agendador semana-anterior por coorte (lote automático);
-  Batch API (−50%); UI "Gerar Kit" na tela de módulo.
+- **Botão "Gerar Kit" na tela de módulo** (FEITO): `_kit-gerador.tsx` enfileira o
+  kit pré-preenchido com a competência+descritor do módulo (dropdown de empresa).
+- **Batch API −50%** (FEITO): `lib/ai-batch.ts` (`submitClaudeBatch` +
+  `createAIBatchCollector`). `gerarKitSemanal` ganha caminho LOTE opt-in (`useBatch`,
+  ≥2 DISC): resolve brief+PPP 1×, roda os 4 DISC concorrentes pelo collector
+  (2 rodadas: desafios → formatos). Fallback em camadas (batch falho/timeout/
+  modelo não-Claude/request vazio → `callAI` síncrono; falha estrutural → sequencial).
+  `enqueueKit` liga `useBatch` por default no lote. ⚠️ exige redeploy MANUAL do trigger.
+  RESTA do recurso: agendador semana-anterior por coorte (lote automático).
 
 ## Arquivos (Fase 1)
 - `migrations/142-kits-semanais.sql`
