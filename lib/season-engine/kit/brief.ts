@@ -31,6 +31,8 @@ export interface GerarBriefParams {
   model?: string;
   /** Contexto/PPP da EMPRESA (kit é por empresa) — lente de aplicação. */
   pppBrief?: string | null;
+  /** Caller de IA injetado (Batch API). Só a 1ª tentativa usa; retries síncronos. */
+  aiRun?: import('@/lib/ai-batch').AIRun;
 }
 
 // ── Lente DISC: como cada perfil ENGAJA (sem citar DISC no texto final) ──────
@@ -174,7 +176,9 @@ CONTEXTO:
   const sysJson = `${system}\n\nIMPORTANTE: responda SOMENTE com o objeto JSON, sem texto antes ou depois, sem markdown.`;
   let desafio = null;
   for (let i = 0; i < 3 && !desafio; i++) {
-    const raw = (await callAI(i === 0 ? system : sysJson, user, { ...(p.aiConfig || {}), model: p.model || p.aiConfig?.model }, 800)).trim();
+    // 1ª tentativa pode ir no batch (aiRun); retries por JSON inválido = síncrono.
+    const ai = i === 0 && p.aiRun ? p.aiRun : callAI;
+    const raw = (await ai(i === 0 ? system : sysJson, user, { ...(p.aiConfig || {}), model: p.model || p.aiConfig?.model }, 800)).trim();
     desafio = parseDesafioResponse(raw) || parseDesafioFallback(raw);
     if (!desafio) console.warn(`[kit/desafio] inválido DISC ${disc} (tentativa ${i + 1}/3): ${raw.slice(0, 120)}`);
   }

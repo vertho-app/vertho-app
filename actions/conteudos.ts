@@ -84,13 +84,17 @@ interface GerarConteudoParams {
   // Cliente Supabase já autenticado (service-role). Quando presente, pula a auth
   // de request — usado pelo job em background (trigger.dev), fora de uma request.
   sb?: any;
+  // Caller de IA injetado (Batch API). Default = callAI síncrono. Mesma assinatura
+  // dos 4 primeiros args do callAI. Ver lib/ai-batch.ts. Só a geração PRINCIPAL
+  // (linha do callAI) usa; expansões/plano de PDF seguem síncronos.
+  aiRun?: import('@/lib/ai-batch').AIRun;
 }
 
 export async function gerarConteudoIA({
   formato, competencia, descritor, nivelMin = 1.0, nivelMax = 2.0,
   cargo = 'todos', contexto = 'generico', duracaoSegundos = null,
   podcastFormato = 'solo',
-  empresaId = null, aiConfig = {}, kit, sb: sbIn,
+  empresaId = null, aiConfig = {}, kit, sb: sbIn, aiRun,
 }: GerarConteudoParams) {
   try {
     const sb = sbIn || await requireAdminSupabase('content.manage');
@@ -151,7 +155,8 @@ export async function gerarConteudoIA({
     // texto/case viram PDF e exigem mín. 8.000 caracteres — precisam de mais
     // tokens de saída p/ não truncar antes de atingir o comprimento mínimo.
     const maxTokens = formato === 'texto' || formato === 'case' ? 8000 : 4096;
-    let conteudoGerado = (await callAI(system, user, { ...aiConfig, model: model || aiConfig?.model }, maxTokens)).trim();
+    const ai = aiRun || callAI;
+    let conteudoGerado = (await ai(system, user, { ...aiConfig, model: model || aiConfig?.model }, maxTokens)).trim();
 
     // Garante o mínimo de 8.000 caracteres nos PDFs (texto/case): se vier curto,
     // faz UMA expansão mantendo estilo/estrutura. Falha não quebra a geração.
@@ -244,7 +249,7 @@ export async function gerarConteudoIA({
 
 /**
  * Upload manual de conteúdo (áudio/pdf via Storage; texto/case inline no banco).
- * FormData fields: file (audio/pdf), formato, titulo, competencia, descritor,
+ * FormData fields: file (audio/pdf), formato, titulo, pilar, competencia, descritor,
  *   nivel_min, nivel_max, contexto, cargo, setor, empresa_id, conteudo_inline (texto/case).
  */
 export async function uploadConteudo(formData: any) {
@@ -252,9 +257,10 @@ export async function uploadConteudo(formData: any) {
     const sb = await requireAdminSupabase('content.manage');
     const formato = formData.get('formato');
     const titulo = formData.get('titulo');
-    const competencia = formData.get('competencia');
+    const pilar = String(formData.get('pilar') || '').trim() || null;
+    const competencia = String(formData.get('competencia') || '').trim() || 'Não classificado';
     const descritor = formData.get('descritor') || null;
-    if (!formato || !titulo || !competencia) return { success: false, error: 'formato, titulo e competencia obrigatórios' };
+    if (!formato || !titulo) return { success: false, error: 'formato e titulo obrigatórios' };
 
     let url = null, storage_path = null, conteudo_inline = null, duracao_min = null;
 
@@ -289,6 +295,7 @@ export async function uploadConteudo(formData: any) {
       empresa_id: formData.get('empresa_id') || null,
       titulo, descricao: formData.get('descricao') || null,
       formato, duracao_min, url, storage_path, conteudo_inline,
+      pilar,
       competencia, descritor,
       nivel_min: parseFloat(formData.get('nivel_min') || '1.0'),
       nivel_max: parseFloat(formData.get('nivel_max') || '2.0'),
@@ -408,7 +415,7 @@ export async function loadOpcoesGerar(empresaId?: string | null) {
     const empresaUuid = empresaId && empresaId !== 'all' ? empresaId : null;
 
     let compsQuery = sb.from('competencias')
-      .select('nome, nome_curto, cargo')
+      .select('nome, nome_curto, pilar, cargo')
       .not('nome_curto', 'is', null);
     if (empresaUuid) compsQuery = compsQuery.eq('empresa_id', empresaUuid);
     const { data: comps } = await compsQuery;
@@ -417,26 +424,29 @@ export async function loadOpcoesGerar(empresaId?: string | null) {
       .select('nome, nome_curto')
       .not('nome_curto', 'is', null);
 
-    // Agrupa: competencia -> Set(descritores)
-    const mapa: Record<string, Set<string>> = {};
+    // Agrupa: competencia -> descritores + pilares
+    const mapa: Record<string, { descritores: Set<string>; pilares: Set<string> }> = {};
     [...(comps || []), ...(baseComps || [])].forEach(c => {
       if (!c.nome) return;
-      if (!mapa[c.nome]) mapa[c.nome] = new Set();
-      if (c.nome_curto) mapa[c.nome].add(c.nome_curto);
+      if (!mapa[c.nome]) mapa[c.nome] = { descritores: new Set(), pilares: new Set() };
+      if (c.nome_curto) mapa[c.nome].descritores.add(c.nome_curto);
+      if ((c as any).pilar) mapa[c.nome].pilares.add((c as any).pilar);
     });
 
     const competencias = Object.keys(mapa).sort().map(nome => ({
       nome,
-      descritores: ([...mapa[nome]] as string[]).sort(),
+      descritores: ([...mapa[nome].descritores] as string[]).sort(),
+      pilares: ([...mapa[nome].pilares] as string[]).sort(),
     }));
 
     // Cargos distintos — só da empresa filtrada (competencias_base não tem cargo
     // associado a empresa real, então não entram aqui pra evitar confusão).
     const cargos = [...new Set((comps || []).map(c => c.cargo).filter(Boolean))].sort();
+    const pilares = [...new Set((comps || []).map(c => c.pilar).filter(Boolean))].sort();
 
-    return { competencias, cargos };
+    return { competencias, cargos, pilares };
   } catch (err) {
-    return { competencias: [], cargos: [], error: err?.message };
+    return { competencias: [], cargos: [], pilares: [], error: err?.message };
   }
 }
 
@@ -584,7 +594,7 @@ export async function atualizarConteudo(id: string, patch: any) {
   try {
     const sb = await requireAdminSupabase('content.manage');
     if (!id) return { error: 'id obrigatório' };
-    const allowed = ['titulo','descricao','competencia','descritor','nivel_min','nivel_max',
+    const allowed = ['titulo','descricao','pilar','competencia','descritor','nivel_min','nivel_max',
                      'tipo_conteudo','contexto','cargo','setor','apresentador','ativo','duracao_min'];
     const clean: Record<string, any> = {};
     for (const k of allowed) if (k in patch) clean[k] = patch[k];
@@ -1048,7 +1058,7 @@ export async function deletarConteudo(id: string) {
 }
 
 /**
- * IA sugere tags para um conteúdo baseado em título + descrição.
+ * IA sugere tags para um conteúdo baseado em metadados + corpo do conteúdo.
  * Usa lista de competências do banco como vocabulário controlado.
  */
 export async function sugerirTagsIA(conteudoId: string, aiConfig?: AIConfig) {
@@ -1057,15 +1067,43 @@ export async function sugerirTagsIA(conteudoId: string, aiConfig?: AIConfig) {
     const { data: c } = await sb.from('micro_conteudos').select('*').eq('id', conteudoId).maybeSingle();
     if (!c) return { error: 'Conteúdo não encontrado' };
 
-    const { data: comps } = await sb.from('competencias_base')
-      .select('nome, nome_curto').limit(500);
-    const competenciasUnicas = [...new Set((comps || []).map(c => c.nome).filter(Boolean))] as string[];
-    const descritoresPorComp: Record<string, Set<string>> = {};
-    (comps || []).forEach(co => {
-      if (!co.nome) return;
-      if (!descritoresPorComp[co.nome]) descritoresPorComp[co.nome] = new Set();
-      if (co.nome_curto) descritoresPorComp[co.nome].add(co.nome_curto);
-    });
+    const { data: baseComps } = await sb.from('competencias_base')
+      .select('nome, nome_curto')
+      .not('nome', 'is', null)
+      .limit(1000);
+    const { data: empresaComps } = c.empresa_id
+      ? await sb.from('competencias')
+        .select('nome, nome_curto, pilar, cargo')
+        .eq('empresa_id', c.empresa_id)
+        .not('nome', 'is', null)
+        .limit(1000)
+      : { data: [] };
+
+    const compMap: Record<string, {
+      descritores: Set<string>;
+      pilares: Set<string>;
+      cargos: Set<string>;
+      escopo: 'base' | 'empresa' | 'ambos';
+    }> = {};
+    const addComp = (co: any, escopo: 'base' | 'empresa') => {
+      const nome = String(co?.nome || '').trim();
+      if (!nome) return;
+      if (!compMap[nome]) {
+        compMap[nome] = {
+          descritores: new Set(),
+          pilares: new Set(),
+          cargos: new Set(),
+          escopo,
+        };
+      } else if (compMap[nome].escopo !== escopo) {
+        compMap[nome].escopo = 'ambos';
+      }
+      if (co.nome_curto) compMap[nome].descritores.add(String(co.nome_curto).trim());
+      if (co.pilar) compMap[nome].pilares.add(String(co.pilar).trim());
+      if (co.cargo) compMap[nome].cargos.add(String(co.cargo).trim());
+    };
+    (baseComps || []).forEach((co: any) => addComp(co, 'base'));
+    (empresaComps || []).forEach((co: any) => addComp(co, 'empresa'));
 
     const system = `Você é um especialista em classificação de conteúdos de desenvolvimento profissional da Vertho.
 
@@ -1085,22 +1123,43 @@ PRINCÍPIOS INEGOCIÁVEIS:
 
 RETORNE APENAS JSON VÁLIDO, sem markdown, sem texto antes ou depois.`;
 
-    const descritoresInfo = competenciasUnicas.slice(0, 30).map(comp => {
-      const descs = descritoresPorComp[comp];
-      return descs?.size ? `${comp} (${[...descs].slice(0, 5).join(', ')})` : comp;
-    }).join('\n');
+    const competenciasInfo = Object.entries(compMap)
+      .sort(([, a], [, b]) => {
+        const ap = a.escopo === 'empresa' || a.escopo === 'ambos' ? 0 : 1;
+        const bp = b.escopo === 'empresa' || b.escopo === 'ambos' ? 0 : 1;
+        return ap - bp;
+      })
+      .slice(0, 80)
+      .map(([comp, info]) => {
+        const meta = [
+          info.pilares.size ? `pilar: ${[...info.pilares].slice(0, 3).join(', ')}` : null,
+          info.cargos.size ? `cargo: ${[...info.cargos].slice(0, 3).join(', ')}` : null,
+          `escopo: ${info.escopo}`,
+        ].filter(Boolean).join('; ');
+        const descs = info.descritores.size ? ` (${[...info.descritores].slice(0, 8).join(', ')})` : '';
+        return `- ${comp}${descs}${meta ? ` [${meta}]` : ''}`;
+      }).join('\n');
+    const corpoConteudo = String(c.conteudo_inline || '').trim();
+    const trechoConteudo = corpoConteudo
+      ? corpoConteudo.slice(0, 7000)
+      : '(sem corpo textual disponível; use título e descrição com confiança mais baixa)';
 
     const user = `CONTEÚDO A CLASSIFICAR:
 - Título: ${c.titulo}
 - Descrição: ${c.descricao || '(sem descrição)'}
 - Formato: ${c.formato}
 - Duração: ${c.duracao_min || '?'} min
+- Pilar informado pelo admin: ${c.pilar || '(não informado)'}
+- Competência atual: ${c.competencia || '(não classificado)'}
+- Corpo/trecho textual:
+${trechoConteudo}
 
 COMPETÊNCIAS DISPONÍVEIS (escolha EXATAMENTE 1):
-${descritoresInfo}
+${competenciasInfo}
 
 Retorne JSON:
 {
+  "pilar": "pilar sugerido ou null",
   "competencia": "nome exato da lista acima",
   "descritor": "descritor sugerido ou null",
   "nivel_min": 1,
@@ -1115,6 +1174,9 @@ Retorne JSON:
 
 REGRAS:
 - competencia deve vir EXATAMENTE da lista fornecida
+- use pilar, cargo e descritores como pistas, mas retorne a competência exata
+- se "Pilar informado pelo admin" estiver preenchido, trate como pista prioritária, mas ainda valide contra o conteúdo
+- quando o conteúdo for de Empreendedorismo/MEI, priorize competências desse pilar se elas estiverem na lista e houver evidência no texto
 - nivel_min e nivel_max entre 1 e 4, nivel_min <= nivel_max
 - se o conteúdo parecer introdutório, não inflar nivel_max
 - se a base estiver fraca (descrição vaga, título genérico), confianca = "baixa"
@@ -1140,6 +1202,7 @@ REGRAS:
  */
 export async function aplicarTagsIA(conteudoId: string, tags: any) {
   return atualizarConteudo(conteudoId, {
+    pilar: tags.pilar,
     competencia: tags.competencia,
     descritor: tags.descritor,
     nivel_min: tags.nivel_min,

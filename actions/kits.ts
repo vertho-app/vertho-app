@@ -43,12 +43,20 @@ export interface GerarKitParams {
   formatos?: readonly string[];
   /** Cliente service-role já pronto (job em background pula a auth de request). */
   sb?: any;
+  // ── Batch API (lote) ──────────────────────────────────────────────────────
+  /** Caller de IA injetado (Batch API); thread p/ desafio + formatos. Default síncrono. */
+  aiRun?: import('@/lib/ai-batch').AIRun;
+  /** Brief já resolvido (1× p/ todos os DISC) — evita corrida ao rodar os 4 em paralelo. */
+  briefPreResolvido?: { briefId: string; brief: any; moduloBaseId: string | null; reused: boolean };
+  /** PPP/contexto da empresa já resolvido (evita reconsultar por DISC). */
+  pppBriefPreResolvido?: string | null;
 }
 
 export async function gerarKit({
   competencia, descritor, disc,
   nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico',
   empresaId = null, aiConfig = {}, formatos = FORMATOS_PADRAO, sb: sbIn,
+  aiRun, briefPreResolvido, pppBriefPreResolvido,
 }: GerarKitParams) {
   try {
     const sb = sbIn || await requireAdminSupabase('content.manage');
@@ -62,8 +70,8 @@ export async function gerarKit({
     // Contexto/PPP da EMPRESA — tecido no core (o kit é por empresa). Consolida
     // VÁRIOS PPPs (rede/município, ex.: Ibipeba) num contexto MUNICIPAL único, em
     // vez de pegar o de uma escola qualquer. Ver kit/contexto-empresa.ts.
-    let pppBrief: string | null = null;
-    if (empresaId) {
+    let pppBrief: string | null = pppBriefPreResolvido ?? null;
+    if (pppBriefPreResolvido === undefined && empresaId) {
       const { resolverContextoEmpresa } = await import('@/lib/season-engine/kit/contexto-empresa');
       pppBrief = await resolverContextoEmpresa(sb, empresaId, aiConfig).catch(() => null);
     }
@@ -71,10 +79,12 @@ export async function gerarKit({
     const baseParams = { competencia, descritor, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, pppBrief };
 
     // 1) Brief (núcleo da empresa, idempotente por tema; PPP como lente).
-    const { briefId, brief, moduloBaseId, reused } = await resolverOuCriarBrief(sb, baseParams);
+    //    No lote (Batch), resolvido 1× ANTES de fanout — evita corrida entre os 4 DISC.
+    const { briefId, brief, moduloBaseId, reused } = briefPreResolvido
+      ?? await resolverOuCriarBrief(sb, baseParams);
 
     // 2) Desafio sob medida ao DISC, ancorado no núcleo + contexto da empresa.
-    const desafio = await gerarKitDesafio(baseParams, brief, disc);
+    const desafio = await gerarKitDesafio({ ...baseParams, aiRun }, brief, disc);
 
     // 3) Kit (1 por brief×DISC). Marca 'generating' enquanto os formatos saem.
     const { data: kitRow, error: kErr } = await sb.from('kits')
@@ -86,10 +96,15 @@ export async function gerarKit({
     // 4) Os 4 formatos, todos semeados pela MESMA espinha + desafio do DISC + PPP da empresa.
     const seed = { nucleo: brief, disc, desafio, kitId, pppBrief };
     const conteudos: Array<{ formato: string; conteudoId?: string; titulo?: string; ok: boolean; error?: string }> = [];
-    for (const formato of formatos) {
-      const r = await gerarConteudoIA({ ...baseParams, formato, kit: seed, sb });
-      conteudos.push({ formato, conteudoId: (r as any).conteudoId, titulo: (r as any).titulo, ok: r.success, error: (r as any).error });
-    }
+    // No lote (Batch), os formatos saem CONCORRENTES — o collector os agrupa numa
+    // tacada. Síncrono (sem aiRun), Promise.all mantém o comportamento (1 de cada vez
+    // não é exigência) mas preserva a ordem do retorno.
+    const formatoResults = await Promise.all(
+      formatos.map((formato) => gerarConteudoIA({ ...baseParams, formato, kit: seed, sb, aiRun })
+        .then((r) => ({ formato, conteudoId: (r as any).conteudoId, titulo: (r as any).titulo, ok: r.success, error: (r as any).error }))
+        .catch((e: any) => ({ formato, ok: false, error: e?.message || 'erro' }))),
+    );
+    conteudos.push(...formatoResults);
 
     // VÍDEO renderizado (Fase 2b): célula (modulo × empresa × cargo × DISC) com o
     // desafio do DISC no roteiro + PPP municipal, ligada ao kit. Render é async
@@ -129,6 +144,8 @@ export interface GerarKitSemanalParams extends Omit<GerarKitParams, 'disc'> {
   renderAudio?: boolean; // dispara o TTS dos podcasts (pesado/lento)
   /** Callback de progresso (job em background atualiza kit_jobs). */
   onProgress?: (p: { done: number; total: number; current: string; kits: any[] }) => Promise<void> | void;
+  /** Batch API (−50%): gera os 4 DISC numa tacada (async, ~min). Fallback síncrono. */
+  useBatch?: boolean;
 }
 
 /**
@@ -142,16 +159,58 @@ export interface GerarKitSemanalParams extends Omit<GerarKitParams, 'disc'> {
 export async function gerarKitSemanal({
   competencia, descritor, nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico',
   empresaId = null, aiConfig = {}, formatos, discs = ['D', 'I', 'S', 'C'], renderAudio = false,
-  sb, onProgress,
+  sb, onProgress, useBatch = false,
 }: GerarKitSemanalParams) {
   try {
-    const kits: Awaited<ReturnType<typeof gerarKit>>[] = [];
     const total = discs.length;
-    for (const disc of discs) {
-      await onProgress?.({ done: kits.length, total, current: `gerando kit ${disc}…`, kits: kits.map(resumoKit) });
-      // sequencial: o 1º cria o brief; os demais reusam (resolverOuCriarBrief idempotente).
-      kits.push(await gerarKit({ competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos, sb }));
-      await onProgress?.({ done: kits.length, total, current: `kit ${disc} concluído`, kits: kits.map(resumoKit) });
+    const sbk = sb || await requireAdminSupabase('content.manage');
+    let kits: Awaited<ReturnType<typeof gerarKit>>[] = [];
+
+    // ── Caminho LOTE (Batch API −50%) ─────────────────────────────────────────
+    // Vale a pena só com fan-out (≥2 DISC). Resolve brief+PPP 1× (evita corrida),
+    // roda os DISC CONCORRENTES e o collector agrupa as chamadas num batch async.
+    // Qualquer falha do batch → o próprio collector cai em callAI síncrono; uma
+    // falha estrutural aqui → fallback ao loop sequencial abaixo.
+    let batchOk = false;
+    if (useBatch && discs.length >= 2) {
+      try {
+        await onProgress?.({ done: 0, total, current: `lote (batch) — preparando núcleo…`, kits: [] });
+        const baseParams = { competencia, descritor, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig };
+        let pppBrief: string | null = null;
+        if (empresaId) {
+          const { resolverContextoEmpresa } = await import('@/lib/season-engine/kit/contexto-empresa');
+          pppBrief = await resolverContextoEmpresa(sbk, empresaId, aiConfig).catch(() => null);
+        }
+        const brief = await resolverOuCriarBrief(sbk, { ...baseParams, pppBrief });
+        const { createAIBatchCollector } = await import('@/lib/ai-batch');
+        const { run } = createAIBatchCollector(aiConfig?.model || 'claude-sonnet-4-6');
+
+        await onProgress?.({ done: 0, total, current: `lote (batch) — gerando ${discs.length} DISC…`, kits: [] });
+        let done = 0;
+        kits = await Promise.all(discs.map((disc) =>
+          gerarKit({
+            competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos, sb: sbk,
+            aiRun: run, briefPreResolvido: brief, pppBriefPreResolvido: pppBrief,
+          }).then(async (k) => {
+            done++;
+            await onProgress?.({ done, total, current: `kit ${disc} concluído`, kits: [] });
+            return k;
+          })));
+        batchOk = true;
+      } catch (e: any) {
+        console.warn(`[gerarKitSemanal] lote/batch falhou (${e?.message}) — fallback sequencial`);
+        kits = [];
+      }
+    }
+
+    // ── Caminho SEQUENCIAL (default / fallback) ───────────────────────────────
+    if (!batchOk) {
+      for (const disc of discs) {
+        await onProgress?.({ done: kits.length, total, current: `gerando kit ${disc}…`, kits: kits.map(resumoKit) });
+        // sequencial: o 1º cria o brief; os demais reusam (resolverOuCriarBrief idempotente).
+        kits.push(await gerarKit({ competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos, sb: sbk }));
+        await onProgress?.({ done: kits.length, total, current: `kit ${disc} concluído`, kits: kits.map(resumoKit) });
+      }
     }
 
     let audioRendered = 0;
@@ -193,6 +252,8 @@ export interface EnqueueKitParams {
   empresaId?: string | null;
   discs?: DiscLetter[];
   renderAudio?: boolean;
+  /** Batch API (−50%). Default: ligado no lote (≥2 DISC). */
+  useBatch?: boolean;
 }
 
 /** Cria o job em kit_jobs e dispara o task gerar-kit. Retorna o jobId p/ polling. */
@@ -205,6 +266,7 @@ export async function enqueueKit(p: EnqueueKitParams) {
       nivelMin: p.nivelMin ?? 1.0, nivelMax: p.nivelMax ?? 2.0,
       cargo: p.cargo ?? 'todos', contexto: p.contexto ?? 'generico',
       discs, renderAudio: !!p.renderAudio,
+      useBatch: p.useBatch ?? (discs.length >= 2),
     };
     const { data: job, error } = await sb.from('kit_jobs').insert({
       empresa_id: p.empresaId ?? null, competencia: p.competencia, descritor: p.descritor,
