@@ -84,3 +84,55 @@ export async function gerarKit({
     return { success: false, error: err?.message || 'Erro' };
   }
 }
+
+// ── Fase 2: lote dos 4 DISC (brief gerado 1× e reusado) ─────────────────────
+export interface GerarKitSemanalParams extends Omit<GerarKitParams, 'disc'> {
+  discs?: DiscLetter[];
+  renderAudio?: boolean; // dispara o TTS dos podcasts (pesado/lento)
+}
+
+/**
+ * Gera o kit semanal completo de um tema: os 4 DISC × formatos. O brief (núcleo)
+ * é destilado 1× (no 1º DISC) e REUSADO pelos demais — coesão garantida. Em DUO
+ * o chamador roda isto 1× por competência. Opcionalmente renderiza os podcasts
+ * (TTS) na sequência. O vídeo renderizado (assistível) reusa o pipeline de célula
+ * existente (DISC-aware) — ver docs/KIT-SEMANAL.md (Fase 2b: costurar o desafio
+ * exato no roteiro do vídeo).
+ */
+export async function gerarKitSemanal({
+  competencia, descritor, nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico',
+  empresaId = null, aiConfig = {}, formatos, discs = ['D', 'I', 'S', 'C'], renderAudio = false,
+}: GerarKitSemanalParams) {
+  try {
+    const kits: Awaited<ReturnType<typeof gerarKit>>[] = [];
+    for (const disc of discs) {
+      // sequencial: o 1º cria o brief; os demais reusam (resolverOuCriarBrief idempotente).
+      kits.push(await gerarKit({ competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos }));
+    }
+
+    let audioRendered = 0;
+    if (renderAudio) {
+      const { gerarPodcastAudio } = await import('@/actions/conteudos');
+      for (const k of kits) {
+        for (const c of (k as any).conteudos || []) {
+          if (c.formato === 'audio' && c.ok && c.conteudoId) {
+            const a = await gerarPodcastAudio(c.conteudoId).catch(() => null);
+            if ((a as any)?.success) audioRendered++;
+          }
+        }
+      }
+    }
+
+    const okKits = kits.filter((k) => k.success).length;
+    return {
+      success: okKits > 0,
+      competencia, descritor,
+      kits: kits.map((k) => ({ disc: (k as any).disc, kitId: (k as any).kitId, ok: k.success, error: (k as any).error, desafio: (k as any).desafio, conteudos: (k as any).conteudos })),
+      audioRendered,
+      message: `Kit semanal ${competencia} › ${descritor}: ${okKits}/${discs.length} DISC` + (renderAudio ? ` · ${audioRendered} podcast(s) renderizado(s)` : ''),
+    };
+  } catch (err: any) {
+    console.error('[gerarKitSemanal]', err);
+    return { success: false, error: err?.message || 'Erro' };
+  }
+}

@@ -240,6 +240,15 @@ export default function ConteudosAdminPage() {
             {t('actions.generateAi')}
           </button>
           <button
+            onClick={() => router.push('/admin/conteudos/kit')}
+            disabled={busy}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-sm font-bold"
+            title="1 núcleo → 4 formatos coesos + desafio por DISC"
+          >
+            <Wand2 size={16} />
+            Gerar Kit
+          </button>
+          <button
             onClick={handleImportar}
             disabled={busy}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-sm font-bold"
