@@ -11,7 +11,7 @@ type Status = 'rascunho' | 'revisao' | 'publicado' | 'obsoleto';
 type Locale = 'pt-BR' | 'pt-PT' | 'es-ES' | 'en-US';
 
 const COLS = `
-  id, grupo_id, locale, competencia_base_id, nivel_entrada, nivel_destino,
+  id, grupo_id, locale, competencia_base_id, competencia_id, nivel_entrada, nivel_destino,
   titulo, descritor, finalidade, contexto_pedagogico, tags, preferido, status, versao,
   substitui_modulo_id, conteudo_central, conteudo_aplicavel, guarda_corpos,
   adaptacao_por_formato, created_by, created_at, updated_at,
@@ -32,6 +32,19 @@ async function carregarCompetenciaBase(id: string) {
     .select('id, segmento, cod_comp, nome, pilar, descricao, cod_desc, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia, cargo, evidencias_esperadas, perguntas_alvo')
     .eq('id', id)
     .maybeSingle();
+  return data;
+}
+
+// Competência da EMPRESA (taxonomia própria, sem ligação com o catálogo canônico).
+// Usada quando a extração é escopada a uma empresa (ex.: pilar Empreendedorismo da
+// Macaé). Mesmos campos do catálogo base, exceto `segmento` (deriva da empresa).
+async function carregarCompetenciaEmpresa(id: string) {
+  const sb = createSupabaseAdmin();
+  const { data } = await sb.from('competencias')
+    .select('id, empresa_id, cargo, pilar, cod_comp, nome, nome_curto, descricao, cod_desc, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia, evidencias_esperadas, perguntas_alvo')
+    .eq('id', id)
+    .maybeSingle();
+  if (data && !(data as any).segmento) (data as any).segmento = '(modelo da empresa)';
   return data;
 }
 
@@ -102,7 +115,17 @@ export async function listarModulos(filtros: {
   if (filtros.busca) q = q.ilike('titulo', `%${filtros.busca}%`);
   const { data, error } = await q.limit(200);
   if (error) return { error: error.message };
-  return { modulos: data || [] };
+  const modulos = (data || []) as any[];
+
+  // Resolve o nome da competência dos DOIS catálogos (canônico + empresa), já que
+  // módulos da empresa (competencia_id) não aparecem em competencias_base.
+  const empresaIds = [...new Set(modulos.map((m) => m.competencia_id).filter(Boolean))];
+  if (empresaIds.length) {
+    const { data: emp } = await sb.from('competencias').select('id, nome').in('id', empresaIds);
+    const nomeDe = new Map((emp || []).map((c: any) => [c.id, c.nome]));
+    for (const m of modulos) if (m.competencia_id) m.competencia_nome = nomeDe.get(m.competencia_id) || null;
+  }
+  return { modulos };
 }
 
 export async function obterModulo(id: string) {
@@ -112,6 +135,11 @@ export async function obterModulo(id: string) {
   const { data, error } = await sb.from('modulos_base_conteudo').select(COLS).eq('id', id).maybeSingle();
   if (error) return { error: error.message };
   if (!data) return { error: 'Módulo não encontrado' };
+  // Módulo da empresa: resolve o nome da competência (não está em competencias_base).
+  if ((data as any).competencia_id) {
+    const { data: c } = await sb.from('competencias').select('nome').eq('id', (data as any).competencia_id).maybeSingle();
+    (data as any).competencia_nome = c?.nome || null;
+  }
   return { modulo: data };
 }
 
@@ -143,7 +171,8 @@ export async function listarCompetenciasBase() {
 
 export async function salvarModulo(payload: any) {
   const ctx = await requireAdminAction('content.manage');
-  if (!payload?.competencia_base_id) return { error: 'competencia_base_id obrigatório' };
+  // Módulo é chaveado pela competência CANÔNICA ou pela da EMPRESA (extração escopada).
+  if (!payload?.competencia_base_id && !payload?.competencia_id) return { error: 'competência (canônica ou da empresa) obrigatória' };
   if (!payload?.nivel_entrada || !payload?.nivel_destino) return { error: 'níveis obrigatórios' };
   if (!nivelGreater(payload.nivel_destino, payload.nivel_entrada)) {
     return { error: 'nivel_destino deve ser maior que nivel_entrada' };
@@ -152,7 +181,8 @@ export async function salvarModulo(payload: any) {
 
   const sb = createSupabaseAdmin();
   const base = {
-    competencia_base_id: payload.competencia_base_id,
+    competencia_base_id: payload.competencia_id ? null : payload.competencia_base_id,
+    competencia_id: payload.competencia_id || null,
     locale: payload.locale || 'pt-BR',
     nivel_entrada: payload.nivel_entrada,
     nivel_destino: payload.nivel_destino,
@@ -313,6 +343,7 @@ export async function criarTraducao(modulo_origem_id: string, novo_locale: Local
     grupo_id: origem.grupo_id,
     locale: novo_locale,
     competencia_base_id: origem.competencia_base_id,
+    competencia_id: origem.competencia_id,
     nivel_entrada: origem.nivel_entrada,
     nivel_destino: origem.nivel_destino,
     titulo: origem.titulo,
@@ -734,7 +765,9 @@ ${String(textoBase).slice(0, 5000)}`;
 }
 
 interface MetaModulo {
-  competencia_base_id: string;
+  // Uma das duas: competência CANÔNICA (base) OU competência da EMPRESA.
+  competencia_base_id?: string | null;
+  competencia_id?: string | null;
   nivel_entrada: Nivel;
   nivel_destino: Nivel;
   contexto_pedagogico?: string | null;
@@ -825,8 +858,11 @@ async function estruturarEInserirModulo(
   textoBase: string,
   opts: { empresaId?: string | null; urlOrigem?: string; createdBy?: string },
 ): Promise<{ id?: string; grupo_id?: string; competencia?: string; nivel_entrada?: Nivel; nivel_destino?: Nivel; avisos?: string[]; error?: string }> {
-  const comp = await carregarCompetenciaBase(meta.competencia_base_id);
-  if (!comp) return { error: 'Competência base não encontrada' };
+  const isEmpresa = !!meta.competencia_id;
+  const comp = isEmpresa
+    ? await carregarCompetenciaEmpresa(meta.competencia_id!)
+    : await carregarCompetenciaBase(meta.competencia_base_id!);
+  if (!comp) return { error: isEmpresa ? 'Competência da empresa não encontrada' : 'Competência base não encontrada' };
 
   // Estrutura os 4 blocos tratando o texto-base como matéria-prima (igual ao docx).
   const contextoPedagogico = normalizeContextoPedagogico(meta.contexto_pedagogico);
@@ -842,7 +878,8 @@ async function estruturarEInserirModulo(
   const insertRow: any = {
     empresa_id: opts.empresaId || null,
     locale: meta.locale,
-    competencia_base_id: meta.competencia_base_id,
+    competencia_base_id: isEmpresa ? null : meta.competencia_base_id,
+    competencia_id: isEmpresa ? meta.competencia_id : null,
     nivel_entrada: meta.nivel_entrada,
     nivel_destino: meta.nivel_destino,
     titulo: (meta.titulo || `[Vídeo] ${comp.nome} ${meta.nivel_entrada}→${meta.nivel_destino}`).slice(0, 120),
@@ -896,6 +933,8 @@ interface SegCtx {
   idSet: Set<string>;
   nomeParaId: Map<string, string>;
   model: string;
+  /** true = catálogo da EMPRESA (ids vão para competencia_id, não competencia_base_id). */
+  empresa: boolean;
 }
 
 type CompetenciaSeg = {
@@ -939,7 +978,7 @@ function escolherCompetenciaFallback(texto: string, comps: CompetenciaSeg[], dir
   return best;
 }
 
-function secoesFallbackDeterministico(transcricao: string, tituloVideo: string, comps: CompetenciaSeg[], direcionamento?: DirecionamentoModuloBase | null): SegSecao[] {
+function secoesFallbackDeterministico(transcricao: string, tituloVideo: string, comps: CompetenciaSeg[], direcionamento?: DirecionamentoModuloBase | null, empresa = false): SegSecao[] {
   const full = String(transcricao || '').trim();
   if (full.length < 200 || !comps.length) return [];
   const AMOSTRA = 8000;
@@ -956,7 +995,8 @@ function secoesFallbackDeterministico(transcricao: string, tituloVideo: string, 
     // usamos um placeholder honesto que o admin ajusta na revisão. (Bug anterior:
     // o pilar direcionador vazava para o descritor.)
     out.push({
-      competencia_base_id: comp.id,
+      competencia_base_id: empresa ? null : comp.id,
+      competencia_id: empresa ? comp.id : null,
       nivel_entrada: 'N1',
       nivel_destino: 'N2',
       contexto_pedagogico: 'fallback-material',
@@ -1059,7 +1099,9 @@ ${texto}`;
         if (!ctx.idSet.has(id)) id = ctx.nomeParaId.get(String(s?.competencia_nome || '').trim().toLowerCase()) || '';
         return { s, id };
       }).filter((x) => x.id && x.s?.texto_base).map(({ s, id }) => ({
-        competencia_base_id: id,
+        // Catálogo da empresa → competencia_id; canônico → competencia_base_id.
+        competencia_base_id: ctx.empresa ? null : id,
+        competencia_id: ctx.empresa ? id : null,
         nivel_entrada: (niveisValidos(s.nivel_entrada, s.nivel_destino) ? s.nivel_entrada : 'N1') as Nivel,
         nivel_destino: (niveisValidos(s.nivel_entrada, s.nivel_destino) ? s.nivel_destino : 'N2') as Nivel,
         contexto_pedagogico: s.contexto_pedagogico || null,
@@ -1089,13 +1131,29 @@ ${texto}`;
  * (competência × transição), removendo o teto de tamanho (livros, cursos, etc).
  */
 async function segmentarTranscricao(
-  transcricao: string, tituloVideo: string, direcionamento?: DirecionamentoModuloBase | null,
+  transcricao: string, tituloVideo: string, direcionamento?: DirecionamentoModuloBase | null, empresaId?: string | null,
 ): Promise<{ secoes: SegSecao[]; diag: string }> {
   const sb = createSupabaseAdmin();
-  const { data: comps } = await sb.from('competencias_base')
-    .select('id, nome, segmento, descricao, pilar, descritor_completo')
-    .order('nome');
-  const lista = (comps || []) as CompetenciaSeg[];
+  // Escopo de EMPRESA → usa o catálogo de competências DELA (pilares próprios, ex.:
+  // Empreendedorismo na Macaé). Global → catálogo canônico. competencias tem linhas
+  // duplicadas por cargo → dedup por nome (1 competência = 1 entrada no catálogo).
+  let lista: CompetenciaSeg[];
+  if (empresaId) {
+    const { data: comps } = await sb.from('competencias')
+      .select('id, nome, cargo, descricao, pilar, descritor_completo')
+      .eq('empresa_id', empresaId).order('nome');
+    const porNome = new Map<string, CompetenciaSeg>();
+    for (const c of (comps || []) as any[]) {
+      const k = String(c.nome || '').trim().toLowerCase();
+      if (k && !porNome.has(k)) porNome.set(k, { ...c, segmento: c.cargo || 'empresa' });
+    }
+    lista = [...porNome.values()];
+  } else {
+    const { data: comps } = await sb.from('competencias_base')
+      .select('id, nome, segmento, descricao, pilar, descritor_completo')
+      .order('nome');
+    lista = (comps || []) as CompetenciaSeg[];
+  }
   const hintPilar = String(direcionamento?.pilar || '').trim().toLowerCase();
   const hintComp = String(direcionamento?.competencia || '').trim().toLowerCase();
   const hintId = String(direcionamento?.competenciaBaseId || '').trim();
@@ -1122,6 +1180,7 @@ Regra: se a competência base preferida aparecer no catálogo e o trecho for com
     idSet: new Set(lista.map((c) => c.id)),
     nomeParaId: new Map(lista.map((c) => [c.nome.trim().toLowerCase(), c.id])),
     model: await getModelForTask(null as any, 'modulo_base_autor'),
+    empresa: !!empresaId,
   };
 
   const full = String(transcricao);
@@ -1159,7 +1218,7 @@ Regra: se a competência base preferida aparecer no catálogo e o trecho for com
   // só o MESMO descritor que cruza janelas é fundido (material combinado, cap).
   const map = new Map<string, SegSecao>();
   for (const s of todas) {
-    const key = `${s.competencia_base_id}|${s.nivel_entrada}|${s.nivel_destino}|${String(s.descritor || '').trim().toLowerCase()}`;
+    const key = `${s.competencia_id || s.competencia_base_id}|${s.nivel_entrada}|${s.nivel_destino}|${String(s.descritor || '').trim().toLowerCase()}`;
     const ex = map.get(key);
     if (ex) {
       if (ex.texto_base.length < MERGE_CAP) ex.texto_base = (ex.texto_base + '\n\n' + s.texto_base).slice(0, MERGE_CAP);
@@ -1169,7 +1228,7 @@ Regra: se a competência base preferida aparecer no catálogo e o trecho for com
   }
   const secoes = [...map.values()].slice(0, MAX_SECOES);
   if (!secoes.length) {
-    const fallback = secoesFallbackDeterministico(full, tituloVideo, listaOrdenada, direcionamento);
+    const fallback = secoesFallbackDeterministico(full, tituloVideo, listaOrdenada, direcionamento, !!empresaId);
     if (fallback.length) {
       return { secoes: fallback, diag: `fallback determinístico após IA sem blocos (${janelas.length} janelas)` };
     }
@@ -1194,7 +1253,7 @@ export async function criarModulosDeTranscricao(opts: {
 }): Promise<{ modulos: { id: string; competencia?: string; nivel_entrada?: Nivel; nivel_destino?: Nivel }[]; error?: string }> {
   if (!opts?.transcricao?.trim()) return { modulos: [], error: 'transcrição vazia' };
 
-  const { secoes, diag } = await segmentarTranscricao(opts.transcricao, opts.tituloVideo || '', opts.direcionamento);
+  const { secoes, diag } = await segmentarTranscricao(opts.transcricao, opts.tituloVideo || '', opts.direcionamento, opts.empresaId);
   if (!secoes.length) return { modulos: [], error: `Não foi possível segmentar a transcrição. ${diag}` };
 
   const locale = (opts.locale || 'pt-BR') as Locale;

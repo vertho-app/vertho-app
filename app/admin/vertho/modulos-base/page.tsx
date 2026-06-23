@@ -141,7 +141,7 @@ export default function ModulosBaseListPage() {
                       </div>
                     </td>
                     <td className="px-3 py-2.5 text-white/70 truncate max-w-[200px]">
-                      {compMap[m.competencia_base_id]?.nome || '—'}
+                      {compMap[m.competencia_base_id]?.nome || m.competencia_nome || '—'}
                     </td>
                     <td className="px-3 py-2.5 text-white/65 truncate max-w-[240px]" title={m.descritor || ''}>
                       {m.descritor || '—'}

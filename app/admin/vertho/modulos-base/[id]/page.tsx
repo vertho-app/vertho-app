@@ -80,6 +80,7 @@ export default function ModuloBaseEditPage({ params }: { params: Promise<{ id: s
       const payload = {
         id: isNovo ? undefined : id,
         competencia_base_id: m.competencia_base_id,
+        competencia_id: m.competencia_id || null, // módulo da empresa (extração escopada)
         locale: m.locale,
         nivel_entrada: m.nivel_entrada,
         nivel_destino: m.nivel_destino,
@@ -287,13 +288,19 @@ export default function ModuloBaseEditPage({ params }: { params: Promise<{ id: s
         {/* Identificação */}
         <Card titulo="Identificação">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Field label="Competência base*">
-              <select disabled={!podeEditarCabecalho} value={m.competencia_base_id} onChange={e => setM({ ...m, competencia_base_id: e.target.value })}
-                className="input">
-                <option value="">— selecione —</option>
-                {competencias.map(c => <option key={c.id} value={c.id}>{c.nome} ({c.segmento})</option>)}
-              </select>
-            </Field>
+            {m.competencia_id ? (
+              <Field label="Competência (modelo da empresa)">
+                <input disabled value={m.competencia_nome || '(competência da empresa)'} className="input opacity-80" />
+              </Field>
+            ) : (
+              <Field label="Competência base*">
+                <select disabled={!podeEditarCabecalho} value={m.competencia_base_id || ''} onChange={e => setM({ ...m, competencia_base_id: e.target.value })}
+                  className="input">
+                  <option value="">— selecione —</option>
+                  {competencias.map(c => <option key={c.id} value={c.id}>{c.nome} ({c.segmento})</option>)}
+                </select>
+              </Field>
+            )}
             <Field label="Idioma*">
               <select disabled={!isNovo} value={m.locale} onChange={e => setM({ ...m, locale: e.target.value })} className="input">
                 {LOCALES.map(l => <option key={l} value={l}>{l}</option>)}
