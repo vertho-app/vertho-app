@@ -756,6 +756,65 @@ function normalizeContextoPedagogico(value?: string | null): string | null {
     .slice(0, 80) || null;
 }
 
+function montarCorpoFallback(comp: any, meta: MetaModulo, textoBase: string) {
+  const texto = String(textoBase || '').trim().slice(0, 7000);
+  const foco = meta.descritor || comp?.nome || 'tema do material';
+  return {
+    conteudo_central: {
+      ideia_principal: `Material base extraído para apoiar o desenvolvimento de ${comp?.nome || foco}.`,
+      explicacao_expandida: texto || `O material deve ser revisado para consolidar conceitos, exemplos e orientações ligados a ${foco}.`,
+      principios: [
+        `Organizar os conceitos centrais de ${foco} em linguagem clara.`,
+        'Preservar exemplos e situações presentes no material original.',
+        'Transformar o conteúdo em orientação aplicável, sem criar fatos não presentes na fonte.',
+        'Separar fundamentos, práticas e cuidados para facilitar a adaptação em formatos finais.',
+        'Manter o módulo como matéria-prima pedagógica, não como aula final.',
+      ],
+      sintese_executiva: `Rascunho gerado a partir do material original para revisão e refinamento em ${comp?.nome || foco}.`,
+    },
+    conteudo_aplicavel: {
+      situacoes_tipicas: [
+        { situacao: 'Revisão do material-base', risco_comum: 'Usar o texto bruto sem curadoria', boa_abordagem: 'Selecionar conceitos e exemplos aderentes ao público-alvo.' },
+        { situacao: 'Criação de conteúdo final', risco_comum: 'Inventar exemplos fora da fonte', boa_abordagem: 'Adaptar apenas o que está sustentado pelo material.' },
+        { situacao: 'Aplicação em trilhas de aprendizagem', risco_comum: 'Misturar muitos objetivos em um módulo', boa_abordagem: 'Definir um objetivo pedagógico por peça.' },
+        { situacao: 'Contextualização para empresa', risco_comum: 'Forçar termos genéricos', boa_abordagem: 'Revisar linguagem e exemplos para o contexto da empresa.' },
+      ],
+      erros_comuns: [
+        'Publicar sem revisão humana do rascunho.',
+        'Tratar o módulo-base como roteiro final.',
+        'Remover nuances importantes do material original.',
+        'Atribuir maturidade ou diagnóstico sem evidência.',
+      ],
+      boas_praticas: [
+        'Revisar títulos, descritores e finalidade antes de publicar.',
+        'Conferir se a competência canônica escolhida está adequada.',
+        'Preservar trechos relevantes do material como referência.',
+        'Ajustar o conteúdo para exemplos universais e seguros.',
+      ],
+    },
+    guarda_corpos: {
+      preservar: [
+        'Fidelidade ao material original.',
+        'Linguagem clara e aplicável.',
+        'Caráter de matéria-prima pedagógica.',
+      ],
+      evitar: [
+        'Inventar dados, casos ou estatísticas.',
+        'Transformar o módulo em aula final.',
+        'Fazer diagnóstico psicológico ou comportamental.',
+      ],
+      cuidados: [
+        'Rascunho de contingência: revisar antes de publicar.',
+      ],
+    },
+    adaptacao_por_formato: {
+      texto: 'Converter em artigo ou microconteúdo após revisão.',
+      podcast_roteiro: 'Usar como base para conversa guiada, preservando exemplos do material.',
+      video_roteiro: 'Transformar em roteiro curto com abertura, conceito central e aplicação prática.',
+    },
+  };
+}
+
 /**
  * Estrutura um texto-base nos 4 blocos (IA-autora) e insere o módulo rascunho.
  * Núcleo compartilhado: a competência canônica + transição já vêm resolvidas
@@ -773,7 +832,9 @@ async function estruturarEInserirModulo(
   const contextoPedagogico = normalizeContextoPedagogico(meta.contexto_pedagogico);
   const userPrompt = montarUserPrompt(comp, meta.nivel_entrada, meta.nivel_destino, contextoPedagogico || undefined, null, textoBase);
   const model = await getModelForTask(null as any, 'modulo_base_autor');
-  const corpo = await chamarIAComRetry(SYSTEM_AUTOR, userPrompt, model);
+  let corpo = await chamarIAComRetry(SYSTEM_AUTOR, userPrompt, model);
+  const usouFallback = !corpo && contextoPedagogico === 'fallback-material';
+  if (!corpo && usouFallback) corpo = montarCorpoFallback(comp, meta, textoBase);
   if (!corpo) return { error: 'A IA não conseguiu estruturar o conteúdo do vídeo. Tente novamente ou edite manualmente.' };
 
   const erros = validarCorpo(corpo);
@@ -796,9 +857,10 @@ async function estruturarEInserirModulo(
     created_by: opts.createdBy || 'extracao-video',
     status: 'rascunho' as Status,
   };
+  if (usouFallback) insertRow.tags = [...insertRow.tags, 'fallback-ia'];
   const { data, error } = await sb.from('modulos_base_conteudo').insert(insertRow).select('id, grupo_id').single();
   if (error) return { error: error.message };
-  return { id: data.id, grupo_id: data.grupo_id, competencia: comp.nome, nivel_entrada: meta.nivel_entrada, nivel_destino: meta.nivel_destino, avisos: erros };
+  return { id: data.id, grupo_id: data.grupo_id, competencia: comp.nome, nivel_entrada: meta.nivel_entrada, nivel_destino: meta.nivel_destino, avisos: usouFallback ? [...erros, 'Rascunho de contingência: revisar antes de publicar.'] : erros };
 }
 
 /**
@@ -823,11 +885,85 @@ export async function criarModuloBaseDeTextoExtraido(opts: {
 }
 
 type SegSecao = Omit<MetaModulo, 'locale'> & { texto_base: string };
+type DirecionamentoModuloBase = {
+  pilar?: string | null;
+  competencia?: string | null;
+  competenciaBaseId?: string | null;
+};
 interface SegCtx {
   compsListagem: string;
+  direcionamentoTexto: string;
   idSet: Set<string>;
   nomeParaId: Map<string, string>;
   model: string;
+}
+
+type CompetenciaSeg = {
+  id: string;
+  nome: string;
+  segmento: string;
+  descricao?: string;
+  pilar?: string | null;
+  descritor_completo?: string | null;
+};
+
+function tokensBusca(s: string): string[] {
+  return String(s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/g)
+    .filter((t) => t.length >= 4 && !['para', 'como', 'sobre', 'mais', 'pela', 'pelo', 'entre', 'isso', 'esta', 'este', 'essa', 'esse'].includes(t));
+}
+
+function escolherCompetenciaFallback(texto: string, comps: CompetenciaSeg[], direcionamento?: DirecionamentoModuloBase | null): CompetenciaSeg | null {
+  if (!comps.length) return null;
+  const hintId = String(direcionamento?.competenciaBaseId || '').trim();
+  if (hintId) {
+    const byId = comps.find((c) => c.id === hintId);
+    if (byId) return byId;
+  }
+  const textoTokens = new Set(tokensBusca(`${direcionamento?.pilar || ''} ${direcionamento?.competencia || ''} ${texto.slice(0, 24000)}`));
+  const hintPilar = String(direcionamento?.pilar || '').trim().toLowerCase();
+  const hintComp = String(direcionamento?.competencia || '').trim().toLowerCase();
+  let best = comps[0], bestScore = -1;
+  for (const c of comps) {
+    const hay = `${c.nome || ''} ${c.pilar || ''} ${c.descritor_completo || ''} ${c.descricao || ''}`;
+    const compTokens = tokensBusca(hay);
+    let score = 0;
+    if (hintPilar && String(c.pilar || '').trim().toLowerCase() === hintPilar) score += 80;
+    if (hintComp && String(c.nome || '').trim().toLowerCase() === hintComp) score += 80;
+    for (const t of compTokens) if (textoTokens.has(t)) score += 4;
+    if (score > bestScore) { best = c; bestScore = score; }
+  }
+  return best;
+}
+
+function secoesFallbackDeterministico(transcricao: string, tituloVideo: string, comps: CompetenciaSeg[], direcionamento?: DirecionamentoModuloBase | null): SegSecao[] {
+  const full = String(transcricao || '').trim();
+  if (full.length < 200 || !comps.length) return [];
+  const AMOSTRA = 8000;
+  const total = Math.min(3, Math.max(1, Math.ceil(full.length / 120000)));
+  const step = Math.max(AMOSTRA, Math.floor(full.length / total));
+  const out: SegSecao[] = [];
+  for (let i = 0; i < total; i++) {
+    const trecho = full.slice(i * step, i * step + AMOSTRA).trim();
+    if (trecho.length < 500) continue;
+    const comp = escolherCompetenciaFallback(trecho, comps, direcionamento);
+    if (!comp) continue;
+    const pilar = direcionamento?.pilar || comp.pilar || 'tema do material';
+    out.push({
+      competencia_base_id: comp.id,
+      nivel_entrada: 'N1',
+      nivel_destino: 'N2',
+      contexto_pedagogico: 'fallback-material',
+      titulo: `${tituloVideo || 'Material'} — parte ${i + 1}`,
+      descritor: String(direcionamento?.competencia || pilar).slice(0, 120),
+      finalidade: `Estruturar matéria-prima extraída do material com foco em ${direcionamento?.competencia || pilar}.`,
+      texto_base: trecho,
+    });
+  }
+  return out;
 }
 
 // Formato de saída em BLOCOS DELIMITADOS (não JSON): o texto_base é markdown
@@ -838,6 +974,7 @@ const SEG_SYSTEM = `Você é designer instrucional da Vertho. Recebe um TRECHO d
 
 REGRAS:
 - Identifique de 1 a 8 seções (use o número que o conteúdo pedir; um trecho monotemático pode ter 1).
+- Se houver DIRECIONAMENTO DO ADMIN, trate-o como prioridade semântica: prefira o pilar/competência indicada quando o trecho for compatível. Só desvie se o conteúdo claramente pertencer a outro tema.
 - Para CADA seção, escolha SEMPRE a competência do catálogo SEMANTICAMENTE mais próxima — nunca deixe sem competência. Copie o competencia_base_id EXATO da lista (e repita o nome em competencia_nome para conferência).
 - descritor: o sub-tema ESPECÍFICO da seção dentro da competência (5-10 palavras; mais granular que o nome da competência).
 - PODE haver mais de uma seção para a MESMA competência, desde que sejam DESCRITORES (sub-temas) distintos — cada descritor vira um módulo separado. Não force descritores iguais a se juntarem.
@@ -895,7 +1032,7 @@ function parseSecoesBlocos(raw: string): any[] {
 
 /** Segmenta UMA janela de texto (≤ ~110k chars) numa chamada (com retry). */
 async function segmentarJanela(texto: string, tituloVideo: string, ctx: SegCtx): Promise<{ secoes: SegSecao[]; diag: string }> {
-  const user = `CATÁLOGO DE COMPETÊNCIAS (escolha sempre 1 por seção — id EXATO):
+  const montarUser = (incluirDirecionamento: boolean) => `${incluirDirecionamento && ctx.direcionamentoTexto ? `${ctx.direcionamentoTexto}\n\n` : ''}CATÁLOGO DE COMPETÊNCIAS (escolha sempre 1 por seção — id EXATO):
 ${ctx.compsListagem}
 
 TÍTULO: ${tituloVideo || '—'}
@@ -903,35 +1040,43 @@ TÍTULO: ${tituloVideo || '—'}
 TRECHO:
 ${texto}`;
 
-  let ultimoDiag = 'sem resposta';
+  const tentar = async (user: string, sufixo: string): Promise<{ secoes: SegSecao[]; diag: string }> => {
+    let ultimoDiag = 'sem resposta';
   // 2 tentativas (não 3): cada chamada densa pode levar ~minutos; 3× estouraria
   // os 300s da rota síncrona. timeoutMs 150s cobre a geração densa legítima e
   // maxRetries 0 evita o retry do SDK (que dobraria o tempo por chamada).
-  for (let tentativa = 1; tentativa <= 2; tentativa++) {
-    const raw = await callAI(SEG_SYSTEM, user, { model: ctx.model }, 32000, { timeoutMs: 180000, maxRetries: 0 }).catch((e: any) => { ultimoDiag = 'callAI: ' + (e?.message || e); return ''; });
-    const brutas = parseSecoesBlocos(String(raw || ''));
-    if (!brutas.length) { ultimoDiag = `t${tentativa}: raw=${String(raw || '').length}c, 0 blocos`; continue; }
+    for (let tentativa = 1; tentativa <= 2; tentativa++) {
+      const raw = await callAI(SEG_SYSTEM, user, { model: ctx.model }, 32000, { timeoutMs: 180000, maxRetries: 0 }).catch((e: any) => { ultimoDiag = 'callAI: ' + (e?.message || e); return ''; });
+      const brutas = parseSecoesBlocos(String(raw || ''));
+      if (!brutas.length) { ultimoDiag = `t${tentativa}${sufixo}: raw=${String(raw || '').length}c, 0 blocos`; continue; }
 
-    // Resolve a competência: id válido do catálogo OU nome casado ao catálogo.
-    const secoes: SegSecao[] = brutas.map((s: any) => {
-      let id = String(s?.competencia_base_id || '').trim();
-      if (!ctx.idSet.has(id)) id = ctx.nomeParaId.get(String(s?.competencia_nome || '').trim().toLowerCase()) || '';
-      return { s, id };
-    }).filter((x) => x.id && x.s?.texto_base).map(({ s, id }) => ({
-      competencia_base_id: id,
-      nivel_entrada: (niveisValidos(s.nivel_entrada, s.nivel_destino) ? s.nivel_entrada : 'N1') as Nivel,
-      nivel_destino: (niveisValidos(s.nivel_entrada, s.nivel_destino) ? s.nivel_destino : 'N2') as Nivel,
-      contexto_pedagogico: s.contexto_pedagogico || null,
-      titulo: s.titulo || null,
-      descritor: s.descritor || null,
-      finalidade: s.finalidade || null,
-      texto_base: String(s.texto_base),
-    }));
+      // Resolve a competência: id válido do catálogo OU nome casado ao catálogo.
+      const secoes: SegSecao[] = brutas.map((s: any) => {
+        let id = String(s?.competencia_base_id || '').trim();
+        if (!ctx.idSet.has(id)) id = ctx.nomeParaId.get(String(s?.competencia_nome || '').trim().toLowerCase()) || '';
+        return { s, id };
+      }).filter((x) => x.id && x.s?.texto_base).map(({ s, id }) => ({
+        competencia_base_id: id,
+        nivel_entrada: (niveisValidos(s.nivel_entrada, s.nivel_destino) ? s.nivel_entrada : 'N1') as Nivel,
+        nivel_destino: (niveisValidos(s.nivel_entrada, s.nivel_destino) ? s.nivel_destino : 'N2') as Nivel,
+        contexto_pedagogico: s.contexto_pedagogico || null,
+        titulo: s.titulo || null,
+        descritor: s.descritor || null,
+        finalidade: s.finalidade || null,
+        texto_base: String(s.texto_base),
+      }));
 
-    if (secoes.length) return { secoes, diag: `${secoes.length} (t${tentativa})` };
-    ultimoDiag = `t${tentativa}: ${brutas.length} brutas, 0 válidas`;
-  }
-  return { secoes: [], diag: ultimoDiag };
+      if (secoes.length) return { secoes, diag: `${secoes.length} (t${tentativa}${sufixo})` };
+      ultimoDiag = `t${tentativa}${sufixo}: ${brutas.length} brutas, 0 válidas`;
+    }
+    return { secoes: [], diag: ultimoDiag };
+  };
+
+  const comDirecionamento = await tentar(montarUser(true), '');
+  if (comDirecionamento.secoes.length || !ctx.direcionamentoTexto) return comDirecionamento;
+  const semDirecionamento = await tentar(montarUser(false), ' sem-direcionamento');
+  if (semDirecionamento.secoes.length) return { ...semDirecionamento, diag: `${semDirecionamento.diag}; fallback após direcionamento sem blocos` };
+  return comDirecionamento;
 }
 
 /**
@@ -941,13 +1086,36 @@ ${texto}`;
  * (competência × transição), removendo o teto de tamanho (livros, cursos, etc).
  */
 async function segmentarTranscricao(
-  transcricao: string, tituloVideo: string,
+  transcricao: string, tituloVideo: string, direcionamento?: DirecionamentoModuloBase | null,
 ): Promise<{ secoes: SegSecao[]; diag: string }> {
   const sb = createSupabaseAdmin();
-  const { data: comps } = await sb.from('competencias_base').select('id, nome, segmento, descricao').order('nome');
-  const lista = (comps || []) as { id: string; nome: string; segmento: string; descricao?: string }[];
+  const { data: comps } = await sb.from('competencias_base')
+    .select('id, nome, segmento, descricao, pilar, descritor_completo')
+    .order('nome');
+  const lista = (comps || []) as CompetenciaSeg[];
+  const hintPilar = String(direcionamento?.pilar || '').trim().toLowerCase();
+  const hintComp = String(direcionamento?.competencia || '').trim().toLowerCase();
+  const hintId = String(direcionamento?.competenciaBaseId || '').trim();
+  const score = (c: typeof lista[number]) => {
+    let s = 0;
+    if (hintId && c.id === hintId) s += 1000;
+    if (hintPilar && String(c.pilar || '').trim().toLowerCase() === hintPilar) s += 100;
+    const nome = String(c.nome || '').trim().toLowerCase();
+    if (hintComp && nome === hintComp) s += 80;
+    if (hintComp && (nome.includes(hintComp) || hintComp.includes(nome))) s += 40;
+    return s;
+  };
+  const listaOrdenada = [...lista].sort((a, b) => score(b) - score(a) || a.nome.localeCompare(b.nome));
+  const direcionamentoTexto = (hintPilar || hintComp || hintId)
+    ? `DIRECIONAMENTO DO ADMIN (use para orientar a segmentação e o match):
+- Pilar desejado: ${direcionamento?.pilar || '—'}
+- Competência desejada: ${direcionamento?.competencia || '—'}
+- Competência base preferida: ${direcionamento?.competenciaBaseId || '—'}
+Regra: se a competência base preferida aparecer no catálogo e o trecho for compatível, use esse id. Se não aparecer ou não for compatível, escolha a competência canônica mais próxima dentro do mesmo pilar/tema.`
+    : '';
   const ctx: SegCtx = {
-    compsListagem: lista.slice(0, 200).map((c) => `- ${c.id} :: ${c.nome} (${c.segmento})${c.descricao ? ' — ' + c.descricao : ''}`).join('\n'),
+    compsListagem: listaOrdenada.slice(0, 200).map((c) => `- ${c.id} :: ${c.nome} (${c.segmento}${c.pilar ? ' / ' + c.pilar : ''})${c.descritor_completo || c.descricao ? ' — ' + (c.descritor_completo || c.descricao) : ''}`).join('\n'),
+    direcionamentoTexto,
     idSet: new Set(lista.map((c) => c.id)),
     nomeParaId: new Map(lista.map((c) => [c.nome.trim().toLowerCase(), c.id])),
     model: await getModelForTask(null as any, 'modulo_base_autor'),
@@ -997,6 +1165,12 @@ async function segmentarTranscricao(
     }
   }
   const secoes = [...map.values()].slice(0, MAX_SECOES);
+  if (!secoes.length) {
+    const fallback = secoesFallbackDeterministico(full, tituloVideo, listaOrdenada, direcionamento);
+    if (fallback.length) {
+      return { secoes: fallback, diag: `fallback determinístico após IA sem blocos (${janelas.length} janelas)` };
+    }
+  }
   const diag = `map-reduce ${janelas.length} janelas → ${todas.length} brutas → ${secoes.length} módulos${truncado ? ' [texto truncado em ' + MAX_JANELAS + ' janelas]' : ''} (${diags.join(' ')})`;
   return { secoes, diag };
 }
@@ -1013,23 +1187,29 @@ export async function criarModulosDeTranscricao(opts: {
   locale?: string;
   empresaId?: string | null;
   createdBy?: string;
+  direcionamento?: DirecionamentoModuloBase | null;
 }): Promise<{ modulos: { id: string; competencia?: string; nivel_entrada?: Nivel; nivel_destino?: Nivel }[]; error?: string }> {
   if (!opts?.transcricao?.trim()) return { modulos: [], error: 'transcrição vazia' };
 
-  const { secoes, diag } = await segmentarTranscricao(opts.transcricao, opts.tituloVideo || '');
+  const { secoes, diag } = await segmentarTranscricao(opts.transcricao, opts.tituloVideo || '', opts.direcionamento);
   if (!secoes.length) return { modulos: [], error: `Não foi possível segmentar a transcrição. ${diag}` };
 
   const locale = (opts.locale || 'pt-BR') as Locale;
   // Estrutura as seções EM PARALELO — N módulos levam ~o tempo de 1, em vez de
   // N×(tempo de um). Crucial pra não estourar o timeout no fluxo síncrono
   // (material) e no callback (vídeo) quando há muitos temas.
-  const resultados = await Promise.all(secoes.map((s) =>
-    estruturarEInserirModulo(
-      { ...s, locale } as MetaModulo,
-      s.texto_base,
-      { empresaId: opts.empresaId, urlOrigem: opts.urlOrigem, createdBy: opts.createdBy },
-    ).catch((e: any) => ({ error: e?.message || 'erro' } as any)),
-  ));
+  const estruturar = (s: SegSecao) => estruturarEInserirModulo(
+    { ...s, locale } as MetaModulo,
+    s.texto_base,
+    { empresaId: opts.empresaId, urlOrigem: opts.urlOrigem, createdBy: opts.createdBy },
+  ).catch((e: any) => ({ error: e?.message || 'erro' } as any));
+
+  const resultados = diag.includes('fallback determinístico')
+    ? [] as any[]
+    : await Promise.all(secoes.map(estruturar));
+  if (diag.includes('fallback determinístico')) {
+    for (const s of secoes) resultados.push(await estruturar(s));
+  }
   const modulos: { id: string; competencia?: string; nivel_entrada?: Nivel; nivel_destino?: Nivel }[] = [];
   const falhas: string[] = [];
   resultados.forEach((res, i) => {

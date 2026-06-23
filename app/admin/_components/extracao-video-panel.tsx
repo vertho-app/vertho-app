@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Loader2, Sparkles, FileText, CheckCircle2, Clock, AlertCircle, Send, Layers, ExternalLink, Upload } from 'lucide-react';
-import { extrairVideo, gerarModuloBaseDoVideo, submeterExtracaoAsync, listarExtracoesAndamento, submeterMaterialAsync, submeterTextoBaseAsync } from '@/actions/extracao-video';
+import { extrairVideo, gerarModuloBaseDoVideo, submeterExtracaoAsync, listarExtracoesAndamento, submeterMaterialAsync, submeterTextoBaseAsync, listarDirecionadoresExtracao } from '@/actions/extracao-video';
+import type { DirecionamentoExtracao } from '@/actions/extracao-video';
 
 /**
  * Painel de extração de vídeo → Módulo-Base, compartilhado por:
@@ -28,6 +29,13 @@ export default function ExtracaoVideoPanel({
   const [alcance, setAlcance] = useState<'global' | 'empresa'>(modoVertho ? 'global' : 'empresa');
   const [empresaPick, setEmpresaPick] = useState<string>(''); // só no modo Vertho
   const escopoEmpresaId = alcance === 'global' ? null : (modoVertho ? (empresaPick || null) : origemEmpresaId);
+  const [pilarDirecionador, setPilarDirecionador] = useState('');
+  const [competenciaDirecionadora, setCompetenciaDirecionadora] = useState('');
+  const [competenciaBaseDirecionadora, setCompetenciaBaseDirecionadora] = useState('');
+  const [opcoesDirecionamento, setOpcoesDirecionamento] = useState<{
+    pilares: string[];
+    competencias: { nome: string; pilar: string | null; competenciaBaseId: string | null; origem: 'empresa' | 'base'; detalhe?: string | null }[];
+  }>({ pilares: [], competencias: [] });
 
   // Síncrono.
   const [url, setUrl] = useState('');
@@ -58,8 +66,32 @@ export default function ExtracaoVideoPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [origemEmpresaId]);
 
+  useEffect(() => {
+    let vivo = true;
+    setPilarDirecionador('');
+    setCompetenciaDirecionadora('');
+    setCompetenciaBaseDirecionadora('');
+    if (alcance === 'empresa' && !escopoEmpresaId) {
+      setOpcoesDirecionamento({ pilares: [], competencias: [] });
+      return () => { vivo = false; };
+    }
+    listarDirecionadoresExtracao(escopoEmpresaId).then((r) => {
+      if (!vivo) return;
+      setOpcoesDirecionamento(r.data || { pilares: [], competencias: [] });
+    });
+    return () => { vivo = false; };
+  }, [alcance, escopoEmpresaId]);
+
   function flash(m: string) { setToast(m); setTimeout(() => setToast(''), 4000); }
   function isYouTubeUrl(v: string) { return /(?:youtube\.com|youtu\.be)/i.test(v); }
+  function direcionamentoAtual(): DirecionamentoExtracao | null {
+    if (!pilarDirecionador && !competenciaDirecionadora && !competenciaBaseDirecionadora) return null;
+    return {
+      pilar: pilarDirecionador || null,
+      competencia: competenciaDirecionadora || null,
+      competenciaBaseId: competenciaBaseDirecionadora || null,
+    };
+  }
 
   async function enviarParaBackground(videoUrl: string, motivo?: string) {
     const alvo = videoUrl.trim();
@@ -68,7 +100,7 @@ export default function ExtracaoVideoPanel({
       setErroSync('Escolha a empresa do alcance para processar em background.');
       return;
     }
-    const r = await submeterExtracaoAsync(origemEmpresaId, alvo, escopoEmpresaId);
+    const r = await submeterExtracaoAsync(origemEmpresaId, alvo, escopoEmpresaId, direcionamentoAtual());
     if (r.error) {
       setErroSync(`${motivo ? `${motivo} ` : ''}Também não consegui iniciar o background: ${r.error}`);
       return;
@@ -90,6 +122,7 @@ export default function ExtracaoVideoPanel({
         textoBase: base.texto_base,
         titulo: base.titulo,
         url: url.trim(),
+        direcionamento: direcionamentoAtual(),
       }, origemEmpresaId);
       if (r.error) {
         setErroGeracao(`${motivo ? `${motivo} ` : ''}Não consegui iniciar o background: ${r.error}`);
@@ -139,6 +172,7 @@ export default function ExtracaoVideoPanel({
     try {
       const r = await gerarModuloBaseDoVideo(escopoEmpresaId, {
         url: url.trim(), titulo: base.titulo, texto_base: base.texto_base, locale: base.locale,
+        direcionamento: direcionamentoAtual(),
       });
       if (r.error) { setErroGeracao(r.error); return; }
       setModulosSync(r.modulos || []);
@@ -156,7 +190,7 @@ export default function ExtracaoVideoPanel({
     setProcessandoMat(true); setMatNome(file.name);
     try {
       const b64 = Buffer.from(await file.arrayBuffer()).toString('base64');
-      const r = await submeterMaterialAsync(escopoEmpresaId, { arquivoBase64: b64, filename: file.name, mime: file.type }, origemEmpresaId);
+      const r = await submeterMaterialAsync(escopoEmpresaId, { arquivoBase64: b64, filename: file.name, mime: file.type, direcionamento: direcionamentoAtual() }, origemEmpresaId);
       if (r.error) { flash(r.error); return; }
       flash('Material enviado — estruturando em background');
       carregarExtracoes();
@@ -170,7 +204,7 @@ export default function ExtracaoVideoPanel({
     if (modoVertho && alcance === 'empresa' && !empresaPick) { flash('Escolha a empresa do alcance'); return; }
     setSubmetendo(true);
     try {
-      const r = await submeterExtracaoAsync(origemEmpresaId, urlAsync.trim(), escopoEmpresaId);
+      const r = await submeterExtracaoAsync(origemEmpresaId, urlAsync.trim(), escopoEmpresaId, direcionamentoAtual());
       if (r.error) { flash(r.error); return; }
       flash('Extração iniciada em background');
       setUrlAsync('');
@@ -184,6 +218,9 @@ export default function ExtracaoVideoPanel({
 
   // Seletor de alcance.
   function SeletorAlcance() {
+    const competenciasFiltradas = opcoesDirecionamento.competencias
+      .filter((c) => !pilarDirecionador || c.pilar === pilarDirecionador)
+      .slice(0, 250);
     return (
       <div className="mt-2">
         <div className="flex gap-2">
@@ -211,6 +248,33 @@ export default function ExtracaoVideoPanel({
             {empresas.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
           </select>
         )}
+        <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+          <select value={pilarDirecionador} onChange={(e) => {
+            setPilarDirecionador(e.target.value);
+            setCompetenciaDirecionadora('');
+            setCompetenciaBaseDirecionadora('');
+          }}
+            disabled={alcance === 'empresa' && !escopoEmpresaId}
+            className="w-full bg-[#091D35] border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none disabled:opacity-50">
+            <option value="">Pilar direcionador (opcional)</option>
+            {opcoesDirecionamento.pilares.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+          <select value={`${competenciaDirecionadora}||${competenciaBaseDirecionadora}`}
+            onChange={(e) => {
+              const [nome, baseId = ''] = e.target.value.split('||');
+              setCompetenciaDirecionadora(nome || '');
+              setCompetenciaBaseDirecionadora(baseId || '');
+            }}
+            disabled={alcance === 'empresa' && !escopoEmpresaId}
+            className="w-full bg-[#091D35] border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none disabled:opacity-50">
+            <option value="||">Competência direcionadora (opcional)</option>
+            {competenciasFiltradas.map((c, i) => (
+              <option key={`${c.origem}-${c.competenciaBaseId || i}-${c.nome}`} value={`${c.nome}||${c.competenciaBaseId || ''}`}>
+                {c.nome}{c.pilar ? ` · ${c.pilar}` : ''}{c.origem === 'empresa' ? ' · empresa' : ' · canônica'}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
     );
   }

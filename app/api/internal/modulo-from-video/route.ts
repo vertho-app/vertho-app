@@ -29,7 +29,8 @@ export async function POST(req: NextRequest) {
 
   const sb = createSupabaseAdmin();
   const { data: ext } = await sb.from('extracoes_video')
-    .select('id, escopo_empresa_id, url, transcricao').eq('id', extracaoId).maybeSingle();
+    .select('id, escopo_empresa_id, url, transcricao, pilar_direcionador, competencia_direcionadora, competencia_base_id_direcionadora')
+    .eq('id', extracaoId).maybeSingle();
   if (!ext) return NextResponse.json({ error: 'extração não encontrada' }, { status: 404 });
 
   const texto = String(transcricao || ext.transcricao || '').trim();
@@ -38,6 +39,11 @@ export async function POST(req: NextRequest) {
   const empresaId = ext.escopo_empresa_id || null; // null = módulo global/canônico
   const res = await criarModulosDeTranscricao({
     transcricao: texto, tituloVideo: titulo, urlOrigem: ext.url, locale, empresaId, createdBy: 'extracao-video',
+    direcionamento: {
+      pilar: ext.pilar_direcionador || null,
+      competencia: ext.competencia_direcionadora || null,
+      competenciaBaseId: ext.competencia_base_id_direcionadora || null,
+    },
   });
 
   // Guarda a transcrição (artefato reusável) mesmo em caso de erro na autoria.

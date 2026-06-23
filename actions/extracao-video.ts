@@ -14,6 +14,24 @@ import type { estruturarMaterialTask } from '@/trigger/estruturar-material';
 // não um micro_conteudo. Alcance por extração: GLOBAL (todos os tenants) ou
 // EXCLUSIVO da empresa de origem.
 
+export type DirecionamentoExtracao = {
+  pilar?: string | null;
+  competencia?: string | null;
+  competenciaBaseId?: string | null;
+};
+
+function limparDirecionamento(d?: DirecionamentoExtracao | null): DirecionamentoExtracao | null {
+  const pilar = String(d?.pilar || '').trim().slice(0, 160);
+  const competencia = String(d?.competencia || '').trim().slice(0, 220);
+  const competenciaBaseId = String(d?.competenciaBaseId || '').trim();
+  if (!pilar && !competencia && !competenciaBaseId) return null;
+  return {
+    pilar: pilar || null,
+    competencia: competencia || null,
+    competenciaBaseId: competenciaBaseId || null,
+  };
+}
+
 // ── 1. Extrair texto-base de um vídeo (síncrono — YouTube/.mp4) ─────────────
 
 export async function extrairVideo(empresaId: string | null, url: string) {
@@ -48,6 +66,7 @@ export async function extrairVideo(empresaId: string | null, url: string) {
  */
 export async function gerarModuloBaseDoVideo(escopoEmpresaId: string | null, dados: {
   url: string; titulo: string; texto_base: string; locale?: string;
+  direcionamento?: DirecionamentoExtracao | null;
 }) {
   try {
     const ctx = await requireAdminAction('content.manage');
@@ -67,6 +86,7 @@ export async function gerarModuloBaseDoVideo(escopoEmpresaId: string | null, dad
       locale: locale || 'pt-BR',
       empresaId: escopoEmpresaId,
       createdBy: (ctx as any)?.email || 'extracao-video',
+      direcionamento: limparDirecionamento(dados.direcionamento),
     });
     if (res.error || !res.modulos.length) return { error: res.error || 'Falha ao criar módulo-base' };
     return { success: true, modulos: res.modulos, n: res.modulos.length };
@@ -86,6 +106,7 @@ export async function gerarModuloBaseDoVideo(escopoEmpresaId: string | null, dad
  */
 export async function extrairModulosDeMaterial(escopoEmpresaId: string | null, dados: {
   arquivoBase64: string; filename: string; mime?: string; locale?: string;
+  direcionamento?: DirecionamentoExtracao | null;
 }) {
   try {
     const ctx = await requireAdminAction('content.manage');
@@ -116,6 +137,7 @@ export async function extrairModulosDeMaterial(escopoEmpresaId: string | null, d
       locale: locale || 'pt-BR',
       empresaId: escopoEmpresaId,
       createdBy: (ctx as any)?.email || 'extracao-material',
+      direcionamento: limparDirecionamento(dados.direcionamento),
     });
     if (res.error || !res.modulos.length) return { error: res.error || 'Falha ao criar módulos' };
     return { success: true, modulos: res.modulos, n: res.modulos.length, chars: texto.length };
@@ -133,7 +155,7 @@ export async function extrairModulosDeMaterial(escopoEmpresaId: string | null, d
  */
 export async function submeterMaterialAsync(
   escopoEmpresaId: string | null,
-  dados: { arquivoBase64: string; filename: string; mime?: string },
+  dados: { arquivoBase64: string; filename: string; mime?: string; direcionamento?: DirecionamentoExtracao | null },
   origemEmpresaId: string | null = null,
 ) {
   try {
@@ -152,6 +174,7 @@ export async function submeterMaterialAsync(
     if (texto.length < 200) return { error: 'Texto extraído muito curto (arquivo vazio, imagem/scan sem OCR, ou protegido).' };
 
     const titulo = dados.filename.replace(/\.[^.]+$/, '').slice(0, 120);
+    const direcionamento = limparDirecionamento(dados.direcionamento);
     const { data: novo, error } = await sb.from('extracoes_video').insert({
       origem_empresa_id: origemEmpresaId,
       escopo_empresa_id: escopoEmpresaId,
@@ -161,6 +184,9 @@ export async function submeterMaterialAsync(
       titulo,
       status: 'processing',
       created_by: (ctx as any)?.email || null,
+      pilar_direcionador: direcionamento?.pilar || null,
+      competencia_direcionadora: direcionamento?.competencia || null,
+      competencia_base_id_direcionadora: direcionamento?.competenciaBaseId || null,
     }).select('id').maybeSingle();
     if (error || !novo?.id) return { error: error?.message || 'Falha ao criar registro' };
 
@@ -184,7 +210,7 @@ export async function submeterMaterialAsync(
  */
 export async function submeterTextoBaseAsync(
   escopoEmpresaId: string | null,
-  dados: { textoBase: string; titulo?: string; url?: string },
+  dados: { textoBase: string; titulo?: string; url?: string; direcionamento?: DirecionamentoExtracao | null },
   origemEmpresaId: string | null = null,
 ) {
   try {
@@ -195,6 +221,7 @@ export async function submeterTextoBaseAsync(
 
     const titulo = String(dados?.titulo || 'Texto-base de vídeo').trim().slice(0, 120);
     const url = String(dados?.url || `texto-base:${titulo}`).trim().slice(0, 200);
+    const direcionamento = limparDirecionamento(dados.direcionamento);
     const { data: novo, error } = await sb.from('extracoes_video').insert({
       origem_empresa_id: origemEmpresaId,
       escopo_empresa_id: escopoEmpresaId,
@@ -204,6 +231,9 @@ export async function submeterTextoBaseAsync(
       titulo,
       status: 'processing',
       created_by: (ctx as any)?.email || null,
+      pilar_direcionador: direcionamento?.pilar || null,
+      competencia_direcionadora: direcionamento?.competencia || null,
+      competencia_base_id_direcionadora: direcionamento?.competenciaBaseId || null,
     }).select('id').maybeSingle();
     if (error || !novo?.id) return { error: error?.message || 'Falha ao criar registro' };
 
@@ -228,11 +258,12 @@ export async function submeterTextoBaseAsync(
  * rascunho. `origemEmpresaId` = de onde foi disparado (null = nível Vertho);
  * `escopoEmpresaId` = alvo do módulo (null = global/canônico).
  */
-export async function submeterExtracaoAsync(origemEmpresaId: string | null, url: string, escopoEmpresaId: string | null) {
+export async function submeterExtracaoAsync(origemEmpresaId: string | null, url: string, escopoEmpresaId: string | null, direcionamentoRaw?: DirecionamentoExtracao | null) {
   try {
     const sb = await requireAdminSupabase('content.manage');
     if (!url?.trim()) return { error: 'Informe a URL do vídeo' };
     const ctx = await requireAdminAction('content.manage');
+    const direcionamento = limparDirecionamento(direcionamentoRaw);
 
     const { data: novo, error } = await sb.from('extracoes_video').insert({
       origem_empresa_id: origemEmpresaId,
@@ -241,6 +272,9 @@ export async function submeterExtracaoAsync(origemEmpresaId: string | null, url:
       url: url.trim(),
       status: 'processing',
       created_by: (ctx as any)?.email || null,
+      pilar_direcionador: direcionamento?.pilar || null,
+      competencia_direcionadora: direcionamento?.competencia || null,
+      competencia_base_id_direcionadora: direcionamento?.competenciaBaseId || null,
     }).select('id').maybeSingle();
     if (error || !novo?.id) return { error: error?.message || 'Falha ao criar registro' };
 
@@ -267,6 +301,75 @@ export async function listarEmpresasParaEscopo() {
   } catch (err: any) {
     console.error('[listarEmpresasParaEscopo]', err);
     return { data: [] };
+  }
+}
+
+/** Opções opcionais para orientar a extração/segmentação por pilar e competência. */
+export async function listarDirecionadoresExtracao(empresaId?: string | null) {
+  try {
+    await requireAdminAction('content.manage');
+    const sb = await requireAdminSupabase();
+
+    const { data: baseRows } = await sb.from('competencias_base')
+      .select('id, nome, nome_curto, pilar, segmento, descritor_completo')
+      .order('pilar').order('nome')
+      .limit(1000);
+
+    const bases = (baseRows || []) as any[];
+    const baseByName = new Map<string, any>();
+    for (const b of bases) {
+      const key = String(b.nome || '').trim().toLowerCase();
+      if (key && !baseByName.has(key)) baseByName.set(key, b);
+      const shortKey = String(b.nome_curto || '').trim().toLowerCase();
+      if (shortKey && !baseByName.has(shortKey)) baseByName.set(shortKey, b);
+    }
+
+    let empresaRows: any[] = [];
+    if (empresaId) {
+      const { data } = await sb.from('competencias')
+        .select('nome, nome_curto, pilar, cargo, descritor_completo')
+        .eq('empresa_id', empresaId)
+        .order('pilar').order('nome')
+        .limit(1000);
+      empresaRows = (data || []) as any[];
+    }
+
+    const competencias: {
+      nome: string;
+      pilar: string | null;
+      competenciaBaseId: string | null;
+      origem: 'empresa' | 'base';
+      detalhe?: string | null;
+    }[] = [];
+    const seen = new Set<string>();
+    const add = (row: any, origem: 'empresa' | 'base') => {
+      const nome = String(row.nome_curto || row.nome || '').trim();
+      if (!nome) return;
+      const pilar = String(row.pilar || '').trim() || null;
+      const match = origem === 'base'
+        ? row
+        : baseByName.get(nome.toLowerCase()) || baseByName.get(String(row.nome || '').trim().toLowerCase());
+      const key = `${origem}|${pilar || ''}|${nome.toLowerCase()}|${match?.id || ''}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      competencias.push({
+        nome,
+        pilar,
+        competenciaBaseId: match?.id || null,
+        origem,
+        detalhe: row.descritor_completo || row.cargo || row.segmento || null,
+      });
+    };
+
+    empresaRows.forEach((r) => add(r, 'empresa'));
+    bases.forEach((r) => add(r, 'base'));
+
+    const pilares = Array.from(new Set(competencias.map((c) => c.pilar).filter(Boolean) as string[]))
+      .sort((a, b) => a.localeCompare(b));
+    return { data: { pilares, competencias } };
+  } catch (err: any) {
+    console.error('[listarDirecionadoresExtracao]', err);
+    return { data: { pilares: [], competencias: [] } };
   }
 }
 
