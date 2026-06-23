@@ -42,12 +42,25 @@ export async function gerarKit({
       return { success: false, error: `disc inválido: ${disc}` };
     }
 
-    const baseParams = { competencia, descritor, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig };
+    // Contexto/PPP da EMPRESA — tecido no core (o kit é por empresa). Mesmo padrão
+    // do roteiro de vídeo: pega o PPP mais recente extraído e usa como lente.
+    let pppBrief: string | null = null;
+    if (empresaId) {
+      const { data: ppp } = await sb.from('ppp_escolas')
+        .select('extracao').eq('empresa_id', empresaId).eq('status', 'extraido')
+        .order('extracted_at', { ascending: false }).limit(1).maybeSingle();
+      if (ppp?.extracao) {
+        const { extracaoParaTexto } = await import('@/lib/escola-brief');
+        pppBrief = extracaoParaTexto(ppp.extracao).slice(0, 2500);
+      }
+    }
 
-    // 1) Brief (núcleo compartilhado, idempotente por tema).
+    const baseParams = { competencia, descritor, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, pppBrief };
+
+    // 1) Brief (núcleo da empresa, idempotente por tema; PPP como lente).
     const { briefId, brief, reused } = await resolverOuCriarBrief(sb, baseParams);
 
-    // 2) Desafio sob medida ao DISC, ancorado no núcleo.
+    // 2) Desafio sob medida ao DISC, ancorado no núcleo + contexto da empresa.
     const desafio = await gerarKitDesafio(baseParams, brief, disc);
 
     // 3) Kit (1 por brief×DISC). Marca 'generating' enquanto os formatos saem.
@@ -57,8 +70,8 @@ export async function gerarKit({
     if (kErr) return { success: false, error: `kit upsert: ${kErr.message}` };
     const kitId = kitRow.id;
 
-    // 4) Os 4 formatos, todos semeados pela MESMA espinha + o desafio do DISC.
-    const seed = { nucleo: brief, disc, desafio, kitId };
+    // 4) Os 4 formatos, todos semeados pela MESMA espinha + desafio do DISC + PPP da empresa.
+    const seed = { nucleo: brief, disc, desafio, kitId, pppBrief };
     const conteudos: Array<{ formato: string; conteudoId?: string; titulo?: string; ok: boolean; error?: string }> = [];
     for (const formato of formatos) {
       const r = await gerarConteudoIA({ ...baseParams, formato, kit: seed });

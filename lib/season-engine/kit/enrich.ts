@@ -20,6 +20,8 @@ export interface KitSeed {
   nucleo: KitBriefNucleo;
   disc: DiscLetter;
   desafio: DesafioStructured;
+  /** Contexto/PPP da EMPRESA — tecido no core (o kit é por empresa). */
+  pppBrief?: string | null;
 }
 
 export function enriquecerPromptComKit(
@@ -44,5 +46,10 @@ export function enriquecerPromptComKit(
     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
   ].join('\n');
 
-  return { system: `${prompt.system}\n${systemAdd}`, user: prompt.user };
+  // PPP/contexto da EMPRESA como LENTE de aplicação (não como assunto; sem citar o nome).
+  const userAdd = kit.pppBrief
+    ? `\n\n━━━ CONTEXTO DA INSTITUIÇÃO (use como LENTE de aplicação, sem citar o nome) ━━━\n${kit.pppBrief}`
+    : '';
+
+  return { system: `${prompt.system}\n${systemAdd}`, user: `${prompt.user}${userAdd}` };
 }

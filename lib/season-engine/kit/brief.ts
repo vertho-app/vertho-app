@@ -29,6 +29,8 @@ export interface GerarBriefParams {
   empresaId?: string | null;
   aiConfig?: any;
   model?: string;
+  /** Contexto/PPP da EMPRESA (kit é por empresa) — lente de aplicação. */
+  pppBrief?: string | null;
 }
 
 // ── Lente DISC: como cada perfil ENGAJA (sem citar DISC no texto final) ──────
@@ -90,7 +92,7 @@ Fala natural, sem jargão, sem markdown. RETORNE APENAS JSON VÁLIDO:
 - Competência: ${p.competencia}
 - Descritor: ${p.descritor}
 - Nível: ${p.nivelMin ?? 1}–${p.nivelMax ?? 2} de 4
-- Cargo: ${p.cargo ?? 'todos'} · Contexto: ${p.contexto ?? 'generico'}${moduloTxt ? `\n\nMATÉRIA-PRIMA CANÔNICA (preserve as bases):\n${moduloTxt}` : ''}`;
+- Cargo: ${p.cargo ?? 'todos'} · Contexto: ${p.contexto ?? 'generico'}${moduloTxt ? `\n\nMATÉRIA-PRIMA CANÔNICA (preserve as bases):\n${moduloTxt}` : ''}${p.pppBrief ? `\n\nCONTEXTO DA INSTITUIÇÃO (lente de aplicação, sem citar o nome):\n${p.pppBrief}` : ''}`;
 
   const raw = (await callAI(system, user, { ...(p.aiConfig || {}), model: p.model || p.aiConfig?.model }, 1500)).trim();
   const nucleo = parseNucleo(raw);
@@ -143,7 +145,7 @@ RETORNE APENAS JSON VÁLIDO:
 
 CONTEXTO:
 - Competência: ${p.competencia} · Descritor: ${p.descritor}
-- Cargo: ${p.cargo ?? 'todos'} · Contexto: ${p.contexto ?? 'generico'} · Nível: ${p.nivelMin ?? 1}/4`;
+- Cargo: ${p.cargo ?? 'todos'} · Contexto: ${p.contexto ?? 'generico'} · Nível: ${p.nivelMin ?? 1}/4${p.pppBrief ? `\n\nCONTEXTO DA INSTITUIÇÃO (ancore a ação na realidade dela, sem citar o nome):\n${p.pppBrief}` : ''}`;
 
   const raw = (await callAI(system, user, { ...(p.aiConfig || {}), model: p.model || p.aiConfig?.model }, 800)).trim();
   const desafio = parseDesafioResponse(raw);
