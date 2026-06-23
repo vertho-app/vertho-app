@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { assertZapiConnected, getZapiConfig } from '@/lib/zapi';
+import { sendWhatsapp } from '@/lib/whatsapp';
 
 /**
  * Webhook chamado pelo QStash para enviar um link CIS individual via WhatsApp.
@@ -119,49 +119,18 @@ export async function POST(req) {
       return NextResponse.json({ success: true, duplicate: true });
     }
 
-    const zapi = getZapiConfig();
-    if (!zapi.configured) {
-      return NextResponse.json({ error: 'Z-API não configurado' }, { status: 500 });
-    }
-
-    try {
-      await assertZapiConnected();
-    } catch (err: any) {
-      console.error(`[qstash/whatsapp-cis] Z-API offline; QStash deve retentar: ${err?.message}`);
-      return NextResponse.json({ error: err?.message || 'Z-API offline' }, { status: 503 });
-    }
-
-    let phone = telefone.replace(/\D/g, '');
-    if (phone.length <= 11) phone = `55${phone}`;
-
-    // Log de diagnóstico: shape das envs (sem expor valores nem PII completa)
+    // Serviço central com failover (Z-API → WaSender). Se NENHUM provedor
+    // entregar, devolve 503 para o QStash retentar (queda transitória de sessão).
+    const r = await sendWhatsapp({ kind: 'text', phone: telefone, text: mensagem });
     console.log(
-      `[qstash/whatsapp-cis] phone=***${phone.slice(-4)} inst.len=${zapi.instanceId?.length || 0} tok.len=${zapi.token?.length || 0} cli.len=${zapi.clientToken.length}`,
+      `[qstash/whatsapp-cis] phone=***${telefone.replace(/\D/g, '').slice(-4)} ok=${r.ok} provider=${r.provider ?? '-'} trilha=${r.attempts.map((a) => `${a.provider}:${a.ok ? 'ok' : a.reason}`).join(' | ')}`,
     );
-
-    const res = await fetch(`${zapi.baseUrl}/send-text`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Client-Token': zapi.clientToken },
-      body: JSON.stringify({ phone, message: mensagem }),
-    });
-    const respText = await res.text();
-
-    if (!res.ok) {
-      console.error(`[qstash/whatsapp-cis] Z-API HTTP ${res.status}: ${respText.slice(0, 300)}`);
-      return NextResponse.json({ error: `Z-API ${res.status}` }, { status: 500 });
-    }
-    // Z-API às vezes responde 200 com body de erro lógico (NOT_FOUND) — detecta
-    let parsed: any = null;
-    try { parsed = JSON.parse(respText); } catch { /* not json */ }
-    if (parsed?.error) {
-      console.error(`[qstash/whatsapp-cis] Z-API logical error: ${respText.slice(0, 300)}`);
-      return NextResponse.json({ error: `Z-API ${parsed.error}` }, { status: 500 });
+    if (!r.ok) {
+      return NextResponse.json({ error: r.reason || 'WhatsApp indisponível' }, { status: 503 });
     }
 
     const statusAtualizado = await marcarEnvioWhatsAppEntregue(envioId);
-
-    console.log(`[qstash/whatsapp-cis] Z-API OK: ${respText.slice(0, 160)}`);
-    return NextResponse.json({ success: true, statusAtualizado });
+    return NextResponse.json({ success: true, statusAtualizado, provider: r.provider });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error('[qstash/whatsapp-cis] Erro:', message);

@@ -2,6 +2,7 @@ import { Resend } from 'resend';
 import { EMAIL_FROM_DEFAULT } from '@/lib/domain';
 import type { AppLocale } from '@/i18n/routing';
 import { magicLinkEmail, magicLinkWhatsapp, signupEmail, signupWhatsapp } from '@/lib/i18n-auth-templates';
+import { sendWhatsapp } from '@/lib/whatsapp';
 
 /**
  * Serviço CENTRAL de envio de link de acesso (magic link) por canal.
@@ -73,13 +74,6 @@ async function enviarEmail(p: SendAccessLinkInput, out: SendAccessLinkResult): P
 }
 
 async function enviarWhatsapp(p: SendAccessLinkInput, out: SendAccessLinkResult): Promise<void> {
-  const inst = process.env.ZAPI_INSTANCE_ID;
-  const tok = process.env.ZAPI_TOKEN;
-  if (!inst || !tok) {
-    out.whatsapp = 'failed';
-    out.whatsappReason = 'Z-API não configurado';
-    return;
-  }
   if (!p.telefone) {
     out.whatsapp = 'skipped';
     out.whatsappReason = 'colaborador sem telefone';
@@ -90,25 +84,15 @@ async function enviarWhatsapp(p: SendAccessLinkInput, out: SendAccessLinkResult)
     out.whatsappReason = 'link de whatsapp não disponível';
     return;
   }
-  try {
-    let phone = String(p.telefone).replace(/\D/g, '');
-    if (phone.length <= 11) phone = `55${phone}`;
-    const buildWa = p.kind === 'signup' ? signupWhatsapp : magicLinkWhatsapp;
-    const msg = buildWa(p.locale, { nome: p.nome, empresaNome: p.empresaNome, link: p.whatsappLink });
-    const res = await fetch(`https://api.z-api.io/instances/${inst}/token/${tok}/send-text`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Client-Token': process.env.ZAPI_CLIENT_TOKEN || '' },
-      body: JSON.stringify({ phone, message: msg }),
-    });
-    if (res.ok) {
-      out.whatsapp = 'sent';
-    } else {
-      out.whatsapp = 'failed';
-      out.whatsappReason = `Z-API HTTP ${res.status}`;
-    }
-  } catch (e: any) {
+  const buildWa = p.kind === 'signup' ? signupWhatsapp : magicLinkWhatsapp;
+  const msg = buildWa(p.locale, { nome: p.nome, empresaNome: p.empresaNome, link: p.whatsappLink });
+  // Serviço central: normaliza telefone + failover entre provedores (Z-API → WaSender).
+  const r = await sendWhatsapp({ kind: 'text', phone: p.telefone, text: msg });
+  if (r.ok) {
+    out.whatsapp = 'sent';
+  } else {
     out.whatsapp = 'failed';
-    out.whatsappReason = String(e?.message || e).slice(0, 200);
+    out.whatsappReason = (r.reason || 'falha no envio').slice(0, 200);
   }
 }
 

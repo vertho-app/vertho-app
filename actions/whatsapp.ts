@@ -1,25 +1,16 @@
 'use server';
 
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { sendWhatsapp } from '@/lib/whatsapp';
 
-const getBaseUrl = () => {
-  const instanceId = process.env.ZAPI_INSTANCE_ID;
-  const token = process.env.ZAPI_TOKEN;
-  if (!instanceId || !token) throw new Error('ZAPI_INSTANCE_ID ou ZAPI_TOKEN não configurados');
-  return `https://api.z-api.io/instances/${instanceId}/token/${token}`;
-};
+// Envio de WhatsApp centralizado em lib/whatsapp (multi-provedor com failover).
+// Estas actions só preservam as assinaturas públicas + os gates de admin e
+// delegam o transporte/normalização/failover ao serviço.
 
-const getHeaders = () => ({
-  'Content-Type': 'application/json',
-  'Client-Token': process.env.ZAPI_CLIENT_TOKEN || '',
-});
-
-// Format phone: ensure country code, remove non-digits
-function formatPhone(telefone: string) {
-  let phone = telefone.replace(/\D/g, '');
-  // Add Brazil country code if missing
-  if (phone.length <= 11) phone = `55${phone}`;
-  return phone;
+function toResult(r: Awaited<ReturnType<typeof sendWhatsapp>>, okMsg: string) {
+  return r.ok
+    ? { success: true as const, message: okMsg, provider: r.provider, data: r }
+    : { success: false as const, error: r.reason };
 }
 
 // ── Enviar mensagem de texto via WhatsApp ───────────────────────────────────
@@ -30,121 +21,36 @@ function formatPhone(telefone: string) {
  * (ex.: notificação do tutor ao concluir missão integradora no Onboarding).
  */
 export async function enviarWhatsApp(telefone: string, mensagem: string, internal: boolean = false) {
-  try {
-    if (!internal) await requireAdminAction('assessments.dispatch');
-    const baseUrl = getBaseUrl();
-    const phone = formatPhone(telefone);
-
-    const res = await fetch(`${baseUrl}/send-text`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify({
-        phone,
-        message: mensagem,
-      }),
-    });
-
-    if (!res.ok) {
-      const detail = await res.text();
-      return { success: false, error: `Z-API ${res.status}: ${detail}` };
-    }
-
-    const data = await res.json();
-    return { success: true, message: 'Mensagem enviada', data };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
+  if (!internal) await requireAdminAction('assessments.dispatch');
+  const r = await sendWhatsapp({ kind: 'text', phone: telefone, text: mensagem });
+  return toResult(r, 'Mensagem enviada');
 }
 
 // ── Enviar PDF via WhatsApp ─────────────────────────────────────────────────
 
 export async function enviarPDF(telefone: string, pdfBase64: string, filename: string) {
-  try {
-    await requireAdminAction('assessments.dispatch');
-    const baseUrl = getBaseUrl();
-    const phone = formatPhone(telefone);
-
-    const res = await fetch(`${baseUrl}/send-document/${phone}`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify({
-        phone,
-        document: `data:application/pdf;base64,${pdfBase64}`,
-        fileName: filename || 'documento.pdf',
-      }),
-    });
-
-    if (!res.ok) {
-      const detail = await res.text();
-      return { success: false, error: `Z-API ${res.status}: ${detail}` };
-    }
-
-    const data = await res.json();
-    return { success: true, message: 'PDF enviado', data };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
+  await requireAdminAction('assessments.dispatch');
+  const r = await sendWhatsapp({ kind: 'document', phone: telefone, base64: pdfBase64, filename: filename || 'documento.pdf' });
+  return toResult(r, 'PDF enviado');
 }
 
 // ── Enviar áudio (voz) via WhatsApp ─────────────────────────────────────────
 
 /**
  * Envia um áudio (MP3) como mensagem de voz. `audioUrl` deve ser uma URL HTTPS
- * publicamente acessível pelos servidores da Z-API (ex.: signed URL do Supabase
- * com TTL suficiente). `internal=true` pula o gate de admin (triggers do server).
+ * publicamente acessível pelos servidores do provedor (ex.: signed URL do
+ * Supabase com TTL suficiente). `internal=true` pula o gate de admin.
  */
 export async function enviarAudio(telefone: string, audioUrl: string, internal: boolean = false) {
-  try {
-    if (!internal) await requireAdminAction('assessments.dispatch');
-    const baseUrl = getBaseUrl();
-    const phone = formatPhone(telefone);
-
-    const res = await fetch(`${baseUrl}/send-audio`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify({ phone, audio: audioUrl }),
-    });
-
-    if (!res.ok) {
-      const detail = await res.text();
-      return { success: false, error: `Z-API ${res.status}: ${detail}` };
-    }
-
-    const data = await res.json();
-    return { success: true, message: 'Áudio enviado', data };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
+  if (!internal) await requireAdminAction('assessments.dispatch');
+  const r = await sendWhatsapp({ kind: 'audio', phone: telefone, url: audioUrl });
+  return toResult(r, 'Áudio enviado');
 }
 
 // ── Enviar link via WhatsApp ────────────────────────────────────────────────
 
 export async function enviarLink(telefone: string, url: string, titulo: string) {
-  try {
-    await requireAdminAction('assessments.dispatch');
-    const baseUrl = getBaseUrl();
-    const phone = formatPhone(telefone);
-
-    const res = await fetch(`${baseUrl}/send-link`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify({
-        phone,
-        message: titulo || '',
-        linkUrl: url,
-        title: titulo || 'Vertho Mentor IA',
-        linkDescription: '',
-      }),
-    });
-
-    if (!res.ok) {
-      const detail = await res.text();
-      return { success: false, error: `Z-API ${res.status}: ${detail}` };
-    }
-
-    const data = await res.json();
-    return { success: true, message: 'Link enviado', data };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
+  await requireAdminAction('assessments.dispatch');
+  const r = await sendWhatsapp({ kind: 'link', phone: telefone, url, title: titulo || 'Vertho Mentor IA', text: titulo || '' });
+  return toResult(r, 'Link enviado');
 }

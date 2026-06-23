@@ -4,7 +4,7 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 import { EMAIL_FROM_DEFAULT, tenantUrl } from '@/lib/domain';
-import { assertZapiConnected, getZapiConfig } from '@/lib/zapi';
+import { sendWhatsapp, whatsappHealth } from '@/lib/whatsapp';
 
 const RESEND_MIN_INTERVAL_MS = 250;
 
@@ -129,14 +129,14 @@ export async function enviarConvitesPulso(
 
   const enviarWa = opts.canal === 'whatsapp' || opts.canal === 'ambos';
   const enviarEmail = opts.canal === 'email' || opts.canal === 'ambos';
-  const zapi = getZapiConfig();
 
-  if (enviarWa && !zapi.configured) return { ok: false, error: 'Z-API não configurado' };
+  // Pré-flight WhatsApp: basta UM provedor saudável (Z-API ou WaSender) para o lote.
   if (enviarWa) {
-    try {
-      await assertZapiConnected();
-    } catch (e: any) {
-      return { ok: false, error: `${e?.message || 'Z-API desconectada'}. Reconecte a instância antes de disparar WhatsApp em lote.` };
+    const health = await whatsappHealth();
+    if (!health.some((h) => h.configured)) return { ok: false, error: 'Nenhum provedor de WhatsApp configurado' };
+    if (!health.some((h) => h.ok)) {
+      const detail = health.filter((h) => h.configured).map((h) => `${h.label}: ${h.reason}`).join('; ');
+      return { ok: false, error: `WhatsApp indisponível (${detail}). Reconecte uma instância antes de disparar em lote.` };
     }
   }
   if (enviarEmail && !process.env.RESEND_API_KEY) return { ok: false, error: 'RESEND_API_KEY não configurada' };
@@ -193,16 +193,11 @@ export async function enviarConvitesPulso(
       } else {
         try {
           if (stats.enviados > 0) await new Promise(r => setTimeout(r, 1200)); // throttle
-          let phone = (colab.telefone as string).replace(/\D/g, '');
-          if (phone.length <= 11) phone = `55${phone}`;
-          const res = await fetch(`${zapi.baseUrl}/send-text`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Client-Token': zapi.clientToken },
-            body: JSON.stringify({ phone, message: mensagem }),
-          });
-          if (!res.ok) {
+          // Serviço central: normaliza telefone + failover entre provedores.
+          const r = await sendWhatsapp({ kind: 'text', phone: colab.telefone as string, text: mensagem });
+          if (!r.ok) {
             stats.erros++;
-            stats.ultimo_erro = (await res.text()).slice(0, 150);
+            stats.ultimo_erro = (r.reason || 'falha no envio').slice(0, 150);
           } else {
             stats.enviados++;
             await sb.from('pulse_audit_logs').insert({
@@ -213,6 +208,7 @@ export async function enviarConvitesPulso(
                 assignment_id: a.id,
                 colaborador_id: colab.id,
                 pulse_moment: opts.pulse_moment,
+                provider: r.provider,
               },
             } as any);
           }

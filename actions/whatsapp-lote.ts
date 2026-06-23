@@ -3,7 +3,7 @@
 import { templateWhatsAppCIS } from '@/lib/notifications';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { APP_WEBHOOK_URL, QSTASH_BASE_URL, tenantUrl } from '@/lib/domain';
-import { assertZapiConnected } from '@/lib/zapi';
+import { assertWhatsappAvailable } from '@/lib/whatsapp';
 
 const DELAY_BETWEEN_MS = 2000; // 2s entre cada mensagem
 
@@ -59,9 +59,9 @@ export async function dispararLinksCIS(empresaId: string) {
     if (!envios?.length) return { success: false, error: 'Nenhum envio pendente com telefone cadastrado' };
 
     try {
-      await assertZapiConnected();
+      await assertWhatsappAvailable();
     } catch (err: any) {
-      return { success: false, error: `${err?.message || 'Z-API desconectada'}. Reconecte a instância antes de disparar WhatsApp em lote.` };
+      return { success: false, error: `${err?.message || 'WhatsApp indisponível'}. Reconecte uma instância antes de disparar WhatsApp em lote.` };
     }
 
     // Publicar todas no QStash em paralelo com delay incremental
@@ -114,9 +114,9 @@ export async function dispararRelatoriosLote(empresaId: string) {
     if (!relatorios?.length) return { success: false, error: 'Nenhum relatório com telefone' };
 
     try {
-      await assertZapiConnected();
+      await assertWhatsappAvailable();
     } catch (err: any) {
-      return { success: false, error: `${err?.message || 'Z-API desconectada'}. Reconecte a instância antes de disparar WhatsApp em lote.` };
+      return { success: false, error: `${err?.message || 'WhatsApp indisponível'}. Reconecte uma instância antes de disparar WhatsApp em lote.` };
     }
 
     const results = await Promise.all(relatorios.map(async (rel: any, i) => {

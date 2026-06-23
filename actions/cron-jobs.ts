@@ -5,7 +5,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { APP_URL, APP_WEBHOOK_URL, QSTASH_BASE_URL } from '@/lib/domain';
 import { templateWhatsAppPilula, templateWhatsAppEvidencia } from '@/lib/notifications';
 import { requireAdminOrCronAction } from '@/lib/auth/action-context';
-import { assertZapiConnected } from '@/lib/zapi';
+import { assertWhatsappAvailable } from '@/lib/whatsapp';
 
 const TIMEOUT_ABANDONO_HORAS = 48;
 const TOTAL_SEMANAS = 14;
@@ -259,7 +259,7 @@ async function publishToQStash(payload: any, delaySec: number = 0) {
     return;
   }
 
-  await assertZapiConnected();
+  await assertWhatsappAvailable();
 
   // Usa APP_WEBHOOK_URL (app.{ROOT_DOMAIN}) — APP_URL pode apontar pra raiz
   // vertho.ai que está servida pelo Gamma e retorna 405 nos endpoints API.

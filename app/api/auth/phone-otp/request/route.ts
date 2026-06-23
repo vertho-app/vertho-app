@@ -6,6 +6,7 @@ import { issueOtp } from '@/lib/phone-otp';
 import { resolveAppLocale } from '@/lib/i18n';
 import { otpWhatsapp } from '@/lib/i18n-auth-templates';
 import { authLimiter } from '@/lib/rate-limit';
+import { sendWhatsapp } from '@/lib/whatsapp';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,32 +66,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: issued.error }, { status: 429 });
     }
 
-    // Envia o código via Z-API (mesmo canal do magic-link).
-    const zapiInstance = process.env.ZAPI_INSTANCE_ID;
-    const zapiToken = process.env.ZAPI_TOKEN;
-    if (zapiInstance && zapiToken) {
-      const empresaNome = empresa.nome || 'Vertho';
-      const msg = otpWhatsapp(locale, { empresaNome, code: issued.code });
-      try {
-        const res = await fetch(
-          `https://api.z-api.io/instances/${zapiInstance}/token/${zapiToken}/send-text`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Client-Token': process.env.ZAPI_CLIENT_TOKEN || '' },
-            body: JSON.stringify({ phone: e164, message: msg }),
-          },
-        );
-        if (!res.ok) {
-          console.error('[phone-otp/request] Z-API error:', res.status, (await res.text()).slice(0, 200));
-          return NextResponse.json({ error: 'Não foi possível enviar o código pelo WhatsApp. Tente novamente.' }, { status: 502 });
-        }
-      } catch (e: any) {
-        console.error('[phone-otp/request] Z-API exception:', e.message);
-        return NextResponse.json({ error: 'Falha ao enviar o código. Tente novamente.' }, { status: 502 });
-      }
-    } else {
-      console.error('[phone-otp/request] Z-API não configurado');
-      return NextResponse.json({ error: 'Canal WhatsApp indisponível no momento.' }, { status: 503 });
+    // Envia o código pelo serviço central (failover Z-API → WaSender).
+    const empresaNome = empresa.nome || 'Vertho';
+    const msg = otpWhatsapp(locale, { empresaNome, code: issued.code });
+    const r = await sendWhatsapp({ kind: 'text', phone: e164, text: msg });
+    if (!r.ok) {
+      console.error('[phone-otp/request] envio falhou:', r.reason);
+      return NextResponse.json({ error: 'Não foi possível enviar o código pelo WhatsApp. Tente novamente.' }, { status: 502 });
     }
 
     return NextResponse.json({ ok: true });

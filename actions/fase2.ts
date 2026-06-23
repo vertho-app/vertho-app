@@ -4,7 +4,7 @@ import { APP_WEBHOOK_URL, EMAIL_FROM_DEFAULT, QSTASH_BASE_URL, tenantUrl } from 
 import crypto from 'crypto';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { hasDiscMapeado } from '@/lib/disc-status';
-import { assertZapiConnected } from '@/lib/zapi';
+import { assertWhatsappAvailable } from '@/lib/whatsapp';
 
 // ── Disparar convites (email + WhatsApp unificado) ──────────────────────────
 
@@ -55,10 +55,10 @@ export async function dispararEmails(empresaId: string) {
     let whatsappDisponivel = Boolean(process.env.QSTASH_TOKEN && colaboradores.some(c => c.telefone));
     if (whatsappDisponivel) {
       try {
-        await assertZapiConnected();
+        await assertWhatsappAvailable();
       } catch (err: any) {
         whatsappDisponivel = false;
-        console.warn('[fase2] WhatsApp via QStash bloqueado: Z-API desconectada', err?.message || err);
+        console.warn('[fase2] WhatsApp via QStash bloqueado:', err?.message || err);
       }
     }
 
