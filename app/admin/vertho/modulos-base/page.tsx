@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Plus, Sparkles, Upload, FileText, Star, X, Trash2, Film } from 'lucide-react';
+import { Loader2, Plus, Sparkles, Star, X, Trash2, Film } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { listarModulos, listarCompetenciasBase, rascunharModuloBase, importarModuloDocx, detectarMetadadosDocx, setPreferido, excluirModulo } from '@/actions/modulos-base';
+import { listarModulos, listarCompetenciasBase, rascunharModuloBase, setPreferido, excluirModulo } from '@/actions/modulos-base';
 
 type Modulo = any;
 
@@ -29,7 +29,7 @@ export default function ModulosBaseListPage() {
   const [filtroLocale, setFiltroLocale] = useState('');
   const [filtroComp, setFiltroComp] = useState('');
   const [busca, setBusca] = useState('');
-  const [modal, setModal] = useState<null | 'novo' | 'ia' | 'docx'>(null);
+  const [modal, setModal] = useState<null | 'novo' | 'ia'>(null);
 
   async function carregar() {
     setLoading(true);
@@ -64,11 +64,7 @@ export default function ModulosBaseListPage() {
           <div className="flex gap-2">
             <button onClick={() => router.push('/admin/vertho/modulos-base/extracao-video')}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-purple-400/30 text-purple-300 hover:bg-purple-400/10">
-              <Film size={14} /> Extrair de vídeo/material
-            </button>
-            <button onClick={() => setModal('docx')}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/15 hover:bg-white/5">
-              <Upload size={14} /> Importar .docx
+              <Film size={14} /> Extrair / Importar material
             </button>
             <button onClick={() => setModal('ia')}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-cyan-400/30 text-cyan-300 hover:bg-cyan-400/10">
@@ -189,9 +185,6 @@ export default function ModulosBaseListPage() {
       {modal === 'ia' && (
         <ModalIA competencias={competencias} onClose={() => setModal(null)} onCriou={(id) => { setModal(null); router.push(`/admin/vertho/modulos-base/${id}`); }} />
       )}
-      {modal === 'docx' && (
-        <ModalDocx competencias={competencias} onClose={() => setModal(null)} onCriou={(id) => { setModal(null); router.push(`/admin/vertho/modulos-base/${id}`); }} />
-      )}
     </div>
   );
 }
@@ -242,181 +235,6 @@ function ModalIA({ competencias, onClose, onCriou }: { competencias: any[]; onCl
         style={{ background: 'linear-gradient(135deg,#34c5cc,#0D9488)' }}>
         {loading ? 'Gerando…' : 'Rascunhar com IA'}
       </button>
-    </Modal>
-  );
-}
-
-function ModalDocx({ competencias, onClose, onCriou }: { competencias: any[]; onClose: () => void; onCriou: (id: string) => void }) {
-  const [comp, setComp] = useState('');
-  const [ne, setNe] = useState('N1'); const [nd, setNd] = useState('N2');
-  const [locale, setLocale] = useState('pt-BR');
-  const [contexto, setContexto] = useState('');
-  const [arquivo, setArquivo] = useState<File | null>(null);
-  const [arquivoB64, setArquivoB64] = useState<string>('');
-  const [detectando, setDetectando] = useState(false);
-  const [detectado, setDetectado] = useState<any>(null);
-  const [importando, setImportando] = useState(false);
-  const [importSegundos, setImportSegundos] = useState(0);
-  const intervalRef = useRef<any>(null);
-  const [erro, setErro] = useState('');
-
-  // Upload → auto-detecta metadados via IA. Sem detecção, sem campos.
-  async function onArquivoEscolhido(file: File) {
-    setErro(''); setDetectado(null); setArquivo(file);
-    setComp(''); setContexto(''); setNe('N1'); setNd('N2'); setLocale('pt-BR');
-
-    const buf = await file.arrayBuffer();
-    const b64 = Buffer.from(buf).toString('base64');
-    setArquivoB64(b64);
-
-    setDetectando(true);
-    const r = await detectarMetadadosDocx({ arquivoBase64: b64 });
-    setDetectando(false);
-    if ('error' in r && r.error) { setErro(r.error); return; }
-    if ('sugestoes' in r) {
-      const s = r.sugestoes;
-      setDetectado(s);
-      if (s.competencia_base_id) setComp(s.competencia_base_id);
-      if (s.nivel_entrada) setNe(s.nivel_entrada);
-      if (s.nivel_destino) setNd(s.nivel_destino);
-      if (s.locale) setLocale(s.locale);
-      if (s.contexto_pedagogico) setContexto(s.contexto_pedagogico);
-    }
-  }
-
-  async function importar() {
-    setErro('');
-    if (!arquivoB64) { setErro('Selecione um .docx'); return; }
-    if (!comp) { setErro('Selecione a competência'); return; }
-    setImportando(true);
-    setImportSegundos(0);
-    const t0 = Date.now();
-    intervalRef.current = setInterval(() => {
-      setImportSegundos(Math.floor((Date.now() - t0) / 1000));
-    }, 1000);
-    try {
-      const r = await importarModuloDocx({
-        arquivoBase64: arquivoB64,
-        competencia_base_id: comp,
-        nivel_entrada: ne as any, nivel_destino: nd as any,
-        locale: locale as any, contexto_pedagogico: contexto || undefined,
-      });
-      if ('error' in r && r.error) setErro(r.error);
-      else if ('id' in r) onCriou(r.id);
-    } finally {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      setImportando(false);
-    }
-  }
-
-  // Limpa interval se o modal fechar enquanto importa
-  useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current); }, []);
-
-  // Mensagem por estágio baseada no tempo decorrido
-  function etapaMsg(s: number): { txt: string; tom: 'normal' | 'lento' | 'alerta' } {
-    if (s < 3) return { txt: 'Conectando com a IA…', tom: 'normal' };
-    if (s < 15) return { txt: 'IA estruturando os 4 blocos do módulo…', tom: 'normal' };
-    if (s < 45) return { txt: 'Aguardando resposta da IA (docs grandes podem levar até 1 min)…', tom: 'normal' };
-    if (s < 90) return { txt: 'Continuando — não feche a tela. IA ainda processando…', tom: 'lento' };
-    if (s < 180) return { txt: 'Demora acima do esperado. Pode ser conteúdo muito extenso — aguarde mais um pouco…', tom: 'lento' };
-    return { txt: 'Mais de 3 min. Pode ter travado — considere cancelar e tentar de novo.', tom: 'alerta' };
-  }
-
-  const conf = detectado?.confianca ? Math.round(detectado.confianca * 100) : 0;
-  const camposVisiveis = detectado !== null; // só aparecem após detecção (ou erro recuperável)
-
-  return (
-    <Modal title="Importar .docx" onClose={onClose} bloqueado={detectando || importando}>
-      <div className="flex flex-col gap-1">
-        <label className="text-[11px] uppercase tracking-wide text-white/45">Arquivo .docx</label>
-        <input type="file" accept=".docx" disabled={detectando || importando}
-          onChange={e => { const f = e.target.files?.[0]; if (f) onArquivoEscolhido(f); }}
-          className="text-sm text-white file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-cyan-400/15 file:text-cyan-200 file:text-xs file:font-semibold disabled:opacity-50" />
-        <p className="text-[11px] text-white/45 mt-1">
-          <Sparkles size={11} className="inline mr-1 -mt-0.5 text-cyan-300" />
-          A IA detecta competência, níveis, locale e contexto a partir do cabeçalho do template.
-        </p>
-      </div>
-
-      {detectando && (
-        <div className="rounded-lg border border-cyan-400/20 bg-cyan-400/[0.04] p-4 flex items-center justify-center gap-2 text-sm text-cyan-200">
-          <Loader2 size={16} className="animate-spin" />
-          Detectando metadados do arquivo…
-        </div>
-      )}
-
-      {detectado && (
-        <div className="rounded-lg border border-cyan-400/25 bg-cyan-400/[0.06] p-3 text-[11px] text-cyan-100 space-y-1">
-          <div className="flex items-center gap-1.5 font-semibold mb-1">
-            <Sparkles size={11} /> Detectado pela IA
-            {detectado.competencia_base_id && conf > 0 && (
-              <span className={`text-[10px] px-1.5 py-0.5 rounded ${conf >= 70 ? 'bg-emerald-400/20 text-emerald-200' : 'bg-amber-400/20 text-amber-200'}`}>
-                {conf}% confiança
-              </span>
-            )}
-          </div>
-          {detectado.competencia_nome_detectado && (
-            <p>• Competência no docx: <span className="font-mono text-cyan-300">{detectado.competencia_nome_detectado}</span></p>
-          )}
-          {detectado.competencia_nome_match && (
-            <p>• Match no catálogo: <span className="font-mono text-cyan-200">{detectado.competencia_nome_match}</span></p>
-          )}
-          {!detectado.competencia_base_id && (
-            <p className="text-amber-200">⚠️ Nenhum match seguro no catálogo — selecione manualmente abaixo.</p>
-          )}
-          <p className="text-[10px] text-cyan-200/70 pt-1 border-t border-cyan-400/15 mt-2">Confira/ajuste os campos abaixo antes de importar.</p>
-        </div>
-      )}
-
-      {camposVisiveis && (
-        <>
-          <FieldCompetencia value={comp} onChange={setComp} options={competencias} />
-          <FieldNiveis ne={ne} nd={nd} onNe={setNe} onNd={setNd} />
-          <FieldLocale value={locale} onChange={setLocale} />
-          <FieldContexto value={contexto} onChange={setContexto} />
-        </>
-      )}
-
-      {erro && (
-        <div className="text-amber-300 text-xs space-y-1">
-          <p>{erro}</p>
-          {!detectado && arquivoB64 && (
-            <button onClick={() => arquivo && onArquivoEscolhido(arquivo)}
-              className="text-cyan-300 hover:underline">Tentar detectar de novo</button>
-          )}
-        </div>
-      )}
-
-      {camposVisiveis && (
-        <>
-          <p className="text-[11px] text-white/45 leading-relaxed">
-            <FileText size={11} className="inline mr-1 -mt-0.5" /> Texto extraído via <code className="text-cyan-300">mammoth</code> e estruturado pela IA conforme o spec. Vira <strong>rascunho</strong> pra revisão e auditoria.
-          </p>
-          <button disabled={importando || detectando || !comp} onClick={importar}
-            className="w-full py-2.5 rounded-xl font-bold text-sm text-[#06172C] disabled:opacity-40"
-            style={{ background: 'linear-gradient(135deg,#34c5cc,#0D9488)' }}>
-            {importando ? 'Processando…' : 'Importar e estruturar'}
-          </button>
-
-          {importando && (() => {
-            const { txt, tom } = etapaMsg(importSegundos);
-            const cor = tom === 'alerta' ? 'border-red-400/30 bg-red-400/[0.06] text-red-200'
-              : tom === 'lento' ? 'border-amber-400/30 bg-amber-400/[0.06] text-amber-200'
-              : 'border-cyan-400/25 bg-cyan-400/[0.06] text-cyan-100';
-            const mm = String(Math.floor(importSegundos / 60)).padStart(2, '0');
-            const ss = String(importSegundos % 60).padStart(2, '0');
-            return (
-              <div className={`rounded-lg border ${cor} p-3 text-[12px] flex items-center gap-2.5`}>
-                <Loader2 size={14} className="animate-spin shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium">{txt}</p>
-                  <p className="text-[10px] opacity-70 font-mono mt-0.5">tempo: {mm}:{ss}</p>
-                </div>
-              </div>
-            );
-          })()}
-        </>
-      )}
     </Modal>
   );
 }
