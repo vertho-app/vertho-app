@@ -699,7 +699,11 @@ function ConteudoViewer({ conteudo, formatoAtivo, setFormatoAtivo, onAutoConsumi
         </div>
       )}
       {item?.url && ativo === 'audio' && (
-        <audio controls className="w-full" src={item.url} />
+        <audio
+          controls
+          className="w-full"
+          src={(item.id || conteudo.core_id) ? `/api/conteudo/${item.id || conteudo.core_id}/podcast` : item.url}
+        />
       )}
       {item?.url && (ativo === 'texto' || ativo === 'case') && (
         <div className="prose prose-invert prose-sm max-w-none">

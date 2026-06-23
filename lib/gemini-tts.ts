@@ -10,11 +10,17 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fadePcm16, silencePcm, wavToMonoPcm16AtRate, exportPodcastMp3FromPcm } from './tts/audio-dsp';
-import { extractNarration, ensurePodcastBrandNarration, isMultiSpeakerText, splitNarrationForTts } from './tts/narration-text';
+import {
+  buildPersonalizedPodcastNarration,
+  extractNarration,
+  ensurePodcastBrandNarration,
+  isMultiSpeakerText,
+  splitNarrationForTts,
+} from './tts/narration-text';
 import { getGoogleAccessToken, vertexProjectId } from './tts/google-token';
 
 // Re-export da API pública (callers continuam importando de '@/lib/gemini-tts').
-export { extractNarration, ensurePodcastBrandNarration } from './tts/narration-text';
+export { buildPersonalizedPodcastNarration, extractNarration, ensurePodcastBrandNarration } from './tts/narration-text';
 export { exportPodcastMp3FromPcm } from './tts/audio-dsp';
 
 const MODEL = process.env.GEMINI_TTS_MODEL || 'gemini-3.1-flash-tts-preview';
@@ -247,4 +253,13 @@ export async function generatePodcastAudio(texto: string): Promise<PodcastAudioF
     contentType: 'audio/mpeg',
     extension: 'mp3',
   };
+}
+
+/**
+ * Gera o mesmo podcast final, mas com saudação nominal antes do conteúdo.
+ * O caller deve passar a narração limpa extraída do roteiro.
+ */
+export async function generatePersonalizedPodcastAudio(texto: string, nomeCompleto: string): Promise<PodcastAudioFile> {
+  const textoPersonalizado = buildPersonalizedPodcastNarration(texto, nomeCompleto);
+  return generatePodcastAudio(textoPersonalizado);
 }

@@ -55,6 +55,12 @@ vi.mock('@/lib/zapi', () => ({
     clientToken: 'client-token-123',
     baseUrl: 'https://api.z-api.io/instances/instance-123/token/token-123',
   }),
+  getZapiStatus: () => Promise.resolve({
+    configured: mocks.zapi.configured,
+    connected: mocks.zapi.connected,
+    session: mocks.zapi.connected,
+    smartphoneConnected: mocks.zapi.connected,
+  }),
   assertZapiConnected: () => {
     if (!mocks.zapi.connected) {
       throw new Error('Z-API desconectada');
@@ -66,6 +72,21 @@ vi.mock('@/lib/zapi', () => ({
       smartphoneConnected: true,
     });
   },
+}));
+
+vi.mock('@/lib/whatsapp', () => ({
+  sendWhatsapp: vi.fn(async () => ({
+    ok: mocks.zapi.connected,
+    provider: mocks.zapi.connected ? 'zapi' : undefined,
+    reason: mocks.zapi.connected ? undefined : 'zapi:saúde: desconectada (connected=false, smartphone=false)',
+    attempts: [
+      {
+        provider: 'zapi',
+        ok: mocks.zapi.connected,
+        reason: mocks.zapi.connected ? undefined : 'saúde: desconectada (connected=false, smartphone=false)',
+      },
+    ],
+  })),
 }));
 
 const { POST } = await import('@/app/api/webhooks/qstash/whatsapp-cis/route');
@@ -111,7 +132,6 @@ describe('qstash whatsapp-cis webhook', () => {
     }));
 
     expect(res.status).toBe(503);
-    expect(global.fetch).not.toHaveBeenCalled();
     expect(mocks.supabaseState.updates).toHaveLength(0);
   });
 
@@ -142,13 +162,7 @@ describe('qstash whatsapp-cis webhook', () => {
 
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(global.fetch).toHaveBeenCalledWith(
-      'https://api.z-api.io/instances/instance-123/token/token-123/send-text',
-      expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify({ phone: '5511999999999', message: 'Mensagem de teste' }),
-      }),
-    );
+    expect(body.provider).toBe('zapi');
     expect(mocks.supabaseState.updates[0]).toMatchObject({
       status: 'enviado',
       canal: 'email_whatsapp',

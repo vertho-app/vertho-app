@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { addPodcastBrandSting, ensurePodcastBrandNarration, exportPodcastMp3FromPcm, extractNarration } from '@/lib/gemini-tts';
+import {
+  addPodcastBrandSting,
+  buildPersonalizedPodcastNarration,
+  ensurePodcastBrandNarration,
+  exportPodcastMp3FromPcm,
+  extractNarration,
+} from '@/lib/gemini-tts';
 
 function maxAbsSample(pcm: Buffer): number {
   let max = 0;
@@ -151,5 +157,26 @@ Este é o MentorIA na prática.`;
     expect(texto).toMatch(/^Campo: Isso acontece na reunião\./);
     expect(texto).not.toContain('Este é o MentorIA na prática');
     expect(texto).toMatch(/Mentor: Na Vertho, desenvolvimento profissional não é conceito solto\./);
+  });
+
+  it('adiciona saudação nominal no podcast solo sem reinserir abertura falada', () => {
+    const texto = buildPersonalizedPodcastNarration('Dar retorno difícil exige clareza.', 'MARIA DA SILVA');
+
+    expect(texto).toMatch(/^Olá, Maria\. Que bom ter você aqui\./);
+    expect(texto).toContain('Dar retorno difícil exige clareza.');
+    expect(texto).not.toContain('Este é o MentorIA na prática');
+    expect(texto).toContain('Na Vertho, desenvolvimento profissional não é conceito solto.');
+  });
+
+  it('adiciona saudação nominal como Mentor no podcast multi-speaker', () => {
+    const texto = buildPersonalizedPodcastNarration(
+      'Campo: Isso acontece na reunião.\nMentor: O ponto é separar fato e interpretação.',
+      'joão pereira',
+    );
+
+    expect(texto).toMatch(/^Mentor: Olá, João\. Que bom ter você aqui\./);
+    expect(texto).toContain('Campo: Isso acontece na reunião.');
+    expect(texto).toContain('Mentor: O ponto é separar fato e interpretação.');
+    expect(texto).toContain('Mentor: Na Vertho, desenvolvimento profissional não é conceito solto.');
   });
 });

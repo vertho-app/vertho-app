@@ -67,6 +67,30 @@ export function ensurePodcastBrandNarration(texto: string): string {
   ].filter(Boolean).join('\n\n');
 }
 
+/** Primeiro nome capitalizado para saudações nominais. */
+export function firstNameForGreeting(nome: string): string {
+  const first = String(nome || '').trim().split(/\s+/)[0] || '';
+  return first ? first.charAt(0).toUpperCase() + first.slice(1).toLowerCase() : '';
+}
+
+/**
+ * Monta a narração de podcast com saudação nominal sem alterar o conteúdo-base.
+ *
+ * Para roteiros multi-speaker, a saudação entra como fala do Mentor para manter
+ * compatibilidade com o TTS multi-speaker. Para solo, entra como texto corrido.
+ */
+export function buildPersonalizedPodcastNarration(texto: string, nomeCompleto: string): string {
+  const clean = texto.trim();
+  const nome = firstNameForGreeting(nomeCompleto);
+  if (!clean || !nome) return ensurePodcastBrandNarration(clean);
+
+  if (isMultiSpeakerText(clean)) {
+    return ensurePodcastBrandNarration(`Mentor: Olá, ${nome}. Que bom ter você aqui.\n${clean}`);
+  }
+
+  return ensurePodcastBrandNarration(`Olá, ${nome}. Que bom ter você aqui.\n\n${clean}`);
+}
+
 function stripPodcastOpeningNarration(texto: string): string {
   const openingLine = escapeRegExp(BRAND_OPENING_LINE);
   return texto

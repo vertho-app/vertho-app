@@ -48,7 +48,16 @@ describe('sendAccessLink (status explícito por canal)', () => {
     process.env.ZAPI_INSTANCE_ID = 'inst';
     process.env.ZAPI_TOKEN = 'tok';
     sendMock.mockResolvedValue({ id: 'em_1' });
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, text: async () => '' })));
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (String(url).endsWith('/status')) {
+        return new Response(JSON.stringify({
+          connected: true,
+          session: true,
+          smartphoneConnected: true,
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }));
   });
   afterEach(() => vi.unstubAllGlobals());
 
