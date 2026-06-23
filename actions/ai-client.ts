@@ -83,8 +83,9 @@ async function withAIRetry<T>(fn: () => Promise<T>, label: string, max = 4): Pro
 }
 
 // Fallback de PROVEDOR quando o primário (Claude) fica sobrecarregado mesmo após
-// retries (ex.: outage de 529 da Anthropic). Gera por Gemini em vez de falhar.
-const AI_FALLBACK_MODEL = process.env.AI_FALLBACK_MODEL || 'gemini-3.5-flash';
+// retries (ex.: outage de 529 da Anthropic). Gera por GPT-5.4 (OpenAI) em vez de
+// falhar. Sobrescreva com a env AI_FALLBACK_MODEL.
+const AI_FALLBACK_MODEL = process.env.AI_FALLBACK_MODEL || 'gpt-5.4';
 
 export async function callAI(
   system: string,
