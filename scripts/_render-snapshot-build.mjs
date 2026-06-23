@@ -39,10 +39,10 @@ runcmd:
 async function main() {
   let id = null;
   try {
-    // Núcleo COMPARTILHADO (cpx, AMD) p/ não bater na cota de dedicated cores —
-    // o snapshot é x86 e global (roda em qualquer tipo/location x86 depois).
-    // CPX≥4c só existe em nbg1/hel1 (fsn1 não tem); nome EU = cpx42 (8c/16g).
-    const buildType = process.env.SNAPSHOT_BUILD_TYPE || 'cpx42';
+    // Builda numa box INTEL (cx43, 8c — mesma família x86 do cx33 de render, sem
+    // dúvida de cross-vendor). Snapshot é global e roda em qualquer x86 depois.
+    // CX só existe em nbg1/hel1 (fsn1 não tem).
+    const buildType = process.env.SNAPSHOT_BUILD_TYPE || 'cx43';
     const buildLoc = process.env.SNAPSHOT_BUILD_LOCATION || 'nbg1';
     log(`provisionando box de build (${buildType}, ${buildLoc})…`);
     const cr = await H('servers', { method: 'POST', body: JSON.stringify({ name: 'vertho-snapshot-build', server_type: buildType, image: 'ubuntu-22.04', location: buildLoc, ssh_keys: [113820480], user_data: cloudInit, labels: { role: 'snapshot-build' } }) });

@@ -18,10 +18,10 @@
  * Envs necessárias (no ambiente do orquestrador / trigger.dev):
  *   HCLOUD_TOKEN, RENDER_SNAPSHOT_ID, DATABASE_URL, BUNNY_LIBRARY_ID,
  *   BUNNY_STREAM_API_KEY, GEMINI_API_KEY (opcional → liga personalização).
- *   Opcionais: RENDER_SERVER_TYPE (ccx33 — dedicado, alvo correto; exige cota
- *   dedicated_core_limit suficiente na Hetzner p/ paralelizar. Bridge sem cota:
- *   RENDER_SERVER_TYPE=cpx42 + RENDER_LOCATION=nbg1, shared, idêntico em saída),
- *   RENDER_LOCATION (fsn1),
+ *   Opcionais: RENDER_SERVER_TYPE (cx33 — shared Intel, ~€0.016/hr, NÃO usa cota
+ *   dedicada → fan-out funciona sem aumento de limite. cx43=8c mais rápido por ~2×
+ *   o custo; ccx33=dedicado, exige cota), RENDER_LOCATION (nbg1 — CX só há em
+ *   nbg1/hel1, NÃO em fsn1),
  *   RENDER_SSH_KEY_ID, RENDER_IDLE_SHUTDOWN_MS (300000), VIDEO_RENDER_SCALE (1),
  *   MAX_RENDER_BOXES (4), RENDER_JOBS_PER_BOX (3).
  */
@@ -93,9 +93,9 @@ export async function ensureRenderWorker(): Promise<EnsureResult> {
   const mkBody = (n: number): any => {
     const b: any = {
       name: `vertho-render-${Date.now()}-${n}`,
-      server_type: process.env.RENDER_SERVER_TYPE || 'ccx33',
+      server_type: process.env.RENDER_SERVER_TYPE || 'cx33',
       image: Number(snapshot),
-      location: process.env.RENDER_LOCATION || 'fsn1',
+      location: process.env.RENDER_LOCATION || 'nbg1',
       user_data: userData,
       labels: { role: 'render-worker', ephemeral: 'true' },
     };
