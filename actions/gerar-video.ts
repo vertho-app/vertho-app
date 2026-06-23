@@ -34,7 +34,7 @@ async function carregarModulo(sb: any, moduloBaseId: string): Promise<ModuloPara
 }
 
 /** Contexto de personalização da célula: bloco de cargo + brief do PPP + DISC. */
-async function contextoPersonalizacao(sb: any, empresaId: string | null, cargo: string | null, disc: Disc | null) {
+async function contextoPersonalizacao(sb: any, empresaId: string | null, cargo: string | null, disc: Disc | null, pppBriefOverride?: string | null) {
   const out: Pick<ModuloParaRoteiro, 'cargoBloco' | 'pppBrief' | 'discDominante'> = { discDominante: disc || null };
   if (!empresaId) return out;
 
@@ -46,11 +46,15 @@ async function contextoPersonalizacao(sb: any, empresaId: string | null, cargo: 
     const cargoInfo = await carregarCargoInfo(sb, empresaId, cargo).catch(() => null);
     out.cargoBloco = formatBlocoCargo(cargoInfo || { nome: cargo }, empresaNome);
   }
-  // PPP da empresa (mais recente extraído) → texto enxuto para o prompt.
-  const { data: ppp } = await sb.from('ppp_escolas')
-    .select('extracao').eq('empresa_id', empresaId).eq('status', 'extraido')
-    .order('extracted_at', { ascending: false }).limit(1).maybeSingle();
-  if (ppp?.extracao) out.pppBrief = extracaoParaTexto(ppp.extracao).slice(0, 2500);
+  // PPP/contexto da empresa. Empresa-rede (município, ex.: Ibipeba) tem VÁRIOS
+  // PPPs → consolida o MUNICIPAL (não pega o "mais recente" de uma escola). O kit
+  // passa o brief já resolvido via override. Ver kit/contexto-empresa.ts.
+  if (pppBriefOverride !== undefined) {
+    out.pppBrief = pppBriefOverride;
+  } else {
+    const { resolverContextoEmpresa } = await import('@/lib/season-engine/kit/contexto-empresa');
+    out.pppBrief = await resolverContextoEmpresa(sb, empresaId).catch(() => null);
+  }
   return out;
 }
 
@@ -60,12 +64,16 @@ async function contextoPersonalizacao(sb: any, empresaId: string | null, cargo: 
  */
 async function criarEDispararVideo(sb: any, args: {
   moduloBaseId: string; empresaId: string | null; cargo: string | null; disc: Disc | null; createdBy: string | null;
+  desafioTexto?: string | null; kitId?: string | null; pppBrief?: string | null; forceSync?: boolean;
 }) {
   const base = await carregarModulo(sb, args.moduloBaseId);
   if (!base) return { error: 'Módulo-base não encontrado' };
 
-  const perso = await contextoPersonalizacao(sb, args.empresaId, args.cargo, args.disc);
-  const { roteiro, error: rotErr } = await gerarRoteiroDeModulo({ ...base, ...perso });
+  const perso = await contextoPersonalizacao(sb, args.empresaId, args.cargo, args.disc, args.kitId ? (args.pppBrief ?? null) : undefined);
+  const { roteiro, error: rotErr } = await gerarRoteiroDeModulo(
+    { ...base, ...perso, desafioTexto: args.desafioTexto ?? null },
+    { forceSync: !!args.forceSync },
+  );
   if (rotErr || !roteiro) return { error: rotErr || 'A IA não retornou um roteiro válido' };
 
   const { data: novo, error: insErr } = await sb.from('videos_gerados').insert({
@@ -77,6 +85,7 @@ async function criarEDispararVideo(sb: any, args: {
     etapa: 'roteiro',
     roteiro,
     created_by: args.createdBy,
+    kit_id: args.kitId ?? null,
   }).select('id').maybeSingle();
   if (insErr || !novo?.id) return { error: insErr?.message || 'Falha ao criar registro do vídeo' };
 
@@ -109,6 +118,30 @@ export async function dispararVideoDeModulo(moduloBaseId: string, opts: { escopo
     console.error('[dispararVideoDeModulo]', err);
     return { error: err?.message || 'Falha ao disparar a geração de vídeo' };
   }
+}
+
+/**
+ * Disparo do vídeo do KIT (background, service-role — SEM auth de request). Gera o
+ * vídeo da célula (modulo × empresa × cargo × DISC) com o DESAFIO do DISC no
+ * roteiro + PPP municipal + kit_id, em modo SYNC (não espera o batch). Idempotente
+ * por kit (reusa se já gerou o vídeo deste kit). Ver docs/KIT-SEMANAL.md (Fase 2b).
+ */
+export async function dispararVideoDoKit(sb: any, args: {
+  moduloBaseId: string; empresaId: string | null; cargo: string | null; disc: Disc;
+  desafioTexto: string; kitId: string; pppBrief?: string | null; createdBy?: string | null;
+}): Promise<{ id?: string; reused?: boolean; status?: string; error?: string }> {
+  if (!args.moduloBaseId) return { error: 'sem módulo-base p/ o vídeo' };
+  const { data: existente } = await sb.from('videos_gerados')
+    .select('id, status').eq('kit_id', args.kitId).neq('status', 'error')
+    .order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (existente) return { id: existente.id, reused: true, status: existente.status };
+  const r = await criarEDispararVideo(sb, {
+    moduloBaseId: args.moduloBaseId, empresaId: args.empresaId, cargo: args.cargo, disc: args.disc,
+    createdBy: args.createdBy || 'kit', desafioTexto: args.desafioTexto, kitId: args.kitId,
+    pppBrief: args.pppBrief ?? null, forceSync: true,
+  });
+  if ((r as any).error) return { error: (r as any).error };
+  return { id: (r as any).id, status: 'processing' };
 }
 
 /**

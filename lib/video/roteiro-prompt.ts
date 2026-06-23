@@ -67,6 +67,8 @@ export interface ModuloParaRoteiro {
   cargoBloco?: string | null;
   pppBrief?: string | null;
   discDominante?: 'D' | 'I' | 'S' | 'C' | null;
+  /** Kit Semanal: desafio da semana (por DISC) que o avatar_outro deve fechar. */
+  desafioTexto?: string | null;
 }
 
 const IDIOMA: Record<string, string> = {
@@ -231,9 +233,10 @@ export function buildRoteiroPrompt(m: ModuloParaRoteiro): { system: string; user
   const disc = m.discDominante ? DISC_GUIA[m.discDominante] : null;
   // NOTA: `adaptacao_por_formato.video_roteiro` NÃO é injetado (formato legado).
 
-  const persoSystem = (disc || m.cargoBloco || m.pppBrief) ? `
+  const persoSystem = (disc || m.cargoBloco || m.pppBrief || m.desafioTexto) ? `
 
-PERSONALIZAÇÃO (adapte exemplos e tom SEM mudar o conteúdo pedagógico nem a fidelidade):${m.cargoBloco ? `
+PERSONALIZAÇÃO (adapte exemplos e tom SEM mudar o conteúdo pedagógico nem a fidelidade):${m.desafioTexto ? `
+- DESAFIO DA SEMANA: o avatar_outro deve FECHAR conduzindo a pessoa a ESTE desafio prático (não reescreva, não invente outro): "${m.desafioTexto}". A pergunta/chamada final deve levar naturalmente a essa ação.` : ''}${m.cargoBloco ? `
 - CARGO: ancore os exemplos práticos no dia a dia real do cargo (contexto abaixo), sem repetir a mesma situação em todas as cenas. Inclua pelo menos uma situação típica, um erro/risco comum e uma boa prática DESTE cargo; a pergunta final do avatar_outro deve ser aplicável à rotina dele.` : ''}${m.pppBrief ? `
 - INSTITUIÇÃO (PPP): a instituição tem identidade própria — REFLITA ATIVAMENTE seus valores, missão, metodologia e prioridades, tanto na NARRAÇÃO quanto no TEXTO DE TELA (títulos/bullets/items podem ecoar as prioridades da escola). PELO MENOS UMA cena deve conectar o conteúdo a um valor ou prioridade CONCRETO do PPP (marque-a com source_anchor "PPP"), e o vocabulário deve soar DAQUELA instituição, não de uma escola genérica. Priorize os traços DISTINTIVOS — o que torna a instituição única (público atendido, território, cultura local, comunidades, projetos próprios) — em vez de generalidades; mas só se encaixar com naturalidade no conteúdo (não force). SALVAGUARDAS: não cite o NOME da instituição, não faça propaganda nem exponha pessoas reais; as situações são sintéticas e plausíveis, mas reconhecivelmente alinhadas ao PPP.` : ''}${disc ? `
 - TOM POR PERFIL ${disc.rotulo}: ${disc.tom} O perfil ajusta APENAS o tom da narração — NUNCA template, ordem ou texto de tela. Nunca diga "pessoas D são...", não rotule nem estereotipe o colaborador.` : ''}` : '';

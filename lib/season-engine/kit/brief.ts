@@ -115,14 +115,14 @@ Fala natural, sem jargão, sem markdown. RETORNE APENAS JSON VÁLIDO:
 }
 
 /** Resolve um brief existente para o tema (idempotência) ou cria um novo. */
-export async function resolverOuCriarBrief(sb: any, p: GerarBriefParams): Promise<{ briefId: string; brief: KitBriefNucleo; reused: boolean }> {
-  let q = sb.from('kit_briefs').select('id, brief')
+export async function resolverOuCriarBrief(sb: any, p: GerarBriefParams): Promise<{ briefId: string; brief: KitBriefNucleo; moduloBaseId: string | null; reused: boolean }> {
+  let q = sb.from('kit_briefs').select('id, brief, modulo_base_id')
     .eq('competencia', p.competencia).eq('descritor', p.descritor)
     .eq('nivel_min', p.nivelMin ?? 1.0).eq('nivel_max', p.nivelMax ?? 2.0)
     .eq('cargo', p.cargo ?? 'todos').eq('contexto', p.contexto ?? 'generico');
   q = p.empresaId ? q.eq('empresa_id', p.empresaId) : q.is('empresa_id', null);
   const { data: existing } = await q.limit(1).maybeSingle();
-  if (existing) return { briefId: existing.id, brief: existing.brief, reused: true };
+  if (existing) return { briefId: existing.id, brief: existing.brief, moduloBaseId: existing.modulo_base_id ?? null, reused: true };
 
   const { nucleo, moduloBaseId } = await gerarKitBriefNucleo(sb, p);
   const { data: novo, error } = await sb.from('kit_briefs').insert({
@@ -132,7 +132,7 @@ export async function resolverOuCriarBrief(sb: any, p: GerarBriefParams): Promis
     modulo_base_id: moduloBaseId, brief: nucleo, status: 'published', published_at: new Date().toISOString(),
   }).select('id, brief').single();
   if (error) throw new Error('brief insert: ' + error.message);
-  return { briefId: novo.id, brief: novo.brief, reused: false };
+  return { briefId: novo.id, brief: novo.brief, moduloBaseId: moduloBaseId ?? null, reused: false };
 }
 
 /** Parser tolerante do desafio (prosa/markdown em volta) — complementa parseDesafioResponse. */

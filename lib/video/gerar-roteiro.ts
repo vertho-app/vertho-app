@@ -88,12 +88,14 @@ async function callClaudeBatch(system: string, user: string, model: string, maxT
   return extractClaudeText(row.result.message.content);
 }
 
-export async function gerarRoteiroDeModulo(m: ModuloParaRoteiro): Promise<{ roteiro?: VideoRoteiro; error?: string }> {
+export async function gerarRoteiroDeModulo(m: ModuloParaRoteiro, opts: { forceSync?: boolean } = {}): Promise<{ roteiro?: VideoRoteiro; error?: string }> {
   const { system, user } = buildRoteiroPrompt(m);
   const model = await getModelForTask(null as any, 'conteudo_video').catch(() => 'claude-sonnet-4-6');
   let roteiro: VideoRoteiro | null = null;
 
-  if (model.startsWith('claude') && process.env.VIDEO_ROTEIRO_MODE !== 'sync') {
+  // forceSync (Kit): pula o batch (lento, ~minutos) e gera na hora — o kit já é
+  // um job em background e não pode esperar 30 min de polling do batch por DISC.
+  if (model.startsWith('claude') && process.env.VIDEO_ROTEIRO_MODE !== 'sync' && !opts.forceSync) {
     try {
       const raw = await callClaudeBatch(system, user, model, ROTEIRO_MAX_TOKENS);
       roteiro = parseRoteiro(raw);

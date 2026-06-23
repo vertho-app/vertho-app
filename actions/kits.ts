@@ -16,7 +16,10 @@ import { tasks } from '@trigger.dev/sdk';
 import { regionOpts } from '@/lib/trigger-region';
 import type { gerarKitTask } from '@/trigger/gerar-kit';
 
-const FORMATOS_PADRAO = ['video', 'audio', 'texto', 'case'] as const;
+// Conteúdos textuais/áudio do kit (micro_conteudos). O VÍDEO não é um roteiro
+// aqui — é o vídeo RENDERIZADO (videos_gerados) disparado à parte, com o desafio
+// do DISC no roteiro. Ver docs/KIT-SEMANAL.md (Fase 2b).
+const FORMATOS_PADRAO = ['audio', 'texto', 'case'] as const;
 
 /** Resumo enxuto de um resultado de kit para o progresso (polling da tela). */
 function resumoKit(k: any) {
@@ -68,7 +71,7 @@ export async function gerarKit({
     const baseParams = { competencia, descritor, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, pppBrief };
 
     // 1) Brief (núcleo da empresa, idempotente por tema; PPP como lente).
-    const { briefId, brief, reused } = await resolverOuCriarBrief(sb, baseParams);
+    const { briefId, brief, moduloBaseId, reused } = await resolverOuCriarBrief(sb, baseParams);
 
     // 2) Desafio sob medida ao DISC, ancorado no núcleo + contexto da empresa.
     const desafio = await gerarKitDesafio(baseParams, brief, disc);
@@ -88,7 +91,19 @@ export async function gerarKit({
       conteudos.push({ formato, conteudoId: (r as any).conteudoId, titulo: (r as any).titulo, ok: r.success, error: (r as any).error });
     }
 
-    const okAll = conteudos.every((c) => c.ok);
+    // VÍDEO renderizado (Fase 2b): célula (modulo × empresa × cargo × DISC) com o
+    // desafio do DISC no roteiro + PPP municipal, ligada ao kit. Render é async
+    // (cx33); aqui só dispara/reusa. Não conta no okAll (é best-effort/assíncrono).
+    if (moduloBaseId) {
+      const { dispararVideoDoKit } = await import('@/actions/gerar-video');
+      const v: any = await dispararVideoDoKit(sb, { moduloBaseId, empresaId, cargo, disc, desafioTexto: desafio.desafio_texto, kitId, pppBrief, createdBy: 'kit' }).catch((e: any) => ({ error: e?.message }));
+      conteudos.push({ formato: 'video', conteudoId: v.id, titulo: v.reused ? 'vídeo (reusado)' : 'vídeo (renderizando)', ok: !v.error, error: v.error });
+    } else {
+      conteudos.push({ formato: 'video', ok: false, error: 'sem módulo-base — vídeo não gerado' });
+    }
+
+    // okAll = formatos de CONTEÚDO (o vídeo é async; não bloqueia a publicação).
+    const okAll = conteudos.filter((c) => c.formato !== 'video').every((c) => c.ok);
     await sb.from('kits').update({
       status: okAll ? 'published' : 'error',
       published_at: okAll ? new Date().toISOString() : null,
