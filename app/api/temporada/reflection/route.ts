@@ -286,6 +286,22 @@ export async function POST(request) {
       console.warn('[reflection] retrieveContext:', err?.message);
     }
 
+    // DESAFIO da semana: PREFERE o do KIT (por DISC do colab); fallback ao plano
+    // (buildSeason). Fase 3 — a cobrança socrática passa a cobrar o desafio do kit.
+    const discColab = String(colab.perfil_dominante || '').trim().charAt(0).toUpperCase();
+    const { resolverDesafioDoKit } = await import('@/lib/season-engine/kit/desafio-semana');
+    let desafioTexto: string;
+    if (Array.isArray(semanaPlan.conteudos_dia) && semanaPlan.conteudos_dia.length > 0) {
+      const linhas = await Promise.all(semanaPlan.conteudos_dia.map(async (e: any) => {
+        const k = await resolverDesafioDoKit(sb, { empresaId: trilha.empresa_id, competencia: e.competencia, descritor: e.descritor, disc: discColab }).catch(() => null);
+        return [e.label, e.competencia, e.descritor, k?.desafio_texto || e.conteudo?.desafio_texto].filter(Boolean).join(' — ');
+      }));
+      desafioTexto = linhas.join('\n');
+    } else {
+      const k = await resolverDesafioDoKit(sb, { empresaId: trilha.empresa_id, competencia: competenciaSemana.label, descritor: semanaPlan.descritor, disc: discColab }).catch(() => null);
+      desafioTexto = k?.desafio_texto || semanaPlan.conteudo?.desafio_texto || '';
+    }
+
     // Monta prompt
     let promptData;
     if (tipoConversa === 'socratic') {
@@ -295,11 +311,7 @@ export async function POST(request) {
         perfilDominante: colab.perfil_dominante,
         competencia: competenciaSemana.label,
         descritor: semanaPlan.descritor,
-        desafio: Array.isArray(semanaPlan.conteudos_dia) && semanaPlan.conteudos_dia.length > 0
-          ? semanaPlan.conteudos_dia
-              .map((e: any) => [e.label, e.competencia, e.descritor, e.conteudo?.desafio_texto].filter(Boolean).join(' — '))
-              .join('\n')
-          : (semanaPlan.conteudo?.desafio_texto || ''),
+        desafio: desafioTexto,
         historico: historicoMasked,
         turnIA: proximoTurnIA,
         groundingContext: groundingBlock,
