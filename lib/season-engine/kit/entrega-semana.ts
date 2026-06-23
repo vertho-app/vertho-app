@@ -20,8 +20,8 @@ export function formatoPreferido(colab: any): Formato {
     texto: Number(colab?.pref_texto) || 0,
     case: Number(colab?.pref_estudo_caso) || 0,
   };
-  // Default = texto quando nada está setado (bestN começa em 0; só prefs > 0 ganham).
-  let best: Formato = 'texto';
+  // Default = video quando nada está setado (bestN começa em 0; só prefs > 0 ganham).
+  let best: Formato = 'video';
   let bestN = 0;
   for (const f of FMTS) if (scores[f] > bestN) { bestN = scores[f]; best = f; }
   return best;

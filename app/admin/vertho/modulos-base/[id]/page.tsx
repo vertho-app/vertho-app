@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2, Save, Send, CheckCircle2, Archive, Languages, AlertTriangle, ShieldCheck, ShieldAlert, Sparkles, RotateCcw, Wand2, Trash2 } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import VideoGeradorCard from './_video-gerador';
+import KitGeradorCard from './_kit-gerador';
 import {
   obterModulo, listarCompetenciasBase, salvarModulo,
   submeterRevisao, aprovarPublicar, marcarObsoleto, criarTraducao, obterGrupo,
@@ -331,6 +332,16 @@ export default function ModuloBaseEditPage({ params }: { params: Promise<{ id: s
 
         {/* Geração de vídeo (avatar HeyGen + cenas Remotion + narração TTS própria) */}
         {!isNovo && <VideoGeradorCard moduloId={id} status={m.status} />}
+
+        {/* Kit Semanal: 4 formatos coesos + desafio por DISC, no contexto da empresa */}
+        {!isNovo && (
+          <KitGeradorCard
+            competenciaNome={competencias.find((c) => c.id === m.competencia_base_id)?.nome || ''}
+            descritor={m.descritor || ''}
+            nivelEntrada={Number(m.nivel_entrada) || undefined}
+            nivelDestino={Number(m.nivel_destino) || undefined}
+          />
+        )}
 
         {/* Blocos JSONB */}
         <Card titulo="Bloco 1 — Conteúdo central"
