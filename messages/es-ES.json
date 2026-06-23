@@ -1859,6 +1859,7 @@
     "table": {
       "format": "Formato",
       "title": "Título",
+      "pillar": "Pilar",
       "competency": "Competencia",
       "descriptor": "Descriptor",
       "level": "Nivel",
@@ -1876,6 +1877,7 @@
     },
     "fields": {
       "title": "Título",
+      "pillar": "Pilar",
       "competency": "Competencia",
       "descriptor": "Descriptor",
       "levelMin": "Nivel mín",

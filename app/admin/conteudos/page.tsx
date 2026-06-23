@@ -331,6 +331,7 @@ export default function ConteudosAdminPage() {
                 <tr className="text-left text-[10px] uppercase text-gray-500">
                   <th className="px-3 py-2">{t('table.format')}</th>
                   <th className="px-3 py-2">{t('table.title')}</th>
+                  <th className="px-3 py-2">{t('table.pillar')}</th>
                   <th className="px-3 py-2">{t('table.competency')}</th>
                   <th className="px-3 py-2">{t('table.descriptor')}</th>
                   <th className="px-3 py-2 text-center">{t('table.level')}</th>
@@ -364,6 +365,11 @@ export default function ConteudosAdminPage() {
                         </button>
                       </td>
                       <td className="px-3 py-2 text-xs text-white max-w-xs truncate">{c.titulo}</td>
+                      <td className="px-3 py-2 text-[11px]">
+                        {c.pilar
+                          ? <span className="rounded border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-cyan-200">{c.pilar}</span>
+                          : <span className="text-white/25">—</span>}
+                      </td>
                       <td className="px-3 py-2 text-xs">
                         <span className={naoClass ? 'text-amber-400' : 'text-gray-300'}>{naoClass ? t('labels.unclassified') : c.competencia}</span>
                       </td>
@@ -656,6 +662,7 @@ function EditModal({ conteudo, onClose, onSave }) {
   const t = useTranslations('AdminContent');
   const [form, setForm] = useState({
     titulo: conteudo.titulo || '',
+    pilar: conteudo.pilar || '',
     competencia: conteudo.competencia || '',
     descritor: conteudo.descritor || '',
     nivel_min: conteudo.nivel_min || 1.0,
@@ -666,7 +673,7 @@ function EditModal({ conteudo, onClose, onSave }) {
     tipo_conteudo: conteudo.tipo_conteudo || 'core',
     ativo: conteudo.ativo,
   });
-  const [opcoes, setOpcoes] = useState({ competencias: [], cargos: [] });
+  const [opcoes, setOpcoes] = useState({ competencias: [], cargos: [], pilares: [] });
 
   const { empresaFiltro } = useAdminShell();
   useEffect(() => { loadOpcoesGerar(empresaFiltro).then(setOpcoes); }, [empresaFiltro]);
@@ -681,6 +688,9 @@ function EditModal({ conteudo, onClose, onSave }) {
     ? [form.competencia, ...opcoes.competencias.map(c => c.nome)]
     : opcoes.competencias.map(c => c.nome);
   const cargoOptions = ['todos', ...(opcoes.cargos || [])];
+  const pilarOptions = form.pilar && !(opcoes.pilares || []).includes(form.pilar)
+    ? [form.pilar, ...(opcoes.pilares || [])]
+    : (opcoes.pilares || []);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
@@ -691,6 +701,9 @@ function EditModal({ conteudo, onClose, onSave }) {
         </div>
         <div className="space-y-3 text-sm">
           <Field label={t('fields.title')} value={form.titulo} onChange={v => setForm({ ...form, titulo: v })} />
+          <SelectField label={t('fields.pillar')} value={form.pilar}
+            onChange={v => setForm({ ...form, pilar: v })}
+            options={['', ...pilarOptions]} />
           <SelectField label={t('fields.competency')} value={form.competencia}
             onChange={v => setForm({ ...form, competencia: v, descritor: '' })}
             options={['', ...compOptions]} />
@@ -742,6 +755,7 @@ function SugestaoModal({ conteudo, tags, onApply, onCancel, onEdit }) {
           </div>
         )}
         <div className="space-y-2 text-sm">
+          <Field label={tLabel('fields.pillar')} value={t.pilar || ''} onChange={v => { const n = { ...t, pilar: v }; setT(n); onEdit(n); }} />
           <Field label={tLabel('fields.competency')} value={t.competencia} onChange={v => { const n = { ...t, competencia: v }; setT(n); onEdit(n); }} />
           <Field label={tLabel('fields.descriptor')} value={t.descritor || ''} onChange={v => { const n = { ...t, descritor: v }; setT(n); onEdit(n); }} />
           <div className="grid grid-cols-2 gap-3">
@@ -818,13 +832,17 @@ function SelectField({ label, value, onChange, options, disabled, name, defaultV
 function UploadModal({ onClose, onSave, busy }) {
   const t = useTranslations('AdminContent');
   const [formato, setFormato] = useState('audio');
-  const [opcoes, setOpcoes] = useState({ competencias: [], cargos: [] });
+  const [opcoes, setOpcoes] = useState({ competencias: [], cargos: [], pilares: [] });
+  const [pilar, setPilar] = useState('');
   const [competencia, setCompetencia] = useState('');
 
   const { empresaFiltro } = useAdminShell();
   useEffect(() => { loadOpcoesGerar(empresaFiltro).then(setOpcoes); }, [empresaFiltro]);
 
   const precisaArquivo = formato === 'audio' || formato === 'pdf';
+  const competenciasFiltradas = pilar
+    ? opcoes.competencias.filter(c => (c.pilares || []).includes(pilar))
+    : opcoes.competencias;
   const descritoresDisp = opcoes.competencias.find(c => c.nome === competencia)?.descritores || [];
 
   return (
@@ -845,9 +863,20 @@ function UploadModal({ onClose, onSave, busy }) {
 
           <Field label={t('fields.title')} name="titulo" required />
 
+          <SelectField label={t('fields.pillar')} value={pilar}
+            onChange={v => {
+              setPilar(v);
+              if (competencia && v) {
+                const comp = opcoes.competencias.find(c => c.nome === competencia);
+                if (comp && !(comp.pilares || []).includes(v)) setCompetencia('');
+              }
+            }}
+            options={['', ...(opcoes.pilares || [])]} />
+          <input type="hidden" name="pilar" value={pilar} />
+
           <SelectField label={t('fields.competency')} value={competencia}
             onChange={v => setCompetencia(v)}
-            options={['', ...opcoes.competencias.map(c => c.nome)]} />
+            options={['', ...competenciasFiltradas.map(c => c.nome)]} />
           <input type="hidden" name="competencia" value={competencia} />
 
           <SelectField label={t('fields.descriptor')} name="descritor" options={['', ...descritoresDisp]} disabled={!competencia} />

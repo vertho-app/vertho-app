@@ -1859,6 +1859,7 @@
     "table": {
       "format": "Format",
       "title": "Title",
+      "pillar": "Pillar",
       "competency": "Competency",
       "descriptor": "Descriptor",
       "level": "Level",
@@ -1876,6 +1877,7 @@
     },
     "fields": {
       "title": "Title",
+      "pillar": "Pillar",
       "competency": "Competency",
       "descriptor": "Descriptor",
       "levelMin": "Min level",
