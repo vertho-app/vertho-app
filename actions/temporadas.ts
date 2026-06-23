@@ -6,6 +6,7 @@ import { findColabByEmail } from '@/lib/authz';
 import { selectDescriptors, selectDescriptorsMulti, selectDescriptorsDuo, type AssessmentPorCompetencia } from '@/lib/season-engine/select-descriptors';
 import { buildSeason } from '@/lib/season-engine/build-season';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
+import { overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
 import { getProgramaConfig } from '@/lib/season-engine/programa-config';
 import type { AIConfig } from './ai-client';
 import { requireAdminAction, requireUserAction, getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
@@ -813,7 +814,7 @@ export async function loadTemporada(colaboradorId: string) {
     // Uso raw aqui porque colaboradores busca é a fonte do tenantId.
     const sbRaw = createSupabaseAdmin();
     const { data: colaborador } = await sbRaw.from('colaboradores')
-      .select('id, nome_completo, cargo, email, perfil_dominante, empresa_id')
+      .select('id, nome_completo, cargo, email, perfil_dominante, empresa_id, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso')
       .eq('id', colaboradorId).maybeSingle();
     if (!colaborador?.empresa_id) return { error: 'Colab sem empresa_id' };
 
@@ -830,11 +831,27 @@ export async function loadTemporada(colaboradorId: string) {
     const { data: progresso } = await tdb.from('temporada_semana_progresso')
       .select('*').eq('trilha_id', trilha.id).order('semana');
 
+    let plano = normalizeTemporadaPlano(trilha.temporada_plano);
+
+    // Fase 4 (entrega do Kit): se existir kit pra (empresa×competência×descritor×DISC),
+    // os formatos da semana viram os do kit, o principal = formato preferido da pessoa,
+    // e o desafio = o do kit. Aditivo: sem kit, o conteúdo (buildSeason) permanece.
+    try {
+      const formatoPref = formatoPreferido(colaborador);
+      const disc = (colaborador.perfil_dominante || '').charAt(0).toUpperCase() || null;
+      const competenciaFoco = trilha.competencia_foco || (Array.isArray(trilha.competencias_foco) ? trilha.competencias_foco[0] : null);
+      await Promise.all(
+        plano.filter((s: any) => s?.tipo === 'conteudo').map((s: any) =>
+          overlayKitNaSemana(sbRaw, s, { empresaId: colaborador.empresa_id, disc, formatoPref, competenciaFoco }),
+        ),
+      );
+    } catch { /* overlay é best-effort — nunca quebra a entrega */ }
+
     return {
       ok: true,
       trilha: {
         ...trilha,
-        temporada_plano: normalizeTemporadaPlano(trilha.temporada_plano),
+        temporada_plano: plano,
       },
       progresso: progresso || [],
       colaborador,
