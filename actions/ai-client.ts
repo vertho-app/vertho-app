@@ -59,6 +59,29 @@ Se o prompt exigir JSON, retorne JSON válido e traduza apenas os valores textua
 /**
  * Universal AI router — routes to Claude, Gemini, or OpenAI based on model prefix.
  */
+// Erro transitório de provedor (sobrecarga/limite) — vale retry com backoff.
+// Ex.: Anthropic 529 overloaded_error, 429 rate_limit, 503.
+function isTransientAIError(e: any): boolean {
+  const s = e?.status ?? e?.statusCode;
+  const m = String(e?.message || e || '').toLowerCase();
+  return s === 429 || s === 503 || s === 529
+    || /overloaded|rate.?limit|too many requests|temporarily unavailable|\b(429|503|529)\b/.test(m);
+}
+
+/** Reexecuta `fn` com backoff exponencial + jitter em erros transitórios. */
+async function withAIRetry<T>(fn: () => Promise<T>, label: string, max = 4): Promise<T> {
+  for (let i = 0; ; i++) {
+    try {
+      return await fn();
+    } catch (e: any) {
+      if (i >= max || !isTransientAIError(e)) throw e;
+      const wait = Math.min(20000, 1500 * 2 ** i) + Math.floor(Math.random() * 500);
+      console.warn(`[callAI] ${label} transitório (${e?.status || ''} ${String(e?.message || '').slice(0, 60)}) — retry ${i + 1}/${max} em ${Math.round(wait / 1000)}s`);
+      await new Promise((r) => setTimeout(r, wait));
+    }
+  }
+}
+
 export async function callAI(
   system: string,
   user: string,
@@ -71,13 +94,15 @@ export async function callAI(
   const localizedSystem = withLanguageInstruction(system, locale);
 
   try {
-    if (model.startsWith('gemini')) {
-      return await callGemini(localizedSystem, user, model, maxTokens);
-    }
-    if (model.startsWith('gpt') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4')) {
-      return await callOpenAI(localizedSystem, user, model, maxTokens);
-    }
-    return await callClaude(localizedSystem, user, model, maxTokens, options);
+    return await withAIRetry(() => {
+      if (model.startsWith('gemini')) {
+        return callGemini(localizedSystem, user, model, maxTokens);
+      }
+      if (model.startsWith('gpt') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4')) {
+        return callOpenAI(localizedSystem, user, model, maxTokens);
+      }
+      return callClaude(localizedSystem, user, model, maxTokens, options);
+    }, model);
   } catch (err: any) {
     console.error(`[callAI] Error with model ${model}:`, err);
     throw new Error(`AI call failed (${model}): ${err?.message ?? err}`);
@@ -99,13 +124,15 @@ export async function callAIChat(
   const localizedSystem = withLanguageInstruction(system, locale);
 
   try {
-    if (model.startsWith('gemini')) {
-      return await callGeminiChat(localizedSystem, messages, model, maxTokens);
-    }
-    if (model.startsWith('gpt') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4')) {
-      return await callOpenAIChat(localizedSystem, messages, model, maxTokens);
-    }
-    return await callClaudeChat(localizedSystem, messages, model, maxTokens, options);
+    return await withAIRetry(() => {
+      if (model.startsWith('gemini')) {
+        return callGeminiChat(localizedSystem, messages, model, maxTokens);
+      }
+      if (model.startsWith('gpt') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4')) {
+        return callOpenAIChat(localizedSystem, messages, model, maxTokens);
+      }
+      return callClaudeChat(localizedSystem, messages, model, maxTokens, options);
+    }, model);
   } catch (err: any) {
     console.error(`[callAIChat] Error with model ${model}:`, err);
     throw new Error(`AI chat call failed (${model}): ${err?.message ?? err}`);
