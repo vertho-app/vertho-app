@@ -82,6 +82,10 @@ async function withAIRetry<T>(fn: () => Promise<T>, label: string, max = 4): Pro
   }
 }
 
+// Fallback de PROVEDOR quando o primário (Claude) fica sobrecarregado mesmo após
+// retries (ex.: outage de 529 da Anthropic). Gera por Gemini em vez de falhar.
+const AI_FALLBACK_MODEL = process.env.AI_FALLBACK_MODEL || 'gemini-3.5-flash';
+
 export async function callAI(
   system: string,
   user: string,
@@ -93,17 +97,24 @@ export async function callAI(
   const locale = await resolveAILocale(options.locale);
   const localizedSystem = withLanguageInstruction(system, locale);
 
+  const dispatch = (m: string) => {
+    if (m.startsWith('gemini')) return callGemini(localizedSystem, user, m, maxTokens);
+    if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return callOpenAI(localizedSystem, user, m, maxTokens);
+    return callClaude(localizedSystem, user, m, maxTokens, options);
+  };
+
   try {
-    return await withAIRetry(() => {
-      if (model.startsWith('gemini')) {
-        return callGemini(localizedSystem, user, model, maxTokens);
-      }
-      if (model.startsWith('gpt') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4')) {
-        return callOpenAI(localizedSystem, user, model, maxTokens);
-      }
-      return callClaude(localizedSystem, user, model, maxTokens, options);
-    }, model);
+    return await withAIRetry(() => dispatch(model), model);
   } catch (err: any) {
+    // Primário sobrecarregado após retries → fallback de provedor (Claude → Gemini).
+    if (isTransientAIError(err) && !model.startsWith('gemini') && AI_FALLBACK_MODEL && AI_FALLBACK_MODEL !== model) {
+      console.warn(`[callAI] ${model} sobrecarregado após retries — fallback p/ ${AI_FALLBACK_MODEL}`);
+      try {
+        return await withAIRetry(() => dispatch(AI_FALLBACK_MODEL), AI_FALLBACK_MODEL, 2);
+      } catch (e2: any) {
+        console.error(`[callAI] fallback ${AI_FALLBACK_MODEL} também falhou:`, e2?.message ?? e2);
+      }
+    }
     console.error(`[callAI] Error with model ${model}:`, err);
     throw new Error(`AI call failed (${model}): ${err?.message ?? err}`);
   }
@@ -123,17 +134,23 @@ export async function callAIChat(
   const locale = await resolveAILocale(options.locale);
   const localizedSystem = withLanguageInstruction(system, locale);
 
+  const dispatch = (m: string) => {
+    if (m.startsWith('gemini')) return callGeminiChat(localizedSystem, messages, m, maxTokens);
+    if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return callOpenAIChat(localizedSystem, messages, m, maxTokens);
+    return callClaudeChat(localizedSystem, messages, m, maxTokens, options);
+  };
+
   try {
-    return await withAIRetry(() => {
-      if (model.startsWith('gemini')) {
-        return callGeminiChat(localizedSystem, messages, model, maxTokens);
-      }
-      if (model.startsWith('gpt') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4')) {
-        return callOpenAIChat(localizedSystem, messages, model, maxTokens);
-      }
-      return callClaudeChat(localizedSystem, messages, model, maxTokens, options);
-    }, model);
+    return await withAIRetry(() => dispatch(model), model);
   } catch (err: any) {
+    if (isTransientAIError(err) && !model.startsWith('gemini') && AI_FALLBACK_MODEL && AI_FALLBACK_MODEL !== model) {
+      console.warn(`[callAIChat] ${model} sobrecarregado após retries — fallback p/ ${AI_FALLBACK_MODEL}`);
+      try {
+        return await withAIRetry(() => dispatch(AI_FALLBACK_MODEL), AI_FALLBACK_MODEL, 2);
+      } catch (e2: any) {
+        console.error(`[callAIChat] fallback ${AI_FALLBACK_MODEL} também falhou:`, e2?.message ?? e2);
+      }
+    }
     console.error(`[callAIChat] Error with model ${model}:`, err);
     throw new Error(`AI chat call failed (${model}): ${err?.message ?? err}`);
   }
