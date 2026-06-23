@@ -41,19 +41,28 @@ export const LENTE_DISC: Record<DiscLetter, { perfil: string; engaja: string }> 
   C: { perfil: `${ARQUETIPOS.C.nome} — ${ARQUETIPOS.C.desc}`, engaja: 'método, critério objetivo e checagem; precisão, dados e padrão claro' },
 };
 
+/** Extrai um objeto JSON mesmo com prosa/markdown em volta (modelos variam). */
+function extrairJson(raw: string): any | null {
+  let s = (raw || '').trim();
+  if (s.startsWith('```')) s = s.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
+  try { return JSON.parse(s); } catch { /* tenta extrair */ }
+  const a = s.indexOf('{'); const b = s.lastIndexOf('}');
+  if (a >= 0 && b > a) { try { return JSON.parse(s.slice(a, b + 1)); } catch { /* desiste */ } }
+  return null;
+}
+
 function parseNucleo(raw: string): KitBriefNucleo | null {
-  try {
-    let s = raw.trim();
-    if (s.startsWith('```')) s = s.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
-    const p = JSON.parse(s);
-    const pontos = Array.isArray(p.pontos_chave) ? p.pontos_chave.map((x: any) => String(x).trim()).filter(Boolean) : [];
-    if (typeof p.ideia_central !== 'string' || p.ideia_central.trim().length < 8) return null;
-    if (pontos.length < 3) return null;
-    if (typeof p.exemplo_ancora !== 'string' || p.exemplo_ancora.trim().length < 8) return null;
-    return { ideia_central: p.ideia_central.trim(), pontos_chave: pontos.slice(0, 3), exemplo_ancora: p.exemplo_ancora.trim() };
-  } catch {
-    return null;
+  const p = extrairJson(raw);
+  if (!p) return null;
+  const ideia = typeof p.ideia_central === 'string' ? p.ideia_central.trim() : '';
+  let pontos = Array.isArray(p.pontos_chave) ? p.pontos_chave.map((x: any) => String(x).trim()).filter(Boolean) : [];
+  // Tolera pontos vindos como string única (quebras / bullets).
+  if (pontos.length < 3 && typeof p.pontos_chave === 'string') {
+    pontos = p.pontos_chave.split(/\n+|·|;|(?:^|\s)-\s/).map((s: string) => s.trim()).filter(Boolean);
   }
+  const exemplo = typeof p.exemplo_ancora === 'string' ? p.exemplo_ancora.trim() : '';
+  if (ideia.length < 8 || pontos.length < 3 || exemplo.length < 8) return null;
+  return { ideia_central: ideia, pontos_chave: pontos.slice(0, 3), exemplo_ancora: exemplo };
 }
 
 /** Destila o núcleo conceitual (DISC-neutro) a partir do módulo-base + tema. */
@@ -94,8 +103,13 @@ Fala natural, sem jargão, sem markdown. RETORNE APENAS JSON VÁLIDO:
 - Nível: ${p.nivelMin ?? 1}–${p.nivelMax ?? 2} de 4
 - Cargo: ${p.cargo ?? 'todos'} · Contexto: ${p.contexto ?? 'generico'}${moduloTxt ? `\n\nMATÉRIA-PRIMA CANÔNICA (preserve as bases):\n${moduloTxt}` : ''}${p.pppBrief ? `\n\nCONTEXTO DA INSTITUIÇÃO (lente de aplicação, sem citar o nome):\n${p.pppBrief}` : ''}`;
 
-  const raw = (await callAI(system, user, { ...(p.aiConfig || {}), model: p.model || p.aiConfig?.model }, 1500)).trim();
-  const nucleo = parseNucleo(raw);
+  const sysJson = `${system}\n\nIMPORTANTE: responda SOMENTE com o objeto JSON, sem nenhum texto antes ou depois, sem markdown.`;
+  let nucleo: KitBriefNucleo | null = null;
+  for (let i = 0; i < 3 && !nucleo; i++) {
+    const raw = (await callAI(i === 0 ? system : sysJson, user, { ...(p.aiConfig || {}), model: p.model || p.aiConfig?.model }, 1500)).trim();
+    nucleo = parseNucleo(raw);
+    if (!nucleo) console.warn(`[kit/brief] núcleo inválido (tentativa ${i + 1}/3): ${raw.slice(0, 120)}`);
+  }
   if (!nucleo) throw new Error('brief: núcleo inválido retornado pela IA');
   return { nucleo, moduloBaseId };
 }
@@ -119,6 +133,16 @@ export async function resolverOuCriarBrief(sb: any, p: GerarBriefParams): Promis
   }).select('id, brief').single();
   if (error) throw new Error('brief insert: ' + error.message);
   return { briefId: novo.id, brief: novo.brief, reused: false };
+}
+
+/** Parser tolerante do desafio (prosa/markdown em volta) — complementa parseDesafioResponse. */
+function parseDesafioFallback(raw: string): DesafioStructured | null {
+  const p = extrairJson(raw);
+  if (!p) return null;
+  const f = (v: any) => (typeof v === 'string' ? v.trim() : '');
+  const d = { desafio_texto: f(p.desafio_texto), acao_observavel: f(p.acao_observavel), criterio_de_execucao: f(p.criterio_de_execucao), por_que_cabe_na_semana: f(p.por_que_cabe_na_semana) };
+  if (Object.values(d).some((v) => v.length < 5)) return null;
+  return d;
 }
 
 /** Gera o desafio (micro-ação prática) sob medida ao DISC, ancorado no núcleo. */
@@ -147,8 +171,13 @@ CONTEXTO:
 - Competência: ${p.competencia} · Descritor: ${p.descritor}
 - Cargo: ${p.cargo ?? 'todos'} · Contexto: ${p.contexto ?? 'generico'} · Nível: ${p.nivelMin ?? 1}/4${p.pppBrief ? `\n\nCONTEXTO DA INSTITUIÇÃO (ancore a ação na realidade dela, sem citar o nome):\n${p.pppBrief}` : ''}`;
 
-  const raw = (await callAI(system, user, { ...(p.aiConfig || {}), model: p.model || p.aiConfig?.model }, 800)).trim();
-  const desafio = parseDesafioResponse(raw);
+  const sysJson = `${system}\n\nIMPORTANTE: responda SOMENTE com o objeto JSON, sem texto antes ou depois, sem markdown.`;
+  let desafio = null;
+  for (let i = 0; i < 3 && !desafio; i++) {
+    const raw = (await callAI(i === 0 ? system : sysJson, user, { ...(p.aiConfig || {}), model: p.model || p.aiConfig?.model }, 800)).trim();
+    desafio = parseDesafioResponse(raw) || parseDesafioFallback(raw);
+    if (!desafio) console.warn(`[kit/desafio] inválido DISC ${disc} (tentativa ${i + 1}/3): ${raw.slice(0, 120)}`);
+  }
   if (!desafio) throw new Error(`desafio inválido retornado pela IA (DISC ${disc})`);
   return desafio;
 }
