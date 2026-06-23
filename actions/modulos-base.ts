@@ -951,15 +951,18 @@ function secoesFallbackDeterministico(transcricao: string, tituloVideo: string, 
     if (trecho.length < 500) continue;
     const comp = escolherCompetenciaFallback(trecho, comps, direcionamento);
     if (!comp) continue;
-    const pilar = direcionamento?.pilar || comp.pilar || 'tema do material';
+    // Descritor é um SUB-TEMA da competência — NUNCA o pilar nem o nome da
+    // competência. No fallback (sem IA) não dá pra gerar um granular fiel, então
+    // usamos um placeholder honesto que o admin ajusta na revisão. (Bug anterior:
+    // o pilar direcionador vazava para o descritor.)
     out.push({
       competencia_base_id: comp.id,
       nivel_entrada: 'N1',
       nivel_destino: 'N2',
       contexto_pedagogico: 'fallback-material',
       titulo: `${tituloVideo || 'Material'} — parte ${i + 1}`,
-      descritor: String(direcionamento?.competencia || pilar).slice(0, 120),
-      finalidade: `Estruturar matéria-prima extraída do material com foco em ${direcionamento?.competencia || pilar}.`,
+      descritor: `Visão geral — parte ${i + 1}`,
+      finalidade: `Estruturar matéria-prima extraída do material em "${comp.nome}".`,
       texto_base: trecho,
     });
   }
