@@ -1524,7 +1524,7 @@
     },
     "tabs": {
       "diagnostic": "Diagnosis",
-      "trails": "Trails ({count})"
+      "trails": "Seasons ({count})"
     },
     "stats": {
       "total": "Total",
@@ -1578,7 +1578,7 @@
     },
     "empty": {
       "answers": "No answers found. Run \"Simulate Responses\" first.",
-      "trails": "No trail found. Run \"Assemble Tracks\" in the pipeline first.",
+      "trails": "No season found. Run \"Generate Seasons\" in the pipeline first.",
       "noCourseForFocus": "No courses available in the catalog for \"{focus}\"",
       "noRecommendedCourse": "No courses recommended"
     },
@@ -2502,7 +2502,7 @@
       "content": "Content",
       "system": "System",
       "diagnosis": "Diagnosis",
-      "trails": "Trails",
+      "trails": "Seasons",
       "reports": "Reports",
       "send": "Submit",
       "seasons": "Seasons",
@@ -2558,7 +2558,7 @@
       "sent": "Sent",
       "answered": "Answered",
       "diagnosis": "Diagnosis →",
-      "trails": "Trails →",
+      "trails": "Seasons →",
       "reports": "Reports →",
       "scenariosB": "Scenarios B →"
     },

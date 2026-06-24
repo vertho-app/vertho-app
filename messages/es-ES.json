@@ -1524,7 +1524,7 @@
     },
     "tabs": {
       "diagnostic": "Diagnóstico",
-      "trails": "Rutas ({count})"
+      "trails": "Temporadas ({count})"
     },
     "stats": {
       "total": "Total",
@@ -1578,7 +1578,7 @@
     },
     "empty": {
       "answers": "No se encontró ninguna respuesta. Ejecuta \"Simular Respuestas\" primero.",
-      "trails": "No se encontró ninguna ruta. Ejecuta \"Montar Rutas\" en el pipeline primero.",
+      "trails": "No se encontró ninguna temporada. Ejecuta \"Generar Temporadas\" en el pipeline primero.",
       "noCourseForFocus": "No hay ningún curso disponible en el catálogo para \"{focus}\"",
       "noRecommendedCourse": "Ningún curso recomendado"
     },
@@ -2502,7 +2502,7 @@
       "content": "Contenido",
       "system": "Sistema",
       "diagnosis": "Diagnóstico",
-      "trails": "Rutas",
+      "trails": "Temporadas",
       "reports": "Informes",
       "send": "Enviar",
       "seasons": "Temporadas",
@@ -2558,7 +2558,7 @@
       "sent": "Enviado",
       "answered": "Respondido",
       "diagnosis": "Diagnóstico →",
-      "trails": "Rutas →",
+      "trails": "Temporadas →",
       "reports": "Informes →",
       "scenariosB": "Escenarios B →"
     },
