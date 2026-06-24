@@ -94,7 +94,11 @@ export type Treatment =
 
 export type PageRole =
   | 'contexto' | 'conceito' | 'exemplo' | 'comparativo'
-  | 'ferramenta' | 'aplicacao' | 'cuidados' | 'sintese' | 'reflexao' | 'corpo';
+  | 'ferramenta' | 'aplicacao' | 'cuidados' | 'sintese' | 'reflexao' | 'corpo'
+  // Papéis NARRATIVOS — usados pelo layout de "case" (estudo de caso). O case é
+  // uma HISTÓRIA: estes papéis seguem os beats da narrativa, não a estrutura
+  // didática do texto.
+  | 'abertura' | 'desenvolvimento' | 'virada' | 'desfecho';
 
 export type PlanItem =
   | { as: Treatment; ref: number }
@@ -105,7 +109,7 @@ export type PlanItem =
 export type PagePlan = { role: PageRole; heroImage?: boolean; items: PlanItem[] };
 export type LayoutPlan = { summary: string; pages: PagePlan[] };
 
-const ROLES: PageRole[] = ['contexto', 'conceito', 'exemplo', 'comparativo', 'ferramenta', 'aplicacao', 'cuidados', 'sintese', 'reflexao', 'corpo'];
+const ROLES: PageRole[] = ['contexto', 'conceito', 'exemplo', 'comparativo', 'ferramenta', 'aplicacao', 'cuidados', 'sintese', 'reflexao', 'corpo', 'abertura', 'desenvolvimento', 'virada', 'desfecho'];
 const TREATMENTS: Treatment[] = ['heading', 'paragraph', 'pullquote', 'synthesis', 'bullets', 'numberedCards', 'flow', 'checklist', 'caseCard', 'script', 'reflectionCards'];
 
 const PLAN_SYSTEM = `Você é o DIRETOR DE ARTE EDITORIAL sênior da Vertho. Você transforma um conteúdo JÁ ESCRITO num plano de publicação editorial premium para PDF A4 vertical — NÃO um Word decorado, NÃO uma apostila, NÃO um artigo longo diagramado.
@@ -183,6 +187,52 @@ REVISÃO ANTES DE EMITIR — valide internamente, página a página: todo bloco 
 SAÍDA: responda APENAS com JSON válido (sem cercas de código, sem comentários), no formato:
 {"summary":"1-2 frases descrevendo a estrutura visual criada, citando a função e o recurso visual principal de cada página","pages":[{"role":"contexto","heroImage":true,"items":[{"as":"heading","ref":0},{"as":"synthesis","ref":1},{"as":"pullquoteText","ref":1,"text":"trecho verbatim"}]}]}`;
 
+// Planner do "case" (estudo de caso) — o conteúdo é uma HISTÓRIA narrativa, não
+// um artigo didático. O layout do texto (ferramenta/checklist/diagram/comparativo)
+// destrói a leitura de uma narrativa. Aqui a riqueza visual vem da TIPOGRAFIA, de
+// UMA imagem de banda e de pull quotes esparsas — não de cards e boxes.
+const PLAN_SYSTEM_CASE = `Você é o DIRETOR DE ARTE EDITORIAL sênior da Vertho, especialista em NARRATIVA. Você transforma um ESTUDO DE CASO já escrito (uma história vivencial com personagem, situação e dilema) num plano de publicação editorial premium para PDF A4 vertical, no estilo de uma REPORTAGEM/CONTO de revista — NÃO uma apostila, NÃO um artigo didático, NÃO um material com cards e checklists.
+
+REGRA ABSOLUTA DE CONTEÚDO: você NÃO reescreve, resume, traduz, simplifica, inventa nem remove nada. Recebe BLOCOS já escritos (cada um com um id) e decide apenas: em qual PÁGINA cada bloco entra, qual BEAT NARRATIVO a página tem e qual TRATAMENTO o bloco recebe. O texto NUNCA é emitido por você — só referencia ids. Pull quotes podem repetir literalmente um trecho existente, mas não substituem o bloco original.
+
+# O QUE É UM CASE (e como ele deve parecer)
+- É uma HISTÓRIA: um personagem enfrenta uma situação concreta, toma (ou deixa de tomar) decisões, e há um desfecho. O CONCEITO nunca é nomeado — o aprendizado vem da vivência.
+- O PDF deve ler como uma narrativa fluida e envolvente: PROSA bem diagramada, respiros, e no máximo 1 frase forte destacada a cada uma ou duas páginas. A elegância vem do texto bem disposto, não de gadgets visuais.
+
+# BEATS NARRATIVOS (papéis de página deste layout)
+Use ESTES roles (não os didáticos):
+- "abertura": apresenta o personagem e a cena inicial (o setup). É aqui a imagem de banda (heroImage:true).
+- "desenvolvimento": a situação se complica; tensão e detalhes crescem. Pode haver mais de uma página deste role se a história for longa.
+- "virada": o momento de decisão / ponto de inflexão (quando o personagem age ou hesita).
+- "desfecho": o resultado do que aconteceu.
+- "reflexao": a ÚLTIMA página, só com as perguntas finais ("Suas perguntas") como cards de reflexão.
+Nem todo case terá os 4 primeiros beats — mapeie ao que a história realmente tem (mínimo: abertura → desenvolvimento → desfecho → reflexao). NUNCA use os roles didáticos (conceito, ferramenta, comparativo, cuidados, sintese) nem o fallback "corpo".
+
+# TRATAMENTOS PERMITIDOS (campo "as") — só estes:
+- "paragraph": parágrafo de corpo. É o tratamento PRINCIPAL do case — a história é prosa.
+- "heading": título/subtítulo de seção (kind h1/h2/h3), quando existir.
+- "pullquote": destaca um bloco curto e forte inteiro (kind quote ou parágrafo curto de muito impacto).
+- "pullquoteText": extrai UMA frase forte de dentro de um parágrafo (uma virada, uma tensão, uma fala marcante). "text" DEVE ser cópia EXATA (verbatim) de um trecho contínuo do bloco "ref", AUTOSSUFICIENTE, começando no INÍCIO de uma frase (maiúscula) e fazendo sentido sozinha. É ADITIVO — NÃO o coloque na mesma página do bloco de origem (repetiria o que o leitor acabou de ler).
+- "reflectionCards": cada item vira um card de pergunta — SÓ para as perguntas finais, na página "reflexao".
+PROIBIDO neste layout: "synthesis", "bullets", "numberedCards", "flow", "checklist", "caseCard", "script", "comparison", "diagram". Uma história não tem checklist nem fluxo nem comparativo — não force.
+
+# RITMO E DENSIDADE
+- A força visual vem da PROSA bem distribuída + 1 imagem de banda na abertura + pull quotes esparsas (1 a cada 1-2 páginas, num momento de tensão/virada). NÃO encha de destaques: pull quote demais cansa.
+- Cada página interna deve preencher boa parte da folha (mire ~60%+). Prefira MENOS páginas bem cheias de narrativa a MAIS páginas ralas. Não fatie a mesma cena em duas páginas magras.
+- A página final ("reflexao") é contemplativa: só os "reflectionCards" das perguntas (no máximo precedidos de 1 parágrafo curto de fechamento, se houver).
+
+# HERO IMAGE
+"heroImage": true em EXATAMENTE UMA página — a "abertura". As demais omitem o campo.
+
+# INTEGRIDADE
+COBERTURA: todo bloco de conteúdo aparece em ALGUM item estrutural (qualquer "as" exceto "pullquoteText") exatamente uma vez. Pull quotes não substituem a presença estrutural.
+As perguntas finais SEMPRE viram "reflectionCards" (nunca "bullets" nem "paragraph").
+
+REVISÃO ANTES DE EMITIR: todo bloco aparece ≥1 vez; só UMA heroImage (na abertura); só os roles narrativos acima; só os tratamentos permitidos; perguntas finais viraram reflectionCards; nenhuma pull quote inventada; nenhuma página rala ou só continuação. Se algo falhar, REDESENHE. NÃO emita o raciocínio — apenas o JSON final.
+
+SAÍDA: responda APENAS com JSON válido (sem cercas de código, sem comentários), no formato:
+{"summary":"1-2 frases sobre o arco narrativo e os destaques","pages":[{"role":"abertura","heroImage":true,"items":[{"as":"heading","ref":0},{"as":"paragraph","ref":1},{"as":"pullquoteText","ref":2,"text":"trecho verbatim"}]}]}`;
+
 function serializeBlocks(blocks: RawBlock[]): string {
   return blocks.map(b => {
     if (b.kind === 'ul' || b.kind === 'ol') {
@@ -218,11 +268,18 @@ function blockText(b: RawBlock): string {
  * - reanexa no fim qualquer bloco de conteúdo que a IA tenha esquecido.
  * Retorna null só se o plano for irrecuperável (sem páginas válidas).
  */
-function sanitize(plan: any, blocks: RawBlock[]): LayoutPlan | null {
+function sanitize(plan: any, blocks: RawBlock[], formato?: string | null): LayoutPlan | null {
   if (!plan || !Array.isArray(plan.pages)) return null;
   const byId = new Map(blocks.map(b => [b.id, b]));
   const usedStructural = new Set<number>();
   const validRef = (n: any): n is number => Number.isInteger(n) && byId.has(n);
+
+  // No "case" (narrativa) só valem tratamentos narrativos. Se o modelo escorregar
+  // e emitir um didático (checklist/flow/diagram…), converte: tratamentos de 1
+  // bloco viram parágrafo; comparison/diagram são descartados (os blocos voltam
+  // como parágrafo na reanexação). Mantém a história como PROSA.
+  const isCase = formato === 'case';
+  const CASE_OK = new Set<Treatment>(['heading', 'paragraph', 'pullquote', 'reflectionCards']);
 
   const pages: PagePlan[] = [];
   for (const p of plan.pages) {
@@ -230,6 +287,9 @@ function sanitize(plan: any, blocks: RawBlock[]): LayoutPlan | null {
     const items: PlanItem[] = [];
     for (const it of (Array.isArray(p?.items) ? p.items : [])) {
       const as = it?.as;
+      // Case: comparison/diagram não existem numa narrativa — descarta (os blocos
+      // voltam como parágrafo na reanexação de cobertura).
+      if (isCase && (as === 'comparison' || as === 'diagram')) continue;
       if (as === 'comparison') {
         // Dedup SEQUENCIAL: o lado direito exclui o que já entrou no esquerdo
         // (senão a IA pode pôr o MESMO bloco nos dois lados → texto idêntico).
@@ -276,7 +336,9 @@ function sanitize(plan: any, blocks: RawBlock[]): LayoutPlan | null {
       if (TREATMENTS.includes(as)) {
         if (!validRef(it.ref) || usedStructural.has(it.ref)) continue;
         usedStructural.add(it.ref);
-        items.push({ as, ref: it.ref });
+        // Case: tratamento didático proibido → vira parágrafo (preserva o texto).
+        const asFinal: Treatment = isCase && !CASE_OK.has(as) ? 'paragraph' : as;
+        items.push({ as: asFinal, ref: it.ref });
         continue;
       }
     }
@@ -337,10 +399,12 @@ export async function planLayout(blocks: RawBlock[], meta: PlanMeta, model?: str
   // transiente. Em vez de cair direto no flat (que VIRA TEXTO CORRIDO e some com
   // toda a diagramação), tenta de novo. O fallback flat é o último recurso e é
   // logado como error (visível no Vercel), não warn silencioso.
+  // Case = layout NARRATIVO (planner próprio). Demais formatos = layout didático.
+  const systemPrompt = meta.formato === 'case' ? PLAN_SYSTEM_CASE : PLAN_SYSTEM;
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const raw = await callAI(PLAN_SYSTEM, user, { model }, 8000, { temperature: 0.3 });
-      const plan = sanitize(extractJson(raw), blocks);
+      const raw = await callAI(systemPrompt, user, { model }, 8000, { temperature: 0.3 });
+      const plan = sanitize(extractJson(raw), blocks, meta.formato);
       if (plan) return plan;
       console.error(`[planLayout] plano inválido (tentativa ${attempt}/2) — raw[0..200]: ${String(raw).slice(0, 200)}`);
     } catch (e: any) {

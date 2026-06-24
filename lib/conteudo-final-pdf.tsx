@@ -212,6 +212,11 @@ const ROLE_LABEL: Record<PageRole, string> = {
   sintese: 'Síntese',
   reflexao: 'Para refletir',
   corpo: '',
+  // Beats narrativos do layout de "case"
+  abertura: 'Abertura',
+  desenvolvimento: 'Desenvolvimento',
+  virada: 'A virada',
+  desfecho: 'Desfecho',
 };
 
 // ── Renderização de blocos por tratamento ─────────────────────────────────────
