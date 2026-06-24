@@ -1060,6 +1060,8 @@ interface SegCtx {
   model: string;
   /** true = catálogo da EMPRESA (ids vão para competencia_id, não competencia_base_id). */
   empresa: boolean;
+  /** true = direcionamento pilar/competência ATIVO: extrai SÓ o escopo, sem forçar (0 é válido). */
+  exclusivo: boolean;
 }
 
 /**
@@ -1267,6 +1269,9 @@ ${texto}`;
 
   const comDirecionamento = await tentar(montarUser(true), '');
   if (comDirecionamento.secoes.length || !ctx.direcionamentoTexto) return comDirecionamento;
+  // Modo exclusivo: NÃO re-tenta sem direcionamento — isso forçaria o material a
+  // competências fora do escopo. 0 seções é um resultado válido aqui.
+  if (ctx.exclusivo) return comDirecionamento;
   const semDirecionamento = await tentar(montarUser(false), ' sem-direcionamento');
   if (semDirecionamento.secoes.length) return { ...semDirecionamento, diag: `${semDirecionamento.diag}; fallback após direcionamento sem blocos` };
   return comDirecionamento;
@@ -1314,22 +1319,53 @@ async function segmentarTranscricao(
   const hintPilar = String(direcionamento?.pilar || '').trim().toLowerCase();
   const hintComp = String(direcionamento?.competencia || '').trim().toLowerCase();
   const hintId = String(direcionamento?.competenciaBaseId || '').trim();
+
+  // MODO EXCLUSIVO: havendo direcionamento (pilar/competência), a extração é
+  // restrita ESTRITAMENTE a esse escopo — o catálogo oferecido à IA contém SÓ as
+  // competências do escopo, e trechos fora dele NÃO viram módulo (0 é resultado
+  // válido). Direcionamento a nível de COMPETÊNCIA (id/nome) restringe àquela
+  // competência; só pilar restringe ao pilar inteiro.
+  const exclusivo = !!(hintId || hintComp || hintPilar);
+  const _normc = (s: any) => String(s || '').trim().toLowerCase();
+  let listaEscopo = lista;
+  if (exclusivo) {
+    listaEscopo = lista.filter((c) => {
+      if (hintId || hintComp) {
+        if (hintId && c.id === hintId) return true;
+        if (hintComp) {
+          const nome = _normc(c.nome);
+          if (nome === hintComp || nome.includes(hintComp) || hintComp.includes(nome)) return true;
+        }
+        return false;
+      }
+      return _normc(c.pilar) === hintPilar; // só pilar
+    });
+    if (!listaEscopo.length) {
+      // O pilar/competência direcionado não existe neste catálogo — config, não
+      // aderência. Sinaliza distinto pra não confundir com "material não aderente".
+      const alvo = direcionamento?.competencia || direcionamento?.pilar || direcionamento?.competenciaBaseId;
+      return { secoes: [], diag: `direcionamento "${alvo}" não encontrado no catálogo ${empresaId ? 'da empresa' : 'canônico'} (verifique o pilar/competência)` };
+    }
+  }
+
   const score = (c: typeof lista[number]) => {
     let s = 0;
     if (hintId && c.id === hintId) s += 1000;
-    if (hintPilar && String(c.pilar || '').trim().toLowerCase() === hintPilar) s += 100;
-    const nome = String(c.nome || '').trim().toLowerCase();
+    if (hintPilar && _normc(c.pilar) === hintPilar) s += 100;
+    const nome = _normc(c.nome);
     if (hintComp && nome === hintComp) s += 80;
     if (hintComp && (nome.includes(hintComp) || hintComp.includes(nome))) s += 40;
     return s;
   };
-  const listaOrdenada = [...lista].sort((a, b) => score(b) - score(a) || a.nome.localeCompare(b.nome));
-  const direcionamentoTexto = (hintPilar || hintComp || hintId)
-    ? `DIRECIONAMENTO DO ADMIN (use para orientar a segmentação e o match):
-- Pilar desejado: ${direcionamento?.pilar || '—'}
-- Competência desejada: ${direcionamento?.competencia || '—'}
-- Competência base preferida: ${direcionamento?.competenciaBaseId || '—'}
-Regra: se a competência base preferida aparecer no catálogo e o trecho for compatível, use esse id. Se não aparecer ou não for compatível, escolha a competência canônica mais próxima dentro do mesmo pilar/tema.`
+  const listaOrdenada = [...listaEscopo].sort((a, b) => score(b) - score(a) || a.nome.localeCompare(b.nome));
+  const direcionamentoTexto = exclusivo
+    ? `ESCOPO EXCLUSIVO DA EXTRAÇÃO (regra absoluta — SOBREPÕE qualquer instrução do sistema sobre "sempre escolher uma competência"):
+- Pilar: ${direcionamento?.pilar || '—'}
+- Competência: ${direcionamento?.competencia || '—'}
+O catálogo abaixo já contém SOMENTE as competências válidas deste escopo.
+1. Crie seções APENAS para trechos que tratam GENUINAMENTE deste escopo.
+2. Trecho que NÃO seja deste escopo: IGNORE — não emita seção, não force, não aproxime "mais ou menos", não classifique no que sobrou.
+3. É CORRETO e esperado retornar ZERO seções se o material não aborda este escopo. Não invente cobertura para parecer produtivo.`
     : '';
   // Empresa: o catálogo LISTA os descritores do modelo por competência — a IA
   // ESCOLHE um deles (semântica > token snap). Global: 1 linha por competência.
@@ -1344,12 +1380,13 @@ Regra: se a competência base preferida aparecer no catálogo e o trecho for com
   const ctx: SegCtx = {
     compsListagem,
     direcionamentoTexto,
-    idSet: new Set(lista.map((c) => c.id)),
-    nomeParaId: new Map(lista.map((c) => [c.nome.trim().toLowerCase(), c.id])),
-    idToNome: new Map(lista.map((c) => [c.id, c.nome])),
+    idSet: new Set(listaEscopo.map((c) => c.id)),
+    nomeParaId: new Map(listaEscopo.map((c) => [c.nome.trim().toLowerCase(), c.id])),
+    idToNome: new Map(listaEscopo.map((c) => [c.id, c.nome])),
     descritoresPorComp,
     model: await getModelForTask(null as any, 'modulo_base_autor'),
     empresa: !!empresaId,
+    exclusivo,
   };
 
   const full = String(transcricao);
@@ -1409,7 +1446,9 @@ Regra: se a competência base preferida aparecer no catálogo e o trecho for com
     }
   }
   const secoes = [...map.values()].slice(0, MAX_SECOES);
-  if (!secoes.length) {
+  // Fallback determinístico FORÇA uma competência em cada trecho — incompatível
+  // com o modo exclusivo (onde 0 é resultado legítimo). Só roda fora dele.
+  if (!secoes.length && !exclusivo) {
     const fallback = secoesFallbackDeterministico(full, tituloVideo, listaOrdenada, direcionamento, !!empresaId);
     if (fallback.length) {
       return { secoes: fallback, diag: `fallback determinístico após IA sem blocos (${janelas.length} janelas)` };
@@ -1432,11 +1471,21 @@ export async function criarModulosDeTranscricao(opts: {
   empresaId?: string | null;
   createdBy?: string;
   direcionamento?: DirecionamentoModuloBase | null;
-}): Promise<{ modulos: { id: string; competencia?: string; nivel_entrada?: Nivel; nivel_destino?: Nivel }[]; error?: string }> {
+}): Promise<{ modulos: { id: string; competencia?: string; nivel_entrada?: Nivel; nivel_destino?: Nivel }[]; error?: string; semAderencia?: boolean }> {
   if (!opts?.transcricao?.trim()) return { modulos: [], error: 'transcrição vazia' };
 
-  const { secoes, diag } = await segmentarTranscricao(opts.transcricao, opts.tituloVideo || '', opts.direcionamento, opts.empresaId);
-  if (!secoes.length) return { modulos: [], error: `Não foi possível segmentar a transcrição. ${diag}` };
+  const dir = opts.direcionamento;
+  const exclusivo = !!(dir?.pilar || dir?.competencia || dir?.competenciaBaseId);
+  const { secoes, diag } = await segmentarTranscricao(opts.transcricao, opts.tituloVideo || '', dir, opts.empresaId);
+  if (!secoes.length) {
+    if (exclusivo) {
+      // Material processado, mas nada aderente ao escopo direcionado: 0 módulos é
+      // o resultado correto (não-erro). Sinaliza com semAderencia pra UI tratar distinto.
+      const alvo = dir?.competencia || dir?.pilar || 'o escopo direcionado';
+      return { modulos: [], semAderencia: true, error: `Material não aderente a "${alvo}" — 0 módulos extraídos. ${diag}` };
+    }
+    return { modulos: [], error: `Não foi possível segmentar a transcrição. ${diag}` };
+  }
 
   const locale = (opts.locale || 'pt-BR') as Locale;
   // Estrutura as seções EM PARALELO — N módulos levam ~o tempo de 1, em vez de
@@ -1509,11 +1558,15 @@ export async function segmentarEEstruturarExtracao(
   });
 
   if (res.error || !res.modulos.length) {
+    // Material não aderente ao escopo direcionado → status 'vazio' (resultado válido,
+    // não falha). Erro real de segmentação → 'error'.
+    const status = res.semAderencia ? 'vazio' : 'error';
     await sb.from('extracoes_video').update({
-      status: 'error', error: String(res.error || 'falha ao estruturar módulos').slice(0, 500),
+      status, error: String(res.error || 'falha ao estruturar módulos').slice(0, 500),
+      n_modulos: 0,
       transcricao: texto.slice(0, 500000), titulo: opts.titulo || null, updated_at: new Date().toISOString(),
     }).eq('id', extracaoId);
-    return { error: res.error || 'falha ao estruturar', httpStatus: 422 };
+    return { error: res.error || 'falha ao estruturar', httpStatus: res.semAderencia ? 200 : 422 };
   }
 
   const ids = res.modulos.map((m) => m.id);

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Loader2, Sparkles, FileText, CheckCircle2, Clock, AlertCircle, Send, Layers, ExternalLink, Upload } from 'lucide-react';
+import { Loader2, Sparkles, FileText, CheckCircle2, Clock, AlertCircle, Send, Layers, ExternalLink, Upload, CircleSlash } from 'lucide-react';
 import { extrairVideo, gerarModuloBaseDoVideo, submeterExtracaoAsync, listarExtracoesAndamento, submeterMaterialAsync, submeterTextoBaseAsync, listarDirecionadoresExtracao } from '@/actions/extracao-video';
 import type { DirecionamentoExtracao } from '@/actions/extracao-video';
 
@@ -349,11 +349,16 @@ export default function ExtracaoVideoPanel({
                 {e.status === 'processing' && <Loader2 size={12} className="animate-spin text-amber-400 shrink-0" />}
                 {e.status === 'done' && <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />}
                 {e.status === 'error' && <AlertCircle size={12} className="text-red-400 shrink-0" />}
+                {e.status === 'vazio' && <CircleSlash size={12} className="text-slate-400 shrink-0" />}
                 <span className="text-gray-300 truncate flex-1">{e.titulo || e.url}{e.escopo_empresa_id ? ' · empresa' : ' · global'}{e.n_modulos > 1 ? ` · ${e.n_modulos} módulos` : ''}</span>
                 {e.status === 'done' && e.modulo_base_id ? (
                   <Link href={`/admin/vertho/modulos-base/${e.modulo_base_id}`} className="shrink-0 text-emerald-300 flex items-center gap-1 hover:underline">
                     ver módulo <ExternalLink size={11} />
                   </Link>
+                ) : e.status === 'vazio' ? (
+                  <span className="shrink-0 text-slate-300" title={e.error || 'Material não aderente ao pilar/competência direcionado — 0 módulos.'}>
+                    não aderente · 0 módulos
+                  </span>
                 ) : (
                   <span className={`shrink-0 ${e.status === 'error' ? 'text-red-400' : 'text-amber-400'}`} title={e.error || ''}>
                     {e.status === 'processing' ? 'processando' : 'erro'}
