@@ -113,6 +113,8 @@ function validarCorpo(corpo: any): string[] {
 export async function listarModulos(filtros: {
   status?: Status; locale?: Locale; competencia_base_id?: string;
   contexto_pedagogico?: string; busca?: string;
+  // empresa_id: 'global' = só canônicos (empresa_id null); uuid = exclusivos dessa empresa; undefined = todos.
+  empresa_id?: string; pilar?: string;
 } = {}) {
   await requireAdminAction();
   const sb = createSupabaseAdmin();
@@ -122,6 +124,26 @@ export async function listarModulos(filtros: {
   if (filtros.competencia_base_id) q = q.eq('competencia_base_id', filtros.competencia_base_id);
   if (filtros.contexto_pedagogico) q = q.eq('contexto_pedagogico', filtros.contexto_pedagogico);
   if (filtros.busca) q = q.ilike('titulo', `%${filtros.busca}%`);
+  if (filtros.empresa_id === 'global') q = q.is('empresa_id', null);
+  else if (filtros.empresa_id) q = q.eq('empresa_id', filtros.empresa_id);
+
+  // Pilar: resolve as competências (nos DOIS catálogos) com esse pilar e filtra
+  // os módulos por competencia_base_id OU competencia_id. Aplica no SQL (antes do
+  // limit) p/ não perder resultados.
+  if (filtros.pilar) {
+    const [{ data: cb }, { data: ce }] = await Promise.all([
+      sb.from('competencias_base').select('id').eq('pilar', filtros.pilar),
+      sb.from('competencias').select('id').eq('pilar', filtros.pilar),
+    ]);
+    const baseIds = (cb || []).map((c: any) => c.id);
+    const empIds = (ce || []).map((c: any) => c.id);
+    const ors: string[] = [];
+    if (baseIds.length) ors.push(`competencia_base_id.in.(${baseIds.join(',')})`);
+    if (empIds.length) ors.push(`competencia_id.in.(${empIds.join(',')})`);
+    if (!ors.length) return { modulos: [] };
+    q = q.or(ors.join(','));
+  }
+
   const { data, error } = await q.limit(200);
   if (error) return { error: error.message };
   const modulos = (data || []) as any[];
@@ -135,6 +157,39 @@ export async function listarModulos(filtros: {
     for (const m of modulos) if (m.competencia_id) m.competencia_nome = nomeDe.get(m.competencia_id) || null;
   }
   return { modulos };
+}
+
+/**
+ * Opções dos filtros da lista de módulos: empresas que têm módulos (+ flag de
+ * canônicos/global) e pilares presentes (resolvidos das competências referenciadas).
+ */
+export async function listarFiltrosModulos() {
+  await requireAdminAction();
+  const sb = createSupabaseAdmin();
+  const { data: mods } = await sb.from('modulos_base_conteudo')
+    .select('empresa_id, competencia_base_id, competencia_id');
+  const rows = (mods || []) as any[];
+
+  const empresaIds = [...new Set(rows.map((m) => m.empresa_id).filter(Boolean))];
+  const hasGlobal = rows.some((m) => !m.empresa_id);
+  let empresas: { id: string; nome: string }[] = [];
+  if (empresaIds.length) {
+    const { data: emp } = await sb.from('empresas').select('id, nome').in('id', empresaIds);
+    empresas = ((emp || []) as any[]).sort((a, b) => String(a.nome).localeCompare(String(b.nome)));
+  }
+
+  const baseIds = [...new Set(rows.map((m) => m.competencia_base_id).filter(Boolean))];
+  const compIds = [...new Set(rows.map((m) => m.competencia_id).filter(Boolean))];
+  const pilares = new Set<string>();
+  if (baseIds.length) {
+    const { data: cb } = await sb.from('competencias_base').select('pilar').in('id', baseIds);
+    for (const c of (cb || []) as any[]) if (c.pilar) pilares.add(c.pilar);
+  }
+  if (compIds.length) {
+    const { data: ce } = await sb.from('competencias').select('pilar').in('id', compIds);
+    for (const c of (ce || []) as any[]) if (c.pilar) pilares.add(c.pilar);
+  }
+  return { empresas, hasGlobal, pilares: [...pilares].sort((a, b) => a.localeCompare(b)) };
 }
 
 // ── Cobertura por descritor (matriz competência × descritor × módulos) ──────

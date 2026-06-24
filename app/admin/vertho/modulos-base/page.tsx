@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Plus, Sparkles, Star, X, Trash2, Film, ShieldCheck, Send, CheckCircle2 } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { listarModulos, listarCompetenciasBase, rascunharModuloBase, setPreferido, excluirModulo, auditarModulosBaseEmLote, submeterRevisaoEmLote, aprovarPublicarEmLote } from '@/actions/modulos-base';
+import { listarModulos, listarCompetenciasBase, rascunharModuloBase, setPreferido, excluirModulo, auditarModulosBaseEmLote, submeterRevisaoEmLote, aprovarPublicarEmLote, listarFiltrosModulos } from '@/actions/modulos-base';
 
 type Modulo = any;
 
@@ -34,9 +34,11 @@ export default function ModulosBaseListPage() {
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
-  const [filtroLocale, setFiltroLocale] = useState('');
+  const [filtroEmpresa, setFiltroEmpresa] = useState('');
+  const [filtroPilar, setFiltroPilar] = useState('');
   const [filtroComp, setFiltroComp] = useState('');
   const [busca, setBusca] = useState('');
+  const [opcoesFiltro, setOpcoesFiltro] = useState<{ empresas: { id: string; nome: string }[]; hasGlobal: boolean; pilares: string[] }>({ empresas: [], hasGlobal: false, pilares: [] });
   const [modal, setModal] = useState<null | 'novo' | 'ia'>(null);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [loteBusy, setLoteBusy] = useState<'' | 'auditar' | 'submeter' | 'aprovar' | 'excluir'>('');
@@ -95,7 +97,8 @@ export default function ModulosBaseListPage() {
     const [m, c] = await Promise.all([
       listarModulos({
         status: (filtroStatus || undefined) as any,
-        locale: (filtroLocale || undefined) as any,
+        empresa_id: filtroEmpresa || undefined,
+        pilar: filtroPilar || undefined,
         competencia_base_id: filtroComp || undefined,
         busca: busca || undefined,
       }),
@@ -107,7 +110,8 @@ export default function ModulosBaseListPage() {
     setLoading(false);
   }
 
-  useEffect(() => { carregar(); }, [filtroStatus, filtroLocale, filtroComp]);
+  useEffect(() => { carregar(); }, [filtroStatus, filtroEmpresa, filtroPilar, filtroComp]);
+  useEffect(() => { listarFiltrosModulos().then((r) => { if (!('error' in r)) setOpcoesFiltro(r as any); }); }, []);
 
   const compMap = useMemo(() => Object.fromEntries(competencias.map((c: any) => [c.id, c])), [competencias]);
 
@@ -144,7 +148,23 @@ export default function ModulosBaseListPage() {
         {/* Filtros */}
         <div className="flex flex-wrap items-end gap-3 mb-6">
           <Select label="Status" value={filtroStatus} onChange={setFiltroStatus} options={STATUS} />
-          <Select label="Idioma" value={filtroLocale} onChange={setFiltroLocale} options={LOCALES} />
+          <div className="flex flex-col gap-1 text-[11px] uppercase tracking-wide text-white/45">
+            Empresa
+            <select value={filtroEmpresa} onChange={e => setFiltroEmpresa(e.target.value)}
+              className="bg-white/[0.05] border border-white/10 rounded-lg px-3 py-2 text-sm text-white min-w-[200px]">
+              <option value="">Todas</option>
+              {opcoesFiltro.hasGlobal && <option value="global">Global (canônico)</option>}
+              {opcoesFiltro.empresas.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1 text-[11px] uppercase tracking-wide text-white/45">
+            Pilar
+            <select value={filtroPilar} onChange={e => setFiltroPilar(e.target.value)}
+              className="bg-white/[0.05] border border-white/10 rounded-lg px-3 py-2 text-sm text-white min-w-[180px]">
+              <option value="">Todos</option>
+              {opcoesFiltro.pilares.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
           <div className="flex flex-col gap-1 text-[11px] uppercase tracking-wide text-white/45">
             Competência
             <select value={filtroComp} onChange={e => setFiltroComp(e.target.value)}
