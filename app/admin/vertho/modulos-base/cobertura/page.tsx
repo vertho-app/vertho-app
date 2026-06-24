@@ -22,10 +22,15 @@ export default function CoberturaPage() {
   async function carregar(pilarSel?: string) {
     if (!empresaId) return;
     setBusy(true); setErro('');
-    const r: any = await coberturaPorDescritor(empresaId, { pilar: pilarSel ?? (pilar || undefined) });
-    setBusy(false);
-    if (r.error) { setErro(r.error); return; }
-    setData(r);
+    try {
+      const r: any = await coberturaPorDescritor(empresaId, { pilar: pilarSel ?? (pilar || undefined) });
+      if (r?.error) { setErro(r.error); return; }
+      setData(r);
+    } catch (e: any) {
+      setErro(e?.message || 'Falha ao carregar a cobertura');
+    } finally {
+      setBusy(false);
+    }
   }
   useEffect(() => { if (empresaId) carregar(); /* eslint-disable-next-line */ }, [empresaId]);
 
@@ -83,7 +88,7 @@ export default function CoberturaPage() {
             <h2 className="text-sm font-bold text-white">{c.nome}</h2>
             <span className="text-[10px] text-white/35">{c.pilar}</span>
             <span className="ml-auto text-[10px] text-white/40">
-              {c.descritores.filter((d: any) => d.publicados > 0).length}/{c.descritores.filter((d: any) => !d.cod_desc.startsWith('(')).length} descritores cobertos
+              {c.descritores.filter((d: any) => d.publicados > 0).length}/{c.descritores.filter((d: any) => !String(d.cod_desc || '').startsWith('(')).length} descritores cobertos
             </span>
           </div>
           <table className="w-full text-sm">
@@ -98,11 +103,11 @@ export default function CoberturaPage() {
               </tr>
             </thead>
             <tbody>
-              {c.descritores.map((d: any) => {
+              {c.descritores.map((d: any, di: number) => {
                 const vazia = d.total === 0;
                 const semPub = d.total > 0 && d.publicados === 0;
                 return (
-                  <tr key={d.cod_desc} className="border-t border-white/[0.06]">
+                  <tr key={d.cod_desc || di} className="border-t border-white/[0.06]">
                     <td className="px-3 py-2 font-mono text-[11px] text-white/50">{d.cod_desc}</td>
                     <td className="px-3 py-2 text-[12px] text-white/75">{d.descritor}</td>
                     <td className="px-2 py-2 text-center">

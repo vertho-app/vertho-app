@@ -143,6 +143,7 @@ const _toks = (s: string) => new Set(_norm(s).split(/[^a-z0-9]+/g).filter((t) =>
 export async function coberturaPorDescritor(empresaId: string, opts: { pilar?: string } = {}) {
   await requireAdminAction('content.manage');
   if (!empresaId) return { error: 'empresaId obrigatório' as const };
+  try {
   const sb = createSupabaseAdmin();
 
   // 1) Modelo de competências (a tabela tem linhas DUP por cargo → dedup por cod_desc).
@@ -206,6 +207,10 @@ export async function coberturaPorDescritor(empresaId: string, opts: { pilar?: s
   const totalCels = competencias.reduce((s, c) => s + c.descritores.filter((d: any) => d.cod_desc !== SEM).length, 0);
   const cobertas = competencias.reduce((s, c) => s + c.descritores.filter((d: any) => d.cod_desc !== SEM && d.publicados > 0).length, 0);
   return { ok: true as const, competencias, pilares, resumo: { totalCels, cobertas, modulos: (mods || []).length } };
+  } catch (err: any) {
+    console.error('[coberturaPorDescritor]', err);
+    return { error: String(err?.message || 'Erro ao montar a cobertura') };
+  }
 }
 
 function resumoCelula(cod_desc: string, descritor: string, ms: any[]) {
