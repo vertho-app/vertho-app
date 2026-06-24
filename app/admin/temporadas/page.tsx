@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import ReactMarkdown from 'react-markdown';
 import { ChevronRight, ChevronDown, BookOpen, Target, Sparkles, Video, FileText, Headphones, FileType, Pause, Play, Archive, RefreshCw, Eye, X, Unlock, Download } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { listarTemporadasEmpresa, pausarRetomarTemporada, arquivarTemporada, regerarSemana, loadProgressoDetalhado, anteciparInicioTemporada, prepararEntregasJornada } from '@/actions/temporadas';
+import { listarTemporadasEmpresa, pausarRetomarTemporada, arquivarTemporada, regerarSemana, loadProgressoDetalhado, anteciparInicioTemporada, prepararEntregasJornada, gerarTemporada } from '@/actions/temporadas';
 import { simularUmaSemanaSimulacao } from '@/actions/simulador-temporada';
 import { getSupabase } from '@/lib/supabase-browser';
 
@@ -49,6 +49,16 @@ export default function TemporadasAdminPage() {
     await pausarRetomarTemporada(trilhaId);
     await recarregar();
     setBusy(false);
+  }
+
+  async function handleRegerarTemporada(colaboradorId, nome) {
+    if (!confirm(`Regerar a temporada inteira de ${nome || 'colaborador'}? Reaplica o modo atual (DUO/single) e sobrescreve o plano. Operação cara (IA).`)) return;
+    setBusy(true);
+    const r = await gerarTemporada({ colaboradorId });
+    setBusy(false);
+    if (r.error) alert(r.error);
+    else alert(`Temporada regerada: ${(r as any).competencias?.join(' + ') || (r as any).competencia} · ${(r as any).semanas} semanas · modo ${(r as any).modo || 'single'}`);
+    await recarregar();
   }
 
   async function handlePreparar(colaboradorId, nome) {
@@ -163,6 +173,7 @@ export default function TemporadasAdminPage() {
                 onPausar={() => handlePausar(t.id)}
                 onLiberar={() => handleLiberar(t.id, t.colab?.nome_completo)}
                 onPreparar={() => handlePreparar(t.colaborador_id, t.colab?.nome_completo)}
+                onRegerarTemporada={() => handleRegerarTemporada(t.colaborador_id, t.colab?.nome_completo)}
                 onArquivar={() => handleArquivar(t.id, t.colab?.nome_completo)}
                 onRegerar={(semana) => handleRegerar(t.id, semana)}
                 onSimular={() => handleSimular(t.id, t.colab?.nome_completo || t('fallback.collaborator'))}
@@ -197,7 +208,7 @@ export default function TemporadasAdminPage() {
   );
 }
 
-function TemporadaCard({ t, expanded, onToggle, onPausar, onLiberar, onPreparar, onArquivar, onRegerar, onSimular, onVerDetalhe, busy }) {
+function TemporadaCard({ t, expanded, onToggle, onPausar, onLiberar, onPreparar, onRegerarTemporada, onArquivar, onRegerar, onSimular, onVerDetalhe, busy }) {
   const tr = useTranslations('AdminSeasons');
   const colab = t.colab || {};
   const semanas = Array.isArray(t.temporada_plano) ? t.temporada_plano : [];
@@ -219,6 +230,10 @@ function TemporadaCard({ t, expanded, onToggle, onPausar, onLiberar, onPreparar,
         <button onClick={onVerDetalhe} disabled={busy} title={tr('card.viewProgress')}
           className="p-1.5 rounded hover:bg-white/10 text-cyan-400 disabled:opacity-50">
           <Eye size={14} />
+        </button>
+        <button onClick={onRegerarTemporada} disabled={busy} title="Regerar temporada inteira (reaplica DUO/single)"
+          className="p-1.5 rounded hover:bg-white/10 text-purple-400 disabled:opacity-50">
+          <Sparkles size={14} />
         </button>
         <button onClick={onSimular} disabled={busy} title={tr('card.simulateTitle')}
           className="p-1.5 rounded hover:bg-white/10 text-purple-400 disabled:opacity-50 text-[10px] font-bold">
