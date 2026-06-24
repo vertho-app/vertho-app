@@ -72,11 +72,11 @@ export const MODELOS_DISPONIVEIS = [
  * Gemini Flash auditando Claude, e do Pulso classifier + auditor).
  */
 export const DEFAULT_TASK_MODELS: Record<string, string> = {
-  // Módulos-Base — autora (extração/segmentação/estruturação) em Claude Sonnet 4.6.
-  // Antes era Gemini Flash (custo/latência), mas o teto de gasto do projeto Gemini
-  // estourava (429 RESOURCE_EXHAUSTED) e derrubava TODA extração pro fallback.
+  // Módulos-Base — autora (extração/segmentação/estruturação) em Gemini 3.5 Flash
+  // por custo/latência (teto de gasto do projeto Gemini reajustado em 24/06 — o
+  // 429 RESOURCE_EXHAUSTED que derrubava a extração pro fallback foi resolvido).
   // Auditora segue GPT-5.4 para manter a perspectiva cruzada do Dual-IA.
-  modulo_base_autor:   'claude-sonnet-4-6',
+  modulo_base_autor:   'gemini-3.5-flash',
   modulo_base_auditor: 'gpt-5.4',
   // Roteiro de vídeo — peça criativa de alta alavancagem (reaproveitada por
   // célula): Opus 4.6 + extended thinking (mesmo preço do 4.8, $5/$25) pela
