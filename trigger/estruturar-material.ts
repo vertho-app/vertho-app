@@ -47,8 +47,12 @@ export const estruturarMaterialTask = task({
       throw new Error(msg);
     };
 
-    const ext = await rGetOne('extracoes_video', `id=eq.${id}&select=id,escopo_empresa_id,transcricao,titulo`);
+    const ext = await rGetOne('extracoes_video', `id=eq.${id}&select=id,status,modulo_base_ids,escopo_empresa_id,transcricao,titulo`);
     if (!ext?.transcricao || String(ext.transcricao).trim().length < 40) return fail('extração ou transcrição não encontrada');
+    // Idempotência no RETRY: se já concluiu, não re-dispara (evita duplicar módulos).
+    if (ext.status === 'done' && Array.isArray(ext.modulo_base_ids) && ext.modulo_base_ids.length) {
+      return { ok: true, extracaoId: id, n: ext.modulo_base_ids.length, jaConcluido: true };
+    }
 
     let locale = 'pt-BR';
     if (ext.escopo_empresa_id) {
@@ -68,7 +72,10 @@ export const estruturarMaterialTask = task({
         body: JSON.stringify({ extracaoId: id, titulo: ext.titulo || null, locale }),
       });
     } catch (e: any) {
-      for (let i = 0; i < 8; i++) {
+      // Conexão cortada (texto grande > ~300s no proxy), mas a ROTA segue rodando
+      // server-side até 800s. Faz polling até ~14 min p/ capturar a conclusão real —
+      // antes eram só 120s, que marcava 'error' enquanto a rota ainda criava os módulos.
+      for (let i = 0; i < 56; i++) {
         await sleep(15000);
         const atual = await rGetOne('extracoes_video', `id=eq.${id}&select=status,error,modulo_base_id,n_modulos`).catch(() => null);
         if (atual?.status === 'done') {

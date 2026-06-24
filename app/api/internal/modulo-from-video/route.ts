@@ -29,9 +29,15 @@ export async function POST(req: NextRequest) {
 
   const sb = createSupabaseAdmin();
   const { data: ext } = await sb.from('extracoes_video')
-    .select('id, escopo_empresa_id, url, transcricao, pilar_direcionador, competencia_direcionadora, competencia_base_id_direcionadora')
+    .select('id, status, modulo_base_ids, escopo_empresa_id, url, transcricao, pilar_direcionador, competencia_direcionadora, competencia_base_id_direcionadora')
     .eq('id', extracaoId).maybeSingle();
   if (!ext) return NextResponse.json({ error: 'extração não encontrada' }, { status: 404 });
+
+  // IDEMPOTÊNCIA: se já concluiu (re-chamada por retry/reconexão da task), devolve
+  // o resultado existente em vez de re-segmentar e DUPLICAR módulos.
+  if (ext.status === 'done' && Array.isArray(ext.modulo_base_ids) && ext.modulo_base_ids.length) {
+    return NextResponse.json({ ok: true, moduloIds: ext.modulo_base_ids, n: ext.modulo_base_ids.length, idempotente: true });
+  }
 
   const texto = String(transcricao || ext.transcricao || '').trim();
   if (!texto) return NextResponse.json({ error: 'transcricao obrigatória' }, { status: 400 });

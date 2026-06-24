@@ -1188,7 +1188,10 @@ Regra: se a competência base preferida aparecer no catálogo e o trecho for com
   // → output curto (~120-160s) que cabe no timeout e nos 800s da rota interna.
   // Janelas grandes (110k) faziam UMA chamada densa gerar ~30k tokens (~600s),
   // estourando o tempo num livro. Mais janelas, mas paralelas (CONC) e curtas.
-  const JANELA = 40000, OVERLAP = 5000, MAX_JANELAS = 12, MAX_SECOES = 12, MERGE_CAP = 24000;
+  // Cobertura de materiais grandes: até 18 janelas (~600k chars) e 20 seções/módulos.
+  // Limites altos demais estouram rate-limit (cada seção = 1 chamada Claude densa,
+  // até 64k tokens, em paralelo) e o teto de 800s da rota. 18/20 é o equilíbrio.
+  const JANELA = 40000, OVERLAP = 5000, MAX_JANELAS = 18, MAX_SECOES = 20, MERGE_CAP = 24000;
 
   // Caso comum: cabe numa janela → 1 chamada (comportamento anterior).
   if (full.length <= JANELA) return segmentarJanela(full, tituloVideo, ctx);
@@ -1266,11 +1269,13 @@ export async function criarModulosDeTranscricao(opts: {
     { empresaId: opts.empresaId, urlOrigem: opts.urlOrigem, createdBy: opts.createdBy },
   ).catch((e: any) => ({ error: e?.message || 'erro' } as any));
 
-  const resultados = diag.includes('fallback determinístico')
-    ? [] as any[]
-    : await Promise.all(secoes.map(estruturar));
-  if (diag.includes('fallback determinístico')) {
-    for (const s of secoes) resultados.push(await estruturar(s));
+  // Estrutura em LOTES (concorrência limitada): cada seção é uma chamada Claude
+  // densa (até 64k tokens). Tudo de uma vez (Promise.all de 20) estoura o
+  // rate-limit; lotes de 6 mantêm o paralelismo sem afogar o provedor.
+  const ESTRUT_CONC = 6;
+  const resultados: any[] = [];
+  for (let i = 0; i < secoes.length; i += ESTRUT_CONC) {
+    resultados.push(...await Promise.all(secoes.slice(i, i + ESTRUT_CONC).map(estruturar)));
   }
   const modulos: { id: string; competencia?: string; nivel_entrada?: Nivel; nivel_destino?: Nivel }[] = [];
   const falhas: string[] = [];
