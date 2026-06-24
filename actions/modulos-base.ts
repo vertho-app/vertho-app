@@ -1188,10 +1188,15 @@ Regra: se a competência base preferida aparecer no catálogo e o trecho for com
   // → output curto (~120-160s) que cabe no timeout e nos 800s da rota interna.
   // Janelas grandes (110k) faziam UMA chamada densa gerar ~30k tokens (~600s),
   // estourando o tempo num livro. Mais janelas, mas paralelas (CONC) e curtas.
-  // Cobertura de materiais grandes: até 18 janelas (~600k chars) e 20 seções/módulos.
-  // Limites altos demais estouram rate-limit (cada seção = 1 chamada Claude densa,
-  // até 64k tokens, em paralelo) e o teto de 800s da rota. 18/20 é o equilíbrio.
-  const JANELA = 40000, OVERLAP = 5000, MAX_JANELAS = 18, MAX_SECOES = 20, MERGE_CAP = 24000;
+  // Cobertura de materiais grandes. Os caps existem só pra caber no teto de 800s da
+  // ROTA (Vercel) — não são limite conceitual. Configuráveis por env pra ajustar sem
+  // deploy: EXTRACAO_MAX_JANELAS (texto coberto: ~35k chars/janela) e
+  // EXTRACAO_MAX_SECOES (módulos). Defaults altos (Flash é rápido); se o material for
+  // MAIOR ainda, suba as envs. O `diag` reporta quando o texto foi truncado.
+  const envNum = (k: string, d: number) => { const n = parseInt(process.env[k] || '', 10); return Number.isFinite(n) && n > 0 ? n : d; };
+  const JANELA = 40000, OVERLAP = 5000, MERGE_CAP = 24000;
+  const MAX_JANELAS = envNum('EXTRACAO_MAX_JANELAS', 30);
+  const MAX_SECOES = envNum('EXTRACAO_MAX_SECOES', 40);
 
   // Caso comum: cabe numa janela → 1 chamada (comportamento anterior).
   if (full.length <= JANELA) return segmentarJanela(full, tituloVideo, ctx);
