@@ -211,7 +211,7 @@ function PerfilOrgDoc({ empresaNome, dataRef, solicitadoPor, p }: Params) {
         <View style={s.cover}>
           {logo ? <Image src={logo} style={s.coverLogo} /> : null}
           <Text style={s.coverKicker}>Relatório de</Text>
-          <Text style={s.coverTitle}>DNA Organizacional</Text>
+          <Text style={s.coverTitle}>Perfil Organizacional</Text>
           <Text style={s.coverMeta}>{empresaNome.toUpperCase()}</Text>
           {solicitadoPor ? <Text style={s.coverSub}>SOLICITADO POR: {solicitadoPor}</Text> : null}
           <Text style={s.coverSub}>REALIZADO EM: {dataRef}  ·  {p.avaliados} PROFISSIONAIS</Text>
