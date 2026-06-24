@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Plus, Sparkles, Star, X, Trash2, Film, ShieldCheck } from 'lucide-react';
+import { Loader2, Plus, Sparkles, Star, X, Trash2, Film, ShieldCheck, Send, CheckCircle2 } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { listarModulos, listarCompetenciasBase, rascunharModuloBase, setPreferido, excluirModulo, auditarModulosBaseEmLote } from '@/actions/modulos-base';
+import { listarModulos, listarCompetenciasBase, rascunharModuloBase, setPreferido, excluirModulo, auditarModulosBaseEmLote, submeterRevisaoEmLote, aprovarPublicarEmLote } from '@/actions/modulos-base';
 
 type Modulo = any;
 
@@ -39,7 +39,7 @@ export default function ModulosBaseListPage() {
   const [busca, setBusca] = useState('');
   const [modal, setModal] = useState<null | 'novo' | 'ia'>(null);
   const [sel, setSel] = useState<Set<string>>(new Set());
-  const [auditandoLote, setAuditandoLote] = useState(false);
+  const [loteBusy, setLoteBusy] = useState<'' | 'auditar' | 'submeter' | 'aprovar' | 'excluir'>('');
   const [aviso, setAviso] = useState('');
 
   function toggleSel(id: string) {
@@ -49,14 +49,43 @@ export default function ModulosBaseListPage() {
     setSel(prev => prev.size === modulos.length ? new Set() : new Set(modulos.map(m => m.id)));
   }
 
-  async function auditarSelecionados() {
+  async function rodarLote(
+    tipo: 'auditar' | 'submeter' | 'aprovar',
+    fn: (ids: string[]) => Promise<any>,
+    rotuloOk: (r: any) => string,
+  ) {
     if (!sel.size) return;
-    setAuditandoLote(true); setErro(''); setAviso('');
-    const r = await auditarModulosBaseEmLote([...sel]);
-    setAuditandoLote(false);
-    if ('error' in r && r.error) { setErro(r.error); return; }
-    const falhasTxt = (r as any).falhas?.length ? ` · ${(r as any).falhas.length} falha(s)` : '';
-    setAviso(`${(r as any).auditados}/${(r as any).total} módulo(s) reauditado(s)${falhasTxt}`);
+    setLoteBusy(tipo); setErro(''); setAviso('');
+    const r = await fn([...sel]);
+    setLoteBusy('');
+    if (r && 'error' in r && r.error) { setErro(r.error); return; }
+    const falhasTxt = (r as any).falhas?.length ? ` · ${(r as any).falhas.length} falha(s): ${(r as any).falhas.join(' · ')}` : '';
+    setAviso(rotuloOk(r) + falhasTxt);
+    setSel(new Set());
+    carregar();
+  }
+
+  function auditarSelecionados() {
+    return rodarLote('auditar', auditarModulosBaseEmLote, (r) => `${r.auditados}/${r.total} módulo(s) reauditado(s)`);
+  }
+  function submeterSelecionados() {
+    return rodarLote('submeter', submeterRevisaoEmLote, (r) => `${r.processados}/${r.total} submetido(s) pra revisão`);
+  }
+  function aprovarSelecionados() {
+    return rodarLote('aprovar', aprovarPublicarEmLote, (r) => `${r.processados}/${r.total} publicado(s)`);
+  }
+  async function excluirSelecionados() {
+    if (!sel.size) return;
+    if (!window.confirm(`Excluir ${sel.size} módulo(s)? Publicados são ignorados. Não pode ser desfeito.`)) return;
+    setLoteBusy('excluir'); setErro(''); setAviso('');
+    const ids = [...sel];
+    let ok = 0, err = 0;
+    for (const id of ids) {
+      const r = await excluirModulo(id);
+      if ('error' in r && r.error) err++; else ok++;
+    }
+    setLoteBusy('');
+    setAviso(`${ok}/${ids.length} excluído(s)${err ? ` · ${err} ignorado(s)/erro` : ''}`);
     setSel(new Set());
     carregar();
   }
@@ -150,15 +179,29 @@ export default function ModulosBaseListPage() {
 
         {/* Barra de ações em lote */}
         {sel.size > 0 && (
-          <div className="flex items-center justify-between gap-3 mb-3 rounded-xl border border-cyan-400/20 bg-cyan-400/5 px-4 py-2.5">
-            <span className="text-sm text-white/80">{sel.size} selecionado(s)</span>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3 rounded-xl border border-cyan-400/20 bg-cyan-400/5 px-4 py-2.5">
             <div className="flex items-center gap-3">
+              <span className="text-sm text-white/80">{sel.size} selecionado(s)</span>
               <button onClick={() => setSel(new Set())} className="text-xs text-white/50 hover:text-white/80">limpar seleção</button>
-              <button onClick={auditarSelecionados} disabled={auditandoLote}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button onClick={submeterSelecionados} disabled={!!loteBusy}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-amber-300/40 text-amber-200 hover:bg-amber-400/10 disabled:opacity-50">
+                {loteBusy === 'submeter' ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />} Submeter pra revisão
+              </button>
+              <button onClick={auditarSelecionados} disabled={!!loteBusy}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-white/15 text-white/70 hover:bg-white/5 disabled:opacity-50">
+                {loteBusy === 'auditar' ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={13} />} Reauditar
+              </button>
+              <button onClick={excluirSelecionados} disabled={!!loteBusy}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-red-400/30 text-red-300 hover:bg-red-400/10 disabled:opacity-50">
+                {loteBusy === 'excluir' ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />} Excluir
+              </button>
+              <button onClick={aprovarSelecionados} disabled={!!loteBusy}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-[#06172C] disabled:opacity-50"
                 style={{ background: 'linear-gradient(135deg,#34c5cc,#0D9488)' }}>
-                {auditandoLote ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={13} />}
-                {auditandoLote ? 'Auditando…' : `Reauditar selecionados (${sel.size})`}
+                {loteBusy === 'aprovar' ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+                {loteBusy === 'aprovar' ? 'Publicando…' : `Aprovar e publicar (${sel.size})`}
               </button>
             </div>
           </div>

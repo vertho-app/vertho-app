@@ -341,15 +341,14 @@ export async function salvarModulo(payload: any) {
 // Workflow de status
 // ════════════════════════════════════════════════════════════════════════════
 
-export async function submeterRevisao(id: string) {
-  await requireAdminAction('content.manage');
-  const sb = createSupabaseAdmin();
+// Núcleo de submissão pra revisão SEM guard (reusável por batch). Move pra revisao
+// e dispara a auditoria. Usa _auditarModuloCore (sem guard, roda em qq contexto).
+async function _submeterRevisaoCore(sb: ReturnType<typeof createSupabaseAdmin>, id: string) {
   const { data } = await sb.from('modulos_base_conteudo').select('status, conteudo_central, conteudo_aplicavel, guarda_corpos, adaptacao_por_formato').eq('id', id).maybeSingle();
   if (!data) return { error: 'Módulo não encontrado' };
   if (data.status !== 'rascunho' && data.status !== 'revisao') {
     return { error: `Status atual é ${data.status} — só é possível submeter rascunho ou re-submeter em revisão` };
   }
-
   const erros = validarCorpo(data);
   if (erros.length) return { error: 'Validação estrutural falhou', detalhes: erros };
 
@@ -357,19 +356,20 @@ export async function submeterRevisao(id: string) {
   if (errStatus) return { error: errStatus.message };
 
   // Padrão Dual-IA: ao submeter, dispara automaticamente a IA-auditora.
-  // O veredito gate a publicação (em vez de revisão humana cruzada).
-  const auditResult = await auditarModuloBase(id);
+  const auditResult = await _auditarModuloCore(sb, id);
   if ('error' in auditResult && auditResult.error) {
-    // Auditoria falhou — módulo continua em revisão, mas sem veredito.
-    // Humano pode tentar "Reauditar" manualmente depois.
     return { ok: true, aviso_auditoria: auditResult.error };
   }
   return { ok: true, auditoria: (auditResult as any).auditoria };
 }
 
-export async function aprovarPublicar(id: string) {
-  const ctx = await requireAdminAction('content.manage');
-  const sb = createSupabaseAdmin();
+export async function submeterRevisao(id: string) {
+  await requireAdminAction('content.manage');
+  return _submeterRevisaoCore(createSupabaseAdmin(), id);
+}
+
+// Núcleo de publicação SEM guard (reusável por batch). email = quem publica.
+async function _aprovarPublicarCore(sb: ReturnType<typeof createSupabaseAdmin>, email: string, id: string) {
   const { data } = await sb.from('modulos_base_conteudo')
     .select('status, versao, auditoria_ia, auditado_em_versao, descritor, titulo')
     .eq('id', id).maybeSingle();
@@ -392,7 +392,7 @@ export async function aprovarPublicar(id: string) {
   }
 
   const { error } = await sb.from('modulos_base_conteudo')
-    .update({ status: 'publicado', published_by: ctx.email, published_at: new Date().toISOString() })
+    .update({ status: 'publicado', published_by: email, published_at: new Date().toISOString() })
     .eq('id', id);
   if (error) return { error: error.message };
 
@@ -404,6 +404,36 @@ export async function aprovarPublicar(id: string) {
   } catch (e: any) { console.warn('[aprovarPublicar] embedding falhou:', e?.message); }
 
   return { ok: true };
+}
+
+export async function aprovarPublicar(id: string) {
+  const ctx = await requireAdminAction('content.manage');
+  return _aprovarPublicarCore(createSupabaseAdmin(), (ctx as any).email, id);
+}
+
+// ── Ações em LOTE (lista de módulos, seleção múltipla) ──────────────────────
+async function _emLote<T>(ids: string[], fn: (id: string) => Promise<any>, conc = 4) {
+  const alvo = [...new Set((ids || []).filter(Boolean))];
+  let ok = 0; const falhas: string[] = [];
+  for (let i = 0; i < alvo.length; i += conc) {
+    const r = await Promise.all(alvo.slice(i, i + conc).map((id) => fn(id).catch((e: any) => ({ error: e?.message || 'erro' }))));
+    r.forEach((res, k) => { if ((res as any)?.ok) ok++; else falhas.push(`${String(alvo[i + k]).slice(0, 8)}: ${(res as any)?.error || 'falhou'}`); });
+  }
+  return { ok: true, processados: ok, total: alvo.length, falhas: falhas.slice(0, 8) };
+}
+
+export async function submeterRevisaoEmLote(ids: string[]) {
+  await requireAdminAction('content.manage');
+  const sb = createSupabaseAdmin();
+  if (!ids?.length) return { error: 'Nenhum módulo selecionado' };
+  return _emLote(ids, (id) => _submeterRevisaoCore(sb, id));
+}
+
+export async function aprovarPublicarEmLote(ids: string[]) {
+  const ctx = await requireAdminAction('content.manage');
+  const sb = createSupabaseAdmin();
+  if (!ids?.length) return { error: 'Nenhum módulo selecionado' };
+  return _emLote(ids, (id) => _aprovarPublicarCore(sb, (ctx as any).email, id));
 }
 
 export async function marcarObsoleto(id: string, substitui_por?: string) {
@@ -1796,6 +1826,11 @@ async function autoAuditarModulosExtraidos(sb: ReturnType<typeof createSupabaseA
         return null;
       })));
   }
+  // Promove os que foram auditados de rascunho → revisão: já têm veredito, então
+  // pulam o "Submeter pra revisão" e ficam prontos pra Aprovar/publicar direto.
+  await sb.from('modulos_base_conteudo')
+    .update({ status: 'revisao' })
+    .in('id', ids).eq('status', 'rascunho').not('auditoria_ia', 'is', null);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
