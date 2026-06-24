@@ -239,7 +239,7 @@ Porta única em `/admin/vertho/modulos-base/extracao-video` (o botão "Importar 
 3. `criarModulosDeTranscricao` → `segmentarTranscricao` fatia o texto em janelas (map-reduce), a IA-autora (`SYSTEM_AUTOR`) estrutura cada seção nos 4 blocos. **Direcionador** opcional (pilar/competência).
    - **MODO EXCLUSIVO** (quando há direcionador): a extração é restrita ESTRITAMENTE ao escopo — o catálogo oferecido à IA contém SÓ as competências do pilar/competência escolhido (competência fixa a 1; só pilar fixa ao pilar inteiro), os fallbacks que "forçam" competência (re-tentativa sem direcionamento + fallback determinístico) são DESLIGADOS, e trechos fora do escopo são ignorados. Material não aderente → **0 módulos** + status **`vazio`** (mig 151, distinto de `error`/`done`; UI mostra "não aderente · 0 módulos"). Pilar/competência inexistente no catálogo → diag de configuração (não `vazio`).
 4. **Escopo empresa**: o segmentador usa o catálogo de competências DA EMPRESA; o **descritor é escolhido da LISTA do modelo** (não texto livre — a IA copia um descritor real; `ancorarDescritor` é a rede de segurança). Módulo aponta p/ `competencia_id`.
-5. Saída sempre `status = rascunho`.
+5. Saída sempre `status = rascunho` — **já com nota da IA-auditora**: `criarModulosDeTranscricao` auto-audita os módulos criados (lotes de 4, best-effort; desligável por `EXTRACAO_AUTO_AUDITAR=0`). O módulo nasce com `auditoria_ia`/nota visível na lista, sem precisar reauditar à mão.
 
 > O output dos caminhos 2 e 3 é **sempre rascunho** — nunca publica direto. A revisão humana (+ IA-auditora) é obrigatória.
 
@@ -261,6 +261,9 @@ Porta única em `/admin/vertho/modulos-base/extracao-video` (o botão "Importar 
 
 ### Cobertura
 `/admin/vertho/modulos-base/cobertura` (`coberturaPorDescritor`): matriz competência × descritor do modelo da empresa, mostra quantos módulos por célula (publicados/rascunhos + melhor nota) — pra ver o que falta produzir.
+
+### Reauditoria em lote
+A lista (`/admin/vertho/modulos-base`) tem seleção múltipla (checkbox por linha + selecionar-todos) e botão **"Reauditar selecionados (N)"** → `auditarModulosBaseEmLote` (concorrência 4). Útil pra renormalizar notas de módulos antigos depois de recalibrar a auditora, ou auditar um lote recém-extraído de uma vez. A nota de cada módulo aparece na coluna **Nota IA** (cor por faixa; `*` = auditoria de versão anterior).
 
 ---
 
