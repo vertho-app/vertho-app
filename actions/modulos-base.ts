@@ -470,9 +470,12 @@ const SYSTEM_AUTOR = `Você é um designer instrucional sênior da Vertho. Sua t
 
 REGRAS INTRANSPONÍVEIS:
 - O módulo é matéria-prima pedagógica para a IA gerar conteúdos depois (texto, podcast, vídeo). NÃO é roteiro final, NÃO é régua de maturidade, NÃO é aula pro colaborador.
+- PROIBIDO mencionar NÍVEIS de maturidade no conteúdo: não escreva "N1", "N2", "estágio inicial/avançado", "transição de nível", "maturidade", nem descreva a evolução por nível DENTRO dos campos. A transição de nível serve SÓ para VOCÊ calibrar a profundidade/escopo — NUNCA aparece no texto gerado. (Esse é o erro mais grave: módulo que vira régua.)
+- DISTILE em matéria-prima: conceitos, princípios e exemplos reutilizáveis. NÃO copie a estrutura de AULA do material-fonte — sem títulos markdown (##) dentro dos campos, sem sequência didática "passo 1, passo 2", sem prosa pronta para o leitor final. Se o fonte vier formatado como aula, EXTRAIA o conhecimento e descarte a forma.
+- CALIBRE a LINGUAGEM ao PÚBLICO informado. Se o público for microempreendedor/MEI/iniciante, use linguagem SIMPLES e concreta; evite jargão corporativo ("homologar fornecedores", "taxa de conversão", "prospecção fria", "testes estatísticos", "conversão histórica") — explique sem pressupor conhecimento técnico.
 - Não use nomes próprios reais. Não invente leis, normas ou estatísticas. Não faça diagnóstico psicológico. Não trate DISC como determinismo.
 - Exemplos devem ser UNIVERSAIS (sem cargo específico, salvo se for explicitamente um módulo de contexto específico).
-- Linguagem clara, aplicada, profissional. Sem jargão excessivo.
+- repertorio_linguagem DEVE ter as 6 categorias (frases_uteis, perguntas_poderosas, abertura, conducao_situacao_dificil, fechamento_com_compromisso, frases_a_evitar) — nenhuma vazia.
 
 FORMATO DE SAÍDA: APENAS JSON válido com a estrutura especificada. Sem markdown, sem comentários, sem texto antes ou depois.`;
 
@@ -503,9 +506,13 @@ function montarUserPrompt(comp: any, nivel_entrada: Nivel, nivel_destino: Nivel,
 - Segmento: ${comp.segmento}
 - Descritor: ${comp.descritor_completo || comp.descricao || '—'}
 
-## TRANSIÇÃO DE NÍVEL DESTE MÓDULO
-- Entrada (${nivel_entrada}): ${nivelTextos[nivel_entrada]}
-- Destino (${nivel_destino}): ${nivelTextos[nivel_destino]}
+## PÚBLICO (calibre a linguagem para ele)
+${comp.cargo || contexto || 'profissional generalista'} — escreva no nível de quem vai aplicar isto no dia a dia, sem jargão técnico desnecessário.
+
+## PROFUNDIDADE-ALVO (use APENAS para calibrar o escopo — NÃO escreva sobre níveis no conteúdo)
+- Ponto de partida típico: ${nivelTextos[nivel_entrada]}
+- Onde deve chegar: ${nivelTextos[nivel_destino]}
+Lembrete: jamais cite "${nivel_entrada}", "${nivel_destino}", "transição" ou "maturidade" nos campos de saída.
 
 ## CONTEXTO PEDAGÓGICO
 ${contexto || 'transversal — não específico de um contexto'}
