@@ -111,6 +111,10 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
 
   const isAplicacao = semana.tipo === 'aplicacao';
   const isAvaliacao = semana.tipo === 'avaliacao';
+  // DUO: a semana cobre 2 descritores (seg+ter). Rótulo único p/ título e Tira-Dúvidas.
+  const descritoresLabel = (Array.isArray(semana.descritores_cobertos) && semana.descritores_cobertos.length > 1)
+    ? semana.descritores_cobertos.join(' + ')
+    : (semana.descritor || semana.competencia || data.trilha.competencia_foco);
   const conteudo = semana.conteudo;
   const entregasConteudo = Array.isArray(semana.conteudos_dia) && semana.conteudos_dia.length > 0
     ? semana.conteudos_dia.filter(e => e?.conteudo)
@@ -212,7 +216,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
         <div className="text-xs uppercase text-brand-400 mb-1">
           {t('header.weekOf', { week: semanaNum, total: 14 })} · {isAplicacao ? t('type.practice') : isAvaliacao ? t('type.assessment') : t('type.episode')}
         </div>
-        <h1 className="text-2xl font-bold text-white">{semana.descritor || semana.competencia || data.trilha.competencia_foco}</h1>
+        <h1 className="text-2xl font-bold text-white">{descritoresLabel}</h1>
       </div>
 
       {/* Conteúdo da semana */}
@@ -418,7 +422,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
           <div className="flex items-center gap-2 mb-3">
             <HelpCircle size={16} className="text-brand-400" />
             <span className="text-xs uppercase text-brand-400 font-bold">{t('qa.title')}</span>
-            <span className="text-[10px] text-gray-500">· {t('qa.scope', { descriptor: semana.descritor })}</span>
+            <span className="text-[10px] text-gray-500">· {t('qa.scope', { descriptor: descritoresLabel })}</span>
           </div>
 
           {!tdOpen ? (
@@ -433,7 +437,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
               <div className="space-y-3 max-h-80 overflow-y-auto mb-3">
                 {tdHistory.length === 0 && (
                   <p className="text-xs text-gray-500 italic text-center py-4">
-                    {t.rich('qa.empty', { descriptor: semana.descritor, strong: (chunks) => <span className="text-brand-400">{chunks}</span> })}
+                    {t.rich('qa.empty', { descriptor: descritoresLabel, strong: (chunks) => <span className="text-brand-400">{chunks}</span> })}
                   </p>
                 )}
                 {tdHistory.map((m, i) => (
@@ -672,27 +676,46 @@ function ConteudoViewer({ conteudo, formatoAtivo, setFormatoAtivo, onAutoConsumi
     } catch { return item.url; }
   })();
 
+  // Resolve a fonte de um formato qualquer (não só o ativo) — p/ chips clicáveis.
+  const fonteDoFormato = (f: string) => {
+    const info = conteudo.formatos_disponiveis?.[f] || (f === conteudo.formato_core ? { id: conteudo.core_id, url: conteudo.core_url } : null);
+    const fid = info?.id || (f === conteudo.formato_core ? conteudo.core_id : null);
+    const tem = f === 'video' ? !!info?.url : !!(info?.url || fid);
+    return { info, fid, tem };
+  };
+
   return (
     <div>
-      {/* Switch de formatos */}
-      {formatos.length > 1 && (
-        <div className="flex items-center gap-2 mb-3 flex-wrap">
-          <span className="text-[10px] uppercase text-gray-500">{t('content.availableIn')}</span>
-          {formatos.map(f => {
-            const Icon = FORMAT_ICON[f] || FileText;
-            const ativ = f === ativo;
+      {/* Formatos como LINKS/ações diretas: texto/case abrem o PDF em nova aba;
+          áudio/vídeo selecionam e tocam inline abaixo. Sem passo "Abrir conteúdo". */}
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <span className="text-[10px] uppercase text-gray-500">{t('content.availableIn')}</span>
+        {formatos.map(f => {
+          const Icon = FORMAT_ICON[f] || FileText;
+          const { info, fid, tem } = fonteDoFormato(f);
+          const base = 'flex items-center gap-1 px-2.5 py-1 rounded text-[11px] transition-colors';
+          const cls = `${base} ${f === ativo ? 'bg-brand-600 text-white' : 'bg-white/5 text-gray-300 hover:bg-white/10'} ${!tem ? 'opacity-40 cursor-not-allowed' : ''}`;
+          // texto/case → link direto pro PDF (nova aba)
+          if (tem && (f === 'texto' || f === 'case')) {
             return (
-              <button key={f} onClick={() => setFormatoAtivo(f)} className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] ${
-                ativ ? 'bg-brand-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
-              }`}>
+              <a key={f} href={fid ? `/api/conteudo/${fid}/pdf` : info?.url}
+                target="_blank" rel="noopener"
+                onClick={() => { setFormatoAtivo(f); onAbrirConteudo?.(); }}
+                className={cls}>
                 <Icon size={12} /> {f}
-              </button>
+              </a>
             );
-          })}
-        </div>
-      )}
+          }
+          // áudio/vídeo → seleciona e toca inline abaixo
+          return (
+            <button key={f} onClick={() => tem && setFormatoAtivo(f)} disabled={!tem} className={cls}>
+              <Icon size={12} /> {f}
+            </button>
+          );
+        })}
+      </div>
 
-      {/* Renderização */}
+      {/* Player inline para áudio/vídeo selecionados (texto/case abrem em nova aba) */}
       {!temFonte && (
         <div className="text-sm text-gray-400 italic p-4 rounded bg-white/5 border border-amber-500/20">
           {t('content.preparingFormats')}
@@ -709,15 +732,6 @@ function ConteudoViewer({ conteudo, formatoAtivo, setFormatoAtivo, onAutoConsumi
           className="w-full"
           src={fonteId ? `/api/conteudo/${fonteId}/podcast` : item.url}
         />
-      )}
-      {temFonte && (ativo === 'texto' || ativo === 'case') && (
-        <div className="prose prose-invert prose-sm max-w-none">
-          {/* PDF personalizado (DISC + PPP), gerado lazy pela rota; fallback p/ a URL genérica */}
-          <a href={fonteId ? `/api/conteudo/${fonteId}/pdf` : item.url}
-            target="_blank" rel="noopener"
-            onClick={() => onAbrirConteudo?.()}
-            className="text-brand-400">{t('content.openContent')}</a>
-        </div>
       )}
     </div>
   );

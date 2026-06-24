@@ -24,7 +24,7 @@ export { buildPersonalizedPodcastNarration, extractNarration, ensurePodcastBrand
 export { exportPodcastMp3FromPcm } from './tts/audio-dsp';
 
 const MODEL = process.env.GEMINI_TTS_MODEL || 'gemini-3.1-flash-tts-preview';
-const VOICE = process.env.GEMINI_TTS_VOICE || 'Charon'; // masculina, grave/madura
+const VOICE = process.env.GEMINI_TTS_VOICE || 'Vindemiatrix'; // feminina, acolhedora (mentora — unificada com vídeo/devolutiva)
 const MENTOR_VOICE = process.env.GEMINI_TTS_MENTOR_VOICE || 'Charon';
 const CAMPO_VOICE = process.env.GEMINI_TTS_CAMPO_VOICE || 'Kore';
 const brandStingCache = new Map<string, Buffer>();
@@ -149,7 +149,7 @@ function ttsToPcm(prompt: string, voiceName: string): Promise<{ pcm: Buffer; sam
 // Direção de estilo default (devolutiva comportamental): mensagem pessoal do
 // mentor, ritmo moderado/reflexivo. O caminho de VÍDEO passa `opts.style` com um
 // ritmo mais ágil (ver trigger/gerar-video-modulo.ts).
-const NARRATION_STYLE_DEFAULT = 'Narre em português do Brasil, com voz acolhedora, segura e íntima, ritmo moderado e pausas reflexivas naturais, como um mentor falando diretamente com a pessoa';
+const NARRATION_STYLE_DEFAULT = 'Narre em português do Brasil, com voz feminina acolhedora, segura e íntima, ritmo moderado e pausas reflexivas naturais, como uma mentora falando diretamente com a pessoa';
 
 // PAUSA DRAMÁTICA determinística após perguntas retóricas. O Gemini TTS NÃO
 // suporta SSML <break>; em vez de depender do modelo, injetamos silêncio EXATO
@@ -252,7 +252,7 @@ export async function generatePodcastAudio(texto: string): Promise<PodcastAudioF
   // Direção de estilo (não é falada — orienta a entrega da voz prebuilt).
   const styled = multiSpeaker
     ? `TTS the following conversation in Brazilian Portuguese. Speaker Mentor is calm, consultative, experienced and clear. Speaker Campo is practical, direct and grounded in field reality. Keep a professional, adult tone and natural turn-taking:\n\n${textoComMarca}`
-    : `Narre em português do Brasil, com voz masculina de meia-idade, tom acolhedor, seguro e íntimo, ritmo moderado e pausas reflexivas naturais:\n\n${textoComMarca}`;
+    : `Narre em português do Brasil, com voz feminina, tom acolhedor, seguro e íntimo, ritmo moderado e pausas reflexivas naturais:\n\n${textoComMarca}`;
 
   const body = {
     contents: [{ role: 'user', parts: [{ text: styled }] }], // role:'user' exigido pelo Vertex
