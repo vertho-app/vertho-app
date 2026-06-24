@@ -346,7 +346,7 @@ export async function aprovarPublicar(id: string) {
   const ctx = await requireAdminAction('content.manage');
   const sb = createSupabaseAdmin();
   const { data } = await sb.from('modulos_base_conteudo')
-    .select('status, versao, auditoria_ia, auditado_em_versao')
+    .select('status, versao, auditoria_ia, auditado_em_versao, descritor, titulo')
     .eq('id', id).maybeSingle();
   if (!data) return { error: 'Módulo não encontrado' };
   if (data.status !== 'revisao') return { error: `Status atual é ${data.status} — só é possível publicar em revisão` };
@@ -370,6 +370,14 @@ export async function aprovarPublicar(id: string) {
     .update({ status: 'publicado', published_by: ctx.email, published_at: new Date().toISOString() })
     .eq('id', id);
   if (error) return { error: error.message };
+
+  // Embedding do descritor p/ a seleção semântica na trilha (best-effort, não bloqueia).
+  try {
+    const { embedText } = await import('@/lib/embeddings');
+    const emb = await embedText(`${data.descritor || ''} ${data.titulo || ''}`.trim());
+    if (emb?.vector) await sb.from('modulos_base_conteudo').update({ descritor_embedding: emb.vector }).eq('id', id);
+  } catch (e: any) { console.warn('[aprovarPublicar] embedding falhou:', e?.message); }
+
   return { ok: true };
 }
 

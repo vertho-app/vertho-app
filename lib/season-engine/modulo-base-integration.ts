@@ -12,6 +12,8 @@
  * Spec: docs/MODULOS-BASE-CONTEUDO.md.
  */
 
+import { embedQuery } from '@/lib/embeddings';
+
 type Nivel = 'N1' | 'N2' | 'N3' | 'N4';
 
 export interface ModuloBaseEscolhido {
@@ -49,6 +51,7 @@ export async function resolverModuloBaseParaConteudo(
     nivelMin: number;
     locale?: string;
     contexto_pedagogico?: string;
+    cargo?: string;
     empresaId?: string | null;
   },
 ): Promise<ModuloBaseEscolhido | null> {
@@ -77,7 +80,7 @@ export async function resolverModuloBaseParaConteudo(
   //    só globais (mantém o comportamento anterior).
   async function buscar(loc: string) {
     let q = sb.from('modulos_base_conteudo')
-      .select('id, grupo_id, locale, preferido, contexto_pedagogico, tags, published_at, empresa_id, descritor, titulo, auditoria_ia, conteudo_central, conteudo_aplicavel, guarda_corpos, adaptacao_por_formato')
+      .select('id, grupo_id, locale, preferido, contexto_pedagogico, tags, published_at, empresa_id, descritor, titulo, auditoria_ia, descritor_embedding, conteudo_central, conteudo_aplicavel, guarda_corpos, adaptacao_por_formato')
       .eq('nivel_entrada', entrada)
       .eq('nivel_destino', destino)
       .eq('locale', loc)
@@ -100,40 +103,75 @@ export async function resolverModuloBaseParaConteudo(
   }
   if (candidatos.length === 0) return null;
 
-  // 3) Escolha INTELIGENTE por SCORE ponderado (não mais uma cascata rígida).
-  //    Sinais, do mais forte ao mais fraco:
-  //    - RELEVÂNCIA ao descritor da semana (overlap de tokens do descritor/título) —
-  //      é o que mais importa: a semana de "fluxo de caixa" puxa o módulo desse
-  //      sub-tema, não um da mesma competência qualquer.
-  //    - EXCLUSIVO do tenant (módulo da empresa > canônico).
-  //    - QUALIDADE: a NOTA da IA-auditora (0–10), já calculada e até aqui ignorada.
-  //    - PREFERIDO (override manual do admin) — vira um empurrão, não um trunfo.
-  //    - CONTEXTO pedagógico + recência (desempates leves).
+  // 3) Escolha INTELIGENTE por SCORE ponderado. Sinais (do mais forte ao mais fraco):
+  //    - RELEVÂNCIA ao descritor da semana: SEMÂNTICA (embedding/cosseno — pega
+  //      paráfrase e sinônimo) quando há embedding; senão overlap de tokens.
+  //    - EXCLUSIVO do tenant · QUALIDADE (nota da auditoria) · PREFERIDO (empurrão).
+  //    - FIT POR CARGO (via contexto pedagógico) · ANTI-REPETIÇÃO (não reusar sempre
+  //      o mesmo módulo nesta competência) · contexto/tags/recência.
   const STOP = new Set(['para', 'como', 'sobre', 'mais', 'pela', 'pelo', 'entre', 'isso', 'esta', 'este', 'essa', 'esse', 'dos', 'das', 'com', 'sem', 'que']);
   const norm = (s: string) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
   const toks = (s: string) => new Set(norm(s).split(/[^a-z0-9]+/g).filter((t) => t.length >= 4 && !STOP.has(t)));
   const wantTok = toks(opts.descritor || '');
   const wantNorm = norm(opts.descritor || '');
 
+  // Embedding da semana (semântico). Sem provider/descritor → cai p/ tokens.
+  let queryVec: number[] | null = null;
+  if (opts.descritor) { try { queryVec = (await embedQuery(opts.descritor))?.vector || null; } catch { queryVec = null; } }
+  const parseEmb = (v: any): number[] | null => {
+    if (!v) return null;
+    if (Array.isArray(v)) return v;
+    try { const a = JSON.parse(v); return Array.isArray(a) ? a : null; } catch { return null; }
+  };
+  const cosine = (a: number[], b: number[]): number => {
+    let d = 0, na = 0, nb = 0; const n = Math.min(a.length, b.length);
+    for (let i = 0; i < n; i++) { d += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+    return (na && nb) ? d / (Math.sqrt(na) * Math.sqrt(nb)) : 0;
+  };
+
+  // Anti-repetição: módulos JÁ usados p/ gerar conteúdo desta competência (varia o material).
+  const jaUsados = new Set<string>();
+  try {
+    let uq = sb.from('micro_conteudos').select('modulo_base_id').eq('competencia', opts.competenciaNome).not('modulo_base_id', 'is', null).limit(500);
+    if (opts.empresaId) uq = uq.or(`empresa_id.is.null,empresa_id.eq.${opts.empresaId}`);
+    const { data: usados } = await uq;
+    for (const u of usados || []) if (u.modulo_base_id) jaUsados.add(u.modulo_base_id);
+  } catch { /* best-effort */ }
+
+  const relCache = new Map<string, number>();
+  const semanticoCache = new Map<string, boolean>();
   const relevancia = (m: any): number => {
-    if (!wantTok.size) return 0;
-    const have = toks(`${m.descritor || ''} ${m.titulo || ''}`);
-    let hit = 0;
-    for (const t of wantTok) if (have.has(t)) hit++;
-    const overlap = Math.min(1, hit / wantTok.size);
-    const exato = wantNorm && norm(m.descritor) === wantNorm ? 1 : 0; // match literal = bônus
-    return Math.min(1, overlap * 0.85 + exato * 0.15);
+    if (relCache.has(m.id)) return relCache.get(m.id)!;
+    let r = 0; let semantico = false;
+    const emb = parseEmb(m.descritor_embedding);
+    if (queryVec && emb) { r = Math.max(0, cosine(queryVec, emb)); semantico = true; }
+    else if (wantTok.size) {
+      const have = toks(`${m.descritor || ''} ${m.titulo || ''}`);
+      let hit = 0; for (const t of wantTok) if (have.has(t)) hit++;
+      const overlap = Math.min(1, hit / wantTok.size);
+      const exato = wantNorm && norm(m.descritor) === wantNorm ? 1 : 0;
+      r = Math.min(1, overlap * 0.85 + exato * 0.15);
+    }
+    relCache.set(m.id, r); semanticoCache.set(m.id, semantico); return r;
   };
   const nota = (m: any): number => {
     const n = Number(m?.auditoria_ia?.nota);
-    return Number.isFinite(n) ? Math.max(0, Math.min(10, n)) : 6; // publicado sem nota → neutro
+    return Number.isFinite(n) ? Math.max(0, Math.min(10, n)) : 6;
+  };
+  const cargoNorm = norm(opts.cargo || '');
+  const cargoFit = (m: any): number => {
+    if (!cargoNorm || !m.contexto_pedagogico) return 0;
+    const ctx = norm(m.contexto_pedagogico);
+    return ctx && (ctx.includes(cargoNorm) || cargoNorm.includes(ctx)) ? 1 : 0;
   };
   const score = (m: any): number =>
-    100 * relevancia(m)                                                              // descritor manda
+    100 * relevancia(m)                                                              // descritor (semântico)
     + 30 * (m.empresa_id ? 1 : 0)                                                     // exclusivo do tenant
     + 22 * (nota(m) / 10)                                                             // qualidade (auditoria)
     + 10 * (m.preferido ? 1 : 0)                                                      // preferido = empurrão
     + 6 * (opts.contexto_pedagogico && m.contexto_pedagogico === opts.contexto_pedagogico ? 1 : 0)
+    + 5 * cargoFit(m)                                                                 // fit por cargo (via contexto)
+    - 25 * (jaUsados.has(m.id) ? 1 : 0)                                               // anti-repetição (penalidade leve)
     + 2 * Math.min(1, (Array.isArray(m.tags) ? m.tags.length : 0) / 3);
 
   candidatos.sort((a: any, b: any) =>
@@ -141,12 +179,14 @@ export async function resolverModuloBaseParaConteudo(
 
   const escolhido = candidatos[0];
   const rel = relevancia(escolhido);
+  const sem = semanticoCache.get(escolhido.id) ? 'semântico' : 'tokens';
   const criterio = [
-    rel >= 0.6 ? `descritor-match(${rel.toFixed(2)})` : rel > 0 ? `descritor-parcial(${rel.toFixed(2)})` : null,
+    rel >= 0.55 ? `descritor-${sem}(${rel.toFixed(2)})` : rel > 0 ? `descritor-parcial-${sem}(${rel.toFixed(2)})` : null,
     escolhido.empresa_id && 'exclusivo-do-tenant',
     `nota(${nota(escolhido).toFixed(1)})`,
     escolhido.preferido && 'preferido',
-    escolhido.contexto_pedagogico === opts.contexto_pedagogico && opts.contexto_pedagogico && 'contexto-match',
+    cargoFit(escolhido) && 'cargo-fit',
+    jaUsados.has(escolhido.id) && 'reuso(penalizado)',
     usouFallbackLocale && `fallback-locale(${locale}→pt-BR)`,
     candidatos.length > 1 && `entre-${candidatos.length}`,
   ].filter(Boolean).join(' · ') || 'unico-candidato';

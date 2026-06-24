@@ -127,6 +127,7 @@ export async function gerarConteudoIA({
         nivelMin,
         locale: (aiConfig as any)?.locale,
         contexto_pedagogico: contexto,
+        cargo,
         empresaId,
       });
       if (escolhido) {
@@ -228,6 +229,7 @@ export async function gerarConteudoIA({
       ativo: formato === 'texto' || formato === 'case',
       kit_id: kit?.kitId ?? null,
       disc: kit?.disc ?? null,
+      modulo_base_id: moduloUsado?.id ?? null, // rastreio p/ anti-repetição
     }).select('id, titulo').maybeSingle();
 
     if (error) return { success: false, error: error.message };
