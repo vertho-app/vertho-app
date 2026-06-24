@@ -105,6 +105,7 @@ const PHASE_CONFIG = [
     { label: 'Temporadas', actions: [
       { key: 'assessment',    label: 'Assessment Descritores', icon: ClipboardCheck, hrefFn: (id: string) => `/admin/assessment-descritores?empresa=${id}` },
       { key: 'temporadas',    label: 'Gerar Temporadas',       icon: Sparkles,       ai: true },
+      { key: 'kits-jornada',  label: 'Gerar Kits da Jornada',  icon: Layers,         hrefFn: () => `/admin/conteudos/kit/coorte` },
       { key: 'temporadas-ver',label: 'Ver Temporadas',         icon: Layers,         hrefFn: (id: string) => `/admin/temporadas?empresa=${id}` },
     ]},
   ]},

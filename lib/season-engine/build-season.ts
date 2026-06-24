@@ -298,33 +298,38 @@ async function montarSemanaConteudo(
     formatoCore = 'texto';
   }
 
-  // Gera desafio via Claude (JSON estruturado)
-  let desafioTexto = '';
+  // DESAFIO: a fonte canônica é o KIT (sob demanda, por DISC) — o overlayKitNaSemana
+  // preenche o desafio na LEITURA da semana. Aqui só deixamos um FALLBACK templated
+  // (sem custo de IA), usado nas semanas ainda sem kit. Antes, o desafio era gerado
+  // por IA aqui e DESCARTADO/sobrescrito pelo kit no overlay (chamada Claude jogada
+  // fora). Reative a geração por IA (fallback de alta qualidade) com BUILDSEASON_DESAFIO_IA=1.
+  let desafioTexto = `Aplique ${descritorSel.descritor} em uma situação real esta semana e observe o resultado.`;
   let acaoObservavel: string | undefined;
   let criterioExecucao: string | undefined;
   let porQueCabe: string | undefined;
-  try {
-    const { system, user } = promptDesafio({
-      competencia,
-      descritor: descritorSel.descritor,
-      nivel: descritorSel.nota_atual,
-      cargo,
-      contexto,
-      semana,
-    });
-    const rawResp = await callAI(system, user, aiConfig, 400);
-    const parsed = parseDesafioResponse(rawResp);
-    if (parsed) {
-      desafioTexto = parsed.desafio_texto;
-      acaoObservavel = parsed.acao_observavel;
-      criterioExecucao = parsed.criterio_de_execucao;
-      porQueCabe = parsed.por_que_cabe_na_semana;
-    } else {
-      desafioTexto = rawResp.trim();
+  if (process.env.BUILDSEASON_DESAFIO_IA === '1') {
+    try {
+      const { system, user } = promptDesafio({
+        competencia,
+        descritor: descritorSel.descritor,
+        nivel: descritorSel.nota_atual,
+        cargo,
+        contexto,
+        semana,
+      });
+      const rawResp = await callAI(system, user, aiConfig, 400);
+      const parsed = parseDesafioResponse(rawResp);
+      if (parsed) {
+        desafioTexto = parsed.desafio_texto;
+        acaoObservavel = parsed.acao_observavel;
+        criterioExecucao = parsed.criterio_de_execucao;
+        porQueCabe = parsed.por_que_cabe_na_semana;
+      } else if (rawResp.trim()) {
+        desafioTexto = rawResp.trim();
+      }
+    } catch (err: any) {
+      console.warn(`[buildSeason] desafio IA sem ${semana}: ${err?.message ?? err} — usando fallback templated`);
     }
-  } catch (err: any) {
-    console.warn(`[buildSeason] desafio sem ${semana}: ${err?.message ?? err}`);
-    desafioTexto = `Aplique ${descritorSel.descritor} em uma situação real esta semana e observe o resultado.`;
   }
 
   const reused = !!(coreContent && idsJaUsados.has(coreContent.id));
