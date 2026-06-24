@@ -66,6 +66,10 @@ export default function ModulosBaseListPage() {
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-purple-400/30 text-purple-300 hover:bg-purple-400/10">
               <Film size={14} /> Extrair / Importar material
             </button>
+            <button onClick={() => router.push('/admin/vertho/modulos-base/cobertura')}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/15 hover:bg-white/5">
+              📊 Cobertura
+            </button>
             <button onClick={() => setModal('ia')}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-cyan-400/30 text-cyan-300 hover:bg-cyan-400/10">
               <Sparkles size={14} /> Rascunhar com IA

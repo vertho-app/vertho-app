@@ -128,6 +128,98 @@ export async function listarModulos(filtros: {
   return { modulos };
 }
 
+// ── Cobertura por descritor (matriz competência × descritor × módulos) ──────
+const _STOP = new Set(['para', 'como', 'sobre', 'mais', 'pela', 'pelo', 'entre', 'isso', 'esta', 'este', 'essa', 'esse', 'dos', 'das', 'com', 'sem', 'que', 'capacidade']);
+const _norm = (s: string) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const _toks = (s: string) => new Set(_norm(s).split(/[^a-z0-9]+/g).filter((t) => t.length >= 4 && !_STOP.has(t)));
+
+/**
+ * Matriz de COBERTURA por descritor para uma empresa: pra cada (competência ×
+ * descritor) do modelo dela, quantos módulos-base existem, o status e a melhor
+ * nota da auditoria. Casa o `descritor` (texto livre) de cada módulo ao descritor
+ * do modelo por overlap de tokens (o módulo aponta só pra competência; o sub-tema
+ * fica no texto). Módulo sem match claro vai pra "(sem descritor claro)".
+ */
+export async function coberturaPorDescritor(empresaId: string, opts: { pilar?: string } = {}) {
+  await requireAdminAction('content.manage');
+  if (!empresaId) return { error: 'empresaId obrigatório' as const };
+  const sb = createSupabaseAdmin();
+
+  // 1) Modelo de competências (a tabela tem linhas DUP por cargo → dedup por cod_desc).
+  let q = sb.from('competencias').select('cod_comp, nome, pilar, cod_desc, descritor_completo').eq('empresa_id', empresaId);
+  if (opts.pilar) q = q.eq('pilar', opts.pilar);
+  const { data: rows } = await q;
+  const pilares = [...new Set((rows || []).map((r: any) => r.pilar).filter(Boolean))].sort();
+
+  const vistos = new Set<string>();
+  const grupos = new Map<string, { cod_comp: string; nome: string; pilar: string; descritores: { cod_desc: string; descritor: string }[] }>();
+  for (const r of (rows || []) as any[]) {
+    const dk = r.cod_desc || `${r.nome}|${String(r.descritor_completo).slice(0, 60)}`;
+    if (vistos.has(dk)) continue;
+    vistos.add(dk);
+    const ck = r.cod_comp || r.nome;
+    if (!grupos.has(ck)) grupos.set(ck, { cod_comp: r.cod_comp, nome: r.nome, pilar: r.pilar, descritores: [] });
+    grupos.get(ck)!.descritores.push({ cod_desc: r.cod_desc, descritor: r.descritor_completo });
+  }
+
+  // 2) Módulos da empresa (apontam pra competencia_id) + resolve o nome da competência.
+  const { data: mods } = await sb.from('modulos_base_conteudo')
+    .select('id, competencia_id, descritor, titulo, status, auditoria_ia')
+    .eq('empresa_id', empresaId).not('competencia_id', 'is', null);
+  const compIds = [...new Set((mods || []).map((m: any) => m.competencia_id))];
+  const nomeDe = new Map<string, string>();
+  if (compIds.length) {
+    const { data: cb } = await sb.from('competencias').select('id, nome').in('id', compIds);
+    for (const c of (cb || []) as any[]) nomeDe.set(c.id, c.nome);
+  }
+
+  // 3) Casa cada módulo ao melhor descritor DA SUA competência (overlap de tokens).
+  const cells = new Map<string, any[]>(); // `${comp}|${cod_desc}` -> módulos
+  const SEM = '(sem descritor claro)';
+  for (const m of (mods || []) as any[]) {
+    const compNome = nomeDe.get(m.competencia_id);
+    const grupo = [...grupos.values()].find((g) => g.nome === compNome);
+    if (!grupo) continue; // competência fora do filtro de pilar
+    const mt = _toks(m.descritor);
+    let best = SEM, bestHit = 0;
+    for (const d of grupo.descritores) {
+      const dt = _toks(d.descritor);
+      let hit = 0; for (const t of mt) if (dt.has(t)) hit++;
+      if (hit > bestHit) { bestHit = hit; best = d.cod_desc; }
+    }
+    const key = `${compNome}|${best}`;
+    if (!cells.has(key)) cells.set(key, []);
+    cells.get(key)!.push({ id: m.id, titulo: m.titulo, status: m.status, nota: Number(m?.auditoria_ia?.nota) || null });
+  }
+
+  // 4) Monta a matriz.
+  const competencias = [...grupos.values()].sort((a, b) => String(a.cod_comp).localeCompare(String(b.cod_comp))).map((g) => {
+    const linhas = g.descritores.map((d) => {
+      const ms = cells.get(`${g.nome}|${d.cod_desc}`) || [];
+      return resumoCelula(d.cod_desc, d.descritor, ms);
+    });
+    const semClaro = cells.get(`${g.nome}|${SEM}`) || [];
+    if (semClaro.length) linhas.push(resumoCelula(SEM, 'módulos cujo sub-tema não casou com nenhum descritor do modelo', semClaro));
+    return { cod_comp: g.cod_comp, nome: g.nome, pilar: g.pilar, descritores: linhas };
+  });
+
+  const totalCels = competencias.reduce((s, c) => s + c.descritores.filter((d: any) => d.cod_desc !== SEM).length, 0);
+  const cobertas = competencias.reduce((s, c) => s + c.descritores.filter((d: any) => d.cod_desc !== SEM && d.publicados > 0).length, 0);
+  return { ok: true as const, competencias, pilares, resumo: { totalCels, cobertas, modulos: (mods || []).length } };
+}
+
+function resumoCelula(cod_desc: string, descritor: string, ms: any[]) {
+  const notas = ms.map((x) => x.nota).filter((n) => n != null) as number[];
+  return {
+    cod_desc, descritor,
+    total: ms.length,
+    publicados: ms.filter((x) => x.status === 'publicado').length,
+    rascunhos: ms.filter((x) => x.status === 'rascunho' || x.status === 'revisao').length,
+    melhorNota: notas.length ? Math.max(...notas) : null,
+    modulos: ms.slice(0, 12),
+  };
+}
+
 export async function obterModulo(id: string) {
   await requireAdminAction();
   if (!id) return { error: 'id obrigatório' };
