@@ -798,11 +798,12 @@ export async function gerarConteudoFinal(id: string) {
  * Capa/seção reusam o cache por-conteúdo (sem custo de imagem extra).
  * Qualquer falha → retorna a URL genérica (nunca quebra a entrega).
  */
-export async function gerarConteudoFinalPersonalizado({ contentId }: { contentId: string }) {
+export async function gerarConteudoFinalPersonalizado({ contentId, colab: colabIn }: { contentId: string; colab?: any }) {
   let generico: string | null = null;
   try {
     // Service-role direto: quem abre o conteúdo é o COLABORADOR (não admin).
-    // A identidade vem da SESSÃO (não de parâmetro) — sem IDOR.
+    // A identidade vem da SESSÃO (sem IDOR) — EXCETO quando `colab` é passado
+    // explicitamente (pré-geração em lote por um job admin, por colaboradorId).
     const sb = createSupabaseAdmin();
     if (!contentId) return { success: false, error: 'contentId obrigatório' };
 
@@ -817,15 +818,17 @@ export async function gerarConteudoFinalPersonalizado({ contentId }: { contentId
       return { success: true, url: generico, personalized: false };
     }
 
-    const email = await getAuthenticatedEmailFromAction();
-    if (!email) return { success: true, url: generico, personalized: false };
-
-    // Colaborador (DISC + tenant)
-    const { findColabByEmail } = await import('@/lib/authz');
-    const colab: any = await findColabByEmail(
-      email,
-      'perfil_dominante, d_natural, i_natural, s_natural, c_natural, tp_introvertido_extrovertido, tp_sensor_intuitivo, empresa_id',
-    );
+    // Colaborador (DISC + tenant): passado pelo job (pré-geração) OU resolvido da sessão.
+    let colab: any = colabIn;
+    if (!colab) {
+      const email = await getAuthenticatedEmailFromAction();
+      if (!email) return { success: true, url: generico, personalized: false };
+      const { findColabByEmail } = await import('@/lib/authz');
+      colab = await findColabByEmail(
+        email,
+        'perfil_dominante, d_natural, i_natural, s_natural, c_natural, tp_introvertido_extrovertido, tp_sensor_intuitivo, empresa_id',
+      );
+    }
     const empresaId: string | null = colab?.empresa_id || null;
     const arq = derivarArquetipo(colab?.perfil_dominante);
     const arquetipoSlug = String(colab?.perfil_dominante || '').trim().toUpperCase().replace(/[^A-Z]/g, '') || 'NA';
@@ -907,6 +910,39 @@ export async function gerarConteudoFinalPersonalizado({ contentId }: { contentId
   } catch (err: any) {
     console.error('[gerarConteudoFinalPersonalizado]', err);
     return { success: true, url: generico, personalized: false, error: err?.message || 'Erro' };
+  }
+}
+
+/**
+ * Pré-gera (e cacheia) o ÁUDIO personalizado de um conteúdo de podcast para um
+ * colaborador específico — mesma lógica da rota /api/conteudo/[id]/podcast, mas
+ * por colaboradorId (pré-geração em lote). Idempotente: pula se o cache já existe.
+ */
+export async function prepararAudioPersonalizado({ contentId, colab }: { contentId: string; colab: any }) {
+  try {
+    const sb = createSupabaseAdmin();
+    const nome = colab?.nome_completo?.trim();
+    if (!nome || !colab?.id) return { success: false, error: 'colab inválido' };
+    const { data: content } = await sb.from('micro_conteudos')
+      .select('id, formato, conteudo_inline').eq('id', contentId).maybeSingle();
+    if (!content || content.formato !== 'audio') return { success: false, error: 'não é áudio' };
+
+    const sani = (v: string) => String(v || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const cachePath = `final/audio-personalizado/${sani(contentId)}/${sani(colab.id)}.mp3`;
+    const { data: cached } = await sb.storage.from('conteudos').download(cachePath);
+    if (cached) return { success: true, cached: true };
+
+    const { extractNarration, generatePersonalizedPodcastAudio } = await import('@/lib/gemini-tts');
+    const narracao = extractNarration(content.conteudo_inline || '');
+    if (narracao.length < 20) return { success: false, error: 'narração curta' };
+    const audio = await generatePersonalizedPodcastAudio(narracao, nome);
+    const { error } = await sb.storage.from('conteudos').upload(cachePath, audio.buffer, {
+      contentType: audio.contentType, upsert: true,
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro' };
   }
 }
 

@@ -756,6 +756,60 @@ async function aplicarOverlayKit(sb: any, plano: any[], colab: any, trilha: { co
   } catch { /* best-effort — nunca quebra a tela */ }
 }
 
+/**
+ * Pré-gera (e cacheia) as ENTREGAS personalizadas (PDF texto/case + áudio) das
+ * semanas JÁ LIBERADAS de cada colaborador — pra abertura instantânea (em vez de
+ * gerar on-demand no 1º clique). Idempotente: pula o que já está cacheado.
+ * Limita às semanas liberadas (não as 14) p/ não gerar o que ninguém vai abrir já.
+ */
+export async function prepararEntregasJornada(empresaId: string, opts: { colaboradorId?: string } = {}) {
+  await requireAdminAction('content.manage');
+  if (!empresaId) return { error: 'empresaId obrigatório' as const };
+  const { gerarConteudoFinalPersonalizado, prepararAudioPersonalizado } = await import('@/actions/conteudos');
+  const { semanaLiberadaPorData } = await import('@/lib/season-engine/week-gating');
+  const tdb = tenantDb(empresaId);
+
+  const colCols = 'id, nome_completo, cargo, empresa_id, perfil_dominante, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso';
+  let cq = tdb.from('colaboradores').select(colCols);
+  if (opts.colaboradorId) cq = cq.eq('id', opts.colaboradorId);
+  const { data: colabs } = await cq;
+  if (!colabs?.length) return { error: 'Sem colaboradores' as const };
+
+  let preparadas = 0, jaProntas = 0, falhas = 0, semanas = 0;
+  for (const colab of colabs as any[]) {
+    const { data: trilha } = await tdb.from('trilhas')
+      .select('competencia_foco, competencias_foco, temporada_plano, data_inicio')
+      .eq('colaborador_id', colab.id).order('criado_em', { ascending: false }).limit(1).maybeSingle();
+    if (!trilha?.temporada_plano) continue;
+    const plano = normalizeTemporadaPlano(trilha.temporada_plano);
+    await aplicarOverlayKit(tdb, plano, colab, trilha);
+
+    for (const s of plano) {
+      if (s?.tipo !== 'conteudo') continue;
+      if (!semanaLiberadaPorData(trilha.data_inicio, s.semana)) continue; // só liberadas
+      semanas++;
+      const conteudos = Array.isArray(s.conteudos_dia) && s.conteudos_dia.length
+        ? s.conteudos_dia.map((e: any) => e.conteudo).filter(Boolean)
+        : (s.conteudo ? [s.conteudo] : []);
+      for (const cont of conteudos) {
+        const fmts = cont.formatos_disponiveis || {};
+        for (const [formato, info] of Object.entries(fmts) as [string, any][]) {
+          if (formato === 'video') continue; // vídeo é do pipeline de célula
+          const cid = info?.id;
+          if (!cid) continue;
+          const r = formato === 'audio'
+            ? await prepararAudioPersonalizado({ contentId: cid, colab })
+            : await gerarConteudoFinalPersonalizado({ contentId: cid, colab });
+          if ((r as any)?.cached) jaProntas++;
+          else if ((r as any)?.success) preparadas++;
+          else falhas++;
+        }
+      }
+    }
+  }
+  return { ok: true as const, colaboradores: colabs.length, semanas, preparadas, jaProntas, falhas };
+}
+
 export async function listarTemporadasEmpresa(empresaId: string) {
   try {
     await requireAdminAction();

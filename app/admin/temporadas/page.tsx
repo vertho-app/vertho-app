@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import ReactMarkdown from 'react-markdown';
-import { ChevronRight, ChevronDown, BookOpen, Target, Sparkles, Video, FileText, Headphones, FileType, Pause, Play, Archive, RefreshCw, Eye, X, Unlock } from 'lucide-react';
+import { ChevronRight, ChevronDown, BookOpen, Target, Sparkles, Video, FileText, Headphones, FileType, Pause, Play, Archive, RefreshCw, Eye, X, Unlock, Download } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { listarTemporadasEmpresa, pausarRetomarTemporada, arquivarTemporada, regerarSemana, loadProgressoDetalhado, anteciparInicioTemporada } from '@/actions/temporadas';
+import { listarTemporadasEmpresa, pausarRetomarTemporada, arquivarTemporada, regerarSemana, loadProgressoDetalhado, anteciparInicioTemporada, prepararEntregasJornada } from '@/actions/temporadas';
 import { simularUmaSemanaSimulacao } from '@/actions/simulador-temporada';
 import { getSupabase } from '@/lib/supabase-browser';
 
@@ -49,6 +49,16 @@ export default function TemporadasAdminPage() {
     await pausarRetomarTemporada(trilhaId);
     await recarregar();
     setBusy(false);
+  }
+
+  async function handlePreparar(colaboradorId, nome) {
+    if (!empresaId) { alert('Abra esta tela no contexto de uma empresa (?empresa=...).'); return; }
+    if (!confirm(`Pré-gerar as entregas (PDF/áudio personalizados) das semanas já liberadas de ${nome || 'colaborador'}? Abre instantâneo depois.`)) return;
+    setBusy(true);
+    const r = await prepararEntregasJornada(empresaId, { colaboradorId });
+    setBusy(false);
+    if (r.error) alert(r.error);
+    else alert(`Entregas: ${r.preparadas} geradas · ${r.jaProntas} já prontas · ${r.falhas} falhas (${r.semanas} semana(s) liberada(s))`);
   }
 
   async function handleLiberar(trilhaId, nome) {
@@ -152,6 +162,7 @@ export default function TemporadasAdminPage() {
                 onToggle={() => setExpanded(expanded === t.id ? null : t.id)}
                 onPausar={() => handlePausar(t.id)}
                 onLiberar={() => handleLiberar(t.id, t.colab?.nome_completo)}
+                onPreparar={() => handlePreparar(t.colaborador_id, t.colab?.nome_completo)}
                 onArquivar={() => handleArquivar(t.id, t.colab?.nome_completo)}
                 onRegerar={(semana) => handleRegerar(t.id, semana)}
                 onSimular={() => handleSimular(t.id, t.colab?.nome_completo || t('fallback.collaborator'))}
@@ -186,7 +197,7 @@ export default function TemporadasAdminPage() {
   );
 }
 
-function TemporadaCard({ t, expanded, onToggle, onPausar, onLiberar, onArquivar, onRegerar, onSimular, onVerDetalhe, busy }) {
+function TemporadaCard({ t, expanded, onToggle, onPausar, onLiberar, onPreparar, onArquivar, onRegerar, onSimular, onVerDetalhe, busy }) {
   const tr = useTranslations('AdminSeasons');
   const colab = t.colab || {};
   const semanas = Array.isArray(t.temporada_plano) ? t.temporada_plano : [];
@@ -218,6 +229,10 @@ function TemporadaCard({ t, expanded, onToggle, onPausar, onLiberar, onArquivar,
             <button onClick={onLiberar} disabled={busy} title="Liberar semanas agora (antecipa o início — teste/demo)"
               className="p-1.5 rounded hover:bg-white/10 text-emerald-400 disabled:opacity-50">
               <Unlock size={14} />
+            </button>
+            <button onClick={onPreparar} disabled={busy} title="Pré-gerar entregas (PDF/áudio) das semanas liberadas — abre instantâneo"
+              className="p-1.5 rounded hover:bg-white/10 text-cyan-400 disabled:opacity-50">
+              <Download size={14} />
             </button>
             <button onClick={onPausar} disabled={busy} title={statusKey === 'pausada' ? tr('card.resume') : tr('card.pause')}
               className="p-1.5 rounded hover:bg-white/10 text-amber-400 disabled:opacity-50">
