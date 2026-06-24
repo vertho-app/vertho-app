@@ -18,9 +18,10 @@ Fonte **canônica e versionada** por `(competência × descritor × transição 
 
 ## Escopo
 
-- **Platform-level (Vertho)**. Não tem `empresa_id`. Todo módulo publicado é visível a todos os tenants.
-- **i18n nativa** desde o início — variantes por locale (`pt-BR`, `pt-PT`, `es-ES`, `en-US`) agrupadas pelo mesmo módulo conceitual (`grupo_id`).
-- **Múltiplos variantes pedagógicos** podem coexistir pra mesma transição de nível (engine resolve com critério explícito).
+- **Global (canônico)** OU **exclusivo de uma empresa**. `empresa_id` null = canônico (visível a todos os tenants); preenchido = exclusivo do tenant.
+- **Competência POLIMÓRFICA** (mig 149): o módulo chaveia por `competencia_base_id` (catálogo canônico `competencias_base`) **OU** `competencia_id` (modelo da própria empresa, tabela `competencias`) — CHECK garante 1 dos 2. Empresas com pilares próprios fora do canônico (ex.: Empreendedorismo) extraem módulos chaveados por `competencia_id`. Ver `project_extracao_modulo_empresa` (memória).
+- **i18n nativa** — variantes por locale (`pt-BR`, `pt-PT`, `es-ES`, `en-US`) agrupadas pelo mesmo módulo conceitual (`grupo_id`).
+- **Múltiplos variantes** podem coexistir pra mesma transição de nível (engine resolve por score explícito).
 
 ---
 
@@ -230,38 +231,35 @@ Action `rascunharModuloBase({ competencia_base_id, nivel_entrada, nivel_destino,
 5. Persistido como `status = rascunho` atribuído ao autor logado.
 6. Humano abre, edita o que quiser, manda pra revisão.
 
-### 3. Import de `.docx`
-Action `importarModuloDocx({ arquivo, competencia_base_id, nivel_entrada, nivel_destino, locale, contexto_pedagogico? })`:
+### 3. Extração de vídeo/material (segmentação → N módulos)
+Porta única em `/admin/vertho/modulos-base/extracao-video` (o botão "Importar .docx" foi APOSENTADO — `importarModuloDocx`/`detectarMetadadosDocx` ficaram dormentes). Aceita **YouTube/Vimeo/TED/LMS** (transcrição) e **PDF/DOCX/TXT** (inclusive livros longos).
 
-1. Extrai texto do `.docx` usando `mammoth` (converte pra markdown/texto preservando headings e listas).
-2. Manda pro LLM **o texto extraído + este spec + a competência canônica de destino**.
-3. IA estrutura o conteúdo do docx no JSON dos 4 blocos (mesmo schema da `rascunharModuloBase`). Trata o docx como **fonte de matéria-prima**, não como já-estruturado — porque docs em formato livre raramente respeitam 100% o template.
-4. Saída validada e persistida como `status = rascunho`.
-5. Anexa preview com aviso de campos não-confiáveis (ex.: "extraído com baixa confiança de [seção X]") pra revisão humana.
+1. **Async** via trigger.dev: `submeterMaterialAsync`/`extrairVideo` → tasks `estruturar-material`/`extrair-video`.
+2. As tasks rodam a segmentação **IN-TASK** (`segmentarEEstruturarExtracao` em `modulos-base.ts`) — NÃO mais via a rota `/api/internal/modulo-from-video` (que tinha o teto de 800s da Vercel; virou wrapper fino). `maxDuration` 1h; caps env `EXTRACAO_MAX_JANELAS`/`EXTRACAO_MAX_SECOES` (default 60/80). Idempotente (não duplica no retry).
+3. `criarModulosDeTranscricao` → `segmentarTranscricao` fatia o texto em janelas (map-reduce), a IA-autora (`SYSTEM_AUTOR`) estrutura cada seção nos 4 blocos. **Direcionador** opcional (pilar/competência) orienta o match.
+4. **Escopo empresa**: o segmentador usa o catálogo de competências DA EMPRESA; o **descritor é escolhido da LISTA do modelo** (não texto livre — a IA copia um descritor real; `ancorarDescritor` é a rede de segurança). Módulo aponta p/ `competencia_id`.
+5. Saída sempre `status = rascunho`.
 
-> O output dos caminhos 2 e 3 é **sempre rascunho** — nunca publica direto. A revisão humana é obrigatória.
+> O output dos caminhos 2 e 3 é **sempre rascunho** — nunca publica direto. A revisão humana (+ IA-auditora) é obrigatória.
 
 ---
 
 ## Como o engine consome (resolução)
 
-Pra cada conteúdo a gerar `(colab, semana, competencia_foco, formato, locale)`:
+`resolverModuloBaseParaConteudo(sb, {competenciaNome, descritor, nivelMin, locale, contexto_pedagogico, cargo, empresaId})`:
 
-1. **Resolve** módulos-base publicados em `(competencia_base_id, nivel_entrada=N atual do colab, nivel_destino=N+1)`. A `competencia_foco` do colab/semana já aponta pra `competencias_base` (ou faz `competencias.cod_comp ↔ competencias_base.cod_comp`).
-2. **Filtra por locale** do colab. Sem hit → fallback pra `pt-BR`.
-3. Se nenhum módulo existir mesmo após fallback → **fallback completo** pro prompt atual do engine (backward compatible — nada quebra enquanto módulos vão sendo escritos).
-4. Se múltiplos variantes (grupos) sobram, **ordena por**:
-   1. `preferido = true` (admin Vertho marcou um como padrão).
-   2. Match exato de `contexto_pedagogico` com o contexto institucional do tenant.
-   3. Maior interseção de `tags` com o contexto do colab.
-   4. `published_at` mais recente (desempate).
-5. Injeta no prompt:
-   - **System**: `ideia_principal` + `principios` + `guarda_corpos.preservar` + `guarda_corpos.evitar` + `cuidados_eticos` + `cuidados_linguagem`.
-   - **User**: `exemplos_universais` + `repertorio_linguagem` + `boas_praticas` (filtrados por contexto) + dados do colab (cargo, DISC, learn_prefs) para adaptação de tom.
-   - Se `formato ∈ {texto, podcast_roteiro, video_roteiro}`: anexa `adaptacao_por_formato[formato]` ao system prompt.
-6. **Logar telemetria**: qual módulo foi escolhido, por qual critério, qual formato. Permite refinar a heurística depois.
+1. **Resolve a competência pelo NOME** nos DOIS catálogos: canônico (`competencias_base` → `competencia_base_id`) E o modelo da empresa (`competencias` → `competencia_id`, quando há `empresaId`).
+2. **Candidatos**: módulos `publicado` em `(competência [base OU empresa], nivel_entrada, nivel_destino, locale)` + escopo (global + exclusivos do tenant). Sem hit no locale → fallback `pt-BR`. Sem nenhum → **fallback completo** pro prompt do engine (backward compatible).
+3. **Escolha por SCORE ponderado** (não mais cascata):
+   - **RELEVÂNCIA ao descritor da semana** (peso 100): **semântica via embedding** (`descritor_embedding vector(1024)` × `embedQuery(descritor)`, cosseno — pega paráfrase/sinônimo); cai p/ overlap de tokens sem embedding.
+   - **EXCLUSIVO do tenant** (30) · **NOTA da IA-auditora** 0–10 (22) · **PREFERIDO** (10, empurrão não trunfo).
+   - **FIT POR CARGO** (5, via `contexto_pedagogico`) · **ANTI-REPETIÇÃO** (−25 se o módulo já gerou conteúdo desta competência — `micro_conteudos.modulo_base_id`) · contexto/tags/recência (desempates).
+4. Injeta no prompt (system: ideia+princípios+guarda-corpos+adaptação; user: exemplos+repertório+situações+boas práticas). `criterio` logado (ex.: `descritor-semântico(0.63) · exclusivo-do-tenant · nota(8.4) · reuso(penalizado)`).
 
-> DISC e preferências de aprendizagem **continuam vindo do colab** — o módulo-base é DISC-neutro.
+> DISC e preferências de aprendizagem **continuam vindo do colab** — o módulo-base é DISC-neutro. Embedding gerado na PUBLICAÇÃO (`aprovarPublicar`, `lib/embeddings`, OpenAI text-embedding-3-small, `EMBEDDING_PROVIDER`).
+
+### Cobertura
+`/admin/vertho/modulos-base/cobertura` (`coberturaPorDescritor`): matriz competência × descritor do modelo da empresa, mostra quantos módulos por célula (publicados/rascunhos + melhor nota) — pra ver o que falta produzir.
 
 ---
 
@@ -279,4 +277,12 @@ Pra cada conteúdo a gerar `(colab, semana, competencia_foco, formato, locale)`:
 
 - **Frente 1** — spec consolidada (este arquivo) + template copy-fill (`TEMPLATE-MODULO-BASE.md`).
 - **Frente 2** — migration 122 (`modulos_base_conteudo`, ENUMs, índices, RLS), admin Vertho-only (`/admin/vertho/modulos-base` lista+form, modais "Rascunhar com IA" e "Importar .docx" via `mammoth`), `actions/modulos-base.ts` (CRUD + workflow com bloqueio criador≠aprovador + i18n + `rascunharModuloBase` + `importarModuloDocx`), task `modulo_base_autor` no `ai-tasks`.
-- **Frente 3** — integração com o engine via `lib/season-engine/modulo-base-integration.ts`: `actions/conteudos.ts::gerarConteudoIA` resolve módulo publicado em `(competência canônica, transição N→N derivada de nivelMin, locale)` e enriquece system+user com seções canônicas (ideia, princípios, guarda-corpos, exemplos, repertório, situações, boas práticas, adaptação por formato). Fallback transparente: sem módulo OU erro no resolver, o engine cai pro comportamento anterior. Telemetria logada com critério da escolha (`preferido`, `contexto-match`, `fallback-locale`, `desempate-em-N`).
+- **Frente 3** — integração com o engine via `lib/season-engine/modulo-base-integration.ts`: `actions/conteudos.ts::gerarConteudoIA` resolve módulo publicado e enriquece system+user com seções canônicas. Fallback transparente: sem módulo OU erro no resolver, o engine cai pro comportamento anterior.
+- **Frente 4 (23-24/06)** — extração escalada e seleção inteligente:
+  - **Extração por modelo da EMPRESA** (mig 149): módulo polimórfico `competencia_base_id`/`competencia_id`; descritor ANCORADO no modelo (IA escolhe da lista).
+  - **Botões unificados** (docx aposentado) + **direcionador** (pilar/competência) restaurado.
+  - **Segmentação IN-TASK** (trigger, sem teto de 800s da Vercel); caps env; idempotente.
+  - **Seleção inteligente** (mig 150): embeddings semânticos + nota da auditoria + anti-repetição (`micro_conteudos.modulo_base_id`) + fit por cargo.
+  - **Tela de cobertura** por descritor.
+  - **Qualidade**: `SYSTEM_AUTOR` proíbe vazar níveis/maturidade no conteúdo, manda distilar (não copiar forma de aula), calibra linguagem ao público. Levers pendentes: autora em Claude + loop de auto-revisão.
+  - Detalhes e estado em `project_extracao_modulo_empresa` (memória).
