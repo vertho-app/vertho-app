@@ -136,8 +136,18 @@ export default function ModuloBaseEditPage({ params }: { params: Promise<{ id: s
       if ('error' in r && r.error) { setErro(r.error); return; }
       const vAnt = (r as any).versaoAnterior;
       const vNov = (r as any).versaoNova;
+      const nAnt = (r as any).notaAnterior;
+      const nNov = (r as any).notaNova;
+      const delta = (typeof nAnt === 'number' && typeof nNov === 'number')
+        ? ` (nota ${nAnt.toFixed(1)} → ${nNov.toFixed(1)})` : '';
+      if ((r as any).revertido) {
+        // O refino piorou a nota — reverteu pra versão anterior automaticamente.
+        setErro(`O refino baixou a nota${delta}, então a versão anterior (v${vAnt}) foi mantida. Tente editar manualmente os pontos da auditoria ou refine de novo.`);
+        carregar();
+        return;
+      }
       const novoVer = (r as any).auditoria?.veredito;
-      setAviso(`v${vAnt} → v${vNov}${novoVer ? ` · auditora agora: ${novoVer.replace(/_/g, ' ')}` : ''}`);
+      setAviso(`v${vAnt} → v${vNov}${delta}${novoVer ? ` · auditora agora: ${novoVer.replace(/_/g, ' ')}` : ''}`);
       carregar();
     } finally {
       if (refIntervalRef.current) clearInterval(refIntervalRef.current);

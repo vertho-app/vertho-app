@@ -48,6 +48,15 @@ async function carregarCompetenciaEmpresa(id: string) {
   return data;
 }
 
+// Resolve a competência do módulo no catálogo certo: canônico (competencia_base_id)
+// OU modelo da empresa (competencia_id). Sem isto, módulos de empresa eram
+// auditados/refinados SEM o descritor — degradando o julgamento da IA.
+async function carregarCompetenciaDoModulo(m: any): Promise<any> {
+  if (m?.competencia_base_id) return carregarCompetenciaBase(m.competencia_base_id);
+  if (m?.competencia_id) return carregarCompetenciaEmpresa(m.competencia_id);
+  return null;
+}
+
 // ── Parsing tolerante do JSON do corpo ────────────────────────────────────────
 // Aceita JSON parcial (mesmo que falte 1 dos 4 blocos — o ausente vira {} e
 // a revisão humana / IA-auditora pega depois). Antes, qualquer ausência
@@ -1524,22 +1533,33 @@ export async function segmentarEEstruturarExtracao(
 // (padrão Dual-IA — substitui revisão humana cruzada)
 // ════════════════════════════════════════════════════════════════════════════
 
-const SYSTEM_AUDITOR = `Você é IA-auditora de Módulos-Base de Conteúdo da Vertho. Sua tarefa é validar RIGOROSAMENTE um módulo gerado pela IA-autora contra a spec oficial e os próprios guarda-corpos do módulo. NÃO suavize: marque qualquer problema real.
+const SYSTEM_AUDITOR = `Você é IA-auditora de Módulos-Base de Conteúdo da Vertho. Avalie um módulo gerado pela IA-autora contra a spec oficial e os próprios guarda-corpos do módulo.
+
+POSTURA — rigorosa com DEFEITO REAL, justa com o resto:
+- Marque só o que você de fato corrigiria. NÃO invente problema pra parecer exigente; NÃO transforme preferência de estilo em defeito.
+- O módulo é INSUMO pra IA gerar conteúdo depois — NÃO é o texto final que o colaborador lê. Pequenas asperezas de forma são polidas na geração; não as trate como falhas do módulo.
+- Um módulo com estrutura completa e sem defeito grave MERECE nota alta. Se está bom, diga que está bom.
 
 CRITÉRIOS DE AUDITORIA (verifique TODOS):
-1. ESTRUTURA — 4 blocos presentes? conteudo_central com ideia/explicação/≥5 princípios/síntese? conteudo_aplicavel com ≥4 situações/exemplos universais (5 chaves)/≥4 erros/repertório (6 categorias)/≥4 boas práticas? guarda_corpos com preservar/evitar/cuidados? adaptacao_por_formato com texto/podcast_roteiro/video_roteiro?
+1. ESTRUTURA — 4 blocos presentes? conteudo_central com ideia/explicação/≥5 princípios/síntese? conteudo_aplicavel com ≥4 situações/exemplos universais (5 chaves)/≥4 erros/repertório (≥6 categorias)/≥4 boas práticas? guarda_corpos com preservar/evitar/cuidados? adaptacao_por_formato com texto/podcast_roteiro/video_roteiro? — Subcampos EXTRAS além do mínimo NÃO são problema. Só conta o que está ABAIXO do mínimo.
 2. NÃO É RÉGUA DE MATURIDADE — o conteúdo descreve conhecimento aplicável, não comportamentos observáveis por nível. Repetir a régua de maturidade é problema GRAVE.
 3. NÃO É AULA FINAL — o módulo é matéria-prima pedagógica pra IA gerar conteúdo depois, não é texto pronto pra colaborador ler.
-4. EXEMPLOS UNIVERSAIS — sem cargo específico (salvo se módulo é declaradamente exclusivo de um contexto); sem nomes próprios reais; sem situações ultra-específicas.
+4. EXEMPLOS UNIVERSAIS — sem cargo específico (salvo se módulo é declaradamente exclusivo de um contexto); sem nomes próprios reais. Um exemplo CONCRETO é desejável; só marque se for tão específico que não transfere pra outros contextos.
 5. NADA INVENTADO — leis, normas, estatísticas, citações fabricadas. Gravidade alta.
 6. SEM DIAGNÓSTICO PSICOLÓGICO. SEM DISC determinista. Linguagem evita rotular pessoa.
 7. AUTO-CONSISTÊNCIA — exemplos e linguagem respeitam os guarda_corpos do PRÓPRIO módulo (não contradizem).
 8. PROFUNDIDADE — explicação expandida tem substância (não é stub); princípios têm implicação prática (não genéricos); situações têm risco_comum E boa_abordagem distintos.
-9. LINGUAGEM CLARA — sem jargão excessivo; tom profissional aplicado.
+9. LINGUAGEM — tom profissional aplicado. Vocabulário NATIVO do domínio da competência (ex.: "margem", "liquidez", "fluxo de caixa" num módulo de empreendedorismo/gestão) é APROPRIADO — não é "jargão excessivo". Só marque jargão GRATUITO pro público declarado, ou densidade que realmente atrapalhe o entendimento.
+
+COMO CLASSIFICAR GRAVIDADE (seja honesta — a maioria dos achados de um módulo decente é BAIXA):
+- ALTA: inviabiliza o uso — invenção factual, violação ética, cópia da régua de maturidade, bloco essencial ausente/stub, contradição clara com o próprio guarda-corpo, conceito central errado.
+- MEDIA: defeito real que vale corrigir mas não inviabiliza — falta de um mínimo estrutural, 1 princípio sem implicação prática, 1 exemplo que claramente não transfere.
+- BAIXA: polimento / preferência. Se o achado é "poderia ser um pouco mais X", é BAIXA — ou não é problema.
+- NUNCA classifique preferência subjetiva como MEDIA. Na dúvida entre média e baixa, escolha BAIXA.
 
 RETORNE APENAS JSON válido:
 {
-  "nota": 0 a 10 (com 1 casa decimal — 0.0 inservível, 10.0 perfeito),
+  "nota": 0 a 10 (com 1 casa decimal),
   "veredito": "aprovado" | "aprovado_com_ressalvas" | "reprovado",
   "problemas": [
     {
@@ -1553,17 +1573,24 @@ RETORNE APENAS JSON válido:
   "confianca": 0.0 a 1.0
 }
 
-ESCALA DE NOTA (0-10, com 1 casa decimal):
-- 9.0-10: módulo modelar — estrutura completa, sem problemas relevantes, exemplos universais, linguagem precisa.
-- 7.0-8.9: bom com ajustes menores — só problemas de gravidade média/baixa.
-- 5.0-6.9: limítrofe — vários ajustes médios ou 1-2 problemas altos pontuais.
-- 3.0-4.9: insuficiente — múltiplos problemas altos ou bloco essencial fraco.
-- 0.0-2.9: inservível — falhas estruturais graves ou conceito incorreto.
+NOTA (0-10, 1 casa decimal) — ANCORE assim, não chute:
+- Comece em 10.0. Subtraia por problema: ALTA −2.5 · MEDIA −0.6 · BAIXA −0.1.
+- PISO 7.0: se os 4 blocos estão completos (mínimos atendidos) e NÃO há nenhum problema ALTA, a nota NÃO cai abaixo de 7.0 — defeitos média/baixa são polimento, não inviabilizam um insumo sólido.
+- TETO 4.9: qualquer problema ALTA limita a nota a no máximo 4.9.
+- Sem o PISO (estrutura furada / mínimos não atendidos / conceito frágil) a nota pode cair a 5.0-6.9 mesmo sem ALTA.
+- Arredonde a 1 casa decimal, entre 0.0 e 10.0.
+
+Bandas de referência (devem casar com a conta acima):
+- 9.0-10: modelar — sem defeito relevante.
+- 7.0-8.9: bom — só ajustes de polimento (média/baixa), estrutura completa.
+- 5.0-6.9: precisa de trabalho — estrutura furada OU conceito frágil (sem chegar a defeito grave).
+- 3.0-4.9: insuficiente — ≥1 problema ALTA ou bloco essencial fraco.
+- 0.0-2.9: inservível.
 
 REGRA DE VEREDITO (deve casar com a nota):
 - "reprovado" se houver ≥1 problema de gravidade ALTA OU nota < 5.0.
-- "aprovado_com_ressalvas" se nota entre 5.0 e 8.9 (só problemas média/baixa).
-- "aprovado" se nota ≥ 9.0 e nenhum problema apontado.
+- "aprovado" se nota ≥ 9.0 e nenhum problema de gravidade média ou alta (só baixas, ou nenhum).
+- "aprovado_com_ressalvas" nos demais casos (nota 5.0-8.9, sem ALTA).
 - "confianca" = sua certeza no próprio veredito (0-1).`;
 
 export async function auditarModuloBase(id: string) {
@@ -1572,7 +1599,7 @@ export async function auditarModuloBase(id: string) {
   const { data: m } = await sb.from('modulos_base_conteudo').select(COLS).eq('id', id).maybeSingle();
   if (!m) return { error: 'Módulo não encontrado' };
 
-  const comp = await carregarCompetenciaBase(m.competencia_base_id);
+  const comp = await carregarCompetenciaDoModulo(m);
 
   const userPrompt = `## CONTEXTO
 - Competência: ${comp?.nome || '—'} (${comp?.segmento || '—'})
@@ -1696,6 +1723,7 @@ Você é a MESMA IA-autora que produziu a versão atual. A IA-auditora avaliou e
 3. **PRESERVA** tudo que não foi apontado como problema — não regere o que está bom.
 4. **MANTÉM** consistência conceitual com a versão atual (a auditora vai re-avaliar a comparação).
 5. **RESPEITA** o spec original do Módulo-Base (4 blocos completos com os mínimos: ≥5 princípios, ≥4 situações, ≥4 erros, ≥4 boas práticas).
+6. **NÃO PIORE o que já passou** — a meta é melhora MONOTÔNICA: a próxima auditoria deve SUBIR, não cair. Não troque exemplos por outros mais específicos pra "consertar universalidade" — GENERALIZE os existentes. Não reescreva blocos que a auditora não apontou. Cada mudança deve atacar um problema listado — nada de reescrita cosmética que abre flancos novos.
 
 Retorne APENAS JSON válido com a estrutura completa dos 4 blocos. Sem markdown, sem comentários.`;
 }
@@ -1715,7 +1743,7 @@ export async function refinarComFeedback(id: string) {
     return { error: 'A auditoria não corresponde à versão atual do módulo. Reauditar antes de refinar.' };
   }
 
-  const comp = await carregarCompetenciaBase(m.competencia_base_id);
+  const comp = await carregarCompetenciaDoModulo(m);
   const userPrompt = montarPromptRefinador(m, comp, a);
 
   // IA-autora (Claude Sonnet por default — mesmo modelo da geração inicial,
@@ -1726,6 +1754,21 @@ export async function refinarComFeedback(id: string) {
 
   const versaoAnterior = m.versao || 1;
   const novaVersao = versaoAnterior + 1;
+  const notaAnterior = typeof a?.nota === 'number' ? a.nota : null;
+
+  // Snapshot da versão atual ANTES de sobrescrever — o refino é destrutivo (não
+  // mantém histórico), então sem isto uma versão refinada PIOR apagaria a melhor.
+  const snapshotAnterior = {
+    conteudo_central: m.conteudo_central,
+    conteudo_aplicavel: m.conteudo_aplicavel,
+    guarda_corpos: m.guarda_corpos,
+    adaptacao_por_formato: m.adaptacao_por_formato,
+    versao: versaoAnterior,
+    auditoria_ia: m.auditoria_ia,
+    auditado_em: m.auditado_em,
+    auditado_por_modelo: m.auditado_por_modelo,
+    auditado_em_versao: m.auditado_em_versao,
+  };
 
   const { error: upErr } = await sb.from('modulos_base_conteudo').update({
     conteudo_central:      corpo.conteudo_central      || m.conteudo_central,
@@ -1741,10 +1784,30 @@ export async function refinarComFeedback(id: string) {
   if ('error' in auditResult && auditResult.error) {
     return { ok: true, versaoAnterior, versaoNova: novaVersao, aviso_auditoria: auditResult.error };
   }
+  const novaAuditoria = (auditResult as any).auditoria;
+  const notaNova = typeof novaAuditoria?.nota === 'number' ? novaAuditoria.nota : null;
+
+  // Guarda anti-regressão: se o refino BAIXOU a nota, reverte pra versão anterior.
+  // Garante que clicar "Refinar com IA" nunca piora o módulo (melhora monotônica
+  // do ponto de vista do humano). Variância da auditora não pode destruir uma boa versão.
+  if (notaAnterior != null && notaNova != null && notaNova < notaAnterior) {
+    await sb.from('modulos_base_conteudo').update(snapshotAnterior).eq('id', id);
+    return {
+      ok: true,
+      revertido: true,
+      versaoAnterior,
+      notaAnterior,
+      notaNova,
+      auditoria: snapshotAnterior.auditoria_ia,
+    };
+  }
+
   return {
     ok: true,
     versaoAnterior,
     versaoNova: novaVersao,
-    auditoria: (auditResult as any).auditoria,
+    notaAnterior,
+    notaNova,
+    auditoria: novaAuditoria,
   };
 }
