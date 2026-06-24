@@ -1193,7 +1193,7 @@ function parseSecoesBlocos(raw: string): any[] {
 
 /** Segmenta UMA janela de texto (≤ ~110k chars) numa chamada (com retry). */
 async function segmentarJanela(texto: string, tituloVideo: string, ctx: SegCtx): Promise<{ secoes: SegSecao[]; diag: string }> {
-  const montarUser = (incluirDirecionamento: boolean) => `${incluirDirecionamento && ctx.direcionamentoTexto ? `${ctx.direcionamentoTexto}\n\n` : ''}CATÁLOGO DE COMPETÊNCIAS (escolha sempre 1 por seção — id EXATO):
+  const montarUser = (incluirDirecionamento: boolean) => `${incluirDirecionamento && ctx.direcionamentoTexto ? `${ctx.direcionamentoTexto}\n\n` : ''}${ctx.empresa ? `REGRA DO DESCRITOR (obrigatória): o campo "descritor" de cada seção DEVE ser COPIADO LITERALMENTE de um dos descritores listados sob a competência escolhida. Escolha o que melhor descreve a seção — NUNCA escreva um descritor novo. Se a seção tocar mais de um, escolha o predominante.\n\n` : ''}CATÁLOGO DE COMPETÊNCIAS (escolha sempre 1 por seção — id EXATO):
 ${ctx.compsListagem}
 
 TÍTULO: ${tituloVideo || '—'}
@@ -1302,8 +1302,18 @@ async function segmentarTranscricao(
 - Competência base preferida: ${direcionamento?.competenciaBaseId || '—'}
 Regra: se a competência base preferida aparecer no catálogo e o trecho for compatível, use esse id. Se não aparecer ou não for compatível, escolha a competência canônica mais próxima dentro do mesmo pilar/tema.`
     : '';
+  // Empresa: o catálogo LISTA os descritores do modelo por competência — a IA
+  // ESCOLHE um deles (semântica > token snap). Global: 1 linha por competência.
+  const compsListagem = listaOrdenada.slice(0, 200).map((c) => {
+    if (empresaId) {
+      const ds = descritoresPorComp.get(String(c.nome).trim().toLowerCase()) || [];
+      const dl = ds.map((d) => `    • ${d}`).join('\n');
+      return `- ${c.id} :: ${c.nome}${c.pilar ? ' (' + c.pilar + ')' : ''}${dl ? `\n  DESCRITORES desta competência (copie UM literalmente no campo "descritor"):\n${dl}` : ''}`;
+    }
+    return `- ${c.id} :: ${c.nome} (${c.segmento}${c.pilar ? ' / ' + c.pilar : ''})${c.descritor_completo || c.descricao ? ' — ' + (c.descritor_completo || c.descricao) : ''}`;
+  }).join('\n');
   const ctx: SegCtx = {
-    compsListagem: listaOrdenada.slice(0, 200).map((c) => `- ${c.id} :: ${c.nome} (${c.segmento}${c.pilar ? ' / ' + c.pilar : ''})${c.descritor_completo || c.descricao ? ' — ' + (c.descritor_completo || c.descricao) : ''}`).join('\n'),
+    compsListagem,
     direcionamentoTexto,
     idSet: new Set(lista.map((c) => c.id)),
     nomeParaId: new Map(lista.map((c) => [c.nome.trim().toLowerCase(), c.id])),
