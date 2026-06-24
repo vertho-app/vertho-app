@@ -393,3 +393,39 @@ export async function listarExtracoesAndamento(origemEmpresaId: string | null) {
     return { data: [] };
   }
 }
+
+/**
+ * Exclui UMA entrada do histórico de extrações (tabela extracoes_video). É só um
+ * LOG — a FK p/ modulos_base_conteudo é ON DELETE SET NULL, então apagar a entrada
+ * NÃO apaga os módulos já gerados.
+ */
+export async function excluirExtracao(id: string) {
+  try {
+    await requireAdminAction('content.manage');
+    const sb = await requireAdminSupabase();
+    const { error } = await sb.from('extracoes_video').delete().eq('id', id);
+    if (error) return { error: error.message };
+    return { ok: true };
+  } catch (err: any) {
+    return { error: err?.message || 'Falha ao excluir extração' };
+  }
+}
+
+/**
+ * Limpa o histórico de extrações do escopo de origem listado, PRESERVANDO as que
+ * ainda estão 'processing' (pra não perder a linha que a task em andamento atualiza).
+ * Não afeta os módulos gerados (FK SET NULL).
+ */
+export async function limparHistoricoExtracoes(origemEmpresaId: string | null) {
+  try {
+    await requireAdminAction('content.manage');
+    const sb = await requireAdminSupabase();
+    let q = sb.from('extracoes_video').delete({ count: 'exact' }).neq('status', 'processing');
+    q = origemEmpresaId ? q.eq('origem_empresa_id', origemEmpresaId) : q.is('origem_empresa_id', null);
+    const { error, count } = await q;
+    if (error) return { error: error.message };
+    return { ok: true, removidas: count ?? 0 };
+  } catch (err: any) {
+    return { error: err?.message || 'Falha ao limpar histórico' };
+  }
+}

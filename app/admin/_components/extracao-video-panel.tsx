@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Loader2, Sparkles, FileText, CheckCircle2, Clock, AlertCircle, Send, Layers, ExternalLink, Upload, CircleSlash } from 'lucide-react';
-import { extrairVideo, gerarModuloBaseDoVideo, submeterExtracaoAsync, listarExtracoesAndamento, submeterMaterialAsync, submeterTextoBaseAsync, listarDirecionadoresExtracao } from '@/actions/extracao-video';
+import { Loader2, Sparkles, FileText, CheckCircle2, Clock, AlertCircle, Send, Layers, ExternalLink, Upload, CircleSlash, X, Trash2 } from 'lucide-react';
+import { extrairVideo, gerarModuloBaseDoVideo, submeterExtracaoAsync, listarExtracoesAndamento, submeterMaterialAsync, submeterTextoBaseAsync, listarDirecionadoresExtracao, excluirExtracao, limparHistoricoExtracoes } from '@/actions/extracao-video';
 import type { DirecionamentoExtracao } from '@/actions/extracao-video';
 
 /**
@@ -56,8 +56,28 @@ export default function ExtracaoVideoPanel({
   const [matNome, setMatNome] = useState('');
   const [processandoMat, setProcessandoMat] = useState(false);
 
+  const [limpando, setLimpando] = useState(false);
+
   function carregarExtracoes() {
     listarExtracoesAndamento(origemEmpresaId).then((r) => setExtracoes(r.data || []));
+  }
+
+  async function removerExtracao(id: string) {
+    setExtracoes((xs) => xs.filter((x) => x.id !== id)); // otimista
+    const r = await excluirExtracao(id);
+    if (r?.error) { flash(r.error); carregarExtracoes(); }
+  }
+
+  async function limparConcluidas() {
+    const concluidas = extracoes.filter((e) => e.status !== 'processing').length;
+    if (!concluidas) { flash('Nada para limpar.'); return; }
+    if (!window.confirm(`Limpar ${concluidas} entrada(s) concluída(s) do histórico? Os módulos já gerados NÃO são apagados.`)) return;
+    setLimpando(true);
+    const r = await limparHistoricoExtracoes(origemEmpresaId);
+    setLimpando(false);
+    if (r?.error) flash(r.error);
+    else flash(`${r.removidas ?? 0} entrada(s) removida(s).`);
+    carregarExtracoes();
   }
   useEffect(() => {
     carregarExtracoes();
@@ -343,7 +363,17 @@ export default function ExtracaoVideoPanel({
         </button>
 
         {extracoes.length > 0 && (
-          <div className="mt-3 space-y-1.5">
+          <div className="mt-3">
+            <div className="flex items-center justify-between mb-1.5 px-1">
+              <span className="text-[10px] uppercase tracking-wide text-gray-500">Histórico de processamento</span>
+              <button
+                onClick={limparConcluidas}
+                disabled={limpando || !extracoes.some((e) => e.status !== 'processing')}
+                className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-red-300 disabled:opacity-30 disabled:cursor-not-allowed">
+                {limpando ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />} Limpar concluídas
+              </button>
+            </div>
+            <div className="space-y-1.5">
             {extracoes.map((e) => (
               <div key={e.id} className="flex items-center gap-2 text-[11px] rounded-lg px-3 py-1.5" style={{ background: '#091D35' }}>
                 {e.status === 'processing' && <Loader2 size={12} className="animate-spin text-amber-400 shrink-0" />}
@@ -364,8 +394,17 @@ export default function ExtracaoVideoPanel({
                     {e.status === 'processing' ? 'processando' : 'erro'}
                   </span>
                 )}
+                {e.status !== 'processing' && (
+                  <button
+                    onClick={() => removerExtracao(e.id)}
+                    title="Remover do histórico (não apaga os módulos)"
+                    className="shrink-0 text-gray-600 hover:text-red-300">
+                    <X size={13} />
+                  </button>
+                )}
               </div>
             ))}
+            </div>
           </div>
         )}
       </div>
