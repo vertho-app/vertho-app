@@ -525,7 +525,11 @@ function editorialBody(
         )
       : null;
 
-    return e(View, { key: `sec-${si}` },
+    // A seção de REFLEXÃO fica junta (wrap:false): evita o eyebrow "Para refletir"
+    // órfão no rodapé de uma folha com os cards na folha seguinte. Cabe numa página
+    // (cabeçalho + perguntas + assinatura); se não couber no resto da folha atual,
+    // o react-pdf empurra a seção inteira pra próxima.
+    return e(View, { key: `sec-${si}`, wrap: !isReflexao },
       header, ...items, closing,
     );
   });

@@ -218,6 +218,8 @@ PROIBIDO neste layout: "synthesis", "bullets", "numberedCards", "flow", "checkli
 
 # RITMO E DENSIDADE
 - A força visual vem da PROSA bem distribuída + 1 imagem de banda na abertura + pull quotes esparsas (1 a cada 1-2 páginas, num momento de tensão/virada). NÃO encha de destaques: pull quote demais cansa.
+- PUXE como pull quote a FRASE MAIS CARREGADA da história — uma fala direta de personagem que captura o dilema é o ideal (ex.: a frase de um aluno, uma resposta tensa). Não deixe a melhor frase enterrada no corpo. Pelo menos UMA pull quote deve ser desse tipo (fala/gancho), não só a frase de fechamento.
+- A pull quote NUNCA vai na mesma página do parágrafo de onde ela sai (repetiria o texto lado a lado) — coloque-a numa página onde o bloco de origem não aparece.
 - Cada página interna deve preencher boa parte da folha (mire ~60%+). Prefira MENOS páginas bem cheias de narrativa a MAIS páginas ralas. Não fatie a mesma cena em duas páginas magras.
 - A página final ("reflexao") é contemplativa: só os "reflectionCards" das perguntas (no máximo precedidos de 1 parágrafo curto de fechamento, se houver).
 
@@ -285,6 +287,17 @@ function sanitize(plan: any, blocks: RawBlock[], formato?: string | null): Layou
   for (const p of plan.pages) {
     const role: PageRole = ROLES.includes(p?.role) ? p.role : 'corpo';
     const items: PlanItem[] = [];
+    // Refs que entram ESTRUTURALMENTE nesta página — usado p/ barrar um
+    // pullquoteText na MESMA página do seu bloco de origem (senão repete o texto
+    // que o leitor acabou de ler, logo acima/abaixo). Pré-varredura da página.
+    const pageStructuralRefs = new Set<number>();
+    for (const it of (Array.isArray(p?.items) ? p.items : [])) {
+      if (!it || it.as === 'pullquoteText') continue;
+      const refs: number[] = it.as === 'comparison' ? [...(it.left?.refs || []), ...(it.right?.refs || [])]
+        : it.as === 'diagram' ? [...(it.affirm?.refs || []), ...(it.negate?.refs || [])]
+        : [it.ref];
+      for (const r of refs) if (validRef(r) && !usedStructural.has(r)) pageStructuralRefs.add(r);
+    }
     for (const it of (Array.isArray(p?.items) ? p.items : [])) {
       const as = it?.as;
       // Case: comparison/diagram não existem numa narrativa — descarta (os blocos
@@ -321,6 +334,8 @@ function sanitize(plan: any, blocks: RawBlock[], formato?: string | null): Layou
       }
       if (as === 'pullquoteText') {
         if (!validRef(it.ref) || typeof it.text !== 'string') continue;
+        // Mesma página da origem → descarta (repetiria o trecho lado a lado).
+        if (pageStructuralRefs.has(it.ref)) continue;
         const src = blockText(byId.get(it.ref)!);
         const ptext = it.text.trim();
         if (!norm(src).includes(norm(ptext)) || norm(ptext).length < 12) continue;
@@ -346,6 +361,34 @@ function sanitize(plan: any, blocks: RawBlock[], formato?: string | null): Layou
   }
 
   if (!pages.length) return null;
+
+  // Remove pullquoteText FLOW-ADJACENTE ao bloco de origem: como as seções fluem
+  // continuamente (várias por folha física), uma citação pode cair colada ao seu
+  // parágrafo de origem mesmo estando em seções diferentes — repetindo o texto.
+  // Olha o vizinho ESTRUTURAL imediato (antes/depois, pulando outros pullquoteText);
+  // se a origem for esse vizinho, descarta. (A regra de "mesma seção" acima cobre o
+  // resto; juntas evitam a duplicação sem derrubar citações realmente distantes.)
+  {
+    const flat: { pi: number; ii: number; item: PlanItem }[] = [];
+    pages.forEach((pg, pi) => pg.items.forEach((item, ii) => flat.push({ pi, ii, item })));
+    const refsOf = (it: PlanItem): number[] =>
+      it.as === 'comparison' ? [...it.left.refs, ...it.right.refs]
+        : it.as === 'diagram' ? [...it.affirm.refs, ...it.negate.refs]
+        : it.as === 'pullquoteText' ? [] : [(it as any).ref];
+    const drop = new Set<string>();
+    flat.forEach((node, k) => {
+      if (node.item.as !== 'pullquoteText') return;
+      const src = node.item.ref;
+      let prev: number[] = [], next: number[] = [];
+      for (let j = k - 1; j >= 0; j--) if (flat[j].item.as !== 'pullquoteText') { prev = refsOf(flat[j].item); break; }
+      for (let j = k + 1; j < flat.length; j++) if (flat[j].item.as !== 'pullquoteText') { next = refsOf(flat[j].item); break; }
+      if (prev.includes(src) || next.includes(src)) drop.add(`${node.pi}:${node.ii}`);
+    });
+    if (drop.size) {
+      pages.forEach((pg, pi) => { pg.items = pg.items.filter((_, ii) => !drop.has(`${pi}:${ii}`)); });
+      for (let i = pages.length - 1; i >= 0; i--) if (!pages[i].items.length) pages.splice(i, 1);
+    }
+  }
 
   // heroImage em no máx. uma página (mantém a primeira marcada).
   let heroSeen = false;
