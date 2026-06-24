@@ -4,92 +4,23 @@ import { task } from '@trigger.dev/sdk';
  * Estruturação ASSÍNCRONA de um MATERIAL grande (PDF/DOCX/TXT) em Módulos-Base.
  *
  * O texto já foi extraído pela action (submeterMaterialAsync) e gravado em
- * extracoes_video.transcricao — esta task só dispara a rota interna que segmenta
- * em temas e estrutura N módulos (a mesma do fluxo de vídeo longo). Materiais
- * grandes (livros de 50k+ palavras) levam minutos e estourariam a rota síncrona
- * de 300s; aqui a rota interna roda com 800s e a task aguarda de forma durável.
- *
- * Acesso ao Supabase via REST (service-role) — o cliente @supabase/supabase-js
- * (Realtime/WebSocket) quebra no runtime Node do trigger.dev.
+ * extracoes_video.transcricao. ANTES esta task chamava a rota interna que
+ * segmentava — limitada a 800s na Vercel (livros grandes eram cortados, e a
+ * conexão cortada marcava 'erro' falso). AGORA a segmentação roda DENTRO da task
+ * (igual a gerar-kit), com o orçamento de tempo DELA (maxDuration), sem o teto de
+ * 800s e sem HTTP no meio. Cobertura passa a ser ditada pelo material + maxDuration,
+ * não pelo relógio da rota. Ver docs/MODULOS-BASE-CONTEUDO.md.
  */
-const SUPA = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const REST_HEADERS = { apikey: KEY, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' };
-const APP_URL = process.env.APP_CALLBACK_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.vertho.ai';
-
-async function rGetOne(table: string, query: string): Promise<any | null> {
-  const r = await fetch(`${SUPA}/rest/v1/${table}?${query}`, { headers: REST_HEADERS });
-  if (!r.ok) throw new Error(`Supabase GET ${table} ${r.status}: ${(await r.text()).slice(0, 200)}`);
-  const d = await r.json();
-  return Array.isArray(d) ? d[0] || null : null;
-}
-async function rPatch(table: string, query: string, body: any): Promise<void> {
-  const r = await fetch(`${SUPA}/rest/v1/${table}?${query}`, {
-    method: 'PATCH', headers: { ...REST_HEADERS, Prefer: 'return=minimal' }, body: JSON.stringify(body),
-  });
-  if (!r.ok) throw new Error(`Supabase PATCH ${table} ${r.status}: ${(await r.text()).slice(0, 200)}`);
-}
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 export const estruturarMaterialTask = task({
   id: 'estruturar-material',
-  maxDuration: 1800, // 30 min — cobre livros (map-reduce de várias janelas)
+  maxDuration: 3600, // 1h — segmentação + estruturação de N módulos roda in-task (sem 800s)
   retry: { maxAttempts: 2 },
   run: async (payload: { extracaoId: string }) => {
-    const id = payload.extracaoId;
-    if (!SUPA || !KEY) throw new Error('SUPABASE_URL/SERVICE_ROLE_KEY ausentes no ambiente da task');
-
-    const fail = async (msg: string): Promise<never> => {
-      await rPatch('extracoes_video', `id=eq.${id}`, {
-        status: 'error', error: String(msg).slice(0, 500), updated_at: new Date().toISOString(),
-      }).catch(() => {});
-      throw new Error(msg);
-    };
-
-    const ext = await rGetOne('extracoes_video', `id=eq.${id}&select=id,status,modulo_base_ids,escopo_empresa_id,transcricao,titulo`);
-    if (!ext?.transcricao || String(ext.transcricao).trim().length < 40) return fail('extração ou transcrição não encontrada');
-    // Idempotência no RETRY: se já concluiu, não re-dispara (evita duplicar módulos).
-    if (ext.status === 'done' && Array.isArray(ext.modulo_base_ids) && ext.modulo_base_ids.length) {
-      return { ok: true, extracaoId: id, n: ext.modulo_base_ids.length, jaConcluido: true };
-    }
-
-    let locale = 'pt-BR';
-    if (ext.escopo_empresa_id) {
-      const emp = await rGetOne('empresas', `id=eq.${ext.escopo_empresa_id}&select=default_locale`);
-      if (emp?.default_locale) locale = emp.default_locale;
-    }
-
-    // Callback do app: segmenta em temas e estrutura N módulos-base rascunho.
-    // try/catch: se a rota for cortada (timeout/queda), o fetch REJEITA antes de
-    // retornar — sem isto, o registro ficaria travado em 'processing' (o fail()
-    // abaixo nunca rodaria). Aqui marcamos error e deixamos o trigger re-tentar.
-    let cb: Response;
-    try {
-      cb = await fetch(`${APP_URL}/api/internal/modulo-from-video`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-internal-secret': KEY },
-        body: JSON.stringify({ extracaoId: id, titulo: ext.titulo || null, locale }),
-      });
-    } catch (e: any) {
-      // Conexão cortada (texto grande > ~300s no proxy), mas a ROTA segue rodando
-      // server-side até 800s. Faz polling até ~14 min p/ capturar a conclusão real —
-      // antes eram só 120s, que marcava 'error' enquanto a rota ainda criava os módulos.
-      for (let i = 0; i < 56; i++) {
-        await sleep(15000);
-        const atual = await rGetOne('extracoes_video', `id=eq.${id}&select=status,error,modulo_base_id,n_modulos`).catch(() => null);
-        if (atual?.status === 'done') {
-          return { ok: true, extracaoId: id, n: atual.n_modulos || 1, recoveredAfterDisconnect: true };
-        }
-        if (atual?.status === 'error' && atual.error) return fail(atual.error);
-      }
-      return fail(`callback de estruturação falhou (conexão): ${String(e?.message || e).slice(0, 200)}`);
-    }
-    if (!cb.ok) {
-      const msg = await cb.text().catch(() => '');
-      return fail(`callback módulo ${cb.status}: ${msg.slice(0, 300)}`);
-    }
-    const res: any = await cb.json().catch(() => ({}));
-    return { ok: true, extracaoId: id, moduloIds: res?.moduloIds, n: res?.n };
+    const { segmentarEEstruturarExtracao } = await import('@/actions/modulos-base');
+    const r = await segmentarEEstruturarExtracao(payload.extracaoId);
+    // segmentarEEstruturarExtracao já gravou status 'done'/'error' no registro.
+    // Idempotente: re-run após 'done' devolve o existente sem duplicar.
+    if (r.error && !r.idempotente) throw new Error(r.error);
+    return { ok: true, extracaoId: payload.extracaoId, n: r.n };
   },
 });

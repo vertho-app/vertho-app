@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseAdmin } from '@/lib/supabase';
-import { criarModulosDeTranscricao } from '@/actions/modulos-base';
+import { segmentarEEstruturarExtracao } from '@/actions/modulos-base';
 
 /**
  * Callback interno do worker de extração (trigger.dev). O worker baixa o vídeo,
@@ -27,54 +26,10 @@ export async function POST(req: NextRequest) {
   const { extracaoId, transcricao, titulo, locale } = body || {};
   if (!extracaoId) return NextResponse.json({ error: 'extracaoId obrigatório' }, { status: 400 });
 
-  const sb = createSupabaseAdmin();
-  const { data: ext } = await sb.from('extracoes_video')
-    .select('id, status, modulo_base_ids, escopo_empresa_id, url, transcricao, pilar_direcionador, competencia_direcionadora, competencia_base_id_direcionadora')
-    .eq('id', extracaoId).maybeSingle();
-  if (!ext) return NextResponse.json({ error: 'extração não encontrada' }, { status: 404 });
-
-  // IDEMPOTÊNCIA: se já concluiu (re-chamada por retry/reconexão da task), devolve
-  // o resultado existente em vez de re-segmentar e DUPLICAR módulos.
-  if (ext.status === 'done' && Array.isArray(ext.modulo_base_ids) && ext.modulo_base_ids.length) {
-    return NextResponse.json({ ok: true, moduloIds: ext.modulo_base_ids, n: ext.modulo_base_ids.length, idempotente: true });
-  }
-
-  const texto = String(transcricao || ext.transcricao || '').trim();
-  if (!texto) return NextResponse.json({ error: 'transcricao obrigatória' }, { status: 400 });
-
-  const empresaId = ext.escopo_empresa_id || null; // null = módulo global/canônico
-  const res = await criarModulosDeTranscricao({
-    transcricao: texto, tituloVideo: titulo, urlOrigem: ext.url, locale, empresaId, createdBy: 'extracao-video',
-    direcionamento: {
-      pilar: ext.pilar_direcionador || null,
-      competencia: ext.competencia_direcionadora || null,
-      competenciaBaseId: ext.competencia_base_id_direcionadora || null,
-    },
-  });
-
-  // Guarda a transcrição (artefato reusável) mesmo em caso de erro na autoria.
-  if (res.error || !res.modulos.length) {
-    await sb.from('extracoes_video').update({
-      status: 'error', error: String(res.error || 'falha ao estruturar módulos').slice(0, 500),
-      transcricao: texto.slice(0, 500000), titulo: titulo || null, updated_at: new Date().toISOString(),
-    }).eq('id', extracaoId);
-    return NextResponse.json({ error: res.error || 'falha ao estruturar' }, { status: 422 });
-  }
-
-  const ids = res.modulos.map((m) => m.id);
-  const comps = res.modulos.map((m) => m.competencia).filter(Boolean);
-  const tituloFinal = res.modulos.length > 1
-    ? `${res.modulos.length} módulos: ${comps.slice(0, 2).join(', ')}${comps.length > 2 ? '…' : ''}`
-    : (comps[0] || titulo || 'Vídeo');
-  await sb.from('extracoes_video').update({
-    status: 'done',
-    modulo_base_id: ids[0],
-    modulo_base_ids: ids,
-    n_modulos: ids.length,
-    transcricao: texto.slice(0, 500000),
-    titulo: tituloFinal,
-    error: null,
-    updated_at: new Date().toISOString(),
-  }).eq('id', extracaoId);
-  return NextResponse.json({ ok: true, moduloIds: ids, n: ids.length });
+  // Wrapper fino: a lógica (idempotência + segmentação + status) vive em
+  // segmentarEEstruturarExtracao, que as tasks do trigger rodam DIRETO (sem o teto
+  // de 800s desta rota). Mantido p/ compat / chamadas externas.
+  const r = await segmentarEEstruturarExtracao(extracaoId, { transcricao, titulo, locale });
+  if (r.error) return NextResponse.json({ error: r.error }, { status: r.httpStatus || 422 });
+  return NextResponse.json({ ok: true, moduloIds: r.moduloIds, n: r.n, idempotente: r.idempotente });
 }

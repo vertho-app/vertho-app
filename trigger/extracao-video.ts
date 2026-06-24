@@ -21,9 +21,6 @@ const SUPA = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL ||
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const REST_HEADERS = { apikey: KEY, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' };
 
-// URL do app para o callback que segmenta + estrutura os módulos-base.
-const APP_URL = process.env.APP_CALLBACK_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.vertho.ai';
-
 const CHUNK_SECONDS = 900; // blocos de 15 min
 const MAX_CHUNKS = 20;     // teto ~5h por vídeo
 
@@ -67,7 +64,7 @@ async function transcreverBloco(buf: Buffer, idioma: string, n: number): Promise
 
 export const extrairVideoTask = task({
   id: 'extrair-video',
-  maxDuration: 1800, // 30 min — cobre vídeos longos transcritos em blocos
+  maxDuration: 3600, // 1h — transcrição em blocos + segmentação/estruturação in-task
   retry: { maxAttempts: 2 },
   run: async (payload: { extracaoId: string }) => {
     const id = payload.extracaoId;
@@ -139,17 +136,11 @@ export const extrairVideoTask = task({
     const transcricao = partes.join('\n\n').trim() + (truncado ? '\n\n[transcrição truncada no limite de duração]' : '');
     if (!transcricao || transcricao.length < 40) return fail('transcrição vazia');
 
-    // 4) Callback do app: segmenta em temas e estrutura N módulos-base rascunho.
-    const cb = await fetch(`${APP_URL}/api/internal/modulo-from-video`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-internal-secret': KEY },
-      body: JSON.stringify({ extracaoId: id, transcricao, titulo: null, locale }),
-    });
-    if (!cb.ok) {
-      const msg = await cb.text().catch(() => '');
-      return fail(`callback módulo ${cb.status}: ${msg.slice(0, 300)}`);
-    }
-    const res: any = await cb.json().catch(() => ({}));
-    return { ok: true, extracaoId: id, moduloIds: res?.moduloIds, n: res?.n, blocos: blocos.length };
+    // 4) Segmenta em temas e estrutura N módulos-base rascunho — IN-TASK (sem a rota
+    //    de 800s da Vercel; a transcrição já está em mãos).
+    const { segmentarEEstruturarExtracao } = await import('@/actions/modulos-base');
+    const res = await segmentarEEstruturarExtracao(id, { transcricao, locale });
+    if (res.error && !res.idempotente) return fail(res.error);
+    return { ok: true, extracaoId: id, moduloIds: res.moduloIds, n: res.n, blocos: blocos.length };
   },
 });

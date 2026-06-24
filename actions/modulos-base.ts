@@ -1188,15 +1188,15 @@ Regra: se a competência base preferida aparecer no catálogo e o trecho for com
   // → output curto (~120-160s) que cabe no timeout e nos 800s da rota interna.
   // Janelas grandes (110k) faziam UMA chamada densa gerar ~30k tokens (~600s),
   // estourando o tempo num livro. Mais janelas, mas paralelas (CONC) e curtas.
-  // Cobertura de materiais grandes. Os caps existem só pra caber no teto de 800s da
-  // ROTA (Vercel) — não são limite conceitual. Configuráveis por env pra ajustar sem
-  // deploy: EXTRACAO_MAX_JANELAS (texto coberto: ~35k chars/janela) e
-  // EXTRACAO_MAX_SECOES (módulos). Defaults altos (Flash é rápido); se o material for
-  // MAIOR ainda, suba as envs. O `diag` reporta quando o texto foi truncado.
+  // Cobertura de materiais grandes. Rodando IN-TASK (trigger), o limite real é o
+  // maxDuration da task (1h), NÃO os 800s da rota — então os caps são só uma rede de
+  // segurança alta. Configuráveis por env (sem deploy): EXTRACAO_MAX_JANELAS (~35k
+  // chars/janela) e EXTRACAO_MAX_SECOES (módulos). O `diag` reporta se truncou; se o
+  // material for ENORME, suba as envs (e o maxDuration da task, se preciso).
   const envNum = (k: string, d: number) => { const n = parseInt(process.env[k] || '', 10); return Number.isFinite(n) && n > 0 ? n : d; };
   const JANELA = 40000, OVERLAP = 5000, MERGE_CAP = 24000;
-  const MAX_JANELAS = envNum('EXTRACAO_MAX_JANELAS', 30);
-  const MAX_SECOES = envNum('EXTRACAO_MAX_SECOES', 40);
+  const MAX_JANELAS = envNum('EXTRACAO_MAX_JANELAS', 60);
+  const MAX_SECOES = envNum('EXTRACAO_MAX_SECOES', 80);
 
   // Caso comum: cabe numa janela → 1 chamada (comportamento anterior).
   if (full.length <= JANELA) return segmentarJanela(full, tituloVideo, ctx);
@@ -1292,6 +1292,66 @@ export async function criarModulosDeTranscricao(opts: {
     return { modulos: [], error: `${secoes.length} seções, 0 estruturadas. Motivos: ${falhas.slice(0, 4).join(' · ').slice(0, 380)}` };
   }
   return { modulos };
+}
+
+/**
+ * Segmenta + estrutura uma extração (extracoes_video) em N Módulos-Base e atualiza
+ * o status. ANTES era o corpo da rota /api/internal/modulo-from-video (limitada a
+ * 800s na Vercel). Agora é uma função compartilhada que as TASKS do trigger rodam
+ * DIRETO (orçamento de minutos→horas, sem o teto de 800s e sem HTTP no meio — o que
+ * também elimina o "erro" por conexão cortada). A rota vira um wrapper fino.
+ * Idempotente: se a extração já está 'done', devolve o resultado existente.
+ */
+export async function segmentarEEstruturarExtracao(
+  extracaoId: string,
+  opts: { transcricao?: string; titulo?: string | null; locale?: string } = {},
+): Promise<{ ok?: true; moduloIds?: string[]; n?: number; idempotente?: boolean; error?: string; httpStatus?: number }> {
+  const sb = createSupabaseAdmin();
+  const { data: ext } = await sb.from('extracoes_video')
+    .select('id, status, modulo_base_ids, escopo_empresa_id, url, transcricao, pilar_direcionador, competencia_direcionadora, competencia_base_id_direcionadora')
+    .eq('id', extracaoId).maybeSingle();
+  if (!ext) return { error: 'extração não encontrada', httpStatus: 404 };
+  if (ext.status === 'done' && Array.isArray(ext.modulo_base_ids) && ext.modulo_base_ids.length) {
+    return { ok: true, moduloIds: ext.modulo_base_ids, n: ext.modulo_base_ids.length, idempotente: true };
+  }
+  const texto = String(opts.transcricao || ext.transcricao || '').trim();
+  if (!texto) return { error: 'transcricao obrigatória', httpStatus: 400 };
+
+  let locale = opts.locale;
+  if (!locale && ext.escopo_empresa_id) {
+    const { data: emp } = await sb.from('empresas').select('default_locale').eq('id', ext.escopo_empresa_id).maybeSingle();
+    locale = emp?.default_locale || undefined;
+  }
+  locale = locale || 'pt-BR';
+
+  const res = await criarModulosDeTranscricao({
+    transcricao: texto, tituloVideo: opts.titulo || undefined, urlOrigem: ext.url,
+    locale, empresaId: ext.escopo_empresa_id || null, createdBy: 'extracao-video',
+    direcionamento: {
+      pilar: ext.pilar_direcionador || null,
+      competencia: ext.competencia_direcionadora || null,
+      competenciaBaseId: ext.competencia_base_id_direcionadora || null,
+    },
+  });
+
+  if (res.error || !res.modulos.length) {
+    await sb.from('extracoes_video').update({
+      status: 'error', error: String(res.error || 'falha ao estruturar módulos').slice(0, 500),
+      transcricao: texto.slice(0, 500000), titulo: opts.titulo || null, updated_at: new Date().toISOString(),
+    }).eq('id', extracaoId);
+    return { error: res.error || 'falha ao estruturar', httpStatus: 422 };
+  }
+
+  const ids = res.modulos.map((m) => m.id);
+  const comps = res.modulos.map((m) => m.competencia).filter(Boolean);
+  const tituloFinal = res.modulos.length > 1
+    ? `${res.modulos.length} módulos: ${comps.slice(0, 2).join(', ')}${comps.length > 2 ? '…' : ''}`
+    : (comps[0] || opts.titulo || 'Vídeo');
+  await sb.from('extracoes_video').update({
+    status: 'done', modulo_base_id: ids[0], modulo_base_ids: ids, n_modulos: ids.length,
+    transcricao: texto.slice(0, 500000), titulo: tituloFinal, error: null, updated_at: new Date().toISOString(),
+  }).eq('id', extracaoId);
+  return { ok: true, moduloIds: ids, n: ids.length };
 }
 
 // ════════════════════════════════════════════════════════════════════════════
