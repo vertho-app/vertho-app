@@ -630,6 +630,11 @@ function ConteudoViewer({ conteudo, formatoAtivo, setFormatoAtivo, onAutoConsumi
   const ativo = formatoAtivo || conteudo.formato_core;
   const item = conteudo.formatos_disponiveis?.[ativo] || (ativo === conteudo.formato_core ? { url: conteudo.core_url, titulo: conteudo.core_titulo } : null);
 
+  // audio (TTS) e texto/case (PDF) são servidos por ID via rota (gerados sob
+  // demanda) — não precisam de URL pré-renderizada. Só vídeo exige url (embed).
+  const fonteId = (item as any)?.id || conteudo.core_id;
+  const temFonte = ativo === 'video' ? !!item?.url : !!(item?.url || fonteId);
+
   // Listener postMessage Bunny → auto-marca conteudo_consumido ao atingir 80%
   useEffect(() => {
     if (ativo !== 'video') return;
@@ -688,27 +693,27 @@ function ConteudoViewer({ conteudo, formatoAtivo, setFormatoAtivo, onAutoConsumi
       )}
 
       {/* Renderização */}
-      {!item?.url && conteudo.fallback_gerado && (
+      {!temFonte && (
         <div className="text-sm text-gray-400 italic p-4 rounded bg-white/5 border border-amber-500/20">
           {t('content.preparingFormats')}
         </div>
       )}
-      {item?.url && ativo === 'video' && (
+      {temFonte && ativo === 'video' && (
         <div className="aspect-video rounded-lg overflow-hidden bg-black">
           <iframe src={embedUrl} className="w-full h-full" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture" allowFullScreen />
         </div>
       )}
-      {item?.url && ativo === 'audio' && (
+      {temFonte && ativo === 'audio' && (
         <audio
           controls
           className="w-full"
-          src={(item.id || conteudo.core_id) ? `/api/conteudo/${item.id || conteudo.core_id}/podcast` : item.url}
+          src={fonteId ? `/api/conteudo/${fonteId}/podcast` : item.url}
         />
       )}
-      {item?.url && (ativo === 'texto' || ativo === 'case') && (
+      {temFonte && (ativo === 'texto' || ativo === 'case') && (
         <div className="prose prose-invert prose-sm max-w-none">
           {/* PDF personalizado (DISC + PPP), gerado lazy pela rota; fallback p/ a URL genérica */}
-          <a href={(item.id || conteudo.core_id) ? `/api/conteudo/${item.id || conteudo.core_id}/pdf` : item.url}
+          <a href={fonteId ? `/api/conteudo/${fonteId}/pdf` : item.url}
             target="_blank" rel="noopener"
             onClick={() => onAbrirConteudo?.()}
             className="text-brand-400">{t('content.openContent')}</a>
