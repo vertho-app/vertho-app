@@ -123,6 +123,7 @@ export async function gerarConteudoIA({
     try {
       const escolhido = await resolverModuloBaseParaConteudo(sb, {
         competenciaNome: competencia,
+        descritor,
         nivelMin,
         locale: (aiConfig as any)?.locale,
         contexto_pedagogico: contexto,

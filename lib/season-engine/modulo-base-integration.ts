@@ -45,6 +45,7 @@ export async function resolverModuloBaseParaConteudo(
   sb: any,
   opts: {
     competenciaNome: string;
+    descritor?: string;
     nivelMin: number;
     locale?: string;
     contexto_pedagogico?: string;
@@ -76,7 +77,7 @@ export async function resolverModuloBaseParaConteudo(
   //    só globais (mantém o comportamento anterior).
   async function buscar(loc: string) {
     let q = sb.from('modulos_base_conteudo')
-      .select('id, grupo_id, locale, preferido, contexto_pedagogico, tags, published_at, empresa_id, conteudo_central, conteudo_aplicavel, guarda_corpos, adaptacao_por_formato')
+      .select('id, grupo_id, locale, preferido, contexto_pedagogico, tags, published_at, empresa_id, descritor, titulo, auditoria_ia, conteudo_central, conteudo_aplicavel, guarda_corpos, adaptacao_por_formato')
       .eq('nivel_entrada', entrada)
       .eq('nivel_destino', destino)
       .eq('locale', loc)
@@ -99,29 +100,55 @@ export async function resolverModuloBaseParaConteudo(
   }
   if (candidatos.length === 0) return null;
 
-  // 3) Ordenar: do-tenant > preferido > contexto match > tag match > recência.
-  //    O módulo exclusivo da empresa vence o global na mesma transição.
-  candidatos.sort((a: any, b: any) => {
-    const aEmp = a.empresa_id ? 1 : 0;
-    const bEmp = b.empresa_id ? 1 : 0;
-    if (aEmp !== bEmp) return bEmp - aEmp;
-    if (a.preferido !== b.preferido) return a.preferido ? -1 : 1;
-    const aCtx = opts.contexto_pedagogico && a.contexto_pedagogico === opts.contexto_pedagogico ? 1 : 0;
-    const bCtx = opts.contexto_pedagogico && b.contexto_pedagogico === opts.contexto_pedagogico ? 1 : 0;
-    if (aCtx !== bCtx) return bCtx - aCtx;
-    const aTags = Array.isArray(a.tags) ? a.tags.length : 0;
-    const bTags = Array.isArray(b.tags) ? b.tags.length : 0;
-    if (aTags !== bTags) return bTags - aTags;
-    return new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime();
-  });
+  // 3) Escolha INTELIGENTE por SCORE ponderado (não mais uma cascata rígida).
+  //    Sinais, do mais forte ao mais fraco:
+  //    - RELEVÂNCIA ao descritor da semana (overlap de tokens do descritor/título) —
+  //      é o que mais importa: a semana de "fluxo de caixa" puxa o módulo desse
+  //      sub-tema, não um da mesma competência qualquer.
+  //    - EXCLUSIVO do tenant (módulo da empresa > canônico).
+  //    - QUALIDADE: a NOTA da IA-auditora (0–10), já calculada e até aqui ignorada.
+  //    - PREFERIDO (override manual do admin) — vira um empurrão, não um trunfo.
+  //    - CONTEXTO pedagógico + recência (desempates leves).
+  const STOP = new Set(['para', 'como', 'sobre', 'mais', 'pela', 'pelo', 'entre', 'isso', 'esta', 'este', 'essa', 'esse', 'dos', 'das', 'com', 'sem', 'que']);
+  const norm = (s: string) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  const toks = (s: string) => new Set(norm(s).split(/[^a-z0-9]+/g).filter((t) => t.length >= 4 && !STOP.has(t)));
+  const wantTok = toks(opts.descritor || '');
+  const wantNorm = norm(opts.descritor || '');
+
+  const relevancia = (m: any): number => {
+    if (!wantTok.size) return 0;
+    const have = toks(`${m.descritor || ''} ${m.titulo || ''}`);
+    let hit = 0;
+    for (const t of wantTok) if (have.has(t)) hit++;
+    const overlap = Math.min(1, hit / wantTok.size);
+    const exato = wantNorm && norm(m.descritor) === wantNorm ? 1 : 0; // match literal = bônus
+    return Math.min(1, overlap * 0.85 + exato * 0.15);
+  };
+  const nota = (m: any): number => {
+    const n = Number(m?.auditoria_ia?.nota);
+    return Number.isFinite(n) ? Math.max(0, Math.min(10, n)) : 6; // publicado sem nota → neutro
+  };
+  const score = (m: any): number =>
+    100 * relevancia(m)                                                              // descritor manda
+    + 30 * (m.empresa_id ? 1 : 0)                                                     // exclusivo do tenant
+    + 22 * (nota(m) / 10)                                                             // qualidade (auditoria)
+    + 10 * (m.preferido ? 1 : 0)                                                      // preferido = empurrão
+    + 6 * (opts.contexto_pedagogico && m.contexto_pedagogico === opts.contexto_pedagogico ? 1 : 0)
+    + 2 * Math.min(1, (Array.isArray(m.tags) ? m.tags.length : 0) / 3);
+
+  candidatos.sort((a: any, b: any) =>
+    score(b) - score(a) || new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime());
 
   const escolhido = candidatos[0];
+  const rel = relevancia(escolhido);
   const criterio = [
+    rel >= 0.6 ? `descritor-match(${rel.toFixed(2)})` : rel > 0 ? `descritor-parcial(${rel.toFixed(2)})` : null,
     escolhido.empresa_id && 'exclusivo-do-tenant',
+    `nota(${nota(escolhido).toFixed(1)})`,
     escolhido.preferido && 'preferido',
-    escolhido.contexto_pedagogico === opts.contexto_pedagogico && 'contexto-match',
+    escolhido.contexto_pedagogico === opts.contexto_pedagogico && opts.contexto_pedagogico && 'contexto-match',
     usouFallbackLocale && `fallback-locale(${locale}→pt-BR)`,
-    candidatos.length > 1 && `desempate-em-${candidatos.length}`,
+    candidatos.length > 1 && `entre-${candidatos.length}`,
   ].filter(Boolean).join(' · ') || 'unico-candidato';
 
   return { modulo: escolhido, criterio };
