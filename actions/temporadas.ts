@@ -712,6 +712,26 @@ export async function regerarSemana(trilhaId: string, semana: number, aiConfig: 
 /**
  * Lista temporadas de uma empresa (admin viewer).
  */
+/**
+ * Aplica o overlay do Kit num plano de temporada (mutação best-effort). Espelha o
+ * desafio/conteúdo REAL que o colaborador vê — usado nas telas de admin pra não
+ * exibir o fallback do buildSeason quando já existe Kit. `colab` precisa de
+ * perfil_dominante + prefs + empresa_id.
+ */
+async function aplicarOverlayKit(sb: any, plano: any[], colab: any, trilha: { competencia_foco?: any; competencias_foco?: any }) {
+  if (!colab?.empresa_id || !Array.isArray(plano)) return;
+  try {
+    const formatoPref = formatoPreferido(colab);
+    const disc = (colab.perfil_dominante || '').charAt(0).toUpperCase() || null;
+    const competenciaFoco = trilha.competencia_foco || (Array.isArray(trilha.competencias_foco) ? trilha.competencias_foco[0] : null);
+    await Promise.all(
+      plano.filter((s: any) => s?.tipo === 'conteudo').map((s: any) =>
+        overlayKitNaSemana(sb, s, { empresaId: colab.empresa_id, disc, formatoPref, competenciaFoco }),
+      ),
+    );
+  } catch { /* best-effort — nunca quebra a tela */ }
+}
+
 export async function listarTemporadasEmpresa(empresaId: string) {
   try {
     await requireAdminAction();
@@ -725,16 +745,17 @@ export async function listarTemporadasEmpresa(empresaId: string) {
 
     const ids = (data || []).map((t: any) => t.colaborador_id);
     const { data: colabs } = await tdb.from('colaboradores')
-      .select('id, nome_completo, cargo').in('id', ids);
+      .select('id, nome_completo, cargo, empresa_id, perfil_dominante, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso').in('id', ids);
     const colabMap = Object.fromEntries((colabs || []).map((c: any) => [c.id, c]));
 
-    return {
-      items: (data || []).map((t: any) => ({
-        ...t,
-        temporada_plano: normalizeTemporadaPlano(t.temporada_plano),
-        colab: colabMap[t.colaborador_id] || null,
-      })),
-    };
+    const items = await Promise.all((data || []).map(async (t: any) => {
+      const plano = normalizeTemporadaPlano(t.temporada_plano);
+      const colab = colabMap[t.colaborador_id] || null;
+      // Overlay do Kit: mostra o desafio/conteúdo REAL (igual ao colaborador), não o fallback.
+      if (colab) await aplicarOverlayKit(tdb, plano, colab, t);
+      return { ...t, temporada_plano: plano, colab };
+    }));
+    return { items };
   } catch (err: any) {
     return { error: err?.message || 'Erro' };
   }
@@ -786,14 +807,16 @@ export async function loadProgressoDetalhado(trilhaId: string) {
       .select('*').eq('trilha_id', trilhaId).order('semana');
 
     const { data: colab } = await sb.from('colaboradores')
-      .select('nome_completo, cargo').eq('id', trilha.colaborador_id).maybeSingle();
+      .select('id, nome_completo, cargo, empresa_id, perfil_dominante, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso')
+      .eq('id', trilha.colaborador_id).maybeSingle();
+
+    const plano = normalizeTemporadaPlano(trilha.temporada_plano);
+    // Overlay do Kit: o admin vê o desafio/conteúdo REAL (igual ao colaborador).
+    if (colab) await aplicarOverlayKit(sb, plano, colab, trilha);
 
     return {
       success: true,
-      trilha: {
-        ...trilha,
-        temporada_plano: normalizeTemporadaPlano(trilha.temporada_plano),
-      },
+      trilha: { ...trilha, temporada_plano: plano },
       colab,
       progresso: progresso || [],
     };
@@ -836,16 +859,7 @@ export async function loadTemporada(colaboradorId: string) {
     // Fase 4 (entrega do Kit): se existir kit pra (empresa×competência×descritor×DISC),
     // os formatos da semana viram os do kit, o principal = formato preferido da pessoa,
     // e o desafio = o do kit. Aditivo: sem kit, o conteúdo (buildSeason) permanece.
-    try {
-      const formatoPref = formatoPreferido(colaborador);
-      const disc = (colaborador.perfil_dominante || '').charAt(0).toUpperCase() || null;
-      const competenciaFoco = trilha.competencia_foco || (Array.isArray(trilha.competencias_foco) ? trilha.competencias_foco[0] : null);
-      await Promise.all(
-        plano.filter((s: any) => s?.tipo === 'conteudo').map((s: any) =>
-          overlayKitNaSemana(sbRaw, s, { empresaId: colaborador.empresa_id, disc, formatoPref, competenciaFoco }),
-        ),
-      );
-    } catch { /* overlay é best-effort — nunca quebra a entrega */ }
+    await aplicarOverlayKit(sbRaw, plano, colaborador, trilha);
 
     return {
       ok: true,
