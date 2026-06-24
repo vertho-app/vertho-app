@@ -1024,9 +1024,34 @@ interface SegCtx {
   direcionamentoTexto: string;
   idSet: Set<string>;
   nomeParaId: Map<string, string>;
+  /** id da competência → nome (p/ ancorar o descritor no modelo da empresa). */
+  idToNome: Map<string, string>;
+  /** nome da competência (lower) → descritores do modelo (empresa). */
+  descritoresPorComp: Map<string, string[]>;
   model: string;
   /** true = catálogo da EMPRESA (ids vão para competencia_id, não competencia_base_id). */
   empresa: boolean;
+}
+
+/**
+ * Ancora um descritor (texto livre da IA) no descritor do MODELO da competência
+ * mais próximo por overlap de tokens — garante que o descritor de um módulo da
+ * empresa seja SEMPRE um do modelo, não inventado. Sem descritores no modelo ou
+ * sem competência resolvida → devolve o original.
+ */
+function ancorarDescritor(competenciaId: string | null | undefined, descritorLivre: string, ctx: SegCtx): string {
+  if (!competenciaId) return descritorLivre;
+  const nome = ctx.idToNome.get(competenciaId);
+  const opcoes = nome ? ctx.descritoresPorComp.get(String(nome).trim().toLowerCase()) : null;
+  if (!opcoes || !opcoes.length) return descritorLivre;
+  const mt = _toks(descritorLivre || '');
+  let best = opcoes[0], bestHit = -1;
+  for (const d of opcoes) {
+    const dt = _toks(d);
+    let hit = 0; for (const t of mt) if (dt.has(t)) hit++;
+    if (hit > bestHit) { bestHit = hit; best = d; }
+  }
+  return best;
 }
 
 type CompetenciaSeg = {
@@ -1093,7 +1118,8 @@ function secoesFallbackDeterministico(transcricao: string, tituloVideo: string, 
       nivel_destino: 'N2',
       contexto_pedagogico: 'fallback-material',
       titulo: `${tituloVideo || 'Material'} — parte ${i + 1}`,
-      descritor: `Visão geral — parte ${i + 1}`,
+      // Empresa: usa um descritor do modelo (o representativo da competência), não placeholder.
+      descritor: (empresa && comp.descritor_completo) ? comp.descritor_completo : `Visão geral — parte ${i + 1}`,
       finalidade: `Estruturar matéria-prima extraída do material em "${comp.nome}".`,
       texto_base: trecho,
     });
@@ -1198,7 +1224,8 @@ ${texto}`;
         nivel_destino: (niveisValidos(s.nivel_entrada, s.nivel_destino) ? s.nivel_destino : 'N2') as Nivel,
         contexto_pedagogico: s.contexto_pedagogico || null,
         titulo: s.titulo || null,
-        descritor: s.descritor || null,
+        // Empresa: ANCORA o descritor no modelo da competência (não texto livre).
+        descritor: ctx.empresa ? ancorarDescritor(id, s.descritor, ctx) : (s.descritor || null),
         finalidade: s.finalidade || null,
         texto_base: String(s.texto_base),
       }));
@@ -1230,6 +1257,9 @@ async function segmentarTranscricao(
   // Empreendedorismo na Macaé). Global → catálogo canônico. competencias tem linhas
   // duplicadas por cargo → dedup por nome (1 competência = 1 entrada no catálogo).
   let lista: CompetenciaSeg[];
+  // Empresa: o descritor do módulo deve ser SEMPRE um do modelo da competência
+  // (não texto livre). Guardamos a lista de descritores por competência p/ ancorar.
+  const descritoresPorComp = new Map<string, string[]>();
   if (empresaId) {
     const { data: comps } = await sb.from('competencias')
       .select('id, nome, cargo, descricao, pilar, descritor_completo')
@@ -1238,6 +1268,12 @@ async function segmentarTranscricao(
     for (const c of (comps || []) as any[]) {
       const k = String(c.nome || '').trim().toLowerCase();
       if (k && !porNome.has(k)) porNome.set(k, { ...c, segmento: c.cargo || 'empresa' });
+      const dt = String(c.descritor_completo || '').trim();
+      if (k && dt) {
+        if (!descritoresPorComp.has(k)) descritoresPorComp.set(k, []);
+        const arr = descritoresPorComp.get(k)!;
+        if (!arr.includes(dt)) arr.push(dt);
+      }
     }
     lista = [...porNome.values()];
   } else {
@@ -1271,6 +1307,8 @@ Regra: se a competência base preferida aparecer no catálogo e o trecho for com
     direcionamentoTexto,
     idSet: new Set(lista.map((c) => c.id)),
     nomeParaId: new Map(lista.map((c) => [c.nome.trim().toLowerCase(), c.id])),
+    idToNome: new Map(lista.map((c) => [c.id, c.nome])),
+    descritoresPorComp,
     model: await getModelForTask(null as any, 'modulo_base_autor'),
     empresa: !!empresaId,
   };
