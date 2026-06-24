@@ -602,6 +602,30 @@ export async function pausarRetomarTemporada(trilhaId: string) {
   }
 }
 
+/**
+ * Antecipa o início da temporada para liberar as semanas IMEDIATAMENTE (teste/demo).
+ * Seta data_inicio para a segunda-feira corrente (SP) — semana 1 libera na hora e as
+ * seguintes mantêm o ritmo de 7 dias. Em produção, data_inicio nasce na próxima segunda.
+ */
+export async function anteciparInicioTemporada(trilhaId: string) {
+  try {
+    const sb = await requireAdminSupabase('content.manage');
+    if (!trilhaId) return { success: false, error: 'trilhaId obrigatório' };
+    // Segunda-feira corrente em SP (BRT, UTC-3): a segunda <= hoje.
+    const SP_OFFSET_H = 3;
+    const sp = new Date(Date.now() - SP_OFFSET_H * 3600 * 1000);
+    const dow = sp.getUTCDay(); // 0=dom..6=sab
+    const diasDesdeSegunda = (dow + 6) % 7; // seg=0, ter=1, ..., dom=6
+    const segunda = new Date(Date.UTC(sp.getUTCFullYear(), sp.getUTCMonth(), sp.getUTCDate() - diasDesdeSegunda));
+    const dataInicio = segunda.toISOString().slice(0, 10);
+    const { error } = await sb.from('trilhas').update({ data_inicio: dataInicio }).eq('id', trilhaId);
+    if (error) return { success: false, error: error.message };
+    return { success: true, dataInicio, message: `Semanas liberadas (início ${dataInicio})` };
+  } catch (err: any) {
+    return { success: false, error: err?.message };
+  }
+}
+
 export async function arquivarTemporada(trilhaId: string) {
   try {
     const sb = await requireAdminSupabase('content.manage');
