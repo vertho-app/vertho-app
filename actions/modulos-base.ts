@@ -1354,7 +1354,12 @@ Regra: se a competência base preferida aparecer no catálogo e o trecho for com
   // chars/janela) e EXTRACAO_MAX_SECOES (módulos). O `diag` reporta se truncou; se o
   // material for ENORME, suba as envs (e o maxDuration da task, se preciso).
   const envNum = (k: string, d: number) => { const n = parseInt(process.env[k] || '', 10); return Number.isFinite(n) && n > 0 ? n : d; };
-  const JANELA = 40000, OVERLAP = 5000, MERGE_CAP = 24000;
+  // MERGE_CAP: teto de texto BRUTO acumulado por célula (competência×descritor) no
+  // REDUCE — acima disso, o excedente (cauda, geralmente repetitiva) é aparado antes
+  // de estruturar. Subido 24k→40k (roda in-task, sem o teto de 800s) p/ não cortar
+  // descritores muito cobertos. Env-tunável.
+  const JANELA = 40000, OVERLAP = 5000;
+  const MERGE_CAP = envNum('EXTRACAO_MERGE_CAP', 40000);
   const MAX_JANELAS = envNum('EXTRACAO_MAX_JANELAS', 60);
   const MAX_SECOES = envNum('EXTRACAO_MAX_SECOES', 80);
 
