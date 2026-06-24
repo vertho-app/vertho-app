@@ -19,6 +19,14 @@ const STATUS_COR: Record<string, string> = {
   obsoleto: 'rgba(255,255,255,0.35)',
 };
 
+// Cor da nota da IA-auditora seguindo a régua de veredito (ver actions/modulos-base.ts):
+// reprovado < 5.0 · ressalvas 5.0–8.9 · aprovado ≥ 9.0
+function corNota(n: number) {
+  if (n >= 9) return '#34D399';
+  if (n >= 5) return '#FCD34D';
+  return '#F87171';
+}
+
 export default function ModulosBaseListPage() {
   const router = useRouter();
   const [modulos, setModulos] = useState<Modulo[]>([]);
@@ -129,6 +137,7 @@ export default function ModulosBaseListPage() {
                   <th className="px-3 py-2.5">N→N</th>
                   <th className="px-3 py-2.5">Idioma</th>
                   <th className="px-3 py-2.5">Status</th>
+                  <th className="px-3 py-2.5">Nota IA</th>
                   <th className="px-3 py-2.5">Atualizado</th>
                   <th className="px-3 py-2.5">Autor</th>
                   <th className="px-3 py-2.5"></th>
@@ -153,6 +162,23 @@ export default function ModulosBaseListPage() {
                     <td className="px-3 py-2.5 text-center font-mono">{m.nivel_entrada}→{m.nivel_destino}</td>
                     <td className="px-3 py-2.5 text-center font-mono text-white/70">{m.locale}</td>
                     <td className="px-3 py-2.5 text-center font-semibold" style={{ color: STATUS_COR[m.status] }}>{m.status}</td>
+                    <td className="px-3 py-2.5 text-center">
+                      {(() => {
+                        const nota = typeof m.auditoria_ia?.nota === 'number' ? m.auditoria_ia.nota : null;
+                        if (nota == null) return <span className="text-white/30">—</span>;
+                        const desatualizada = m.auditado_em_versao != null && m.auditado_em_versao !== m.versao;
+                        return (
+                          <span
+                            className="font-mono font-bold"
+                            style={{ color: corNota(nota), opacity: desatualizada ? 0.45 : 1 }}
+                            title={desatualizada
+                              ? `Auditoria da v${m.auditado_em_versao} — módulo está na v${m.versao} (reaudite)`
+                              : `Veredito: ${(m.auditoria_ia?.veredito || '—').replace(/_/g, ' ')}`}>
+                            {nota.toFixed(1)}{desatualizada && '*'}
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td className="px-3 py-2.5 text-white/55 text-center">
                       {new Date(m.updated_at).toLocaleDateString('pt-BR')}
                     </td>
