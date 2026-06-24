@@ -156,20 +156,21 @@ export async function coberturaPorDescritor(empresaId: string, opts: { pilar?: s
   const sb = createSupabaseAdmin();
 
   // 1) Modelo de competências (a tabela tem linhas DUP por cargo → dedup por cod_desc).
-  let q = sb.from('competencias').select('cod_comp, nome, pilar, cod_desc, descritor_completo').eq('empresa_id', empresaId);
+  let q = sb.from('competencias').select('cod_comp, nome, nome_curto, pilar, cod_desc, descritor_completo').eq('empresa_id', empresaId);
   if (opts.pilar) q = q.eq('pilar', opts.pilar);
   const { data: rows } = await q;
   const pilares = [...new Set((rows || []).map((r: any) => r.pilar).filter(Boolean))].sort();
 
   const vistos = new Set<string>();
-  const grupos = new Map<string, { cod_comp: string; nome: string; pilar: string; descritores: { cod_desc: string; descritor: string }[] }>();
+  // descritor = NOME_CURTO (rótulo oficial e o que o módulo grava); longo = descrição (fallback de match p/ módulos legados).
+  const grupos = new Map<string, { cod_comp: string; nome: string; pilar: string; descritores: { cod_desc: string; descritor: string; longo: string }[] }>();
   for (const r of (rows || []) as any[]) {
     const dk = r.cod_desc || `${r.nome}|${String(r.descritor_completo).slice(0, 60)}`;
     if (vistos.has(dk)) continue;
     vistos.add(dk);
     const ck = r.cod_comp || r.nome;
     if (!grupos.has(ck)) grupos.set(ck, { cod_comp: r.cod_comp, nome: r.nome, pilar: r.pilar, descritores: [] });
-    grupos.get(ck)!.descritores.push({ cod_desc: r.cod_desc, descritor: r.descritor_completo });
+    grupos.get(ck)!.descritores.push({ cod_desc: r.cod_desc, descritor: r.nome_curto || r.descritor_completo, longo: r.descritor_completo });
   }
 
   // 2) Módulos da empresa (apontam pra competencia_id) + resolve o nome da competência.
@@ -190,12 +191,22 @@ export async function coberturaPorDescritor(empresaId: string, opts: { pilar?: s
     const compNome = nomeDe.get(m.competencia_id);
     const grupo = [...grupos.values()].find((g) => g.nome === compNome);
     if (!grupo) continue; // competência fora do filtro de pilar
-    const mt = _toks(m.descritor);
-    let best = SEM, bestHit = 0;
-    for (const d of grupo.descritores) {
-      const dt = _toks(d.descritor);
-      let hit = 0; for (const t of mt) if (dt.has(t)) hit++;
-      if (hit > bestHit) { bestHit = hit; best = d.cod_desc; }
+    // 1º match EXATO pelo nome_curto (o módulo agora grava o nome_curto oficial).
+    // Fallback: overlap de tokens contra a descrição longa (módulos legados que
+    // ainda tenham a descrição no campo descritor).
+    let best = SEM;
+    const mNorm = _norm(m.descritor);
+    const exato = grupo.descritores.find((d) => _norm(d.descritor) === mNorm);
+    if (exato) {
+      best = exato.cod_desc;
+    } else {
+      const mt = _toks(m.descritor);
+      let bestHit = 0;
+      for (const d of grupo.descritores) {
+        const dt = _toks(`${d.descritor} ${d.longo}`);
+        let hit = 0; for (const t of mt) if (dt.has(t)) hit++;
+        if (hit > bestHit) { bestHit = hit; best = d.cod_desc; }
+      }
     }
     const key = `${compNome}|${best}`;
     if (!cells.has(key)) cells.set(key, []);
@@ -1228,7 +1239,7 @@ function parseSecoesBlocos(raw: string): any[] {
 
 /** Segmenta UMA janela de texto (≤ ~110k chars) numa chamada (com retry). */
 async function segmentarJanela(texto: string, tituloVideo: string, ctx: SegCtx): Promise<{ secoes: SegSecao[]; diag: string }> {
-  const montarUser = (incluirDirecionamento: boolean) => `${incluirDirecionamento && ctx.direcionamentoTexto ? `${ctx.direcionamentoTexto}\n\n` : ''}${ctx.empresa ? `REGRA DO DESCRITOR (obrigatória): o campo "descritor" de cada seção DEVE ser COPIADO LITERALMENTE de um dos descritores listados sob a competência escolhida. Escolha o que melhor descreve a seção — NUNCA escreva um descritor novo. Se a seção tocar mais de um, escolha o predominante.\n\n` : ''}CATÁLOGO DE COMPETÊNCIAS (escolha sempre 1 por seção — id EXATO):
+  const montarUser = (incluirDirecionamento: boolean) => `${incluirDirecionamento && ctx.direcionamentoTexto ? `${ctx.direcionamentoTexto}\n\n` : ''}${ctx.empresa ? `REGRA DO DESCRITOR (obrigatória): o campo "descritor" de cada seção DEVE ser o NOME CURTO de um dos descritores listados sob a competência escolhida — o texto ANTES do travessão "—" (a parte depois do "—" é só a descrição longa, NÃO copie ela). Copie o nome curto LITERALMENTE. Escolha o que melhor descreve a seção (use a descrição longa só pra entender qual é) — NUNCA escreva um descritor novo. Se a seção tocar mais de um, escolha o predominante.\n\n` : ''}CATÁLOGO DE COMPETÊNCIAS (escolha sempre 1 por seção — id EXATO):
 ${ctx.compsListagem}
 
 TÍTULO: ${tituloVideo || '—'}
@@ -1295,22 +1306,28 @@ async function segmentarTranscricao(
   // Empreendedorismo na Macaé). Global → catálogo canônico. competencias tem linhas
   // duplicadas por cargo → dedup por nome (1 competência = 1 entrada no catálogo).
   let lista: CompetenciaSeg[];
-  // Empresa: o descritor do módulo deve ser SEMPRE um do modelo da competência
-  // (não texto livre). Guardamos a lista de descritores por competência p/ ancorar.
-  const descritoresPorComp = new Map<string, string[]>();
+  // Empresa: o descritor do módulo é SEMPRE o NOME_CURTO oficial do descritor da
+  // matriz (ex.: "Escuta ativa"), NÃO a descrição longa. Guardamos os nome_curto
+  // por competência (p/ a IA copiar e o ancorarDescritor casar) + a descrição
+  // longa só como CONTEXTO no catálogo (ajuda a IA a casar o trecho ao descritor).
+  const descritoresPorComp = new Map<string, string[]>();          // nome_curto[]
+  const descricaoLongaDe = new Map<string, string>();              // `${compK}|${curtoLower}` → descrição longa
   if (empresaId) {
     const { data: comps } = await sb.from('competencias')
-      .select('id, nome, cargo, descricao, pilar, descritor_completo')
+      .select('id, nome, nome_curto, cargo, descricao, pilar, descritor_completo')
       .eq('empresa_id', empresaId).order('nome');
     const porNome = new Map<string, CompetenciaSeg>();
     for (const c of (comps || []) as any[]) {
       const k = String(c.nome || '').trim().toLowerCase();
       if (k && !porNome.has(k)) porNome.set(k, { ...c, segmento: c.cargo || 'empresa' });
-      const dt = String(c.descritor_completo || '').trim();
-      if (k && dt) {
+      // Descritor oficial = nome_curto; cai pra descrição longa só se faltar nome_curto.
+      const curto = String(c.nome_curto || '').trim() || String(c.descritor_completo || '').trim();
+      const longo = String(c.descritor_completo || '').trim();
+      if (k && curto) {
         if (!descritoresPorComp.has(k)) descritoresPorComp.set(k, []);
         const arr = descritoresPorComp.get(k)!;
-        if (!arr.includes(dt)) arr.push(dt);
+        if (!arr.includes(curto)) arr.push(curto);
+        if (longo && longo !== curto) descricaoLongaDe.set(`${k}|${curto.toLowerCase()}`, longo);
       }
     }
     lista = [...porNome.values()];
@@ -1375,9 +1392,15 @@ O catálogo abaixo já contém SOMENTE as competências válidas deste escopo.
   // ESCOLHE um deles (semântica > token snap). Global: 1 linha por competência.
   const compsListagem = listaOrdenada.slice(0, 200).map((c) => {
     if (empresaId) {
-      const ds = descritoresPorComp.get(String(c.nome).trim().toLowerCase()) || [];
-      const dl = ds.map((d) => `    • ${d}`).join('\n');
-      return `- ${c.id} :: ${c.nome}${c.pilar ? ' (' + c.pilar + ')' : ''}${dl ? `\n  DESCRITORES desta competência (copie UM literalmente no campo "descritor"):\n${dl}` : ''}`;
+      const k = String(c.nome).trim().toLowerCase();
+      const ds = descritoresPorComp.get(k) || [];
+      // Lista o NOME_CURTO (o que vai no campo "descritor") + a descrição longa só
+      // como contexto pra IA casar o trecho ao descritor certo.
+      const dl = ds.map((d) => {
+        const longo = descricaoLongaDe.get(`${k}|${d.toLowerCase()}`);
+        return `    • ${d}${longo ? ` — ${longo}` : ''}`;
+      }).join('\n');
+      return `- ${c.id} :: ${c.nome}${c.pilar ? ' (' + c.pilar + ')' : ''}${dl ? `\n  DESCRITORES desta competência (copie o NOME CURTO — o texto ANTES do "—" — literalmente no campo "descritor"):\n${dl}` : ''}`;
     }
     return `- ${c.id} :: ${c.nome} (${c.segmento}${c.pilar ? ' / ' + c.pilar : ''})${c.descritor_completo || c.descricao ? ' — ' + (c.descritor_completo || c.descricao) : ''}`;
   }).join('\n');
