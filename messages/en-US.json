@@ -2631,7 +2631,7 @@
       "confirms": {
         "simular-disc": "Simulate DISC Mapping will POPULATE every collaborator that does not yet have a profile with random data.\n\nSimulated profiles can be identified later (source=\"simulado\"), but this blocks the real mapping until they are manually cleared.\n\nUse this only in test/demo environments. Confirm?",
         "simular": "Simulate Answers will GENERATE fake AI answers for every pending scenario of every collaborator.\n\nThis pollutes the real diagnosis and consumes AI credits. Use only in test/demo.\n\nConfirm?",
-        "temporadas": "Generate Seasons will create 14 WEEKS of content for EVERY company collaborator.\n\nExpensive (AI) and slow operation. Existing tracks will be regenerated. Confirm?",
+        "temporadas": "Generate Seasons builds the PLAN of up to 14 weeks for EVERY collaborator (selects content from the bank and generates the application scenarios via AI).\n\nContent and challenges come afterwards from \"Generate Journey Kits\". Existing seasons will be regenerated. Confirm?",
         "rel-ind": "Generate PDI will produce individual reports for EVERY pending collaborator.\n\nExpensive (AI), slow operation and overwrites previous reports. Confirm?",
         "cenarios-b": "Scenarios B + Check will GENERATE the second scenario round for EVERY collaborator.\n\nExpensive (AI), slow operation and overwrites previous B scenarios. Confirm?",
         "evolucao": "Evolution will GENERATE 3-source fusion reports for EVERY collaborator.\n\nExpensive (AI) operation and overwrites previous reports. Confirm?",

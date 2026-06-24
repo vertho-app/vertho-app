@@ -2631,7 +2631,7 @@
       "confirms": {
         "simular-disc": "Simular Mapeamiento DISC va a POBLAR todos los colaboradores que todavía no tienen perfil con datos aleatorios.\n\nLos perfiles simulados pueden identificarse después (origen=\"simulado\"), pero bloquean el mapeo real hasta limpiarlos manualmente.\n\nEsta acción solo debe usarse en entornos de prueba/demo. ¿Confirmas?",
         "simular": "Simular Respuestas va a GENERAR respuestas falsas (con IA) para todos los escenarios pendientes de todos los colaboradores.\n\nEsto contamina el diagnóstico real y consume créditos de IA. Úsalo solo en prueba/demo.\n\n¿Confirmas?",
-        "temporadas": "Generar Temporadas creará 14 SEMANAS de contenido para TODOS los colaboradores de la empresa.\n\nOperación costosa (IA) y lenta. Si ya hay rutas, se regenerarán. ¿Confirmas?",
+        "temporadas": "Generar Temporadas arma el PLAN de hasta 14 semanas para TODOS los colaboradores (selecciona el contenido del banco y genera los escenarios de aplicación por IA).\n\nEl contenido y los retos vienen después con \"Generar Kits de la Jornada\". Si ya hay temporadas, se regenerarán. ¿Confirmas?",
         "rel-ind": "Generar PDI producirá informes individuales para TODOS los colaboradores pendientes.\n\nOperación costosa (IA), lenta y sobrescribe informes anteriores. ¿Confirmas?",
         "cenarios-b": "Cenários B + Check generará la segunda ronda de escenarios para TODOS los colaboradores.\n\nOperación costosa (IA), lenta y sobrescribe escenarios B anteriores. ¿Confirmas?",
         "evolucao": "Evolución generará informes de fusión (3 fuentes) para TODOS los colaboradores.\n\nOperación costosa (IA) y sobrescribe informes anteriores. ¿Confirmas?",
