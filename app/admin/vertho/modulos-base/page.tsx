@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Plus, Sparkles, Star, X, Trash2, Film } from 'lucide-react';
+import { Loader2, Plus, Sparkles, Star, X, Trash2, Film, ShieldCheck } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { listarModulos, listarCompetenciasBase, rascunharModuloBase, setPreferido, excluirModulo } from '@/actions/modulos-base';
+import { listarModulos, listarCompetenciasBase, rascunharModuloBase, setPreferido, excluirModulo, auditarModulosBaseEmLote } from '@/actions/modulos-base';
 
 type Modulo = any;
 
@@ -38,6 +38,28 @@ export default function ModulosBaseListPage() {
   const [filtroComp, setFiltroComp] = useState('');
   const [busca, setBusca] = useState('');
   const [modal, setModal] = useState<null | 'novo' | 'ia'>(null);
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [auditandoLote, setAuditandoLote] = useState(false);
+  const [aviso, setAviso] = useState('');
+
+  function toggleSel(id: string) {
+    setSel(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }
+  function toggleSelTodos() {
+    setSel(prev => prev.size === modulos.length ? new Set() : new Set(modulos.map(m => m.id)));
+  }
+
+  async function auditarSelecionados() {
+    if (!sel.size) return;
+    setAuditandoLote(true); setErro(''); setAviso('');
+    const r = await auditarModulosBaseEmLote([...sel]);
+    setAuditandoLote(false);
+    if ('error' in r && r.error) { setErro(r.error); return; }
+    const falhasTxt = (r as any).falhas?.length ? ` · ${(r as any).falhas.length} falha(s)` : '';
+    setAviso(`${(r as any).auditados}/${(r as any).total} módulo(s) reauditado(s)${falhasTxt}`);
+    setSel(new Set());
+    carregar();
+  }
 
   async function carregar() {
     setLoading(true);
@@ -120,6 +142,27 @@ export default function ModulosBaseListPage() {
             {erro}
           </div>
         )}
+        {aviso && (
+          <div className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-3 mb-4 text-sm text-emerald-200">
+            {aviso}
+          </div>
+        )}
+
+        {/* Barra de ações em lote */}
+        {sel.size > 0 && (
+          <div className="flex items-center justify-between gap-3 mb-3 rounded-xl border border-cyan-400/20 bg-cyan-400/5 px-4 py-2.5">
+            <span className="text-sm text-white/80">{sel.size} selecionado(s)</span>
+            <div className="flex items-center gap-3">
+              <button onClick={() => setSel(new Set())} className="text-xs text-white/50 hover:text-white/80">limpar seleção</button>
+              <button onClick={auditarSelecionados} disabled={auditandoLote}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-[#06172C] disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg,#34c5cc,#0D9488)' }}>
+                {auditandoLote ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={13} />}
+                {auditandoLote ? 'Auditando…' : `Reauditar selecionados (${sel.size})`}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Tabela */}
         <div className="rounded-xl border border-white/[0.08] overflow-hidden">
@@ -131,6 +174,13 @@ export default function ModulosBaseListPage() {
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-white/[0.03] text-white/45 uppercase text-[10px]">
+                  <th className="px-3 py-2.5 w-8">
+                    <input type="checkbox" aria-label="Selecionar todos"
+                      checked={modulos.length > 0 && sel.size === modulos.length}
+                      ref={el => { if (el) el.indeterminate = sel.size > 0 && sel.size < modulos.length; }}
+                      onChange={toggleSelTodos}
+                      className="accent-cyan-400 cursor-pointer" />
+                  </th>
                   <th className="px-3 py-2.5 text-left">Título</th>
                   <th className="px-3 py-2.5 text-left">Competência</th>
                   <th className="px-3 py-2.5 text-left">Descritor</th>
@@ -145,8 +195,12 @@ export default function ModulosBaseListPage() {
               </thead>
               <tbody>
                 {modulos.map(m => (
-                  <tr key={m.id} className="border-t border-white/[0.04] hover:bg-white/[0.02] cursor-pointer"
+                  <tr key={m.id} className={`border-t border-white/[0.04] hover:bg-white/[0.02] cursor-pointer ${sel.has(m.id) ? 'bg-cyan-400/[0.06]' : ''}`}
                     onClick={() => router.push(`/admin/vertho/modulos-base/${m.id}`)}>
+                    <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
+                      <input type="checkbox" checked={sel.has(m.id)} onChange={() => toggleSel(m.id)}
+                        aria-label={`Selecionar ${m.titulo}`} className="accent-cyan-400 cursor-pointer" />
+                    </td>
                     <td className="px-3 py-2.5 text-white">
                       <div className="flex items-center gap-2">
                         {m.preferido && <Star size={11} className="text-amber-300" fill="currentColor" />}

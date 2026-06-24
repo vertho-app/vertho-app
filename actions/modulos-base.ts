@@ -1514,6 +1514,17 @@ export async function criarModulosDeTranscricao(opts: {
   if (!modulos.length) {
     return { modulos: [], error: `${secoes.length} seções, 0 estruturadas. Motivos: ${falhas.slice(0, 4).join(' · ').slice(0, 380)}` };
   }
+
+  // Já entrega cada módulo COM nota da IA-auditora (best-effort). Sem isto, todo
+  // módulo extraído nascia sem nota até alguém reauditar manualmente. Desligável
+  // por env (EXTRACAO_AUTO_AUDITAR=0) se o custo/tempo da auditoria pesar.
+  if (process.env.EXTRACAO_AUTO_AUDITAR !== '0') {
+    try {
+      await autoAuditarModulosExtraidos(createSupabaseAdmin(), modulos.map((m) => m.id));
+    } catch (e: any) {
+      console.warn('[criarModulosDeTranscricao] auto-auditoria falhou (módulos seguem sem nota):', e?.message);
+    }
+  }
   return { modulos };
 }
 
@@ -1646,9 +1657,10 @@ REGRA DE VEREDITO (deve casar com a nota):
 - "aprovado_com_ressalvas" nos demais casos (nota 5.0-8.9, sem ALTA).
 - "confianca" = sua certeza no próprio veredito (0-1).`;
 
-export async function auditarModuloBase(id: string) {
-  await requireAdminAction('ai.audit.regenerate');
-  const sb = createSupabaseAdmin();
+// Núcleo da auditoria SEM guard de sessão — reusável pela extração (roda no
+// trigger, sem admin logado) e pelo batch. Carrega o módulo, chama a IA-auditora,
+// persiste o veredito. NÃO chamar direto da UI: use auditarModuloBase (com guard).
+async function _auditarModuloCore(sb: ReturnType<typeof createSupabaseAdmin>, id: string) {
   const { data: m } = await sb.from('modulos_base_conteudo').select(COLS).eq('id', id).maybeSingle();
   if (!m) return { error: 'Módulo não encontrado' };
 
@@ -1713,6 +1725,50 @@ Responda APENAS com o JSON do veredito.`;
   if (error) return { error: error.message };
 
   return { ok: true, auditoria };
+}
+
+export async function auditarModuloBase(id: string) {
+  await requireAdminAction('ai.audit.regenerate');
+  return _auditarModuloCore(createSupabaseAdmin(), id);
+}
+
+/**
+ * Audita VÁRIOS módulos numa tacada (concorrência limitada). Disparado pela UI
+ * (lista de módulos-base, seleção múltipla) — guard de sessão uma única vez.
+ */
+export async function auditarModulosBaseEmLote(ids: string[]) {
+  await requireAdminAction('ai.audit.regenerate');
+  const sb = createSupabaseAdmin();
+  const alvo = [...new Set((ids || []).filter(Boolean))];
+  if (!alvo.length) return { error: 'Nenhum módulo selecionado' };
+
+  // Lotes de 4: cada auditoria é uma chamada GPT-5.4 densa; 4 em paralelo mantém
+  // throughput sem afogar o rate-limit do provedor.
+  const CONC = 4;
+  let ok = 0; const falhas: string[] = [];
+  for (let i = 0; i < alvo.length; i += CONC) {
+    const r = await Promise.all(alvo.slice(i, i + CONC).map((id) =>
+      _auditarModuloCore(sb, id).catch((e: any) => ({ error: e?.message || 'erro' }))));
+    r.forEach((res, k) => {
+      if ((res as any)?.ok) ok++;
+      else falhas.push(`${String(alvo[i + k]).slice(0, 8)}: ${(res as any)?.error || 'falhou'}`);
+    });
+  }
+  return { ok: true, auditados: ok, total: alvo.length, falhas: falhas.slice(0, 6) };
+}
+
+// Auto-auditoria pós-extração: audita os módulos recém-criados em lotes, sem
+// guard (roda no trigger). Best-effort — falha em um módulo não derruba os outros
+// nem a extração; o módulo só fica sem nota (auditável depois pela UI).
+async function autoAuditarModulosExtraidos(sb: ReturnType<typeof createSupabaseAdmin>, ids: string[]) {
+  const CONC = 4;
+  for (let i = 0; i < ids.length; i += CONC) {
+    await Promise.all(ids.slice(i, i + CONC).map((id) =>
+      _auditarModuloCore(sb, id).catch((e: any) => {
+        console.warn(`[autoAuditar] ${String(id).slice(0, 8)} falhou:`, e?.message);
+        return null;
+      })));
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
