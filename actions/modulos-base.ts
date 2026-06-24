@@ -1170,7 +1170,7 @@ REGRAS:
 - Para CADA seção, escolha SEMPRE a competência do catálogo SEMANTICAMENTE mais próxima — nunca deixe sem competência. Copie o competencia_base_id EXATO da lista (e repita o nome em competencia_nome para conferência).
 - descritor: o sub-tema ESPECÍFICO da seção dentro da competência (5-10 palavras; mais granular que o nome da competência).
 - PODE haver mais de uma seção para a MESMA competência, desde que sejam DESCRITORES (sub-temas) distintos — cada descritor vira um módulo separado. Não force descritores iguais a se juntarem.
-- Transição de nível: default N1→N2 se incerto.
+- Transição de nível: cada módulo cobre EXATAMENTE UM DEGRAU. Use SOMENTE N1→N2, N2→N3 ou N3→N4. NUNCA pule níveis (proibido N1→N3, N1→N4, N2→N4). Um mesmo descritor PODE virar até 3 módulos (um por degrau), mas nenhum módulo cobre mais de um degrau. Default N1→N2 se incerto.
 - texto_base: PRESERVE o conteúdo da seção na ORDEM original — não RESUMA (não corte definições, distinções, exemplos/casos, dados/números nem o encadeamento dos argumentos) e não INFLE (não repita, não floreie, não invente para alongar). O tamanho deve ser PROPORCIONAL ao que o trecho realmente desenvolve do tema: se o material de entrada já vier denso, MANTENHA essa densidade; se vier de fala/transcrição crua, organize em prosa fiel sem perder conteúdo. Markdown. Corte só ruído (saudações, repetição vazia); NÃO inclua nada que não esteja no trecho.
 
 FORMATO DA SAÍDA — para CADA seção emita EXATAMENTE este bloco (um bloco por seção; NÃO escreva nada fora dos blocos, sem JSON, sem comentários):
@@ -1187,8 +1187,12 @@ finalidade: <1 frase>
 <texto_base em markdown, denso e fiel — pode ter várias linhas, ## títulos, aspas, listas; escreva livremente>
 ===FIM===`;
 
+// Todo módulo cobre EXATAMENTE UM DEGRAU (N1→N2, N2→N3 ou N3→N4). Spans largos
+// (N1→N4, N1→N3, N2→N4) são proibidos — viram um módulo "panorâmico" que se
+// sobrepõe aos granulares. Quando a IA emite um span largo, cai no default N1→N2.
 const niveisValidos = (e: string, d: string) =>
-  NIVEIS.includes(e as Nivel) && NIVEIS.includes(d as Nivel) && nivelGreater(d as Nivel, e as Nivel);
+  NIVEIS.includes(e as Nivel) && NIVEIS.includes(d as Nivel)
+  && NIVEIS.indexOf(d as Nivel) - NIVEIS.indexOf(e as Nivel) === 1;
 
 /**
  * Parser dos blocos delimitados emitidos pelo SEG_SYSTEM:
