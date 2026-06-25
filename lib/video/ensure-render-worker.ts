@@ -69,6 +69,12 @@ export async function ensureRenderWorker(): Promise<EnsureResult> {
     `BUNNY_LIBRARY_ID=${process.env.BUNNY_LIBRARY_ID || ''}`,
     `BUNNY_STREAM_API_KEY=${process.env.BUNNY_STREAM_API_KEY || ''}`,
     `GEMINI_API_KEY=${process.env.GEMINI_API_KEY || ''}`,
+    // Saudação nominal ("Olá, {nome}"): personalizar.mjs hospeda o áudio do greeting
+    // no Supabase Storage — exige SUPABASE_URL + SERVICE_ROLE_KEY. Sem elas, a
+    // personalização falhava ("SUPABASE_URL/SERVICE_ROLE_KEY ausentes") e o vídeo
+    // saía sem saudação.
+    `SUPABASE_URL=${process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || ''}`,
+    `SUPABASE_SERVICE_ROLE_KEY=${process.env.SUPABASE_SERVICE_ROLE_KEY || ''}`,
     `VIDEO_TTS_VOICE=${process.env.VIDEO_TTS_VOICE || 'Vindemiatrix'}`,
     // 720p (0.6667) por padrão: 1080p numa cx33 (8GB, swangle/software) com vídeos
     // longos (10k+ frames) estourava memória e TRAVAVA o render. 720p alivia RAM/CPU
