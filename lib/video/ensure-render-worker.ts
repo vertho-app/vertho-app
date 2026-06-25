@@ -83,6 +83,9 @@ export async function ensureRenderWorker(): Promise<EnsureResult> {
     // Concorrência 4: na cx43 (16GB) cabe com folga (≈4GB/Chromium em 720p) e usa
     // melhor os 8 vCPUs → render mais rápido. (Era 2 p/ a cx33 de 8GB.) Override por env.
     `RENDER_CONCURRENCY=${process.env.RENDER_CONCURRENCY || '4'}`,
+    // Watchdog de render (aborta render pendurado). Default no worker.mjs é 40min;
+    // override aqui sem precisar rebuildar o snapshot.
+    `MAX_RENDER_MS=${process.env.MAX_RENDER_MS || '2400000'}`,
     `HCLOUD_TOKEN=${token}`,
     `EPHEMERAL=true`,
     `IDLE_SHUTDOWN_MS=${process.env.RENDER_IDLE_SHUTDOWN_MS || '300000'}`,

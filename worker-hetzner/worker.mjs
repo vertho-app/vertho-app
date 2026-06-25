@@ -233,9 +233,11 @@ async function renderOne(job) {
   const t0 = Date.now();
   // WATCHDOG: se o render pendurar (OOM/swap silencioso, frame travado), aborta
   // em vez de segurar a box pra sempre. cancelRender() mata o render; o erro sobe
-  // → loop marca status=error → fila esvazia → self-destruct. Default 25min
-  // (cobre vídeos longos em 720p/cx33); override por MAX_RENDER_MS.
-  const MAX_RENDER_MS = parseInt(process.env.MAX_RENDER_MS || '1500000', 10);
+  // → loop marca status=error → fila esvazia → self-destruct. Default 40min: um
+  // vídeo de ~5,6min levou 32min em cx33 (25min antigo mataria render VÁLIDO);
+  // com vídeos de 3,5–4,5min em cx43 o render cai p/ ~15–26min, então 40min é
+  // folga de segurança contra TRAVA, não teto de render normal. Override por MAX_RENDER_MS.
+  const MAX_RENDER_MS = parseInt(process.env.MAX_RENDER_MS || '2400000', 10);
   const { makeCancelSignal } = await import('@remotion/renderer');
   const { cancelSignal, cancel } = makeCancelSignal();
   let wd = null;

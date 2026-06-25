@@ -1,7 +1,7 @@
 /**
  * Prompt + tipos do roteiro de vídeo (PURO — sem callAI/Next, testável em node).
  * Estrutura FLEXÍVEL: avatar_intro + N cenas de conteúdo (miolo variável) +
- * avatar_outro. A IA calibra a quantidade pela densidade do módulo (alvo 3–5 min).
+ * avatar_outro. A IA calibra a quantidade pela densidade do módulo (alvo 3,5–4,5 min).
  *
  * DECK INVARIANTE vs TOM: o deck visual (template, ordem, texto de tela) é dirigido
  * SÓ por densidade do conteúdo + cargo/PPP/maturidade — NUNCA pelo DISC. O DISC
@@ -250,11 +250,11 @@ FORMATO:
 - NÃO proponha filmagem real, câmera, banco de imagens nem imagens geradas por IA. Use apenas o que os templates Remotion suportam: tipografia, ícones, cards, colunas, fluxos, formas abstratas e motion typography.
 
 DURAÇÃO (calibre pela densidade do módulo; não encha com repetição):
-- Total entre 180 e 300 segundos de narração.
-- Miolo: 6–8 cenas (módulo enxuto) · 8–10 (médio) · 10–12 (denso). NUNCA mais de 12 cenas de miolo.
-- SE o módulo render menos de 6 ideias-núcleo distintas, faça MENOS cenas. É melhor um vídeo curto e denso do que esticar a mesma ideia. Nunca repita uma ideia com outra formulação só para aumentar duração.
-- Você NÃO controla o tempo do TTS; calibre por CONTAGEM DE PALAVRAS da narração:
-  - avatar_intro: 26–30 palavras (≈15s). · cada cena de miolo: 45–65 palavras. · avatar_outro: 22–26 palavras (≈14s). [Avatar curto e direto: intro+outro somam ~30s — prenda e feche com punch, sem encher.]
+- ALVO RÍGIDO: 210–270 segundos de narração (3,5–4,5 min). Mire o CENTRO (~240s). NUNCA passe de 270s — é um teto duro, não uma sugestão.
+- Miolo: 5 cenas (módulo enxuto) · 6 (médio) · 7 (denso). NUNCA mais de 7 cenas de miolo.
+- SE o módulo render menos de 5 ideias-núcleo distintas, faça MENOS cenas. É melhor um vídeo curto e denso do que esticar a mesma ideia. Nunca repita uma ideia com outra formulação só para aumentar duração.
+- Você NÃO controla o tempo do TTS; calibre por CONTAGEM DE PALAVRAS da narração (o total NÃO deve passar de ~390 palavras):
+  - avatar_intro: 24–28 palavras (≈13s). · cada cena de miolo: 42–55 palavras. · avatar_outro: 20–24 palavras (≈12s). [Avatar curto e direto: intro+outro somam ~25s — prenda e feche com punch, sem encher.]
   - O avatar_intro NÃO começa com cumprimento (nada de "Oi", "Olá", "Olá pessoal", "Bem-vindo", "Tudo bem"): uma saudação nominal personalizada ("Olá, {nome}") pode ser prependada ao vídeo, então abra DIRETO no gancho/pergunta. Cumprimentar de novo soa repetitivo.
   Inclua em cada cena o campo "estimated_words" (contagem aproximada de palavras da narração).
 
@@ -321,14 +321,14 @@ EXEMPLO DE CENAS (referência de REGISTRO e ESTRUTURA — NÃO copie o conteúdo
 
 ANTES DE RESPONDER, valide em silêncio: JSON válido; sem markdown/comentários/placeholders; sem reticências como "... mais cenas"; 1ª cena avatar_intro e última avatar_outro; nenhum template repetido em sequência; toda cena tem id, type, narration, key_idea, source_anchor, estimated_words e os campos visuais do template; textos de tela curtos; nada inventado; se houver stat_highlight, o número existe literalmente no módulo; cada cena com ideia nova; cobertura mínima respeitada; cargo ancorado no dia a dia do cargo; se houver PPP, ao menos uma cena (source_anchor "PPP") reflete um valor/prioridade concreto da instituição SEM citar o nome; deck NÃO influenciado pelo perfil; narração no alvo de palavras; avatar_outro termina com pergunta de reflexão prática.
 
-FORMATO DE SAÍDA: responda APENAS JSON válido — sem markdown, comentários ou texto fora do JSON. NÃO inclua placeholders nem linhas como "... mais cenas conforme o conteúdo ...". Gere apenas cenas reais (o miolo tem de 6 a 12 cenas conforme a densidade). Estrutura:
+FORMATO DE SAÍDA: responda APENAS JSON válido — sem markdown, comentários ou texto fora do JSON. NÃO inclua placeholders nem linhas como "... mais cenas conforme o conteúdo ...". Gere apenas cenas reais (o miolo tem de 5 a 7 cenas conforme a densidade). Estrutura:
 {
   "title": "título do vídeo",
   "theme": "tema curto",
   "deck_invariant": true,
   "disc_sensitive_fields": ["narration"],
   "audience_context": {"cargo": "cargo ou null", "disc": "D/I/S/C ou null", "maturity_transition": "transição ou null", "institution_context_used": true},
-  "estimated_total_words": 520,
+  "estimated_total_words": 360,
   "scenes": [
     {"id":"scene-1","type":"avatar_intro","key_idea":"...","source_anchor":"IDEIA_PRINCIPAL","estimated_words":28,"title":"2-4 palavras","subtitle":"subtítulo curto","narration":"..."},
     {"id":"scene-2","type":"scenario_card","key_idea":"...","source_anchor":"SITUACOES_TIPICAS","estimated_words":55,"title":"Imagine","subtitle":"situação curta e plausível","narration":"..."},
@@ -365,7 +365,7 @@ ${(Array.isArray(ca.boas_praticas) ? ca.boas_praticas : []).slice(0, 8).map((b: 
 SITUAÇÕES TÍPICAS:
 ${(Array.isArray(ca.situacoes_tipicas) ? ca.situacoes_tipicas : []).slice(0, 8).map((s: any) => `- ${s.contexto}: ${s.desafio}`).join('\n') || '—'}
 ${m.cargoBloco ? `\n${m.cargoBloco}\n` : ''}${m.pppBrief ? `\n═══ CONTEXTO DA INSTITUIÇÃO (PPP) ═══\n${m.pppBrief}\n` : ''}
-Gere o roteiro técnico completo (avatar_intro + miolo VARIADO dimensionado pelo conteúdo + avatar_outro), 180–300s de narração${disc ? `, com a narração no TOM do perfil ${disc.rotulo}` : ''}. Responda só o JSON.`;
+Gere o roteiro técnico completo (avatar_intro + miolo VARIADO dimensionado pelo conteúdo + avatar_outro), 210–270s de narração (3,5–4,5 min, alvo ~240s, NUNCA acima de 270s; máx. ~390 palavras no total)${disc ? `, com a narração no TOM do perfil ${disc.rotulo}` : ''}. Responda só o JSON.`;
 
   return { system, user };
 }
