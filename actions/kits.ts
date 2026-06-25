@@ -10,6 +10,7 @@
  */
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { resolverOuCriarBrief, gerarKitDesafio, type DiscLetter } from '@/lib/season-engine/kit/brief';
+import { resolverPerfilPublicoDaEmpresa, type RegistroPublico } from '@/lib/season-engine/perfil-publico';
 import { gerarConteudoIA } from '@/actions/conteudos';
 import type { AIConfig } from '@/actions/ai-client';
 import { tasks } from '@trigger.dev/sdk';
@@ -50,6 +51,8 @@ export interface GerarKitParams {
   briefPreResolvido?: { briefId: string; brief: any; moduloBaseId: string | null; reused: boolean };
   /** PPP/contexto da empresa já resolvido (evita reconsultar por DISC). */
   pppBriefPreResolvido?: string | null;
+  /** Registro/domínio por público já resolvido (1× p/ todos os DISC). */
+  perfilPublico?: RegistroPublico;
   /** Pula o disparo do vídeo renderizado (HeyGen/render) — p/ lote de coorte sem custo de GPU. */
   skipVideo?: boolean;
 }
@@ -58,7 +61,7 @@ export async function gerarKit({
   competencia, descritor, disc,
   nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico',
   empresaId = null, aiConfig = {}, formatos = FORMATOS_PADRAO, sb: sbIn,
-  aiRun, briefPreResolvido, pppBriefPreResolvido, skipVideo = false,
+  aiRun, briefPreResolvido, pppBriefPreResolvido, perfilPublico: perfilPublicoIn, skipVideo = false,
 }: GerarKitParams) {
   try {
     const sb = sbIn || await requireAdminSupabase('content.manage');
@@ -69,6 +72,9 @@ export async function gerarKit({
       return { success: false, error: `disc inválido: ${disc}` };
     }
 
+    // Registro/domínio por público (cargo-primeiro). Resolve 1× se não veio do lote.
+    const perfilPublico = perfilPublicoIn ?? await resolverPerfilPublicoDaEmpresa(sb, empresaId, cargo);
+
     // Contexto/PPP da EMPRESA — tecido no core (o kit é por empresa). Consolida
     // VÁRIOS PPPs (rede/município, ex.: Ibipeba) num contexto MUNICIPAL único, em
     // vez de pegar o de uma escola qualquer. Ver kit/contexto-empresa.ts.
@@ -78,7 +84,7 @@ export async function gerarKit({
       pppBrief = await resolverContextoEmpresa(sb, empresaId, aiConfig).catch(() => null);
     }
 
-    const baseParams = { competencia, descritor, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, pppBrief };
+    const baseParams = { competencia, descritor, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, pppBrief, perfilPublico };
 
     // 1) Brief (núcleo da empresa, idempotente por tema; PPP como lente).
     //    No lote (Batch), resolvido 1× ANTES de fanout — evita corrida entre os 4 DISC.
@@ -165,12 +171,14 @@ export interface GerarKitSemanalParams extends Omit<GerarKitParams, 'disc'> {
 export async function gerarKitSemanal({
   competencia, descritor, nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico',
   empresaId = null, aiConfig = {}, formatos, discs = ['D', 'I', 'S', 'C'], renderAudio = false,
-  sb, onProgress, useBatch = false, incluirVideo = true,
+  sb, onProgress, useBatch = false, incluirVideo = true, perfilPublico: perfilPublicoIn,
 }: GerarKitSemanalParams) {
   try {
     const total = discs.length;
     const sbk = sb || await requireAdminSupabase('content.manage');
     const skipVideo = !incluirVideo;
+    // Registro/domínio por público resolvido 1× p/ todos os DISC (núcleo+desafio coesos).
+    const perfilPublico = perfilPublicoIn ?? await resolverPerfilPublicoDaEmpresa(sbk, empresaId, cargo);
     let kits: Awaited<ReturnType<typeof gerarKit>>[] = [];
 
     // ── Caminho LOTE (Batch API −50%) ─────────────────────────────────────────
@@ -182,7 +190,7 @@ export async function gerarKitSemanal({
     if (useBatch && discs.length >= 2) {
       try {
         await onProgress?.({ done: 0, total, current: `lote (batch) — preparando núcleo…`, kits: [] });
-        const baseParams = { competencia, descritor, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig };
+        const baseParams = { competencia, descritor, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, perfilPublico };
         let pppBrief: string | null = null;
         if (empresaId) {
           const { resolverContextoEmpresa } = await import('@/lib/season-engine/kit/contexto-empresa');
@@ -197,7 +205,7 @@ export async function gerarKitSemanal({
         kits = await Promise.all(discs.map((disc) =>
           gerarKit({
             competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos, sb: sbk,
-            aiRun: run, briefPreResolvido: brief, pppBriefPreResolvido: pppBrief, skipVideo,
+            aiRun: run, briefPreResolvido: brief, pppBriefPreResolvido: pppBrief, perfilPublico, skipVideo,
           }).then(async (k) => {
             done++;
             await onProgress?.({ done, total, current: `kit ${disc} concluído`, kits: [] });
@@ -215,7 +223,7 @@ export async function gerarKitSemanal({
       for (const disc of discs) {
         await onProgress?.({ done: kits.length, total, current: `gerando kit ${disc}…`, kits: kits.map(resumoKit) });
         // sequencial: o 1º cria o brief; os demais reusam (resolverOuCriarBrief idempotente).
-        kits.push(await gerarKit({ competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos, sb: sbk, skipVideo }));
+        kits.push(await gerarKit({ competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos, sb: sbk, perfilPublico, skipVideo }));
         await onProgress?.({ done: kits.length, total, current: `kit ${disc} concluído`, kits: kits.map(resumoKit) });
       }
     }

@@ -1,6 +1,9 @@
 /**
- * Gera artigo markdown (mín. 8.000 caracteres, ~1.400-1.800 palavras) para leitura ativa.
+ * Gera artigo markdown para leitura ativa. Extensão e registro ADAPTAM ao público
+ * (RegistroPublico): leitor de baixa escolaridade recebe texto curto e simples.
  */
+import { blocoCalibracaoPublico, type RegistroPublico } from '@/lib/season-engine/perfil-publico';
+
 interface PromptTextContentParams {
   competencia: string;
   descritor: string;
@@ -8,12 +11,22 @@ interface PromptTextContentParams {
   nivelMax?: number;
   cargo?: string;
   contexto?: string;
+  perfilPublico?: RegistroPublico;
 }
 
-export function promptTextContent({ competencia, descritor, nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico' }: PromptTextContentParams) {
+export function promptTextContent({ competencia, descritor, nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico', perfilPublico }: PromptTextContentParams) {
   const focoPorNivel = nivelMin <= 1.5 ? 'FUNDAMENTOS — conceitos básicos, exemplos diretos'
     : nivelMin <= 2.5 ? 'REFINAMENTO — nuances, casos menos óbvios'
     : 'MAESTRIA — casos complexos, dilemas, transferência';
+
+  const simples = perfilPublico?.nivelLeitura === 'simples';
+  const minChars = perfilPublico?.minCharsPdf ?? 8000;
+  const maxNegritos = simples ? 3 : 5;
+  // Meta de comprimento por público: simples = curto e denso; demais = editorial longo.
+  const metaTamanho = simples
+    ? `aproximadamente 900 a 1.200 palavras (cerca de ${minChars} caracteres). NÃO escreva mais que isso — para este público, texto curto e direto vale mais que texto longo`
+    : `NO MÍNIMO ${minChars} caracteres (contando espaços) — aproximadamente 1.400 a 1.800 palavras`;
+  const blocoPublico = perfilPublico ? blocoCalibracaoPublico(perfilPublico) : '';
 
   const system = `Você é autor sênior de conteúdos de desenvolvimento profissional da Vertho, especializado em textos profundos, aplicados e FÁCEIS DE TRANSFORMAR em publicação editorial premium.
 
@@ -25,15 +38,15 @@ Ele deve parecer uma conversa inteligente com um profissional adulto.
 
 PRINCÍPIOS INEGOCIÁVEIS:
 1. Linguagem brasileira profissional, clara e humana.
-2. Parágrafos curtos, com respiro (3-4 linhas quando possível).
-3. Markdown limpo. No máximo 5 trechos em negrito.
+2. Parágrafos curtos, com respiro (3-4 linhas quando possível${simples ? '; para este público, ainda mais curtos — 1 a 2 frases por parágrafo' : ''}).
+3. Markdown limpo. No máximo ${maxNegritos} trechos em negrito.
 4. Densidade prática vale mais que teoria.
 5. Específico ao cargo, contexto e descritor — nada que serviria para qualquer competência.
 6. Não invente estatísticas, leis, normas ou evidências.
 7. Sem jargão excessivo, sem tom infantil, professoral ou publicitário.
-8. Sem linhas separadoras "---".`;
+8. Sem linhas separadoras "---".${blocoPublico}`;
 
-  const user = `Crie 1 conteúdo em markdown para desenvolvimento de competências, com NO MÍNIMO 8.000 caracteres (contando espaços) — aproximadamente 1.400 a 1.800 palavras. Desenvolva cada seção com profundidade (exemplos, nuance, aplicação ao cargo) em vez de encher com repetição.
+  const user = `Crie 1 conteúdo em markdown para desenvolvimento de competências, com ${metaTamanho}. Desenvolva cada seção com profundidade (exemplos, nuance, aplicação ao cargo) em vez de encher com repetição.
 
 CONTEXTO:
 - Competência: ${competencia}
@@ -75,7 +88,7 @@ Como aplicar na rotina real do cargo: cuidados de aplicação; riscos de aplicar
 REGRAS FINAIS:
 - Markdown válido (# / ## para headers, - ou 1. para listas, ** para negrito).
 - NÃO use cercas de código \`\`\`.
-- COMPRIMENTO: mínimo de 8.000 caracteres. Aprofunde com exemplos e nuance, nunca com enchimento repetitivo.
+- COMPRIMENTO: ${simples ? `${metaTamanho}. Profundidade vem de exemplos concretos do dia a dia, não de tamanho.` : `mínimo de ${minChars} caracteres. Aprofunde com exemplos e nuance, nunca com enchimento repetitivo.`}
 
 Retorne APENAS o markdown, sem comentários extras.`;
 

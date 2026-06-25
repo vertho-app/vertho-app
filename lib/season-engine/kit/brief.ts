@@ -10,6 +10,7 @@ import { callAI } from '@/actions/ai-client';
 import { resolverModuloBaseParaConteudo } from '@/lib/season-engine/modulo-base-integration';
 import { parseDesafioResponse, type DesafioStructured } from '@/lib/season-engine/prompts/challenge';
 import { ARQUETIPOS } from '@/lib/disc-arquetipos';
+import { blocoCalibracaoPublico, type RegistroPublico } from '@/lib/season-engine/perfil-publico';
 
 export type DiscLetter = 'D' | 'I' | 'S' | 'C';
 
@@ -31,6 +32,8 @@ export interface GerarBriefParams {
   model?: string;
   /** Contexto/PPP da EMPRESA (kit é por empresa) — lente de aplicação. */
   pppBrief?: string | null;
+  /** Registro/domínio por público (MEI/Empregabilidade/…); adapta núcleo e desafio. */
+  perfilPublico?: RegistroPublico;
   /** Caller de IA injetado (Batch API). Só a 1ª tentativa usa; retries síncronos. */
   aiRun?: import('@/lib/ai-batch').AIRun;
 }
@@ -97,7 +100,7 @@ Componha:
 - exemplo_ancora: UMA situação concreta e nomeável (sem nome próprio) que ilustra o tema no dia a dia do cargo.
 
 Fala natural, sem jargão, sem markdown. RETORNE APENAS JSON VÁLIDO:
-{"ideia_central":"...","pontos_chave":["...","...","..."],"exemplo_ancora":"..."}`;
+{"ideia_central":"...","pontos_chave":["...","...","..."],"exemplo_ancora":"..."}${p.perfilPublico ? blocoCalibracaoPublico(p.perfilPublico) : ''}`;
 
   const user = `TEMA:
 - Competência: ${p.competencia}
@@ -162,7 +165,7 @@ PRINCÍPIOS INEGOCIÁVEIS:
 LENTE DE PERFIL (${disc} · ${lente.perfil}): a AÇÃO deve ENGAJAR este perfil por: ${lente.engaja}. NUNCA cite DISC, siglas (D/I/S/C) nem o nome do perfil no texto.
 
 RETORNE APENAS JSON VÁLIDO:
-{"desafio_texto":"2-3 frases","acao_observavel":"a ação principal observável","criterio_de_execucao":"como saber que foi feito","por_que_cabe_na_semana":"viabilidade curta"}`;
+{"desafio_texto":"2-3 frases","acao_observavel":"a ação principal observável","criterio_de_execucao":"como saber que foi feito","por_que_cabe_na_semana":"viabilidade curta"}${p.perfilPublico ? blocoCalibracaoPublico(p.perfilPublico) : ''}`;
 
   const user = `NÚCLEO DO TEMA (a ação deve aterrar este núcleo):
 - Ideia central: ${nucleo.ideia_central}

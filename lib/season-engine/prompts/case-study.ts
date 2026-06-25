@@ -1,6 +1,9 @@
 /**
- * Gera estudo de caso narrativo (mín. 8.000 caracteres, ~1.400-1.800 palavras) — experiencial, não explicativo.
+ * Gera estudo de caso narrativo — experiencial, não explicativo. Registro, extensão
+ * e DOMÍNIO (protagonista/ambiente/conflito) ADAPTAM ao público (RegistroPublico).
  */
+import { blocoCalibracaoPublico, type RegistroPublico } from '@/lib/season-engine/perfil-publico';
+
 interface PromptCaseStudyParams {
   competencia: string;
   descritor: string;
@@ -8,12 +11,20 @@ interface PromptCaseStudyParams {
   nivelMax?: number;
   cargo?: string;
   contexto?: string;
+  perfilPublico?: RegistroPublico;
 }
 
-export function promptCaseStudy({ competencia, descritor, nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico' }: PromptCaseStudyParams) {
+export function promptCaseStudy({ competencia, descritor, nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico', perfilPublico }: PromptCaseStudyParams) {
   const dificuldade = nivelMin <= 1.5 ? 'SITUAÇÕES CLARAS — o descritor aparece de forma reconhecível nas ações'
     : nivelMin <= 2.5 ? 'DILEMAS AMBÍGUOS — múltiplas respostas plausíveis, fricção real'
     : 'CASOS COMPLEXOS — dilemas éticos, escolhas difíceis, consequências em cadeia';
+
+  const simples = perfilPublico?.nivelLeitura === 'simples';
+  const minChars = perfilPublico?.minCharsPdf ?? 8000;
+  const metaTamanho = simples
+    ? `aproximadamente 700 a 1.000 palavras (cerca de ${minChars} caracteres), leitura de 4 a 6 minutos. NÃO escreva mais que isso — uma história curta e concreta prende mais este público`
+    : `NO MÍNIMO ${minChars} caracteres (contando espaços) — aproximadamente 1.400 a 1.800 palavras, leitura de 5 a 8 minutos`;
+  const blocoPublico = perfilPublico ? blocoCalibracaoPublico(perfilPublico) : '';
 
   const system = `Você é autor de estudos de caso narrativos da Vertho.
 
@@ -44,7 +55,7 @@ REGRAS DE ESTILO:
 - Sem moral da história explícita
 - Sem excesso de personagens (máx 3)
 - Sem melodrama
-- Detalhes sensoriais que ajudam a visualizar (escritório, horário, pressão)
+- Detalhes sensoriais que ajudam a visualizar o ambiente real do público
 
 REGRAS DE QUALIDADE:
 - O caso deve ser coerente com cargo/contexto
@@ -52,9 +63,9 @@ REGRAS DE QUALIDADE:
 - O descritor deve ser visível nas ações, decisões e omissões
 - O desfecho deve gerar reflexão, não fechar tudo de forma limpa demais
 - As perguntas devem abrir pensamento, não fechar
-- O texto deve funcionar bem em tela e PDF`;
+- O texto deve funcionar bem em tela e PDF${blocoPublico}`;
 
-  const user = `Crie 1 estudo de caso narrativo em markdown, com NO MÍNIMO 8.000 caracteres (contando espaços) — aproximadamente 1.400 a 1.800 palavras, leitura de 5 a 8 minutos. Não entregue um caso mais curto: desenvolva a cena, os personagens, as fricções e as decisões com mais profundidade narrativa, sem encher de repetição.
+  const user = `Crie 1 estudo de caso narrativo em markdown, com ${metaTamanho}. Desenvolva a cena, os personagens, as fricções e as decisões com profundidade, sem encher de repetição.
 
 CONTEXTO:
 - Competência: ${competencia}
@@ -70,8 +81,8 @@ ESTRUTURA OBRIGATÓRIA:
 - Curto, concreto, com cara de caso real
 
 2. CONTEXTO (2-3 parágrafos)
-- Apresente o protagonista (mesmo cargo do colab alvo): nome, contexto, desafio
-- Situe o ambiente com detalhes sensoriais
+- Apresente o protagonista (mesmo mundo do colab alvo — ver PÚBLICO E REGISTRO): nome, contexto, desafio
+- Situe o ambiente com detalhes sensoriais do mundo real do público
 - Sem excesso de exposição
 
 3. DESENVOLVIMENTO (3-4 parágrafos)
@@ -92,10 +103,11 @@ ESTRUTURA OBRIGATÓRIA:
 
 REGRAS FINAIS:
 - Protagonista com NOME e contexto — é uma pessoa, não um arquétipo
+- Protagonista, ambiente e conflito DEVEM pertencer ao mundo do público (ver PÚBLICO E REGISTRO), nunca ao mundo acadêmico-pedagógico
 - O DESCRITOR NUNCA É MENCIONADO pelo nome no texto
 - Narrativa com tensão dramática (nem tudo dá certo)
 - Markdown válido, sem cercas \`\`\`
-- COMPRIMENTO: mínimo de 8.000 caracteres (~1.400-1.800 palavras). Aprofunde a narrativa, nunca com enchimento repetitivo
+- COMPRIMENTO: ${metaTamanho}
 
 Retorne APENAS o markdown, sem comentários extras.`;
 

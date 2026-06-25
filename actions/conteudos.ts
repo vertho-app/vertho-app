@@ -13,6 +13,7 @@ import { getModelForTask } from '@/lib/ai-tasks';
 import { derivarArquetipo } from '@/lib/disc-arquetipos';
 import { resumirPPP, extracaoParaTexto, briefPreenchido, type EscolaBrief } from '@/lib/escola-brief';
 import { buildPersonalizacaoPrompt } from '@/lib/season-engine/prompts/personalizacao';
+import { resolverPerfilPublicoDaEmpresa } from '@/lib/season-engine/perfil-publico';
 
 /** Mínimo de caracteres para conteúdo que vira PDF (texto/case): leitura de
  *  ~5-8 min. Aplicado tanto na geração do conteúdo quanto na hora do PDF.
@@ -30,8 +31,11 @@ async function garantirMinimoPdf(
   system: string,
   aiConfig: AIConfig | undefined,
   model: string | undefined,
+  minChars: number = MIN_PDF_CHARS,
 ): Promise<string> {
-  if (conteudoMd.length >= MIN_PDF_CHARS) return conteudoMd;
+  // Público de baixa escolaridade tem meta menor (RegistroPublico.minCharsPdf):
+  // NÃO reinflar — expansão por volume reintroduz o abstrato que queríamos cortar.
+  if (conteudoMd.length >= minChars) return conteudoMd;
   try {
     const user = `O texto em markdown abaixo tem ${conteudoMd.length} caracteres — curto demais para sustentar uma publicação editorial rica. Expanda-o por VALOR, não por volume.
 
@@ -41,10 +45,10 @@ Cada parágrafo novo deve ACRESCENTAR algo concreto: uma nuance, um exemplo, uma
 
 NÃO faça: enchimento repetitivo, alongar só para bater tamanho, tom acadêmico/professoral/motivacional, inventar dados/leis/normas/estatísticas, conteúdo genérico.
 
-Meta de tamanho: chegue a NO MÍNIMO ${MIN_PDF_CHARS} caracteres QUANDO o tema justificar sem repetição. Se não justificar, priorize qualidade e densidade aplicada — entregue o melhor texto possível, mais rico que o original.
+Meta de tamanho: chegue a NO MÍNIMO ${minChars} caracteres QUANDO o tema justificar sem repetição. Se não justificar, priorize qualidade e densidade aplicada — entregue o melhor texto possível, mais rico que o original.
 
 Retorne APENAS o markdown final, sem comentários e sem cercas de código.\n\n---\n\n${conteudoMd}`;
-    const expandido = (await callAI(system, user, { ...(aiConfig || {}), model }, MIN_PDF_CHARS)).trim();
+    const expandido = (await callAI(system, user, { ...(aiConfig || {}), model }, minChars)).trim();
     return expandido.length > conteudoMd.length ? expandido : conteudoMd;
   } catch (e: any) {
     console.warn('[garantirMinimoPdf] expansão p/ mínimo de caracteres falhou:', e?.message);
@@ -102,7 +106,10 @@ export async function gerarConteudoIA({
       return { success: false, error: 'formato, competencia e descritor obrigatórios' };
     }
 
-    const args = { competencia, descritor, nivelMin, nivelMax, cargo, contexto, duracaoSegundos, podcastFormato };
+    // Registro/domínio por PÚBLICO (cargo-primeiro; segmento da empresa = fallback).
+    // Adapta texto/case ao leitor (MEI/Empregabilidade/Educação/Corporativo).
+    const perfilPublico = await resolverPerfilPublicoDaEmpresa(sb, empresaId, cargo);
+    const args = { competencia, descritor, nivelMin, nivelMax, cargo, contexto, duracaoSegundos, podcastFormato, perfilPublico };
     const builders = {
       video: promptVideoScript,
       audio: promptPodcastScript,
@@ -163,7 +170,7 @@ export async function gerarConteudoIA({
     // Garante o mínimo de 8.000 caracteres nos PDFs (texto/case): se vier curto,
     // faz UMA expansão mantendo estilo/estrutura. Falha não quebra a geração.
     if (formato === 'texto' || formato === 'case') {
-      conteudoGerado = await garantirMinimoPdf(conteudoGerado, system, aiConfig, model || aiConfig?.model);
+      conteudoGerado = await garantirMinimoPdf(conteudoGerado, system, aiConfig, model || aiConfig?.model, perfilPublico.minCharsPdf);
     }
 
     const titulo = extrairTitulo(conteudoGerado, descritor, formato);
