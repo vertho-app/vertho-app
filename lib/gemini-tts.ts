@@ -130,7 +130,20 @@ async function ttsGenerate(body: unknown, attempt = 0): Promise<{ pcm: Buffer; s
   const data = await res.json();
   const part = data?.candidates?.[0]?.content?.parts?.find((p: any) => p?.inlineData?.data);
   const b64 = part?.inlineData?.data;
-  if (!b64) throw new Error('TTS: resposta sem áudio');
+  if (!b64) {
+    // 200 OK SEM áudio: ocorre de forma INTERMITENTE no Vertex (candidato vazio /
+    // finishReason transitório, não determinístico pelo texto). Tratar como falha
+    // RETENTÁVEL — sem isto, um único hiccup numa cena derrubava o vídeo inteiro
+    // ("TTS: resposta sem áudio"). Mesmo backoff do 429/503.
+    if (attempt < TTS_MAX_RETRIES) {
+      const finish = data?.candidates?.[0]?.finishReason || 'sem-inlineData';
+      const backoff = Math.min(30_000, 2_000 * 2 ** attempt);
+      console.warn(`TTS resposta sem áudio (${finish}, ${TTS_BACKEND}) — retry em ${Math.round(backoff / 1000)}s (tentativa ${attempt + 1}/${TTS_MAX_RETRIES})`);
+      await new Promise((r) => setTimeout(r, backoff));
+      return ttsGenerate(body, attempt + 1);
+    }
+    throw new Error(`TTS: resposta sem áudio após ${TTS_MAX_RETRIES} tentativas`);
+  }
   return { pcm: Buffer.from(b64, 'base64'), sampleRate: rateFromMime(part.inlineData.mimeType) };
 }
 
