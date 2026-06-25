@@ -782,7 +782,9 @@ export async function prepararEntregasJornada(empresaId: string, opts: { colabor
       .eq('colaborador_id', colab.id).order('criado_em', { ascending: false }).limit(1).maybeSingle();
     if (!trilha?.temporada_plano) continue;
     const plano = normalizeTemporadaPlano(trilha.temporada_plano);
-    await aplicarOverlayKit(tdb, plano, colab, trilha);
+    // Overlay com client RAW (não tdb): resolverKitDaSemana usa .or(empresa OR
+    // global), que o wrapper tenant-scoped quebra. Mesmo client do loadTemporada.
+    await aplicarOverlayKit(createSupabaseAdmin(), plano, colab, trilha);
 
     for (const s of plano) {
       if (s?.tipo !== 'conteudo') continue;
@@ -829,8 +831,9 @@ export async function listarTemporadasEmpresa(empresaId: string) {
     const items = await Promise.all((data || []).map(async (t: any) => {
       const plano = normalizeTemporadaPlano(t.temporada_plano);
       const colab = colabMap[t.colaborador_id] || null;
-      // Overlay do Kit: mostra o desafio/conteúdo REAL (igual ao colaborador), não o fallback.
-      if (colab) await aplicarOverlayKit(tdb, plano, colab, t);
+      // Overlay do Kit (client RAW: resolverKitDaSemana usa .or(empresa OR global),
+      // incompatível com o wrapper tenant-scoped). Mostra o conteúdo REAL.
+      if (colab) await aplicarOverlayKit(createSupabaseAdmin(), plano, colab, t);
       return { ...t, temporada_plano: plano, colab };
     }));
     return { items };
