@@ -78,15 +78,26 @@ export async function resolverModuloBaseParaConteudo(
   const { entrada, destino } = niveisDoNivelMin(opts.nivelMin);
   const locale = (opts.locale || 'pt-BR') as string;
 
+  // Transições por PROXIMIDADE ao nível-alvo. Se não houver módulo na transição
+  // exata (cobertura parcial — comum em tenant novo), cai na mais próxima
+  // disponível em vez de não entregar nada. Ex.: alvo N2→N3 sem módulo → tenta
+  // N1→N2 / N3→N4.
+  const TRANSICOES: Array<{ entrada: Nivel; destino: Nivel }> = [
+    { entrada: 'N1', destino: 'N2' }, { entrada: 'N2', destino: 'N3' }, { entrada: 'N3', destino: 'N4' },
+  ];
+  const alvoIdx = TRANSICOES.findIndex((t) => t.entrada === entrada && t.destino === destino);
+  const transicoesOrdenadas = [...TRANSICOES].sort((a, b) =>
+    Math.abs(TRANSICOES.indexOf(a) - alvoIdx) - Math.abs(TRANSICOES.indexOf(b) - alvoIdx));
+
   // 2) Tenta no locale solicitado; se vazio, faz fallback pra pt-BR.
   //    Alcance: módulos GLOBAIS (empresa_id NULL) + os EXCLUSIVOS do tenant
   //    (empresa_id = empresaId), quando um tenant é informado. Sem tenant,
   //    só globais (mantém o comportamento anterior).
-  async function buscar(loc: string) {
+  async function buscar(loc: string, tr: { entrada: Nivel; destino: Nivel }) {
     let q = sb.from('modulos_base_conteudo')
       .select('id, grupo_id, locale, preferido, contexto_pedagogico, tags, published_at, empresa_id, descritor, titulo, auditoria_ia, descritor_embedding, conteudo_central, conteudo_aplicavel, guarda_corpos, adaptacao_por_formato')
-      .eq('nivel_entrada', entrada)
-      .eq('nivel_destino', destino)
+      .eq('nivel_entrada', tr.entrada)
+      .eq('nivel_destino', tr.destino)
       .eq('locale', loc)
       .eq('status', 'publicado');
     // Competência: canônica (competencia_base_id) OU da empresa (competencia_id).
@@ -101,11 +112,19 @@ export async function resolverModuloBaseParaConteudo(
     const { data } = await q;
     return data || [];
   }
-  let candidatos = await buscar(locale);
+  // Tenta cada transição (alvo → mais próximas) no locale; depois fallback pt-BR.
+  let candidatos: any[] = [];
   let usouFallbackLocale = false;
+  let usouFallbackNivel = false;
+  for (let i = 0; i < transicoesOrdenadas.length && candidatos.length === 0; i++) {
+    candidatos = await buscar(locale, transicoesOrdenadas[i]);
+    if (candidatos.length && i > 0) usouFallbackNivel = true;
+  }
   if (candidatos.length === 0 && locale !== 'pt-BR') {
-    candidatos = await buscar('pt-BR');
-    usouFallbackLocale = true;
+    for (let i = 0; i < transicoesOrdenadas.length && candidatos.length === 0; i++) {
+      candidatos = await buscar('pt-BR', transicoesOrdenadas[i]);
+      if (candidatos.length) { usouFallbackLocale = true; if (i > 0) usouFallbackNivel = true; }
+    }
   }
   if (candidatos.length === 0) return null;
 
@@ -194,6 +213,7 @@ export async function resolverModuloBaseParaConteudo(
     cargoFit(escolhido) && 'cargo-fit',
     jaUsados.has(escolhido.id) && 'reuso(penalizado)',
     usouFallbackLocale && `fallback-locale(${locale}→pt-BR)`,
+    usouFallbackNivel && 'fallback-nivel',
     candidatos.length > 1 && `entre-${candidatos.length}`,
   ].filter(Boolean).join(' · ') || 'unico-candidato';
 
