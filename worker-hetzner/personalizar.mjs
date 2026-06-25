@@ -88,22 +88,83 @@ async function probeVideo(deckPath) {
   return { width: v.width, height: v.height, fps: d ? Math.round(n / d) : 30, pixFmt: v.pix_fmt || 'yuv420p' };
 }
 
-/** Sobe o WAV do voice-over no bucket público → URL p/ o <Audio> do Remotion. */
-async function uploadAudio(buf, key) {
-  if (!SUPA || !SRK) throw new Error('SUPABASE_URL/SERVICE_ROLE_KEY ausentes (áudio do greeting)');
+/** Sobe um buffer no bucket → URL pública. contentType default audio/wav. */
+async function uploadBuffer(buf, key, contentType = 'audio/wav') {
+  if (!SUPA || !SRK) throw new Error('SUPABASE_URL/SERVICE_ROLE_KEY ausentes (storage do greeting)');
   const r = await fetch(`${SUPA}/storage/v1/object/${BUCKET}/${key}`, {
     method: 'POST',
-    headers: { apikey: SRK, Authorization: `Bearer ${SRK}`, 'Content-Type': 'audio/wav', 'x-upsert': 'true' },
+    headers: { apikey: SRK, Authorization: `Bearer ${SRK}`, 'Content-Type': contentType, 'x-upsert': 'true' },
     body: buf,
   });
-  if (!r.ok) throw new Error(`upload greeting audio ${r.status}: ${(await r.text()).slice(0, 150)}`);
+  if (!r.ok) throw new Error(`upload ${key} ${r.status}: ${(await r.text()).slice(0, 150)}`);
   return `${SUPA}/storage/v1/object/public/${BUCKET}/${key}`;
+}
+const uploadAudio = (buf, key) => uploadBuffer(buf, key, 'audio/wav');
+
+/** Baixa um objeto do bucket → Buffer, ou null se não existir (cache miss). */
+async function downloadFromStorage(key) {
+  if (!SUPA || !SRK) return null;
+  try {
+    const r = await fetch(`${SUPA}/storage/v1/object/${BUCKET}/${key}`, {
+      headers: { apikey: SRK, Authorization: `Bearer ${SRK}` },
+    });
+    if (!r.ok) return null;
+    return Buffer.from(await r.arrayBuffer());
+  } catch { return null; }
+}
+
+/** Slug ASCII p/ a chave de cache (nome/voz). */
+function slug(s) {
+  return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'x';
 }
 
 /**
- * Personaliza: renderiza a cena de SAUDAÇÃO (Remotion `AvatarGreeting`) com o nome
- * + voz-over Callirrhoe, e prepend ao deck. `opts.bundleDir` (serveUrl do Remotion)
- * é obrigatório; `opts.brand` casa a marca do deck. Retorna outPath.
+ * Renderiza a cena de SAUDAÇÃO (TTS "Olá, {nome}" + Remotion `AvatarGreeting`),
+ * escalada igual ao output do deck. É a parte CARA (Vertex TTS + Chromium).
+ */
+async function renderGreeting(outMp4, p) {
+  const work = p.work;
+  const greetRaw = path.join(work, 'greet.wav');
+  await ttsSaudacao(p.nome, greetRaw, p.voice);
+  // Casa o volume da saudação ao deck masterizado (-14 LUFS). Se falhar, usa o cru.
+  const greetNorm = path.join(work, 'greet-norm.wav');
+  const greetWav = await loudnormWav(greetRaw, greetNorm).then(() => greetNorm).catch(() => greetRaw);
+  const audioDur = await dur(greetWav);
+  const TAIL = 0.3;
+  const durationInFrames = Math.ceil((audioDur + TAIL) * p.fps);
+  // A saudação é desenhada no MESMO design do deck (1920×1080) e sai com o MESMO
+  // scale (output do deck, ex. 720p) → bate pixel a pixel com o avatar_intro.
+  const gScale = p.scale || (p.height / p.designH);
+  // áudio do voice-over precisa de URL pública (o headless do Remotion faz fetch).
+  const stamp = `${p.colaboradorId || slug(p.nome)}_${slug(p.voice)}`.replace(/[^A-Za-z0-9_-]/g, '');
+  const audioSrc = await uploadAudio(await readFile(greetWav), `greetings/${stamp}.wav`);
+  const props = { nome: p.nome, audioSrc, brand: p.brand, durationInFrames, fps: p.fps, width: p.designW, height: p.designH };
+  await ensureBrowser();
+  const comp = await selectComposition({ serveUrl: p.bundleDir, id: 'AvatarGreeting', inputProps: props });
+  await renderMedia({ serveUrl: p.bundleDir, composition: comp, codec: 'h264', outputLocation: outMp4, inputProps: props, chromiumOptions: { gl: 'swangle' }, ...(gScale && gScale !== 1 ? { scale: gScale } : {}) });
+  return outMp4;
+}
+
+/**
+ * Saudação CACHEADA por (colaborador × voz × nome × formato): grava o greetMp4
+ * 1× no storage e o REUTILIZA em todos os materiais do usuário — pula TTS+render
+ * (caros, rate-limited) nas próximas células. Chave determinística (sem tabela);
+ * nome/voz/formato na chave invalidam sozinhos. Sem colaboradorId → sempre gera.
+ */
+async function getOrCreateGreeting(outMp4, p) {
+  const key = `greetings-cache/${p.colaboradorId}__${slug(p.voice)}__${slug(primeiroNome(p.nome))}__${p.width}x${p.height}.mp4`;
+  if (p.colaboradorId) {
+    const buf = await downloadFromStorage(key);
+    if (buf && buf.length > 2000) { await writeFile(outMp4, buf); return { cached: true, key }; }
+  }
+  await renderGreeting(outMp4, p);
+  if (p.colaboradorId) await uploadBuffer(await readFile(outMp4), key, 'video/mp4').catch(() => {});
+  return { cached: false, key };
+}
+
+/**
+ * Personaliza: obtém a SAUDAÇÃO do usuário (cache → render) e faz crossfade com o
+ * avatar_intro do deck. `opts.bundleDir` obrigatório; `opts.brand` casa a marca.
  */
 export async function personalizar(deckPath, nomeCompleto, outPath, opts = {}) {
   const nome = primeiroNome(nomeCompleto) || 'tudo bem';
@@ -112,40 +173,18 @@ export async function personalizar(deckPath, nomeCompleto, outPath, opts = {}) {
   const brand = opts.brand || DEFAULT_BRAND;
   const work = await mkdtemp(path.join(os.tmpdir(), 'perso-'));
   try {
-    const greetRaw = path.join(work, 'greet.wav');
-    await ttsSaudacao(nome, greetRaw, opts.voice || VOICE);
-    // Casa o volume da saudação ao deck masterizado (-14 LUFS). Se falhar, usa o cru.
-    const greetNorm = path.join(work, 'greet-norm.wav');
-    const greetWav = await loudnormWav(greetRaw, greetNorm).then(() => greetNorm).catch(() => greetRaw);
-    const audioDur = await dur(greetWav);
     const { width, height, fps } = await probeVideo(deckPath);
-    const TAIL = 0.3; // folga após a voz da saudação (era 0.6 → reduzido p/ aproximar do avatar)
-    const durationInFrames = Math.ceil((audioDur + TAIL) * fps);
-
-    // A saudação tem de bater PIXEL A PIXEL com o avatar_intro do deck p/ o
-    // crossfade não duplicar logo/texto. O deck é desenhado em 1920×1080 e SAI
-    // escalado (render_scale → ex. 720p). Renderizamos a saudação no MESMO design
-    // (1920×1080) com o MESMO scale → mesma posição de tudo.
-    const designW = opts.width || 1920;
-    const designH = opts.height || 1080;
-    const gScale = opts.scale || (height / designH); // deriva do output do deck (ex. 720/1080)
-
-    // áudio do voice-over precisa de URL pública (o headless do Remotion faz fetch).
-    const stamp = `${opts.jobId || 'p'}_${opts.colaboradorId || nome}`.replace(/[^A-Za-z0-9_-]/g, '');
-    const audioSrc = await uploadAudio(await readFile(greetWav), `greetings/${stamp}.wav`);
-
-    const props = { nome, audioSrc, brand, durationInFrames, fps, width: designW, height: designH };
-    await ensureBrowser();
-    const comp = await selectComposition({ serveUrl: bundleDir, id: 'AvatarGreeting', inputProps: props });
     const greetMp4 = path.join(work, 'greet.mp4');
-    await renderMedia({ serveUrl: bundleDir, composition: comp, codec: 'h264', outputLocation: greetMp4, inputProps: props, chromiumOptions: { gl: 'swangle' }, ...(gScale && gScale !== 1 ? { scale: gScale } : {}) });
+    const g = await getOrCreateGreeting(greetMp4, {
+      nome, voice: opts.voice || VOICE, brand, width, height, fps, work, bundleDir,
+      colaboradorId: opts.colaboradorId, designW: opts.width || 1920, designH: opts.height || 1080, scale: opts.scale,
+    });
+    if (g.cached) console.log(`[personalizar] saudação REUSADA do cache (${g.key})`);
 
-    // CROSSFADE saudação → avatar_intro: como a saudação usa o mesmo layout do
-    // avatar_intro, o xfade faz "Olá, {nome}" derreter no título + avatar (fade-out
-    // do nome / fade-in do título+mentora) na MESMA tela. O crossfade acontece no
-    // tail da saudação (depois da voz), então a narração entra logo após o nome.
-    const T = 0.3; // crossfade saudação→avatar (era 0.6 → mais curto = menos espaçamento)
-    const greetDur = durationInFrames / fps;
+    // CROSSFADE saudação → avatar_intro. offset = duração REAL do greetMp4 (cacheado
+    // ou novo) − T, p/ o nome derreter no título na mesma tela.
+    const T = 0.3;
+    const greetDur = await dur(greetMp4);
     const offset = Math.max(0.1, greetDur - T).toFixed(2);
     await exec(FFMPEG, ['-y', '-i', greetMp4, '-i', deckPath, '-filter_complex',
       `[0:v][1:v]xfade=transition=fade:duration=${T}:offset=${offset}[v];[0:a][1:a]acrossfade=d=${T}[a]`,
