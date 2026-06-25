@@ -232,6 +232,8 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
                 </div>
                 <ConteudoViewer
                   conteudo={entrega.conteudo}
+                  competencia={entrega.competencia || semana.competencia}
+                  descritor={entrega.descritor}
                   formatoAtivo={typeof formatoAtivo === 'object' && formatoAtivo !== null ? formatoAtivo[idx] : (idx === 0 ? formatoAtivo : null)}
                   setFormatoAtivo={(formato) => setFormatoAtivo(prev => ({ ...(typeof prev === 'object' && prev !== null ? prev : {}), [idx]: formato }))}
                   trilhaId={data.trilha.id}
@@ -240,7 +242,6 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
                   onAutoConsumido={() => !conteudoConsumido && handleConsumido()}
                   t={t}
                 />
-                <VideoPersonalizadoCard competencia={entrega.competencia || semana.competencia} descritor={entrega.descritor} />
               </div>
             ))}
             {!conteudoConsumido && (
@@ -582,62 +583,36 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   );
 }
 
-/**
- * Vídeo personalizado da célula do colaborador (cargo × perfil DISC × PPP), resolvido
- * pela competência da semana. Aditivo: só aparece se já houver vídeo pronto (ou em
- * preparo) para a célula — não dispara geração (gerar=false). Reaproveitado entre
- * todos os colaboradores do mesmo cargo+perfil.
- */
-function VideoPersonalizadoCard({ competencia, descritor }) {
-  const [st, setSt] = useState(null);
-  const iframeRef = useRef(null);
+function ConteudoViewer({ conteudo, competencia, descritor, formatoAtivo, setFormatoAtivo, onAutoConsumido, onAbrirConteudo, trilhaId, semana, t }) {
+  // Vídeo da CÉLULA (cargo × DISC × PPP), resolvido pela competência da semana.
+  // Aparece como um formato a mais (chip clicável); o player abre inline igual
+  // aos outros. Não dispara geração (gerar=false) — só reusa pronto/em-preparo.
+  const [vid, setVid] = useState<any>(null);
+  const videoIframeRef = useRef(null);
   useEffect(() => {
     if (!competencia) return;
     let alive = true;
     resolverVideoDaSemana(competencia, descritor || null, false)
-      .then((r) => { if (alive) setSt(r); })
-      .catch(() => { if (alive) setSt({ available: false }); });
+      .then((r) => { if (alive) setVid(r); })
+      .catch(() => { if (alive) setVid({ available: false }); });
     return () => { alive = false; };
   }, [competencia, descritor]);
+  const videoPronto = !!(vid?.available && vid?.status === 'done' && vid?.bunny_video_id && vid?.bunny_library);
+  const videoPreparando = !!(vid?.available && ['processing', 'render_queued', 'rendering'].includes(vid?.status));
+  const temVideo = videoPronto || videoPreparando;
 
-  const pronto = !!(st?.status === 'done' && st?.bunny_video_id && st?.bunny_library);
-  // Tracking de view (videos_watched) só quando o vídeo está pronto e em tela.
-  useBunnyTracking(iframeRef, pronto ? st?.colaboradorId : null, pronto ? st?.bunny_video_id : null);
-
-  if (!st?.available) return null;
-  const preparando = ['processing', 'render_queued', 'rendering'].includes(st.status);
-  if (!pronto && !preparando) return null;
-
-  return (
-    <div className="mt-4 rounded-lg border border-violet-400/20 bg-violet-500/[0.06] p-3">
-      <p className="text-[10px] uppercase tracking-widest text-violet-300 font-bold mb-2 flex items-center gap-1.5">
-        <Video size={12} /> Seu vídeo — feito pro seu cargo e perfil
-        {st.isPersonalizado && <span className="ml-1 normal-case tracking-normal text-emerald-400 font-semibold">· com seu nome</span>}
-      </p>
-      {pronto ? (
-        <div className="aspect-video rounded-lg overflow-hidden bg-black">
-          <iframe
-            ref={iframeRef}
-            src={`https://iframe.mediadelivery.net/embed/${st.bunny_library}/${st.bunny_video_id}?autoplay=false&responsive=true`}
-            className="w-full h-full" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture" allowFullScreen
-          />
-        </div>
-      ) : (
-        <p className="text-xs text-gray-400 italic">Estamos preparando seu vídeo personalizado — volte em alguns minutos.</p>
-      )}
-    </div>
-  );
-}
-
-function ConteudoViewer({ conteudo, formatoAtivo, setFormatoAtivo, onAutoConsumido, onAbrirConteudo, trilhaId, semana, t }) {
-  const formatos = Object.keys(conteudo.formatos_disponiveis || {});
-  const ativo = formatoAtivo || conteudo.formato_core;
+  // Formatos: conteúdo do kit (case/texto/audio) + vídeo da célula (quando há).
+  const formatos = [...Object.keys(conteudo.formatos_disponiveis || {}).filter((f) => f !== 'video'), ...(temVideo ? ['video'] : [])];
+  let ativo = formatoAtivo || conteudo.formato_core;
+  if (ativo === 'video' && !temVideo) ativo = formatos[0]; // core era vídeo mas não há → 1º disponível
   const item = conteudo.formatos_disponiveis?.[ativo] || (ativo === conteudo.formato_core ? { url: conteudo.core_url, titulo: conteudo.core_titulo } : null);
 
   // audio (TTS) e texto/case (PDF) são servidos por ID via rota (gerados sob
-  // demanda) — não precisam de URL pré-renderizada. Só vídeo exige url (embed).
+  // demanda) — não precisam de URL pré-renderizada. Vídeo usa o embed da célula.
   const fonteId = (item as any)?.id || conteudo.core_id;
-  const temFonte = ativo === 'video' ? !!item?.url : !!(item?.url || fonteId);
+  const temFonte = ativo === 'video' ? temVideo : !!(item?.url || fonteId);
+
+  useBunnyTracking(videoIframeRef, videoPronto ? vid?.colaboradorId : null, videoPronto ? vid?.bunny_video_id : null);
 
   // Listener postMessage Bunny → auto-marca conteudo_consumido ao atingir 80%
   useEffect(() => {
@@ -666,21 +641,19 @@ function ConteudoViewer({ conteudo, formatoAtivo, setFormatoAtivo, onAutoConsumi
     return () => window.removeEventListener('message', handler);
   }, [ativo, onAutoConsumido]);
 
-  // Adiciona metaData na URL do Bunny embed (atribuição de view)
+  // Embed do vídeo da célula (Bunny) + metaData p/ atribuição de view.
   const embedUrl = (() => {
-    if (ativo !== 'video' || !item?.url) return item?.url;
-    try {
-      const u = new URL(item.url);
-      u.searchParams.set('metaData', `trilha-${trilhaId}_semana-${semana}`);
-      return u.toString();
-    } catch { return item.url; }
+    if (!videoPronto) return null;
+    const base = `https://iframe.mediadelivery.net/embed/${vid.bunny_library}/${vid.bunny_video_id}?autoplay=false&responsive=true`;
+    try { const u = new URL(base); u.searchParams.set('metaData', `trilha-${trilhaId}_semana-${semana}`); return u.toString(); } catch { return base; }
   })();
 
   // Resolve a fonte de um formato qualquer (não só o ativo) — p/ chips clicáveis.
   const fonteDoFormato = (f: string) => {
+    if (f === 'video') return { info: null, fid: null, tem: temVideo };
     const info = conteudo.formatos_disponiveis?.[f] || (f === conteudo.formato_core ? { id: conteudo.core_id, url: conteudo.core_url } : null);
     const fid = info?.id || (f === conteudo.formato_core ? conteudo.core_id : null);
-    const tem = f === 'video' ? !!info?.url : !!(info?.url || fid);
+    const tem = !!(info?.url || fid);
     return { info, fid, tem };
   };
 
@@ -721,9 +694,15 @@ function ConteudoViewer({ conteudo, formatoAtivo, setFormatoAtivo, onAutoConsumi
           {t('content.preparingFormats')}
         </div>
       )}
-      {temFonte && ativo === 'video' && (
+      {ativo === 'video' && videoPronto && (
         <div className="aspect-video rounded-lg overflow-hidden bg-black">
-          <iframe src={embedUrl} className="w-full h-full" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture" allowFullScreen />
+          <iframe ref={videoIframeRef} src={embedUrl} className="w-full h-full" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture" allowFullScreen />
+          {vid?.isPersonalizado && <p className="text-[10px] text-emerald-400 font-semibold mt-1">· com seu nome</p>}
+        </div>
+      )}
+      {ativo === 'video' && !videoPronto && videoPreparando && (
+        <div className="text-sm text-gray-400 italic p-4 rounded bg-white/5 border border-violet-400/20">
+          Estamos preparando seu vídeo personalizado — volte em alguns minutos.
         </div>
       )}
       {temFonte && ativo === 'audio' && (
