@@ -231,11 +231,26 @@ async function renderOne(job) {
 
   const out = `/tmp/${job.id}.mp4`;
   const t0 = Date.now();
-  await renderMedia({
-    serveUrl: bundle, composition, codec: 'h264', outputLocation: out,
-    concurrency: CONCURRENCY, chromiumOptions: { gl: 'swangle' }, inputProps: props,
-    ...(scale && scale !== 1 ? { scale } : {}),
-  });
+  // WATCHDOG: se o render pendurar (OOM/swap silencioso, frame travado), aborta
+  // em vez de segurar a box pra sempre. cancelRender() mata o render; o erro sobe
+  // → loop marca status=error → fila esvazia → self-destruct. Default 25min
+  // (cobre vídeos longos em 720p/cx33); override por MAX_RENDER_MS.
+  const MAX_RENDER_MS = parseInt(process.env.MAX_RENDER_MS || '1500000', 10);
+  const { makeCancelSignal } = await import('@remotion/renderer');
+  const { cancelSignal, cancel } = makeCancelSignal();
+  let wd = null;
+  const watchdog = new Promise((_, rej) => { wd = setTimeout(() => { try { cancel(); } catch {} rej(new Error(`render watchdog: passou de ${Math.round(MAX_RENDER_MS / 60000)}min sem concluir (cx33/OOM provável) — abortado`)); }, MAX_RENDER_MS); });
+  try {
+    await Promise.race([
+      renderMedia({
+        serveUrl: bundle, composition, codec: 'h264', outputLocation: out,
+        concurrency: CONCURRENCY, chromiumOptions: { gl: 'swangle' }, inputProps: props,
+        cancelSignal,
+        ...(scale && scale !== 1 ? { scale } : {}),
+      }),
+      watchdog,
+    ]);
+  } finally { if (wd) clearTimeout(wd); }
   log(`render ${job.id} OK em ${Math.round((Date.now() - t0) / 1000)}s · masterizando áudio…`);
 
   // Engenharia de áudio (trilha + ducking + master -14 LUFS) — mesmo passo do

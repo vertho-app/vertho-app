@@ -70,7 +70,13 @@ export async function ensureRenderWorker(): Promise<EnsureResult> {
     `BUNNY_STREAM_API_KEY=${process.env.BUNNY_STREAM_API_KEY || ''}`,
     `GEMINI_API_KEY=${process.env.GEMINI_API_KEY || ''}`,
     `VIDEO_TTS_VOICE=${process.env.VIDEO_TTS_VOICE || 'Vindemiatrix'}`,
-    `VIDEO_RENDER_SCALE=${process.env.VIDEO_RENDER_SCALE || '1'}`,
+    // 720p (0.6667) por padrão: 1080p numa cx33 (8GB, swangle/software) com vídeos
+    // longos (10k+ frames) estourava memória e TRAVAVA o render. 720p alivia RAM/CPU
+    // por frame. Override por VIDEO_RENDER_SCALE.
+    `VIDEO_RENDER_SCALE=${process.env.VIDEO_RENDER_SCALE || '0.6667'}`,
+    // Concorrência LIMITADA a 2: o worker default usava nº de vCPUs (4 na cx33) →
+    // 4 Chromium em paralelo = OOM. 2 é o equilíbrio seguro p/ 8GB. Override por env.
+    `RENDER_CONCURRENCY=${process.env.RENDER_CONCURRENCY || '2'}`,
     `HCLOUD_TOKEN=${token}`,
     `EPHEMERAL=true`,
     `IDLE_SHUTDOWN_MS=${process.env.RENDER_IDLE_SHUTDOWN_MS || '300000'}`,
