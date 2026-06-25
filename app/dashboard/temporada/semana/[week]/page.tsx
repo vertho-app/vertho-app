@@ -245,11 +245,16 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
               </div>
             ))}
             {!conteudoConsumido && (
-              <button onClick={handleConsumido} disabled={!abriuConteudo}
-                title={!abriuConteudo ? t('content.openBeforeComplete') : ''}
-                className="mt-4 flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold">
-                <Check size={14} /> {t('content.markDone')}
-              </button>
+              <div className="mt-4">
+                <button onClick={handleConsumido} disabled={!abriuConteudo}
+                  title={!abriuConteudo ? t('content.openBeforeComplete') : ''}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition ${abriuConteudo ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-white/10 text-gray-500 cursor-not-allowed'}`}>
+                  <Check size={14} /> {t('content.markDone')}
+                </button>
+                {!abriuConteudo && (
+                  <p className="mt-2 text-xs text-amber-300/80">{t('content.openBeforeComplete')}</p>
+                )}
+              </div>
             )}
             {conteudoConsumido && (
               <div className="mt-4 flex items-center gap-2 text-emerald-400 text-xs">
