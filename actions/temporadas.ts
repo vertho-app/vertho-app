@@ -22,12 +22,12 @@ interface GerarTemporadaParams {
 /**
  * Wrapper: carrega temporada do colab logado via email.
  */
-export async function loadTemporadaPorEmail(email: string) {
+export async function loadTemporadaPorEmail(email: string, opts: { semanaTranscrito?: number } = {}) {
   try {
     await requireUserAction();
     const colab = await findColabByEmail(email, 'id');
     if (!colab) return { error: 'Colab não encontrado' };
-    return loadTemporada(colab.id);
+    return loadTemporada(colab.id, opts);
   } catch (err: any) {
     return { error: err?.message || 'Erro' };
   }
@@ -748,9 +748,13 @@ async function aplicarOverlayKit(sb: any, plano: any[], colab: any, trilha: { co
     const formatoPref = formatoPreferido(colab);
     const disc = (colab.perfil_dominante || '').charAt(0).toUpperCase() || null;
     const competenciaFoco = trilha.competencia_foco || (Array.isArray(trilha.competencias_foco) ? trilha.competencias_foco[0] : null);
+    // Pré-carrega TODOS os kits da trilha em 3 queries (antes: 2-3 queries POR
+    // semana = ~30 numa trilha de 14 sem). Consultado em memória no overlay.
+    const { precarregarKits } = await import('@/lib/season-engine/kit/entrega-semana');
+    const kitsCache = await precarregarKits(sb, { empresaId: colab.empresa_id, disc, cargo: colab.cargo }).catch(() => undefined);
     await Promise.all(
       plano.filter((s: any) => s?.tipo === 'conteudo').map((s: any) =>
-        overlayKitNaSemana(sb, s, { empresaId: colab.empresa_id, disc, cargo: colab.cargo, formatoPref, competenciaFoco }),
+        overlayKitNaSemana(sb, s, { empresaId: colab.empresa_id, disc, cargo: colab.cargo, formatoPref, competenciaFoco, kitsCache }),
       ),
     );
   } catch { /* best-effort — nunca quebra a tela */ }
@@ -909,7 +913,7 @@ export async function loadProgressoDetalhado(trilhaId: string) {
 /**
  * Carrega a temporada ativa de um colaborador (com plano + progresso).
  */
-export async function loadTemporada(colaboradorId: string) {
+export async function loadTemporada(colaboradorId: string, opts: { semanaTranscrito?: number } = {}) {
   try {
     await requireUserAction();
     if (!colaboradorId) return { error: 'colaboradorId obrigatório' };
@@ -932,8 +936,21 @@ export async function loadTemporada(colaboradorId: string) {
       .order('criado_em', { ascending: false }).limit(1).maybeSingle();
     if (!trilha) return { error: 'Sem temporada' };
 
+    // Progresso LEVE: sem os 3 JSONB de transcript (reflexao/feedback/tira_duvidas),
+    // que pesam e só são usados na tela de UMA semana. Antes `select('*')` puxava os
+    // 14 transcripts por load.
+    const COLS_LEVE = 'id, trilha_id, empresa_id, colaborador_id, semana, tipo, status, conteudo_consumido, iniciado_em, concluido_em';
     const { data: progresso } = await tdb.from('temporada_semana_progresso')
-      .select('*').eq('trilha_id', trilha.id).order('semana');
+      .select(COLS_LEVE).eq('trilha_id', trilha.id).order('semana');
+
+    // Transcritos só da semana em FOCO (tela [week]/sem14) → 1 linha, não 14.
+    if (opts.semanaTranscrito && progresso?.length) {
+      const { data: tr } = await tdb.from('temporada_semana_progresso')
+        .select('semana, reflexao, feedback, tira_duvidas')
+        .eq('trilha_id', trilha.id).eq('semana', opts.semanaTranscrito).maybeSingle();
+      const alvo = tr && progresso.find((p: any) => p.semana === opts.semanaTranscrito);
+      if (alvo) Object.assign(alvo, { reflexao: tr.reflexao, feedback: tr.feedback, tira_duvidas: tr.tira_duvidas });
+    }
 
     let plano = normalizeTemporadaPlano(trilha.temporada_plano);
 

@@ -76,7 +76,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
     (async () => {
       const { data: { user } } = await sb.auth.getUser();
       if (!user) { router.replace('/login'); return; }
-      const r = await loadTemporadaPorEmail(user.email);
+      const r = await loadTemporadaPorEmail(user.email, { semanaTranscrito: semanaNum });
       if (!r.error) {
         setData(r);
         const semana = (r.trilha?.temporada_plano || []).find(s => s.semana === semanaNum);
@@ -125,7 +125,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
 
   async function handleConsumido() {
     await marcarConteudoConsumido(data.trilha.id, semanaNum);
-    const r = await loadTemporadaPorEmail((await sb.auth.getUser()).data.user.email);
+    const r = await loadTemporadaPorEmail((await sb.auth.getUser()).data.user.email, { semanaTranscrito: semanaNum });
     setData(r);
   }
 
@@ -147,7 +147,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
     // Sem 14: init grava cenario no feedback — recarrega pra renderizar na tela.
     if (semanaNum === 14 && r.cenario) {
       const user = (await sb.auth.getUser()).data.user;
-      const fresh = await loadTemporadaPorEmail(user.email);
+      const fresh = await loadTemporadaPorEmail(user.email, { semanaTranscrito: semanaNum });
       setData(fresh);
     }
   }
@@ -169,7 +169,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
     setMissaoBusy(false);
     if (!r.error) {
       const user = (await sb.auth.getUser()).data.user;
-      const fresh = await loadTemporadaPorEmail(user.email);
+      const fresh = await loadTemporadaPorEmail(user.email, { semanaTranscrito: semanaNum });
       setData(fresh);
     }
   }

@@ -43,7 +43,7 @@ export default function Sem14Page() {
     (async () => {
       const { data: { user } } = await sb.auth.getUser();
       if (!user) { router.replace('/login'); return; }
-      const r = await loadTemporadaPorEmail(user.email);
+      const r = await loadTemporadaPorEmail(user.email, { semanaTranscrito: 14 });
       if (r.error || !r.trilha) { setError(r.error || t('errors.noTrack')); return; }
       setTrilhaId(r.trilha.id);
       setCompetencia(Array.isArray(r.trilha.competencias_foco) && r.trilha.competencias_foco.length > 1

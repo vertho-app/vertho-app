@@ -45,10 +45,68 @@ export async function resolverKitDaSemana(
   return { kitId: d.kitId, desafio: { desafio_texto: d.desafio_texto, acao_observavel: d.acao_observavel, criterio_de_execucao: d.criterio_de_execucao }, formatos };
 }
 
+/** Tipo do resolvedor em memória (pré-carregado): (competência:::descritor) → kit. */
+export type KitsCache = Map<string, { kitId: string; desafio: any; formatos: Record<string, { id: string; url: string | null; titulo: string }> }>;
+const cacheKey = (competencia: string | null, descritor: string | null) => `${competencia || ''} ::: ${descritor || ''}`;
+
+/**
+ * Pré-carrega TODOS os kits de uma trilha em 3 queries (evita o N+1 do overlay,
+ * que fazia 2-3 queries POR semana). Casa por (competência:::descritor) com a
+ * MESMA preferência da leitura individual: cargo do colab > exclusivo da empresa
+ * > fallback. Retorna um Map consultado em memória pelo overlay.
+ */
+export async function precarregarKits(
+  sb: any,
+  args: { empresaId: string | null; disc: string | null; cargo?: string | null },
+): Promise<KitsCache> {
+  const out: KitsCache = new Map();
+  const disc = String(args.disc || '').trim().charAt(0).toUpperCase();
+  if (!['D', 'I', 'S', 'C'].includes(disc)) return out;
+
+  // 1) briefs (empresa + global) — conjunto pequeno por empresa.
+  let bq = sb.from('kit_briefs').select('id, competencia, descritor, cargo, empresa_id');
+  bq = args.empresaId ? bq.or(`empresa_id.eq.${args.empresaId},empresa_id.is.null`) : bq.is('empresa_id', null);
+  const { data: briefs } = await bq;
+  if (!briefs?.length) return out;
+
+  // 2) kits publicados do DISC. 3) conteúdos desses kits.
+  const { data: kitsRows } = await sb.from('kits')
+    .select('id, brief_id, desafio').in('brief_id', briefs.map((b: any) => b.id)).eq('disc', disc).eq('status', 'published');
+  if (!kitsRows?.length) return out;
+  const kitByBrief = new Map(kitsRows.map((k: any) => [k.brief_id, k]));
+  const { data: conteudos } = await sb.from('micro_conteudos')
+    .select('id, kit_id, formato, url, titulo').in('kit_id', kitsRows.map((k: any) => k.id));
+  const conteudosByKit = new Map<string, any[]>();
+  for (const c of conteudos || []) { (conteudosByKit.get(c.kit_id) || conteudosByKit.set(c.kit_id, []).get(c.kit_id))!.push(c); }
+
+  // Casa por (comp:::desc) escolhendo o melhor brief: cargo certo (2) + empresa (1).
+  const cargoColab = String(args.cargo || '').trim().toLowerCase();
+  const best = new Map<string, { kit: any; score: number }>();
+  for (const b of briefs) {
+    const kit = kitByBrief.get(b.id); if (!kit) continue;
+    const key = cacheKey(b.competencia, b.descritor);
+    const score = (cargoColab && String(b.cargo || '').toLowerCase() === cargoColab ? 2 : 0) + (b.empresa_id ? 1 : 0);
+    const prev = best.get(key);
+    if (!prev || score > prev.score) best.set(key, { kit, score });
+  }
+  for (const [key, { kit }] of best) {
+    const formatos: Record<string, { id: string; url: string | null; titulo: string }> = {};
+    for (const c of conteudosByKit.get(kit.id) || []) {
+      if (c.formato === 'video') continue;
+      if (c.formato === 'audio' || c.url) formatos[c.formato] = { id: c.id, url: c.url ?? null, titulo: c.titulo };
+    }
+    out.set(key, { kitId: kit.id, desafio: kit.desafio || {}, formatos });
+  }
+  return out;
+}
+
 /** Aplica o kit num objeto `conteudo` (mutação): formatos + core preferido + desafio. */
-async function overlayConteudo(sb: any, conteudo: any, args: { empresaId: string | null; competencia: string | null; descritor: string | null; disc: string | null; cargo?: string | null; formatoPref: Formato }) {
+async function overlayConteudo(sb: any, conteudo: any, args: { empresaId: string | null; competencia: string | null; descritor: string | null; disc: string | null; cargo?: string | null; formatoPref: Formato; kitsCache?: KitsCache }) {
   if (!conteudo) return;
-  const kit = await resolverKitDaSemana(sb, args).catch(() => null);
+  // Com cache pré-carregado: consulta em memória (sem query). Sem cache: resolve 1×.
+  const kit = args.kitsCache
+    ? (args.kitsCache.get(cacheKey(args.competencia, args.descritor)) || null)
+    : await resolverKitDaSemana(sb, args).catch(() => null);
   if (!kit) return; // sem kit → mantém o conteúdo antigo
   conteudo.kit_id = kit.kitId;
   conteudo.formatos_disponiveis = { ...(conteudo.formatos_disponiveis || {}), ...kit.formatos }; // mantém vídeo existente
@@ -69,14 +127,14 @@ async function overlayConteudo(sb: any, conteudo: any, args: { empresaId: string
 export async function overlayKitNaSemana(
   sb: any,
   semanaPlan: any,
-  args: { empresaId: string | null; disc: string | null; cargo?: string | null; formatoPref: Formato; competenciaFoco: string | null },
+  args: { empresaId: string | null; disc: string | null; cargo?: string | null; formatoPref: Formato; competenciaFoco: string | null; kitsCache?: KitsCache },
 ) {
   if (!semanaPlan || semanaPlan.tipo !== 'conteudo') return;
   if (Array.isArray(semanaPlan.conteudos_dia) && semanaPlan.conteudos_dia.length) {
     for (const e of semanaPlan.conteudos_dia) {
-      await overlayConteudo(sb, e.conteudo, { empresaId: args.empresaId, competencia: e.competencia || args.competenciaFoco, descritor: e.descritor, disc: args.disc, cargo: args.cargo, formatoPref: args.formatoPref });
+      await overlayConteudo(sb, e.conteudo, { empresaId: args.empresaId, competencia: e.competencia || args.competenciaFoco, descritor: e.descritor, disc: args.disc, cargo: args.cargo, formatoPref: args.formatoPref, kitsCache: args.kitsCache });
     }
   } else {
-    await overlayConteudo(sb, semanaPlan.conteudo, { empresaId: args.empresaId, competencia: args.competenciaFoco, descritor: semanaPlan.descritor, disc: args.disc, cargo: args.cargo, formatoPref: args.formatoPref });
+    await overlayConteudo(sb, semanaPlan.conteudo, { empresaId: args.empresaId, competencia: args.competenciaFoco, descritor: semanaPlan.descritor, disc: args.disc, cargo: args.cargo, formatoPref: args.formatoPref, kitsCache: args.kitsCache });
   }
 }
