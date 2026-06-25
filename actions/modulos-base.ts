@@ -1869,6 +1869,35 @@ export async function auditarModulosBaseEmLote(ids: string[]) {
   return { ok: true, auditados: ok, total: alvo.length, falhas: falhas.slice(0, 6) };
 }
 
+/**
+ * Refina VÁRIOS módulos numa tacada (concorrência baixa — cada refino é autora +
+ * nova auditoria, pesado). Disparado pela UI (seleção múltipla). Módulos já
+ * aprovados ou sem auditoria são PULADOS (não contam como falha). Guard 1×.
+ */
+export async function refinarModulosEmLote(ids: string[]) {
+  await requireAdminAction('ai.audit.regenerate');
+  const alvo = [...new Set((ids || []).filter(Boolean))];
+  if (!alvo.length) return { error: 'Nenhum módulo selecionado' };
+
+  const CONC = 2; // refino = IA-autora + IA-auditora por módulo; 2 em paralelo.
+  let refinados = 0, revertidos = 0, pulados = 0; const falhas: string[] = [];
+  for (let i = 0; i < alvo.length; i += CONC) {
+    const r = await Promise.all(alvo.slice(i, i + CONC).map((id) =>
+      refinarComFeedback(id).catch((e: any) => ({ error: e?.message || 'erro' }))));
+    r.forEach((res: any, k) => {
+      if (res?.revertido) { revertidos++; refinados++; }
+      else if (res?.ok) refinados++;
+      else {
+        const err = res?.error || 'falhou';
+        // "já aprovou" / "nada a refinar" / "sem auditoria" = nada a fazer, não é falha.
+        if (/aprovou|nada a refinar|sem auditoria|reauditar/i.test(err)) pulados++;
+        else falhas.push(`${String(alvo[i + k]).slice(0, 8)}: ${err}`);
+      }
+    });
+  }
+  return { ok: true, refinados, revertidos, pulados, total: alvo.length, falhas: falhas.slice(0, 6) };
+}
+
 // Auto-auditoria pós-extração: audita os módulos recém-criados em lotes, sem
 // guard (roda no trigger). Best-effort — falha em um módulo não derruba os outros
 // nem a extração; o módulo só fica sem nota (auditável depois pela UI).

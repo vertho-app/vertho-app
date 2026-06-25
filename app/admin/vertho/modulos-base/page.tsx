@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Plus, Sparkles, Star, X, Trash2, Film, ShieldCheck, Send, CheckCircle2 } from 'lucide-react';
+import { Loader2, Plus, Sparkles, Star, X, Trash2, Film, ShieldCheck, Send, CheckCircle2, Wand2 } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { listarModulos, listarCompetenciasBase, rascunharModuloBase, setPreferido, excluirModulo, auditarModulosBaseEmLote, submeterRevisaoEmLote, aprovarPublicarEmLote, listarFiltrosModulos } from '@/actions/modulos-base';
+import { listarModulos, listarCompetenciasBase, rascunharModuloBase, setPreferido, excluirModulo, auditarModulosBaseEmLote, refinarModulosEmLote, submeterRevisaoEmLote, aprovarPublicarEmLote, listarFiltrosModulos } from '@/actions/modulos-base';
 
 type Modulo = any;
 
@@ -41,7 +41,7 @@ export default function ModulosBaseListPage() {
   const [opcoesFiltro, setOpcoesFiltro] = useState<{ empresas: { id: string; nome: string }[]; hasGlobal: boolean; pilares: string[] }>({ empresas: [], hasGlobal: false, pilares: [] });
   const [modal, setModal] = useState<null | 'novo' | 'ia'>(null);
   const [sel, setSel] = useState<Set<string>>(new Set());
-  const [loteBusy, setLoteBusy] = useState<'' | 'auditar' | 'submeter' | 'aprovar' | 'excluir'>('');
+  const [loteBusy, setLoteBusy] = useState<'' | 'auditar' | 'submeter' | 'aprovar' | 'excluir' | 'refinar'>('');
   const [aviso, setAviso] = useState('');
 
   function toggleSel(id: string) {
@@ -52,7 +52,7 @@ export default function ModulosBaseListPage() {
   }
 
   async function rodarLote(
-    tipo: 'auditar' | 'submeter' | 'aprovar',
+    tipo: 'auditar' | 'submeter' | 'aprovar' | 'refinar',
     fn: (ids: string[]) => Promise<any>,
     rotuloOk: (r: any) => string,
   ) {
@@ -69,6 +69,12 @@ export default function ModulosBaseListPage() {
 
   function auditarSelecionados() {
     return rodarLote('auditar', auditarModulosBaseEmLote, (r) => `${r.auditados}/${r.total} módulo(s) reauditado(s)`);
+  }
+  function refinarSelecionados() {
+    return rodarLote('refinar', refinarModulosEmLote, (r) =>
+      `${r.refinados}/${r.total} refinado(s)` +
+      (r.revertidos ? ` · ${r.revertidos} revertido(s) (refino piorou)` : '') +
+      (r.pulados ? ` · ${r.pulados} pulado(s) (já aprovado/sem auditoria)` : ''));
   }
   function submeterSelecionados() {
     return rodarLote('submeter', submeterRevisaoEmLote, (r) => `${r.processados}/${r.total} submetido(s) pra revisão`);
@@ -212,6 +218,11 @@ export default function ModulosBaseListPage() {
               <button onClick={auditarSelecionados} disabled={!!loteBusy}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-white/15 text-white/70 hover:bg-white/5 disabled:opacity-50">
                 {loteBusy === 'auditar' ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={13} />} Reauditar
+              </button>
+              <button onClick={refinarSelecionados} disabled={!!loteBusy}
+                title="A IA-autora corrige os problemas apontados pela auditoria e re-audita. Pula módulos já aprovados; reverte se a nota cair."
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-purple-300/40 text-purple-200 hover:bg-purple-400/10 disabled:opacity-50">
+                {loteBusy === 'refinar' ? <Loader2 size={13} className="animate-spin" /> : <Wand2 size={13} />} Refinar com IA
               </button>
               <button onClick={excluirSelecionados} disabled={!!loteBusy}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-red-400/30 text-red-300 hover:bg-red-400/10 disabled:opacity-50">
