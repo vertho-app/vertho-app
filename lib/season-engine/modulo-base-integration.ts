@@ -59,17 +59,21 @@ export async function resolverModuloBaseParaConteudo(
   //    E no modelo da EMPRESA (competencia_id). Empresas como Macaé têm pilares
   //    próprios (Empreendedorismo) fora do canônico; os módulos extraídos no escopo
   //    da empresa apontam para competencia_id. Casa por qualquer um dos dois.
+  // ATENÇÃO: tanto competencias_base quanto competencias têm VÁRIAS linhas por
+  // competência (uma por descritor). O módulo aponta para UMA linha específica
+  // (a do seu descritor), então precisamos casar contra TODOS os ids do nome —
+  // não LIMIT 1 (que pegava a linha errada e o match por id falhava).
   const { data: comps } = await sb.from('competencias_base')
-    .select('id').ilike('nome', opts.competenciaNome).limit(1);
-  const competencia_base_id = comps?.[0]?.id || null;
+    .select('id').ilike('nome', opts.competenciaNome);
+  const competencia_base_ids: string[] = (comps || []).map((c: any) => c.id);
 
-  let competencia_id: string | null = null;
+  let competencia_ids: string[] = [];
   if (opts.empresaId) {
     const { data: ec } = await sb.from('competencias')
-      .select('id').eq('empresa_id', opts.empresaId).ilike('nome', opts.competenciaNome).limit(1);
-    competencia_id = ec?.[0]?.id || null;
+      .select('id').eq('empresa_id', opts.empresaId).ilike('nome', opts.competenciaNome);
+    competencia_ids = (ec || []).map((c: any) => c.id);
   }
-  if (!competencia_base_id && !competencia_id) return null;
+  if (!competencia_base_ids.length && !competencia_ids.length) return null;
 
   const { entrada, destino } = niveisDoNivelMin(opts.nivelMin);
   const locale = (opts.locale || 'pt-BR') as string;
@@ -86,9 +90,11 @@ export async function resolverModuloBaseParaConteudo(
       .eq('locale', loc)
       .eq('status', 'publicado');
     // Competência: canônica (competencia_base_id) OU da empresa (competencia_id).
+    // .in.(...) porque há N linhas por competência (uma por descritor) e o módulo
+    // referencia uma delas.
     const compOr = [
-      competencia_base_id ? `competencia_base_id.eq.${competencia_base_id}` : null,
-      competencia_id ? `competencia_id.eq.${competencia_id}` : null,
+      competencia_base_ids.length ? `competencia_base_id.in.(${competencia_base_ids.join(',')})` : null,
+      competencia_ids.length ? `competencia_id.in.(${competencia_ids.join(',')})` : null,
     ].filter(Boolean).join(',');
     q = q.or(compOr);
     q = opts.empresaId ? q.or(`empresa_id.is.null,empresa_id.eq.${opts.empresaId}`) : q.is('empresa_id', null);
