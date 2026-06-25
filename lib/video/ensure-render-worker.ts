@@ -80,9 +80,9 @@ export async function ensureRenderWorker(): Promise<EnsureResult> {
     // longos (10k+ frames) estourava memória e TRAVAVA o render. 720p alivia RAM/CPU
     // por frame. Override por VIDEO_RENDER_SCALE.
     `VIDEO_RENDER_SCALE=${process.env.VIDEO_RENDER_SCALE || '0.6667'}`,
-    // Concorrência LIMITADA a 2: o worker default usava nº de vCPUs (4 na cx33) →
-    // 4 Chromium em paralelo = OOM. 2 é o equilíbrio seguro p/ 8GB. Override por env.
-    `RENDER_CONCURRENCY=${process.env.RENDER_CONCURRENCY || '2'}`,
+    // Concorrência 4: na cx43 (16GB) cabe com folga (≈4GB/Chromium em 720p) e usa
+    // melhor os 8 vCPUs → render mais rápido. (Era 2 p/ a cx33 de 8GB.) Override por env.
+    `RENDER_CONCURRENCY=${process.env.RENDER_CONCURRENCY || '4'}`,
     `HCLOUD_TOKEN=${token}`,
     `EPHEMERAL=true`,
     `IDLE_SHUTDOWN_MS=${process.env.RENDER_IDLE_SHUTDOWN_MS || '300000'}`,
@@ -105,7 +105,10 @@ export async function ensureRenderWorker(): Promise<EnsureResult> {
   const mkBody = (n: number): any => {
     const b: any = {
       name: `vertho-render-${Date.now()}-${n}`,
-      server_type: process.env.RENDER_SERVER_TYPE || 'cx33',
+      // cx43 (8 vCPU / 16GB, €0,03/hr): 2× a cx33 — render bem mais rápido e folga
+      // de RAM p/ vídeos longos. Snapshot foi buildado em cx33 (disco menor), então
+      // criar cx43 a partir dele funciona (disk do server ≥ disk do snapshot).
+      server_type: process.env.RENDER_SERVER_TYPE || 'cx43',
       image: Number(snapshot),
       location: process.env.RENDER_LOCATION || 'nbg1',
       user_data: userData,
