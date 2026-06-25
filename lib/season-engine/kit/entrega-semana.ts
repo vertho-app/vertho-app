@@ -30,7 +30,7 @@ export function formatoPreferido(colab: any): Formato {
 /** Resolve o kit (por DISC) e seus formatos de leitura/áudio (micro_conteudos). */
 export async function resolverKitDaSemana(
   sb: any,
-  args: { empresaId: string | null; competencia: string | null; descritor: string | null; disc: string | null },
+  args: { empresaId: string | null; competencia: string | null; descritor: string | null; disc: string | null; cargo?: string | null },
 ): Promise<{ kitId: string; desafio: any; formatos: Record<string, { id: string; url: string | null; titulo: string }> } | null> {
   const d = await resolverDesafioDoKit(sb, args);
   if (!d) return null;
@@ -46,7 +46,7 @@ export async function resolverKitDaSemana(
 }
 
 /** Aplica o kit num objeto `conteudo` (mutação): formatos + core preferido + desafio. */
-async function overlayConteudo(sb: any, conteudo: any, args: { empresaId: string | null; competencia: string | null; descritor: string | null; disc: string | null; formatoPref: Formato }) {
+async function overlayConteudo(sb: any, conteudo: any, args: { empresaId: string | null; competencia: string | null; descritor: string | null; disc: string | null; cargo?: string | null; formatoPref: Formato }) {
   if (!conteudo) return;
   const kit = await resolverKitDaSemana(sb, args).catch(() => null);
   if (!kit) return; // sem kit → mantém o conteúdo antigo
@@ -69,14 +69,14 @@ async function overlayConteudo(sb: any, conteudo: any, args: { empresaId: string
 export async function overlayKitNaSemana(
   sb: any,
   semanaPlan: any,
-  args: { empresaId: string | null; disc: string | null; formatoPref: Formato; competenciaFoco: string | null },
+  args: { empresaId: string | null; disc: string | null; cargo?: string | null; formatoPref: Formato; competenciaFoco: string | null },
 ) {
   if (!semanaPlan || semanaPlan.tipo !== 'conteudo') return;
   if (Array.isArray(semanaPlan.conteudos_dia) && semanaPlan.conteudos_dia.length) {
     for (const e of semanaPlan.conteudos_dia) {
-      await overlayConteudo(sb, e.conteudo, { empresaId: args.empresaId, competencia: e.competencia || args.competenciaFoco, descritor: e.descritor, disc: args.disc, formatoPref: args.formatoPref });
+      await overlayConteudo(sb, e.conteudo, { empresaId: args.empresaId, competencia: e.competencia || args.competenciaFoco, descritor: e.descritor, disc: args.disc, cargo: args.cargo, formatoPref: args.formatoPref });
     }
   } else {
-    await overlayConteudo(sb, semanaPlan.conteudo, { empresaId: args.empresaId, competencia: args.competenciaFoco, descritor: semanaPlan.descritor, disc: args.disc, formatoPref: args.formatoPref });
+    await overlayConteudo(sb, semanaPlan.conteudo, { empresaId: args.empresaId, competencia: args.competenciaFoco, descritor: semanaPlan.descritor, disc: args.disc, cargo: args.cargo, formatoPref: args.formatoPref });
   }
 }

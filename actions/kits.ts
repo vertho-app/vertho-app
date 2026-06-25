@@ -323,10 +323,10 @@ export async function statusKit(jobId: string) {
 // existe publicado (empresa OU global) e gera SÓ os faltantes — em lote (Batch).
 // `executar:false` = dry-run (preview do plano). Ver docs/KIT-SEMANAL.md.
 const DISC_OK = ['D', 'I', 'S', 'C'];
-const ckey = (c: string, d: string, k = '') => [c, d, k].filter(Boolean).join(' ::: ');
+const ckey = (...parts: string[]) => parts.filter(Boolean).join(' ::: ');
 
 export interface PlanoCoorteItem {
-  competencia: string; descritor: string;
+  competencia: string; descritor: string; cargo: string;
   demandadas: string[]; existentes: string[]; faltantes: string[];
   pessoas: number; jobId?: string | null; jobErro?: string | null;
 }
@@ -339,12 +339,17 @@ export async function planejarKitsCoorte(
     const sb = await requireAdminSupabase('content.manage');
     if (!empresaId) return { error: 'empresaId obrigatório' as const };
 
-    // 1) Colaboradores da empresa + DISC dominante.
+    // 1) Colaboradores da empresa + DISC dominante + cargo (cargo define o público:
+    //    MEI vs Empregabilidade caem em registros diferentes — ver perfil-publico).
     const { data: colabs } = await sb.from('colaboradores')
-      .select('id, perfil_dominante').eq('empresa_id', empresaId);
+      .select('id, perfil_dominante, cargo').eq('empresa_id', empresaId);
     if (!colabs?.length) return { error: 'Empresa sem colaboradores' as const };
     const discDe = new Map<string, string>();
-    for (const c of colabs) discDe.set(c.id, String(c.perfil_dominante || '').charAt(0).toUpperCase());
+    const cargoDe = new Map<string, string>();
+    for (const c of colabs) {
+      discDe.set(c.id, String(c.perfil_dominante || '').charAt(0).toUpperCase());
+      cargoDe.set(c.id, c.cargo || 'todos');
+    }
 
     // 2) Trilha mais recente por colaborador.
     const { data: trilhas } = await sb.from('trilhas')
@@ -354,12 +359,14 @@ export async function planejarKitsCoorte(
     const ultima = new Map<string, any>();
     for (const t of trilhas || []) if (!ultima.has(t.colaborador_id)) ultima.set(t.colaborador_id, t);
 
-    // 3) Demanda: (comp × descritor) → { discs, pessoas }.
-    const demanda = new Map<string, { competencia: string; descritor: string; discs: Set<string>; pessoas: Set<string> }>();
+    // 3) Demanda: (comp × descritor × CARGO) → { discs, pessoas }. O cargo entra na
+    //    chave para gerar o kit no registro certo de cada público.
+    const demanda = new Map<string, { competencia: string; descritor: string; cargo: string; discs: Set<string>; pessoas: Set<string> }>();
     const add = (colabId: string, comp: any, desc: any, disc: string) => {
       if (!comp || !desc || !DISC_OK.includes(disc)) return;
-      const key = ckey(comp, desc);
-      if (!demanda.has(key)) demanda.set(key, { competencia: comp, descritor: desc, discs: new Set(), pessoas: new Set() });
+      const cargo = cargoDe.get(colabId) || 'todos';
+      const key = ckey(comp, desc, cargo);
+      if (!demanda.has(key)) demanda.set(key, { competencia: comp, descritor: desc, cargo, discs: new Set(), pessoas: new Set() });
       const e = demanda.get(key)!;
       e.discs.add(disc); e.pessoas.add(colabId);
     };
@@ -376,9 +383,9 @@ export async function planejarKitsCoorte(
     }
     if (!demanda.size) return { error: 'Nenhuma semana de conteúdo encontrada na coorte' as const };
 
-    // 4) Existentes: kits PUBLICADOS por (comp × descritor × disc) — empresa OU global.
+    // 4) Existentes: kits PUBLICADOS por (comp × descritor × cargo × disc) — empresa OU global.
     const { data: briefs } = await sb.from('kit_briefs')
-      .select('id, competencia, descritor')
+      .select('id, competencia, descritor, cargo')
       .or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
     const briefById = new Map((briefs || []).map((b) => [b.id, b]));
     const existente = new Set<string>();
@@ -387,7 +394,7 @@ export async function planejarKitsCoorte(
         .select('brief_id, disc, status').in('brief_id', briefs.map((b) => b.id)).eq('status', 'published');
       for (const k of kitsRows || []) {
         const b = briefById.get(k.brief_id);
-        if (b) existente.add(ckey(b.competencia, b.descritor, k.disc));
+        if (b) existente.add(ckey(b.competencia, b.descritor, b.cargo || 'todos', k.disc));
       }
     }
 
@@ -395,9 +402,9 @@ export async function planejarKitsCoorte(
     const plano: PlanoCoorteItem[] = [];
     for (const e of demanda.values()) {
       const demandadas = [...e.discs].sort();
-      const existentes = demandadas.filter((d) => existente.has(ckey(e.competencia, e.descritor, d)));
-      const faltantes = demandadas.filter((d) => !existente.has(ckey(e.competencia, e.descritor, d)));
-      plano.push({ competencia: e.competencia, descritor: e.descritor, demandadas, existentes, faltantes, pessoas: e.pessoas.size });
+      const existentes = demandadas.filter((d) => existente.has(ckey(e.competencia, e.descritor, e.cargo, d)));
+      const faltantes = demandadas.filter((d) => !existente.has(ckey(e.competencia, e.descritor, e.cargo, d)));
+      plano.push({ competencia: e.competencia, descritor: e.descritor, cargo: e.cargo, demandadas, existentes, faltantes, pessoas: e.pessoas.size });
     }
     plano.sort((a, b) => b.faltantes.length - a.faltantes.length || b.pessoas - a.pessoas);
 
@@ -411,7 +418,7 @@ export async function planejarKitsCoorte(
           competencia: item.competencia, descritor: item.descritor, empresaId,
           discs: item.faltantes as DiscLetter[],
           nivelMin: opts.nivelMin ?? 1, nivelMax: opts.nivelMax ?? 2,
-          cargo: 'todos', contexto: opts.contexto || 'educacional',
+          cargo: item.cargo, contexto: opts.contexto || 'educacional',
           useBatch: item.faltantes.length >= 2,
           incluirVideo: opts.incluirVideo ?? true,
         });
