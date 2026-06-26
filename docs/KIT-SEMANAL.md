@@ -98,3 +98,22 @@ QUINTA 11:00: IA cobra o desafio (check-in focado) → avalia → rastreia
 - `lib/season-engine/kit/enrich.ts` — `enriquecerPromptComKit` + lente DISC
 - `actions/conteudos.ts` — `gerarConteudoIA` aceita `kit` (brief+disc+desafio+kitId)
 - `actions/kits.ts` — `gerarKit` (orquestrador on-demand)
+
+---
+
+## Atualização 25/06/2026 — Registro por público + geração/entrega por CARGO
+
+**Problema:** texto/case saíam em registro corporativo-acadêmico para qualquer público — inadequado para MEI/Empregabilidade (adulto, baixa escolaridade).
+
+**Resolver de público** (`lib/season-engine/perfil-publico.ts`, determinístico):
+- Mapeia a chave por **CARGO primeiro**, segmento só fallback. Motivo: empresa social (ex.: "Macaé - MEI & Empregabilidade") tem `segmento` único (às vezes "corporativo") e os dois públicos só se distinguem pelo cargo ("MEI" vs "Em busca").
+- 4 perfis (`mei`, `empregabilidade`, `educacao`, `corporativo`), cada um com: `registroInstrucao`, `dominioExemplos`, `termosEvitar`, `proibirContextoEducacional`, `minCharsPdf` (5k p/ nível simples vs 8k).
+- `blocoCalibracaoPublico(perfil)` monta o bloco injetável (reutilizado por texto/case/kit).
+
+**Injeção:** `promptTextContent`/`promptCaseStudy` (+ extensão reduzida p/ `simples`; `garantirMinimoPdf` não reinfla) e no **núcleo + desafio do kit** (`kit/brief.ts`). Ponto único de geração = `gerarConteudoIA` → cobre kit e temporada.
+
+**Geração por cargo:** `planejarKitsCoorte` agora chaveia por **(competência × descritor × CARGO × DISC)** — cada público gera no seu registro. **Entrega cargo-aware com fallback:** `resolverDesafioDoKit` e `precarregarKits`/`overlayKitNaSemana` preferem o kit do cargo do colaborador e caem no `'todos'` do legado se não houver.
+
+**Performance (escala):** `precarregarKits` (`entrega-semana.ts`) carrega todos os kits da trilha em **3 queries** e casa em memória — antes o overlay fazia 2-3 queries POR semana (~30/load). Ver `docs/ESCALA-50K.md`.
+
+Validado: kit "Gestão Financeira Básica › Formação básica de preço" com `cargo='MEI'` → case "Cláudia e o mês que não fechou" (marmitas/WhatsApp), texto ~5,3k chars, registro do dia a dia.

@@ -205,3 +205,17 @@ e adaptar `video-spike/remotion/data/load-scenes` p/ aceitar **URLs externas**
 - Plano HeyGen (créditos) p/ estimar o custo real do avatar.
 
 > Posso começar JÁ pela ordem 1 (de-risk render no trigger.dev) — não depende do HeyGen.
+
+---
+
+## Atualização 25/06/2026 — duração, cache de saudação e infra
+
+**Duração calibrada (3,5–4,5 min).** Vídeos saíam ~5,6 min. `lib/video/roteiro-prompt.ts` recalibrado com a **taxa real medida ~125 palavras/min** (não ~90): alvo **~490 palavras / ~4 min**, miolo **6–8 cenas**, 58–66 palavras/cena, faixa 440–540. (1ª tentativa com ~390 palavras saiu 3,0–3,6 min = baixo demais.) Sem hard-cap pós-TTS — recalibrar medindo `palavras ÷ (totalFrames/30/60)`.
+
+**Cache de saudação (escala).** `worker-hetzner/personalizar.mjs`: a saudação ("Olá, {nome}" = TTS Vertex + render Remotion `AvatarGreeting`) era refeita por (usuário × célula). Agora o `greetMp4` é gravado **1× no storage** (`video-assets/greetings-cache/{colab}__{voz}__{nome}__{WxH}.mp4`) e **reutilizado** em todas as células — pula TTS (rate-limited) + render; só o crossfade com o deck permanece por vídeo. Chave determinística (sem tabela). Escala: O(usuários × materiais) → O(usuários). Ver `docs/ESCALA-50K.md`.
+
+**Infra de render.**
+- `RENDER_SERVER_TYPE=cx43` (era cx33; ~2× + folga de RAM). CX só existe em hel1/nbg1 (Europa).
+- Watchdog `MAX_RENDER_MS` default 25→**40min** (`worker.mjs`): 25min matava render válido (um de 5,6min levou 32min em cx33). Override por env.
+- TTS resiliente (`lib/gemini-tts.ts`): re-tenta quando o Vertex responde **200 OK sem áudio** (intermitente) — antes 1 cena com hiccup derrubava o vídeo ("TTS: resposta sem áudio").
+- Snapshot atual: `401652957` (rebuildar quando `worker-hetzner/*` mudar → atualizar `RENDER_SNAPSHOT_ID` no trigger).
