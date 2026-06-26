@@ -355,6 +355,7 @@ export default function FitPage() {
                     <SortHeader col="competencias" label={t('table.competencies')} />
                     <SortHeader col="lideranca" label={t('table.leadership')} />
                     <SortHeader col="disc" label={t('table.disc')} />
+                    <th className="px-4 py-2 text-center" title="Eliminatórias do cargo: requisitos inegociáveis">Premissas</th>
                     <SortHeader col="classificacao" label={t('table.classification')} align="left" />
                   </tr>
                 </thead>
@@ -372,6 +373,18 @@ export default function FitPage() {
                         <td className="px-4 py-2.5 text-center text-xs text-gray-400">{r.blocos.competencias?.score?.toFixed(0) ?? '—'}</td>
                         <td className="px-4 py-2.5 text-center text-xs text-gray-400">{r.blocos.lideranca?.excluido ? 'n/a' : (r.blocos.lideranca?.score?.toFixed(0) ?? '—')}</td>
                         <td className="px-4 py-2.5 text-center text-xs text-gray-400">{r.blocos.disc?.score?.toFixed(0) ?? '—'}</td>
+                        <td className="px-4 py-2.5 text-center">
+                          {Array.isArray(r.premissas) && r.premissas.length > 0 ? (
+                            <span className="inline-flex items-center justify-center gap-1">
+                              {r.premissas.map((p, i) => (
+                                <span key={i} title={`${p.label}${p.passed ? ' — atendida' : ' — NÃO atendida'}`}
+                                  className={`text-xs font-bold ${p.passed ? 'text-green-400' : 'text-red-400'}`}>
+                                  {p.passed ? '✓' : '✗'}
+                                </span>
+                              ))}
+                            </span>
+                          ) : <span className="text-[10px] text-gray-600">—</span>}
+                        </td>
                         <td className="px-4 py-2.5">
                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${FAIXA_COLORS[faixa]?.bg} ${FAIXA_COLORS[faixa]?.text}`}>
                             {t(`fitBands.${faixa}`)}

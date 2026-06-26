@@ -242,6 +242,7 @@ export async function loadRankingCargo(empresaId: string, cargoNome: string) {
       },
       leitura_executiva: r.leitura_executiva,
       gap_analysis: json?.gap_analysis,
+      premissas: json?.premissas || [],
     };
   });
 

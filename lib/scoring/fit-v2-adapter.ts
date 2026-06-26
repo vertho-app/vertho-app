@@ -153,6 +153,8 @@ export function calcularFitUnificado(gabarito: any, colab: any, opts: FitUnifica
     borderline: result.borderline,
     knockout_failed: result.knockoutFailed,
     knockouts: result.knockouts.filter((k) => !k.passed).map((k) => k.rule.label || k.rule.key),
+    // Premissas (eliminatórias) com status por item — alimenta a coluna do ranking.
+    premissas: result.knockouts.map((k) => ({ key: k.rule.key, label: k.rule.label || k.rule.key, passed: k.passed })),
   };
 
   const { classificacao, recomendacao } = classificar(resultado.fit_final);
