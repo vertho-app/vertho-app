@@ -3914,7 +3914,8 @@
     },
     "cadence": {
       "title": "Fase 4 — Cadencia semanal",
-      "pillDay": "Día de la píldora",
+      "pillDay": "Día de la 1ª píldora",
+      "pill2Day": "Día de la 2ª píldora (DUO)",
       "evidenceDay": "Día de la evidencia"
     },
     "sends": {

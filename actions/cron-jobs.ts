@@ -275,6 +275,127 @@ export async function triggerQuinta() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// TRIGGER DIÁRIO: motor único da cadência (substitui seg+qui no cron).
+// Lê a cadência de CADA empresa (dia da 1ª pílula, 2ª pílula DUO, evidência) e,
+// se HOJE for um desses dias, dispara o que cabe. A pílula vem do temporada_plano
+// (conteudos_dia = DUO), não da sequencia legada. Idempotente por dia (colunas
+// ultima_pilula1_em/ultima_pilula2_em/ultima_evidencia_em). O AVANÇO de semana
+// continua na evidência. Dia: getUTCDay() (0=dom..6=sáb) = mesmo índice da tela.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const mesmoDiaUTC = (ts: string | null, hojeUTC: string) =>
+  !!ts && new Date(ts).toISOString().slice(0, 10) === hojeUTC;
+
+/** Texto curto da pílula a partir de um item de conteudos_dia (ou conteúdo único). */
+function textoPilula(e: any): string {
+  const comp = e?.competencia ? String(e.competencia).trim() : '';
+  const desc = e?.descritor ? String(e.descritor).trim() : '';
+  const titulo = e?.conteudo?.core_titulo || e?.conteudo?.titulo || '';
+  const linha = [comp, desc].filter(Boolean).join(' — ') || titulo || 'novo conteúdo da semana';
+  return `Tema de hoje: *${linha}*. Acesse a plataforma para a sua pílula.`;
+}
+
+export async function triggerDiario() {
+  await requireAdminOrCronAction();
+  const sbRaw = createSupabaseAdmin();
+  const { data: empresas } = await sbRaw.from('empresas').select('id, nome, slug, sys_config');
+  if (!empresas?.length) return { pilulas: 0, evidencias: 0, message: 'Nenhuma empresa encontrada' };
+
+  const hoje = new Date().getUTCDay();          // 0=dom..6=sáb (= índice da config)
+  const hojeUTC = new Date().toISOString().slice(0, 10);
+  let pilulas = 0, evidencias = 0, nudges = 0, erros = 0;
+
+  for (const empresa of empresas) {
+    const cadencia = (empresa as any).sys_config?.cadencia || {};
+    const diaP1 = cadencia.fase4_dia_pilula ?? 1;            // default segunda
+    const diaP2 = cadencia.fase4_dia_pilula2 ?? 2;           // default terça (2ª pílula DUO)
+    const diaEv = cadencia.fase4_dia_evidencia ?? 4;         // default quinta
+    if (hoje !== diaP1 && hoje !== diaP2 && hoje !== diaEv) continue; // empresa sem nada hoje
+
+    const tdb = tenantDb(empresa.id);
+    const { data: envios } = await tdb.from('fase4_envios')
+      .select('id, colaborador_id, semana_atual, status, ultimo_envio, ultima_evidencia_em, ultima_pilula1_em, ultima_pilula2_em, colaboradores!inner(nome_completo, whatsapp, perfil_dominante, cargo)')
+      .eq('status', 'ativo');
+    if (!envios?.length) continue;
+
+    for (const envio of (envios as any[])) {
+      const semana = envio.semana_atual || 1;
+      if (semana > TOTAL_SEMANAS) {
+        if (hoje === diaEv) await tdb.from('fase4_envios').update({ status: 'concluido' }).eq('id', envio.id);
+        continue;
+      }
+      const nome = envio.colaboradores.nome_completo || 'Colaborador';
+      const telefone = envio.colaboradores.whatsapp;
+      const cargo = envio.colaboradores.cargo;
+      const disc = String(envio.colaboradores.perfil_dominante || '').trim().charAt(0).toUpperCase();
+      const ehImpl = SEMANAS_IMPL.includes(semana);
+
+      // Plano da semana (temporada_plano) → conteúdos do dia (DUO) p/ pílula e desafio.
+      let plan: any = null, conteudosDia: any[] = [], competenciaFoco: any = null;
+      try {
+        const { data: trilha } = await tdb.from('trilhas')
+          .select('temporada_plano, competencia_foco')
+          .eq('colaborador_id', envio.colaborador_id)
+          .order('numero_temporada', { ascending: false }).limit(1).maybeSingle();
+        competenciaFoco = trilha?.competencia_foco;
+        const plano = (trilha?.temporada_plano || []) as any[];
+        plan = plano.find((s: any) => Number(s.semana) === Number(semana)) || plano[semana - 1] || null;
+        if (plan) {
+          conteudosDia = (Array.isArray(plan.conteudos_dia) && plan.conteudos_dia.length)
+            ? plan.conteudos_dia
+            : (plan.conteudo ? [{ competencia: competenciaFoco, descritor: plan.descritor, conteudo: plan.conteudo }] : []);
+        }
+      } catch (e: any) { console.warn('[triggerDiario] plano:', e?.message); }
+
+      const delay = () => (pilulas + evidencias + nudges) * 2;
+
+      // ── 1ª PÍLULA ──
+      if (hoje === diaP1 && !ehImpl && conteudosDia[0] && !mesmoDiaUTC(envio.ultima_pilula1_em, hojeUTC) && telefone) {
+        try { await publishToQStash({ telefone, mensagem: templateWhatsAppPilula(nome, semana, textoPilula(conteudosDia[0])) }, delay()); pilulas++; } catch { erros++; }
+        await tdb.from('fase4_envios').update({ ultima_pilula1_em: new Date().toISOString(), ultimo_envio: new Date().toISOString() }).eq('id', envio.id);
+      }
+
+      // ── 2ª PÍLULA (DUO) ──
+      if (hoje === diaP2 && !ehImpl && conteudosDia[1] && !mesmoDiaUTC(envio.ultima_pilula2_em, hojeUTC) && telefone) {
+        try { await publishToQStash({ telefone, mensagem: templateWhatsAppPilula(nome, semana, textoPilula(conteudosDia[1])) }, delay()); pilulas++; } catch { erros++; }
+        await tdb.from('fase4_envios').update({ ultima_pilula2_em: new Date().toISOString(), ultimo_envio: new Date().toISOString() }).eq('id', envio.id);
+      }
+
+      // ── EVIDÊNCIA + avanço de semana ──
+      if (hoje === diaEv && !mesmoDiaUTC(envio.ultima_evidencia_em, hojeUTC)) {
+        // Nudge de inatividade (2+ semanas sem envio) — não avança semana.
+        if (envio.ultimo_envio && (Date.now() - new Date(envio.ultimo_envio).getTime()) / 86_400_000 >= 14) {
+          if (telefone) {
+            const nudgeMsg = `Olá, ${nome}! 👋\n\nNotamos que você está há mais de 2 semanas sem interagir com sua trilha.\n\nQue tal retomar hoje?\n\n— Vertho Mentor IA`;
+            try { await publishToQStash({ telefone, mensagem: nudgeMsg }, delay()); nudges++; } catch {}
+          }
+          await tdb.from('fase4_envios').update({ ultima_evidencia_em: new Date().toISOString() }).eq('id', envio.id);
+          continue;
+        }
+        // Cobra o DESAFIO do kit (por DISC + cargo), cobrindo os 2 descritores DUO.
+        let desafioTexto = '';
+        if (telefone && plan && plan.tipo !== 'aplicacao' && disc && conteudosDia.length) {
+          try {
+            const linhas = await Promise.all(conteudosDia.map(async (e: any) => {
+              const k = await resolverDesafioDoKit(sbRaw, { empresaId: empresa.id, competencia: e.competencia || competenciaFoco, descritor: e.descritor, disc, cargo }).catch(() => null);
+              return k?.desafio_texto || e.conteudo?.desafio_texto;
+            }));
+            desafioTexto = linhas.filter(Boolean).join('\n\n');
+          } catch (e: any) { console.warn('[triggerDiario] desafio:', e?.message); }
+        }
+        if (telefone) {
+          const mensagem = desafioTexto ? templateWhatsAppDesafioQuinta(nome, desafioTexto) : templateWhatsAppEvidencia(nome, semana);
+          try { await publishToQStash({ telefone, mensagem }, delay()); evidencias++; } catch { erros++; }
+        }
+        await tdb.from('fase4_envios').update({ semana_atual: semana + 1, ultima_evidencia_em: new Date().toISOString() }).eq('id', envio.id);
+      }
+    }
+  }
+
+  return { pilulas, evidencias, nudges, erros, message: `Diário: ${pilulas} pílulas, ${evidencias} evidências, ${nudges} nudges` };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Helper: Publicar no QStash (reutilizado de whatsapp-lote.js)
 // ═══════════════════════════════════════════════════════════════════════════════
 

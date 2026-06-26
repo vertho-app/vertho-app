@@ -3914,7 +3914,8 @@
     },
     "cadence": {
       "title": "Fase 4 — Cadência Semanal",
-      "pillDay": "Dia da Pílula",
+      "pillDay": "Dia da 1ª Pílula",
+      "pill2Day": "Dia da 2ª Pílula (DUO)",
       "evidenceDay": "Dia da Evidência"
     },
     "sends": {

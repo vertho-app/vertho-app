@@ -3914,7 +3914,8 @@
     },
     "cadence": {
       "title": "Phase 4 — Weekly cadence",
-      "pillDay": "Pill day",
+      "pillDay": "1st pill day",
+      "pill2Day": "2nd pill day (DUO)",
       "evidenceDay": "Evidence day"
     },
     "sends": {

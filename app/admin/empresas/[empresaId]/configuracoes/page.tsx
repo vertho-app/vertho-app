@@ -18,7 +18,7 @@ const MODELOS = MODELOS_DISPONIVEIS;
 
 const DEFAULT_CONFIG = {
   ai: { modelo_padrao: 'claude-sonnet-4-6', modelos: {}, anthropic_key: null, gemini_key: null, openai_key: null, thinking: false },
-  cadencia: { fase4_dia_pilula: 1, fase4_dia_evidencia: 4, fase4_hora: 8, email_ativo: true, whatsapp_ativo: true },
+  cadencia: { fase4_dia_pilula: 1, fase4_dia_pilula2: 2, fase4_dia_evidencia: 4, fase4_hora: 8, email_ativo: true, whatsapp_ativo: true },
   envios: { email_remetente: null, email_alias: null },
   programa_modo: 'regular' as 'regular' | 'onboarding',
   fase_carreira_default: null as null | 'junior' | 'pleno' | 'senior',
@@ -611,10 +611,17 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
       {/* ═══ Tab: Cadência ═══ */}
       {tab === 'cadencia' && (
         <Panel title={t('cadence.title')}>
-          <div className="grid grid-cols-2 gap-3 mb-3">
+          <div className="grid grid-cols-3 gap-3 mb-3">
             <div>
               <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">{t('cadence.pillDay')}</label>
               <select value={config.cadencia.fase4_dia_pilula} onChange={e => updateCadencia('fase4_dia_pilula', parseInt(e.target.value))}
+                className="w-full px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
+                {dias.map((d, i) => <option key={i} value={i}>{d}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">{t('cadence.pill2Day')}</label>
+              <select value={config.cadencia.fase4_dia_pilula2 ?? 2} onChange={e => updateCadencia('fase4_dia_pilula2', parseInt(e.target.value))}
                 className="w-full px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
                 {dias.map((d, i) => <option key={i} value={i}>{d}</option>)}
               </select>
@@ -627,6 +634,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
               </select>
             </div>
           </div>
+          <p className="text-[11px] text-gray-500">A 2ª pílula só é enviada nas semanas DUO (2 descritores). Semanas de implementação (4, 8, 12) não têm pílula nova.</p>
         </Panel>
       )}
 

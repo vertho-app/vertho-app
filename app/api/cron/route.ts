@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { cleanupSessoes, triggerSegunda, triggerQuinta } from '@/actions/cron-jobs';
+import { cleanupSessoes, triggerSegunda, triggerQuinta, triggerDiario } from '@/actions/cron-jobs';
 
 /**
  * GET /api/cron?action=cleanup_sessoes|trigger_segunda|trigger_quinta
@@ -59,6 +59,13 @@ export async function GET(req) {
         break;
       }
 
+      // Motor único da cadência (lê dia da pílula 1/2/evidência por empresa).
+      case 'trigger_diario':
+        result = await triggerDiario();
+        break;
+
+      // Legados (disparo manual): seg = pílula única; qui = evidência. O cron
+      // agora usa trigger_diario, que cobre os 2 e respeita a cadência configurada.
       case 'trigger_segunda':
         result = await triggerSegunda();
         break;
