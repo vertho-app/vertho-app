@@ -130,7 +130,9 @@ function Donut({ pct, color }: { pct: number; color: string }) {
         <Circle cx={cx} cy={cy} r={r} stroke={color} strokeWidth={5} fill="none"
           strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" transform={`rotate(-90 ${cx} ${cy})`} />
       </Svg>
-      <Text style={[s.betaPct, { color }]}>{pct}%</Text>
+      <View style={{ position: 'absolute', top: 0, left: 0, width: 56, height: 56, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ fontSize: 10, fontWeight: 700, color }}>{pct}%</Text>
+      </View>
     </View>
   );
 }

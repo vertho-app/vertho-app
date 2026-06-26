@@ -150,7 +150,13 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
       knockoutFailed: result.knockoutFailed,
       knockoutMotivos,
     };
-  }).sort((a, b) => b.beta.pct - a.beta.pct);
+  }).sort((a, b) => {
+    // Reprovados por eliminatória vão pro fim (consistente com o ranking do Fit).
+    const ka = a.recomendacao === 'nao_recomendado' ? 1 : 0;
+    const kb = b.recomendacao === 'nao_recomendado' ? 1 : 0;
+    if (ka !== kb) return ka - kb;
+    return b.beta.pct - a.beta.pct;
+  });
 
   return { cargo, avaliados: pessoas.length, perfilIdeal, pessoas, semGabarito: false, semColaboradores: false };
 }

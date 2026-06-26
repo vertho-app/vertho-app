@@ -321,6 +321,11 @@ export default function FitPage() {
                   else { setSortBy(col); setSortDir(col === 'nome' || col === 'classificacao' ? 'asc' : 'desc'); }
                 };
                 const sortedRanking = [...ranking].sort((a, b) => {
+                  // Reprovados por eliminatória sempre no fim quando ordenando por Fit.
+                  if (sortBy === 'fit') {
+                    const ka = a.knockout_failed ? 1 : 0, kb = b.knockout_failed ? 1 : 0;
+                    if (ka !== kb) return ka - kb;
+                  }
                   let va, vb;
                   switch (sortBy) {
                     case 'nome': va = a.colaborador?.nome || ''; vb = b.colaborador?.nome || ''; break;
@@ -361,7 +366,8 @@ export default function FitPage() {
                 </thead>
                 <tbody className="divide-y divide-white/[0.03]">
                   {sortedRanking.map(r => {
-                    const faixa = getFaixa(r.fit_final);
+                    const blocked = !!r.knockout_failed;
+                    const faixa = blocked ? 'critica' : getFaixa(r.fit_final);
                     return (
                       <tr key={r.colaborador.id} className="hover:bg-white/[0.02] cursor-pointer" onClick={() => openDetail(r)}>
                         <td className="px-4 py-2.5 text-center text-amber-400 font-mono font-bold text-xs">{r.ranking.posicao}</td>
@@ -387,7 +393,7 @@ export default function FitPage() {
                         </td>
                         <td className="px-4 py-2.5">
                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${FAIXA_COLORS[faixa]?.bg} ${FAIXA_COLORS[faixa]?.text}`}>
-                            {t(`fitBands.${faixa}`)}
+                            {blocked ? 'Não recomendado' : t(`fitBands.${faixa}`)}
                           </span>
                         </td>
                       </tr>

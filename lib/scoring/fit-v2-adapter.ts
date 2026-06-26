@@ -137,19 +137,11 @@ export function calcularFitUnificado(gabarito: any, colab: any, opts: FitUnifica
 
   // ── Score base / fatores / fit final ───────────────────────────────────────
   const scoreBase = round(result.beta * 100, 2);
-  // Knockout empurra o fit p/ a banda CRÍTICA (<30), mas DIFERENCIANDO os
-  // reprovados entre si (senão todos colam em 29,9 e o ranking não os ordena):
-  // combina qualidade geral (beta) com a fração de premissas atendidas.
-  let fitFinal: number;
-  if (result.knockoutFailed) {
-    const total = result.knockouts.length || 1;
-    const passRatio = result.knockouts.filter((k) => k.passed).length / total;
-    const combined = 0.5 * Math.max(0, Math.min(1, result.beta)) + 0.5 * passRatio;
-    fitFinal = Math.round(29.9 * combined * 10) / 10; // sempre < 30, porém ordenável
-  } else {
-    fitFinal = scoreBase;
-  }
-  const fatorCritico = result.knockoutFailed && scoreBase > 0 ? round(fitFinal / scoreBase, 3) : 1;
+  // Decisão de produto: o NÚMERO é sempre o match real (não penaliza). A
+  // eliminatória é um GATE separado — vira classificação "Não recomendado" +
+  // premissas ✗, e o ranking joga os reprovados pro fim. PDF e tela ficam iguais.
+  const fitFinal = scoreBase;
+  const fatorCritico = 1;
 
   const resultado: any = {
     colaborador: { id: colab.id, nome: colab.nome_completo || colab.nome, email: colab.email, cargo: colab.cargo },
@@ -167,9 +159,15 @@ export function calcularFitUnificado(gabarito: any, colab: any, opts: FitUnifica
     premissas: result.knockouts.map((k) => ({ key: k.rule.key, label: k.rule.label || k.rule.key, passed: k.passed })),
   };
 
-  const { classificacao, recomendacao } = classificar(resultado.fit_final);
-  resultado.classificacao = classificacao;
-  resultado.recomendacao = recomendacao;
+  // Eliminatória reprovada = GATE: "Não recomendado" independentemente do match.
+  if (result.knockoutFailed) {
+    resultado.classificacao = 'Não recomendado';
+    resultado.recomendacao = 'Não recomendado';
+  } else {
+    const cl = classificar(resultado.fit_final);
+    resultado.classificacao = cl.classificacao;
+    resultado.recomendacao = cl.recomendacao;
+  }
 
   // Gap analysis + leitura executiva (libs legadas, contrato preservado).
   const perfilIdealLike = {
