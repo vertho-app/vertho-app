@@ -263,7 +263,7 @@ export default function FitPage() {
             </div>
             <div className="flex items-center gap-3 text-[10px]">
               <span className="text-gray-500">{t('cards.calculatedFits', { count: c.totalFits })}</span>
-              {c.mediaFit != null && <span className={`font-bold ${getFaixa(c.mediaFit) === 'excelente' || getFaixa(c.mediaFit) === 'alta' ? 'text-green-400' : getFaixa(c.mediaFit) === 'razoavel' ? 'text-amber-400' : 'text-red-400'}`}>{t('labels.average')}: {c.mediaFit}</span>}
+              {c.mediaFit != null && <span className={`font-bold ${getFaixa(c.mediaFit) === 'excelente' || getFaixa(c.mediaFit) === 'alta' ? 'text-green-400' : getFaixa(c.mediaFit) === 'razoavel' ? 'text-amber-400' : 'text-red-400'}`}>{t('labels.average')}: {Number(c.mediaFit).toFixed(1)}</span>}
             </div>
             <div className="mt-2 flex items-center gap-3">
               <button onClick={(e) => { e.stopPropagation(); handleCalcular(c.nome); }} disabled={calculating || !c.temPerfilIdeal}
@@ -373,7 +373,7 @@ export default function FitPage() {
                         <td className="px-4 py-2.5 text-center text-amber-400 font-mono font-bold text-xs">{r.ranking.posicao}</td>
                         <td className="px-4 py-2.5 text-white font-semibold text-xs">{r.colaborador.nome || '—'}</td>
                         <td className="px-4 py-2.5 text-center">
-                          <span className={`text-sm font-bold ${FAIXA_COLORS[faixa]?.text}`}>{r.fit_final}</span>
+                          <span className={`text-sm font-bold ${FAIXA_COLORS[faixa]?.text}`}>{Number(r.fit_final).toFixed(1)}</span>
                         </td>
                         <td className="px-4 py-2.5 text-center text-xs text-gray-400">{r.blocos.mapeamento?.score?.toFixed(0) ?? '—'}</td>
                         <td className="px-4 py-2.5 text-center text-xs text-gray-400">{r.blocos.competencias?.score?.toFixed(0) ?? '—'}</td>
@@ -433,12 +433,18 @@ export default function FitPage() {
                 <h3 className="text-lg font-bold text-white">{detailColab.colaborador.nome}</h3>
                 <p className="text-xs text-gray-500">{cargoSel}</p>
               </div>
-              <div className="text-right">
-                <div className={`text-3xl font-bold ${FAIXA_COLORS[getFaixa(detailColab.fit_final)]?.text}`}>{detailColab.fit_final}</div>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${FAIXA_COLORS[getFaixa(detailColab.fit_final)]?.bg} ${FAIXA_COLORS[getFaixa(detailColab.fit_final)]?.text}`}>
-                  {t(`fitBands.${getFaixa(detailColab.fit_final)}`)}
-                </span>
-              </div>
+              {(() => {
+                const dBlocked = !!detailColab.knockout_failed;
+                const dFaixa = dBlocked ? 'critica' : getFaixa(detailColab.fit_final);
+                return (
+                  <div className="text-right">
+                    <div className={`text-3xl font-bold ${FAIXA_COLORS[dFaixa]?.text}`}>{Number(detailColab.fit_final).toFixed(1)}</div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${FAIXA_COLORS[dFaixa]?.bg} ${FAIXA_COLORS[dFaixa]?.text}`}>
+                      {dBlocked ? 'Não recomendado' : t(`fitBands.${dFaixa}`)}
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* 4 Blocos */}

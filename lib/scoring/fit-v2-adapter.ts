@@ -140,7 +140,7 @@ export function calcularFitUnificado(gabarito: any, colab: any, opts: FitUnifica
   // Decisão de produto: o NÚMERO é sempre o match real (não penaliza). A
   // eliminatória é um GATE separado — vira classificação "Não recomendado" +
   // premissas ✗, e o ranking joga os reprovados pro fim. PDF e tela ficam iguais.
-  const fitFinal = scoreBase;
+  const fitFinal = Math.round(scoreBase * 10) / 10; // padrão: 1 casa decimal
   const fatorCritico = 1;
 
   const resultado: any = {
