@@ -137,8 +137,18 @@ export function calcularFitUnificado(gabarito: any, colab: any, opts: FitUnifica
 
   // ── Score base / fatores / fit final ───────────────────────────────────────
   const scoreBase = round(result.beta * 100, 2);
-  // Knockout substitui o "fator crítico" legado: empurra o fit p/ banda crítica.
-  const fitFinal = result.knockoutFailed ? Math.min(scoreBase, 29.9) : scoreBase;
+  // Knockout empurra o fit p/ a banda CRÍTICA (<30), mas DIFERENCIANDO os
+  // reprovados entre si (senão todos colam em 29,9 e o ranking não os ordena):
+  // combina qualidade geral (beta) com a fração de premissas atendidas.
+  let fitFinal: number;
+  if (result.knockoutFailed) {
+    const total = result.knockouts.length || 1;
+    const passRatio = result.knockouts.filter((k) => k.passed).length / total;
+    const combined = 0.5 * Math.max(0, Math.min(1, result.beta)) + 0.5 * passRatio;
+    fitFinal = Math.round(29.9 * combined * 10) / 10; // sempre < 30, porém ordenável
+  } else {
+    fitFinal = scoreBase;
+  }
   const fatorCritico = result.knockoutFailed && scoreBase > 0 ? round(fitFinal / scoreBase, 3) : 1;
 
   const resultado: any = {
