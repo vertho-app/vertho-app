@@ -783,12 +783,31 @@ ${PARES_DISC.join(' | ')}
 TELA 2 — Sub-competências CIS (6 a 10 das 16 disponíveis, NÃO todas)
 ${SUB_COMPETENCIAS_CIS.map(s => `${s.nome} (${s.dim})`).join(', ')}
 Faixas: "Muito baixo (0-20)" | "Baixo (21-40)" | "Alto (41-60)" | "Muito alto (61-80)" | "Extremamente alto (81-100)"
+Para CADA sub-competência informe também "direcao" e "prioridade" (ver abaixo).
 
 TELA 3 — Estilos de Liderança (soma EXATA = 100)
 Executor, Motivador, Metódico, Sistemático
 
 TELA 4 — Faixas DISC ideais (min e max pra D, I, S, C)
-Mesmas faixas da Tela 2. min <= max sempre.
+Mesmas faixas da Tela 2. min <= max sempre. Informe também "direcao" pra cada fator.
+
+═══ DIREÇÃO DA FAIXA (campo "direcao" — Tela 2 e Tela 4) ═══
+Como o scoring deve tratar quem fica FORA da faixa. Escolha um por item:
+- "floor"   = quanto MAIS, melhor (penaliza só ABAIXO da faixa; ter de sobra é ok).
+              Ex.: numa venda agressiva, Persuasão/Comando "Alto-Extremo" → floor.
+- "target"  = o CENTRO é o ideal (penaliza dos DOIS lados; nem pouco, nem demais).
+              Ex.: Paciência, Planejamento equilibrados → target. (use como padrão)
+- "ceiling" = manter BAIXO/moderado (penaliza só ACIMA da faixa).
+              Ex.: para um cargo dinâmico, Detalhismo/Concentração excessivos atrapalham → ceiling.
+Na dúvida, use "target".
+
+═══ PESOS DE BLOCO E ELIMINATÓRIAS (opcional, mas recomendado) ═══
+- "pesos_blocos": importância relativa de cada bloco no score final. 4 números que
+  SOMAM ~1.0: { "competencia", "lideranca", "disc", "mapeamento" }. Para cargo SEM
+  gestão de pessoas, deixe "lideranca": 0. Calibre pelo que MAIS importa no cargo.
+- "knockouts": requisitos ELIMINATÓRIOS (use com parcimônia, só quando um bloco/traço
+  é inegociável). Lista de { "scope": "block"|"trait", "key": <bloco ou nome>, "min": 0..1, "label": motivo }.
+  Ex.: cargo de liderança → { "scope":"block", "key":"lideranca", "min":0.5, "label":"Aderência de liderança insuficiente" }.
 
 ═══ FORMATO JSON (APENAS JSON, sem markdown) ═══
 
@@ -802,7 +821,7 @@ Mesmas faixas da Tela 2. min <= max sempre.
     },
     "tela2": {
       "subcompetencias": [
-        {"nome": "Empatia", "dimensao": "S", "prioridade": "alta", "faixa_min": "Alto (41-60)", "faixa_max": "Muito alto (61-80)", "justificativa": "Cargo exige..."}
+        {"nome": "Empatia", "dimensao": "S", "prioridade": "alta", "direcao": "floor", "faixa_min": "Alto (41-60)", "faixa_max": "Muito alto (61-80)", "justificativa": "Cargo exige..."}
       ],
       "confianca": 0.78
     },
@@ -813,13 +832,17 @@ Mesmas faixas da Tela 2. min <= max sempre.
       "confianca": 0.82
     },
     "tela4": {
-      "D": {"min": "Baixo (21-40)", "max": "Muito alto (61-80)"},
-      "I": {"min": "Alto (41-60)", "max": "Extremamente alto (81-100)"},
-      "S": {"min": "Alto (41-60)", "max": "Muito alto (61-80)"},
-      "C": {"min": "Muito baixo (0-20)", "max": "Alto (41-60)"},
+      "D": {"min": "Baixo (21-40)", "max": "Muito alto (61-80)", "direcao": "target"},
+      "I": {"min": "Alto (41-60)", "max": "Extremamente alto (81-100)", "direcao": "floor"},
+      "S": {"min": "Alto (41-60)", "max": "Muito alto (61-80)", "direcao": "target"},
+      "C": {"min": "Muito baixo (0-20)", "max": "Alto (41-60)", "direcao": "ceiling"},
       "justificativa": "Perfil relacional com...",
       "confianca": 0.75
-    }
+    },
+    "pesos_blocos": { "competencia": 0.35, "lideranca": 0.25, "disc": 0.25, "mapeamento": 0.15 },
+    "knockouts": [
+      { "scope": "block", "key": "lideranca", "min": 0.5, "label": "Aderência de liderança insuficiente" }
+    ]
   },
   "raciocinio_estruturado": {
     "sinais_do_caso": ["sinal 1 do contexto", "sinal 2"],
@@ -831,9 +854,11 @@ Mesmas faixas da Tela 2. min <= max sempre.
 
 REGRAS DO JSON:
 - confianca: 0.0 a 1.0 por tela (0.7+ = boa sustentação)
-- tela2: 6 a 10 subcompetências, apenas nomes da lista oficial
+- tela2: 6 a 10 subcompetências, apenas nomes da lista oficial; cada uma com "prioridade" (alta|media|baixa) e "direcao" (floor|target|ceiling)
 - tela3: executor + motivador + metodico + sistematico = EXATAMENTE 100
-- tela4: min <= max pra cada fator DISC
+- tela4: min <= max pra cada fator DISC; cada fator com "direcao" (floor|target|ceiling)
+- pesos_blocos: 4 números somando ~1.0 (lideranca=0 se cargo sem gestão de pessoas)
+- knockouts: lista opcional de eliminatórias; use só quando um requisito é inegociável
 - raciocinio_estruturado: obrigatório (auditoria humana lê isso)`;
 
       // ── User prompt estruturado ──

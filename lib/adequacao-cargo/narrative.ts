@@ -17,7 +17,9 @@ function resumoIdeal(data: AdequacaoCargo): string {
 
 function linhaColab(p: PessoaAdequacao): string {
   const disc = p.disc.map((d) => `${d.fator}=${d.score}${d.dentro ? '(dentro)' : '(fora)'}`).join(' ');
-  return `- ${p.nome}: Beta ${p.beta.pct}% | DISC ${disc} → ${p.discScore.pct}% | Mapeamento ${p.mapeamento.pct}% | Competência ${p.competencia.pct}% | Liderança ${p.lideranca.pct}%`;
+  const lid = p.lideranca.aplicavel ? `Liderança ${p.lideranca.pct}%` : 'Liderança n/a';
+  const flags = [p.knockoutFailed ? 'BLOQUEIO' : '', p.borderline ? 'limítrofe' : ''].filter(Boolean).join(',');
+  return `- ${p.nome}: ${p.recomendacaoLabel} | Beta ${p.beta.pct}% | DISC ${disc} → ${p.discScore.pct}% | Mapeamento ${p.mapeamento.pct}% | Competência ${p.competencia.pct}% | ${lid}${flags ? ` [${flags}]` : ''}`;
 }
 
 function extrairJson(raw: string): Record<string, string> | null {
@@ -32,7 +34,7 @@ export async function gerarNarrativasAdequacao(data: AdequacaoCargo, model?: str
   const out: Record<string, string> = {};
   if (!data.pessoas.length) return out;
   const ideal = resumoIdeal(data);
-  const system = `Você é consultor de RH especializado em adequação pessoa-cargo. A partir dos scores de match de cada colaborador com o PERFIL IDEAL do cargo, escreva uma análise CURTA, objetiva e profissional (2 a 3 frases) por pessoa: aponte a principal FORÇA (onde adere) e o principal GAP (onde diverge), em linguagem de feedback de desenvolvimento — sem rótulos pejorativos, sem inventar dados além dos fornecidos. Não repita os números percentuais no texto; interprete-os. Não dê nota nem recomende demissão. Português do Brasil.`;
+  const system = `Você é consultor de RH especializado em adequação pessoa-cargo. A partir dos scores de match de cada colaborador com o PERFIL IDEAL do cargo, escreva uma análise CURTA, objetiva e profissional (2 a 3 frases) por pessoa: aponte a principal FORÇA (onde adere) e o principal GAP (onde diverge), em linguagem de feedback de desenvolvimento — sem rótulos pejorativos, sem inventar dados além dos fornecidos. O tom deve ser COERENTE com a recomendação fornecida (Recomendado / com ressalvas / Não recomendado) e, se houver BLOQUEIO, mencione com cuidado o requisito não atendido. Não repita os números percentuais no texto; interprete-os. Não dê nota nem recomende demissão. Português do Brasil.`;
 
   for (const grupo of chunk(data.pessoas, 12)) {
     const user = `CARGO: ${data.cargo}

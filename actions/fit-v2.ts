@@ -68,19 +68,12 @@ export async function calcularFitIndividual(empresaId: string, cargoNome: string
 
   if (!cargo) return { success: false, error: 'Cargo não encontrado' };
 
-  // Perfil ideal: usar fit_perfil_ideal customizado, ou converter do gabarito CIS
-  let perfilIdeal = cargo.fit_perfil_ideal;
-  if (!perfilIdeal && cargo.gabarito) {
-    const gab = typeof cargo.gabarito === 'string' ? JSON.parse(cargo.gabarito) : cargo.gabarito;
-    perfilIdeal = converterGabaritoParaPerfil(gab, cargoNome);
-  }
-  if (!perfilIdeal) return { success: false, error: 'Perfil ideal não definido. Rode IA2 ou configure manualmente.' };
-
-  // Cargo não-líder: zera dados de liderança ideal pra excluir o bloco do Fit
-  // (engine reweighta automaticamente quando o score do bloco é undefined)
-  if (cargo.eh_lideranca === false) {
-    perfilIdeal = { ...perfilIdeal, lideranca_ideal: null };
-  }
+  const gab = cargo.gabarito ? (typeof cargo.gabarito === 'string' ? JSON.parse(cargo.gabarito) : cargo.gabarito) : null;
+  const temGabarito = !!gab?.tela4;
+  // Perfil ideal customizado SALVO (via salvarPerfilIdeal) tem precedência — usa a
+  // rota legada. Caso padrão (só gabarito da IA2) usa o MOTOR ÚNICO (faixas reais
+  // + direção + pesos + knockouts).
+  const usarUnificado = temGabarito && !cargo.fit_perfil_ideal;
 
   // Buscar colaborador
   const { data: colab } = await tdb.from('colaboradores')
@@ -89,18 +82,24 @@ export async function calcularFitIndividual(empresaId: string, cargoNome: string
   if (!colab) return { success: false, error: 'Colaborador não encontrado' };
   if (!colab.mapeamento_em) return { success: false, error: `${colab.nome_completo || colab.email}: sem mapeamento comportamental` };
 
-  // Extrair perfil real
-  const perfilReal = extrairPerfilReal(colab);
+  let resultado: any;
+  if (usarUnificado) {
+    const { calcularFitUnificado } = await import('@/lib/scoring/fit-v2-adapter');
+    resultado = calcularFitUnificado(gab, colab, { ehLideranca: cargo.eh_lideranca, cargoNome });
+    if (!resultado) return { success: false, error: 'Falha ao montar o perfil ideal a partir do gabarito.' };
+  } else {
+    // Rota legada (perfil ideal customizado, ou sem gabarito).
+    let perfilIdeal = cargo.fit_perfil_ideal;
+    if (!perfilIdeal && gab) perfilIdeal = converterGabaritoParaPerfil(gab, cargoNome);
+    if (!perfilIdeal) return { success: false, error: 'Perfil ideal não definido. Rode IA2 ou configure manualmente.' };
+    if (cargo.eh_lideranca === false) perfilIdeal = { ...perfilIdeal, lideranca_ideal: null };
 
-  // Tags de mapeamento (tela1 do colaborador, se existir)
-  if (colab.disc_resultados?.tags) {
-    perfilReal.tags = colab.disc_resultados.tags;
-  } else if (colab.perfil_dominante) {
-    perfilReal.tags = [colab.perfil_dominante];
+    const perfilReal = extrairPerfilReal(colab);
+    if (colab.disc_resultados?.tags) perfilReal.tags = colab.disc_resultados.tags;
+    else if (colab.perfil_dominante) perfilReal.tags = [colab.perfil_dominante];
+
+    resultado = calcularFit(perfilIdeal, perfilReal, colab);
   }
-
-  // Calcular
-  const resultado: any = calcularFit(perfilIdeal, perfilReal, colab);
   if (resultado.success === false) return resultado;
 
   // Persistir

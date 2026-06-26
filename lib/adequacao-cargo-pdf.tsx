@@ -14,9 +14,19 @@ import type { AdequacaoCargo, PessoaAdequacao, SubScore, Classe } from './adequa
 const C = {
   navy: '#142F57', cyan: '#34C5CC', gold: '#C8941F', white: '#FFFFFF',
   text: '#142F57', sub: '#5F6B7A', border: '#E2E8F0', bg: '#F4F7FA',
-  alta: '#22B07D', razoavel: '#F0922B', baixa: '#E5484D',
+  alta: '#22B07D', razoavel: '#F0922B', baixa: '#E5484D', muted: '#94A3B8',
 };
 const CLASSE_COLOR: Record<Classe, string> = { alta: C.alta, razoavel: C.razoavel, baixa: C.baixa };
+
+// Recomendação → cor do selo no card.
+const REC_COLOR: Record<string, string> = { recomendado: C.alta, recomendado_com_ressalvas: C.razoavel, nao_recomendado: C.baixa };
+// Direção do traço → rótulo legível (sem glifos especiais; subset Inter não cobre setas).
+function direcaoLabel(d?: string): string | null {
+  if (d === 'floor') return 'mais é melhor';
+  if (d === 'ceiling') return 'manter moderado';
+  if (d === 'target') return 'faixa-alvo';
+  return null;
+}
 
 const s = StyleSheet.create({
   page: { fontFamily: 'NotoSans', fontSize: 9, color: C.text, paddingBottom: 44 },
@@ -54,6 +64,12 @@ const s = StyleSheet.create({
   card: { flex: 1, borderWidth: 1, borderColor: C.border, borderRadius: 10, padding: 11 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   cardNome: { fontSize: 11, fontWeight: 700, color: '#5B7BC4', marginBottom: 6 },
+  recChip: { alignSelf: 'flex-start', fontSize: 7, fontWeight: 700, color: C.white, borderRadius: 7, paddingVertical: 2, paddingHorizontal: 6, marginBottom: 6 },
+  flagTx: { fontSize: 7, color: C.razoavel, marginTop: 4 },
+  knockTx: { fontSize: 7, color: C.baixa, marginTop: 3 },
+  dirTx: { fontSize: 7.5, color: C.muted, fontWeight: 400 },
+  pesoRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 2, marginBottom: 4 },
+  pesoChip: { backgroundColor: '#EEF3F8', color: C.sub, fontSize: 8, fontWeight: 700, borderRadius: 7, paddingVertical: 3, paddingHorizontal: 7 },
   discBadges: { flexDirection: 'row', gap: 5 },
   discBadge: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   discBadgeT: { color: C.white, fontSize: 8.5, fontWeight: 700 },
@@ -120,6 +136,14 @@ function Donut({ pct, color }: { pct: number; color: string }) {
 }
 
 function SubLine({ label, sc }: { label: string; sc: SubScore }) {
+  if (!sc.aplicavel) {
+    return (
+      <View style={s.subItem}>
+        <View style={[s.subDot, { backgroundColor: C.muted }]} />
+        <Text style={[s.subTx, { color: C.muted }]}>{label} n/a</Text>
+      </View>
+    );
+  }
   return (
     <View style={s.subItem}>
       <View style={[s.subDot, { backgroundColor: CLASSE_COLOR[sc.classe] }]} />
@@ -134,9 +158,10 @@ function CardPessoa({ p }: { p: PessoaAdequacao }) {
       <View style={s.cardTop}>
         <View style={{ flex: 1 }}>
           <Text style={s.cardNome}>{p.nome}</Text>
+          <Text style={[s.recChip, { backgroundColor: REC_COLOR[p.recomendacao] || C.muted }]}>{p.recomendacaoLabel.toUpperCase()}</Text>
           <View style={s.discBadges}>
             {p.disc.map((d) => (
-              <View key={d.fator} style={[s.discBadge, { backgroundColor: d.dentro ? C.alta : C.baixa }]}>
+              <View key={d.fator} style={[s.discBadge, { backgroundColor: CLASSE_COLOR[d.classe] }]}>
                 <Text style={s.discBadgeT}>{d.score}</Text>
               </View>
             ))}
@@ -153,6 +178,12 @@ function CardPessoa({ p }: { p: PessoaAdequacao }) {
         <SubLine label="Liderança" sc={p.lideranca} />
         <SubLine label="DISC" sc={p.discScore} />
       </View>
+      {p.knockoutFailed && p.knockoutMotivos.length > 0 && (
+        <Text style={s.knockTx}>Bloqueio: {p.knockoutMotivos.join('; ')}</Text>
+      )}
+      {p.borderline && !p.knockoutFailed && (
+        <Text style={s.flagTx}>Resultado limítrofe (sensível à margem de medida)</Text>
+      )}
     </View>
   );
 }
@@ -195,12 +226,23 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas }: {
               {pi.caracteristicas.map((c, i) => <Text key={i} style={s.chip}>{(c.polo || c.par).toUpperCase()}</Text>)}
             </View>
           )}
+          {pi.pesos.length > 0 && (
+            <>
+              <View style={s.secBar}><View style={s.secBarV} /><Text style={s.secBarT}>Pesos por bloco</Text></View>
+              <View style={s.pesoRow}>
+                {pi.pesos.map((w, i) => <Text key={i} style={s.pesoChip}>{w.bloco} {w.pct}%</Text>)}
+              </View>
+            </>
+          )}
           <View style={s.twoCol}>
             <View style={s.col}>
               <View style={s.secBar}><View style={s.secBarV} /><Text style={s.secBarT}>Competência (min - max)</Text></View>
               {pi.competencias.map((c, i) => (
                 <View key={i} style={s.rangeRow}>
-                  <Text style={s.rangeNome}>{c.nome}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.rangeNome}>{c.nome}</Text>
+                    {direcaoLabel(c.direcao) && <Text style={s.dirTx}>{direcaoLabel(c.direcao)}</Text>}
+                  </View>
                   <Text style={s.rangeVal}>{c.min} - {c.max}</Text>
                 </View>
               ))}
@@ -209,17 +251,24 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas }: {
               <View style={s.secBar}><View style={s.secBarV} /><Text style={s.secBarT}>Perfil DISC (min - max)</Text></View>
               {pi.disc.map((d) => (
                 <View key={d.fator} style={s.rangeRow}>
-                  <Text style={s.rangeNome}>{d.nome}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.rangeNome}>{d.nome}</Text>
+                    {direcaoLabel(d.direcao) && <Text style={s.dirTx}>{direcaoLabel(d.direcao)}</Text>}
+                  </View>
                   <Text style={s.rangeVal}>{d.min} - {d.max}</Text>
                 </View>
               ))}
-              <View style={s.secBar}><View style={s.secBarV} /><Text style={s.secBarT}>Liderança</Text></View>
-              {pi.lideranca.map((l) => (
-                <View key={l.key} style={s.lidRow}>
-                  <Text style={s.rangeNome}>{l.nome}</Text>
-                  <Text style={s.rangeVal}>{Math.round(l.pct)}%{l.nome === pi.estiloPredominante ? ' ★' : ''}</Text>
-                </View>
-              ))}
+              {pi.liderancaAplicavel && (
+                <>
+                  <View style={s.secBar}><View style={s.secBarV} /><Text style={s.secBarT}>Liderança</Text></View>
+                  {pi.lideranca.map((l) => (
+                    <View key={l.key} style={s.lidRow}>
+                      <Text style={s.rangeNome}>{l.nome}</Text>
+                      <Text style={s.rangeVal}>{Math.round(l.pct)}%{l.nome === pi.estiloPredominante ? ' (predominante)' : ''}</Text>
+                    </View>
+                  ))}
+                </>
+              )}
             </View>
           </View>
         </View>
@@ -252,7 +301,7 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas }: {
               <View key={i} style={s.anItem} wrap={false}>
                 <View style={s.anHead}>
                   <Text style={s.anNome}>{p.nome}</Text>
-                  <Text style={[s.anBeta, { color: CLASSE_COLOR[p.beta.classe] }]}>Beta {p.beta.pct}%</Text>
+                  <Text style={[s.anBeta, { color: CLASSE_COLOR[p.beta.classe] }]}>{p.recomendacaoLabel} · Beta {p.beta.pct}%</Text>
                 </View>
                 <Text style={s.anTxt}>{narrativas[p.nome]}</Text>
               </View>

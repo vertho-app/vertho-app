@@ -1,45 +1,59 @@
 /**
  * Relatório de Adequação ao Cargo — match colaborador × PERFIL IDEAL do cargo.
  *
- * Replica a metodologia do exemplo (Match Perfil Ideal): para cada colaborador,
- * conta quantos ITENS do gabarito do cargo ele "atende", em 4 dimensões:
- *   - Mapeamento  : características comportamentais (gabarito.tela1) — polo do colab
- *                   (derivado do DISC) bate com o polo escolhido do cargo.
- *   - Competência : subcompetências (gabarito.tela2) — comp_* dentro da faixa ideal.
- *   - Liderança   : 4 estilos (gabarito.tela3) — lid_* compatível com o ideal.
- *   - DISC        : 4 fatores (gabarito.tela4) — {d,i,s,c}_natural dentro da faixa.
+ * Usa o MOTOR ÚNICO de scoring (lib/scoring): para cada colaborador, calcula a
+ * aderência CONTÍNUA (não binária) ao gabarito em 4 blocos, com direção por traço
+ * (floor/target/ceiling), pesos de bloco, knockouts e borderline (±SEM).
+ *   - Mapeamento  : características (gabarito.tela1) — polo do colab bate (binary).
+ *   - Competência : subcompetências (gabarito.tela2) — comp_* na faixa, com direção.
+ *   - Liderança   : estilo (gabarito.tela3) — fit contínuo por distância vetorial.
+ *   - DISC        : 4 fatores (gabarito.tela4) — {d,i,s,c}_natural na faixa, com direção.
  *
- * Cada sub-score = atendidos / total da dimensão. Beta = atendidos TOTAIS / itens
- * TOTAIS (não média de %). Validado contra o PDF de exemplo (ARIANY 34/44 = 77,3%).
+ * Beta = média dos blocos ponderada pelos pesos. Mantém o shape consumido pelo PDF
+ * (PessoaAdequacao/SubScore) e adiciona recomendação/borderline/knockout/direção.
  *
  * Puro (sem IA, sem Next) — recebe um SupabaseClient. O PDF + a narrativa consomem.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { excludeInternalEmails } from '@/lib/internal-emails';
-import { COMP_LABEL, LIDERANCA, destaquesBipolares, type DiscMedia } from '@/lib/perfil-organizacional/aggregate';
+import { LIDERANCA } from '@/lib/perfil-organizacional/aggregate';
+import {
+  scoreCandidate, colorBand, inferDirection, RECOMMENDATION_LABEL,
+  type ScoringResult, type ColorBand, type Recommendation, type RoleSpec,
+} from '@/lib/scoring/engine';
+import { buildRoleSpec, faixaDe, BLOCK, TELA3_KEY } from '@/lib/scoring/role-spec';
+import { buildCandidateProfile, candidateColumns } from '@/lib/scoring/candidate';
 
 export type Classe = 'alta' | 'razoavel' | 'baixa';
-export interface SubScore { atendidos: number; total: number; pct: number; classe: Classe }
+export interface SubScore { atendidos: number; total: number; pct: number; classe: Classe; aplicavel: boolean }
 
-export interface DiscFator { fator: 'D' | 'I' | 'S' | 'C'; score: number; min: number; max: number; dentro: boolean }
+export interface DiscFator { fator: 'D' | 'I' | 'S' | 'C'; score: number; min: number; max: number; dentro: boolean; classe: Classe }
 export interface PessoaAdequacao {
   nome: string;
-  disc: DiscFator[];                 // 4 fatores com score + faixa + dentro
+  disc: DiscFator[];                 // 4 fatores com score + faixa + classe
   mapeamento: SubScore;
   competencia: SubScore;
   lideranca: SubScore;
   discScore: SubScore;
-  beta: SubScore;                    // score geral (atendidos totais / itens totais)
+  beta: SubScore;                    // score geral (ponderado pelos pesos de bloco)
+  recomendacao: Recommendation;
+  recomendacaoLabel: string;
+  borderline: boolean;
+  knockoutFailed: boolean;
+  knockoutMotivos: string[];
 }
 
-export interface CompetenciaIdeal { nome: string; dimensao: string; min: number; max: number; prioridade: string }
+export type Direcao = 'floor' | 'target' | 'ceiling';
+export interface CompetenciaIdeal { nome: string; dimensao: string; min: number; max: number; prioridade: string; direcao?: Direcao }
 export interface CaracteristicaIdeal { par: string; polo: string; intensidade: string }
 export interface PerfilIdeal {
   caracteristicas: CaracteristicaIdeal[];
   competencias: CompetenciaIdeal[];
   lideranca: { nome: string; pct: number; key: string }[];
   estiloPredominante: string;
-  disc: { fator: 'D' | 'I' | 'S' | 'C'; nome: string; min: number; max: number }[];
+  disc: { fator: 'D' | 'I' | 'S' | 'C'; nome: string; min: number; max: number; direcao?: Direcao }[];
+  pesos: { bloco: string; pct: number }[];
+  liderancaAplicavel: boolean;
 }
 
 export interface AdequacaoCargo {
@@ -53,110 +67,89 @@ export interface AdequacaoCargo {
 
 const num = (v: any) => Number(v) || 0;
 const r1 = (v: number) => Math.round(v * 10) / 10;
-const norm = (s: any) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 const FATOR_NOME = { D: 'Dominância', I: 'Influência', S: 'Estabilidade', C: 'Conformidade' } as const;
 const LID_KEYS = Object.keys(LIDERANCA);
-// tela3 usa "executor", mas a coluna é lid_executivo — mapa explícito.
-const TELA3_KEY: Record<string, string> = { lid_executivo: 'executor', lid_motivador: 'motivador', lid_metodico: 'metodico', lid_sistematico: 'sistematico' };
+const BLOCO_LABEL: Record<string, string> = { Competencia: 'Competência', Lideranca: 'Liderança', DISC: 'DISC', Mapeamento: 'Mapeamento' };
 
-/** "Alto (41-60)" / "Muito alto (61-80)" → {lo, hi}. Sem parse → faixa ampla. */
-function parseFaixa(s: any): { lo: number; hi: number } {
-  const m = String(s || '').match(/\(?\s*(\d{1,3})\s*[-–a]\s*(\d{1,3})\s*\)?/);
-  if (m) return { lo: Number(m[1]), hi: Number(m[2]) };
-  return { lo: 0, hi: 100 };
+const classeDeBanda = (b: ColorBand): Classe => (b === 'verde' ? 'alta' : b === 'amarelo' ? 'razoavel' : 'baixa');
+
+/** SubScore a partir do score 0..1 de um bloco do motor (ou ausente). */
+function subDoBloco(result: ScoringResult, bloco: string, spec: RoleSpec): SubScore {
+  const total = spec.traits.filter((t) => t.block === bloco).length;
+  const b = result.blocks.find((x) => x.block === bloco);
+  if (!b || total === 0) return { atendidos: 0, total: 0, pct: 0, classe: 'baixa', aplicavel: false };
+  const pct = r1(b.score * 100);
+  return { atendidos: Math.round(b.score * total), total, pct, classe: classeDeBanda(b.band), aplicavel: true };
 }
-/** Faixa-alvo de um item = [min do limite inferior, max do limite superior]. */
-function faixaDe(minStr: any, maxStr: any): { min: number; max: number } {
-  const lo = parseFaixa(minStr).lo;
-  const hi = parseFaixa(maxStr).hi;
-  return { min: Math.min(lo, hi), max: Math.max(lo, hi) };
-}
-const classeDe = (pct: number): Classe => (pct >= 75 ? 'alta' : pct >= 50 ? 'razoavel' : 'baixa');
-const sub = (atendidos: number, total: number): SubScore => {
-  const pct = total > 0 ? r1((atendidos / total) * 100) : 0;
-  return { atendidos, total, pct, classe: classeDe(pct) };
-};
 
 export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, cargo: string): Promise<AdequacaoCargo> {
-  const base: AdequacaoCargo = { cargo, avaliados: 0, perfilIdeal: { caracteristicas: [], competencias: [], lideranca: [], estiloPredominante: '', disc: [] }, pessoas: [], semGabarito: false, semColaboradores: false };
+  const base: AdequacaoCargo = { cargo, avaliados: 0, perfilIdeal: { caracteristicas: [], competencias: [], lideranca: [], estiloPredominante: '', disc: [], pesos: [], liderancaAplicavel: false }, pessoas: [], semGabarito: false, semColaboradores: false };
 
   // 1) Gabarito (perfil ideal) do cargo.
   const { data: cargoRow } = await sb.from('cargos_empresa')
-    .select('gabarito').eq('empresa_id', empresaId).eq('nome', cargo).limit(1).maybeSingle();
+    .select('gabarito, eh_lideranca').eq('empresa_id', empresaId).eq('nome', cargo).limit(1).maybeSingle();
   const g = (cargoRow as any)?.gabarito;
   if (!g?.tela4) return { ...base, semGabarito: true };
+  const ehLideranca = (cargoRow as any)?.eh_lideranca;
 
-  // Perfil ideal estruturado (p/ a página "Filtros e Mapeamento").
+  // 2) RoleSpec (perfil ideal traduzido p/ o motor — direção/pesos/knockouts).
+  const spec = buildRoleSpec(g, cargo, { ehLideranca });
+  if (!spec) return { ...base, semGabarito: true };
+
+  // Perfil ideal estruturado p/ a página "Filtros e Mapeamento" (reflete o spec).
   const caracteristicas: CaracteristicaIdeal[] = (g.tela1?.caracteristicas || []).map((c: any) => ({ par: c.par || '', polo: c.polo_escolhido || '', intensidade: c.intensidade || '' }));
-  const competenciasIdeal: CompetenciaIdeal[] = (g.tela2?.subcompetencias || []).map((c: any) => {
-    const f = faixaDe(c.faixa_min, c.faixa_max);
-    return { nome: c.nome || '', dimensao: c.dimensao || '', min: f.min, max: f.max, prioridade: c.prioridade || 'media' };
-  });
+  const competenciasIdeal: CompetenciaIdeal[] = spec.traits
+    .filter((t) => t.block === BLOCK.COMP && t.kind === 'band')
+    .map((t: any) => ({ nome: t.label || t.key, dimensao: '', min: t.lo, max: t.hi, prioridade: '', direcao: (t.direction ?? inferDirection(t.lo, t.hi)) as Direcao }));
   const liderancaIdeal = LID_KEYS.map((k) => ({ key: k, nome: (LIDERANCA as any)[k].nome, pct: num(g.tela3?.[TELA3_KEY[k]]) }));
   const discIdeal = (['D', 'I', 'S', 'C'] as const).map((f) => {
-    const fx = faixaDe(g.tela4?.[f]?.min, g.tela4?.[f]?.max);
-    return { fator: f, nome: FATOR_NOME[f], min: fx.min, max: fx.max };
+    const t: any = spec.traits.find((x) => x.block === BLOCK.DISC && x.key === f);
+    const fx = t ? { min: t.lo, max: t.hi } : faixaDe(g.tela4?.[f]?.min, g.tela4?.[f]?.max);
+    const direcao = (t?.direction ?? inferDirection(fx.min, fx.max)) as Direcao;
+    return { fator: f, nome: FATOR_NOME[f], min: fx.min, max: fx.max, direcao };
   });
-  const perfilIdeal: PerfilIdeal = { caracteristicas, competencias: competenciasIdeal, lideranca: liderancaIdeal, estiloPredominante: g.tela3?.estilo_predominante || '', disc: discIdeal };
+  const liderancaAplicavel = num(spec.blockWeights[BLOCK.LID]) > 0;
+  const pesos = Object.entries(spec.blockWeights)
+    .filter(([, w]) => num(w) > 0)
+    .map(([bloco, w]) => ({ bloco: BLOCO_LABEL[bloco] || bloco, pct: Math.round(num(w) * 100) }));
+  const perfilIdeal: PerfilIdeal = { caracteristicas, competencias: competenciasIdeal, lideranca: liderancaIdeal, estiloPredominante: g.tela3?.estilo_predominante || '', disc: discIdeal, pesos, liderancaAplicavel };
 
-  // 2) Colaboradores do cargo (com DISC mapeado).
-  const cols = ['nome_completo', 'd_natural', 'i_natural', 's_natural', 'c_natural', ...LID_KEYS, ...COMP_LABEL.map((c) => c.key)].join(', ');
+  // 3) Colaboradores do cargo (com DISC mapeado).
+  const cols = ['nome_completo', ...candidateColumns()].join(', ');
   const { data: rows } = await excludeInternalEmails(
     sb.from('colaboradores').select(cols).eq('empresa_id', empresaId).eq('cargo', cargo).not('d_natural', 'is', null),
   ).order('nome_completo');
   if (!rows?.length) return { ...base, perfilIdeal, semColaboradores: true };
 
-  const compKeyDe = new Map(COMP_LABEL.map((c) => [norm(c.nome), c.key])); // nome → coluna comp_*
-  const idealLidTotal = liderancaIdeal.reduce((s, x) => s + x.pct, 0) || 1;
-
   const pessoas: PessoaAdequacao[] = (rows as any[]).map((x) => {
-    const m: DiscMedia = { d: num(x.d_natural), i: num(x.i_natural), s: num(x.s_natural), c: num(x.c_natural) };
+    const profile = buildCandidateProfile(x, g);
+    const result = scoreCandidate(spec, profile);
 
-    // DISC (4): score dentro da faixa ideal.
+    // DISC (4): score + faixa + classe (pela banda do fit do traço).
     const disc: DiscFator[] = discIdeal.map((d) => {
-      const score = m[d.fator.toLowerCase() as keyof DiscMedia];
-      return { fator: d.fator, score: Math.round(score), min: d.min, max: d.max, dentro: score >= d.min && score <= d.max };
+      const ts = result.traits.find((t) => t.block === BLOCK.DISC && t.key === d.fator);
+      const score = Number(profile[d.fator]) || 0;
+      const band = ts ? colorBand(ts.fit) : 'vermelho';
+      return { fator: d.fator, score: Math.round(score), min: d.min, max: d.max, dentro: score >= d.min && score <= d.max, classe: classeDeBanda(band) };
     });
-    const discScore = sub(disc.filter((d) => d.dentro).length, 4);
 
-    // Competência (N do gabarito): comp_* dentro da faixa.
-    let compOk = 0;
-    for (const c of competenciasIdeal) {
-      const key = compKeyDe.get(norm(c.nome));
-      if (!key) continue;
-      const v = num(x[key]);
-      if (v >= c.min && v <= c.max) compOk++;
-    }
-    const competencia = sub(compOk, competenciasIdeal.length);
+    const beta: SubScore = { atendidos: 0, total: 0, pct: result.betaPct, classe: classeDeBanda(result.betaBand), aplicavel: true };
+    const knockoutMotivos = result.knockouts.filter((k) => !k.passed).map((k) => k.rule.label || `${BLOCO_LABEL[k.rule.key] || k.rule.key} abaixo do mínimo`);
 
-    // Mapeamento (N do gabarito): polo do colab (DISC) bate com o polo do cargo.
-    const polos = destaquesBipolares(m); // {esquerda, direita, ladoEsquerdo}
-    let mapOk = 0;
-    for (const c of caracteristicas) {
-      const polo = norm(c.polo);
-      const par = polos.find((p) => norm(p.esquerda) === polo || norm(p.direita) === polo);
-      if (!par) continue;
-      const colabNoPolo = norm(par.esquerda) === polo ? par.ladoEsquerdo : !par.ladoEsquerdo;
-      if (colabNoPolo) mapOk++;
-    }
-    const mapeamento = sub(mapOk, caracteristicas.length);
-
-    // Liderança (4): estilo do colab não fica abaixo do ideal (tolerância 15pp).
-    const lidColabTotal = LID_KEYS.reduce((s, k) => s + num(x[k]), 0) || 1;
-    let lidOk = 0;
-    for (const l of liderancaIdeal) {
-      const colabPct = (num(x[l.key]) / lidColabTotal) * 100;
-      const idealPct = (l.pct / idealLidTotal) * 100;
-      if (colabPct >= idealPct - 15) lidOk++;
-    }
-    const lideranca = sub(lidOk, 4);
-
-    // Beta: atendidos totais / itens totais (não média de %).
-    const atend = mapeamento.atendidos + competencia.atendidos + lideranca.atendidos + discScore.atendidos;
-    const total = mapeamento.total + competencia.total + lideranca.total + discScore.total;
-    const beta = sub(atend, total);
-
-    return { nome: x.nome_completo || 'Colaborador', disc, mapeamento, competencia, lideranca, discScore, beta };
+    return {
+      nome: x.nome_completo || 'Colaborador',
+      disc,
+      mapeamento: subDoBloco(result, BLOCK.MAP, spec),
+      competencia: subDoBloco(result, BLOCK.COMP, spec),
+      lideranca: subDoBloco(result, BLOCK.LID, spec),
+      discScore: subDoBloco(result, BLOCK.DISC, spec),
+      beta,
+      recomendacao: result.recommendation,
+      recomendacaoLabel: RECOMMENDATION_LABEL[result.recommendation],
+      borderline: result.borderline,
+      knockoutFailed: result.knockoutFailed,
+      knockoutMotivos,
+    };
   }).sort((a, b) => b.beta.pct - a.beta.pct);
 
   return { cargo, avaliados: pessoas.length, perfilIdeal, pessoas, semGabarito: false, semColaboradores: false };
