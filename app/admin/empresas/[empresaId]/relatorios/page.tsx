@@ -11,6 +11,7 @@ import BackButton from '@/components/back-button';
 import { loadRelatoriosEmpresa } from '@/actions/relatorios-load';
 import { gerarDnaOrganizacional } from '@/actions/dna-organizacional';
 import { gerarPerfilOrganizacional } from '@/actions/perfil-organizacional';
+import { gerarRelatorioAdequacao, listarCargosComGabarito } from '@/actions/adequacao-cargo';
 
 const NIVEL_COLORS = { 1: 'text-red-400', 2: 'text-amber-400', 3: 'text-cyan-400', 4: 'text-green-400' };
 
@@ -152,6 +153,13 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
   const [poBusy, setPoBusy] = useState(false);
   const [poMsg, setPoMsg] = useState<string | null>(null);
   const [poUrl, setPoUrl] = useState<string | null>(null);
+  // Adequação ao Cargo (por cargo, com perfil ideal/gabarito)
+  const [cargosGab, setCargosGab] = useState<string[]>([]);
+  const [adCargo, setAdCargo] = useState('');
+  const [adIA, setAdIA] = useState(true);
+  const [adBusy, setAdBusy] = useState(false);
+  const [adMsg, setAdMsg] = useState<string | null>(null);
+  const [adUrl, setAdUrl] = useState<string | null>(null);
 
   // gera um relatório (DNA de competências ou Perfil DISC), tratando o bloqueio
   // de pop-up: abre a aba no clique e navega quando pronto; senão mostra link.
@@ -172,9 +180,14 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
   }
   const handleGerarDna = () => gerarRelatorio(() => gerarDnaOrganizacional(empresaId), setDnaBusy, setDnaMsg, setDnaUrl);
   const handleGerarPerfilOrg = () => gerarRelatorio(() => gerarPerfilOrganizacional(empresaId), setPoBusy, setPoMsg, setPoUrl);
+  const handleGerarAdequacao = () => {
+    if (!adCargo) { setAdMsg('Selecione um cargo.'); return; }
+    return gerarRelatorio(() => gerarRelatorioAdequacao(empresaId, adCargo, { comAnaliseIA: adIA }), setAdBusy, setAdMsg, setAdUrl);
+  };
 
   useEffect(() => {
     loadRelatoriosEmpresa(empresaId).then(d => { setData(d); setLoading(false); });
+    listarCargosComGabarito(empresaId).then(r => setCargosGab(r.cargos || []));
   }, [empresaId]);
 
   if (loading) return <div className="flex items-center justify-center h-dvh"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
@@ -225,6 +238,40 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
           )}
         </div>
       </div>
+
+      {/* ═══ Adequação ao Cargo (perfil ideal × colaboradores) ═══ */}
+      {cargosGab.length > 0 && (
+        <div className="mb-5 p-4 rounded-xl border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
+          <div className="flex items-center gap-2 mb-3">
+            <Target size={15} className="text-emerald-400" />
+            <span className="text-sm font-bold text-white">Adequação ao Cargo</span>
+            <span className="text-[10px] text-gray-500">match dos colaboradores com o perfil ideal (gabarito)</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <select value={adCargo} onChange={e => { setAdCargo(e.target.value); setAdMsg(null); setAdUrl(null); }}
+              className="px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none focus:border-emerald-400/40 min-w-[220px]" style={{ background: '#091D35' }}>
+              <option value="">Selecione o cargo…</option>
+              {cargosGab.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <label className="flex items-center gap-1.5 text-xs text-gray-300 cursor-pointer">
+              <input type="checkbox" checked={adIA} onChange={e => setAdIA(e.target.checked)} className="accent-emerald-500" />
+              análise individual por IA
+            </label>
+            <button onClick={handleGerarAdequacao} disabled={adBusy || !adCargo}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+              {adBusy ? <Loader2 size={14} className="animate-spin" /> : <Target size={14} />}
+              {adBusy ? 'Gerando…' : 'Gerar relatório'}
+            </button>
+            {adMsg && <span className="text-[10px] text-amber-400">{adMsg}</span>}
+            {adUrl && (
+              <a href={adUrl} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-xs font-semibold text-emerald-300 hover:text-emerald-200 underline">
+                <Download size={13} /> Abrir relatório
+              </a>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 mb-5 p-1 rounded-xl border border-white/[0.06]" style={{ background: '#091D35' }}>

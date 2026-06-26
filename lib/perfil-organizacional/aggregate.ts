@@ -31,7 +31,7 @@ const VALOR_LABEL: Record<string, { nome: string; motivacao: string }> = {
   val_religioso: { nome: 'Religioso', motivacao: 'Conviver com Crenças e Opiniões Iguais' },
 };
 
-const COMP_LABEL: { key: string; nome: string; desc: string }[] = [
+export const COMP_LABEL: { key: string; nome: string; desc: string }[] = [
   { key: 'comp_ousadia', nome: 'Ousadia', desc: 'Ímpeto à ação em busca dos objetivos, encarando os acontecimentos como desafio.' },
   { key: 'comp_comando', nome: 'Comando', desc: 'Predisposição a assumir a liderança e o comando das situações.' },
   { key: 'comp_objetividade', nome: 'Objetividade', desc: 'Pessoas diretas que reagem rápido e decidem com foco.' },
@@ -62,7 +62,7 @@ const TALENTOS: { nome: string; fatores: Fator[]; foco: string }[] = [
   { nome: 'Execução', fatores: ['C', 'D'], foco: 'Conformidade e Dominância' },
 ];
 
-const LIDERANCA = {
+export const LIDERANCA = {
   lid_executivo: { nome: 'Executivo', vinculo: 'Liderança com Resultado' },
   lid_motivador: { nome: 'Motivador', vinculo: 'Liderança com Inspiração' },
   lid_metodico: { nome: 'Metódico', vinculo: 'Liderança com Planejamento' },
@@ -108,7 +108,8 @@ function dominanteFromDisc(m: DiscMedia): string {
 }
 
 // destaques bipolares: cada par é decidido por uma métrica DISC do grupo médio.
-function destaquesBipolares(m: DiscMedia): DestaqueBipolar[] {
+// Exportado p/ reuso no Relatório de Adequação ao Cargo (deriva os polos do INDIVÍDUO).
+export function destaquesBipolares(m: DiscMedia): DestaqueBipolar[] {
   const pares: [string, string, boolean][] = [
     ['OTIMISTA', 'REALISTA', m.i >= m.c],
     ['COMUNICATIVO', 'ANALISTA', m.i >= m.c],

@@ -1,0 +1,273 @@
+/**
+ * Relatório de Adequação ao Cargo — PDF premium branded (réplica do "Match Perfil
+ * Ideal"). Consome o agregado (lib/adequacao-cargo/aggregate) + narrativas IA.
+ * Páginas: capa · Filtros e Mapeamento (perfil ideal do cargo) · cards de
+ * resultado por colaborador (anel Beta + 4 sub-scores coloridos) · análise individual.
+ * Reusa NotoSans + paleta Vertho. Sem emoji.
+ */
+import React from 'react';
+import { Document, Page, View, Text, Image, StyleSheet, Svg, Circle, renderToBuffer } from '@react-pdf/renderer';
+import '@/components/pdf/styles';
+import { getLogoCoverBase64 } from '@/lib/pdf-assets';
+import type { AdequacaoCargo, PessoaAdequacao, SubScore, Classe } from './adequacao-cargo/aggregate';
+
+const C = {
+  navy: '#142F57', cyan: '#34C5CC', gold: '#C8941F', white: '#FFFFFF',
+  text: '#142F57', sub: '#5F6B7A', border: '#E2E8F0', bg: '#F4F7FA',
+  alta: '#22B07D', razoavel: '#F0922B', baixa: '#E5484D',
+};
+const CLASSE_COLOR: Record<Classe, string> = { alta: C.alta, razoavel: C.razoavel, baixa: C.baixa };
+
+const s = StyleSheet.create({
+  page: { fontFamily: 'NotoSans', fontSize: 9, color: C.text, paddingBottom: 44 },
+  cover: { backgroundColor: C.navy, height: '100%', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
+  coverLogo: { width: 230, height: 54, marginBottom: 8 },
+  coverTitle: { color: C.white, fontSize: 30, fontWeight: 700, marginTop: 30, textAlign: 'center' },
+  coverKicker: { color: '#9FB0C6', fontSize: 13, marginTop: 18 },
+  coverCargo: { color: C.cyan, fontSize: 16, fontWeight: 700, marginTop: 2 },
+  coverMeta: { color: '#9FB0C6', fontSize: 9, fontWeight: 700, marginTop: 14, letterSpacing: 0.5 },
+  header: { paddingHorizontal: 34, paddingTop: 26, paddingBottom: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  hTitle: { color: '#5B7BC4', fontSize: 23, fontWeight: 700 },
+  hLogo: { width: 92, height: 22 },
+  body: { paddingHorizontal: 34, paddingTop: 6 },
+  secBar: { flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 8 },
+  secBarV: { width: 5, height: 16, backgroundColor: C.cyan, marginRight: 7, borderRadius: 2 },
+  secBarT: { fontSize: 13, fontWeight: 700, color: C.navy },
+  // legenda
+  legendBox: { borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 10, marginBottom: 10 },
+  legendRow: { flexDirection: 'row', gap: 18, flexWrap: 'wrap', marginTop: 4 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  legendDot: { width: 9, height: 9, borderRadius: 5 },
+  legendTx: { fontSize: 8, color: C.sub },
+  // perfil ideal — chips
+  chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 8 },
+  chip: { backgroundColor: '#EAF1F7', color: C.navy, fontSize: 8, fontWeight: 700, borderRadius: 8, paddingVertical: 4, paddingHorizontal: 8 },
+  // perfil ideal — linhas com faixa
+  rangeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: C.border, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 11, marginBottom: 6 },
+  rangeNome: { fontSize: 9.5, fontWeight: 700, color: C.navy },
+  rangeVal: { fontSize: 9, fontWeight: 700, color: C.sub },
+  twoCol: { flexDirection: 'row', gap: 16 },
+  col: { flex: 1 },
+  lidRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: C.border, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 11, marginBottom: 6 },
+  // cards de resultado
+  cardsRow: { flexDirection: 'row', gap: 14, marginBottom: 14 },
+  card: { flex: 1, borderWidth: 1, borderColor: C.border, borderRadius: 10, padding: 11 },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  cardNome: { fontSize: 11, fontWeight: 700, color: '#5B7BC4', marginBottom: 6 },
+  discBadges: { flexDirection: 'row', gap: 5 },
+  discBadge: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  discBadgeT: { color: C.white, fontSize: 8.5, fontWeight: 700 },
+  betaWrap: { alignItems: 'center', width: 60 },
+  betaLbl: { fontSize: 7.5, color: C.sub, marginBottom: 2 },
+  betaPct: { position: 'absolute', top: 32, width: 56, textAlign: 'center', fontSize: 10, fontWeight: 700 },
+  subWrap: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 10 },
+  subItem: { width: '50%', flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 5 },
+  subDot: { width: 8, height: 8, borderRadius: 4 },
+  subTx: { fontSize: 8.5, color: C.text },
+  // análise IA
+  anItem: { borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 10, marginBottom: 8 },
+  anHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  anNome: { fontSize: 10.5, fontWeight: 700, color: C.navy },
+  anBeta: { fontSize: 10, fontWeight: 700 },
+  anTxt: { fontSize: 9, color: '#3A4658', lineHeight: 1.5 },
+  footer: { position: 'absolute', bottom: 16, left: 34, right: 34, flexDirection: 'row', justifyContent: 'space-between', fontSize: 7, color: '#94A3B8' },
+});
+
+function Footer() {
+  return (
+    <View style={s.footer} fixed>
+      <Text>Vertho · Relatório de Adequação ao Cargo</Text>
+      <Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
+    </View>
+  );
+}
+
+function PageHeader({ title }: { title: string }) {
+  return (
+    <View style={s.header}>
+      <Text style={s.hTitle}>{title}</Text>
+      <Image style={s.hLogo} src={getLogoCoverBase64()} />
+    </View>
+  );
+}
+
+function Legenda() {
+  return (
+    <View style={s.legendBox}>
+      <Text style={{ fontSize: 9, fontWeight: 700, color: C.navy }}>Legenda</Text>
+      <View style={s.legendRow}>
+        <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: C.alta }]} /><Text style={s.legendTx}>Compatibilidade Alta (75%+)</Text></View>
+        <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: C.razoavel }]} /><Text style={s.legendTx}>Compatibilidade Razoável (50% - 74%)</Text></View>
+        <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: C.baixa }]} /><Text style={s.legendTx}>Compatibilidade Baixa (0% - 49%)</Text></View>
+      </View>
+    </View>
+  );
+}
+
+function Donut({ pct, color }: { pct: number; color: string }) {
+  const r = 22, cx = 28, cy = 28, circ = 2 * Math.PI * r;
+  const dash = Math.max(0, Math.min(100, pct)) / 100 * circ;
+  return (
+    <View style={{ width: 56, height: 56 }}>
+      <Svg width={56} height={56}>
+        <Circle cx={cx} cy={cy} r={r} stroke="#E8EDF3" strokeWidth={5} fill="none" />
+        <Circle cx={cx} cy={cy} r={r} stroke={color} strokeWidth={5} fill="none"
+          strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" transform={`rotate(-90 ${cx} ${cy})`} />
+      </Svg>
+      <Text style={[s.betaPct, { color }]}>{pct}%</Text>
+    </View>
+  );
+}
+
+function SubLine({ label, sc }: { label: string; sc: SubScore }) {
+  return (
+    <View style={s.subItem}>
+      <View style={[s.subDot, { backgroundColor: CLASSE_COLOR[sc.classe] }]} />
+      <Text style={s.subTx}>{label} {sc.pct}%</Text>
+    </View>
+  );
+}
+
+function CardPessoa({ p }: { p: PessoaAdequacao }) {
+  return (
+    <View style={s.card}>
+      <View style={s.cardTop}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.cardNome}>{p.nome}</Text>
+          <View style={s.discBadges}>
+            {p.disc.map((d) => (
+              <View key={d.fator} style={[s.discBadge, { backgroundColor: d.dentro ? C.alta : C.baixa }]}>
+                <Text style={s.discBadgeT}>{d.score}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+        <View style={s.betaWrap}>
+          <Text style={s.betaLbl}>Beta</Text>
+          <Donut pct={p.beta.pct} color={CLASSE_COLOR[p.beta.classe]} />
+        </View>
+      </View>
+      <View style={s.subWrap}>
+        <SubLine label="Mapeamento" sc={p.mapeamento} />
+        <SubLine label="Competência" sc={p.competencia} />
+        <SubLine label="Liderança" sc={p.lideranca} />
+        <SubLine label="DISC" sc={p.discScore} />
+      </View>
+    </View>
+  );
+}
+
+function chunk<T>(arr: T[], n: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
+  return out;
+}
+
+export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas }: {
+  data: AdequacaoCargo; empresaNome: string; dataISO: string; narrativas: Record<string, string>;
+}) {
+  const dataBR = (() => { const [y, m, d] = dataISO.slice(0, 10).split('-'); return `${d}/${m}/${y}`; })();
+  const pi = data.perfilIdeal;
+  // 8 cards por página (4 linhas × 2 colunas).
+  const paginas = chunk(data.pessoas, 8);
+  const paginasAnalise = chunk(data.pessoas.filter((p) => narrativas[p.nome]), 6);
+
+  return (
+    <Document>
+      {/* Capa */}
+      <Page size="A4" style={s.page}>
+        <View style={s.cover}>
+          <Image style={s.coverLogo} src={getLogoCoverBase64()} />
+          <Text style={s.coverTitle}>Relatório de{'\n'}Adequação ao Cargo</Text>
+          <Text style={s.coverKicker}>INSIGHT DE ADEQUAÇÃO DE</Text>
+          <Text style={s.coverCargo}>{(data.cargo || '').toUpperCase()}</Text>
+          <Text style={s.coverMeta}>SOLICITADO POR: {(empresaNome || 'VERTHO.AI').toUpperCase()}</Text>
+          <Text style={s.coverMeta}>REALIZADO EM: {dataBR}</Text>
+        </View>
+      </Page>
+
+      {/* Filtros e Mapeamento (perfil ideal do cargo) */}
+      <Page size="A4" style={s.page}>
+        <PageHeader title="Filtros e Mapeamento" />
+        <View style={s.body}>
+          {pi.caracteristicas.length > 0 && (
+            <View style={s.chipsWrap}>
+              {pi.caracteristicas.map((c, i) => <Text key={i} style={s.chip}>{(c.polo || c.par).toUpperCase()}</Text>)}
+            </View>
+          )}
+          <View style={s.twoCol}>
+            <View style={s.col}>
+              <View style={s.secBar}><View style={s.secBarV} /><Text style={s.secBarT}>Competência (min - max)</Text></View>
+              {pi.competencias.map((c, i) => (
+                <View key={i} style={s.rangeRow}>
+                  <Text style={s.rangeNome}>{c.nome}</Text>
+                  <Text style={s.rangeVal}>{c.min} - {c.max}</Text>
+                </View>
+              ))}
+            </View>
+            <View style={s.col}>
+              <View style={s.secBar}><View style={s.secBarV} /><Text style={s.secBarT}>Perfil DISC (min - max)</Text></View>
+              {pi.disc.map((d) => (
+                <View key={d.fator} style={s.rangeRow}>
+                  <Text style={s.rangeNome}>{d.nome}</Text>
+                  <Text style={s.rangeVal}>{d.min} - {d.max}</Text>
+                </View>
+              ))}
+              <View style={s.secBar}><View style={s.secBarV} /><Text style={s.secBarT}>Liderança</Text></View>
+              {pi.lideranca.map((l) => (
+                <View key={l.key} style={s.lidRow}>
+                  <Text style={s.rangeNome}>{l.nome}</Text>
+                  <Text style={s.rangeVal}>{Math.round(l.pct)}%{l.nome === pi.estiloPredominante ? ' ★' : ''}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
+        <Footer />
+      </Page>
+
+      {/* Resultados — cards */}
+      {paginas.map((grupo, gi) => (
+        <Page key={`r${gi}`} size="A4" style={s.page}>
+          <PageHeader title="Resultados" />
+          <View style={s.body}>
+            <Legenda />
+            {chunk(grupo, 2).map((par, pi2) => (
+              <View key={pi2} style={s.cardsRow}>
+                <CardPessoa p={par[0]} />
+                {par[1] ? <CardPessoa p={par[1]} /> : <View style={{ flex: 1 }} />}
+              </View>
+            ))}
+          </View>
+          <Footer />
+        </Page>
+      ))}
+
+      {/* Análise individual (IA) */}
+      {paginasAnalise.map((grupo, gi) => (
+        <Page key={`a${gi}`} size="A4" style={s.page}>
+          <PageHeader title="Análise Individual" />
+          <View style={s.body}>
+            {grupo.map((p, i) => (
+              <View key={i} style={s.anItem} wrap={false}>
+                <View style={s.anHead}>
+                  <Text style={s.anNome}>{p.nome}</Text>
+                  <Text style={[s.anBeta, { color: CLASSE_COLOR[p.beta.classe] }]}>Beta {p.beta.pct}%</Text>
+                </View>
+                <Text style={s.anTxt}>{narrativas[p.nome]}</Text>
+              </View>
+            ))}
+          </View>
+          <Footer />
+        </Page>
+      ))}
+    </Document>
+  );
+}
+
+/** Render → Buffer (consumido pela action). */
+export async function renderAdequacaoCargoPDF(props: {
+  data: AdequacaoCargo; empresaNome: string; dataISO: string; narrativas: Record<string, string>;
+}): Promise<Buffer> {
+  return renderToBuffer(<AdequacaoCargoPDF {...props} />);
+}
