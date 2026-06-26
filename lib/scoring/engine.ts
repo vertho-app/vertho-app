@@ -263,11 +263,20 @@ function evalKnockouts(
   traitFits: Map<string, number>,
 ): KnockoutResult[] {
   return (spec.knockouts ?? []).map((rule) => {
-    const measured =
-      rule.scope === 'block'
-        ? blocks.find((b) => b.block === rule.key)?.score ?? 0
-        : traitFits.get(rule.key) ?? 0;
-    return { rule, measured, passed: measured >= rule.min };
+    // Eliminatória sobre bloco/traço AUSENTE (ex.: liderança em cargo não-líder,
+    // ou key que não casa com nenhum traço) é N/A → PASSA. Nunca auto-reprova:
+    // do contrário um knockout inaplicável zera todo mundo.
+    let measured: number;
+    let aplica: boolean;
+    if (rule.scope === 'block') {
+      const b = blocks.find((x) => x.block === rule.key);
+      aplica = !!b;
+      measured = b ? b.score : 1;
+    } else {
+      aplica = traitFits.has(rule.key);
+      measured = aplica ? traitFits.get(rule.key)! : 1;
+    }
+    return { rule, measured, passed: !aplica || measured >= rule.min };
   });
 }
 

@@ -14,6 +14,7 @@ import {
   gerarLeituraExecutivaFit,
 } from '@/actions/fit-v2';
 import { baixarRelatorioComportamentalPdfPorId } from '@/app/dashboard/perfil-comportamental/relatorio/relatorio-actions';
+import { gerarRelatorioAdequacao } from '@/actions/adequacao-cargo';
 
 const FAIXA_COLORS = {
   excelente: { bg: 'bg-green-400/15', text: 'text-green-400' },
@@ -134,8 +135,24 @@ export default function FitPage() {
   const [leituraAi, setLeituraAi] = useState(null);
   const [leituraLoading, setLeituraLoading] = useState(false);
   const [baixandoRel, setBaixandoRel] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [comIA, setComIA] = useState(true);
 
   function flash(msg) { setToast(msg); setTimeout(() => setToast(null), 3000); }
+
+  // Gera o PDF de Adequação ao Cargo (relatório imprimível do ranking atual).
+  async function handleGerarPdfAderencia() {
+    if (!empresaId || !cargoSel) return;
+    setPdfBusy(true);
+    const win = window.open('about:blank', '_blank');
+    try {
+      const r = await gerarRelatorioAdequacao(empresaId, cargoSel, { comAnaliseIA: comIA });
+      if (r.success && r.url) { if (win && !win.closed) win.location.href = r.url; }
+      else { if (win && !win.closed) win.close(); flash(r.error || 'Falha ao gerar o PDF.'); }
+    } catch (e: any) {
+      if (win && !win.closed) win.close(); flash(e?.message || 'Erro ao gerar o PDF.');
+    } finally { setPdfBusy(false); }
+  }
 
   function openDetail(r) {
     setDetailColab(r);
@@ -268,14 +285,27 @@ export default function FitPage() {
       {/* Ranking */}
       {cargoSel && (
         <div>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
             <h2 className="text-sm font-bold text-white">{t('rankingTitle', { role: cargoSel })}</h2>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {Object.entries(distribuicao).map(([faixa, count]: [string, any]) => count > 0 && (
                 <span key={faixa} className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${FAIXA_COLORS[faixa]?.bg} ${FAIXA_COLORS[faixa]?.text}`}>
                   {t(`fitBands.${faixa}`)}: {count}
                 </span>
               ))}
+              {ranking.length > 0 && (
+                <>
+                  <label className="flex items-center gap-1 text-[10px] text-gray-400 cursor-pointer ml-1" title="Inclui análise individual por IA no PDF">
+                    <input type="checkbox" checked={comIA} onChange={e => setComIA(e.target.checked)} className="accent-emerald-500" />
+                    análise IA
+                  </label>
+                  <button onClick={handleGerarPdfAderencia} disabled={pdfBusy}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-emerald-300 border border-emerald-400/30 hover:bg-emerald-400/10 transition-all disabled:opacity-50">
+                    {pdfBusy ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}
+                    {pdfBusy ? 'Gerando…' : 'PDF de Aderência'}
+                  </button>
+                </>
+              )}
             </div>
           </div>
 

@@ -136,13 +136,27 @@ export function buildRoleSpec(gabarito: any, cargoNome: string, opts: BuildRoleS
   }
 
   // ── Knockouts (IA quando presente) ─────────────────────────────────────────
+  // A IA emite trait-scoped com o NOME da competência ("Persistência") ou letra
+  // DISC; o motor usa keys comp_*/D|I|S|C. Resolve e DESCARTA o que não casa com
+  // um traço/bloco existente (ex.: liderança em cargo não-líder) — senão a
+  // eliminatória zeraria todo mundo.
+  const traitKeySet = new Set(traits.map((t) => t.key));
+  const presentBlocks = new Set(traits.map((t) => t.block));
+  const resolveKO = (scope: string, key: any): string => {
+    if (scope === 'trait') {
+      const byComp = COMP_KEY_DE.get(norm(key));
+      if (byComp) return byComp;
+      const up = String(key || '').trim().toUpperCase();
+      if (['D', 'I', 'S', 'C'].includes(up)) return up;
+      return String(key || '');
+    }
+    return normBlockKey(key);
+  };
   const knockouts: KnockoutRule[] = Array.isArray(g.knockouts)
-    ? g.knockouts.map((k: any) => ({
-        scope: norm(k.scope) === 'trait' ? 'trait' : 'block',
-        key: normBlockKey(k.key),
-        min: Math.max(0, Math.min(1, num(k.min))),
-        label: k.label || undefined,
-      })).filter((k: KnockoutRule) => k.key && k.min > 0)
+    ? g.knockouts.map((k: any) => {
+        const scope: 'block' | 'trait' = norm(k.scope) === 'trait' ? 'trait' : 'block';
+        return { scope, key: resolveKO(scope, k.key), min: Math.max(0, Math.min(1, num(k.min))), label: k.label || undefined };
+      }).filter((k: KnockoutRule) => k.min > 0 && (k.scope === 'trait' ? traitKeySet.has(k.key) : presentBlocks.has(k.key)))
     : [];
 
   return {
