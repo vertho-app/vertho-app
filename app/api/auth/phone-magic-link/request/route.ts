@@ -52,12 +52,14 @@ export async function POST(req: NextRequest) {
 
     if (!colab) return NextResponse.json({ ok: true });
 
-    const proxyEmail = isProxyEmail(colab.email)
-      ? colab.email!.toLowerCase()
-      : proxyEmailFromPhone(empresa.id, e164);
+    // Identidade: e-mail REAL do colab quando houver (login por WhatsApp e e-mail
+    // no mesmo auth.users); senão o proxy interno.
+    const authEmail = (colab.email && !isProxyEmail(colab.email))
+      ? colab.email.toLowerCase()
+      : (isProxyEmail(colab.email) ? colab.email!.toLowerCase() : proxyEmailFromPhone(empresa.id, e164));
 
     const { error: createErr } = await sb.auth.admin.createUser({
-      email: proxyEmail,
+      email: authEmail,
       email_confirm: true,
     });
     if (createErr && !/already|registered|exists/i.test(createErr.message)) {
@@ -65,14 +67,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Falha ao preparar o acesso.' }, { status: 500 });
     }
 
-    if ((colab.email || '').toLowerCase() !== proxyEmail) {
-      await sb.from('colaboradores').update({ email: proxyEmail }).eq('id', colab.id);
+    // Só sincroniza colaboradores.email quando a identidade é o proxy. NUNCA
+    // sobrescreve um e-mail real cadastrado.
+    if (isProxyEmail(authEmail) && (colab.email || '').toLowerCase() !== authEmail) {
+      await sb.from('colaboradores').update({ email: authEmail }).eq('id', colab.id);
     }
 
     const redirect = resolveSafeAuthRedirect(req, redirectTo);
     const { data: linkData, error: linkErr } = await sb.auth.admin.generateLink({
       type: 'magiclink',
-      email: proxyEmail,
+      email: authEmail,
       options: { redirectTo: redirect.safeRedirectTo },
     });
 
@@ -86,7 +90,7 @@ export async function POST(req: NextRequest) {
       `&type=email&next=${encodeURIComponent(redirect.nextPath)}`;
 
     const result = await sendAccessLink({
-      to: proxyEmail,
+      to: authEmail,
       telefone: e164,
       nome: colab.nome_completo?.split(' ')[0] || '',
       empresaNome: empresa.nome || 'Vertho',

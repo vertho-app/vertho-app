@@ -9,7 +9,7 @@ import { upsertCargoInTenant, deleteCargoInTenant } from '@/lib/repositories/car
 import { logAdminAction } from '@/lib/audit';
 import { excludeInternalEmails } from '@/lib/internal-emails';
 import { validateWhatsAppBR } from '@/lib/phone';
-import { proxyEmailFromPhone } from '@/lib/phone-otp';
+import { proxyEmailFromPhone, isProxyEmail } from '@/lib/phone-otp';
 import { getLocale } from 'next-intl/server';
 
 const VALID_ROLES = ['colaborador', 'gestor', 'rh'];
@@ -169,12 +169,15 @@ export async function loadColaboradores(empresaId: any) {
     .select('id, nome_completo, email, cargo, role, area_depto, telefone, gestor_nome, gestor_email, gestor_whatsapp, mapeamento_em, login_por_whatsapp')
     .eq('empresa_id', empresaId)
     .order('nome_completo');
-  if (!e1) return d1 || [];
+  // sem_email_real = e-mail é o proxy interno (login só por WhatsApp). A UI mostra
+  // o badge por ISTO (não por login_por_whatsapp), pois um colab pode logar por
+  // WhatsApp E ter e-mail real — aí o e-mail aparece normalmente.
+  if (!e1) return (d1 || []).map((c: any) => ({ ...c, sem_email_real: isProxyEmail(c.email) }));
   const { data: d2 } = await sb.from('colaboradores')
     .select('id, nome_completo, email, cargo, role, area_depto, mapeamento_em')
     .eq('empresa_id', empresaId)
     .order('nome_completo');
-  return (d2 || []).map((c: any) => ({ ...c, telefone: null, gestor_nome: null, gestor_email: null, gestor_whatsapp: null, login_por_whatsapp: false }));
+  return (d2 || []).map((c: any) => ({ ...c, telefone: null, gestor_nome: null, gestor_email: null, gestor_whatsapp: null, login_por_whatsapp: false, sem_email_real: isProxyEmail(c.email) }));
 }
 
 /** Export XLSX da base de colaboradores da empresa (base64). Client decodifica → Blob → download. */
@@ -269,6 +272,9 @@ const _criarColaborador = protectedAction('users.manage', CriarColaboradorSchema
   if (isValidEmail(email)) {
     telefone = normalizePhone(campos.telefone);
     if (hasValue(campos.telefone) && !telefone) throw new Error('telefone/celular inválido. Use DDD, ex.: 11999998888 ou 5511999998888');
+    // Tem e-mail REAL + telefone → loga pelos DOIS (e-mail E WhatsApp). Sem
+    // telefone, só e-mail. O auth.users é criado no 1º login (verify/magic-link).
+    loginPorWhatsapp = !!telefone;
   } else if (wa.valid === true) {
     // Sem e-mail → login por WhatsApp (email-proxy interno determinístico).
     email = proxyEmailFromPhone(empresaId, wa.e164);
@@ -335,6 +341,17 @@ const _atualizarColaborador = protectedAction('users.manage', AtualizarColaborad
     const email = normalizeEmail(campos.email);
     if (!isValidEmail(email)) throw new Error('email inválido');
     update.email = email;
+    // E-mail REAL cadastrado num colab que entrou por WhatsApp: cria o auth.users
+    // do e-mail (idempotente) p/ ele poder logar TAMBÉM por e-mail. login_por_whatsapp
+    // NÃO é alterado — se já era true, continua logando por WhatsApp também (a rota
+    // de verificação passa a usar este e-mail real como identidade).
+    if (!isProxyEmail(email)) {
+      try {
+        const sbAuth = await requireAdminSupabase();
+        const { error: ce } = await sbAuth.auth.admin.createUser({ email, email_confirm: true });
+        if (ce && !/already|registered|exists/i.test(ce.message)) console.warn('[atualizarColaborador] createUser:', ce.message);
+      } catch (e: any) { console.warn('[atualizarColaborador] createUser:', e?.message); }
+    }
   }
   if (campos.cargo !== undefined) update.cargo = campos.cargo?.trim() || null;
   if (campos.area_depto !== undefined) update.area_depto = campos.area_depto?.trim() || null;

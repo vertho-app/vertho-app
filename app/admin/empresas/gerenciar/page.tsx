@@ -163,7 +163,7 @@ export default function GerenciarPage() {
 
   function startEdit(c) {
     setEditId(c.id);
-    setEditData({ nome_completo: c.nome_completo || '', email: c.email || '', cargo: c.cargo || '', area_depto: c.area_depto || '', role: c.role || 'colaborador', telefone: c.telefone || '', gestor_nome: c.gestor_nome || '', gestor_email: c.gestor_email || '', gestor_whatsapp: c.gestor_whatsapp || '' });
+    setEditData({ nome_completo: c.nome_completo || '', email: c.sem_email_real ? '' : (c.email || ''), cargo: c.cargo || '', area_depto: c.area_depto || '', role: c.role || 'colaborador', telefone: c.telefone || '', gestor_nome: c.gestor_nome || '', gestor_email: c.gestor_email || '', gestor_whatsapp: c.gestor_whatsapp || '' });
   }
 
   function startCreate() {
@@ -480,7 +480,7 @@ export default function GerenciarPage() {
                             <>
                               <td className="px-4 py-2 text-white font-semibold">{c.nome_completo || '—'}</td>
                               <td className="px-4 py-2 text-gray-400 text-xs">
-                                {c.login_por_whatsapp
+                                {c.sem_email_real
                                   ? <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-400/10 text-green-400">{t('badges.whatsappOnly')}</span>
                                   : (c.email || '—')}
                               </td>

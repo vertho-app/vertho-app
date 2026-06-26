@@ -61,23 +61,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: verified.error }, { status: 400 });
     }
 
-    // Email-proxy: usa o do colaborador se já for proxy; senão o determinístico.
-    const proxyEmail = isProxyEmail(colab.email)
-      ? colab.email!.toLowerCase()
-      : proxyEmailFromPhone(empresa.id, e164);
+    // Identidade de auth: o E-MAIL REAL do colaborador quando houver — assim o
+    // login por WhatsApp E o login por e-mail caem no MESMO auth.users (a pessoa
+    // pode entrar pelos dois). Sem e-mail real, usa o proxy interno determinístico.
+    const authEmail = (colab.email && !isProxyEmail(colab.email))
+      ? colab.email.toLowerCase()
+      : (isProxyEmail(colab.email) ? colab.email!.toLowerCase() : proxyEmailFromPhone(empresa.id, e164));
 
     // Garante o auth.user backing (idempotente: ignora "já registrado").
     const { error: createErr } = await sb.auth.admin.createUser({
-      email: proxyEmail,
+      email: authEmail,
       email_confirm: true,
     });
     if (createErr && !/already|registered|exists/i.test(createErr.message)) {
       console.error('[phone-otp/verify] createUser:', createErr.message);
       return NextResponse.json({ error: 'Falha ao preparar a sessão.' }, { status: 500 });
     }
-    // Mantém colaboradores.email consistente com o proxy (caso divergente).
-    if ((colab.email || '').toLowerCase() !== proxyEmail) {
-      await sb.from('colaboradores').update({ email: proxyEmail }).eq('id', colab.id);
+    // Sincroniza colaboradores.email SÓ quando a identidade é o proxy (colab
+    // phone-only com e-mail vazio/divergente). NUNCA sobrescreve um e-mail REAL.
+    if (isProxyEmail(authEmail) && (colab.email || '').toLowerCase() !== authEmail) {
+      await sb.from('colaboradores').update({ email: authEmail }).eq('id', colab.id);
     }
 
     // Redirect destino (path do próprio host informado pelo client).
@@ -94,7 +97,7 @@ export async function POST(req: NextRequest) {
 
     const { data: linkData, error: linkErr } = await sb.auth.admin.generateLink({
       type: 'magiclink',
-      email: proxyEmail,
+      email: authEmail,
     });
     if (linkErr || !linkData?.properties?.hashed_token) {
       console.error('[phone-otp/verify] generateLink:', linkErr?.message);
