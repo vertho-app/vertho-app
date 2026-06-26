@@ -413,6 +413,12 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                 </button>
                 {isOpen && (
                   <div className="px-4 pb-4 space-y-4 border-t border-white/[0.04]">
+                    {/* Aviso: gabarito legado (sem direção/pesos explícitos da IA) */}
+                    {!(gab.pesos_blocos || t2Items[0]?.direcao) && (
+                      <div className="mt-3 rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2 text-[10px] text-amber-200/80 leading-relaxed">
+                        Perfil gerado antes da atualização do motor. As <strong>direções</strong> abaixo estão <strong>inferidas</strong> (marcadas com ~) e os pesos/eliminatórias usam o padrão. Regenere o Perfil Ideal (IA2) para a IA definir direção, pesos de bloco e eliminatórias explicitamente.
+                      </div>
+                    )}
                     {/* Tela 1 */}
                     {t1Items.length > 0 && (
                       <div className="pt-3">
@@ -449,10 +455,14 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                           {t2Conf != null && <span className="text-[9px] text-gray-500">{tr('labels.confidenceShort')}: {Math.round(t2Conf * 100)}%</span>}
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                          {t2Items.map((s: any, i: number) => (
+                          {t2Items.map((s: any, i: number) => {
+                            const fx = faixaNums(s.faixa_min, s.faixa_max);
+                            const dir = s.direcao || inferDir(fx.lo, fx.hi);
+                            return (
                             <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#091D35' }}>
                               <span className={`text-xs font-bold w-4 ${discColor(s.dimensao)}`}>{s.dimensao}</span>
                               <span className="text-xs text-white font-medium flex-1">{s.nome}</span>
+                              <DirBadge dir={dir} inferida={!s.direcao} />
                               <span className="text-[10px] text-gray-500">{s.faixa_min} → {s.faixa_max}</span>
                               {s.prioridade && <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${
                                 s.prioridade === 'alta' ? 'bg-red-400/10 text-red-300' :
@@ -460,7 +470,8 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                                 'bg-gray-400/10 text-gray-400'
                               }`}>{s.prioridade}</span>}
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -498,16 +509,47 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                         <div className="grid grid-cols-4 gap-2">
                           {['D', 'I', 'S', 'C'].map(dim => {
                             const f = t4[dim];
-                            return f ? (
+                            if (!f) return null;
+                            const fx = faixaNums(f.min, f.max);
+                            const dir = f.direcao || inferDir(fx.lo, fx.hi);
+                            return (
                               <div key={dim} className="text-center p-3 rounded-lg" style={{ background: '#091D35' }}>
                                 <span className={`text-lg font-bold ${discColor(dim)}`}>{dim}</span>
                                 <p className="text-[10px] text-gray-400 mt-1">{f.min}</p>
                                 <p className="text-[10px] text-gray-500">→ {f.max}</p>
+                                <div className="mt-1.5 flex justify-center"><DirBadge dir={dir} inferida={!f.direcao} /></div>
                               </div>
-                            ) : null;
+                            );
                           })}
                         </div>
                         {t4.justificativa && <p className="text-[10px] text-gray-400 mt-2 italic">{t4.justificativa}</p>}
+                      </div>
+                    )}
+                    {/* Pesos por bloco */}
+                    {gab.pesos_blocos && typeof gab.pesos_blocos === 'object' && (
+                      <div>
+                        <SectionTitle color="purple">Pesos por bloco</SectionTitle>
+                        <div className="flex flex-wrap gap-2">
+                          {Object.entries(gab.pesos_blocos).filter(([, w]: any) => Number(w) > 0).map(([k, w]: any) => (
+                            <span key={k} className="text-[10px] font-bold px-2 py-1 rounded-lg bg-white/[0.05] text-gray-300">
+                              {BLOCO_LABEL_UI[k] || k}: {Math.round(Number(w) * 100)}%
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {/* Eliminatórias (knockouts) */}
+                    {Array.isArray(gab.knockouts) && gab.knockouts.length > 0 && (
+                      <div>
+                        <SectionTitle color="red">Eliminatórias</SectionTitle>
+                        <div className="space-y-1">
+                          {gab.knockouts.map((k: any, i: number) => (
+                            <div key={i} className="text-[10px] text-red-200/80 px-3 py-1.5 rounded-lg bg-red-400/[0.06] border border-red-400/15">
+                              {BLOCO_LABEL_UI[String(k.key).toLowerCase()] || k.key} ≥ {Math.round(Number(k.min) * 100)}%
+                              {k.label && <span className="text-red-200/55"> — {k.label}</span>}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                     {/* Raciocínio */}
@@ -891,4 +933,30 @@ function SectionTitle({ color, children }) {
 function discColor(dim) {
   return dim === 'D' ? 'text-red-400' : dim === 'I' ? 'text-yellow-400' : dim === 'S' ? 'text-green-400' : 'text-blue-400';
 }
+
+// ── Direção da faixa (espelha lib/scoring/engine.inferDirection p/ legado) ──
+const FAIXA_RE = /(\d{1,3})\s*[-–a]\s*(\d{1,3})/;
+function faixaNums(minStr, maxStr) {
+  const lo = (String(minStr || '').match(FAIXA_RE) || [])[1];
+  const hi = (String(maxStr || '').match(FAIXA_RE) || [])[2];
+  return { lo: lo != null ? Number(lo) : 0, hi: hi != null ? Number(hi) : 100 };
+}
+function inferDir(lo, hi) {
+  const touchesTop = hi >= 99, touchesBottom = lo <= 1, centro = (lo + hi) / 2;
+  if (touchesTop && !touchesBottom) return 'floor';
+  if (touchesBottom && centro <= 45) return 'ceiling';
+  return 'target';
+}
+function DirBadge({ dir, inferida }: { dir: string; inferida?: boolean }) {
+  const map: Record<string, { t: string; c: string }> = {
+    floor: { t: 'mais é melhor', c: 'bg-green-400/10 text-green-300' },
+    target: { t: 'faixa-alvo', c: 'bg-gray-400/10 text-gray-400' },
+    ceiling: { t: 'manter baixo', c: 'bg-amber-400/10 text-amber-300' },
+  };
+  const m = map[dir]; if (!m) return null;
+  return <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${m.c}`}
+    title={inferida ? 'Direção inferida da faixa — regenere o perfil ideal p/ a IA definir explicitamente' : 'Direção definida pela IA'}>
+    {m.t}{inferida ? ' ~' : ''}</span>;
+}
+const BLOCO_LABEL_UI: Record<string, string> = { competencia: 'Competência', competencias: 'Competência', lideranca: 'Liderança', disc: 'DISC', mapeamento: 'Mapeamento' };
 
