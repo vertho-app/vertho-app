@@ -139,9 +139,15 @@ const DEF = {
   outExp: 2,        // queda convexa: suave perto da borda, íngreme longe
 };
 
-// Bandas de cor
-const BAND_HIGH = 0.75; // verde  ≥ 75%
-const BAND_MID = 0.5;   // amarelo 50–74%; vermelho < 50%
+// Bandas de cor — RE-ANCORADAS p/ o motor contínuo (26/06).
+// Os cortes antigos (0,75/0,50) eram do motor BINÁRIO. Com crédito parcial, a
+// distribuição sobe ~10-13pp e o verde para de discriminar (no ACME, verde@75
+// saltou de 33→81 de 100). Calibrado contra 100 colabs reais × 3 gabaritos: o
+// corte que REPRODUZ a seletividade binária ("3 de 4 checks") é ~0,85 (verde) e
+// ~0,60 (amarelo). Rank preservado (Spearman 0,89-0,96) → só o rótulo precisava
+// subir. 0,85 também ALINHA com o Fit v2 (classificacao.js: Excelente ≥ 85).
+const BAND_HIGH = 0.85; // verde  ≥ 85%
+const BAND_MID = 0.60;  // amarelo 60–84%; vermelho < 60%
 
 export function colorBand(score: number): ColorBand {
   if (score >= BAND_HIGH) return 'verde';

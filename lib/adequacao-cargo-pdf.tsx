@@ -112,9 +112,9 @@ function Legenda() {
     <View style={s.legendBox}>
       <Text style={{ fontSize: 9, fontWeight: 700, color: C.navy }}>Legenda</Text>
       <View style={s.legendRow}>
-        <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: C.alta }]} /><Text style={s.legendTx}>Compatibilidade Alta (75%+)</Text></View>
-        <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: C.razoavel }]} /><Text style={s.legendTx}>Compatibilidade Razoável (50% - 74%)</Text></View>
-        <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: C.baixa }]} /><Text style={s.legendTx}>Compatibilidade Baixa (0% - 49%)</Text></View>
+        <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: C.alta }]} /><Text style={s.legendTx}>Compatibilidade Alta (85%+)</Text></View>
+        <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: C.razoavel }]} /><Text style={s.legendTx}>Compatibilidade Razoável (60% - 84%)</Text></View>
+        <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: C.baixa }]} /><Text style={s.legendTx}>Compatibilidade Baixa (0% - 59%)</Text></View>
       </View>
     </View>
   );
