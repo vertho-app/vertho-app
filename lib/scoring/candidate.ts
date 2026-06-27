@@ -15,6 +15,7 @@ import {
 } from '@/lib/perfil-organizacional/aggregate';
 import type { CandidateProfile } from './engine';
 import { LID_KEY, PARES_BIPOLARES, TELA3_KEY } from './role-spec';
+import { mapeamentoFitContinuo, poloReconhecivel } from './mapeamento-polos';
 
 const num = (v: any) => Number(v) || 0;
 const norm = (s: any) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
@@ -33,8 +34,9 @@ export function liderancaFit(colab: any, gabarito: any): number {
   return Math.max(0, 1 - difTotal / 200); // Σ|dif| ∈ [0,200] → fit ∈ [0,1]
 }
 
-export function buildCandidateProfile(colab: any, gabarito: any): CandidateProfile {
+export function buildCandidateProfile(colab: any, gabarito: any, specVersionOverride?: number): CandidateProfile {
   const profile: CandidateProfile = {};
+  const specVersion = Math.max(1, Number(specVersionOverride ?? gabarito?.spec_version ?? 1) || 1);
 
   // Competências (comp_*)
   for (const c of COMP_LABEL) profile[c.key] = num(colab[c.key]);
@@ -46,16 +48,22 @@ export function buildCandidateProfile(colab: any, gabarito: any): CandidateProfi
   // Liderança (scalar 0..1)
   profile[LID_KEY] = liderancaFit(colab, gabarito);
 
-  // Mapeamento (map_<i> 1/0) — mesmo índice/ordem do role-spec.
+  // Mapeamento (map_<i>) — mesmo índice/ordem que o role-spec.
+  // v1: binário (1/0 polo bate). v2: contínuo (margem normalizada da comparação DISC).
   const polos = destaquesBipolares(m);
   const caracs: any[] = gabarito?.tela1?.caracteristicas || (Array.isArray(gabarito?.tela1) ? gabarito.tela1 : []);
   caracs.forEach((c: any, i: number) => {
-    const polo = norm(c.polo_escolhido ?? c.polo ?? c);
-    const parIdx = PARES_BIPOLARES.findIndex((p) => norm(p.esquerda) === polo || norm(p.direita) === polo);
-    if (parIdx < 0) return; // não mapeável → role-spec também não cria o trait
-    const par = polos[parIdx];
-    const colabNoPolo = norm(par.esquerda) === polo ? par.ladoEsquerdo : !par.ladoEsquerdo;
-    profile[`map_${i}`] = colabNoPolo ? 1 : 0;
+    const poloRaw = c.polo_escolhido ?? c.polo ?? c;
+    if (!poloReconhecivel(poloRaw)) return; // não mapeável → role-spec também não cria o trait
+    if (specVersion >= 2) {
+      profile[`map_${i}`] = mapeamentoFitContinuo(m, poloRaw) ?? 0; // scalar 0..1
+    } else {
+      const polo = norm(poloRaw);
+      const parIdx = PARES_BIPOLARES.findIndex((p) => norm(p.esquerda) === polo || norm(p.direita) === polo);
+      const par = polos[parIdx];
+      const colabNoPolo = norm(par.esquerda) === polo ? par.ladoEsquerdo : !par.ladoEsquerdo;
+      profile[`map_${i}`] = colabNoPolo ? 1 : 0;
+    }
   });
 
   return profile;

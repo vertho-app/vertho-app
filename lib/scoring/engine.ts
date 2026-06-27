@@ -69,6 +69,7 @@ export interface KnockoutRule {
 /** Artefato gerado pela IA ao definir o cargo (ou montado do gabarito legado). */
 export interface RoleSpec {
   cargo: string;
+  specVersion?: number;  // versão da spec de scoring que rege este cargo (default 1)
   scaleMin?: number;     // default 0
   scaleMax?: number;     // default 100
   sem?: number;          // erro-padrão de medida do instrumento. default 5

@@ -16,9 +16,14 @@ import {
   COMP_LABEL, LIDERANCA, destaquesBipolares, type DiscMedia,
 } from '@/lib/perfil-organizacional/aggregate';
 import type { RoleSpec, TraitSpec, Direction, KnockoutRule, BlockName } from './engine';
+import { poloReconhecivel } from './mapeamento-polos';
 
 export const BLOCK = { MAP: 'Mapeamento', COMP: 'Competencia', LID: 'Lideranca', DISC: 'DISC' } as const;
 export const LID_KEY = 'Lideranca';
+/** Versão atual da spec de scoring. v2 (27/06): Mapeamento contínuo + peso rebaixado (cap 0,20). */
+export const LATEST_SPEC_VERSION = 2;
+/** Teto de peso do bloco Mapeamento na v2 (é lente derivada do DISC; surplus vai p/ Competência). */
+const MAP_WEIGHT_CAP_V2 = 0.20;
 
 const norm = (s: any) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 const num = (v: any) => Number(v) || 0;
@@ -66,11 +71,17 @@ const COMP_KEY_DE = new Map(COMP_LABEL.map((c) => [norm(c.nome), c.key]));
 export interface BuildRoleSpecOpts {
   /** false → cargo não-líder: dropa o bloco de Liderança e redistribui pesos. */
   ehLideranca?: boolean;
+  /** força uma spec_version (override do gabarito.spec_version). */
+  specVersion?: number;
 }
 
 export function buildRoleSpec(gabarito: any, cargoNome: string, opts: BuildRoleSpecOpts = {}): RoleSpec | null {
   const g = typeof gabarito === 'string' ? safeParse(gabarito) : gabarito;
   if (!g?.tela4) return null;
+
+  // spec_version rege Mapeamento (binário v1 vs contínuo v2) e o teto de peso.
+  const specVersion = Math.max(1, Number(opts.specVersion ?? g.spec_version ?? 1) || 1);
+  const mapKind: 'binary' | 'scalar' = specVersion >= 2 ? 'scalar' : 'binary';
 
   const traits: TraitSpec[] = [];
 
@@ -110,14 +121,13 @@ export function buildRoleSpec(gabarito: any, cargoNome: string, opts: BuildRoleS
   // ── Mapeamento (tela1) → binary traits (só polos reconhecíveis) ────────────
   const caracs: any[] = g.tela1?.caracteristicas || (Array.isArray(g.tela1) ? g.tela1 : []);
   caracs.forEach((c: any, i: number) => {
-    const polo = norm(c.polo_escolhido ?? c.polo ?? c);
-    const par = PARES_BIPOLARES.find((p) => norm(p.esquerda) === polo || norm(p.direita) === polo);
-    if (!par) return; // polo não mapeável → não entra (não penaliza)
+    const polo = c.polo_escolhido ?? c.polo ?? c;
+    if (!poloReconhecivel(polo)) return; // polo não mapeável → não entra (não penaliza)
     traits.push({
-      key: `map_${i}`, block: BLOCK.MAP, kind: 'binary',
+      key: `map_${i}`, block: BLOCK.MAP, kind: mapKind, // v1 binary / v2 scalar (contínuo)
       weight: INTENSIDADE_W[norm(c.intensidade)] ?? 1,
       label: c.polo_escolhido ?? c.polo ?? '',
-    });
+    } as TraitSpec);
   });
 
   // ── Pesos de bloco ─────────────────────────────────────────────────────────
@@ -133,6 +143,14 @@ export function buildRoleSpec(gabarito: any, cargoNome: string, opts: BuildRoleS
     if (!ehLider) blockWeights.Lideranca = 0;
   } else {
     blockWeights = ehLider ? { ...DEFAULT_BLOCK_WEIGHTS_LIDER } : { ...DEFAULT_BLOCK_WEIGHTS_NAO_LIDER };
+  }
+
+  // v2: Mapeamento é lente derivada do DISC → teto de 0,20; surplus vai p/ Competência
+  // (bloco de instrumento independente). Vale tanto p/ pesos da IA quanto defaults.
+  if (specVersion >= 2 && num(blockWeights.Mapeamento) > MAP_WEIGHT_CAP_V2) {
+    const surplus = num(blockWeights.Mapeamento) - MAP_WEIGHT_CAP_V2;
+    blockWeights.Mapeamento = MAP_WEIGHT_CAP_V2;
+    blockWeights.Competencia = num(blockWeights.Competencia) + surplus;
   }
 
   // ── Knockouts (IA quando presente) ─────────────────────────────────────────
@@ -161,6 +179,7 @@ export function buildRoleSpec(gabarito: any, cargoNome: string, opts: BuildRoleS
 
   return {
     cargo: cargoNome,
+    specVersion,
     sem: num(g.sem) || undefined,
     traits,
     blockWeights,
