@@ -18,8 +18,12 @@ const C = {
 };
 const CLASSE_COLOR: Record<Classe, string> = { alta: C.alta, razoavel: C.razoavel, baixa: C.baixa };
 
-// Recomendação → cor do selo no card.
-const REC_COLOR: Record<string, string> = { recomendado: C.alta, recomendado_com_ressalvas: C.razoavel, nao_recomendado: C.baixa };
+// Status (4 estados) → cor do selo. bloqueado (gate, vermelho) ≠ abaixo_do_corte
+// (desenvolvível, índigo) — mensagens opostas, selos distintos.
+const STATUS_COLOR: Record<string, string> = {
+  recomendado: C.alta, recomendado_com_ressalvas: C.razoavel,
+  abaixo_do_corte: '#6366F1', bloqueado: C.baixa,
+};
 // Direção do traço → rótulo legível (sem glifos especiais; subset Inter não cobre setas).
 function direcaoLabel(d?: string): string | null {
   if (d === 'floor') return 'mais é melhor';
@@ -160,7 +164,7 @@ function CardPessoa({ p }: { p: PessoaAdequacao }) {
       <View style={s.cardTop}>
         <View style={{ flex: 1 }}>
           <Text style={s.cardNome}>{p.nome}</Text>
-          <Text style={[s.recChip, { backgroundColor: REC_COLOR[p.recomendacao] || C.muted }]}>{p.recomendacaoLabel.toUpperCase()}</Text>
+          <Text style={[s.recChip, { backgroundColor: STATUS_COLOR[p.status] || C.muted }]}>{p.statusLabel.toUpperCase()}</Text>
           <View style={s.discBadges}>
             {p.disc.map((d) => (
               <View key={d.fator} style={[s.discBadge, { backgroundColor: CLASSE_COLOR[d.classe] }]}>
@@ -303,7 +307,7 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas }: {
               <View key={i} style={s.anItem} wrap={false}>
                 <View style={s.anHead}>
                   <Text style={s.anNome}>{p.nome}</Text>
-                  <Text style={[s.anBeta, { color: CLASSE_COLOR[p.beta.classe] }]}>{p.recomendacaoLabel} · Beta {p.beta.pct}%</Text>
+                  <Text style={[s.anBeta, { color: STATUS_COLOR[p.status] || CLASSE_COLOR[p.beta.classe] }]}>{p.statusLabel} · Beta {p.beta.pct}%</Text>
                 </View>
                 <Text style={s.anTxt}>{narrativas[p.nome]}</Text>
               </View>

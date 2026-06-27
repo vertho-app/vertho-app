@@ -18,8 +18,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { excludeInternalEmails } from '@/lib/internal-emails';
 import { LIDERANCA } from '@/lib/perfil-organizacional/aggregate';
 import {
-  scoreCandidate, colorBand, inferDirection, RECOMMENDATION_LABEL,
-  type ScoringResult, type ColorBand, type Recommendation, type RoleSpec,
+  scoreCandidate, colorBand, inferDirection, RECOMMENDATION_LABEL, STATUS_LABEL,
+  type ScoringResult, type ColorBand, type Recommendation, type Status, type RoleSpec,
 } from '@/lib/scoring/engine';
 import { buildRoleSpec, faixaDe, BLOCK, TELA3_KEY } from '@/lib/scoring/role-spec';
 import { buildCandidateProfile, candidateColumns } from '@/lib/scoring/candidate';
@@ -38,6 +38,8 @@ export interface PessoaAdequacao {
   beta: SubScore;                    // score geral (ponderado pelos pesos de bloco)
   recomendacao: Recommendation;
   recomendacaoLabel: string;
+  status: Status;                    // 4 estados: bloqueado ≠ abaixo_do_corte
+  statusLabel: string;
   borderline: boolean;
   knockoutFailed: boolean;
   knockoutMotivos: string[];
@@ -146,6 +148,8 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
       beta,
       recomendacao: result.recommendation,
       recomendacaoLabel: RECOMMENDATION_LABEL[result.recommendation],
+      status: result.status,
+      statusLabel: STATUS_LABEL[result.status],
       borderline: result.borderline,
       knockoutFailed: result.knockoutFailed,
       knockoutMotivos,

@@ -91,6 +91,15 @@ export type Recommendation =
   | 'recomendado_com_ressalvas'
   | 'nao_recomendado';
 
+// Status de 4 estados — separa "abaixo do corte" (desenvolvível) de "bloqueado"
+// (gate por knockout, assinado por humano). São mensagens OPOSTAS e não devem
+// compartilhar selo: abaixo_do_corte puxa p/ desenvolver; bloqueado é gate.
+export type Status =
+  | 'recomendado'
+  | 'recomendado_com_ressalvas'
+  | 'abaixo_do_corte'
+  | 'bloqueado';
+
 export interface TraitScore {
   key: string;
   label: string;
@@ -124,6 +133,7 @@ export interface ScoringResult {
   knockoutFailed: boolean;
   borderline: boolean;
   recommendation: Recommendation;
+  status: Status;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -347,6 +357,13 @@ export function scoreCandidate(spec: RoleSpec, profile: CandidateProfile): Scori
   else if (betaBand === 'amarelo') recommendation = 'recomendado_com_ressalvas';
   else recommendation = 'nao_recomendado';
 
+  // Status de 4 estados (desambigua o 'nao_recomendado' em bloqueado vs abaixo_do_corte).
+  let status: Status;
+  if (knockoutFailed) status = 'bloqueado';
+  else if (betaBand === 'verde') status = 'recomendado';
+  else if (betaBand === 'amarelo') status = 'recomendado_com_ressalvas';
+  else status = 'abaixo_do_corte';
+
   return {
     cargo: spec.cargo,
     traits,
@@ -358,6 +375,7 @@ export function scoreCandidate(spec: RoleSpec, profile: CandidateProfile): Scori
     knockoutFailed,
     borderline,
     recommendation,
+    status,
   };
 }
 
@@ -366,4 +384,11 @@ export const RECOMMENDATION_LABEL: Record<Recommendation, string> = {
   recomendado: 'Recomendado',
   recomendado_com_ressalvas: 'Recomendado com ressalvas',
   nao_recomendado: 'Não recomendado',
+};
+
+export const STATUS_LABEL: Record<Status, string> = {
+  recomendado: 'Recomendado',
+  recomendado_com_ressalvas: 'Recomendado com ressalvas',
+  abaixo_do_corte: 'Abaixo do corte',
+  bloqueado: 'Bloqueado',
 };
