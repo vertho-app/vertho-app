@@ -13,6 +13,7 @@ import {
   regenerarCenario, checkCenarioUm, limparCenariosAntigos, excluirCenario
 } from '@/actions/fase1';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
+import { avisosSpecClinica } from '@/lib/scoring/spec-warnings';
 import { loadCargos, salvarTop5 } from '@/app/admin/cargos/actions';
 
 export default function Fase1Page({ params }: { params: Promise<{ empresaId: string }> }) {
@@ -389,6 +390,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
             const t3Conf = t3.confianca;
             const t4 = gab.tela4 || {};
             const t4Conf = t4.confianca;
+            const avisosClinicos = avisosSpecClinica(gab, g.nome);
 
             return (
               <div key={g.id} className="mb-3 rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
@@ -417,6 +419,15 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                     {!(gab.pesos_blocos || t2Items[0]?.direcao) && (
                       <div className="mt-3 rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2 text-[10px] text-amber-200/80 leading-relaxed">
                         Perfil gerado antes da atualização do motor. As <strong>direções</strong> abaixo estão <strong>inferidas</strong> (marcadas com ~) e os pesos/eliminatórias usam o padrão. Regenere o Perfil Ideal (IA2) para a IA definir direção, pesos de bloco e eliminatórias explicitamente.
+                      </div>
+                    )}
+                    {/* Revisão clínica sugerida (flag-e-pare — decisão de psicólogo, nada é alterado) */}
+                    {avisosClinicos.length > 0 && (
+                      <div className="mt-3 rounded-lg border border-orange-400/25 bg-orange-400/[0.06] px-3 py-2">
+                        <p className="text-[10px] font-bold text-orange-300 mb-1">Revisão clínica sugerida ({avisosClinicos.length}) — decisão de psicólogo</p>
+                        {avisosClinicos.map((a, i) => (
+                          <p key={i} className="text-[10px] text-orange-200/80 leading-relaxed mb-0.5">• {a.mensagem}</p>
+                        ))}
                       </div>
                     )}
                     {/* Tela 1 */}

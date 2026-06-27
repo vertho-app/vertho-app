@@ -96,6 +96,12 @@ const s = StyleSheet.create({
   anBeta: { fontSize: 10, fontWeight: 700 },
   anTxt: { fontSize: 9, color: '#3A4658', lineHeight: 1.5 },
   footer: { position: 'absolute', bottom: 16, left: 34, right: 34, flexDirection: 'row', justifyContent: 'space-between', fontSize: 7, color: '#94A3B8' },
+  // Tabela ranqueada (n > 10)
+  tHead: { flexDirection: 'row', backgroundColor: C.navy, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 3 },
+  tHeadC: { color: C.white, fontSize: 7.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 },
+  tRow: { flexDirection: 'row', paddingVertical: 5, paddingHorizontal: 8, borderBottomWidth: 0.5, borderBottomColor: C.border, alignItems: 'center' },
+  tRowAlt: { backgroundColor: '#F8FAFC' },
+  tCell: { fontSize: 8.5, color: C.text },
 });
 
 function Footer() {
@@ -208,13 +214,41 @@ function chunk<T>(arr: T[], n: number): T[][] {
   return out;
 }
 
+const TCOL = { pos: '6%', nome: '40%', beta: '12%', status: '22%', ko: '10%', lim: '10%' };
+function TabelaResultados({ pessoas, startPos }: { pessoas: PessoaAdequacao[]; startPos: number }) {
+  return (
+    <View>
+      <View style={s.tHead}>
+        <Text style={[s.tHeadC, { width: TCOL.pos }]}>#</Text>
+        <Text style={[s.tHeadC, { width: TCOL.nome }]}>Colaborador</Text>
+        <Text style={[s.tHeadC, { width: TCOL.beta, textAlign: 'center' }]}>Beta</Text>
+        <Text style={[s.tHeadC, { width: TCOL.status }]}>Status</Text>
+        <Text style={[s.tHeadC, { width: TCOL.ko, textAlign: 'center' }]}>Bloq.</Text>
+        <Text style={[s.tHeadC, { width: TCOL.lim, textAlign: 'center' }]}>Lim.</Text>
+      </View>
+      {pessoas.map((p, i) => (
+        <View key={i} style={[s.tRow, ...(i % 2 ? [s.tRowAlt] : [])]}>
+          <Text style={[s.tCell, { width: TCOL.pos, color: C.sub }]}>{startPos + i + 1}</Text>
+          <Text style={[s.tCell, { width: TCOL.nome, fontWeight: 700, color: C.navy }]}>{p.nome}</Text>
+          <Text style={[s.tCell, { width: TCOL.beta, textAlign: 'center', fontWeight: 700, color: CLASSE_COLOR[p.beta.classe] }]}>{p.beta.pct}%</Text>
+          <Text style={[s.tCell, { width: TCOL.status, color: STATUS_COLOR[p.status] || C.text, fontWeight: 700 }]}>{p.statusLabel}</Text>
+          <Text style={[s.tCell, { width: TCOL.ko, textAlign: 'center', color: C.baixa }]}>{p.knockoutFailed ? 'sim' : '—'}</Text>
+          <Text style={[s.tCell, { width: TCOL.lim, textAlign: 'center', color: C.razoavel }]}>{p.borderline ? 'sim' : '—'}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas }: {
   data: AdequacaoCargo; empresaNome: string; dataISO: string; narrativas: Record<string, string>;
 }) {
   const dataBR = (() => { const [y, m, d] = dataISO.slice(0, 10).split('-'); return `${d}/${m}/${y}`; })();
   const pi = data.perfilIdeal;
-  // 8 cards por página (4 linhas × 2 colunas).
+  // n ≤ 10 → cards (8/página). n > 10 → tabela ranqueada (cards não escalam).
+  const usarTabela = data.pessoas.length > 10;
   const paginas = chunk(data.pessoas, 8);
+  const paginasTabela = chunk(data.pessoas, 24);
   const paginasAnalise = chunk(data.pessoas.filter((p) => narrativas[p.nome]), 6);
 
   return (
@@ -289,8 +323,8 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas }: {
         <Footer />
       </Page>
 
-      {/* Resultados — cards */}
-      {paginas.map((grupo, gi) => (
+      {/* Resultados — cards (n ≤ 10) */}
+      {!usarTabela && paginas.map((grupo, gi) => (
         <Page key={`r${gi}`} size="A4" style={s.page}>
           <PageHeader title="Resultados" />
           <View style={s.body}>
@@ -302,6 +336,19 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas }: {
                 {par[1] ? <CardPessoa p={par[1]} /> : <View style={{ flex: 1 }} />}
               </View>
             ))}
+          </View>
+          <Footer />
+        </Page>
+      ))}
+
+      {/* Resultados — tabela ranqueada (n > 10) */}
+      {usarTabela && paginasTabela.map((grupo, gi) => (
+        <Page key={`tb${gi}`} size="A4" style={s.page}>
+          <PageHeader title="Resultados" />
+          <View style={s.body}>
+            {gi === 0 && <Legenda />}
+            {gi === 0 && <Text style={s.carimboBar}>Apoio à decisão. A recomendação final cabe ao gestor/psicólogo responsável.</Text>}
+            <TabelaResultados pessoas={grupo} startPos={gi * 24} />
           </View>
           <Footer />
         </Page>
