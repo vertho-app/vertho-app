@@ -55,7 +55,6 @@ export const AI_TASKS = [
 
 export const MODELOS_DISPONIVEIS = [
   { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
-  { id: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
   { id: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
   { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite' },
   { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
