@@ -10,6 +10,8 @@ import { Document, Page, View, Text, Image, StyleSheet, Svg, Circle, renderToBuf
 import '@/components/pdf/styles';
 import { getLogoCoverBase64 } from '@/lib/pdf-assets';
 import type { AdequacaoCargo, PessoaAdequacao, SubScore, Classe } from './adequacao-cargo/aggregate';
+import { formatLinhaBloqueio } from './adequacao-cargo/evidencia';
+import { formatFaixaPorDirecao } from './scoring/faixa-display';
 
 const C = {
   navy: '#142F57', cyan: '#34C5CC', gold: '#C8941F', white: '#FFFFFF',
@@ -184,8 +186,12 @@ function CardPessoa({ p }: { p: PessoaAdequacao }) {
         <SubLine label="Liderança" sc={p.lideranca} />
         <SubLine label="DISC" sc={p.discScore} />
       </View>
-      {p.knockoutFailed && p.knockoutMotivos.length > 0 && (
-        <Text style={s.knockTx}>Bloqueio: {p.knockoutMotivos.join('; ')}</Text>
+      {p.knockoutFailed && p.knockoutEvidencias.length > 0 && (
+        <View>
+          {p.knockoutEvidencias.map((ev, i) => (
+            <Text key={i} style={s.knockTx}>Bloqueio: {formatLinhaBloqueio(ev)}</Text>
+          ))}
+        </View>
       )}
       {p.borderline && !p.knockoutFailed && (
         <Text style={s.flagTx}>Resultado limítrofe (sensível à margem de medida)</Text>
@@ -249,7 +255,7 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas }: {
                     <Text style={s.rangeNome}>{c.nome}</Text>
                     {direcaoLabel(c.direcao) && <Text style={s.dirTx}>{direcaoLabel(c.direcao)}</Text>}
                   </View>
-                  <Text style={s.rangeVal}>{c.min} - {c.max}</Text>
+                  <Text style={s.rangeVal}>{formatFaixaPorDirecao(c.min, c.max, c.direcao)}</Text>
                 </View>
               ))}
             </View>
@@ -261,7 +267,7 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas }: {
                     <Text style={s.rangeNome}>{d.nome}</Text>
                     {direcaoLabel(d.direcao) && <Text style={s.dirTx}>{direcaoLabel(d.direcao)}</Text>}
                   </View>
-                  <Text style={s.rangeVal}>{d.min} - {d.max}</Text>
+                  <Text style={s.rangeVal}>{formatFaixaPorDirecao(d.min, d.max, d.direcao)}</Text>
                 </View>
               ))}
               {pi.liderancaAplicavel && (

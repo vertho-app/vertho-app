@@ -23,6 +23,7 @@ import {
 } from '@/lib/scoring/engine';
 import { buildRoleSpec, faixaDe, BLOCK, TELA3_KEY } from '@/lib/scoring/role-spec';
 import { buildCandidateProfile, candidateColumns } from '@/lib/scoring/candidate';
+import type { KnockoutEvidencia } from './evidencia';
 
 export type Classe = 'alta' | 'razoavel' | 'baixa';
 export interface SubScore { atendidos: number; total: number; pct: number; classe: Classe; aplicavel: boolean }
@@ -43,6 +44,7 @@ export interface PessoaAdequacao {
   borderline: boolean;
   knockoutFailed: boolean;
   knockoutMotivos: string[];
+  knockoutEvidencias: KnockoutEvidencia[];  // traço medido + piso + consequência (Tarefa B)
 }
 
 export type Direcao = 'floor' | 'target' | 'ceiling';
@@ -82,6 +84,26 @@ function subDoBloco(result: ScoringResult, bloco: string, spec: RoleSpec): SubSc
   if (!b || total === 0) return { atendidos: 0, total: 0, pct: 0, classe: 'baixa', aplicavel: false };
   const pct = r1(b.score * 100);
   return { atendidos: Math.round(b.score * total), total, pct, classe: classeDeBanda(b.band), aplicavel: true };
+}
+
+/** Evidência ancorada de um knockout reprovado: traço medido + piso + consequência. */
+function evidenciaDeKnockout(k: any, spec: RoleSpec, profile: Record<string, any>): KnockoutEvidencia {
+  const rule = k.rule;
+  if (rule.scope === 'block') {
+    return {
+      traco: BLOCO_LABEL[rule.key] || rule.key, valorBruto: null, piso: null,
+      consequencia: rule.label || 'requisito do bloco não atendido', ehBloco: true,
+      medidoPct: Math.round((k.measured ?? 0) * 100), minPct: Math.round((rule.min ?? 0) * 100),
+    };
+  }
+  const t: any = spec.traits.find((x: any) => x.key === rule.key && x.kind === 'band');
+  return {
+    traco: t?.label || rule.key,
+    valorBruto: Math.round(num(profile[rule.key])),
+    piso: t ? t.lo : null,
+    consequencia: rule.label || 'abaixo do mínimo do cargo',
+    ehBloco: false,
+  };
 }
 
 export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, cargo: string): Promise<AdequacaoCargo> {
@@ -137,6 +159,7 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
 
     const beta: SubScore = { atendidos: 0, total: 0, pct: result.betaPct, classe: classeDeBanda(result.betaBand), aplicavel: true };
     const knockoutMotivos = result.knockouts.filter((k) => !k.passed).map((k) => k.rule.label || `${BLOCO_LABEL[k.rule.key] || k.rule.key} abaixo do mínimo`);
+    const knockoutEvidencias = result.knockouts.filter((k) => !k.passed).map((k) => evidenciaDeKnockout(k, spec, profile));
 
     return {
       nome: x.nome_completo || 'Colaborador',
@@ -153,6 +176,7 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
       borderline: result.borderline,
       knockoutFailed: result.knockoutFailed,
       knockoutMotivos,
+      knockoutEvidencias,
     };
   }).sort((a, b) => {
     // Reprovados por eliminatória vão pro fim (consistente com o ranking do Fit).
