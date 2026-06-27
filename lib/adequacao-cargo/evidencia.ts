@@ -14,12 +14,29 @@
 
 export interface KnockoutEvidencia {
   traco: string;              // rótulo do traço (ou bloco) medido
+  bloco?: string;             // bloco de origem (Competencia/DISC/Mapeamento/Lideranca) — T4
   valorBruto: number | null;  // valor bruto do traço (null p/ knockout de bloco)
   piso: number | null;        // lo da faixa do cargo (null p/ knockout de bloco)
   consequencia: string;       // texto de negócio (consequência rotulada)
   ehBloco: boolean;
   medidoPct?: number;         // knockout de bloco: aderência medida (%)
   minPct?: number;            // knockout de bloco: mínimo exigido (%)
+}
+
+// Origem do bloqueio (T4) — rótulo FACTUAL da natureza do gate, sem alegar treinabilidade.
+export type OrigemBloqueio = 'competencia' | 'comportamental' | 'misto';
+export const LABEL_ORIGEM: Record<OrigemBloqueio, string> = {
+  competencia: 'Bloqueio de competência',
+  comportamental: 'Bloqueio comportamental',
+  misto: 'Bloqueio de competência e comportamental',
+};
+export function origemBloqueio(evs: KnockoutEvidencia[]): OrigemBloqueio | null {
+  const blocos = new Set(evs.map((e) => e.bloco).filter(Boolean));
+  if (!blocos.size) return null;
+  const temComp = blocos.has('Competencia');
+  const temComportamental = blocos.has('DISC') || blocos.has('Mapeamento') || blocos.has('Lideranca');
+  if (temComp && temComportamental) return 'misto';
+  return temComp ? 'competencia' : 'comportamental';
 }
 
 /** Compõe a linha de bloqueio ancorada (traço + valor + piso → consequência). */

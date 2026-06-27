@@ -2017,19 +2017,19 @@
     },
     "table": {
       "collaborator": "Team member",
-      "mapping": "Behavioral",
+      "mapping": "Mapping",
       "competencies": "Skills",
       "leadership": "Leadership",
-      "disc": "Adapted DISC",
+      "disc": "DISC",
       "classification": "Classification"
     },
     "legend": {
       "title": "What each column means",
       "fit": "final index 0-100 combining the 4 blocks. The bigger, the more adherent to the position.",
-      "mapping": "DISC Natural grip vs ideal job profile (when team member is \"naturally\" like that).",
+      "mapping": "adherence of the behavioral poles (derived from DISC) to the poles chosen in the job profile.",
       "competencies": "average of the 16 behavioral skills compared to the ideal profile (score weighted by job relevance).",
       "leadership": "adherence of the leadership style (Executive/Motivating/Methodical/Systematic) to the model expected of the position.",
-      "disc": "Adapted DISC grip (how it behaves at work) vs expected profile. Difference between Behavioral and Adapted DISC reveals level of fit/wear.",
+      "disc": "adherence of D/I/S/C factors to the job target ranges (honoring direction: more is better / target range / keep moderate).",
       "classification": "Qualitative range of Fit: Excellent (≥85) · High (70-84) · Fair (50-69) · Low (30-49) · Critical (<30)."
     },
     "labels": {

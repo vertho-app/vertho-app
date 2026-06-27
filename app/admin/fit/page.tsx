@@ -360,7 +360,7 @@ export default function FitPage() {
                     <SortHeader col="competencias" label={t('table.competencies')} />
                     <SortHeader col="lideranca" label={t('table.leadership')} />
                     <SortHeader col="disc" label={t('table.disc')} />
-                    <th className="px-4 py-2 text-center" title="Eliminatórias do cargo: requisitos inegociáveis">Premissas</th>
+                    <th className="px-4 py-2 text-center" title="Eliminatórias (premissas) do cargo: ✓ = atendida · ✗ = não atendida. Cada marca é um requisito inegociável; passe o mouse para ver qual.">Premissas</th>
                     <SortHeader col="classificacao" label={t('table.classification')} align="left" />
                   </tr>
                 </thead>
@@ -374,7 +374,7 @@ export default function FitPage() {
                         <td className="px-4 py-2.5 text-white font-semibold text-xs">{r.colaborador.nome || '—'}</td>
                         <td className="px-4 py-2.5 text-center">
                           <span className={`text-sm font-bold ${FAIXA_COLORS[faixa]?.text}`}>{Number(r.fit_final).toFixed(1)}</span>
-                          {r.borderline && <div className="text-[8px] font-bold text-amber-400" title="Sensível à margem de medida (±SEM)">limítrofe{r.sem_delta_pct != null ? ` ±${r.sem_delta_pct}` : ''}</div>}
+                          {r.borderline && !blocked && <div className="text-[8px] font-bold text-amber-400" title="Sensível à margem de medida (±SEM)">limítrofe{r.sem_delta_pct != null ? ` ±${r.sem_delta_pct}` : ''}</div>}
                         </td>
                         <td className="px-4 py-2.5 text-center text-xs text-gray-400">{r.blocos.mapeamento?.score?.toFixed(0) ?? '—'}</td>
                         <td className="px-4 py-2.5 text-center text-xs text-gray-400">{r.blocos.competencias?.score?.toFixed(0) ?? '—'}</td>
@@ -416,6 +416,7 @@ export default function FitPage() {
               <p><span className="text-white font-bold">{t('table.competencies')}</span> — {t('legend.competencies')}</p>
               <p><span className="text-white font-bold">{t('table.leadership')}</span> — {t('legend.leadership')}</p>
               <p><span className="text-white font-bold">{t('table.disc')}</span> — {t('legend.disc')}</p>
+              <p><span className="text-white font-bold">Premissas</span> — eliminatórias do cargo: <span className="text-green-400 font-bold">✓</span> atendida · <span className="text-red-400 font-bold">✗</span> não atendida. Cada marca é um requisito inegociável; passe o mouse sobre a marca para ver qual.</p>
               <p><span className="text-white font-bold">{t('table.classification')}</span> — {t('legend.classification')}</p>
             </div>
           )}

@@ -2017,19 +2017,19 @@
     },
     "table": {
       "collaborator": "Colaborador",
-      "mapping": "Conductual",
+      "mapping": "Mapeo",
       "competencies": "Competencias",
       "leadership": "Liderazgo",
-      "disc": "DISC Adaptado",
+      "disc": "DISC",
       "classification": "Clasificación"
     },
     "legend": {
       "title": "Qué significa cada columna",
       "fit": "índice final 0-100 que combina los 4 bloques. Cuanto más alto, mayor ajuste al puesto.",
-      "mapping": "ajuste DISC Natural vs perfil ideal del puesto (cuánto el colaborador es así \"naturalmente\").",
+      "mapping": "ajuste de los polos conductuales (derivados del DISC) a los polos elegidos en el perfil del puesto.",
       "competencies": "media de las 16 competencias conductuales comparadas con el perfil ideal (score ponderado por relevancia del puesto).",
       "leadership": "ajuste del estilo de liderazgo (Ejecutivo/Motivador/Metódico/Sistemático) al modelo esperado del puesto.",
-      "disc": "ajuste DISC Adaptado (cómo se comporta en el trabajo) vs perfil esperado. La diferencia entre Conductual y DISC Adaptado revela nivel de ajuste/desgaste.",
+      "disc": "ajuste de los factores D/I/S/C a los rangos objetivo del puesto (respetando la dirección: más es mejor / rango objetivo / mantener moderado).",
       "classification": "rango cualitativo del Fit: Excelente (≥85) · Alta (70-84) · Razonable (50-69) · Baja (30-49) · Crítica (<30)."
     },
     "labels": {

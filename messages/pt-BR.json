@@ -2017,19 +2017,19 @@
     },
     "table": {
       "collaborator": "Colaborador",
-      "mapping": "Comportamental",
+      "mapping": "Mapeamento",
       "competencies": "Competências",
       "leadership": "Liderança",
-      "disc": "DISC Adaptado",
+      "disc": "DISC",
       "classification": "Classificação"
     },
     "legend": {
       "title": "O que cada coluna significa",
       "fit": "índice final 0-100 combinando os 4 blocos. Quanto maior, mais aderente ao cargo.",
-      "mapping": "aderência DISC Natural vs perfil ideal do cargo (quanto o colab é \"naturalmente\" assim).",
+      "mapping": "aderência dos polos comportamentais (derivados do DISC) aos polos escolhidos no perfil do cargo.",
       "competencies": "média das 16 competências comportamentais comparadas ao perfil ideal (score ponderado por relevância do cargo).",
       "leadership": "aderência do estilo de liderança (Executivo/Motivador/Metódico/Sistemático) ao modelo esperado do cargo.",
-      "disc": "aderência DISC Adaptado (como se comporta no trabalho) vs perfil esperado. Diferença entre Comportamental e DISC Adaptado revela nível de ajuste/desgaste.",
+      "disc": "aderência dos fatores D/I/S/C às faixas-alvo do cargo (honrando a direção: mais é melhor / faixa-alvo / manter moderado).",
       "classification": "faixa qualitativa do Fit: Excelente (≥85) · Alta (70-84) · Razoável (50-69) · Baixa (30-49) · Crítica (<30)."
     },
     "labels": {

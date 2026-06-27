@@ -75,6 +75,7 @@ const s = StyleSheet.create({
   flagTx: { fontSize: 7, color: C.razoavel, marginTop: 4 },
   limTx: { fontSize: 6.5, color: C.razoavel, fontWeight: 700, marginTop: 2, textAlign: 'center' },
   knockTx: { fontSize: 7, color: C.baixa, marginTop: 3 },
+  knockOrigem: { fontSize: 7.5, color: C.baixa, fontWeight: 700, marginTop: 4 },
   carimboTx: { fontSize: 6.5, color: C.muted, marginTop: 4, fontStyle: 'italic' },
   carimboBar: { fontSize: 7.5, color: C.sub, marginBottom: 8, marginTop: 2 },
   devGap: { fontSize: 9, color: '#3A4658', marginBottom: 2, lineHeight: 1.4 },
@@ -167,7 +168,7 @@ function SubLine({ label, sc }: { label: string; sc: SubScore }) {
   return (
     <View style={s.subItem}>
       <View style={[s.subDot, { backgroundColor: CLASSE_COLOR[sc.classe] }]} />
-      <Text style={s.subTx}>{label} {sc.pct}%</Text>
+      <Text style={s.subTx}>{label} {Math.round(sc.pct)}%</Text>
     </View>
   );
 }
@@ -189,8 +190,8 @@ function CardPessoa({ p }: { p: PessoaAdequacao }) {
         </View>
         <View style={s.betaWrap}>
           <Text style={s.betaLbl}>Beta</Text>
-          <Donut pct={p.beta.pct} color={CLASSE_COLOR[p.beta.classe]} />
-          {p.borderline && <Text style={s.limTx}>limítrofe ·±{p.betaSemDelta}</Text>}
+          <Donut pct={p.beta.pct} color={p.status === 'bloqueado' ? C.baixa : CLASSE_COLOR[p.beta.classe]} />
+          {p.borderline && p.status !== 'bloqueado' && <Text style={s.limTx}>limítrofe ·±{p.betaSemDelta}</Text>}
         </View>
       </View>
       <View style={s.subWrap}>
@@ -201,6 +202,7 @@ function CardPessoa({ p }: { p: PessoaAdequacao }) {
       </View>
       {p.knockoutFailed && p.knockoutEvidencias.length > 0 && (
         <View>
+          {p.origemBloqueioLabel && <Text style={s.knockOrigem}>{p.origemBloqueioLabel}</Text>}
           {p.knockoutEvidencias.map((ev, i) => (
             <Text key={i} style={s.knockTx}>Bloqueio: {formatLinhaBloqueio(ev)}</Text>
           ))}
@@ -217,7 +219,8 @@ function chunk<T>(arr: T[], n: number): T[][] {
   return out;
 }
 
-const TCOL = { pos: '6%', nome: '40%', beta: '12%', status: '22%', ko: '10%', lim: '10%' };
+const TCOL = { pos: '6%', nome: '34%', beta: '12%', status: '22%', ko: '18%', lim: '8%' };
+const ORIGEM_CURTA: Record<string, string> = { competencia: 'Competência', comportamental: 'Comportam.', misto: 'Misto' };
 function TabelaResultados({ pessoas, startPos }: { pessoas: PessoaAdequacao[]; startPos: number }) {
   return (
     <View>
@@ -226,19 +229,22 @@ function TabelaResultados({ pessoas, startPos }: { pessoas: PessoaAdequacao[]; s
         <Text style={[s.tHeadC, { width: TCOL.nome }]}>Colaborador</Text>
         <Text style={[s.tHeadC, { width: TCOL.beta, textAlign: 'center' }]}>Beta</Text>
         <Text style={[s.tHeadC, { width: TCOL.status }]}>Status</Text>
-        <Text style={[s.tHeadC, { width: TCOL.ko, textAlign: 'center' }]}>Bloq.</Text>
+        <Text style={[s.tHeadC, { width: TCOL.ko }]}>Bloqueio</Text>
         <Text style={[s.tHeadC, { width: TCOL.lim, textAlign: 'center' }]}>Lim.</Text>
       </View>
-      {pessoas.map((p, i) => (
+      {pessoas.map((p, i) => {
+        const bloqueado = p.status === 'bloqueado';
+        return (
         <View key={i} style={[s.tRow, ...(i % 2 ? [s.tRowAlt] : [])]}>
           <Text style={[s.tCell, { width: TCOL.pos, color: C.sub }]}>{startPos + i + 1}</Text>
           <Text style={[s.tCell, { width: TCOL.nome, fontWeight: 700, color: C.navy }]}>{p.nome}</Text>
-          <Text style={[s.tCell, { width: TCOL.beta, textAlign: 'center', fontWeight: 700, color: CLASSE_COLOR[p.beta.classe] }]}>{p.beta.pct}%</Text>
+          <Text style={[s.tCell, { width: TCOL.beta, textAlign: 'center', fontWeight: 700, color: bloqueado ? C.baixa : CLASSE_COLOR[p.beta.classe] }]}>{p.beta.pct}%</Text>
           <Text style={[s.tCell, { width: TCOL.status, color: STATUS_COLOR[p.status] || C.text, fontWeight: 700 }]}>{p.statusLabel}</Text>
-          <Text style={[s.tCell, { width: TCOL.ko, textAlign: 'center', color: C.baixa }]}>{p.knockoutFailed ? 'sim' : '—'}</Text>
-          <Text style={[s.tCell, { width: TCOL.lim, textAlign: 'center', color: C.razoavel }]}>{p.borderline ? 'sim' : '—'}</Text>
+          <Text style={[s.tCell, { width: TCOL.ko, color: C.baixa }]}>{p.origemBloqueio ? ORIGEM_CURTA[p.origemBloqueio] : '—'}</Text>
+          <Text style={[s.tCell, { width: TCOL.lim, textAlign: 'center', color: C.razoavel }]}>{p.borderline && !bloqueado ? 'sim' : '—'}</Text>
         </View>
-      ))}
+        );
+      })}
     </View>
   );
 }

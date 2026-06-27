@@ -23,7 +23,7 @@ import {
 } from '@/lib/scoring/engine';
 import { buildRoleSpec, faixaDe, BLOCK, TELA3_KEY } from '@/lib/scoring/role-spec';
 import { buildCandidateProfile, candidateColumns } from '@/lib/scoring/candidate';
-import type { KnockoutEvidencia } from './evidencia';
+import { origemBloqueio, LABEL_ORIGEM, type KnockoutEvidencia, type OrigemBloqueio } from './evidencia';
 
 export type Classe = 'alta' | 'razoavel' | 'baixa';
 export interface SubScore { atendidos: number; total: number; pct: number; classe: Classe; aplicavel: boolean }
@@ -46,6 +46,8 @@ export interface PessoaAdequacao {
   knockoutFailed: boolean;
   knockoutMotivos: string[];
   knockoutEvidencias: KnockoutEvidencia[];  // traço medido + piso + consequência (Tarefa B)
+  origemBloqueio: OrigemBloqueio | null;    // natureza do gate: competência vs comportamental (T4)
+  origemBloqueioLabel: string | null;
   gaps: TraitGap[];                         // traços abaixo do alvo (desenvolvimento — T3/T7)
 }
 
@@ -94,7 +96,7 @@ function evidenciaDeKnockout(k: any, spec: RoleSpec, profile: Record<string, any
   const rule = k.rule;
   if (rule.scope === 'block') {
     return {
-      traco: BLOCO_LABEL[rule.key] || rule.key, valorBruto: null, piso: null,
+      traco: BLOCO_LABEL[rule.key] || rule.key, bloco: rule.key, valorBruto: null, piso: null,
       consequencia: rule.label || 'requisito do bloco não atendido', ehBloco: true,
       medidoPct: Math.round((k.measured ?? 0) * 100), minPct: Math.round((rule.min ?? 0) * 100),
     };
@@ -102,6 +104,7 @@ function evidenciaDeKnockout(k: any, spec: RoleSpec, profile: Record<string, any
   const t: any = spec.traits.find((x: any) => x.key === rule.key && x.kind === 'band');
   return {
     traco: t?.label || rule.key,
+    bloco: t?.block,
     valorBruto: Math.round(num(profile[rule.key])),
     piso: t ? t.lo : null,
     consequencia: rule.label || 'abaixo do mínimo do cargo',
@@ -187,6 +190,8 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
       knockoutFailed: result.knockoutFailed,
       knockoutMotivos,
       knockoutEvidencias,
+      origemBloqueio: origemBloqueio(knockoutEvidencias),
+      origemBloqueioLabel: (() => { const o = origemBloqueio(knockoutEvidencias); return o ? LABEL_ORIGEM[o] : null; })(),
       gaps,
     };
   }).sort((a, b) => {

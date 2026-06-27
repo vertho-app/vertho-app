@@ -42,7 +42,13 @@ export async function gerarNarrativasAdequacao(data: AdequacaoCargo, model?: str
 
 REGRA DURA DE EVIDÊNCIA (inegociável): só é permitido apontar um déficit usando os DRIVERS fornecidos para aquela pessoa. Todo construto interpretativo ("resiliência", "disciplina de CRM", "comunicação") deve aparecer SOMENTE como CONSEQUÊNCIA de um traço NOMEADO e QUANTIFICADO dos drivers — nunca como o achado em si. Não cite fatores que não estão nos drivers (ex.: não derive para Dominância/DISC se o driver é Persistência/Organização). Não invente números nem traços.
 
-Estrutura: cite a principal FORÇA (coerente com Beta) e o(s) driver(s) que determinam o status. O tom deve ser COERENTE com o status (Recomendado / Recomendado com ressalvas / Abaixo do corte → desenvolvível / Bloqueado → requisito eliminatório não atendido). Para Bloqueado, mencione o requisito do knockout com cuidado. Para Abaixo do corte, enquadre como desenvolvimento, não rejeição. Não dê nota nem recomende demissão. Português do Brasil.`;
+Estrutura: cite a principal FORÇA (coerente com Beta) e o(s) driver(s) que determinam o status. O tom deve ser COERENTE com o status (Recomendado / Recomendado com ressalvas / Abaixo do corte → desenvolvível / Bloqueado → requisito eliminatório não atendido).
+
+REGRA POR STATUS:
+- Bloqueado: descreva APENAS o motivo do gate (traço + piso + consequência). NÃO ofereça plano de desenvolvimento, passos de evolução, nem "como chegar lá" — o gate existe para dizer que este não é o caminho agora. Não diga "o plano deve priorizar X".
+- Abaixo do corte / com ressalvas: enquadre como DESENVOLVIMENTO (não rejeição); pode apontar os gaps, sem prometer resultado.
+
+Não dê nota nem recomende demissão. Português do Brasil.`;
 
   for (const grupo of chunk(data.pessoas, 12)) {
     const user = `CARGO: ${data.cargo}
