@@ -24,10 +24,11 @@ export interface KnockoutEvidencia {
 
 /** Compõe a linha de bloqueio ancorada (traço + valor + piso → consequência). */
 export function formatLinhaBloqueio(ev: KnockoutEvidencia): string {
+  // Separador "—" (não "→": a subset Inter dos PDFs não cobre a seta → vira tofu).
   if (ev.ehBloco) {
-    return `${ev.traco} ${ev.medidoPct}% (mínimo do cargo: ${ev.minPct}%) → ${ev.consequencia}`;
+    return `${ev.traco} ${ev.medidoPct}% (mínimo do cargo: ${ev.minPct}%) — ${ev.consequencia}`;
   }
-  return `${ev.traco} ${ev.valorBruto} (piso do cargo: ${ev.piso}) → ${ev.consequencia}`;
+  return `${ev.traco} ${ev.valorBruto} (piso do cargo: ${ev.piso}) — ${ev.consequencia}`;
 }
 
 const norm = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();

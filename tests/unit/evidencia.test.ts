@@ -19,7 +19,7 @@ const evBloco: KnockoutEvidencia = {
 describe('evidência ancorada', () => {
   test('linha de bloqueio canônica tem traço + valor + piso na mesma sentença', () => {
     const linha = formatLinhaBloqueio(evTraco);
-    expect(linha).toBe('Persistência 18 (piso do cargo: 41) → resiliência a rejeição em risco, comprometendo consistência diante de metas mensais');
+    expect(linha).toBe('Persistência 18 (piso do cargo: 41) — resiliência a rejeição em risco, comprometendo consistência diante de metas mensais');
     expect(linhaAncorada(linha, evTraco)).toBe(true);
   });
 

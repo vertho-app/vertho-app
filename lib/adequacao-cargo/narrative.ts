@@ -16,10 +16,14 @@ function resumoIdeal(data: AdequacaoCargo): string {
 }
 
 function linhaColab(p: PessoaAdequacao): string {
-  const disc = p.disc.map((d) => `${d.fator}=${d.score}${d.dentro ? '(dentro)' : '(fora)'}`).join(' ');
-  const lid = p.lideranca.aplicavel ? `Liderança ${p.lideranca.pct}%` : 'Liderança n/a';
-  const flags = [p.knockoutFailed ? 'BLOQUEIO' : '', p.borderline ? 'limítrofe' : ''].filter(Boolean).join(',');
-  return `- ${p.nome}: ${p.recomendacaoLabel} | Beta ${p.beta.pct}% | DISC ${disc} → ${p.discScore.pct}% | Mapeamento ${p.mapeamento.pct}% | Competência ${p.competencia.pct}% | ${lid}${flags ? ` [${flags}]` : ''}`;
+  const disc = p.disc.map((d) => `${d.fator}=${d.score}`).join(' ');
+  // DRIVERS = exatamente o que determina o status (mesmos fatores), com âncora medida.
+  // bloqueado → traços do knockout (traço=valor (piso N)); demais → gaps (traço fit%).
+  const drivers = p.knockoutFailed
+    ? 'DRIVERS(bloqueio): ' + p.knockoutEvidencias.map((e) => e.ehBloco ? `${e.traco}=${e.medidoPct}% (mín ${e.minPct}%)` : `${e.traco}=${e.valorBruto} (piso ${e.piso})`).join(', ')
+    : (p.gaps.length ? 'DRIVERS(gaps): ' + p.gaps.map((g) => `${g.traco}=${g.fitPct}%`).join(', ') : 'DRIVERS: sem gaps relevantes (manter)');
+  const flags = p.borderline ? ' [limítrofe]' : '';
+  return `- ${p.nome}: ${p.statusLabel} | Beta ${p.beta.pct}% | DISC ${disc} | ${drivers}${flags}`;
 }
 
 function extrairJson(raw: string): Record<string, string> | null {
@@ -34,7 +38,11 @@ export async function gerarNarrativasAdequacao(data: AdequacaoCargo, model?: str
   const out: Record<string, string> = {};
   if (!data.pessoas.length) return out;
   const ideal = resumoIdeal(data);
-  const system = `Você é consultor de RH especializado em adequação pessoa-cargo. A partir dos scores de match de cada colaborador com o PERFIL IDEAL do cargo, escreva uma análise CURTA, objetiva e profissional (2 a 3 frases) por pessoa: aponte a principal FORÇA (onde adere) e o principal GAP (onde diverge), em linguagem de feedback de desenvolvimento — sem rótulos pejorativos, sem inventar dados além dos fornecidos. O tom deve ser COERENTE com a recomendação fornecida (Recomendado / com ressalvas / Não recomendado) e, se houver BLOQUEIO, mencione com cuidado o requisito não atendido. Não repita os números percentuais no texto; interprete-os. Não dê nota nem recomende demissão. Português do Brasil.`;
+  const system = `Você é consultor de RH especializado em adequação pessoa-cargo. Escreva uma análise CURTA, objetiva e profissional (2 a 3 frases) por pessoa.
+
+REGRA DURA DE EVIDÊNCIA (inegociável): só é permitido apontar um déficit usando os DRIVERS fornecidos para aquela pessoa. Todo construto interpretativo ("resiliência", "disciplina de CRM", "comunicação") deve aparecer SOMENTE como CONSEQUÊNCIA de um traço NOMEADO e QUANTIFICADO dos drivers — nunca como o achado em si. Não cite fatores que não estão nos drivers (ex.: não derive para Dominância/DISC se o driver é Persistência/Organização). Não invente números nem traços.
+
+Estrutura: cite a principal FORÇA (coerente com Beta) e o(s) driver(s) que determinam o status. O tom deve ser COERENTE com o status (Recomendado / Recomendado com ressalvas / Abaixo do corte → desenvolvível / Bloqueado → requisito eliminatório não atendido). Para Bloqueado, mencione o requisito do knockout com cuidado. Para Abaixo do corte, enquadre como desenvolvimento, não rejeição. Não dê nota nem recomende demissão. Português do Brasil.`;
 
   for (const grupo of chunk(data.pessoas, 12)) {
     const user = `CARGO: ${data.cargo}

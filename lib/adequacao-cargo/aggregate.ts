@@ -46,8 +46,10 @@ export interface PessoaAdequacao {
   knockoutFailed: boolean;
   knockoutMotivos: string[];
   knockoutEvidencias: KnockoutEvidencia[];  // traço medido + piso + consequência (Tarefa B)
+  gaps: TraitGap[];                         // traços abaixo do alvo (desenvolvimento — T3/T7)
 }
 
+export interface TraitGap { traco: string; bloco: string; fitPct: number }  // traço abaixo do alvo (T3/T7)
 export type Direcao = 'floor' | 'target' | 'ceiling';
 export interface CompetenciaIdeal { nome: string; dimensao: string; min: number; max: number; prioridade: string; direcao?: Direcao }
 export interface CaracteristicaIdeal { par: string; polo: string; intensidade: string }
@@ -161,6 +163,12 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
     const beta: SubScore = { atendidos: 0, total: 0, pct: result.betaPct, classe: classeDeBanda(result.betaBand), aplicavel: true };
     const knockoutMotivos = result.knockouts.filter((k) => !k.passed).map((k) => k.rule.label || `${BLOCO_LABEL[k.rule.key] || k.rule.key} abaixo do mínimo`);
     const knockoutEvidencias = result.knockouts.filter((k) => !k.passed).map((k) => evidenciaDeKnockout(k, spec, profile));
+    // Gaps p/ desenvolvimento: traços abaixo do alvo (exclui Mapeamento — lente de DISC, não competência desenvolvível).
+    const gaps: TraitGap[] = result.traits
+      .filter((t) => t.block !== BLOCK.MAP && t.fit < 0.75)
+      .map((t) => ({ traco: t.label, bloco: BLOCO_LABEL[t.block] || t.block, fitPct: Math.round(t.fit * 100) }))
+      .sort((a, b) => a.fitPct - b.fitPct)
+      .slice(0, 6);
 
     return {
       nome: x.nome_completo || 'Colaborador',
@@ -179,6 +187,7 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
       knockoutFailed: result.knockoutFailed,
       knockoutMotivos,
       knockoutEvidencias,
+      gaps,
     };
   }).sort((a, b) => {
     // Reprovados por eliminatória vão pro fim (consistente com o ranking do Fit).

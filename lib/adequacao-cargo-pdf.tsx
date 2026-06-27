@@ -12,6 +12,7 @@ import { getLogoCoverBase64 } from '@/lib/pdf-assets';
 import type { AdequacaoCargo, PessoaAdequacao, SubScore, Classe } from './adequacao-cargo/aggregate';
 import { formatLinhaBloqueio } from './adequacao-cargo/evidencia';
 import { formatFaixaPorDirecao } from './scoring/faixa-display';
+import { trilhaParaTraco } from './adequacao-cargo/trilhas';
 
 const C = {
   navy: '#142F57', cyan: '#34C5CC', gold: '#C8941F', white: '#FFFFFF',
@@ -76,6 +77,8 @@ const s = StyleSheet.create({
   knockTx: { fontSize: 7, color: C.baixa, marginTop: 3 },
   carimboTx: { fontSize: 6.5, color: C.muted, marginTop: 4, fontStyle: 'italic' },
   carimboBar: { fontSize: 7.5, color: C.sub, marginBottom: 8, marginTop: 2 },
+  devGap: { fontSize: 9, color: '#3A4658', marginBottom: 2, lineHeight: 1.4 },
+  devNote: { fontSize: 8, color: C.muted, fontStyle: 'italic', marginTop: 4 },
   dirTx: { fontSize: 7.5, color: C.muted, fontWeight: 400 },
   pesoRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 2, marginBottom: 4 },
   pesoChip: { backgroundColor: '#EEF3F8', color: C.sub, fontSize: 8, fontWeight: 700, borderRadius: 7, paddingVertical: 3, paddingHorizontal: 7 },
@@ -250,6 +253,8 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas }: {
   const paginas = chunk(data.pessoas, 8);
   const paginasTabela = chunk(data.pessoas, 24);
   const paginasAnalise = chunk(data.pessoas.filter((p) => narrativas[p.nome]), 6);
+  // Plano de Desenvolvimento: só desenvolvíveis (com ressalvas / abaixo do corte) — NUNCA bloqueado.
+  const paginasDev = chunk(data.pessoas.filter((p) => p.status === 'abaixo_do_corte' || p.status === 'recomendado_com_ressalvas'), 5);
 
   return (
     <Document>
@@ -366,6 +371,32 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas }: {
                   <Text style={[s.anBeta, { color: STATUS_COLOR[p.status] || CLASSE_COLOR[p.beta.classe] }]}>{p.statusLabel} · Beta {p.beta.pct}%</Text>
                 </View>
                 <Text style={s.anTxt}>{narrativas[p.nome]}</Text>
+              </View>
+            ))}
+          </View>
+          <Footer />
+        </Page>
+      ))}
+
+      {/* Plano de Desenvolvimento (apenas desenvolvíveis — nunca bloqueado) */}
+      {paginasDev.map((grupo, gi) => (
+        <Page key={`dev${gi}`} size="A4" style={s.page}>
+          <PageHeader title="Plano de Desenvolvimento" />
+          <View style={s.body}>
+            {gi === 0 && <Text style={s.carimboBar}>Apoio ao desenvolvimento — gaps desenvolvíveis com janela de reavaliação. Não garante resultado automático.</Text>}
+            {grupo.map((p, i) => (
+              <View key={i} style={s.anItem} wrap={false}>
+                <View style={s.anHead}>
+                  <Text style={s.anNome}>{p.nome}</Text>
+                  <Text style={[s.anBeta, { color: STATUS_COLOR[p.status] || CLASSE_COLOR[p.beta.classe] }]}>{p.statusLabel} · Beta {p.beta.pct}%</Text>
+                </View>
+                {p.gaps.length === 0 ? (
+                  <Text style={s.anTxt}>Sem traços abaixo do alvo destacados — manter consistência.</Text>
+                ) : p.gaps.map((g, j) => {
+                  const tr = trilhaParaTraco(g.traco);
+                  return <Text key={j} style={s.devGap}>• {g.traco} ({g.bloco}) — aderência {g.fitPct}% · {tr ? tr.titulo : 'trilha de Mentor IA a definir'}</Text>;
+                })}
+                <Text style={s.devNote}>Reavaliar em 90 dias.</Text>
               </View>
             ))}
           </View>
