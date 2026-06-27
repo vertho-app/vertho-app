@@ -42,6 +42,7 @@ export interface PessoaAdequacao {
   status: Status;                    // 4 estados: bloqueado ≠ abaixo_do_corte
   statusLabel: string;
   borderline: boolean;
+  betaSemDelta: number;              // ±X em pontos de Beta sob ±SEM (T5)
   knockoutFailed: boolean;
   knockoutMotivos: string[];
   knockoutEvidencias: KnockoutEvidencia[];  // traço medido + piso + consequência (Tarefa B)
@@ -174,6 +175,7 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
       status: result.status,
       statusLabel: STATUS_LABEL[result.status],
       borderline: result.borderline,
+      betaSemDelta: result.semDeltaPct,
       knockoutFailed: result.knockoutFailed,
       knockoutMotivos,
       knockoutEvidencias,

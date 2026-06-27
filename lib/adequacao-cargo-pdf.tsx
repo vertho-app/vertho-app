@@ -72,7 +72,10 @@ const s = StyleSheet.create({
   cardNome: { fontSize: 11, fontWeight: 700, color: '#5B7BC4', marginBottom: 6 },
   recChip: { alignSelf: 'flex-start', fontSize: 7, fontWeight: 700, color: C.white, borderRadius: 7, paddingVertical: 2, paddingHorizontal: 6, marginBottom: 6 },
   flagTx: { fontSize: 7, color: C.razoavel, marginTop: 4 },
+  limTx: { fontSize: 6.5, color: C.razoavel, fontWeight: 700, marginTop: 2, textAlign: 'center' },
   knockTx: { fontSize: 7, color: C.baixa, marginTop: 3 },
+  carimboTx: { fontSize: 6.5, color: C.muted, marginTop: 4, fontStyle: 'italic' },
+  carimboBar: { fontSize: 7.5, color: C.sub, marginBottom: 8, marginTop: 2 },
   dirTx: { fontSize: 7.5, color: C.muted, fontWeight: 400 },
   pesoRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 2, marginBottom: 4 },
   pesoChip: { backgroundColor: '#EEF3F8', color: C.sub, fontSize: 8, fontWeight: 700, borderRadius: 7, paddingVertical: 3, paddingHorizontal: 7 },
@@ -178,6 +181,7 @@ function CardPessoa({ p }: { p: PessoaAdequacao }) {
         <View style={s.betaWrap}>
           <Text style={s.betaLbl}>Beta</Text>
           <Donut pct={p.beta.pct} color={CLASSE_COLOR[p.beta.classe]} />
+          {p.borderline && <Text style={s.limTx}>limítrofe ·±{p.betaSemDelta}</Text>}
         </View>
       </View>
       <View style={s.subWrap}>
@@ -191,10 +195,8 @@ function CardPessoa({ p }: { p: PessoaAdequacao }) {
           {p.knockoutEvidencias.map((ev, i) => (
             <Text key={i} style={s.knockTx}>Bloqueio: {formatLinhaBloqueio(ev)}</Text>
           ))}
+          <Text style={s.carimboTx}>Apoio à decisão — validação humana requerida.</Text>
         </View>
-      )}
-      {p.borderline && !p.knockoutFailed && (
-        <Text style={s.flagTx}>Resultado limítrofe (sensível à margem de medida)</Text>
       )}
     </View>
   );
@@ -293,6 +295,7 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas }: {
           <PageHeader title="Resultados" />
           <View style={s.body}>
             <Legenda />
+            <Text style={s.carimboBar}>Apoio à decisão. A recomendação final cabe ao gestor/psicólogo responsável.</Text>
             {chunk(grupo, 2).map((par, pi2) => (
               <View key={pi2} style={s.cardsRow}>
                 <CardPessoa p={par[0]} />

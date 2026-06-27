@@ -374,6 +374,7 @@ export default function FitPage() {
                         <td className="px-4 py-2.5 text-white font-semibold text-xs">{r.colaborador.nome || '—'}</td>
                         <td className="px-4 py-2.5 text-center">
                           <span className={`text-sm font-bold ${FAIXA_COLORS[faixa]?.text}`}>{Number(r.fit_final).toFixed(1)}</span>
+                          {r.borderline && <div className="text-[8px] font-bold text-amber-400" title="Sensível à margem de medida (±SEM)">limítrofe{r.sem_delta_pct != null ? ` ±${r.sem_delta_pct}` : ''}</div>}
                         </td>
                         <td className="px-4 py-2.5 text-center text-xs text-gray-400">{r.blocos.mapeamento?.score?.toFixed(0) ?? '—'}</td>
                         <td className="px-4 py-2.5 text-center text-xs text-gray-400">{r.blocos.competencias?.score?.toFixed(0) ?? '—'}</td>

@@ -244,6 +244,8 @@ export async function loadRankingCargo(empresaId: string, cargoNome: string) {
       gap_analysis: json?.gap_analysis,
       premissas: json?.premissas || [],
       knockout_failed: json?.knockout_failed || false,
+      borderline: json?.borderline || false,
+      sem_delta_pct: json?.sem_delta_pct ?? null,
     };
   });
 

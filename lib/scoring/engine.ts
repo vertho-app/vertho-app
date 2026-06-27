@@ -132,6 +132,7 @@ export interface ScoringResult {
   knockouts: KnockoutResult[];
   knockoutFailed: boolean;
   borderline: boolean;
+  semDeltaPct: number;   // ±X em pontos de Beta sob perturbação ±SEM (meia-largura)
   recommendation: Recommendation;
   status: Status;
 }
@@ -292,7 +293,8 @@ function evalKnockouts(
 }
 
 /** Borderline: a banda do Beta vira se perturbarmos cada traço por ±SEM? */
-function isBorderline(spec: RoleSpec, profile: CandidateProfile, betaBand: ColorBand): boolean {
+/** Beta sob perturbação ±SEM de cada traço (lo = pessimista, hi = otimista). */
+function semSwing(spec: RoleSpec, profile: CandidateProfile): { lo: number; hi: number } {
   const sMin = spec.scaleMin ?? DEF.scaleMin;
   const sMax = spec.scaleMax ?? DEF.scaleMax;
   const sem = spec.sem ?? DEF.sem;
@@ -308,10 +310,7 @@ function isBorderline(spec: RoleSpec, profile: CandidateProfile, betaBand: Color
     };
     return betaFrom(blockScores(spec, fitFn));
   };
-
-  const pessimista = colorBand(shifted(-1));
-  const otimista = colorBand(shifted(1));
-  return pessimista !== otimista || pessimista !== betaBand || otimista !== betaBand;
+  return { lo: shifted(-1), hi: shifted(1) };
 }
 
 function clamp(v: number, lo: number, hi: number): number {
@@ -349,7 +348,9 @@ export function scoreCandidate(spec: RoleSpec, profile: CandidateProfile): Scori
 
   const knockouts = evalKnockouts(spec, rawBlocks, traitFits);
   const knockoutFailed = knockouts.some((k) => !k.passed);
-  const borderline = isBorderline(spec, profile, betaBand);
+  const swing = semSwing(spec, profile);
+  const borderline = colorBand(swing.lo) !== betaBand || colorBand(swing.hi) !== betaBand || colorBand(swing.lo) !== colorBand(swing.hi);
+  const semDeltaPct = Math.round(((swing.hi - swing.lo) / 2) * 1000) / 10; // ± em pontos de Beta
 
   let recommendation: Recommendation;
   if (knockoutFailed) recommendation = 'nao_recomendado';
@@ -374,6 +375,7 @@ export function scoreCandidate(spec: RoleSpec, profile: CandidateProfile): Scori
     knockouts,
     knockoutFailed,
     borderline,
+    semDeltaPct,
     recommendation,
     status,
   };

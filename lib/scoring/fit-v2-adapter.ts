@@ -153,6 +153,7 @@ export function calcularFitUnificado(gabarito: any, colab: any, opts: FitUnifica
     blocos,
     // Sinais novos do motor (a tela pode ignorar; persistidos no JSON):
     borderline: result.borderline,
+    sem_delta_pct: result.semDeltaPct,
     knockout_failed: result.knockoutFailed,
     knockouts: result.knockouts.filter((k) => !k.passed).map((k) => k.rule.label || k.rule.key),
     // Premissas (eliminatórias) com status por item — alimenta a coluna do ranking.
