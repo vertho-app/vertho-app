@@ -1,6 +1,38 @@
 # Modelo de Fit v2 — Documentação Técnica
 
-## Fórmula Master
+> **ATUALIZAÇÃO 06/2026 — MOTOR ÚNICO (`lib/scoring`).** O Fit e o Relatório de
+> Adequação ao Cargo agora compartilham UM motor determinístico (`lib/scoring/engine.ts`).
+> O conteúdo abaixo (fórmula master, fator crítico/excesso) descreve a **rota LEGADA**,
+> usada só como fallback quando o cargo NÃO tem `gabarito.tela4` ou tem `fit_perfil_ideal`
+> customizado salvo. Para a esmagadora maioria (cargos com gabarito da IA2), vale o
+> modelo novo a seguir.
+
+## Motor único (rota primária)
+- **Onde:** `lib/scoring/engine.ts` (`scoreCandidate`) + adaptadores `role-spec.ts`
+  (gabarito→RoleSpec) e `candidate.ts` (colab→CandidateProfile). O `fit-v2-adapter.ts`
+  (`calcularFitUnificado`) roda o motor e devolve o **contrato legado** do Fit v2 (fit_final,
+  classificacao, blocos, gap_analysis, leitura_executiva) — `calcularFitIndividual` usa essa
+  rota quando há `gabarito.tela4` e não há `fit_perfil_ideal` salvo.
+- **Fit por traço CONTÍNUO** (não degraus) com **direção** `floor` (quanto mais melhor) /
+  `target` (centro é o ideal) / `ceiling` (manter baixo). A IA2 emite `direcao` por traço;
+  gabarito legado → `inferDirection` (fallback).
+- **Beta = média dos blocos PONDERADA** por `pesos_blocos` (da IA, ou default líder/não-líder).
+  Liderança é 1 traço `scalar` (distância vetorial). Cargo não-líder dropa o bloco e renormaliza.
+- **Cortes de cor (RE-ANCORADOS p/ o contínuo):** verde ≥ **0,85**, amarelo **0,60–0,84**,
+  vermelho < 0,60. (Os antigos 0,75/0,50 eram do motor binário; o crédito parcial subia a
+  distribuição ~10-13pp.) `borderline` = a banda vira sob ±SEM.
+- **Eliminatórias (`knockouts`) = GATE, não penalizam o número.** Reprovar uma eliminatória
+  → classificação **"Não recomendado"** + premissas ✗, e o colaborador vai pro **fim do
+  ranking** (mesmo com match alto) e conta como crítica na distribuição. O número (Fit/Beta)
+  é SEMPRE o match real — PDF e tela mostram o mesmo valor (1 casa decimal).
+  - Knockout `scope:"trait"` usa o NOME da competência ("Persistência"); o `role-spec`
+    resolve p/ `comp_*`/letra DISC e descarta o que não casa. Knockout sobre bloco/traço
+    AUSENTE (ex.: liderança em cargo não-líder) é N/A → passa (nunca auto-reprova todos).
+- **Coluna "Premissas"** no ranking (`/admin/fit`): ✓ atendida / ✗ não, tooltip do motivo.
+  ⚠️ Mudança de fórmula do `fit_final` exige **Recalcular (forçar)** — `fit_resultados` fica
+  com o valor antigo até recalcular.
+
+## Fórmula Master (LEGADO — fallback)
 ```
 Fit Final = Score Base × Fator Crítico × Fator Excesso
 Score Base = ∑ (Score_bloco[i] × Peso_bloco[i])
