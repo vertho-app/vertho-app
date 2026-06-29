@@ -15,7 +15,7 @@
  */
 const norm = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 
-export interface AvisoSpec { tipo: 'sc_target_comercial' | 'floor_risco'; traco: string; mensagem: string }
+export interface AvisoSpec { tipo: 'sc_target_comercial' | 'floor_risco' | 'knockout_acoplado_piso'; traco: string; mensagem: string }
 
 const TERMOS_COMERCIAIS = ['comercial', 'vendas', 'vendedor', 'representante', 'consultor de vendas', 'executivo de contas', 'account', 'sdr', 'closer', 'hunter', 'pré-venda', 'pre-venda'];
 // Traços tipicamente de risco no extremo alto (nomes de competência + fatores DISC).
@@ -78,6 +78,22 @@ export function avisosSpecClinica(gabarito: any, cargoNome: string): AvisoSpec[]
     if (dir === 'floor') {
       avisos.push({ tipo: 'floor_risco', traco: 'Dominância (D)',
         mensagem: `Dominância (D) está como "mais é melhor" (floor). D no extremo alto pode gerar conflito/autoritarismo. Avaliar "faixa-alvo" com teto.` });
+    }
+  }
+
+  // (3) Knockout ACOPLADO ao piso: o gate é avaliado pelo FIT da faixa, então mexer
+  // no piso/faixa de um traço com knockout move o corte eliminatório efetivo SEM você
+  // perceber (lição da Empatia 61 × knockout em Ibipeba). Flag p/ reconferir o gate.
+  for (const k of (Array.isArray(g.knockouts) ? g.knockouts : [])) {
+    if (norm(k.scope) !== 'trait') continue;
+    const key = norm(k.key);
+    let lo: number | null = null;
+    const sub = (g.tela2?.subcompetencias || []).find((s: any) => norm(s.nome) === key);
+    if (sub) lo = faixaNums(sub.faixa_min, sub.faixa_max).lo;
+    else if (['d', 'i', 's', 'c'].includes(key)) { const f = g.tela4?.[String(k.key).toUpperCase()]; if (f) lo = faixaNums(f.min, f.max).lo; }
+    if (lo != null && lo >= 41) {
+      avisos.push({ tipo: 'knockout_acoplado_piso', traco: k.key,
+        mensagem: `Knockout em "${k.key}" é avaliado pelo FIT da faixa (piso ${lo}). Ao ajustar o piso/faixa desse traço, o corte eliminatório EFETIVO se move junto — reconfira o limiar do gate (não os trate como independentes).` });
     }
   }
 
