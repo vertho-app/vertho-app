@@ -70,6 +70,7 @@ export interface AdequacaoCargo {
   avaliados: number;
   perfilIdeal: PerfilIdeal;
   pessoas: PessoaAdequacao[];        // ordenadas por Beta desc
+  avisosCalibracao: { traco: string; pct: number }[]; // traço que zera em >50% → revisar alvo (guardião)
   semGabarito: boolean;
   semColaboradores: boolean;
 }
@@ -113,7 +114,7 @@ function evidenciaDeKnockout(k: any, spec: RoleSpec, profile: Record<string, any
 }
 
 export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, cargo: string): Promise<AdequacaoCargo> {
-  const base: AdequacaoCargo = { cargo, avaliados: 0, perfilIdeal: { caracteristicas: [], competencias: [], lideranca: [], estiloPredominante: '', disc: [], pesos: [], liderancaAplicavel: false }, pessoas: [], semGabarito: false, semColaboradores: false };
+  const base: AdequacaoCargo = { cargo, avaliados: 0, perfilIdeal: { caracteristicas: [], competencias: [], lideranca: [], estiloPredominante: '', disc: [], pesos: [], liderancaAplicavel: false }, pessoas: [], avisosCalibracao: [], semGabarito: false, semColaboradores: false };
 
   // 1) Gabarito (perfil ideal) do cargo.
   const { data: cargoRow } = await sb.from('cargos_empresa')
@@ -151,9 +152,19 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
   ).order('nome_completo');
   if (!rows?.length) return { ...base, perfilIdeal, semColaboradores: true };
 
+  // Guardião de calibração: conta, por traço (band, exceto Mapeamento), quantos
+  // avaliados ZERAM (fit < 5%). Traço que zera em >50% → alvo provavelmente mal posto.
+  const satura = new Map<string, { z: number; n: number }>();
+
   const pessoas: PessoaAdequacao[] = (rows as any[]).map((x) => {
     const profile = buildCandidateProfile(x, g);
     const result = scoreCandidate(spec, profile);
+    for (const t of result.traits) {
+      if (t.block === BLOCK.MAP) continue;
+      const acc = satura.get(t.label) || { z: 0, n: 0 };
+      acc.n++; if (t.fit < 0.05) acc.z++;
+      satura.set(t.label, acc);
+    }
 
     // DISC (4): score + faixa + classe (pela banda do fit do traço).
     const disc: DiscFator[] = discIdeal.map((d) => {
@@ -202,5 +213,10 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
     return b.beta.pct - a.beta.pct;
   });
 
-  return { cargo, avaliados: pessoas.length, perfilIdeal, pessoas, semGabarito: false, semColaboradores: false };
+  const avisosCalibracao = [...satura.entries()]
+    .filter(([, v]) => v.n > 0 && v.z / v.n > 0.5)
+    .map(([traco, v]) => ({ traco, pct: Math.round((v.z / v.n) * 100) }))
+    .sort((a, b) => b.pct - a.pct);
+
+  return { cargo, avaliados: pessoas.length, perfilIdeal, pessoas, avisosCalibracao, semGabarito: false, semColaboradores: false };
 }

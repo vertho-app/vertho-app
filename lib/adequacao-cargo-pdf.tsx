@@ -78,6 +78,9 @@ const s = StyleSheet.create({
   knockOrigem: { fontSize: 7.5, color: C.baixa, fontWeight: 700, marginTop: 4 },
   carimboTx: { fontSize: 6.5, color: C.muted, marginTop: 4, fontStyle: 'italic' },
   carimboBar: { fontSize: 7.5, color: C.sub, marginBottom: 8, marginTop: 2 },
+  calibBox: { borderWidth: 1, borderColor: C.razoavel, backgroundColor: '#FFF7ED', borderRadius: 8, padding: 9, marginBottom: 10 },
+  calibTitle: { fontSize: 8.5, fontWeight: 700, color: C.razoavel, marginBottom: 3 },
+  calibTx: { fontSize: 8, color: '#7C2D12', lineHeight: 1.4 },
   devGap: { fontSize: 9, color: '#3A4658', marginBottom: 2, lineHeight: 1.4 },
   devNote: { fontSize: 8, color: C.muted, fontStyle: 'italic', marginTop: 4 },
   dirTx: { fontSize: 7.5, color: C.muted, fontWeight: 400 },
@@ -292,6 +295,14 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas }: {
                 {pi.pesos.map((w, i) => <Text key={i} style={s.pesoChip}>{w.bloco} {w.pct}%</Text>)}
               </View>
             </>
+          )}
+          {data.avisosCalibracao.length > 0 && (
+            <View style={s.calibBox}>
+              <Text style={s.calibTitle}>Revisão de calibração sugerida</Text>
+              {data.avisosCalibracao.map((a, i) => (
+                <Text key={i} style={s.calibTx}>• {a.traco} zera (aderência ~0%) em {a.pct}% dos avaliados — provável alvo mal posto (piso alto demais) ou déficit sistêmico do grupo. Revisar o alvo.</Text>
+              ))}
+            </View>
           )}
           <View style={s.twoCol}>
             <View style={s.col}>
