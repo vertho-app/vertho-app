@@ -417,7 +417,7 @@ import { gerarCenariosBLote as _cenB, checkCenariosBLote as _checkCenB, checkCen
 import { dispararLinksCIS as _dispCIS, dispararRelatoriosLote as _dispLote } from '@/actions/whatsapp-lote';
 
 export async function rodarIA1(e, c) { await requireAdminAction('ai.audit.regenerate'); return _ia1(e, c); }
-export async function rodarIA2(e, c) { await requireAdminAction('ai.audit.regenerate'); return _ia2(e, c); }
+export async function rodarIA2(e, c, opts?: { cargoNome?: string }) { await requireAdminAction('ai.audit.regenerate'); return _ia2(e, c, opts); }
 export async function rodarIA3(e, c) { await requireAdminAction('ai.audit.regenerate'); return _ia3(e, c); }
 export async function dispararEmails(e) { await requireAdminAction('assessments.dispatch'); return _emails(e); }
 export async function verStatusEnvios(e) { await requireAdminAction(); return _status(e); }

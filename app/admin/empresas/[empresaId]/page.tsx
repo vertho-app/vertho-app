@@ -316,6 +316,34 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         addLog(`✅ IA3: ${gerados} gerados${checkModel ? ` | ${aprovados}✓ ${revisar}⚠` : ''}${erros ? ` | ${erros}❌` : ''}`, 'success');
         loadData(); refreshTop10(); setPendingAction(null); return;
       }
+      if (actionKey === 'ia2') {
+        // Gera 1 cargo por request (evita timeout da Vercel em tenants com vários cargos).
+        const { listarCargosParaIA2 } = await import('@/actions/fase1');
+        const lr = await listarCargosParaIA2(empresaId);
+        const cargos = lr.cargos || [];
+        if (!cargos.length) { addLog('❌ Nenhum cargo com Top 10. Rode IA1 primeiro.', 'error'); setPendingAction(null); return; }
+        addLog(`📋 ${cargos.length} cargo(s) — gerando um por vez`, 'info');
+        const tentar = async (fn: () => Promise<any>) => {
+          try { return await fn(); }
+          catch (e: any) {
+            const msg = String(e?.message || e || '');
+            if (/unexpected response|failed to fetch|fetch failed|network|load failed/i.test(msg)) {
+              await new Promise(res => setTimeout(res, 1500));
+              try { return await fn(); } catch (e2: any) { return { success: false, error: e2?.message || msg }; }
+            }
+            return { success: false, error: msg };
+          }
+        };
+        let ok = 0, erros = 0;
+        for (let i = 0; i < cargos.length; i++) {
+          addLog(`⏳ [${i + 1}/${cargos.length}] ${cargos[i]}...`, 'info');
+          const r = await tentar(() => rodarIA2(empresaId, aiConfig || undefined, { cargoNome: cargos[i] }));
+          if (r.success) { ok++; addLog(`✅ ${cargos[i]}: ${r.message || 'gabarito gerado'}`, 'success'); }
+          else { erros++; addLog(`⚠ ${cargos[i]}: ${r.error}`, 'error'); }
+        }
+        addLog(`✅ IA2: ${ok} gabarito(s)${erros ? ` | ${erros}❌` : ''}`, ok > 0 ? 'success' : 'error');
+        loadData(); refreshTop10(); setPendingAction(null); return;
+      }
       if (actionKey === 'temporadas') {
         const { listarColabsParaTrilha } = await import('@/actions/fase4');
         const { gerarTemporada } = await import('@/actions/temporadas');

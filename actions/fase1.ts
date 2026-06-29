@@ -703,7 +703,20 @@ const SUB_COMPETENCIAS_CIS = [
   { nome: 'Prudência', dim: 'C' }, { nome: 'Concentração', dim: 'C' },
 ];
 
-export async function rodarIA2(empresaId: string, aiConfig: AIConfig = {}) {
+/** Cargos com Top 10 — a UI itera e chama rodarIA2 por cargo (evita timeout). */
+export async function listarCargosParaIA2(empresaId: string): Promise<{ cargos: string[] }> {
+  await requireAdminAction();
+  if (!empresaId) return { cargos: [] };
+  try {
+    const tdb = tenantDb(empresaId);
+    const { data } = await tdb.from('top10_cargos').select('cargo');
+    const nomes: string[] = (data || []).map((t: any) => String(t.cargo));
+    const cargos: string[] = Array.from(new Set<string>(nomes)).sort((a, b) => a.localeCompare(b));
+    return { cargos };
+  } catch { return { cargos: [] }; }
+}
+
+export async function rodarIA2(empresaId: string, aiConfig: AIConfig = {}, opts: { cargoNome?: string } = {}) {
   const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
@@ -731,6 +744,14 @@ export async function rodarIA2(empresaId: string, aiConfig: AIConfig = {}) {
 
     if (!Object.keys(top10PorCargo).length) {
       return { success: false, error: 'Nenhuma Top 10 selecionada. Rode IA1 primeiro.' };
+    }
+
+    // Modo POR-CARGO (evita timeout da Vercel em tenants com vários cargos): a UI
+    // itera os cargos e chama 1 por request. Sem cargoNome, processa todos (legado).
+    if (opts.cargoNome) {
+      const alvo = Object.keys(top10PorCargo).find((c) => c.toLowerCase() === opts.cargoNome!.toLowerCase());
+      if (!alvo) return { success: false, error: `Cargo "${opts.cargoNome}" não tem Top 10.` };
+      for (const k of Object.keys(top10PorCargo)) if (k !== alvo) delete top10PorCargo[k];
     }
 
     // 4. Buscar dados ricos dos cargos
