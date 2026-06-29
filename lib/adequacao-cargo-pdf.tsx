@@ -241,7 +241,7 @@ function TabelaResultados({ pessoas, startPos }: { pessoas: PessoaAdequacao[]; s
           <Text style={[s.tCell, { width: TCOL.beta, textAlign: 'center', fontWeight: 700, color: bloqueado ? C.baixa : CLASSE_COLOR[p.beta.classe] }]}>{p.beta.pct}%</Text>
           <Text style={[s.tCell, { width: TCOL.status, color: STATUS_COLOR[p.status] || C.text, fontWeight: 700 }]}>{p.statusLabel}</Text>
           <Text style={[s.tCell, { width: TCOL.ko, color: C.baixa }]}>{p.origemBloqueio ? ORIGEM_CURTA[p.origemBloqueio] : '—'}</Text>
-          <Text style={[s.tCell, { width: TCOL.lim, textAlign: 'center', color: C.razoavel }]}>{p.borderline && !bloqueado ? 'sim' : '—'}</Text>
+          <Text style={[s.tCell, { width: TCOL.lim, textAlign: 'center', color: C.razoavel }]}>{p.borderline && !bloqueado ? `±${p.betaSemDelta}` : '—'}</Text>
         </View>
         );
       })}

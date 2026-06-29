@@ -703,16 +703,18 @@ const SUB_COMPETENCIAS_CIS = [
   { nome: 'Prudência', dim: 'C' }, { nome: 'Concentração', dim: 'C' },
 ];
 
-/** Cargos com Top 10 — a UI itera e chama rodarIA2 por cargo (evita timeout). */
-export async function listarCargosParaIA2(empresaId: string): Promise<{ cargos: string[] }> {
+/** Cargos com Top 10 (+ flag jaTem gabarito) — a UI itera e chama rodarIA2 por
+ *  cargo (evita timeout) e pula os que já têm gabarito. */
+export async function listarCargosParaIA2(empresaId: string): Promise<{ cargos: { nome: string; jaTem: boolean }[] }> {
   await requireAdminAction();
   if (!empresaId) return { cargos: [] };
   try {
     const tdb = tenantDb(empresaId);
-    const { data } = await tdb.from('top10_cargos').select('cargo');
-    const nomes: string[] = (data || []).map((t: any) => String(t.cargo));
-    const cargos: string[] = Array.from(new Set<string>(nomes)).sort((a, b) => a.localeCompare(b));
-    return { cargos };
+    const { data: t10 } = await tdb.from('top10_cargos').select('cargo');
+    const nomes = Array.from(new Set<string>((t10 || []).map((t: any) => String(t.cargo)))).sort((a, b) => a.localeCompare(b));
+    const { data: cgs } = await tdb.from('cargos_empresa').select('nome, gabarito');
+    const comGab = new Set((cgs || []).filter((c: any) => (typeof c.gabarito === 'string' ? JSON.parse(c.gabarito || '{}') : c.gabarito)?.tela4).map((c: any) => c.nome));
+    return { cargos: nomes.map((n) => ({ nome: n, jaTem: comGab.has(n) })) };
   } catch { return { cargos: [] }; }
 }
 

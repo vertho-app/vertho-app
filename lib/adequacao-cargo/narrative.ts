@@ -15,13 +15,17 @@ function resumoIdeal(data: AdequacaoCargo): string {
   return `DISC ideal: ${disc}. Competências-chave: ${comps}. Estilo de liderança predominante: ${lid}.`;
 }
 
+// Severidade derivada da ADERÊNCIA (fit), não livre (B2): <40 crítico · 40-64 moderado · 65+ leve.
+const severidade = (fitPct: number): string => (fitPct < 40 ? 'crítico' : fitPct < 65 ? 'moderado' : 'leve');
+
 function linhaColab(p: PessoaAdequacao): string {
-  const disc = p.disc.map((d) => `${d.fator}=${d.score}`).join(' ');
-  // DRIVERS = exatamente o que determina o status (mesmos fatores), com âncora medida.
-  // bloqueado → traços do knockout (traço=valor (piso N)); demais → gaps (traço fit%).
+  // DISC marcado (dentro)/(FORA) — valor DENTRO da faixa NÃO é gap (B1).
+  const disc = p.disc.map((d) => `${d.fator}=${d.score}${d.dentro ? '(dentro)' : '(FORA)'}`).join(' ');
+  // DRIVERS = exatamente o que determina o status. bloqueado → traços do knockout;
+  // demais → gaps (traço fit% + severidade proporcional). SÓ isto pode virar "atenção".
   const drivers = p.knockoutFailed
     ? 'DRIVERS(bloqueio): ' + p.knockoutEvidencias.map((e) => e.ehBloco ? `${e.traco}=${e.medidoPct}% (mín ${e.minPct}%)` : `${e.traco}=${e.valorBruto} (piso ${e.piso})`).join(', ')
-    : (p.gaps.length ? 'DRIVERS(gaps): ' + p.gaps.map((g) => `${g.traco}=${g.fitPct}%`).join(', ') : 'DRIVERS: sem gaps relevantes (manter)');
+    : (p.gaps.length ? 'DRIVERS(gaps): ' + p.gaps.map((g) => `${g.traco} ${g.fitPct}% [${severidade(g.fitPct)}]`).join(', ') : 'DRIVERS: sem gaps relevantes (manter)');
   const flags = p.borderline ? ' [limítrofe]' : '';
   return `- ${p.nome}: ${p.statusLabel} | Beta ${p.beta.pct}% | DISC ${disc} | ${drivers}${flags}`;
 }
@@ -47,6 +51,10 @@ Estrutura: cite a principal FORÇA (coerente com Beta) e o(s) driver(s) que dete
 REGRA POR STATUS:
 - Bloqueado: descreva APENAS o motivo do gate (traço + piso + consequência). NÃO ofereça plano de desenvolvimento, passos de evolução, nem "como chegar lá" — o gate existe para dizer que este não é o caminho agora. Não diga "o plano deve priorizar X".
 - Abaixo do corte / com ressalvas: enquadre como DESENVOLVIMENTO (não rejeição); pode apontar os gaps, sem prometer resultado.
+
+REGRA DE EVIDÊNCIA (inegociável):
+- SÓ os itens em DRIVERS são pontos de atenção/desenvolvimento. NUNCA nomeie como atenção um traço que NÃO está em DRIVERS — em especial, um fator DISC marcado "(dentro)" está na faixa aceitável e NÃO é gap. NUNCA cite um valor bruto (ex.: "Conformidade 71%") como problema; valor dentro da faixa não é preocupação.
+- SEVERIDADE proporcional ao rótulo do driver: [crítico] = linguagem forte; [moderado] = desenvolvimento; [leve] = ajuste fino. NÃO dramatize um gap [moderado]/[leve] (ex.: não diga que um traço "compromete" se ele é [moderado]). O mesmo traço deve contar a MESMA história na narrativa e no plano.
 
 Não dê nota nem recomende demissão. Português do Brasil.`;
 

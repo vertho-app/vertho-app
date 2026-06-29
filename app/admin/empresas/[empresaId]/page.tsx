@@ -320,9 +320,13 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         // Gera 1 cargo por request (evita timeout da Vercel em tenants com vários cargos).
         const { listarCargosParaIA2 } = await import('@/actions/fase1');
         const lr = await listarCargosParaIA2(empresaId);
-        const cargos = lr.cargos || [];
-        if (!cargos.length) { addLog('❌ Nenhum cargo com Top 10. Rode IA1 primeiro.', 'error'); setPendingAction(null); return; }
-        addLog(`📋 ${cargos.length} cargo(s) — gerando um por vez`, 'info');
+        const todos = lr.cargos || [];
+        if (!todos.length) { addLog('❌ Nenhum cargo com Top 10. Rode IA1 primeiro.', 'error'); setPendingAction(null); return; }
+        const jaFeitos = todos.filter((c: any) => c.jaTem);
+        const cargos = todos.filter((c: any) => !c.jaTem).map((c: any) => c.nome);
+        if (jaFeitos.length) addLog(`↪ ${jaFeitos.length} já com gabarito (pulados): ${jaFeitos.map((c: any) => c.nome).join(', ')}`, 'info');
+        if (!cargos.length) { addLog('✅ Todos os cargos já têm gabarito. Nada a gerar.', 'success'); loadData(); refreshTop10(); setPendingAction(null); return; }
+        addLog(`📋 ${cargos.length} cargo(s) pendente(s) — gerando um por vez`, 'info');
         const tentar = async (fn: () => Promise<any>) => {
           try { return await fn(); }
           catch (e: any) {
