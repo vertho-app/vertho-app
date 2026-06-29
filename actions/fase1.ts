@@ -7,6 +7,10 @@ import { requireAdminAction } from '@/lib/auth/action-context';
 import type { FaseCarreira } from '@/lib/season-engine/programa-config';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { hasDiscMapeado } from '@/lib/disc-status';
+import { LATEST_SPEC_VERSION } from '@/lib/scoring/role-spec';
+import { candidateColumns } from '@/lib/scoring/candidate';
+import { medirColinearidadeMapDisc } from '@/lib/scoring/colinearidade';
+import { isInternalEmail } from '@/lib/internal-emails';
 
 // ── IA1: Selecionar top 10 competências por cargo ───────────────────────────
 // Seleciona das competências JÁ CADASTRADAS na empresa (tabela competencias).
@@ -735,6 +739,14 @@ export async function rodarIA2(empresaId: string, aiConfig: AIConfig = {}) {
     const cargosDetalheMap = {};
     (cargosDetalhados || []).forEach(c => { cargosDetalheMap[c.nome.toLowerCase()] = c; });
 
+    // 4b. População p/ a métrica de colinearidade Map×DISC (real-only: exclui
+    // simulados e contas internas) — medida 1× e reusada por gabarito gerado.
+    const { data: colabsRaw } = await tdb.from('colaboradores')
+      .select(`${candidateColumns().join(', ')}, email, disc_resultados`)
+      .not('d_natural', 'is', null);
+    const colabsParaMetrica = (colabsRaw || []).filter((c: any) =>
+      !isInternalEmail(c.email) && !String(c.disc_resultados || '').toLowerCase().includes('simulado'));
+
     // 5. Para cada cargo com top10, gerar gabarito CIS
     let totalGerados = 0;
     const NOMES_SUBCOMPS = new Set(SUB_COMPETENCIAS_CIS.map(s => s.nome));
@@ -805,6 +817,8 @@ Na dúvida, use "target".
 - "pesos_blocos": importância relativa de cada bloco no score final. 4 números que
   SOMAM ~1.0: { "competencia", "lideranca", "disc", "mapeamento" }. Para cargo SEM
   gestão de pessoas, deixe "lideranca": 0. Calibre pelo que MAIS importa no cargo.
+  ATENÇÃO: "mapeamento" é uma LENTE derivada do DISC (redundante com o bloco DISC) —
+  use peso MODESTO (≤ 0,20); o peso de instrumento independente deve ir p/ competência.
 - "knockouts": requisitos ELIMINATÓRIOS (use com parcimônia, só quando um bloco/traço
   é inegociável). Lista de { "scope": "block"|"trait", "key": <bloco ou nome>, "min": 0..1, "label": motivo }.
   Ex.: cargo de liderança → { "scope":"block", "key":"lideranca", "min":0.5, "label":"Aderência de liderança insuficiente" }.
@@ -970,6 +984,14 @@ Fatores DISC: D (Dominância), I (Influência), S (Estabilidade), C (Conformidad
         const confs = [g.tela1?.confianca, g.tela2?.confianca, g.tela3?.confianca, g.tela4?.confianca]
           .filter((c: any) => typeof c === 'number') as number[];
         const confMedia = confs.length ? Math.round((confs.reduce((a, b) => a + b, 0) / confs.length) * 100) / 100 : null;
+
+        // v2 é o PADRÃO dos novos gabaritos (Mapeamento contínuo + cap de peso).
+        // Legados ficam congelados (só esta geração carimba). E registra a
+        // colinearidade Map×DISC medida AGORA no spec — base p/ peso adaptativo futuro.
+        g.spec_version = LATEST_SPEC_VERSION;
+        g.metrica_colinearidade = medirColinearidadeMapDisc(
+          g, cargoNome, colabsParaMetrica, (detalhe as any).eh_lideranca,
+        );
 
         const updateData: any = {
           gabarito: resultado.gabarito,
