@@ -26,9 +26,18 @@ function linhaColab(p: PessoaAdequacao): string {
   const disc = p.disc.map((d) => `${d.fator}=${d.score}`).join(' ');
   // DRIVERS = exatamente o que determina o status. bloqueado → traços do knockout;
   // demais → gaps (traço fit% + severidade proporcional). SÓ isto pode virar "atenção".
+  // Gap COM direção e lado — a IA não pode adivinhar o lado de um faixa-alvo (inverteria
+  // o sinal) nem chamar faixa-alvo de "piso eliminatório".
+  const fmtGap = (g: PessoaAdequacao['gaps'][number]): string => {
+    const dirTxt = g.direcao === 'floor' ? 'piso/quanto-mais-melhor' : g.direcao === 'ceiling' ? 'teto/manter-baixo' : 'faixa-alvo/penaliza-2-lados';
+    const faixa = (g.lo != null && g.hi != null) ? ` faixa ${g.lo}-${g.hi}` : '';
+    const val = g.valorBruto != null ? ` valor ${g.valorBruto}` : '';
+    const lado = g.lado === 'abaixo' ? ' lado=ABAIXO' : g.lado === 'acima' ? ' lado=ACIMA' : '';
+    return `${g.traco} [${dirTxt}${faixa}${val}${lado}] fit ${g.fitPct}% [${severidade(g.fitPct)}]`;
+  };
   const drivers = p.knockoutFailed
     ? 'DRIVERS(bloqueio): ' + p.knockoutEvidencias.map((e) => e.ehBloco ? `${e.traco}=${e.medidoPct}% (mín ${e.minPct}%)` : `${e.traco}=${e.valorBruto} (piso ${e.piso})`).join(', ')
-    : (p.gaps.length ? 'DRIVERS(gaps): ' + p.gaps.map((g) => `${g.traco} ${g.fitPct}% [${severidade(g.fitPct)}]`).join(', ') : 'DRIVERS: sem gaps relevantes (manter)');
+    : (p.gaps.length ? 'DRIVERS(gaps): ' + p.gaps.map(fmtGap).join(', ') : 'DRIVERS: sem gaps relevantes (manter)');
   const flags = p.borderline ? ' [limítrofe]' : '';
   return `- ${p.nome}: ${p.statusLabel} | Aderência ${p.beta.pct}% | DISC ${disc} | ${drivers}${flags}`;
 }
@@ -58,6 +67,11 @@ REGRA POR STATUS:
 REGRA DE EVIDÊNCIA (inegociável):
 - SÓ os itens em DRIVERS são pontos de atenção/desenvolvimento. NUNCA nomeie um traço que NÃO está em DRIVERS — e ISTO INCLUI mencioná-lo só para NEGÁ-LO. É PROIBIDO escrever coisas como "Conformidade fora da faixa (40), mas não é driver", "Dominância abaixo da faixa não compromete", "X fora da faixa porém não conta". Se o traço não está em DRIVERS, ele simplesmente NÃO aparece no texto — nem como ressalva, nem como negação. Os números de DISC mostrados são contexto neutro: NÃO os interprete como fora/dentro da faixa nem comente valor bruto.
 - SEVERIDADE proporcional ao rótulo do driver: [crítico] = linguagem forte; [moderado] = desenvolvimento; [leve] = ajuste fino. NÃO dramatize um gap [moderado]/[leve] (ex.: não diga que um traço "compromete" se ele é [moderado]). O mesmo traço deve contar a MESMA história na narrativa e no plano.
+
+DIREÇÃO DO DESVIO (inegociável — não inverta o sinal nem troque o tipo de régua): cada gap vem com o tipo de régua e, para faixa-alvo, o LADO do desvio.
+- "piso/quanto-mais-melhor" (floor): o ideal é estar alto; descreva o gap como ABAIXO do desejado.
+- "teto/manter-baixo" (ceiling): o ideal é estar baixo/moderado; descreva o gap como ACIMA do limite.
+- "faixa-alvo/penaliza-2-lados" (target): o CENTRO é o ideal e desviar para QUALQUER lado penaliza. Descreva pelo "lado=ABAIXO" (falta do traço) ou "lado=ACIMA" (excesso do traço) informado — use o VALOR bruto dado, NUNCA o fit, para saber o lado. É PROIBIDO chamar faixa-alvo de "piso", "mínimo exigido" ou "eliminatório": faixa-alvo NÃO é gate (se fosse, o status seria Bloqueado). Ex.: Dominância faixa-alvo 41-80 com valor 18 (lado=ABAIXO) = "Dominância abaixo da faixa ideal", não "abaixo do piso exigido".
 
 Não dê nota nem recomende demissão. Português do Brasil.`;
 

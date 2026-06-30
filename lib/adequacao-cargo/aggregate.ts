@@ -51,7 +51,10 @@ export interface PessoaAdequacao {
   gaps: TraitGap[];                         // traços abaixo do alvo (desenvolvimento — T3/T7)
 }
 
-export interface TraitGap { traco: string; bloco: string; fitPct: number }  // traço abaixo do alvo (T3/T7)
+// Gap inclui DIREÇÃO e LADO do desvio — sem isto a IA adivinha o lado de um traço
+// faixa-alvo (penaliza dos 2 lados) e pode INVERTER o sinal, ou chamar faixa-alvo de
+// "piso eliminatório". valorBruto + lado tiram a adivinhação.
+export interface TraitGap { traco: string; bloco: string; fitPct: number; direcao?: 'floor' | 'target' | 'ceiling'; valorBruto?: number | null; lo?: number | null; hi?: number | null; lado?: 'abaixo' | 'acima' | null }
 export type Direcao = 'floor' | 'target' | 'ceiling';
 export interface CompetenciaIdeal { nome: string; dimensao: string; min: number; max: number; prioridade: string; direcao?: Direcao }
 export interface CaracteristicaIdeal { par: string; polo: string; intensidade: string }
@@ -178,9 +181,16 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
     const knockoutMotivos = result.knockouts.filter((k) => !k.passed).map((k) => k.rule.label || `${BLOCO_LABEL[k.rule.key] || k.rule.key} abaixo do mínimo`);
     const knockoutEvidencias = result.knockouts.filter((k) => !k.passed).map((k) => evidenciaDeKnockout(k, spec, profile));
     // Gaps p/ desenvolvimento: traços abaixo do alvo (exclui Mapeamento — lente de DISC, não competência desenvolvível).
+    const specByKey = new Map(spec.traits.map((t) => [t.key, t as any]));
     const gaps: TraitGap[] = result.traits
       .filter((t) => t.block !== BLOCK.MAP && t.fit < 0.75)
-      .map((t) => ({ traco: t.label, bloco: BLOCO_LABEL[t.block] || t.block, fitPct: Math.round(t.fit * 100) }))
+      .map((t) => {
+        const st = specByKey.get(t.key);
+        const raw = typeof t.raw === 'number' ? t.raw : null;
+        let lado: 'abaixo' | 'acima' | null = null;
+        if (raw != null && st && st.kind === 'band') lado = raw < st.lo ? 'abaixo' : raw > st.hi ? 'acima' : null;
+        return { traco: t.label, bloco: BLOCO_LABEL[t.block] || t.block, fitPct: Math.round(t.fit * 100), direcao: st?.direction, valorBruto: raw, lo: st?.lo ?? null, hi: st?.hi ?? null, lado };
+      })
       .sort((a, b) => a.fitPct - b.fitPct)
       .slice(0, 6);
 
