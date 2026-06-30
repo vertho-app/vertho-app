@@ -305,11 +305,14 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas, most
               renderiza com mostrarCalibracao=true (preview interno). Default off. */}
           {mostrarCalibracao && data.avisosCalibracao.length > 0 && (
             <View style={s.calibBox}>
-              <Text style={s.calibTitle}>Revisão de calibração sugerida</Text>
+              {/* DETECÇÃO, não prescrição. O painel não conhece ρ nem o constructo, então
+                  NÃO sugere remédio (piso/faixa-alvo podem estar errados: faixa-alvo capa o
+                  lado bom de um traço monotônico; subir piso é frágil). Só sinaliza p/ a mesa. */}
+              <Text style={s.calibTitle}>Saturação detectada — investigar antes de mudar a régua</Text>
               {data.avisosCalibracao.map((a, i) => (
                 a.tipo === 'teto'
-                  ? <Text key={i} style={s.calibTx}>• {a.traco} satura (aderência ~100%) em {a.pct}% dos avaliados — a faixa não discrimina ninguém (piso baixo demais / "mais é melhor" frouxo). Considerar subir o piso ou usar faixa-alvo.</Text>
-                  : <Text key={i} style={s.calibTx}>• {a.traco} zera (aderência ~0%) em {a.pct}% dos avaliados — provável alvo mal posto (piso alto demais) ou déficit sistêmico do grupo. Revisar o alvo.</Text>
+                  ? <Text key={i} style={s.calibTx}>• {a.traco} satura (aderência ~100%) em {a.pct}% — a faixa não discrimina. ANTES de mudar a forma, rodar ρ(traço, veredito): se a dispersão concorda com o veredito há sinal real (avaliar recuperar); se é ortogonal, é design-by-choice (não tocar). NÃO assumir "subir piso" nem "faixa-alvo".</Text>
+                  : <Text key={i} style={s.calibTx}>• {a.traco} zera (aderência ~0%) em {a.pct}% — pode ser alvo mal posto OU déficit real do grupo. Inspecionar os brutos / rodar ρ antes de revisar o alvo.</Text>
               ))}
             </View>
           )}
