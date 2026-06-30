@@ -829,12 +829,30 @@ Mesmas faixas da Tela 2. min <= max sempre. Informe também "direcao" pra cada f
 ═══ DIREÇÃO DA FAIXA (campo "direcao" — Tela 2 e Tela 4) ═══
 Como o scoring deve tratar quem fica FORA da faixa. Escolha um por item:
 - "floor"   = quanto MAIS, melhor (penaliza só ABAIXO da faixa; ter de sobra é ok).
-              Ex.: numa venda agressiva, Persuasão/Comando "Alto-Extremo" → floor.
+              Ex.: numa venda agressiva, Persuasão "Alto-Extremo" → floor.
 - "target"  = o CENTRO é o ideal (penaliza dos DOIS lados; nem pouco, nem demais).
               Ex.: Paciência, Planejamento equilibrados → target. (use como padrão)
 - "ceiling" = manter BAIXO/moderado (penaliza só ACIMA da faixa).
               Ex.: para um cargo dinâmico, Detalhismo/Concentração excessivos atrapalham → ceiling.
 Na dúvida, use "target".
+
+═══ FAMÍLIA COMANDO EM LIDERANÇA (regra dura) ═══
+Aplica-se SÓ se eh_lideranca=true E SÓ aos traços da família comando: Comando,
+Assertividade, Dominância (e o fator DISC "D"). Em liderança esses traços têm retorno
+U-INVERTIDO — pouco E demais prejudicam; o extremo-alto vira dominação/autoritarismo,
+não mais liderança ("mais é melhor" é FALSO para eles). Por isso:
+1. NUNCA emita "target" + knockout no MESMO traço da família comando: o knockout sobre o
+   fit de "target" elimina o extremo-ALTO como se fosse incompetência (Comando=100 → fit
+   0% → reprova). Eliminatória na família comando, se houver, é só por AUSÊNCIA (lado
+   baixo), JAMAIS por excesso.
+2. Gate-low (knockout) na família comando SÓ onde o mínimo é categórico para a FUNÇÃO do
+   cargo (ex.: um Diretor Geral sem comando não exerce o cargo → cabe; papel onde comando
+   baixo é desenvolvível → NÃO use gate). Na dúvida, sem knockout (só score). Use "floor"
+   como direção da família comando neste interim (o teto curvilíneo será adicionado depois).
+3. FRONTEIRA — vale SÓ para a família comando. Empatia, Planejamento, Persistência,
+   Organização etc. SEGUEM "floor" normal (retorno monotônico — não existe "empatia
+   demais"). NÃO ponha teto/target nesses só por serem de liderança: liderança NÃO implica
+   teto; só a família comando implica, porque só ela é curvilínea.
 
 ═══ PESOS DE BLOCO E ELIMINATÓRIAS (opcional, mas recomendado) ═══
 - "pesos_blocos": importância relativa de cada bloco no score final. 4 números que
