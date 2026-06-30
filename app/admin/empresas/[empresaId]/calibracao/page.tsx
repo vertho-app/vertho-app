@@ -64,9 +64,23 @@ export default function CalibracaoPage() {
 
       {diag?.success && (
         <div className="space-y-4">
-          <div className="rounded-xl p-4 border" style={{ borderColor: BANNER[veredito].cor + '55', background: BANNER[veredito].cor + '14' }}>
-            <div className="font-bold text-sm" style={{ color: BANNER[veredito].cor }}>{BANNER[veredito].titulo}</div>
-            <p className="text-xs text-slate-300 mt-1">{BANNER[veredito].sub}</p>
+          <div className="rounded-xl p-4 border flex items-start gap-4" style={{ borderColor: BANNER[veredito].cor + '55', background: BANNER[veredito].cor + '14' }}>
+            {/* Nota de saúde da régua — TRIAGEM (diz onde olhar), não grade que licencia ação */}
+            {(() => {
+              const s = diag.saude; const SCOR: Record<string, string> = { saudavel: '#10b981', atencao: '#f59e0b', problema: '#ef4444', indeterminado: '#64748b' };
+              return (
+                <div className="text-center shrink-0 w-20" title="Saúde da régua: 100 = régua correta. Penaliza só régua invertida (tensão). Indexa o cartão, não substitui.">
+                  <div className="text-3xl font-bold leading-none" style={{ color: SCOR[s.status] }}>{s.nota == null ? '—' : s.nota}</div>
+                  <div className="text-[9px] text-slate-400 mt-1">saúde da régua</div>
+                  {s.nota != null && <div className="text-[9px]" style={{ color: s.confianca === 'baixa' ? '#f59e0b' : '#64748b' }}>conf. {s.confianca}</div>}
+                </div>
+              );
+            })()}
+            <div className="flex-1">
+              <div className="font-bold text-sm" style={{ color: BANNER[veredito].cor }}>{BANNER[veredito].titulo}</div>
+              <p className="text-xs text-slate-300 mt-1">{BANNER[veredito].sub}</p>
+              {diag.saude.motivos.length > 0 && <ul className="text-[10px] text-slate-400 mt-2 space-y-0.5">{diag.saude.motivos.map((m: string, k: number) => <li key={k}>· {m}</li>)}</ul>}
+            </div>
           </div>
 
           {blockers.length > 0 && (

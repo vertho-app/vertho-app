@@ -8,7 +8,7 @@
  */
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { aggregateAdequacao } from '@/lib/adequacao-cargo/aggregate';
-import { camada0Higiene, camada1Cartao, camada1Direcao } from '@/lib/calibracao/diagnostico';
+import { camada0Higiene, camada1Cartao, camada1Direcao, saudeCalibracao } from '@/lib/calibracao/diagnostico';
 import { simularMaterialidade } from '@/lib/calibracao/materialidade';
 import { buildRoleSpec } from '@/lib/scoring/role-spec';
 import { buildCandidateProfile, candidateColumns } from '@/lib/scoring/candidate';
@@ -60,7 +60,8 @@ export async function diagnosticarCalibracao(empresaId: string, cargo: string): 
       }
     }
 
-    return { success: true, cargo, n, semTracos, higiene, cartao, direcao, materialidade };
+    const saude = saudeCalibracao(cartao, higiene.some((i: any) => i.tipo !== 'sem_disc'), n);
+    return { success: true, cargo, n, semTracos, higiene, cartao, direcao, materialidade, saude };
   } catch (e: any) {
     return { success: false, error: e?.message || 'Erro no diagnóstico de calibração.' };
   }

@@ -159,3 +159,27 @@ export function camada1Direcao(data: AdequacaoCargo): { gapsChecados: number; in
   }
   return { gapsChecados: n, inconsistencias: inc };
 }
+
+// ── Saúde da régua (0-100) — TRIAGEM, não grade ──────────────────────────────
+// Mede "a régua está CERTA?", não "a população varia". Penaliza SÓ tensão-de-autoria
+// (régua de fato invertida); saturação/sinal-recuperável/design-by-choice são neutros
+// (muitas vezes by-design / entregável). Higiene suja → SEM nota (não se pontua dado
+// contaminado). N pequeno → confiança baixa (a classificação é frágil). A nota INDEXA o
+// cartão (diz onde olhar), NUNCA licencia ação — a decisão de régua continua clínica.
+export interface SaudeCalibracao { nota: number | null; status: 'saudavel' | 'atencao' | 'problema' | 'indeterminado'; confianca: 'alta' | 'baixa'; motivos: string[] }
+export function saudeCalibracao(cartao: LinhaCartao[], temBlockerHigiene: boolean, n: number): SaudeCalibracao {
+  if (temBlockerHigiene) return { nota: null, status: 'indeterminado', confianca: 'baixa', motivos: ['Dados duplicados/conflitantes não resolvidos — não dá pra pontuar dado contaminado.'] };
+  let nota = 100; const motivos: string[] = [];
+  for (const l of cartao) {
+    if (l.quadrante !== 'tensao-de-autoria') continue;
+    const p = l.confianca === 'robusta' ? 20 : 8;
+    nota -= p;
+    motivos.push(`${l.traco}: régua possivelmente invertida (ρ ${l.rho}${l.confianca === 'borderline' ? ', borderline' : ''}) −${p}`);
+  }
+  nota = Math.max(0, Math.min(100, nota));
+  const confianca: 'alta' | 'baixa' = n >= 20 ? 'alta' : 'baixa';
+  if (confianca === 'baixa') motivos.push(`Confiança baixa: poucos avaliados (N=${n}) — classificação frágil, trate a nota como indicativa.`);
+  const status: SaudeCalibracao['status'] = nota >= 90 ? 'saudavel' : nota >= 70 ? 'atencao' : 'problema';
+  if (status === 'saudavel' && motivos.length === 0) motivos.push('Régua correta — nenhum traço com problema de calibração.');
+  return { nota, status, confianca, motivos };
+}
