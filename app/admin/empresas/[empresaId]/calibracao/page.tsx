@@ -1,19 +1,16 @@
 'use client';
 /**
- * Tela DEV de Diagnóstico de Calibração (Fase 1). Instrumentação INTERNA de autoria —
- * NUNCA entra no PDF do cliente. DESCREVE e CLASSIFICA (quadrante + |ρ|/crít + confiança +
- * materialidade simulada); NÃO prescreve ação. A decisão continua humana.
+ * Tela DEV de Diagnóstico de Calibração. AMIGÁVEL + ACIONÁVEL, mas fiel ao contrato:
+ *  - Ação MECÂNICA/segura tem botão (gerar relatório — o passo real após calibrar).
+ *  - Decisão CLÍNICA de régua (recuperar sinal / consertar tensão) vai pra MESA em
+ *    linguagem clara, NUNCA vira botão de auto-aplicar (provamos que "faixa-alvo
+ *    genérico" está errado p/ traço monotônico). DESCREVE, sugere o próximo passo
+ *    seguro, e marca o que é juízo humano. Nunca entra no PDF do cliente.
  */
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { listarCargosCalibracao, diagnosticarCalibracao } from '@/actions/calibracao';
-
-const QUAD: Record<string, { label: string; cor: string }> = {
-  'tensao-de-autoria': { label: 'Tensão de autoria', cor: '#f59e0b' },
-  'sinal-recuperavel': { label: 'Sinal recuperável', cor: '#10b981' },
-  'curvilineo-correto': { label: 'Curvilíneo-correto', cor: '#38bdf8' },
-  'design-by-choice': { label: 'Design-by-choice', cor: '#64748b' },
-};
+import { gerarRelatorioAdequacao } from '@/actions/adequacao-cargo';
 
 export default function CalibracaoPage() {
   const { empresaId } = useParams() as { empresaId: string };
@@ -21,18 +18,49 @@ export default function CalibracaoPage() {
   const [sel, setSel] = useState('');
   const [diag, setDiag] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [detalhes, setDetalhes] = useState(false);
+  const [gerando, setGerando] = useState(false);
+  const [pdf, setPdf] = useState<{ url?: string; error?: string } | null>(null);
 
   useEffect(() => { listarCargosCalibracao(empresaId).then((r) => setCargos(r.cargos)); }, [empresaId]);
 
   async function run(cargo: string) {
-    setSel(cargo); setLoading(true); setDiag(null);
+    setSel(cargo); setLoading(true); setDiag(null); setPdf(null);
     setDiag(await diagnosticarCalibracao(empresaId, cargo)); setLoading(false);
+  }
+  async function gerar() {
+    setGerando(true); setPdf(null);
+    const r = await gerarRelatorioAdequacao(empresaId, sel, { comAnaliseIA: true });
+    setPdf(r.success ? { url: r.url } : { error: r.error }); setGerando(false);
+  }
+
+  // ── veredito (1 frase) + ação primária segura ──────────────────────────────
+  const blockers = diag?.success ? diag.higiene.filter((i: any) => i.tipo !== 'sem_disc') : [];
+  const flags = diag?.success ? diag.cartao.filter((l: any) => l.quadrante === 'sinal-recuperavel' || l.quadrante === 'tensao-de-autoria') : [];
+  const tensao = flags.filter((l: any) => l.quadrante === 'tensao-de-autoria' && l.confianca === 'robusta');
+  const veredito: 'higiene' | 'tensao' | 'sinal' | 'ok' =
+    blockers.length ? 'higiene' : tensao.length ? 'tensao' : flags.length ? 'sinal' : 'ok';
+  const BANNER: Record<string, { cor: string; bg: string; titulo: string; sub: string }> = {
+    higiene: { cor: '#f59e0b', bg: 'rgba(245,158,11,0.1)', titulo: '⚠ Resolva os dados antes de entregar', sub: 'Há registros duplicados/conflitantes que contaminam o diagnóstico. Limpe-os primeiro.' },
+    tensao: { cor: '#f59e0b', bg: 'rgba(245,158,11,0.1)', titulo: '⚠ Um traço merece revisão clínica antes de confiar no ranking', sub: 'A régua de um traço parece invertida (mais pontua pior). Veja abaixo e leve à mesa.' },
+    sinal: { cor: '#38bdf8', bg: 'rgba(56,189,248,0.08)', titulo: '✓ Cargo entregável — com um sinal anotado para a mesa', sub: 'A calibração está boa para entregar. Há sinal que poderia refinar o ranking, mas é decisão clínica, sem urgência.' },
+    ok: { cor: '#10b981', bg: 'rgba(16,185,129,0.08)', titulo: '✓ Cargo bem calibrado — pode gerar e entregar', sub: 'Nenhum traço com problema de régua. O relatório deste cargo está pronto para sair.' },
+  };
+
+  function frase(l: any): string {
+    const m = diag.materialidade[l.key];
+    const reclass = m ? `re-classificaria ~${m.cruzam} pessoa(s) (${m.detalhe.map((d: any) => `${d.de}→${d.para}`).join(', ') || 'dentro do recomendado'})` : '';
+    if (l.quadrante === 'tensao-de-autoria')
+      return `A régua trata "${l.traco}" como "quanto mais, melhor", mas nos dados quem tem mais pontua PIOR (ρ ${l.rho}). Pode ser que devesse ter teto (curvilínea). Decisão da mesa clínica — não mexa sem o psicólogo.`;
+    if (l.confianca === 'borderline')
+      return `"${l.traco}" parece carregar sinal, mas com poucos avaliados (N=${l.n}) a evidência é fraca. Reavaliar com mais dados antes de qualquer mudança.`;
+    return `Quem tem mais "${l.traco}" tende a ir melhor no cargo, mas a régua atual não distingue (quase todos pontuam no teto). Recuperar esse sinal ${reclass} — mas é decisão clínica (a forma certa não é automática). Vale a mesa quando houver um 2º grupo deste cargo.`;
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto text-slate-200">
-      <h1 className="text-xl font-bold text-white">Diagnóstico de Calibração <span className="text-amber-400 text-xs font-normal">· interno / dev-only</span></h1>
-      <p className="text-xs text-slate-400 mt-1 mb-4">Descreve e classifica a calibração de um cargo (saturação, ρ, confiança, materialidade). <b>Não prescreve ação</b> e <b>nunca entra no relatório do cliente</b> — a decisão de forma de régua é humana.</p>
+    <div className="p-6 max-w-4xl mx-auto text-slate-200">
+      <h1 className="text-xl font-bold text-white">Calibração do Cargo <span className="text-slate-500 text-xs font-normal">· uso interno</span></h1>
+      <p className="text-xs text-slate-400 mt-1 mb-4">Confere se a régua de um cargo está medindo bem antes de você entregar o relatório. Sugere o próximo passo; mudanças de régua continuam decisão clínica.</p>
 
       <div className="flex flex-wrap gap-2 mb-5">
         {cargos.map((c) => (
@@ -40,68 +68,62 @@ export default function CalibracaoPage() {
         ))}
       </div>
 
-      {loading && <p className="text-sm text-slate-400">Diagnosticando…</p>}
+      {loading && <p className="text-sm text-slate-400">Analisando…</p>}
       {diag && !diag.success && <p className="text-sm text-red-400">{diag.error}</p>}
 
       {diag?.success && (
-        <div className="space-y-6">
-          {/* CAMADA 0 — higiene */}
-          <section>
-            {(() => {
-              const semDisc = diag.higiene.filter((i: any) => i.tipo === 'sem_disc');
-              const blockers = diag.higiene.filter((i: any) => i.tipo !== 'sem_disc'); // dedup/email/conflito = contaminam
-              return (<>
-                <h2 className="text-sm font-bold text-white mb-2">Camada 0 — Higiene de pool {blockers.length > 0 ? <span className="text-amber-400">({blockers.length} a resolver — dedup humano antes de oficializar)</span> : <span className="text-emerald-400">(sem contaminação)</span>}</h2>
-                {semDisc.length > 0 && <p className="text-xs text-slate-500 mb-1">{semDisc.length} colaborador(es) sem DISC — não avaliados, excluídos do score (informativo, não bloqueia).</p>}
-                {blockers.length > 0 && (
-                  <ul className="text-xs space-y-1">
-                    {blockers.map((i: any, k: number) => (
-                      <li key={k} className="text-slate-300"><span className="text-amber-400 font-mono">[{i.tipo}]</span> {i.detalhe}</li>
-                    ))}
-                  </ul>
-                )}
-              </>);
-            })()}
-          </section>
+        <div className="space-y-4">
+          {/* VEREDITO + AÇÃO */}
+          <div className="rounded-xl p-4 border" style={{ borderColor: BANNER[veredito].cor + '55', background: BANNER[veredito].bg }}>
+            <div className="font-bold text-white text-sm" style={{ color: BANNER[veredito].cor }}>{BANNER[veredito].titulo}</div>
+            <p className="text-xs text-slate-300 mt-1">{BANNER[veredito].sub}</p>
+            <div className="mt-3 flex items-center gap-3">
+              {veredito === 'higiene'
+                ? <span className="text-xs text-amber-400">Resolva os itens abaixo (decisão de qual registro fica é sua) e reabra a tela.</span>
+                : <button onClick={gerar} disabled={gerando} className="text-xs font-bold px-4 py-2 rounded bg-emerald-500/20 border border-emerald-400 text-emerald-300 hover:bg-emerald-500/30 disabled:opacity-50">{gerando ? 'Gerando…' : 'Gerar relatório de Adequação'}</button>}
+              {pdf?.url && <a href={pdf.url} target="_blank" rel="noreferrer" className="text-xs text-cyan-400 underline">Abrir PDF gerado ↗</a>}
+              {pdf?.error && <span className="text-xs text-red-400">{pdf.error}</span>}
+            </div>
+          </div>
 
-          {/* CAMADA 1 — cartão */}
-          <section>
-            <h2 className="text-sm font-bold text-white mb-2">Cartão de Calibração — N={diag.n} não-bloqueados</h2>
-            {diag.semTracos && <p className="text-xs text-amber-400">Snapshot sem detalhe por-traço (gerado antes do enriquecimento). Regere o relatório.</p>}
-            <table className="w-full text-xs border-collapse">
-              <thead><tr className="text-slate-400 text-left border-b border-white/10">
-                <th className="py-1.5 pr-3">Traço</th><th className="pr-3">Direção</th><th className="pr-3">Saturação</th><th className="pr-3">ρ (bruto×Beta)</th><th className="pr-3">Confiança</th><th className="pr-3">Quadrante</th><th className="pr-3">Materialidade (sim.)</th>
-              </tr></thead>
-              <tbody>
-                {diag.cartao.map((l: any) => {
-                  const m = diag.materialidade[l.key];
-                  return (
-                    <tr key={l.key} className="border-b border-white/5 align-top">
-                      <td className="py-1.5 pr-3 text-white font-medium">{l.traco}</td>
-                      <td className="pr-3 text-slate-400">{l.direcao}</td>
-                      <td className="pr-3">{l.ladoSaturacao} {l.pctSat}%</td>
-                      <td className="pr-3 font-mono">{l.rho >= 0 ? '+' : ''}{l.rho}</td>
-                      <td className="pr-3">{l.confianca === 'ns' ? <span className="text-slate-500">não-sig</span> : <span className={l.confianca === 'robusta' ? 'text-emerald-400' : 'text-amber-400'}>{l.confianca}</span>}</td>
-                      <td className="pr-3"><span style={{ color: QUAD[l.quadrante]?.cor }}>{QUAD[l.quadrante]?.label}</span></td>
-                      <td className="pr-3 text-slate-300">{m ? <span title="what-if rotulado — não é o resultado entregue">{m.cruzam}/{m.naoBloqueados} cruzam cor <span className="text-slate-500">(ombro {m.ombroBase}→{m.ombroRecuperado})</span></span> : '—'}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {/* decisões pendentes (texto = a pergunta, não a prescrição) */}
-            {diag.cartao.filter((l: any) => l.decisaoPendente).map((l: any) => (
-              <p key={l.key} className="text-[11px] text-slate-400 mt-2"><b className="text-slate-300">{l.traco}:</b> {l.decisaoPendente}</p>
-            ))}
-          </section>
+          {/* HIGIENE (só blockers) */}
+          {blockers.length > 0 && (
+            <div className="rounded-lg p-3 border border-amber-400/30 bg-amber-400/5">
+              <div className="text-xs font-bold text-amber-300 mb-1">Dados a resolver</div>
+              <ul className="text-xs space-y-1 text-slate-300">{blockers.map((i: any, k: number) => <li key={k}>• {i.detalhe}</li>)}</ul>
+            </div>
+          )}
 
-          {/* DIREÇÃO — consistency-check */}
-          <section>
-            <h2 className="text-sm font-bold text-white mb-1">Direção do desvio — {diag.direcao.gapsChecados} gaps checados</h2>
-            {diag.direcao.inconsistencias.length === 0
-              ? <p className="text-xs text-emerald-400">0 inconsistências (lado narrado bate com bruto×faixa).</p>
-              : <ul className="text-xs text-red-400 space-y-0.5">{diag.direcao.inconsistencias.map((x: any, k: number) => <li key={k}>{x.nome} · {x.traco} bruto {x.bruto} faixa {x.faixa}: gravado {x.ladoGravado}, esperado {x.ladoEsperado}</li>)}</ul>}
-          </section>
+          {/* TRAÇOS QUE PEDEM A MESA (linguagem clara) */}
+          {flags.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Para a mesa clínica ({flags.length})</div>
+              {flags.map((l: any) => (
+                <div key={l.key} className="rounded-lg p-3 border border-white/10 bg-white/[0.02]">
+                  <div className="text-sm font-medium text-white">{l.traco} <span className="text-[10px] text-slate-500">({l.confianca})</span></div>
+                  <p className="text-xs text-slate-300 mt-1">{frase(l)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {veredito === 'ok' && <p className="text-xs text-emerald-400/80">Nenhum traço precisa da mesa. Os {diag.cartao.length} traços estão calibrados ou são table-stakes esperados do cargo.</p>}
+
+          {/* DETALHES TÉCNICOS (recolhido) */}
+          <button onClick={() => setDetalhes((v) => !v)} className="text-[11px] text-slate-500 hover:text-slate-300 underline">{detalhes ? 'ocultar' : 'ver'} detalhes técnicos (ρ, saturação, materialidade)</button>
+          {detalhes && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[11px] border-collapse mt-2">
+                <thead><tr className="text-slate-500 text-left border-b border-white/10"><th className="py-1 pr-3">Traço</th><th className="pr-3">Dir</th><th className="pr-3">Sat</th><th className="pr-3">ρ</th><th className="pr-3">Conf</th><th className="pr-3">Quadrante</th><th className="pr-3">Materialid.</th></tr></thead>
+                <tbody>
+                  {diag.cartao.map((l: any) => { const m = diag.materialidade[l.key]; return (
+                    <tr key={l.key} className="border-b border-white/5"><td className="py-1 pr-3 text-white">{l.traco}</td><td className="pr-3 text-slate-400">{l.direcao}</td><td className="pr-3">{l.pctSat}%</td><td className="pr-3 font-mono">{l.rho >= 0 ? '+' : ''}{l.rho}</td><td className="pr-3">{l.confianca}</td><td className="pr-3 text-slate-400">{l.quadrante}</td><td className="pr-3 text-slate-400">{m ? `${m.cruzam}/${m.naoBloqueados}` : '—'}</td></tr>
+                  ); })}
+                </tbody>
+              </table>
+              <p className="text-[11px] text-slate-500 mt-2">Direção do desvio: {diag.direcao.gapsChecados} gaps checados, {diag.direcao.inconsistencias.length} inconsistências.</p>
+            </div>
+          )}
         </div>
       )}
     </div>
