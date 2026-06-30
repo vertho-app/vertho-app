@@ -35,11 +35,11 @@ export const LATEST_SPEC_VERSION = 4;
 /** Teto de peso do bloco Mapeamento na v2 (é lente derivada do DISC; surplus vai p/ Competência). */
 const MAP_WEIGHT_CAP_V2 = 0.20;
 
-/** Régua de cor + rampa por versão da spec. v<4 = legado (motor binário re-ancorado em 26/06). */
-function reguaDe(specVersion: number): { tol: number; bandHigh: number; bandMid: number } {
+/** Régua de cor + rampa + driver-aware por versão da spec. v<4 = legado (motor binário re-ancorado 26/06). */
+function reguaDe(specVersion: number): { tol: number; bandHigh: number; bandMid: number; driverThreshold: number } {
   return specVersion >= 4
-    ? { tol: 30, bandHigh: 0.865, bandMid: 0.754 } // 0,754 = quantil amarelo MEDIDO (não 0,755 redondo → +0 vermelho)
-    : { tol: 20, bandHigh: 0.85, bandMid: 0.60 };
+    ? { tol: 30, bandHigh: 0.865, bandMid: 0.754, driverThreshold: 0.65 } // 0,754 = quantil amarelo MEDIDO; driver<0,65 (crít/moderado) rebaixa verde
+    : { tol: 20, bandHigh: 0.85, bandMid: 0.60, driverThreshold: 0 };     // legado: sem driver-aware
 }
 
 const norm = (s: any) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
@@ -215,6 +215,7 @@ export function buildRoleSpec(gabarito: any, cargoNome: string, opts: BuildRoleS
     bandHigh: regua.bandHigh,
     bandMid: regua.bandMid,
     tol: regua.tol,
+    driverThreshold: regua.driverThreshold,
     traits,
     blockWeights,
     knockouts,

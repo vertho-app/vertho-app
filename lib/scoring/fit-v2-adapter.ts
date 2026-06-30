@@ -140,7 +140,9 @@ export function calcularFitUnificado(gabarito: any, colab: any, opts: FitUnifica
   // Decisão de produto: o NÚMERO é sempre o match real (não penaliza). A
   // eliminatória é um GATE separado — vira classificação "Não recomendado" +
   // premissas ✗, e o ranking joga os reprovados pro fim. PDF e tela ficam iguais.
-  const fitFinal = Math.round(scoreBase * 10) / 10; // padrão: 1 casa decimal
+  // fit_final = MESMO arredondamento do engine (betaPct, 1 casa) p/ não divergir do
+  // PDF por dupla-arredondagem (item Saturnino 89,9 vs 89,8).
+  const fitFinal = result.betaPct;
   const fatorCritico = 1;
 
   const resultado: any = {
@@ -152,6 +154,8 @@ export function calcularFitUnificado(gabarito: any, colab: any, opts: FitUnifica
     fatores: { fator_critico: fatorCritico, fator_excesso: 1 },
     blocos,
     // Sinais novos do motor (a tela pode ignorar; persistidos no JSON):
+    status: result.status,           // FONTE ÚNICA de cor/classificação (v4-aware + driver-aware)
+    beta_band: result.betaBand,      // banda crua do Beta (sem driver-aware) — diagnóstico
     borderline: result.borderline,
     sem_delta_pct: result.semDeltaPct,
     knockout_failed: result.knockoutFailed,
@@ -160,11 +164,21 @@ export function calcularFitUnificado(gabarito: any, colab: any, opts: FitUnifica
     premissas: result.knockouts.map((k) => ({ key: k.rule.key, label: k.rule.label || k.rule.key, passed: k.passed })),
   };
 
-  // Eliminatória reprovada = GATE: "Não recomendado" independentemente do match.
-  if (result.knockoutFailed) {
+  // Classificação/recomendação DERIVAM do STATUS do engine — fonte ÚNICA, igual ao
+  // PDF. O classificar() legado tinha 85 fixo (e a tela tinha outro 85 fixo em
+  // getFaixa) → tela e PDF divergiam na fronteira v4 (86,5) e o driver-aware (verde
+  // com furo → ressalva) nem aparecia. Agora selo×cor×narrativa×plano contam uma
+  // história só. O classificar() fino (Razoável/Baixa/Crítica) só desempata o vermelho.
+  if (result.status === 'bloqueado') {
     resultado.classificacao = 'Não recomendado';
     resultado.recomendacao = 'Não recomendado';
-  } else {
+  } else if (result.status === 'recomendado') {
+    resultado.classificacao = 'Aderência Excelente';
+    resultado.recomendacao = 'Aderente';
+  } else if (result.status === 'recomendado_com_ressalvas') {
+    resultado.classificacao = 'Aderência Alta';
+    resultado.recomendacao = 'Aderente com ressalvas';
+  } else { // abaixo_do_corte (vermelho): mantém o tier fino legado p/ Razoável/Baixa/Crítica
     const cl = classificar(resultado.fit_final);
     resultado.classificacao = cl.classificacao;
     resultado.recomendacao = cl.recomendacao;

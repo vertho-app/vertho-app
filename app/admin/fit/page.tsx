@@ -32,6 +32,21 @@ function getFaixa(fit) {
   return 'critica';
 }
 
+// Cor + rótulo DERIVAM do status do engine (fonte única, igual ao PDF: v4-aware +
+// driver-aware). Colapsa nas 3 cores do PDF (verde/amarelo/vermelho) + gate. O 85 fixo
+// do getFaixa() só sobrevive como fallback p/ linhas legadas sem `status` (cache pré-v4).
+const STATUS_VIEW = {
+  recomendado:               { faixa: 'excelente', label: 'Recomendado' },
+  recomendado_com_ressalvas: { faixa: 'razoavel',  label: 'Com ressalvas' },
+  abaixo_do_corte:           { faixa: 'critica',   label: 'Abaixo do corte' },
+  bloqueado:                 { faixa: 'critica',   label: 'Não recomendado' },
+};
+function viewDe(r) {
+  if (r && r.status && STATUS_VIEW[r.status]) return STATUS_VIEW[r.status];
+  const f = r?.knockout_failed ? 'critica' : getFaixa(r?.fit_final ?? 0);
+  return { faixa: f, label: r?.knockout_failed ? 'Não recomendado' : null };
+}
+
 function parseFaixa(faixa) {
   // "60-100" → { min: 60, max: 100 }
   if (!faixa || typeof faixa !== 'string') return null;
@@ -367,7 +382,7 @@ export default function FitPage() {
                 <tbody className="divide-y divide-white/[0.03]">
                   {sortedRanking.map(r => {
                     const blocked = !!r.knockout_failed;
-                    const faixa = blocked ? 'critica' : getFaixa(r.fit_final);
+                    const { faixa, label: statusLabel } = viewDe(r);
                     return (
                       <tr key={r.colaborador.id} className="hover:bg-white/[0.02] cursor-pointer" onClick={() => openDetail(r)}>
                         <td className="px-4 py-2.5 text-center text-amber-400 font-mono font-bold text-xs">{r.ranking.posicao}</td>
@@ -394,7 +409,7 @@ export default function FitPage() {
                         </td>
                         <td className="px-4 py-2.5">
                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${FAIXA_COLORS[faixa]?.bg} ${FAIXA_COLORS[faixa]?.text}`}>
-                            {blocked ? 'Não recomendado' : t(`fitBands.${faixa}`)}
+                            {statusLabel ?? t(`fitBands.${faixa}`)}
                           </span>
                         </td>
                       </tr>
@@ -436,13 +451,12 @@ export default function FitPage() {
                 <p className="text-xs text-gray-500">{cargoSel}</p>
               </div>
               {(() => {
-                const dBlocked = !!detailColab.knockout_failed;
-                const dFaixa = dBlocked ? 'critica' : getFaixa(detailColab.fit_final);
+                const { faixa: dFaixa, label: dLabel } = viewDe(detailColab);
                 return (
                   <div className="text-right">
                     <div className={`text-3xl font-bold ${FAIXA_COLORS[dFaixa]?.text}`}>{Number(detailColab.fit_final).toFixed(1)}</div>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${FAIXA_COLORS[dFaixa]?.bg} ${FAIXA_COLORS[dFaixa]?.text}`}>
-                      {dBlocked ? 'Não recomendado' : t(`fitBands.${dFaixa}`)}
+                      {dLabel ?? t(`fitBands.${dFaixa}`)}
                     </span>
                   </div>
                 );

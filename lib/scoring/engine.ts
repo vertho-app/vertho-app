@@ -79,6 +79,7 @@ export interface RoleSpec {
   bandHigh?: number;     // corte verde   (default BAND_HIGH = 0,85)
   bandMid?: number;      // corte amarelo (default BAND_MID = 0,60)
   tol?: number;          // tolerância de rampa default dos band traits (metadata; o consumo é via tLo/tHi por traço)
+  driverThreshold?: number; // v4: fit abaixo do qual um band trait (driver) rebaixa um VERDE p/ "com ressalvas". 0/ausente = desligado (legado)
   traits: TraitSpec[];
   blockWeights: Record<BlockName, number>; // soma ~1 (renormalizada se faltar bloco)
   knockouts?: KnockoutRule[];
@@ -390,6 +391,20 @@ export function scoreCandidate(spec: RoleSpec, profile: CandidateProfile): Scori
   else if (betaBand === 'verde') status = 'recomendado';
   else if (betaBand === 'amarelo') status = 'recomendado_com_ressalvas';
   else status = 'abaixo_do_corte';
+
+  // STATUS DRIVER-AWARE (v4). Um VERDE (Beta na banda alta) com um DRIVER em déficit
+  // moderado+ (band trait — competência/DISC — com fit abaixo do limiar) NÃO é
+  // "recomendado limpo": o Beta, sendo média ponderada, MASCARA o furo local (ex.:
+  // Maria Aparecida, Beta 90 e Dominância 35%). Rebaixa p/ "com ressalvas" → entra no
+  // plano e o selo passa a casar com a narrativa (que já citava o gap) e o plano (que
+  // antes o abandonava). Só o verde precisa: amarelo já é ressalva, bloqueado é gate.
+  // O limiar vem da spec (driverThreshold, v4=0,65 ⇒ crítico/moderado rebaixa, leve
+  // não). Domain-agnostic: 'band' já exclui Mapeamento (binary/scalar) e Liderança (scalar).
+  const driverTh = spec.driverThreshold ?? 0;
+  if (driverTh > 0 && status === 'recomendado') {
+    const driverDeficit = spec.traits.some((t) => t.kind === 'band' && (traitFits.get(t.key) ?? 1) < driverTh);
+    if (driverDeficit) { status = 'recomendado_com_ressalvas'; recommendation = 'recomendado_com_ressalvas'; }
+  }
 
   return {
     cargo: spec.cargo,
