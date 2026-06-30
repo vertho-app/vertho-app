@@ -73,6 +73,12 @@ export interface RoleSpec {
   scaleMin?: number;     // default 0
   scaleMax?: number;     // default 100
   sem?: number;          // erro-padrão de medida do instrumento. default 5
+  // Régua de cor versionada (emitida pelo adaptador conforme specVersion). Ausente
+  // → defaults legados (BAND_HIGH/BAND_MID). Versionar aqui CONGELA o histórico:
+  // um gabarito v<4 segue a régua antiga mesmo após recalibrarmos a nova.
+  bandHigh?: number;     // corte verde   (default BAND_HIGH = 0,85)
+  bandMid?: number;      // corte amarelo (default BAND_MID = 0,60)
+  tol?: number;          // tolerância de rampa default dos band traits (metadata; o consumo é via tLo/tHi por traço)
   traits: TraitSpec[];
   blockWeights: Record<BlockName, number>; // soma ~1 (renormalizada se faltar bloco)
   knockouts?: KnockoutRule[];
@@ -324,6 +330,10 @@ function clamp(v: number, lo: number, hi: number): number {
 export function scoreCandidate(spec: RoleSpec, profile: CandidateProfile): ScoringResult {
   const sMin = spec.scaleMin ?? DEF.scaleMin;
   const sMax = spec.scaleMax ?? DEF.scaleMax;
+  // Régua de cor desta spec (versionada → histórico congelado). Fallback = legado.
+  const bHigh = spec.bandHigh ?? BAND_HIGH;
+  const bMid = spec.bandMid ?? BAND_MID;
+  const band = (s: number): ColorBand => (s >= bHigh ? 'verde' : s >= bMid ? 'amarelo' : 'vermelho');
 
   const traitFits = new Map<string, number>();
   const traits: TraitScore[] = spec.traits.map((t) => {
@@ -339,17 +349,33 @@ export function scoreCandidate(spec: RoleSpec, profile: CandidateProfile): Scori
     block: b.block,
     score: b.score,
     pct: Math.round(b.score * 100),
-    band: colorBand(b.score),
+    band: band(b.score),
     weight: Math.round((b.weight / wsum) * 1000) / 1000,
   }));
 
   const beta = betaFrom(rawBlocks);
-  const betaBand = colorBand(beta);
+  const betaBand = band(beta);
 
-  const knockouts = evalKnockouts(spec, rawBlocks, traitFits);
+  // GATE DESACOPLADO DA RÉGUA DE SCORE. O knockout é avaliado numa tolerância de
+  // REFERÊNCIA fixa (DEF.tol = régua legada), NÃO na rampa de score da spec. Motivo
+  // (lição do v4): o gate é binário sobre o mín%, mas o valor medido é o FIT, e o fit
+  // é desenhado pela rampa — alargar a tolerância levanta o fit de quem está abaixo do
+  // piso e AFROUXA o corte eliminatório sem ninguém pedir (é o guardião
+  // knockout_acoplado_piso, na alavanca da tolerância em vez do piso). Avaliar o gate
+  // em DEF.tol pina o corte onde o psicólogo o calibrou; a rampa larga (v4) dá
+  // gradiente só ao SCORE. Em specs v<4 (régua tol=20) os dois fits coincidem → no-op.
+  const gateFit = (t: TraitSpec): number => {
+    if (t.kind === 'binary') return binaryFit(profile[t.key] as number | boolean);
+    if (t.kind === 'scalar') return scalarFit(profile[t.key] as number | boolean);
+    return traitFit(Number(profile[t.key]), { ...t, tLo: DEF.tol, tHi: DEF.tol }, sMin, sMax);
+  };
+  const gateTraitFits = new Map<string, number>();
+  for (const t of spec.traits) gateTraitFits.set(t.key, gateFit(t));
+  const gateBlocks = blockScores(spec, (t) => gateTraitFits.get(t.key)!);
+  const knockouts = evalKnockouts(spec, gateBlocks, gateTraitFits);
   const knockoutFailed = knockouts.some((k) => !k.passed);
   const swing = semSwing(spec, profile);
-  const borderline = colorBand(swing.lo) !== betaBand || colorBand(swing.hi) !== betaBand || colorBand(swing.lo) !== colorBand(swing.hi);
+  const borderline = band(swing.lo) !== betaBand || band(swing.hi) !== betaBand || band(swing.lo) !== band(swing.hi);
   const semDeltaPct = Math.round(((swing.hi - swing.lo) / 2) * 1000) / 10; // ± em pontos de Beta
 
   let recommendation: Recommendation;

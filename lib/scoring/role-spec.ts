@@ -20,10 +20,27 @@ import { poloReconhecivel } from './mapeamento-polos';
 
 export const BLOCK = { MAP: 'Mapeamento', COMP: 'Competencia', LID: 'Lideranca', DISC: 'DISC' } as const;
 export const LID_KEY = 'Lideranca';
-/** Versão atual da spec de scoring. v2 (27/06): Mapeamento contínuo + peso rebaixado (cap 0,20). */
-export const LATEST_SPEC_VERSION = 2;
+/**
+ * Versão atual da spec de scoring.
+ *  v2 (27/06): Mapeamento contínuo + peso rebaixado (cap 0,20).
+ *  v3        : revisões clínicas por-gabarito (direção/teto; editadas no JSON, sem lógica nova).
+ *  v4 (29/06): RÉGUA re-ancorada — rampa 20→30 + cortes 0,85/0,60 → 0,865/0,754.
+ *              Motivo medido (e-se da tolerância de ramp): o motor contínuo é uma
+ *              TRANSLAÇÃO de +~1,5 (Spearman 0,988, sem distorção de forma), então a
+ *              rampa curta achatava o "moderadamente fora" e os cortes herdados inflavam
+ *              o verde. Preservar significado = preservar proporção aqui (convergem).
+ *              Versionado p/ CONGELAR histórico: gabaritos v<4 mantêm a régua antiga.
+ */
+export const LATEST_SPEC_VERSION = 4;
 /** Teto de peso do bloco Mapeamento na v2 (é lente derivada do DISC; surplus vai p/ Competência). */
 const MAP_WEIGHT_CAP_V2 = 0.20;
+
+/** Régua de cor + rampa por versão da spec. v<4 = legado (motor binário re-ancorado em 26/06). */
+function reguaDe(specVersion: number): { tol: number; bandHigh: number; bandMid: number } {
+  return specVersion >= 4
+    ? { tol: 30, bandHigh: 0.865, bandMid: 0.754 } // 0,754 = quantil amarelo MEDIDO (não 0,755 redondo → +0 vermelho)
+    : { tol: 20, bandHigh: 0.85, bandMid: 0.60 };
+}
 
 const norm = (s: any) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 const num = (v: any) => Number(v) || 0;
@@ -177,10 +194,27 @@ export function buildRoleSpec(gabarito: any, cargoNome: string, opts: BuildRoleS
       }).filter((k: KnockoutRule) => k.min > 0 && (k.scope === 'trait' ? traitKeySet.has(k.key) : presentBlocks.has(k.key)))
     : [];
 
+  // ── Régua versionada (rampa + cortes) ──────────────────────────────────────
+  // v4: alarga a rampa default 20→30 em todo band trait SEM override explícito —
+  // restaura gradiente do "moderadamente fora" sem tocar no gate (gate é binário
+  // sobre o mín%, não escorrega com a tolerância do floor — provado no e-se).
+  const regua = reguaDe(specVersion);
+  if (regua.tol !== 20) {
+    for (const t of traits) {
+      if (t.kind === 'band') {
+        if (t.tLo == null) t.tLo = regua.tol;
+        if (t.tHi == null) t.tHi = regua.tol;
+      }
+    }
+  }
+
   return {
     cargo: cargoNome,
     specVersion,
     sem: num(g.sem) || undefined,
+    bandHigh: regua.bandHigh,
+    bandMid: regua.bandMid,
+    tol: regua.tol,
     traits,
     blockWeights,
     knockouts,

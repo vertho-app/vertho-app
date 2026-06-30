@@ -81,9 +81,13 @@ export function avisosSpecClinica(gabarito: any, cargoNome: string): AvisoSpec[]
     }
   }
 
-  // (3) Knockout ACOPLADO ao piso: o gate é avaliado pelo FIT da faixa, então mexer
-  // no piso/faixa de um traço com knockout move o corte eliminatório efetivo SEM você
-  // perceber (lição da Empatia 61 × knockout em Ibipeba). Flag p/ reconferir o gate.
+  // (3) Knockout ACOPLADO ao piso/tolerância: o gate é avaliado pelo FIT da faixa, e
+  // o fit é desenhado por DUAS alavancas — o piso/faixa E a tolerância de rampa. Mexer
+  // em qualquer uma move o corte eliminatório EFETIVO sem você perceber (lição da
+  // Empatia 61 × knockout em Ibipeba pelo PISO; lição do v4 — rampa 20→30 destravando
+  // 6 gates — pela TOLERÂNCIA). Hoje o motor pina o gate na tol de referência (DEF.tol)
+  // p/ neutralizar a alavanca da tolerância; este aviso permanece p/ o piso e p/ flagar
+  // se alguém voltar a acoplar tol ao gate.
   for (const k of (Array.isArray(g.knockouts) ? g.knockouts : [])) {
     if (norm(k.scope) !== 'trait') continue;
     const key = norm(k.key);
@@ -93,7 +97,7 @@ export function avisosSpecClinica(gabarito: any, cargoNome: string): AvisoSpec[]
     else if (['d', 'i', 's', 'c'].includes(key)) { const f = g.tela4?.[String(k.key).toUpperCase()]; if (f) lo = faixaNums(f.min, f.max).lo; }
     if (lo != null && lo >= 41) {
       avisos.push({ tipo: 'knockout_acoplado_piso', traco: k.key,
-        mensagem: `Knockout em "${k.key}" é avaliado pelo FIT da faixa (piso ${lo}). Ao ajustar o piso/faixa desse traço, o corte eliminatório EFETIVO se move junto — reconfira o limiar do gate (não os trate como independentes).` });
+        mensagem: `Knockout em "${k.key}" é avaliado pelo FIT da faixa (piso ${lo}). O fit depende do PISO e da TOLERÂNCIA de rampa — ao ajustar qualquer um deles, reaudite o corte eliminatório EFETIVO (o motor já pina o gate na tol de referência; se mudar isso, o gate volta a escorregar).` });
     }
   }
 
