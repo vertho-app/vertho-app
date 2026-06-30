@@ -252,8 +252,8 @@ function TabelaResultados({ pessoas, startPos }: { pessoas: PessoaAdequacao[]; s
   );
 }
 
-export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas }: {
-  data: AdequacaoCargo; empresaNome: string; dataISO: string; narrativas: Record<string, string>;
+export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas, mostrarCalibracao = false }: {
+  data: AdequacaoCargo; empresaNome: string; dataISO: string; narrativas: Record<string, string>; mostrarCalibracao?: boolean;
 }) {
   const dataBR = (() => { const [y, m, d] = dataISO.slice(0, 10).split('-'); return `${d}/${m}/${y}`; })();
   const pi = data.perfilIdeal;
@@ -299,7 +299,11 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas }: {
               </View>
             </>
           )}
-          {data.avisosCalibracao.length > 0 && (
+          {/* Painel de calibração = instrumentação INTERNA de autoria (diz "piso baixo/
+              régua frouxa"). NÃO entra no PDF entregue ao cliente (vazamento de camada:
+              andaime de engenharia de gabarito num relatório de decisão de pessoas). Só
+              renderiza com mostrarCalibracao=true (preview interno). Default off. */}
+          {mostrarCalibracao && data.avisosCalibracao.length > 0 && (
             <View style={s.calibBox}>
               <Text style={s.calibTitle}>Revisão de calibração sugerida</Text>
               {data.avisosCalibracao.map((a, i) => (
@@ -431,7 +435,7 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas }: {
 
 /** Render → Buffer (consumido pela action). */
 export interface AdequacaoRenderInput {
-  data: AdequacaoCargo; empresaNome: string; dataISO: string; narrativas: Record<string, string>;
+  data: AdequacaoCargo; empresaNome: string; dataISO: string; narrativas: Record<string, string>; mostrarCalibracao?: boolean;
 }
 
 export async function renderAdequacaoCargoPDF(props: AdequacaoRenderInput): Promise<Buffer> {
