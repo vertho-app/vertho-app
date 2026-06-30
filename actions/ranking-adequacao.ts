@@ -36,8 +36,8 @@ async function _listarCargos(sb: any, empresaId: string): Promise<string[]> {
   const { data: cargos } = await sb.from('cargos_empresa').select('nome, gabarito').eq('empresa_id', empresaId);
   const comGab = (cargos || []).filter((c: any) => c.gabarito?.tela4).map((c: any) => c.nome);
   const { data: files } = await sb.storage.from('conteudos').list('final/adequacao-cargo', { limit: 1000, search: empresaId });
-  const nomes = new Set((files || []).map((f: any) => f.name));
-  return comGab.filter((nome: string) => [...nomes].some((fn) => fn.startsWith(`${empresaId}-${cargoEnc(nome)}-`) && fn.endsWith('.json'))).sort((a: string, b: string) => a.localeCompare(b));
+  const nomes: string[] = (files || []).map((f: any) => String(f.name));
+  return comGab.filter((nome: string) => nomes.some((fn) => fn.startsWith(`${empresaId}-${cargoEnc(nome)}-`) && fn.endsWith('.json'))).sort((a: string, b: string) => a.localeCompare(b));
 }
 
 /** Cargos da empresa que TÊM snapshot de ranking (relatório gerado) — GESTOR. */
