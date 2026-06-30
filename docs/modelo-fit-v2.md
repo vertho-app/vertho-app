@@ -18,9 +18,30 @@
   gabarito legado → `inferDirection` (fallback).
 - **Beta = média dos blocos PONDERADA** por `pesos_blocos` (da IA, ou default líder/não-líder).
   Liderança é 1 traço `scalar` (distância vetorial). Cargo não-líder dropa o bloco e renormaliza.
-- **Cortes de cor (RE-ANCORADOS p/ o contínuo):** verde ≥ **0,85**, amarelo **0,60–0,84**,
-  vermelho < 0,60. (Os antigos 0,75/0,50 eram do motor binário; o crédito parcial subia a
-  distribuição ~10-13pp.) `borderline` = a banda vira sob ±SEM.
+
+### Régua versionada por `spec_version` (CONGELA histórico)
+A régua de scoring (tolerância de rampa + cortes de cor) é **emitida por `role-spec.ts`
+conforme `gabarito.spec_version`** — `reguaDe(specVersion)`. Versionar aqui garante que um
+gabarito antigo NÃO muda de cor quando recalibramos a régua: só **geração nova** (`rodarIA2`
+carimba `LATEST_SPEC_VERSION`) ou **promoção deliberada** (jsonb_set) pega a régua nova.
+
+| Versão | Mapeamento | Rampa (`tol`) | Cortes verde/amarelo | Origem |
+|--------|-----------|---------------|----------------------|--------|
+| v1     | binário   | 20 | 0,85 / 0,60 | re-ancoragem do contínuo (26/06) |
+| v2     | contínuo (cap peso 0,20) | 20 | 0,85 / 0,60 | 27/06 |
+| v3     | = v2      | 20 | 0,85 / 0,60 | revisões clínicas por-gabarito (JSON, sem lógica nova) |
+| **v4** | = v2      | **30** | **0,865 / 0,754** | **29/06 — régua re-ancorada (abaixo)** |
+
+- **Rampa (`tol`)**: distância, fora da faixa, até o fit chegar a 0. `tol=20` zerava cedo
+  demais — "moderadamente fora" virava fit 0, perdendo gradiente onde o corte encosta em
+  gente real (3 achatamentos: Map-binário, Dominância 21-80, Conformidade). e-se multi-cargo
+  provou que `tol=30` é uma **translação +~1,5** (Spearman 0,99, sem distorção de forma):
+  recupera o gradiente sem reordenar. Em v4, `buildRoleSpec` seta `tLo/tHi=30` nos band traits.
+- **Cortes de cor** (`spec.bandHigh`/`bandMid`, consumidos em `scoreCandidate`): como o motor
+  contínuo é translação, **preservar significado = preservar proporção** → os cortes sobem
+  junto (`0,85/0,60`→`0,865/0,754`, quantis medidos). `borderline` = a banda vira sob ±SEM.
+  Os v<4 herdam 0,85/0,60 do fallback (`BAND_HIGH/BAND_MID`).
+
 - **Eliminatórias (`knockouts`) = GATE, não penalizam o número.** Reprovar uma eliminatória
   → classificação **"Não recomendado"** + premissas ✗, e o colaborador vai pro **fim do
   ranking** (mesmo com match alto) e conta como crítica na distribuição. O número (Fit/Beta)
@@ -28,6 +49,13 @@
   - Knockout `scope:"trait"` usa o NOME da competência ("Persistência"); o `role-spec`
     resolve p/ `comp_*`/letra DISC e descarta o que não casa. Knockout sobre bloco/traço
     AUSENTE (ex.: liderança em cargo não-líder) é N/A → passa (nunca auto-reprova todos).
+  - **GATE DESACOPLADO DA RÉGUA DE SCORE** (v4): o knockout é avaliado numa **tolerância de
+    REFERÊNCIA fixa** (`DEF.tol=20`), NÃO na rampa de score da spec. Motivo: o gate é binário
+    sobre o mín%, mas o valor medido é o FIT, e o fit é desenhado pela rampa — alargar a
+    tolerância levanta o fit de quem está abaixo do piso e **afrouxa o corte eliminatório**
+    (rampa 30 crua destravava 6 gates de Empatia em Ibipeba). Avaliar o gate em `DEF.tol` pina
+    o corte onde o psicólogo o calibrou; só o SCORE ganha rampa. Em v<4 os dois fits coincidem
+    (régua tol=20) → no-op. É o guardião `knockout_acoplado_piso` na alavanca da tolerância.
 - **Coluna "Premissas"** no ranking (`/admin/fit`): ✓ atendida / ✗ não, tooltip do motivo.
   ⚠️ Mudança de fórmula do `fit_final` exige **Recalcular (forçar)** — `fit_resultados` fica
   com o valor antigo até recalcular.
