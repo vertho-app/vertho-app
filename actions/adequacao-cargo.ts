@@ -44,15 +44,53 @@ export async function gerarRelatorioAdequacao(
       ? await (await import('@/lib/adequacao-cargo/narrative')).gerarNarrativasAdequacao(data).catch(() => ({}))
       : {};
 
-    const buffer = await renderAdequacaoCargoPDF({ data, empresaNome: emp.nome, dataISO: new Date().toISOString(), narrativas });
-    const storagePath = `final/adequacao-cargo/${empresaId}-${encodeURIComponent(cargo).replace(/%/g, '')}-${Date.now()}.pdf`;
+    // renderInput = o RESULTADO renderizável completo. É o que vira PDF E snapshot.
+    const renderInput = { data, empresaNome: emp.nome, dataISO: new Date().toISOString(), narrativas };
+    const buffer = await renderAdequacaoCargoPDF(renderInput);
+    const base = `final/adequacao-cargo/${empresaId}-${encodeURIComponent(cargo).replace(/%/g, '')}-${Date.now()}`;
     const { error: upErr } = await sb.storage.from('conteudos')
-      .upload(storagePath, Buffer.from(buffer), { contentType: 'application/pdf', upsert: true });
+      .upload(`${base}.pdf`, Buffer.from(buffer), { contentType: 'application/pdf', upsert: true });
     if (upErr) return { success: false, error: 'Falha ao salvar o PDF: ' + upErr.message };
-    const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(storagePath);
+    // SNAPSHOT p/ reprodução (gatilho: TODA geração). Grava o renderInput já assado ao
+    // lado do PDF. Reproduzir um relatório = reRenderAdequacaoFromSnapshot(este .json),
+    // SEM tocar no motor → mesmo candidato nunca muda de status entre versões da régua.
+    // Pega as 3 dimensões (régua+gabarito+código) de graça, pois é o output, não o input.
+    await sb.storage.from('conteudos')
+      .upload(`${base}.json`, Buffer.from(JSON.stringify(renderInput)), { contentType: 'application/json', upsert: true })
+      .catch(() => { /* snapshot é best-effort: falha não derruba a entrega do PDF */ });
+    const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(`${base}.pdf`);
 
     return { success: true, url: publicUrl, avaliados: data.avaliados };
   } catch (e: any) {
     return { success: false, error: e?.message || 'Erro ao gerar o Relatório de Adequação ao Cargo.' };
+  }
+}
+
+/**
+ * REPRODUZ um relatório a partir do SNAPSHOT gravado (`.json` ao lado do `.pdf`),
+ * sem recomputar nada. Serve o resultado já assado → o relatório reproduzido é
+ * idêntico ao entregue, mesmo que a régua/gabarito/código tenham evoluído. NÃO
+ * chama aggregateAdequacao nem nenhum módulo do motor: só baixa o JSON e re-renderiza
+ * (reRenderAdequacaoFromSnapshot vive no módulo PDF, livre de motor).
+ *
+ * `jsonPath` = caminho do snapshot no bucket (o mesmo base do PDF, com `.json`).
+ */
+export async function reproduzirRelatorioAdequacao(
+  jsonPath: string,
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  try {
+    const sb = await requireAdminSupabase('admin.access');
+    const dl = await sb.storage.from('conteudos').download(jsonPath);
+    if (dl.error || !dl.data) return { success: false, error: 'Snapshot não encontrado: ' + jsonPath };
+    const snapshot = await dl.data.text();
+    const { reRenderAdequacaoFromSnapshot } = await import('@/lib/adequacao-cargo-pdf');
+    const buffer = await reRenderAdequacaoFromSnapshot(snapshot); // PURO: snapshot → PDF
+    const outPath = jsonPath.replace(/\.json$/, '') + `-repro-${Date.now()}.pdf`;
+    const up = await sb.storage.from('conteudos').upload(outPath, Buffer.from(buffer), { contentType: 'application/pdf', upsert: true });
+    if (up.error) return { success: false, error: 'Falha ao salvar o PDF reproduzido: ' + up.error.message };
+    const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(outPath);
+    return { success: true, url: publicUrl };
+  } catch (e: any) {
+    return { success: false, error: e?.message || 'Erro ao reproduzir o relatório do snapshot.' };
   }
 }

@@ -265,8 +265,11 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas }: {
   // Plano de Desenvolvimento: só desenvolvíveis (com ressalvas / abaixo do corte) — NUNCA bloqueado.
   const paginasDev = chunk(data.pessoas.filter((p) => p.status === 'abaixo_do_corte' || p.status === 'recomendado_com_ressalvas'), 5);
 
+  // Metadados PINADOS no dataISO do snapshot → re-render reproduz byte-a-byte (sem
+  // isto o @react-pdf carimba a data do relógio e o byte-equal falha por metadado, não
+  // por conteúdo). O PDF reproduzido carrega a data do ORIGINAL.
   return (
-    <Document>
+    <Document creationDate={new Date(dataISO)} modificationDate={new Date(dataISO)} producer="Vertho" creator="Vertho">
       {/* Capa */}
       <Page size="A4" style={s.page}>
         <View style={s.cover}>
@@ -427,8 +430,29 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas }: {
 }
 
 /** Render → Buffer (consumido pela action). */
-export async function renderAdequacaoCargoPDF(props: {
+export interface AdequacaoRenderInput {
   data: AdequacaoCargo; empresaNome: string; dataISO: string; narrativas: Record<string, string>;
-}): Promise<Buffer> {
+}
+
+export async function renderAdequacaoCargoPDF(props: AdequacaoRenderInput): Promise<Buffer> {
   return renderToBuffer(<AdequacaoCargoPDF {...props} />);
+}
+
+/**
+ * RE-RENDER PURO a partir do SNAPSHOT (reprodução de relatório entregue).
+ *
+ * O snapshot É o renderInput inteiro ({data, empresaNome, dataISO, narrativas}) —
+ * o RESULTADO já assado, não o input do qual ele se deriva. Esta função (e este
+ * módulo) NÃO importa nem chama o motor (scoring/engine, role-spec, aggregate, IA
+ * de narrativa): `AdequacaoCargo` entra como `import type` (apagado em runtime), a
+ * cor vem de lookup por campo gravado (`p.beta.classe`/`p.status`), e nada é
+ * recomputado. Logo o mesmo candidato NUNCA muda de status/cor entre versões da
+ * régua/gabarito — o PDF reproduzido é função pura do snapshot.
+ *
+ * TESTE de completude: se o re-render precisar de QUALQUER módulo do motor pra
+ * rodar, o snapshot está incompleto.
+ */
+export async function reRenderAdequacaoFromSnapshot(snapshot: string | AdequacaoRenderInput): Promise<Buffer> {
+  const props: AdequacaoRenderInput = typeof snapshot === 'string' ? JSON.parse(snapshot) : snapshot;
+  return renderAdequacaoCargoPDF(props);
 }
