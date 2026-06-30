@@ -192,7 +192,7 @@ function CardPessoa({ p }: { p: PessoaAdequacao }) {
           </View>
         </View>
         <View style={s.betaWrap}>
-          <Text style={s.betaLbl}>Beta</Text>
+          <Text style={s.betaLbl}>Aderência</Text>
           <Donut pct={p.beta.pct} color={p.status === 'bloqueado' ? C.baixa : CLASSE_COLOR[p.beta.classe]} />
           {p.borderline && p.status !== 'bloqueado' && <Text style={s.limTx}>limítrofe ·±{p.betaSemDelta}</Text>}
         </View>
@@ -230,7 +230,7 @@ function TabelaResultados({ pessoas, startPos }: { pessoas: PessoaAdequacao[]; s
       <View style={s.tHead}>
         <Text style={[s.tHeadC, { width: TCOL.pos }]}>#</Text>
         <Text style={[s.tHeadC, { width: TCOL.nome }]}>Colaborador</Text>
-        <Text style={[s.tHeadC, { width: TCOL.beta, textAlign: 'center' }]}>Beta</Text>
+        <Text style={[s.tHeadC, { width: TCOL.beta, textAlign: 'center' }]}>Aderência</Text>
         <Text style={[s.tHeadC, { width: TCOL.status }]}>Status</Text>
         <Text style={[s.tHeadC, { width: TCOL.ko }]}>Bloqueio</Text>
         <Text style={[s.tHeadC, { width: TCOL.lim, textAlign: 'center' }]}>Lim.</Text>
@@ -385,7 +385,7 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas }: {
               <View key={i} style={s.anItem} wrap={false}>
                 <View style={s.anHead}>
                   <Text style={s.anNome}>{p.nome}</Text>
-                  <Text style={[s.anBeta, { color: STATUS_COLOR[p.status] || CLASSE_COLOR[p.beta.classe] }]}>{p.statusLabel} · Beta {p.beta.pct}%</Text>
+                  <Text style={[s.anBeta, { color: STATUS_COLOR[p.status] || CLASSE_COLOR[p.beta.classe] }]}>{p.statusLabel} · Aderência {p.beta.pct}%</Text>
                 </View>
                 <Text style={s.anTxt}>{narrativas[p.nome]}</Text>
               </View>
@@ -405,7 +405,7 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas }: {
               <View key={i} style={s.anItem} wrap={false}>
                 <View style={s.anHead}>
                   <Text style={s.anNome}>{p.nome}</Text>
-                  <Text style={[s.anBeta, { color: STATUS_COLOR[p.status] || CLASSE_COLOR[p.beta.classe] }]}>{p.statusLabel} · Beta {p.beta.pct}%</Text>
+                  <Text style={[s.anBeta, { color: STATUS_COLOR[p.status] || CLASSE_COLOR[p.beta.classe] }]}>{p.statusLabel} · Aderência {p.beta.pct}%</Text>
                 </View>
                 {p.gaps.length === 0 ? (
                   <Text style={s.anTxt}>Sem traços abaixo do alvo destacados — manter consistência.</Text>

@@ -30,7 +30,7 @@ function linhaColab(p: PessoaAdequacao): string {
     ? 'DRIVERS(bloqueio): ' + p.knockoutEvidencias.map((e) => e.ehBloco ? `${e.traco}=${e.medidoPct}% (mín ${e.minPct}%)` : `${e.traco}=${e.valorBruto} (piso ${e.piso})`).join(', ')
     : (p.gaps.length ? 'DRIVERS(gaps): ' + p.gaps.map((g) => `${g.traco} ${g.fitPct}% [${severidade(g.fitPct)}]`).join(', ') : 'DRIVERS: sem gaps relevantes (manter)');
   const flags = p.borderline ? ' [limítrofe]' : '';
-  return `- ${p.nome}: ${p.statusLabel} | Beta ${p.beta.pct}% | DISC ${disc} | ${drivers}${flags}`;
+  return `- ${p.nome}: ${p.statusLabel} | Aderência ${p.beta.pct}% | DISC ${disc} | ${drivers}${flags}`;
 }
 
 function extrairJson(raw: string): Record<string, string> | null {
@@ -49,7 +49,7 @@ export async function gerarNarrativasAdequacao(data: AdequacaoCargo, model?: str
 
 REGRA DURA DE EVIDÊNCIA (inegociável): só é permitido apontar um déficit usando os DRIVERS fornecidos para aquela pessoa. Todo construto interpretativo ("resiliência", "disciplina de CRM", "comunicação") deve aparecer SOMENTE como CONSEQUÊNCIA de um traço NOMEADO e QUANTIFICADO dos drivers — nunca como o achado em si. Não cite fatores que não estão nos drivers (ex.: não derive para Dominância/DISC se o driver é Persistência/Organização). Não invente números nem traços.
 
-Estrutura: cite a principal FORÇA (coerente com Beta) e o(s) driver(s) que determinam o status. O tom deve ser COERENTE com o status (Recomendado / Recomendado com ressalvas / Abaixo do corte → desenvolvível / Bloqueado → requisito eliminatório não atendido).
+Estrutura: cite a principal FORÇA (coerente com a Aderência) e o(s) driver(s) que determinam o status. O tom deve ser COERENTE com o status (Recomendado / Recomendado com ressalvas / Abaixo do corte → desenvolvível / Bloqueado → requisito eliminatório não atendido).
 
 REGRA POR STATUS:
 - Bloqueado: descreva APENAS o motivo do gate (traço + piso + consequência). NÃO ofereça plano de desenvolvimento, passos de evolução, nem "como chegar lá" — o gate existe para dizer que este não é o caminho agora. Não diga "o plano deve priorizar X".
@@ -65,7 +65,7 @@ Não dê nota nem recomende demissão. Português do Brasil.`;
     const user = `CARGO: ${data.cargo}
 PERFIL IDEAL: ${ideal}
 
-COLABORADORES (Beta = aderência geral; "dentro/fora" = DISC na faixa ideal):
+COLABORADORES (Aderência = match geral ponderado; "dentro/fora" = DISC na faixa ideal):
 ${grupo.map(linhaColab).join('\n')}
 
 Para CADA colaborador acima, escreva a análise (2-3 frases). Responda APENAS um objeto JSON { "Nome Exato": "análise", ... } com o nome EXATO de cada um. Sem markdown, sem texto fora do JSON.`;
