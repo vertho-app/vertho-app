@@ -80,7 +80,10 @@ export async function calcularFitIndividual(empresaId: string, cargoNome: string
     .select('*')
     .eq('id', colaboradorId).single();
   if (!colab) return { success: false, error: 'Colaborador não encontrado' };
-  if (!colab.mapeamento_em) return { success: false, error: `${colab.nome_completo || colab.email}: sem mapeamento comportamental` };
+  // Predicado de "tem DISC" = d_natural (o dado que o motor consome), NÃO mapeamento_em
+  // (timestamp frágil que pode estar nulo mesmo com DISC presente — caso Macaé: 40 com
+  // d_natural e mapeamento_em nulo). Alinha com o relatório de Adequação (mesma fonte).
+  if (colab.d_natural == null) return { success: false, error: `${colab.nome_completo || colab.email}: sem mapeamento comportamental (DISC)` };
 
   let resultado: any;
   if (usarUnificado) {
@@ -136,12 +139,14 @@ export async function calcularFitLote(empresaId: string, cargoNome: string, opts
   const tdb = tenantDb(empresaId);
   const { forcar = false } = opts;
 
-  // Buscar colaboradores do cargo com mapeamento (exclui contas internas @vertho.ai)
+  // Buscar colaboradores do cargo com DISC (exclui contas internas @vertho.ai).
+  // Filtra por d_natural (dado que o motor consome) e NÃO por mapeamento_em (timestamp
+  // que pode estar nulo mesmo com DISC presente) — alinhado ao relatório de Adequação.
   const { data: colabs } = await excludeInternalEmails(
     tdb.from('colaboradores')
       .select('id, nome_completo, email, cargo')
       .eq('cargo', cargoNome)
-      .not('mapeamento_em', 'is', null)
+      .not('d_natural', 'is', null)
   );
 
   if (!colabs?.length) return { success: false, error: 'Nenhum colaborador com mapeamento encontrado para este cargo' };
