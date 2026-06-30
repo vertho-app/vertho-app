@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { localeCookieName } from '@/lib/i18n';
-import { Home, Clock, Play, TrendingUp, User, LogOut, Users2 } from 'lucide-react';
+import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered } from 'lucide-react';
 import BetoChat from '@/components/beto-chat';
 import { UserAvatar } from '@/components/user-avatar';
 import type { TenantTheme } from '@/lib/ui-resolver';
@@ -39,6 +39,7 @@ function brandRampVars(accent: string): Record<string, string> {
 const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', labelKey: 'home', icon: Home },
   { href: '/dashboard/gestor', labelKey: 'team', icon: Users2, gestorOnly: true },
+  { href: '/dashboard/gestor/ranking', labelKey: 'ranking', icon: ListOrdered, gestorOnly: true },
   { href: '/dashboard/jornada', labelKey: 'journey', icon: Clock },
   { href: '/dashboard/temporada', labelKey: 'season', icon: Play },
   { href: '/dashboard/evolucao', labelKey: 'evolution', icon: TrendingUp },

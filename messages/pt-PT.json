@@ -100,6 +100,7 @@
   "DashboardShell": {
     "nav": {
       "home": "Início",
+      "ranking": "Adequação",
       "team": "Equipa",
       "journey": "Percurso",
       "season": "Temporada",
