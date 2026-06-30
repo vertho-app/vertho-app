@@ -67,7 +67,7 @@ function rhoCrit(n: number): number { return 2 / Math.sqrt(n + 2); }
 // ── Camada 1 — Cartão de Calibração (descreve+classifica, NÃO prescreve) ─────
 export type Quadrante = 'design-by-choice' | 'sinal-recuperavel' | 'tensao-de-autoria' | 'curvilineo-correto';
 export interface LinhaCartao {
-  traco: string; direcao: string; ladoSaturacao: 'teto' | 'piso'; pctSat: number;
+  key: string; traco: string; direcao: string; ladoSaturacao: 'teto' | 'piso'; pctSat: number;
   rho: number; n: number; significativo: boolean;
   // confiança = |ρ|/crít: 'robusta' (≥1,5× o limiar) vs 'borderline' (mal cruza). Um SIG a
   // N=15 é evidência muito mais fraca que a N=40 — sem isto, a máquina classifica ruído de
@@ -131,10 +131,28 @@ export function camada1Cartao(data: AdequacaoCargo): { n: number; cartao: LinhaC
       quadrante = 'design-by-choice';
       pend = null;
     }
-    cartao.push({ traco: label, direcao, ladoSaturacao: lado, pctSat, rho, n, significativo: sig, confianca, quadrante, decisaoPendente: pend });
+    cartao.push({ key, traco: label, direcao, ladoSaturacao: lado, pctSat, rho, n, significativo: sig, confianca, quadrante, decisaoPendente: pend });
   }
   // ordena: pendências primeiro (tensão, recuperável), design-by-choice ao fim
   const ordem: Record<Quadrante, number> = { 'tensao-de-autoria': 0, 'sinal-recuperavel': 1, 'curvilineo-correto': 2, 'design-by-choice': 3 };
   cartao.sort((a, b) => ordem[a.quadrante] - ordem[b.quadrante] || b.pctSat - a.pctSat);
   return { n: (pessoas as any[]).filter((p) => p.tracos?.some((t: any) => typeof t.bruto === 'number')).length, cartao, semTracos: false };
+}
+
+// ── Direção do desvio — consistency-check engine-free (última checagem à mão) ─
+// Confirma que o LADO gravado em cada gap (que alimenta a narrativa) bate com o bruto
+// vs faixa. Guard de regressão do `983363c`: se a aggregate algum dia computar o lado
+// errado, a narrativa inverteria o sinal de um faixa-alvo. Zero é o esperado.
+export interface InconsistenciaDirecao { traco: string; nome: string; bruto: number; faixa: string; ladoGravado: string; ladoEsperado: string }
+export function camada1Direcao(data: AdequacaoCargo): { gapsChecados: number; inconsistencias: InconsistenciaDirecao[] } {
+  const inc: InconsistenciaDirecao[] = []; let n = 0;
+  for (const p of (data.pessoas || []) as any[]) {
+    for (const g of (p.gaps || [])) {
+      if (g.valorBruto == null || g.lo == null || g.hi == null || !g.lado) continue;
+      n++;
+      const esperado = g.valorBruto < g.lo ? 'abaixo' : g.valorBruto > g.hi ? 'acima' : 'dentro';
+      if (esperado !== g.lado) inc.push({ traco: g.traco, nome: p.nome, bruto: g.valorBruto, faixa: `${g.lo}-${g.hi}`, ladoGravado: g.lado, ladoEsperado: esperado });
+    }
+  }
+  return { gapsChecados: n, inconsistencias: inc };
 }
