@@ -166,20 +166,23 @@ export function camada1Direcao(data: AdequacaoCargo): { gapsChecados: number; in
 // (muitas vezes by-design / entregável). Higiene suja → SEM nota (não se pontua dado
 // contaminado). N pequeno → confiança baixa (a classificação é frágil). A nota INDEXA o
 // cartão (diz onde olhar), NUNCA licencia ação — a decisão de régua continua clínica.
-export interface SaudeCalibracao { nota: number | null; status: 'saudavel' | 'atencao' | 'problema' | 'indeterminado'; confianca: 'alta' | 'baixa'; motivos: string[] }
+export interface SaudeCalibracao { nota: number | null; status: 'saudavel' | 'atencao' | 'problema' | 'indeterminado'; confianca: 'alta' | 'baixa'; motivos: string[]; vigiar: string[] }
 export function saudeCalibracao(cartao: LinhaCartao[], temBlockerHigiene: boolean, n: number): SaudeCalibracao {
-  if (temBlockerHigiene) return { nota: null, status: 'indeterminado', confianca: 'baixa', motivos: ['Dados duplicados/conflitantes não resolvidos — não dá pra pontuar dado contaminado.'] };
-  let nota = 100; const motivos: string[] = [];
+  if (temBlockerHigiene) return { nota: null, status: 'indeterminado', confianca: 'baixa', motivos: ['Dados duplicados/conflitantes não resolvidos — não dá pra pontuar dado contaminado.'], vigiar: [] };
+  let nota = 100; const motivos: string[] = []; const vigiar: string[] = [];
   for (const l of cartao) {
     if (l.quadrante !== 'tensao-de-autoria') continue;
-    const p = l.confianca === 'robusta' ? 20 : 8;
-    nota -= p;
-    motivos.push(`${l.traco}: régua possivelmente invertida (ρ ${l.rho}${l.confianca === 'borderline' ? ', borderline' : ''}) −${p}`);
+    // SÓ tensão ROBUSTA (evidência confirmada) derruba a nota. Borderline é incerto —
+    // penalizá-lo cria um "X que você não melhora sem trapacear" (aplicar um teto numa
+    // régua talvez certa, baseado em ρ fraco). Vira VIGILÂNCIA, não penalidade. Mesma
+    // disciplina de "força antes de agir num sinal".
+    if (l.confianca === 'robusta') { nota -= 20; motivos.push(`${l.traco}: régua invertida CONFIRMADA (ρ ${l.rho}) −20`); }
+    else vigiar.push(`${l.traco}: sinal fraco de régua invertida (ρ ${l.rho}, evidência fraca) — reavaliar com mais dados, não agir.`);
   }
   nota = Math.max(0, Math.min(100, nota));
   const confianca: 'alta' | 'baixa' = n >= 20 ? 'alta' : 'baixa';
   if (confianca === 'baixa') motivos.push(`Confiança baixa: poucos avaliados (N=${n}) — classificação frágil, trate a nota como indicativa.`);
   const status: SaudeCalibracao['status'] = nota >= 90 ? 'saudavel' : nota >= 70 ? 'atencao' : 'problema';
-  if (status === 'saudavel' && motivos.length === 0) motivos.push('Régua correta — nenhum traço com problema de calibração.');
-  return { nota, status, confianca, motivos };
+  if (status === 'saudavel' && motivos.length === 0) motivos.push(vigiar.length ? 'Nenhum problema de régua CONFIRMADO (há sinais fracos a vigiar).' : 'Régua correta — nenhum traço com problema de calibração.');
+  return { nota, status, confianca, motivos, vigiar };
 }

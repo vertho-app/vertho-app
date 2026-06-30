@@ -80,6 +80,7 @@ export default function CalibracaoPage() {
               <div className="font-bold text-sm" style={{ color: BANNER[veredito].cor }}>{BANNER[veredito].titulo}</div>
               <p className="text-xs text-slate-300 mt-1">{BANNER[veredito].sub}</p>
               {diag.saude.motivos.length > 0 && <ul className="text-[10px] text-slate-400 mt-2 space-y-0.5">{diag.saude.motivos.map((m: string, k: number) => <li key={k}>· {m}</li>)}</ul>}
+              {diag.saude.vigiar?.length > 0 && <div className="mt-2"><div className="text-[10px] font-bold text-slate-400">Vigiar (não derruba a nota — evidência fraca):</div><ul className="text-[10px] text-slate-500 space-y-0.5">{diag.saude.vigiar.map((m: string, k: number) => <li key={k}>· {m}</li>)}</ul></div>}
             </div>
           </div>
 
