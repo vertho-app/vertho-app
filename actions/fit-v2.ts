@@ -246,6 +246,8 @@ export async function loadRankingCargo(empresaId: string, cargoNome: string) {
       knockout_failed: json?.knockout_failed || false,
       borderline: json?.borderline || false,
       sem_delta_pct: json?.sem_delta_pct ?? null,
+      status: json?.status ?? null,      // fonte única de cor/rótulo da tela (v4 + driver-aware)
+      beta_band: json?.beta_band ?? null,
     };
   });
 
