@@ -8,11 +8,19 @@
  *  - Nunca entra no PDF do cliente.
  */
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
+import { useAdminShell } from '@/app/admin/_shell/AdminShellContext';
 import { listarCargosCalibracao, diagnosticarCalibracao, simularMudancaRegua, aplicarMudancaRegua } from '@/actions/calibracao';
 
 export default function CalibracaoPage() {
   const { empresaId } = useParams() as { empresaId: string };
+  const router = useRouter();
+  const { empresaFiltro } = useAdminShell();
+  // Sincroniza com o filtro de empresa do header: se o filtro aponta p/ outra empresa,
+  // navega pra rota dela (a tela é route-scoped em [empresaId], senão ficaria na antiga).
+  useEffect(() => {
+    if (empresaFiltro && empresaFiltro !== 'all' && empresaFiltro !== empresaId) router.replace(`/admin/empresas/${empresaFiltro}/calibracao`);
+  }, [empresaFiltro, empresaId, router]);
   const [cargos, setCargos] = useState<string[]>([]);
   const [sel, setSel] = useState('');
   const [diag, setDiag] = useState<any>(null);
