@@ -49,7 +49,14 @@ export interface PessoaAdequacao {
   origemBloqueio: OrigemBloqueio | null;    // natureza do gate: competência vs comportamental (T4)
   origemBloqueioLabel: string | null;
   gaps: TraitGap[];                         // traços abaixo do alvo (desenvolvimento — T3/T7)
+  id?: string;                              // candidate id — join robusto (homônimos) p/ a rotina de calibração
+  tracos: TracoDiag[];                      // por-traço bruto+fit+direção — torna o snapshot AUTOSSUFICIENTE p/ diagnóstico engine-free
 }
+
+// Detalhe por-traço gravado no snapshot p/ a rotina de calibração ler SEM o motor
+// (ρ usa o bruto cru; saturação usa o fit; direção vem da spec). Audit-fiel: é o
+// resultado entregue, não um re-cálculo.
+export interface TracoDiag { key: string; label: string; bloco: string; direcao?: 'floor' | 'target' | 'ceiling'; lo: number | null; hi: number | null; bruto: number | null; fitPct: number }
 
 // Gap inclui DIREÇÃO e LADO do desvio — sem isto a IA adivinha o lado de um traço
 // faixa-alvo (penaliza dos 2 lados) e pode INVERTER o sinal, ou chamar faixa-alvo de
@@ -149,7 +156,7 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
   const perfilIdeal: PerfilIdeal = { caracteristicas, competencias: competenciasIdeal, lideranca: liderancaIdeal, estiloPredominante: g.tela3?.estilo_predominante || '', disc: discIdeal, pesos, liderancaAplicavel };
 
   // 3) Colaboradores do cargo (com DISC mapeado).
-  const cols = ['nome_completo', ...candidateColumns()].join(', ');
+  const cols = ['id', 'nome_completo', ...candidateColumns()].join(', ');
   const { data: rows } = await excludeInternalEmails(
     sb.from('colaboradores').select(cols).eq('empresa_id', empresaId).eq('cargo', cargo).not('d_natural', 'is', null),
   ).order('nome_completo');
@@ -196,7 +203,17 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
       .sort((a, b) => a.fitPct - b.fitPct)
       .slice(0, 6);
 
+    // Por-traço (band: competência + DISC) p/ o snapshot — fonte do ρ/saturação engine-free.
+    const tracos = result.traits
+      .filter((t) => { const st = specByKey.get(t.key); return st && st.kind === 'band'; })
+      .map((t) => {
+        const st = specByKey.get(t.key);
+        return { key: t.key, label: t.label, bloco: BLOCO_LABEL[t.block] || t.block, direcao: st?.direction as ('floor' | 'target' | 'ceiling' | undefined), lo: st?.lo ?? null, hi: st?.hi ?? null, bruto: typeof t.raw === 'number' ? t.raw : null, fitPct: Math.round(t.fit * 100) };
+      });
+
     return {
+      id: x.id,
+      tracos,
       nome: x.nome_completo || 'Colaborador',
       disc,
       mapeamento: subDoBloco(result, BLOCK.MAP, spec),
